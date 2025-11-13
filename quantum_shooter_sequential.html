@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Shooter - Sequential Jeffrey Paradox</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .game-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .controls {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .toggle-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .toggle-btn.active {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .status {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            font-size: 18px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-item strong {
+            color: #ffd700;
+        }
+
+        canvas {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            flex: 1;
+            cursor: pointer;
+        }
+
+        .stats-panel {
+            width: 350px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+        }
+
+        .stats-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stats-section h3 {
+            color: #ffd700;
+            margin-bottom: 15px;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid #ffd700;
+            padding-bottom: 8px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .stat-label {
+            color: #aaa;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .fired-indicators {
+            display: flex;
+            gap: 8px;
+            font-size: 24px;
+        }
+
+        .branch-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 5px;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .branch-item.your-branch {
+            background: rgba(255, 215, 0, 0.2);
+            border: 1px solid #ffd700;
+        }
+
+        .branch-players {
+            display: flex;
+            gap: 4px;
+            font-size: 16px;
+        }
+
+        .probability {
+            font-size: 11px;
+            color: #888;
+        }
+
+        .instructions {
+            background: rgba(76, 175, 80, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 14px;
+            line-height: 1.6;
+            border-left: 4px solid #4caf50;
+        }
+
+        .instructions-title {
+            font-weight: bold;
+            color: #4caf50;
+            margin-bottom: 8px;
+        }
+
+        .jeffrey-comparison {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .comparison-bar {
+            background: rgba(255, 255, 255, 0.1);
+            height: 30px;
+            border-radius: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .comparison-fill {
+            height: 100%;
+            border-radius: 15px;
+            transition: width 0.3s ease;
+        }
+
+        .jeffrey-bar {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .player-bar {
+            background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .comparison-label {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 1;
+        }
+
+        .comparison-value {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 1;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            font-size: 12px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-circle {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+        }
+
+        .pulse {
+            animation: pulse 1s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="game-area">
+            <div class="controls">
+                <div class="button-group">
+                    <button id="startBtn">▶ Start Game</button>
+                    <button id="resetBtn">🔄 Reset</button>
+                    <button id="undoBtn" disabled>⏮ Undo Last</button>
+                    <button id="autoPlayBtn" class="toggle-btn">🤖 Auto-Play</button>
+                    <button id="yourBranchBtn" class="toggle-btn">👤 Your Branch Only</button>
+                    <button id="jeffreyHighlightBtn" class="toggle-btn">📊 Highlight Jeffrey Center</button>
+                </div>
+                <div class="status">
+                    <div class="status-item">
+                        <strong>Current Turn:</strong>
+                        <span id="currentTurn">-</span>
+                    </div>
+                    <div class="status-item">
+                        <strong>Your Survival:</strong>
+                        <span id="yourSurvival">-</span>
+                    </div>
+                </div>
+                <div class="instructions">
+                    <div class="instructions-title">How to Play:</div>
+                    👆 Click on the current player's bubble to fire their gun<br>
+                    🌳 Watch the quantum tree grow with each decision<br>
+                    ⭐ Golden bubbles show branches where YOU survived
+                </div>
+            </div>
+            <canvas id="gameCanvas"></canvas>
+        </div>
+        <div class="stats-panel">
+            <div class="stats-section">
+                <h3>Game Status</h3>
+                <div class="stat-row">
+                    <span class="stat-label">Players Fired:</span>
+                    <div class="fired-indicators" id="firedIndicators"></div>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Total Branches:</span>
+                    <span class="stat-value" id="totalBranches">1</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Your Survival Rate:</span>
+                    <span class="stat-value" id="survivalRate">100%</span>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <h3>Jeffrey vs You</h3>
+                <div class="jeffrey-comparison">
+                    <div>
+                        <div style="margin-bottom: 5px; font-size: 13px;">📊 Jeffrey expects:</div>
+                        <div class="comparison-bar">
+                            <div class="comparison-fill jeffrey-bar" id="jeffreyBar"></div>
+                            <span class="comparison-label">Jeffrey</span>
+                            <span class="comparison-value" id="jeffreyValue">3.0</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="margin-bottom: 5px; font-size: 13px;">👤 You expect:</div>
+                        <div class="comparison-bar">
+                            <div class="comparison-fill player-bar" id="playerBar"></div>
+                            <span class="comparison-label">You</span>
+                            <span class="comparison-value" id="playerValue">3.0</span>
+                        </div>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">🔺 Difference:</span>
+                        <span class="stat-value" id="difference">0.0 (0%)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <h3>Branch Viewer</h3>
+                <div id="branchList"></div>
+            </div>
+
+            <div class="stats-section">
+                <h3>Legend</h3>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-circle" style="background: #4caf50;"></div>
+                        <span>Alive</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-circle" style="background: #f44336;"></div>
+                        <span>Dead</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-circle" style="background: #ffd700;"></div>
+                        <span>Not Fired</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-circle" style="background: #ffd700; box-shadow: 0 0 20px #ffd700;"></div>
+                        <span>Your Branch</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // GAME STATE CLASS
+        // ============================================
+        class GameState {
+            constructor() {
+                this.currentPlayer = 0; // 0-5 (6 players)
+                this.branches = [];
+                this.history = []; // For undo functionality
+                this.gameStarted = false;
+                this.gameFinished = false;
+                this.initGame();
+            }
+
+            initGame() {
+                // Create initial branch with all 6 players alive and not fired
+                this.branches = [{
+                    id: 0,
+                    players: Array.from({length: 6}, (_, i) => ({
+                        id: i,
+                        alive: true,
+                        fired: false
+                    })),
+                    x: 0,
+                    y: 0,
+                    parentId: null,
+                    probability: 1.0
+                }];
+                this.currentPlayer = 0;
+                this.gameStarted = false;
+                this.gameFinished = false;
+                this.history = [];
+            }
+
+            startGame() {
+                this.gameStarted = true;
+            }
+
+            saveState() {
+                this.history.push({
+                    currentPlayer: this.currentPlayer,
+                    branches: JSON.parse(JSON.stringify(this.branches))
+                });
+            }
+
+            undo() {
+                if (this.history.length === 0) return false;
+                const prevState = this.history.pop();
+                this.currentPlayer = prevState.currentPlayer;
+                this.branches = prevState.branches;
+                this.gameFinished = false;
+                return true;
+            }
+
+            fireCurrent() {
+                if (!this.gameStarted || this.gameFinished) return false;
+
+                this.saveState();
+
+                const playerIndex = this.currentPlayer;
+                const newBranches = [];
+                let nextBranchId = this.branches.length;
+
+                // For each existing branch where this player hasn't fired yet
+                this.branches.forEach(branch => {
+                    if (!branch.players[playerIndex].fired) {
+                        // Create two new branches: one where player survives, one where they die
+                        const surviveProb = branch.probability * 0.5;
+
+                        // Branch 1: Player survives
+                        const surviveBranch = {
+                            id: nextBranchId++,
+                            players: branch.players.map((p, i) => ({
+                                id: p.id,
+                                alive: i === playerIndex ? true : p.alive,
+                                fired: i === playerIndex ? true : p.fired
+                            })),
+                            x: 0,
+                            y: 0,
+                            parentId: branch.id,
+                            probability: surviveProb
+                        };
+
+                        // Branch 2: Player dies
+                        const dieBranch = {
+                            id: nextBranchId++,
+                            players: branch.players.map((p, i) => ({
+                                id: p.id,
+                                alive: i === playerIndex ? false : p.alive,
+                                fired: i === playerIndex ? true : p.fired
+                            })),
+                            x: 0,
+                            y: 0,
+                            parentId: branch.id,
+                            probability: surviveProb
+                        };
+
+                        newBranches.push(surviveBranch, dieBranch);
+                    } else {
+                        // Player already fired in this branch, keep it as is
+                        newBranches.push(branch);
+                    }
+                });
+
+                this.branches = newBranches;
+                this.currentPlayer++;
+
+                if (this.currentPlayer >= 6) {
+                    this.gameFinished = true;
+                }
+
+                return true;
+            }
+
+            getYourSurvival() {
+                const yourBranches = this.branches.filter(b => b.players[0].alive);
+                return {
+                    survived: yourBranches.length,
+                    total: this.branches.length,
+                    percentage: (yourBranches.length / this.branches.length * 100).toFixed(1)
+                };
+            }
+
+            getJeffreyExpectation() {
+                // Jeffrey's expectation: average number of survivors across all branches
+                let totalSurvivors = 0;
+                this.branches.forEach(branch => {
+                    const survivors = branch.players.filter(p => p.alive).length;
+                    totalSurvivors += survivors * branch.probability;
+                });
+                return totalSurvivors;
+            }
+
+            getYourExpectation() {
+                // Your expectation: average survivors in branches where YOU survive
+                const yourBranches = this.branches.filter(b => b.players[0].alive);
+                if (yourBranches.length === 0) return 0;
+
+                let totalSurvivors = 0;
+                let totalProb = 0;
+                yourBranches.forEach(branch => {
+                    const survivors = branch.players.filter(p => p.alive).length;
+                    totalSurvivors += survivors * branch.probability;
+                    totalProb += branch.probability;
+                });
+                return totalSurvivors / totalProb;
+            }
+        }
+
+        // ============================================
+        // RENDERER CLASS
+        // ============================================
+        class Renderer {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.camera = { x: 0, y: 0, scale: 1 };
+                this.bubbleRadius = 40;
+                this.verticalSpacing = 80;
+                this.animations = [];
+                this.hoveredBubble = null;
+
+                this.resizeCanvas();
+                window.addEventListener('resize', () => this.resizeCanvas());
+            }
+
+            resizeCanvas() {
+                this.canvas.width = this.canvas.clientWidth;
+                this.canvas.height = this.canvas.clientHeight;
+            }
+
+            clear() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            }
+
+            layoutBranches(branches, currentDepth) {
+                if (branches.length === 0) return;
+
+                const totalDepth = currentDepth;
+                const branchWidth = Math.max(150, 800 / Math.pow(2, totalDepth));
+                const totalWidth = branches.length * branchWidth;
+
+                // Center the tree
+                const startX = (this.canvas.width - totalWidth) / 2;
+                const startY = 100;
+
+                branches.forEach((branch, index) => {
+                    branch.x = startX + (index * branchWidth) + branchWidth / 2;
+                    branch.y = startY + (totalDepth * this.verticalSpacing * 6);
+
+                    // Layout individual players in this branch
+                    branch.players.forEach((player, pIndex) => {
+                        player.visualX = branch.x;
+                        player.visualY = branch.y + (pIndex * this.verticalSpacing);
+                    });
+                });
+
+                // Auto-adjust camera to fit all branches
+                this.autoFitCamera(branches);
+            }
+
+            autoFitCamera(branches) {
+                if (branches.length === 0) return;
+
+                let minX = Infinity, maxX = -Infinity;
+                let minY = Infinity, maxY = -Infinity;
+
+                branches.forEach(branch => {
+                    minX = Math.min(minX, branch.x - this.bubbleRadius);
+                    maxX = Math.max(maxX, branch.x + this.bubbleRadius);
+                    branch.players.forEach(player => {
+                        minY = Math.min(minY, player.visualY - this.bubbleRadius);
+                        maxY = Math.max(maxY, player.visualY + this.bubbleRadius);
+                    });
+                });
+
+                const padding = 50;
+                const contentWidth = maxX - minX + padding * 2;
+                const contentHeight = maxY - minY + padding * 2;
+
+                const scaleX = this.canvas.width / contentWidth;
+                const scaleY = this.canvas.height / contentHeight;
+                this.camera.scale = Math.min(scaleX, scaleY, 1);
+
+                this.camera.x = (this.canvas.width / this.camera.scale - (maxX + minX)) / 2;
+                this.camera.y = (this.canvas.height / this.camera.scale - (maxY + minY)) / 2;
+            }
+
+            drawConnections(branches) {
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                this.ctx.lineWidth = 2;
+
+                branches.forEach(branch => {
+                    if (branch.parentId !== null) {
+                        const parent = branches.find(b => b.id === branch.parentId);
+                        if (parent) {
+                            this.ctx.beginPath();
+                            this.ctx.moveTo(parent.x, parent.y - this.verticalSpacing / 2);
+                            this.ctx.lineTo(branch.x, branch.y - this.verticalSpacing * 5.5);
+                            this.ctx.stroke();
+                        }
+                    }
+                });
+            }
+
+            drawBubble(x, y, player, isCurrent, isYourBranch, highlight = false) {
+                this.ctx.save();
+
+                // Glow effect for your branch
+                if (isYourBranch && player.id === 0) {
+                    this.ctx.shadowColor = '#ffd700';
+                    this.ctx.shadowBlur = 30;
+                }
+
+                // Highlight effect
+                if (highlight) {
+                    this.ctx.shadowColor = '#00f2fe';
+                    this.ctx.shadowBlur = 25;
+                }
+
+                // Determine color
+                let color;
+                if (!player.fired) {
+                    color = '#ffd700'; // Yellow - not fired yet
+                } else if (player.alive) {
+                    color = '#4caf50'; // Green - alive
+                } else {
+                    color = '#f44336'; // Red - dead
+                }
+
+                // Draw bubble
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, this.bubbleRadius, 0, Math.PI * 2);
+                this.ctx.fillStyle = color;
+                this.ctx.fill();
+
+                // Border
+                this.ctx.strokeStyle = isYourBranch ? '#ffd700' : 'rgba(255, 255, 255, 0.5)';
+                this.ctx.lineWidth = isYourBranch ? 4 : 2;
+                this.ctx.stroke();
+
+                // Player number
+                this.ctx.fillStyle = '#000';
+                this.ctx.font = 'bold 24px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                this.ctx.fillText(player.id + 1, x, y);
+
+                // Pulse effect for current player
+                if (isCurrent && !player.fired) {
+                    const pulseRadius = this.bubbleRadius + 10 + Math.sin(Date.now() / 200) * 5;
+                    this.ctx.beginPath();
+                    this.ctx.arc(x, y, pulseRadius, 0, Math.PI * 2);
+                    this.ctx.strokeStyle = '#fff';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.stroke();
+                }
+
+                this.ctx.restore();
+            }
+
+            drawProbability(branch, x, y) {
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                this.ctx.font = '12px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText(`${(branch.probability * 100).toFixed(1)}%`, x, y + this.verticalSpacing * 6 + 20);
+            }
+
+            render(gameState, filters) {
+                this.clear();
+
+                this.ctx.save();
+                this.ctx.translate(this.camera.x, this.camera.y);
+                this.ctx.scale(this.camera.scale, this.camera.scale);
+
+                const visibleBranches = filters.yourBranchOnly
+                    ? gameState.branches.filter(b => b.players[0].alive)
+                    : gameState.branches;
+
+                this.layoutBranches(gameState.branches, gameState.currentPlayer);
+                this.drawConnections(visibleBranches);
+
+                // Draw all bubbles
+                visibleBranches.forEach(branch => {
+                    const isYourBranch = branch.players[0].alive;
+
+                    // Jeffrey center highlight (branches with ~3 survivors)
+                    const survivors = branch.players.filter(p => p.alive).length;
+                    const isJeffreyCenter = filters.jeffreyHighlight && survivors === 3;
+
+                    branch.players.forEach(player => {
+                        const isCurrent = player.id === gameState.currentPlayer && gameState.gameStarted && !gameState.gameFinished;
+                        this.drawBubble(
+                            player.visualX,
+                            player.visualY,
+                            player,
+                            isCurrent,
+                            isYourBranch,
+                            isJeffreyCenter
+                        );
+                    });
+
+                    // Draw probability
+                    this.drawProbability(branch, branch.x, branch.y);
+                });
+
+                this.ctx.restore();
+            }
+
+            screenToWorld(screenX, screenY) {
+                return {
+                    x: (screenX - this.camera.x) / this.camera.scale,
+                    y: (screenY - this.camera.y) / this.camera.scale
+                };
+            }
+
+            findBubbleAtPosition(branches, worldX, worldY) {
+                for (const branch of branches) {
+                    for (const player of branch.players) {
+                        const dx = worldX - player.visualX;
+                        const dy = worldY - player.visualY;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist <= this.bubbleRadius) {
+                            return { branch, player };
+                        }
+                    }
+                }
+                return null;
+            }
+        }
+
+        // ============================================
+        // STATS UPDATER
+        // ============================================
+        class StatsUpdater {
+            updateAll(gameState) {
+                this.updateCurrentTurn(gameState);
+                this.updateYourSurvival(gameState);
+                this.updateFiredIndicators(gameState);
+                this.updateTotalBranches(gameState);
+                this.updateJeffreyComparison(gameState);
+                this.updateBranchList(gameState);
+            }
+
+            updateCurrentTurn(gameState) {
+                const turnEl = document.getElementById('currentTurn');
+                if (!gameState.gameStarted) {
+                    turnEl.textContent = 'Not Started';
+                } else if (gameState.gameFinished) {
+                    turnEl.textContent = 'Game Complete! 🎉';
+                } else {
+                    turnEl.textContent = `Player ${gameState.currentPlayer + 1}`;
+                }
+            }
+
+            updateYourSurvival(gameState) {
+                const survival = gameState.getYourSurvival();
+                const survivalEl = document.getElementById('yourSurvival');
+                const icon = survival.survived > 0 ? '✅' : '❌';
+                survivalEl.textContent = `${icon} ${survival.survived}/${survival.total}`;
+
+                document.getElementById('survivalRate').textContent = `${survival.percentage}%`;
+            }
+
+            updateFiredIndicators(gameState) {
+                const indicators = document.getElementById('firedIndicators');
+                indicators.innerHTML = '';
+                for (let i = 0; i < 6; i++) {
+                    const span = document.createElement('span');
+                    if (i < gameState.currentPlayer) {
+                        span.textContent = '🟢';
+                    } else if (i === gameState.currentPlayer && gameState.gameStarted && !gameState.gameFinished) {
+                        span.textContent = '🟡';
+                        span.className = 'pulse';
+                    } else {
+                        span.textContent = '⚪';
+                    }
+                    indicators.appendChild(span);
+                }
+            }
+
+            updateTotalBranches(gameState) {
+                document.getElementById('totalBranches').textContent = gameState.branches.length;
+            }
+
+            updateJeffreyComparison(gameState) {
+                const jeffrey = gameState.getJeffreyExpectation();
+                const player = gameState.getYourExpectation();
+                const diff = player - jeffrey;
+                const diffPercent = jeffrey > 0 ? (diff / jeffrey * 100).toFixed(1) : 0;
+
+                document.getElementById('jeffreyValue').textContent = jeffrey.toFixed(2);
+                document.getElementById('playerValue').textContent = player.toFixed(2);
+                document.getElementById('difference').textContent = `${diff >= 0 ? '+' : ''}${diff.toFixed(2)} (${diffPercent}%)`;
+
+                // Update bars
+                const maxValue = Math.max(jeffrey, player, 6);
+                document.getElementById('jeffreyBar').style.width = `${(jeffrey / maxValue * 100)}%`;
+                document.getElementById('playerBar').style.width = `${(player / maxValue * 100)}%`;
+            }
+
+            updateBranchList(gameState) {
+                const listEl = document.getElementById('branchList');
+                listEl.innerHTML = '';
+
+                gameState.branches.forEach((branch, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'branch-item';
+                    if (branch.players[0].alive) {
+                        div.classList.add('your-branch');
+                    }
+
+                    const playersDiv = document.createElement('div');
+                    playersDiv.className = 'branch-players';
+                    branch.players.forEach(player => {
+                        const icon = !player.fired ? '🟡' : (player.alive ? '✅' : '❌');
+                        playersDiv.innerHTML += icon;
+                    });
+
+                    const labelDiv = document.createElement('div');
+                    labelDiv.innerHTML = `Branch ${index + 1} ${branch.players[0].alive ? '[YOU]' : ''}`;
+
+                    const probDiv = document.createElement('div');
+                    probDiv.className = 'probability';
+                    probDiv.textContent = `${(branch.probability * 100).toFixed(1)}%`;
+
+                    div.appendChild(labelDiv);
+                    div.appendChild(playersDiv);
+                    div.appendChild(probDiv);
+                    listEl.appendChild(div);
+                });
+            }
+        }
+
+        // ============================================
+        // MAIN GAME CONTROLLER
+        // ============================================
+        class Game {
+            constructor() {
+                this.gameState = new GameState();
+                this.canvas = document.getElementById('gameCanvas');
+                this.renderer = new Renderer(this.canvas);
+                this.statsUpdater = new StatsUpdater();
+                this.autoPlayInterval = null;
+                this.filters = {
+                    yourBranchOnly: false,
+                    jeffreyHighlight: false
+                };
+
+                this.setupControls();
+                this.setupCanvasInteraction();
+                this.render();
+            }
+
+            setupControls() {
+                document.getElementById('startBtn').addEventListener('click', () => {
+                    this.gameState.startGame();
+                    this.render();
+                });
+
+                document.getElementById('resetBtn').addEventListener('click', () => {
+                    this.gameState.initGame();
+                    this.stopAutoPlay();
+                    this.render();
+                });
+
+                document.getElementById('undoBtn').addEventListener('click', () => {
+                    if (this.gameState.undo()) {
+                        this.render();
+                    }
+                });
+
+                document.getElementById('autoPlayBtn').addEventListener('click', (e) => {
+                    if (this.autoPlayInterval) {
+                        this.stopAutoPlay();
+                        e.target.classList.remove('active');
+                    } else {
+                        this.startAutoPlay();
+                        e.target.classList.add('active');
+                    }
+                });
+
+                document.getElementById('yourBranchBtn').addEventListener('click', (e) => {
+                    this.filters.yourBranchOnly = !this.filters.yourBranchOnly;
+                    e.target.classList.toggle('active');
+                    this.render();
+                });
+
+                document.getElementById('jeffreyHighlightBtn').addEventListener('click', (e) => {
+                    this.filters.jeffreyHighlight = !this.filters.jeffreyHighlight;
+                    e.target.classList.toggle('active');
+                    this.render();
+                });
+            }
+
+            setupCanvasInteraction() {
+                this.canvas.addEventListener('click', (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const screenX = e.clientX - rect.left;
+                    const screenY = e.clientY - rect.top;
+                    const world = this.renderer.screenToWorld(screenX, screenY);
+
+                    const hit = this.renderer.findBubbleAtPosition(this.gameState.branches, world.x, world.y);
+
+                    if (hit && hit.player.id === this.gameState.currentPlayer && !hit.player.fired) {
+                        this.gameState.fireCurrent();
+                        this.render();
+                    }
+                });
+
+                this.canvas.addEventListener('mousemove', (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const screenX = e.clientX - rect.left;
+                    const screenY = e.clientY - rect.top;
+                    const world = this.renderer.screenToWorld(screenX, screenY);
+
+                    const hit = this.renderer.findBubbleAtPosition(this.gameState.branches, world.x, world.y);
+
+                    if (hit && hit.player.id === this.gameState.currentPlayer && !hit.player.fired) {
+                        this.canvas.style.cursor = 'pointer';
+                    } else {
+                        this.canvas.style.cursor = 'default';
+                    }
+                });
+            }
+
+            startAutoPlay() {
+                if (!this.gameState.gameStarted) {
+                    this.gameState.startGame();
+                }
+
+                this.autoPlayInterval = setInterval(() => {
+                    if (this.gameState.gameFinished) {
+                        this.stopAutoPlay();
+                        document.getElementById('autoPlayBtn').classList.remove('active');
+                        return;
+                    }
+                    this.gameState.fireCurrent();
+                    this.render();
+                }, 800);
+            }
+
+            stopAutoPlay() {
+                if (this.autoPlayInterval) {
+                    clearInterval(this.autoPlayInterval);
+                    this.autoPlayInterval = null;
+                }
+            }
+
+            render() {
+                this.renderer.render(this.gameState, this.filters);
+                this.statsUpdater.updateAll(this.gameState);
+
+                // Update undo button state
+                document.getElementById('undoBtn').disabled = this.gameState.history.length === 0;
+            }
+        }
+
+        // ============================================
+        // INITIALIZE GAME
+        // ============================================
+        window.addEventListener('load', () => {
+            new Game();
+        });
+    </script>
+</body>
+</html>
