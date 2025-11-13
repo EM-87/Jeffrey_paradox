@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeffrey Paradox - Simulador Interactivo</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .control-panel {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 2px solid #e9ecef;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #495057;
+            font-size: 1.1em;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 8px;
+            border-radius: 5px;
+            background: #dee2e6;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #2a5298;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #1e3c72;
+            transform: scale(1.2);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #2a5298;
+            cursor: pointer;
+            border: none;
+        }
+
+        .value-display {
+            font-weight: 700;
+            font-size: 1.3em;
+            color: #2a5298;
+            min-width: 80px;
+            text-align: center;
+            background: white;
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: 2px solid #2a5298;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: 2px solid #e9ecef;
+        }
+
+        .card h2 {
+            color: #2a5298;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 3px solid #ff6b6b;
+            padding-bottom: 10px;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        button {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #adb5bd;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .players-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+            gap: 8px;
+            margin: 20px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .player {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            font-weight: bold;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .player.alive {
+            background: #51cf66;
+            color: white;
+            box-shadow: 0 2px 4px rgba(81, 207, 102, 0.4);
+        }
+
+        .player.dead {
+            background: #ff6b6b;
+            color: white;
+            box-shadow: 0 2px 4px rgba(255, 107, 107, 0.4);
+        }
+
+        .player:hover {
+            transform: scale(1.2);
+        }
+
+        .stats-box {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 5px solid #2a5298;
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            font-size: 1.1em;
+        }
+
+        .stats-label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .stats-value {
+            font-weight: 700;
+            color: #2a5298;
+        }
+
+        .jeffrey-color {
+            color: #4dabf7;
+        }
+
+        .survivor-color {
+            color: #ff8787;
+        }
+
+        .divergence-box {
+            background: linear-gradient(135deg, #fff5f5 0%, #ffe3e3 100%);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 3px solid #ff6b6b;
+            text-align: center;
+        }
+
+        .divergence-value {
+            font-size: 2.5em;
+            font-weight: 900;
+            color: #ff6b6b;
+            margin: 10px 0;
+        }
+
+        .math-steps {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            line-height: 2;
+        }
+
+        .math-step {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            border-left: 4px solid #2a5298;
+        }
+
+        .math-step.jeffrey {
+            border-left-color: #4dabf7;
+        }
+
+        .math-step.survivor {
+            border-left-color: #ff8787;
+        }
+
+        .math-step.divergence {
+            border-left-color: #ff6b6b;
+            background: #fff5f5;
+            font-weight: bold;
+        }
+
+        canvas {
+            max-height: 400px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #51cf66 0%, #40c057 100%);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .value-display {
+                font-size: 1em;
+                min-width: 60px;
+            }
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+            color: #4dabf7;
+            font-weight: bold;
+        }
+
+        .tooltip:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            white-space: nowrap;
+            font-size: 0.9em;
+            z-index: 1000;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎲 Jeffrey Paradox - Simulador Interactivo</h1>
+            <p>Divergencia entre expectativas objetivas y subjetivas en selección antrópica cuántica</p>
+        </header>
+
+        <div class="content">
+            <!-- Panel de Control -->
+            <div class="control-panel">
+                <h2 style="margin-bottom: 20px; color: #2a5298;">⚙️ Parámetros del Experimento</h2>
+
+                <div class="control-group">
+                    <label>Número de Jugadores (N): <span class="tooltip" data-tooltip="Participantes en el experimento de ruleta rusa cuántica">ℹ️</span></label>
+                    <div class="slider-container">
+                        <input type="range" id="numPlayers" min="2" max="1000" value="20" step="1">
+                        <div class="value-display" id="numPlayersValue">20</div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Probabilidad de Supervivencia (p): <span class="tooltip" data-tooltip="Probabilidad de que cada jugador sobreviva">ℹ️</span></label>
+                    <div class="slider-container">
+                        <input type="range" id="probability" min="0.1" max="0.9" value="0.5" step="0.05">
+                        <div class="value-display" id="probabilityValue">0.50</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 25px; display: flex; gap: 15px; flex-wrap: wrap;">
+                    <button onclick="runSingleRound()">🎯 Simular Una Ronda</button>
+                    <button onclick="runMonteCarloSimulation()" id="monteCarloBtn">🔄 Simulación Monte Carlo (10,000 rondas)</button>
+                    <button onclick="updateScalingChart()">📊 Actualizar Gráfico de Escalado</button>
+                </div>
+            </div>
+
+            <!-- Grid Principal -->
+            <div class="grid">
+                <!-- Desglose Matemático -->
+                <div class="card">
+                    <h2>📐 Desglose Matemático</h2>
+                    <div class="math-steps" id="mathBreakdown">
+                        <div class="math-step jeffrey">
+                            <strong>1️⃣ Jeffrey calcula ANTES (expectativa objetiva):</strong><br>
+                            E[supervivientes] = N × p = <span id="jeffreyCalc">-</span>
+                        </div>
+                        <div class="math-step survivor">
+                            <strong>2️⃣ Cada superviviente calcula DESPUÉS:</strong><br>
+                            E[otros supervivientes] = (N-1) × p = <span id="otherSurvivorsCalc">-</span><br>
+                            E[total incluyéndome] = 1 + (N-1) × p = <span id="totalSurvivorsCalc">-</span>
+                        </div>
+                        <div class="math-step divergence">
+                            <strong>3️⃣ DIVERGENCIA (La Paradoja):</strong><br>
+                            Δ = E[superviviente] - E[Jeffrey]<br>
+                            Δ = <span id="absoluteDivergence">-</span><br>
+                            <br>
+                            Δ_rel = Δ / (N × p) = <span id="relativeDivergence">-</span> = <span id="relativeDivergencePercent">-</span>%
+                        </div>
+                    </div>
+                    <div class="divergence-box">
+                        <div style="font-size: 1.2em; margin-bottom: 10px;">🎯 Divergencia Teórica</div>
+                        <div class="divergence-value" id="theoreticalDivergence">-</div>
+                        <div style="font-size: 0.9em; color: #495057;">
+                            Para p = 0.5, siempre Δ = 0.5 (independiente de N)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visualización de Ronda Individual -->
+                <div class="card">
+                    <h2>👥 Visualización de Ronda</h2>
+                    <div id="roundVisualization">
+                        <p style="text-align: center; color: #adb5bd; padding: 40px;">
+                            Haz clic en "Simular Una Ronda" para ver la visualización
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Histogramas -->
+            <div class="card full-width">
+                <h2>📊 Distribuciones: Jeffrey vs Supervivientes</h2>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgba(74, 171, 247, 0.6);"></div>
+                        <span>Predicción de Jeffrey (Binomial N×p)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgba(255, 135, 135, 0.6);"></div>
+                        <span>Expectativa de Supervivientes (1 + (N-1)×p)</span>
+                    </div>
+                </div>
+                <canvas id="distributionChart"></canvas>
+            </div>
+
+            <!-- Gráfico de Escalado -->
+            <div class="card full-width">
+                <h2>📈 Factor Jeffrey: Escalado con N</h2>
+                <p style="margin-bottom: 15px; color: #495057;">
+                    Muestra cómo el factor relativo Δ_rel = (1-p)/(N×p) decae con 1/N.
+                    El efecto es más detectable con <strong>N pequeño</strong>.
+                </p>
+                <canvas id="scalingChart"></canvas>
+            </div>
+
+            <!-- Resultados Monte Carlo -->
+            <div class="card full-width" id="monteCarloSection" style="display: none;">
+                <h2>🔬 Resultados de Simulación Monte Carlo</h2>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="monteCarloProgress" style="width: 0%">0%</div>
+                </div>
+                <div class="grid">
+                    <div class="stats-box">
+                        <h3 style="color: #2a5298; margin-bottom: 15px;">Estadísticas de Convergencia</h3>
+                        <div class="stats-row">
+                            <span class="stats-label">Iteraciones completadas:</span>
+                            <span class="stats-value" id="mcIterations">-</span>
+                        </div>
+                        <div class="stats-row">
+                            <span class="stats-label">Δ promedio observado:</span>
+                            <span class="stats-value" id="mcAvgDivergence">-</span>
+                        </div>
+                        <div class="stats-row">
+                            <span class="stats-label">Δ teórico esperado:</span>
+                            <span class="stats-value" id="mcTheoreticalDivergence">-</span>
+                        </div>
+                        <div class="stats-row">
+                            <span class="stats-label">Error relativo:</span>
+                            <span class="stats-value" id="mcError">-</span>
+                        </div>
+                    </div>
+                    <div class="stats-box">
+                        <h3 style="color: #2a5298; margin-bottom: 15px;">Validación del Factor 1/N</h3>
+                        <div class="stats-row">
+                            <span class="stats-label">Δ_rel promedio observado:</span>
+                            <span class="stats-value" id="mcAvgRelative">-</span>
+                        </div>
+                        <div class="stats-row">
+                            <span class="stats-label">1/N teórico:</span>
+                            <span class="stats-value" id="mcTheoreticalRelative">-</span>
+                        </div>
+                        <div class="stats-row">
+                            <span class="stats-label">Error relativo:</span>
+                            <span class="stats-value" id="mcRelativeError">-</span>
+                        </div>
+                    </div>
+                </div>
+                <canvas id="monteCarloChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let distributionChart = null;
+        let scalingChart = null;
+        let monteCarloChart = null;
+
+        // Configuración de Chart.js para mejor legibilidad
+        Chart.defaults.font.size = 14;
+        Chart.defaults.font.family = "'Segoe UI', Roboto, sans-serif";
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            // Event listeners para sliders
+            document.getElementById('numPlayers').addEventListener('input', updateParameters);
+            document.getElementById('probability').addEventListener('input', updateParameters);
+
+            // Actualizar valores iniciales
+            updateParameters();
+            initializeCharts();
+        });
+
+        function updateParameters() {
+            const N = parseInt(document.getElementById('numPlayers').value);
+            const p = parseFloat(document.getElementById('probability').value);
+
+            document.getElementById('numPlayersValue').textContent = N;
+            document.getElementById('probabilityValue').textContent = p.toFixed(2);
+
+            // Actualizar desglose matemático
+            updateMathBreakdown(N, p);
+            updateDistributionChart(N, p);
+        }
+
+        function updateMathBreakdown(N, p) {
+            // Cálculos
+            const jeffreyExpectation = N * p;
+            const otherSurvivors = (N - 1) * p;
+            const survivorExpectation = 1 + otherSurvivors;
+            const absoluteDivergence = survivorExpectation - jeffreyExpectation;
+            const relativeDivergence = absoluteDivergence / jeffreyExpectation;
+            const theoreticalDivergence = 1 - p;
+
+            // Actualizar DOM
+            document.getElementById('jeffreyCalc').textContent = `${N} × ${p.toFixed(2)} = ${jeffreyExpectation.toFixed(3)}`;
+            document.getElementById('otherSurvivorsCalc').textContent = `${N-1} × ${p.toFixed(2)} = ${otherSurvivors.toFixed(3)}`;
+            document.getElementById('totalSurvivorsCalc').textContent = `1 + ${otherSurvivors.toFixed(3)} = ${survivorExpectation.toFixed(3)}`;
+            document.getElementById('absoluteDivergence').textContent = `${survivorExpectation.toFixed(3)} - ${jeffreyExpectation.toFixed(3)} = ${absoluteDivergence.toFixed(3)}`;
+            document.getElementById('relativeDivergence').textContent = `${absoluteDivergence.toFixed(3)} / ${jeffreyExpectation.toFixed(3)} = ${relativeDivergence.toFixed(4)}`;
+            document.getElementById('relativeDivergencePercent').textContent = (relativeDivergence * 100).toFixed(2);
+            document.getElementById('theoreticalDivergence').textContent = `Δ = ${theoreticalDivergence.toFixed(3)}`;
+        }
+
+        function initializeCharts() {
+            const N = parseInt(document.getElementById('numPlayers').value);
+            const p = parseFloat(document.getElementById('probability').value);
+
+            updateDistributionChart(N, p);
+            updateScalingChart();
+        }
+
+        function updateDistributionChart(N, p) {
+            const ctx = document.getElementById('distributionChart');
+
+            // Generar datos de distribución binomial (Jeffrey)
+            const maxSurvivors = Math.min(N, Math.ceil(N * p + 5 * Math.sqrt(N * p * (1 - p))));
+            const minSurvivors = Math.max(0, Math.floor(N * p - 5 * Math.sqrt(N * p * (1 - p))));
+
+            const labels = [];
+            const jeffreyData = [];
+            const survivorData = [];
+
+            for (let k = minSurvivors; k <= maxSurvivors; k++) {
+                labels.push(k);
+
+                // Distribución binomial de Jeffrey
+                const jeffreyProb = binomialPMF(N, p, k);
+                jeffreyData.push(jeffreyProb);
+
+                // Para supervivientes, está desplazado por (1-p)
+                // Aproximación: distribución similar pero centrada en 1 + (N-1)*p
+                const survivorProb = k > 0 ? binomialPMF(N, p, k - 1) * p : 0;
+                survivorData.push(survivorProb);
+            }
+
+            if (distributionChart) {
+                distributionChart.destroy();
+            }
+
+            distributionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Predicción de Jeffrey (objetiva)',
+                            data: jeffreyData,
+                            backgroundColor: 'rgba(74, 171, 247, 0.6)',
+                            borderColor: 'rgba(74, 171, 247, 1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Expectativa de Supervivientes (subjetiva)',
+                            data: survivorData,
+                            backgroundColor: 'rgba(255, 135, 135, 0.6)',
+                            borderColor: 'rgba(255, 135, 135, 1)',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Desplazamiento: Δ ≈ ${(1-p).toFixed(3)} supervivientes`,
+                            font: { size: 16, weight: 'bold' }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Número de Supervivientes',
+                                font: { size: 14, weight: 'bold' }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Probabilidad',
+                                font: { size: 14, weight: 'bold' }
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function binomialPMF(n, p, k) {
+            // P(X = k) = C(n,k) * p^k * (1-p)^(n-k)
+            if (k < 0 || k > n) return 0;
+            return binomialCoefficient(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k);
+        }
+
+        function binomialCoefficient(n, k) {
+            if (k < 0 || k > n) return 0;
+            if (k === 0 || k === n) return 1;
+
+            // Usar logaritmos para evitar overflow
+            let result = 0;
+            for (let i = 0; i < k; i++) {
+                result += Math.log(n - i) - Math.log(i + 1);
+            }
+            return Math.exp(result);
+        }
+
+        function updateScalingChart() {
+            const ctx = document.getElementById('scalingChart');
+            const p = parseFloat(document.getElementById('probability').value);
+
+            const nValues = [];
+            const relativeFactors = [];
+            const theoreticalLine = [];
+
+            // Generar datos desde N=2 hasta N=1000
+            for (let N = 2; N <= 1000; N += Math.floor(N < 50 ? 1 : N < 200 ? 5 : 20)) {
+                nValues.push(N);
+                const relativeFactor = (1 - p) / (N * p) * 100; // En porcentaje
+                relativeFactors.push(relativeFactor);
+                theoreticalLine.push(100 / N); // 1/N * 100 para p=0.5
+            }
+
+            if (scalingChart) {
+                scalingChart.destroy();
+            }
+
+            scalingChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: nValues,
+                    datasets: [
+                        {
+                            label: `Factor Jeffrey Δ_rel (p=${p.toFixed(2)})`,
+                            data: relativeFactors,
+                            borderColor: 'rgba(255, 107, 107, 1)',
+                            backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: '1/N × 100% (referencia para p=0.5)',
+                            data: theoreticalLine,
+                            borderColor: 'rgba(74, 171, 247, 0.5)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            fill: false,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Decaimiento hiperbólico: Sweet spot en N pequeño',
+                            font: { size: 16, weight: 'bold' }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'logarithmic',
+                            title: {
+                                display: true,
+                                text: 'Número de Jugadores (N) - Escala logarítmica',
+                                font: { size: 14, weight: 'bold' }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Factor Jeffrey Relativo (%)',
+                                font: { size: 14, weight: 'bold' }
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function runSingleRound() {
+            const N = parseInt(document.getElementById('numPlayers').value);
+            const p = parseFloat(document.getElementById('probability').value);
+
+            // Simular supervivientes
+            const survivors = [];
+            for (let i = 0; i < N; i++) {
+                if (Math.random() < p) {
+                    survivors.push(i);
+                }
+            }
+
+            const numSurvivors = survivors.length;
+            const jeffreyExpectation = N * p;
+            const survivorExpectation = numSurvivors > 0 ? 1 + (N - 1) * p : 0;
+            const divergence = survivorExpectation - jeffreyExpectation;
+
+            // Crear visualización
+            let html = '<div class="stats-box">';
+            html += '<div class="stats-row">';
+            html += '<span class="stats-label">Jeffrey esperaba:</span>';
+            html += `<span class="stats-value jeffrey-color">${jeffreyExpectation.toFixed(2)} supervivientes</span>`;
+            html += '</div>';
+            html += '<div class="stats-row">';
+            html += '<span class="stats-label">Supervivieron realmente:</span>';
+            html += `<span class="stats-value" style="color: #51cf66;">${numSurvivors} jugadores</span>`;
+            html += '</div>';
+
+            if (numSurvivors > 0) {
+                html += '<div class="stats-row">';
+                html += '<span class="stats-label">Cada superviviente espera:</span>';
+                html += `<span class="stats-value survivor-color">${survivorExpectation.toFixed(2)} supervivientes</span>`;
+                html += '</div>';
+                html += '<div class="stats-row">';
+                html += '<span class="stats-label">Divergencia Δ:</span>';
+                html += `<span class="stats-value" style="color: #ff6b6b;">${divergence.toFixed(3)}</span>`;
+                html += '</div>';
+            }
+            html += '</div>';
+
+            // Grid de jugadores
+            html += '<div class="players-grid">';
+            for (let i = 0; i < N; i++) {
+                const isAlive = survivors.includes(i);
+                const className = isAlive ? 'alive' : 'dead';
+                const symbol = isAlive ? '✓' : '✗';
+                html += `<div class="player ${className}" title="Jugador ${i+1}: ${isAlive ? 'Vivo' : 'Muerto'}">${symbol}</div>`;
+            }
+            html += '</div>';
+
+            document.getElementById('roundVisualization').innerHTML = html;
+        }
+
+        async function runMonteCarloSimulation() {
+            const N = parseInt(document.getElementById('numPlayers').value);
+            const p = parseFloat(document.getElementById('probability').value);
+            const iterations = 10000;
+
+            // Mostrar sección y deshabilitar botón
+            document.getElementById('monteCarloSection').style.display = 'block';
+            document.getElementById('monteCarloBtn').disabled = true;
+
+            let sumAbsoluteDivergence = 0;
+            let sumRelativeDivergence = 0;
+            let validIterations = 0;
+
+            const histogramData = [];
+
+            // Simular en lotes para no bloquear UI
+            const batchSize = 100;
+            const batches = iterations / batchSize;
+
+            for (let batch = 0; batch < batches; batch++) {
+                for (let i = 0; i < batchSize; i++) {
+                    // Simular ronda
+                    let numSurvivors = 0;
+                    for (let j = 0; j < N; j++) {
+                        if (Math.random() < p) numSurvivors++;
+                    }
+
+                    if (numSurvivors > 0) {
+                        const jeffreyExpectation = N * p;
+                        const survivorExpectation = 1 + (N - 1) * p;
+                        const divergence = survivorExpectation - jeffreyExpectation;
+                        const relativeDivergence = divergence / jeffreyExpectation;
+
+                        sumAbsoluteDivergence += divergence;
+                        sumRelativeDivergence += relativeDivergence;
+                        validIterations++;
+
+                        histogramData.push(divergence);
+                    }
+                }
+
+                // Actualizar barra de progreso
+                const progress = ((batch + 1) / batches * 100).toFixed(0);
+                document.getElementById('monteCarloProgress').style.width = progress + '%';
+                document.getElementById('monteCarloProgress').textContent = progress + '%';
+
+                // Permitir que la UI se actualice
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+
+            // Calcular estadísticas
+            const avgAbsoluteDivergence = sumAbsoluteDivergence / validIterations;
+            const avgRelativeDivergence = sumRelativeDivergence / validIterations;
+            const theoreticalDivergence = 1 - p;
+            const theoreticalRelative = (1 - p) / (N * p);
+
+            const errorAbsolute = Math.abs(avgAbsoluteDivergence - theoreticalDivergence) / theoreticalDivergence * 100;
+            const errorRelative = Math.abs(avgRelativeDivergence - theoreticalRelative) / theoreticalRelative * 100;
+
+            // Actualizar estadísticas
+            document.getElementById('mcIterations').textContent = validIterations.toLocaleString();
+            document.getElementById('mcAvgDivergence').textContent = avgAbsoluteDivergence.toFixed(4);
+            document.getElementById('mcTheoreticalDivergence').textContent = theoreticalDivergence.toFixed(4);
+            document.getElementById('mcError').textContent = errorAbsolute.toFixed(2) + '%';
+            document.getElementById('mcAvgRelative').textContent = avgRelativeDivergence.toFixed(4);
+            document.getElementById('mcTheoreticalRelative').textContent = theoreticalRelative.toFixed(4);
+            document.getElementById('mcRelativeError').textContent = errorRelative.toFixed(2) + '%';
+
+            // Crear histograma
+            createMonteCarloHistogram(histogramData, theoreticalDivergence);
+
+            // Rehabilitar botón
+            document.getElementById('monteCarloBtn').disabled = false;
+        }
+
+        function createMonteCarloHistogram(data, theoretical) {
+            const ctx = document.getElementById('monteCarloChart');
+
+            // Crear bins
+            const numBins = 50;
+            const min = Math.min(...data);
+            const max = Math.max(...data);
+            const binWidth = (max - min) / numBins;
+
+            const bins = new Array(numBins).fill(0);
+            const binLabels = [];
+
+            for (let i = 0; i < numBins; i++) {
+                binLabels.push((min + i * binWidth).toFixed(3));
+            }
+
+            for (const value of data) {
+                const binIndex = Math.min(Math.floor((value - min) / binWidth), numBins - 1);
+                bins[binIndex]++;
+            }
+
+            // Normalizar
+            const total = data.length;
+            const normalizedBins = bins.map(count => count / total);
+
+            if (monteCarloChart) {
+                monteCarloChart.destroy();
+            }
+
+            monteCarloChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: binLabels,
+                    datasets: [{
+                        label: 'Distribución de Divergencias Observadas',
+                        data: normalizedBins,
+                        backgroundColor: 'rgba(81, 207, 102, 0.6)',
+                        borderColor: 'rgba(81, 207, 102, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Convergencia a Δ teórico = ${theoretical.toFixed(3)}`,
+                            font: { size: 16, weight: 'bold' }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        annotation: {
+                            annotations: {
+                                line1: {
+                                    type: 'line',
+                                    xMin: theoretical,
+                                    xMax: theoretical,
+                                    borderColor: 'rgba(255, 107, 107, 1)',
+                                    borderWidth: 3,
+                                    label: {
+                                        content: 'Δ teórico',
+                                        enabled: true
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Divergencia Δ',
+                                font: { size: 14, weight: 'bold' }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Frecuencia Normalizada',
+                                font: { size: 14, weight: 'bold' }
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
