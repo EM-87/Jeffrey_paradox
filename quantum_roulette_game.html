@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Russian Roulette - Jeffrey Paradox Visualizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #16213e 100%);
+            color: #e0e0e0;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: rgba(15, 20, 40, 0.9);
+            padding: 20px;
+            border-bottom: 2px solid #2c3e50;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .title {
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 15px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .info-bar {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-label {
+            color: #8e9aaf;
+        }
+
+        .info-value {
+            color: #00f2fe;
+            font-weight: bold;
+        }
+
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: radial-gradient(ellipse at center, #1a1f3a 0%, #0a0e27 100%);
+        }
+
+        #gameCanvas {
+            display: block;
+            cursor: grab;
+        }
+
+        #gameCanvas:active {
+            cursor: grabbing;
+        }
+
+        .stats-panel {
+            width: 350px;
+            background: rgba(15, 20, 40, 0.95);
+            border-left: 2px solid #2c3e50;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: -4px 0 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .stats-section {
+            margin-bottom: 25px;
+            background: rgba(30, 35, 55, 0.6);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #2c3e50;
+        }
+
+        .stats-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #4facfe;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid #2c3e50;
+            padding-bottom: 8px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 13px;
+            border-bottom: 1px solid rgba(44, 62, 80, 0.3);
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #8e9aaf;
+        }
+
+        .stat-value {
+            color: #00f2fe;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
+
+        .stat-highlight {
+            color: #38ef7d;
+        }
+
+        .stat-warning {
+            color: #f45c43;
+        }
+
+        .distribution-bar {
+            margin: 8px 0;
+        }
+
+        .distribution-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-bottom: 4px;
+            color: #8e9aaf;
+        }
+
+        .bar-container {
+            width: 100%;
+            height: 20px;
+            background: rgba(20, 25, 45, 0.8);
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #2c3e50;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 5px;
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .bar-jeffrey {
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .bar-survivor {
+            background: linear-gradient(90deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .filter-options {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .filter-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .filter-option:hover {
+            background: rgba(79, 172, 254, 0.1);
+        }
+
+        .filter-option input[type="radio"] {
+            cursor: pointer;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 1000;
+            border: 1px solid #4facfe;
+        }
+
+        .zoom-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(79, 172, 254, 0.2);
+            border: 2px solid #4facfe;
+            color: #4facfe;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .zoom-btn:hover {
+            background: rgba(79, 172, 254, 0.4);
+            transform: scale(1.1);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+
+        .pulse {
+            animation: pulse 1s infinite;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(20, 25, 45, 0.5);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #4facfe;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00f2fe;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-panel">
+            <div class="header">
+                <div class="title">🎲 Quantum Russian Roulette 🎲</div>
+                <div class="controls">
+                    <button id="startBtn" class="btn-primary">🚀 Start Game</button>
+                    <button id="nextBtn" class="btn-success" disabled>▶ Fire Round</button>
+                    <button id="resetBtn" class="btn-danger">🔄 Reset</button>
+                    <button id="survivorModeBtn" class="btn-info" disabled>🎯 Enter Random Branch</button>
+                    <button id="highlightJeffreyBtn" class="btn-info" disabled>💡 Highlight Jeffrey</button>
+                </div>
+                <div class="info-bar">
+                    <div class="info-item">
+                        <span class="info-label">Round:</span>
+                        <span class="info-value" id="roundDisplay">0/10</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Total Branches:</span>
+                        <span class="info-value" id="branchesDisplay">1</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Visible Branches:</span>
+                        <span class="info-value" id="visibleBranchesDisplay">1</span>
+                    </div>
+                </div>
+            </div>
+            <div class="canvas-container">
+                <canvas id="gameCanvas"></canvas>
+                <div class="zoom-controls">
+                    <button class="zoom-btn" id="zoomInBtn">+</button>
+                    <button class="zoom-btn" id="zoomOutBtn">−</button>
+                    <button class="zoom-btn" id="resetViewBtn">⌂</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-panel">
+            <div class="stats-section">
+                <div class="stats-title">⚡ Divergent Expectations</div>
+                <div class="stat-row">
+                    <span class="stat-label">📊 Jeffrey (pre-experiment):</span>
+                    <span class="stat-value" id="jeffreyExpectation">3.00</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">👤 Survivor (conditional):</span>
+                    <span class="stat-value stat-highlight" id="survivorExpectation">3.50</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">🔺 Jeffrey Factor (Δ):</span>
+                    <span class="stat-value stat-warning" id="deltaValue">+0.50</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">📈 Relative Difference:</span>
+                    <span class="stat-value" id="deltaPercent">16.7%</span>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stats-title">📊 Branch Distribution</div>
+                <div id="distributionBars"></div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stats-title">🔍 View Filters</div>
+                <div class="filter-options">
+                    <label class="filter-option">
+                        <input type="radio" name="filter" value="all" checked>
+                        <span>Show all branches</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="filter" value="medium">
+                        <span>Only ≥3 survivors</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="filter" value="lucky">
+                        <span>Only "lucky" (≥5 survivors)</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="filter" value="observable">
+                        <span>Only observable (≥1 survivor)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stats-title">🎨 Legend</div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #38ef7d;"></div>
+                        <span>Alive</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #f45c43;"></div>
+                        <span>Dead</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ffd700; box-shadow: 0 0 10px #ffd700;"></div>
+                        <span>Your Branch</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4facfe; box-shadow: 0 0 10px #4facfe;"></div>
+                        <span>Jeffrey Center</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stats-title">ℹ️ About</div>
+                <p style="font-size: 12px; line-height: 1.6; color: #8e9aaf;">
+                    This game visualizes the <strong style="color: #4facfe;">Jeffrey Paradox</strong>:
+                    In quantum branching scenarios, external observers (Jeffrey) and branch-conditional
+                    observers (survivors) have different rational expectations about the same outcome.
+                    <br><br>
+                    Each round, reality branches into all possible outcomes. Your subjective experience
+                    follows only branches where you survive, creating a systematic bias in your expectations.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        // ============================================================================
+        // GAME LOGIC CLASSES
+        // ============================================================================
+
+        class BubbleState {
+            constructor(players, round, parentBranch = null) {
+                this.players = players; // Array of booleans: true = alive, false = dead
+                this.round = round;
+                this.survivors = players.filter(p => p).length;
+                this.parentBranch = parentBranch;
+                this.childBranches = null;
+                this.position = { x: 0, y: 0 };
+                this.targetPosition = { x: 0, y: 0 };
+                this.animProgress = 1;
+
+                // Calculate Born rule probability (all branches equally likely)
+                this.probability = 1 / Math.pow(2, players.length * round);
+
+                // Generate unique ID for this state
+                this.id = this.generateId();
+            }
+
+            generateId() {
+                return this.players.map(p => p ? '1' : '0').join('') + '_' + this.round;
+            }
+
+            isObservable() {
+                return this.survivors > 0;
+            }
+
+            branch() {
+                if (this.childBranches) return this.childBranches;
+
+                this.childBranches = [];
+                const numPlayers = this.players.length;
+
+                // Generate all 2^n possible outcomes for next round
+                const numBranches = Math.pow(2, numPlayers);
+
+                for (let i = 0; i < numBranches; i++) {
+                    const newPlayers = [];
+                    let mask = i;
+
+                    // Each bit represents whether that player survives
+                    for (let j = 0; j < numPlayers; j++) {
+                        newPlayers.push((mask & 1) === 1);
+                        mask >>= 1;
+                    }
+
+                    const child = new BubbleState(newPlayers, this.round + 1, this);
+                    this.childBranches.push(child);
+                }
+
+                return this.childBranches;
+            }
+
+            getColor() {
+                if (this.survivors === 0) {
+                    return 'rgba(244, 92, 67, 0.3)'; // Transparent red for unobservable
+                }
+
+                // Color based on number of survivors
+                const ratio = this.survivors / this.players.length;
+                const green = Math.floor(56 + ratio * 183); // 38 to 239
+                const red = Math.floor(239 - ratio * 195); // 244 to 49
+
+                return `rgb(${red}, ${green}, 100)`;
+            }
+
+            getRadius() {
+                // Size based on survivors and round
+                const baseRadius = 25;
+                const survivorBonus = this.survivors * 2;
+                const roundPenalty = this.round * 2;
+                return Math.max(8, baseRadius + survivorBonus - roundPenalty);
+            }
+        }
+
+        class GameTree {
+            constructor(numPlayers = 6, maxRounds = 10) {
+                this.numPlayers = numPlayers;
+                this.maxRounds = maxRounds;
+                this.currentRound = 0;
+                this.root = new BubbleState(new Array(numPlayers).fill(true), 0);
+                this.allBranches = [this.root];
+                this.leafBranches = [this.root];
+                this.selectedBranch = null;
+                this.highlightJeffrey = false;
+            }
+
+            fireRound() {
+                if (this.currentRound >= this.maxRounds) return false;
+
+                const newLeaves = [];
+
+                // Branch all current leaf nodes
+                for (const leaf of this.leafBranches) {
+                    const children = leaf.branch();
+                    newLeaves.push(...children);
+                    this.allBranches.push(...children);
+                }
+
+                this.leafBranches = newLeaves;
+                this.currentRound++;
+
+                // Clear selected branch if it doesn't exist in new leaves
+                if (this.selectedBranch && this.selectedBranch.round < this.currentRound) {
+                    this.selectedBranch = null;
+                }
+
+                return true;
+            }
+
+            reset() {
+                this.currentRound = 0;
+                this.root = new BubbleState(new Array(this.numPlayers).fill(true), 0);
+                this.allBranches = [this.root];
+                this.leafBranches = [this.root];
+                this.selectedBranch = null;
+                this.highlightJeffrey = false;
+            }
+
+            calculateJeffreyExpectation() {
+                // Jeffrey's expectation: E[survivors] = n * 0.5
+                return this.numPlayers * 0.5;
+            }
+
+            calculateSurvivorExpectation() {
+                // Survivor's expectation: E[survivors | at least one survivor]
+                // This is conditioned on being in an observable branch
+
+                const observableBranches = this.leafBranches.filter(b => b.isObservable());
+                if (observableBranches.length === 0) return 0;
+
+                const totalSurvivors = observableBranches.reduce((sum, b) => sum + b.survivors, 0);
+                return totalSurvivors / observableBranches.length;
+            }
+
+            getDistribution() {
+                const distribution = new Array(this.numPlayers + 1).fill(0);
+
+                for (const branch of this.leafBranches) {
+                    distribution[branch.survivors]++;
+                }
+
+                // Normalize to percentages
+                const total = this.leafBranches.length;
+                return distribution.map(count => (count / total) * 100);
+            }
+
+            selectRandomSurvivorBranch() {
+                const observableBranches = this.leafBranches.filter(b => b.isObservable());
+                if (observableBranches.length === 0) return null;
+
+                const randomIndex = Math.floor(Math.random() * observableBranches.length);
+                this.selectedBranch = observableBranches[randomIndex];
+                return this.selectedBranch;
+            }
+
+            getJeffreyCenter() {
+                // Find branches closest to Jeffrey's expectation
+                const jeffreyExp = this.calculateJeffreyExpectation();
+                const centerBranches = this.leafBranches.filter(b =>
+                    Math.abs(b.survivors - jeffreyExp) <= 0.5
+                );
+                return centerBranches;
+            }
+        }
+
+        // ============================================================================
+        // RENDERING ENGINE
+        // ============================================================================
+
+        class GameRenderer {
+            constructor(canvas, game) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.game = game;
+
+                // Camera/viewport
+                this.camera = {
+                    x: 0,
+                    y: 0,
+                    zoom: 1,
+                    targetZoom: 1
+                };
+
+                // Interaction
+                this.isDragging = false;
+                this.dragStart = { x: 0, y: 0 };
+                this.lastMouse = { x: 0, y: 0 };
+
+                // Animation
+                this.animationTime = 0;
+                this.particles = [];
+
+                // Filter mode
+                this.filterMode = 'all';
+
+                this.resizeCanvas();
+                this.setupEventListeners();
+                this.layoutTree();
+            }
+
+            resizeCanvas() {
+                const container = this.canvas.parentElement;
+                this.canvas.width = container.clientWidth;
+                this.canvas.height = container.clientHeight;
+                this.centerCamera();
+            }
+
+            centerCamera() {
+                this.camera.x = this.canvas.width / 2;
+                this.camera.y = 100;
+            }
+
+            setupEventListeners() {
+                // Mouse drag
+                this.canvas.addEventListener('mousedown', (e) => {
+                    this.isDragging = true;
+                    this.dragStart = { x: e.clientX - this.camera.x, y: e.clientY - this.camera.y };
+                });
+
+                this.canvas.addEventListener('mousemove', (e) => {
+                    this.lastMouse = { x: e.clientX, y: e.clientY };
+
+                    if (this.isDragging) {
+                        this.camera.x = e.clientX - this.dragStart.x;
+                        this.camera.y = e.clientY - this.dragStart.y;
+                    }
+
+                    this.updateTooltip(e);
+                });
+
+                this.canvas.addEventListener('mouseup', () => {
+                    this.isDragging = false;
+                });
+
+                this.canvas.addEventListener('mouseleave', () => {
+                    this.isDragging = false;
+                    this.hideTooltip();
+                });
+
+                // Mouse wheel zoom
+                this.canvas.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                    this.camera.targetZoom = Math.max(0.1, Math.min(3, this.camera.zoom * zoomFactor));
+                });
+
+                // Window resize
+                window.addEventListener('resize', () => this.resizeCanvas());
+            }
+
+            layoutTree() {
+                // Reingold-Tilford algorithm for tree layout
+                this.assignTreePositions(this.game.root, 0, 0);
+            }
+
+            assignTreePositions(node, depth, offset) {
+                const levelHeight = 100;
+                const baseWidth = 80;
+
+                node.targetPosition = {
+                    x: offset,
+                    y: depth * levelHeight
+                };
+
+                // Initialize position on first layout
+                if (node.position.x === 0 && node.position.y === 0 && depth === 0) {
+                    node.position = { ...node.targetPosition };
+                }
+
+                if (!node.childBranches || node.childBranches.length === 0) {
+                    return 1; // Width of this subtree
+                }
+
+                // Layout children
+                const numChildren = node.childBranches.length;
+                const childWidth = baseWidth / Math.pow(1.5, depth);
+                let currentOffset = offset - (numChildren * childWidth) / 2;
+
+                for (const child of node.childBranches) {
+                    const width = this.assignTreePositions(child, depth + 1, currentOffset + childWidth / 2);
+                    currentOffset += childWidth;
+                }
+
+                return numChildren * childWidth;
+            }
+
+            shouldDrawBranch(branch) {
+                switch (this.filterMode) {
+                    case 'all':
+                        return true;
+                    case 'medium':
+                        return branch.survivors >= 3;
+                    case 'lucky':
+                        return branch.survivors >= 5;
+                    case 'observable':
+                        return branch.survivors >= 1;
+                    default:
+                        return true;
+                }
+            }
+
+            getVisibleBranches() {
+                return this.game.leafBranches.filter(b => this.shouldDrawBranch(b));
+            }
+
+            worldToScreen(worldX, worldY) {
+                return {
+                    x: (worldX * this.camera.zoom) + this.camera.x,
+                    y: (worldY * this.camera.zoom) + this.camera.y
+                };
+            }
+
+            screenToWorld(screenX, screenY) {
+                return {
+                    x: (screenX - this.camera.x) / this.camera.zoom,
+                    y: (screenY - this.camera.y) / this.camera.zoom
+                };
+            }
+
+            animate(deltaTime) {
+                // Smooth zoom
+                this.camera.zoom += (this.camera.targetZoom - this.camera.zoom) * 0.1;
+
+                // Animate bubble positions
+                for (const branch of this.game.allBranches) {
+                    const dx = branch.targetPosition.x - branch.position.x;
+                    const dy = branch.targetPosition.y - branch.position.y;
+
+                    branch.position.x += dx * 0.15;
+                    branch.position.y += dy * 0.15;
+                }
+
+                // Update particles
+                this.animationTime += deltaTime;
+                this.particles = this.particles.filter(p => {
+                    p.life -= deltaTime;
+                    p.x += p.vx * deltaTime;
+                    p.y += p.vy * deltaTime;
+                    p.vy += 0.0005 * deltaTime; // Gravity
+                    return p.life > 0;
+                });
+            }
+
+            createBranchParticles(branch) {
+                const pos = this.worldToScreen(branch.position.x, branch.position.y);
+                const numParticles = 10;
+
+                for (let i = 0; i < numParticles; i++) {
+                    const angle = (Math.PI * 2 * i) / numParticles;
+                    const speed = 0.2 + Math.random() * 0.3;
+
+                    this.particles.push({
+                        x: pos.x,
+                        y: pos.y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        life: 1000,
+                        color: branch.getColor(),
+                        size: 3
+                    });
+                }
+            }
+
+            render() {
+                const ctx = this.ctx;
+                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Draw background grid
+                this.drawGrid();
+
+                // Draw connections first (behind bubbles)
+                this.drawConnections();
+
+                // Draw bubbles
+                this.drawBubbles();
+
+                // Draw particles
+                this.drawParticles();
+            }
+
+            drawGrid() {
+                const ctx = this.ctx;
+                const gridSize = 50 * this.camera.zoom;
+
+                ctx.strokeStyle = 'rgba(79, 172, 254, 0.05)';
+                ctx.lineWidth = 1;
+
+                // Vertical lines
+                const startX = (-this.camera.x % gridSize);
+                for (let x = startX; x < this.canvas.width; x += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, this.canvas.height);
+                    ctx.stroke();
+                }
+
+                // Horizontal lines
+                const startY = (-this.camera.y % gridSize);
+                for (let y = startY; y < this.canvas.height; y += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(this.canvas.width, y);
+                    ctx.stroke();
+                }
+            }
+
+            drawConnections() {
+                const ctx = this.ctx;
+
+                for (const branch of this.game.allBranches) {
+                    if (!branch.parentBranch || !this.shouldDrawBranch(branch)) continue;
+
+                    const parentPos = this.worldToScreen(
+                        branch.parentBranch.position.x,
+                        branch.parentBranch.position.y
+                    );
+                    const childPos = this.worldToScreen(
+                        branch.position.x,
+                        branch.position.y
+                    );
+
+                    ctx.strokeStyle = branch.isObservable()
+                        ? 'rgba(79, 172, 254, 0.2)'
+                        : 'rgba(244, 92, 67, 0.1)';
+                    ctx.lineWidth = 2 * this.camera.zoom;
+
+                    ctx.beginPath();
+                    ctx.moveTo(parentPos.x, parentPos.y);
+                    ctx.lineTo(childPos.x, childPos.y);
+                    ctx.stroke();
+                }
+            }
+
+            drawBubbles() {
+                const ctx = this.ctx;
+                const jeffreyBranches = this.game.highlightJeffrey ? this.game.getJeffreyCenter() : [];
+
+                for (const branch of this.game.allBranches) {
+                    if (!this.shouldDrawBranch(branch)) continue;
+
+                    const pos = this.worldToScreen(branch.position.x, branch.position.y);
+                    const radius = branch.getRadius() * this.camera.zoom;
+
+                    // Check if this is a special branch
+                    const isSelected = this.game.selectedBranch === branch;
+                    const isJeffreyCenter = jeffreyBranches.includes(branch);
+
+                    // Draw glow for special branches
+                    if (isSelected || isJeffreyCenter) {
+                        const glowColor = isSelected ? '#ffd700' : '#4facfe';
+                        const glowRadius = radius + 10;
+
+                        const gradient = ctx.createRadialGradient(pos.x, pos.y, radius, pos.x, pos.y, glowRadius);
+                        gradient.addColorStop(0, glowColor + '00');
+                        gradient.addColorStop(0.5, glowColor + '40');
+                        gradient.addColorStop(1, glowColor + '00');
+
+                        ctx.fillStyle = gradient;
+                        ctx.beginPath();
+                        ctx.arc(pos.x, pos.y, glowRadius, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    // Draw bubble
+                    const color = branch.getColor();
+                    const gradient = ctx.createRadialGradient(
+                        pos.x - radius * 0.3,
+                        pos.y - radius * 0.3,
+                        radius * 0.1,
+                        pos.x,
+                        pos.y,
+                        radius
+                    );
+
+                    gradient.addColorStop(0, this.lightenColor(color, 40));
+                    gradient.addColorStop(1, color);
+
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Draw border
+                    ctx.strokeStyle = isSelected ? '#ffd700' : (isJeffreyCenter ? '#4facfe' : 'rgba(255, 255, 255, 0.3)');
+                    ctx.lineWidth = isSelected || isJeffreyCenter ? 3 : 1.5;
+                    ctx.stroke();
+
+                    // Draw survivor count
+                    if (radius > 10) {
+                        ctx.fillStyle = 'white';
+                        ctx.font = `bold ${Math.max(10, radius * 0.6)}px Arial`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(branch.survivors, pos.x, pos.y);
+                    }
+                }
+            }
+
+            drawParticles() {
+                const ctx = this.ctx;
+
+                for (const particle of this.particles) {
+                    const alpha = particle.life / 1000;
+                    ctx.fillStyle = particle.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
+
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            lightenColor(color, amount) {
+                // Simple color lightening
+                const rgba = color.match(/\d+/g);
+                if (!rgba) return color;
+
+                const r = Math.min(255, parseInt(rgba[0]) + amount);
+                const g = Math.min(255, parseInt(rgba[1]) + amount);
+                const b = Math.min(255, parseInt(rgba[2]) + amount);
+
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+
+            updateTooltip(e) {
+                const worldPos = this.screenToWorld(e.clientX, e.clientY);
+                let hoveredBranch = null;
+
+                // Find closest branch to mouse
+                for (const branch of this.game.allBranches) {
+                    if (!this.shouldDrawBranch(branch)) continue;
+
+                    const dx = branch.position.x - worldPos.x;
+                    const dy = branch.position.y - worldPos.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < branch.getRadius()) {
+                        hoveredBranch = branch;
+                        break;
+                    }
+                }
+
+                const tooltip = document.getElementById('tooltip');
+
+                if (hoveredBranch) {
+                    const aliveCount = hoveredBranch.players.filter(p => p).length;
+                    const deadCount = hoveredBranch.players.length - aliveCount;
+
+                    tooltip.innerHTML = `
+                        <strong>Round ${hoveredBranch.round}</strong><br>
+                        🟢 Alive: ${aliveCount}<br>
+                        🔴 Dead: ${deadCount}<br>
+                        📊 Probability: ${(hoveredBranch.probability * 100).toFixed(4)}%
+                    `;
+                    tooltip.style.left = (e.clientX + 15) + 'px';
+                    tooltip.style.top = (e.clientY + 15) + 'px';
+                    tooltip.style.opacity = '1';
+                } else {
+                    tooltip.style.opacity = '0';
+                }
+            }
+
+            hideTooltip() {
+                document.getElementById('tooltip').style.opacity = '0';
+            }
+
+            zoom(factor) {
+                this.camera.targetZoom = Math.max(0.1, Math.min(3, this.camera.zoom * factor));
+            }
+
+            resetView() {
+                this.camera.targetZoom = 1;
+                this.centerCamera();
+            }
+        }
+
+        // ============================================================================
+        // UI CONTROLLER
+        // ============================================================================
+
+        class UIController {
+            constructor(game, renderer) {
+                this.game = game;
+                this.renderer = renderer;
+                this.setupControls();
+                this.updateUI();
+            }
+
+            setupControls() {
+                document.getElementById('startBtn').addEventListener('click', () => this.startGame());
+                document.getElementById('nextBtn').addEventListener('click', () => this.fireRound());
+                document.getElementById('resetBtn').addEventListener('click', () => this.reset());
+                document.getElementById('survivorModeBtn').addEventListener('click', () => this.enterSurvivorMode());
+                document.getElementById('highlightJeffreyBtn').addEventListener('click', () => this.toggleHighlightJeffrey());
+
+                // Zoom controls
+                document.getElementById('zoomInBtn').addEventListener('click', () => this.renderer.zoom(1.2));
+                document.getElementById('zoomOutBtn').addEventListener('click', () => this.renderer.zoom(0.8));
+                document.getElementById('resetViewBtn').addEventListener('click', () => this.renderer.resetView());
+
+                // Filter controls
+                document.querySelectorAll('input[name="filter"]').forEach(radio => {
+                    radio.addEventListener('change', (e) => {
+                        this.renderer.filterMode = e.target.value;
+                        this.updateUI();
+                    });
+                });
+            }
+
+            startGame() {
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('nextBtn').disabled = false;
+                document.getElementById('survivorModeBtn').disabled = false;
+                document.getElementById('highlightJeffreyBtn').disabled = false;
+                this.updateUI();
+            }
+
+            fireRound() {
+                const success = this.game.fireRound();
+
+                if (success) {
+                    // Create particles for new branches
+                    const newBranches = this.game.leafBranches.slice(-Math.pow(2, this.game.numPlayers));
+                    for (const branch of newBranches) {
+                        if (this.renderer.shouldDrawBranch(branch)) {
+                            this.renderer.createBranchParticles(branch);
+                        }
+                    }
+
+                    this.renderer.layoutTree();
+                    this.updateUI();
+
+                    if (this.game.currentRound >= this.game.maxRounds) {
+                        document.getElementById('nextBtn').disabled = true;
+                    }
+                } else {
+                    document.getElementById('nextBtn').disabled = true;
+                }
+            }
+
+            reset() {
+                this.game.reset();
+                this.renderer.layoutTree();
+                this.renderer.resetView();
+
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('nextBtn').disabled = true;
+                document.getElementById('survivorModeBtn').disabled = true;
+                document.getElementById('highlightJeffreyBtn').disabled = true;
+
+                this.updateUI();
+            }
+
+            enterSurvivorMode() {
+                this.game.selectRandomSurvivorBranch();
+                this.updateUI();
+            }
+
+            toggleHighlightJeffrey() {
+                this.game.highlightJeffrey = !this.game.highlightJeffrey;
+                const btn = document.getElementById('highlightJeffreyBtn');
+                btn.textContent = this.game.highlightJeffrey ? '💡 Clear Highlight' : '💡 Highlight Jeffrey';
+                this.updateUI();
+            }
+
+            updateUI() {
+                // Update info bar
+                document.getElementById('roundDisplay').textContent =
+                    `${this.game.currentRound}/${this.game.maxRounds}`;
+                document.getElementById('branchesDisplay').textContent =
+                    this.game.leafBranches.length.toLocaleString();
+                document.getElementById('visibleBranchesDisplay').textContent =
+                    this.renderer.getVisibleBranches().length.toLocaleString();
+
+                // Update expectations
+                const jeffreyExp = this.game.calculateJeffreyExpectation();
+                const survivorExp = this.game.calculateSurvivorExpectation();
+                const delta = survivorExp - jeffreyExp;
+                const deltaPercent = jeffreyExp > 0 ? (delta / jeffreyExp * 100) : 0;
+
+                document.getElementById('jeffreyExpectation').textContent = jeffreyExp.toFixed(2);
+                document.getElementById('survivorExpectation').textContent = survivorExp.toFixed(2);
+                document.getElementById('deltaValue').textContent =
+                    (delta >= 0 ? '+' : '') + delta.toFixed(2);
+                document.getElementById('deltaPercent').textContent =
+                    deltaPercent.toFixed(1) + '%';
+
+                // Update distribution
+                this.updateDistribution();
+            }
+
+            updateDistribution() {
+                const distribution = this.game.getDistribution();
+                const jeffreyExp = this.game.calculateJeffreyExpectation();
+                const container = document.getElementById('distributionBars');
+
+                container.innerHTML = '';
+
+                for (let i = 0; i <= this.game.numPlayers; i++) {
+                    const percent = distribution[i];
+                    if (percent < 0.01) continue; // Skip very small bars
+
+                    const barDiv = document.createElement('div');
+                    barDiv.className = 'distribution-bar';
+
+                    const isJeffreyCenter = Math.abs(i - jeffreyExp) <= 0.5;
+
+                    barDiv.innerHTML = `
+                        <div class="distribution-label">
+                            <span>${i} survivor${i !== 1 ? 's' : ''} ${isJeffreyCenter ? '⭐' : ''}</span>
+                            <span>${percent.toFixed(2)}%</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill ${isJeffreyCenter ? 'bar-jeffrey' : ''}"
+                                 style="width: ${percent}%">
+                                ${percent > 5 ? percent.toFixed(1) + '%' : ''}
+                            </div>
+                        </div>
+                    `;
+
+                    container.appendChild(barDiv);
+                }
+            }
+        }
+
+        // ============================================================================
+        // MAIN GAME LOOP
+        // ============================================================================
+
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.gameTree = new GameTree(6, 10);
+                this.renderer = new GameRenderer(this.canvas, this.gameTree);
+                this.uiController = new UIController(this.gameTree, this.renderer);
+
+                this.lastTime = performance.now();
+                this.running = true;
+
+                this.gameLoop();
+            }
+
+            gameLoop() {
+                if (!this.running) return;
+
+                const currentTime = performance.now();
+                const deltaTime = currentTime - this.lastTime;
+                this.lastTime = currentTime;
+
+                this.renderer.animate(deltaTime);
+                this.renderer.render();
+
+                requestAnimationFrame(() => this.gameLoop());
+            }
+        }
+
+        // Start the game when page loads
+        window.addEventListener('load', () => {
+            new Game();
+        });
+    </script>
+</body>
+</html>
