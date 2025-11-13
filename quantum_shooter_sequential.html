@@ -103,7 +103,11 @@
             background: rgba(255, 255, 255, 0.05);
             border-radius: 10px;
             flex: 1;
-            cursor: pointer;
+            cursor: grab;
+        }
+
+        canvas:active {
+            cursor: grabbing;
         }
 
         .stats-panel {
@@ -287,6 +291,9 @@
                     <button id="autoPlayBtn" class="toggle-btn">🤖 Auto-Play</button>
                     <button id="yourBranchBtn" class="toggle-btn">👤 Your Branch Only</button>
                     <button id="jeffreyHighlightBtn" class="toggle-btn">📊 Highlight Jeffrey Center</button>
+                    <button id="zoomInBtn">🔍+ Zoom In</button>
+                    <button id="zoomOutBtn">🔍- Zoom Out</button>
+                    <button id="fitViewBtn">📐 Fit View</button>
                 </div>
                 <div class="status">
                     <div class="status-item">
@@ -301,6 +308,7 @@
                 <div class="instructions">
                     <div class="instructions-title">How to Play:</div>
                     👆 Click on the current player's bubble to fire their gun<br>
+                    🖱️ Drag to pan, scroll wheel to zoom<br>
                     🌳 Watch the quantum tree grow with each decision<br>
                     ⭐ Golden bubbles show branches where YOU survived
                 </div>
@@ -536,10 +544,15 @@
                 this.canvas = canvas;
                 this.ctx = canvas.getContext('2d');
                 this.camera = { x: 0, y: 0, scale: 1 };
-                this.bubbleRadius = 40;
-                this.verticalSpacing = 80;
+                this.bubbleRadius = 35;
+                this.verticalSpacing = 70;
+                this.horizontalSpacing = 120; // Fixed horizontal spacing
                 this.animations = [];
                 this.hoveredBubble = null;
+                this.isPanning = false;
+                this.lastPanX = 0;
+                this.lastPanY = 0;
+                this.contentBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
 
                 this.resizeCanvas();
                 window.addEventListener('resize', () => this.resizeCanvas());
@@ -557,54 +570,78 @@
             layoutBranches(branches, currentDepth) {
                 if (branches.length === 0) return;
 
-                const totalDepth = currentDepth;
-                const branchWidth = Math.max(150, 800 / Math.pow(2, totalDepth));
-                const totalWidth = branches.length * branchWidth;
-
-                // Center the tree
-                const startX = (this.canvas.width - totalWidth) / 2;
+                // Use fixed spacing regardless of depth - this is the key fix
+                const spacing = this.horizontalSpacing;
+                const startX = 0;
                 const startY = 100;
 
                 branches.forEach((branch, index) => {
-                    branch.x = startX + (index * branchWidth) + branchWidth / 2;
-                    branch.y = startY + (totalDepth * this.verticalSpacing * 6);
+                    // Simple horizontal layout - each branch gets equal spacing
+                    branch.x = startX + (index * spacing);
+                    branch.y = startY;
 
-                    // Layout individual players in this branch
+                    // Layout individual players in this branch (vertical stack)
                     branch.players.forEach((player, pIndex) => {
                         player.visualX = branch.x;
                         player.visualY = branch.y + (pIndex * this.verticalSpacing);
                     });
                 });
 
-                // Auto-adjust camera to fit all branches
-                this.autoFitCamera(branches);
+                // Calculate content bounds
+                this.calculateContentBounds(branches);
             }
 
-            autoFitCamera(branches) {
+            calculateContentBounds(branches) {
                 if (branches.length === 0) return;
 
                 let minX = Infinity, maxX = -Infinity;
                 let minY = Infinity, maxY = -Infinity;
 
                 branches.forEach(branch => {
-                    minX = Math.min(minX, branch.x - this.bubbleRadius);
-                    maxX = Math.max(maxX, branch.x + this.bubbleRadius);
                     branch.players.forEach(player => {
+                        minX = Math.min(minX, player.visualX - this.bubbleRadius);
+                        maxX = Math.max(maxX, player.visualX + this.bubbleRadius);
                         minY = Math.min(minY, player.visualY - this.bubbleRadius);
                         maxY = Math.max(maxY, player.visualY + this.bubbleRadius);
                     });
                 });
 
+                this.contentBounds = { minX, maxX, minY, maxY };
+            }
+
+            autoFitCamera(branches) {
+                if (branches.length === 0) return;
+
                 const padding = 50;
-                const contentWidth = maxX - minX + padding * 2;
-                const contentHeight = maxY - minY + padding * 2;
+                const contentWidth = this.contentBounds.maxX - this.contentBounds.minX + padding * 2;
+                const contentHeight = this.contentBounds.maxY - this.contentBounds.minY + padding * 2;
 
                 const scaleX = this.canvas.width / contentWidth;
                 const scaleY = this.canvas.height / contentHeight;
                 this.camera.scale = Math.min(scaleX, scaleY, 1);
 
-                this.camera.x = (this.canvas.width / this.camera.scale - (maxX + minX)) / 2;
-                this.camera.y = (this.canvas.height / this.camera.scale - (maxY + minY)) / 2;
+                // Center the content
+                const centerX = (this.contentBounds.minX + this.contentBounds.maxX) / 2;
+                const centerY = (this.contentBounds.minY + this.contentBounds.maxY) / 2;
+
+                this.camera.x = this.canvas.width / 2 - centerX * this.camera.scale;
+                this.camera.y = this.canvas.height / 2 - centerY * this.camera.scale;
+            }
+
+            zoom(delta, centerX = this.canvas.width / 2, centerY = this.canvas.height / 2) {
+                const oldScale = this.camera.scale;
+                const zoomFactor = delta > 0 ? 1.1 : 0.9;
+                this.camera.scale = Math.max(0.1, Math.min(5, this.camera.scale * zoomFactor));
+
+                // Zoom towards the cursor/center point
+                const scaleChange = this.camera.scale - oldScale;
+                this.camera.x -= (centerX - this.camera.x) * (scaleChange / oldScale);
+                this.camera.y -= (centerY - this.camera.y) * (scaleChange / oldScale);
+            }
+
+            pan(dx, dy) {
+                this.camera.x += dx;
+                this.camera.y += dy;
             }
 
             drawConnections(branches) {
@@ -725,6 +762,18 @@
                     this.drawProbability(branch, branch.x, branch.y);
                 });
 
+                this.ctx.restore();
+
+                // Draw zoom level indicator
+                this.drawZoomIndicator();
+            }
+
+            drawZoomIndicator() {
+                this.ctx.save();
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                this.ctx.font = '12px Arial';
+                this.ctx.textAlign = 'right';
+                this.ctx.fillText(`Zoom: ${(this.camera.scale * 100).toFixed(0)}%`, this.canvas.width - 10, this.canvas.height - 10);
                 this.ctx.restore();
             }
 
@@ -870,24 +919,24 @@
 
                 this.setupControls();
                 this.setupCanvasInteraction();
-                this.render();
+                this.render(true); // Initial render with auto-fit
             }
 
             setupControls() {
                 document.getElementById('startBtn').addEventListener('click', () => {
                     this.gameState.startGame();
-                    this.render();
+                    this.render(true);
                 });
 
                 document.getElementById('resetBtn').addEventListener('click', () => {
                     this.gameState.initGame();
                     this.stopAutoPlay();
-                    this.render();
+                    this.render(true);
                 });
 
                 document.getElementById('undoBtn').addEventListener('click', () => {
                     if (this.gameState.undo()) {
-                        this.render();
+                        this.render(true);
                     }
                 });
 
@@ -915,7 +964,10 @@
             }
 
             setupCanvasInteraction() {
+                // Click handler
                 this.canvas.addEventListener('click', (e) => {
+                    if (this.renderer.isPanning) return; // Ignore clicks during pan
+
                     const rect = this.canvas.getBoundingClientRect();
                     const screenX = e.clientX - rect.left;
                     const screenY = e.clientY - rect.top;
@@ -925,23 +977,83 @@
 
                     if (hit && hit.player.id === this.gameState.currentPlayer && !hit.player.fired) {
                         this.gameState.fireCurrent();
-                        this.render();
+                        this.render(true); // Auto-fit after firing
                     }
                 });
 
+                // Mouse move handler
                 this.canvas.addEventListener('mousemove', (e) => {
                     const rect = this.canvas.getBoundingClientRect();
                     const screenX = e.clientX - rect.left;
                     const screenY = e.clientY - rect.top;
-                    const world = this.renderer.screenToWorld(screenX, screenY);
 
+                    // Handle panning
+                    if (this.renderer.isPanning) {
+                        const dx = screenX - this.renderer.lastPanX;
+                        const dy = screenY - this.renderer.lastPanY;
+                        this.renderer.pan(dx, dy);
+                        this.renderer.lastPanX = screenX;
+                        this.renderer.lastPanY = screenY;
+                        this.render();
+                        return;
+                    }
+
+                    // Update cursor
+                    const world = this.renderer.screenToWorld(screenX, screenY);
                     const hit = this.renderer.findBubbleAtPosition(this.gameState.branches, world.x, world.y);
 
                     if (hit && hit.player.id === this.gameState.currentPlayer && !hit.player.fired) {
                         this.canvas.style.cursor = 'pointer';
                     } else {
-                        this.canvas.style.cursor = 'default';
+                        this.canvas.style.cursor = 'grab';
                     }
+                });
+
+                // Mouse down - start panning
+                this.canvas.addEventListener('mousedown', (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    this.renderer.isPanning = true;
+                    this.renderer.lastPanX = e.clientX - rect.left;
+                    this.renderer.lastPanY = e.clientY - rect.top;
+                    this.canvas.style.cursor = 'grabbing';
+                });
+
+                // Mouse up - stop panning
+                this.canvas.addEventListener('mouseup', () => {
+                    this.renderer.isPanning = false;
+                    this.canvas.style.cursor = 'grab';
+                });
+
+                // Mouse leave - stop panning
+                this.canvas.addEventListener('mouseleave', () => {
+                    this.renderer.isPanning = false;
+                    this.canvas.style.cursor = 'default';
+                });
+
+                // Wheel - zoom
+                this.canvas.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const rect = this.canvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+                    this.renderer.zoom(-e.deltaY, mouseX, mouseY);
+                    this.render();
+                }, { passive: false });
+
+                // Zoom buttons
+                document.getElementById('zoomInBtn').addEventListener('click', () => {
+                    this.renderer.zoom(1);
+                    this.render();
+                });
+
+                document.getElementById('zoomOutBtn').addEventListener('click', () => {
+                    this.renderer.zoom(-1);
+                    this.render();
+                });
+
+                document.getElementById('fitViewBtn').addEventListener('click', () => {
+                    this.renderer.autoFitCamera(this.gameState.branches);
+                    this.render();
                 });
             }
 
@@ -957,7 +1069,7 @@
                         return;
                     }
                     this.gameState.fireCurrent();
-                    this.render();
+                    this.render(true); // Auto-fit during autoplay
                 }, 800);
             }
 
@@ -968,9 +1080,14 @@
                 }
             }
 
-            render() {
+            render(autoFit = false) {
                 this.renderer.render(this.gameState, this.filters);
                 this.statsUpdater.updateAll(this.gameState);
+
+                // Auto-fit view if requested
+                if (autoFit) {
+                    this.renderer.autoFitCamera(this.gameState.branches);
+                }
 
                 // Update undo button state
                 document.getElementById('undoBtn').disabled = this.gameState.history.length === 0;
