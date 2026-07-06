@@ -1,6 +1,10 @@
 package com.em87.weirdclock
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.os.Bundle
+import android.provider.AlarmClock
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
@@ -33,9 +37,19 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         override fun onPreferenceTreeClick(preference: Preference): Boolean {
-            if (preference.key == Prefs.TEST_BELLS) {
-                chimePlayer.playBellSequence(3, pairGrouping = false)
-                return true
+            when (preference.key) {
+                Prefs.TEST_BELLS -> {
+                    chimePlayer.playBellSequence(3, pairGrouping = false)
+                    return true
+                }
+                Prefs.SET_ALARM -> {
+                    try {
+                        startActivity(Intent(AlarmClock.ACTION_SET_ALARM))
+                    } catch (e: ActivityNotFoundException) {
+                        Toast.makeText(requireContext(), R.string.no_alarm_app, Toast.LENGTH_SHORT).show()
+                    }
+                    return true
+                }
             }
             return super.onPreferenceTreeClick(preference)
         }

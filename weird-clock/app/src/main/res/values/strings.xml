@@ -2,20 +2,32 @@
 <resources>
     <string name="app_name">Weird Clock</string>
     <string name="settings_title">Settings</string>
+    <string name="widget_description">Weird Clock on your home screen</string>
+    <string name="no_alarm_app">No clock app found on this device</string>
 
     <string name="category_dial">Dial</string>
+    <string name="pref_theme_title">Theme</string>
     <string name="pref_24h_title">24-hour dial</string>
     <string name="pref_24h_summary">One revolution of the hour hand per day, midnight at the top</string>
     <string name="pref_numerals_title">Numerals</string>
     <string name="pref_mirror_title">Mirror mode</string>
     <string name="pref_mirror_summary">The clock runs counterclockwise, as seen in a mirror</string>
+    <string name="pref_show_date_title">Show date</string>
+    <string name="pref_show_date_summary">A date complication on the dial</string>
+    <string name="pref_date_format_title">Date format</string>
 
     <string name="category_hands">Hands</string>
     <string name="pref_second_hand_title">Second hand</string>
     <string name="pref_smooth_title">Smooth sweep</string>
     <string name="pref_smooth_summary">Glide continuously instead of ticking once per second</string>
-    <string name="pref_decimal_title">Decimal time hand</string>
-    <string name="pref_decimal_summary">French Revolutionary time: 10 hours per day, 100 minutes per hour, 100 seconds per minute</string>
+    <string name="pref_decimal_title">Decimal time hands</string>
+    <string name="pref_decimal_summary">French Revolutionary time: 10 hours per day, 100 minutes per hour, 100 seconds per minute. The long hand covers the whole day; the short one spins once per decimal minute.</string>
+
+    <string name="category_touch">Touch</string>
+    <string name="pref_touch_hands_title">Grab the hands</string>
+    <string name="pref_touch_hands_summary">Drag any hand with your finger; it springs back into place when released</string>
+    <string name="pref_pinch_zoom_title">Pinch to resize</string>
+    <string name="pref_pinch_zoom_summary">Pinch to shrink or grow the dial; double-tap to reset</string>
 
     <string name="category_sounds">Sounds</string>
     <string name="pref_bells_title">Hourly bells</string>
@@ -27,4 +39,8 @@
     <string name="pref_ticking_summary">A mechanical tick every second</string>
     <string name="pref_test_bells_title">Test the bells</string>
     <string name="pref_test_bells_summary">Strike three bells now</string>
+
+    <string name="category_alarms">Alarms</string>
+    <string name="pref_set_alarm_title">Set an alarm</string>
+    <string name="pref_set_alarm_summary">Opens your system clock’s new-alarm screen</string>
 </resources>

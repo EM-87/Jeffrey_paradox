@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="300dp"
+    android:height="300dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Face -->
+    <path
+        android:fillColor="#1B1E28"
+        android:pathData="M24,1a23,23 0 1,1 0,46a23,23 0 1,1 0,-46z" />
+    <!-- Rim -->
+    <path
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="1.6"
+        android:pathData="M24,2a22,22 0 1,1 0,44a22,22 0 1,1 0,-44z" />
+    <!-- Hour ticks -->
+    <path
+        android:strokeColor="#E8E8E8"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round"
+        android:pathData="M24,3L24,6 M34.5,5.81L33,8.41 M42.19,13.5L39.59,15 M45,24L42,24 M42.19,34.5L39.59,33 M34.5,42.19L33,39.59 M24,45L24,42 M13.5,42.19L15,39.59 M5.81,34.5L8.41,33 M3,24L6,24 M5.81,13.5L8.41,15 M13.5,5.81L15,8.41" />
+</vector>

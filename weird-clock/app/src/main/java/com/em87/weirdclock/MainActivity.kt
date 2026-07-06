@@ -53,6 +53,9 @@ class MainActivity : AppCompatActivity() {
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
         clockView = findViewById(R.id.clock_view)
+        clockView.onDialScaleChanged = { scale ->
+            prefs.edit().putFloat(Prefs.DIAL_SCALE, scale).apply()
+        }
         findViewById<ImageButton>(R.id.settings_button).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
@@ -89,6 +92,16 @@ class MainActivity : AppCompatActivity() {
             Prefs.NUMERALS_ROMAN -> ClockView.NumeralStyle.ROMAN
             else -> ClockView.NumeralStyle.ARABIC
         }
+        clockView.theme = ClockThemes.byKey(prefs.getString(Prefs.THEME, "midnight"))
+        clockView.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
+        clockView.dateFormatStyle = when (prefs.getString(Prefs.DATE_FORMAT, Prefs.DATE_FORMAT_NUMBER)) {
+            Prefs.DATE_FORMAT_TEXT -> ClockView.DateFormatStyle.TEXT
+            Prefs.DATE_FORMAT_ROMAN -> ClockView.DateFormatStyle.ROMAN
+            else -> ClockView.DateFormatStyle.NUMBER
+        }
+        clockView.touchHandsEnabled = prefs.getBoolean(Prefs.TOUCH_HANDS, true)
+        clockView.pinchZoomEnabled = prefs.getBoolean(Prefs.PINCH_ZOOM, true)
+        clockView.dialScale = prefs.getFloat(Prefs.DIAL_SCALE, 1f)
 
         bellsEnabled = prefs.getBoolean(Prefs.BELLS, false)
         bellStyle = prefs.getString(Prefs.BELL_STYLE, Prefs.BELL_STYLE_COUNT) ?: Prefs.BELL_STYLE_COUNT

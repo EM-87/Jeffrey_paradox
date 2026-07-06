@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="theme_entries">
+        <item>Medianoche</item>
+        <item>Marfil clásico</item>
+        <item>Neón</item>
+        <item>Verde terminal</item>
+        <item>Atardecer</item>
+    </string-array>
+
+    <string-array name="numeral_entries">
+        <item>Ninguna</item>
+        <item>Arábiga (1, 2, 3…)</item>
+        <item>Romana (I, II, III…)</item>
+    </string-array>
+
+    <string-array name="date_format_entries">
+        <item>Números (06/07/2026)</item>
+        <item>Texto (lun 6 jul)</item>
+        <item>Romano (VI·VII·MMXXVI)</item>
+    </string-array>
+
+    <string-array name="bell_style_entries">
+        <item>Contar la hora (reloj de abuelo)</item>
+        <item>Campana de barco (guardias náuticas)</item>
+        <item>Campanada única</item>
+    </string-array>
+</resources>

@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string-array name="theme_entries">
+        <item>Midnight</item>
+        <item>Classic ivory</item>
+        <item>Neon</item>
+        <item>Terminal green</item>
+        <item>Sunset</item>
+    </string-array>
+    <string-array name="theme_values">
+        <item>midnight</item>
+        <item>ivory</item>
+        <item>neon</item>
+        <item>terminal</item>
+        <item>sunset</item>
+    </string-array>
+
     <string-array name="numeral_entries">
         <item>None</item>
         <item>Arabic (1, 2, 3…)</item>
@@ -8,6 +23,17 @@
     <string-array name="numeral_values">
         <item>none</item>
         <item>arabic</item>
+        <item>roman</item>
+    </string-array>
+
+    <string-array name="date_format_entries">
+        <item>Numbers (06/07/2026)</item>
+        <item>Text (Mon 6 Jul)</item>
+        <item>Roman (VI·VII·MMXXVI)</item>
+    </string-array>
+    <string-array name="date_format_values">
+        <item>number</item>
+        <item>text</item>
         <item>roman</item>
     </string-array>
 

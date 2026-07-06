@@ -4,6 +4,14 @@
 
     <PreferenceCategory android:title="@string/category_dial">
 
+        <ListPreference
+            android:key="pref_theme"
+            android:title="@string/pref_theme_title"
+            android:entries="@array/theme_entries"
+            android:entryValues="@array/theme_values"
+            android:defaultValue="midnight"
+            app:useSimpleSummaryProvider="true" />
+
         <SwitchPreferenceCompat
             android:key="pref_24h_dial"
             android:title="@string/pref_24h_title"
@@ -23,6 +31,21 @@
             android:title="@string/pref_mirror_title"
             android:summary="@string/pref_mirror_summary"
             android:defaultValue="false" />
+
+        <SwitchPreferenceCompat
+            android:key="pref_show_date"
+            android:title="@string/pref_show_date_title"
+            android:summary="@string/pref_show_date_summary"
+            android:defaultValue="false" />
+
+        <ListPreference
+            android:key="pref_date_format"
+            android:title="@string/pref_date_format_title"
+            android:entries="@array/date_format_entries"
+            android:entryValues="@array/date_format_values"
+            android:defaultValue="number"
+            android:dependency="pref_show_date"
+            app:useSimpleSummaryProvider="true" />
 
     </PreferenceCategory>
 
@@ -45,6 +68,22 @@
             android:title="@string/pref_decimal_title"
             android:summary="@string/pref_decimal_summary"
             android:defaultValue="false" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/category_touch">
+
+        <SwitchPreferenceCompat
+            android:key="pref_touch_hands"
+            android:title="@string/pref_touch_hands_title"
+            android:summary="@string/pref_touch_hands_summary"
+            android:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            android:key="pref_pinch_zoom"
+            android:title="@string/pref_pinch_zoom_title"
+            android:summary="@string/pref_pinch_zoom_summary"
+            android:defaultValue="true" />
 
     </PreferenceCategory>
 
@@ -82,6 +121,15 @@
             android:key="pref_test_bells"
             android:title="@string/pref_test_bells_title"
             android:summary="@string/pref_test_bells_summary" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/category_alarms">
+
+        <Preference
+            android:key="pref_set_alarm"
+            android:title="@string/pref_set_alarm_title"
+            android:summary="@string/pref_set_alarm_summary" />
 
     </PreferenceCategory>
 
