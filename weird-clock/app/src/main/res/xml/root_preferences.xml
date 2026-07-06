@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="@string/category_dial">
+
+        <SwitchPreferenceCompat
+            android:key="pref_24h_dial"
+            android:title="@string/pref_24h_title"
+            android:summary="@string/pref_24h_summary"
+            android:defaultValue="false" />
+
+        <ListPreference
+            android:key="pref_numerals"
+            android:title="@string/pref_numerals_title"
+            android:entries="@array/numeral_entries"
+            android:entryValues="@array/numeral_values"
+            android:defaultValue="arabic"
+            app:useSimpleSummaryProvider="true" />
+
+        <SwitchPreferenceCompat
+            android:key="pref_mirror"
+            android:title="@string/pref_mirror_title"
+            android:summary="@string/pref_mirror_summary"
+            android:defaultValue="false" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/category_hands">
+
+        <SwitchPreferenceCompat
+            android:key="pref_second_hand"
+            android:title="@string/pref_second_hand_title"
+            android:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            android:key="pref_smooth_seconds"
+            android:title="@string/pref_smooth_title"
+            android:summary="@string/pref_smooth_summary"
+            android:dependency="pref_second_hand"
+            android:defaultValue="false" />
+
+        <SwitchPreferenceCompat
+            android:key="pref_decimal_hand"
+            android:title="@string/pref_decimal_title"
+            android:summary="@string/pref_decimal_summary"
+            android:defaultValue="false" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/category_sounds">
+
+        <SwitchPreferenceCompat
+            android:key="pref_bells"
+            android:title="@string/pref_bells_title"
+            android:summary="@string/pref_bells_summary"
+            android:defaultValue="false" />
+
+        <ListPreference
+            android:key="pref_bell_style"
+            android:title="@string/pref_bell_style_title"
+            android:entries="@array/bell_style_entries"
+            android:entryValues="@array/bell_style_values"
+            android:defaultValue="count"
+            android:dependency="pref_bells"
+            app:useSimpleSummaryProvider="true" />
+
+        <SwitchPreferenceCompat
+            android:key="pref_half_hour"
+            android:title="@string/pref_half_hour_title"
+            android:summary="@string/pref_half_hour_summary"
+            android:dependency="pref_bells"
+            android:defaultValue="false" />
+
+        <SwitchPreferenceCompat
+            android:key="pref_ticking"
+            android:title="@string/pref_ticking_title"
+            android:summary="@string/pref_ticking_summary"
+            android:defaultValue="false" />
+
+        <Preference
+            android:key="pref_test_bells"
+            android:title="@string/pref_test_bells_title"
+            android:summary="@string/pref_test_bells_summary" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Weird Clock</string>
+    <string name="settings_title">Settings</string>
+
+    <string name="category_dial">Dial</string>
+    <string name="pref_24h_title">24-hour dial</string>
+    <string name="pref_24h_summary">One revolution of the hour hand per day, midnight at the top</string>
+    <string name="pref_numerals_title">Numerals</string>
+    <string name="pref_mirror_title">Mirror mode</string>
+    <string name="pref_mirror_summary">The clock runs counterclockwise, as seen in a mirror</string>
+
+    <string name="category_hands">Hands</string>
+    <string name="pref_second_hand_title">Second hand</string>
+    <string name="pref_smooth_title">Smooth sweep</string>
+    <string name="pref_smooth_summary">Glide continuously instead of ticking once per second</string>
+    <string name="pref_decimal_title">Decimal time hand</string>
+    <string name="pref_decimal_summary">French Revolutionary time: 10 hours per day, 100 minutes per hour, 100 seconds per minute</string>
+
+    <string name="category_sounds">Sounds</string>
+    <string name="pref_bells_title">Hourly bells</string>
+    <string name="pref_bells_summary">Chime on the hour while the app is open</string>
+    <string name="pref_bell_style_title">Bell style</string>
+    <string name="pref_half_hour_title">Half-hour ding</string>
+    <string name="pref_half_hour_summary">A single higher bell at half past (ship’s bell handles this on its own)</string>
+    <string name="pref_ticking_title">Ticking sound</string>
+    <string name="pref_ticking_summary">A mechanical tick every second</string>
+    <string name="pref_test_bells_title">Test the bells</string>
+    <string name="pref_test_bells_summary">Strike three bells now</string>
+</resources>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="numeral_entries">
+        <item>None</item>
+        <item>Arabic (1, 2, 3…)</item>
+        <item>Roman (I, II, III…)</item>
+    </string-array>
+    <string-array name="numeral_values">
+        <item>none</item>
+        <item>arabic</item>
+        <item>roman</item>
+    </string-array>
+
+    <string-array name="bell_style_entries">
+        <item>Count the hour (grandfather clock)</item>
+        <item>Ship’s bell (nautical watches)</item>
+        <item>Single strike</item>
+    </string-array>
+    <string-array name="bell_style_values">
+        <item>count</item>
+        <item>ships</item>
+        <item>single</item>
+    </string-array>
+</resources>
