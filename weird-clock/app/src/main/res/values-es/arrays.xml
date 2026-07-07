@@ -8,6 +8,13 @@
         <item>Atardecer</item>
     </string-array>
 
+    <string-array name="hours_preset_entries">
+        <item>10 horas (día decimal)</item>
+        <item>12 horas (clásica)</item>
+        <item>24 horas (día completo)</item>
+        <item>Personalizado…</item>
+    </string-array>
+
     <string-array name="numeral_entries">
         <item>Ninguna</item>
         <item>Arábiga (1, 2, 3…)</item>
@@ -20,9 +27,15 @@
         <item>Romano (VI·VII·MMXXVI)</item>
     </string-array>
 
+    <string-array name="fast_hand_entries">
+        <item>Ninguna</item>
+        <item>Décimas de segundo (1 vuelta por segundo)</item>
+        <item>Minuto decimal (1 vuelta cada 86,4 s)</item>
+    </string-array>
+
     <string-array name="bell_style_entries">
         <item>Contar la hora (reloj de abuelo)</item>
         <item>Campana de barco (guardias náuticas)</item>
-        <item>Campanada única</item>
+        <item>Campanada única (gong)</item>
     </string-array>
 </resources>

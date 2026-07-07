@@ -11,7 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.PreferenceManager
 import java.util.Calendar
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private lateinit var clockView: ClockView
     private lateinit var prefs: SharedPreferences
@@ -24,25 +24,19 @@ class MainActivity : AppCompatActivity() {
     private var tickingEnabled = false
 
     private var lastHandledMinute = -1L
-    private var lastTickedSecond = -1L
 
+    /** Runs on (approximately) every second boundary, so ticks stay in step. */
     private val soundLoop = object : Runnable {
         override fun run() {
-            val nowMs = System.currentTimeMillis()
+            if (tickingEnabled) chimePlayer.playTick()
 
-            val second = nowMs / 1000L
-            if (second != lastTickedSecond) {
-                lastTickedSecond = second
-                if (tickingEnabled) chimePlayer.playTick()
-            }
-
-            val minute = nowMs / 60000L
+            val minute = System.currentTimeMillis() / 60000L
             if (minute != lastHandledMinute) {
                 lastHandledMinute = minute
                 onMinuteBoundary()
             }
 
-            handler.postDelayed(this, 200L)
+            handler.postDelayed(this, 1000L - (System.currentTimeMillis() % 1000L))
         }
     }
 
@@ -52,7 +46,9 @@ class MainActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        chimePlayer.prepareTick(this)
         clockView = findViewById(R.id.clock_view)
+        clockView.soundListener = this
         clockView.onDialScaleChanged = { scale ->
             prefs.edit().putFloat(Prefs.DIAL_SCALE, scale).apply()
         }
@@ -64,11 +60,10 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         applyPreferences()
-        // Prime the boundaries so opening the app never triggers an
-        // immediate chime or tick.
+        // Prime the minute boundary so opening the app never chimes, and
+        // start the loop on the next second boundary so ticks land in step.
         lastHandledMinute = System.currentTimeMillis() / 60000L
-        lastTickedSecond = System.currentTimeMillis() / 1000L
-        handler.post(soundLoop)
+        handler.postDelayed(soundLoop, 1000L - (System.currentTimeMillis() % 1000L))
     }
 
     override fun onPause() {
@@ -82,15 +77,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyPreferences() {
-        clockView.use24hDial = prefs.getBoolean(Prefs.DIAL_24H, false)
+        clockView.hoursOnDial = readHoursOnDial()
         clockView.showSecondHand = prefs.getBoolean(Prefs.SECOND_HAND, true)
         clockView.smoothSeconds = prefs.getBoolean(Prefs.SMOOTH_SECONDS, false)
-        clockView.showDecimalHand = prefs.getBoolean(Prefs.DECIMAL_HAND, false)
         clockView.mirrored = prefs.getBoolean(Prefs.MIRROR, false)
         clockView.numeralStyle = when (prefs.getString(Prefs.NUMERALS, Prefs.NUMERALS_ARABIC)) {
             Prefs.NUMERALS_NONE -> ClockView.NumeralStyle.NONE
             Prefs.NUMERALS_ROMAN -> ClockView.NumeralStyle.ROMAN
             else -> ClockView.NumeralStyle.ARABIC
+        }
+        clockView.fastHand = when (prefs.getString(Prefs.FAST_HAND, Prefs.FAST_HAND_NONE)) {
+            Prefs.FAST_HAND_TENTHS -> ClockView.FastHandMode.TENTHS
+            Prefs.FAST_HAND_DECIMAL_MINUTE -> ClockView.FastHandMode.DECIMAL_MINUTE
+            else -> ClockView.FastHandMode.NONE
         }
         clockView.theme = ClockThemes.byKey(prefs.getString(Prefs.THEME, "midnight"))
         clockView.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
@@ -101,6 +100,7 @@ class MainActivity : AppCompatActivity() {
         }
         clockView.touchHandsEnabled = prefs.getBoolean(Prefs.TOUCH_HANDS, true)
         clockView.pinchZoomEnabled = prefs.getBoolean(Prefs.PINCH_ZOOM, true)
+        clockView.shakeDropEnabled = prefs.getBoolean(Prefs.SHAKE_DROP, true)
         clockView.dialScale = prefs.getFloat(Prefs.DIAL_SCALE, 1f)
 
         bellsEnabled = prefs.getBoolean(Prefs.BELLS, false)
@@ -108,6 +108,17 @@ class MainActivity : AppCompatActivity() {
         halfHourEnabled = prefs.getBoolean(Prefs.HALF_HOUR, false)
         tickingEnabled = prefs.getBoolean(Prefs.TICKING, false)
     }
+
+    private fun readHoursOnDial(): Int {
+        val preset = prefs.getString(Prefs.HOURS_PRESET, "12") ?: "12"
+        return if (preset == Prefs.HOURS_CUSTOM_VALUE) {
+            prefs.getInt(Prefs.HOURS_CUSTOM, 12)
+        } else {
+            preset.toIntOrNull() ?: 12
+        }
+    }
+
+    // ------------------------------------------------- scheduled chimes
 
     private fun onMinuteBoundary() {
         if (!bellsEnabled) return
@@ -125,12 +136,26 @@ class MainActivity : AppCompatActivity() {
                 // Ship's bell: one bell per half hour of the current 4-hour
                 // watch, struck in pairs; the watch change gets 8 bells.
                 val halfHours = (hourOfDay % 4) * 2
-                chimePlayer.playBellSequence(if (halfHours == 0) 8 else halfHours, pairGrouping = true)
+                chimePlayer.playBellSequence(
+                    if (halfHours == 0) 8 else halfHours,
+                    pairGrouping = true,
+                    frequency = ChimePlayer.SHIPS_HZ,
+                    ringSeconds = 2.0
+                )
             }
-            Prefs.BELL_STYLE_SINGLE -> chimePlayer.playBellSequence(1, pairGrouping = false)
+            Prefs.BELL_STYLE_SINGLE -> chimePlayer.playBellSequence(
+                1, pairGrouping = false,
+                frequency = ChimePlayer.GONG_HZ, ringSeconds = 4.5
+            )
             else -> {
                 val strikes = hourOfDay % 12
-                chimePlayer.playBellSequence(if (strikes == 0) 12 else strikes, pairGrouping = false)
+                chimePlayer.playBellSequence(
+                    if (strikes == 0) 12 else strikes,
+                    pairGrouping = false,
+                    frequency = ChimePlayer.GRANDFATHER_HZ,
+                    ringSeconds = 3.0,
+                    interval = 1.3
+                )
             }
         }
     }
@@ -139,11 +164,45 @@ class MainActivity : AppCompatActivity() {
         when (bellStyle) {
             Prefs.BELL_STYLE_SHIPS -> {
                 val halfHours = (hourOfDay % 4) * 2 + 1
-                chimePlayer.playBellSequence(halfHours, pairGrouping = true)
+                chimePlayer.playBellSequence(
+                    halfHours, pairGrouping = true,
+                    frequency = ChimePlayer.SHIPS_HZ, ringSeconds = 2.0
+                )
             }
             else -> if (halfHourEnabled) {
-                chimePlayer.playBellSequence(1, pairGrouping = false, frequency = ChimePlayer.HALF_HOUR_BELL_HZ)
+                chimePlayer.playBellSequence(
+                    1, pairGrouping = false,
+                    frequency = ChimePlayer.HALF_HOUR_BELL_HZ, ringSeconds = 1.5
+                )
             }
         }
+    }
+
+    // -------------------------------------- winding-interaction sounds
+
+    override fun onTickCrossed() {
+        chimePlayer.playTick()
+    }
+
+    override fun onHourCrossed() {
+        chimePlayer.playBellSequence(
+            1, pairGrouping = false,
+            frequency = ChimePlayer.WINDING_BELL_HZ, ringSeconds = 0.9
+        )
+    }
+
+    override fun onDayCrossed() {
+        chimePlayer.playBellSequence(
+            3, pairGrouping = false,
+            frequency = ChimePlayer.DAY_CHIME_HZ, ringSeconds = 0.8, interval = 0.18
+        )
+    }
+
+    override fun onHandMounted() {
+        chimePlayer.playTick()
+        chimePlayer.playBellSequence(
+            1, pairGrouping = false,
+            frequency = ChimePlayer.DAY_CHIME_HZ, ringSeconds = 0.5
+        )
     }
 }

@@ -11,8 +11,8 @@ android {
         applicationId = "com.em87.weirdclock"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 3
+        versionName = "3.0"
     }
 
     buildTypes {
@@ -40,4 +40,5 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.preference:preference-ktx:1.2.1")
+    implementation("androidx.dynamicanimation:dynamicanimation:1.0.0")
 }

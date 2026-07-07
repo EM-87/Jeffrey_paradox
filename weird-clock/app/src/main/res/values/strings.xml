@@ -3,12 +3,11 @@
     <string name="app_name">Weird Clock</string>
     <string name="settings_title">Settings</string>
     <string name="widget_description">Weird Clock on your home screen</string>
-    <string name="no_alarm_app">No clock app found on this device</string>
 
     <string name="category_dial">Dial</string>
     <string name="pref_theme_title">Theme</string>
-    <string name="pref_24h_title">24-hour dial</string>
-    <string name="pref_24h_summary">One revolution of the hour hand per day, midnight at the top</string>
+    <string name="pref_hours_preset_title">Hours on the dial</string>
+    <string name="pref_hours_custom_title">Custom hours</string>
     <string name="pref_numerals_title">Numerals</string>
     <string name="pref_mirror_title">Mirror mode</string>
     <string name="pref_mirror_summary">The clock runs counterclockwise, as seen in a mirror</string>
@@ -20,14 +19,15 @@
     <string name="pref_second_hand_title">Second hand</string>
     <string name="pref_smooth_title">Smooth sweep</string>
     <string name="pref_smooth_summary">Glide continuously instead of ticking once per second</string>
-    <string name="pref_decimal_title">Decimal time hands</string>
-    <string name="pref_decimal_summary">French Revolutionary time: 10 hours per day, 100 minutes per hour, 100 seconds per minute. The long hand covers the whole day; the short one spins once per decimal minute.</string>
+    <string name="pref_fast_hand_title">Fast hand</string>
 
     <string name="category_touch">Touch</string>
     <string name="pref_touch_hands_title">Grab the hands</string>
-    <string name="pref_touch_hands_summary">Drag any hand with your finger; it springs back into place when released</string>
+    <string name="pref_touch_hands_summary">Wind any hand around the dial — the others follow like gears, with bells at every hour crossed. Let go and it springs back, unwinding the same turns.</string>
     <string name="pref_pinch_zoom_title">Pinch to resize</string>
     <string name="pref_pinch_zoom_summary">Pinch to shrink or grow the dial; double-tap to reset</string>
+    <string name="pref_shake_drop_title">Knock the hands off</string>
+    <string name="pref_shake_drop_summary">A hard shake makes the hands fall and tumble inside the dial; drag each one back to the axis to remount it</string>
 
     <string name="category_sounds">Sounds</string>
     <string name="pref_bells_title">Hourly bells</string>
@@ -38,9 +38,13 @@
     <string name="pref_ticking_title">Ticking sound</string>
     <string name="pref_ticking_summary">A mechanical tick every second</string>
     <string name="pref_test_bells_title">Test the bells</string>
-    <string name="pref_test_bells_summary">Strike three bells now</string>
+    <string name="pref_test_bells_summary">Play a sample of the selected bell style</string>
 
     <string name="category_alarms">Alarms</string>
-    <string name="pref_set_alarm_title">Set an alarm</string>
-    <string name="pref_set_alarm_summary">Opens your system clock’s new-alarm screen</string>
+    <string name="pref_alarm_enabled_title">Alarm</string>
+    <string name="pref_alarm_enabled_summary">Rings with the app’s own synthesized bells, even from the background</string>
+    <string name="pref_alarm_time_title">Alarm time</string>
+    <string name="alarm_channel_name">Alarms</string>
+    <string name="alarm_ringing">Weird Clock alarm</string>
+    <string name="alarm_stop">Stop</string>
 </resources>

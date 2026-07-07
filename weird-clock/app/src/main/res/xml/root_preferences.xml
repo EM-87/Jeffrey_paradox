@@ -12,11 +12,21 @@
             android:defaultValue="midnight"
             app:useSimpleSummaryProvider="true" />
 
-        <SwitchPreferenceCompat
-            android:key="pref_24h_dial"
-            android:title="@string/pref_24h_title"
-            android:summary="@string/pref_24h_summary"
-            android:defaultValue="false" />
+        <ListPreference
+            android:key="pref_hours_preset"
+            android:title="@string/pref_hours_preset_title"
+            android:entries="@array/hours_preset_entries"
+            android:entryValues="@array/hours_preset_values"
+            android:defaultValue="12"
+            app:useSimpleSummaryProvider="true" />
+
+        <SeekBarPreference
+            android:key="pref_hours_custom"
+            android:title="@string/pref_hours_custom_title"
+            android:max="24"
+            android:defaultValue="12"
+            app:min="2"
+            app:showSeekBarValue="true" />
 
         <ListPreference
             android:key="pref_numerals"
@@ -63,11 +73,13 @@
             android:dependency="pref_second_hand"
             android:defaultValue="false" />
 
-        <SwitchPreferenceCompat
-            android:key="pref_decimal_hand"
-            android:title="@string/pref_decimal_title"
-            android:summary="@string/pref_decimal_summary"
-            android:defaultValue="false" />
+        <ListPreference
+            android:key="pref_fast_hand"
+            android:title="@string/pref_fast_hand_title"
+            android:entries="@array/fast_hand_entries"
+            android:entryValues="@array/fast_hand_values"
+            android:defaultValue="none"
+            app:useSimpleSummaryProvider="true" />
 
     </PreferenceCategory>
 
@@ -83,6 +95,12 @@
             android:key="pref_pinch_zoom"
             android:title="@string/pref_pinch_zoom_title"
             android:summary="@string/pref_pinch_zoom_summary"
+            android:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            android:key="pref_shake_drop"
+            android:title="@string/pref_shake_drop_title"
+            android:summary="@string/pref_shake_drop_summary"
             android:defaultValue="true" />
 
     </PreferenceCategory>
@@ -126,10 +144,16 @@
 
     <PreferenceCategory android:title="@string/category_alarms">
 
+        <SwitchPreferenceCompat
+            android:key="pref_alarm_enabled"
+            android:title="@string/pref_alarm_enabled_title"
+            android:summary="@string/pref_alarm_enabled_summary"
+            android:defaultValue="false" />
+
         <Preference
-            android:key="pref_set_alarm"
-            android:title="@string/pref_set_alarm_title"
-            android:summary="@string/pref_set_alarm_summary" />
+            android:key="pref_alarm_time"
+            android:title="@string/pref_alarm_time_title"
+            android:dependency="pref_alarm_enabled" />
 
     </PreferenceCategory>
 

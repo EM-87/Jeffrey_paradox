@@ -2,12 +2,11 @@
 <resources>
     <string name="settings_title">Ajustes</string>
     <string name="widget_description">Weird Clock en tu pantalla de inicio</string>
-    <string name="no_alarm_app">No se encontró una app de reloj en este dispositivo</string>
 
     <string name="category_dial">Esfera</string>
     <string name="pref_theme_title">Tema</string>
-    <string name="pref_24h_title">Esfera de 24 horas</string>
-    <string name="pref_24h_summary">La aguja horaria da una vuelta al día, con la medianoche arriba</string>
+    <string name="pref_hours_preset_title">Horas en la esfera</string>
+    <string name="pref_hours_custom_title">Horas personalizadas</string>
     <string name="pref_numerals_title">Numeración</string>
     <string name="pref_mirror_title">Modo espejo</string>
     <string name="pref_mirror_summary">El reloj gira en sentido antihorario, como visto en un espejo</string>
@@ -19,14 +18,15 @@
     <string name="pref_second_hand_title">Segundero</string>
     <string name="pref_smooth_title">Barrido suave</string>
     <string name="pref_smooth_summary">Se desliza de forma continua en vez de saltar cada segundo</string>
-    <string name="pref_decimal_title">Manecillas de tiempo decimal</string>
-    <string name="pref_decimal_summary">Tiempo revolucionario francés: 10 horas por día, 100 minutos por hora, 100 segundos por minuto. La manecilla larga recorre el día entero; la corta gira una vez por minuto decimal.</string>
+    <string name="pref_fast_hand_title">Manecilla rápida</string>
 
     <string name="category_touch">Táctil</string>
     <string name="pref_touch_hands_title">Agarrar las manecillas</string>
-    <string name="pref_touch_hands_summary">Arrastra cualquier manecilla con el dedo; al soltarla vuelve a su sitio con un rebote</string>
+    <string name="pref_touch_hands_summary">Dale cuerda a cualquier manecilla: las demás la siguen como engranajes, con campanadas a cada hora cruzada. Al soltarla vuelve rebotando, deshaciendo las mismas vueltas.</string>
     <string name="pref_pinch_zoom_title">Pellizcar para redimensionar</string>
     <string name="pref_pinch_zoom_summary">Pellizca para reducir o agrandar la esfera; doble toque para restaurar</string>
+    <string name="pref_shake_drop_title">Derribar las manecillas</string>
+    <string name="pref_shake_drop_summary">Un agitón fuerte hace caer las manecillas, que ruedan dentro de la esfera; arrastra cada una hasta el eje para recolocarla</string>
 
     <string name="category_sounds">Sonidos</string>
     <string name="pref_bells_title">Campanadas horarias</string>
@@ -37,9 +37,13 @@
     <string name="pref_ticking_title">Tictac</string>
     <string name="pref_ticking_summary">Un tic mecánico cada segundo</string>
     <string name="pref_test_bells_title">Probar las campanas</string>
-    <string name="pref_test_bells_summary">Tocar tres campanadas ahora</string>
+    <string name="pref_test_bells_summary">Reproduce una muestra del estilo de campana seleccionado</string>
 
     <string name="category_alarms">Alarmas</string>
-    <string name="pref_set_alarm_title">Crear una alarma</string>
-    <string name="pref_set_alarm_summary">Abre la pantalla de nueva alarma del reloj del sistema</string>
+    <string name="pref_alarm_enabled_title">Alarma</string>
+    <string name="pref_alarm_enabled_summary">Suena con las campanas sintetizadas de la propia app, incluso en segundo plano</string>
+    <string name="pref_alarm_time_title">Hora de la alarma</string>
+    <string name="alarm_channel_name">Alarmas</string>
+    <string name="alarm_ringing">Alarma de Weird Clock</string>
+    <string name="alarm_stop">Detener</string>
 </resources>
