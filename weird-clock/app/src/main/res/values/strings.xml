@@ -40,7 +40,27 @@
     <string name="pref_test_bells_title">Test the bells</string>
     <string name="pref_test_bells_summary">Play a sample of the selected bell style</string>
 
+    <string name="category_time">Time itself</string>
+    <string name="pref_time_speed_title">Time speed (%)</string>
+    <string name="pref_time_speed_summary">Make the clock run faster or slower than reality</string>
+    <string name="speed_warning_title">Warning</string>
+    <string name="speed_warning_message">Bending the speed of time does not allow time travel, and alarms are disabled while time is not running at 100%. Weird Clock declines all responsibility for missed appointments.</string>
+
+    <string name="category_world">World clock</string>
+    <string name="pref_world_clock_title">Second dial</string>
+    <string name="pref_world_clock_summary">A small extra dial showing another time zone</string>
+    <string name="pref_world_tz_title">Time zone</string>
+
+    <string name="mode_clock">Clock</string>
+    <string name="mode_stopwatch">Stopwatch</string>
+    <string name="mode_countdown">Timer</string>
+    <string name="chrono_start">Start</string>
+    <string name="chrono_pause">Pause</string>
+    <string name="chrono_reset">Reset</string>
+    <string name="countdown_set_title">Countdown (min : sec)</string>
+
     <string name="category_alarms">Alarms</string>
+    <string name="pref_alarm_disabled_by_speed">Disabled while time speed is not 100%</string>
     <string name="pref_alarm_enabled_title">Alarm</string>
     <string name="pref_alarm_enabled_summary">Rings with the app’s own synthesized bells, even from the background</string>
     <string name="pref_alarm_time_title">Alarm time</string>

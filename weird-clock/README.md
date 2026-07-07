@@ -17,21 +17,34 @@ An analog clock app for Android with deliberately weird options.
   mirror. Great for confusing guests.
 - **Date complication** — shown as numbers (`06/07/2026`), text
   (`Mon 6 Jul`), or Roman numerals (`VI·VII·MMXXVI`).
+- **Selectable hours** — tap a numeral to highlight it in the accent color.
+  Why? Nobody knows. Toggle one frantically and it falls off the dial.
+- **Time speed slider** — run the clock anywhere from 25% to 400% of real
+  time (with a warning: it does not allow time travel, and alarms are
+  disabled while time is bent).
 
 **Touch**
 - **Wind the hands** — grab any hand (hit zones are finger-sized and cover
   the whole hand, with priority for the thin second hand) and wind it around
-  the dial. The other hands follow proportionally, like real gears: winding
-  the hour hand whips the minute hand around and spins the second hand very
-  fast. Every hour crossed rings a bell; the hour hand crossing midnight
-  plays a calendar chime; winding the second hand rattles off accelerated
-  ticks. Release, and true damped-spring physics unwinds the offset — the
-  hands spin back the same number of turns, overshoot, wobble and settle.
+  the dial. While you hold it the whole mechanism freezes — no ticking, no
+  creeping hands. The other hands follow proportionally, like real gears:
+  winding the hour hand whips the minute hand around and spins the second
+  hand very fast. Every hour crossed rings a bell; the hour hand crossing
+  midnight plays a calendar chime; winding the second hand rattles off
+  accelerated ticks. Release, and true damped-spring physics unwinds the
+  offset — the hands spin back the same number of turns, overshoot, wobble
+  and settle. Wind any hand more than 10 full turns and the mechanism
+  explodes, throwing every hand off the axis.
 - **Pinch to resize** — pinch the screen to shrink or grow the dial (the
   size is remembered); double-tap to snap back to full size.
-- **Knock the hands off** — shake the phone hard and the hands fall off the
-  axis, tumbling and bouncing inside the dial with simple physics. Pick each
-  one up with your finger and carry it back to the center to remount it.
+- **Knock the hands off** — hit the phone hard and the hands (including the
+  fast hand) fly off the axis *in the direction of the blow*, then tumble
+  and bounce inside the dial under the live accelerometer gravity vector —
+  tilt the phone and the debris rolls around. Keep knocking and the
+  numerals shake loose too, about a third per hit. While the hands are
+  down, a 7-segment digital clock appears under the dial so you can still
+  read the time. Pick each hand up and carry it to the center to remount
+  it; each numeral must be returned to its own spot on the dial.
 
 **Hands**
 - **Second hand** — on/off, and either ticking once per second or gliding in
@@ -60,10 +73,11 @@ clock, not a background chime service).
 - Add the Weird Clock widget to your launcher to see the time all day. The
   face is semi-transparent so your wallpaper shows through, and the ticks
   and hands match the app's Midnight theme. It uses the system's
-  self-updating analog clock machinery with custom drawables, so it costs
-  the app zero battery. Tapping it opens the full app. (System limitation:
-  the widget is a standard 12-hour dial — the truly weird stuff lives in
-  the app.)
+  self-updating analog clock machinery, so it costs the app zero battery.
+  On Android 12+ the dial and hands are re-rendered from your current
+  settings — theme, hours on the dial, Roman numerals, date — so the widget
+  is a copy of the in-app clock; older devices show the static Midnight
+  design. Tapping it opens the full app.
 
 **Alarms**
 - The app has its own alarm system: pick a time in settings and it rings
@@ -71,6 +85,16 @@ clock, not a background chime service).
   AlarmManager alarm fires a foreground service with a full-screen ringing
   screen that works over the lock screen, repeats daily, survives reboots,
   and auto-stops after 3 minutes.
+
+**Chronograph modes**
+- **Stopwatch** — the dial becomes an analog stopwatch (hands show elapsed
+  time) with a 7-segment digital readout and Start/Pause/Reset buttons.
+- **Countdown** — pick minutes and seconds; the hands run down to zero and
+  a chime announces the end.
+
+**World clock**
+- An optional second mini-dial in the corner shows another time zone
+  (17 cities to pick from), styled like the main clock.
 
 The app is localized in English and Spanish.
 

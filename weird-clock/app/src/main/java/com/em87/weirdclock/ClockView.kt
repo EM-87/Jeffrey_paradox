@@ -23,7 +23,9 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 import kotlin.math.atan2
+import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.hypot
@@ -38,10 +40,11 @@ import kotlin.random.Random
  *
  * Interaction is built on a single "virtual time offset": winding any hand
  * shifts the whole clock's displayed time, so the other hands follow
- * proportionally, like real gears. Releasing starts a bouncy spring that
- * unwinds the offset back to zero — the hands spin back exactly as far as
- * they were wound. A hard shake knocks the hands off the axis; they tumble
- * inside the dial with simple physics until dragged back to the center.
+ * proportionally, like real gears. While a hand is held the mechanism is
+ * frozen. Releasing starts a bouncy spring that unwinds the offset back to
+ * zero. A hard knock throws the hands off the axis (in the direction of the
+ * blow); further knocks shake the numerals loose too. Fallen pieces tumble
+ * under the live accelerometer gravity vector until dragged back into place.
  */
 class ClockView @JvmOverloads constructor(
     context: Context,
@@ -52,17 +55,15 @@ class ClockView @JvmOverloads constructor(
     enum class DateFormatStyle { NUMBER, TEXT, ROMAN }
     enum class FastHandMode { NONE, TENTHS, DECIMAL_MINUTE }
     private enum class Hand { HOUR, MINUTE, SECOND }
+    private enum class BodyKind { HAND, FAST_HAND, NUMERAL }
 
-    /** Sounds triggered by interacting with the hands. */
+    /** Sounds triggered by interacting with the clock. */
     interface SoundListener {
-        /** The second hand crossed a second boundary while being wound. */
         fun onTickCrossed()
-        /** Any hand crossed an hour boundary while being wound. */
         fun onHourCrossed()
-        /** The hour hand crossed a day (calendar) boundary while being wound. */
         fun onDayCrossed()
-        /** A fallen hand was placed back on the axis. */
         fun onHandMounted()
+        fun onExploded()
     }
 
     var soundListener: SoundListener? = null
@@ -91,6 +92,19 @@ class ClockView @JvmOverloads constructor(
     var onDialScaleChanged: ((Float) -> Unit)? = null
     var theme: ClockTheme = ClockThemes.MIDNIGHT
         set(value) { field = value; applyTheme(value); invalidate() }
+    var timeZone: TimeZone = TimeZone.getDefault()
+        set(value) { field = value; cal.timeZone = value; invalidate() }
+
+    /**
+     * When set, the dial shows a duration (stopwatch/countdown) instead of
+     * the time of day, and winding/knocking interactions are disabled.
+     */
+    var chronoProvider: (() -> Long)? = null
+        set(value) { field = value; invalidate() }
+
+    fun isHandGrabbed(): Boolean = draggedHand != null
+
+    fun isSecondHandFallen(): Boolean = isFallen(Hand.SECOND)
 
     // ------------------------------------------------------------- painting
 
@@ -106,6 +120,10 @@ class ClockView @JvmOverloads constructor(
     }
     private val numeralPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
     private val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
+    private val digitalPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
     private val hourHandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
@@ -132,6 +150,8 @@ class ClockView @JvmOverloads constructor(
     private val textDateFormat by lazy { SimpleDateFormat("EEE d MMM", Locale.getDefault()) }
     private val cal: Calendar = Calendar.getInstance()
 
+    private var selectedColor = 0
+
     init {
         applyTheme(theme)
     }
@@ -144,6 +164,7 @@ class ClockView @JvmOverloads constructor(
         numeralPaint.color = t.numeral
         datePaint.color = t.numeral
         datePaint.alpha = 210
+        digitalPaint.color = t.decimal
         hourHandPaint.color = t.hourHand
         minuteHandPaint.color = t.minuteHand
         secondHandPaint.color = t.secondHand
@@ -152,13 +173,17 @@ class ClockView @JvmOverloads constructor(
         fastTickPaint.color = t.decimal
         fastTickPaint.alpha = 140
         centerDotPaint.color = t.centerDot
+        selectedColor = t.secondHand
     }
 
     // --------------------------------------------------- virtual time state
 
-    /** Seconds added to real time by winding the hands. Zero at rest. */
+    /** Seconds added to display time by winding the hands. Zero at rest. */
     private var visualOffsetSeconds = 0.0
     private var draggedHand: Hand? = null
+
+    /** While a hand is held, the mechanism freezes at this display time. */
+    private var frozenDisplayMs: Long? = null
 
     /** Which hand's sound profile applies while winding or springing back. */
     private var activeSoundHand: Hand? = null
@@ -169,11 +194,21 @@ class ClockView @JvmOverloads constructor(
     private var lastTickSoundAt = 0L
     private var lastBellSoundAt = 0L
     private var lastDaySoundAt = 0L
+    private var exploded = false
 
-    // ----------------------------------------------------- fallen-hand state
+    // -------------------------------------------------------- numeral state
+
+    private val selectedHours = HashSet<Int>()
+    private val numeralToggleTimes = HashMap<Int, ArrayDeque<Long>>()
+    private var tapCandidate = false
+
+    // ----------------------------------------------------- fallen-body state
 
     private class FallingBody(
-        val hand: Hand,
+        val kind: BodyKind,
+        val hand: Hand?,
+        val numeralHour: Int,
+        val label: String,
         var x: Float,
         var y: Float,
         var vx: Float,
@@ -181,7 +216,8 @@ class ClockView @JvmOverloads constructor(
         var angleDeg: Float,
         var angVel: Float,
         val halfLen: Float,
-        val strokeWidth: Float
+        val strokeWidth: Float,
+        val textSize: Float
     )
 
     private val fallenBodies = ArrayList<FallingBody>()
@@ -192,16 +228,35 @@ class ClockView @JvmOverloads constructor(
     private var lastCarryY = 0f
     private var lastCarryAt = 0L
 
+    /** Live gravity vector in view coordinates (px/s²), from the sensor. */
+    private var gravityX = 0f
+    private var gravityY = BASE_GRAVITY
+    private var lowPassX = 0f
+    private var lowPassY = 9.81f
+    private var lowPassZ = 0f
+
     private var sensorManager: SensorManager? = null
     private val shakeListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
-            if (!shakeDropEnabled) return
-            val (x, y, z) = event.values
-            val g = sqrt(x * x + y * y + z * z)
+            val ax = event.values[0]
+            val ay = event.values[1]
+            val az = event.values[2]
+            lowPassX = lowPassX * 0.8f + ax * 0.2f
+            lowPassY = lowPassY * 0.8f + ay * 0.2f
+            lowPassZ = lowPassZ * 0.8f + az * 0.2f
+            // Device +X points right, +Y up the screen; view +Y is downward.
+            gravityX = -lowPassX / 9.81f * BASE_GRAVITY
+            gravityY = lowPassY / 9.81f * BASE_GRAVITY
+
+            if (!shakeDropEnabled || chronoProvider != null) return
+            val devX = ax - lowPassX
+            val devY = ay - lowPassY
+            val devZ = az - lowPassZ
+            val jolt = sqrt(devX * devX + devY * devY + devZ * devZ)
             val now = SystemClock.uptimeMillis()
-            if (g > SHAKE_THRESHOLD && now - lastShakeAt > 1500) {
+            if (jolt > SHAKE_THRESHOLD && now - lastShakeAt > 1200) {
                 lastShakeAt = now
-                dropHands()
+                onKnock(-devX, devY)
             }
         }
 
@@ -213,13 +268,9 @@ class ClockView @JvmOverloads constructor(
     private val ticker = object : Runnable {
         override fun run() {
             invalidate()
-            val delay = if (isAnimating() || fastHand != FastHandMode.NONE ||
-                (smoothSeconds && showSecondHand)
-            ) {
-                16L
-            } else {
-                1000L - (System.currentTimeMillis() % 1000L)
-            }
+            val fast = isAnimating() || chronoProvider != null ||
+                fastHand != FastHandMode.NONE || (smoothSeconds && showSecondHand)
+            val delay = if (fast) 16L else 1000L - (TimeKeeper.nowMs() % 1000L).coerceIn(0L, 999L)
             postDelayed(this, delay)
         }
     }
@@ -261,10 +312,17 @@ class ClockView @JvmOverloads constructor(
     private val gestureDetector = GestureDetector(
         context,
         object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean = true
+
             override fun onDoubleTap(e: MotionEvent): Boolean {
                 if (!pinchZoomEnabled) return false
                 dialScale = 1f
                 onDialScaleChanged?.invoke(dialScale)
+                return true
+            }
+
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                if (tapCandidate) handleNumeralTap(e.x, e.y)
                 return true
             }
         }
@@ -272,20 +330,24 @@ class ClockView @JvmOverloads constructor(
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        // A passive dial (e.g. the mini world clock) lets touches through.
+        if (!touchHandsEnabled && !pinchZoomEnabled && fallenBodies.isEmpty()) return false
+        gestureDetector.onTouchEvent(event)
         if (pinchZoomEnabled) {
             scaleDetector.onTouchEvent(event)
-            gestureDetector.onTouchEvent(event)
-        }
-        if (scaleDetector.isInProgress) {
-            releaseDraggedHand()
-            releaseCarriedBody()
-            return true
+            if (scaleDetector.isInProgress) {
+                releaseDraggedHand()
+                releaseCarriedBody()
+                return true
+            }
         }
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                if (!grabFallenBodyNear(event.x, event.y) && touchHandsEnabled) {
+                val grabbedBody = grabFallenBodyNear(event.x, event.y)
+                if (!grabbedBody && touchHandsEnabled && chronoProvider == null) {
                     grabHandNear(event.x, event.y)
                 }
+                tapCandidate = !grabbedBody && draggedHand == null
             }
             MotionEvent.ACTION_MOVE -> {
                 carriedBody?.let { moveCarriedBody(it, event.x, event.y) }
@@ -329,9 +391,6 @@ class ClockView @JvmOverloads constructor(
         if (hypot(x - cx, y - cy) < r * 0.12f) return
         val a = computeAngles()
 
-        // Hit test against the whole hand line, not just the tip, with a
-        // generous finger-sized threshold. The thin second hand gets an even
-        // wider margin and first pick, since it's the hardest to catch.
         val threshold = max(r * 0.10f, 44f * resources.displayMetrics.density)
         var chosen: Hand? = null
         if (showSecondHand && !isFallen(Hand.SECOND) &&
@@ -355,8 +414,11 @@ class ClockView @JvmOverloads constructor(
             spring = null
             draggedHand = it
             activeSoundHand = it
+            // Freeze the mechanism while the user holds it.
+            frozenDisplayMs = displayNowMs()
             dragStartOffset = visualOffsetSeconds
             dragAccumDeg = 0.0
+            exploded = false
             lastTouchDeg = touchAngleDeg(x, y)
             performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         }
@@ -382,6 +444,13 @@ class ClockView @JvmOverloads constructor(
         if (delta < -180f) delta += 360f
         dragAccumDeg += delta
         lastTouchDeg = touchDeg
+        // Over-winding by more than 10 full turns blows the mechanism apart.
+        if (!exploded && kotlin.math.abs(dragAccumDeg) >= 3600.0) {
+            exploded = true
+            soundListener?.onExploded()
+            dropHands(0f, 0f)
+            return
+        }
         setOffset(dragStartOffset + dragAccumDeg / 360.0 * secondsPerRevolution(hand))
     }
 
@@ -394,13 +463,17 @@ class ClockView @JvmOverloads constructor(
     private fun releaseDraggedHand() {
         if (draggedHand == null) return
         draggedHand = null
+        // Unfreeze: fold the time that passed while holding into the offset,
+        // so the display is continuous and the spring returns to *now*.
+        frozenDisplayMs?.let { frozen ->
+            frozenDisplayMs = null
+            val displayMs = frozen + (visualOffsetSeconds * 1000.0).toLong()
+            visualOffsetSeconds = (displayMs - TimeKeeper.nowMs()) / 1000.0
+        }
         if (visualOffsetSeconds == 0.0) {
             activeSoundHand = null
             return
         }
-        // Real damped-spring physics: the offset oscillates around zero, so
-        // the hands unwind the same number of turns they were wound, overshoot
-        // and wobble before settling on the true time.
         val holder = FloatValueHolder(visualOffsetSeconds.toFloat())
         spring = SpringAnimation(holder).apply {
             setSpring(
@@ -422,7 +495,7 @@ class ClockView @JvmOverloads constructor(
 
     /** Applies a new offset and fires winding sounds for boundaries crossed. */
     private fun setOffset(newOffset: Double) {
-        val base = System.currentTimeMillis() / 1000.0
+        val base = (frozenDisplayMs ?: TimeKeeper.nowMs()) / 1000.0
         val before = base + visualOffsetSeconds
         val after = base + newOffset
         visualOffsetSeconds = newOffset
@@ -459,23 +532,103 @@ class ClockView @JvmOverloads constructor(
         }
     }
 
-    // -------------------------------------------------- fallen-hand physics
+    // ----------------------------------------------------- numeral selection
 
-    private fun isFallen(hand: Hand): Boolean = fallenBodies.any { it.hand == hand }
+    private fun numeralRadius(r: Float): Float = if (hoursOnDial == 12) r * 0.76f else r * 0.68f
 
-    private fun dropHands() {
+    private fun numeralTextSize(r: Float): Float = if (hoursOnDial > 12) r * 0.11f else r * 0.16f
+
+    private fun visibleNumeralHours(): List<Int> {
+        if (numeralStyle == NumeralStyle.NONE) return emptyList()
+        val n = hoursOnDial
+        val step = if (n > 12) 2 else 1
+        val list = ArrayList<Int>()
+        var h = step
+        while (h <= n) {
+            list.add(h)
+            h += step
+        }
+        if (n % step != 0) list.add(n)
+        return list
+    }
+
+    private fun numeralLabel(hour: Int): String =
+        if (numeralStyle == NumeralStyle.ROMAN) Roman.of(hour) else hour.toString()
+
+    private fun numeralPosition(hour: Int, cx: Float, cy: Float, r: Float): PointF =
+        pointAt(cx, cy, hour.toFloat() / hoursOnDial * 360f, numeralRadius(r))
+
+    private fun handleNumeralTap(x: Float, y: Float) {
+        if (numeralStyle == NumeralStyle.NONE || chronoProvider != null) return
         val cx = width / 2f
         val cy = height / 2f
         val r = dialRadius()
-        if (r <= 0f) return
+        val threshold = max(r * 0.10f, 40f * resources.displayMetrics.density)
+        for (hour in visibleNumeralHours()) {
+            if (isNumeralFallen(hour)) continue
+            val pos = numeralPosition(hour, cx, cy, r)
+            if (hypot(x - pos.x, y - pos.y) < threshold) {
+                if (!selectedHours.remove(hour)) selectedHours.add(hour)
+                performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                registerToggleAndMaybeDrop(hour, pos)
+                invalidate()
+                return
+            }
+        }
+    }
+
+    /** Toggling a numeral frantically shakes it loose from the dial. */
+    private fun registerToggleAndMaybeDrop(hour: Int, pos: PointF) {
+        val now = SystemClock.uptimeMillis()
+        val times = numeralToggleTimes.getOrPut(hour) { ArrayDeque() }
+        times.addLast(now)
+        while (times.size > 6) times.removeFirst()
+        if (times.size >= 6 && now - times.first() < 2500) {
+            numeralToggleTimes.remove(hour)
+            selectedHours.remove(hour)
+            dropNumeral(hour, pos, 0f, -150f)
+            soundListener?.onExploded()
+        }
+    }
+
+    // -------------------------------------------------- fallen-body physics
+
+    private fun isFallen(hand: Hand): Boolean =
+        fallenBodies.any { it.kind == BodyKind.HAND && it.hand == hand }
+
+    private fun isFastHandFallen(): Boolean = fallenBodies.any { it.kind == BodyKind.FAST_HAND }
+
+    private fun isNumeralFallen(hour: Int): Boolean =
+        fallenBodies.any { it.kind == BodyKind.NUMERAL && it.numeralHour == hour }
+
+    private fun anyHandFallen(): Boolean =
+        fallenBodies.any { it.kind == BodyKind.HAND || it.kind == BodyKind.FAST_HAND }
+
+    /** First knock throws the hands; further knocks shake numerals loose. */
+    private fun onKnock(impulseX: Float, impulseY: Float) {
+        if (!anyHandFallen()) {
+            dropHands(impulseX, impulseY)
+        } else {
+            dropRandomNumerals(impulseX, impulseY)
+        }
+    }
+
+    private fun dropHands(impulseX: Float, impulseY: Float) {
+        val cx = width / 2f
+        val cy = height / 2f
+        val r = dialRadius()
+        if (r <= 0f || chronoProvider != null) return
         // Winding state makes no sense once the hands are off the axis.
         spring?.cancel()
         spring = null
         draggedHand = null
         activeSoundHand = null
+        frozenDisplayMs = null
         visualOffsetSeconds = 0.0
 
         val a = computeAngles()
+        val ivx = impulseX * 35f
+        val ivy = impulseY * 35f
         val drops = ArrayList<Hand>(3)
         drops.add(Hand.HOUR)
         drops.add(Hand.MINUTE)
@@ -484,22 +637,15 @@ class ClockView @JvmOverloads constructor(
             if (isFallen(hand)) continue
             val len = lengthOf(hand) * r
             val tail = tailOf(hand) * r
-            val angle = angleOf(hand, a)
-            val visualAngle = if (mirrored) -angle else angle
-            val rad = Math.toRadians(visualAngle.toDouble())
-            val mid = (len - tail) / 2f
-            fallenBodies.add(
-                FallingBody(
-                    hand = hand,
-                    x = cx + sin(rad).toFloat() * mid,
-                    y = cy - cos(rad).toFloat() * mid,
-                    vx = Random.nextFloat() * 500f - 250f,
-                    vy = -Random.nextFloat() * 350f,
-                    angleDeg = visualAngle,
-                    angVel = Random.nextFloat() * 420f - 210f,
-                    halfLen = (len + tail) / 2f,
-                    strokeWidth = widthOf(hand) * r * 2f
-                )
+            addRodBody(
+                BodyKind.HAND, hand, angleOf(hand, a),
+                len, tail, widthOf(hand) * r * 2f, cx, cy, ivx, ivy
+            )
+        }
+        if (fastHand != FastHandMode.NONE && !isFastHandFallen()) {
+            addRodBody(
+                BodyKind.FAST_HAND, null, computeAngles().fast,
+                FAST_LEN * r, 0.05f * r, 0.008f * r * 2f, cx, cy, ivx, ivy
             )
         }
         if (fallenBodies.isNotEmpty()) {
@@ -507,6 +653,74 @@ class ClockView @JvmOverloads constructor(
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
             invalidate()
         }
+    }
+
+    private fun addRodBody(
+        kind: BodyKind, hand: Hand?, angle: Float,
+        len: Float, tail: Float, stroke: Float,
+        cx: Float, cy: Float, ivx: Float, ivy: Float
+    ) {
+        val visualAngle = if (mirrored) -angle else angle
+        val rad = Math.toRadians(visualAngle.toDouble())
+        val mid = (len - tail) / 2f
+        fallenBodies.add(
+            FallingBody(
+                kind = kind,
+                hand = hand,
+                numeralHour = 0,
+                label = "",
+                x = cx + sin(rad).toFloat() * mid,
+                y = cy - cos(rad).toFloat() * mid,
+                vx = ivx + Random.nextFloat() * 400f - 200f,
+                vy = ivy - Random.nextFloat() * 300f,
+                angleDeg = visualAngle,
+                angVel = Random.nextFloat() * 420f - 210f,
+                halfLen = (len + tail) / 2f,
+                strokeWidth = stroke,
+                textSize = 0f
+            )
+        )
+    }
+
+    private fun dropRandomNumerals(impulseX: Float, impulseY: Float) {
+        val mounted = visibleNumeralHours().filter { !isNumeralFallen(it) }
+        if (mounted.isEmpty()) return
+        val cx = width / 2f
+        val cy = height / 2f
+        val r = dialRadius()
+        val total = visibleNumeralHours().size
+        val count = max(1, ceil(total / 3.0).toInt())
+        for (hour in mounted.shuffled().take(count)) {
+            dropNumeral(hour, numeralPosition(hour, cx, cy, r), impulseX * 35f, impulseY * 35f)
+        }
+        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        invalidate()
+    }
+
+    private fun dropNumeral(hour: Int, pos: PointF, ivx: Float, ivy: Float) {
+        if (isNumeralFallen(hour)) return
+        val r = dialRadius()
+        val textSize = numeralTextSize(r)
+        numeralPaint.textSize = textSize
+        val label = numeralLabel(hour)
+        fallenBodies.add(
+            FallingBody(
+                kind = BodyKind.NUMERAL,
+                hand = null,
+                numeralHour = hour,
+                label = label,
+                x = pos.x,
+                y = pos.y,
+                vx = ivx + Random.nextFloat() * 250f - 125f,
+                vy = ivy - Random.nextFloat() * 200f,
+                angleDeg = 0f,
+                angVel = Random.nextFloat() * 360f - 180f,
+                halfLen = max(numeralPaint.measureText(label) / 2f, textSize * 0.35f),
+                strokeWidth = 0f,
+                textSize = textSize
+            )
+        )
+        lastPhysicsAt = SystemClock.uptimeMillis()
     }
 
     private fun stepPhysics() {
@@ -519,7 +733,8 @@ class ClockView @JvmOverloads constructor(
         val rIn = dialRadius() * 0.96f
         for (b in fallenBodies) {
             if (b === carriedBody) continue
-            b.vy += 2600f * dt
+            b.vx += gravityX * dt
+            b.vy += gravityY * dt
             b.x += b.vx * dt
             b.y += b.vy * dt
             b.angleDeg += b.angVel * dt
@@ -588,8 +803,23 @@ class ClockView @JvmOverloads constructor(
         b.angVel *= 0.9f
         val cx = width / 2f
         val cy = height / 2f
-        if (hypot(x - cx, y - cy) < dialRadius() * 0.18f) {
-            // Close enough to the axis: the hand clicks back into place.
+        val r = dialRadius()
+        val remount = when (b.kind) {
+            // Hands click back onto the central axis.
+            BodyKind.HAND, BodyKind.FAST_HAND -> hypot(x - cx, y - cy) < r * 0.18f
+            // Each numeral has to go back to its own spot on the dial
+            // (or to the center, if the dial no longer shows that hour).
+            BodyKind.NUMERAL -> {
+                val stillVisible = visibleNumeralHours().contains(b.numeralHour)
+                if (stillVisible) {
+                    val home = numeralPosition(b.numeralHour, cx, cy, r)
+                    hypot(x - home.x, y - home.y) < r * 0.12f
+                } else {
+                    hypot(x - cx, y - cy) < r * 0.18f
+                }
+            }
+        }
+        if (remount) {
             fallenBodies.remove(b)
             carriedBody = null
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
@@ -611,8 +841,21 @@ class ClockView @JvmOverloads constructor(
         val fast: Float
     )
 
+    private fun displayNowMs(): Long = frozenDisplayMs ?: TimeKeeper.nowMs()
+
     private fun computeAngles(): Angles {
-        val nowMs = System.currentTimeMillis() + (visualOffsetSeconds * 1000.0).toLong()
+        chronoProvider?.let { provider ->
+            val duration = provider().coerceAtLeast(0L)
+            val totalSec = duration / 1000.0
+            return Angles(
+                hour = ((totalSec / 3600.0) % hoursOnDial / hoursOnDial * 360.0).toFloat(),
+                minute = ((totalSec / 60.0) % 60.0 / 60.0 * 360.0).toFloat(),
+                second = ((totalSec % 60.0) / 60.0 * 360.0).toFloat(),
+                fast = (duration % 1000L) / 1000f * 360f
+            )
+        }
+
+        val nowMs = displayNowMs() + (visualOffsetSeconds * 1000.0).toLong()
         cal.timeInMillis = nowMs
         val useMs = smoothSeconds || fastHand != FastHandMode.NONE || isAnimating()
         val ms = if (useMs) cal.get(Calendar.MILLISECOND) else 0
@@ -686,11 +929,11 @@ class ClockView @JvmOverloads constructor(
 
         drawTicks(canvas, cx, cy, r)
         drawNumerals(canvas, cx, cy, r)
-        if (showDate) drawDate(canvas, cx, cy, r)
+        if (showDate && chronoProvider == null) drawDate(canvas, cx, cy, r)
 
         val a = computeAngles()
 
-        if (fastHand != FastHandMode.NONE) {
+        if (fastHand != FastHandMode.NONE || chronoProvider != null) {
             for (i in 0 until 10) {
                 val angle = i / 10f * 360f
                 fastTickPaint.strokeWidth = r * 0.012f
@@ -698,7 +941,9 @@ class ClockView @JvmOverloads constructor(
                 val to = pointAt(cx, cy, angle, r * 0.36f)
                 canvas.drawLine(from.x, from.y, to.x, to.y, fastTickPaint)
             }
-            drawHand(canvas, cx, cy, a.fast, r * 0.30f, r * 0.05f, r * 0.008f, fastHandPaint)
+            if (!isFastHandFallen()) {
+                drawHand(canvas, cx, cy, a.fast, r * FAST_LEN, r * 0.05f, r * 0.008f, fastHandPaint)
+            }
         }
 
         for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
@@ -714,25 +959,76 @@ class ClockView @JvmOverloads constructor(
             )
         }
 
-        for (b in fallenBodies) {
-            val rad = Math.toRadians(b.angleDeg.toDouble())
-            val dirX = sin(rad).toFloat()
-            val dirY = -cos(rad).toFloat()
-            val paint = paintOf(b.hand)
-            paint.strokeWidth = b.strokeWidth
-            canvas.drawLine(
-                b.x - dirX * b.halfLen, b.y - dirY * b.halfLen,
-                b.x + dirX * b.halfLen, b.y + dirY * b.halfLen,
-                paint
-            )
-        }
+        drawFallenBodies(canvas)
 
         canvas.drawCircle(cx, cy, r * 0.035f, centerDotPaint)
+
+        // Digital 7-segment readout: the chronograph value in chrono modes,
+        // or the current time while the hands are lying at the bottom of
+        // the dial and the analog display is useless.
+        val digitalText = when {
+            chronoProvider != null -> formatDuration(chronoProvider!!.invoke())
+            anyHandFallen() -> {
+                cal.timeInMillis = displayNowMs()
+                String.format(
+                    Locale.US, "%02d:%02d:%02d",
+                    cal.get(Calendar.HOUR_OF_DAY),
+                    cal.get(Calendar.MINUTE),
+                    cal.get(Calendar.SECOND)
+                )
+            }
+            else -> null
+        }
+        digitalText?.let {
+            val digitH = r * 0.13f
+            val yTop = min(cy + r + digitH * 0.4f, height - digitH * 1.6f)
+            drawSevenSegment(canvas, it, cx, yTop, digitH)
+        }
+    }
+
+    private fun formatDuration(ms: Long): String {
+        val total = ms.coerceAtLeast(0L) / 1000
+        return String.format(
+            Locale.US, "%02d:%02d:%02d",
+            total / 3600 % 100, total / 60 % 60, total % 60
+        )
+    }
+
+    private fun drawFallenBodies(canvas: Canvas) {
+        for (b in fallenBodies) {
+            when (b.kind) {
+                BodyKind.NUMERAL -> {
+                    numeralPaint.textSize = b.textSize
+                    canvas.save()
+                    canvas.translate(b.x, b.y)
+                    canvas.rotate(b.angleDeg)
+                    canvas.drawText(
+                        b.label, 0f,
+                        -(numeralPaint.ascent() + numeralPaint.descent()) / 2f,
+                        numeralPaint
+                    )
+                    canvas.restore()
+                }
+                else -> {
+                    val rad = Math.toRadians(b.angleDeg.toDouble())
+                    val dirX = sin(rad).toFloat()
+                    val dirY = -cos(rad).toFloat()
+                    val paint = when {
+                        b.kind == BodyKind.FAST_HAND -> fastHandPaint
+                        else -> paintOf(b.hand ?: Hand.HOUR)
+                    }
+                    paint.strokeWidth = b.strokeWidth
+                    canvas.drawLine(
+                        b.x - dirX * b.halfLen, b.y - dirY * b.halfLen,
+                        b.x + dirX * b.halfLen, b.y + dirY * b.halfLen,
+                        paint
+                    )
+                }
+            }
+        }
     }
 
     private fun drawTicks(canvas: Canvas, cx: Float, cy: Float, r: Float) {
-        // 60 minute ticks on the outer edge; they double as hour marks only
-        // on the classic 12-hour dial, where the divisions line up.
         for (i in 0 until 60) {
             val angle = i / 60f * 360f
             val isMajor = hoursOnDial == 12 && i % 5 == 0
@@ -756,43 +1052,68 @@ class ClockView @JvmOverloads constructor(
 
     private fun drawNumerals(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         if (numeralStyle == NumeralStyle.NONE) return
-        val n = hoursOnDial
-        val crowded = n > 12
-        numeralPaint.textSize = if (crowded) r * 0.11f else r * 0.16f
-        val radius = if (n == 12) r * 0.76f else r * 0.68f
-        val step = if (crowded) 2 else 1
-        var h = step
-        while (h <= n) {
-            drawNumeral(canvas, cx, cy, radius, h, n)
-            h += step
+        numeralPaint.textSize = numeralTextSize(r)
+        for (hour in visibleNumeralHours()) {
+            if (isNumeralFallen(hour)) continue
+            val pos = numeralPosition(hour, cx, cy, r)
+            val defaultColor = numeralPaint.color
+            if (selectedHours.contains(hour)) numeralPaint.color = selectedColor
+            val baseline = pos.y - (numeralPaint.ascent() + numeralPaint.descent()) / 2f
+            canvas.drawText(numeralLabel(hour), pos.x, baseline, numeralPaint)
+            numeralPaint.color = defaultColor
         }
-        // With an odd hour count and step 2 the top numeral would be skipped.
-        if (n % step != 0) drawNumeral(canvas, cx, cy, radius, n, n)
-    }
-
-    private fun drawNumeral(canvas: Canvas, cx: Float, cy: Float, radius: Float, hour: Int, n: Int) {
-        val angle = hour.toFloat() / n * 360f
-        val pos = pointAt(cx, cy, angle, radius)
-        val label = if (numeralStyle == NumeralStyle.ROMAN) toRoman(hour) else hour.toString()
-        val baseline = pos.y - (numeralPaint.ascent() + numeralPaint.descent()) / 2f
-        canvas.drawText(label, pos.x, baseline, numeralPaint)
     }
 
     private fun drawDate(canvas: Canvas, cx: Float, cy: Float, r: Float) {
-        val now = Calendar.getInstance()
+        cal.timeInMillis = displayNowMs()
         val text = when (dateFormatStyle) {
-            DateFormatStyle.NUMBER -> numberDateFormat.format(Date())
-            DateFormatStyle.TEXT -> textDateFormat.format(Date())
+            DateFormatStyle.NUMBER -> numberDateFormat.format(Date(cal.timeInMillis))
+            DateFormatStyle.TEXT -> textDateFormat.format(Date(cal.timeInMillis))
             DateFormatStyle.ROMAN -> {
-                val day = toRoman(now.get(Calendar.DAY_OF_MONTH))
-                val month = toRoman(now.get(Calendar.MONTH) + 1)
-                val year = toRoman(now.get(Calendar.YEAR))
+                val day = Roman.of(cal.get(Calendar.DAY_OF_MONTH))
+                val month = Roman.of(cal.get(Calendar.MONTH) + 1)
+                val year = Roman.of(cal.get(Calendar.YEAR))
                 "$day·$month·$year"
             }
         }
         datePaint.textSize = r * 0.085f
         val baseline = cy - r * 0.42f - (datePaint.ascent() + datePaint.descent()) / 2f
         canvas.drawText(text, cx, baseline, datePaint)
+    }
+
+    // Seven-segment bits, ordered a(64) b(32) c(16) d(8) e(4) f(2) g(1).
+    private fun drawSevenSegment(canvas: Canvas, text: String, cx: Float, top: Float, digitH: Float) {
+        val digitW = digitH * 0.55f
+        val gap = digitW * 0.45f
+        val colonW = digitW * 0.5f
+        var totalW = 0f
+        for (c in text) totalW += if (c == ':') colonW + gap else digitW + gap
+        totalW -= gap
+        var x = cx - totalW / 2f
+        digitalPaint.strokeWidth = digitH * 0.10f
+        for (c in text) {
+            if (c == ':') {
+                canvas.drawPoint(x + colonW / 2f, top + digitH * 0.30f, digitalPaint)
+                canvas.drawPoint(x + colonW / 2f, top + digitH * 0.70f, digitalPaint)
+                x += colonW + gap
+            } else {
+                val digit = c - '0'
+                if (digit in 0..9) drawSegments(canvas, SEGMENT_BITS[digit], x, top, digitW, digitH)
+                x += digitW + gap
+            }
+        }
+    }
+
+    private fun drawSegments(canvas: Canvas, bits: Int, x: Float, y: Float, w: Float, h: Float) {
+        val s = digitalPaint.strokeWidth * 0.8f
+        val mid = y + h / 2f
+        if (bits and 64 != 0) canvas.drawLine(x + s, y, x + w - s, y, digitalPaint)
+        if (bits and 32 != 0) canvas.drawLine(x + w, y + s, x + w, mid - s, digitalPaint)
+        if (bits and 16 != 0) canvas.drawLine(x + w, mid + s, x + w, y + h - s, digitalPaint)
+        if (bits and 8 != 0) canvas.drawLine(x + s, y + h, x + w - s, y + h, digitalPaint)
+        if (bits and 4 != 0) canvas.drawLine(x, mid + s, x, y + h - s, digitalPaint)
+        if (bits and 2 != 0) canvas.drawLine(x, y + s, x, mid - s, digitalPaint)
+        if (bits and 1 != 0) canvas.drawLine(x + s, mid, x + w - s, mid, digitalPaint)
     }
 
     private fun drawHand(
@@ -822,34 +1143,19 @@ class ClockView @JvmOverloads constructor(
         return PointF(cx + sx * distance, cy - cos(a).toFloat() * distance)
     }
 
-    private fun toRoman(value: Int): String {
-        val numerals = listOf(
-            1000 to "M", 900 to "CM", 500 to "D", 400 to "CD",
-            100 to "C", 90 to "XC", 50 to "L", 40 to "XL",
-            10 to "X", 9 to "IX", 5 to "V", 4 to "IV", 1 to "I"
-        )
-        var remainder = value
-        val sb = StringBuilder()
-        for ((weight, symbol) in numerals) {
-            while (remainder >= weight) {
-                sb.append(symbol)
-                remainder -= weight
-            }
-        }
-        return sb.toString()
-    }
-
-    private operator fun FloatArray.component1() = this[0]
-    private operator fun FloatArray.component2() = this[1]
-    private operator fun FloatArray.component3() = this[2]
-
     companion object {
         const val MIN_SCALE = 0.35f
         const val MAX_SCALE = 1f
-        private const val SHAKE_THRESHOLD = 30f // m/s², about 3 g
+        private const val SHAKE_THRESHOLD = 14f // m/s² beyond gravity
+        private const val BASE_GRAVITY = 2600f // px/s²
         private const val HOUR_LEN = 0.52f
         private const val MINUTE_LEN = 0.74f
         private const val SECOND_LEN = 0.82f
+        private const val FAST_LEN = 0.30f
         private val END_SIDES = floatArrayOf(1f, -1f)
+        private val SEGMENT_BITS = intArrayOf(
+            0b1111110, 0b0110000, 0b1101101, 0b1111001, 0b0110011,
+            0b1011011, 0b1011111, 0b1110000, 0b1111111, 0b1111011
+        )
     }
 }

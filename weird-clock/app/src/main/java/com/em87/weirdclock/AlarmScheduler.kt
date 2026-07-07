@@ -18,7 +18,9 @@ object AlarmScheduler {
 
     fun update(context: Context) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        val enabled = prefs.getBoolean(Prefs.ALARM_ENABLED, false)
+        // No time travel: alarms only work while time runs at real speed.
+        val realSpeed = prefs.getInt(Prefs.TIME_SPEED, 100) == 100
+        val enabled = prefs.getBoolean(Prefs.ALARM_ENABLED, false) && realSpeed
         if (enabled) {
             schedule(context, prefs.getString(Prefs.ALARM_TIME, DEFAULT_TIME) ?: DEFAULT_TIME)
         } else {

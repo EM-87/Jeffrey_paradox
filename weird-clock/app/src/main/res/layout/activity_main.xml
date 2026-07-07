@@ -21,4 +21,60 @@
         android:contentDescription="@string/settings_title"
         android:src="@drawable/ic_settings" />
 
+    <LinearLayout
+        android:id="@+id/world_clock_container"
+        android:layout_width="132dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_margin="12dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <com.em87.weirdclock.ClockView
+            android:id="@+id/world_clock_view"
+            android:layout_width="132dp"
+            android:layout_height="132dp" />
+
+        <TextView
+            android:id="@+id/world_clock_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="#8A93A8"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="12dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/mode_button"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:text="@string/mode_clock" />
+
+        <Button
+            android:id="@+id/start_pause_button"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:text="@string/chrono_start"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/reset_button"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/chrono_reset"
+            android:visibility="gone" />
+    </LinearLayout>
+
 </FrameLayout>

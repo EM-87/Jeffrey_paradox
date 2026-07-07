@@ -61,6 +61,45 @@
         <item>decimal_minute</item>
     </string-array>
 
+    <string-array name="world_tz_entries">
+        <item>UTC</item>
+        <item>Madrid</item>
+        <item>London</item>
+        <item>Paris</item>
+        <item>Moscow</item>
+        <item>New York</item>
+        <item>Los Angeles</item>
+        <item>Mexico City</item>
+        <item>Bogotá</item>
+        <item>Buenos Aires</item>
+        <item>São Paulo</item>
+        <item>Tokyo</item>
+        <item>Shanghai</item>
+        <item>New Delhi</item>
+        <item>Dubai</item>
+        <item>Sydney</item>
+        <item>Honolulu</item>
+    </string-array>
+    <string-array name="world_tz_values">
+        <item>UTC</item>
+        <item>Europe/Madrid</item>
+        <item>Europe/London</item>
+        <item>Europe/Paris</item>
+        <item>Europe/Moscow</item>
+        <item>America/New_York</item>
+        <item>America/Los_Angeles</item>
+        <item>America/Mexico_City</item>
+        <item>America/Bogota</item>
+        <item>America/Argentina/Buenos_Aires</item>
+        <item>America/Sao_Paulo</item>
+        <item>Asia/Tokyo</item>
+        <item>Asia/Shanghai</item>
+        <item>Asia/Kolkata</item>
+        <item>Asia/Dubai</item>
+        <item>Australia/Sydney</item>
+        <item>Pacific/Honolulu</item>
+    </string-array>
+
     <string-array name="bell_style_entries">
         <item>Count the hour (grandfather clock)</item>
         <item>Ship’s bell (nautical watches)</item>

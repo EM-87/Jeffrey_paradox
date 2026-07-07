@@ -142,6 +142,38 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="@string/category_time">
+
+        <SeekBarPreference
+            android:key="pref_time_speed"
+            android:title="@string/pref_time_speed_title"
+            android:summary="@string/pref_time_speed_summary"
+            android:max="400"
+            android:defaultValue="100"
+            app:min="25"
+            app:showSeekBarValue="true" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/category_world">
+
+        <SwitchPreferenceCompat
+            android:key="pref_world_clock"
+            android:title="@string/pref_world_clock_title"
+            android:summary="@string/pref_world_clock_summary"
+            android:defaultValue="false" />
+
+        <ListPreference
+            android:key="pref_world_tz"
+            android:title="@string/pref_world_tz_title"
+            android:entries="@array/world_tz_entries"
+            android:entryValues="@array/world_tz_values"
+            android:defaultValue="UTC"
+            android:dependency="pref_world_clock"
+            app:useSimpleSummaryProvider="true" />
+
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="@string/category_alarms">
 
         <SwitchPreferenceCompat

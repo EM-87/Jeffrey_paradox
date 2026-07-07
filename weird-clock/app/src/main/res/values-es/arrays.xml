@@ -33,6 +33,26 @@
         <item>Minuto decimal (1 vuelta cada 86,4 s)</item>
     </string-array>
 
+    <string-array name="world_tz_entries">
+        <item>UTC</item>
+        <item>Madrid</item>
+        <item>Londres</item>
+        <item>París</item>
+        <item>Moscú</item>
+        <item>Nueva York</item>
+        <item>Los Ángeles</item>
+        <item>Ciudad de México</item>
+        <item>Bogotá</item>
+        <item>Buenos Aires</item>
+        <item>São Paulo</item>
+        <item>Tokio</item>
+        <item>Shanghái</item>
+        <item>Nueva Delhi</item>
+        <item>Dubái</item>
+        <item>Sídney</item>
+        <item>Honolulu</item>
+    </string-array>
+
     <string-array name="bell_style_entries">
         <item>Contar la hora (reloj de abuelo)</item>
         <item>Campana de barco (guardias náuticas)</item>

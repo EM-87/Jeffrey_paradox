@@ -22,6 +22,9 @@ object Prefs {
     const val TEST_BELLS = "pref_test_bells"
     const val ALARM_ENABLED = "pref_alarm_enabled"
     const val ALARM_TIME = "pref_alarm_time"
+    const val TIME_SPEED = "pref_time_speed"
+    const val WORLD_CLOCK = "pref_world_clock"
+    const val WORLD_TZ = "pref_world_tz"
 
     const val HOURS_CUSTOM_VALUE = "custom"
 

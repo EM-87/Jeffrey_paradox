@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.preference.ListPreference
@@ -63,7 +64,34 @@ class SettingsActivity : AppCompatActivity() {
                     true
                 }
 
+            findPreference<SeekBarPreference>(Prefs.TIME_SPEED)
+                ?.setOnPreferenceChangeListener { _, newValue ->
+                    if (newValue != 100) showSpeedWarning()
+                    true
+                }
+
             updateAlarmTimeSummary()
+            updateAlarmAvailability()
+        }
+
+        private fun showSpeedWarning() {
+            AlertDialog.Builder(requireContext())
+                .setTitle(R.string.speed_warning_title)
+                .setMessage(R.string.speed_warning_message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+        }
+
+        private fun updateAlarmAvailability() {
+            val realSpeed = (preferenceManager.sharedPreferences
+                ?.getInt(Prefs.TIME_SPEED, 100) ?: 100) == 100
+            findPreference<SwitchPreferenceCompat>(Prefs.ALARM_ENABLED)?.apply {
+                isEnabled = realSpeed
+                setSummary(
+                    if (realSpeed) R.string.pref_alarm_enabled_summary
+                    else R.string.pref_alarm_disabled_by_speed
+                )
+            }
         }
 
         override fun onResume() {
@@ -77,9 +105,10 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {
-            if (key == Prefs.ALARM_ENABLED || key == Prefs.ALARM_TIME) {
+            if (key == Prefs.ALARM_ENABLED || key == Prefs.ALARM_TIME || key == Prefs.TIME_SPEED) {
                 AlarmScheduler.update(requireContext())
             }
+            if (key == Prefs.TIME_SPEED) updateAlarmAvailability()
         }
 
         override fun onPreferenceTreeClick(preference: Preference): Boolean {
