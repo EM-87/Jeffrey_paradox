@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var worldClockContainer: View? = null
     private var worldClockLabel: TextView? = null
     private var modeButton: Button? = null
+    private var switchModeButton: Button? = null
     private var startPauseButton: Button? = null
     private var resetButton: Button? = null
     private var chronoLabel: TextView? = null
@@ -190,21 +191,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     updateChronoButtons()
                 }
             }
-            it.onHorizontalSwipe = {
-                when (mode) {
-                    Mode.STOPWATCH -> {
-                        mode = Mode.COUNTDOWN
-                        applyMode()
-                        true
-                    }
-                    Mode.COUNTDOWN -> {
-                        mode = Mode.STOPWATCH
-                        applyMode()
-                        true
-                    }
-                    Mode.CLOCK -> false
-                }
-            }
+            it.onHorizontalSwipe = { toggleChronoSubmode() }
         }
         worldClockContainer = root.findViewById(R.id.world_clock_container)
         worldClockView = root.findViewById<ClockView>(R.id.world_clock_view).also {
@@ -216,6 +203,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         worldClockLabel = root.findViewById(R.id.world_clock_label)
         modeButton = root.findViewById<Button>(R.id.mode_button).also {
             it.setOnClickListener { cycleMode() }
+        }
+        switchModeButton = root.findViewById<Button>(R.id.switch_mode_button).also {
+            it.setOnClickListener { toggleChronoSubmode() }
         }
         startPauseButton = root.findViewById<Button>(R.id.start_pause_button).also {
             it.setOnClickListener { toggleStartPause() }
@@ -441,11 +431,23 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         applyMode()
     }
 
+    /** Stopwatch ↔ countdown, via swipe or the dedicated button. */
+    private fun toggleChronoSubmode(): Boolean {
+        mode = when (mode) {
+            Mode.STOPWATCH -> Mode.COUNTDOWN
+            Mode.COUNTDOWN -> Mode.STOPWATCH
+            Mode.CLOCK -> return false
+        }
+        applyMode()
+        return true
+    }
+
     private fun applyMode() {
         when (mode) {
             Mode.CLOCK -> {
                 clockView?.chronoProvider = null
                 modeButton?.setText(R.string.mode_clock)
+                switchModeButton?.visibility = View.GONE
                 startPauseButton?.visibility = View.GONE
                 resetButton?.visibility = View.GONE
                 chronoLabel?.visibility = View.GONE
@@ -453,6 +455,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             Mode.STOPWATCH -> {
                 clockView?.chronoProvider = { stopwatchElapsed() }
                 modeButton?.setText(R.string.mode_stopwatch)
+                switchModeButton?.setText(R.string.mode_switch_to_countdown)
+                switchModeButton?.visibility = View.VISIBLE
                 startPauseButton?.visibility = View.VISIBLE
                 resetButton?.visibility = View.VISIBLE
                 chronoLabel?.visibility = View.VISIBLE
@@ -460,6 +464,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             Mode.COUNTDOWN -> {
                 clockView?.chronoProvider = { countdownRemaining() }
                 modeButton?.setText(R.string.mode_countdown)
+                switchModeButton?.setText(R.string.mode_switch_to_stopwatch)
+                switchModeButton?.visibility = View.VISIBLE
                 startPauseButton?.visibility = View.VISIBLE
                 resetButton?.visibility = View.VISIBLE
                 chronoLabel?.visibility = View.VISIBLE

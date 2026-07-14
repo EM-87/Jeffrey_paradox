@@ -402,10 +402,16 @@ class ClockView @JvmOverloads constructor(
                 velocityX: Float,
                 velocityY: Float
             ): Boolean {
-                if (!tapCandidate) return false
-                if (kotlin.math.abs(velocityX) > 900f &&
-                    kotlin.math.abs(velocityX) > kotlin.math.abs(velocityY) * 1.5f
-                ) {
+                val horizontal = kotlin.math.abs(velocityX) > 600f &&
+                    kotlin.math.abs(velocityX) > kotlin.math.abs(velocityY) * 1.2f
+                if (!horizontal) return false
+                if (tapCandidate) return onHorizontalSwipe?.invoke() ?: false
+                // With every hand pointing up (chrono at zero) the grab zones
+                // cover the middle of the dial, so a page-style swipe lands on
+                // a hand. A fast horizontal fling over a barely-wound hand is
+                // a swipe, not winding: abort the drag and forward it.
+                if (draggedHand != null && kotlin.math.abs(dragAccumDeg) < 90.0) {
+                    abortDragForSwipe()
                     return onHorizontalSwipe?.invoke() ?: false
                 }
                 return false
@@ -587,6 +593,16 @@ class ClockView @JvmOverloads constructor(
         Hand.SECOND -> 60.0
         Hand.MINUTE -> 3600.0
         Hand.HOUR -> hoursOnDial * 3600.0
+    }
+
+    /** Drops an in-progress wind without spring-back (the fling was a swipe). */
+    private fun abortDragForSwipe() {
+        draggedHand = null
+        activeSoundHand = null
+        frozenDisplayMs = null
+        chronoFrozenMs = null
+        visualOffsetSeconds = 0.0
+        invalidate()
     }
 
     private fun releaseDraggedHand() {

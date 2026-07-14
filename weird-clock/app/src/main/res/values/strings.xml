@@ -51,11 +51,14 @@
     <string name="pref_world_clock_summary">A small extra dial showing another time zone</string>
     <string name="pref_world_tz_title">Time zone</string>
 
-    <!-- The mode button shows where pressing it takes you: hourglass to
-         enter the chronograph, analog clock to come back. -->
+    <!-- Buttons show where pressing them takes you: hourglass enters the
+         chronograph, analog clock returns to it; a second button switches
+         between stopwatch and countdown. -->
     <string name="mode_clock">⏳</string>
-    <string name="mode_stopwatch">⌛</string>
+    <string name="mode_stopwatch">🕐</string>
     <string name="mode_countdown">🕐</string>
+    <string name="mode_switch_to_countdown">⌛</string>
+    <string name="mode_switch_to_stopwatch">⏱</string>
     <string name="cheater_stamp">CHEATER!</string>
     <string name="chrono_start">Start</string>
     <string name="chrono_pause">Pause</string>
