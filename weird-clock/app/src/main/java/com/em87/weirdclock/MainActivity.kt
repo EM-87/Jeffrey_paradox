@@ -596,6 +596,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         )
     }
 
+    override fun onCheater() {
+        // Sad trombone-ish womp-womp for the stopwatch cheater.
+        chimePlayer.playBellSequence(
+            2, pairGrouping = false,
+            frequency = 110.0, ringSeconds = 0.8, interval = 0.28
+        )
+    }
+
     companion object {
         const val EXTRA_OPEN_ALARMS = "extra_open_alarms"
         private const val DEFAULT_COUNTDOWN_MS = 5 * 60_000L

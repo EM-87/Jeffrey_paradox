@@ -53,7 +53,8 @@ An analog clock app for Android with deliberately weird options.
   either *tenths of a second* (one turn per second) or one turn per
   *decimal minute* (86.4 real seconds, a nod to French Revolutionary time).
 
-**Sounds** (all synthesized at runtime — the app ships zero audio files)
+**Sounds** (synthesized at runtime — the only bundled audio file is the
+CC0 baby-cry recording used by the alarm)
 - **Hourly bells** in three styles, each with its own timbre:
   - *Count the hour* — grandfather-clock style, 1–12 low, long strikes.
   - *Ship's bell* — bright nautical watch bells, struck in pairs, 8 bells at
@@ -84,18 +85,24 @@ clock, not a background chime service).
   want, shown as blocks sorted by time. Tap + to add one, tap a time to
   edit it, toggle each alarm on/off, and pick a sound per alarm:
   *bells*, *digital beep* (classic square-wave beep-beep-beep-beep), or
-  *crying baby* (a synthesized wailing infant — you will get up).
+  *crying baby* — a real newborn recording (CC0, by "the_yura" via
+  Wikimedia Commons), because humans are hard-wired to get up for that
+  sound. A synthesized wail remains as fallback.
 - Alarms ring even when the app is closed: an exact AlarmManager alarm
   fires a foreground service with a full-screen ringing screen that works
   over the lock screen, repeats daily, survives reboots, and auto-stops
   after 3 minutes. The old single alarm from settings is migrated
   automatically.
 
-**Chronograph modes**
+**Chronograph modes** (the mode button cycles ⏳ → ⏱ stopwatch → ⌛ countdown)
 - **Stopwatch** — the dial becomes an analog stopwatch (hands show elapsed
   time) with a 7-segment digital readout and Start/Pause/Reset buttons.
 - **Countdown** — pick minutes and seconds; the hands run down to zero and
   a chime announces the end.
+- The hands stay playable in chrono modes — wind them and they spring back
+  just like on the clock. But wind one *forward* more than a full turn and
+  a big CHEATER! stamp slams across the dial, with a low womp-womp. The
+  spring still returns the true time; cheaters gain nothing.
 
 **World clock**
 - An optional second mini-dial in the corner shows another time zone

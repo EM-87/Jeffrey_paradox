@@ -64,6 +64,7 @@ class ClockView @JvmOverloads constructor(
         fun onDayCrossed()
         fun onHandMounted()
         fun onExploded()
+        fun onCheater()
     }
 
     var soundListener: SoundListener? = null
@@ -97,10 +98,21 @@ class ClockView @JvmOverloads constructor(
 
     /**
      * When set, the dial shows a duration (stopwatch/countdown) instead of
-     * the time of day, and winding/knocking interactions are disabled.
+     * the time of day. Hands stay grabbable (winding forward more than one
+     * turn stamps CHEATER on the dial); shake-to-drop is disabled.
      */
     var chronoProvider: (() -> Long)? = null
-        set(value) { field = value; invalidate() }
+        set(value) {
+            field = value
+            spring?.cancel()
+            spring = null
+            draggedHand = null
+            activeSoundHand = null
+            frozenDisplayMs = null
+            chronoFrozenMs = null
+            visualOffsetSeconds = 0.0
+            invalidate()
+        }
 
     fun isHandGrabbed(): Boolean = draggedHand != null
 
@@ -145,6 +157,10 @@ class ClockView @JvmOverloads constructor(
         strokeCap = Paint.Cap.ROUND
     }
     private val centerDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val cheaterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+    }
 
     private val numberDateFormat by lazy { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
     private val textDateFormat by lazy { SimpleDateFormat("EEE d MMM", Locale.getDefault()) }
@@ -173,6 +189,7 @@ class ClockView @JvmOverloads constructor(
         fastTickPaint.color = t.decimal
         fastTickPaint.alpha = 140
         centerDotPaint.color = t.centerDot
+        cheaterPaint.color = t.secondHand
         selectedColor = t.secondHand
     }
 
@@ -184,6 +201,11 @@ class ClockView @JvmOverloads constructor(
 
     /** While a hand is held, the mechanism freezes at this display time. */
     private var frozenDisplayMs: Long? = null
+
+    /** Chrono equivalent of the freeze: the held chronograph value. */
+    private var chronoFrozenMs: Long? = null
+    private var cheaterFlagged = false
+    private var cheaterUntil = 0L
 
     /** Which hand's sound profile applies while winding or springing back. */
     private var activeSoundHand: Hand? = null
@@ -269,6 +291,7 @@ class ClockView @JvmOverloads constructor(
         override fun run() {
             invalidate()
             val fast = isAnimating() || chronoProvider != null ||
+                SystemClock.uptimeMillis() < cheaterUntil ||
                 fastHand != FastHandMode.NONE || (smoothSeconds && showSecondHand)
             val delay = if (fast) 16L else 1000L - (TimeKeeper.nowMs() % 1000L).coerceIn(0L, 999L)
             postDelayed(this, delay)
@@ -344,7 +367,7 @@ class ClockView @JvmOverloads constructor(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 val grabbedBody = grabFallenBodyNear(event.x, event.y)
-                if (!grabbedBody && touchHandsEnabled && chronoProvider == null) {
+                if (!grabbedBody && touchHandsEnabled) {
                     grabHandNear(event.x, event.y)
                 }
                 tapCandidate = !grabbedBody && draggedHand == null
@@ -424,10 +447,12 @@ class ClockView @JvmOverloads constructor(
             draggedHand = it
             activeSoundHand = it
             // Freeze the mechanism while the user holds it.
-            frozenDisplayMs = displayNowMs()
+            val provider = chronoProvider
+            if (provider != null) chronoFrozenMs = provider() else frozenDisplayMs = displayNowMs()
             dragStartOffset = visualOffsetSeconds
             dragAccumDeg = 0.0
             exploded = false
+            cheaterFlagged = false
             lastTouchDeg = touchAngleDeg(x, y)
             performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         }
@@ -453,8 +478,16 @@ class ClockView @JvmOverloads constructor(
         if (delta < -180f) delta += 360f
         dragAccumDeg += delta
         lastTouchDeg = touchDeg
-        // Over-winding by more than 10 full turns blows the mechanism apart.
-        if (!exploded && kotlin.math.abs(dragAccumDeg) >= 3600.0) {
+        if (chronoProvider != null) {
+            // Winding a chronograph forward more than one turn is cheating.
+            if (!cheaterFlagged && dragAccumDeg >= 360.0) {
+                cheaterFlagged = true
+                cheaterUntil = SystemClock.uptimeMillis() + 3000L
+                soundListener?.onCheater()
+                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            }
+        } else if (!exploded && kotlin.math.abs(dragAccumDeg) >= 3600.0) {
+            // Over-winding by more than 10 full turns blows the mechanism apart.
             exploded = true
             soundListener?.onExploded()
             dropHands(0f, 0f)
@@ -474,10 +507,19 @@ class ClockView @JvmOverloads constructor(
         draggedHand = null
         // Unfreeze: fold the time that passed while holding into the offset,
         // so the display is continuous and the spring returns to *now*.
-        frozenDisplayMs?.let { frozen ->
-            frozenDisplayMs = null
-            val displayMs = frozen + (visualOffsetSeconds * 1000.0).toLong()
-            visualOffsetSeconds = (displayMs - TimeKeeper.nowMs()) / 1000.0
+        val provider = chronoProvider
+        if (provider != null) {
+            chronoFrozenMs?.let { frozen ->
+                chronoFrozenMs = null
+                val displayMs = frozen + (visualOffsetSeconds * 1000.0).toLong()
+                visualOffsetSeconds = (displayMs - provider()) / 1000.0
+            }
+        } else {
+            frozenDisplayMs?.let { frozen ->
+                frozenDisplayMs = null
+                val displayMs = frozen + (visualOffsetSeconds * 1000.0).toLong()
+                visualOffsetSeconds = (displayMs - TimeKeeper.nowMs()) / 1000.0
+            }
         }
         if (visualOffsetSeconds == 0.0) {
             activeSoundHand = null
@@ -504,7 +546,10 @@ class ClockView @JvmOverloads constructor(
 
     /** Applies a new offset and fires winding sounds for boundaries crossed. */
     private fun setOffset(newOffset: Double) {
-        val base = (frozenDisplayMs ?: TimeKeeper.nowMs()) / 1000.0
+        val base = (
+            chronoProvider?.let { chronoFrozenMs ?: it.invoke() }
+                ?: (frozenDisplayMs ?: TimeKeeper.nowMs())
+            ) / 1000.0
         val before = base + visualOffsetSeconds
         val after = base + newOffset
         visualOffsetSeconds = newOffset
@@ -852,9 +897,14 @@ class ClockView @JvmOverloads constructor(
 
     private fun displayNowMs(): Long = frozenDisplayMs ?: TimeKeeper.nowMs()
 
+    /** Chronograph value including any winding offset and hold-freeze. */
+    private fun chronoDisplayMs(): Long? = chronoProvider?.let { provider ->
+        ((chronoFrozenMs ?: provider()) + (visualOffsetSeconds * 1000.0).toLong())
+            .coerceAtLeast(0L)
+    }
+
     private fun computeAngles(): Angles {
-        chronoProvider?.let { provider ->
-            val duration = provider().coerceAtLeast(0L)
+        chronoDisplayMs()?.let { duration ->
             val totalSec = duration / 1000.0
             return Angles(
                 hour = ((totalSec / 3600.0) % hoursOnDial / hoursOnDial * 360.0).toFloat(),
@@ -976,7 +1026,7 @@ class ClockView @JvmOverloads constructor(
         // or the current time while the hands are lying at the bottom of
         // the dial and the analog display is useless.
         val digitalText = when {
-            chronoProvider != null -> formatDuration(chronoProvider!!.invoke())
+            chronoProvider != null -> formatDuration(chronoDisplayMs() ?: 0L)
             anyHandFallen() -> {
                 cal.timeInMillis = displayNowMs()
                 String.format(
@@ -992,6 +1042,19 @@ class ClockView @JvmOverloads constructor(
             val digitH = r * 0.13f
             val yTop = min(cy + r + digitH * 0.4f, height - digitH * 1.6f)
             drawSevenSegment(canvas, it, cx, yTop, digitH)
+        }
+
+        if (SystemClock.uptimeMillis() < cheaterUntil) {
+            cheaterPaint.textSize = r * 0.24f
+            canvas.save()
+            canvas.rotate(-18f, cx, cy)
+            canvas.drawText(
+                context.getString(R.string.cheater_stamp),
+                cx,
+                cy - (cheaterPaint.ascent() + cheaterPaint.descent()) / 2f,
+                cheaterPaint
+            )
+            canvas.restore()
         }
     }
 

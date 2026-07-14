@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.media.MediaPlayer
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -30,6 +31,7 @@ class AlarmService : Service() {
     private val chimePlayer = ChimePlayer()
     private val handler = Handler(Looper.getMainLooper())
     private var sound = Prefs.ALARM_SOUND_BELLS
+    private var mediaPlayer: MediaPlayer? = null
     private val ringLoop = object : Runnable {
         override fun run() {
             when (sound) {
@@ -38,6 +40,7 @@ class AlarmService : Service() {
                     handler.postDelayed(this, 1300L)
                 }
                 Prefs.ALARM_SOUND_BABY -> {
+                    // Synthesized fallback, used only if MediaPlayer failed.
                     chimePlayer.playBabyCry()
                     handler.postDelayed(this, 4200L)
                 }
@@ -67,15 +70,32 @@ class AlarmService : Service() {
         }
 
         handler.removeCallbacksAndMessages(null)
-        handler.post(ringLoop)
+        stopPlayback()
+        if (sound == Prefs.ALARM_SOUND_BABY) {
+            // A real newborn recording (CC0). Humans are wired to react to
+            // this; the synthesized wail is only a fallback.
+            mediaPlayer = MediaPlayer.create(this, R.raw.baby_cry)?.apply {
+                isLooping = true
+                start()
+            }
+            if (mediaPlayer == null) handler.post(ringLoop)
+        } else {
+            handler.post(ringLoop)
+        }
         handler.postDelayed({ stopSelf() }, 3 * 60_000L)
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        stopPlayback()
         chimePlayer.release()
         super.onDestroy()
+    }
+
+    private fun stopPlayback() {
+        mediaPlayer?.release()
+        mediaPlayer = null
     }
 
     private fun createChannel() {

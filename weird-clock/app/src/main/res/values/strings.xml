@@ -51,9 +51,11 @@
     <string name="pref_world_clock_summary">A small extra dial showing another time zone</string>
     <string name="pref_world_tz_title">Time zone</string>
 
-    <string name="mode_clock">Clock</string>
-    <string name="mode_stopwatch">Stopwatch</string>
-    <string name="mode_countdown">Timer</string>
+    <!-- The mode button shows an hourglass to enter the chronograph. -->
+    <string name="mode_clock">⏳</string>
+    <string name="mode_stopwatch">⏱</string>
+    <string name="mode_countdown">⌛</string>
+    <string name="cheater_stamp">CHEATER!</string>
     <string name="chrono_start">Start</string>
     <string name="chrono_pause">Pause</string>
     <string name="chrono_reset">Reset</string>
