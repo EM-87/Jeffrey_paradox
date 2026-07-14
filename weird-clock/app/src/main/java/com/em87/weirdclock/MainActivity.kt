@@ -16,11 +16,8 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.ImageButton
-import android.widget.LinearLayout
-import android.widget.NumberPicker
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
@@ -50,6 +47,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var modeButton: Button? = null
     private var startPauseButton: Button? = null
     private var resetButton: Button? = null
+    private var chronoLabel: TextView? = null
 
     // Alarms page views.
     private var alarmsRecycler: RecyclerView? = null
@@ -89,6 +87,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             if (countdownRunning && countdownRemaining() == 0L) {
                 countdownRunning = false
                 countdownRemainingMs = 0L
+                updateChronoSettable()
                 updateChronoButtons()
                 chimePlayer.playBellSequence(3, false, ChimePlayer.DAY_CHIME_HZ, 1.2, 0.3)
             }
@@ -185,6 +184,27 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.onDialScaleChanged = { scale ->
                 prefs.edit().putFloat(Prefs.DIAL_SCALE, scale).apply()
             }
+            it.onChronoAdjusted = { ms ->
+                if (mode == Mode.COUNTDOWN && !countdownRunning) {
+                    countdownRemainingMs = ms
+                    updateChronoButtons()
+                }
+            }
+            it.onHorizontalSwipe = {
+                when (mode) {
+                    Mode.STOPWATCH -> {
+                        mode = Mode.COUNTDOWN
+                        applyMode()
+                        true
+                    }
+                    Mode.COUNTDOWN -> {
+                        mode = Mode.STOPWATCH
+                        applyMode()
+                        true
+                    }
+                    Mode.CLOCK -> false
+                }
+            }
         }
         worldClockContainer = root.findViewById(R.id.world_clock_container)
         worldClockView = root.findViewById<ClockView>(R.id.world_clock_view).also {
@@ -203,7 +223,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         resetButton = root.findViewById<Button>(R.id.reset_button).also {
             it.setOnClickListener { resetChrono() }
         }
+        chronoLabel = root.findViewById(R.id.chrono_label)
         root.findViewById<ImageButton>(R.id.settings_button).setOnClickListener {
+            // Let settings know whether the panic button should be offered.
+            prefs.edit()
+                .putBoolean(Prefs.NEEDS_REASSEMBLY, clockView?.isDisarranged() == true)
+                .apply()
             startActivity(Intent(this, SettingsActivity::class.java))
         }
         applyPreferences()
@@ -252,11 +277,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 persistAlarms()
             }
             holder.repeat.setText(
-                if (alarm.weekdaysOnly) R.string.alarm_repeat_weekdays
-                else R.string.alarm_repeat_daily
+                when (alarm.repeat) {
+                    Prefs.ALARM_REPEAT_WEEKDAYS -> R.string.alarm_repeat_weekdays
+                    Prefs.ALARM_REPEAT_WEEKENDS -> R.string.alarm_repeat_weekends
+                    else -> R.string.alarm_repeat_daily
+                }
             )
             holder.repeat.setOnClickListener {
-                alarm.weekdaysOnly = !alarm.weekdaysOnly
+                alarm.repeat = when (alarm.repeat) {
+                    Prefs.ALARM_REPEAT_DAILY -> Prefs.ALARM_REPEAT_WEEKDAYS
+                    Prefs.ALARM_REPEAT_WEEKDAYS -> Prefs.ALARM_REPEAT_WEEKENDS
+                    else -> Prefs.ALARM_REPEAT_DAILY
+                }
                 persistAlarms()
             }
             holder.enabled.setOnCheckedChangeListener(null)
@@ -399,16 +431,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     // ------------------------------------------------- chronograph modes
 
+    /** The button toggles clock ↔ chronograph; swipes switch chrono submodes. */
     private fun cycleMode() {
         mode = when (mode) {
             Mode.CLOCK -> Mode.STOPWATCH
-            Mode.STOPWATCH -> Mode.COUNTDOWN
+            Mode.STOPWATCH -> Mode.CLOCK
             Mode.COUNTDOWN -> Mode.CLOCK
         }
         applyMode()
-        if (mode == Mode.COUNTDOWN && countdownRemainingMs == DEFAULT_COUNTDOWN_MS && !countdownRunning) {
-            showCountdownPicker()
-        }
     }
 
     private fun applyMode() {
@@ -418,21 +448,39 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 modeButton?.setText(R.string.mode_clock)
                 startPauseButton?.visibility = View.GONE
                 resetButton?.visibility = View.GONE
+                chronoLabel?.visibility = View.GONE
             }
             Mode.STOPWATCH -> {
                 clockView?.chronoProvider = { stopwatchElapsed() }
                 modeButton?.setText(R.string.mode_stopwatch)
                 startPauseButton?.visibility = View.VISIBLE
                 resetButton?.visibility = View.VISIBLE
+                chronoLabel?.visibility = View.VISIBLE
             }
             Mode.COUNTDOWN -> {
                 clockView?.chronoProvider = { countdownRemaining() }
                 modeButton?.setText(R.string.mode_countdown)
                 startPauseButton?.visibility = View.VISIBLE
                 resetButton?.visibility = View.VISIBLE
+                chronoLabel?.visibility = View.VISIBLE
             }
         }
+        // Page swipes belong to the pager only on the plain clock; in chrono
+        // modes a horizontal fling switches stopwatch ↔ countdown instead.
+        pager.isUserInputEnabled = mode == Mode.CLOCK
+        updateChronoSettable()
         updateChronoButtons()
+    }
+
+    private fun updateChronoSettable() {
+        clockView?.chronoSettable = mode == Mode.COUNTDOWN && !countdownRunning
+        chronoLabel?.setText(
+            when {
+                mode == Mode.STOPWATCH -> R.string.chrono_label_stopwatch
+                mode == Mode.COUNTDOWN && !countdownRunning -> R.string.countdown_set_hint
+                else -> R.string.chrono_label_countdown
+            }
+        )
     }
 
     private fun stopwatchElapsed(): Long =
@@ -464,6 +512,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
             Mode.CLOCK -> Unit
         }
+        updateChronoSettable()
         updateChronoButtons()
     }
 
@@ -472,11 +521,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             Mode.STOPWATCH -> {
                 stopwatchRunning = false
                 stopwatchAccumMs = 0L
-                updateChronoButtons()
             }
-            Mode.COUNTDOWN -> showCountdownPicker()
+            Mode.COUNTDOWN -> {
+                // Back to zero; the user winds the hands to set a new time.
+                countdownRunning = false
+                countdownRemainingMs = 0L
+            }
             Mode.CLOCK -> Unit
         }
+        updateChronoSettable()
+        updateChronoButtons()
     }
 
     private fun updateChronoButtons() {
@@ -486,35 +540,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             Mode.CLOCK -> false
         }
         startPauseButton?.setText(if (running) R.string.chrono_pause else R.string.chrono_start)
-    }
-
-    private fun showCountdownPicker() {
-        val minutes = NumberPicker(this).apply {
-            minValue = 0
-            maxValue = 120
-            value = ((countdownRemainingMs / 60000L).toInt()).coerceIn(0, 120)
-        }
-        val seconds = NumberPicker(this).apply {
-            minValue = 0
-            maxValue = 59
-            value = ((countdownRemainingMs / 1000L) % 60L).toInt()
-        }
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER
-            addView(minutes)
-            addView(seconds)
-        }
-        AlertDialog.Builder(this)
-            .setTitle(R.string.countdown_set_title)
-            .setView(row)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                countdownRunning = false
-                countdownRemainingMs = (minutes.value * 60L + seconds.value) * 1000L
-                updateChronoButtons()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
     }
 
     // ------------------------------------------------- scheduled chimes

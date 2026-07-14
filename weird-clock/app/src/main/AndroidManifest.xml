@@ -18,8 +18,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.WeirdClock">
 
+        <!-- configChanges keeps the activity alive on rotation, so fallen
+             pieces, winding and chrono state survive orientation changes. -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
             android:exported="true"
             android:launchMode="singleTop">
             <intent-filter>

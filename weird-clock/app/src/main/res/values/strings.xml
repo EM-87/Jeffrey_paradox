@@ -60,7 +60,9 @@
     <string name="chrono_start">Start</string>
     <string name="chrono_pause">Pause</string>
     <string name="chrono_reset">Reset</string>
-    <string name="countdown_set_title">Countdown (min : sec)</string>
+    <string name="chrono_label_stopwatch">Stopwatch · swipe for timer</string>
+    <string name="chrono_label_countdown">Timer</string>
+    <string name="countdown_set_hint">Timer · wind the hands to set it</string>
 
     <string name="category_alarms">Alarms</string>
     <string name="pref_alarm_disabled_by_speed">Disabled while time speed is not 100%</string>
@@ -76,6 +78,7 @@
     <string name="alarm_sound_baby">Crying baby</string>
     <string name="alarm_repeat_daily">Every day</string>
     <string name="alarm_repeat_weekdays">Weekdays (Mon–Fri)</string>
+    <string name="alarm_repeat_weekends">Weekends (Sat–Sun)</string>
 
     <string name="pref_reassemble_title">Put everything back</string>
     <string name="pref_reassemble_summary">Remounts fallen hands and numerals in one tap</string>

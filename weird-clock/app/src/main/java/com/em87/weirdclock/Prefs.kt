@@ -51,4 +51,10 @@ object Prefs {
     const val ALARM_SOUND_BELLS = "bells"
     const val ALARM_SOUND_DIGITAL = "digital"
     const val ALARM_SOUND_BABY = "baby"
+
+    const val ALARM_REPEAT_DAILY = "daily"
+    const val ALARM_REPEAT_WEEKDAYS = "weekdays"
+    const val ALARM_REPEAT_WEEKENDS = "weekends"
+
+    const val NEEDS_REASSEMBLY = "pref_needs_reassembly"
 }

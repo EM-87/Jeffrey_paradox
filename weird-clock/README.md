@@ -87,8 +87,8 @@ clock, not a background chime service).
 **Alarms**
 - Swipe left on the clock to reach the alarms page: as many alarms as you
   want, shown as blocks sorted by time. Tap + to add one, tap a time to
-  edit it, toggle each alarm on/off, set it to repeat every day or
-  weekdays only (Mon–Fri), and pick a sound per alarm:
+  edit it, toggle each alarm on/off, set it to repeat every day, weekdays
+  only (Mon–Fri) or weekends only (Sat–Sun), and pick a sound per alarm:
   *bells*, *digital beep* (classic square-wave beep-beep-beep-beep), or
   *crying baby* — a real newborn recording (CC0, by "the_yura" via
   Wikimedia Commons), because humans are hard-wired to get up for that
@@ -99,13 +99,20 @@ clock, not a background chime service).
   after 3 minutes. The old single alarm from settings is migrated
   automatically.
 
-**Chronograph modes** (the mode button shows where it takes you: ⏳ enters
-the chronograph, 🕐 returns to the clock; hands glide between modes with an
-animated transition instead of snapping)
+**Chronograph modes** (⏳ enters the chronograph, 🕐 returns straight to
+the clock from either submode; a horizontal swipe on the dial switches
+stopwatch ↔ countdown; hands glide between modes with an animated
+transition instead of snapping)
 - **Stopwatch** — the dial becomes an analog stopwatch (hands show elapsed
   time) with a 7-segment digital readout and Start/Pause/Reset buttons.
-- **Countdown** — pick minutes and seconds; the hands run down to zero and
-  a chime announces the end.
+- **Countdown** — no dialogs: you *wind the hands* to set it (minute and
+  hour hands take grab priority, no spring-back while setting), with the
+  duration magnetized to round values — 5-minute multiples, so quarter,
+  half and full hours snap into place; 30-second steps under 5 minutes.
+  Press Start and the hands run down to zero, a chime announces the end,
+  and while running the hands spring back as usual if you play with them.
+- A chronograph can never show less than zero — hands pin at 0 instead of
+  winding into negative time.
 - The hands stay playable in chrono modes — wind them and they spring back
   just like on the clock, and over-winding 10 turns explodes the mechanism
   here too. But wind one *forward* more than a full turn and a big CHEATER!
@@ -117,10 +124,13 @@ animated transition instead of snapping)
   (17 cities to pick from), styled like the main clock.
 
 **Settings** are split in two: a simple menu with what the average user
-looks for (theme, numerals, date, bells, ticking, and the panic-friendly
-"Put everything back" button), and an Advanced submenu hiding the weird
-machinery (hours on the dial, mirror, touch physics, time speed, world
-clock).
+looks for (theme, numerals, date, bells, ticking), and an Advanced submenu
+hiding the weird machinery (hours on the dial, mirror, touch physics, time
+speed, world clock). When pieces are lying at the bottom of the dial, a
+"Put everything back" panic button appears at the very top of the menu —
+no scrolling required — and remounts everything in one tap. Rotating the
+screen no longer resets the chaos: fallen pieces, winding and chrono state
+survive orientation changes.
 
 The app is localized in English and Spanish.
 

@@ -102,6 +102,19 @@ class ClockView @JvmOverloads constructor(
      * the time of day. Hands stay grabbable (winding forward more than one
      * turn stamps CHEATER on the dial); shake-to-drop is disabled.
      */
+    /**
+     * When true (countdown being set), winding a hand commits the new value
+     * through [onChronoAdjusted] with no spring-back, magnetized to round
+     * durations, and the minute/hour hands take grab priority.
+     */
+    var chronoSettable = false
+
+    /** Receives the adjusted duration when the user sets the countdown. */
+    var onChronoAdjusted: ((Long) -> Unit)? = null
+
+    /** Fired on a clean horizontal fling (no hand grabbed); return true to consume. */
+    var onHorizontalSwipe: (() -> Boolean)? = null
+
     var chronoProvider: (() -> Long)? = null
         set(value) {
             if (field !== value) {
@@ -316,6 +329,9 @@ class ClockView @JvmOverloads constructor(
         draggedHand != null || spring?.isRunning == true ||
             fallenBodies.isNotEmpty() || transitionFrom != null
 
+    /** True when fallen pieces are lying around the dial. */
+    fun isDisarranged(): Boolean = fallenBodies.isNotEmpty()
+
     /** Instantly puts every fallen piece back and resets all play state. */
     fun reassembleAll() {
         fallenBodies.clear()
@@ -378,6 +394,21 @@ class ClockView @JvmOverloads constructor(
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
                 if (tapCandidate) handleNumeralTap(e.x, e.y)
                 return true
+            }
+
+            override fun onFling(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                velocityX: Float,
+                velocityY: Float
+            ): Boolean {
+                if (!tapCandidate) return false
+                if (kotlin.math.abs(velocityX) > 900f &&
+                    kotlin.math.abs(velocityX) > kotlin.math.abs(velocityY) * 1.5f
+                ) {
+                    return onHorizontalSwipe?.invoke() ?: false
+                }
+                return false
             }
         }
     )
@@ -456,7 +487,22 @@ class ClockView @JvmOverloads constructor(
 
         val threshold = max(r * 0.10f, 44f * resources.displayMetrics.density)
         var chosen: Hand? = null
-        if (showSecondHand && !isFallen(Hand.SECOND) &&
+        if (chronoSettable && chronoProvider != null) {
+            // Setting the countdown: minutes and hours matter, seconds barely.
+            if (!isFallen(Hand.MINUTE) &&
+                distanceToHand(Hand.MINUTE, a, x, y, cx, cy, r) < threshold * 1.4f
+            ) {
+                chosen = Hand.MINUTE
+            } else if (!isFallen(Hand.HOUR) &&
+                distanceToHand(Hand.HOUR, a, x, y, cx, cy, r) < threshold * 1.2f
+            ) {
+                chosen = Hand.HOUR
+            } else if (showSecondHand && !isFallen(Hand.SECOND) &&
+                distanceToHand(Hand.SECOND, a, x, y, cx, cy, r) < threshold * 0.8f
+            ) {
+                chosen = Hand.SECOND
+            }
+        } else if (showSecondHand && !isFallen(Hand.SECOND) &&
             distanceToHand(Hand.SECOND, a, x, y, cx, cy, r) < threshold * 1.4f
         ) {
             chosen = Hand.SECOND
@@ -509,22 +555,32 @@ class ClockView @JvmOverloads constructor(
         if (delta < -180f) delta += 360f
         dragAccumDeg += delta
         lastTouchDeg = touchDeg
-        // Winding a chronograph forward more than one turn is cheating.
-        if (chronoProvider != null && !cheaterFlagged && dragAccumDeg >= 360.0) {
+        // Winding a chronograph forward more than one turn is cheating —
+        // unless you're legitimately setting the countdown.
+        if (chronoProvider != null && !chronoSettable && !cheaterFlagged && dragAccumDeg >= 360.0) {
             cheaterFlagged = true
             cheaterUntil = SystemClock.uptimeMillis() + 3000L
             soundListener?.onCheater()
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
         }
         // Over-winding by more than 10 full turns blows the mechanism apart,
-        // chronograph included.
-        if (!exploded && kotlin.math.abs(dragAccumDeg) >= 3600.0) {
+        // chronograph included (but not while calmly setting the countdown).
+        if (!exploded && !(chronoProvider != null && chronoSettable) &&
+            kotlin.math.abs(dragAccumDeg) >= 3600.0
+        ) {
             exploded = true
             soundListener?.onExploded()
             dropHands(0f, 0f)
             return
         }
-        setOffset(dragStartOffset + dragAccumDeg / 360.0 * secondsPerRevolution(hand))
+        val target = dragStartOffset + dragAccumDeg / 360.0 * secondsPerRevolution(hand)
+        setOffset(target)
+        // If the chronograph clamped at zero, resync the winding so the hand
+        // pins there instead of accumulating invisible negative turns.
+        if (kotlin.math.abs(visualOffsetSeconds - target) > 1e-9) {
+            dragAccumDeg = (visualOffsetSeconds - dragStartOffset) /
+                secondsPerRevolution(hand) * 360.0
+        }
     }
 
     private fun secondsPerRevolution(hand: Hand): Double = when (hand) {
@@ -536,6 +592,17 @@ class ClockView @JvmOverloads constructor(
     private fun releaseDraggedHand() {
         if (draggedHand == null) return
         draggedHand = null
+        // Setting the countdown: commit the wound value (magnetized to round
+        // durations) with no spring-back.
+        if (chronoSettable && chronoProvider != null) {
+            val adjusted = snapCountdown(chronoDisplayMs() ?: 0L)
+            chronoFrozenMs = null
+            visualOffsetSeconds = 0.0
+            activeSoundHand = null
+            onChronoAdjusted?.invoke(adjusted)
+            invalidate()
+            return
+        }
         // Unfreeze: fold the time that passed while holding into the offset,
         // so the display is continuous and the spring returns to *now*.
         val provider = chronoProvider
@@ -577,13 +644,17 @@ class ClockView @JvmOverloads constructor(
 
     /** Applies a new offset and fires winding sounds for boundaries crossed. */
     private fun setOffset(newOffset: Double) {
-        val base = (
-            chronoProvider?.let { chronoFrozenMs ?: it.invoke() }
-                ?: (frozenDisplayMs ?: TimeKeeper.nowMs())
-            ) / 1000.0
+        var offset = newOffset
+        val chronoBaseMs = chronoProvider?.let { chronoFrozenMs ?: it.invoke() }
+        if (chronoBaseMs != null) {
+            // A chronograph can't show less than zero.
+            val minOffset = -chronoBaseMs / 1000.0
+            if (offset < minOffset) offset = minOffset
+        }
+        val base = (chronoBaseMs ?: (frozenDisplayMs ?: TimeKeeper.nowMs())) / 1000.0
         val before = base + visualOffsetSeconds
-        val after = base + newOffset
-        visualOffsetSeconds = newOffset
+        val after = base + offset
+        visualOffsetSeconds = offset
         emitCrossings(before, after)
         invalidate()
     }
@@ -1053,6 +1124,24 @@ class ClockView @JvmOverloads constructor(
     )
 
     private fun displayNowMs(): Long = frozenDisplayMs ?: TimeKeeper.nowMs()
+
+    /**
+     * Magnetizes a countdown to round values: 5-minute multiples (which
+     * covers quarter, half and full hours) when above 5 minutes, 30-second
+     * multiples below.
+     */
+    private fun snapCountdown(ms: Long): Long {
+        val fiveMinutes = 300_000L
+        if (ms >= fiveMinutes) {
+            val rounded = (ms + fiveMinutes / 2) / fiveMinutes * fiveMinutes
+            if (kotlin.math.abs(rounded - ms) <= 20_000L) return rounded
+        } else {
+            val halfMinute = 30_000L
+            val rounded = (ms + halfMinute / 2) / halfMinute * halfMinute
+            if (kotlin.math.abs(rounded - ms) <= 5_000L) return rounded
+        }
+        return ms
+    }
 
     /** Chronograph value including any winding offset and hold-freeze. */
     private fun chronoDisplayMs(): Long? = chronoProvider?.let { provider ->

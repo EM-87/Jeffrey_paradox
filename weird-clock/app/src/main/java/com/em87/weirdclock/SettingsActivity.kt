@@ -38,6 +38,11 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
+            // The panic button only appears when something is actually
+            // lying at the bottom of the dial.
+            findPreference<Preference>(Prefs.REASSEMBLE)?.isVisible =
+                preferenceManager.sharedPreferences
+                    ?.getBoolean(Prefs.NEEDS_REASSEMBLY, false) == true
         }
 
         override fun onPreferenceTreeClick(preference: Preference): Boolean {

@@ -2,6 +2,13 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <!-- Panic button, first thing on screen; only shown when pieces have
+         actually fallen off the dial. -->
+    <Preference
+        android:key="pref_reassemble"
+        android:title="@string/pref_reassemble_title"
+        android:summary="@string/pref_reassemble_summary" />
+
     <PreferenceCategory android:title="@string/category_dial">
 
         <ListPreference
@@ -66,11 +73,6 @@
             android:summary="@string/pref_test_bells_summary" />
 
     </PreferenceCategory>
-
-    <Preference
-        android:key="pref_reassemble"
-        android:title="@string/pref_reassemble_title"
-        android:summary="@string/pref_reassemble_summary" />
 
     <Preference
         android:key="pref_advanced"

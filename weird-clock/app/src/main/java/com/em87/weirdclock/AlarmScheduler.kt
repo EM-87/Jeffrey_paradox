@@ -72,12 +72,13 @@ object AlarmScheduler {
                 add(Calendar.DAY_OF_YEAR, 1)
             }
         }
-        if (alarm.weekdaysOnly) {
-            while (cal.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY ||
-                cal.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY
-            ) {
-                cal.add(Calendar.DAY_OF_YEAR, 1)
-            }
+        fun isWeekend(): Boolean {
+            val day = cal.get(Calendar.DAY_OF_WEEK)
+            return day == Calendar.SATURDAY || day == Calendar.SUNDAY
+        }
+        when (alarm.repeat) {
+            Prefs.ALARM_REPEAT_WEEKDAYS -> while (isWeekend()) cal.add(Calendar.DAY_OF_YEAR, 1)
+            Prefs.ALARM_REPEAT_WEEKENDS -> while (!isWeekend()) cal.add(Calendar.DAY_OF_YEAR, 1)
         }
         return cal.timeInMillis
     }
