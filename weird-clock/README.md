@@ -116,6 +116,13 @@ gradle :app:assembleDebug
 Requires JDK 17 and the Android SDK (compileSdk 35). Min SDK is 24
 (Android 7.0).
 
+APKs are signed with the shared key in `signing/weirdclock.keystore`
+(passwords in `app/build.gradle.kts`), so a build from any machine installs
+cleanly over any previous install. This is a deliberate convenience for an
+APK-distributed hobby app — a Play Store release would need a private key.
+Note that Android refuses to install an APK with a *lower* versionCode over
+a newer one, so always install the latest build.
+
 ## How it works
 
 - `ClockView.kt` — a custom `View` that draws everything with `Canvas` and

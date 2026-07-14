@@ -11,13 +11,30 @@ android {
         applicationId = "com.em87.weirdclock"
         minSdk = 24
         targetSdk = 35
-        versionCode = 5
-        versionName = "5.0"
+        versionCode = 6
+        versionName = "5.1"
+    }
+
+    // Shared signing key committed to the repo, so every APK — built on any
+    // machine — is signed identically and always installs over the previous
+    // version. Fine for a hobby app distributed as an APK; a Play Store
+    // release would need a private key instead.
+    signingConfigs {
+        create("shared") {
+            storeFile = rootProject.file("signing/weirdclock.keystore")
+            storePassword = "weirdclock"
+            keyAlias = "weirdclock"
+            keyPassword = "weirdclock"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("shared")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("shared")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
