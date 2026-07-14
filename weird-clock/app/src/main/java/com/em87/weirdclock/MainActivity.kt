@@ -130,6 +130,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     override fun onResume() {
         super.onResume()
+        // "Put everything back" panic button from settings.
+        if (prefs.getBoolean(Prefs.REASSEMBLE_PENDING, false)) {
+            prefs.edit()
+                .putBoolean(Prefs.REASSEMBLE_PENDING, false)
+                .putFloat(Prefs.DIAL_SCALE, 1f)
+                .apply()
+            clockView?.reassembleAll()
+        }
         applyPreferences()
         // Prime the minute boundary so opening the app never chimes, and
         // start the loop on the next second boundary so ticks land in step.
@@ -219,6 +227,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private inner class AlarmHolder(view: View) : RecyclerView.ViewHolder(view) {
         val time: TextView = view.findViewById(R.id.alarm_time)
         val sound: TextView = view.findViewById(R.id.alarm_sound)
+        val repeat: TextView = view.findViewById(R.id.alarm_repeat)
         val enabled: SwitchCompat = view.findViewById(R.id.alarm_enabled)
         val delete: ImageButton = view.findViewById(R.id.alarm_delete)
     }
@@ -240,6 +249,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             holder.sound.text = soundLabel(alarm.sound)
             holder.sound.setOnClickListener {
                 alarm.sound = nextSound(alarm.sound)
+                persistAlarms()
+            }
+            holder.repeat.setText(
+                if (alarm.weekdaysOnly) R.string.alarm_repeat_weekdays
+                else R.string.alarm_repeat_daily
+            )
+            holder.repeat.setOnClickListener {
+                alarm.weekdaysOnly = !alarm.weekdaysOnly
                 persistAlarms()
             }
             holder.enabled.setOnCheckedChangeListener(null)

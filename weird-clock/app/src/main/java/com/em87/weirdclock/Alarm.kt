@@ -12,7 +12,9 @@ data class Alarm(
     var hour: Int,
     var minute: Int,
     var enabled: Boolean,
-    var sound: String
+    var sound: String,
+    /** Repeat only Monday–Friday instead of every day. */
+    var weekdaysOnly: Boolean = false
 )
 
 /** Alarms persisted as a JSON array in the default SharedPreferences. */
@@ -34,7 +36,8 @@ object AlarmStore {
                         hour = o.getInt("hour"),
                         minute = o.getInt("minute"),
                         enabled = o.getBoolean("enabled"),
-                        sound = o.optString("sound", Prefs.ALARM_SOUND_BELLS)
+                        sound = o.optString("sound", Prefs.ALARM_SOUND_BELLS),
+                        weekdaysOnly = o.optBoolean("weekdays", false)
                     )
                 )
             }
@@ -73,6 +76,7 @@ object AlarmStore {
                     .put("minute", a.minute)
                     .put("enabled", a.enabled)
                     .put("sound", a.sound)
+                    .put("weekdays", a.weekdaysOnly)
             )
         }
         PreferenceManager.getDefaultSharedPreferences(context)

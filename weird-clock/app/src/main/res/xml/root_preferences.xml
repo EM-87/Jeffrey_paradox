@@ -13,34 +13,12 @@
             app:useSimpleSummaryProvider="true" />
 
         <ListPreference
-            android:key="pref_hours_preset"
-            android:title="@string/pref_hours_preset_title"
-            android:entries="@array/hours_preset_entries"
-            android:entryValues="@array/hours_preset_values"
-            android:defaultValue="12"
-            app:useSimpleSummaryProvider="true" />
-
-        <SeekBarPreference
-            android:key="pref_hours_custom"
-            android:title="@string/pref_hours_custom_title"
-            android:max="24"
-            android:defaultValue="12"
-            app:min="2"
-            app:showSeekBarValue="true" />
-
-        <ListPreference
             android:key="pref_numerals"
             android:title="@string/pref_numerals_title"
             android:entries="@array/numeral_entries"
             android:entryValues="@array/numeral_values"
             android:defaultValue="arabic"
             app:useSimpleSummaryProvider="true" />
-
-        <SwitchPreferenceCompat
-            android:key="pref_mirror"
-            android:title="@string/pref_mirror_title"
-            android:summary="@string/pref_mirror_summary"
-            android:defaultValue="false" />
 
         <SwitchPreferenceCompat
             android:key="pref_show_date"
@@ -56,52 +34,6 @@
             android:defaultValue="number"
             android:dependency="pref_show_date"
             app:useSimpleSummaryProvider="true" />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="@string/category_hands">
-
-        <SwitchPreferenceCompat
-            android:key="pref_second_hand"
-            android:title="@string/pref_second_hand_title"
-            android:defaultValue="true" />
-
-        <SwitchPreferenceCompat
-            android:key="pref_smooth_seconds"
-            android:title="@string/pref_smooth_title"
-            android:summary="@string/pref_smooth_summary"
-            android:dependency="pref_second_hand"
-            android:defaultValue="false" />
-
-        <ListPreference
-            android:key="pref_fast_hand"
-            android:title="@string/pref_fast_hand_title"
-            android:entries="@array/fast_hand_entries"
-            android:entryValues="@array/fast_hand_values"
-            android:defaultValue="none"
-            app:useSimpleSummaryProvider="true" />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="@string/category_touch">
-
-        <SwitchPreferenceCompat
-            android:key="pref_touch_hands"
-            android:title="@string/pref_touch_hands_title"
-            android:summary="@string/pref_touch_hands_summary"
-            android:defaultValue="true" />
-
-        <SwitchPreferenceCompat
-            android:key="pref_pinch_zoom"
-            android:title="@string/pref_pinch_zoom_title"
-            android:summary="@string/pref_pinch_zoom_summary"
-            android:defaultValue="true" />
-
-        <SwitchPreferenceCompat
-            android:key="pref_shake_drop"
-            android:title="@string/pref_shake_drop_title"
-            android:summary="@string/pref_shake_drop_summary"
-            android:defaultValue="true" />
 
     </PreferenceCategory>
 
@@ -123,13 +55,6 @@
             app:useSimpleSummaryProvider="true" />
 
         <SwitchPreferenceCompat
-            android:key="pref_half_hour"
-            android:title="@string/pref_half_hour_title"
-            android:summary="@string/pref_half_hour_summary"
-            android:dependency="pref_bells"
-            android:defaultValue="false" />
-
-        <SwitchPreferenceCompat
             android:key="pref_ticking"
             android:title="@string/pref_ticking_title"
             android:summary="@string/pref_ticking_summary"
@@ -142,45 +67,14 @@
 
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="@string/category_time">
+    <Preference
+        android:key="pref_reassemble"
+        android:title="@string/pref_reassemble_title"
+        android:summary="@string/pref_reassemble_summary" />
 
-        <SeekBarPreference
-            android:key="pref_time_speed"
-            android:title="@string/pref_time_speed_title"
-            android:summary="@string/pref_time_speed_summary"
-            android:max="400"
-            android:defaultValue="100"
-            app:min="25"
-            app:showSeekBarValue="true" />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="@string/category_world">
-
-        <SwitchPreferenceCompat
-            android:key="pref_world_clock"
-            android:title="@string/pref_world_clock_title"
-            android:summary="@string/pref_world_clock_summary"
-            android:defaultValue="false" />
-
-        <ListPreference
-            android:key="pref_world_tz"
-            android:title="@string/pref_world_tz_title"
-            android:entries="@array/world_tz_entries"
-            android:entryValues="@array/world_tz_values"
-            android:defaultValue="UTC"
-            android:dependency="pref_world_clock"
-            app:useSimpleSummaryProvider="true" />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="@string/category_alarms">
-
-        <Preference
-            android:key="pref_manage_alarms"
-            android:title="@string/pref_manage_alarms_title"
-            android:summary="@string/pref_manage_alarms_summary" />
-
-    </PreferenceCategory>
+    <Preference
+        android:key="pref_advanced"
+        android:title="@string/pref_advanced_title"
+        android:summary="@string/pref_advanced_summary" />
 
 </PreferenceScreen>

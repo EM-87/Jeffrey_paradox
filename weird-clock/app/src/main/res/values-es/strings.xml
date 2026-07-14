@@ -67,6 +67,14 @@
     <string name="alarm_sound_bells">Campanas</string>
     <string name="alarm_sound_digital">Pitido digital</string>
     <string name="alarm_sound_baby">Bebé llorando</string>
+    <string name="alarm_repeat_daily">Todos los días</string>
+    <string name="alarm_repeat_weekdays">De diario (L–V)</string>
+
+    <string name="pref_reassemble_title">Recolocar</string>
+    <string name="pref_reassemble_summary">Vuelve a montar de golpe las manecillas y números caídos</string>
+    <string name="reassemble_done">Todo en su sitio</string>
+    <string name="pref_advanced_title">Opciones avanzadas</string>
+    <string name="pref_advanced_summary">Horas de la esfera, modo espejo, físicas táctiles, velocidad del tiempo, reloj mundial…</string>
     <string name="pref_alarm_enabled_title">Alarma</string>
     <string name="pref_alarm_enabled_summary">Suena con las campanas sintetizadas de la propia app, incluso en segundo plano</string>
     <string name="pref_alarm_time_title">Hora de la alarma</string>

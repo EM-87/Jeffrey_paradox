@@ -41,10 +41,14 @@ An analog clock app for Android with deliberately weird options.
   fast hand) fly off the axis *in the direction of the blow*, then tumble
   and bounce inside the dial under the live accelerometer gravity vector —
   tilt the phone and the debris rolls around. Keep knocking and the
-  numerals shake loose too, about a third per hit. While the hands are
+  numerals shake loose too, about a third per hit. Fallen pieces collide
+  with each other, and with the hands still mounted on the axis — the
+  ticking second hand bats the debris around the dial. While the hands are
   down, a 7-segment digital clock appears under the dial so you can still
   read the time. Pick each hand up and carry it to the center to remount
-  it; each numeral must be returned to its own spot on the dial.
+  it; each numeral must be returned to its own spot on the dial. If it all
+  gets out of hand, the **Put everything back** button in settings
+  remounts everything in one tap.
 
 **Hands**
 - **Second hand** — on/off, and either ticking once per second or gliding in
@@ -83,7 +87,8 @@ clock, not a background chime service).
 **Alarms**
 - Swipe left on the clock to reach the alarms page: as many alarms as you
   want, shown as blocks sorted by time. Tap + to add one, tap a time to
-  edit it, toggle each alarm on/off, and pick a sound per alarm:
+  edit it, toggle each alarm on/off, set it to repeat every day or
+  weekdays only (Mon–Fri), and pick a sound per alarm:
   *bells*, *digital beep* (classic square-wave beep-beep-beep-beep), or
   *crying baby* — a real newborn recording (CC0, by "the_yura" via
   Wikimedia Commons), because humans are hard-wired to get up for that
@@ -94,19 +99,28 @@ clock, not a background chime service).
   after 3 minutes. The old single alarm from settings is migrated
   automatically.
 
-**Chronograph modes** (the mode button cycles ⏳ → ⏱ stopwatch → ⌛ countdown)
+**Chronograph modes** (the mode button shows where it takes you: ⏳ enters
+the chronograph, 🕐 returns to the clock; hands glide between modes with an
+animated transition instead of snapping)
 - **Stopwatch** — the dial becomes an analog stopwatch (hands show elapsed
   time) with a 7-segment digital readout and Start/Pause/Reset buttons.
 - **Countdown** — pick minutes and seconds; the hands run down to zero and
   a chime announces the end.
 - The hands stay playable in chrono modes — wind them and they spring back
-  just like on the clock. But wind one *forward* more than a full turn and
-  a big CHEATER! stamp slams across the dial, with a low womp-womp. The
-  spring still returns the true time; cheaters gain nothing.
+  just like on the clock, and over-winding 10 turns explodes the mechanism
+  here too. But wind one *forward* more than a full turn and a big CHEATER!
+  stamp slams across the dial, with a low womp-womp. The spring still
+  returns the true time; cheaters gain nothing.
 
 **World clock**
 - An optional second mini-dial in the corner shows another time zone
   (17 cities to pick from), styled like the main clock.
+
+**Settings** are split in two: a simple menu with what the average user
+looks for (theme, numerals, date, bells, ticking, and the panic-friendly
+"Put everything back" button), and an Advanced submenu hiding the weird
+machinery (hours on the dial, mirror, touch physics, time speed, world
+clock).
 
 The app is localized in English and Spanish.
 

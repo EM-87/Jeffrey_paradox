@@ -33,7 +33,7 @@ object AlarmScheduler {
         var next: Alarm? = null
         var nextAt = Long.MAX_VALUE
         for (alarm in enabled) {
-            val at = nextOccurrence(alarm.hour, alarm.minute)
+            val at = nextOccurrence(alarm)
             if (at < nextAt) {
                 nextAt = at
                 next = alarm
@@ -62,14 +62,21 @@ object AlarmScheduler {
         }
     }
 
-    private fun nextOccurrence(hour: Int, minute: Int): Long {
+    private fun nextOccurrence(alarm: Alarm): Long {
         val cal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
+            set(Calendar.HOUR_OF_DAY, alarm.hour)
+            set(Calendar.MINUTE, alarm.minute)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
             if (timeInMillis <= System.currentTimeMillis() + 1000) {
                 add(Calendar.DAY_OF_YEAR, 1)
+            }
+        }
+        if (alarm.weekdaysOnly) {
+            while (cal.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY ||
+                cal.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY
+            ) {
+                cal.add(Calendar.DAY_OF_YEAR, 1)
             }
         }
         return cal.timeInMillis

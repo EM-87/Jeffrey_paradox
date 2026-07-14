@@ -16,6 +16,7 @@ import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
+import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
@@ -103,6 +104,12 @@ class ClockView @JvmOverloads constructor(
      */
     var chronoProvider: (() -> Long)? = null
         set(value) {
+            if (field !== value) {
+                // Animate the hands from where they are to the new mode's
+                // positions instead of snapping.
+                transitionFrom = currentAngles()
+                transitionStartAt = SystemClock.uptimeMillis()
+            }
             field = value
             spring?.cancel()
             spring = null
@@ -207,6 +214,11 @@ class ClockView @JvmOverloads constructor(
     private var cheaterFlagged = false
     private var cheaterUntil = 0L
 
+    /** Mode-change animation: blend from these angles to the target ones. */
+    private var transitionFrom: Angles? = null
+    private var transitionStartAt = 0L
+    private val transitionInterpolator = AccelerateDecelerateInterpolator()
+
     /** Which hand's sound profile applies while winding or springing back. */
     private var activeSoundHand: Hand? = null
     private var lastTouchDeg = 0f
@@ -243,6 +255,8 @@ class ClockView @JvmOverloads constructor(
     )
 
     private val fallenBodies = ArrayList<FallingBody>()
+    private val sampleBufA = FloatArray(SAMPLE_COUNT * 2)
+    private val sampleBufB = FloatArray(SAMPLE_COUNT * 2)
     private var carriedBody: FallingBody? = null
     private var lastPhysicsAt = 0L
     private var lastShakeAt = 0L
@@ -299,7 +313,24 @@ class ClockView @JvmOverloads constructor(
     }
 
     private fun isAnimating(): Boolean =
-        draggedHand != null || spring?.isRunning == true || fallenBodies.isNotEmpty()
+        draggedHand != null || spring?.isRunning == true ||
+            fallenBodies.isNotEmpty() || transitionFrom != null
+
+    /** Instantly puts every fallen piece back and resets all play state. */
+    fun reassembleAll() {
+        fallenBodies.clear()
+        carriedBody = null
+        spring?.cancel()
+        spring = null
+        draggedHand = null
+        activeSoundHand = null
+        frozenDisplayMs = null
+        chronoFrozenMs = null
+        visualOffsetSeconds = 0.0
+        cheaterUntil = 0L
+        dialScale = 1f
+        invalidate()
+    }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
@@ -421,7 +452,7 @@ class ClockView @JvmOverloads constructor(
         val cy = height / 2f
         val r = dialRadius()
         if (hypot(x - cx, y - cy) < r * 0.12f) return
-        val a = computeAngles()
+        val a = currentAngles()
 
         val threshold = max(r * 0.10f, 44f * resources.displayMetrics.density)
         var chosen: Hand? = null
@@ -478,16 +509,16 @@ class ClockView @JvmOverloads constructor(
         if (delta < -180f) delta += 360f
         dragAccumDeg += delta
         lastTouchDeg = touchDeg
-        if (chronoProvider != null) {
-            // Winding a chronograph forward more than one turn is cheating.
-            if (!cheaterFlagged && dragAccumDeg >= 360.0) {
-                cheaterFlagged = true
-                cheaterUntil = SystemClock.uptimeMillis() + 3000L
-                soundListener?.onCheater()
-                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-            }
-        } else if (!exploded && kotlin.math.abs(dragAccumDeg) >= 3600.0) {
-            // Over-winding by more than 10 full turns blows the mechanism apart.
+        // Winding a chronograph forward more than one turn is cheating.
+        if (chronoProvider != null && !cheaterFlagged && dragAccumDeg >= 360.0) {
+            cheaterFlagged = true
+            cheaterUntil = SystemClock.uptimeMillis() + 3000L
+            soundListener?.onCheater()
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        }
+        // Over-winding by more than 10 full turns blows the mechanism apart,
+        // chronograph included.
+        if (!exploded && kotlin.math.abs(dragAccumDeg) >= 3600.0) {
             exploded = true
             soundListener?.onExploded()
             dropHands(0f, 0f)
@@ -671,16 +702,17 @@ class ClockView @JvmOverloads constructor(
         val cx = width / 2f
         val cy = height / 2f
         val r = dialRadius()
-        if (r <= 0f || chronoProvider != null) return
+        if (r <= 0f) return
         // Winding state makes no sense once the hands are off the axis.
         spring?.cancel()
         spring = null
         draggedHand = null
         activeSoundHand = null
         frozenDisplayMs = null
+        chronoFrozenMs = null
         visualOffsetSeconds = 0.0
 
-        val a = computeAngles()
+        val a = currentAngles()
         val ivx = impulseX * 35f
         val ivy = impulseY * 35f
         val drops = ArrayList<Hand>(3)
@@ -698,7 +730,7 @@ class ClockView @JvmOverloads constructor(
         }
         if (fastHand != FastHandMode.NONE && !isFastHandFallen()) {
             addRodBody(
-                BodyKind.FAST_HAND, null, computeAngles().fast,
+                BodyKind.FAST_HAND, null, a.fast,
                 FAST_LEN * r, 0.05f * r, 0.008f * r * 2f, cx, cy, ivx, ivy
             )
         }
@@ -817,6 +849,131 @@ class ClockView @JvmOverloads constructor(
                 }
             }
             b.angVel *= 0.995f
+        }
+        resolveBodyBodyCollisions()
+        resolveMountedHandCollisions(cx, cy, dialRadius())
+    }
+
+    private fun sampleBodyPoints(b: FallingBody, out: FloatArray) {
+        val rad = Math.toRadians(b.angleDeg.toDouble())
+        val dx = sin(rad).toFloat()
+        val dy = -cos(rad).toFloat()
+        for (k in 0 until SAMPLE_COUNT) {
+            val t = k / (SAMPLE_COUNT - 1f) * 2f - 1f
+            out[k * 2] = b.x + dx * b.halfLen * t
+            out[k * 2 + 1] = b.y + dy * b.halfLen * t
+        }
+    }
+
+    private fun bodyRadius(b: FallingBody): Float = max(
+        if (b.kind == BodyKind.NUMERAL) b.textSize * 0.30f else b.strokeWidth * 0.5f,
+        10f
+    )
+
+    /** Fallen pieces bump into each other (sampled-circle approximation). */
+    private fun resolveBodyBodyCollisions() {
+        val n = fallenBodies.size
+        if (n < 2) return
+        for (i in 0 until n - 1) {
+            val a = fallenBodies[i]
+            sampleBodyPoints(a, sampleBufA)
+            for (j in i + 1 until n) {
+                val b = fallenBodies[j]
+                sampleBodyPoints(b, sampleBufB)
+                val minDist = bodyRadius(a) + bodyRadius(b)
+                contact@ for (p in 0 until SAMPLE_COUNT) {
+                    for (q in 0 until SAMPLE_COUNT) {
+                        val dx = sampleBufA[p * 2] - sampleBufB[q * 2]
+                        val dy = sampleBufA[p * 2 + 1] - sampleBufB[q * 2 + 1]
+                        val d = hypot(dx, dy)
+                        if (d < minDist && d > 0.001f) {
+                            val nx = dx / d
+                            val ny = dy / d
+                            val push = (minDist - d) / 2f
+                            if (a !== carriedBody) {
+                                a.x += nx * push
+                                a.y += ny * push
+                            }
+                            if (b !== carriedBody) {
+                                b.x -= nx * push
+                                b.y -= ny * push
+                            }
+                            val relVn = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny
+                            if (relVn < 0f) {
+                                val impulse = -1.4f * relVn / 2f
+                                val spin = min(kotlin.math.abs(impulse), 200f)
+                                if (a !== carriedBody) {
+                                    a.vx += impulse * nx
+                                    a.vy += impulse * ny
+                                    a.angVel += (Random.nextFloat() - 0.5f) * spin
+                                }
+                                if (b !== carriedBody) {
+                                    b.vx -= impulse * nx
+                                    b.vy -= impulse * ny
+                                    b.angVel += (Random.nextFloat() - 0.5f) * spin
+                                }
+                            }
+                            break@contact
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Fallen pieces collide with the hands still mounted on the axis — the
+     * ticking second hand bats debris around the dial.
+     */
+    private fun resolveMountedHandCollisions(cx: Float, cy: Float, r: Float) {
+        val a = currentAngles()
+        for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
+            if (hand == Hand.SECOND && !showSecondHand) continue
+            if (isFallen(hand)) continue
+            val angle = angleOf(hand, a)
+            val tip = pointAt(cx, cy, angle, r * lengthOf(hand))
+            val tail = pointAt(cx, cy, angle + 180f, r * tailOf(hand))
+            collideBodiesWithSegment(tail.x, tail.y, tip.x, tip.y, widthOf(hand) * r)
+        }
+        if ((fastHand != FastHandMode.NONE || chronoProvider != null) && !isFastHandFallen()) {
+            val tip = pointAt(cx, cy, a.fast, r * FAST_LEN)
+            collideBodiesWithSegment(cx, cy, tip.x, tip.y, 0.008f * r)
+        }
+    }
+
+    private fun collideBodiesWithSegment(x1: Float, y1: Float, x2: Float, y2: Float, halfWidth: Float) {
+        val segDx = x2 - x1
+        val segDy = y2 - y1
+        val len2 = segDx * segDx + segDy * segDy
+        if (len2 <= 0f) return
+        for (b in fallenBodies) {
+            if (b === carriedBody) continue
+            sampleBodyPoints(b, sampleBufA)
+            val minDist = bodyRadius(b) + halfWidth + 2f
+            for (k in 0 until SAMPLE_COUNT) {
+                val px = sampleBufA[k * 2]
+                val py = sampleBufA[k * 2 + 1]
+                val t = (((px - x1) * segDx + (py - y1) * segDy) / len2).coerceIn(0f, 1f)
+                val qx = x1 + t * segDx
+                val qy = y1 + t * segDy
+                val dx = px - qx
+                val dy = py - qy
+                val d = hypot(dx, dy)
+                if (d < minDist && d > 0.001f) {
+                    val nx = dx / d
+                    val ny = dy / d
+                    val overlap = minDist - d
+                    b.x += nx * overlap
+                    b.y += ny * overlap
+                    val vn = b.vx * nx + b.vy * ny
+                    if (vn < 0f) {
+                        b.vx -= 1.5f * vn * nx
+                        b.vy -= 1.5f * vn * ny
+                        b.angVel += (Random.nextFloat() - 0.5f) * 150f
+                    }
+                    break
+                }
+            }
         }
     }
 
@@ -940,6 +1097,34 @@ class ClockView @JvmOverloads constructor(
         )
     }
 
+    /** Target angles, blended with the mode-transition animation if active. */
+    private fun currentAngles(): Angles {
+        val target = computeAngles()
+        val from = transitionFrom ?: return target
+        val t = (SystemClock.uptimeMillis() - transitionStartAt) / TRANSITION_MS
+        if (t >= 1f) {
+            transitionFrom = null
+            return target
+        }
+        val f = transitionInterpolator.getInterpolation(t.coerceIn(0f, 1f))
+        return Angles(
+            hour = lerpAngle(from.hour, target.hour, f),
+            minute = lerpAngle(from.minute, target.minute, f),
+            second = lerpAngle(from.second, target.second, f),
+            fast = lerpAngle(from.fast, target.fast, f)
+        )
+    }
+
+    private fun lerpAngle(from: Float, to: Float, fraction: Float): Float =
+        from + normalizeDeg(to - from) * fraction
+
+    private fun normalizeDeg(deg: Float): Float {
+        var d = deg % 360f
+        if (d > 180f) d -= 360f
+        if (d < -180f) d += 360f
+        return d
+    }
+
     private fun angleOf(hand: Hand, a: Angles): Float = when (hand) {
         Hand.HOUR -> a.hour
         Hand.MINUTE -> a.minute
@@ -990,7 +1175,7 @@ class ClockView @JvmOverloads constructor(
         drawNumerals(canvas, cx, cy, r)
         if (showDate && chronoProvider == null) drawDate(canvas, cx, cy, r)
 
-        val a = computeAngles()
+        val a = currentAngles()
 
         if (fastHand != FastHandMode.NONE || chronoProvider != null) {
             for (i in 0 until 10) {
@@ -1224,6 +1409,8 @@ class ClockView @JvmOverloads constructor(
         private const val MINUTE_LEN = 0.74f
         private const val SECOND_LEN = 0.82f
         private const val FAST_LEN = 0.30f
+        private const val TRANSITION_MS = 700f
+        private const val SAMPLE_COUNT = 5
         private val END_SIDES = floatArrayOf(1f, -1f)
         private val SEGMENT_BITS = intArrayOf(
             0b1111110, 0b0110000, 0b1101101, 0b1111001, 0b0110011,

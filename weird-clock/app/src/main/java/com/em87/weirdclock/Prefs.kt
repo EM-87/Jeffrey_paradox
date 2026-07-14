@@ -23,7 +23,9 @@ object Prefs {
     // Legacy single-alarm keys, kept only for migration to AlarmStore.
     const val ALARM_ENABLED = "pref_alarm_enabled"
     const val ALARM_TIME = "pref_alarm_time"
-    const val MANAGE_ALARMS = "pref_manage_alarms"
+    const val ADVANCED = "pref_advanced"
+    const val REASSEMBLE = "pref_reassemble"
+    const val REASSEMBLE_PENDING = "pref_reassemble_pending"
     const val TIME_SPEED = "pref_time_speed"
     const val WORLD_CLOCK = "pref_world_clock"
     const val WORLD_TZ = "pref_world_tz"
