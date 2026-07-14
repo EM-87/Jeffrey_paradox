@@ -61,6 +61,16 @@
 
     <string name="category_alarms">Alarms</string>
     <string name="pref_alarm_disabled_by_speed">Disabled while time speed is not 100%</string>
+    <string name="pref_manage_alarms_title">Manage alarms</string>
+    <string name="pref_manage_alarms_summary">Swipe left on the clock, or tap here</string>
+    <string name="alarms_title">Alarms</string>
+    <string name="alarms_hint">They ring with synthesized sounds, even with the app closed</string>
+    <string name="alarms_empty">No alarms. Tap + to add one.</string>
+    <string name="alarm_add">Add alarm</string>
+    <string name="alarm_delete">Delete alarm</string>
+    <string name="alarm_sound_bells">Bells</string>
+    <string name="alarm_sound_digital">Digital beep</string>
+    <string name="alarm_sound_baby">Crying baby</string>
     <string name="pref_alarm_enabled_title">Alarm</string>
     <string name="pref_alarm_enabled_summary">Rings with the app’s own synthesized bells, even from the background</string>
     <string name="pref_alarm_time_title">Alarm time</string>

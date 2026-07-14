@@ -348,12 +348,21 @@ class ClockView @JvmOverloads constructor(
                     grabHandNear(event.x, event.y)
                 }
                 tapCandidate = !grabbedBody && draggedHand == null
+                // Own the gesture while manipulating the mechanism, so a
+                // hosting pager doesn't steal it as a horizontal page swipe.
+                if (grabbedBody || draggedHand != null) {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                }
             }
             MotionEvent.ACTION_MOVE -> {
                 carriedBody?.let { moveCarriedBody(it, event.x, event.y) }
                     ?: dragTo(event.x, event.y)
             }
-            MotionEvent.ACTION_POINTER_DOWN,
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                if (pinchZoomEnabled) parent?.requestDisallowInterceptTouchEvent(true)
+                releaseDraggedHand()
+                releaseCarriedBody()
+            }
             MotionEvent.ACTION_UP,
             MotionEvent.ACTION_CANCEL -> {
                 releaseDraggedHand()

@@ -8,8 +8,10 @@ import androidx.core.content.ContextCompat
 class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        ContextCompat.startForegroundService(context, Intent(context, AlarmService::class.java))
-        // Re-arm for tomorrow (the stored trigger time has just passed).
+        val service = Intent(context, AlarmService::class.java)
+            .putExtra(AlarmScheduler.EXTRA_SOUND, intent.getStringExtra(AlarmScheduler.EXTRA_SOUND))
+        ContextCompat.startForegroundService(context, service)
+        // Re-arm the next upcoming alarm (this one's next slot is tomorrow).
         AlarmScheduler.update(context)
     }
 }

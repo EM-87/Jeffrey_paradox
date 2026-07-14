@@ -20,8 +20,10 @@ object Prefs {
     const val HALF_HOUR = "pref_half_hour"
     const val TICKING = "pref_ticking"
     const val TEST_BELLS = "pref_test_bells"
+    // Legacy single-alarm keys, kept only for migration to AlarmStore.
     const val ALARM_ENABLED = "pref_alarm_enabled"
     const val ALARM_TIME = "pref_alarm_time"
+    const val MANAGE_ALARMS = "pref_manage_alarms"
     const val TIME_SPEED = "pref_time_speed"
     const val WORLD_CLOCK = "pref_world_clock"
     const val WORLD_TZ = "pref_world_tz"
@@ -43,4 +45,8 @@ object Prefs {
     const val BELL_STYLE_COUNT = "count"
     const val BELL_STYLE_SHIPS = "ships"
     const val BELL_STYLE_SINGLE = "single"
+
+    const val ALARM_SOUND_BELLS = "bells"
+    const val ALARM_SOUND_DIGITAL = "digital"
+    const val ALARM_SOUND_BABY = "baby"
 }

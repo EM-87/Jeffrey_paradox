@@ -11,7 +11,9 @@ import java.io.FileOutputStream
 import kotlin.concurrent.thread
 import kotlin.math.PI
 import kotlin.math.exp
+import kotlin.math.min
 import kotlin.math.sin
+import kotlin.math.tanh
 
 /**
  * Synthesizes and plays all clock sounds at runtime, so the app needs no
@@ -109,10 +111,71 @@ class ChimePlayer {
             for (offset in strikeOffsets) {
                 addBellStrike(buffer, offset, frequency, ringSeconds)
             }
-            synchronized(lock) {
-                bellTrack?.release()
-                bellTrack = buildStaticTrack(toPcm(buffer)).also { it.play() }
+            playFloatBuffer(buffer)
+        }
+    }
+
+    /** Classic digital alarm clock: four short square-wave beeps. */
+    fun playDigitalAlarm() {
+        thread(name = "digital-synth") {
+            val buffer = FloatArray((1.0 * SAMPLE_RATE).toInt())
+            val beepLen = 0.09
+            for (b in 0 until 4) {
+                val start = (b * 0.16 * SAMPLE_RATE).toInt()
+                val samples = (beepLen * SAMPLE_RATE).toInt()
+                for (n in 0 until samples) {
+                    val i = start + n
+                    if (i >= buffer.size) break
+                    val t = n.toDouble() / SAMPLE_RATE
+                    val edge = min(t / 0.004, (beepLen - t) / 0.004).coerceIn(0.0, 1.0)
+                    val square = if (sin(2.0 * PI * 1870.0 * t) >= 0) 1.0 else -1.0
+                    buffer[i] += (square * 0.20 * edge).toFloat()
+                }
             }
+            playFloatBuffer(buffer)
+        }
+    }
+
+    /** Two synthesized baby wails: swept, wavering, saturated harmonics. */
+    fun playBabyCry() {
+        thread(name = "cry-synth") {
+            val buffer = FloatArray((3.6 * SAMPLE_RATE).toInt())
+            addCryWail(buffer, 0.0, 1.4, 430.0)
+            addCryWail(buffer, 1.9, 1.5, 470.0)
+            playFloatBuffer(buffer)
+        }
+    }
+
+    private fun addCryWail(buffer: FloatArray, offsetSeconds: Double, duration: Double, baseHz: Double) {
+        val start = (offsetSeconds * SAMPLE_RATE).toInt()
+        val length = (duration * SAMPLE_RATE).toInt()
+        val amps = doubleArrayOf(1.0, 0.55, 0.40, 0.28, 0.18, 0.10)
+        var phase = 0.0
+        for (n in 0 until length) {
+            val i = start + n
+            if (i >= buffer.size) break
+            val t = n.toDouble() / SAMPLE_RATE
+            val x = t / duration
+            // Pitch rises then falls, with a waver that grows over the wail.
+            val contour = 1.0 + 0.28 * sin(PI * x)
+            val vibrato = 1.0 + 0.04 * x * sin(2.0 * PI * 7.0 * t)
+            phase += 2.0 * PI * baseHz * contour * vibrato / SAMPLE_RATE
+            val envelope = (min(x / 0.08, 1.0) * min((1.0 - x) / 0.15, 1.0)).coerceIn(0.0, 1.0) *
+                (0.75 + 0.25 * sin(2.0 * PI * 5.5 * t))
+            var sample = 0.0
+            for (h in amps.indices) {
+                sample += amps[h] * sin(phase * (h + 1))
+            }
+            // Soft clipping gives the strained, vocal quality.
+            sample = tanh(sample * 1.6)
+            buffer[i] += (sample * envelope * 0.24).toFloat()
+        }
+    }
+
+    private fun playFloatBuffer(buffer: FloatArray) {
+        synchronized(lock) {
+            bellTrack?.release()
+            bellTrack = buildStaticTrack(toPcm(buffer)).also { it.play() }
         }
     }
 

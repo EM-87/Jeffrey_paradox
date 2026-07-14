@@ -80,11 +80,16 @@ clock, not a background chime service).
   design. Tapping it opens the full app.
 
 **Alarms**
-- The app has its own alarm system: pick a time in settings and it rings
-  with the app's synthesized bells even when the app is closed — an exact
-  AlarmManager alarm fires a foreground service with a full-screen ringing
-  screen that works over the lock screen, repeats daily, survives reboots,
-  and auto-stops after 3 minutes.
+- Swipe left on the clock to reach the alarms page: as many alarms as you
+  want, shown as blocks sorted by time. Tap + to add one, tap a time to
+  edit it, toggle each alarm on/off, and pick a sound per alarm:
+  *bells*, *digital beep* (classic square-wave beep-beep-beep-beep), or
+  *crying baby* (a synthesized wailing infant — you will get up).
+- Alarms ring even when the app is closed: an exact AlarmManager alarm
+  fires a foreground service with a full-screen ringing screen that works
+  over the lock screen, repeats daily, survives reboots, and auto-stops
+  after 3 minutes. The old single alarm from settings is migrated
+  automatically.
 
 **Chronograph modes**
 - **Stopwatch** — the dial becomes an analog stopwatch (hands show elapsed
@@ -129,6 +134,8 @@ Requires JDK 17 and the Android SDK (compileSdk 35). Min SDK is 24
   scheduler that fires the chimes on minute boundaries.
 - `SettingsActivity.kt` — a standard `PreferenceFragmentCompat` screen backed
   by `SharedPreferences`.
-- `AlarmScheduler.kt` / `AlarmReceiver.kt` / `AlarmService.kt` /
-  `AlarmRingActivity.kt` / `BootReceiver.kt` — the in-app alarm system.
+- `Alarm.kt` / `AlarmScheduler.kt` / `AlarmReceiver.kt` / `AlarmService.kt` /
+  `AlarmRingActivity.kt` / `BootReceiver.kt` — the in-app multi-alarm
+  system (JSON-persisted list; the next upcoming alarm is armed and each
+  firing re-arms the following one).
 - `ClockWidgetProvider.kt` — the home-screen widget.

@@ -1,20 +1,14 @@
 package com.em87.weirdclock
 
-import android.Manifest
-import android.app.TimePickerDialog
+import android.content.Intent
 import android.content.SharedPreferences
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SeekBarPreference
-import androidx.preference.SwitchPreferenceCompat
 import com.google.android.material.appbar.MaterialToolbar
 
 class SettingsActivity : AppCompatActivity() {
@@ -41,9 +35,6 @@ class SettingsActivity : AppCompatActivity() {
 
         private val chimePlayer = ChimePlayer()
 
-        private val notificationPermissionLauncher =
-            registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
-
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
 
@@ -58,19 +49,12 @@ class SettingsActivity : AppCompatActivity() {
                 true
             }
 
-            findPreference<SwitchPreferenceCompat>(Prefs.ALARM_ENABLED)
-                ?.setOnPreferenceChangeListener { _, newValue ->
-                    if (newValue == true) maybeRequestNotificationPermission()
-                    true
-                }
-
             findPreference<SeekBarPreference>(Prefs.TIME_SPEED)
                 ?.setOnPreferenceChangeListener { _, newValue ->
                     if (newValue != 100) showSpeedWarning()
                     true
                 }
 
-            updateAlarmTimeSummary()
             updateAlarmAvailability()
         }
 
@@ -85,13 +69,10 @@ class SettingsActivity : AppCompatActivity() {
         private fun updateAlarmAvailability() {
             val realSpeed = (preferenceManager.sharedPreferences
                 ?.getInt(Prefs.TIME_SPEED, 100) ?: 100) == 100
-            findPreference<SwitchPreferenceCompat>(Prefs.ALARM_ENABLED)?.apply {
-                isEnabled = realSpeed
-                setSummary(
-                    if (realSpeed) R.string.pref_alarm_enabled_summary
-                    else R.string.pref_alarm_disabled_by_speed
-                )
-            }
+            findPreference<Preference>(Prefs.MANAGE_ALARMS)?.setSummary(
+                if (realSpeed) R.string.pref_manage_alarms_summary
+                else R.string.pref_alarm_disabled_by_speed
+            )
         }
 
         override fun onResume() {
@@ -105,10 +86,10 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {
-            if (key == Prefs.ALARM_ENABLED || key == Prefs.ALARM_TIME || key == Prefs.TIME_SPEED) {
+            if (key == Prefs.TIME_SPEED) {
                 AlarmScheduler.update(requireContext())
+                updateAlarmAvailability()
             }
-            if (key == Prefs.TIME_SPEED) updateAlarmAvailability()
         }
 
         override fun onPreferenceTreeClick(preference: Preference): Boolean {
@@ -117,8 +98,12 @@ class SettingsActivity : AppCompatActivity() {
                     playTestBells()
                     return true
                 }
-                Prefs.ALARM_TIME -> {
-                    showTimePicker()
+                Prefs.MANAGE_ALARMS -> {
+                    startActivity(
+                        Intent(requireContext(), MainActivity::class.java)
+                            .putExtra(MainActivity.EXTRA_OPEN_ALARMS, true)
+                            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    )
                     return true
                 }
             }
@@ -146,43 +131,6 @@ class SettingsActivity : AppCompatActivity() {
                     3, pairGrouping = false,
                     frequency = ChimePlayer.GRANDFATHER_HZ, ringSeconds = 3.0, interval = 1.3
                 )
-            }
-        }
-
-        private fun showTimePicker() {
-            val prefs = preferenceManager.sharedPreferences ?: return
-            val stored = prefs.getString(Prefs.ALARM_TIME, AlarmScheduler.DEFAULT_TIME)
-                ?: AlarmScheduler.DEFAULT_TIME
-            val parts = stored.split(":")
-            val hour = parts.getOrNull(0)?.toIntOrNull() ?: 7
-            val minute = parts.getOrNull(1)?.toIntOrNull() ?: 30
-            TimePickerDialog(
-                requireContext(),
-                { _, h, m ->
-                    prefs.edit()
-                        .putString(Prefs.ALARM_TIME, String.format(java.util.Locale.US, "%02d:%02d", h, m))
-                        .apply()
-                    updateAlarmTimeSummary()
-                },
-                hour,
-                minute,
-                true
-            ).show()
-        }
-
-        private fun updateAlarmTimeSummary() {
-            val stored = preferenceManager.sharedPreferences
-                ?.getString(Prefs.ALARM_TIME, AlarmScheduler.DEFAULT_TIME)
-            findPreference<Preference>(Prefs.ALARM_TIME)?.summary = stored
-        }
-
-        private fun maybeRequestNotificationPermission() {
-            if (Build.VERSION.SDK_INT >= 33 &&
-                ContextCompat.checkSelfPermission(
-                    requireContext(), Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
     }

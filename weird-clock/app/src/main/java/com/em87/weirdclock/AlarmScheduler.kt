@@ -8,39 +8,38 @@ import androidx.preference.PreferenceManager
 import java.util.Calendar
 
 /**
- * Schedules the app's own alarm with AlarmManager. As a clock app we declare
+ * Schedules the next upcoming enabled alarm with AlarmManager; when it fires,
+ * [AlarmReceiver] re-arms the following one. As a clock app we declare
  * USE_EXACT_ALARM, so exact scheduling is granted without a runtime prompt;
  * if the platform still refuses, we degrade to a one-minute window.
  */
 object AlarmScheduler {
 
-    const val DEFAULT_TIME = "07:30"
+    const val EXTRA_ALARM_ID = "extra_alarm_id"
+    const val EXTRA_SOUND = "extra_sound"
 
     fun update(context: Context) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         // No time travel: alarms only work while time runs at real speed.
-        val realSpeed = prefs.getInt(Prefs.TIME_SPEED, 100) == 100
-        val enabled = prefs.getBoolean(Prefs.ALARM_ENABLED, false) && realSpeed
-        if (enabled) {
-            schedule(context, prefs.getString(Prefs.ALARM_TIME, DEFAULT_TIME) ?: DEFAULT_TIME)
-        } else {
+        if (prefs.getInt(Prefs.TIME_SPEED, 100) != 100) {
             cancel(context)
+            return
         }
-    }
-
-    private fun schedule(context: Context, time: String) {
-        val parts = time.split(":")
-        val hour = parts.getOrNull(0)?.toIntOrNull() ?: 7
-        val minute = parts.getOrNull(1)?.toIntOrNull() ?: 30
-        val trigger = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-            if (timeInMillis <= System.currentTimeMillis() + 1000) {
-                add(Calendar.DAY_OF_YEAR, 1)
+        val enabled = AlarmStore.load(context).filter { it.enabled }
+        if (enabled.isEmpty()) {
+            cancel(context)
+            return
+        }
+        var next: Alarm? = null
+        var nextAt = Long.MAX_VALUE
+        for (alarm in enabled) {
+            val at = nextOccurrence(alarm.hour, alarm.minute)
+            if (at < nextAt) {
+                nextAt = at
+                next = alarm
             }
         }
+        val alarm = next ?: return
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
         val show = PendingIntent.getActivity(
             context,
@@ -50,28 +49,47 @@ object AlarmScheduler {
         )
         try {
             alarmManager.setAlarmClock(
-                AlarmManager.AlarmClockInfo(trigger.timeInMillis, show),
-                firePendingIntent(context)
+                AlarmManager.AlarmClockInfo(nextAt, show),
+                firePendingIntent(context, alarm)
             )
         } catch (e: SecurityException) {
             alarmManager.setWindow(
                 AlarmManager.RTC_WAKEUP,
-                trigger.timeInMillis,
+                nextAt,
                 60_000L,
-                firePendingIntent(context)
+                firePendingIntent(context, alarm)
             )
         }
     }
 
-    fun cancel(context: Context) {
-        context.getSystemService(AlarmManager::class.java)?.cancel(firePendingIntent(context))
+    private fun nextOccurrence(hour: Int, minute: Int): Long {
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            if (timeInMillis <= System.currentTimeMillis() + 1000) {
+                add(Calendar.DAY_OF_YEAR, 1)
+            }
+        }
+        return cal.timeInMillis
     }
 
-    private fun firePendingIntent(context: Context): PendingIntent =
-        PendingIntent.getBroadcast(
+    fun cancel(context: Context) {
+        context.getSystemService(AlarmManager::class.java)?.cancel(firePendingIntent(context, null))
+    }
+
+    private fun firePendingIntent(context: Context, alarm: Alarm?): PendingIntent {
+        val intent = Intent(context, AlarmReceiver::class.java)
+        alarm?.let {
+            intent.putExtra(EXTRA_ALARM_ID, it.id)
+            intent.putExtra(EXTRA_SOUND, it.sound)
+        }
+        return PendingIntent.getBroadcast(
             context,
             100,
-            Intent(context, AlarmReceiver::class.java),
+            intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+    }
 }

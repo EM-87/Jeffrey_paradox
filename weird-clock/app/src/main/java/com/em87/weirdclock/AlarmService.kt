@@ -29,10 +29,23 @@ class AlarmService : Service() {
 
     private val chimePlayer = ChimePlayer()
     private val handler = Handler(Looper.getMainLooper())
+    private var sound = Prefs.ALARM_SOUND_BELLS
     private val ringLoop = object : Runnable {
         override fun run() {
-            chimePlayer.playBellSequence(3, false, ChimePlayer.SHIPS_HZ, 1.6, 0.5)
-            handler.postDelayed(this, 5000L)
+            when (sound) {
+                Prefs.ALARM_SOUND_DIGITAL -> {
+                    chimePlayer.playDigitalAlarm()
+                    handler.postDelayed(this, 1300L)
+                }
+                Prefs.ALARM_SOUND_BABY -> {
+                    chimePlayer.playBabyCry()
+                    handler.postDelayed(this, 4200L)
+                }
+                else -> {
+                    chimePlayer.playBellSequence(3, false, ChimePlayer.SHIPS_HZ, 1.6, 0.5)
+                    handler.postDelayed(this, 5000L)
+                }
+            }
         }
     }
 
@@ -43,6 +56,7 @@ class AlarmService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        sound = intent?.getStringExtra(AlarmScheduler.EXTRA_SOUND) ?: Prefs.ALARM_SOUND_BELLS
 
         createChannel()
         val notification = buildNotification()

@@ -1,38 +1,61 @@
 package com.em87.weirdclock
 
+import android.Manifest
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.NumberPicker
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
+import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import java.util.Calendar
+import java.util.Locale
 import java.util.TimeZone
 
 class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private enum class Mode { CLOCK, STOPWATCH, COUNTDOWN }
 
-    private lateinit var clockView: ClockView
-    private lateinit var worldClockView: ClockView
-    private lateinit var worldClockContainer: View
-    private lateinit var worldClockLabel: TextView
-    private lateinit var modeButton: Button
-    private lateinit var startPauseButton: Button
-    private lateinit var resetButton: Button
+    private lateinit var pager: ViewPager2
     private lateinit var prefs: SharedPreferences
     private val chimePlayer = ChimePlayer()
     private val handler = Handler(Looper.getMainLooper())
+
+    // Clock page views (bound when the pager creates the page).
+    private var clockView: ClockView? = null
+    private var worldClockView: ClockView? = null
+    private var worldClockContainer: View? = null
+    private var worldClockLabel: TextView? = null
+    private var modeButton: Button? = null
+    private var startPauseButton: Button? = null
+    private var resetButton: Button? = null
+
+    // Alarms page views.
+    private var alarmsRecycler: RecyclerView? = null
+    private var alarmsEmpty: TextView? = null
+    private val alarms = mutableListOf<Alarm>()
+    private val alarmsAdapter = AlarmAdapter()
 
     private var bellsEnabled = false
     private var bellStyle = Prefs.BELL_STYLE_COUNT
@@ -50,11 +73,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var countdownEndsAt = 0L
     private var countdownRunning = false
 
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     /** Runs on (approximately) every second boundary, so ticks stay in step. */
     private val soundLoop = object : Runnable {
         override fun run() {
-            if (tickingEnabled && mode == Mode.CLOCK &&
-                !clockView.isHandGrabbed() && !clockView.isSecondHandFallen()
+            val cv = clockView
+            if (tickingEnabled && mode == Mode.CLOCK && cv != null &&
+                !cv.isHandGrabbed() && !cv.isSecondHandFallen()
             ) {
                 chimePlayer.playTick()
             }
@@ -83,29 +110,21 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
         chimePlayer.prepareTick(this)
-        clockView = findViewById(R.id.clock_view)
-        clockView.soundListener = this
-        clockView.onDialScaleChanged = { scale ->
-            prefs.edit().putFloat(Prefs.DIAL_SCALE, scale).apply()
+        alarms.addAll(AlarmStore.load(this))
+        sortAlarms()
+
+        pager = findViewById(R.id.pager)
+        pager.offscreenPageLimit = 1
+        pager.adapter = PagerAdapter()
+        if (intent.getBooleanExtra(EXTRA_OPEN_ALARMS, false)) {
+            pager.post { pager.setCurrentItem(1, false) }
         }
-        worldClockContainer = findViewById(R.id.world_clock_container)
-        worldClockView = findViewById(R.id.world_clock_view)
-        worldClockLabel = findViewById(R.id.world_clock_label)
-        worldClockView.touchHandsEnabled = false
-        worldClockView.pinchZoomEnabled = false
-        worldClockView.shakeDropEnabled = false
-        worldClockView.showDate = false
+    }
 
-        modeButton = findViewById(R.id.mode_button)
-        startPauseButton = findViewById(R.id.start_pause_button)
-        resetButton = findViewById(R.id.reset_button)
-        modeButton.setOnClickListener { cycleMode() }
-        startPauseButton.setOnClickListener { toggleStartPause() }
-        resetButton.setOnClickListener { resetChrono() }
-        applyMode()
-
-        findViewById<ImageButton>(R.id.settings_button).setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_OPEN_ALARMS, false)) {
+            pager.currentItem = 1
         }
     }
 
@@ -129,40 +148,214 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         super.onDestroy()
     }
 
+    // -------------------------------------------------------------- pages
+
+    private class PageHolder(view: View) : RecyclerView.ViewHolder(view)
+
+    private inner class PagerAdapter : RecyclerView.Adapter<PageHolder>() {
+
+        override fun getItemCount(): Int = 2
+
+        override fun getItemViewType(position: Int): Int = position
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PageHolder {
+            val inflater = LayoutInflater.from(parent.context)
+            val view = if (viewType == 0) {
+                inflater.inflate(R.layout.page_clock, parent, false).also { bindClockPage(it) }
+            } else {
+                inflater.inflate(R.layout.page_alarms, parent, false).also { bindAlarmsPage(it) }
+            }
+            return PageHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: PageHolder, position: Int) = Unit
+    }
+
+    private fun bindClockPage(root: View) {
+        clockView = root.findViewById<ClockView>(R.id.clock_view).also {
+            it.soundListener = this
+            it.onDialScaleChanged = { scale ->
+                prefs.edit().putFloat(Prefs.DIAL_SCALE, scale).apply()
+            }
+        }
+        worldClockContainer = root.findViewById(R.id.world_clock_container)
+        worldClockView = root.findViewById<ClockView>(R.id.world_clock_view).also {
+            it.touchHandsEnabled = false
+            it.pinchZoomEnabled = false
+            it.shakeDropEnabled = false
+            it.showDate = false
+        }
+        worldClockLabel = root.findViewById(R.id.world_clock_label)
+        modeButton = root.findViewById<Button>(R.id.mode_button).also {
+            it.setOnClickListener { cycleMode() }
+        }
+        startPauseButton = root.findViewById<Button>(R.id.start_pause_button).also {
+            it.setOnClickListener { toggleStartPause() }
+        }
+        resetButton = root.findViewById<Button>(R.id.reset_button).also {
+            it.setOnClickListener { resetChrono() }
+        }
+        root.findViewById<ImageButton>(R.id.settings_button).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        applyPreferences()
+        applyMode()
+    }
+
+    private fun bindAlarmsPage(root: View) {
+        alarmsRecycler = root.findViewById<RecyclerView>(R.id.alarms_recycler).also {
+            it.layoutManager = LinearLayoutManager(this)
+            it.adapter = alarmsAdapter
+        }
+        alarmsEmpty = root.findViewById(R.id.alarms_empty)
+        root.findViewById<FloatingActionButton>(R.id.add_alarm_fab).setOnClickListener {
+            showAlarmTimePicker(null)
+        }
+        refreshAlarmsUi()
+    }
+
+    // -------------------------------------------------------------- alarms
+
+    private inner class AlarmHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val time: TextView = view.findViewById(R.id.alarm_time)
+        val sound: TextView = view.findViewById(R.id.alarm_sound)
+        val enabled: SwitchCompat = view.findViewById(R.id.alarm_enabled)
+        val delete: ImageButton = view.findViewById(R.id.alarm_delete)
+    }
+
+    private inner class AlarmAdapter : RecyclerView.Adapter<AlarmHolder>() {
+
+        override fun getItemCount(): Int = alarms.size
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AlarmHolder =
+            AlarmHolder(
+                LayoutInflater.from(parent.context).inflate(R.layout.item_alarm, parent, false)
+            )
+
+        override fun onBindViewHolder(holder: AlarmHolder, position: Int) {
+            val alarm = alarms[position]
+            holder.time.text = String.format(Locale.US, "%02d:%02d", alarm.hour, alarm.minute)
+            holder.time.alpha = if (alarm.enabled) 1f else 0.4f
+            holder.time.setOnClickListener { showAlarmTimePicker(alarm) }
+            holder.sound.text = soundLabel(alarm.sound)
+            holder.sound.setOnClickListener {
+                alarm.sound = nextSound(alarm.sound)
+                persistAlarms()
+            }
+            holder.enabled.setOnCheckedChangeListener(null)
+            holder.enabled.isChecked = alarm.enabled
+            holder.enabled.setOnCheckedChangeListener { _, checked ->
+                alarm.enabled = checked
+                if (checked) maybeRequestNotificationPermission()
+                persistAlarms()
+            }
+            holder.delete.setOnClickListener {
+                alarms.remove(alarm)
+                persistAlarms()
+            }
+        }
+    }
+
+    private fun soundLabel(sound: String): String = getString(
+        when (sound) {
+            Prefs.ALARM_SOUND_DIGITAL -> R.string.alarm_sound_digital
+            Prefs.ALARM_SOUND_BABY -> R.string.alarm_sound_baby
+            else -> R.string.alarm_sound_bells
+        }
+    )
+
+    private fun nextSound(sound: String): String = when (sound) {
+        Prefs.ALARM_SOUND_BELLS -> Prefs.ALARM_SOUND_DIGITAL
+        Prefs.ALARM_SOUND_DIGITAL -> Prefs.ALARM_SOUND_BABY
+        else -> Prefs.ALARM_SOUND_BELLS
+    }
+
+    private fun showAlarmTimePicker(alarm: Alarm?) {
+        val initHour = alarm?.hour ?: 7
+        val initMinute = alarm?.minute ?: 30
+        TimePickerDialog(
+            this,
+            { _, h, m ->
+                if (alarm == null) {
+                    alarms.add(Alarm(AlarmStore.nextId(alarms), h, m, true, Prefs.ALARM_SOUND_BELLS))
+                    maybeRequestNotificationPermission()
+                } else {
+                    alarm.hour = h
+                    alarm.minute = m
+                }
+                persistAlarms()
+            },
+            initHour,
+            initMinute,
+            true
+        ).show()
+    }
+
+    private fun sortAlarms() {
+        alarms.sortBy { it.hour * 60 + it.minute }
+    }
+
+    @Suppress("NotifyDataSetChanged")
+    private fun persistAlarms() {
+        sortAlarms()
+        AlarmStore.save(this, alarms)
+        AlarmScheduler.update(this)
+        refreshAlarmsUi()
+    }
+
+    private fun refreshAlarmsUi() {
+        alarmsAdapter.notifyDataSetChanged()
+        alarmsEmpty?.visibility = if (alarms.isEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private fun maybeRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    // ------------------------------------------------------- preferences
+
     private fun applyPreferences() {
         TimeKeeper.setSpeedPercent(prefs.getInt(Prefs.TIME_SPEED, 100))
+        val cv = clockView ?: return
 
-        clockView.hoursOnDial = readHoursOnDial()
-        clockView.showSecondHand = prefs.getBoolean(Prefs.SECOND_HAND, true)
-        clockView.smoothSeconds = prefs.getBoolean(Prefs.SMOOTH_SECONDS, false)
-        clockView.mirrored = prefs.getBoolean(Prefs.MIRROR, false)
-        clockView.numeralStyle = readNumeralStyle()
-        clockView.fastHand = when (prefs.getString(Prefs.FAST_HAND, Prefs.FAST_HAND_NONE)) {
+        cv.hoursOnDial = readHoursOnDial()
+        cv.showSecondHand = prefs.getBoolean(Prefs.SECOND_HAND, true)
+        cv.smoothSeconds = prefs.getBoolean(Prefs.SMOOTH_SECONDS, false)
+        cv.mirrored = prefs.getBoolean(Prefs.MIRROR, false)
+        cv.numeralStyle = readNumeralStyle()
+        cv.fastHand = when (prefs.getString(Prefs.FAST_HAND, Prefs.FAST_HAND_NONE)) {
             Prefs.FAST_HAND_TENTHS -> ClockView.FastHandMode.TENTHS
             Prefs.FAST_HAND_DECIMAL_MINUTE -> ClockView.FastHandMode.DECIMAL_MINUTE
             else -> ClockView.FastHandMode.NONE
         }
-        clockView.theme = ClockThemes.byKey(prefs.getString(Prefs.THEME, "midnight"))
-        clockView.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
-        clockView.dateFormatStyle = when (prefs.getString(Prefs.DATE_FORMAT, Prefs.DATE_FORMAT_NUMBER)) {
+        cv.theme = ClockThemes.byKey(prefs.getString(Prefs.THEME, "midnight"))
+        cv.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
+        cv.dateFormatStyle = when (prefs.getString(Prefs.DATE_FORMAT, Prefs.DATE_FORMAT_NUMBER)) {
             Prefs.DATE_FORMAT_TEXT -> ClockView.DateFormatStyle.TEXT
             Prefs.DATE_FORMAT_ROMAN -> ClockView.DateFormatStyle.ROMAN
             else -> ClockView.DateFormatStyle.NUMBER
         }
-        clockView.touchHandsEnabled = prefs.getBoolean(Prefs.TOUCH_HANDS, true)
-        clockView.pinchZoomEnabled = prefs.getBoolean(Prefs.PINCH_ZOOM, true)
-        clockView.shakeDropEnabled = prefs.getBoolean(Prefs.SHAKE_DROP, true)
-        clockView.dialScale = prefs.getFloat(Prefs.DIAL_SCALE, 1f)
+        cv.touchHandsEnabled = prefs.getBoolean(Prefs.TOUCH_HANDS, true)
+        cv.pinchZoomEnabled = prefs.getBoolean(Prefs.PINCH_ZOOM, true)
+        cv.shakeDropEnabled = prefs.getBoolean(Prefs.SHAKE_DROP, true)
+        cv.dialScale = prefs.getFloat(Prefs.DIAL_SCALE, 1f)
 
         val worldOn = prefs.getBoolean(Prefs.WORLD_CLOCK, false)
-        worldClockContainer.visibility = if (worldOn) View.VISIBLE else View.GONE
+        worldClockContainer?.visibility = if (worldOn) View.VISIBLE else View.GONE
         if (worldOn) {
             val tzId = prefs.getString(Prefs.WORLD_TZ, "UTC") ?: "UTC"
-            worldClockView.timeZone = TimeZone.getTimeZone(tzId)
-            worldClockView.theme = clockView.theme
-            worldClockView.hoursOnDial = clockView.hoursOnDial
-            worldClockView.numeralStyle = readNumeralStyle()
-            worldClockLabel.text = tzId.substringAfterLast('/').replace('_', ' ')
+            worldClockView?.let {
+                it.timeZone = TimeZone.getTimeZone(tzId)
+                it.theme = cv.theme
+                it.hoursOnDial = cv.hoursOnDial
+                it.numeralStyle = readNumeralStyle()
+            }
+            worldClockLabel?.text = tzId.substringAfterLast('/').replace('_', ' ')
         }
 
         bellsEnabled = prefs.getBoolean(Prefs.BELLS, false)
@@ -204,22 +397,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun applyMode() {
         when (mode) {
             Mode.CLOCK -> {
-                clockView.chronoProvider = null
-                modeButton.setText(R.string.mode_clock)
-                startPauseButton.visibility = View.GONE
-                resetButton.visibility = View.GONE
+                clockView?.chronoProvider = null
+                modeButton?.setText(R.string.mode_clock)
+                startPauseButton?.visibility = View.GONE
+                resetButton?.visibility = View.GONE
             }
             Mode.STOPWATCH -> {
-                clockView.chronoProvider = { stopwatchElapsed() }
-                modeButton.setText(R.string.mode_stopwatch)
-                startPauseButton.visibility = View.VISIBLE
-                resetButton.visibility = View.VISIBLE
+                clockView?.chronoProvider = { stopwatchElapsed() }
+                modeButton?.setText(R.string.mode_stopwatch)
+                startPauseButton?.visibility = View.VISIBLE
+                resetButton?.visibility = View.VISIBLE
             }
             Mode.COUNTDOWN -> {
-                clockView.chronoProvider = { countdownRemaining() }
-                modeButton.setText(R.string.mode_countdown)
-                startPauseButton.visibility = View.VISIBLE
-                resetButton.visibility = View.VISIBLE
+                clockView?.chronoProvider = { countdownRemaining() }
+                modeButton?.setText(R.string.mode_countdown)
+                startPauseButton?.visibility = View.VISIBLE
+                resetButton?.visibility = View.VISIBLE
             }
         }
         updateChronoButtons()
@@ -275,7 +468,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             Mode.COUNTDOWN -> countdownRunning
             Mode.CLOCK -> false
         }
-        startPauseButton.setText(if (running) R.string.chrono_pause else R.string.chrono_start)
+        startPauseButton?.setText(if (running) R.string.chrono_pause else R.string.chrono_start)
     }
 
     private fun showCountdownPicker() {
@@ -404,6 +597,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     companion object {
+        const val EXTRA_OPEN_ALARMS = "extra_open_alarms"
         private const val DEFAULT_COUNTDOWN_MS = 5 * 60_000L
     }
 }

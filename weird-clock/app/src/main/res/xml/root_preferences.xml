@@ -176,16 +176,10 @@
 
     <PreferenceCategory android:title="@string/category_alarms">
 
-        <SwitchPreferenceCompat
-            android:key="pref_alarm_enabled"
-            android:title="@string/pref_alarm_enabled_title"
-            android:summary="@string/pref_alarm_enabled_summary"
-            android:defaultValue="false" />
-
         <Preference
-            android:key="pref_alarm_time"
-            android:title="@string/pref_alarm_time_title"
-            android:dependency="pref_alarm_enabled" />
+            android:key="pref_manage_alarms"
+            android:title="@string/pref_manage_alarms_title"
+            android:summary="@string/pref_manage_alarms_summary" />
 
     </PreferenceCategory>
 

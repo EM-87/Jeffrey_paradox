@@ -59,7 +59,17 @@
     <string name="countdown_set_title">Cuenta atrás (min : seg)</string>
 
     <string name="category_alarms">Alarmas</string>
-    <string name="pref_alarm_disabled_by_speed">Desactivada mientras la velocidad del tiempo no sea 100%</string>
+    <string name="pref_alarm_disabled_by_speed">Desactivadas mientras la velocidad del tiempo no sea 100%</string>
+    <string name="pref_manage_alarms_title">Gestionar alarmas</string>
+    <string name="pref_manage_alarms_summary">Desliza a la izquierda en el reloj, o toca aquí</string>
+    <string name="alarms_title">Alarmas</string>
+    <string name="alarms_hint">Suenan con sonidos sintetizados, incluso con la app cerrada</string>
+    <string name="alarms_empty">Sin alarmas. Toca + para añadir una.</string>
+    <string name="alarm_add">Añadir alarma</string>
+    <string name="alarm_delete">Eliminar alarma</string>
+    <string name="alarm_sound_bells">Campanas</string>
+    <string name="alarm_sound_digital">Pitido digital</string>
+    <string name="alarm_sound_baby">Bebé llorando</string>
     <string name="pref_alarm_enabled_title">Alarma</string>
     <string name="pref_alarm_enabled_summary">Suena con las campanas sintetizadas de la propia app, incluso en segundo plano</string>
     <string name="pref_alarm_time_title">Hora de la alarma</string>
