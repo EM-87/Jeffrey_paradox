@@ -112,8 +112,11 @@ class ClockView @JvmOverloads constructor(
     /** Receives the adjusted duration when the user sets the countdown. */
     var onChronoAdjusted: ((Long) -> Unit)? = null
 
-    /** Fired on a clean horizontal fling (no hand grabbed); return true to consume. */
-    var onHorizontalSwipe: (() -> Boolean)? = null
+    /**
+     * Fired on a horizontal swipe; the argument is true when the finger moved
+     * right. Return true to consume (used for page navigation over the dial).
+     */
+    var onHorizontalSwipe: ((Boolean) -> Boolean)? = null
 
     var chronoProvider: (() -> Long)? = null
         set(value) {
@@ -406,7 +409,7 @@ class ClockView @JvmOverloads constructor(
                 val fastHorizontal = kotlin.math.abs(velocityX) > 500f &&
                     kotlin.math.abs(velocityX) > kotlin.math.abs(velocityY)
                 if (!fastHorizontal) return false
-                if (tapCandidate) return onHorizontalSwipe?.invoke() ?: false
+                if (tapCandidate) return onHorizontalSwipe?.invoke(velocityX > 0) ?: false
                 // With every hand pointing up (chrono at zero) the grab zones
                 // cover the middle of the dial, so a page-style swipe usually
                 // lands on a hand and becomes winding. Telling them apart by
@@ -421,7 +424,7 @@ class ClockView @JvmOverloads constructor(
                     kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.5f
                 if (chronoProvider != null && straightSwipe) {
                     if (draggedHand != null) abortDragForSwipe()
-                    return onHorizontalSwipe?.invoke() ?: false
+                    return onHorizontalSwipe?.invoke(velocityX > 0) ?: false
                 }
                 return false
             }

@@ -99,13 +99,15 @@ clock, not a background chime service).
   after 3 minutes. The old single alarm from settings is migrated
   automatically.
 
-**Chronograph modes** (⏳ enters the chronograph, 🕐 returns straight to
-the clock from either submode; a horizontal swipe on the dial switches
-stopwatch ↔ countdown; hands glide between modes with an animated
-transition instead of snapping)
-- **Stopwatch** — the dial becomes an analog stopwatch (hands show elapsed
-  time) with a 7-segment digital readout and Start/Pause/Reset buttons.
-- **Countdown** — no dialogs: you *wind the hands* to set it (minute and
+**Chronograph** — the card system mirrors the clock's: press the centered
+⏳ button and the dial's hands glide into stopwatch position (the button
+becomes 🕐 to go back); then, just as the clock swipes to the alarms, the
+stopwatch swipes to a second rendered dial: the countdown. Each dial keeps
+its own state and controls.
+- **Stopwatch** — the main dial shows elapsed time with a 7-segment digital
+  readout and Start/Pause/Reset buttons.
+- **Countdown** — its own full dial on the next page; no dialogs: you
+  *wind the hands* to set it (minute and
   hour hands take grab priority, no spring-back while setting), with the
   duration magnetized to round values — 5-minute multiples, so quarter,
   half and full hours snap into place; 30-second steps under 5 minutes.
