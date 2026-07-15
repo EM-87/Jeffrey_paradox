@@ -402,16 +402,25 @@ class ClockView @JvmOverloads constructor(
                 velocityX: Float,
                 velocityY: Float
             ): Boolean {
-                val horizontal = kotlin.math.abs(velocityX) > 600f &&
-                    kotlin.math.abs(velocityX) > kotlin.math.abs(velocityY) * 1.2f
-                if (!horizontal) return false
+                val start = e1 ?: return false
+                val fastHorizontal = kotlin.math.abs(velocityX) > 500f &&
+                    kotlin.math.abs(velocityX) > kotlin.math.abs(velocityY)
+                if (!fastHorizontal) return false
                 if (tapCandidate) return onHorizontalSwipe?.invoke() ?: false
                 // With every hand pointing up (chrono at zero) the grab zones
-                // cover the middle of the dial, so a page-style swipe lands on
-                // a hand. A fast horizontal fling over a barely-wound hand is
-                // a swipe, not winding: abort the drag and forward it.
-                if (draggedHand != null && kotlin.math.abs(dragAccumDeg) < 90.0) {
-                    abortDragForSwipe()
+                // cover the middle of the dial, so a page-style swipe usually
+                // lands on a hand and becomes winding. Telling them apart by
+                // wound angle fails (a straight pass near the pivot sweeps a
+                // huge angle), so discriminate by the shape of the stroke:
+                // swipes are long, straight and horizontal; winding is
+                // circular. Any straight horizontal stroke in chrono mode is
+                // a swipe — abort the drag and switch.
+                val dx = e2.x - start.x
+                val dy = e2.y - start.y
+                val straightSwipe = kotlin.math.abs(dx) > width * 0.25f &&
+                    kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.5f
+                if (chronoProvider != null && straightSwipe) {
+                    if (draggedHand != null) abortDragForSwipe()
                     return onHorizontalSwipe?.invoke() ?: false
                 }
                 return false
