@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PointF
+import android.graphics.RectF
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -109,6 +110,25 @@ class ClockView @JvmOverloads constructor(
      */
     var chronoSettable = false
 
+    /**
+     * Draws chronograph hardware on the case — start/stop pusher at 2
+     * o'clock, crown at 3, reset pusher at 4 — fading in with the mode
+     * transition. The pushers are touchable.
+     */
+    var chronoButtons = false
+        set(value) {
+            if (field != value && value) buttonsAnimStart = SystemClock.uptimeMillis()
+            field = value
+            invalidate()
+        }
+
+    /** Tints the start/stop pusher while the chronograph is running. */
+    var chronoRunning = false
+        set(value) { field = value; invalidate() }
+
+    var onChronoStartStop: (() -> Unit)? = null
+    var onChronoReset: (() -> Unit)? = null
+
     /** Receives the adjusted duration when the user sets the countdown. */
     var onChronoAdjusted: ((Long) -> Unit)? = null
 
@@ -180,6 +200,7 @@ class ClockView @JvmOverloads constructor(
         strokeCap = Paint.Cap.ROUND
     }
     private val centerDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val pusherPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val cheaterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -234,6 +255,13 @@ class ClockView @JvmOverloads constructor(
     private var transitionFrom: Angles? = null
     private var transitionStartAt = 0L
     private val transitionInterpolator = AccelerateDecelerateInterpolator()
+
+    // Chronograph case hardware.
+    private var buttonsAnimStart = 0L
+    private var pressedPusher = 0 // 0 none, 1 start/stop, 2 reset
+
+    /** Magnet the countdown is currently locked onto while setting it. */
+    private var lockedMagnetMs: Long? = null
 
     /** Which hand's sound profile applies while winding or springing back. */
     private var activeSoundHand: Hand? = null
@@ -446,6 +474,15 @@ class ClockView @JvmOverloads constructor(
         }
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                val pusher = pusherAt(event.x, event.y)
+                if (pusher != 0) {
+                    pressedPusher = pusher
+                    tapCandidate = false
+                    performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    invalidate()
+                    return true
+                }
                 val grabbedBody = grabFallenBodyNear(event.x, event.y)
                 if (!grabbedBody && touchHandsEnabled) {
                     grabHandNear(event.x, event.y)
@@ -463,16 +500,48 @@ class ClockView @JvmOverloads constructor(
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
                 if (pinchZoomEnabled) parent?.requestDisallowInterceptTouchEvent(true)
+                pressedPusher = 0
                 releaseDraggedHand()
                 releaseCarriedBody()
             }
             MotionEvent.ACTION_UP,
             MotionEvent.ACTION_CANCEL -> {
+                if (pressedPusher != 0) {
+                    if (event.actionMasked == MotionEvent.ACTION_UP &&
+                        pusherAt(event.x, event.y) == pressedPusher
+                    ) {
+                        if (pressedPusher == 1) onChronoStartStop?.invoke()
+                        else onChronoReset?.invoke()
+                        soundListener?.onTickCrossed()
+                    }
+                    pressedPusher = 0
+                    invalidate()
+                }
                 releaseDraggedHand()
                 releaseCarriedBody()
             }
         }
         return true
+    }
+
+    /** 1 = start/stop pusher (2 o'clock), 2 = reset pusher (4 o'clock). */
+    private fun pusherAt(x: Float, y: Float): Int {
+        if (!chronoButtons) return 0
+        val cx = width / 2f
+        val cy = height / 2f
+        val r = dialRadius()
+        val hit = max(44f * resources.displayMetrics.density, r * 0.14f)
+        val start = plainPoint(cx, cy, 60f, r * 1.02f)
+        if (hypot(x - start.x, y - start.y) < hit) return 1
+        val reset = plainPoint(cx, cy, 120f, r * 1.02f)
+        if (hypot(x - reset.x, y - reset.y) < hit) return 2
+        return 0
+    }
+
+    /** Like [pointAt] but ignoring mirror mode — case hardware is physical. */
+    private fun plainPoint(cx: Float, cy: Float, angleDeg: Float, distance: Float): PointF {
+        val a = Math.toRadians(angleDeg.toDouble())
+        return PointF(cx + sin(a).toFloat() * distance, cy - cos(a).toFloat() * distance)
     }
 
     private fun touchAngleDeg(x: Float, y: Float): Float {
@@ -506,19 +575,26 @@ class ClockView @JvmOverloads constructor(
         val threshold = max(r * 0.10f, 44f * resources.displayMetrics.density)
         var chosen: Hand? = null
         if (chronoSettable && chronoProvider != null) {
-            // Setting the countdown: minutes and hours matter, seconds barely.
-            if (!isFallen(Hand.MINUTE) &&
-                distanceToHand(Hand.MINUTE, a, x, y, cx, cy, r) < threshold * 1.4f
-            ) {
-                chosen = Hand.MINUTE
-            } else if (!isFallen(Hand.HOUR) &&
-                distanceToHand(Hand.HOUR, a, x, y, cx, cy, r) < threshold * 1.2f
-            ) {
-                chosen = Hand.HOUR
-            } else if (showSecondHand && !isFallen(Hand.SECOND) &&
-                distanceToHand(Hand.SECOND, a, x, y, cx, cy, r) < threshold * 0.8f
-            ) {
-                chosen = Hand.SECOND
+            // Setting a duration: inside the dial, minutes and hours matter
+            // and seconds barely. But when the stacked hands are grabbed from
+            // OUTSIDE the dial, the second hand wins — its tip is the longest,
+            // and reaching in from the edge signals a seconds-scale countdown.
+            val fromOutside = hypot(x - cx, y - cy) > r
+            val order = if (fromOutside) {
+                arrayOf(Triple(Hand.SECOND, 1.4f, showSecondHand),
+                    Triple(Hand.MINUTE, 1.1f, true),
+                    Triple(Hand.HOUR, 1.0f, true))
+            } else {
+                arrayOf(Triple(Hand.MINUTE, 1.4f, true),
+                    Triple(Hand.HOUR, 1.2f, true),
+                    Triple(Hand.SECOND, 0.8f, showSecondHand))
+            }
+            for ((hand, factor, enabled) in order) {
+                if (!enabled || isFallen(hand)) continue
+                if (distanceToHand(hand, a, x, y, cx, cy, r) < threshold * factor) {
+                    chosen = hand
+                    break
+                }
             }
         } else if (showSecondHand && !isFallen(Hand.SECOND) &&
             distanceToHand(Hand.SECOND, a, x, y, cx, cy, r) < threshold * 1.4f
@@ -548,6 +624,7 @@ class ClockView @JvmOverloads constructor(
             dragAccumDeg = 0.0
             exploded = false
             cheaterFlagged = false
+            lockedMagnetMs = null
             lastTouchDeg = touchAngleDeg(x, y)
             performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         }
@@ -592,12 +669,25 @@ class ClockView @JvmOverloads constructor(
             return
         }
         val target = dragStartOffset + dragAccumDeg / 360.0 * secondsPerRevolution(hand)
-        setOffset(target)
-        // If the chronograph clamped at zero, resync the winding so the hand
-        // pins there instead of accumulating invisible negative turns.
-        if (kotlin.math.abs(visualOffsetSeconds - target) > 1e-9) {
-            dragAccumDeg = (visualOffsetSeconds - dragStartOffset) /
-                secondsPerRevolution(hand) * 360.0
+        if (chronoSettable && chronoProvider != null) {
+            // Sticky magnets: near a round duration the value locks onto it
+            // and a haptic tick tells the user that letting go here lands
+            // exactly on the detent.
+            val baseMs = chronoFrozenMs ?: 0L
+            val durationMs = baseMs + (target * 1000.0).toLong()
+            val magnet = magnetFor(durationMs)
+            if (magnet != null) {
+                if (lockedMagnetMs != magnet) {
+                    lockedMagnetMs = magnet
+                    performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                }
+                setOffset((magnet - baseMs) / 1000.0)
+            } else {
+                lockedMagnetMs = null
+                setOffset(target)
+            }
+        } else {
+            setOffset(target)
         }
     }
 
@@ -623,10 +713,11 @@ class ClockView @JvmOverloads constructor(
         // Setting the countdown: commit the wound value (magnetized to round
         // durations) with no spring-back.
         if (chronoSettable && chronoProvider != null) {
-            val adjusted = snapCountdown(chronoDisplayMs() ?: 0L)
+            val adjusted = snapCountdown((chronoDisplayMs() ?: 0L).coerceAtLeast(0L))
             chronoFrozenMs = null
             visualOffsetSeconds = 0.0
             activeSoundHand = null
+            lockedMagnetMs = null
             onChronoAdjusted?.invoke(adjusted)
             invalidate()
             return
@@ -672,17 +763,11 @@ class ClockView @JvmOverloads constructor(
 
     /** Applies a new offset and fires winding sounds for boundaries crossed. */
     private fun setOffset(newOffset: Double) {
-        var offset = newOffset
         val chronoBaseMs = chronoProvider?.let { chronoFrozenMs ?: it.invoke() }
-        if (chronoBaseMs != null) {
-            // A chronograph can't show less than zero.
-            val minOffset = -chronoBaseMs / 1000.0
-            if (offset < minOffset) offset = minOffset
-        }
         val base = (chronoBaseMs ?: (frozenDisplayMs ?: TimeKeeper.nowMs())) / 1000.0
         val before = base + visualOffsetSeconds
-        val after = base + offset
-        visualOffsetSeconds = offset
+        val after = base + newOffset
+        visualOffsetSeconds = newOffset
         emitCrossings(before, after)
         invalidate()
     }
@@ -1154,27 +1239,28 @@ class ClockView @JvmOverloads constructor(
     private fun displayNowMs(): Long = frozenDisplayMs ?: TimeKeeper.nowMs()
 
     /**
-     * Magnetizes a countdown to round values: 5-minute multiples (which
-     * covers quarter, half and full hours) when above 5 minutes, 30-second
-     * multiples below.
+     * Magnet grid for setting durations: 5-minute multiples (which covers
+     * quarter, half and full hours) above 5 minutes, 30-second multiples
+     * below. Returns the detent value when [ms] is within its capture
+     * window, null otherwise.
      */
-    private fun snapCountdown(ms: Long): Long {
-        val fiveMinutes = 300_000L
-        if (ms >= fiveMinutes) {
-            val rounded = (ms + fiveMinutes / 2) / fiveMinutes * fiveMinutes
-            if (kotlin.math.abs(rounded - ms) <= 20_000L) return rounded
-        } else {
-            val halfMinute = 30_000L
-            val rounded = (ms + halfMinute / 2) / halfMinute * halfMinute
-            if (kotlin.math.abs(rounded - ms) <= 5_000L) return rounded
-        }
-        return ms
+    private fun magnetFor(ms: Long): Long? {
+        if (ms < 0) return null
+        val grid = if (ms >= 300_000L) 300_000L else 30_000L
+        val window = if (grid == 300_000L) 40_000L else 8_000L
+        val rounded = (ms + grid / 2) / grid * grid
+        return if (kotlin.math.abs(rounded - ms) <= window) rounded else null
     }
 
-    /** Chronograph value including any winding offset and hold-freeze. */
+    private fun snapCountdown(ms: Long): Long = magnetFor(ms) ?: ms
+
+    /**
+     * Chronograph value including any winding offset and hold-freeze. May be
+     * negative while playing — the spring brings it back, and the countdown
+     * commit clamps at zero.
+     */
     private fun chronoDisplayMs(): Long? = chronoProvider?.let { provider ->
-        ((chronoFrozenMs ?: provider()) + (visualOffsetSeconds * 1000.0).toLong())
-            .coerceAtLeast(0L)
+        (chronoFrozenMs ?: provider()) + (visualOffsetSeconds * 1000.0).toLong()
     }
 
     private fun computeAngles(): Angles {
@@ -1284,6 +1370,9 @@ class ClockView @JvmOverloads constructor(
         val cy = height / 2f
         val r = dialRadius()
 
+        // Case hardware sits behind the face so it reads as attached to it.
+        if (chronoButtons) drawChronoHardware(canvas, cx, cy, r)
+
         rimPaint.strokeWidth = r * 0.02f
         canvas.drawCircle(cx, cy, r, facePaint)
         canvas.drawCircle(cx, cy, r, rimPaint)
@@ -1361,11 +1450,52 @@ class ClockView @JvmOverloads constructor(
     }
 
     private fun formatDuration(ms: Long): String {
-        val total = ms.coerceAtLeast(0L) / 1000
+        val total = kotlin.math.abs(ms) / 1000
+        val sign = if (ms < 0) "-" else ""
         return String.format(
-            Locale.US, "%02d:%02d:%02d",
-            total / 3600 % 100, total / 60 % 60, total % 60
+            Locale.US, "%s%02d:%02d:%02d",
+            sign, total / 3600 % 100, total / 60 % 60, total % 60
         )
+    }
+
+    /**
+     * Chronograph pushers and crown, fading in with the mode transition:
+     * start/stop at 2 o'clock (accent-tinted while running), crown at 3,
+     * half-height reset at 4 — the real-watch convention, thumb-friendly.
+     */
+    private fun drawChronoHardware(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        val t = ((SystemClock.uptimeMillis() - buttonsAnimStart) / 500f).coerceIn(0f, 1f)
+        val alpha = (t * 255).toInt()
+
+        pusherPaint.color = theme.rim
+        pusherPaint.alpha = alpha
+        drawCaseStub(canvas, cx, cy, r, 90f, r * 0.055f, r * 1.07f)
+
+        pusherPaint.color = if (chronoRunning) theme.secondHand else theme.rim
+        pusherPaint.alpha = alpha
+        drawCaseStub(canvas, cx, cy, r, 60f, r * 0.05f, if (pressedPusher == 1) r * 1.05f else r * 1.10f)
+
+        pusherPaint.color = theme.rim
+        pusherPaint.alpha = alpha
+        drawCaseStub(canvas, cx, cy, r, 120f, r * 0.032f, if (pressedPusher == 2) r * 1.04f else r * 1.08f)
+
+        if (t < 1f) invalidate()
+    }
+
+    private fun drawCaseStub(
+        canvas: Canvas,
+        cx: Float,
+        cy: Float,
+        r: Float,
+        angleDeg: Float,
+        halfWidth: Float,
+        outer: Float
+    ) {
+        canvas.save()
+        canvas.rotate(angleDeg - 90f, cx, cy)
+        val rect = RectF(cx + r * 0.90f, cy - halfWidth, cx + outer, cy + halfWidth)
+        canvas.drawRoundRect(rect, halfWidth * 0.6f, halfWidth * 0.6f, pusherPaint)
+        canvas.restore()
     }
 
     private fun drawFallenBodies(canvas: Canvas) {

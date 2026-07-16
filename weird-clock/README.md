@@ -86,8 +86,10 @@ clock, not a background chime service).
 
 **Alarms**
 - Swipe left on the clock to reach the alarms page: as many alarms as you
-  want, shown as blocks sorted by time. Tap + to add one, tap a time to
-  edit it, toggle each alarm on/off, set it to repeat every day, weekdays
+  want, shown as blocks sorted by time. Tap + to add one; tap a time to
+  edit it — the screen jumps to the clock dial running the countdown's
+  wind-to-set engine under a "Set alarm time" banner: wind the hands to
+  the alarm time (with magnets and haptics) and confirm with ✓. Also toggle each alarm on/off, set it to repeat every day, weekdays
   only (Mon–Fri) or weekends only (Sat–Sun), and pick a sound per alarm:
   *bells*, *digital beep* (classic square-wave beep-beep-beep-beep), or
   *crying baby* — a real newborn recording (CC0, by "the_yura" via
@@ -102,19 +104,21 @@ clock, not a background chime service).
 **Chronograph** — the card system mirrors the clock's: press the centered
 ⏳ button and the dial's hands glide into stopwatch position (the button
 becomes 🕐 to go back); then, just as the clock swipes to the alarms, the
-stopwatch swipes to a second rendered dial: the countdown. Each dial keeps
-its own state and controls.
+stopwatch swipes to a second rendered dial: the countdown.
+- **Drawn case hardware** — entering the chronograph fades in real watch
+  furniture on the case: a start/stop pusher at 2 o'clock (accent-tinted
+  while running), a decorative crown at 3, and a half-height reset pusher
+  at 4 — the real-chronograph convention, thumb-friendly. The pushers are
+  touchable and are the *only* controls: no bottom buttons, no labels.
 - **Stopwatch** — the main dial shows elapsed time with a 7-segment digital
-  readout and Start/Pause/Reset buttons.
+  readout. Wind the hands below zero and play in negative time — the
+  spring brings it back.
 - **Countdown** — its own full dial on the next page; no dialogs: you
-  *wind the hands* to set it (minute and
-  hour hands take grab priority, no spring-back while setting), with the
-  duration magnetized to round values — 5-minute multiples, so quarter,
-  half and full hours snap into place; 30-second steps under 5 minutes.
-  Press Start and the hands run down to zero, a chime announces the end,
-  and while running the hands spring back as usual if you play with them.
-- A chronograph can never show less than zero — hands pin at 0 instead of
-  winding into negative time.
+  *wind the hands* to set it. Magnets are sticky detents now: near a round
+  value the hands lock on with a haptic tick that says "let go here" —
+  5-minute multiples above 5 minutes, 30-second steps below. Grabbing the
+  stacked hands from *outside* the dial picks the second hand (for
+  seconds-scale countdowns); from inside, the minute hand wins.
 - The hands stay playable in chrono modes — wind them and they spring back
   just like on the clock, and over-winding 10 turns explodes the mechanism
   here too. But wind one *forward* more than a full turn and a big CHEATER!

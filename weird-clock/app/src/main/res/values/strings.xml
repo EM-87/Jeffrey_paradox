@@ -66,6 +66,9 @@
     <string name="chrono_label_stopwatch">Stopwatch · swipe for timer</string>
     <string name="chrono_label_countdown">Timer</string>
     <string name="countdown_set_hint">Timer · wind the hands to set it</string>
+    <string name="set_alarm_time">Set alarm time</string>
+    <string name="alarm_set_confirm">✓</string>
+    <string name="alarm_set_cancel">✗</string>
 
     <string name="category_alarms">Alarms</string>
     <string name="pref_alarm_disabled_by_speed">Disabled while time speed is not 100%</string>

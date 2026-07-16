@@ -1,7 +1,6 @@
 package com.em87.weirdclock
 
 import android.Manifest
-import android.app.TimePickerDialog
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
@@ -50,9 +49,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var worldClockContainer: View? = null
     private var worldClockLabel: TextView? = null
     private var modeButton: Button? = null
-    private var startPauseButton: Button? = null
-    private var resetButton: Button? = null
-    private var chronoLabel: TextView? = null
+    private var settingsButton: ImageButton? = null
+    private var alarmSetBanner: View? = null
 
     // Second page views (alarms in clock mode, countdown dial in chrono mode).
     private var alarmsContainer: View? = null
@@ -60,9 +58,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var alarmsRecycler: RecyclerView? = null
     private var alarmsEmpty: TextView? = null
     private var countdownClockView: ClockView? = null
-    private var countdownStartPause: Button? = null
-    private var countdownReset: Button? = null
-    private var countdownLabel: TextView? = null
+
+    // Alarm-time setting on the clock dial with the wind-to-set engine.
+    private var alarmSetActive = false
+    private var alarmBeingSet: Alarm? = null
+    private var alarmWorkingMs = 0L
     private val alarms = mutableListOf<Alarm>()
     private val alarmsAdapter = AlarmAdapter()
 
@@ -197,13 +197,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.onHorizontalSwipe = { fingerRight ->
                 // On the stopwatch, a swipe over the dial pages to the
                 // countdown, just like the clock pages to the alarms.
-                if (mode == Mode.CHRONO && !fingerRight) {
+                if (mode == Mode.CHRONO && !alarmSetActive && !fingerRight) {
                     pager.currentItem = 1
                     true
                 } else {
                     false
                 }
             }
+            it.onChronoStartStop = { if (!alarmSetActive) toggleStartPause() }
+            it.onChronoReset = { if (!alarmSetActive) resetChrono() }
+            it.onChronoAdjusted = { ms -> if (alarmSetActive) alarmWorkingMs = ms }
         }
         worldClockContainer = root.findViewById(R.id.world_clock_container)
         worldClockView = root.findViewById<ClockView>(R.id.world_clock_view).also {
@@ -216,20 +219,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         modeButton = root.findViewById<Button>(R.id.mode_button).also {
             it.setOnClickListener { cycleMode() }
         }
-        startPauseButton = root.findViewById<Button>(R.id.start_pause_button).also {
-            it.setOnClickListener { toggleStartPause() }
+        settingsButton = root.findViewById<ImageButton>(R.id.settings_button).also { button ->
+            button.setOnClickListener {
+                // Let settings know whether the panic button should be offered.
+                prefs.edit()
+                    .putBoolean(Prefs.NEEDS_REASSEMBLY, clockView?.isDisarranged() == true)
+                    .apply()
+                startActivity(Intent(this, SettingsActivity::class.java))
+            }
         }
-        resetButton = root.findViewById<Button>(R.id.reset_button).also {
-            it.setOnClickListener { resetChrono() }
-        }
-        chronoLabel = root.findViewById(R.id.chrono_label)
-        root.findViewById<ImageButton>(R.id.settings_button).setOnClickListener {
-            // Let settings know whether the panic button should be offered.
-            prefs.edit()
-                .putBoolean(Prefs.NEEDS_REASSEMBLY, clockView?.isDisarranged() == true)
-                .apply()
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
+        alarmSetBanner = root.findViewById(R.id.alarm_set_banner)
+        root.findViewById<Button>(R.id.alarm_set_confirm).setOnClickListener { confirmAlarmSet() }
+        root.findViewById<Button>(R.id.alarm_set_cancel).setOnClickListener { exitAlarmSetMode() }
         applyPreferences()
         applyMode()
     }
@@ -244,7 +245,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
         alarmsEmpty = root.findViewById(R.id.alarms_empty)
         root.findViewById<FloatingActionButton>(R.id.add_alarm_fab).setOnClickListener {
-            showAlarmTimePicker(null)
+            enterAlarmSetMode(null)
         }
         refreshAlarmsUi()
 
@@ -254,6 +255,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.shakeDropEnabled = false
             it.showDate = false
             it.chronoProvider = { countdownRemaining() }
+            it.chronoButtons = true
+            it.onChronoStartStop = { toggleCountdown() }
+            it.onChronoReset = { resetCountdown() }
             it.onChronoAdjusted = { ms ->
                 if (!countdownRunning) {
                     countdownRemainingMs = ms
@@ -271,13 +275,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 }
             }
         }
-        countdownStartPause = root.findViewById<Button>(R.id.countdown_start_pause).also {
-            it.setOnClickListener { toggleCountdown() }
-        }
-        countdownReset = root.findViewById<Button>(R.id.countdown_reset).also {
-            it.setOnClickListener { resetCountdown() }
-        }
-        countdownLabel = root.findViewById(R.id.countdown_label)
         applyPreferences()
         applyMode()
     }
@@ -305,7 +302,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             val alarm = alarms[position]
             holder.time.text = String.format(Locale.US, "%02d:%02d", alarm.hour, alarm.minute)
             holder.time.alpha = if (alarm.enabled) 1f else 0.4f
-            holder.time.setOnClickListener { showAlarmTimePicker(alarm) }
+            holder.time.setOnClickListener { enterAlarmSetMode(alarm) }
             holder.sound.text = soundLabel(alarm.sound)
             holder.sound.setOnClickListener {
                 alarm.sound = nextSound(alarm.sound)
@@ -354,25 +351,48 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         else -> Prefs.ALARM_SOUND_BELLS
     }
 
-    private fun showAlarmTimePicker(alarm: Alarm?) {
-        val initHour = alarm?.hour ?: 7
-        val initMinute = alarm?.minute ?: 30
-        TimePickerDialog(
-            this,
-            { _, h, m ->
-                if (alarm == null) {
-                    alarms.add(Alarm(AlarmStore.nextId(alarms), h, m, true, Prefs.ALARM_SOUND_BELLS))
-                    maybeRequestNotificationPermission()
-                } else {
-                    alarm.hour = h
-                    alarm.minute = m
-                }
-                persistAlarms()
-            },
-            initHour,
-            initMinute,
-            true
-        ).show()
+    /**
+     * Sets an alarm time the weird way: jump to the clock dial (C1) running
+     * the countdown's wind-to-set engine, with a "Set alarm time" banner.
+     * Winding the hands moves the proposed time; magnets and haptics apply.
+     */
+    private fun enterAlarmSetMode(alarm: Alarm?) {
+        alarmBeingSet = alarm
+        alarmWorkingMs = ((alarm?.hour ?: 7) * 3600L + (alarm?.minute ?: 30) * 60L) * 1000L
+        alarmSetActive = true
+        pager.currentItem = 0
+        applyAlarmSetUi()
+    }
+
+    private fun confirmAlarmSet() {
+        // Wrap into a day so over/under-winding still lands on a valid time.
+        val dayMs = 86_400_000L
+        val ms = ((alarmWorkingMs % dayMs) + dayMs) % dayMs
+        val hour = (ms / 3_600_000L).toInt()
+        val minute = (ms / 60_000L % 60L).toInt()
+        val alarm = alarmBeingSet
+        if (alarm == null) {
+            alarms.add(Alarm(AlarmStore.nextId(alarms), hour, minute, true, Prefs.ALARM_SOUND_BELLS))
+            maybeRequestNotificationPermission()
+        } else {
+            alarm.hour = hour
+            alarm.minute = minute
+        }
+        persistAlarms()
+        exitAlarmSetMode()
+    }
+
+    private fun exitAlarmSetMode() {
+        alarmSetActive = false
+        alarmBeingSet = null
+        applyAlarmSetUi()
+        pager.currentItem = 1
+    }
+
+    private fun applyAlarmSetUi() {
+        alarmSetBanner?.visibility = if (alarmSetActive) View.VISIBLE else View.GONE
+        pager.isUserInputEnabled = !alarmSetActive
+        applyMode()
     }
 
     private fun sortAlarms() {
@@ -485,34 +505,41 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private fun applyMode() {
         val chrono = mode == Mode.CHRONO
-        if (chrono) {
-            clockView?.chronoProvider = { stopwatchElapsed() }
-            modeButton?.setText(R.string.mode_stopwatch)
-            chronoLabel?.setText(R.string.chrono_label_stopwatch)
-        } else {
-            clockView?.chronoProvider = null
-            modeButton?.setText(R.string.mode_clock)
+        clockView?.let {
+            when {
+                alarmSetActive -> {
+                    // C1 borrows the countdown's wind-to-set engine to pick
+                    // an alarm time.
+                    it.chronoProvider = { alarmWorkingMs }
+                    it.chronoSettable = true
+                    it.chronoButtons = false
+                }
+                chrono -> {
+                    it.chronoProvider = { stopwatchElapsed() }
+                    it.chronoSettable = false
+                    it.chronoButtons = true
+                    it.chronoRunning = stopwatchRunning
+                }
+                else -> {
+                    it.chronoProvider = null
+                    it.chronoSettable = false
+                    it.chronoButtons = false
+                }
+            }
         }
-        startPauseButton?.visibility = if (chrono) View.VISIBLE else View.GONE
-        resetButton?.visibility = if (chrono) View.VISIBLE else View.GONE
-        chronoLabel?.visibility = if (chrono) View.VISIBLE else View.GONE
+        modeButton?.setText(if (chrono) R.string.mode_stopwatch else R.string.mode_clock)
+        modeButton?.visibility = if (alarmSetActive) View.GONE else View.VISIBLE
+        settingsButton?.visibility = if (chrono || alarmSetActive) View.GONE else View.VISIBLE
         // Page two follows the mode: alarms beside the clock, the countdown
         // dial beside the stopwatch.
         alarmsContainer?.visibility = if (chrono) View.GONE else View.VISIBLE
         countdownContainer?.visibility = if (chrono) View.VISIBLE else View.GONE
-        updateChronoButtons()
         updateCountdownUi()
     }
 
     private fun updateCountdownUi() {
         countdownClockView?.chronoSettable = !countdownRunning
-        countdownStartPause?.setText(
-            if (countdownRunning) R.string.chrono_pause else R.string.chrono_start
-        )
-        countdownLabel?.setText(
-            if (countdownRunning) R.string.chrono_label_countdown
-            else R.string.countdown_set_hint
-        )
+        countdownClockView?.chronoRunning = countdownRunning
     }
 
     private fun stopwatchElapsed(): Long =
@@ -522,7 +549,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         if (countdownRunning) (countdownEndsAt - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
         else countdownRemainingMs
 
-    /** Start/Pause on the stopwatch (main dial in chrono mode). */
+    /** Start/Pause pusher on the stopwatch (main dial in chrono mode). */
     private fun toggleStartPause() {
         if (mode != Mode.CHRONO) return
         if (stopwatchRunning) {
@@ -532,13 +559,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             stopwatchStartedAt = SystemClock.elapsedRealtime()
             stopwatchRunning = true
         }
-        updateChronoButtons()
+        clockView?.chronoRunning = stopwatchRunning
     }
 
     private fun resetChrono() {
         stopwatchRunning = false
         stopwatchAccumMs = 0L
-        updateChronoButtons()
+        clockView?.chronoRunning = false
     }
 
     /** Start/Pause on the countdown dial (second page in chrono mode). */
@@ -558,12 +585,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         countdownRunning = false
         countdownRemainingMs = 0L
         updateCountdownUi()
-    }
-
-    private fun updateChronoButtons() {
-        startPauseButton?.setText(
-            if (stopwatchRunning) R.string.chrono_pause else R.string.chrono_start
-        )
     }
 
     // ------------------------------------------------- scheduled chimes

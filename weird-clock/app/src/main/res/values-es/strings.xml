@@ -56,6 +56,7 @@
     <string name="chrono_label_stopwatch">Crono · desliza para cuenta atrás</string>
     <string name="chrono_label_countdown">Cuenta atrás</string>
     <string name="countdown_set_hint">Cuenta atrás · gira las manecillas para ajustarla</string>
+    <string name="set_alarm_time">Ajusta la hora de la alarma</string>
 
     <string name="category_alarms">Alarmas</string>
     <string name="pref_alarm_disabled_by_speed">Desactivadas mientras la velocidad del tiempo no sea 100%</string>
