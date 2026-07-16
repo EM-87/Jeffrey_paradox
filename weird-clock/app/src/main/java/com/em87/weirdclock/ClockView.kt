@@ -91,7 +91,26 @@ class ClockView @JvmOverloads constructor(
     var pinchZoomEnabled = true
     var shakeDropEnabled = true
     var dialScale = 1f
-        set(value) { field = value.coerceIn(MIN_SCALE, MAX_SCALE); invalidate() }
+        set(value) {
+            val next = value.coerceIn(MIN_SCALE, MAX_SCALE)
+            // Fallen pieces live in dial space: rescale them with it.
+            if (next != field && field > 0f && fallenBodies.isNotEmpty()) {
+                val f = next / field
+                val cx = width / 2f
+                val cy = height / 2f
+                for (b in fallenBodies) {
+                    b.x = cx + (b.x - cx) * f
+                    b.y = cy + (b.y - cy) * f
+                    b.vx *= f
+                    b.vy *= f
+                    b.halfLen *= f
+                    b.strokeWidth *= f
+                    b.textSize *= f
+                }
+            }
+            field = next
+            invalidate()
+        }
     var onDialScaleChanged: ((Float) -> Unit)? = null
     var theme: ClockTheme = ClockThemes.MIDNIGHT
         set(value) { field = value; applyTheme(value); invalidate() }
@@ -302,9 +321,9 @@ class ClockView @JvmOverloads constructor(
         var vy: Float,
         var angleDeg: Float,
         var angVel: Float,
-        val halfLen: Float,
-        val strokeWidth: Float,
-        val textSize: Float
+        var halfLen: Float,
+        var strokeWidth: Float,
+        var textSize: Float
     )
 
     private val fallenBodies = ArrayList<FallingBody>()
@@ -554,7 +573,10 @@ class ClockView @JvmOverloads constructor(
         return 0
     }
 
-    /** Crown taps cuckoo; five frantic taps overwind the whole mechanism. */
+    /**
+     * Crown taps cuckoo — and, being the winding crown, it also remounts any
+     * pieces lying on the floor. Five frantic taps overwind the mechanism.
+     */
     private fun handleCrownTap() {
         val now = SystemClock.uptimeMillis()
         crownTapTimes.addLast(now)
@@ -564,6 +586,11 @@ class ClockView @JvmOverloads constructor(
             soundListener?.onExploded()
             dropHands(0f, -8f)
         } else {
+            if (fallenBodies.isNotEmpty()) {
+                fallenBodies.clear()
+                carriedBody = null
+                soundListener?.onHandMounted()
+            }
             onCrownTap?.invoke()
         }
     }
@@ -712,7 +739,8 @@ class ClockView @JvmOverloads constructor(
             if (magnet != null) {
                 if (lockedMagnetMs != magnet) {
                     lockedMagnetMs = magnet
-                    performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    // LONG_PRESS: CLOCK_TICK is inaudible on many devices.
+                    performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                 }
                 setOffset((magnet - baseMs) / 1000.0)
             } else {
@@ -741,12 +769,28 @@ class ClockView @JvmOverloads constructor(
     }
 
     private fun releaseDraggedHand() {
-        if (draggedHand == null) return
+        val hand = draggedHand ?: return
         draggedHand = null
         // Setting the countdown: commit the wound value (magnetized to round
         // durations) with no spring-back.
         if (chronoSettable && chronoProvider != null) {
-            val adjusted = snapCountdown((chronoDisplayMs() ?: 0L).coerceAtLeast(0L))
+            val displayMs = chronoDisplayMs() ?: 0L
+            if (displayMs < 0L) {
+                // Below zero: commit zero and let the spring pull the hands
+                // back up to it.
+                chronoFrozenMs = null
+                lockedMagnetMs = null
+                onChronoAdjusted?.invoke(0L)
+                visualOffsetSeconds = displayMs / 1000.0
+                startSpringBack()
+                return
+            }
+            var adjusted = snapCountdown(displayMs)
+            // Set with the minute or hour hand, seconds polarize to zero:
+            // nobody means 8:30 and seventeen seconds.
+            if (hand != Hand.SECOND) {
+                adjusted = (adjusted + 30_000L) / 60_000L * 60_000L
+            }
             chronoFrozenMs = null
             visualOffsetSeconds = 0.0
             activeSoundHand = null
@@ -775,6 +819,10 @@ class ClockView @JvmOverloads constructor(
             activeSoundHand = null
             return
         }
+        startSpringBack()
+    }
+
+    private fun startSpringBack() {
         val holder = FloatValueHolder(visualOffsetSeconds.toFloat())
         spring = SpringAnimation(holder).apply {
             setSpring(
@@ -1505,21 +1553,34 @@ class ClockView @JvmOverloads constructor(
         if (visibility <= 0f) return
         val alpha = (visibility * 255).toInt()
 
-        // Crown at 12, big, with winding ridges.
+        // Crown at 12: big, knurled, capped and jeweled.
         pusherPaint.color = theme.rim
         pusherPaint.alpha = alpha
-        val crownOuter = if (pressedPusher == 3) r * 1.07f else r * 1.11f
-        drawCaseStub(canvas, cx, cy, r, 0f, r * 0.075f, crownOuter)
-        rimPaint.strokeWidth = r * 0.012f
-        rimPaint.alpha = alpha
-        for (offset in floatArrayOf(-r * 0.035f, 0f, r * 0.035f)) {
+        val crownOuter = if (pressedPusher == 3) r * 1.08f else r * 1.12f
+        drawCaseStub(canvas, cx, cy, r, 0f, r * 0.085f, crownOuter)
+        // Knurling: five winding ridges across the crown body.
+        rimPaint.strokeWidth = r * 0.010f
+        rimPaint.alpha = (alpha * 0.8f).toInt()
+        for (i in -2..2) {
+            val offset = i * r * 0.032f
             canvas.drawLine(
                 cx + offset, cy - r * 1.005f,
-                cx + offset, cy - crownOuter + r * 0.015f,
+                cx + offset, cy - crownOuter + r * 0.012f,
                 rimPaint
             )
         }
         rimPaint.alpha = 255
+        // Cap band in the tick color, and a jewel in the accent color.
+        pusherPaint.color = theme.tick
+        pusherPaint.alpha = (alpha * 0.85f).toInt()
+        val cap = RectF(
+            cx - r * 0.085f, cy - crownOuter,
+            cx + r * 0.085f, cy - crownOuter + r * 0.028f
+        )
+        canvas.drawRoundRect(cap, r * 0.014f, r * 0.014f, pusherPaint)
+        pusherPaint.color = theme.decimal
+        pusherPaint.alpha = alpha
+        canvas.drawCircle(cx, cy - (crownOuter - r * 0.014f), r * 0.015f, pusherPaint)
 
         // Start/stop pusher at 1:30.
         pusherPaint.color = if (chronoRunning) theme.secondHand else theme.rim

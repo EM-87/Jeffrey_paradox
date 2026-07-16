@@ -60,4 +60,5 @@ object Prefs {
 
     /** Written by CountdownService for MainActivity to consume on resume. */
     const val COUNTDOWN_RESULT = "pref_countdown_result"
+    const val COUNTDOWN_PERSISTENT = "pref_countdown_persistent"
 }

@@ -67,6 +67,12 @@
             android:summary="@string/pref_ticking_summary"
             android:defaultValue="false" />
 
+        <SwitchPreferenceCompat
+            android:key="pref_countdown_persistent"
+            android:title="@string/pref_countdown_persistent_title"
+            android:summary="@string/pref_countdown_persistent_summary"
+            android:defaultValue="true" />
+
         <Preference
             android:key="pref_test_bells"
             android:title="@string/pref_test_bells_title"

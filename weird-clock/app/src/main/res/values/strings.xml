@@ -98,6 +98,8 @@
     <string name="alarm_ringing">Weird Clock alarm</string>
     <string name="alarm_stop">Stop</string>
 
+    <string name="pref_countdown_persistent_title">Persistent timer alarm</string>
+    <string name="pref_countdown_persistent_summary">When the countdown ends, ring until you dismiss it</string>
     <string name="countdown_channel_name">Countdown</string>
     <string name="countdown_notification_title">Countdown running</string>
     <string name="countdown_done">Time’s up!</string>

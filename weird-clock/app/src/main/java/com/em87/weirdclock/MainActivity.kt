@@ -70,6 +70,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var bellStyle = Prefs.BELL_STYLE_COUNT
     private var halfHourEnabled = false
     private var tickingEnabled = false
+    private var countdownPersistent = true
 
     private var lastHandledMinute = -1L
 
@@ -100,7 +101,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 countdownRunning = false
                 countdownRemainingMs = 0L
                 updateCountdownUi()
-                chimePlayer.playBellSequence(3, false, ChimePlayer.DAY_CHIME_HZ, 1.2, 0.3)
+                if (countdownPersistent) {
+                    // Ring until validated: the alarm service loops the bells
+                    // and the ring screen carries the stop button.
+                    ContextCompat.startForegroundService(
+                        this@MainActivity,
+                        Intent(this@MainActivity, AlarmService::class.java)
+                    )
+                    startActivity(Intent(this@MainActivity, AlarmRingActivity::class.java))
+                } else {
+                    chimePlayer.playBellSequence(3, false, ChimePlayer.DAY_CHIME_HZ, 1.2, 0.3)
+                }
             }
 
             val minute = TimeKeeper.nowMs() / 60000L
@@ -295,10 +306,20 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.onCrownTap = { chimePlayer.playCuckoo() }
         }
         root.findViewById<Button>(R.id.countdown_back_button).setOnClickListener {
-            // Straight home from S2, without passing through S1.
+            // Straight home from S2. The mode flips only once the scroll
+            // lands on page 0 — flipping it earlier swaps page two back to
+            // the alarms while it's still on screen (a brief C2 flash).
+            val callback = object : ViewPager2.OnPageChangeCallback() {
+                override fun onPageScrollStateChanged(state: Int) {
+                    if (state == ViewPager2.SCROLL_STATE_IDLE) {
+                        pager.unregisterOnPageChangeCallback(this)
+                        mode = Mode.CLOCK
+                        applyMode()
+                    }
+                }
+            }
+            pager.registerOnPageChangeCallback(callback)
             pager.currentItem = 0
-            mode = Mode.CLOCK
-            applyMode()
         }
         applyPreferences()
         applyMode()
@@ -502,6 +523,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         bellStyle = prefs.getString(Prefs.BELL_STYLE, Prefs.BELL_STYLE_COUNT) ?: Prefs.BELL_STYLE_COUNT
         halfHourEnabled = prefs.getBoolean(Prefs.HALF_HOUR, false)
         tickingEnabled = prefs.getBoolean(Prefs.TICKING, false)
+        countdownPersistent = prefs.getBoolean(Prefs.COUNTDOWN_PERSISTENT, true)
     }
 
     private fun readNumeralStyle(): ClockView.NumeralStyle =

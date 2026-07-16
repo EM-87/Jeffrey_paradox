@@ -102,6 +102,15 @@ class CountdownService : Service() {
         if (finished) return
         finished = true
         setResult(RESULT_FINISHED)
+        val persistent = PreferenceManager.getDefaultSharedPreferences(this)
+            .getBoolean(Prefs.COUNTDOWN_PERSISTENT, true)
+        if (persistent) {
+            // Hand over to the alarm service: it loops the bells with a
+            // full-screen stop button until the user validates.
+            ContextCompat.startForegroundService(this, Intent(this, AlarmService::class.java))
+            stopSelf()
+            return
+        }
         chimePlayer.playBellSequence(3, false, ChimePlayer.DAY_CHIME_HZ, 1.2, 0.3)
         getSystemService(NotificationManager::class.java)?.notify(
             DONE_NOTIFICATION_ID,

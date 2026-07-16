@@ -86,6 +86,8 @@
     <string name="alarm_ringing">Alarma de Weird Clock</string>
     <string name="alarm_stop">Detener</string>
 
+    <string name="pref_countdown_persistent_title">Alarma de cuenta atrás persistente</string>
+    <string name="pref_countdown_persistent_summary">Al terminar la cuenta atrás, suena hasta que la valides</string>
     <string name="countdown_channel_name">Cuenta atrás</string>
     <string name="countdown_notification_title">Cuenta atrás en marcha</string>
     <string name="countdown_done">¡Tiempo!</string>
