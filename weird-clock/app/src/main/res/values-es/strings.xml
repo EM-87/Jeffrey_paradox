@@ -85,4 +85,9 @@
     <string name="alarm_channel_name">Alarmas</string>
     <string name="alarm_ringing">Alarma de Weird Clock</string>
     <string name="alarm_stop">Detener</string>
+
+    <string name="countdown_channel_name">Cuenta atrás</string>
+    <string name="countdown_notification_title">Cuenta atrás en marcha</string>
+    <string name="countdown_done">¡Tiempo!</string>
+    <string name="countdown_cancel">Cancelar</string>
 </resources>

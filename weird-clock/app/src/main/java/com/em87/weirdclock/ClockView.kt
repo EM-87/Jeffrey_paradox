@@ -117,7 +117,7 @@ class ClockView @JvmOverloads constructor(
      */
     var chronoButtons = false
         set(value) {
-            if (field != value && value) buttonsAnimStart = SystemClock.uptimeMillis()
+            if (field != value) buttonsAnimStart = SystemClock.uptimeMillis()
             field = value
             invalidate()
         }
@@ -128,6 +128,10 @@ class ClockView @JvmOverloads constructor(
 
     var onChronoStartStop: (() -> Unit)? = null
     var onChronoReset: (() -> Unit)? = null
+
+    /** Easter egg: tapping the crown. Five frantic taps blow the hands off. */
+    var onCrownTap: (() -> Unit)? = null
+    private val crownTapTimes = ArrayDeque<Long>()
 
     /** Receives the adjusted duration when the user sets the countdown. */
     var onChronoAdjusted: ((Long) -> Unit)? = null
@@ -155,6 +159,11 @@ class ClockView @JvmOverloads constructor(
             chronoFrozenMs = null
             visualOffsetSeconds = 0.0
             invalidate()
+            // Restart the ticker: on a slow-ticking clock its next run could
+            // be up to a second away, which froze the transition mid-flight
+            // and made the hands appear to jump.
+            removeCallbacks(ticker)
+            post(ticker)
         }
 
     fun isHandGrabbed(): Boolean = draggedHand != null
@@ -510,8 +519,11 @@ class ClockView @JvmOverloads constructor(
                     if (event.actionMasked == MotionEvent.ACTION_UP &&
                         pusherAt(event.x, event.y) == pressedPusher
                     ) {
-                        if (pressedPusher == 1) onChronoStartStop?.invoke()
-                        else onChronoReset?.invoke()
+                        when (pressedPusher) {
+                            1 -> onChronoStartStop?.invoke()
+                            2 -> onChronoReset?.invoke()
+                            3 -> handleCrownTap()
+                        }
                         soundListener?.onTickCrossed()
                     }
                     pressedPusher = 0
@@ -524,18 +536,36 @@ class ClockView @JvmOverloads constructor(
         return true
     }
 
-    /** 1 = start/stop pusher (2 o'clock), 2 = reset pusher (4 o'clock). */
+    /**
+     * 1 = start/stop pusher (1:30), 2 = reset pusher (10:30), 3 = crown (12).
+     */
     private fun pusherAt(x: Float, y: Float): Int {
         if (!chronoButtons) return 0
         val cx = width / 2f
         val cy = height / 2f
         val r = dialRadius()
-        val hit = max(44f * resources.displayMetrics.density, r * 0.14f)
-        val start = plainPoint(cx, cy, 60f, r * 1.02f)
+        val hit = max(48f * resources.displayMetrics.density, r * 0.16f)
+        val start = plainPoint(cx, cy, 45f, r * 1.03f)
         if (hypot(x - start.x, y - start.y) < hit) return 1
-        val reset = plainPoint(cx, cy, 120f, r * 1.02f)
+        val reset = plainPoint(cx, cy, 315f, r * 1.03f)
         if (hypot(x - reset.x, y - reset.y) < hit) return 2
+        val crown = plainPoint(cx, cy, 0f, r * 1.04f)
+        if (hypot(x - crown.x, y - crown.y) < hit) return 3
         return 0
+    }
+
+    /** Crown taps cuckoo; five frantic taps overwind the whole mechanism. */
+    private fun handleCrownTap() {
+        val now = SystemClock.uptimeMillis()
+        crownTapTimes.addLast(now)
+        while (crownTapTimes.size > 5) crownTapTimes.removeFirst()
+        if (crownTapTimes.size >= 5 && now - crownTapTimes.first() < 3000) {
+            crownTapTimes.clear()
+            soundListener?.onExploded()
+            dropHands(0f, -8f)
+        } else {
+            onCrownTap?.invoke()
+        }
     }
 
     /** Like [pointAt] but ignoring mirror mode — case hardware is physical. */
@@ -650,9 +680,12 @@ class ClockView @JvmOverloads constructor(
         if (delta < -180f) delta += 360f
         dragAccumDeg += delta
         lastTouchDeg = touchDeg
-        // Winding a chronograph forward more than one turn is cheating —
-        // unless you're legitimately setting the countdown.
-        if (chronoProvider != null && !chronoSettable && !cheaterFlagged && dragAccumDeg >= 360.0) {
+        // Winding a running chronograph forward more than one turn is
+        // cheating — a stopped one has nothing to cheat, and setting the
+        // countdown is legitimate.
+        if (chronoProvider != null && !chronoSettable && chronoRunning &&
+            !cheaterFlagged && dragAccumDeg >= 360.0
+        ) {
             cheaterFlagged = true
             cheaterUntil = SystemClock.uptimeMillis() + 3000L
             soundListener?.onCheater()
@@ -1371,7 +1404,9 @@ class ClockView @JvmOverloads constructor(
         val r = dialRadius()
 
         // Case hardware sits behind the face so it reads as attached to it.
-        if (chronoButtons) drawChronoHardware(canvas, cx, cy, r)
+        if (chronoButtons || SystemClock.uptimeMillis() - buttonsAnimStart < 500L) {
+            drawChronoHardware(canvas, cx, cy, r)
+        }
 
         rimPaint.strokeWidth = r * 0.02f
         canvas.drawCircle(cx, cy, r, facePaint)
@@ -1459,25 +1494,42 @@ class ClockView @JvmOverloads constructor(
     }
 
     /**
-     * Chronograph pushers and crown, fading in with the mode transition:
-     * start/stop at 2 o'clock (accent-tinted while running), crown at 3,
-     * half-height reset at 4 — the real-watch convention, thumb-friendly.
+     * Chronograph furniture, fading in and out with the mode transition:
+     * a large crown at 12 (tap it…), the start/stop pusher at 1:30
+     * (accent-tinted while running, on the thumb side) and a smaller reset
+     * pusher at 10:30.
      */
     private fun drawChronoHardware(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         val t = ((SystemClock.uptimeMillis() - buttonsAnimStart) / 500f).coerceIn(0f, 1f)
-        val alpha = (t * 255).toInt()
+        val visibility = if (chronoButtons) t else 1f - t
+        if (visibility <= 0f) return
+        val alpha = (visibility * 255).toInt()
 
+        // Crown at 12, big, with winding ridges.
         pusherPaint.color = theme.rim
         pusherPaint.alpha = alpha
-        drawCaseStub(canvas, cx, cy, r, 90f, r * 0.055f, r * 1.07f)
+        val crownOuter = if (pressedPusher == 3) r * 1.07f else r * 1.11f
+        drawCaseStub(canvas, cx, cy, r, 0f, r * 0.075f, crownOuter)
+        rimPaint.strokeWidth = r * 0.012f
+        rimPaint.alpha = alpha
+        for (offset in floatArrayOf(-r * 0.035f, 0f, r * 0.035f)) {
+            canvas.drawLine(
+                cx + offset, cy - r * 1.005f,
+                cx + offset, cy - crownOuter + r * 0.015f,
+                rimPaint
+            )
+        }
+        rimPaint.alpha = 255
 
+        // Start/stop pusher at 1:30.
         pusherPaint.color = if (chronoRunning) theme.secondHand else theme.rim
         pusherPaint.alpha = alpha
-        drawCaseStub(canvas, cx, cy, r, 60f, r * 0.05f, if (pressedPusher == 1) r * 1.05f else r * 1.10f)
+        drawCaseStub(canvas, cx, cy, r, 45f, r * 0.06f, if (pressedPusher == 1) r * 1.06f else r * 1.11f)
 
+        // Reset pusher at 10:30, smaller.
         pusherPaint.color = theme.rim
         pusherPaint.alpha = alpha
-        drawCaseStub(canvas, cx, cy, r, 120f, r * 0.032f, if (pressedPusher == 2) r * 1.04f else r * 1.08f)
+        drawCaseStub(canvas, cx, cy, r, 315f, r * 0.042f, if (pressedPusher == 2) r * 1.05f else r * 1.09f)
 
         if (t < 1f) invalidate()
     }
@@ -1596,14 +1648,24 @@ class ClockView @JvmOverloads constructor(
         var x = cx - totalW / 2f
         digitalPaint.strokeWidth = digitH * 0.10f
         for (c in text) {
-            if (c == ':') {
-                canvas.drawPoint(x + colonW / 2f, top + digitH * 0.30f, digitalPaint)
-                canvas.drawPoint(x + colonW / 2f, top + digitH * 0.70f, digitalPaint)
-                x += colonW + gap
-            } else {
-                val digit = c - '0'
-                if (digit in 0..9) drawSegments(canvas, SEGMENT_BITS[digit], x, top, digitW, digitH)
-                x += digitW + gap
+            when {
+                c == ':' -> {
+                    canvas.drawPoint(x + colonW / 2f, top + digitH * 0.30f, digitalPaint)
+                    canvas.drawPoint(x + colonW / 2f, top + digitH * 0.70f, digitalPaint)
+                    x += colonW + gap
+                }
+                c == '-' -> {
+                    // Minus sign: the middle (g) segment on its own.
+                    val s = digitalPaint.strokeWidth * 0.8f
+                    val mid = top + digitH / 2f
+                    canvas.drawLine(x + s, mid, x + digitW - s, mid, digitalPaint)
+                    x += digitW + gap
+                }
+                else -> {
+                    val digit = c - '0'
+                    if (digit in 0..9) drawSegments(canvas, SEGMENT_BITS[digit], x, top, digitW, digitH)
+                    x += digitW + gap
+                }
             }
         }
     }

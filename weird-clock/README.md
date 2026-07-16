@@ -105,14 +105,18 @@ clock, not a background chime service).
 ⏳ button and the dial's hands glide into stopwatch position (the button
 becomes 🕐 to go back); then, just as the clock swipes to the alarms, the
 stopwatch swipes to a second rendered dial: the countdown.
-- **Drawn case hardware** — entering the chronograph fades in real watch
-  furniture on the case: a start/stop pusher at 2 o'clock (accent-tinted
-  while running), a decorative crown at 3, and a half-height reset pusher
-  at 4 — the real-chronograph convention, thumb-friendly. The pushers are
-  touchable and are the *only* controls: no bottom buttons, no labels.
+- **Drawn case hardware** — entering the chronograph fades watch furniture
+  in (and out, on the way back): a big ridged crown at 12, the start/stop
+  pusher at 1:30 (accent-tinted while running, thumb side) and a smaller
+  reset pusher at 10:30. The pushers are touchable, with press animation
+  and haptics, and are the *only* controls: no bottom buttons, no labels.
+  Tap the crown and the clock answers with a cuckoo call; tap it five
+  times fast and you'll overwind the whole mechanism.
 - **Stopwatch** — the main dial shows elapsed time with a 7-segment digital
-  readout. Wind the hands below zero and play in negative time — the
-  spring brings it back.
+  readout (with a proper 7-segment minus sign below zero). Wind the hands
+  into negative time and the spring brings it back. The CHEATER stamp only
+  fires while the stopwatch is actually running — a stopped one has
+  nothing to cheat.
 - **Countdown** — its own full dial on the next page; no dialogs: you
   *wind the hands* to set it. Magnets are sticky detents now: near a round
   value the hands lock on with a haptic tick that says "let go here" —
@@ -124,6 +128,13 @@ stopwatch swipes to a second rendered dial: the countdown.
   here too. But wind one *forward* more than a full turn and a big CHEATER!
   stamp slams across the dial, with a low womp-womp. The spring still
   returns the true time; cheaters gain nothing.
+
+**Countdown in the background**
+- Leave the app with the countdown running and an ongoing notification
+  keeps it on screen: live remaining time (chronometer) plus a progress
+  bar, in the status bar and on the lock screen, with a Cancel action.
+  At zero it rings the finish chime even with the app closed, and the
+  app resyncs when you come back.
 
 **World clock**
 - An optional second mini-dial in the corner shows another time zone

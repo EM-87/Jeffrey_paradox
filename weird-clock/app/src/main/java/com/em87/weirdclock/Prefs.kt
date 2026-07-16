@@ -57,4 +57,7 @@ object Prefs {
     const val ALARM_REPEAT_WEEKENDS = "weekends"
 
     const val NEEDS_REASSEMBLY = "pref_needs_reassembly"
+
+    /** Written by CountdownService for MainActivity to consume on resume. */
+    const val COUNTDOWN_RESULT = "pref_countdown_result"
 }

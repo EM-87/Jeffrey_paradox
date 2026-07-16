@@ -97,4 +97,9 @@
     <string name="alarm_channel_name">Alarms</string>
     <string name="alarm_ringing">Weird Clock alarm</string>
     <string name="alarm_stop">Stop</string>
+
+    <string name="countdown_channel_name">Countdown</string>
+    <string name="countdown_notification_title">Countdown running</string>
+    <string name="countdown_done">Time’s up!</string>
+    <string name="countdown_cancel">Cancel</string>
 </resources>

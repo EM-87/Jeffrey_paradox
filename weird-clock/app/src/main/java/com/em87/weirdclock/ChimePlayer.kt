@@ -136,6 +136,32 @@ class ChimePlayer {
         }
     }
 
+    /** Cuckoo-clock call: two soft flute notes, a falling third. Cu-coo. */
+    fun playCuckoo() {
+        thread(name = "cuckoo-synth") {
+            val buffer = FloatArray((0.9 * SAMPLE_RATE).toInt())
+            addFluteNote(buffer, 0.0, 0.22, 740.0)
+            addFluteNote(buffer, 0.32, 0.30, 588.0)
+            playFloatBuffer(buffer)
+        }
+    }
+
+    private fun addFluteNote(buffer: FloatArray, offsetSeconds: Double, duration: Double, hz: Double) {
+        val start = (offsetSeconds * SAMPLE_RATE).toInt()
+        val length = (duration * SAMPLE_RATE).toInt()
+        for (n in 0 until length) {
+            val i = start + n
+            if (i >= buffer.size) break
+            val t = n.toDouble() / SAMPLE_RATE
+            val x = t / duration
+            val envelope = sin(PI * x)
+            val sample = sin(2.0 * PI * hz * t) +
+                0.35 * sin(4.0 * PI * hz * t) +
+                0.10 * sin(6.0 * PI * hz * t)
+            buffer[i] += (sample * envelope * 0.22).toFloat()
+        }
+    }
+
     /** Two synthesized baby wails: swept, wavering, saturated harmonics. */
     fun playBabyCry() {
         thread(name = "cry-synth") {

@@ -81,6 +81,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var countdownRemainingMs = DEFAULT_COUNTDOWN_MS
     private var countdownEndsAt = 0L
     private var countdownRunning = false
+    private var countdownTotalMs = DEFAULT_COUNTDOWN_MS
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -139,6 +140,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     override fun onResume() {
         super.onResume()
+        // The app is visible again: the notification takes a break, and we
+        // pick up anything that happened to the countdown while away.
+        CountdownService.stop(this)
+        when (prefs.getString(Prefs.COUNTDOWN_RESULT, null)) {
+            CountdownService.RESULT_FINISHED, CountdownService.RESULT_CANCELLED -> {
+                countdownRunning = false
+                countdownRemainingMs = 0L
+                prefs.edit().remove(Prefs.COUNTDOWN_RESULT).apply()
+                updateCountdownUi()
+            }
+        }
         // "Put everything back" panic button from settings.
         if (prefs.getBoolean(Prefs.REASSEMBLE_PENDING, false)) {
             prefs.edit()
@@ -157,6 +169,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     override fun onPause() {
         handler.removeCallbacks(soundLoop)
         ClockWidgetProvider.refreshAll(this)
+        // A running countdown stays visible from outside the app as an
+        // ongoing notification with live remaining time and a progress bar.
+        if (countdownRunning) {
+            CountdownService.start(this, countdownEndsAt, countdownTotalMs)
+        }
         super.onPause()
     }
 
@@ -207,6 +224,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.onChronoStartStop = { if (!alarmSetActive) toggleStartPause() }
             it.onChronoReset = { if (!alarmSetActive) resetChrono() }
             it.onChronoAdjusted = { ms -> if (alarmSetActive) alarmWorkingMs = ms }
+            it.onCrownTap = { chimePlayer.playCuckoo() }
         }
         worldClockContainer = root.findViewById(R.id.world_clock_container)
         worldClockView = root.findViewById<ClockView>(R.id.world_clock_view).also {
@@ -274,6 +292,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     false
                 }
             }
+            it.onCrownTap = { chimePlayer.playCuckoo() }
+        }
+        root.findViewById<Button>(R.id.countdown_back_button).setOnClickListener {
+            // Straight home from S2, without passing through S1.
+            pager.currentItem = 0
+            mode = Mode.CLOCK
+            applyMode()
         }
         applyPreferences()
         applyMode()
@@ -575,6 +600,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             countdownRunning = false
         } else if (countdownRemaining() > 0L) {
             countdownEndsAt = SystemClock.elapsedRealtime() + countdownRemainingMs
+            countdownTotalMs = countdownRemainingMs
             countdownRunning = true
         }
         updateCountdownUi()
