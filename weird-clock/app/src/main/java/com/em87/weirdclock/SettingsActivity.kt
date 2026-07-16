@@ -43,6 +43,14 @@ class SettingsActivity : AppCompatActivity() {
             findPreference<Preference>(Prefs.REASSEMBLE)?.isVisible =
                 preferenceManager.sharedPreferences
                     ?.getBoolean(Prefs.NEEDS_REASSEMBLY, false) == true
+            // Installed version, so it's always clear which build is running.
+            findPreference<Preference>("pref_version")?.summary = try {
+                val info = requireContext().packageManager
+                    .getPackageInfo(requireContext().packageName, 0)
+                "v${info.versionName}"
+            } catch (e: Exception) {
+                ""
+            }
         }
 
         override fun onPreferenceTreeClick(preference: Preference): Boolean {

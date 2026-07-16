@@ -85,4 +85,9 @@
         android:title="@string/pref_advanced_title"
         android:summary="@string/pref_advanced_summary" />
 
+    <Preference
+        android:key="pref_version"
+        android:title="@string/app_name"
+        android:selectable="false" />
+
 </PreferenceScreen>
