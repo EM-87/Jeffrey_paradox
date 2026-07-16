@@ -1,5 +1,6 @@
 package com.em87.weirdclock
 
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -7,14 +8,21 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import android.provider.Settings
+import android.view.Gravity
+import android.view.MotionEvent
+import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
+import kotlin.math.hypot
+import kotlin.math.roundToInt
 
 /**
  * Keeps a running countdown visible while the app is in the background: an
@@ -56,6 +64,10 @@ class CountdownService : Service() {
     private var totalMs = 1L
     private var finished = false
 
+    private var overlay: HourglassView? = null
+    private var overlayParams: WindowManager.LayoutParams? = null
+    private var windowManager: WindowManager? = null
+
     private val updateLoop = object : Runnable {
         override fun run() {
             val remaining = endsAtElapsed - SystemClock.elapsedRealtime()
@@ -64,9 +76,112 @@ class CountdownService : Service() {
             } else {
                 getSystemService(NotificationManager::class.java)
                     ?.notify(NOTIFICATION_ID, buildNotification(remaining))
-                handler.postDelayed(this, 2000L)
+                overlay?.remainingMs = remaining
+                handler.postDelayed(this, if (overlay != null) 500L else 2000L)
             }
         }
+    }
+
+    /**
+     * The floating hourglass: a draggable overlay bubble that keeps the
+     * countdown literally on screen over other apps. Optional (pref, on by
+     * default) and gated by the draw-over-apps permission; without it the
+     * notification progress bar carries the load alone.
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun maybeShowOverlay() {
+        if (overlay != null) return
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        if (!prefs.getBoolean(Prefs.COUNTDOWN_BUBBLE, true)) return
+        if (!Settings.canDrawOverlays(this)) return
+
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        val density = resources.displayMetrics.density
+        val view = HourglassView(this).apply {
+            totalMs = this@CountdownService.totalMs
+            theme = ClockThemes.byKey(prefs.getString(Prefs.THEME, "midnight"))
+        }
+        @Suppress("DEPRECATION")
+        val type = if (Build.VERSION.SDK_INT >= 26) {
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        } else {
+            WindowManager.LayoutParams.TYPE_PHONE
+        }
+        val params = WindowManager.LayoutParams(
+            (84 * density).toInt(),
+            (128 * density).toInt(),
+            type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = prefs.getInt(Prefs.BUBBLE_X, (16 * density).toInt())
+            y = prefs.getInt(Prefs.BUBBLE_Y, (120 * density).toInt())
+        }
+
+        val slop = 12 * density
+        var downRawX = 0f
+        var downRawY = 0f
+        var startX = 0
+        var startY = 0
+        view.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downRawX = event.rawX
+                    downRawY = event.rawY
+                    startX = params.x
+                    startY = params.y
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    params.x = startX + (event.rawX - downRawX).roundToInt()
+                    params.y = startY + (event.rawY - downRawY).roundToInt()
+                    try {
+                        wm.updateViewLayout(view, params)
+                    } catch (e: Exception) {
+                        // View already detached; nothing to move.
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (hypot(event.rawX - downRawX, event.rawY - downRawY) < slop) {
+                        // A tap opens the app on the countdown.
+                        startActivity(
+                            Intent(this, MainActivity::class.java)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    } else {
+                        prefs.edit()
+                            .putInt(Prefs.BUBBLE_X, params.x)
+                            .putInt(Prefs.BUBBLE_Y, params.y)
+                            .apply()
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+
+        try {
+            wm.addView(view, params)
+            overlay = view
+            overlayParams = params
+            windowManager = wm
+        } catch (e: Exception) {
+            // Permission races or exotic ROMs: fall back to the notification.
+        }
+    }
+
+    private fun removeOverlay() {
+        val view = overlay ?: return
+        overlay = null
+        overlayParams = null
+        try {
+            windowManager?.removeView(view)
+        } catch (e: Exception) {
+            // Already gone.
+        }
+        windowManager = null
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -87,6 +202,8 @@ class CountdownService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+        maybeShowOverlay()
+        overlay?.totalMs = totalMs
         handler.removeCallbacksAndMessages(null)
         handler.post(updateLoop)
         return START_NOT_STICKY
@@ -94,6 +211,7 @@ class CountdownService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        removeOverlay()
         chimePlayer.release()
         super.onDestroy()
     }
@@ -101,6 +219,7 @@ class CountdownService : Service() {
     private fun finish() {
         if (finished) return
         finished = true
+        removeOverlay()
         setResult(RESULT_FINISHED)
         val persistent = PreferenceManager.getDefaultSharedPreferences(this)
             .getBoolean(Prefs.COUNTDOWN_PERSISTENT, true)

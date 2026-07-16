@@ -1,7 +1,10 @@
 package com.em87.weirdclock
 
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -9,6 +12,7 @@ import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SeekBarPreference
+import androidx.preference.SwitchPreferenceCompat
 import com.google.android.material.appbar.MaterialToolbar
 
 class SettingsActivity : AppCompatActivity() {
@@ -51,6 +55,19 @@ class SettingsActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 ""
             }
+            // The floating hourglass needs the draw-over-apps permission.
+            findPreference<SwitchPreferenceCompat>(Prefs.COUNTDOWN_BUBBLE)
+                ?.setOnPreferenceChangeListener { _, newValue ->
+                    if (newValue == true && !Settings.canDrawOverlays(requireContext())) {
+                        startActivity(
+                            Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${requireContext().packageName}")
+                            )
+                        )
+                    }
+                    true
+                }
         }
 
         override fun onPreferenceTreeClick(preference: Preference): Boolean {

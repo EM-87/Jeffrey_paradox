@@ -61,4 +61,7 @@ object Prefs {
     /** Written by CountdownService for MainActivity to consume on resume. */
     const val COUNTDOWN_RESULT = "pref_countdown_result"
     const val COUNTDOWN_PERSISTENT = "pref_countdown_persistent"
+    const val COUNTDOWN_BUBBLE = "pref_countdown_bubble"
+    const val BUBBLE_X = "pref_bubble_x"
+    const val BUBBLE_Y = "pref_bubble_y"
 }

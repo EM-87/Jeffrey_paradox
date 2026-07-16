@@ -63,6 +63,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var alarmSetActive = false
     private var alarmBeingSet: Alarm? = null
     private var alarmWorkingMs = 0L
+
+    // Stable provider instances: recreating these lambdas on every
+    // applyMode() made the ClockView setter think the mode changed,
+    // restarting transitions and wiping any winding in progress.
+    private val stopwatchProvider: () -> Long = { stopwatchElapsed() }
+    private val alarmTimeProvider: () -> Long = { alarmWorkingMs }
     private val alarms = mutableListOf<Alarm>()
     private val alarmsAdapter = AlarmAdapter()
 
@@ -508,7 +514,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             worldClockLabel?.text = tzId.substringAfterLast('/').replace('_', ' ')
         }
 
-        // The countdown dial mirrors the main dial's styling.
+        // The countdown dial mirrors the main dial's styling. It stays
+        // touchable regardless of the grab-hands preference: winding is its
+        // only setting mechanism.
         countdownClockView?.let {
             it.hoursOnDial = cv.hoursOnDial
             it.showSecondHand = cv.showSecondHand
@@ -516,7 +524,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.mirrored = cv.mirrored
             it.numeralStyle = cv.numeralStyle
             it.theme = cv.theme
-            it.touchHandsEnabled = prefs.getBoolean(Prefs.TOUCH_HANDS, true)
+            it.touchHandsEnabled = true
         }
 
         bellsEnabled = prefs.getBoolean(Prefs.BELLS, false)
@@ -557,12 +565,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 alarmSetActive -> {
                     // C1 borrows the countdown's wind-to-set engine to pick
                     // an alarm time.
-                    it.chronoProvider = { alarmWorkingMs }
+                    it.chronoProvider = alarmTimeProvider
                     it.chronoSettable = true
                     it.chronoButtons = false
                 }
                 chrono -> {
-                    it.chronoProvider = { stopwatchElapsed() }
+                    it.chronoProvider = stopwatchProvider
                     it.chronoSettable = false
                     it.chronoButtons = true
                     it.chronoRunning = stopwatchRunning

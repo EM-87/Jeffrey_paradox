@@ -130,9 +130,15 @@ stopwatch swipes to a second rendered dial: the countdown.
   returns the true time; cheaters gain nothing.
 
 **Countdown in the background**
-- Leave the app with the countdown running and an ongoing notification
-  keeps it on screen: live remaining time (chronometer) plus a progress
-  bar, in the status bar and on the lock screen, with a Cancel action.
+- Leave the app with the countdown running and a **floating hourglass**
+  appears over other apps (with the draw-over-apps permission): sand
+  drains from the top bulb into the bottom in real time, the remaining
+  time printed underneath, in your theme's colors. Drag it anywhere (the
+  spot is remembered); tap it to jump back into the app. A setting (on by
+  default) turns it off to keep only the notification.
+- Either way an ongoing notification keeps the countdown one glance away:
+  live remaining time (chronometer) plus a progress bar, in the status
+  bar and on the lock screen, with a Cancel action.
   At zero it rings the finish chime even with the app closed, and the
   app resyncs when you come back.
 

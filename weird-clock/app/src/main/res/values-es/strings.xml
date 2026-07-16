@@ -88,6 +88,8 @@
 
     <string name="pref_countdown_persistent_title">Alarma de cuenta atrás persistente</string>
     <string name="pref_countdown_persistent_summary">Al terminar la cuenta atrás, suena hasta que la valides</string>
+    <string name="pref_countdown_bubble_title">Reloj de arena flotante</string>
+    <string name="pref_countdown_bubble_summary">Mientras la cuenta atrás corre fuera de la app, un reloj de arena arrastrable flota sobre las demás apps (requiere el permiso de superposición). Desactivado: solo la barra de progreso en la persiana.</string>
     <string name="countdown_channel_name">Cuenta atrás</string>
     <string name="countdown_notification_title">Cuenta atrás en marcha</string>
     <string name="countdown_done">¡Tiempo!</string>

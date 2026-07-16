@@ -489,8 +489,11 @@ class ClockView @JvmOverloads constructor(
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        // A passive dial (e.g. the mini world clock) lets touches through.
-        if (!touchHandsEnabled && !pinchZoomEnabled && fallenBodies.isEmpty()) return false
+        // A passive dial (e.g. the mini world clock) lets touches through —
+        // but never while case pushers are present, they must stay pressable.
+        if (!touchHandsEnabled && !pinchZoomEnabled && fallenBodies.isEmpty() && !chronoButtons) {
+            return false
+        }
         gestureDetector.onTouchEvent(event)
         if (pinchZoomEnabled) {
             scaleDetector.onTouchEvent(event)

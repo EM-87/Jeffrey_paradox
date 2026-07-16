@@ -73,6 +73,12 @@
             android:summary="@string/pref_countdown_persistent_summary"
             android:defaultValue="true" />
 
+        <SwitchPreferenceCompat
+            android:key="pref_countdown_bubble"
+            android:title="@string/pref_countdown_bubble_title"
+            android:summary="@string/pref_countdown_bubble_summary"
+            android:defaultValue="true" />
+
         <Preference
             android:key="pref_test_bells"
             android:title="@string/pref_test_bells_title"

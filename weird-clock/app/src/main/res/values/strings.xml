@@ -100,6 +100,8 @@
 
     <string name="pref_countdown_persistent_title">Persistent timer alarm</string>
     <string name="pref_countdown_persistent_summary">When the countdown ends, ring until you dismiss it</string>
+    <string name="pref_countdown_bubble_title">Floating hourglass</string>
+    <string name="pref_countdown_bubble_summary">While a countdown runs outside the app, a draggable hourglass floats over other apps (needs the draw-over-apps permission). Off: notification progress bar only.</string>
     <string name="countdown_channel_name">Countdown</string>
     <string name="countdown_notification_title">Countdown running</string>
     <string name="countdown_done">Time’s up!</string>
