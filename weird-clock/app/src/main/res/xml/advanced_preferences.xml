@@ -95,6 +95,12 @@
             app:min="25"
             app:showSeekBarValue="true" />
 
+        <SwitchPreferenceCompat
+            android:key="pref_solar_time"
+            android:title="@string/pref_solar_time_title"
+            android:summary="@string/pref_solar_time_summary"
+            android:defaultValue="false" />
+
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/category_world">

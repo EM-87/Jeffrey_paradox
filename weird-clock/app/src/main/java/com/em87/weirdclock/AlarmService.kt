@@ -12,6 +12,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
+import androidx.preference.PreferenceManager
 import java.text.DateFormat
 import java.util.Date
 
@@ -33,7 +34,20 @@ class AlarmService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var sound = Prefs.ALARM_SOUND_BELLS
     private var snoozeEnabled = false
+    private var label = ""
     private var mediaPlayer: MediaPlayer? = null
+
+    /** Gradual wake: volume climbs from 15% to full over about a minute. */
+    private var rampStep = 0
+    private val rampLoop = object : Runnable {
+        override fun run() {
+            rampStep++
+            val v = (0.15f + 0.85f * rampStep / 30f).coerceAtMost(1f)
+            chimePlayer.volume = v
+            mediaPlayer?.setVolume(v, v)
+            if (v < 1f) handler.postDelayed(this, 2000L)
+        }
+    }
     private val ringLoop = object : Runnable {
         override fun run() {
             when (sound) {
@@ -68,6 +82,11 @@ class AlarmService : Service() {
         }
         sound = intent?.getStringExtra(AlarmScheduler.EXTRA_SOUND) ?: Prefs.ALARM_SOUND_BELLS
         snoozeEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_SNOOZE, false) == true
+        label = intent?.getStringExtra(AlarmScheduler.EXTRA_LABEL) ?: ""
+        val ramp = PreferenceManager.getDefaultSharedPreferences(this)
+            .getBoolean(Prefs.ALARM_RAMP, true)
+        chimePlayer.volume = if (ramp) 0.15f else 1f
+        rampStep = 0
 
         createChannel()
         val notification = buildNotification()
@@ -84,12 +103,14 @@ class AlarmService : Service() {
             // this; the synthesized wail is only a fallback.
             mediaPlayer = MediaPlayer.create(this, R.raw.baby_cry)?.apply {
                 isLooping = true
+                setVolume(chimePlayer.volume, chimePlayer.volume)
                 start()
             }
             if (mediaPlayer == null) handler.post(ringLoop)
         } else {
             handler.post(ringLoop)
         }
+        if (ramp) handler.postDelayed(rampLoop, 2000L)
         handler.postDelayed({ stopSelf() }, 3 * 60_000L)
         return START_NOT_STICKY
     }
@@ -127,7 +148,8 @@ class AlarmService : Service() {
             Intent(this, AlarmRingActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 .putExtra(AlarmScheduler.EXTRA_SOUND, sound)
-                .putExtra(AlarmScheduler.EXTRA_SNOOZE, snoozeEnabled),
+                .putExtra(AlarmScheduler.EXTRA_SNOOZE, snoozeEnabled)
+                .putExtra(AlarmScheduler.EXTRA_LABEL, label),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val stop = PendingIntent.getService(
@@ -138,7 +160,7 @@ class AlarmService : Service() {
         )
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher)
-            .setContentTitle(getString(R.string.alarm_ringing))
+            .setContentTitle(label.ifBlank { getString(R.string.alarm_ringing) })
             .setContentText(DateFormat.getTimeInstance(DateFormat.SHORT).format(Date()))
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)

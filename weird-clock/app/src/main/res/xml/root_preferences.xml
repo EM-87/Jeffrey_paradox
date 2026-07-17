@@ -80,6 +80,12 @@
             android:defaultValue="false" />
 
         <SwitchPreferenceCompat
+            android:key="pref_alarm_ramp"
+            android:title="@string/pref_alarm_ramp_title"
+            android:summary="@string/pref_alarm_ramp_summary"
+            android:defaultValue="true" />
+
+        <SwitchPreferenceCompat
             android:key="pref_countdown_persistent"
             android:title="@string/pref_countdown_persistent_title"
             android:summary="@string/pref_countdown_persistent_summary"

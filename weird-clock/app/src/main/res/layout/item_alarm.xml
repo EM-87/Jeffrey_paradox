@@ -30,6 +30,15 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/alarm_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:padding="4dp"
+                android:textColor="#E8E8E8"
+                android:textSize="14sp" />
+
+            <TextView
                 android:id="@+id/alarm_sound"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

@@ -36,6 +36,10 @@ class ChimePlayer {
         private const val SAMPLE_RATE = 44100
     }
 
+    /** Master volume for bell buffers; ramped by the alarm service. */
+    @Volatile
+    var volume = 1f
+
     private var bellTrack: AudioTrack? = null
     private var soundPool: SoundPool? = null
     private var tickSoundId = 0
@@ -201,7 +205,10 @@ class ChimePlayer {
     private fun playFloatBuffer(buffer: FloatArray) {
         synchronized(lock) {
             bellTrack?.release()
-            bellTrack = buildStaticTrack(toPcm(buffer)).also { it.play() }
+            bellTrack = buildStaticTrack(toPcm(buffer)).also {
+                it.setVolume(volume.coerceIn(0f, 1f))
+                it.play()
+            }
         }
     }
 

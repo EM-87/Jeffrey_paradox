@@ -6,6 +6,7 @@
         <item>Neon</item>
         <item>Terminal green</item>
         <item>Sunset</item>
+        <item>Dynamic (Material You)</item>
     </string-array>
     <string-array name="theme_values">
         <item>midnight</item>
@@ -13,6 +14,7 @@
         <item>neon</item>
         <item>terminal</item>
         <item>sunset</item>
+        <item>dynamic</item>
     </string-array>
 
     <string-array name="hours_preset_entries">

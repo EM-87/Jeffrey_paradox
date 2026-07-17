@@ -11,6 +11,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val service = Intent(context, AlarmService::class.java)
             .putExtra(AlarmScheduler.EXTRA_SOUND, intent.getStringExtra(AlarmScheduler.EXTRA_SOUND))
             .putExtra(AlarmScheduler.EXTRA_SNOOZE, intent.getBooleanExtra(AlarmScheduler.EXTRA_SNOOZE, false))
+            .putExtra(AlarmScheduler.EXTRA_LABEL, intent.getStringExtra(AlarmScheduler.EXTRA_LABEL))
         ContextCompat.startForegroundService(context, service)
         // Re-arm the next upcoming alarm (this one's next slot is tomorrow).
         AlarmScheduler.update(context)

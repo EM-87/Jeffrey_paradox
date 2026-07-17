@@ -28,6 +28,12 @@ An analog clock app for Android with deliberately weird options.
 - **Time speed slider** — run the clock anywhere from 25% to 400% of real
   time (with a warning: it does not allow time travel, and alarms are
   disabled while time is bent).
+- **Sun time** — the sundial mode: the whole app runs on local apparent
+  solar time (`UTC + longitude·4min + equation of time`), so noon on the
+  dial is the moment the sun actually crosses your meridian. One coarse
+  location fix, cached, no network; alarms stay on civil time.
+- **Dynamic theme (Material You)** — on Android 12+ the dial, hands,
+  widgets and floating hourglass dress in your wallpaper's palette.
 
 **Touch**
 - **Wind the hands** — grab any hand (hit zones are finger-sized and cover
@@ -102,7 +108,9 @@ clock, not a background chime service).
   Wikimedia Commons), because humans are hard-wired to get up for that
   sound. A synthesized wail remains as fallback. Each alarm also has a
   per-alarm snooze toggle: when on, the ring screen and its notification
-  offer a 5-minute snooze alongside Stop.
+  offer a 5-minute snooze alongside Stop. Alarms can carry a label
+  ("Gym", "Pills") shown while ringing, and by default ring with gradual
+  volume — starting quiet and climbing to full over a minute.
 - Alarms ring even when the app is closed: an exact AlarmManager alarm
   fires a foreground service with a full-screen ringing screen that works
   over the lock screen, repeats daily, survives reboots, and auto-stops
@@ -144,6 +152,12 @@ stopwatch swipes to a second rendered dial: the countdown.
   here too. But wind one *forward* more than a full turn and a big CHEATER!
   stamp slams across the dial, with a low womp-womp. The spring still
   returns the true time; cheaters gain nothing.
+
+**Hourglass home-screen widget**
+- A 1×2 hourglass widget for the launcher: while a countdown runs it
+  shows the live sand level and remaining time (updated by the app in
+  the foreground and the countdown service in the background); idle,
+  the sand rests. Tap to open the app.
 
 **Countdown in the background**
 - Leave the app with the countdown running and a **floating hourglass**

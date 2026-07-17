@@ -10,6 +10,10 @@ object TimeKeeper {
     var speedPercent: Int = 100
         private set
 
+    /** Extra display shift for solar time. Zero when disabled. */
+    @Volatile
+    var solarOffsetMs: Long = 0L
+
     private var anchorRealMs: Long = System.currentTimeMillis()
     private var anchorDisplayMs: Long = anchorRealMs
 
@@ -17,16 +21,18 @@ object TimeKeeper {
         val clamped = percent.coerceIn(25, 400)
         if (clamped == speedPercent) return
         val realNow = System.currentTimeMillis()
-        anchorDisplayMs = if (clamped == 100) realNow else nowMs()
+        anchorDisplayMs = if (clamped == 100) realNow else speedNowMs()
         anchorRealMs = realNow
         speedPercent = clamped
     }
 
-    fun nowMs(): Long {
+    private fun speedNowMs(): Long {
         if (speedPercent == 100 && anchorDisplayMs == anchorRealMs) {
             return System.currentTimeMillis()
         }
         val realNow = System.currentTimeMillis()
         return anchorDisplayMs + ((realNow - anchorRealMs) * speedPercent / 100.0).toLong()
     }
+
+    fun nowMs(): Long = speedNowMs() + solarOffsetMs
 }

@@ -107,6 +107,14 @@
 
     <string name="pref_countdown_persistent_title">Persistent timer alarm</string>
     <string name="pref_countdown_persistent_summary">When the countdown ends, ring until you dismiss it</string>
+    <string name="pref_solar_time_title">Sun time</string>
+    <string name="pref_solar_time_summary">The whole clock runs on local apparent solar time — noon is when the sun actually crosses your meridian (one coarse location fix; alarms stay on civil time)</string>
+    <string name="pref_alarm_ramp_title">Gradual alarm volume</string>
+    <string name="pref_alarm_ramp_summary">Alarms start quiet and climb to full volume over a minute</string>
+    <string name="alarm_label_title">Alarm label</string>
+    <string name="alarm_label_hint">Add a label…</string>
+    <string name="widget_hourglass_label">Weird Clock hourglass</string>
+    <string name="widget_hourglass_description">Hourglass showing the running countdown</string>
     <string name="pref_countdown_bubble_title">Floating hourglass</string>
     <string name="pref_countdown_bubble_summary">While a countdown runs outside the app, a draggable hourglass floats over other apps (needs the draw-over-apps permission). Off: notification progress bar only.</string>
     <string name="countdown_channel_name">Countdown</string>

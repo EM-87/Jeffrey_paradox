@@ -77,6 +77,7 @@ class CountdownService : Service() {
                 getSystemService(NotificationManager::class.java)
                     ?.notify(NOTIFICATION_ID, buildNotification(remaining))
                 overlay?.remainingMs = remaining
+                HourglassWidgetProvider.push(this@CountdownService, remaining, totalMs)
                 handler.postDelayed(this, if (overlay != null) 500L else 2000L)
             }
         }
@@ -99,7 +100,7 @@ class CountdownService : Service() {
         val density = resources.displayMetrics.density
         val view = HourglassView(this).apply {
             totalMs = this@CountdownService.totalMs
-            theme = ClockThemes.byKey(prefs.getString(Prefs.THEME, "midnight"))
+            theme = ClockThemes.resolve(this@CountdownService, prefs.getString(Prefs.THEME, "midnight"))
         }
         @Suppress("DEPRECATION")
         val type = if (Build.VERSION.SDK_INT >= 26) {
@@ -220,6 +221,7 @@ class CountdownService : Service() {
         if (finished) return
         finished = true
         removeOverlay()
+        HourglassWidgetProvider.pushIdle(this)
         setResult(RESULT_FINISHED)
         val persistent = PreferenceManager.getDefaultSharedPreferences(this)
             .getBoolean(Prefs.COUNTDOWN_PERSISTENT, true)

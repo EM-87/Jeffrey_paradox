@@ -30,6 +30,9 @@ class AlarmRingActivity : AppCompatActivity() {
 
         findViewById<TextView>(R.id.alarm_time_text).text =
             DateFormat.getTimeInstance(DateFormat.SHORT).format(Date())
+        intent.getStringExtra(AlarmScheduler.EXTRA_LABEL)?.takeIf { it.isNotBlank() }?.let {
+            findViewById<TextView>(R.id.ring_subtitle).text = it
+        }
         findViewById<Button>(R.id.stop_button).setOnClickListener {
             startService(Intent(this, AlarmService::class.java).setAction(AlarmService.ACTION_STOP))
             finish()

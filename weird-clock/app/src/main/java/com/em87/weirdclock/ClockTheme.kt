@@ -88,4 +88,30 @@ object ClockThemes {
         "sunset" -> SUNSET
         else -> MIDNIGHT
     }
+
+    /**
+     * Like [byKey] but resolving the "dynamic" key into Material You system
+     * colors on Android 12+, so the clock dresses in the user's wallpaper
+     * palette. Falls back to Midnight below API 31.
+     */
+    fun resolve(context: android.content.Context, key: String?): ClockTheme =
+        if (key == "dynamic") {
+            if (android.os.Build.VERSION.SDK_INT >= 31) dynamic(context) else MIDNIGHT
+        } else {
+            byKey(key)
+        }
+
+    @androidx.annotation.RequiresApi(31)
+    private fun dynamic(context: android.content.Context): ClockTheme = ClockTheme(
+        face = context.getColor(android.R.color.system_neutral1_900),
+        rim = context.getColor(android.R.color.system_accent2_400),
+        tick = context.getColor(android.R.color.system_neutral1_50),
+        minorTick = context.getColor(android.R.color.system_neutral2_500),
+        numeral = context.getColor(android.R.color.system_neutral1_50),
+        hourHand = context.getColor(android.R.color.system_accent1_100),
+        minuteHand = context.getColor(android.R.color.system_accent1_200),
+        secondHand = context.getColor(android.R.color.system_accent3_300),
+        decimal = context.getColor(android.R.color.system_accent1_300),
+        centerDot = context.getColor(android.R.color.system_accent1_100)
+    )
 }

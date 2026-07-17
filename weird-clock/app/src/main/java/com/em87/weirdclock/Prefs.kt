@@ -29,6 +29,9 @@ object Prefs {
     const val REASSEMBLE = "pref_reassemble"
     const val REASSEMBLE_PENDING = "pref_reassemble_pending"
     const val TIME_SPEED = "pref_time_speed"
+    const val SOLAR_TIME = "pref_solar_time"
+    const val LAST_LONGITUDE = "pref_last_longitude"
+    const val ALARM_RAMP = "pref_alarm_ramp"
     const val WORLD_CLOCK = "pref_world_clock"
     const val WORLD_TZ = "pref_world_tz"
 

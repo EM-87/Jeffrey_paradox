@@ -50,7 +50,7 @@ class ClockWidgetProvider : AppWidgetProvider() {
 
             if (Build.VERSION.SDK_INT >= 31) {
                 val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-                val theme = ClockThemes.byKey(prefs.getString(Prefs.THEME, "midnight"))
+                val theme = ClockThemes.resolve(context, prefs.getString(Prefs.THEME, "midnight"))
                 val size = 512
                 views.setIcon(
                     R.id.widget_analog_clock, "setDial",

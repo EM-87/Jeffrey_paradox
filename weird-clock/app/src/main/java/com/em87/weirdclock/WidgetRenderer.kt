@@ -23,7 +23,7 @@ object WidgetRenderer {
 
     fun dialBitmap(context: Context, sizePx: Int): Bitmap {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        val theme = ClockThemes.byKey(prefs.getString(Prefs.THEME, "midnight"))
+        val theme = ClockThemes.resolve(context, prefs.getString(Prefs.THEME, "midnight"))
         val preset = prefs.getString(Prefs.HOURS_PRESET, "12") ?: "12"
         val hoursOnDial = (
             if (preset == Prefs.HOURS_CUSTOM_VALUE) prefs.getInt(Prefs.HOURS_CUSTOM, 12)

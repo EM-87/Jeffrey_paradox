@@ -95,6 +95,14 @@
 
     <string name="pref_countdown_persistent_title">Alarma de cuenta atrás persistente</string>
     <string name="pref_countdown_persistent_summary">Al terminar la cuenta atrás, suena hasta que la valides</string>
+    <string name="pref_solar_time_title">Hora del sol</string>
+    <string name="pref_solar_time_summary">Todo el reloj corre en hora solar aparente local: el mediodía es cuando el sol cruza de verdad tu meridiano (una lectura de ubicación aproximada; las alarmas siguen en hora civil)</string>
+    <string name="pref_alarm_ramp_title">Volumen creciente de alarma</string>
+    <string name="pref_alarm_ramp_summary">Las alarmas empiezan suaves y suben a volumen completo en un minuto</string>
+    <string name="alarm_label_title">Etiqueta de la alarma</string>
+    <string name="alarm_label_hint">Añadir etiqueta…</string>
+    <string name="widget_hourglass_label">Reloj de arena Weird Clock</string>
+    <string name="widget_hourglass_description">Reloj de arena con la cuenta atrás en marcha</string>
     <string name="pref_countdown_bubble_title">Reloj de arena flotante</string>
     <string name="pref_countdown_bubble_summary">Mientras la cuenta atrás corre fuera de la app, un reloj de arena arrastrable flota sobre las demás apps (requiere el permiso de superposición). Desactivado: solo la barra de progreso en la persiana.</string>
     <string name="countdown_channel_name">Cuenta atrás</string>

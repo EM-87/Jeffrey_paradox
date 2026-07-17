@@ -6,9 +6,12 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.location.LocationManager
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.text.InputType
+import android.widget.EditText
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -93,6 +96,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    private var locationAskedThisRun = false
+    private val locationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) applyPreferences()
+        }
+
     /** Runs on (approximately) every second boundary, so ticks stay in step. */
     private val soundLoop = object : Runnable {
         override fun run() {
@@ -124,6 +133,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             if (minute != lastHandledMinute) {
                 lastHandledMinute = minute
                 onMinuteBoundary()
+            }
+
+            if (countdownRunning) {
+                HourglassWidgetProvider.push(this@MainActivity, countdownRemaining(), countdownTotalMs)
             }
 
             handler.postDelayed(this, 1000L - (System.currentTimeMillis() % 1000L))
@@ -348,6 +361,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private inner class AlarmHolder(view: View) : RecyclerView.ViewHolder(view) {
         val time: TextView = view.findViewById(R.id.alarm_time)
+        val label: TextView = view.findViewById(R.id.alarm_label)
         val sound: TextView = view.findViewById(R.id.alarm_sound)
         val repeat: TextView = view.findViewById(R.id.alarm_repeat)
         val snooze: TextView = view.findViewById(R.id.alarm_snooze)
@@ -396,6 +410,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 alarm.snooze = !alarm.snooze
                 persistAlarms()
             }
+            holder.label.text = alarm.label.ifBlank { getString(R.string.alarm_label_hint) }
+            holder.label.alpha = if (alarm.label.isBlank()) 0.45f else 1f
+            holder.label.setOnClickListener { showLabelDialog(alarm) }
             holder.enabled.setOnCheckedChangeListener(null)
             holder.enabled.isChecked = alarm.enabled
             holder.enabled.setOnCheckedChangeListener { _, checked ->
@@ -486,6 +503,23 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         updateAlarmMarkers()
     }
 
+    private fun showLabelDialog(alarm: Alarm) {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            setText(alarm.label)
+            setSelection(alarm.label.length)
+        }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.alarm_label_title)
+            .setView(input)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                alarm.label = input.text.toString().trim()
+                persistAlarms()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     /** Sectograph-style: enabled alarms as accent wedges on the clock dial. */
     private fun updateAlarmMarkers() {
         val show = prefs.getBoolean(Prefs.ALARM_MARKERS, true)
@@ -512,6 +546,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private fun applyPreferences() {
         TimeKeeper.setSpeedPercent(prefs.getInt(Prefs.TIME_SPEED, 100))
+        applySolarTime()
         val cv = clockView ?: return
 
         cv.hoursOnDial = readHoursOnDial()
@@ -524,7 +559,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             Prefs.FAST_HAND_DECIMAL_MINUTE -> ClockView.FastHandMode.DECIMAL_MINUTE
             else -> ClockView.FastHandMode.NONE
         }
-        cv.theme = ClockThemes.byKey(prefs.getString(Prefs.THEME, "midnight"))
+        cv.theme = ClockThemes.resolve(this, prefs.getString(Prefs.THEME, "midnight"))
         cv.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
         cv.dateFormatStyle = when (prefs.getString(Prefs.DATE_FORMAT, Prefs.DATE_FORMAT_NUMBER)) {
             Prefs.DATE_FORMAT_TEXT -> ClockView.DateFormatStyle.TEXT
@@ -569,6 +604,58 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         halfHourEnabled = prefs.getBoolean(Prefs.HALF_HOUR, false)
         tickingEnabled = prefs.getBoolean(Prefs.TICKING, false)
         countdownPersistent = prefs.getBoolean(Prefs.COUNTDOWN_PERSISTENT, true)
+    }
+
+    /**
+     * Sundial mode: shifts the whole app's display time to local apparent
+     * solar time using the last known longitude (one coarse fix, cached, no
+     * network). Alarms keep ringing on civil time.
+     */
+    private fun applySolarTime() {
+        if (!prefs.getBoolean(Prefs.SOLAR_TIME, false)) {
+            TimeKeeper.solarOffsetMs = 0L
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            TimeKeeper.solarOffsetMs = 0L
+            if (!locationAskedThisRun) {
+                locationAskedThisRun = true
+                locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+            }
+            return
+        }
+        val longitude = readLongitude()
+        TimeKeeper.solarOffsetMs = if (longitude != null) {
+            SolarTime.offsetMs(longitude, System.currentTimeMillis())
+        } else {
+            0L
+        }
+    }
+
+    private fun readLongitude(): Double? {
+        val lm = getSystemService(LocationManager::class.java)
+        var best: android.location.Location? = null
+        if (lm != null) {
+            for (provider in lm.allProviders) {
+                try {
+                    val location = lm.getLastKnownLocation(provider) ?: continue
+                    if (best == null || location.time > best!!.time) best = location
+                } catch (e: SecurityException) {
+                    // Provider needs a finer permission; skip it.
+                }
+            }
+        }
+        best?.let {
+            prefs.edit().putFloat(Prefs.LAST_LONGITUDE, it.longitude.toFloat()).apply()
+            return it.longitude
+        }
+        return if (prefs.contains(Prefs.LAST_LONGITUDE)) {
+            prefs.getFloat(Prefs.LAST_LONGITUDE, 0f).toDouble()
+        } else {
+            null
+        }
     }
 
     private fun readNumeralStyle(): ClockView.NumeralStyle =
@@ -681,6 +768,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         countdownRunning = false
         countdownRemainingMs = 0L
         updateCountdownUi()
+        HourglassWidgetProvider.pushIdle(this)
     }
 
     // ------------------------------------------------- scheduled chimes

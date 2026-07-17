@@ -18,6 +18,7 @@ object AlarmScheduler {
     const val EXTRA_ALARM_ID = "extra_alarm_id"
     const val EXTRA_SOUND = "extra_sound"
     const val EXTRA_SNOOZE = "extra_snooze"
+    const val EXTRA_LABEL = "extra_label"
 
     fun update(context: Context) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
@@ -94,6 +95,7 @@ object AlarmScheduler {
             intent.putExtra(EXTRA_ALARM_ID, it.id)
             intent.putExtra(EXTRA_SOUND, it.sound)
             intent.putExtra(EXTRA_SNOOZE, it.snooze)
+            intent.putExtra(EXTRA_LABEL, it.label)
         }
         return PendingIntent.getBroadcast(
             context,
