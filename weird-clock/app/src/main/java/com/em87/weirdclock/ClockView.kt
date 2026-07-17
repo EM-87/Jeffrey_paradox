@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.RectF
 import android.hardware.Sensor
@@ -26,6 +27,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.ceil
 import kotlin.math.cos
@@ -56,6 +58,14 @@ class ClockView @JvmOverloads constructor(
     enum class NumeralStyle { NONE, ARABIC, ROMAN }
     enum class DateFormatStyle { NUMBER, TEXT, ROMAN }
     enum class FastHandMode { NONE, TENTHS, DECIMAL_MINUTE }
+
+    /**
+     * Magnet layout for wind-to-set. COUNTDOWN is progressive — minute
+     * detents up to 5 min, 5-minute up to half an hour, quarter-hour up to
+     * two hours, hourly beyond — so sweeping across an hour doesn't rattle
+     * through 75 detents. ALARM keeps a flat 5-minute grid.
+     */
+    enum class MagnetProfile { COUNTDOWN, ALARM }
     private enum class Hand { HOUR, MINUTE, SECOND }
     private enum class BodyKind { HAND, FAST_HAND, NUMERAL }
 
@@ -155,6 +165,29 @@ class ClockView @JvmOverloads constructor(
     /** Receives the adjusted duration when the user sets the countdown. */
     var onChronoAdjusted: ((Long) -> Unit)? = null
 
+    var magnetProfile = MagnetProfile.COUNTDOWN
+
+    /** Angles of recorded stopwatch laps, drawn as ghost second hands. */
+    private val lapAngles = mutableListOf<Float>()
+
+    /** Enabled alarms as dial angles, drawn as markers on the clock face. */
+    var alarmMarkers: List<Float> = emptyList()
+        set(value) { field = value; invalidate() }
+
+    var showMoonPhase = false
+        set(value) { field = value; invalidate() }
+
+    fun recordLap() {
+        lapAngles.add(currentAngles().second)
+        while (lapAngles.size > 9) lapAngles.removeAt(0)
+        invalidate()
+    }
+
+    fun clearLaps() {
+        lapAngles.clear()
+        invalidate()
+    }
+
     /**
      * Fired on a horizontal swipe; the argument is true when the finger moved
      * right. Return true to consume (used for page navigation over the dial).
@@ -229,6 +262,15 @@ class ClockView @JvmOverloads constructor(
     }
     private val centerDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val pusherPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val lapPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val alarmMarkerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val alarmMarkerPath = Path()
+    private val moonDarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val moonLitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val moonRimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val cheaterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -263,6 +305,14 @@ class ClockView @JvmOverloads constructor(
         centerDotPaint.color = t.centerDot
         cheaterPaint.color = t.secondHand
         selectedColor = t.secondHand
+        lapPaint.color = t.secondHand
+        alarmMarkerPaint.color = t.decimal
+        alarmMarkerPaint.alpha = 230
+        moonDarkPaint.color = t.minorTick
+        moonDarkPaint.alpha = 90
+        moonLitPaint.color = t.numeral
+        moonLitPaint.alpha = 235
+        moonRimPaint.color = t.minorTick
     }
 
     // --------------------------------------------------- virtual time state
@@ -733,12 +783,17 @@ class ClockView @JvmOverloads constructor(
         }
         val target = dragStartOffset + dragAccumDeg / 360.0 * secondsPerRevolution(hand)
         if (chronoSettable && chronoProvider != null) {
-            // Sticky magnets: near a round duration the value locks onto it
-            // and a haptic tick tells the user that letting go here lands
-            // exactly on the detent.
+            // Magnets only engage in the precision band: the ring between
+            // the numerals and the rim, where the finger goes for fine
+            // adjustment. Whipping the hand around from near the center
+            // spins free — no detents, no haptic machine-gun.
+            val fingerDist = hypot(x - cx, y - cy)
+            val inPrecisionBand =
+                fingerDist >= numeralRadius(dialRadius()) * 0.95f &&
+                    fingerDist <= dialRadius() * 1.10f
             val baseMs = chronoFrozenMs ?: 0L
             val durationMs = baseMs + (target * 1000.0).toLong()
-            val magnet = magnetFor(durationMs)
+            val magnet = if (inPrecisionBand) magnetFor(durationMs) else null
             if (magnet != null) {
                 if (lockedMagnetMs != magnet) {
                     lockedMagnetMs = magnet
@@ -1330,8 +1385,15 @@ class ClockView @JvmOverloads constructor(
      */
     private fun magnetFor(ms: Long): Long? {
         if (ms < 0) return null
-        val grid = if (ms >= 300_000L) 300_000L else 30_000L
-        val window = if (grid == 300_000L) 40_000L else 8_000L
+        val (grid, window) = when (magnetProfile) {
+            MagnetProfile.ALARM -> 300_000L to 40_000L
+            MagnetProfile.COUNTDOWN -> when {
+                ms < 5 * 60_000L -> 60_000L to 10_000L
+                ms < 30 * 60_000L -> 300_000L to 40_000L
+                ms < 120 * 60_000L -> 900_000L to 90_000L
+                else -> 3_600_000L to 300_000L
+            }
+        }
         val rounded = (ms + grid / 2) / grid * grid
         return if (kotlin.math.abs(rounded - ms) <= window) rounded else null
     }
@@ -1465,9 +1527,20 @@ class ClockView @JvmOverloads constructor(
 
         drawTicks(canvas, cx, cy, r)
         drawNumerals(canvas, cx, cy, r)
-        if (showDate && chronoProvider == null) drawDate(canvas, cx, cy, r)
+        if (chronoProvider == null) {
+            if (showDate) drawDate(canvas, cx, cy, r)
+            if (alarmMarkers.isNotEmpty()) drawAlarmMarkers(canvas, cx, cy, r)
+            if (showMoonPhase) drawMoonPhase(canvas, cx, cy, r)
+        }
 
         val a = currentAngles()
+
+        if (chronoProvider != null && lapAngles.isNotEmpty()) {
+            for ((i, angle) in lapAngles.withIndex()) {
+                lapPaint.alpha = 50 + 150 * (i + 1) / lapAngles.size
+                drawHand(canvas, cx, cy, angle, r * SECOND_LEN, r * 0.18f, r * 0.010f, lapPaint)
+            }
+        }
 
         if (fastHand != FastHandMode.NONE || chronoProvider != null) {
             for (i in 0 until 10) {
@@ -1682,6 +1755,54 @@ class ClockView @JvmOverloads constructor(
             canvas.drawText(numeralLabel(hour), pos.x, baseline, numeralPaint)
             numeralPaint.color = defaultColor
         }
+    }
+
+    /** Enabled alarms drawn as small accent wedges pointing at their time. */
+    private fun drawAlarmMarkers(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        for (angle in alarmMarkers) {
+            val tip = pointAt(cx, cy, angle, r * 0.885f)
+            val base1 = pointAt(cx, cy, angle - 2.2f, r * 0.965f)
+            val base2 = pointAt(cx, cy, angle + 2.2f, r * 0.965f)
+            alarmMarkerPath.reset()
+            alarmMarkerPath.moveTo(tip.x, tip.y)
+            alarmMarkerPath.lineTo(base1.x, base1.y)
+            alarmMarkerPath.lineTo(base2.x, base2.y)
+            alarmMarkerPath.close()
+            canvas.drawPath(alarmMarkerPath, alarmMarkerPaint)
+        }
+    }
+
+    /**
+     * Moon phase complication: the classic two-shape construction — a dark
+     * disc, the lit half, and a terminator ellipse whose signed width follows
+     * cos(2π·phase), painted dark for crescents and lit for gibbous moons.
+     */
+    private fun drawMoonPhase(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        val mr = r * 0.07f
+        val mcy = cy + r * 0.45f
+        val synodicDays = 29.530588853
+        // Julian date of a known new moon: 2000-01-06 18:14 UTC.
+        val julianNow = TimeKeeper.nowMs() / 86_400_000.0 + 2_440_587.5
+        val phase = (((julianNow - 2_451_550.26) / synodicDays) % 1.0 + 1.0) % 1.0
+        val cosPhase = cos(2.0 * PI * phase)
+        val litRight = phase < 0.5
+
+        canvas.drawCircle(cx, mcy, mr, moonDarkPaint)
+        canvas.save()
+        if (litRight) {
+            canvas.clipRect(cx, mcy - mr, cx + mr, mcy + mr)
+        } else {
+            canvas.clipRect(cx - mr, mcy - mr, cx, mcy + mr)
+        }
+        canvas.drawCircle(cx, mcy, mr, moonLitPaint)
+        canvas.restore()
+        val ellipseHalf = (mr * kotlin.math.abs(cosPhase)).toFloat()
+        if (ellipseHalf > 0.5f) {
+            val oval = RectF(cx - ellipseHalf, mcy - mr, cx + ellipseHalf, mcy + mr)
+            canvas.drawOval(oval, if (cosPhase > 0) moonDarkPaint else moonLitPaint)
+        }
+        moonRimPaint.strokeWidth = r * 0.008f
+        canvas.drawCircle(cx, mcy, mr, moonRimPaint)
     }
 
     private fun drawDate(canvas: Canvas, cx: Float, cy: Float, r: Float) {

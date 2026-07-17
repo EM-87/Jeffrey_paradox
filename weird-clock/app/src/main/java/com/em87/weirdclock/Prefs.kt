@@ -8,6 +8,8 @@ object Prefs {
     const val THEME = "pref_theme"
     const val SHOW_DATE = "pref_show_date"
     const val DATE_FORMAT = "pref_date_format"
+    const val MOON_PHASE = "pref_moon_phase"
+    const val ALARM_MARKERS = "pref_alarm_markers"
     const val SECOND_HAND = "pref_second_hand"
     const val SMOOTH_SECONDS = "pref_smooth_seconds"
     const val FAST_HAND = "pref_fast_hand"

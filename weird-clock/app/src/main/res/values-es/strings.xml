@@ -70,6 +70,13 @@
     <string name="alarm_sound_bells">Campanas</string>
     <string name="alarm_sound_digital">Pitido digital</string>
     <string name="alarm_sound_baby">Bebé llorando</string>
+    <string name="pref_moon_phase_title">Fase lunar</string>
+    <string name="pref_moon_phase_summary">Una complicación lunar en la esfera con la fase actual</string>
+    <string name="pref_alarm_markers_title">Alarmas en la esfera</string>
+    <string name="pref_alarm_markers_summary">Las alarmas activas se dibujan como marcadores en su hora sobre la esfera</string>
+    <string name="alarm_snooze">Posponer 5 min</string>
+    <string name="alarm_snooze_on">Posponer: 5 min</string>
+    <string name="alarm_snooze_off">Posponer: no</string>
     <string name="alarm_repeat_daily">Todos los días</string>
     <string name="alarm_repeat_weekdays">De diario (L–V)</string>
     <string name="alarm_repeat_weekends">Fines de semana (S–D)</string>

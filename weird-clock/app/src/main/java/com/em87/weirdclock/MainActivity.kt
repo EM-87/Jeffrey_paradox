@@ -239,7 +239,20 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 }
             }
             it.onChronoStartStop = { if (!alarmSetActive) toggleStartPause() }
-            it.onChronoReset = { if (!alarmSetActive) resetChrono() }
+            it.onChronoReset = {
+                if (!alarmSetActive) {
+                    // Real-chronograph convention: while running, the lower
+                    // pusher records a lap (a frozen ghost second hand);
+                    // stopped, it resets and clears the laps.
+                    if (stopwatchRunning) {
+                        clockView?.recordLap()
+                        chimePlayer.playTick()
+                    } else {
+                        resetChrono()
+                        clockView?.clearLaps()
+                    }
+                }
+            }
             it.onChronoAdjusted = { ms -> if (alarmSetActive) alarmWorkingMs = ms }
             it.onCrownTap = { chimePlayer.playCuckoo() }
         }
@@ -337,6 +350,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val time: TextView = view.findViewById(R.id.alarm_time)
         val sound: TextView = view.findViewById(R.id.alarm_sound)
         val repeat: TextView = view.findViewById(R.id.alarm_repeat)
+        val snooze: TextView = view.findViewById(R.id.alarm_snooze)
         val enabled: SwitchCompat = view.findViewById(R.id.alarm_enabled)
         val delete: ImageButton = view.findViewById(R.id.alarm_delete)
     }
@@ -373,6 +387,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     Prefs.ALARM_REPEAT_WEEKDAYS -> Prefs.ALARM_REPEAT_WEEKENDS
                     else -> Prefs.ALARM_REPEAT_DAILY
                 }
+                persistAlarms()
+            }
+            holder.snooze.setText(
+                if (alarm.snooze) R.string.alarm_snooze_on else R.string.alarm_snooze_off
+            )
+            holder.snooze.setOnClickListener {
+                alarm.snooze = !alarm.snooze
                 persistAlarms()
             }
             holder.enabled.setOnCheckedChangeListener(null)
@@ -462,6 +483,20 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun refreshAlarmsUi() {
         alarmsAdapter.notifyDataSetChanged()
         alarmsEmpty?.visibility = if (alarms.isEmpty()) View.VISIBLE else View.GONE
+        updateAlarmMarkers()
+    }
+
+    /** Sectograph-style: enabled alarms as accent wedges on the clock dial. */
+    private fun updateAlarmMarkers() {
+        val show = prefs.getBoolean(Prefs.ALARM_MARKERS, true)
+        clockView?.alarmMarkers = if (!show) {
+            emptyList()
+        } else {
+            val n = readHoursOnDial()
+            alarms.filter { it.enabled }.map { alarm ->
+                (alarm.hour + alarm.minute / 60f) % n / n * 360f
+            }
+        }
     }
 
     private fun maybeRequestNotificationPermission() {
@@ -496,6 +531,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             Prefs.DATE_FORMAT_ROMAN -> ClockView.DateFormatStyle.ROMAN
             else -> ClockView.DateFormatStyle.NUMBER
         }
+        cv.showMoonPhase = prefs.getBoolean(Prefs.MOON_PHASE, false)
+        updateAlarmMarkers()
         cv.touchHandsEnabled = prefs.getBoolean(Prefs.TOUCH_HANDS, true)
         cv.pinchZoomEnabled = prefs.getBoolean(Prefs.PINCH_ZOOM, true)
         cv.shakeDropEnabled = prefs.getBoolean(Prefs.SHAKE_DROP, true)
@@ -564,21 +601,24 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             when {
                 alarmSetActive -> {
                     // C1 borrows the countdown's wind-to-set engine to pick
-                    // an alarm time.
+                    // an alarm time, with the flat 5-minute magnet grid.
                     it.chronoProvider = alarmTimeProvider
                     it.chronoSettable = true
                     it.chronoButtons = false
+                    it.magnetProfile = ClockView.MagnetProfile.ALARM
                 }
                 chrono -> {
                     it.chronoProvider = stopwatchProvider
                     it.chronoSettable = false
                     it.chronoButtons = true
                     it.chronoRunning = stopwatchRunning
+                    it.magnetProfile = ClockView.MagnetProfile.COUNTDOWN
                 }
                 else -> {
                     it.chronoProvider = null
                     it.chronoSettable = false
                     it.chronoButtons = false
+                    it.magnetProfile = ClockView.MagnetProfile.COUNTDOWN
                 }
             }
         }

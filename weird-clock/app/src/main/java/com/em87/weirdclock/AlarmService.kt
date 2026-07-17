@@ -24,6 +24,7 @@ class AlarmService : Service() {
 
     companion object {
         const val ACTION_STOP = "com.em87.weirdclock.action.STOP_ALARM"
+        const val ACTION_SNOOZE = "com.em87.weirdclock.action.SNOOZE_ALARM"
         const val CHANNEL_ID = "alarm"
         const val NOTIFICATION_ID = 1
     }
@@ -31,6 +32,7 @@ class AlarmService : Service() {
     private val chimePlayer = ChimePlayer()
     private val handler = Handler(Looper.getMainLooper())
     private var sound = Prefs.ALARM_SOUND_BELLS
+    private var snoozeEnabled = false
     private var mediaPlayer: MediaPlayer? = null
     private val ringLoop = object : Runnable {
         override fun run() {
@@ -59,7 +61,13 @@ class AlarmService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        if (intent?.action == ACTION_SNOOZE) {
+            AlarmScheduler.snooze(this, sound)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         sound = intent?.getStringExtra(AlarmScheduler.EXTRA_SOUND) ?: Prefs.ALARM_SOUND_BELLS
+        snoozeEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_SNOOZE, false) == true
 
         createChannel()
         val notification = buildNotification()
@@ -116,7 +124,10 @@ class AlarmService : Service() {
         val fullScreen = PendingIntent.getActivity(
             this,
             0,
-            Intent(this, AlarmRingActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            Intent(this, AlarmRingActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra(AlarmScheduler.EXTRA_SOUND, sound)
+                .putExtra(AlarmScheduler.EXTRA_SNOOZE, snoozeEnabled),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val stop = PendingIntent.getService(
@@ -125,7 +136,7 @@ class AlarmService : Service() {
             Intent(this, AlarmService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher)
             .setContentTitle(getString(R.string.alarm_ringing))
             .setContentText(DateFormat.getTimeInstance(DateFormat.SHORT).format(Date()))
@@ -134,6 +145,15 @@ class AlarmService : Service() {
             .setOngoing(true)
             .setFullScreenIntent(fullScreen, true)
             .addAction(0, getString(R.string.alarm_stop), stop)
-            .build()
+        if (snoozeEnabled) {
+            val snoozePi = PendingIntent.getService(
+                this,
+                4,
+                Intent(this, AlarmService::class.java).setAction(ACTION_SNOOZE),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.addAction(0, getString(R.string.alarm_snooze), snoozePi)
+        }
+        return builder.build()
     }
 }

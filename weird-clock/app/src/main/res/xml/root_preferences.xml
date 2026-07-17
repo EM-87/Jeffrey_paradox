@@ -42,6 +42,18 @@
             android:dependency="pref_show_date"
             app:useSimpleSummaryProvider="true" />
 
+        <SwitchPreferenceCompat
+            android:key="pref_moon_phase"
+            android:title="@string/pref_moon_phase_title"
+            android:summary="@string/pref_moon_phase_summary"
+            android:defaultValue="false" />
+
+        <SwitchPreferenceCompat
+            android:key="pref_alarm_markers"
+            android:title="@string/pref_alarm_markers_title"
+            android:summary="@string/pref_alarm_markers_summary"
+            android:defaultValue="true" />
+
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/category_sounds">

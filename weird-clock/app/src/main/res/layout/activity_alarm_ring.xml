@@ -29,10 +29,20 @@
         android:textSize="18sp" />
 
     <Button
-        android:id="@+id/stop_button"
+        android:id="@+id/snooze_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="48dp"
+        android:minWidth="200dp"
+        android:text="@string/alarm_snooze"
+        android:textSize="20sp"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/stop_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
         android:minWidth="200dp"
         android:text="@string/alarm_stop"
         android:textSize="20sp" />

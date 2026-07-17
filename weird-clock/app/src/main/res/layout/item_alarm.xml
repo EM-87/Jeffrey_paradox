@@ -46,6 +46,15 @@
                 android:padding="4dp"
                 android:textColor="#8A93A8"
                 android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/alarm_snooze"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:padding="4dp"
+                android:textColor="#8A93A8"
+                android:textSize="13sp" />
         </LinearLayout>
 
         <androidx.appcompat.widget.SwitchCompat

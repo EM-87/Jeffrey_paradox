@@ -82,6 +82,13 @@
     <string name="alarm_sound_bells">Bells</string>
     <string name="alarm_sound_digital">Digital beep</string>
     <string name="alarm_sound_baby">Crying baby</string>
+    <string name="pref_moon_phase_title">Moon phase</string>
+    <string name="pref_moon_phase_summary">A moon complication on the dial showing the current phase</string>
+    <string name="pref_alarm_markers_title">Alarms on the dial</string>
+    <string name="pref_alarm_markers_summary">Enabled alarms drawn as accent markers at their time on the clock face</string>
+    <string name="alarm_snooze">Snooze 5 min</string>
+    <string name="alarm_snooze_on">Snooze: 5 min</string>
+    <string name="alarm_snooze_off">Snooze: off</string>
     <string name="alarm_repeat_daily">Every day</string>
     <string name="alarm_repeat_weekdays">Weekdays (Mon–Fri)</string>
     <string name="alarm_repeat_weekends">Weekends (Sat–Sun)</string>

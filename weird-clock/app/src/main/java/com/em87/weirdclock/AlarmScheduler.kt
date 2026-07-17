@@ -17,6 +17,7 @@ object AlarmScheduler {
 
     const val EXTRA_ALARM_ID = "extra_alarm_id"
     const val EXTRA_SOUND = "extra_sound"
+    const val EXTRA_SNOOZE = "extra_snooze"
 
     fun update(context: Context) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
@@ -92,6 +93,7 @@ object AlarmScheduler {
         alarm?.let {
             intent.putExtra(EXTRA_ALARM_ID, it.id)
             intent.putExtra(EXTRA_SOUND, it.sound)
+            intent.putExtra(EXTRA_SNOOZE, it.snooze)
         }
         return PendingIntent.getBroadcast(
             context,
@@ -99,5 +101,30 @@ object AlarmScheduler {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+    }
+
+    /** One-shot re-fire in five minutes, independent of the regular chain. */
+    fun snooze(context: Context, sound: String) {
+        val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
+        val at = System.currentTimeMillis() + 5 * 60_000L
+        val fire = PendingIntent.getBroadcast(
+            context,
+            102,
+            Intent(context, AlarmReceiver::class.java)
+                .putExtra(EXTRA_SOUND, sound)
+                .putExtra(EXTRA_SNOOZE, true),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val show = PendingIntent.getActivity(
+            context,
+            103,
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        try {
+            alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(at, show), fire)
+        } catch (e: SecurityException) {
+            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, at, 60_000L, fire)
+        }
     }
 }

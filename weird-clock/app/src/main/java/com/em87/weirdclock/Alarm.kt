@@ -14,7 +14,9 @@ data class Alarm(
     var enabled: Boolean,
     var sound: String,
     /** One of [Prefs.ALARM_REPEAT_DAILY], [Prefs.ALARM_REPEAT_WEEKDAYS], [Prefs.ALARM_REPEAT_WEEKENDS]. */
-    var repeat: String = Prefs.ALARM_REPEAT_DAILY
+    var repeat: String = Prefs.ALARM_REPEAT_DAILY,
+    /** Offer a 5-minute snooze on the ring screen. */
+    var snooze: Boolean = true
 )
 
 /** Alarms persisted as a JSON array in the default SharedPreferences. */
@@ -41,7 +43,8 @@ object AlarmStore {
                             "repeat",
                             if (o.optBoolean("weekdays", false)) Prefs.ALARM_REPEAT_WEEKDAYS
                             else Prefs.ALARM_REPEAT_DAILY
-                        )
+                        ),
+                        snooze = o.optBoolean("snooze", true)
                     )
                 )
             }
@@ -81,6 +84,7 @@ object AlarmStore {
                     .put("enabled", a.enabled)
                     .put("sound", a.sound)
                     .put("repeat", a.repeat)
+                    .put("snooze", a.snooze)
             )
         }
         PreferenceManager.getDefaultSharedPreferences(context)

@@ -17,6 +17,12 @@ An analog clock app for Android with deliberately weird options.
   mirror. Great for confusing guests.
 - **Date complication** — shown as numbers (`06/07/2026`), text
   (`Mon 6 Jul`), or Roman numerals (`VI·VII·MMXXVI`).
+- **Moon phase** (optional) — a proper lunar complication on the dial,
+  computed from the synodic month and drawn with the classic
+  terminator-ellipse construction.
+- **Alarms on the dial** (optional, on by default) — every enabled alarm
+  appears as a small accent wedge at its time on the clock face,
+  Sectograph-style.
 - **Selectable hours** — tap a numeral to highlight it in the accent color.
   Why? Nobody knows. Toggle one frantically and it falls off the dial.
 - **Time speed slider** — run the clock anywhere from 25% to 400% of real
@@ -94,7 +100,9 @@ clock, not a background chime service).
   *bells*, *digital beep* (classic square-wave beep-beep-beep-beep), or
   *crying baby* — a real newborn recording (CC0, by "the_yura" via
   Wikimedia Commons), because humans are hard-wired to get up for that
-  sound. A synthesized wail remains as fallback.
+  sound. A synthesized wail remains as fallback. Each alarm also has a
+  per-alarm snooze toggle: when on, the ring screen and its notification
+  offer a 5-minute snooze alongside Stop.
 - Alarms ring even when the app is closed: an exact AlarmManager alarm
   fires a foreground service with a full-screen ringing screen that works
   over the lock screen, repeats daily, survives reboots, and auto-stops
@@ -118,11 +126,19 @@ stopwatch swipes to a second rendered dial: the countdown.
   fires while the stopwatch is actually running — a stopped one has
   nothing to cheat.
 - **Countdown** — its own full dial on the next page; no dialogs: you
-  *wind the hands* to set it. Magnets are sticky detents now: near a round
-  value the hands lock on with a haptic tick that says "let go here" —
-  5-minute multiples above 5 minutes, 30-second steps below. Grabbing the
+  *wind the hands* to set it. Magnets are sticky detents with a
+  **progressive grid**: minute steps up to 5 minutes, 5-minute steps to
+  half an hour, quarter-hours to two hours, hourly beyond — so sweeping
+  across an hour doesn't rattle through 75 detents. And they only engage
+  in the **precision band**, the ring between the numerals and the rim
+  where your finger goes for fine adjustment; whip the hand around from
+  near the center and it spins free, no haptic machine-gun. Grabbing the
   stacked hands from *outside* the dial picks the second hand (for
-  seconds-scale countdowns); from inside, the minute hand wins.
+  seconds-scale countdowns); from inside, the minute hand wins. (The
+  alarm-time engine keeps a flat 5-minute grid.)
+- **Laps** — while the stopwatch runs, the lower pusher records a lap:
+  a ghost second hand freezes on the dial (up to nine, fading with age).
+  Stopped, the same pusher resets and clears them.
 - The hands stay playable in chrono modes — wind them and they spring back
   just like on the clock, and over-winding 10 turns explodes the mechanism
   here too. But wind one *forward* more than a full turn and a big CHEATER!

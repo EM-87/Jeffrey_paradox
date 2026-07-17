@@ -34,5 +34,15 @@ class AlarmRingActivity : AppCompatActivity() {
             startService(Intent(this, AlarmService::class.java).setAction(AlarmService.ACTION_STOP))
             finish()
         }
+        val snoozeButton = findViewById<Button>(R.id.snooze_button)
+        if (intent.getBooleanExtra(AlarmScheduler.EXTRA_SNOOZE, false)) {
+            snoozeButton.visibility = android.view.View.VISIBLE
+            val sound = intent.getStringExtra(AlarmScheduler.EXTRA_SOUND) ?: Prefs.ALARM_SOUND_BELLS
+            snoozeButton.setOnClickListener {
+                AlarmScheduler.snooze(this, sound)
+                startService(Intent(this, AlarmService::class.java).setAction(AlarmService.ACTION_STOP))
+                finish()
+            }
+        }
     }
 }
