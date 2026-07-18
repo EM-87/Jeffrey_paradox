@@ -64,6 +64,7 @@ object Prefs {
     const val ALARM_SOUND_BELLS = "bells"
     const val ALARM_SOUND_DIGITAL = "digital"
     const val ALARM_SOUND_BABY = "baby"
+    const val ALARM_SOUND_CUSTOM = "custom"
 
     const val ALARM_REPEAT_DAILY = "daily"
     const val ALARM_REPEAT_WEEKDAYS = "weekdays"
@@ -77,4 +78,6 @@ object Prefs {
     const val COUNTDOWN_BUBBLE = "pref_countdown_bubble"
     const val BUBBLE_X = "pref_bubble_x"
     const val BUBBLE_Y = "pref_bubble_y"
+    const val NIGHT_DIM = "pref_night_dim"
+    const val OVERLAY_ASKED = "pref_overlay_asked"
 }

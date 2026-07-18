@@ -20,14 +20,6 @@
             app:useSimpleSummaryProvider="true" />
 
         <ListPreference
-            android:key="pref_dial_shape"
-            android:title="@string/pref_dial_shape_title"
-            android:entries="@array/dial_shape_entries"
-            android:entryValues="@array/dial_shape_values"
-            android:defaultValue="circle"
-            app:useSimpleSummaryProvider="true" />
-
-        <ListPreference
             android:key="pref_numerals"
             android:title="@string/pref_numerals_title"
             android:entries="@array/numeral_entries"
@@ -41,14 +33,11 @@
             android:summary="@string/pref_show_date_summary"
             android:defaultValue="false" />
 
-        <ListPreference
-            android:key="pref_date_format"
-            android:title="@string/pref_date_format_title"
-            android:entries="@array/date_format_entries"
-            android:entryValues="@array/date_format_values"
-            android:defaultValue="number"
-            android:dependency="pref_show_date"
-            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            android:key="pref_night_dim"
+            android:title="@string/pref_night_dim_title"
+            android:summary="@string/pref_night_dim_summary"
+            android:defaultValue="false" />
 
         <SwitchPreferenceCompat
             android:key="pref_moon_phase"
@@ -119,7 +108,6 @@
 
     <Preference
         android:key="pref_version"
-        android:title="@string/app_name"
-        android:selectable="false" />
+        android:title="@string/app_name" />
 
 </PreferenceScreen>

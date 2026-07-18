@@ -40,6 +40,11 @@
             android:parentActivityName=".MainActivity" />
 
         <activity
+            android:name=".BpmActivity"
+            android:exported="false"
+            android:parentActivityName=".SettingsActivity" />
+
+        <activity
             android:name=".AlarmRingActivity"
             android:excludeFromRecents="true"
             android:exported="false"

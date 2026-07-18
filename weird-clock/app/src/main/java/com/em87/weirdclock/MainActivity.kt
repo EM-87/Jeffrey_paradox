@@ -4,6 +4,10 @@ import android.Manifest
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle
 import android.location.LocationManager
@@ -62,11 +66,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var alarmsEmpty: TextView? = null
     private var countdownClockView: ClockView? = null
 
-    // Third page views (calendar in clock mode, beat counter in chrono mode).
+    // Third page views (calendar in clock mode, hourglass in chrono mode).
     private var calendarContainer: View? = null
-    private var bpmContainer: View? = null
+    private var hourglassContainer: View? = null
     private var calendarView: CalendarPageView? = null
-    private var bpmView: BpmView? = null
+    private var s3Hourglass: HourglassView? = null
     private var lastPage = 0
 
     // Alarm-time setting on the clock dial with the wind-to-set engine.
@@ -109,6 +113,72 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             if (granted) applyPreferences()
         }
 
+    /** Alarm whose custom sound file is being picked, while SAF is open. */
+    private var soundPickTarget: Alarm? = null
+    private val soundPickerLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            val alarm = soundPickTarget
+            soundPickTarget = null
+            if (alarm != null) {
+                if (uri != null) {
+                    try {
+                        contentResolver.takePersistableUriPermission(
+                            uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    } catch (e: SecurityException) {
+                        // Not persistable; the URI may still work until reboot.
+                    }
+                    alarm.sound = Prefs.ALARM_SOUND_CUSTOM
+                    alarm.soundUri = uri.toString()
+                } else if (alarm.soundUri.isBlank()) {
+                    // Picker dismissed with nothing chosen: back to bells.
+                    alarm.sound = Prefs.ALARM_SOUND_BELLS
+                }
+                persistAlarms()
+            }
+        }
+
+    /** Whether the dial is currently wearing its dimmed night colors. */
+    private var appliedNightDim = false
+
+    // ------------------------------------------------- hourglass flip (S3)
+
+    /**
+     * Turning the phone upside down turns the hourglass over: the sand that
+     * already fell becomes the sand still to fall — remaining and elapsed
+     * swap, exactly like flipping a real hourglass mid-run.
+     */
+    private var sensorManager: SensorManager? = null
+    private var deviceInverted = false
+    private var flipLowPassY = 9.81f
+    private val flipListener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent) {
+            flipLowPassY = flipLowPassY * 0.8f + event.values[1] * 0.2f
+            val nowInverted = when {
+                flipLowPassY < -6f -> true
+                flipLowPassY > 6f -> false
+                else -> deviceInverted
+            }
+            if (nowInverted != deviceInverted) {
+                deviceInverted = nowInverted
+                onDeviceFlipped()
+            }
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+    }
+
+    private fun onDeviceFlipped() {
+        // Counter-rotate the drawn hourglass so it reads upright to whoever
+        // is holding the phone upside down.
+        s3Hourglass?.rotation = if (deviceInverted) 180f else 0f
+        if (mode != Mode.CHRONO || !countdownRunning || countdownTotalMs <= 0L) return
+        val newRemaining = (countdownTotalMs - countdownRemaining()).coerceAtLeast(0L)
+        countdownEndsAt = SystemClock.elapsedRealtime() + newRemaining
+        chimePlayer.playTick()
+        updateCountdownUi()
+    }
+
     /** Runs on (approximately) every second boundary, so ticks stay in step. */
     private val soundLoop = object : Runnable {
         override fun run() {
@@ -144,6 +214,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
             if (countdownRunning) {
                 HourglassWidgetProvider.push(this@MainActivity, countdownRemaining(), countdownTotalMs)
+            }
+            s3Hourglass?.let {
+                it.totalMs = countdownTotalMs
+                it.remainingMs = countdownRemaining()
+            }
+
+            // Night falls (or lifts) while the app is open: re-dress the dial.
+            if (prefs.getBoolean(Prefs.NIGHT_DIM, false) &&
+                isNightNow() != appliedNightDim
+            ) {
+                applyPreferences()
             }
 
             handler.postDelayed(this, 1000L - (System.currentTimeMillis() % 1000L))
@@ -181,6 +262,33 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         if (intent.getBooleanExtra(EXTRA_OPEN_ALARMS, false)) {
             pager.post { pager.setCurrentItem(1, false) }
         }
+
+        sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
+        maybeIntroduceFloatingHourglass()
+    }
+
+    /**
+     * First run only: introduce the floating hourglass and offer the
+     * draw-over-apps permission right away — buried in a settings toggle,
+     * nobody would ever discover it exists.
+     */
+    private fun maybeIntroduceFloatingHourglass() {
+        if (prefs.getBoolean(Prefs.OVERLAY_ASKED, false)) return
+        prefs.edit().putBoolean(Prefs.OVERLAY_ASKED, true).apply()
+        if (android.provider.Settings.canDrawOverlays(this)) return
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.overlay_intro_title)
+            .setMessage(R.string.overlay_intro_message)
+            .setPositiveButton(R.string.overlay_intro_grant) { _, _ ->
+                startActivity(
+                    Intent(
+                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        android.net.Uri.parse("package:$packageName")
+                    )
+                )
+            }
+            .setNegativeButton(R.string.overlay_intro_later, null)
+            .show()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -213,6 +321,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             countdownClockView?.reassembleAll()
         }
         applyPreferences()
+        sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
+            sensorManager?.registerListener(flipListener, it, SensorManager.SENSOR_DELAY_UI)
+        }
         // Prime the minute boundary so opening the app never chimes, and
         // start the loop on the next second boundary so ticks land in step.
         lastHandledMinute = TimeKeeper.nowMs() / 60000L
@@ -221,7 +332,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     override fun onPause() {
         handler.removeCallbacks(soundLoop)
-        bpmView?.stopMetronome()
+        sensorManager?.unregisterListener(flipListener)
         ClockWidgetProvider.refreshAll(this)
         // A running countdown stays visible from outside the app as an
         // ongoing notification with live remaining time and a progress bar.
@@ -374,11 +485,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private fun bindThirdPage(root: View) {
         calendarContainer = root.findViewById(R.id.calendar_container)
-        bpmContainer = root.findViewById(R.id.bpm_container)
+        hourglassContainer = root.findViewById(R.id.hourglass_container)
         calendarView = root.findViewById(R.id.calendar_view)
-        bpmView = root.findViewById<BpmView>(R.id.bpm_view).also {
-            it.onTap = { chimePlayer.playTick() }
-            it.onBeat = { chimePlayer.playTick() }
+        s3Hourglass = root.findViewById<HourglassView>(R.id.s3_hourglass).also {
+            it.live = true
         }
         root.findViewById<Button>(R.id.third_back_button).setOnClickListener {
             pager.currentItem = 0
@@ -434,8 +544,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             holder.time.setOnClickListener { enterAlarmSetMode(alarm) }
             holder.sound.text = soundLabel(alarm.sound)
             holder.sound.setOnClickListener {
-                alarm.sound = nextSound(alarm.sound)
-                persistAlarms()
+                val next = nextSound(alarm.sound)
+                if (next == Prefs.ALARM_SOUND_CUSTOM) {
+                    // Pick any audio file on the phone via SAF; the alarm
+                    // keeps a persisted read permission on it.
+                    alarm.sound = next
+                    soundPickTarget = alarm
+                    soundPickerLauncher.launch(arrayOf("audio/*"))
+                } else {
+                    alarm.sound = next
+                    persistAlarms()
+                }
             }
             holder.repeat.setText(
                 when (alarm.repeat) {
@@ -452,11 +571,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 }
                 persistAlarms()
             }
-            holder.snooze.setText(
-                if (alarm.snooze) R.string.alarm_snooze_on else R.string.alarm_snooze_off
-            )
+            holder.snooze.text = if (alarm.snoozeMinutes > 0) {
+                getString(R.string.alarm_snooze_min, alarm.snoozeMinutes)
+            } else {
+                getString(R.string.alarm_snooze_off)
+            }
             holder.snooze.setOnClickListener {
-                alarm.snooze = !alarm.snooze
+                alarm.snoozeMinutes = when (alarm.snoozeMinutes) {
+                    0 -> 5
+                    5 -> 10
+                    else -> 0
+                }
                 persistAlarms()
             }
             holder.label.text = alarm.label.ifBlank { getString(R.string.alarm_label_hint) }
@@ -480,6 +605,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         when (sound) {
             Prefs.ALARM_SOUND_DIGITAL -> R.string.alarm_sound_digital
             Prefs.ALARM_SOUND_BABY -> R.string.alarm_sound_baby
+            Prefs.ALARM_SOUND_CUSTOM -> R.string.alarm_sound_custom
             else -> R.string.alarm_sound_bells
         }
     )
@@ -487,6 +613,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun nextSound(sound: String): String = when (sound) {
         Prefs.ALARM_SOUND_BELLS -> Prefs.ALARM_SOUND_DIGITAL
         Prefs.ALARM_SOUND_DIGITAL -> Prefs.ALARM_SOUND_BABY
+        Prefs.ALARM_SOUND_BABY -> Prefs.ALARM_SOUND_CUSTOM
         else -> Prefs.ALARM_SOUND_BELLS
     }
 
@@ -609,7 +736,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             Prefs.FAST_HAND_DECIMAL_MINUTE -> ClockView.FastHandMode.DECIMAL_MINUTE
             else -> ClockView.FastHandMode.NONE
         }
-        cv.theme = ClockThemes.resolve(this, prefs.getString(Prefs.THEME, "midnight"))
+        // Night mode: after 22:00 (and before 07:00) the whole outfit dims
+        // to 30% so the bedroom stays dark.
+        appliedNightDim = prefs.getBoolean(Prefs.NIGHT_DIM, false) && isNightNow()
+        val resolvedTheme = ClockThemes.resolve(this, prefs.getString(Prefs.THEME, "midnight"))
+            .let { if (appliedNightDim) ClockThemes.dim(it) else it }
+        cv.theme = resolvedTheme
         cv.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
         cv.dateFormatStyle = when (prefs.getString(Prefs.DATE_FORMAT, Prefs.DATE_FORMAT_NUMBER)) {
             Prefs.DATE_FORMAT_TEXT -> ClockView.DateFormatStyle.TEXT
@@ -658,7 +790,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.theme = cv.theme
             it.numeralStyle = cv.numeralStyle
         }
-        bpmView?.theme = cv.theme
+        s3Hourglass?.theme = cv.theme
 
         bellsEnabled = prefs.getBoolean(Prefs.BELLS, false)
         bellStyle = prefs.getString(Prefs.BELL_STYLE, Prefs.BELL_STYLE_COUNT) ?: Prefs.BELL_STYLE_COUNT
@@ -783,18 +915,28 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         modeButton?.visibility = if (alarmSetActive) View.GONE else View.VISIBLE
         settingsButton?.visibility = if (chrono || alarmSetActive) View.GONE else View.VISIBLE
         // Pages two and three follow the mode: alarms and calendar beside
-        // the clock, the countdown dial and beat counter beside the stopwatch.
+        // the clock, the countdown dial and the hourglass beside the stopwatch.
         alarmsContainer?.visibility = if (chrono) View.GONE else View.VISIBLE
         countdownContainer?.visibility = if (chrono) View.VISIBLE else View.GONE
         calendarContainer?.visibility = if (chrono) View.GONE else View.VISIBLE
-        bpmContainer?.visibility = if (chrono) View.VISIBLE else View.GONE
-        if (!chrono) bpmView?.stopMetronome()
+        hourglassContainer?.visibility = if (chrono) View.VISIBLE else View.GONE
         updateCountdownUi()
     }
 
     private fun updateCountdownUi() {
         countdownClockView?.chronoSettable = !countdownRunning
         countdownClockView?.chronoRunning = countdownRunning
+        s3Hourglass?.let {
+            it.totalMs = countdownTotalMs
+            it.remainingMs = countdownRemaining()
+        }
+    }
+
+    private fun isNightNow(): Boolean {
+        val cal = Calendar.getInstance()
+        cal.timeInMillis = TimeKeeper.nowMs()
+        val hour = cal.get(Calendar.HOUR_OF_DAY)
+        return hour >= 22 || hour < 7
     }
 
     private fun stopwatchElapsed(): Long =

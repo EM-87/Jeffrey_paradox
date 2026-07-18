@@ -236,7 +236,7 @@ class CountdownService : Service() {
         getSystemService(NotificationManager::class.java)?.notify(
             DONE_NOTIFICATION_ID,
             NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_launcher)
+                .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(getString(R.string.countdown_done))
                 .setAutoCancel(true)
                 .setContentIntent(openAppIntent())
@@ -278,7 +278,7 @@ class CountdownService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.countdown_notification_title))
             .setOngoing(true)
             .setOnlyAlertOnce(true)

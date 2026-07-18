@@ -18,19 +18,30 @@
             android:padding="8dp" />
     </FrameLayout>
 
-    <!-- Chronograph mode: S1 stopwatch → S2 countdown → S3 beat counter. -->
+    <!-- Chronograph mode: S1 stopwatch → S2 countdown → S3 hourglass.
+         The countdown as falling sand; flip the phone to turn it over. -->
     <FrameLayout
-        android:id="@+id/bpm_container"
+        android:id="@+id/hourglass_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone">
 
-        <com.em87.weirdclock.BpmView
-            android:id="@+id/bpm_view"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginBottom="56dp"
-            android:padding="8dp" />
+        <com.em87.weirdclock.HourglassView
+            android:id="@+id/s3_hourglass"
+            android:layout_width="230dp"
+            android:layout_height="340dp"
+            android:layout_gravity="center" />
+
+        <TextView
+            android:id="@+id/s3_hint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:layout_marginTop="28dp"
+            android:alpha="0.6"
+            android:text="@string/s3_flip_hint"
+            android:textColor="#8A93A8"
+            android:textSize="14sp" />
     </FrameLayout>
 
     <Button

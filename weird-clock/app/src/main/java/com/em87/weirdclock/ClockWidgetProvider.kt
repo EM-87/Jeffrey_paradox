@@ -52,20 +52,23 @@ class ClockWidgetProvider : AppWidgetProvider() {
                 val prefs = PreferenceManager.getDefaultSharedPreferences(context)
                 val theme = ClockThemes.resolve(context, prefs.getString(Prefs.THEME, "midnight"))
                 val size = 512
+                // On polygonal dials the rotating hand bitmaps must fit the
+                // inscribed circle, or they'd poke through the flat edges.
+                val fit = WidgetRenderer.handFitFraction(context)
                 views.setIcon(
                     R.id.widget_analog_clock, "setDial",
                     Icon.createWithBitmap(WidgetRenderer.dialBitmap(context, size))
                 )
                 views.setIcon(
                     R.id.widget_analog_clock, "setHourHand",
-                    Icon.createWithBitmap(WidgetRenderer.handBitmap(size, theme.hourHand, 0.52f, 0.10f, 0.045f))
+                    Icon.createWithBitmap(WidgetRenderer.handBitmap(size, theme.hourHand, 0.52f * fit, 0.10f, 0.045f))
                 )
                 views.setIcon(
                     R.id.widget_analog_clock, "setMinuteHand",
-                    Icon.createWithBitmap(WidgetRenderer.handBitmap(size, theme.minuteHand, 0.74f, 0.12f, 0.03f))
+                    Icon.createWithBitmap(WidgetRenderer.handBitmap(size, theme.minuteHand, 0.74f * fit, 0.12f, 0.03f))
                 )
                 val secondHand = if (prefs.getBoolean(Prefs.SECOND_HAND, true)) {
-                    WidgetRenderer.handBitmap(size, theme.secondHand, 0.82f, 0.18f, 0.012f)
+                    WidgetRenderer.handBitmap(size, theme.secondHand, 0.82f * fit, 0.18f, 0.012f)
                 } else {
                     WidgetRenderer.emptyBitmap()
                 }

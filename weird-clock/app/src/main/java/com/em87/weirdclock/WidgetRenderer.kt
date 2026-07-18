@@ -21,6 +21,26 @@ import kotlin.math.sin
  */
 object WidgetRenderer {
 
+    /** Sides and top-symmetric vertex offset per dial-shape preference. */
+    private fun shapeSpec(prefs: android.content.SharedPreferences): Pair<Int, Float> =
+        when (prefs.getString(Prefs.DIAL_SHAPE, Prefs.SHAPE_CIRCLE)) {
+            Prefs.SHAPE_TRIANGLE -> 3 to 0f
+            Prefs.SHAPE_SQUARE -> 4 to 45f
+            Prefs.SHAPE_HEXAGON -> 6 to 0f
+            Prefs.SHAPE_OCTAGON -> 8 to 22.5f
+            else -> 0 to 0f
+        }
+
+    /**
+     * How much of the dial radius the hands may safely use: on a polygonal
+     * widget face the hands must fit the inscribed circle, since the system
+     * rotates a fixed hand bitmap.
+     */
+    fun handFitFraction(context: Context): Float {
+        val (sides, _) = shapeSpec(PreferenceManager.getDefaultSharedPreferences(context))
+        return if (sides < 3) 1f else cos(Math.PI / sides).toFloat()
+    }
+
     fun dialBitmap(context: Context, sizePx: Int): Bitmap {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         val theme = ClockThemes.resolve(context, prefs.getString(Prefs.THEME, "midnight"))
@@ -32,28 +52,56 @@ object WidgetRenderer {
         val numeralStyle = prefs.getString(Prefs.NUMERALS, Prefs.NUMERALS_ARABIC)
         val showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
         val dateFormat = prefs.getString(Prefs.DATE_FORMAT, Prefs.DATE_FORMAT_NUMBER)
+        val (sides, vertexOffsetDeg) = shapeSpec(prefs)
 
         val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val c = sizePx / 2f
         val r = sizePx / 2f * 0.94f
 
+        // Same boundary math as the in-app dial: the polygon's edge distance
+        // varies with angle, and everything on the rim follows it.
+        fun boundary(angleDeg: Float): Float {
+            if (sides < 3) return r
+            val half = 180f / sides
+            var psi = (angleDeg - vertexOffsetDeg) % (2f * half)
+            if (psi < 0f) psi += 2f * half
+            val apothem = cos(Math.toRadians(half.toDouble())).toFloat()
+            return r * apothem / cos(Math.toRadians((psi - half).toDouble())).toFloat()
+        }
+        val apothemR = if (sides < 3) r else r * cos(Math.PI / sides).toFloat()
+
         val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
             // Semi-transparent face so the wallpaper shows through.
             color = theme.face and 0x00FFFFFF or (0xA6 shl 24)
         }
-        canvas.drawCircle(c, c, r, fill)
         val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeCap = Paint.Cap.ROUND
         }
         stroke.color = theme.rim
         stroke.strokeWidth = r * 0.02f
-        canvas.drawCircle(c, c, r, stroke)
+        if (sides < 3) {
+            canvas.drawCircle(c, c, r, fill)
+            canvas.drawCircle(c, c, r, stroke)
+        } else {
+            val path = android.graphics.Path()
+            for (k in 0 until sides) {
+                val a = Math.toRadians((vertexOffsetDeg + k * 360.0 / sides))
+                val px = c + sin(a).toFloat() * r
+                val py = c - cos(a).toFloat() * r
+                if (k == 0) path.moveTo(px, py) else path.lineTo(px, py)
+            }
+            path.close()
+            canvas.drawPath(path, fill)
+            canvas.drawPath(path, stroke)
+        }
 
         for (i in 0 until 60) {
-            val angle = Math.toRadians(i / 60.0 * 360.0)
+            val deg = i / 60f * 360f
+            val b = boundary(deg)
+            val angle = Math.toRadians(deg.toDouble())
             val isMajor = hoursOnDial == 12 && i % 5 == 0
             stroke.color = if (isMajor) theme.tick else theme.minorTick
             stroke.strokeWidth = if (isMajor) r * 0.018f else r * 0.008f
@@ -61,8 +109,8 @@ object WidgetRenderer {
             val sx = sin(angle).toFloat()
             val cyy = cos(angle).toFloat()
             canvas.drawLine(
-                c + sx * (r * 0.97f - outerLen), c - cyy * (r * 0.97f - outerLen),
-                c + sx * r * 0.97f, c - cyy * r * 0.97f,
+                c + sx * (b * 0.97f - outerLen), c - cyy * (b * 0.97f - outerLen),
+                c + sx * b * 0.97f, c - cyy * b * 0.97f,
                 stroke
             )
         }
@@ -70,12 +118,14 @@ object WidgetRenderer {
             stroke.color = theme.tick
             stroke.strokeWidth = r * 0.018f
             for (i in 0 until hoursOnDial) {
-                val angle = Math.toRadians(i.toDouble() / hoursOnDial * 360.0)
+                val deg = i.toFloat() / hoursOnDial * 360f
+                val b = boundary(deg)
+                val angle = Math.toRadians(deg.toDouble())
                 val sx = sin(angle).toFloat()
                 val cyy = cos(angle).toFloat()
                 canvas.drawLine(
-                    c + sx * r * 0.80f, c - cyy * r * 0.80f,
-                    c + sx * r * 0.87f, c - cyy * r * 0.87f,
+                    c + sx * b * 0.80f, c - cyy * b * 0.80f,
+                    c + sx * b * 0.87f, c - cyy * b * 0.87f,
                     stroke
                 )
             }
@@ -87,7 +137,7 @@ object WidgetRenderer {
                 textAlign = Paint.Align.CENTER
                 textSize = if (hoursOnDial > 12) r * 0.11f else r * 0.16f
             }
-            val radius = if (hoursOnDial == 12) r * 0.76f else r * 0.68f
+            val radiusFactor = if (hoursOnDial == 12) 0.76f else 0.68f
             val step = if (hoursOnDial > 12) 2 else 1
             val hours = ArrayList<Int>()
             var h = step
@@ -97,7 +147,9 @@ object WidgetRenderer {
             }
             if (hoursOnDial % step != 0) hours.add(hoursOnDial)
             for (hour in hours) {
-                val angle = Math.toRadians(hour.toDouble() / hoursOnDial * 360.0)
+                val deg = hour.toFloat() / hoursOnDial * 360f
+                val radius = boundary(deg) * radiusFactor
+                val angle = Math.toRadians(deg.toDouble())
                 val x = c + sin(angle).toFloat() * radius
                 val y = c - cos(angle).toFloat() * radius
                 val label = if (numeralStyle == Prefs.NUMERALS_ROMAN) Roman.of(hour) else hour.toString()
@@ -124,7 +176,7 @@ object WidgetRenderer {
             }
             canvas.drawText(
                 label, c,
-                c - r * 0.42f - (text.ascent() + text.descent()) / 2f,
+                c - apothemR * 0.42f - (text.ascent() + text.descent()) / 2f,
                 text
             )
         }

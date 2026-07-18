@@ -75,9 +75,11 @@
     <string name="pref_moon_phase_summary">Una complicación lunar en la esfera con la fase actual</string>
     <string name="pref_alarm_markers_title">Alarmas en la esfera</string>
     <string name="pref_alarm_markers_summary">Las alarmas activas se dibujan como marcadores en su hora sobre la esfera</string>
-    <string name="alarm_snooze">Posponer 5 min</string>
-    <string name="alarm_snooze_on">Posponer: 5 min</string>
+    <string name="alarm_snooze">Posponer</string>
+    <string name="alarm_snooze_fmt">Posponer %1$d min</string>
+    <string name="alarm_snooze_min">Posponer: %1$d min</string>
     <string name="alarm_snooze_off">Posponer: no</string>
+    <string name="alarm_sound_custom">Tu propio archivo</string>
     <string name="alarm_repeat_daily">Todos los días</string>
     <string name="alarm_repeat_weekdays">De diario (L–V)</string>
     <string name="alarm_repeat_weekends">Fines de semana (S–D)</string>
@@ -113,4 +115,14 @@
 
     <string name="bpm_tap_hint">Marca el ritmo — toca en cualquier parte de arriba</string>
     <string name="bpm_metronome_hint">Toca el metrónomo y te mantiene el ritmo</string>
+
+    <string name="s3_flip_hint">Da la vuelta al móvil para voltear el reloj de arena</string>
+    <string name="pref_night_dim_title">Modo noche automático</string>
+    <string name="pref_night_dim_summary">De 22:00 a 07:00 la esfera se atenúa al 30% para no iluminar el dormitorio</string>
+    <string name="overlay_intro_title">El reloj de arena flotante</string>
+    <string name="overlay_intro_message">Cuando una cuenta atrás corre y sales de la app, un pequeño reloj de arena puede flotar sobre todo lo demás, vaciándose en tiempo real. Necesita el permiso de superposición: concédelo ahora y olvídate, o hazlo más tarde desde Ajustes.</string>
+    <string name="overlay_intro_grant">Permitir</string>
+    <string name="overlay_intro_later">Más tarde</string>
+    <string name="egg_countdown">Estás a %1$d toques de ser batería</string>
+    <string name="egg_unlocked">🥁 Ya eres una máquina de ritmo</string>
 </resources>

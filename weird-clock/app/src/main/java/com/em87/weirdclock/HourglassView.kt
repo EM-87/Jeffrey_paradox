@@ -14,7 +14,10 @@ import java.util.Locale
  * the remaining time in the top bulb, elapsed in the bottom, a falling
  * stream between them and the remaining time printed underneath.
  */
-class HourglassView(context: Context) : View(context) {
+class HourglassView @JvmOverloads constructor(
+    context: Context,
+    attrs: android.util.AttributeSet? = null
+) : View(context, attrs) {
 
     var totalMs: Long = 1L
         set(value) { field = value.coerceAtLeast(1L); invalidate() }
@@ -22,6 +25,9 @@ class HourglassView(context: Context) : View(context) {
         set(value) { field = value.coerceAtLeast(0L); invalidate() }
     var theme: ClockTheme = ClockThemes.MIDNIGHT
         set(value) { field = value; invalidate() }
+
+    /** When true the sand stream flickers on its own (the S3 card). */
+    var live = false
 
     private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
@@ -114,5 +120,7 @@ class HourglassView(context: Context) : View(context) {
             String.format(Locale.US, "%02d:%02d", total / 60, total % 60)
         }
         canvas.drawText(text, cx, h * 0.93f, textPaint)
+
+        if (live && remainingMs > 0L) postInvalidateDelayed(250L)
     }
 }

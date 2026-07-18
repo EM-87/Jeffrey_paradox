@@ -33,7 +33,8 @@ class AlarmService : Service() {
     private val chimePlayer = ChimePlayer()
     private val handler = Handler(Looper.getMainLooper())
     private var sound = Prefs.ALARM_SOUND_BELLS
-    private var snoozeEnabled = false
+    private var soundUri = ""
+    private var snoozeMinutes = 0
     private var label = ""
     private var mediaPlayer: MediaPlayer? = null
 
@@ -76,12 +77,13 @@ class AlarmService : Service() {
             return START_NOT_STICKY
         }
         if (intent?.action == ACTION_SNOOZE) {
-            AlarmScheduler.snooze(this, sound)
+            AlarmScheduler.snooze(this, sound, snoozeMinutes.coerceAtLeast(5), soundUri)
             stopSelf()
             return START_NOT_STICKY
         }
         sound = intent?.getStringExtra(AlarmScheduler.EXTRA_SOUND) ?: Prefs.ALARM_SOUND_BELLS
-        snoozeEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_SNOOZE, false) == true
+        soundUri = intent?.getStringExtra(AlarmScheduler.EXTRA_SOUND_URI) ?: ""
+        snoozeMinutes = intent?.getIntExtra(AlarmScheduler.EXTRA_SNOOZE, 0) ?: 0
         label = intent?.getStringExtra(AlarmScheduler.EXTRA_LABEL) ?: ""
         val ramp = PreferenceManager.getDefaultSharedPreferences(this)
             .getBoolean(Prefs.ALARM_RAMP, true)
@@ -98,17 +100,38 @@ class AlarmService : Service() {
 
         handler.removeCallbacksAndMessages(null)
         stopPlayback()
-        if (sound == Prefs.ALARM_SOUND_BABY) {
-            // A real newborn recording (CC0). Humans are wired to react to
-            // this; the synthesized wail is only a fallback.
-            mediaPlayer = MediaPlayer.create(this, R.raw.baby_cry)?.apply {
-                isLooping = true
-                setVolume(chimePlayer.volume, chimePlayer.volume)
-                start()
+        when {
+            sound == Prefs.ALARM_SOUND_CUSTOM && soundUri.isNotBlank() -> {
+                // A user-picked audio file (SAF, persisted read permission).
+                // If it went away — file deleted, permission revoked — the
+                // bells take over: an alarm must never fail silently.
+                mediaPlayer = try {
+                    MediaPlayer().apply {
+                        setDataSource(this@AlarmService, android.net.Uri.parse(soundUri))
+                        isLooping = true
+                        setVolume(chimePlayer.volume, chimePlayer.volume)
+                        prepare()
+                        start()
+                    }
+                } catch (e: Exception) {
+                    null
+                }
+                if (mediaPlayer == null) {
+                    sound = Prefs.ALARM_SOUND_BELLS
+                    handler.post(ringLoop)
+                }
             }
-            if (mediaPlayer == null) handler.post(ringLoop)
-        } else {
-            handler.post(ringLoop)
+            sound == Prefs.ALARM_SOUND_BABY -> {
+                // A real newborn recording (CC0). Humans are wired to react to
+                // this; the synthesized wail is only a fallback.
+                mediaPlayer = MediaPlayer.create(this, R.raw.baby_cry)?.apply {
+                    isLooping = true
+                    setVolume(chimePlayer.volume, chimePlayer.volume)
+                    start()
+                }
+                if (mediaPlayer == null) handler.post(ringLoop)
+            }
+            else -> handler.post(ringLoop)
         }
         if (ramp) handler.postDelayed(rampLoop, 2000L)
         handler.postDelayed({ stopSelf() }, 3 * 60_000L)
@@ -148,7 +171,8 @@ class AlarmService : Service() {
             Intent(this, AlarmRingActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 .putExtra(AlarmScheduler.EXTRA_SOUND, sound)
-                .putExtra(AlarmScheduler.EXTRA_SNOOZE, snoozeEnabled)
+                .putExtra(AlarmScheduler.EXTRA_SOUND_URI, soundUri)
+                .putExtra(AlarmScheduler.EXTRA_SNOOZE, snoozeMinutes)
                 .putExtra(AlarmScheduler.EXTRA_LABEL, label),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -159,7 +183,7 @@ class AlarmService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(label.ifBlank { getString(R.string.alarm_ringing) })
             .setContentText(DateFormat.getTimeInstance(DateFormat.SHORT).format(Date()))
             .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -167,14 +191,14 @@ class AlarmService : Service() {
             .setOngoing(true)
             .setFullScreenIntent(fullScreen, true)
             .addAction(0, getString(R.string.alarm_stop), stop)
-        if (snoozeEnabled) {
+        if (snoozeMinutes > 0) {
             val snoozePi = PendingIntent.getService(
                 this,
                 4,
                 Intent(this, AlarmService::class.java).setAction(ACTION_SNOOZE),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            builder.addAction(0, getString(R.string.alarm_snooze), snoozePi)
+            builder.addAction(0, getString(R.string.alarm_snooze_fmt, snoozeMinutes), snoozePi)
         }
         return builder.build()
     }

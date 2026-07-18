@@ -17,6 +17,9 @@ object AlarmScheduler {
 
     const val EXTRA_ALARM_ID = "extra_alarm_id"
     const val EXTRA_SOUND = "extra_sound"
+    const val EXTRA_SOUND_URI = "extra_sound_uri"
+
+    /** Snooze length in minutes; 0 disables the snooze action. */
     const val EXTRA_SNOOZE = "extra_snooze"
     const val EXTRA_LABEL = "extra_label"
 
@@ -94,7 +97,8 @@ object AlarmScheduler {
         alarm?.let {
             intent.putExtra(EXTRA_ALARM_ID, it.id)
             intent.putExtra(EXTRA_SOUND, it.sound)
-            intent.putExtra(EXTRA_SNOOZE, it.snooze)
+            intent.putExtra(EXTRA_SOUND_URI, it.soundUri)
+            intent.putExtra(EXTRA_SNOOZE, it.snoozeMinutes)
             intent.putExtra(EXTRA_LABEL, it.label)
         }
         return PendingIntent.getBroadcast(
@@ -105,16 +109,17 @@ object AlarmScheduler {
         )
     }
 
-    /** One-shot re-fire in five minutes, independent of the regular chain. */
-    fun snooze(context: Context, sound: String) {
+    /** One-shot re-fire in [minutes], independent of the regular chain. */
+    fun snooze(context: Context, sound: String, minutes: Int, soundUri: String = "") {
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
-        val at = System.currentTimeMillis() + 5 * 60_000L
+        val at = System.currentTimeMillis() + minutes.coerceAtLeast(1) * 60_000L
         val fire = PendingIntent.getBroadcast(
             context,
             102,
             Intent(context, AlarmReceiver::class.java)
                 .putExtra(EXTRA_SOUND, sound)
-                .putExtra(EXTRA_SNOOZE, true),
+                .putExtra(EXTRA_SOUND_URI, soundUri)
+                .putExtra(EXTRA_SNOOZE, minutes),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val show = PendingIntent.getActivity(

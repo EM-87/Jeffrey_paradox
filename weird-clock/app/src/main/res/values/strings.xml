@@ -87,9 +87,11 @@
     <string name="pref_moon_phase_summary">A moon complication on the dial showing the current phase</string>
     <string name="pref_alarm_markers_title">Alarms on the dial</string>
     <string name="pref_alarm_markers_summary">Enabled alarms drawn as accent markers at their time on the clock face</string>
-    <string name="alarm_snooze">Snooze 5 min</string>
-    <string name="alarm_snooze_on">Snooze: 5 min</string>
+    <string name="alarm_snooze">Snooze</string>
+    <string name="alarm_snooze_fmt">Snooze %1$d min</string>
+    <string name="alarm_snooze_min">Snooze: %1$d min</string>
     <string name="alarm_snooze_off">Snooze: off</string>
+    <string name="alarm_sound_custom">Your own file</string>
     <string name="alarm_repeat_daily">Every day</string>
     <string name="alarm_repeat_weekdays">Weekdays (Mon–Fri)</string>
     <string name="alarm_repeat_weekends">Weekends (Sat–Sun)</string>
@@ -125,4 +127,14 @@
 
     <string name="bpm_tap_hint">Tap the beat — anywhere up here</string>
     <string name="bpm_metronome_hint">Tap the metronome and it keeps your beat</string>
+
+    <string name="s3_flip_hint">Flip the phone to turn the hourglass over</string>
+    <string name="pref_night_dim_title">Automatic night mode</string>
+    <string name="pref_night_dim_summary">From 22:00 to 07:00 the dial dims to 30% so it doesn’t light the bedroom</string>
+    <string name="overlay_intro_title">The floating hourglass</string>
+    <string name="overlay_intro_message">When a countdown is running and you leave the app, a little hourglass can float over everything else, draining in real time. It needs the draw-over-apps permission — grant it now and forget about it, or do it later from Settings.</string>
+    <string name="overlay_intro_grant">Allow</string>
+    <string name="overlay_intro_later">Later</string>
+    <string name="egg_countdown">You are %1$d taps away from being a drummer</string>
+    <string name="egg_unlocked">🥁 You are now a rhythm machine</string>
 </resources>

@@ -81,6 +81,27 @@ object ClockThemes {
         centerDot = 0xFFFFEAD0.toInt()
     )
 
+    /**
+     * Night mode: the same theme with every color at 30% brightness, so the
+     * dial glows softly instead of lighting the bedroom.
+     */
+    fun dim(t: ClockTheme): ClockTheme {
+        fun d(c: Int): Int {
+            val a = c ushr 24
+            val r = ((c shr 16 and 0xFF) * 0.30).toInt()
+            val g = ((c shr 8 and 0xFF) * 0.30).toInt()
+            val b = ((c and 0xFF) * 0.30).toInt()
+            return (a shl 24) or (r shl 16) or (g shl 8) or b
+        }
+        return ClockTheme(
+            face = d(t.face), rim = d(t.rim), tick = d(t.tick),
+            minorTick = d(t.minorTick), numeral = d(t.numeral),
+            hourHand = d(t.hourHand), minuteHand = d(t.minuteHand),
+            secondHand = d(t.secondHand), decimal = d(t.decimal),
+            centerDot = d(t.centerDot)
+        )
+    }
+
     fun byKey(key: String?): ClockTheme = when (key) {
         "ivory" -> IVORY
         "neon" -> NEON

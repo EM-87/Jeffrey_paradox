@@ -40,6 +40,9 @@ class SettingsActivity : AppCompatActivity() {
 
         private val chimePlayer = ChimePlayer()
 
+        /** Taps so far on the version row. Seven opens the hidden metronome. */
+        private var versionTaps = 0
+
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
             // The panic button only appears when something is actually
@@ -90,6 +93,26 @@ class SettingsActivity : AppCompatActivity() {
                         .replace(R.id.settings_container, AdvancedSettingsFragment())
                         .addToBackStack(null)
                         .commit()
+                    return true
+                }
+                "pref_version" -> {
+                    // In the finest Android tradition: seven taps on the
+                    // version number and you're a drummer now.
+                    versionTaps++
+                    when {
+                        versionTaps >= 7 -> {
+                            versionTaps = 0
+                            Toast.makeText(
+                                requireContext(), R.string.egg_unlocked, Toast.LENGTH_SHORT
+                            ).show()
+                            startActivity(Intent(requireContext(), BpmActivity::class.java))
+                        }
+                        versionTaps >= 4 -> Toast.makeText(
+                            requireContext(),
+                            getString(R.string.egg_countdown, 7 - versionTaps),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                     return true
                 }
             }

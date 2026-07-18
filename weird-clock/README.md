@@ -39,6 +39,8 @@ An analog clock app for Android with deliberately weird options.
   location fix, cached, no network; alarms stay on civil time.
 - **Dynamic theme (Material You)** — on Android 12+ the dial, hands,
   widgets and floating hourglass dress in your wallpaper's palette.
+- **Automatic night mode** (optional) — from 22:00 to 07:00 every color
+  dims to 30%, so the clock glows softly instead of lighting the bedroom.
 
 **Touch**
 - **Wind the hands** — grab any hand (hit zones are finger-sized and cover
@@ -97,9 +99,10 @@ clock, not a background chime service).
   and hands match the app's Midnight theme. It uses the system's
   self-updating analog clock machinery, so it costs the app zero battery.
   On Android 12+ the dial and hands are re-rendered from your current
-  settings — theme, hours on the dial, Roman numerals, date — so the widget
-  is a copy of the in-app clock; older devices show the static Midnight
-  design. Tapping it opens the full app.
+  settings — theme, **dial shape**, hours on the dial, Roman numerals,
+  date — so the widget is a copy of the in-app clock, polygonal faces
+  included; older devices show the static Midnight design. Tapping it
+  opens the full app.
 
 **Alarms**
 - Swipe left on the clock to reach the alarms page: as many alarms as you
@@ -111,9 +114,12 @@ clock, not a background chime service).
   *bells*, *digital beep* (classic square-wave beep-beep-beep-beep), or
   *crying baby* — a real newborn recording (CC0, by "the_yura" via
   Wikimedia Commons), because humans are hard-wired to get up for that
-  sound. A synthesized wail remains as fallback. Each alarm also has a
-  per-alarm snooze toggle: when on, the ring screen and its notification
-  offer a 5-minute snooze alongside Stop. Alarms can carry a label
+  sound. A synthesized wail remains as fallback. Or pick **any audio file
+  on your phone** (via the system file picker) as a per-alarm sound — if
+  the file ever disappears, the bells take over, because an alarm must
+  never fail silently. Each alarm also has a per-alarm snooze setting
+  cycling off → 5 min → 10 min, offered on the ring screen and its
+  notification alongside Stop. Alarms can carry a label
   ("Gym", "Pills") shown while ringing, and by default ring with gradual
   volume — starting quiet and climbing to full over a minute.
 - Alarms ring even when the app is closed: an exact AlarmManager alarm
@@ -187,11 +193,19 @@ stopwatch swipes to a second rendered dial: the countdown.
   carries its own tiny moon phase. If the dial uses Roman numerals, so does
   the calendar. Obviously.
 
-**Beat counter (S3)**
-- The chronograph's third card: tap the pad in rhythm and a 7-segment
-  display reads your BPM (up to 12 taps averaged; pause a couple of seconds
-  to start over). Tap the metronome below and it keeps your beat — pendulum
-  swinging, ticking through the app's own sounds.
+**Hourglass (S3)**
+- The chronograph's third card: the countdown rendered as a real hourglass,
+  sand draining from the top bulb in real time. **Flip the phone upside
+  down and the hourglass turns over** — the sand that already fell becomes
+  the sand still to fall, remaining and elapsed swap, and the countdown
+  keeps running on the new remainder. Exactly like the real thing.
+
+**The hidden metronome** 🥁
+- There is a BPM counter in the app, and no button leads to it. Tap the
+  version number in Settings seven times (in the finest Android tradition)
+  and a tap-tempo screen opens: tap the beat, read your BPM on a 7-segment
+  display, and tap the metronome to have it keep your rhythm, pendulum
+  swinging.
 
 **World clock**
 - An optional second mini-dial in the corner shows another time zone

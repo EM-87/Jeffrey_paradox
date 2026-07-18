@@ -15,10 +15,12 @@ data class Alarm(
     var sound: String,
     /** One of [Prefs.ALARM_REPEAT_DAILY], [Prefs.ALARM_REPEAT_WEEKDAYS], [Prefs.ALARM_REPEAT_WEEKENDS]. */
     var repeat: String = Prefs.ALARM_REPEAT_DAILY,
-    /** Offer a 5-minute snooze on the ring screen. */
-    var snooze: Boolean = true,
+    /** Snooze offered on the ring screen: 0 = off, otherwise minutes (5 or 10). */
+    var snoozeMinutes: Int = 5,
     /** Optional user label ("Gym", "Pills"), shown when ringing. */
-    var label: String = ""
+    var label: String = "",
+    /** SAF URI of a user-picked audio file, used when [sound] is custom. */
+    var soundUri: String = ""
 )
 
 /** Alarms persisted as a JSON array in the default SharedPreferences. */
@@ -46,8 +48,13 @@ object AlarmStore {
                             if (o.optBoolean("weekdays", false)) Prefs.ALARM_REPEAT_WEEKDAYS
                             else Prefs.ALARM_REPEAT_DAILY
                         ),
-                        snooze = o.optBoolean("snooze", true),
-                        label = o.optString("label", "")
+                        // Older stores kept snooze as a boolean (always 5 min).
+                        snoozeMinutes = o.optInt(
+                            "snoozeMin",
+                            if (o.optBoolean("snooze", true)) 5 else 0
+                        ),
+                        label = o.optString("label", ""),
+                        soundUri = o.optString("soundUri", "")
                     )
                 )
             }
@@ -87,8 +94,9 @@ object AlarmStore {
                     .put("enabled", a.enabled)
                     .put("sound", a.sound)
                     .put("repeat", a.repeat)
-                    .put("snooze", a.snooze)
+                    .put("snoozeMin", a.snoozeMinutes)
                     .put("label", a.label)
+                    .put("soundUri", a.soundUri)
             )
         }
         PreferenceManager.getDefaultSharedPreferences(context)
