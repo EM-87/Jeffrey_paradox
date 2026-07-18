@@ -8,6 +8,7 @@
     <string name="pref_theme_title">Theme</string>
     <string name="pref_hours_preset_title">Hours on the dial</string>
     <string name="pref_hours_custom_title">Custom hours</string>
+    <string name="pref_dial_shape_title">Dial shape</string>
     <string name="pref_numerals_title">Numerals</string>
     <string name="pref_mirror_title">Mirror mode</string>
     <string name="pref_mirror_summary">The clock runs counterclockwise, as seen in a mirror</string>
@@ -121,4 +122,7 @@
     <string name="countdown_notification_title">Countdown running</string>
     <string name="countdown_done">Time’s up!</string>
     <string name="countdown_cancel">Cancel</string>
+
+    <string name="bpm_tap_hint">Tap the beat — anywhere up here</string>
+    <string name="bpm_metronome_hint">Tap the metronome and it keeps your beat</string>
 </resources>

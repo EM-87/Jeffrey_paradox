@@ -62,6 +62,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var alarmsEmpty: TextView? = null
     private var countdownClockView: ClockView? = null
 
+    // Third page views (calendar in clock mode, beat counter in chrono mode).
+    private var calendarContainer: View? = null
+    private var bpmContainer: View? = null
+    private var calendarView: CalendarPageView? = null
+    private var bpmView: BpmView? = null
+    private var lastPage = 0
+
     // Alarm-time setting on the clock dial with the wind-to-set engine.
     private var alarmSetActive = false
     private var alarmBeingSet: Alarm? = null
@@ -154,8 +161,23 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         sortAlarms()
 
         pager = findViewById(R.id.pager)
-        pager.offscreenPageLimit = 1
+        pager.offscreenPageLimit = 2
         pager.adapter = PagerAdapter()
+        // The stopwatch and countdown dials share their chaos: fallen pieces
+        // travel with the swipe instead of vanishing between cards.
+        pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                if (mode == Mode.CHRONO) {
+                    val main = clockView
+                    val cd = countdownClockView
+                    if (main != null && cd != null) {
+                        if (position == 1 && lastPage == 0) cd.syncFallenFrom(main)
+                        if (position == 0 && lastPage == 1) main.syncFallenFrom(cd)
+                    }
+                }
+                lastPage = position
+            }
+        })
         if (intent.getBooleanExtra(EXTRA_OPEN_ALARMS, false)) {
             pager.post { pager.setCurrentItem(1, false) }
         }
@@ -188,6 +210,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 .putFloat(Prefs.DIAL_SCALE, 1f)
                 .apply()
             clockView?.reassembleAll()
+            countdownClockView?.reassembleAll()
         }
         applyPreferences()
         // Prime the minute boundary so opening the app never chimes, and
@@ -198,6 +221,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     override fun onPause() {
         handler.removeCallbacks(soundLoop)
+        bpmView?.stopMetronome()
         ClockWidgetProvider.refreshAll(this)
         // A running countdown stays visible from outside the app as an
         // ongoing notification with live remaining time and a progress bar.
@@ -218,16 +242,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private inner class PagerAdapter : RecyclerView.Adapter<PageHolder>() {
 
-        override fun getItemCount(): Int = 2
+        override fun getItemCount(): Int = 3
 
         override fun getItemViewType(position: Int): Int = position
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PageHolder {
             val inflater = LayoutInflater.from(parent.context)
-            val view = if (viewType == 0) {
-                inflater.inflate(R.layout.page_clock, parent, false).also { bindClockPage(it) }
-            } else {
-                inflater.inflate(R.layout.page_second, parent, false).also { bindSecondPage(it) }
+            val view = when (viewType) {
+                0 -> inflater.inflate(R.layout.page_clock, parent, false).also { bindClockPage(it) }
+                1 -> inflater.inflate(R.layout.page_second, parent, false).also { bindSecondPage(it) }
+                else -> inflater.inflate(R.layout.page_third, parent, false).also { bindThirdPage(it) }
             }
             return PageHolder(view)
         }
@@ -240,6 +264,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.soundListener = this
             it.onDialScaleChanged = { scale ->
                 prefs.edit().putFloat(Prefs.DIAL_SCALE, scale).apply()
+                countdownClockView?.dialScale = scale
             }
             it.onHorizontalSwipe = { fingerRight ->
                 // On the stopwatch, a swipe over the dial pages to the
@@ -284,7 +309,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             button.setOnClickListener {
                 // Let settings know whether the panic button should be offered.
                 prefs.edit()
-                    .putBoolean(Prefs.NEEDS_REASSEMBLY, clockView?.isDisarranged() == true)
+                    .putBoolean(
+                        Prefs.NEEDS_REASSEMBLY,
+                        clockView?.isDisarranged() == true ||
+                            countdownClockView?.isDisarranged() == true
+                    )
                     .apply()
                 startActivity(Intent(this, SettingsActivity::class.java))
             }
@@ -312,7 +341,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
         countdownClockView = root.findViewById<ClockView>(R.id.countdown_clock_view).also {
             it.soundListener = this
-            it.pinchZoomEnabled = false
             it.shakeDropEnabled = false
             it.showDate = false
             it.chronoProvider = { countdownRemaining() }
@@ -325,18 +353,41 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     updateCountdownUi()
                 }
             }
+            // Pinching either dial resizes both: S2 stays the same size as
+            // C1/S1 instead of living in its own scale.
+            it.onDialScaleChanged = { scale ->
+                prefs.edit().putFloat(Prefs.DIAL_SCALE, scale).apply()
+                clockView?.dialScale = scale
+            }
             it.onHorizontalSwipe = { fingerRight ->
                 // Swiping back over the countdown dial returns to the
-                // stopwatch page.
-                if (fingerRight) {
-                    pager.currentItem = 0
-                    true
-                } else {
-                    false
-                }
+                // stopwatch; swiping on reaches the beat counter (S3).
+                pager.currentItem = if (fingerRight) 0 else 2
+                true
             }
             it.onCrownTap = { chimePlayer.playCuckoo() }
         }
+        bindCountdownBackButton(root)
+        applyPreferences()
+        applyMode()
+    }
+
+    private fun bindThirdPage(root: View) {
+        calendarContainer = root.findViewById(R.id.calendar_container)
+        bpmContainer = root.findViewById(R.id.bpm_container)
+        calendarView = root.findViewById(R.id.calendar_view)
+        bpmView = root.findViewById<BpmView>(R.id.bpm_view).also {
+            it.onTap = { chimePlayer.playTick() }
+            it.onBeat = { chimePlayer.playTick() }
+        }
+        root.findViewById<Button>(R.id.third_back_button).setOnClickListener {
+            pager.currentItem = 0
+        }
+        applyPreferences()
+        applyMode()
+    }
+
+    private fun bindCountdownBackButton(root: View) {
         root.findViewById<Button>(R.id.countdown_back_button).setOnClickListener {
             // Straight home from S2. The mode flips only once the scroll
             // lands on page 0 — flipping it earlier swaps page two back to
@@ -353,8 +404,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             pager.registerOnPageChangeCallback(callback)
             pager.currentItem = 0
         }
-        applyPreferences()
-        applyMode()
     }
 
     // -------------------------------------------------------------- alarms
@@ -550,6 +599,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val cv = clockView ?: return
 
         cv.hoursOnDial = readHoursOnDial()
+        cv.dialShape = readDialShape()
         cv.showSecondHand = prefs.getBoolean(Prefs.SECOND_HAND, true)
         cv.smoothSeconds = prefs.getBoolean(Prefs.SMOOTH_SECONDS, false)
         cv.mirrored = prefs.getBoolean(Prefs.MIRROR, false)
@@ -581,23 +631,34 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 it.timeZone = TimeZone.getTimeZone(tzId)
                 it.theme = cv.theme
                 it.hoursOnDial = cv.hoursOnDial
+                it.dialShape = cv.dialShape
                 it.numeralStyle = readNumeralStyle()
             }
             worldClockLabel?.text = tzId.substringAfterLast('/').replace('_', ' ')
         }
 
-        // The countdown dial mirrors the main dial's styling. It stays
+        // The countdown dial mirrors the main dial's styling — including its
+        // shape and pinch scale, so S2 is the same size as C1/S1. It stays
         // touchable regardless of the grab-hands preference: winding is its
         // only setting mechanism.
         countdownClockView?.let {
             it.hoursOnDial = cv.hoursOnDial
+            it.dialShape = cv.dialShape
             it.showSecondHand = cv.showSecondHand
             it.smoothSeconds = cv.smoothSeconds
             it.mirrored = cv.mirrored
             it.numeralStyle = cv.numeralStyle
             it.theme = cv.theme
             it.touchHandsEnabled = true
+            it.pinchZoomEnabled = cv.pinchZoomEnabled
+            it.dialScale = cv.dialScale
         }
+
+        calendarView?.let {
+            it.theme = cv.theme
+            it.numeralStyle = cv.numeralStyle
+        }
+        bpmView?.theme = cv.theme
 
         bellsEnabled = prefs.getBoolean(Prefs.BELLS, false)
         bellStyle = prefs.getString(Prefs.BELL_STYLE, Prefs.BELL_STYLE_COUNT) ?: Prefs.BELL_STYLE_COUNT
@@ -658,6 +719,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
     }
 
+    private fun readDialShape(): ClockView.DialShape =
+        when (prefs.getString(Prefs.DIAL_SHAPE, Prefs.SHAPE_CIRCLE)) {
+            Prefs.SHAPE_TRIANGLE -> ClockView.DialShape.TRIANGLE
+            Prefs.SHAPE_SQUARE -> ClockView.DialShape.SQUARE
+            Prefs.SHAPE_HEXAGON -> ClockView.DialShape.HEXAGON
+            Prefs.SHAPE_OCTAGON -> ClockView.DialShape.OCTAGON
+            else -> ClockView.DialShape.CIRCLE
+        }
+
     private fun readNumeralStyle(): ClockView.NumeralStyle =
         when (prefs.getString(Prefs.NUMERALS, Prefs.NUMERALS_ARABIC)) {
             Prefs.NUMERALS_NONE -> ClockView.NumeralStyle.NONE
@@ -712,10 +782,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         modeButton?.setText(if (chrono) R.string.mode_stopwatch else R.string.mode_clock)
         modeButton?.visibility = if (alarmSetActive) View.GONE else View.VISIBLE
         settingsButton?.visibility = if (chrono || alarmSetActive) View.GONE else View.VISIBLE
-        // Page two follows the mode: alarms beside the clock, the countdown
-        // dial beside the stopwatch.
+        // Pages two and three follow the mode: alarms and calendar beside
+        // the clock, the countdown dial and beat counter beside the stopwatch.
         alarmsContainer?.visibility = if (chrono) View.GONE else View.VISIBLE
         countdownContainer?.visibility = if (chrono) View.VISIBLE else View.GONE
+        calendarContainer?.visibility = if (chrono) View.GONE else View.VISIBLE
+        bpmContainer?.visibility = if (chrono) View.VISIBLE else View.GONE
+        if (!chrono) bpmView?.stopMetronome()
         updateCountdownUi()
     }
 

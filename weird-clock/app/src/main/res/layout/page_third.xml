@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/app_background">
+
+    <!-- Clock mode: C1 clock → C2 alarms → C3 calendar. -->
+    <FrameLayout
+        android:id="@+id/calendar_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <com.em87.weirdclock.CalendarPageView
+            android:id="@+id/calendar_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginBottom="56dp"
+            android:padding="8dp" />
+    </FrameLayout>
+
+    <!-- Chronograph mode: S1 stopwatch → S2 countdown → S3 beat counter. -->
+    <FrameLayout
+        android:id="@+id/bpm_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+
+        <com.em87.weirdclock.BpmView
+            android:id="@+id/bpm_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginBottom="56dp"
+            android:padding="8dp" />
+    </FrameLayout>
+
+    <Button
+        android:id="@+id/third_back_button"
+        style="?attr/materialButtonOutlinedStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="12dp"
+        android:text="@string/mode_stopwatch" />
+
+</FrameLayout>

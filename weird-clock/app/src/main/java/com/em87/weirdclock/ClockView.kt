@@ -60,6 +60,22 @@ class ClockView @JvmOverloads constructor(
     enum class FastHandMode { NONE, TENTHS, DECIMAL_MINUTE }
 
     /**
+     * The dial doesn't have to be round. Polygonal faces keep the same
+     * angular time layout, but the boundary breathes in and out between
+     * corners — and everything pinned to the rim (ticks, numerals, even the
+     * hands' lengths) follows it, so the second hand stretches into the
+     * corners as it sweeps. Orientations are chosen symmetric about the
+     * vertical axis so mirror mode stays consistent.
+     */
+    enum class DialShape(val sides: Int, val vertexOffsetDeg: Float) {
+        CIRCLE(0, 0f),
+        TRIANGLE(3, 0f),
+        SQUARE(4, 45f),
+        HEXAGON(6, 0f),
+        OCTAGON(8, 22.5f)
+    }
+
+    /**
      * Magnet layout for wind-to-set. COUNTDOWN is progressive — minute
      * detents up to 5 min, 5-minute up to half an hour, quarter-hour up to
      * two hours, hourly beyond — so sweeping across an hour doesn't rattle
@@ -92,6 +108,8 @@ class ClockView @JvmOverloads constructor(
     var mirrored = false
         set(value) { field = value; invalidate() }
     var numeralStyle = NumeralStyle.ARABIC
+        set(value) { field = value; invalidate() }
+    var dialShape = DialShape.CIRCLE
         set(value) { field = value; invalidate() }
     var showDate = false
         set(value) { field = value; invalidate() }
@@ -457,6 +475,32 @@ class ClockView @JvmOverloads constructor(
         invalidate()
     }
 
+    /**
+     * Mirrors another dial's fallen-piece chaos onto this one, so swiping
+     * between cards doesn't magically tidy the workshop. Positions scale
+     * with any view-size difference.
+     */
+    fun syncFallenFrom(other: ClockView) {
+        if (other === this) return
+        fallenBodies.clear()
+        carriedBody = null
+        val sx = if (other.width > 0) width.toFloat() / other.width else 1f
+        val sy = if (other.height > 0) height.toFloat() / other.height else 1f
+        val s = (sx + sy) / 2f
+        for (b in other.fallenBodies) {
+            fallenBodies.add(
+                FallingBody(
+                    b.kind, b.hand, b.numeralHour, b.label,
+                    b.x * sx, b.y * sy, b.vx * s, b.vy * s,
+                    b.angleDeg, b.angVel,
+                    b.halfLen * s, b.strokeWidth * s, b.textSize * s
+                )
+            )
+        }
+        if (fallenBodies.isNotEmpty()) lastPhysicsAt = SystemClock.uptimeMillis()
+        invalidate()
+    }
+
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         post(ticker)
@@ -617,11 +661,11 @@ class ClockView @JvmOverloads constructor(
         val cy = height / 2f
         val r = dialRadius()
         val hit = max(48f * resources.displayMetrics.density, r * 0.16f)
-        val start = plainPoint(cx, cy, 45f, r * 1.03f)
+        val start = plainPoint(cx, cy, 45f, boundaryRadius(45f) * 1.03f)
         if (hypot(x - start.x, y - start.y) < hit) return 1
-        val reset = plainPoint(cx, cy, 315f, r * 1.03f)
+        val reset = plainPoint(cx, cy, 315f, boundaryRadius(315f) * 1.03f)
         if (hypot(x - reset.x, y - reset.y) < hit) return 2
-        val crown = plainPoint(cx, cy, 0f, r * 1.04f)
+        val crown = plainPoint(cx, cy, 0f, boundaryRadius(0f) * 1.04f)
         if (hypot(x - crown.x, y - crown.y) < hit) return 3
         return 0
     }
@@ -745,7 +789,8 @@ class ClockView @JvmOverloads constructor(
         x: Float, y: Float,
         cx: Float, cy: Float, r: Float
     ): Float {
-        val tip = pointAt(cx, cy, angleOf(hand, a), r * lengthOf(hand))
+        val angle = angleOf(hand, a)
+        val tip = pointAt(cx, cy, angle, boundaryRadius(angle) * lengthOf(hand))
         return distanceToSegment(x, y, cx, cy, tip.x, tip.y)
     }
 
@@ -788,9 +833,10 @@ class ClockView @JvmOverloads constructor(
             // adjustment. Whipping the hand around from near the center
             // spins free — no detents, no haptic machine-gun.
             val fingerDist = hypot(x - cx, y - cy)
+            val bAtFinger = boundaryRadius(touchAngleDeg(x, y))
             val inPrecisionBand =
-                fingerDist >= numeralRadius(dialRadius()) * 0.95f &&
-                    fingerDist <= dialRadius() * 1.10f
+                fingerDist >= bAtFinger * numeralRadiusFactor() * 0.95f &&
+                    fingerDist <= bAtFinger * 1.10f
             val baseMs = chronoFrozenMs ?: 0L
             val durationMs = baseMs + (target * 1000.0).toLong()
             val magnet = if (inPrecisionBand) magnetFor(durationMs) else null
@@ -942,7 +988,7 @@ class ClockView @JvmOverloads constructor(
 
     // ----------------------------------------------------- numeral selection
 
-    private fun numeralRadius(r: Float): Float = if (hoursOnDial == 12) r * 0.76f else r * 0.68f
+    private fun numeralRadiusFactor(): Float = if (hoursOnDial == 12) 0.76f else 0.68f
 
     private fun numeralTextSize(r: Float): Float = if (hoursOnDial > 12) r * 0.11f else r * 0.16f
 
@@ -963,8 +1009,10 @@ class ClockView @JvmOverloads constructor(
     private fun numeralLabel(hour: Int): String =
         if (numeralStyle == NumeralStyle.ROMAN) Roman.of(hour) else hour.toString()
 
-    private fun numeralPosition(hour: Int, cx: Float, cy: Float, r: Float): PointF =
-        pointAt(cx, cy, hour.toFloat() / hoursOnDial * 360f, numeralRadius(r))
+    private fun numeralPosition(hour: Int, cx: Float, cy: Float, r: Float): PointF {
+        val angle = hour.toFloat() / hoursOnDial * 360f
+        return pointAt(cx, cy, angle, boundaryRadius(angle) * numeralRadiusFactor())
+    }
 
     private fun handleNumeralTap(x: Float, y: Float) {
         if (numeralStyle == NumeralStyle.NONE || chronoProvider != null) return
@@ -1044,7 +1092,7 @@ class ClockView @JvmOverloads constructor(
         if (showSecondHand) drops.add(Hand.SECOND)
         for (hand in drops) {
             if (isFallen(hand)) continue
-            val len = lengthOf(hand) * r
+            val len = lengthOf(hand) * boundaryRadius(angleOf(hand, a))
             val tail = tailOf(hand) * r
             addRodBody(
                 BodyKind.HAND, hand, angleOf(hand, a),
@@ -1139,7 +1187,6 @@ class ClockView @JvmOverloads constructor(
         if (dt <= 0f) return
         val cx = width / 2f
         val cy = height / 2f
-        val rIn = dialRadius() * 0.96f
         for (b in fallenBodies) {
             if (b === carriedBody) continue
             b.vx += gravityX * dt
@@ -1154,6 +1201,13 @@ class ClockView @JvmOverloads constructor(
                 val ex = b.x + dirX * b.halfLen * side
                 val ey = b.y + dirY * b.halfLen * side
                 val d = hypot(ex - cx, ey - cy)
+                // Contain each end inside the dial's (possibly polygonal)
+                // boundary; the push-back is radial, which is a good enough
+                // approximation for toy debris.
+                val endAngle = Math.toDegrees(
+                    atan2((ex - cx).toDouble(), -(ey - cy).toDouble())
+                ).toFloat()
+                val rIn = boundaryRadius(endAngle) * 0.96f
                 if (d > rIn) {
                     val nx = (ex - cx) / d
                     val ny = (ey - cy) / d
@@ -1254,7 +1308,7 @@ class ClockView @JvmOverloads constructor(
             if (hand == Hand.SECOND && !showSecondHand) continue
             if (isFallen(hand)) continue
             val angle = angleOf(hand, a)
-            val tip = pointAt(cx, cy, angle, r * lengthOf(hand))
+            val tip = pointAt(cx, cy, angle, boundaryRadius(angle) * lengthOf(hand))
             val tail = pointAt(cx, cy, angle + 180f, r * tailOf(hand))
             collideBodiesWithSegment(tail.x, tail.y, tip.x, tip.y, widthOf(hand) * r)
         }
@@ -1506,6 +1560,43 @@ class ClockView @JvmOverloads constructor(
 
     private fun dialRadius(): Float = min(width, height) / 2f * 0.92f * dialScale
 
+    /**
+     * Distance from the center to the dial's edge at [angleDeg], measured
+     * clockwise from 12. A circle returns the radius; a polygon returns the
+     * distance to its boundary, largest at the corners and smallest at the
+     * edge midpoints (the apothem).
+     */
+    private fun boundaryRadius(angleDeg: Float): Float {
+        val r = dialRadius()
+        val n = dialShape.sides
+        if (n < 3) return r
+        val half = 180f / n
+        var psi = (angleDeg - dialShape.vertexOffsetDeg) % (2f * half)
+        if (psi < 0f) psi += 2f * half
+        val apothemFraction = cos(Math.toRadians(half.toDouble())).toFloat()
+        return r * apothemFraction / cos(Math.toRadians((psi - half).toDouble())).toFloat()
+    }
+
+    /** The polygon's inscribed radius — the safe zone for inner complications. */
+    private fun apothemRadius(): Float {
+        val n = dialShape.sides
+        val r = dialRadius()
+        return if (n < 3) r else r * cos(Math.toRadians(180.0 / n)).toFloat()
+    }
+
+    private val facePath = Path()
+
+    private fun buildFacePath(cx: Float, cy: Float) {
+        val n = dialShape.sides
+        val r = dialRadius()
+        facePath.reset()
+        for (k in 0 until n) {
+            val p = pointAt(cx, cy, dialShape.vertexOffsetDeg + k * 360f / n, r)
+            if (k == 0) facePath.moveTo(p.x, p.y) else facePath.lineTo(p.x, p.y)
+        }
+        facePath.close()
+    }
+
     // ----------------------------------------------------------------- draw
 
     override fun onDraw(canvas: Canvas) {
@@ -1522,8 +1613,14 @@ class ClockView @JvmOverloads constructor(
         }
 
         rimPaint.strokeWidth = r * 0.02f
-        canvas.drawCircle(cx, cy, r, facePaint)
-        canvas.drawCircle(cx, cy, r, rimPaint)
+        if (dialShape == DialShape.CIRCLE) {
+            canvas.drawCircle(cx, cy, r, facePaint)
+            canvas.drawCircle(cx, cy, r, rimPaint)
+        } else {
+            buildFacePath(cx, cy)
+            canvas.drawPath(facePath, facePaint)
+            canvas.drawPath(facePath, rimPaint)
+        }
 
         drawTicks(canvas, cx, cy, r)
         drawNumerals(canvas, cx, cy, r)
@@ -1538,7 +1635,10 @@ class ClockView @JvmOverloads constructor(
         if (chronoProvider != null && lapAngles.isNotEmpty()) {
             for ((i, angle) in lapAngles.withIndex()) {
                 lapPaint.alpha = 50 + 150 * (i + 1) / lapAngles.size
-                drawHand(canvas, cx, cy, angle, r * SECOND_LEN, r * 0.18f, r * 0.010f, lapPaint)
+                drawHand(
+                    canvas, cx, cy, angle,
+                    boundaryRadius(angle) * SECOND_LEN, r * 0.18f, r * 0.010f, lapPaint
+                )
             }
         }
 
@@ -1558,10 +1658,11 @@ class ClockView @JvmOverloads constructor(
         for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
             if (hand == Hand.SECOND && !showSecondHand) continue
             if (isFallen(hand)) continue
+            val angle = angleOf(hand, a)
             drawHand(
                 canvas, cx, cy,
-                angleOf(hand, a),
-                r * lengthOf(hand),
+                angle,
+                boundaryRadius(angle) * lengthOf(hand),
                 r * tailOf(hand),
                 r * widthOf(hand),
                 paintOf(hand)
@@ -1590,7 +1691,7 @@ class ClockView @JvmOverloads constructor(
         }
         digitalText?.let {
             val digitH = r * 0.13f
-            val yTop = min(cy + r + digitH * 0.4f, height - digitH * 1.6f)
+            val yTop = min(cy + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
             drawSevenSegment(canvas, it, cx, yTop, digitH)
         }
 
@@ -1629,18 +1730,20 @@ class ClockView @JvmOverloads constructor(
         if (visibility <= 0f) return
         val alpha = (visibility * 255).toInt()
 
-        // Crown at 12: big, knurled, capped and jeweled.
+        // Crown at 12: big, knurled, capped and jeweled. On polygonal cases
+        // the hardware sits on the actual edge, wherever that is.
+        val bCrown = boundaryRadius(0f)
         pusherPaint.color = theme.rim
         pusherPaint.alpha = alpha
-        val crownOuter = if (pressedPusher == 3) r * 1.08f else r * 1.12f
-        drawCaseStub(canvas, cx, cy, r, 0f, r * 0.085f, crownOuter)
+        val crownOuter = if (pressedPusher == 3) bCrown * 1.08f else bCrown * 1.12f
+        drawCaseStub(canvas, cx, cy, bCrown * 0.90f, 0f, r * 0.085f, crownOuter)
         // Knurling: five winding ridges across the crown body.
         rimPaint.strokeWidth = r * 0.010f
         rimPaint.alpha = (alpha * 0.8f).toInt()
         for (i in -2..2) {
             val offset = i * r * 0.032f
             canvas.drawLine(
-                cx + offset, cy - r * 1.005f,
+                cx + offset, cy - bCrown * 1.005f,
                 cx + offset, cy - crownOuter + r * 0.012f,
                 rimPaint
             )
@@ -1659,14 +1762,22 @@ class ClockView @JvmOverloads constructor(
         canvas.drawCircle(cx, cy - (crownOuter - r * 0.014f), r * 0.015f, pusherPaint)
 
         // Start/stop pusher at 1:30.
+        val bStart = boundaryRadius(45f)
         pusherPaint.color = if (chronoRunning) theme.secondHand else theme.rim
         pusherPaint.alpha = alpha
-        drawCaseStub(canvas, cx, cy, r, 45f, r * 0.06f, if (pressedPusher == 1) r * 1.06f else r * 1.11f)
+        drawCaseStub(
+            canvas, cx, cy, bStart * 0.90f, 45f, r * 0.06f,
+            if (pressedPusher == 1) bStart * 1.06f else bStart * 1.11f
+        )
 
         // Reset pusher at 10:30, smaller.
+        val bReset = boundaryRadius(315f)
         pusherPaint.color = theme.rim
         pusherPaint.alpha = alpha
-        drawCaseStub(canvas, cx, cy, r, 315f, r * 0.042f, if (pressedPusher == 2) r * 1.05f else r * 1.09f)
+        drawCaseStub(
+            canvas, cx, cy, bReset * 0.90f, 315f, r * 0.042f,
+            if (pressedPusher == 2) bReset * 1.05f else bReset * 1.09f
+        )
 
         if (t < 1f) invalidate()
     }
@@ -1675,14 +1786,14 @@ class ClockView @JvmOverloads constructor(
         canvas: Canvas,
         cx: Float,
         cy: Float,
-        r: Float,
+        inner: Float,
         angleDeg: Float,
         halfWidth: Float,
         outer: Float
     ) {
         canvas.save()
         canvas.rotate(angleDeg - 90f, cx, cy)
-        val rect = RectF(cx + r * 0.90f, cy - halfWidth, cx + outer, cy + halfWidth)
+        val rect = RectF(cx + inner, cy - halfWidth, cx + outer, cy + halfWidth)
         canvas.drawRoundRect(rect, halfWidth * 0.6f, halfWidth * 0.6f, pusherPaint)
         canvas.restore()
     }
@@ -1724,20 +1835,22 @@ class ClockView @JvmOverloads constructor(
     private fun drawTicks(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         for (i in 0 until 60) {
             val angle = i / 60f * 360f
+            val b = boundaryRadius(angle)
             val isMajor = hoursOnDial == 12 && i % 5 == 0
             val paint = if (isMajor) tickPaint else minorTickPaint
             paint.strokeWidth = if (isMajor) r * 0.018f else r * 0.008f
             val outerLen = if (isMajor) r * 0.08f else r * 0.045f
-            val from = pointAt(cx, cy, angle, r * 0.97f - outerLen)
-            val to = pointAt(cx, cy, angle, r * 0.97f)
+            val from = pointAt(cx, cy, angle, b * 0.97f - outerLen)
+            val to = pointAt(cx, cy, angle, b * 0.97f)
             canvas.drawLine(from.x, from.y, to.x, to.y, paint)
         }
         if (hoursOnDial != 12) {
             for (i in 0 until hoursOnDial) {
                 val angle = i.toFloat() / hoursOnDial * 360f
+                val b = boundaryRadius(angle)
                 tickPaint.strokeWidth = r * 0.018f
-                val from = pointAt(cx, cy, angle, r * 0.80f)
-                val to = pointAt(cx, cy, angle, r * 0.87f)
+                val from = pointAt(cx, cy, angle, b * 0.80f)
+                val to = pointAt(cx, cy, angle, b * 0.87f)
                 canvas.drawLine(from.x, from.y, to.x, to.y, tickPaint)
             }
         }
@@ -1760,9 +1873,10 @@ class ClockView @JvmOverloads constructor(
     /** Enabled alarms drawn as small accent wedges pointing at their time. */
     private fun drawAlarmMarkers(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         for (angle in alarmMarkers) {
-            val tip = pointAt(cx, cy, angle, r * 0.885f)
-            val base1 = pointAt(cx, cy, angle - 2.2f, r * 0.965f)
-            val base2 = pointAt(cx, cy, angle + 2.2f, r * 0.965f)
+            val b = boundaryRadius(angle)
+            val tip = pointAt(cx, cy, angle, b * 0.885f)
+            val base1 = pointAt(cx, cy, angle - 2.2f, b * 0.965f)
+            val base2 = pointAt(cx, cy, angle + 2.2f, b * 0.965f)
             alarmMarkerPath.reset()
             alarmMarkerPath.moveTo(tip.x, tip.y)
             alarmMarkerPath.lineTo(base1.x, base1.y)
@@ -1779,7 +1893,7 @@ class ClockView @JvmOverloads constructor(
      */
     private fun drawMoonPhase(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         val mr = r * 0.07f
-        val mcy = cy + r * 0.45f
+        val mcy = cy + apothemRadius() * 0.45f
         val synodicDays = 29.530588853
         // Julian date of a known new moon: 2000-01-06 18:14 UTC.
         val julianNow = TimeKeeper.nowMs() / 86_400_000.0 + 2_440_587.5
@@ -1818,7 +1932,7 @@ class ClockView @JvmOverloads constructor(
             }
         }
         datePaint.textSize = r * 0.085f
-        val baseline = cy - r * 0.42f - (datePaint.ascent() + datePaint.descent()) / 2f
+        val baseline = cy - apothemRadius() * 0.42f - (datePaint.ascent() + datePaint.descent()) / 2f
         canvas.drawText(text, cx, baseline, datePaint)
     }
 

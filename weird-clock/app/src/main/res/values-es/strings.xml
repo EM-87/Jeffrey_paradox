@@ -7,6 +7,7 @@
     <string name="pref_theme_title">Tema</string>
     <string name="pref_hours_preset_title">Horas en la esfera</string>
     <string name="pref_hours_custom_title">Horas personalizadas</string>
+    <string name="pref_dial_shape_title">Forma de la esfera</string>
     <string name="pref_numerals_title">Numeración</string>
     <string name="pref_mirror_title">Modo espejo</string>
     <string name="pref_mirror_summary">El reloj gira en sentido antihorario, como visto en un espejo</string>
@@ -109,4 +110,7 @@
     <string name="countdown_notification_title">Cuenta atrás en marcha</string>
     <string name="countdown_done">¡Tiempo!</string>
     <string name="countdown_cancel">Cancelar</string>
+
+    <string name="bpm_tap_hint">Marca el ritmo — toca en cualquier parte de arriba</string>
+    <string name="bpm_metronome_hint">Toca el metrónomo y te mantiene el ritmo</string>
 </resources>

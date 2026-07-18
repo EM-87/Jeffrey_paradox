@@ -1,0 +1,206 @@
+package com.em87.weirdclock
+
+import android.annotation.SuppressLint
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.util.AttributeSet
+import android.view.HapticFeedbackConstants
+import android.view.MotionEvent
+import android.view.View
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.cos
+
+/**
+ * C3: a month calendar drawn in the clock's theme. The chevrons page through
+ * months, tapping the title jumps back to today, and every day carries its
+ * own tiny moon phase. If the dial uses Roman numerals, so does the calendar
+ * — obviously.
+ */
+class CalendarPageView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null
+) : View(context, attrs) {
+
+    var theme: ClockTheme = ClockThemes.MIDNIGHT
+        set(value) { field = value; invalidate() }
+    var numeralStyle = ClockView.NumeralStyle.ARABIC
+        set(value) { field = value; invalidate() }
+
+    /** First day of the month currently on screen. */
+    private val shown: Calendar = Calendar.getInstance().apply {
+        set(Calendar.DAY_OF_MONTH, 1)
+    }
+    private val scratch: Calendar = Calendar.getInstance()
+
+    private val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.DEFAULT_BOLD
+    }
+    private val chevronPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+    }
+    private val headerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+    }
+    private val dayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+    }
+    private val todayRingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+    }
+    private val moonDarkPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val moonLitPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    private val titleFormat = SimpleDateFormat("LLLL yyyy", Locale.getDefault())
+    private val weekdayFormat = SimpleDateFormat("EEEEE", Locale.getDefault())
+
+    private fun dayLabel(day: Int): String =
+        if (numeralStyle == ClockView.NumeralStyle.ROMAN) Roman.of(day) else day.toString()
+
+    // ---------------------------------------------------------------- touch
+
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> return true
+            MotionEvent.ACTION_UP -> {
+                if (event.y < height * 0.16f) {
+                    when {
+                        event.x < width * 0.28f -> pageMonth(-1)
+                        event.x > width * 0.72f -> pageMonth(+1)
+                        else -> jumpToToday()
+                    }
+                    return true
+                }
+            }
+        }
+        return super.onTouchEvent(event)
+    }
+
+    private fun pageMonth(delta: Int) {
+        shown.add(Calendar.MONTH, delta)
+        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        invalidate()
+    }
+
+    private fun jumpToToday() {
+        shown.timeInMillis = TimeKeeper.nowMs()
+        shown.set(Calendar.DAY_OF_MONTH, 1)
+        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        invalidate()
+    }
+
+    // ----------------------------------------------------------------- draw
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        val w = width.toFloat()
+        val h = height.toFloat()
+        if (w <= 0f || h <= 0f) return
+
+        titlePaint.color = theme.numeral
+        chevronPaint.color = theme.decimal
+        headerPaint.color = theme.minorTick
+        todayRingPaint.color = theme.decimal
+        moonDarkPaint.color = theme.minorTick
+        moonDarkPaint.alpha = 90
+        moonLitPaint.color = theme.numeral
+        moonLitPaint.alpha = 220
+
+        // Title row with chevrons.
+        val titleY = h * 0.09f
+        titlePaint.textSize = h * 0.036f
+        chevronPaint.textSize = h * 0.036f
+        canvas.drawText(titleFormat.format(Date(shown.timeInMillis)), w / 2f, titleY, titlePaint)
+        canvas.drawText("‹", w * 0.14f, titleY, chevronPaint)
+        canvas.drawText("›", w * 0.86f, titleY, chevronPaint)
+
+        // Weekday header, starting on the locale's first day of week.
+        val firstDow = shown.firstDayOfWeek
+        val gridLeft = w * 0.06f
+        val gridRight = w * 0.94f
+        val cellW = (gridRight - gridLeft) / 7f
+        val headerY = h * 0.155f
+        headerPaint.textSize = h * 0.022f
+        for (i in 0 until 7) {
+            scratch.set(2024, Calendar.JANUARY, 1)
+            while (scratch.get(Calendar.DAY_OF_WEEK) != ((firstDow - 1 + i) % 7 + 1)) {
+                scratch.add(Calendar.DAY_OF_MONTH, 1)
+            }
+            canvas.drawText(
+                weekdayFormat.format(Date(scratch.timeInMillis)).uppercase(Locale.getDefault()),
+                gridLeft + cellW * (i + 0.5f),
+                headerY,
+                headerPaint
+            )
+        }
+
+        // Day grid: up to 6 rows of 7.
+        val gridTop = h * 0.19f
+        val gridBottom = h * 0.88f
+        val cellH = (gridBottom - gridTop) / 6f
+        dayPaint.textSize = minOf(cellH * 0.34f, cellW * 0.34f)
+        todayRingPaint.strokeWidth = h * 0.004f
+
+        val daysInMonth = shown.getActualMaximum(Calendar.DAY_OF_MONTH)
+        val leadBlank = ((shown.get(Calendar.DAY_OF_WEEK) - firstDow) + 7) % 7
+        scratch.timeInMillis = TimeKeeper.nowMs()
+        val todayDay = scratch.get(Calendar.DAY_OF_MONTH)
+        val isThisMonth = scratch.get(Calendar.YEAR) == shown.get(Calendar.YEAR) &&
+            scratch.get(Calendar.MONTH) == shown.get(Calendar.MONTH)
+
+        for (day in 1..daysInMonth) {
+            val slot = leadBlank + day - 1
+            val col = slot % 7
+            val row = slot / 7
+            val cx = gridLeft + cellW * (col + 0.5f)
+            val cy = gridTop + cellH * (row + 0.42f)
+
+            scratch.timeInMillis = shown.timeInMillis
+            scratch.set(Calendar.DAY_OF_MONTH, day)
+            val dow = scratch.get(Calendar.DAY_OF_WEEK)
+            dayPaint.color = if (dow == Calendar.SUNDAY) theme.secondHand else theme.numeral
+            dayPaint.typeface = if (isThisMonth && day == todayDay) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+
+            val baseline = cy - (dayPaint.ascent() + dayPaint.descent()) / 2f
+            canvas.drawText(dayLabel(day), cx, baseline, dayPaint)
+
+            if (isThisMonth && day == todayDay) {
+                canvas.drawCircle(cx, cy, minOf(cellW, cellH) * 0.40f, todayRingPaint)
+            }
+
+            drawMiniMoon(canvas, cx, cy + cellH * 0.34f, minOf(cellW, cellH) * 0.10f, scratch.timeInMillis)
+        }
+    }
+
+    /** The same terminator-ellipse moon as the dial, in miniature. */
+    private fun drawMiniMoon(canvas: Canvas, cx: Float, cy: Float, mr: Float, timeMs: Long) {
+        val synodicDays = 29.530588853
+        val julian = timeMs / 86_400_000.0 + 2_440_587.5
+        val phase = (((julian - 2_451_550.26) / synodicDays) % 1.0 + 1.0) % 1.0
+        val cosPhase = cos(2.0 * Math.PI * phase)
+        val litRight = phase < 0.5
+
+        canvas.drawCircle(cx, cy, mr, moonDarkPaint)
+        canvas.save()
+        if (litRight) {
+            canvas.clipRect(cx, cy - mr, cx + mr, cy + mr)
+        } else {
+            canvas.clipRect(cx - mr, cy - mr, cx, cy + mr)
+        }
+        canvas.drawCircle(cx, cy, mr, moonLitPaint)
+        canvas.restore()
+        val ellipseHalf = (mr * abs(cosPhase)).toFloat()
+        if (ellipseHalf > 0.5f) {
+            val oval = RectF(cx - ellipseHalf, cy - mr, cx + ellipseHalf, cy + mr)
+            canvas.drawOval(oval, if (cosPhase > 0) moonDarkPaint else moonLitPaint)
+        }
+    }
+}

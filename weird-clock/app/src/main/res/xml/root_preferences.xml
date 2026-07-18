@@ -20,6 +20,14 @@
             app:useSimpleSummaryProvider="true" />
 
         <ListPreference
+            android:key="pref_dial_shape"
+            android:title="@string/pref_dial_shape_title"
+            android:entries="@array/dial_shape_entries"
+            android:entryValues="@array/dial_shape_values"
+            android:defaultValue="circle"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
             android:key="pref_numerals"
             android:title="@string/pref_numerals_title"
             android:entries="@array/numeral_entries"

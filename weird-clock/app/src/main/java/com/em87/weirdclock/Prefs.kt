@@ -35,7 +35,15 @@ object Prefs {
     const val WORLD_CLOCK = "pref_world_clock"
     const val WORLD_TZ = "pref_world_tz"
 
+    const val DIAL_SHAPE = "pref_dial_shape"
+
     const val HOURS_CUSTOM_VALUE = "custom"
+
+    const val SHAPE_CIRCLE = "circle"
+    const val SHAPE_TRIANGLE = "triangle"
+    const val SHAPE_SQUARE = "square"
+    const val SHAPE_HEXAGON = "hexagon"
+    const val SHAPE_OCTAGON = "octagon"
 
     const val NUMERALS_NONE = "none"
     const val NUMERALS_ARABIC = "arabic"

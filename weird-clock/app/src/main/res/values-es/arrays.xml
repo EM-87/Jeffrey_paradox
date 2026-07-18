@@ -9,6 +9,14 @@
         <item>Dinámico (Material You)</item>
     </string-array>
 
+    <string-array name="dial_shape_entries">
+        <item>Redonda (un reloj, vaya)</item>
+        <item>Triangular</item>
+        <item>Cuadrada</item>
+        <item>Hexagonal</item>
+        <item>Octogonal (señal de stop)</item>
+    </string-array>
+
     <string-array name="hours_preset_entries">
         <item>10 horas (día decimal)</item>
         <item>12 horas (clásica)</item>

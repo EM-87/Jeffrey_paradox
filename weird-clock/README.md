@@ -9,6 +9,11 @@ An analog clock app for Android with deliberately weird options.
 **Dial**
 - **Themes** — Midnight, Classic ivory, Neon, Terminal green, Sunset: each
   restyles the face, rim, ticks, numerals and every hand.
+- **Dial shapes** — round, triangular, square, hexagonal or octagonal. The
+  polygonal faces keep the same angular layout but the boundary breathes in
+  and out between corners, and everything pinned to the rim follows it:
+  ticks, numerals, the chrono crown and pushers — even the hands stretch
+  into the corners as they sweep. Fallen pieces tumble inside the polygon.
 - **Any number of hours on the dial** — presets for 10 (decimal day),
   12 (classic) and 24 (full day), or any count from 2 to 24 with a slider.
   A 7-hour clock is exactly as ridiculous as it sounds.
@@ -133,7 +138,10 @@ stopwatch swipes to a second rendered dial: the countdown.
   into negative time and the spring brings it back. The CHEATER stamp only
   fires while the stopwatch is actually running — a stopped one has
   nothing to cheat.
-- **Countdown** — its own full dial on the next page; no dialogs: you
+- **Countdown** — its own full dial on the next page, always the same size
+  and shape as the main dial (pinching either one resizes both), and the
+  chaos travels with you: pieces knocked off on the stopwatch are lying on
+  the countdown's floor too. No dialogs: you
   *wind the hands* to set it. Magnets are sticky detents with a
   **progressive grid**: minute steps up to 5 minutes, 5-minute steps to
   half an hour, quarter-hours to two hours, hourly beyond — so sweeping
@@ -171,6 +179,19 @@ stopwatch swipes to a second rendered dial: the countdown.
   bar and on the lock screen, with a Cancel action.
   At zero it rings the finish chime even with the app closed, and the
   app resyncs when you come back.
+
+**Calendar (C3)**
+- Swipe past the alarms and there's a month calendar drawn in the clock's
+  theme: chevrons page through months, tapping the title jumps back to
+  today, Sundays in the accent color, today circled — and every single day
+  carries its own tiny moon phase. If the dial uses Roman numerals, so does
+  the calendar. Obviously.
+
+**Beat counter (S3)**
+- The chronograph's third card: tap the pad in rhythm and a 7-segment
+  display reads your BPM (up to 12 taps averaged; pause a couple of seconds
+  to start over). Tap the metronome below and it keeps your beat — pendulum
+  swinging, ticking through the app's own sounds.
 
 **World clock**
 - An optional second mini-dial in the corner shows another time zone
