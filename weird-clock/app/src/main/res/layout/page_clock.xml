@@ -37,7 +37,7 @@
             android:layout_height="wrap_content"
             android:layout_marginEnd="12dp"
             android:text="@string/set_alarm_time"
-            android:textColor="#E8E8E8"
+            android:textColor="@color/text_primary"
             android:textSize="16sp" />
 
         <Button
@@ -58,28 +58,13 @@
             android:text="@string/alarm_set_cancel" />
     </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/world_clock_container"
-        android:layout_width="132dp"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|start"
-        android:layout_margin="12dp"
-        android:orientation="vertical"
-        android:visibility="gone">
-
-        <com.em87.weirdclock.ClockView
-            android:id="@+id/world_clock_view"
-            android:layout_width="132dp"
-            android:layout_height="132dp" />
-
-        <TextView
-            android:id="@+id/world_clock_label"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:textColor="#8A93A8"
-            android:textSize="12sp" />
-    </LinearLayout>
+    <!-- World-clock bubbles float here: draggable mini dials with bubble
+         physics, bouncing off the screen edges, each other and the main
+         dial. Populated in code from the selected cities. -->
+    <FrameLayout
+        android:id="@+id/bubble_layer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
     <!-- Single centered mode button: hourglass on the clock, analog clock
          on the stopwatch. Start/reset live on the drawn case pushers. -->

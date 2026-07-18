@@ -194,11 +194,17 @@ stopwatch swipes to a second rendered dial: the countdown.
   the calendar. Obviously.
 
 **Hourglass (S3)**
-- The chronograph's third card: the countdown rendered as a real hourglass,
-  sand draining from the top bulb in real time. **Flip the phone upside
-  down and the hourglass turns over** — the sand that already fell becomes
-  the sand still to fall, remaining and elapsed swap, and the countdown
-  keeps running on the new remainder. Exactly like the real thing.
+- The chronograph's third card: the countdown as an actual **particle
+  system**. Every grain of sand is a simulated body under the live
+  accelerometer gravity vector, and the neck is a gate that only lets
+  through as many grains as the clock has earned — the pile drains at
+  exactly the countdown's pace. Time becomes physical: **lay the phone
+  flat or on its side and the sand can't reach the neck, so the countdown
+  stops**; flip the phone upside down and the fallen sand becomes the sand
+  still to fall (remaining and elapsed swap, like turning a real
+  hourglass). The glass fills the screen and zooms with the shared
+  pinch scale of all the dials. A tappable "Duration: 5 min" control
+  above the glass cycles 5 → 10 → 15 minutes, pouring in more sand.
 
 **The hidden metronome** 🥁
 - There is a BPM counter in the app, and no button leads to it. Tap the
@@ -207,9 +213,21 @@ stopwatch swipes to a second rendered dial: the countdown.
   display, and tap the metronome to have it keep your rhythm, pendulum
   swinging.
 
-**World clock**
-- An optional second mini-dial in the corner shows another time zone
-  (17 cities to pick from), styled like the main clock.
+**World-clock bubbles**
+- World clocks are **bubbles**: pick any number of cities (17 to choose
+  from) and each becomes a mini dial floating over the main clock, styled
+  like it. They dock in an orderly column and stay put — until you fling
+  one: then it bounces off the screen edges, off the other bubbles (waking
+  them up on impact) and off the main dial itself. Shrink the main dial
+  and the bubbles get more room to fly. The "Put everything back" button
+  re-docks them neatly.
+
+**Calendar reminders**
+- Tap any day in the calendar (C3) to add a dated reminder with its own
+  time and label: it rings like an alarm — full-screen, over the lock
+  screen, snoozable — then expires. Days with reminders carry an accent
+  dot in the calendar, and today's reminders join the alarms as
+  Sectograph-style markers on the main dial.
 
 **Settings** are split in two: a simple menu with what the average user
 looks for (theme, numerals, date, bells, ticking), and an Advanced submenu
@@ -220,7 +238,9 @@ no scrolling required — and remounts everything in one tap. Rotating the
 screen no longer resets the chaos: fallen pieces, winding and chrono state
 survive orientation changes.
 
-The app is localized in English and Spanish.
+The app is localized in English and Spanish, and follows the system
+light/dark mode — the page backgrounds and UI text switch palettes, while
+the dial keeps whichever theme you dressed it in.
 
 ## Building
 

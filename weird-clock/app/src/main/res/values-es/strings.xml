@@ -47,9 +47,11 @@
     <string name="speed_warning_message">Doblar la velocidad del tiempo no permite viajar en el tiempo, y las alarmas quedan desactivadas mientras el tiempo no corra al 100%. Weird Clock declina toda responsabilidad por citas perdidas.</string>
 
     <string name="category_world">Reloj mundial</string>
-    <string name="pref_world_clock_title">Segunda esfera</string>
-    <string name="pref_world_clock_summary">Una pequeña esfera extra con otra zona horaria</string>
+    <string name="pref_world_clock_title">Burbujas de reloj mundial</string>
+    <string name="pref_world_clock_summary">Mini esferas con otras zonas horarias flotando sobre el reloj — lanza una y rebota como una burbuja</string>
     <string name="pref_world_tz_title">Zona horaria</string>
+    <string name="pref_world_cities_title">Ciudades</string>
+    <string name="pref_world_cities_summary">Una burbuja por ciudad seleccionada</string>
 
     <string name="chrono_start">Iniciar</string>
     <string name="chrono_pause">Pausa</string>
@@ -88,7 +90,7 @@
     <string name="pref_reassemble_summary">Vuelve a montar de golpe las manecillas y números caídos</string>
     <string name="reassemble_done">Todo en su sitio</string>
     <string name="pref_advanced_title">Opciones avanzadas</string>
-    <string name="pref_advanced_summary">Horas de la esfera, modo espejo, físicas táctiles, velocidad del tiempo, reloj mundial…</string>
+    <string name="pref_advanced_summary">Bajo tu responsabilidad: horas de la esfera, forma de la esfera, modo espejo, físicas táctiles, velocidad del tiempo…</string>
     <string name="pref_alarm_enabled_title">Alarma</string>
     <string name="pref_alarm_enabled_summary">Suena con las campanas sintetizadas de la propia app, incluso en segundo plano</string>
     <string name="pref_alarm_time_title">Hora de la alarma</string>
@@ -117,6 +119,12 @@
     <string name="bpm_metronome_hint">Toca el metrónomo y te mantiene el ritmo</string>
 
     <string name="s3_flip_hint">Da la vuelta al móvil para voltear el reloj de arena</string>
+    <string name="s3_duration_prefix">"Duración: "</string>
+    <string name="s3_duration_min">%1$d min</string>
+    <string name="reminder_add">Nuevo recordatorio</string>
+    <string name="reminder_hint">¿Qué hay que recordar?</string>
+    <string name="reminder_untitled">Recordatorio</string>
+    <string name="reminder_deleted">Recordatorio eliminado</string>
     <string name="pref_night_dim_title">Modo noche automático</string>
     <string name="pref_night_dim_summary">De 22:00 a 07:00 la esfera se atenúa al 30% para no iluminar el dormitorio</string>
     <string name="overlay_intro_title">El reloj de arena flotante</string>

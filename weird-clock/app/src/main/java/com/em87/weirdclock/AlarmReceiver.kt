@@ -14,6 +14,9 @@ class AlarmReceiver : BroadcastReceiver() {
             .putExtra(AlarmScheduler.EXTRA_SNOOZE, intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE, 0))
             .putExtra(AlarmScheduler.EXTRA_LABEL, intent.getStringExtra(AlarmScheduler.EXTRA_LABEL))
         ContextCompat.startForegroundService(context, service)
+        // A calendar reminder is one-shot: it expires as it fires.
+        val reminderId = intent.getIntExtra(AlarmScheduler.EXTRA_REMINDER_ID, -1)
+        if (reminderId > 0) ReminderStore.remove(context, reminderId)
         // Re-arm the next upcoming alarm (this one's next slot is tomorrow).
         AlarmScheduler.update(context)
     }

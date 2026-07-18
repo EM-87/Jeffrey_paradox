@@ -1558,7 +1558,23 @@ class ClockView @JvmOverloads constructor(
         Hand.SECOND -> secondHandPaint
     }
 
-    private fun dialRadius(): Float = min(width, height) / 2f * 0.92f * dialScale
+    /**
+     * Polygonal faces read smaller than a circle of the same circumradius
+     * (their edges sit at the apothem), so each shape gets a size boost that
+     * brings its edges near the screen margins without clipping the corners.
+     */
+    private fun shapeBoost(): Float = when (dialShape) {
+        DialShape.TRIANGLE -> 1.25f
+        DialShape.SQUARE -> 1.30f
+        DialShape.HEXAGON -> 1.12f
+        DialShape.OCTAGON -> 1.06f
+        else -> 1f
+    }
+
+    private fun dialRadius(): Float = min(width, height) / 2f * 0.92f * dialScale * shapeBoost()
+
+    /** The dial's current outer radius, for hosts that need it (bubbles). */
+    fun currentDialRadius(): Float = dialRadius()
 
     /**
      * Distance from the center to the dial's edge at [angleDeg], measured

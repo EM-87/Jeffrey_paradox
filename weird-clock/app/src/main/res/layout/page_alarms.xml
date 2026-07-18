@@ -16,7 +16,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/alarms_title"
-            android:textColor="#E8E8E8"
+            android:textColor="@color/text_primary"
             android:textSize="26sp"
             android:textStyle="bold" />
 
@@ -25,7 +25,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="@string/alarms_hint"
-            android:textColor="#8A93A8"
+            android:textColor="@color/text_secondary"
             android:textSize="13sp" />
 
         <androidx.recyclerview.widget.RecyclerView
@@ -44,7 +44,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:text="@string/alarms_empty"
-        android:textColor="#8A93A8"
+        android:textColor="@color/text_secondary"
         android:textSize="15sp"
         android:visibility="gone" />
 

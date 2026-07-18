@@ -33,6 +33,21 @@ class CalendarPageView @JvmOverloads constructor(
     var numeralStyle = ClockView.NumeralStyle.ARABIC
         set(value) { field = value; invalidate() }
 
+    /** Days of the shown month carrying a reminder (accent-dotted). */
+    var markedDays: Set<Int> = emptySet()
+        set(value) { field = value; invalidate() }
+
+    /** Fired when the user taps a day cell of the shown month. */
+    var onDayTap: ((day: Int) -> Unit)? = null
+
+    /** Fired when the shown month changes (chevrons or today-jump). */
+    var onMonthChanged: (() -> Unit)? = null
+
+    val shownYear: Int get() = shown.get(Calendar.YEAR)
+
+    /** 1–12. */
+    val shownMonth1: Int get() = shown.get(Calendar.MONTH) + 1
+
     /** First day of the month currently on screen. */
     private val shown: Calendar = Calendar.getInstance().apply {
         set(Calendar.DAY_OF_MONTH, 1)
@@ -79,6 +94,11 @@ class CalendarPageView @JvmOverloads constructor(
                     }
                     return true
                 }
+                dayAt(event.x, event.y)?.let { day ->
+                    performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    onDayTap?.invoke(day)
+                    return true
+                }
             }
         }
         return super.onTouchEvent(event)
@@ -87,6 +107,7 @@ class CalendarPageView @JvmOverloads constructor(
     private fun pageMonth(delta: Int) {
         shown.add(Calendar.MONTH, delta)
         performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        onMonthChanged?.invoke()
         invalidate()
     }
 
@@ -94,7 +115,22 @@ class CalendarPageView @JvmOverloads constructor(
         shown.timeInMillis = TimeKeeper.nowMs()
         shown.set(Calendar.DAY_OF_MONTH, 1)
         performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        onMonthChanged?.invoke()
         invalidate()
+    }
+
+    /** The day of the shown month under (x, y), or null. */
+    private fun dayAt(x: Float, y: Float): Int? {
+        val gridLeft = width * 0.06f
+        val gridRight = width * 0.94f
+        val gridTop = height * 0.19f
+        val gridBottom = height * 0.88f
+        if (x < gridLeft || x > gridRight || y < gridTop || y > gridBottom) return null
+        val col = ((x - gridLeft) / ((gridRight - gridLeft) / 7f)).toInt().coerceIn(0, 6)
+        val row = ((y - gridTop) / ((gridBottom - gridTop) / 6f)).toInt().coerceIn(0, 5)
+        val leadBlank = ((shown.get(Calendar.DAY_OF_WEEK) - shown.firstDayOfWeek) + 7) % 7
+        val day = row * 7 + col - leadBlank + 1
+        return if (day in 1..shown.getActualMaximum(Calendar.DAY_OF_MONTH)) day else null
     }
 
     // ----------------------------------------------------------------- draw
@@ -104,6 +140,15 @@ class CalendarPageView @JvmOverloads constructor(
         val w = width.toFloat()
         val h = height.toFloat()
         if (w <= 0f || h <= 0f) return
+
+        // Face-colored card behind the grid, so the theme's colors stay
+        // readable whatever the system light/dark background does.
+        moonDarkPaint.color = theme.face
+        moonDarkPaint.alpha = 255
+        canvas.drawRoundRect(
+            RectF(w * 0.015f, h * 0.015f, w * 0.985f, h * 0.93f),
+            w * 0.05f, w * 0.05f, moonDarkPaint
+        )
 
         titlePaint.color = theme.numeral
         chevronPaint.color = theme.decimal
@@ -174,6 +219,18 @@ class CalendarPageView @JvmOverloads constructor(
 
             if (isThisMonth && day == todayDay) {
                 canvas.drawCircle(cx, cy, minOf(cellW, cellH) * 0.40f, todayRingPaint)
+            }
+
+            if (markedDays.contains(day)) {
+                // Reminder marker: an accent dot in the cell's corner.
+                moonLitPaint.color = theme.decimal
+                moonLitPaint.alpha = 255
+                canvas.drawCircle(
+                    cx + cellW * 0.32f, cy - cellH * 0.26f,
+                    minOf(cellW, cellH) * 0.07f, moonLitPaint
+                )
+                moonLitPaint.color = theme.numeral
+                moonLitPaint.alpha = 220
             }
 
             drawMiniMoon(canvas, cx, cy + cellH * 0.34f, minOf(cellW, cellH) * 0.10f, scratch.timeInMillis)

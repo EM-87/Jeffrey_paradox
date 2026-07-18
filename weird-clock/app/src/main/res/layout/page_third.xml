@@ -14,43 +14,32 @@
             android:id="@+id/calendar_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_marginBottom="56dp"
             android:padding="8dp" />
     </FrameLayout>
 
     <!-- Chronograph mode: S1 stopwatch → S2 countdown → S3 hourglass.
-         The countdown as falling sand; flip the phone to turn it over. -->
+         The countdown as real falling sand under the accelerometer; the
+         neck decides how many grains pass. Flip the phone to turn it over. -->
     <FrameLayout
         android:id="@+id/hourglass_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone">
 
-        <com.em87.weirdclock.HourglassView
-            android:id="@+id/s3_hourglass"
-            android:layout_width="230dp"
-            android:layout_height="340dp"
-            android:layout_gravity="center" />
+        <com.em87.weirdclock.SandHourglassView
+            android:id="@+id/s3_sand"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
 
         <TextView
-            android:id="@+id/s3_hint"
+            android:id="@+id/s3_duration"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="top|center_horizontal"
-            android:layout_marginTop="28dp"
-            android:alpha="0.6"
-            android:text="@string/s3_flip_hint"
-            android:textColor="#8A93A8"
-            android:textSize="14sp" />
+            android:layout_marginTop="24dp"
+            android:padding="8dp"
+            android:textColor="@color/text_secondary"
+            android:textSize="16sp" />
     </FrameLayout>
-
-    <Button
-        android:id="@+id/third_back_button"
-        style="?attr/materialButtonOutlinedStyle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="12dp"
-        android:text="@string/mode_stopwatch" />
 
 </FrameLayout>

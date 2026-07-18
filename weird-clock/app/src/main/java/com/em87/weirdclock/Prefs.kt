@@ -33,7 +33,9 @@ object Prefs {
     const val LAST_LONGITUDE = "pref_last_longitude"
     const val ALARM_RAMP = "pref_alarm_ramp"
     const val WORLD_CLOCK = "pref_world_clock"
+    // Legacy single-city key, kept only for migration to WORLD_TZS.
     const val WORLD_TZ = "pref_world_tz"
+    const val WORLD_TZS = "pref_world_tzs"
 
     const val DIAL_SHAPE = "pref_dial_shape"
 

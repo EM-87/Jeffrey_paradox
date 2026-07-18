@@ -48,9 +48,11 @@
     <string name="speed_warning_message">Bending the speed of time does not allow time travel, and alarms are disabled while time is not running at 100%. Weird Clock declines all responsibility for missed appointments.</string>
 
     <string name="category_world">World clock</string>
-    <string name="pref_world_clock_title">Second dial</string>
-    <string name="pref_world_clock_summary">A small extra dial showing another time zone</string>
+    <string name="pref_world_clock_title">World-clock bubbles</string>
+    <string name="pref_world_clock_summary">Mini dials with other time zones floating over the clock — fling one and it bounces around like a bubble</string>
     <string name="pref_world_tz_title">Time zone</string>
+    <string name="pref_world_cities_title">Cities</string>
+    <string name="pref_world_cities_summary">One bubble per selected city</string>
 
     <!-- Buttons show where pressing them takes you: hourglass enters the
          chronograph, analog clock returns to it; a second button switches
@@ -100,7 +102,7 @@
     <string name="pref_reassemble_summary">Remounts fallen hands and numerals in one tap</string>
     <string name="reassemble_done">Everything back in its place</string>
     <string name="pref_advanced_title">Advanced options</string>
-    <string name="pref_advanced_summary">Hours on the dial, mirror mode, touch physics, time speed, world clock…</string>
+    <string name="pref_advanced_summary">At your own risk: hours on the dial, dial shape, mirror mode, touch physics, time speed…</string>
     <string name="pref_alarm_enabled_title">Alarm</string>
     <string name="pref_alarm_enabled_summary">Rings with the app’s own synthesized bells, even from the background</string>
     <string name="pref_alarm_time_title">Alarm time</string>
@@ -129,6 +131,12 @@
     <string name="bpm_metronome_hint">Tap the metronome and it keeps your beat</string>
 
     <string name="s3_flip_hint">Flip the phone to turn the hourglass over</string>
+    <string name="s3_duration_prefix">"Duration: "</string>
+    <string name="s3_duration_min">%1$d min</string>
+    <string name="reminder_add">New reminder</string>
+    <string name="reminder_hint">What needs remembering?</string>
+    <string name="reminder_untitled">Reminder</string>
+    <string name="reminder_deleted">Reminder deleted</string>
     <string name="pref_night_dim_title">Automatic night mode</string>
     <string name="pref_night_dim_summary">From 22:00 to 07:00 the dial dims to 30% so it doesn’t light the bedroom</string>
     <string name="overlay_intro_title">The floating hourglass</string>

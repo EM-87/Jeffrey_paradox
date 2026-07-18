@@ -117,6 +117,10 @@
         <item>Pacific/Honolulu</item>
     </string-array>
 
+    <string-array name="world_tzs_default">
+        <item>UTC</item>
+    </string-array>
+
     <string-array name="bell_style_entries">
         <item>Count the hour (grandfather clock)</item>
         <item>Ship’s bell (nautical watches)</item>

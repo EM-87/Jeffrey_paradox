@@ -127,14 +127,14 @@
             android:summary="@string/pref_world_clock_summary"
             android:defaultValue="false" />
 
-        <ListPreference
-            android:key="pref_world_tz"
-            android:title="@string/pref_world_tz_title"
+        <MultiSelectListPreference
+            android:key="pref_world_tzs"
+            android:title="@string/pref_world_cities_title"
+            android:summary="@string/pref_world_cities_summary"
             android:entries="@array/world_tz_entries"
             android:entryValues="@array/world_tz_values"
-            android:defaultValue="UTC"
-            android:dependency="pref_world_clock"
-            app:useSimpleSummaryProvider="true" />
+            android:defaultValue="@array/world_tzs_default"
+            android:dependency="pref_world_clock" />
 
     </PreferenceCategory>
 

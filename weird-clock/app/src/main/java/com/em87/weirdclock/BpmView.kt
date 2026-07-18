@@ -132,6 +132,10 @@ class BpmView @JvmOverloads constructor(
         if (w <= 0f || h <= 0f) return
         val now = SystemClock.uptimeMillis()
 
+        // Face-colored backdrop so the theme reads on any system background.
+        bobPaint.color = theme.face
+        canvas.drawRect(0f, 0f, w, h, bobPaint)
+
         digitalPaint.color = theme.decimal
         labelPaint.color = theme.minorTick
         hintPaint.color = theme.minorTick

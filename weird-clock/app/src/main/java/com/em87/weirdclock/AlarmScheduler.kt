@@ -16,6 +16,7 @@ import java.util.Calendar
 object AlarmScheduler {
 
     const val EXTRA_ALARM_ID = "extra_alarm_id"
+    const val EXTRA_REMINDER_ID = "extra_reminder_id"
     const val EXTRA_SOUND = "extra_sound"
     const val EXTRA_SOUND_URI = "extra_sound_uri"
 
@@ -31,11 +32,15 @@ object AlarmScheduler {
             return
         }
         val enabled = AlarmStore.load(context).filter { it.enabled }
-        if (enabled.isEmpty()) {
+        // Calendar reminders compete for the same single armed slot.
+        val reminders = ReminderStore.load(context)
+            .filter { it.timeInMillis() > System.currentTimeMillis() + 1000 }
+        if (enabled.isEmpty() && reminders.isEmpty()) {
             cancel(context)
             return
         }
         var next: Alarm? = null
+        var nextReminder: Reminder? = null
         var nextAt = Long.MAX_VALUE
         for (alarm in enabled) {
             val at = nextOccurrence(alarm)
@@ -44,7 +49,20 @@ object AlarmScheduler {
                 next = alarm
             }
         }
-        val alarm = next ?: return
+        for (reminder in reminders) {
+            val at = reminder.timeInMillis()
+            if (at < nextAt) {
+                nextAt = at
+                next = null
+                nextReminder = reminder
+            }
+        }
+        val reminderId = if (next == null) nextReminder?.id ?: -1 else -1
+        val alarm = next ?: nextReminder?.let { r ->
+            // A reminder rings like a bells alarm with a 5-minute snooze,
+            // carrying its label and its own id so it expires after firing.
+            Alarm(0, r.hour, r.minute, true, Prefs.ALARM_SOUND_BELLS, label = r.label)
+        } ?: return
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
         val show = PendingIntent.getActivity(
             context,
@@ -55,14 +73,14 @@ object AlarmScheduler {
         try {
             alarmManager.setAlarmClock(
                 AlarmManager.AlarmClockInfo(nextAt, show),
-                firePendingIntent(context, alarm)
+                firePendingIntent(context, alarm, reminderId)
             )
         } catch (e: SecurityException) {
             alarmManager.setWindow(
                 AlarmManager.RTC_WAKEUP,
                 nextAt,
                 60_000L,
-                firePendingIntent(context, alarm)
+                firePendingIntent(context, alarm, reminderId)
             )
         }
     }
@@ -89,13 +107,14 @@ object AlarmScheduler {
     }
 
     fun cancel(context: Context) {
-        context.getSystemService(AlarmManager::class.java)?.cancel(firePendingIntent(context, null))
+        context.getSystemService(AlarmManager::class.java)?.cancel(firePendingIntent(context, null, -1))
     }
 
-    private fun firePendingIntent(context: Context, alarm: Alarm?): PendingIntent {
+    private fun firePendingIntent(context: Context, alarm: Alarm?, reminderId: Int): PendingIntent {
         val intent = Intent(context, AlarmReceiver::class.java)
         alarm?.let {
             intent.putExtra(EXTRA_ALARM_ID, it.id)
+            intent.putExtra(EXTRA_REMINDER_ID, reminderId)
             intent.putExtra(EXTRA_SOUND, it.sound)
             intent.putExtra(EXTRA_SOUND_URI, it.soundUri)
             intent.putExtra(EXTRA_SNOOZE, it.snoozeMinutes)
