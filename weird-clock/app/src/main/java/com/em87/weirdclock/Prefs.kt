@@ -81,5 +81,6 @@ object Prefs {
     const val BUBBLE_X = "pref_bubble_x"
     const val BUBBLE_Y = "pref_bubble_y"
     const val NIGHT_DIM = "pref_night_dim"
+    const val WEEK_START_MONDAY = "pref_week_start_monday"
     const val OVERLAY_ASKED = "pref_overlay_asked"
 }

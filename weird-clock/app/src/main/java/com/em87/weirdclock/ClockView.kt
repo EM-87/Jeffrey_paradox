@@ -83,7 +83,7 @@ class ClockView @JvmOverloads constructor(
      */
     enum class MagnetProfile { COUNTDOWN, ALARM }
     private enum class Hand { HOUR, MINUTE, SECOND }
-    private enum class BodyKind { HAND, FAST_HAND, NUMERAL }
+    private enum class BodyKind { HAND, FAST_HAND, NUMERAL, MOON, DATE }
 
     /** Sounds triggered by interacting with the clock. */
     interface SoundListener {
@@ -96,6 +96,14 @@ class ClockView @JvmOverloads constructor(
     }
 
     var soundListener: SoundListener? = null
+
+    /** Fired on every knock that shakes something loose (hosts react too). */
+    var onKnocked: (() -> Unit)? = null
+
+    /** Knocks the hands off programmatically (bubbles echo the main dial). */
+    fun knockHandsOff() {
+        dropHands(0f, -6f)
+    }
 
     var hoursOnDial = 12
         set(value) { field = value.coerceIn(2, 24); invalidate() }
@@ -730,10 +738,16 @@ class ClockView @JvmOverloads constructor(
         var chosen: Hand? = null
         if (chronoSettable && chronoProvider != null) {
             // Setting a duration: inside the dial, minutes and hours matter
-            // and seconds barely. But when the stacked hands are grabbed from
-            // OUTSIDE the dial, the second hand wins — its tip is the longest,
-            // and reaching in from the edge signals a seconds-scale countdown.
-            val fromOutside = hypot(x - cx, y - cy) > r
+            // and seconds barely. But near the rim — where nobody would reach
+            // for a short hand — the second hand is granted the whole ring:
+            // touch anywhere in it and the second hand is yours, no need to
+            // land the finger on its thin line.
+            val fingerDist = hypot(x - cx, y - cy)
+            val bAtTouch = boundaryRadius(touchAngleDeg(x, y))
+            if (showSecondHand && !isFallen(Hand.SECOND) && fingerDist > bAtTouch * 0.86f) {
+                chosen = Hand.SECOND
+            }
+            val fromOutside = fingerDist > r
             val order = if (fromOutside) {
                 arrayOf(Triple(Hand.SECOND, 1.4f, showSecondHand),
                     Triple(Hand.MINUTE, 1.1f, true),
@@ -743,11 +757,13 @@ class ClockView @JvmOverloads constructor(
                     Triple(Hand.HOUR, 1.2f, true),
                     Triple(Hand.SECOND, 0.8f, showSecondHand))
             }
-            for ((hand, factor, enabled) in order) {
-                if (!enabled || isFallen(hand)) continue
-                if (distanceToHand(hand, a, x, y, cx, cy, r) < threshold * factor) {
-                    chosen = hand
-                    break
+            if (chosen == null) {
+                for ((hand, factor, enabled) in order) {
+                    if (!enabled || isFallen(hand)) continue
+                    if (distanceToHand(hand, a, x, y, cx, cy, r) < threshold * factor) {
+                        chosen = hand
+                        break
+                    }
                 }
             }
         } else if (showSecondHand && !isFallen(Hand.SECOND) &&
@@ -1067,7 +1083,12 @@ class ClockView @JvmOverloads constructor(
         } else {
             dropRandomNumerals(impulseX, impulseY)
         }
+        onKnocked?.invoke()
     }
+
+    private fun isMoonFallen(): Boolean = fallenBodies.any { it.kind == BodyKind.MOON }
+
+    private fun isDateFallen(): Boolean = fallenBodies.any { it.kind == BodyKind.DATE }
 
     private fun dropHands(impulseX: Float, impulseY: Float) {
         val cx = width / 2f
@@ -1104,6 +1125,36 @@ class ClockView @JvmOverloads constructor(
                 BodyKind.FAST_HAND, null, a.fast,
                 FAST_LEN * r, 0.05f * r, 0.008f * r * 2f, cx, cy, ivx, ivy
             )
+        }
+        // Complications aren't screwed on any tighter than the hands.
+        if (chronoProvider == null) {
+            if (showMoonPhase && !isMoonFallen()) {
+                fallenBodies.add(
+                    FallingBody(
+                        kind = BodyKind.MOON, hand = null, numeralHour = 0, label = "",
+                        x = cx, y = cy + apothemRadius() * 0.45f,
+                        vx = ivx + Random.nextFloat() * 200f - 100f,
+                        vy = ivy - Random.nextFloat() * 200f,
+                        angleDeg = 0f, angVel = Random.nextFloat() * 240f - 120f,
+                        halfLen = r * 0.07f, strokeWidth = 0f, textSize = 0f
+                    )
+                )
+            }
+            if (showDate && !isDateFallen()) {
+                val label = dateText()
+                datePaint.textSize = r * 0.085f
+                fallenBodies.add(
+                    FallingBody(
+                        kind = BodyKind.DATE, hand = null, numeralHour = 0, label = label,
+                        x = cx, y = cy - apothemRadius() * 0.42f,
+                        vx = ivx + Random.nextFloat() * 200f - 100f,
+                        vy = ivy - Random.nextFloat() * 150f,
+                        angleDeg = 90f, angVel = Random.nextFloat() * 200f - 100f,
+                        halfLen = datePaint.measureText(label) / 2f,
+                        strokeWidth = 0f, textSize = r * 0.085f
+                    )
+                )
+            }
         }
         if (fallenBodies.isNotEmpty()) {
             lastPhysicsAt = SystemClock.uptimeMillis()
@@ -1243,7 +1294,12 @@ class ClockView @JvmOverloads constructor(
     }
 
     private fun bodyRadius(b: FallingBody): Float = max(
-        if (b.kind == BodyKind.NUMERAL) b.textSize * 0.30f else b.strokeWidth * 0.5f,
+        when (b.kind) {
+            BodyKind.NUMERAL -> b.textSize * 0.30f
+            BodyKind.DATE -> b.textSize * 0.35f
+            BodyKind.MOON -> b.halfLen * 0.9f
+            else -> b.strokeWidth * 0.5f
+        },
         10f
     )
 
@@ -1395,6 +1451,11 @@ class ClockView @JvmOverloads constructor(
         val remount = when (b.kind) {
             // Hands click back onto the central axis.
             BodyKind.HAND, BodyKind.FAST_HAND -> hypot(x - cx, y - cy) < r * 0.18f
+            // Complications go back to their own homes.
+            BodyKind.MOON ->
+                hypot(x - cx, y - (cy + apothemRadius() * 0.45f)) < r * 0.15f
+            BodyKind.DATE ->
+                hypot(x - cx, y - (cy - apothemRadius() * 0.42f)) < r * 0.15f
             // Each numeral has to go back to its own spot on the dial
             // (or to the center, if the dial no longer shows that hour).
             BodyKind.NUMERAL -> {
@@ -1725,13 +1786,24 @@ class ClockView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * MM:SS:CC with live centiseconds under an hour; from the hour mark on
+     * the centiseconds yield their slots to hours — HH:MM:SS.
+     */
     private fun formatDuration(ms: Long): String {
-        val total = kotlin.math.abs(ms) / 1000
+        val abs = kotlin.math.abs(ms)
         val sign = if (ms < 0) "-" else ""
-        return String.format(
-            Locale.US, "%s%02d:%02d:%02d",
-            sign, total / 3600 % 100, total / 60 % 60, total % 60
-        )
+        return if (abs < 3_600_000L) {
+            String.format(
+                Locale.US, "%s%02d:%02d:%02d",
+                sign, abs / 60_000, abs / 1000 % 60, abs / 10 % 100
+            )
+        } else {
+            String.format(
+                Locale.US, "%s%02d:%02d:%02d",
+                sign, abs / 3_600_000 % 100, abs / 60_000 % 60, abs / 1000 % 60
+            )
+        }
     }
 
     /**
@@ -1829,6 +1901,25 @@ class ClockView @JvmOverloads constructor(
                     )
                     canvas.restore()
                 }
+                BodyKind.DATE -> {
+                    // The capsule runs along the text, so the drawn text is
+                    // rotated 90° behind the body angle.
+                    datePaint.textSize = b.textSize
+                    canvas.save()
+                    canvas.translate(b.x, b.y)
+                    canvas.rotate(b.angleDeg - 90f)
+                    canvas.drawText(
+                        b.label, 0f,
+                        -(datePaint.ascent() + datePaint.descent()) / 2f,
+                        datePaint
+                    )
+                    canvas.restore()
+                }
+                BodyKind.MOON -> {
+                    canvas.drawCircle(b.x, b.y, b.halfLen, moonLitPaint)
+                    moonRimPaint.strokeWidth = b.halfLen * 0.12f
+                    canvas.drawCircle(b.x, b.y, b.halfLen, moonRimPaint)
+                }
                 else -> {
                     val rad = Math.toRadians(b.angleDeg.toDouble())
                     val dirX = sin(rad).toFloat()
@@ -1908,6 +1999,7 @@ class ClockView @JvmOverloads constructor(
      * cos(2π·phase), painted dark for crescents and lit for gibbous moons.
      */
     private fun drawMoonPhase(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        if (isMoonFallen()) return
         val mr = r * 0.07f
         val mcy = cy + apothemRadius() * 0.45f
         val synodicDays = 29.530588853
@@ -1935,9 +2027,9 @@ class ClockView @JvmOverloads constructor(
         canvas.drawCircle(cx, mcy, mr, moonRimPaint)
     }
 
-    private fun drawDate(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+    private fun dateText(): String {
         cal.timeInMillis = displayNowMs()
-        val text = when (dateFormatStyle) {
+        return when (dateFormatStyle) {
             DateFormatStyle.NUMBER -> numberDateFormat.format(Date(cal.timeInMillis))
             DateFormatStyle.TEXT -> textDateFormat.format(Date(cal.timeInMillis))
             DateFormatStyle.ROMAN -> {
@@ -1947,6 +2039,11 @@ class ClockView @JvmOverloads constructor(
                 "$day·$month·$year"
             }
         }
+    }
+
+    private fun drawDate(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        if (isDateFallen()) return
+        val text = dateText()
         datePaint.textSize = r * 0.085f
         val baseline = cy - apothemRadius() * 0.42f - (datePaint.ascent() + datePaint.descent()) / 2f
         canvas.drawText(text, cx, baseline, datePaint)

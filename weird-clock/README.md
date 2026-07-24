@@ -40,7 +40,9 @@ An analog clock app for Android with deliberately weird options.
 - **Dynamic theme (Material You)** — on Android 12+ the dial, hands,
   widgets and floating hourglass dress in your wallpaper's palette.
 - **Automatic night mode** (optional) — from 22:00 to 07:00 every color
-  dims to 30%, so the clock glows softly instead of lighting the bedroom.
+  dims to 30% (the alarms card included), so the clock glows softly
+  instead of lighting the bedroom — and the hourly bells hold their
+  tongue until morning.
 
 **Touch**
 - **Wind the hands** — grab any hand (hit zones are finger-sized and cover
@@ -140,7 +142,8 @@ stopwatch swipes to a second rendered dial: the countdown.
   Tap the crown and the clock answers with a cuckoo call; tap it five
   times fast and you'll overwind the whole mechanism.
 - **Stopwatch** — the main dial shows elapsed time with a 7-segment digital
-  readout (with a proper 7-segment minus sign below zero). Wind the hands
+  readout: MM:SS:CC with live centiseconds under the hour, HH:MM:SS beyond
+  (and a proper 7-segment minus sign below zero). Wind the hands
   into negative time and the spring brings it back. The CHEATER stamp only
   fires while the stopwatch is actually running — a stopped one has
   nothing to cheat.
@@ -202,9 +205,12 @@ stopwatch swipes to a second rendered dial: the countdown.
   flat or on its side and the sand can't reach the neck, so the countdown
   stops**; flip the phone upside down and the fallen sand becomes the sand
   still to fall (remaining and elapsed swap, like turning a real
-  hourglass). The glass fills the screen and zooms with the shared
-  pinch scale of all the dials. A tappable "Duration: 5 min" control
-  above the glass cycles 5 → 10 → 15 minutes, pouring in more sand.
+  hourglass). The glass has a proper curved hourglass silhouette, its
+  containment is analytic (no grain can ever tunnel out), and you can
+  poke the pile with a finger to scatter the sand. It fills the screen
+  and zooms with the shared pinch scale of all the dials. Four preset
+  buttons below — 3′ 5′ 10′ 15′, one selectable at a time — pour the
+  matching amount of sand into the glass.
 
 **The hidden metronome** 🥁
 - There is a BPM counter in the app, and no button leads to it. Tap the
@@ -214,13 +220,17 @@ stopwatch swipes to a second rendered dial: the countdown.
   swinging.
 
 **World-clock bubbles**
-- World clocks are **bubbles**: pick any number of cities (17 to choose
-  from) and each becomes a mini dial floating over the main clock, styled
-  like it. They dock in an orderly column and stay put — until you fling
-  one: then it bounces off the screen edges, off the other bubbles (waking
-  them up on impact) and off the main dial itself. Shrink the main dial
-  and the bubbles get more room to fly. The "Put everything back" button
-  re-docks them neatly.
+- World clocks are **bubbles**: add up to six cities (typed with
+  autocomplete over the whole timezone database) and each becomes a mini
+  dial floating over the main clock, styled like it. They dock in a tidy
+  3×2 grid along the top and stay put — until you fling one, or knock the
+  phone hard enough to shed the main clock's hands (that shakes every
+  bubble loose, tiny hands falling and all). Free bubbles are *buoyant*:
+  they drift against the accelerometer's gravity, bobbing toward whatever
+  edge is currently up, bouncing off the screen, off each other (waking
+  resting bubbles on impact) and off the main dial itself. They fade in
+  and out with the chronograph transition like the crown and pushers, and
+  "Put everything back" pins them back into the grid.
 
 **Calendar reminders**
 - Tap any day in the calendar (C3) to add a dated reminder with its own

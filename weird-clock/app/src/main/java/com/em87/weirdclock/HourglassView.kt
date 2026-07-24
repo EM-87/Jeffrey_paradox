@@ -61,6 +61,12 @@ class HourglassView @JvmOverloads constructor(
 
         val fraction = (remainingMs.toFloat() / totalMs).coerceIn(0f, 1f)
         val bulbHeight = midY - glassTop
+        // Real hourglass filling: the bulbs are cones, so there's hardly any
+        // volume near the tips — sand level = sqrt of the volume fraction,
+        // not a linear bar. The top pile collapses fast at the end; the
+        // bottom pile shoots up at the start.
+        val topLevel = bulbHeight * kotlin.math.sqrt(fraction)
+        val bottomLevel = bulbHeight * (1f - kotlin.math.sqrt(fraction))
 
         // Top sand: clip to the upper bulb, fill up from the neck.
         bulbPath.reset()
@@ -71,7 +77,7 @@ class HourglassView @JvmOverloads constructor(
         bulbPath.close()
         canvas.save()
         canvas.clipPath(bulbPath)
-        canvas.drawRect(left, midY - bulbHeight * fraction, right, midY, sandPaint)
+        canvas.drawRect(left, midY - topLevel, right, midY, sandPaint)
         canvas.restore()
         canvas.drawPath(bulbPath, glassPaint)
 
@@ -84,7 +90,7 @@ class HourglassView @JvmOverloads constructor(
         bulbPath.close()
         canvas.save()
         canvas.clipPath(bulbPath)
-        canvas.drawRect(left, glassBottom - bulbHeight * (1f - fraction), right, glassBottom, sandPaint)
+        canvas.drawRect(left, glassBottom - bottomLevel, right, glassBottom, sandPaint)
         canvas.restore()
         canvas.drawPath(bulbPath, glassPaint)
 
@@ -93,7 +99,7 @@ class HourglassView @JvmOverloads constructor(
             sandPaint.alpha = if (SystemClock.uptimeMillis() / 250L % 2L == 0L) 255 else 170
             canvas.drawRect(
                 cx - w * 0.012f, midY,
-                cx + w * 0.012f, glassBottom - bulbHeight * (1f - fraction),
+                cx + w * 0.012f, glassBottom - bottomLevel,
                 sandPaint
             )
             sandPaint.alpha = 255

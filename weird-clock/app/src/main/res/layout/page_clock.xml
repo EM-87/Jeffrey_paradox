@@ -10,6 +10,13 @@
         android:layout_height="match_parent"
         android:padding="16dp" />
 
+    <!-- World-clock bubbles: draggable mini dials with bubble physics.
+         They sit BELOW the settings gear, which must always stay pressable. -->
+    <FrameLayout
+        android:id="@+id/bubble_layer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
     <ImageButton
         android:id="@+id/settings_button"
         android:layout_width="48dp"
@@ -57,14 +64,6 @@
             android:minWidth="52dp"
             android:text="@string/alarm_set_cancel" />
     </LinearLayout>
-
-    <!-- World-clock bubbles float here: draggable mini dials with bubble
-         physics, bouncing off the screen edges, each other and the main
-         dial. Populated in code from the selected cities. -->
-    <FrameLayout
-        android:id="@+id/bubble_layer"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
 
     <!-- Single centered mode button: hourglass on the clock, analog clock
          on the stopwatch. Start/reset live on the drawn case pushers. -->

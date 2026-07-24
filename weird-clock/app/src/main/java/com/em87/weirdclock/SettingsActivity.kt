@@ -45,6 +45,7 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
+            updateCitiesSummary()
             // The panic button only appears when something is actually
             // lying at the bottom of the dial.
             findPreference<Preference>(Prefs.REASSEMBLE)?.isVisible =
@@ -95,6 +96,10 @@ class SettingsActivity : AppCompatActivity() {
                         .commit()
                     return true
                 }
+                "pref_world_cities" -> {
+                    showCitiesDialog()
+                    return true
+                }
                 "pref_version" -> {
                     // In the finest Android tradition: seven taps on the
                     // version number and you're a drummer now.
@@ -122,6 +127,98 @@ class SettingsActivity : AppCompatActivity() {
         override fun onDestroy() {
             chimePlayer.release()
             super.onDestroy()
+        }
+
+        // -------------------------------------------------- world cities
+
+        private fun cityName(tzId: String): String =
+            tzId.substringAfterLast('/').replace('_', ' ')
+
+        private fun currentCities(): MutableList<String> {
+            val prefs = preferenceManager.sharedPreferences ?: return mutableListOf()
+            val set = prefs.getStringSet(Prefs.WORLD_TZS, null)
+                ?: setOfNotNull(prefs.getString(Prefs.WORLD_TZ, "UTC"))
+            return set.toMutableList().apply { sort() }
+        }
+
+        private fun saveCities(cities: Collection<String>) {
+            preferenceManager.sharedPreferences?.edit()
+                ?.putStringSet(Prefs.WORLD_TZS, HashSet(cities))
+                ?.apply()
+            updateCitiesSummary()
+        }
+
+        private fun updateCitiesSummary() {
+            findPreference<Preference>("pref_world_cities")?.summary =
+                currentCities().joinToString(" · ") { cityName(it) }
+                    .ifBlank { getString(R.string.world_add_city) }
+        }
+
+        /** Current cities (tap one to remove it) plus the add entry. */
+        private fun showCitiesDialog() {
+            val cities = currentCities()
+            val items = (
+                cities.map { "✕  ${cityName(it)}" } + getString(R.string.world_add_city)
+                ).toTypedArray()
+            AlertDialog.Builder(requireContext())
+                .setTitle(R.string.pref_world_cities_title)
+                .setItems(items) { _, which ->
+                    if (which < cities.size) {
+                        cities.removeAt(which)
+                        saveCities(cities)
+                        showCitiesDialog()
+                    } else {
+                        showAddCityDialog()
+                    }
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+
+        /** Type-ahead over every city the timezone database knows. */
+        private fun showAddCityDialog() {
+            val ids = java.util.TimeZone.getAvailableIDs().filter {
+                it.contains('/') && !it.startsWith("Etc/") && !it.startsWith("SystemV/")
+            }
+            val names = ids.map { cityName(it) }
+            val input = android.widget.AutoCompleteTextView(requireContext()).apply {
+                hint = getString(R.string.world_city_hint)
+                threshold = 1
+                setAdapter(
+                    android.widget.ArrayAdapter(
+                        requireContext(),
+                        android.R.layout.simple_dropdown_item_1line,
+                        names.distinct().sorted()
+                    )
+                )
+            }
+            val pad = (20 * resources.displayMetrics.density).toInt()
+            val wrapper = android.widget.FrameLayout(requireContext()).apply {
+                setPadding(pad, pad / 2, pad, 0)
+                addView(input)
+            }
+            AlertDialog.Builder(requireContext())
+                .setTitle(R.string.world_add_city)
+                .setView(wrapper)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val typed = input.text.toString().trim()
+                    val idx = names.indexOfFirst { it.equals(typed, ignoreCase = true) }
+                    val cities = currentCities()
+                    when {
+                        idx < 0 -> Toast.makeText(
+                            requireContext(), R.string.world_city_not_found, Toast.LENGTH_SHORT
+                        ).show()
+                        cities.size >= 6 -> Toast.makeText(
+                            requireContext(), R.string.world_bubble_limit, Toast.LENGTH_SHORT
+                        ).show()
+                        else -> {
+                            cities.add(ids[idx])
+                            saveCities(cities)
+                        }
+                    }
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         }
 
         /** Plays a sample of whatever bell style is currently selected. */

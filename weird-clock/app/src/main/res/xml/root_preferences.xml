@@ -101,6 +101,21 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="@string/category_world">
+
+        <SwitchPreferenceCompat
+            android:key="pref_world_clock"
+            android:title="@string/pref_world_clock_title"
+            android:summary="@string/pref_world_clock_summary"
+            android:defaultValue="false" />
+
+        <Preference
+            android:key="pref_world_cities"
+            android:title="@string/pref_world_cities_title"
+            android:dependency="pref_world_clock" />
+
+    </PreferenceCategory>
+
     <Preference
         android:key="pref_advanced"
         android:title="@string/pref_advanced_title"

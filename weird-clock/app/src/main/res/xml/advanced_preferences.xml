@@ -119,23 +119,4 @@
 
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="@string/category_world">
-
-        <SwitchPreferenceCompat
-            android:key="pref_world_clock"
-            android:title="@string/pref_world_clock_title"
-            android:summary="@string/pref_world_clock_summary"
-            android:defaultValue="false" />
-
-        <MultiSelectListPreference
-            android:key="pref_world_tzs"
-            android:title="@string/pref_world_cities_title"
-            android:summary="@string/pref_world_cities_summary"
-            android:entries="@array/world_tz_entries"
-            android:entryValues="@array/world_tz_values"
-            android:defaultValue="@array/world_tzs_default"
-            android:dependency="pref_world_clock" />
-
-    </PreferenceCategory>
-
 </PreferenceScreen>

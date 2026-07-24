@@ -47,11 +47,14 @@
     <string name="speed_warning_message">Doblar la velocidad del tiempo no permite viajar en el tiempo, y las alarmas quedan desactivadas mientras el tiempo no corra al 100%. Weird Clock declina toda responsabilidad por citas perdidas.</string>
 
     <string name="category_world">Reloj mundial</string>
-    <string name="pref_world_clock_title">Burbujas de reloj mundial</string>
-    <string name="pref_world_clock_summary">Mini esferas con otras zonas horarias flotando sobre el reloj — lanza una y rebota como una burbuja</string>
+    <string name="pref_world_clock_title">Reloj mundial</string>
+    <string name="pref_world_clock_summary">Mini esferas con la hora de otras ciudades</string>
     <string name="pref_world_tz_title">Zona horaria</string>
     <string name="pref_world_cities_title">Ciudades</string>
-    <string name="pref_world_cities_summary">Una burbuja por ciudad seleccionada</string>
+    <string name="world_add_city">Añadir ciudad…</string>
+    <string name="world_city_hint">Nombre de la ciudad</string>
+    <string name="world_city_not_found">No hay ninguna ciudad con ese nombre en la base de zonas horarias</string>
+    <string name="world_bubble_limit">Caben hasta 6 relojes en pantalla</string>
 
     <string name="chrono_start">Iniciar</string>
     <string name="chrono_pause">Pausa</string>
@@ -113,6 +116,7 @@
     <string name="countdown_channel_name">Cuenta atrás</string>
     <string name="countdown_notification_title">Cuenta atrás en marcha</string>
     <string name="countdown_done">¡Tiempo!</string>
+    <string name="countdown_finished">Cuenta atrás finalizada</string>
     <string name="countdown_cancel">Cancelar</string>
 
     <string name="bpm_tap_hint">Marca el ritmo — toca en cualquier parte de arriba</string>

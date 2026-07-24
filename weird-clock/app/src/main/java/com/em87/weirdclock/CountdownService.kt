@@ -227,8 +227,13 @@ class CountdownService : Service() {
             .getBoolean(Prefs.COUNTDOWN_PERSISTENT, true)
         if (persistent) {
             // Hand over to the alarm service: it loops the bells with a
-            // full-screen stop button until the user validates.
-            ContextCompat.startForegroundService(this, Intent(this, AlarmService::class.java))
+            // full-screen stop button until the user validates. Labeled so
+            // the notification says what finished, not what time it is.
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, AlarmService::class.java)
+                    .putExtra(AlarmScheduler.EXTRA_LABEL, getString(R.string.countdown_finished))
+            )
             stopSelf()
             return
         }

@@ -15,8 +15,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.text.InputType
-import android.text.SpannableString
-import android.text.style.ForegroundColorSpan
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -78,7 +76,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var hourglassContainer: View? = null
     private var calendarView: CalendarPageView? = null
     private var s3Sand: SandHourglassView? = null
-    private var s3DurationText: TextView? = null
+    private var s3DurationGroup: com.google.android.material.button.MaterialButtonToggleGroup? = null
+    private var updatingDurationChecks = false
     private var sandBlocked = false
     private var lastPage = 0
 
@@ -153,6 +152,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** Whether the dial is currently wearing its dimmed night colors. */
     private var appliedNightDim = false
 
+    /** Last seen uiMode, to recreate on system light/dark changes. */
+    private var lastUiMode = 0
+
     // ------------------------------------------------- hourglass flip (S3)
 
     /**
@@ -162,9 +164,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private var sensorManager: SensorManager? = null
     private var deviceInverted = false
+    private var flipLowPassX = 0f
     private var flipLowPassY = 9.81f
     private val flipListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
+            flipLowPassX = flipLowPassX * 0.8f + event.values[0] * 0.2f
             flipLowPassY = flipLowPassY * 0.8f + event.values[1] * 0.2f
             val nowInverted = when {
                 flipLowPassY < -6f -> true
@@ -179,6 +183,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
     }
+
+    /** Gravity in view coordinates (unit-ish), for the bubbles' buoyancy. */
+    private fun viewGravityX(): Float = -flipLowPassX / 9.81f
+    private fun viewGravityY(): Float = flipLowPassY / 9.81f
 
     private fun onDeviceFlipped() {
         // The sand view needs no rotation: its grains obey real gravity, so
@@ -207,12 +215,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 updateCountdownUi()
                 if (countdownPersistent) {
                     // Ring until validated: the alarm service loops the bells
-                    // and the ring screen carries the stop button.
+                    // and the ring screen carries the stop button. The
+                    // notification announces the countdown, not the time.
+                    val label = getString(R.string.countdown_finished)
                     ContextCompat.startForegroundService(
                         this@MainActivity,
                         Intent(this@MainActivity, AlarmService::class.java)
+                            .putExtra(AlarmScheduler.EXTRA_LABEL, label)
                     )
-                    startActivity(Intent(this@MainActivity, AlarmRingActivity::class.java))
+                    startActivity(
+                        Intent(this@MainActivity, AlarmRingActivity::class.java)
+                            .putExtra(AlarmScheduler.EXTRA_LABEL, label)
+                    )
                 } else {
                     chimePlayer.playBellSequence(3, false, ChimePlayer.DAY_CHIME_HZ, 1.2, 0.3)
                 }
@@ -318,6 +332,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     override fun onResume() {
         super.onResume()
+        // System light/dark toggled while we were away: rebuild everything
+        // so backgrounds, text colors and theme cards pick up the change.
+        val uiMode = resources.configuration.uiMode
+        if (lastUiMode != 0 && uiMode != lastUiMode) {
+            lastUiMode = uiMode
+            recreate()
+            return
+        }
+        lastUiMode = uiMode
         // The app is visible again: the notification takes a break, and we
         // pick up anything that happened to the countdown while away.
         CountdownService.stop(this)
@@ -337,6 +360,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 .apply()
             clockView?.reassembleAll()
             countdownClockView?.reassembleAll()
+            for (b in bubbles) b.clock.reassembleAll()
             dockBubbles()
         }
         applyPreferences()
@@ -427,6 +451,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
             it.onChronoAdjusted = { ms -> if (alarmSetActive) alarmWorkingMs = ms }
             it.onCrownTap = { chimePlayer.playCuckoo() }
+            // A knock hard enough to shed hands rattles the whole scene:
+            // bubbles break loose and their little hands fall off too.
+            it.onKnocked = {
+                freeBubbles()
+                for (b in bubbles) b.clock.knockHandsOff()
+            }
         }
         bubbleLayer = root.findViewById(R.id.bubble_layer)
         modeButton = root.findViewById<Button>(R.id.mode_button).also {
@@ -507,6 +537,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         calendarView = root.findViewById<CalendarPageView>(R.id.calendar_view).also {
             it.onDayTap = { day -> onCalendarDayTap(day) }
             it.onMonthChanged = { refreshCalendarMarks() }
+            it.onWeekStartChanged = { monday ->
+                prefs.edit().putBoolean(Prefs.WEEK_START_MONDAY, monday).apply()
+            }
         }
         s3Sand = root.findViewById<SandHourglassView>(R.id.s3_sand).also {
             it.onFlowBlocked = { blocked -> sandBlocked = blocked }
@@ -517,11 +550,44 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 countdownClockView?.dialScale = scale
             }
         }
-        s3DurationText = root.findViewById<TextView>(R.id.s3_duration).also {
-            it.setOnClickListener { cycleS3Duration() }
+        s3DurationGroup = root.findViewById<com.google.android.material.button.MaterialButtonToggleGroup>(
+            R.id.s3_duration_group
+        ).also { group ->
+            group.addOnButtonCheckedListener { _, checkedId, isChecked ->
+                if (updatingDurationChecks || !isChecked) return@addOnButtonCheckedListener
+                if (countdownRunning) {
+                    // Locked while running; snap the checks back to reality.
+                    syncS3DurationChecks()
+                    return@addOnButtonCheckedListener
+                }
+                val minutes = when (checkedId) {
+                    R.id.s3_d3 -> 3
+                    R.id.s3_d5 -> 5
+                    R.id.s3_d10 -> 10
+                    else -> 15
+                }
+                countdownRemainingMs = minutes * 60_000L
+                countdownTotalMs = minutes * 60_000L
+                chimePlayer.playTick()
+                updateCountdownUi()
+            }
         }
         applyPreferences()
         applyMode()
+    }
+
+    /** Reflects the current countdown duration on the S3 preset buttons. */
+    private fun syncS3DurationChecks() {
+        val group = s3DurationGroup ?: return
+        updatingDurationChecks = true
+        when (if (countdownRunning) countdownTotalMs else countdownRemainingMs) {
+            3 * 60_000L -> group.check(R.id.s3_d3)
+            5 * 60_000L -> group.check(R.id.s3_d5)
+            10 * 60_000L -> group.check(R.id.s3_d10)
+            15 * 60_000L -> group.check(R.id.s3_d15)
+            else -> group.clearChecked()
+        }
+        updatingDurationChecks = false
     }
 
     // -------------------------------------------------------------- alarms
@@ -849,7 +915,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private fun rebuildBubbles() {
         val layer = bubbleLayer ?: return
-        val tzs = selectedWorldTzs()
+        // At full zoom about six bubbles fit; the picker enforces the cap.
+        val tzs = selectedWorldTzs().take(6)
         if (tzs == bubbleTzsApplied) return
         bubbleTzsApplied = tzs
         layer.removeAllViews()
@@ -893,17 +960,34 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         dockBubbles()
     }
 
-    /** Orderly column along the start edge ("put everything back" too). */
+    /** Orderly 3×2 matrix along the top ("put everything back" too). */
     private fun dockBubbles() {
-        val density = resources.displayMetrics.density
-        val margin = 10 * density
-        for ((i, b) in bubbles.withIndex()) {
-            b.moving = false
-            b.vx = 0f
-            b.vy = 0f
-            b.x = margin
-            b.y = margin + i * (b.sizePx + 26 * density)
-            b.place()
+        val layer = bubbleLayer ?: return
+        layer.post {
+            val density = resources.displayMetrics.density
+            val gap = 8 * density
+            val size = bubbles.firstOrNull()?.sizePx ?: return@post
+            val cols = 3
+            val gridW = cols * size + (cols - 1) * gap
+            val startX = ((layer.width - gridW) / 2f).coerceAtLeast(4 * density)
+            val startY = 8 * density
+            for ((i, b) in bubbles.withIndex()) {
+                b.moving = false
+                b.vx = 0f
+                b.vy = 0f
+                b.x = startX + (i % cols) * (size + gap)
+                b.y = startY + (i / cols) * (size + 30 * density)
+                b.place()
+            }
+        }
+    }
+
+    /** A knock on the main dial shakes every bubble loose too. */
+    private fun freeBubbles() {
+        for (b in bubbles) {
+            b.moving = true
+            b.vx = (Math.random().toFloat() - 0.5f) * 400f
+            b.vy = -Math.random().toFloat() * 250f
         }
     }
 
@@ -968,10 +1052,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
         for (b in bubbles) {
             if (!b.moving) continue
+            // Bubbles are buoyant: free ones drift against gravity, so they
+            // bob toward whatever edge is currently "up" as you tilt.
+            b.vx += -viewGravityX() * BUBBLE_BUOYANCY * dt
+            b.vy += -viewGravityY() * BUBBLE_BUOYANCY * dt
             b.x += b.vx * dt
             b.y += b.vy * dt
-            b.vx *= 0.995f
-            b.vy *= 0.995f
+            b.vx *= 0.985f
+            b.vy *= 0.985f
             val r = b.sizePx / 2f
             // Screen edges.
             if (b.x < 0f) { b.x = 0f; b.vx = -b.vx * 0.9f }
@@ -996,11 +1084,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     }
                 }
             }
-            if (hypot(b.vx, b.vy) < 18f) {
-                b.moving = false
-                b.vx = 0f
-                b.vy = 0f
-            }
+            // Free bubbles never park themselves: buoyancy keeps them
+            // bobbing until "put everything back" pins them again.
         }
 
         // Bubble-bubble collisions; a resting bubble that gets hit wakes up.
@@ -1112,6 +1197,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         calendarView?.let {
             it.theme = cv.theme
             it.numeralStyle = cv.numeralStyle
+            it.weekStartsMonday = prefs.getBoolean(
+                Prefs.WEEK_START_MONDAY,
+                Calendar.getInstance().firstDayOfWeek == Calendar.MONDAY
+            )
         }
         refreshCalendarMarks()
         s3Sand?.let {
@@ -1119,7 +1208,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.glassScale = cv.dialScale
             it.setTime(countdownTotalMs, countdownRemaining())
         }
-        updateS3Duration()
+        syncS3DurationChecks()
+
+        // Night dims the alarms card too — it was the only bright one left.
+        alarmsContainer?.alpha = if (appliedNightDim) 0.45f else 1f
 
         bellsEnabled = prefs.getBoolean(Prefs.BELLS, false)
         bellStyle = prefs.getString(Prefs.BELL_STYLE, Prefs.BELL_STYLE_COUNT) ?: Prefs.BELL_STYLE_COUNT
@@ -1242,7 +1334,19 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
         modeButton?.setText(if (chrono) R.string.mode_stopwatch else R.string.mode_clock)
         modeButton?.visibility = if (alarmSetActive) View.GONE else View.VISIBLE
-        bubbleLayer?.visibility = if (chrono || alarmSetActive) View.GONE else View.VISIBLE
+        // Bubbles fade with the mode change, like the crown and pushers.
+        val showBubbles = !chrono && !alarmSetActive
+        bubbleLayer?.let { layer ->
+            layer.animate().cancel()
+            if (showBubbles) {
+                layer.visibility = View.VISIBLE
+                layer.animate().alpha(1f).setDuration(500L).start()
+            } else {
+                layer.animate().alpha(0f).setDuration(500L)
+                    .withEndAction { layer.visibility = View.GONE }
+                    .start()
+            }
+        }
         settingsButton?.visibility = if (chrono || alarmSetActive) View.GONE else View.VISIBLE
         // Pages two and three follow the mode: alarms and calendar beside
         // the clock, the countdown dial and the hourglass beside the stopwatch.
@@ -1257,40 +1361,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         countdownClockView?.chronoSettable = !countdownRunning
         countdownClockView?.chronoRunning = countdownRunning
         s3Sand?.setTime(countdownTotalMs, countdownRemaining())
-        updateS3Duration()
-    }
-
-    /** The tappable "Duration: 5 min" control above the sand. */
-    private fun updateS3Duration() {
-        val tv = s3DurationText ?: return
-        val ms = if (countdownRunning) countdownTotalMs else countdownRemainingMs
-        val minutes = (ms / 60_000L).toInt()
-        val value = if (minutes >= 60) {
-            String.format(Locale.US, "%d:%02d h", minutes / 60, minutes % 60)
-        } else {
-            getString(R.string.s3_duration_min, minutes)
-        }
-        val prefix = getString(R.string.s3_duration_prefix)
-        val span = SpannableString(prefix + value)
-        span.setSpan(
-            ForegroundColorSpan(ContextCompat.getColor(this, R.color.accent)),
-            prefix.length, span.length, 0
-        )
-        tv.text = span
-    }
-
-    /** Tapping the duration cycles 5 → 10 → 15 min, pouring in more sand. */
-    private fun cycleS3Duration() {
-        if (countdownRunning) return
-        val next = when (countdownRemainingMs) {
-            5 * 60_000L -> 10 * 60_000L
-            10 * 60_000L -> 15 * 60_000L
-            else -> 5 * 60_000L
-        }
-        countdownRemainingMs = next
-        countdownTotalMs = next
-        chimePlayer.playTick()
-        updateCountdownUi()
+        syncS3DurationChecks()
     }
 
     private fun isNightNow(): Boolean {
@@ -1350,7 +1421,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     // ------------------------------------------------- scheduled chimes
 
     private fun onMinuteBoundary() {
-        if (!bellsEnabled) return
+        // Night mode keeps the house quiet: no bells while the dial is dim.
+        if (!bellsEnabled || appliedNightDim) return
         val now = Calendar.getInstance()
         now.timeInMillis = TimeKeeper.nowMs()
         val hour = now.get(Calendar.HOUR_OF_DAY)
@@ -1454,5 +1526,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     companion object {
         const val EXTRA_OPEN_ALARMS = "extra_open_alarms"
         private const val DEFAULT_COUNTDOWN_MS = 5 * 60_000L
+        private const val BUBBLE_BUOYANCY = 300f
     }
 }

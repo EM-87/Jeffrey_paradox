@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -17,6 +18,7 @@ import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 import kotlin.random.Random
 
 /**
@@ -26,7 +28,11 @@ import kotlin.random.Random
  * the pile drains at exactly the countdown's pace — and time becomes
  * physical: tilt the phone sideways and the sand can't reach the neck, so
  * the countdown stops; flip the phone and the fallen sand becomes the sand
- * still to fall. One grain ≈ one quantum of your time.
+ * still to fall. Poke the pile with a finger and it scatters.
+ *
+ * The glass is a real hourglass profile — a smooth curve from the wide
+ * bulbs to the neck — and containment is analytic (the glass half-width is
+ * a function of height), so no grain can ever tunnel out.
  */
 class SandHourglassView @JvmOverloads constructor(
     context: Context,
@@ -57,7 +63,6 @@ class SandHourglassView @JvmOverloads constructor(
     private var totalMs = 300_000L
     private var remainingMs = 300_000L
 
-    /** Grains represent time; at most this many are simulated. */
     private fun grainQuantumMs(): Long = (totalMs / MAX_GRAINS).coerceAtLeast(1000L)
 
     private fun desiredGrainCount(): Int =
@@ -73,27 +78,33 @@ class SandHourglassView @JvmOverloads constructor(
 
     // ------------------------------------------------------------- particles
 
-    private class Grain(var x: Float, var y: Float, var vx: Float, var vy: Float)
+    private class Grain(
+        var x: Float,
+        var y: Float,
+        var vx: Float,
+        var vy: Float,
+        var topSide: Boolean
+    )
 
     private val grains = ArrayList<Grain>()
-    private var grainR = 8f
+    private var grainR = 5f
     private var lastStepAt = 0L
+    private var lastTopCount = -1
     private var lastFlowChangeAt = 0L
-    private var lastUpstreamCount = -1
     private var reportedBlocked = false
 
-    // Glass geometry (view coordinates), rebuilt on size/scale changes.
+    // Glass geometry (view coordinates).
     private var cx = 0f
     private var cy = 0f
-    private var halfW = 0f
+    private var bulbHalf = 0f
     private var halfH = 0f
     private var neckHalf = 0f
-    /** Wall segments: x1,y1,x2,y2 per wall. */
-    private var walls = FloatArray(0)
+    private val glassPath = Path()
 
     private val glassPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
     }
     private val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -119,6 +130,14 @@ class SandHourglassView @JvmOverloads constructor(
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
     }
 
+    // Finger stir state.
+    private var stirActive = false
+    private var stirX = 0f
+    private var stirY = 0f
+    private var stirVx = 0f
+    private var stirVy = 0f
+    private var lastStirAt = 0L
+
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
@@ -142,30 +161,40 @@ class SandHourglassView @JvmOverloads constructor(
 
     // ------------------------------------------------------------- geometry
 
+    /**
+     * Glass half-width at height [y]: neck-width at the waist, swelling as
+     * the square root of the distance toward each bulb — the classic
+     * hourglass silhouette.
+     */
+    private fun halfWidthAt(y: Float): Float {
+        val t = (abs(y - cy) / halfH).coerceIn(0f, 1f)
+        return neckHalf + (bulbHalf - neckHalf) * sqrt(t)
+    }
+
     private fun rebuildGeometry() {
         if (width == 0 || height == 0) return
         cx = width / 2f
         cy = height / 2f
-        // Full-screen glass, scaled with the shared dial zoom.
         halfH = min(height * 0.40f, width * 0.72f) * glassScale
-        halfW = halfH * 0.60f
-        grainR = (halfW / 11f).coerceAtLeast(5f)
-        neckHalf = grainR * 1.55f
-        walls = floatArrayOf(
-            // Top lid.
-            cx - halfW, cy - halfH, cx + halfW, cy - halfH,
-            // Upper funnel.
-            cx - halfW, cy - halfH, cx - neckHalf, cy,
-            cx + halfW, cy - halfH, cx + neckHalf, cy,
-            // Lower funnel.
-            cx - neckHalf, cy, cx - halfW, cy + halfH,
-            cx + neckHalf, cy, cx + halfW, cy + halfH,
-            // Bottom lid.
-            cx - halfW, cy + halfH, cx + halfW, cy + halfH
-        )
+        bulbHalf = halfH * 0.58f
+        grainR = (bulbHalf / 22f).coerceAtLeast(2.5f)
+        neckHalf = grainR * 1.8f
+
+        glassPath.reset()
+        val steps = 36
+        for (i in 0..steps) {
+            val y = cy - halfH + (2f * halfH) * i / steps
+            val hw = halfWidthAt(y)
+            if (i == 0) glassPath.moveTo(cx - hw, y) else glassPath.lineTo(cx - hw, y)
+        }
+        for (i in steps downTo 0) {
+            val y = cy - halfH + (2f * halfH) * i / steps
+            val hw = halfWidthAt(y)
+            glassPath.lineTo(cx + hw, y)
+        }
+        glassPath.close()
     }
 
-    /** Rebuilds the two piles to match the clock (used on resize/duration). */
     private fun rebuildGrains() {
         if (width == 0 || halfH <= 0f) return
         grains.clear()
@@ -173,40 +202,44 @@ class SandHourglassView @JvmOverloads constructor(
         val top = (n * remainingMs.toDouble() / totalMs).roundToInt().coerceIn(0, n)
         repeat(n) { i ->
             val inTop = i < top
-            val gy = if (inTop) cy - halfH * 0.55f else cy + halfH * 0.55f
+            val gy = if (inTop) {
+                cy - halfH * (0.25f + Random.nextFloat() * 0.65f)
+            } else {
+                cy + halfH * (0.25f + Random.nextFloat() * 0.65f)
+            }
+            val hw = (halfWidthAt(gy) - grainR * 2f).coerceAtLeast(1f)
             grains.add(
                 Grain(
-                    cx + (Random.nextFloat() - 0.5f) * halfW * 1.2f,
-                    gy + (Random.nextFloat() - 0.5f) * halfH * 0.5f,
-                    0f, 0f
+                    cx + (Random.nextFloat() * 2f - 1f) * hw,
+                    gy, 0f, 0f,
+                    topSide = inTop
                 )
             )
         }
-        lastUpstreamCount = -1
+        lastTopCount = -1
     }
 
     // --------------------------------------------------------------- physics
 
     private fun stepPhysics() {
         val now = SystemClock.uptimeMillis()
-        val dt = ((now - lastStepAt).coerceIn(0, 40)) / 1000f
+        val frameDt = ((now - lastStepAt).coerceIn(0, 40)) / 1000f
         lastStepAt = now
-        if (dt <= 0f || grains.isEmpty()) return
+        if (frameDt <= 0f || grains.isEmpty()) return
 
-        // The neck gate: open only while the upstream bulb (against gravity)
-        // holds more grains than the clock says should remain.
+        // Gate bookkeeping: the upstream bulb (against gravity) may only
+        // shed grains the clock has already spent.
         val gMag = hypot(gravityX, gravityY)
         val verticalFlow = gMag > 1f && abs(gravityY) > gMag * 0.45f
         val upstreamIsTop = gravityY >= 0f
-        var upstream = 0
-        for (g in grains) if ((g.y < cy) == upstreamIsTop) upstream++
+        val topCount = grains.count { it.topSide }
+        val upstream = if (upstreamIsTop) topCount else grains.size - topCount
         val targetUpstream = (grains.size * remainingMs.toDouble() / totalMs).roundToInt()
-        val gateOpen = verticalFlow && upstream > targetUpstream
+        var budget = if (verticalFlow) upstream - targetUpstream else 0
 
-        // Time turns physical here: if grains should be passing but can't
-        // (phone flat or sideways), report it so the countdown freezes.
-        if (upstream != lastUpstreamCount) {
-            lastUpstreamCount = upstream
+        // Physical time: sand that should flow but can't freezes the clock.
+        if (topCount != lastTopCount) {
+            lastTopCount = topCount
             lastFlowChangeAt = now
         }
         val blocked = upstream > targetUpstream + 1 && !verticalFlow &&
@@ -216,67 +249,82 @@ class SandHourglassView @JvmOverloads constructor(
             onFlowBlocked?.invoke(blocked)
         }
 
-        for (g in grains) {
-            g.vx += gravityX * dt
-            g.vy += gravityY * dt
-            g.vx *= 0.998f
-            g.vy *= 0.998f
-            g.x += g.vx * dt
-            g.y += g.vy * dt
-        }
+        // Two substeps keep fast grains from skipping across the neck.
+        repeat(2) {
+            val dt = frameDt / 2f
+            for (g in grains) {
+                g.vx += gravityX * dt
+                g.vy += gravityY * dt
+                // Finger stir: grains near the finger get shoved along.
+                if (stirActive) {
+                    val dx = g.x - stirX
+                    val dy = g.y - stirY
+                    val d = hypot(dx, dy)
+                    val reach = grainR * 9f
+                    if (d < reach && d > 0.001f) {
+                        val push = (1f - d / reach)
+                        g.vx += (dx / d * 2600f + stirVx * 0.9f) * push * dt * 8f
+                        g.vy += (dy / d * 2600f + stirVy * 0.9f) * push * dt * 8f
+                    }
+                }
+                // Speed cap: nothing may cross a grain diameter per substep.
+                val sp = hypot(g.vx, g.vy)
+                val maxSp = grainR * 1.6f / dt
+                if (sp > maxSp) {
+                    g.vx *= maxSp / sp
+                    g.vy *= maxSp / sp
+                }
+                g.vx *= 0.999f
+                g.vy *= 0.999f
+                g.x += g.vx * dt
+                g.y += g.vy * dt
 
-        // Neck gate as an extra wall while closed.
-        val gateSolid = !gateOpen
+                // Neck gate: crossing is only for grains the clock released.
+                val nowTop = g.y < cy
+                if (nowTop != g.topSide) {
+                    val crossingDownstream = g.topSide == upstreamIsTop
+                    if (crossingDownstream && budget > 0) {
+                        budget--
+                        g.topSide = nowTop
+                    } else {
+                        // Bounce back off the closed gate.
+                        if (g.topSide) {
+                            g.y = cy - grainR
+                            if (g.vy > 0f) g.vy = -g.vy * 0.2f
+                        } else {
+                            g.y = cy + grainR
+                            if (g.vy < 0f) g.vy = -g.vy * 0.2f
+                        }
+                    }
+                }
 
-        // Wall + gate constraints, then grain-grain separation.
-        for (g in grains) {
-            constrainToWalls(g, gateSolid)
-        }
-        separateGrains()
-        for (g in grains) {
-            constrainToWalls(g, gateSolid)
-        }
-    }
-
-    private fun constrainToWalls(g: Grain, gateSolid: Boolean) {
-        var i = 0
-        while (i < walls.size) {
-            pushFromSegment(g, walls[i], walls[i + 1], walls[i + 2], walls[i + 3])
-            i += 4
-        }
-        if (gateSolid) {
-            pushFromSegment(g, cx - neckHalf, cy, cx + neckHalf, cy)
-        }
-        // Hard clamp to the view so nothing escapes numerically.
-        g.x = g.x.coerceIn(grainR, width - grainR)
-        g.y = g.y.coerceIn(grainR, height - grainR)
-    }
-
-    private fun pushFromSegment(g: Grain, x1: Float, y1: Float, x2: Float, y2: Float) {
-        val dx = x2 - x1
-        val dy = y2 - y1
-        val len2 = dx * dx + dy * dy
-        if (len2 <= 0f) return
-        val t = (((g.x - x1) * dx + (g.y - y1) * dy) / len2).coerceIn(0f, 1f)
-        val qx = x1 + t * dx
-        val qy = y1 + t * dy
-        val ox = g.x - qx
-        val oy = g.y - qy
-        val d = hypot(ox, oy)
-        if (d < grainR && d > 0.0001f) {
-            val nx = ox / d
-            val ny = oy / d
-            val push = grainR - d
-            g.x += nx * push
-            g.y += ny * push
-            val vn = g.vx * nx + g.vy * ny
-            if (vn < 0f) {
-                // Mostly inelastic: sand piles, it doesn't bounce.
-                g.vx -= 1.15f * vn * nx
-                g.vy -= 1.15f * vn * ny
-                g.vx *= 0.92f
-                g.vy *= 0.92f
+                constrainToGlass(g)
             }
+            separateGrains()
+            for (g in grains) constrainToGlass(g)
+        }
+    }
+
+    /** Analytic containment: escape is geometrically impossible. */
+    private fun constrainToGlass(g: Grain) {
+        val topLimit = cy - halfH + grainR
+        val bottomLimit = cy + halfH - grainR
+        if (g.y < topLimit) {
+            g.y = topLimit
+            if (g.vy < 0f) g.vy = -g.vy * 0.3f
+        }
+        if (g.y > bottomLimit) {
+            g.y = bottomLimit
+            if (g.vy > 0f) g.vy = -g.vy * 0.3f
+        }
+        val maxX = (halfWidthAt(g.y) - grainR).coerceAtLeast(0.5f)
+        val dx = g.x - cx
+        if (dx > maxX) {
+            g.x = cx + maxX
+            if (g.vx > 0f) g.vx = -g.vx * 0.3f
+        } else if (dx < -maxX) {
+            g.x = cx - maxX
+            if (g.vx < 0f) g.vx = -g.vx * 0.3f
         }
     }
 
@@ -290,7 +338,7 @@ class SandHourglassView @JvmOverloads constructor(
             val key = (g.x / cell).toLong() * 100_000L + (g.y / cell).toLong()
             cellMap.getOrPut(key) { ArrayList() }.add(g)
         }
-        val minDist = grainR * 1.7f
+        val minDist = grainR * 1.75f
         for (g in grains) {
             val cxi = (g.x / cell).toLong()
             val cyi = (g.y / cell).toLong()
@@ -335,8 +383,36 @@ class SandHourglassView @JvmOverloads constructor(
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         scaleDetector.onTouchEvent(event)
-        if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
-            parent?.requestDisallowInterceptTouchEvent(true)
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                stirActive = true
+                stirX = event.x
+                stirY = event.y
+                stirVx = 0f
+                stirVy = 0f
+                lastStirAt = SystemClock.uptimeMillis()
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (!scaleDetector.isInProgress) {
+                    val now = SystemClock.uptimeMillis()
+                    val dt = (now - lastStirAt).coerceAtLeast(1L) / 1000f
+                    stirVx = (event.x - stirX) / dt
+                    stirVy = (event.y - stirY) / dt
+                    stirX = event.x
+                    stirY = event.y
+                    lastStirAt = now
+                    stirActive = true
+                } else {
+                    stirActive = false
+                }
+            }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                stirActive = false
+                parent?.requestDisallowInterceptTouchEvent(true)
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                stirActive = false
+            }
         }
         return true
     }
@@ -351,27 +427,30 @@ class SandHourglassView @JvmOverloads constructor(
         // Sand.
         sandPaint.color = theme.decimal
         for (g in grains) {
-            canvas.drawCircle(g.x, g.y, grainR * 0.72f, sandPaint)
+            canvas.drawCircle(g.x, g.y, grainR * 0.8f, sandPaint)
         }
 
         // Glass on top, so grains read as inside it.
         glassPaint.color = theme.rim
-        glassPaint.strokeWidth = grainR * 0.5f
-        var i = 4 // skip the top lid, drawn as a frame cap below
-        while (i < walls.size - 4) {
-            canvas.drawLine(walls[i], walls[i + 1], walls[i + 2], walls[i + 3], glassPaint)
-            i += 4
-        }
+        glassPaint.strokeWidth = (grainR * 0.9f).coerceAtLeast(3f)
+        canvas.drawPath(glassPath, glassPaint)
+
         framePaint.color = theme.tick
-        framePaint.strokeWidth = grainR * 0.9f
-        canvas.drawLine(cx - halfW * 1.15f, cy - halfH, cx + halfW * 1.15f, cy - halfH, framePaint)
-        canvas.drawLine(cx - halfW * 1.15f, cy + halfH, cx + halfW * 1.15f, cy + halfH, framePaint)
+        framePaint.strokeWidth = (grainR * 1.4f).coerceAtLeast(4f)
+        canvas.drawLine(
+            cx - bulbHalf * 1.18f, cy - halfH,
+            cx + bulbHalf * 1.18f, cy - halfH, framePaint
+        )
+        canvas.drawLine(
+            cx - bulbHalf * 1.18f, cy + halfH,
+            cx + bulbHalf * 1.18f, cy + halfH, framePaint
+        )
 
         postInvalidateOnAnimation()
     }
 
     companion object {
-        private const val MAX_GRAINS = 220
+        private const val MAX_GRAINS = 500
         private const val GRAVITY = 2400f
     }
 }

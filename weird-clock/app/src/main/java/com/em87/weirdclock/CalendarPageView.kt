@@ -43,6 +43,20 @@ class CalendarPageView @JvmOverloads constructor(
     /** Fired when the shown month changes (chevrons or today-jump). */
     var onMonthChanged: (() -> Unit)? = null
 
+    /** Week start: swipe over the weekday header to toggle it. */
+    var weekStartsMonday = false
+        set(value) { field = value; invalidate() }
+    var onWeekStartChanged: ((Boolean) -> Unit)? = null
+
+    private fun firstDow(): Int =
+        if (weekStartsMonday) Calendar.MONDAY else Calendar.SUNDAY
+
+    // Month-change slide: the day grid glides in like a mini card.
+    private var slideDir = 0
+    private var slideStart = 0L
+    private var downX = 0f
+    private var downY = 0f
+
     val shownYear: Int get() = shown.get(Calendar.YEAR)
 
     /** 1–12. */
@@ -84,8 +98,32 @@ class CalendarPageView @JvmOverloads constructor(
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> return true
+            MotionEvent.ACTION_DOWN -> {
+                downX = event.x
+                downY = event.y
+                // Title and header rows own their horizontal swipes; the
+                // hosting pager must not steal them.
+                if (event.y < height * 0.19f) {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                }
+                return true
+            }
             MotionEvent.ACTION_UP -> {
+                val dx = event.x - downX
+                val swipe = kotlin.math.abs(dx) > width * 0.12f
+                if (downY < height * 0.10f && swipe) {
+                    // Swiping the month name pages months, card-style.
+                    pageMonth(if (dx < 0) 1 else -1)
+                    return true
+                }
+                if (downY in height * 0.10f..height * 0.19f && swipe) {
+                    // Swiping the weekday header flips the week start.
+                    weekStartsMonday = !weekStartsMonday
+                    performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    onWeekStartChanged?.invoke(weekStartsMonday)
+                    return true
+                }
+                if (swipe) return true
                 if (event.y < height * 0.16f) {
                     when {
                         event.x < width * 0.28f -> pageMonth(-1)
@@ -106,6 +144,8 @@ class CalendarPageView @JvmOverloads constructor(
 
     private fun pageMonth(delta: Int) {
         shown.add(Calendar.MONTH, delta)
+        slideDir = delta
+        slideStart = android.os.SystemClock.uptimeMillis()
         performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         onMonthChanged?.invoke()
         invalidate()
@@ -128,7 +168,7 @@ class CalendarPageView @JvmOverloads constructor(
         if (x < gridLeft || x > gridRight || y < gridTop || y > gridBottom) return null
         val col = ((x - gridLeft) / ((gridRight - gridLeft) / 7f)).toInt().coerceIn(0, 6)
         val row = ((y - gridTop) / ((gridBottom - gridTop) / 6f)).toInt().coerceIn(0, 5)
-        val leadBlank = ((shown.get(Calendar.DAY_OF_WEEK) - shown.firstDayOfWeek) + 7) % 7
+        val leadBlank = ((shown.get(Calendar.DAY_OF_WEEK) - firstDow()) + 7) % 7
         val day = row * 7 + col - leadBlank + 1
         return if (day in 1..shown.getActualMaximum(Calendar.DAY_OF_MONTH)) day else null
     }
@@ -167,8 +207,21 @@ class CalendarPageView @JvmOverloads constructor(
         canvas.drawText("‹", w * 0.14f, titleY, chevronPaint)
         canvas.drawText("›", w * 0.86f, titleY, chevronPaint)
 
-        // Weekday header, starting on the locale's first day of week.
-        val firstDow = shown.firstDayOfWeek
+        // Month change slides the grid in like a card, no hard cuts.
+        val st = (android.os.SystemClock.uptimeMillis() - slideStart) / 280f
+        val slideOffset = if (slideDir != 0 && st < 1f) {
+            postInvalidateOnAnimation()
+            val t = st.coerceIn(0f, 1f)
+            val eased = 1f - (1f - t) * (1f - t)
+            (1f - eased) * w * 0.35f * slideDir
+        } else {
+            0f
+        }
+        canvas.save()
+        canvas.translate(slideOffset, 0f)
+
+        // Weekday header; swipe over it to flip the week start.
+        val firstDow = firstDow()
         val gridLeft = w * 0.06f
         val gridRight = w * 0.94f
         val cellW = (gridRight - gridLeft) / 7f
@@ -235,6 +288,7 @@ class CalendarPageView @JvmOverloads constructor(
 
             drawMiniMoon(canvas, cx, cy + cellH * 0.34f, minOf(cellW, cellH) * 0.10f, scratch.timeInMillis)
         }
+        canvas.restore()
     }
 
     /** The same terminator-ellipse moon as the dial, in miniature. */

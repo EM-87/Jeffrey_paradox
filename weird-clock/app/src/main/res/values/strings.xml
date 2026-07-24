@@ -48,11 +48,14 @@
     <string name="speed_warning_message">Bending the speed of time does not allow time travel, and alarms are disabled while time is not running at 100%. Weird Clock declines all responsibility for missed appointments.</string>
 
     <string name="category_world">World clock</string>
-    <string name="pref_world_clock_title">World-clock bubbles</string>
-    <string name="pref_world_clock_summary">Mini dials with other time zones floating over the clock — fling one and it bounces around like a bubble</string>
+    <string name="pref_world_clock_title">World clock</string>
+    <string name="pref_world_clock_summary">Mini dials showing the time in other cities</string>
     <string name="pref_world_tz_title">Time zone</string>
     <string name="pref_world_cities_title">Cities</string>
-    <string name="pref_world_cities_summary">One bubble per selected city</string>
+    <string name="world_add_city">Add city…</string>
+    <string name="world_city_hint">City name</string>
+    <string name="world_city_not_found">No city by that name in the timezone database</string>
+    <string name="world_bubble_limit">Up to 6 clocks fit on screen</string>
 
     <!-- Buttons show where pressing them takes you: hourglass enters the
          chronograph, analog clock returns to it; a second button switches
@@ -125,6 +128,7 @@
     <string name="countdown_channel_name">Countdown</string>
     <string name="countdown_notification_title">Countdown running</string>
     <string name="countdown_done">Time’s up!</string>
+    <string name="countdown_finished">Countdown finished</string>
     <string name="countdown_cancel">Cancel</string>
 
     <string name="bpm_tap_hint">Tap the beat — anywhere up here</string>
