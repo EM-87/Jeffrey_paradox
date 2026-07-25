@@ -89,6 +89,8 @@
     <string name="alarm_add">Add alarm</string>
     <string name="alarm_delete">Delete alarm</string>
     <string name="alarm_edit_time">Edit</string>
+    <string name="alarm_add_time">Add</string>
+    <string name="alarm_times_full">Three times a day is quite enough</string>
     <string name="alarm_quick_weekdays">Weekdays</string>
     <string name="alarm_quick_weekends">Weekend</string>
     <string name="alarm_quick_everyday">Every day</string>

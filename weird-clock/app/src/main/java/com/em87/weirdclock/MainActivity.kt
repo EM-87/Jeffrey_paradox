@@ -103,6 +103,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     // Alarm-time setting on the clock dial with the wind-to-set engine.
     private var alarmSetActive = false
     private var alarmBeingSet: Alarm? = null
+    private var alarmTimeIndexBeingSet = 0
     private var alarmWorkingMs = 0L
 
     // Stable provider instances: recreating these lambdas on every
@@ -695,6 +696,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private inner class AlarmHolder(view: View) : RecyclerView.ViewHolder(view) {
         val time: TextView = view.findViewById(R.id.alarm_time)
+        val extraTimes: TextView = view.findViewById(R.id.alarm_extra_times)
         val name: TextView = view.findViewById(R.id.alarm_name)
         val days: TextView = view.findViewById(R.id.alarm_days)
         val soundName: TextView = view.findViewById(R.id.alarm_sound_name)
@@ -717,7 +719,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
         override fun onBindViewHolder(holder: AlarmHolder, position: Int) {
             val alarm = alarms[position]
-            holder.time.text = String.format(Locale.US, "%02d:%02d", alarm.hour, alarm.minute)
+            val times = alarm.allTimes()
+            holder.time.text =
+                String.format(Locale.US, "%02d:%02d", times[0].first, times[0].second)
+            // A concept that happens three times a day says so under its
+            // first time, rather than pretending to be three alarms.
+            holder.extraTimes.text = times.drop(1).joinToString("  ") {
+                String.format(Locale.US, "%02d:%02d", it.first, it.second)
+            }
+            holder.extraTimes.visibility =
+                if (times.size > 1) View.VISIBLE else View.GONE
 
             holder.name.text = alarm.label.ifBlank { getString(R.string.alarm_label_hint) }
             holder.name.alpha = if (alarm.label.isBlank()) 0.45f else 1f
@@ -752,6 +763,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
             val alpha = if (alarm.enabled) 1f else 0.4f
             holder.time.alpha = alpha
+            holder.extraTimes.alpha = alpha
             holder.days.alpha = alpha
             holder.itemView.findViewById<View>(R.id.alarm_icons).alpha = alpha
 
@@ -802,7 +814,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val draft = alarm.copy()
         val isNew = !alarms.contains(alarm)
 
-        val timeText = view.findViewById<TextView>(R.id.sheet_time)
+        val dialsRow = view.findViewById<LinearLayout>(R.id.sheet_dials)
         val nameValue = view.findViewById<TextView>(R.id.sheet_name_value)
         val soundValue = view.findViewById<TextView>(R.id.sheet_sound_value)
         val snoozeValue = view.findViewById<TextView>(R.id.sheet_snooze_value)
@@ -810,8 +822,40 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val flashSwitch = view.findViewById<SwitchCompat>(R.id.sheet_flash)
         val daysRow = view.findViewById<LinearLayout>(R.id.sheet_days)
 
+        // One little analog face per time, tapped to wind it on the big dial.
+        fun rebuildDials() {
+            dialsRow.removeAllViews()
+            val size = (58 * resources.displayMetrics.density).toInt()
+            for (index in 0 until draft.timeCount()) {
+                val (h, m) = draft.timeAt(index)
+                val fixedMs = (h * 3_600_000L) + (m * 60_000L)
+                val dial = ClockView(this).apply {
+                    touchHandsEnabled = false
+                    pinchZoomEnabled = false
+                    shakeDropEnabled = false
+                    showDate = false
+                    showSecondHand = false
+                    theme = clockView?.theme ?: ClockThemes.MIDNIGHT
+                    hoursOnDial = readHoursOnDial()
+                    dialShape = readDialShape()
+                    numeralStyle = ClockView.NumeralStyle.NONE
+                    // A constant "duration" makes the dial a static clock.
+                    chronoProvider = { fixedMs }
+                }
+                dial.setOnClickListener {
+                    commitDraft(alarm, draft, isNew)
+                    sheet.dismiss()
+                    enterAlarmSetMode(alarms.firstOrNull { a -> a.id == draft.id }, index)
+                }
+                dialsRow.addView(
+                    dial,
+                    LinearLayout.LayoutParams(size, size).apply { marginEnd = 8 }
+                )
+            }
+        }
+
         fun refresh() {
-            timeText.text = String.format(Locale.US, "%02d:%02d", draft.hour, draft.minute)
+            rebuildDials()
             nameValue.text = draft.label.ifBlank { getString(R.string.alarm_label_hint) }
             soundValue.text = soundLabel(draft.sound)
             snoozeValue.text = if (draft.snoozeMinutes > 0) {
@@ -877,11 +921,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             paintDays()
         }
 
-        view.findViewById<Button>(R.id.sheet_edit_time).setOnClickListener {
-            // Winding the dial is how this app sets times.
-            sheet.dismiss()
-            commitDraft(alarm, draft, isNew)
-            enterAlarmSetMode(alarms.firstOrNull { it.id == draft.id })
+        view.findViewById<Button>(R.id.sheet_add_time).setOnClickListener {
+            if (draft.timeCount() >= Alarm.MAX_TIMES) {
+                Toast.makeText(this, R.string.alarm_times_full, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            // A new repetition starts four hours after the last one — the
+            // usual shape of a three-times-a-day thing.
+            val last = draft.allTimes().last()
+            val next = (last.first * 60 + last.second + 240) % (24 * 60)
+            draft.extraTimes.add(next)
+            refresh()
         }
 
         view.findViewById<View>(R.id.sheet_row_name).setOnClickListener {
@@ -1006,9 +1056,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * the countdown's wind-to-set engine, with a "Set alarm time" banner.
      * Winding the hands moves the proposed time; magnets and haptics apply.
      */
-    private fun enterAlarmSetMode(alarm: Alarm?) {
+    private fun enterAlarmSetMode(alarm: Alarm?, timeIndex: Int = 0) {
         alarmBeingSet = alarm
-        alarmWorkingMs = ((alarm?.hour ?: 7) * 3600L + (alarm?.minute ?: 30) * 60L) * 1000L
+        alarmTimeIndexBeingSet = timeIndex
+        val (h, m) = alarm?.timeAt(timeIndex) ?: (7 to 30)
+        alarmWorkingMs = (h * 3600L + m * 60L) * 1000L
         alarmSetActive = true
         mode = Mode.CLOCK
         pager.currentItem = PAGE_HOME
@@ -1039,8 +1091,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             alarms.add(Alarm(AlarmStore.nextId(alarms), hour, minute, true, Prefs.ALARM_SOUND_BELLS))
             maybeRequestNotificationPermission()
         } else {
-            alarm.hour = hour
-            alarm.minute = minute
+            alarm.setTime(alarmTimeIndexBeingSet, hour, minute)
         }
         persistAlarms()
         exitAlarmSetMode()
@@ -1065,7 +1116,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     private fun sortAlarms() {
-        alarms.sortBy { it.hour * 60 + it.minute }
+        alarms.sortBy { it.allTimes().first().let { (h, m) -> h * 60 + m } }
     }
 
     @Suppress("NotifyDataSetChanged")
@@ -1091,7 +1142,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             val n = readHoursOnDial()
             val alarmAngles = alarms
                 .filter { it.enabled && it.durationMinutes <= 0 }
-                .map { alarm -> (alarm.hour + alarm.minute / 60f) % n / n * 360f }
+                .flatMap { alarm -> alarm.allTimes() }
+                .map { (h, m) -> (h + m / 60f) % n / n * 360f }
             // Instant reminders join the alarm dots; ones with a duration
             // become wedges instead.
             val reminderAngles = todaysReminders()
@@ -1107,9 +1159,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             val today = Calendar.getInstance().apply { timeInMillis = TimeKeeper.nowMs() }
             val alarmArcs = alarms
                 .filter { it.enabled && it.durationMinutes > 0 && it.ringsOn(today.get(Calendar.DAY_OF_WEEK)) }
-                .map { alarm ->
-                    val start = (alarm.hour + alarm.minute / 60f) % n / n * 360f
-                    start to alarm.durationMinutes / 60f / n * 360f
+                .flatMap { alarm ->
+                    alarm.allTimes().map { (h, m) ->
+                        (h + m / 60f) % n / n * 360f to alarm.durationMinutes / 60f / n * 360f
+                    }
                 }
             val reminderArcs = todaysReminders()
                 .filter { it.durationMinutes > 0 }

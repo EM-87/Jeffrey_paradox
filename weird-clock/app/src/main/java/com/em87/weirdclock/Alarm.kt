@@ -32,15 +32,46 @@ data class Alarm(
      */
     var durationMinutes: Int = 0,
     /** Strobe the camera flash while ringing. */
-    var flash: Boolean = false
+    var flash: Boolean = false,
+    /**
+     * Extra times of day (minutes past midnight) this same alarm also rings
+     * at. One alarm is one *concept* — "pills", "stretch" — and a concept
+     * can happen three times a day without being three separate alarms.
+     */
+    var extraTimes: MutableList<Int> = mutableListOf()
 ) {
     fun ringsOn(dayOfWeek: Int): Boolean =
         daysMask == 0 || (daysMask and (1 shl (dayOfWeek - 1))) != 0
+
+    /** Every time this alarm rings at, in order, the first one included. */
+    fun allTimes(): List<Pair<Int, Int>> =
+        (listOf(hour * 60 + minute) + extraTimes)
+            .distinct()
+            .sorted()
+            .map { it / 60 to it % 60 }
+
+    /** Replaces the [index]-th time; index 0 is the alarm's own hour. */
+    fun setTime(index: Int, newHour: Int, newMinute: Int) {
+        if (index <= 0) {
+            hour = newHour
+            minute = newMinute
+        } else if (index - 1 < extraTimes.size) {
+            extraTimes[index - 1] = newHour * 60 + newMinute
+        }
+    }
+
+    fun timeAt(index: Int): Pair<Int, Int> =
+        if (index <= 0) hour to minute
+        else extraTimes.getOrElse(index - 1) { 0 }.let { it / 60 to it % 60 }
+
+    /** How many times this concept happens (1–3). */
+    fun timeCount(): Int = 1 + extraTimes.size
 
     companion object {
         const val ALL_DAYS = 0b1111111
         const val WEEKDAYS = 0b0111110
         const val WEEKENDS = 0b1000001
+        const val MAX_TIMES = 3
     }
 }
 
@@ -83,7 +114,10 @@ object AlarmStore {
                         soundUri = o.optString("soundUri", ""),
                         vibrate = o.optBoolean("vibrate", true),
                         durationMinutes = o.optInt("duration", 0),
-                        flash = o.optBoolean("flash", false)
+                        flash = o.optBoolean("flash", false),
+                        extraTimes = o.optJSONArray("extraTimes")?.let { arr ->
+                            MutableList(arr.length()) { arr.getInt(it) }
+                        } ?: mutableListOf()
                     )
                 )
             }
@@ -129,6 +163,7 @@ object AlarmStore {
                     .put("vibrate", a.vibrate)
                     .put("duration", a.durationMinutes)
                     .put("flash", a.flash)
+                    .put("extraTimes", JSONArray(a.extraTimes))
             )
         }
         PreferenceManager.getDefaultSharedPreferences(context)

@@ -22,21 +22,22 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/sheet_time"
+            <!-- One dial per time this concept happens: tap one to wind
+                 it, Add for another (three at most). -->
+            <LinearLayout
+                android:id="@+id/sheet_dials"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textColor="@color/text_primary"
-                android:textSize="44sp"
-                android:textStyle="bold" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal" />
 
             <Button
-                android:id="@+id/sheet_edit_time"
+                android:id="@+id/sheet_add_time"
                 style="?attr/materialButtonOutlinedStyle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/alarm_edit_time" />
+                android:text="@string/alarm_add_time" />
         </LinearLayout>
 
         <!-- Weekday buttons: S M T W T F S, tapped individually. -->

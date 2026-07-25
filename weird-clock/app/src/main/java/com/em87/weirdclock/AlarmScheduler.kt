@@ -87,10 +87,17 @@ object AlarmScheduler {
         }
     }
 
-    private fun nextOccurrence(alarm: Alarm): Long {
+    /**
+     * The soonest this alarm next goes off, across every time of day it is
+     * set for — a three-times-a-day concept is still one armed alarm.
+     */
+    private fun nextOccurrence(alarm: Alarm): Long =
+        alarm.allTimes().minOf { (h, m) -> nextOccurrenceOf(alarm, h, m) }
+
+    private fun nextOccurrenceOf(alarm: Alarm, hour: Int, minute: Int): Long {
         val cal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, alarm.hour)
-            set(Calendar.MINUTE, alarm.minute)
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
             if (timeInMillis <= System.currentTimeMillis() + 1000) {

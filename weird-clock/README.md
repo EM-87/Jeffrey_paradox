@@ -120,8 +120,10 @@ clock, not a background chime service).
   on your phone** (via the system file picker) as a per-alarm sound — if
   the file ever disappears, the bells take over, because an alarm must
   never fail silently. Each alarm also has a per-alarm snooze setting
-  cycling off → 5 min → 10 min, offered on the ring screen and its
-  notification alongside Stop. Alarms can carry a label
+  cycling off → 5 → 10 → 15 min, offered on the ring screen and its
+  notification alongside Stop. An alarm is a *concept*, not a time: one
+  alarm can ring up to three times a day (pills, stretches), shown in the
+  editor as one little analog face per repetition. Alarms can carry a label
   ("Gym", "Pills") shown while ringing, and by default ring with gradual
   volume — starting quiet and climbing to full over a minute.
 - Alarms ring even when the app is closed: an exact AlarmManager alarm
