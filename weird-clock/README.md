@@ -130,7 +130,17 @@ clock, not a background chime service).
   after 3 minutes. The old single alarm from settings is migrated
   automatically.
 
-**Chronograph** — the card system mirrors the clock's: press the centered
+**The cards**
+- The app opens on the clock (**C0**). One swipe left is the **calendar
+  (C-1)**, one swipe right the **alarms (C1)** — the three things people
+  actually open a clock app for, each a single gesture from the others.
+- The centered ⏳ button drops to the second tier: **S0, the sand
+  hourglass**, with the **stopwatch (S-1)** and the **countdown dial (S1)**
+  one swipe away on either side. From the countdown, the 🕐 button returns
+  straight to the clock without stopping at the hourglass.
+
+**Chronograph** — the dial's case hardware, drawn on canvas.
+ — the card system mirrors the clock's: press the centered
 ⏳ button and the dial's hands glide into stopwatch position (the button
 becomes 🕐 to go back); then, just as the clock swipes to the alarms, the
 stopwatch swipes to a second rendered dial: the countdown.

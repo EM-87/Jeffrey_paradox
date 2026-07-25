@@ -1,122 +1,102 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Second layer: things a curious user will enjoy, none of which can
+     break the clock. The genuinely dangerous knobs are one level further. -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <PreferenceCategory android:title="@string/category_dial">
 
         <ListPreference
-            android:key="pref_hours_preset"
-            android:title="@string/pref_hours_preset_title"
-            android:entries="@array/hours_preset_entries"
-            android:entryValues="@array/hours_preset_values"
-            android:defaultValue="12"
-            app:useSimpleSummaryProvider="true" />
-
-        <SeekBarPreference
-            android:key="pref_hours_custom"
-            android:title="@string/pref_hours_custom_title"
-            android:max="24"
-            android:defaultValue="12"
-            app:min="2"
-            app:showSeekBarValue="true" />
-
-        <ListPreference
-            android:key="pref_dial_shape"
-            android:title="@string/pref_dial_shape_title"
-            android:entries="@array/dial_shape_entries"
-            android:entryValues="@array/dial_shape_values"
-            android:defaultValue="circle"
+            android:defaultValue="arabic"
+            android:entries="@array/numeral_entries"
+            android:entryValues="@array/numeral_values"
+            android:key="pref_numerals"
+            android:title="@string/pref_numerals_title"
             app:useSimpleSummaryProvider="true" />
 
         <ListPreference
-            android:key="pref_date_format"
-            android:title="@string/pref_date_format_title"
+            android:defaultValue="number"
             android:entries="@array/date_format_entries"
             android:entryValues="@array/date_format_values"
-            android:defaultValue="number"
+            android:key="pref_date_format"
+            android:title="@string/pref_date_format_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
+            android:defaultValue="circle"
+            android:entries="@array/dial_shape_entries"
+            android:entryValues="@array/dial_shape_values"
+            android:key="pref_dial_shape"
+            android:title="@string/pref_dial_shape_title"
             app:useSimpleSummaryProvider="true" />
 
         <SwitchPreferenceCompat
-            android:key="pref_mirror"
-            android:title="@string/pref_mirror_title"
-            android:summary="@string/pref_mirror_summary"
-            android:defaultValue="false" />
+            android:defaultValue="false"
+            android:key="pref_moon_phase"
+            android:summary="@string/pref_moon_phase_summary"
+            android:title="@string/pref_moon_phase_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_alarm_markers"
+            android:summary="@string/pref_alarm_markers_summary"
+            android:title="@string/pref_alarm_markers_title" />
 
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/category_hands">
 
         <SwitchPreferenceCompat
+            android:defaultValue="true"
             android:key="pref_second_hand"
-            android:title="@string/pref_second_hand_title"
-            android:defaultValue="true" />
+            android:title="@string/pref_second_hand_title" />
 
         <SwitchPreferenceCompat
-            android:key="pref_smooth_seconds"
-            android:title="@string/pref_smooth_title"
-            android:summary="@string/pref_smooth_summary"
+            android:defaultValue="false"
             android:dependency="pref_second_hand"
-            android:defaultValue="false" />
+            android:key="pref_smooth_seconds"
+            android:summary="@string/pref_smooth_summary"
+            android:title="@string/pref_smooth_title" />
 
         <ListPreference
-            android:key="pref_fast_hand"
-            android:title="@string/pref_fast_hand_title"
+            android:defaultValue="none"
+            android:dependency="pref_second_hand"
             android:entries="@array/fast_hand_entries"
             android:entryValues="@array/fast_hand_values"
-            android:defaultValue="none"
+            android:key="pref_fast_hand"
+            android:title="@string/pref_fast_hand_title"
             app:useSimpleSummaryProvider="true" />
 
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="@string/category_touch">
+    <PreferenceCategory android:title="@string/category_timer">
 
         <SwitchPreferenceCompat
-            android:key="pref_touch_hands"
-            android:title="@string/pref_touch_hands_title"
-            android:summary="@string/pref_touch_hands_summary"
-            android:defaultValue="true" />
+            android:defaultValue="true"
+            android:key="pref_countdown_persistent"
+            android:summary="@string/pref_countdown_persistent_summary"
+            android:title="@string/pref_countdown_persistent_title" />
 
         <SwitchPreferenceCompat
-            android:key="pref_pinch_zoom"
-            android:title="@string/pref_pinch_zoom_title"
-            android:summary="@string/pref_pinch_zoom_summary"
-            android:defaultValue="true" />
-
-        <SwitchPreferenceCompat
-            android:key="pref_shake_drop"
-            android:title="@string/pref_shake_drop_title"
-            android:summary="@string/pref_shake_drop_summary"
-            android:defaultValue="true" />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="@string/category_sounds">
-
-        <SwitchPreferenceCompat
-            android:key="pref_half_hour"
-            android:title="@string/pref_half_hour_title"
-            android:summary="@string/pref_half_hour_summary"
-            android:defaultValue="false" />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="@string/category_time">
+            android:defaultValue="true"
+            android:key="pref_countdown_bubble"
+            android:summary="@string/pref_countdown_bubble_summary"
+            android:title="@string/pref_countdown_bubble_title" />
 
         <SeekBarPreference
-            android:key="pref_time_speed"
-            android:title="@string/pref_time_speed_title"
-            android:summary="@string/pref_time_speed_summary"
-            android:max="400"
-            android:defaultValue="100"
-            app:min="25"
+            android:defaultValue="260"
+            android:key="pref_sand_grains"
+            android:max="900"
+            android:summary="@string/pref_sand_grains_summary"
+            android:title="@string/pref_sand_grains_title"
+            app:min="60"
             app:showSeekBarValue="true" />
 
-        <SwitchPreferenceCompat
-            android:key="pref_solar_time"
-            android:title="@string/pref_solar_time_title"
-            android:summary="@string/pref_solar_time_summary"
-            android:defaultValue="false" />
-
     </PreferenceCategory>
+
+    <Preference
+        android:key="pref_very_advanced"
+        android:summary="@string/pref_very_advanced_summary"
+        android:title="@string/pref_very_advanced_title" />
 
 </PreferenceScreen>

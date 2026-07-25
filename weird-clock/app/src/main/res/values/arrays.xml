@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string-array name="theme_entries">
-        <item>Midnight</item>
+        <item>Automatic (Midnight / Daylight)</item>
+        <item>Daylight</item>
         <item>Classic ivory</item>
         <item>Neon</item>
         <item>Terminal green</item>
@@ -10,6 +11,7 @@
     </string-array>
     <string-array name="theme_values">
         <item>midnight</item>
+        <item>daylight</item>
         <item>ivory</item>
         <item>neon</item>
         <item>terminal</item>

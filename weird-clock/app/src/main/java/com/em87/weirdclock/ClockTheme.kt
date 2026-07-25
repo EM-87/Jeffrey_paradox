@@ -29,6 +29,24 @@ object ClockThemes {
         centerDot = 0xFFF5F5F5.toInt()
     )
 
+    /**
+     * Midnight's daylight twin: a white face with dark hands and a deep
+     * teal accent, so nothing washes out against a bright background. The
+     * default theme swaps to this one whenever the system is in light mode.
+     */
+    val DAYLIGHT = ClockTheme(
+        face = 0xFFFFFFFF.toInt(),
+        rim = 0xFF9AA2B4.toInt(),
+        tick = 0xFF1B1E28.toInt(),
+        minorTick = 0xFF8A93A8.toInt(),
+        numeral = 0xFF1B1E28.toInt(),
+        hourHand = 0xFF10121A.toInt(),
+        minuteHand = 0xFF2E3444.toInt(),
+        secondHand = 0xFFD32F2F.toInt(),
+        decimal = 0xFF00796B.toInt(),
+        centerDot = 0xFF10121A.toInt()
+    )
+
     val IVORY = ClockTheme(
         face = 0xFFF5EFE0.toInt(),
         rim = 0xFF8A7B5C.toInt(),
@@ -107,20 +125,34 @@ object ClockThemes {
         "neon" -> NEON
         "terminal" -> TERMINAL
         "sunset" -> SUNSET
+        "daylight" -> DAYLIGHT
         else -> MIDNIGHT
     }
+
+    private fun systemInDarkMode(context: android.content.Context): Boolean =
+        (context.resources.configuration.uiMode and
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
 
     /**
      * Like [byKey] but resolving the "dynamic" key into Material You system
      * colors on Android 12+, so the clock dresses in the user's wallpaper
      * palette. Falls back to Midnight below API 31.
      */
-    fun resolve(context: android.content.Context, key: String?): ClockTheme =
-        if (key == "dynamic") {
-            if (android.os.Build.VERSION.SDK_INT >= 31) dynamic(context) else MIDNIGHT
-        } else {
-            byKey(key)
-        }
+    fun resolve(context: android.content.Context, key: String?): ClockTheme = when {
+        key == "dynamic" ->
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                dynamic(context)
+            } else {
+                // No Material You here; follow the system's own light/dark.
+                if (systemInDarkMode(context)) MIDNIGHT else DAYLIGHT
+            }
+        // The default theme follows the system: Midnight at night, its
+        // white twin by day. Explicit picks are always honored.
+        key == null || key == "midnight" ->
+            if (systemInDarkMode(context)) MIDNIGHT else DAYLIGHT
+        else -> byKey(key)
+    }
 
     @androidx.annotation.RequiresApi(31)
     private fun dynamic(context: android.content.Context): ClockTheme = ClockTheme(

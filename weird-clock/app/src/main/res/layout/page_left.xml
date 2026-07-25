@@ -1,26 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- One swipe left of home. Clock mode: C-1, the calendar.
+     Chronograph mode: S-1, the stopwatch. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/app_background">
 
-    <!-- Clock mode: swipe left from the clock reaches the alarms. -->
-    <include
-        android:id="@+id/alarms_container"
-        layout="@layout/page_alarms"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-
-    <!-- Chronograph mode: the same swipe reaches the countdown dial. -->
     <FrameLayout
-        android:id="@+id/countdown_container"
+        android:id="@+id/calendar_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <com.em87.weirdclock.CalendarPageView
+            android:id="@+id/calendar_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="8dp" />
+    </FrameLayout>
+
+    <FrameLayout
+        android:id="@+id/stopwatch_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone">
 
-        <!-- Case pushers are the chrono controls; navigation is by swipe. -->
+        <!-- Case pushers are the controls; navigation is by swipe. -->
         <com.em87.weirdclock.ClockView
-            android:id="@+id/countdown_clock_view"
+            android:id="@+id/stopwatch_clock_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:padding="16dp" />

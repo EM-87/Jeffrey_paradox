@@ -59,19 +59,12 @@ class SettingsActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 ""
             }
-            // The floating hourglass needs the draw-over-apps permission.
-            findPreference<SwitchPreferenceCompat>(Prefs.COUNTDOWN_BUBBLE)
-                ?.setOnPreferenceChangeListener { _, newValue ->
-                    if (newValue == true && !Settings.canDrawOverlays(requireContext())) {
-                        startActivity(
-                            Intent(
-                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                Uri.parse("package:${requireContext().packageName}")
-                            )
-                        )
-                    }
-                    true
-                }
+        }
+
+        override fun onPause() {
+            // Background bells re-arm whenever their settings change.
+            BellScheduler.update(requireContext())
+            super.onPause()
         }
 
         override fun onPreferenceTreeClick(preference: Preference): Boolean {
@@ -241,13 +234,45 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    /** Everything weird lives here, out of the average user's way. */
-    class AdvancedSettingsFragment :
+    /** Second layer: fun, harmless, and out of the average user's way. */
+    class AdvancedSettingsFragment : PreferenceFragmentCompat() {
+
+        override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+            setPreferencesFromResource(R.xml.advanced_preferences, rootKey)
+            // The floating hourglass needs the draw-over-apps permission.
+            findPreference<SwitchPreferenceCompat>(Prefs.COUNTDOWN_BUBBLE)
+                ?.setOnPreferenceChangeListener { _, newValue ->
+                    if (newValue == true && !Settings.canDrawOverlays(requireContext())) {
+                        startActivity(
+                            Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${requireContext().packageName}")
+                            )
+                        )
+                    }
+                    true
+                }
+        }
+
+        override fun onPreferenceTreeClick(preference: Preference): Boolean {
+            if (preference.key == "pref_very_advanced") {
+                parentFragmentManager.beginTransaction()
+                    .replace(R.id.settings_container, VeryAdvancedSettingsFragment())
+                    .addToBackStack(null)
+                    .commit()
+                return true
+            }
+            return super.onPreferenceTreeClick(preference)
+        }
+    }
+
+    /** Third layer: the machinery that can make the clock lie. */
+    class VeryAdvancedSettingsFragment :
         PreferenceFragmentCompat(),
         SharedPreferences.OnSharedPreferenceChangeListener {
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-            setPreferencesFromResource(R.xml.advanced_preferences, rootKey)
+            setPreferencesFromResource(R.xml.very_advanced_preferences, rootKey)
 
             val preset = findPreference<ListPreference>(Prefs.HOURS_PRESET)
             val custom = findPreference<SeekBarPreference>(Prefs.HOURS_CUSTOM)
@@ -265,6 +290,17 @@ class SettingsActivity : AppCompatActivity() {
                     if (newValue != 100) showSpeedWarning()
                     true
                 }
+        }
+
+        override fun onPreferenceTreeClick(preference: Preference): Boolean {
+            if (preference.key == "pref_system_time") {
+                // Android forbids apps from setting the clock, so this hands
+                // over to the system's own date & time screen, where the
+                // network resync toggle and the manual setting both live.
+                startActivity(Intent(Settings.ACTION_DATE_SETTINGS))
+                return true
+            }
+            return super.onPreferenceTreeClick(preference)
         }
 
         private fun showSpeedWarning() {

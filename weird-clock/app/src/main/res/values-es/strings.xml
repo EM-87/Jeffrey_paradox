@@ -63,6 +63,8 @@
     <string name="chrono_label_countdown">Cuenta atrás</string>
     <string name="countdown_set_hint">Cuenta atrás · gira las manecillas para ajustarla</string>
     <string name="set_alarm_time">Ajusta la hora de la alarma</string>
+    <string name="set_reminder_time">Ajusta la hora del recordatorio</string>
+    <string name="cheater_stamp">¡TRAMPOSO!</string>
 
     <string name="category_alarms">Alarmas</string>
     <string name="pref_alarm_disabled_by_speed">Desactivadas mientras la velocidad del tiempo no sea 100%</string>
@@ -92,6 +94,16 @@
     <string name="pref_reassemble_title">Recolocar</string>
     <string name="pref_reassemble_summary">Vuelve a montar de golpe las manecillas y números caídos</string>
     <string name="reassemble_done">Todo en su sitio</string>
+    <string name="pref_bells_background_title">Sonar con la app cerrada</string>
+    <string name="pref_bells_background_summary">Las campanas dan las horas desde segundo plano, rearmándose solas cada vez</string>
+    <string name="bells_channel_name">Campanadas horarias</string>
+    <string name="category_timer">Cuenta atrás</string>
+    <string name="pref_sand_grains_title">Granos de arena</string>
+    <string name="pref_sand_grains_summary">Más granos, arena más fina — y más trabajo para tu móvil</string>
+    <string name="pref_very_advanced_title">Opciones demasiado avanzadas</string>
+    <string name="pref_very_advanced_summary">Horas de la esfera, modo espejo, la velocidad del tiempo, físicas táctiles… avisado quedas, por segunda vez</string>
+    <string name="pref_system_time_title">Fecha y hora del sistema</string>
+    <string name="pref_system_time_summary">Resincroniza con la red o ajusta la hora a mano (Android solo permite hacerlo al propio sistema)</string>
     <string name="pref_advanced_title">Opciones avanzadas</string>
     <string name="pref_advanced_summary">Bajo tu responsabilidad: horas de la esfera, forma de la esfera, modo espejo, físicas táctiles, velocidad del tiempo…</string>
     <string name="pref_alarm_enabled_title">Alarma</string>

@@ -44,7 +44,8 @@ class HourglassWidgetProvider : AppWidgetProvider() {
                 PendingIntent.getActivity(
                     context,
                     5,
-                    Intent(context, MainActivity::class.java),
+                    Intent(context, MainActivity::class.java)
+                .putExtra(MainActivity.EXTRA_OPEN_TIMER, true),
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
             )

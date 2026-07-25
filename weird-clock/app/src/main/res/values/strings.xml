@@ -73,6 +73,7 @@
     <string name="chrono_label_countdown">Timer</string>
     <string name="countdown_set_hint">Timer · wind the hands to set it</string>
     <string name="set_alarm_time">Set alarm time</string>
+    <string name="set_reminder_time">Set reminder time</string>
     <string name="alarm_set_confirm">✓</string>
     <string name="alarm_set_cancel">✗</string>
 
@@ -104,6 +105,16 @@
     <string name="pref_reassemble_title">Put everything back</string>
     <string name="pref_reassemble_summary">Remounts fallen hands and numerals in one tap</string>
     <string name="reassemble_done">Everything back in its place</string>
+    <string name="pref_bells_background_title">Ring with the app closed</string>
+    <string name="pref_bells_background_summary">The bells keep the hours from the background, quietly re-arming themselves each time</string>
+    <string name="bells_channel_name">Hourly bells</string>
+    <string name="category_timer">Timer</string>
+    <string name="pref_sand_grains_title">Grains of sand</string>
+    <string name="pref_sand_grains_summary">More grains, finer sand — and more work for your phone</string>
+    <string name="pref_very_advanced_title">Too-advanced options</string>
+    <string name="pref_very_advanced_summary">Hours on the dial, mirror mode, the speed of time, touch physics… you were warned twice</string>
+    <string name="pref_system_time_title">System date &amp; time</string>
+    <string name="pref_system_time_summary">Resync with the network or set the clock by hand (Android only lets the system itself do this)</string>
     <string name="pref_advanced_title">Advanced options</string>
     <string name="pref_advanced_summary">At your own risk: hours on the dial, dial shape, mirror mode, touch physics, time speed…</string>
     <string name="pref_alarm_enabled_title">Alarm</string>

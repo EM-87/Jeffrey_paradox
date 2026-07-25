@@ -63,10 +63,21 @@ class SandHourglassView @JvmOverloads constructor(
     private var totalMs = 300_000L
     private var remainingMs = 300_000L
 
-    private fun grainQuantumMs(): Long = (totalMs / MAX_GRAINS).coerceAtLeast(1000L)
+    /** How many grains the user is willing to let their phone simulate. */
+    var maxGrains = 260
+        set(value) {
+            val next = value.coerceIn(40, 900)
+            if (next != field) {
+                field = next
+                rebuildGeometry()
+                rebuildGrains()
+            }
+        }
+
+    private fun grainQuantumMs(): Long = (totalMs / maxGrains).coerceAtLeast(1000L)
 
     private fun desiredGrainCount(): Int =
-        (totalMs / grainQuantumMs()).toInt().coerceIn(1, MAX_GRAINS)
+        (totalMs / grainQuantumMs()).toInt().coerceIn(1, maxGrains)
 
     fun setTime(total: Long, remaining: Long) {
         val totalChanged = total != totalMs
@@ -121,10 +132,24 @@ class SandHourglassView @JvmOverloads constructor(
     private var sensorManager: SensorManager? = null
     private val sensorListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
-            lowX = lowX * 0.85f + event.values[0] * 0.15f
-            lowY = lowY * 0.85f + event.values[1] * 0.15f
-            gravityX = -lowX / 9.81f * GRAVITY
-            gravityY = lowY / 9.81f * GRAVITY
+            // Heavier smoothing than the dial's: sand should not jitter with
+            // sensor noise, and a hand-held phone is never perfectly still.
+            lowX = lowX * 0.93f + event.values[0] * 0.07f
+            lowY = lowY * 0.93f + event.values[1] * 0.07f
+            var gx = -lowX / 9.81f
+            var gy = lowY / 9.81f
+            val inPlane = hypot(gx, gy)
+            if (inPlane < 0.35f) {
+                // Phone lying flat: gravity points into the screen, so there
+                // is no in-plane component at all and the sand would just
+                // hang there. Pretend the glass is standing up — a table is
+                // not an excuse to stop counting.
+                val blend = 1f - inPlane / 0.35f
+                gy += blend * 0.9f
+                gx *= (1f - blend)
+            }
+            gravityX = gx * GRAVITY
+            gravityY = gy * GRAVITY
         }
 
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
@@ -177,8 +202,10 @@ class SandHourglassView @JvmOverloads constructor(
         cy = height / 2f
         halfH = min(height * 0.40f, width * 0.72f) * glassScale
         bulbHalf = halfH * 0.58f
-        grainR = (bulbHalf / 22f).coerceAtLeast(2.5f)
-        neckHalf = grainR * 1.8f
+        // Grain size follows the count: the more grains, the finer the sand,
+        // so the two bulbs stay about as full either way.
+        grainR = (bulbHalf / sqrt(maxGrains.toFloat()) * 1.5f).coerceAtLeast(1.6f)
+        neckHalf = grainR * 2.2f
 
         glassPath.reset()
         val steps = 36
@@ -331,6 +358,12 @@ class SandHourglassView @JvmOverloads constructor(
     /** Cheap spatial-hash separation so grains pile instead of overlap. */
     private val cellMap = HashMap<Long, ArrayList<Grain>>()
 
+    /**
+     * Grain-grain contact. Sand is not water: contacts are almost perfectly
+     * inelastic and rub hard against each other, which is what lets a heap
+     * hold a slope instead of levelling out like a liquid. The positional
+     * push is capped so a compressed pile can't explode into a volcano.
+     */
     private fun separateGrains() {
         val cell = grainR * 2f
         cellMap.values.forEach { it.clear() }
@@ -339,6 +372,7 @@ class SandHourglassView @JvmOverloads constructor(
             cellMap.getOrPut(key) { ArrayList() }.add(g)
         }
         val minDist = grainR * 1.75f
+        val maxPush = grainR * 0.30f
         for (g in grains) {
             val cxi = (g.x / cell).toLong()
             val cyi = (g.y / cell).toLong()
@@ -351,18 +385,44 @@ class SandHourglassView @JvmOverloads constructor(
                         val dy = g.y - o.y
                         val d = hypot(dx, dy)
                         if (d < minDist && d > 0.0001f) {
-                            val push = (minDist - d) / 2f
+                            val push = min((minDist - d) / 2f, maxPush)
                             val nx = dx / d
                             val ny = dy / d
                             g.x += nx * push
                             g.y += ny * push
                             o.x -= nx * push
                             o.y -= ny * push
-                            g.vx *= 0.985f
-                            g.vy *= 0.985f
+                            // Normal impulse: kill the approach speed almost
+                            // entirely instead of bouncing it back.
+                            val rvn = (g.vx - o.vx) * nx + (g.vy - o.vy) * ny
+                            if (rvn < 0f) {
+                                val j = rvn * 0.52f
+                                g.vx -= j * nx
+                                g.vy -= j * ny
+                                o.vx += j * nx
+                                o.vy += j * ny
+                            }
+                            // Friction: rub away the sliding component, so
+                            // grains lock into a slope.
+                            val tx = -ny
+                            val ty = nx
+                            val rvt = (g.vx - o.vx) * tx + (g.vy - o.vy) * ty
+                            val f = rvt * FRICTION
+                            g.vx -= f * tx
+                            g.vy -= f * ty
+                            o.vx += f * tx
+                            o.vy += f * ty
                         }
                     }
                 }
+            }
+        }
+        // Grains that have all but stopped go to sleep, so a settled pile
+        // stops shivering.
+        for (g in grains) {
+            if (hypot(g.vx, g.vy) < grainR * 1.2f) {
+                g.vx *= 0.55f
+                g.vy *= 0.55f
             }
         }
     }
@@ -450,7 +510,9 @@ class SandHourglassView @JvmOverloads constructor(
     }
 
     companion object {
-        private const val MAX_GRAINS = 500
-        private const val GRAVITY = 2400f
+        private const val GRAVITY = 2000f
+
+        /** How hard grains rub against each other; sand, not water. */
+        private const val FRICTION = 0.34f
     }
 }

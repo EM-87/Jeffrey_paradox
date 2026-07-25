@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Third layer: the machinery. Everything here can make the clock lie,
+     fall apart, or run backwards — which is, of course, the point. -->
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="@string/category_dial">
+
+        <ListPreference
+            android:defaultValue="12"
+            android:entries="@array/hours_preset_entries"
+            android:entryValues="@array/hours_preset_values"
+            android:key="pref_hours_preset"
+            android:title="@string/pref_hours_preset_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <SeekBarPreference
+            android:defaultValue="12"
+            android:key="pref_hours_custom"
+            android:max="24"
+            android:title="@string/pref_hours_custom_title"
+            app:min="2"
+            app:showSeekBarValue="true" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_mirror"
+            android:summary="@string/pref_mirror_summary"
+            android:title="@string/pref_mirror_title" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/category_time">
+
+        <SeekBarPreference
+            android:defaultValue="100"
+            android:key="pref_time_speed"
+            android:max="400"
+            android:summary="@string/pref_time_speed_summary"
+            android:title="@string/pref_time_speed_title"
+            app:min="25"
+            app:showSeekBarValue="true" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_solar_time"
+            android:summary="@string/pref_solar_time_summary"
+            android:title="@string/pref_solar_time_title" />
+
+        <Preference
+            android:key="pref_system_time"
+            android:summary="@string/pref_system_time_summary"
+            android:title="@string/pref_system_time_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_half_hour"
+            android:summary="@string/pref_half_hour_summary"
+            android:title="@string/pref_half_hour_title" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/category_touch">
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_touch_hands"
+            android:summary="@string/pref_touch_hands_summary"
+            android:title="@string/pref_touch_hands_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_pinch_zoom"
+            android:summary="@string/pref_pinch_zoom_summary"
+            android:title="@string/pref_pinch_zoom_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_shake_drop"
+            android:summary="@string/pref_shake_drop_summary"
+            android:title="@string/pref_shake_drop_title" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

@@ -140,6 +140,59 @@ class ChimePlayer {
         }
     }
 
+    /**
+     * Billiard-ball clack: a very short, bright noise burst with a couple of
+     * high inharmonic partials. [intensity] (0–1) drives both the loudness
+     * and the pitch, so a gentle nudge sounds nothing like a hard smack.
+     */
+    fun playClack(intensity: Float) {
+        val energy = intensity.coerceIn(0.05f, 1f).toDouble()
+        thread(name = "clack-synth") {
+            val duration = 0.055 + 0.02 * energy
+            val buffer = FloatArray((duration * SAMPLE_RATE).toInt())
+            val hz = 1500.0 + 900.0 * energy
+            for (i in buffer.indices) {
+                val t = i.toDouble() / SAMPLE_RATE
+                val decay = exp(-t * 150.0)
+                val body = sin(2.0 * PI * hz * t) * 0.6 +
+                    sin(2.0 * PI * hz * 2.41 * t) * 0.3
+                val click = (Math.random() * 2.0 - 1.0) * exp(-t * 900.0) * 0.5
+                buffer[i] = ((body * decay + click) * 0.30 * energy).toFloat()
+            }
+            playFloatBuffer(buffer)
+        }
+    }
+
+    /** Ball into the table cushion: a soft, low, damped thud. */
+    fun playCushion(intensity: Float) {
+        val energy = intensity.coerceIn(0.05f, 1f).toDouble()
+        thread(name = "cushion-synth") {
+            val buffer = FloatArray((0.10 * SAMPLE_RATE).toInt())
+            for (i in buffer.indices) {
+                val t = i.toDouble() / SAMPLE_RATE
+                val decay = exp(-t * 60.0)
+                val body = sin(2.0 * PI * (150.0 + 60.0 * energy) * t)
+                val thud = (Math.random() * 2.0 - 1.0) * exp(-t * 200.0) * 0.35
+                buffer[i] = ((body * decay + thud) * 0.22 * energy).toFloat()
+            }
+            playFloatBuffer(buffer)
+        }
+    }
+
+    /** Quarter chimes: quick, bright double strikes — clearly not the hour. */
+    fun playQuarters(rounds: Int = 3) {
+        thread(name = "quarters-synth") {
+            val total = rounds * 0.62 + 1.2
+            val buffer = FloatArray((total * SAMPLE_RATE).toInt())
+            for (r in 0 until rounds) {
+                val base = r * 0.62
+                addBellStrike(buffer, base, 1046.5, 0.55)
+                addBellStrike(buffer, base + 0.17, 1318.5, 0.55)
+            }
+            playFloatBuffer(buffer)
+        }
+    }
+
     /** Cuckoo-clock call: two soft flute notes, a falling third. Cu-coo. */
     fun playCuckoo() {
         thread(name = "cuckoo-synth") {

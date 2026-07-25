@@ -132,6 +132,7 @@ object WidgetRenderer {
         }
 
         if (numeralStyle != Prefs.NUMERALS_NONE) {
+            val selected = prefs.getStringSet(Prefs.SELECTED_HOURS, emptySet()).orEmpty()
             val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = theme.numeral
                 textAlign = Paint.Align.CENTER
@@ -153,6 +154,12 @@ object WidgetRenderer {
                 val x = c + sin(angle).toFloat() * radius
                 val y = c - cos(angle).toFloat() * radius
                 val label = if (numeralStyle == Prefs.NUMERALS_ROMAN) Roman.of(hour) else hour.toString()
+                // Hours the user highlighted in the app glow here too.
+                text.color = if (selected.contains(hour.toString())) {
+                    theme.secondHand
+                } else {
+                    theme.numeral
+                }
                 canvas.drawText(label, x, y - (text.ascent() + text.descent()) / 2f, text)
             }
         }

@@ -19,6 +19,7 @@ object Prefs {
     const val DIAL_SCALE = "pref_dial_scale"
     const val BELLS = "pref_bells"
     const val BELL_STYLE = "pref_bell_style"
+    const val BELLS_BACKGROUND = "pref_bells_background"
     const val HALF_HOUR = "pref_half_hour"
     const val TICKING = "pref_ticking"
     const val TEST_BELLS = "pref_test_bells"
@@ -82,5 +83,12 @@ object Prefs {
     const val BUBBLE_Y = "pref_bubble_y"
     const val NIGHT_DIM = "pref_night_dim"
     const val WEEK_START_MONDAY = "pref_week_start_monday"
+
+    /** True when the countdown was last driven from the dial (S1), not S0. */
+    const val TIMER_ON_DIAL = "pref_timer_on_dial"
+    const val SAND_GRAINS = "pref_sand_grains"
+
+    /** Hours highlighted in the accent color, mirrored by the widget. */
+    const val SELECTED_HOURS = "pref_selected_hours"
     const val OVERLAY_ASKED = "pref_overlay_asked"
 }

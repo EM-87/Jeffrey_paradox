@@ -193,8 +193,10 @@ class ClockView @JvmOverloads constructor(
 
     var magnetProfile = MagnetProfile.COUNTDOWN
 
-    /** Angles of recorded stopwatch laps, drawn as ghost second hands. */
-    private val lapAngles = mutableListOf<Float>()
+    /** Recorded laps, drawn as complete ghost hand sets. */
+    private class Lap(val hour: Float, val minute: Float, val second: Float)
+
+    private val laps = mutableListOf<Lap>()
 
     /** Enabled alarms as dial angles, drawn as markers on the clock face. */
     var alarmMarkers: List<Float> = emptyList()
@@ -203,14 +205,22 @@ class ClockView @JvmOverloads constructor(
     var showMoonPhase = false
         set(value) { field = value; invalidate() }
 
+    /** Caption drawn inside the dial's upper half (world-clock city names). */
+    var dialLabel: String? = null
+        set(value) { field = value; invalidate() }
+
     fun recordLap() {
-        lapAngles.add(currentAngles().second)
-        while (lapAngles.size > 9) lapAngles.removeAt(0)
+        val a = currentAngles()
+        laps.add(Lap(a.hour, a.minute, a.second))
+        while (laps.size > 9) laps.removeAt(0)
+        // Each new lap fades the CHEATER stamp a little; ten honest laps
+        // wash the shame off entirely.
+        if (cheaterUntil > 0L) cheaterFade = (cheaterFade + 0.1f).coerceAtMost(1f)
         invalidate()
     }
 
     fun clearLaps() {
-        lapAngles.clear()
+        laps.clear()
         invalidate()
     }
 
@@ -355,6 +365,9 @@ class ClockView @JvmOverloads constructor(
     private var cheaterFlagged = false
     private var cheaterUntil = 0L
 
+    /** How far the CHEATER stamp has been washed off by honest laps (0–1). */
+    private var cheaterFade = 0f
+
     /** Mode-change animation: blend from these angles to the target ones. */
     private var transitionFrom: Angles? = null
     private var transitionStartAt = 0L
@@ -381,6 +394,16 @@ class ClockView @JvmOverloads constructor(
     // -------------------------------------------------------- numeral state
 
     private val selectedHours = HashSet<Int>()
+
+    /** Fired when the highlighted hours change, so the widget can match. */
+    var onSelectedHoursChanged: ((Set<Int>) -> Unit)? = null
+
+    fun setSelectedHours(hours: Set<Int>) {
+        selectedHours.clear()
+        selectedHours.addAll(hours)
+        invalidate()
+    }
+
     private val numeralToggleTimes = HashMap<Int, ArrayDeque<Long>>()
     private var tapCandidate = false
 
@@ -453,7 +476,6 @@ class ClockView @JvmOverloads constructor(
         override fun run() {
             invalidate()
             val fast = isAnimating() || chronoProvider != null ||
-                SystemClock.uptimeMillis() < cheaterUntil ||
                 fastHand != FastHandMode.NONE || (smoothSeconds && showSecondHand)
             val delay = if (fast) 16L else 1000L - (TimeKeeper.nowMs() % 1000L).coerceIn(0L, 999L)
             postDelayed(this, delay)
@@ -469,6 +491,7 @@ class ClockView @JvmOverloads constructor(
 
     /** Instantly puts every fallen piece back and resets all play state. */
     fun reassembleAll() {
+        timeScale = 1f
         fallenBodies.clear()
         carriedBody = null
         spring?.cancel()
@@ -632,6 +655,21 @@ class ClockView @JvmOverloads constructor(
                     ?: dragTo(event.x, event.y)
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
+                // A second finger on a pusher while the first winds a hand is
+                // a *feature*: fake laps are half the fun. Only a genuine
+                // pinch drops the wind.
+                val idx = event.actionIndex
+                val pusher = pusherAt(event.getX(idx), event.getY(idx))
+                if (pusher != 0) {
+                    when (pusher) {
+                        1 -> onChronoStartStop?.invoke()
+                        2 -> onChronoReset?.invoke()
+                        3 -> handleCrownTap()
+                    }
+                    performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    soundListener?.onTickCrossed()
+                    return true
+                }
                 if (pinchZoomEnabled) parent?.requestDisallowInterceptTouchEvent(true)
                 pressedPusher = 0
                 releaseDraggedHand()
@@ -661,9 +699,32 @@ class ClockView @JvmOverloads constructor(
     }
 
     /**
+     * A narrow grab tab just outside the rim, following the second hand's
+     * tip. It only covers the sector the hand actually occupies — so it
+     * doesn't swallow the background — but it makes the thin hand reachable
+     * even when every other hand is stacked on top of it at twelve. It also
+     * takes precedence over the crown, which lives at exactly that spot.
+     */
+    private fun secondHandRingHit(x: Float, y: Float): Boolean {
+        if (!chronoSettable || chronoProvider == null) return false
+        if (!showSecondHand || isFallen(Hand.SECOND)) return false
+        val cx = width / 2f
+        val cy = height / 2f
+        val touchDeg = touchAngleDeg(x, y)
+        val b = boundaryRadius(touchDeg)
+        val dist = hypot(x - cx, y - cy)
+        if (dist < b * 0.94f || dist > b * 1.30f) return false
+        val handDeg = angleOf(Hand.SECOND, currentAngles())
+        return kotlin.math.abs(normalizeDeg(touchDeg - handDeg)) < 16f
+    }
+
+    /**
      * 1 = start/stop pusher (1:30), 2 = reset pusher (10:30), 3 = crown (12).
      */
     private fun pusherAt(x: Float, y: Float): Int {
+        // The second-hand tab outranks the crown: setting seconds beats
+        // cuckoo noises.
+        if (secondHandRingHit(x, y)) return 0
         if (!chronoButtons) return 0
         val cx = width / 2f
         val cy = height / 2f
@@ -738,15 +799,10 @@ class ClockView @JvmOverloads constructor(
         var chosen: Hand? = null
         if (chronoSettable && chronoProvider != null) {
             // Setting a duration: inside the dial, minutes and hours matter
-            // and seconds barely. But near the rim — where nobody would reach
-            // for a short hand — the second hand is granted the whole ring:
-            // touch anywhere in it and the second hand is yours, no need to
-            // land the finger on its thin line.
+            // and seconds barely. Reaching in from outside signals a
+            // seconds-scale countdown, so the second hand wins there.
             val fingerDist = hypot(x - cx, y - cy)
-            val bAtTouch = boundaryRadius(touchAngleDeg(x, y))
-            if (showSecondHand && !isFallen(Hand.SECOND) && fingerDist > bAtTouch * 0.86f) {
-                chosen = Hand.SECOND
-            }
+            if (secondHandRingHit(x, y)) chosen = Hand.SECOND
             val fromOutside = fingerDist > r
             val order = if (fromOutside) {
                 arrayOf(Triple(Hand.SECOND, 1.4f, showSecondHand),
@@ -828,7 +884,10 @@ class ClockView @JvmOverloads constructor(
             !cheaterFlagged && dragAccumDeg >= 360.0
         ) {
             cheaterFlagged = true
-            cheaterUntil = SystemClock.uptimeMillis() + 3000L
+            // Faking laps is encouraged; the stamp just sticks around until
+            // ten honest laps have scrubbed it away.
+            cheaterUntil = SystemClock.uptimeMillis() + 600_000L
+            cheaterFade = 0f
             soundListener?.onCheater()
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
         }
@@ -1042,6 +1101,7 @@ class ClockView @JvmOverloads constructor(
             if (hypot(x - pos.x, y - pos.y) < threshold) {
                 if (!selectedHours.remove(hour)) selectedHours.add(hour)
                 performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                onSelectedHoursChanged?.invoke(selectedHours.toSet())
                 registerToggleAndMaybeDrop(hour, pos)
                 invalidate()
                 return
@@ -1490,7 +1550,28 @@ class ClockView @JvmOverloads constructor(
         val fast: Float
     )
 
-    private fun displayNowMs(): Long = frozenDisplayMs ?: TimeKeeper.nowMs()
+    /**
+     * Rate at which this dial's time flows: 1 normal, 0 seized, -1 running
+     * backwards. Knocked-about world clocks lose their minds this way.
+     */
+    var timeScale = 1f
+        set(value) {
+            if (field == value) return
+            // Pivot on the current displayed time so the hands don't jump.
+            scaleAnchorDisplayMs = displayNowMs()
+            scaleAnchorRealMs = TimeKeeper.nowMs()
+            field = value
+            invalidate()
+        }
+    private var scaleAnchorDisplayMs = 0L
+    private var scaleAnchorRealMs = 0L
+
+    private fun displayNowMs(): Long {
+        frozenDisplayMs?.let { return it }
+        val now = TimeKeeper.nowMs()
+        if (timeScale == 1f) return now
+        return scaleAnchorDisplayMs + ((now - scaleAnchorRealMs) * timeScale).toLong()
+    }
 
     /**
      * Magnet grid for setting durations: 5-minute multiples (which covers
@@ -1500,13 +1581,20 @@ class ClockView @JvmOverloads constructor(
      */
     private fun magnetFor(ms: Long): Long? {
         if (ms < 0) return null
-        val (grid, window) = when (magnetProfile) {
-            MagnetProfile.ALARM -> 300_000L to 40_000L
-            MagnetProfile.COUNTDOWN -> when {
-                ms < 5 * 60_000L -> 60_000L to 10_000L
-                ms < 30 * 60_000L -> 300_000L to 40_000L
-                ms < 120 * 60_000L -> 900_000L to 90_000L
-                else -> 3_600_000L to 300_000L
+        // The grid follows the hand in your fingers: quarter-minutes on the
+        // second hand (nobody times 37 seconds), the familiar 5-minute grid
+        // on the minute hand, whole hours on the hour hand.
+        val (grid, window) = when (draggedHand) {
+            Hand.SECOND -> 15_000L to 3_000L
+            Hand.HOUR -> 3_600_000L to 600_000L
+            else -> when (magnetProfile) {
+                MagnetProfile.ALARM -> 300_000L to 40_000L
+                MagnetProfile.COUNTDOWN -> when {
+                    ms < 5 * 60_000L -> 60_000L to 10_000L
+                    ms < 30 * 60_000L -> 300_000L to 40_000L
+                    ms < 120 * 60_000L -> 900_000L to 90_000L
+                    else -> 3_600_000L to 300_000L
+                }
             }
         }
         val rounded = (ms + grid / 2) / grid * grid
@@ -1527,11 +1615,16 @@ class ClockView @JvmOverloads constructor(
     private fun computeAngles(): Angles {
         chronoDisplayMs()?.let { duration ->
             val totalSec = duration / 1000.0
+            // Winding the minute or hour hand on a whole-minute value: the
+            // seconds are already polarized to zero, so spinning them like
+            // mad adds nothing but noise. They stay put.
+            val secondsPinned = chronoSettable && draggedHand != null &&
+                draggedHand != Hand.SECOND && (chronoFrozenMs ?: 0L) % 60_000L == 0L
             return Angles(
                 hour = ((totalSec / 3600.0) % hoursOnDial / hoursOnDial * 360.0).toFloat(),
                 minute = ((totalSec / 60.0) % 60.0 / 60.0 * 360.0).toFloat(),
-                second = ((totalSec % 60.0) / 60.0 * 360.0).toFloat(),
-                fast = (duration % 1000L) / 1000f * 360f
+                second = if (secondsPinned) 0f else ((totalSec % 60.0) / 60.0 * 360.0).toFloat(),
+                fast = if (secondsPinned) 0f else (duration % 1000L) / 1000f * 360f
             )
         }
 
@@ -1701,6 +1794,14 @@ class ClockView @JvmOverloads constructor(
 
         drawTicks(canvas, cx, cy, r)
         drawNumerals(canvas, cx, cy, r)
+        dialLabel?.let { label ->
+            datePaint.textSize = r * 0.15f
+            canvas.drawText(
+                label, cx,
+                cy - apothemRadius() * 0.42f - (datePaint.ascent() + datePaint.descent()) / 2f,
+                datePaint
+            )
+        }
         if (chronoProvider == null) {
             if (showDate) drawDate(canvas, cx, cy, r)
             if (alarmMarkers.isNotEmpty()) drawAlarmMarkers(canvas, cx, cy, r)
@@ -1709,12 +1810,23 @@ class ClockView @JvmOverloads constructor(
 
         val a = currentAngles()
 
-        if (chronoProvider != null && lapAngles.isNotEmpty()) {
-            for ((i, angle) in lapAngles.withIndex()) {
-                lapPaint.alpha = 50 + 150 * (i + 1) / lapAngles.size
+        if (chronoProvider != null && laps.isNotEmpty()) {
+            for ((i, lap) in laps.withIndex()) {
+                val alpha = 40 + 140 * (i + 1) / laps.size
+                // A ghost of the whole mechanism, not just the seconds.
+                lapPaint.alpha = (alpha * 0.7f).toInt()
                 drawHand(
-                    canvas, cx, cy, angle,
-                    boundaryRadius(angle) * SECOND_LEN, r * 0.18f, r * 0.010f, lapPaint
+                    canvas, cx, cy, lap.hour,
+                    boundaryRadius(lap.hour) * HOUR_LEN, r * 0.10f, r * 0.012f, lapPaint
+                )
+                drawHand(
+                    canvas, cx, cy, lap.minute,
+                    boundaryRadius(lap.minute) * MINUTE_LEN, r * 0.12f, r * 0.009f, lapPaint
+                )
+                lapPaint.alpha = alpha
+                drawHand(
+                    canvas, cx, cy, lap.second,
+                    boundaryRadius(lap.second) * SECOND_LEN, r * 0.18f, r * 0.007f, lapPaint
                 )
             }
         }
@@ -1772,8 +1884,9 @@ class ClockView @JvmOverloads constructor(
             drawSevenSegment(canvas, it, cx, yTop, digitH)
         }
 
-        if (SystemClock.uptimeMillis() < cheaterUntil) {
+        if (SystemClock.uptimeMillis() < cheaterUntil && cheaterFade < 1f) {
             cheaterPaint.textSize = r * 0.24f
+            cheaterPaint.alpha = ((1f - cheaterFade) * 255).toInt()
             canvas.save()
             canvas.rotate(-18f, cx, cy)
             canvas.drawText(

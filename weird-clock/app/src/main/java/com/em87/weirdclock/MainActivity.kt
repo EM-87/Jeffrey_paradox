@@ -57,21 +57,27 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private val chimePlayer = ChimePlayer()
     private val handler = Handler(Looper.getMainLooper())
 
-    // Clock page views (bound when the pager creates the page).
+    // Center page (C0 clock / S0 hourglass).
     private var clockView: ClockView? = null
+    private var clockContainer: View? = null
     private var bubbleLayer: FrameLayout? = null
     private var modeButton: Button? = null
     private var settingsButton: ImageButton? = null
     private var alarmSetBanner: View? = null
+    private var alarmSetLabel: TextView? = null
+    private var sandStartStop: Button? = null
 
-    // Second page views (alarms in clock mode, countdown dial in chrono mode).
+    // Left page (C-1 calendar / S-1 stopwatch).
+    private var stopwatchContainer: View? = null
+    private var stopwatchClockView: ClockView? = null
+
+    // Right page (C1 alarms / S1 countdown).
     private var alarmsContainer: View? = null
     private var countdownContainer: View? = null
     private var alarmsRecycler: RecyclerView? = null
     private var alarmsEmpty: TextView? = null
     private var countdownClockView: ClockView? = null
 
-    // Third page views (calendar in clock mode, sand hourglass in chrono).
     private var calendarContainer: View? = null
     private var hourglassContainer: View? = null
     private var calendarView: CalendarPageView? = null
@@ -83,6 +89,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     // Calendar reminders (one-shot dated alarms).
     private val reminders = mutableListOf<Reminder>()
+
+    /** Date + label of the reminder whose time is being wound on the dial. */
+    private var reminderBeingSet: Triple<Int, Int, Int>? = null
+    private var reminderLabelBeingSet = ""
 
     // Alarm-time setting on the clock dial with the wind-to-set engine.
     private var alarmSetActive = false
@@ -155,6 +165,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** Last seen uiMode, to recreate on system light/dark changes. */
     private var lastUiMode = 0
 
+    /** True while stepping into our own settings screen. */
+    private var openingSettings = false
+
     // ------------------------------------------------- hourglass flip (S3)
 
     /**
@@ -166,10 +179,25 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var deviceInverted = false
     private var flipLowPassX = 0f
     private var flipLowPassY = 9.81f
+    private var lastBubbleJoltAt = 0L
     private val flipListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
+            val devX = event.values[0] - flipLowPassX
+            val devY = event.values[1] - flipLowPassY
             flipLowPassX = flipLowPassX * 0.8f + event.values[0] * 0.2f
             flipLowPassY = flipLowPassY * 0.8f + event.values[1] * 0.2f
+            // Free bubbles take any knock, not just the hand-shedding ones:
+            // they get shoved in the direction the phone was struck.
+            val jolt = hypot(devX, devY)
+            val now = SystemClock.uptimeMillis()
+            if (jolt > 3.5f && now - lastBubbleJoltAt > 120L) {
+                lastBubbleJoltAt = now
+                for (b in bubbles) {
+                    if (!b.moving) continue
+                    b.vx += -devX * 26f
+                    b.vy += devY * 26f
+                }
+            }
             val nowInverted = when {
                 flipLowPassY < -6f -> true
                 flipLowPassY > 6f -> false
@@ -276,23 +304,29 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         pager = findViewById(R.id.pager)
         pager.offscreenPageLimit = 2
         pager.adapter = PagerAdapter()
-        // The stopwatch and countdown dials share their chaos: fallen pieces
-        // travel with the swipe instead of vanishing between cards.
+        // The app opens on the clock, with calendar and alarms one swipe
+        // away on either side.
+        pager.setCurrentItem(PAGE_HOME, false)
+        lastPage = PAGE_HOME
         pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
-                if (mode == Mode.CHRONO) {
-                    val main = clockView
-                    val cd = countdownClockView
-                    if (main != null && cd != null) {
-                        if (position == 1 && lastPage == 0) cd.syncFallenFrom(main)
-                        if (position == 0 && lastPage == 1) main.syncFallenFrom(cd)
-                    }
-                }
                 lastPage = position
             }
         })
         if (intent.getBooleanExtra(EXTRA_OPEN_ALARMS, false)) {
-            pager.post { pager.setCurrentItem(1, false) }
+            pager.post { pager.setCurrentItem(PAGE_RIGHT, false) }
+        }
+        if (intent.getBooleanExtra(EXTRA_OPEN_TIMER, false)) {
+            // From the countdown notification or the hourglass widget:
+            // straight to whichever timer face is in use.
+            pager.post {
+                mode = Mode.CHRONO
+                applyMode()
+                pager.setCurrentItem(
+                    if (prefs.getBoolean(Prefs.TIMER_ON_DIAL, false)) PAGE_RIGHT else PAGE_HOME,
+                    false
+                )
+            }
         }
 
         sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
@@ -326,7 +360,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (intent.getBooleanExtra(EXTRA_OPEN_ALARMS, false)) {
-            pager.currentItem = 1
+            mode = Mode.CLOCK
+            applyMode()
+            pager.currentItem = PAGE_RIGHT
+        }
+        if (intent.getBooleanExtra(EXTRA_OPEN_TIMER, false)) {
+            mode = Mode.CHRONO
+            applyMode()
+            pager.currentItem =
+                if (prefs.getBoolean(Prefs.TIMER_ON_DIAL, false)) PAGE_RIGHT else PAGE_HOME
         }
     }
 
@@ -360,7 +402,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 .apply()
             clockView?.reassembleAll()
             countdownClockView?.reassembleAll()
+            stopwatchClockView?.reassembleAll()
             for (b in bubbles) b.clock.reassembleAll()
+            healBubbleClocks()
             dockBubbles()
         }
         applyPreferences()
@@ -382,9 +426,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         ClockWidgetProvider.refreshAll(this)
         // A running countdown stays visible from outside the app as an
         // ongoing notification with live remaining time and a progress bar.
-        if (countdownRunning) {
+        if (countdownRunning && !openingSettings) {
             CountdownService.start(this, countdownEndsAt, countdownTotalMs)
         }
+        openingSettings = false
         super.onPause()
     }
 
@@ -406,9 +451,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PageHolder {
             val inflater = LayoutInflater.from(parent.context)
             val view = when (viewType) {
-                0 -> inflater.inflate(R.layout.page_clock, parent, false).also { bindClockPage(it) }
-                1 -> inflater.inflate(R.layout.page_second, parent, false).also { bindSecondPage(it) }
-                else -> inflater.inflate(R.layout.page_third, parent, false).also { bindThirdPage(it) }
+                PAGE_LEFT -> inflater.inflate(R.layout.page_left, parent, false)
+                    .also { bindLeftPage(it) }
+                PAGE_HOME -> inflater.inflate(R.layout.page_center, parent, false)
+                    .also { bindCenterPage(it) }
+                else -> inflater.inflate(R.layout.page_right, parent, false)
+                    .also { bindRightPage(it) }
             }
             return PageHolder(view)
         }
@@ -416,73 +464,58 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         override fun onBindViewHolder(holder: PageHolder, position: Int) = Unit
     }
 
-    private fun bindClockPage(root: View) {
-        clockView = root.findViewById<ClockView>(R.id.clock_view).also {
-            it.soundListener = this
-            it.onDialScaleChanged = { scale ->
-                prefs.edit().putFloat(Prefs.DIAL_SCALE, scale).apply()
-                countdownClockView?.dialScale = scale
-                s3Sand?.glassScale = scale
+    /** C-1 calendar / S-1 stopwatch. */
+    private fun bindLeftPage(root: View) {
+        calendarContainer = root.findViewById(R.id.calendar_container)
+        stopwatchContainer = root.findViewById(R.id.stopwatch_container)
+        calendarView = root.findViewById<CalendarPageView>(R.id.calendar_view).also {
+            it.onDayTap = { day -> onCalendarDayTap(day) }
+            it.onMonthChanged = { refreshCalendarMarks() }
+            it.onWeekStartChanged = { monday ->
+                prefs.edit().putBoolean(Prefs.WEEK_START_MONDAY, monday).apply()
             }
+        }
+        stopwatchClockView = root.findViewById<ClockView>(R.id.stopwatch_clock_view).also {
+            it.soundListener = this
+            it.shakeDropEnabled = false
+            it.showDate = false
+            it.chronoProvider = stopwatchProvider
+            it.chronoButtons = true
+            it.onChronoStartStop = { toggleStartPause() }
+            it.onChronoReset = {
+                // Real-chronograph convention: running, the lower pusher
+                // records a lap; stopped, it resets and clears them.
+                if (stopwatchRunning) {
+                    stopwatchClockView?.recordLap()
+                    chimePlayer.playTick()
+                } else {
+                    resetChrono()
+                    stopwatchClockView?.clearLaps()
+                }
+            }
+            it.onDialScaleChanged = { scale -> shareDialScale(scale, it) }
             it.onHorizontalSwipe = { fingerRight ->
-                // On the stopwatch, a swipe over the dial pages to the
-                // countdown, just like the clock pages to the alarms.
-                if (mode == Mode.CHRONO && !alarmSetActive && !fingerRight) {
-                    pager.currentItem = 1
+                // Home is one swipe away from anywhere.
+                if (!fingerRight) {
+                    pager.currentItem = PAGE_HOME
                     true
                 } else {
                     false
                 }
             }
-            it.onChronoStartStop = { if (!alarmSetActive) toggleStartPause() }
-            it.onChronoReset = {
-                if (!alarmSetActive) {
-                    // Real-chronograph convention: while running, the lower
-                    // pusher records a lap (a frozen ghost second hand);
-                    // stopped, it resets and clears the laps.
-                    if (stopwatchRunning) {
-                        clockView?.recordLap()
-                        chimePlayer.playTick()
-                    } else {
-                        resetChrono()
-                        clockView?.clearLaps()
-                    }
-                }
-            }
-            it.onChronoAdjusted = { ms -> if (alarmSetActive) alarmWorkingMs = ms }
-            it.onCrownTap = { chimePlayer.playCuckoo() }
-            // A knock hard enough to shed hands rattles the whole scene:
-            // bubbles break loose and their little hands fall off too.
-            it.onKnocked = {
-                freeBubbles()
-                for (b in bubbles) b.clock.knockHandsOff()
+            it.onCrownTap = {
+                // The winding crown tidies the whole scene, bubbles included.
+                chimePlayer.playCuckoo()
+                healBubbleClocks()
+                dockBubbles()
             }
         }
-        bubbleLayer = root.findViewById(R.id.bubble_layer)
-        modeButton = root.findViewById<Button>(R.id.mode_button).also {
-            it.setOnClickListener { cycleMode() }
-        }
-        settingsButton = root.findViewById<ImageButton>(R.id.settings_button).also { button ->
-            button.setOnClickListener {
-                // Let settings know whether the panic button should be offered.
-                prefs.edit()
-                    .putBoolean(
-                        Prefs.NEEDS_REASSEMBLY,
-                        clockView?.isDisarranged() == true ||
-                            countdownClockView?.isDisarranged() == true
-                    )
-                    .apply()
-                startActivity(Intent(this, SettingsActivity::class.java))
-            }
-        }
-        alarmSetBanner = root.findViewById(R.id.alarm_set_banner)
-        root.findViewById<Button>(R.id.alarm_set_confirm).setOnClickListener { confirmAlarmSet() }
-        root.findViewById<Button>(R.id.alarm_set_cancel).setOnClickListener { exitAlarmSetMode() }
         applyPreferences()
         applyMode()
     }
 
-    private fun bindSecondPage(root: View) {
+    /** C1 alarms / S1 countdown. */
+    private fun bindRightPage(root: View) {
         alarmsContainer = root.findViewById(R.id.alarms_container)
         countdownContainer = root.findViewById(R.id.countdown_container)
 
@@ -512,44 +545,76 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     updateCountdownUi()
                 }
             }
-            // Pinching either dial resizes both: S2 stays the same size as
-            // C1/S1 instead of living in its own scale.
-            it.onDialScaleChanged = { scale ->
-                prefs.edit().putFloat(Prefs.DIAL_SCALE, scale).apply()
-                clockView?.dialScale = scale
-                s3Sand?.glassScale = scale
-            }
+            it.onDialScaleChanged = { scale -> shareDialScale(scale, it) }
             it.onHorizontalSwipe = { fingerRight ->
-                // Swiping back over the countdown dial returns to the
-                // stopwatch; swiping on reaches the beat counter (S3).
-                pager.currentItem = if (fingerRight) 0 else 2
-                true
+                if (fingerRight) {
+                    pager.currentItem = PAGE_HOME
+                    true
+                } else {
+                    false
+                }
             }
-            it.onCrownTap = { chimePlayer.playCuckoo() }
+            it.onCrownTap = {
+                // The winding crown tidies the whole scene, bubbles included.
+                chimePlayer.playCuckoo()
+                healBubbleClocks()
+                dockBubbles()
+            }
+        }
+        // The countdown goes straight home to the clock, skipping S0.
+        root.findViewById<Button>(R.id.countdown_back_button).setOnClickListener {
+            goHomeToClock()
         }
         applyPreferences()
         applyMode()
     }
 
-    private fun bindThirdPage(root: View) {
-        calendarContainer = root.findViewById(R.id.calendar_container)
+    /** C0 clock / S0 sand hourglass — the card the app opens on. */
+    private fun bindCenterPage(root: View) {
+        clockContainer = root.findViewById(R.id.clock_container)
         hourglassContainer = root.findViewById(R.id.hourglass_container)
-        calendarView = root.findViewById<CalendarPageView>(R.id.calendar_view).also {
-            it.onDayTap = { day -> onCalendarDayTap(day) }
-            it.onMonthChanged = { refreshCalendarMarks() }
-            it.onWeekStartChanged = { monday ->
-                prefs.edit().putBoolean(Prefs.WEEK_START_MONDAY, monday).apply()
+        clockView = root.findViewById<ClockView>(R.id.clock_view).also {
+            it.soundListener = this
+            it.onDialScaleChanged = { scale -> shareDialScale(scale, it) }
+            it.onChronoAdjusted = { ms -> if (alarmSetActive) alarmWorkingMs = ms }
+            it.onCrownTap = {
+                // The winding crown tidies the whole scene, bubbles included.
+                chimePlayer.playCuckoo()
+                healBubbleClocks()
+                dockBubbles()
+            }
+            // A knock hard enough to shed hands rattles the whole scene.
+            it.onKnocked = { onDialKnocked() }
+        }
+        bubbleLayer = root.findViewById(R.id.bubble_layer)
+        modeButton = root.findViewById<Button>(R.id.mode_button).also {
+            it.setOnClickListener { cycleMode() }
+        }
+        settingsButton = root.findViewById<ImageButton>(R.id.settings_button).also { button ->
+            button.setOnClickListener {
+                // Let settings know whether the panic button should be offered.
+                prefs.edit()
+                    .putBoolean(Prefs.NEEDS_REASSEMBLY, sceneIsDisarranged())
+                    .apply()
+                // Opening our own settings is not "leaving the app": don't
+                // fire up the countdown notification and floating bubble.
+                openingSettings = true
+                startActivity(Intent(this, SettingsActivity::class.java))
             }
         }
+        alarmSetBanner = root.findViewById(R.id.alarm_set_banner)
+        alarmSetLabel = root.findViewById(R.id.alarm_set_label)
+        root.findViewById<Button>(R.id.alarm_set_confirm).setOnClickListener { confirmAlarmSet() }
+        root.findViewById<Button>(R.id.alarm_set_cancel).setOnClickListener { exitAlarmSetMode() }
+
         s3Sand = root.findViewById<SandHourglassView>(R.id.s3_sand).also {
             it.onFlowBlocked = { blocked -> sandBlocked = blocked }
-            // The glass zooms with every other dial.
-            it.onScaleChanged = { scale ->
-                prefs.edit().putFloat(Prefs.DIAL_SCALE, scale).apply()
-                clockView?.dialScale = scale
-                countdownClockView?.dialScale = scale
-            }
+            it.onScaleChanged = { scale -> shareDialScale(scale, null) }
         }
+        sandStartStop = root.findViewById<Button>(R.id.sand_start_stop).also {
+            it.setOnClickListener { toggleCountdown() }
+        }
+        root.findViewById<Button>(R.id.sand_back_button).setOnClickListener { goHomeToClock() }
         s3DurationGroup = root.findViewById<com.google.android.material.button.MaterialButtonToggleGroup>(
             R.id.s3_duration_group
         ).also { group ->
@@ -700,7 +765,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         alarmBeingSet = alarm
         alarmWorkingMs = ((alarm?.hour ?: 7) * 3600L + (alarm?.minute ?: 30) * 60L) * 1000L
         alarmSetActive = true
-        pager.currentItem = 0
+        mode = Mode.CLOCK
+        pager.currentItem = PAGE_HOME
         applyAlarmSetUi()
     }
 
@@ -710,6 +776,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val ms = ((alarmWorkingMs % dayMs) + dayMs) % dayMs
         val hour = (ms / 3_600_000L).toInt()
         val minute = (ms / 60_000L % 60L).toInt()
+        reminderBeingSet?.let { (year, month, day) ->
+            reminders.add(
+                Reminder(
+                    ReminderStore.nextId(reminders),
+                    year, month, day, hour, minute, reminderLabelBeingSet
+                )
+            )
+            persistReminders()
+            maybeRequestNotificationPermission()
+            exitAlarmSetMode()
+            return
+        }
         val alarm = alarmBeingSet
         if (alarm == null) {
             alarms.add(Alarm(AlarmStore.nextId(alarms), hour, minute, true, Prefs.ALARM_SOUND_BELLS))
@@ -723,14 +801,19 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     private fun exitAlarmSetMode() {
+        val backToCalendar = reminderBeingSet != null
         alarmSetActive = false
         alarmBeingSet = null
+        reminderBeingSet = null
         applyAlarmSetUi()
-        pager.currentItem = 1
+        pager.currentItem = if (backToCalendar) PAGE_LEFT else PAGE_RIGHT
     }
 
     private fun applyAlarmSetUi() {
         alarmSetBanner?.visibility = if (alarmSetActive) View.VISIBLE else View.GONE
+        alarmSetLabel?.setText(
+            if (reminderBeingSet != null) R.string.set_reminder_time else R.string.set_alarm_time
+        )
         pager.isUserInputEnabled = !alarmSetActive
         applyMode()
     }
@@ -850,21 +933,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             .setTitle(R.string.reminder_add)
             .setView(input)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                val label = input.text.toString().trim()
-                android.app.TimePickerDialog(
-                    this,
-                    { _, hour, minute ->
-                        reminders.add(
-                            Reminder(
-                                ReminderStore.nextId(reminders),
-                                year, month, day, hour, minute, label
-                            )
-                        )
-                        persistReminders()
-                        maybeRequestNotificationPermission()
-                    },
-                    9, 0, true
-                ).show()
+                // The time is wound on the clock dial, exactly like an alarm.
+                reminderLabelBeingSet = input.text.toString().trim()
+                reminderBeingSet = Triple(year, month, day)
+                alarmBeingSet = null
+                alarmWorkingMs = 9 * 3_600_000L
+                alarmSetActive = true
+                mode = Mode.CLOCK
+                pager.currentItem = PAGE_HOME
+                applyAlarmSetUi()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
@@ -929,30 +1006,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 pinchZoomEnabled = false
                 shakeDropEnabled = false
                 showDate = false
+                // The city rides inside the dial, where the date sits on the
+                // main clock — no caption hanging off the bubble.
+                dialLabel = tz.substringAfterLast('/').replace('_', ' ')
             }
             clock.timeZone = TimeZone.getTimeZone(tz)
-            val label = TextView(this).apply {
-                text = tz.substringAfterLast('/').replace('_', ' ')
-                textSize = 11f
-                gravity = Gravity.CENTER
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
-            }
-            val box = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(clock, LinearLayout.LayoutParams(size, size))
-                addView(
-                    label,
-                    LinearLayout.LayoutParams(size, ViewGroup.LayoutParams.WRAP_CONTENT)
-                )
-            }
-            layer.addView(
-                box,
-                FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-            )
-            val bubble = Bubble(tz, box, clock)
+            layer.addView(clock, FrameLayout.LayoutParams(size, size))
+            val bubble = Bubble(tz, clock, clock)
             bubble.sizePx = size.toFloat()
             attachBubbleTouch(bubble)
             bubbles.add(bubble)
@@ -960,25 +1020,35 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         dockBubbles()
     }
 
-    /** Orderly 3×2 matrix along the top ("put everything back" too). */
+    /**
+     * Parks the bubbles clear of the dial: up to three centered in a row
+     * above the clock, the rest in a second row below it. One bubble sits
+     * dead center of its row, two straddle it symmetrically, and so on.
+     */
     private fun dockBubbles() {
         val layer = bubbleLayer ?: return
         layer.post {
             val density = resources.displayMetrics.density
             val gap = 8 * density
             val size = bubbles.firstOrNull()?.sizePx ?: return@post
-            val cols = 3
-            val gridW = cols * size + (cols - 1) * gap
-            val startX = ((layer.width - gridW) / 2f).coerceAtLeast(4 * density)
-            val startY = 8 * density
-            for ((i, b) in bubbles.withIndex()) {
-                b.moving = false
-                b.vx = 0f
-                b.vy = 0f
-                b.x = startX + (i % cols) * (size + gap)
-                b.y = startY + (i / cols) * (size + 30 * density)
-                b.place()
+            val top = bubbles.take(3)
+            val bottom = bubbles.drop(3)
+
+            fun layoutRow(row: List<Bubble>, y: Float) {
+                if (row.isEmpty()) return
+                val rowW = row.size * size + (row.size - 1) * gap
+                val startX = ((layer.width - rowW) / 2f).coerceAtLeast(4 * density)
+                for ((i, b) in row.withIndex()) {
+                    b.moving = false
+                    b.vx = 0f
+                    b.vy = 0f
+                    b.x = startX + i * (size + gap)
+                    b.y = y
+                    b.place()
+                }
             }
+            layoutRow(top, 8 * density)
+            layoutRow(bottom, layer.height - size - 64 * density)
         }
     }
 
@@ -988,6 +1058,75 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             b.moving = true
             b.vx = (Math.random().toFloat() - 0.5f) * 400f
             b.vy = -Math.random().toFloat() * 250f
+        }
+    }
+
+    /**
+     * Escalating damage, knock by knock: hands first (bubbles break loose
+     * and a third of their movements seize up or run backwards), then the
+     * numerals a third at a time, and finally the moon and the date.
+     */
+    private var knockCount = 0
+
+    private fun onDialKnocked() {
+        knockCount++
+        freeBubbles()
+        when (knockCount) {
+            1 -> seizeBubbleClocks(1f / 3f)
+            2 -> {
+                seizeBubbleClocks(1f)
+                for (b in bubbles.shuffled().take((bubbles.size + 2) / 3)) {
+                    b.clock.knockHandsOff()
+                }
+            }
+            else -> {
+                for (b in bubbles.shuffled().take((bubbles.size + 2) / 3)) {
+                    b.clock.knockHandsOff()
+                }
+            }
+        }
+    }
+
+    /** Freezes (or reverses) a fraction of the world clocks, at random. */
+    private fun seizeBubbleClocks(fraction: Float) {
+        val count = (bubbles.size * fraction).toInt().coerceAtLeast(1)
+        for (b in bubbles.shuffled().take(count)) {
+            if (b.clock.timeScale == 1f) {
+                b.clock.timeScale = if (Math.random() < 0.5) 0f else -1f
+            }
+        }
+    }
+
+    private fun healBubbleClocks() {
+        for (b in bubbles) b.clock.timeScale = 1f
+        knockCount = 0
+    }
+
+    /**
+     * Growing the main dial can swallow a bubble sitting too close: shove it
+     * out with an impulse proportional to how fast the dial is growing.
+     */
+    private fun kickBubblesFromDial() {
+        val layer = bubbleLayer ?: return
+        val r = clockView?.currentDialRadius() ?: return
+        val dialCx = layer.width / 2f
+        val dialCy = layer.height / 2f
+        for (b in bubbles) {
+            val dx = b.centerX() - dialCx
+            val dy = b.centerY() - dialCy
+            val d = hypot(dx, dy)
+            val minD = r + b.sizePx / 2f
+            if (d < minD && d > 0.001f) {
+                b.moving = true
+                val nx = dx / d
+                val ny = dy / d
+                val overlap = minD - d
+                b.x += nx * overlap
+                b.y += ny * overlap
+                b.vx += nx * overlap * 8f
+                b.vy += ny * overlap * 8f
+                b.place()
+            }
         }
     }
 
@@ -1039,6 +1178,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
     }
 
+    /** Rate-limits collision audio so a pile-up doesn't machine-gun. */
+    private var lastCollisionSoundAt = 0L
+
+    private fun allowCollisionSound(): Boolean {
+        val now = SystemClock.uptimeMillis()
+        if (now - lastCollisionSoundAt < 60L) return false
+        lastCollisionSoundAt = now
+        return true
+    }
+
+    private fun cushion(v: Float) {
+        if (kotlin.math.abs(v) > 150f && allowCollisionSound()) {
+            chimePlayer.playCushion((kotlin.math.abs(v) / 1400f).coerceIn(0.08f, 1f))
+        }
+    }
+
     private fun stepBubbles() {
         if (bubbles.isEmpty() || bubbles.none { it.moving }) return
         val layer = bubbleLayer ?: return
@@ -1061,12 +1216,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             b.vx *= 0.985f
             b.vy *= 0.985f
             val r = b.sizePx / 2f
-            // Screen edges.
-            if (b.x < 0f) { b.x = 0f; b.vx = -b.vx * 0.9f }
-            if (b.y < 0f) { b.y = 0f; b.vy = -b.vy * 0.9f }
-            if (b.x + b.sizePx > w) { b.x = w - b.sizePx; b.vx = -b.vx * 0.9f }
-            if (b.y + b.sizePx > h) { b.y = h - b.sizePx; b.vy = -b.vy * 0.9f }
-            // The main dial is a fixed obstacle.
+            // Screen edges: the cushions of the table.
+            if (b.x < 0f) { b.x = 0f; cushion(b.vx); b.vx = -b.vx * 0.9f }
+            if (b.y < 0f) { b.y = 0f; cushion(b.vy); b.vy = -b.vy * 0.9f }
+            if (b.x + b.sizePx > w) { b.x = w - b.sizePx; cushion(b.vx); b.vx = -b.vx * 0.9f }
+            if (b.y + b.sizePx > h) { b.y = h - b.sizePx; cushion(b.vy); b.vy = -b.vy * 0.9f }
+            // The main dial is a fixed obstacle — and it rings when struck.
             if (dialR > 0f && mode == Mode.CLOCK) {
                 val dx = b.centerX() - dialCx
                 val dy = b.centerY() - dialCy
@@ -1079,6 +1234,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     b.y += ny * (minD - d)
                     val vn = b.vx * nx + b.vy * ny
                     if (vn < 0f) {
+                        if (-vn > 220f && allowCollisionSound()) {
+                            chimePlayer.playBellSequence(
+                                1, false, ChimePlayer.DAY_CHIME_HZ, 0.5, 0.1
+                            )
+                        }
                         b.vx -= 1.85f * vn * nx
                         b.vy -= 1.85f * vn * ny
                     }
@@ -1108,6 +1268,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     c.y += ny * push
                     val relVn = (a.vx - c.vx) * nx + (a.vy - c.vy) * ny
                     if (relVn > 0f) {
+                        // Billiard clack, loud and bright in proportion to
+                        // how hard the two balls met.
+                        if (relVn > 90f && allowCollisionSound()) {
+                            chimePlayer.playClack((relVn / 1400f).coerceIn(0.08f, 1f))
+                        }
                         val impulse = relVn * 0.92f
                         a.vx -= impulse * nx
                         a.vy -= impulse * ny
@@ -1168,6 +1333,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         cv.pinchZoomEnabled = prefs.getBoolean(Prefs.PINCH_ZOOM, true)
         cv.shakeDropEnabled = prefs.getBoolean(Prefs.SHAKE_DROP, true)
         cv.dialScale = prefs.getFloat(Prefs.DIAL_SCALE, 1f)
+        cv.setSelectedHours(
+            prefs.getStringSet(Prefs.SELECTED_HOURS, emptySet())
+                .orEmpty().mapNotNull { it.toIntOrNull() }.toSet()
+        )
+        cv.onSelectedHoursChanged = { hours ->
+            prefs.edit()
+                .putStringSet(Prefs.SELECTED_HOURS, hours.map { it.toString() }.toSet())
+                .apply()
+        }
 
         rebuildBubbles()
         for (b in bubbles) {
@@ -1177,21 +1351,21 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             b.clock.numeralStyle = cv.numeralStyle
         }
 
-        // The countdown dial mirrors the main dial's styling — including its
-        // shape and pinch scale, so S2 is the same size as C1/S1. It stays
-        // touchable regardless of the grab-hands preference: winding is its
-        // only setting mechanism.
-        countdownClockView?.let {
-            it.hoursOnDial = cv.hoursOnDial
-            it.dialShape = cv.dialShape
-            it.showSecondHand = cv.showSecondHand
-            it.smoothSeconds = cv.smoothSeconds
-            it.mirrored = cv.mirrored
-            it.numeralStyle = cv.numeralStyle
-            it.theme = cv.theme
-            it.touchHandsEnabled = true
-            it.pinchZoomEnabled = cv.pinchZoomEnabled
-            it.dialScale = cv.dialScale
+        // The chrono dials mirror the clock's styling — shape, scale and all
+        // — so every face is the same size. They stay touchable regardless
+        // of the grab-hands preference: winding is how you set them.
+        for (dial in listOfNotNull(countdownClockView, stopwatchClockView)) {
+            dial.hoursOnDial = cv.hoursOnDial
+            dial.dialShape = cv.dialShape
+            dial.showSecondHand = cv.showSecondHand
+            dial.smoothSeconds = cv.smoothSeconds
+            dial.mirrored = cv.mirrored
+            dial.numeralStyle = cv.numeralStyle
+            dial.fastHand = cv.fastHand
+            dial.theme = cv.theme
+            dial.touchHandsEnabled = true
+            dial.pinchZoomEnabled = cv.pinchZoomEnabled
+            dial.dialScale = cv.dialScale
         }
 
         calendarView?.let {
@@ -1205,6 +1379,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         refreshCalendarMarks()
         s3Sand?.let {
             it.theme = cv.theme
+            it.maxGrains = prefs.getInt(Prefs.SAND_GRAINS, 260)
             it.glassScale = cv.dialScale
             it.setTime(countdownTotalMs, countdownRemaining())
         }
@@ -1305,34 +1480,61 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         applyMode()
     }
 
+    /** Back to C0 from anywhere, in one move. */
+    private fun goHomeToClock() {
+        if (pager.currentItem != PAGE_HOME) {
+            // Flip the mode only once the scroll settles, or the page being
+            // scrolled past visibly swaps contents mid-flight.
+            pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+                override fun onPageScrollStateChanged(state: Int) {
+                    if (state == ViewPager2.SCROLL_STATE_IDLE) {
+                        pager.unregisterOnPageChangeCallback(this)
+                        mode = Mode.CLOCK
+                        applyMode()
+                    }
+                }
+            })
+            pager.currentItem = PAGE_HOME
+        } else {
+            mode = Mode.CLOCK
+            applyMode()
+        }
+    }
+
+    /** Every dial shares one pinch scale; [source] is the one being pinched. */
+    private fun shareDialScale(scale: Float, source: ClockView?) {
+        prefs.edit().putFloat(Prefs.DIAL_SCALE, scale).apply()
+        for (dial in listOfNotNull(clockView, stopwatchClockView, countdownClockView)) {
+            if (dial !== source) dial.dialScale = scale
+        }
+        s3Sand?.glassScale = scale
+        // Growing the main dial shoves any bubble it swallows out of the way.
+        if (source === clockView) kickBubblesFromDial()
+    }
+
+    private fun sceneIsDisarranged(): Boolean =
+        clockView?.isDisarranged() == true ||
+            stopwatchClockView?.isDisarranged() == true ||
+            countdownClockView?.isDisarranged() == true ||
+            bubbles.any { it.moving }
+
     private fun applyMode() {
         val chrono = mode == Mode.CHRONO
         clockView?.let {
-            when {
-                alarmSetActive -> {
-                    // C1 borrows the countdown's wind-to-set engine to pick
-                    // an alarm time, with the flat 5-minute magnet grid.
-                    it.chronoProvider = alarmTimeProvider
-                    it.chronoSettable = true
-                    it.chronoButtons = false
-                    it.magnetProfile = ClockView.MagnetProfile.ALARM
-                }
-                chrono -> {
-                    it.chronoProvider = stopwatchProvider
-                    it.chronoSettable = false
-                    it.chronoButtons = true
-                    it.chronoRunning = stopwatchRunning
-                    it.magnetProfile = ClockView.MagnetProfile.COUNTDOWN
-                }
-                else -> {
-                    it.chronoProvider = null
-                    it.chronoSettable = false
-                    it.chronoButtons = false
-                    it.magnetProfile = ClockView.MagnetProfile.COUNTDOWN
-                }
+            if (alarmSetActive) {
+                // C0 borrows the wind-to-set engine to pick an alarm or
+                // reminder time, with the alarm magnet grid.
+                it.chronoProvider = alarmTimeProvider
+                it.chronoSettable = true
+                it.magnetProfile = ClockView.MagnetProfile.ALARM
+            } else {
+                it.chronoProvider = null
+                it.chronoSettable = false
+                it.magnetProfile = ClockView.MagnetProfile.COUNTDOWN
             }
+            it.chronoButtons = false
         }
-        modeButton?.setText(if (chrono) R.string.mode_stopwatch else R.string.mode_clock)
+        stopwatchClockView?.chronoRunning = stopwatchRunning
         modeButton?.visibility = if (alarmSetActive) View.GONE else View.VISIBLE
         // Bubbles fade with the mode change, like the crown and pushers.
         val showBubbles = !chrono && !alarmSetActive
@@ -1347,13 +1549,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     .start()
             }
         }
-        settingsButton?.visibility = if (chrono || alarmSetActive) View.GONE else View.VISIBLE
-        // Pages two and three follow the mode: alarms and calendar beside
-        // the clock, the countdown dial and the hourglass beside the stopwatch.
+        settingsButton?.visibility = if (alarmSetActive) View.GONE else View.VISIBLE
+        // Every card follows the mode: clock / calendar / alarms against
+        // hourglass / stopwatch / countdown.
+        clockContainer?.visibility = if (chrono) View.GONE else View.VISIBLE
+        hourglassContainer?.visibility = if (chrono) View.VISIBLE else View.GONE
+        calendarContainer?.visibility = if (chrono) View.GONE else View.VISIBLE
+        stopwatchContainer?.visibility = if (chrono) View.VISIBLE else View.GONE
         alarmsContainer?.visibility = if (chrono) View.GONE else View.VISIBLE
         countdownContainer?.visibility = if (chrono) View.VISIBLE else View.GONE
-        calendarContainer?.visibility = if (chrono) View.GONE else View.VISIBLE
-        hourglassContainer?.visibility = if (chrono) View.VISIBLE else View.GONE
         updateCountdownUi()
     }
 
@@ -1361,6 +1565,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         countdownClockView?.chronoSettable = !countdownRunning
         countdownClockView?.chronoRunning = countdownRunning
         s3Sand?.setTime(countdownTotalMs, countdownRemaining())
+        sandStartStop?.setText(if (countdownRunning) R.string.chrono_pause else R.string.chrono_start)
         syncS3DurationChecks()
     }
 
@@ -1378,9 +1583,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         if (countdownRunning) (countdownEndsAt - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
         else countdownRemainingMs
 
-    /** Start/Pause pusher on the stopwatch (main dial in chrono mode). */
+    /** Start/Pause pusher on the stopwatch dial (S-1). */
     private fun toggleStartPause() {
-        if (mode != Mode.CHRONO) return
         if (stopwatchRunning) {
             stopwatchAccumMs = stopwatchElapsed()
             stopwatchRunning = false
@@ -1388,13 +1592,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             stopwatchStartedAt = SystemClock.elapsedRealtime()
             stopwatchRunning = true
         }
-        clockView?.chronoRunning = stopwatchRunning
+        stopwatchClockView?.chronoRunning = stopwatchRunning
     }
 
     private fun resetChrono() {
         stopwatchRunning = false
         stopwatchAccumMs = 0L
-        clockView?.chronoRunning = false
+        stopwatchClockView?.chronoRunning = false
     }
 
     /** Start/Pause on the countdown dial (second page in chrono mode). */
@@ -1525,6 +1729,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     companion object {
         const val EXTRA_OPEN_ALARMS = "extra_open_alarms"
+        const val EXTRA_OPEN_TIMER = "extra_open_timer"
+
+        /** C-1 calendar / S-1 stopwatch. */
+        const val PAGE_LEFT = 0
+
+        /** C0 clock / S0 hourglass — where the app opens. */
+        const val PAGE_HOME = 1
+
+        /** C1 alarms / S1 countdown. */
+        const val PAGE_RIGHT = 2
+
         private const val DEFAULT_COUNTDOWN_MS = 5 * 60_000L
         private const val BUBBLE_BUOYANCY = 300f
     }

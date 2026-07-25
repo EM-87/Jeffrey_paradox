@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string-array name="theme_entries">
-        <item>Medianoche</item>
+        <item>Automático (Medianoche / Mediodía)</item>
+        <item>Mediodía</item>
         <item>Marfil clásico</item>
         <item>Neón</item>
         <item>Verde terminal</item>

@@ -149,6 +149,7 @@ class CountdownService : Service() {
                         // A tap opens the app on the countdown.
                         startActivity(
                             Intent(this, MainActivity::class.java)
+                                .putExtra(MainActivity.EXTRA_OPEN_TIMER, true)
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         )
                     } else {
@@ -271,7 +272,8 @@ class CountdownService : Service() {
     private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
         this,
         2,
-        Intent(this, MainActivity::class.java),
+        Intent(this, MainActivity::class.java)
+            .putExtra(MainActivity.EXTRA_OPEN_TIMER, true),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
