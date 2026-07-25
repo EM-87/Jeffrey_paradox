@@ -262,6 +262,14 @@ The app is localized in English and Spanish, and follows the system
 light/dark mode — the page backgrounds and UI text switch palettes, while
 the dial keeps whichever theme you dressed it in.
 
+**On your wrist (Wear OS)**
+- A companion watch app in the `wear/` module draws the same dial, shapes
+  and palettes on a watch — no menus, because a watch has no room for
+  them: tap the face to cycle themes, swipe up or down to change the
+  number of hours on the dial, swipe sideways to change its shape. It
+  dims to bare outlines in always-on ambient mode, and is signed with the
+  same key as the phone app.
+
 ## Building
 
 Open the `weird-clock/` folder in Android Studio (Koala or newer) and press
@@ -269,7 +277,8 @@ Run, or from the command line with a local Gradle installation:
 
 ```bash
 cd weird-clock
-gradle :app:assembleDebug
+gradle :app:assembleDebug     # the phone app
+gradle :wear:assembleDebug    # the watch app
 ```
 
 Requires JDK 17 and the Android SDK (compileSdk 35). Min SDK is 24

@@ -69,6 +69,7 @@ object Prefs {
     const val ALARM_SOUND_BABY = "baby"
     const val ALARM_SOUND_CUSTOM = "custom"
 
+    // Legacy repeat keywords, still read when migrating old alarm stores.
     const val ALARM_REPEAT_DAILY = "daily"
     const val ALARM_REPEAT_WEEKDAYS = "weekdays"
     const val ALARM_REPEAT_WEEKENDS = "weekends"

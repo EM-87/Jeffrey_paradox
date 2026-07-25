@@ -4,21 +4,18 @@ plugins {
 }
 
 android {
-    namespace = "com.em87.weirdclock"
+    namespace = "com.em87.weirdclock.wear"
     compileSdk = 35
 
     defaultConfig {
         applicationId = "com.em87.weirdclock"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
         versionCode = 26
         versionName = "8.2"
     }
 
-    // Shared signing key committed to the repo, so every APK — built on any
-    // machine — is signed identically and always installs over the previous
-    // version. Fine for a hobby app distributed as an APK; a Play Store
-    // release would need a private key instead.
+    // Same shared key as the phone app, so the pair installs together.
     signingConfigs {
         create("shared") {
             storeFile = rootProject.file("signing/weirdclock.keystore")
@@ -35,10 +32,6 @@ android {
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("shared")
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
         }
     }
 
@@ -55,9 +48,4 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("com.google.android.material:material:1.12.0")
-    implementation("androidx.preference:preference-ktx:1.2.1")
-    implementation("androidx.dynamicanimation:dynamicanimation:1.0.0")
-    implementation("androidx.recyclerview:recyclerview:1.3.2")
-    implementation("androidx.viewpager2:viewpager2:1.1.0")
 }

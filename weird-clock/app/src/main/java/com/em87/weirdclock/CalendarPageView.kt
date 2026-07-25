@@ -101,8 +101,46 @@ class CalendarPageView @JvmOverloads constructor(
 
     // ---------------------------------------------------------------- touch
 
+    /** Pinched out, the card zooms from one month to the whole year. */
+    private var yearView = false
+    private val scaleDetector = android.view.ScaleGestureDetector(
+        context,
+        object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: android.view.ScaleGestureDetector): Boolean {
+                val wasYear = yearView
+                if (detector.scaleFactor < 0.985f) yearView = true
+                if (detector.scaleFactor > 1.015f) yearView = false
+                if (wasYear != yearView) {
+                    performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    invalidate()
+                }
+                return true
+            }
+        }
+    )
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        scaleDetector.onTouchEvent(event)
+        if (event.pointerCount > 1) {
+            parent?.requestDisallowInterceptTouchEvent(true)
+            return true
+        }
+        if (yearView) {
+            // In year view a tap picks a month and zooms back into it.
+            if (event.actionMasked == MotionEvent.ACTION_UP) {
+                monthAt(event.x, event.y)?.let { monthIndex ->
+                    shown.set(Calendar.MONTH, monthIndex)
+                    shown.set(Calendar.DAY_OF_MONTH, 1)
+                    yearView = false
+                    slideDir = 0
+                    performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    onMonthChanged?.invoke()
+                    invalidate()
+                }
+            }
+            return true
+        }
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 downX = event.x
@@ -198,6 +236,10 @@ class CalendarPageView @JvmOverloads constructor(
 
         titlePaint.color = theme.numeral
         chevronPaint.color = theme.decimal
+        if (yearView) {
+            drawYear(canvas, w, h)
+            return
+        }
         headerPaint.color = theme.minorTick
         todayRingPaint.color = theme.decimal
         moonDarkPaint.color = theme.minorTick
@@ -320,6 +362,87 @@ class CalendarPageView @JvmOverloads constructor(
         }
         canvas.restore()
     }
+
+    /** Which month cell of the year grid is under (x, y), or null. */
+    private fun monthAt(x: Float, y: Float): Int? {
+        val top = height * 0.16f
+        val bottom = height * 0.93f
+        if (y < top || y > bottom) return null
+        val col = (x / (width / 3f)).toInt().coerceIn(0, 2)
+        val row = ((y - top) / ((bottom - top) / 4f)).toInt().coerceIn(0, 3)
+        return row * 3 + col
+    }
+
+    /** Year view: twelve tiny months, today's marked. */
+    private fun drawYear(canvas: Canvas, w: Float, h: Float) {
+        headerPaint.color = theme.minorTick
+        moonDarkPaint.color = theme.face
+        moonDarkPaint.alpha = 255
+        canvas.drawRoundRect(
+            RectF(w * 0.015f, h * 0.015f, w * 0.985f, h * 0.96f),
+            w * 0.05f, w * 0.05f, moonDarkPaint
+        )
+
+        titlePaint.textSize = h * 0.040f
+        canvas.drawText(shown.get(Calendar.YEAR).toString(), w / 2f, h * 0.10f, titlePaint)
+
+        val monthFormat = SimpleDateFormat("LLL", Locale.getDefault())
+        val top = h * 0.16f
+        val cellW = w / 3f
+        val cellH = (h * 0.93f - top) / 4f
+        val today = Calendar.getInstance().apply { timeInMillis = TimeKeeper.nowMs() }
+
+        for (m in 0 until 12) {
+            val cx = cellW * (m % 3) + cellW / 2f
+            val cy = top + cellH * (m / 3)
+            scratch.timeInMillis = shown.timeInMillis
+            scratch.set(Calendar.DAY_OF_MONTH, 1)
+            scratch.set(Calendar.MONTH, m)
+
+            val isThisMonth = today.get(Calendar.YEAR) == shown.get(Calendar.YEAR) &&
+                today.get(Calendar.MONTH) == m
+            titlePaint.textSize = cellH * 0.20f
+            titlePaint.color = if (isThisMonth) theme.decimal else theme.numeral
+            canvas.drawText(
+                monthFormat.format(Date(scratch.timeInMillis)).uppercase(Locale.getDefault()),
+                cx, cy + cellH * 0.24f, titlePaint
+            )
+            titlePaint.color = theme.numeral
+
+            // A dot per day carrying a reminder, so a busy month reads at a
+            // glance without any numbers at all.
+            val days = scratch.getActualMaximum(Calendar.DAY_OF_MONTH)
+            dayPaint.color = theme.decimal
+            val dotR = cellH * 0.028f
+            for (d in 1..days) {
+                if (!yearMarks.contains(m * 100 + d)) continue
+                val col = (d - 1) % 7
+                val row = (d - 1) / 7
+                canvas.drawCircle(
+                    cx - cellW * 0.26f + col * cellW * 0.087f,
+                    cy + cellH * 0.40f + row * cellH * 0.10f,
+                    dotR, dayPaint
+                )
+            }
+            if (isThisMonth) {
+                todayRingPaint.strokeWidth = h * 0.003f
+                canvas.drawRoundRect(
+                    RectF(
+                        cx - cellW * 0.42f, cy + cellH * 0.02f,
+                        cx + cellW * 0.42f, cy + cellH * 0.92f
+                    ),
+                    cellW * 0.06f, cellW * 0.06f, todayRingPaint
+                )
+            }
+        }
+    }
+
+    /**
+     * Days carrying reminders across the whole shown year, encoded as
+     * month * 100 + day, so year view can dot them without a second pass.
+     */
+    var yearMarks: Set<Int> = emptySet()
+        set(value) { field = value; invalidate() }
 
     /** The same terminator-ellipse moon as the dial, in miniature. */
     private fun drawMiniMoon(canvas: Canvas, cx: Float, cy: Float, mr: Float, timeMs: Long) {

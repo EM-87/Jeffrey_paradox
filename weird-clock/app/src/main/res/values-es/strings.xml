@@ -84,6 +84,9 @@
     <string name="alarm_save">Guardar</string>
     <string name="alarm_delete_confirm">Esta alarma desaparecerá para siempre.</string>
     <string name="reminder_delete_confirm">Este recordatorio desaparecerá para siempre.</string>
+    <string name="reminder_name">Nombre</string>
+    <string name="reminder_time">Hora</string>
+    <string name="reminder_set_time">Ajustar en la esfera</string>
     <string name="reminder_duration">Dura</string>
     <string name="reminder_duration_none">Un instante</string>
     <string name="reminder_duration_min">%1$d min</string>

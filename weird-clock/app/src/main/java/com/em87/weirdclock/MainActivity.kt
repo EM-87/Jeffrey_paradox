@@ -139,10 +139,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** Alarm whose custom sound file is being picked, while SAF is open. */
     private var soundPickTarget: Alarm? = null
+
+    /** Refreshes the open edit sheet once the picker returns. */
+    private var soundPickCallback: (() -> Unit)? = null
     private val soundPickerLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             val alarm = soundPickTarget
+            val done = soundPickCallback
             soundPickTarget = null
+            soundPickCallback = null
             if (alarm != null) {
                 if (uri != null) {
                     try {
@@ -158,7 +163,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     // Picker dismissed with nothing chosen: back to bells.
                     alarm.sound = Prefs.ALARM_SOUND_BELLS
                 }
-                persistAlarms()
+                if (done != null) done() else persistAlarms()
             }
         }
 
@@ -869,6 +874,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             if (next == Prefs.ALARM_SOUND_CUSTOM) {
                 draft.sound = next
                 soundPickTarget = draft
+                soundPickCallback = { refresh() }
                 soundPickerLauncher.launch(arrayOf("audio/*"))
             } else {
                 draft.sound = next
@@ -1026,23 +1032,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         updateAlarmMarkers()
     }
 
-    private fun showLabelDialog(alarm: Alarm) {
-        val input = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-            setText(alarm.label)
-            setSelection(alarm.label.length)
-        }
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle(R.string.alarm_label_title)
-            .setView(input)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                alarm.label = input.text.toString().trim()
-                persistAlarms()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
     /** Sectograph-style: enabled alarms as accent wedges on the clock dial. */
     private fun updateAlarmMarkers() {
         val show = prefs.getBoolean(Prefs.ALARM_MARKERS, true)
@@ -1091,6 +1080,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             .filter { it.year == cal.shownYear && it.month == cal.shownMonth1 }
             .map { it.day }
             .toSet()
+        // Year view dots every busy day of the whole year at once.
+        cal.yearMarks = reminders
+            .filter { it.year == cal.shownYear }
+            .map { (it.month - 1) * 100 + it.day }
+            .toSet()
     }
 
     private fun persistReminders() {
@@ -1108,80 +1102,129 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.year == year && it.month == month && it.day == day
         }
         if (dayReminders.isEmpty()) {
-            showAddReminderDialog(year, month, day)
+            showReminderSheet(null, year, month, day)
             return
         }
-        val items = dayReminders.map {
-            String.format(
-                Locale.US, "%02d:%02d  %s",
-                it.hour, it.minute,
-                it.label.ifBlank { getString(R.string.reminder_untitled) }
-            )
-        }.toTypedArray()
+        val items = (
+            dayReminders.map {
+                String.format(
+                    Locale.US, "%02d:%02d  %s",
+                    it.hour, it.minute,
+                    it.label.ifBlank { getString(R.string.reminder_untitled) }
+                )
+            } + getString(R.string.reminder_add)
+            ).toTypedArray()
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(String.format(Locale.US, "%02d/%02d/%04d", day, month, year))
             .setItems(items) { _, which ->
-                // Deleting is deliberate: it asks first.
-                val doomed = dayReminders[which]
-                androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setTitle(doomed.label.ifBlank { getString(R.string.reminder_untitled) })
+                if (which < dayReminders.size) {
+                    showReminderSheet(dayReminders[which], year, month, day)
+                } else {
+                    showReminderSheet(null, year, month, day)
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /**
+     * The reminder editor: the same bottom-sheet shape as the alarm one,
+     * with the time still set the app's way — by winding the dial.
+     */
+    private fun showReminderSheet(existing: Reminder?, year: Int, month: Int, day: Int) {
+        val sheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.sheet_reminder_edit, null)
+        sheet.setContentView(view)
+
+        var label = existing?.label.orEmpty()
+        var hour = existing?.hour ?: 9
+        var minute = existing?.minute ?: 0
+        var duration = existing?.durationMinutes ?: 0
+
+        val nameValue = view.findViewById<TextView>(R.id.rsheet_name_value)
+        val timeValue = view.findViewById<TextView>(R.id.rsheet_time_value)
+        val durationValue = view.findViewById<TextView>(R.id.rsheet_duration_value)
+        view.findViewById<TextView>(R.id.rsheet_date).text =
+            String.format(Locale.US, "%02d/%02d/%04d", day, month, year)
+
+        fun refresh() {
+            nameValue.text = label.ifBlank { getString(R.string.reminder_hint) }
+            timeValue.text = String.format(Locale.US, "%02d:%02d", hour, minute)
+            durationValue.text = if (duration <= 0) {
+                getString(R.string.reminder_duration_none)
+            } else {
+                getString(R.string.reminder_duration_min, duration)
+            }
+        }
+
+        view.findViewById<View>(R.id.rsheet_row_name).setOnClickListener {
+            val input = EditText(this).apply {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+                setText(label)
+                setSelection(label.length)
+            }
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.reminder_name)
+                .setView(input)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    label = input.text.toString().trim()
+                    refresh()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+
+        view.findViewById<View>(R.id.rsheet_row_duration).setOnClickListener {
+            val choices = intArrayOf(0, 15, 30, 60, 120)
+            val names = choices.map {
+                if (it == 0) getString(R.string.reminder_duration_none)
+                else getString(R.string.reminder_duration_min, it)
+            }.toTypedArray()
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.reminder_duration)
+                .setItems(names) { _, which ->
+                    duration = choices[which]
+                    refresh()
+                }
+                .show()
+        }
+
+        // Tapping the time row, or Save, both end on the dial: that is where
+        // times are set in this app.
+        val toDial = View.OnClickListener {
+            existing?.let { reminders.remove(it) }
+            reminderLabelBeingSet = label
+            reminderDurationBeingSet = duration
+            reminderBeingSet = Triple(year, month, day)
+            alarmBeingSet = null
+            alarmWorkingMs = (hour * 3_600_000L) + (minute * 60_000L)
+            alarmSetActive = true
+            mode = Mode.CLOCK
+            sheet.dismiss()
+            pager.currentItem = PAGE_HOME
+            applyAlarmSetUi()
+        }
+        view.findViewById<View>(R.id.rsheet_row_time).setOnClickListener(toDial)
+        view.findViewById<Button>(R.id.rsheet_save).setOnClickListener(toDial)
+
+        view.findViewById<Button>(R.id.rsheet_delete).apply {
+            isEnabled = existing != null
+            setOnClickListener {
+                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                    .setTitle(label.ifBlank { getString(R.string.reminder_untitled) })
                     .setMessage(R.string.reminder_delete_confirm)
                     .setPositiveButton(R.string.alarm_delete) { _, _ ->
-                        reminders.remove(doomed)
+                        existing?.let { reminders.remove(it) }
                         persistReminders()
-                        Toast.makeText(this, R.string.reminder_deleted, Toast.LENGTH_SHORT).show()
+                        sheet.dismiss()
                     }
                     .setNegativeButton(android.R.string.cancel, null)
                     .show()
             }
-            .setPositiveButton(R.string.reminder_add) { _, _ ->
-                showAddReminderDialog(year, month, day)
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
-    private fun showAddReminderDialog(year: Int, month: Int, day: Int) {
-        val input = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-            hint = getString(R.string.reminder_hint)
         }
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle(R.string.reminder_add)
-            .setView(input)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                val label = input.text.toString().trim()
-                // How long it lasts decides whether the dial shows a dot or
-                // a Sectograph wedge.
-                val choices = intArrayOf(0, 15, 30, 60, 120)
-                val names = choices.map {
-                    if (it == 0) getString(R.string.reminder_duration_none)
-                    else getString(R.string.reminder_duration_min, it)
-                }.toTypedArray()
-                androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setTitle(R.string.reminder_duration)
-                    .setItems(names) { _, which ->
-                        reminderDurationBeingSet = choices[which]
-                        startWindingReminder(year, month, day, label)
-                    }
-                    .show()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
 
-    private fun startWindingReminder(year: Int, month: Int, day: Int, label: String) {
-        run {
-                // The time is wound on the clock dial, exactly like an alarm.
-                reminderLabelBeingSet = label
-                reminderBeingSet = Triple(year, month, day)
-                alarmBeingSet = null
-                alarmWorkingMs = 9 * 3_600_000L
-                alarmSetActive = true
-                mode = Mode.CLOCK
-                pager.currentItem = PAGE_HOME
-                applyAlarmSetUi()
-        }
+        refresh()
+        sheet.show()
     }
 
     // ------------------------------------------------- world-clock bubbles

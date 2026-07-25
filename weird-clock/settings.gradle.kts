@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "WeirdClock"
 include(":app")
+include(":wear")

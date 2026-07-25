@@ -38,8 +38,14 @@ object WidgetRenderer {
      */
     fun handFitFraction(context: Context): Float {
         val (sides, _) = shapeSpec(PreferenceManager.getDefaultSharedPreferences(context))
-        return if (sides < 3) 1f else cos(Math.PI / sides).toFloat()
+        val polygon = if (sides < 3) 1f else cos(Math.PI / sides).toFloat()
+        // Hand bitmaps are laid out against the full bitmap; scale them to
+        // the dial's own inset radius so they end where the ticks do.
+        return polygon * (DIAL_FRACTION / 0.94f)
     }
+
+    /** How much of the bitmap the dial itself occupies. */
+    private const val DIAL_FRACTION = 0.90f
 
     fun dialBitmap(context: Context, sizePx: Int): Bitmap {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
@@ -57,7 +63,8 @@ object WidgetRenderer {
         val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val c = sizePx / 2f
-        val r = sizePx / 2f * 0.94f
+        // Inset a little, to leave the ring of bitmap the alarm dots need.
+        val r = sizePx / 2f * DIAL_FRACTION
 
         // Same boundary math as the in-app dial: the polygon's edge distance
         // varies with angle, and everything on the rim follows it.
@@ -161,6 +168,56 @@ object WidgetRenderer {
                     theme.numeral
                 }
                 canvas.drawText(label, x, y - (text.ascent() + text.descent()) / 2f, text)
+            }
+        }
+
+        // Enabled alarms as dots just outside the rim, and calendar events
+        // as Sectograph wedges — the same language as the in-app dial.
+        if (prefs.getBoolean(Prefs.ALARM_MARKERS, true)) {
+            val markerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.FILL
+                color = theme.decimal
+                alpha = 230
+            }
+            val today = Calendar.getInstance()
+            val reminders = ReminderStore.load(context).filter {
+                it.year == today.get(Calendar.YEAR) &&
+                    it.month == today.get(Calendar.MONTH) + 1 &&
+                    it.day == today.get(Calendar.DAY_OF_MONTH)
+            }
+            for ((startDeg, sweepDeg) in reminders.filter { it.durationMinutes > 0 }.map {
+                val start = (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f
+                start to it.durationMinutes / 60f / hoursOnDial * 360f
+            }) {
+                val path = android.graphics.Path()
+                val steps = kotlin.math.max(2, (sweepDeg / 3f).toInt())
+                for (i in 0..steps) {
+                    val a = Math.toRadians((startDeg + sweepDeg * i / steps).toDouble())
+                    val b = boundary((startDeg + sweepDeg * i / steps)) * 0.885f
+                    val px = c + sin(a).toFloat() * b
+                    val py = c - cos(a).toFloat() * b
+                    if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
+                }
+                for (i in steps downTo 0) {
+                    val a = Math.toRadians((startDeg + sweepDeg * i / steps).toDouble())
+                    val b = boundary((startDeg + sweepDeg * i / steps)) * 0.965f
+                    path.lineTo(c + sin(a).toFloat() * b, c - cos(a).toFloat() * b)
+                }
+                path.close()
+                canvas.drawPath(path, markerPaint)
+            }
+            val dotAngles = AlarmStore.load(context).filter { it.enabled }.map {
+                (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f
+            } + reminders.filter { it.durationMinutes <= 0 }.map {
+                (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f
+            }
+            for (deg in dotAngles) {
+                val a = Math.toRadians(deg.toDouble())
+                val b = boundary(deg) * 1.02f
+                canvas.drawCircle(
+                    c + sin(a).toFloat() * b, c - cos(a).toFloat() * b,
+                    r * 0.022f, markerPaint
+                )
             }
         }
 
