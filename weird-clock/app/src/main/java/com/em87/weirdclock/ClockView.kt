@@ -333,6 +333,17 @@ class ClockView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
     }
+
+    /**
+     * Ghost hands are dashed. On a stopwatch the hour and minute ghosts sit
+     * within a degree or two of the live hands — no amount of shortening or
+     * fading separates them, but a dashed stroke reads as a ghost even lying
+     * directly under a solid one.
+     */
+    private val lapGhostPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.BUTT
+    }
     private val alarmMarkerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val alarmMarkerPath = Path()
     private val moonDarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -373,6 +384,7 @@ class ClockView @JvmOverloads constructor(
         cheaterPaint.color = t.secondHand
         selectedColor = t.secondHand
         lapPaint.color = t.secondHand
+        lapGhostPaint.color = t.numeral
         alarmMarkerPaint.color = t.decimal
         alarmMarkerPaint.alpha = 230
         moonDarkPaint.color = t.minorTick
@@ -1882,24 +1894,42 @@ class ClockView @JvmOverloads constructor(
         val a = currentAngles()
 
         if (chronoProvider != null && laps.isNotEmpty()) {
+            // Ghosts live *inside* the live hands: each one clearly shorter
+            // than its counterpart and dashed, so a frozen lap reads even
+            // when its hands lie exactly under the running ones.
+            val dash = android.graphics.DashPathEffect(
+                floatArrayOf(r * 0.035f, r * 0.028f), 0f
+            )
+            lapGhostPaint.pathEffect = dash
             for ((i, lap) in laps.withIndex()) {
-                val alpha = 40 + 140 * (i + 1) / laps.size
-                // A ghost of the whole mechanism, not just the seconds.
-                lapPaint.alpha = (alpha * 0.75f).toInt()
-                drawHand(
-                    canvas, cx, cy, lap.hour,
-                    boundaryRadius(lap.hour) * HOUR_LEN * 0.90f, r * 0.10f, r * 0.010f, lapPaint
+                val alpha = 70 + 150 * (i + 1) / laps.size
+                lapGhostPaint.alpha = alpha
+                lapGhostPaint.strokeWidth = r * 0.026f
+                canvas.drawLine(
+                    cx, cy,
+                    pointAt(cx, cy, lap.hour, boundaryRadius(lap.hour) * HOUR_LEN * 0.68f).x,
+                    pointAt(cx, cy, lap.hour, boundaryRadius(lap.hour) * HOUR_LEN * 0.68f).y,
+                    lapGhostPaint
                 )
-                drawHand(
-                    canvas, cx, cy, lap.minute,
-                    boundaryRadius(lap.minute) * MINUTE_LEN * 0.93f, r * 0.12f, r * 0.008f, lapPaint
+                lapGhostPaint.strokeWidth = r * 0.018f
+                canvas.drawLine(
+                    cx, cy,
+                    pointAt(cx, cy, lap.minute, boundaryRadius(lap.minute) * MINUTE_LEN * 0.74f).x,
+                    pointAt(cx, cy, lap.minute, boundaryRadius(lap.minute) * MINUTE_LEN * 0.74f).y,
+                    lapGhostPaint
                 )
+                lapPaint.pathEffect = dash
                 lapPaint.alpha = alpha
-                drawHand(
-                    canvas, cx, cy, lap.second,
-                    boundaryRadius(lap.second) * SECOND_LEN * 0.96f, r * 0.18f, r * 0.007f, lapPaint
+                lapPaint.strokeWidth = r * 0.012f
+                canvas.drawLine(
+                    cx, cy,
+                    pointAt(cx, cy, lap.second, boundaryRadius(lap.second) * SECOND_LEN * 0.88f).x,
+                    pointAt(cx, cy, lap.second, boundaryRadius(lap.second) * SECOND_LEN * 0.88f).y,
+                    lapPaint
                 )
             }
+            lapPaint.pathEffect = null
+            lapGhostPaint.pathEffect = null
         }
 
         if (fastHand != FastHandMode.NONE || chronoProvider != null) {
@@ -1957,18 +1987,20 @@ class ClockView @JvmOverloads constructor(
             // Ghost copies of the recent laps, stacked under the readout —
             // as many as the space below the dial can hold.
             if (chronoProvider != null && laps.isNotEmpty()) {
-                val ghostH = digitH * 0.52f
-                val room = ((height - (yTop + digitH * 1.35f)) / (ghostH * 1.45f)).toInt()
-                val shown = laps.reversed().take(room.coerceIn(0, 4))
-                val baseColor = digitalPaint.color
-                for ((k, lap) in shown.withIndex()) {
-                    digitalPaint.alpha = 150 - k * 30
-                    drawSevenSegment(
-                        canvas, formatDuration(lap.ms), cx,
-                        yTop + digitH * 1.35f + k * ghostH * 1.45f, ghostH
-                    )
+                // Newest lap first and largest, each older one a step
+                // smaller and fainter — a receding stack, which also means
+                // several more of them fit in the same strip.
+                var ghostY = yTop + digitH * 1.30f
+                var ghostH = digitH * 0.58f
+                val bottom = height - 2f
+                for (lap in laps.reversed()) {
+                    if (ghostY + ghostH > bottom || ghostH < digitH * 0.16f) break
+                    digitalPaint.alpha = (110f * (ghostH / (digitH * 0.58f)))
+                        .toInt().coerceIn(45, 160)
+                    drawSevenSegment(canvas, formatDuration(lap.ms), cx, ghostY, ghostH)
+                    ghostY += ghostH * 1.35f
+                    ghostH *= 0.84f
                 }
-                digitalPaint.color = baseColor
                 digitalPaint.alpha = 255
             }
         }

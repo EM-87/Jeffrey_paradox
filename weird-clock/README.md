@@ -174,10 +174,12 @@ stopwatch swipes to a second rendered dial: the countdown.
   seconds-scale countdowns); from inside, the minute hand wins. (The
   alarm-time engine keeps a flat 5-minute grid.)
 - **Laps** — while the stopwatch runs, the lower pusher records a lap: a
-  complete ghost hand set freezes on the dial (up to nine, fading with
-  age, drawn slightly short so they read from under the live hands), and
-  the readings stack as dimmer 7-segment echoes under the digital
-  display. Stopped, the same pusher resets and clears them.
+  complete ghost hand set freezes on the dial, drawn *dashed* and well
+  inside the live hands, because at stopwatch scale the hour and minute
+  ghosts land a degree or two from the running ones and nothing else
+  tells them apart. The readings stack under the digital display as a
+  receding column of 7-segment echoes, each older one a step smaller and
+  fainter. Stopped, the same pusher resets and clears them.
 - **Faking laps** is encouraged, and caught. The check is simply whether
   the lap the dial *shows* matches the time actually elapsed — so winding
   a hand while you press, or catching the spring on its way back, both
