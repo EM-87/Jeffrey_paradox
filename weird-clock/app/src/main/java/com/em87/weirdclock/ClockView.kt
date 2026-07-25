@@ -193,8 +193,17 @@ class ClockView @JvmOverloads constructor(
 
     var magnetProfile = MagnetProfile.COUNTDOWN
 
-    /** Recorded laps, drawn as complete ghost hand sets. */
-    private class Lap(val hour: Float, val minute: Float, val second: Float)
+    /**
+     * A recorded lap: the angles of all three hands plus the reading they
+     * showed, and whether that reading was the truth at the time.
+     */
+    private class Lap(
+        val hour: Float,
+        val minute: Float,
+        val second: Float,
+        val ms: Long,
+        val fake: Boolean
+    )
 
     private val laps = mutableListOf<Lap>()
 
@@ -218,16 +227,22 @@ class ClockView @JvmOverloads constructor(
         set(value) { field = value; invalidate() }
 
     fun recordLap() {
-        // A lap taken while a hand is being wound is the fake lap: that is
-        // exactly the trick the CHEATER stamp exists for.
-        if (draggedHand != null && chronoRunning && !chronoSettable) {
+        // The honest test, and the only one that catches every trick: does
+        // the lap the dial *shows* match the time actually elapsed? Winding
+        // a hand does it, and so does catching the spring on its way back —
+        // no need to know which stunt was pulled.
+        val shown = chronoDisplayMs() ?: 0L
+        val truth = chronoProvider?.invoke() ?: 0L
+        val fake = chronoRunning && !chronoSettable &&
+            kotlin.math.abs(shown - truth) > FAKE_LAP_TOLERANCE_MS
+        if (fake) {
             cheaterFlagged = true
             cheaterUntil = SystemClock.uptimeMillis() + 600_000L
             if (cheaterFade >= 1f) cheaterFade = 0f
             soundListener?.onCheater()
         }
         val a = currentAngles()
-        laps.add(Lap(a.hour, a.minute, a.second))
+        laps.add(Lap(a.hour, a.minute, a.second, shown, fake))
         while (laps.size > 9) laps.removeAt(0)
         // Each new lap fades the CHEATER stamp a little; ten honest laps
         // wash the shame off entirely.
@@ -779,6 +794,14 @@ class ClockView @JvmOverloads constructor(
                 fallenBodies.clear()
                 carriedBody = null
                 soundListener?.onHandMounted()
+            }
+            // Winding the crown resets the mechanism's conscience: the
+            // faked laps and the stamp that shamed them both go.
+            if (laps.any { it.fake } || cheaterUntil > 0L) {
+                laps.removeAll { it.fake }
+                cheaterUntil = 0L
+                cheaterFade = 0f
+                cheaterFlagged = false
             }
             onCrownTap?.invoke()
         }
@@ -1862,19 +1885,19 @@ class ClockView @JvmOverloads constructor(
             for ((i, lap) in laps.withIndex()) {
                 val alpha = 40 + 140 * (i + 1) / laps.size
                 // A ghost of the whole mechanism, not just the seconds.
-                lapPaint.alpha = (alpha * 0.7f).toInt()
+                lapPaint.alpha = (alpha * 0.75f).toInt()
                 drawHand(
                     canvas, cx, cy, lap.hour,
-                    boundaryRadius(lap.hour) * HOUR_LEN, r * 0.10f, r * 0.012f, lapPaint
+                    boundaryRadius(lap.hour) * HOUR_LEN * 0.90f, r * 0.10f, r * 0.010f, lapPaint
                 )
                 drawHand(
                     canvas, cx, cy, lap.minute,
-                    boundaryRadius(lap.minute) * MINUTE_LEN, r * 0.12f, r * 0.009f, lapPaint
+                    boundaryRadius(lap.minute) * MINUTE_LEN * 0.93f, r * 0.12f, r * 0.008f, lapPaint
                 )
                 lapPaint.alpha = alpha
                 drawHand(
                     canvas, cx, cy, lap.second,
-                    boundaryRadius(lap.second) * SECOND_LEN, r * 0.18f, r * 0.007f, lapPaint
+                    boundaryRadius(lap.second) * SECOND_LEN * 0.96f, r * 0.18f, r * 0.007f, lapPaint
                 )
             }
         }
@@ -1930,6 +1953,24 @@ class ClockView @JvmOverloads constructor(
             val digitH = r * 0.13f
             val yTop = min(cy + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
             drawSevenSegment(canvas, it, cx, yTop, digitH)
+
+            // Ghost copies of the recent laps, stacked under the readout —
+            // as many as the space below the dial can hold.
+            if (chronoProvider != null && laps.isNotEmpty()) {
+                val ghostH = digitH * 0.52f
+                val room = ((height - (yTop + digitH * 1.35f)) / (ghostH * 1.45f)).toInt()
+                val shown = laps.reversed().take(room.coerceIn(0, 4))
+                val baseColor = digitalPaint.color
+                for ((k, lap) in shown.withIndex()) {
+                    digitalPaint.alpha = 150 - k * 30
+                    drawSevenSegment(
+                        canvas, formatDuration(lap.ms), cx,
+                        yTop + digitH * 1.35f + k * ghostH * 1.45f, ghostH
+                    )
+                }
+                digitalPaint.color = baseColor
+                digitalPaint.alpha = 255
+            }
         }
 
         if (SystemClock.uptimeMillis() < cheaterUntil && cheaterFade < 1f) {
@@ -2309,6 +2350,9 @@ class ClockView @JvmOverloads constructor(
         private const val FAST_LEN = 0.30f
         private const val TRANSITION_MS = 700f
         private const val SAMPLE_COUNT = 5
+
+        /** How far a lap may drift from the truth before it is a fake. */
+        private const val FAKE_LAP_TOLERANCE_MS = 400L
         private val END_SIDES = floatArrayOf(1f, -1f)
         private val SEGMENT_BITS = intArrayOf(
             0b1111110, 0b0110000, 0b1101101, 0b1111001, 0b0110011,

@@ -173,9 +173,16 @@ stopwatch swipes to a second rendered dial: the countdown.
   stacked hands from *outside* the dial picks the second hand (for
   seconds-scale countdowns); from inside, the minute hand wins. (The
   alarm-time engine keeps a flat 5-minute grid.)
-- **Laps** — while the stopwatch runs, the lower pusher records a lap:
-  a ghost second hand freezes on the dial (up to nine, fading with age).
-  Stopped, the same pusher resets and clears them.
+- **Laps** — while the stopwatch runs, the lower pusher records a lap: a
+  complete ghost hand set freezes on the dial (up to nine, fading with
+  age, drawn slightly short so they read from under the live hands), and
+  the readings stack as dimmer 7-segment echoes under the digital
+  display. Stopped, the same pusher resets and clears them.
+- **Faking laps** is encouraged, and caught. The check is simply whether
+  the lap the dial *shows* matches the time actually elapsed — so winding
+  a hand while you press, or catching the spring on its way back, both
+  earn the CHEATER stamp. Ten honest laps scrub it off; or wind the crown,
+  which quietly deletes every faked lap and the stamp with them.
 - The hands stay playable in chrono modes — wind them and they spring back
   just like on the clock, and over-winding 10 turns explodes the mechanism
   here too. But wind one *forward* more than a full turn and a big CHEATER!
