@@ -154,8 +154,9 @@ stopwatch swipes to a second rendered dial: the countdown.
   Tap the crown and the clock answers with a cuckoo call; tap it five
   times fast and you'll overwind the whole mechanism.
 - **Stopwatch** — the main dial shows elapsed time with a 7-segment digital
-  readout: MM:SS:CC with live centiseconds under the hour, HH:MM:SS beyond
-  (and a proper 7-segment minus sign below zero). Wind the hands
+  readout: MM:SS:CC with live centiseconds under the hour, HH:MM:SS beyond.
+  It reads the mechanism rather than the hands, so winding them around
+  moves the hands but never the truth. Wind the hands
   into negative time and the spring brings it back. The CHEATER stamp only
   fires while the stopwatch is actually running — a stopped one has
   nothing to cheat.
@@ -174,12 +175,11 @@ stopwatch swipes to a second rendered dial: the countdown.
   seconds-scale countdowns); from inside, the minute hand wins. (The
   alarm-time engine keeps a flat 5-minute grid.)
 - **Laps** — while the stopwatch runs, the lower pusher records a lap: a
-  complete ghost hand set freezes on the dial, drawn *dashed* and well
-  inside the live hands, because at stopwatch scale the hour and minute
-  ghosts land a degree or two from the running ones and nothing else
-  tells them apart. The readings stack under the digital display as a
-  receding column of 7-segment echoes, each older one a step smaller and
-  fainter. Stopped, the same pusher resets and clears them.
+  complete ghost hand set freezes on the dial — the hands themselves,
+  same colours and lengths, simply faded, so a lap reads as "this is
+  where the hands were". The readings stack under the digital display as
+  a receding column of 7-segment echoes, each older one a step smaller
+  and fainter. Stopped, the same pusher resets and clears them.
 - **Faking laps** is encouraged, and caught. The check is simply whether
   the lap the dial *shows* matches the time actually elapsed — so winding
   a hand while you press, or catching the spring on its way back, both

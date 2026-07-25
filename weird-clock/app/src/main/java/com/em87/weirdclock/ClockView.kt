@@ -334,16 +334,6 @@ class ClockView @JvmOverloads constructor(
         strokeCap = Paint.Cap.ROUND
     }
 
-    /**
-     * Ghost hands are dashed. On a stopwatch the hour and minute ghosts sit
-     * within a degree or two of the live hands — no amount of shortening or
-     * fading separates them, but a dashed stroke reads as a ghost even lying
-     * directly under a solid one.
-     */
-    private val lapGhostPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.BUTT
-    }
     private val alarmMarkerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val alarmMarkerPath = Path()
     private val moonDarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -384,7 +374,6 @@ class ClockView @JvmOverloads constructor(
         cheaterPaint.color = t.secondHand
         selectedColor = t.secondHand
         lapPaint.color = t.secondHand
-        lapGhostPaint.color = t.numeral
         alarmMarkerPaint.color = t.decimal
         alarmMarkerPaint.alpha = 230
         moonDarkPaint.color = t.minorTick
@@ -1894,42 +1883,32 @@ class ClockView @JvmOverloads constructor(
         val a = currentAngles()
 
         if (chronoProvider != null && laps.isNotEmpty()) {
-            // Ghosts live *inside* the live hands: each one clearly shorter
-            // than its counterpart and dashed, so a frozen lap reads even
-            // when its hands lie exactly under the running ones.
-            val dash = android.graphics.DashPathEffect(
-                floatArrayOf(r * 0.035f, r * 0.028f), 0f
-            )
-            lapGhostPaint.pathEffect = dash
+            // A ghost is the hand itself, faded: same colour, same length,
+            // same width. Dashes and thin outlines read as decoration, not
+            // as "this is where the hands were".
             for ((i, lap) in laps.withIndex()) {
-                val alpha = 70 + 150 * (i + 1) / laps.size
-                lapGhostPaint.alpha = alpha
-                lapGhostPaint.strokeWidth = r * 0.026f
-                canvas.drawLine(
-                    cx, cy,
-                    pointAt(cx, cy, lap.hour, boundaryRadius(lap.hour) * HOUR_LEN * 0.68f).x,
-                    pointAt(cx, cy, lap.hour, boundaryRadius(lap.hour) * HOUR_LEN * 0.68f).y,
-                    lapGhostPaint
-                )
-                lapGhostPaint.strokeWidth = r * 0.018f
-                canvas.drawLine(
-                    cx, cy,
-                    pointAt(cx, cy, lap.minute, boundaryRadius(lap.minute) * MINUTE_LEN * 0.74f).x,
-                    pointAt(cx, cy, lap.minute, boundaryRadius(lap.minute) * MINUTE_LEN * 0.74f).y,
-                    lapGhostPaint
-                )
-                lapPaint.pathEffect = dash
-                lapPaint.alpha = alpha
-                lapPaint.strokeWidth = r * 0.012f
-                canvas.drawLine(
-                    cx, cy,
-                    pointAt(cx, cy, lap.second, boundaryRadius(lap.second) * SECOND_LEN * 0.88f).x,
-                    pointAt(cx, cy, lap.second, boundaryRadius(lap.second) * SECOND_LEN * 0.88f).y,
-                    lapPaint
-                )
+                val alpha = 60 + 150 * (i + 1) / laps.size
+                for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
+                    if (hand == Hand.SECOND && !showSecondHand) continue
+                    val angle = when (hand) {
+                        Hand.HOUR -> lap.hour
+                        Hand.MINUTE -> lap.minute
+                        Hand.SECOND -> lap.second
+                    }
+                    val paint = paintOf(hand)
+                    val was = paint.alpha
+                    paint.alpha = alpha
+                    drawHand(
+                        canvas, cx, cy, angle,
+                        boundaryRadius(angle) * lengthOf(hand),
+                        r * tailOf(hand),
+                        r * widthOf(hand),
+                        paint
+                    )
+                    paint.alpha = was
+                }
             }
-            lapPaint.pathEffect = null
-            lapGhostPaint.pathEffect = null
+
         }
 
         if (fastHand != FastHandMode.NONE || chronoProvider != null) {
@@ -1967,7 +1946,13 @@ class ClockView @JvmOverloads constructor(
         // or the current time while the hands are lying at the bottom of
         // the dial and the analog display is useless.
         val digitalText = when {
-            chronoProvider != null -> formatDuration(chronoDisplayMs() ?: 0L)
+            // While setting a duration the readout must follow the hands —
+            // that is what you are reading as you wind. Otherwise it reports
+            // the mechanism's own value, so a wound hand cannot drag the
+            // display into negative time.
+            chronoProvider != null && chronoSettable ->
+                formatDuration(chronoDisplayMs() ?: 0L)
+            chronoProvider != null -> formatDuration(chronoProvider?.invoke() ?: 0L)
             anyHandFallen() -> {
                 cal.timeInMillis = displayNowMs()
                 String.format(
@@ -1990,16 +1975,16 @@ class ClockView @JvmOverloads constructor(
                 // Newest lap first and largest, each older one a step
                 // smaller and fainter — a receding stack, which also means
                 // several more of them fit in the same strip.
-                var ghostY = yTop + digitH * 1.30f
-                var ghostH = digitH * 0.58f
+                var ghostY = yTop + digitH * 1.28f
+                var ghostH = digitH * 0.78f
                 val bottom = height - 2f
                 for (lap in laps.reversed()) {
                     if (ghostY + ghostH > bottom || ghostH < digitH * 0.16f) break
-                    digitalPaint.alpha = (110f * (ghostH / (digitH * 0.58f)))
-                        .toInt().coerceIn(45, 160)
+                    digitalPaint.alpha = (150f * (ghostH / (digitH * 0.78f)))
+                        .toInt().coerceIn(45, 180)
                     drawSevenSegment(canvas, formatDuration(lap.ms), cx, ghostY, ghostH)
                     ghostY += ghostH * 1.35f
-                    ghostH *= 0.84f
+                    ghostH *= 0.88f
                 }
                 digitalPaint.alpha = 255
             }
