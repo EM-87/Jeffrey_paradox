@@ -26,6 +26,11 @@ data class Alarm(
     /** SAF URI of a user-picked audio file, used when [sound] is custom. */
     var soundUri: String = "",
     var vibrate: Boolean = true,
+    /**
+     * How long the thing this alarm is for lasts. Anything above zero also
+     * makes it a dated event, so it shows as a wedge on the dial.
+     */
+    var durationMinutes: Int = 0,
     /** Strobe the camera flash while ringing. */
     var flash: Boolean = false
 ) {
@@ -77,6 +82,7 @@ object AlarmStore {
                         label = o.optString("label", ""),
                         soundUri = o.optString("soundUri", ""),
                         vibrate = o.optBoolean("vibrate", true),
+                        durationMinutes = o.optInt("duration", 0),
                         flash = o.optBoolean("flash", false)
                     )
                 )
@@ -121,6 +127,7 @@ object AlarmStore {
                     .put("label", a.label)
                     .put("soundUri", a.soundUri)
                     .put("vibrate", a.vibrate)
+                    .put("duration", a.durationMinutes)
                     .put("flash", a.flash)
             )
         }

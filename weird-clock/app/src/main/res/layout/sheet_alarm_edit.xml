@@ -138,6 +138,20 @@
                 style="@style/AlarmSheetRowValue" />
         </LinearLayout>
 
+        <!-- Duration: above zero it also becomes a dated calendar event. -->
+        <LinearLayout
+            android:id="@+id/sheet_row_duration"
+            style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/reminder_duration" />
+
+            <TextView
+                android:id="@+id/sheet_duration_value"
+                style="@style/AlarmSheetRowValue" />
+        </LinearLayout>
+
         <!-- Vibration -->
         <LinearLayout style="@style/AlarmSheetRow">
 

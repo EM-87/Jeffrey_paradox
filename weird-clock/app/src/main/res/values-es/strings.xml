@@ -56,6 +56,8 @@
     <string name="world_city_not_found">No hay ninguna ciudad con ese nombre en la base de zonas horarias</string>
     <string name="world_bubble_limit">Caben hasta 6 relojes en pantalla</string>
 
+    <string name="sand_freeze">Congelar</string>
+    <string name="sand_thaw">Descongelar</string>
     <string name="chrono_start">Iniciar</string>
     <string name="chrono_pause">Pausa</string>
     <string name="chrono_reset">Reiniciar</string>
@@ -87,6 +89,7 @@
     <string name="reminder_name">Nombre</string>
     <string name="reminder_time">Hora</string>
     <string name="reminder_set_time">Ajustar en la esfera</string>
+    <string name="reminder_alarm">Sonar alarma</string>
     <string name="reminder_duration">Dura</string>
     <string name="reminder_duration_none">Un instante</string>
     <string name="reminder_duration_min">%1$d min</string>

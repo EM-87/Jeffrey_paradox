@@ -218,6 +218,14 @@ class ClockView @JvmOverloads constructor(
         set(value) { field = value; invalidate() }
 
     fun recordLap() {
+        // A lap taken while a hand is being wound is the fake lap: that is
+        // exactly the trick the CHEATER stamp exists for.
+        if (draggedHand != null && chronoRunning && !chronoSettable) {
+            cheaterFlagged = true
+            cheaterUntil = SystemClock.uptimeMillis() + 600_000L
+            if (cheaterFade >= 1f) cheaterFade = 0f
+            soundListener?.onCheater()
+        }
         val a = currentAngles()
         laps.add(Lap(a.hour, a.minute, a.second))
         while (laps.size > 9) laps.removeAt(0)

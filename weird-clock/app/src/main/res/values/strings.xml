@@ -66,6 +66,8 @@
     <string name="mode_switch_to_countdown">⌛</string>
     <string name="mode_switch_to_stopwatch">⏱</string>
     <string name="cheater_stamp">CHEATER!</string>
+    <string name="sand_freeze">Freeze</string>
+    <string name="sand_thaw">Thaw</string>
     <string name="chrono_start">Start</string>
     <string name="chrono_pause">Pause</string>
     <string name="chrono_reset">Reset</string>
@@ -98,6 +100,7 @@
     <string name="reminder_name">Name</string>
     <string name="reminder_time">Time</string>
     <string name="reminder_set_time">Set on the dial</string>
+    <string name="reminder_alarm">Ring an alarm</string>
     <string name="reminder_duration">Lasts</string>
     <string name="reminder_duration_none">A moment</string>
     <string name="reminder_duration_min">%1$d min</string>

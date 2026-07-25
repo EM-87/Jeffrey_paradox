@@ -58,6 +58,17 @@ class SandHourglassView @JvmOverloads constructor(
     /** Reports whether gravity currently lets sand reach the neck. */
     var onFlowBlocked: ((Boolean) -> Unit)? = null
 
+    /**
+     * Freeze: the sand stops mid-fall and hangs there. Useful when you want
+     * to look at the pile, and irresistible for the same reason.
+     */
+    var frozen = false
+        set(value) {
+            field = value
+            if (!value) lastStepAt = SystemClock.uptimeMillis()
+            invalidate()
+        }
+
     // ------------------------------------------------------------- time link
 
     private var totalMs = 300_000L
@@ -252,7 +263,7 @@ class SandHourglassView @JvmOverloads constructor(
         val now = SystemClock.uptimeMillis()
         val frameDt = ((now - lastStepAt).coerceIn(0, 40)) / 1000f
         lastStepAt = now
-        if (frameDt <= 0f || grains.isEmpty()) return
+        if (frozen || frameDt <= 0f || grains.isEmpty()) return
 
         // Gate bookkeeping: the upstream bulb (against gravity) may only
         // shed grains the clock has already spent.

@@ -24,12 +24,21 @@
         android:layout_height="match_parent"
         android:visibility="gone">
 
-        <!-- Case pushers are the controls; navigation is by swipe. -->
+        <!-- Case pushers are the controls; the one screen button goes home. -->
         <com.em87.weirdclock.ClockView
             android:id="@+id/stopwatch_clock_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:padding="16dp" />
+
+        <Button
+            android:id="@+id/stopwatch_back_button"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="12dp"
+            android:text="@string/mode_stopwatch" />
     </FrameLayout>
 
 </FrameLayout>

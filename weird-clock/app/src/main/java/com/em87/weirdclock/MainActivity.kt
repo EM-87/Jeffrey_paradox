@@ -29,6 +29,7 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -68,6 +69,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var alarmSetBanner: View? = null
     private var alarmSetLabel: TextView? = null
     private var sandStartStop: Button? = null
+    private var sandFreeze: Button? = null
 
     // Left page (C-1 calendar / S-1 stopwatch).
     private var stopwatchContainer: View? = null
@@ -96,6 +98,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var reminderBeingSet: Triple<Int, Int, Int>? = null
     private var reminderLabelBeingSet = ""
     private var reminderDurationBeingSet = 0
+    private var reminderRingsBeingSet = true
 
     // Alarm-time setting on the clock dial with the wind-to-set engine.
     private var alarmSetActive = false
@@ -519,6 +522,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 dockBubbles()
             }
         }
+        root.findViewById<Button>(R.id.stopwatch_back_button).setOnClickListener {
+            goHomeToClock()
+        }
         applyPreferences()
         applyMode()
     }
@@ -637,6 +643,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.setOnClickListener { toggleCountdown() }
         }
         root.findViewById<Button>(R.id.sand_back_button).setOnClickListener { goHomeToClock() }
+        sandFreeze = root.findViewById<Button>(R.id.sand_freeze).also { button ->
+            button.setOnClickListener {
+                val sand = s3Sand ?: return@setOnClickListener
+                sand.frozen = !sand.frozen
+                button.setText(if (sand.frozen) R.string.sand_thaw else R.string.sand_freeze)
+                chimePlayer.playTick()
+            }
+        }
         s3DurationGroup = root.findViewById<com.google.android.material.button.MaterialButtonToggleGroup>(
             R.id.s3_duration_group
         ).also { group ->
@@ -681,8 +695,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private inner class AlarmHolder(view: View) : RecyclerView.ViewHolder(view) {
         val time: TextView = view.findViewById(R.id.alarm_time)
+        val name: TextView = view.findViewById(R.id.alarm_name)
         val days: TextView = view.findViewById(R.id.alarm_days)
-        val summary: TextView = view.findViewById(R.id.alarm_summary)
+        val soundName: TextView = view.findViewById(R.id.alarm_sound_name)
+        val snoozeMin: TextView = view.findViewById(R.id.alarm_snooze_min)
+        val iconSnooze: ImageView = view.findViewById(R.id.icon_snooze)
+        val iconVibrate: ImageView = view.findViewById(R.id.icon_vibrate)
+        val iconFlash: ImageView = view.findViewById(R.id.icon_flash)
+        val iconCalendar: ImageView = view.findViewById(R.id.icon_calendar)
         val enabled: SwitchCompat = view.findViewById(R.id.alarm_enabled)
     }
 
@@ -698,7 +718,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         override fun onBindViewHolder(holder: AlarmHolder, position: Int) {
             val alarm = alarms[position]
             holder.time.text = String.format(Locale.US, "%02d:%02d", alarm.hour, alarm.minute)
-            holder.time.alpha = if (alarm.enabled) 1f else 0.4f
+
+            holder.name.text = alarm.label.ifBlank { getString(R.string.alarm_label_hint) }
+            holder.name.alpha = if (alarm.label.isBlank()) 0.45f else 1f
 
             // The weekday strip: lit letters are the days it rings on.
             val letters = weekdayLetters()
@@ -716,18 +738,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 at += letter.length + 1
             }
             holder.days.text = strip
-            holder.days.alpha = if (alarm.enabled) 1f else 0.4f
 
-            // Icons only for what is actually switched on, plus the label.
-            val marks = buildString {
-                if (alarm.label.isNotBlank()) append(alarm.label).append("  ")
-                append(soundLabel(alarm.sound))
-                if (alarm.snoozeMinutes > 0) append("  \u23F1 ").append(alarm.snoozeMinutes)
-                if (alarm.vibrate) append("  \uD83D\uDCF3")
-                if (alarm.flash) append("  \uD83D\uDCA1")
-            }
-            holder.summary.text = marks
-            holder.summary.alpha = if (alarm.enabled) 1f else 0.4f
+            // Icons appear only for what is actually switched on.
+            holder.soundName.text = soundLabel(alarm.sound)
+            val hasSnooze = alarm.snoozeMinutes > 0
+            holder.iconSnooze.visibility = if (hasSnooze) View.VISIBLE else View.GONE
+            holder.snoozeMin.visibility = if (hasSnooze) View.VISIBLE else View.GONE
+            holder.snoozeMin.text = alarm.snoozeMinutes.toString()
+            holder.iconVibrate.visibility = if (alarm.vibrate) View.VISIBLE else View.GONE
+            holder.iconFlash.visibility = if (alarm.flash) View.VISIBLE else View.GONE
+            holder.iconCalendar.visibility =
+                if (alarm.durationMinutes > 0) View.VISIBLE else View.GONE
+
+            val alpha = if (alarm.enabled) 1f else 0.4f
+            holder.time.alpha = alpha
+            holder.days.alpha = alpha
+            holder.itemView.findViewById<View>(R.id.alarm_icons).alpha = alpha
 
             holder.enabled.setOnCheckedChangeListener(null)
             holder.enabled.isChecked = alarm.enabled
@@ -793,6 +819,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             } else {
                 getString(R.string.alarm_snooze_off)
             }
+            view.findViewById<TextView>(R.id.sheet_duration_value).text =
+                if (draft.durationMinutes <= 0) {
+                    getString(R.string.reminder_duration_none)
+                } else {
+                    getString(R.string.reminder_duration_min, draft.durationMinutes)
+                }
         }
 
         // Weekday toggles.
@@ -886,9 +918,26 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             draft.snoozeMinutes = when (draft.snoozeMinutes) {
                 0 -> 5
                 5 -> 10
+                10 -> 15
                 else -> 0
             }
             refresh()
+        }
+
+        val durationValue = view.findViewById<TextView>(R.id.sheet_duration_value)
+        view.findViewById<View>(R.id.sheet_row_duration).setOnClickListener {
+            val choices = intArrayOf(0, 15, 30, 60, 120)
+            val names = choices.map {
+                if (it == 0) getString(R.string.reminder_duration_none)
+                else getString(R.string.reminder_duration_min, it)
+            }.toTypedArray()
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.reminder_duration)
+                .setItems(names) { _, which ->
+                    draft.durationMinutes = choices[which]
+                    refresh()
+                }
+                .show()
         }
 
         vibrateSwitch.isChecked = draft.vibrate
@@ -931,6 +980,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         target.label = draft.label
         target.vibrate = draft.vibrate
         target.flash = draft.flash
+        target.durationMinutes = draft.durationMinutes
         if (isNew && !alarms.contains(target)) alarms.add(target)
         persistAlarms()
     }
@@ -976,7 +1026,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 Reminder(
                     ReminderStore.nextId(reminders),
                     year, month, day, hour, minute, reminderLabelBeingSet,
-                    reminderDurationBeingSet
+                    reminderDurationBeingSet, reminderRingsBeingSet
                 )
             )
             persistReminders()
@@ -1039,9 +1089,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             emptyList()
         } else {
             val n = readHoursOnDial()
-            val alarmAngles = alarms.filter { it.enabled }.map { alarm ->
-                (alarm.hour + alarm.minute / 60f) % n / n * 360f
-            }
+            val alarmAngles = alarms
+                .filter { it.enabled && it.durationMinutes <= 0 }
+                .map { alarm -> (alarm.hour + alarm.minute / 60f) % n / n * 360f }
             // Instant reminders join the alarm dots; ones with a duration
             // become wedges instead.
             val reminderAngles = todaysReminders()
@@ -1053,13 +1103,21 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             emptyList()
         } else {
             val n = readHoursOnDial()
-            todaysReminders()
+            // An alarm with a duration is an event too, and reads as a wedge.
+            val today = Calendar.getInstance().apply { timeInMillis = TimeKeeper.nowMs() }
+            val alarmArcs = alarms
+                .filter { it.enabled && it.durationMinutes > 0 && it.ringsOn(today.get(Calendar.DAY_OF_WEEK)) }
+                .map { alarm ->
+                    val start = (alarm.hour + alarm.minute / 60f) % n / n * 360f
+                    start to alarm.durationMinutes / 60f / n * 360f
+                }
+            val reminderArcs = todaysReminders()
                 .filter { it.durationMinutes > 0 }
                 .map { reminder ->
                     val start = (reminder.hour + reminder.minute / 60f) % n / n * 360f
-                    val sweep = reminder.durationMinutes / 60f / n * 360f
-                    start to sweep
+                    start to reminder.durationMinutes / 60f / n * 360f
                 }
+            alarmArcs + reminderArcs
         }
     }
 
@@ -1174,6 +1232,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 .show()
         }
 
+        val alarmSwitch = view.findViewById<SwitchCompat>(R.id.rsheet_alarm)
+        alarmSwitch.isChecked = existing?.rings ?: true
+
         view.findViewById<View>(R.id.rsheet_row_duration).setOnClickListener {
             val choices = intArrayOf(0, 15, 30, 60, 120)
             val names = choices.map {
@@ -1192,6 +1253,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // Tapping the time row, or Save, both end on the dial: that is where
         // times are set in this app.
         val toDial = View.OnClickListener {
+            reminderRingsBeingSet = alarmSwitch.isChecked
             existing?.let { reminders.remove(it) }
             reminderLabelBeingSet = label
             reminderDurationBeingSet = duration
@@ -1760,25 +1822,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         applyMode()
     }
 
-    /** Back to C0 from anywhere, in one move. */
+    /**
+     * Back to C0 from anywhere, in one move. The mode flips *first* so the
+     * clock is already dressed as a clock while the pager glides home —
+     * waiting for the scroll to settle made the hourglass flash past and
+     * the card blink as it swapped underneath.
+     */
     private fun goHomeToClock() {
-        if (pager.currentItem != PAGE_HOME) {
-            // Flip the mode only once the scroll settles, or the page being
-            // scrolled past visibly swaps contents mid-flight.
-            pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
-                override fun onPageScrollStateChanged(state: Int) {
-                    if (state == ViewPager2.SCROLL_STATE_IDLE) {
-                        pager.unregisterOnPageChangeCallback(this)
-                        mode = Mode.CLOCK
-                        applyMode()
-                    }
-                }
-            })
-            pager.currentItem = PAGE_HOME
-        } else {
-            mode = Mode.CLOCK
-            applyMode()
-        }
+        mode = Mode.CLOCK
+        applyMode()
+        if (pager.currentItem != PAGE_HOME) pager.currentItem = PAGE_HOME
     }
 
     /** Every dial shares one pinch scale; [source] is the one being pinched. */

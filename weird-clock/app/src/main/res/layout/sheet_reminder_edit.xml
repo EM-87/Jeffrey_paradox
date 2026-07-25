@@ -70,6 +70,18 @@
                 style="@style/AlarmSheetRowValue" />
         </LinearLayout>
 
+        <LinearLayout style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/reminder_alarm" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/rsheet_alarm"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

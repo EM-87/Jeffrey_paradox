@@ -103,6 +103,7 @@ class CalendarPageView @JvmOverloads constructor(
 
     /** Pinched out, the card zooms from one month to the whole year. */
     private var yearView = false
+    private var zoomStart = 0L
     private val scaleDetector = android.view.ScaleGestureDetector(
         context,
         object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -111,6 +112,7 @@ class CalendarPageView @JvmOverloads constructor(
                 if (detector.scaleFactor < 0.985f) yearView = true
                 if (detector.scaleFactor > 1.015f) yearView = false
                 if (wasYear != yearView) {
+                    zoomStart = android.os.SystemClock.uptimeMillis()
                     performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                     invalidate()
                 }
@@ -236,8 +238,23 @@ class CalendarPageView @JvmOverloads constructor(
 
         titlePaint.color = theme.numeral
         chevronPaint.color = theme.decimal
+
+        // Zooming between month and year really zooms: the outgoing view
+        // scales away under the incoming one instead of blinking out.
+        val zoomT = ((android.os.SystemClock.uptimeMillis() - zoomStart) / 260f)
+        val zooming = zoomT < 1f
+        if (zooming) postInvalidateOnAnimation()
+        val eased = zoomT.coerceIn(0f, 1f).let { 1f - (1f - it) * (1f - it) }
+        canvas.save()
+        if (zooming) {
+            // Year view falls back from the month; the month grows out of it.
+            val from = if (yearView) 1.35f else 0.72f
+            val scale = from + (1f - from) * eased
+            canvas.scale(scale, scale, w / 2f, h / 2f)
+        }
         if (yearView) {
             drawYear(canvas, w, h)
+            canvas.restore()
             return
         }
         headerPaint.color = theme.minorTick
@@ -361,6 +378,7 @@ class CalendarPageView @JvmOverloads constructor(
             drawMiniMoon(canvas, cx, cy + cellH * 0.34f, minOf(cellW, cellH) * 0.10f, scratch.timeInMillis)
         }
         canvas.restore()
+        canvas.restore()
     }
 
     /** Which month cell of the year grid is under (x, y), or null. */
@@ -401,7 +419,7 @@ class CalendarPageView @JvmOverloads constructor(
 
             val isThisMonth = today.get(Calendar.YEAR) == shown.get(Calendar.YEAR) &&
                 today.get(Calendar.MONTH) == m
-            titlePaint.textSize = cellH * 0.20f
+            titlePaint.textSize = cellH * 0.17f
             titlePaint.color = if (isThisMonth) theme.decimal else theme.numeral
             canvas.drawText(
                 monthFormat.format(Date(scratch.timeInMillis)).uppercase(Locale.getDefault()),
@@ -409,27 +427,36 @@ class CalendarPageView @JvmOverloads constructor(
             )
             titlePaint.color = theme.numeral
 
-            // A dot per day carrying a reminder, so a busy month reads at a
-            // glance without any numbers at all.
+            // A real (tiny) month grid, laid out on the correct weekday,
+            // with busy days circled in the accent colour.
             val days = scratch.getActualMaximum(Calendar.DAY_OF_MONTH)
-            dayPaint.color = theme.decimal
-            val dotR = cellH * 0.028f
+            val lead = ((scratch.get(Calendar.DAY_OF_WEEK) - firstDow()) + 7) % 7
+            val colW = cellW * 0.105f
+            val rowH = cellH * 0.115f
+            val gridLeft = cx - colW * 3f
+            val gridTop = cy + cellH * 0.36f
+            dayPaint.textSize = rowH * 0.82f
+            dayPaint.typeface = Typeface.DEFAULT
             for (d in 1..days) {
-                if (!yearMarks.contains(m * 100 + d)) continue
-                val col = (d - 1) % 7
-                val row = (d - 1) / 7
-                canvas.drawCircle(
-                    cx - cellW * 0.26f + col * cellW * 0.087f,
-                    cy + cellH * 0.40f + row * cellH * 0.10f,
-                    dotR, dayPaint
+                val slot = lead + d - 1
+                val px = gridLeft + (slot % 7) * colW
+                val py = gridTop + (slot / 7) * rowH
+                val busy = yearMarks.contains(m * 100 + d)
+                dayPaint.color = if (busy) theme.decimal else theme.numeral
+                dayPaint.alpha = if (busy) 255 else 150
+                canvas.drawText(
+                    d.toString(), px,
+                    py - (dayPaint.ascent() + dayPaint.descent()) / 2f,
+                    dayPaint
                 )
             }
+            dayPaint.alpha = 255
             if (isThisMonth) {
                 todayRingPaint.strokeWidth = h * 0.003f
                 canvas.drawRoundRect(
                     RectF(
-                        cx - cellW * 0.42f, cy + cellH * 0.02f,
-                        cx + cellW * 0.42f, cy + cellH * 0.92f
+                        cx - cellW * 0.46f, cy + cellH * 0.02f,
+                        cx + cellW * 0.46f, cy + cellH * 0.96f
                     ),
                     cellW * 0.06f, cellW * 0.06f, todayRingPaint
                 )
