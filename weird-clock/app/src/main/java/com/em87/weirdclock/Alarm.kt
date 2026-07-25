@@ -13,15 +13,31 @@ data class Alarm(
     var minute: Int,
     var enabled: Boolean,
     var sound: String,
-    /** One of [Prefs.ALARM_REPEAT_DAILY], [Prefs.ALARM_REPEAT_WEEKDAYS], [Prefs.ALARM_REPEAT_WEEKENDS]. */
-    var repeat: String = Prefs.ALARM_REPEAT_DAILY,
+    /**
+     * Which weekdays this alarm repeats on, as a bit per day with bit 0 =
+     * Sunday … bit 6 = Saturday. 0 means "the next time this hour comes
+     * round", the classic one-shot.
+     */
+    var daysMask: Int = ALL_DAYS,
     /** Snooze offered on the ring screen: 0 = off, otherwise minutes (5 or 10). */
     var snoozeMinutes: Int = 5,
     /** Optional user label ("Gym", "Pills"), shown when ringing. */
     var label: String = "",
     /** SAF URI of a user-picked audio file, used when [sound] is custom. */
-    var soundUri: String = ""
-)
+    var soundUri: String = "",
+    var vibrate: Boolean = true,
+    /** Strobe the camera flash while ringing. */
+    var flash: Boolean = false
+) {
+    fun ringsOn(dayOfWeek: Int): Boolean =
+        daysMask == 0 || (daysMask and (1 shl (dayOfWeek - 1))) != 0
+
+    companion object {
+        const val ALL_DAYS = 0b1111111
+        const val WEEKDAYS = 0b0111110
+        const val WEEKENDS = 0b1000001
+    }
+}
 
 /** Alarms persisted as a JSON array in the default SharedPreferences. */
 object AlarmStore {
@@ -43,10 +59,15 @@ object AlarmStore {
                         minute = o.getInt("minute"),
                         enabled = o.getBoolean("enabled"),
                         sound = o.optString("sound", Prefs.ALARM_SOUND_BELLS),
-                        repeat = o.optString(
-                            "repeat",
-                            if (o.optBoolean("weekdays", false)) Prefs.ALARM_REPEAT_WEEKDAYS
-                            else Prefs.ALARM_REPEAT_DAILY
+                        // Older stores kept a repeat keyword; map it onto
+                        // the per-day mask.
+                        daysMask = o.optInt(
+                            "days",
+                            when (o.optString("repeat", Prefs.ALARM_REPEAT_DAILY)) {
+                                Prefs.ALARM_REPEAT_WEEKDAYS -> Alarm.WEEKDAYS
+                                Prefs.ALARM_REPEAT_WEEKENDS -> Alarm.WEEKENDS
+                                else -> Alarm.ALL_DAYS
+                            }
                         ),
                         // Older stores kept snooze as a boolean (always 5 min).
                         snoozeMinutes = o.optInt(
@@ -54,7 +75,9 @@ object AlarmStore {
                             if (o.optBoolean("snooze", true)) 5 else 0
                         ),
                         label = o.optString("label", ""),
-                        soundUri = o.optString("soundUri", "")
+                        soundUri = o.optString("soundUri", ""),
+                        vibrate = o.optBoolean("vibrate", true),
+                        flash = o.optBoolean("flash", false)
                     )
                 )
             }
@@ -93,10 +116,12 @@ object AlarmStore {
                     .put("minute", a.minute)
                     .put("enabled", a.enabled)
                     .put("sound", a.sound)
-                    .put("repeat", a.repeat)
+                    .put("days", a.daysMask)
                     .put("snoozeMin", a.snoozeMinutes)
                     .put("label", a.label)
                     .put("soundUri", a.soundUri)
+                    .put("vibrate", a.vibrate)
+                    .put("flash", a.flash)
             )
         }
         PreferenceManager.getDefaultSharedPreferences(context)

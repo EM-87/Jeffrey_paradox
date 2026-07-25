@@ -23,6 +23,8 @@ object AlarmScheduler {
     /** Snooze length in minutes; 0 disables the snooze action. */
     const val EXTRA_SNOOZE = "extra_snooze"
     const val EXTRA_LABEL = "extra_label"
+    const val EXTRA_VIBRATE = "extra_vibrate"
+    const val EXTRA_FLASH = "extra_flash"
 
     fun update(context: Context) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
@@ -95,13 +97,11 @@ object AlarmScheduler {
                 add(Calendar.DAY_OF_YEAR, 1)
             }
         }
-        fun isWeekend(): Boolean {
-            val day = cal.get(Calendar.DAY_OF_WEEK)
-            return day == Calendar.SATURDAY || day == Calendar.SUNDAY
-        }
-        when (alarm.repeat) {
-            Prefs.ALARM_REPEAT_WEEKDAYS -> while (isWeekend()) cal.add(Calendar.DAY_OF_YEAR, 1)
-            Prefs.ALARM_REPEAT_WEEKENDS -> while (!isWeekend()) cal.add(Calendar.DAY_OF_YEAR, 1)
+        // Walk forward to the next day this alarm actually rings on.
+        var guard = 0
+        while (!alarm.ringsOn(cal.get(Calendar.DAY_OF_WEEK)) && guard < 8) {
+            cal.add(Calendar.DAY_OF_YEAR, 1)
+            guard++
         }
         return cal.timeInMillis
     }
@@ -119,6 +119,8 @@ object AlarmScheduler {
             intent.putExtra(EXTRA_SOUND_URI, it.soundUri)
             intent.putExtra(EXTRA_SNOOZE, it.snoozeMinutes)
             intent.putExtra(EXTRA_LABEL, it.label)
+            intent.putExtra(EXTRA_VIBRATE, it.vibrate)
+            intent.putExtra(EXTRA_FLASH, it.flash)
         }
         return PendingIntent.getBroadcast(
             context,

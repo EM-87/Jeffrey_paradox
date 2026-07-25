@@ -238,11 +238,11 @@ class CountdownService : Service() {
             stopSelf()
             return
         }
-        chimePlayer.playBellSequence(3, false, ChimePlayer.DAY_CHIME_HZ, 1.2, 0.3)
+        chimePlayer.playQuarters()
         getSystemService(NotificationManager::class.java)?.notify(
             DONE_NOTIFICATION_ID,
             NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_notification)
+                .setSmallIcon(R.drawable.ic_timer)
                 .setContentTitle(getString(R.string.countdown_done))
                 .setAutoCancel(true)
                 .setContentIntent(openAppIntent())
@@ -285,7 +285,7 @@ class CountdownService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.ic_timer)
             .setContentTitle(getString(R.string.countdown_notification_title))
             .setOngoing(true)
             .setOnlyAlertOnce(true)

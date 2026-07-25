@@ -45,7 +45,13 @@ class CalendarPageView @JvmOverloads constructor(
 
     /** Week start: swipe over the weekday header to toggle it. */
     var weekStartsMonday = false
-        set(value) { field = value; invalidate() }
+        set(value) {
+            if (field == value) return
+            field = value
+            weekSlideStart = android.os.SystemClock.uptimeMillis()
+            invalidate()
+        }
+    private var weekSlideStart = 0L
     var onWeekStartChanged: ((Boolean) -> Unit)? = null
 
     private fun firstDow(): Int =
@@ -199,11 +205,25 @@ class CalendarPageView @JvmOverloads constructor(
         moonLitPaint.color = theme.numeral
         moonLitPaint.alpha = 220
 
-        // Title row with chevrons.
+        // Title row with chevrons. The month name rides the same slide as
+        // the grid, so nothing on the card changes with a hard cut.
         val titleY = h * 0.09f
         titlePaint.textSize = h * 0.036f
         chevronPaint.textSize = h * 0.036f
+        val titleSlide = if (slideDir != 0) {
+            val t = ((android.os.SystemClock.uptimeMillis() - slideStart) / 280f).coerceIn(0f, 1f)
+            val eased = 1f - (1f - t) * (1f - t)
+            (1f - eased) * w * 0.35f * slideDir
+        } else {
+            0f
+        }
+        canvas.save()
+        canvas.translate(titleSlide, 0f)
+        titlePaint.alpha = (255 * (1f - kotlin.math.abs(titleSlide) / (w * 0.35f))).toInt()
+            .coerceIn(40, 255)
         canvas.drawText(titleFormat.format(Date(shown.timeInMillis)), w / 2f, titleY, titlePaint)
+        titlePaint.alpha = 255
+        canvas.restore()
         canvas.drawText("‹", w * 0.14f, titleY, chevronPaint)
         canvas.drawText("›", w * 0.86f, titleY, chevronPaint)
 
@@ -227,6 +247,15 @@ class CalendarPageView @JvmOverloads constructor(
         val cellW = (gridRight - gridLeft) / 7f
         val headerY = h * 0.155f
         headerPaint.textSize = h * 0.022f
+        // Flipping the week start slides the letters across rather than
+        // swapping them on the spot.
+        val weekT = ((android.os.SystemClock.uptimeMillis() - weekSlideStart) / 260f)
+        canvas.save()
+        if (weekT < 1f) {
+            postInvalidateOnAnimation()
+            val eased = 1f - (1f - weekT.coerceIn(0f, 1f)) * (1f - weekT.coerceIn(0f, 1f))
+            canvas.translate((1f - eased) * cellW * (if (weekStartsMonday) 1f else -1f), 0f)
+        }
         for (i in 0 until 7) {
             scratch.set(2024, Calendar.JANUARY, 1)
             while (scratch.get(Calendar.DAY_OF_WEEK) != ((firstDow - 1 + i) % 7 + 1)) {
@@ -239,6 +268,7 @@ class CalendarPageView @JvmOverloads constructor(
                 headerPaint
             )
         }
+        canvas.restore()
 
         // Day grid: up to 6 rows of 7.
         val gridTop = h * 0.19f

@@ -19,7 +19,9 @@ data class Reminder(
     val day: Int,
     val hour: Int,
     val minute: Int,
-    val label: String
+    val label: String,
+    /** How long the event lasts; 0 = a moment, drawn as a dot. */
+    val durationMinutes: Int = 0
 ) {
     fun timeInMillis(): Long = Calendar.getInstance().run {
         set(year, month - 1, day, hour, minute, 0)
@@ -49,7 +51,8 @@ object ReminderStore {
                         day = o.getInt("day"),
                         hour = o.getInt("hour"),
                         minute = o.getInt("minute"),
-                        label = o.optString("label", "")
+                        label = o.optString("label", ""),
+                        durationMinutes = o.optInt("duration", 0)
                     )
                 )
             }
@@ -74,6 +77,7 @@ object ReminderStore {
                     .put("hour", r.hour)
                     .put("minute", r.minute)
                     .put("label", r.label)
+                    .put("duration", r.durationMinutes)
             )
         }
         PreferenceManager.getDefaultSharedPreferences(context)

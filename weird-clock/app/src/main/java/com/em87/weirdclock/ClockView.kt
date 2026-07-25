@@ -198,8 +198,16 @@ class ClockView @JvmOverloads constructor(
 
     private val laps = mutableListOf<Lap>()
 
-    /** Enabled alarms as dial angles, drawn as markers on the clock face. */
+    /** Enabled alarms as dial angles, drawn as dots just outside the rim. */
     var alarmMarkers: List<Float> = emptyList()
+        set(value) { field = value; invalidate() }
+
+    /**
+     * Calendar events as (startAngle, sweepAngle) pairs, drawn Sectograph
+     * style: a wedge covering the time the event actually occupies. Alarms
+     * are instants and get dots; only events have duration.
+     */
+    var eventArcs: List<Pair<Float, Float>> = emptyList()
         set(value) { field = value; invalidate() }
 
     var showMoonPhase = false
@@ -448,12 +456,19 @@ class ClockView @JvmOverloads constructor(
             val ax = event.values[0]
             val ay = event.values[1]
             val az = event.values[2]
-            lowPassX = lowPassX * 0.8f + ax * 0.2f
-            lowPassY = lowPassY * 0.8f + ay * 0.2f
-            lowPassZ = lowPassZ * 0.8f + az * 0.2f
+            // Heavy smoothing, then a dead zone: raw accelerometer noise on a
+            // phone lying perfectly still was enough to make settled debris
+            // shiver in place forever.
+            lowPassX = lowPassX * 0.92f + ax * 0.08f
+            lowPassY = lowPassY * 0.92f + ay * 0.08f
+            lowPassZ = lowPassZ * 0.92f + az * 0.08f
             // Device +X points right, +Y up the screen; view +Y is downward.
-            gravityX = -lowPassX / 9.81f * BASE_GRAVITY
-            gravityY = lowPassY / 9.81f * BASE_GRAVITY
+            var gx = -lowPassX / 9.81f
+            var gy = lowPassY / 9.81f
+            if (kotlin.math.abs(gx) < 0.04f) gx = 0f
+            if (kotlin.math.abs(gy) < 0.04f) gy = 0f
+            gravityX = gx * BASE_GRAVITY
+            gravityY = gy * BASE_GRAVITY
 
             if (!shakeDropEnabled || chronoProvider != null) return
             val devX = ax - lowPassX
@@ -1302,6 +1317,15 @@ class ClockView @JvmOverloads constructor(
             if (b === carriedBody) continue
             b.vx += gravityX * dt
             b.vy += gravityY * dt
+            // Speed cap: a piece may never travel more than its own half
+            // length per step, which is what let trapped debris tunnel
+            // clean through its neighbours.
+            val speed = hypot(b.vx, b.vy)
+            val maxSpeed = max(b.halfLen, 20f) / dt
+            if (speed > maxSpeed) {
+                b.vx *= maxSpeed / speed
+                b.vy *= maxSpeed / speed
+            }
             b.x += b.vx * dt
             b.y += b.vy * dt
             b.angleDeg += b.angVel * dt
@@ -1336,10 +1360,25 @@ class ClockView @JvmOverloads constructor(
                     b.vy *= 0.97f
                 }
             }
-            b.angVel *= 0.995f
+            b.angVel *= 0.99f
         }
         resolveBodyBodyCollisions()
         resolveMountedHandCollisions(cx, cy, dialRadius())
+        // Rest: pieces that have all but stopped are put fully to sleep, so
+        // a settled heap stays settled instead of buzzing.
+        for (b in fallenBodies) {
+            if (b === carriedBody) continue
+            if (hypot(b.vx, b.vy) < 12f && kotlin.math.abs(b.angVel) < 12f) {
+                b.vx *= 0.5f
+                b.vy *= 0.5f
+                b.angVel *= 0.5f
+                if (hypot(b.vx, b.vy) < 3f) {
+                    b.vx = 0f
+                    b.vy = 0f
+                    b.angVel = 0f
+                }
+            }
+        }
     }
 
     private fun sampleBodyPoints(b: FallingBody, out: FloatArray) {
@@ -1804,6 +1843,7 @@ class ClockView @JvmOverloads constructor(
         }
         if (chronoProvider == null) {
             if (showDate) drawDate(canvas, cx, cy, r)
+            if (eventArcs.isNotEmpty()) drawEventArcs(canvas, cx, cy, r)
             if (alarmMarkers.isNotEmpty()) drawAlarmMarkers(canvas, cx, cy, r)
             if (showMoonPhase) drawMoonPhase(canvas, cx, cy, r)
         }
@@ -2090,17 +2130,33 @@ class ClockView @JvmOverloads constructor(
         }
     }
 
-    /** Enabled alarms drawn as small accent wedges pointing at their time. */
+    /**
+     * Alarms are moments, so they get a dot just outside the rim — nothing
+     * on the face itself, nothing implying a span. Calendar events, which
+     * really do occupy time, get the Sectograph wedge instead.
+     */
     private fun drawAlarmMarkers(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         for (angle in alarmMarkers) {
-            val b = boundaryRadius(angle)
-            val tip = pointAt(cx, cy, angle, b * 0.885f)
-            val base1 = pointAt(cx, cy, angle - 2.2f, b * 0.965f)
-            val base2 = pointAt(cx, cy, angle + 2.2f, b * 0.965f)
+            val at = pointAt(cx, cy, angle, boundaryRadius(angle) * 1.055f)
+            canvas.drawCircle(at.x, at.y, r * 0.022f, alarmMarkerPaint)
+        }
+    }
+
+    private fun drawEventArcs(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        for ((start, sweep) in eventArcs) {
+            val steps = max(2, (kotlin.math.abs(sweep) / 3f).toInt())
             alarmMarkerPath.reset()
-            alarmMarkerPath.moveTo(tip.x, tip.y)
-            alarmMarkerPath.lineTo(base1.x, base1.y)
-            alarmMarkerPath.lineTo(base2.x, base2.y)
+            // Inner edge outward, then back along the outer edge.
+            for (i in 0..steps) {
+                val a = start + sweep * i / steps
+                val p = pointAt(cx, cy, a, boundaryRadius(a) * 0.885f)
+                if (i == 0) alarmMarkerPath.moveTo(p.x, p.y) else alarmMarkerPath.lineTo(p.x, p.y)
+            }
+            for (i in steps downTo 0) {
+                val a = start + sweep * i / steps
+                val p = pointAt(cx, cy, a, boundaryRadius(a) * 0.965f)
+                alarmMarkerPath.lineTo(p.x, p.y)
+            }
             alarmMarkerPath.close()
             canvas.drawPath(alarmMarkerPath, alarmMarkerPaint)
         }

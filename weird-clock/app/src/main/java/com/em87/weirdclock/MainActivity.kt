@@ -15,6 +15,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.text.InputType
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -93,6 +95,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** Date + label of the reminder whose time is being wound on the dial. */
     private var reminderBeingSet: Triple<Int, Int, Int>? = null
     private var reminderLabelBeingSet = ""
+    private var reminderDurationBeingSet = 0
 
     // Alarm-time setting on the clock dial with the wind-to-set engine.
     private var alarmSetActive = false
@@ -256,7 +259,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                             .putExtra(AlarmScheduler.EXTRA_LABEL, label)
                     )
                 } else {
-                    chimePlayer.playBellSequence(3, false, ChimePlayer.DAY_CHIME_HZ, 1.2, 0.3)
+                    // Quick, bright quarter-chimes: clearly a timer, not an hour.
+                    chimePlayer.playQuarters()
                 }
             }
 
@@ -525,7 +529,20 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
         alarmsEmpty = root.findViewById(R.id.alarms_empty)
         root.findViewById<FloatingActionButton>(R.id.add_alarm_fab).setOnClickListener {
-            enterAlarmSetMode(null)
+            // A new alarm opens straight in the editor, at a civilised hour.
+            showAlarmSheet(
+                Alarm(AlarmStore.nextId(alarms), 7, 30, true, Prefs.ALARM_SOUND_BELLS)
+            )
+        }
+        // The dial markers toggle belongs with the alarms, not buried in
+        // settings three layers down.
+        root.findViewById<SwitchCompat>(R.id.alarm_markers_switch).also { markers ->
+            markers.isChecked = prefs.getBoolean(Prefs.ALARM_MARKERS, true)
+            markers.setOnCheckedChangeListener { _, checked ->
+                prefs.edit().putBoolean(Prefs.ALARM_MARKERS, checked).apply()
+                updateAlarmMarkers()
+                ClockWidgetProvider.refreshAll(this)
+            }
         }
         refreshAlarmsUi()
 
@@ -659,12 +676,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private inner class AlarmHolder(view: View) : RecyclerView.ViewHolder(view) {
         val time: TextView = view.findViewById(R.id.alarm_time)
-        val label: TextView = view.findViewById(R.id.alarm_label)
-        val sound: TextView = view.findViewById(R.id.alarm_sound)
-        val repeat: TextView = view.findViewById(R.id.alarm_repeat)
-        val snooze: TextView = view.findViewById(R.id.alarm_snooze)
+        val days: TextView = view.findViewById(R.id.alarm_days)
+        val summary: TextView = view.findViewById(R.id.alarm_summary)
         val enabled: SwitchCompat = view.findViewById(R.id.alarm_enabled)
-        val delete: ImageButton = view.findViewById(R.id.alarm_delete)
     }
 
     private inner class AlarmAdapter : RecyclerView.Adapter<AlarmHolder>() {
@@ -680,52 +694,36 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             val alarm = alarms[position]
             holder.time.text = String.format(Locale.US, "%02d:%02d", alarm.hour, alarm.minute)
             holder.time.alpha = if (alarm.enabled) 1f else 0.4f
-            holder.time.setOnClickListener { enterAlarmSetMode(alarm) }
-            holder.sound.text = soundLabel(alarm.sound)
-            holder.sound.setOnClickListener {
-                val next = nextSound(alarm.sound)
-                if (next == Prefs.ALARM_SOUND_CUSTOM) {
-                    // Pick any audio file on the phone via SAF; the alarm
-                    // keeps a persisted read permission on it.
-                    alarm.sound = next
-                    soundPickTarget = alarm
-                    soundPickerLauncher.launch(arrayOf("audio/*"))
-                } else {
-                    alarm.sound = next
-                    persistAlarms()
-                }
+
+            // The weekday strip: lit letters are the days it rings on.
+            val letters = weekdayLetters()
+            val lit = ContextCompat.getColor(this@MainActivity, R.color.accent)
+            val dim = ContextCompat.getColor(this@MainActivity, R.color.text_secondary)
+            val strip = SpannableString(letters.joinToString(" "))
+            var at = 0
+            for ((i, letter) in letters.withIndex()) {
+                val dayOfWeek = weekdayOrder()[i]
+                val on = alarm.daysMask == 0 || (alarm.daysMask and (1 shl (dayOfWeek - 1))) != 0
+                strip.setSpan(
+                    ForegroundColorSpan(if (on) lit else dim),
+                    at, at + letter.length, 0
+                )
+                at += letter.length + 1
             }
-            holder.repeat.setText(
-                when (alarm.repeat) {
-                    Prefs.ALARM_REPEAT_WEEKDAYS -> R.string.alarm_repeat_weekdays
-                    Prefs.ALARM_REPEAT_WEEKENDS -> R.string.alarm_repeat_weekends
-                    else -> R.string.alarm_repeat_daily
-                }
-            )
-            holder.repeat.setOnClickListener {
-                alarm.repeat = when (alarm.repeat) {
-                    Prefs.ALARM_REPEAT_DAILY -> Prefs.ALARM_REPEAT_WEEKDAYS
-                    Prefs.ALARM_REPEAT_WEEKDAYS -> Prefs.ALARM_REPEAT_WEEKENDS
-                    else -> Prefs.ALARM_REPEAT_DAILY
-                }
-                persistAlarms()
+            holder.days.text = strip
+            holder.days.alpha = if (alarm.enabled) 1f else 0.4f
+
+            // Icons only for what is actually switched on, plus the label.
+            val marks = buildString {
+                if (alarm.label.isNotBlank()) append(alarm.label).append("  ")
+                append(soundLabel(alarm.sound))
+                if (alarm.snoozeMinutes > 0) append("  \u23F1 ").append(alarm.snoozeMinutes)
+                if (alarm.vibrate) append("  \uD83D\uDCF3")
+                if (alarm.flash) append("  \uD83D\uDCA1")
             }
-            holder.snooze.text = if (alarm.snoozeMinutes > 0) {
-                getString(R.string.alarm_snooze_min, alarm.snoozeMinutes)
-            } else {
-                getString(R.string.alarm_snooze_off)
-            }
-            holder.snooze.setOnClickListener {
-                alarm.snoozeMinutes = when (alarm.snoozeMinutes) {
-                    0 -> 5
-                    5 -> 10
-                    else -> 0
-                }
-                persistAlarms()
-            }
-            holder.label.text = alarm.label.ifBlank { getString(R.string.alarm_label_hint) }
-            holder.label.alpha = if (alarm.label.isBlank()) 0.45f else 1f
-            holder.label.setOnClickListener { showLabelDialog(alarm) }
+            holder.summary.text = marks
+            holder.summary.alpha = if (alarm.enabled) 1f else 0.4f
+
             holder.enabled.setOnCheckedChangeListener(null)
             holder.enabled.isChecked = alarm.enabled
             holder.enabled.setOnCheckedChangeListener { _, checked ->
@@ -733,11 +731,202 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 if (checked) maybeRequestNotificationPermission()
                 persistAlarms()
             }
-            holder.delete.setOnClickListener {
-                alarms.remove(alarm)
-                persistAlarms()
+            holder.itemView.setOnClickListener { showAlarmSheet(alarm) }
+        }
+    }
+
+    /** Weekday order for the strip, honoring the calendar's week start. */
+    private fun weekdayOrder(): List<Int> {
+        val mondayFirst = prefs.getBoolean(
+            Prefs.WEEK_START_MONDAY,
+            Calendar.getInstance().firstDayOfWeek == Calendar.MONDAY
+        )
+        val base = listOf(
+            Calendar.SUNDAY, Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY,
+            Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY
+        )
+        return if (mondayFirst) base.drop(1) + base.first() else base
+    }
+
+    private fun weekdayLetters(): List<String> {
+        val format = java.text.SimpleDateFormat("EEEEE", Locale.getDefault())
+        val cal = Calendar.getInstance()
+        return weekdayOrder().map { dow ->
+            cal.set(Calendar.DAY_OF_WEEK, dow)
+            format.format(cal.time).uppercase(Locale.getDefault())
+        }
+    }
+
+    /**
+     * The alarm editor, Google-Clock style: a bottom sheet with the time, the
+     * weekday strip, the options as plain rows, and delete/save in opposite
+     * corners. Deleting asks first.
+     */
+    private fun showAlarmSheet(alarm: Alarm) {
+        val sheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.sheet_alarm_edit, null)
+        sheet.setContentView(view)
+
+        // The sheet edits a copy; nothing is committed until Save.
+        val draft = alarm.copy()
+        val isNew = !alarms.contains(alarm)
+
+        val timeText = view.findViewById<TextView>(R.id.sheet_time)
+        val nameValue = view.findViewById<TextView>(R.id.sheet_name_value)
+        val soundValue = view.findViewById<TextView>(R.id.sheet_sound_value)
+        val snoozeValue = view.findViewById<TextView>(R.id.sheet_snooze_value)
+        val vibrateSwitch = view.findViewById<SwitchCompat>(R.id.sheet_vibrate)
+        val flashSwitch = view.findViewById<SwitchCompat>(R.id.sheet_flash)
+        val daysRow = view.findViewById<LinearLayout>(R.id.sheet_days)
+
+        fun refresh() {
+            timeText.text = String.format(Locale.US, "%02d:%02d", draft.hour, draft.minute)
+            nameValue.text = draft.label.ifBlank { getString(R.string.alarm_label_hint) }
+            soundValue.text = soundLabel(draft.sound)
+            snoozeValue.text = if (draft.snoozeMinutes > 0) {
+                getString(R.string.alarm_snooze_min, draft.snoozeMinutes)
+            } else {
+                getString(R.string.alarm_snooze_off)
             }
         }
+
+        // Weekday toggles.
+        val dayButtons = mutableListOf<TextView>()
+        val order = weekdayOrder()
+        val letters = weekdayLetters()
+        fun paintDays() {
+            for ((i, button) in dayButtons.withIndex()) {
+                val on = draft.daysMask == 0 ||
+                    (draft.daysMask and (1 shl (order[i] - 1))) != 0
+                button.setTextColor(
+                    ContextCompat.getColor(
+                        this, if (on) R.color.accent else R.color.text_secondary
+                    )
+                )
+                button.alpha = if (on) 1f else 0.5f
+            }
+        }
+        for ((i, letter) in letters.withIndex()) {
+            val button = TextView(this).apply {
+                text = letter
+                textSize = 16f
+                gravity = Gravity.CENTER
+                setPadding(0, 20, 0, 20)
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                setBackgroundResource(
+                    android.R.drawable.list_selector_background
+                )
+                setOnClickListener {
+                    if (draft.daysMask == 0) draft.daysMask = Alarm.ALL_DAYS
+                    draft.daysMask = draft.daysMask xor (1 shl (order[i] - 1))
+                    paintDays()
+                }
+            }
+            dayButtons.add(button)
+            daysRow.addView(button)
+        }
+        paintDays()
+
+        view.findViewById<Button>(R.id.sheet_weekdays).setOnClickListener {
+            draft.daysMask = Alarm.WEEKDAYS
+            paintDays()
+        }
+        view.findViewById<Button>(R.id.sheet_weekends).setOnClickListener {
+            draft.daysMask = Alarm.WEEKENDS
+            paintDays()
+        }
+        view.findViewById<Button>(R.id.sheet_everyday).setOnClickListener {
+            draft.daysMask = Alarm.ALL_DAYS
+            paintDays()
+        }
+
+        view.findViewById<Button>(R.id.sheet_edit_time).setOnClickListener {
+            // Winding the dial is how this app sets times.
+            sheet.dismiss()
+            commitDraft(alarm, draft, isNew)
+            enterAlarmSetMode(alarms.firstOrNull { it.id == draft.id })
+        }
+
+        view.findViewById<View>(R.id.sheet_row_name).setOnClickListener {
+            val input = EditText(this).apply {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+                setText(draft.label)
+                setSelection(draft.label.length)
+            }
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.alarm_label_title)
+                .setView(input)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    draft.label = input.text.toString().trim()
+                    refresh()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+
+        view.findViewById<View>(R.id.sheet_row_sound).setOnClickListener {
+            val next = nextSound(draft.sound)
+            if (next == Prefs.ALARM_SOUND_CUSTOM) {
+                draft.sound = next
+                soundPickTarget = draft
+                soundPickerLauncher.launch(arrayOf("audio/*"))
+            } else {
+                draft.sound = next
+            }
+            refresh()
+        }
+
+        view.findViewById<View>(R.id.sheet_row_snooze).setOnClickListener {
+            draft.snoozeMinutes = when (draft.snoozeMinutes) {
+                0 -> 5
+                5 -> 10
+                else -> 0
+            }
+            refresh()
+        }
+
+        vibrateSwitch.isChecked = draft.vibrate
+        vibrateSwitch.setOnCheckedChangeListener { _, checked -> draft.vibrate = checked }
+        flashSwitch.isChecked = draft.flash
+        flashSwitch.setOnCheckedChangeListener { _, checked -> draft.flash = checked }
+
+        view.findViewById<Button>(R.id.sheet_delete).setOnClickListener {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.alarm_delete)
+                .setMessage(R.string.alarm_delete_confirm)
+                .setPositiveButton(R.string.alarm_delete) { _, _ ->
+                    alarms.remove(alarm)
+                    persistAlarms()
+                    sheet.dismiss()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+
+        view.findViewById<Button>(R.id.sheet_save).setOnClickListener {
+            commitDraft(alarm, draft, isNew)
+            maybeRequestNotificationPermission()
+            sheet.dismiss()
+        }
+
+        refresh()
+        sheet.show()
+    }
+
+    /** Copies a sheet draft back onto the real alarm (adding it if new). */
+    private fun commitDraft(target: Alarm, draft: Alarm, isNew: Boolean) {
+        target.hour = draft.hour
+        target.minute = draft.minute
+        target.enabled = true
+        target.sound = draft.sound
+        target.soundUri = draft.soundUri
+        target.daysMask = draft.daysMask
+        target.snoozeMinutes = draft.snoozeMinutes
+        target.label = draft.label
+        target.vibrate = draft.vibrate
+        target.flash = draft.flash
+        if (isNew && !alarms.contains(target)) alarms.add(target)
+        persistAlarms()
     }
 
     private fun soundLabel(sound: String): String = getString(
@@ -780,7 +969,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             reminders.add(
                 Reminder(
                     ReminderStore.nextId(reminders),
-                    year, month, day, hour, minute, reminderLabelBeingSet
+                    year, month, day, hour, minute, reminderLabelBeingSet,
+                    reminderDurationBeingSet
                 )
             )
             persistReminders()
@@ -863,14 +1053,33 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             val alarmAngles = alarms.filter { it.enabled }.map { alarm ->
                 (alarm.hour + alarm.minute / 60f) % n / n * 360f
             }
-            // Today's calendar reminders join the dial, Sectograph-style.
-            val today = Calendar.getInstance().apply { timeInMillis = TimeKeeper.nowMs() }
-            val reminderAngles = reminders.filter {
-                it.year == today.get(Calendar.YEAR) &&
-                    it.month == today.get(Calendar.MONTH) + 1 &&
-                    it.day == today.get(Calendar.DAY_OF_MONTH)
-            }.map { (it.hour + it.minute / 60f) % n / n * 360f }
+            // Instant reminders join the alarm dots; ones with a duration
+            // become wedges instead.
+            val reminderAngles = todaysReminders()
+                .filter { it.durationMinutes <= 0 }
+                .map { (it.hour + it.minute / 60f) % n / n * 360f }
             alarmAngles + reminderAngles
+        }
+        clockView?.eventArcs = if (!show) {
+            emptyList()
+        } else {
+            val n = readHoursOnDial()
+            todaysReminders()
+                .filter { it.durationMinutes > 0 }
+                .map { reminder ->
+                    val start = (reminder.hour + reminder.minute / 60f) % n / n * 360f
+                    val sweep = reminder.durationMinutes / 60f / n * 360f
+                    start to sweep
+                }
+        }
+    }
+
+    private fun todaysReminders(): List<Reminder> {
+        val today = Calendar.getInstance().apply { timeInMillis = TimeKeeper.nowMs() }
+        return reminders.filter {
+            it.year == today.get(Calendar.YEAR) &&
+                it.month == today.get(Calendar.MONTH) + 1 &&
+                it.day == today.get(Calendar.DAY_OF_MONTH)
         }
     }
 
@@ -912,10 +1121,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(String.format(Locale.US, "%02d/%02d/%04d", day, month, year))
             .setItems(items) { _, which ->
-                // Tapping a reminder removes it.
-                reminders.remove(dayReminders[which])
-                persistReminders()
-                Toast.makeText(this, R.string.reminder_deleted, Toast.LENGTH_SHORT).show()
+                // Deleting is deliberate: it asks first.
+                val doomed = dayReminders[which]
+                androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle(doomed.label.ifBlank { getString(R.string.reminder_untitled) })
+                    .setMessage(R.string.reminder_delete_confirm)
+                    .setPositiveButton(R.string.alarm_delete) { _, _ ->
+                        reminders.remove(doomed)
+                        persistReminders()
+                        Toast.makeText(this, R.string.reminder_deleted, Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
             }
             .setPositiveButton(R.string.reminder_add) { _, _ ->
                 showAddReminderDialog(year, month, day)
@@ -933,8 +1150,30 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             .setTitle(R.string.reminder_add)
             .setView(input)
             .setPositiveButton(android.R.string.ok) { _, _ ->
+                val label = input.text.toString().trim()
+                // How long it lasts decides whether the dial shows a dot or
+                // a Sectograph wedge.
+                val choices = intArrayOf(0, 15, 30, 60, 120)
+                val names = choices.map {
+                    if (it == 0) getString(R.string.reminder_duration_none)
+                    else getString(R.string.reminder_duration_min, it)
+                }.toTypedArray()
+                androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle(R.string.reminder_duration)
+                    .setItems(names) { _, which ->
+                        reminderDurationBeingSet = choices[which]
+                        startWindingReminder(year, month, day, label)
+                    }
+                    .show()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun startWindingReminder(year: Int, month: Int, day: Int, label: String) {
+        run {
                 // The time is wound on the clock dial, exactly like an alarm.
-                reminderLabelBeingSet = input.text.toString().trim()
+                reminderLabelBeingSet = label
                 reminderBeingSet = Triple(year, month, day)
                 alarmBeingSet = null
                 alarmWorkingMs = 9 * 3_600_000L
@@ -942,9 +1181,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 mode = Mode.CLOCK
                 pager.currentItem = PAGE_HOME
                 applyAlarmSetUi()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        }
     }
 
     // ------------------------------------------------- world-clock bubbles

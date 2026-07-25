@@ -13,6 +13,14 @@ class AlarmReceiver : BroadcastReceiver() {
             .putExtra(AlarmScheduler.EXTRA_SOUND_URI, intent.getStringExtra(AlarmScheduler.EXTRA_SOUND_URI))
             .putExtra(AlarmScheduler.EXTRA_SNOOZE, intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE, 0))
             .putExtra(AlarmScheduler.EXTRA_LABEL, intent.getStringExtra(AlarmScheduler.EXTRA_LABEL))
+            .putExtra(
+                AlarmScheduler.EXTRA_VIBRATE,
+                intent.getBooleanExtra(AlarmScheduler.EXTRA_VIBRATE, true)
+            )
+            .putExtra(
+                AlarmScheduler.EXTRA_FLASH,
+                intent.getBooleanExtra(AlarmScheduler.EXTRA_FLASH, false)
+            )
         ContextCompat.startForegroundService(context, service)
         // A calendar reminder is one-shot: it expires as it fires.
         val reminderId = intent.getIntExtra(AlarmScheduler.EXTRA_REMINDER_ID, -1)

@@ -36,7 +36,48 @@ class AlarmService : Service() {
     private var soundUri = ""
     private var snoozeMinutes = 0
     private var label = ""
+    private var vibrateEnabled = true
+    private var flashEnabled = false
     private var mediaPlayer: MediaPlayer? = null
+    private var flashOn = false
+
+    /** Strobes the camera torch while the alarm rings, if asked to. */
+    private val flashLoop = object : Runnable {
+        override fun run() {
+            val manager = getSystemService(android.hardware.camera2.CameraManager::class.java)
+            try {
+                val id = manager?.cameraIdList?.firstOrNull { camId ->
+                    manager.getCameraCharacteristics(camId)
+                        .get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+                }
+                if (id != null && Build.VERSION.SDK_INT >= 23) {
+                    flashOn = !flashOn
+                    manager.setTorchMode(id, flashOn)
+                }
+            } catch (e: Exception) {
+                // No torch, or it's busy: the bells carry on regardless.
+                return
+            }
+            handler.postDelayed(this, 550L)
+        }
+    }
+
+    private val vibrateLoop = object : Runnable {
+        override fun run() {
+            val vibrator = getSystemService(android.os.Vibrator::class.java)
+            if (Build.VERSION.SDK_INT >= 26) {
+                vibrator?.vibrate(
+                    android.os.VibrationEffect.createWaveform(
+                        longArrayOf(0, 400, 250, 400), -1
+                    )
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(longArrayOf(0, 400, 250, 400), -1)
+            }
+            handler.postDelayed(this, 2200L)
+        }
+    }
 
     /** Gradual wake: volume climbs from 15% to full over about a minute. */
     private var rampStep = 0
@@ -85,6 +126,8 @@ class AlarmService : Service() {
         soundUri = intent?.getStringExtra(AlarmScheduler.EXTRA_SOUND_URI) ?: ""
         snoozeMinutes = intent?.getIntExtra(AlarmScheduler.EXTRA_SNOOZE, 0) ?: 0
         label = intent?.getStringExtra(AlarmScheduler.EXTRA_LABEL) ?: ""
+        vibrateEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_VIBRATE, true) != false
+        flashEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_FLASH, false) == true
         val ramp = PreferenceManager.getDefaultSharedPreferences(this)
             .getBoolean(Prefs.ALARM_RAMP, true)
         chimePlayer.volume = if (ramp) 0.15f else 1f
@@ -134,6 +177,8 @@ class AlarmService : Service() {
             else -> handler.post(ringLoop)
         }
         if (ramp) handler.postDelayed(rampLoop, 2000L)
+        if (vibrateEnabled) handler.post(vibrateLoop)
+        if (flashEnabled) handler.post(flashLoop)
         handler.postDelayed({ stopSelf() }, 3 * 60_000L)
         return START_NOT_STICKY
     }
@@ -148,6 +193,16 @@ class AlarmService : Service() {
     private fun stopPlayback() {
         mediaPlayer?.release()
         mediaPlayer = null
+        getSystemService(android.os.Vibrator::class.java)?.cancel()
+        if (flashOn && Build.VERSION.SDK_INT >= 23) {
+            try {
+                val manager = getSystemService(android.hardware.camera2.CameraManager::class.java)
+                manager?.cameraIdList?.firstOrNull()?.let { manager.setTorchMode(it, false) }
+            } catch (e: Exception) {
+                // Torch already released.
+            }
+            flashOn = false
+        }
     }
 
     private fun createChannel() {
