@@ -91,7 +91,10 @@
     <string name="alarm_delete">Delete alarm</string>
     <string name="alarm_edit_time">Edit</string>
     <string name="alarm_add_time">Add</string>
-    <string name="alarm_times_full">Three times a day is quite enough</string>
+    <string name="alarm_times_full">Four times a day is quite enough</string>
+    <string name="alarm_remove_time_title">Remove this repetition?</string>
+    <string name="alarm_remove_time_message">The alarm will stop ringing at %1$s.</string>
+    <string name="alarm_remove_time_first">This is the alarm’s own time. Long-press one of the others to drop a repetition.</string>
     <string name="alarm_quick_weekdays">Weekdays</string>
     <string name="alarm_quick_weekends">Weekend</string>
     <string name="alarm_quick_everyday">Every day</string>
@@ -135,6 +138,8 @@
     <string name="bells_channel_name">Hourly bells</string>
     <string name="category_timer">Timer</string>
     <string name="category_calendar">Calendar</string>
+    <string name="pref_alarm_style_title">Alarms read as</string>
+    <string name="pref_alarm_style_summary">Whether an alarm shows its time on a little face or in plain digits</string>
     <string name="pref_past_days_title">Days already gone</string>
     <string name="pref_past_days_summary">Mark the days behind you — they can no longer be scheduled, only read</string>
     <string name="pref_sand_grains_title">Grains of sand</string>

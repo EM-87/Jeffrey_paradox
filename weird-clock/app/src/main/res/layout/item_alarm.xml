@@ -24,7 +24,19 @@
         android:paddingEnd="16dp"
         android:paddingBottom="12dp">
 
+        <!-- The time, as hands: one face per time this concept happens, the
+             alarm's own first and larger. Swapped for the digits below by
+             the "Alarms read as" option. -->
         <LinearLayout
+            android:id="@+id/alarm_dials"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/alarm_time_box"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical">

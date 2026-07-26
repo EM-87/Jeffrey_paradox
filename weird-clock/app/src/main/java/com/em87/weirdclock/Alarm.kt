@@ -36,7 +36,7 @@ data class Alarm(
     /**
      * Extra times of day (minutes past midnight) this same alarm also rings
      * at. One alarm is one *concept* — "pills", "stretch" — and a concept
-     * can happen three times a day without being three separate alarms.
+     * can happen four times a day without being four separate alarms.
      */
     var extraTimes: MutableList<Int> = mutableListOf()
 ) {
@@ -64,14 +64,14 @@ data class Alarm(
         if (index <= 0) hour to minute
         else extraTimes.getOrElse(index - 1) { 0 }.let { it / 60 to it % 60 }
 
-    /** How many times this concept happens (1–3). */
+    /** How many times this concept happens (1–4). */
     fun timeCount(): Int = 1 + extraTimes.size
 
     companion object {
         const val ALL_DAYS = 0b1111111
         const val WEEKDAYS = 0b0111110
         const val WEEKENDS = 0b1000001
-        const val MAX_TIMES = 3
+        const val MAX_TIMES = 4
     }
 }
 

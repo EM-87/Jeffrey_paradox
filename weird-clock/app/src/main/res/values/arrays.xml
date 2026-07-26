@@ -34,6 +34,15 @@
         <item>octagon</item>
     </string-array>
 
+    <string-array name="alarm_style_entries">
+        <item>Hands</item>
+        <item>Digits</item>
+    </string-array>
+    <string-array name="alarm_style_values">
+        <item>analog</item>
+        <item>digital</item>
+    </string-array>
+
     <string-array name="past_days_entries">
         <item>Leave them alone</item>
         <item>Fade them</item>

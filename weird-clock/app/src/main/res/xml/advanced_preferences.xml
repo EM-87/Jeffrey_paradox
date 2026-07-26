@@ -44,6 +44,19 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="@string/category_alarms">
+
+        <ListPreference
+            android:defaultValue="analog"
+            android:entries="@array/alarm_style_entries"
+            android:entryValues="@array/alarm_style_values"
+            android:key="pref_alarm_style"
+            android:summary="@string/pref_alarm_style_summary"
+            android:title="@string/pref_alarm_style_title"
+            app:useSimpleSummaryProvider="true" />
+
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="@string/category_calendar">
 
         <ListPreference

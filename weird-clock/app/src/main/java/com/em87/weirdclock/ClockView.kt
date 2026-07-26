@@ -126,6 +126,12 @@ class ClockView @JvmOverloads constructor(
     var touchHandsEnabled = true
     var pinchZoomEnabled = true
     var shakeDropEnabled = true
+        set(value) {
+            field = value
+            // Turned on from settings while already on screen: pick the
+            // accelerometer back up, since attaching is long past.
+            if (value && isAttachedToWindow) listenForShakes()
+        }
     var dialScale = 1f
         set(value) {
             val next = value.coerceIn(MIN_SCALE, MAX_SCALE)
@@ -574,6 +580,16 @@ class ClockView @JvmOverloads constructor(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         post(ticker)
+        listenForShakes()
+    }
+
+    /**
+     * A face that cannot be shaken has no use for the accelerometer, and an
+     * alarm list can hold a dozen of these little ones at once.
+     */
+    private fun listenForShakes() {
+        if (!shakeDropEnabled || chronoProvider != null) return
+        if (sensorManager != null) return
         sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
         sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sensorManager?.registerListener(shakeListener, it, SensorManager.SENSOR_DELAY_GAME)
@@ -583,6 +599,7 @@ class ClockView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         removeCallbacks(ticker)
         sensorManager?.unregisterListener(shakeListener)
+        sensorManager = null
         spring?.cancel()
         spring = null
         super.onDetachedFromWindow()
@@ -655,8 +672,11 @@ class ClockView @JvmOverloads constructor(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         // A passive dial (e.g. the mini world clock) lets touches through —
         // but never while case pushers are present, they must stay pressable.
+        // Through the base class, mind: a passive face may still have been
+        // given a click or a long-press to answer, and swallowing the event
+        // here is what kept the alarm editor's little dials from opening.
         if (!touchHandsEnabled && !pinchZoomEnabled && fallenBodies.isEmpty() && !chronoButtons) {
-            return false
+            return super.onTouchEvent(event)
         }
         gestureDetector.onTouchEvent(event)
         if (pinchZoomEnabled) {

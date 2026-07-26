@@ -39,6 +39,10 @@ object Prefs {
     const val WORLD_TZS = "pref_world_tzs"
 
     const val DIAL_SHAPE = "pref_dial_shape"
+    const val ALARM_STYLE = "pref_alarm_style"
+
+    const val ALARM_STYLE_ANALOG = "analog"
+    const val ALARM_STYLE_DIGITAL = "digital"
 
     const val HOURS_CUSTOM_VALUE = "custom"
 

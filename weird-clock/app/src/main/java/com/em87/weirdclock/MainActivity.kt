@@ -22,6 +22,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.Toast
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -729,18 +730,35 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             val travel = if (container.height > 0) container.height
             else resources.displayMetrics.heightPixels
             container.translationY = travel.toFloat()
-            // The interpolator's factor is an exponent, not a flavour: a
-            // decelerate of 3.2 is 1-(1-t)^6.4, which spends half the travel
-            // in the first tenth of the duration and creeps through the last
-            // pixels for the rest. Lengthening the duration only lengthened
-            // the creep. A plain quadratic decelerate spreads the climb over
-            // the whole 600 ms, which is what the eye actually reads.
-            container.animate()
-                .translationY(0f)
-                .setDuration(600L)
-                .setInterpolator(android.view.animation.DecelerateInterpolator())
-                .start()
+            climb(container, travel.toFloat())
         }
+    }
+
+    /**
+     * Walks a view up from [travel] pixels below its place, frame by frame.
+     *
+     * Deliberately not ViewPropertyAnimator: everything built on ValueAnimator
+     * is multiplied by the system's animator duration scale, and on a phone
+     * where that scale is off every duration collapses to zero — which is
+     * exactly how this sheet behaved, appearing at once no matter how long the
+     * animation was asked to last, while the calendar's slides and the sheet's
+     * own descent (both hand-clocked or scroller-driven) kept animating fine.
+     * Clocking it ourselves off uptime makes the climb immune to the setting.
+     */
+    private fun climb(view: View, travel: Float) {
+        val start = SystemClock.uptimeMillis()
+        val duration = 600f
+        val ease = android.view.animation.DecelerateInterpolator()
+        val choreographer = android.view.Choreographer.getInstance()
+        choreographer.postFrameCallback(object : android.view.Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
+                val t = ((SystemClock.uptimeMillis() - start) / duration).coerceIn(0f, 1f)
+                view.translationY = travel * (1f - ease.getInterpolation(t))
+                if (t < 1f && view.isAttachedToWindow) {
+                    choreographer.postFrameCallback(this)
+                }
+            }
+        })
     }
 
     /** Reflects the current countdown duration on the S3 preset buttons. */
@@ -760,6 +778,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     // -------------------------------------------------------------- alarms
 
     private inner class AlarmHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val dials: LinearLayout = view.findViewById(R.id.alarm_dials)
+        val timeBox: View = view.findViewById(R.id.alarm_time_box)
         val time: TextView = view.findViewById(R.id.alarm_time)
         val extraTimes: TextView = view.findViewById(R.id.alarm_extra_times)
         val name: TextView = view.findViewById(R.id.alarm_name)
@@ -785,10 +805,32 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         override fun onBindViewHolder(holder: AlarmHolder, position: Int) {
             val alarm = alarms[position]
             val times = alarm.allTimes()
+            val analog = alarmsAreAnalog()
+
+            holder.timeBox.visibility = if (analog) View.GONE else View.VISIBLE
+            holder.dials.visibility = if (analog) View.VISIBLE else View.GONE
+            holder.dials.removeAllViews()
+            if (analog) {
+                // The alarm's own time gets a proper face; its repetitions
+                // trail behind it, smaller, the way they read on the card.
+                val density = resources.displayMetrics.density
+                val first = (46 * density).toInt()
+                val rest = (28 * density).toInt()
+                for ((i, t) in times.withIndex()) {
+                    val size = if (i == 0) first else rest
+                    holder.dials.addView(
+                        miniDial(t.first, t.second),
+                        LinearLayout.LayoutParams(size, size).apply {
+                            if (i > 0) marginStart = (4 * density).toInt()
+                        }
+                    )
+                }
+            }
+
             holder.time.text =
                 String.format(Locale.US, "%02d:%02d", times[0].first, times[0].second)
-            // A concept that happens three times a day says so under its
-            // first time, rather than pretending to be three alarms.
+            // A concept that happens four times a day says so under its
+            // first time, rather than pretending to be four alarms.
             holder.extraTimes.text = times.drop(1).joinToString("  ") {
                 String.format(Locale.US, "%02d:%02d", it.first, it.second)
             }
@@ -828,6 +870,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
             val alpha = if (alarm.enabled) 1f else 0.4f
             holder.time.alpha = alpha
+            holder.dials.alpha = alpha
             holder.extraTimes.alpha = alpha
             holder.days.alpha = alpha
             holder.itemView.findViewById<View>(R.id.alarm_icons).alpha = alpha
@@ -840,6 +883,32 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 persistAlarms()
             }
             holder.itemView.setOnClickListener { showAlarmSheet(alarm) }
+        }
+    }
+
+    /** Whether alarms show their times on little faces rather than in digits. */
+    private fun alarmsAreAnalog(): Boolean =
+        prefs.getString(Prefs.ALARM_STYLE, Prefs.ALARM_STYLE_ANALOG) != Prefs.ALARM_STYLE_DIGITAL
+
+    /**
+     * A small, still face showing one fixed time of day, wearing whatever
+     * shape and hour count the big clock wears. Used both on the alarm cards
+     * and in the editor.
+     */
+    private fun miniDial(hour: Int, minute: Int): ClockView {
+        val fixedMs = (hour * 3_600_000L) + (minute * 60_000L)
+        return ClockView(this).apply {
+            touchHandsEnabled = false
+            pinchZoomEnabled = false
+            shakeDropEnabled = false
+            showDate = false
+            showSecondHand = false
+            theme = clockView?.theme ?: ClockThemes.MIDNIGHT
+            hoursOnDial = readHoursOnDial()
+            dialShape = readDialShape()
+            numeralStyle = ClockView.NumeralStyle.NONE
+            // A constant "duration" makes the dial a static clock.
+            chronoProvider = { fixedMs }
         }
     }
 
@@ -888,30 +957,47 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val flashSwitch = view.findViewById<SwitchCompat>(R.id.sheet_flash)
         val daysRow = view.findViewById<LinearLayout>(R.id.sheet_days)
 
-        // One little analog face per time, tapped to wind it on the big dial.
+        // One little analog face per time: tapped it goes to the big dial to
+        // be wound, held down it offers to drop that repetition. Four faces
+        // and an Add button don't fit at full size, so they close ranks.
+        lateinit var refreshRef: () -> Unit
         fun rebuildDials() {
             dialsRow.removeAllViews()
-            val size = (58 * resources.displayMetrics.density).toInt()
+            val density = resources.displayMetrics.density
+            val size = ((if (draft.timeCount() >= 4) 46 else 58) * density).toInt()
             for (index in 0 until draft.timeCount()) {
                 val (h, m) = draft.timeAt(index)
-                val fixedMs = (h * 3_600_000L) + (m * 60_000L)
-                val dial = ClockView(this).apply {
-                    touchHandsEnabled = false
-                    pinchZoomEnabled = false
-                    shakeDropEnabled = false
-                    showDate = false
-                    showSecondHand = false
-                    theme = clockView?.theme ?: ClockThemes.MIDNIGHT
-                    hoursOnDial = readHoursOnDial()
-                    dialShape = readDialShape()
-                    numeralStyle = ClockView.NumeralStyle.NONE
-                    // A constant "duration" makes the dial a static clock.
-                    chronoProvider = { fixedMs }
-                }
+                val dial = miniDial(h, m)
                 dial.setOnClickListener {
                     commitDraft(alarm, draft, isNew)
                     sheet.dismiss()
                     enterAlarmSetMode(alarms.firstOrNull { a -> a.id == draft.id }, index)
+                }
+                dial.setOnLongClickListener {
+                    dial.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    if (index == 0) {
+                        // The first face is the alarm itself: it can be moved
+                        // but not dropped, or there would be no alarm left.
+                        Toast.makeText(
+                            this, R.string.alarm_remove_time_first, Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        androidx.appcompat.app.AlertDialog.Builder(this)
+                            .setTitle(R.string.alarm_remove_time_title)
+                            .setMessage(
+                                getString(
+                                    R.string.alarm_remove_time_message,
+                                    String.format(Locale.US, "%02d:%02d", h, m)
+                                )
+                            )
+                            .setPositiveButton(R.string.alarm_delete) { _, _ ->
+                                draft.extraTimes.removeAt(index - 1)
+                                refreshRef()
+                            }
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .show()
+                    }
+                    true
                 }
                 dialsRow.addView(
                     dial,
@@ -936,6 +1022,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     getString(R.string.reminder_duration_min, draft.durationMinutes)
                 }
         }
+        // The dials are built before refresh() exists, and a dropped
+        // repetition has to redraw them all.
+        refreshRef = { refresh() }
 
         // Weekday toggles.
         val dayButtons = mutableListOf<TextView>()
@@ -1958,6 +2047,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
         // Night dims the alarms card too — it was the only bright one left.
         alarmsContainer?.alpha = if (appliedNightDim) 0.45f else 1f
+        // Hands or digits, and the shape and hour count the faces wear, are
+        // all settings: the cards are rebuilt so they follow.
+        alarmsRecycler?.let { if (!it.isComputingLayout) refreshAlarmsUi() }
 
         bellsEnabled = prefs.getBoolean(Prefs.BELLS, false)
         bellStyle = prefs.getString(Prefs.BELL_STYLE, Prefs.BELL_STYLE_COUNT) ?: Prefs.BELL_STYLE_COUNT
