@@ -720,8 +720,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             container.translationY = container.height.toFloat().coerceAtLeast(1f)
             container.animate()
                 .translationY(0f)
-                .setDuration(300L)
-                .setInterpolator(android.view.animation.DecelerateInterpolator(1.7f))
+                .setDuration(520L)
+                .setInterpolator(android.view.animation.DecelerateInterpolator(2.6f))
                 .start()
         }
     }

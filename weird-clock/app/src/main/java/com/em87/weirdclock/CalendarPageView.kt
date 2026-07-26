@@ -189,22 +189,27 @@ class CalendarPageView @JvmOverloads constructor(
             if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                 downX = event.x
                 downY = event.y
-                parent?.requestDisallowInterceptTouchEvent(true)
+                // Only the year row claims the gesture; over the months the
+                // pager keeps its swipe, so home is still one flick away.
+                if (event.y < height * 0.14f) {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                }
                 return true
             }
             // In year view a tap picks a month and zooms back into it.
             if (event.actionMasked == MotionEvent.ACTION_UP) {
                 val dx = event.x - downX
-                if (kotlin.math.abs(dx) > width * 0.12f) {
-                    // Swiping pages the year, exactly as it pages months.
-                    shown.add(Calendar.YEAR, if (dx < 0) 1 else -1)
-                    slideDir = if (dx < 0) 1 else -1
-                    slideStart = android.os.SystemClock.uptimeMillis()
-                    performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                    onMonthChanged?.invoke()
-                    invalidate()
+                if (downY < height * 0.14f) {
+                    if (kotlin.math.abs(dx) > width * 0.12f) {
+                        pageYear(if (dx < 0) 1 else -1)
+                    } else if (event.x < width * 0.28f) {
+                        pageYear(-1)
+                    } else if (event.x > width * 0.72f) {
+                        pageYear(1)
+                    }
                     return true
                 }
+                if (kotlin.math.abs(dx) > width * 0.12f) return true
                 monthAt(event.x, event.y)?.let { monthIndex ->
                     shown.set(Calendar.DAY_OF_MONTH, 1)
                     shown.set(Calendar.MONTH, monthIndex)
@@ -269,6 +274,15 @@ class CalendarPageView @JvmOverloads constructor(
         return super.onTouchEvent(event)
     }
 
+    private fun pageYear(delta: Int) {
+        shown.add(Calendar.YEAR, delta)
+        slideDir = delta
+        slideStart = android.os.SystemClock.uptimeMillis()
+        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        onMonthChanged?.invoke()
+        invalidate()
+    }
+
     private fun pageMonth(delta: Int) {
         shown.add(Calendar.MONTH, delta)
         slideDir = delta
@@ -284,6 +298,16 @@ class CalendarPageView @JvmOverloads constructor(
         performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         onMonthChanged?.invoke()
         invalidate()
+    }
+
+    /** As [isPast], for an arbitrary month of the shown year. */
+    private fun isPastIn(monthIndex: Int, day: Int, now: Calendar): Boolean {
+        val y = shown.get(Calendar.YEAR)
+        return when {
+            y != now.get(Calendar.YEAR) -> y < now.get(Calendar.YEAR)
+            monthIndex != now.get(Calendar.MONTH) -> monthIndex < now.get(Calendar.MONTH)
+            else -> day < now.get(Calendar.DAY_OF_MONTH)
+        }
     }
 
     /** True once a day of the shown month is behind us. */
@@ -553,6 +577,14 @@ class CalendarPageView @JvmOverloads constructor(
 
         titlePaint.textSize = h * 0.040f
         canvas.drawText(shown.get(Calendar.YEAR).toString(), w / 2f, h * 0.10f, titlePaint)
+        canvas.restore()
+        // Chevrons stay put while the year slides between them, the same
+        // way the month header works.
+        chevronPaint.textSize = h * 0.040f
+        canvas.drawText("‹", w * 0.14f, h * 0.10f, chevronPaint)
+        canvas.drawText("›", w * 0.86f, h * 0.10f, chevronPaint)
+        canvas.save()
+        canvas.translate(yearSlide, 0f)
 
         val monthFormat = SimpleDateFormat("LLL", Locale.getDefault())
         val top = h * 0.16f
@@ -593,13 +625,35 @@ class CalendarPageView @JvmOverloads constructor(
                 val py = gridTop + (slot / 7) * rowH
                 val busy = yearMarks.contains(m * 100 + d)
                 val isToday = isThisMonth && d == today.get(Calendar.DAY_OF_MONTH)
+                val gone = isPastIn(m, d, today)
                 dayPaint.color = if (busy) theme.decimal else theme.numeral
-                dayPaint.alpha = if (busy) 255 else 150
+                dayPaint.alpha = when {
+                    busy -> 255
+                    gone && pastStyle != PastStyle.NONE -> 80
+                    gone -> 110
+                    else -> 150
+                }
                 canvas.drawText(
                     d.toString(), px,
                     py - (dayPaint.ascent() + dayPaint.descent()) / 2f,
                     dayPaint
                 )
+                // Whatever marks the spent days in the month marks them here.
+                if (gone) {
+                    when (pastStyle) {
+                        PastStyle.CROSS -> {
+                            todayRingPaint.strokeWidth = rowH * 0.07f
+                            val q = rowH * 0.30f
+                            canvas.drawLine(px - q, py - q, px + q, py + q, todayRingPaint)
+                            canvas.drawLine(px + q, py - q, px - q, py + q, todayRingPaint)
+                        }
+                        PastStyle.RING -> {
+                            todayRingPaint.strokeWidth = rowH * 0.06f
+                            canvas.drawCircle(px, py, rowH * 0.46f, todayRingPaint)
+                        }
+                        else -> Unit
+                    }
+                }
                 if (isToday) {
                     // Today is circled here too, and the ring survives the
                     // trip back into the month.
