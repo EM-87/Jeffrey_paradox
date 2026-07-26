@@ -4,6 +4,12 @@
         <item name="preferenceTheme">@style/PreferenceThemeOverlay</item>
     </style>
 
+    <!-- Sheets arrive and leave under their own momentum. -->
+    <style name="SheetAnimation">
+        <item name="android:windowEnterAnimation">@anim/sheet_slide_in</item>
+        <item name="android:windowExitAnimation">@anim/sheet_slide_out</item>
+    </style>
+
     <!-- One options row in the alarm edit sheet: title left, value right. -->
     <style name="AlarmSheetRow">
         <item name="android:layout_width">match_parent</item>

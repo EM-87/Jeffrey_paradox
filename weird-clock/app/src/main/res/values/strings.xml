@@ -76,6 +76,7 @@
     <string name="countdown_set_hint">Timer · wind the hands to set it</string>
     <string name="set_alarm_time">Set alarm time</string>
     <string name="set_reminder_time">Set reminder time</string>
+    <string name="set_duration">How long does it last?</string>
     <string name="alarm_set_confirm">✓</string>
     <string name="alarm_set_cancel">✗</string>
 

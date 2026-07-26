@@ -104,14 +104,41 @@ class CalendarPageView @JvmOverloads constructor(
     /** Pinched out, the card zooms from one month to the whole year. */
     private var yearView = false
     private var zoomStart = 0L
+
+    /** Pivot the zoom grows from, when it came from a tapped month cell. */
+    private var zoomFrom: android.graphics.PointF? = null
+
+    private fun monthCellCenter(monthIndex: Int): android.graphics.PointF {
+        val top = height * 0.16f
+        val cellW = width / 3f
+        val cellH = (height * 0.93f - top) / 4f
+        return android.graphics.PointF(
+            cellW * (monthIndex % 3) + cellW / 2f,
+            top + cellH * (monthIndex / 3) + cellH / 2f
+        )
+    }
+    private var pinchHandled = false
     private val scaleDetector = android.view.ScaleGestureDetector(
         context,
         object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScaleBegin(detector: android.view.ScaleGestureDetector): Boolean {
+                pinchHandled = false
+                return true
+            }
+
             override fun onScale(detector: android.view.ScaleGestureDetector): Boolean {
-                val wasYear = yearView
-                if (detector.scaleFactor < 0.985f) yearView = true
-                if (detector.scaleFactor > 1.015f) yearView = false
-                if (wasYear != yearView) {
+                // One decision per pinch, then the gesture is spent: reading
+                // the factor every frame let the tail of a pinch — fingers
+                // drifting back together as they lift — undo the zoom.
+                if (pinchHandled) return true
+                val out = detector.currentSpan < detector.previousSpan * 0.90f
+                val into = detector.currentSpan > detector.previousSpan * 1.10f
+                if (!out && !into) return true
+                pinchHandled = true
+                val wanted = out
+                if (wanted != yearView) {
+                    yearView = wanted
+                    zoomFrom = null
                     zoomStart = android.os.SystemClock.uptimeMillis()
                     performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                     invalidate()
@@ -132,10 +159,14 @@ class CalendarPageView @JvmOverloads constructor(
             // In year view a tap picks a month and zooms back into it.
             if (event.actionMasked == MotionEvent.ACTION_UP) {
                 monthAt(event.x, event.y)?.let { monthIndex ->
-                    shown.set(Calendar.MONTH, monthIndex)
                     shown.set(Calendar.DAY_OF_MONTH, 1)
+                    shown.set(Calendar.MONTH, monthIndex)
                     yearView = false
                     slideDir = 0
+                    // Grow out of the cell that was tapped, not the middle
+                    // of the screen: the month you picked expands to fill.
+                    zoomFrom = monthCellCenter(monthIndex)
+                    zoomStart = android.os.SystemClock.uptimeMillis()
                     performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                     onMonthChanged?.invoke()
                     invalidate()
@@ -247,10 +278,18 @@ class CalendarPageView @JvmOverloads constructor(
         val eased = zoomT.coerceIn(0f, 1f).let { 1f - (1f - it) * (1f - it) }
         canvas.save()
         if (zooming) {
-            // Year view falls back from the month; the month grows out of it.
-            val from = if (yearView) 1.35f else 0.72f
+            // Year view falls back from the month; the month grows out of
+            // the cell it was picked from.
+            val from = if (yearView) 1.35f else 0.30f
             val scale = from + (1f - from) * eased
-            canvas.scale(scale, scale, w / 2f, h / 2f)
+            val pivot = zoomFrom
+            if (pivot != null && !yearView) {
+                val px = pivot.x + (w / 2f - pivot.x) * eased
+                val py = pivot.y + (h / 2f - pivot.y) * eased
+                canvas.scale(scale, scale, px, py)
+            } else {
+                canvas.scale(scale, scale, w / 2f, h / 2f)
+            }
         }
         if (yearView) {
             drawYear(canvas, w, h)
@@ -306,15 +345,20 @@ class CalendarPageView @JvmOverloads constructor(
         val cellW = (gridRight - gridLeft) / 7f
         val headerY = h * 0.155f
         headerPaint.textSize = h * 0.022f
-        // Flipping the week start slides the letters across rather than
-        // swapping them on the spot.
+        // Flipping the week start slides the letters across — and the whole
+        // month with them, since every day shifts a column too. Sliding one
+        // without the other is exactly the sort of thing that makes a
+        // calendar feel broken.
         val weekT = ((android.os.SystemClock.uptimeMillis() - weekSlideStart) / 260f)
-        canvas.save()
-        if (weekT < 1f) {
+        val weekSlide = if (weekT < 1f) {
             postInvalidateOnAnimation()
-            val eased = 1f - (1f - weekT.coerceIn(0f, 1f)) * (1f - weekT.coerceIn(0f, 1f))
-            canvas.translate((1f - eased) * cellW * (if (weekStartsMonday) 1f else -1f), 0f)
+            val e = weekT.coerceIn(0f, 1f).let { 1f - (1f - it) * (1f - it) }
+            (1f - e) * cellW * (if (weekStartsMonday) 1f else -1f)
+        } else {
+            0f
         }
+        canvas.save()
+        canvas.translate(weekSlide, 0f)
         for (i in 0 until 7) {
             scratch.set(2024, Calendar.JANUARY, 1)
             while (scratch.get(Calendar.DAY_OF_WEEK) != ((firstDow - 1 + i) % 7 + 1)) {
@@ -329,6 +373,8 @@ class CalendarPageView @JvmOverloads constructor(
         }
         canvas.restore()
 
+        canvas.save()
+        canvas.translate(weekSlide, 0f)
         // Day grid: up to 6 rows of 7.
         val gridTop = h * 0.19f
         val gridBottom = h * 0.88f
@@ -377,6 +423,7 @@ class CalendarPageView @JvmOverloads constructor(
 
             drawMiniMoon(canvas, cx, cy + cellH * 0.34f, minOf(cellW, cellH) * 0.10f, scratch.timeInMillis)
         }
+        canvas.restore()
         canvas.restore()
         canvas.restore()
     }
@@ -431,11 +478,11 @@ class CalendarPageView @JvmOverloads constructor(
             // with busy days circled in the accent colour.
             val days = scratch.getActualMaximum(Calendar.DAY_OF_MONTH)
             val lead = ((scratch.get(Calendar.DAY_OF_WEEK) - firstDow()) + 7) % 7
-            val colW = cellW * 0.105f
-            val rowH = cellH * 0.115f
+            val colW = cellW * 0.108f
+            val rowH = cellH * 0.118f
             val gridLeft = cx - colW * 3f
             val gridTop = cy + cellH * 0.36f
-            dayPaint.textSize = rowH * 0.82f
+            dayPaint.textSize = rowH * 0.62f
             dayPaint.typeface = Typeface.DEFAULT
             for (d in 1..days) {
                 val slot = lead + d - 1

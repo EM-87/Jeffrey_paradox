@@ -98,7 +98,27 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var reminderBeingSet: Triple<Int, Int, Int>? = null
     private var reminderLabelBeingSet = ""
     private var reminderDurationBeingSet = 0
-    private var reminderRingsBeingSet = true
+    private var reminderRingsBeingSet = false
+    private var reminderSoundBeingSet = Prefs.ALARM_SOUND_BELLS
+    private var reminderSnoozeBeingSet = 5
+
+    /** A reminder sheet parked while its duration is wound on the dial. */
+    private class ReminderDraft(
+        val existing: Reminder?,
+        val year: Int,
+        val month: Int,
+        val day: Int,
+        val label: String,
+        val hour: Int,
+        val minute: Int,
+        val duration: Int,
+        val rings: Boolean,
+        val sound: String,
+        val snooze: Int
+    )
+
+    private var durationDraft: ReminderDraft? = null
+    private var settingReminderDuration = false
 
     // Alarm-time setting on the clock dial with the wind-to-set engine.
     private var alarmSetActive = false
@@ -809,6 +829,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val sheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.sheet_alarm_edit, null)
         sheet.setContentView(view)
+        sheet.window?.setWindowAnimations(R.style.SheetAnimation)
 
         // The sheet edits a copy; nothing is committed until Save.
         val draft = alarm.copy()
@@ -1073,12 +1094,31 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val ms = ((alarmWorkingMs % dayMs) + dayMs) % dayMs
         val hour = (ms / 3_600_000L).toInt()
         val minute = (ms / 60_000L % 60L).toInt()
+        if (settingReminderDuration) {
+            val draft = durationDraft
+            settingReminderDuration = false
+            durationDraft = null
+            exitAlarmSetMode()
+            if (draft != null) {
+                val minutes = (alarmWorkingMs / 60_000L).toInt().coerceIn(0, 24 * 60)
+                showReminderSheet(
+                    draft.existing, draft.year, draft.month, draft.day,
+                    ReminderDraft(
+                        draft.existing, draft.year, draft.month, draft.day,
+                        draft.label, draft.hour, draft.minute, minutes,
+                        draft.rings, draft.sound, draft.snooze
+                    )
+                )
+            }
+            return
+        }
         reminderBeingSet?.let { (year, month, day) ->
             reminders.add(
                 Reminder(
                     ReminderStore.nextId(reminders),
                     year, month, day, hour, minute, reminderLabelBeingSet,
-                    reminderDurationBeingSet, reminderRingsBeingSet
+                    reminderDurationBeingSet, reminderRingsBeingSet,
+                    reminderSoundBeingSet, reminderSnoozeBeingSet
                 )
             )
             persistReminders()
@@ -1098,7 +1138,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     private fun exitAlarmSetMode() {
-        val backToCalendar = reminderBeingSet != null
+        val backToCalendar = reminderBeingSet != null || settingReminderDuration
+        settingReminderDuration = false
+        durationDraft = null
         alarmSetActive = false
         alarmBeingSet = null
         reminderBeingSet = null
@@ -1109,7 +1151,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun applyAlarmSetUi() {
         alarmSetBanner?.visibility = if (alarmSetActive) View.VISIBLE else View.GONE
         alarmSetLabel?.setText(
-            if (reminderBeingSet != null) R.string.set_reminder_time else R.string.set_alarm_time
+            when {
+                settingReminderDuration -> R.string.set_duration
+                reminderBeingSet != null -> R.string.set_reminder_time
+                else -> R.string.set_alarm_time
+            }
         )
         pager.isUserInputEnabled = !alarmSetActive
         applyMode()
@@ -1242,15 +1288,24 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * The reminder editor: the same bottom-sheet shape as the alarm one,
      * with the time still set the app's way — by winding the dial.
      */
-    private fun showReminderSheet(existing: Reminder?, year: Int, month: Int, day: Int) {
+    private fun showReminderSheet(
+        existing: Reminder?,
+        year: Int,
+        month: Int,
+        day: Int,
+        seed: ReminderDraft? = null
+    ) {
         val sheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.sheet_reminder_edit, null)
         sheet.setContentView(view)
+        sheet.window?.setWindowAnimations(R.style.SheetAnimation)
 
-        var label = existing?.label.orEmpty()
-        var hour = existing?.hour ?: 9
-        var minute = existing?.minute ?: 0
-        var duration = existing?.durationMinutes ?: 0
+        var label = seed?.label ?: existing?.label.orEmpty()
+        var hour = seed?.hour ?: existing?.hour ?: 9
+        var minute = seed?.minute ?: existing?.minute ?: 0
+        var duration = seed?.duration ?: existing?.durationMinutes ?: 0
+        var sound = seed?.sound ?: existing?.sound ?: Prefs.ALARM_SOUND_BELLS
+        var snooze = seed?.snooze ?: existing?.snoozeMinutes ?: 5
 
         val nameValue = view.findViewById<TextView>(R.id.rsheet_name_value)
         val timeValue = view.findViewById<TextView>(R.id.rsheet_time_value)
@@ -1286,27 +1341,69 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
 
         val alarmSwitch = view.findViewById<SwitchCompat>(R.id.rsheet_alarm)
-        alarmSwitch.isChecked = existing?.rings ?: true
+        val soundRow = view.findViewById<View>(R.id.rsheet_row_sound)
+        val snoozeRow = view.findViewById<View>(R.id.rsheet_row_snooze)
+        val soundValue = view.findViewById<TextView>(R.id.rsheet_sound_value)
+        val snoozeValue = view.findViewById<TextView>(R.id.rsheet_snooze_value)
+
+        // A reminder is a mark on the calendar first; ringing is opt-in, and
+        // its settings only exist once you have opted in.
+        fun paintAlarmRows() {
+            val on = alarmSwitch.isChecked
+            soundRow.visibility = if (on) View.VISIBLE else View.GONE
+            snoozeRow.visibility = if (on) View.VISIBLE else View.GONE
+            soundValue.text = soundLabel(sound)
+            snoozeValue.text = if (snooze > 0) {
+                getString(R.string.alarm_snooze_min, snooze)
+            } else {
+                getString(R.string.alarm_snooze_off)
+            }
+        }
+        alarmSwitch.isChecked = seed?.rings ?: existing?.rings ?: false
+        alarmSwitch.setOnCheckedChangeListener { _, _ -> paintAlarmRows() }
+        soundRow.setOnClickListener {
+            sound = nextSound(sound).let {
+                // No SAF round trip from here; the file picker belongs to
+                // alarms proper.
+                if (it == Prefs.ALARM_SOUND_CUSTOM) Prefs.ALARM_SOUND_BELLS else it
+            }
+            paintAlarmRows()
+        }
+        snoozeRow.setOnClickListener {
+            snooze = when (snooze) {
+                0 -> 5
+                5 -> 10
+                10 -> 15
+                else -> 0
+            }
+            paintAlarmRows()
+        }
+        paintAlarmRows()
 
         view.findViewById<View>(R.id.rsheet_row_duration).setOnClickListener {
-            val choices = intArrayOf(0, 15, 30, 60, 120)
-            val names = choices.map {
-                if (it == 0) getString(R.string.reminder_duration_none)
-                else getString(R.string.reminder_duration_min, it)
-            }.toTypedArray()
-            androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle(R.string.reminder_duration)
-                .setItems(names) { _, which ->
-                    duration = choices[which]
-                    refresh()
-                }
-                .show()
+            // How long a thing lasts is a duration, so it gets set the way
+            // durations are set here: by winding the countdown dial.
+            durationDraft = ReminderDraft(
+                existing, year, month, day, label, hour, minute, duration,
+                alarmSwitch.isChecked, sound, snooze
+            )
+            sheet.dismiss()
+            settingReminderDuration = true
+            alarmBeingSet = null
+            reminderBeingSet = null
+            alarmWorkingMs = duration.coerceAtLeast(15) * 60_000L
+            alarmSetActive = true
+            mode = Mode.CLOCK
+            pager.currentItem = PAGE_HOME
+            applyAlarmSetUi()
         }
 
         // Tapping the time row, or Save, both end on the dial: that is where
         // times are set in this app.
         val toDial = View.OnClickListener {
             reminderRingsBeingSet = alarmSwitch.isChecked
+            reminderSoundBeingSet = sound
+            reminderSnoozeBeingSet = snooze
             existing?.let { reminders.remove(it) }
             reminderLabelBeingSet = label
             reminderDurationBeingSet = duration
@@ -1908,11 +2005,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val chrono = mode == Mode.CHRONO
         clockView?.let {
             if (alarmSetActive) {
-                // C0 borrows the wind-to-set engine to pick an alarm or
-                // reminder time, with the alarm magnet grid.
+                // C0 borrows the wind-to-set engine to pick an alarm time, a
+                // reminder time, or how long an activity lasts.
                 it.chronoProvider = alarmTimeProvider
                 it.chronoSettable = true
-                it.magnetProfile = ClockView.MagnetProfile.ALARM
+                it.magnetProfile = if (settingReminderDuration) {
+                    ClockView.MagnetProfile.COUNTDOWN
+                } else {
+                    ClockView.MagnetProfile.ALARM
+                }
             } else {
                 it.chronoProvider = null
                 it.chronoSettable = false

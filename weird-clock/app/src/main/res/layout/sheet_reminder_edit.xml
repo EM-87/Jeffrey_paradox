@@ -82,6 +82,37 @@
                 android:layout_height="wrap_content" />
         </LinearLayout>
 
+        <!-- Only meaningful once it actually rings, so it only appears then. -->
+        <LinearLayout
+            android:id="@+id/rsheet_row_sound"
+            style="@style/AlarmSheetRow"
+            android:visibility="gone">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:paddingStart="16dp"
+                android:text="@string/pref_bell_style_title" />
+
+            <TextView
+                android:id="@+id/rsheet_sound_value"
+                style="@style/AlarmSheetRowValue" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/rsheet_row_snooze"
+            style="@style/AlarmSheetRow"
+            android:visibility="gone">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:paddingStart="16dp"
+                android:text="@string/alarm_snooze" />
+
+            <TextView
+                android:id="@+id/rsheet_snooze_value"
+                style="@style/AlarmSheetRowValue" />
+        </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

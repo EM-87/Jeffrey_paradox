@@ -63,7 +63,10 @@ object AlarmScheduler {
         val alarm = next ?: nextReminder?.let { r ->
             // A reminder rings like a bells alarm with a 5-minute snooze,
             // carrying its label and its own id so it expires after firing.
-            Alarm(0, r.hour, r.minute, true, Prefs.ALARM_SOUND_BELLS, label = r.label)
+            Alarm(
+                0, r.hour, r.minute, true, r.sound,
+                label = r.label, snoozeMinutes = r.snoozeMinutes
+            )
         } ?: return
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
         val show = PendingIntent.getActivity(

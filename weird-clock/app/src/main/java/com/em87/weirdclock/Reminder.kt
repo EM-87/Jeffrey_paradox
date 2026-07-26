@@ -23,7 +23,9 @@ data class Reminder(
     /** How long the event lasts; 0 = a moment, drawn as a dot. */
     val durationMinutes: Int = 0,
     /** Whether it actually rings, or just marks the calendar and the dial. */
-    val rings: Boolean = true
+    val rings: Boolean = false,
+    val sound: String = Prefs.ALARM_SOUND_BELLS,
+    val snoozeMinutes: Int = 5
 ) {
     fun timeInMillis(): Long = Calendar.getInstance().run {
         set(year, month - 1, day, hour, minute, 0)
@@ -55,7 +57,9 @@ object ReminderStore {
                         minute = o.getInt("minute"),
                         label = o.optString("label", ""),
                         durationMinutes = o.optInt("duration", 0),
-                        rings = o.optBoolean("rings", true)
+                        rings = o.optBoolean("rings", false),
+                        sound = o.optString("sound", Prefs.ALARM_SOUND_BELLS),
+                        snoozeMinutes = o.optInt("snoozeMin", 5)
                     )
                 )
             }
@@ -82,6 +86,8 @@ object ReminderStore {
                     .put("label", r.label)
                     .put("duration", r.durationMinutes)
                     .put("rings", r.rings)
+                    .put("sound", r.sound)
+                    .put("snoozeMin", r.snoozeMinutes)
             )
         }
         PreferenceManager.getDefaultSharedPreferences(context)

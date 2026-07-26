@@ -66,6 +66,7 @@
     <string name="countdown_set_hint">Cuenta atrás · gira las manecillas para ajustarla</string>
     <string name="set_alarm_time">Ajusta la hora de la alarma</string>
     <string name="set_reminder_time">Ajusta la hora del recordatorio</string>
+    <string name="set_duration">¿Cuánto dura?</string>
     <string name="cheater_stamp">¡TRAMPOSO!</string>
 
     <string name="category_alarms">Alarmas</string>
