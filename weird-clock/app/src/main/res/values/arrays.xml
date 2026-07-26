@@ -34,6 +34,19 @@
         <item>octagon</item>
     </string-array>
 
+    <string-array name="past_days_entries">
+        <item>Leave them alone</item>
+        <item>Fade them</item>
+        <item>Cross them out</item>
+        <item>Circle them</item>
+    </string-array>
+    <string-array name="past_days_values">
+        <item>none</item>
+        <item>dim</item>
+        <item>cross</item>
+        <item>ring</item>
+    </string-array>
+
     <string-array name="hours_preset_entries">
         <item>10 hours (decimal day)</item>
         <item>12 hours (classic)</item>

@@ -123,6 +123,9 @@
     <string name="pref_bells_background_summary">Las campanas dan las horas desde segundo plano, rearmándose solas cada vez</string>
     <string name="bells_channel_name">Campanadas horarias</string>
     <string name="category_timer">Cuenta atrás</string>
+    <string name="category_calendar">Calendario</string>
+    <string name="pref_past_days_title">Días ya pasados</string>
+    <string name="pref_past_days_summary">Marca los días que quedaron atrás: ya no se pueden programar, solo consultar</string>
     <string name="pref_sand_grains_title">Granos de arena</string>
     <string name="pref_sand_grains_summary">Más granos, arena más fina — y más trabajo para tu móvil</string>
     <string name="pref_very_advanced_title">Opciones demasiado avanzadas</string>

@@ -84,6 +84,12 @@ object Prefs {
     const val BUBBLE_Y = "pref_bubble_y"
     const val NIGHT_DIM = "pref_night_dim"
     const val WEEK_START_MONDAY = "pref_week_start_monday"
+    const val PAST_DAYS = "pref_past_days"
+
+    const val PAST_NONE = "none"
+    const val PAST_DIM = "dim"
+    const val PAST_CROSS = "cross"
+    const val PAST_RING = "ring"
 
     /** True when the countdown was last driven from the dial (S1), not S0. */
     const val TIMER_ON_DIAL = "pref_timer_on_dial"

@@ -134,6 +134,9 @@
     <string name="pref_bells_background_summary">The bells keep the hours from the background, quietly re-arming themselves each time</string>
     <string name="bells_channel_name">Hourly bells</string>
     <string name="category_timer">Timer</string>
+    <string name="category_calendar">Calendar</string>
+    <string name="pref_past_days_title">Days already gone</string>
+    <string name="pref_past_days_summary">Mark the days behind you — they can no longer be scheduled, only read</string>
     <string name="pref_sand_grains_title">Grains of sand</string>
     <string name="pref_sand_grains_summary">More grains, finer sand — and more work for your phone</string>
     <string name="pref_very_advanced_title">Too-advanced options</string>

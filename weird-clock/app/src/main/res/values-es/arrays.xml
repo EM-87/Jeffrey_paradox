@@ -18,6 +18,13 @@
         <item>Octogonal (señal de stop)</item>
     </string-array>
 
+    <string-array name="past_days_entries">
+        <item>Dejarlos en paz</item>
+        <item>Atenuarlos</item>
+        <item>Tacharlos</item>
+        <item>Rodearlos</item>
+    </string-array>
+
     <string-array name="hours_preset_entries">
         <item>10 horas (día decimal)</item>
         <item>12 horas (clásica)</item>

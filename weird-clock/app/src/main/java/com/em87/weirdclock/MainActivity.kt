@@ -699,45 +699,30 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     /**
-     * Gives a bottom sheet real movement: it climbs in decelerating and
-     * drops out accelerating, and the scrim fades with it. The dialog's own
-     * entrance was not showing at all on this layout, so the content view
-     * is driven directly.
+     * Real movement, both ways. The sheet's own behavior does the sliding —
+     * driving the content view by hand fought the dialog's internal
+     * container and lost — and dismissWithAnimation makes tapping outside
+     * or pressing back slide it back down instead of blinking it away.
      */
     private fun animateSheet(
         sheet: com.google.android.material.bottomsheet.BottomSheetDialog,
         content: View
     ) {
-        var leaving = false
-        sheet.setOnShowListener {
-            content.post {
-                content.translationY = content.height.toFloat()
-                content.alpha = 0.85f
-                content.animate()
-                    .translationY(0f)
-                    .alpha(1f)
-                    .setDuration(300L)
-                    .setInterpolator(android.view.animation.DecelerateInterpolator(1.6f))
-                    .start()
-            }
+        sheet.dismissWithAnimation = true
+        sheet.behavior.apply {
+            skipCollapsed = true
+            isFitToContents = true
         }
-        // Intercepting dismissal is the only way to be seen leaving.
-        sheet.setOnKeyListener { _, keyCode, event ->
-            if (keyCode == android.view.KeyEvent.KEYCODE_BACK &&
-                event.action == android.view.KeyEvent.ACTION_UP && !leaving
-            ) {
-                leaving = true
-                content.animate()
-                    .translationY(content.height.toFloat())
-                    .alpha(0f)
-                    .setDuration(220L)
-                    .setInterpolator(android.view.animation.AccelerateInterpolator(1.4f))
-                    .withEndAction { sheet.dismiss() }
-                    .start()
-                true
-            } else {
-                false
-            }
+        sheet.setOnShowListener {
+            val container = sheet.findViewById<View>(
+                com.google.android.material.R.id.design_bottom_sheet
+            ) ?: content
+            container.translationY = container.height.toFloat().coerceAtLeast(1f)
+            container.animate()
+                .translationY(0f)
+                .setDuration(300L)
+                .setInterpolator(android.view.animation.DecelerateInterpolator(1.7f))
+                .start()
         }
     }
 
@@ -1263,6 +1248,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
     }
 
+    private fun isPastDay(year: Int, month: Int, day: Int): Boolean {
+        val now = Calendar.getInstance().apply { timeInMillis = TimeKeeper.nowMs() }
+        return when {
+            year != now.get(Calendar.YEAR) -> year < now.get(Calendar.YEAR)
+            month != now.get(Calendar.MONTH) + 1 -> month < now.get(Calendar.MONTH) + 1
+            else -> day < now.get(Calendar.DAY_OF_MONTH)
+        }
+    }
+
     private fun todaysReminders(): List<Reminder> {
         val today = Calendar.getInstance().apply { timeInMillis = TimeKeeper.nowMs() }
         return reminders.filter {
@@ -1349,6 +1343,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         var duration = seed?.duration ?: existing?.durationMinutes ?: 0
         var sound = seed?.sound ?: existing?.sound ?: Prefs.ALARM_SOUND_BELLS
         var lead = seed?.lead ?: existing?.leadMinutes ?: 0
+        // Nothing can be scheduled into a day that is already spent: it may
+        // be read and it may be deleted, and that is all.
+        val spent = isPastDay(year, month, day)
 
         val nameValue = view.findViewById<TextView>(R.id.rsheet_name_value)
         val timeValue = view.findViewById<TextView>(R.id.rsheet_time_value)
@@ -1411,6 +1408,21 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 if (it == Prefs.ALARM_SOUND_CUSTOM) Prefs.ALARM_SOUND_BELLS else it
             }
             paintAlarmRows()
+
+        if (spent) {
+            for (id in intArrayOf(
+                R.id.rsheet_row_name, R.id.rsheet_row_time, R.id.rsheet_row_duration,
+                R.id.rsheet_row_sound, R.id.rsheet_row_snooze
+            )) {
+                view.findViewById<View>(id).apply {
+                    isEnabled = false
+                    alpha = 0.45f
+                }
+            }
+            alarmSwitch.isEnabled = false
+            view.findViewById<Button>(R.id.rsheet_save).visibility = View.GONE
+        }
+
         }
         snoozeRow.setOnClickListener {
             // Warning ahead of the thing, not a nag after it.
@@ -1907,6 +1919,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         calendarView?.let {
             it.theme = cv.theme
             it.numeralStyle = cv.numeralStyle
+            it.pastStyle = when (prefs.getString(Prefs.PAST_DAYS, Prefs.PAST_NONE)) {
+                Prefs.PAST_DIM -> CalendarPageView.PastStyle.DIM
+                Prefs.PAST_CROSS -> CalendarPageView.PastStyle.CROSS
+                Prefs.PAST_RING -> CalendarPageView.PastStyle.RING
+                else -> CalendarPageView.PastStyle.NONE
+            }
             it.weekStartsMonday = prefs.getBoolean(
                 Prefs.WEEK_START_MONDAY,
                 Calendar.getInstance().firstDayOfWeek == Calendar.MONDAY

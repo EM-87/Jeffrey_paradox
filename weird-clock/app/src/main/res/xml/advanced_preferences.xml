@@ -44,6 +44,19 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="@string/category_calendar">
+
+        <ListPreference
+            android:defaultValue="none"
+            android:entries="@array/past_days_entries"
+            android:entryValues="@array/past_days_values"
+            android:key="pref_past_days"
+            android:summary="@string/pref_past_days_summary"
+            android:title="@string/pref_past_days_title"
+            app:useSimpleSummaryProvider="true" />
+
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="@string/category_hands">
 
         <SwitchPreferenceCompat

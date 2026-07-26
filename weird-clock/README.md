@@ -253,6 +253,15 @@ stopwatch swipes to a second rendered dial: the countdown.
   and out with the chronograph transition like the crown and pushers, and
   "Put everything back" pins them back into the grid.
 
+**Calendar**
+- Pinch out and the month falls back to the whole year: twelve real
+  little grids, today circled in both views, busy days in the accent
+  colour. Tap a month and it grows out of its own cell back to full
+  size; swipe to page the year, exactly as swiping pages months.
+- Days already behind you can't be scheduled — they open only to show
+  what they already hold, with everything but Delete locked. An advanced
+  setting marks them: faded, crossed out, or circled.
+
 **Calendar reminders**
 - Tap any day in the calendar (C3) to add a dated reminder with its own
   time and label: it rings like an alarm — full-screen, over the lock
