@@ -26,6 +26,7 @@ import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewTreeObserver
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
@@ -720,18 +721,31 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // the climb below as the only entrance. Dismissal is untouched: it
         // rides the behaviour, not the window.
         sheet.window?.setWindowAnimations(0)
-        sheet.setOnShowListener {
-            val container = sheet.findViewById<View>(
-                com.google.android.material.R.id.design_bottom_sheet
-            ) ?: content
-            // Before the first layout the container has no height, and a
-            // zero-length climb is exactly the abruptness we are chasing
-            // away, so fall back to the screen.
-            val travel = if (container.height > 0) container.height
-            else resources.displayMetrics.heightPixels
-            container.translationY = travel.toFloat()
-            climb(container, travel.toFloat())
-        }
+        // Pushed down on the frame before the first one is drawn, not on the
+        // show callback: that callback can land after a frame has already
+        // gone out with the sheet sitting at its final place, and that stray
+        // frame is the flicker — the sheet appearing, vanishing downwards and
+        // climbing back.
+        content.viewTreeObserver.addOnPreDrawListener(
+            object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    content.viewTreeObserver.removeOnPreDrawListener(this)
+                    val container = sheet.findViewById<View>(
+                        com.google.android.material.R.id.design_bottom_sheet
+                    ) ?: content
+                    // Laid out by now, but a zero-length climb is exactly the
+                    // abruptness we are chasing away, so fall back to the
+                    // screen if it somehow is not.
+                    val travel = (
+                        if (container.height > 0) container.height
+                        else resources.displayMetrics.heightPixels
+                        ).toFloat()
+                    container.translationY = travel
+                    climb(container, travel)
+                    return true
+                }
+            }
+        )
     }
 
     /**
@@ -747,7 +761,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private fun climb(view: View, travel: Float) {
         val start = SystemClock.uptimeMillis()
-        val duration = 600f
+        // Matched to the descent, which the behaviour settles in about this
+        // long: a sheet that takes longer to arrive than to leave feels slow.
+        val duration = 400f
         val ease = android.view.animation.DecelerateInterpolator()
         val choreographer = android.view.Choreographer.getInstance()
         choreographer.postFrameCallback(object : android.view.Choreographer.FrameCallback {
@@ -810,22 +826,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             holder.timeBox.visibility = if (analog) View.GONE else View.VISIBLE
             holder.dials.visibility = if (analog) View.VISIBLE else View.GONE
             holder.dials.removeAllViews()
-            if (analog) {
-                // The alarm's own time gets a proper face; its repetitions
-                // trail behind it, smaller, the way they read on the card.
-                val density = resources.displayMetrics.density
-                val first = (46 * density).toInt()
-                val rest = (28 * density).toInt()
-                for ((i, t) in times.withIndex()) {
-                    val size = if (i == 0) first else rest
-                    holder.dials.addView(
-                        miniDial(t.first, t.second),
-                        LinearLayout.LayoutParams(size, size).apply {
-                            if (i > 0) marginStart = (4 * density).toInt()
-                        }
-                    )
-                }
-            }
+            if (analog) fillAlarmDials(holder.dials, times)
 
             holder.time.text =
                 String.format(Locale.US, "%02d:%02d", times[0].first, times[0].second)
@@ -886,6 +887,76 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
     }
 
+    /**
+     * The faces on an alarm card. One time is one face; two are a pair of
+     * equals; from three on, the alarm's own time leads and its repetitions
+     * follow smaller — and four of them stack into a 2×2 block rather than
+     * running off the side of the card.
+     */
+    private fun fillAlarmDials(row: LinearLayout, times: List<Pair<Int, Int>>) {
+        val density = resources.displayMetrics.density
+        val gap = (4 * density).toInt()
+        val lead = (46 * density).toInt()
+        val small = (28 * density).toInt()
+
+        fun dial(t: Pair<Int, Int>, size: Int, startGap: Boolean, topGap: Boolean) =
+            row.addView(
+                miniDial(t.first, t.second),
+                LinearLayout.LayoutParams(size, size).apply {
+                    if (startGap) marginStart = gap
+                    if (topGap) topMargin = gap
+                }
+            )
+
+        when (times.size) {
+            1 -> dial(times[0], lead, false, false)
+            2 -> {
+                // A pair of equals: neither time is the lesser one.
+                dial(times[0], lead, false, false)
+                dial(times[1], lead, true, false)
+            }
+            3 -> {
+                dial(times[0], lead, false, false)
+                dial(times[1], small, true, false)
+                dial(times[2], small, true, false)
+            }
+            else -> {
+                dial(times[0], lead, false, false)
+                // The three repetitions as a 2×2 mosaic, read left to right.
+                val mosaic = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+                for (line in 0..1) {
+                    val strip = LinearLayout(this).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                    }
+                    for (column in 0..1) {
+                        val index = 1 + line * 2 + column
+                        if (index >= times.size) break
+                        strip.addView(
+                            miniDial(times[index].first, times[index].second),
+                            LinearLayout.LayoutParams(small, small).apply {
+                                if (column > 0) marginStart = gap
+                            }
+                        )
+                    }
+                    mosaic.addView(
+                        strip,
+                        LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
+                        ).apply { if (line > 0) topMargin = gap }
+                    )
+                }
+                row.addView(
+                    mosaic,
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply { marginStart = gap }
+                )
+            }
+        }
+    }
+
     /** Whether alarms show their times on little faces rather than in digits. */
     private fun alarmsAreAnalog(): Boolean =
         prefs.getString(Prefs.ALARM_STYLE, Prefs.ALARM_STYLE_ANALOG) != Prefs.ALARM_STYLE_DIGITAL
@@ -903,6 +974,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             shakeDropEnabled = false
             showDate = false
             showSecondHand = false
+            showDigitalReadout = false
             theme = clockView?.theme ?: ClockThemes.MIDNIGHT
             hoursOnDial = readHoursOnDial()
             dialShape = readDialShape()
@@ -958,13 +1030,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val daysRow = view.findViewById<LinearLayout>(R.id.sheet_days)
 
         // One little analog face per time: tapped it goes to the big dial to
-        // be wound, held down it offers to drop that repetition. Four faces
-        // and an Add button don't fit at full size, so they close ranks.
+        // be wound, held down it offers to drop that repetition. They take
+        // whatever room is left over between the sheet's margins and the +
+        // button, up to a size that already looks generous.
         lateinit var refreshRef: () -> Unit
         fun rebuildDials() {
             dialsRow.removeAllViews()
             val density = resources.displayMetrics.density
-            val size = ((if (draft.timeCount() >= 4) 46 else 58) * density).toInt()
+            val count = draft.timeCount()
+            val room = resources.displayMetrics.widthPixels -
+                (40 + 56) * density - 8 * density * count
+            val size = minOf(76 * density, room / count).toInt()
             for (index in 0 until draft.timeCount()) {
                 val (h, m) = draft.timeAt(index)
                 val dial = miniDial(h, m)

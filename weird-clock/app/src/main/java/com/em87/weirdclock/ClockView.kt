@@ -125,6 +125,9 @@ class ClockView @JvmOverloads constructor(
         set(value) { field = value; invalidate() }
     var touchHandsEnabled = true
     var pinchZoomEnabled = true
+    /** The seven-segment readout under the dial. */
+    var showDigitalReadout = true
+        set(value) { field = value; invalidate() }
     var shakeDropEnabled = true
         set(value) {
             field = value
@@ -1966,6 +1969,9 @@ class ClockView @JvmOverloads constructor(
         // or the current time while the hands are lying at the bottom of
         // the dial and the analog display is useless.
         val digitalText = when {
+            // A face used as a plain time-of-day badge wants hands and
+            // nothing else.
+            !showDigitalReadout -> null
             // While setting a duration the readout must follow the hands —
             // that is what you are reading as you wind. Otherwise it reports
             // the mechanism's own value, so a wound hand cannot drag the

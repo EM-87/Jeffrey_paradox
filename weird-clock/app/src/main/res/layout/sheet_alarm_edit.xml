@@ -22,8 +22,8 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <!-- One dial per time this concept happens: tap one to wind
-                 it, Add for another (three at most). -->
+            <!-- One dial per time this concept happens: tap one to wind it,
+                 hold it to drop it, + for another (four at most). -->
             <LinearLayout
                 android:id="@+id/sheet_dials"
                 android:layout_width="0dp"
@@ -32,12 +32,22 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal" />
 
+            <!-- A plus, not a word: the dials need the room. -->
             <Button
                 android:id="@+id/sheet_add_time"
                 style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/alarm_add_time" />
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:insetLeft="0dp"
+                android:insetTop="0dp"
+                android:insetRight="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingLeft="0dp"
+                android:paddingRight="0dp"
+                android:text="@string/alarm_add_time"
+                android:textSize="20sp" />
         </LinearLayout>
 
         <!-- Weekday buttons: S M T W T F S, tapped individually. -->
@@ -49,9 +59,10 @@
             android:orientation="horizontal" />
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:gravity="center_horizontal"
             android:orientation="horizontal">
 
             <Button

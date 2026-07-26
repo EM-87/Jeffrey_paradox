@@ -64,23 +64,6 @@
             android:layout_weight="1"
             android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/alarm_name"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:maxLines="1"
-                android:ellipsize="end"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp" />
-
-            <TextView
-                android:id="@+id/alarm_days"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
-                android:letterSpacing="0.14"
-                android:textSize="12sp" />
-
             <LinearLayout
                 android:id="@+id/alarm_icons"
                 android:layout_width="wrap_content"
@@ -144,6 +127,26 @@
                     android:contentDescription="@string/reminder_duration"
                     android:src="@drawable/ic_calendar" />
             </LinearLayout>
+
+            <TextView
+                android:id="@+id/alarm_days"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:letterSpacing="0.14"
+                android:textSize="12sp" />
+
+            <!-- The label last: the icons say what the alarm does, the name
+                 only says what you called it. -->
+            <TextView
+                android:id="@+id/alarm_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp" />
         </LinearLayout>
 
         <androidx.appcompat.widget.SwitchCompat
