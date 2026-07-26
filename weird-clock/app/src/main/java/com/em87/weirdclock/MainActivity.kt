@@ -921,18 +921,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 dial(times[2], small, true, false)
             }
             else -> {
-                dial(times[0], lead, false, false)
-                // The three repetitions as a 2×2 mosaic, read left to right.
+                // All four in a square block, which takes barely more room
+                // than the single leading face does on its own.
                 val mosaic = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
                 for (line in 0..1) {
                     val strip = LinearLayout(this).apply {
                         orientation = LinearLayout.HORIZONTAL
                     }
                     for (column in 0..1) {
-                        val index = 1 + line * 2 + column
-                        if (index >= times.size) break
+                        val t = times[line * 2 + column]
                         strip.addView(
-                            miniDial(times[index].first, times[index].second),
+                            miniDial(t.first, t.second),
                             LinearLayout.LayoutParams(small, small).apply {
                                 if (column > 0) marginStart = gap
                             }
@@ -951,7 +950,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).apply { marginStart = gap }
+                    )
                 )
             }
         }

@@ -64,6 +64,25 @@
             android:layout_weight="1"
             android:orientation="vertical">
 
+            <TextView
+                android:id="@+id/alarm_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/alarm_days"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:letterSpacing="0.14"
+                android:textSize="12sp" />
+
+            <!-- The line reads as what the alarm does — buzz, book a slot,
+                 flash, snooze — and closes with the sound it does it with. -->
             <LinearLayout
                 android:id="@+id/alarm_icons"
                 android:layout_width="wrap_content"
@@ -73,25 +92,33 @@
                 android:orientation="horizontal">
 
                 <ImageView
-                    android:id="@+id/icon_sound"
+                    android:id="@+id/icon_vibrate"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
-                    android:contentDescription="@string/pref_bell_style_title"
-                    android:src="@drawable/ic_note" />
+                    android:contentDescription="@string/alarm_vibrate"
+                    android:src="@drawable/ic_vibrate" />
 
-                <TextView
-                    android:id="@+id/alarm_sound_name"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
+                <ImageView
+                    android:id="@+id/icon_calendar"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_marginStart="8dp"
+                    android:contentDescription="@string/reminder_duration"
+                    android:src="@drawable/ic_calendar" />
+
+                <ImageView
+                    android:id="@+id/icon_flash"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_marginStart="8dp"
+                    android:contentDescription="@string/alarm_flash"
+                    android:src="@drawable/ic_flash" />
 
                 <ImageView
                     android:id="@+id/icon_snooze"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="8dp"
                     android:contentDescription="@string/alarm_snooze"
                     android:src="@drawable/ic_snooze" />
 
@@ -104,49 +131,22 @@
                     android:textSize="12sp" />
 
                 <ImageView
-                    android:id="@+id/icon_vibrate"
+                    android:id="@+id/icon_sound"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
                     android:layout_marginStart="10dp"
-                    android:contentDescription="@string/alarm_vibrate"
-                    android:src="@drawable/ic_vibrate" />
+                    android:contentDescription="@string/pref_bell_style_title"
+                    android:src="@drawable/ic_note" />
 
-                <ImageView
-                    android:id="@+id/icon_flash"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:layout_marginStart="8dp"
-                    android:contentDescription="@string/alarm_flash"
-                    android:src="@drawable/ic_flash" />
-
-                <ImageView
-                    android:id="@+id/icon_calendar"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:layout_marginStart="8dp"
-                    android:contentDescription="@string/reminder_duration"
-                    android:src="@drawable/ic_calendar" />
+                <TextView
+                    android:id="@+id/alarm_sound_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/alarm_days"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:letterSpacing="0.14"
-                android:textSize="12sp" />
-
-            <!-- The label last: the icons say what the alarm does, the name
-                 only says what you called it. -->
-            <TextView
-                android:id="@+id/alarm_name"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp" />
         </LinearLayout>
 
         <androidx.appcompat.widget.SwitchCompat
