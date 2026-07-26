@@ -118,26 +118,37 @@ class CalendarPageView @JvmOverloads constructor(
         )
     }
     private var pinchHandled = false
+    private var spanAtBegin = 0f
+
+    /**
+     * True from the moment a second finger lands until the next fresh
+     * touch. Lifting a pinch leaves one finger down, and its ACTION_UP was
+     * landing on a month cell — which promptly zoomed into that month, so
+     * the year view "would not stay" no matter how well the pinch worked.
+     */
+    private var gestureWasPinch = false
     private val scaleDetector = android.view.ScaleGestureDetector(
         context,
         object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
             override fun onScaleBegin(detector: android.view.ScaleGestureDetector): Boolean {
                 pinchHandled = false
+                spanAtBegin = detector.currentSpan
                 return true
             }
 
             override fun onScale(detector: android.view.ScaleGestureDetector): Boolean {
-                // One decision per pinch, then the gesture is spent: reading
-                // the factor every frame let the tail of a pinch — fingers
-                // drifting back together as they lift — undo the zoom.
-                if (pinchHandled) return true
-                val out = detector.currentSpan < detector.previousSpan * 0.90f
-                val into = detector.currentSpan > detector.previousSpan * 1.10f
+                // Measured against the span the gesture started with: frame
+                // to frame the span barely moves, so comparing consecutive
+                // frames demanded an absurdly sharp squeeze. One decision
+                // per gesture, then it is spent.
+                if (pinchHandled || spanAtBegin <= 0f) return true
+                val ratio = detector.currentSpan / spanAtBegin
+                val out = ratio < 0.75f
+                val into = ratio > 1.35f
                 if (!out && !into) return true
                 pinchHandled = true
-                val wanted = out
-                if (wanted != yearView) {
-                    yearView = wanted
+                if (out != yearView) {
+                    yearView = out
                     zoomFrom = null
                     zoomStart = android.os.SystemClock.uptimeMillis()
                     performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
@@ -151,8 +162,21 @@ class CalendarPageView @JvmOverloads constructor(
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         scaleDetector.onTouchEvent(event)
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> gestureWasPinch = false
+            MotionEvent.ACTION_POINTER_DOWN -> gestureWasPinch = true
+        }
         if (event.pointerCount > 1) {
             parent?.requestDisallowInterceptTouchEvent(true)
+            return true
+        }
+        // The finger still on screen after a pinch is not a tap.
+        if (gestureWasPinch) {
+            if (event.actionMasked == MotionEvent.ACTION_UP ||
+                event.actionMasked == MotionEvent.ACTION_CANCEL
+            ) {
+                gestureWasPinch = false
+            }
             return true
         }
         if (yearView) {

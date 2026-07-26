@@ -104,6 +104,10 @@
     <string name="reminder_time">Time</string>
     <string name="reminder_set_time">Set on the dial</string>
     <string name="reminder_alarm">Ring an alarm</string>
+    <string name="reminder_lead">Warn me</string>
+    <string name="reminder_lead_none">On the dot</string>
+    <string name="reminder_lead_min">%1$d min early</string>
+    <string name="reminder_lead_hour">1 h early</string>
     <string name="reminder_duration">Lasts</string>
     <string name="reminder_duration_none">A moment</string>
     <string name="reminder_duration_min">%1$d min</string>

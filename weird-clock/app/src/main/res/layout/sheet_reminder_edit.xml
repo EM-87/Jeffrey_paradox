@@ -106,7 +106,7 @@
             <TextView
                 style="@style/AlarmSheetRowTitle"
                 android:paddingStart="16dp"
-                android:text="@string/alarm_snooze" />
+                android:text="@string/reminder_lead" />
 
             <TextView
                 android:id="@+id/rsheet_snooze_value"

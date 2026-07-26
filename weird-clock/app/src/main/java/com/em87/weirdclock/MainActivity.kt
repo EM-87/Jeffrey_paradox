@@ -100,7 +100,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var reminderDurationBeingSet = 0
     private var reminderRingsBeingSet = false
     private var reminderSoundBeingSet = Prefs.ALARM_SOUND_BELLS
-    private var reminderSnoozeBeingSet = 5
+    private var reminderLeadBeingSet = 0
 
     /** A reminder sheet parked while its duration is wound on the dial. */
     private class ReminderDraft(
@@ -114,7 +114,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val duration: Int,
         val rings: Boolean,
         val sound: String,
-        val snooze: Int
+        val lead: Int
     )
 
     private var durationDraft: ReminderDraft? = null
@@ -698,6 +698,49 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         applyMode()
     }
 
+    /**
+     * Gives a bottom sheet real movement: it climbs in decelerating and
+     * drops out accelerating, and the scrim fades with it. The dialog's own
+     * entrance was not showing at all on this layout, so the content view
+     * is driven directly.
+     */
+    private fun animateSheet(
+        sheet: com.google.android.material.bottomsheet.BottomSheetDialog,
+        content: View
+    ) {
+        var leaving = false
+        sheet.setOnShowListener {
+            content.post {
+                content.translationY = content.height.toFloat()
+                content.alpha = 0.85f
+                content.animate()
+                    .translationY(0f)
+                    .alpha(1f)
+                    .setDuration(300L)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator(1.6f))
+                    .start()
+            }
+        }
+        // Intercepting dismissal is the only way to be seen leaving.
+        sheet.setOnKeyListener { _, keyCode, event ->
+            if (keyCode == android.view.KeyEvent.KEYCODE_BACK &&
+                event.action == android.view.KeyEvent.ACTION_UP && !leaving
+            ) {
+                leaving = true
+                content.animate()
+                    .translationY(content.height.toFloat())
+                    .alpha(0f)
+                    .setDuration(220L)
+                    .setInterpolator(android.view.animation.AccelerateInterpolator(1.4f))
+                    .withEndAction { sheet.dismiss() }
+                    .start()
+                true
+            } else {
+                false
+            }
+        }
+    }
+
     /** Reflects the current countdown duration on the S3 preset buttons. */
     private fun syncS3DurationChecks() {
         val group = s3DurationGroup ?: return
@@ -829,7 +872,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val sheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.sheet_alarm_edit, null)
         sheet.setContentView(view)
-        sheet.window?.setWindowAnimations(R.style.SheetAnimation)
+        animateSheet(sheet, view)
 
         // The sheet edits a copy; nothing is committed until Save.
         val draft = alarm.copy()
@@ -1106,7 +1149,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     ReminderDraft(
                         draft.existing, draft.year, draft.month, draft.day,
                         draft.label, draft.hour, draft.minute, minutes,
-                        draft.rings, draft.sound, draft.snooze
+                        draft.rings, draft.sound, draft.lead
                     )
                 )
             }
@@ -1118,7 +1161,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     ReminderStore.nextId(reminders),
                     year, month, day, hour, minute, reminderLabelBeingSet,
                     reminderDurationBeingSet, reminderRingsBeingSet,
-                    reminderSoundBeingSet, reminderSnoozeBeingSet
+                    reminderSoundBeingSet, reminderLeadBeingSet
                 )
             )
             persistReminders()
@@ -1298,14 +1341,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val sheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.sheet_reminder_edit, null)
         sheet.setContentView(view)
-        sheet.window?.setWindowAnimations(R.style.SheetAnimation)
+        animateSheet(sheet, view)
 
         var label = seed?.label ?: existing?.label.orEmpty()
         var hour = seed?.hour ?: existing?.hour ?: 9
         var minute = seed?.minute ?: existing?.minute ?: 0
         var duration = seed?.duration ?: existing?.durationMinutes ?: 0
         var sound = seed?.sound ?: existing?.sound ?: Prefs.ALARM_SOUND_BELLS
-        var snooze = seed?.snooze ?: existing?.snoozeMinutes ?: 5
+        var lead = seed?.lead ?: existing?.leadMinutes ?: 0
 
         val nameValue = view.findViewById<TextView>(R.id.rsheet_name_value)
         val timeValue = view.findViewById<TextView>(R.id.rsheet_time_value)
@@ -1353,10 +1396,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             soundRow.visibility = if (on) View.VISIBLE else View.GONE
             snoozeRow.visibility = if (on) View.VISIBLE else View.GONE
             soundValue.text = soundLabel(sound)
-            snoozeValue.text = if (snooze > 0) {
-                getString(R.string.alarm_snooze_min, snooze)
-            } else {
-                getString(R.string.alarm_snooze_off)
+            snoozeValue.text = when (lead) {
+                0 -> getString(R.string.reminder_lead_none)
+                60 -> getString(R.string.reminder_lead_hour)
+                else -> getString(R.string.reminder_lead_min, lead)
             }
         }
         alarmSwitch.isChecked = seed?.rings ?: existing?.rings ?: false
@@ -1370,10 +1413,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             paintAlarmRows()
         }
         snoozeRow.setOnClickListener {
-            snooze = when (snooze) {
-                0 -> 5
-                5 -> 10
-                10 -> 15
+            // Warning ahead of the thing, not a nag after it.
+            lead = when (lead) {
+                0 -> 15
+                15 -> 30
+                30 -> 60
                 else -> 0
             }
             paintAlarmRows()
@@ -1385,7 +1429,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // durations are set here: by winding the countdown dial.
             durationDraft = ReminderDraft(
                 existing, year, month, day, label, hour, minute, duration,
-                alarmSwitch.isChecked, sound, snooze
+                alarmSwitch.isChecked, sound, lead
             )
             sheet.dismiss()
             settingReminderDuration = true
@@ -1403,7 +1447,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val toDial = View.OnClickListener {
             reminderRingsBeingSet = alarmSwitch.isChecked
             reminderSoundBeingSet = sound
-            reminderSnoozeBeingSet = snooze
+            reminderLeadBeingSet = lead
             existing?.let { reminders.remove(it) }
             reminderLabelBeingSet = label
             reminderDurationBeingSet = duration

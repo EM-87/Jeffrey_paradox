@@ -93,6 +93,10 @@
     <string name="reminder_time">Hora</string>
     <string name="reminder_set_time">Ajustar en la esfera</string>
     <string name="reminder_alarm">Sonar alarma</string>
+    <string name="reminder_lead">Avisar</string>
+    <string name="reminder_lead_none">A la hora</string>
+    <string name="reminder_lead_min">%1$d min antes</string>
+    <string name="reminder_lead_hour">1 h antes</string>
     <string name="reminder_duration">Dura</string>
     <string name="reminder_duration_none">Un instante</string>
     <string name="reminder_duration_min">%1$d min</string>

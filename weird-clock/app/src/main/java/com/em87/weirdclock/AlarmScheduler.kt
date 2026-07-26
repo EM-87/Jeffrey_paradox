@@ -36,7 +36,7 @@ object AlarmScheduler {
         val enabled = AlarmStore.load(context).filter { it.enabled }
         // Calendar reminders compete for the same single armed slot.
         val reminders = ReminderStore.load(context)
-            .filter { it.rings && it.timeInMillis() > System.currentTimeMillis() + 1000 }
+            .filter { it.rings && it.ringAtMillis() > System.currentTimeMillis() + 1000 }
         if (enabled.isEmpty() && reminders.isEmpty()) {
             cancel(context)
             return
@@ -52,7 +52,7 @@ object AlarmScheduler {
             }
         }
         for (reminder in reminders) {
-            val at = reminder.timeInMillis()
+            val at = reminder.ringAtMillis()
             if (at < nextAt) {
                 nextAt = at
                 next = null
@@ -65,7 +65,7 @@ object AlarmScheduler {
             // carrying its label and its own id so it expires after firing.
             Alarm(
                 0, r.hour, r.minute, true, r.sound,
-                label = r.label, snoozeMinutes = r.snoozeMinutes
+                label = r.label, snoozeMinutes = 0
             )
         } ?: return
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return

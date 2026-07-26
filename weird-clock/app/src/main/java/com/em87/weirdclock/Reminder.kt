@@ -25,13 +25,17 @@ data class Reminder(
     /** Whether it actually rings, or just marks the calendar and the dial. */
     val rings: Boolean = false,
     val sound: String = Prefs.ALARM_SOUND_BELLS,
-    val snoozeMinutes: Int = 5
+    /** Ring this many minutes before the event; 0 rings on the dot. */
+    val leadMinutes: Int = 0
 ) {
     fun timeInMillis(): Long = Calendar.getInstance().run {
         set(year, month - 1, day, hour, minute, 0)
         set(Calendar.MILLISECOND, 0)
         timeInMillis
     }
+
+    /** When it actually rings: early by [leadMinutes], if asked. */
+    fun ringAtMillis(): Long = timeInMillis() - leadMinutes * 60_000L
 }
 
 /** Reminders persisted as JSON in the default SharedPreferences. */
@@ -59,7 +63,7 @@ object ReminderStore {
                         durationMinutes = o.optInt("duration", 0),
                         rings = o.optBoolean("rings", false),
                         sound = o.optString("sound", Prefs.ALARM_SOUND_BELLS),
-                        snoozeMinutes = o.optInt("snoozeMin", 5)
+                        leadMinutes = o.optInt("lead", 0)
                     )
                 )
             }
@@ -87,7 +91,7 @@ object ReminderStore {
                     .put("duration", r.durationMinutes)
                     .put("rings", r.rings)
                     .put("sound", r.sound)
-                    .put("snoozeMin", r.snoozeMinutes)
+                    .put("lead", r.leadMinutes)
             )
         }
         PreferenceManager.getDefaultSharedPreferences(context)
