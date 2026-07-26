@@ -713,15 +713,26 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             skipCollapsed = true
             isFitToContents = true
         }
+        // The dialog's own window animation slides the sheet in over about a
+        // fifth of a second, and it was winning the race against ours — hence
+        // the sheet still looking like it just appeared. Silencing it leaves
+        // the climb below as the only entrance. Dismissal is untouched: it
+        // rides the behaviour, not the window.
+        sheet.window?.setWindowAnimations(0)
         sheet.setOnShowListener {
             val container = sheet.findViewById<View>(
                 com.google.android.material.R.id.design_bottom_sheet
             ) ?: content
-            container.translationY = container.height.toFloat().coerceAtLeast(1f)
+            // Before the first layout the container has no height, and a
+            // zero-length climb is exactly the abruptness we are chasing
+            // away, so fall back to the screen.
+            val travel = if (container.height > 0) container.height
+            else resources.displayMetrics.heightPixels
+            container.translationY = travel.toFloat()
             container.animate()
                 .translationY(0f)
-                .setDuration(520L)
-                .setInterpolator(android.view.animation.DecelerateInterpolator(2.6f))
+                .setDuration(760L)
+                .setInterpolator(android.view.animation.DecelerateInterpolator(3.2f))
                 .start()
         }
     }

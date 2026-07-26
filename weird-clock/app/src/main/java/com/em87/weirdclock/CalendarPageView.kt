@@ -489,9 +489,11 @@ class CalendarPageView @JvmOverloads constructor(
             dayPaint.typeface = if (isThisMonth && day == todayDay) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
 
             val baseline = cy - (dayPaint.ascent() + dayPaint.descent()) / 2f
-            // A past day with nothing on it is inert, and reads that way.
-            if (isPast(day) && !markedDays.contains(day)) {
-                dayPaint.alpha = if (pastStyle == PastStyle.NONE) 110 else 90
+            // A past day with nothing on it is inert, and reads that way —
+            // unless the user asked to leave spent days alone, in which case
+            // it looks like any other day.
+            if (pastStyle != PastStyle.NONE && isPast(day) && !markedDays.contains(day)) {
+                dayPaint.alpha = 90
             }
             canvas.drawText(dayLabel(day), cx, baseline, dayPaint)
             dayPaint.alpha = 255
@@ -630,7 +632,6 @@ class CalendarPageView @JvmOverloads constructor(
                 dayPaint.alpha = when {
                     busy -> 255
                     gone && pastStyle != PastStyle.NONE -> 80
-                    gone -> 110
                     else -> 150
                 }
                 canvas.drawText(
