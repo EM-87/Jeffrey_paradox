@@ -729,10 +729,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             val travel = if (container.height > 0) container.height
             else resources.displayMetrics.heightPixels
             container.translationY = travel.toFloat()
+            // The interpolator's factor is an exponent, not a flavour: a
+            // decelerate of 3.2 is 1-(1-t)^6.4, which spends half the travel
+            // in the first tenth of the duration and creeps through the last
+            // pixels for the rest. Lengthening the duration only lengthened
+            // the creep. A plain quadratic decelerate spreads the climb over
+            // the whole 600 ms, which is what the eye actually reads.
             container.animate()
                 .translationY(0f)
-                .setDuration(760L)
-                .setInterpolator(android.view.animation.DecelerateInterpolator(3.2f))
+                .setDuration(600L)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
                 .start()
         }
     }
