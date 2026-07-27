@@ -216,6 +216,18 @@ class ClockView @JvmOverloads constructor(
 
     private val laps = mutableListOf<Lap>()
 
+    // The unfolded lap list: opened by a tap on the ladder, scrolled by
+    // dragging, closed by another tap.
+    private var lapsExpanded = false
+    private var lapListScroll = 0f
+    private var lapListDragging = false
+    private var lapListLastY = 0f
+    private var lapListDownY = 0f
+    private var ladderTapTop = 0f
+    private var tapDownX = 0f
+    private var tapDownY = 0f
+    private val scrimPaint = Paint()
+
     /** Enabled alarms as dial angles, drawn as dots just outside the rim. */
     var alarmMarkers: List<Float> = emptyList()
         set(value) { field = value; invalidate() }
@@ -681,6 +693,31 @@ class ClockView @JvmOverloads constructor(
         if (!touchHandsEnabled && !pinchZoomEnabled && fallenBodies.isEmpty() && !chronoButtons) {
             return super.onTouchEvent(event)
         }
+        // The unfolded lap list owns every touch while it is up.
+        if (lapsExpanded) {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    lapListLastY = event.y
+                    lapListDownY = event.y
+                    lapListDragging = false
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dy = event.y - lapListLastY
+                    lapListLastY = event.y
+                    if (kotlin.math.abs(event.y - lapListDownY) > 12f) lapListDragging = true
+                    lapListScroll = (lapListScroll - dy).coerceIn(0f, maxLapScroll())
+                    invalidate()
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!lapListDragging) {
+                        lapsExpanded = false
+                        invalidate()
+                    }
+                }
+            }
+            return true
+        }
         gestureDetector.onTouchEvent(event)
         if (pinchZoomEnabled) {
             scaleDetector.onTouchEvent(event)
@@ -706,6 +743,8 @@ class ClockView @JvmOverloads constructor(
                     grabHandNear(event.x, event.y)
                 }
                 tapCandidate = !grabbedBody && draggedHand == null
+                tapDownX = event.x
+                tapDownY = event.y
                 // Own the gesture while manipulating the mechanism, so a
                 // hosting pager doesn't steal it as a horizontal page swipe.
                 if (grabbedBody || draggedHand != null) {
@@ -751,6 +790,20 @@ class ClockView @JvmOverloads constructor(
                         soundListener?.onTickCrossed()
                     }
                     pressedPusher = 0
+                    invalidate()
+                }
+                // A quiet tap on the lap ladder unfolds the full list. A
+                // tap, not the tail end of a swipe: the finger must not
+                // have wandered.
+                if (event.actionMasked == MotionEvent.ACTION_UP &&
+                    tapCandidate && draggedHand == null && carriedBody == null &&
+                    chronoProvider != null && !chronoSettable && laps.isNotEmpty() &&
+                    event.y > ladderTapTop &&
+                    hypot(event.x - tapDownX, event.y - tapDownY) < 24f
+                ) {
+                    lapsExpanded = true
+                    lapListScroll = 0f
+                    performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                     invalidate()
                 }
                 releaseDraggedHand()
@@ -983,6 +1036,35 @@ class ClockView @JvmOverloads constructor(
             return
         }
         val target = dragStartOffset + dragAccumDeg / 360.0 * secondsPerRevolution(hand)
+        if (chronoSettable && chronoProvider != null && hand == Hand.SECOND) {
+            // The second hand works like the minute hand: it ticks from
+            // whole second to whole second — no landing in between — and
+            // magnets pull only at the round marks: every five seconds up to
+            // the half turn, one more at 45, and that is all.
+            val baseMs = chronoFrozenMs ?: 0L
+            val wound = baseMs + (target * 1000.0).toLong()
+            val whole = Math.floorDiv(wound + 500L, 1000L) * 1000L
+            val rem = Math.floorMod(whole, 60_000L)
+            var snapped = whole
+            var onDetent = false
+            for (c in SECOND_DETENTS) {
+                if (kotlin.math.abs(rem - c) <= 1_100L) {
+                    snapped = whole - rem + c
+                    onDetent = true
+                    break
+                }
+            }
+            if (onDetent) {
+                if (lockedMagnetMs != snapped) {
+                    lockedMagnetMs = snapped
+                    performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                }
+            } else {
+                lockedMagnetMs = null
+            }
+            setOffset((snapped - baseMs) / 1000.0)
+            return
+        }
         if (chronoSettable && chronoProvider != null) {
             // Magnets only engage in the precision band: the ring between
             // the numerals and the rim, where the finger goes for fine
@@ -1690,11 +1772,9 @@ class ClockView @JvmOverloads constructor(
         // second hand (nobody times 37 seconds), the familiar 5-minute grid
         // on the minute hand, whole hours on the hour hand.
         val (grid, window) = when (draggedHand) {
-            // Every five seconds up to half a minute, and barely a nudge:
-            // the old quarter-minute grid with its three-second pull meant
-            // most of the dial was unreachable. Past thirty seconds the
-            // second hand is free — by then you are choosing minutes.
-            Hand.SECOND -> if (ms <= 30_000L) 5_000L to 900L else 0L to 0L
+            // The second hand has its own detents, applied while dragging;
+            // by release time its value is already where it should be.
+            Hand.SECOND -> 0L to 0L
             Hand.HOUR -> 3_600_000L to 600_000L
             else -> when (magnetProfile) {
                 MagnetProfile.ALARM -> 300_000L to 40_000L
@@ -1998,7 +2078,7 @@ class ClockView @JvmOverloads constructor(
             anyHandFallen() -> {
                 cal.timeInMillis = displayNowMs()
                 String.format(
-                    Locale.US, "%02dh%02d'%02d\"",
+                    Locale.US, "%02d:%02d:%02d",
                     cal.get(Calendar.HOUR_OF_DAY),
                     cal.get(Calendar.MINUTE),
                     cal.get(Calendar.SECOND)
@@ -2009,7 +2089,13 @@ class ClockView @JvmOverloads constructor(
         digitalText?.let {
             val digitH = r * 0.13f
             val yTop = min(cy + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
-            drawSevenSegment(canvas, it, cx, yTop, digitH)
+            val liveUnits = when {
+                chronoProvider != null && chronoSettable -> unitsFor(chronoDisplayMs() ?: 0L)
+                chronoProvider != null -> unitsFor(chronoProvider?.invoke() ?: 0L)
+                else -> UNITS_CLOCK
+            }
+            ladderTapTop = yTop
+            drawSevenSegment(canvas, it, cx, yTop, digitH, liveUnits)
 
             // Ghost copies of the recent laps, stacked under the readout —
             // as many as the space below the dial can hold.
@@ -2018,24 +2104,25 @@ class ClockView @JvmOverloads constructor(
                 // smaller and fainter — a receding stack, which also means
                 // several more of them fit in the same strip.
                 var ghostY = yTop + digitH * 1.28f
-                // Stop short of the button row at the foot of the card, and
-                // size the rungs so that exactly seven of them reach it —
-                // no more guessing whether the last one lands on a button.
-                // With the step ratio fixed, the whole ladder is a geometric
-                // series, so the first rung is simply the strip divided by
-                // what seven rungs come to.
+                // The strip between the readout and the button row holds
+                // exactly seven rungs: with the step ratio fixed, the ladder
+                // is a geometric series, so the first rung is the strip
+                // divided by what seven rungs come to — no clamp, no
+                // leftover gap above the button.
                 val bottom = height - BUTTON_RESERVE_DP * resources.displayMetrics.density
-                var ghostH = ((bottom - ghostY) / LADDER_SPAN).coerceIn(
-                    digitH * 0.22f, digitH * 0.78f
-                )
+                val firstH = ((bottom - ghostY) / LADDER_SPAN)
+                    .coerceAtLeast(digitH * 0.20f)
+                var ghostH = firstH
                 var shown = 0
                 for (lap in laps.reversed()) {
                     if (shown >= MAX_GHOST_LAPS) break
-                    if (ghostY + ghostH > bottom) break
+                    if (ghostY + ghostH > bottom + 1f) break
                     shown++
-                    digitalPaint.alpha = (180f * (ghostH / (digitH * 0.78f)))
-                        .toInt().coerceIn(45, 180)
-                    drawSevenSegment(canvas, formatDuration(lap.ms), cx, ghostY, ghostH)
+                    digitalPaint.alpha = (200f * (ghostH / firstH))
+                        .toInt().coerceIn(45, 200)
+                    drawSevenSegment(
+                        canvas, formatDuration(lap.ms), cx, ghostY, ghostH, unitsFor(lap.ms)
+                    )
                     ghostY += ghostH * 1.35f
                     ghostH *= 0.88f
                 }
@@ -2056,29 +2143,74 @@ class ClockView @JvmOverloads constructor(
             )
             canvas.restore()
         }
+
+        // The lap list, unfolded: a tap on the ladder opens it, a drag
+        // scrolls it, a tap closes it. Every lap, uniform size, newest
+        // first, the faked ones in the second hand's red.
+        if (lapsExpanded && laps.isEmpty()) lapsExpanded = false
+        if (lapsExpanded && chronoProvider != null) {
+            scrimPaint.color = theme.face
+            scrimPaint.alpha = 242
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), scrimPaint)
+            val rowDigitH = r * 0.105f
+            val rowH = rowDigitH * 1.9f
+            val topMargin = height * 0.07f
+            val keepColor = digitalPaint.color
+            canvas.save()
+            canvas.clipRect(0f, topMargin * 0.5f, width.toFloat(), height - topMargin * 0.5f)
+            var y = topMargin - lapListScroll
+            for (i in laps.indices.reversed()) {
+                if (y + rowDigitH > topMargin * 0.5f && y < height) {
+                    val lap = laps[i]
+                    digitalPaint.color = if (lap.fake) theme.secondHand else keepColor
+                    drawSevenSegment(
+                        canvas,
+                        String.format(Locale.US, "%d %s", i + 1, formatDuration(lap.ms)),
+                        width / 2f, y, rowDigitH, unitsFor(lap.ms)
+                    )
+                }
+                y += rowH
+            }
+            canvas.restore()
+            digitalPaint.color = keepColor
+        }
+    }
+
+    /** How far the unfolded lap list can scroll past the bottom edge. */
+    private fun maxLapScroll(): Float {
+        val r = dialRadius()
+        val rowH = r * 0.105f * 1.9f
+        return (laps.size * rowH - height * 0.86f).coerceAtLeast(0f)
     }
 
     /**
-     * The separators carry the units, so the reading says what it is:
-     * 01\u203223\u203345 is a minute and change with hundredths, while
-     * 01h23\u203245\u2033 is an hour and change with seconds. Past the hour the
-     * centiseconds give up their slot, and the marks are how you notice.
+     * MM:SS:CC with live centiseconds under an hour; from the hour mark on
+     * the centiseconds yield their slots to hours — HH:MM:SS. Which is which
+     * is written in the corner marks, via [unitsFor].
      */
     private fun formatDuration(ms: Long): String {
         val abs = kotlin.math.abs(ms)
         val sign = if (ms < 0) "-" else ""
         return if (abs < 3_600_000L) {
             String.format(
-                Locale.US, "%s%02d'%02d\"%02d",
+                Locale.US, "%s%02d:%02d:%02d",
                 sign, abs / 60_000, abs / 1000 % 60, abs / 10 % 100
             )
         } else {
             String.format(
-                Locale.US, "%s%02dh%02d'%02d\"",
+                Locale.US, "%s%02d:%02d:%02d",
                 sign, abs / 3_600_000 % 100, abs / 60_000 % 60, abs / 1000 % 60
             )
         }
     }
+
+    /**
+     * The corner marks for a chronograph reading: degrees-minutes-seconds
+     * style, so the tail gives the scale away — a reading whose last group
+     * is unmarked ends in hundredths, one ending in \u2033 ends in seconds.
+     */
+    private fun unitsFor(ms: Long): Array<String> =
+        if (kotlin.math.abs(ms) < 3_600_000L) UNITS_STOPWATCH else UNITS_CLOCK
 
     /**
      * Chronograph furniture, fading in and out with the mode transition:
@@ -2345,60 +2477,81 @@ class ClockView @JvmOverloads constructor(
         text: String,
         cx: Float,
         top: Float,
-        digitH: Float
+        digitH: Float,
+        units: Array<String>? = null
     ) {
         val digitW = digitH * 0.55f
         val gap = digitW * 0.45f
-        val primeW = digitW * 0.30f
-        val doubleW = digitW * 0.46f
+        val markW = digitW * 0.34f
 
-        fun advance(c: Char): Float = when (c) {
-            '\'' -> primeW
-            '"' -> doubleW
-            else -> digitW
+        // Each unit mark sits in the top corner right after its group of
+        // digits, superscript-style, before the colon: 01°:23′:45″.
+        fun markWidth(m: String): Float = when (m) {
+            "\"" -> markW * 1.55f
+            "" -> 0f
+            else -> markW
         }
 
         var totalW = 0f
-        for (c in text) totalW += advance(c) + gap
+        var g = 0
+        for (c in text) {
+            if (c == ':') {
+                totalW += (units?.getOrNull(g)?.let { markWidth(it) } ?: 0f)
+                g++
+            }
+            totalW += (if (c == ' ') digitW * 0.7f else digitW) + gap
+        }
+        totalW += (units?.getOrNull(g)?.let { markWidth(it) } ?: 0f)
         totalW -= gap
+
         var x = cx - totalW / 2f
         digitalPaint.strokeWidth = digitH * 0.10f
 
-        /** A tick mark: enough to be read, not enough to be a digit. */
-        fun tick(at: Float) {
+        // The marks are annotations, not digits: thinner stroke, and only
+        // the top quarter of the line.
+        fun drawMark(m: String, at: Float) {
+            if (m.isEmpty()) return
             val was = digitalPaint.strokeWidth
-            digitalPaint.strokeWidth = was * 0.62f
-            canvas.drawLine(
-                at + primeW * 0.60f, top + digitH * 0.05f,
-                at + primeW * 0.34f, top + digitH * 0.27f,
-                digitalPaint
-            )
+            digitalPaint.strokeWidth = was * 0.55f
+            when (m) {
+                "\u00b0" -> {
+                    val wasStyle = digitalPaint.style
+                    digitalPaint.style = Paint.Style.STROKE
+                    canvas.drawCircle(at + markW * 0.42f, top + digitH * 0.10f, digitH * 0.085f, digitalPaint)
+                    digitalPaint.style = wasStyle
+                }
+                "'" -> canvas.drawLine(
+                    at + markW * 0.62f, top + digitH * 0.02f,
+                    at + markW * 0.38f, top + digitH * 0.22f, digitalPaint
+                )
+                "\"" -> {
+                    canvas.drawLine(
+                        at + markW * 0.62f, top + digitH * 0.02f,
+                        at + markW * 0.38f, top + digitH * 0.22f, digitalPaint
+                    )
+                    canvas.drawLine(
+                        at + markW * 1.17f, top + digitH * 0.02f,
+                        at + markW * 0.93f, top + digitH * 0.22f, digitalPaint
+                    )
+                }
+            }
             digitalPaint.strokeWidth = was
         }
 
+        var group = 0
         for (c in text) {
             when (c) {
-                // Minutes: one prime. Seconds: two. Both at digit weight and
-                // in line with them, not floating overhead.
-                '\'' -> {
-                    tick(x)
-                    x += primeW + gap
-                }
-                '"' -> {
-                    tick(x)
-                    tick(x + doubleW * 0.38f)
-                    x += doubleW + gap
-                }
-                'h' -> {
-                    // The seven-segment h: f, e, g and c.
-                    drawSegments(canvas, 2 or 4 or 1 or 16, x, top, digitW, digitH)
-                    x += digitW + gap
-                }
                 ':' -> {
+                    units?.getOrNull(group)?.let {
+                        drawMark(it, x - gap * 0.55f)
+                        x += markWidth(it)
+                    }
+                    group++
                     canvas.drawPoint(x + digitW / 2f, top + digitH * 0.30f, digitalPaint)
                     canvas.drawPoint(x + digitW / 2f, top + digitH * 0.70f, digitalPaint)
                     x += digitW + gap
                 }
+                ' ' -> x += digitW * 0.7f + gap
                 '-' -> {
                     // Minus sign: the middle (g) segment on its own.
                     val w = digitalPaint.strokeWidth * 0.8f
@@ -2413,6 +2566,7 @@ class ClockView @JvmOverloads constructor(
                 }
             }
         }
+        units?.getOrNull(group)?.let { drawMark(it, x - gap * 0.55f) }
     }
 
     private fun drawSegments(canvas: Canvas, bits: Int, x: Float, y: Float, w: Float, h: Float) {
@@ -2471,6 +2625,17 @@ class ClockView @JvmOverloads constructor(
         private val END_SIDES = floatArrayOf(1f, -1f)
         /** Rungs of the lap ladder, before it would reach the buttons. */
         private const val MAX_GHOST_LAPS = 7
+
+        /** Corner marks, degrees-minutes-seconds style: 01°:23′:45″. */
+        private val UNITS_CLOCK = arrayOf("\u00b0", "'", "\"")
+
+        /** Under the hour the tail is hundredths, left unmarked on purpose. */
+        private val UNITS_STOPWATCH = arrayOf("'", "\"", "")
+
+        /** Where the second hand's magnets pull, within its minute. */
+        private val SECOND_DETENTS = longArrayOf(
+            0L, 5_000L, 10_000L, 15_000L, 20_000L, 25_000L, 30_000L, 45_000L, 60_000L
+        )
 
         /** Room kept clear at the foot of the card for the button row. */
         private const val BUTTON_RESERVE_DP = 72f

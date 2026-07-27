@@ -1066,8 +1066,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
         // The sheet edits a copy; nothing is committed until Save. A seed is
         // that same copy handed back after a trip to the dial, so nothing
-        // typed before the trip is lost.
-        val draft = seed ?: alarm.copy()
+        // typed before the trip is lost. The copy() of a data class shares
+        // the same mutable list, so the repetition list is copied by hand —
+        // otherwise adding one silently edited the real alarm, unrefreshed.
+        val draft = seed ?: alarm.copy(extraTimes = alarm.extraTimes.toMutableList())
         val isNew = seed?.let { !alarms.any { a -> a.id == it.id } } ?: !alarms.contains(alarm)
 
         val dialsRow = view.findViewById<LinearLayout>(R.id.sheet_dials)
@@ -1324,6 +1326,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         target.vibrate = draft.vibrate
         target.flash = draft.flash
         target.durationMinutes = draft.durationMinutes
+        target.extraTimes = draft.extraTimes.toMutableList()
         if (isNew && !alarms.contains(target)) alarms.add(target)
         persistAlarms()
     }

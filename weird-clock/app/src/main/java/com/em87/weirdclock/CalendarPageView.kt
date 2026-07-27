@@ -663,16 +663,8 @@ class CalendarPageView @JvmOverloads constructor(
                 }
             }
             dayPaint.alpha = 255
-            if (isThisMonth) {
-                todayRingPaint.strokeWidth = h * 0.003f
-                canvas.drawRoundRect(
-                    RectF(
-                        cx - cellW * 0.46f, cy + cellH * 0.02f,
-                        cx + cellW * 0.46f, cy + cellH * 0.96f
-                    ),
-                    cellW * 0.06f, cellW * 0.06f, todayRingPaint
-                )
-            }
+            // The current month needs no frame: its accent-coloured name and
+            // the circled day already say "you are here".
         }
         canvas.restore()
     }
