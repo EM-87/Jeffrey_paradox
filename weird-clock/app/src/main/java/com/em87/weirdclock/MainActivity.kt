@@ -122,6 +122,21 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var durationDraft: ReminderDraft? = null
     private var settingReminderDuration = false
 
+    /** An alarm sheet parked while its duration is wound on the dial. */
+    private data class AlarmDurationDraft(
+        val target: Alarm,
+        val draft: Alarm,
+        val isNew: Boolean
+    )
+
+    private var alarmDurationDraft: AlarmDurationDraft? = null
+
+    /**
+     * An alarm written to the list only so the dial had something to set a
+     * time on. Cancelling the dial takes it back out again.
+     */
+    private var provisionalAlarmId: Int? = null
+
     // Alarm-time setting on the clock dial with the wind-to-set engine.
     private var alarmSetActive = false
     private var alarmBeingSet: Alarm? = null
@@ -736,6 +751,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     // Laid out by now, but a zero-length climb is exactly the
                     // abruptness we are chasing away, so fall back to the
                     // screen if it somehow is not.
+                    // The sheet's own rounded background is the one that
+                    // shows; the dialog's would square off the corners
+                    // behind it.
+                    container.setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     val travel = (
                         if (container.height > 0) container.height
                         else resources.displayMetrics.heightPixels
@@ -916,9 +935,24 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 dial(times[1], lead, true, false)
             }
             3 -> {
+                // The two repetitions stack instead of stretching the card.
                 dial(times[0], lead, false, false)
-                dial(times[1], small, true, false)
-                dial(times[2], small, true, false)
+                val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+                for ((i, t) in times.drop(1).withIndex()) {
+                    column.addView(
+                        miniDial(t.first, t.second),
+                        LinearLayout.LayoutParams(small, small).apply {
+                            if (i > 0) topMargin = gap
+                        }
+                    )
+                }
+                row.addView(
+                    column,
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply { marginStart = gap }
+                )
             }
             else -> {
                 // All four in a square block, which takes barely more room
@@ -1010,15 +1044,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * weekday strip, the options as plain rows, and delete/save in opposite
      * corners. Deleting asks first.
      */
-    private fun showAlarmSheet(alarm: Alarm) {
+    private fun showAlarmSheet(alarm: Alarm, seed: Alarm? = null) {
         val sheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.sheet_alarm_edit, null)
         sheet.setContentView(view)
         animateSheet(sheet, view)
 
-        // The sheet edits a copy; nothing is committed until Save.
-        val draft = alarm.copy()
-        val isNew = !alarms.contains(alarm)
+        // The sheet edits a copy; nothing is committed until Save. A seed is
+        // that same copy handed back after a trip to the dial, so nothing
+        // typed before the trip is lost.
+        val draft = seed ?: alarm.copy()
+        val isNew = seed?.let { !alarms.any { a -> a.id == it.id } } ?: !alarms.contains(alarm)
 
         val dialsRow = view.findViewById<LinearLayout>(R.id.sheet_dials)
         val nameValue = view.findViewById<TextView>(R.id.sheet_name_value)
@@ -1033,7 +1069,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // whatever room is left over between the sheet's margins and the +
         // button, up to a size that already looks generous.
         lateinit var refreshRef: () -> Unit
+        var builtTimes: List<Pair<Int, Int>>? = null
         fun rebuildDials() {
+            // The faces wind themselves into place when they are born, which
+            // is a nice thing to watch once, on opening — and a nuisance on
+            // every tap. They are only born again when the times change.
+            val wanted = (0 until draft.timeCount()).map { draft.timeAt(it) }
+            if (wanted == builtTimes) return
+            builtTimes = wanted
             dialsRow.removeAllViews()
             val density = resources.displayMetrics.density
             val count = draft.timeCount()
@@ -1044,7 +1087,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 val (h, m) = draft.timeAt(index)
                 val dial = miniDial(h, m)
                 dial.setOnClickListener {
+                    // The alarm has to exist for the dial to write a time
+                    // into it — but if it was born just now and the dial is
+                    // cancelled, it goes away again.
                     commitDraft(alarm, draft, isNew)
+                    if (isNew) provisionalAlarmId = draft.id
                     sheet.dismiss()
                     enterAlarmSetMode(alarms.firstOrNull { a -> a.id == draft.id }, index)
                 }
@@ -1182,42 +1229,44 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
 
         view.findViewById<View>(R.id.sheet_row_sound).setOnClickListener {
-            val next = nextSound(draft.sound)
-            if (next == Prefs.ALARM_SOUND_CUSTOM) {
-                draft.sound = next
-                soundPickTarget = draft
-                soundPickCallback = { refresh() }
-                soundPickerLauncher.launch(arrayOf("audio/*"))
-            } else {
-                draft.sound = next
+            pickSound(draft.sound, allowCustom = true) { chosen ->
+                draft.sound = chosen
+                if (chosen == Prefs.ALARM_SOUND_CUSTOM) {
+                    soundPickTarget = draft
+                    soundPickCallback = { refresh() }
+                    soundPickerLauncher.launch(arrayOf("audio/*"))
+                }
+                refresh()
             }
-            refresh()
         }
 
         view.findViewById<View>(R.id.sheet_row_snooze).setOnClickListener {
-            draft.snoozeMinutes = when (draft.snoozeMinutes) {
-                0 -> 5
-                5 -> 10
-                10 -> 15
-                else -> 0
+            val choices = intArrayOf(0, 5, 10, 15)
+            pickFromList(
+                R.string.alarm_snooze,
+                choices.map {
+                    if (it == 0) getString(R.string.alarm_snooze_off)
+                    else getString(R.string.alarm_snooze_min, it)
+                },
+                choices.indexOf(draft.snoozeMinutes)
+            ) { which ->
+                draft.snoozeMinutes = choices[which]
+                refresh()
             }
-            refresh()
         }
 
-        val durationValue = view.findViewById<TextView>(R.id.sheet_duration_value)
         view.findViewById<View>(R.id.sheet_row_duration).setOnClickListener {
-            val choices = intArrayOf(0, 15, 30, 60, 120)
-            val names = choices.map {
-                if (it == 0) getString(R.string.reminder_duration_none)
-                else getString(R.string.reminder_duration_min, it)
-            }.toTypedArray()
-            androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle(R.string.reminder_duration)
-                .setItems(names) { _, which ->
-                    draft.durationMinutes = choices[which]
-                    refresh()
-                }
-                .show()
+            // How long a thing lasts is a duration, so it gets wound on the
+            // dial, exactly as the calendar's reminders do it.
+            alarmDurationDraft = AlarmDurationDraft(alarm, draft, isNew)
+            sheet.dismiss()
+            alarmBeingSet = null
+            reminderBeingSet = null
+            alarmWorkingMs = draft.durationMinutes.coerceAtLeast(15) * 60_000L
+            alarmSetActive = true
+            mode = Mode.CLOCK
+            pager.currentItem = PAGE_HOME
+            applyAlarmSetUi()
         }
 
         vibrateSwitch.isChecked = draft.vibrate
@@ -1274,11 +1323,38 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
     )
 
-    private fun nextSound(sound: String): String = when (sound) {
-        Prefs.ALARM_SOUND_BELLS -> Prefs.ALARM_SOUND_DIGITAL
-        Prefs.ALARM_SOUND_DIGITAL -> Prefs.ALARM_SOUND_BABY
-        Prefs.ALARM_SOUND_BABY -> Prefs.ALARM_SOUND_CUSTOM
-        else -> Prefs.ALARM_SOUND_BELLS
+    /** A plain single-choice list, the way a row of options should ask. */
+    private fun pickFromList(
+        titleRes: Int,
+        labels: List<String>,
+        checked: Int,
+        onPicked: (Int) -> Unit
+    ) {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(titleRes)
+            .setSingleChoiceItems(labels.toTypedArray(), checked) { dialog, which ->
+                dialog.dismiss()
+                onPicked(which)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /**
+     * The sounds on offer, shown as a list. Cycling through them one tap at a
+     * time meant walking past "your own file", and every pass through it threw
+     * you out into a file browser.
+     */
+    private fun pickSound(current: String, allowCustom: Boolean, onPicked: (String) -> Unit) {
+        val sounds = mutableListOf(
+            Prefs.ALARM_SOUND_BELLS, Prefs.ALARM_SOUND_DIGITAL, Prefs.ALARM_SOUND_BABY
+        )
+        if (allowCustom) sounds.add(Prefs.ALARM_SOUND_CUSTOM)
+        pickFromList(
+            R.string.pref_bell_style_title,
+            sounds.map { soundLabel(it) },
+            sounds.indexOf(current)
+        ) { which -> onPicked(sounds[which]) }
     }
 
     /**
@@ -1303,6 +1379,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val ms = ((alarmWorkingMs % dayMs) + dayMs) % dayMs
         val hour = (ms / 3_600_000L).toInt()
         val minute = (ms / 60_000L % 60L).toInt()
+        alarmDurationDraft?.let { parked ->
+            alarmDurationDraft = null
+            parked.draft.durationMinutes =
+                (alarmWorkingMs / 60_000L).toInt().coerceIn(0, 24 * 60)
+            exitAlarmSetMode()
+            showAlarmSheet(parked.target, parked.draft)
+            return
+        }
         if (settingReminderDuration) {
             val draft = durationDraft
             settingReminderDuration = false
@@ -1342,12 +1426,24 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         } else {
             alarm.setTime(alarmTimeIndexBeingSet, hour, minute)
         }
+        // Confirmed, so it is an alarm like any other now.
+        provisionalAlarmId = null
         persistAlarms()
         exitAlarmSetMode()
     }
 
     private fun exitAlarmSetMode() {
         val backToCalendar = reminderBeingSet != null || settingReminderDuration
+        // A cancelled duration goes back to the sheet it came from, with
+        // everything else the sheet held still in place.
+        val parked = alarmDurationDraft
+        alarmDurationDraft = null
+        // An alarm that only existed so the dial had a target, and never got
+        // a time confirmed, was never really created.
+        provisionalAlarmId?.let { id ->
+            provisionalAlarmId = null
+            if (alarms.removeAll { it.id == id }) persistAlarms()
+        }
         settingReminderDuration = false
         durationDraft = null
         alarmSetActive = false
@@ -1355,13 +1451,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         reminderBeingSet = null
         applyAlarmSetUi()
         pager.currentItem = if (backToCalendar) PAGE_LEFT else PAGE_RIGHT
+        parked?.let { showAlarmSheet(it.target, it.draft) }
     }
 
     private fun applyAlarmSetUi() {
         alarmSetBanner?.visibility = if (alarmSetActive) View.VISIBLE else View.GONE
         alarmSetLabel?.setText(
             when {
-                settingReminderDuration -> R.string.set_duration
+                settingReminderDuration || alarmDurationDraft != null -> R.string.set_duration
                 reminderBeingSet != null -> R.string.set_reminder_time
                 else -> R.string.set_alarm_time
             }
@@ -1370,8 +1467,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         applyMode()
     }
 
+    /**
+     * Chronological, by the earliest time each alarm rings at — which is the
+     * time its card leads with. Alarms that share it keep a fixed order
+     * rather than shuffling on every save.
+     */
     private fun sortAlarms() {
-        alarms.sortBy { it.allTimes().first().let { (h, m) -> h * 60 + m } }
+        alarms.sortWith(
+            compareBy(
+                { it.allTimes().first().let { (h, m) -> h * 60 + m } },
+                { it.id }
+            )
+        )
     }
 
     @Suppress("NotifyDataSetChanged")
@@ -1384,6 +1491,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private fun refreshAlarmsUi() {
         alarmsAdapter.notifyDataSetChanged()
+        // The alarm list lives inside a ViewPager2, which is itself a
+        // RecyclerView, and a layout request from a list nested in a list can
+        // be swallowed — the cards then sit on stale data until something
+        // else forces a pass, such as flipping a switch. Asking again on the
+        // next frame, from outside any layout in progress, sticks.
+        alarmsRecycler?.let { recycler ->
+            recycler.post {
+                recycler.requestLayout()
+                recycler.invalidate()
+            }
+        }
         alarmsEmpty?.visibility = if (alarms.isEmpty()) View.VISIBLE else View.GONE
         updateAlarmMarkers()
     }
@@ -1583,13 +1701,37 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         alarmSwitch.isChecked = seed?.rings ?: existing?.rings ?: false
         alarmSwitch.setOnCheckedChangeListener { _, _ -> paintAlarmRows() }
         soundRow.setOnClickListener {
-            sound = nextSound(sound).let {
-                // No SAF round trip from here; the file picker belongs to
-                // alarms proper.
-                if (it == Prefs.ALARM_SOUND_CUSTOM) Prefs.ALARM_SOUND_BELLS else it
+            // No SAF round trip from here; the file picker belongs to alarms
+            // proper.
+            pickSound(sound, allowCustom = false) { chosen ->
+                sound = chosen
+                paintAlarmRows()
             }
-            paintAlarmRows()
+        }
+        snoozeRow.setOnClickListener {
+            // Warning ahead of the thing, not a nag after it.
+            val leads = intArrayOf(0, 15, 30, 60)
+            pickFromList(
+                R.string.reminder_lead,
+                leads.map {
+                    when (it) {
+                        0 -> getString(R.string.reminder_lead_none)
+                        60 -> getString(R.string.reminder_lead_hour)
+                        else -> getString(R.string.reminder_lead_min, it)
+                    }
+                },
+                leads.indexOf(lead)
+            ) { which ->
+                lead = leads[which]
+                paintAlarmRows()
+            }
+        }
+        paintAlarmRows()
 
+        // Nothing can be scheduled into a day that is already spent: it may
+        // be read and deleted, and that is all. (This block used to sit
+        // inside the sound row's listener, so it only ever ran if you tapped
+        // that row.)
         if (spent) {
             for (id in intArrayOf(
                 R.id.rsheet_row_name, R.id.rsheet_row_time, R.id.rsheet_row_duration,
@@ -1603,19 +1745,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             alarmSwitch.isEnabled = false
             view.findViewById<Button>(R.id.rsheet_save).visibility = View.GONE
         }
-
-        }
-        snoozeRow.setOnClickListener {
-            // Warning ahead of the thing, not a nag after it.
-            lead = when (lead) {
-                0 -> 15
-                15 -> 30
-                30 -> 60
-                else -> 0
-            }
-            paintAlarmRows()
-        }
-        paintAlarmRows()
 
         view.findViewById<View>(R.id.rsheet_row_duration).setOnClickListener {
             // How long a thing lasts is a duration, so it gets set the way
