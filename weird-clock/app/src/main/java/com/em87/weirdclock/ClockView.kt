@@ -316,10 +316,6 @@ class ClockView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
     }
-    /** The h / m / s marks over the seven-segment readout. */
-    private val unitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textAlign = Paint.Align.CENTER
-    }
     private val hourHandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
@@ -774,24 +770,26 @@ class ClockView @JvmOverloads constructor(
     /**
      * The band between the minute hand's tip and the rim. Nobody reaching in
      * there means to grab the minute hand — its tip is the inner edge of the
-     * band — so the second hand owns it, and so does the crown's silence.
+     * band — so within it the second hand is the only hand on offer.
+     *
+     * This replaced an older trick that let a finger reach in from outside
+     * the glass to catch the second hand. With the band working from the
+     * inside, that outside grab was only ever a second way to do the same
+     * thing, so it is gone.
      */
     private fun inSecondHandBand(x: Float, y: Float): Boolean {
         val dist = hypot(x - width / 2f, y - height / 2f)
-        return dist >= boundaryRadius(touchAngleDeg(x, y)) * MINUTE_LEN
+        val b = boundaryRadius(touchAngleDeg(x, y))
+        return dist >= b * MINUTE_LEN && dist <= b * 1.02f
     }
 
+    /** True where the second hand outranks the case hardware under it. */
     private fun secondHandRingHit(x: Float, y: Float): Boolean {
         if (!chronoSettable || chronoProvider == null) return false
         if (!showSecondHand || isFallen(Hand.SECOND)) return false
-        val cx = width / 2f
-        val cy = height / 2f
-        val touchDeg = touchAngleDeg(x, y)
-        val b = boundaryRadius(touchDeg)
-        val dist = hypot(x - cx, y - cy)
-        if (dist < b * MINUTE_LEN || dist > b * 1.30f) return false
+        if (!inSecondHandBand(x, y)) return false
         val handDeg = angleOf(Hand.SECOND, currentAngles())
-        return kotlin.math.abs(normalizeDeg(touchDeg - handDeg)) < 16f
+        return kotlin.math.abs(normalizeDeg(touchAngleDeg(x, y) - handDeg)) < 16f
     }
 
     /**
@@ -1995,7 +1993,7 @@ class ClockView @JvmOverloads constructor(
             anyHandFallen() -> {
                 cal.timeInMillis = displayNowMs()
                 String.format(
-                    Locale.US, "%02d:%02d:%02d",
+                    Locale.US, "%02dh%02d'%02d\"",
                     cal.get(Calendar.HOUR_OF_DAY),
                     cal.get(Calendar.MINUTE),
                     cal.get(Calendar.SECOND)
@@ -2003,19 +2001,10 @@ class ClockView @JvmOverloads constructor(
             }
             else -> null
         }
-        // Which slot is which: a stopwatch reading 01:20:45 is not twenty
-        // past one, and the units say so.
-        val digitalUnits = when {
-            chronoProvider == null -> UNITS_CLOCK
-            kotlin.math.abs(
-                if (chronoSettable) chronoDisplayMs() ?: 0L else chronoProvider?.invoke() ?: 0L
-            ) < 3_600_000L -> UNITS_STOPWATCH
-            else -> UNITS_CLOCK
-        }
         digitalText?.let {
             val digitH = r * 0.13f
             val yTop = min(cy + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
-            drawSevenSegment(canvas, it, cx, yTop, digitH, digitalUnits)
+            drawSevenSegment(canvas, it, cx, yTop, digitH)
 
             // Ghost copies of the recent laps, stacked under the readout —
             // as many as the space below the dial can hold.
@@ -2025,7 +2014,8 @@ class ClockView @JvmOverloads constructor(
                 // several more of them fit in the same strip.
                 var ghostY = yTop + digitH * 1.28f
                 var ghostH = digitH * 0.78f
-                val bottom = height - 2f
+                // Stop short of the button row at the foot of the card.
+                val bottom = height - BUTTON_RESERVE_DP * resources.displayMetrics.density
                 var shown = 0
                 for (lap in laps.reversed()) {
                     // Seven is as far as the ladder goes: the eighth rung
@@ -2059,20 +2049,22 @@ class ClockView @JvmOverloads constructor(
     }
 
     /**
-     * MM:SS:CC with live centiseconds under an hour; from the hour mark on
-     * the centiseconds yield their slots to hours — HH:MM:SS.
+     * The separators carry the units, so the reading says what it is:
+     * 01\u203223\u203345 is a minute and change with hundredths, while
+     * 01h23\u203245\u2033 is an hour and change with seconds. Past the hour the
+     * centiseconds give up their slot, and the marks are how you notice.
      */
     private fun formatDuration(ms: Long): String {
         val abs = kotlin.math.abs(ms)
         val sign = if (ms < 0) "-" else ""
         return if (abs < 3_600_000L) {
             String.format(
-                Locale.US, "%s%02d:%02d:%02d",
+                Locale.US, "%s%02d'%02d\"%02d",
                 sign, abs / 60_000, abs / 1000 % 60, abs / 10 % 100
             )
         } else {
             String.format(
-                Locale.US, "%s%02d:%02d:%02d",
+                Locale.US, "%s%02dh%02d'%02d\"",
                 sign, abs / 3_600_000 % 100, abs / 60_000 % 60, abs / 1000 % 60
             )
         }
@@ -2343,46 +2335,62 @@ class ClockView @JvmOverloads constructor(
         text: String,
         cx: Float,
         top: Float,
-        digitH: Float,
-        units: List<String>? = null
+        digitH: Float
     ) {
         val digitW = digitH * 0.55f
         val gap = digitW * 0.45f
-        val colonW = digitW * 0.5f
+        val primeW = digitW * 0.42f
+        val doubleW = digitW * 0.62f
+
+        fun advance(c: Char): Float = when (c) {
+            '\'' -> primeW
+            '"' -> doubleW
+            else -> digitW
+        }
+
         var totalW = 0f
-        for (c in text) totalW += if (c == ':') colonW + gap else digitW + gap
+        for (c in text) totalW += advance(c) + gap
         totalW -= gap
         var x = cx - totalW / 2f
         digitalPaint.strokeWidth = digitH * 0.10f
 
-        // Each run of digits between colons is one unit's slot, and its mark
-        // sits centred just above it.
-        var group = 0
-        var groupStart = x
-        fun markGroup(endX: Float) {
-            val label = units?.getOrNull(group) ?: return
-            if (label.isEmpty()) return
-            unitPaint.color = digitalPaint.color
-            unitPaint.alpha = (digitalPaint.alpha * 0.75f).toInt()
-            unitPaint.textSize = digitH * 0.52f
-            canvas.drawText(label, (groupStart + endX) / 2f, top - digitH * 0.10f, unitPaint)
+        /** A tick mark, drawn with the same stroke as the digits so it reads. */
+        fun tick(at: Float) {
+            canvas.drawLine(
+                at + primeW * 0.62f, top + digitH * 0.02f,
+                at + primeW * 0.20f, top + digitH * 0.40f,
+                digitalPaint
+            )
         }
 
         for (c in text) {
-            when {
-                c == ':' -> {
-                    markGroup(x - gap)
-                    group++
-                    canvas.drawPoint(x + colonW / 2f, top + digitH * 0.30f, digitalPaint)
-                    canvas.drawPoint(x + colonW / 2f, top + digitH * 0.70f, digitalPaint)
-                    x += colonW + gap
-                    groupStart = x
+            when (c) {
+                // Minutes: one prime. Seconds: two. Both at digit weight and
+                // in line with them, not floating overhead.
+                '\'' -> {
+                    tick(x)
+                    x += primeW + gap
                 }
-                c == '-' -> {
+                '"' -> {
+                    tick(x)
+                    tick(x + doubleW * 0.42f)
+                    x += doubleW + gap
+                }
+                'h' -> {
+                    // The seven-segment h: f, e, g and c.
+                    drawSegments(canvas, 2 or 4 or 1 or 16, x, top, digitW, digitH)
+                    x += digitW + gap
+                }
+                ':' -> {
+                    canvas.drawPoint(x + digitW / 2f, top + digitH * 0.30f, digitalPaint)
+                    canvas.drawPoint(x + digitW / 2f, top + digitH * 0.70f, digitalPaint)
+                    x += digitW + gap
+                }
+                '-' -> {
                     // Minus sign: the middle (g) segment on its own.
-                    val s = digitalPaint.strokeWidth * 0.8f
+                    val w = digitalPaint.strokeWidth * 0.8f
                     val mid = top + digitH / 2f
-                    canvas.drawLine(x + s, mid, x + digitW - s, mid, digitalPaint)
+                    canvas.drawLine(x + w, mid, x + digitW - w, mid, digitalPaint)
                     x += digitW + gap
                 }
                 else -> {
@@ -2392,7 +2400,6 @@ class ClockView @JvmOverloads constructor(
                 }
             }
         }
-        markGroup(x - gap)
     }
 
     private fun drawSegments(canvas: Canvas, bits: Int, x: Float, y: Float, w: Float, h: Float) {
@@ -2449,22 +2456,11 @@ class ClockView @JvmOverloads constructor(
         /** How far a lap may drift from the truth before it is a fake. */
         private const val FAKE_LAP_TOLERANCE_MS = 400L
         private val END_SIDES = floatArrayOf(1f, -1f)
-        /**
-         * Hours, minutes, seconds. Prime and double prime, as on a sundial or
-         * a stopwatch bezel — and the giveaway is the tail: a reading that
-         * ends in a double prime ends in seconds.
-         */
-        private val UNITS_CLOCK = listOf("h", "\u2032", "\u2033")
-
-        /**
-         * Under the hour the last pair is hundredths, and it is left unmarked
-         * on purpose: minutes and seconds carry their marks, so anything
-         * after the double prime is plainly a fraction of a second.
-         */
-        private val UNITS_STOPWATCH = listOf("\u2032", "\u2033", "")
-
         /** Rungs of the lap ladder, before it would reach the buttons. */
         private const val MAX_GHOST_LAPS = 7
+
+        /** Room kept clear at the foot of the card for the button row. */
+        private const val BUTTON_RESERVE_DP = 72f
 
         private val SEGMENT_BITS = intArrayOf(
             0b1111110, 0b0110000, 0b1101101, 0b1111001, 0b0110011,
