@@ -1690,7 +1690,11 @@ class ClockView @JvmOverloads constructor(
         // second hand (nobody times 37 seconds), the familiar 5-minute grid
         // on the minute hand, whole hours on the hour hand.
         val (grid, window) = when (draggedHand) {
-            Hand.SECOND -> 15_000L to 3_000L
+            // Every five seconds up to half a minute, and barely a nudge:
+            // the old quarter-minute grid with its three-second pull meant
+            // most of the dial was unreachable. Past thirty seconds the
+            // second hand is free — by then you are choosing minutes.
+            Hand.SECOND -> if (ms <= 30_000L) 5_000L to 900L else 0L to 0L
             Hand.HOUR -> 3_600_000L to 600_000L
             else -> when (magnetProfile) {
                 MagnetProfile.ALARM -> 300_000L to 40_000L
@@ -1702,6 +1706,7 @@ class ClockView @JvmOverloads constructor(
                 }
             }
         }
+        if (grid <= 0L) return null
         val rounded = (ms + grid / 2) / grid * grid
         return if (kotlin.math.abs(rounded - ms) <= window) rounded else null
     }
@@ -2013,17 +2018,22 @@ class ClockView @JvmOverloads constructor(
                 // smaller and fainter — a receding stack, which also means
                 // several more of them fit in the same strip.
                 var ghostY = yTop + digitH * 1.28f
-                var ghostH = digitH * 0.78f
-                // Stop short of the button row at the foot of the card.
+                // Stop short of the button row at the foot of the card, and
+                // size the rungs so that exactly seven of them reach it —
+                // no more guessing whether the last one lands on a button.
+                // With the step ratio fixed, the whole ladder is a geometric
+                // series, so the first rung is simply the strip divided by
+                // what seven rungs come to.
                 val bottom = height - BUTTON_RESERVE_DP * resources.displayMetrics.density
+                var ghostH = ((bottom - ghostY) / LADDER_SPAN).coerceIn(
+                    digitH * 0.22f, digitH * 0.78f
+                )
                 var shown = 0
                 for (lap in laps.reversed()) {
-                    // Seven is as far as the ladder goes: the eighth rung
-                    // lands on the button back to the clock.
                     if (shown >= MAX_GHOST_LAPS) break
-                    if (ghostY + ghostH > bottom || ghostH < digitH * 0.16f) break
+                    if (ghostY + ghostH > bottom) break
                     shown++
-                    digitalPaint.alpha = (150f * (ghostH / (digitH * 0.78f)))
+                    digitalPaint.alpha = (180f * (ghostH / (digitH * 0.78f)))
                         .toInt().coerceIn(45, 180)
                     drawSevenSegment(canvas, formatDuration(lap.ms), cx, ghostY, ghostH)
                     ghostY += ghostH * 1.35f
@@ -2339,8 +2349,8 @@ class ClockView @JvmOverloads constructor(
     ) {
         val digitW = digitH * 0.55f
         val gap = digitW * 0.45f
-        val primeW = digitW * 0.42f
-        val doubleW = digitW * 0.62f
+        val primeW = digitW * 0.30f
+        val doubleW = digitW * 0.46f
 
         fun advance(c: Char): Float = when (c) {
             '\'' -> primeW
@@ -2354,13 +2364,16 @@ class ClockView @JvmOverloads constructor(
         var x = cx - totalW / 2f
         digitalPaint.strokeWidth = digitH * 0.10f
 
-        /** A tick mark, drawn with the same stroke as the digits so it reads. */
+        /** A tick mark: enough to be read, not enough to be a digit. */
         fun tick(at: Float) {
+            val was = digitalPaint.strokeWidth
+            digitalPaint.strokeWidth = was * 0.62f
             canvas.drawLine(
-                at + primeW * 0.62f, top + digitH * 0.02f,
-                at + primeW * 0.20f, top + digitH * 0.40f,
+                at + primeW * 0.60f, top + digitH * 0.05f,
+                at + primeW * 0.34f, top + digitH * 0.27f,
                 digitalPaint
             )
+            digitalPaint.strokeWidth = was
         }
 
         for (c in text) {
@@ -2373,7 +2386,7 @@ class ClockView @JvmOverloads constructor(
                 }
                 '"' -> {
                     tick(x)
-                    tick(x + doubleW * 0.42f)
+                    tick(x + doubleW * 0.38f)
                     x += doubleW + gap
                 }
                 'h' -> {
@@ -2461,6 +2474,13 @@ class ClockView @JvmOverloads constructor(
 
         /** Room kept clear at the foot of the card for the button row. */
         private const val BUTTON_RESERVE_DP = 72f
+
+        /**
+         * What [MAX_GHOST_LAPS] rungs measure, in units of the first rung:
+         * 1.35 of each rung's height as spacing, each 0.88 of the one above,
+         * plus the last rung itself.
+         */
+        private const val LADDER_SPAN = 6.49f
 
         private val SEGMENT_BITS = intArrayOf(
             0b1111110, 0b0110000, 0b1101101, 0b1111001, 0b0110011,
