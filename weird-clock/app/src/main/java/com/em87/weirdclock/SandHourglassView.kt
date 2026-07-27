@@ -2,9 +2,13 @@ package com.em87.weirdclock
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Rect
+import android.graphics.RectF
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -22,17 +26,21 @@ import kotlin.math.sqrt
 import kotlin.random.Random
 
 /**
- * S3: the countdown as an actual particle system. Every grain of sand is a
- * simulated body under the live accelerometer gravity vector; the neck is a
- * gate that only lets through as many grains as the clock has earned, so
- * the pile drains at exactly the countdown's pace — and time becomes
- * physical: tilt the phone sideways and the sand can't reach the neck, so
- * the countdown stops; flip the phone and the fallen sand becomes the sand
- * still to fall. Poke the pile with a finger and it scatters.
+ * S0: the countdown as falling sand, one pixel at a time.
  *
- * The glass is a real hourglass profile — a smooth curve from the wide
- * bulbs to the neck — and containment is analytic (the glass half-width is
- * a function of height), so no grain can ever tunnel out.
+ * The sand is not a crowd of little bodies with velocities and collisions —
+ * it is a grid, and each cell is either sand or it is not. Every frame each
+ * grain looks at the cell gravity points to, and at the two beside it, and
+ * takes the first that is free. That single rule is the whole simulation:
+ * heaps hold a slope, streams pour, and a pile shaken sideways slumps,
+ * without anyone computing a force. It also cannot explode, tunnel through
+ * the glass, or jitter forever, which the bodies-and-forces version could.
+ *
+ * The glass is baked into the grid as wall cells, so containment is not a
+ * calculation at all — there is simply nowhere else to go. The neck is a
+ * turnstile: a grain may only step from the upstream half into the
+ * downstream one if the clock has already spent it. Tilt the phone so the
+ * sand can't reach the neck and the countdown stops with it.
  */
 class SandHourglassView @JvmOverloads constructor(
     context: Context,
@@ -40,7 +48,11 @@ class SandHourglassView @JvmOverloads constructor(
 ) : View(context, attrs) {
 
     var theme: ClockTheme = ClockThemes.MIDNIGHT
-        set(value) { field = value; invalidate() }
+        set(value) {
+            field = value
+            rebuildPalette()
+            invalidate()
+        }
 
     /** Shared dial zoom: the glass scales with every other dial. */
     var glassScale = 1f
@@ -48,8 +60,7 @@ class SandHourglassView @JvmOverloads constructor(
             val next = value.coerceIn(ClockView.MIN_SCALE, ClockView.MAX_SCALE)
             if (next != field) {
                 field = next
-                rebuildGeometry()
-                rebuildGrains()
+                if (rebuildGeometry()) refill()
                 invalidate()
             }
         }
@@ -58,14 +69,10 @@ class SandHourglassView @JvmOverloads constructor(
     /** Reports whether gravity currently lets sand reach the neck. */
     var onFlowBlocked: ((Boolean) -> Unit)? = null
 
-    /**
-     * Freeze: the sand stops mid-fall and hangs there. Useful when you want
-     * to look at the pile, and irresistible for the same reason.
-     */
+    /** Freeze: the grid stops updating and the sand hangs where it is. */
     var frozen = false
         set(value) {
             field = value
-            if (!value) lastStepAt = SystemClock.uptimeMillis()
             invalidate()
         }
 
@@ -74,46 +81,51 @@ class SandHourglassView @JvmOverloads constructor(
     private var totalMs = 300_000L
     private var remainingMs = 300_000L
 
-    /** How many grains the user is willing to let their phone simulate. */
+    /**
+     * How much work the phone is asked to do. On a grid this is resolution:
+     * more means finer sand and more cells to step every frame.
+     */
     var maxGrains = 260
         set(value) {
             val next = value.coerceIn(40, 900)
             if (next != field) {
                 field = next
-                rebuildGeometry()
-                rebuildGrains()
+                if (rebuildGeometry()) refill()
             }
         }
 
-    private fun grainQuantumMs(): Long = (totalMs / maxGrains).coerceAtLeast(1000L)
-
-    private fun desiredGrainCount(): Int =
-        (totalMs / grainQuantumMs()).toInt().coerceIn(1, maxGrains)
-
     fun setTime(total: Long, remaining: Long) {
         val totalChanged = total != totalMs
+        val previous = remainingMs
         totalMs = total.coerceAtLeast(1000L)
         remainingMs = remaining.coerceIn(0L, totalMs)
-        if (totalChanged) rebuildGrains()
+        // A different countdown is a different hourglass, and one that gained
+        // time was reset — either way the glass is turned over rather than
+        // reconciled, since sand does not climb back up on its own.
+        if (totalChanged || remainingMs > previous + totalMs / 50L) refill()
         invalidate()
     }
 
-    // ------------------------------------------------------------- particles
+    // ---------------------------------------------------------------- grid
 
-    private class Grain(
-        var x: Float,
-        var y: Float,
-        var vx: Float,
-        var vy: Float,
-        var topSide: Boolean
-    )
+    private var cols = 0
+    private var rows = 0
+    private var cells = ByteArray(0)
+    private var moved = BooleanArray(0)
 
-    private val grains = ArrayList<Grain>()
-    private var grainR = 5f
-    private var lastStepAt = 0L
-    private var lastTopCount = -1
-    private var lastFlowChangeAt = 0L
-    private var reportedBlocked = false
+    /** A stable speckle per cell, so the sand has grain instead of flatness. */
+    private var speckle = ByteArray(0)
+    private var pixels = IntArray(0)
+    private var bitmap: Bitmap? = null
+    private val palette = IntArray(4)
+
+    private var cellSize = 4f
+    private var gridLeft = 0f
+    private var gridTop = 0f
+    private var neckRow = 0
+    private var sandTotal = 0
+
+    private fun index(i: Int, j: Int) = j * cols + i
 
     // Glass geometry (view coordinates).
     private var cx = 0f
@@ -122,6 +134,8 @@ class SandHourglassView @JvmOverloads constructor(
     private var halfH = 0f
     private var neckHalf = 0f
     private val glassPath = Path()
+    private val sandSrc = Rect()
+    private val sandDst = RectF()
 
     private val glassPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -132,18 +146,24 @@ class SandHourglassView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
     }
-    private val sandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+
+    /** No smoothing anywhere: the whole point is that the grains are pixels. */
+    private val sandPaint = Paint().apply {
+        isAntiAlias = false
+        isFilterBitmap = false
+        isDither = false
+    }
 
     // ------------------------------------------------------------- gravity
 
     private var gravityX = 0f
-    private var gravityY = GRAVITY
+    private var gravityY = 1f
     private var lowX = 0f
     private var lowY = 9.81f
     private var sensorManager: SensorManager? = null
     private val sensorListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
-            // Heavier smoothing than the dial's: sand should not jitter with
+            // Heavier smoothing than the dial's: sand should not twitch with
             // sensor noise, and a hand-held phone is never perfectly still.
             lowX = lowX * 0.93f + event.values[0] * 0.07f
             lowY = lowY * 0.93f + event.values[1] * 0.07f
@@ -159,20 +179,25 @@ class SandHourglassView @JvmOverloads constructor(
                 gy += blend * 0.9f
                 gx *= (1f - blend)
             }
-            gravityX = gx * GRAVITY
-            gravityY = gy * GRAVITY
+            gravityX = gx
+            gravityY = gy
         }
 
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
     }
 
-    // Finger stir state.
+    // Finger stir state, in cells.
     private var stirActive = false
     private var stirX = 0f
     private var stirY = 0f
-    private var stirVx = 0f
-    private var stirVy = 0f
-    private var lastStirAt = 0L
+    private var stirDx = 0f
+    private var stirDy = 0f
+
+    // Flow bookkeeping.
+    private var lastUpstream = -1
+    private var lastFlowChangeAt = 0L
+    private var reportedBlocked = false
+    private var scanFlip = false
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
@@ -180,7 +205,6 @@ class SandHourglassView @JvmOverloads constructor(
         sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sensorManager?.registerListener(sensorListener, it, SensorManager.SENSOR_DELAY_GAME)
         }
-        lastStepAt = SystemClock.uptimeMillis()
         postInvalidateOnAnimation()
     }
 
@@ -191,8 +215,7 @@ class SandHourglassView @JvmOverloads constructor(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        rebuildGeometry()
-        rebuildGrains()
+        if (rebuildGeometry()) refill()
     }
 
     // ------------------------------------------------------------- geometry
@@ -207,16 +230,52 @@ class SandHourglassView @JvmOverloads constructor(
         return neckHalf + (bulbHalf - neckHalf) * sqrt(t)
     }
 
-    private fun rebuildGeometry() {
-        if (width == 0 || height == 0) return
+    /**
+     * Returns true when the grid itself changed shape and the sand has to be
+     * laid out again. Zooming does not: the grid is defined in cells, and
+     * every length in it scales together, so a pinch only moves where those
+     * cells are drawn — the pile survives untouched.
+     */
+    private fun rebuildGeometry(): Boolean {
+        if (width == 0 || height == 0) return false
         cx = width / 2f
         cy = height / 2f
         halfH = min(height * 0.40f, width * 0.72f) * glassScale
         bulbHalf = halfH * 0.58f
-        // Grain size follows the count: the more grains, the finer the sand,
-        // so the two bulbs stay about as full either way.
-        grainR = (bulbHalf / sqrt(maxGrains.toFloat()) * 1.5f).coerceAtLeast(1.6f)
-        neckHalf = grainR * 2.2f
+
+        val wantCols = (sqrt(maxGrains.toFloat()) * 4.2f).roundToInt().coerceIn(28, 150)
+        val wantRows = (wantCols / 0.58f).roundToInt().coerceAtLeast(8)
+        val structural = wantCols != cols || wantRows != rows || cells.isEmpty()
+        cols = wantCols
+        rows = wantRows
+        cellSize = (bulbHalf * 2f) / cols
+        gridLeft = cx - bulbHalf
+        gridTop = cy - halfH
+        neckRow = rows / 2
+        // Wide enough that a stream actually fits through it, whatever the
+        // resolution: about four cells across.
+        neckHalf = cellSize * 2f
+        sandSrc.set(0, 0, cols, rows)
+        sandDst.set(gridLeft, gridTop, gridLeft + cols * cellSize, gridTop + rows * cellSize)
+
+        if (structural) {
+            cells = ByteArray(cols * rows)
+            moved = BooleanArray(cols * rows)
+            speckle = ByteArray(cols * rows) { Random.nextInt(4).toByte() }
+            pixels = IntArray(cols * rows)
+            bitmap = Bitmap.createBitmap(cols, rows, Bitmap.Config.ARGB_8888)
+
+            // The glass, baked into the grid. Everything outside is wall, so
+            // no grain has anywhere to escape to.
+            for (j in 0 until rows) {
+                val y = gridTop + (j + 0.5f) * cellSize
+                val limit = halfWidthAt(y) - cellSize * 0.5f
+                for (i in 0 until cols) {
+                    val x = gridLeft + (i + 0.5f) * cellSize
+                    if (abs(x - cx) > limit) cells[index(i, j)] = WALL
+                }
+            }
+        }
 
         glassPath.reset()
         val steps = 36
@@ -227,213 +286,226 @@ class SandHourglassView @JvmOverloads constructor(
         }
         for (i in steps downTo 0) {
             val y = cy - halfH + (2f * halfH) * i / steps
-            val hw = halfWidthAt(y)
-            glassPath.lineTo(cx + hw, y)
+            glassPath.lineTo(cx + halfWidthAt(y), y)
         }
         glassPath.close()
+
+        rebuildPalette()
+        return structural
     }
 
-    private fun rebuildGrains() {
-        if (width == 0 || halfH <= 0f) return
-        grains.clear()
-        val n = desiredGrainCount()
-        val top = (n * remainingMs.toDouble() / totalMs).roundToInt().coerceIn(0, n)
-        repeat(n) { i ->
-            val inTop = i < top
-            val gy = if (inTop) {
-                cy - halfH * (0.25f + Random.nextFloat() * 0.65f)
-            } else {
-                cy + halfH * (0.25f + Random.nextFloat() * 0.65f)
-            }
-            val hw = (halfWidthAt(gy) - grainR * 2f).coerceAtLeast(1f)
-            grains.add(
-                Grain(
-                    cx + (Random.nextFloat() * 2f - 1f) * hw,
-                    gy, 0f, 0f,
-                    topSide = inTop
-                )
+    /** Four shades around the sand colour, picked per cell and never changing. */
+    private fun rebuildPalette() {
+        val base = theme.decimal
+        for (k in 0 until 4) {
+            val f = 0.86f + k * 0.09f
+            palette[k] = Color.argb(
+                255,
+                (Color.red(base) * f).toInt().coerceIn(0, 255),
+                (Color.green(base) * f).toInt().coerceIn(0, 255),
+                (Color.blue(base) * f).toInt().coerceIn(0, 255)
             )
         }
-        lastTopCount = -1
     }
 
-    // --------------------------------------------------------------- physics
+    /**
+     * Turns the glass over: the sand is laid out again, piled at the bottom
+     * of each half, with as much still to fall as the clock has left.
+     */
+    private fun refill() {
+        if (cols == 0 || rows == 0) return
+        for (k in cells.indices) if (cells[k] == SAND) cells[k] = EMPTY
 
-    private fun stepPhysics() {
+        // One bulb's worth, a little short of the brim so a full glass still
+        // has somewhere to put the last grains.
+        var capacity = 0
+        for (j in 0 until neckRow) {
+            for (i in 0 until cols) if (cells[index(i, j)] == EMPTY) capacity++
+        }
+        sandTotal = (capacity * 0.82f).roundToInt().coerceAtLeast(1)
+        val above = (sandTotal * remainingMs.toDouble() / totalMs).roundToInt()
+            .coerceIn(0, sandTotal)
+
+        var left = above
+        for (j in neckRow - 1 downTo 0) {
+            if (left <= 0) break
+            left = fillRow(j, left)
+        }
+        left = sandTotal - above
+        for (j in rows - 1 downTo neckRow + 1) {
+            if (left <= 0) break
+            left = fillRow(j, left)
+        }
+        lastUpstream = -1
+    }
+
+    /** Fills one row from the middle outwards, returning what is left over. */
+    private fun fillRow(j: Int, budget: Int): Int {
+        var left = budget
+        val mid = cols / 2
+        for (step in 0 until cols) {
+            if (left <= 0) break
+            val i = if (step % 2 == 0) mid + step / 2 else mid - 1 - step / 2
+            if (i !in 0 until cols) continue
+            val k = index(i, j)
+            if (cells[k] == EMPTY) {
+                cells[k] = SAND
+                left--
+            }
+        }
+        return left
+    }
+
+    // -------------------------------------------------------------- the rule
+
+    private fun step() {
+        if (frozen || cols == 0) return
+
+        // Which way is down, as a step on the grid: one of the eight
+        // neighbours, so a tilted phone really does pour sideways.
+        val mag = hypot(gravityX, gravityY)
+        if (mag < 0.05f) return
+        var dx = 0
+        var dy = 0
+        if (gravityX > mag * 0.4f) dx = 1 else if (gravityX < -mag * 0.4f) dx = -1
+        if (gravityY > mag * 0.4f) dy = 1 else if (gravityY < -mag * 0.4f) dy = -1
+        if (dx == 0 && dy == 0) dy = 1
+
+        // The turnstile at the waist. Sand only crosses into the half it is
+        // falling towards, and only as fast as the clock spends it.
+        gateSide = if (gravityY >= 0f) 1 else -1
+        val verticalFlow = abs(gravityY) > mag * 0.45f
+        var upstream = 0
+        for (j in 0 until rows) {
+            val side = sideOf(j)
+            if (side == 0 || side == gateSide) continue
+            for (i in 0 until cols) if (cells[index(i, j)] == SAND) upstream++
+        }
+        val target = (sandTotal * remainingMs.toDouble() / totalMs).roundToInt()
+        gateBudget = if (verticalFlow) (upstream - target).coerceAtLeast(0) else 0
+
+        // Physical time: sand that should be flowing but cannot reports it,
+        // and the countdown stops until the glass is upright again.
         val now = SystemClock.uptimeMillis()
-        val frameDt = ((now - lastStepAt).coerceIn(0, 40)) / 1000f
-        lastStepAt = now
-        if (frozen || frameDt <= 0f || grains.isEmpty()) return
-
-        // Gate bookkeeping: the upstream bulb (against gravity) may only
-        // shed grains the clock has already spent.
-        val gMag = hypot(gravityX, gravityY)
-        val verticalFlow = gMag > 1f && abs(gravityY) > gMag * 0.45f
-        val upstreamIsTop = gravityY >= 0f
-        val topCount = grains.count { it.topSide }
-        val upstream = if (upstreamIsTop) topCount else grains.size - topCount
-        val targetUpstream = (grains.size * remainingMs.toDouble() / totalMs).roundToInt()
-        var budget = if (verticalFlow) upstream - targetUpstream else 0
-
-        // Physical time: sand that should flow but can't freezes the clock.
-        if (topCount != lastTopCount) {
-            lastTopCount = topCount
+        if (upstream != lastUpstream) {
+            lastUpstream = upstream
             lastFlowChangeAt = now
         }
-        val blocked = upstream > targetUpstream + 1 && !verticalFlow &&
-            now - lastFlowChangeAt > 800L
+        val blocked = upstream > target + 1 && !verticalFlow && now - lastFlowChangeAt > 800L
         if (blocked != reportedBlocked) {
             reportedBlocked = blocked
             onFlowBlocked?.invoke(blocked)
         }
 
-        // Two substeps keep fast grains from skipping across the neck.
-        repeat(2) {
-            val dt = frameDt / 2f
-            for (g in grains) {
-                g.vx += gravityX * dt
-                g.vy += gravityY * dt
-                // Finger stir: grains near the finger get shoved along.
-                if (stirActive) {
-                    val dx = g.x - stirX
-                    val dy = g.y - stirY
-                    val d = hypot(dx, dy)
-                    val reach = grainR * 9f
-                    if (d < reach && d > 0.001f) {
-                        val push = (1f - d / reach)
-                        g.vx += (dx / d * 2600f + stirVx * 0.9f) * push * dt * 8f
-                        g.vy += (dy / d * 2600f + stirVy * 0.9f) * push * dt * 8f
-                    }
-                }
-                // Speed cap: nothing may cross a grain diameter per substep.
-                val sp = hypot(g.vx, g.vy)
-                val maxSp = grainR * 1.6f / dt
-                if (sp > maxSp) {
-                    g.vx *= maxSp / sp
-                    g.vy *= maxSp / sp
-                }
-                g.vx *= 0.999f
-                g.vy *= 0.999f
-                g.x += g.vx * dt
-                g.y += g.vy * dt
+        // Diagonals: the two neighbours either side of straight-down. Sand
+        // that can't drop tries to slide, which is what gives a heap its
+        // slope — always 45 degrees, exactly like real sand at rest.
+        val px = -dy
+        val py = dx
+        val ax = (dx + px).coerceIn(-1, 1)
+        val ay = (dy + py).coerceIn(-1, 1)
+        val bx = (dx - px).coerceIn(-1, 1)
+        val by = (dy - py).coerceIn(-1, 1)
 
-                // Neck gate: crossing is only for grains the clock released.
-                val nowTop = g.y < cy
-                if (nowTop != g.topSide) {
-                    val crossingDownstream = g.topSide == upstreamIsTop
-                    if (crossingDownstream && budget > 0) {
-                        budget--
-                        g.topSide = nowTop
-                    } else {
-                        // Bounce back off the closed gate.
-                        if (g.topSide) {
-                            g.y = cy - grainR
-                            if (g.vy > 0f) g.vy = -g.vy * 0.2f
+        repeat(PASSES) {
+            java.util.Arrays.fill(moved, false)
+            if (stirActive) stir(dx, dy)
+            scanFlip = !scanFlip
+            // Scanned from the downhill end, so the grain in front moves out
+            // of the way before the one behind asks to.
+            val jRange = if (dy >= 0) (rows - 1) downTo 0 else 0 until rows
+            for (j in jRange) {
+                val iRange = if (scanFlip) 0 until cols else (cols - 1) downTo 0
+                for (i in iRange) {
+                    val k = index(i, j)
+                    if (cells[k] != SAND || moved[k]) continue
+                    if (tryMove(i, j, dx, dy)) continue
+                    // A grain walled in on all three sides is asleep, and
+                    // most of a settled pile is: worth the two lookups to
+                    // skip the dice roll for every one of them.
+                    if (!isFree(i + ax, j + ay) && !isFree(i + bx, j + by)) continue
+                    // Which diagonal first is a coin toss, or the sand would
+                    // drift steadily to one side.
+                    if (Random.nextFloat() < 0.75f) {
+                        if (Random.nextBoolean()) {
+                            if (tryMove(i, j, ax, ay)) continue
+                            tryMove(i, j, bx, by)
                         } else {
-                            g.y = cy + grainR
-                            if (g.vy < 0f) g.vy = -g.vy * 0.2f
+                            if (tryMove(i, j, bx, by)) continue
+                            tryMove(i, j, ax, ay)
                         }
                     }
                 }
-
-                constrainToGlass(g)
             }
-            separateGrains()
-            for (g in grains) constrainToGlass(g)
         }
     }
 
-    /** Analytic containment: escape is geometrically impossible. */
-    private fun constrainToGlass(g: Grain) {
-        val topLimit = cy - halfH + grainR
-        val bottomLimit = cy + halfH - grainR
-        if (g.y < topLimit) {
-            g.y = topLimit
-            if (g.vy < 0f) g.vy = -g.vy * 0.3f
-        }
-        if (g.y > bottomLimit) {
-            g.y = bottomLimit
-            if (g.vy > 0f) g.vy = -g.vy * 0.3f
-        }
-        val maxX = (halfWidthAt(g.y) - grainR).coerceAtLeast(0.5f)
-        val dx = g.x - cx
-        if (dx > maxX) {
-            g.x = cx + maxX
-            if (g.vx > 0f) g.vx = -g.vx * 0.3f
-        } else if (dx < -maxX) {
-            g.x = cx - maxX
-            if (g.vx < 0f) g.vx = -g.vx * 0.3f
-        }
-    }
+    private var gateBudget = 0
+    private var gateSide = 1
 
-    /** Cheap spatial-hash separation so grains pile instead of overlap. */
-    private val cellMap = HashMap<Long, ArrayList<Grain>>()
+    private fun isFree(i: Int, j: Int): Boolean =
+        i >= 0 && i < cols && j >= 0 && j < rows && cells[index(i, j)] == EMPTY
+
+    /** -1 above the waist, +1 below it, 0 in the neck row itself. */
+    private fun sideOf(j: Int): Int = when {
+        j < neckRow -> -1
+        j > neckRow -> 1
+        else -> 0
+    }
 
     /**
-     * Grain-grain contact. Sand is not water: contacts are almost perfectly
-     * inelastic and rub hard against each other, which is what lets a heap
-     * hold a slope instead of levelling out like a liquid. The positional
-     * push is capped so a compressed pile can't explode into a volcano.
+     * One grain, one step — if the cell it wants is inside the glass, empty,
+     * and not on the far side of a closed turnstile.
      */
-    private fun separateGrains() {
-        val cell = grainR * 2f
-        cellMap.values.forEach { it.clear() }
-        for (g in grains) {
-            val key = (g.x / cell).toLong() * 100_000L + (g.y / cell).toLong()
-            cellMap.getOrPut(key) { ArrayList() }.add(g)
-        }
-        val minDist = grainR * 1.75f
-        val maxPush = grainR * 0.30f
-        for (g in grains) {
-            val cxi = (g.x / cell).toLong()
-            val cyi = (g.y / cell).toLong()
-            for (ix in -1..1) {
-                for (iy in -1..1) {
-                    val list = cellMap[(cxi + ix) * 100_000L + (cyi + iy)] ?: continue
-                    for (o in list) {
-                        if (o === g) continue
-                        val dx = g.x - o.x
-                        val dy = g.y - o.y
-                        val d = hypot(dx, dy)
-                        if (d < minDist && d > 0.0001f) {
-                            val push = min((minDist - d) / 2f, maxPush)
-                            val nx = dx / d
-                            val ny = dy / d
-                            g.x += nx * push
-                            g.y += ny * push
-                            o.x -= nx * push
-                            o.y -= ny * push
-                            // Normal impulse: kill the approach speed almost
-                            // entirely instead of bouncing it back.
-                            val rvn = (g.vx - o.vx) * nx + (g.vy - o.vy) * ny
-                            if (rvn < 0f) {
-                                val j = rvn * 0.52f
-                                g.vx -= j * nx
-                                g.vy -= j * ny
-                                o.vx += j * nx
-                                o.vy += j * ny
-                            }
-                            // Friction: rub away the sliding component, so
-                            // grains lock into a slope.
-                            val tx = -ny
-                            val ty = nx
-                            val rvt = (g.vx - o.vx) * tx + (g.vy - o.vy) * ty
-                            val f = rvt * FRICTION
-                            g.vx -= f * tx
-                            g.vy -= f * ty
-                            o.vx += f * tx
-                            o.vy += f * ty
-                        }
-                    }
-                }
+    private fun tryMove(i: Int, j: Int, dx: Int, dy: Int): Boolean {
+        if (dx == 0 && dy == 0) return false
+        val ni = i + dx
+        val nj = j + dy
+        if (ni < 0 || ni >= cols || nj < 0 || nj >= rows) return false
+        val to = index(ni, nj)
+        if (cells[to] != EMPTY) return false
+        // Entering the downstream half is the one move the clock controls,
+        // and nothing goes back up the neck the other way.
+        val from = sideOf(j)
+        val to2 = sideOf(nj)
+        if (to2 != from) {
+            if (to2 == gateSide) {
+                if (gateBudget <= 0) return false
+                gateBudget--
+            } else if (from == gateSide) {
+                return false
             }
         }
-        // Grains that have all but stopped go to sleep, so a settled pile
-        // stops shivering.
-        for (g in grains) {
-            if (hypot(g.vx, g.vy) < grainR * 1.2f) {
-                g.vx *= 0.55f
-                g.vy *= 0.55f
+        cells[index(i, j)] = EMPTY
+        cells[to] = SAND
+        moved[to] = true
+        return true
+    }
+
+    /**
+     * The finger doesn't apply a force — there are no forces here. It simply
+     * picks grains up and puts them down a little further along, which from
+     * the outside is indistinguishable from shoving them.
+     */
+    private fun stir(dx: Int, dy: Int) {
+        val reach = (cols * 0.07f).coerceIn(3f, 9f)
+        val ci = ((stirX - gridLeft) / cellSize).toInt()
+        val cj = ((stirY - gridTop) / cellSize).toInt()
+        val r = (reach + 2f).toInt()
+        val sx = if (abs(stirDx) < 0.35f) 0 else if (stirDx > 0) 1 else -1
+        val sy = if (abs(stirDy) < 0.35f) 0 else if (stirDy > 0) 1 else -1
+        for (jj in (cj - r)..(cj + r)) {
+            if (jj < 0 || jj >= rows) continue
+            for (ii in (ci - r)..(ci + r)) {
+                if (ii < 0 || ii >= cols) continue
+                val k = index(ii, jj)
+                if (cells[k] != SAND || moved[k]) continue
+                if (hypot((ii - ci).toFloat(), (jj - cj).toFloat()) > reach) continue
+                if (sx != 0 || sy != 0) {
+                    if (tryMove(ii, jj, sx, sy)) continue
+                }
+                // A poke with no direction still unsettles the pile.
+                tryMove(ii, jj, Random.nextInt(3) - 1, if (dy >= 0) -1 else 1)
             }
         }
     }
@@ -459,19 +531,15 @@ class SandHourglassView @JvmOverloads constructor(
                 stirActive = true
                 stirX = event.x
                 stirY = event.y
-                stirVx = 0f
-                stirVy = 0f
-                lastStirAt = SystemClock.uptimeMillis()
+                stirDx = 0f
+                stirDy = 0f
             }
             MotionEvent.ACTION_MOVE -> {
                 if (!scaleDetector.isInProgress) {
-                    val now = SystemClock.uptimeMillis()
-                    val dt = (now - lastStirAt).coerceAtLeast(1L) / 1000f
-                    stirVx = (event.x - stirX) / dt
-                    stirVy = (event.y - stirY) / dt
+                    stirDx = (event.x - stirX) / cellSize
+                    stirDy = (event.y - stirY) / cellSize
                     stirX = event.x
                     stirY = event.y
-                    lastStirAt = now
                     stirActive = true
                 } else {
                     stirActive = false
@@ -492,22 +560,25 @@ class SandHourglassView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (width == 0 || halfH <= 0f) return
-        stepPhysics()
+        if (cols == 0 || halfH <= 0f) return
+        step()
 
-        // Sand.
-        sandPaint.color = theme.decimal
-        for (g in grains) {
-            canvas.drawCircle(g.x, g.y, grainR * 0.8f, sandPaint)
+        val bmp = bitmap
+        if (bmp != null) {
+            for (k in cells.indices) {
+                pixels[k] = if (cells[k] == SAND) palette[speckle[k].toInt()] else 0
+            }
+            bmp.setPixels(pixels, 0, cols, 0, 0, cols, rows)
+            canvas.drawBitmap(bmp, sandSrc, sandDst, sandPaint)
         }
 
-        // Glass on top, so grains read as inside it.
+        // Glass on top, so the sand reads as inside it.
         glassPaint.color = theme.rim
-        glassPaint.strokeWidth = (grainR * 0.9f).coerceAtLeast(3f)
+        glassPaint.strokeWidth = (cellSize * 1.2f).coerceAtLeast(3f)
         canvas.drawPath(glassPath, glassPaint)
 
         framePaint.color = theme.tick
-        framePaint.strokeWidth = (grainR * 1.4f).coerceAtLeast(4f)
+        framePaint.strokeWidth = (cellSize * 1.8f).coerceAtLeast(4f)
         canvas.drawLine(
             cx - bulbHalf * 1.18f, cy - halfH,
             cx + bulbHalf * 1.18f, cy - halfH, framePaint
@@ -521,9 +592,11 @@ class SandHourglassView @JvmOverloads constructor(
     }
 
     companion object {
-        private const val GRAVITY = 2000f
+        private const val EMPTY: Byte = 0
+        private const val SAND: Byte = 1
+        private const val WALL: Byte = 2
 
-        /** How hard grains rub against each other; sand, not water. */
-        private const val FRICTION = 0.34f
+        /** Grid steps per frame: how fast a falling grain crosses the glass. */
+        private const val PASSES = 3
     }
 }
