@@ -2265,7 +2265,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         refreshCalendarMarks()
         s3Sand?.let {
             it.theme = cv.theme
-            it.maxGrains = prefs.getInt(Prefs.SAND_GRAINS, 260)
+            it.maxGrains = prefs.getInt(Prefs.SAND_GRAINS, 600)
             it.glassScale = cv.dialScale
             it.setTime(countdownTotalMs, countdownRemaining())
         }

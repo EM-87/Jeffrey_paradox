@@ -73,6 +73,7 @@ class SandHourglassView @JvmOverloads constructor(
     var frozen = false
         set(value) {
             field = value
+            lastStepAt = SystemClock.uptimeMillis()
             invalidate()
         }
 
@@ -85,7 +86,7 @@ class SandHourglassView @JvmOverloads constructor(
      * How much work the phone is asked to do. On a grid this is resolution:
      * more means finer sand and more cells to step every frame.
      */
-    var maxGrains = 260
+    var maxGrains = 600
         set(value) {
             val next = value.coerceIn(40, 900)
             if (next != field) {
@@ -198,6 +199,8 @@ class SandHourglassView @JvmOverloads constructor(
     private var lastFlowChangeAt = 0L
     private var reportedBlocked = false
     private var scanFlip = false
+    private var passCarry = 0f
+    private var lastStepAt = 0L
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
@@ -205,6 +208,7 @@ class SandHourglassView @JvmOverloads constructor(
         sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sensorManager?.registerListener(sensorListener, it, SensorManager.SENSOR_DELAY_GAME)
         }
+        lastStepAt = SystemClock.uptimeMillis()
         postInvalidateOnAnimation()
     }
 
@@ -221,13 +225,15 @@ class SandHourglassView @JvmOverloads constructor(
     // ------------------------------------------------------------- geometry
 
     /**
-     * Glass half-width at height [y]: neck-width at the waist, swelling as
-     * the square root of the distance toward each bulb — the classic
-     * hourglass silhouette.
+     * Glass half-width at height [y]. The old square-root waist was not a
+     * neck at all: one row past the middle it was already nine cells across,
+     * so the sand came through in two loose threads instead of one stream.
+     * A smoothstep holds the throat narrow for a while before opening into
+     * the bulbs, which is both the right silhouette and the right plumbing.
      */
     private fun halfWidthAt(y: Float): Float {
         val t = (abs(y - cy) / halfH).coerceIn(0f, 1f)
-        return neckHalf + (bulbHalf - neckHalf) * sqrt(t)
+        return neckHalf + (bulbHalf - neckHalf) * (t * t * (3f - 2f * t))
     }
 
     /**
@@ -252,9 +258,9 @@ class SandHourglassView @JvmOverloads constructor(
         gridLeft = cx - bulbHalf
         gridTop = cy - halfH
         neckRow = rows / 2
-        // Wide enough that a stream actually fits through it, whatever the
-        // resolution: about four cells across.
-        neckHalf = cellSize * 2f
+        // Single file: a throat two cells across pours one unbroken thread
+        // rather than several sparse ones.
+        neckHalf = cellSize * 1.2f
         sandSrc.set(0, 0, cols, rows)
         sandDst.set(gridLeft, gridTop, gridLeft + cols * cellSize, gridTop + rows * cellSize)
 
@@ -358,18 +364,28 @@ class SandHourglassView @JvmOverloads constructor(
 
     // -------------------------------------------------------------- the rule
 
-    private fun step() {
-        if (frozen || cols == 0) return
+    /**
+     * How fast a falling grain travels, in cells per second. Tied to how
+     * fast the clock releases them: a stream looks unbroken when the grains
+     * leaving the neck are no further apart than a cell or two, and that is
+     * a matter of matching these two rates, not of dropping sand faster.
+     * Floored so a long countdown still falls at a believable speed, and
+     * capped so a short one does not blur.
+     */
+    private fun fallRate(): Float {
+        val release = sandTotal / (totalMs / 1000f)
+        return (release * 1.4f).coerceIn(24f, 90f)
+    }
 
-        // Which way is down, as a step on the grid: one of the eight
-        // neighbours, so a tilted phone really does pour sideways.
+    private fun step() {
+        if (cols == 0) return
+        val now = SystemClock.uptimeMillis()
+        val dt = ((now - lastStepAt).coerceIn(0L, 50L)) / 1000f
+        lastStepAt = now
+        if (frozen) return
+
         val mag = hypot(gravityX, gravityY)
         if (mag < 0.05f) return
-        var dx = 0
-        var dy = 0
-        if (gravityX > mag * 0.4f) dx = 1 else if (gravityX < -mag * 0.4f) dx = -1
-        if (gravityY > mag * 0.4f) dy = 1 else if (gravityY < -mag * 0.4f) dy = -1
-        if (dx == 0 && dy == 0) dy = 1
 
         // The turnstile at the waist. Sand only crosses into the half it is
         // falling towards, and only as fast as the clock spends it.
@@ -386,7 +402,6 @@ class SandHourglassView @JvmOverloads constructor(
 
         // Physical time: sand that should be flowing but cannot reports it,
         // and the countdown stops until the glass is upright again.
-        val now = SystemClock.uptimeMillis()
         if (upstream != lastUpstream) {
             lastUpstream = upstream
             lastFlowChangeAt = now
@@ -397,17 +412,34 @@ class SandHourglassView @JvmOverloads constructor(
             onFlowBlocked?.invoke(blocked)
         }
 
-        // Diagonals: the two neighbours either side of straight-down. Sand
-        // that can't drop tries to slide, which is what gives a heap its
-        // slope — always 45 degrees, exactly like real sand at rest.
-        val px = -dy
-        val py = dx
-        val ax = (dx + px).coerceIn(-1, 1)
-        val ay = (dy + py).coerceIn(-1, 1)
-        val bx = (dx - px).coerceIn(-1, 1)
-        val by = (dy - py).coerceIn(-1, 1)
+        passCarry += fallRate() * dt
+        var passes = passCarry.toInt()
+        passCarry -= passes
+        if (passes > 4) passes = 4
 
-        repeat(PASSES) {
+        // Down, as a step on the grid. Rounding the gravity vector to the
+        // nearest of the eight neighbours ignored every tilt under a quarter
+        // turn; drawing it from the two neighbours either side of the real
+        // angle, in proportion, means the sand answers a slight tilt with a
+        // slight lean and a hard one with a landslide.
+        val octant = (kotlin.math.atan2(gravityY, gravityX) / (Math.PI.toFloat() / 4f))
+        val low = kotlin.math.floor(octant)
+        val frac = octant - low
+
+        repeat(passes) {
+            val pick = (low.toInt() + if (Random.nextFloat() < frac) 1 else 0).mod(8)
+            val dx = OCT_X[pick]
+            val dy = OCT_Y[pick]
+            // The two neighbours either side of straight-down. Sand that
+            // can't drop tries to slide, which is what gives a heap its
+            // slope instead of a tower.
+            val px = -dy
+            val py = dx
+            val ax = (dx + px).coerceIn(-1, 1)
+            val ay = (dy + py).coerceIn(-1, 1)
+            val bx = (dx - px).coerceIn(-1, 1)
+            val by = (dy - py).coerceIn(-1, 1)
+
             java.util.Arrays.fill(moved, false)
             if (stirActive) stir(dx, dy)
             scanFlip = !scanFlip
@@ -420,20 +452,25 @@ class SandHourglassView @JvmOverloads constructor(
                     val k = index(i, j)
                     if (cells[k] != SAND || moved[k]) continue
                     if (tryMove(i, j, dx, dy)) continue
-                    // A grain walled in on all three sides is asleep, and
-                    // most of a settled pile is: worth the two lookups to
-                    // skip the dice roll for every one of them.
-                    if (!isFree(i + ax, j + ay) && !isFree(i + bx, j + by)) continue
-                    // Which diagonal first is a coin toss, or the sand would
-                    // drift steadily to one side.
-                    if (Random.nextFloat() < 0.75f) {
-                        if (Random.nextBoolean()) {
-                            if (tryMove(i, j, ax, ay)) continue
-                            tryMove(i, j, bx, by)
-                        } else {
-                            if (tryMove(i, j, bx, by)) continue
-                            tryMove(i, j, ax, ay)
+                    if (isFree(i + ax, j + ay) || isFree(i + bx, j + by)) {
+                        // Which diagonal first is a coin toss, or the sand
+                        // would drift steadily to one side.
+                        if (Random.nextFloat() < DIAGONAL) {
+                            if (Random.nextBoolean()) {
+                                if (tryMove(i, j, ax, ay)) continue
+                                tryMove(i, j, bx, by)
+                            } else {
+                                if (tryMove(i, j, bx, by)) continue
+                                tryMove(i, j, ax, ay)
+                            }
                         }
+                        continue
+                    }
+                    // Creep: a buried grain shuffles sideways now and then,
+                    // so a heap settles instead of standing wherever it fell.
+                    if (Random.nextFloat() < CREEP) {
+                        if (Random.nextBoolean()) tryMove(i, j, px, py)
+                        else tryMove(i, j, -px, -py)
                     }
                 }
             }
@@ -596,7 +633,13 @@ class SandHourglassView @JvmOverloads constructor(
         private const val SAND: Byte = 1
         private const val WALL: Byte = 2
 
-        /** Grid steps per frame: how fast a falling grain crosses the glass. */
-        private const val PASSES = 3
+        /** How readily a grain slides down a slope rather than sitting on it. */
+        private const val DIAGONAL = 0.85f
+
+        /** How readily a buried grain shuffles sideways to settle. */
+        private const val CREEP = 0.12f
+
+        private val OCT_X = intArrayOf(1, 1, 0, -1, -1, -1, 0, 1)
+        private val OCT_Y = intArrayOf(0, 1, 1, 1, 0, -1, -1, -1)
     }
 }

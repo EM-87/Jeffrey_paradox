@@ -110,7 +110,7 @@
             android:title="@string/pref_countdown_bubble_title" />
 
         <SeekBarPreference
-            android:defaultValue="260"
+            android:defaultValue="600"
             android:key="pref_sand_grains"
             android:max="900"
             android:summary="@string/pref_sand_grains_summary"
