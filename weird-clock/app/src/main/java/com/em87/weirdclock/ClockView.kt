@@ -771,6 +771,16 @@ class ClockView @JvmOverloads constructor(
      * even when every other hand is stacked on top of it at twelve. It also
      * takes precedence over the crown, which lives at exactly that spot.
      */
+    /**
+     * The band between the minute hand's tip and the rim. Nobody reaching in
+     * there means to grab the minute hand — its tip is the inner edge of the
+     * band — so the second hand owns it, and so does the crown's silence.
+     */
+    private fun inSecondHandBand(x: Float, y: Float): Boolean {
+        val dist = hypot(x - width / 2f, y - height / 2f)
+        return dist >= boundaryRadius(touchAngleDeg(x, y)) * MINUTE_LEN
+    }
+
     private fun secondHandRingHit(x: Float, y: Float): Boolean {
         if (!chronoSettable || chronoProvider == null) return false
         if (!showSecondHand || isFallen(Hand.SECOND)) return false
@@ -779,7 +789,7 @@ class ClockView @JvmOverloads constructor(
         val touchDeg = touchAngleDeg(x, y)
         val b = boundaryRadius(touchDeg)
         val dist = hypot(x - cx, y - cy)
-        if (dist < b * 0.94f || dist > b * 1.30f) return false
+        if (dist < b * MINUTE_LEN || dist > b * 1.30f) return false
         val handDeg = angleOf(Hand.SECOND, currentAngles())
         return kotlin.math.abs(normalizeDeg(touchDeg - handDeg)) < 16f
     }
@@ -872,16 +882,15 @@ class ClockView @JvmOverloads constructor(
         val threshold = max(r * 0.10f, 44f * resources.displayMetrics.density)
         var chosen: Hand? = null
         if (chronoSettable && chronoProvider != null) {
-            // Setting a duration: inside the dial, minutes and hours matter
-            // and seconds barely. Reaching in from outside signals a
-            // seconds-scale countdown, so the second hand wins there.
-            val fingerDist = hypot(x - cx, y - cy)
+            // Setting a duration: within the dial proper, minutes and hours
+            // matter and seconds barely.
             if (secondHandRingHit(x, y)) chosen = Hand.SECOND
-            val fromOutside = fingerDist > r
-            val order = if (fromOutside) {
-                arrayOf(Triple(Hand.SECOND, 1.4f, showSecondHand),
-                    Triple(Hand.MINUTE, 1.1f, true),
-                    Triple(Hand.HOUR, 1.0f, true))
+            // Past the minute hand's tip there is nothing but second hand:
+            // offering the minute one out there only ever stole the grab.
+            val outerBand = showSecondHand && !isFallen(Hand.SECOND) &&
+                inSecondHandBand(x, y)
+            val order = if (outerBand) {
+                arrayOf(Triple(Hand.SECOND, 1.8f, true))
             } else {
                 arrayOf(Triple(Hand.MINUTE, 1.4f, true),
                     Triple(Hand.HOUR, 1.2f, true),
@@ -2017,8 +2026,13 @@ class ClockView @JvmOverloads constructor(
                 var ghostY = yTop + digitH * 1.28f
                 var ghostH = digitH * 0.78f
                 val bottom = height - 2f
+                var shown = 0
                 for (lap in laps.reversed()) {
+                    // Seven is as far as the ladder goes: the eighth rung
+                    // lands on the button back to the clock.
+                    if (shown >= MAX_GHOST_LAPS) break
                     if (ghostY + ghostH > bottom || ghostH < digitH * 0.16f) break
+                    shown++
                     digitalPaint.alpha = (150f * (ghostH / (digitH * 0.78f)))
                         .toInt().coerceIn(45, 180)
                     drawSevenSegment(canvas, formatDuration(lap.ms), cx, ghostY, ghostH)
@@ -2350,7 +2364,7 @@ class ClockView @JvmOverloads constructor(
             if (label.isEmpty()) return
             unitPaint.color = digitalPaint.color
             unitPaint.alpha = (digitalPaint.alpha * 0.75f).toInt()
-            unitPaint.textSize = digitH * 0.38f
+            unitPaint.textSize = digitH * 0.52f
             canvas.drawText(label, (groupStart + endX) / 2f, top - digitH * 0.10f, unitPaint)
         }
 
@@ -2435,11 +2449,22 @@ class ClockView @JvmOverloads constructor(
         /** How far a lap may drift from the truth before it is a fake. */
         private const val FAKE_LAP_TOLERANCE_MS = 400L
         private val END_SIDES = floatArrayOf(1f, -1f)
-        /** Hours, minutes, seconds — a time of day, or a long chronograph. */
-        private val UNITS_CLOCK = listOf("h", "m", "s")
+        /**
+         * Hours, minutes, seconds. Prime and double prime, as on a sundial or
+         * a stopwatch bezel — and the giveaway is the tail: a reading that
+         * ends in a double prime ends in seconds.
+         */
+        private val UNITS_CLOCK = listOf("h", "\u2032", "\u2033")
 
-        /** Under the hour the last slot is hundredths, not seconds. */
-        private val UNITS_STOPWATCH = listOf("m", "s", "cs")
+        /**
+         * Under the hour the last pair is hundredths, and it is left unmarked
+         * on purpose: minutes and seconds carry their marks, so anything
+         * after the double prime is plainly a fraction of a second.
+         */
+        private val UNITS_STOPWATCH = listOf("\u2032", "\u2033", "")
+
+        /** Rungs of the lap ladder, before it would reach the buttons. */
+        private const val MAX_GHOST_LAPS = 7
 
         private val SEGMENT_BITS = intArrayOf(
             0b1111110, 0b0110000, 0b1101101, 0b1111001, 0b0110011,
