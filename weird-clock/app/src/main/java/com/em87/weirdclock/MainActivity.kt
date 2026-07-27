@@ -361,6 +361,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
                 lastPage = position
+                // Landing on the alarms: whatever happened while away — a
+                // time wound on the dial, an alarm that rang — shows now.
+                if (position == PAGE_RIGHT) refreshAlarmsUi()
             }
         })
         if (intent.getBooleanExtra(EXTRA_OPEN_ALARMS, false)) {
@@ -844,8 +847,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
             holder.timeBox.visibility = if (analog) View.GONE else View.VISIBLE
             holder.dials.visibility = if (analog) View.VISIBLE else View.GONE
-            holder.dials.removeAllViews()
-            if (analog) fillAlarmDials(holder.dials, times)
+            // Faces wind themselves into place when they are born, so they are
+            // only born when they would actually show something different —
+            // otherwise every switch flicked anywhere in the list set every
+            // clock on screen winding again.
+            val signature = listOf(
+                analog, times, readDialShape(), readHoursOnDial(), clockView?.theme
+            )
+            if (holder.dials.tag != signature) {
+                holder.dials.tag = signature
+                holder.dials.removeAllViews()
+                if (analog) fillAlarmDials(holder.dials, times)
+            }
 
             holder.time.text =
                 String.format(Locale.US, "%02d:%02d", times[0].first, times[0].second)
@@ -882,7 +895,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             val hasSnooze = alarm.snoozeMinutes > 0
             holder.iconSnooze.visibility = if (hasSnooze) View.VISIBLE else View.GONE
             holder.snoozeMin.visibility = if (hasSnooze) View.VISIBLE else View.GONE
-            holder.snoozeMin.text = alarm.snoozeMinutes.toString()
+            holder.snoozeMin.text =
+                getString(R.string.reminder_duration_min, alarm.snoozeMinutes)
             holder.iconVibrate.visibility = if (alarm.vibrate) View.VISIBLE else View.GONE
             holder.iconFlash.visibility = if (alarm.flash) View.VISIBLE else View.GONE
             holder.iconCalendar.visibility =
@@ -1490,14 +1504,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     private fun refreshAlarmsUi() {
+        val recycler = alarmsRecycler
+        if (recycler != null && recycler.isComputingLayout) {
+            recycler.post { refreshAlarmsUi() }
+            return
+        }
         alarmsAdapter.notifyDataSetChanged()
         // The alarm list lives inside a ViewPager2, which is itself a
         // RecyclerView, and a layout request from a list nested in a list can
         // be swallowed — the cards then sit on stale data until something
-        // else forces a pass, such as flipping a switch. Asking again on the
-        // next frame, from outside any layout in progress, sticks.
-        alarmsRecycler?.let { recycler ->
-            recycler.post {
+        // else forces a pass, such as flipping a switch. So it is asked
+        // again on the next frame, from outside any layout in progress. The
+        // second pass costs nothing to look at: the faces are only rebuilt
+        // when what they show has actually changed.
+        recycler?.post {
+            if (!recycler.isComputingLayout) {
+                alarmsAdapter.notifyDataSetChanged()
                 recycler.requestLayout()
                 recycler.invalidate()
             }

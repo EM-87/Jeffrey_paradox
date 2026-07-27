@@ -316,6 +316,10 @@ class ClockView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
     }
+    /** The h / m / s marks over the seven-segment readout. */
+    private val unitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+    }
     private val hourHandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
@@ -1990,10 +1994,19 @@ class ClockView @JvmOverloads constructor(
             }
             else -> null
         }
+        // Which slot is which: a stopwatch reading 01:20:45 is not twenty
+        // past one, and the units say so.
+        val digitalUnits = when {
+            chronoProvider == null -> UNITS_CLOCK
+            kotlin.math.abs(
+                if (chronoSettable) chronoDisplayMs() ?: 0L else chronoProvider?.invoke() ?: 0L
+            ) < 3_600_000L -> UNITS_STOPWATCH
+            else -> UNITS_CLOCK
+        }
         digitalText?.let {
             val digitH = r * 0.13f
             val yTop = min(cy + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
-            drawSevenSegment(canvas, it, cx, yTop, digitH)
+            drawSevenSegment(canvas, it, cx, yTop, digitH, digitalUnits)
 
             // Ghost copies of the recent laps, stacked under the readout —
             // as many as the space below the dial can hold.
@@ -2311,7 +2324,14 @@ class ClockView @JvmOverloads constructor(
     }
 
     // Seven-segment bits, ordered a(64) b(32) c(16) d(8) e(4) f(2) g(1).
-    private fun drawSevenSegment(canvas: Canvas, text: String, cx: Float, top: Float, digitH: Float) {
+    private fun drawSevenSegment(
+        canvas: Canvas,
+        text: String,
+        cx: Float,
+        top: Float,
+        digitH: Float,
+        units: List<String>? = null
+    ) {
         val digitW = digitH * 0.55f
         val gap = digitW * 0.45f
         val colonW = digitW * 0.5f
@@ -2320,12 +2340,29 @@ class ClockView @JvmOverloads constructor(
         totalW -= gap
         var x = cx - totalW / 2f
         digitalPaint.strokeWidth = digitH * 0.10f
+
+        // Each run of digits between colons is one unit's slot, and its mark
+        // sits centred just above it.
+        var group = 0
+        var groupStart = x
+        fun markGroup(endX: Float) {
+            val label = units?.getOrNull(group) ?: return
+            if (label.isEmpty()) return
+            unitPaint.color = digitalPaint.color
+            unitPaint.alpha = (digitalPaint.alpha * 0.75f).toInt()
+            unitPaint.textSize = digitH * 0.38f
+            canvas.drawText(label, (groupStart + endX) / 2f, top - digitH * 0.10f, unitPaint)
+        }
+
         for (c in text) {
             when {
                 c == ':' -> {
+                    markGroup(x - gap)
+                    group++
                     canvas.drawPoint(x + colonW / 2f, top + digitH * 0.30f, digitalPaint)
                     canvas.drawPoint(x + colonW / 2f, top + digitH * 0.70f, digitalPaint)
                     x += colonW + gap
+                    groupStart = x
                 }
                 c == '-' -> {
                     // Minus sign: the middle (g) segment on its own.
@@ -2341,6 +2378,7 @@ class ClockView @JvmOverloads constructor(
                 }
             }
         }
+        markGroup(x - gap)
     }
 
     private fun drawSegments(canvas: Canvas, bits: Int, x: Float, y: Float, w: Float, h: Float) {
@@ -2397,6 +2435,12 @@ class ClockView @JvmOverloads constructor(
         /** How far a lap may drift from the truth before it is a fake. */
         private const val FAKE_LAP_TOLERANCE_MS = 400L
         private val END_SIDES = floatArrayOf(1f, -1f)
+        /** Hours, minutes, seconds — a time of day, or a long chronograph. */
+        private val UNITS_CLOCK = listOf("h", "m", "s")
+
+        /** Under the hour the last slot is hundredths, not seconds. */
+        private val UNITS_STOPWATCH = listOf("m", "s", "cs")
+
         private val SEGMENT_BITS = intArrayOf(
             0b1111110, 0b0110000, 0b1101101, 0b1111001, 0b0110011,
             0b1011011, 0b1011111, 0b1110000, 0b1111111, 0b1111011
