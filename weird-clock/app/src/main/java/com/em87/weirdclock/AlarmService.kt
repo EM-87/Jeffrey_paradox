@@ -28,6 +28,14 @@ class AlarmService : Service() {
         const val ACTION_SNOOZE = "com.em87.weirdclock.action.SNOOZE_ALARM"
         const val CHANNEL_ID = "alarm"
         const val NOTIFICATION_ID = 1
+
+        /**
+         * Set by the ring screen so it can close itself when the ringing
+         * ends — from the notification's Stop, or from the three-minute
+         * timeout. Otherwise it sat there over the lock screen, silent,
+         * offering to stop an alarm that had already stopped.
+         */
+        var onStopped: (() -> Unit)? = null
     }
 
     private val chimePlayer = ChimePlayer()
@@ -41,6 +49,9 @@ class AlarmService : Service() {
     private var mediaPlayer: MediaPlayer? = null
     private var flashOn = false
 
+    /** Which camera's torch is lit — not necessarily the first one. */
+    private var torchCameraId: String? = null
+
     /** Strobes the camera torch while the alarm rings, if asked to. */
     private val flashLoop = object : Runnable {
         override fun run() {
@@ -52,6 +63,7 @@ class AlarmService : Service() {
                 }
                 if (id != null && Build.VERSION.SDK_INT >= 23) {
                     flashOn = !flashOn
+                    torchCameraId = id
                     manager.setTorchMode(id, flashOn)
                 }
             } catch (e: Exception) {
@@ -187,6 +199,7 @@ class AlarmService : Service() {
         handler.removeCallbacksAndMessages(null)
         stopPlayback()
         chimePlayer.release()
+        onStopped?.invoke()
         super.onDestroy()
     }
 
@@ -196,8 +209,11 @@ class AlarmService : Service() {
         getSystemService(android.os.Vibrator::class.java)?.cancel()
         if (flashOn && Build.VERSION.SDK_INT >= 23) {
             try {
+                // The camera that was lit, not camera zero: on a phone whose
+                // first camera is the flashless front one, the torch stayed
+                // on after the alarm stopped.
                 val manager = getSystemService(android.hardware.camera2.CameraManager::class.java)
-                manager?.cameraIdList?.firstOrNull()?.let { manager.setTorchMode(it, false) }
+                torchCameraId?.let { manager?.setTorchMode(it, false) }
             } catch (e: Exception) {
                 // Torch already released.
             }

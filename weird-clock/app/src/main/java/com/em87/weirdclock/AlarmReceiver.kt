@@ -22,10 +22,12 @@ class AlarmReceiver : BroadcastReceiver() {
                 intent.getBooleanExtra(AlarmScheduler.EXTRA_FLASH, false)
             )
         ContextCompat.startForegroundService(context, service)
-        // A calendar reminder is one-shot: it expires as it fires.
-        val reminderId = intent.getIntExtra(AlarmScheduler.EXTRA_REMINDER_ID, -1)
-        if (reminderId > 0) ReminderStore.remove(context, reminderId)
-        // Re-arm the next upcoming alarm (this one's next slot is tomorrow).
+        // A reminder used to be deleted the moment it rang. That killed a
+        // yearly one on its first outing, and a reminder set to warn a week
+        // early vanished from the calendar a week before the thing it was
+        // for. Nothing is deleted here: a spent reminder simply stops being
+        // scheduled, because its ring time is now in the past, and the
+        // three-month sweep collects it in the end.
         AlarmScheduler.update(context)
     }
 }

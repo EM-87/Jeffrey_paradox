@@ -28,6 +28,10 @@ class AlarmRingActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_alarm_ring)
 
+        // Stopped from the notification, or given up after three minutes:
+        // either way this screen has nothing left to offer.
+        AlarmService.onStopped = { runOnUiThread { finish() } }
+
         findViewById<TextView>(R.id.alarm_time_text).text =
             DateFormat.getTimeInstance(DateFormat.SHORT).format(Date())
         intent.getStringExtra(AlarmScheduler.EXTRA_LABEL)?.takeIf { it.isNotBlank() }?.let {
@@ -50,5 +54,10 @@ class AlarmRingActivity : AppCompatActivity() {
                 finish()
             }
         }
+    }
+
+    override fun onDestroy() {
+        AlarmService.onStopped = null
+        super.onDestroy()
     }
 }

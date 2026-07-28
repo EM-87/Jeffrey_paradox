@@ -341,7 +341,32 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 applyPreferences()
             }
 
+            // "in 7 h 20 min" is only true for a minute at a time.
+            val minuteNow = System.currentTimeMillis() / 60_000L
+            if (minuteNow != lastCountdownMinute) {
+                lastCountdownMinute = minuteNow
+                updateAlarmCountdowns()
+            }
+
             handler.postDelayed(this, 1000L - (System.currentTimeMillis() % 1000L))
+        }
+    }
+
+    private var lastCountdownMinute = 0L
+
+    /**
+     * Retimes the cards in place. Rebinding the whole list every minute would
+     * be a lot of work to change eight characters, and would set every face
+     * winding again.
+     */
+    private fun updateAlarmCountdowns() {
+        val recycler = alarmsRecycler ?: return
+        for (i in 0 until recycler.childCount) {
+            val holder = recycler.getChildViewHolder(recycler.getChildAt(i)) as? AlarmHolder
+                ?: continue
+            val position = holder.bindingAdapterPosition
+            if (position !in alarms.indices) continue
+            paintNextRing(holder, alarms[position])
         }
     }
 
@@ -876,14 +901,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             holder.extraTimes.visibility =
                 if (times.size > 1) View.VISIBLE else View.GONE
 
-            // The one line that tells you whether you set it right.
-            holder.next.visibility = if (alarm.enabled) View.VISIBLE else View.GONE
-            if (alarm.enabled) {
-                holder.next.text = getString(
-                    R.string.alarm_rings_in,
-                    describeWait(AlarmScheduler.nextOccurrence(alarm) - System.currentTimeMillis())
-                )
-            }
+            paintNextRing(holder, alarm)
 
             holder.name.text = alarm.label.ifBlank { getString(R.string.alarm_label_hint) }
             holder.name.alpha = if (alarm.label.isBlank()) 0.45f else 1f
@@ -1017,6 +1035,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 )
             }
         }
+    }
+
+    /** The one line that tells you whether you set the alarm right. */
+    private fun paintNextRing(holder: AlarmHolder, alarm: Alarm) {
+        holder.next.visibility = if (alarm.enabled) View.VISIBLE else View.GONE
+        if (!alarm.enabled) return
+        holder.next.text = getString(
+            R.string.alarm_rings_in,
+            describeWait(AlarmScheduler.nextOccurrence(alarm) - System.currentTimeMillis())
+        )
     }
 
     /** "2 d 3 h", "7 h 20 min", "45 min" — as coarse as the wait deserves. */

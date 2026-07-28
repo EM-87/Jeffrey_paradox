@@ -64,23 +64,33 @@
             android:layout_weight="1"
             android:orientation="vertical">
 
-            <!-- When it will actually go off: the one thing that tells you
-                 whether you set it right. -->
-            <TextView
-                android:id="@+id/alarm_next"
-                android:layout_width="wrap_content"
+            <!-- The name, and right after it when it will actually go off:
+                 the accent colour keeps the two apart without a line of
+                 their own. The name yields the room, not the countdown. -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/accent"
-                android:textSize="12sp" />
+                android:baselineAligned="true"
+                android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/alarm_name"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp" />
+                <TextView
+                    android:id="@+id/alarm_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/alarm_next"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:maxLines="1"
+                    android:textColor="@color/accent"
+                    android:textSize="12sp" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/alarm_days"
