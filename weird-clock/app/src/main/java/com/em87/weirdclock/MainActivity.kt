@@ -507,6 +507,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         handler.removeCallbacks(bubblePhysics)
         sensorManager?.unregisterListener(flipListener)
         ClockWidgetProvider.refreshAll(this)
+        // Leaving the app is as good a moment as any to make sure the bells
+        // are still armed: their chain lives on alarms, and anything that
+        // breaks it (a force stop, an update) leaves them silent otherwise.
+        BellScheduler.update(this)
         // The sand widget wears the theme too, and nothing was repainting
         // it: it kept the old colours until a countdown happened to run. A
         // running one is already being pushed live, so leave it alone.
