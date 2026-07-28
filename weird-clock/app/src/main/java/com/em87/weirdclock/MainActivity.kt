@@ -507,6 +507,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         handler.removeCallbacks(bubblePhysics)
         sensorManager?.unregisterListener(flipListener)
         ClockWidgetProvider.refreshAll(this)
+        // The sand widget wears the theme too, and nothing was repainting
+        // it: it kept the old colours until a countdown happened to run. A
+        // running one is already being pushed live, so leave it alone.
+        if (!countdownRunning) HourglassWidgetProvider.pushIdle(this)
         // A running countdown stays visible from outside the app as an
         // ongoing notification with live remaining time and a progress bar.
         if (countdownRunning && !openingSettings) {

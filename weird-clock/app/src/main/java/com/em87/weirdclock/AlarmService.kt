@@ -46,6 +46,7 @@ class AlarmService : Service() {
     private var label = ""
     private var vibrateEnabled = true
     private var flashEnabled = false
+    private var fromTimer = false
     private var mediaPlayer: MediaPlayer? = null
     private var flashOn = false
 
@@ -140,6 +141,7 @@ class AlarmService : Service() {
         label = intent?.getStringExtra(AlarmScheduler.EXTRA_LABEL) ?: ""
         vibrateEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_VIBRATE, true) != false
         flashEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_FLASH, false) == true
+        fromTimer = intent?.getBooleanExtra(AlarmScheduler.EXTRA_FROM_TIMER, false) == true
         val ramp = PreferenceManager.getDefaultSharedPreferences(this)
             .getBoolean(Prefs.ALARM_RAMP, true)
         chimePlayer.volume = if (ramp) 0.15f else 1f
@@ -254,7 +256,9 @@ class AlarmService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
+            // A finished countdown is not an alarm, and should not wear its
+            // icon: what ran out was a timer.
+            .setSmallIcon(if (fromTimer) R.drawable.ic_timer else R.drawable.ic_notification)
             .setContentTitle(label.ifBlank { getString(R.string.alarm_ringing) })
             .setContentText(DateFormat.getTimeInstance(DateFormat.SHORT).format(Date()))
             .setPriority(NotificationCompat.PRIORITY_MAX)

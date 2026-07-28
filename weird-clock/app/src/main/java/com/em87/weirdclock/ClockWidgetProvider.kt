@@ -27,6 +27,23 @@ class ClockWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    /**
+     * The hands are the system's own AnalogClock and tick by themselves, but
+     * the dial — with the date complication painted on it — is a bitmap this
+     * app renders. Nothing was ever repainting it, so a widget showing the
+     * date sat on yesterday's until the app happened to be opened and left.
+     * Midnight, a manual clock change and a flight across time zones each
+     * ask for a fresh one.
+     */
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        when (intent.action) {
+            Intent.ACTION_DATE_CHANGED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED -> refreshAll(context)
+        }
+    }
+
     companion object {
 
         /** Re-render all widgets after the in-app settings change. */

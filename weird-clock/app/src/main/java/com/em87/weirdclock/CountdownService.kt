@@ -63,6 +63,7 @@ class CountdownService : Service() {
     private var endsAtElapsed = 0L
     private var totalMs = 1L
     private var finished = false
+    private var lastWidgetPush = 0L
 
     private var overlay: HourglassView? = null
     private var overlayParams: WindowManager.LayoutParams? = null
@@ -77,7 +78,14 @@ class CountdownService : Service() {
                 getSystemService(NotificationManager::class.java)
                     ?.notify(NOTIFICATION_ID, buildNotification(remaining))
                 overlay?.remainingMs = remaining
-                HourglassWidgetProvider.push(this@CountdownService, remaining, totalMs)
+                // The overlay wants a smooth half-second tick; the widget
+                // does not — every push is a full bitmap across IPC, and
+                // once a second is already more than the sand shows.
+                val now = SystemClock.elapsedRealtime()
+                if (now - lastWidgetPush >= 1000L) {
+                    lastWidgetPush = now
+                    HourglassWidgetProvider.push(this@CountdownService, remaining, totalMs)
+                }
                 handler.postDelayed(this, if (overlay != null) 500L else 2000L)
             }
         }
@@ -234,6 +242,7 @@ class CountdownService : Service() {
                 this,
                 Intent(this, AlarmService::class.java)
                     .putExtra(AlarmScheduler.EXTRA_LABEL, getString(R.string.countdown_finished))
+                    .putExtra(AlarmScheduler.EXTRA_FROM_TIMER, true)
             )
             stopSelf()
             return

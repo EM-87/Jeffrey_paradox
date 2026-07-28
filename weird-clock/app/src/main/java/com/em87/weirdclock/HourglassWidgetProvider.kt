@@ -24,6 +24,17 @@ class HourglassWidgetProvider : AppWidgetProvider() {
         pushIdle(context)
     }
 
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: android.os.Bundle
+    ) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+        // Resized: redraw at the new size rather than stretching the old one.
+        pushIdle(context)
+    }
+
     companion object {
 
         fun push(context: Context, remainingMs: Long, totalMs: Long) {
@@ -33,23 +44,32 @@ class HourglassWidgetProvider : AppWidgetProvider() {
             )
             if (ids.isEmpty()) return
             val density = context.resources.displayMetrics.density
-            val bitmap = renderBitmap(
-                context, remainingMs, totalMs,
-                (110 * density).toInt(), (165 * density).toInt()
+            val open = PendingIntent.getActivity(
+                context,
+                5,
+                Intent(context, MainActivity::class.java)
+                    .putExtra(MainActivity.EXTRA_OPEN_TIMER, true),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            val views = RemoteViews(context.packageName, R.layout.widget_hourglass)
-            views.setImageViewBitmap(R.id.widget_hourglass_image, bitmap)
-            views.setOnClickPendingIntent(
-                R.id.widget_hourglass_image,
-                PendingIntent.getActivity(
-                    context,
-                    5,
-                    Intent(context, MainActivity::class.java)
-                .putExtra(MainActivity.EXTRA_OPEN_TIMER, true),
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            // Drawn at the size it is actually being shown at: a fixed
+            // 110x165 bitmap was blurred up whenever the widget was
+            // stretched. Capped, because every push crosses IPC whole.
+            for (id in ids) {
+                val options = manager.getAppWidgetOptions(id)
+                val wDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH)
+                    .takeIf { it > 0 } ?: 110
+                val hDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
+                    .takeIf { it > 0 } ?: 165
+                val bitmap = renderBitmap(
+                    context, remainingMs, totalMs,
+                    (wDp.coerceIn(57, 200) * density).toInt(),
+                    (hDp.coerceIn(80, 300) * density).toInt()
                 )
-            )
-            for (id in ids) manager.updateAppWidget(id, views)
+                val views = RemoteViews(context.packageName, R.layout.widget_hourglass)
+                views.setImageViewBitmap(R.id.widget_hourglass_image, bitmap)
+                views.setOnClickPendingIntent(R.id.widget_hourglass_image, open)
+                manager.updateAppWidget(id, views)
+            }
         }
 
         fun pushIdle(context: Context) = push(context, 0L, 1L)

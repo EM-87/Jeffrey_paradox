@@ -26,6 +26,9 @@ object AlarmScheduler {
     const val EXTRA_VIBRATE = "extra_vibrate"
     const val EXTRA_FLASH = "extra_flash"
 
+    /** Set when the ringing is a finished countdown rather than an alarm. */
+    const val EXTRA_FROM_TIMER = "extra_from_timer"
+
     fun update(context: Context) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         // No time travel: alarms only work while time runs at real speed.
