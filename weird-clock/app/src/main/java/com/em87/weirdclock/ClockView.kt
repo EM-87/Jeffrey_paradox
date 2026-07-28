@@ -264,7 +264,9 @@ class ClockView @JvmOverloads constructor(
         }
         val a = currentAngles()
         laps.add(Lap(a.hour, a.minute, a.second, shown, fake))
-        while (laps.size > 9) laps.removeAt(0)
+        // The ladder shows seven; the unfolded list scrolls, so it is worth
+        // keeping far more than that.
+        while (laps.size > MAX_LAPS) laps.removeAt(0)
         // Each new lap fades the CHEATER stamp a little; ten honest laps
         // wash the shame off entirely.
         if (cheaterUntil > 0L) cheaterFade = (cheaterFade + 0.1f).coerceAtMost(1f)
@@ -1077,7 +1079,7 @@ class ClockView @JvmOverloads constructor(
                     fingerDist <= bAtFinger * 1.10f
             val baseMs = chronoFrozenMs ?: 0L
             val durationMs = baseMs + (target * 1000.0).toLong()
-            val magnet = if (inPrecisionBand) magnetFor(durationMs) else null
+            val magnet = if (inPrecisionBand) magnetFor(durationMs, hand) else null
             if (magnet != null) {
                 if (lockedMagnetMs != magnet) {
                     lockedMagnetMs = magnet
@@ -1127,11 +1129,20 @@ class ClockView @JvmOverloads constructor(
                 startSpringBack()
                 return
             }
-            var adjusted = snapCountdown(displayMs)
+            // Which hand it was, passed in rather than read from
+            // draggedHand — which this method has just cleared, so the
+            // commit magnet fell through to the countdown profile: a
+            // 60-second grid with ten seconds of capture, and zero is a
+            // multiple of sixty. That is what swallowed short settings.
+            var adjusted = snapCountdown(displayMs, hand)
             // Set with the minute or hour hand, seconds polarize to zero:
             // nobody means 8:30 and seventeen seconds.
             if (hand != Hand.SECOND) {
                 adjusted = (adjusted + 30_000L) / 60_000L * 60_000L
+            } else {
+                // The offset travels as a double; land it back on the whole
+                // second the detents already chose.
+                adjusted = (adjusted + 500L) / 1000L * 1000L
             }
             chronoFrozenMs = null
             visualOffsetSeconds = 0.0
@@ -1766,15 +1777,15 @@ class ClockView @JvmOverloads constructor(
      * below. Returns the detent value when [ms] is within its capture
      * window, null otherwise.
      */
-    private fun magnetFor(ms: Long): Long? {
+    private fun magnetFor(ms: Long, hand: Hand?): Long? {
         if (ms < 0) return null
-        // The grid follows the hand in your fingers: quarter-minutes on the
-        // second hand (nobody times 37 seconds), the familiar 5-minute grid
-        // on the minute hand, whole hours on the hour hand.
-        val (grid, window) = when (draggedHand) {
+        // The grid follows the hand in your fingers: the familiar 5-minute
+        // grid on the minute hand, whole hours on the hour hand.
+        val (grid, window) = when (hand) {
             // The second hand has its own detents, applied while dragging;
-            // by release time its value is already where it should be.
-            Hand.SECOND -> 0L to 0L
+            // by release time its value is already where it should be, to
+            // the second, and no coarser grid gets to round it away.
+            Hand.SECOND -> return null
             Hand.HOUR -> 3_600_000L to 600_000L
             else -> when (magnetProfile) {
                 MagnetProfile.ALARM -> 300_000L to 40_000L
@@ -1791,7 +1802,7 @@ class ClockView @JvmOverloads constructor(
         return if (kotlin.math.abs(rounded - ms) <= window) rounded else null
     }
 
-    private fun snapCountdown(ms: Long): Long = magnetFor(ms) ?: ms
+    private fun snapCountdown(ms: Long, hand: Hand?): Long = magnetFor(ms, hand) ?: ms
 
     /**
      * Chronograph value including any winding offset and hold-freeze. May be
@@ -2483,6 +2494,10 @@ class ClockView @JvmOverloads constructor(
         val digitW = digitH * 0.55f
         val gap = digitW * 0.45f
         val markW = digitW * 0.34f
+        // The colon is punctuation, not a digit: it takes less room than one
+        // and closes ranks with the groups either side of it.
+        val colonW = digitW * 0.34f
+        val tightGap = gap * 0.45f
 
         // Each unit mark sits in the top corner right after its group of
         // digits, superscript-style, before the colon: 01°:23′:45″.
@@ -2492,17 +2507,34 @@ class ClockView @JvmOverloads constructor(
             else -> markW
         }
 
+        /** Width of one glyph plus the space after it. */
+        fun advanceAt(i: Int): Float {
+            val c = text[i]
+            val w = when (c) {
+                ':' -> colonW
+                ' ' -> digitW * 0.7f
+                else -> digitW
+            }
+            val next = text.getOrNull(i + 1)
+            return w + if (c == ':' || next == ':') tightGap else gap
+        }
+
         var totalW = 0f
         var g = 0
-        for (c in text) {
-            if (c == ':') {
+        for (i in text.indices) {
+            if (text[i] == ':') {
                 totalW += (units?.getOrNull(g)?.let { markWidth(it) } ?: 0f)
                 g++
             }
-            totalW += (if (c == ' ') digitW * 0.7f else digitW) + gap
+            totalW += advanceAt(i)
         }
         totalW += (units?.getOrNull(g)?.let { markWidth(it) } ?: 0f)
-        totalW -= gap
+        totalW -= if (text.isEmpty()) 0f else
+            (advanceAt(text.length - 1) - when (text.last()) {
+                ':' -> colonW
+                ' ' -> digitW * 0.7f
+                else -> digitW
+            })
 
         var x = cx - totalW / 2f
         digitalPaint.strokeWidth = digitH * 0.10f
@@ -2517,21 +2549,21 @@ class ClockView @JvmOverloads constructor(
                 "\u00b0" -> {
                     val wasStyle = digitalPaint.style
                     digitalPaint.style = Paint.Style.STROKE
-                    canvas.drawCircle(at + markW * 0.42f, top + digitH * 0.10f, digitH * 0.085f, digitalPaint)
+                    canvas.drawCircle(at + markW * 0.42f, top + digitH * 0.01f, digitH * 0.085f, digitalPaint)
                     digitalPaint.style = wasStyle
                 }
                 "'" -> canvas.drawLine(
-                    at + markW * 0.62f, top + digitH * 0.02f,
-                    at + markW * 0.38f, top + digitH * 0.22f, digitalPaint
+                    at + markW * 0.62f, top - digitH * 0.09f,
+                    at + markW * 0.38f, top + digitH * 0.11f, digitalPaint
                 )
                 "\"" -> {
                     canvas.drawLine(
-                        at + markW * 0.62f, top + digitH * 0.02f,
-                        at + markW * 0.38f, top + digitH * 0.22f, digitalPaint
+                        at + markW * 0.62f, top - digitH * 0.09f,
+                        at + markW * 0.38f, top + digitH * 0.11f, digitalPaint
                     )
                     canvas.drawLine(
-                        at + markW * 1.17f, top + digitH * 0.02f,
-                        at + markW * 0.93f, top + digitH * 0.22f, digitalPaint
+                        at + markW * 1.17f, top - digitH * 0.09f,
+                        at + markW * 0.93f, top + digitH * 0.11f, digitalPaint
                     )
                 }
             }
@@ -2539,32 +2571,31 @@ class ClockView @JvmOverloads constructor(
         }
 
         var group = 0
-        for (c in text) {
+        for (i in text.indices) {
+            val c = text[i]
             when (c) {
                 ':' -> {
                     units?.getOrNull(group)?.let {
-                        drawMark(it, x - gap * 0.55f)
+                        drawMark(it, x - tightGap * 0.4f)
                         x += markWidth(it)
                     }
                     group++
-                    canvas.drawPoint(x + digitW / 2f, top + digitH * 0.30f, digitalPaint)
-                    canvas.drawPoint(x + digitW / 2f, top + digitH * 0.70f, digitalPaint)
-                    x += digitW + gap
+                    canvas.drawPoint(x + colonW / 2f, top + digitH * 0.30f, digitalPaint)
+                    canvas.drawPoint(x + colonW / 2f, top + digitH * 0.70f, digitalPaint)
                 }
-                ' ' -> x += digitW * 0.7f + gap
                 '-' -> {
                     // Minus sign: the middle (g) segment on its own.
                     val w = digitalPaint.strokeWidth * 0.8f
                     val mid = top + digitH / 2f
                     canvas.drawLine(x + w, mid, x + digitW - w, mid, digitalPaint)
-                    x += digitW + gap
                 }
+                ' ' -> Unit
                 else -> {
                     val digit = c - '0'
                     if (digit in 0..9) drawSegments(canvas, SEGMENT_BITS[digit], x, top, digitW, digitH)
-                    x += digitW + gap
                 }
             }
+            x += advanceAt(i)
         }
         units?.getOrNull(group)?.let { drawMark(it, x - gap * 0.55f) }
     }
@@ -2623,6 +2654,9 @@ class ClockView @JvmOverloads constructor(
         /** How far a lap may drift from the truth before it is a fake. */
         private const val FAKE_LAP_TOLERANCE_MS = 400L
         private val END_SIDES = floatArrayOf(1f, -1f)
+        /** Laps kept: seven show on the ladder, the rest wait in the list. */
+        private const val MAX_LAPS = 40
+
         /** Rungs of the lap ladder, before it would reach the buttons. */
         private const val MAX_GHOST_LAPS = 7
 
