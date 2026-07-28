@@ -94,7 +94,7 @@ object AlarmScheduler {
      * The soonest this alarm next goes off, across every time of day it is
      * set for — a three-times-a-day concept is still one armed alarm.
      */
-    private fun nextOccurrence(alarm: Alarm): Long =
+    fun nextOccurrence(alarm: Alarm): Long =
         alarm.allTimes().minOf { (h, m) -> nextOccurrenceOf(alarm, h, m) }
 
     private fun nextOccurrenceOf(alarm: Alarm, hour: Int, minute: Int): Long {

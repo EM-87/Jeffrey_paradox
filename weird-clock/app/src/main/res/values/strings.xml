@@ -119,6 +119,16 @@
     <string name="alarm_unsaved_title">Unsaved changes</string>
     <string name="alarm_unsaved_message">You changed this alarm without saving.</string>
     <string name="alarm_discard">Discard</string>
+    <string name="reminder_repeat">Repeats</string>
+    <string name="reminder_repeat_never">Never</string>
+    <string name="reminder_repeat_monthly">Every month</string>
+    <string name="reminder_repeat_yearly">Every year</string>
+    <string name="reminder_move">Move to another day</string>
+    <string name="alarm_rings_in">in %1$s</string>
+    <string name="alarm_rings_soon">in under a minute</string>
+    <string name="duration_h_m">%1$d h %2$d min</string>
+    <string name="duration_m">%1$d min</string>
+    <string name="duration_d_h">%1$d d %2$d h</string>
     <string name="reminder_duration">Lasts</string>
     <string name="reminder_duration_none">A moment</string>
     <string name="reminder_duration_min">%1$d min</string>

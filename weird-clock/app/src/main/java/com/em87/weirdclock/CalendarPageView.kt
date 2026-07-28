@@ -206,6 +206,11 @@ class CalendarPageView @JvmOverloads constructor(
                         pageYear(-1)
                     } else if (event.x > width * 0.72f) {
                         pageYear(1)
+                    } else {
+                        // The year itself is the way home, as the month name
+                        // is in the month view. Wandering off to 2031 should
+                        // not be a one-way trip.
+                        jumpToToday()
                     }
                     return true
                 }

@@ -64,6 +64,15 @@
             android:layout_weight="1"
             android:orientation="vertical">
 
+            <!-- When it will actually go off: the one thing that tells you
+                 whether you set it right. -->
+            <TextView
+                android:id="@+id/alarm_next"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/accent"
+                android:textSize="12sp" />
+
             <TextView
                 android:id="@+id/alarm_name"
                 android:layout_width="wrap_content"

@@ -16,10 +16,13 @@
         android:paddingEnd="20dp"
         android:paddingBottom="20dp">
 
+        <!-- Tap the date to move the whole thing to another day. -->
         <TextView
             android:id="@+id/rsheet_date"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:drawablePadding="6dp"
             android:textColor="@color/text_primary"
             android:textSize="26sp"
             android:textStyle="bold" />
@@ -67,6 +70,19 @@
 
             <TextView
                 android:id="@+id/rsheet_duration_value"
+                style="@style/AlarmSheetRowValue" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/rsheet_row_repeat"
+            style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/reminder_repeat" />
+
+            <TextView
+                android:id="@+id/rsheet_repeat_value"
                 style="@style/AlarmSheetRowValue" />
         </LinearLayout>
 

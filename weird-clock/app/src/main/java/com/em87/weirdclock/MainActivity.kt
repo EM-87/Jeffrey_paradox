@@ -103,6 +103,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var reminderRingsBeingSet = false
     private var reminderSoundBeingSet = Prefs.ALARM_SOUND_BELLS
     private var reminderLeadBeingSet = 0
+    private var reminderRepeatBeingSet = Reminder.REPEAT_NEVER
 
     /** A reminder pulled from the list while its time is reset on the dial. */
     private var reminderTakenForEdit: Reminder? = null
@@ -119,7 +120,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val duration: Int,
         val rings: Boolean,
         val sound: String,
-        val lead: Int
+        val lead: Int,
+        val repeat: String
     )
 
     private var durationDraft: ReminderDraft? = null
@@ -821,6 +823,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private inner class AlarmHolder(view: View) : RecyclerView.ViewHolder(view) {
         val dials: LinearLayout = view.findViewById(R.id.alarm_dials)
         val timeBox: View = view.findViewById(R.id.alarm_time_box)
+        val next: TextView = view.findViewById(R.id.alarm_next)
         val time: TextView = view.findViewById(R.id.alarm_time)
         val extraTimes: TextView = view.findViewById(R.id.alarm_extra_times)
         val name: TextView = view.findViewById(R.id.alarm_name)
@@ -872,6 +875,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
             holder.extraTimes.visibility =
                 if (times.size > 1) View.VISIBLE else View.GONE
+
+            // The one line that tells you whether you set it right.
+            holder.next.visibility = if (alarm.enabled) View.VISIBLE else View.GONE
+            if (alarm.enabled) {
+                holder.next.text = getString(
+                    R.string.alarm_rings_in,
+                    describeWait(AlarmScheduler.nextOccurrence(alarm) - System.currentTimeMillis())
+                )
+            }
 
             holder.name.text = alarm.label.ifBlank { getString(R.string.alarm_label_hint) }
             holder.name.alpha = if (alarm.label.isBlank()) 0.45f else 1f
@@ -1004,6 +1016,19 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     )
                 )
             }
+        }
+    }
+
+    /** "2 d 3 h", "7 h 20 min", "45 min" — as coarse as the wait deserves. */
+    private fun describeWait(ms: Long): String {
+        val minutes = (ms / 60_000L).toInt()
+        if (minutes < 1) return getString(R.string.alarm_rings_soon)
+        val days = minutes / 1440
+        val hours = minutes / 60
+        return when {
+            days > 0 -> getString(R.string.duration_d_h, days, hours % 24)
+            hours > 0 -> getString(R.string.duration_h_m, hours, minutes % 60)
+            else -> getString(R.string.duration_m, minutes)
         }
     }
 
@@ -1460,7 +1485,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     ReminderDraft(
                         draft.existing, draft.year, draft.month, draft.day,
                         draft.label, draft.hour, draft.minute, minutes,
-                        draft.rings, draft.sound, draft.lead
+                        draft.rings, draft.sound, draft.lead, draft.repeat
                     )
                 )
             }
@@ -1472,7 +1497,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     ReminderStore.nextId(reminders),
                     year, month, day, hour, minute, reminderLabelBeingSet,
                     reminderDurationBeingSet, reminderRingsBeingSet,
-                    reminderSoundBeingSet, reminderLeadBeingSet
+                    reminderSoundBeingSet, reminderLeadBeingSet,
+                    reminderRepeatBeingSet
                 )
             )
             reminderTakenForEdit = null
@@ -1639,15 +1665,27 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private fun refreshCalendarMarks() {
         val cal = calendarView ?: return
-        cal.markedDays = reminders
-            .filter { it.year == cal.shownYear && it.month == cal.shownMonth1 }
-            .map { it.day }
+        // A repeating reminder is on the calendar every time it comes round,
+        // so the marks are asked date by date rather than read off the one
+        // date it was created on.
+        val daysInMonth = Calendar.getInstance().apply {
+            set(cal.shownYear, cal.shownMonth1 - 1, 1)
+        }.getActualMaximum(Calendar.DAY_OF_MONTH)
+        cal.markedDays = (1..daysInMonth)
+            .filter { day -> reminders.any { it.occursOn(cal.shownYear, cal.shownMonth1, day) } }
             .toSet()
         // Year view dots every busy day of the whole year at once.
-        cal.yearMarks = reminders
-            .filter { it.year == cal.shownYear }
-            .map { (it.month - 1) * 100 + it.day }
-            .toSet()
+        val marks = mutableSetOf<Int>()
+        val probe = Calendar.getInstance()
+        for (m in 1..12) {
+            probe.set(cal.shownYear, m - 1, 1)
+            for (d in 1..probe.getActualMaximum(Calendar.DAY_OF_MONTH)) {
+                if (reminders.any { it.occursOn(cal.shownYear, m, d) }) {
+                    marks.add((m - 1) * 100 + d)
+                }
+            }
+        }
+        cal.yearMarks = marks
     }
 
     private fun persistReminders() {
@@ -1661,9 +1699,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val cal = calendarView ?: return
         val year = cal.shownYear
         val month = cal.shownMonth1
-        val dayReminders = reminders.filter {
-            it.year == year && it.month == month && it.day == day
-        }
+        val dayReminders = reminders.filter { it.occursOn(year, month, day) }
         if (dayReminders.isEmpty()) {
             showReminderSheet(null, year, month, day)
             return
@@ -1712,6 +1748,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         var duration = seed?.duration ?: existing?.durationMinutes ?: 0
         var sound = seed?.sound ?: existing?.sound ?: Prefs.ALARM_SOUND_BELLS
         var lead = seed?.lead ?: existing?.leadMinutes ?: 0
+        var repeat = seed?.repeat ?: existing?.repeat ?: Reminder.REPEAT_NEVER
+        // The date can be moved, so it is not the fixed frame it was.
+        var onYear = year
+        var onMonth = month
+        var onDay = day
         // Nothing can be scheduled into a day that is already spent: it may
         // be read and it may be deleted, and that is all.
         val spent = isPastDay(year, month, day)
@@ -1719,8 +1760,20 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val nameValue = view.findViewById<TextView>(R.id.rsheet_name_value)
         val timeValue = view.findViewById<TextView>(R.id.rsheet_time_value)
         val durationValue = view.findViewById<TextView>(R.id.rsheet_duration_value)
-        view.findViewById<TextView>(R.id.rsheet_date).text =
-            String.format(Locale.US, "%02d/%02d/%04d", day, month, year)
+        val dateValue = view.findViewById<TextView>(R.id.rsheet_date)
+        val repeatValue = view.findViewById<TextView>(R.id.rsheet_repeat_value)
+        fun repeatLabel(mode: String): String = getString(
+            when (mode) {
+                Reminder.REPEAT_MONTHLY -> R.string.reminder_repeat_monthly
+                Reminder.REPEAT_YEARLY -> R.string.reminder_repeat_yearly
+                else -> R.string.reminder_repeat_never
+            }
+        )
+        fun paintDate() {
+            dateValue.text = String.format(Locale.US, "%02d/%02d/%04d", onDay, onMonth, onYear)
+            repeatValue.text = repeatLabel(repeat)
+        }
+        paintDate()
 
         fun refresh() {
             nameValue.text = label.ifBlank { getString(R.string.reminder_hint) }
@@ -1730,6 +1783,39 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             } else {
                 getString(R.string.reminder_duration_min, duration)
             }
+        }
+
+        val repeatModes = listOf(
+            Reminder.REPEAT_NEVER, Reminder.REPEAT_MONTHLY, Reminder.REPEAT_YEARLY
+        )
+        view.findViewById<View>(R.id.rsheet_row_repeat).setOnClickListener {
+            pickFromList(
+                R.string.reminder_repeat,
+                repeatModes.map { repeatLabel(it) },
+                repeatModes.indexOf(repeat)
+            ) { which ->
+                repeat = repeatModes[which]
+                paintDate()
+            }
+        }
+
+        // The date at the top is a button: a reminder can change its day
+        // without being deleted and made again.
+        dateValue.setOnClickListener {
+            val picker = android.app.DatePickerDialog(
+                this,
+                { _, y, m, d ->
+                    onYear = y
+                    onMonth = m + 1
+                    onDay = d
+                    paintDate()
+                },
+                onYear, onMonth - 1, onDay
+            )
+            picker.setTitle(R.string.reminder_move)
+            // Nothing is scheduled backwards, here no more than anywhere.
+            picker.datePicker.minDate = System.currentTimeMillis() - 86_400_000L
+            picker.show()
         }
 
         view.findViewById<View>(R.id.rsheet_row_name).setOnClickListener {
@@ -1793,7 +1879,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // that row.)
         if (spent) {
             for (id in intArrayOf(
-                R.id.rsheet_row_name, R.id.rsheet_row_time, R.id.rsheet_row_duration,
+                R.id.rsheet_date, R.id.rsheet_row_name, R.id.rsheet_row_time,
+                R.id.rsheet_row_duration, R.id.rsheet_row_repeat,
                 R.id.rsheet_row_sound, R.id.rsheet_row_snooze
             )) {
                 view.findViewById<View>(id).apply {
@@ -1809,8 +1896,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // How long a thing lasts is a duration, so it gets set the way
             // durations are set here: by winding the countdown dial.
             durationDraft = ReminderDraft(
-                existing, year, month, day, label, hour, minute, duration,
-                alarmSwitch.isChecked, sound, lead
+                existing, onYear, onMonth, onDay, label, hour, minute, duration,
+                alarmSwitch.isChecked, sound, lead, repeat
             )
             sheet.dismiss()
             settingReminderDuration = true
@@ -1829,6 +1916,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             reminderRingsBeingSet = alarmSwitch.isChecked
             reminderSoundBeingSet = sound
             reminderLeadBeingSet = lead
+            reminderRepeatBeingSet = repeat
             // Lifted out of the list, not deleted: cancelling on the dial
             // puts it back. It used to simply vanish, and the next save
             // wrote the loss to disk.
@@ -1836,7 +1924,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             existing?.let { reminders.remove(it) }
             reminderLabelBeingSet = label
             reminderDurationBeingSet = duration
-            reminderBeingSet = Triple(year, month, day)
+            reminderBeingSet = Triple(onYear, onMonth, onDay)
             alarmBeingSet = null
             alarmWorkingMs = (hour * 3_600_000L) + (minute * 60_000L)
             alarmSetActive = true
