@@ -111,6 +111,14 @@
     <string name="reminder_lead_none">On the dot</string>
     <string name="reminder_lead_min">%1$d min early</string>
     <string name="reminder_lead_hour">1 h early</string>
+    <string name="reminder_lead_hours">%1$d h early</string>
+    <string name="reminder_lead_day">The day before</string>
+    <string name="reminder_lead_days">%1$d days before</string>
+    <string name="reminder_lead_week">A week before</string>
+    <string name="reminder_lead_weeks">%1$d weeks before</string>
+    <string name="alarm_unsaved_title">Unsaved changes</string>
+    <string name="alarm_unsaved_message">You changed this alarm without saving.</string>
+    <string name="alarm_discard">Discard</string>
     <string name="reminder_duration">Lasts</string>
     <string name="reminder_duration_none">A moment</string>
     <string name="reminder_duration_min">%1$d min</string>

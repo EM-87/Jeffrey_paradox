@@ -104,6 +104,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var reminderSoundBeingSet = Prefs.ALARM_SOUND_BELLS
     private var reminderLeadBeingSet = 0
 
+    /** A reminder pulled from the list while its time is reset on the dial. */
+    private var reminderTakenForEdit: Reminder? = null
+
     /** A reminder sheet parked while its duration is wound on the dial. */
     private class ReminderDraft(
         val existing: Reminder?,
@@ -1070,6 +1073,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // the same mutable list, so the repetition list is copied by hand —
         // otherwise adding one silently edited the real alarm, unrefreshed.
         val draft = seed ?: alarm.copy(extraTimes = alarm.extraTimes.toMutableList())
+        // What the alarm looked like on opening, to tell an abandoned edit
+        // from an untouched sheet.
+        val original = alarm.copy(extraTimes = alarm.extraTimes.toMutableList())
         val isNew = seed?.let { !alarms.any { a -> a.id == it.id } } ?: !alarms.contains(alarm)
 
         val dialsRow = view.findViewById<LinearLayout>(R.id.sheet_dials)
@@ -1309,6 +1315,23 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             sheet.dismiss()
         }
 
+        // Back, or a tap outside, cancels rather than dismisses — which is
+        // exactly the "walking away" path, and the only one worth asking
+        // about. Save, Delete and the trips to the dial all dismiss instead.
+        sheet.setOnCancelListener {
+            if (draft != original) {
+                androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle(R.string.alarm_unsaved_title)
+                    .setMessage(R.string.alarm_unsaved_message)
+                    .setPositiveButton(R.string.alarm_save) { _, _ ->
+                        commitDraft(alarm, draft, isNew)
+                        maybeRequestNotificationPermission()
+                    }
+                    .setNegativeButton(R.string.alarm_discard, null)
+                    .show()
+            }
+        }
+
         refresh()
         sheet.show()
     }
@@ -1317,7 +1340,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun commitDraft(target: Alarm, draft: Alarm, isNew: Boolean) {
         target.hour = draft.hour
         target.minute = draft.minute
-        target.enabled = true
+        // A new alarm arrives switched on; an existing one keeps whatever its
+        // switch says. Renaming a sleeping alarm must not wake it.
+        if (isNew) target.enabled = true
         target.sound = draft.sound
         target.soundUri = draft.soundUri
         target.daysMask = draft.daysMask
@@ -1339,6 +1364,25 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             else -> R.string.alarm_sound_bells
         }
     )
+
+    /**
+     * How early a reminder speaks up. Minutes for the same-day nudge, days
+     * for the ones you need to prepare for — a birthday is no use to anyone
+     * fifteen minutes early.
+     */
+    private fun leadLabel(minutes: Int): String = when {
+        minutes <= 0 -> getString(R.string.reminder_lead_none)
+        minutes < 60 -> getString(R.string.reminder_lead_min, minutes)
+        minutes == 60 -> getString(R.string.reminder_lead_hour)
+        minutes < 1440 -> getString(R.string.reminder_lead_hours, minutes / 60)
+        minutes == 1440 -> getString(R.string.reminder_lead_day)
+        minutes < 10080 -> getString(R.string.reminder_lead_days, minutes / 1440)
+        minutes == 10080 -> getString(R.string.reminder_lead_week)
+        else -> getString(R.string.reminder_lead_weeks, minutes / 10080)
+    }
+
+    /** Warn-me offsets, in minutes: the same-day nudges, then days out. */
+    private val leadChoicesList = listOf(0, 15, 30, 60, 1440, 4320, 10080)
 
     /** A plain single-choice list, the way a row of options should ask. */
     private fun pickFromList(
@@ -1431,6 +1475,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     reminderSoundBeingSet, reminderLeadBeingSet
                 )
             )
+            reminderTakenForEdit = null
             persistReminders()
             maybeRequestNotificationPermission()
             exitAlarmSetMode()
@@ -1460,6 +1505,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         provisionalAlarmId?.let { id ->
             provisionalAlarmId = null
             if (alarms.removeAll { it.id == id }) persistAlarms()
+        }
+        // A reminder lifted out for editing, and never confirmed, goes back
+        // where it was.
+        reminderTakenForEdit?.let { taken ->
+            reminderTakenForEdit = null
+            if (reminders.none { r -> r.id == taken.id }) {
+                reminders.add(taken)
+                persistReminders()
+            }
         }
         settingReminderDuration = false
         durationDraft = null
@@ -1512,21 +1566,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             recycler.post { refreshAlarmsUi() }
             return
         }
+        // One notify does it. The second pass that used to live here was
+        // chasing a layout request I thought the nested lists were losing;
+        // the cards were really stale because the sheet shared the alarm's
+        // own list of times, so there was nothing new to show. Fixed at the
+        // source, this is just work.
         alarmsAdapter.notifyDataSetChanged()
-        // The alarm list lives inside a ViewPager2, which is itself a
-        // RecyclerView, and a layout request from a list nested in a list can
-        // be swallowed — the cards then sit on stale data until something
-        // else forces a pass, such as flipping a switch. So it is asked
-        // again on the next frame, from outside any layout in progress. The
-        // second pass costs nothing to look at: the faces are only rebuilt
-        // when what they show has actually changed.
-        recycler?.post {
-            if (!recycler.isComputingLayout) {
-                alarmsAdapter.notifyDataSetChanged()
-                recycler.requestLayout()
-                recycler.invalidate()
-            }
-        }
         alarmsEmpty?.visibility = if (alarms.isEmpty()) View.VISIBLE else View.GONE
         updateAlarmMarkers()
     }
@@ -1717,11 +1762,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             soundRow.visibility = if (on) View.VISIBLE else View.GONE
             snoozeRow.visibility = if (on) View.VISIBLE else View.GONE
             soundValue.text = soundLabel(sound)
-            snoozeValue.text = when (lead) {
-                0 -> getString(R.string.reminder_lead_none)
-                60 -> getString(R.string.reminder_lead_hour)
-                else -> getString(R.string.reminder_lead_min, lead)
-            }
+            snoozeValue.text = leadLabel(lead)
         }
         alarmSwitch.isChecked = seed?.rings ?: existing?.rings ?: false
         alarmSwitch.setOnCheckedChangeListener { _, _ -> paintAlarmRows() }
@@ -1735,19 +1776,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
         snoozeRow.setOnClickListener {
             // Warning ahead of the thing, not a nag after it.
-            val leads = intArrayOf(0, 15, 30, 60)
             pickFromList(
                 R.string.reminder_lead,
-                leads.map {
-                    when (it) {
-                        0 -> getString(R.string.reminder_lead_none)
-                        60 -> getString(R.string.reminder_lead_hour)
-                        else -> getString(R.string.reminder_lead_min, it)
-                    }
-                },
-                leads.indexOf(lead)
+                leadChoicesList.map { leadLabel(it) },
+                leadChoicesList.indexOf(lead)
             ) { which ->
-                lead = leads[which]
+                lead = leadChoicesList[which]
                 paintAlarmRows()
             }
         }
@@ -1795,6 +1829,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             reminderRingsBeingSet = alarmSwitch.isChecked
             reminderSoundBeingSet = sound
             reminderLeadBeingSet = lead
+            // Lifted out of the list, not deleted: cancelling on the dial
+            // puts it back. It used to simply vanish, and the next save
+            // wrote the loss to disk.
+            reminderTakenForEdit = existing
             existing?.let { reminders.remove(it) }
             reminderLabelBeingSet = label
             reminderDurationBeingSet = duration
