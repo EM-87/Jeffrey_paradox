@@ -27,6 +27,9 @@ class AlarmService : Service() {
         const val ACTION_STOP = "com.em87.weirdclock.action.STOP_ALARM"
         const val ACTION_SNOOZE = "com.em87.weirdclock.action.SNOOZE_ALARM"
         const val CHANNEL_ID = "alarm"
+
+        /** All three of the app's channels live under one heading. */
+        const val GROUP_ID = "clock"
         const val NOTIFICATION_ID = 1
 
         /**
@@ -225,6 +228,14 @@ class AlarmService : Service() {
 
     private fun createChannel() {
         if (Build.VERSION.SDK_INT < 26) return
+        val manager = getSystemService(NotificationManager::class.java) ?: return
+        // One group, so the three channels sit together in system settings
+        // instead of looking like three unrelated apps.
+        manager.createNotificationChannelGroup(
+            android.app.NotificationChannelGroup(
+                GROUP_ID, getString(R.string.channel_group_clock)
+            )
+        )
         val channel = NotificationChannel(
             CHANNEL_ID,
             getString(R.string.alarm_channel_name),
@@ -233,8 +244,12 @@ class AlarmService : Service() {
             // The service plays its own bells; no notification sound on top.
             setSound(null, null)
             enableVibration(true)
+            description = getString(R.string.alarm_channel_desc)
+            group = GROUP_ID
+            lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+            setBypassDnd(true)
         }
-        getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
+        manager.createNotificationChannel(channel)
     }
 
     private fun buildNotification(): android.app.Notification {

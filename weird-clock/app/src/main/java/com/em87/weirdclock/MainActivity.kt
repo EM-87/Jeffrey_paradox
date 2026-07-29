@@ -418,6 +418,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 )
             }
         }
+        if (intent.getBooleanExtra(EXTRA_OPEN_CALENDAR, false)) {
+            pager.post { pager.setCurrentItem(PAGE_LEFT, false) }
+        }
 
         sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         maybeIntroduceFloatingHourglass()
@@ -460,6 +463,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             pager.currentItem =
                 if (prefs.getBoolean(Prefs.TIMER_ON_DIAL, false)) PAGE_RIGHT else PAGE_HOME
         }
+        if (intent.getBooleanExtra(EXTRA_OPEN_CALENDAR, false)) {
+            mode = Mode.CLOCK
+            applyMode()
+            pager.currentItem = PAGE_LEFT
+        }
     }
 
     override fun onResume() {
@@ -482,6 +490,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 countdownRemainingMs = 0L
                 prefs.edit().remove(Prefs.COUNTDOWN_RESULT).apply()
                 updateCountdownUi()
+            }
+            null -> {
+                // A countdown the app never started — the assistant asked for
+                // one while it was closed, or a shortcut did — is adopted
+                // rather than ignored, so opening the app shows the real one.
+                val endsAt = prefs.getLong(Prefs.COUNTDOWN_ENDS_AT, 0L)
+                if (!countdownRunning && endsAt > SystemClock.elapsedRealtime()) {
+                    countdownEndsAt = endsAt
+                    countdownTotalMs = prefs.getLong(Prefs.COUNTDOWN_TOTAL, 60_000L)
+                    countdownRunning = true
+                    updateCountdownUi()
+                }
             }
             CountdownService.RESULT_EXTENDED -> {
                 // A minute was bought from the shade while we were away.
@@ -2802,6 +2822,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     companion object {
         const val EXTRA_OPEN_ALARMS = "extra_open_alarms"
         const val EXTRA_OPEN_TIMER = "extra_open_timer"
+        const val EXTRA_OPEN_CALENDAR = "extra_open_calendar"
 
         /** C-1 calendar / S-1 stopwatch. */
         const val PAGE_LEFT = 0

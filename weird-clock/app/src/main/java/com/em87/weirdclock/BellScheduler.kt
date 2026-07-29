@@ -192,12 +192,23 @@ class BellService : Service() {
 
     private fun createChannel() {
         if (Build.VERSION.SDK_INT < 26) return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            getString(R.string.bells_channel_name),
-            NotificationManager.IMPORTANCE_MIN
-        ).apply { setSound(null, null) }
-        getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
+        val manager = getSystemService(NotificationManager::class.java) ?: return
+        manager.createNotificationChannelGroup(
+            android.app.NotificationChannelGroup(
+                AlarmService.GROUP_ID, getString(R.string.channel_group_clock)
+            )
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID,
+                getString(R.string.bells_channel_name),
+                NotificationManager.IMPORTANCE_MIN
+            ).apply {
+                setSound(null, null)
+                description = getString(R.string.bells_channel_desc)
+                group = AlarmService.GROUP_ID
+            }
+        )
     }
 
     override fun onDestroy() {

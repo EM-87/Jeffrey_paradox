@@ -313,12 +313,24 @@ class CountdownService : Service() {
 
     private fun createChannel() {
         if (Build.VERSION.SDK_INT < 26) return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            getString(R.string.countdown_channel_name),
-            NotificationManager.IMPORTANCE_LOW
-        ).apply { setSound(null, null) }
-        getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
+        val manager = getSystemService(NotificationManager::class.java) ?: return
+        manager.createNotificationChannelGroup(
+            android.app.NotificationChannelGroup(
+                AlarmService.GROUP_ID, getString(R.string.channel_group_clock)
+            )
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID,
+                getString(R.string.countdown_channel_name),
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                setSound(null, null)
+                description = getString(R.string.countdown_channel_desc)
+                group = AlarmService.GROUP_ID
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+            }
+        )
     }
 
     private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(

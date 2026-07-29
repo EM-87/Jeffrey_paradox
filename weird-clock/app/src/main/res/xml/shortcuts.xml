@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-pressing the launcher icon should not just reopen wherever the app
+     was left: each card is a destination of its own, and these are the four
+     worth a shortcut. They travel through the same standard intents the
+     assistant uses, so there is one way in, not two. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_notification"
+        android:shortcutId="alarms"
+        android:shortcutLongLabel="@string/alarms_title"
+        android:shortcutShortLabel="@string/shortcut_alarms">
+        <intent
+            android:action="android.intent.action.SHOW_ALARMS"
+            android:targetClass="com.em87.weirdclock.ClockIntentActivity"
+            android:targetPackage="com.em87.weirdclock" />
+    </shortcut>
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_timer"
+        android:shortcutId="timer"
+        android:shortcutLongLabel="@string/chrono_label_countdown"
+        android:shortcutShortLabel="@string/shortcut_timer">
+        <intent
+            android:action="android.intent.action.SHOW_TIMERS"
+            android:targetClass="com.em87.weirdclock.ClockIntentActivity"
+            android:targetPackage="com.em87.weirdclock" />
+    </shortcut>
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_timer"
+        android:shortcutId="stopwatch"
+        android:shortcutLongLabel="@string/shortcut_stopwatch"
+        android:shortcutShortLabel="@string/shortcut_stopwatch">
+        <intent
+            android:action="com.em87.weirdclock.action.SHOW_STOPWATCH"
+            android:targetClass="com.em87.weirdclock.ClockIntentActivity"
+            android:targetPackage="com.em87.weirdclock" />
+    </shortcut>
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_calendar"
+        android:shortcutId="calendar"
+        android:shortcutLongLabel="@string/category_calendar"
+        android:shortcutShortLabel="@string/shortcut_calendar">
+        <intent
+            android:action="com.em87.weirdclock.action.SHOW_CALENDAR"
+            android:targetClass="com.em87.weirdclock.ClockIntentActivity"
+            android:targetPackage="com.em87.weirdclock" />
+    </shortcut>
+
+</shortcuts>

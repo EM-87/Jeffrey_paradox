@@ -120,6 +120,16 @@
     <string name="alarm_unsaved_message">You changed this alarm without saving.</string>
     <string name="alarm_discard">Discard</string>
     <string name="countdown_add_minute">+1 min</string>
+    <string name="alarm_set_toast">Alarm set for %1$s</string>
+    <string name="timer_set_toast">Timer set for %1$d min %2$d s</string>
+    <string name="shortcut_alarms">Alarms</string>
+    <string name="shortcut_timer">Timer</string>
+    <string name="shortcut_stopwatch">Stopwatch</string>
+    <string name="shortcut_calendar">Calendar</string>
+    <string name="channel_group_clock">Clock</string>
+    <string name="alarm_channel_desc">Alarms and reminders ringing. Silencing this channel silences your alarms.</string>
+    <string name="countdown_channel_desc">The running timer, with its remaining time and progress bar.</string>
+    <string name="bells_channel_desc">The quiet placeholder the hourly bells need in order to chime from the background.</string>
     <string name="tile_timer_label">Weird Clock timer</string>
     <string name="tile_alarm_label">Next alarm</string>
     <string name="tile_none">None set</string>
