@@ -294,6 +294,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             if (countdownRunning && countdownRemaining() == 0L) {
                 countdownRunning = false
                 countdownRemainingMs = 0L
+                CountdownService.clearPublished(this@MainActivity)
                 updateCountdownUi()
                 if (countdownPersistent) {
                     // Ring until validated: the alarm service loops the bells
@@ -374,6 +375,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // The app's background runs behind the status and navigation bars,
+        // so the clock looks like it goes on past the edges of the screen.
+        SystemChrome.paint(this)
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
         chimePlayer.prepareTick(this)
@@ -382,6 +386,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         reminders.addAll(ReminderStore.load(this))
 
         pager = findViewById(R.id.pager)
+        // The pages keep clear of the bars; the pager's own background does
+        // not, which is what makes the whole thing read as one surface.
+        SystemChrome.padForBars(pager)
         pager.offscreenPageLimit = 2
         pager.adapter = PagerAdapter()
         // The app opens on the clock, with calendar and alarms one swipe
@@ -473,6 +480,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             CountdownService.RESULT_FINISHED, CountdownService.RESULT_CANCELLED -> {
                 countdownRunning = false
                 countdownRemainingMs = 0L
+                prefs.edit().remove(Prefs.COUNTDOWN_RESULT).apply()
+                updateCountdownUi()
+            }
+            CountdownService.RESULT_EXTENDED -> {
+                // A minute was bought from the shade while we were away.
+                countdownEndsAt = prefs.getLong(Prefs.COUNTDOWN_ENDS_AT, countdownEndsAt)
+                countdownTotalMs = prefs.getLong(Prefs.COUNTDOWN_TOTAL, countdownTotalMs)
+                countdownRunning = true
                 prefs.edit().remove(Prefs.COUNTDOWN_RESULT).apply()
                 updateCountdownUi()
             }
@@ -777,6 +792,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // the climb below as the only entrance. Dismissal is untouched: it
         // rides the behaviour, not the window.
         sheet.window?.setWindowAnimations(0)
+        // A sheet rises from the very bottom of the screen, gesture bar
+        // included, so its last row needs the height of that bar under it.
+        SystemChrome.padForBars(content, top = false)
         // Pushed down on the frame before the first one is drawn, not on the
         // show callback: that callback can land after a frame has already
         // gone out with the sheet sitting at its final place, and that stray
@@ -2655,10 +2673,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         if (countdownRunning) {
             countdownRemainingMs = countdownRemaining()
             countdownRunning = false
+            CountdownService.clearPublished(this)
         } else if (countdownRemaining() > 0L) {
             countdownEndsAt = SystemClock.elapsedRealtime() + countdownRemainingMs
             countdownTotalMs = countdownRemainingMs
             countdownRunning = true
+            // Published straight away: the tile in the shade knows about a
+            // countdown started in the app without the app telling it.
+            CountdownService.publish(this, countdownEndsAt, countdownTotalMs)
         }
         updateCountdownUi()
     }
@@ -2667,6 +2689,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // Back to zero; the user winds the hands to set a new time.
         countdownRunning = false
         countdownRemainingMs = 0L
+        CountdownService.clearPublished(this)
         updateCountdownUi()
         HourglassWidgetProvider.pushIdle(this)
     }

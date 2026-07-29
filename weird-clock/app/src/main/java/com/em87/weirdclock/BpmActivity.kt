@@ -18,6 +18,8 @@ class BpmActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_bpm)
+        SystemChrome.paint(this)
+        SystemChrome.padForBars(findViewById(android.R.id.content))
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         bpmView = findViewById<BpmView>(R.id.bpm_view).also {
             it.theme = ClockThemes.resolve(this, prefs.getString(Prefs.THEME, "midnight"))

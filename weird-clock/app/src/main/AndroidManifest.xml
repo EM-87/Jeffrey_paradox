@@ -52,6 +52,30 @@
             android:showWhenLocked="true"
             android:turnScreenOn="true" />
 
+        <!-- Quick Settings tiles: the shade is where a clock app has to be
+             present, and a tile reports state rather than just launching. -->
+        <service
+            android:name=".TimerTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_timer"
+            android:label="@string/tile_timer_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".AlarmTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="@string/tile_alarm_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <service
             android:name=".AlarmService"
             android:exported="false"

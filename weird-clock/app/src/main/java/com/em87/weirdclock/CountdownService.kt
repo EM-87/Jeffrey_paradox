@@ -42,9 +42,34 @@ class CountdownService : Service() {
         private const val DONE_NOTIFICATION_ID = 3
 
         const val RESULT_FINISHED = "finished"
+
+        /** Notification action: one more minute, without opening anything. */
+        const val ACTION_ADD_MINUTE = "com.em87.weirdclock.action.ADD_MINUTE"
         const val RESULT_CANCELLED = "cancelled"
 
+        /** The shade added a minute; the app resyncs from the service. */
+        const val RESULT_EXTENDED = "extended"
+
+        /**
+         * Writes down where the running countdown ends, so that anything
+         * outside the app — the Quick Settings tile above all — can answer
+         * "how long is left" without waking a service or opening a screen.
+         */
+        fun publish(context: Context, endsAtElapsed: Long, totalMs: Long) {
+            PreferenceManager.getDefaultSharedPreferences(context).edit()
+                .putLong(Prefs.COUNTDOWN_ENDS_AT, endsAtElapsed)
+                .putLong(Prefs.COUNTDOWN_TOTAL, totalMs)
+                .apply()
+        }
+
+        fun clearPublished(context: Context) {
+            PreferenceManager.getDefaultSharedPreferences(context).edit()
+                .putLong(Prefs.COUNTDOWN_ENDS_AT, 0L)
+                .apply()
+        }
+
         fun start(context: Context, endsAtElapsed: Long, totalMs: Long) {
+            publish(context, endsAtElapsed, totalMs)
             ContextCompat.startForegroundService(
                 context,
                 Intent(context, CountdownService::class.java)
@@ -199,7 +224,24 @@ class CountdownService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_CANCEL) {
             setResult(RESULT_CANCELLED)
+            clearPublished(this)
             stopSelf()
+            return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_ADD_MINUTE) {
+            // Straight from the shade, without opening anything: the pot
+            // boils over, you buy another minute with one tap.
+            endsAtElapsed += 60_000L
+            totalMs += 60_000L
+            PreferenceManager.getDefaultSharedPreferences(this).edit()
+                .putString(Prefs.COUNTDOWN_RESULT, RESULT_EXTENDED)
+                .putLong(Prefs.COUNTDOWN_ENDS_AT, endsAtElapsed)
+                .putLong(Prefs.COUNTDOWN_TOTAL, totalMs)
+                .apply()
+            getSystemService(NotificationManager::class.java)?.notify(
+                NOTIFICATION_ID,
+                buildNotification((endsAtElapsed - SystemClock.elapsedRealtime()).coerceAtLeast(0L))
+            )
             return START_NOT_STICKY
         }
         endsAtElapsed = intent?.getLongExtra(EXTRA_ENDS_AT, 0L) ?: 0L
@@ -229,6 +271,7 @@ class CountdownService : Service() {
     private fun finish() {
         if (finished) return
         finished = true
+        clearPublished(this)
         removeOverlay()
         HourglassWidgetProvider.pushIdle(this)
         setResult(RESULT_FINISHED)
@@ -293,9 +336,28 @@ class CountdownService : Service() {
             Intent(this, CountdownService::class.java).setAction(ACTION_CANCEL),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        // An ongoing foreground notification is allowed to take a colour and
+        // wear it across its whole card in the shade. Ours takes the dial's
+        // own face colour, so the timer in the shade is recognisably a piece
+        // of the same clock rather than a grey system row.
+        val theme = ClockThemes.resolve(
+            this,
+            PreferenceManager.getDefaultSharedPreferences(this).getString(Prefs.THEME, "midnight")
+        )
+        val plusOne = PendingIntent.getService(
+            this,
+            7,
+            Intent(this, CountdownService::class.java).setAction(ACTION_ADD_MINUTE),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_timer)
             .setContentTitle(getString(R.string.countdown_notification_title))
+            .setColor(theme.face)
+            .setColorized(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .addAction(0, getString(R.string.countdown_add_minute), plusOne)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setUsesChronometer(true)

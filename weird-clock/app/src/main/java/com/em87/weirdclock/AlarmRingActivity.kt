@@ -27,6 +27,8 @@ class AlarmRingActivity : AppCompatActivity() {
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_alarm_ring)
+        SystemChrome.paint(this)
+        SystemChrome.padForBars(findViewById(android.R.id.content))
 
         // Stopped from the notification, or given up after three minutes:
         // either way this screen has nothing left to offer.

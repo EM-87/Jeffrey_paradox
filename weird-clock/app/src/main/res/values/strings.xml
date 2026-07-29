@@ -119,6 +119,10 @@
     <string name="alarm_unsaved_title">Unsaved changes</string>
     <string name="alarm_unsaved_message">You changed this alarm without saving.</string>
     <string name="alarm_discard">Discard</string>
+    <string name="countdown_add_minute">+1 min</string>
+    <string name="tile_timer_label">Weird Clock timer</string>
+    <string name="tile_alarm_label">Next alarm</string>
+    <string name="tile_none">None set</string>
     <string name="reminder_repeat">Repeats</string>
     <string name="reminder_repeat_never">Never</string>
     <string name="reminder_repeat_monthly">Every month</string>

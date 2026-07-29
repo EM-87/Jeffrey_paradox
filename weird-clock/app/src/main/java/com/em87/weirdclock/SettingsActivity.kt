@@ -20,6 +20,11 @@ class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
+        SystemChrome.paint(this)
+        // The toolbar carries the status bar on its shoulders; the list
+        // below it keeps clear of the gesture bar.
+        SystemChrome.padForBars(findViewById(R.id.settings_root), bottom = false)
+        SystemChrome.padForBars(findViewById(R.id.settings_container), top = false)
 
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)

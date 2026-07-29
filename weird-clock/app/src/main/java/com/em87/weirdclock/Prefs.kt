@@ -82,6 +82,10 @@ object Prefs {
 
     /** Written by CountdownService for MainActivity to consume on resume. */
     const val COUNTDOWN_RESULT = "pref_countdown_result"
+
+    /** Where a countdown extended from the shade left off. */
+    const val COUNTDOWN_ENDS_AT = "pref_countdown_ends_at"
+    const val COUNTDOWN_TOTAL = "pref_countdown_total"
     const val COUNTDOWN_PERSISTENT = "pref_countdown_persistent"
     const val COUNTDOWN_BUBBLE = "pref_countdown_bubble"
     const val BUBBLE_X = "pref_bubble_x"

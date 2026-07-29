@@ -255,10 +255,21 @@ class AlarmService : Service() {
             Intent(this, AlarmService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val theme = ClockThemes.resolve(
+            this,
+            PreferenceManager.getDefaultSharedPreferences(this).getString(Prefs.THEME, "midnight")
+        )
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             // A finished countdown is not an alarm, and should not wear its
             // icon: what ran out was a timer.
             .setSmallIcon(if (fromTimer) R.drawable.ic_timer else R.drawable.ic_notification)
+            // Ringing is an ongoing foreground notification, so the shade
+            // lets it wear the dial's colour across the whole card. At six in
+            // the morning that is how you know at a glance whose alarm it is.
+            .setColor(theme.face)
+            .setColorized(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentTitle(label.ifBlank { getString(R.string.alarm_ringing) })
             .setContentText(DateFormat.getTimeInstance(DateFormat.SHORT).format(Date()))
             .setPriority(NotificationCompat.PRIORITY_MAX)
