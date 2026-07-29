@@ -34,6 +34,17 @@
         <item>octagon</item>
     </string-array>
 
+    <string-array name="countdown_float_entries">
+        <item>Nothing floating</item>
+        <item>Floating hourglass (our own)</item>
+        <item>System bubble</item>
+    </string-array>
+    <string-array name="countdown_float_values">
+        <item>none</item>
+        <item>overlay</item>
+        <item>bubble</item>
+    </string-array>
+
     <string-array name="alarm_style_entries">
         <item>Hands</item>
         <item>Digits</item>

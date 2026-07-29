@@ -71,6 +71,17 @@
             android:exported="false"
             android:parentActivityName=".SettingsActivity" />
 
+        <!-- The window that lives inside a system bubble. It has to be
+             resizeable and embeddable, and each bubble is its own document,
+             or the platform will not float it. -->
+        <activity
+            android:name=".BubbleActivity"
+            android:allowEmbedded="true"
+            android:documentLaunchMode="always"
+            android:exported="false"
+            android:resizeableActivity="true"
+            android:theme="@style/Theme.WeirdClock" />
+
         <activity
             android:name=".AlarmRingActivity"
             android:excludeFromRecents="true"

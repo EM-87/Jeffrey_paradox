@@ -380,6 +380,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         SystemChrome.paint(this)
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        // The floating hourglass used to be a yes/no switch; it is now a
+        // choice of three. Carry the old answer over once.
+        if (!prefs.contains(Prefs.COUNTDOWN_FLOAT)) {
+            prefs.edit().putString(
+                Prefs.COUNTDOWN_FLOAT,
+                if (prefs.getBoolean(Prefs.COUNTDOWN_BUBBLE, true)) Prefs.FLOAT_OVERLAY
+                else Prefs.FLOAT_NONE
+            ).apply()
+        }
         chimePlayer.prepareTick(this)
         alarms.addAll(AlarmStore.load(this))
         sortAlarms()

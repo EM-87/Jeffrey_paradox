@@ -41,6 +41,9 @@ class CountdownService : Service() {
         private const val NOTIFICATION_ID = 2
         private const val DONE_NOTIFICATION_ID = 3
 
+        /** The long-lived shortcut a bubble has to hang from. */
+        private const val BUBBLE_SHORTCUT = "timer_bubble"
+
         const val RESULT_FINISHED = "finished"
 
         /** Notification action: one more minute, without opening anything. */
@@ -126,7 +129,7 @@ class CountdownService : Service() {
     private fun maybeShowOverlay() {
         if (overlay != null) return
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        if (!prefs.getBoolean(Prefs.COUNTDOWN_BUBBLE, true)) return
+        if (prefs.getString(Prefs.COUNTDOWN_FLOAT, Prefs.FLOAT_OVERLAY) != Prefs.FLOAT_OVERLAY) return
         if (!Settings.canDrawOverlays(this)) return
 
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
@@ -329,6 +332,9 @@ class CountdownService : Service() {
                 description = getString(R.string.countdown_channel_desc)
                 group = AlarmService.GROUP_ID
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                // Without this the platform will not bubble anything on this
+                // channel, whatever metadata the notification carries.
+                if (Build.VERSION.SDK_INT >= 29) setAllowBubbles(true)
             }
         )
     }
@@ -362,7 +368,7 @@ class CountdownService : Service() {
             Intent(this, CountdownService::class.java).setAction(ACTION_ADD_MINUTE),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_timer)
             .setContentTitle(getString(R.string.countdown_notification_title))
             .setColor(theme.face)
@@ -382,6 +388,65 @@ class CountdownService : Service() {
             )
             .setContentIntent(openAppIntent())
             .addAction(0, getString(R.string.countdown_cancel), cancel)
+        attachBubble(builder, theme)
+        return builder.build()
+    }
+
+    /**
+     * Offers the notification to the system as a bubble — the platform's own
+     * floating window, which costs no draw-over-other-apps permission and
+     * survives the app being closed, at the price of the app not choosing
+     * where it sits.
+     *
+     * Bubbles are built for conversations, and since Android 11 the platform
+     * will only bubble a notification that points at a long-lived shortcut.
+     * So one is published for the timer, with a Person on it, purely to
+     * satisfy that rule. The user still has the last word: bubbles can be
+     * refused per app, and then this is simply ignored.
+     */
+    private fun attachBubble(builder: NotificationCompat.Builder, theme: ClockTheme) {
+        if (Build.VERSION.SDK_INT < 30) return
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        if (prefs.getString(Prefs.COUNTDOWN_FLOAT, Prefs.FLOAT_OVERLAY) != Prefs.FLOAT_BUBBLE) return
+
+        val person = androidx.core.app.Person.Builder()
+            .setName(getString(R.string.countdown_notification_title))
+            .setKey(BUBBLE_SHORTCUT)
+            .setBot(true)
+            .setImportant(true)
             .build()
+        val shortcut = androidx.core.content.pm.ShortcutInfoCompat.Builder(this, BUBBLE_SHORTCUT)
+            .setLongLived(true)
+            .setIntent(
+                Intent(this, BubbleActivity::class.java).setAction(Intent.ACTION_VIEW)
+            )
+            .setShortLabel(getString(R.string.chrono_label_countdown))
+            .setIcon(androidx.core.graphics.drawable.IconCompat.createWithResource(this, R.drawable.ic_timer))
+            .setPerson(person)
+            .build()
+        androidx.core.content.pm.ShortcutManagerCompat.pushDynamicShortcut(this, shortcut)
+
+        builder
+            .setShortcutId(BUBBLE_SHORTCUT)
+            .addPerson(person)
+            .setStyle(NotificationCompat.MessagingStyle(person))
+            .setBubbleMetadata(
+                NotificationCompat.BubbleMetadata.Builder(
+                    PendingIntent.getActivity(
+                        this,
+                        9,
+                        Intent(this, BubbleActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                    ),
+                    androidx.core.graphics.drawable.IconCompat.createWithResource(
+                        this, R.drawable.ic_timer
+                    )
+                )
+                    .setDesiredHeight(180)
+                    .setAutoExpandBubble(false)
+                    .setSuppressNotification(false)
+                    .build()
+            )
     }
 }

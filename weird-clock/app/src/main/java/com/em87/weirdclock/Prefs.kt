@@ -88,6 +88,12 @@ object Prefs {
     const val COUNTDOWN_TOTAL = "pref_countdown_total"
     const val COUNTDOWN_PERSISTENT = "pref_countdown_persistent"
     const val COUNTDOWN_BUBBLE = "pref_countdown_bubble"
+
+    /** How a running countdown floats: not at all, our overlay, or a bubble. */
+    const val COUNTDOWN_FLOAT = "pref_countdown_float"
+    const val FLOAT_NONE = "none"
+    const val FLOAT_OVERLAY = "overlay"
+    const val FLOAT_BUBBLE = "bubble"
     const val BUBBLE_X = "pref_bubble_x"
     const val BUBBLE_Y = "pref_bubble_y"
     const val NIGHT_DIM = "pref_night_dim"

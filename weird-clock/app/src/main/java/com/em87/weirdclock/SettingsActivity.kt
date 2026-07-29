@@ -3,6 +3,7 @@ package com.em87.weirdclock
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
@@ -244,16 +245,25 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.advanced_preferences, rootKey)
-            // The floating hourglass needs the draw-over-apps permission.
-            findPreference<SwitchPreferenceCompat>(Prefs.COUNTDOWN_BUBBLE)
+            // Our own floating hourglass needs the draw-over-apps permission;
+            // a system bubble needs none, but the user has to have left
+            // bubbles switched on for the app.
+            findPreference<androidx.preference.ListPreference>(Prefs.COUNTDOWN_FLOAT)
                 ?.setOnPreferenceChangeListener { _, newValue ->
-                    if (newValue == true && !Settings.canDrawOverlays(requireContext())) {
+                    if (newValue == Prefs.FLOAT_OVERLAY &&
+                        !Settings.canDrawOverlays(requireContext())
+                    ) {
                         startActivity(
                             Intent(
                                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                                 Uri.parse("package:${requireContext().packageName}")
                             )
                         )
+                    }
+                    if (newValue == Prefs.FLOAT_BUBBLE && Build.VERSION.SDK_INT >= 30) {
+                        Toast.makeText(
+                            requireContext(), R.string.bubble_hint, Toast.LENGTH_LONG
+                        ).show()
                     }
                     true
                 }
