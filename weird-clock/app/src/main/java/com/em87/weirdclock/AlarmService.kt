@@ -13,8 +13,6 @@ import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.preference.PreferenceManager
-import java.text.DateFormat
-import java.util.Date
 
 /**
  * Rings the alarm with the app's own synthesized bells: a foreground service
@@ -44,17 +42,29 @@ class AlarmService : Service() {
          * Whether what is ringing right now is a finished countdown.
          *
          * The ring screen used to read this off the intent it was launched
-         * with, and got it wrong: the label arrived and the flag did not,
-         * from the same putExtra chain. The only thing that explains one
-         * without the other is a full-screen PendingIntent cached from the
-         * previous version — which had the label and not yet the flag — and
-         * an existing ring task the platform reused rather than recreating.
+         * with, and showed a bell over a finished countdown for three
+         * versions running. The label arrived and the flag did not, from
+         * what looked like the same putExtra chain — because it was not the
+         * same one. MainActivity kept its own copy of the handover for when
+         * the app is open, and that copy passed the label alone.
          *
-         * So the screen no longer asks the intent. The service is by
-         * definition alive whenever its own full-screen intent is on
-         * display, and it already talks to that screen this way.
+         * The copy is gone, but the screen still asks here rather than
+         * there: whoever is ringing knows what it is ringing for, and the
+         * service is by definition alive while its own full-screen intent
+         * is on display. One place to get it wrong instead of two.
          */
         var ringingFromTimer = false
+            private set
+
+        /**
+         * When the ringing started, on the elapsed-realtime clock.
+         *
+         * The ring screen counts up from here rather than showing the time.
+         * A timer that has gone off is nearly always a timer that has gone
+         * off while you were doing something else, and by then the useful
+         * number is not what time it is — it is how far past it you are.
+         */
+        var ringingSince = 0L
             private set
     }
 
@@ -163,6 +173,7 @@ class AlarmService : Service() {
         flashEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_FLASH, false) == true
         fromTimer = intent?.getBooleanExtra(AlarmScheduler.EXTRA_FROM_TIMER, false) == true
         ringingFromTimer = fromTimer
+        ringingSince = android.os.SystemClock.elapsedRealtime()
         val ramp = PreferenceManager.getDefaultSharedPreferences(this)
             .getBoolean(Prefs.ALARM_RAMP, true)
         chimePlayer.volume = if (ramp) 0.15f else 1f
@@ -313,7 +324,14 @@ class AlarmService : Service() {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentTitle(label.ifBlank { getString(R.string.alarm_ringing) })
-            .setContentText(DateFormat.getTimeInstance(DateFormat.SHORT).format(Date()))
+            // No content text, and the header counts up instead of stamping
+            // the time: the shade was printing the same clock reading twice
+            // over, beside a screen printing it a third time. What it says
+            // now is how long this has been going off — the one number none
+            // of the three were giving.
+            .setShowWhen(true)
+            .setWhen(System.currentTimeMillis())
+            .setUsesChronometer(true)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setOngoing(true)

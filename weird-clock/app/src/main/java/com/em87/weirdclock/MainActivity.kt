@@ -297,18 +297,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 CountdownService.clearPublished(this@MainActivity)
                 updateCountdownUi()
                 if (countdownPersistent) {
-                    // Ring until validated: the alarm service loops the bells
-                    // and the ring screen carries the stop button. The
-                    // notification announces the countdown, not the time.
-                    val label = getString(R.string.countdown_finished)
+                    // Ring until validated. Handed over exactly as
+                    // CountdownService does it when the app is closed — this
+                    // used to be a second, slightly different copy of that
+                    // code, and the difference was the whole bug: it never
+                    // said the ring came from a timer, so the ring screen
+                    // wore a bell, and it opened that screen itself on top of
+                    // the one the service's own notification was already
+                    // asking for. One handover, one screen.
                     ContextCompat.startForegroundService(
                         this@MainActivity,
                         Intent(this@MainActivity, AlarmService::class.java)
-                            .putExtra(AlarmScheduler.EXTRA_LABEL, label)
-                    )
-                    startActivity(
-                        Intent(this@MainActivity, AlarmRingActivity::class.java)
-                            .putExtra(AlarmScheduler.EXTRA_LABEL, label)
+                            .putExtra(
+                                AlarmScheduler.EXTRA_LABEL,
+                                getString(R.string.countdown_finished)
+                            )
+                            .putExtra(AlarmScheduler.EXTRA_FROM_TIMER, true)
                     )
                 } else {
                     // Quick, bright quarter-chimes: clearly a timer, not an hour.

@@ -63,7 +63,7 @@ class AlarmReceiver : BroadcastReceiver() {
             context,
             6,
             Intent(context, AlarmRingActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 .putExtra(AlarmScheduler.EXTRA_LABEL, label),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -72,6 +72,11 @@ class AlarmReceiver : BroadcastReceiver() {
             NotificationCompat.Builder(context, AlarmService.CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(label.ifBlank { context.getString(R.string.alarm_ringing) })
+                // Counting up, like the service's own — this is the same
+                // alarm by another road, and it should read the same.
+                .setShowWhen(true)
+                .setWhen(System.currentTimeMillis())
+                .setUsesChronometer(true)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setAutoCancel(true)

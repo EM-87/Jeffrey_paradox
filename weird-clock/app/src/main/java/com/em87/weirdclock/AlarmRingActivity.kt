@@ -7,8 +7,6 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import java.text.DateFormat
-import java.util.Date
 
 /** Full-screen ringing UI shown over the lock screen. */
 class AlarmRingActivity : AppCompatActivity() {
@@ -34,17 +32,23 @@ class AlarmRingActivity : AppCompatActivity() {
         // either way this screen has nothing left to offer.
         AlarmService.onStopped = { runOnUiThread { finish() } }
 
-        findViewById<TextView>(R.id.alarm_time_text).text =
-            DateFormat.getTimeInstance(DateFormat.SHORT).format(Date())
+        // Time since it went off, ticking up. Based on when the service
+        // started ringing rather than on when this screen opened, so the
+        // count survives the screen being rebuilt — and so it is still
+        // honest if the screen arrives a moment late.
+        findViewById<android.widget.Chronometer>(R.id.alarm_time_text).apply {
+            val since = AlarmService.ringingSince
+            base = if (since > 0L) since else android.os.SystemClock.elapsedRealtime()
+            start()
+        }
 
         // A countdown that has run out is not an alarm going off. Same screen,
         // but it wears a stopwatch instead of a bell, and falls back to
         // "Time's up!" rather than the app's alarm line when nothing named it.
         //
-        // Asked of the service rather than of our own intent, which turned
-        // out to be a stale one — see AlarmService.ringingFromTimer. The
-        // extra is still read as a fallback, for the case where the service
-        // has already stopped by the time this screen is built.
+        // Asked of the service first and of the intent second. Whoever rang
+        // knows; an intent only knows what the caller remembered to put on
+        // it, and for two versions one caller did not.
         val fromTimer = AlarmService.ringingFromTimer ||
             intent.getBooleanExtra(AlarmScheduler.EXTRA_FROM_TIMER, false)
         val glyph = findViewById<TextView>(R.id.ring_glyph)
