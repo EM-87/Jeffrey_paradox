@@ -151,8 +151,6 @@
     <string name="alarm_label_hint">Añadir etiqueta…</string>
     <string name="widget_hourglass_label">Reloj de arena Weird Clock</string>
     <string name="widget_hourglass_description">Reloj de arena con la cuenta atrás en marcha</string>
-    <string name="pref_countdown_bubble_title">Reloj de arena flotante</string>
-    <string name="pref_countdown_bubble_summary">Mientras la cuenta atrás corre fuera de la app, un reloj de arena arrastrable flota sobre las demás apps (requiere el permiso de superposición). Desactivado: solo la barra de progreso en la persiana.</string>
     <string name="countdown_channel_name">Cuenta atrás</string>
     <string name="countdown_notification_title">Cuenta atrás en marcha</string>
     <string name="countdown_done">¡Tiempo!</string>
@@ -208,11 +206,7 @@
     <!-- Temporizador: la persiana, la burbuja y lo que flota mientras corre. -->
     <string name="countdown_add_minute">+1 min</string>
     <string name="pref_countdown_float_title">Mientras corre un temporizador</string>
-    <string name="pref_countdown_float_summary">Nuestro reloj de arena flotante necesita el permiso de dibujar sobre otras apps y se queda donde lo arrastres. Una burbuja del sistema no necesita permiso y sobrevive a que cierres la app, pero es Android quien decide dónde va — y puede negarla.</string>
-    <string name="bubble_channel_name">Burbuja del temporizador</string>
-    <string name="bubble_title">Sobre las burbujas</string>
-    <string name="bubble_hint">Android decide si permite una burbuja, y en la mayoría de apps viene desactivada. Si no aparece ninguna mientras corre un temporizador, abre los ajustes de notificación de la app y permítelas ahí.</string>
-    <string name="bubble_open_settings">Ajustes de notificación</string>
+    <string name="pref_countdown_float_summary">El reloj de arena flotante se queda donde lo arrastres y mantiene la cuenta atrás en pantalla sobre las demás apps. Necesita el permiso de dibujar sobre otras apps. Desactivado: solo la barra de progreso en la persiana.</string>
 
     <!-- Lo que la app le dice al sistema: avisos, atajos, tiles y canales. -->
     <string name="alarm_set_toast">Alarma puesta para las %1$s</string>

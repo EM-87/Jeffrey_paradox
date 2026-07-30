@@ -120,12 +120,8 @@
     <string name="alarm_unsaved_message">You changed this alarm without saving.</string>
     <string name="alarm_discard">Discard</string>
     <string name="countdown_add_minute">+1 min</string>
-    <string name="bubble_channel_name">Timer bubble</string>
-    <string name="bubble_title">About bubbles</string>
-    <string name="bubble_hint">Android decides whether a bubble is allowed, and it is off for most apps by default. If none appears while a timer runs, open the app\'s notification settings and allow bubbles there.</string>
-    <string name="bubble_open_settings">Notification settings</string>
     <string name="pref_countdown_float_title">While a timer runs</string>
-    <string name="pref_countdown_float_summary">Our own floating hourglass needs the draw-over-apps permission and sits where you drag it. A system bubble needs no permission and survives the app closing, but Android decides where it goes — and can refuse it.</string>
+    <string name="pref_countdown_float_summary">The floating hourglass sits where you drag it and keeps the countdown on screen over other apps. It needs the draw-over-apps permission. Off: the notification progress bar carries it alone.</string>
     <string name="alarm_set_toast">Alarm set for %1$s</string>
     <string name="timer_set_toast">Timer set for %1$d min %2$d s</string>
     <string name="shortcut_alarms">Alarms</string>
@@ -205,8 +201,6 @@
     <string name="alarm_label_hint">Add a label…</string>
     <string name="widget_hourglass_label">Weird Clock hourglass</string>
     <string name="widget_hourglass_description">Hourglass showing the running countdown</string>
-    <string name="pref_countdown_bubble_title">Floating hourglass</string>
-    <string name="pref_countdown_bubble_summary">While a countdown runs outside the app, a draggable hourglass floats over other apps (needs the draw-over-apps permission). Off: notification progress bar only.</string>
     <string name="countdown_channel_name">Countdown</string>
     <string name="countdown_notification_title">Countdown running</string>
     <string name="countdown_done">Time’s up!</string>

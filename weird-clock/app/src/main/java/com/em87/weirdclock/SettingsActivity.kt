@@ -3,7 +3,6 @@ package com.em87.weirdclock
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
@@ -245,9 +244,8 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.advanced_preferences, rootKey)
-            // Our own floating hourglass needs the draw-over-apps permission;
-            // a system bubble needs none, but the user has to have left
-            // bubbles switched on for the app.
+            // The floating hourglass draws over other apps, and Android only
+            // lets it once the user has said so somewhere we cannot ask.
             findPreference<androidx.preference.ListPreference>(Prefs.COUNTDOWN_FLOAT)
                 ?.setOnPreferenceChangeListener { _, newValue ->
                     if (newValue == Prefs.FLOAT_OVERLAY &&
@@ -259,24 +257,6 @@ class SettingsActivity : AppCompatActivity() {
                                 Uri.parse("package:${requireContext().packageName}")
                             )
                         )
-                    }
-                    if (newValue == Prefs.FLOAT_BUBBLE && Build.VERSION.SDK_INT >= 30) {
-                        // Too long a story for a toast, which cuts it off at
-                        // two lines, and the useful part is a button anyway.
-                        androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                            .setTitle(R.string.bubble_title)
-                            .setMessage(R.string.bubble_hint)
-                            .setPositiveButton(R.string.bubble_open_settings) { _, _ ->
-                                startActivity(
-                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                        .putExtra(
-                                            Settings.EXTRA_APP_PACKAGE,
-                                            requireContext().packageName
-                                        )
-                                )
-                            }
-                            .setNegativeButton(android.R.string.ok, null)
-                            .show()
                     }
                     true
                 }

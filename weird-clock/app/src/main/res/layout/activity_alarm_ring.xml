@@ -6,7 +6,10 @@
     android:gravity="center"
     android:orientation="vertical">
 
+    <!-- Bell for an alarm, stopwatch for a finished countdown: set in code,
+         because this one screen serves both. -->
     <TextView
+        android:id="@+id/ring_glyph"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="🔔"

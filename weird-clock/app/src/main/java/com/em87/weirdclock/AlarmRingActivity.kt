@@ -36,8 +36,20 @@ class AlarmRingActivity : AppCompatActivity() {
 
         findViewById<TextView>(R.id.alarm_time_text).text =
             DateFormat.getTimeInstance(DateFormat.SHORT).format(Date())
+
+        // A countdown that has run out is not an alarm going off. Same screen,
+        // but it says so: a stopwatch instead of a bell, and "Time's up!"
+        // instead of the app's alarm line.
+        val fromTimer = intent.getBooleanExtra(AlarmScheduler.EXTRA_FROM_TIMER, false)
+        val glyph = findViewById<TextView>(R.id.ring_glyph)
+        glyph.text = if (fromTimer) "⏱" else "🔔"
+        glyph.contentDescription =
+            getString(if (fromTimer) R.string.countdown_done else R.string.alarm_ringing)
+
+        val subtitle = findViewById<TextView>(R.id.ring_subtitle)
+        if (fromTimer) subtitle.setText(R.string.countdown_done)
         intent.getStringExtra(AlarmScheduler.EXTRA_LABEL)?.takeIf { it.isNotBlank() }?.let {
-            findViewById<TextView>(R.id.ring_subtitle).text = it
+            subtitle.text = it
         }
         findViewById<Button>(R.id.stop_button).setOnClickListener {
             startService(Intent(this, AlarmService::class.java).setAction(AlarmService.ACTION_STOP))

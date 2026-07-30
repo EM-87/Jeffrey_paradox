@@ -41,10 +41,12 @@ class CountdownService : Service() {
         private const val NOTIFICATION_ID = 2
         private const val DONE_NOTIFICATION_ID = 3
 
-        /** The long-lived shortcut a bubble has to hang from. */
-        private const val BUBBLE_SHORTCUT = "timer_bubble"
-        private const val BUBBLE_CHANNEL_ID = "timer_bubble"
-        private const val BUBBLE_NOTIFICATION_ID = 5
+        /**
+         * Left over from the system-bubble attempt of 11.3–11.6. Kept only so
+         * the row it posted can be swept out of shades that still have one.
+         */
+        private const val RETIRED_BUBBLE_NOTIFICATION_ID = 5
+        private const val RETIRED_BUBBLE_SHORTCUT = "timer_bubble"
 
         const val RESULT_FINISHED = "finished"
 
@@ -115,7 +117,6 @@ class CountdownService : Service() {
                 if (now - lastWidgetPush >= 1000L) {
                     lastWidgetPush = now
                     HourglassWidgetProvider.push(this@CountdownService, remaining, totalMs)
-                    postBubble(remaining)
                 }
                 handler.postDelayed(this, if (overlay != null) 500L else 2000L)
             }
@@ -231,7 +232,6 @@ class CountdownService : Service() {
         if (intent?.action == ACTION_CANCEL) {
             setResult(RESULT_CANCELLED)
             clearPublished(this)
-            cancelBubble()
             stopSelf()
             return START_NOT_STICKY
         }
@@ -262,7 +262,6 @@ class CountdownService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
         maybeShowOverlay()
-        postBubble(remaining)
         overlay?.totalMs = totalMs
         handler.removeCallbacksAndMessages(null)
         handler.post(updateLoop)
@@ -271,10 +270,6 @@ class CountdownService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
-        // Opening the app stops this service, and its own notification goes
-        // with it — but the bubble's is a plain one and would have stayed in
-        // the shade for good, frozen on whatever second it last showed.
-        cancelBubble()
         removeOverlay()
         chimePlayer.release()
         super.onDestroy()
@@ -284,7 +279,6 @@ class CountdownService : Service() {
         if (finished) return
         finished = true
         clearPublished(this)
-        cancelBubble()
         removeOverlay()
         HourglassWidgetProvider.pushIdle(this)
         setResult(RESULT_FINISHED)
@@ -332,23 +326,7 @@ class CountdownService : Service() {
                 AlarmService.GROUP_ID, getString(R.string.channel_group_clock)
             )
         )
-        if (Build.VERSION.SDK_INT >= 30) {
-            // Bubbles need a channel of at least default importance, and one
-            // that is allowed to bubble at all. The timer's own channel is
-            // deliberately quiet, so the bubble gets its own.
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    BUBBLE_CHANNEL_ID,
-                    getString(R.string.bubble_channel_name),
-                    NotificationManager.IMPORTANCE_DEFAULT
-                ).apply {
-                    setSound(null, null)
-                    enableVibration(false)
-                    group = AlarmService.GROUP_ID
-                    setAllowBubbles(true)
-                }
-            )
-        }
+        retireBubble(manager)
         manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
@@ -359,11 +337,42 @@ class CountdownService : Service() {
                 description = getString(R.string.countdown_channel_desc)
                 group = AlarmService.GROUP_ID
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
-                // Without this the platform will not bubble anything on this
-                // channel, whatever metadata the notification carries.
-                if (Build.VERSION.SDK_INT >= 29) setAllowBubbles(true)
             }
         )
+    }
+
+    /**
+     * Sweeps up after the system bubble, which shipped in 11.3 and never once
+     * floated.
+     *
+     * Three versions were spent on it and the diagnosis only landed on the way
+     * out: a notification is only bubbled if Android first classes it as a
+     * conversation, and that takes MessagingStyle — a shortcut id and a Person
+     * are necessary but not sufficient. Ours had the latter and not the
+     * former, so every timer put a second, ordinary row in the shade instead
+     * of a bubble. That much was fixable. What is not is the setting behind
+     * it: since Android 11 the default is "selected conversations can bubble",
+     * and a conversation the user has never promoted appears as — a row in the
+     * shade. Even done right, the first sight of it is the bug being reported.
+     * A feature whose success case is indistinguishable from its failure case
+     * is not a feature, so it is gone.
+     *
+     * What is left is other people's phones: a stale channel in Android's
+     * settings, a dynamic shortcut in the launcher, and possibly a frozen row
+     * still sitting in the shade. All three go here.
+     */
+    @androidx.annotation.RequiresApi(26)
+    private fun retireBubble(manager: NotificationManager) {
+        manager.cancel(RETIRED_BUBBLE_NOTIFICATION_ID)
+        manager.deleteNotificationChannel(RETIRED_BUBBLE_SHORTCUT)
+        try {
+            androidx.core.content.pm.ShortcutManagerCompat.removeLongLivedShortcuts(
+                this, listOf(RETIRED_BUBBLE_SHORTCUT)
+            )
+        } catch (e: Exception) {
+            // A launcher that will not give the shortcut back is not worth
+            // taking the timer down for.
+        }
     }
 
     private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
@@ -418,122 +427,4 @@ class CountdownService : Service() {
         return builder.build()
     }
 
-    /**
-     * The bubble goes on a notification of its own.
-     *
-     * The obvious thing was to bubble the timer notification itself, and that
-     * was the mistake: that one belongs to a foreground service, is ongoing,
-     * colorized, and carries a chronometer and a progress bar. The platform
-     * will not float that — a bubble has to look like a conversation, and a
-     * running service's notification is the opposite of one. So the service
-     * keeps its notification and the bubble gets a second, silent one whose
-     * only job is to be bubbled.
-     *
-     * The rest is the platform's price of entry: since Android 11 a bubble
-     * must point at a long-lived shortcut with a person on it, and the icon
-     * has to be a real bitmap rather than a vector.
-     */
-    private fun postBubble(remainingMs: Long) {
-        if (Build.VERSION.SDK_INT < 30) return
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        if (prefs.getString(Prefs.COUNTDOWN_FLOAT, Prefs.FLOAT_OVERLAY) != Prefs.FLOAT_BUBBLE) return
-        // If the system will not bubble for this app — the switch is off by
-        // default on most phones — posting this anyway just leaves a second
-        // row in the shade for one timer. Better nothing than clutter.
-        if (Build.VERSION.SDK_INT >= 31 &&
-            getSystemService(NotificationManager::class.java)?.areBubblesEnabled() != true
-        ) {
-            return
-        }
-        val theme = ClockThemes.resolve(this, prefs.getString(Prefs.THEME, "midnight"))
-        val icon = bubbleIcon(theme)
-
-        val person = androidx.core.app.Person.Builder()
-            .setName(getString(R.string.chrono_label_countdown))
-            .setKey(BUBBLE_SHORTCUT)
-            .setIcon(icon)
-            .setBot(true)
-            .setImportant(true)
-            .build()
-        val shortcut = androidx.core.content.pm.ShortcutInfoCompat.Builder(this, BUBBLE_SHORTCUT)
-            .setLongLived(true)
-            .setIntent(Intent(this, BubbleActivity::class.java).setAction(Intent.ACTION_VIEW))
-            // A shortcut has to hang off a launcher activity. Left to itself
-            // the framework takes the one in the intent — BubbleActivity,
-            // which is not exported and has no MAIN/LAUNCHER filter — and
-            // refuses the whole shortcut. Without a published shortcut the
-            // notification is not a conversation, and only conversations get
-            // bubbled: that is why the bubble never appeared and its
-            // notification sat in the shade as an ordinary row.
-            .setActivity(android.content.ComponentName(this, MainActivity::class.java))
-            .setShortLabel(getString(R.string.chrono_label_countdown))
-            .setIcon(icon)
-            .setPerson(person)
-            .build()
-        val published = try {
-            androidx.core.content.pm.ShortcutManagerCompat.pushDynamicShortcut(this, shortcut)
-        } catch (e: Exception) {
-            // Shortcut limits, a disabled launcher, an OEM with its own
-            // ideas: none of it is worth taking the timer down for.
-            false
-        }
-        // No shortcut, no conversation, no bubble — and then this notification
-        // would only be a duplicate row next to the timer's own.
-        if (!published) return
-
-        val bubbleIntent = PendingIntent.getActivity(
-            this,
-            9,
-            Intent(this, BubbleActivity::class.java)
-                .setAction(Intent.ACTION_VIEW)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-        )
-        val minutes = (remainingMs / 60_000L).toInt()
-        val seconds = ((remainingMs / 1000L) % 60L).toInt()
-        val notification = NotificationCompat.Builder(this, BUBBLE_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_timer)
-            .setContentTitle(getString(R.string.chrono_label_countdown))
-            .setContentText(String.format("%d:%02d", minutes, seconds))
-            .setShortcutId(BUBBLE_SHORTCUT)
-            .addPerson(person)
-            .setLocusId(androidx.core.content.LocusIdCompat(BUBBLE_SHORTCUT))
-            .setSilent(true)
-            .setOnlyAlertOnce(true)
-            .setContentIntent(openAppIntent())
-            .setBubbleMetadata(
-                NotificationCompat.BubbleMetadata.Builder(bubbleIntent, icon)
-                    .setDesiredHeight(180)
-                    .setAutoExpandBubble(false)
-                    .setSuppressNotification(true)
-                    .build()
-            )
-            .build()
-        getSystemService(NotificationManager::class.java)
-            ?.notify(BUBBLE_NOTIFICATION_ID, notification)
-    }
-
-    private fun cancelBubble() {
-        getSystemService(NotificationManager::class.java)?.cancel(BUBBLE_NOTIFICATION_ID)
-    }
-
-    /**
-     * A bubble wants a bitmap it can mask into a circle, not a line drawing:
-     * a vector resource here is silently refused on some versions.
-     */
-    private fun bubbleIcon(theme: ClockTheme): androidx.core.graphics.drawable.IconCompat {
-        val size = (108 * resources.displayMetrics.density).toInt().coerceAtLeast(48)
-        val bitmap = android.graphics.Bitmap.createBitmap(
-            size, size, android.graphics.Bitmap.Config.ARGB_8888
-        )
-        val canvas = android.graphics.Canvas(bitmap)
-        canvas.drawColor(theme.face)
-        androidx.core.content.ContextCompat.getDrawable(this, R.drawable.ic_timer)?.apply {
-            setTint(theme.decimal)
-            val inset = size / 4
-            setBounds(inset, inset, size - inset, size - inset)
-            draw(canvas)
-        }
-        return androidx.core.graphics.drawable.IconCompat.createWithAdaptiveBitmap(bitmap)
-    }
 }

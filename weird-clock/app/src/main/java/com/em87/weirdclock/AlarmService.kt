@@ -261,7 +261,10 @@ class AlarmService : Service() {
                 .putExtra(AlarmScheduler.EXTRA_SOUND, sound)
                 .putExtra(AlarmScheduler.EXTRA_SOUND_URI, soundUri)
                 .putExtra(AlarmScheduler.EXTRA_SNOOZE, snoozeMinutes)
-                .putExtra(AlarmScheduler.EXTRA_LABEL, label),
+                .putExtra(AlarmScheduler.EXTRA_LABEL, label)
+                // The full-screen ring needs to know what ran out, the same
+                // way the notification icon does.
+                .putExtra(AlarmScheduler.EXTRA_FROM_TIMER, fromTimer),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val stop = PendingIntent.getService(

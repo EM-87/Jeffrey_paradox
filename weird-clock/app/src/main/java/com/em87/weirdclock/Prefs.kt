@@ -89,11 +89,12 @@ object Prefs {
     const val COUNTDOWN_PERSISTENT = "pref_countdown_persistent"
     const val COUNTDOWN_BUBBLE = "pref_countdown_bubble"
 
-    /** How a running countdown floats: not at all, our overlay, or a bubble. */
+    /** How a running countdown floats: not at all, or our own overlay. */
     const val COUNTDOWN_FLOAT = "pref_countdown_float"
     const val FLOAT_NONE = "none"
     const val FLOAT_OVERLAY = "overlay"
-    const val FLOAT_BUBBLE = "bubble"
+
+    /** Where the user last dragged the floating hourglass. */
     const val BUBBLE_X = "pref_bubble_x"
     const val BUBBLE_Y = "pref_bubble_y"
     const val NIGHT_DIM = "pref_night_dim"

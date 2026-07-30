@@ -381,13 +381,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
         // The floating hourglass used to be a yes/no switch; it is now a
-        // choice of three. Carry the old answer over once.
+        // choice of two. Carry the old answer over once.
         if (!prefs.contains(Prefs.COUNTDOWN_FLOAT)) {
             prefs.edit().putString(
                 Prefs.COUNTDOWN_FLOAT,
                 if (prefs.getBoolean(Prefs.COUNTDOWN_BUBBLE, true)) Prefs.FLOAT_OVERLAY
                 else Prefs.FLOAT_NONE
             ).apply()
+        } else if (prefs.getString(Prefs.COUNTDOWN_FLOAT, null) == "bubble") {
+            // System bubbles were offered for three versions and never worked:
+            // see CountdownService. Anyone left holding that answer gets the
+            // floating hourglass instead of a setting that points nowhere.
+            prefs.edit().putString(Prefs.COUNTDOWN_FLOAT, Prefs.FLOAT_OVERLAY).apply()
         }
         chimePlayer.prepareTick(this)
         alarms.addAll(AlarmStore.load(this))
@@ -898,6 +903,75 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
         })
     }
+
+    /**
+     * Fades a card in or out, clocked by hand.
+     *
+     * Not ViewPropertyAnimator: every duration it is given is multiplied by
+     * the system's animator scale, and with that scale off — which is how
+     * this phone is set up — a fade becomes a snap. The same trap that made
+     * the bottom sheets appear out of nowhere had the cards changing mode
+     * with a jump cut, and the world-clock bubbles popping instead of
+     * arriving.
+     */
+    private fun fadeCard(
+        view: View?,
+        show: Boolean,
+        durationMs: Float = CARD_FADE_MS,
+        raise: Boolean = true
+    ) {
+        val target = view ?: return
+        val full = shownAlpha(target)
+        if (show && target.visibility == View.VISIBLE && target.alpha == full) return
+        if (!show && target.visibility == View.GONE) return
+        if (show && target.visibility != View.VISIBLE) {
+            target.alpha = 0f
+            target.visibility = View.VISIBLE
+            // Both cards are on screen while they dissolve, stacked in the
+            // same frame. The arriving one goes on top so that a tap during
+            // those few hundred milliseconds reaches the card being asked
+            // for, not the ghost of the one leaving. Not for the bubble layer,
+            // which lives inside a card and must stay under its buttons.
+            if (raise) target.bringToFront()
+        }
+        val from = target.alpha
+        val to = if (show) full else 0f
+        val start = SystemClock.uptimeMillis()
+        val ease = android.view.animation.AccelerateDecelerateInterpolator()
+        val choreographer = android.view.Choreographer.getInstance()
+        // One token per card, not one for all of them: six cards cross-fade at
+        // the same time on every mode change, and a single shared counter meant
+        // each new call killed the five before it — only the last card moved.
+        val token = (fadeTokens[target] ?: 0) + 1
+        fadeTokens[target] = token
+        choreographer.postFrameCallback(object : android.view.Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
+                // A newer fade on this card cancels the older one, so a fast
+                // flick between modes cannot leave a card half-faded.
+                if (fadeTokens[target] != token) return
+                val t = ((SystemClock.uptimeMillis() - start) / durationMs).coerceIn(0f, 1f)
+                target.alpha = from + (to - from) * ease.getInterpolation(t)
+                if (t < 1f && target.isAttachedToWindow) {
+                    choreographer.postFrameCallback(this)
+                    return
+                }
+                if (!show) target.visibility = View.GONE
+                // Done: drop the bookkeeping so the map does not hold on to
+                // page views the pager has since thrown away.
+                fadeTokens.remove(target)
+            }
+        })
+    }
+
+    /**
+     * How opaque a card is when fully shown. Normally solid — but the alarms
+     * card is dimmed at night, and the fade has to land on that value instead
+     * of undoing it.
+     */
+    private fun shownAlpha(view: View): Float =
+        if (view === alarmsContainer && appliedNightDim) NIGHT_DIM_ALPHA else 1f
+
+    private val fadeTokens = HashMap<View, Int>()
 
     /** Reflects the current countdown duration on the S3 preset buttons. */
     private fun syncS3DurationChecks() {
@@ -2502,7 +2576,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         syncS3DurationChecks()
 
         // Night dims the alarms card too — it was the only bright one left.
-        alarmsContainer?.alpha = if (appliedNightDim) 0.45f else 1f
+        // Routed through the same fade rather than assigned: a raw alpha here
+        // would fight whatever cross-fade the card is in the middle of, and
+        // this way the dim itself arrives gently when 22:00 comes round.
+        if (mode != Mode.CHRONO) fadeCard(alarmsContainer, true)
         // Hands or digits, and the shape and hour count the faces wear, are
         // all settings: the cards are rebuilt so they follow.
         alarmsRecycler?.let { if (!it.isComputingLayout) refreshAlarmsUi() }
@@ -2651,27 +2728,20 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         stopwatchClockView?.chronoRunning = stopwatchRunning
         modeButton?.visibility = if (alarmSetActive) View.GONE else View.VISIBLE
         // Bubbles fade with the mode change, like the crown and pushers.
-        val showBubbles = !chrono && !alarmSetActive
-        bubbleLayer?.let { layer ->
-            layer.animate().cancel()
-            if (showBubbles) {
-                layer.visibility = View.VISIBLE
-                layer.animate().alpha(1f).setDuration(500L).start()
-            } else {
-                layer.animate().alpha(0f).setDuration(500L)
-                    .withEndAction { layer.visibility = View.GONE }
-                    .start()
-            }
-        }
+        fadeCard(bubbleLayer, !chrono && !alarmSetActive, raise = false)
         settingsButton?.visibility = if (alarmSetActive) View.GONE else View.VISIBLE
         // Every card follows the mode: clock / calendar / alarms against
         // hourglass / stopwatch / countdown.
-        clockContainer?.visibility = if (chrono) View.GONE else View.VISIBLE
-        hourglassContainer?.visibility = if (chrono) View.VISIBLE else View.GONE
-        calendarContainer?.visibility = if (chrono) View.GONE else View.VISIBLE
-        stopwatchContainer?.visibility = if (chrono) View.VISIBLE else View.GONE
-        alarmsContainer?.visibility = if (chrono) View.GONE else View.VISIBLE
-        countdownContainer?.visibility = if (chrono) View.VISIBLE else View.GONE
+        // Each pair dissolves into the other rather than cutting: the
+        // stopwatch gives way to the calendar, the hourglass to the clock,
+        // the countdown to the alarms — and the crown and pushers are
+        // already fading on their own clock inside the dial.
+        fadeCard(clockContainer, !chrono)
+        fadeCard(hourglassContainer, chrono)
+        fadeCard(calendarContainer, !chrono)
+        fadeCard(stopwatchContainer, chrono)
+        fadeCard(alarmsContainer, !chrono)
+        fadeCard(countdownContainer, chrono)
         updateCountdownUi()
     }
 
@@ -2862,5 +2932,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
         private const val DEFAULT_COUNTDOWN_MS = 5 * 60_000L
         private const val BUBBLE_BUOYANCY = 300f
+
+        /**
+         * How long a card takes to dissolve into the one behind it. Matched
+         * to the 500 ms the crown and pushers already take to fade inside the
+         * dial, so the whole mode change moves as one gesture.
+         */
+        private const val CARD_FADE_MS = 500f
+
+        /** The alarms card at night. */
+        private const val NIGHT_DIM_ALPHA = 0.45f
     }
 }
