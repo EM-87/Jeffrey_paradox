@@ -2,6 +2,35 @@
 <resources>
     <style name="Theme.WeirdClock" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="preferenceTheme">@style/PreferenceThemeOverlay</item>
+
+        <!-- Without these the app inherits Material's baseline purple. See
+             colors.xml; the values themselves flip in values-night/. -->
+        <item name="colorPrimary">@color/m3_primary</item>
+        <item name="colorOnPrimary">@color/m3_on_primary</item>
+        <item name="colorPrimaryContainer">@color/m3_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/m3_on_primary_container</item>
+
+        <item name="colorSecondary">@color/m3_secondary</item>
+        <item name="colorOnSecondary">@color/m3_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/m3_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/m3_on_secondary_container</item>
+
+        <item name="colorTertiary">@color/m3_tertiary</item>
+        <item name="colorOnTertiary">@color/m3_on_tertiary</item>
+        <item name="colorTertiaryContainer">@color/m3_tertiary_container</item>
+        <item name="colorOnTertiaryContainer">@color/m3_on_tertiary_container</item>
+
+        <item name="colorSurface">@color/m3_surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSurfaceVariant">@color/m3_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="colorOutline">@color/m3_outline</item>
+
+        <!-- The older widgets — the switches in the settings list among them
+             — colour themselves from these two rather than from the Material
+             roles above, and would have stayed purple on their own. -->
+        <item name="colorAccent">@color/m3_primary</item>
+        <item name="colorControlActivated">@color/m3_primary</item>
     </style>
 
     <!-- Sheets arrive and leave under their own momentum. -->

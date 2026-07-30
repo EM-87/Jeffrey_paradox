@@ -39,6 +39,23 @@ class AlarmService : Service() {
          * offering to stop an alarm that had already stopped.
          */
         var onStopped: (() -> Unit)? = null
+
+        /**
+         * Whether what is ringing right now is a finished countdown.
+         *
+         * The ring screen used to read this off the intent it was launched
+         * with, and got it wrong: the label arrived and the flag did not,
+         * from the same putExtra chain. The only thing that explains one
+         * without the other is a full-screen PendingIntent cached from the
+         * previous version — which had the label and not yet the flag — and
+         * an existing ring task the platform reused rather than recreating.
+         *
+         * So the screen no longer asks the intent. The service is by
+         * definition alive whenever its own full-screen intent is on
+         * display, and it already talks to that screen this way.
+         */
+        var ringingFromTimer = false
+            private set
     }
 
     private val chimePlayer = ChimePlayer()
@@ -145,6 +162,7 @@ class AlarmService : Service() {
         vibrateEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_VIBRATE, true) != false
         flashEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_FLASH, false) == true
         fromTimer = intent?.getBooleanExtra(AlarmScheduler.EXTRA_FROM_TIMER, false) == true
+        ringingFromTimer = fromTimer
         val ramp = PreferenceManager.getDefaultSharedPreferences(this)
             .getBoolean(Prefs.ALARM_RAMP, true)
         chimePlayer.volume = if (ramp) 0.15f else 1f
@@ -204,6 +222,7 @@ class AlarmService : Service() {
         handler.removeCallbacksAndMessages(null)
         stopPlayback()
         chimePlayer.release()
+        ringingFromTimer = false
         onStopped?.invoke()
         super.onDestroy()
     }
@@ -257,7 +276,12 @@ class AlarmService : Service() {
             this,
             0,
             Intent(this, AlarmRingActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                // CLEAR_TASK, because NEW_TASK on its own will hand an old
+                // ring task straight back — extras and all, since a task is
+                // matched on component and never on what it is carrying. The
+                // stale flag was the visible half of that; a stale label,
+                // sound or snooze setting was the other.
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 .putExtra(AlarmScheduler.EXTRA_SOUND, sound)
                 .putExtra(AlarmScheduler.EXTRA_SOUND_URI, soundUri)
                 .putExtra(AlarmScheduler.EXTRA_SNOOZE, snoozeMinutes)
