@@ -75,4 +75,15 @@
         <item>Campana de barco (guardias náuticas)</item>
         <item>Campanada única (gong)</item>
     </string-array>
+
+    <string-array name="alarm_style_entries">
+        <item>Manecillas</item>
+        <item>Dígitos</item>
+    </string-array>
+
+    <string-array name="countdown_float_entries">
+        <item>Nada flotando</item>
+        <item>Reloj de arena flotante (el nuestro)</item>
+        <item>Burbuja del sistema</item>
+    </string-array>
 </resources>

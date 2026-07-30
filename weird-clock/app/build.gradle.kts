@@ -11,8 +11,8 @@ android {
         applicationId = "com.em87.weirdclock"
         minSdk = 24
         targetSdk = 35
-        versionCode = 58
-        versionName = "11.4"
+        versionCode = 59
+        versionName = "11.5"
     }
 
     // Shared signing key committed to the repo, so every APK — built on any
@@ -40,6 +40,13 @@ android {
                 "proguard-rules.pro"
             )
         }
+    }
+
+    // A string that never reaches values-es/ used to be invisible: the app
+    // simply spoke English at that one spot. Now the build says so.
+    lint {
+        error += "MissingTranslation"
+        warning += "ExtraTranslation"
     }
 
     compileOptions {

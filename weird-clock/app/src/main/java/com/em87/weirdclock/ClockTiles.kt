@@ -89,6 +89,7 @@ class AlarmTileService : TileService() {
  * is still the only one below that.
  */
 @RequiresApi(24)
+@android.annotation.SuppressLint("StartActivityAndCollapseDeprecated")
 private fun TileService.openApp(intent: Intent) {
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     if (Build.VERSION.SDK_INT >= 34) {

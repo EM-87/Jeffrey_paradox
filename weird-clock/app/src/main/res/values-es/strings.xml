@@ -41,10 +41,10 @@
     <string name="pref_test_bells_summary">Reproduce una muestra del estilo de campana seleccionado</string>
 
     <string name="category_time">El tiempo mismo</string>
-    <string name="pref_time_speed_title">Velocidad del tiempo (%)</string>
+    <string name="pref_time_speed_title" formatted="false">Velocidad del tiempo (%)</string>
     <string name="pref_time_speed_summary">Haz que el reloj corra más rápido o más lento que la realidad</string>
     <string name="speed_warning_title">Advertencia</string>
-    <string name="speed_warning_message">Doblar la velocidad del tiempo no permite viajar en el tiempo, y las alarmas quedan desactivadas mientras el tiempo no corra al 100%. Weird Clock declina toda responsabilidad por citas perdidas.</string>
+    <string name="speed_warning_message" formatted="false">Doblar la velocidad del tiempo no permite viajar en el tiempo, y las alarmas quedan desactivadas mientras el tiempo no corra al 100%. Weird Clock declina toda responsabilidad por citas perdidas.</string>
 
     <string name="category_world">Reloj mundial</string>
     <string name="pref_world_clock_title">Reloj mundial</string>
@@ -70,7 +70,7 @@
     <string name="cheater_stamp">¡TRAMPOSO!</string>
 
     <string name="category_alarms">Alarmas</string>
-    <string name="pref_alarm_disabled_by_speed">Desactivadas mientras la velocidad del tiempo no sea 100%</string>
+    <string name="pref_alarm_disabled_by_speed" formatted="false">Desactivadas mientras la velocidad del tiempo no sea 100%</string>
     <string name="pref_manage_alarms_title">Gestionar alarmas</string>
     <string name="pref_manage_alarms_summary">Desliza a la izquierda en el reloj, o toca aquí</string>
     <string name="alarms_title">Alarmas</string>
@@ -170,11 +170,62 @@
     <string name="reminder_untitled">Recordatorio</string>
     <string name="reminder_deleted">Recordatorio eliminado</string>
     <string name="pref_night_dim_title">Modo noche automático</string>
-    <string name="pref_night_dim_summary">De 22:00 a 07:00 la esfera se atenúa al 30% para no iluminar el dormitorio</string>
+    <string name="pref_night_dim_summary" formatted="false">De 22:00 a 07:00 la esfera se atenúa al 30% para no iluminar el dormitorio</string>
     <string name="overlay_intro_title">El reloj de arena flotante</string>
     <string name="overlay_intro_message">Cuando una cuenta atrás corre y sales de la app, un pequeño reloj de arena puede flotar sobre todo lo demás, vaciándose en tiempo real. Necesita el permiso de superposición: concédelo ahora y olvídate, o hazlo más tarde desde Ajustes.</string>
     <string name="overlay_intro_grant">Permitir</string>
     <string name="overlay_intro_later">Más tarde</string>
     <string name="egg_countdown">Estás a %1$d toques de ser batería</string>
     <string name="egg_unlocked">🥁 Ya eres una máquina de ritmo</string>
+
+    <!-- Alarmas: repeticiones, cambios sin guardar y la proxima vez que suena. -->
+    <string name="alarm_remove_time_title">¿Quitar esta repetición?</string>
+    <string name="alarm_remove_time_message">La alarma dejará de sonar a las %1$s.</string>
+    <string name="alarm_remove_time_first">Esta es la hora de la alarma. Mantén pulsada cualquiera de las otras para quitar una repetición.</string>
+    <string name="alarm_unsaved_title">Cambios sin guardar</string>
+    <string name="alarm_unsaved_message">Has cambiado esta alarma y no la has guardado.</string>
+    <string name="alarm_discard">Descartar</string>
+    <string name="alarm_rings_in">dentro de %1$s</string>
+    <string name="alarm_rings_soon">en menos de un minuto</string>
+    <string name="duration_h_m">%1$d h %2$d min</string>
+    <string name="duration_m">%1$d min</string>
+    <string name="duration_d_h">%1$d d %2$d h</string>
+    <string name="pref_alarm_style_title">Las alarmas se leen en</string>
+    <string name="pref_alarm_style_summary">Si una alarma muestra su hora en una esferita o en dígitos pelados</string>
+
+    <!-- Recordatorios que vuelven, y avisos con dias de antelacion. -->
+    <string name="reminder_repeat">Se repite</string>
+    <string name="reminder_repeat_never">Nunca</string>
+    <string name="reminder_repeat_monthly">Cada mes</string>
+    <string name="reminder_repeat_yearly">Cada año</string>
+    <string name="reminder_move">Mover a otro día</string>
+    <string name="reminder_lead_hours">%1$d h antes</string>
+    <string name="reminder_lead_day">El día antes</string>
+    <string name="reminder_lead_days">%1$d días antes</string>
+    <string name="reminder_lead_week">Una semana antes</string>
+    <string name="reminder_lead_weeks">%1$d semanas antes</string>
+
+    <!-- Temporizador: la persiana, la burbuja y lo que flota mientras corre. -->
+    <string name="countdown_add_minute">+1 min</string>
+    <string name="pref_countdown_float_title">Mientras corre un temporizador</string>
+    <string name="pref_countdown_float_summary">Nuestro reloj de arena flotante necesita el permiso de dibujar sobre otras apps y se queda donde lo arrastres. Una burbuja del sistema no necesita permiso y sobrevive a que cierres la app, pero es Android quien decide dónde va — y puede negarla.</string>
+    <string name="bubble_channel_name">Burbuja del temporizador</string>
+    <string name="bubble_title">Sobre las burbujas</string>
+    <string name="bubble_hint">Android decide si permite una burbuja, y en la mayoría de apps viene desactivada. Si no aparece ninguna mientras corre un temporizador, abre los ajustes de notificación de la app y permítelas ahí.</string>
+    <string name="bubble_open_settings">Ajustes de notificación</string>
+
+    <!-- Lo que la app le dice al sistema: avisos, atajos, tiles y canales. -->
+    <string name="alarm_set_toast">Alarma puesta para las %1$s</string>
+    <string name="timer_set_toast">Temporizador de %1$d min %2$d s</string>
+    <string name="shortcut_alarms">Alarmas</string>
+    <string name="shortcut_timer">Temporizador</string>
+    <string name="shortcut_stopwatch">Cronómetro</string>
+    <string name="shortcut_calendar">Calendario</string>
+    <string name="tile_timer_label">Temporizador</string>
+    <string name="tile_alarm_label">Próxima alarma</string>
+    <string name="tile_none">Ninguna</string>
+    <string name="channel_group_clock">Reloj</string>
+    <string name="alarm_channel_desc">El sonido de alarmas y recordatorios. Si silencias este canal, silencias tus alarmas.</string>
+    <string name="countdown_channel_desc">El temporizador en marcha, con su tiempo restante y su barra de progreso.</string>
+    <string name="bells_channel_desc">El hueco silencioso que las campanadas horarias necesitan para poder sonar desde segundo plano.</string>
 </resources>

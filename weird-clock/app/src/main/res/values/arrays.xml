@@ -9,7 +9,7 @@
         <item>Sunset</item>
         <item>Dynamic (Material You)</item>
     </string-array>
-    <string-array name="theme_values">
+    <string-array name="theme_values" translatable="false">
         <item>midnight</item>
         <item>daylight</item>
         <item>ivory</item>
@@ -26,7 +26,7 @@
         <item>Hexagonal</item>
         <item>Octagonal (stop sign)</item>
     </string-array>
-    <string-array name="dial_shape_values">
+    <string-array name="dial_shape_values" translatable="false">
         <item>circle</item>
         <item>triangle</item>
         <item>square</item>
@@ -39,7 +39,7 @@
         <item>Floating hourglass (our own)</item>
         <item>System bubble</item>
     </string-array>
-    <string-array name="countdown_float_values">
+    <string-array name="countdown_float_values" translatable="false">
         <item>none</item>
         <item>overlay</item>
         <item>bubble</item>
@@ -49,7 +49,7 @@
         <item>Hands</item>
         <item>Digits</item>
     </string-array>
-    <string-array name="alarm_style_values">
+    <string-array name="alarm_style_values" translatable="false">
         <item>analog</item>
         <item>digital</item>
     </string-array>
@@ -60,7 +60,7 @@
         <item>Cross them out</item>
         <item>Circle them</item>
     </string-array>
-    <string-array name="past_days_values">
+    <string-array name="past_days_values" translatable="false">
         <item>none</item>
         <item>dim</item>
         <item>cross</item>
@@ -73,7 +73,7 @@
         <item>24 hours (full day)</item>
         <item>Custom…</item>
     </string-array>
-    <string-array name="hours_preset_values">
+    <string-array name="hours_preset_values" translatable="false">
         <item>10</item>
         <item>12</item>
         <item>24</item>
@@ -85,7 +85,7 @@
         <item>Arabic (1, 2, 3…)</item>
         <item>Roman (I, II, III…)</item>
     </string-array>
-    <string-array name="numeral_values">
+    <string-array name="numeral_values" translatable="false">
         <item>none</item>
         <item>arabic</item>
         <item>roman</item>
@@ -96,7 +96,7 @@
         <item>Text (Mon 6 Jul)</item>
         <item>Roman (VI·VII·MMXXVI)</item>
     </string-array>
-    <string-array name="date_format_values">
+    <string-array name="date_format_values" translatable="false">
         <item>number</item>
         <item>text</item>
         <item>roman</item>
@@ -107,7 +107,7 @@
         <item>Tenths of a second (1 turn per second)</item>
         <item>Decimal minute (1 turn per 86.4 s)</item>
     </string-array>
-    <string-array name="fast_hand_values">
+    <string-array name="fast_hand_values" translatable="false">
         <item>none</item>
         <item>tenths</item>
         <item>decimal_minute</item>
@@ -132,7 +132,7 @@
         <item>Sydney</item>
         <item>Honolulu</item>
     </string-array>
-    <string-array name="world_tz_values">
+    <string-array name="world_tz_values" translatable="false">
         <item>UTC</item>
         <item>Europe/Madrid</item>
         <item>Europe/London</item>
@@ -152,7 +152,7 @@
         <item>Pacific/Honolulu</item>
     </string-array>
 
-    <string-array name="world_tzs_default">
+    <string-array name="world_tzs_default" translatable="false">
         <item>UTC</item>
     </string-array>
 
@@ -161,7 +161,7 @@
         <item>Ship’s bell (nautical watches)</item>
         <item>Single strike (gong)</item>
     </string-array>
-    <string-array name="bell_style_values">
+    <string-array name="bell_style_values" translatable="false">
         <item>count</item>
         <item>ships</item>
         <item>single</item>

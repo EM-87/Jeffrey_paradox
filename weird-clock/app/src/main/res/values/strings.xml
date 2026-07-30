@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Weird Clock</string>
+    <string name="app_name" translatable="false">Weird Clock</string>
     <string name="settings_title">Settings</string>
     <string name="widget_description">Weird Clock on your home screen</string>
 
@@ -42,10 +42,10 @@
     <string name="pref_test_bells_summary">Play a sample of the selected bell style</string>
 
     <string name="category_time">Time itself</string>
-    <string name="pref_time_speed_title">Time speed (%)</string>
+    <string name="pref_time_speed_title" formatted="false">Time speed (%)</string>
     <string name="pref_time_speed_summary">Make the clock run faster or slower than reality</string>
     <string name="speed_warning_title">Warning</string>
-    <string name="speed_warning_message">Bending the speed of time does not allow time travel, and alarms are disabled while time is not running at 100%. Weird Clock declines all responsibility for missed appointments.</string>
+    <string name="speed_warning_message" formatted="false">Bending the speed of time does not allow time travel, and alarms are disabled while time is not running at 100%. Weird Clock declines all responsibility for missed appointments.</string>
 
     <string name="category_world">World clock</string>
     <string name="pref_world_clock_title">World clock</string>
@@ -60,11 +60,11 @@
     <!-- Buttons show where pressing them takes you: hourglass enters the
          chronograph, analog clock returns to it; a second button switches
          between stopwatch and countdown. -->
-    <string name="mode_clock">⏳</string>
-    <string name="mode_stopwatch">🕐</string>
-    <string name="mode_countdown">🕐</string>
-    <string name="mode_switch_to_countdown">⌛</string>
-    <string name="mode_switch_to_stopwatch">⏱</string>
+    <string name="mode_clock" translatable="false">⏳</string>
+    <string name="mode_stopwatch" translatable="false">🕐</string>
+    <string name="mode_countdown" translatable="false">🕐</string>
+    <string name="mode_switch_to_countdown" translatable="false">⌛</string>
+    <string name="mode_switch_to_stopwatch" translatable="false">⏱</string>
     <string name="cheater_stamp">CHEATER!</string>
     <string name="sand_freeze">Freeze</string>
     <string name="sand_thaw">Thaw</string>
@@ -77,11 +77,11 @@
     <string name="set_alarm_time">Set alarm time</string>
     <string name="set_reminder_time">Set reminder time</string>
     <string name="set_duration">How long does it last?</string>
-    <string name="alarm_set_confirm">✓</string>
-    <string name="alarm_set_cancel">✗</string>
+    <string name="alarm_set_confirm" translatable="false">✓</string>
+    <string name="alarm_set_cancel" translatable="false">✗</string>
 
     <string name="category_alarms">Alarms</string>
-    <string name="pref_alarm_disabled_by_speed">Disabled while time speed is not 100%</string>
+    <string name="pref_alarm_disabled_by_speed" formatted="false">Disabled while time speed is not 100%</string>
     <string name="pref_manage_alarms_title">Manage alarms</string>
     <string name="pref_manage_alarms_summary">Swipe left on the clock, or tap here</string>
     <string name="alarms_title">Alarms</string>
@@ -224,7 +224,7 @@
     <string name="reminder_untitled">Reminder</string>
     <string name="reminder_deleted">Reminder deleted</string>
     <string name="pref_night_dim_title">Automatic night mode</string>
-    <string name="pref_night_dim_summary">From 22:00 to 07:00 the dial dims to 30% so it doesn’t light the bedroom</string>
+    <string name="pref_night_dim_summary" formatted="false">From 22:00 to 07:00 the dial dims to 30% so it doesn’t light the bedroom</string>
     <string name="overlay_intro_title">The floating hourglass</string>
     <string name="overlay_intro_message">When a countdown is running and you leave the app, a little hourglass can float over everything else, draining in real time. It needs the draw-over-apps permission — grant it now and forget about it, or do it later from Settings.</string>
     <string name="overlay_intro_grant">Allow</string>

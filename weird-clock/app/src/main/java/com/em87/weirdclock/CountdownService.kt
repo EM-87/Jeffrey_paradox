@@ -433,6 +433,14 @@ class CountdownService : Service() {
         if (Build.VERSION.SDK_INT < 30) return
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         if (prefs.getString(Prefs.COUNTDOWN_FLOAT, Prefs.FLOAT_OVERLAY) != Prefs.FLOAT_BUBBLE) return
+        // If the system will not bubble for this app — the switch is off by
+        // default on most phones — posting this anyway just leaves a second
+        // row in the shade for one timer. Better nothing than clutter.
+        if (Build.VERSION.SDK_INT >= 31 &&
+            getSystemService(NotificationManager::class.java)?.areBubblesEnabled() != true
+        ) {
+            return
+        }
         val theme = ClockThemes.resolve(this, prefs.getString(Prefs.THEME, "midnight"))
         val icon = bubbleIcon(theme)
 
