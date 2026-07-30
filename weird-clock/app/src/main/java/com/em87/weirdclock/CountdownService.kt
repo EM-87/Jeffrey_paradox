@@ -43,6 +43,8 @@ class CountdownService : Service() {
 
         /** The long-lived shortcut a bubble has to hang from. */
         private const val BUBBLE_SHORTCUT = "timer_bubble"
+        private const val BUBBLE_CHANNEL_ID = "timer_bubble"
+        private const val BUBBLE_NOTIFICATION_ID = 5
 
         const val RESULT_FINISHED = "finished"
 
@@ -113,6 +115,7 @@ class CountdownService : Service() {
                 if (now - lastWidgetPush >= 1000L) {
                     lastWidgetPush = now
                     HourglassWidgetProvider.push(this@CountdownService, remaining, totalMs)
+                    postBubble(remaining)
                 }
                 handler.postDelayed(this, if (overlay != null) 500L else 2000L)
             }
@@ -228,6 +231,7 @@ class CountdownService : Service() {
         if (intent?.action == ACTION_CANCEL) {
             setResult(RESULT_CANCELLED)
             clearPublished(this)
+            cancelBubble()
             stopSelf()
             return START_NOT_STICKY
         }
@@ -258,6 +262,7 @@ class CountdownService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
         maybeShowOverlay()
+        postBubble(remaining)
         overlay?.totalMs = totalMs
         handler.removeCallbacksAndMessages(null)
         handler.post(updateLoop)
@@ -275,6 +280,7 @@ class CountdownService : Service() {
         if (finished) return
         finished = true
         clearPublished(this)
+        cancelBubble()
         removeOverlay()
         HourglassWidgetProvider.pushIdle(this)
         setResult(RESULT_FINISHED)
@@ -322,6 +328,23 @@ class CountdownService : Service() {
                 AlarmService.GROUP_ID, getString(R.string.channel_group_clock)
             )
         )
+        if (Build.VERSION.SDK_INT >= 30) {
+            // Bubbles need a channel of at least default importance, and one
+            // that is allowed to bubble at all. The timer's own channel is
+            // deliberately quiet, so the bubble gets its own.
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    BUBBLE_CHANNEL_ID,
+                    getString(R.string.bubble_channel_name),
+                    NotificationManager.IMPORTANCE_DEFAULT
+                ).apply {
+                    setSound(null, null)
+                    enableVibration(false)
+                    group = AlarmService.GROUP_ID
+                    setAllowBubbles(true)
+                }
+            )
+        }
         manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
@@ -388,65 +411,100 @@ class CountdownService : Service() {
             )
             .setContentIntent(openAppIntent())
             .addAction(0, getString(R.string.countdown_cancel), cancel)
-        attachBubble(builder, theme)
         return builder.build()
     }
 
     /**
-     * Offers the notification to the system as a bubble — the platform's own
-     * floating window, which costs no draw-over-other-apps permission and
-     * survives the app being closed, at the price of the app not choosing
-     * where it sits.
+     * The bubble goes on a notification of its own.
      *
-     * Bubbles are built for conversations, and since Android 11 the platform
-     * will only bubble a notification that points at a long-lived shortcut.
-     * So one is published for the timer, with a Person on it, purely to
-     * satisfy that rule. The user still has the last word: bubbles can be
-     * refused per app, and then this is simply ignored.
+     * The obvious thing was to bubble the timer notification itself, and that
+     * was the mistake: that one belongs to a foreground service, is ongoing,
+     * colorized, and carries a chronometer and a progress bar. The platform
+     * will not float that — a bubble has to look like a conversation, and a
+     * running service's notification is the opposite of one. So the service
+     * keeps its notification and the bubble gets a second, silent one whose
+     * only job is to be bubbled.
+     *
+     * The rest is the platform's price of entry: since Android 11 a bubble
+     * must point at a long-lived shortcut with a person on it, and the icon
+     * has to be a real bitmap rather than a vector.
      */
-    private fun attachBubble(builder: NotificationCompat.Builder, theme: ClockTheme) {
+    private fun postBubble(remainingMs: Long) {
         if (Build.VERSION.SDK_INT < 30) return
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         if (prefs.getString(Prefs.COUNTDOWN_FLOAT, Prefs.FLOAT_OVERLAY) != Prefs.FLOAT_BUBBLE) return
+        val theme = ClockThemes.resolve(this, prefs.getString(Prefs.THEME, "midnight"))
+        val icon = bubbleIcon(theme)
 
         val person = androidx.core.app.Person.Builder()
-            .setName(getString(R.string.countdown_notification_title))
+            .setName(getString(R.string.chrono_label_countdown))
             .setKey(BUBBLE_SHORTCUT)
+            .setIcon(icon)
             .setBot(true)
             .setImportant(true)
             .build()
         val shortcut = androidx.core.content.pm.ShortcutInfoCompat.Builder(this, BUBBLE_SHORTCUT)
             .setLongLived(true)
-            .setIntent(
-                Intent(this, BubbleActivity::class.java).setAction(Intent.ACTION_VIEW)
-            )
+            .setIntent(Intent(this, BubbleActivity::class.java).setAction(Intent.ACTION_VIEW))
             .setShortLabel(getString(R.string.chrono_label_countdown))
-            .setIcon(androidx.core.graphics.drawable.IconCompat.createWithResource(this, R.drawable.ic_timer))
+            .setIcon(icon)
             .setPerson(person)
             .build()
         androidx.core.content.pm.ShortcutManagerCompat.pushDynamicShortcut(this, shortcut)
 
-        builder
+        val bubbleIntent = PendingIntent.getActivity(
+            this,
+            9,
+            Intent(this, BubbleActivity::class.java)
+                .setAction(Intent.ACTION_VIEW)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+        )
+        val minutes = (remainingMs / 60_000L).toInt()
+        val seconds = ((remainingMs / 1000L) % 60L).toInt()
+        val notification = NotificationCompat.Builder(this, BUBBLE_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_timer)
+            .setContentTitle(getString(R.string.chrono_label_countdown))
+            .setContentText(String.format("%d:%02d", minutes, seconds))
             .setShortcutId(BUBBLE_SHORTCUT)
             .addPerson(person)
-            .setStyle(NotificationCompat.MessagingStyle(person))
+            .setLocusId(androidx.core.content.LocusIdCompat(BUBBLE_SHORTCUT))
+            .setSilent(true)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(openAppIntent())
             .setBubbleMetadata(
-                NotificationCompat.BubbleMetadata.Builder(
-                    PendingIntent.getActivity(
-                        this,
-                        9,
-                        Intent(this, BubbleActivity::class.java)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT),
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-                    ),
-                    androidx.core.graphics.drawable.IconCompat.createWithResource(
-                        this, R.drawable.ic_timer
-                    )
-                )
+                NotificationCompat.BubbleMetadata.Builder(bubbleIntent, icon)
                     .setDesiredHeight(180)
                     .setAutoExpandBubble(false)
-                    .setSuppressNotification(false)
+                    .setSuppressNotification(true)
                     .build()
             )
+            .build()
+        getSystemService(NotificationManager::class.java)
+            ?.notify(BUBBLE_NOTIFICATION_ID, notification)
+    }
+
+    private fun cancelBubble() {
+        getSystemService(NotificationManager::class.java)?.cancel(BUBBLE_NOTIFICATION_ID)
+    }
+
+    /**
+     * A bubble wants a bitmap it can mask into a circle, not a line drawing:
+     * a vector resource here is silently refused on some versions.
+     */
+    private fun bubbleIcon(theme: ClockTheme): androidx.core.graphics.drawable.IconCompat {
+        val size = (108 * resources.displayMetrics.density).toInt().coerceAtLeast(48)
+        val bitmap = android.graphics.Bitmap.createBitmap(
+            size, size, android.graphics.Bitmap.Config.ARGB_8888
+        )
+        val canvas = android.graphics.Canvas(bitmap)
+        canvas.drawColor(theme.face)
+        androidx.core.content.ContextCompat.getDrawable(this, R.drawable.ic_timer)?.apply {
+            setTint(theme.decimal)
+            val inset = size / 4
+            setBounds(inset, inset, size - inset, size - inset)
+            draw(canvas)
+        }
+        return androidx.core.graphics.drawable.IconCompat.createWithAdaptiveBitmap(bitmap)
     }
 }

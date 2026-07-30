@@ -261,9 +261,22 @@ class SettingsActivity : AppCompatActivity() {
                         )
                     }
                     if (newValue == Prefs.FLOAT_BUBBLE && Build.VERSION.SDK_INT >= 30) {
-                        Toast.makeText(
-                            requireContext(), R.string.bubble_hint, Toast.LENGTH_LONG
-                        ).show()
+                        // Too long a story for a toast, which cuts it off at
+                        // two lines, and the useful part is a button anyway.
+                        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                            .setTitle(R.string.bubble_title)
+                            .setMessage(R.string.bubble_hint)
+                            .setPositiveButton(R.string.bubble_open_settings) { _, _ ->
+                                startActivity(
+                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                        .putExtra(
+                                            Settings.EXTRA_APP_PACKAGE,
+                                            requireContext().packageName
+                                        )
+                                )
+                            }
+                            .setNegativeButton(android.R.string.ok, null)
+                            .show()
                     }
                     true
                 }
