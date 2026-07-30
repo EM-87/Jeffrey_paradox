@@ -1,0 +1,4 @@
+# Delivered builds. Each one is handed over directly and rebuilt from the
+# tagged version in weird-clock/app/build.gradle.kts, so the repo has never
+# carried a 6-7 MB binary per release and should not start now.
+weird-clock-*.apk
