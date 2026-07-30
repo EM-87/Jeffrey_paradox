@@ -428,8 +428,23 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
         }
         if (intent.getBooleanExtra(EXTRA_OPEN_CALENDAR, false)) {
-            pager.post { pager.setCurrentItem(PAGE_LEFT, false) }
+            // Clock mode too: the left page is the calendar there and the
+            // stopwatch in chronograph mode, so a shortcut asking for the
+            // calendar landed on the stopwatch if that is where the app was
+            // last left.
+            pager.post {
+                mode = Mode.CLOCK
+                applyMode()
+                pager.setCurrentItem(PAGE_LEFT, false)
+            }
         }
+
+        // Winding a time on the dial locks the pager, and the only way out
+        // was the little cross. Back left the app instead — and with it any
+        // half-made alarm that was only there for the dial to write into.
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() = exitAlarmSetMode()
+        }.also { backOutOfSetMode = it })
 
         sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         maybeIntroduceFloatingHourglass()
@@ -1634,7 +1649,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         parked?.let { showAlarmSheet(it.target, it.draft) }
     }
 
+    private var backOutOfSetMode: androidx.activity.OnBackPressedCallback? = null
+
     private fun applyAlarmSetUi() {
+        backOutOfSetMode?.isEnabled = alarmSetActive
         alarmSetBanner?.visibility = if (alarmSetActive) View.VISIBLE else View.GONE
         alarmSetLabel?.setText(
             when {

@@ -271,6 +271,10 @@ class CountdownService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        // Opening the app stops this service, and its own notification goes
+        // with it — but the bubble's is a plain one and would have stayed in
+        // the shade for good, frozen on whatever second it last showed.
+        cancelBubble()
         removeOverlay()
         chimePlayer.release()
         super.onDestroy()
@@ -454,11 +458,28 @@ class CountdownService : Service() {
         val shortcut = androidx.core.content.pm.ShortcutInfoCompat.Builder(this, BUBBLE_SHORTCUT)
             .setLongLived(true)
             .setIntent(Intent(this, BubbleActivity::class.java).setAction(Intent.ACTION_VIEW))
+            // A shortcut has to hang off a launcher activity. Left to itself
+            // the framework takes the one in the intent — BubbleActivity,
+            // which is not exported and has no MAIN/LAUNCHER filter — and
+            // refuses the whole shortcut. Without a published shortcut the
+            // notification is not a conversation, and only conversations get
+            // bubbled: that is why the bubble never appeared and its
+            // notification sat in the shade as an ordinary row.
+            .setActivity(android.content.ComponentName(this, MainActivity::class.java))
             .setShortLabel(getString(R.string.chrono_label_countdown))
             .setIcon(icon)
             .setPerson(person)
             .build()
-        androidx.core.content.pm.ShortcutManagerCompat.pushDynamicShortcut(this, shortcut)
+        val published = try {
+            androidx.core.content.pm.ShortcutManagerCompat.pushDynamicShortcut(this, shortcut)
+        } catch (e: Exception) {
+            // Shortcut limits, a disabled launcher, an OEM with its own
+            // ideas: none of it is worth taking the timer down for.
+            false
+        }
+        // No shortcut, no conversation, no bubble — and then this notification
+        // would only be a duplicate row next to the timer's own.
+        if (!published) return
 
         val bubbleIntent = PendingIntent.getActivity(
             this,
