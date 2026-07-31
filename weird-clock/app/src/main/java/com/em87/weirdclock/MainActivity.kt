@@ -98,13 +98,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private val reminders = mutableListOf<Reminder>()
 
     /** Date + label of the reminder whose time is being wound on the dial. */
-    private var reminderBeingSet: Triple<Int, Int, Int>? = null
-    private var reminderLabelBeingSet = ""
-    private var reminderDurationBeingSet = 0
-    private var reminderRingsBeingSet = false
-    private var reminderSoundBeingSet = Prefs.ALARM_SOUND_BELLS
-    private var reminderLeadBeingSet = 0
-    private var reminderRepeatBeingSet = Reminder.REPEAT_NEVER
+    /**
+     * The reminder being wound on C0's dial, if any.
+     *
+     * Seven parallel fields until now, set together in one place and read
+     * together in another, which is the shape of an object that had not been
+     * written down yet. It had in fact already been written down — the same
+     * sheet parked for its duration used ReminderDraft for exactly this —
+     * so the trip to the dial reuses that rather than growing a second one.
+     */
+    private var reminderBeingSet: ReminderDraft? = null
 
     /** A reminder pulled from the list while its time is reset on the dial. */
     private var reminderTakenForEdit: Reminder? = null
@@ -1276,10 +1279,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             alarmBeingSet = null
             reminderBeingSet = null
             alarmWorkingMs = draft.durationMinutes.coerceAtLeast(15) * 60_000L
-            alarmSetActive = true
-            mode = Mode.CLOCK
-            pager.currentItem = PAGE_HOME
-            applyAlarmSetUi()
+            goToDial()
         }
 
         vibrateSwitch.isChecked = draft.vibrate
@@ -1405,15 +1405,27 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * the countdown's wind-to-set engine, with a "Set alarm time" banner.
      * Winding the hands moves the proposed time; magnets and haptics apply.
      */
+    /**
+     * Off to C0 to wind the hands. The four lines that do it were written out
+     * at each of the four departure points, which is how a fifth one would
+     * have got them subtly wrong — the same way a duplicated countdown
+     * handover once put a bell over a finished timer. Whatever is being set
+     * has already been parked in alarmBeingSet, alarmDurationDraft or
+     * reminderBeingSet by the caller; this just goes.
+     */
+    private fun goToDial() {
+        alarmSetActive = true
+        mode = Mode.CLOCK
+        pager.currentItem = PAGE_HOME
+        applyAlarmSetUi()
+    }
+
     private fun enterAlarmSetMode(alarm: Alarm?, timeIndex: Int = 0) {
         alarmBeingSet = alarm
         alarmTimeIndexBeingSet = timeIndex
         val (h, m) = alarm?.timeAt(timeIndex) ?: (7 to 30)
         alarmWorkingMs = (h * 3600L + m * 60L) * 1000L
-        alarmSetActive = true
-        mode = Mode.CLOCK
-        pager.currentItem = PAGE_HOME
-        applyAlarmSetUi()
+        goToDial()
     }
 
     private fun confirmAlarmSet() {
@@ -1448,14 +1460,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
             return
         }
-        reminderBeingSet?.let { (year, month, day) ->
+        reminderBeingSet?.let { d ->
             reminders.add(
                 Reminder(
                     ReminderStore.nextId(reminders),
-                    year, month, day, hour, minute, reminderLabelBeingSet,
-                    reminderDurationBeingSet, reminderRingsBeingSet,
-                    reminderSoundBeingSet, reminderLeadBeingSet,
-                    reminderRepeatBeingSet
+                    d.year, d.month, d.day, hour, minute, d.label,
+                    d.duration, d.rings, d.sound, d.lead, d.repeat
                 )
             )
             reminderTakenForEdit = null
@@ -1880,34 +1890,27 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             alarmBeingSet = null
             reminderBeingSet = null
             alarmWorkingMs = duration.coerceAtLeast(15) * 60_000L
-            alarmSetActive = true
-            mode = Mode.CLOCK
-            pager.currentItem = PAGE_HOME
-            applyAlarmSetUi()
+            goToDial()
         }
 
         // Tapping the time row, or Save, both end on the dial: that is where
         // times are set in this app.
         val toDial = View.OnClickListener {
-            reminderRingsBeingSet = alarmSwitch.isChecked
-            reminderSoundBeingSet = sound
-            reminderLeadBeingSet = lead
-            reminderRepeatBeingSet = repeat
             // Lifted out of the list, not deleted: cancelling on the dial
             // puts it back. It used to simply vanish, and the next save
             // wrote the loss to disk.
             reminderTakenForEdit = existing
             existing?.let { reminders.remove(it) }
-            reminderLabelBeingSet = label
-            reminderDurationBeingSet = duration
-            reminderBeingSet = Triple(onYear, onMonth, onDay)
+            // hour and minute are what the dial is about to replace; they
+            // ride along so the draft is one whole thing either way.
+            reminderBeingSet = ReminderDraft(
+                existing, onYear, onMonth, onDay, label, hour, minute,
+                duration, alarmSwitch.isChecked, sound, lead, repeat
+            )
             alarmBeingSet = null
             alarmWorkingMs = (hour * 3_600_000L) + (minute * 60_000L)
-            alarmSetActive = true
-            mode = Mode.CLOCK
             sheet.dismiss()
-            pager.currentItem = PAGE_HOME
-            applyAlarmSetUi()
+            goToDial()
         }
         view.findViewById<View>(R.id.rsheet_row_time).setOnClickListener(toDial)
         view.findViewById<Button>(R.id.rsheet_save).setOnClickListener(toDial)
