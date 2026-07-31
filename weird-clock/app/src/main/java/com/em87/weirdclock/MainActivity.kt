@@ -443,6 +443,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
                 lastPage = position
+                carryFallenHands()
                 // Landing on the alarms: whatever happened while away — a
                 // time wound on the dial, an alarm that rang — shows now.
                 if (position == PAGE_RIGHT) refreshAlarmsUi()
@@ -2188,6 +2189,32 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         if (source === clockView) worldBubbles.kickFromDial()
     }
 
+    /**
+     * The fallen pieces follow you from card to card.
+     *
+     * ClockView has had syncFallenFrom since the beginning and lost its only
+     * caller when the cards were reordered, so knocking the hands off the
+     * clock and swiping to the stopwatch quietly tidied the workshop. Only
+     * C0 can shed hands — the chrono faces refuse to, being wound by hand —
+     * so the mess hops from the last dial you looked at to the next one,
+     * and a piece dragged home on either face stays home on both.
+     */
+    private var lastVisibleDial: ClockView? = null
+
+    private fun visibleDial(): ClockView? = when (pager.currentItem) {
+        PAGE_LEFT -> if (mode == Mode.CHRONO) stopwatchClockView else null
+        PAGE_HOME -> if (mode == Mode.CHRONO) null else clockView
+        PAGE_RIGHT -> if (mode == Mode.CHRONO) countdownClockView else null
+        else -> null
+    }
+
+    private fun carryFallenHands() {
+        val now = visibleDial() ?: return
+        val before = lastVisibleDial
+        if (before != null && before !== now) now.syncFallenFrom(before)
+        lastVisibleDial = now
+    }
+
     private fun sceneIsDisarranged(): Boolean =
         clockView?.isDisarranged() == true ||
             stopwatchClockView?.isDisarranged() == true ||
@@ -2231,6 +2258,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         fadeCard(stopwatchContainer, chrono)
         fadeCard(alarmsContainer, !chrono)
         fadeCard(countdownContainer, chrono)
+        carryFallenHands()
         updateCountdownUi()
     }
 
