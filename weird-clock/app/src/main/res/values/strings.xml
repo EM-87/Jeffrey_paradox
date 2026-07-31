@@ -137,6 +137,7 @@
     <string name="tile_none">None set</string>
     <string name="reminder_repeat">Repeats</string>
     <string name="reminder_repeat_never">Never</string>
+    <string name="reminder_repeat_weekly">Every week</string>
     <string name="reminder_repeat_monthly">Every month</string>
     <string name="reminder_repeat_yearly">Every year</string>
     <string name="reminder_move">Move to another day</string>

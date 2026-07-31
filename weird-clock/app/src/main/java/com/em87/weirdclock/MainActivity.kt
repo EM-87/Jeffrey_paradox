@@ -109,8 +109,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private var reminderBeingSet: ReminderDraft? = null
 
-    /** A reminder pulled from the list while its time is reset on the dial. */
-    private var reminderTakenForEdit: Reminder? = null
 
     /** A reminder sheet parked while its duration is wound on the dial. */
     private class ReminderDraft(
@@ -1461,16 +1459,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             return
         }
         reminderBeingSet?.let { d ->
-            reminders.add(
-                Reminder(
-                    ReminderStore.nextId(reminders),
-                    d.year, d.month, d.day, hour, minute, d.label,
-                    d.duration, d.rings, d.sound, d.lead, d.repeat
-                )
+            // Back to the sheet with the time you just wound, not straight
+            // to disk. The sheet is where a reminder is finished — it still
+            // has a name, a length and a repeat to agree to.
+            parkedReminder = ReminderDraft(
+                d.existing, d.year, d.month, d.day, d.label, hour, minute,
+                d.duration, d.rings, d.sound, d.lead, d.repeat
             )
-            reminderTakenForEdit = null
-            persistReminders()
-            maybeRequestNotificationPermission()
             exitAlarmSetMode()
             return
         }
@@ -1487,7 +1482,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         exitAlarmSetMode()
     }
 
+    /** A reminder sheet waiting to be shown again once the dial is done. */
+    private var parkedReminder: ReminderDraft? = null
+
     private fun exitAlarmSetMode() {
+        // Confirmed or cancelled, a reminder goes back to the sheet it left;
+        // cancelling simply brings the time back unchanged. Landing on the
+        // calendar instead was the other half of the same missing return.
+        val returning = parkedReminder ?: reminderBeingSet
+        parkedReminder = null
         val backToCalendar = reminderBeingSet != null || settingReminderDuration
         // A cancelled duration goes back to the sheet it came from, with
         // everything else the sheet held still in place.
@@ -1499,15 +1502,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             provisionalAlarmId = null
             if (alarms.removeAll { it.id == id }) persistAlarms()
         }
-        // A reminder lifted out for editing, and never confirmed, goes back
-        // where it was.
-        reminderTakenForEdit?.let { taken ->
-            reminderTakenForEdit = null
-            if (reminders.none { r -> r.id == taken.id }) {
-                reminders.add(taken)
-                persistReminders()
-            }
-        }
         settingReminderDuration = false
         durationDraft = null
         alarmSetActive = false
@@ -1516,6 +1510,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         applyAlarmSetUi()
         pager.currentItem = if (backToCalendar) PAGE_LEFT else PAGE_RIGHT
         parked?.let { showAlarmSheet(it.target, it.draft) }
+        returning?.let { showReminderSheet(it.existing, it.year, it.month, it.day, it) }
     }
 
     private var backOutOfSetMode: androidx.activity.OnBackPressedCallback? = null
@@ -1674,6 +1669,24 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         cal.yearMarks = marks
     }
 
+    /**
+     * Writes a reminder down, keeping its identity when it is an edit rather
+     * than minting a new one — an edited reminder used to come back with a
+     * fresh id, which is a different reminder wearing the same name.
+     */
+    private fun commitReminder(existing: Reminder?, d: ReminderDraft) {
+        existing?.let { reminders.remove(it) }
+        reminders.add(
+            Reminder(
+                existing?.id ?: ReminderStore.nextId(reminders),
+                d.year, d.month, d.day, d.hour, d.minute, d.label,
+                d.duration, d.rings, d.sound, d.lead, d.repeat
+            )
+        )
+        persistReminders()
+        if (d.rings) maybeRequestNotificationPermission()
+    }
+
     private fun persistReminders() {
         ReminderStore.save(this, reminders)
         AlarmScheduler.update(this)
@@ -1750,6 +1763,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val repeatValue = view.findViewById<TextView>(R.id.rsheet_repeat_value)
         fun repeatLabel(mode: String): String = getString(
             when (mode) {
+                Reminder.REPEAT_WEEKLY -> R.string.reminder_repeat_weekly
                 Reminder.REPEAT_MONTHLY -> R.string.reminder_repeat_monthly
                 Reminder.REPEAT_YEARLY -> R.string.reminder_repeat_yearly
                 else -> R.string.reminder_repeat_never
@@ -1772,7 +1786,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
 
         val repeatModes = listOf(
-            Reminder.REPEAT_NEVER, Reminder.REPEAT_MONTHLY, Reminder.REPEAT_YEARLY
+            Reminder.REPEAT_NEVER, Reminder.REPEAT_WEEKLY,
+            Reminder.REPEAT_MONTHLY, Reminder.REPEAT_YEARLY
         )
         view.findViewById<View>(R.id.rsheet_row_repeat).setOnClickListener {
             pickFromList(
@@ -1893,16 +1908,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             goToDial()
         }
 
-        // Tapping the time row, or Save, both end on the dial: that is where
-        // times are set in this app.
-        val toDial = View.OnClickListener {
-            // Lifted out of the list, not deleted: cancelling on the dial
-            // puts it back. It used to simply vanish, and the next save
-            // wrote the loss to disk.
-            reminderTakenForEdit = existing
-            existing?.let { reminders.remove(it) }
-            // hour and minute are what the dial is about to replace; they
-            // ride along so the draft is one whole thing either way.
+        // The time row goes to the dial and comes back here. It used to be
+        // a one-way trip that saved on the way out — and Save was wired to
+        // the very same listener, so there was no way to finish a reminder
+        // except through the dial, and no sheet left to return to. Nothing
+        // is lifted out of the list on the way any more, because nothing is
+        // written until Save.
+        view.findViewById<View>(R.id.rsheet_row_time).setOnClickListener {
             reminderBeingSet = ReminderDraft(
                 existing, onYear, onMonth, onDay, label, hour, minute,
                 duration, alarmSwitch.isChecked, sound, lead, repeat
@@ -1912,8 +1924,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             sheet.dismiss()
             goToDial()
         }
-        view.findViewById<View>(R.id.rsheet_row_time).setOnClickListener(toDial)
-        view.findViewById<Button>(R.id.rsheet_save).setOnClickListener(toDial)
+
+        view.findViewById<Button>(R.id.rsheet_save).setOnClickListener {
+            commitReminder(
+                existing,
+                ReminderDraft(
+                    existing, onYear, onMonth, onDay, label, hour, minute,
+                    duration, alarmSwitch.isChecked, sound, lead, repeat
+                )
+            )
+            sheet.dismiss()
+        }
 
         view.findViewById<Button>(R.id.rsheet_delete).apply {
             isEnabled = existing != null

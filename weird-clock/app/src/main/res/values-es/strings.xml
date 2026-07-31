@@ -195,6 +195,7 @@
     <!-- Recordatorios que vuelven, y avisos con dias de antelacion. -->
     <string name="reminder_repeat">Se repite</string>
     <string name="reminder_repeat_never">Nunca</string>
+    <string name="reminder_repeat_weekly">Cada semana</string>
     <string name="reminder_repeat_monthly">Cada mes</string>
     <string name="reminder_repeat_yearly">Cada año</string>
     <string name="reminder_move">Mover a otro día</string>

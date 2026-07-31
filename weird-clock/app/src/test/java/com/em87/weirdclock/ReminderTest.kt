@@ -133,6 +133,69 @@ class ReminderTest {
         }
     }
 
+    // ------------------------------------------------------------- weekly
+
+    @Test
+    fun `a weekly one falls on the same weekday, week after week`() {
+        // 15 March 2026 is a Sunday.
+        val r = reminder(repeat = Reminder.REPEAT_WEEKLY)
+        assertTrue(r.occursOn(2026, 3, 15))
+        assertTrue(r.occursOn(2026, 3, 22))
+        assertTrue(r.occursOn(2026, 3, 29))
+        assertTrue(r.occursOn(2026, 4, 5))
+        assertFalse(r.occursOn(2026, 3, 16))
+        assertFalse(r.occursOn(2026, 3, 21))
+        // Never before the week it was set.
+        assertFalse(r.occursOn(2026, 3, 8))
+    }
+
+    @Test
+    fun `a weekly one keeps its weekday across a daylight-saving change`() {
+        // Europe's clocks go forward on 29 March 2026 — one of these weeks
+        // is 23 hours long, which is what an integer division would lose.
+        val r = reminder(repeat = Reminder.REPEAT_WEEKLY)
+        for (week in 0..30) {
+            val cal = Calendar.getInstance().apply {
+                clear()
+                set(2026, Calendar.MARCH, 15)
+                add(Calendar.DAY_OF_YEAR, week * 7)
+            }
+            assertTrue(
+                "week $week",
+                r.occursOn(
+                    cal.get(Calendar.YEAR),
+                    cal.get(Calendar.MONTH) + 1,
+                    cal.get(Calendar.DAY_OF_MONTH)
+                )
+            )
+        }
+    }
+
+    @Test
+    fun `a weekly one crosses the end of a year`() {
+        val r = reminder(year = 2026, month = 12, day = 27, repeat = Reminder.REPEAT_WEEKLY)
+        assertTrue(r.occursOn(2027, 1, 3))
+        assertFalse(r.occursOn(2027, 1, 2))
+    }
+
+    @Test
+    fun `a weekly one rings on the next matching weekday`() {
+        val r = reminder(repeat = Reminder.REPEAT_WEEKLY)
+        val next = fieldsOf(r.nextTimeInMillis(at(2026, 3, 18, 12, 0)))
+        assertEquals(22, next.get(Calendar.DAY_OF_MONTH))
+        assertEquals(Calendar.SUNDAY, next.get(Calendar.DAY_OF_WEEK))
+        assertEquals(9, next.get(Calendar.HOUR_OF_DAY))
+    }
+
+    @Test
+    fun `a weekly one never returns a time in the past`() {
+        val r = reminder(year = 2020, month = 5, day = 20, repeat = Reminder.REPEAT_WEEKLY)
+        for (month in 1..12) {
+            val now = at(2026, month, 10, 12, 0)
+            assertTrue("month $month", r.nextTimeInMillis(now) > now)
+        }
+    }
+
     // ---------------------------------------------------------- lead time
 
     @Test

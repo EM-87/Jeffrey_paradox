@@ -27,7 +27,7 @@ data class Reminder(
     val sound: String = Prefs.ALARM_SOUND_BELLS,
     /** Ring this many minutes before the event; 0 rings on the dot. */
     val leadMinutes: Int = 0,
-    /** [REPEAT_NEVER], [REPEAT_MONTHLY] or [REPEAT_YEARLY]. */
+    /** [REPEAT_NEVER], [REPEAT_WEEKLY], [REPEAT_MONTHLY] or [REPEAT_YEARLY]. */
     val repeat: String = REPEAT_NEVER
 ) {
     /** The date it was first set for, whatever it has repeated since. */
@@ -46,7 +46,28 @@ data class Reminder(
     fun occursOn(y: Int, m: Int, d: Int): Boolean = when (repeat) {
         REPEAT_YEARLY -> m == month && d == day && y >= year
         REPEAT_MONTHLY -> d == day && (y > year || (y == year && m >= month))
+        // A weekly one is the only repeat that does not keep a date: it
+        // keeps a weekday, so it is asked of the calendar rather than of
+        // the numbers. Whole days between, divisible by seven.
+        REPEAT_WEEKLY -> {
+            val days = wholeDaysFromStart(y, m, d)
+            days >= 0 && days % 7 == 0L
+        }
         else -> y == year && m == month && d == day
+    }
+
+    /** Midnight-to-midnight days from the reminder's own date to [y]-[m]-[d]. */
+    private fun wholeDaysFromStart(y: Int, m: Int, d: Int): Long {
+        val from = Calendar.getInstance().apply {
+            clear(); set(year, month - 1, day)
+        }.timeInMillis
+        val to = Calendar.getInstance().apply {
+            clear(); set(y, m - 1, d)
+        }.timeInMillis
+        // Rounded, not truncated: a daylight-saving change makes one of
+        // these days 23 or 25 hours long, and an integer division would
+        // quietly lose the week that straddles it.
+        return Math.round((to - from) / 86_400_000.0)
     }
 
     /**
@@ -65,6 +86,13 @@ data class Reminder(
     fun nextTimeInMillis(now: Long = System.currentTimeMillis()): Long {
         val first = timeInMillis()
         if (repeat == REPEAT_NEVER || first > now) return first
+        // A weekly one just steps a week at a time from where it started;
+        // there is no short month to skip, and no date to preserve.
+        if (repeat == REPEAT_WEEKLY) {
+            val cal = Calendar.getInstance().apply { timeInMillis = first }
+            while (cal.timeInMillis <= now) cal.add(Calendar.DAY_OF_YEAR, 7)
+            return cal.timeInMillis
+        }
         for (step in 1 until 500) {
             val cal = Calendar.getInstance().apply {
                 clear()
@@ -88,6 +116,7 @@ data class Reminder(
 
     companion object {
         const val REPEAT_NEVER = "never"
+        const val REPEAT_WEEKLY = "weekly"
         const val REPEAT_MONTHLY = "monthly"
         const val REPEAT_YEARLY = "yearly"
     }
