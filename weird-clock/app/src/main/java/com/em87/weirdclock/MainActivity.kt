@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var clockView: ClockView? = null
     private var clockContainer: View? = null
     private var bubbleLayer: FrameLayout? = null
+    private lateinit var worldBubbles: WorldBubbles
     private var modeButton: Button? = null
     private var settingsButton: ImageButton? = null
     private var alarmSetBanner: View? = null
@@ -246,11 +247,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             val now = SystemClock.uptimeMillis()
             if (jolt > 3.5f && now - lastBubbleJoltAt > 120L) {
                 lastBubbleJoltAt = now
-                for (b in bubbles) {
-                    if (!b.moving) continue
-                    b.vx += -devX * 26f
-                    b.vy += devY * 26f
-                }
+                worldBubbles.jolt(devX, devY)
             }
             val nowInverted = when {
                 flipLowPassY < -6f -> true
@@ -412,6 +409,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
             prefs.edit().putBoolean(Prefs.ONCE_MIGRATED, true).apply()
         }
+        worldBubbles = WorldBubbles(
+            host = this,
+            prefs = prefs,
+            chimePlayer = chimePlayer,
+            mainDial = { clockView },
+            dialIsObstacle = { mode == Mode.CLOCK },
+            gravityX = ::viewGravityX,
+            gravityY = ::viewGravityY
+        )
         chimePlayer.prepareTick(this)
         alarms.addAll(AlarmStore.load(this))
         sortAlarms()
@@ -568,9 +574,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             clockView?.reassembleAll()
             countdownClockView?.reassembleAll()
             stopwatchClockView?.reassembleAll()
-            for (b in bubbles) b.clock.reassembleAll()
+            worldBubbles.reassembleAll()
             healBubbleClocks()
-            dockBubbles()
+            worldBubbles.dock()
         }
         // The store is not ours alone. The assistant adds alarms through
         // ClockIntentActivity, and a one-shot switches itself off from the
@@ -687,7 +693,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // The winding crown tidies the whole scene, bubbles included.
                 chimePlayer.playCuckoo()
                 healBubbleClocks()
-                dockBubbles()
+                worldBubbles.dock()
             }
         }
         root.findViewById<Button>(R.id.stopwatch_back_button).setOnClickListener {
@@ -754,7 +760,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // The winding crown tidies the whole scene, bubbles included.
                 chimePlayer.playCuckoo()
                 healBubbleClocks()
-                dockBubbles()
+                worldBubbles.dock()
             }
         }
         // The countdown goes straight home to the clock, skipping S0.
@@ -777,12 +783,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // The winding crown tidies the whole scene, bubbles included.
                 chimePlayer.playCuckoo()
                 healBubbleClocks()
-                dockBubbles()
+                worldBubbles.dock()
             }
             // A knock hard enough to shed hands rattles the whole scene.
             it.onKnocked = { onDialKnocked() }
         }
         bubbleLayer = root.findViewById(R.id.bubble_layer)
+        worldBubbles.layer = bubbleLayer
         modeButton = root.findViewById<Button>(R.id.mode_button).also {
             it.setOnClickListener { cycleMode() }
         }
@@ -2179,115 +2186,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     // ------------------------------------------------- world-clock bubbles
 
-    /**
-     * World clocks as bubbles: mini dials floating over the main clock.
-     * Newly added ones dock in an orderly column and stay put — until you
-     * drag one and give it momentum, or a moving bubble crashes into it.
-     * Then they bounce off the screen edges, off each other and off the
-     * main dial (shrink the dial and the bubbles get more room).
-     */
-    private inner class Bubble(val tzId: String, val view: View, val clock: ClockView) {
-        var x = 0f
-        var y = 0f
-        var vx = 0f
-        var vy = 0f
-        var moving = false
-        var sizePx = 0f
-
-        fun centerX() = x + sizePx / 2f
-        fun centerY() = y + sizePx / 2f
-        fun place() {
-            view.translationX = x
-            view.translationY = y
-        }
-    }
-
-    private val bubbles = ArrayList<Bubble>()
-    private var bubbleTzsApplied: List<String> = emptyList()
-
+    /** The world clocks live in their own file now; this is the handle. */
     private val bubblePhysics = object : Runnable {
         override fun run() {
-            stepBubbles()
+            worldBubbles.step()
             handler.postDelayed(this, 16L)
-        }
-    }
-
-    private fun selectedWorldTzs(): List<String> {
-        if (!prefs.getBoolean(Prefs.WORLD_CLOCK, false)) return emptyList()
-        val set = prefs.getStringSet(Prefs.WORLD_TZS, null)
-        if (set != null) return set.toList().sorted()
-        // Migration from the old single-city preference.
-        return listOf(prefs.getString(Prefs.WORLD_TZ, "UTC") ?: "UTC")
-    }
-
-    private fun rebuildBubbles() {
-        val layer = bubbleLayer ?: return
-        // At full zoom about six bubbles fit; the picker enforces the cap.
-        val tzs = selectedWorldTzs().take(6)
-        if (tzs == bubbleTzsApplied) return
-        bubbleTzsApplied = tzs
-        layer.removeAllViews()
-        bubbles.clear()
-        val density = resources.displayMetrics.density
-        val size = (108 * density).toInt()
-        for (tz in tzs) {
-            val clock = ClockView(this).apply {
-                touchHandsEnabled = false
-                pinchZoomEnabled = false
-                shakeDropEnabled = false
-                showDate = false
-                // The city rides inside the dial, where the date sits on the
-                // main clock — no caption hanging off the bubble.
-                dialLabel = tz.substringAfterLast('/').replace('_', ' ')
-            }
-            clock.timeZone = TimeZone.getTimeZone(tz)
-            layer.addView(clock, FrameLayout.LayoutParams(size, size))
-            val bubble = Bubble(tz, clock, clock)
-            bubble.sizePx = size.toFloat()
-            attachBubbleTouch(bubble)
-            bubbles.add(bubble)
-        }
-        dockBubbles()
-    }
-
-    /**
-     * Parks the bubbles clear of the dial: up to three centered in a row
-     * above the clock, the rest in a second row below it. One bubble sits
-     * dead center of its row, two straddle it symmetrically, and so on.
-     */
-    private fun dockBubbles() {
-        val layer = bubbleLayer ?: return
-        layer.post {
-            val density = resources.displayMetrics.density
-            val gap = 8 * density
-            val size = bubbles.firstOrNull()?.sizePx ?: return@post
-            val top = bubbles.take(3)
-            val bottom = bubbles.drop(3)
-
-            fun layoutRow(row: List<Bubble>, y: Float) {
-                if (row.isEmpty()) return
-                val rowW = row.size * size + (row.size - 1) * gap
-                val startX = ((layer.width - rowW) / 2f).coerceAtLeast(4 * density)
-                for ((i, b) in row.withIndex()) {
-                    b.moving = false
-                    b.vx = 0f
-                    b.vy = 0f
-                    b.x = startX + i * (size + gap)
-                    b.y = y
-                    b.place()
-                }
-            }
-            layoutRow(top, 8 * density)
-            layoutRow(bottom, layer.height - size - 64 * density)
-        }
-    }
-
-    /** A knock on the main dial shakes every bubble loose too. */
-    private fun freeBubbles() {
-        for (b in bubbles) {
-            b.moving = true
-            b.vx = (Math.random().toFloat() - 0.5f) * 400f
-            b.vy = -Math.random().toFloat() * 250f
         }
     }
 
@@ -2300,222 +2203,20 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private fun onDialKnocked() {
         knockCount++
-        freeBubbles()
+        worldBubbles.free()
         when (knockCount) {
-            1 -> seizeBubbleClocks(1f / 3f)
+            1 -> worldBubbles.seize(1f / 3f)
             2 -> {
-                seizeBubbleClocks(1f)
-                for (b in bubbles.shuffled().take((bubbles.size + 2) / 3)) {
-                    b.clock.knockHandsOff()
-                }
+                worldBubbles.seize(1f)
+                worldBubbles.knockSomeHandsOff()
             }
-            else -> {
-                for (b in bubbles.shuffled().take((bubbles.size + 2) / 3)) {
-                    b.clock.knockHandsOff()
-                }
-            }
-        }
-    }
-
-    /** Freezes (or reverses) a fraction of the world clocks, at random. */
-    private fun seizeBubbleClocks(fraction: Float) {
-        val count = (bubbles.size * fraction).toInt().coerceAtLeast(1)
-        for (b in bubbles.shuffled().take(count)) {
-            if (b.clock.timeScale == 1f) {
-                b.clock.timeScale = if (Math.random() < 0.5) 0f else -1f
-            }
+            else -> worldBubbles.knockSomeHandsOff()
         }
     }
 
     private fun healBubbleClocks() {
-        for (b in bubbles) b.clock.timeScale = 1f
+        worldBubbles.heal()
         knockCount = 0
-    }
-
-    /**
-     * Growing the main dial can swallow a bubble sitting too close: shove it
-     * out with an impulse proportional to how fast the dial is growing.
-     */
-    private fun kickBubblesFromDial() {
-        val layer = bubbleLayer ?: return
-        val r = clockView?.currentDialRadius() ?: return
-        val dialCx = layer.width / 2f
-        val dialCy = layer.height / 2f
-        for (b in bubbles) {
-            val dx = b.centerX() - dialCx
-            val dy = b.centerY() - dialCy
-            val d = hypot(dx, dy)
-            val minD = r + b.sizePx / 2f
-            if (d < minD && d > 0.001f) {
-                b.moving = true
-                val nx = dx / d
-                val ny = dy / d
-                val overlap = minD - d
-                b.x += nx * overlap
-                b.y += ny * overlap
-                b.vx += nx * overlap * 8f
-                b.vy += ny * overlap * 8f
-                b.place()
-            }
-        }
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private fun attachBubbleTouch(b: Bubble) {
-        var lastX = 0f
-        var lastY = 0f
-        var lastT = 0L
-        b.view.setOnTouchListener { _, e ->
-            when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    b.moving = false
-                    b.vx = 0f
-                    b.vy = 0f
-                    lastX = e.rawX
-                    lastY = e.rawY
-                    lastT = SystemClock.uptimeMillis()
-                    bubbleLayer?.parent?.requestDisallowInterceptTouchEvent(true)
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val now = SystemClock.uptimeMillis()
-                    val dt = (now - lastT).coerceAtLeast(1L) / 1000f
-                    val dx = e.rawX - lastX
-                    val dy = e.rawY - lastY
-                    b.x += dx
-                    b.y += dy
-                    b.vx = b.vx * 0.6f + (dx / dt) * 0.4f
-                    b.vy = b.vy * 0.6f + (dy / dt) * 0.4f
-                    lastX = e.rawX
-                    lastY = e.rawY
-                    lastT = now
-                    b.place()
-                    true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    // A real fling turns it into a bubble; a gentle drop
-                    // leaves it parked where you put it.
-                    if (hypot(b.vx, b.vy) > 260f) {
-                        b.moving = true
-                    } else {
-                        b.vx = 0f
-                        b.vy = 0f
-                    }
-                    true
-                }
-                else -> false
-            }
-        }
-    }
-
-    /** Rate-limits collision audio so a pile-up doesn't machine-gun. */
-    private var lastCollisionSoundAt = 0L
-
-    private fun allowCollisionSound(): Boolean {
-        val now = SystemClock.uptimeMillis()
-        if (now - lastCollisionSoundAt < 60L) return false
-        lastCollisionSoundAt = now
-        return true
-    }
-
-    private fun cushion(v: Float) {
-        if (kotlin.math.abs(v) > 150f && allowCollisionSound()) {
-            chimePlayer.playCushion((kotlin.math.abs(v) / 1400f).coerceIn(0.08f, 1f))
-        }
-    }
-
-    private fun stepBubbles() {
-        if (bubbles.isEmpty() || bubbles.none { it.moving }) return
-        val layer = bubbleLayer ?: return
-        val w = layer.width.toFloat()
-        val h = layer.height.toFloat()
-        if (w <= 0f || h <= 0f) return
-        val dt = 0.016f
-        val dialR = clockView?.currentDialRadius() ?: 0f
-        val dialCx = w / 2f
-        val dialCy = h / 2f
-
-        for (b in bubbles) {
-            if (!b.moving) continue
-            // Bubbles are buoyant: free ones drift against gravity, so they
-            // bob toward whatever edge is currently "up" as you tilt.
-            b.vx += -viewGravityX() * BUBBLE_BUOYANCY * dt
-            b.vy += -viewGravityY() * BUBBLE_BUOYANCY * dt
-            b.x += b.vx * dt
-            b.y += b.vy * dt
-            b.vx *= 0.985f
-            b.vy *= 0.985f
-            val r = b.sizePx / 2f
-            // Screen edges: the cushions of the table.
-            if (b.x < 0f) { b.x = 0f; cushion(b.vx); b.vx = -b.vx * 0.9f }
-            if (b.y < 0f) { b.y = 0f; cushion(b.vy); b.vy = -b.vy * 0.9f }
-            if (b.x + b.sizePx > w) { b.x = w - b.sizePx; cushion(b.vx); b.vx = -b.vx * 0.9f }
-            if (b.y + b.sizePx > h) { b.y = h - b.sizePx; cushion(b.vy); b.vy = -b.vy * 0.9f }
-            // The main dial is a fixed obstacle — and it rings when struck.
-            if (dialR > 0f && mode == Mode.CLOCK) {
-                val dx = b.centerX() - dialCx
-                val dy = b.centerY() - dialCy
-                val d = hypot(dx, dy)
-                val minD = dialR + r
-                if (d < minD && d > 0.001f) {
-                    val nx = dx / d
-                    val ny = dy / d
-                    b.x += nx * (minD - d)
-                    b.y += ny * (minD - d)
-                    val vn = b.vx * nx + b.vy * ny
-                    if (vn < 0f) {
-                        if (-vn > 220f && allowCollisionSound()) {
-                            chimePlayer.playBellSequence(
-                                1, false, ChimePlayer.DAY_CHIME_HZ, 0.5, 0.1
-                            )
-                        }
-                        b.vx -= 1.85f * vn * nx
-                        b.vy -= 1.85f * vn * ny
-                    }
-                }
-            }
-            // Free bubbles never park themselves: buoyancy keeps them
-            // bobbing until "put everything back" pins them again.
-        }
-
-        // Bubble-bubble collisions; a resting bubble that gets hit wakes up.
-        for (i in 0 until bubbles.size - 1) {
-            for (j in i + 1 until bubbles.size) {
-                val a = bubbles[i]
-                val c = bubbles[j]
-                if (!a.moving && !c.moving) continue
-                val dx = c.centerX() - a.centerX()
-                val dy = c.centerY() - a.centerY()
-                val d = hypot(dx, dy)
-                val minD = (a.sizePx + c.sizePx) / 2f
-                if (d < minD && d > 0.001f) {
-                    val nx = dx / d
-                    val ny = dy / d
-                    val push = (minD - d) / 2f
-                    a.x -= nx * push
-                    a.y -= ny * push
-                    c.x += nx * push
-                    c.y += ny * push
-                    val relVn = (a.vx - c.vx) * nx + (a.vy - c.vy) * ny
-                    if (relVn > 0f) {
-                        // Billiard clack, loud and bright in proportion to
-                        // how hard the two balls met.
-                        if (relVn > 90f && allowCollisionSound()) {
-                            chimePlayer.playClack((relVn / 1400f).coerceIn(0.08f, 1f))
-                        }
-                        val impulse = relVn * 0.92f
-                        a.vx -= impulse * nx
-                        a.vy -= impulse * ny
-                        c.vx += impulse * nx
-                        c.vy += impulse * ny
-                        if (!a.moving && hypot(a.vx, a.vy) > 30f) a.moving = true
-                        if (!c.moving && hypot(c.vx, c.vy) > 30f) c.moving = true
-                    }
-                }
-            }
-        }
-
-        for (b in bubbles) if (b.moving) b.place()
     }
 
     private fun maybeRequestNotificationPermission() {
@@ -2573,13 +2274,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 .apply()
         }
 
-        rebuildBubbles()
-        for (b in bubbles) {
-            b.clock.theme = cv.theme
-            b.clock.hoursOnDial = cv.hoursOnDial
-            b.clock.dialShape = cv.dialShape
-            b.clock.numeralStyle = cv.numeralStyle
-        }
+        worldBubbles.rebuild()
+        worldBubbles.applyStyle(cv)
 
         // The chrono dials mirror the clock's styling — shape, scale and all
         // — so every face is the same size. They stay touchable regardless
@@ -2742,14 +2438,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
         s3Sand?.glassScale = scale
         // Growing the main dial shoves any bubble it swallows out of the way.
-        if (source === clockView) kickBubblesFromDial()
+        if (source === clockView) worldBubbles.kickFromDial()
     }
 
     private fun sceneIsDisarranged(): Boolean =
         clockView?.isDisarranged() == true ||
             stopwatchClockView?.isDisarranged() == true ||
             countdownClockView?.isDisarranged() == true ||
-            bubbles.any { it.moving }
+            worldBubbles.anyMoving()
 
     private fun applyMode() {
         val chrono = mode == Mode.CHRONO
@@ -2977,7 +2673,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         const val PAGE_RIGHT = 2
 
         private const val DEFAULT_COUNTDOWN_MS = 5 * 60_000L
-        private const val BUBBLE_BUOYANCY = 300f
 
         /**
          * How long a card takes to dissolve into the one behind it. Matched
