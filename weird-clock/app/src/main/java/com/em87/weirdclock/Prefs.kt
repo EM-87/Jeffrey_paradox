@@ -97,6 +97,9 @@ object Prefs {
     /** Where the user last dragged the floating hourglass. */
     const val BUBBLE_X = "pref_bubble_x"
     const val BUBBLE_Y = "pref_bubble_y"
+    /** One-time rewrite of day-less alarms when they stopped meaning "daily". */
+    const val ONCE_MIGRATED = "pref_once_migrated"
+
     const val NIGHT_DIM = "pref_night_dim"
     const val WEEK_START_MONDAY = "pref_week_start_monday"
     const val PAST_DAYS = "pref_past_days"

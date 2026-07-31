@@ -40,8 +40,19 @@ data class Alarm(
      */
     var extraTimes: MutableList<Int> = mutableListOf()
 ) {
+    /**
+     * A one-shot: rings the next time its hour comes round and then switches
+     * itself off. This is what an alarm with no days set has always claimed
+     * to be, and for a long time was not — [ringsOn] answered yes to every
+     * day and nothing ever retired it, so "set an alarm for seven", which
+     * the assistant sends with no days at all, quietly became a daily alarm.
+     * [AlarmReceiver] retires it now.
+     */
+    val once: Boolean get() = daysMask == 0
+
+    /** Any day will do for a one-shot: the first one to arrive is the one. */
     fun ringsOn(dayOfWeek: Int): Boolean =
-        daysMask == 0 || (daysMask and (1 shl (dayOfWeek - 1))) != 0
+        once || (daysMask and (1 shl (dayOfWeek - 1))) != 0
 
     /** Every time this alarm rings at, in order, the first one included. */
     fun allTimes(): List<Pair<Int, Int>> =

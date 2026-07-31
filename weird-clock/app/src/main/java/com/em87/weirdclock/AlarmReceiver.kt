@@ -37,6 +37,7 @@ class AlarmReceiver : BroadcastReceiver() {
         } catch (e: Exception) {
             notifyWithoutService(context, intent)
         }
+        retireIfOnce(context, intent.getIntExtra(AlarmScheduler.EXTRA_ALARM_ID, -1))
         // A reminder used to be deleted the moment it rang. That killed a
         // yearly one on its first outing, and a reminder set to warn a week
         // early vanished from the calendar a week before the thing it was
@@ -44,6 +45,21 @@ class AlarmReceiver : BroadcastReceiver() {
         // scheduled, because its ring time is now in the past, and the
         // three-month sweep collects it in the end.
         AlarmScheduler.update(context)
+    }
+
+    /**
+     * An alarm with no days set rings once and is done. Switched off here,
+     * before the scheduler re-arms, so the next thing it arms is something
+     * else. Left enabled it would come back tomorrow, and the day after —
+     * which is what "set an alarm for seven o'clock" used to do, for ever.
+     */
+    private fun retireIfOnce(context: Context, alarmId: Int) {
+        if (alarmId <= 0) return
+        val alarms = AlarmStore.load(context)
+        val alarm = alarms.firstOrNull { it.id == alarmId } ?: return
+        if (!alarm.once || !alarm.enabled) return
+        alarm.enabled = false
+        AlarmStore.save(context, alarms)
     }
 
     /** Last resort: a full-screen notification, without the looping bells. */

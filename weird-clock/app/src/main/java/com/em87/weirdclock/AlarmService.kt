@@ -233,7 +233,11 @@ class AlarmService : Service() {
         handler.removeCallbacksAndMessages(null)
         stopPlayback()
         chimePlayer.release()
+        // Both cleared, not just the first: a ring screen opened by the
+        // fallback path with no service behind it reads these, and a stale
+        // start time would have it counting up from a previous alarm.
         ringingFromTimer = false
+        ringingSince = 0L
         onStopped?.invoke()
         super.onDestroy()
     }

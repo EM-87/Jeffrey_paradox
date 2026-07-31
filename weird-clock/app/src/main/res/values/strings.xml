@@ -160,6 +160,7 @@
     <string name="alarm_snooze_min">Snooze: %1$d min</string>
     <string name="alarm_snooze_off">Snooze: off</string>
     <string name="alarm_sound_custom">Your own file</string>
+    <string name="alarm_once">Once</string>
     <string name="alarm_repeat_daily">Every day</string>
     <string name="alarm_repeat_weekdays">Weekdays (Mon–Fri)</string>
     <string name="alarm_repeat_weekends">Weekends (Sat–Sun)</string>

@@ -112,6 +112,7 @@
     <string name="alarm_snooze_min">Posponer: %1$d min</string>
     <string name="alarm_snooze_off">Posponer: no</string>
     <string name="alarm_sound_custom">Tu propio archivo</string>
+    <string name="alarm_once">Una vez</string>
     <string name="alarm_repeat_daily">Todos los días</string>
     <string name="alarm_repeat_weekdays">De diario (L–V)</string>
     <string name="alarm_repeat_weekends">Fines de semana (S–D)</string>

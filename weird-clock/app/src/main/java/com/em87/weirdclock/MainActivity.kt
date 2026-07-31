@@ -398,6 +398,20 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // floating hourglass instead of a setting that points nowhere.
             prefs.edit().putString(Prefs.COUNTDOWN_FLOAT, Prefs.FLOAT_OVERLAY).apply()
         }
+        // An alarm with no days set now means "once", and retires itself
+        // after ringing. Before this it meant "every day" — so any alarm
+        // already stored that way is written out explicitly, once, rather
+        // than quietly becoming single-use under someone who set it to wake
+        // them every morning.
+        if (!prefs.getBoolean(Prefs.ONCE_MIGRATED, false)) {
+            val stored = AlarmStore.load(this)
+            val stale = stored.filter { it.daysMask == 0 }
+            if (stale.isNotEmpty()) {
+                for (a in stale) a.daysMask = Alarm.ALL_DAYS
+                AlarmStore.save(this, stored)
+            }
+            prefs.edit().putBoolean(Prefs.ONCE_MIGRATED, true).apply()
+        }
         chimePlayer.prepareTick(this)
         alarms.addAll(AlarmStore.load(this))
         sortAlarms()
@@ -558,6 +572,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             healBubbleClocks()
             dockBubbles()
         }
+        // The store is not ours alone. The assistant adds alarms through
+        // ClockIntentActivity, and a one-shot switches itself off from the
+        // receiver when it rings — both while this activity sits in the
+        // background holding a list from whenever it was created. Coming
+        // back with that stale list meant a spoken alarm was invisible, and
+        // the next save here wrote it back out of existence.
+        reloadStores()
         applyPreferences()
         sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sensorManager?.registerListener(flipListener, it, SensorManager.SENSOR_DELAY_UI)
@@ -1054,7 +1075,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             holder.name.text = alarm.label.ifBlank { getString(R.string.alarm_label_hint) }
             holder.name.alpha = if (alarm.label.isBlank()) 0.45f else 1f
 
-            // The weekday strip: lit letters are the days it rings on.
+            // The weekday strip: lit letters are the days it rings on. A
+            // one-shot has no days to light, so it says what it is instead
+            // of showing seven dim letters that mean nothing.
             val letters = weekdayLetters()
             val lit = ContextCompat.getColor(this@MainActivity, R.color.accent)
             val dim = ContextCompat.getColor(this@MainActivity, R.color.text_secondary)
@@ -1062,14 +1085,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             var at = 0
             for ((i, letter) in letters.withIndex()) {
                 val dayOfWeek = weekdayOrder()[i]
-                val on = alarm.daysMask == 0 || (alarm.daysMask and (1 shl (dayOfWeek - 1))) != 0
+                val on = (alarm.daysMask and (1 shl (dayOfWeek - 1))) != 0
                 strip.setSpan(
                     ForegroundColorSpan(if (on) lit else dim),
                     at, at + letter.length, 0
                 )
                 at += letter.length + 1
             }
-            holder.days.text = strip
+            if (alarm.once) holder.days.setText(R.string.alarm_once)
+            else holder.days.text = strip
 
             // Icons appear only for what is actually switched on.
             holder.soundName.text = soundLabel(alarm.sound)
@@ -1377,8 +1401,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val letters = weekdayLetters()
         fun paintDays() {
             for ((i, button) in dayButtons.withIndex()) {
-                val on = draft.daysMask == 0 ||
-                    (draft.daysMask and (1 shl (order[i] - 1))) != 0
+                val on = (draft.daysMask and (1 shl (order[i] - 1))) != 0
                 button.setTextColor(
                     ContextCompat.getColor(
                         this, if (on) R.color.accent else R.color.text_secondary
@@ -1398,7 +1421,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     android.R.drawable.list_selector_background
                 )
                 setOnClickListener {
-                    if (draft.daysMask == 0) draft.daysMask = Alarm.ALL_DAYS
+                    // Turning the last day off leaves no days, which is a
+                    // one-shot — not, as it used to be, all seven lighting
+                    // straight back up because an empty mask was read as
+                    // "every day".
                     draft.daysMask = draft.daysMask xor (1 shl (order[i] - 1))
                     paintDays()
                 }
@@ -1755,6 +1781,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 { it.id }
             )
         )
+    }
+
+    /**
+     * Re-reads alarms and reminders from disk, for whatever changed them
+     * while this activity was away. Safe to call on every resume: nothing
+     * here is edited in place — the sheets work on a draft and commit
+     * through [persistAlarms] — so there is never unsaved state to lose.
+     */
+    private fun reloadStores() {
+        alarms.clear()
+        alarms.addAll(AlarmStore.load(this))
+        sortAlarms()
+        reminders.clear()
+        reminders.addAll(ReminderStore.load(this))
+        refreshAlarmsUi()
+        refreshCalendarMarks()
     }
 
     @Suppress("NotifyDataSetChanged")
