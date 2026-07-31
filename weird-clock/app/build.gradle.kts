@@ -11,8 +11,8 @@ android {
         applicationId = "com.em87.weirdclock"
         minSdk = 24
         targetSdk = 35
-        versionCode = 64
-        versionName = "12.0"
+        versionCode = 65
+        versionName = "12.1"
     }
 
     // Shared signing key committed to the repo, so every APK — built on any
@@ -60,6 +60,13 @@ android {
 }
 
 dependencies {
+    // The clock's arithmetic — when an alarm next rings, which day a
+    // repeating reminder lands on, what a Roman numeral looks like — runs on
+    // the JVM with no Android in it, so it can be tested without a device.
+    // Two of the bugs this suite pins down had each cost a whole release to
+    // find by hand.
+    testImplementation("junit:junit:4.13.2")
+
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")

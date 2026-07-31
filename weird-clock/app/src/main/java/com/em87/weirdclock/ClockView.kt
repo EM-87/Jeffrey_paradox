@@ -375,6 +375,9 @@ class ClockView @JvmOverloads constructor(
 
     init {
         applyTheme(theme)
+        // A custom View with no text is skipped by default; this one has
+        // something to say.
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
     }
 
     private fun applyTheme(t: ClockTheme) {
@@ -1811,6 +1814,53 @@ class ClockView @JvmOverloads constructor(
      */
     private fun chronoDisplayMs(): Long? = chronoProvider?.let { provider ->
         (chronoFrozenMs ?: provider()) + (visualOffsetSeconds * 1000.0).toLong()
+    }
+
+    // --------------------------------------------------------- accessibility
+
+    /**
+     * A view drawn on a Canvas is, to a screen reader, a blank rectangle.
+     * The node the framework builds is where the reading belongs — not an
+     * override of getContentDescription(), which also feeds internal View
+     * machinery that has no business hearing about the time.
+     *
+     * Filled in on demand, so it is current without a stream of
+     * announcements nobody asked for.
+     */
+    override fun onInitializeAccessibilityNodeInfo(
+        info: android.view.accessibility.AccessibilityNodeInfo
+    ) {
+        super.onInitializeAccessibilityNodeInfo(info)
+        if (info.contentDescription.isNullOrBlank()) {
+            info.contentDescription = describeDial()
+        }
+    }
+
+    /** What this dial would say out loud. */
+    private fun describeDial(): CharSequence {
+        val chrono = chronoDisplayMs()
+        if (chrono != null) return spokenDuration(chrono)
+        cal.timeInMillis = displayNowMs()
+        val time = java.text.DateFormat
+            .getTimeInstance(java.text.DateFormat.SHORT)
+            .apply { timeZone = cal.timeZone }
+            .format(java.util.Date(cal.timeInMillis))
+        // Bubbles carry their city inside the dial; it belongs in the
+        // reading too, or six of them all say the same thing.
+        return dialLabel?.let { context.getString(R.string.a11y_city_time, it, time) } ?: time
+    }
+
+    /** Hours, minutes and seconds in words rather than as a bare 00:00. */
+    private fun spokenDuration(ms: Long): String {
+        val total = (ms / 1000L).coerceAtLeast(0L)
+        val h = total / 3600
+        val m = (total % 3600) / 60
+        val s = total % 60
+        val parts = ArrayList<String>(3)
+        if (h > 0) parts.add(context.getString(R.string.a11y_hours, h))
+        if (m > 0) parts.add(context.getString(R.string.a11y_minutes, m))
+        if (s > 0 || parts.isEmpty()) parts.add(context.getString(R.string.a11y_seconds, s))
+        return parts.joinToString(" ")
     }
 
     private fun computeAngles(): Angles {

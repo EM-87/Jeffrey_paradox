@@ -49,31 +49,42 @@ data class Reminder(
         else -> y == year && m == month && d == day
     }
 
-    /** The next time this comes round, counting from now. */
-    fun nextTimeInMillis(): Long {
+    /**
+     * The next time this comes round, counting from now.
+     *
+     * Each candidate is built from the original date rather than by walking
+     * a calendar forward from the last one, because adding to a calendar
+     * slides: add a year to 29 February and you land on 1 March, and the
+     * repair for that used to move the reminder to the 29th of *March* —
+     * where, being a valid date, it then stayed for good. A leap-day
+     * anniversary belongs on the leap day; it simply waits four years.
+     *
+     * Months that do not have the day are skipped for the same reason, so a
+     * monthly reminder set for the 31st keeps the 31st.
+     */
+    fun nextTimeInMillis(now: Long = System.currentTimeMillis()): Long {
         val first = timeInMillis()
-        if (repeat == REPEAT_NEVER) return first
-        val now = System.currentTimeMillis()
-        val cal = Calendar.getInstance().apply { timeInMillis = first }
-        val field = if (repeat == REPEAT_YEARLY) Calendar.YEAR else Calendar.MONTH
-        var guard = 0
-        // Months without the day in question are skipped, not slid into the
-        // next one, so a "day 31" reminder stays on the 31st.
-        while (cal.timeInMillis <= now && guard < 500) {
-            cal.add(field, 1)
-            if (cal.get(Calendar.DAY_OF_MONTH) != day) {
-                cal.set(Calendar.DAY_OF_MONTH, 1)
-                if (cal.getActualMaximum(Calendar.DAY_OF_MONTH) >= day) {
-                    cal.set(Calendar.DAY_OF_MONTH, day)
+        if (repeat == REPEAT_NEVER || first > now) return first
+        for (step in 1 until 500) {
+            val cal = Calendar.getInstance().apply {
+                clear()
+                if (repeat == REPEAT_YEARLY) {
+                    set(year + step, month - 1, 1, hour, minute, 0)
+                } else {
+                    val months = (month - 1) + step
+                    set(year + months / 12, months % 12, 1, hour, minute, 0)
                 }
             }
-            guard++
+            if (cal.getActualMaximum(Calendar.DAY_OF_MONTH) < day) continue
+            cal.set(Calendar.DAY_OF_MONTH, day)
+            if (cal.timeInMillis > now) return cal.timeInMillis
         }
-        return cal.timeInMillis
+        return first
     }
 
     /** When it actually rings: early by [leadMinutes], if asked. */
-    fun ringAtMillis(): Long = nextTimeInMillis() - leadMinutes * 60_000L
+    fun ringAtMillis(now: Long = System.currentTimeMillis()): Long =
+        nextTimeInMillis(now) - leadMinutes * 60_000L
 
     companion object {
         const val REPEAT_NEVER = "never"

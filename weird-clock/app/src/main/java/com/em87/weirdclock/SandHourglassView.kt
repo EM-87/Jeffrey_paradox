@@ -95,6 +95,40 @@ class SandHourglassView @JvmOverloads constructor(
             }
         }
 
+    /**
+     * A view drawn on a Canvas is, to a screen reader, a blank rectangle.
+     * The node the framework builds is where the reading belongs — not an
+     * override of getContentDescription(), which also feeds internal View
+     * machinery that has no business hearing about the time.
+     *
+     * Filled in on demand, so it is current without a stream of
+     * announcements nobody asked for.
+     */
+    override fun onInitializeAccessibilityNodeInfo(
+        info: android.view.accessibility.AccessibilityNodeInfo
+    ) {
+        super.onInitializeAccessibilityNodeInfo(info)
+        if (info.contentDescription.isNullOrBlank()) {
+            info.contentDescription = describeRemaining()
+        }
+    }
+
+    /** The glass is a picture of a number; screen readers get the number. */
+    private fun describeRemaining(): CharSequence {
+        val total = (remainingMs / 1000L).coerceAtLeast(0L)
+        val minutes = total / 60
+        val seconds = total % 60
+        return if (minutes > 0) {
+            context.getString(R.string.a11y_left_min_sec, minutes, seconds)
+        } else {
+            context.getString(R.string.a11y_left_sec, seconds)
+        }
+    }
+
+    init {
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
+    }
+
     fun setTime(total: Long, remaining: Long) {
         val totalChanged = total != totalMs
         val previous = remainingMs

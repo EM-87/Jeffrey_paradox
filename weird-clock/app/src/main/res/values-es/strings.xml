@@ -223,4 +223,10 @@
     <string name="alarm_channel_desc">El sonido de alarmas y recordatorios. Si silencias este canal, silencias tus alarmas.</string>
     <string name="countdown_channel_desc">El temporizador en marcha, con su tiempo restante y su barra de progreso.</string>
     <string name="bells_channel_desc">El hueco silencioso que las campanadas horarias necesitan para poder sonar desde segundo plano.</string>
+    <string name="a11y_city_time">%1$s, %2$s</string>
+    <string name="a11y_hours">%1$d horas</string>
+    <string name="a11y_minutes">%1$d minutos</string>
+    <string name="a11y_seconds">%1$d segundos</string>
+    <string name="a11y_left_min_sec">Quedan %1$d minutos %2$d segundos</string>
+    <string name="a11y_left_sec">Quedan %1$d segundos</string>
 </resources>

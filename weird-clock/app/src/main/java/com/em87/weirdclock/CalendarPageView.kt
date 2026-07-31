@@ -74,6 +74,33 @@ class CalendarPageView @JvmOverloads constructor(
     /** 1–12. */
     val shownMonth1: Int get() = shown.get(Calendar.MONTH) + 1
 
+    /**
+     * A view drawn on a Canvas is, to a screen reader, a blank rectangle.
+     * The node the framework builds is where the reading belongs — not an
+     * override of getContentDescription(), which also feeds internal View
+     * machinery that has no business hearing about the time.
+     *
+     * Filled in on demand, so it is current without a stream of
+     * announcements nobody asked for.
+     */
+    override fun onInitializeAccessibilityNodeInfo(
+        info: android.view.accessibility.AccessibilityNodeInfo
+    ) {
+        super.onInitializeAccessibilityNodeInfo(info)
+        if (info.contentDescription.isNullOrBlank()) {
+            info.contentDescription = describeMonth()
+        }
+    }
+
+    /** Names the month a swipe has landed on. */
+    private fun describeMonth(): CharSequence =
+        java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.getDefault())
+            .format(shown.time)
+
+    init {
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
+    }
+
     /** First day of the month currently on screen. */
     private val shown: Calendar = Calendar.getInstance().apply {
         set(Calendar.DAY_OF_MONTH, 1)
