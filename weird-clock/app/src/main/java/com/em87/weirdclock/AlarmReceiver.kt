@@ -55,11 +55,11 @@ class AlarmReceiver : BroadcastReceiver() {
      */
     private fun retireIfOnce(context: Context, alarmId: Int) {
         if (alarmId <= 0) return
-        val alarms = AlarmStore.load(context)
+        val alarms = AlarmStore.all(context)
         val alarm = alarms.firstOrNull { it.id == alarmId } ?: return
         if (!alarm.once || !alarm.enabled) return
         alarm.enabled = false
-        AlarmStore.save(context, alarms)
+        AlarmStore.save(context)
     }
 
     /** Last resort: a full-screen notification, without the looping bells. */

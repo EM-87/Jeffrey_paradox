@@ -51,7 +51,7 @@ class ClockIntentActivity : Activity() {
         var mask = 0
         days?.forEach { day -> if (day in 1..7) mask = mask or (1 shl (day - 1)) }
 
-        val alarms = AlarmStore.load(this)
+        val alarms = AlarmStore.all(this)
         alarms.add(
             Alarm(
                 id = AlarmStore.nextId(alarms),
@@ -64,7 +64,7 @@ class ClockIntentActivity : Activity() {
                 vibrate = vibrate
             )
         )
-        AlarmStore.save(this, alarms)
+        AlarmStore.save(this)
         AlarmScheduler.update(this)
         if (intent.getBooleanExtra(AlarmClock.EXTRA_SKIP_UI, false)) {
             Toast.makeText(

@@ -86,12 +86,60 @@ data class Alarm(
     }
 }
 
-/** Alarms persisted as a JSON array in the default SharedPreferences. */
+/**
+ * The alarms, persisted as a JSON array in the default SharedPreferences.
+ *
+ * One list, shared by everything in the process. It used to hand each caller
+ * its own copy — and there were four of them: the activity, the assistant's
+ * door, the receiver that retires a one-shot, and the scheduler. Whoever
+ * saved last won, which is how an alarm set by voice could be written out of
+ * existence by a screen that had been holding a stale copy since it opened.
+ *
+ * The instance is mutated, never replaced. Views and sheets hold a reference
+ * to it, and swapping it for a freshly loaded one would put every one of them
+ * back to reading a copy nobody else writes to — the same bug by another road.
+ */
 object AlarmStore {
 
     private const val KEY = "pref_alarms_json"
 
-    fun load(context: Context): MutableList<Alarm> {
+    private var shared: MutableList<Alarm>? = null
+
+    /** The list. Read it, change it, then [save]. */
+    @Synchronized
+    fun all(context: Context): MutableList<Alarm> =
+        shared ?: read(context).also { shared = it }
+
+    /** Writes down whatever the shared list now says. */
+    @Synchronized
+    fun save(context: Context) {
+        val alarms = shared ?: return
+        val arr = JSONArray()
+        for (a in alarms) {
+            arr.put(
+                JSONObject()
+                    .put("id", a.id)
+                    .put("hour", a.hour)
+                    .put("minute", a.minute)
+                    .put("enabled", a.enabled)
+                    .put("sound", a.sound)
+                    .put("days", a.daysMask)
+                    .put("snoozeMin", a.snoozeMinutes)
+                    .put("label", a.label)
+                    .put("soundUri", a.soundUri)
+                    .put("vibrate", a.vibrate)
+                    .put("duration", a.durationMinutes)
+                    .put("flash", a.flash)
+                    .put("extraTimes", JSONArray(a.extraTimes))
+            )
+        }
+        PreferenceManager.getDefaultSharedPreferences(context)
+            .edit()
+            .putString(KEY, arr.toString())
+            .apply()
+    }
+
+    private fun read(context: Context): MutableList<Alarm> {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         val json = prefs.getString(KEY, null) ?: return migrateLegacy(prefs)
         val list = mutableListOf<Alarm>()
@@ -155,32 +203,6 @@ object AlarmStore {
             )
         }
         return list
-    }
-
-    fun save(context: Context, alarms: List<Alarm>) {
-        val arr = JSONArray()
-        for (a in alarms) {
-            arr.put(
-                JSONObject()
-                    .put("id", a.id)
-                    .put("hour", a.hour)
-                    .put("minute", a.minute)
-                    .put("enabled", a.enabled)
-                    .put("sound", a.sound)
-                    .put("days", a.daysMask)
-                    .put("snoozeMin", a.snoozeMinutes)
-                    .put("label", a.label)
-                    .put("soundUri", a.soundUri)
-                    .put("vibrate", a.vibrate)
-                    .put("duration", a.durationMinutes)
-                    .put("flash", a.flash)
-                    .put("extraTimes", JSONArray(a.extraTimes))
-            )
-        }
-        PreferenceManager.getDefaultSharedPreferences(context)
-            .edit()
-            .putString(KEY, arr.toString())
-            .apply()
     }
 
     fun nextId(alarms: List<Alarm>): Int = (alarms.maxOfOrNull { it.id } ?: 0) + 1

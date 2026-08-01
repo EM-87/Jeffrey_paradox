@@ -180,7 +180,7 @@ object WidgetRenderer {
                 alpha = 230
             }
             val today = Calendar.getInstance()
-            val reminders = ReminderStore.load(context).filter {
+            val reminders = ReminderStore.all(context).filter {
                 it.year == today.get(Calendar.YEAR) &&
                     it.month == today.get(Calendar.MONTH) + 1 &&
                     it.day == today.get(Calendar.DAY_OF_MONTH)
@@ -206,7 +206,7 @@ object WidgetRenderer {
                 path.close()
                 canvas.drawPath(path, markerPaint)
             }
-            val dotAngles = AlarmStore.load(context).filter { it.enabled }.map {
+            val dotAngles = AlarmStore.all(context).filter { it.enabled }.map {
                 (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f
             } + reminders.filter { it.durationMinutes <= 0 }.map {
                 (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f

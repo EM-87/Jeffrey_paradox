@@ -36,9 +36,9 @@ object AlarmScheduler {
             cancel(context)
             return
         }
-        val enabled = AlarmStore.load(context).filter { it.enabled }
+        val enabled = AlarmStore.all(context).filter { it.enabled }
         // Calendar reminders compete for the same single armed slot.
-        val reminders = ReminderStore.load(context)
+        val reminders = ReminderStore.all(context)
             .filter { it.rings && it.ringAtMillis() > System.currentTimeMillis() + 1000 }
         if (enabled.isEmpty() && reminders.isEmpty()) {
             cancel(context)

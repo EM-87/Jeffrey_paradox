@@ -63,7 +63,7 @@ class AlarmTileService : TileService() {
     override fun onStartListening() {
         super.onStartListening()
         val tile = qsTile ?: return
-        val next = AlarmStore.load(this)
+        val next = AlarmStore.all(this)
             .filter { it.enabled }
             .minOfOrNull { AlarmScheduler.nextOccurrence(it) }
         tile.label = getString(R.string.tile_alarm_label)

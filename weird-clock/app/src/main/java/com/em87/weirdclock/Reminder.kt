@@ -122,14 +122,33 @@ data class Reminder(
     }
 }
 
-/** Reminders persisted as JSON in the default SharedPreferences. */
+/**
+ * The reminders, persisted as JSON in the default SharedPreferences.
+ *
+ * One list, shared by everything in the process, for the same reason the
+ * alarms are: see AlarmStore. Mutated, never replaced.
+ */
 object ReminderStore {
 
     private const val KEY = "pref_reminders_json"
 
     private const val NINETY_DAYS_MS = 90L * 86_400_000L
 
-    fun load(context: Context): MutableList<Reminder> {
+    private var shared: MutableList<Reminder>? = null
+
+    /** The list. Read it, change it, then [save]. */
+    @Synchronized
+    fun all(context: Context): MutableList<Reminder> =
+        shared ?: read(context).also { shared = it }
+
+    /** Writes down whatever the shared list now says. */
+    @Synchronized
+    fun save(context: Context) {
+        val reminders = shared ?: return
+        writeAll(context, reminders)
+    }
+
+    private fun read(context: Context): MutableList<Reminder> {
         val json = PreferenceManager.getDefaultSharedPreferences(context)
             .getString(KEY, null) ?: return mutableListOf()
         val list = mutableListOf<Reminder>()
@@ -167,7 +186,7 @@ object ReminderStore {
         return list
     }
 
-    fun save(context: Context, reminders: List<Reminder>) {
+    private fun writeAll(context: Context, reminders: List<Reminder>) {
         val arr = JSONArray()
         for (r in reminders) {
             arr.put(
@@ -193,8 +212,7 @@ object ReminderStore {
     }
 
     fun remove(context: Context, id: Int) {
-        val list = load(context)
-        if (list.removeAll { it.id == id }) save(context, list)
+        if (all(context).removeAll { it.id == id }) save(context)
     }
 
     fun nextId(reminders: List<Reminder>): Int = (reminders.maxOfOrNull { it.id } ?: 0) + 1

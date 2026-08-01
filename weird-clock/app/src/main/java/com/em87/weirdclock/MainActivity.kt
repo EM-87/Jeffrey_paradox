@@ -95,7 +95,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var lastPage = 0
 
     // Calendar reminders (one-shot dated alarms).
-    private val reminders = mutableListOf<Reminder>()
+    /** The one shared list, not a copy of it. See ReminderStore. */
+    private lateinit var reminders: MutableList<Reminder>
 
     /** Date + label of the reminder whose time is being wound on the dial. */
     /**
@@ -162,7 +163,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     // restarting transitions and wiping any winding in progress.
     private val stopwatchProvider: () -> Long = { stopwatchElapsed() }
     private val alarmTimeProvider: () -> Long = { alarmWorkingMs }
-    private val alarms = mutableListOf<Alarm>()
+    /** The one shared list, not a copy of it. See AlarmStore. */
+    private lateinit var alarms: MutableList<Alarm>
     private lateinit var alarmCards: AlarmCards
     private lateinit var reminderSheet: ReminderSheet
     private lateinit var alarmSheet: AlarmSheet
@@ -404,11 +406,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // than quietly becoming single-use under someone who set it to wake
         // them every morning.
         if (!prefs.getBoolean(Prefs.ONCE_MIGRATED, false)) {
-            val stored = AlarmStore.load(this)
+            val stored = AlarmStore.all(this)
             val stale = stored.filter { it.daysMask == 0 }
             if (stale.isNotEmpty()) {
                 for (a in stale) a.daysMask = Alarm.ALL_DAYS
-                AlarmStore.save(this, stored)
+                AlarmStore.save(this)
             }
             prefs.edit().putBoolean(Prefs.ONCE_MIGRATED, true).apply()
         }
@@ -507,9 +509,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             gravityY = ::viewGravityY
         )
         chimePlayer.prepareTick(this)
-        alarms.addAll(AlarmStore.load(this))
+        // Taken, not copied: the assistant's door, the receiver that retires
+        // a one-shot and the scheduler all hold this same list.
+        alarms = AlarmStore.all(this)
         sortAlarms()
-        reminders.addAll(ReminderStore.load(this))
+        reminders = ReminderStore.all(this)
 
         pager = findViewById(R.id.pager)
         // The pages keep clear of the bars; the pager's own background does
@@ -673,7 +677,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // background holding a list from whenever it was created. Coming
         // back with that stale list meant a spoken alarm was invisible, and
         // the next save here wrote it back out of existence.
-        reloadStores()
+        refreshFromStores()
         applyPreferences()
         sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sensorManager?.registerListener(flipListener, it, SensorManager.SENSOR_DELAY_UI)
@@ -1291,17 +1295,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     /**
-     * Re-reads alarms and reminders from disk, for whatever changed them
-     * while this activity was away. Safe to call on every resume: nothing
-     * here is edited in place — the sheets work on a draft and commit
-     * through [persistAlarms] — so there is never unsaved state to lose.
+     * Catches the screen up with whatever changed the lists while this
+     * activity was away — the assistant adding an alarm, a one-shot retiring
+     * itself when it rang.
+     *
+     * There is nothing to re-read any more: it is the same list they changed.
+     * What is left is to put it back in order and repaint, which is all this
+     * ever really needed to do. It used to reload from disk into a private
+     * copy, which was the patch for the bug that a single owner removes.
      */
-    private fun reloadStores() {
-        alarms.clear()
-        alarms.addAll(AlarmStore.load(this))
+    private fun refreshFromStores() {
         sortAlarms()
-        reminders.clear()
-        reminders.addAll(ReminderStore.load(this))
         refreshAlarmsUi()
         refreshCalendarMarks()
     }
@@ -1309,7 +1313,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     @Suppress("NotifyDataSetChanged")
     private fun persistAlarms() {
         sortAlarms()
-        AlarmStore.save(this, alarms)
+        AlarmStore.save(this)
         AlarmScheduler.update(this)
         refreshAlarmsUi()
     }
@@ -1435,7 +1439,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     private fun persistReminders() {
-        ReminderStore.save(this, reminders)
+        ReminderStore.save(this)
         AlarmScheduler.update(this)
         refreshCalendarMarks()
         updateAlarmMarkers()
