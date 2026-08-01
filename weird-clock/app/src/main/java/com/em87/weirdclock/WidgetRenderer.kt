@@ -179,6 +179,9 @@ object WidgetRenderer {
                 color = theme.decimal
                 alpha = 230
             }
+            // The widget draws from its own entry point, so it configures
+            // the day/night rule for itself rather than inheriting one.
+            DayNight.configure(context)
             // Repeats included, and asked of occursOn rather than compared
             // by hand — the widget's dial and the app's have to agree, and
             // for repeating reminders they did not.
@@ -193,7 +196,7 @@ object WidgetRenderer {
                     DialArc(
                         (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f,
                         it.durationMinutes / 60f / hoursOnDial * 360f,
-                        DayNight.isPm(it.hour)
+                        DayNight.isDarkAt(it.hour, it.minute)
                     )
                 }) {
                 markerPaint.color = DayNight.markColor(theme, wedgePm)
@@ -223,11 +226,14 @@ object WidgetRenderer {
                 .filter { it.enabled && it.durationMinutes <= 0 }
                 .flatMap { alarm -> alarm.allTimes() }
                 .map { (h, m) ->
-                    DialMark((h + m / 60f) % hoursOnDial / hoursOnDial * 360f, DayNight.isPm(h))
+                    DialMark(
+                        (h + m / 60f) % hoursOnDial / hoursOnDial * 360f,
+                        DayNight.isDarkAt(h, m)
+                    )
                 } + reminders.filter { it.durationMinutes <= 0 }.map {
                 DialMark(
                     (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f,
-                    DayNight.isPm(it.hour)
+                    DayNight.isDarkAt(it.hour, it.minute)
                 )
             }
             for ((deg, dotPm) in dots) {

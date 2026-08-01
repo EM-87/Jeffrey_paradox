@@ -465,9 +465,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
 
             override fun windDuration(parked: AlarmDurationDraft) {
+                // Wound from the alarm's own hour to where the thing ends,
+                // rather than from midnight. A length starting at zero told
+                // you nothing about when it lands, and left the sun and moon
+                // with nothing to say; now the token shows whether you get
+                // out in daylight.
+                val (h, m) = parked.draft.timeAt(0)
+                val startsAt = (h * 3_600_000L) + (m * 60_000L)
                 startDial(
                     DialJob.AlarmLength(parked.target, parked.draft, parked.isNew),
-                    parked.draft.durationMinutes.coerceAtLeast(15) * 60_000L
+                    startsAt + parked.draft.durationMinutes.coerceAtLeast(15) * 60_000L
                 )
             }
 
@@ -499,9 +506,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
 
             override fun windDuration(draft: ReminderDraft) {
+                // Same as the alarm's: from its own hour to where it ends.
+                val startsAt = (draft.hour * 3_600_000L) + (draft.minute * 60_000L)
                 startDial(
                     DialJob.ReminderLength(draft),
-                    draft.duration.coerceAtLeast(15) * 60_000L
+                    startsAt + draft.duration.coerceAtLeast(15) * 60_000L
                 )
             }
 
@@ -1214,7 +1223,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val ms = ((alarmWorkingMs % dayMs) + dayMs) % dayMs
         val hour = (ms / 3_600_000L).toInt()
         val minute = (ms / 60_000L % 60L).toInt()
-        val minutes = (alarmWorkingMs / 60_000L).toInt().coerceIn(0, 24 * 60)
         dialJob = when (job) {
             is DialJob.AlarmTime -> {
                 job.target.setTime(job.timeIndex, hour, minute)
@@ -1228,13 +1236,32 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 job.copy(isNew = false)
             }
             is DialJob.AlarmLength -> {
-                job.draft.durationMinutes = minutes
+                val (h, m) = job.draft.timeAt(0)
+                job.draft.durationMinutes = spanFrom(h * 60 + m)
                 job
             }
             is DialJob.ReminderTime -> job.copy(draft = job.draft.copy(hour = hour, minute = minute))
-            is DialJob.ReminderLength -> job.copy(draft = job.draft.copy(duration = minutes))
+            is DialJob.ReminderLength ->
+                job.copy(
+                    draft = job.draft.copy(
+                        duration = spanFrom(job.draft.hour * 60 + job.draft.minute)
+                    )
+                )
         }
         exitAlarmSetMode()
+    }
+
+    /**
+     * How long the hands have been carried past [startMinutes], in minutes.
+     *
+     * The length dial starts at the thing's own hour, so what is wound is
+     * the moment it ends and the length is the distance between them. Wound
+     * backwards past its start it wraps forward a whole day rather than
+     * going negative, because an event cannot last minus twenty minutes.
+     */
+    private fun spanFrom(startMinutes: Int): Int {
+        val wound = (alarmWorkingMs / 60_000L).toInt()
+        return (((wound - startMinutes) % 1440) + 1440) % 1440
     }
 
     /**
@@ -1351,7 +1378,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             val alarmDots = alarms
                 .filter { it.enabled && it.durationMinutes <= 0 }
                 .flatMap { alarm -> alarm.allTimes() }
-                .map { (h, m) -> DialMark((h + m / 60f) % n / n * 360f, DayNight.isPm(h)) }
+                .map { (h, m) -> DialMark((h + m / 60f) % n / n * 360f, DayNight.isDarkAt(h, m)) }
             // Instant reminders join the alarm dots; ones with a duration
             // become wedges instead.
             val reminderDots = todaysReminders()
@@ -1359,7 +1386,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 .map {
                     DialMark(
                         (it.hour + it.minute / 60f) % n / n * 360f,
-                        DayNight.isPm(it.hour)
+                        DayNight.isDarkAt(it.hour, it.minute)
                     )
                 }
             alarmDots + reminderDots
@@ -1377,7 +1404,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                         DialArc(
                             (h + m / 60f) % n / n * 360f,
                             alarm.durationMinutes / 60f / n * 360f,
-                            DayNight.isPm(h)
+                            DayNight.isDarkAt(h, m)
                         )
                     }
                 }
@@ -1387,7 +1414,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     DialArc(
                         (reminder.hour + reminder.minute / 60f) % n / n * 360f,
                         reminder.durationMinutes / 60f / n * 360f,
-                        DayNight.isPm(reminder.hour)
+                        DayNight.isDarkAt(reminder.hour, reminder.minute)
                     )
                 }
             alarmArcs + reminderArcs
@@ -1434,12 +1461,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // says the same thing the dial does.
         cal.morningDays = (1..daysInMonth).filter { day ->
             reminders.any {
-                it.occursOn(cal.shownYear, cal.shownMonth1, day) && !DayNight.isPm(it.hour)
+                it.occursOn(cal.shownYear, cal.shownMonth1, day) &&
+                    !DayNight.isDarkAt(it.hour, it.minute)
             }
         }.toSet()
         cal.eveningDays = (1..daysInMonth).filter { day ->
             reminders.any {
-                it.occursOn(cal.shownYear, cal.shownMonth1, day) && DayNight.isPm(it.hour)
+                it.occursOn(cal.shownYear, cal.shownMonth1, day) &&
+                    DayNight.isDarkAt(it.hour, it.minute)
             }
         }.toSet()
         // Year view dots every busy day of the whole year at once.
@@ -1561,6 +1590,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun applyPreferences() {
         TimeKeeper.setSpeedPercent(prefs.getInt(Prefs.TIME_SPEED, 100))
         applySolarTime()
+        // Solar marks want a location too, and will ask for one the same
+        // way sundial mode does rather than silently pretending.
+        if (DayNight.solarWantsLocation(this)) askForLocationOnce()
+        DayNight.configure(this)
         val cv = clockView ?: return
 
         cv.hoursOnDial = readHoursOnDial()
@@ -1689,6 +1722,19 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
     }
 
+    /** One prompt per run, shared by sundial mode and the solar marks. */
+    private fun askForLocationOnce() {
+        if (locationAskedThisRun) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            readLongitude()
+            return
+        }
+        locationAskedThisRun = true
+        locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+    }
+
     private fun readLongitude(): Double? {
         val lm = getSystemService(LocationManager::class.java)
         var best: android.location.Location? = null
@@ -1703,7 +1749,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
         }
         best?.let {
-            prefs.edit().putFloat(Prefs.LAST_LONGITUDE, it.longitude.toFloat()).apply()
+            // Both halves of the fix: the sunrise equation needs the
+            // latitude, and one measurement then serves the whole year.
+            prefs.edit()
+                .putFloat(Prefs.LAST_LONGITUDE, it.longitude.toFloat())
+                .putFloat(Prefs.LAST_LATITUDE, it.latitude.toFloat())
+                .apply()
             return it.longitude
         }
         return if (prefs.contains(Prefs.LAST_LONGITUDE)) {
@@ -1810,9 +1861,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // reminder time, or how long an activity lasts.
                 it.chronoProvider = alarmTimeProvider
                 it.chronoSettable = true
-                // Carry the hour hand past twelve and the token flips: the
-                // one moment you most need to know which half you asked for.
-                it.showDayNightToken = !(dialJob?.isLength ?: false)
+                // On for both: a time needs to say which half it is, and a
+                // length now says whether the thing ends in the light.
+                it.showDayNightToken = true
                 // A length is a length, whoever it belongs to. Only the
                 // reminder's used the countdown magnets before, so winding
                 // "how long does this last" on an alarm snapped to the grid
@@ -1825,8 +1876,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             } else {
                 it.chronoProvider = null
                 it.chronoSettable = false
-                // A clock telling the time needs no token: look outside.
-                it.showDayNightToken = false
+                // The clock keeps it as well. Wind the hands forward and the
+                // sun sets under your finger, which is both the proof the
+                // solar rule works and the only way to watch a whole day go
+                // past without waiting for one.
+                it.showDayNightToken = true
                 it.magnetProfile = ClockView.MagnetProfile.COUNTDOWN
             }
             it.chronoButtons = false

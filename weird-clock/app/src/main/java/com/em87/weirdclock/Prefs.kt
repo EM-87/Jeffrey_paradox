@@ -32,6 +32,10 @@ object Prefs {
     const val TIME_SPEED = "pref_time_speed"
     const val SOLAR_TIME = "pref_solar_time"
     const val LAST_LONGITUDE = "pref_last_longitude"
+    const val LAST_LATITUDE = "pref_last_latitude"
+
+    /** Marks follow the real sun rather than the dial's two turns. */
+    const val SOLAR_MARKS = "pref_solar_marks"
     const val ALARM_RAMP = "pref_alarm_ramp"
     const val WORLD_CLOCK = "pref_world_clock"
     // Legacy single-city key, kept only for migration to WORLD_TZS.

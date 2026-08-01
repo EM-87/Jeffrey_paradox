@@ -42,6 +42,12 @@
             android:summary="@string/pref_alarm_markers_summary"
             android:title="@string/pref_alarm_markers_title" />
 
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_solar_marks"
+            android:summary="@string/pref_solar_marks_summary"
+            android:title="@string/pref_solar_marks_title" />
+
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/category_alarms">

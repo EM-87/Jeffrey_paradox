@@ -122,6 +122,7 @@ class AlarmCards(
         val days: TextView = view.findViewById(R.id.alarm_days)
         val soundName: TextView = view.findViewById(R.id.alarm_sound_name)
         val snoozeMin: TextView = view.findViewById(R.id.alarm_snooze_min)
+        val iconDayNight: ImageView = view.findViewById(R.id.icon_daynight)
         val iconSnooze: ImageView = view.findViewById(R.id.icon_snooze)
         val iconVibrate: ImageView = view.findViewById(R.id.icon_vibrate)
         val iconFlash: ImageView = view.findViewById(R.id.icon_flash)
@@ -192,6 +193,19 @@ class AlarmCards(
             }
             if (alarm.once) holder.days.setText(R.string.alarm_once)
             else holder.days.text = strip
+
+            // Leading the row: whether this one goes off in the light or in
+            // the dark, tinted the same as its dot on the dial. An alarm
+            // that rings several times a day is judged by its first.
+            val (fh, fm) = times[0]
+            val dark = DayNight.isDarkAt(fh, fm)
+            holder.iconDayNight.setImageResource(
+                if (dark) R.drawable.ic_moon else R.drawable.ic_sun
+            )
+            holder.iconDayNight.setColorFilter(DayNight.markColor(dialTheme(), dark))
+            holder.iconDayNight.contentDescription = host.getString(
+                if (dark) R.string.a11y_night else R.string.a11y_day
+            )
 
             // Icons appear only for what is actually switched on.
             holder.soundName.text = soundLabel(alarm.sound)

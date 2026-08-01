@@ -2516,13 +2516,19 @@ class ClockView @JvmOverloads constructor(
      * you had asked for morning or evening.
      */
     private fun drawDayNightToken(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        // The time the dial is *showing*, wound offset included — that is
+        // what makes the sun set under your finger when you carry the hands
+        // forward, and the only way to watch a whole day pass on demand.
         val chrono = chronoDisplayMs()
-        val pm = if (chrono != null) {
-            DayNight.isPm(chrono)
+        val shownMs = if (chrono != null) {
+            chrono
         } else {
-            cal.timeInMillis = displayNowMs()
-            DayNight.isPm(cal.get(java.util.Calendar.HOUR_OF_DAY))
+            val nowShown = displayNowMs() + (visualOffsetSeconds * 1000.0).toLong()
+            cal.timeInMillis = nowShown
+            (cal.get(java.util.Calendar.HOUR_OF_DAY) * 3_600_000L +
+                cal.get(java.util.Calendar.MINUTE) * 60_000L)
         }
+        val pm = DayNight.isDarkMs(shownMs)
         val tokenR = r * 0.088f
         val ty = cy + r * 0.46f
         tokenPaint.color = DayNight.markColor(theme, pm)

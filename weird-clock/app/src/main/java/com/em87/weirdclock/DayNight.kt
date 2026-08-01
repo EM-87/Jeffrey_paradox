@@ -23,6 +23,64 @@ package com.em87.weirdclock
  */
 object DayNight {
 
+    /**
+     * Whether the marks follow the sun rather than the clock's two turns,
+     * and from where. Configured once from preferences and read by every
+     * surface — including the widget, which runs from its own entry point
+     * and so calls [configure] for itself.
+     */
+    private var solar = false
+    private var latitude = 0.0
+    private var longitude = 0.0
+
+    fun configure(context: android.content.Context) {
+        val prefs = androidx.preference.PreferenceManager
+            .getDefaultSharedPreferences(context)
+        val hasFix = prefs.contains(Prefs.LAST_LATITUDE) &&
+            prefs.contains(Prefs.LAST_LONGITUDE)
+        // Solar marks without a location would be a guess dressed as an
+        // answer, so they fall back to the turn of the dial until there is
+        // one fix to work from. After that the arithmetic carries the year.
+        solar = prefs.getBoolean(Prefs.SOLAR_MARKS, false) && hasFix
+        latitude = prefs.getFloat(Prefs.LAST_LATITUDE, 0f).toDouble()
+        longitude = prefs.getFloat(Prefs.LAST_LONGITUDE, 0f).toDouble()
+    }
+
+    /** True while a location fix is still wanted for the solar marks. */
+    fun solarWantsLocation(context: android.content.Context): Boolean {
+        val prefs = androidx.preference.PreferenceManager
+            .getDefaultSharedPreferences(context)
+        return prefs.getBoolean(Prefs.SOLAR_MARKS, false) &&
+            !prefs.contains(Prefs.LAST_LATITUDE)
+    }
+
+    /**
+     * The one question every mark asks: warm or cool?
+     *
+     * In the default reading it is the turn of the dial — the only rule that
+     * separates the two sevens. Switched to solar it becomes the literal
+     * question instead: was the sun up at that minute, on that date, here.
+     * Then seven in the morning really can be dark in December and light in
+     * June, which is truthful and seasonal and no longer unambiguous — so it
+     * is a choice, not the default.
+     */
+    fun isDark(minutesOfDay: Int, whenMs: Long = System.currentTimeMillis()): Boolean =
+        if (solar) {
+            !SolarTime.isDaylight(latitude, longitude, whenMs, minutesOfDay)
+        } else {
+            isPm(minutesOfDay / 60)
+        }
+
+    fun isDarkAt(hour: Int, minute: Int, whenMs: Long = System.currentTimeMillis()): Boolean =
+        isDark(hour * 60 + minute, whenMs)
+
+    /** From a time of day in milliseconds, as the dials hold it. */
+    fun isDarkMs(millisOfDay: Long, whenMs: Long = System.currentTimeMillis()): Boolean {
+        val day = 86_400_000L
+        val wrapped = ((millisOfDay % day) + day) % day
+        return isDark((wrapped / 60_000L).toInt(), whenMs)
+    }
+
     /** True for the second turn of the dial: noon to midnight. */
     fun isPm(hour: Int): Boolean = (hour % 24) >= 12
 
