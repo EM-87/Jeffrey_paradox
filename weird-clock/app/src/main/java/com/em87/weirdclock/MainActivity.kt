@@ -95,8 +95,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var lastPage = 0
 
     // Calendar reminders (one-shot dated alarms).
-    /** The one shared list, not a copy of it. See ReminderStore. */
-    private lateinit var reminders: MutableList<Reminder>
+    /**
+     * The one shared list, not a copy of it. See ReminderStore.
+     *
+     * Fetched on every read rather than held in a field, so that no order of
+     * initialisation can be the wrong one. Held in a lateinit field it was:
+     * the sheets are built near the top of onCreate and the field was filled
+     * a hundred lines below, which crashed the app on launch and got past a
+     * clean compile, 52 green tests and lint — none of which look at when a
+     * field is written. The store hands back the same instance every time.
+     */
+    private val reminders: MutableList<Reminder> get() = ReminderStore.all(this)
 
     /** Date + label of the reminder whose time is being wound on the dial. */
     /**
@@ -163,8 +172,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     // restarting transitions and wiping any winding in progress.
     private val stopwatchProvider: () -> Long = { stopwatchElapsed() }
     private val alarmTimeProvider: () -> Long = { alarmWorkingMs }
-    /** The one shared list, not a copy of it. See AlarmStore. */
-    private lateinit var alarms: MutableList<Alarm>
+    /** The one shared list, not a copy of it. See [reminders] and AlarmStore. */
+    private val alarms: MutableList<Alarm> get() = AlarmStore.all(this)
     private lateinit var alarmCards: AlarmCards
     private lateinit var reminderSheet: ReminderSheet
     private lateinit var alarmSheet: AlarmSheet
@@ -509,11 +518,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             gravityY = ::viewGravityY
         )
         chimePlayer.prepareTick(this)
-        // Taken, not copied: the assistant's door, the receiver that retires
-        // a one-shot and the scheduler all hold this same list.
-        alarms = AlarmStore.all(this)
         sortAlarms()
-        reminders = ReminderStore.all(this)
 
         pager = findViewById(R.id.pager)
         // The pages keep clear of the bars; the pager's own background does

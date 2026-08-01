@@ -11,8 +11,8 @@ android {
         applicationId = "com.em87.weirdclock"
         minSdk = 24
         targetSdk = 35
-        versionCode = 76
-        versionName = "13.2"
+        versionCode = 77
+        versionName = "13.3"
     }
 
     // Shared signing key committed to the repo, so every APK — built on any
@@ -44,6 +44,10 @@ android {
 
     // A string that never reaches values-es/ used to be invisible: the app
     // simply spoke English at that one spot. Now the build says so.
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
     lint {
         error += "MissingTranslation"
         warning += "ExtraTranslation"
@@ -66,6 +70,8 @@ dependencies {
     // Two of the bugs this suite pins down had each cost a whole release to
     // find by hand.
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("androidx.test:core:1.6.1")
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
