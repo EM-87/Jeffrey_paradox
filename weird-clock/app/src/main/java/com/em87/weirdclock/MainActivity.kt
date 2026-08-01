@@ -114,6 +114,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * place that asks, what it should do.
      */
     private sealed interface DialJob {
+        /**
+         * Whether what is being wound is a length rather than a time of day.
+         * Lengths take the countdown's magnets, times take the alarm's.
+         */
+        val isLength: Boolean
+
         /** One of an alarm's times of day. */
         data class AlarmTime(
             val target: Alarm,
@@ -122,20 +128,28 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             val isNew: Boolean,
             /** Which of the alarm's up-to-four times is being wound. */
             val timeIndex: Int
-        ) : DialJob
+        ) : DialJob {
+            override val isLength = false
+        }
 
         /** How long the alarm's thing lasts. */
         data class AlarmLength(
             val target: Alarm,
             val draft: Alarm,
             val isNew: Boolean
-        ) : DialJob
+        ) : DialJob {
+            override val isLength = true
+        }
 
         /** A reminder's time of day. */
-        data class ReminderTime(val draft: ReminderDraft) : DialJob
+        data class ReminderTime(val draft: ReminderDraft) : DialJob {
+            override val isLength = false
+        }
 
         /** How long a reminder's thing lasts. */
-        data class ReminderLength(val draft: ReminderDraft) : DialJob
+        data class ReminderLength(val draft: ReminderDraft) : DialJob {
+            override val isLength = true
+        }
     }
 
     private var dialJob: DialJob? = null
@@ -1252,9 +1266,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         backOutOfSetMode?.isEnabled = active
         alarmSetBanner?.visibility = if (active) View.VISIBLE else View.GONE
         alarmSetLabel?.setText(
-            when (dialJob) {
-                is DialJob.AlarmLength, is DialJob.ReminderLength -> R.string.set_duration
-                is DialJob.ReminderTime -> R.string.set_reminder_time
+            when {
+                dialJob?.isLength == true -> R.string.set_duration
+                dialJob is DialJob.ReminderTime -> R.string.set_reminder_time
                 else -> R.string.set_alarm_time
             }
         )
@@ -1756,12 +1770,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // reminder time, or how long an activity lasts.
                 it.chronoProvider = alarmTimeProvider
                 it.chronoSettable = true
-                // Left exactly as it was: only a reminder's length winds on
-                // the countdown magnets. An alarm's length is a duration too
-                // and arguably belongs on them as well, but that is a change
-                // in how the hands feel, not a tidy-up, so it is not one to
-                // smuggle in here.
-                it.magnetProfile = if (dialJob is DialJob.ReminderLength) {
+                // A length is a length, whoever it belongs to. Only the
+                // reminder's used the countdown magnets before, so winding
+                // "how long does this last" on an alarm snapped to the grid
+                // meant for times of day.
+                it.magnetProfile = if (dialJob?.isLength == true) {
                     ClockView.MagnetProfile.COUNTDOWN
                 } else {
                     ClockView.MagnetProfile.ALARM
