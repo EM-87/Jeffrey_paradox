@@ -24,6 +24,10 @@ import java.util.Locale
  * saves nothing — a switch flicked or a card tapped is handed straight back
  * to the host, which is the only thing that writes to the store.
  *
+ * It has since become the home for everything the cards and the two sheets
+ * share — the little faces, the weekday strip, the sound and lead-time
+ * names, and the two pickers — which is what let the reminder sheet leave.
+ *
  * Second piece lifted out of MainActivity, and the reason for the order:
  * the alarm and reminder sheets cannot move cleanly while the helpers they
  * share with the cards — the mini dials, the weekday strip, the sound names
@@ -44,6 +48,59 @@ class AlarmCards(
 ) {
 
     val adapter = Adapter()
+
+    /**
+     * How early a reminder speaks up. Minutes for the same-day nudge, days
+     * for the ones you need to prepare for — a birthday is no use to anyone
+     * fifteen minutes early.
+     */
+    fun leadLabel(minutes: Int): String = when {
+        minutes <= 0 -> host.getString(R.string.reminder_lead_none)
+        minutes < 60 -> host.getString(R.string.reminder_lead_min, minutes)
+        minutes == 60 -> host.getString(R.string.reminder_lead_hour)
+        minutes < 1440 -> host.getString(R.string.reminder_lead_hours, minutes / 60)
+        minutes == 1440 -> host.getString(R.string.reminder_lead_day)
+        minutes < 10080 -> host.getString(R.string.reminder_lead_days, minutes / 1440)
+        minutes == 10080 -> host.getString(R.string.reminder_lead_week)
+        else -> host.getString(R.string.reminder_lead_weeks, minutes / 10080)
+    }
+
+    /** Warn-me offsets, in minutes: the same-day nudges, then days out. */
+    val leadChoicesList = listOf(0, 15, 30, 60, 1440, 4320, 10080)
+
+    /** A plain single-choice list, the way a row of options should ask. */
+    fun pickFromList(
+        titleRes: Int,
+        labels: List<String>,
+        checked: Int,
+        onPicked: (Int) -> Unit
+    ) {
+        androidx.appcompat.app.AlertDialog.Builder(host)
+            .setTitle(titleRes)
+            .setSingleChoiceItems(labels.toTypedArray(), checked) { dialog, which ->
+                dialog.dismiss()
+                onPicked(which)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /**
+     * The sounds on offer, shown as a list. Cycling through them one tap at a
+     * time meant walking past "your own file", and every pass through it threw
+     * you out into a file browser.
+     */
+    fun pickSound(current: String, allowCustom: Boolean, onPicked: (String) -> Unit) {
+        val sounds = mutableListOf(
+            Prefs.ALARM_SOUND_BELLS, Prefs.ALARM_SOUND_DIGITAL, Prefs.ALARM_SOUND_BABY
+        )
+        if (allowCustom) sounds.add(Prefs.ALARM_SOUND_CUSTOM)
+        pickFromList(
+            R.string.pref_bell_style_title,
+            sounds.map { soundLabel(it) },
+            sounds.indexOf(current)
+        ) { which -> onPicked(sounds[which]) }
+    }
 
     /** The names the sound picker and the cards both use. */
     fun soundLabel(sound: String): String = host.getString(

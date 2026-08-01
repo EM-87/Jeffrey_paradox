@@ -110,22 +110,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var reminderBeingSet: ReminderDraft? = null
 
 
-    /** A reminder sheet parked while its duration is wound on the dial. */
-    private class ReminderDraft(
-        val existing: Reminder?,
-        val year: Int,
-        val month: Int,
-        val day: Int,
-        val label: String,
-        val hour: Int,
-        val minute: Int,
-        val duration: Int,
-        val rings: Boolean,
-        val sound: String,
-        val lead: Int,
-        val repeat: String
-    )
-
     private var durationDraft: ReminderDraft? = null
     private var settingReminderDuration = false
 
@@ -157,6 +141,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private val alarmTimeProvider: () -> Long = { alarmWorkingMs }
     private val alarms = mutableListOf<Alarm>()
     private lateinit var alarmCards: AlarmCards
+    private lateinit var reminderSheet: ReminderSheet
 
     private var bellsEnabled = false
     private var bellStyle = Prefs.BELL_STYLE_COUNT
@@ -417,6 +402,39 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             },
             onOpen = { alarm -> showAlarmSheet(alarm) }
         )
+        reminderSheet = ReminderSheet(this, alarmCards, object : ReminderSheet.Callbacks {
+            override fun animateSheet(
+                sheet: com.google.android.material.bottomsheet.BottomSheetDialog,
+                content: View
+            ) = this@MainActivity.animateSheet(sheet, content)
+
+            override fun commitReminder(existing: Reminder?, draft: ReminderDraft) =
+                this@MainActivity.commitReminder(existing, draft)
+
+            override fun deleteReminder(reminder: Reminder) {
+                reminders.remove(reminder)
+                persistReminders()
+            }
+
+            override fun windTime(draft: ReminderDraft) {
+                reminderBeingSet = draft
+                alarmBeingSet = null
+                alarmWorkingMs = (draft.hour * 3_600_000L) + (draft.minute * 60_000L)
+                goToDial()
+            }
+
+            override fun windDuration(draft: ReminderDraft) {
+                durationDraft = draft
+                settingReminderDuration = true
+                alarmBeingSet = null
+                reminderBeingSet = null
+                alarmWorkingMs = draft.duration.coerceAtLeast(15) * 60_000L
+                goToDial()
+            }
+
+            override fun isPastDay(year: Int, month: Int, day: Int): Boolean =
+                this@MainActivity.isPastDay(year, month, day)
+        })
         worldBubbles = WorldBubbles(
             host = this,
             prefs = prefs,
@@ -1046,6 +1064,29 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private fun soundLabel(sound: String): String = alarmCards.soundLabel(sound)
 
+    private fun leadLabel(minutes: Int): String = alarmCards.leadLabel(minutes)
+
+    private val leadChoicesList: List<Int> get() = alarmCards.leadChoicesList
+
+    private fun pickFromList(
+        titleRes: Int,
+        labels: List<String>,
+        checked: Int,
+        onPicked: (Int) -> Unit
+    ) = alarmCards.pickFromList(titleRes, labels, checked, onPicked)
+
+    private fun pickSound(current: String, allowCustom: Boolean, onPicked: (String) -> Unit) =
+        alarmCards.pickSound(current, allowCustom, onPicked)
+
+    /** C-1's editor, which lives in its own file; this is the way in. */
+    private fun showReminderSheet(
+        existing: Reminder?,
+        year: Int,
+        month: Int,
+        day: Int,
+        seed: ReminderDraft? = null
+    ) = reminderSheet.show(existing, year, month, day, seed)
+
     /**
      * The alarm editor, Google-Clock style: a bottom sheet with the time, the
      * weekday strip, the options as plain rows, and delete/save in opposite
@@ -1346,64 +1387,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     /**
-     * How early a reminder speaks up. Minutes for the same-day nudge, days
-     * for the ones you need to prepare for — a birthday is no use to anyone
-     * fifteen minutes early.
-     */
-    private fun leadLabel(minutes: Int): String = when {
-        minutes <= 0 -> getString(R.string.reminder_lead_none)
-        minutes < 60 -> getString(R.string.reminder_lead_min, minutes)
-        minutes == 60 -> getString(R.string.reminder_lead_hour)
-        minutes < 1440 -> getString(R.string.reminder_lead_hours, minutes / 60)
-        minutes == 1440 -> getString(R.string.reminder_lead_day)
-        minutes < 10080 -> getString(R.string.reminder_lead_days, minutes / 1440)
-        minutes == 10080 -> getString(R.string.reminder_lead_week)
-        else -> getString(R.string.reminder_lead_weeks, minutes / 10080)
-    }
-
-    /** Warn-me offsets, in minutes: the same-day nudges, then days out. */
-    private val leadChoicesList = listOf(0, 15, 30, 60, 1440, 4320, 10080)
-
-    /** A plain single-choice list, the way a row of options should ask. */
-    private fun pickFromList(
-        titleRes: Int,
-        labels: List<String>,
-        checked: Int,
-        onPicked: (Int) -> Unit
-    ) {
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle(titleRes)
-            .setSingleChoiceItems(labels.toTypedArray(), checked) { dialog, which ->
-                dialog.dismiss()
-                onPicked(which)
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
-    /**
-     * The sounds on offer, shown as a list. Cycling through them one tap at a
-     * time meant walking past "your own file", and every pass through it threw
-     * you out into a file browser.
-     */
-    private fun pickSound(current: String, allowCustom: Boolean, onPicked: (String) -> Unit) {
-        val sounds = mutableListOf(
-            Prefs.ALARM_SOUND_BELLS, Prefs.ALARM_SOUND_DIGITAL, Prefs.ALARM_SOUND_BABY
-        )
-        if (allowCustom) sounds.add(Prefs.ALARM_SOUND_CUSTOM)
-        pickFromList(
-            R.string.pref_bell_style_title,
-            sounds.map { soundLabel(it) },
-            sounds.indexOf(current)
-        ) { which -> onPicked(sounds[which]) }
-    }
-
-    /**
-     * Sets an alarm time the weird way: jump to the clock dial (C1) running
-     * the countdown's wind-to-set engine, with a "Set alarm time" banner.
-     * Winding the hands moves the proposed time; magnets and haptics apply.
-     */
-    /**
      * Off to C0 to wind the hands. The four lines that do it were written out
      * at each of the four departure points, which is how a fifth one would
      * have got them subtly wrong — the same way a duplicated countdown
@@ -1418,6 +1401,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         applyAlarmSetUi()
     }
 
+    /**
+     * Sets an alarm time the weird way: jump to the clock dial (C1) running
+     * the countdown's wind-to-set engine, with a "Set alarm time" banner.
+     * Winding the hands moves the proposed time; magnets and haptics apply.
+     */
     private fun enterAlarmSetMode(alarm: Alarm?, timeIndex: Int = 0) {
         alarmBeingSet = alarm
         alarmTimeIndexBeingSet = timeIndex
@@ -1723,237 +1711,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
-    }
-
-    /**
-     * The reminder editor: the same bottom-sheet shape as the alarm one,
-     * with the time still set the app's way — by winding the dial.
-     */
-    private fun showReminderSheet(
-        existing: Reminder?,
-        year: Int,
-        month: Int,
-        day: Int,
-        seed: ReminderDraft? = null
-    ) {
-        val sheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
-        val view = layoutInflater.inflate(R.layout.sheet_reminder_edit, null)
-        sheet.setContentView(view)
-        animateSheet(sheet, view)
-
-        var label = seed?.label ?: existing?.label.orEmpty()
-        var hour = seed?.hour ?: existing?.hour ?: 9
-        var minute = seed?.minute ?: existing?.minute ?: 0
-        var duration = seed?.duration ?: existing?.durationMinutes ?: 0
-        var sound = seed?.sound ?: existing?.sound ?: Prefs.ALARM_SOUND_BELLS
-        var lead = seed?.lead ?: existing?.leadMinutes ?: 0
-        var repeat = seed?.repeat ?: existing?.repeat ?: Reminder.REPEAT_NEVER
-        // The date can be moved, so it is not the fixed frame it was.
-        var onYear = year
-        var onMonth = month
-        var onDay = day
-        // Nothing can be scheduled into a day that is already spent: it may
-        // be read and it may be deleted, and that is all.
-        val spent = isPastDay(year, month, day)
-
-        val nameValue = view.findViewById<TextView>(R.id.rsheet_name_value)
-        val timeValue = view.findViewById<TextView>(R.id.rsheet_time_value)
-        val durationValue = view.findViewById<TextView>(R.id.rsheet_duration_value)
-        val dateValue = view.findViewById<TextView>(R.id.rsheet_date)
-        val repeatValue = view.findViewById<TextView>(R.id.rsheet_repeat_value)
-        fun repeatLabel(mode: String): String = getString(
-            when (mode) {
-                Reminder.REPEAT_WEEKLY -> R.string.reminder_repeat_weekly
-                Reminder.REPEAT_MONTHLY -> R.string.reminder_repeat_monthly
-                Reminder.REPEAT_YEARLY -> R.string.reminder_repeat_yearly
-                else -> R.string.reminder_repeat_never
-            }
-        )
-        fun paintDate() {
-            dateValue.text = String.format(Locale.US, "%02d/%02d/%04d", onDay, onMonth, onYear)
-            repeatValue.text = repeatLabel(repeat)
-        }
-        paintDate()
-
-        fun refresh() {
-            nameValue.text = label.ifBlank { getString(R.string.reminder_hint) }
-            timeValue.text = String.format(Locale.US, "%02d:%02d", hour, minute)
-            durationValue.text = if (duration <= 0) {
-                getString(R.string.reminder_duration_none)
-            } else {
-                getString(R.string.reminder_duration_min, duration)
-            }
-        }
-
-        val repeatModes = listOf(
-            Reminder.REPEAT_NEVER, Reminder.REPEAT_WEEKLY,
-            Reminder.REPEAT_MONTHLY, Reminder.REPEAT_YEARLY
-        )
-        view.findViewById<View>(R.id.rsheet_row_repeat).setOnClickListener {
-            pickFromList(
-                R.string.reminder_repeat,
-                repeatModes.map { repeatLabel(it) },
-                repeatModes.indexOf(repeat)
-            ) { which ->
-                repeat = repeatModes[which]
-                paintDate()
-            }
-        }
-
-        // The date at the top is a button: a reminder can change its day
-        // without being deleted and made again.
-        dateValue.setOnClickListener {
-            val picker = android.app.DatePickerDialog(
-                this,
-                { _, y, m, d ->
-                    onYear = y
-                    onMonth = m + 1
-                    onDay = d
-                    paintDate()
-                },
-                onYear, onMonth - 1, onDay
-            )
-            picker.setTitle(R.string.reminder_move)
-            // Nothing is scheduled backwards, here no more than anywhere.
-            picker.datePicker.minDate = System.currentTimeMillis() - 86_400_000L
-            picker.show()
-        }
-
-        view.findViewById<View>(R.id.rsheet_row_name).setOnClickListener {
-            val input = EditText(this).apply {
-                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-                setText(label)
-                setSelection(label.length)
-            }
-            androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle(R.string.reminder_name)
-                .setView(input)
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    label = input.text.toString().trim()
-                    refresh()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-        }
-
-        val alarmSwitch = view.findViewById<SwitchCompat>(R.id.rsheet_alarm)
-        val soundRow = view.findViewById<View>(R.id.rsheet_row_sound)
-        val snoozeRow = view.findViewById<View>(R.id.rsheet_row_snooze)
-        val soundValue = view.findViewById<TextView>(R.id.rsheet_sound_value)
-        val snoozeValue = view.findViewById<TextView>(R.id.rsheet_snooze_value)
-
-        // A reminder is a mark on the calendar first; ringing is opt-in, and
-        // its settings only exist once you have opted in.
-        fun paintAlarmRows() {
-            val on = alarmSwitch.isChecked
-            soundRow.visibility = if (on) View.VISIBLE else View.GONE
-            snoozeRow.visibility = if (on) View.VISIBLE else View.GONE
-            soundValue.text = soundLabel(sound)
-            snoozeValue.text = leadLabel(lead)
-        }
-        alarmSwitch.isChecked = seed?.rings ?: existing?.rings ?: false
-        alarmSwitch.setOnCheckedChangeListener { _, _ -> paintAlarmRows() }
-        soundRow.setOnClickListener {
-            // No SAF round trip from here; the file picker belongs to alarms
-            // proper.
-            pickSound(sound, allowCustom = false) { chosen ->
-                sound = chosen
-                paintAlarmRows()
-            }
-        }
-        snoozeRow.setOnClickListener {
-            // Warning ahead of the thing, not a nag after it.
-            pickFromList(
-                R.string.reminder_lead,
-                leadChoicesList.map { leadLabel(it) },
-                leadChoicesList.indexOf(lead)
-            ) { which ->
-                lead = leadChoicesList[which]
-                paintAlarmRows()
-            }
-        }
-        paintAlarmRows()
-
-        // Nothing can be scheduled into a day that is already spent: it may
-        // be read and deleted, and that is all. (This block used to sit
-        // inside the sound row's listener, so it only ever ran if you tapped
-        // that row.)
-        if (spent) {
-            for (id in intArrayOf(
-                R.id.rsheet_date, R.id.rsheet_row_name, R.id.rsheet_row_time,
-                R.id.rsheet_row_duration, R.id.rsheet_row_repeat,
-                R.id.rsheet_row_sound, R.id.rsheet_row_snooze
-            )) {
-                view.findViewById<View>(id).apply {
-                    isEnabled = false
-                    alpha = 0.45f
-                }
-            }
-            alarmSwitch.isEnabled = false
-            view.findViewById<Button>(R.id.rsheet_save).visibility = View.GONE
-        }
-
-        view.findViewById<View>(R.id.rsheet_row_duration).setOnClickListener {
-            // How long a thing lasts is a duration, so it gets set the way
-            // durations are set here: by winding the countdown dial.
-            durationDraft = ReminderDraft(
-                existing, onYear, onMonth, onDay, label, hour, minute, duration,
-                alarmSwitch.isChecked, sound, lead, repeat
-            )
-            sheet.dismiss()
-            settingReminderDuration = true
-            alarmBeingSet = null
-            reminderBeingSet = null
-            alarmWorkingMs = duration.coerceAtLeast(15) * 60_000L
-            goToDial()
-        }
-
-        // The time row goes to the dial and comes back here. It used to be
-        // a one-way trip that saved on the way out — and Save was wired to
-        // the very same listener, so there was no way to finish a reminder
-        // except through the dial, and no sheet left to return to. Nothing
-        // is lifted out of the list on the way any more, because nothing is
-        // written until Save.
-        view.findViewById<View>(R.id.rsheet_row_time).setOnClickListener {
-            reminderBeingSet = ReminderDraft(
-                existing, onYear, onMonth, onDay, label, hour, minute,
-                duration, alarmSwitch.isChecked, sound, lead, repeat
-            )
-            alarmBeingSet = null
-            alarmWorkingMs = (hour * 3_600_000L) + (minute * 60_000L)
-            sheet.dismiss()
-            goToDial()
-        }
-
-        view.findViewById<Button>(R.id.rsheet_save).setOnClickListener {
-            commitReminder(
-                existing,
-                ReminderDraft(
-                    existing, onYear, onMonth, onDay, label, hour, minute,
-                    duration, alarmSwitch.isChecked, sound, lead, repeat
-                )
-            )
-            sheet.dismiss()
-        }
-
-        view.findViewById<Button>(R.id.rsheet_delete).apply {
-            isEnabled = existing != null
-            setOnClickListener {
-                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
-                    .setTitle(label.ifBlank { getString(R.string.reminder_untitled) })
-                    .setMessage(R.string.reminder_delete_confirm)
-                    .setPositiveButton(R.string.alarm_delete) { _, _ ->
-                        existing?.let { reminders.remove(it) }
-                        persistReminders()
-                        sheet.dismiss()
-                    }
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .show()
-            }
-        }
-
-        refresh()
-        sheet.show()
     }
 
     // ------------------------------------------------- world-clock bubbles
