@@ -1389,13 +1389,21 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
     }
 
+    /**
+     * What is on today, repeats included.
+     *
+     * This compared the three numbers directly, which is the same as asking
+     * "was it first set for today" — so a weekly, monthly or yearly reminder
+     * marked the dial on its original date and never again, while the
+     * calendar beside it marked every occurrence. occursOn is the one place
+     * that knows the rule, and now this asks it.
+     */
     private fun todaysReminders(): List<Reminder> {
         val today = Calendar.getInstance().apply { timeInMillis = TimeKeeper.nowMs() }
-        return reminders.filter {
-            it.year == today.get(Calendar.YEAR) &&
-                it.month == today.get(Calendar.MONTH) + 1 &&
-                it.day == today.get(Calendar.DAY_OF_MONTH)
-        }
+        val y = today.get(Calendar.YEAR)
+        val m = today.get(Calendar.MONTH) + 1
+        val d = today.get(Calendar.DAY_OF_MONTH)
+        return reminders.filter { it.occursOn(y, m, d) }
     }
 
     // ---------------------------------------------------------- reminders

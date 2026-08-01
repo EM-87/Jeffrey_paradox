@@ -63,9 +63,19 @@ class AlarmTileService : TileService() {
     override fun onStartListening() {
         super.onStartListening()
         val tile = qsTile ?: return
-        val next = AlarmStore.all(this)
+        // Whatever rings first, which is what the scheduler actually arms:
+        // a dated reminder can easily beat every alarm on the list, and the
+        // tile used to say "none" while one was armed and ticking.
+        val now = System.currentTimeMillis()
+        val nextAlarm = AlarmStore.all(this)
             .filter { it.enabled }
             .minOfOrNull { AlarmScheduler.nextOccurrence(it) }
+        val nextReminder = ReminderStore.all(this)
+            .filter { it.rings }
+            .map { it.ringAtMillis() }
+            .filter { it > now }
+            .minOrNull()
+        val next = listOfNotNull(nextAlarm, nextReminder).minOrNull()
         tile.label = getString(R.string.tile_alarm_label)
         tile.state = if (next != null) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         if (Build.VERSION.SDK_INT >= 29) {

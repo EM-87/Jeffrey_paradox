@@ -410,6 +410,10 @@ class CountdownService : Service() {
             .setColor(theme.face)
             .setColorized(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            // The alarm's notification says what it is and this one said
+            // nothing, which is what Do Not Disturb and the shade's ranking
+            // read to decide how to treat it.
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .addAction(0, getString(R.string.countdown_add_minute), plusOne)
             .setOngoing(true)

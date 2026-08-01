@@ -88,6 +88,20 @@ class AlarmReceiver : BroadcastReceiver() {
             NotificationCompat.Builder(context, AlarmService.CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(label.ifBlank { context.getString(R.string.alarm_ringing) })
+                // Wearing the dial's colour and showing itself on the lock
+                // screen, like the service's own. This is the same alarm by
+                // another road, and at six in the morning it should not look
+                // like a different app's.
+                .setColor(
+                    ClockThemes.resolve(
+                        context,
+                        androidx.preference.PreferenceManager
+                            .getDefaultSharedPreferences(context)
+                            .getString(Prefs.THEME, "midnight")
+                    ).face
+                )
+                .setColorized(true)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 // Counting up, like the service's own — this is the same
                 // alarm by another road, and it should read the same.
                 .setShowWhen(true)

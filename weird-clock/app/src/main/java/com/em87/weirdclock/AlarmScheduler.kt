@@ -64,8 +64,11 @@ object AlarmScheduler {
         }
         val reminderId = if (next == null) nextReminder?.id ?: -1 else -1
         val alarm = next ?: nextReminder?.let { r ->
-            // A reminder rings like a bells alarm with a 5-minute snooze,
-            // carrying its label and its own id so it expires after firing.
+            // A reminder rings like an alarm in its own chosen sound, and
+            // deliberately without a snooze: the sheet offers a warning
+            // beforehand instead, which is the useful end for something
+            // dated. The comment here used to promise five minutes of
+            // snooze that the line below has never given.
             Alarm(
                 0, r.hour, r.minute, true, r.sound,
                 label = r.label, snoozeMinutes = 0

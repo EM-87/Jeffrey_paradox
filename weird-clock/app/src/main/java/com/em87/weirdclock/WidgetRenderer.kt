@@ -179,12 +179,14 @@ object WidgetRenderer {
                 color = theme.decimal
                 alpha = 230
             }
+            // Repeats included, and asked of occursOn rather than compared
+            // by hand — the widget's dial and the app's have to agree, and
+            // for repeating reminders they did not.
             val today = Calendar.getInstance()
-            val reminders = ReminderStore.all(context).filter {
-                it.year == today.get(Calendar.YEAR) &&
-                    it.month == today.get(Calendar.MONTH) + 1 &&
-                    it.day == today.get(Calendar.DAY_OF_MONTH)
-            }
+            val ty = today.get(Calendar.YEAR)
+            val tm = today.get(Calendar.MONTH) + 1
+            val td = today.get(Calendar.DAY_OF_MONTH)
+            val reminders = ReminderStore.all(context).filter { it.occursOn(ty, tm, td) }
             for ((startDeg, sweepDeg) in reminders.filter { it.durationMinutes > 0 }.map {
                 val start = (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f
                 start to it.durationMinutes / 60f / hoursOnDial * 360f
@@ -206,8 +208,14 @@ object WidgetRenderer {
                 path.close()
                 canvas.drawPath(path, markerPaint)
             }
-            val dotAngles = AlarmStore.all(context).filter { it.enabled }.map {
-                (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f
+            // Every time an alarm rings at, not just the first, and none for
+            // the ones drawn as wedges — which is what the app's own dial
+            // does. The widget was showing one dot for a concept that happens
+            // four times a day, and a dot as well as a wedge for the rest.
+            val dotAngles = AlarmStore.all(context)
+                .filter { it.enabled && it.durationMinutes <= 0 }
+                .flatMap { alarm -> alarm.allTimes() }
+                .map { (h, m) -> (h + m / 60f) % hoursOnDial / hoursOnDial * 360f
             } + reminders.filter { it.durationMinutes <= 0 }.map {
                 (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f
             }
