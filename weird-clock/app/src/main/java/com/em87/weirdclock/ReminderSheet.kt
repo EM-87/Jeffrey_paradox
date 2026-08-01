@@ -10,7 +10,7 @@ import androidx.appcompat.widget.SwitchCompat
 import java.util.Locale
 
 /** A reminder sheet parked while its duration is wound on the dial. */
-class ReminderDraft(
+data class ReminderDraft(
     val existing: Reminder?,
     val year: Int,
     val month: Int,

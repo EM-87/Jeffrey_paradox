@@ -99,32 +99,48 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** Date + label of the reminder whose time is being wound on the dial. */
     /**
-     * The reminder being wound on C0's dial, if any.
+     * What C0's dial is being used to set right now, if anything.
      *
-     * Seven parallel fields until now, set together in one place and read
-     * together in another, which is the shape of an object that had not been
-     * written down yet. It had in fact already been written down — the same
-     * sheet parked for its duration used ReminderDraft for exactly this —
-     * so the trip to the dial reuses that rather than growing a second one.
+     * This was eleven fields: two "being set" drafts, two parked ones, two
+     * flags, a provisional id, an index and an active bit — and the last two
+     * bugs both lived in the gaps between them. One of them cleared a flag
+     * before the code that read it ran; the other simply had no field saying
+     * "come back to the alarm sheet", so nothing did.
+     *
+     * They were describing one thing badly. There is only ever one job, and
+     * "parked" was never a different state from "in flight" — it is the same
+     * job, still waiting to be finished. Written as a closed set of four, the
+     * compiler will not let a fifth kind be added without answering, at every
+     * place that asks, what it should do.
      */
-    private var reminderBeingSet: ReminderDraft? = null
+    private sealed interface DialJob {
+        /** One of an alarm's times of day. */
+        data class AlarmTime(
+            val target: Alarm,
+            val draft: Alarm,
+            /** Born only so the dial had a target; cancelling takes it back. */
+            val isNew: Boolean,
+            /** Which of the alarm's up-to-four times is being wound. */
+            val timeIndex: Int
+        ) : DialJob
 
+        /** How long the alarm's thing lasts. */
+        data class AlarmLength(
+            val target: Alarm,
+            val draft: Alarm,
+            val isNew: Boolean
+        ) : DialJob
 
-    private var durationDraft: ReminderDraft? = null
-    private var settingReminderDuration = false
+        /** A reminder's time of day. */
+        data class ReminderTime(val draft: ReminderDraft) : DialJob
 
-    private var alarmDurationDraft: AlarmDurationDraft? = null
+        /** How long a reminder's thing lasts. */
+        data class ReminderLength(val draft: ReminderDraft) : DialJob
+    }
 
-    /**
-     * An alarm written to the list only so the dial had something to set a
-     * time on. Cancelling the dial takes it back out again.
-     */
-    private var provisionalAlarmId: Int? = null
+    private var dialJob: DialJob? = null
 
-    // Alarm-time setting on the clock dial with the wind-to-set engine.
-    private var alarmSetActive = false
-    private var alarmBeingSet: Alarm? = null
-    private var alarmTimeIndexBeingSet = 0
+    /** The value the hands are showing while a job is in progress. */
     private var alarmWorkingMs = 0L
 
     // Stable provider instances: recreating these lambdas on every
@@ -416,17 +432,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 maybeRequestNotificationPermission()
 
             override fun windTime(target: Alarm, draft: Alarm, isNew: Boolean, timeIndex: Int) {
-                if (isNew) provisionalAlarmId = draft.id
-                parkedAlarm = AlarmDurationDraft(target, draft, isNew)
-                enterAlarmSetMode(alarms.firstOrNull { it.id == draft.id }, timeIndex)
+                val (h, m) = draft.timeAt(timeIndex)
+                startDial(
+                    DialJob.AlarmTime(target, draft, isNew, timeIndex),
+                    (h * 3600L + m * 60L) * 1000L
+                )
             }
 
             override fun windDuration(parked: AlarmDurationDraft) {
-                alarmDurationDraft = parked
-                alarmBeingSet = null
-                reminderBeingSet = null
-                alarmWorkingMs = parked.draft.durationMinutes.coerceAtLeast(15) * 60_000L
-                goToDial()
+                startDial(
+                    DialJob.AlarmLength(parked.target, parked.draft, parked.isNew),
+                    parked.draft.durationMinutes.coerceAtLeast(15) * 60_000L
+                )
             }
 
             override fun pickAudioFile(target: Alarm, onPicked: () -> Unit) {
@@ -450,19 +467,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
 
             override fun windTime(draft: ReminderDraft) {
-                reminderBeingSet = draft
-                alarmBeingSet = null
-                alarmWorkingMs = (draft.hour * 3_600_000L) + (draft.minute * 60_000L)
-                goToDial()
+                startDial(
+                    DialJob.ReminderTime(draft),
+                    (draft.hour * 3_600_000L) + (draft.minute * 60_000L)
+                )
             }
 
             override fun windDuration(draft: ReminderDraft) {
-                durationDraft = draft
-                settingReminderDuration = true
-                alarmBeingSet = null
-                reminderBeingSet = null
-                alarmWorkingMs = draft.duration.coerceAtLeast(15) * 60_000L
-                goToDial()
+                startDial(
+                    DialJob.ReminderLength(draft),
+                    draft.duration.coerceAtLeast(15) * 60_000L
+                )
             }
 
             override fun isPastDay(year: Int, month: Int, day: Int): Boolean =
@@ -838,7 +853,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         clockView = root.findViewById<ClockView>(R.id.clock_view).also {
             it.soundListener = this
             it.onDialScaleChanged = { scale -> shareDialScale(scale, it) }
-            it.onChronoAdjusted = { ms -> if (alarmSetActive) alarmWorkingMs = ms }
+            it.onChronoAdjusted = { ms -> if (dialJob != null) alarmWorkingMs = ms }
             it.onCrownTap = {
                 // The winding crown tidies the whole scene, bubbles included.
                 chimePlayer.playCuckoo()
@@ -1150,148 +1165,100 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     /**
-     * Off to C0 to wind the hands. The four lines that do it were written out
-     * at each of the four departure points, which is how a fifth one would
-     * have got them subtly wrong — the same way a duplicated countdown
-     * handover once put a bell over a finished timer. Whatever is being set
-     * has already been parked in alarmBeingSet, alarmDurationDraft or
-     * reminderBeingSet by the caller; this just goes.
+     * Off to C0 to wind the hands, whatever it is we are winding.
+     *
+     * One departure for all four jobs. It used to be four copies of the same
+     * four lines with a different set of fields poked before each — which is
+     * how one of them came to clear a flag the exit still needed.
      */
-    private fun goToDial() {
-        alarmSetActive = true
+    private fun startDial(job: DialJob, startMs: Long) {
+        dialJob = job
+        alarmWorkingMs = startMs
         mode = Mode.CLOCK
         pager.currentItem = PAGE_HOME
         applyAlarmSetUi()
     }
 
     /**
-     * Sets an alarm time the weird way: jump to the clock dial (C1) running
-     * the countdown's wind-to-set engine, with a "Set alarm time" banner.
-     * Winding the hands moves the proposed time; magnets and haptics apply.
+     * The hands are where you want them. Each job knows what to do with the
+     * value, and the `when` is exhaustive: a fifth kind of job cannot be
+     * added without answering here.
      */
-    private fun enterAlarmSetMode(alarm: Alarm?, timeIndex: Int = 0) {
-        alarmBeingSet = alarm
-        alarmTimeIndexBeingSet = timeIndex
-        val (h, m) = alarm?.timeAt(timeIndex) ?: (7 to 30)
-        alarmWorkingMs = (h * 3600L + m * 60L) * 1000L
-        goToDial()
-    }
-
     private fun confirmAlarmSet() {
+        val job = dialJob ?: return
         // Wrap into a day so over/under-winding still lands on a valid time.
         val dayMs = 86_400_000L
         val ms = ((alarmWorkingMs % dayMs) + dayMs) % dayMs
         val hour = (ms / 3_600_000L).toInt()
         val minute = (ms / 60_000L % 60L).toInt()
-        alarmDurationDraft?.let { parked ->
-            parked.draft.durationMinutes =
-                (alarmWorkingMs / 60_000L).toInt().coerceIn(0, 24 * 60)
-            // Left parked: exitAlarmSetMode is the one place that reopens a
-            // sheet now, for either alarm trip and either answer.
-            exitAlarmSetMode()
-            return
-        }
-        if (settingReminderDuration) {
-            // A wound duration rides back to the sheet on the same rail the
-            // time does. This used to clear settingReminderDuration and
-            // durationDraft before leaving, which is exactly what made
-            // exitAlarmSetMode think no reminder was involved: it dropped
-            // you on the alarms card with the calendar's sheet on top of it.
-            durationDraft?.let { d ->
-                val minutes = (alarmWorkingMs / 60_000L).toInt().coerceIn(0, 24 * 60)
-                parkedReminder = ReminderDraft(
-                    d.existing, d.year, d.month, d.day, d.label, d.hour, d.minute,
-                    minutes, d.rings, d.sound, d.lead, d.repeat
-                )
+        val minutes = (alarmWorkingMs / 60_000L).toInt().coerceIn(0, 24 * 60)
+        dialJob = when (job) {
+            is DialJob.AlarmTime -> {
+                job.target.setTime(job.timeIndex, hour, minute)
+                // The sheet edits a copy and is about to come back: the copy
+                // has to learn what was wound, or it would reopen showing the
+                // old time and write it back on save.
+                job.draft.setTime(job.timeIndex, hour, minute)
+                persistAlarms()
+                // Confirmed, so it is an alarm like any other now — no longer
+                // the provisional one the exit would take away.
+                job.copy(isNew = false)
             }
-            exitAlarmSetMode()
-            return
+            is DialJob.AlarmLength -> {
+                job.draft.durationMinutes = minutes
+                job
+            }
+            is DialJob.ReminderTime -> job.copy(draft = job.draft.copy(hour = hour, minute = minute))
+            is DialJob.ReminderLength -> job.copy(draft = job.draft.copy(duration = minutes))
         }
-        reminderBeingSet?.let { d ->
-            // Back to the sheet with the time you just wound, not straight
-            // to disk. The sheet is where a reminder is finished — it still
-            // has a name, a length and a repeat to agree to.
-            parkedReminder = ReminderDraft(
-                d.existing, d.year, d.month, d.day, d.label, hour, minute,
-                d.duration, d.rings, d.sound, d.lead, d.repeat
-            )
-            exitAlarmSetMode()
-            return
-        }
-        val alarm = alarmBeingSet
-        if (alarm == null) {
-            alarms.add(Alarm(AlarmStore.nextId(alarms), hour, minute, true, Prefs.ALARM_SOUND_BELLS))
-            maybeRequestNotificationPermission()
-        } else {
-            alarm.setTime(alarmTimeIndexBeingSet, hour, minute)
-            // The sheet is coming back, and it edits a copy: the copy has to
-            // learn what was just wound or it would reopen showing the old
-            // time and quietly write it back on save.
-            parkedAlarm?.draft?.setTime(alarmTimeIndexBeingSet, hour, minute)
-        }
-        // Confirmed, so it is an alarm like any other now.
-        provisionalAlarmId = null
-        persistAlarms()
         exitAlarmSetMode()
     }
 
-    /** A reminder sheet waiting to be shown again once the dial is done. */
-    private var parkedReminder: ReminderDraft? = null
-
     /**
-     * The same, for an alarm sheet whose time is being wound.
-     *
-     * The duration trip has come back to its sheet since it was written; the
-     * time trip never did, in any version — you wound the hands and landed on
-     * the alarms card, with the rest of the sheet's work abandoned. Both park
-     * here now, and both come back.
+     * Done with the dial, confirmed or not. Every job goes back to the sheet
+     * it left, on the card that sheet belongs to — which is the whole of what
+     * the last two bug reports were about.
      */
-    private var parkedAlarm: AlarmDurationDraft? = null
-
     private fun exitAlarmSetMode() {
-        // Confirmed or cancelled, a reminder goes back to the sheet it left
-        // — the time trip and the duration trip alike. Cancelling brings
-        // back exactly what the sheet already held, which is why the drafts
-        // are read here rather than thrown away, and why the card to land on
-        // follows from whether a reminder is coming back at all.
-        val returning = parkedReminder ?: reminderBeingSet ?: durationDraft
-        parkedReminder = null
-        val backToCalendar = returning != null
-        // Either alarm trip goes back to the sheet it came from, with
-        // everything else the sheet held still in place.
-        val parked = alarmDurationDraft ?: parkedAlarm
-        alarmDurationDraft = null
-        parkedAlarm = null
+        val job = dialJob
+        dialJob = null
         // An alarm that only existed so the dial had a target, and never got
-        // a time confirmed, was never really created.
-        provisionalAlarmId?.let { id ->
-            provisionalAlarmId = null
-            if (alarms.removeAll { it.id == id }) persistAlarms()
+        // a time confirmed, was never really created. Confirming clears the
+        // flag above, so only a cancelled one is still marked new here.
+        if (job is DialJob.AlarmTime && job.isNew) {
+            if (alarms.removeAll { it.id == job.draft.id }) persistAlarms()
         }
-        settingReminderDuration = false
-        durationDraft = null
-        alarmSetActive = false
-        alarmBeingSet = null
-        reminderBeingSet = null
         applyAlarmSetUi()
-        pager.currentItem = if (backToCalendar) PAGE_LEFT else PAGE_RIGHT
-        parked?.let { showAlarmSheet(it.target, it.draft) }
-        returning?.let { showReminderSheet(it.existing, it.year, it.month, it.day, it) }
+        pager.currentItem = when (job) {
+            is DialJob.ReminderTime, is DialJob.ReminderLength -> PAGE_LEFT
+            else -> PAGE_RIGHT
+        }
+        when (job) {
+            is DialJob.AlarmTime -> showAlarmSheet(job.target, job.draft)
+            is DialJob.AlarmLength -> showAlarmSheet(job.target, job.draft)
+            is DialJob.ReminderTime, is DialJob.ReminderLength -> {
+                val d = if (job is DialJob.ReminderTime) job.draft
+                else (job as DialJob.ReminderLength).draft
+                showReminderSheet(d.existing, d.year, d.month, d.day, d)
+            }
+            null -> Unit
+        }
     }
 
     private var backOutOfSetMode: androidx.activity.OnBackPressedCallback? = null
 
     private fun applyAlarmSetUi() {
-        backOutOfSetMode?.isEnabled = alarmSetActive
-        alarmSetBanner?.visibility = if (alarmSetActive) View.VISIBLE else View.GONE
+        val active = dialJob != null
+        backOutOfSetMode?.isEnabled = active
+        alarmSetBanner?.visibility = if (active) View.VISIBLE else View.GONE
         alarmSetLabel?.setText(
-            when {
-                settingReminderDuration || alarmDurationDraft != null -> R.string.set_duration
-                reminderBeingSet != null -> R.string.set_reminder_time
+            when (dialJob) {
+                is DialJob.AlarmLength, is DialJob.ReminderLength -> R.string.set_duration
+                is DialJob.ReminderTime -> R.string.set_reminder_time
                 else -> R.string.set_alarm_time
             }
         )
-        pager.isUserInputEnabled = !alarmSetActive
+        pager.isUserInputEnabled = !active
         applyMode()
     }
 
@@ -1782,13 +1749,19 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private fun applyMode() {
         val chrono = mode == Mode.CHRONO
+        val setting = dialJob != null
         clockView?.let {
-            if (alarmSetActive) {
+            if (setting) {
                 // C0 borrows the wind-to-set engine to pick an alarm time, a
                 // reminder time, or how long an activity lasts.
                 it.chronoProvider = alarmTimeProvider
                 it.chronoSettable = true
-                it.magnetProfile = if (settingReminderDuration) {
+                // Left exactly as it was: only a reminder's length winds on
+                // the countdown magnets. An alarm's length is a duration too
+                // and arguably belongs on them as well, but that is a change
+                // in how the hands feel, not a tidy-up, so it is not one to
+                // smuggle in here.
+                it.magnetProfile = if (dialJob is DialJob.ReminderLength) {
                     ClockView.MagnetProfile.COUNTDOWN
                 } else {
                     ClockView.MagnetProfile.ALARM
@@ -1801,10 +1774,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.chronoButtons = false
         }
         stopwatchClockView?.chronoRunning = stopwatchRunning
-        modeButton?.visibility = if (alarmSetActive) View.GONE else View.VISIBLE
+        modeButton?.visibility = if (setting) View.GONE else View.VISIBLE
         // Bubbles fade with the mode change, like the crown and pushers.
-        fadeCard(bubbleLayer, !chrono && !alarmSetActive, raise = false)
-        settingsButton?.visibility = if (alarmSetActive) View.GONE else View.VISIBLE
+        fadeCard(bubbleLayer, !chrono && !setting, raise = false)
+        settingsButton?.visibility = if (setting) View.GONE else View.VISIBLE
         // Every card follows the mode: clock / calendar / alarms against
         // hourglass / stopwatch / countdown.
         // Each pair dissolves into the other rather than cutting: the
