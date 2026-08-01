@@ -365,6 +365,8 @@ class AlarmCards(
             hoursOnDial = this@AlarmCards.hoursOnDial()
             dialShape = this@AlarmCards.dialShape()
             numeralStyle = ClockView.NumeralStyle.NONE
+            // Nothing else on a face this small says which seven it means.
+            showDayNightToken = true
             // A constant "duration" makes the dial a static clock.
             chronoProvider = { fixedMs }
         }

@@ -33,9 +33,20 @@ class CalendarPageView @JvmOverloads constructor(
     var numeralStyle = ClockView.NumeralStyle.ARABIC
         set(value) { field = value; invalidate() }
 
-    /** Days of the shown month carrying a reminder (accent-dotted). */
-    var markedDays: Set<Int> = emptySet()
+    /**
+     * Which days of the shown month hold a reminder, split by the half of
+     * the day it falls in.
+     * A day with both a morning and an evening gets both dots — the calendar
+     * should not have to pick one and lie about the other.
+     */
+    var morningDays: Set<Int> = emptySet()
         set(value) { field = value; invalidate() }
+
+    var eveningDays: Set<Int> = emptySet()
+        set(value) { field = value; invalidate() }
+
+    /** Anything at all, which is what the past-day styling asks. */
+    private val markedDays: Set<Int> get() = morningDays + eveningDays
 
     /** How days already gone are shown, if at all. */
     enum class PastStyle { NONE, DIM, CROSS, RING }
@@ -553,14 +564,25 @@ class CalendarPageView @JvmOverloads constructor(
                 }
             }
 
-            if (markedDays.contains(day)) {
-                // Reminder marker: an accent dot in the cell's corner.
-                moonLitPaint.color = theme.decimal
+            // Reminder markers in the cell's corner, warm for the morning
+            // half and cool for the evening one. A day holding both shows
+            // both, side by side, rather than choosing.
+            val am = morningDays.contains(day)
+            val pm = eveningDays.contains(day)
+            if (am || pm) {
+                val dotR = minOf(cellW, cellH) * 0.07f
+                val dotY = cy - cellH * 0.26f
+                val gap = dotR * 1.25f
                 moonLitPaint.alpha = 255
-                canvas.drawCircle(
-                    cx + cellW * 0.32f, cy - cellH * 0.26f,
-                    minOf(cellW, cellH) * 0.07f, moonLitPaint
-                )
+                if (am && pm) {
+                    moonLitPaint.color = DayNight.markColor(theme, false)
+                    canvas.drawCircle(cx + cellW * 0.32f - gap, dotY, dotR, moonLitPaint)
+                    moonLitPaint.color = DayNight.markColor(theme, true)
+                    canvas.drawCircle(cx + cellW * 0.32f + gap, dotY, dotR, moonLitPaint)
+                } else {
+                    moonLitPaint.color = DayNight.markColor(theme, pm)
+                    canvas.drawCircle(cx + cellW * 0.32f, dotY, dotR, moonLitPaint)
+                }
                 moonLitPaint.color = theme.numeral
                 moonLitPaint.alpha = 220
             }

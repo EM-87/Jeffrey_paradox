@@ -229,7 +229,23 @@ class ClockView @JvmOverloads constructor(
     private val scrimPaint = Paint()
 
     /** Enabled alarms as dial angles, drawn as dots just outside the rim. */
-    var alarmMarkers: List<Float> = emptyList()
+    /**
+     * Draws a sun or a moon for the half of the day the dial is showing.
+     *
+     * On for the faces that stand for one fixed time — the little ones on
+     * the alarm cards and in the editor — and for the big dial while a time
+     * is being wound onto it, which is the moment you most need to know
+     * which seven you have landed on. Off for a clock that is simply telling
+     * the time, where the answer is out of the window.
+     */
+    var showDayNightToken = false
+        set(value) { field = value; invalidate() }
+
+    /**
+     * Alarm dots, as an angle and which turn of the dial the time is on.
+     * The angle alone cannot say: that is the whole problem these solve.
+     */
+    var alarmMarkers: List<DialMark> = emptyList()
         set(value) { field = value; invalidate() }
 
     /**
@@ -237,7 +253,8 @@ class ClockView @JvmOverloads constructor(
      * style: a wedge covering the time the event actually occupies. Alarms
      * are instants and get dots; only events have duration.
      */
-    var eventArcs: List<Pair<Float, Float>> = emptyList()
+    /** Event wedges: start angle, sweep, and the turn they belong to. */
+    var eventArcs: List<DialArc> = emptyList()
         set(value) { field = value; invalidate() }
 
     var showMoonPhase = false
@@ -358,6 +375,10 @@ class ClockView @JvmOverloads constructor(
     }
 
     private val alarmMarkerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val tokenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        strokeCap = Paint.Cap.ROUND
+    }
     private val alarmMarkerPath = Path()
     private val moonDarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val moonLitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -2058,6 +2079,7 @@ class ClockView @JvmOverloads constructor(
             if (eventArcs.isNotEmpty()) drawEventArcs(canvas, cx, cy, r)
             if (alarmMarkers.isNotEmpty()) drawAlarmMarkers(canvas, cx, cy, r)
             if (showMoonPhase) drawMoonPhase(canvas, cx, cy, r)
+            if (showDayNightToken) drawDayNightToken(canvas, cx, cy, r)
         }
 
         val a = currentAngles()
@@ -2450,14 +2472,20 @@ class ClockView @JvmOverloads constructor(
      * really do occupy time, get the Sectograph wedge instead.
      */
     private fun drawAlarmMarkers(canvas: Canvas, cx: Float, cy: Float, r: Float) {
-        for (angle in alarmMarkers) {
-            val at = pointAt(cx, cy, angle, boundaryRadius(angle) * 1.055f)
+        for (mark in alarmMarkers) {
+            val at = pointAt(cx, cy, mark.angle, boundaryRadius(mark.angle) * 1.055f)
+            alarmMarkerPaint.color = DayNight.markColor(theme, mark.pm)
+            alarmMarkerPaint.alpha = 230
             canvas.drawCircle(at.x, at.y, r * 0.022f, alarmMarkerPaint)
         }
     }
 
     private fun drawEventArcs(canvas: Canvas, cx: Float, cy: Float, r: Float) {
-        for ((start, sweep) in eventArcs) {
+        for (arc in eventArcs) {
+            val start = arc.start
+            val sweep = arc.sweep
+            alarmMarkerPaint.color = DayNight.markColor(theme, arc.pm)
+            alarmMarkerPaint.alpha = 230
             val steps = max(2, (kotlin.math.abs(sweep) / 3f).toInt())
             alarmMarkerPath.reset()
             // Inner edge outward, then back along the outer edge.
@@ -2473,6 +2501,59 @@ class ClockView @JvmOverloads constructor(
             }
             alarmMarkerPath.close()
             canvas.drawPath(alarmMarkerPath, alarmMarkerPaint)
+        }
+    }
+
+    /**
+     * A sun or a moon, low on the face, saying which turn of the dial the
+     * time shown belongs to.
+     *
+     * It reads the time the dial is actually displaying rather than being
+     * told: a fixed face shows its own hour, and the big dial being wound
+     * shows whatever the hands are on this instant. So the token flips as
+     * you carry the hour hand past twelve, which is the feedback that was
+     * missing — until now you wound a time and simply could not see whether
+     * you had asked for morning or evening.
+     */
+    private fun drawDayNightToken(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        val chrono = chronoDisplayMs()
+        val pm = if (chrono != null) {
+            DayNight.isPm(chrono)
+        } else {
+            cal.timeInMillis = displayNowMs()
+            DayNight.isPm(cal.get(java.util.Calendar.HOUR_OF_DAY))
+        }
+        val tokenR = r * 0.088f
+        val ty = cy + r * 0.46f
+        tokenPaint.color = DayNight.markColor(theme, pm)
+        if (!pm) {
+            // A sun: a disc with eight short rays.
+            canvas.drawCircle(cx, ty, tokenR * 0.56f, tokenPaint)
+            tokenPaint.strokeWidth = tokenR * 0.17f
+            tokenPaint.style = Paint.Style.STROKE
+            for (i in 0 until 8) {
+                val a = Math.toRadians(i * 45.0)
+                val sx = cx + sin(a).toFloat() * tokenR * 0.80f
+                val sy = ty - cos(a).toFloat() * tokenR * 0.80f
+                val ex = cx + sin(a).toFloat() * tokenR * 1.10f
+                val ey = ty - cos(a).toFloat() * tokenR * 1.10f
+                canvas.drawLine(sx, sy, ex, ey, tokenPaint)
+            }
+            tokenPaint.style = Paint.Style.FILL
+        } else {
+            // A crescent, cut the way the moon complication cuts its own:
+            // a full disc with a second one taken out of its side.
+            val saved = canvas.saveLayer(
+                cx - tokenR * 1.4f, ty - tokenR * 1.4f,
+                cx + tokenR * 1.4f, ty + tokenR * 1.4f, null
+            )
+            canvas.drawCircle(cx, ty, tokenR * 0.86f, tokenPaint)
+            tokenPaint.xfermode = android.graphics.PorterDuffXfermode(
+                android.graphics.PorterDuff.Mode.CLEAR
+            )
+            canvas.drawCircle(cx + tokenR * 0.42f, ty - tokenR * 0.22f, tokenR * 0.78f, tokenPaint)
+            tokenPaint.xfermode = null
+            canvas.restoreToCount(saved)
         }
     }
 

@@ -187,10 +187,17 @@ object WidgetRenderer {
             val tm = today.get(Calendar.MONTH) + 1
             val td = today.get(Calendar.DAY_OF_MONTH)
             val reminders = ReminderStore.all(context).filter { it.occursOn(ty, tm, td) }
-            for ((startDeg, sweepDeg) in reminders.filter { it.durationMinutes > 0 }.map {
-                val start = (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f
-                start to it.durationMinutes / 60f / hoursOnDial * 360f
-            }) {
+            for ((startDeg, sweepDeg, wedgePm) in reminders
+                .filter { it.durationMinutes > 0 }
+                .map {
+                    DialArc(
+                        (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f,
+                        it.durationMinutes / 60f / hoursOnDial * 360f,
+                        DayNight.isPm(it.hour)
+                    )
+                }) {
+                markerPaint.color = DayNight.markColor(theme, wedgePm)
+                markerPaint.alpha = 230
                 val path = android.graphics.Path()
                 val steps = kotlin.math.max(2, (sweepDeg / 3f).toInt())
                 for (i in 0..steps) {
@@ -212,14 +219,20 @@ object WidgetRenderer {
             // the ones drawn as wedges — which is what the app's own dial
             // does. The widget was showing one dot for a concept that happens
             // four times a day, and a dot as well as a wedge for the rest.
-            val dotAngles = AlarmStore.all(context)
+            val dots = AlarmStore.all(context)
                 .filter { it.enabled && it.durationMinutes <= 0 }
                 .flatMap { alarm -> alarm.allTimes() }
-                .map { (h, m) -> (h + m / 60f) % hoursOnDial / hoursOnDial * 360f
-            } + reminders.filter { it.durationMinutes <= 0 }.map {
-                (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f
+                .map { (h, m) ->
+                    DialMark((h + m / 60f) % hoursOnDial / hoursOnDial * 360f, DayNight.isPm(h))
+                } + reminders.filter { it.durationMinutes <= 0 }.map {
+                DialMark(
+                    (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f,
+                    DayNight.isPm(it.hour)
+                )
             }
-            for (deg in dotAngles) {
+            for ((deg, dotPm) in dots) {
+                markerPaint.color = DayNight.markColor(theme, dotPm)
+                markerPaint.alpha = 230
                 val a = Math.toRadians(deg.toDouble())
                 val b = boundary(deg) * 1.02f
                 canvas.drawCircle(

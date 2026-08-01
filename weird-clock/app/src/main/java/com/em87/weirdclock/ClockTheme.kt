@@ -11,7 +11,15 @@ data class ClockTheme(
     val minuteHand: Int,
     val secondHand: Int,
     val decimal: Int,
-    val centerDot: Int
+    val centerDot: Int,
+    /**
+     * The two marks: warm for the dial's first turn, cool for its second.
+     * Defaulted so every theme gets a sane pair, and overridden by the ones
+     * with a pale face, where a light amber would simply vanish. See
+     * [DayNight] for why the split is noon and not sunrise.
+     */
+    val amMark: Int = 0xFFFFB300.toInt(),
+    val pmMark: Int = 0xFF5C8DF6.toInt()
 )
 
 object ClockThemes {
@@ -44,7 +52,9 @@ object ClockThemes {
         minuteHand = 0xFF2E3444.toInt(),
         secondHand = 0xFFD32F2F.toInt(),
         decimal = 0xFF00796B.toInt(),
-        centerDot = 0xFF10121A.toInt()
+        centerDot = 0xFF10121A.toInt(),
+        amMark = 0xFFE08600.toInt(),
+        pmMark = 0xFF2E5FD0.toInt()
     )
 
     val IVORY = ClockTheme(
@@ -57,7 +67,9 @@ object ClockThemes {
         minuteHand = 0xFF4A4030.toInt(),
         secondHand = 0xFFB03A2E.toInt(),
         decimal = 0xFF1F6FB2.toInt(),
-        centerDot = 0xFF2A2318.toInt()
+        centerDot = 0xFF2A2318.toInt(),
+        amMark = 0xFFC97A00.toInt(),
+        pmMark = 0xFF2A5EA8.toInt()
     )
 
     val NEON = ClockTheme(
@@ -116,6 +128,7 @@ object ClockThemes {
             minorTick = d(t.minorTick), numeral = d(t.numeral),
             hourHand = d(t.hourHand), minuteHand = d(t.minuteHand),
             secondHand = d(t.secondHand), decimal = d(t.decimal),
+            amMark = d(t.amMark), pmMark = d(t.pmMark),
             centerDot = d(t.centerDot)
         )
     }

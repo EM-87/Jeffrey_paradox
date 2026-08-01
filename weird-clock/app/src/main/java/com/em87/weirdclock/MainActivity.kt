@@ -1346,16 +1346,23 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             emptyList()
         } else {
             val n = readHoursOnDial()
-            val alarmAngles = alarms
+            // Each dot carries the half of the day it belongs to, which is
+            // the one thing its position on a twelve-hour face cannot say.
+            val alarmDots = alarms
                 .filter { it.enabled && it.durationMinutes <= 0 }
                 .flatMap { alarm -> alarm.allTimes() }
-                .map { (h, m) -> (h + m / 60f) % n / n * 360f }
+                .map { (h, m) -> DialMark((h + m / 60f) % n / n * 360f, DayNight.isPm(h)) }
             // Instant reminders join the alarm dots; ones with a duration
             // become wedges instead.
-            val reminderAngles = todaysReminders()
+            val reminderDots = todaysReminders()
                 .filter { it.durationMinutes <= 0 }
-                .map { (it.hour + it.minute / 60f) % n / n * 360f }
-            alarmAngles + reminderAngles
+                .map {
+                    DialMark(
+                        (it.hour + it.minute / 60f) % n / n * 360f,
+                        DayNight.isPm(it.hour)
+                    )
+                }
+            alarmDots + reminderDots
         }
         clockView?.eventArcs = if (!show) {
             emptyList()
@@ -1367,14 +1374,21 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 .filter { it.enabled && it.durationMinutes > 0 && it.ringsOn(today.get(Calendar.DAY_OF_WEEK)) }
                 .flatMap { alarm ->
                     alarm.allTimes().map { (h, m) ->
-                        (h + m / 60f) % n / n * 360f to alarm.durationMinutes / 60f / n * 360f
+                        DialArc(
+                            (h + m / 60f) % n / n * 360f,
+                            alarm.durationMinutes / 60f / n * 360f,
+                            DayNight.isPm(h)
+                        )
                     }
                 }
             val reminderArcs = todaysReminders()
                 .filter { it.durationMinutes > 0 }
                 .map { reminder ->
-                    val start = (reminder.hour + reminder.minute / 60f) % n / n * 360f
-                    start to reminder.durationMinutes / 60f / n * 360f
+                    DialArc(
+                        (reminder.hour + reminder.minute / 60f) % n / n * 360f,
+                        reminder.durationMinutes / 60f / n * 360f,
+                        DayNight.isPm(reminder.hour)
+                    )
                 }
             alarmArcs + reminderArcs
         }
@@ -1416,9 +1430,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val daysInMonth = Calendar.getInstance().apply {
             set(cal.shownYear, cal.shownMonth1 - 1, 1)
         }.getActualMaximum(Calendar.DAY_OF_MONTH)
-        cal.markedDays = (1..daysInMonth)
-            .filter { day -> reminders.any { it.occursOn(cal.shownYear, cal.shownMonth1, day) } }
-            .toSet()
+        // Split by the half of the day each one falls in, so the calendar
+        // says the same thing the dial does.
+        cal.morningDays = (1..daysInMonth).filter { day ->
+            reminders.any {
+                it.occursOn(cal.shownYear, cal.shownMonth1, day) && !DayNight.isPm(it.hour)
+            }
+        }.toSet()
+        cal.eveningDays = (1..daysInMonth).filter { day ->
+            reminders.any {
+                it.occursOn(cal.shownYear, cal.shownMonth1, day) && DayNight.isPm(it.hour)
+            }
+        }.toSet()
         // Year view dots every busy day of the whole year at once.
         val marks = mutableSetOf<Int>()
         val probe = Calendar.getInstance()
@@ -1787,6 +1810,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // reminder time, or how long an activity lasts.
                 it.chronoProvider = alarmTimeProvider
                 it.chronoSettable = true
+                // Carry the hour hand past twelve and the token flips: the
+                // one moment you most need to know which half you asked for.
+                it.showDayNightToken = !(dialJob?.isLength ?: false)
                 // A length is a length, whoever it belongs to. Only the
                 // reminder's used the countdown magnets before, so winding
                 // "how long does this last" on an alarm snapped to the grid
@@ -1799,6 +1825,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             } else {
                 it.chronoProvider = null
                 it.chronoSettable = false
+                // A clock telling the time needs no token: look outside.
+                it.showDayNightToken = false
                 it.magnetProfile = ClockView.MagnetProfile.COUNTDOWN
             }
             it.chronoButtons = false
