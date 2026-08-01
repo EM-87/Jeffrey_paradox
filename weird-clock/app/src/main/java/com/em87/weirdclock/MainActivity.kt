@@ -1441,21 +1441,19 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             return
         }
         if (settingReminderDuration) {
-            val draft = durationDraft
-            settingReminderDuration = false
-            durationDraft = null
-            exitAlarmSetMode()
-            if (draft != null) {
+            // A wound duration rides back to the sheet on the same rail the
+            // time does. This used to clear settingReminderDuration and
+            // durationDraft before leaving, which is exactly what made
+            // exitAlarmSetMode think no reminder was involved: it dropped
+            // you on the alarms card with the calendar's sheet on top of it.
+            durationDraft?.let { d ->
                 val minutes = (alarmWorkingMs / 60_000L).toInt().coerceIn(0, 24 * 60)
-                showReminderSheet(
-                    draft.existing, draft.year, draft.month, draft.day,
-                    ReminderDraft(
-                        draft.existing, draft.year, draft.month, draft.day,
-                        draft.label, draft.hour, draft.minute, minutes,
-                        draft.rings, draft.sound, draft.lead, draft.repeat
-                    )
+                parkedReminder = ReminderDraft(
+                    d.existing, d.year, d.month, d.day, d.label, d.hour, d.minute,
+                    minutes, d.rings, d.sound, d.lead, d.repeat
                 )
             }
+            exitAlarmSetMode()
             return
         }
         reminderBeingSet?.let { d ->
@@ -1486,12 +1484,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var parkedReminder: ReminderDraft? = null
 
     private fun exitAlarmSetMode() {
-        // Confirmed or cancelled, a reminder goes back to the sheet it left;
-        // cancelling simply brings the time back unchanged. Landing on the
-        // calendar instead was the other half of the same missing return.
-        val returning = parkedReminder ?: reminderBeingSet
+        // Confirmed or cancelled, a reminder goes back to the sheet it left
+        // — the time trip and the duration trip alike. Cancelling brings
+        // back exactly what the sheet already held, which is why the drafts
+        // are read here rather than thrown away, and why the card to land on
+        // follows from whether a reminder is coming back at all.
+        val returning = parkedReminder ?: reminderBeingSet ?: durationDraft
         parkedReminder = null
-        val backToCalendar = reminderBeingSet != null || settingReminderDuration
+        val backToCalendar = returning != null
         // A cancelled duration goes back to the sheet it came from, with
         // everything else the sheet held still in place.
         val parked = alarmDurationDraft
