@@ -415,9 +415,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             override fun notificationPermissionIfNeeded() =
                 maybeRequestNotificationPermission()
 
-            override fun windTime(alarmId: Int, timeIndex: Int, provisional: Boolean) {
-                if (provisional) provisionalAlarmId = alarmId
-                enterAlarmSetMode(alarms.firstOrNull { it.id == alarmId }, timeIndex)
+            override fun windTime(target: Alarm, draft: Alarm, isNew: Boolean, timeIndex: Int) {
+                if (isNew) provisionalAlarmId = draft.id
+                parkedAlarm = AlarmDurationDraft(target, draft, isNew)
+                enterAlarmSetMode(alarms.firstOrNull { it.id == draft.id }, timeIndex)
             }
 
             override fun windDuration(parked: AlarmDurationDraft) {
@@ -1183,11 +1184,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val hour = (ms / 3_600_000L).toInt()
         val minute = (ms / 60_000L % 60L).toInt()
         alarmDurationDraft?.let { parked ->
-            alarmDurationDraft = null
             parked.draft.durationMinutes =
                 (alarmWorkingMs / 60_000L).toInt().coerceIn(0, 24 * 60)
+            // Left parked: exitAlarmSetMode is the one place that reopens a
+            // sheet now, for either alarm trip and either answer.
             exitAlarmSetMode()
-            showAlarmSheet(parked.target, parked.draft)
             return
         }
         if (settingReminderDuration) {
@@ -1223,6 +1224,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             maybeRequestNotificationPermission()
         } else {
             alarm.setTime(alarmTimeIndexBeingSet, hour, minute)
+            // The sheet is coming back, and it edits a copy: the copy has to
+            // learn what was just wound or it would reopen showing the old
+            // time and quietly write it back on save.
+            parkedAlarm?.draft?.setTime(alarmTimeIndexBeingSet, hour, minute)
         }
         // Confirmed, so it is an alarm like any other now.
         provisionalAlarmId = null
@@ -1233,6 +1238,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** A reminder sheet waiting to be shown again once the dial is done. */
     private var parkedReminder: ReminderDraft? = null
 
+    /**
+     * The same, for an alarm sheet whose time is being wound.
+     *
+     * The duration trip has come back to its sheet since it was written; the
+     * time trip never did, in any version — you wound the hands and landed on
+     * the alarms card, with the rest of the sheet's work abandoned. Both park
+     * here now, and both come back.
+     */
+    private var parkedAlarm: AlarmDurationDraft? = null
+
     private fun exitAlarmSetMode() {
         // Confirmed or cancelled, a reminder goes back to the sheet it left
         // — the time trip and the duration trip alike. Cancelling brings
@@ -1242,10 +1257,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val returning = parkedReminder ?: reminderBeingSet ?: durationDraft
         parkedReminder = null
         val backToCalendar = returning != null
-        // A cancelled duration goes back to the sheet it came from, with
+        // Either alarm trip goes back to the sheet it came from, with
         // everything else the sheet held still in place.
-        val parked = alarmDurationDraft
+        val parked = alarmDurationDraft ?: parkedAlarm
         alarmDurationDraft = null
+        parkedAlarm = null
         // An alarm that only existed so the dial had a target, and never got
         // a time confirmed, was never really created.
         provisionalAlarmId?.let { id ->

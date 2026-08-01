@@ -60,11 +60,12 @@ class AlarmSheet(
         fun notificationPermissionIfNeeded()
 
         /**
-         * Off to C0 to wind one of the alarm's times. [provisional] marks an
-         * alarm that was born only so the dial had a target: cancelling the
-         * winding takes it away again.
+         * Off to C0 to wind one of the alarm's times, and back here after.
+         * [isNew] marks an alarm born only so the dial had a target:
+         * cancelling the winding takes it away again, but the sheet still
+         * comes back, still creating it.
          */
-        fun windTime(alarmId: Int, timeIndex: Int, provisional: Boolean)
+        fun windTime(target: Alarm, draft: Alarm, isNew: Boolean, timeIndex: Int)
 
         /** Off to C0 to wind how long the thing lasts. */
         fun windDuration(parked: AlarmDurationDraft)
@@ -126,7 +127,7 @@ class AlarmSheet(
                     // cancelled, it goes away again.
                     callbacks.commitDraft(alarm, draft, isNew)
                     sheet.dismiss()
-                    callbacks.windTime(draft.id, index, provisional = isNew)
+                    callbacks.windTime(alarm, draft, isNew, index)
                 }
                 dial.setOnLongClickListener {
                     dial.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
