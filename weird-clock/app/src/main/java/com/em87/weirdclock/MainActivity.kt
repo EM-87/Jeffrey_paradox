@@ -113,13 +113,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var durationDraft: ReminderDraft? = null
     private var settingReminderDuration = false
 
-    /** An alarm sheet parked while its duration is wound on the dial. */
-    private data class AlarmDurationDraft(
-        val target: Alarm,
-        val draft: Alarm,
-        val isNew: Boolean
-    )
-
     private var alarmDurationDraft: AlarmDurationDraft? = null
 
     /**
@@ -142,6 +135,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private val alarms = mutableListOf<Alarm>()
     private lateinit var alarmCards: AlarmCards
     private lateinit var reminderSheet: ReminderSheet
+    private lateinit var alarmSheet: AlarmSheet
 
     private var bellsEnabled = false
     private var bellStyle = Prefs.BELL_STYLE_COUNT
@@ -402,6 +396,44 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             },
             onOpen = { alarm -> showAlarmSheet(alarm) }
         )
+        alarmSheet = AlarmSheet(this, alarmCards, alarms, object : AlarmSheet.Callbacks {
+            override fun animateSheet(
+                sheet: com.google.android.material.bottomsheet.BottomSheetDialog,
+                content: View
+            ) = this@MainActivity.animateSheet(sheet, content)
+
+            override fun commitDraft(target: Alarm, draft: Alarm, isNew: Boolean) =
+                this@MainActivity.commitDraft(target, draft, isNew)
+
+            override fun deleteAlarm(alarm: Alarm) {
+                alarms.remove(alarm)
+                persistAlarms()
+            }
+
+            override fun persistAlarms() = this@MainActivity.persistAlarms()
+
+            override fun notificationPermissionIfNeeded() =
+                maybeRequestNotificationPermission()
+
+            override fun windTime(alarmId: Int, timeIndex: Int, provisional: Boolean) {
+                if (provisional) provisionalAlarmId = alarmId
+                enterAlarmSetMode(alarms.firstOrNull { it.id == alarmId }, timeIndex)
+            }
+
+            override fun windDuration(parked: AlarmDurationDraft) {
+                alarmDurationDraft = parked
+                alarmBeingSet = null
+                reminderBeingSet = null
+                alarmWorkingMs = parked.draft.durationMinutes.coerceAtLeast(15) * 60_000L
+                goToDial()
+            }
+
+            override fun pickAudioFile(target: Alarm, onPicked: () -> Unit) {
+                soundPickTarget = target
+                soundPickCallback = onPicked
+                soundPickerLauncher.launch(arrayOf("audio/*"))
+            }
+        })
         reminderSheet = ReminderSheet(this, alarmCards, object : ReminderSheet.Callbacks {
             override fun animateSheet(
                 sheet: com.google.android.material.bottomsheet.BottomSheetDialog,
@@ -1092,279 +1124,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * weekday strip, the options as plain rows, and delete/save in opposite
      * corners. Deleting asks first.
      */
-    private fun showAlarmSheet(alarm: Alarm, seed: Alarm? = null) {
-        val sheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
-        val view = layoutInflater.inflate(R.layout.sheet_alarm_edit, null)
-        sheet.setContentView(view)
-        animateSheet(sheet, view)
-
-        // The sheet edits a copy; nothing is committed until Save. A seed is
-        // that same copy handed back after a trip to the dial, so nothing
-        // typed before the trip is lost. The copy() of a data class shares
-        // the same mutable list, so the repetition list is copied by hand —
-        // otherwise adding one silently edited the real alarm, unrefreshed.
-        val draft = seed ?: alarm.copy(extraTimes = alarm.extraTimes.toMutableList())
-        // What the alarm looked like on opening, to tell an abandoned edit
-        // from an untouched sheet.
-        val original = alarm.copy(extraTimes = alarm.extraTimes.toMutableList())
-        val isNew = seed?.let { !alarms.any { a -> a.id == it.id } } ?: !alarms.contains(alarm)
-
-        val dialsRow = view.findViewById<LinearLayout>(R.id.sheet_dials)
-        val nameValue = view.findViewById<TextView>(R.id.sheet_name_value)
-        val soundValue = view.findViewById<TextView>(R.id.sheet_sound_value)
-        val snoozeValue = view.findViewById<TextView>(R.id.sheet_snooze_value)
-        val vibrateSwitch = view.findViewById<SwitchCompat>(R.id.sheet_vibrate)
-        val flashSwitch = view.findViewById<SwitchCompat>(R.id.sheet_flash)
-        val daysRow = view.findViewById<LinearLayout>(R.id.sheet_days)
-
-        // One little analog face per time: tapped it goes to the big dial to
-        // be wound, held down it offers to drop that repetition. They take
-        // whatever room is left over between the sheet's margins and the +
-        // button, up to a size that already looks generous.
-        lateinit var refreshRef: () -> Unit
-        var builtTimes: List<Pair<Int, Int>>? = null
-        fun rebuildDials() {
-            // The faces wind themselves into place when they are born, which
-            // is a nice thing to watch once, on opening — and a nuisance on
-            // every tap. They are only born again when the times change.
-            val wanted = (0 until draft.timeCount()).map { draft.timeAt(it) }
-            if (wanted == builtTimes) return
-            builtTimes = wanted
-            dialsRow.removeAllViews()
-            val density = resources.displayMetrics.density
-            val count = draft.timeCount()
-            val room = resources.displayMetrics.widthPixels -
-                (40 + 56) * density - 8 * density * count
-            val size = minOf(76 * density, room / count).toInt()
-            for (index in 0 until draft.timeCount()) {
-                val (h, m) = draft.timeAt(index)
-                val dial = miniDial(h, m)
-                dial.setOnClickListener {
-                    // The alarm has to exist for the dial to write a time
-                    // into it — but if it was born just now and the dial is
-                    // cancelled, it goes away again.
-                    commitDraft(alarm, draft, isNew)
-                    if (isNew) provisionalAlarmId = draft.id
-                    sheet.dismiss()
-                    enterAlarmSetMode(alarms.firstOrNull { a -> a.id == draft.id }, index)
-                }
-                dial.setOnLongClickListener {
-                    dial.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                    if (index == 0) {
-                        // The first face is the alarm itself: it can be moved
-                        // but not dropped, or there would be no alarm left.
-                        Toast.makeText(
-                            this, R.string.alarm_remove_time_first, Toast.LENGTH_SHORT
-                        ).show()
-                    } else {
-                        androidx.appcompat.app.AlertDialog.Builder(this)
-                            .setTitle(R.string.alarm_remove_time_title)
-                            .setMessage(
-                                getString(
-                                    R.string.alarm_remove_time_message,
-                                    String.format(Locale.US, "%02d:%02d", h, m)
-                                )
-                            )
-                            .setPositiveButton(R.string.alarm_delete) { _, _ ->
-                                draft.extraTimes.removeAt(index - 1)
-                                refreshRef()
-                            }
-                            .setNegativeButton(android.R.string.cancel, null)
-                            .show()
-                    }
-                    true
-                }
-                dialsRow.addView(
-                    dial,
-                    LinearLayout.LayoutParams(size, size).apply { marginEnd = 8 }
-                )
-            }
-        }
-
-        fun refresh() {
-            rebuildDials()
-            nameValue.text = draft.label.ifBlank { getString(R.string.alarm_label_hint) }
-            soundValue.text = soundLabel(draft.sound)
-            snoozeValue.text = if (draft.snoozeMinutes > 0) {
-                getString(R.string.alarm_snooze_min, draft.snoozeMinutes)
-            } else {
-                getString(R.string.alarm_snooze_off)
-            }
-            view.findViewById<TextView>(R.id.sheet_duration_value).text =
-                if (draft.durationMinutes <= 0) {
-                    getString(R.string.reminder_duration_none)
-                } else {
-                    getString(R.string.reminder_duration_min, draft.durationMinutes)
-                }
-        }
-        // The dials are built before refresh() exists, and a dropped
-        // repetition has to redraw them all.
-        refreshRef = { refresh() }
-
-        // Weekday toggles.
-        val dayButtons = mutableListOf<TextView>()
-        val order = weekdayOrder()
-        val letters = weekdayLetters()
-        fun paintDays() {
-            for ((i, button) in dayButtons.withIndex()) {
-                val on = (draft.daysMask and (1 shl (order[i] - 1))) != 0
-                button.setTextColor(
-                    ContextCompat.getColor(
-                        this, if (on) R.color.accent else R.color.text_secondary
-                    )
-                )
-                button.alpha = if (on) 1f else 0.5f
-            }
-        }
-        for ((i, letter) in letters.withIndex()) {
-            val button = TextView(this).apply {
-                text = letter
-                textSize = 16f
-                gravity = Gravity.CENTER
-                setPadding(0, 20, 0, 20)
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                setBackgroundResource(
-                    android.R.drawable.list_selector_background
-                )
-                setOnClickListener {
-                    // Turning the last day off leaves no days, which is a
-                    // one-shot — not, as it used to be, all seven lighting
-                    // straight back up because an empty mask was read as
-                    // "every day".
-                    draft.daysMask = draft.daysMask xor (1 shl (order[i] - 1))
-                    paintDays()
-                }
-            }
-            dayButtons.add(button)
-            daysRow.addView(button)
-        }
-        paintDays()
-
-        view.findViewById<Button>(R.id.sheet_weekdays).setOnClickListener {
-            draft.daysMask = Alarm.WEEKDAYS
-            paintDays()
-        }
-        view.findViewById<Button>(R.id.sheet_weekends).setOnClickListener {
-            draft.daysMask = Alarm.WEEKENDS
-            paintDays()
-        }
-        view.findViewById<Button>(R.id.sheet_everyday).setOnClickListener {
-            draft.daysMask = Alarm.ALL_DAYS
-            paintDays()
-        }
-
-        view.findViewById<Button>(R.id.sheet_add_time).setOnClickListener {
-            if (draft.timeCount() >= Alarm.MAX_TIMES) {
-                Toast.makeText(this, R.string.alarm_times_full, Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            // A new repetition starts four hours after the last one — the
-            // usual shape of a three-times-a-day thing.
-            val last = draft.allTimes().last()
-            val next = (last.first * 60 + last.second + 240) % (24 * 60)
-            draft.extraTimes.add(next)
-            refresh()
-        }
-
-        view.findViewById<View>(R.id.sheet_row_name).setOnClickListener {
-            val input = EditText(this).apply {
-                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-                setText(draft.label)
-                setSelection(draft.label.length)
-            }
-            androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle(R.string.alarm_label_title)
-                .setView(input)
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    draft.label = input.text.toString().trim()
-                    refresh()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-        }
-
-        view.findViewById<View>(R.id.sheet_row_sound).setOnClickListener {
-            pickSound(draft.sound, allowCustom = true) { chosen ->
-                draft.sound = chosen
-                if (chosen == Prefs.ALARM_SOUND_CUSTOM) {
-                    soundPickTarget = draft
-                    soundPickCallback = { refresh() }
-                    soundPickerLauncher.launch(arrayOf("audio/*"))
-                }
-                refresh()
-            }
-        }
-
-        view.findViewById<View>(R.id.sheet_row_snooze).setOnClickListener {
-            val choices = intArrayOf(0, 5, 10, 15)
-            pickFromList(
-                R.string.alarm_snooze,
-                choices.map {
-                    if (it == 0) getString(R.string.alarm_snooze_off)
-                    else getString(R.string.alarm_snooze_min, it)
-                },
-                choices.indexOf(draft.snoozeMinutes)
-            ) { which ->
-                draft.snoozeMinutes = choices[which]
-                refresh()
-            }
-        }
-
-        view.findViewById<View>(R.id.sheet_row_duration).setOnClickListener {
-            // How long a thing lasts is a duration, so it gets wound on the
-            // dial, exactly as the calendar's reminders do it.
-            alarmDurationDraft = AlarmDurationDraft(alarm, draft, isNew)
-            sheet.dismiss()
-            alarmBeingSet = null
-            reminderBeingSet = null
-            alarmWorkingMs = draft.durationMinutes.coerceAtLeast(15) * 60_000L
-            goToDial()
-        }
-
-        vibrateSwitch.isChecked = draft.vibrate
-        vibrateSwitch.setOnCheckedChangeListener { _, checked -> draft.vibrate = checked }
-        flashSwitch.isChecked = draft.flash
-        flashSwitch.setOnCheckedChangeListener { _, checked -> draft.flash = checked }
-
-        view.findViewById<Button>(R.id.sheet_delete).setOnClickListener {
-            androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle(R.string.alarm_delete)
-                .setMessage(R.string.alarm_delete_confirm)
-                .setPositiveButton(R.string.alarm_delete) { _, _ ->
-                    alarms.remove(alarm)
-                    persistAlarms()
-                    sheet.dismiss()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-        }
-
-        view.findViewById<Button>(R.id.sheet_save).setOnClickListener {
-            commitDraft(alarm, draft, isNew)
-            maybeRequestNotificationPermission()
-            sheet.dismiss()
-        }
-
-        // Back, or a tap outside, cancels rather than dismisses — which is
-        // exactly the "walking away" path, and the only one worth asking
-        // about. Save, Delete and the trips to the dial all dismiss instead.
-        sheet.setOnCancelListener {
-            if (draft != original) {
-                androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setTitle(R.string.alarm_unsaved_title)
-                    .setMessage(R.string.alarm_unsaved_message)
-                    .setPositiveButton(R.string.alarm_save) { _, _ ->
-                        commitDraft(alarm, draft, isNew)
-                        maybeRequestNotificationPermission()
-                    }
-                    .setNegativeButton(R.string.alarm_discard, null)
-                    .show()
-            }
-        }
-
-        refresh()
-        sheet.show()
-    }
+    /** C1's editor, which lives in its own file; this is the way in. */
+    private fun showAlarmSheet(alarm: Alarm, seed: Alarm? = null) =
+        alarmSheet.show(alarm, seed)
 
     /** Copies a sheet draft back onto the real alarm (adding it if new). */
     private fun commitDraft(target: Alarm, draft: Alarm, isNew: Boolean) {
