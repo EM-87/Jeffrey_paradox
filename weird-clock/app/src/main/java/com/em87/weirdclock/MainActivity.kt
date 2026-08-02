@@ -685,16 +685,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
         // "Put everything back" panic button from settings.
         if (prefs.getBoolean(Prefs.REASSEMBLE_PENDING, false)) {
-            prefs.edit()
-                .putBoolean(Prefs.REASSEMBLE_PENDING, false)
-                .putFloat(Prefs.DIAL_SCALE, 1f)
-                .apply()
-            clockView?.reassembleAll()
-            countdownClockView?.reassembleAll()
-            stopwatchClockView?.reassembleAll()
-            worldBubbles.reassembleAll()
-            healBubbleClocks()
-            worldBubbles.dock()
+            prefs.edit().putBoolean(Prefs.REASSEMBLE_PENDING, false).apply()
+            reassembleEverything()
         }
         // The store is not ours alone. The assistant adds alarms through
         // ClockIntentActivity, and a one-shot switches itself off from the
@@ -900,7 +892,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // Carry the hands round to tomorrow and the dial shows what
             // tomorrow holds, which is the one thing a twelve-hour face can
             // do that a list cannot.
-            it.onShownDayChanged = { updateAlarmMarkers(announceNew = true) }
+            it.onShownDayChanged = { updateAlarmMarkers() }
             it.onCrownTap = {
                 // The winding crown tidies the whole scene, bubbles included.
                 chimePlayer.playCuckoo()
@@ -1218,7 +1210,25 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * four lines with a different set of fields poked before each — which is
      * how one of them came to clear a flag the exit still needed.
      */
+    /** Every dial tidy again, and the bubbles docked with them. */
+    private fun reassembleEverything() {
+        prefs.edit().putFloat(Prefs.DIAL_SCALE, 1f).apply()
+        clockView?.reassembleAll()
+        countdownClockView?.reassembleAll()
+        stopwatchClockView?.reassembleAll()
+        worldBubbles.reassembleAll()
+        healBubbleClocks()
+        worldBubbles.dock()
+    }
+
     private fun startDial(job: DialJob, startMs: Long, magnetOrigin: Long = 0L) {
+        // You cannot wind a time onto hands that are lying at the bottom of
+        // the dial, and from this screen there is no way to pick them up:
+        // the crown and the panic button are both gone while setting. The
+        // only route was out, tidy up, and come back — so the dial tidies
+        // itself on the way in. Knocking the hands off is a game; being
+        // unable to set an alarm is not.
+        if (sceneIsDisarranged()) reassembleEverything()
         dialJob = job
         dialMagnetOrigin = magnetOrigin
         alarmWorkingMs = startMs
@@ -1385,20 +1395,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** The day the marks currently on the dial were built for. */
     private var markedDayMs = 0L
 
-    /** Labels currently on the dial, to notice what is new since last time. */
-    private var markedLabels: Set<String> = emptySet()
-
     /**
      * Sectograph-style: enabled alarms as accent wedges on the clock dial.
      *
      * Built for the day the dial is *showing*, not for today — carry the
      * hour hand round past midnight and this runs again for tomorrow, so
      * Saturday's weekday alarms go away and Saturday's appointments arrive.
-     * With [announceNew], anything that was not on the face a moment ago
-     * says its own name, because a dot appearing in silence is a thing you
-     * would have to go and ask about.
+     * Naming them is the dial's own job: run the hour hand over a mark and
+     * it says what it is.
      */
-    private fun updateAlarmMarkers(announceNew: Boolean = false) {
+    private fun updateAlarmMarkers() {
         val show = prefs.getBoolean(Prefs.ALARM_MARKERS, true)
         markedDayMs = clockView?.shownWallMs() ?: TimeKeeper.nowMs()
         clockView?.alarmMarkers = if (!show) {
@@ -1475,31 +1481,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 }
             alarmArcs + reminderArcs
         }
-        announceWhatIsNew(announceNew)
-    }
-
-    /**
-     * Names whatever just arrived on the face.
-     *
-     * Only one, and only the first: winding a whole day forward can bring
-     * six things in at once, and six bubbles in a row is a queue, not an
-     * answer. The set is remembered either way, so the next arrival is
-     * still recognised as new.
-     */
-    private fun announceWhatIsNew(announce: Boolean) {
-        val cv = clockView ?: return
-        val labels = (cv.alarmMarkers.map { it.label } + cv.eventArcs.map { it.label })
-            .filter { it.isNotEmpty() }.toSet()
-        if (announce && markedLabels.isNotEmpty()) {
-            val arrived = labels - markedLabels
-            if (arrived.isNotEmpty()) {
-                val name = arrived.first()
-                val angle = cv.alarmMarkers.firstOrNull { it.label == name }?.angle
-                    ?: cv.eventArcs.firstOrNull { it.label == name }?.start
-                if (angle != null) cv.announceMark(name, angle)
-            }
-        }
-        markedLabels = labels
     }
 
     private fun isPastDay(year: Int, month: Int, day: Int): Boolean {

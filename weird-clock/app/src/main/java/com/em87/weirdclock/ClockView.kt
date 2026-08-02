@@ -903,11 +903,6 @@ class ClockView @JvmOverloads constructor(
     /**
      * Pops a mark's bubble without anyone having tapped it, at the mark's
      * own place on the rim.
-     *
-     * Used when winding brings an event onto the face that was not there a
-     * moment ago: a dot appearing in silence is a thing you have to go and
-     * ask about, and the whole point of carrying the hands forward is to
-     * find out what is coming.
      */
     fun announceMark(label: String, angleDeg: Float) {
         val at = markCenter(width / 2f, height / 2f, angleDeg)
@@ -916,6 +911,68 @@ class ClockView @JvmOverloads constructor(
         bubbleY = at.y
         bubbleSince = android.os.SystemClock.uptimeMillis()
         invalidate()
+    }
+
+    /** What the bubble is currently saying, if anything. */
+    internal fun bubbleLabel(): String? = bubbleText
+
+    /** The label currently being named because the hour hand rests on it. */
+    private var hoveredLabel: String? = null
+
+    /**
+     * The hour hand as a reading head: carry it round and each event it
+     * passes over says what it is.
+     *
+     * Only while the hands are being played with — a clock quietly telling
+     * the time has no business shouting the names of the day's
+     * appointments. But once you take hold of the hour hand, running it over
+     * the marks is the natural way to ask "and what is *that* one?", and
+     * without this the dots stay anonymous unless you go and tap each.
+     *
+     * It holds the bubble open for as long as the hand stays on the mark,
+     * and lets it fade on its own once the hand moves off.
+     */
+    internal fun followHourHand(hourAngle: Float) {
+        if (chronoProvider != null || visualOffsetSeconds == 0.0) {
+            hoveredLabel = null
+            return
+        }
+        val found = markAtAngle(hourAngle)
+        if (found == null) {
+            hoveredLabel = null
+            return
+        }
+        if (found.first != hoveredLabel) {
+            hoveredLabel = found.first
+            announceMark(found.first, found.second)
+        } else if (bubbleText == found.first) {
+            // Still resting on it, so the bubble does not start fading yet.
+            bubbleSince = android.os.SystemClock.uptimeMillis()
+        }
+    }
+
+    /** The mark an angle falls on: its name, and where to hang the bubble. */
+    internal fun markAtAngle(angleDeg: Float): Pair<String, Float>? {
+        fun apart(a: Float, b: Float): Float {
+            val d = kotlin.math.abs((a - b) % 360f)
+            return if (d > 180f) 360f - d else d
+        }
+        for (mark in alarmMarkers) {
+            if (mark.label.isEmpty()) continue
+            if (apart(angleDeg, mark.angle) < 4f) return mark.label to mark.angle
+        }
+        for (arc in eventArcs) {
+            if (arc.label.isEmpty()) continue
+            val left = arcRemaining(arc)
+            if (left <= 0f) continue
+            // Only the part still on the face: the head has been eaten, and
+            // naming an event over ground it no longer covers would be
+            // pointing at nothing.
+            val from = arc.start + arc.sweep * (1f - left)
+            val into = ((angleDeg - from) % 360f + 360f) % 360f
+            if (into <= kotlin.math.abs(arc.sweep) * left) return arc.label to angleDeg
+        }
+        return null
     }
 
     private var bubbleText: String? = null
@@ -1237,10 +1294,10 @@ class ClockView @JvmOverloads constructor(
             soundListener?.onCheater()
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
         }
-        // Over-winding by more than 10 full turns blows the mechanism apart,
-        // chronograph included (but not while calmly setting the countdown).
+        // Over-winding blows the mechanism apart, chronograph included (but
+        // not while calmly setting the countdown).
         if (!exploded && !(chronoProvider != null && chronoSettable) &&
-            kotlin.math.abs(dragAccumDeg) >= 3600.0
+            kotlin.math.abs(dragAccumDeg) >= explosionDegrees(hand)
         ) {
             exploded = true
             soundListener?.onExploded()
@@ -1304,6 +1361,32 @@ class ClockView @JvmOverloads constructor(
         } else {
             setOffset(target)
         }
+    }
+
+    /**
+     * How far a hand may be wound before the mechanism gives up, measured in
+     * degrees of that hand.
+     *
+     * Ten turns for every hand was the old rule, and it was ten turns of the
+     * wrong thing: ten turns of the hour hand is five days, which nobody
+     * reaches, while ten turns of the *second* hand is ten minutes, which is
+     * an easy accident. The budget is time travelled, not turns:
+     *
+     *  - the hour hand gets two days, so you can finish today and walk the
+     *    calendar forward a couple of days to see what is coming — and then
+     *    it goes;
+     *  - the minute hand gets twelve hours, one lap of the face;
+     *  - the second hand keeps its ten turns, because ten minutes of
+     *    winding a second hand is nobody's accident and the explosion is
+     *    half the reason to do it.
+     */
+    internal fun explosionDegrees(hand: Hand): Double {
+        val budgetSeconds = when (hand) {
+            Hand.HOUR -> 2 * 86_400.0
+            Hand.MINUTE -> 12 * 3_600.0
+            Hand.SECOND -> 10 * 60.0
+        }
+        return budgetSeconds / secondsPerRevolution(hand) * 360.0
     }
 
     private fun secondsPerRevolution(hand: Hand): Double = when (hand) {
@@ -2481,7 +2564,9 @@ class ClockView @JvmOverloads constructor(
             digitalPaint.color = keepColor
         }
 
-        // Last of all, over everything, including the lap scrim.
+        // The hour hand names what it is standing on, then the bubble is
+        // drawn last of all, over everything including the lap scrim.
+        followHourHand(a.hour)
         drawMarkBubble(canvas, r)
         checkShownDay()
     }
