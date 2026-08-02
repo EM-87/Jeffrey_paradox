@@ -60,6 +60,12 @@ object WidgetRenderer {
         val dateFormat = prefs.getString(Prefs.DATE_FORMAT, Prefs.DATE_FORMAT_NUMBER)
         val (sides, vertexOffsetDeg) = shapeSpec(prefs)
 
+        // The widget draws from its own entry point, so it configures the
+        // day/night rule for itself rather than inheriting one. Up here
+        // rather than inside the markers block: the sky glyph needs it too,
+        // and it is drawn whether or not the marks are switched on.
+        DayNight.configure(context)
+
         val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val c = sizePx / 2f
@@ -182,9 +188,6 @@ object WidgetRenderer {
             val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.STROKE
             }
-            // The widget draws from its own entry point, so it configures
-            // the day/night rule for itself rather than inheriting one.
-            DayNight.configure(context)
             // Repeats included, and asked of occursOn rather than compared
             // by hand — the widget's dial and the app's have to agree, and
             // for repeating reminders they did not.
@@ -193,15 +196,34 @@ object WidgetRenderer {
             val tm = today.get(Calendar.MONTH) + 1
             val td = today.get(Calendar.DAY_OF_MONTH)
             val reminders = ReminderStore.all(context).filter { it.occursOn(ty, tm, td) }
-            for ((startDeg, sweepDeg, wedgePm) in reminders
+            val dow = today.get(Calendar.DAY_OF_WEEK)
+            // An alarm with a duration is an event too, and reads as a
+            // wedge — on this dial as on the app's. The widget was drawing
+            // the calendar's wedges and silently dropping the alarms', so a
+            // three-hour block set as an alarm was on one face and not the
+            // other.
+            val alarmWedges = AlarmStore.all(context)
+                .filter { it.enabled && it.durationMinutes > 0 && it.ringsOn(dow) }
+                .flatMap { alarm ->
+                    alarm.allTimes().map { (h, m) ->
+                        DialArc(
+                            (h + m / 60f) % hoursOnDial / hoursOnDial * 360f,
+                            alarm.durationMinutes / 60f / hoursOnDial * 360f,
+                            DayNight.isDarkAt(h, m)
+                        )
+                    }
+                }
+            val reminderWedges = reminders
                 .filter { it.durationMinutes > 0 }
                 .map {
                     DialArc(
                         (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f,
                         it.durationMinutes / 60f / hoursOnDial * 360f,
-                        DayNight.isDarkAt(it.hour, it.minute)
+                        DayNight.isDarkAt(it.hour, it.minute),
+                        fromCalendar = true
                     )
-                }) {
+                }
+            for ((startDeg, sweepDeg, wedgePm, wedgeDated) in alarmWedges + reminderWedges) {
                 markerPaint.color = DayNight.markColor(theme, wedgePm)
                 markerPaint.alpha = 230
                 val path = android.graphics.Path()
@@ -220,12 +242,14 @@ object WidgetRenderer {
                 }
                 path.close()
                 canvas.drawPath(path, markerPaint)
-                // Everything on this loop came off the calendar, so every
-                // one of them wears the ring that says "today only" — the
-                // widget's dial and the app's have to say the same thing.
-                ringPaint.color = ClockThemes.contrastInk(theme.face)
-                ringPaint.strokeWidth = r * 0.008f
-                canvas.drawPath(path, ringPaint)
+                // The ring that says "today only" belongs to the calendar's
+                // wedges and not to the alarms' — the widget's dial and the
+                // app's have to say the same thing.
+                if (wedgeDated) {
+                    ringPaint.color = ClockThemes.contrastInk(theme)
+                    ringPaint.strokeWidth = r * 0.008f
+                    canvas.drawPath(path, ringPaint)
+                }
             }
             // Every time an alarm rings at, not just the first, and none for
             // the ones drawn as wedges — which is what the app's own dial
@@ -255,11 +279,32 @@ object WidgetRenderer {
                 val dy = c - cos(a).toFloat() * b
                 canvas.drawCircle(dx, dy, r * 0.022f, markerPaint)
                 if (dotFromCalendar) {
-                    ringPaint.color = ClockThemes.contrastInk(theme.face)
+                    ringPaint.color = ClockThemes.contrastInk(theme)
                     ringPaint.strokeWidth = r * 0.009f
                     canvas.drawCircle(dx, dy, r * 0.028f, ringPaint)
                 }
             }
+        }
+
+        // The sky, in the same place and to the same rules as the app's own
+        // dial: the widget is the face most people look at, and the whole
+        // point of the complication is knowing whether it is light out
+        // without going to a window.
+        if (prefs.getBoolean(Prefs.MOON_PHASE, false)) {
+            val now = Calendar.getInstance()
+            val timeOfDay = now.get(Calendar.HOUR_OF_DAY) * 3_600_000L +
+                now.get(Calendar.MINUTE) * 60_000L
+            SkyGlyph.draw(
+                canvas, c, c + apothemR * 0.45f, r * 0.07f,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = theme.numeral },
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = theme.minorTick },
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = theme.minorTick
+                    style = Paint.Style.STROKE
+                    strokeWidth = r * 0.008f
+                },
+                timeOfDay
+            )
         }
 
         if (showDate) {

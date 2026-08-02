@@ -959,7 +959,7 @@ class ClockView @JvmOverloads constructor(
         }
         for (mark in alarmMarkers) {
             if (mark.label.isEmpty()) continue
-            if (apart(angleDeg, mark.angle) < 4f) return mark.label to mark.angle
+            if (apart(angleDeg, mark.angle) < 4f) return mark.reading() to mark.angle
         }
         for (arc in eventArcs) {
             if (arc.label.isEmpty()) continue
@@ -970,7 +970,7 @@ class ClockView @JvmOverloads constructor(
             // pointing at nothing.
             val from = arc.start + arc.sweep * (1f - left)
             val into = ((angleDeg - from) % 360f + 360f) % 360f
-            if (into <= kotlin.math.abs(arc.sweep) * left) return arc.label to angleDeg
+            if (into <= kotlin.math.abs(arc.sweep) * left) return arc.reading() to angleDeg
         }
         return null
     }
@@ -1003,7 +1003,7 @@ class ClockView @JvmOverloads constructor(
             val d = hypot(x - at.x, y - at.y)
             if (d < bestDist) {
                 bestDist = d
-                best = mark.label
+                best = mark.reading()
             }
         }
         if (best != null) return best
@@ -1016,7 +1016,7 @@ class ClockView @JvmOverloads constructor(
             val b = boundaryRadius(angle)
             if (dist < b * 0.86f || dist > b * 0.99f) continue
             val into = ((angle - arc.start) % 360f + 360f) % 360f
-            if (into <= kotlin.math.abs(arc.sweep)) return arc.label
+            if (into <= kotlin.math.abs(arc.sweep)) return arc.reading()
         }
         return null
     }
@@ -1052,10 +1052,15 @@ class ClockView @JvmOverloads constructor(
             1f
         }
         bubbleTextPaint.textSize = r * 0.085f
+        // The name on the first line and the note wrapped under it, because
+        // a note is where the address and the room number go and neither
+        // fits on one line beside a name.
+        val lines = wrapBubble(text, r * 0.62f)
+        val lineH = bubbleTextPaint.descent() - bubbleTextPaint.ascent()
         val padX = r * 0.05f
         val padY = r * 0.035f
-        val w = bubbleTextPaint.measureText(text) + padX * 2
-        val h = (bubbleTextPaint.descent() - bubbleTextPaint.ascent()) + padY * 2
+        val w = (lines.maxOf { bubbleTextPaint.measureText(it) }) + padX * 2
+        val h = lineH * lines.size + padY * 2
         // Kept inside the view, and above the finger so it is not covered
         // by the hand that asked for it.
         val left = (bubbleX - w / 2).coerceIn(r * 0.04f, width - w - r * 0.04f)
@@ -1063,23 +1068,53 @@ class ClockView @JvmOverloads constructor(
         val rect = RectF(left, top, left + w, top + h)
         bubblePaint.color = theme.face
         bubblePaint.alpha = (238 * alpha).toInt()
-        canvas.drawRoundRect(rect, h * 0.38f, h * 0.38f, bubblePaint)
+        val radius = minOf(h, lineH * 1.6f) * 0.38f
+        canvas.drawRoundRect(rect, radius, radius, bubblePaint)
         bubblePaint.color = theme.rim
         bubblePaint.alpha = (255 * alpha).toInt()
         bubblePaint.style = Paint.Style.STROKE
         bubblePaint.strokeWidth = r * 0.006f
-        canvas.drawRoundRect(rect, h * 0.38f, h * 0.38f, bubblePaint)
+        canvas.drawRoundRect(rect, radius, radius, bubblePaint)
         bubblePaint.style = Paint.Style.FILL
         bubbleTextPaint.color = theme.numeral
         bubbleTextPaint.alpha = (255 * alpha).toInt()
-        canvas.drawText(
-            text, rect.centerX(),
-            rect.centerY() - (bubbleTextPaint.ascent() + bubbleTextPaint.descent()) / 2f,
-            bubbleTextPaint
-        )
+        var baseline = top + padY - bubbleTextPaint.ascent()
+        for (line in lines) {
+            canvas.drawText(line, rect.centerX(), baseline, bubbleTextPaint)
+            baseline += lineH
+        }
         // Its own clock, so it fades whether or not anything else on the
         // dial happens to be animating.
         invalidate()
+    }
+
+    /**
+     * Breaks the bubble's text into lines no wider than [maxWidth].
+     *
+     * Explicit newlines are kept — the name and the note are separate lines
+     * by construction — and long notes are wrapped on word boundaries, then
+     * cut off, because a bubble that grows to cover the dial is no longer a
+     * bubble.
+     */
+    private fun wrapBubble(text: String, maxWidth: Float): List<String> {
+        val out = mutableListOf<String>()
+        for (paragraph in text.split('\n')) {
+            var line = ""
+            for (word in paragraph.split(' ')) {
+                val candidate = if (line.isEmpty()) word else "$line $word"
+                if (bubbleTextPaint.measureText(candidate) <= maxWidth || line.isEmpty()) {
+                    line = candidate
+                } else {
+                    out.add(line)
+                    line = word
+                }
+                if (out.size >= MAX_BUBBLE_LINES) break
+            }
+            if (out.size >= MAX_BUBBLE_LINES) break
+            out.add(line)
+        }
+        if (out.isEmpty()) out.add(text)
+        return out.take(MAX_BUBBLE_LINES)
     }
 
     /**
@@ -2128,6 +2163,25 @@ class ClockView @JvmOverloads constructor(
     /** What the dial currently reads while a time is being set, for tests. */
     internal fun settingValueMs(): Long? = chronoDisplayMs()
 
+    /**
+     * What the digital readout says while something is being wound.
+     *
+     * For a time of day, the time — the hands and the number agree, which is
+     * the point. For a length, the *length*: the hands are showing the hour
+     * the thing ends at, but what is being chosen is how long it runs, and a
+     * readout repeating the hour the hands already show answers a question
+     * nobody asked. Measured from the hour it starts at, the same origin the
+     * magnets count from.
+     */
+    internal fun readoutForTest(): Long = settingReadoutMs()
+
+    private fun settingReadoutMs(): Long {
+        val shown = chronoDisplayMs() ?: 0L
+        if (magnetOrigin == 0L) return shown
+        val day = 86_400_000L
+        return ((shown - magnetOrigin) % day + day) % day
+    }
+
     private fun chronoDisplayMs(): Long? = chronoProvider?.let { provider ->
         val raw = (chronoFrozenMs ?: provider()) + (visualOffsetSeconds * 1000.0).toLong()
         if (chronoWrapsDay) {
@@ -2462,7 +2516,7 @@ class ClockView @JvmOverloads constructor(
             // the mechanism's own value, so a wound hand cannot drag the
             // display into negative time.
             chronoProvider != null && chronoSettable ->
-                formatDuration(chronoDisplayMs() ?: 0L)
+                formatDuration(settingReadoutMs())
             chronoProvider != null -> formatDuration(chronoProvider?.invoke() ?: 0L)
             anyHandFallen() -> {
                 cal.timeInMillis = displayNowMs()
@@ -2479,7 +2533,7 @@ class ClockView @JvmOverloads constructor(
             val digitH = r * 0.13f
             val yTop = min(cy + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
             val liveUnits = when {
-                chronoProvider != null && chronoSettable -> unitsFor(chronoDisplayMs() ?: 0L)
+                chronoProvider != null && chronoSettable -> unitsFor(settingReadoutMs())
                 chronoProvider != null -> unitsFor(chronoProvider?.invoke() ?: 0L)
                 else -> UNITS_CLOCK
             }
@@ -2797,7 +2851,7 @@ class ClockView @JvmOverloads constructor(
         for (mark in alarmMarkers) {
             if (!mark.fromCalendar) continue
             val at = markCenter(cx, cy, mark.angle)
-            markRingPaint.color = ClockThemes.contrastInk(theme.face)
+            markRingPaint.color = ClockThemes.contrastInk(theme)
             markRingPaint.strokeWidth = r * 0.009f
             canvas.drawCircle(at.x, at.y, r * 0.028f, markRingPaint)
         }
@@ -2815,7 +2869,10 @@ class ClockView @JvmOverloads constructor(
      * it, so the fading itself reads as "this is happening now".
      */
     private fun arcRemaining(arc: DialArc): Float {
-        if (arc.startMinute < 0 || arc.endMinute <= arc.startMinute) return 1f
+        // An empty range means "no times given"; a negative start means an
+        // event that began yesterday, which is a real thing and used to
+        // switch the fade off entirely — the guard read one as the other.
+        if (arc.endMinute <= arc.startMinute) return 1f
         // The time the dial is *showing*, offset and all. Carry the hands
         // forward and the day's events are consumed under your finger,
         // which is the whole of what a Sectograph dial is for: one turn of
@@ -2892,7 +2949,7 @@ class ClockView @JvmOverloads constructor(
             if (!arc.fromCalendar) continue
             val left = arcRemaining(arc)
             if (left <= 0f) continue
-            markRingPaint.color = ClockThemes.contrastInk(theme.face)
+            markRingPaint.color = ClockThemes.contrastInk(theme)
             markRingPaint.alpha = if (left >= 1f) 255 else 165
             markRingPaint.strokeWidth = r * 0.008f
             buildArcPath(arc, cx, cy, left)
@@ -2952,107 +3009,11 @@ class ClockView @JvmOverloads constructor(
      */
     private fun drawMoonPhase(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         if (isMoonFallen()) return
-        val mr = r * 0.07f
-        val mcy = cy + apothemRadius() * 0.45f
-        when (val sky = DayNight.skyMs(shownTimeOfDayMs())) {
-            DayNight.Sky.Day -> {
-                drawSun(canvas, cx, mcy, mr, r)
-                return
-            }
-            is DayNight.Sky.Twilight -> {
-                drawSettingSun(canvas, cx, mcy, mr, sky.sunk)
-                return
-            }
-            // Night, or nowhere to stand: the moon and its phase.
-            else -> Unit
-        }
-        val synodicDays = 29.530588853
-        // Julian date of a known new moon: 2000-01-06 18:14 UTC.
-        val julianNow = TimeKeeper.nowMs() / 86_400_000.0 + 2_440_587.5
-        val phase = (((julianNow - 2_451_550.26) / synodicDays) % 1.0 + 1.0) % 1.0
-        val cosPhase = cos(2.0 * PI * phase)
-        val litRight = phase < 0.5
-
-        canvas.drawCircle(cx, mcy, mr, moonDarkPaint)
-        canvas.save()
-        if (litRight) {
-            canvas.clipRect(cx, mcy - mr, cx + mr, mcy + mr)
-        } else {
-            canvas.clipRect(cx - mr, mcy - mr, cx, mcy + mr)
-        }
-        canvas.drawCircle(cx, mcy, mr, moonLitPaint)
-        canvas.restore()
-        val ellipseHalf = (mr * kotlin.math.abs(cosPhase)).toFloat()
-        if (ellipseHalf > 0.5f) {
-            val oval = RectF(cx - ellipseHalf, mcy - mr, cx + ellipseHalf, mcy + mr)
-            canvas.drawOval(oval, if (cosPhase > 0) moonDarkPaint else moonLitPaint)
-        }
         moonRimPaint.strokeWidth = r * 0.008f
-        canvas.drawCircle(cx, mcy, mr, moonRimPaint)
-    }
-
-    /**
-     * The moon's daylight twin: same size, same spot, same two paints — the
-     * lit face and the thin rim it already wears. Drawing it in any other
-     * colour made the pair look like two unrelated ornaments; sharing the
-     * moon's own material is what makes them read as one complication that
-     * changes state.
-     */
-    private fun drawSun(canvas: Canvas, cx: Float, cy: Float, mr: Float, r: Float) {
-        canvas.drawCircle(cx, cy, mr * 0.62f, moonLitPaint)
-        // drawLine always frames, whatever the paint's style says, so the
-        // rays borrow the lit paint and only its width has to be set.
-        val width = moonLitPaint.strokeWidth
-        moonLitPaint.strokeWidth = mr * 0.20f
-        for (i in 0 until 8) {
-            val a = Math.toRadians(i * 45.0)
-            val sx = cx + sin(a).toFloat() * mr * 0.86f
-            val sy = cy - cos(a).toFloat() * mr * 0.86f
-            val ex = cx + sin(a).toFloat() * mr * 1.18f
-            val ey = cy - cos(a).toFloat() * mr * 1.18f
-            canvas.drawLine(sx, sy, ex, ey, moonLitPaint)
-        }
-        moonLitPaint.strokeWidth = width
-        moonRimPaint.strokeWidth = r * 0.008f
-        canvas.drawCircle(cx, cy, mr * 0.62f, moonRimPaint)
-    }
-
-    /**
-     * The sun crossing the horizon, [sunk] from 0 (touching it) to 1 (gone).
-     *
-     * Between the sun and the moon there was a step: at one minute a sun, at
-     * the next a moon, with nothing in between to say the day was ending.
-     * This is the half-hour that step was hiding. The horizon is a line, the
-     * disc slides down through it and is cut off where it passes, and its
-     * rays go out one side at a time as they reach the line — so the drawing
-     * itself takes as long as the sunset does. Sunrise is the same picture
-     * run backwards, which is what a sunrise looks like.
-     */
-    private fun drawSettingSun(canvas: Canvas, cx: Float, cy: Float, mr: Float, sunk: Float) {
-        val disc = mr * 0.62f
-        // The line sits where the moon's own centre would be, so the sky
-        // never appears to jump up or down as it changes state.
-        val horizon = cy
-        val centre = horizon - disc * (1f - 2f * sunk.coerceIn(0f, 1f))
-
-        val saved = canvas.save()
-        canvas.clipRect(cx - mr * 1.4f, cy - mr * 1.6f, cx + mr * 1.4f, horizon)
-        canvas.drawCircle(cx, centre, disc, moonLitPaint)
-        val width = moonLitPaint.strokeWidth
-        moonLitPaint.strokeWidth = mr * 0.20f
-        for (i in 0 until 8) {
-            val a = Math.toRadians(i * 45.0)
-            val sx = cx + sin(a).toFloat() * mr * 0.86f
-            val sy = centre - cos(a).toFloat() * mr * 0.86f
-            val ex = cx + sin(a).toFloat() * mr * 1.18f
-            val ey = centre - cos(a).toFloat() * mr * 1.18f
-            canvas.drawLine(sx, sy, ex, ey, moonLitPaint)
-        }
-        moonLitPaint.strokeWidth = width
-        canvas.restoreToCount(saved)
-
-        moonRimPaint.strokeWidth = mr * 0.16f
-        canvas.drawLine(cx - mr * 1.25f, horizon, cx + mr * 1.25f, horizon, moonRimPaint)
+        SkyGlyph.draw(
+            canvas, cx, cy + apothemRadius() * 0.45f, r * 0.07f,
+            moonLitPaint, moonDarkPaint, moonRimPaint, shownTimeOfDayMs()
+        )
     }
 
     /**
@@ -3256,6 +3217,9 @@ class ClockView @JvmOverloads constructor(
         private const val MINUTE_LEN = 0.74f
         private const val SECOND_LEN = 0.82f
         private const val FAST_LEN = 0.30f
+        /** How tall a bubble is allowed to get before the note is cut off. */
+        private const val MAX_BUBBLE_LINES = 5
+
         private const val TRANSITION_MS = 700f
         private const val SAMPLE_COUNT = 5
 

@@ -127,4 +127,41 @@ class DialSettingTest {
         value = -5 * minute
         assertTrue("a countdown may go negative while playing", v.settingValueMs()!! < 0)
     }
+
+    /**
+     * Winding a Lasts, the hands show the hour the thing ends at and the
+     * readout showed the same hour in digits — the same fact twice, and not
+     * the one being chosen. What is being chosen is the length.
+     */
+    @Test
+    fun `the readout of a length is the length, not the hour it ends at`() {
+        var value = 18 * hour
+        val v = dial().apply {
+            chronoProvider = { value }
+            chronoSettable = true
+            chronoWrapsDay = true
+            magnetOrigin = 18 * hour
+        }
+        assertEquals("nothing wound yet, so no length yet", 0L, v.readoutForTest())
+        value = 18 * hour + 20 * minute
+        assertEquals(20 * minute, v.readoutForTest())
+        value = 20 * hour + 30 * minute
+        assertEquals(2 * hour + 30 * minute, v.readoutForTest())
+        // Over midnight the length keeps counting forward rather than
+        // going negative: an event cannot last minus twenty minutes.
+        value = hour
+        assertEquals(7 * hour, v.readoutForTest())
+    }
+
+    /** A time of day still reads as the time of day, hands and digits agreeing. */
+    @Test
+    fun `the readout of a time is the time`() {
+        val v = dial().apply {
+            chronoProvider = { 9 * hour + 45 * minute }
+            chronoSettable = true
+            chronoWrapsDay = true
+            magnetOrigin = 0L
+        }
+        assertEquals(9 * hour + 45 * minute, v.readoutForTest())
+    }
 }

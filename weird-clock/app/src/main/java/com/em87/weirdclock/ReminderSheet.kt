@@ -22,7 +22,8 @@ data class ReminderDraft(
     val rings: Boolean,
     val sound: String,
     val lead: Int,
-    val repeat: String
+    val repeat: String,
+    val notes: String = ""
 )
 
 /**
@@ -89,6 +90,7 @@ class ReminderSheet(
         var sound = seed?.sound ?: existing?.sound ?: Prefs.ALARM_SOUND_BELLS
         var lead = seed?.lead ?: existing?.leadMinutes ?: 0
         var repeat = seed?.repeat ?: existing?.repeat ?: Reminder.REPEAT_NEVER
+        var notes = seed?.notes ?: existing?.notes.orEmpty()
         // The date can be moved, so it is not the fixed frame it was.
         var onYear = year
         var onMonth = month
@@ -102,6 +104,7 @@ class ReminderSheet(
         val durationValue = view.findViewById<TextView>(R.id.rsheet_duration_value)
         val dateValue = view.findViewById<TextView>(R.id.rsheet_date)
         val repeatValue = view.findViewById<TextView>(R.id.rsheet_repeat_value)
+        val notesValue = view.findViewById<TextView>(R.id.rsheet_notes_value)
         fun repeatLabel(mode: String): String = host.getString(
             when (mode) {
                 Reminder.REPEAT_WEEKLY -> R.string.reminder_repeat_weekly
@@ -124,6 +127,7 @@ class ReminderSheet(
             } else {
                 host.getString(R.string.reminder_duration_min, duration)
             }
+            notesValue.text = notes.ifBlank { host.getString(R.string.reminder_notes_none) }
         }
 
         val repeatModes = listOf(
@@ -177,6 +181,28 @@ class ReminderSheet(
                 .show()
         }
 
+        view.findViewById<View>(R.id.rsheet_row_notes).setOnClickListener {
+            val input = EditText(host).apply {
+                inputType = InputType.TYPE_CLASS_TEXT or
+                    InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or
+                    InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                // Room to write in without the dialog growing without end.
+                minLines = 3
+                maxLines = 6
+                setText(notes)
+                setSelection(notes.length)
+            }
+            androidx.appcompat.app.AlertDialog.Builder(host)
+                .setTitle(R.string.reminder_notes)
+                .setView(input)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    notes = input.text.toString().trim()
+                    refresh()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+
         val alarmSwitch = view.findViewById<SwitchCompat>(R.id.rsheet_alarm)
         val soundRow = view.findViewById<View>(R.id.rsheet_row_sound)
         val snoozeRow = view.findViewById<View>(R.id.rsheet_row_snooze)
@@ -223,7 +249,7 @@ class ReminderSheet(
             for (id in intArrayOf(
                 R.id.rsheet_date, R.id.rsheet_row_name, R.id.rsheet_row_time,
                 R.id.rsheet_row_duration, R.id.rsheet_row_repeat,
-                R.id.rsheet_row_sound, R.id.rsheet_row_snooze
+                R.id.rsheet_row_notes, R.id.rsheet_row_sound, R.id.rsheet_row_snooze
             )) {
                 view.findViewById<View>(id).apply {
                     isEnabled = false
@@ -241,7 +267,7 @@ class ReminderSheet(
             callbacks.windDuration(
                 ReminderDraft(
                     existing, onYear, onMonth, onDay, label, hour, minute, duration,
-                    alarmSwitch.isChecked, sound, lead, repeat
+                    alarmSwitch.isChecked, sound, lead, repeat, notes
                 )
             )
         }
@@ -257,7 +283,7 @@ class ReminderSheet(
             callbacks.windTime(
                 ReminderDraft(
                     existing, onYear, onMonth, onDay, label, hour, minute,
-                    duration, alarmSwitch.isChecked, sound, lead, repeat
+                    duration, alarmSwitch.isChecked, sound, lead, repeat, notes
                 )
             )
         }
@@ -267,7 +293,7 @@ class ReminderSheet(
                 existing,
                 ReminderDraft(
                     existing, onYear, onMonth, onDay, label, hour, minute,
-                    duration, alarmSwitch.isChecked, sound, lead, repeat
+                    duration, alarmSwitch.isChecked, sound, lead, repeat, notes
                 )
             )
             sheet.dismiss()

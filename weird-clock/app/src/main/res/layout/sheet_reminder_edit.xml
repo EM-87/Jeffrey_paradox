@@ -86,6 +86,24 @@
                 style="@style/AlarmSheetRowValue" />
         </LinearLayout>
 
+        <!-- Somewhere to put the address, the room number, what to bring:
+             everything the one-line name has no space for, and the dial
+             reads out when the hour hand rests on this event. -->
+        <LinearLayout
+            android:id="@+id/rsheet_row_notes"
+            style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/reminder_notes" />
+
+            <TextView
+                android:id="@+id/rsheet_notes_value"
+                style="@style/AlarmSheetRowValue"
+                android:maxLines="1"
+                android:ellipsize="end" />
+        </LinearLayout>
+
         <LinearLayout style="@style/AlarmSheetRow">
 
             <TextView

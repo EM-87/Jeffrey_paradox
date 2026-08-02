@@ -146,21 +146,21 @@ object ClockThemes {
     }
 
     /**
-     * Ink that shows against a face of this colour: white on a dark dial,
-     * near-black on a pale one.
+     * The ink the ring round a calendar mark is drawn in: the same one the
+     * numerals use.
      *
-     * Used for the ring round a calendar mark, which has to say "today only"
-     * without saying it in a colour — the mark's own colour is already
-     * carrying the morning-or-evening answer, and a second colour on top
-     * would be a second thing to learn. Lives here because two dials draw
-     * those marks, the app's and the widget's, and they have to agree.
+     * It was a hardcoded white, chosen by measuring the face's brightness,
+     * and it had two faults. It ignored night mode — every other colour on
+     * the dial drops to thirty per cent after ten at night and this one did
+     * not, so the rings sat on a dimmed dial like stars. And pure white is
+     * brighter than anything else on the face, which made a quiet "today
+     * only" marker the loudest thing on the clock.
+     *
+     * Taking the numeral colour fixes both at once and needs no brightness
+     * test: it is already chosen to read against this face, on a pale theme
+     * it is dark, and it is dimmed by whatever dims the rest.
      */
-    fun contrastInk(face: Int): Int {
-        val luma = 0.299 * (face shr 16 and 0xFF) +
-            0.587 * (face shr 8 and 0xFF) +
-            0.114 * (face and 0xFF)
-        return if (luma > 140) 0xFF101010.toInt() else 0xFFFFFFFF.toInt()
-    }
+    fun contrastInk(theme: ClockTheme): Int = theme.numeral
 
     fun byKey(key: String?): ClockTheme = when (key) {
         "ivory" -> IVORY

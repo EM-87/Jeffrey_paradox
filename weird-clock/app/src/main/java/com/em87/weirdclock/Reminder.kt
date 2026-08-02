@@ -28,7 +28,16 @@ data class Reminder(
     /** Ring this many minutes before the event; 0 rings on the dot. */
     val leadMinutes: Int = 0,
     /** [REPEAT_NEVER], [REPEAT_WEEKLY], [REPEAT_MONTHLY] or [REPEAT_YEARLY]. */
-    val repeat: String = REPEAT_NEVER
+    val repeat: String = REPEAT_NEVER,
+    /**
+     * Free text kept with the event and read out by the dial.
+     *
+     * A label has to be short — it is a line on a card and a name in a
+     * bubble — so there was nowhere to put the address, the room number, or
+     * what to bring. This is that nowhere. It shows up when the hour hand
+     * rests on the mark, which is the moment you are asking about it.
+     */
+    val notes: String = ""
 ) {
     /** The date it was first set for, whatever it has repeated since. */
     fun timeInMillis(): Long = Calendar.getInstance().run {
@@ -182,7 +191,8 @@ object ReminderStore {
                         rings = o.optBoolean("rings", false),
                         sound = o.optString("sound", Prefs.ALARM_SOUND_BELLS),
                         leadMinutes = o.optInt("lead", 0),
-                        repeat = o.optString("repeat", Reminder.REPEAT_NEVER)
+                        repeat = o.optString("repeat", Reminder.REPEAT_NEVER),
+                        notes = o.optString("notes", "")
                     )
                 )
             }
@@ -216,6 +226,7 @@ object ReminderStore {
                     .put("sound", r.sound)
                     .put("lead", r.leadMinutes)
                     .put("repeat", r.repeat)
+                    .put("notes", r.notes)
             )
         }
         PreferenceManager.getDefaultSharedPreferences(context)

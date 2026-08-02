@@ -254,4 +254,7 @@
     <string name="pref_birthday_none">Not set</string>
     <string name="pref_birthday_clear">Clear</string>
     <string name="alarm_untitled">Alarm</string>
+    <string name="reminder_notes">Notes</string>
+    <string name="reminder_notes_none">None</string>
+    <string name="mark_colors_needs_location">Marks by the sun need one location fix. Until the app has had one they keep following the dial’s two turns.</string>
 </resources>

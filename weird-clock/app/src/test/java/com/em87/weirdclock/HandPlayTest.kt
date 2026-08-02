@@ -91,7 +91,7 @@ class HandPlayTest {
         }
         val v = dial().apply {
             eventArcs = listOf(
-                DialArc(0f, 40f, false, true, "lunch", minuteNow + 120, minuteNow + 240)
+                DialArc(0f, 40f, false, true, "lunch", startMinute = minuteNow + 120, endMinute = minuteNow + 240)
             )
         }
         assertEquals("lunch", v.markAtAngle(1f)?.first)
@@ -113,7 +113,7 @@ class HandPlayTest {
         val v = dial().apply {
             // Three quarters spent: only the last ten degrees remain.
             eventArcs = listOf(
-                DialArc(0f, 40f, false, true, "meeting", minuteNow - 180, minuteNow + 60)
+                DialArc(0f, 40f, false, true, "meeting", startMinute = minuteNow - 180, endMinute = minuteNow + 60)
             )
         }
         assertNull("the head is gone", v.markAtAngle(5f))

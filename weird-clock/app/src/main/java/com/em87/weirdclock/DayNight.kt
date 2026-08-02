@@ -212,8 +212,13 @@ data class DialMark(
      */
     val fromCalendar: Boolean = false,
     /** What it is called, for the bubble a tap on it opens. */
-    val label: String = ""
-)
+    val label: String = "",
+    /** Whatever the user wrote down about it, read out in the same bubble. */
+    val notes: String = ""
+) {
+    /** What the bubble says: the name, and the note under it if there is one. */
+    fun reading(): String = if (notes.isBlank()) label else "$label\n$notes"
+}
 
 /** One event wedge: where it starts, how far it runs, and on which side. */
 data class DialArc(
@@ -222,6 +227,7 @@ data class DialArc(
     val pm: Boolean,
     val fromCalendar: Boolean = false,
     val label: String = "",
+    val notes: String = "",
     /**
      * When the event begins and ends, as minutes past midnight, so the
      * wedge can fade itself out as the minute hand crosses it. Given here
@@ -229,6 +235,8 @@ data class DialArc(
      * times a second and nothing else does — anything precomputed would be
      * stale between refreshes.
      */
-    val startMinute: Int = -1,
-    val endMinute: Int = -1
-)
+    val startMinute: Int = 0,
+    val endMinute: Int = 0
+) {
+    fun reading(): String = if (notes.isBlank()) label else "$label\n$notes"
+}

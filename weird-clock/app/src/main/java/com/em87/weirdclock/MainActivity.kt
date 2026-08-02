@@ -1439,7 +1439,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                         (it.hour + it.minute / 60f) % n / n * 360f,
                         DayNight.isDarkAt(it.hour, it.minute),
                         fromCalendar = true,
-                        label = it.label.ifBlank { getString(R.string.reminder_untitled) }
+                        label = it.label.ifBlank { getString(R.string.reminder_untitled) },
+                        notes = it.notes
                     )
                 }
             alarmDots + reminderDots
@@ -1475,6 +1476,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                         DayNight.isDarkAt(reminder.hour, reminder.minute),
                         fromCalendar = true,
                         label = reminder.label.ifBlank { getString(R.string.reminder_untitled) },
+                        notes = reminder.notes,
                         startMinute = reminder.hour * 60 + reminder.minute,
                         endMinute = reminder.hour * 60 + reminder.minute + reminder.durationMinutes
                     )
@@ -1558,7 +1560,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             Reminder(
                 existing?.id ?: ReminderStore.nextId(reminders),
                 d.year, d.month, d.day, d.hour, d.minute, d.label,
-                d.duration, d.rings, d.sound, d.lead, d.repeat
+                d.duration, d.rings, d.sound, d.lead, d.repeat, d.notes
             )
         )
         persistReminders()

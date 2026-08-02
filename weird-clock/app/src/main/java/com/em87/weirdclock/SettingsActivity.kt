@@ -337,6 +337,24 @@ class SettingsActivity : AppCompatActivity() {
                     true
                 }
             updateBirthdaySummary()
+            // Marks by the sun need somewhere to stand. Without a fix the
+            // app falls back to the dial's two turns — which is the honest
+            // thing to do and, until now, entirely silent: the setting said
+            // "by the sun" and the dots carried on saying morning and
+            // evening, with nothing anywhere to explain why.
+            findPreference<ListPreference>(Prefs.MARK_COLORS)
+                ?.setOnPreferenceChangeListener { _, newValue ->
+                    if (newValue == DayNight.MARKS_SUN &&
+                        DayNight.wantsLocation(requireContext())
+                    ) {
+                        Toast.makeText(
+                            requireContext(),
+                            R.string.mark_colors_needs_location,
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                    true
+                }
         }
 
         /**

@@ -51,9 +51,26 @@ class DialMarksTest {
     private fun render(view: ClockView): Bitmap =
         Bitmap.createBitmap(720, 720, Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) }
 
-    private fun countOf(bitmap: Bitmap, color: Int): Int {
+    /**
+     * Pixels of exactly [color] in a small box around a point on the dial.
+     *
+     * Around a point, not over the whole bitmap: the ring is drawn in the
+     * numerals' own ink now — which is the fix for it glaring — so counting
+     * that colour across the face counts the numerals and the ticks too. An
+     * earlier version of this test did exactly that and started failing the
+     * moment the ink stopped being a colour nothing else used.
+     */
+    private fun inkNear(bitmap: Bitmap, angleDeg: Float, radiusFraction: Float, color: Int): Int {
+        val boundary = 360f * 0.92f
+        val a = Math.toRadians(angleDeg.toDouble())
+        val cx = 360f + Math.sin(a).toFloat() * boundary * radiusFraction
+        val cy = 360f - Math.cos(a).toFloat() * boundary * radiusFraction
         var n = 0
-        for (x in 0 until 720) for (y in 0 until 720) if (bitmap.getPixel(x, y) == color) n++
+        for (dx in -22..22) for (dy in -22..22) {
+            val x = (cx + dx).toInt().coerceIn(0, 719)
+            val y = (cy + dy).toInt().coerceIn(0, 719)
+            if (bitmap.getPixel(x, y) == color) n++
+        }
         return n
     }
 
@@ -101,10 +118,13 @@ class DialMarksTest {
     fun `a calendar dot is ringed and an alarm dot is not`() {
         val plain = dial().apply { alarmMarkers = listOf(DialMark(90f, false, false, "gym")) }
         val dated = dial().apply { alarmMarkers = listOf(DialMark(90f, false, true, "dentist")) }
-        val ink = ClockThemes.contrastInk(ClockThemes.MIDNIGHT.face)
+        val ink = ClockThemes.contrastInk(ClockThemes.MIDNIGHT)
 
-        assertEquals(0, countOf(render(plain), ink))
-        assertTrue("the ring must actually be drawn", countOf(render(dated), ink) > 20)
+        assertEquals(0, inkNear(render(plain), 90f, 1.055f, ink))
+        assertTrue(
+            "the ring must actually be drawn",
+            inkNear(render(dated), 90f, 1.055f, ink) > 10
+        )
     }
 
     /**
@@ -138,20 +158,27 @@ class DialMarksTest {
         val now = java.util.Calendar.getInstance()
         val minuteNow = now.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
             now.get(java.util.Calendar.MINUTE)
-        // Two hours behind, and two hours ahead, of whatever time it is.
-        val past = ((minuteNow - 180) % 1440 + 1440) % 1440
-        val ahead = (minuteNow + 180) % 1440
+        // Three hours behind, and three ahead, of whatever time it is —
+        // not folded into a day. An event that began yesterday evening has
+        // a negative start minute and one that ends tomorrow morning a
+        // start past 1440, and both are ordinary; folding them was what
+        // made this test depend on the hour it happened to run at, and it
+        // duly failed the first time it ran at half past eleven at night.
+        val past = minuteNow - 180
+        val ahead = minuteNow + 180
 
         val spent = dial().apply {
-            eventArcs = listOf(DialArc(0f, 30f, false, true, "over", past, past + 60))
+            eventArcs = listOf(DialArc(0f, 30f, false, true, "over", startMinute = past, endMinute = past + 60))
         }
         val coming = dial().apply {
-            eventArcs = listOf(DialArc(0f, 30f, false, true, "soon", ahead, ahead + 60))
+            eventArcs = listOf(DialArc(0f, 30f, false, true, "soon", startMinute = ahead, endMinute = ahead + 60))
         }
-        val ink = ClockThemes.contrastInk(ClockThemes.MIDNIGHT.face)
-        assertEquals("a finished event leaves the dial", 0, countOf(render(spent), ink))
-        assertTrue("one still to come is on it", countOf(render(coming), ink) > 20)
-        assertTrue(wedgeLuma(render(coming), 0f, 30f) > wedgeLuma(render(spent), 0f, 30f))
+        val bare = render(dial())
+        assertEquals(
+            "a finished event leaves the dial with nothing on it",
+            0, wedgeExtent(bare, render(spent), 1f, 29f)
+        )
+        assertTrue("one still to come is on it", wedgeExtent(bare, render(coming), 1f, 29f) > 8)
     }
 
     /** An event running right now is drawn, but dimmer than one not started. */
@@ -163,12 +190,12 @@ class DialMarksTest {
         // Started three hours ago, ends in one: three quarters spent.
         val running = dial().apply {
             eventArcs = listOf(
-                DialArc(0f, 30f, false, false, "now", minuteNow - 180, minuteNow + 60)
+                DialArc(0f, 30f, false, false, "now", startMinute = minuteNow - 180, endMinute = minuteNow + 60)
             )
         }
         val fresh = dial().apply {
             eventArcs = listOf(
-                DialArc(0f, 30f, false, false, "later", minuteNow + 60, minuteNow + 300)
+                DialArc(0f, 30f, false, false, "later", startMinute = minuteNow + 60, endMinute = minuteNow + 300)
             )
         }
         val spent = wedgeLuma(render(running), 0f, 30f)
@@ -210,13 +237,13 @@ class DialMarksTest {
             now.get(java.util.Calendar.MINUTE)
         val fresh = dial().apply {
             eventArcs = listOf(
-                DialArc(0f, 40f, false, false, "later", minuteNow + 120, minuteNow + 360)
+                DialArc(0f, 40f, false, false, "later", startMinute = minuteNow + 120, endMinute = minuteNow + 360)
             )
         }
         // Three quarters gone: only the last quarter should still be there.
         val running = dial().apply {
             eventArcs = listOf(
-                DialArc(0f, 40f, false, false, "now", minuteNow - 180, minuteNow + 60)
+                DialArc(0f, 40f, false, false, "now", startMinute = minuteNow - 180, endMinute = minuteNow + 60)
             )
         }
         val bare = render(dial())
@@ -241,7 +268,7 @@ class DialMarksTest {
             now.get(java.util.Calendar.MINUTE)
         val running = dial().apply {
             eventArcs = listOf(
-                DialArc(0f, 40f, false, false, "now", minuteNow - 180, minuteNow + 60)
+                DialArc(0f, 40f, false, false, "now", startMinute = minuteNow - 180, endMinute = minuteNow + 60)
             )
         }
         val bare = render(dial())
@@ -251,5 +278,40 @@ class DialMarksTest {
             wedgeExtent(bare, image, 2f, 20f) <= 2
         )
         assertTrue("the tail is still there", wedgeExtent(bare, image, 32f, 38f) > 2)
+    }
+
+    /**
+     * The ring's ink was a hardcoded white chosen by measuring the face's
+     * brightness, and night mode never touched it: after ten at night the
+     * whole dial dropped to thirty per cent and the rings stayed full
+     * white, sitting on it like stars.
+     */
+    @Test
+    fun `the ring dims with the dial and never outshines it`() {
+        for (theme in listOf(ClockThemes.MIDNIGHT, ClockThemes.DAYLIGHT, ClockThemes.IVORY)) {
+            val ink = ClockThemes.contrastInk(theme)
+            val dimmed = ClockThemes.contrastInk(ClockThemes.dim(theme))
+            fun luma(c: Int) =
+                (c shr 16 and 0xFF) + (c shr 8 and 0xFF) + (c and 0xFF)
+            assertTrue("night mode must reach it too", luma(dimmed) < luma(ink))
+            // And it never stands out more than the numerals do — measured
+            // against the face, because on a pale dial "stands out" means
+            // darker, not brighter. Pure white failed this on every dark
+            // theme, which is exactly how it came to look like a star.
+            val faceLuma = luma(theme.face)
+            assertTrue(
+                "the ring must not shout louder than the numerals",
+                kotlin.math.abs(luma(ink) - faceLuma) <=
+                    kotlin.math.abs(luma(theme.numeral) - faceLuma)
+            )
+        }
+    }
+
+    /** On a pale face it goes dark, as the numerals do. */
+    @Test
+    fun `the ring follows the face into the light`() {
+        fun luma(c: Int) = (c shr 16 and 0xFF) + (c shr 8 and 0xFF) + (c and 0xFF)
+        assertTrue(luma(ClockThemes.contrastInk(ClockThemes.DAYLIGHT)) < 300)
+        assertTrue(luma(ClockThemes.contrastInk(ClockThemes.MIDNIGHT)) > 400)
     }
 }
