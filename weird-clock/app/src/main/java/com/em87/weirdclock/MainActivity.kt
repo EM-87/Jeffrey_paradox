@@ -200,6 +200,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     private var locationAskedThisRun = false
+
+    /** True while a one-shot location request is still out. */
+    private var locationFixPending = false
     private val locationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) applyPreferences()
@@ -1590,9 +1593,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun applyPreferences() {
         TimeKeeper.setSpeedPercent(prefs.getInt(Prefs.TIME_SPEED, 100))
         applySolarTime()
-        // Solar marks want a location too, and will ask for one the same
-        // way sundial mode does rather than silently pretending.
-        if (DayNight.solarWantsLocation(this)) askForLocationOnce()
+        // One coarse fix, asked for once, and the sunrise equation carries
+        // the rest of the year from it. It is asked on the first run rather
+        // than behind an option, because the thing it unlocks — a sun on the
+        // face when the sun is actually up — is the default behaviour of the
+        // sky complication, not an advanced setting. Declined, everything
+        // still works; the moon simply never gives way to the sun.
+        if (DayNight.wantsLocation(this)) askForLocationOnce()
         DayNight.configure(this)
         val cv = clockView ?: return
 
@@ -1619,7 +1626,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             Prefs.DATE_FORMAT_ROMAN -> ClockView.DateFormatStyle.ROMAN
             else -> ClockView.DateFormatStyle.NUMBER
         }
-        cv.showMoonPhase = prefs.getBoolean(Prefs.MOON_PHASE, false)
+        // While a time is being wound the sky stays on whatever the setting
+        // says, because there it is feedback rather than decoration — see
+        // applyMode(). Without this, anything that reapplies preferences
+        // mid-wind would take it away under the user's finger.
+        cv.showMoonPhase = dialJob != null || prefs.getBoolean(Prefs.MOON_PHASE, false)
         updateAlarmMarkers()
         cv.touchHandsEnabled = prefs.getBoolean(Prefs.TOUCH_HANDS, true)
         cv.pinchZoomEnabled = prefs.getBoolean(Prefs.PINCH_ZOOM, true)
@@ -1668,6 +1679,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 Prefs.WEEK_START_MONDAY,
                 Calendar.getInstance().firstDayOfWeek == Calendar.MONDAY
             )
+            it.birthday = prefs.getInt(Prefs.BIRTHDAY, 0)
         }
         refreshCalendarMarks()
         s3Sand?.let {
@@ -1722,17 +1734,80 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
     }
 
-    /** One prompt per run, shared by sundial mode and the solar marks. */
+    /**
+     * One prompt, shared by sundial mode and the sky complication.
+     *
+     * Once per run, and — once the user has been asked and said no — never
+     * again on its own. Being asked for your location every time you open a
+     * clock is the behaviour of an app that does not take no for an answer.
+     * The settings entry still asks, because that is the user asking.
+     */
     private fun askForLocationOnce() {
-        if (locationAskedThisRun) return
+        // Permission first, then the once-per-run guard. The other way round
+        // — as it was — swallowed the one call that matters: granting the
+        // permission calls back into here, and the guard was already set by
+        // the request that produced the grant, so the fix was never read
+        // until the next launch.
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED
         ) {
-            readLongitude()
+            if (readLongitude() == null) requestOneFix()
             return
         }
+        if (locationAskedThisRun) return
+        if (prefs.getBoolean(Prefs.LOCATION_ASKED, false)) return
         locationAskedThisRun = true
+        prefs.edit().putBoolean(Prefs.LOCATION_ASKED, true).apply()
         locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+    }
+
+    /**
+     * Asks for one fix when the system has no last-known location to give.
+     *
+     * A phone that has not been asked where it is by anything else has an
+     * empty cache, and then "one measurement serves the whole year" never
+     * gets its one measurement. This listens for a single update and takes
+     * itself off again — a clock has no business holding a location
+     * subscription open.
+     */
+    private fun requestOneFix() {
+        if (locationFixPending) return
+        val lm = getSystemService(LocationManager::class.java) ?: return
+        val provider = when {
+            lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ->
+                LocationManager.NETWORK_PROVIDER
+            lm.isProviderEnabled(LocationManager.GPS_PROVIDER) ->
+                LocationManager.GPS_PROVIDER
+            else -> return
+        }
+        val listener = object : android.location.LocationListener {
+            override fun onLocationChanged(location: android.location.Location) {
+                try {
+                    lm.removeUpdates(this)
+                } catch (e: SecurityException) {
+                    // Permission withdrawn mid-flight; nothing left to stop.
+                }
+                locationFixPending = false
+                prefs.edit()
+                    .putFloat(Prefs.LAST_LONGITUDE, location.longitude.toFloat())
+                    .putFloat(Prefs.LAST_LATITUDE, location.latitude.toFloat())
+                    .apply()
+                DayNight.configure(this@MainActivity)
+                clockView?.invalidate()
+            }
+
+            // Required on API levels below 30, where the default methods of
+            // LocationListener do not exist yet.
+            override fun onStatusChanged(p: String?, s: Int, e: android.os.Bundle?) = Unit
+            override fun onProviderEnabled(p: String) = Unit
+            override fun onProviderDisabled(p: String) = Unit
+        }
+        try {
+            locationFixPending = true
+            lm.requestLocationUpdates(provider, 0L, 0f, listener, mainLooper)
+        } catch (e: SecurityException) {
+            locationFixPending = false
+        }
     }
 
     private fun readLongitude(): Double? {
@@ -1861,9 +1936,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // reminder time, or how long an activity lasts.
                 it.chronoProvider = alarmTimeProvider
                 it.chronoSettable = true
-                // On for both: a time needs to say which half it is, and a
-                // length now says whether the thing ends in the light.
-                it.showDayNightToken = true
+                // On regardless of the setting while a time is being wound:
+                // this is the one moment the sky has to be on the face,
+                // because it is the feedback that says which seven you have
+                // landed on. A length gets it too — it says whether the
+                // thing ends in the light.
+                it.showMoonPhase = true
                 // A length is a length, whoever it belongs to. Only the
                 // reminder's used the countdown magnets before, so winding
                 // "how long does this last" on an alarm snapped to the grid
@@ -1876,11 +1954,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             } else {
                 it.chronoProvider = null
                 it.chronoSettable = false
-                // The clock keeps it as well. Wind the hands forward and the
-                // sun sets under your finger, which is both the proof the
-                // solar rule works and the only way to watch a whole day go
-                // past without waiting for one.
-                it.showDayNightToken = true
+                // Back to a clock telling the time, so the sky goes back to
+                // being the user's choice. Wind the hands forward with it on
+                // and the sun sets under your finger, which is both the
+                // proof the sunrise arithmetic works and the only way to
+                // watch a whole day go past without waiting for one.
+                it.showMoonPhase = prefs.getBoolean(Prefs.MOON_PHASE, false)
                 it.magnetProfile = ClockView.MagnetProfile.COUNTDOWN
             }
             it.chronoButtons = false

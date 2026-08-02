@@ -195,14 +195,16 @@ class AlarmCards(
             else holder.days.text = strip
 
             // Leading the row: whether this one goes off in the light or in
-            // the dark, tinted the same as its dot on the dial. An alarm
+            // the dark. White like the rest of the icon strip and like the
+            // sky on the dial — the shape says which, and a coloured glyph
+            // in a row of white ones only looked like a mistake. An alarm
             // that rings several times a day is judged by its first.
             val (fh, fm) = times[0]
             val dark = DayNight.isDarkAt(fh, fm)
             holder.iconDayNight.setImageResource(
                 if (dark) R.drawable.ic_moon else R.drawable.ic_sun
             )
-            holder.iconDayNight.setColorFilter(DayNight.markColor(dialTheme(), dark))
+            holder.iconDayNight.setColorFilter(0xFFFFFFFF.toInt())
             holder.iconDayNight.contentDescription = host.getString(
                 if (dark) R.string.a11y_night else R.string.a11y_day
             )
@@ -380,7 +382,7 @@ class AlarmCards(
             dialShape = this@AlarmCards.dialShape()
             numeralStyle = ClockView.NumeralStyle.NONE
             // Nothing else on a face this small says which seven it means.
-            showDayNightToken = true
+            showMoonPhase = true
             // A constant "duration" makes the dial a static clock.
             chronoProvider = { fixedMs }
         }

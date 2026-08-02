@@ -230,18 +230,6 @@ class ClockView @JvmOverloads constructor(
 
     /** Enabled alarms as dial angles, drawn as dots just outside the rim. */
     /**
-     * Draws a sun or a moon for the half of the day the dial is showing.
-     *
-     * On for the faces that stand for one fixed time — the little ones on
-     * the alarm cards and in the editor — and for the big dial while a time
-     * is being wound onto it, which is the moment you most need to know
-     * which seven you have landed on. Off for a clock that is simply telling
-     * the time, where the answer is out of the window.
-     */
-    var showDayNightToken = false
-        set(value) { field = value; invalidate() }
-
-    /**
      * Alarm dots, as an angle and which turn of the dial the time is on.
      * The angle alone cannot say: that is the whole problem these solve.
      */
@@ -257,6 +245,11 @@ class ClockView @JvmOverloads constructor(
     var eventArcs: List<DialArc> = emptyList()
         set(value) { field = value; invalidate() }
 
+    /**
+     * The sky complication: the sun while the sun is up where the app was
+     * last located, the moon and its phase otherwise. One glyph, one place,
+     * one setting — see [drawMoonPhase].
+     */
     var showMoonPhase = false
         set(value) { field = value; invalidate() }
 
@@ -375,10 +368,6 @@ class ClockView @JvmOverloads constructor(
     }
 
     private val alarmMarkerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-    private val tokenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
-        strokeCap = Paint.Cap.ROUND
-    }
     private val alarmMarkerPath = Path()
     private val moonDarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val moonLitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -2078,9 +2067,13 @@ class ClockView @JvmOverloads constructor(
             if (showDate) drawDate(canvas, cx, cy, r)
             if (eventArcs.isNotEmpty()) drawEventArcs(canvas, cx, cy, r)
             if (alarmMarkers.isNotEmpty()) drawAlarmMarkers(canvas, cx, cy, r)
-            if (showMoonPhase) drawMoonPhase(canvas, cx, cy, r)
-            if (showDayNightToken) drawDayNightToken(canvas, cx, cy, r)
         }
+        // The sky complication is the one that also belongs on a face
+        // standing for a fixed time — the little dials on the alarm cards
+        // and the big one while a time is being wound onto it. Those all
+        // run on a chrono provider, so it is drawn outside that guard;
+        // leaving it inside is why 14.1's token appeared on C0 only.
+        if (showMoonPhase) drawMoonPhase(canvas, cx, cy, r)
 
         val a = currentAngles()
 
@@ -2505,73 +2498,35 @@ class ClockView @JvmOverloads constructor(
     }
 
     /**
-     * A sun or a moon, low on the face, saying which turn of the dial the
-     * time shown belongs to.
+     * The sky complication: one glyph, low on the face, showing what is
+     * actually up there — the sun while the sun is up, the moon and its
+     * phase once it has set.
      *
-     * It reads the time the dial is actually displaying rather than being
-     * told: a fixed face shows its own hour, and the big dial being wound
-     * shows whatever the hands are on this instant. So the token flips as
-     * you carry the hour hand past twelve, which is the feedback that was
-     * missing — until now you wound a time and simply could not see whether
-     * you had asked for morning or evening.
-     */
-    private fun drawDayNightToken(canvas: Canvas, cx: Float, cy: Float, r: Float) {
-        // The time the dial is *showing*, wound offset included — that is
-        // what makes the sun set under your finger when you carry the hands
-        // forward, and the only way to watch a whole day pass on demand.
-        val chrono = chronoDisplayMs()
-        val shownMs = if (chrono != null) {
-            chrono
-        } else {
-            val nowShown = displayNowMs() + (visualOffsetSeconds * 1000.0).toLong()
-            cal.timeInMillis = nowShown
-            (cal.get(java.util.Calendar.HOUR_OF_DAY) * 3_600_000L +
-                cal.get(java.util.Calendar.MINUTE) * 60_000L)
-        }
-        val pm = DayNight.isDarkMs(shownMs)
-        val tokenR = r * 0.088f
-        val ty = cy + r * 0.46f
-        tokenPaint.color = DayNight.markColor(theme, pm)
-        if (!pm) {
-            // A sun: a disc with eight short rays.
-            canvas.drawCircle(cx, ty, tokenR * 0.56f, tokenPaint)
-            tokenPaint.strokeWidth = tokenR * 0.17f
-            tokenPaint.style = Paint.Style.STROKE
-            for (i in 0 until 8) {
-                val a = Math.toRadians(i * 45.0)
-                val sx = cx + sin(a).toFloat() * tokenR * 0.80f
-                val sy = ty - cos(a).toFloat() * tokenR * 0.80f
-                val ex = cx + sin(a).toFloat() * tokenR * 1.10f
-                val ey = ty - cos(a).toFloat() * tokenR * 1.10f
-                canvas.drawLine(sx, sy, ex, ey, tokenPaint)
-            }
-            tokenPaint.style = Paint.Style.FILL
-        } else {
-            // A crescent, cut the way the moon complication cuts its own:
-            // a full disc with a second one taken out of its side.
-            val saved = canvas.saveLayer(
-                cx - tokenR * 1.4f, ty - tokenR * 1.4f,
-                cx + tokenR * 1.4f, ty + tokenR * 1.4f, null
-            )
-            canvas.drawCircle(cx, ty, tokenR * 0.86f, tokenPaint)
-            tokenPaint.xfermode = android.graphics.PorterDuffXfermode(
-                android.graphics.PorterDuff.Mode.CLEAR
-            )
-            canvas.drawCircle(cx + tokenR * 0.42f, ty - tokenR * 0.22f, tokenR * 0.78f, tokenPaint)
-            tokenPaint.xfermode = null
-            canvas.restoreToCount(saved)
-        }
-    }
-
-    /**
-     * Moon phase complication: the classic two-shape construction — a dark
-     * disc, the lit half, and a terminator ellipse whose signed width follows
-     * cos(2π·phase), painted dark for crescents and lit for gibbous moons.
+     * There is only ever one of them, in one place, because they are two
+     * states of a single thing and not two features. Earlier this was drawn
+     * as a second token stacked over the moon, which was both wrong and
+     * ugly.
+     *
+     * The point of the sun half is the person working indoors with no
+     * window: the dial tells them the hour, and this tells them whether the
+     * hour is a light one. Which needs a real sunrise, so it needs a
+     * location. Without one the app does not guess — it shows the moon,
+     * whose phase is arithmetic that works anywhere on Earth.
+     *
+     * It reads the time the dial is *displaying* rather than the wall clock:
+     * a fixed little face shows its own hour, and the big dial being wound
+     * shows whatever the hands are on this instant. So the sun sets under
+     * your finger as you carry the hour hand forward, which is the only way
+     * to watch a whole day go past without waiting for one.
      */
     private fun drawMoonPhase(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         if (isMoonFallen()) return
         val mr = r * 0.07f
         val mcy = cy + apothemRadius() * 0.45f
+        if (DayNight.sunIsUpMs(shownTimeOfDayMs()) == true) {
+            drawSun(canvas, cx, mcy, mr, r)
+            return
+        }
         val synodicDays = 29.530588853
         // Julian date of a known new moon: 2000-01-06 18:14 UTC.
         val julianNow = TimeKeeper.nowMs() / 86_400_000.0 + 2_440_587.5
@@ -2595,6 +2550,45 @@ class ClockView @JvmOverloads constructor(
         }
         moonRimPaint.strokeWidth = r * 0.008f
         canvas.drawCircle(cx, mcy, mr, moonRimPaint)
+    }
+
+    /**
+     * The moon's daylight twin: same size, same spot, same two paints — the
+     * lit face and the thin rim it already wears. Drawing it in any other
+     * colour made the pair look like two unrelated ornaments; sharing the
+     * moon's own material is what makes them read as one complication that
+     * changes state.
+     */
+    private fun drawSun(canvas: Canvas, cx: Float, cy: Float, mr: Float, r: Float) {
+        canvas.drawCircle(cx, cy, mr * 0.62f, moonLitPaint)
+        // drawLine always frames, whatever the paint's style says, so the
+        // rays borrow the lit paint and only its width has to be set.
+        val width = moonLitPaint.strokeWidth
+        moonLitPaint.strokeWidth = mr * 0.20f
+        for (i in 0 until 8) {
+            val a = Math.toRadians(i * 45.0)
+            val sx = cx + sin(a).toFloat() * mr * 0.86f
+            val sy = cy - cos(a).toFloat() * mr * 0.86f
+            val ex = cx + sin(a).toFloat() * mr * 1.18f
+            val ey = cy - cos(a).toFloat() * mr * 1.18f
+            canvas.drawLine(sx, sy, ex, ey, moonLitPaint)
+        }
+        moonLitPaint.strokeWidth = width
+        moonRimPaint.strokeWidth = r * 0.008f
+        canvas.drawCircle(cx, cy, mr * 0.62f, moonRimPaint)
+    }
+
+    /**
+     * The time of day the dial is showing, wound offset and all: a fixed
+     * face reports its own hour, a running one reports now, and one being
+     * dragged reports where the hands actually are.
+     */
+    private fun shownTimeOfDayMs(): Long {
+        val chrono = chronoDisplayMs()
+        if (chrono != null) return chrono
+        cal.timeInMillis = displayNowMs() + (visualOffsetSeconds * 1000.0).toLong()
+        return cal.get(java.util.Calendar.HOUR_OF_DAY) * 3_600_000L +
+            cal.get(java.util.Calendar.MINUTE) * 60_000L
     }
 
     private fun dateText(): String {

@@ -164,4 +164,13 @@
         <item>ships</item>
         <item>single</item>
     </string-array>
+
+    <string-array name="mark_colors_entries">
+        <item>By the dial (green and blue)</item>
+        <item>By the sun (yellow and blue)</item>
+    </string-array>
+    <string-array name="mark_colors_values" translatable="false">
+        <item>clock</item>
+        <item>sun</item>
+    </string-array>
 </resources>

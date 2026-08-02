@@ -104,7 +104,7 @@
     <string name="alarm_sound_digital">Pitido digital</string>
     <string name="alarm_sound_baby">Bebé llorando</string>
     <string name="pref_moon_phase_title">Fase lunar</string>
-    <string name="pref_moon_phase_summary">Una complicación lunar en la esfera con la fase actual</string>
+    <string name="pref_moon_phase_summary">Un solo símbolo abajo en la esfera con lo que hay de verdad ahí fuera: el sol mientras el sol está alto donde estás, y si no la luna con su fase. Útil en interiores sin ventana. Necesita una medición de ubicación para el orto; sin ella se queda en la luna.</string>
     <string name="pref_alarm_markers_title">Alarmas en la esfera</string>
     <string name="pref_alarm_markers_summary">Las alarmas activas se dibujan como marcadores en su hora sobre la esfera</string>
     <string name="alarm_snooze">Posponer</string>
@@ -232,6 +232,22 @@
     <string name="a11y_left_sec">Quedan %1$d segundos</string>
     <string name="a11y_day">De día</string>
     <string name="a11y_night">De noche</string>
-    <string name="pref_solar_marks_title">Las marcas siguen al sol</string>
-    <string name="pref_solar_marks_summary">Desactivado, una marca es cálida en la primera vuelta de la esfera y fría en la segunda — la única regla que distingue las siete de la mañana de las siete de la tarde. Activado, pregunta si el sol estaba realmente alto, con una sola medición de ubicación y la ecuación del orto. Más veraz y estacional, pero en junio las dos sietes son de día.</string>
+
+    <string name="pref_mark_colors_title">Color de las marcas</string>
+
+    <string name="category_backup">Copia de seguridad</string>
+    <string name="pref_backup_export_title">Guardar una copia</string>
+    <string name="pref_backup_export_summary">Escribe alarmas, recordatorios y todos los ajustes en el archivo que elijas. Reinstalar la app se los lleva por delante.</string>
+    <string name="pref_backup_import_title">Restaurar una copia</string>
+    <string name="pref_backup_import_summary">Lee un archivo guardado aquí y lo sustituye todo por él.</string>
+    <string name="backup_saved">Copia guardada</string>
+    <string name="backup_failed">No se pudo escribir la copia</string>
+    <string name="backup_restored">Restaurado: %1$d alarmas, %2$d recordatorios</string>
+    <string name="backup_unreadable">Ese archivo no es una copia de Weird Clock</string>
+    <string name="backup_restart">Restaurado. Vuelve a abrir el reloj para verlo.</string>
+
+    <string name="pref_birthday_title">Cumpleaños</string>
+    <string name="pref_birthday_summary">Marcado en el calendario todos los años</string>
+    <string name="pref_birthday_none">Sin poner</string>
+    <string name="pref_birthday_clear">Quitar</string>
 </resources>

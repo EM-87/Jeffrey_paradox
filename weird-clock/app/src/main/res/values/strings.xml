@@ -153,7 +153,7 @@
     <string name="alarm_sound_digital">Digital beep</string>
     <string name="alarm_sound_baby">Crying baby</string>
     <string name="pref_moon_phase_title">Moon phase</string>
-    <string name="pref_moon_phase_summary">A moon complication on the dial showing the current phase</string>
+    <string name="pref_moon_phase_summary">One glyph low on the dial showing what is actually up: the sun while the sun is up where you are, otherwise the moon and its phase. Useful indoors with no window. Needs one location fix for the sunrise; without one it stays the moon.</string>
     <string name="pref_alarm_markers_title">Alarms on the dial</string>
     <string name="pref_alarm_markers_summary">Enabled alarms drawn as accent markers at their time on the clock face</string>
     <string name="alarm_snooze">Snooze</string>
@@ -235,6 +235,22 @@
     <string name="a11y_left_sec">%1$d seconds left</string>
     <string name="a11y_day">Daytime</string>
     <string name="a11y_night">Night-time</string>
-    <string name="pref_solar_marks_title">Marks follow the sun</string>
-    <string name="pref_solar_marks_summary">Off, a mark is warm on the dial’s first turn and cool on its second — the only rule that tells seven in the morning from seven at night. On, it asks whether the sun was actually up, worked out from one location fix and the sunrise equation. Truthful and seasonal, but in June both sevens are daylight.</string>
+
+    <string name="pref_mark_colors_title">Mark colours</string>
+
+    <string name="category_backup">Backup</string>
+    <string name="pref_backup_export_title">Save a backup</string>
+    <string name="pref_backup_export_summary">Writes alarms, reminders and every setting to a file you choose. Reinstalling the app wipes them otherwise.</string>
+    <string name="pref_backup_import_title">Restore a backup</string>
+    <string name="pref_backup_import_summary">Reads a file saved here and replaces everything with it.</string>
+    <string name="backup_saved">Backup saved</string>
+    <string name="backup_failed">Could not write the backup</string>
+    <string name="backup_restored">Restored: %1$d alarms, %2$d reminders</string>
+    <string name="backup_unreadable">That file is not a Weird Clock backup</string>
+    <string name="backup_restart">Restored. Reopen the clock to see it.</string>
+
+    <string name="pref_birthday_title">Birthday</string>
+    <string name="pref_birthday_summary">Marked on the calendar every year</string>
+    <string name="pref_birthday_none">Not set</string>
+    <string name="pref_birthday_clear">Clear</string>
 </resources>

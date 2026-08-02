@@ -13,13 +13,23 @@ data class ClockTheme(
     val decimal: Int,
     val centerDot: Int,
     /**
-     * The two marks: warm for the dial's first turn, cool for its second.
-     * Defaulted so every theme gets a sane pair, and overridden by the ones
-     * with a pale face, where a light amber would simply vanish. See
-     * [DayNight] for why the split is noon and not sunrise.
+     * Three mark colours, because there are two ways to read a mark and
+     * they must not be confused for one another.
+     *
+     * Reading by the dial's two turns, a mark is [amMark] green on the
+     * first and [pmMark] blue on the second. Reading by the sun, it is
+     * [sunMark] yellow while the sun is up and [pmMark] blue once it is
+     * down. Blue is deliberately shared: in both readings it means the
+     * far side, the dark one. Green versus yellow is what tells you which
+     * question the dial is answering — and it should be legible at a
+     * glance, without opening the settings to remember.
+     *
+     * Defaulted so every theme gets a sane set, and overridden by the ones
+     * with a pale face, where the light versions simply vanish.
      */
-    val amMark: Int = 0xFFFFB300.toInt(),
-    val pmMark: Int = 0xFF5C8DF6.toInt()
+    val amMark: Int = 0xFF43C463.toInt(),
+    val pmMark: Int = 0xFF5C8DF6.toInt(),
+    val sunMark: Int = 0xFFFFC93C.toInt()
 )
 
 object ClockThemes {
@@ -53,8 +63,9 @@ object ClockThemes {
         secondHand = 0xFFD32F2F.toInt(),
         decimal = 0xFF00796B.toInt(),
         centerDot = 0xFF10121A.toInt(),
-        amMark = 0xFFE08600.toInt(),
-        pmMark = 0xFF2E5FD0.toInt()
+        amMark = 0xFF1E8E4A.toInt(),
+        pmMark = 0xFF2E5FD0.toInt(),
+        sunMark = 0xFFD09000.toInt()
     )
 
     val IVORY = ClockTheme(
@@ -68,8 +79,9 @@ object ClockThemes {
         secondHand = 0xFFB03A2E.toInt(),
         decimal = 0xFF1F6FB2.toInt(),
         centerDot = 0xFF2A2318.toInt(),
-        amMark = 0xFFC97A00.toInt(),
-        pmMark = 0xFF2A5EA8.toInt()
+        amMark = 0xFF1B7D42.toInt(),
+        pmMark = 0xFF2A5EA8.toInt(),
+        sunMark = 0xFFC08400.toInt()
     )
 
     val NEON = ClockTheme(
@@ -128,7 +140,7 @@ object ClockThemes {
             minorTick = d(t.minorTick), numeral = d(t.numeral),
             hourHand = d(t.hourHand), minuteHand = d(t.minuteHand),
             secondHand = d(t.secondHand), decimal = d(t.decimal),
-            amMark = d(t.amMark), pmMark = d(t.pmMark),
+            amMark = d(t.amMark), pmMark = d(t.pmMark), sunMark = d(t.sunMark),
             centerDot = d(t.centerDot)
         )
     }

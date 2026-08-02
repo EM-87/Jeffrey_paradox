@@ -85,4 +85,9 @@
         <item>Nada flotando</item>
         <item>Reloj de arena flotante (el nuestro)</item>
     </string-array>
+
+    <string-array name="mark_colors_entries">
+        <item>Por la esfera (verde y azul)</item>
+        <item>Por el sol (amarillo y azul)</item>
+    </string-array>
 </resources>

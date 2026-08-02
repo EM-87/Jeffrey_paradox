@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.util.AttributeSet
@@ -47,6 +48,17 @@ class CalendarPageView @JvmOverloads constructor(
 
     /** Anything at all, which is what the past-day styling asks. */
     private val markedDays: Set<Int> get() = morningDays + eveningDays
+
+    /**
+     * The user's birthday as month * 100 + day, or 0.
+     *
+     * It is not a reminder: it does not ring, cannot be deleted by accident
+     * from the calendar, and comes back every year without anyone renewing
+     * it. It is one date the calendar simply knows, which is why it lives in
+     * a preference and gets a star of its own rather than another dot.
+     */
+    var birthday = 0
+        set(value) { field = value; invalidate() }
 
     /** How days already gone are shown, if at all. */
     enum class PastStyle { NONE, DIM, CROSS, RING }
@@ -135,6 +147,7 @@ class CalendarPageView @JvmOverloads constructor(
         style = Paint.Style.STROKE
     }
     private val moonDarkPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val starPath = Path()
     private val moonLitPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private val titleFormat = SimpleDateFormat("LLLL yyyy", Locale.getDefault())
@@ -587,6 +600,12 @@ class CalendarPageView @JvmOverloads constructor(
                 moonLitPaint.alpha = 220
             }
 
+            // The birthday star, in the corner the reminder dots do not use,
+            // so a birthday with a reminder on it shows both.
+            if (birthday != 0 && birthday == (shown.get(Calendar.MONTH) + 1) * 100 + day) {
+                drawStar(canvas, cx - cellW * 0.32f, cy - cellH * 0.26f, minOf(cellW, cellH) * 0.11f)
+            }
+
             drawMiniMoon(canvas, cx, cy + cellH * 0.34f, minOf(cellW, cellH) * 0.10f, scratch.timeInMillis)
         }
         canvas.restore()
@@ -731,6 +750,26 @@ class CalendarPageView @JvmOverloads constructor(
         set(value) { field = value; invalidate() }
 
     /** The same terminator-ellipse moon as the dial, in miniature. */
+    /** A five-pointed star, drawn by alternating outer and inner radius. */
+    private fun drawStar(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+        starPath.reset()
+        for (i in 0 until 10) {
+            val r = if (i % 2 == 0) radius else radius * 0.42f
+            val a = Math.toRadians(i * 36.0 - 90.0)
+            val x = cx + (Math.cos(a) * r).toFloat()
+            val y = cy + (Math.sin(a) * r).toFloat()
+            if (i == 0) starPath.moveTo(x, y) else starPath.lineTo(x, y)
+        }
+        starPath.close()
+        val color = moonLitPaint.color
+        val alpha = moonLitPaint.alpha
+        moonLitPaint.color = theme.numeral
+        moonLitPaint.alpha = 255
+        canvas.drawPath(starPath, moonLitPaint)
+        moonLitPaint.color = color
+        moonLitPaint.alpha = alpha
+    }
+
     private fun drawMiniMoon(canvas: Canvas, cx: Float, cy: Float, mr: Float, timeMs: Long) {
         val synodicDays = 29.530588853
         val julian = timeMs / 86_400_000.0 + 2_440_587.5

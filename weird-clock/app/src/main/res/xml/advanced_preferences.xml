@@ -42,11 +42,13 @@
             android:summary="@string/pref_alarm_markers_summary"
             android:title="@string/pref_alarm_markers_title" />
 
-        <SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:key="pref_solar_marks"
-            android:summary="@string/pref_solar_marks_summary"
-            android:title="@string/pref_solar_marks_title" />
+        <ListPreference
+            android:defaultValue="clock"
+            android:entries="@array/mark_colors_entries"
+            android:entryValues="@array/mark_colors_values"
+            android:key="pref_mark_colors"
+            android:title="@string/pref_mark_colors_title"
+            app:useSimpleSummaryProvider="true" />
 
     </PreferenceCategory>
 
@@ -73,6 +75,11 @@
             android:summary="@string/pref_past_days_summary"
             android:title="@string/pref_past_days_title"
             app:useSimpleSummaryProvider="true" />
+
+        <Preference
+            android:key="pref_birthday"
+            android:summary="@string/pref_birthday_summary"
+            android:title="@string/pref_birthday_title" />
 
     </PreferenceCategory>
 

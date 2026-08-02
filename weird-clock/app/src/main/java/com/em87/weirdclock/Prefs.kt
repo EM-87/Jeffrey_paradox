@@ -34,8 +34,18 @@ object Prefs {
     const val LAST_LONGITUDE = "pref_last_longitude"
     const val LAST_LATITUDE = "pref_last_latitude"
 
-    /** Marks follow the real sun rather than the dial's two turns. */
-    const val SOLAR_MARKS = "pref_solar_marks"
+    /**
+     * How alarm and event marks are coloured: [DayNight.MARKS_CLOCK] by the
+     * dial's two turns, [DayNight.MARKS_SUN] by the real sun. A new key,
+     * not the old boolean one — reading a stored boolean as a string throws.
+     */
+    const val MARK_COLORS = "pref_mark_colors"
+
+    /** Whether the location prompt has already been shown once. */
+    const val LOCATION_ASKED = "pref_location_asked"
+
+    /** The user's own birthday as month * 100 + day; 0 for none. */
+    const val BIRTHDAY = "pref_birthday"
     const val ALARM_RAMP = "pref_alarm_ramp"
     const val WORLD_CLOCK = "pref_world_clock"
     // Legacy single-city key, kept only for migration to WORLD_TZS.

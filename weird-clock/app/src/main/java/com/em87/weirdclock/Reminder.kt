@@ -141,6 +141,19 @@ object ReminderStore {
     fun all(context: Context): MutableList<Reminder> =
         shared ?: read(context).also { shared = it }
 
+    /**
+     * Throws the cached list away, so the next [all] reads the store again.
+     *
+     * Only a restore needs this: everything else changes the list in place
+     * and saves it, and re-reading would be the slow way of getting the
+     * same answer. A restore rewrites the file underneath the cache, and
+     * without this the app would keep serving the alarms it had before.
+     */
+    @Synchronized
+    fun forget() {
+        shared = null
+    }
+
     /** Writes down whatever the shared list now says. */
     @Synchronized
     fun save(context: Context) {

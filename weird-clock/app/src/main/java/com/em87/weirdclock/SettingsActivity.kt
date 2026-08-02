@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.ListPreference
@@ -47,6 +48,69 @@ class SettingsActivity : AppCompatActivity() {
 
         /** Taps so far on the version row. Seven opens the hidden metronome. */
         private var versionTaps = 0
+
+        /**
+         * The backup file, written and read wherever the user keeps files.
+         *
+         * Through the document picker rather than to a folder of our own:
+         * it needs no permission, works on every version the app supports,
+         * and — the point of the whole exercise — lands somewhere that
+         * survives the app being uninstalled.
+         */
+        private val exportLauncher = registerForActivityResult(
+            ActivityResultContracts.CreateDocument("application/json")
+        ) { uri -> if (uri != null) writeBackup(uri) }
+
+        private val importLauncher = registerForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri -> if (uri != null) readBackup(uri) }
+
+        private fun writeBackup(uri: Uri) {
+            val ok = try {
+                requireContext().contentResolver.openOutputStream(uri)?.use {
+                    it.write(Backup.export(requireContext()).toByteArray())
+                } != null
+            } catch (e: java.io.IOException) {
+                false
+            } catch (e: SecurityException) {
+                false
+            }
+            Toast.makeText(
+                requireContext(),
+                if (ok) R.string.backup_saved else R.string.backup_failed,
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        private fun readBackup(uri: Uri) {
+            val text = try {
+                requireContext().contentResolver.openInputStream(uri)
+                    ?.use { it.readBytes().toString(Charsets.UTF_8) }
+            } catch (e: java.io.IOException) {
+                null
+            } catch (e: SecurityException) {
+                null
+            }
+            val restored = text?.let { Backup.import(requireContext(), it) }
+            if (restored == null) {
+                Toast.makeText(requireContext(), R.string.backup_unreadable, Toast.LENGTH_LONG)
+                    .show()
+                return
+            }
+            // Every alarm in the restored file needs its place in the
+            // system's alarm queue back; the queue is not ours and knew
+            // nothing about the restore.
+            AlarmScheduler.update(requireContext())
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.backup_restored, restored.alarms, restored.reminders),
+                Toast.LENGTH_LONG
+            ).show()
+            // The settings screen is now showing values that no longer
+            // exist, and so is the clock behind it. Start again from the
+            // restored file rather than write the stale ones back over it.
+            requireActivity().finishAffinity()
+        }
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
@@ -96,6 +160,18 @@ class SettingsActivity : AppCompatActivity() {
                 }
                 "pref_world_cities" -> {
                     showCitiesDialog()
+                    return true
+                }
+                "pref_backup_export" -> {
+                    exportLauncher.launch("weird-clock-backup.json")
+                    return true
+                }
+                "pref_backup_import" -> {
+                    // Anything, not just application/json: file managers and
+                    // cloud providers hand these back as octet-stream or
+                    // text/plain often enough that filtering hides the very
+                    // file the user is looking for.
+                    importLauncher.launch(arrayOf("*/*"))
                     return true
                 }
                 "pref_version" -> {
@@ -260,9 +336,67 @@ class SettingsActivity : AppCompatActivity() {
                     }
                     true
                 }
+            updateBirthdaySummary()
+        }
+
+        /**
+         * The birthday row reads back the date it holds, because a settings
+         * row that says only "Birthday" gives no way to check what the app
+         * thinks yours is.
+         */
+        private fun updateBirthdaySummary() {
+            val pref = findPreference<Preference>(Prefs.BIRTHDAY) ?: return
+            val stored = preferenceManager.sharedPreferences?.getInt(Prefs.BIRTHDAY, 0) ?: 0
+            pref.summary = if (stored == 0) {
+                getString(R.string.pref_birthday_summary)
+            } else {
+                val cal = java.util.Calendar.getInstance().apply {
+                    set(java.util.Calendar.MONTH, stored / 100 - 1)
+                    set(java.util.Calendar.DAY_OF_MONTH, stored % 100)
+                }
+                java.text.SimpleDateFormat("d MMMM", java.util.Locale.getDefault())
+                    .format(cal.time)
+            }
+        }
+
+        /**
+         * Month and day only: a birthday repeats, so the year it first
+         * happened is not what the calendar needs — and asking for it makes
+         * the field feel like an identity form rather than a date to mark.
+         */
+        private fun showBirthdayDialog() {
+            val stored = preferenceManager.sharedPreferences?.getInt(Prefs.BIRTHDAY, 0) ?: 0
+            val cal = java.util.Calendar.getInstance()
+            if (stored != 0) {
+                cal.set(java.util.Calendar.MONTH, stored / 100 - 1)
+                cal.set(java.util.Calendar.DAY_OF_MONTH, stored % 100)
+            }
+            // A leap year, so 29 February can be picked at all.
+            val picker = android.app.DatePickerDialog(
+                requireContext(),
+                { _, _, month, day ->
+                    preferenceManager.sharedPreferences?.edit()
+                        ?.putInt(Prefs.BIRTHDAY, (month + 1) * 100 + day)?.apply()
+                    updateBirthdaySummary()
+                },
+                2024, cal.get(java.util.Calendar.MONTH),
+                cal.get(java.util.Calendar.DAY_OF_MONTH)
+            )
+            picker.setButton(
+                android.app.DatePickerDialog.BUTTON_NEUTRAL,
+                getString(R.string.pref_birthday_clear)
+            ) { _, _ ->
+                preferenceManager.sharedPreferences?.edit()?.remove(Prefs.BIRTHDAY)?.apply()
+                updateBirthdaySummary()
+            }
+            picker.show()
         }
 
         override fun onPreferenceTreeClick(preference: Preference): Boolean {
+            if (preference.key == Prefs.BIRTHDAY) {
+                showBirthdayDialog()
+                return true
+            }
             if (preference.key == "pref_very_advanced") {
                 parentFragmentManager.beginTransaction()
                     .replace(R.id.settings_container, VeryAdvancedSettingsFragment())

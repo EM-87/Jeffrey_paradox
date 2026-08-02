@@ -82,6 +82,20 @@
         android:key="pref_world_cities"
         android:title="@string/pref_world_cities_title" />
 
+    <PreferenceCategory android:title="@string/category_backup">
+
+        <Preference
+            android:key="pref_backup_export"
+            android:summary="@string/pref_backup_export_summary"
+            android:title="@string/pref_backup_export_title" />
+
+        <Preference
+            android:key="pref_backup_import"
+            android:summary="@string/pref_backup_import_summary"
+            android:title="@string/pref_backup_import_title" />
+
+    </PreferenceCategory>
+
     <Preference
         android:key="pref_advanced"
         android:summary="@string/pref_advanced_summary"
