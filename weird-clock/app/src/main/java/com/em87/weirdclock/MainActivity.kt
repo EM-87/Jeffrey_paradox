@@ -1380,16 +1380,27 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // the one thing its position on a twelve-hour face cannot say.
             val alarmDots = alarms
                 .filter { it.enabled && it.durationMinutes <= 0 }
-                .flatMap { alarm -> alarm.allTimes() }
-                .map { (h, m) -> DialMark((h + m / 60f) % n / n * 360f, DayNight.isDarkAt(h, m)) }
+                .flatMap { alarm -> alarm.allTimes().map { alarm to it } }
+                .map { (alarm, time) ->
+                    val (h, m) = time
+                    DialMark(
+                        (h + m / 60f) % n / n * 360f,
+                        DayNight.isDarkAt(h, m),
+                        fromCalendar = false,
+                        label = alarm.label.ifBlank { getString(R.string.alarm_untitled) }
+                    )
+                }
             // Instant reminders join the alarm dots; ones with a duration
-            // become wedges instead.
+            // become wedges instead. They carry the ring that says "today
+            // only", which is the whole difference between them.
             val reminderDots = todaysReminders()
                 .filter { it.durationMinutes <= 0 }
                 .map {
                     DialMark(
                         (it.hour + it.minute / 60f) % n / n * 360f,
-                        DayNight.isDarkAt(it.hour, it.minute)
+                        DayNight.isDarkAt(it.hour, it.minute),
+                        fromCalendar = true,
+                        label = it.label.ifBlank { getString(R.string.reminder_untitled) }
                     )
                 }
             alarmDots + reminderDots
@@ -1407,7 +1418,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                         DialArc(
                             (h + m / 60f) % n / n * 360f,
                             alarm.durationMinutes / 60f / n * 360f,
-                            DayNight.isDarkAt(h, m)
+                            DayNight.isDarkAt(h, m),
+                            fromCalendar = false,
+                            label = alarm.label.ifBlank { getString(R.string.alarm_untitled) },
+                            startMinute = h * 60 + m,
+                            endMinute = h * 60 + m + alarm.durationMinutes
                         )
                     }
                 }
@@ -1417,7 +1432,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     DialArc(
                         (reminder.hour + reminder.minute / 60f) % n / n * 360f,
                         reminder.durationMinutes / 60f / n * 360f,
-                        DayNight.isDarkAt(reminder.hour, reminder.minute)
+                        DayNight.isDarkAt(reminder.hour, reminder.minute),
+                        fromCalendar = true,
+                        label = reminder.label.ifBlank { getString(R.string.reminder_untitled) },
+                        startMinute = reminder.hour * 60 + reminder.minute,
+                        endMinute = reminder.hour * 60 + reminder.minute + reminder.durationMinutes
                     )
                 }
             alarmArcs + reminderArcs

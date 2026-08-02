@@ -179,6 +179,9 @@ object WidgetRenderer {
                 color = theme.decimal
                 alpha = 230
             }
+            val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+            }
             // The widget draws from its own entry point, so it configures
             // the day/night rule for itself rather than inheriting one.
             DayNight.configure(context)
@@ -217,6 +220,12 @@ object WidgetRenderer {
                 }
                 path.close()
                 canvas.drawPath(path, markerPaint)
+                // Everything on this loop came off the calendar, so every
+                // one of them wears the ring that says "today only" — the
+                // widget's dial and the app's have to say the same thing.
+                ringPaint.color = ClockThemes.contrastInk(theme.face)
+                ringPaint.strokeWidth = r * 0.008f
+                canvas.drawPath(path, ringPaint)
             }
             // Every time an alarm rings at, not just the first, and none for
             // the ones drawn as wedges — which is what the app's own dial
@@ -233,18 +242,23 @@ object WidgetRenderer {
                 } + reminders.filter { it.durationMinutes <= 0 }.map {
                 DialMark(
                     (it.hour + it.minute / 60f) % hoursOnDial / hoursOnDial * 360f,
-                    DayNight.isDarkAt(it.hour, it.minute)
+                    DayNight.isDarkAt(it.hour, it.minute),
+                    fromCalendar = true
                 )
             }
-            for ((deg, dotPm) in dots) {
+            for ((deg, dotPm, dotFromCalendar) in dots) {
                 markerPaint.color = DayNight.markColor(theme, dotPm)
                 markerPaint.alpha = 230
                 val a = Math.toRadians(deg.toDouble())
                 val b = boundary(deg) * 1.02f
-                canvas.drawCircle(
-                    c + sin(a).toFloat() * b, c - cos(a).toFloat() * b,
-                    r * 0.022f, markerPaint
-                )
+                val dx = c + sin(a).toFloat() * b
+                val dy = c - cos(a).toFloat() * b
+                canvas.drawCircle(dx, dy, r * 0.022f, markerPaint)
+                if (dotFromCalendar) {
+                    ringPaint.color = ClockThemes.contrastInk(theme.face)
+                    ringPaint.strokeWidth = r * 0.009f
+                    canvas.drawCircle(dx, dy, r * 0.028f, ringPaint)
+                }
             }
         }
 

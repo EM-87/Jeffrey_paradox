@@ -77,6 +77,76 @@ object DayNight {
         sunIsUp((wrapDay(millisOfDay) / 60_000L).toInt(), whenMs)
 
     /**
+     * What the sky is doing, finely enough to draw it.
+     *
+     * The binary answer is right for a coloured dot and wrong for a picture:
+     * at 20:44 the dial would show a sun and at 20:45 a moon, which is a
+     * flicker, not a sunset. Between the sun touching the horizon and civil
+     * twilight there is a real half-hour of half-light, and that is what
+     * [Twilight] covers — with how far the sun has sunk through it, so the
+     * glyph can go down with it instead of jumping.
+     */
+    sealed interface Sky {
+        /** The sun is up. */
+        object Day : Sky
+
+        /** The sun is down; the moon and its phase have the dial. */
+        object Night : Sky
+
+        /**
+         * The sun is crossing the horizon: [sunk] runs 0 at the moment its
+         * centre touches the edge to 1 at the end of civil twilight. Rising
+         * runs the same numbers backwards, so one drawing serves both.
+         */
+        data class Twilight(val sunk: Float) : Sky
+    }
+
+    /** Null when there has never been a location fix: see [sunIsUp]. */
+    fun sky(minutesOfDay: Int, whenMs: Long = System.currentTimeMillis()): Sky? {
+        if (!located) return null
+        val horizon = SolarTime.sunriseSunset(latitude, longitude, whenMs)
+            // A pole in season has no sunrise to be near, so there is no
+            // twilight to draw either: the day is all one thing.
+            ?: return if (SolarTime.isDaylight(latitude, longitude, whenMs, minutesOfDay)) {
+                Sky.Day
+            } else {
+                Sky.Night
+            }
+        val (rise, set) = horizon
+        // Civil twilight fails first at high latitudes — there are weeks
+        // where the sun dips below the horizon but never six degrees below.
+        // Half an hour is the honest stand-in: it is what twilight lasts at
+        // middle latitudes, and it keeps the glyph moving rather than
+        // snapping.
+        val civil = SolarTime.sunriseSunset(latitude, longitude, whenMs, SolarTime.ZENITH_CIVIL)
+        val dawn = civil?.first ?: (rise - 30)
+        val dusk = civil?.second ?: (set + 30)
+
+        progressIn(minutesOfDay, dawn, rise)?.let { return Sky.Twilight(1f - it) }
+        progressIn(minutesOfDay, set, dusk)?.let { return Sky.Twilight(it) }
+        return if (SolarTime.isDaylight(latitude, longitude, whenMs, minutesOfDay)) {
+            Sky.Day
+        } else {
+            Sky.Night
+        }
+    }
+
+    fun skyMs(millisOfDay: Long, whenMs: Long = System.currentTimeMillis()): Sky? =
+        sky((wrapDay(millisOfDay) / 60_000L).toInt(), whenMs)
+
+    /**
+     * Where [minute] falls between [from] and [to], as 0..1, or null if it
+     * is outside. Both ends are minutes past local midnight and the window
+     * may cross midnight, which is why this is not a subtraction.
+     */
+    private fun progressIn(minute: Int, from: Int, to: Int): Float? {
+        val span = ((to - from) % 1440 + 1440) % 1440
+        if (span == 0) return null
+        val into = ((minute - from) % 1440 + 1440) % 1440
+        return if (into < span) into.toFloat() / span else null
+    }
+
+    /**
      * The one question every mark asks: near side or far, warm or blue?
      *
      * In the default reading it is the turn of the dial — the only rule that
@@ -130,7 +200,35 @@ object DayNight {
  * to tell seven in the morning from seven at night, which is the one thing
  * the dot is there to say.
  */
-data class DialMark(val angle: Float, val pm: Boolean)
+data class DialMark(
+    val angle: Float,
+    val pm: Boolean,
+    /**
+     * True for anything that came off the calendar, and so happens once on
+     * this date rather than every day. Drawn with a ring round it: the fill
+     * still says morning or evening, and the ring says "today only", so one
+     * glance separates a dentist's appointment from the alarm that goes off
+     * every morning without having to remember which dot was which.
+     */
+    val fromCalendar: Boolean = false,
+    /** What it is called, for the bubble a tap on it opens. */
+    val label: String = ""
+)
 
 /** One event wedge: where it starts, how far it runs, and on which side. */
-data class DialArc(val start: Float, val sweep: Float, val pm: Boolean)
+data class DialArc(
+    val start: Float,
+    val sweep: Float,
+    val pm: Boolean,
+    val fromCalendar: Boolean = false,
+    val label: String = "",
+    /**
+     * When the event begins and ends, as minutes past midnight, so the
+     * wedge can fade itself out as the minute hand crosses it. Given here
+     * rather than as a precomputed fraction because the dial redraws sixty
+     * times a second and nothing else does — anything precomputed would be
+     * stale between refreshes.
+     */
+    val startMinute: Int = -1,
+    val endMinute: Int = -1
+)

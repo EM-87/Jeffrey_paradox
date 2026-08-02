@@ -152,4 +152,86 @@ class SkyTokenTest {
         assertFalse(DayNight.isDarkAt(9, 0))
         assertTrue(DayNight.isDarkAt(21, 0))
     }
+
+    // ------------------------------------------------ the twilight glyph
+
+    private fun located() {
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+            .putFloat(Prefs.LAST_LATITUDE, 40.4f)
+            .putFloat(Prefs.LAST_LONGITUDE, -3.7f)
+            .commit()
+        DayNight.configure(context)
+    }
+
+    private fun equinox(): Long = java.util.Calendar.getInstance().apply {
+        clear(); set(2026, java.util.Calendar.MARCH, 20)
+    }.timeInMillis
+
+    /**
+     * The step this was written to remove: at one minute a sun and at the
+     * next a moon. Somewhere between full day and full night there has to
+     * be a run of minutes that is neither.
+     */
+    @Test
+    fun `there is a real twilight between the sun and the moon`() {
+        located()
+        val day = equinox()
+        val twilit = (0 until 1440).filter { DayNight.sky(it, day) is DayNight.Sky.Twilight }
+        assertTrue("found ${twilit.size} twilit minutes", twilit.size >= 40)
+        // Two runs of them, morning and evening, not one smear.
+        val runs = twilit.zipWithNext().count { (a, b) -> b - a > 1 } + 1
+        assertEquals(2, runs)
+    }
+
+    /** Noon is day and the small hours are night, whatever else changes. */
+    @Test
+    fun `noon and the small hours are never twilight`() {
+        located()
+        val day = equinox()
+        assertEquals(DayNight.Sky.Day, DayNight.sky(12 * 60, day))
+        assertEquals(DayNight.Sky.Night, DayNight.sky(3 * 60, day))
+    }
+
+    /**
+     * The sun has to go *down* through the evening, not wander. This is the
+     * whole point of the glyph: it moves the way the thing it draws moves.
+     */
+    @Test
+    fun `the sun sinks monotonically through the evening twilight`() {
+        located()
+        val day = equinox()
+        val evening = (12 * 60 until 1440)
+            .mapNotNull { DayNight.sky(it, day) as? DayNight.Sky.Twilight }
+            .map { it.sunk }
+        assertTrue(evening.isNotEmpty())
+        for ((a, b) in evening.zipWithNext()) {
+            assertTrue("$a then $b", b >= a)
+        }
+        assertTrue("starts at the horizon", evening.first() < 0.1f)
+        assertTrue("ends fully down", evening.last() > 0.9f)
+    }
+
+    /** And rises through the morning, which is the same picture backwards. */
+    @Test
+    fun `and rises through the morning twilight`() {
+        located()
+        val day = equinox()
+        val morning = (0 until 12 * 60)
+            .mapNotNull { DayNight.sky(it, day) as? DayNight.Sky.Twilight }
+            .map { it.sunk }
+        assertTrue(morning.isNotEmpty())
+        for ((a, b) in morning.zipWithNext()) {
+            assertTrue("$a then $b", b <= a)
+        }
+        assertTrue(morning.first() > 0.9f)
+        assertTrue(morning.last() < 0.1f)
+    }
+
+    /** No fix, no twilight either — the moon holds the dial all day. */
+    @Test
+    fun `without a fix there is no sky at all to report`() {
+        for (minute in 0 until 1440 step 15) {
+            assertNull(DayNight.sky(minute))
+        }
+    }
 }

@@ -29,10 +29,24 @@ object SolarTime {
      * degree of disc, and a third of a degree of atmospheric refraction
      * lifting the image of it over the edge.
      */
+    /**
+     * The sun's centre 0.833° below the horizon: the moment of rising.
+     * Half a degree of disc, and a third of a degree of refraction lifting
+     * the image of it over the edge.
+     */
+    const val ZENITH_HORIZON = 90.833
+
+    /**
+     * Civil twilight, six degrees down. The end of usable daylight, and the
+     * far edge of the period the dial draws the sun sinking through.
+     */
+    const val ZENITH_CIVIL = 96.0
+
     fun sunriseSunset(
         latitudeDeg: Double,
         longitudeDeg: Double,
-        nowMs: Long
+        nowMs: Long,
+        zenithDeg: Double = ZENITH_HORIZON
     ): Pair<Int, Int>? {
         val zone = TimeZone.getDefault()
         val cal = Calendar.getInstance(zone).apply { timeInMillis = nowMs }
@@ -44,7 +58,7 @@ object SolarTime {
         val eotMinutes = 9.87 * sin(2.0 * b) - 7.53 * cos(b) - 1.5 * sin(b)
 
         val lat = Math.toRadians(latitudeDeg)
-        val zenith = Math.toRadians(90.833)
+        val zenith = Math.toRadians(zenithDeg)
         val cosH = (cos(zenith) - sin(lat) * sin(declination)) /
             (cos(lat) * cos(declination))
         // Out of range means the sun never crosses the horizon today: the

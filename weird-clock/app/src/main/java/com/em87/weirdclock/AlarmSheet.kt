@@ -120,7 +120,9 @@ class AlarmSheet(
             val size = minOf(76 * density, room / count).toInt()
             for (index in 0 until draft.timeCount()) {
                 val (h, m) = draft.timeAt(index)
-                val dial = cards.miniDial(h, m)
+                // The editor's dials keep the sky: there is no icon row here
+                // to say whether this time is a morning or an evening one.
+                val dial = cards.miniDial(h, m, sky = true)
                 dial.setOnClickListener {
                     // The alarm has to exist for the dial to write a time
                     // into it — but if it was born just now and the dial is

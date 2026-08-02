@@ -368,6 +368,13 @@ class ClockView @JvmOverloads constructor(
     }
 
     private val alarmMarkerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val markRingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+    }
+    private val bubblePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val bubbleTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+    }
     private val alarmMarkerPath = Path()
     private val moonDarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val moonLitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -753,8 +760,14 @@ class ClockView @JvmOverloads constructor(
                     invalidate()
                     return true
                 }
-                val grabbedBody = grabFallenBodyNear(event.x, event.y)
-                if (!grabbedBody && touchHandsEnabled) {
+                // A mark under the finger takes the touch before the hands
+                // do. Its dot is small and deliberate to hit, while a hand
+                // can be grabbed anywhere along its length — so the one
+                // gesture that has an alternative gives way.
+                markUnderFinger = markLabelAt(event.x, event.y)
+                val grabbedBody = markUnderFinger == null &&
+                    grabFallenBodyNear(event.x, event.y)
+                if (markUnderFinger == null && !grabbedBody && touchHandsEnabled) {
                     grabHandNear(event.x, event.y)
                 }
                 tapCandidate = !grabbedBody && draggedHand == null
@@ -807,6 +820,16 @@ class ClockView @JvmOverloads constructor(
                     pressedPusher = 0
                     invalidate()
                 }
+                // A tap on a mark names it. Only a tap: a finger that
+                // wandered was on its way somewhere else.
+                markUnderFinger?.let { label ->
+                    if (event.actionMasked == MotionEvent.ACTION_UP &&
+                        hypot(event.x - tapDownX, event.y - tapDownY) < 24f
+                    ) {
+                        showMarkBubble(label, event.x, event.y)
+                    }
+                    markUnderFinger = null
+                }
                 // A quiet tap on the lap ladder unfolds the full list. A
                 // tap, not the tail end of a swipe: the finger must not
                 // have wandered.
@@ -826,6 +849,118 @@ class ClockView @JvmOverloads constructor(
             }
         }
         return true
+    }
+
+    // ------------------------------------------------ naming a mark
+
+    /** The label of the mark the current touch went down on, if any. */
+    private var markUnderFinger: String? = null
+
+    private var bubbleText: String? = null
+    private var bubbleX = 0f
+    private var bubbleY = 0f
+    private var bubbleSince = 0L
+
+    /**
+     * Which mark is under (x, y), by name.
+     *
+     * The dots and wedges are the only thing on the dial that knows what it
+     * is for, and until now they could not say: three dots on a face and no
+     * way to ask which was the dentist. A dot is matched by distance, a
+     * wedge by angle and radius, which is exactly how each is drawn.
+     */
+    private fun markLabelAt(x: Float, y: Float): String? {
+        if (chronoProvider != null) return null
+        val cx = width / 2f
+        val cy = height / 2f
+        val r = dialRadius()
+        // Dots first: they sit outside the rim, where nothing else lives,
+        // and they are the smaller target of the two.
+        var best: String? = null
+        var bestDist = r * 0.075f
+        for (mark in alarmMarkers) {
+            if (mark.label.isEmpty()) continue
+            val at = markCenter(cx, cy, mark.angle)
+            val d = hypot(x - at.x, y - at.y)
+            if (d < bestDist) {
+                bestDist = d
+                best = mark.label
+            }
+        }
+        if (best != null) return best
+
+        val dist = hypot(x - cx, y - cy)
+        val angle = touchAngleDeg(x, y)
+        for (arc in eventArcs) {
+            if (arc.label.isEmpty()) continue
+            if (arcRemaining(arc) <= 0f) continue
+            val b = boundaryRadius(angle)
+            if (dist < b * 0.86f || dist > b * 0.99f) continue
+            val into = ((angle - arc.start) % 360f + 360f) % 360f
+            if (into <= kotlin.math.abs(arc.sweep)) return arc.label
+        }
+        return null
+    }
+
+    private fun showMarkBubble(label: String, x: Float, y: Float) {
+        bubbleText = label
+        bubbleX = x
+        bubbleY = y
+        bubbleSince = android.os.SystemClock.uptimeMillis()
+        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        invalidate()
+    }
+
+    /**
+     * The name of the mark just tapped, in a little bubble above it.
+     *
+     * Hand-clocked and faded out by this view rather than shown as a Toast:
+     * a Toast lands at the bottom of the screen, far from the dot that
+     * caused it, and says nothing about which of three dots was asked.
+     */
+    private fun drawMarkBubble(canvas: Canvas, r: Float) {
+        val text = bubbleText ?: return
+        val age = android.os.SystemClock.uptimeMillis() - bubbleSince
+        val life = 2200L
+        val fade = 400L
+        if (age > life) {
+            bubbleText = null
+            return
+        }
+        val alpha = if (age > life - fade) {
+            ((life - age).toFloat() / fade).coerceIn(0f, 1f)
+        } else {
+            1f
+        }
+        bubbleTextPaint.textSize = r * 0.085f
+        val padX = r * 0.05f
+        val padY = r * 0.035f
+        val w = bubbleTextPaint.measureText(text) + padX * 2
+        val h = (bubbleTextPaint.descent() - bubbleTextPaint.ascent()) + padY * 2
+        // Kept inside the view, and above the finger so it is not covered
+        // by the hand that asked for it.
+        val left = (bubbleX - w / 2).coerceIn(r * 0.04f, width - w - r * 0.04f)
+        val top = (bubbleY - h - r * 0.09f).coerceAtLeast(r * 0.04f)
+        val rect = RectF(left, top, left + w, top + h)
+        bubblePaint.color = theme.face
+        bubblePaint.alpha = (238 * alpha).toInt()
+        canvas.drawRoundRect(rect, h * 0.38f, h * 0.38f, bubblePaint)
+        bubblePaint.color = theme.rim
+        bubblePaint.alpha = (255 * alpha).toInt()
+        bubblePaint.style = Paint.Style.STROKE
+        bubblePaint.strokeWidth = r * 0.006f
+        canvas.drawRoundRect(rect, h * 0.38f, h * 0.38f, bubblePaint)
+        bubblePaint.style = Paint.Style.FILL
+        bubbleTextPaint.color = theme.numeral
+        bubbleTextPaint.alpha = (255 * alpha).toInt()
+        canvas.drawText(
+            text, rect.centerX(),
+            rect.centerY() - (bubbleTextPaint.ascent() + bubbleTextPaint.descent()) / 2f,
+            bubbleTextPaint
+        )
+        // Its own clock, so it fades whether or not anything else on the
+        // dial happens to be animating.
+        invalidate()
     }
 
     /**
@@ -2065,8 +2200,9 @@ class ClockView @JvmOverloads constructor(
         }
         if (chronoProvider == null) {
             if (showDate) drawDate(canvas, cx, cy, r)
-            if (eventArcs.isNotEmpty()) drawEventArcs(canvas, cx, cy, r)
-            if (alarmMarkers.isNotEmpty()) drawAlarmMarkers(canvas, cx, cy, r)
+            if (eventArcs.isNotEmpty() || alarmMarkers.isNotEmpty()) {
+                drawMarksLayer(canvas, cx, cy, r)
+            }
         }
         // The sky complication is the one that also belongs on a face
         // standing for a fixed time — the little dials on the alarm cards
@@ -2250,6 +2386,9 @@ class ClockView @JvmOverloads constructor(
             canvas.restore()
             digitalPaint.color = keepColor
         }
+
+        // Last of all, over everything, including the lap scrim.
+        drawMarkBubble(canvas, r)
     }
 
     /** How far the unfolded lap list can scroll past the bottom edge. */
@@ -2466,35 +2605,114 @@ class ClockView @JvmOverloads constructor(
      */
     private fun drawAlarmMarkers(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         for (mark in alarmMarkers) {
-            val at = pointAt(cx, cy, mark.angle, boundaryRadius(mark.angle) * 1.055f)
+            val at = markCenter(cx, cy, mark.angle)
             alarmMarkerPaint.color = DayNight.markColor(theme, mark.pm)
             alarmMarkerPaint.alpha = 230
             canvas.drawCircle(at.x, at.y, r * 0.022f, alarmMarkerPaint)
         }
     }
 
+    /** The dots' outlines, in a second pass so the blending never eats them. */
+    private fun drawAlarmMarkerRings(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        for (mark in alarmMarkers) {
+            if (!mark.fromCalendar) continue
+            val at = markCenter(cx, cy, mark.angle)
+            markRingPaint.color = ClockThemes.contrastInk(theme.face)
+            markRingPaint.strokeWidth = r * 0.009f
+            canvas.drawCircle(at.x, at.y, r * 0.028f, markRingPaint)
+        }
+    }
+
+    private fun markCenter(cx: Float, cy: Float, angle: Float) =
+        pointAt(cx, cy, angle, boundaryRadius(angle) * 1.055f)
+
+
+    /**
+     * How much of a wedge is still ahead of the minute hand, 1 down to 0.
+     *
+     * An event that has run its course leaves the dial rather than sitting
+     * there looking pending — and it goes out gradually, as the hand crosses
+     * it, so the fading itself reads as "this is happening now".
+     */
+    private fun arcRemaining(arc: DialArc): Float {
+        if (arc.startMinute < 0 || arc.endMinute <= arc.startMinute) return 1f
+        cal.timeInMillis = displayNowMs()
+        val now = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
+            cal.get(java.util.Calendar.MINUTE) + cal.get(java.util.Calendar.SECOND) / 60f
+        return when {
+            now <= arc.startMinute -> 1f
+            now >= arc.endMinute -> 0f
+            else -> 1f - (now - arc.startMinute) / (arc.endMinute - arc.startMinute)
+        }
+    }
+
+    private fun buildArcPath(arc: DialArc, cx: Float, cy: Float) {
+        val steps = max(2, (kotlin.math.abs(arc.sweep) / 3f).toInt())
+        alarmMarkerPath.reset()
+        // Inner edge outward, then back along the outer edge.
+        for (i in 0..steps) {
+            val a = arc.start + arc.sweep * i / steps
+            val p = pointAt(cx, cy, a, boundaryRadius(a) * 0.885f)
+            if (i == 0) alarmMarkerPath.moveTo(p.x, p.y) else alarmMarkerPath.lineTo(p.x, p.y)
+        }
+        for (i in steps downTo 0) {
+            val a = arc.start + arc.sweep * i / steps
+            val p = pointAt(cx, cy, a, boundaryRadius(a) * 0.965f)
+            alarmMarkerPath.lineTo(p.x, p.y)
+        }
+        alarmMarkerPath.close()
+    }
+
     private fun drawEventArcs(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         for (arc in eventArcs) {
-            val start = arc.start
-            val sweep = arc.sweep
+            val left = arcRemaining(arc)
+            if (left <= 0f) continue
             alarmMarkerPaint.color = DayNight.markColor(theme, arc.pm)
-            alarmMarkerPaint.alpha = 230
-            val steps = max(2, (kotlin.math.abs(sweep) / 3f).toInt())
-            alarmMarkerPath.reset()
-            // Inner edge outward, then back along the outer edge.
-            for (i in 0..steps) {
-                val a = start + sweep * i / steps
-                val p = pointAt(cx, cy, a, boundaryRadius(a) * 0.885f)
-                if (i == 0) alarmMarkerPath.moveTo(p.x, p.y) else alarmMarkerPath.lineTo(p.x, p.y)
-            }
-            for (i in steps downTo 0) {
-                val a = start + sweep * i / steps
-                val p = pointAt(cx, cy, a, boundaryRadius(a) * 0.965f)
-                alarmMarkerPath.lineTo(p.x, p.y)
-            }
-            alarmMarkerPath.close()
+            alarmMarkerPaint.alpha = (230 * left).toInt()
+            buildArcPath(arc, cx, cy)
             canvas.drawPath(alarmMarkerPath, alarmMarkerPaint)
         }
+    }
+
+    private fun drawEventArcOutlines(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        for (arc in eventArcs) {
+            if (!arc.fromCalendar) continue
+            val left = arcRemaining(arc)
+            if (left <= 0f) continue
+            markRingPaint.color = ClockThemes.contrastInk(theme.face)
+            markRingPaint.alpha = (255 * left).toInt()
+            markRingPaint.strokeWidth = r * 0.008f
+            buildArcPath(arc, cx, cy)
+            canvas.drawPath(alarmMarkerPath, markRingPaint)
+        }
+        markRingPaint.alpha = 255
+    }
+
+    /**
+     * Marks, drawn as light rather than as paint.
+     *
+     * Two events at the same hour used to be one event: the second wedge
+     * covered the first and the dial simply lied about how busy the day was.
+     * Drawn into a transparent layer with the colours adding, an overlap
+     * brightens instead — green over blue comes out turquoise, and the rule
+     * is one the eye already knows, so the user can predict it without being
+     * told. The layer is what makes it work: added against the dial's own
+     * face the marks would wash the face out too.
+     */
+    private fun drawMarksLayer(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        val saved = canvas.saveLayer(0f, 0f, width.toFloat(), height.toFloat(), null)
+        alarmMarkerPaint.xfermode = android.graphics.PorterDuffXfermode(
+            android.graphics.PorterDuff.Mode.ADD
+        )
+        if (eventArcs.isNotEmpty()) drawEventArcs(canvas, cx, cy, r)
+        if (alarmMarkers.isNotEmpty()) drawAlarmMarkers(canvas, cx, cy, r)
+        alarmMarkerPaint.xfermode = null
+        canvas.restoreToCount(saved)
+        // Outlines after the layer, at full strength: they say "today only",
+        // and a ring that brightened along with an overlap would say it in a
+        // different voice every time two things collided.
+        if (eventArcs.isNotEmpty()) drawEventArcOutlines(canvas, cx, cy, r)
+        if (alarmMarkers.isNotEmpty()) drawAlarmMarkerRings(canvas, cx, cy, r)
     }
 
     /**
@@ -2523,9 +2741,17 @@ class ClockView @JvmOverloads constructor(
         if (isMoonFallen()) return
         val mr = r * 0.07f
         val mcy = cy + apothemRadius() * 0.45f
-        if (DayNight.sunIsUpMs(shownTimeOfDayMs()) == true) {
-            drawSun(canvas, cx, mcy, mr, r)
-            return
+        when (val sky = DayNight.skyMs(shownTimeOfDayMs())) {
+            DayNight.Sky.Day -> {
+                drawSun(canvas, cx, mcy, mr, r)
+                return
+            }
+            is DayNight.Sky.Twilight -> {
+                drawSettingSun(canvas, cx, mcy, mr, sky.sunk)
+                return
+            }
+            // Night, or nowhere to stand: the moon and its phase.
+            else -> Unit
         }
         val synodicDays = 29.530588853
         // Julian date of a known new moon: 2000-01-06 18:14 UTC.
@@ -2576,6 +2802,44 @@ class ClockView @JvmOverloads constructor(
         moonLitPaint.strokeWidth = width
         moonRimPaint.strokeWidth = r * 0.008f
         canvas.drawCircle(cx, cy, mr * 0.62f, moonRimPaint)
+    }
+
+    /**
+     * The sun crossing the horizon, [sunk] from 0 (touching it) to 1 (gone).
+     *
+     * Between the sun and the moon there was a step: at one minute a sun, at
+     * the next a moon, with nothing in between to say the day was ending.
+     * This is the half-hour that step was hiding. The horizon is a line, the
+     * disc slides down through it and is cut off where it passes, and its
+     * rays go out one side at a time as they reach the line — so the drawing
+     * itself takes as long as the sunset does. Sunrise is the same picture
+     * run backwards, which is what a sunrise looks like.
+     */
+    private fun drawSettingSun(canvas: Canvas, cx: Float, cy: Float, mr: Float, sunk: Float) {
+        val disc = mr * 0.62f
+        // The line sits where the moon's own centre would be, so the sky
+        // never appears to jump up or down as it changes state.
+        val horizon = cy
+        val centre = horizon - disc * (1f - 2f * sunk.coerceIn(0f, 1f))
+
+        val saved = canvas.save()
+        canvas.clipRect(cx - mr * 1.4f, cy - mr * 1.6f, cx + mr * 1.4f, horizon)
+        canvas.drawCircle(cx, centre, disc, moonLitPaint)
+        val width = moonLitPaint.strokeWidth
+        moonLitPaint.strokeWidth = mr * 0.20f
+        for (i in 0 until 8) {
+            val a = Math.toRadians(i * 45.0)
+            val sx = cx + sin(a).toFloat() * mr * 0.86f
+            val sy = centre - cos(a).toFloat() * mr * 0.86f
+            val ex = cx + sin(a).toFloat() * mr * 1.18f
+            val ey = centre - cos(a).toFloat() * mr * 1.18f
+            canvas.drawLine(sx, sy, ex, ey, moonLitPaint)
+        }
+        moonLitPaint.strokeWidth = width
+        canvas.restoreToCount(saved)
+
+        moonRimPaint.strokeWidth = mr * 0.16f
+        canvas.drawLine(cx - mr * 1.25f, horizon, cx + mr * 1.25f, horizon, moonRimPaint)
     }
 
     /**

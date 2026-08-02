@@ -195,16 +195,19 @@ class AlarmCards(
             else holder.days.text = strip
 
             // Leading the row: whether this one goes off in the light or in
-            // the dark. White like the rest of the icon strip and like the
-            // sky on the dial — the shape says which, and a coloured glyph
-            // in a row of white ones only looked like a mistake. An alarm
-            // that rings several times a day is judged by its first.
+            // the dark. No colour filter at all — the drawable carries the
+            // same tint as every other icon beside it, and forcing pure
+            // white made this one glyph stand out from a row it is supposed
+            // to belong to. An alarm that rings several times a day is
+            // judged by its first.
             val (fh, fm) = times[0]
             val dark = DayNight.isDarkAt(fh, fm)
             holder.iconDayNight.setImageResource(
                 if (dark) R.drawable.ic_moon else R.drawable.ic_sun
             )
-            holder.iconDayNight.setColorFilter(0xFFFFFFFF.toInt())
+            // Views are recycled, and a filter set on a previous binding
+            // would otherwise still be on this one.
+            holder.iconDayNight.clearColorFilter()
             holder.iconDayNight.contentDescription = host.getString(
                 if (dark) R.string.a11y_night else R.string.a11y_day
             )
@@ -368,7 +371,7 @@ class AlarmCards(
      * shape and hour count the big clock wears. Used both on the alarm cards
      * and in the editor.
      */
-    fun miniDial(hour: Int, minute: Int): ClockView {
+    fun miniDial(hour: Int, minute: Int, sky: Boolean = false): ClockView {
         val fixedMs = (hour * 3_600_000L) + (minute * 60_000L)
         return ClockView(host).apply {
             touchHandsEnabled = false
@@ -381,8 +384,11 @@ class AlarmCards(
             hoursOnDial = this@AlarmCards.hoursOnDial()
             dialShape = this@AlarmCards.dialShape()
             numeralStyle = ClockView.NumeralStyle.NONE
-            // Nothing else on a face this small says which seven it means.
-            showMoonPhase = true
+            // Only where nothing else says it. On the alarm cards the icon
+            // at the head of the row already does, and two answers to the
+            // same question on one card is one too many — a face that small
+            // has no room to spare on a thing already said.
+            showMoonPhase = sky
             // A constant "duration" makes the dial a static clock.
             chronoProvider = { fixedMs }
         }
