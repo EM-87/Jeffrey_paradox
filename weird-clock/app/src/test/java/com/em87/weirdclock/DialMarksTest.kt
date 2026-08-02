@@ -178,4 +178,78 @@ class DialMarksTest {
             spent < untouched
         )
     }
+
+    /**
+     * How many degrees of the wedge band the marks actually paint.
+     *
+     * Measured against a bare dial degree by degree, not against an
+     * absolute brightness: the hour ticks live in this same band and are
+     * near-white, so the first version of this counted ticks and reported
+     * them as wedge.
+     */
+    private fun wedgeExtent(bare: Bitmap, marked: Bitmap, from: Float, to: Float): Int {
+        var lit = 0
+        var angle = from
+        while (angle <= to) {
+            if (lumaAt(marked, angle, 0.925f) > lumaAt(bare, angle, 0.925f) + 30) lit++
+            angle += 1f
+        }
+        return lit
+    }
+
+    /**
+     * The fade the user actually asked for: the wedge is eaten from its
+     * start as the hand crosses it, so what is left on the face is the time
+     * left. The first version dimmed the whole thing uniformly, which said
+     * "going away" without saying how much had gone.
+     */
+    @Test
+    fun `a wedge is eaten from its start, not dimmed as a whole`() {
+        val now = java.util.Calendar.getInstance()
+        val minuteNow = now.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
+            now.get(java.util.Calendar.MINUTE)
+        val fresh = dial().apply {
+            eventArcs = listOf(
+                DialArc(0f, 40f, false, false, "later", minuteNow + 120, minuteNow + 360)
+            )
+        }
+        // Three quarters gone: only the last quarter should still be there.
+        val running = dial().apply {
+            eventArcs = listOf(
+                DialArc(0f, 40f, false, false, "now", minuteNow - 180, minuteNow + 60)
+            )
+        }
+        val bare = render(dial())
+        val whole = wedgeExtent(bare, render(fresh), 1f, 39f)
+        val left = wedgeExtent(bare, render(running), 1f, 39f)
+        // Not every degree of the band registers — the hour ticks under it
+        // are already near-white and adding to them changes nothing — so
+        // the counts are compared with each other, not against the sweep.
+        assertTrue("nothing was drawn at all: whole=$whole", whole > 12)
+        assertTrue(
+            "three quarters spent must leave well under half: $whole then $left",
+            left < whole / 2
+        )
+        assertTrue("but not gone: $left", left > 1)
+    }
+
+    /** And what is left sits at the far end, where the time still to come is. */
+    @Test
+    fun `what is left of a wedge is its tail, not its head`() {
+        val now = java.util.Calendar.getInstance()
+        val minuteNow = now.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
+            now.get(java.util.Calendar.MINUTE)
+        val running = dial().apply {
+            eventArcs = listOf(
+                DialArc(0f, 40f, false, false, "now", minuteNow - 180, minuteNow + 60)
+            )
+        }
+        val bare = render(dial())
+        val image = render(running)
+        assertTrue(
+            "the head is eaten: ${wedgeExtent(bare, image, 2f, 20f)} degrees still lit",
+            wedgeExtent(bare, image, 2f, 20f) <= 2
+        )
+        assertTrue("the tail is still there", wedgeExtent(bare, image, 32f, 38f) > 2)
+    }
 }

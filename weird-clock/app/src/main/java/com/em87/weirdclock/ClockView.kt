@@ -82,7 +82,7 @@ class ClockView @JvmOverloads constructor(
      * through 75 detents. ALARM keeps a flat 5-minute grid.
      */
     enum class MagnetProfile { COUNTDOWN, ALARM }
-    private enum class Hand { HOUR, MINUTE, SECOND }
+    internal enum class Hand { HOUR, MINUTE, SECOND }
     private enum class BodyKind { HAND, FAST_HAND, NUMERAL, MOON, DATE }
 
     /** Sounds triggered by interacting with the clock. */
@@ -201,6 +201,27 @@ class ClockView @JvmOverloads constructor(
     var onChronoAdjusted: ((Long) -> Unit)? = null
 
     var magnetProfile = MagnetProfile.COUNTDOWN
+
+    /**
+     * Where the magnet grid counts from, in milliseconds of the day.
+     *
+     * Zero for a countdown, which really does start at nothing. For a length
+     * wound onto a face — "this begins at six and lasts how long?" — it is
+     * the hour it begins at, so the detents fall on twenty past, half past,
+     * an hour later, rather than on multiples of midnight.
+     */
+    var magnetOrigin = 0L
+
+    /**
+     * True while the value being wound is a time of day rather than a
+     * duration, so it lives in a day and wraps at the end of one.
+     *
+     * Winding past midnight used to keep counting — 25:00, 26:00 — with
+     * nothing on the face saying so, and only the commit quietly folded it
+     * back. Now the hands say it: cross twenty-four hours and the dial reads
+     * 00:00, which is where you actually are.
+     */
+    var chronoWrapsDay = false
 
     /**
      * A recorded lap: the angles of all three hands plus the reading they
@@ -856,6 +877,47 @@ class ClockView @JvmOverloads constructor(
     /** The label of the mark the current touch went down on, if any. */
     private var markUnderFinger: String? = null
 
+    /**
+     * Fired when the calendar day the dial is *showing* changes — which
+     * happens by carrying the hands round past midnight, not only by
+     * waiting. The host answers by rebuilding the marks for that day, so a
+     * turn of the hour hand really does show you what tomorrow holds.
+     */
+    var onShownDayChanged: ((Long) -> Unit)? = null
+    private var shownDay = Long.MIN_VALUE
+
+    /** The wall-clock instant the dial is showing, winding included. */
+    fun shownWallMs(): Long = displayNowMs() + (visualOffsetSeconds * 1000.0).toLong()
+
+    private fun checkShownDay() {
+        if (onShownDayChanged == null) return
+        val ms = shownWallMs()
+        cal.timeInMillis = ms
+        val day = cal.get(java.util.Calendar.YEAR) * 1000L + cal.get(java.util.Calendar.DAY_OF_YEAR)
+        if (day == shownDay) return
+        val first = shownDay == Long.MIN_VALUE
+        shownDay = day
+        if (!first) onShownDayChanged?.invoke(ms)
+    }
+
+    /**
+     * Pops a mark's bubble without anyone having tapped it, at the mark's
+     * own place on the rim.
+     *
+     * Used when winding brings an event onto the face that was not there a
+     * moment ago: a dot appearing in silence is a thing you have to go and
+     * ask about, and the whole point of carrying the hands forward is to
+     * find out what is coming.
+     */
+    fun announceMark(label: String, angleDeg: Float) {
+        val at = markCenter(width / 2f, height / 2f, angleDeg)
+        bubbleText = label
+        bubbleX = at.x
+        bubbleY = at.y
+        bubbleSince = android.os.SystemClock.uptimeMillis()
+        invalidate()
+    }
+
     private var bubbleText: String? = null
     private var bubbleX = 0f
     private var bubbleY = 0f
@@ -1267,7 +1329,10 @@ class ClockView @JvmOverloads constructor(
         // durations) with no spring-back.
         if (chronoSettable && chronoProvider != null) {
             val displayMs = chronoDisplayMs() ?: 0L
-            if (displayMs < 0L) {
+            // A time of day is never below zero — chronoDisplayMs has
+            // already brought it round the clock — so the spring-back that
+            // catches a negative countdown has nothing to do here.
+            if (displayMs < 0L && !chronoWrapsDay) {
                 // Below zero: commit zero and let the spring pull the hands
                 // back up to it.
                 chronoFrozenMs = null
@@ -1291,6 +1356,10 @@ class ClockView @JvmOverloads constructor(
                 // The offset travels as a double; land it back on the whole
                 // second the detents already chose.
                 adjusted = (adjusted + 500L) / 1000L * 1000L
+            }
+            if (chronoWrapsDay) {
+                val day = 86_400_000L
+                adjusted = ((adjusted % day) + day) % day
             }
             chronoFrozenMs = null
             visualOffsetSeconds = 0.0
@@ -1925,8 +1994,24 @@ class ClockView @JvmOverloads constructor(
      * below. Returns the detent value when [ms] is within its capture
      * window, null otherwise.
      */
-    private fun magnetFor(ms: Long, hand: Hand?): Long? {
-        if (ms < 0) return null
+    internal fun magnetFor(ms: Long, hand: Hand?): Long? {
+        // Measured from where the winding started, not from midnight.
+        //
+        // The countdown grid gets coarser as the duration grows — minutes at
+        // first, then five, then quarters, then hours — because that is the
+        // shape of the durations people actually set. Read off the absolute
+        // time of day it was nonsense for a length: an event beginning at
+        // 18:00 landed straight in the "over two hours, hours only" band, so
+        // there was no detent anywhere near "and it lasts twenty minutes".
+        // The progression is the same one; it just starts where the event
+        // does.
+        val rel = if (magnetOrigin != 0L) {
+            val day = 86_400_000L
+            ((ms - magnetOrigin) % day + day) % day
+        } else {
+            ms
+        }
+        if (rel < 0) return null
         // The grid follows the hand in your fingers: the familiar 5-minute
         // grid on the minute hand, whole hours on the hour hand.
         val (grid, window) = when (hand) {
@@ -1938,16 +2023,16 @@ class ClockView @JvmOverloads constructor(
             else -> when (magnetProfile) {
                 MagnetProfile.ALARM -> 300_000L to 40_000L
                 MagnetProfile.COUNTDOWN -> when {
-                    ms < 5 * 60_000L -> 60_000L to 10_000L
-                    ms < 30 * 60_000L -> 300_000L to 40_000L
-                    ms < 120 * 60_000L -> 900_000L to 90_000L
+                    rel < 5 * 60_000L -> 60_000L to 10_000L
+                    rel < 30 * 60_000L -> 300_000L to 40_000L
+                    rel < 120 * 60_000L -> 900_000L to 90_000L
                     else -> 3_600_000L to 300_000L
                 }
             }
         }
         if (grid <= 0L) return null
-        val rounded = (ms + grid / 2) / grid * grid
-        return if (kotlin.math.abs(rounded - ms) <= window) rounded else null
+        val rounded = (rel + grid / 2) / grid * grid
+        return if (kotlin.math.abs(rounded - rel) <= window) rounded + magnetOrigin else null
     }
 
     private fun snapCountdown(ms: Long, hand: Hand?): Long = magnetFor(ms, hand) ?: ms
@@ -1957,8 +2042,17 @@ class ClockView @JvmOverloads constructor(
      * negative while playing — the spring brings it back, and the countdown
      * commit clamps at zero.
      */
+    /** What the dial currently reads while a time is being set, for tests. */
+    internal fun settingValueMs(): Long? = chronoDisplayMs()
+
     private fun chronoDisplayMs(): Long? = chronoProvider?.let { provider ->
-        (chronoFrozenMs ?: provider()) + (visualOffsetSeconds * 1000.0).toLong()
+        val raw = (chronoFrozenMs ?: provider()) + (visualOffsetSeconds * 1000.0).toLong()
+        if (chronoWrapsDay) {
+            val day = 86_400_000L
+            ((raw % day) + day) % day
+        } else {
+            raw
+        }
     }
 
     // --------------------------------------------------------- accessibility
@@ -2389,6 +2483,7 @@ class ClockView @JvmOverloads constructor(
 
         // Last of all, over everything, including the lap scrim.
         drawMarkBubble(canvas, r)
+        checkShownDay()
     }
 
     /** How far the unfolded lap list can scroll past the bottom edge. */
@@ -2636,9 +2731,17 @@ class ClockView @JvmOverloads constructor(
      */
     private fun arcRemaining(arc: DialArc): Float {
         if (arc.startMinute < 0 || arc.endMinute <= arc.startMinute) return 1f
-        cal.timeInMillis = displayNowMs()
-        val now = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
-            cal.get(java.util.Calendar.MINUTE) + cal.get(java.util.Calendar.SECOND) / 60f
+        // The time the dial is *showing*, offset and all. Carry the hands
+        // forward and the day's events are consumed under your finger,
+        // which is the whole of what a Sectograph dial is for: one turn of
+        // a hand and you have seen what is coming.
+        val now = shownMinuteOfDay()
+        // Plain comparisons, not modular ones: these minutes belong to a
+        // named day, and an event whose start is still ahead of the shown
+        // time has simply not begun. Winding past midnight is not this
+        // method's problem — the host rebuilds the marks for the new date,
+        // and until it does everything reads as still to come, which is
+        // exactly what tomorrow's events are.
         return when {
             now <= arc.startMinute -> 1f
             now >= arc.endMinute -> 0f
@@ -2646,30 +2749,55 @@ class ClockView @JvmOverloads constructor(
         }
     }
 
-    private fun buildArcPath(arc: DialArc, cx: Float, cy: Float) {
-        val steps = max(2, (kotlin.math.abs(arc.sweep) / 3f).toInt())
+    /** Minutes past midnight of the time the dial is showing. */
+    private fun shownMinuteOfDay(): Float {
+        cal.timeInMillis = displayNowMs() + (visualOffsetSeconds * 1000.0).toLong()
+        return cal.get(java.util.Calendar.HOUR_OF_DAY) * 60f +
+            cal.get(java.util.Calendar.MINUTE) + cal.get(java.util.Calendar.SECOND) / 60f
+    }
+
+    /**
+     * The part of a wedge still ahead of the hand.
+     *
+     * A wedge is eaten from its start, not faded as a whole: the hand
+     * crosses it and it gets shorter behind, so what is left on the face is
+     * literally the time left. Fading the whole thing said "this is going
+     * away" without saying how much of it had gone.
+     */
+    private fun buildArcPath(arc: DialArc, cx: Float, cy: Float, left: Float) {
+        val eaten = 1f - left.coerceIn(0f, 1f)
+        val from = arc.start + arc.sweep * eaten
+        val sweep = arc.sweep * left.coerceIn(0f, 1f)
+        val steps = max(2, (kotlin.math.abs(sweep) / 3f).toInt())
         alarmMarkerPath.reset()
         // Inner edge outward, then back along the outer edge.
         for (i in 0..steps) {
-            val a = arc.start + arc.sweep * i / steps
+            val a = from + sweep * i / steps
             val p = pointAt(cx, cy, a, boundaryRadius(a) * 0.885f)
             if (i == 0) alarmMarkerPath.moveTo(p.x, p.y) else alarmMarkerPath.lineTo(p.x, p.y)
         }
         for (i in steps downTo 0) {
-            val a = arc.start + arc.sweep * i / steps
+            val a = from + sweep * i / steps
             val p = pointAt(cx, cy, a, boundaryRadius(a) * 0.965f)
             alarmMarkerPath.lineTo(p.x, p.y)
         }
         alarmMarkerPath.close()
     }
 
+    /**
+     * Full strength while an event is still ahead, dimmer once it has
+     * started — so the shortening says how much is left and the dimming
+     * says it is under way. Two facts, two channels.
+     */
+    private fun arcAlpha(left: Float): Int = if (left >= 1f) 230 else 150
+
     private fun drawEventArcs(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         for (arc in eventArcs) {
             val left = arcRemaining(arc)
             if (left <= 0f) continue
             alarmMarkerPaint.color = DayNight.markColor(theme, arc.pm)
-            alarmMarkerPaint.alpha = (230 * left).toInt()
-            buildArcPath(arc, cx, cy)
+            alarmMarkerPaint.alpha = arcAlpha(left)
+            buildArcPath(arc, cx, cy, left)
             canvas.drawPath(alarmMarkerPath, alarmMarkerPaint)
         }
     }
@@ -2680,9 +2808,9 @@ class ClockView @JvmOverloads constructor(
             val left = arcRemaining(arc)
             if (left <= 0f) continue
             markRingPaint.color = ClockThemes.contrastInk(theme.face)
-            markRingPaint.alpha = (255 * left).toInt()
+            markRingPaint.alpha = if (left >= 1f) 255 else 165
             markRingPaint.strokeWidth = r * 0.008f
-            buildArcPath(arc, cx, cy)
+            buildArcPath(arc, cx, cy, left)
             canvas.drawPath(alarmMarkerPath, markRingPaint)
         }
         markRingPaint.alpha = 255

@@ -167,6 +167,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** The value the hands are showing while a job is in progress. */
     private var alarmWorkingMs = 0L
 
+    /**
+     * The hour a length is wound from, so the magnets count from there.
+     * Zero for a time of day, which counts from midnight like the dial does.
+     */
+    private var dialMagnetOrigin = 0L
+
     // Stable provider instances: recreating these lambdas on every
     // applyMode() made the ClockView setter think the mode changed,
     // restarting transitions and wiping any winding in progress.
@@ -477,7 +483,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 val startsAt = (h * 3_600_000L) + (m * 60_000L)
                 startDial(
                     DialJob.AlarmLength(parked.target, parked.draft, parked.isNew),
-                    startsAt + parked.draft.durationMinutes.coerceAtLeast(15) * 60_000L
+                    startsAt + parked.draft.durationMinutes.coerceAtLeast(15) * 60_000L,
+                    magnetOrigin = startsAt
                 )
             }
 
@@ -513,7 +520,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 val startsAt = (draft.hour * 3_600_000L) + (draft.minute * 60_000L)
                 startDial(
                     DialJob.ReminderLength(draft),
-                    startsAt + draft.duration.coerceAtLeast(15) * 60_000L
+                    startsAt + draft.duration.coerceAtLeast(15) * 60_000L,
+                    magnetOrigin = startsAt
                 )
             }
 
@@ -889,6 +897,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.soundListener = this
             it.onDialScaleChanged = { scale -> shareDialScale(scale, it) }
             it.onChronoAdjusted = { ms -> if (dialJob != null) alarmWorkingMs = ms }
+            // Carry the hands round to tomorrow and the dial shows what
+            // tomorrow holds, which is the one thing a twelve-hour face can
+            // do that a list cannot.
+            it.onShownDayChanged = { updateAlarmMarkers(announceNew = true) }
             it.onCrownTap = {
                 // The winding crown tidies the whole scene, bubbles included.
                 chimePlayer.playCuckoo()
@@ -1206,8 +1218,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * four lines with a different set of fields poked before each — which is
      * how one of them came to clear a flag the exit still needed.
      */
-    private fun startDial(job: DialJob, startMs: Long) {
+    private fun startDial(job: DialJob, startMs: Long, magnetOrigin: Long = 0L) {
         dialJob = job
+        dialMagnetOrigin = magnetOrigin
         alarmWorkingMs = startMs
         mode = Mode.CLOCK
         pager.currentItem = PAGE_HOME
@@ -1369,17 +1382,37 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         updateAlarmMarkers()
     }
 
-    /** Sectograph-style: enabled alarms as accent wedges on the clock dial. */
-    private fun updateAlarmMarkers() {
+    /** The day the marks currently on the dial were built for. */
+    private var markedDayMs = 0L
+
+    /** Labels currently on the dial, to notice what is new since last time. */
+    private var markedLabels: Set<String> = emptySet()
+
+    /**
+     * Sectograph-style: enabled alarms as accent wedges on the clock dial.
+     *
+     * Built for the day the dial is *showing*, not for today — carry the
+     * hour hand round past midnight and this runs again for tomorrow, so
+     * Saturday's weekday alarms go away and Saturday's appointments arrive.
+     * With [announceNew], anything that was not on the face a moment ago
+     * says its own name, because a dot appearing in silence is a thing you
+     * would have to go and ask about.
+     */
+    private fun updateAlarmMarkers(announceNew: Boolean = false) {
         val show = prefs.getBoolean(Prefs.ALARM_MARKERS, true)
+        markedDayMs = clockView?.shownWallMs() ?: TimeKeeper.nowMs()
         clockView?.alarmMarkers = if (!show) {
             emptyList()
         } else {
             val n = readHoursOnDial()
             // Each dot carries the half of the day it belongs to, which is
             // the one thing its position on a twelve-hour face cannot say.
+            val shownDow = Calendar.getInstance().apply { timeInMillis = markedDayMs }
+                .get(Calendar.DAY_OF_WEEK)
             val alarmDots = alarms
-                .filter { it.enabled && it.durationMinutes <= 0 }
+                .filter {
+                    it.enabled && it.durationMinutes <= 0 && it.ringsOn(shownDow)
+                }
                 .flatMap { alarm -> alarm.allTimes().map { alarm to it } }
                 .map { (alarm, time) ->
                     val (h, m) = time
@@ -1393,7 +1426,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // Instant reminders join the alarm dots; ones with a duration
             // become wedges instead. They carry the ring that says "today
             // only", which is the whole difference between them.
-            val reminderDots = todaysReminders()
+            val reminderDots = remindersOn(markedDayMs)
                 .filter { it.durationMinutes <= 0 }
                 .map {
                     DialMark(
@@ -1410,9 +1443,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         } else {
             val n = readHoursOnDial()
             // An alarm with a duration is an event too, and reads as a wedge.
-            val today = Calendar.getInstance().apply { timeInMillis = TimeKeeper.nowMs() }
+            val shownDow = Calendar.getInstance().apply { timeInMillis = markedDayMs }
+                .get(Calendar.DAY_OF_WEEK)
             val alarmArcs = alarms
-                .filter { it.enabled && it.durationMinutes > 0 && it.ringsOn(today.get(Calendar.DAY_OF_WEEK)) }
+                .filter { it.enabled && it.durationMinutes > 0 && it.ringsOn(shownDow) }
                 .flatMap { alarm ->
                     alarm.allTimes().map { (h, m) ->
                         DialArc(
@@ -1426,7 +1460,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                         )
                     }
                 }
-            val reminderArcs = todaysReminders()
+            val reminderArcs = remindersOn(markedDayMs)
                 .filter { it.durationMinutes > 0 }
                 .map { reminder ->
                     DialArc(
@@ -1441,6 +1475,31 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 }
             alarmArcs + reminderArcs
         }
+        announceWhatIsNew(announceNew)
+    }
+
+    /**
+     * Names whatever just arrived on the face.
+     *
+     * Only one, and only the first: winding a whole day forward can bring
+     * six things in at once, and six bubbles in a row is a queue, not an
+     * answer. The set is remembered either way, so the next arrival is
+     * still recognised as new.
+     */
+    private fun announceWhatIsNew(announce: Boolean) {
+        val cv = clockView ?: return
+        val labels = (cv.alarmMarkers.map { it.label } + cv.eventArcs.map { it.label })
+            .filter { it.isNotEmpty() }.toSet()
+        if (announce && markedLabels.isNotEmpty()) {
+            val arrived = labels - markedLabels
+            if (arrived.isNotEmpty()) {
+                val name = arrived.first()
+                val angle = cv.alarmMarkers.firstOrNull { it.label == name }?.angle
+                    ?: cv.eventArcs.firstOrNull { it.label == name }?.start
+                if (angle != null) cv.announceMark(name, angle)
+            }
+        }
+        markedLabels = labels
     }
 
     private fun isPastDay(year: Int, month: Int, day: Int): Boolean {
@@ -1461,8 +1520,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * calendar beside it marked every occurrence. occursOn is the one place
      * that knows the rule, and now this asks it.
      */
-    private fun todaysReminders(): List<Reminder> {
-        val today = Calendar.getInstance().apply { timeInMillis = TimeKeeper.nowMs() }
+    private fun remindersOn(whenMs: Long): List<Reminder> {
+        val today = Calendar.getInstance().apply { timeInMillis = whenMs }
         val y = today.get(Calendar.YEAR)
         val m = today.get(Calendar.MONTH) + 1
         val d = today.get(Calendar.DAY_OF_MONTH)
@@ -1970,6 +2029,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 } else {
                     ClockView.MagnetProfile.ALARM
                 }
+                // The detents count from the hour the thing starts at, so
+                // "and it lasts twenty minutes" has a magnet to land on.
+                it.magnetOrigin = dialMagnetOrigin
+                // Both jobs wind a time of day, and a day is twenty-four
+                // hours long: past that the dial reads 00:00.
+                it.chronoWrapsDay = true
             } else {
                 it.chronoProvider = null
                 it.chronoSettable = false
@@ -1979,6 +2044,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // proof the sunrise arithmetic works and the only way to
                 // watch a whole day go past without waiting for one.
                 it.showMoonPhase = prefs.getBoolean(Prefs.MOON_PHASE, false)
+                it.magnetOrigin = 0L
+                it.chronoWrapsDay = false
                 it.magnetProfile = ClockView.MagnetProfile.COUNTDOWN
             }
             it.chronoButtons = false
