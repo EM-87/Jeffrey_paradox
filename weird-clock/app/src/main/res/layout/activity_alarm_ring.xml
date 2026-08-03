@@ -35,23 +35,28 @@
         android:textColor="@color/text_secondary"
         android:textSize="18sp" />
 
+    <!-- Big, and the first thing under a hand that swats at the screen:
+         hitting snooze half asleep is not a failure, it is the point of
+         snooze. -->
     <Button
         android:id="@+id/snooze_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="48dp"
-        android:minWidth="200dp"
+        android:layout_width="match_parent"
+        android:layout_height="104dp"
+        android:layout_marginStart="28dp"
+        android:layout_marginTop="40dp"
+        android:layout_marginEnd="28dp"
         android:text="@string/alarm_snooze"
-        android:textSize="20sp"
+        android:textSize="26sp"
         android:visibility="gone" />
 
-    <Button
-        android:id="@+id/stop_button"
-        android:layout_width="wrap_content"
+    <!-- Stopping is the one that must not happen by accident, so it takes a
+         gesture the length of the screen instead of a tap. -->
+    <com.em87.weirdclock.SlideToStopView
+        android:id="@+id/stop_slider"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:minWidth="200dp"
-        android:text="@string/alarm_stop"
-        android:textSize="20sp" />
+        android:layout_marginStart="28dp"
+        android:layout_marginTop="24dp"
+        android:layout_marginEnd="28dp" />
 
 </LinearLayout>

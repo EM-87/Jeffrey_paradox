@@ -93,6 +93,7 @@ class AlarmSheet(
 
         val dialsRow = view.findViewById<LinearLayout>(R.id.sheet_dials)
         val nameValue = view.findViewById<TextView>(R.id.sheet_name_value)
+        val notesValue = view.findViewById<TextView>(R.id.sheet_notes_value)
         val soundValue = view.findViewById<TextView>(R.id.sheet_sound_value)
         val snoozeValue = view.findViewById<TextView>(R.id.sheet_snooze_value)
         val vibrateSwitch = view.findViewById<SwitchCompat>(R.id.sheet_vibrate)
@@ -167,6 +168,8 @@ class AlarmSheet(
         fun refresh() {
             rebuildDials()
             nameValue.text = draft.label.ifBlank { host.getString(R.string.alarm_label_hint) }
+            notesValue.text =
+                draft.notes.ifBlank { host.getString(R.string.reminder_notes_none) }
             soundValue.text = cards.soundLabel(draft.sound)
             snoozeValue.text = if (draft.snoozeMinutes > 0) {
                 host.getString(R.string.alarm_snooze_min, draft.snoozeMinutes)
@@ -260,6 +263,27 @@ class AlarmSheet(
                 .setView(input)
                 .setPositiveButton(android.R.string.ok) { _, _ ->
                     draft.label = input.text.toString().trim()
+                    refresh()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+
+        view.findViewById<View>(R.id.sheet_row_notes).setOnClickListener {
+            val input = EditText(host).apply {
+                inputType = InputType.TYPE_CLASS_TEXT or
+                    InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or
+                    InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                minLines = 3
+                maxLines = 6
+                setText(draft.notes)
+                setSelection(draft.notes.length)
+            }
+            androidx.appcompat.app.AlertDialog.Builder(host)
+                .setTitle(R.string.reminder_notes)
+                .setView(input)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    draft.notes = input.text.toString().trim()
                     refresh()
                 }
                 .setNegativeButton(android.R.string.cancel, null)

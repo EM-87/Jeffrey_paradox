@@ -2325,7 +2325,14 @@ class ClockView @JvmOverloads constructor(
         // mechanism — while the minute hand is in your fingers, the seconds
         // go on ticking as if nothing were happening, which is exactly what
         // they would do on a real one.
-        val loose = draggedHand != null && draggedHand != Hand.SECOND
+        //
+        // Not only while the finger is down: the whole point is a dial you
+        // can leave wound forward while you read the day's events off it,
+        // and letting go used to re-engage the gearing and set the second
+        // hand spinning at whatever offset you had stopped at. It stays
+        // loose for as long as the dial is showing a time that is not now.
+        val loose = draggedHand != Hand.SECOND &&
+            (draggedHand != null || visualOffsetSeconds != 0.0)
         val secondAngle: Float
         val looseFastMs: Int
         if (loose) {

@@ -698,7 +698,11 @@ class CalendarPageView @JvmOverloads constructor(
                 val slot = lead + d - 1
                 val px = gridLeft + (slot % 7) * colW
                 val py = gridTop + (slot / 7) * rowH
-                val busy = yearMarks.contains(m * 100 + d)
+                // The birthday counts as a busy day in the year grid too:
+                // it is marked in the month view and it would be odd for
+                // the whole year to forget it.
+                val busy = yearMarks.contains(m * 100 + d) ||
+                    (birthday != 0 && birthday == (m + 1) * 100 + d)
                 val isToday = isThisMonth && d == today.get(Calendar.DAY_OF_MONTH)
                 val gone = isPastIn(m, d, today)
                 dayPaint.color = if (busy) theme.decimal else theme.numeral

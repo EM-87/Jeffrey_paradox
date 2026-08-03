@@ -212,4 +212,43 @@ class NotesAndWidgetTest {
         }
         assertNotEquals(null, DayNight.sky(minuteNow))
     }
+
+    /**
+     * Alarms carry notes too. They arrived on the calendar side first, which
+     * left the dial able to read out an appointment's details and not an
+     * alarm's — the same dot, on the same face, answering to a different
+     * depth depending on which sheet had made it.
+     */
+    @Test
+    fun `a note is stored with its alarm`() {
+        val alarms = AlarmStore.all(context)
+        alarms.clear()
+        alarms.add(
+            Alarm(
+                id = 1, hour = 7, minute = 0, enabled = true,
+                sound = Prefs.ALARM_SOUND_BELLS, label = "gimnasio",
+                notes = "Llevar toalla y candado"
+            )
+        )
+        AlarmStore.save(context)
+        AlarmStore.forget()
+
+        val back = AlarmStore.all(context).single()
+        assertEquals("Llevar toalla y candado", back.notes)
+        assertEquals("gimnasio", back.label)
+    }
+
+    /** An alarm saved before notes existed still loads. */
+    @Test
+    fun `an alarm saved before notes existed still loads`() {
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+            .putString(
+                "pref_alarms_json",
+                """[{"id":4,"hour":6,"minute":30,"enabled":true,"sound":"bells","label":"old"}]"""
+            ).commit()
+        AlarmStore.forget()
+        val back = AlarmStore.all(context).single()
+        assertEquals("old", back.label)
+        assertEquals("", back.notes)
+    }
 }

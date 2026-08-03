@@ -52,9 +52,6 @@ object DayNight {
         markMode = if (asked == MARKS_SUN && located) MARKS_SUN else MARKS_CLOCK
     }
 
-    /** True once one fix has been stored; the year follows from arithmetic. */
-    fun hasLocation(): Boolean = located
-
     /** True while a fix would change what the app can show. */
     fun wantsLocation(context: android.content.Context): Boolean {
         val prefs = androidx.preference.PreferenceManager
@@ -71,10 +68,6 @@ object DayNight {
     fun sunIsUp(minutesOfDay: Int, whenMs: Long = System.currentTimeMillis()): Boolean? =
         if (!located) null
         else SolarTime.isDaylight(latitude, longitude, whenMs, minutesOfDay)
-
-    /** The same, from a time of day in milliseconds, as the dials hold it. */
-    fun sunIsUpMs(millisOfDay: Long, whenMs: Long = System.currentTimeMillis()): Boolean? =
-        sunIsUp((wrapDay(millisOfDay) / 60_000L).toInt(), whenMs)
 
     /**
      * What the sky is doing, finely enough to draw it.
@@ -163,10 +156,6 @@ object DayNight {
 
     fun isDarkAt(hour: Int, minute: Int, whenMs: Long = System.currentTimeMillis()): Boolean =
         isDark(hour * 60 + minute, whenMs)
-
-    /** From a time of day in milliseconds, as the dials hold it. */
-    fun isDarkMs(millisOfDay: Long, whenMs: Long = System.currentTimeMillis()): Boolean =
-        isDark((wrapDay(millisOfDay) / 60_000L).toInt(), whenMs)
 
     /** True for the second turn of the dial: noon to midnight. */
     fun isPm(hour: Int): Boolean = (hour % 24) >= 12

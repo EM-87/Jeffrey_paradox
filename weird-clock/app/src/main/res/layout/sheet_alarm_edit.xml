@@ -122,6 +122,23 @@
                 style="@style/AlarmSheetRowValue" />
         </LinearLayout>
 
+        <!-- Notes: the same field the calendar's events have, so the dial
+             can read an alarm out to the same depth as an appointment. -->
+        <LinearLayout
+            android:id="@+id/sheet_row_notes"
+            style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/reminder_notes" />
+
+            <TextView
+                android:id="@+id/sheet_notes_value"
+                style="@style/AlarmSheetRowValue"
+                android:maxLines="1"
+                android:ellipsize="end" />
+        </LinearLayout>
+
         <!-- Sound -->
         <LinearLayout
             android:id="@+id/sheet_row_sound"

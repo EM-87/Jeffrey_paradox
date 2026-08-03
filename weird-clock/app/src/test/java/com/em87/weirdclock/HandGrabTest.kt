@@ -187,4 +187,59 @@ class HandGrabTest {
         // this the test would pass on a dial that ignored the wind entirely.
         assertNotEquals(90_000L, v.settingValueMs())
     }
+
+    /**
+     * And it stays loose after the finger lifts.
+     *
+     * The point of winding the hands forward is to read the day's events off
+     * the face, which takes a moment — and letting go used to re-engage the
+     * gearing and set the second hand spinning at whatever offset you had
+     * stopped at. It stays loose for as long as the dial is showing a time
+     * that is not now.
+     */
+    @Test
+    fun `a clock left wound forward does not spin its second hand`() {
+        val v = ClockView(ApplicationProvider.getApplicationContext()).apply {
+            showSecondHand = true
+            measure(
+                View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY)
+            )
+            layout(0, 0, 720, 720)
+            settle()
+        }
+        val real = v.secondAngleForTest()
+        // Wound three hours and seventeen seconds forward, and let go: no
+        // hand is held, but the dial is not showing now.
+        v.windForTest(3 * 3600.0 + 17.0)
+        val wound = v.secondAngleForTest()
+        assertEquals(
+            "the second hand must still be reading the real clock",
+            real, wound, 2f
+        )
+        // And not where the gearing would have put it: seventeen seconds of
+        // wind is a hundred and two degrees of second hand, which is the
+        // whole difference between the two behaviours. Without this the
+        // test would pass on a dial whose second hand never moved at all.
+        val geared = (real + 102f) % 360f
+        assertNotEquals("$wound must not be the geared angle $geared", geared, wound)
+    }
+
+    /** Back at now, it is an ordinary second hand again. */
+    @Test
+    fun `back at now the second hand reads the dial again`() {
+        val v = ClockView(ApplicationProvider.getApplicationContext()).apply {
+            showSecondHand = true
+            measure(
+                View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY)
+            )
+            layout(0, 0, 720, 720)
+            settle()
+        }
+        val real = v.secondAngleForTest()
+        v.windForTest(17.0)
+        v.windForTest(0.0)
+        assertEquals(real, v.secondAngleForTest(), 2f)
+    }
 }

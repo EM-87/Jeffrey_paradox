@@ -34,6 +34,16 @@ data class Alarm(
     /** Strobe the camera flash while ringing. */
     var flash: Boolean = false,
     /**
+     * Free text kept with the alarm and read out by the dial, exactly as a
+     * reminder's is.
+     *
+     * Notes arrived on the calendar side first, which left the dial able to
+     * read out an appointment's details and not an alarm's — the same dot,
+     * on the same face, answering to a different depth depending on which
+     * sheet made it.
+     */
+    var notes: String = "",
+    /**
      * Extra times of day (minutes past midnight) this same alarm also rings
      * at. One alarm is one *concept* — "pills", "stretch" — and a concept
      * can happen four times a day without being four separate alarms.
@@ -143,6 +153,7 @@ object AlarmStore {
                     .put("vibrate", a.vibrate)
                     .put("duration", a.durationMinutes)
                     .put("flash", a.flash)
+                    .put("notes", a.notes)
                     .put("extraTimes", JSONArray(a.extraTimes))
             )
         }
@@ -187,6 +198,7 @@ object AlarmStore {
                         vibrate = o.optBoolean("vibrate", true),
                         durationMinutes = o.optInt("duration", 0),
                         flash = o.optBoolean("flash", false),
+                        notes = o.optString("notes", ""),
                         extraTimes = o.optJSONArray("extraTimes")?.let { arr ->
                             MutableList(arr.length()) { arr.getInt(it) }
                         } ?: mutableListOf()

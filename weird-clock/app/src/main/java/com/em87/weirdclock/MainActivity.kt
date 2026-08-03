@@ -1195,6 +1195,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         target.daysMask = draft.daysMask
         target.snoozeMinutes = draft.snoozeMinutes
         target.label = draft.label
+        target.notes = draft.notes
         target.vibrate = draft.vibrate
         target.flash = draft.flash
         target.durationMinutes = draft.durationMinutes
@@ -1426,7 +1427,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                         (h + m / 60f) % n / n * 360f,
                         DayNight.isDarkAt(h, m),
                         fromCalendar = false,
-                        label = alarm.label.ifBlank { getString(R.string.alarm_untitled) }
+                        label = alarm.label.ifBlank { getString(R.string.alarm_untitled) },
+                        notes = alarm.notes
                     )
                 }
             // Instant reminders join the alarm dots; ones with a duration
@@ -1462,6 +1464,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                             DayNight.isDarkAt(h, m),
                             fromCalendar = false,
                             label = alarm.label.ifBlank { getString(R.string.alarm_untitled) },
+                            notes = alarm.notes,
                             startMinute = h * 60 + m,
                             endMinute = h * 60 + m + alarm.durationMinutes
                         )
@@ -1673,11 +1676,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         cv.smoothSeconds = prefs.getBoolean(Prefs.SMOOTH_SECONDS, false)
         cv.mirrored = prefs.getBoolean(Prefs.MIRROR, false)
         cv.numeralStyle = readNumeralStyle()
-        cv.fastHand = when (prefs.getString(Prefs.FAST_HAND, Prefs.FAST_HAND_NONE)) {
-            Prefs.FAST_HAND_TENTHS -> ClockView.FastHandMode.TENTHS
-            Prefs.FAST_HAND_DECIMAL_MINUTE -> ClockView.FastHandMode.DECIMAL_MINUTE
-            else -> ClockView.FastHandMode.NONE
-        }
+        // Off while a time is being wound, like the second hand it belongs
+        // to — see applyMode().
+        cv.fastHand = if (dialJob != null) ClockView.FastHandMode.NONE else readFastHand()
         // Night mode: after 22:00 (and before 07:00) the whole outfit dims
         // to 30% so the bedroom stays dark.
         appliedNightDim = prefs.getBoolean(Prefs.NIGHT_DIM, false) && isNightNow()
@@ -1903,6 +1904,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
     }
 
+    private fun readFastHand(): ClockView.FastHandMode =
+        when (prefs.getString(Prefs.FAST_HAND, Prefs.FAST_HAND_NONE)) {
+            Prefs.FAST_HAND_TENTHS -> ClockView.FastHandMode.TENTHS
+            Prefs.FAST_HAND_DECIMAL_MINUTE -> ClockView.FastHandMode.DECIMAL_MINUTE
+            else -> ClockView.FastHandMode.NONE
+        }
+
     private fun readDialShape(): ClockView.DialShape =
         when (prefs.getString(Prefs.DIAL_SHAPE, Prefs.SHAPE_CIRCLE)) {
             Prefs.SHAPE_TRIANGLE -> ClockView.DialShape.TRIANGLE
@@ -2012,6 +2020,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // placed exactly, and it says nothing either of them does
                 // not. The same goes for a length.
                 it.showSecondHand = false
+                // And the tenths hand with it: it is the second hand's own
+                // decoration, and leaving it spinning on a face with no
+                // second hand on it is the strangest of both worlds.
+                it.fastHand = ClockView.FastHandMode.NONE
                 // A length is a length, whoever it belongs to. Only the
                 // reminder's used the countdown magnets before, so winding
                 // "how long does this last" on an alarm snapped to the grid
@@ -2037,6 +2049,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // watch a whole day go past without waiting for one.
                 it.showMoonPhase = prefs.getBoolean(Prefs.MOON_PHASE, false)
                 it.showSecondHand = prefs.getBoolean(Prefs.SECOND_HAND, true)
+                it.fastHand = readFastHand()
                 it.magnetOrigin = 0L
                 it.chronoWrapsDay = false
                 it.magnetProfile = ClockView.MagnetProfile.COUNTDOWN

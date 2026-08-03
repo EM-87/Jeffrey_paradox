@@ -61,7 +61,7 @@ class AlarmRingActivity : AppCompatActivity() {
         intent.getStringExtra(AlarmScheduler.EXTRA_LABEL)?.takeIf { it.isNotBlank() }?.let {
             subtitle.text = it
         }
-        findViewById<Button>(R.id.stop_button).setOnClickListener {
+        findViewById<SlideToStopView>(R.id.stop_slider).onSlid = {
             startService(Intent(this, AlarmService::class.java).setAction(AlarmService.ACTION_STOP))
             finish()
         }

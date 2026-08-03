@@ -254,4 +254,5 @@
     <string name="reminder_notes">Notas</string>
     <string name="reminder_notes_none">Ninguna</string>
     <string name="mark_colors_needs_location">Las marcas por el sol necesitan una medición de ubicación. Hasta que la app tenga una, siguen las dos vueltas de la esfera.</string>
+    <string name="alarm_slide_to_stop">Desliza para parar</string>
 </resources>
