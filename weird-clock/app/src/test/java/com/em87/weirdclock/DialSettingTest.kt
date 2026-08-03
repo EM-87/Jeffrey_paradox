@@ -164,4 +164,73 @@ class DialSettingTest {
         }
         assertEquals(9 * hour + 45 * minute, v.readoutForTest())
     }
+
+    // -------------------------------------------------- the digital readout
+
+    private fun settingDial(value: Long, origin: Long = 0L): ClockView =
+        dial().apply {
+            chronoProvider = { value }
+            chronoSettable = true
+            chronoWrapsDay = true
+            magnetOrigin = origin
+        }
+
+    /**
+     * Setting a time, the readout is the time — hours and minutes, and
+     * nothing that moves the digits sideways.
+     *
+     * It was the chronograph's, which swaps units as the value grows:
+     * hundredths under the hour, seconds over it. So the number shifted
+     * along the moment you wound past one o'clock, under the eye of someone
+     * reading it precisely because their finger was covering the hand — and
+     * offered hundredths of a second to a person setting an alarm.
+     */
+    @Test
+    fun `setting a time reads in hours and minutes`() {
+        assertEquals("07:20", settingDial(7 * hour + 20 * minute).readoutText())
+        assertEquals("00:05", settingDial(5 * minute).readoutText())
+        assertEquals("23:59", settingDial(23 * hour + 59 * minute).readoutText())
+        // Seconds are not shown, so they cannot flicker either.
+        assertEquals("07:20", settingDial(7 * hour + 20 * minute + 43_000L).readoutText())
+    }
+
+    /** And a length reads as a length, in the same steady two groups. */
+    @Test
+    fun `setting a length reads in hours and minutes too`() {
+        val fromSix = { ms: Long -> settingDial(ms, origin = 18 * hour).readoutText() }
+        assertEquals("00:30", fromSix(18 * hour + 30 * minute))
+        assertEquals("01:00", fromSix(19 * hour))
+        assertEquals("02:15", fromSix(20 * hour + 15 * minute))
+    }
+
+    /**
+     * Two groups, so two unit marks. Three would leave one hanging off the
+     * end of a number that has no third group.
+     */
+    @Test
+    fun `the units follow the format`() {
+        assertEquals(2, settingDial(7 * hour).readoutUnits().size)
+        // The countdown keeps the chronograph's three, and its centiseconds
+        // with them: timing something is what they are for.
+        val countdown = dial().apply {
+            chronoProvider = { 90_000L }
+            chronoSettable = true
+            chronoWrapsDay = false
+        }
+        assertEquals(3, countdown.readoutUnits().size)
+        assertEquals("01:30:00", countdown.readoutText())
+    }
+
+    /**
+     * The digits do not shift sideways as the value crosses an hour, which
+     * is the visible symptom the whole change is about: the same number of
+     * groups either side of it.
+     */
+    @Test
+    fun `the readout does not change shape as it crosses an hour`() {
+        val before = settingDial(59 * minute).readoutText()!!
+        val after = settingDial(hour + minute).readoutText()!!
+        assertEquals(before.length, after.length)
+        assertEquals(before.count { it == ':' }, after.count { it == ':' })
+    }
 }

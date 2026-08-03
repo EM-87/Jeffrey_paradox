@@ -339,7 +339,16 @@ class ClockView @JvmOverloads constructor(
             post(ticker)
         }
 
-    fun isHandGrabbed(): Boolean = draggedHand != null
+    /**
+     * True only while the second hand itself is in the user's fingers.
+     *
+     * The ticking used to fall silent for any hand at all, from when the
+     * second hand was dragged round by whatever else was being wound and a
+     * tick a second would have been a lie. It keeps real time now, so it
+     * keeps its voice — except while it is the hand being wound, where the
+     * winding fires its own ticks and two would be one too many.
+     */
+    fun isSecondHandGrabbed(): Boolean = draggedHand == Hand.SECOND
 
     fun isSecondHandFallen(): Boolean = isFallen(Hand.SECOND)
 
@@ -2662,36 +2671,11 @@ class ClockView @JvmOverloads constructor(
         // Digital 7-segment readout: the chronograph value in chrono modes,
         // or the current time while the hands are lying at the bottom of
         // the dial and the analog display is useless.
-        val digitalText = when {
-            // A face used as a plain time-of-day badge wants hands and
-            // nothing else.
-            !showDigitalReadout -> null
-            // While setting a duration the readout must follow the hands —
-            // that is what you are reading as you wind. Otherwise it reports
-            // the mechanism's own value, so a wound hand cannot drag the
-            // display into negative time.
-            chronoProvider != null && chronoSettable ->
-                formatDuration(settingReadoutMs())
-            chronoProvider != null -> formatDuration(chronoProvider?.invoke() ?: 0L)
-            anyHandFallen() -> {
-                cal.timeInMillis = displayNowMs()
-                String.format(
-                    Locale.US, "%02d:%02d:%02d",
-                    cal.get(Calendar.HOUR_OF_DAY),
-                    cal.get(Calendar.MINUTE),
-                    cal.get(Calendar.SECOND)
-                )
-            }
-            else -> null
-        }
+        val digitalText = readoutText()
         digitalText?.let {
             val digitH = r * 0.13f
             val yTop = min(cy + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
-            val liveUnits = when {
-                chronoProvider != null && chronoSettable -> unitsFor(settingReadoutMs())
-                chronoProvider != null -> unitsFor(chronoProvider?.invoke() ?: 0L)
-                else -> UNITS_CLOCK
-            }
+            val liveUnits = readoutUnits()
             ladderTapTop = yTop
             drawSevenSegment(canvas, it, cx, yTop, digitH, liveUnits)
 
@@ -2813,6 +2797,62 @@ class ClockView @JvmOverloads constructor(
      * style, so the tail gives the scale away — a reading whose last group
      * is unmarked ends in hundredths, one ending in \u2033 ends in seconds.
      */
+    /**
+     * Hours and minutes, and nothing else.
+     *
+     * The chronograph's readout swaps units as the value grows — hundredths
+     * under the hour, seconds over it — which is right for timing something
+     * and wrong for setting an alarm twice over. The digits shift sideways
+     * the moment you cross an hour, so the number you are reading moves
+     * under your eye; and hundredths of a second are not a thing anybody
+     * sets an alarm to. What you want is the minutes, plainly, because your
+     * finger is probably covering the hand.
+     */
+    /**
+     * What the digital readout says, if anything.
+     *
+     * Its own function because *which* format is chosen is a decision with
+     * three answers and no way to see it from outside — and the wrong one
+     * had been running under the alarm dial since the day it borrowed the
+     * chronograph's engine.
+     */
+    internal fun readoutText(): String? = when {
+        // A face used as a plain time-of-day badge wants hands and nothing
+        // else.
+        !showDigitalReadout -> null
+        // A time of day, or a length of one: hours and minutes, steady.
+        chronoProvider != null && chronoSettable && chronoWrapsDay ->
+            formatClockish(settingReadoutMs())
+        // While setting a duration the readout must follow the hands — that
+        // is what you are reading as you wind. Otherwise it reports the
+        // mechanism's own value, so a wound hand cannot drag the display
+        // into negative time.
+        chronoProvider != null && chronoSettable -> formatDuration(settingReadoutMs())
+        chronoProvider != null -> formatDuration(chronoProvider?.invoke() ?: 0L)
+        anyHandFallen() -> {
+            cal.timeInMillis = displayNowMs()
+            String.format(
+                Locale.US, "%02d:%02d:%02d",
+                cal.get(Calendar.HOUR_OF_DAY),
+                cal.get(Calendar.MINUTE),
+                cal.get(Calendar.SECOND)
+            )
+        }
+        else -> null
+    }
+
+    internal fun readoutUnits(): Array<String> = when {
+        chronoProvider != null && chronoSettable && chronoWrapsDay -> UNITS_HM
+        chronoProvider != null && chronoSettable -> unitsFor(settingReadoutMs())
+        chronoProvider != null -> unitsFor(chronoProvider?.invoke() ?: 0L)
+        else -> UNITS_CLOCK
+    }
+
+    private fun formatClockish(ms: Long): String {
+        val abs = kotlin.math.abs(ms)
+        return String.format(Locale.US, "%02d:%02d", abs / 3_600_000L, abs / 60_000L % 60L)
+    }
+
     private fun unitsFor(ms: Long): Array<String> =
         if (kotlin.math.abs(ms) < 3_600_000L) UNITS_STOPWATCH else UNITS_CLOCK
 
@@ -2980,7 +3020,14 @@ class ClockView @JvmOverloads constructor(
             if (isNumeralFallen(hour)) continue
             val pos = numeralPosition(hour, cx, cy, r)
             val defaultColor = numeralPaint.color
-            if (selectedHours.contains(hour)) numeralPaint.color = selectedColor
+            // Only on a clock. Tapping a numeral to mark it is already
+            // barred wherever there is a chrono provider, but the marks
+            // themselves were still painted — so the hours you had picked
+            // out on C0 came up in the accent colour on the face you were
+            // winding an alarm onto, looking like part of the answer.
+            if (chronoProvider == null && selectedHours.contains(hour)) {
+                numeralPaint.color = selectedColor
+            }
             val baseline = pos.y - (numeralPaint.ascent() + numeralPaint.descent()) / 2f
             canvas.drawText(numeralLabel(hour), pos.x, baseline, numeralPaint)
             numeralPaint.color = defaultColor
@@ -3389,6 +3436,9 @@ class ClockView @JvmOverloads constructor(
 
         /** Corner marks, degrees-minutes-seconds style: 01°:23′:45″. */
         private val UNITS_CLOCK = arrayOf("\u00b0", "'", "\"")
+
+        /** Hours and minutes only: what a time being set is measured in. */
+        private val UNITS_HM = arrayOf("\u00b0", "'")
 
         /** Under the hour the tail is hundredths, left unmarked on purpose. */
         private val UNITS_STOPWATCH = arrayOf("'", "\"", "")

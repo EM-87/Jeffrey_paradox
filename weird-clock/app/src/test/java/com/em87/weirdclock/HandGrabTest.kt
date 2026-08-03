@@ -367,4 +367,24 @@ class HandGrabTest {
             grabAlong(w, w.handAngleForTest(ClockView.Hand.SECOND), 0.85f)
         )
     }
+
+    /**
+     * The ticking used to fall silent for any hand at all, from when the
+     * second hand was dragged round by whatever else was being wound. It
+     * keeps real time now, so it keeps its voice — except while it is the
+     * hand being wound, where the winding fires its own ticks.
+     */
+    @Test
+    fun `only the second hand silences the ticking`() {
+        val v = realClock()
+        assertFalse(v.isSecondHandGrabbed())
+        grabHand(v, ClockView.Hand.MINUTE, 0.62f)
+        assertEquals(ClockView.Hand.MINUTE, v.draggedHandForTest())
+        assertFalse("winding the minute hand must not silence it", v.isSecondHandGrabbed())
+
+        val w = realClock()
+        grabHand(w, ClockView.Hand.SECOND, 0.79f)
+        assertEquals(ClockView.Hand.SECOND, w.draggedHandForTest())
+        assertTrue(w.isSecondHandGrabbed())
+    }
 }

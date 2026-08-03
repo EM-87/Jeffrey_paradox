@@ -314,4 +314,42 @@ class DialMarksTest {
         assertTrue(luma(ClockThemes.contrastInk(ClockThemes.DAYLIGHT)) < 300)
         assertTrue(luma(ClockThemes.contrastInk(ClockThemes.MIDNIGHT)) > 400)
     }
+
+    /**
+     * Hours picked out on the clock are the clock's own marking. Tapping a
+     * numeral to pick one is already barred wherever there is a chrono
+     * provider, but the marks themselves were still painted — so the hours
+     * you had chosen on C0 came up in the accent colour on the face you
+     * were winding an alarm onto, looking like part of the answer.
+     */
+    @Test
+    fun `picked hours are not painted on a dial being wound`() {
+        // The second hand is painted in the same colour, so it is off for
+        // this count: what is being measured is the numerals.
+        fun face(setting: Boolean) = dial().apply {
+            numeralStyle = ClockView.NumeralStyle.ARABIC
+            showSecondHand = false
+            if (setting) {
+                chronoProvider = { 7 * 3_600_000L }
+                chronoSettable = true
+            }
+            setSelectedHours(setOf(3, 6, 9, 12))
+        }
+        // A picked hour is painted in the second hand's colour, which is
+        // the one thing on a Midnight dial that is red.
+        val picked = ClockThemes.MIDNIGHT.secondHand
+        val clock = countExactly(render(face(false)), picked)
+        val setting = countExactly(render(face(true)), picked)
+        assertTrue("a clock must show the hours it was told to mark: $clock", clock > 40)
+        assertEquals("and a dial being wound must not", 0, setting)
+    }
+
+    /** Pixels of exactly this colour anywhere on the face. */
+    private fun countExactly(bitmap: Bitmap, color: Int): Int {
+        var n = 0
+        for (x in 0 until 720) for (y in 0 until 720) {
+            if (bitmap.getPixel(x, y) == color) n++
+        }
+        return n
+    }
 }

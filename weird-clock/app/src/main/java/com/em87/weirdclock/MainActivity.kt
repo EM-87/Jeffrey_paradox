@@ -313,7 +313,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         override fun run() {
             val cv = clockView
             if (tickingEnabled && mode == Mode.CLOCK && cv != null &&
-                !cv.isHandGrabbed() && !cv.isSecondHandFallen()
+                !cv.isSecondHandGrabbed() && !cv.isSecondHandFallen()
             ) {
                 chimePlayer.playTick()
             }
