@@ -1720,11 +1720,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         for (dial in listOfNotNull(countdownClockView, stopwatchClockView)) {
             dial.hoursOnDial = cv.hoursOnDial
             dial.dialShape = cv.dialShape
-            dial.showSecondHand = cv.showSecondHand
+            // Read from the settings rather than copied off C0: while a
+            // time is being wound C0 puts its own second and tenths hands
+            // away, and mirroring it took them off the stopwatch and the
+            // countdown too — where they are the whole point — until the
+            // next time preferences happened to be applied.
+            dial.showSecondHand = prefs.getBoolean(Prefs.SECOND_HAND, true)
             dial.smoothSeconds = cv.smoothSeconds
             dial.mirrored = cv.mirrored
             dial.numeralStyle = cv.numeralStyle
-            dial.fastHand = cv.fastHand
+            dial.fastHand = readFastHand()
             dial.theme = cv.theme
             dial.touchHandsEnabled = true
             dial.pinchZoomEnabled = cv.pinchZoomEnabled

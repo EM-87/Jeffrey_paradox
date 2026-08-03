@@ -579,7 +579,7 @@ class ClockView @JvmOverloads constructor(
         override fun run() {
             invalidate()
             val fast = isAnimating() || chronoProvider != null ||
-                fastHand != FastHandMode.NONE || (smoothSeconds && showSecondHand)
+                showsFastHand() || (smoothSeconds && showSecondHand)
             val delay = if (fast) 16L else 1000L - (TimeKeeper.nowMs() % 1000L).coerceIn(0L, 999L)
             postDelayed(this, delay)
         }
@@ -1293,7 +1293,12 @@ class ClockView @JvmOverloads constructor(
         // past the minute hand's tip where nothing else lives.
         if (secondHandRingHit(x, y)) chosen = Hand.SECOND
         if (chosen == null && showSecondHand && !isFallen(Hand.SECOND) &&
-            inSecondHandBand(x, y)
+            inSecondHandBand(x, y) &&
+            // In the band *and* roughly on the hand. The band is radial
+            // only — it says "past the minute hand's tip" and nothing about
+            // direction — so on its own it handed over the second hand for
+            // a touch on the far side of the dial from it.
+            distanceToHand(Hand.SECOND, a, x, y, cx, cy, r) < threshold * 2f
         ) {
             chosen = Hand.SECOND
         }
@@ -1315,6 +1320,11 @@ class ClockView @JvmOverloads constructor(
                 }
             }
         }
+
+        // Taking hold of any hand but the second one sets it loose; taking
+        // hold of the second one puts it back on the dial, so that winding
+        // it is followed and springs home like any other hand.
+        chosen?.let { secondLoose = it != Hand.SECOND }
 
         chosen?.let {
             spring?.cancel()
@@ -1679,6 +1689,20 @@ class ClockView @JvmOverloads constructor(
 
     private fun isFastHandFallen(): Boolean = fallenBodies.any { it.kind == BodyKind.FAST_HAND }
 
+    /**
+     * Whether the tenths hand is on the face.
+     *
+     * It is the second hand's decoration: a chronograph gets one whether or
+     * not the clock asked for it, because sub-second motion is what a
+     * chronograph is for. But "a chronograph gets one" was written as
+     * `chronoProvider != null`, and the dial that sets an alarm time runs
+     * on a chrono provider too — so taking the second hand off that face
+     * left the tenths hand spinning there on its own, which is the
+     * strangest of both worlds. It goes where the second hand goes.
+     */
+    internal fun showsFastHand(): Boolean =
+        fastHand != FastHandMode.NONE || (chronoProvider != null && showSecondHand)
+
     private fun isNumeralFallen(hour: Int): Boolean =
         fallenBodies.any { it.kind == BodyKind.NUMERAL && it.numeralHour == hour }
 
@@ -2001,7 +2025,7 @@ class ClockView @JvmOverloads constructor(
             val tail = pointAt(cx, cy, angle + 180f, r * tailOf(hand))
             collideBodiesWithSegment(tail.x, tail.y, tip.x, tip.y, widthOf(hand) * r)
         }
-        if ((fastHand != FastHandMode.NONE || chronoProvider != null) && !isFastHandFallen()) {
+        if (showsFastHand() && !isFastHandFallen()) {
             val tip = pointAt(cx, cy, a.fast, r * FAST_LEN)
             collideBodiesWithSegment(cx, cy, tip.x, tip.y, 0.008f * r)
         }
@@ -2318,26 +2342,41 @@ class ClockView @JvmOverloads constructor(
         val hours = cal.get(Calendar.HOUR_OF_DAY) + minutes / 60f
         val n = hoursOnDial
 
-        // On a clock the second hand is not geared to the others at all: it
-        // is the one hand still telling the time while you carry the other
-        // two around, and it keeps doing that. So it reads the real clock,
-        // past both the wind offset and the freeze the grab puts on the
-        // mechanism — while the minute hand is in your fingers, the seconds
-        // go on ticking as if nothing were happening, which is exactly what
-        // they would do on a real one.
+        // On a clock the second hand is not geared to the others: it is the
+        // one hand still telling the time while you carry the other two
+        // around, and it keeps doing that. So it reads the real clock, past
+        // both the wind offset and the freeze the grab puts on the
+        // mechanism — while the minute hand is in your fingers the seconds
+        // go on ticking as if nothing were happening.
         //
-        // Not only while the finger is down: the whole point is a dial you
-        // can leave wound forward while you read the day's events off it,
-        // and letting go used to re-engage the gearing and set the second
-        // hand spinning at whatever offset you had stopped at. It stays
-        // loose for as long as the dial is showing a time that is not now.
-        val loose = draggedHand != Hand.SECOND &&
-            (draggedHand != null || visualOffsetSeconds != 0.0)
+        // It comes loose when another hand is taken hold of, and stays
+        // loose until the dial is showing now again — letting go used to
+        // re-engage the gearing on the spot and set it spinning at whatever
+        // offset you had stopped at, which is precisely the moment you are
+        // reading the day's events off the face.
+        //
+        // But winding the second hand *itself* is the opposite case: it
+        // must follow the finger, and it must come back on the spring with
+        // the rest. Asking "is the offset non-zero" could not tell the two
+        // apart, so it jumped to real time the instant the finger lifted
+        // instead of springing home. What matters is which hand put the
+        // offset there.
+        // Recorded when the hand is taken hold of, not worked out here:
+        // inferring it while drawing means the state only exists if a frame
+        // happens to be drawn between the grab and the release, which is
+        // true of the running app and not of anything else.
+        if (draggedHand == null && visualOffsetSeconds == 0.0) secondLoose = false
+        val loose = secondLoose && draggedHand != Hand.SECOND
         val secondAngle: Float
         val looseFastMs: Int
         if (loose) {
             secondCal.timeInMillis = TimeKeeper.nowMs()
-            val realMs = if (useMs) secondCal.get(Calendar.MILLISECOND) else 0
+            // Its own tick, not the dial's: `useMs` is true whenever
+            // anything on the face is animating, and a hand being dragged
+            // is animating — so a second hand that had come loose to keep
+            // telling the time started sweeping smoothly while it did,
+            // which is a different clock, not a quieter one.
+            val realMs = if (smoothSeconds) secondCal.get(Calendar.MILLISECOND) else 0
             secondAngle = (secondCal.get(Calendar.SECOND) + realMs / 1000f) / 60f * 360f
             looseFastMs = secondCal.get(Calendar.MILLISECOND)
         } else {
@@ -2367,6 +2406,9 @@ class ClockView @JvmOverloads constructor(
     internal fun draggedHandForTest(): Hand? = draggedHand
     internal fun secondAngleForTest(): Float = currentAngles().second
 
+    /** Where a hand is pointing, so a test can reach for it rather than guess. */
+    internal fun handAngleForTest(hand: Hand): Float = angleOf(hand, currentAngles())
+
     /**
      * Winds the dial the way a finger would, without the finger.
      *
@@ -2378,6 +2420,18 @@ class ClockView @JvmOverloads constructor(
     internal fun windForTest(seconds: Double) {
         visualOffsetSeconds = seconds
     }
+
+    /** Lets go of whatever hand is held, without the spring or the commit. */
+    internal fun releaseForTest() {
+        draggedHand = null
+    }
+
+    /**
+     * True while the second hand is running on real time rather than on the
+     * dial's wound value. Set by taking hold of another hand, cleared by
+     * taking hold of this one or by the dial coming home.
+     */
+    private var secondLoose = false
 
     /** A second calendar, so reading the real clock never disturbs [cal]. */
     private val secondCal: Calendar = Calendar.getInstance()
@@ -2574,7 +2628,7 @@ class ClockView @JvmOverloads constructor(
 
         }
 
-        if (fastHand != FastHandMode.NONE || chronoProvider != null) {
+        if (showsFastHand()) {
             for (i in 0 until 10) {
                 val angle = i / 10f * 360f
                 fastTickPaint.strokeWidth = r * 0.012f
