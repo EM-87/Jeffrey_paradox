@@ -1666,7 +1666,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
         cv.hoursOnDial = readHoursOnDial()
         cv.dialShape = readDialShape()
-        cv.showSecondHand = prefs.getBoolean(Prefs.SECOND_HAND, true)
+        // Off while a time is being wound, whatever the setting says — see
+        // applyMode(). Anything that reapplies preferences mid-wind would
+        // otherwise put it back under the user's finger.
+        cv.showSecondHand = dialJob == null && prefs.getBoolean(Prefs.SECOND_HAND, true)
         cv.smoothSeconds = prefs.getBoolean(Prefs.SMOOTH_SECONDS, false)
         cv.mirrored = prefs.getBoolean(Prefs.MIRROR, false)
         cv.numeralStyle = readNumeralStyle()
@@ -2003,6 +2006,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // landed on. A length gets it too — it says whether the
                 // thing ends in the light.
                 it.showMoonPhase = true
+                // And no second hand. Nobody sets an alarm for twenty past
+                // seven and eleven seconds: the hand is one more thing to
+                // catch by accident on a face where two others have to be
+                // placed exactly, and it says nothing either of them does
+                // not. The same goes for a length.
+                it.showSecondHand = false
                 // A length is a length, whoever it belongs to. Only the
                 // reminder's used the countdown magnets before, so winding
                 // "how long does this last" on an alarm snapped to the grid
@@ -2027,6 +2036,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // proof the sunrise arithmetic works and the only way to
                 // watch a whole day go past without waiting for one.
                 it.showMoonPhase = prefs.getBoolean(Prefs.MOON_PHASE, false)
+                it.showSecondHand = prefs.getBoolean(Prefs.SECOND_HAND, true)
                 it.magnetOrigin = 0L
                 it.chronoWrapsDay = false
                 it.magnetProfile = ClockView.MagnetProfile.COUNTDOWN

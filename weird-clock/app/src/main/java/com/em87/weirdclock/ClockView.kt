@@ -1227,7 +1227,59 @@ class ClockView @JvmOverloads constructor(
         return hypot(px - (x1 + t * dx), py - (y1 + t * dy))
     }
 
-    private fun grabHandNear(x: Float, y: Float) {
+    /**
+     * Which hand the finger is asking for, when several lie on top of one
+     * another.
+     *
+     * With all three hands at twelve, distance to the nearest hand cannot
+     * choose between them: every one of them is under the finger. But the
+     * hands are different *lengths*, and that is what people reach for —
+     * out near the rim for the long one, down near the centre for the short
+     * one. So the dial is three rings, and where the finger lands says
+     * which hand was meant:
+     *
+     *  - inside the hour hand's tip, the hour hand — it is the only one
+     *    that can be caught there and nowhere else;
+     *  - between that and the minute hand's tip, the minute hand;
+     *  - beyond it, the second hand, out where only it reaches.
+     *
+     * Only when there is a choice to make. A hand on its own is grabbed
+     * anywhere along its length, as before — the rings are for untangling a
+     * pile, not a new rule about where hands may be held.
+     */
+    internal fun handForRing(distFraction: Float): Hand = when {
+        distFraction < HOUR_LEN * 0.98f -> Hand.HOUR
+        distFraction < MINUTE_LEN * 0.98f -> Hand.MINUTE
+        else -> Hand.SECOND
+    }
+
+    /**
+     * The ring's pick if that hand is actually in the pile, otherwise the
+     * nearest one in it — a ring nobody has a hand in cannot decide
+     * anything, and the finger still has to catch something.
+     */
+    internal fun untangle(distFraction: Float, reachable: List<Pair<Hand, Float>>): Hand {
+        val wanted = handForRing(distFraction)
+        reachable.firstOrNull { it.first == wanted }?.let { return it.first }
+        // Falling outwards: the ring above an absent hand belongs to the
+        // longest hand still present, which is what "reach further out for
+        // the longer one" means when the longest is switched off.
+        val order = listOf(Hand.SECOND, Hand.MINUTE, Hand.HOUR)
+        val fromWanted = order.indexOf(wanted)
+        for (i in order.indices) {
+            val hand = order[(fromWanted + i) % order.size]
+            reachable.firstOrNull { it.first == hand }?.let { return it.first }
+        }
+        return reachable.minByOrNull { it.second }!!.first
+    }
+
+    /** How generously each hand is caught: the thin one needs more room. */
+    private fun grabLeniency(hand: Hand): Float = when (hand) {
+        Hand.SECOND -> 1.4f
+        else -> 1.2f
+    }
+
+    internal fun grabHandNear(x: Float, y: Float) {
         val cx = width / 2f
         val cy = height / 2f
         val r = dialRadius()
@@ -1236,42 +1288,30 @@ class ClockView @JvmOverloads constructor(
 
         val threshold = max(r * 0.10f, 44f * resources.displayMetrics.density)
         var chosen: Hand? = null
-        if (chronoSettable && chronoProvider != null) {
-            // Setting a duration: within the dial proper, minutes and hours
-            // matter and seconds barely.
-            if (secondHandRingHit(x, y)) chosen = Hand.SECOND
-            // Past the minute hand's tip there is nothing but second hand:
-            // offering the minute one out there only ever stole the grab.
-            val outerBand = showSecondHand && !isFallen(Hand.SECOND) &&
-                inSecondHandBand(x, y)
-            val order = if (outerBand) {
-                arrayOf(Triple(Hand.SECOND, 1.8f, true))
-            } else {
-                arrayOf(Triple(Hand.MINUTE, 1.4f, true),
-                    Triple(Hand.HOUR, 1.2f, true),
-                    Triple(Hand.SECOND, 0.8f, showSecondHand))
-            }
-            if (chosen == null) {
-                for ((hand, factor, enabled) in order) {
-                    if (!enabled || isFallen(hand)) continue
-                    if (distanceToHand(hand, a, x, y, cx, cy, r) < threshold * factor) {
-                        chosen = hand
-                        break
-                    }
-                }
-            }
-        } else if (showSecondHand && !isFallen(Hand.SECOND) &&
-            distanceToHand(Hand.SECOND, a, x, y, cx, cy, r) < threshold * 1.4f
+        // Two special cases that outrank the rings, both about the second
+        // hand being thin: its own grab ring while setting, and the band
+        // past the minute hand's tip where nothing else lives.
+        if (secondHandRingHit(x, y)) chosen = Hand.SECOND
+        if (chosen == null && showSecondHand && !isFallen(Hand.SECOND) &&
+            inSecondHandBand(x, y)
         ) {
             chosen = Hand.SECOND
-        } else {
-            var bestDist = threshold
-            for (hand in arrayOf(Hand.MINUTE, Hand.HOUR)) {
+        }
+
+        if (chosen == null) {
+            val reachable = mutableListOf<Pair<Hand, Float>>()
+            for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
                 if (isFallen(hand)) continue
+                if (hand == Hand.SECOND && !showSecondHand) continue
                 val d = distanceToHand(hand, a, x, y, cx, cy, r)
-                if (d < bestDist) {
-                    bestDist = d
-                    chosen = hand
+                if (d < threshold * grabLeniency(hand)) reachable.add(hand to d)
+            }
+            chosen = when (reachable.size) {
+                0 -> null
+                1 -> reachable[0].first
+                else -> {
+                    val boundary = boundaryRadius(touchAngleDeg(x, y))
+                    untangle(hypot(x - cx, y - cy) / boundary, reachable)
                 }
             }
         }
@@ -2242,16 +2282,30 @@ class ClockView @JvmOverloads constructor(
     private fun computeAngles(): Angles {
         chronoDisplayMs()?.let { duration ->
             val totalSec = duration / 1000.0
-            // Winding the minute or hour hand on a whole-minute value: the
-            // seconds are already polarized to zero, so spinning them like
-            // mad adds nothing but noise. They stay put.
-            val secondsPinned = chronoSettable && draggedHand != null &&
-                draggedHand != Hand.SECOND && (chronoFrozenMs ?: 0L) % 60_000L == 0L
+            // Winding one hand used to whirl the second hand round with it,
+            // which is not what a watch does and not what anybody is
+            // looking at. Here it simply stays where it was — the value is
+            // frozen under the finger anyway, so "where it was" is exactly
+            // the second the wind started on.
+            //
+            // The old rule pinned it only when the frozen value happened to
+            // land on a whole minute, so setting a countdown of 1:30 still
+            // sent it spinning.
+            val pinned = draggedHand != null && draggedHand != Hand.SECOND
+            val held = chronoFrozenMs ?: duration
             return Angles(
                 hour = ((totalSec / 3600.0) % hoursOnDial / hoursOnDial * 360.0).toFloat(),
                 minute = ((totalSec / 60.0) % 60.0 / 60.0 * 360.0).toFloat(),
-                second = if (secondsPinned) 0f else ((totalSec % 60.0) / 60.0 * 360.0).toFloat(),
-                fast = if (secondsPinned) 0f else (duration % 1000L) / 1000f * 360f
+                second = if (pinned) {
+                    ((held % 60_000L) / 60_000.0 * 360.0).toFloat()
+                } else {
+                    ((totalSec % 60.0) / 60.0 * 360.0).toFloat()
+                },
+                fast = if (pinned) {
+                    (held % 1000L) / 1000f * 360f
+                } else {
+                    (duration % 1000L) / 1000f * 360f
+                }
             )
         }
 
@@ -2263,9 +2317,30 @@ class ClockView @JvmOverloads constructor(
         val minutes = cal.get(Calendar.MINUTE) + seconds / 60f
         val hours = cal.get(Calendar.HOUR_OF_DAY) + minutes / 60f
         val n = hoursOnDial
+
+        // On a clock the second hand is not geared to the others at all: it
+        // is the one hand still telling the time while you carry the other
+        // two around, and it keeps doing that. So it reads the real clock,
+        // past both the wind offset and the freeze the grab puts on the
+        // mechanism — while the minute hand is in your fingers, the seconds
+        // go on ticking as if nothing were happening, which is exactly what
+        // they would do on a real one.
+        val loose = draggedHand != null && draggedHand != Hand.SECOND
+        val secondAngle: Float
+        val looseFastMs: Int
+        if (loose) {
+            secondCal.timeInMillis = TimeKeeper.nowMs()
+            val realMs = if (useMs) secondCal.get(Calendar.MILLISECOND) else 0
+            secondAngle = (secondCal.get(Calendar.SECOND) + realMs / 1000f) / 60f * 360f
+            looseFastMs = secondCal.get(Calendar.MILLISECOND)
+        } else {
+            secondAngle = seconds / 60f * 360f
+            looseFastMs = cal.get(Calendar.MILLISECOND)
+        }
+
         val fast = when (fastHand) {
             FastHandMode.NONE -> 0f
-            FastHandMode.TENTHS -> cal.get(Calendar.MILLISECOND) / 1000f * 360f
+            FastHandMode.TENTHS -> looseFastMs / 1000f * 360f
             FastHandMode.DECIMAL_MINUTE -> {
                 val secondOfDay = cal.get(Calendar.HOUR_OF_DAY) * 3600.0 +
                     cal.get(Calendar.MINUTE) * 60.0 +
@@ -2276,10 +2351,29 @@ class ClockView @JvmOverloads constructor(
         return Angles(
             hour = (hours % n) / n * 360f,
             minute = minutes / 60f * 360f,
-            second = seconds / 60f * 360f,
+            second = secondAngle,
             fast = fast
         )
     }
+
+    /** Which hand a grab landed on, and what the hands read, for tests. */
+    internal fun draggedHandForTest(): Hand? = draggedHand
+    internal fun secondAngleForTest(): Float = currentAngles().second
+
+    /**
+     * Winds the dial the way a finger would, without the finger.
+     *
+     * The wound value lives in the visual offset, not in the provider —
+     * grabbing a hand freezes the provider's value on the spot — so a test
+     * that changed what the provider returns changed nothing at all, and
+     * duly passed with the fix removed.
+     */
+    internal fun windForTest(seconds: Double) {
+        visualOffsetSeconds = seconds
+    }
+
+    /** A second calendar, so reading the real clock never disturbs [cal]. */
+    private val secondCal: Calendar = Calendar.getInstance()
 
     /** Target angles, blended with the mode-transition animation if active. */
     private fun currentAngles(): Angles {
