@@ -260,4 +260,6 @@
     <string name="alarm_slide_to_stop">Slide to stop</string>
     <string name="a11y_stopwatch">Stopwatch</string>
     <string name="a11y_countdown">Countdown</string>
+    <string name="a11y_clock">Clock</string>
+    <string name="a11y_hourglass">Hourglass</string>
 </resources>

@@ -96,12 +96,14 @@
                 android:contentDescription="@string/a11y_stopwatch"
                 android:src="@drawable/ic_stopwatch" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/mode_button"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/mode_clock" />
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:alpha="0.75"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/a11y_hourglass"
+                android:src="@drawable/ic_hourglass" />
 
             <ImageButton
                 android:id="@+id/to_countdown_button"
@@ -187,14 +189,16 @@
                 android:minWidth="96dp"
                 android:text="@string/chrono_start" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/sand_back_button"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:alpha="0.75"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/a11y_clock"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
-                android:text="@string/mode_stopwatch" />
+                android:src="@drawable/ic_clock_face" />
 
             <Button
                 android:id="@+id/sand_freeze"

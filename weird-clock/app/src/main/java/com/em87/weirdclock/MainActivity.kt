@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var clockContainer: View? = null
     private var bubbleLayer: FrameLayout? = null
     private lateinit var worldBubbles: WorldBubbles
-    private var modeButton: Button? = null
+    private var modeButton: ImageButton? = null
     private var homeButtonRow: View? = null
     private var settingsButton: ImageButton? = null
     private var alarmSetBanner: View? = null
@@ -792,9 +792,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
             it.onDialScaleChanged = { scale -> shareDialScale(scale, it) }
             it.onHorizontalSwipe = { fingerRight ->
-                // Home is one swipe away from anywhere.
+                // Home is one swipe away from anywhere — and home from a
+                // chronograph is the clock, which is up and across: the
+                // same diagonal the button took to get here, run backwards.
                 if (!fingerRight) {
-                    pager.currentItem = PAGE_HOME
+                    goDiagonal(PAGE_HOME, Mode.CLOCK)
                     true
                 } else {
                     false
@@ -808,7 +810,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 worldBubbles.dock()
             }
         }
-        root.findViewById<Button>(R.id.stopwatch_back_button).setOnClickListener {
+        root.findViewById<ImageButton>(R.id.stopwatch_back_button).setOnClickListener {
             goHomeToClock()
         }
         applyPreferences()
@@ -862,7 +864,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.onDialScaleChanged = { scale -> shareDialScale(scale, it) }
             it.onHorizontalSwipe = { fingerRight ->
                 if (fingerRight) {
-                    pager.currentItem = PAGE_HOME
+                    goDiagonal(PAGE_HOME, Mode.CLOCK)
                     true
                 } else {
                     false
@@ -877,7 +879,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
         }
         // The countdown goes straight home to the clock, skipping S0.
-        root.findViewById<Button>(R.id.countdown_back_button).setOnClickListener {
+        root.findViewById<ImageButton>(R.id.countdown_back_button).setOnClickListener {
             goHomeToClock()
         }
         applyPreferences()
@@ -908,7 +910,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
         bubbleLayer = root.findViewById(R.id.bubble_layer)
         worldBubbles.layer = bubbleLayer
-        modeButton = root.findViewById<Button>(R.id.mode_button).also {
+        modeButton = root.findViewById<ImageButton>(R.id.mode_button).also {
             it.setOnClickListener { cycleMode() }
         }
         homeButtonRow = root.findViewById(R.id.home_button_row)
@@ -941,7 +943,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         sandStartStop = root.findViewById<Button>(R.id.sand_start_stop).also {
             it.setOnClickListener { toggleCountdown() }
         }
-        root.findViewById<Button>(R.id.sand_back_button).setOnClickListener { goHomeToClock() }
+        root.findViewById<ImageButton>(R.id.sand_back_button)
+            .setOnClickListener { goHomeToClock() }
         sandFreeze = root.findViewById<Button>(R.id.sand_freeze).also { button ->
             button.setOnClickListener {
                 val sand = s3Sand ?: return@setOnClickListener
@@ -1070,36 +1073,77 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * with a jump cut, and the world-clock bubbles popping instead of
      * arriving.
      */
+    /** True while the move in flight crosses to another page as well. */
+    private var cardMoveIsDiagonal = false
+
     /**
-     * Shows or hides a card at once, cancelling any fade in flight on it.
+     * Slides a card in or out vertically, hand-clocked.
      *
-     * The counterpart to [fadeCard] for the cards that hold a dial: see
-     * applyMode() for why those cut instead.
+     * [direction] is where the card comes from and goes to: +1 below, -1
+     * above, and 0 for no movement at all, which is what a diagonal gets —
+     * the page underneath has already changed, so there is nothing to slide
+     * away from and the hands carry the eye instead.
+     *
+     * Not a ValueAnimator, like everything else that moves here: the system
+     * animator scale is off on the author's phone and anything on one
+     * teleports.
      */
-    private fun showCardNow(view: View?, show: Boolean) {
+    private fun slideCard(view: View?, show: Boolean, direction: Float) {
         val target = view ?: return
-        // Bump the token so a fade already running on this card gives up
-        // rather than animating over the top of what is set here.
-        fadeTokens[target] = (fadeTokens[target] ?: 0) + 1
-        if (show) {
+        val token = (fadeTokens[target] ?: 0) + 1
+        fadeTokens[target] = token
+        if (!show && target.visibility == View.GONE) return
+        val travel = (target.height.takeIf { it > 0 } ?: pager.height).toFloat()
+        if (direction == 0f || travel <= 0f) {
+            target.translationY = 0f
             target.alpha = shownAlpha(target)
+            target.visibility = if (show) View.VISIBLE else View.GONE
+            if (show) target.bringToFront()
+            return
+        }
+        val from = if (show) travel * direction else 0f
+        val to = if (show) 0f else -travel * direction
+        target.translationY = from
+        target.alpha = shownAlpha(target)
+        if (show) {
             target.visibility = View.VISIBLE
             target.bringToFront()
-        } else {
-            target.visibility = View.GONE
         }
+        val start = SystemClock.uptimeMillis()
+        val ease = android.view.animation.AccelerateDecelerateInterpolator()
+        val choreographer = android.view.Choreographer.getInstance()
+        choreographer.postFrameCallback(object : android.view.Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
+                if (fadeTokens[target] != token) return
+                val t = ((SystemClock.uptimeMillis() - start) / CARD_SLIDE_MS).coerceIn(0f, 1f)
+                target.translationY = from + (to - from) * ease.getInterpolation(t)
+                if (t < 1f && target.isAttachedToWindow) {
+                    choreographer.postFrameCallback(this)
+                } else {
+                    target.translationY = 0f
+                    if (!show) target.visibility = View.GONE
+                }
+            }
+        })
     }
 
     /**
-     * Hands the outgoing dial's angles to the incoming one.
+     * The dial that was on screen when a move began.
      *
-     * Called before the cards swap, while [lastVisibleDial] still holds the
-     * face that was on screen — after the swap it is the new one, and a
-     * dial handed its own angles has nowhere to travel.
+     * Noted before anything changes, not looked up afterwards. Changing the
+     * page fires onPageSelected, which calls carryFallenHands, which moves
+     * lastVisibleDial on to the *arriving* dial — so by the time the cards
+     * were swapped the outgoing face was already forgotten and every dial
+     * was handed its own angles, with nowhere to travel. Which is exactly
+     * what "the stopwatch appears out of nowhere" looks like.
      */
+    private var handOverSource: ClockView? = null
+
+    /** Hands the outgoing dial's angles to the incoming one. */
     private fun handOverHands() {
-        val from = lastVisibleDial ?: return
-        val to = dialFor(pager.currentItem, if (mode == Mode.CHRONO) Mode.CHRONO else Mode.CLOCK)
+        val from = handOverSource ?: lastVisibleDial ?: return
+        handOverSource = null
+        val to = dialFor(pager.currentItem, mode)
         if (to != null && to !== from) to.handOverFrom(from)
     }
 
@@ -1988,6 +2032,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** The centered bottom button toggles clock ⏳ ↔ chronograph 🕐. */
     private fun cycleMode() {
+        handOverSource = visibleDial()
         mode = if (mode == Mode.CLOCK) Mode.CHRONO else Mode.CLOCK
         applyMode()
     }
@@ -2004,6 +2049,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         if (dialJob != null) return false
         val wanted = if (up) Mode.CLOCK else Mode.CHRONO
         if (mode == wanted) return false
+        handOverSource = visibleDial()
         mode = wanted
         applyMode()
         return true
@@ -2019,10 +2065,36 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * job, and the hands travelling say so far better than a card sliding
      * past. That is the whole point of the two buttons.
      */
-    private fun goToChrono(page: Int) {
-        mode = Mode.CHRONO
-        if (pager.currentItem != page) pager.setCurrentItem(page, false)
-        applyMode()
+    private fun goToChrono(page: Int) = goDiagonal(page, Mode.CHRONO)
+
+    /**
+     * A diagonal move: another row *and* another page, in one gesture.
+     *
+     * The bubbles go first, on their own fade — they belong to the clock
+     * and there is no room for them where we are going. Then the page
+     * changes without scrolling and the row with it, both in the same
+     * frame, and the arriving dial starts with the hands the leaving one
+     * had and walks them across. Two dials the same size in the same place
+     * with their hands in the same position: the cut between them is the
+     * one frame nobody sees, and what is left is a watch changing its job.
+     */
+    private fun goDiagonal(page: Int, wanted: Mode) {
+        if (dialJob != null) return
+        val from = visibleDial()
+        val hop = {
+            handOverSource = from
+            mode = wanted
+            cardMoveIsDiagonal = pager.currentItem != page
+            if (pager.currentItem != page) pager.setCurrentItem(page, false)
+            applyMode()
+        }
+        // Only worth waiting for if there is something to watch leave.
+        if (bubbleLayer?.visibility == View.VISIBLE && (bubbleLayer?.alpha ?: 0f) > 0f) {
+            fadeCard(bubbleLayer, false, raise = false)
+            handler.postDelayed(hop, CARD_FADE_MS.toLong())
+        } else {
+            hop()
+        }
     }
 
     /**
@@ -2031,11 +2103,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * waiting for the scroll to settle made the hourglass flash past and
      * the card blink as it swapped underneath.
      */
-    private fun goHomeToClock() {
-        mode = Mode.CLOCK
-        applyMode()
-        if (pager.currentItem != PAGE_HOME) pager.currentItem = PAGE_HOME
-    }
+    private fun goHomeToClock() = goDiagonal(PAGE_HOME, Mode.CLOCK)
 
     /** Every dial shares one pinch scale; [source] is the one being pinched. */
     private fun shareDialScale(scale: Float, source: ClockView?) {
@@ -2151,21 +2219,30 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // stopwatch gives way to the calendar, the hourglass to the clock,
         // the countdown to the alarms — and the crown and pushers are
         // already fading on their own clock inside the dial.
+        // The crown and the pushers belong to the chronograph row, and they
+        // arrive with it: setting the flag is what starts their fade, so it
+        // is set on every mode change rather than once when the page was
+        // built — which is why they were simply always there.
+        stopwatchClockView?.chronoButtons = chrono
+        countdownClockView?.chronoButtons = chrono
         // The dial that is about to appear starts its hands where the one
         // leaving has them, and covers the distance itself. Seeded before
         // the swap, so the first frame it draws is already on its way.
         handOverHands()
-        // And the cards *cut*, they do not dissolve. A cross-fade hid the
-        // one thing worth watching: two dissolving faces are a slide show,
-        // while one face whose hands travel is a watch changing its mind.
-        // The furniture that comes with each card — the crown, the pushers,
-        // the presets — has its own fade inside the dial.
-        showCardNow(clockContainer, !chrono)
-        showCardNow(hourglassContainer, chrono)
-        showCardNow(calendarContainer, !chrono)
-        showCardNow(stopwatchContainer, chrono)
-        showCardNow(alarmsContainer, !chrono)
-        showCardNow(countdownContainer, chrono)
+        // The two rows are above and below one another, so the card that
+        // arrives comes from that direction and the one that leaves goes
+        // the opposite way. A cross-fade said nothing about where either of
+        // them was; a slide says it without a word. Except on a diagonal,
+        // where the page has already changed underneath and there is
+        // nothing on screen to slide away from — there the hands do it.
+        val slide = if (cardMoveIsDiagonal) 0f else if (chrono) 1f else -1f
+        cardMoveIsDiagonal = false
+        slideCard(clockContainer, !chrono, -slide)
+        slideCard(hourglassContainer, chrono, slide)
+        slideCard(calendarContainer, !chrono, -slide)
+        slideCard(stopwatchContainer, chrono, slide)
+        slideCard(alarmsContainer, !chrono, -slide)
+        slideCard(countdownContainer, chrono, slide)
         carryFallenHands()
         updateCountdownUi()
     }
@@ -2363,6 +2440,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
          * dial, so the whole mode change moves as one gesture.
          */
         private const val CARD_FADE_MS = 500f
+
+        /**
+         * How long a card takes to slide between the two rows. Shorter
+         * than the fade it replaces: a movement reads as soon as it starts,
+         * where a dissolve has to finish before you know what you are
+         * looking at.
+         */
+        private const val CARD_SLIDE_MS = 320f
 
         /** The alarms card at night. */
         private const val NIGHT_DIM_ALPHA = 0.45f

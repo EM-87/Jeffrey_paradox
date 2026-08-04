@@ -488,6 +488,9 @@ class ClockView @JvmOverloads constructor(
      * hundred milliseconds a mode change on a single dial already took, and
      * the two cards read as one dial changing its mind.
      */
+    /** True while the hands are still on their way from a hand-over. */
+    internal fun isTravelling(): Boolean = transitionFrom != null
+
     fun handOverFrom(other: ClockView) {
         transitionFrom = other.currentAngles()
         transitionStartAt = SystemClock.uptimeMillis()

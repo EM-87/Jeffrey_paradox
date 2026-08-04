@@ -257,4 +257,6 @@
     <string name="alarm_slide_to_stop">Desliza para parar</string>
     <string name="a11y_stopwatch">Cronómetro</string>
     <string name="a11y_countdown">Cuenta atrás</string>
+    <string name="a11y_clock">Reloj</string>
+    <string name="a11y_hourglass">Reloj de arena</string>
 </resources>

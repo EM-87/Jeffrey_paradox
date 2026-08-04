@@ -1,0 +1,19 @@
+<!-- A plain watch face: the way back to the clock, and the odd one out of
+     the row precisely because it is not a chronograph. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:pathData="M12,3.2a8.8,8.8 0 1,0 0.001,0z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M12,6.6L12,12L15.6,14.2" />
+</vector>

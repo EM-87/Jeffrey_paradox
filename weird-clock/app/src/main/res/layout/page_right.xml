@@ -25,14 +25,16 @@
             android:padding="16dp" />
 
         <!-- Straight home to the clock, no stop at the hourglass. -->
-        <Button
+        <ImageButton
             android:id="@+id/countdown_back_button"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:alpha="0.75"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/a11y_clock"
             android:layout_gravity="bottom|center_horizontal"
             android:layout_marginBottom="12dp"
-            android:text="@string/mode_stopwatch" />
+            android:src="@drawable/ic_clock_face" />
     </FrameLayout>
 
 </FrameLayout>
