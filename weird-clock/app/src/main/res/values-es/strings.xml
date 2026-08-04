@@ -259,4 +259,6 @@
     <string name="a11y_countdown">Cuenta atrás</string>
     <string name="a11y_clock">Reloj</string>
     <string name="a11y_hourglass">Reloj de arena</string>
+    <string name="a11y_calendar">Calendario</string>
+    <string name="a11y_alarms">Alarmas</string>
 </resources>

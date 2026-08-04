@@ -152,4 +152,39 @@ class HandOverTest {
         angles(stopwatch)
         assertTrue("and stops when it arrives", !stopwatch.isTravelling())
     }
+
+    /**
+     * The hour hand has two days of travel in it, and the date used to sit
+     * on today whatever you did with it — so the one card that could show
+     * you what next Tuesday holds still called it Monday.
+     */
+    @Test
+    fun `the date follows the hands past midnight`() {
+        val v = dial().apply { showDate = true }
+        val day = 24 * 3600.0
+        // Whole days, not "a bit over one". Twenty-six hours forward is the
+        // next day at three in the afternoon and the day after at eleven at
+        // night, so a test written that way passes or fails by the hour it
+        // happens to run at — which is a lesson this suite has already had
+        // twice.
+        val seen = listOf(-2.0, -1.0, 0.0, 1.0, 2.0).map {
+            v.windForTest(it * day)
+            v.dateTextForTest()
+        }
+        assertEquals("five days out, five different dates", 5, seen.toSet().size)
+
+        v.windForTest(0.0)
+        assertEquals("and home again", seen[2], v.dateTextForTest())
+    }
+
+    /** Winding within the day leaves the date alone. */
+    @Test
+    fun `an hour of winding is not a new day`() {
+        val v = dial().apply { showDate = true }
+        val today = v.dateTextForTest()
+        // Two in the morning is the one hour where an hour forward is a
+        // different day, so measure from a time that cannot be.
+        v.windForTest(60.0)
+        assertEquals(today, v.dateTextForTest())
+    }
 }

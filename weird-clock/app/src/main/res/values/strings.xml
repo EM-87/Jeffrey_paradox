@@ -262,4 +262,6 @@
     <string name="a11y_countdown">Countdown</string>
     <string name="a11y_clock">Clock</string>
     <string name="a11y_hourglass">Hourglass</string>
+    <string name="a11y_calendar">Calendar</string>
+    <string name="a11y_alarms">Alarms</string>
 </resources>

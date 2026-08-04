@@ -3281,8 +3281,19 @@ class ClockView @JvmOverloads constructor(
             cal.get(java.util.Calendar.MINUTE) * 60_000L
     }
 
+    /**
+     * The date the dial is showing, wound offset and all.
+     *
+     * The hour hand has two days of travel in it, and carrying it round a
+     * whole turn of the day left the date sitting on today as if nothing
+     * had happened — so the one card that could show you what next Tuesday
+     * holds still called it Monday. It moves with the hands now, which is
+     * also the only way to see that you have gone a day at all.
+     */
+    internal fun dateTextForTest(): String = dateText()
+
     private fun dateText(): String {
-        cal.timeInMillis = displayNowMs()
+        cal.timeInMillis = displayNowMs() + (visualOffsetSeconds * 1000.0).toLong()
         return when (dateFormatStyle) {
             DateFormatStyle.NUMBER -> numberDateFormat.format(Date(cal.timeInMillis))
             DateFormatStyle.TEXT -> textDateFormat.format(Date(cal.timeInMillis))

@@ -87,6 +87,16 @@
             android:orientation="horizontal">
 
             <ImageButton
+                android:id="@+id/to_calendar_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="10dp"
+                android:alpha="0.75"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/a11y_calendar"
+                android:src="@drawable/ic_calendar_card" />
+
+            <ImageButton
                 android:id="@+id/to_stopwatch_button"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
@@ -114,6 +124,16 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/a11y_countdown"
                 android:src="@drawable/ic_timer" />
+
+            <ImageButton
+                android:id="@+id/to_alarms_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="10dp"
+                android:alpha="0.75"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/a11y_alarms"
+                android:src="@drawable/ic_alarm_clock" />
         </LinearLayout>
     </FrameLayout>
 

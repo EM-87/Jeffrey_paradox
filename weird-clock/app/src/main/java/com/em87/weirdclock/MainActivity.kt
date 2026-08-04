@@ -914,6 +914,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.setOnClickListener { cycleMode() }
         }
         homeButtonRow = root.findViewById(R.id.home_button_row)
+        // The four ways out of the clock, in the order the cards are laid
+        // out: calendar left, stopwatch and countdown below either side of
+        // the hourglass, alarms right. Every card the app has, named on the
+        // first screen — the swipes were there all along and nothing on
+        // screen said so.
+        root.findViewById<ImageButton>(R.id.to_calendar_button)
+            .setOnClickListener { pager.currentItem = PAGE_LEFT }
+        root.findViewById<ImageButton>(R.id.to_alarms_button)
+            .setOnClickListener { pager.currentItem = PAGE_RIGHT }
         root.findViewById<ImageButton>(R.id.to_stopwatch_button)
             .setOnClickListener { goToChrono(PAGE_LEFT) }
         root.findViewById<ImageButton>(R.id.to_countdown_button)
@@ -2070,31 +2079,25 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /**
      * A diagonal move: another row *and* another page, in one gesture.
      *
-     * The bubbles go first, on their own fade — they belong to the clock
-     * and there is no room for them where we are going. Then the page
-     * changes without scrolling and the row with it, both in the same
-     * frame, and the arriving dial starts with the hands the leaving one
-     * had and walks them across. Two dials the same size in the same place
-     * with their hands in the same position: the cut between them is the
-     * one frame nobody sees, and what is left is a watch changing its job.
+     * The page changes without scrolling and the row with it, both in the
+     * same frame, and the arriving dial starts with the hands the leaving
+     * one had and walks them across. Two dials the same size in the same
+     * place with their hands in the same position: the cut between them is
+     * the one frame nobody sees, and what is left is a watch changing its
+     * job.
+     *
+     * The bubbles fade alongside it rather than first. Waiting for them
+     * made going out take half a second longer than coming back, and a
+     * move that is quicker one way than the other feels like two different
+     * moves — which they are not, they are the same one reversed.
      */
     private fun goDiagonal(page: Int, wanted: Mode) {
         if (dialJob != null) return
-        val from = visibleDial()
-        val hop = {
-            handOverSource = from
-            mode = wanted
-            cardMoveIsDiagonal = pager.currentItem != page
-            if (pager.currentItem != page) pager.setCurrentItem(page, false)
-            applyMode()
-        }
-        // Only worth waiting for if there is something to watch leave.
-        if (bubbleLayer?.visibility == View.VISIBLE && (bubbleLayer?.alpha ?: 0f) > 0f) {
-            fadeCard(bubbleLayer, false, raise = false)
-            handler.postDelayed(hop, CARD_FADE_MS.toLong())
-        } else {
-            hop()
-        }
+        handOverSource = visibleDial()
+        mode = wanted
+        cardMoveIsDiagonal = pager.currentItem != page
+        if (pager.currentItem != page) pager.setCurrentItem(page, false)
+        applyMode()
     }
 
     /**

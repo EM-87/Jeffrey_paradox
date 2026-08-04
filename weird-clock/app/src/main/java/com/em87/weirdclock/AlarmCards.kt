@@ -261,67 +261,46 @@ class AlarmCards(
                 }
             )
 
-        when (times.size) {
-            1 -> dial(times[0], lead, false, false)
-            2 -> {
-                // A pair of equals: neither time is the lesser one.
-                dial(times[0], lead, false, false)
-                dial(times[1], lead, true, false)
-            }
-            3 -> {
-                // The two repetitions stack instead of stretching the card.
-                dial(times[0], lead, false, false)
-                val column = LinearLayout(host).apply { orientation = LinearLayout.VERTICAL }
-                for ((i, t) in times.drop(1).withIndex()) {
-                    column.addView(
-                        miniDial(t.first, t.second),
-                        LinearLayout.LayoutParams(small, small).apply {
-                            if (i > 0) topMargin = gap
-                        }
-                    )
-                }
-                row.addView(
-                    column,
-                    LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).apply { marginStart = gap }
+        // One face is the alarm; the rest are its repetitions and go in a
+        // block beside it, small. Two and three used to spread sideways at
+        // full size, so a card with two times reached half again as far as
+        // one with a single time and the icon rows underneath stopped
+        // lining up down the list. The block is the same width whether it
+        // holds one repetition or three.
+        dial(times[0], lead, false, false)
+        val rest = times.drop(1)
+        if (rest.isEmpty()) return
+
+        val mosaic = LinearLayout(host).apply { orientation = LinearLayout.VERTICAL }
+        // Two rows of up to two: one repetition sits alone on the top row,
+        // three fill the block, and neither changes how far the card reaches.
+        for (line in 0..1) {
+            val inLine = rest.drop(line * 2).take(2)
+            if (inLine.isEmpty()) break
+            val strip = LinearLayout(host).apply { orientation = LinearLayout.HORIZONTAL }
+            for ((column, t) in inLine.withIndex()) {
+                strip.addView(
+                    miniDial(t.first, t.second),
+                    LinearLayout.LayoutParams(small, small).apply {
+                        if (column > 0) marginStart = gap
+                    }
                 )
             }
-            else -> {
-                // All four in a square block, which takes barely more room
-                // than the single leading face does on its own.
-                val mosaic = LinearLayout(host).apply { orientation = LinearLayout.VERTICAL }
-                for (line in 0..1) {
-                    val strip = LinearLayout(host).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                    }
-                    for (column in 0..1) {
-                        val t = times[line * 2 + column]
-                        strip.addView(
-                            miniDial(t.first, t.second),
-                            LinearLayout.LayoutParams(small, small).apply {
-                                if (column > 0) marginStart = gap
-                            }
-                        )
-                    }
-                    mosaic.addView(
-                        strip,
-                        LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT
-                        ).apply { if (line > 0) topMargin = gap }
-                    )
-                }
-                row.addView(
-                    mosaic,
-                    LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
-                )
-            }
+            mosaic.addView(
+                strip,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { if (line > 0) topMargin = gap }
+            )
         }
+        row.addView(
+            mosaic,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { marginStart = gap }
+        )
     }
 
     /**
