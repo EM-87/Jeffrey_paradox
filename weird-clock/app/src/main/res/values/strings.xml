@@ -258,4 +258,6 @@
     <string name="reminder_notes_none">None</string>
     <string name="mark_colors_needs_location">Marks by the sun need one location fix. Until the app has had one they keep following the dial’s two turns.</string>
     <string name="alarm_slide_to_stop">Slide to stop</string>
+    <string name="a11y_stopwatch">Stopwatch</string>
+    <string name="a11y_countdown">Countdown</string>
 </resources>

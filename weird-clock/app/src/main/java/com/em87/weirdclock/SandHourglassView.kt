@@ -594,8 +594,49 @@ class SandHourglassView @JvmOverloads constructor(
         }
     )
 
+    /**
+     * A flick up leaves the hourglass for the clock above it, the same way
+     * one does on any of the dials.
+     *
+     * Told apart from stirring the sand by speed and straightness: stirring
+     * is slow and wanders, and a stroke fast and straight enough to be a
+     * swipe would have been a useless stir anyway. The sand is stirred by
+     * it on the way past, which is only fair.
+     */
+    var onVerticalSwipe: ((up: Boolean) -> Boolean)? = null
+
+    private val swipeDetector = android.view.GestureDetector(
+        context,
+        object : android.view.GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean = true
+
+            override fun onFling(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                velocityX: Float,
+                velocityY: Float
+            ): Boolean {
+                val start = e1 ?: return false
+                if (kotlin.math.abs(velocityY) < 500f ||
+                    kotlin.math.abs(velocityY) <= kotlin.math.abs(velocityX)
+                ) {
+                    return false
+                }
+                val dx = e2.x - start.x
+                val dy = e2.y - start.y
+                if (kotlin.math.abs(dy) < height * 0.20f ||
+                    kotlin.math.abs(dy) <= kotlin.math.abs(dx) * 1.5f
+                ) {
+                    return false
+                }
+                return onVerticalSwipe?.invoke(velocityY < 0) ?: false
+            }
+        }
+    )
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        swipeDetector.onTouchEvent(event)
         scaleDetector.onTouchEvent(event)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {

@@ -315,6 +315,9 @@ class ClockView @JvmOverloads constructor(
      */
     var onHorizontalSwipe: ((Boolean) -> Boolean)? = null
 
+    /** A flick up or down: between the clock row and the chronograph row. */
+    var onVerticalSwipe: ((up: Boolean) -> Boolean)? = null
+
     var chronoProvider: (() -> Long)? = null
         set(value) {
             if (field !== value) {
@@ -472,6 +475,26 @@ class ClockView @JvmOverloads constructor(
 
     /** How far the CHEATER stamp has been washed off by honest laps (0–1). */
     private var cheaterFade = 0f
+
+    /**
+     * Starts this dial's hands where [other]'s are and lets them travel to
+     * their own positions.
+     *
+     * The clock and the chronograph are two views, not one, and moving
+     * between them used to cross-fade: the old face dissolved while the new
+     * one appeared, which hid the one thing worth watching. A watch does not
+     * dissolve. Its hands go round. Handed the angles the outgoing dial was
+     * showing, the arriving one covers the distance in the same seven
+     * hundred milliseconds a mode change on a single dial already took, and
+     * the two cards read as one dial changing its mind.
+     */
+    fun handOverFrom(other: ClockView) {
+        transitionFrom = other.currentAngles()
+        transitionStartAt = SystemClock.uptimeMillis()
+        removeCallbacks(ticker)
+        post(ticker)
+        invalidate()
+    }
 
     /** Mode-change animation: blend from these angles to the target ones. */
     private var transitionFrom: Angles? = null
@@ -710,6 +733,9 @@ class ClockView @JvmOverloads constructor(
                 velocityY: Float
             ): Boolean {
                 val start = e1 ?: return false
+                val fastVertical = kotlin.math.abs(velocityY) > 500f &&
+                    kotlin.math.abs(velocityY) > kotlin.math.abs(velocityX)
+                if (fastVertical) return handleVerticalFling(start, e2, velocityY)
                 val fastHorizontal = kotlin.math.abs(velocityX) > 500f &&
                     kotlin.math.abs(velocityX) > kotlin.math.abs(velocityY)
                 if (!fastHorizontal) return false
@@ -734,6 +760,27 @@ class ClockView @JvmOverloads constructor(
             }
         }
     )
+
+    /**
+     * A flick up or down moves between the clock row and the chronograph
+     * row, the way a flick left or right moves along one.
+     *
+     * Told apart from winding the same way: a wind is circular, a swipe is
+     * long and straight. The difference from the horizontal case is that
+     * this one applies on the clock as well as on a chronograph — there is
+     * no pager underneath to have claimed it first.
+     */
+    private fun handleVerticalFling(start: MotionEvent, end: MotionEvent, velocityY: Float): Boolean {
+        val up = velocityY < 0
+        if (tapCandidate) return onVerticalSwipe?.invoke(up) ?: false
+        val dx = end.x - start.x
+        val dy = end.y - start.y
+        val straight = kotlin.math.abs(dy) > height * 0.20f &&
+            kotlin.math.abs(dy) > kotlin.math.abs(dx) * 1.5f
+        if (!straight) return false
+        if (draggedHand != null) abortDragForSwipe()
+        return onVerticalSwipe?.invoke(up) ?: false
+    }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {

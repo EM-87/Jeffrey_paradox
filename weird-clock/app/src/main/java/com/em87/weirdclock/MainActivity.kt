@@ -68,6 +68,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var bubbleLayer: FrameLayout? = null
     private lateinit var worldBubbles: WorldBubbles
     private var modeButton: Button? = null
+    private var homeButtonRow: View? = null
     private var settingsButton: ImageButton? = null
     private var alarmSetBanner: View? = null
     private var alarmSetLabel: TextView? = null
@@ -799,6 +800,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     false
                 }
             }
+            it.onVerticalSwipe = { up -> swipeRows(up) }
             it.onCrownTap = {
                 // The winding crown tidies the whole scene, bubbles included.
                 chimePlayer.playCuckoo()
@@ -866,6 +868,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     false
                 }
             }
+            it.onVerticalSwipe = { up -> swipeRows(up) }
             it.onCrownTap = {
                 // The winding crown tidies the whole scene, bubbles included.
                 chimePlayer.playCuckoo()
@@ -893,6 +896,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // tomorrow holds, which is the one thing a twelve-hour face can
             // do that a list cannot.
             it.onShownDayChanged = { updateAlarmMarkers() }
+            it.onVerticalSwipe = { up -> swipeRows(up) }
             it.onCrownTap = {
                 // The winding crown tidies the whole scene, bubbles included.
                 chimePlayer.playCuckoo()
@@ -907,6 +911,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         modeButton = root.findViewById<Button>(R.id.mode_button).also {
             it.setOnClickListener { cycleMode() }
         }
+        homeButtonRow = root.findViewById(R.id.home_button_row)
+        root.findViewById<ImageButton>(R.id.to_stopwatch_button)
+            .setOnClickListener { goToChrono(PAGE_LEFT) }
+        root.findViewById<ImageButton>(R.id.to_countdown_button)
+            .setOnClickListener { goToChrono(PAGE_RIGHT) }
         settingsButton = root.findViewById<ImageButton>(R.id.settings_button).also { button ->
             button.setOnClickListener {
                 // Let settings know whether the panic button should be offered.
@@ -927,6 +936,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         s3Sand = root.findViewById<SandHourglassView>(R.id.s3_sand).also {
             it.onFlowBlocked = { blocked -> sandBlocked = blocked }
             it.onScaleChanged = { scale -> shareDialScale(scale, null) }
+            it.onVerticalSwipe = { up -> swipeRows(up) }
         }
         sandStartStop = root.findViewById<Button>(R.id.sand_start_stop).also {
             it.setOnClickListener { toggleCountdown() }
@@ -1060,6 +1070,39 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * with a jump cut, and the world-clock bubbles popping instead of
      * arriving.
      */
+    /**
+     * Shows or hides a card at once, cancelling any fade in flight on it.
+     *
+     * The counterpart to [fadeCard] for the cards that hold a dial: see
+     * applyMode() for why those cut instead.
+     */
+    private fun showCardNow(view: View?, show: Boolean) {
+        val target = view ?: return
+        // Bump the token so a fade already running on this card gives up
+        // rather than animating over the top of what is set here.
+        fadeTokens[target] = (fadeTokens[target] ?: 0) + 1
+        if (show) {
+            target.alpha = shownAlpha(target)
+            target.visibility = View.VISIBLE
+            target.bringToFront()
+        } else {
+            target.visibility = View.GONE
+        }
+    }
+
+    /**
+     * Hands the outgoing dial's angles to the incoming one.
+     *
+     * Called before the cards swap, while [lastVisibleDial] still holds the
+     * face that was on screen — after the swap it is the new one, and a
+     * dial handed its own angles has nowhere to travel.
+     */
+    private fun handOverHands() {
+        val from = lastVisibleDial ?: return
+        val to = dialFor(pager.currentItem, if (mode == Mode.CHRONO) Mode.CHRONO else Mode.CLOCK)
+        if (to != null && to !== from) to.handOverFrom(from)
+    }
+
     private fun fadeCard(
         view: View?,
         show: Boolean,
@@ -1950,6 +1993,39 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     /**
+     * A flick down goes to the chronograph row, a flick up comes back.
+     *
+     * The two rows are above and below one another, so the gesture that
+     * moves between them is the one that points that way. It replaces
+     * nothing — the button in the middle still does it — but it is the move
+     * the layout was always describing and there was no way to make.
+     */
+    private fun swipeRows(up: Boolean): Boolean {
+        if (dialJob != null) return false
+        val wanted = if (up) Mode.CLOCK else Mode.CHRONO
+        if (mode == wanted) return false
+        mode = wanted
+        applyMode()
+        return true
+    }
+
+    /**
+     * The diagonals: from the clock straight to the stopwatch or the
+     * countdown, without going down to the hourglass and across.
+     *
+     * The page changes without scrolling. A slide would be the pager saying
+     * "you have moved sideways", and you have not — you have gone from a
+     * clock to a chronograph, which is the same instrument in a different
+     * job, and the hands travelling say so far better than a card sliding
+     * past. That is the whole point of the two buttons.
+     */
+    private fun goToChrono(page: Int) {
+        mode = Mode.CHRONO
+        if (pager.currentItem != page) pager.setCurrentItem(page, false)
+        applyMode()
+    }
+
+    /**
      * Back to C0 from anywhere, in one move. The mode flips *first* so the
      * clock is already dressed as a clock while the pager glides home —
      * waiting for the scroll to settle made the hourglass flash past and
@@ -1984,10 +2060,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private var lastVisibleDial: ClockView? = null
 
-    private fun visibleDial(): ClockView? = when (pager.currentItem) {
-        PAGE_LEFT -> if (mode == Mode.CHRONO) stopwatchClockView else null
-        PAGE_HOME -> if (mode == Mode.CHRONO) null else clockView
-        PAGE_RIGHT -> if (mode == Mode.CHRONO) countdownClockView else null
+    private fun visibleDial(): ClockView? = dialFor(pager.currentItem, mode)
+
+    /** Which dial a given card of a given row shows, if that card has one. */
+    private fun dialFor(page: Int, forMode: Mode): ClockView? = when (page) {
+        PAGE_LEFT -> if (forMode == Mode.CHRONO) stopwatchClockView else null
+        PAGE_HOME -> if (forMode == Mode.CHRONO) null else clockView
+        PAGE_RIGHT -> if (forMode == Mode.CHRONO) countdownClockView else null
         else -> null
     }
 
@@ -2062,7 +2141,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.chronoButtons = false
         }
         stopwatchClockView?.chronoRunning = stopwatchRunning
-        modeButton?.visibility = if (setting) View.GONE else View.VISIBLE
+        homeButtonRow?.visibility = if (setting) View.GONE else View.VISIBLE
         // Bubbles fade with the mode change, like the crown and pushers.
         fadeCard(bubbleLayer, !chrono && !setting, raise = false)
         settingsButton?.visibility = if (setting) View.GONE else View.VISIBLE
@@ -2072,12 +2151,21 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // stopwatch gives way to the calendar, the hourglass to the clock,
         // the countdown to the alarms — and the crown and pushers are
         // already fading on their own clock inside the dial.
-        fadeCard(clockContainer, !chrono)
-        fadeCard(hourglassContainer, chrono)
-        fadeCard(calendarContainer, !chrono)
-        fadeCard(stopwatchContainer, chrono)
-        fadeCard(alarmsContainer, !chrono)
-        fadeCard(countdownContainer, chrono)
+        // The dial that is about to appear starts its hands where the one
+        // leaving has them, and covers the distance itself. Seeded before
+        // the swap, so the first frame it draws is already on its way.
+        handOverHands()
+        // And the cards *cut*, they do not dissolve. A cross-fade hid the
+        // one thing worth watching: two dissolving faces are a slide show,
+        // while one face whose hands travel is a watch changing its mind.
+        // The furniture that comes with each card — the crown, the pushers,
+        // the presets — has its own fade inside the dial.
+        showCardNow(clockContainer, !chrono)
+        showCardNow(hourglassContainer, chrono)
+        showCardNow(calendarContainer, !chrono)
+        showCardNow(stopwatchContainer, chrono)
+        showCardNow(alarmsContainer, !chrono)
+        showCardNow(countdownContainer, chrono)
         carryFallenHands()
         updateCountdownUi()
     }

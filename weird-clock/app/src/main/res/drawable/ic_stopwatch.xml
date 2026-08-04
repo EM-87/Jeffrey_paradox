@@ -1,5 +1,6 @@
-<!-- A countdown timer: the same case and stem as the stopwatch, with a
-     filled quarter running clockwise from twelve — the slice still to go. -->
+<!-- A stopwatch: round case, the crown stem and its start button on top,
+     and one hand out to the right. Traced at the same 1.8 weight as the
+     rest of the app's icons so it sits in a row with them. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -14,8 +15,10 @@
         android:strokeColor="#FFFFFF"
         android:strokeWidth="1.8"
         android:strokeLineCap="round"
-        android:pathData="M9.6,2.4L14.4,2.4 M12,2.4L12,5.6" />
+        android:pathData="M9.6,2.4L14.4,2.4 M12,2.4L12,5.6 M18.6,4.4L20.3,6.1" />
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M12,13.3L12,6.6a6.7,6.7 0 0,1 6.7,6.7z" />
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M12,13.3L12,9.4 M12,13.3L15.4,13.3" />
 </vector>
