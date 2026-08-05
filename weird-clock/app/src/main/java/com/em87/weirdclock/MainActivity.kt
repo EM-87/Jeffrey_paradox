@@ -713,6 +713,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         handler.removeCallbacks(bubblePhysics)
         sensorManager?.unregisterListener(flipListener)
         ClockWidgetProvider.refreshAll(this)
+        // And book the next wake-up, in case the settings just changed
+        // where the sun is or whether it is drawn at all.
+        ClockWidgetProvider.scheduleSkyTick(this)
         // Leaving the app is as good a moment as any to make sure the bells
         // are still armed: their chain lives on alarms, and anything that
         // breaks it (a force stop, an update) leaves them silent otherwise.

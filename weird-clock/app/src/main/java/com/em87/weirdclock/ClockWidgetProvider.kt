@@ -25,6 +25,18 @@ class ClockWidgetProvider : AppWidgetProvider() {
         for (widgetId in appWidgetIds) {
             appWidgetManager.updateAppWidget(widgetId, buildViews(context))
         }
+        scheduleSkyTick(context)
+    }
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        scheduleSkyTick(context)
+    }
+
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        // The last widget is gone; stop waking up for it.
+        alarmManager(context)?.cancel(skyIntent(context))
     }
 
     /**
@@ -41,10 +53,77 @@ class ClockWidgetProvider : AppWidgetProvider() {
             Intent.ACTION_DATE_CHANGED,
             Intent.ACTION_TIME_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED -> refreshAll(context)
+            ACTION_SKY_TICK -> {
+                refreshAll(context)
+                scheduleSkyTick(context)
+            }
         }
     }
 
     companion object {
+
+        /** Our own wake-up: the sky has changed and the dial is stale. */
+        const val ACTION_SKY_TICK = "com.em87.weirdclock.SKY_TICK"
+
+        private fun alarmManager(context: Context): android.app.AlarmManager? =
+            context.getSystemService(android.app.AlarmManager::class.java)
+
+        private fun skyIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
+            context,
+            1,
+            Intent(context, ClockWidgetProvider::class.java).setAction(ACTION_SKY_TICK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        /**
+         * Wakes the widget when the sky is next due to change.
+         *
+         * The hands are the system's own AnalogClock and tick by
+         * themselves; everything else on the dial is a bitmap this app
+         * paints, and nothing was asking for a fresh one at sunrise. So a
+         * widget drew the moon all morning and the sun all night until the
+         * app happened to be opened — the one complication whose whole
+         * purpose is telling you it is light out, wrong for hours at a
+         * time.
+         *
+         * There is no broadcast for "the sun came up", so the widget books
+         * its own. One alarm, re-armed each time it fires: hours apart in
+         * the middle of the day or the night, a few minutes apart while the
+         * sun is actually crossing the horizon and the glyph is sinking
+         * through it. Inexact on purpose — being a couple of minutes late
+         * to a sunrise costs nothing, and an exact alarm needs a permission
+         * a clock has no business asking for.
+         */
+        fun scheduleSkyTick(context: Context) {
+            // Below 31 the dial is a static drawable with no sky on it, so
+            // there would be nothing to repaint when the alarm went off.
+            if (Build.VERSION.SDK_INT < 31) return
+            val manager = alarmManager(context) ?: return
+            val at = System.currentTimeMillis() + nextSkyChangeMs(context)
+            manager.set(android.app.AlarmManager.RTC, at, skyIntent(context))
+        }
+
+        /** How long until the dial would draw something different, in ms. */
+        internal fun nextSkyChangeMs(context: Context): Long {
+            DayNight.configure(context)
+            val now = java.util.Calendar.getInstance()
+            val minuteNow = now.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
+                now.get(java.util.Calendar.MINUTE)
+            val sky = DayNight.sky(minuteNow)
+            // Nowhere to stand: the moon's phase is all there is to draw and
+            // it moves too slowly to chase. Midnight will catch it.
+            if (sky == null) return 6 * 60 * 60_000L
+            // Mid-crossing the glyph slides continuously, so look again
+            // soon enough that it is never far out of step.
+            if (sky is DayNight.Sky.Twilight) return 4 * 60_000L
+            // Otherwise sleep until the sky is a different thing, which is
+            // hours away in either direction.
+            for (ahead in 1..(24 * 60)) {
+                val at = (minuteNow + ahead) % 1440
+                if (DayNight.sky(at) != sky) return ahead * 60_000L
+            }
+            return 6 * 60 * 60_000L
+        }
 
         /** Re-render all widgets after the in-app settings change. */
         fun refreshAll(context: Context) {

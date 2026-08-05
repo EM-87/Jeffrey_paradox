@@ -323,8 +323,7 @@ class ClockView @JvmOverloads constructor(
             if (field !== value) {
                 // Animate the hands from where they are to the new mode's
                 // positions instead of snapping.
-                transitionFrom = currentAngles()
-                transitionStartAt = SystemClock.uptimeMillis()
+                beginTransition(currentAngles())
             }
             field = value
             spring?.cancel()
@@ -488,24 +487,54 @@ class ClockView @JvmOverloads constructor(
      * hundred milliseconds a mode change on a single dial already took, and
      * the two cards read as one dial changing its mind.
      */
-    /** True while the hands are still on their way from a hand-over. */
-    internal fun isTravelling(): Boolean = transitionFrom != null
-
     fun handOverFrom(other: ClockView) {
-        transitionFrom = other.currentAngles()
-        transitionStartAt = SystemClock.uptimeMillis()
+        beginTransition(other.currentAngles())
+        // The case hardware is handed over too. A dial that loses its crown
+        // does fade it out, but on a diagonal the card it was drawn on is
+        // cut away with its page in the same frame, so that fade-out plays
+        // to nobody: going out the crown grew in, coming back it simply was
+        // not there. The arriving dial inherits it and dissolves it in
+        // place instead, which is where the eye already is.
+        if (other.chronoButtons && !chronoButtons) {
+            buttonsAnimStart = SystemClock.uptimeMillis()
+        }
         removeCallbacks(ticker)
         post(ticker)
         invalidate()
     }
 
+    /** True while the hands are still on their way from a hand-over. */
+    internal fun isTravelling(): Boolean = transitionFrom != null
+
     /** Mode-change animation: blend from these angles to the target ones. */
     private var transitionFrom: Angles? = null
     private var transitionStartAt = 0L
+
+    /**
+     * Whether this particular transition should fade the face's furniture
+     * in as well as move the hands.
+     *
+     * Only when there was a face on screen to replace. A dial that has
+     * never been drawn is not changing into anything — it is appearing for
+     * the first time, and appearing at zero alpha is just being invisible,
+     * which is what the little faces on the alarm cards started doing: born
+     * with a provider, hence born mid-transition, hence born blank.
+     */
+    private var furnitureFades = false
+    private var hasDrawn = false
+
+    private fun beginTransition(from: Angles) {
+        transitionFrom = from
+        transitionStartAt = SystemClock.uptimeMillis()
+        furnitureFades = hasDrawn
+    }
     private val transitionInterpolator = AccelerateDecelerateInterpolator()
 
-    // Chronograph case hardware.
-    private var buttonsAnimStart = 0L
+    // Chronograph case hardware. Long ago rather than zero: "is the crown
+    // still fading" is asked as "was it started less than half a second
+    // ago", and zero is less than half a second ago on a machine that has
+    // only just started up — which is every test and, briefly, a phone.
+    private var buttonsAnimStart = -1_000_000L
     private var pressedPusher = 0 // 0 none, 1 start/stop, 2 reset
 
     /** Magnet the countdown is currently locked onto while setting it. */
@@ -610,19 +639,77 @@ class ClockView @JvmOverloads constructor(
 
     // -------------------------------------------------------------- ticking
 
+    /**
+     * A face standing for one fixed time, which never changes on its own.
+     *
+     * The little dials on the alarm cards are all like this, and every one
+     * of them was redrawing sixty times a second — because "is anything
+     * moving" was written as `chronoProvider != null`, and a fixed face has
+     * a provider too, one that returns the same number forever. A card with
+     * four repetitions is four of them, and a list of alarms is dozens: the
+     * jank on C1 was the app drawing several thousand frames a second of
+     * clocks that had not moved.
+     */
+    var staticFace = false
+
+    /**
+     * How long until this dial needs drawing again, or -1 for "not until
+     * something is done to it".
+     *
+     * Its own function because it is the whole of the answer to "why is
+     * this list stuttering", and a rule nobody can see from outside is a
+     * rule nobody checks.
+     */
+    internal fun tickDelayMs(): Long {
+        // Nothing on a still face changes until something is done to it,
+        // and whatever is done calls invalidate itself. It winds itself
+        // into place when it is born, so the ticker runs while that is
+        // going on and then gives up.
+        if (staticFace && !isAnimating()) return -1L
+        if (wantsFastFrames()) return 16L
+        // Otherwise on the second, so the second hand steps when the second
+        // does rather than a fraction of a second after it.
+        return 1000L - (TimeKeeper.nowMs() % 1000L).coerceIn(0L, 999L)
+    }
+
+    /**
+     * Whether anything on this dial is moving fast enough to be worth sixty
+     * frames a second.
+     *
+     * Its own function because it is the whole of the answer to "why is
+     * this list stuttering", and because the delay it feeds into is partly
+     * a matter of where in the second the clock currently is — which makes
+     * the number a poor thing to ask questions of.
+     */
+    internal fun wantsFastFrames(): Boolean {
+        if (isAnimating()) return true
+        // showsFastHand answers "is a tenths hand drawn", which is not the
+        // same question: a paused chronograph draws one and it is frozen.
+        // What earns the frames is a hand actually moving, so the time
+        // source has to be running for any of them to count.
+        if (chronoProvider != null && !chronoRunning) return false
+        return chronoProvider != null || showsFastHand() ||
+            (smoothSeconds && showSecondHand)
+    }
+
     private val ticker = object : Runnable {
         override fun run() {
             invalidate()
-            val fast = isAnimating() || chronoProvider != null ||
-                showsFastHand() || (smoothSeconds && showSecondHand)
-            val delay = if (fast) 16L else 1000L - (TimeKeeper.nowMs() % 1000L).coerceIn(0L, 999L)
-            postDelayed(this, delay)
+            val delay = tickDelayMs()
+            if (delay >= 0L) postDelayed(this, delay)
         }
     }
 
     private fun isAnimating(): Boolean =
         draggedHand != null || spring?.isRunning == true ||
-            fallenBodies.isNotEmpty() || transitionFrom != null
+            fallenBodies.isNotEmpty() || transitionFrom != null ||
+            // The crown and pushers fade on their own clock, and nothing was
+            // asking for the frames to draw it with. Arriving, the hand-over
+            // happened to provide them; leaving, there was no hand-over and
+            // the fade got whatever frames the dial drew anyway — one a
+            // second on a stopped chronograph. Hence a crown that grew in
+            // and then vanished.
+            SystemClock.uptimeMillis() - buttonsAnimStart < BUTTONS_MS
 
     /** True when fallen pieces are lying around the dial. */
     fun isDisarranged(): Boolean = fallenBodies.isNotEmpty()
@@ -2495,6 +2582,36 @@ class ClockView @JvmOverloads constructor(
     /** A second calendar, so reading the real clock never disturbs [cal]. */
     private val secondCal: Calendar = Calendar.getInstance()
 
+    /**
+     * Opens a layer the face's furniture is drawn into, faded by how far
+     * the hand-over has got, and returns its save count.
+     *
+     * The hands travel; everything else on the face — the date, the marks,
+     * the sky, the readout — used to appear at once, which made the arrival
+     * read as two events instead of one. They fade in over the same journey
+     * now. Only on the way in: on the way out the card is cut away with the
+     * page, and there is nothing left to fade.
+     *
+     * Returns -1 when there is nothing to fade, so an ordinary frame costs
+     * no layer at all.
+     */
+    private fun beginFurniture(canvas: Canvas): Int {
+        val t = transitionProgress()
+        if (t >= 1f) return -1
+        return canvas.saveLayerAlpha(
+            0f, 0f, width.toFloat(), height.toFloat(), (255 * t).toInt()
+        )
+    }
+
+    private fun endFurniture(canvas: Canvas, layer: Int) {
+        if (layer >= 0) canvas.restoreToCount(layer)
+    }
+
+    private fun transitionProgress(): Float {
+        if (!furnitureFades || transitionFrom == null) return 1f
+        return ((SystemClock.uptimeMillis() - transitionStartAt) / TRANSITION_MS).coerceIn(0f, 1f)
+    }
+
     /** Target angles, blended with the mode-transition animation if active. */
     private fun currentAngles(): Angles {
         val target = computeAngles()
@@ -2612,6 +2729,9 @@ class ClockView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        // Noted before the frame rather than after it, so a transition
+        // started from inside a draw still counts this face as seen.
+        hasDrawn = true
         if (fallenBodies.isNotEmpty()) stepPhysics()
 
         val cx = width / 2f
@@ -2619,7 +2739,7 @@ class ClockView @JvmOverloads constructor(
         val r = dialRadius()
 
         // Case hardware sits behind the face so it reads as attached to it.
-        if (chronoButtons || SystemClock.uptimeMillis() - buttonsAnimStart < 500L) {
+        if (chronoButtons || SystemClock.uptimeMillis() - buttonsAnimStart < BUTTONS_MS) {
             drawChronoHardware(canvas, cx, cy, r)
         }
 
@@ -2643,6 +2763,12 @@ class ClockView @JvmOverloads constructor(
                 datePaint
             )
         }
+        // Everything the face carries besides its hands fades in with the
+        // hand-over: the date, the marks, the sky. One layer for the lot of
+        // them, so they arrive together and at the rate the hands are
+        // travelling — furniture that snaps into place while the hands are
+        // still moving reads as two events rather than one.
+        val furniture = beginFurniture(canvas)
         if (chronoProvider == null) {
             if (showDate) drawDate(canvas, cx, cy, r)
             if (eventArcs.isNotEmpty() || alarmMarkers.isNotEmpty()) {
@@ -2655,6 +2781,7 @@ class ClockView @JvmOverloads constructor(
         // run on a chrono provider, so it is drawn outside that guard;
         // leaving it inside is why 14.1's token appeared on C0 only.
         if (showMoonPhase) drawMoonPhase(canvas, cx, cy, r)
+        endFurniture(canvas, furniture)
 
         val a = currentAngles()
 
@@ -2722,6 +2849,7 @@ class ClockView @JvmOverloads constructor(
         // or the current time while the hands are lying at the bottom of
         // the dial and the analog display is useless.
         val digitalText = readoutText()
+        val readoutLayer = beginFurniture(canvas)
         digitalText?.let {
             val digitH = r * 0.13f
             val yTop = min(cy + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
@@ -2761,6 +2889,8 @@ class ClockView @JvmOverloads constructor(
                 digitalPaint.alpha = 255
             }
         }
+
+        endFurniture(canvas, readoutLayer)
 
         if (SystemClock.uptimeMillis() < cheaterUntil && cheaterFade < 1f) {
             cheaterPaint.textSize = r * 0.24f
@@ -2913,7 +3043,8 @@ class ClockView @JvmOverloads constructor(
      * pusher at 10:30.
      */
     private fun drawChronoHardware(canvas: Canvas, cx: Float, cy: Float, r: Float) {
-        val t = ((SystemClock.uptimeMillis() - buttonsAnimStart) / 500f).coerceIn(0f, 1f)
+        val t = ((SystemClock.uptimeMillis() - buttonsAnimStart) / BUTTONS_MS.toFloat())
+            .coerceIn(0f, 1f)
         val visibility = if (chronoButtons) t else 1f - t
         if (visibility <= 0f) return
         val alpha = (visibility * 255).toInt()
@@ -3484,6 +3615,9 @@ class ClockView @JvmOverloads constructor(
         private const val MAX_BUBBLE_LINES = 5
 
         private const val TRANSITION_MS = 700f
+
+        /** How long the crown and pushers take to fade in or out. */
+        private const val BUTTONS_MS = 500L
         private const val SAMPLE_COUNT = 5
 
         /** How far a lap may drift from the truth before it is a fake. */

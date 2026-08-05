@@ -368,7 +368,9 @@ class AlarmCards(
             // same question on one card is one too many — a face that small
             // has no room to spare on a thing already said.
             showMoonPhase = sky
-            // A constant "duration" makes the dial a static clock.
+            // A constant "duration" makes the dial a static clock — and
+            // saying so out loud is what lets it stop redrawing.
+            staticFace = true
             chronoProvider = { fixedMs }
         }
     }
