@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -241,43 +242,46 @@ class AlarmCards(
     }
 
     /**
-     * The faces on an alarm card. One time is one face; two are a pair of
-     * equals; from three on, the alarm's own time leads and its repetitions
-     * follow smaller — and four of them stack into a 2×2 block rather than
-     * running off the side of the card.
+     * The faces on an alarm card. One time is one face filling the block;
+     * more than one and they are all the same size, quartered into a 2×2
+     * mosaic inside that same block.
+     *
+     * No lead face, on purpose. A concept that happens four times a day
+     * does not have a main one — keeping the alarm's own time big and the
+     * repetitions small said it did, and left the mosaic unable to be a
+     * mosaic. And the block is the same square whether it holds one face
+     * or four, so the icon rows underneath line up all the way down the
+     * list however the alarms are set.
      */
     fun fillDials(row: LinearLayout, times: List<Pair<Int, Int>>) {
         val density = host.resources.displayMetrics.density
         val gap = (4 * density).toInt()
-        val lead = (46 * density).toInt()
-        val small = (28 * density).toInt()
+        val block = (46 * density).toInt()
 
-        fun dial(t: Pair<Int, Int>, size: Int, startGap: Boolean, topGap: Boolean) =
+        if (times.size == 1) {
             row.addView(
-                miniDial(t.first, t.second),
-                LinearLayout.LayoutParams(size, size).apply {
-                    if (startGap) marginStart = gap
-                    if (topGap) topMargin = gap
-                }
+                miniDial(times[0].first, times[0].second),
+                LinearLayout.LayoutParams(block, block)
             )
+            return
+        }
 
-        // One face is the alarm; the rest are its repetitions and go in a
-        // block beside it, small. Two and three used to spread sideways at
-        // full size, so a card with two times reached half again as far as
-        // one with a single time and the icon rows underneath stopped
-        // lining up down the list. The block is the same width whether it
-        // holds one repetition or three.
-        dial(times[0], lead, false, false)
-        val rest = times.drop(1)
-        if (rest.isEmpty()) return
-
-        val mosaic = LinearLayout(host).apply { orientation = LinearLayout.VERTICAL }
-        // Two rows of up to two: one repetition sits alone on the top row,
-        // three fill the block, and neither changes how far the card reaches.
+        // Four is the most an alarm can hold, so two rows of two is the
+        // whole of it. Centred both ways: two times fill one row and three
+        // leave a hole, and neither should sit off in a corner.
+        val small = (block - gap) / 2
+        val mosaic = LinearLayout(host).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+        }
+        val shown = times.take(4)
         for (line in 0..1) {
-            val inLine = rest.drop(line * 2).take(2)
+            val inLine = shown.drop(line * 2).take(2)
             if (inLine.isEmpty()) break
-            val strip = LinearLayout(host).apply { orientation = LinearLayout.HORIZONTAL }
+            val strip = LinearLayout(host).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+            }
             for ((column, t) in inLine.withIndex()) {
                 strip.addView(
                     miniDial(t.first, t.second),
@@ -289,18 +293,12 @@ class AlarmCards(
             mosaic.addView(
                 strip,
                 LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply { if (line > 0) topMargin = gap }
             )
         }
-        row.addView(
-            mosaic,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { marginStart = gap }
-        )
+        row.addView(mosaic, LinearLayout.LayoutParams(block, block))
     }
 
     /**

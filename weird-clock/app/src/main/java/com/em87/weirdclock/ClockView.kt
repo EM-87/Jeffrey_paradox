@@ -323,7 +323,7 @@ class ClockView @JvmOverloads constructor(
             if (field !== value) {
                 // Animate the hands from where they are to the new mode's
                 // positions instead of snapping.
-                beginTransition(currentAngles())
+                beginTransition(currentAngles(), fades = hasDrawn)
             }
             field = value
             spring?.cancel()
@@ -488,7 +488,7 @@ class ClockView @JvmOverloads constructor(
      * the two cards read as one dial changing its mind.
      */
     fun handOverFrom(other: ClockView) {
-        beginTransition(other.currentAngles())
+        beginTransition(other.currentAngles(), fades = true)
         // The case hardware is handed over too. A dial that loses its crown
         // does fade it out, but on a diagonal the card it was drawn on is
         // cut away with its page in the same frame, so that fade-out plays
@@ -498,6 +498,9 @@ class ClockView @JvmOverloads constructor(
         if (other.chronoButtons && !chronoButtons) {
             buttonsAnimStart = SystemClock.uptimeMillis()
         }
+        // And the rest of what it was carrying dissolves here — see
+        // [drawGhost].
+        ghostDial = other
         removeCallbacks(ticker)
         post(ticker)
         invalidate()
@@ -523,10 +526,28 @@ class ClockView @JvmOverloads constructor(
     private var furnitureFades = false
     private var hasDrawn = false
 
-    private fun beginTransition(from: Angles) {
+    /**
+     * The dial this one is replacing, for as long as the hand-over lasts.
+     * Its furniture is drawn here, fading out. Held only for those seven
+     * hundred milliseconds; both dials belong to the activity anyway.
+     */
+    private var ghostDial: ClockView? = null
+
+    /**
+     * [fades] says whether the furniture should cross-fade over this
+     * transition or simply be there.
+     *
+     * A hand-over always fades: there is an outgoing dial by definition,
+     * and its furniture has to go somewhere to dissolve. A dial changing
+     * its own mode fades only if it has been drawn — otherwise it is not
+     * changing into anything, it is being born, and the little faces on the
+     * alarm cards are born with a provider and so were born blank.
+     */
+    private fun beginTransition(from: Angles, fades: Boolean) {
         transitionFrom = from
         transitionStartAt = SystemClock.uptimeMillis()
-        furnitureFades = hasDrawn
+        furnitureFades = fades
+        ghostDial = null
     }
     private val transitionInterpolator = AccelerateDecelerateInterpolator()
 
@@ -2607,6 +2628,34 @@ class ClockView @JvmOverloads constructor(
         if (layer >= 0) canvas.restoreToCount(layer)
     }
 
+    /**
+     * Draws the outgoing dial's furniture on this one, fading out as this
+     * one's fades in.
+     *
+     * The other half of the fade. A dial arriving from a hand-over faded
+     * its own date, marks, sky and readout in, and the ones it was
+     * replacing simply stopped existing — because on a diagonal the card
+     * that carried them is cut away with its page in the same frame, so
+     * anything it drew after that played to nobody. The eye is on the dial
+     * that stays, so the fade-out happens there: the two dials are the same
+     * size in the same place, and for seven hundred milliseconds this one
+     * wears both sets and dissolves one into the other.
+     *
+     * Not the hands, which travel rather than dissolve, and not the crown,
+     * which is inherited outright by [handOverFrom] — drawing it here as
+     * well would fade it twice over.
+     */
+    private fun drawGhost(canvas: Canvas, draw: (ClockView) -> Unit) {
+        val leaving = ghostDial ?: return
+        val t = transitionProgress()
+        if (t >= 1f) return
+        val layer = canvas.saveLayerAlpha(
+            0f, 0f, width.toFloat(), height.toFloat(), ((1f - t) * 255).toInt()
+        )
+        draw(leaving)
+        canvas.restoreToCount(layer)
+    }
+
     private fun transitionProgress(): Float {
         if (!furnitureFades || transitionFrom == null) return 1f
         return ((SystemClock.uptimeMillis() - transitionStartAt) / TRANSITION_MS).coerceIn(0f, 1f)
@@ -2619,6 +2668,7 @@ class ClockView @JvmOverloads constructor(
         val t = (SystemClock.uptimeMillis() - transitionStartAt) / TRANSITION_MS
         if (t >= 1f) {
             transitionFrom = null
+            ghostDial = null
             return target
         }
         val f = transitionInterpolator.getInterpolation(t.coerceIn(0f, 1f))
@@ -2769,19 +2819,10 @@ class ClockView @JvmOverloads constructor(
         // travelling — furniture that snaps into place while the hands are
         // still moving reads as two events rather than one.
         val furniture = beginFurniture(canvas)
-        if (chronoProvider == null) {
-            if (showDate) drawDate(canvas, cx, cy, r)
-            if (eventArcs.isNotEmpty() || alarmMarkers.isNotEmpty()) {
-                drawMarksLayer(canvas, cx, cy, r)
-            }
-        }
-        // The sky complication is the one that also belongs on a face
-        // standing for a fixed time — the little dials on the alarm cards
-        // and the big one while a time is being wound onto it. Those all
-        // run on a chrono provider, so it is drawn outside that guard;
-        // leaving it inside is why 14.1's token appeared on C0 only.
-        if (showMoonPhase) drawMoonPhase(canvas, cx, cy, r)
+        drawFaceFurniture(canvas, cx, cy, r)
         endFurniture(canvas, furniture)
+        // And the outgoing dial's, going the other way.
+        drawGhost(canvas) { it.drawFaceFurniture(canvas, cx, cy, r) }
 
         val a = currentAngles()
 
@@ -2848,49 +2889,10 @@ class ClockView @JvmOverloads constructor(
         // Digital 7-segment readout: the chronograph value in chrono modes,
         // or the current time while the hands are lying at the bottom of
         // the dial and the analog display is useless.
-        val digitalText = readoutText()
         val readoutLayer = beginFurniture(canvas)
-        digitalText?.let {
-            val digitH = r * 0.13f
-            val yTop = min(cy + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
-            val liveUnits = readoutUnits()
-            ladderTapTop = yTop
-            drawSevenSegment(canvas, it, cx, yTop, digitH, liveUnits)
-
-            // Ghost copies of the recent laps, stacked under the readout —
-            // as many as the space below the dial can hold.
-            if (chronoProvider != null && laps.isNotEmpty()) {
-                // Newest lap first and largest, each older one a step
-                // smaller and fainter — a receding stack, which also means
-                // several more of them fit in the same strip.
-                var ghostY = yTop + digitH * 1.28f
-                // The strip between the readout and the button row holds
-                // exactly seven rungs: with the step ratio fixed, the ladder
-                // is a geometric series, so the first rung is the strip
-                // divided by what seven rungs come to — no clamp, no
-                // leftover gap above the button.
-                val bottom = height - BUTTON_RESERVE_DP * resources.displayMetrics.density
-                val firstH = ((bottom - ghostY) / LADDER_SPAN)
-                    .coerceAtLeast(digitH * 0.20f)
-                var ghostH = firstH
-                var shown = 0
-                for (lap in laps.reversed()) {
-                    if (shown >= MAX_GHOST_LAPS) break
-                    if (ghostY + ghostH > bottom + 1f) break
-                    shown++
-                    digitalPaint.alpha = (200f * (ghostH / firstH))
-                        .toInt().coerceIn(45, 200)
-                    drawSevenSegment(
-                        canvas, formatDuration(lap.ms), cx, ghostY, ghostH, unitsFor(lap.ms)
-                    )
-                    ghostY += ghostH * 1.35f
-                    ghostH *= 0.88f
-                }
-                digitalPaint.alpha = 255
-            }
-        }
-
+        drawReadout(canvas, cx, cy, r, live = true)
         endFurniture(canvas, readoutLayer)
+        drawGhost(canvas) { it.drawReadout(canvas, cx, cy, r, live = false) }
 
         if (SystemClock.uptimeMillis() < cheaterUntil && cheaterFade < 1f) {
             cheaterPaint.textSize = r * 0.24f
@@ -2942,6 +2944,80 @@ class ClockView @JvmOverloads constructor(
         followHourHand(a.hour)
         drawMarkBubble(canvas, r)
         checkShownDay()
+    }
+
+    /**
+     * Everything the face carries besides its hands: the date, the alarm
+     * marks, the sky.
+     *
+     * Its own function because the dial arriving from a hand-over draws the
+     * outgoing dial's copy of it as well as its own — see [drawGhost].
+     */
+    private fun drawFaceFurniture(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        if (chronoProvider == null) {
+            if (showDate) drawDate(canvas, cx, cy, r)
+            if (eventArcs.isNotEmpty() || alarmMarkers.isNotEmpty()) {
+                drawMarksLayer(canvas, cx, cy, r)
+            }
+        }
+        // The sky complication is the one that also belongs on a face
+        // standing for a fixed time — the little dials on the alarm cards
+        // and the big one while a time is being wound onto it. Those all
+        // run on a chrono provider, so it is drawn outside that guard;
+        // leaving it inside is why 14.1's token appeared on C0 only.
+        if (showMoonPhase) drawMoonPhase(canvas, cx, cy, r)
+    }
+
+    /**
+     * Digital 7-segment readout: the chronograph value in chrono modes, or
+     * the current time while the hands are lying at the bottom of the dial
+     * and the analog display is useless. The recent laps stack under it.
+     *
+     * [live] is false when this is the outgoing dial's readout being drawn
+     * as a ghost on the dial that replaced it: the tap target belongs to
+     * the dial you can actually touch, not to the one dissolving.
+     */
+    private fun drawReadout(canvas: Canvas, cx: Float, cy: Float, r: Float, live: Boolean) {
+        val digitalText = readoutText()
+        digitalText?.let {
+            val digitH = r * 0.13f
+            val yTop = min(cy + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
+            val liveUnits = readoutUnits()
+            if (live) ladderTapTop = yTop
+            drawSevenSegment(canvas, it, cx, yTop, digitH, liveUnits)
+
+            // Ghost copies of the recent laps, stacked under the readout —
+            // as many as the space below the dial can hold.
+            if (chronoProvider != null && laps.isNotEmpty()) {
+                // Newest lap first and largest, each older one a step
+                // smaller and fainter — a receding stack, which also means
+                // several more of them fit in the same strip.
+                var ghostY = yTop + digitH * 1.28f
+                // The strip between the readout and the button row holds
+                // exactly seven rungs: with the step ratio fixed, the ladder
+                // is a geometric series, so the first rung is the strip
+                // divided by what seven rungs come to — no clamp, no
+                // leftover gap above the button.
+                val bottom = height - BUTTON_RESERVE_DP * resources.displayMetrics.density
+                val firstH = ((bottom - ghostY) / LADDER_SPAN)
+                    .coerceAtLeast(digitH * 0.20f)
+                var ghostH = firstH
+                var shown = 0
+                for (lap in laps.reversed()) {
+                    if (shown >= MAX_GHOST_LAPS) break
+                    if (ghostY + ghostH > bottom + 1f) break
+                    shown++
+                    digitalPaint.alpha = (200f * (ghostH / firstH))
+                        .toInt().coerceIn(45, 200)
+                    drawSevenSegment(
+                        canvas, formatDuration(lap.ms), cx, ghostY, ghostH, unitsFor(lap.ms)
+                    )
+                    ghostY += ghostH * 1.35f
+                    ghostH *= 0.88f
+                }
+                digitalPaint.alpha = 255
+            }
+        }
     }
 
     /** How far the unfolded lap list can scroll past the bottom edge. */

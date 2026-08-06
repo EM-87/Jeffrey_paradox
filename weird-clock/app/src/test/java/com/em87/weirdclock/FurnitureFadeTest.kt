@@ -57,10 +57,14 @@ class FurnitureFadeTest {
      * Fixed rather than live on purpose: two renders of a running clock a
      * moment apart differ by a second hand, and this test is about pixels.
      */
-    private fun dial(buttons: Boolean = false): ClockView =
+    private fun dial(
+        buttons: Boolean = false,
+        moon: Boolean = true,
+        warm: Boolean = true
+    ): ClockView =
         ClockView(context).apply {
             chronoProvider = { fixed }
-            showMoonPhase = true
+            showMoonPhase = moon
             chronoButtons = buttons
             measure(
                 View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY),
@@ -69,14 +73,29 @@ class FurnitureFadeTest {
             layout(0, 0, 720, 720)
             ShadowLooper.idleMainLooper(2, TimeUnit.SECONDS)
             handAngleForTest(ClockView.Hand.HOUR)
-            // Drawn once, because a face fades its furniture in only when
-            // there was a face on screen to replace — a dial being born is
-            // not changing into anything.
-            draw(Canvas(Bitmap.createBitmap(720, 720, Bitmap.Config.ARGB_8888)))
+            // Drawn once, like a dial that has been looked at. A card's
+            // dial is GONE until you first go to it, and a view that is not
+            // visible never draws at all — see the first-visit test below.
+            if (warm) draw(Canvas(Bitmap.createBitmap(720, 720, Bitmap.Config.ARGB_8888)))
         }
 
     private fun render(view: ClockView): Bitmap =
         Bitmap.createBitmap(720, 720, Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) }
+
+    /** How far apart two pictures are, summed over every channel. */
+    private fun distance(a: Bitmap, b: Bitmap): Long {
+        var total = 0L
+        for (x in 0 until 720 step 2) {
+            for (y in 0 until 720 step 2) {
+                val p = a.getPixel(x, y)
+                val q = b.getPixel(x, y)
+                for (shift in intArrayOf(0, 8, 16, 24)) {
+                    total += kotlin.math.abs(((p shr shift) and 0xFF) - ((q shr shift) and 0xFF))
+                }
+            }
+        }
+        return total
+    }
 
     private fun differs(a: Bitmap, b: Bitmap): Boolean {
         for (x in 0 until 720 step 2) {
@@ -126,6 +145,28 @@ class FurnitureFadeTest {
     }
 
     /**
+     * A dial handed over from one that did or did not have a crown, drawn
+     * [after] milliseconds into the journey.
+     *
+     * Built and rendered in one go, deliberately: building a dial idles two
+     * seconds of the clock, so holding one while another is built leaves
+     * the first one's transition already finished, and the two pictures
+     * then differ for a reason that has nothing to do with any crown.
+     */
+    private fun arrival(
+        fromCrown: Boolean = false,
+        fromMoon: Boolean = false,
+        moon: Boolean = true,
+        warm: Boolean = true,
+        after: Long = 0L
+    ): Bitmap {
+        val arriving = dial(moon = moon, warm = warm)
+        arriving.handOverFrom(dial(buttons = fromCrown, moon = fromMoon))
+        if (after > 0L) ShadowLooper.idleMainLooper(after, TimeUnit.MILLISECONDS)
+        return render(arriving)
+    }
+
+    /**
      * The crown is inherited by the dial being handed to, because the dial
      * handing it over is not on screen to fade anything.
      *
@@ -135,22 +176,6 @@ class FurnitureFadeTest {
      * between the two pictures — otherwise this test would pass on the
      * strength of the fade it is not testing.
      */
-    /**
-     * A dial handed over from one that did or did not have a crown, drawn
-     * [after] milliseconds into the journey.
-     *
-     * Built and rendered in one go, deliberately: building a dial idles two
-     * seconds of the clock, so holding one while another is built leaves
-     * the first one's transition already finished, and the two pictures
-     * then differ for a reason that has nothing to do with any crown.
-     */
-    private fun arrival(fromCrown: Boolean, after: Long = 0L): Bitmap {
-        val arriving = dial()
-        arriving.handOverFrom(dial(buttons = fromCrown))
-        if (after > 0L) ShadowLooper.idleMainLooper(after, TimeUnit.MILLISECONDS)
-        return render(arriving)
-    }
-
     @Test
     fun `a crown handed over dissolves on the dial that receives it`() {
         assertFalse(
@@ -168,7 +193,100 @@ class FurnitureFadeTest {
     fun `and the inherited crown is gone once the fade is over`() {
         assertFalse(
             "the crown must not still be sitting on a clock",
-            differs(arrival(fromCrown = false, after = 2000L), arrival(fromCrown = true, after = 2000L))
+            differs(
+                arrival(fromCrown = false, after = 2000L),
+                arrival(fromCrown = true, after = 2000L)
+            )
+        )
+    }
+
+    /**
+     * The other half of the fade: what the outgoing dial was carrying has
+     * to go somewhere to dissolve, and the only dial still on screen is
+     * this one.
+     *
+     * Read through a dial arriving *without* a sky at all. Anything sky
+     * shaped in its first frame therefore belongs to the dial it replaced —
+     * and the control arrives from a skyless dial, so it carries the same
+     * transition at the same point in the same fade and the ghost is the
+     * one thing that differs.
+     */
+    @Test
+    fun `what the outgoing dial was carrying fades out on this one`() {
+        assertFalse(
+            "the control must be reproducible",
+            differs(
+                arrival(moon = false, fromMoon = false),
+                arrival(moon = false, fromMoon = false)
+            )
+        )
+        assertTrue(
+            "the sky it is replacing must still be on screen",
+            differs(
+                arrival(moon = false, fromMoon = false),
+                arrival(moon = false, fromMoon = true)
+            )
+        )
+    }
+
+    /**
+     * And it really fades, rather than being cut when the hands land.
+     *
+     * Measured against the control at the same instant, not against itself
+     * earlier: the arriving dial's own readout is fading *in* over these
+     * same milliseconds, so two frames of the ghosted dial differ from each
+     * other whether the ghost fades or not — which is what the first
+     * version of this test was quietly reporting. Taking both against a
+     * control at the same point in the same journey cancels everything the
+     * two dials are doing alike and leaves the ghost.
+     */
+    @Test
+    fun `the ghost gets fainter as the hands travel`() {
+        val atStart = distance(
+            arrival(moon = false, fromMoon = false, after = 0L),
+            arrival(moon = false, fromMoon = true, after = 0L)
+        )
+        val halfWay = distance(
+            arrival(moon = false, fromMoon = false, after = 350L),
+            arrival(moon = false, fromMoon = true, after = 350L)
+        )
+        assertTrue("there must be a ghost to fade at all", atStart > 0)
+        assertTrue(
+            "half way through the journey it must be fainter: $halfWay vs $atStart",
+            halfWay < atStart
+        )
+    }
+
+    /** And it is gone by the time the hands finish their journey. */
+    @Test
+    fun `and the ghost is gone once the hands arrive`() {
+        assertFalse(
+            "nothing of the old dial may be left behind",
+            differs(
+                arrival(moon = false, fromMoon = false, after = 2000L),
+                arrival(moon = false, fromMoon = true, after = 2000L)
+            )
+        )
+    }
+
+    /**
+     * A dial nobody has looked at yet fades like any other.
+     *
+     * The fade was gated on "has this dial drawn before", which is a fair
+     * question for a dial changing its own mode and the wrong one for a
+     * hand-over: a card's dial is GONE until you first go there and a view
+     * that is not visible never draws, so the very first trip to the
+     * stopwatch — the one time a new arrival is most worth explaining —
+     * was the one trip with no fade at all.
+     */
+    @Test
+    fun `the first visit to a dial fades like every other`() {
+        assertTrue(
+            "a dial's first frame ever is still an arrival",
+            differs(
+                arrival(moon = false, fromMoon = false, warm = false),
+                arrival(moon = false, fromMoon = true, warm = false)
+            )
         )
     }
 }
