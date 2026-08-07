@@ -802,9 +802,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 }
             }
             it.onDialScaleChanged = { scale -> shareDialScale(scale, it) }
-            it.onHorizontalSwipe = { fingerRight ->
-                swipeLeadsNowhere(Card.REVERSE, fingerRight)
-            }
+            it.onHorizontalSwipe = { fingerRight -> swipeSideways(Card.REVERSE, fingerRight) }
             it.onVerticalSwipe = { up -> swipeRows(up) }
             it.onCrownTap = {
                 // The winding crown tidies the whole scene, bubbles included.
@@ -845,15 +843,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 }
             }
             it.onDialScaleChanged = { scale -> shareDialScale(scale, it) }
-            it.onHorizontalSwipe = { fingerRight ->
-                // Sideways along the bottom row is a real swipe to the
-                // countdown now, so the dial keeps its hands off it and lets
-                // the pager scroll. It swallows only the one that would land
-                // on a page with no card in this row — there is nothing to
-                // the left of the stopwatch, and the pager cannot be told
-                // about one direction at a time.
-                swipeLeadsNowhere(Card.STOPWATCH, fingerRight)
-            }
+            it.onHorizontalSwipe = { fingerRight -> swipeSideways(Card.STOPWATCH, fingerRight) }
             it.onVerticalSwipe = { up -> swipeRows(up) }
             it.onCrownTap = {
                 // The winding crown tidies the whole scene, bubbles included.
@@ -1058,9 +1048,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * with a jump cut, and the world-clock bubbles popping instead of
      * arriving.
      */
-    /** True while the move in flight crosses to another page as well. */
-    private var cardMoveIsDiagonal = false
-
     /**
      * Slides a card in or out vertically, hand-clocked.
      *
@@ -2063,7 +2050,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val wasRow = row
         row = card.row
         val turning = card.row != wasRow
-        cardMoveIsDiagonal = turning && pager.currentItem != card.page
         if (pager.currentItem != card.page) {
             pager.setCurrentItem(card.page, scroll && !turning)
         }
@@ -2079,16 +2065,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     /**
-     * Whether a sideways swipe on [card] has anywhere to go.
+     * A sideways swipe on a row the pager is not allowed to drag through.
      *
-     * The pager would happily scroll onto a page that has no card in this
-     * row and show the background: the bottom row is two cards wide, so
-     * there is nothing to the left of the stopwatch. Swallowing the gesture
-     * is the dial's job, since the pager cannot be told about one direction
-     * at a time.
+     * The bottom row is two cards wide and the pager is three, so dragging
+     * it freely lands you on a page with nothing on it. Dragging is off
+     * there — see [applyRow] — and the dials carry the gesture themselves:
+     * to the card the shape says is that way, or nowhere at all.
+     *
+     * Always consumed, either way. Handing back a swipe the pager cannot
+     * act on leaves the finger doing nothing visible, which reads as the
+     * app having missed it.
      */
-    private fun swipeLeadsNowhere(card: Card, fingerRight: Boolean): Boolean =
-        Cards.neighbour(card, if (fingerRight) Direction.LEFT else Direction.RIGHT) == null
+    private fun swipeSideways(card: Card, fingerRight: Boolean): Boolean {
+        val there = Cards.neighbour(card, if (fingerRight) Direction.LEFT else Direction.RIGHT)
+        if (there != null) goTo(there)
+        return true
+    }
 
     private fun goHomeToClock() = goTo(Card.CLOCK)
 
@@ -2209,26 +2201,39 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // Bubbles belong to the clock, and fade with it.
         fadeCard(bubbleLayer, row == Row.MIDDLE && !setting, raise = false)
         settingsButton?.visibility = if (setting) View.GONE else View.VISIBLE
+        // The dial that is about to appear starts its hands where the one
+        // leaving has them, and covers the distance itself. Seeded before
+        // the swap, so the first frame it draws is already on its way — and
+        // *before* the crowns below are switched off, because the arriving
+        // dial inherits the outgoing one's crown by asking whether it had
+        // one. Asked after, the answer was already no, so the inheritance
+        // never once fired in the app however well it worked on its own.
+        //
+        // Only between rows: a move along a row scrolls the pager with both
+        // cards on screen at once, and hands that jump across to start
+        // travelling while you can see where they came from are not a
+        // hand-over, they are a glitch.
+        val handsCarryIt = from != row && handOverSource != null && visibleDial() != null
+        if (from != row) handOverHands() else handOverSource = null
         // The crown and the pushers belong to the cards that have them, and
         // they arrive with them: setting the flag is what starts their
         // fade, so it is set on every move rather than once when the page
         // was built — which is why they used to be simply always there.
         stopwatchClockView?.chronoButtons = row == Card.STOPWATCH.row
         countdownClockView?.chronoButtons = row == Card.REVERSE.row
-        // The dial that is about to appear starts its hands where the one
-        // leaving has them, and covers the distance itself. Seeded before
-        // the swap, so the first frame it draws is already on its way.
-        handOverHands()
         // A card arrives from the direction it lives in and the one it
         // replaces leaves the opposite way: the hourglass drops in from
-        // above, the stopwatch rises from below. A cross-fade said nothing
+        // above, the clock rises from below. A cross-fade said nothing
         // about where either of them was; a slide says it without a word.
-        // Except on a diagonal, where the page has already changed
-        // underneath and there is nothing on screen to slide away from —
-        // there the hands do it.
-        val slide =
-            if (cardMoveIsDiagonal) 0f else Cards.slideFrom(from, row).toFloat()
-        cardMoveIsDiagonal = false
+        //
+        // Unless there are hands to do the talking. Between two dials the
+        // cards must not move at all: the whole point is one instrument
+        // changing its job, and a card sliding underneath while the hands
+        // travel tells the same story twice, badly. That used to fall out
+        // of "is this a diagonal", which was true of clock-to-stopwatch
+        // only for as long as they were on different pages — put them on
+        // the same page and the slide came back.
+        val slide = if (handsCarryIt) 0f else Cards.slideFrom(from, row).toFloat()
         for (card in Card.entries) {
             // Each card slides from its own side, so the one going up and
             // the one coming down pass each other rather than both drifting
@@ -2236,6 +2241,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             val own = if (card.row.ordinal >= row.ordinal) slide else -slide
             slideCard(containerOf(card), card.row == row, own)
         }
+        // The bottom row is two cards wide, so there is a page under it
+        // with nothing on it, and the pager will happily drag you onto it:
+        // swallowing the gesture in the dial does not stop it, because by
+        // the time a swipe has been recognised the pager has been scrolling
+        // for a while already. Only the middle row is safe to drag through.
+        pager.isUserInputEnabled = row == Row.MIDDLE
         carryFallenHands()
         updateCountdownUi()
     }

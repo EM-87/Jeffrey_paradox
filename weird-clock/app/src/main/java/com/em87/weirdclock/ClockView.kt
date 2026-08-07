@@ -509,6 +509,16 @@ class ClockView @JvmOverloads constructor(
     /** True while the hands are still on their way from a hand-over. */
     internal fun isTravelling(): Boolean = transitionFrom != null
 
+    /**
+     * True while the crown and pushers are on the face — worn outright, or
+     * still fading after being taken off or inherited.
+     *
+     * The same question [onDraw] asks before drawing them, so a test can
+     * ask it of a dial that has never been on a screen.
+     */
+    internal fun isCrownShowing(): Boolean =
+        chronoButtons || SystemClock.uptimeMillis() - buttonsAnimStart < BUTTONS_MS
+
     /** Mode-change animation: blend from these angles to the target ones. */
     private var transitionFrom: Angles? = null
     private var transitionStartAt = 0L
@@ -2797,7 +2807,7 @@ class ClockView @JvmOverloads constructor(
         val r = dialRadius()
 
         // Case hardware sits behind the face so it reads as attached to it.
-        if (chronoButtons || SystemClock.uptimeMillis() - buttonsAnimStart < BUTTONS_MS) {
+        if (isCrownShowing()) {
             drawChronoHardware(canvas, cx, cy, r)
         }
 
