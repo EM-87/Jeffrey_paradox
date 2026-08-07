@@ -2441,11 +2441,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         private const val DEFAULT_COUNTDOWN_MS = 5 * 60_000L
 
         /**
-         * How long a card takes to dissolve into the one behind it. Matched
-         * to the 500 ms the crown and pushers already take to fade inside the
-         * dial, so the whole mode change moves as one gesture.
+         * How long a card takes to dissolve into the one behind it, and how
+         * long everything else that fades on a mode change takes with it.
+         *
+         * One number, because the complaint that keeps coming back is not
+         * that a fade is missing but that they do not agree: the crown used
+         * to take 500 ms, the face 700, the bubbles 500, so whichever
+         * finished first looked like the one thing that had been left out.
+         * Matched to the dial's own transition, which is the motion the
+         * whole gesture is built around.
          */
-        private const val CARD_FADE_MS = 500f
+        private const val CARD_FADE_MS = 700f
 
         /**
          * How long a card takes to slide between the two rows. Shorter

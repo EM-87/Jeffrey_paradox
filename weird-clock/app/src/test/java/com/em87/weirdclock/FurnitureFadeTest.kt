@@ -60,12 +60,15 @@ class FurnitureFadeTest {
     private fun dial(
         buttons: Boolean = false,
         moon: Boolean = true,
-        warm: Boolean = true
+        warm: Boolean = true,
+        second: Boolean = true,
+        at: Long = fixed
     ): ClockView =
         ClockView(context).apply {
-            chronoProvider = { fixed }
+            chronoProvider = { at }
             showMoonPhase = moon
             chronoButtons = buttons
+            showSecondHand = second
             measure(
                 View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY)
@@ -158,10 +161,12 @@ class FurnitureFadeTest {
         fromMoon: Boolean = false,
         moon: Boolean = true,
         warm: Boolean = true,
+        second: Boolean = true,
+        fromSecond: Boolean = true,
         after: Long = 0L
     ): Bitmap {
-        val arriving = dial(moon = moon, warm = warm)
-        arriving.handOverFrom(dial(buttons = fromCrown, moon = fromMoon))
+        val arriving = dial(moon = moon, warm = warm, second = second)
+        arriving.handOverFrom(dial(buttons = fromCrown, moon = fromMoon, second = fromSecond))
         if (after > 0L) ShadowLooper.idleMainLooper(after, TimeUnit.MILLISECONDS)
         return render(arriving)
     }
@@ -288,5 +293,134 @@ class FurnitureFadeTest {
                 arrival(moon = false, fromMoon = true, warm = false)
             )
         )
+    }
+
+    // ------------------------------------------------- one clock, one curve
+
+    /**
+     * What fades in and what fades out do it at the same rate.
+     *
+     * The complaint that kept coming back was never that a fade was
+     * missing; it was that they did not agree, so whichever finished first
+     * looked like the one thing that had been left out. This is that claim
+     * measured: the curve is symmetric about its middle, so the ghost a
+     * quarter of the way through the journey must be exactly as strong as
+     * the arriving face is three quarters of the way through.
+     *
+     * Both sides are read against a control at the same instant, so
+     * everything the two frames are doing alike cancels and what is left is
+     * the one thing fading.
+     */
+    @Test
+    fun `what leaves fades at the same rate as what arrives`() {
+        val quarter = 250L
+        val threeQuarters = TRANSITION_MS - quarter
+
+        val leaving = distance(
+            arrival(moon = false, fromMoon = false, after = quarter),
+            arrival(moon = false, fromMoon = true, after = quarter)
+        )
+        val arriving = distance(
+            arrival(moon = false, fromMoon = false, after = threeQuarters),
+            arrival(moon = true, fromMoon = false, after = threeQuarters)
+        )
+
+        assertTrue("there must be something to compare", leaving > 0 && arriving > 0)
+        val gap = kotlin.math.abs(leaving - arriving).toDouble() / maxOf(leaving, arriving)
+        assertTrue(
+            "in and out must match: leaving $leaving, arriving $arriving",
+            gap < 0.05
+        )
+    }
+
+    /**
+     * And they run for the same length of time. The crown took 500 ms
+     * against the face's 700, so it was always finished a fifth of a second
+     * early — which is what "the crown has no fade" looks like from the
+     * sofa.
+     */
+    @Test
+    fun `the crown is still fading when the face still is`() {
+        val late = TRANSITION_MS - 100L
+        assertTrue(
+            "at $late ms the crown must still be on screen",
+            differs(
+                arrival(fromCrown = false, after = late),
+                arrival(fromCrown = true, after = late)
+            )
+        )
+    }
+
+    /**
+     * The tenths scale is furniture, not a hand: it belongs to the
+     * chronograph and not to the clock, and it used to be the one thing
+     * that snapped — a ten-division ring appearing in the middle of the
+     * dial in a single frame while everything around it was still arriving.
+     */
+    @Test
+    fun `the tenths scale crosses over with the rest of the face`() {
+        assertTrue(
+            "the scale of the dial being left must still be there",
+            differs(
+                arrival(second = false, fromSecond = false),
+                arrival(second = false, fromSecond = true)
+            )
+        )
+    }
+
+    /**
+     * The face fades on the curve the hands travel on, not on a straight
+     * line.
+     *
+     * Both were running for the same seven hundred milliseconds, which is
+     * why this was so easy to miss: a linear fade and an eased journey
+     * agree at the start, at the middle and at the end, and disagree
+     * everywhere else. A quarter of the way in the face was at 25% and the
+     * hands at 15%, so the furniture kept arriving ahead of the hands and
+     * leaving behind them — the same gesture, told at two speeds.
+     *
+     * Measured as one against the other rather than either against a
+     * number: what is fading out and what is travelling are two halves of
+     * one journey, so their fractions must come to one.
+     */
+    @Test
+    fun `the face fades on the same curve the hands travel`() {
+        val quarter = 175L
+        val elsewhere = 3 * 3_600_000L
+
+        fun ghostAt(after: Long): Long {
+            val control = dial(moon = false)
+            control.handOverFrom(dial(moon = false, at = elsewhere))
+            if (after > 0L) ShadowLooper.idleMainLooper(after, TimeUnit.MILLISECONDS)
+            val plain = render(control)
+
+            val ghosted = dial(moon = false)
+            ghosted.handOverFrom(dial(moon = true, at = elsewhere))
+            if (after > 0L) ShadowLooper.idleMainLooper(after, TimeUnit.MILLISECONDS)
+            return distance(plain, render(ghosted))
+        }
+
+        val full = ghostAt(0L)
+        val left = ghostAt(quarter).toDouble() / full
+
+        // And the hands over the same quarter of the same journey.
+        val from = dial(at = elsewhere).handAngleForTest(ClockView.Hand.HOUR)
+        val to = dial().handAngleForTest(ClockView.Hand.HOUR)
+        val travelling = dial()
+        travelling.handOverFrom(dial(at = elsewhere))
+        ShadowLooper.idleMainLooper(quarter, TimeUnit.MILLISECONDS)
+        val gone = (travelling.handAngleForTest(ClockView.Hand.HOUR) - from) / (to - from)
+
+        assertTrue("the hands must have moved but not arrived: $gone", gone in 0.02f..0.98f)
+        assertTrue(
+            "what is left of the old face and what the hands have covered " +
+                "are two halves of one journey: $left + $gone",
+            kotlin.math.abs(left + gone - 1.0) < 0.06
+        )
+    }
+
+    private companion object {
+        /** The one duration the whole gesture runs on. */
+        const val TRANSITION_MS = 700L
     }
 }

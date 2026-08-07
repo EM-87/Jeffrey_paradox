@@ -2658,7 +2658,15 @@ class ClockView @JvmOverloads constructor(
 
     private fun transitionProgress(): Float {
         if (!furnitureFades || transitionFrom == null) return 1f
-        return ((SystemClock.uptimeMillis() - transitionStartAt) / TRANSITION_MS).coerceIn(0f, 1f)
+        val t = ((SystemClock.uptimeMillis() - transitionStartAt) / TRANSITION_MS).coerceIn(0f, 1f)
+        // On the hands' own curve, not a straight line. Two things crossing
+        // the same seven hundred milliseconds at different rates is what an
+        // asymmetric fade actually looks like: a quarter of the way in, a
+        // linear fade is at 25% and the hands are at 15%, so the face keeps
+        // arriving ahead of them and leaving behind them. The curve is
+        // symmetric about its middle, so fading in on it and out on one
+        // minus it are mirror images.
+        return transitionInterpolator.getInterpolation(t)
     }
 
     /** Target angles, blended with the mode-transition animation if active. */
@@ -2826,46 +2834,23 @@ class ClockView @JvmOverloads constructor(
 
         val a = currentAngles()
 
-        if (chronoProvider != null && laps.isNotEmpty()) {
-            // A ghost is the hand itself, faded: same colour, same length,
-            // same width. Dashes and thin outlines read as decoration, not
-            // as "this is where the hands were".
-            for ((i, lap) in laps.withIndex()) {
-                val alpha = 60 + 150 * (i + 1) / laps.size
-                for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
-                    if (hand == Hand.SECOND && !showSecondHand) continue
-                    val angle = when (hand) {
-                        Hand.HOUR -> lap.hour
-                        Hand.MINUTE -> lap.minute
-                        Hand.SECOND -> lap.second
-                    }
-                    val paint = paintOf(hand)
-                    val was = paint.alpha
-                    paint.alpha = alpha
-                    drawHand(
-                        canvas, cx, cy, angle,
-                        boundaryRadius(angle) * lengthOf(hand),
-                        r * tailOf(hand),
-                        r * widthOf(hand),
-                        paint
-                    )
-                    paint.alpha = was
-                }
-            }
-
+        // The lap ghosts and the tenths scale belong to the chronograph and
+        // not to the clock, so they cross-fade with the rest of the face.
+        // Left outside it they were the two things that snapped: swap to the
+        // stopwatch and a ten-division ring appeared in the middle of the
+        // dial in one frame while everything around it was still arriving.
+        val chronoLayer = beginFurniture(canvas)
+        drawLapGhosts(canvas, cx, cy, r)
+        drawFastScale(canvas, cx, cy, r)
+        endFurniture(canvas, chronoLayer)
+        drawGhost(canvas) {
+            it.drawLapGhosts(canvas, cx, cy, r)
+            it.drawFastScale(canvas, cx, cy, r)
         }
 
-        if (showsFastHand()) {
-            for (i in 0 until 10) {
-                val angle = i / 10f * 360f
-                fastTickPaint.strokeWidth = r * 0.012f
-                val from = pointAt(cx, cy, angle, r * 0.30f)
-                val to = pointAt(cx, cy, angle, r * 0.36f)
-                canvas.drawLine(from.x, from.y, to.x, to.y, fastTickPaint)
-            }
-            if (!isFastHandFallen()) {
-                drawHand(canvas, cx, cy, a.fast, r * FAST_LEN, r * 0.05f, r * 0.008f, fastHandPaint)
-            }
+        // The tenths hand itself is a hand: it travels rather than fades.
+        if (showsFastHand() && !isFastHandFallen()) {
+            drawHand(canvas, cx, cy, a.fast, r * FAST_LEN, r * 0.05f, r * 0.008f, fastHandPaint)
         }
 
         for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
@@ -2966,6 +2951,49 @@ class ClockView @JvmOverloads constructor(
         // run on a chrono provider, so it is drawn outside that guard;
         // leaving it inside is why 14.1's token appeared on C0 only.
         if (showMoonPhase) drawMoonPhase(canvas, cx, cy, r)
+    }
+
+    /**
+     * The recent laps, drawn as the hands themselves at a lower alpha:
+     * same colour, same length, same width. Dashes and thin outlines read
+     * as decoration, not as "this is where the hands were".
+     */
+    private fun drawLapGhosts(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        if (chronoProvider == null || laps.isEmpty()) return
+        for ((i, lap) in laps.withIndex()) {
+            val alpha = 60 + 150 * (i + 1) / laps.size
+            for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
+                if (hand == Hand.SECOND && !showSecondHand) continue
+                val angle = when (hand) {
+                    Hand.HOUR -> lap.hour
+                    Hand.MINUTE -> lap.minute
+                    Hand.SECOND -> lap.second
+                }
+                val paint = paintOf(hand)
+                val was = paint.alpha
+                paint.alpha = alpha
+                drawHand(
+                    canvas, cx, cy, angle,
+                    boundaryRadius(angle) * lengthOf(hand),
+                    r * tailOf(hand),
+                    r * widthOf(hand),
+                    paint
+                )
+                paint.alpha = was
+            }
+        }
+    }
+
+    /** The ten divisions the tenths hand runs against. */
+    private fun drawFastScale(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        if (!showsFastHand()) return
+        for (i in 0 until 10) {
+            val angle = i / 10f * 360f
+            fastTickPaint.strokeWidth = r * 0.012f
+            val from = pointAt(cx, cy, angle, r * 0.30f)
+            val to = pointAt(cx, cy, angle, r * 0.36f)
+            canvas.drawLine(from.x, from.y, to.x, to.y, fastTickPaint)
+        }
     }
 
     /**
@@ -3119,8 +3147,10 @@ class ClockView @JvmOverloads constructor(
      * pusher at 10:30.
      */
     private fun drawChronoHardware(canvas: Canvas, cx: Float, cy: Float, r: Float) {
-        val t = ((SystemClock.uptimeMillis() - buttonsAnimStart) / BUTTONS_MS.toFloat())
-            .coerceIn(0f, 1f)
+        val t = transitionInterpolator.getInterpolation(
+            ((SystemClock.uptimeMillis() - buttonsAnimStart) / BUTTONS_MS.toFloat())
+                .coerceIn(0f, 1f)
+        )
         val visibility = if (chronoButtons) t else 1f - t
         if (visibility <= 0f) return
         val alpha = (visibility * 255).toInt()
@@ -3692,8 +3722,16 @@ class ClockView @JvmOverloads constructor(
 
         private const val TRANSITION_MS = 700f
 
-        /** How long the crown and pushers take to fade in or out. */
-        private const val BUTTONS_MS = 500L
+        /**
+         * How long the crown and pushers take to fade in or out.
+         *
+         * The same as everything else in the gesture, and that is the whole
+         * point of the constant: at five hundred against the dial's seven
+         * the crown finished a fifth of a second before the face it sits
+         * on, which reads as the crown having no fade rather than a shorter
+         * one.
+         */
+        private const val BUTTONS_MS = TRANSITION_MS.toLong()
         private const val SAMPLE_COUNT = 5
 
         /** How far a lap may drift from the truth before it is a fake. */
