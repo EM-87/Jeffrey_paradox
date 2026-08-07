@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- One swipe left of home. Clock mode: C-1, the calendar.
-     Chronograph mode: S-1, the stopwatch. -->
+<!-- One swipe left of the clock: the calendar. Nothing below it —
+     the stopwatch moved next door to the countdown. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -18,29 +18,5 @@
             android:padding="8dp" />
     </FrameLayout>
 
-    <FrameLayout
-        android:id="@+id/stopwatch_container"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone">
-
-        <!-- Case pushers are the controls; the one screen button goes home. -->
-        <com.em87.weirdclock.ClockView
-            android:id="@+id/stopwatch_clock_view"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:padding="16dp" />
-
-        <ImageButton
-            android:id="@+id/stopwatch_back_button"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:alpha="0.75"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/a11y_clock"
-            android:layout_gravity="bottom|center_horizontal"
-            android:layout_marginBottom="12dp"
-            android:src="@drawable/ic_clock_face" />
-    </FrameLayout>
 
 </FrameLayout>
