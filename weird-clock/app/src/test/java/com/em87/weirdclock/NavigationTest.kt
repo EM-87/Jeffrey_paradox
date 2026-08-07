@@ -139,6 +139,37 @@ class NavigationTest {
     }
 
     /**
+     * Going diagonally to the countdown must not bring the alarms up on the
+     * way.
+     *
+     * "Which card is being left" was asked after the pager had already
+     * moved, so on a diagonal it answered with whichever card of the old
+     * row lives on the *new* page — the alarms, which had never been on
+     * screen. They flashed up for a frame and then politely faded away.
+     */
+    @Test
+    fun `going to the countdown does not flash the alarms`() {
+        onApp { app ->
+            app.press(R.id.to_countdown_button)
+
+            assertEquals(Cards.PAGE_RIGHT, app.pager().currentItem)
+            assertEquals(View.VISIBLE, app.card(R.id.countdown_container).visibility)
+            assertEquals(
+                "the alarms were never on screen and must not appear now",
+                View.GONE, app.card(R.id.alarms_container).visibility
+            )
+            // And the clock is put away rather than left dissolving: its
+            // page has been scrolled off, so a fade there plays to nobody —
+            // but you can swipe straight back onto it, and finding a card
+            // half faded out is worse than finding it gone.
+            assertEquals(
+                "nothing should be left fading on the page we left",
+                View.GONE, app.card(R.id.clock_container).visibility
+            )
+        }
+    }
+
+    /**
      * The bottom row is two cards wide and the pager is three, so there is
      * a page under it with nothing on it. Swallowing the gesture in the
      * dial did not stop the pager reaching it: by the time a swipe has been

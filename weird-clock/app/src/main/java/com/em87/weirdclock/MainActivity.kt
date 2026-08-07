@@ -2075,12 +2075,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         if (dialJob != null) return
         handOverSource = visibleDial()
         val wasRow = row
+        val wasPage = pager.currentItem
+        // Which card is on screen *now*, asked before anything moves. Asked
+        // afterwards it was "which card of the row I am leaving lives on
+        // the page I have just arrived at", which on a diagonal names a
+        // card that was never on screen at all — going to the countdown
+        // brought the alarms up for one frame and then faded them away.
+        val leaving = Cards.on(wasPage, wasRow)
         row = card.row
         val turning = card.row != wasRow
         if (pager.currentItem != card.page) {
             pager.setCurrentItem(card.page, scroll && !turning)
         }
-        applyRow(wasRow)
+        // And only the page we stayed on can dissolve anything: on a
+        // diagonal the pager takes the old page away in the same frame, so
+        // there is nothing left there to fade.
+        applyRow(wasRow, leaving.takeIf { wasPage == card.page })
     }
 
     /**
@@ -2188,7 +2198,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             countdownClockView?.isDisarranged() == true ||
             worldBubbles.anyMoving()
 
-    private fun applyRow(from: Row = row) {
+    private fun applyRow(from: Row = row, leaving: Card? = null) {
         val setting = dialJob != null
         clockView?.let {
             if (setting) {
@@ -2284,8 +2294,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val slide = if (handsCarryIt) 0f else Cards.slideFrom(from, row).toFloat()
         // The card being left, when the hands are carrying the move and it
         // is not the pager that takes it away.
-        val dissolving = Cards.on(pager.currentItem, from)
-            ?.takeIf { handsCarryIt && it.row != row }
+        val dissolving = leaving?.takeIf { handsCarryIt && it.row != row }
         for (card in Card.entries) {
             if (card == dissolving) continue
             // A card that is about to show gets its dial back: the last

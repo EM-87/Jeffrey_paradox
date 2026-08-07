@@ -60,6 +60,9 @@ class WorldBubbles(
         /** Its velocity at the end of the last step, so this one has a delta. */
         var prevVx = 0f
         var prevVy = 0f
+
+        /** What being thrown about has done to it so far. */
+        val damage = BubbleDamage()
         var sizePx = 0f
 
         fun centerX() = x + sizePx / 2f
@@ -188,7 +191,10 @@ class WorldBubbles(
     }
 
     fun heal() {
-        for (b in bubbles) b.clock.timeScale = 1f
+        for (b in bubbles) {
+            b.clock.timeScale = 1f
+            b.damage.heal()
+        }
     }
 
     /** The panic button reaches the bubbles' own fallen hands as well. */
@@ -322,6 +328,22 @@ class WorldBubbles(
         return true
     }
 
+    /**
+     * A knock, wherever it came from: a cushion, the main dial, another
+     * bubble. The ladder is the same one shaking the phone climbs, so a
+     * clock battered around the table ends up in the same state as one
+     * shaken there — which is the point, and was not true of either before.
+     */
+    private fun bruise(b: Bubble, force: Float) {
+        when (b.damage.hit(abs(force), seizes = Math.random() < 0.5)) {
+            BubbleDamage.Effect.SEIZE -> b.clock.timeScale = 0f
+            BubbleDamage.Effect.REVERSE -> b.clock.timeScale = -1f
+            BubbleDamage.Effect.BREAK ->
+                if (!b.clock.isDisarranged()) b.clock.knockHandsOff()
+            null -> Unit
+        }
+    }
+
     private fun cushion(v: Float) {
         if (abs(v) > 150f && allowCollisionSound()) {
             chimePlayer.playCushion((abs(v) / 1400f).coerceIn(0.08f, 1f))
@@ -351,10 +373,10 @@ class WorldBubbles(
             b.vy *= 0.985f
             val r = b.sizePx / 2f
             // Screen edges: the cushions of the table.
-            if (b.x < 0f) { b.x = 0f; cushion(b.vx); b.vx = -b.vx * 0.9f }
-            if (b.y < 0f) { b.y = 0f; cushion(b.vy); b.vy = -b.vy * 0.9f }
-            if (b.x + b.sizePx > w) { b.x = w - b.sizePx; cushion(b.vx); b.vx = -b.vx * 0.9f }
-            if (b.y + b.sizePx > h) { b.y = h - b.sizePx; cushion(b.vy); b.vy = -b.vy * 0.9f }
+            if (b.x < 0f) { b.x = 0f; cushion(b.vx); bruise(b, b.vx); b.vx = -b.vx * 0.9f }
+            if (b.y < 0f) { b.y = 0f; cushion(b.vy); bruise(b, b.vy); b.vy = -b.vy * 0.9f }
+            if (b.x + b.sizePx > w) { b.x = w - b.sizePx; cushion(b.vx); bruise(b, b.vx); b.vx = -b.vx * 0.9f }
+            if (b.y + b.sizePx > h) { b.y = h - b.sizePx; cushion(b.vy); bruise(b, b.vy); b.vy = -b.vy * 0.9f }
             // The main dial is a fixed obstacle — and it rings when struck.
             if (dialR > 0f && dialIsObstacle()) {
                 val dx = b.centerX() - dialCx
@@ -375,6 +397,9 @@ class WorldBubbles(
                         }
                         b.vx -= 1.85f * vn * nx
                         b.vy -= 1.85f * vn * ny
+                        // Hitting the big dial counts, and it is the
+                        // hardest thing on the table to hit.
+                        bruise(b, vn)
                     }
                 }
             }
@@ -414,6 +439,9 @@ class WorldBubbles(
                         c.vy += impulse * ny
                         if (!a.moving && hypot(a.vx, a.vy) > 30f) a.moving = true
                         if (!c.moving && hypot(c.vx, c.vy) > 30f) c.moving = true
+                        // Both of them felt that.
+                        bruise(a, relVn)
+                        bruise(c, relVn)
                     }
                 }
             }
