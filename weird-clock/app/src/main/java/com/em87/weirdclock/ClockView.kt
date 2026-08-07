@@ -1531,6 +1531,25 @@ class ClockView @JvmOverloads constructor(
         return distanceToSegment(x, y, cx, cy, tip.x, tip.y)
     }
 
+    /**
+     * Whether a finger at ([x], [y]) is out in the ring between the numerals
+     * and the rim, where the hand goes for fine adjustment.
+     *
+     * Magnets engage there and nowhere else: whipping a hand round from
+     * near the centre spins free, with no detents and no haptic
+     * machine-gun. It is a property of where you are holding the dial, not
+     * of which hand you are holding, which is why it lives here rather than
+     * inside one hand's branch.
+     */
+    private fun inPrecisionBand(x: Float, y: Float): Boolean {
+        val cx = width / 2f
+        val cy = height / 2f
+        val fingerDist = hypot(x - cx, y - cy)
+        val bAtFinger = boundaryRadius(touchAngleDeg(x, y))
+        return fingerDist >= bAtFinger * numeralRadiusFactor() * 0.95f &&
+            fingerDist <= bAtFinger * 1.10f
+    }
+
     private fun dragTo(x: Float, y: Float) {
         val hand = draggedHand ?: return
         val cx = width / 2f
@@ -1578,11 +1597,21 @@ class ClockView @JvmOverloads constructor(
             val rem = Math.floorMod(whole, 60_000L)
             var snapped = whole
             var onDetent = false
-            for (c in SECOND_DETENTS) {
-                if (kotlin.math.abs(rem - c) <= 1_100L) {
-                    snapped = whole - rem + c
-                    onDetent = true
-                    break
+            // In the precision band, like its sibling hands. This one was
+            // detenting wherever the finger happened to be: take hold of it
+            // by the body, nowhere near the marks, and it still snapped and
+            // still buzzed, once every five seconds of dial all the way
+            // round. The hour and minute hands have always spun free from
+            // the middle; the second hand never got the same test because
+            // the screen this was written for — winding a time to set — is
+            // the one screen with no second hand on it.
+            if (inPrecisionBand(x, y)) {
+                for (c in SECOND_DETENTS) {
+                    if (kotlin.math.abs(rem - c) <= 1_100L) {
+                        snapped = whole - rem + c
+                        onDetent = true
+                        break
+                    }
                 }
             }
             if (onDetent) {
@@ -1597,18 +1626,9 @@ class ClockView @JvmOverloads constructor(
             return
         }
         if (chronoSettable && chronoProvider != null) {
-            // Magnets only engage in the precision band: the ring between
-            // the numerals and the rim, where the finger goes for fine
-            // adjustment. Whipping the hand around from near the center
-            // spins free — no detents, no haptic machine-gun.
-            val fingerDist = hypot(x - cx, y - cy)
-            val bAtFinger = boundaryRadius(touchAngleDeg(x, y))
-            val inPrecisionBand =
-                fingerDist >= bAtFinger * numeralRadiusFactor() * 0.95f &&
-                    fingerDist <= bAtFinger * 1.10f
             val baseMs = chronoFrozenMs ?: 0L
             val durationMs = baseMs + (target * 1000.0).toLong()
-            val magnet = if (inPrecisionBand) magnetFor(durationMs, hand) else null
+            val magnet = if (inPrecisionBand(x, y)) magnetFor(durationMs, hand) else null
             if (magnet != null) {
                 if (lockedMagnetMs != magnet) {
                     lockedMagnetMs = magnet
@@ -2597,6 +2617,13 @@ class ClockView @JvmOverloads constructor(
     internal fun windForTest(seconds: Double) {
         visualOffsetSeconds = seconds
     }
+
+    /**
+     * Drags the held hand to a point, through the real winding path —
+     * detents, precision band and all. [windForTest] sets the offset
+     * directly and so says nothing about any of that.
+     */
+    internal fun dragToForTest(x: Float, y: Float) = dragTo(x, y)
 
     /** Lets go of whatever hand is held, without the spring or the commit. */
     internal fun releaseForTest() {
