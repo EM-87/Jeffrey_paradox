@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Day palette; values-night/ holds the dark twins. -->
+    <color name="app_background">#F2F3F7</color>
+    <color name="text_primary">#1B1E28</color>
+    <color name="text_secondary">#5A6172</color>
+    <color name="accent">#0097A7</color>
+
+    <!--
+      Material's own colours, which the app never set and therefore got:
+      baseline purple, on every switch, button and toggle, next to dials
+      drawn in cyan. These are the same roles in blue — one hue over from
+      the dial's own, so the furniture agrees with the clock instead of
+      arguing with it.
+
+      Tones follow Material's scale: primary at 40 on a light scheme and 80
+      on a dark one, so text and icons keep their contrast either way.
+    -->
+    <color name="m3_primary">#00639B</color>
+    <color name="m3_on_primary">#FFFFFF</color>
+    <color name="m3_primary_container">#CDE5FF</color>
+    <color name="m3_on_primary_container">#001D33</color>
+
+    <color name="m3_secondary">#51606F</color>
+    <color name="m3_on_secondary">#FFFFFF</color>
+    <color name="m3_secondary_container">#D4E4F6</color>
+    <color name="m3_on_secondary_container">#0D1D2A</color>
+
+    <!-- Tertiary keeps the dial's own cyan in the family. -->
+    <color name="m3_tertiary">#00696E</color>
+    <color name="m3_on_tertiary">#FFFFFF</color>
+    <color name="m3_tertiary_container">#9CF1F8</color>
+    <color name="m3_on_tertiary_container">#002021</color>
+
+    <!--
+      Surfaces stay a shade off the page rather than equal to it: a sheet
+      has to read as something laid on top of the clock, not a hole in it.
+      Neutral leaning blue, where Material's default leans purple.
+    -->
+    <color name="m3_surface">#FBFCFF</color>
+    <color name="m3_surface_variant">#DDE3EA</color>
+    <color name="m3_outline">#71787E</color>
+</resources>

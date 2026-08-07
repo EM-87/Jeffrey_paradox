@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Weird Clock</string>
+    <string name="settings_title">Settings</string>
+    <string name="widget_description">Weird Clock on your home screen</string>
+
+    <string name="category_dial">Dial</string>
+    <string name="pref_theme_title">Theme</string>
+    <string name="pref_hours_preset_title">Hours on the dial</string>
+    <string name="pref_hours_custom_title">Custom hours</string>
+    <string name="pref_dial_shape_title">Dial shape</string>
+    <string name="pref_numerals_title">Numerals</string>
+    <string name="pref_mirror_title">Mirror mode</string>
+    <string name="pref_mirror_summary">The clock runs counterclockwise, as seen in a mirror</string>
+    <string name="pref_show_date_title">Show date</string>
+    <string name="pref_show_date_summary">A date complication on the dial</string>
+    <string name="pref_date_format_title">Date format</string>
+
+    <string name="category_hands">Hands</string>
+    <string name="pref_second_hand_title">Second hand</string>
+    <string name="pref_smooth_title">Smooth sweep</string>
+    <string name="pref_smooth_summary">Glide continuously instead of ticking once per second</string>
+    <string name="pref_fast_hand_title">Fast hand</string>
+
+    <string name="category_touch">Touch</string>
+    <string name="pref_touch_hands_title">Grab the hands</string>
+    <string name="pref_touch_hands_summary">Wind any hand around the dial — the others follow like gears, with bells at every hour crossed. Let go and it springs back, unwinding the same turns.</string>
+    <string name="pref_pinch_zoom_title">Pinch to resize</string>
+    <string name="pref_pinch_zoom_summary">Pinch to shrink or grow the dial; double-tap to reset</string>
+    <string name="pref_shake_drop_title">Knock the hands off</string>
+    <string name="pref_shake_drop_summary">A hard shake makes the hands fall and tumble inside the dial; drag each one back to the axis to remount it</string>
+
+    <string name="category_sounds">Sounds</string>
+    <string name="pref_bells_title">Hourly bells</string>
+    <string name="pref_bells_summary">Chime on the hour while the app is open</string>
+    <string name="pref_bell_style_title">Bell style</string>
+    <string name="pref_half_hour_title">Half-hour ding</string>
+    <string name="pref_half_hour_summary">A single higher bell at half past (ship’s bell handles this on its own)</string>
+    <string name="pref_ticking_title">Ticking sound</string>
+    <string name="pref_ticking_summary">A mechanical tick every second</string>
+    <string name="pref_test_bells_title">Test the bells</string>
+    <string name="pref_test_bells_summary">Play a sample of the selected bell style</string>
+
+    <string name="category_time">Time itself</string>
+    <string name="pref_time_speed_title" formatted="false">Time speed (%)</string>
+    <string name="pref_time_speed_summary">Make the clock run faster or slower than reality</string>
+    <string name="speed_warning_title">Warning</string>
+    <string name="speed_warning_message" formatted="false">Bending the speed of time does not allow time travel, and alarms are disabled while time is not running at 100%. Weird Clock declines all responsibility for missed appointments.</string>
+
+    <string name="category_world">World clock</string>
+    <string name="pref_world_clock_title">World clock</string>
+    <string name="pref_world_clock_summary">Mini dials showing the time in other cities</string>
+    <string name="pref_world_tz_title">Time zone</string>
+    <string name="pref_world_cities_title">Cities</string>
+    <string name="world_add_city">Add city…</string>
+    <string name="world_city_hint">City name</string>
+    <string name="world_city_not_found">No city by that name in the timezone database</string>
+    <string name="world_bubble_limit">Up to 6 clocks fit on screen</string>
+
+    <!-- Buttons show where pressing them takes you: hourglass enters the
+         chronograph, analog clock returns to it; a second button switches
+         between stopwatch and countdown. -->
+    <string name="mode_clock" translatable="false">⏳</string>
+    <string name="mode_stopwatch" translatable="false">🕐</string>
+    <string name="mode_countdown" translatable="false">🕐</string>
+    <string name="mode_switch_to_countdown" translatable="false">⌛</string>
+    <string name="mode_switch_to_stopwatch" translatable="false">⏱</string>
+    <string name="cheater_stamp">CHEATER!</string>
+    <string name="sand_freeze">Freeze</string>
+    <string name="sand_thaw">Thaw</string>
+    <string name="chrono_start">Start</string>
+    <string name="chrono_pause">Pause</string>
+    <string name="chrono_reset">Reset</string>
+    <string name="chrono_label_stopwatch">Stopwatch · swipe for timer</string>
+    <string name="chrono_label_countdown">Timer</string>
+    <string name="countdown_set_hint">Timer · wind the hands to set it</string>
+    <string name="set_alarm_time">Set alarm time</string>
+    <string name="set_reminder_time">Set reminder time</string>
+    <string name="set_duration">How long does it last?</string>
+    <string name="alarm_set_confirm" translatable="false">✓</string>
+    <string name="alarm_set_cancel" translatable="false">✗</string>
+
+    <string name="category_alarms">Alarms</string>
+    <string name="pref_alarm_disabled_by_speed" formatted="false">Disabled while time speed is not 100%</string>
+    <string name="pref_manage_alarms_title">Manage alarms</string>
+    <string name="pref_manage_alarms_summary">Swipe left on the clock, or tap here</string>
+    <string name="alarms_title">Alarms</string>
+    <string name="alarms_hint">They ring with synthesized sounds, even with the app closed</string>
+    <string name="alarms_empty">No alarms. Tap + to add one.</string>
+    <string name="alarm_add">Add alarm</string>
+    <string name="alarm_delete">Delete alarm</string>
+    <string name="alarm_edit_time">Edit</string>
+    <string name="alarm_add_time">+</string>
+    <string name="alarm_times_full">Four times a day is quite enough</string>
+    <string name="alarm_remove_time_title">Remove this repetition?</string>
+    <string name="alarm_remove_time_message">The alarm will stop ringing at %1$s.</string>
+    <string name="alarm_remove_time_first">This is the alarm’s own time. Long-press one of the others to drop a repetition.</string>
+    <string name="alarm_quick_weekdays">Weekdays</string>
+    <string name="alarm_quick_weekends">Weekend</string>
+    <string name="alarm_quick_everyday">Every day</string>
+    <string name="alarm_vibrate">Vibrate</string>
+    <string name="alarm_flash">Flash</string>
+    <string name="alarm_save">Save</string>
+    <string name="alarm_delete_confirm">This alarm will be gone for good.</string>
+    <string name="reminder_delete_confirm">This reminder will be gone for good.</string>
+    <string name="reminder_name">Name</string>
+    <string name="reminder_time">Time</string>
+    <string name="reminder_set_time">Set on the dial</string>
+    <string name="reminder_alarm">Ring an alarm</string>
+    <string name="reminder_lead">Warn me</string>
+    <string name="reminder_lead_none">On the dot</string>
+    <string name="reminder_lead_min">%1$d min early</string>
+    <string name="reminder_lead_hour">1 h early</string>
+    <string name="reminder_lead_hours">%1$d h early</string>
+    <string name="reminder_lead_day">The day before</string>
+    <string name="reminder_lead_days">%1$d days before</string>
+    <string name="reminder_lead_week">A week before</string>
+    <string name="reminder_lead_weeks">%1$d weeks before</string>
+    <string name="alarm_unsaved_title">Unsaved changes</string>
+    <string name="alarm_unsaved_message">You changed this alarm without saving.</string>
+    <string name="alarm_discard">Discard</string>
+    <string name="countdown_add_minute">+1 min</string>
+    <string name="pref_countdown_float_title">While a timer runs</string>
+    <string name="pref_countdown_float_summary">The floating hourglass sits where you drag it and keeps the countdown on screen over other apps. It needs the draw-over-apps permission. Off: the notification progress bar carries it alone.</string>
+    <string name="alarm_set_toast">Alarm set for %1$s</string>
+    <string name="timer_set_toast">Timer set for %1$d min %2$d s</string>
+    <string name="shortcut_alarms">Alarms</string>
+    <string name="shortcut_timer">Timer</string>
+    <string name="shortcut_stopwatch">Stopwatch</string>
+    <string name="shortcut_calendar">Calendar</string>
+    <string name="channel_group_clock">Clock</string>
+    <string name="alarm_channel_desc">Alarms and reminders ringing. Silencing this channel silences your alarms.</string>
+    <string name="countdown_channel_desc">The running timer, with its remaining time and progress bar.</string>
+    <string name="bells_channel_desc">The quiet placeholder the hourly bells need in order to chime from the background.</string>
+    <string name="tile_timer_label">Weird Clock timer</string>
+    <string name="tile_alarm_label">Next alarm</string>
+    <string name="tile_none">None set</string>
+    <string name="reminder_repeat">Repeats</string>
+    <string name="reminder_repeat_never">Never</string>
+    <string name="reminder_repeat_weekly">Every week</string>
+    <string name="reminder_repeat_monthly">Every month</string>
+    <string name="reminder_repeat_yearly">Every year</string>
+    <string name="reminder_move">Move to another day</string>
+    <string name="alarm_rings_in">in %1$s</string>
+    <string name="alarm_rings_soon">in under a minute</string>
+    <string name="duration_h_m">%1$d h %2$d min</string>
+    <string name="duration_m">%1$d min</string>
+    <string name="duration_d_h">%1$d d %2$d h</string>
+    <string name="reminder_duration">Lasts</string>
+    <string name="reminder_duration_none">A moment</string>
+    <string name="reminder_duration_min">%1$d min</string>
+    <string name="alarm_sound_bells">Bells</string>
+    <string name="alarm_sound_digital">Digital beep</string>
+    <string name="alarm_sound_baby">Crying baby</string>
+    <string name="pref_moon_phase_title">Moon phase</string>
+    <string name="pref_moon_phase_summary">One glyph low on the dial showing what is actually up: the sun while the sun is up where you are, otherwise the moon and its phase. Useful indoors with no window. Needs one location fix for the sunrise; without one it stays the moon.</string>
+    <string name="pref_alarm_markers_title">Alarms on the dial</string>
+    <string name="pref_alarm_markers_summary">Enabled alarms drawn as accent markers at their time on the clock face</string>
+    <string name="alarm_snooze">Snooze</string>
+    <string name="alarm_snooze_fmt">Snooze %1$d min</string>
+    <string name="alarm_snooze_min">Snooze: %1$d min</string>
+    <string name="alarm_snooze_off">Snooze: off</string>
+    <string name="alarm_sound_custom">Your own file</string>
+    <string name="alarm_once">Once</string>
+    <string name="alarm_repeat_daily">Every day</string>
+    <string name="alarm_repeat_weekdays">Weekdays (Mon–Fri)</string>
+    <string name="alarm_repeat_weekends">Weekends (Sat–Sun)</string>
+
+    <string name="pref_reassemble_title">Put everything back</string>
+    <string name="pref_reassemble_summary">Remounts fallen hands and numerals in one tap</string>
+    <string name="reassemble_done">Everything back in its place</string>
+    <string name="pref_bells_background_title">Ring with the app closed</string>
+    <string name="pref_bells_background_summary">The bells keep the hours from the background, quietly re-arming themselves each time</string>
+    <string name="bells_channel_name">Hourly bells</string>
+    <string name="category_timer">Timer</string>
+    <string name="category_calendar">Calendar</string>
+    <string name="pref_alarm_style_title">Alarms read as</string>
+    <string name="pref_alarm_style_summary">Whether an alarm shows its time on a little face or in plain digits</string>
+    <string name="pref_past_days_title">Days already gone</string>
+    <string name="pref_past_days_summary">Mark the days behind you — they can no longer be scheduled, only read</string>
+    <string name="pref_sand_grains_title">Grains of sand</string>
+    <string name="pref_sand_grains_summary">More grains, finer sand — and more work for your phone</string>
+    <string name="pref_very_advanced_title">Too-advanced options</string>
+    <string name="pref_very_advanced_summary">Hours on the dial, mirror mode, the speed of time, touch physics… you were warned twice</string>
+    <string name="pref_system_time_title">System date &amp; time</string>
+    <string name="pref_system_time_summary">Resync with the network or set the clock by hand (Android only lets the system itself do this)</string>
+    <string name="pref_advanced_title">Advanced options</string>
+    <string name="pref_advanced_summary">At your own risk: hours on the dial, dial shape, mirror mode, touch physics, time speed…</string>
+    <string name="pref_alarm_enabled_title">Alarm</string>
+    <string name="pref_alarm_enabled_summary">Rings with the app’s own synthesized bells, even from the background</string>
+    <string name="pref_alarm_time_title">Alarm time</string>
+    <string name="alarm_channel_name">Alarms</string>
+    <string name="alarm_ringing">Weird Clock alarm</string>
+    <string name="alarm_stop">Stop</string>
+
+    <string name="pref_countdown_persistent_title">Persistent timer alarm</string>
+    <string name="pref_countdown_persistent_summary">When the countdown ends, ring until you dismiss it</string>
+    <string name="pref_solar_time_title">Sun time</string>
+    <string name="pref_solar_time_summary">The whole clock runs on local apparent solar time — noon is when the sun actually crosses your meridian (one coarse location fix; alarms stay on civil time)</string>
+    <string name="pref_alarm_ramp_title">Gradual alarm volume</string>
+    <string name="pref_alarm_ramp_summary">Alarms start quiet and climb to full volume over a minute</string>
+    <string name="alarm_label_title">Alarm label</string>
+    <string name="alarm_label_hint">Add a label…</string>
+    <string name="widget_hourglass_label">Weird Clock hourglass</string>
+    <string name="widget_hourglass_description">Hourglass showing the running countdown</string>
+    <string name="countdown_channel_name">Countdown</string>
+    <string name="countdown_notification_title">Countdown running</string>
+    <string name="countdown_done">Time’s up!</string>
+    <string name="countdown_finished">Countdown finished</string>
+    <string name="countdown_cancel">Cancel</string>
+
+    <string name="bpm_tap_hint">Tap the beat — anywhere up here</string>
+    <string name="bpm_metronome_hint">Tap the metronome and it keeps your beat</string>
+
+    <string name="s3_flip_hint">Flip the phone to turn the hourglass over</string>
+    <string name="s3_duration_prefix">"Duration: "</string>
+    <string name="s3_duration_min">%1$d min</string>
+    <string name="reminder_add">New reminder</string>
+    <string name="reminder_hint">What needs remembering?</string>
+    <string name="reminder_untitled">Reminder</string>
+    <string name="reminder_deleted">Reminder deleted</string>
+    <string name="pref_night_dim_title">Automatic night mode</string>
+    <string name="pref_night_dim_summary" formatted="false">From 22:00 to 07:00 the dial dims to 30% so it doesn’t light the bedroom</string>
+    <string name="overlay_intro_title">The floating hourglass</string>
+    <string name="overlay_intro_message">When a countdown is running and you leave the app, a little hourglass can float over everything else, draining in real time. It needs the draw-over-apps permission — grant it now and forget about it, or do it later from Settings.</string>
+    <string name="overlay_intro_grant">Allow</string>
+    <string name="overlay_intro_later">Later</string>
+    <string name="egg_countdown">You are %1$d taps away from being a drummer</string>
+    <string name="egg_unlocked">🥁 You are now a rhythm machine</string>
+    <string name="a11y_city_time">%1$s, %2$s</string>
+    <string name="a11y_hours">%1$d hours</string>
+    <string name="a11y_minutes">%1$d minutes</string>
+    <string name="a11y_seconds">%1$d seconds</string>
+    <string name="a11y_left_min_sec">%1$d minutes %2$d seconds left</string>
+    <string name="a11y_left_sec">%1$d seconds left</string>
+    <string name="a11y_day">Daytime</string>
+    <string name="a11y_night">Night-time</string>
+
+    <string name="pref_mark_colors_title">Mark colours</string>
+
+    <string name="category_backup">Backup</string>
+    <string name="pref_backup_export_title">Save a backup</string>
+    <string name="pref_backup_export_summary">Writes alarms, reminders and every setting to a file you choose. Reinstalling the app wipes them otherwise.</string>
+    <string name="pref_backup_import_title">Restore a backup</string>
+    <string name="pref_backup_import_summary">Reads a file saved here and replaces everything with it.</string>
+    <string name="backup_saved">Backup saved</string>
+    <string name="backup_failed">Could not write the backup</string>
+    <string name="backup_restored">Restored: %1$d alarms, %2$d reminders</string>
+    <string name="backup_unreadable">That file is not a Weird Clock backup</string>
+    <string name="backup_restart">Restored. Reopen the clock to see it.</string>
+
+    <string name="pref_birthday_title">Birthday</string>
+    <string name="pref_birthday_summary">Marked on the calendar every year</string>
+    <string name="pref_birthday_none">Not set</string>
+    <string name="pref_birthday_clear">Clear</string>
+    <string name="alarm_untitled">Alarm</string>
+    <string name="reminder_notes">Notes</string>
+    <string name="reminder_notes_none">None</string>
+    <string name="mark_colors_needs_location">Marks by the sun need one location fix. Until the app has had one they keep following the dial’s two turns.</string>
+    <string name="alarm_slide_to_stop">Slide to stop</string>
+    <string name="a11y_stopwatch">Stopwatch</string>
+    <string name="a11y_countdown">Countdown</string>
+    <string name="a11y_clock">Clock</string>
+    <string name="a11y_hourglass">Hourglass</string>
+    <string name="a11y_calendar">Calendar</string>
+    <string name="a11y_alarms">Alarms</string>
+</resources>

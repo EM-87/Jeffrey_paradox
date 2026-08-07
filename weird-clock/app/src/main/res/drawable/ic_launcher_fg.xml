@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive-icon foreground: the weird clock inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Rim -->
+    <path
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="4"
+        android:pathData="M54,26a28,28 0 1,1 0,56a28,28 0 1,1 0,-56z" />
+    <!-- Ticks at 12, 3, 6, 9 -->
+    <path
+        android:strokeColor="#E8E8E8"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M54,29L54,34 M79,54L74,54 M54,79L54,74 M29,54L34,54" />
+    <!-- Hour hand -->
+    <path
+        android:strokeColor="#F5F5F5"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M54,54L54,39" />
+    <!-- Minute hand -->
+    <path
+        android:strokeColor="#D8DCE8"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M54,54L66,61" />
+    <!-- Second hand, askew -->
+    <path
+        android:strokeColor="#FF5252"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M54,54L41,44" />
+    <!-- Center dot -->
+    <path
+        android:fillColor="#F5F5F5"
+        android:pathData="M54,51.5a2.5,2.5 0 1,1 0,5a2.5,2.5 0 1,1 0,-5z" />
+</vector>

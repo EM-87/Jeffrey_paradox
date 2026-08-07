@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="theme_entries">
+        <item>Automático (Medianoche / Mediodía)</item>
+        <item>Mediodía</item>
+        <item>Marfil clásico</item>
+        <item>Neón</item>
+        <item>Verde terminal</item>
+        <item>Atardecer</item>
+        <item>Dinámico (Material You)</item>
+    </string-array>
+
+    <string-array name="dial_shape_entries">
+        <item>Redonda (un reloj, vaya)</item>
+        <item>Triangular</item>
+        <item>Cuadrada</item>
+        <item>Hexagonal</item>
+        <item>Octogonal (señal de stop)</item>
+    </string-array>
+
+    <string-array name="past_days_entries">
+        <item>Dejarlos en paz</item>
+        <item>Atenuarlos</item>
+        <item>Tacharlos</item>
+        <item>Rodearlos</item>
+    </string-array>
+
+    <string-array name="hours_preset_entries">
+        <item>10 horas (día decimal)</item>
+        <item>12 horas (clásica)</item>
+        <item>24 horas (día completo)</item>
+        <item>Personalizado…</item>
+    </string-array>
+
+    <string-array name="numeral_entries">
+        <item>Ninguna</item>
+        <item>Arábiga (1, 2, 3…)</item>
+        <item>Romana (I, II, III…)</item>
+    </string-array>
+
+    <string-array name="date_format_entries">
+        <item>Números (06/07/2026)</item>
+        <item>Texto (lun 6 jul)</item>
+        <item>Romano (VI·VII·MMXXVI)</item>
+    </string-array>
+
+    <string-array name="fast_hand_entries">
+        <item>Ninguna</item>
+        <item>Décimas de segundo (1 vuelta por segundo)</item>
+        <item>Minuto decimal (1 vuelta cada 86,4 s)</item>
+    </string-array>
+
+    <string-array name="world_tz_entries">
+        <item>UTC</item>
+        <item>Madrid</item>
+        <item>Londres</item>
+        <item>París</item>
+        <item>Moscú</item>
+        <item>Nueva York</item>
+        <item>Los Ángeles</item>
+        <item>Ciudad de México</item>
+        <item>Bogotá</item>
+        <item>Buenos Aires</item>
+        <item>São Paulo</item>
+        <item>Tokio</item>
+        <item>Shanghái</item>
+        <item>Nueva Delhi</item>
+        <item>Dubái</item>
+        <item>Sídney</item>
+        <item>Honolulu</item>
+    </string-array>
+
+    <string-array name="bell_style_entries">
+        <item>Contar la hora (reloj de abuelo)</item>
+        <item>Campana de barco (guardias náuticas)</item>
+        <item>Campanada única (gong)</item>
+    </string-array>
+
+    <string-array name="alarm_style_entries">
+        <item>Manecillas</item>
+        <item>Dígitos</item>
+    </string-array>
+
+    <string-array name="countdown_float_entries">
+        <item>Nada flotando</item>
+        <item>Reloj de arena flotante (el nuestro)</item>
+    </string-array>
+
+    <string-array name="mark_colors_entries">
+        <item>Por la esfera (verde y azul)</item>
+        <item>Por el sol (amarillo y azul)</item>
+    </string-array>
+</resources>

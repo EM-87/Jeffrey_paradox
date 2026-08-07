@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="theme_entries">
+        <item>Automatic (Midnight / Daylight)</item>
+        <item>Daylight</item>
+        <item>Classic ivory</item>
+        <item>Neon</item>
+        <item>Terminal green</item>
+        <item>Sunset</item>
+        <item>Dynamic (Material You)</item>
+    </string-array>
+    <string-array name="theme_values" translatable="false">
+        <item>midnight</item>
+        <item>daylight</item>
+        <item>ivory</item>
+        <item>neon</item>
+        <item>terminal</item>
+        <item>sunset</item>
+        <item>dynamic</item>
+    </string-array>
+
+    <string-array name="dial_shape_entries">
+        <item>Round (a clock, you know)</item>
+        <item>Triangular</item>
+        <item>Square</item>
+        <item>Hexagonal</item>
+        <item>Octagonal (stop sign)</item>
+    </string-array>
+    <string-array name="dial_shape_values" translatable="false">
+        <item>circle</item>
+        <item>triangle</item>
+        <item>square</item>
+        <item>hexagon</item>
+        <item>octagon</item>
+    </string-array>
+
+    <string-array name="countdown_float_entries">
+        <item>Nothing floating</item>
+        <item>Floating hourglass (our own)</item>
+    </string-array>
+    <string-array name="countdown_float_values" translatable="false">
+        <item>none</item>
+        <item>overlay</item>
+    </string-array>
+
+    <string-array name="alarm_style_entries">
+        <item>Hands</item>
+        <item>Digits</item>
+    </string-array>
+    <string-array name="alarm_style_values" translatable="false">
+        <item>analog</item>
+        <item>digital</item>
+    </string-array>
+
+    <string-array name="past_days_entries">
+        <item>Leave them alone</item>
+        <item>Fade them</item>
+        <item>Cross them out</item>
+        <item>Circle them</item>
+    </string-array>
+    <string-array name="past_days_values" translatable="false">
+        <item>none</item>
+        <item>dim</item>
+        <item>cross</item>
+        <item>ring</item>
+    </string-array>
+
+    <string-array name="hours_preset_entries">
+        <item>10 hours (decimal day)</item>
+        <item>12 hours (classic)</item>
+        <item>24 hours (full day)</item>
+        <item>Custom…</item>
+    </string-array>
+    <string-array name="hours_preset_values" translatable="false">
+        <item>10</item>
+        <item>12</item>
+        <item>24</item>
+        <item>custom</item>
+    </string-array>
+
+    <string-array name="numeral_entries">
+        <item>None</item>
+        <item>Arabic (1, 2, 3…)</item>
+        <item>Roman (I, II, III…)</item>
+    </string-array>
+    <string-array name="numeral_values" translatable="false">
+        <item>none</item>
+        <item>arabic</item>
+        <item>roman</item>
+    </string-array>
+
+    <string-array name="date_format_entries">
+        <item>Numbers (06/07/2026)</item>
+        <item>Text (Mon 6 Jul)</item>
+        <item>Roman (VI·VII·MMXXVI)</item>
+    </string-array>
+    <string-array name="date_format_values" translatable="false">
+        <item>number</item>
+        <item>text</item>
+        <item>roman</item>
+    </string-array>
+
+    <string-array name="fast_hand_entries">
+        <item>None</item>
+        <item>Tenths of a second (1 turn per second)</item>
+        <item>Decimal minute (1 turn per 86.4 s)</item>
+    </string-array>
+    <string-array name="fast_hand_values" translatable="false">
+        <item>none</item>
+        <item>tenths</item>
+        <item>decimal_minute</item>
+    </string-array>
+
+    <string-array name="world_tz_entries">
+        <item>UTC</item>
+        <item>Madrid</item>
+        <item>London</item>
+        <item>Paris</item>
+        <item>Moscow</item>
+        <item>New York</item>
+        <item>Los Angeles</item>
+        <item>Mexico City</item>
+        <item>Bogotá</item>
+        <item>Buenos Aires</item>
+        <item>São Paulo</item>
+        <item>Tokyo</item>
+        <item>Shanghai</item>
+        <item>New Delhi</item>
+        <item>Dubai</item>
+        <item>Sydney</item>
+        <item>Honolulu</item>
+    </string-array>
+    <string-array name="world_tz_values" translatable="false">
+        <item>UTC</item>
+        <item>Europe/Madrid</item>
+        <item>Europe/London</item>
+        <item>Europe/Paris</item>
+        <item>Europe/Moscow</item>
+        <item>America/New_York</item>
+        <item>America/Los_Angeles</item>
+        <item>America/Mexico_City</item>
+        <item>America/Bogota</item>
+        <item>America/Argentina/Buenos_Aires</item>
+        <item>America/Sao_Paulo</item>
+        <item>Asia/Tokyo</item>
+        <item>Asia/Shanghai</item>
+        <item>Asia/Kolkata</item>
+        <item>Asia/Dubai</item>
+        <item>Australia/Sydney</item>
+        <item>Pacific/Honolulu</item>
+    </string-array>
+
+    <string-array name="world_tzs_default" translatable="false">
+        <item>UTC</item>
+    </string-array>
+
+    <string-array name="bell_style_entries">
+        <item>Count the hour (grandfather clock)</item>
+        <item>Ship’s bell (nautical watches)</item>
+        <item>Single strike (gong)</item>
+    </string-array>
+    <string-array name="bell_style_values" translatable="false">
+        <item>count</item>
+        <item>ships</item>
+        <item>single</item>
+    </string-array>
+
+    <string-array name="mark_colors_entries">
+        <item>By the dial (green and blue)</item>
+        <item>By the sun (yellow and blue)</item>
+    </string-array>
+    <string-array name="mark_colors_values" translatable="false">
+        <item>clock</item>
+        <item>sun</item>
+    </string-array>
+</resources>

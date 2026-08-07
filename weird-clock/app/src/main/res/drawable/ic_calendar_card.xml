@@ -1,0 +1,21 @@
+<!-- A calendar: the page, its two rings, and the line under the header. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineJoin="round"
+        android:pathData="M4.4,5.4L19.6,5.4L19.6,20L4.4,20z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M4.4,9.6L19.6,9.6 M8.4,2.6L8.4,6.4 M15.6,2.6L15.6,6.4" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M7.6,12.4h2.4v2.2h-2.4z M13.4,15.8h2.4v2.2h-2.4z" />
+</vector>

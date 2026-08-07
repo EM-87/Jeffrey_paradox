@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The everyday menu: only what a person actually comes looking for.
+     Everything weird lives one level down. -->
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <!-- Panic button, first thing on screen; only shown when something is
+         actually out of place. -->
+    <Preference
+        android:key="pref_reassemble"
+        android:summary="@string/pref_reassemble_summary"
+        android:title="@string/pref_reassemble_title" />
+
+    <SwitchPreferenceCompat
+        android:defaultValue="false"
+        android:key="pref_night_dim"
+        android:summary="@string/pref_night_dim_summary"
+        android:title="@string/pref_night_dim_title" />
+
+    <ListPreference
+        android:defaultValue="midnight"
+        android:entries="@array/theme_entries"
+        android:entryValues="@array/theme_values"
+        android:key="pref_theme"
+        android:title="@string/pref_theme_title"
+        app:useSimpleSummaryProvider="true" />
+
+    <SwitchPreferenceCompat
+        android:defaultValue="false"
+        android:key="pref_show_date"
+        android:summary="@string/pref_show_date_summary"
+        android:title="@string/pref_show_date_title" />
+
+    <SwitchPreferenceCompat
+        android:defaultValue="false"
+        android:key="pref_bells"
+        android:summary="@string/pref_bells_summary"
+        android:title="@string/pref_bells_title" />
+
+    <ListPreference
+        android:defaultValue="count"
+        android:dependency="pref_bells"
+        android:entries="@array/bell_style_entries"
+        android:entryValues="@array/bell_style_values"
+        android:key="pref_bell_style"
+        android:title="@string/pref_bell_style_title"
+        app:useSimpleSummaryProvider="true" />
+
+    <SwitchPreferenceCompat
+        android:defaultValue="false"
+        android:dependency="pref_bells"
+        android:key="pref_bells_background"
+        android:summary="@string/pref_bells_background_summary"
+        android:title="@string/pref_bells_background_title" />
+
+    <Preference
+        android:dependency="pref_bells"
+        android:key="pref_test_bells"
+        android:summary="@string/pref_test_bells_summary"
+        android:title="@string/pref_test_bells_title" />
+
+    <SwitchPreferenceCompat
+        android:defaultValue="false"
+        android:key="pref_ticking"
+        android:summary="@string/pref_ticking_summary"
+        android:title="@string/pref_ticking_title" />
+
+    <SwitchPreferenceCompat
+        android:defaultValue="true"
+        android:key="pref_alarm_ramp"
+        android:summary="@string/pref_alarm_ramp_summary"
+        android:title="@string/pref_alarm_ramp_title" />
+
+    <SwitchPreferenceCompat
+        android:defaultValue="false"
+        android:key="pref_world_clock"
+        android:summary="@string/pref_world_clock_summary"
+        android:title="@string/pref_world_clock_title" />
+
+    <Preference
+        android:dependency="pref_world_clock"
+        android:key="pref_world_cities"
+        android:title="@string/pref_world_cities_title" />
+
+    <PreferenceCategory android:title="@string/category_backup">
+
+        <Preference
+            android:key="pref_backup_export"
+            android:summary="@string/pref_backup_export_summary"
+            android:title="@string/pref_backup_export_title" />
+
+        <Preference
+            android:key="pref_backup_import"
+            android:summary="@string/pref_backup_import_summary"
+            android:title="@string/pref_backup_import_title" />
+
+    </PreferenceCategory>
+
+    <Preference
+        android:key="pref_advanced"
+        android:summary="@string/pref_advanced_summary"
+        android:title="@string/pref_advanced_title" />
+
+    <Preference
+        android:key="pref_version"
+        android:title="@string/app_name" />
+
+</PreferenceScreen>

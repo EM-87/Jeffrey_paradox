@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- On Android 8 and up the launcher gets the adaptive icon: its own
+     background and foreground, so the system can mask it into whatever
+     shape the launcher uses, and a monochrome layer so that a themed
+     home screen can recolour the clock to match the wallpaper. Older
+     devices fall back to the flat vector in drawable/. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_bg" />
+    <foreground android:drawable="@drawable/ic_launcher_fg" />
+    <monochrome android:drawable="@drawable/ic_launcher_mono" />
+</adaptive-icon>

@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The middle page, and the centre of everything: the clock, with the
+     hourglass above it and the stopwatch below. Every other card is one
+     step from here. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/app_background">
+
+    <FrameLayout
+        android:id="@+id/clock_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <com.em87.weirdclock.ClockView
+            android:id="@+id/clock_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="16dp" />
+
+        <!-- World-clock bubbles sit below the gear, which stays pressable. -->
+        <FrameLayout
+            android:id="@+id/bubble_layer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <ImageButton
+            android:id="@+id/settings_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="12dp"
+            android:alpha="0.6"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/settings_title"
+            android:src="@drawable/ic_settings" />
+
+        <!-- Shown while setting an alarm or reminder time by winding. -->
+        <LinearLayout
+            android:id="@+id/alarm_set_banner"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:layout_marginTop="20dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/alarm_set_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:text="@string/set_alarm_time"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/alarm_set_confirm"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="52dp"
+                android:text="@string/alarm_set_confirm" />
+
+            <Button
+                android:id="@+id/alarm_set_cancel"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:minWidth="52dp"
+                android:text="@string/alarm_set_cancel" />
+        </LinearLayout>
+
+        <!-- The way down. The hourglass in the middle keeps its place; the
+             stopwatch and the countdown either side of it are the two
+             diagonals — from the clock straight to the card you want,
+             instead of down and then across. -->
+        <LinearLayout
+            android:id="@+id/home_button_row"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="12dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/to_calendar_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="10dp"
+                android:alpha="0.75"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/a11y_calendar"
+                android:src="@drawable/ic_calendar_card" />
+
+            <ImageButton
+                android:id="@+id/to_stopwatch_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="10dp"
+                android:alpha="0.75"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/a11y_stopwatch"
+                android:src="@drawable/ic_stopwatch" />
+
+            <ImageButton
+                android:id="@+id/mode_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:alpha="0.75"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/a11y_hourglass"
+                android:src="@drawable/ic_hourglass" />
+
+            <ImageButton
+                android:id="@+id/to_countdown_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="10dp"
+                android:alpha="0.75"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/a11y_countdown"
+                android:src="@drawable/ic_timer" />
+
+            <ImageButton
+                android:id="@+id/to_alarms_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="10dp"
+                android:alpha="0.75"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/a11y_alarms"
+                android:src="@drawable/ic_alarm_clock" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- S0: the sand hourglass. Presets on top, start/stop underneath. -->
+    <FrameLayout
+        android:id="@+id/hourglass_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+
+        <com.em87.weirdclock.SandHourglassView
+            android:id="@+id/s3_sand"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/s3_duration_group"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:layout_marginTop="16dp"
+            app:selectionRequired="false"
+            app:singleSelection="true">
+
+            <Button
+                android:id="@+id/s3_d3"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="56dp"
+                android:text="3′" />
+
+            <Button
+                android:id="@+id/s3_d5"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="56dp"
+                android:text="5′" />
+
+            <Button
+                android:id="@+id/s3_d10"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="56dp"
+                android:text="10′" />
+
+            <Button
+                android:id="@+id/s3_d15"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="56dp"
+                android:text="15′" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <!-- Start on the left, freeze on the right, and the way home dead
+             center, matching the clock card's button. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:layout_marginBottom="12dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/sand_start_stop"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="96dp"
+                android:text="@string/chrono_start" />
+
+            <ImageButton
+                android:id="@+id/sand_back_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:alpha="0.75"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/a11y_clock"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:src="@drawable/ic_clock_face" />
+
+            <Button
+                android:id="@+id/sand_freeze"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="96dp"
+                android:text="@string/sand_freeze" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <FrameLayout
+        android:id="@+id/stopwatch_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+
+        <!-- Case pushers are the controls; the one screen button goes home. -->
+        <com.em87.weirdclock.ClockView
+            android:id="@+id/stopwatch_clock_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="16dp" />
+
+        <ImageButton
+            android:id="@+id/stopwatch_back_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:alpha="0.75"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/a11y_clock"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="12dp"
+            android:src="@drawable/ic_clock_face" />
+    </FrameLayout>
+
+</FrameLayout>

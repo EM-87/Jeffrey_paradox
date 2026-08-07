@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_title">Ajustes</string>
+    <string name="widget_description">Weird Clock en tu pantalla de inicio</string>
+
+    <string name="category_dial">Esfera</string>
+    <string name="pref_theme_title">Tema</string>
+    <string name="pref_hours_preset_title">Horas en la esfera</string>
+    <string name="pref_hours_custom_title">Horas personalizadas</string>
+    <string name="pref_dial_shape_title">Forma de la esfera</string>
+    <string name="pref_numerals_title">Numeración</string>
+    <string name="pref_mirror_title">Modo espejo</string>
+    <string name="pref_mirror_summary">El reloj gira en sentido antihorario, como visto en un espejo</string>
+    <string name="pref_show_date_title">Mostrar fecha</string>
+    <string name="pref_show_date_summary">Una complicación de fecha en la esfera</string>
+    <string name="pref_date_format_title">Formato de fecha</string>
+
+    <string name="category_hands">Manecillas</string>
+    <string name="pref_second_hand_title">Segundero</string>
+    <string name="pref_smooth_title">Barrido suave</string>
+    <string name="pref_smooth_summary">Se desliza de forma continua en vez de saltar cada segundo</string>
+    <string name="pref_fast_hand_title">Manecilla rápida</string>
+
+    <string name="category_touch">Táctil</string>
+    <string name="pref_touch_hands_title">Agarrar las manecillas</string>
+    <string name="pref_touch_hands_summary">Dale cuerda a cualquier manecilla: las demás la siguen como engranajes, con campanadas a cada hora cruzada. Al soltarla vuelve rebotando, deshaciendo las mismas vueltas.</string>
+    <string name="pref_pinch_zoom_title">Pellizcar para redimensionar</string>
+    <string name="pref_pinch_zoom_summary">Pellizca para reducir o agrandar la esfera; doble toque para restaurar</string>
+    <string name="pref_shake_drop_title">Derribar las manecillas</string>
+    <string name="pref_shake_drop_summary">Un agitón fuerte hace caer las manecillas, que ruedan dentro de la esfera; arrastra cada una hasta el eje para recolocarla</string>
+
+    <string name="category_sounds">Sonidos</string>
+    <string name="pref_bells_title">Campanadas horarias</string>
+    <string name="pref_bells_summary">Suenan a la hora en punto mientras la app está abierta</string>
+    <string name="pref_bell_style_title">Estilo de campana</string>
+    <string name="pref_half_hour_title">Toque de media hora</string>
+    <string name="pref_half_hour_summary">Una campanada más aguda a la media (la campana de barco ya lo hace por sí sola)</string>
+    <string name="pref_ticking_title">Tictac</string>
+    <string name="pref_ticking_summary">Un tic mecánico cada segundo</string>
+    <string name="pref_test_bells_title">Probar las campanas</string>
+    <string name="pref_test_bells_summary">Reproduce una muestra del estilo de campana seleccionado</string>
+
+    <string name="category_time">El tiempo mismo</string>
+    <string name="pref_time_speed_title" formatted="false">Velocidad del tiempo (%)</string>
+    <string name="pref_time_speed_summary">Haz que el reloj corra más rápido o más lento que la realidad</string>
+    <string name="speed_warning_title">Advertencia</string>
+    <string name="speed_warning_message" formatted="false">Doblar la velocidad del tiempo no permite viajar en el tiempo, y las alarmas quedan desactivadas mientras el tiempo no corra al 100%. Weird Clock declina toda responsabilidad por citas perdidas.</string>
+
+    <string name="category_world">Reloj mundial</string>
+    <string name="pref_world_clock_title">Reloj mundial</string>
+    <string name="pref_world_clock_summary">Mini esferas con la hora de otras ciudades</string>
+    <string name="pref_world_tz_title">Zona horaria</string>
+    <string name="pref_world_cities_title">Ciudades</string>
+    <string name="world_add_city">Añadir ciudad…</string>
+    <string name="world_city_hint">Nombre de la ciudad</string>
+    <string name="world_city_not_found">No hay ninguna ciudad con ese nombre en la base de zonas horarias</string>
+    <string name="world_bubble_limit">Caben hasta 6 relojes en pantalla</string>
+
+    <string name="sand_freeze">Congelar</string>
+    <string name="sand_thaw">Descongelar</string>
+    <string name="chrono_start">Iniciar</string>
+    <string name="chrono_pause">Pausa</string>
+    <string name="chrono_reset">Reiniciar</string>
+    <string name="chrono_label_stopwatch">Crono · desliza para cuenta atrás</string>
+    <string name="chrono_label_countdown">Cuenta atrás</string>
+    <string name="countdown_set_hint">Cuenta atrás · gira las manecillas para ajustarla</string>
+    <string name="set_alarm_time">Ajusta la hora de la alarma</string>
+    <string name="set_reminder_time">Ajusta la hora del recordatorio</string>
+    <string name="set_duration">¿Cuánto dura?</string>
+    <string name="cheater_stamp">¡TRAMPOSO!</string>
+
+    <string name="category_alarms">Alarmas</string>
+    <string name="pref_alarm_disabled_by_speed" formatted="false">Desactivadas mientras la velocidad del tiempo no sea 100%</string>
+    <string name="pref_manage_alarms_title">Gestionar alarmas</string>
+    <string name="pref_manage_alarms_summary">Desliza a la izquierda en el reloj, o toca aquí</string>
+    <string name="alarms_title">Alarmas</string>
+    <string name="alarms_hint">Suenan con sonidos sintetizados, incluso con la app cerrada</string>
+    <string name="alarms_empty">Sin alarmas. Toca + para añadir una.</string>
+    <string name="alarm_add">Añadir alarma</string>
+    <string name="alarm_delete">Eliminar alarma</string>
+    <string name="alarm_edit_time">Editar</string>
+    <string name="alarm_add_time">Añadir</string>
+    <string name="alarm_times_full">Tres veces al día ya está bien</string>
+    <string name="alarm_quick_weekdays">Laborables</string>
+    <string name="alarm_quick_weekends">Fin de semana</string>
+    <string name="alarm_quick_everyday">Todos</string>
+    <string name="alarm_vibrate">Vibración</string>
+    <string name="alarm_flash">Flash</string>
+    <string name="alarm_save">Guardar</string>
+    <string name="alarm_delete_confirm">Esta alarma desaparecerá para siempre.</string>
+    <string name="reminder_delete_confirm">Este recordatorio desaparecerá para siempre.</string>
+    <string name="reminder_name">Nombre</string>
+    <string name="reminder_time">Hora</string>
+    <string name="reminder_set_time">Ajustar en la esfera</string>
+    <string name="reminder_alarm">Sonar alarma</string>
+    <string name="reminder_lead">Avisar</string>
+    <string name="reminder_lead_none">A la hora</string>
+    <string name="reminder_lead_min">%1$d min antes</string>
+    <string name="reminder_lead_hour">1 h antes</string>
+    <string name="reminder_duration">Dura</string>
+    <string name="reminder_duration_none">Un instante</string>
+    <string name="reminder_duration_min">%1$d min</string>
+    <string name="alarm_sound_bells">Campanas</string>
+    <string name="alarm_sound_digital">Pitido digital</string>
+    <string name="alarm_sound_baby">Bebé llorando</string>
+    <string name="pref_moon_phase_title">Fase lunar</string>
+    <string name="pref_moon_phase_summary">Un solo símbolo abajo en la esfera con lo que hay de verdad ahí fuera: el sol mientras el sol está alto donde estás, y si no la luna con su fase. Útil en interiores sin ventana. Necesita una medición de ubicación para el orto; sin ella se queda en la luna.</string>
+    <string name="pref_alarm_markers_title">Alarmas en la esfera</string>
+    <string name="pref_alarm_markers_summary">Las alarmas activas se dibujan como marcadores en su hora sobre la esfera</string>
+    <string name="alarm_snooze">Posponer</string>
+    <string name="alarm_snooze_fmt">Posponer %1$d min</string>
+    <string name="alarm_snooze_min">Posponer: %1$d min</string>
+    <string name="alarm_snooze_off">Posponer: no</string>
+    <string name="alarm_sound_custom">Tu propio archivo</string>
+    <string name="alarm_once">Una vez</string>
+    <string name="alarm_repeat_daily">Todos los días</string>
+    <string name="alarm_repeat_weekdays">De diario (L–V)</string>
+    <string name="alarm_repeat_weekends">Fines de semana (S–D)</string>
+
+    <string name="pref_reassemble_title">Recolocar</string>
+    <string name="pref_reassemble_summary">Vuelve a montar de golpe las manecillas y números caídos</string>
+    <string name="reassemble_done">Todo en su sitio</string>
+    <string name="pref_bells_background_title">Sonar con la app cerrada</string>
+    <string name="pref_bells_background_summary">Las campanas dan las horas desde segundo plano, rearmándose solas cada vez</string>
+    <string name="bells_channel_name">Campanadas horarias</string>
+    <string name="category_timer">Cuenta atrás</string>
+    <string name="category_calendar">Calendario</string>
+    <string name="pref_past_days_title">Días ya pasados</string>
+    <string name="pref_past_days_summary">Marca los días que quedaron atrás: ya no se pueden programar, solo consultar</string>
+    <string name="pref_sand_grains_title">Granos de arena</string>
+    <string name="pref_sand_grains_summary">Más granos, arena más fina — y más trabajo para tu móvil</string>
+    <string name="pref_very_advanced_title">Opciones demasiado avanzadas</string>
+    <string name="pref_very_advanced_summary">Horas de la esfera, modo espejo, la velocidad del tiempo, físicas táctiles… avisado quedas, por segunda vez</string>
+    <string name="pref_system_time_title">Fecha y hora del sistema</string>
+    <string name="pref_system_time_summary">Resincroniza con la red o ajusta la hora a mano (Android solo permite hacerlo al propio sistema)</string>
+    <string name="pref_advanced_title">Opciones avanzadas</string>
+    <string name="pref_advanced_summary">Bajo tu responsabilidad: horas de la esfera, forma de la esfera, modo espejo, físicas táctiles, velocidad del tiempo…</string>
+    <string name="pref_alarm_enabled_title">Alarma</string>
+    <string name="pref_alarm_enabled_summary">Suena con las campanas sintetizadas de la propia app, incluso en segundo plano</string>
+    <string name="pref_alarm_time_title">Hora de la alarma</string>
+    <string name="alarm_channel_name">Alarmas</string>
+    <string name="alarm_ringing">Alarma de Weird Clock</string>
+    <string name="alarm_stop">Detener</string>
+
+    <string name="pref_countdown_persistent_title">Alarma de cuenta atrás persistente</string>
+    <string name="pref_countdown_persistent_summary">Al terminar la cuenta atrás, suena hasta que la valides</string>
+    <string name="pref_solar_time_title">Hora del sol</string>
+    <string name="pref_solar_time_summary">Todo el reloj corre en hora solar aparente local: el mediodía es cuando el sol cruza de verdad tu meridiano (una lectura de ubicación aproximada; las alarmas siguen en hora civil)</string>
+    <string name="pref_alarm_ramp_title">Volumen creciente de alarma</string>
+    <string name="pref_alarm_ramp_summary">Las alarmas empiezan suaves y suben a volumen completo en un minuto</string>
+    <string name="alarm_label_title">Etiqueta de la alarma</string>
+    <string name="alarm_label_hint">Añadir etiqueta…</string>
+    <string name="widget_hourglass_label">Reloj de arena Weird Clock</string>
+    <string name="widget_hourglass_description">Reloj de arena con la cuenta atrás en marcha</string>
+    <string name="countdown_channel_name">Cuenta atrás</string>
+    <string name="countdown_notification_title">Cuenta atrás en marcha</string>
+    <string name="countdown_done">¡Tiempo!</string>
+    <string name="countdown_finished">Cuenta atrás finalizada</string>
+    <string name="countdown_cancel">Cancelar</string>
+
+    <string name="bpm_tap_hint">Marca el ritmo — toca en cualquier parte de arriba</string>
+    <string name="bpm_metronome_hint">Toca el metrónomo y te mantiene el ritmo</string>
+
+    <string name="s3_flip_hint">Da la vuelta al móvil para voltear el reloj de arena</string>
+    <string name="s3_duration_prefix">"Duración: "</string>
+    <string name="s3_duration_min">%1$d min</string>
+    <string name="reminder_add">Nuevo recordatorio</string>
+    <string name="reminder_hint">¿Qué hay que recordar?</string>
+    <string name="reminder_untitled">Recordatorio</string>
+    <string name="reminder_deleted">Recordatorio eliminado</string>
+    <string name="pref_night_dim_title">Modo noche automático</string>
+    <string name="pref_night_dim_summary" formatted="false">De 22:00 a 07:00 la esfera se atenúa al 30% para no iluminar el dormitorio</string>
+    <string name="overlay_intro_title">El reloj de arena flotante</string>
+    <string name="overlay_intro_message">Cuando una cuenta atrás corre y sales de la app, un pequeño reloj de arena puede flotar sobre todo lo demás, vaciándose en tiempo real. Necesita el permiso de superposición: concédelo ahora y olvídate, o hazlo más tarde desde Ajustes.</string>
+    <string name="overlay_intro_grant">Permitir</string>
+    <string name="overlay_intro_later">Más tarde</string>
+    <string name="egg_countdown">Estás a %1$d toques de ser batería</string>
+    <string name="egg_unlocked">🥁 Ya eres una máquina de ritmo</string>
+
+    <!-- Alarmas: repeticiones, cambios sin guardar y la proxima vez que suena. -->
+    <string name="alarm_remove_time_title">¿Quitar esta repetición?</string>
+    <string name="alarm_remove_time_message">La alarma dejará de sonar a las %1$s.</string>
+    <string name="alarm_remove_time_first">Esta es la hora de la alarma. Mantén pulsada cualquiera de las otras para quitar una repetición.</string>
+    <string name="alarm_unsaved_title">Cambios sin guardar</string>
+    <string name="alarm_unsaved_message">Has cambiado esta alarma y no la has guardado.</string>
+    <string name="alarm_discard">Descartar</string>
+    <string name="alarm_rings_in">dentro de %1$s</string>
+    <string name="alarm_rings_soon">en menos de un minuto</string>
+    <string name="duration_h_m">%1$d h %2$d min</string>
+    <string name="duration_m">%1$d min</string>
+    <string name="duration_d_h">%1$d d %2$d h</string>
+    <string name="pref_alarm_style_title">Las alarmas se leen en</string>
+    <string name="pref_alarm_style_summary">Si una alarma muestra su hora en una esferita o en dígitos pelados</string>
+
+    <!-- Recordatorios que vuelven, y avisos con dias de antelacion. -->
+    <string name="reminder_repeat">Se repite</string>
+    <string name="reminder_repeat_never">Nunca</string>
+    <string name="reminder_repeat_weekly">Cada semana</string>
+    <string name="reminder_repeat_monthly">Cada mes</string>
+    <string name="reminder_repeat_yearly">Cada año</string>
+    <string name="reminder_move">Mover a otro día</string>
+    <string name="reminder_lead_hours">%1$d h antes</string>
+    <string name="reminder_lead_day">El día antes</string>
+    <string name="reminder_lead_days">%1$d días antes</string>
+    <string name="reminder_lead_week">Una semana antes</string>
+    <string name="reminder_lead_weeks">%1$d semanas antes</string>
+
+    <!-- Temporizador: la persiana, la burbuja y lo que flota mientras corre. -->
+    <string name="countdown_add_minute">+1 min</string>
+    <string name="pref_countdown_float_title">Mientras corre un temporizador</string>
+    <string name="pref_countdown_float_summary">El reloj de arena flotante se queda donde lo arrastres y mantiene la cuenta atrás en pantalla sobre las demás apps. Necesita el permiso de dibujar sobre otras apps. Desactivado: solo la barra de progreso en la persiana.</string>
+
+    <!-- Lo que la app le dice al sistema: avisos, atajos, tiles y canales. -->
+    <string name="alarm_set_toast">Alarma puesta para las %1$s</string>
+    <string name="timer_set_toast">Temporizador de %1$d min %2$d s</string>
+    <string name="shortcut_alarms">Alarmas</string>
+    <string name="shortcut_timer">Temporizador</string>
+    <string name="shortcut_stopwatch">Cronómetro</string>
+    <string name="shortcut_calendar">Calendario</string>
+    <string name="tile_timer_label">Temporizador</string>
+    <string name="tile_alarm_label">Próxima alarma</string>
+    <string name="tile_none">Ninguna</string>
+    <string name="channel_group_clock">Reloj</string>
+    <string name="alarm_channel_desc">El sonido de alarmas y recordatorios. Si silencias este canal, silencias tus alarmas.</string>
+    <string name="countdown_channel_desc">El temporizador en marcha, con su tiempo restante y su barra de progreso.</string>
+    <string name="bells_channel_desc">El hueco silencioso que las campanadas horarias necesitan para poder sonar desde segundo plano.</string>
+    <string name="a11y_city_time">%1$s, %2$s</string>
+    <string name="a11y_hours">%1$d horas</string>
+    <string name="a11y_minutes">%1$d minutos</string>
+    <string name="a11y_seconds">%1$d segundos</string>
+    <string name="a11y_left_min_sec">Quedan %1$d minutos %2$d segundos</string>
+    <string name="a11y_left_sec">Quedan %1$d segundos</string>
+    <string name="a11y_day">De día</string>
+    <string name="a11y_night">De noche</string>
+
+    <string name="pref_mark_colors_title">Color de las marcas</string>
+
+    <string name="category_backup">Copia de seguridad</string>
+    <string name="pref_backup_export_title">Guardar una copia</string>
+    <string name="pref_backup_export_summary">Escribe alarmas, recordatorios y todos los ajustes en el archivo que elijas. Reinstalar la app se los lleva por delante.</string>
+    <string name="pref_backup_import_title">Restaurar una copia</string>
+    <string name="pref_backup_import_summary">Lee un archivo guardado aquí y lo sustituye todo por él.</string>
+    <string name="backup_saved">Copia guardada</string>
+    <string name="backup_failed">No se pudo escribir la copia</string>
+    <string name="backup_restored">Restaurado: %1$d alarmas, %2$d recordatorios</string>
+    <string name="backup_unreadable">Ese archivo no es una copia de Weird Clock</string>
+    <string name="backup_restart">Restaurado. Vuelve a abrir el reloj para verlo.</string>
+
+    <string name="pref_birthday_title">Cumpleaños</string>
+    <string name="pref_birthday_summary">Marcado en el calendario todos los años</string>
+    <string name="pref_birthday_none">Sin poner</string>
+    <string name="pref_birthday_clear">Quitar</string>
+    <string name="alarm_untitled">Alarma</string>
+    <string name="reminder_notes">Notas</string>
+    <string name="reminder_notes_none">Ninguna</string>
+    <string name="mark_colors_needs_location">Las marcas por el sol necesitan una medición de ubicación. Hasta que la app tenga una, siguen las dos vueltas de la esfera.</string>
+    <string name="alarm_slide_to_stop">Desliza para parar</string>
+    <string name="a11y_stopwatch">Cronómetro</string>
+    <string name="a11y_countdown">Cuenta atrás</string>
+    <string name="a11y_clock">Reloj</string>
+    <string name="a11y_hourglass">Reloj de arena</string>
+    <string name="a11y_calendar">Calendario</string>
+    <string name="a11y_alarms">Alarmas</string>
+</resources>

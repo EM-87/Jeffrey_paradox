@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Face -->
+    <path
+        android:fillColor="#1B1E28"
+        android:pathData="M24,2a22,22 0 1,1 0,44a22,22 0 1,1 0,-44z" />
+    <!-- Rim -->
+    <path
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="2.5"
+        android:pathData="M24,4a20,20 0 1,1 0,40a20,20 0 1,1 0,-40z" />
+    <!-- Hour hand -->
+    <path
+        android:strokeColor="#F5F5F5"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M24,24L24,13" />
+    <!-- Minute hand -->
+    <path
+        android:strokeColor="#F5F5F5"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M24,24L33,29" />
+    <!-- Second hand -->
+    <path
+        android:strokeColor="#FF5252"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M24,24L16,34" />
+    <!-- Center dot -->
+    <path
+        android:fillColor="#F5F5F5"
+        android:pathData="M24,21.5a2.5,2.5 0 1,1 0,5a2.5,2.5 0 1,1 0,-5z" />
+</vector>

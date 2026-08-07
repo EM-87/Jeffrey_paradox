@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The reminder editor, built like the alarm one: the date up top, then
+     name, time and duration as plain rows, delete and save in opposite
+     corners. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/sheet_background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="20dp">
+
+        <!-- Tap the date to move the whole thing to another day. -->
+        <TextView
+            android:id="@+id/rsheet_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackground"
+            android:drawablePadding="6dp"
+            android:textColor="@color/text_primary"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="12dp"
+            android:alpha="0.25"
+            android:background="@color/text_secondary" />
+
+        <LinearLayout
+            android:id="@+id/rsheet_row_name"
+            style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/reminder_name" />
+
+            <TextView
+                android:id="@+id/rsheet_name_value"
+                style="@style/AlarmSheetRowValue" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/rsheet_row_time"
+            style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/reminder_time" />
+
+            <TextView
+                android:id="@+id/rsheet_time_value"
+                style="@style/AlarmSheetRowValue" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/rsheet_row_duration"
+            style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/reminder_duration" />
+
+            <TextView
+                android:id="@+id/rsheet_duration_value"
+                style="@style/AlarmSheetRowValue" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/rsheet_row_repeat"
+            style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/reminder_repeat" />
+
+            <TextView
+                android:id="@+id/rsheet_repeat_value"
+                style="@style/AlarmSheetRowValue" />
+        </LinearLayout>
+
+        <!-- Somewhere to put the address, the room number, what to bring:
+             everything the one-line name has no space for, and the dial
+             reads out when the hour hand rests on this event. -->
+        <LinearLayout
+            android:id="@+id/rsheet_row_notes"
+            style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/reminder_notes" />
+
+            <TextView
+                android:id="@+id/rsheet_notes_value"
+                style="@style/AlarmSheetRowValue"
+                android:maxLines="1"
+                android:ellipsize="end" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/reminder_alarm" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/rsheet_alarm"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- Only meaningful once it actually rings, so it only appears then. -->
+        <LinearLayout
+            android:id="@+id/rsheet_row_sound"
+            style="@style/AlarmSheetRow"
+            android:visibility="gone">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:paddingStart="16dp"
+                android:text="@string/pref_bell_style_title" />
+
+            <TextView
+                android:id="@+id/rsheet_sound_value"
+                style="@style/AlarmSheetRowValue" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/rsheet_row_snooze"
+            style="@style/AlarmSheetRow"
+            android:visibility="gone">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:paddingStart="16dp"
+                android:text="@string/reminder_lead" />
+
+            <TextView
+                android:id="@+id/rsheet_snooze_value"
+                style="@style/AlarmSheetRowValue" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/rsheet_delete"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/alarm_delete" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <Button
+                android:id="@+id/rsheet_save"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/reminder_set_time" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

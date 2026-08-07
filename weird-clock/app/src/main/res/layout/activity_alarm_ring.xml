@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/app_background"
+    android:gravity="center"
+    android:orientation="vertical">
+
+    <!-- Bell for an alarm, stopwatch for a finished countdown: set in code,
+         because this one screen serves both. -->
+    <TextView
+        android:id="@+id/ring_glyph"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="🔔"
+        android:textSize="72sp" />
+
+    <!-- Counts up from the moment it went off, not the time of day. When a
+         timer catches you mid-something, what you need off this screen is
+         how far past it you already are. -->
+    <Chronometer
+        android:id="@+id/alarm_time_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:textColor="@color/text_primary"
+        android:textSize="56sp" />
+
+    <TextView
+        android:id="@+id/ring_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/alarm_ringing"
+        android:textColor="@color/text_secondary"
+        android:textSize="18sp" />
+
+    <!-- Big, and the first thing under a hand that swats at the screen:
+         hitting snooze half asleep is not a failure, it is the point of
+         snooze. -->
+    <Button
+        android:id="@+id/snooze_button"
+        android:layout_width="match_parent"
+        android:layout_height="104dp"
+        android:layout_marginStart="28dp"
+        android:layout_marginTop="40dp"
+        android:layout_marginEnd="28dp"
+        android:text="@string/alarm_snooze"
+        android:textSize="26sp"
+        android:visibility="gone" />
+
+    <!-- Stopping is the one that must not happen by accident, so it takes a
+         gesture the length of the screen instead of a tap. -->
+    <com.em87.weirdclock.SlideToStopView
+        android:id="@+id/stop_slider"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="28dp"
+        android:layout_marginTop="24dp"
+        android:layout_marginEnd="28dp" />
+
+</LinearLayout>

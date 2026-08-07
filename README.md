@@ -252,6 +252,17 @@ R: Sí, pero la fórmula exacta de Δ cambia. Este simulador usa binomial (indep
 - Es normal, son 10,000 iteraciones
 - Espera 2-5 segundos, verás la barra de progreso
 
+## 🕰️ Extra: Weird Clock (Android)
+
+En la carpeta [`weird-clock/`](weird-clock/) hay una app Android de reloj
+analógico con opciones raras: esfera de 24 horas, segundero con barrido suave,
+manecillas de tiempo decimal (revolucionario francés), campanadas sintetizadas
+(incluida campana de barco), tictac mecánico, modo espejo, numerales romanos,
+fecha en romano, manecillas que se pueden agarrar con el dedo (y vuelven
+rebotando a su sitio), zoom por pellizco, temas de colores y widget de
+escritorio. *Mide el tiempo como quieras.*
+Ver su [README](weird-clock/README.md) para compilarla.
+
 ## 📝 Licencia
 
 MIT License - Uso libre para educación e investigación.
