@@ -209,7 +209,13 @@ class DialSettingTest {
      */
     @Test
     fun `the units follow the format`() {
-        assertEquals(2, settingDial(7 * hour).readoutUnits().size)
+        // Was "hours and minutes only" here, back when a dial being set
+        // wore a degree and a prime. It wears nothing now: the marks say
+        // which unit a pair of digits is standing in, and on a time being
+        // wound that never changes, so they only added a ° over a quarter
+        // past seven. Changed because the behaviour was, not to quieten a
+        // failure — see ReadoutUnitsTest, which is where the rule lives.
+        assertEquals("", settingDial(7 * hour).readoutUnits().joinToString(""))
         // The countdown keeps the chronograph's three, and its centiseconds
         // with them: timing something is what they are for.
         val countdown = dial().apply {

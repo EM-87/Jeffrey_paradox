@@ -3133,11 +3133,30 @@ class ClockView @JvmOverloads constructor(
         else -> null
     }
 
+    /**
+     * The corner marks over the digital readout, or none.
+     *
+     * They exist to say which unit each pair of digits is standing in,
+     * because on a chronograph that changes underneath you: minutes,
+     * seconds and hundredths below the hour, hours, minutes and seconds
+     * above it. That is the whole of their job.
+     *
+     * Everywhere else the digits mean the same thing from one end of the
+     * readout to the other — a clock spelling out the time because its
+     * hands are lying at the bottom of the case, a time of day being wound
+     * onto the face, a length being wound the same way. There the marks
+     * have nothing to disambiguate and a ° over a quarter past seven reads
+     * as a temperature.
+     */
     internal fun readoutUnits(): Array<String> = when {
-        chronoProvider != null && chronoSettable && chronoWrapsDay -> UNITS_HM
-        chronoProvider != null && chronoSettable -> unitsFor(settingReadoutMs())
-        chronoProvider != null -> unitsFor(chronoProvider?.invoke() ?: 0L)
-        else -> UNITS_CLOCK
+        // No provider: the clock itself, reading out because its hands are
+        // down. Always hours, minutes and seconds.
+        chronoProvider == null -> UNITS_NONE
+        // C0 borrowing the wind-to-set engine. The two flags are set
+        // together in one place and mean exactly that; a chronograph card
+        // is settable too, but its digits still change meaning.
+        chronoSettable && chronoWrapsDay -> UNITS_NONE
+        else -> unitsFor(chronoProvider?.invoke() ?: 0L)
     }
 
     private fun formatClockish(ms: Long): String {
@@ -3751,8 +3770,8 @@ class ClockView @JvmOverloads constructor(
         /** Corner marks, degrees-minutes-seconds style: 01°:23′:45″. */
         private val UNITS_CLOCK = arrayOf("\u00b0", "'", "\"")
 
-        /** Hours and minutes only: what a time being set is measured in. */
-        private val UNITS_HM = arrayOf("\u00b0", "'")
+        /** Nothing over the digits, where nothing needs saying. */
+        private val UNITS_NONE = arrayOf("", "", "")
 
         /** Under the hour the tail is hundredths, left unmarked on purpose. */
         private val UNITS_STOPWATCH = arrayOf("'", "\"", "")
