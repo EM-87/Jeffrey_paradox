@@ -17,7 +17,9 @@ import androidx.preference.PreferenceManager
 /**
  * Rings the alarm with the app's own synthesized bells: a foreground service
  * with a full-screen notification that opens [AlarmRingActivity]. Stops from
- * the notification action, the ring screen, or automatically after 3 minutes.
+ * the notification action, the ring screen, or on its own after
+ * [RING_TIMEOUT_MS] — and when it is the timeout that stops it, it leaves a
+ * note behind saying so.
  */
 class AlarmService : Service() {
 
@@ -29,6 +31,21 @@ class AlarmService : Service() {
         /** All three of the app's channels live under one heading. */
         const val GROUP_ID = "clock"
         const val NOTIFICATION_ID = 1
+
+        /** The note left behind when nobody came, on its own channel. */
+        const val MISSED_CHANNEL_ID = "missed"
+        const val MISSED_NOTIFICATION_ID = 6
+
+        /**
+         * How long an alarm rings with nobody attending to it.
+         *
+         * Three minutes is enough to wake someone and short enough not to
+         * flatten the battery of a phone left at home — but a ring that
+         * gives up on its own and says nothing is a missed alarm you never
+         * find out about, which is the failure the whole app exists to
+         * prevent. So it leaves a note: see [noteMissed].
+         */
+        const val RING_TIMEOUT_MS = 3 * 60_000L
 
         /**
          * Set by the ring screen so it can close itself when the ringing
@@ -225,8 +242,67 @@ class AlarmService : Service() {
         if (ramp) handler.postDelayed(rampLoop, 2000L)
         if (vibrateEnabled) handler.post(vibrateLoop)
         if (flashEnabled) handler.post(flashLoop)
-        handler.postDelayed({ stopSelf() }, 3 * 60_000L)
+        handler.postDelayed(giveUp, RING_TIMEOUT_MS)
         return START_NOT_STICKY
+    }
+
+    /**
+     * Nobody came.
+     *
+     * Stopping is the easy half and it was the only half: the ringing
+     * ended, the foreground notification went with the service, and an
+     * alarm that had done its whole job into an empty room left no trace of
+     * having gone off at all. The note is what turns "it stopped" into
+     * something you can find out about later.
+     */
+    private val giveUp = Runnable {
+        noteMissed()
+        stopSelf()
+    }
+
+    private fun noteMissed() {
+        val manager = getSystemService(NotificationManager::class.java) ?: return
+        if (Build.VERSION.SDK_INT >= 26) {
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    MISSED_CHANNEL_ID,
+                    getString(R.string.missed_channel_name),
+                    // Not high: this is a record of something that already
+                    // happened, and a second alarm-loud interruption for it
+                    // would be the app shouting about its own silence.
+                    NotificationManager.IMPORTANCE_DEFAULT
+                ).apply {
+                    setSound(null, null)
+                    description = getString(R.string.missed_channel_desc)
+                    group = GROUP_ID
+                }
+            )
+        }
+        val what = if (fromTimer) {
+            getString(R.string.missed_timer)
+        } else {
+            label.ifBlank { getString(R.string.missed_alarm) }
+        }
+        val rang = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
+            .format(java.util.Date(System.currentTimeMillis() - RING_TIMEOUT_MS))
+        manager.notify(
+            MISSED_NOTIFICATION_ID,
+            NotificationCompat.Builder(this, MISSED_CHANNEL_ID)
+                .setSmallIcon(if (fromTimer) R.drawable.ic_timer else R.drawable.ic_notification)
+                .setContentTitle(getString(R.string.missed_title))
+                .setContentText(getString(R.string.missed_text_fmt, what, rang))
+                .setContentIntent(
+                    PendingIntent.getActivity(
+                        this,
+                        6,
+                        Intent(this, MainActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                )
+                .setAutoCancel(true)
+                .build()
+        )
     }
 
     override fun onDestroy() {

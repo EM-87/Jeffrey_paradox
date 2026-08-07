@@ -261,4 +261,10 @@
     <string name="a11y_hourglass">Reloj de arena</string>
     <string name="a11y_calendar">Calendario</string>
     <string name="a11y_alarms">Alarmas</string>
+    <string name="missed_channel_name">Alarmas perdidas</string>
+    <string name="missed_channel_desc">La nota que queda cuando una alarma suena hasta el final sin que nadie la atienda.</string>
+    <string name="missed_title">No vino nadie</string>
+    <string name="missed_text_fmt">%1$s sonó a las %2$s y se paró sola</string>
+    <string name="missed_alarm">Una alarma</string>
+    <string name="missed_timer">Un temporizador</string>
 </resources>

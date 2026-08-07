@@ -310,6 +310,33 @@ class ClockView @JvmOverloads constructor(
     }
 
     /**
+     * A lap, flattened so it can be written down somewhere.
+     *
+     * The angles travel with it rather than being worked out again from the
+     * time: a faked lap is precisely one whose hands disagreed with its
+     * number, so deriving the hands from the number would quietly make
+     * every restored lap honest.
+     */
+    class LapRecord(
+        val ms: Long,
+        val fake: Boolean,
+        val hour: Float,
+        val minute: Float,
+        val second: Float
+    )
+
+    fun exportLaps(): List<LapRecord> =
+        laps.map { LapRecord(it.ms, it.fake, it.hour, it.minute, it.second) }
+
+    fun importLaps(records: List<LapRecord>) {
+        laps.clear()
+        for (r in records.takeLast(MAX_LAPS)) {
+            laps.add(Lap(r.hour, r.minute, r.second, r.ms, r.fake))
+        }
+        invalidate()
+    }
+
+    /**
      * Fired on a horizontal swipe; the argument is true when the finger moved
      * right. Return true to consume (used for page navigation over the dial).
      */

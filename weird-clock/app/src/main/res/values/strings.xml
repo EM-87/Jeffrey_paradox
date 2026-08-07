@@ -264,4 +264,10 @@
     <string name="a11y_hourglass">Hourglass</string>
     <string name="a11y_calendar">Calendar</string>
     <string name="a11y_alarms">Alarms</string>
+    <string name="missed_channel_name">Missed alarms</string>
+    <string name="missed_channel_desc">A note left behind when an alarm rang itself out with nobody there.</string>
+    <string name="missed_title">Nobody came</string>
+    <string name="missed_text_fmt">%1$s rang at %2$s and stopped on its own</string>
+    <string name="missed_alarm">An alarm</string>
+    <string name="missed_timer">A timer</string>
 </resources>

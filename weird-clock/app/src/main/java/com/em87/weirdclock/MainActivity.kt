@@ -687,7 +687,36 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         handler.postDelayed(soundLoop, 1000L - (System.currentTimeMillis() % 1000L))
     }
 
+    /**
+     * Picks the stopwatch up where it was left, laps and all.
+     *
+     * Called when the card is built rather than in onCreate: the dial it
+     * hands the laps to does not exist until then.
+     */
+    private fun restoreStopwatch() {
+        val run = StopwatchStore.load(prefs) ?: return
+        stopwatchAccumMs = run.accumMs
+        stopwatchStartedAt = run.startedAt
+        stopwatchRunning = run.running
+        stopwatchClockView?.importLaps(run.laps)
+        stopwatchClockView?.chronoRunning = run.running
+    }
+
+    private fun saveStopwatch() {
+        StopwatchStore.save(
+            prefs,
+            stopwatchAccumMs,
+            stopwatchStartedAt,
+            stopwatchRunning,
+            stopwatchClockView?.exportLaps().orEmpty()
+        )
+    }
+
     override fun onPause() {
+        // Written down every time the app goes to the background, because
+        // that is the last moment it is certain to be alive: the system may
+        // reclaim it at any point afterwards without another word.
+        saveStopwatch()
         handler.removeCallbacks(soundLoop)
         handler.removeCallbacks(bubblePhysics)
         sensorManager?.unregisterListener(flipListener)
@@ -855,6 +884,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         root.findViewById<ImageButton>(R.id.stopwatch_back_button).setOnClickListener {
             goHomeToClock()
         }
+        restoreStopwatch()
         clockView = root.findViewById<ClockView>(R.id.clock_view).also {
             it.soundListener = this
             it.onDialScaleChanged = { scale -> shareDialScale(scale, it) }
