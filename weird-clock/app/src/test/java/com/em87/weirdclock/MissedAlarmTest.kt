@@ -31,6 +31,12 @@ class MissedAlarmTest {
     private val context: android.content.Context
         get() = ApplicationProvider.getApplicationContext()
 
+    @org.junit.Before
+    fun wipe() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().clear().commit()
+    }
+
     private fun notifications() =
         shadowOf(context.getSystemService(NotificationManager::class.java))
 
@@ -77,5 +83,31 @@ class MissedAlarmTest {
         ShadowLooper.idleMainLooper(5, TimeUnit.MINUTES)
 
         assertNull("it was attended to", missed())
+    }
+
+    /**
+     * The default is only a default: a heavy sleeper wants longer and a
+     * light one wants a minute.
+     */
+    @Test
+    fun `the limit can be shortened`() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().putString(Prefs.RING_TIMEOUT_MIN, "1").commit()
+        ring()
+        ShadowLooper.idleMainLooper(70, TimeUnit.SECONDS)
+        assertNotNull("a minute was the whole of it", missed())
+    }
+
+    /**
+     * And it can be switched off, honestly: an alarm that never gives up is
+     * a choice, and the note it would have left is what is traded away.
+     */
+    @Test
+    fun `or turned off, and then it never gives up`() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().putString(Prefs.RING_TIMEOUT_MIN, "0").commit()
+        ring()
+        ShadowLooper.idleMainLooper(30, TimeUnit.MINUTES)
+        assertNull("nothing should have stopped it", missed())
     }
 }

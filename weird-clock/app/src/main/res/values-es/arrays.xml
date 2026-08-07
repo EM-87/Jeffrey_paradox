@@ -90,4 +90,11 @@
         <item>Por la esfera (verde y azul)</item>
         <item>Por el sol (amarillo y azul)</item>
     </string-array>
+    <string-array name="ring_timeout_entries">
+        <item>1 minuto</item>
+        <item>3 minutos</item>
+        <item>5 minutos</item>
+        <item>10 minutos</item>
+        <item>Hasta que se pare</item>
+    </string-array>
 </resources>

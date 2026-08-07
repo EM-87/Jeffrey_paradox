@@ -47,6 +47,12 @@ object Prefs {
     /** The user's own birthday as month * 100 + day; 0 for none. */
     const val BIRTHDAY = "pref_birthday"
     const val ALARM_RAMP = "pref_alarm_ramp"
+
+    /**
+     * How many minutes an unattended alarm rings before giving up, or 0 for
+     * never. Stored as a string because it comes from a ListPreference.
+     */
+    const val RING_TIMEOUT_MIN = "pref_ring_timeout"
     const val WORLD_CLOCK = "pref_world_clock"
     // Legacy single-city key, kept only for migration to WORLD_TZS.
     const val WORLD_TZ = "pref_world_tz"

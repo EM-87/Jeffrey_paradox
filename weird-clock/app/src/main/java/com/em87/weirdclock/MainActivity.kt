@@ -92,7 +92,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var s3DurationGroup: com.google.android.material.button.MaterialButtonToggleGroup? = null
     private var updatingDurationChecks = false
     private var sandBlocked = false
-    private var lastPage = 0
 
     // Calendar reminders (one-shot dated alarms).
     /**
@@ -555,10 +554,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // The app opens on the clock, with calendar and alarms one swipe
         // away on either side.
         pager.setCurrentItem(PAGE_HOME, false)
-        lastPage = PAGE_HOME
         pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
-                lastPage = position
                 carryFallenHands()
                 // Landing on the alarms: whatever happened while away — a
                 // time wound on the dial, an alarm that rang — shows now.

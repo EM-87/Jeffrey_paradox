@@ -282,4 +282,10 @@
     <string name="sand_15_min">15′</string>
     <string name="a11y_ringing">Ringing</string>
     <string name="alarm_bell_glyph">🔔</string>
+    <string name="a11y_later">Later</string>
+    <string name="a11y_earlier">Earlier</string>
+    <string name="a11y_longer">Longer</string>
+    <string name="a11y_shorter">Shorter</string>
+    <string name="pref_ring_timeout_title">How long an alarm rings</string>
+    <string name="pref_ring_timeout_summary">Unattended, it gives up after this and leaves a note saying it rang.</string>
 </resources>

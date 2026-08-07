@@ -4,6 +4,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.MediaPlayer
@@ -37,7 +38,7 @@ class AlarmService : Service() {
         const val MISSED_NOTIFICATION_ID = 6
 
         /**
-         * How long an alarm rings with nobody attending to it.
+         * How long an alarm rings with nobody attending to it, by default.
          *
          * Three minutes is enough to wake someone and short enough not to
          * flatten the battery of a phone left at home — but a ring that
@@ -46,6 +47,23 @@ class AlarmService : Service() {
          * prevent. So it leaves a note: see [noteMissed].
          */
         const val RING_TIMEOUT_MS = 3 * 60_000L
+
+        /**
+         * The limit actually in force, or 0 for "until somebody stops it".
+         *
+         * A heavy sleeper wants longer and a light one wants a minute; the
+         * default is only a default. Zero is offered too, and honestly
+         * labelled: an alarm that never gives up is a choice, not an
+         * oversight, and the note it would have left is the thing being
+         * traded away.
+         */
+        fun ringTimeoutMs(context: Context): Long {
+            val minutes = PreferenceManager.getDefaultSharedPreferences(context)
+                .getString(Prefs.RING_TIMEOUT_MIN, null)
+                ?.toIntOrNull()
+                ?: return RING_TIMEOUT_MS
+            return minutes.coerceIn(0, 60) * 60_000L
+        }
 
         /**
          * Set by the ring screen so it can close itself when the ringing
@@ -242,7 +260,8 @@ class AlarmService : Service() {
         if (ramp) handler.postDelayed(rampLoop, 2000L)
         if (vibrateEnabled) handler.post(vibrateLoop)
         if (flashEnabled) handler.post(flashLoop)
-        handler.postDelayed(giveUp, RING_TIMEOUT_MS)
+        val timeout = ringTimeoutMs(this)
+        if (timeout > 0L) handler.postDelayed(giveUp, timeout)
         return START_NOT_STICKY
     }
 
@@ -284,7 +303,7 @@ class AlarmService : Service() {
             label.ifBlank { getString(R.string.missed_alarm) }
         }
         val rang = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
-            .format(java.util.Date(System.currentTimeMillis() - RING_TIMEOUT_MS))
+            .format(java.util.Date(System.currentTimeMillis() - ringTimeoutMs(this)))
         manager.notify(
             MISSED_NOTIFICATION_ID,
             NotificationCompat.Builder(this, MISSED_CHANNEL_ID)

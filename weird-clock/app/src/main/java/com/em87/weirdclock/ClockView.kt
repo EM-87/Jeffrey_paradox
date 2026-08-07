@@ -2217,6 +2217,80 @@ class ClockView @JvmOverloads constructor(
      * below. Returns the detent value when [ms] is within its capture
      * window, null otherwise.
      */
+    /**
+     * The spacing of the detents at [rel], and how near one has to be to
+     * capture — or null for a hand with no grid of its own.
+     *
+     * Its own function because two things need it now: the magnets a finger
+     * feels, and the step a nudge takes when there is no finger at all. Two
+     * copies of this table would drift apart, and the one that drifted
+     * would be the one nobody can see.
+     */
+    private fun gridFor(rel: Long, hand: Hand?): Pair<Long, Long>? = when (hand) {
+        // The second hand has its own detents, applied while dragging; by
+        // release time its value is already where it should be, to the
+        // second, and no coarser grid gets to round it away.
+        Hand.SECOND -> null
+        // The grid follows the hand in your fingers: the familiar 5-minute
+        // grid on the minute hand, whole hours on the hour hand.
+        Hand.HOUR -> 3_600_000L to 600_000L
+        else -> when (magnetProfile) {
+            MagnetProfile.ALARM -> 300_000L to 40_000L
+            MagnetProfile.COUNTDOWN -> when {
+                rel < 5 * 60_000L -> 60_000L to 10_000L
+                rel < 30 * 60_000L -> 300_000L to 40_000L
+                rel < 120 * 60_000L -> 900_000L to 90_000L
+                else -> 3_600_000L to 300_000L
+            }
+        }
+    }
+
+    /**
+     * Moves a settable dial one detent on, without a finger.
+     *
+     * Winding is a drag, and a drag is the one gesture a screen reader
+     * takes for itself — so a time of day or a length could be read out
+     * loud and never changed. The step is the magnet grid rather than a
+     * number of its own: a nudge lands exactly where a finger would have
+     * been pulled, and the two cannot drift apart because they are the same
+     * table.
+     */
+    internal fun nudgeSetting(forward: Boolean): Boolean {
+        if (!chronoSettable || chronoProvider == null) return false
+        val now = chronoDisplayMs() ?: return false
+        val rel = if (magnetOrigin != 0L) {
+            val day = 86_400_000L
+            ((now - magnetOrigin) % day + day) % day
+        } else {
+            now
+        }
+        val step = (gridFor(rel, Hand.MINUTE) ?: return false).first
+        if (step <= 0L) return false
+        // The next detent in that direction, strictly — not "one step from
+        // here", which from an odd value leaves the oddness in place for
+        // ever. A dial nudged off 5:20 lands on 5:00 or 10:00, not on 10:20.
+        var next = if (forward) {
+            Math.floorDiv(now, step) * step + step
+        } else {
+            -Math.floorDiv(-now, step) * step - step
+        }
+        if (chronoWrapsDay) {
+            val day = 86_400_000L
+            next = ((next % day) + day) % day
+        } else {
+            next = next.coerceAtLeast(0L)
+        }
+        chronoFrozenMs = null
+        visualOffsetSeconds = 0.0
+        lockedMagnetMs = null
+        onChronoAdjusted?.invoke(next)
+        invalidate()
+        // Said out loud, because the only sign anything happened is a hand
+        // moving somewhere the listener cannot see.
+        announceForAccessibility(describeDial())
+        return true
+    }
+
     internal fun magnetFor(ms: Long, hand: Hand?): Long? {
         // Measured from where the winding started, not from midnight.
         //
@@ -2235,24 +2309,7 @@ class ClockView @JvmOverloads constructor(
             ms
         }
         if (rel < 0) return null
-        // The grid follows the hand in your fingers: the familiar 5-minute
-        // grid on the minute hand, whole hours on the hour hand.
-        val (grid, window) = when (hand) {
-            // The second hand has its own detents, applied while dragging;
-            // by release time its value is already where it should be, to
-            // the second, and no coarser grid gets to round it away.
-            Hand.SECOND -> return null
-            Hand.HOUR -> 3_600_000L to 600_000L
-            else -> when (magnetProfile) {
-                MagnetProfile.ALARM -> 300_000L to 40_000L
-                MagnetProfile.COUNTDOWN -> when {
-                    rel < 5 * 60_000L -> 60_000L to 10_000L
-                    rel < 30 * 60_000L -> 300_000L to 40_000L
-                    rel < 120 * 60_000L -> 900_000L to 90_000L
-                    else -> 3_600_000L to 300_000L
-                }
-            }
-        }
+        val (grid, window) = gridFor(rel, hand) ?: return null
         if (grid <= 0L) return null
         val rounded = (rel + grid / 2) / grid * grid
         return if (kotlin.math.abs(rounded - rel) <= window) rounded + magnetOrigin else null
@@ -2348,6 +2405,23 @@ class ClockView @JvmOverloads constructor(
                 )
             )
         }
+        // Winding is a drag, and a drag is the one gesture a screen reader
+        // keeps for itself. A time of day or a length could be read out and
+        // never changed.
+        if (chronoSettable && chronoProvider != null) {
+            val onwards = if (chronoWrapsDay) R.string.a11y_later else R.string.a11y_longer
+            val backwards = if (chronoWrapsDay) R.string.a11y_earlier else R.string.a11y_shorter
+            info.addAction(
+                AccessibilityNodeInfo.AccessibilityAction(
+                    AccessibilityNodeInfo.ACTION_SCROLL_FORWARD, context.getString(onwards)
+                )
+            )
+            info.addAction(
+                AccessibilityNodeInfo.AccessibilityAction(
+                    AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD, context.getString(backwards)
+                )
+            )
+        }
     }
 
     override fun performAccessibilityAction(action: Int, arguments: android.os.Bundle?): Boolean {
@@ -2364,6 +2438,8 @@ class ClockView @JvmOverloads constructor(
                 reassembleAll()
                 return true
             }
+            AccessibilityNodeInfo.ACTION_SCROLL_FORWARD -> if (nudgeSetting(true)) return true
+            AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD -> if (nudgeSetting(false)) return true
         }
         return super.performAccessibilityAction(action, arguments)
     }

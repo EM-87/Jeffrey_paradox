@@ -130,4 +130,97 @@ class AccessibilityTest {
         assertTrue(clock.performAccessibilityAction(R.id.a11y_reassemble, null))
         assertFalse("which must actually work", clock.isDisarranged())
     }
+
+    // ------------------------------------------------- winding without a finger
+
+    /**
+     * A dial you can set, driven by the two actions a screen reader offers
+     * for a value: the setting is a drag, and a drag is the one gesture a
+     * screen reader keeps for itself.
+     */
+    private fun settable(profile: ClockView.MagnetProfile, start: Long): Pair<ClockView, () -> Long> {
+        var value = start
+        val dial = dial {
+            chronoProvider = { value }
+            chronoSettable = true
+            magnetProfile = profile
+            onChronoAdjusted = { value = it }
+        }
+        return dial to { value }
+    }
+
+    @Test
+    fun `a countdown can be lengthened without touching it`() {
+        val (dial, value) = settable(ClockView.MagnetProfile.COUNTDOWN, 0L)
+        // Offered, not merely obeyed: an action a screen reader is never
+        // told about is one nobody can reach, and driving it straight from
+        // a test says nothing at all about that.
+        assertTrue(
+            "the action has to be advertised",
+            node(dial).actionList.any { it.id == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD }
+        )
+        assertTrue(dial.performAccessibilityAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD, null))
+        // Under five minutes the grid is whole minutes, so that is the step.
+        assertEquals(60_000L, value())
+    }
+
+    /**
+     * The step is the magnet grid, not a number of its own — so a nudge
+     * lands exactly where a finger would have been pulled, and the two
+     * cannot drift apart because they are the same table. Past half an hour
+     * the countdown's grid is quarters.
+     */
+    @Test
+    fun `the step follows the grid the finger would have felt`() {
+        val (dial, value) = settable(ClockView.MagnetProfile.COUNTDOWN, 45 * 60_000L)
+        dial.performAccessibilityAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD, null)
+        assertEquals(60 * 60_000L, value())
+    }
+
+    /**
+     * The *next* detent in that direction, strictly. Stepping by a fixed
+     * amount from an odd value carries the oddness along for ever: nudged
+     * off 5:20 a dial must land on 5:00, not on 10:20.
+     */
+    @Test
+    fun `an odd setting is tidied by the first nudge`() {
+        val (dial, value) = settable(ClockView.MagnetProfile.ALARM, 5 * 60_000L + 20_000L)
+        dial.performAccessibilityAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD, null)
+        assertEquals(5 * 60_000L, value())
+    }
+
+    @Test
+    fun `and a duration is never wound below nothing`() {
+        val (dial, value) = settable(ClockView.MagnetProfile.COUNTDOWN, 0L)
+        dial.performAccessibilityAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD, null)
+        assertEquals(0L, value())
+    }
+
+    /** A dial that is not for setting offers nothing to set. */
+    @Test
+    fun `a running clock cannot be wound by the screen reader`() {
+        val clock = dial()
+        val actions = node(clock).actionList.map { it.id }
+        assertFalse(actions.contains(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD))
+        assertFalse(clock.performAccessibilityAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD, null))
+    }
+
+    /** And the labels say which kind of dial it is. */
+    @Test
+    fun `a time of day goes later, a length goes longer`() {
+        val (length, _) = settable(ClockView.MagnetProfile.COUNTDOWN, 0L)
+        assertEquals(
+            context.getString(R.string.a11y_longer),
+            node(length).actionList
+                .firstOrNull { it.id == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD }?.label
+        )
+
+        val (timeOfDay, _) = settable(ClockView.MagnetProfile.ALARM, 0L)
+        timeOfDay.chronoWrapsDay = true
+        assertEquals(
+            context.getString(R.string.a11y_later),
+            node(timeOfDay).actionList
+                .firstOrNull { it.id == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD }?.label
+        )
+    }
 }

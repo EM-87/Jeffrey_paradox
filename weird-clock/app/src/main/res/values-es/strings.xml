@@ -279,4 +279,10 @@
     <string name="sand_15_min">15′</string>
     <string name="a11y_ringing">Sonando</string>
     <string name="alarm_bell_glyph">🔔</string>
+    <string name="a11y_later">Más tarde</string>
+    <string name="a11y_earlier">Más temprano</string>
+    <string name="a11y_longer">Más largo</string>
+    <string name="a11y_shorter">Más corto</string>
+    <string name="pref_ring_timeout_title">Cuánto suena una alarma</string>
+    <string name="pref_ring_timeout_summary">Si nadie la atiende se rinde al cabo de este tiempo y deja una nota diciendo que sonó.</string>
 </resources>
