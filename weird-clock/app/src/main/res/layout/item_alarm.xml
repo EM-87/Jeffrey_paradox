@@ -113,10 +113,14 @@
                 <!-- First in the row: is this alarm a day one or a night
                      one. The dots on the dial say it in colour; a card has
                      room to say it outright. -->
+                <!-- The reading is swapped with the drawable when the
+                     card is bound; this is the default that matches the
+                     default image, not a description that stands. -->
                 <ImageView
                     android:id="@+id/icon_daynight"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
+                    android:contentDescription="@string/a11y_day"
                     android:src="@drawable/ic_sun" />
 
                 <ImageView

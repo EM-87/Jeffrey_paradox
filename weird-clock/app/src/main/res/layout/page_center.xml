@@ -165,7 +165,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minWidth="56dp"
-                android:text="3′" />
+                android:text="@string/sand_3_min"
+                android:contentDescription="@string/a11y_minutes_short" />
 
             <Button
                 android:id="@+id/s3_d5"
@@ -173,7 +174,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minWidth="56dp"
-                android:text="5′" />
+                android:text="@string/sand_5_min"
+                android:contentDescription="@string/a11y_minutes_short" />
 
             <Button
                 android:id="@+id/s3_d10"
@@ -181,7 +183,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minWidth="56dp"
-                android:text="10′" />
+                android:text="@string/sand_10_min"
+                android:contentDescription="@string/a11y_minutes_short" />
 
             <Button
                 android:id="@+id/s3_d15"
@@ -189,7 +192,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minWidth="56dp"
-                android:text="15′" />
+                android:text="@string/sand_15_min"
+                android:contentDescription="@string/a11y_minutes_short" />
         </com.google.android.material.button.MaterialButtonToggleGroup>
 
         <!-- Start on the left, freeze on the right, and the way home dead

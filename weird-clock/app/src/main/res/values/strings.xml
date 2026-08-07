@@ -270,4 +270,16 @@
     <string name="missed_text_fmt">%1$s rang at %2$s and stopped on its own</string>
     <string name="missed_alarm">An alarm</string>
     <string name="missed_timer">A timer</string>
+    <string name="a11y_start">Start</string>
+    <string name="a11y_pause">Pause</string>
+    <string name="a11y_lap">Record lap</string>
+    <string name="a11y_reset">Reset to zero</string>
+    <string name="a11y_reassemble">Put the dial back together</string>
+    <string name="a11y_minutes_short">%1$d minutes</string>
+    <string name="sand_3_min">3′</string>
+    <string name="sand_5_min">5′</string>
+    <string name="sand_10_min">10′</string>
+    <string name="sand_15_min">15′</string>
+    <string name="a11y_ringing">Ringing</string>
+    <string name="alarm_bell_glyph">🔔</string>
 </resources>

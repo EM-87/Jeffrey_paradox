@@ -267,4 +267,16 @@
     <string name="missed_text_fmt">%1$s sonó a las %2$s y se paró sola</string>
     <string name="missed_alarm">Una alarma</string>
     <string name="missed_timer">Un temporizador</string>
+    <string name="a11y_start">Iniciar</string>
+    <string name="a11y_pause">Pausar</string>
+    <string name="a11y_lap">Marcar vuelta</string>
+    <string name="a11y_reset">Poner a cero</string>
+    <string name="a11y_reassemble">Recomponer la esfera</string>
+    <string name="a11y_minutes_short">%1$d minutos</string>
+    <string name="sand_3_min">3′</string>
+    <string name="sand_5_min">5′</string>
+    <string name="sand_10_min">10′</string>
+    <string name="sand_15_min">15′</string>
+    <string name="a11y_ringing">Sonando</string>
+    <string name="alarm_bell_glyph">🔔</string>
 </resources>

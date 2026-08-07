@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Identifiers for the accessibility actions a dial offers. The
+     chronograph's pushers and its crown are drawn on the canvas, so to a
+     screen reader they are not there at all: without these, the stopwatch
+     and the countdown cannot be started, stopped, lapped or reset by
+     anyone who cannot see where to press. -->
+<resources>
+    <item name="a11y_chrono_start_stop" type="id" />
+    <item name="a11y_chrono_reset" type="id" />
+    <item name="a11y_reassemble" type="id" />
+</resources>

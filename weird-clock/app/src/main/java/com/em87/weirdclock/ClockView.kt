@@ -15,6 +15,7 @@ import android.os.SystemClock
 import android.util.AttributeSet
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
@@ -2307,13 +2308,64 @@ class ClockView @JvmOverloads constructor(
      * Filled in on demand, so it is current without a stream of
      * announcements nobody asked for.
      */
-    override fun onInitializeAccessibilityNodeInfo(
-        info: android.view.accessibility.AccessibilityNodeInfo
-    ) {
+    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
         super.onInitializeAccessibilityNodeInfo(info)
         if (info.contentDescription.isNullOrBlank()) {
             info.contentDescription = describeDial()
         }
+        // The crown and the pushers are painted on the canvas, so to a
+        // screen reader they are not there at all — and neither is any way
+        // of working a stopwatch, since every one of its controls is one of
+        // them. Two whole cards that could be read and not used.
+        if (chronoButtons) {
+            info.addAction(
+                AccessibilityNodeInfo.AccessibilityAction(
+                    R.id.a11y_chrono_start_stop,
+                    context.getString(
+                        if (chronoRunning) R.string.a11y_pause else R.string.a11y_start
+                    )
+                )
+            )
+            // The lower pusher does two jobs, as it does on a real
+            // chronograph: laps while it runs, zero when it is stopped.
+            info.addAction(
+                AccessibilityNodeInfo.AccessibilityAction(
+                    R.id.a11y_chrono_reset,
+                    context.getString(
+                        if (chronoRunning) R.string.a11y_lap else R.string.a11y_reset
+                    )
+                )
+            )
+        }
+        // Shaking the hands off is a gesture; putting them back is dragging
+        // each piece home, which is several. Neither is available to
+        // somebody driving the app by voice, so there is one action for the
+        // way out of it.
+        if (isDisarranged()) {
+            info.addAction(
+                AccessibilityNodeInfo.AccessibilityAction(
+                    R.id.a11y_reassemble, context.getString(R.string.a11y_reassemble)
+                )
+            )
+        }
+    }
+
+    override fun performAccessibilityAction(action: Int, arguments: android.os.Bundle?): Boolean {
+        when (action) {
+            R.id.a11y_chrono_start_stop -> {
+                onChronoStartStop?.invoke() ?: return false
+                return true
+            }
+            R.id.a11y_chrono_reset -> {
+                onChronoReset?.invoke() ?: return false
+                return true
+            }
+            R.id.a11y_reassemble -> {
+                reassembleAll()
+                return true
+            }
+        }
+        return super.performAccessibilityAction(action, arguments)
     }
 
     /** What this dial would say out loud. */
