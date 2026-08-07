@@ -83,7 +83,6 @@ class ClockView @JvmOverloads constructor(
      */
     enum class MagnetProfile { COUNTDOWN, ALARM }
     internal enum class Hand { HOUR, MINUTE, SECOND }
-    private enum class BodyKind { HAND, FAST_HAND, NUMERAL, MOON, DATE }
 
     /** Sounds triggered by interacting with the clock. */
     interface SoundListener {
@@ -139,11 +138,11 @@ class ClockView @JvmOverloads constructor(
         set(value) {
             val next = value.coerceIn(MIN_SCALE, MAX_SCALE)
             // Fallen pieces live in dial space: rescale them with it.
-            if (next != field && field > 0f && fallenBodies.isNotEmpty()) {
+            if (next != field && field > 0f && debris.bodies.isNotEmpty()) {
                 val f = next / field
                 val cx = width / 2f
                 val cy = height / 2f
-                for (b in fallenBodies) {
+                for (b in debris.bodies) {
                     b.x = cx + (b.x - cx) * f
                     b.y = cy + (b.y - cy) * f
                     b.vx *= f
@@ -627,35 +626,27 @@ class ClockView @JvmOverloads constructor(
 
     // ----------------------------------------------------- fallen-body state
 
-    private class FallingBody(
-        val kind: BodyKind,
-        val hand: Hand?,
-        val numeralHour: Int,
-        val label: String,
-        var x: Float,
-        var y: Float,
-        var vx: Float,
-        var vy: Float,
-        var angleDeg: Float,
-        var angVel: Float,
-        var halfLen: Float,
-        var strokeWidth: Float,
-        var textSize: Float
-    )
+    /**
+     * The loose pieces, and the physics that moves them.
+     *
+     * Its own class: a rigid-body simulation and the code that draws a
+     * minute hand are two jobs, and every bug this file has had came from
+     * one of them reaching into the other. What stayed here is everything
+     * that needs to know what a clock looks like — which pieces exist,
+     * where they start, where they belong when you put them back, and how
+     * to draw them.
+     */
+    private val debris = DialDebris(object : DialDebris.Case {
+        override val caseWidth: Int get() = width
+        override val caseHeight: Int get() = height
+        override fun wallAt(angleDeg: Float): Float = boundaryRadius(angleDeg)
+    })
 
-    private val fallenBodies = ArrayList<FallingBody>()
-    private val sampleBufA = FloatArray(SAMPLE_COUNT * 2)
-    private val sampleBufB = FloatArray(SAMPLE_COUNT * 2)
-    private var carriedBody: FallingBody? = null
     private var lastPhysicsAt = 0L
     private var lastShakeAt = 0L
     private var lastCarryX = 0f
     private var lastCarryY = 0f
     private var lastCarryAt = 0L
-
-    /** Live gravity vector in view coordinates (px/s²), from the sensor. */
-    private var gravityX = 0f
-    private var gravityY = BASE_GRAVITY
     private var lowPassX = 0f
     private var lowPassY = 9.81f
     private var lowPassZ = 0f
@@ -677,8 +668,8 @@ class ClockView @JvmOverloads constructor(
             var gy = lowPassY / 9.81f
             if (kotlin.math.abs(gx) < 0.04f) gx = 0f
             if (kotlin.math.abs(gy) < 0.04f) gy = 0f
-            gravityX = gx * BASE_GRAVITY
-            gravityY = gy * BASE_GRAVITY
+            debris.gravityX = gx * DialDebris.BASE_GRAVITY
+            debris.gravityY = gy * DialDebris.BASE_GRAVITY
 
             if (!shakeDropEnabled || chronoProvider != null) return
             val devX = ax - lowPassX
@@ -760,7 +751,7 @@ class ClockView @JvmOverloads constructor(
 
     private fun isAnimating(): Boolean =
         draggedHand != null || spring?.isRunning == true ||
-            fallenBodies.isNotEmpty() || transitionFrom != null ||
+            debris.bodies.isNotEmpty() || transitionFrom != null ||
             // The crown and pushers fade on their own clock, and nothing was
             // asking for the frames to draw it with. Arriving, the hand-over
             // happened to provide them; leaving, there was no hand-over and
@@ -770,13 +761,12 @@ class ClockView @JvmOverloads constructor(
             SystemClock.uptimeMillis() - buttonsAnimStart < BUTTONS_MS
 
     /** True when fallen pieces are lying around the dial. */
-    fun isDisarranged(): Boolean = fallenBodies.isNotEmpty()
+    fun isDisarranged(): Boolean = debris.bodies.isNotEmpty()
 
     /** Instantly puts every fallen piece back and resets all play state. */
     fun reassembleAll() {
         timeScale = 1f
-        fallenBodies.clear()
-        carriedBody = null
+        debris.clear()
         spring?.cancel()
         spring = null
         draggedHand = null
@@ -796,14 +786,13 @@ class ClockView @JvmOverloads constructor(
      */
     fun syncFallenFrom(other: ClockView) {
         if (other === this) return
-        fallenBodies.clear()
-        carriedBody = null
+        debris.clear()
         val sx = if (other.width > 0) width.toFloat() / other.width else 1f
         val sy = if (other.height > 0) height.toFloat() / other.height else 1f
         val s = (sx + sy) / 2f
-        for (b in other.fallenBodies) {
-            fallenBodies.add(
-                FallingBody(
+        for (b in other.debris.bodies) {
+            debris.bodies.add(
+                DialDebris.Body(
                     b.kind, b.hand, b.numeralHour, b.label,
                     b.x * sx, b.y * sy, b.vx * s, b.vy * s,
                     b.angleDeg, b.angVel,
@@ -811,7 +800,7 @@ class ClockView @JvmOverloads constructor(
                 )
             )
         }
-        if (fallenBodies.isNotEmpty()) lastPhysicsAt = SystemClock.uptimeMillis()
+        if (debris.bodies.isNotEmpty()) lastPhysicsAt = SystemClock.uptimeMillis()
         invalidate()
     }
 
@@ -937,7 +926,7 @@ class ClockView @JvmOverloads constructor(
         // Through the base class, mind: a passive face may still have been
         // given a click or a long-press to answer, and swallowing the event
         // here is what kept the alarm editor's little dials from opening.
-        if (!touchHandsEnabled && !pinchZoomEnabled && fallenBodies.isEmpty() && !chronoButtons) {
+        if (!touchHandsEnabled && !pinchZoomEnabled && debris.bodies.isEmpty() && !chronoButtons) {
             return super.onTouchEvent(event)
         }
         // The unfolded lap list owns every touch while it is up.
@@ -1005,7 +994,7 @@ class ClockView @JvmOverloads constructor(
                 }
             }
             MotionEvent.ACTION_MOVE -> {
-                carriedBody?.let { moveCarriedBody(it, event.x, event.y) }
+                debris.carried?.let { moveCarriedBody(it, event.x, event.y) }
                     ?: dragTo(event.x, event.y)
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
@@ -1059,7 +1048,7 @@ class ClockView @JvmOverloads constructor(
                 // tap, not the tail end of a swipe: the finger must not
                 // have wandered.
                 if (event.actionMasked == MotionEvent.ACTION_UP &&
-                    tapCandidate && draggedHand == null && carriedBody == null &&
+                    tapCandidate && draggedHand == null && debris.carried == null &&
                     chronoProvider != null && !chronoSettable && laps.isNotEmpty() &&
                     event.y > ladderTapTop &&
                     hypot(event.x - tapDownX, event.y - tapDownY) < 24f
@@ -1387,9 +1376,8 @@ class ClockView @JvmOverloads constructor(
             soundListener?.onExploded()
             dropHands(0f, -8f)
         } else {
-            if (fallenBodies.isNotEmpty()) {
-                fallenBodies.clear()
-                carriedBody = null
+            if (debris.bodies.isNotEmpty()) {
+                debris.clear()
                 soundListener?.onHandMounted()
             }
             // Winding the crown resets the mechanism's conscience: the
@@ -1909,9 +1897,9 @@ class ClockView @JvmOverloads constructor(
     // -------------------------------------------------- fallen-body physics
 
     private fun isFallen(hand: Hand): Boolean =
-        fallenBodies.any { it.kind == BodyKind.HAND && it.hand == hand }
+        debris.bodies.any { it.kind == DialDebris.Kind.HAND && it.hand == hand }
 
-    private fun isFastHandFallen(): Boolean = fallenBodies.any { it.kind == BodyKind.FAST_HAND }
+    private fun isFastHandFallen(): Boolean = debris.bodies.any { it.kind == DialDebris.Kind.FAST_HAND }
 
     /**
      * Whether the tenths hand is on the face.
@@ -1928,10 +1916,10 @@ class ClockView @JvmOverloads constructor(
         fastHand != FastHandMode.NONE || (chronoProvider != null && showSecondHand)
 
     private fun isNumeralFallen(hour: Int): Boolean =
-        fallenBodies.any { it.kind == BodyKind.NUMERAL && it.numeralHour == hour }
+        debris.bodies.any { it.kind == DialDebris.Kind.NUMERAL && it.numeralHour == hour }
 
     private fun anyHandFallen(): Boolean =
-        fallenBodies.any { it.kind == BodyKind.HAND || it.kind == BodyKind.FAST_HAND }
+        debris.bodies.any { it.kind == DialDebris.Kind.HAND || it.kind == DialDebris.Kind.FAST_HAND }
 
     /** First knock throws the hands; further knocks shake numerals loose. */
     private fun onKnock(impulseX: Float, impulseY: Float) {
@@ -1943,9 +1931,9 @@ class ClockView @JvmOverloads constructor(
         onKnocked?.invoke()
     }
 
-    private fun isMoonFallen(): Boolean = fallenBodies.any { it.kind == BodyKind.MOON }
+    private fun isMoonFallen(): Boolean = debris.bodies.any { it.kind == DialDebris.Kind.MOON }
 
-    private fun isDateFallen(): Boolean = fallenBodies.any { it.kind == BodyKind.DATE }
+    private fun isDateFallen(): Boolean = debris.bodies.any { it.kind == DialDebris.Kind.DATE }
 
     private fun dropHands(impulseX: Float, impulseY: Float) {
         val cx = width / 2f
@@ -1973,22 +1961,22 @@ class ClockView @JvmOverloads constructor(
             val len = lengthOf(hand) * boundaryRadius(angleOf(hand, a))
             val tail = tailOf(hand) * r
             addRodBody(
-                BodyKind.HAND, hand, angleOf(hand, a),
+                DialDebris.Kind.HAND, hand, angleOf(hand, a),
                 len, tail, widthOf(hand) * r * 2f, cx, cy, ivx, ivy
             )
         }
         if (fastHand != FastHandMode.NONE && !isFastHandFallen()) {
             addRodBody(
-                BodyKind.FAST_HAND, null, a.fast,
+                DialDebris.Kind.FAST_HAND, null, a.fast,
                 FAST_LEN * r, 0.05f * r, 0.008f * r * 2f, cx, cy, ivx, ivy
             )
         }
         // Complications aren't screwed on any tighter than the hands.
         if (chronoProvider == null) {
             if (showMoonPhase && !isMoonFallen()) {
-                fallenBodies.add(
-                    FallingBody(
-                        kind = BodyKind.MOON, hand = null, numeralHour = 0, label = "",
+                debris.bodies.add(
+                    DialDebris.Body(
+                        kind = DialDebris.Kind.MOON, hand = null, numeralHour = 0, label = "",
                         x = cx, y = cy + apothemRadius() * 0.45f,
                         vx = ivx + Random.nextFloat() * 200f - 100f,
                         vy = ivy - Random.nextFloat() * 200f,
@@ -2000,9 +1988,9 @@ class ClockView @JvmOverloads constructor(
             if (showDate && !isDateFallen()) {
                 val label = dateText()
                 datePaint.textSize = r * 0.085f
-                fallenBodies.add(
-                    FallingBody(
-                        kind = BodyKind.DATE, hand = null, numeralHour = 0, label = label,
+                debris.bodies.add(
+                    DialDebris.Body(
+                        kind = DialDebris.Kind.DATE, hand = null, numeralHour = 0, label = label,
                         x = cx, y = cy - apothemRadius() * 0.42f,
                         vx = ivx + Random.nextFloat() * 200f - 100f,
                         vy = ivy - Random.nextFloat() * 150f,
@@ -2013,7 +2001,7 @@ class ClockView @JvmOverloads constructor(
                 )
             }
         }
-        if (fallenBodies.isNotEmpty()) {
+        if (debris.bodies.isNotEmpty()) {
             lastPhysicsAt = SystemClock.uptimeMillis()
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
             invalidate()
@@ -2021,15 +2009,15 @@ class ClockView @JvmOverloads constructor(
     }
 
     private fun addRodBody(
-        kind: BodyKind, hand: Hand?, angle: Float,
+        kind: DialDebris.Kind, hand: Hand?, angle: Float,
         len: Float, tail: Float, stroke: Float,
         cx: Float, cy: Float, ivx: Float, ivy: Float
     ) {
         val visualAngle = if (mirrored) -angle else angle
         val rad = Math.toRadians(visualAngle.toDouble())
         val mid = (len - tail) / 2f
-        fallenBodies.add(
-            FallingBody(
+        debris.bodies.add(
+            DialDebris.Body(
                 kind = kind,
                 hand = hand,
                 numeralHour = 0,
@@ -2068,9 +2056,9 @@ class ClockView @JvmOverloads constructor(
         val textSize = numeralTextSize(r)
         numeralPaint.textSize = textSize
         val label = numeralLabel(hour)
-        fallenBodies.add(
-            FallingBody(
-                kind = BodyKind.NUMERAL,
+        debris.bodies.add(
+            DialDebris.Body(
+                kind = DialDebris.Kind.NUMERAL,
                 hand = null,
                 numeralHour = hour,
                 label = label,
@@ -2088,151 +2076,25 @@ class ClockView @JvmOverloads constructor(
         lastPhysicsAt = SystemClock.uptimeMillis()
     }
 
+    /**
+     * One frame of the loose pieces.
+     *
+     * The order is the physics', the middle step is the dial's: gravity and
+     * the walls, then pieces off each other, then the hands still on the
+     * axis sweeping through them, then everything that has stopped goes to
+     * sleep. A piece batted by the second hand must not be put to sleep in
+     * the same frame it was hit, which is why the sweep goes in the middle
+     * rather than at either end.
+     */
     private fun stepPhysics() {
         val now = SystemClock.uptimeMillis()
         val dt = ((now - lastPhysicsAt).coerceIn(0, 48)) / 1000f
         lastPhysicsAt = now
         if (dt <= 0f) return
-        val cx = width / 2f
-        val cy = height / 2f
-        for (b in fallenBodies) {
-            if (b === carriedBody) continue
-            b.vx += gravityX * dt
-            b.vy += gravityY * dt
-            // Speed cap: a piece may never travel more than its own half
-            // length per step, which is what let trapped debris tunnel
-            // clean through its neighbours.
-            val speed = hypot(b.vx, b.vy)
-            val maxSpeed = max(b.halfLen, 20f) / dt
-            if (speed > maxSpeed) {
-                b.vx *= maxSpeed / speed
-                b.vy *= maxSpeed / speed
-            }
-            b.x += b.vx * dt
-            b.y += b.vy * dt
-            b.angleDeg += b.angVel * dt
-            val rad = Math.toRadians(b.angleDeg.toDouble())
-            val dirX = sin(rad).toFloat()
-            val dirY = -cos(rad).toFloat()
-            for (side in END_SIDES) {
-                val ex = b.x + dirX * b.halfLen * side
-                val ey = b.y + dirY * b.halfLen * side
-                val d = hypot(ex - cx, ey - cy)
-                // Contain each end inside the dial's (possibly polygonal)
-                // boundary; the push-back is radial, which is a good enough
-                // approximation for toy debris.
-                val endAngle = Math.toDegrees(
-                    atan2((ex - cx).toDouble(), -(ey - cy).toDouble())
-                ).toFloat()
-                val rIn = boundaryRadius(endAngle) * 0.96f
-                if (d > rIn) {
-                    val nx = (ex - cx) / d
-                    val ny = (ey - cy) / d
-                    val overlap = d - rIn
-                    b.x -= nx * overlap
-                    b.y -= ny * overlap
-                    val vn = b.vx * nx + b.vy * ny
-                    if (vn > 0f) {
-                        b.vx -= 1.5f * vn * nx
-                        b.vy -= 1.5f * vn * ny
-                        b.angVel = -b.angVel * 0.45f +
-                            (Random.nextFloat() - 0.5f) * min(vn, 400f)
-                    }
-                    b.vx *= 0.97f
-                    b.vy *= 0.97f
-                }
-            }
-            b.angVel *= 0.99f
-        }
-        resolveBodyBodyCollisions()
-        resolveMountedHandCollisions(cx, cy, dialRadius())
-        // Rest: pieces that have all but stopped are put fully to sleep, so
-        // a settled heap stays settled instead of buzzing.
-        for (b in fallenBodies) {
-            if (b === carriedBody) continue
-            if (hypot(b.vx, b.vy) < 12f && kotlin.math.abs(b.angVel) < 12f) {
-                b.vx *= 0.5f
-                b.vy *= 0.5f
-                b.angVel *= 0.5f
-                if (hypot(b.vx, b.vy) < 3f) {
-                    b.vx = 0f
-                    b.vy = 0f
-                    b.angVel = 0f
-                }
-            }
-        }
-    }
-
-    private fun sampleBodyPoints(b: FallingBody, out: FloatArray) {
-        val rad = Math.toRadians(b.angleDeg.toDouble())
-        val dx = sin(rad).toFloat()
-        val dy = -cos(rad).toFloat()
-        for (k in 0 until SAMPLE_COUNT) {
-            val t = k / (SAMPLE_COUNT - 1f) * 2f - 1f
-            out[k * 2] = b.x + dx * b.halfLen * t
-            out[k * 2 + 1] = b.y + dy * b.halfLen * t
-        }
-    }
-
-    private fun bodyRadius(b: FallingBody): Float = max(
-        when (b.kind) {
-            BodyKind.NUMERAL -> b.textSize * 0.30f
-            BodyKind.DATE -> b.textSize * 0.35f
-            BodyKind.MOON -> b.halfLen * 0.9f
-            else -> b.strokeWidth * 0.5f
-        },
-        10f
-    )
-
-    /** Fallen pieces bump into each other (sampled-circle approximation). */
-    private fun resolveBodyBodyCollisions() {
-        val n = fallenBodies.size
-        if (n < 2) return
-        for (i in 0 until n - 1) {
-            val a = fallenBodies[i]
-            sampleBodyPoints(a, sampleBufA)
-            for (j in i + 1 until n) {
-                val b = fallenBodies[j]
-                sampleBodyPoints(b, sampleBufB)
-                val minDist = bodyRadius(a) + bodyRadius(b)
-                contact@ for (p in 0 until SAMPLE_COUNT) {
-                    for (q in 0 until SAMPLE_COUNT) {
-                        val dx = sampleBufA[p * 2] - sampleBufB[q * 2]
-                        val dy = sampleBufA[p * 2 + 1] - sampleBufB[q * 2 + 1]
-                        val d = hypot(dx, dy)
-                        if (d < minDist && d > 0.001f) {
-                            val nx = dx / d
-                            val ny = dy / d
-                            val push = (minDist - d) / 2f
-                            if (a !== carriedBody) {
-                                a.x += nx * push
-                                a.y += ny * push
-                            }
-                            if (b !== carriedBody) {
-                                b.x -= nx * push
-                                b.y -= ny * push
-                            }
-                            val relVn = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny
-                            if (relVn < 0f) {
-                                val impulse = -1.4f * relVn / 2f
-                                val spin = min(kotlin.math.abs(impulse), 200f)
-                                if (a !== carriedBody) {
-                                    a.vx += impulse * nx
-                                    a.vy += impulse * ny
-                                    a.angVel += (Random.nextFloat() - 0.5f) * spin
-                                }
-                                if (b !== carriedBody) {
-                                    b.vx -= impulse * nx
-                                    b.vy -= impulse * ny
-                                    b.angVel += (Random.nextFloat() - 0.5f) * spin
-                                }
-                            }
-                            break@contact
-                        }
-                    }
-                }
-            }
-        }
+        debris.advance(dt)
+        debris.resolveCollisions()
+        resolveMountedHandCollisions(width / 2f, height / 2f, dialRadius())
+        debris.settle()
     }
 
     /**
@@ -2247,75 +2109,29 @@ class ClockView @JvmOverloads constructor(
             val angle = angleOf(hand, a)
             val tip = pointAt(cx, cy, angle, boundaryRadius(angle) * lengthOf(hand))
             val tail = pointAt(cx, cy, angle + 180f, r * tailOf(hand))
-            collideBodiesWithSegment(tail.x, tail.y, tip.x, tip.y, widthOf(hand) * r)
+            debris.collideWithSegment(tail.x, tail.y, tip.x, tip.y, widthOf(hand) * r)
         }
         if (showsFastHand() && !isFastHandFallen()) {
             val tip = pointAt(cx, cy, a.fast, r * FAST_LEN)
-            collideBodiesWithSegment(cx, cy, tip.x, tip.y, 0.008f * r)
-        }
-    }
-
-    private fun collideBodiesWithSegment(x1: Float, y1: Float, x2: Float, y2: Float, halfWidth: Float) {
-        val segDx = x2 - x1
-        val segDy = y2 - y1
-        val len2 = segDx * segDx + segDy * segDy
-        if (len2 <= 0f) return
-        for (b in fallenBodies) {
-            if (b === carriedBody) continue
-            sampleBodyPoints(b, sampleBufA)
-            val minDist = bodyRadius(b) + halfWidth + 2f
-            for (k in 0 until SAMPLE_COUNT) {
-                val px = sampleBufA[k * 2]
-                val py = sampleBufA[k * 2 + 1]
-                val t = (((px - x1) * segDx + (py - y1) * segDy) / len2).coerceIn(0f, 1f)
-                val qx = x1 + t * segDx
-                val qy = y1 + t * segDy
-                val dx = px - qx
-                val dy = py - qy
-                val d = hypot(dx, dy)
-                if (d < minDist && d > 0.001f) {
-                    val nx = dx / d
-                    val ny = dy / d
-                    val overlap = minDist - d
-                    b.x += nx * overlap
-                    b.y += ny * overlap
-                    val vn = b.vx * nx + b.vy * ny
-                    if (vn < 0f) {
-                        b.vx -= 1.5f * vn * nx
-                        b.vy -= 1.5f * vn * ny
-                        b.angVel += (Random.nextFloat() - 0.5f) * 150f
-                    }
-                    break
-                }
-            }
+            debris.collideWithSegment(cx, cy, tip.x, tip.y, 0.008f * r)
         }
     }
 
     private fun grabFallenBodyNear(x: Float, y: Float): Boolean {
-        if (fallenBodies.isEmpty()) return false
-        val threshold = 44f * resources.displayMetrics.density
-        for (b in fallenBodies) {
-            val rad = Math.toRadians(b.angleDeg.toDouble())
-            val dirX = sin(rad).toFloat()
-            val dirY = -cos(rad).toFloat()
-            val d = distanceToSegment(
-                x, y,
-                b.x - dirX * b.halfLen, b.y - dirY * b.halfLen,
-                b.x + dirX * b.halfLen, b.y + dirY * b.halfLen
-            )
-            if (d < threshold) {
-                carriedBody = b
-                lastCarryX = x
-                lastCarryY = y
-                lastCarryAt = SystemClock.uptimeMillis()
-                performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                return true
-            }
-        }
-        return false
+        // Where a piece is lying is the debris' business; picking it up is
+        // the dial's, because a finger closing on something is a haptic and
+        // a sound and neither belongs in a physics loop.
+        val found = debris.bodyNear(x, y, 44f * resources.displayMetrics.density)
+            ?: return false
+        debris.carried = found
+        lastCarryX = x
+        lastCarryY = y
+        lastCarryAt = SystemClock.uptimeMillis()
+        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        return true
     }
 
-    private fun moveCarriedBody(b: FallingBody, x: Float, y: Float) {
+    private fun moveCarriedBody(b: DialDebris.Body, x: Float, y: Float) {
         val now = SystemClock.uptimeMillis()
         val dt = (now - lastCarryAt).coerceAtLeast(1) / 1000f
         b.vx = (x - lastCarryX) / dt * 0.4f
@@ -2331,15 +2147,15 @@ class ClockView @JvmOverloads constructor(
         val r = dialRadius()
         val remount = when (b.kind) {
             // Hands click back onto the central axis.
-            BodyKind.HAND, BodyKind.FAST_HAND -> hypot(x - cx, y - cy) < r * 0.18f
+            DialDebris.Kind.HAND, DialDebris.Kind.FAST_HAND -> hypot(x - cx, y - cy) < r * 0.18f
             // Complications go back to their own homes.
-            BodyKind.MOON ->
+            DialDebris.Kind.MOON ->
                 hypot(x - cx, y - (cy + apothemRadius() * 0.45f)) < r * 0.15f
-            BodyKind.DATE ->
+            DialDebris.Kind.DATE ->
                 hypot(x - cx, y - (cy - apothemRadius() * 0.42f)) < r * 0.15f
             // Each numeral has to go back to its own spot on the dial
             // (or to the center, if the dial no longer shows that hour).
-            BodyKind.NUMERAL -> {
+            DialDebris.Kind.NUMERAL -> {
                 val stillVisible = visibleNumeralHours().contains(b.numeralHour)
                 if (stillVisible) {
                     val home = numeralPosition(b.numeralHour, cx, cy, r)
@@ -2350,8 +2166,8 @@ class ClockView @JvmOverloads constructor(
             }
         }
         if (remount) {
-            fallenBodies.remove(b)
-            carriedBody = null
+            debris.bodies.remove(b)
+            debris.carried = null
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
             soundListener?.onHandMounted()
         }
@@ -2359,7 +2175,7 @@ class ClockView @JvmOverloads constructor(
     }
 
     private fun releaseCarriedBody() {
-        carriedBody = null
+        debris.carried = null
     }
 
     // ----------------------------------------------------------------- time
@@ -2854,7 +2670,7 @@ class ClockView @JvmOverloads constructor(
         // Noted before the frame rather than after it, so a transition
         // started from inside a draw still counts this face as seen.
         hasDrawn = true
-        if (fallenBodies.isNotEmpty()) stepPhysics()
+        if (debris.bodies.isNotEmpty()) stepPhysics()
 
         val cx = width / 2f
         val cy = height / 2f
@@ -3288,9 +3104,9 @@ class ClockView @JvmOverloads constructor(
     }
 
     private fun drawFallenBodies(canvas: Canvas) {
-        for (b in fallenBodies) {
+        for (b in debris.bodies) {
             when (b.kind) {
-                BodyKind.NUMERAL -> {
+                DialDebris.Kind.NUMERAL -> {
                     numeralPaint.textSize = b.textSize
                     canvas.save()
                     canvas.translate(b.x, b.y)
@@ -3302,7 +3118,7 @@ class ClockView @JvmOverloads constructor(
                     )
                     canvas.restore()
                 }
-                BodyKind.DATE -> {
+                DialDebris.Kind.DATE -> {
                     // The capsule runs along the text, so the drawn text is
                     // rotated 90° behind the body angle.
                     datePaint.textSize = b.textSize
@@ -3316,7 +3132,7 @@ class ClockView @JvmOverloads constructor(
                     )
                     canvas.restore()
                 }
-                BodyKind.MOON -> {
+                DialDebris.Kind.MOON -> {
                     canvas.drawCircle(b.x, b.y, b.halfLen, moonLitPaint)
                     moonRimPaint.strokeWidth = b.halfLen * 0.12f
                     canvas.drawCircle(b.x, b.y, b.halfLen, moonRimPaint)
@@ -3326,7 +3142,7 @@ class ClockView @JvmOverloads constructor(
                     val dirX = sin(rad).toFloat()
                     val dirY = -cos(rad).toFloat()
                     val paint = when {
-                        b.kind == BodyKind.FAST_HAND -> fastHandPaint
+                        b.kind == DialDebris.Kind.FAST_HAND -> fastHandPaint
                         else -> paintOf(b.hand ?: Hand.HOUR)
                     }
                     paint.strokeWidth = b.strokeWidth
@@ -3776,7 +3592,6 @@ class ClockView @JvmOverloads constructor(
         const val MIN_SCALE = 0.35f
         const val MAX_SCALE = 1f
         private const val SHAKE_THRESHOLD = 14f // m/s² beyond gravity
-        private const val BASE_GRAVITY = 2600f // px/s²
         private const val HOUR_LEN = 0.52f
         private const val MINUTE_LEN = 0.74f
         private const val SECOND_LEN = 0.82f
@@ -3796,11 +3611,9 @@ class ClockView @JvmOverloads constructor(
          * one.
          */
         private const val BUTTONS_MS = TRANSITION_MS.toLong()
-        private const val SAMPLE_COUNT = 5
 
         /** How far a lap may drift from the truth before it is a fake. */
         private const val FAKE_LAP_TOLERANCE_MS = 400L
-        private val END_SIDES = floatArrayOf(1f, -1f)
         /** Laps kept: seven show on the ladder, the rest wait in the list. */
         private const val MAX_LAPS = 40
 
