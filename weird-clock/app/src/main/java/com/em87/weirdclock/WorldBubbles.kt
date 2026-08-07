@@ -47,6 +47,10 @@ class WorldBubbles(
         var vx = 0f
         var vy = 0f
         var moving = false
+
+        /** Its velocity at the end of the last step, so this one has a delta. */
+        var prevVx = 0f
+        var prevVy = 0f
         var sizePx = 0f
 
         fun centerX() = x + sizePx / 2f
@@ -87,6 +91,11 @@ class WorldBubbles(
                 pinchZoomEnabled = false
                 shakeDropEnabled = false
                 showDate = false
+                // A clock whose hands are on the floor spells the time out
+                // in digits underneath, which is the right answer on the
+                // big dial and absurd on a bubble: a hundred-pixel disc
+                // with a broken watch inside does not also need a readout.
+                showDigitalReadout = false
                 // The city rides inside the dial, where the date sits on the
                 // main clock — no caption hanging off the bubble.
                 dialLabel = tz.substringAfterLast('/').replace('_', ' ')
@@ -373,10 +382,40 @@ class WorldBubbles(
             }
         }
 
-        for (b in bubbles) if (b.moving) b.place()
+        for (b in bubbles) {
+            if (!b.moving) {
+                // Parked: nothing is carrying it anywhere, so the contents
+                // feel only the phone. Cleared rather than left at whatever
+                // the last bounce was, or a settled bubble would go on
+                // pushing its own hands sideways for ever.
+                b.clock.setCarrierAcceleration(0f, 0f)
+                continue
+            }
+            b.place()
+            // Whatever is loose inside feels the bubble's own manoeuvres:
+            // brake against a cushion and the fallen hands pitch into it.
+            // The force on the contents is minus the carrier's
+            // acceleration, and a cushion reverses a velocity inside one
+            // step — which as a raw acceleration is tens of g and would
+            // fire the hands through the case. Scaled and capped: this is
+            // for the look of the thing, not for the ledger.
+            val ax = (-(b.vx - b.prevVx) / dt * CARRIER_SHARE)
+                .coerceIn(-CARRIER_MAX, CARRIER_MAX)
+            val ay = (-(b.vy - b.prevVy) / dt * CARRIER_SHARE)
+                .coerceIn(-CARRIER_MAX, CARRIER_MAX)
+            b.clock.setCarrierAcceleration(ax, ay)
+            b.prevVx = b.vx
+            b.prevVy = b.vy
+        }
     }
 
     private companion object {
         const val BUOYANCY = 300f
+
+        /** How much of the bubble's own acceleration its contents feel. */
+        const val CARRIER_SHARE = 0.3f
+
+        /** And never more than this, however hard it hits a cushion. */
+        const val CARRIER_MAX = 3f * DialDebris.BASE_GRAVITY
     }
 }

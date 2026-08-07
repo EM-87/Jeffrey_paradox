@@ -669,8 +669,9 @@ class ClockView @JvmOverloads constructor(
             var gy = lowPassY / 9.81f
             if (kotlin.math.abs(gx) < 0.04f) gx = 0f
             if (kotlin.math.abs(gy) < 0.04f) gy = 0f
-            debris.gravityX = gx * DialDebris.BASE_GRAVITY
-            debris.gravityY = gy * DialDebris.BASE_GRAVITY
+            tiltX = gx
+            tiltY = gy
+            applyGravity()
 
             if (!shakeDropEnabled || chronoProvider != null) return
             val devX = ax - lowPassX
@@ -685,6 +686,38 @@ class ClockView @JvmOverloads constructor(
         }
 
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+    }
+
+    /** Which way the phone is leaning, as a fraction of one g. */
+    private var tiltX = 0f
+    private var tiltY = 1f
+
+    private var carriedAccelX = 0f
+    private var carriedAccelY = 0f
+
+    /**
+     * The acceleration of whatever is carrying this dial around, in px/s².
+     *
+     * A world-clock bubble is a clock inside something that flies: shove it
+     * across the screen and it stops dead against a wall, and the loose
+     * hands inside it went on lying where they were as though nothing had
+     * happened. They only ever felt the phone. Now they feel the bubble
+     * too, which is the difference between a picture of a broken watch
+     * sliding about and a broken watch sliding about.
+     *
+     * Passed as the force the contents feel, so the caller negates the
+     * carrier's own acceleration: brake hard and everything inside pitches
+     * forward.
+     */
+    fun setCarrierAcceleration(ax: Float, ay: Float) {
+        carriedAccelX = ax
+        carriedAccelY = ay
+        applyGravity()
+    }
+
+    private fun applyGravity() {
+        debris.gravityX = tiltX * DialDebris.BASE_GRAVITY + carriedAccelX
+        debris.gravityY = tiltY * DialDebris.BASE_GRAVITY + carriedAccelY
     }
 
     // -------------------------------------------------------------- ticking

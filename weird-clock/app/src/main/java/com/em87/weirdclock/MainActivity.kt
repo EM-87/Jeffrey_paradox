@@ -2083,6 +2083,27 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         applyRow(wasRow)
     }
 
+    /**
+     * Takes a card away by dissolving everything on it except its dial.
+     *
+     * The dial goes at once, because its story is already being told by the
+     * hands travelling on the card that replaced it — two dials fading
+     * through each other would tell it twice. Everything else the card was
+     * carrying has no such stand-in: the world-clock bubbles and the row of
+     * buttons simply blinked out of existence.
+     *
+     * Only possible at all because the clock and the stopwatch share a
+     * page now. When they were a diagonal apart the pager cut the whole
+     * page in the same frame and nothing drawn on it afterwards was seen by
+     * anybody — which is what made me say this could not be done.
+     */
+    private fun dissolveChrome(card: Card) {
+        val container = containerOf(card) ?: return
+        if (container.visibility != View.VISIBLE) return
+        dialOf(card)?.visibility = View.INVISIBLE
+        fadeCard(container, false, raise = false)
+    }
+
     /** A swipe, which goes wherever the shape says — or nowhere. */
     private fun move(direction: Direction): Boolean {
         val here = current() ?: return false
@@ -2261,13 +2282,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // only for as long as they were on different pages — put them on
         // the same page and the slide came back.
         val slide = if (handsCarryIt) 0f else Cards.slideFrom(from, row).toFloat()
+        // The card being left, when the hands are carrying the move and it
+        // is not the pager that takes it away.
+        val dissolving = Cards.on(pager.currentItem, from)
+            ?.takeIf { handsCarryIt && it.row != row }
         for (card in Card.entries) {
+            if (card == dissolving) continue
+            // A card that is about to show gets its dial back: the last
+            // time it was left, the dial was hidden out from under it.
+            if (card.row == row) dialOf(card)?.visibility = View.VISIBLE
             // Each card slides from its own side, so the one going up and
             // the one coming down pass each other rather than both drifting
             // the same way.
             val own = if (card.row.ordinal >= row.ordinal) slide else -slide
             slideCard(containerOf(card), card.row == row, own)
         }
+        dissolving?.let { dissolveChrome(it) }
         // The bottom row is two cards wide, so there is a page under it
         // with nothing on it, and the pager will happily drag you onto it:
         // swallowing the gesture in the dial does not stop it, because by

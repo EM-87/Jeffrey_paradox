@@ -54,13 +54,12 @@ class NavigationTest {
      * the journey and the cards hold still.
      */
     @Test
-    fun `the clock hands the stopwatch its hands, and nothing slides`() {
+    fun `the clock hands over its hands, and dissolves the rest`() {
         onApp { app ->
             app.press(R.id.to_stopwatch_button)
 
             assertEquals("no page change", Cards.PAGE_HOME, app.pager().currentItem)
             assertEquals(View.VISIBLE, app.card(R.id.stopwatch_container).visibility)
-            assertEquals(View.GONE, app.card(R.id.clock_container).visibility)
             assertTrue(
                 "the hands must be travelling, which is the whole transition",
                 app.stopwatch().isTravelling()
@@ -68,6 +67,27 @@ class NavigationTest {
             assertEquals(
                 "and the card must not be sliding underneath them",
                 0f, app.card(R.id.stopwatch_container).translationY, 0.01f
+            )
+
+            // The card being left dissolves rather than being cut — it used
+            // to go GONE in this same frame, taking the world-clock bubbles
+            // and the row of buttons with it in one blink. Its dial goes at
+            // once even so, because the hands are already telling that half
+            // of the story on the card that replaced it.
+            assertEquals(
+                "the card must still be on screen, fading",
+                View.VISIBLE, app.card(R.id.clock_container).visibility
+            )
+            assertEquals(
+                "but not its dial, or the hands appear twice",
+                View.INVISIBLE, app.clock().visibility
+            )
+            org.robolectric.shadows.ShadowLooper.idleMainLooper(
+                2, java.util.concurrent.TimeUnit.SECONDS
+            )
+            assertEquals(
+                "and it is gone once the fade is over",
+                View.GONE, app.card(R.id.clock_container).visibility
             )
         }
     }
@@ -94,6 +114,27 @@ class NavigationTest {
                 "but it must be wearing the one it was handed, and fading it",
                 app.clock().isCrownShowing()
             )
+        }
+    }
+
+    /**
+     * And it comes back whole.
+     *
+     * The dial is hidden out from under the card being left so that the
+     * hands are not drawn twice; nothing else puts it back, so without a
+     * line to do so the second visit to the clock is an empty card with a
+     * date on it.
+     */
+    @Test
+    fun `and the clock is whole again when you return to it`() {
+        onApp { app ->
+            app.press(R.id.to_stopwatch_button)
+            assertEquals(View.INVISIBLE, app.clock().visibility)
+
+            app.press(R.id.stopwatch_back_button)
+
+            assertEquals("the dial has to come back", View.VISIBLE, app.clock().visibility)
+            assertEquals(View.VISIBLE, app.card(R.id.clock_container).visibility)
         }
     }
 
