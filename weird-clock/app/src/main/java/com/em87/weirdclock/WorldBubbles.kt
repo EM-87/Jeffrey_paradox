@@ -40,6 +40,15 @@ class WorldBubbles(
 
     /** Set once the home page has been bound; null before that. */
     var layer: FrameLayout? = null
+        set(value) {
+            field = value
+            // Two fingers on two bubbles is two children of this layer each
+            // getting their own pointer, which a ViewGroup only does while
+            // it is splitting motion events. On by default and turnable off
+            // by a theme, which is too quiet a way to lose a two-player
+            // game.
+            value?.isMotionEventSplittingEnabled = true
+        }
 
     private inner class Bubble(val tzId: String, val view: View, val clock: ClockView) {
         var x = 0f
@@ -228,50 +237,78 @@ class WorldBubbles(
     }
 
     @SuppressLint("ClickableViewAccessibility")
+    /**
+     * A finger's position in the layer's own coordinates, for any pointer.
+     *
+     * getRawX(index) only arrives in API 29 and this app goes back to 24,
+     * so the offset between the view's coordinates and the screen's is
+     * taken from pointer zero — where the two are known to correspond —
+     * and applied to whichever pointer is being asked about.
+     */
+    private fun rawXOf(e: MotionEvent, index: Int): Float = e.getX(index) + (e.rawX - e.getX(0))
+
+    private fun rawYOf(e: MotionEvent, index: Int): Float = e.getY(index) + (e.rawY - e.getY(0))
+
     private fun attachTouch(b: Bubble) {
-        var lastX = 0f
-        var lastY = 0f
-        var lastT = 0L
+        val drag = BubbleDrag()
         b.view.setOnTouchListener { _, e ->
+            val index = e.actionIndex
+            val id = e.getPointerId(index)
             when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    b.moving = false
-                    b.vx = 0f
-                    b.vy = 0f
-                    lastX = e.rawX
-                    lastY = e.rawY
-                    lastT = SystemClock.uptimeMillis()
-                    layer?.parent?.requestDisallowInterceptTouchEvent(true)
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                    if (drag.down(id, rawXOf(e, index), rawYOf(e, index), SystemClock.uptimeMillis())) {
+                        b.moving = false
+                        b.vx = 0f
+                        b.vy = 0f
+                        layer?.parent?.requestDisallowInterceptTouchEvent(true)
+                    }
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    val now = SystemClock.uptimeMillis()
-                    val dt = (now - lastT).coerceAtLeast(1L) / 1000f
-                    val dx = e.rawX - lastX
-                    val dy = e.rawY - lastY
-                    b.x += dx
-                    b.y += dy
-                    b.vx = b.vx * 0.6f + (dx / dt) * 0.4f
-                    b.vy = b.vy * 0.6f + (dy / dt) * 0.4f
-                    lastX = e.rawX
-                    lastY = e.rawY
-                    lastT = now
-                    b.place()
+                    // Every pointer in the gesture arrives in one event, so
+                    // the bubble has to go looking for its own rather than
+                    // taking the first: two bubbles held at once would
+                    // otherwise both chase whichever finger went down first.
+                    val mine = e.findPointerIndex(drag.pointer)
+                    if (mine >= 0) {
+                        drag.move(
+                            drag.pointer,
+                            rawXOf(e, mine), rawYOf(e, mine),
+                            SystemClock.uptimeMillis()
+                        )?.let { step ->
+                            b.x += step.dx
+                            b.y += step.dy
+                            b.vx = b.vx * 0.6f + step.vx * 0.4f
+                            b.vy = b.vy * 0.6f + step.vy * 0.4f
+                            b.place()
+                        }
+                    }
                     true
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    // A real fling turns it into a bubble; a gentle drop
-                    // leaves it parked where you put it.
-                    if (hypot(b.vx, b.vy) > 260f) {
-                        b.moving = true
-                    } else {
-                        b.vx = 0f
-                        b.vy = 0f
-                    }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
+                    if (drag.up(id)) release(b)
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    drag.cancel()
+                    release(b)
                     true
                 }
                 else -> false
             }
+        }
+    }
+
+    /**
+     * A real fling turns a bubble loose; a gentle drop leaves it parked
+     * where you put it.
+     */
+    private fun release(b: Bubble) {
+        if (hypot(b.vx, b.vy) > 260f) {
+            b.moving = true
+        } else {
+            b.vx = 0f
+            b.vy = 0f
         }
     }
 
