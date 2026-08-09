@@ -2151,6 +2151,49 @@ class ClockView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * A hand, as a line with a thickness, in this view's own coordinates.
+     */
+    class HandBar(
+        val x1: Float, val y1: Float,
+        val x2: Float, val y2: Float,
+        val halfWidth: Float
+    )
+
+    /**
+     * The hands still mounted on the axis, as bars.
+     *
+     * Already what the dial does to its own fallen debris; handed out so
+     * that whatever else shares the screen can be hit by them too. The
+     * world-clock bubbles bounced off this dial as though it were a
+     * boulder, which is what it is — but a boulder with three arms sweeping
+     * round inside it, and none of them could touch anything.
+     */
+    fun mountedHands(): List<HandBar> {
+        val cx = width / 2f
+        val cy = height / 2f
+        val r = dialRadius()
+        if (r <= 0f) return emptyList()
+        val a = currentAngles()
+        val bars = ArrayList<HandBar>(4)
+        for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
+            if (hand == Hand.SECOND && !showSecondHand) continue
+            if (isFallen(hand)) continue
+            val angle = angleOf(hand, a)
+            val tip = pointAt(cx, cy, angle, boundaryRadius(angle) * lengthOf(hand))
+            val tail = pointAt(cx, cy, angle + 180f, r * tailOf(hand))
+            bars.add(HandBar(tail.x, tail.y, tip.x, tip.y, widthOf(hand) * r))
+        }
+        return bars
+    }
+
+    /**
+     * True while a hand is in somebody's fingers or on its way back.
+     *
+     * The moment a clock stops being furniture and starts being a club.
+     */
+    fun handInPlay(): Boolean = draggedHand != null || spring?.isRunning == true
+
     private fun grabFallenBodyNear(x: Float, y: Float): Boolean {
         // Where a piece is lying is the debris' business; picking it up is
         // the dial's, because a finger closing on something is a haptic and

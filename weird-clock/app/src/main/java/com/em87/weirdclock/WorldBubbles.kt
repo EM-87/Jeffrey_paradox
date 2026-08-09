@@ -318,6 +318,47 @@ class WorldBubbles(
         }
     }
 
+    /** Where each hand's tip was last frame, for working out its speed. */
+    private var lastHands: List<FloatArray> = emptyList()
+
+    /**
+     * A bubble meeting one hand.
+     *
+     * The bubble is pushed clear along the perpendicular and given the part
+     * of the hand's own speed that points that way — a hand sweeping past
+     * carries things with it, and a hand coming back on its spring sends
+     * them off. Standing still it is a wall, which is also right: a parked
+     * hand should not suck anything anywhere.
+     */
+    private fun strikeWithHand(b: Bubble, bar: ClockView.HandBar, tip: FloatArray?) {
+        val hit = HandStrike.contact(bar, b.centerX(), b.centerY(), b.sizePx / 2f) ?: return
+        val nx = hit.nx
+        val ny = hit.ny
+        b.x += nx * hit.push
+        b.y += ny * hit.push
+        // How fast the hand is closing on the bubble at the point of
+        // contact, scaled down the arm: the tip moves fastest and the boss
+        // hardly at all.
+        val armed = (tip?.let { (it[0] * nx + it[1] * ny) * hit.alongArm } ?: 0f)
+            .coerceAtLeast(0f)
+        val vn = b.vx * nx + b.vy * ny
+        if (vn < 0f) {
+            b.vx -= 1.85f * vn * nx
+            b.vy -= 1.85f * vn * ny
+        }
+        if (armed > 0f) {
+            b.vx += armed * nx * STROKE
+            b.vy += armed * ny * STROKE
+            if (armed > 200f) {
+                if (!b.moving) b.moving = true
+                bruise(b, armed)
+                if (allowCollisionSound()) {
+                    chimePlayer.playClack((armed / 1400f).coerceIn(0.08f, 1f))
+                }
+            }
+        }
+    }
+
     /** Rate-limits collision audio so a pile-up doesn't machine-gun. */
     private var lastCollisionSoundAt = 0L
 
@@ -351,7 +392,12 @@ class WorldBubbles(
     }
 
     fun step() {
-        if (bubbles.isEmpty() || bubbles.none { it.moving }) return
+        if (bubbles.isEmpty()) return
+        // A parked bubble normally costs nothing, but a hand being played
+        // with has to be able to reach one — a bubble sitting still in the
+        // arc of a wound hand is the whole of the shot.
+        val playing = mainDial()?.handInPlay() == true
+        if (!playing && bubbles.none { it.moving }) return
         val layer = this.layer ?: return
         val w = layer.width.toFloat()
         val h = layer.height.toFloat()
@@ -360,9 +406,34 @@ class WorldBubbles(
         val dialR = mainDial()?.currentDialRadius() ?: 0f
         val dialCx = w / 2f
         val dialCy = h / 2f
+        // The hands, and how fast each tip is travelling — worked out from
+        // where it was last frame rather than asked of the dial, because a
+        // hand under a finger and a hand on its spring get their speed from
+        // completely different places and the answer here is the same.
+        val handInPlay = playing
+        val hands = if (handInPlay) mainDial()?.mountedHands().orEmpty() else emptyList()
+        val handSpeed = ArrayList<FloatArray>(hands.size)
+        for ((i, bar) in hands.withIndex()) {
+            val was = lastHands.getOrNull(i)
+            handSpeed.add(
+                if (was == null) floatArrayOf(0f, 0f)
+                else floatArrayOf((bar.x2 - was[0]) / dt, (bar.y2 - was[1]) / dt)
+            )
+        }
+        lastHands = hands.map { floatArrayOf(it.x2, it.y2) }
 
         for (b in bubbles) {
-            if (!b.moving) continue
+            if (!b.moving) {
+                // Parked, but still hittable: a club does not care whether
+                // the ball was going anywhere.
+                if (handInPlay) {
+                    for ((i, bar) in hands.withIndex()) {
+                        strikeWithHand(b, bar, handSpeed.getOrNull(i))
+                    }
+                    b.place()
+                }
+                continue
+            }
             // Bubbles are buoyant: free ones drift against gravity, so they
             // bob toward whatever edge is currently "up" as you tilt.
             b.vx += -gravityX() * BUOYANCY * dt
@@ -378,7 +449,11 @@ class WorldBubbles(
             if (b.x + b.sizePx > w) { b.x = w - b.sizePx; cushion(b.vx); bruise(b, b.vx); b.vx = -b.vx * 0.9f }
             if (b.y + b.sizePx > h) { b.y = h - b.sizePx; cushion(b.vy); bruise(b, b.vy); b.vy = -b.vy * 0.9f }
             // The main dial is a fixed obstacle — and it rings when struck.
-            if (dialR > 0f && dialIsObstacle()) {
+            // Except while somebody has hold of a hand: then the case opens
+            // up, a bubble can be swept across the face, and the hand that
+            // springs back sends it away like a putt. A clock is furniture
+            // until you play with it.
+            if (dialR > 0f && dialIsObstacle() && !handInPlay) {
                 val dx = b.centerX() - dialCx
                 val dy = b.centerY() - dialCy
                 val d = hypot(dx, dy)
@@ -401,6 +476,14 @@ class WorldBubbles(
                         // hardest thing on the table to hit.
                         bruise(b, vn)
                     }
+                }
+            }
+            // And the hands themselves, which is the whole of the golf: a
+            // wound hand let go of comes back fast, and whatever is lying
+            // in its arc goes with it.
+            if (handInPlay) {
+                for ((i, bar) in hands.withIndex()) {
+                    strikeWithHand(b, bar, handSpeed.getOrNull(i))
                 }
             }
             // Free bubbles never park themselves: buoyancy keeps them
@@ -479,6 +562,9 @@ class WorldBubbles(
 
         /** How much of the bubble's own acceleration its contents feel. */
         const val CARRIER_SHARE = 0.3f
+
+        /** How much of a hand's speed a struck bubble takes away with it. */
+        const val STROKE = 1.4f
 
         /** And never more than this, however hard it hits a cushion. */
         const val CARRIER_MAX = 3f * DialDebris.BASE_GRAVITY
