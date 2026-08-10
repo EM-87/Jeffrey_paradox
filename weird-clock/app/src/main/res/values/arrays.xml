@@ -158,11 +158,13 @@
         <item>Count the hour (grandfather clock)</item>
         <item>Ship’s bell (nautical watches)</item>
         <item>Single strike (gong)</item>
+        <item>Digital beeps (counts the hour)</item>
     </string-array>
     <string-array name="bell_style_values" translatable="false">
         <item>count</item>
         <item>ships</item>
         <item>single</item>
+        <item>beep</item>
     </string-array>
 
     <string-array name="mark_colors_entries">

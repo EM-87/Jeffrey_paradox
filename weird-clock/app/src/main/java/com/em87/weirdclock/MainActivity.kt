@@ -2499,59 +2499,38 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         if (!bellsEnabled || appliedNightDim) return
         val now = Calendar.getInstance()
         now.timeInMillis = TimeKeeper.nowMs()
-        val hour = now.get(Calendar.HOUR_OF_DAY)
-        when (now.get(Calendar.MINUTE)) {
-            0 -> chimeHour(hour)
-            30 -> chimeHalfHour(hour)
-        }
+        chimeAt(now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE))
     }
 
-    private fun chimeHour(hourOfDay: Int) {
-        when (bellStyle) {
-            Prefs.BELL_STYLE_SHIPS -> {
-                // Ship's bell: one bell per half hour of the current 4-hour
-                // watch, struck in pairs; the watch change gets 8 bells.
-                val halfHours = (hourOfDay % 4) * 2
-                chimePlayer.playBellSequence(
-                    if (halfHours == 0) 8 else halfHours,
-                    pairGrouping = true,
-                    frequency = ChimePlayer.SHIPS_HZ,
-                    ringSeconds = 2.0
-                )
-            }
-            Prefs.BELL_STYLE_SINGLE -> chimePlayer.playBellSequence(
-                1, pairGrouping = false,
-                frequency = ChimePlayer.GONG_HZ, ringSeconds = 4.5
-            )
-            else -> {
-                val strikes = hourOfDay % 12
-                chimePlayer.playBellSequence(
-                    if (strikes == 0) 12 else strikes,
-                    pairGrouping = false,
-                    frequency = ChimePlayer.GRANDFATHER_HZ,
-                    ringSeconds = 3.0,
-                    interval = 1.3
-                )
-            }
-        }
-    }
+    /**
+     * The last peal struck and how many have been struck at all, for the
+     * tests to check the wiring by.
+     *
+     * The count is not redundant. Two consecutive hours of the same style
+     * sound identical, so the last peal alone cannot tell a bell that rang
+     * twice from one that did not ring at all — and "rang when it should
+     * have kept quiet" is precisely the failure worth catching.
+     */
+    internal var lastPeal: Bells.Peal? = null
+        private set
 
-    private fun chimeHalfHour(hourOfDay: Int) {
-        when (bellStyle) {
-            Prefs.BELL_STYLE_SHIPS -> {
-                val halfHours = (hourOfDay % 4) * 2 + 1
-                chimePlayer.playBellSequence(
-                    halfHours, pairGrouping = true,
-                    frequency = ChimePlayer.SHIPS_HZ, ringSeconds = 2.0
-                )
-            }
-            else -> if (halfHourEnabled) {
-                chimePlayer.playBellSequence(
-                    1, pairGrouping = false,
-                    frequency = ChimePlayer.HALF_HOUR_BELL_HZ, ringSeconds = 1.5
-                )
-            }
-        }
+    internal var pealsStruck = 0
+        private set
+
+    /**
+     * The hour, or half past it, in whatever the bells are set to.
+     *
+     * Which strikes to play is [Bells]' decision and not this screen's: the
+     * service that rings with the app closed and the preview button in the
+     * settings both used to carry their own copy of the same rule.
+     */
+    internal fun chimeAt(hourOfDay: Int, minute: Int) {
+        val onTheHour = minute == 0
+        if (!onTheHour && minute != 30) return
+        val peal = Bells.peal(bellStyle, hourOfDay, onTheHour, halfHourEnabled) ?: return
+        lastPeal = peal
+        pealsStruck++
+        chimePlayer.play(peal)
     }
 
     // -------------------------------------- winding-interaction sounds

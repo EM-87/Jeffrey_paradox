@@ -119,6 +119,60 @@ class ChimePlayer {
         }
     }
 
+    /** Rings whatever [Bells] decided on, bell or beep. */
+    fun play(peal: Bells.Peal) {
+        if (peal.beeps) {
+            playBeepSequence(peal.count, peal.frequency, peal.ringSeconds, peal.interval)
+        } else {
+            playBellSequence(
+                peal.count, peal.pairGrouping, peal.frequency, peal.ringSeconds, peal.interval
+            )
+        }
+    }
+
+    /**
+     * The hourly signal off a cheap digital watch.
+     *
+     * Not a bell with the resonance turned down: a piezo disc has no body
+     * to ring, so there are no inharmonic partials to decay and no decay
+     * either — a beep is square, flat and over. What it does have is edges,
+     * and they need a millisecond or two of ramp at each end, or the
+     * discontinuity itself clicks and the whole thing sounds broken rather
+     * than cheap.
+     */
+    fun playBeepSequence(
+        count: Int,
+        frequency: Double = Bells.CASIO_HZ,
+        beepSeconds: Double = 0.055,
+        interval: Double = 0.20
+    ) {
+        if (count <= 0) return
+        thread(name = "beep-synth") {
+            val total = (count - 1) * interval + beepSeconds + 0.05
+            val buffer = FloatArray((total * SAMPLE_RATE).toInt())
+            for (i in 0 until count) {
+                addBeep(buffer, i * interval, frequency, beepSeconds)
+            }
+            playFloatBuffer(buffer)
+        }
+    }
+
+    private fun addBeep(buffer: FloatArray, offsetSeconds: Double, hz: Double, duration: Double) {
+        val start = (offsetSeconds * SAMPLE_RATE).toInt()
+        val length = (duration * SAMPLE_RATE).toInt()
+        for (n in 0 until length) {
+            val i = start + n
+            if (i >= buffer.size) break
+            val t = n.toDouble() / SAMPLE_RATE
+            val edge = min(t / 0.0015, (duration - t) / 0.0015).coerceIn(0.0, 1.0)
+            val square = if (sin(2.0 * PI * hz * t) >= 0) 1.0 else -1.0
+            // Mostly the square wave, with a little of the octave above so
+            // it reads as a small thing buzzing rather than a test tone.
+            val sample = square * 0.8 + sin(4.0 * PI * hz * t) * 0.2
+            buffer[i] += (sample * 0.18 * edge).toFloat()
+        }
+    }
+
     /** Classic digital alarm clock: four short square-wave beeps. */
     fun playDigitalAlarm() {
         thread(name = "digital-synth") {

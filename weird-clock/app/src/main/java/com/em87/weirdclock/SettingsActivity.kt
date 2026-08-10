@@ -306,23 +306,17 @@ class SettingsActivity : AppCompatActivity() {
                 .show()
         }
 
-        /** Plays a sample of whatever bell style is currently selected. */
+        /**
+         * Plays a sample of whatever bell style is currently selected.
+         *
+         * This was the third copy of the striking rule, and the one most
+         * likely to drift: adding a style meant remembering that the button
+         * which exists to let you hear it also needed telling, or it would
+         * cheerfully play the previous style instead.
+         */
         private fun playTestBells() {
             val prefs = preferenceManager.sharedPreferences ?: return
-            when (prefs.getString(Prefs.BELL_STYLE, Prefs.BELL_STYLE_COUNT)) {
-                Prefs.BELL_STYLE_SHIPS -> chimePlayer.playBellSequence(
-                    4, pairGrouping = true,
-                    frequency = ChimePlayer.SHIPS_HZ, ringSeconds = 2.0
-                )
-                Prefs.BELL_STYLE_SINGLE -> chimePlayer.playBellSequence(
-                    1, pairGrouping = false,
-                    frequency = ChimePlayer.GONG_HZ, ringSeconds = 4.5
-                )
-                else -> chimePlayer.playBellSequence(
-                    3, pairGrouping = false,
-                    frequency = ChimePlayer.GRANDFATHER_HZ, ringSeconds = 3.0, interval = 1.3
-                )
-            }
+            chimePlayer.play(Bells.sample(prefs.getString(Prefs.BELL_STYLE, Prefs.BELL_STYLE_COUNT)))
         }
     }
 

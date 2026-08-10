@@ -150,44 +150,27 @@ class BellService : Service() {
             BellScheduler.EXTRA_ON_THE_HOUR, now.get(Calendar.MINUTE) < 15
         ) ?: (now.get(Calendar.MINUTE) < 15)
         // Night mode keeps the house quiet.
-        val quietHours = prefs.getBoolean(Prefs.NIGHT_DIM, false) && (hour >= 22 || hour < 7)
+        val quietHours = Bells.quiet(
+            prefs.getBoolean(Prefs.NIGHT_DIM, false),
+            hour,
+            prefs.getInt(Prefs.NIGHT_FROM, NightWindow.DEFAULT_FROM),
+            prefs.getInt(Prefs.NIGHT_TO, NightWindow.DEFAULT_TO)
+        )
         if (!quietHours) {
-            strike(prefs.getString(Prefs.BELL_STYLE, Prefs.BELL_STYLE_COUNT), hour, onTheHour)
+            // The same rule the app uses while it is open. It used to be a
+            // second copy of it, living here.
+            Bells.peal(
+                prefs.getString(Prefs.BELL_STYLE, Prefs.BELL_STYLE_COUNT),
+                hour,
+                onTheHour,
+                // An alarm is only ever armed for half past when they are
+                // wanted, so anything arriving for one is wanted by
+                // definition.
+                halfHours = true
+            )?.let { chimePlayer.play(it) }
         }
         handler.postDelayed({ stopSelf() }, 20_000L)
         return START_NOT_STICKY
-    }
-
-    private fun strike(style: String?, hourOfDay: Int, onTheHour: Boolean) {
-        when (style) {
-            Prefs.BELL_STYLE_SHIPS -> {
-                val halfHours = (hourOfDay % 4) * 2 + if (onTheHour) 0 else 1
-                chimePlayer.playBellSequence(
-                    if (halfHours == 0) 8 else halfHours,
-                    pairGrouping = true,
-                    frequency = ChimePlayer.SHIPS_HZ,
-                    ringSeconds = 2.0
-                )
-            }
-            Prefs.BELL_STYLE_SINGLE -> chimePlayer.playBellSequence(
-                1, false,
-                if (onTheHour) ChimePlayer.GONG_HZ else ChimePlayer.HALF_HOUR_BELL_HZ,
-                if (onTheHour) 4.5 else 1.5
-            )
-            else -> {
-                if (onTheHour) {
-                    val strikes = hourOfDay % 12
-                    chimePlayer.playBellSequence(
-                        if (strikes == 0) 12 else strikes, false,
-                        ChimePlayer.GRANDFATHER_HZ, 3.0, 1.3
-                    )
-                } else {
-                    chimePlayer.playBellSequence(
-                        1, false, ChimePlayer.HALF_HOUR_BELL_HZ, 1.5
-                    )
-                }
-            }
-        }
     }
 
     private fun createChannel() {

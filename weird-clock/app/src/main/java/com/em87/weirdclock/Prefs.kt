@@ -99,6 +99,9 @@ object Prefs {
     const val BELL_STYLE_SHIPS = "ships"
     const val BELL_STYLE_SINGLE = "single"
 
+    /** The hourly signal off a cheap digital watch, counting the hour. */
+    const val BELL_STYLE_BEEP = "beep"
+
     const val ALARM_SOUND_BELLS = "bells"
     const val ALARM_SOUND_DIGITAL = "digital"
     const val ALARM_SOUND_BABY = "baby"

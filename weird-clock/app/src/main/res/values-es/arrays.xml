@@ -74,6 +74,7 @@
         <item>Contar la hora (reloj de abuelo)</item>
         <item>Campana de barco (guardias náuticas)</item>
         <item>Campanada única (gong)</item>
+        <item>Pitidos digitales (cuenta la hora)</item>
     </string-array>
 
     <string-array name="alarm_style_entries">
