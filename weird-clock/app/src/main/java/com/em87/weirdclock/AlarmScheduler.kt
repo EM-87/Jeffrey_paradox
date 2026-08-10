@@ -22,6 +22,9 @@ object AlarmScheduler {
 
     /** Snooze length in minutes; 0 disables the snooze action. */
     const val EXTRA_SNOOZE = "extra_snooze"
+
+    /** How many times this alarm has already been put off this morning. */
+    const val EXTRA_SNOOZE_COUNT = "extra_snooze_count"
     const val EXTRA_LABEL = "extra_label"
     const val EXTRA_VIBRATE = "extra_vibrate"
     const val EXTRA_FLASH = "extra_flash"
@@ -148,8 +151,29 @@ object AlarmScheduler {
     }
 
     /** One-shot re-fire in [minutes], independent of the regular chain. */
-    fun snooze(context: Context, sound: String, minutes: Int, soundUri: String = "") {
-        val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
+    /**
+     * Puts an alarm off for [minutes], unless it has been put off enough.
+     *
+     * [alreadySnoozed] rides in the intent rather than living in a
+     * preference, so it can never be a count left over from an alarm three
+     * days ago — the thing being counted is one morning's worth of
+     * pressing snooze, and one morning's worth of pressing snooze is
+     * exactly what one chain of intents is.
+     *
+     * Returns false when the limit is spent, which is the ring screen's cue
+     * to stop offering the button: an alarm that must be got up for is a
+     * feature, and a Snooze button that silently does nothing is not.
+     */
+    fun snooze(
+        context: Context,
+        sound: String,
+        minutes: Int,
+        soundUri: String = "",
+        alreadySnoozed: Int = 0
+    ): Boolean {
+        val limit = snoozeLimit(context)
+        if (limit in 1..alreadySnoozed) return false
+        val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return false
         val at = System.currentTimeMillis() + minutes.coerceAtLeast(1) * 60_000L
         val fire = PendingIntent.getBroadcast(
             context,
@@ -157,7 +181,8 @@ object AlarmScheduler {
             Intent(context, AlarmReceiver::class.java)
                 .putExtra(EXTRA_SOUND, sound)
                 .putExtra(EXTRA_SOUND_URI, soundUri)
-                .putExtra(EXTRA_SNOOZE, minutes),
+                .putExtra(EXTRA_SNOOZE, minutes)
+                .putExtra(EXTRA_SNOOZE_COUNT, alreadySnoozed + 1),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val show = PendingIntent.getActivity(
@@ -171,5 +196,14 @@ object AlarmScheduler {
         } catch (e: SecurityException) {
             alarmManager.setWindow(AlarmManager.RTC_WAKEUP, at, 60_000L, fire)
         }
+        return true
     }
+
+    /** How many times one alarm may be put off, or 0 for as often as you like. */
+    fun snoozeLimit(context: Context): Int =
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .getString(Prefs.SNOOZE_LIMIT, null)
+            ?.toIntOrNull()
+            ?.coerceIn(0, 20)
+            ?: 0
 }

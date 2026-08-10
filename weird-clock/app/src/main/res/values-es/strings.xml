@@ -285,4 +285,12 @@
     <string name="a11y_shorter">Más corto</string>
     <string name="pref_ring_timeout_title">Cuánto suena una alarma</string>
     <string name="pref_ring_timeout_summary">Si nadie la atiende se rinde al cabo de este tiempo y deja una nota diciendo que sonó.</string>
+    <string name="pref_snooze_limit_title">Veces que se puede posponer una alarma</string>
+    <string name="pref_snooze_limit_summary">Tras la última deja de ofrecerse el botón, para que haya algo por lo que levantarse.</string>
+    <string name="pref_night_from_title">La noche empieza a las</string>
+    <string name="pref_night_from_summary">La card de alarmas se atenúa entre estas dos horas.</string>
+    <string name="pref_night_to_title">La noche acaba a las</string>
+    <string name="pref_night_to_summary">Pon las dos a la misma hora para no atenuar nada.</string>
+    <string name="pref_volume_pushers_title">Las teclas de volumen manejan el cronógrafo</string>
+    <string name="pref_volume_pushers_summary">Con el cronómetro o la cuenta atrás en pantalla: subir arranca y para, bajar marca vuelta y pone a cero.</string>
 </resources>

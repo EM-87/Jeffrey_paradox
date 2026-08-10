@@ -709,6 +709,52 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         )
     }
 
+    /**
+     * The volume keys as the chronograph's pushers.
+     *
+     * Only while a chronograph is the card on screen, and only if it has
+     * been asked for: taking the volume keys away from somebody who wanted
+     * to turn the volume down is a poor trade. Up is start and stop, down
+     * is lap and reset, which is the order the two pushers sit in on the
+     * case.
+     *
+     * Foreground only, and that is not a limitation to be fixed: hearing
+     * these keys from the pocket needs an accessibility service, which is
+     * a wildly disproportionate thing for a clock to ask for.
+     */
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        if (prefs.getBoolean(Prefs.VOLUME_PUSHERS, false) && dialJob == null) {
+            val card = current()
+            if (card == Card.STOPWATCH) {
+                when (keyCode) {
+                    android.view.KeyEvent.KEYCODE_VOLUME_UP -> {
+                        toggleStartPause(); return true
+                    }
+                    android.view.KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                        if (stopwatchRunning) {
+                            stopwatchClockView?.recordLap()
+                            chimePlayer.playTick()
+                        } else {
+                            resetChrono()
+                            stopwatchClockView?.clearLaps()
+                        }
+                        return true
+                    }
+                }
+            } else if (card == Card.REVERSE) {
+                when (keyCode) {
+                    android.view.KeyEvent.KEYCODE_VOLUME_UP -> {
+                        toggleCountdown(); return true
+                    }
+                    android.view.KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                        resetCountdown(); return true
+                    }
+                }
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
     override fun onPause() {
         // Written down every time the app goes to the background, because
         // that is the last moment it is certain to be alive: the system may
@@ -2328,8 +2374,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun isNightNow(): Boolean {
         val cal = Calendar.getInstance()
         cal.timeInMillis = TimeKeeper.nowMs()
-        val hour = cal.get(Calendar.HOUR_OF_DAY)
-        return hour >= 22 || hour < 7
+        return NightWindow.isNight(
+            cal.get(Calendar.HOUR_OF_DAY),
+            prefs.getInt(Prefs.NIGHT_FROM, NightWindow.DEFAULT_FROM),
+            prefs.getInt(Prefs.NIGHT_TO, NightWindow.DEFAULT_TO)
+        )
     }
 
     private fun stopwatchElapsed(): Long =
@@ -2338,6 +2387,20 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun countdownRemaining(): Long =
         if (countdownRunning) (countdownEndsAt - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
         else countdownRemainingMs
+
+    /**
+     * A stopwatch starting or stopping, felt rather than seen.
+     *
+     * The whole point of a chronograph is that you press it while looking
+     * at the thing you are timing, not at the watch. A pusher that gives
+     * nothing back has to be watched to be trusted.
+     */
+    private fun chronoTick(running: Boolean) {
+        visibleDial()?.performHapticFeedback(
+            if (running) android.view.HapticFeedbackConstants.LONG_PRESS
+            else android.view.HapticFeedbackConstants.VIRTUAL_KEY
+        )
+    }
 
     /** Start/Pause pusher on the stopwatch dial (S-1). */
     private fun toggleStartPause() {
@@ -2349,12 +2412,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             stopwatchRunning = true
         }
         stopwatchClockView?.chronoRunning = stopwatchRunning
+        chronoTick(stopwatchRunning)
     }
 
     private fun resetChrono() {
         stopwatchRunning = false
         stopwatchAccumMs = 0L
         stopwatchClockView?.chronoRunning = false
+        chronoTick(false)
     }
 
     /** Start/Pause on the countdown dial (second page in chrono mode). */
@@ -2363,6 +2428,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             countdownRemainingMs = countdownRemaining()
             countdownRunning = false
             CountdownService.clearPublished(this)
+            chronoTick(false)
         } else if (countdownRemaining() > 0L) {
             countdownEndsAt = SystemClock.elapsedRealtime() + countdownRemainingMs
             countdownTotalMs = countdownRemainingMs
@@ -2370,6 +2436,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // Published straight away: the tile in the shade knows about a
             // countdown started in the app without the app telling it.
             CountdownService.publish(this, countdownEndsAt, countdownTotalMs)
+            chronoTick(true)
         }
         updateCountdownUi()
     }

@@ -67,13 +67,20 @@ class AlarmRingActivity : AppCompatActivity() {
         }
         val snoozeButton = findViewById<Button>(R.id.snooze_button)
         val snoozeMinutes = intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE, 0)
-        if (snoozeMinutes > 0) {
+        val already = intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_COUNT, 0)
+        val limit = AlarmScheduler.snoozeLimit(this)
+        // Offered only while it would do something. A Snooze button that
+        // silently does nothing is worse than no button: the whole reason
+        // for a limit is that the last one has to be got up for, and that
+        // has to be visible before you press it, not after.
+        val spent = limit in 1..already
+        if (snoozeMinutes > 0 && !spent) {
             snoozeButton.visibility = android.view.View.VISIBLE
             snoozeButton.text = getString(R.string.alarm_snooze_fmt, snoozeMinutes)
             val sound = intent.getStringExtra(AlarmScheduler.EXTRA_SOUND) ?: Prefs.ALARM_SOUND_BELLS
             val soundUri = intent.getStringExtra(AlarmScheduler.EXTRA_SOUND_URI) ?: ""
             snoozeButton.setOnClickListener {
-                AlarmScheduler.snooze(this, sound, snoozeMinutes, soundUri)
+                AlarmScheduler.snooze(this, sound, snoozeMinutes, soundUri, already)
                 startService(Intent(this, AlarmService::class.java).setAction(AlarmService.ACTION_STOP))
                 finish()
             }

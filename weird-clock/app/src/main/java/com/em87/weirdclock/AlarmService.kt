@@ -108,6 +108,7 @@ class AlarmService : Service() {
     private var sound = Prefs.ALARM_SOUND_BELLS
     private var soundUri = ""
     private var snoozeMinutes = 0
+    private var snoozed = 0
     private var label = ""
     private var vibrateEnabled = true
     private var flashEnabled = false
@@ -196,13 +197,14 @@ class AlarmService : Service() {
             return START_NOT_STICKY
         }
         if (intent?.action == ACTION_SNOOZE) {
-            AlarmScheduler.snooze(this, sound, snoozeMinutes.coerceAtLeast(5), soundUri)
+            AlarmScheduler.snooze(this, sound, snoozeMinutes.coerceAtLeast(5), soundUri, snoozed)
             stopSelf()
             return START_NOT_STICKY
         }
         sound = intent?.getStringExtra(AlarmScheduler.EXTRA_SOUND) ?: Prefs.ALARM_SOUND_BELLS
         soundUri = intent?.getStringExtra(AlarmScheduler.EXTRA_SOUND_URI) ?: ""
         snoozeMinutes = intent?.getIntExtra(AlarmScheduler.EXTRA_SNOOZE, 0) ?: 0
+        snoozed = intent?.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_COUNT, 0) ?: 0
         label = intent?.getStringExtra(AlarmScheduler.EXTRA_LABEL) ?: ""
         vibrateEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_VIBRATE, true) != false
         flashEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_FLASH, false) == true

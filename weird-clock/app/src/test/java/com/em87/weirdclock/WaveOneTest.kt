@@ -1,0 +1,141 @@
+package com.em87.weirdclock
+
+import android.appwidget.AppWidgetManager
+import androidx.preference.PreferenceManager
+import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+/**
+ * The odds and ends: the night window, the snooze limit, the widget's size.
+ *
+ * Small features with nothing in common except that each of them replaces a
+ * number somebody once typed into the source with a number somebody can
+ * choose.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
+class WaveOneTest {
+
+    private val context: android.content.Context
+        get() = ApplicationProvider.getApplicationContext()
+
+    private val prefs get() = PreferenceManager.getDefaultSharedPreferences(context)
+
+    @Before
+    fun wipe() {
+        prefs.edit().clear().commit()
+    }
+
+    // ------------------------------------------------------- the night window
+
+    /**
+     * The default, which used to be the only one: ten at night until seven.
+     */
+    @Test
+    fun `the small hours are night`() {
+        for (hour in intArrayOf(22, 23, 0, 3, 6)) {
+            assertTrue("$hour", NightWindow.isNight(hour, 22, 7))
+        }
+        for (hour in intArrayOf(7, 12, 21)) {
+            assertFalse("$hour", NightWindow.isNight(hour, 22, 7))
+        }
+    }
+
+    /**
+     * Wrapping midnight is the ordinary case and the whole difficulty:
+     * "after ten and before seven" is true of no hour at all if it is read
+     * as a plain range, and "between seven and ten" is the daytime.
+     */
+    @Test
+    fun `a window that does not cross midnight also works`() {
+        // Somebody who sleeps in the afternoon.
+        assertTrue(NightWindow.isNight(15, 14, 18))
+        assertFalse(NightWindow.isNight(20, 14, 18))
+        assertFalse(NightWindow.isNight(2, 14, 18))
+    }
+
+    /** The end hour is outside: a night ending at seven is over at seven. */
+    @Test
+    fun `the hour it ends at is already morning`() {
+        assertTrue(NightWindow.isNight(6, 22, 7))
+        assertFalse(NightWindow.isNight(7, 22, 7))
+    }
+
+    /**
+     * Dragging both sliders together means "stop dimming", not "dim for
+     * ever" — which is what an unguarded wrapping test would decide, and
+     * the difference is a screen that never comes back.
+     */
+    @Test
+    fun `a window of no width is no night at all`() {
+        for (hour in 0..23) {
+            assertFalse("$hour", NightWindow.isNight(hour, 9, 9))
+        }
+    }
+
+    // -------------------------------------------------------- snoozing twice
+
+    @Test
+    fun `by default an alarm may be put off as often as you like`() {
+        assertEquals(0, AlarmScheduler.snoozeLimit(context))
+        assertTrue(AlarmScheduler.snooze(context, Prefs.ALARM_SOUND_BELLS, 5, alreadySnoozed = 99))
+    }
+
+    /**
+     * And with a limit, the last one has to be got up for. The count rides
+     * in the intent rather than in a preference, so it can never be a tally
+     * left over from an alarm three days ago.
+     */
+    @Test
+    fun `with a limit it eventually insists`() {
+        prefs.edit().putString(Prefs.SNOOZE_LIMIT, "2").commit()
+        assertEquals(2, AlarmScheduler.snoozeLimit(context))
+        assertTrue(
+            "the first",
+            AlarmScheduler.snooze(context, Prefs.ALARM_SOUND_BELLS, 5, alreadySnoozed = 0)
+        )
+        assertTrue(
+            "the second",
+            AlarmScheduler.snooze(context, Prefs.ALARM_SOUND_BELLS, 5, alreadySnoozed = 1)
+        )
+        assertFalse(
+            "and no more",
+            AlarmScheduler.snooze(context, Prefs.ALARM_SOUND_BELLS, 5, alreadySnoozed = 2)
+        )
+    }
+
+    // ------------------------------------------------------ the widget's size
+
+    /**
+     * The widget has always declared itself resizable, so the launcher let
+     * you stretch it — and then scaled one fixed bitmap up to fill whatever
+     * you had made.
+     */
+    @Test
+    fun `a stretched widget is drawn bigger than a small one`() {
+        val manager = AppWidgetManager.getInstance(context)
+        val small = ClockWidgetProvider.dialPixels(context, manager, 1)
+        assertTrue("some sensible size with nothing known", small > 0)
+    }
+
+    /**
+     * Both ends are capped. Every push crosses process boundaries whole, so
+     * a bitmap sized to a tablet's home screen is a poster being copied
+     * through IPC several times a minute.
+     */
+    @Test
+    fun `and never smaller than legible nor bigger than sensible`() {
+        val manager = AppWidgetManager.getInstance(context)
+        val density = context.resources.displayMetrics.density
+        val size = ClockWidgetProvider.dialPixels(context, manager, 1)
+        assertTrue("$size", size >= (64 * density).toInt())
+        assertTrue("$size", size <= (320 * density).toInt())
+    }
+}
