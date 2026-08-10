@@ -2175,7 +2175,7 @@ class ClockView @JvmOverloads constructor(
         val r = dialRadius()
         if (r <= 0f) return emptyList()
         val a = currentAngles()
-        val bars = ArrayList<HandBar>(4)
+        val bars = ArrayList<HandBar>(8)
         for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
             if (hand == Hand.SECOND && !showSecondHand) continue
             if (isFallen(hand)) continue
@@ -2183,6 +2183,24 @@ class ClockView @JvmOverloads constructor(
             val tip = pointAt(cx, cy, angle, boundaryRadius(angle) * lengthOf(hand))
             val tail = pointAt(cx, cy, angle + 180f, r * tailOf(hand))
             bars.add(HandBar(tail.x, tail.y, tip.x, tip.y, widthOf(hand) * r))
+        }
+        // And the ones on the floor. A hand that has come off is still a
+        // bar of metal sliding about the case — the strangest thing it
+        // could do is stop being solid the moment it stops being a hand.
+        for (body in debris.bodies) {
+            if (body.kind != DialDebris.Kind.HAND && body.kind != DialDebris.Kind.FAST_HAND) {
+                continue
+            }
+            val rad = Math.toRadians(body.angleDeg.toDouble())
+            val dx = sin(rad).toFloat() * body.halfLen
+            val dy = -cos(rad).toFloat() * body.halfLen
+            bars.add(
+                HandBar(
+                    body.x - dx, body.y - dy,
+                    body.x + dx, body.y + dy,
+                    max(body.strokeWidth * 0.5f, 2f)
+                )
+            )
         }
         return bars
     }

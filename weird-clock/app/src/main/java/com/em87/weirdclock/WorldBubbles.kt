@@ -63,6 +63,9 @@ class WorldBubbles(
 
         /** What being thrown about has done to it so far. */
         val damage = BubbleDamage()
+
+        /** True while a finger has hold of it — see [DialMembrane]. */
+        var dragged = false
         var sizePx = 0f
 
         fun centerX() = x + sizePx / 2f
@@ -263,6 +266,7 @@ class WorldBubbles(
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
                     if (drag.down(id, rawXOf(e, index), rawYOf(e, index), SystemClock.uptimeMillis())) {
+                        b.dragged = true
                         b.moving = false
                         b.vx = 0f
                         b.vy = 0f
@@ -292,11 +296,12 @@ class WorldBubbles(
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
-                    if (drag.up(id)) release(b)
+                    if (drag.up(id)) { b.dragged = false; release(b) }
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     drag.cancel()
+                    b.dragged = false
                     release(b)
                     true
                 }
@@ -393,11 +398,17 @@ class WorldBubbles(
 
     fun step() {
         if (bubbles.isEmpty()) return
-        // A parked bubble normally costs nothing, but a hand being played
-        // with has to be able to reach one — a bubble sitting still in the
-        // arc of a wound hand is the whole of the shot.
-        val playing = mainDial()?.handInPlay() == true
-        if (!playing && bubbles.none { it.moving }) return
+        // A parked bubble out on the edge costs nothing to skip, but one
+        // sitting on the face is in reach of the hands and has to be
+        // stepped — a bubble standing still in the arc of a wound hand is
+        // the whole of the shot.
+        val reach = (mainDial()?.currentDialRadius() ?: 0f)
+        val layerNow = this.layer
+        val withinReach = layerNow != null && bubbles.any { b ->
+            hypot(b.centerX() - layerNow.width / 2f, b.centerY() - layerNow.height / 2f) <
+                reach + b.sizePx / 2f
+        }
+        if (!withinReach && bubbles.none { it.moving }) return
         val layer = this.layer ?: return
         val w = layer.width.toFloat()
         val h = layer.height.toFloat()
@@ -410,8 +421,10 @@ class WorldBubbles(
         // where it was last frame rather than asked of the dial, because a
         // hand under a finger and a hand on its spring get their speed from
         // completely different places and the answer here is the same.
-        val handInPlay = playing
-        val hands = if (handInPlay) mainDial()?.mountedHands().orEmpty() else emptyList()
+        // The hands are always solid now, ticking or wound or lying on the
+        // floor: a bar of metal does not stop being one because nobody is
+        // holding it.
+        val hands = mainDial()?.mountedHands().orEmpty()
         val handSpeed = ArrayList<FloatArray>(hands.size)
         for ((i, bar) in hands.withIndex()) {
             val was = lastHands.getOrNull(i)
@@ -426,12 +439,10 @@ class WorldBubbles(
             if (!b.moving) {
                 // Parked, but still hittable: a club does not care whether
                 // the ball was going anywhere.
-                if (handInPlay) {
-                    for ((i, bar) in hands.withIndex()) {
-                        strikeWithHand(b, bar, handSpeed.getOrNull(i))
-                    }
-                    b.place()
+                for ((i, bar) in hands.withIndex()) {
+                    strikeWithHand(b, bar, handSpeed.getOrNull(i))
                 }
+                b.place()
                 continue
             }
             // Bubbles are buoyant: free ones drift against gravity, so they
@@ -448,12 +459,14 @@ class WorldBubbles(
             if (b.y < 0f) { b.y = 0f; cushion(b.vy); bruise(b, b.vy); b.vy = -b.vy * 0.9f }
             if (b.x + b.sizePx > w) { b.x = w - b.sizePx; cushion(b.vx); bruise(b, b.vx); b.vx = -b.vx * 0.9f }
             if (b.y + b.sizePx > h) { b.y = h - b.sizePx; cushion(b.vy); bruise(b, b.vy); b.vy = -b.vy * 0.9f }
-            // The main dial is a fixed obstacle — and it rings when struck.
-            // Except while somebody has hold of a hand: then the case opens
-            // up, a bubble can be swept across the face, and the hand that
-            // springs back sends it away like a putt. A clock is furniture
-            // until you play with it.
-            if (dialR > 0f && dialIsObstacle() && !handInPlay) {
+            // The rim is a membrane rather than a wall — see
+            // [DialMembrane]. Thrown at the clock a bubble bounces and the
+            // clock rings; carried in by a finger it goes in; and once
+            // inside it may leave whenever it likes.
+            val letThrough = DialMembrane.verdict(
+                hypot(b.centerX() - dialCx, b.centerY() - dialCy), dialR, b.dragged
+            ) == DialMembrane.Verdict.PASS
+            if (dialR > 0f && dialIsObstacle() && !letThrough) {
                 val dx = b.centerX() - dialCx
                 val dy = b.centerY() - dialCy
                 val d = hypot(dx, dy)
@@ -480,11 +493,10 @@ class WorldBubbles(
             }
             // And the hands themselves, which is the whole of the golf: a
             // wound hand let go of comes back fast, and whatever is lying
-            // in its arc goes with it.
-            if (handInPlay) {
-                for ((i, bar) in hands.withIndex()) {
-                    strikeWithHand(b, bar, handSpeed.getOrNull(i))
-                }
+            // in its arc goes with it. A ticking one barely nudges; a
+            // fallen one is a bar of metal in the way.
+            for ((i, bar) in hands.withIndex()) {
+                strikeWithHand(b, bar, handSpeed.getOrNull(i))
             }
             // Free bubbles never park themselves: buoyancy keeps them
             // bobbing until "put everything back" pins them again.

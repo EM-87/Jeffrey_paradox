@@ -55,37 +55,23 @@ class HandStrikeTest {
         assertEquals(2, dial().apply { showSecondHand = false }.mountedHands().size)
     }
 
-    /** A hand on the floor cannot hit anything: it is not on the axis. */
+
+
+    /**
+     * A hand that has come off is still a bar of metal sliding about the
+     * case. The strangest thing it could do is stop being solid the moment
+     * it stops being a hand — so the fallen ones are handed out too, and
+     * the count does not simply fall to nothing.
+     */
     @Test
-    fun `nor one lying at the bottom of the case`() {
+    fun `a fallen hand is still something to hit`() {
         val clock = dial()
         clock.knockHandsOff()
+        assertTrue("the pieces are still in the case", clock.isDisarranged())
         assertTrue(
-            "the hands came off, so there is nothing swinging",
-            clock.mountedHands().size < 3
+            "and still solid: they are bars, not ghosts",
+            clock.mountedHands().isNotEmpty()
         )
-    }
-
-    /** Furniture until you touch it. */
-    @Test
-    fun `a clock nobody is touching has no hand in play`() {
-        assertFalse(dial().handInPlay())
-    }
-
-    @Test
-    fun `and one being wound does`() {
-        val clock = dial()
-        // Where the second hand actually is, not where twelve is: a plain
-        // clock shows the real time, so aiming at noon catches nothing for
-        // fifty-nine minutes out of every hour.
-        val angle = clock.handAngleForTest(ClockView.Hand.SECOND)
-        val rad = Math.toRadians(angle.toDouble())
-        clock.grabHandNear(
-            360f + (260.0 * kotlin.math.sin(rad)).toFloat(),
-            360f - (260.0 * kotlin.math.cos(rad)).toFloat()
-        )
-        assertNotNull(clock.draggedHandForTest())
-        assertTrue(clock.handInPlay())
     }
 
     // ------------------------------------------------------------ the strike
@@ -136,5 +122,48 @@ class HandStrikeTest {
     @Test
     fun `a bubble impaled dead centre is left alone rather than made NaN`() {
         assertNull(HandStrike.contact(bar, 50f, 0f, radius = 20f))
+    }
+
+    // ---------------------------------------------------------- the membrane
+
+    private val rim = 300f
+
+    /** Thrown at the clock from outside, it bounces and the clock rings. */
+    @Test
+    fun `a bubble arriving on its own bounces off the rim`() {
+        assertEquals(
+            DialMembrane.Verdict.BOUNCE,
+            DialMembrane.verdict(centreDistance = rim + 50f, dialRadius = rim, dragged = false)
+        )
+    }
+
+    /** Carried in by a finger, it goes in: a finger outranks the rim. */
+    @Test
+    fun `but a finger carries it straight through`() {
+        assertEquals(
+            DialMembrane.Verdict.PASS,
+            DialMembrane.verdict(centreDistance = rim + 50f, dialRadius = rim, dragged = true)
+        )
+    }
+
+    /**
+     * And once inside it may leave whenever it likes. Being unable to take
+     * your ball back is a worse toy than being unable to throw it in.
+     */
+    @Test
+    fun `and one already inside may leave on its own`() {
+        assertEquals(
+            DialMembrane.Verdict.PASS,
+            DialMembrane.verdict(centreDistance = rim - 50f, dialRadius = rim, dragged = false)
+        )
+    }
+
+    /** Which is what makes it a membrane rather than a wall or a hole. */
+    @Test
+    fun `the rim tells the two directions apart`() {
+        val comingIn = DialMembrane.verdict(rim + 1f, rim, dragged = false)
+        val goingOut = DialMembrane.verdict(rim - 1f, rim, dragged = false)
+        assertEquals(DialMembrane.Verdict.BOUNCE, comingIn)
+        assertEquals(DialMembrane.Verdict.PASS, goingOut)
     }
 }
