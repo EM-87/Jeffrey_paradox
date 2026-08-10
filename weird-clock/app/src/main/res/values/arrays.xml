@@ -154,6 +154,17 @@
         <item>UTC</item>
     </string-array>
 
+    <string-array name="bell_marks_entries">
+        <item>The hour only</item>
+        <item>And half past</item>
+        <item>And the quarters</item>
+    </string-array>
+    <string-array name="bell_marks_values" translatable="false">
+        <item>hour</item>
+        <item>half</item>
+        <item>quarters</item>
+    </string-array>
+
     <string-array name="bell_style_entries">
         <item>Count the hour (grandfather clock)</item>
         <item>Ship’s bell (nautical watches)</item>

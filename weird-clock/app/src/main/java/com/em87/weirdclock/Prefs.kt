@@ -20,7 +20,15 @@ object Prefs {
     const val BELLS = "pref_bells"
     const val BELL_STYLE = "pref_bell_style"
     const val BELLS_BACKGROUND = "pref_bells_background"
+    /**
+     * The old half-hour switch. Read only to work out what somebody
+     * updating from a build that had it was already using; nothing writes
+     * it any more.
+     */
     const val HALF_HOUR = "pref_half_hour"
+
+    /** How much of the hour the bells mark: the hour, the half, or quarters. */
+    const val BELL_MARKS = "pref_bell_marks"
     const val TICKING = "pref_ticking"
     const val TEST_BELLS = "pref_test_bells"
     // Legacy single-alarm keys, kept only for migration to AlarmStore.

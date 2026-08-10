@@ -52,11 +52,13 @@
             android:summary="@string/pref_system_time_summary"
             android:title="@string/pref_system_time_title" />
 
-        <SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:key="pref_half_hour"
-            android:summary="@string/pref_half_hour_summary"
-            android:title="@string/pref_half_hour_title" />
+        <ListPreference
+            android:defaultValue="hour"
+            android:entries="@array/bell_marks_entries"
+            android:entryValues="@array/bell_marks_values"
+            android:key="pref_bell_marks"
+            android:summary="@string/pref_bell_marks_summary"
+            android:title="@string/pref_bell_marks_title" />
 
     </PreferenceCategory>
 

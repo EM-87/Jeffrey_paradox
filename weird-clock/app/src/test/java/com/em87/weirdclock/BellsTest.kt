@@ -38,10 +38,10 @@ class BellsTest {
     @Test
     fun `noon and midnight are twelve, not none`() {
         for (style in arrayOf(Prefs.BELL_STYLE_COUNT, Prefs.BELL_STYLE_BEEP)) {
-            assertEquals(style, 12, Bells.peal(style, 12, true, false)!!.count)
-            assertEquals(style, 12, Bells.peal(style, 0, true, false)!!.count)
-            assertEquals(style, 1, Bells.peal(style, 13, true, false)!!.count)
-            assertEquals(style, 11, Bells.peal(style, 23, true, false)!!.count)
+            assertEquals(style, 12, Bells.peal(style, 12, 0, Bells.MARKS_HOUR)!!.count)
+            assertEquals(style, 12, Bells.peal(style, 0, 0, Bells.MARKS_HOUR)!!.count)
+            assertEquals(style, 1, Bells.peal(style, 13, 0, Bells.MARKS_HOUR)!!.count)
+            assertEquals(style, 11, Bells.peal(style, 23, 0, Bells.MARKS_HOUR)!!.count)
         }
     }
 
@@ -50,7 +50,7 @@ class BellsTest {
     fun `every hour is struck`() {
         for (style in ALL) {
             for (hour in 0..23) {
-                val peal = Bells.peal(style, hour, onTheHour = true, halfHours = false)
+                val peal = Bells.peal(style, hour, 0, Bells.MARKS_HOUR)
                 assertNotNull("$style at $hour", peal)
                 assertTrue("$style at $hour", peal!!.count > 0)
             }
@@ -64,7 +64,7 @@ class BellsTest {
     @Test
     fun `half past keeps quiet unless it is wanted`() {
         for (style in ALL) {
-            val peal = Bells.peal(style, 9, onTheHour = false, halfHours = false)
+            val peal = Bells.peal(style, 9, 30, Bells.MARKS_HOUR)
             if (style == Prefs.BELL_STYLE_SHIPS) {
                 assertNotNull("a ship's bell always marks it", peal)
             } else {
@@ -76,10 +76,10 @@ class BellsTest {
     /** Nautical watches: one bell per half hour, eight at the change. */
     @Test
     fun `the ship's bell counts its watch`() {
-        assertEquals(8, Bells.peal(Prefs.BELL_STYLE_SHIPS, 12, true, false)!!.count)
-        assertEquals(2, Bells.peal(Prefs.BELL_STYLE_SHIPS, 13, true, false)!!.count)
-        assertEquals(3, Bells.peal(Prefs.BELL_STYLE_SHIPS, 13, false, false)!!.count)
-        assertTrue(Bells.peal(Prefs.BELL_STYLE_SHIPS, 13, true, false)!!.pairGrouping)
+        assertEquals(8, Bells.peal(Prefs.BELL_STYLE_SHIPS, 12, 0, Bells.MARKS_HOUR)!!.count)
+        assertEquals(2, Bells.peal(Prefs.BELL_STYLE_SHIPS, 13, 0, Bells.MARKS_HOUR)!!.count)
+        assertEquals(3, Bells.peal(Prefs.BELL_STYLE_SHIPS, 13, 30, Bells.MARKS_HOUR)!!.count)
+        assertTrue(Bells.peal(Prefs.BELL_STYLE_SHIPS, 13, 0, Bells.MARKS_HOUR)!!.pairGrouping)
     }
 
     // ------------------------------------------------------- the bip bip
@@ -91,16 +91,16 @@ class BellsTest {
      */
     @Test
     fun `the digital beeps count, they do not just signal`() {
-        val nine = Bells.peal(Prefs.BELL_STYLE_BEEP, 21, true, false)!!
-        assertTrue("it must be beeps and not a bell", nine.beeps)
+        val nine = Bells.peal(Prefs.BELL_STYLE_BEEP, 21, 0, Bells.MARKS_HOUR)!!
+        assertTrue("it must be beeps and not a bell", nine.voice == Bells.Voice.BEEP)
         assertEquals(9, nine.count)
     }
 
     /** Half past is the two-beep signal every cheap watch makes. */
     @Test
     fun `and half past is bip bip`() {
-        val half = Bells.peal(Prefs.BELL_STYLE_BEEP, 21, onTheHour = false, halfHours = true)!!
-        assertTrue(half.beeps)
+        val half = Bells.peal(Prefs.BELL_STYLE_BEEP, 21, 30, Bells.MARKS_HALF)!!
+        assertTrue(half.voice == Bells.Voice.BEEP)
         assertEquals(2, half.count)
     }
 
@@ -111,8 +111,8 @@ class BellsTest {
      */
     @Test
     fun `twelve beeps are over long before twelve strikes are`() {
-        val beeps = Bells.peal(Prefs.BELL_STYLE_BEEP, 12, true, false)!!
-        val bells = Bells.peal(Prefs.BELL_STYLE_COUNT, 12, true, false)!!
+        val beeps = Bells.peal(Prefs.BELL_STYLE_BEEP, 12, 0, Bells.MARKS_HOUR)!!
+        val bells = Bells.peal(Prefs.BELL_STYLE_COUNT, 12, 0, Bells.MARKS_HOUR)!!
         assertTrue(beeps.ringSeconds < bells.ringSeconds)
         assertTrue(
             "${length(beeps)} vs ${length(bells)}",
@@ -127,9 +127,116 @@ class BellsTest {
     @Test
     fun `no bell is a beep and no beep is a bell`() {
         for (style in ALL) {
-            val peal = Bells.peal(style, 15, true, true)!!
-            assertEquals(style == Prefs.BELL_STYLE_BEEP, peal.beeps)
+            val peal = Bells.peal(style, 15, 0, Bells.MARKS_HALF)!!
+            assertEquals(style == Prefs.BELL_STYLE_BEEP, peal.voice == Bells.Voice.BEEP)
         }
+    }
+
+    // ------------------------------------------------------ the quarters
+
+    /**
+     * One round at a quarter past, two at half past, three at a quarter
+     * to. A tower clock does this so the quarter tells you *where in the
+     * hour you are*, which is the whole point: a single ding at every
+     * quarter says only that one has gone by, and you are back to looking.
+     */
+    @Test
+    fun `each quarter says which quarter it is`() {
+        assertEquals(1, Bells.peal(null, 9, 15, Bells.MARKS_QUARTERS)!!.count)
+        assertEquals(2, Bells.peal(null, 9, 30, Bells.MARKS_QUARTERS)!!.count)
+        assertEquals(3, Bells.peal(null, 9, 45, Bells.MARKS_QUARTERS)!!.count)
+    }
+
+    /** And a quarter is never mistakable for the hour it belongs to. */
+    @Test
+    fun `a quarter does not sound like an hour`() {
+        val quarter = Bells.peal(null, 9, 45, Bells.MARKS_QUARTERS)!!
+        val hour = Bells.peal(null, 9, 0, Bells.MARKS_QUARTERS)!!
+        assertEquals(Bells.Voice.QUARTER_CHIME, quarter.voice)
+        assertEquals(Bells.Voice.BELL, hour.voice)
+        assertTrue("and it is over far sooner", length(quarter) < length(hour))
+    }
+
+    /** They stay silent unless quarters were asked for. */
+    @Test
+    fun `the quarters are quiet on the other two settings`() {
+        for (marks in arrayOf(Bells.MARKS_HOUR, Bells.MARKS_HALF)) {
+            assertNull(marks, Bells.peal(null, 9, 15, marks))
+            assertNull(marks, Bells.peal(null, 9, 45, marks))
+        }
+    }
+
+    /**
+     * Quarters mean nothing at sea: a ship's bell counts half hours of a
+     * watch and nothing else, so asking for quarters must not start it
+     * ringing at a quarter past.
+     */
+    @Test
+    fun `a ship's bell has no quarters`() {
+        assertNull(Bells.peal(Prefs.BELL_STYLE_SHIPS, 9, 15, Bells.MARKS_QUARTERS))
+        assertNull(Bells.peal(Prefs.BELL_STYLE_SHIPS, 9, 45, Bells.MARKS_QUARTERS))
+        assertNotNull(
+            "but half past is still its own",
+            Bells.peal(Prefs.BELL_STYLE_SHIPS, 9, 30, Bells.MARKS_QUARTERS)
+        )
+    }
+
+    /** Nothing sounds at a minute that is not a mark, on any setting. */
+    @Test
+    fun `no other minute of the hour makes a sound`() {
+        for (style in ALL) {
+            for (marks in arrayOf(Bells.MARKS_HOUR, Bells.MARKS_HALF, Bells.MARKS_QUARTERS)) {
+                for (minute in 0..59) {
+                    if (minute % 15 == 0) continue
+                    assertNull("$style $marks at $minute", Bells.peal(style, 9, minute, marks))
+                }
+            }
+        }
+    }
+
+    /**
+     * Somebody updating from the build with the half-hour switch keeps
+     * what they had. The bells are the part of this clock people arrange
+     * their day around; quietly resetting them would be taking a working
+     * alarm away.
+     */
+    @Test
+    fun `the old half-hour switch is honoured until it is replaced`() {
+        assertEquals(Bells.MARKS_HALF, Bells.marksFrom(null, legacyHalfHour = true))
+        assertEquals(Bells.MARKS_HOUR, Bells.marksFrom(null, legacyHalfHour = false))
+        // And once there is a real setting, the old switch stops mattering.
+        assertEquals(Bells.MARKS_HOUR, Bells.marksFrom(Bells.MARKS_HOUR, legacyHalfHour = true))
+        assertEquals(
+            Bells.MARKS_QUARTERS,
+            Bells.marksFrom(Bells.MARKS_QUARTERS, legacyHalfHour = false)
+        )
+        assertEquals("and nonsense falls back", Bells.MARKS_HOUR, Bells.marksFrom("wat", false))
+    }
+
+    // -------------------------------------------- and when to wake up for
+
+    /**
+     * The alarm for the next strike is always strictly ahead. Asked at
+     * exactly quarter past, the answer must be half past — the quarter
+     * ringing as the question is asked is not one to wake up for again,
+     * and an alarm for the instant that is now would fire immediately and
+     * arm another for the same instant.
+     */
+    @Test
+    fun `the next slot is always ahead, never the one going off`() {
+        val quarters = Bells.marked(Bells.MARKS_QUARTERS)
+        assertEquals(15, BellScheduler.nextSlot(0, quarters))
+        assertEquals(30, BellScheduler.nextSlot(15, quarters))
+        assertEquals(45, BellScheduler.nextSlot(31, quarters))
+        assertEquals("the next hour", 60, BellScheduler.nextSlot(45, quarters))
+        assertEquals("and from the very end", 60, BellScheduler.nextSlot(59, quarters))
+    }
+
+    @Test
+    fun `and it only wakes for the marks that were asked for`() {
+        assertEquals(60, BellScheduler.nextSlot(5, Bells.marked(Bells.MARKS_HOUR)))
+        assertEquals(30, BellScheduler.nextSlot(5, Bells.marked(Bells.MARKS_HALF)))
+        assertEquals(60, BellScheduler.nextSlot(35, Bells.marked(Bells.MARKS_HALF)))
     }
 
     // ----------------------------------------------------- and the wiring
@@ -144,7 +251,7 @@ class BellsTest {
     fun `the preview plays the style that is selected`() {
         for (style in ALL) {
             assertEquals(
-                "$style", style == Prefs.BELL_STYLE_BEEP, Bells.sample(style).beeps
+                "$style", style == Prefs.BELL_STYLE_BEEP, (Bells.sample(style).voice == Bells.Voice.BEEP)
             )
             assertTrue("$style", Bells.sample(style).count > 0)
         }
@@ -169,7 +276,7 @@ class BellsTest {
             // below is silent for the wrong reason — there would be nothing
             // to strike at half past either, so a clock that struck every
             // minute of the hour would still pass this.
-            .putBoolean(Prefs.HALF_HOUR, true)
+            .putString(Prefs.BELL_MARKS, Bells.MARKS_QUARTERS)
             .putString(Prefs.BELL_STYLE, Prefs.BELL_STYLE_BEEP)
             .commit()
 
@@ -178,7 +285,7 @@ class BellsTest {
             val app = controller.get()
 
             app.chimeAt(15, 0)
-            assertEquals(Bells.peal(Prefs.BELL_STYLE_BEEP, 15, true, true), app.lastPeal)
+            assertEquals(Bells.peal(Prefs.BELL_STYLE_BEEP, 15, 0, Bells.MARKS_QUARTERS), app.lastPeal)
             assertEquals(1, app.pealsStruck)
 
             // Twenty past is not a bell of any kind — counted rather than
@@ -192,7 +299,7 @@ class BellsTest {
             app.chimeAt(15, 30)
             assertEquals(2, app.pealsStruck)
             assertEquals(
-                Bells.peal(Prefs.BELL_STYLE_BEEP, 15, false, true), app.lastPeal
+                Bells.peal(Prefs.BELL_STYLE_BEEP, 15, 30, Bells.MARKS_QUARTERS), app.lastPeal
             )
         }
     }

@@ -32,6 +32,27 @@ object BellScheduler {
     const val EXTRA_ON_THE_HOUR = "extra_on_the_hour"
     const val EXTRA_HOUR = "extra_hour"
 
+    /**
+     * And which minute of it, now that there are four to choose from.
+     *
+     * The boolean above is kept because it is not ours to retire: an alarm
+     * armed by the previous build is still sitting in the system's queue
+     * across the update, and it will arrive carrying only that.
+     */
+    const val EXTRA_MINUTE = "extra_minute"
+
+    /**
+     * The next minute past the hour that wants marking, given the minute
+     * it is now and the [slots] that are wanted.
+     *
+     * Always strictly ahead: asked at exactly quarter past, the answer is
+     * half past and not the quarter that is ringing as the question is
+     * being asked. Comes back as minutes from the top of this hour, so 60
+     * means the next hour.
+     */
+    internal fun nextSlot(minuteNow: Int, slots: Set<Int>): Int =
+        slots.filter { it > minuteNow }.minOrNull() ?: 60
+
     fun update(context: Context) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         val on = prefs.getBoolean(Prefs.BELLS, false) &&
@@ -42,22 +63,24 @@ object BellScheduler {
             manager.cancel(pendingIntent(context))
             return
         }
-        val halfHours = prefs.getBoolean(Prefs.HALF_HOUR, false) ||
-            prefs.getString(Prefs.BELL_STYLE, Prefs.BELL_STYLE_COUNT) == Prefs.BELL_STYLE_SHIPS
+        val marks = Bells.marksFrom(
+            prefs.getString(Prefs.BELL_MARKS, null),
+            prefs.getBoolean(Prefs.HALF_HOUR, false)
+        )
+        // A ship's bell marks half past whatever the setting says, so an
+        // alarm has to be armed for it even when nobody asked for one.
+        val slots = Bells.marked(marks) +
+            if (prefs.getString(Prefs.BELL_STYLE, Prefs.BELL_STYLE_COUNT) == Prefs.BELL_STYLE_SHIPS) {
+                setOf(30)
+            } else {
+                emptySet()
+            }
         val slot = Calendar.getInstance().apply {
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
-            if (halfHours) {
-                // Next :00 or :30, whichever comes first.
-                val minute = get(Calendar.MINUTE)
-                if (minute < 30) set(Calendar.MINUTE, 30) else {
-                    set(Calendar.MINUTE, 0)
-                    add(Calendar.HOUR_OF_DAY, 1)
-                }
-            } else {
-                set(Calendar.MINUTE, 0)
-                add(Calendar.HOUR_OF_DAY, 1)
-            }
+            val ahead = nextSlot(get(Calendar.MINUTE), slots)
+            set(Calendar.MINUTE, ahead % 60)
+            if (ahead >= 60) add(Calendar.HOUR_OF_DAY, 1)
         }
         val next = slot.timeInMillis
         // The strike is told which slot it belongs to. Working it out from
@@ -66,7 +89,7 @@ object BellScheduler {
         // the hour.
         val pending = pendingIntent(
             context,
-            slot.get(Calendar.MINUTE) == 0,
+            slot.get(Calendar.MINUTE),
             slot.get(Calendar.HOUR_OF_DAY)
         )
         try {
@@ -78,13 +101,14 @@ object BellScheduler {
 
     private fun pendingIntent(
         context: Context,
-        onTheHour: Boolean = true,
+        minute: Int = 0,
         hour: Int = 0
     ): PendingIntent = PendingIntent.getBroadcast(
         context,
         REQUEST_CODE,
         Intent(context, BellReceiver::class.java)
-            .putExtra(EXTRA_ON_THE_HOUR, onTheHour)
+            .putExtra(EXTRA_MINUTE, minute)
+            .putExtra(EXTRA_ON_THE_HOUR, minute == 0)
             .putExtra(EXTRA_HOUR, hour),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
@@ -97,8 +121,15 @@ class BellReceiver : BroadcastReceiver() {
                 context,
                 Intent(context, BellService::class.java)
                     .putExtra(
-                        BellScheduler.EXTRA_ON_THE_HOUR,
-                        intent.getBooleanExtra(BellScheduler.EXTRA_ON_THE_HOUR, true)
+                        // An alarm armed by the build before this one is
+                        // still in the queue across the update, and carries
+                        // only the boolean.
+                        BellScheduler.EXTRA_MINUTE,
+                        intent.getIntExtra(
+                            BellScheduler.EXTRA_MINUTE,
+                            if (intent.getBooleanExtra(BellScheduler.EXTRA_ON_THE_HOUR, true)) 0
+                            else 30
+                        )
                     )
                     .putExtra(
                         BellScheduler.EXTRA_HOUR,
@@ -146,9 +177,12 @@ class BellService : Service() {
         val now = Calendar.getInstance()
         val hour = intent?.getIntExtra(BellScheduler.EXTRA_HOUR, -1)
             ?.takeIf { it in 0..23 } ?: now.get(Calendar.HOUR_OF_DAY)
-        val onTheHour = intent?.getBooleanExtra(
-            BellScheduler.EXTRA_ON_THE_HOUR, now.get(Calendar.MINUTE) < 15
-        ) ?: (now.get(Calendar.MINUTE) < 15)
+        // Rounded to the nearest quarter when nothing says otherwise: an
+        // alarm that arrives a minute late is still the quarter it was
+        // armed for.
+        val minute = intent?.getIntExtra(BellScheduler.EXTRA_MINUTE, -1)
+            ?.takeIf { it >= 0 }
+            ?: ((now.get(Calendar.MINUTE) + 7) / 15 * 15) % 60
         // Night mode keeps the house quiet.
         val quietHours = Bells.quiet(
             prefs.getBoolean(Prefs.NIGHT_DIM, false),
@@ -162,11 +196,11 @@ class BellService : Service() {
             Bells.peal(
                 prefs.getString(Prefs.BELL_STYLE, Prefs.BELL_STYLE_COUNT),
                 hour,
-                onTheHour,
-                // An alarm is only ever armed for half past when they are
-                // wanted, so anything arriving for one is wanted by
-                // definition.
-                halfHours = true
+                minute,
+                Bells.marksFrom(
+                    prefs.getString(Prefs.BELL_MARKS, null),
+                    prefs.getBoolean(Prefs.HALF_HOUR, false)
+                )
             )?.let { chimePlayer.play(it) }
         }
         handler.postDelayed({ stopSelf() }, 20_000L)

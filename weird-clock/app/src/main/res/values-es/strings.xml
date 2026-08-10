@@ -33,8 +33,8 @@
     <string name="pref_bells_title">Campanadas horarias</string>
     <string name="pref_bells_summary">Suenan a la hora en punto mientras la app está abierta</string>
     <string name="pref_bell_style_title">Estilo de campana</string>
-    <string name="pref_half_hour_title">Toque de media hora</string>
-    <string name="pref_half_hour_summary">Una campanada más aguda a la media (la campana de barco ya lo hace por sí sola)</string>
+    <string name="pref_bell_marks_title">Cuánto de la hora se marca</string>
+    <string name="pref_bell_marks_summary">La campana de barco marca la media por su cuenta, diga lo que diga esto</string>
     <string name="pref_ticking_title">Tictac</string>
     <string name="pref_ticking_summary">Un tic mecánico cada segundo</string>
     <string name="pref_test_bells_title">Probar las campanas</string>

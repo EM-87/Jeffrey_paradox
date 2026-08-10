@@ -185,7 +185,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private var bellsEnabled = false
     private var bellStyle = Prefs.BELL_STYLE_COUNT
-    private var halfHourEnabled = false
+    private var bellMarks = Bells.MARKS_HOUR
     private var tickingEnabled = false
     private var countdownPersistent = true
 
@@ -1928,7 +1928,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
         bellsEnabled = prefs.getBoolean(Prefs.BELLS, false)
         bellStyle = prefs.getString(Prefs.BELL_STYLE, Prefs.BELL_STYLE_COUNT) ?: Prefs.BELL_STYLE_COUNT
-        halfHourEnabled = prefs.getBoolean(Prefs.HALF_HOUR, false)
+        bellMarks = Bells.marksFrom(
+            prefs.getString(Prefs.BELL_MARKS, null),
+            prefs.getBoolean(Prefs.HALF_HOUR, false)
+        )
+        // Written back the first time, or the settings screen would show
+        // "the hour only" to somebody whose clock is dinging at half past:
+        // the old switch is honoured by everything that rings, and by
+        // nothing that draws.
+        if (!prefs.contains(Prefs.BELL_MARKS)) {
+            prefs.edit().putString(Prefs.BELL_MARKS, bellMarks).apply()
+        }
         tickingEnabled = prefs.getBoolean(Prefs.TICKING, false)
         countdownPersistent = prefs.getBoolean(Prefs.COUNTDOWN_PERSISTENT, true)
     }
@@ -2525,9 +2535,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * settings both used to carry their own copy of the same rule.
      */
     internal fun chimeAt(hourOfDay: Int, minute: Int) {
-        val onTheHour = minute == 0
-        if (!onTheHour && minute != 30) return
-        val peal = Bells.peal(bellStyle, hourOfDay, onTheHour, halfHourEnabled) ?: return
+        // Which minutes count is [Bells]' business too. This used to keep
+        // its own list of them, which was fine while the list was "the hour
+        // and half past" and wrong the moment there were quarters.
+        val peal = Bells.peal(bellStyle, hourOfDay, minute, bellMarks) ?: return
         lastPeal = peal
         pealsStruck++
         chimePlayer.play(peal)

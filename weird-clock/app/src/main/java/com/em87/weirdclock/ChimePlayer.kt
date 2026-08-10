@@ -119,12 +119,13 @@ class ChimePlayer {
         }
     }
 
-    /** Rings whatever [Bells] decided on, bell or beep. */
+    /** Rings whatever [Bells] decided on, on whichever voice it chose. */
     fun play(peal: Bells.Peal) {
-        if (peal.beeps) {
-            playBeepSequence(peal.count, peal.frequency, peal.ringSeconds, peal.interval)
-        } else {
-            playBellSequence(
+        when (peal.voice) {
+            Bells.Voice.BEEP ->
+                playBeepSequence(peal.count, peal.frequency, peal.ringSeconds, peal.interval)
+            Bells.Voice.QUARTER_CHIME -> playQuarters(peal.count)
+            Bells.Voice.BELL -> playBellSequence(
                 peal.count, peal.pairGrouping, peal.frequency, peal.ringSeconds, peal.interval
             )
         }
@@ -235,6 +236,7 @@ class ChimePlayer {
 
     /** Quarter chimes: quick, bright double strikes — clearly not the hour. */
     fun playQuarters(rounds: Int = 3) {
+        if (rounds <= 0) return
         thread(name = "quarters-synth") {
             val total = rounds * 0.62 + 1.2
             val buffer = FloatArray((total * SAMPLE_RATE).toInt())

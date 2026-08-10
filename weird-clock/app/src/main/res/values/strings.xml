@@ -34,8 +34,8 @@
     <string name="pref_bells_title">Hourly bells</string>
     <string name="pref_bells_summary">Chime on the hour while the app is open</string>
     <string name="pref_bell_style_title">Bell style</string>
-    <string name="pref_half_hour_title">Half-hour ding</string>
-    <string name="pref_half_hour_summary">A single higher bell at half past (ship’s bell handles this on its own)</string>
+    <string name="pref_bell_marks_title">How much of the hour is marked</string>
+    <string name="pref_bell_marks_summary">The ship’s bell marks half past on its own, whatever this says</string>
     <string name="pref_ticking_title">Ticking sound</string>
     <string name="pref_ticking_summary">A mechanical tick every second</string>
     <string name="pref_test_bells_title">Test the bells</string>

@@ -70,6 +70,12 @@
         <item>Honolulu</item>
     </string-array>
 
+    <string-array name="bell_marks_entries">
+        <item>Solo la hora</item>
+        <item>Y la media</item>
+        <item>Y los cuartos</item>
+    </string-array>
+
     <string-array name="bell_style_entries">
         <item>Contar la hora (reloj de abuelo)</item>
         <item>Campana de barco (guardias náuticas)</item>
