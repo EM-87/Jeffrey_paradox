@@ -138,4 +138,43 @@ class WaveOneTest {
         assertTrue("$size", size >= (64 * density).toInt())
         assertTrue("$size", size <= (320 * density).toInt())
     }
+
+    /**
+     * And the launcher has to let go of it downwards.
+     *
+     * Re-rendering at the size it is now was only half the job: the widget
+     * could still only be made bigger, because minWidth is the size it is
+     * dropped at *and*, with no minResizeWidth beside it, the smallest it
+     * may ever be pulled back to. Two attributes in a manifest, and the
+     * only place they can be checked is the manifest.
+     */
+    @Test
+    fun `the launcher may shrink the widget below the size it arrives at`() {
+        for (widget in intArrayOf(R.xml.widget_info, R.xml.widget_hourglass_info)) {
+            val dropped = attribute(widget, "minWidth")
+            val floor = attribute(widget, "minResizeWidth")
+            assertTrue("no minResizeWidth at all", floor != null)
+            assertTrue(
+                "a floor at the drop size is no floor: $floor vs $dropped",
+                dp(floor!!) < dp(dropped!!)
+            )
+            assertTrue("and the same downwards", dp(attribute(widget, "minResizeHeight")!!) < dp(attribute(widget, "minHeight")!!))
+        }
+    }
+
+    /** Binary XML hands dimensions back as "40.0dip" and the like. */
+    private fun dp(value: String): Float =
+        value.takeWhile { it.isDigit() || it == '.' }.toFloat()
+
+    private fun attribute(xml: Int, name: String): String? {
+        val parser = context.resources.getXml(xml)
+        while (parser.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+            if (parser.eventType == org.xmlpull.v1.XmlPullParser.START_TAG) {
+                return parser.getAttributeValue(
+                    "http://schemas.android.com/apk/res/android", name
+                )
+            }
+        }
+        return null
+    }
 }

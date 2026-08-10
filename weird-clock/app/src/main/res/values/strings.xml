@@ -290,10 +290,6 @@
     <string name="pref_ring_timeout_summary">Unattended, it gives up after this and leaves a note saying it rang.</string>
     <string name="pref_snooze_limit_title">Times an alarm may be snoozed</string>
     <string name="pref_snooze_limit_summary">After the last one the button stops being offered, so there is something to get up for.</string>
-    <string name="pref_night_from_title">Night starts at</string>
-    <string name="pref_night_from_summary">The alarms card dims itself between these two hours.</string>
-    <string name="pref_night_to_title">Night ends at</string>
-    <string name="pref_night_to_summary">Set both to the same hour to stop dimming altogether.</string>
-    <string name="pref_volume_pushers_title">Volume keys work the chronograph</string>
-    <string name="pref_volume_pushers_summary">While the stopwatch or the countdown is on screen: up starts and stops, down laps and resets.</string>
+    <string name="pref_night_window_title">Night hours</string>
+    <string name="pref_night_window_off">No dimming — both pins on the same hour</string>
 </resources>

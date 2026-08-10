@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- minWidth is the size the widget is *dropped* at; minResizeWidth is how
+     far the launcher will then let you pull it back in. Without the second
+     one the first is also the floor, which is why this widget could only
+     ever be made bigger. One cell is the floor now, and the dial is
+     re-rendered at whatever size it ends up. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="110dp"
     android:minHeight="110dp"
+    android:minResizeWidth="40dp"
+    android:minResizeHeight="40dp"
     android:targetCellWidth="2"
     android:targetCellHeight="2"
     android:updatePeriodMillis="0"

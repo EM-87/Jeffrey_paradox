@@ -112,4 +112,17 @@ class CardsTest {
         assertEquals(-1, Cards.slideFrom(Row.MIDDLE, Row.TOP))
         assertEquals(0, Cards.slideFrom(Row.MIDDLE, Row.MIDDLE))
     }
+
+    /**
+     * Every card is one move from the clock, so back is one step deep:
+     * anywhere else goes to the clock, and the clock leaves.
+     */
+    @Test
+    fun `back is the clock, and from the clock it is the way out`() {
+        for (card in Card.entries) {
+            if (card == Card.CLOCK) continue
+            assertEquals("$card", Card.CLOCK, Cards.back(card))
+        }
+        assertNull("nowhere further back", Cards.back(Card.CLOCK))
+    }
 }

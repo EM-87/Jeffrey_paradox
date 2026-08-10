@@ -58,11 +58,12 @@ object Prefs {
     const val NIGHT_FROM = "pref_night_from"
     const val NIGHT_TO = "pref_night_to"
 
+    /** The row those two hours are set on, one bar with a pin at each end. */
+    const val NIGHT_WINDOW = "pref_night_window"
+
     /** How many times one alarm may be snoozed before it insists. */
     const val SNOOZE_LIMIT = "pref_snooze_limit"
 
-    /** Volume keys work the chronograph's pushers while the app is open. */
-    const val VOLUME_PUSHERS = "pref_volume_pushers"
     const val WORLD_CLOCK = "pref_world_clock"
     // Legacy single-city key, kept only for migration to WORLD_TZS.
     const val WORLD_TZ = "pref_world_tz"

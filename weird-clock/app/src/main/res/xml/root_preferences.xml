@@ -17,6 +17,13 @@
         android:summary="@string/pref_night_dim_summary"
         android:title="@string/pref_night_dim_title" />
 
+    <!-- Hidden until there is a night to set the hours of: it sat there
+         asking a question nobody had opted into being asked. -->
+    <com.em87.weirdclock.NightWindowPreference
+        android:key="pref_night_window"
+        android:title="@string/pref_night_window_title"
+        app:isPreferenceVisible="false" />
+
     <ListPreference
         android:defaultValue="midnight"
         android:entries="@array/theme_entries"
@@ -88,30 +95,6 @@
         android:summary="@string/pref_snooze_limit_summary"
         android:title="@string/pref_snooze_limit_title"
         app:useSimpleSummaryProvider="true" />
-
-    <SeekBarPreference
-        android:defaultValue="22"
-        android:key="pref_night_from"
-        android:max="23"
-        android:summary="@string/pref_night_from_summary"
-        android:title="@string/pref_night_from_title"
-        app:min="0"
-        app:showSeekBarValue="true" />
-
-    <SeekBarPreference
-        android:defaultValue="7"
-        android:key="pref_night_to"
-        android:max="23"
-        android:summary="@string/pref_night_to_summary"
-        android:title="@string/pref_night_to_title"
-        app:min="0"
-        app:showSeekBarValue="true" />
-
-    <SwitchPreferenceCompat
-        android:defaultValue="false"
-        android:key="pref_volume_pushers"
-        android:summary="@string/pref_volume_pushers_summary"
-        android:title="@string/pref_volume_pushers_title" />
 
     <SwitchPreferenceCompat
         android:defaultValue="false"

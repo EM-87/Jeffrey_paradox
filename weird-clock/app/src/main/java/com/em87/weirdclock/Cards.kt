@@ -90,4 +90,17 @@ object Cards {
      * across rather than between.
      */
     fun slideFrom(from: Row, to: Row): Int = to.ordinal.compareTo(from.ordinal)
+
+    /**
+     * Where the back gesture goes from [from], or null when there is
+     * nowhere further back and the app should close.
+     *
+     * The app has never answered back at all. Every card is one move from
+     * the clock, so the whole of the app's history is one step deep and
+     * there is no stack to pop: back is "the clock", and only from the
+     * clock itself is it "leave". Falling through to the system meant that
+     * anywhere in the app — half way through timing something, with an
+     * alarm open — the button between the other two closed it.
+     */
+    fun back(from: Card): Card? = if (from == HOME) null else HOME
 }

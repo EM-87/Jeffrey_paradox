@@ -31,4 +31,34 @@ object NightWindow {
         // that do not cross it are the odd ones.
         return if (start < end) h in start until end else h >= start || h < end
     }
+
+    /** The hours in a day, and so the number of sections on the bar. */
+    const val HOURS = 24
+
+    /**
+     * How far apart two hours are, going whichever way round is shorter.
+     *
+     * Two on a clock face, not two on a ruler: eleven at night and one in
+     * the morning are two hours apart, not twenty-two.
+     */
+    fun apart(a: Float, b: Float): Float {
+        val d = kotlin.math.abs(a - b) % HOURS
+        return kotlin.math.min(d, HOURS - d)
+    }
+
+    /**
+     * Which of the two pins a finger landing at [hour] takes hold of: true
+     * for the one the night starts at, false for the one it ends at.
+     *
+     * Measured the short way round, so a touch just after midnight reaches
+     * for the pin at eleven rather than the one at seven.
+     */
+    fun grabsEntry(hour: Float, from: Int, to: Int): Boolean =
+        apart(hour, from.toFloat()) <= apart(hour, to.toFloat())
+
+    /** The window written out, for the row underneath the bar. */
+    fun label(from: Int, to: Int): String = "%02d:00 – %02d:00".format(
+        ((from % HOURS) + HOURS) % HOURS,
+        ((to % HOURS) + HOURS) % HOURS
+    )
 }

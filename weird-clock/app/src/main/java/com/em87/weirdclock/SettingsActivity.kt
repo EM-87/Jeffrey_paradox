@@ -115,6 +115,17 @@ class SettingsActivity : AppCompatActivity() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
             updateCitiesSummary()
+            // The hours the night runs over are a question about a feature
+            // that is off by default, so they stay out of sight until it is
+            // switched on — and appear straight away when it is, rather
+            // than on the next visit to this screen.
+            val nightWindow = findPreference<Preference>(Prefs.NIGHT_WINDOW)
+            val nightDim = findPreference<SwitchPreferenceCompat>(Prefs.NIGHT_DIM)
+            nightWindow?.isVisible = nightDim?.isChecked == true
+            nightDim?.setOnPreferenceChangeListener { _, newValue ->
+                nightWindow?.isVisible = newValue == true
+                true
+            }
             // The panic button only appears when something is actually
             // lying at the bottom of the dial.
             findPreference<Preference>(Prefs.REASSEMBLE)?.isVisible =
