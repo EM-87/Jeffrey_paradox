@@ -299,4 +299,8 @@
     <string name="mission_answer_hint">Answer</string>
     <string name="mission_maths_a11y">%1$d times %2$d</string>
     <string name="mission_shake_fmt">Shake it: %1$d / %2$d</string>
+    <string name="nag_title">The alarm is coming back</string>
+    <string name="nag_message">Its mission was never passed, so it has booked itself another go at %1$s. It has tried %2$d times so far.</string>
+    <string name="nag_call_off">Call it off</string>
+    <string name="nag_leave_it">Leave it</string>
 </resources>

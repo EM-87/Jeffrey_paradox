@@ -610,6 +610,36 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     /**
+     * The way out of an alarm that keeps coming back.
+     *
+     * A mission nobody passed books itself another go, and this is the
+     * escape the whole thing was designed around: it takes finding the
+     * app, reading a question and answering it — awake work, which is the
+     * point, and not one tap from under the covers, which is what a button
+     * on the ringing screen or in the notification shade would be.
+     *
+     * Asked every time the app comes back while one is booked, because the
+     * one thing worse than an alarm that keeps returning is an alarm that
+     * keeps returning and never says so.
+     */
+    private fun offerToCallOffTheNag() {
+        if (!Nag.pending(prefs)) return
+        if (nagDialog?.isShowing == true) return
+        val at = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
+            .format(java.util.Date(Nag.bookedAt(prefs)))
+        nagDialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.nag_title)
+            .setMessage(getString(R.string.nag_message, at, Nag.rounds(prefs)))
+            .setPositiveButton(R.string.nag_call_off) { _, _ -> Nag.callOff(this) }
+            .setNegativeButton(R.string.nag_leave_it, null)
+            .show()
+    }
+
+    /** The dialog offering the way out, while it is on screen. */
+    internal var nagDialog: androidx.appcompat.app.AlertDialog? = null
+        private set
+
+    /**
      * First run only: introduce the floating hourglass and offer the
      * draw-over-apps permission right away — buried in a settings toggle,
      * nobody would ever discover it exists.
@@ -687,6 +717,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             prefs.edit().putBoolean(Prefs.REASSEMBLE_PENDING, false).apply()
             reassembleEverything()
         }
+        offerToCallOffTheNag()
         // The store is not ours alone. The assistant adds alarms through
         // ClockIntentActivity, and a one-shot switches itself off from the
         // receiver when it rings — both while this activity sits in the

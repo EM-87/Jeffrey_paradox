@@ -297,6 +297,14 @@ class AlarmService : Service() {
      */
     private val giveUp = Runnable {
         noteMissed()
+        // An unpassed mission does not go away. Without this the mission is
+        // theatre: ignore it for three minutes and going back to sleep
+        // costs nothing, which is the exact thing it was added to stop.
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val rounds = Nag.rounds(prefs)
+        if (Nag.wantsAnother(guardsStop(this, fromTimer), rounds)) {
+            Nag.arm(this, sound, soundUri, label, snoozeMinutes, rounds)
+        }
         stopSelf()
     }
 

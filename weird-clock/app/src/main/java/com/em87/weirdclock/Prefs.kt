@@ -75,6 +75,13 @@ object Prefs {
      */
     const val MISSION = "pref_mission"
 
+    /**
+     * When an unpassed mission is coming back, and how many times it
+     * already has. Both cleared the moment it is dealt with.
+     */
+    const val NAG_AT = "pref_nag_at"
+    const val NAG_ROUNDS = "pref_nag_rounds"
+
     /** How many times one alarm may be snoozed before it insists. */
     const val SNOOZE_LIMIT = "pref_snooze_limit"
 

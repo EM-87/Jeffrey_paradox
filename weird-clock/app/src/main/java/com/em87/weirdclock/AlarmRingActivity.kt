@@ -78,6 +78,9 @@ class AlarmRingActivity : AppCompatActivity() {
             val sound = intent.getStringExtra(AlarmScheduler.EXTRA_SOUND) ?: Prefs.ALARM_SOUND_BELLS
             val soundUri = intent.getStringExtra(AlarmScheduler.EXTRA_SOUND_URI) ?: ""
             snoozeButton.setOnClickListener {
+                // The snooze takes over from here, so anything already
+                // booked would land in the middle of it.
+                Nag.callOff(this)
                 AlarmScheduler.snooze(this, sound, snoozeMinutes, soundUri, already)
                 startService(Intent(this, AlarmService::class.java).setAction(AlarmService.ACTION_STOP))
                 finish()
@@ -86,6 +89,11 @@ class AlarmRingActivity : AppCompatActivity() {
     }
 
     private fun stopRinging() {
+        // Dealt with properly, so nothing is coming back. Called on every
+        // stop and not only after a mission: a nag left armed from an
+        // earlier round would otherwise go off after a morning that had
+        // already been got up for.
+        Nag.callOff(this)
         startService(Intent(this, AlarmService::class.java).setAction(AlarmService.ACTION_STOP))
         finish()
     }
