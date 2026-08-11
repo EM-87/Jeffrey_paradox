@@ -115,6 +115,56 @@ class ScreenshotTest {
         }
     }
 
+    /**
+     * The settings, screen by screen and scrolled all the way down.
+     *
+     * A setting that exists in the code and cannot be found in the menu is
+     * a setting that does not exist. The only way to check that from here
+     * is to lay the list out and read it.
+     */
+    @Test
+    fun `every settings screen, top to bottom`() {
+        prefs.edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.BELLS, true)
+            .putBoolean(Prefs.NIGHT_DIM, true)
+            .commit()
+        Robolectric.buildActivity(SettingsActivity::class.java).use { c ->
+            c.setup()
+            val fragment = c.get().supportFragmentManager.fragments.first()
+                as androidx.preference.PreferenceFragmentCompat
+            shootList(fragment, "settings-root")
+        }
+        for ((name, fragment) in listOf(
+            "settings-advanced" to SettingsActivity.AdvancedSettingsFragment(),
+            "settings-very-advanced" to SettingsActivity.VeryAdvancedSettingsFragment()
+        )) {
+            Robolectric.buildActivity(SettingsActivity::class.java).use { c ->
+                c.setup()
+                c.get().supportFragmentManager.beginTransaction()
+                    .replace(R.id.settings_container, fragment).commitNow()
+                shootList(fragment, name)
+            }
+        }
+    }
+
+    /**
+     * A preference list is a RecyclerView, so only what fits is ever laid
+     * out. Measured tall enough for the whole list, every row is there.
+     */
+    private fun shootList(fragment: androidx.preference.PreferenceFragmentCompat, name: String) {
+        val list = fragment.listView
+        val rows = fragment.preferenceScreen.preferenceCount
+        val tall = 200 * rows + 400
+        list.measure(
+            View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(tall, View.MeasureSpec.EXACTLY)
+        )
+        list.layout(0, 0, 1080, tall)
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        assertTrue(name, shoot(list, name) > 3f)
+    }
+
     /** The night bar, which is the thing in here nobody has ever seen. */
     @Test
     fun `the night hours, with the bar in three states`() {

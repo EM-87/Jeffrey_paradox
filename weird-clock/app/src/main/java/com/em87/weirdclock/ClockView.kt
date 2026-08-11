@@ -942,15 +942,19 @@ class ClockView @JvmOverloads constructor(
      * no pager underneath to have claimed it first.
      */
     private fun handleVerticalFling(start: MotionEvent, end: MotionEvent, velocityY: Float): Boolean {
+        // Asked for first, and before anything is given up. With nobody
+        // listening this used to abort a hand you were dragging and then
+        // return false anyway: the gesture was gone but its cost was not.
+        val listener = onVerticalSwipe ?: return false
         val up = velocityY < 0
-        if (tapCandidate) return onVerticalSwipe?.invoke(up) ?: false
+        if (tapCandidate) return listener.invoke(up)
         val dx = end.x - start.x
         val dy = end.y - start.y
         val straight = kotlin.math.abs(dy) > height * 0.20f &&
             kotlin.math.abs(dy) > kotlin.math.abs(dx) * 1.5f
         if (!straight) return false
         if (draggedHand != null) abortDragForSwipe()
-        return onVerticalSwipe?.invoke(up) ?: false
+        return listener.invoke(up)
     }
 
     @SuppressLint("ClickableViewAccessibility")

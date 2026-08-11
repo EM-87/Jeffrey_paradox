@@ -617,6 +617,7 @@ class SandHourglassView @JvmOverloads constructor(
                 velocityY: Float
             ): Boolean {
                 val start = e1 ?: return false
+                if (onVerticalSwipe == null) return false
                 if (kotlin.math.abs(velocityY) < 500f ||
                     kotlin.math.abs(velocityY) <= kotlin.math.abs(velocityX)
                 ) {

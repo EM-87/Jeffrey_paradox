@@ -53,6 +53,15 @@
         android:title="@string/pref_bell_style_title"
         app:useSimpleSummaryProvider="true" />
 
+    <ListPreference
+        android:defaultValue="hour"
+        android:dependency="pref_bells"
+        android:entries="@array/bell_marks_entries"
+        android:entryValues="@array/bell_marks_values"
+        android:key="pref_bell_marks"
+        android:title="@string/pref_bell_marks_title"
+        app:useSimpleSummaryProvider="true" />
+
     <SwitchPreferenceCompat
         android:defaultValue="false"
         android:dependency="pref_bells"
@@ -83,8 +92,8 @@
         android:entries="@array/gentle_wake_entries"
         android:entryValues="@array/gentle_wake_values"
         android:key="pref_gentle_wake"
-        android:summary="@string/pref_gentle_wake_summary"
-        android:title="@string/pref_gentle_wake_title" />
+        android:title="@string/pref_gentle_wake_title"
+        app:useSimpleSummaryProvider="true" />
 
     <ListPreference
         android:defaultValue="3"
@@ -109,8 +118,8 @@
         android:entries="@array/mission_entries"
         android:entryValues="@array/mission_values"
         android:key="pref_mission"
-        android:summary="@string/pref_mission_summary"
-        android:title="@string/pref_mission_title" />
+        android:title="@string/pref_mission_title"
+        app:useSimpleSummaryProvider="true" />
 
     <SwitchPreferenceCompat
         android:defaultValue="false"

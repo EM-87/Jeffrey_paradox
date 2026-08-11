@@ -141,6 +141,45 @@ class PushersTest {
         }
     }
 
+    // ------------------------------------------------- the rows, by button
+
+    /**
+     * A flick up or down no longer moves between rows.
+     *
+     * The hourglass and the two chronographs are secondary things, reached
+     * by the button that names them. A gesture that took you to one by
+     * accident — off a dial you were winding, or a bubble you were
+     * flicking — cost more than it ever saved.
+     */
+    @Test
+    fun `no dial answers a flick up or down any more`() {
+        onApp { app ->
+            for (id in intArrayOf(
+                R.id.clock_view, R.id.stopwatch_clock_view, R.id.countdown_clock_view
+            )) {
+                val dial = app.findViewById<ClockView>(id)
+                assertEquals(
+                    "a dial still listens for vertical swipes",
+                    null, dial?.onVerticalSwipe
+                )
+            }
+        }
+    }
+
+    /** And the buttons still do, which is the whole point of keeping them. */
+    @Test
+    fun `the buttons are the way between rows`() {
+        onApp { app ->
+            app.press(R.id.to_stopwatch_button)
+            assertEquals(
+                View.VISIBLE,
+                app.findViewById<View>(R.id.stopwatch_container).visibility
+            )
+            app.back()
+            assertEquals(View.VISIBLE, app.findViewById<View>(R.id.clock_container).visibility)
+        }
+    }
+
     // ---------------------------------------------------------- the feel
 
     /**

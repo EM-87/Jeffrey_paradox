@@ -958,7 +958,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
             it.onDialScaleChanged = { scale -> shareDialScale(scale, it) }
             it.onHorizontalSwipe = { fingerRight -> swipeSideways(Card.REVERSE, fingerRight) }
-            it.onVerticalSwipe = { up -> swipeRows(up) }
             it.onCrownTap = {
                 // The winding crown tidies the whole scene, bubbles included.
                 chimePlayer.playCuckoo()
@@ -998,7 +997,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
             it.onDialScaleChanged = { scale -> shareDialScale(scale, it) }
             it.onHorizontalSwipe = { fingerRight -> swipeSideways(Card.STOPWATCH, fingerRight) }
-            it.onVerticalSwipe = { up -> swipeRows(up) }
             it.onCrownTap = {
                 // The winding crown tidies the whole scene, bubbles included.
                 chimePlayer.playCuckoo()
@@ -1018,7 +1016,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // tomorrow holds, which is the one thing a twelve-hour face can
             // do that a list cannot.
             it.onShownDayChanged = { updateAlarmMarkers() }
-            it.onVerticalSwipe = { up -> swipeRows(up) }
             it.onCrownTap = {
                 // The winding crown tidies the whole scene, bubbles included.
                 chimePlayer.playCuckoo()
@@ -1068,7 +1065,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         s3Sand = root.findViewById<SandHourglassView>(R.id.s3_sand).also {
             it.onFlowBlocked = { blocked -> sandBlocked = blocked }
             it.onScaleChanged = { scale -> shareDialScale(scale, null) }
-            it.onVerticalSwipe = { up -> swipeRows(up) }
         }
         sandStartStop = root.findViewById<Button>(R.id.sand_start_stop).also {
             it.setOnClickListener { toggleCountdown() }
@@ -2172,7 +2168,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         goTo(if (current() == Card.HOURGLASS) Card.CLOCK else Card.HOURGLASS)
     }
 
-    /** Whichever timer face is in use, for the ways in from outside. */
+    /**
+     * Whichever timer face is in use, for the ways in from outside.
+     *
+     * Nothing ever wrote this down, so the answer was always "the
+     * hourglass": the notification of a running countdown, and the sand
+     * widget, both landed on the sand even for somebody who only ever uses
+     * the dial. It is written now, in [applyRow], as the rows are used.
+     */
     private fun timerCard(): Card =
         if (prefs.getBoolean(Prefs.TIMER_ON_DIAL, false)) Card.REVERSE else Card.HOURGLASS
 
@@ -2185,6 +2188,20 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * thing while there are only two of them and quietly wrong the moment
      * there are three.
      */
+    /**
+     * Nothing calls this any more, and that is the point of the note.
+     *
+     * A flick up or down used to move between the rows. It has been taken
+     * off the dials: the hourglass and the two chronographs are secondary
+     * things, reached by the button that names them, and a gesture that
+     * moved you to one by accident — from a dial you were winding, or a
+     * bubble you were flicking — cost more than it ever saved. The
+     * buttons and the back gesture are the ways between rows now.
+     *
+     * The transitions are untouched: the hands still carry across and the
+     * cards still slide. What has gone is only the way in.
+     */
+    @Suppress("unused")
     private fun swipeRows(up: Boolean): Boolean =
         move(if (up) Direction.UP else Direction.DOWN)
 
@@ -2415,6 +2432,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // they arrive with them: setting the flag is what starts their
         // fade, so it is set on every move rather than once when the page
         // was built — which is why they used to be simply always there.
+        // Which timer face was last looked at, so the notification and the
+        // sand widget come back to the one actually in use.
+        Cards.on(pager.currentItem, row)?.let { here ->
+            if (here == Card.REVERSE || here == Card.HOURGLASS) {
+                prefs.edit().putBoolean(Prefs.TIMER_ON_DIAL, here == Card.REVERSE).apply()
+            }
+        }
         stopwatchClockView?.chronoButtons = row == Card.STOPWATCH.row
         countdownClockView?.chronoButtons = row == Card.REVERSE.row
         // A card arrives from the direction it lives in and the one it
