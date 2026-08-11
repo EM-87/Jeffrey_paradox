@@ -35,7 +35,6 @@
     <string name="pref_bells_summary">Chime on the hour while the app is open</string>
     <string name="pref_bell_style_title">Bell style</string>
     <string name="pref_bell_marks_title">How much of the hour is marked</string>
-    <string name="pref_bell_marks_summary">The ship’s bell marks half past on its own, whatever this says</string>
     <string name="pref_ticking_title">Ticking sound</string>
     <string name="pref_ticking_summary">A mechanical tick every second</string>
     <string name="pref_test_bells_title">Test the bells</string>
@@ -293,7 +292,6 @@
     <string name="pref_night_window_title">Night hours</string>
     <string name="pref_night_window_off">No dimming — both pins on the same hour</string>
     <string name="pref_mission_title">Anti-sleep mission</string>
-    <string name="pref_mission_summary">What it takes to stop the alarm. Snooze is unaffected — snooze is not the problem.</string>
     <string name="mission_check">Stop the alarm</string>
     <string name="mission_open">Open</string>
     <string name="mission_answer_hint">Answer</string>
@@ -304,5 +302,4 @@
     <string name="nag_call_off">Call it off</string>
     <string name="nag_leave_it">Leave it</string>
     <string name="pref_gentle_wake_title">Gentle wake</string>
-    <string name="pref_gentle_wake_summary">The ring screen comes up from a glow instead of switching on. The sound already ramps.</string>
 </resources>

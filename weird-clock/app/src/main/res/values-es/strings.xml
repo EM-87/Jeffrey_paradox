@@ -34,7 +34,6 @@
     <string name="pref_bells_summary">Suenan a la hora en punto mientras la app está abierta</string>
     <string name="pref_bell_style_title">Estilo de campana</string>
     <string name="pref_bell_marks_title">Cuánto de la hora se marca</string>
-    <string name="pref_bell_marks_summary">La campana de barco marca la media por su cuenta, diga lo que diga esto</string>
     <string name="pref_ticking_title">Tictac</string>
     <string name="pref_ticking_summary">Un tic mecánico cada segundo</string>
     <string name="pref_test_bells_title">Probar las campanas</string>
@@ -290,7 +289,6 @@
     <string name="pref_night_window_title">Horario nocturno</string>
     <string name="pref_night_window_off">Sin atenuar: los dos pines en la misma hora</string>
     <string name="pref_mission_title">Misión antisueño</string>
-    <string name="pref_mission_summary">Lo que cuesta parar la alarma. El aplazar no cambia: aplazar no es el problema.</string>
     <string name="mission_check">Parar la alarma</string>
     <string name="mission_open">Abrir</string>
     <string name="mission_answer_hint">Respuesta</string>
@@ -301,5 +299,4 @@
     <string name="nag_call_off">Cancelarla</string>
     <string name="nag_leave_it">Dejarla</string>
     <string name="pref_gentle_wake_title">Despertar suave</string>
-    <string name="pref_gentle_wake_summary">La pantalla de la alarma sube desde un resplandor en vez de encenderse de golpe. El sonido ya sube solo.</string>
 </resources>

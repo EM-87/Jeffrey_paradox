@@ -92,6 +92,58 @@ class NightBarTest {
         assertEquals("00:00 – 23:00", NightWindow.label(0, 23))
     }
 
+    // ------------------------------------------------- the menu itself
+
+    /**
+     * Every settings screen still has everything on it.
+     *
+     * Moving one row out of a screen took eight others with it, and the
+     * only thing that noticed was a lint warning counted by hand. A menu
+     * is a list of promises; this is the list.
+     */
+    @Test
+    fun `no settings screen has quietly lost a row`() {
+        val screens = mapOf(
+            R.xml.root_preferences to listOf(
+                Prefs.NIGHT_DIM, Prefs.NIGHT_WINDOW, Prefs.THEME, Prefs.SHOW_DATE,
+                Prefs.BELLS, Prefs.BELL_STYLE, Prefs.BELL_MARKS, Prefs.BELLS_BACKGROUND,
+                Prefs.TEST_BELLS, Prefs.TICKING, Prefs.ALARM_RAMP, Prefs.GENTLE_WAKE,
+                Prefs.RING_TIMEOUT_MIN, Prefs.SNOOZE_LIMIT, Prefs.MISSION,
+                Prefs.WORLD_CLOCK, Prefs.ADVANCED
+            ),
+            R.xml.very_advanced_preferences to listOf(
+                Prefs.HOURS_PRESET, Prefs.HOURS_CUSTOM, Prefs.MIRROR,
+                Prefs.TIME_SPEED, Prefs.SOLAR_TIME, "pref_system_time"
+            ),
+            R.xml.advanced_preferences to listOf(
+                Prefs.MARK_COLORS, Prefs.BIRTHDAY
+            )
+        )
+        for ((xml, keys) in screens) {
+            val text = readXml(xml)
+            for (key in keys) {
+                assertTrue("$key has gone missing", text.contains(key))
+            }
+        }
+        // And the one row that really did move is gone from where it was.
+        assertFalse(readXml(R.xml.very_advanced_preferences).contains(Prefs.BELL_MARKS))
+    }
+
+    /** Every key named in a preference screen, as a set of strings. */
+    private fun readXml(xml: Int): Set<String> {
+        val parser = ApplicationProvider.getApplicationContext<android.content.Context>()
+            .resources.getXml(xml)
+        val keys = HashSet<String>()
+        while (parser.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+            if (parser.eventType == org.xmlpull.v1.XmlPullParser.START_TAG) {
+                parser.getAttributeValue(
+                    "http://schemas.android.com/apk/res/android", "key"
+                )?.let { keys.add(it) }
+            }
+        }
+        return keys
+    }
+
     // ------------------------------------------------- the row it lives in
 
     /**
