@@ -196,8 +196,11 @@ object Bells {
             4, ChimePlayer.SHIPS_HZ, 2.0, pairGrouping = true
         )
         Prefs.BELL_STYLE_SINGLE -> Peal(1, ChimePlayer.GONG_HZ, 4.5)
+        // Two, not three. Every other style previews with three strikes,
+        // but two is the signal a cheap watch actually makes, and hearing
+        // three of them is hearing the wrong thing.
         Prefs.BELL_STYLE_BEEP -> Peal(
-            3, CASIO_HZ, 0.055, interval = 0.20, voice = Voice.BEEP
+            2, CASIO_HZ, 0.055, interval = 0.12, voice = Voice.BEEP
         )
         else -> Peal(3, ChimePlayer.GRANDFATHER_HZ, 3.0, interval = 1.3)
     }

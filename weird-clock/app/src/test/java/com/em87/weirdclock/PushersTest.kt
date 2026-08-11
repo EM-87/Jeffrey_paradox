@@ -180,6 +180,40 @@ class PushersTest {
         }
     }
 
+    /**
+     * The stopwatch starts when it is pressed, not up to a second later.
+     *
+     * How long until the next frame is worked out at the moment a frame is
+     * posted, and a stopped chronograph asks for one a second. So the
+     * ticker was already sitting on a delay of up to a second when start
+     * was pressed, and pressing it only invalidated: the hand stayed still
+     * under the thumb that had just pressed it. Stopping felt quicker only
+     * because it was already running at sixty frames a second.
+     */
+    @Test
+    fun `starting and stopping the stopwatch ask for a frame at once`() {
+        onApp { app ->
+            app.press(R.id.to_stopwatch_button)
+            val dial = app.stopwatch()
+
+            val before = dial.tickerKicks
+            dial.chronoRunning = true
+            assertTrue(
+                "start did not restart the frame loop",
+                dial.tickerKicks > before
+            )
+
+            val running = dial.tickerKicks
+            dial.chronoRunning = false
+            assertTrue("nor did stop", dial.tickerKicks > running)
+
+            // And setting it to what it already is costs nothing.
+            val settled = dial.tickerKicks
+            dial.chronoRunning = false
+            assertEquals(settled, dial.tickerKicks)
+        }
+    }
+
     // ---------------------------------------------------------- the feel
 
     /**

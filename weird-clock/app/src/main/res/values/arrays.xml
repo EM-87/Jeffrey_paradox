@@ -169,7 +169,7 @@
 
     <string-array name="mission_entries">
         <item>None — slide to stop</item>
-        <item>A sum</item>
+        <item>A multiplication</item>
         <item>Shake the phone</item>
     </string-array>
     <string-array name="mission_values" translatable="false">

@@ -259,6 +259,10 @@ class BellsTest {
             "a gong is one strike, not three",
             1, Bells.sample(Prefs.BELL_STYLE_SINGLE).count
         )
+        assertEquals(
+            "the Casio signal is bip bip, and hearing three is hearing the wrong thing",
+            2, Bells.sample(Prefs.BELL_STYLE_BEEP).count
+        )
     }
 
     /**

@@ -17,11 +17,11 @@ object GentleWake {
      *
      * Not zero, and this is the whole of the care needed here: a screen at
      * nothing looks like a screen that failed to come on, and the one
-     * thing an alarm screen must never do is look broken. Low enough to be
-     * no more than a glow in a dark room, high enough that there is
-     * plainly something there.
+     * thing an alarm screen must never do is look broken. It was 0.05 and
+     * that was too near nothing — reported as a black screen, which is
+     * exactly the failure this number exists to avoid.
      */
-    const val FLOOR = 0.05f
+    const val FLOOR = 0.12f
 
     /** Off, and the two ends of what can be asked for, in seconds. */
     const val OFF = 0

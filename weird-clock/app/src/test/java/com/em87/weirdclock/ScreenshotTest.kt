@@ -84,6 +84,36 @@ class ScreenshotTest {
         }
     }
 
+    /**
+     * The same screen with the keyboard up, which is how it is actually
+     * seen: the numeric keypad takes the bottom half, and what it was
+     * covering was the question, the box and the button — all three of the
+     * things the mission is made of.
+     */
+    @Test
+    fun `the ring screen with a sum, under the keyboard`() {
+        prefs.edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putString(Prefs.MISSION, Mission.MATHS)
+            .commit()
+        val intent = android.content.Intent(context, AlarmRingActivity::class.java)
+            .putExtra(AlarmScheduler.EXTRA_SNOOZE, 5)
+            .putExtra(AlarmScheduler.EXTRA_LABEL, "Work")
+        Robolectric.buildActivity(AlarmRingActivity::class.java, intent).use { c ->
+            c.setup()
+            val screen = screenOf(c.get())
+            // Roughly what is left of a 891dp-tall phone with the numeric
+            // keypad up.
+            val left = (891 - 300) * context.resources.displayMetrics.density
+            screen.measure(
+                View.MeasureSpec.makeMeasureSpec(screen.width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(left.toInt(), View.MeasureSpec.EXACTLY)
+            )
+            screen.layout(0, 0, screen.width, left.toInt())
+            assertTrue(shoot(screen, "ring-maths-keyboard") > 3f)
+        }
+    }
+
     @Test
     fun `the ring screen counting shakes`() {
         prefs.edit().clear()

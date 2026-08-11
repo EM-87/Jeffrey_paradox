@@ -126,6 +126,29 @@ class GentleWakeTest {
         }
     }
 
+    /**
+     * And it is down at the glow before the window has drawn once.
+     *
+     * Set from a posted message instead, the screen came on at whatever
+     * brightness the phone was on and dropped to the glow a frame later —
+     * a blink in a dark room, which is the exact opposite of the point.
+     * Read here before the queue is allowed to run, because after it has
+     * run the two are indistinguishable.
+     */
+    @Test
+    fun `the glow is in place before the first frame`() {
+        prefs.edit().putString(Prefs.GENTLE_WAKE, "60").commit()
+        val controller = Robolectric.buildActivity(AlarmRingActivity::class.java).create()
+        try {
+            assertEquals(
+                "the screen was left at full brightness for a frame",
+                GentleWake.FLOOR, controller.get().screenBrightness, 0.01f
+            )
+        } finally {
+            controller.destroy()
+        }
+    }
+
     /** And with one, the screen starts down at the glow. */
     @Test
     fun `on means it comes up from the floor`() {

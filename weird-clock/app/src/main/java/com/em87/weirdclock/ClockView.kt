@@ -188,7 +188,19 @@ class ClockView @JvmOverloads constructor(
 
     /** Tints the start/stop pusher while the chronograph is running. */
     var chronoRunning = false
-        set(value) { field = value; invalidate() }
+        set(value) {
+            if (field == value) return
+            field = value
+            // The ticker was already posted at whatever the *old* answer to
+            // tickDelayMs() was — and a stopped chronograph only asks for a
+            // frame each second. Pressing start used to do nothing but
+            // invalidate, so the first frame of a running stopwatch could be
+            // most of a second late and the hand sat still under the thumb
+            // that had just pressed it. Stopping felt quicker only because
+            // it was already running at sixty frames a second.
+            kickTicker()
+            invalidate()
+        }
 
     var onChronoStartStop: (() -> Unit)? = null
     var onChronoReset: (() -> Unit)? = null
@@ -773,6 +785,23 @@ class ClockView @JvmOverloads constructor(
         if (chronoProvider != null && !chronoRunning) return false
         return chronoProvider != null || showsFastHand() ||
             (smoothSeconds && showSecondHand)
+    }
+
+    /**
+     * How many times the frame loop has been restarted from scratch,
+     * counted so the tests can see it happen.
+     *
+     * Restarting is the whole of the fix: the delay is worked out when a
+     * frame is posted, so anything that changes the answer has to throw
+     * away the pending one and ask again.
+     */
+    internal var tickerKicks = 0
+        private set
+
+    private fun kickTicker() {
+        tickerKicks++
+        removeCallbacks(ticker)
+        post(ticker)
     }
 
     private val ticker = object : Runnable {
@@ -2946,12 +2975,15 @@ class ClockView @JvmOverloads constructor(
         // stopwatch and a ten-division ring appeared in the middle of the
         // dial in one frame while everything around it was still arriving.
         val chronoLayer = beginFurniture(canvas)
-        drawLapGhosts(canvas, cx, cy, r)
+        // The scale first and the ghosts on top of it. The other way round
+        // the ten division marks were drawn across every recorded lap, so a
+        // list of laps read as a list of laps with lines through it.
         drawFastScale(canvas, cx, cy, r)
+        drawLapGhosts(canvas, cx, cy, r)
         endFurniture(canvas, chronoLayer)
         drawGhost(canvas) {
-            it.drawLapGhosts(canvas, cx, cy, r)
             it.drawFastScale(canvas, cx, cy, r)
+            it.drawLapGhosts(canvas, cx, cy, r)
         }
 
         // The tenths hand itself is a hand: it travels rather than fades.

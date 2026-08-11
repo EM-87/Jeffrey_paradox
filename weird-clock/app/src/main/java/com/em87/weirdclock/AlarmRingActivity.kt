@@ -24,6 +24,11 @@ class AlarmRingActivity : AppCompatActivity() {
             )
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // Before anything is laid out, let alone drawn. Set after the
+        // window was up, the screen came on at whatever brightness the
+        // phone was on and *then* dropped to the glow — a blink, which is
+        // the opposite of a gentle wake.
+        startGentleWake()
         setContentView(R.layout.activity_alarm_ring)
         SystemChrome.paint(this)
         SystemChrome.padForBars(findViewById(android.R.id.content))
@@ -63,7 +68,6 @@ class AlarmRingActivity : AppCompatActivity() {
         }
         findViewById<SlideToStopView>(R.id.stop_slider).onSlid = { stopRinging() }
         setUpMission()
-        startGentleWake()
         val snoozeButton = findViewById<Button>(R.id.snooze_button)
         val snoozeMinutes = intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE, 0)
         val already = intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_COUNT, 0)
@@ -147,6 +151,10 @@ class AlarmRingActivity : AppCompatActivity() {
         // taking the screen brightness over at all is a thing to do only
         // when somebody has said so.
         if (gentleRampMs <= 0L) return
+        // Set here and now, not on the next pass of the looper: a posted
+        // message runs after this window has had its first frame, which is
+        // the frame that was arriving at full brightness.
+        setBrightness(GentleWake.brightness(ringingFor(), gentleRampMs))
         handler.post(brighten)
     }
 
@@ -226,6 +234,14 @@ class AlarmRingActivity : AppCompatActivity() {
             )
             return
         }
+
+        // The numeric keypad takes the bottom half of the screen, and what
+        // it was covering was the question, the box and the button — all
+        // three of the things the mission is made of. The bell and the
+        // running count are decoration next to that, so they stand down.
+        findViewById<android.view.View>(R.id.ring_glyph).visibility = android.view.View.GONE
+        findViewById<android.view.View>(R.id.alarm_time_text).visibility =
+            android.view.View.GONE
 
         askAnother(prompt, answer)
         button.setOnClickListener {

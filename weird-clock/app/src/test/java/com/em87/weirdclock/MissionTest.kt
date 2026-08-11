@@ -112,6 +112,30 @@ class MissionTest {
         assertEquals(0, shakes.count)
     }
 
+    /**
+     * A brisk tilt is not a shake.
+     *
+     * Tilting swings the gravity vector about and peaks well past the 9.81
+     * a still phone reads — at sixteen a firm tilt was passing for a shake,
+     * and the mission could be finished by rocking the phone on a bedside
+     * table. The bar is roughly two and a half g now: a movement of the
+     * arm, not of the wrist.
+     */
+    @Test
+    fun `tilting the phone is not shaking it`() {
+        val shakes = Mission.Shakes()
+        // A tilt swinging gravity around, sampled the way a sensor would.
+        repeat(200) { n ->
+            val swing = 9.81f + 5f * kotlin.math.sin(n / 4.0).toFloat()
+            shakes.feed(kotlin.math.abs(swing))
+        }
+        assertEquals("a tilt counted as shaking", 0, shakes.count)
+        // And a real shake still counts.
+        assertTrue(Mission.SHAKE_ON >= 20f)
+        shakes.feed(30f)
+        assertEquals(1, shakes.count)
+    }
+
     /** Gravity alone is what a still phone reads, so that is the floor. */
     @Test
     fun `the threshold is above gravity`() {

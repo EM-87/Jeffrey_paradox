@@ -63,13 +63,18 @@ object Mission {
     const val SHAKES_NEEDED = 15
 
     /**
-     * Above this, in m/s², counts as a shake. Gravity alone is 9.81, so
-     * anything at rest reads about that however it is lying.
+     * Above this, in m/s², counts as a shake.
+     *
+     * Gravity alone is 9.81, so anything at rest reads about that however
+     * it is lying — but tilting a phone briskly swings that vector about
+     * and peaks well past it, and at sixteen a firm tilt was passing for a
+     * shake. This is roughly two and a half g: a movement of the arm, not
+     * of the wrist.
      */
-    const val SHAKE_ON = 16f
+    const val SHAKE_ON = 24f
 
     /** And it has to come back below this before the next one counts. */
-    const val SHAKE_OFF = 11.5f
+    const val SHAKE_OFF = 12f
 
     /**
      * Counts shakes, with a gap in the middle of the two thresholds.

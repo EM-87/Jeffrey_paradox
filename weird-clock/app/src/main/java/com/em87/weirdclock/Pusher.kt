@@ -54,7 +54,10 @@ object Pusher {
         Feel.START -> longArrayOf(0, 45)
         Feel.STOP -> longArrayOf(0, 30, 70, 30)
         Feel.LAP -> longArrayOf(0, 18)
-        Feel.RESET -> longArrayOf(0, 16, 45, 16, 45, 16)
+        // Longer than it was. Three sixteen-millisecond taps are over
+        // before a thumb has registered the first, and reset read as a
+        // flicker rather than as the most eventful of the four.
+        Feel.RESET -> longArrayOf(0, 28, 55, 28, 55, 28)
     }
 
     /**
