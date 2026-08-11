@@ -409,6 +409,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         SystemChrome.paint(this)
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        // The mission and the gradual sunrise were settings of the app for
+        // one version and belong to an alarm now. Somebody who had a
+        // mission switched on this morning must still have it tomorrow.
+        AlarmStore.adoptGlobals(this)
         // The floating hourglass used to be a yes/no switch; it is now a
         // choice of two. Carry the old answer over once.
         if (!prefs.contains(Prefs.COUNTDOWN_FLOAT)) {

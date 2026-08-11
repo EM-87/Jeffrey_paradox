@@ -33,6 +33,9 @@ class MissionTest {
     @Before
     fun wipe() {
         prefs.edit().clear().commit()
+        // The store keeps the list in memory between reads, so clearing the
+        // preferences alone leaves the previous test's alarms in place.
+        AlarmStore.forget()
     }
 
     // ------------------------------------------------------------- the sum
@@ -171,6 +174,72 @@ class MissionTest {
         assertTrue(Mission.any(Mission.SHAKE))
     }
 
+    // -------------------------------------------------- one alarm at a time
+
+    /**
+     * Somebody who had a mission switched on this morning still has it
+     * tomorrow.
+     *
+     * It was a setting of the app for one version and is a property of an
+     * alarm now, and the whole point of a mission is that it is there when
+     * you would rather it were not — silently dropping it in an update is
+     * exactly the failure it exists to prevent.
+     */
+    @Test
+    fun `the app-wide answer is carried onto the alarms that existed`() {
+        prefs.edit()
+            .putString(Prefs.MISSION, Mission.SHAKE)
+            .putString(Prefs.GENTLE_WAKE, "60")
+            .commit()
+        AlarmStore.all(context).add(Alarm(1, 7, 0, true, Prefs.ALARM_SOUND_BELLS))
+        AlarmStore.save(context)
+
+        AlarmStore.adoptGlobals(context)
+
+        val alarm = AlarmStore.all(context).first { it.id == 1 }
+        assertEquals(Mission.SHAKE, alarm.mission)
+        assertEquals(60, alarm.gentleWakeSeconds)
+    }
+
+    /**
+     * And only once. An alarm turned back to "none" on purpose must stay
+     * that way, rather than having the old app-wide answer put back on it
+     * every time the app starts.
+     */
+    @Test
+    fun `and never put back after it has been turned off`() {
+        prefs.edit().putString(Prefs.MISSION, Mission.SHAKE).commit()
+        AlarmStore.all(context).add(Alarm(1, 7, 0, true, Prefs.ALARM_SOUND_BELLS))
+        AlarmStore.save(context)
+        AlarmStore.adoptGlobals(context)
+
+        AlarmStore.all(context).first { it.id == 1 }.mission = Mission.NONE
+        AlarmStore.save(context)
+        AlarmStore.adoptGlobals(context)
+
+        assertEquals(
+            Mission.NONE,
+            AlarmStore.all(context).first { it.id == 1 }.mission
+        )
+    }
+
+    /** And both survive being written down and read back. */
+    @Test
+    fun `an alarm remembers its own mission and its own sunrise`() {
+        AlarmStore.all(context).add(
+            Alarm(2, 7, 0, true, Prefs.ALARM_SOUND_BELLS).apply {
+                mission = Mission.MATHS
+                gentleWakeSeconds = 180
+            }
+        )
+        AlarmStore.save(context)
+        AlarmStore.forget()
+
+        val alarm = AlarmStore.all(context).first { it.id == 2 }
+        assertEquals(Mission.MATHS, alarm.mission)
+        assertEquals(180, alarm.gentleWakeSeconds)
+    }
+
     // ------------------------------------------------------ and the screen
 
     /**
@@ -193,10 +262,15 @@ class MissionTest {
     private val context: android.content.Context
         get() = ApplicationProvider.getApplicationContext()
 
-    private fun ring(fromTimer: Boolean = false, body: (AlarmRingActivity) -> Unit) {
+    private fun ring(
+        fromTimer: Boolean = false,
+        mission: String = Mission.NONE,
+        body: (AlarmRingActivity) -> Unit
+    ) {
         val intent = android.content.Intent(
             ApplicationProvider.getApplicationContext(), AlarmRingActivity::class.java
         ).putExtra(AlarmScheduler.EXTRA_FROM_TIMER, fromTimer)
+            .putExtra(AlarmScheduler.EXTRA_MISSION, mission)
         Robolectric.buildActivity(AlarmRingActivity::class.java, intent).use { c ->
             c.setup()
             body(c.get())
@@ -209,8 +283,7 @@ class MissionTest {
      */
     @Test
     fun `the mission replaces the slider rather than joining it`() {
-        prefs.edit().putString(Prefs.MISSION, Mission.MATHS).commit()
-        ring { app ->
+                ring(mission = Mission.MATHS) { app ->
             assertEquals(Mission.MATHS, app.missionKind)
             assertEquals(View.GONE, app.findViewById<View>(R.id.stop_slider).visibility)
             assertEquals(View.VISIBLE, app.findViewById<View>(R.id.mission_block).visibility)
@@ -234,8 +307,7 @@ class MissionTest {
      */
     @Test
     fun `a finished timer asks nothing of anybody`() {
-        prefs.edit().putString(Prefs.MISSION, Mission.MATHS).commit()
-        ring(fromTimer = true) { app ->
+        ring(fromTimer = true, mission = Mission.MATHS) { app ->
             assertEquals(Mission.NONE, app.missionKind)
             assertEquals(View.VISIBLE, app.findViewById<View>(R.id.stop_slider).visibility)
         }
@@ -248,8 +320,7 @@ class MissionTest {
      */
     @Test
     fun `a wrong answer does not stop it, and the sum changes`() {
-        prefs.edit().putString(Prefs.MISSION, Mission.MATHS).commit()
-        ring { app ->
+                ring(mission = Mission.MATHS) { app ->
             val prompt = app.findViewById<android.widget.TextView>(R.id.mission_prompt)
             val answer = app.findViewById<android.widget.EditText>(R.id.mission_answer)
             val button = app.findViewById<android.widget.Button>(R.id.mission_button)
@@ -271,9 +342,8 @@ class MissionTest {
     /** Shaking shows how far along it is, so it is clear it is working. */
     @Test
     fun `the shake mission counts out loud`() {
-        prefs.edit().putString(Prefs.MISSION, Mission.SHAKE).commit()
-        withAccelerometer()
-        ring { app ->
+                withAccelerometer()
+        ring(mission = Mission.SHAKE) { app ->
             assertEquals(Mission.SHAKE, app.missionKind)
             val prompt = app.findViewById<android.widget.TextView>(R.id.mission_prompt)
             assertTrue("${prompt.text}", prompt.text.contains("0"))
@@ -293,9 +363,8 @@ class MissionTest {
      */
     @Test
     fun `a phone that cannot feel a shake gets its slider back`() {
-        prefs.edit().putString(Prefs.MISSION, Mission.SHAKE).commit()
         // No accelerometer added on purpose.
-        ring { app ->
+        ring(mission = Mission.SHAKE) { app ->
             assertEquals(Mission.NONE, app.missionKind)
             assertEquals(View.VISIBLE, app.findViewById<View>(R.id.stop_slider).visibility)
             assertEquals(View.GONE, app.findViewById<View>(R.id.mission_block).visibility)
@@ -312,17 +381,16 @@ class MissionTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         assertFalse(
             "with no mission it is an ordinary Stop",
-            AlarmService.guardsStop(context, fromTimer = false)
+            AlarmService.guardsStop(Mission.NONE, fromTimer = false)
         )
 
-        prefs.edit().putString(Prefs.MISSION, Mission.MATHS).commit()
         assertTrue(
             "with one, the shade must not be the easy way out",
-            AlarmService.guardsStop(context, fromTimer = false)
+            AlarmService.guardsStop(Mission.MATHS, fromTimer = false)
         )
         assertFalse(
             "but a finished timer keeps its Stop",
-            AlarmService.guardsStop(context, fromTimer = true)
+            AlarmService.guardsStop(Mission.MATHS, fromTimer = true)
         )
 
         assertNotEquals(

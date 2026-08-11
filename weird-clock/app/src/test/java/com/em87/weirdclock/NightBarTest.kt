@@ -107,8 +107,8 @@ class NightBarTest {
             R.xml.root_preferences to listOf(
                 Prefs.NIGHT_DIM, Prefs.NIGHT_WINDOW, Prefs.THEME, Prefs.SHOW_DATE,
                 Prefs.BELLS, Prefs.BELL_STYLE, Prefs.BELL_MARKS, Prefs.BELLS_BACKGROUND,
-                Prefs.TEST_BELLS, Prefs.TICKING, Prefs.ALARM_RAMP, Prefs.GENTLE_WAKE,
-                Prefs.RING_TIMEOUT_MIN, Prefs.SNOOZE_LIMIT, Prefs.MISSION,
+                Prefs.TEST_BELLS, Prefs.TICKING, Prefs.ALARM_RAMP,
+                Prefs.RING_TIMEOUT_MIN, Prefs.SNOOZE_LIMIT,
                 Prefs.WORLD_CLOCK, Prefs.ADVANCED
             ),
             R.xml.very_advanced_preferences to listOf(
@@ -125,8 +125,11 @@ class NightBarTest {
                 assertTrue("$key has gone missing", text.contains(key))
             }
         }
-        // And the one row that really did move is gone from where it was.
+        // And the rows that really did move are gone from where they were.
         assertFalse(readXml(R.xml.very_advanced_preferences).contains(Prefs.BELL_MARKS))
+        // These two are properties of an alarm now, not of the app.
+        assertFalse(readXml(R.xml.root_preferences).contains(Prefs.MISSION))
+        assertFalse(readXml(R.xml.root_preferences).contains(Prefs.GENTLE_WAKE))
     }
 
     /** Every key named in a preference screen, as a set of strings. */

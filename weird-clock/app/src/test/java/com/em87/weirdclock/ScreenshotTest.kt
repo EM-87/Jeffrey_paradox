@@ -73,11 +73,11 @@ class ScreenshotTest {
     fun `the ring screen with a sum on it`() {
         prefs.edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
-            .putString(Prefs.MISSION, Mission.MATHS)
             .commit()
         val intent = android.content.Intent(context, AlarmRingActivity::class.java)
             .putExtra(AlarmScheduler.EXTRA_SNOOZE, 5)
             .putExtra(AlarmScheduler.EXTRA_LABEL, "Work")
+            .putExtra(AlarmScheduler.EXTRA_MISSION, Mission.MATHS)
         Robolectric.buildActivity(AlarmRingActivity::class.java, intent).use { c ->
             c.setup()
             assertTrue(shoot(screenOf(c.get()), "ring-maths") > 3f)
@@ -94,11 +94,11 @@ class ScreenshotTest {
     fun `the ring screen with a sum, under the keyboard`() {
         prefs.edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
-            .putString(Prefs.MISSION, Mission.MATHS)
             .commit()
         val intent = android.content.Intent(context, AlarmRingActivity::class.java)
             .putExtra(AlarmScheduler.EXTRA_SNOOZE, 5)
             .putExtra(AlarmScheduler.EXTRA_LABEL, "Work")
+            .putExtra(AlarmScheduler.EXTRA_MISSION, Mission.MATHS)
         Robolectric.buildActivity(AlarmRingActivity::class.java, intent).use { c ->
             c.setup()
             val screen = screenOf(c.get())
@@ -118,7 +118,6 @@ class ScreenshotTest {
     fun `the ring screen counting shakes`() {
         prefs.edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
-            .putString(Prefs.MISSION, Mission.SHAKE)
             .commit()
         org.robolectric.Shadows
             .shadowOf(context.getSystemService(android.hardware.SensorManager::class.java))
@@ -127,7 +126,9 @@ class ScreenshotTest {
                     android.hardware.Sensor.TYPE_ACCELEROMETER
                 )
             )
-        Robolectric.buildActivity(AlarmRingActivity::class.java).use { c ->
+        val intent = android.content.Intent(context, AlarmRingActivity::class.java)
+            .putExtra(AlarmScheduler.EXTRA_MISSION, Mission.SHAKE)
+        Robolectric.buildActivity(AlarmRingActivity::class.java, intent).use { c ->
             c.setup()
             assertTrue(shoot(screenOf(c.get()), "ring-shake") > 3f)
         }
@@ -193,6 +194,46 @@ class ScreenshotTest {
         list.layout(0, 0, 1080, tall)
         org.robolectric.shadows.ShadowLooper.idleMainLooper()
         assertTrue(name, shoot(list, name) > 3f)
+    }
+
+    /**
+     * An alarm card carrying both of the new marks.
+     *
+     * There is no automated check on these two icons — they are one-line
+     * bindings beside four others that have none either — so this is the
+     * only thing standing between "the binding is written" and "the icon
+     * is on screen".
+     */
+    @Test
+    fun `an alarm card with a sunrise and a mission on it`() {
+        prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+        AlarmStore.forget()
+        AlarmStore.all(context).add(
+            Alarm(1, 7, 30, true, Prefs.ALARM_SOUND_BELLS).apply {
+                label = "Work"
+                mission = Mission.MATHS
+                gentleWakeSeconds = 60
+                flash = true
+            }
+        )
+        AlarmStore.save(context)
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val app = c.get()
+            app.findViewById<android.widget.ImageButton>(R.id.to_alarms_button).performClick()
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            val list = app.findViewById<androidx.recyclerview.widget.RecyclerView>(
+                R.id.alarms_recycler
+            )
+            list.measure(
+                View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(900, View.MeasureSpec.EXACTLY)
+            )
+            list.layout(0, 0, 1080, 900)
+            org.robolectric.shadows.ShadowLooper.idleMainLooper()
+            assertTrue(shoot(list, "alarm-card") > 3f)
+        }
+        AlarmStore.forget()
     }
 
     /** The night bar, which is the thing in here nobody has ever seen. */

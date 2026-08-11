@@ -154,30 +154,6 @@
         <item>UTC</item>
     </string-array>
 
-    <string-array name="gentle_wake_entries">
-        <item>Off — straight on</item>
-        <item>Over 30 seconds</item>
-        <item>Over a minute</item>
-        <item>Over three minutes</item>
-    </string-array>
-    <string-array name="gentle_wake_values" translatable="false">
-        <item>0</item>
-        <item>30</item>
-        <item>60</item>
-        <item>180</item>
-    </string-array>
-
-    <string-array name="mission_entries">
-        <item>None — slide to stop</item>
-        <item>A multiplication</item>
-        <item>Shake the phone</item>
-    </string-array>
-    <string-array name="mission_values" translatable="false">
-        <item>none</item>
-        <item>maths</item>
-        <item>shake</item>
-    </string-array>
-
     <string-array name="bell_marks_entries">
         <item>The hour only</item>
         <item>And half past</item>

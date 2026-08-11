@@ -104,6 +104,19 @@ class AlarmCards(
     }
 
     /** The names the sound picker and the cards both use. */
+    /** How long this alarm's screen takes to come up, in words. */
+    fun gentleLabel(seconds: Int): String = when (seconds) {
+        0 -> host.getString(R.string.alarm_gentle_off)
+        else -> host.getString(R.string.alarm_gentle_sec, seconds)
+    }
+
+    /** And what it will want before it stops. */
+    fun missionLabel(mission: String?): String = when (Mission.required(mission)) {
+        Mission.MATHS -> host.getString(R.string.alarm_mission_maths)
+        Mission.SHAKE -> host.getString(R.string.alarm_mission_shake)
+        else -> host.getString(R.string.alarm_mission_none)
+    }
+
     fun soundLabel(sound: String): String = host.getString(
         when (sound) {
             Prefs.ALARM_SOUND_DIGITAL -> R.string.alarm_sound_digital
@@ -127,6 +140,8 @@ class AlarmCards(
         val iconSnooze: ImageView = view.findViewById(R.id.icon_snooze)
         val iconVibrate: ImageView = view.findViewById(R.id.icon_vibrate)
         val iconFlash: ImageView = view.findViewById(R.id.icon_flash)
+        val iconGentle: ImageView = view.findViewById(R.id.icon_gentle)
+        val iconMission: ImageView = view.findViewById(R.id.icon_mission)
         val iconCalendar: ImageView = view.findViewById(R.id.icon_calendar)
         val enabled: SwitchCompat = view.findViewById(R.id.alarm_enabled)
     }
@@ -222,6 +237,14 @@ class AlarmCards(
                 host.getString(R.string.reminder_duration_min, alarm.snoozeMinutes)
             holder.iconVibrate.visibility = if (alarm.vibrate) View.VISIBLE else View.GONE
             holder.iconFlash.visibility = if (alarm.flash) View.VISIBLE else View.GONE
+            // Two things that are easy to set and then forget, and both
+            // change what happens at six in the morning: a sunrise for the
+            // screen that comes up slowly, and a multiplication sign for
+            // the alarm that will want an answer before it stops.
+            holder.iconGentle.visibility =
+                if (alarm.gentleWakeSeconds > 0) View.VISIBLE else View.GONE
+            holder.iconMission.visibility =
+                if (Mission.any(alarm.mission)) View.VISIBLE else View.GONE
             holder.iconCalendar.visibility =
                 if (alarm.durationMinutes > 0) View.VISIBLE else View.GONE
 

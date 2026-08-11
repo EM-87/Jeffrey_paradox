@@ -143,9 +143,8 @@ class AlarmRingActivity : AppCompatActivity() {
     }
 
     private fun startGentleWake() {
-        gentleRampMs = GentleWake.seconds(
-            androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
-                .getString(Prefs.GENTLE_WAKE, null)
+        gentleRampMs = GentleWake.clamp(
+            intent.getIntExtra(AlarmScheduler.EXTRA_GENTLE, 0)
         ) * 1000L
         // Nothing asked for means the window is left exactly as it was —
         // taking the screen brightness over at all is a thing to do only
@@ -189,10 +188,10 @@ class AlarmRingActivity : AppCompatActivity() {
      * out than the one that needs you awake.
      */
     private fun setUpMission() {
-        missionKind = Mission.required(
-            androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
-                .getString(Prefs.MISSION, Mission.NONE)
-        )
+        // The alarm's own, carried on the intent. It used to be a setting
+        // of the app, which meant one answer for the alarm that wakes you
+        // and the reminder that says the bread is done.
+        missionKind = Mission.required(intent.getStringExtra(AlarmScheduler.EXTRA_MISSION))
         // A finished countdown is not a wake-up. Making somebody do sums to
         // silence the pasta timer would be a joke that stops being funny
         // the first time it happens.

@@ -87,13 +87,6 @@
         android:summary="@string/pref_alarm_ramp_summary"
         android:title="@string/pref_alarm_ramp_title" />
 
-    <ListPreference
-        android:defaultValue="0"
-        android:entries="@array/gentle_wake_entries"
-        android:entryValues="@array/gentle_wake_values"
-        android:key="pref_gentle_wake"
-        android:title="@string/pref_gentle_wake_title"
-        app:useSimpleSummaryProvider="true" />
 
     <ListPreference
         android:defaultValue="3"
@@ -113,13 +106,6 @@
         android:title="@string/pref_snooze_limit_title"
         app:useSimpleSummaryProvider="true" />
 
-    <ListPreference
-        android:defaultValue="none"
-        android:entries="@array/mission_entries"
-        android:entryValues="@array/mission_values"
-        android:key="pref_mission"
-        android:title="@string/pref_mission_title"
-        app:useSimpleSummaryProvider="true" />
 
     <SwitchPreferenceCompat
         android:defaultValue="false"

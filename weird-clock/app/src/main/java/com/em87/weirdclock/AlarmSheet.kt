@@ -176,6 +176,10 @@ class AlarmSheet(
             } else {
                 host.getString(R.string.alarm_snooze_off)
             }
+            view.findViewById<TextView>(R.id.sheet_gentle_value).text =
+                cards.gentleLabel(draft.gentleWakeSeconds)
+            view.findViewById<TextView>(R.id.sheet_mission_value).text =
+                cards.missionLabel(draft.mission)
             view.findViewById<TextView>(R.id.sheet_duration_value).text =
                 if (draft.durationMinutes <= 0) {
                     host.getString(R.string.reminder_duration_none)
@@ -311,6 +315,33 @@ class AlarmSheet(
                 choices.indexOf(draft.snoozeMinutes)
             ) { which ->
                 draft.snoozeMinutes = choices[which]
+                refresh()
+            }
+        }
+
+        // Both of these belong to one alarm and not to the app. A sunrise
+        // is for the alarm that wakes you; a mission is for the one you keep
+        // turning off and going back to sleep.
+        view.findViewById<View>(R.id.sheet_gentle_row).setOnClickListener {
+            val choices = GentleWake.CHOICES
+            cards.pickFromList(
+                R.string.alarm_gentle,
+                choices.map { cards.gentleLabel(it) },
+                choices.indexOf(draft.gentleWakeSeconds).coerceAtLeast(0)
+            ) { which ->
+                draft.gentleWakeSeconds = choices[which]
+                refresh()
+            }
+        }
+
+        view.findViewById<View>(R.id.sheet_mission_row).setOnClickListener {
+            val choices = listOf(Mission.NONE, Mission.MATHS, Mission.SHAKE)
+            cards.pickFromList(
+                R.string.alarm_mission,
+                choices.map { cards.missionLabel(it) },
+                choices.indexOf(Mission.required(draft.mission)).coerceAtLeast(0)
+            ) { which ->
+                draft.mission = choices[which]
                 refresh()
             }
         }

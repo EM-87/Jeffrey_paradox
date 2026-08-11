@@ -43,6 +43,8 @@ class AlarmChainTest {
         .putExtra(AlarmScheduler.EXTRA_VIBRATE, false)
         .putExtra(AlarmScheduler.EXTRA_FLASH, true)
         .putExtra(AlarmScheduler.EXTRA_FROM_TIMER, true)
+        .putExtra(AlarmScheduler.EXTRA_MISSION, Mission.SHAKE)
+        .putExtra(AlarmScheduler.EXTRA_GENTLE, 60)
         .putExtra(Nag.EXTRA_ROUND, 4)
 
     /** Nothing carried is lost on the way across. */
@@ -116,7 +118,9 @@ class AlarmChainTest {
                 AlarmScheduler.EXTRA_SNOOZE,
                 AlarmScheduler.EXTRA_SNOOZE_COUNT,
                 AlarmScheduler.EXTRA_LABEL,
-                AlarmScheduler.EXTRA_FROM_TIMER
+                AlarmScheduler.EXTRA_FROM_TIMER,
+                AlarmScheduler.EXTRA_MISSION,
+                AlarmScheduler.EXTRA_GENTLE
             )) {
                 assertTrue("$key never reaches the screen", intent.extras?.containsKey(key) == true)
             }

@@ -94,12 +94,15 @@ object Nag {
         snoozeMinutes: Int,
         vibrate: Boolean,
         flash: Boolean,
+        mission: String,
+        gentleSeconds: Int,
         roundsSoFar: Int
     ) {
         val manager = context.getSystemService(AlarmManager::class.java) ?: return
         val at = System.currentTimeMillis() + MINUTES * 60_000L
         val fire = firePendingIntent(
-            context, sound, soundUri, label, snoozeMinutes, vibrate, flash, roundsSoFar + 1
+            context, sound, soundUri, label, snoozeMinutes, vibrate, flash,
+            mission, gentleSeconds, roundsSoFar + 1
         )
         val show = PendingIntent.getActivity(
             context,
@@ -131,7 +134,7 @@ object Nag {
      */
     fun callOff(context: Context) {
         context.getSystemService(AlarmManager::class.java)
-            ?.cancel(firePendingIntent(context, "", "", "", 0, true, false, 0))
+            ?.cancel(firePendingIntent(context, "", "", "", 0, true, false, Mission.NONE, 0, 0))
         prefs(context).edit()
             .remove(Prefs.NAG_AT)
             .remove(Prefs.NAG_ROUNDS)
@@ -156,6 +159,8 @@ object Nag {
         snoozeMinutes: Int,
         vibrate: Boolean,
         flash: Boolean,
+        mission: String,
+        gentleSeconds: Int,
         round: Int
     ): PendingIntent = PendingIntent.getBroadcast(
         context,
@@ -170,6 +175,9 @@ object Nag {
             // light the room went dark from the second round on.
             .putExtra(AlarmScheduler.EXTRA_VIBRATE, vibrate)
             .putExtra(AlarmScheduler.EXTRA_FLASH, flash)
+            // The next go is the same alarm, mission and sunrise included.
+            .putExtra(AlarmScheduler.EXTRA_MISSION, mission)
+            .putExtra(AlarmScheduler.EXTRA_GENTLE, gentleSeconds)
             .putExtra(EXTRA_ROUND, round),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )

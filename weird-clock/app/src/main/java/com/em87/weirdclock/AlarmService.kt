@@ -61,11 +61,8 @@ class AlarmService : Service() {
          * no mission on its screen either; guarding it would leave a timer
          * that can only be silenced from the full-screen view.
          */
-        internal fun guardsStop(context: Context, fromTimer: Boolean): Boolean =
-            !fromTimer && Mission.any(
-                PreferenceManager.getDefaultSharedPreferences(context)
-                    .getString(Prefs.MISSION, null)
-            )
+        internal fun guardsStop(mission: String?, fromTimer: Boolean): Boolean =
+            !fromTimer && Mission.any(mission)
 
         /**
          * The limit actually in force, or 0 for "until somebody stops it".
@@ -134,6 +131,10 @@ class AlarmService : Service() {
 
     /** Which round of nagging this ringing is; 0 for a first, ordinary one. */
     private var nagRound = 0
+
+    /** This alarm's own mission and gradual sunrise. */
+    private var mission = Mission.NONE
+    private var gentleSeconds = 0
     private var fromTimer = false
     private var mediaPlayer: MediaPlayer? = null
     private var flashOn = false
@@ -228,6 +229,8 @@ class AlarmService : Service() {
         snoozeMinutes = intent?.getIntExtra(AlarmScheduler.EXTRA_SNOOZE, 0) ?: 0
         snoozed = intent?.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_COUNT, 0) ?: 0
         nagRound = intent?.getIntExtra(Nag.EXTRA_ROUND, 0) ?: 0
+        mission = Mission.required(intent?.getStringExtra(AlarmScheduler.EXTRA_MISSION))
+        gentleSeconds = intent?.getIntExtra(AlarmScheduler.EXTRA_GENTLE, 0) ?: 0
         label = intent?.getStringExtra(AlarmScheduler.EXTRA_LABEL) ?: ""
         vibrateEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_VIBRATE, true) != false
         flashEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_FLASH, false) == true
@@ -304,10 +307,10 @@ class AlarmService : Service() {
         // An unpassed mission does not go away. Without this the mission is
         // theatre: ignore it for three minutes and going back to sleep
         // costs nothing, which is the exact thing it was added to stop.
-        if (Nag.wantsAnother(guardsStop(this, fromTimer), nagRound)) {
+        if (Nag.wantsAnother(guardsStop(mission, fromTimer), nagRound)) {
             Nag.arm(
                 this, sound, soundUri, label, snoozeMinutes,
-                vibrateEnabled, flashEnabled, nagRound
+                vibrateEnabled, flashEnabled, mission, gentleSeconds, nagRound
             )
         } else {
             // Nothing more is coming, so the app must stop saying one is.
@@ -440,6 +443,8 @@ class AlarmService : Service() {
         .putExtra(AlarmScheduler.EXTRA_VIBRATE, vibrateEnabled)
         .putExtra(AlarmScheduler.EXTRA_FLASH, flashEnabled)
         .putExtra(Nag.EXTRA_ROUND, nagRound)
+        .putExtra(AlarmScheduler.EXTRA_MISSION, mission)
+        .putExtra(AlarmScheduler.EXTRA_GENTLE, gentleSeconds)
         // The full-screen ring needs to know what ran out, the same
         // way the notification icon does.
         .putExtra(AlarmScheduler.EXTRA_FROM_TIMER, fromTimer)
@@ -451,7 +456,7 @@ class AlarmService : Service() {
             ringIntent(),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val guarded = guardsStop(this, fromTimer)
+        val guarded = guardsStop(mission, fromTimer)
         val stop = if (guarded) {
             fullScreen
         } else {

@@ -76,10 +76,14 @@ object Prefs {
     const val NIGHT_WINDOW = "pref_night_window"
 
     /**
-     * What has to be got right before the alarm will stop: nothing, a sum,
-     * or shaking the phone.
+     * The app-wide mission and gradual sunrise, from the one version they
+     * were app-wide in. Read once to carry them onto the alarms that
+     * existed then; nothing writes either any more.
      */
     const val MISSION = "pref_mission"
+
+    /** Whether that carrying-over has already happened. */
+    const val PER_ALARM_MIGRATED = "pref_per_alarm_migrated"
 
     /**
      * When an unpassed mission is coming back, and how many times it

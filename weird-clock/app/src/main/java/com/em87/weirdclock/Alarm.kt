@@ -34,6 +34,25 @@ data class Alarm(
     /** Strobe the camera flash while ringing. */
     var flash: Boolean = false,
     /**
+     * What has to be got right before *this* alarm will stop.
+     *
+     * On the alarm and not in the settings, because it is a property of one
+     * alarm and not of the app: the mission is for the alarm you keep
+     * turning off and going back to sleep, and having it apply to the
+     * fifteen-minute one that says "take the bread out" is a joke that
+     * stops being funny the first time it happens.
+     */
+    var mission: String = Mission.NONE,
+    /**
+     * How long this alarm's screen takes to come up, in seconds; 0 for
+     * straight on.
+     *
+     * Per alarm for the same reason. A gradual sunrise is for the one that
+     * wakes you; on a reminder in the middle of the afternoon it is a
+     * screen that seems not to have come on.
+     */
+    var gentleWakeSeconds: Int = 0,
+    /**
      * Free text kept with the alarm and read out by the dial, exactly as a
      * reminder's is.
      *
@@ -135,6 +154,35 @@ object AlarmStore {
 
     /** Writes down whatever the shared list now says. */
     @Synchronized
+    /**
+     * Carries the two app-wide settings onto every alarm, once.
+     *
+     * The mission and the gradual sunrise were settings of the app for one
+     * version, and are properties of an alarm now. Somebody who had a
+     * mission switched on this morning must still have it tomorrow — the
+     * whole point of it is that it is there when you would rather it were
+     * not, and silently dropping it is exactly the failure it exists to
+     * prevent.
+     *
+     * Marked done in a preference of its own rather than by checking
+     * whether any alarm carries one: an alarm turned back to "none" on
+     * purpose would otherwise have the old global answer put back on the
+     * next run, for ever.
+     */
+    fun adoptGlobals(context: Context) {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        if (prefs.getBoolean(Prefs.PER_ALARM_MIGRATED, false)) return
+        val mission = Mission.required(prefs.getString(Prefs.MISSION, null))
+        val gentle = GentleWake.seconds(prefs.getString(Prefs.GENTLE_WAKE, null))
+        prefs.edit().putBoolean(Prefs.PER_ALARM_MIGRATED, true).apply()
+        if (mission == Mission.NONE && gentle == 0) return
+        for (alarm in all(context)) {
+            alarm.mission = mission
+            alarm.gentleWakeSeconds = gentle
+        }
+        save(context)
+    }
+
     fun save(context: Context) {
         val alarms = shared ?: return
         val arr = JSONArray()
@@ -153,6 +201,8 @@ object AlarmStore {
                     .put("vibrate", a.vibrate)
                     .put("duration", a.durationMinutes)
                     .put("flash", a.flash)
+                    .put("mission", a.mission)
+                    .put("gentle", a.gentleWakeSeconds)
                     .put("notes", a.notes)
                     .put("extraTimes", JSONArray(a.extraTimes))
             )
@@ -198,6 +248,12 @@ object AlarmStore {
                         vibrate = o.optBoolean("vibrate", true),
                         durationMinutes = o.optInt("duration", 0),
                         flash = o.optBoolean("flash", false),
+                        // Both were app-wide settings for one version. An
+                        // alarm written before this build carries neither,
+                        // and picks up whatever was set globally — see
+                        // AlarmStore.adoptGlobals.
+                        mission = Mission.required(o.optString("mission", Mission.NONE)),
+                        gentleWakeSeconds = o.optInt("gentle", 0),
                         notes = o.optString("notes", ""),
                         extraTimes = o.optJSONArray("extraTimes")?.let { arr ->
                             MutableList(arr.length()) { arr.getInt(it) }

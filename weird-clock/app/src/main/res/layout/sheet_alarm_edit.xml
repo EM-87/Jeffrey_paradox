@@ -207,6 +207,36 @@
                 android:layout_height="wrap_content" />
         </LinearLayout>
 
+        <!-- Gentle wake: this alarm's screen comes up rather than switching
+             on. Per alarm, because a sunrise belongs to the one that wakes
+             you and not to the reminder about the bread. -->
+        <LinearLayout
+            android:id="@+id/sheet_gentle_row"
+            style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/alarm_gentle" />
+
+            <TextView
+                android:id="@+id/sheet_gentle_value"
+                style="@style/AlarmSheetRowValue" />
+        </LinearLayout>
+
+        <!-- And what it takes to stop this one. -->
+        <LinearLayout
+            android:id="@+id/sheet_mission_row"
+            style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/alarm_mission" />
+
+            <TextView
+                android:id="@+id/sheet_mission_value"
+                style="@style/AlarmSheetRowValue" />
+        </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

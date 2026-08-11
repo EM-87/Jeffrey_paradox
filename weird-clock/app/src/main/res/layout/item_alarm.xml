@@ -148,6 +148,22 @@
                     android:src="@drawable/ic_flash" />
 
                 <ImageView
+                    android:id="@+id/icon_gentle"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_marginStart="8dp"
+                    android:contentDescription="@string/alarm_gentle"
+                    android:src="@drawable/ic_sunrise" />
+
+                <ImageView
+                    android:id="@+id/icon_mission"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_marginStart="8dp"
+                    android:contentDescription="@string/alarm_mission"
+                    android:src="@drawable/ic_mission" />
+
+                <ImageView
                     android:id="@+id/icon_snooze"
                     android:layout_width="16dp"
                     android:layout_height="16dp"

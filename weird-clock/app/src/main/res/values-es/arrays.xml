@@ -70,19 +70,6 @@
         <item>Honolulu</item>
     </string-array>
 
-    <string-array name="gentle_wake_entries">
-        <item>Apagado: de golpe</item>
-        <item>En 30 segundos</item>
-        <item>En un minuto</item>
-        <item>En tres minutos</item>
-    </string-array>
-
-    <string-array name="mission_entries">
-        <item>Ninguna: deslizar para parar</item>
-        <item>Una multiplicación</item>
-        <item>Sacudir el teléfono</item>
-    </string-array>
-
     <string-array name="bell_marks_entries">
         <item>Solo la hora</item>
         <item>Y la media</item>

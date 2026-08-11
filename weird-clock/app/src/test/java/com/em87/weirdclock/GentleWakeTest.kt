@@ -99,8 +99,9 @@ class GentleWakeTest {
 
     // -------------------------------------------------------- on the screen
 
-    private fun ring(body: (AlarmRingActivity) -> Unit) {
+    private fun ring(seconds: Int = 0, body: (AlarmRingActivity) -> Unit) {
         val intent = android.content.Intent(context, AlarmRingActivity::class.java)
+            .putExtra(AlarmScheduler.EXTRA_GENTLE, seconds)
         Robolectric.buildActivity(AlarmRingActivity::class.java, intent).use { c ->
             c.setup()
             body(c.get())
@@ -137,8 +138,11 @@ class GentleWakeTest {
      */
     @Test
     fun `the glow is in place before the first frame`() {
-        prefs.edit().putString(Prefs.GENTLE_WAKE, "60").commit()
-        val controller = Robolectric.buildActivity(AlarmRingActivity::class.java).create()
+        val controller = Robolectric.buildActivity(
+            AlarmRingActivity::class.java,
+            android.content.Intent(context, AlarmRingActivity::class.java)
+                .putExtra(AlarmScheduler.EXTRA_GENTLE, 60)
+        ).create()
         try {
             assertEquals(
                 "the screen was left at full brightness for a frame",
@@ -152,8 +156,7 @@ class GentleWakeTest {
     /** And with one, the screen starts down at the glow. */
     @Test
     fun `on means it comes up from the floor`() {
-        prefs.edit().putString(Prefs.GENTLE_WAKE, "60").commit()
-        ring { app ->
+        ring(seconds = 60) { app ->
             assertEquals(60_000L, app.gentleRampMs)
             assertEquals(GentleWake.FLOOR, app.screenBrightness, 0.01f)
         }
