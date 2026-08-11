@@ -57,6 +57,12 @@ object Prefs {
     const val ALARM_RAMP = "pref_alarm_ramp"
 
     /**
+     * How long the ring screen takes to come up to full brightness, in
+     * seconds; "0" for straight on. A string, since it comes from a list.
+     */
+    const val GENTLE_WAKE = "pref_gentle_wake"
+
+    /**
      * How many minutes an unattended alarm rings before giving up, or 0 for
      * never. Stored as a string because it comes from a ListPreference.
      */

@@ -303,4 +303,6 @@
     <string name="nag_message">Its mission was never passed, so it has booked itself another go at %1$s. It has tried %2$d times so far.</string>
     <string name="nag_call_off">Call it off</string>
     <string name="nag_leave_it">Leave it</string>
+    <string name="pref_gentle_wake_title">Gentle wake</string>
+    <string name="pref_gentle_wake_summary">The ring screen comes up from a glow instead of switching on. The sound already ramps.</string>
 </resources>

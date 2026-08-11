@@ -79,6 +79,14 @@
         android:title="@string/pref_alarm_ramp_title" />
 
     <ListPreference
+        android:defaultValue="0"
+        android:entries="@array/gentle_wake_entries"
+        android:entryValues="@array/gentle_wake_values"
+        android:key="pref_gentle_wake"
+        android:summary="@string/pref_gentle_wake_summary"
+        android:title="@string/pref_gentle_wake_title" />
+
+    <ListPreference
         android:defaultValue="3"
         android:entries="@array/ring_timeout_entries"
         android:entryValues="@array/ring_timeout_values"

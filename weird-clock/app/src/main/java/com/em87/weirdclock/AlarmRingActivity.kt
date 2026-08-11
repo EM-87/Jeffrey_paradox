@@ -63,6 +63,7 @@ class AlarmRingActivity : AppCompatActivity() {
         }
         findViewById<SlideToStopView>(R.id.stop_slider).onSlid = { stopRinging() }
         setUpMission()
+        startGentleWake()
         val snoozeButton = findViewById<Button>(R.id.snooze_button)
         val snoozeMinutes = intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE, 0)
         val already = intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_COUNT, 0)
@@ -96,6 +97,57 @@ class AlarmRingActivity : AppCompatActivity() {
         Nag.callOff(this)
         startService(Intent(this, AlarmService::class.java).setAction(AlarmService.ACTION_STOP))
         finish()
+    }
+
+    // -------------------------------------------------------- gentle wake
+
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /** How long the screen takes to come up, in ms; 0 for straight on. */
+    internal var gentleRampMs = 0L
+        private set
+
+    /** What the window is set to now, for the tests to read. */
+    internal val screenBrightness: Float
+        get() = window.attributes.screenBrightness
+
+    private val brighten = object : Runnable {
+        override fun run() {
+            val elapsed = ringingFor()
+            setBrightness(GentleWake.brightness(elapsed, gentleRampMs))
+            // Re-posted only while there is ramp left, so a screen that has
+            // arrived at full brightness costs nothing to sit on.
+            if (GentleWake.ramping(elapsed, gentleRampMs)) handler.postDelayed(this, 100L)
+        }
+    }
+
+    /**
+     * How long this alarm has been ringing — measured from when the
+     * service started, not from when this screen was built.
+     *
+     * A screen rebuilt half way through (a rotation, the system rebuilding
+     * it over the lock screen) would otherwise start the ramp again from
+     * the dark, which is the one moment it must not: by then somebody is
+     * looking at it.
+     */
+    private fun ringingFor(): Long = GentleWake.elapsed(
+        AlarmService.ringingSince, android.os.SystemClock.elapsedRealtime()
+    )
+
+    private fun setBrightness(value: Float) {
+        window.attributes = window.attributes.apply { screenBrightness = value }
+    }
+
+    private fun startGentleWake() {
+        gentleRampMs = GentleWake.seconds(
+            androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
+                .getString(Prefs.GENTLE_WAKE, null)
+        ) * 1000L
+        // Nothing asked for means the window is left exactly as it was —
+        // taking the screen brightness over at all is a thing to do only
+        // when somebody has said so.
+        if (gentleRampMs <= 0L) return
+        handler.post(brighten)
     }
 
     // ----------------------------------------------------------- missions
@@ -194,6 +246,7 @@ class AlarmRingActivity : AppCompatActivity() {
     override fun onDestroy() {
         AlarmService.onStopped = null
         sensors?.unregisterListener(shakeListener)
+        handler.removeCallbacks(brighten)
         super.onDestroy()
     }
 }

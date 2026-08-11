@@ -300,4 +300,6 @@
     <string name="nag_message">Su misión no se pasó, así que se ha citado otra vez a las %1$s. Lleva %2$d intentos.</string>
     <string name="nag_call_off">Cancelarla</string>
     <string name="nag_leave_it">Dejarla</string>
+    <string name="pref_gentle_wake_title">Despertar suave</string>
+    <string name="pref_gentle_wake_summary">La pantalla de la alarma sube desde un resplandor en vez de encenderse de golpe. El sonido ya sube solo.</string>
 </resources>
