@@ -57,6 +57,25 @@ class AlarmService : Service() {
          * oversight, and the note it would have left is the thing being
          * traded away.
          */
+        /**
+         * Whether the shade's Stop button has to be taken away.
+         *
+         * It is the escape that would make the whole mission decoration:
+         * one pull and one tap, from bed, with your eyes shut — easier
+         * than the slider the mission replaced. So with a mission set it
+         * stops being a Stop and becomes a way to the screen where the
+         * mission is waiting.
+         *
+         * Never for a finished countdown, which is not a wake-up and has
+         * no mission on its screen either; guarding it would leave a timer
+         * that can only be silenced from the full-screen view.
+         */
+        internal fun guardsStop(context: Context, fromTimer: Boolean): Boolean =
+            !fromTimer && Mission.any(
+                PreferenceManager.getDefaultSharedPreferences(context)
+                    .getString(Prefs.MISSION, null)
+            )
+
         fun ringTimeoutMs(context: Context): Long {
             val minutes = PreferenceManager.getDefaultSharedPreferences(context)
                 .getString(Prefs.RING_TIMEOUT_MIN, null)
@@ -403,12 +422,17 @@ class AlarmService : Service() {
                 .putExtra(AlarmScheduler.EXTRA_FROM_TIMER, fromTimer),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val stop = PendingIntent.getService(
-            this,
-            1,
-            Intent(this, AlarmService::class.java).setAction(ACTION_STOP),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val guarded = guardsStop(this, fromTimer)
+        val stop = if (guarded) {
+            fullScreen
+        } else {
+            PendingIntent.getService(
+                this,
+                1,
+                Intent(this, AlarmService::class.java).setAction(ACTION_STOP),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        }
         val theme = ClockThemes.resolve(
             this,
             PreferenceManager.getDefaultSharedPreferences(this).getString(Prefs.THEME, "midnight")
@@ -437,7 +461,11 @@ class AlarmService : Service() {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setOngoing(true)
             .setFullScreenIntent(fullScreen, true)
-            .addAction(0, getString(R.string.alarm_stop), stop)
+            .addAction(
+                0,
+                getString(if (guarded) R.string.mission_open else R.string.alarm_stop),
+                stop
+            )
         if (snoozeMinutes > 0) {
             val snoozePi = PendingIntent.getService(
                 this,

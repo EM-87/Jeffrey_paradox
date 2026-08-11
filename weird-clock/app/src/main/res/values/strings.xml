@@ -292,4 +292,11 @@
     <string name="pref_snooze_limit_summary">After the last one the button stops being offered, so there is something to get up for.</string>
     <string name="pref_night_window_title">Night hours</string>
     <string name="pref_night_window_off">No dimming — both pins on the same hour</string>
+    <string name="pref_mission_title">Anti-sleep mission</string>
+    <string name="pref_mission_summary">What it takes to stop the alarm. Snooze is unaffected — snooze is not the problem.</string>
+    <string name="mission_check">Stop the alarm</string>
+    <string name="mission_open">Open</string>
+    <string name="mission_answer_hint">Answer</string>
+    <string name="mission_maths_a11y">%1$d times %2$d</string>
+    <string name="mission_shake_fmt">Shake it: %1$d / %2$d</string>
 </resources>

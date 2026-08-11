@@ -70,6 +70,12 @@
         <item>Honolulu</item>
     </string-array>
 
+    <string-array name="mission_entries">
+        <item>Ninguna: deslizar para parar</item>
+        <item>Una multiplicación</item>
+        <item>Sacudir el teléfono</item>
+    </string-array>
+
     <string-array name="bell_marks_entries">
         <item>Solo la hora</item>
         <item>Y la media</item>

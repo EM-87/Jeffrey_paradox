@@ -69,6 +69,12 @@ object Prefs {
     /** The row those two hours are set on, one bar with a pin at each end. */
     const val NIGHT_WINDOW = "pref_night_window"
 
+    /**
+     * What has to be got right before the alarm will stop: nothing, a sum,
+     * or shaking the phone.
+     */
+    const val MISSION = "pref_mission"
+
     /** How many times one alarm may be snoozed before it insists. */
     const val SNOOZE_LIMIT = "pref_snooze_limit"
 

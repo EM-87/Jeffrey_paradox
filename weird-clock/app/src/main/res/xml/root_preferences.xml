@@ -96,6 +96,14 @@
         android:title="@string/pref_snooze_limit_title"
         app:useSimpleSummaryProvider="true" />
 
+    <ListPreference
+        android:defaultValue="none"
+        android:entries="@array/mission_entries"
+        android:entryValues="@array/mission_values"
+        android:key="pref_mission"
+        android:summary="@string/pref_mission_summary"
+        android:title="@string/pref_mission_title" />
+
     <SwitchPreferenceCompat
         android:defaultValue="false"
         android:key="pref_world_clock"

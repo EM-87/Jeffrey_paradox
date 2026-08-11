@@ -61,10 +61,8 @@ class AlarmRingActivity : AppCompatActivity() {
         intent.getStringExtra(AlarmScheduler.EXTRA_LABEL)?.takeIf { it.isNotBlank() }?.let {
             subtitle.text = it
         }
-        findViewById<SlideToStopView>(R.id.stop_slider).onSlid = {
-            startService(Intent(this, AlarmService::class.java).setAction(AlarmService.ACTION_STOP))
-            finish()
-        }
+        findViewById<SlideToStopView>(R.id.stop_slider).onSlid = { stopRinging() }
+        setUpMission()
         val snoozeButton = findViewById<Button>(R.id.snooze_button)
         val snoozeMinutes = intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE, 0)
         val already = intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_COUNT, 0)
@@ -87,8 +85,107 @@ class AlarmRingActivity : AppCompatActivity() {
         }
     }
 
+    private fun stopRinging() {
+        startService(Intent(this, AlarmService::class.java).setAction(AlarmService.ACTION_STOP))
+        finish()
+    }
+
+    // ----------------------------------------------------------- missions
+
+    private var sum: Mission.Sum? = null
+    private var shakes: Mission.Shakes? = null
+    private var sensors: android.hardware.SensorManager? = null
+
+    /** Which mission this screen is showing, once it has been asked. */
+    internal var missionKind = Mission.NONE
+        private set
+
+    private val shakeListener = object : android.hardware.SensorEventListener {
+        override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) = Unit
+
+        override fun onSensorChanged(event: android.hardware.SensorEvent) {
+            val counter = shakes ?: return
+            val done = counter.feed(
+                Mission.magnitude(event.values[0], event.values[1], event.values[2])
+            )
+            showShakeProgress()
+            if (done) stopRinging()
+        }
+    }
+
+    /**
+     * The mission takes the slider's place, or the slider stays.
+     *
+     * Never both: a mission beside a working slide-to-stop is decoration,
+     * and the one thing this feature is for is that there is no easier way
+     * out than the one that needs you awake.
+     */
+    private fun setUpMission() {
+        missionKind = Mission.required(
+            androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
+                .getString(Prefs.MISSION, Mission.NONE)
+        )
+        // A finished countdown is not a wake-up. Making somebody do sums to
+        // silence the pasta timer would be a joke that stops being funny
+        // the first time it happens.
+        val fromTimer = AlarmService.ringingFromTimer ||
+            intent.getBooleanExtra(AlarmScheduler.EXTRA_FROM_TIMER, false)
+        if (fromTimer) missionKind = Mission.NONE
+        if (missionKind == Mission.NONE) return
+
+        findViewById<android.view.View>(R.id.stop_slider).visibility = android.view.View.GONE
+        val block = findViewById<android.view.View>(R.id.mission_block)
+        block.visibility = android.view.View.VISIBLE
+
+        val prompt = findViewById<TextView>(R.id.mission_prompt)
+        val answer = findViewById<android.widget.EditText>(R.id.mission_answer)
+        val button = findViewById<Button>(R.id.mission_button)
+
+        if (missionKind == Mission.SHAKE) {
+            answer.visibility = android.view.View.GONE
+            button.visibility = android.view.View.GONE
+            shakes = Mission.Shakes()
+            showShakeProgress()
+            sensors = getSystemService(SENSOR_SERVICE) as? android.hardware.SensorManager
+            sensors?.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER)?.let {
+                sensors?.registerListener(
+                    shakeListener, it, android.hardware.SensorManager.SENSOR_DELAY_GAME
+                )
+            }
+            return
+        }
+
+        askAnother(prompt, answer)
+        button.setOnClickListener {
+            val typed = answer.text.toString()
+            if (Mission.solved(sum ?: return@setOnClickListener, typed)) {
+                stopRinging()
+            } else {
+                // A fresh one, so a wrong answer cannot be got past by
+                // pressing the button again until it happens to be right.
+                Pusher.play(this, Pusher.Feel.STOP)
+                askAnother(prompt, answer)
+            }
+        }
+    }
+
+    private fun askAnother(prompt: TextView, answer: android.widget.EditText) {
+        val next = Mission.sum()
+        sum = next
+        prompt.text = next.text()
+        prompt.contentDescription = getString(R.string.mission_maths_a11y, next.a, next.b)
+        answer.text = null
+    }
+
+    private fun showShakeProgress() {
+        val counter = shakes ?: return
+        findViewById<TextView>(R.id.mission_prompt).text =
+            getString(R.string.mission_shake_fmt, counter.count, counter.needed)
+    }
+
     override fun onDestroy() {
         AlarmService.onStopped = null
+        sensors?.unregisterListener(shakeListener)
         super.onDestroy()
     }
 }

@@ -154,6 +154,17 @@
         <item>UTC</item>
     </string-array>
 
+    <string-array name="mission_entries">
+        <item>None — slide to stop</item>
+        <item>A sum</item>
+        <item>Shake the phone</item>
+    </string-array>
+    <string-array name="mission_values" translatable="false">
+        <item>none</item>
+        <item>maths</item>
+        <item>shake</item>
+    </string-array>
+
     <string-array name="bell_marks_entries">
         <item>The hour only</item>
         <item>And half past</item>
