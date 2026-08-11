@@ -39,7 +39,12 @@ object Backup {
         Prefs.NEEDS_REASSEMBLY,
         Prefs.REASSEMBLE_PENDING,
         Prefs.LOCATION_ASKED,
-        Prefs.OVERLAY_ASKED
+        Prefs.OVERLAY_ASKED,
+        // A booking for one particular morning, and the tally that goes
+        // with it. Restored onto another phone or another week they would
+        // be a promise about an alarm that no longer exists.
+        Prefs.NAG_AT,
+        Prefs.NAG_ROUNDS
     )
 
     fun export(context: Context): String {

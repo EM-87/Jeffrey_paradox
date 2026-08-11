@@ -149,6 +149,26 @@ class MissionTest {
 
     // ------------------------------------------------------ and the screen
 
+    /**
+     * Gives the phone an accelerometer.
+     *
+     * Robolectric's has none by default, and that turned out to matter:
+     * the shake mission was being tested down a path a phone without one
+     * never takes — and, once there was a fallback for that phone, the
+     * test was quietly exercising the fallback instead of the mission.
+     */
+    private fun withAccelerometer() {
+        val manager = context.getSystemService(android.hardware.SensorManager::class.java)
+        org.robolectric.Shadows.shadowOf(manager).addSensor(
+            org.robolectric.shadows.ShadowSensor.newInstance(
+                android.hardware.Sensor.TYPE_ACCELEROMETER
+            )
+        )
+    }
+
+    private val context: android.content.Context
+        get() = ApplicationProvider.getApplicationContext()
+
     private fun ring(fromTimer: Boolean = false, body: (AlarmRingActivity) -> Unit) {
         val intent = android.content.Intent(
             ApplicationProvider.getApplicationContext(), AlarmRingActivity::class.java
@@ -228,6 +248,7 @@ class MissionTest {
     @Test
     fun `the shake mission counts out loud`() {
         prefs.edit().putString(Prefs.MISSION, Mission.SHAKE).commit()
+        withAccelerometer()
         ring { app ->
             assertEquals(Mission.SHAKE, app.missionKind)
             val prompt = app.findViewById<android.widget.TextView>(R.id.mission_prompt)
@@ -236,6 +257,24 @@ class MissionTest {
             // The box and the button belong to the sum, not to this.
             assertEquals(View.GONE, app.findViewById<View>(R.id.mission_answer).visibility)
             assertEquals(View.GONE, app.findViewById<View>(R.id.mission_button).visibility)
+        }
+    }
+
+    /**
+     * A phone with no accelerometer cannot be shaken, and a shake mission
+     * on one would be an alarm with no way to turn it off at all — the
+     * exact failure every other guard here exists to prevent. The slider
+     * comes back rather than leaving somebody with a screen asking for
+     * something impossible.
+     */
+    @Test
+    fun `a phone that cannot feel a shake gets its slider back`() {
+        prefs.edit().putString(Prefs.MISSION, Mission.SHAKE).commit()
+        // No accelerometer added on purpose.
+        ring { app ->
+            assertEquals(Mission.NONE, app.missionKind)
+            assertEquals(View.VISIBLE, app.findViewById<View>(R.id.stop_slider).visibility)
+            assertEquals(View.GONE, app.findViewById<View>(R.id.mission_block).visibility)
         }
     }
 

@@ -49,15 +49,6 @@ class AlarmService : Service() {
         const val RING_TIMEOUT_MS = 3 * 60_000L
 
         /**
-         * The limit actually in force, or 0 for "until somebody stops it".
-         *
-         * A heavy sleeper wants longer and a light one wants a minute; the
-         * default is only a default. Zero is offered too, and honestly
-         * labelled: an alarm that never gives up is a choice, not an
-         * oversight, and the note it would have left is the thing being
-         * traded away.
-         */
-        /**
          * Whether the shade's Stop button has to be taken away.
          *
          * It is the escape that would make the whole mission decoration:
@@ -76,6 +67,15 @@ class AlarmService : Service() {
                     .getString(Prefs.MISSION, null)
             )
 
+        /**
+         * The limit actually in force, or 0 for "until somebody stops it".
+         *
+         * A heavy sleeper wants longer and a light one wants a minute; the
+         * default is only a default. Zero is offered too, and honestly
+         * labelled: an alarm that never gives up is a choice, not an
+         * oversight, and the note it would have left is the thing being
+         * traded away.
+         */
         fun ringTimeoutMs(context: Context): Long {
             val minutes = PreferenceManager.getDefaultSharedPreferences(context)
                 .getString(Prefs.RING_TIMEOUT_MIN, null)
@@ -131,6 +131,9 @@ class AlarmService : Service() {
     private var label = ""
     private var vibrateEnabled = true
     private var flashEnabled = false
+
+    /** Which round of nagging this ringing is; 0 for a first, ordinary one. */
+    private var nagRound = 0
     private var fromTimer = false
     private var mediaPlayer: MediaPlayer? = null
     private var flashOn = false
@@ -224,6 +227,7 @@ class AlarmService : Service() {
         soundUri = intent?.getStringExtra(AlarmScheduler.EXTRA_SOUND_URI) ?: ""
         snoozeMinutes = intent?.getIntExtra(AlarmScheduler.EXTRA_SNOOZE, 0) ?: 0
         snoozed = intent?.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_COUNT, 0) ?: 0
+        nagRound = intent?.getIntExtra(Nag.EXTRA_ROUND, 0) ?: 0
         label = intent?.getStringExtra(AlarmScheduler.EXTRA_LABEL) ?: ""
         vibrateEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_VIBRATE, true) != false
         flashEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_FLASH, false) == true
@@ -300,10 +304,14 @@ class AlarmService : Service() {
         // An unpassed mission does not go away. Without this the mission is
         // theatre: ignore it for three minutes and going back to sleep
         // costs nothing, which is the exact thing it was added to stop.
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        val rounds = Nag.rounds(prefs)
-        if (Nag.wantsAnother(guardsStop(this, fromTimer), rounds)) {
-            Nag.arm(this, sound, soundUri, label, snoozeMinutes, rounds)
+        if (Nag.wantsAnother(guardsStop(this, fromTimer), nagRound)) {
+            Nag.arm(
+                this, sound, soundUri, label, snoozeMinutes,
+                vibrateEnabled, flashEnabled, nagRound
+            )
+        } else {
+            // Nothing more is coming, so the app must stop saying one is.
+            Nag.callOff(this)
         }
         stopSelf()
     }
@@ -410,24 +418,37 @@ class AlarmService : Service() {
         manager.createNotificationChannel(channel)
     }
 
+    /**
+     * The intent the ring screen is opened with.
+     *
+     * The same list of extras the receiver carries, filled in from what
+     * this ringing actually is — because this is the second hop where one
+     * of them can silently go missing, and did.
+     */
+    internal fun ringIntent(): Intent = Intent(this, AlarmRingActivity::class.java)
+        // CLEAR_TASK, because NEW_TASK on its own will hand an old
+        // ring task straight back — extras and all, since a task is
+        // matched on component and never on what it is carrying. The
+        // stale flag was the visible half of that; a stale label,
+        // sound or snooze setting was the other.
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        .putExtra(AlarmScheduler.EXTRA_SOUND, sound)
+        .putExtra(AlarmScheduler.EXTRA_SOUND_URI, soundUri)
+        .putExtra(AlarmScheduler.EXTRA_SNOOZE, snoozeMinutes)
+        .putExtra(AlarmScheduler.EXTRA_SNOOZE_COUNT, snoozed)
+        .putExtra(AlarmScheduler.EXTRA_LABEL, label)
+        .putExtra(AlarmScheduler.EXTRA_VIBRATE, vibrateEnabled)
+        .putExtra(AlarmScheduler.EXTRA_FLASH, flashEnabled)
+        .putExtra(Nag.EXTRA_ROUND, nagRound)
+        // The full-screen ring needs to know what ran out, the same
+        // way the notification icon does.
+        .putExtra(AlarmScheduler.EXTRA_FROM_TIMER, fromTimer)
+
     private fun buildNotification(): android.app.Notification {
         val fullScreen = PendingIntent.getActivity(
             this,
             0,
-            Intent(this, AlarmRingActivity::class.java)
-                // CLEAR_TASK, because NEW_TASK on its own will hand an old
-                // ring task straight back — extras and all, since a task is
-                // matched on component and never on what it is carrying. The
-                // stale flag was the visible half of that; a stale label,
-                // sound or snooze setting was the other.
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                .putExtra(AlarmScheduler.EXTRA_SOUND, sound)
-                .putExtra(AlarmScheduler.EXTRA_SOUND_URI, soundUri)
-                .putExtra(AlarmScheduler.EXTRA_SNOOZE, snoozeMinutes)
-                .putExtra(AlarmScheduler.EXTRA_LABEL, label)
-                // The full-screen ring needs to know what ran out, the same
-                // way the notification icon does.
-                .putExtra(AlarmScheduler.EXTRA_FROM_TIMER, fromTimer),
+            ringIntent(),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val guarded = guardsStop(this, fromTimer)

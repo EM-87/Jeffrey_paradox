@@ -110,6 +110,22 @@ class PushersTest {
         }
     }
 
+    /**
+     * And the release of the same press, which is the half that was
+     * getting through. The window handles the volume keys on the way up
+     * as well, and that is the half that puts the volume slider on the
+     * screen — so the pusher worked and a volume panel slid over the dial
+     * at the same time.
+     */
+    @Test
+    fun `the release of the key is taken too`() {
+        onApp { app ->
+            app.press(R.id.to_stopwatch_button)
+            assertTrue(app.onKeyUp(KeyEvent.KEYCODE_VOLUME_UP, null))
+            assertTrue(app.onKeyUp(KeyEvent.KEYCODE_VOLUME_DOWN, null))
+        }
+    }
+
     /** On the clock they are the volume keys, as they always were. */
     @Test
     fun `and on the clock they are left alone`() {
@@ -117,6 +133,10 @@ class PushersTest {
             assertFalse(
                 "the clock has no pushers to work",
                 app.onKeyDown(KeyEvent.KEYCODE_VOLUME_UP, null)
+            )
+            assertFalse(
+                "on the way up either",
+                app.onKeyUp(KeyEvent.KEYCODE_VOLUME_UP, null)
             )
         }
     }

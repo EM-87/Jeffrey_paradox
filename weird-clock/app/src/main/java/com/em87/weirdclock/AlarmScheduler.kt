@@ -32,6 +32,41 @@ object AlarmScheduler {
     /** Set when the ringing is a finished countdown rather than an alarm. */
     const val EXTRA_FROM_TIMER = "extra_from_timer"
 
+    /**
+     * Everything one ringing carries with it.
+     *
+     * There is a chain — the scheduler arms an intent, the receiver hands
+     * it to the service, the service hands it to the screen — and each hop
+     * was copying the extras out by hand. Miss one and it silently becomes
+     * its default at that hop: the snooze count was dropped by the
+     * receiver, so the ring screen was told "none so far" every time and
+     * the snooze limit, a setting people had turned on, limited nothing at
+     * all. Nobody could have seen that from the outside; the button simply
+     * never went away.
+     *
+     * So the list lives here, once, and the hop copies the list.
+     */
+    val CARRIED = arrayOf(
+        EXTRA_ALARM_ID, EXTRA_REMINDER_ID, EXTRA_SOUND, EXTRA_SOUND_URI,
+        EXTRA_SNOOZE, EXTRA_SNOOZE_COUNT, EXTRA_LABEL, EXTRA_VIBRATE,
+        EXTRA_FLASH, EXTRA_FROM_TIMER, Nag.EXTRA_ROUND
+    )
+
+    /**
+     * Copies every carried extra from one intent to the next, whatever
+     * its type, and leaves anything absent absent.
+     */
+    fun carryOver(from: Intent, to: Intent): Intent {
+        val extras = from.extras ?: return to
+        for (key in CARRIED) {
+            if (extras.containsKey(key)) {
+                @Suppress("DEPRECATION")
+                to.putExtra(key, extras.get(key) as java.io.Serializable?)
+            }
+        }
+        return to
+    }
+
     fun update(context: Context) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         // No time travel: alarms only work while time runs at real speed.

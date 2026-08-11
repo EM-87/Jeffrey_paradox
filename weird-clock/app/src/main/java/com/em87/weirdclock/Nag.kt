@@ -40,6 +40,18 @@ object Nag {
      */
     const val GIVES_UP_AFTER = 12
 
+    /**
+     * Which round this ringing is, carried on the intent.
+     *
+     * In the intent and not in a preference, for the same reason the
+     * snooze count is: a number kept in a preference is a number that
+     * outlives the morning it belongs to. Stored, the tally reached its
+     * limit one bad morning and stayed there — and an alarm that had
+     * already nagged its twelve would never nag again, on any morning
+     * after, because nothing ever put it back.
+     */
+    const val EXTRA_ROUND = "extra_nag_round"
+
     private const val FIRE_REQUEST = 104
     private const val SHOW_REQUEST = 105
 
@@ -80,11 +92,15 @@ object Nag {
         soundUri: String,
         label: String,
         snoozeMinutes: Int,
+        vibrate: Boolean,
+        flash: Boolean,
         roundsSoFar: Int
     ) {
         val manager = context.getSystemService(AlarmManager::class.java) ?: return
         val at = System.currentTimeMillis() + MINUTES * 60_000L
-        val fire = firePendingIntent(context, sound, soundUri, label, snoozeMinutes)
+        val fire = firePendingIntent(
+            context, sound, soundUri, label, snoozeMinutes, vibrate, flash, roundsSoFar + 1
+        )
         val show = PendingIntent.getActivity(
             context,
             SHOW_REQUEST,
@@ -115,7 +131,7 @@ object Nag {
      */
     fun callOff(context: Context) {
         context.getSystemService(AlarmManager::class.java)
-            ?.cancel(firePendingIntent(context, "", "", "", 0))
+            ?.cancel(firePendingIntent(context, "", "", "", 0, true, false, 0))
         prefs(context).edit()
             .remove(Prefs.NAG_AT)
             .remove(Prefs.NAG_ROUNDS)
@@ -137,7 +153,10 @@ object Nag {
         sound: String,
         soundUri: String,
         label: String,
-        snoozeMinutes: Int
+        snoozeMinutes: Int,
+        vibrate: Boolean,
+        flash: Boolean,
+        round: Int
     ): PendingIntent = PendingIntent.getBroadcast(
         context,
         FIRE_REQUEST,
@@ -145,7 +164,13 @@ object Nag {
             .putExtra(AlarmScheduler.EXTRA_SOUND, sound)
             .putExtra(AlarmScheduler.EXTRA_SOUND_URI, soundUri)
             .putExtra(AlarmScheduler.EXTRA_LABEL, label)
-            .putExtra(AlarmScheduler.EXTRA_SNOOZE, snoozeMinutes),
+            .putExtra(AlarmScheduler.EXTRA_SNOOZE, snoozeMinutes)
+            // The next go is the same alarm, so it shakes and flashes the
+            // way that alarm does. These were left off, and an alarm set to
+            // light the room went dark from the second round on.
+            .putExtra(AlarmScheduler.EXTRA_VIBRATE, vibrate)
+            .putExtra(AlarmScheduler.EXTRA_FLASH, flash)
+            .putExtra(EXTRA_ROUND, round),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 }

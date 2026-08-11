@@ -202,16 +202,28 @@ class AlarmRingActivity : AppCompatActivity() {
         val button = findViewById<Button>(R.id.mission_button)
 
         if (missionKind == Mission.SHAKE) {
+            sensors = getSystemService(SENSOR_SERVICE) as? android.hardware.SensorManager
+            val accelerometer =
+                sensors?.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER)
+            if (accelerometer == null) {
+                // No accelerometer, no shaking — and a shake mission on a
+                // phone that cannot feel one is an alarm with no way to
+                // turn it off at all. The slider comes back rather than
+                // leaving somebody with a screen that asks for something
+                // impossible.
+                missionKind = Mission.NONE
+                block.visibility = android.view.View.GONE
+                findViewById<android.view.View>(R.id.stop_slider).visibility =
+                    android.view.View.VISIBLE
+                return
+            }
             answer.visibility = android.view.View.GONE
             button.visibility = android.view.View.GONE
             shakes = Mission.Shakes()
             showShakeProgress()
-            sensors = getSystemService(SENSOR_SERVICE) as? android.hardware.SensorManager
-            sensors?.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER)?.let {
-                sensors?.registerListener(
-                    shakeListener, it, android.hardware.SensorManager.SENSOR_DELAY_GAME
-                )
-            }
+            sensors?.registerListener(
+                shakeListener, accelerometer, android.hardware.SensorManager.SENSOR_DELAY_GAME
+            )
             return
         }
 

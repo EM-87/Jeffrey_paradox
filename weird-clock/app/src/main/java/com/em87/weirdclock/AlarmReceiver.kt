@@ -13,19 +13,14 @@ import androidx.core.content.ContextCompat
 class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        val service = Intent(context, AlarmService::class.java)
-            .putExtra(AlarmScheduler.EXTRA_SOUND, intent.getStringExtra(AlarmScheduler.EXTRA_SOUND))
-            .putExtra(AlarmScheduler.EXTRA_SOUND_URI, intent.getStringExtra(AlarmScheduler.EXTRA_SOUND_URI))
-            .putExtra(AlarmScheduler.EXTRA_SNOOZE, intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE, 0))
-            .putExtra(AlarmScheduler.EXTRA_LABEL, intent.getStringExtra(AlarmScheduler.EXTRA_LABEL))
-            .putExtra(
-                AlarmScheduler.EXTRA_VIBRATE,
-                intent.getBooleanExtra(AlarmScheduler.EXTRA_VIBRATE, true)
-            )
-            .putExtra(
-                AlarmScheduler.EXTRA_FLASH,
-                intent.getBooleanExtra(AlarmScheduler.EXTRA_FLASH, false)
-            )
+        // Every extra this alarm was armed with, carried on whole. It
+        // used to be copied out by hand here, and the two counts that ride
+        // in the intent — how often it has been snoozed, which round of
+        // nagging it is — were both left behind, which reset them to zero
+        // on every hop.
+        val service = AlarmScheduler.carryOver(
+            intent, Intent(context, AlarmService::class.java)
+        )
         // Android only allows a background app to start a foreground service
         // in specific windows. An exact alarm is one of them, but the inexact
         // fallback the scheduler uses when exact alarms are refused is not —

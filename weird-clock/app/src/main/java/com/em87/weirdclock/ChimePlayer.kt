@@ -104,19 +104,37 @@ class ChimePlayer {
     ) {
         if (count <= 0) return
         thread(name = "bell-synth") {
-            val strikeOffsets = ArrayList<Double>(count)
-            var t = 0.0
-            for (i in 0 until count) {
-                strikeOffsets.add(t)
-                t += if (pairGrouping && i % 2 == 0) 0.4 else interval
-            }
-            val total = strikeOffsets.last() + ringSeconds + 0.3
-            val buffer = FloatArray((total * SAMPLE_RATE).toInt())
-            for (offset in strikeOffsets) {
-                addBellStrike(buffer, offset, frequency, ringSeconds)
-            }
-            playFloatBuffer(buffer)
+            playFloatBuffer(bellBuffer(count, pairGrouping, frequency, ringSeconds, interval))
         }
+    }
+
+    /**
+     * The samples a bell peal is made of, without playing them.
+     *
+     * Split out so the sound can be measured rather than only heard. Every
+     * voice in here is synthesised from arithmetic, and until now the only
+     * way to find out whether a new one was twice as loud as the bells it
+     * sits beside was to install it and be startled at six in the morning.
+     */
+    internal fun bellBuffer(
+        count: Int,
+        pairGrouping: Boolean,
+        frequency: Double,
+        ringSeconds: Double,
+        interval: Double
+    ): FloatArray {
+        val strikeOffsets = ArrayList<Double>(count)
+        var t = 0.0
+        for (i in 0 until count) {
+            strikeOffsets.add(t)
+            t += if (pairGrouping && i % 2 == 0) 0.4 else interval
+        }
+        val total = strikeOffsets.last() + ringSeconds + 0.3
+        val buffer = FloatArray((total * SAMPLE_RATE).toInt())
+        for (offset in strikeOffsets) {
+            addBellStrike(buffer, offset, frequency, ringSeconds)
+        }
+        return buffer
     }
 
     /** Rings whatever [Bells] decided on, on whichever voice it chose. */
@@ -149,13 +167,23 @@ class ChimePlayer {
     ) {
         if (count <= 0) return
         thread(name = "beep-synth") {
-            val total = (count - 1) * interval + beepSeconds + 0.05
-            val buffer = FloatArray((total * SAMPLE_RATE).toInt())
-            for (i in 0 until count) {
-                addBeep(buffer, i * interval, frequency, beepSeconds)
-            }
-            playFloatBuffer(buffer)
+            playFloatBuffer(beepBuffer(count, frequency, beepSeconds, interval))
         }
+    }
+
+    /** The samples a beep peal is made of, without playing them. */
+    internal fun beepBuffer(
+        count: Int,
+        frequency: Double,
+        beepSeconds: Double,
+        interval: Double
+    ): FloatArray {
+        val total = (count - 1) * interval + beepSeconds + 0.05
+        val buffer = FloatArray((total * SAMPLE_RATE).toInt())
+        for (i in 0 until count) {
+            addBeep(buffer, i * interval, frequency, beepSeconds)
+        }
+        return buffer
     }
 
     private fun addBeep(buffer: FloatArray, offsetSeconds: Double, hz: Double, duration: Double) {
@@ -237,16 +265,18 @@ class ChimePlayer {
     /** Quarter chimes: quick, bright double strikes — clearly not the hour. */
     fun playQuarters(rounds: Int = 3) {
         if (rounds <= 0) return
-        thread(name = "quarters-synth") {
-            val total = rounds * 0.62 + 1.2
-            val buffer = FloatArray((total * SAMPLE_RATE).toInt())
-            for (r in 0 until rounds) {
-                val base = r * 0.62
-                addBellStrike(buffer, base, 1046.5, 0.55)
-                addBellStrike(buffer, base + 0.17, 1318.5, 0.55)
-            }
-            playFloatBuffer(buffer)
+        thread(name = "quarters-synth") { playFloatBuffer(quarterBuffer(rounds)) }
+    }
+
+    internal fun quarterBuffer(rounds: Int): FloatArray {
+        val total = rounds * 0.62 + 1.2
+        val buffer = FloatArray((total * SAMPLE_RATE).toInt())
+        for (r in 0 until rounds) {
+            val base = r * 0.62
+            addBellStrike(buffer, base, 1046.5, 0.55)
+            addBellStrike(buffer, base + 0.17, 1318.5, 0.55)
         }
+        return buffer
     }
 
     /** Cuckoo-clock call: two soft flute notes, a falling third. Cu-coo. */
@@ -310,6 +340,19 @@ class ChimePlayer {
             buffer[i] += (sample * envelope * 0.24).toFloat()
         }
     }
+
+    /** Whichever buffer [peal] calls for, ready to be measured or played. */
+    internal fun buffer(peal: Bells.Peal): FloatArray = when (peal.voice) {
+        Bells.Voice.BEEP ->
+            beepBuffer(peal.count, peal.frequency, peal.ringSeconds, peal.interval)
+        Bells.Voice.QUARTER_CHIME -> quarterBuffer(peal.count)
+        Bells.Voice.BELL -> bellBuffer(
+            peal.count, peal.pairGrouping, peal.frequency, peal.ringSeconds, peal.interval
+        )
+    }
+
+    /** How loud a buffer gets, and how loud it is on average while sounding. */
+    internal fun sampleRateForTest(): Int = SAMPLE_RATE
 
     private fun playFloatBuffer(buffer: FloatArray) {
         synchronized(lock) {

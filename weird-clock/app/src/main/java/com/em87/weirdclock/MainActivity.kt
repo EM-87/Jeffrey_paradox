@@ -781,7 +781,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * a wildly disproportionate thing for a clock to ask for.
      */
     override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
-        if (dialJob == null) {
+        if (takesVolumeKeys()) {
             val card = current()
             if (card == Card.STOPWATCH) {
                 when (keyCode) {
@@ -812,7 +812,33 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         return super.onKeyDown(keyCode, event)
     }
 
+    /**
+     * And the release of the same press.
+     *
+     * Consuming only the press is not enough: the window handles the
+     * volume keys on the way up as well, and the half we left through was
+     * the half that puts the volume slider on the screen. So the pusher
+     * worked and a volume panel slid over the dial at the same time.
+     */
+    override fun onKeyUp(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        if (takesVolumeKeys() &&
+            (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP ||
+                keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN)
+        ) {
+            return true
+        }
+        return super.onKeyUp(keyCode, event)
+    }
+
+    /** Whether the card on screen is one whose pushers the keys work. */
+    private fun takesVolumeKeys(): Boolean =
+        dialJob == null && current().let { it == Card.STOPWATCH || it == Card.REVERSE }
+
     override fun onPause() {
+        // A dialog outlives the window it was shown in unless it is told
+        // otherwise, and the system says so out loud in the log.
+        nagDialog?.dismiss()
+        nagDialog = null
         // Written down every time the app goes to the background, because
         // that is the last moment it is certain to be alive: the system may
         // reclaim it at any point afterwards without another word.

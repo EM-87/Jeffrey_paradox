@@ -1,10 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- A ScrollView, because of the keyboard. With a sum on screen the
+     numeric keypad covers the bottom third, and the button that stops the
+     alarm was under it: the only way to reach it was to dismiss the
+     keyboard first, at six in the morning, with the bells going. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/app_background"
+    android:fillViewport="true">
+
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="center_vertical"
     android:gravity="center"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:paddingTop="24dp"
+    android:paddingBottom="24dp">
 
     <!-- Bell for an alarm, stopwatch for a finished countdown: set in code,
          because this one screen serves both. -->
@@ -89,6 +101,7 @@
             android:gravity="center"
             android:hint="@string/mission_answer_hint"
             android:importantForAutofill="no"
+            android:imeOptions="actionDone"
             android:inputType="numberSigned"
             android:textColor="@color/text_primary"
             android:textSize="32sp" />
@@ -104,3 +117,5 @@
     </LinearLayout>
 
 </LinearLayout>
+
+</ScrollView>
