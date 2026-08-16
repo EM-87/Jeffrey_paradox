@@ -11,8 +11,8 @@ android {
         applicationId = "com.em87.weirdclock"
         minSdk = 24
         targetSdk = 35
-        versionCode = 125
-        versionName = "18.5"
+        versionCode = 126
+        versionName = "18.6"
     }
 
     // Shared signing key committed to the repo, so every APK — built on any
@@ -51,6 +51,13 @@ android {
     lint {
         error += "MissingTranslation"
         warning += "ExtraTranslation"
+        // A string, an array or an animation that nothing uses is the
+        // wreckage of a feature that was taken out — thirty-four of them
+        // had piled up, including the labels of a mode switch removed
+        // several versions ago. They cost nothing to run and a great deal
+        // to read: somebody looking for how a screen is worded finds two
+        // candidates and no way to tell which one the app says.
+        error += "UnusedResources"
     }
 
     compileOptions {

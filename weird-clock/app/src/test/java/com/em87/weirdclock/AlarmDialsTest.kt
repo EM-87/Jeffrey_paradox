@@ -118,4 +118,104 @@ class AlarmDialsTest {
         val quartered = sizeOf(facesIn(row(8 to 0, 12 to 0, 16 to 0, 20 to 0)).first()).first
         assertTrue("$quartered should be well under $alone", quartered < alone)
     }
+
+    // ------------------------------------------------- the marks on the row
+
+    /**
+     * A card bound for real, so the little marks under the time can be read.
+     *
+     * They were only ever checked by looking at a screenshot. Which is
+     * worth doing — it is how the two new ones were found to be drawn at
+     * all — but a picture I looked at once is not something that goes on
+     * being true, and these marks are the only way to tell from the list
+     * what an alarm is going to do to you in the morning.
+     */
+    private fun bind(alarm: Alarm): AlarmCards.AlarmHolder {
+        // A card is a MaterialCardView, and Material views refuse to
+        // inflate against a context with no theme on it. The application
+        // context has none; the app's own theme is what the card is drawn
+        // with on the phone, so it is what it is drawn with here.
+        val themed = android.view.ContextThemeWrapper(context, R.style.Theme_WeirdClock)
+        val cards = AlarmCards(
+            host = themed,
+            prefs = PreferenceManager.getDefaultSharedPreferences(context),
+            alarms = listOf(alarm),
+            dialTheme = { ClockThemes.MIDNIGHT },
+            hoursOnDial = { 12 },
+            dialShape = { ClockView.DialShape.CIRCLE },
+            onToggled = { _, _ -> },
+            onOpen = { }
+        )
+        val parent = LinearLayout(themed)
+        val holder = cards.adapter.onCreateViewHolder(parent, 0)
+        cards.adapter.onBindViewHolder(holder, 0)
+        return holder
+    }
+
+    private fun plain() = Alarm(1, 7, 0, true, Prefs.ALARM_SOUND_BELLS).apply {
+        vibrate = false
+        snoozeMinutes = 0
+    }
+
+    /** Nothing switched on, nothing marked. Most alarms look like this. */
+    @Test
+    fun `an alarm with nothing set wears no marks`() {
+        val holder = bind(plain())
+        assertEquals(View.GONE, holder.iconMission.visibility)
+        assertEquals(View.GONE, holder.iconGentle.visibility)
+        assertEquals(View.GONE, holder.iconFlash.visibility)
+        assertEquals(View.GONE, holder.iconVibrate.visibility)
+    }
+
+    /**
+     * And the two that are easy to set and then forget show up. Both change
+     * what happens at six in the morning, and neither is visible anywhere
+     * else without opening the alarm.
+     */
+    @Test
+    fun `a mission and a sunrise each put a mark on the card`() {
+        val withMission = bind(plain().apply { mission = Mission.MATHS })
+        assertEquals(View.VISIBLE, withMission.iconMission.visibility)
+        assertEquals(
+            "a sunrise nobody asked for must not appear",
+            View.GONE, withMission.iconGentle.visibility
+        )
+
+        val withSunrise = bind(plain().apply { gentleWakeSeconds = 180 })
+        assertEquals(View.VISIBLE, withSunrise.iconGentle.visibility)
+        assertEquals(
+            "a mission nobody asked for must not appear",
+            View.GONE, withSunrise.iconMission.visibility
+        )
+    }
+
+    /**
+     * Which mission, not merely that there is one. Being woken to do
+     * arithmetic and being woken to shake the thing are quite different
+     * mornings, and one mark for both leaves you opening the alarm to find
+     * out which you are in for.
+     */
+    @Test
+    fun `the mark says which mission it is`() {
+        val maths = bind(plain().apply { mission = Mission.MATHS })
+        val shake = bind(plain().apply { mission = Mission.SHAKE })
+        assertTrue(
+            "the two missions wear the same mark",
+            maths.iconMission.drawable !== shake.iconMission.drawable
+        )
+        assertEquals(R.drawable.ic_sigma, cards().missionIcon(Mission.MATHS))
+        assertEquals(R.drawable.ic_shake, cards().missionIcon(Mission.SHAKE))
+    }
+
+    /** And each says out loud what it is, for somebody who cannot see it. */
+    @Test
+    fun `the mission mark says what it wants out loud`() {
+        val holder = bind(plain().apply { mission = Mission.MATHS; missionLevel = 5 })
+        val spoken = holder.iconMission.contentDescription?.toString().orEmpty()
+        assertTrue("nothing is said about it: '$spoken'", spoken.isNotBlank())
+        assertTrue(
+            "and the rung is part of what it wants: '$spoken'",
+            spoken.contains("5")
+        )
+    }
 }

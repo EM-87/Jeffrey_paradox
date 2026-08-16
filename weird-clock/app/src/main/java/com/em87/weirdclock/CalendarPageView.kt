@@ -753,7 +753,6 @@ class CalendarPageView @JvmOverloads constructor(
     var yearMarks: Set<Int> = emptySet()
         set(value) { field = value; invalidate() }
 
-    /** The same terminator-ellipse moon as the dial, in miniature. */
     /** A five-pointed star, drawn by alternating outer and inner radius. */
     private fun drawStar(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         starPath.reset()
@@ -774,6 +773,7 @@ class CalendarPageView @JvmOverloads constructor(
         moonLitPaint.alpha = alpha
     }
 
+    /** The same terminator-ellipse moon as the dial, in miniature. */
     private fun drawMiniMoon(canvas: Canvas, cx: Float, cy: Float, mr: Float, timeMs: Long) {
         val synodicDays = 29.530588853
         val julian = timeMs / 86_400_000.0 + 2_440_587.5

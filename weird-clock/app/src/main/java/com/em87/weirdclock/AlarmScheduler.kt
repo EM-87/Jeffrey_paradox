@@ -16,6 +16,17 @@ import java.util.Calendar
 object AlarmScheduler {
 
     const val EXTRA_ALARM_ID = "extra_alarm_id"
+
+    /**
+     * Which calendar reminder this ringing is, or -1 for a plain alarm.
+     *
+     * Nothing reads it today. It used to say which reminder to delete, back
+     * when a reminder was deleted the moment it rang — which killed a
+     * yearly one on its first outing — and that went. It is still put on and
+     * still carried because it is the only thing that says *which* reminder
+     * is ringing, and an intent that cannot name what it is about is a
+     * thing you find out you needed at the worst moment.
+     */
     const val EXTRA_REMINDER_ID = "extra_reminder_id"
     const val EXTRA_SOUND = "extra_sound"
     const val EXTRA_SOUND_URI = "extra_sound_uri"
@@ -197,9 +208,18 @@ object AlarmScheduler {
         )
     }
 
-    /** One-shot re-fire in [minutes], independent of the regular chain. */
     /**
-     * Puts an alarm off for [minutes], unless it has been put off enough.
+     * Puts the ringing described by [from] off for [minutes], unless it has
+     * been put off enough.
+     *
+     * It takes the whole intent and not a handful of fields, because the
+     * alarm that comes back has to be the *same alarm*. Built by hand from
+     * four values, it was not: an alarm snoozed once came back with no
+     * mission, no gradual sunrise, no torch, no label, and vibrating even
+     * if it had been told not to. Which is the worst possible place for
+     * that bug to live — somebody who presses snooze is exactly the person
+     * the mission was put there for, and pressing it turned the mission
+     * off.
      *
      * [alreadySnoozed] rides in the intent rather than living in a
      * preference, so it can never be a count left over from an alarm three
@@ -213,9 +233,8 @@ object AlarmScheduler {
      */
     fun snooze(
         context: Context,
-        sound: String,
+        from: Intent,
         minutes: Int,
-        soundUri: String = "",
         alreadySnoozed: Int = 0
     ): Boolean {
         val limit = snoozeLimit(context)
@@ -225,9 +244,10 @@ object AlarmScheduler {
         val fire = PendingIntent.getBroadcast(
             context,
             102,
-            Intent(context, AlarmReceiver::class.java)
-                .putExtra(EXTRA_SOUND, sound)
-                .putExtra(EXTRA_SOUND_URI, soundUri)
+            // Everything this ringing was carrying, and then the two things
+            // the snooze itself decides: how long, and that this is one
+            // more time of asking.
+            carryOver(from, Intent(context, AlarmReceiver::class.java))
                 .putExtra(EXTRA_SNOOZE, minutes)
                 .putExtra(EXTRA_SNOOZE_COUNT, alreadySnoozed + 1),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE

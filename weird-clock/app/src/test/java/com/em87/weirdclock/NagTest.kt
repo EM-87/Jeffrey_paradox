@@ -36,6 +36,35 @@ class NagTest {
         prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
     }
 
+    /**
+     * One ringing, as it arrives: the intent an alarm is carried on.
+     *
+     * Everything the nag and the snooze have to hand on lives here, because
+     * both of them now book the next go by carrying this forward rather
+     * than by remembering a list of fields.
+     */
+    private fun ringing(
+        sound: String = Prefs.ALARM_SOUND_BELLS,
+        label: String = "",
+        mission: String = Mission.MATHS,
+        level: Int = 4,
+        vibrate: Boolean = true,
+        flash: Boolean = false,
+        gentle: Int = 0,
+        gentleFlash: Boolean = false,
+        snoozeMinutes: Int = 5
+    ) = android.content.Intent()
+        .putExtra(AlarmScheduler.EXTRA_SOUND, sound)
+        .putExtra(AlarmScheduler.EXTRA_SOUND_URI, "")
+        .putExtra(AlarmScheduler.EXTRA_LABEL, label)
+        .putExtra(AlarmScheduler.EXTRA_SNOOZE, snoozeMinutes)
+        .putExtra(AlarmScheduler.EXTRA_VIBRATE, vibrate)
+        .putExtra(AlarmScheduler.EXTRA_FLASH, flash)
+        .putExtra(AlarmScheduler.EXTRA_MISSION, mission)
+        .putExtra(AlarmScheduler.EXTRA_MISSION_LEVEL, level)
+        .putExtra(AlarmScheduler.EXTRA_GENTLE, gentle)
+        .putExtra(AlarmScheduler.EXTRA_GENTLE_FLASH, gentleFlash)
+
     // ------------------------------------------------------ when it books
 
     /**
@@ -70,7 +99,7 @@ class NagTest {
 
     @Test
     fun `booking one leaves something to cancel and something to say`() {
-        Nag.arm(context, Prefs.ALARM_SOUND_BELLS, "", "Work", 5, vibrate = true, flash = false, Mission.MATHS, 3, 0, false, roundsSoFar = 0)
+        Nag.arm(context, ringing(label = "Work"), roundsSoFar = 0)
 
         assertTrue(Nag.pending(prefs))
         assertEquals(1, Nag.rounds(prefs))
@@ -83,9 +112,9 @@ class NagTest {
     /** Each round counts, or the limit above would never be reached. */
     @Test
     fun `the rounds add up`() {
-        Nag.arm(context, Prefs.ALARM_SOUND_BELLS, "", "", 0, true, false, Mission.MATHS, 3, 0, false, Nag.rounds(prefs))
-        Nag.arm(context, Prefs.ALARM_SOUND_BELLS, "", "", 0, true, false, Mission.MATHS, 3, 0, false, Nag.rounds(prefs))
-        Nag.arm(context, Prefs.ALARM_SOUND_BELLS, "", "", 0, true, false, Mission.MATHS, 3, 0, false, Nag.rounds(prefs))
+        Nag.arm(context, ringing(), Nag.rounds(prefs))
+        Nag.arm(context, ringing(), Nag.rounds(prefs))
+        Nag.arm(context, ringing(), Nag.rounds(prefs))
         assertEquals(3, Nag.rounds(prefs))
     }
 
@@ -105,7 +134,7 @@ class NagTest {
     /** Calling it off clears the booking and the tally with it. */
     @Test
     fun `calling it off really calls it off`() {
-        Nag.arm(context, Prefs.ALARM_SOUND_BELLS, "", "", 5, true, false, Mission.MATHS, 3, 0, false, 0)
+        Nag.arm(context, ringing(), 0)
         assertEquals("nothing was booked to start with", 1, booked())
 
         Nag.callOff(context)
@@ -122,7 +151,7 @@ class NagTest {
      */
     @Test
     fun `a booking that has already come round is not pending`() {
-        Nag.arm(context, Prefs.ALARM_SOUND_BELLS, "", "", 5, true, false, Mission.MATHS, 3, 0, false, 0)
+        Nag.arm(context, ringing(), 0)
         val after = Nag.bookedAt(prefs) + 1
         assertFalse(Nag.pending(prefs, now = after))
         assertTrue(Nag.pending(prefs, now = after - 2))
@@ -146,7 +175,7 @@ class NagTest {
      */
     @Test
     fun `passing the mission ends the nagging`() {
-        Nag.arm(context, Prefs.ALARM_SOUND_BELLS, "", "", 5, true, false, Mission.MATHS, 3, 0, false, 3)
+        Nag.arm(context, ringing(), 3)
         assertTrue("set up wrong", Nag.pending(prefs))
 
         ring(mission = Mission.MATHS) { app ->
@@ -165,7 +194,7 @@ class NagTest {
     /** And so does an ordinary stop, from a morning with no mission on it. */
     @Test
     fun `the slider ends it too`() {
-        Nag.arm(context, Prefs.ALARM_SOUND_BELLS, "", "", 5, true, false, Mission.MATHS, 3, 0, false, 1)
+        Nag.arm(context, ringing(), 1)
         ring { app ->
             app.findViewById<SlideToStopView>(R.id.stop_slider).onSlid?.invoke()
         }
@@ -175,7 +204,7 @@ class NagTest {
     /** Snoozing takes over, so anything booked would land in the middle. */
     @Test
     fun `snoozing calls it off as well`() {
-        Nag.arm(context, Prefs.ALARM_SOUND_BELLS, "", "", 5, true, false, Mission.MATHS, 3, 0, false, 1)
+        Nag.arm(context, ringing(), 1)
         val intent = android.content.Intent(context, AlarmRingActivity::class.java)
             .putExtra(AlarmScheduler.EXTRA_SNOOZE, 5)
         Robolectric.buildActivity(AlarmRingActivity::class.java, intent).use { c ->
@@ -186,13 +215,41 @@ class NagTest {
     }
 
     /**
+     * There are two Snooze buttons, and only one of them called it off.
+     *
+     * The ring screen's did. The notification's — the one you can reach on
+     * the lock screen, without opening anything, which is the one a hand at
+     * six in the morning actually finds — booked the snooze and left the
+     * nagging armed behind it, so the next round went off in the middle of
+     * the ten minutes that had just been asked for.
+     */
+    @Test
+    fun `the notification's snooze calls the nag off too`() {
+        Nag.arm(context, ringing(), 1)
+        assertTrue("set up wrong", Nag.pending(prefs))
+
+        val controller = Robolectric.buildService(
+            AlarmService::class.java,
+            android.content.Intent(context, AlarmService::class.java)
+                .setAction(AlarmService.ACTION_SNOOZE)
+        )
+        try {
+            controller.create().startCommand(0, 0)
+        } finally {
+            controller.destroy()
+        }
+
+        assertFalse("the next round would land inside the snooze", Nag.pending(prefs))
+    }
+
+    /**
      * And the app says so and offers the way out, every time it comes
      * back. The one thing worse than an alarm that keeps returning is one
      * that keeps returning and never mentions it.
      */
     @Test
     fun `the app owns up to it and offers the way out`() {
-        Nag.arm(context, Prefs.ALARM_SOUND_BELLS, "", "", 5, true, false, Mission.MATHS, 3, 0, false, 2)
+        Nag.arm(context, ringing(), 2)
         Robolectric.buildActivity(MainActivity::class.java).use { c ->
             c.setup()
             val dialog = c.get().nagDialog

@@ -148,6 +148,105 @@ class AlarmChainTest {
         )
     }
 
+    // ------------------------------------------ and the two ways it returns
+
+    /**
+     * The last intent this app has handed to the system for the receiver.
+     *
+     * The preference is only the app's own note of what it meant to do.
+     * What actually rings the phone is the booking, and the booking is the
+     * only place the truth about "what will the next go be like" lives.
+     */
+    private fun booked(): Intent? = org.robolectric.Shadows
+        .shadowOf(context.getSystemService(android.app.AlarmManager::class.java))
+        .scheduledAlarms
+        .mapNotNull { org.robolectric.Shadows.shadowOf(it.operation).savedIntent }
+        .lastOrNull { it.component?.className?.endsWith("AlarmReceiver") == true }
+
+    /**
+     * An alarm put off for ten minutes is the same alarm ten minutes later.
+     *
+     * It was not. The snooze built a fresh intent out of four values it had
+     * been handed — sound, URI, minutes, count — and everything else went
+     * with the old one: an alarm snoozed once came back with no mission, no
+     * gradual sunrise, no torch and no label, and vibrating even though it
+     * had been told not to. The worst possible place for that: the person
+     * who presses snooze is precisely the person the mission is there for,
+     * and pressing it turned the mission off.
+     *
+     * The loop is over [AlarmScheduler.CARRIED] rather than over a list
+     * written out here, so a field added to an alarm tomorrow is covered by
+     * this test the day it joins the list.
+     */
+    @Test
+    fun `an alarm that comes back from a snooze is the same alarm`() {
+        val from = loaded()
+        assertTrue(AlarmScheduler.snooze(context, from, minutes = 11, alreadySnoozed = 3))
+
+        val back = booked()
+        assertTrue("nothing was booked at all", back != null)
+        for (key in AlarmScheduler.CARRIED) {
+            // The only two the snooze itself decides.
+            if (key == AlarmScheduler.EXTRA_SNOOZE_COUNT) continue
+            if (key == AlarmScheduler.EXTRA_SNOOZE) continue
+            assertEquals(
+                "$key was left behind by the snooze",
+                from.extras?.get(key), back!!.extras?.get(key)
+            )
+        }
+        assertEquals(
+            "and it is one more time of asking",
+            4, back!!.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_COUNT, -1)
+        )
+        assertEquals(
+            "with the length it was put off for",
+            11, back.getIntExtra(AlarmScheduler.EXTRA_SNOOZE, -1)
+        )
+    }
+
+    /**
+     * Said again in plain words, because a loop over a list is easy to read
+     * past. These three are the ones that hurt.
+     */
+    @Test
+    fun `snoozing does not quietly disarm the mission`() {
+        AlarmScheduler.snooze(context, loaded(), minutes = 10, alreadySnoozed = 0)
+        val back = booked()!!
+        assertEquals(
+            "the mission is the whole reason somebody who snoozes has one",
+            Mission.SHAKE, back.getStringExtra(AlarmScheduler.EXTRA_MISSION)
+        )
+        assertEquals(
+            "and the sunrise came back as a floodlight",
+            60, back.getIntExtra(AlarmScheduler.EXTRA_GENTLE, 0)
+        )
+        assertEquals(
+            "an alarm told not to vibrate must not start vibrating",
+            false, back.getBooleanExtra(AlarmScheduler.EXTRA_VIBRATE, true)
+        )
+    }
+
+    /** And the other way one comes back: the nag books the same alarm too. */
+    @Test
+    fun `an alarm that comes back from the nag is the same alarm`() {
+        val from = loaded()
+        Nag.arm(context, from, roundsSoFar = 4)
+
+        val back = booked()
+        assertTrue("nothing was booked at all", back != null)
+        for (key in AlarmScheduler.CARRIED) {
+            if (key == Nag.EXTRA_ROUND) continue
+            assertEquals(
+                "$key was left behind by the nag",
+                from.extras?.get(key), back!!.extras?.get(key)
+            )
+        }
+        assertEquals(
+            "and it is the next round",
+            5, back!!.getIntExtra(Nag.EXTRA_ROUND, -1)
+        )
+    }
+
     /**
      * And the second hop, which is the other place one can go missing:
      * everything the ring screen reads off its intent has to be on it.

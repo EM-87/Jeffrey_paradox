@@ -80,13 +80,14 @@ class AlarmRingActivity : AppCompatActivity() {
         if (snoozeMinutes > 0 && !spent) {
             snoozeButton.visibility = android.view.View.VISIBLE
             snoozeButton.text = getString(R.string.alarm_snooze_fmt, snoozeMinutes)
-            val sound = intent.getStringExtra(AlarmScheduler.EXTRA_SOUND) ?: Prefs.ALARM_SOUND_BELLS
-            val soundUri = intent.getStringExtra(AlarmScheduler.EXTRA_SOUND_URI) ?: ""
             snoozeButton.setOnClickListener {
                 // The snooze takes over from here, so anything already
                 // booked would land in the middle of it.
                 Nag.callOff(this)
-                AlarmScheduler.snooze(this, sound, snoozeMinutes, soundUri, already)
+                // The whole intent, not a sound and a URI picked out of it:
+                // what comes back in ten minutes is this alarm, mission and
+                // sunrise and all, and not a stripped-down copy of it.
+                AlarmScheduler.snooze(this, intent, snoozeMinutes, already)
                 startService(Intent(this, AlarmService::class.java).setAction(AlarmService.ACTION_STOP))
                 finish()
             }

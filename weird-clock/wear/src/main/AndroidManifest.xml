@@ -10,10 +10,21 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
+        <!--
+            It works on its own. The watch face draws from the watch's own
+            clock and reads none of the phone app's settings, so a watch
+            paired with nothing still tells the time — and saying so is
+            what stops the store treating it as an accessory that has lost
+            the thing it accessorises.
+        -->
+        <meta-data
+            android:name="com.google.android.wearable.standalone"
+            android:value="true" />
+
         <activity
             android:name=".WearMainActivity"
             android:exported="true"
-            android:label="@string/app_name">
+            android:taskAffinity="">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

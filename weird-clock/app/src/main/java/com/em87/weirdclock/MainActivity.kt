@@ -106,7 +106,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private val reminders: MutableList<Reminder> get() = ReminderStore.all(this)
 
-    /** Date + label of the reminder whose time is being wound on the dial. */
     /**
      * What C0's dial is being used to set right now, if anything.
      *
@@ -1196,16 +1195,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     /**
-     * Fades a card in or out, clocked by hand.
-     *
-     * Not ViewPropertyAnimator: every duration it is given is multiplied by
-     * the system's animator scale, and with that scale off — which is how
-     * this phone is set up — a fade becomes a snap. The same trap that made
-     * the bottom sheets appear out of nowhere had the cards changing mode
-     * with a jump cut, and the world-clock bubbles popping instead of
-     * arriving.
-     */
-    /**
      * Slides a card in or out vertically, hand-clocked.
      *
      * [direction] is where the card comes from and goes to: +1 below, -1
@@ -1390,14 +1379,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         seed: ReminderDraft? = null
     ) = reminderSheet.show(existing, year, month, day, seed)
 
-    /**
-     * The alarm editor, Google-Clock style: a bottom sheet with the time, the
-     * weekday strip, the options as plain rows, and delete/save in opposite
-     * corners. Deleting asks first.
-     */
     /** C1's editor, which lives in its own file; this is the way in. */
     private fun showAlarmSheet(alarm: Alarm, seed: Alarm? = null) =
         alarmSheet.show(alarm, seed)
+
+    /** For the tests: the card builder, which decides the marks on a row. */
+    internal fun alarmCardsForTest(): AlarmCards = alarmCards
+
+    /** The same, for the tests: saving is the step that lost two settings. */
+    internal fun commitDraftForTest(target: Alarm, draft: Alarm, isNew: Boolean) =
+        commitDraft(target, draft, isNew)
 
     /**
      * Copies a sheet draft back onto the real alarm (adding it if new).
@@ -1412,13 +1403,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * The same mistake, in the same week, as the two counts dropped on the
      * way through the alarm chain. So this one stops being a list.
      */
-    /** For the tests: the card builder, which decides the marks on a row. */
-    internal fun alarmCardsForTest(): AlarmCards = alarmCards
-
-    /** The same, for the tests: saving is the step that lost two settings. */
-    internal fun commitDraftForTest(target: Alarm, draft: Alarm, isNew: Boolean) =
-        commitDraft(target, draft, isNew)
-
     private fun commitDraft(target: Alarm, draft: Alarm, isNew: Boolean) {
         // The id belongs to the alarm and never to the draft; the switch is
         // the alarm's too, since renaming a sleeping alarm must not wake it,
@@ -1434,13 +1418,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         persistAlarms()
     }
 
-    /**
-     * Off to C0 to wind the hands, whatever it is we are winding.
-     *
-     * One departure for all four jobs. It used to be four copies of the same
-     * four lines with a different set of fields poked before each — which is
-     * how one of them came to clear a flag the exit still needed.
-     */
     /** Every dial tidy again, and the bubbles docked with them. */
     private fun reassembleEverything() {
         prefs.edit().putFloat(Prefs.DIAL_SCALE, 1f).apply()
@@ -1452,6 +1429,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         worldBubbles.dock()
     }
 
+    /**
+     * Off to C0 to wind the hands, whatever it is we are winding.
+     *
+     * One departure for all four jobs. It used to be four copies of the same
+     * four lines with a different set of fields poked before each — which is
+     * how one of them came to clear a flag the exit still needed.
+     */
     private fun startDial(job: DialJob, startMs: Long, magnetOrigin: Long = 0L) {
         // You cannot wind a time onto hands that are lying at the bottom of
         // the dial, and from this screen there is no way to pick them up:
@@ -2200,42 +2184,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         if (prefs.getBoolean(Prefs.TIMER_ON_DIAL, false)) Card.REVERSE else Card.HOURGLASS
 
     /**
-     * A flick up or down goes wherever the shape says is up or down from
-     * here — the hourglass above the clock, the stopwatch below it — and
-     * nowhere at all from a card with nothing that way.
-     *
-     * It used to be a straight swap between two rows, which is the same
-     * thing while there are only two of them and quietly wrong the moment
-     * there are three.
-     */
-    /**
-     * Nothing calls this any more, and that is the point of the note.
-     *
-     * A flick up or down used to move between the rows. It has been taken
-     * off the dials: the hourglass and the two chronographs are secondary
-     * things, reached by the button that names them, and a gesture that
-     * moved you to one by accident — from a dial you were winding, or a
-     * bubble you were flicking — cost more than it ever saved. The
-     * buttons and the back gesture are the ways between rows now.
-     *
-     * The transitions are untouched: the hands still carry across and the
-     * cards still slide. What has gone is only the way in.
-     */
-    @Suppress("unused")
-    private fun swipeRows(up: Boolean): Boolean =
-        move(if (up) Direction.UP else Direction.DOWN)
-
-    /**
-     * The diagonals: from the clock straight to the stopwatch or the
-     * countdown, without going down to the hourglass and across.
-     *
-     * The page changes without scrolling. A slide would be the pager saying
-     * "you have moved sideways", and you have not — you have gone from a
-     * clock to a chronograph, which is the same instrument in a different
-     * job, and the hands travelling say so far better than a card sliding
-     * past. That is the whole point of the two buttons.
-     */
-    /**
      * Go to [card], however far away it is.
      *
      * One function where there were four — a diagonal, a row swipe, a jump
@@ -2287,14 +2235,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         if (container.visibility != View.VISIBLE) return
         dialOf(card)?.visibility = View.INVISIBLE
         fadeCard(container, false, raise = false)
-    }
-
-    /** A swipe, which goes wherever the shape says — or nowhere. */
-    private fun move(direction: Direction): Boolean {
-        val here = current() ?: return false
-        val there = Cards.neighbour(here, direction) ?: return false
-        goTo(there)
-        return true
     }
 
     /**

@@ -30,7 +30,6 @@
     <string name="pref_shake_drop_title">Knock the hands off</string>
     <string name="pref_shake_drop_summary">A hard shake makes the hands fall and tumble inside the dial; drag each one back to the axis to remount it</string>
 
-    <string name="category_sounds">Sounds</string>
     <string name="pref_bells_title">Hourly bells</string>
     <string name="pref_bells_summary">Chime on the hour while the app is open</string>
     <string name="pref_bell_style_title">Bell style</string>
@@ -46,10 +45,8 @@
     <string name="speed_warning_title">Warning</string>
     <string name="speed_warning_message" formatted="false">Bending the speed of time does not allow time travel, and alarms are disabled while time is not running at 100%. Weird Clock declines all responsibility for missed appointments.</string>
 
-    <string name="category_world">World clock</string>
     <string name="pref_world_clock_title">World clock</string>
     <string name="pref_world_clock_summary">Mini dials showing the time in other cities</string>
-    <string name="pref_world_tz_title">Time zone</string>
     <string name="pref_world_cities_title">Cities</string>
     <string name="world_add_city">Add city…</string>
     <string name="world_city_hint">City name</string>
@@ -59,20 +56,12 @@
     <!-- Buttons show where pressing them takes you: hourglass enters the
          chronograph, analog clock returns to it; a second button switches
          between stopwatch and countdown. -->
-    <string name="mode_clock" translatable="false">⏳</string>
-    <string name="mode_stopwatch" translatable="false">🕐</string>
-    <string name="mode_countdown" translatable="false">🕐</string>
-    <string name="mode_switch_to_countdown" translatable="false">⌛</string>
-    <string name="mode_switch_to_stopwatch" translatable="false">⏱</string>
     <string name="cheater_stamp">CHEATER!</string>
     <string name="sand_freeze">Freeze</string>
     <string name="sand_thaw">Thaw</string>
     <string name="chrono_start">Start</string>
     <string name="chrono_pause">Pause</string>
-    <string name="chrono_reset">Reset</string>
-    <string name="chrono_label_stopwatch">Stopwatch · swipe for timer</string>
     <string name="chrono_label_countdown">Timer</string>
-    <string name="countdown_set_hint">Timer · wind the hands to set it</string>
     <string name="set_alarm_time">Set alarm time</string>
     <string name="set_reminder_time">Set reminder time</string>
     <string name="set_duration">How long does it last?</string>
@@ -80,15 +69,10 @@
     <string name="alarm_set_cancel" translatable="false">✗</string>
 
     <string name="category_alarms">Alarms</string>
-    <string name="pref_alarm_disabled_by_speed" formatted="false">Disabled while time speed is not 100%</string>
-    <string name="pref_manage_alarms_title">Manage alarms</string>
-    <string name="pref_manage_alarms_summary">Swipe left on the clock, or tap here</string>
     <string name="alarms_title">Alarms</string>
-    <string name="alarms_hint">They ring with synthesized sounds, even with the app closed</string>
     <string name="alarms_empty">No alarms. Tap + to add one.</string>
     <string name="alarm_add">Add alarm</string>
     <string name="alarm_delete">Delete alarm</string>
-    <string name="alarm_edit_time">Edit</string>
     <string name="alarm_add_time">+</string>
     <string name="alarm_times_full">Four times a day is quite enough</string>
     <string name="alarm_remove_time_title">Remove this repetition?</string>
@@ -175,9 +159,6 @@
     <string name="alarm_snooze_off">Snooze: off</string>
     <string name="alarm_sound_custom">Your own file</string>
     <string name="alarm_once">Once</string>
-    <string name="alarm_repeat_daily">Every day</string>
-    <string name="alarm_repeat_weekdays">Weekdays (Mon–Fri)</string>
-    <string name="alarm_repeat_weekends">Weekends (Sat–Sun)</string>
 
     <string name="pref_reassemble_title">Put everything back</string>
     <string name="pref_reassemble_summary">Remounts fallen hands and numerals in one tap</string>
@@ -199,9 +180,6 @@
     <string name="pref_system_time_summary">Resync with the network or set the clock by hand (Android only lets the system itself do this)</string>
     <string name="pref_advanced_title">Advanced options</string>
     <string name="pref_advanced_summary">At your own risk: hours on the dial, dial shape, mirror mode, touch physics, time speed…</string>
-    <string name="pref_alarm_enabled_title">Alarm</string>
-    <string name="pref_alarm_enabled_summary">Rings with the app’s own synthesized bells, even from the background</string>
-    <string name="pref_alarm_time_title">Alarm time</string>
     <string name="alarm_channel_name">Alarms</string>
     <string name="alarm_ringing">Weird Clock alarm</string>
     <string name="alarm_stop">Stop</string>
@@ -225,13 +203,9 @@
     <string name="bpm_tap_hint">Tap the beat — anywhere up here</string>
     <string name="bpm_metronome_hint">Tap the metronome and it keeps your beat</string>
 
-    <string name="s3_flip_hint">Flip the phone to turn the hourglass over</string>
-    <string name="s3_duration_prefix">"Duration: "</string>
-    <string name="s3_duration_min">%1$d min</string>
     <string name="reminder_add">New reminder</string>
     <string name="reminder_hint">What needs remembering?</string>
     <string name="reminder_untitled">Reminder</string>
-    <string name="reminder_deleted">Reminder deleted</string>
     <string name="pref_night_dim_title">Automatic night mode</string>
     <string name="pref_night_dim_summary" formatted="false">From 22:00 to 07:00 the dial dims to 30% so it doesn’t light the bedroom</string>
     <string name="overlay_intro_title">The floating hourglass</string>
@@ -260,11 +234,9 @@
     <string name="backup_failed">Could not write the backup</string>
     <string name="backup_restored">Restored: %1$d alarms, %2$d reminders</string>
     <string name="backup_unreadable">That file is not a Weird Clock backup</string>
-    <string name="backup_restart">Restored. Reopen the clock to see it.</string>
 
     <string name="pref_birthday_title">Birthday</string>
     <string name="pref_birthday_summary">Marked on the calendar every year</string>
-    <string name="pref_birthday_none">Not set</string>
     <string name="pref_birthday_clear">Clear</string>
     <string name="alarm_untitled">Alarm</string>
     <string name="reminder_notes">Notes</string>

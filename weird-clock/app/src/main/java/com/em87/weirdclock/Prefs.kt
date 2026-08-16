@@ -57,12 +57,6 @@ object Prefs {
     const val ALARM_RAMP = "pref_alarm_ramp"
 
     /**
-     * How long the ring screen takes to come up to full brightness, in
-     * seconds; "0" for straight on. A string, since it comes from a list.
-     */
-    const val GENTLE_WAKE = "pref_gentle_wake"
-
-    /**
      * How many minutes an unattended alarm rings before giving up, or 0 for
      * never. Stored as a string because it comes from a ListPreference.
      */
@@ -75,15 +69,13 @@ object Prefs {
     /** The row those two hours are set on, one bar with a pin at each end. */
     const val NIGHT_WINDOW = "pref_night_window"
 
-    /**
-     * The app-wide mission and gradual sunrise, from the one version they
-     * were app-wide in. Read once to carry them onto the alarms that
-     * existed then; nothing writes either any more.
-     */
-    const val MISSION = "pref_mission"
-
-    /** Whether that carrying-over has already happened. */
-    const val PER_ALARM_MIGRATED = "pref_per_alarm_migrated"
+    // The mission and the gradual sunrise were app-wide settings for one
+    // version, under pref_mission and pref_gentle_wake. They belong to an
+    // alarm now, and the migration that would have carried the old values
+    // across was taken out again: it turned every alarm anybody had into
+    // one with a mission on it, which is not a thing to do to somebody's
+    // alarms without being asked. The three keys are gone with it — a
+    // constant nothing reads is a claim that something does.
 
     /**
      * When an unpassed mission is coming back, and how many times it

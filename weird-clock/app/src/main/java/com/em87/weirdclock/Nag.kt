@@ -83,29 +83,21 @@ object Nag {
         bookedAt(prefs) > now
 
     /**
-     * Books another go in [MINUTES], carrying the alarm's own sound and
-     * label so the next one is the same alarm and not a generic bleep.
+     * Books another go in [MINUTES], carrying on everything [from] was
+     * ringing with, so the next one is the same alarm and not a generic
+     * bleep.
+     *
+     * It used to take the alarm apart into eleven arguments and put it back
+     * together here. Every field added to an alarm afterwards had to be
+     * remembered in three places, and twice it was not: the flash was left
+     * off once, and the whole list is exactly what [AlarmScheduler.CARRIED]
+     * already knows. So it carries the intent instead, and there is one
+     * list rather than three spellings of it.
      */
-    fun arm(
-        context: Context,
-        sound: String,
-        soundUri: String,
-        label: String,
-        snoozeMinutes: Int,
-        vibrate: Boolean,
-        flash: Boolean,
-        mission: String,
-        missionLevel: Int,
-        gentleSeconds: Int,
-        gentleFlash: Boolean,
-        roundsSoFar: Int
-    ) {
+    fun arm(context: Context, from: Intent, roundsSoFar: Int) {
         val manager = context.getSystemService(AlarmManager::class.java) ?: return
         val at = System.currentTimeMillis() + MINUTES * 60_000L
-        val fire = firePendingIntent(
-            context, sound, soundUri, label, snoozeMinutes, vibrate, flash,
-            mission, missionLevel, gentleSeconds, gentleFlash, roundsSoFar + 1
-        )
+        val fire = firePendingIntent(context, from, roundsSoFar + 1)
         val show = PendingIntent.getActivity(
             context,
             SHOW_REQUEST,
@@ -136,10 +128,7 @@ object Nag {
      */
     fun callOff(context: Context) {
         context.getSystemService(AlarmManager::class.java)
-            ?.cancel(firePendingIntent(
-                context, "", "", "", 0, true, false,
-                Mission.NONE, Mission.DEFAULT_LEVEL, 0, false, 0
-            ))
+            ?.cancel(firePendingIntent(context, Intent(), 0))
         prefs(context).edit()
             .remove(Prefs.NAG_AT)
             .remove(Prefs.NAG_ROUNDS)
@@ -158,35 +147,15 @@ object Nag {
      */
     private fun firePendingIntent(
         context: Context,
-        sound: String,
-        soundUri: String,
-        label: String,
-        snoozeMinutes: Int,
-        vibrate: Boolean,
-        flash: Boolean,
-        mission: String,
-        missionLevel: Int,
-        gentleSeconds: Int,
-        gentleFlash: Boolean,
+        from: Intent,
         round: Int
     ): PendingIntent = PendingIntent.getBroadcast(
         context,
         FIRE_REQUEST,
-        Intent(context, AlarmReceiver::class.java)
-            .putExtra(AlarmScheduler.EXTRA_SOUND, sound)
-            .putExtra(AlarmScheduler.EXTRA_SOUND_URI, soundUri)
-            .putExtra(AlarmScheduler.EXTRA_LABEL, label)
-            .putExtra(AlarmScheduler.EXTRA_SNOOZE, snoozeMinutes)
-            // The next go is the same alarm, so it shakes and flashes the
-            // way that alarm does. These were left off, and an alarm set to
-            // light the room went dark from the second round on.
-            .putExtra(AlarmScheduler.EXTRA_VIBRATE, vibrate)
-            .putExtra(AlarmScheduler.EXTRA_FLASH, flash)
-            // The next go is the same alarm, mission and sunrise included.
-            .putExtra(AlarmScheduler.EXTRA_MISSION, mission)
-            .putExtra(AlarmScheduler.EXTRA_MISSION_LEVEL, missionLevel)
-            .putExtra(AlarmScheduler.EXTRA_GENTLE, gentleSeconds)
-            .putExtra(AlarmScheduler.EXTRA_GENTLE_FLASH, gentleFlash)
+        // The next go is the same alarm: same sound, same label, same
+        // vibration, same torch, same mission and same sunrise. Only which
+        // round it is belongs to the nag rather than to the alarm.
+        AlarmScheduler.carryOver(from, Intent(context, AlarmReceiver::class.java))
             .putExtra(EXTRA_ROUND, round),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )

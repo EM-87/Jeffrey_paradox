@@ -103,7 +103,6 @@ class AlarmCards(
         ) { which -> onPicked(sounds[which]) }
     }
 
-    /** The names the sound picker and the cards both use. */
     /** How long this alarm's screen takes to come up, in words. */
     fun gentleLabel(seconds: Int): String = when {
         seconds <= 0 -> host.getString(R.string.alarm_gentle_off)
@@ -144,6 +143,7 @@ class AlarmCards(
             else -> host.getString(R.string.alarm_mission_none)
         }
 
+    /** The names the sound picker and the cards both use. */
     fun soundLabel(sound: String): String = host.getString(
         when (sound) {
             Prefs.ALARM_SOUND_DIGITAL -> R.string.alarm_sound_digital

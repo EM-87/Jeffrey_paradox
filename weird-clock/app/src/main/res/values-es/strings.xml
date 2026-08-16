@@ -29,7 +29,6 @@
     <string name="pref_shake_drop_title">Derribar las manecillas</string>
     <string name="pref_shake_drop_summary">Un agitón fuerte hace caer las manecillas, que ruedan dentro de la esfera; arrastra cada una hasta el eje para recolocarla</string>
 
-    <string name="category_sounds">Sonidos</string>
     <string name="pref_bells_title">Campanadas horarias</string>
     <string name="pref_bells_summary">Suenan a la hora en punto mientras la app está abierta</string>
     <string name="pref_bell_style_title">Estilo de campana</string>
@@ -45,10 +44,8 @@
     <string name="speed_warning_title">Advertencia</string>
     <string name="speed_warning_message" formatted="false">Doblar la velocidad del tiempo no permite viajar en el tiempo, y las alarmas quedan desactivadas mientras el tiempo no corra al 100%. Weird Clock declina toda responsabilidad por citas perdidas.</string>
 
-    <string name="category_world">Reloj mundial</string>
     <string name="pref_world_clock_title">Reloj mundial</string>
     <string name="pref_world_clock_summary">Mini esferas con la hora de otras ciudades</string>
-    <string name="pref_world_tz_title">Zona horaria</string>
     <string name="pref_world_cities_title">Ciudades</string>
     <string name="world_add_city">Añadir ciudad…</string>
     <string name="world_city_hint">Nombre de la ciudad</string>
@@ -59,25 +56,17 @@
     <string name="sand_thaw">Descongelar</string>
     <string name="chrono_start">Iniciar</string>
     <string name="chrono_pause">Pausa</string>
-    <string name="chrono_reset">Reiniciar</string>
-    <string name="chrono_label_stopwatch">Crono · desliza para cuenta atrás</string>
     <string name="chrono_label_countdown">Cuenta atrás</string>
-    <string name="countdown_set_hint">Cuenta atrás · gira las manecillas para ajustarla</string>
     <string name="set_alarm_time">Ajusta la hora de la alarma</string>
     <string name="set_reminder_time">Ajusta la hora del recordatorio</string>
     <string name="set_duration">¿Cuánto dura?</string>
     <string name="cheater_stamp">¡TRAMPOSO!</string>
 
     <string name="category_alarms">Alarmas</string>
-    <string name="pref_alarm_disabled_by_speed" formatted="false">Desactivadas mientras la velocidad del tiempo no sea 100%</string>
-    <string name="pref_manage_alarms_title">Gestionar alarmas</string>
-    <string name="pref_manage_alarms_summary">Desliza a la izquierda en el reloj, o toca aquí</string>
     <string name="alarms_title">Alarmas</string>
-    <string name="alarms_hint">Suenan con sonidos sintetizados, incluso con la app cerrada</string>
     <string name="alarms_empty">Sin alarmas. Toca + para añadir una.</string>
     <string name="alarm_add">Añadir alarma</string>
     <string name="alarm_delete">Eliminar alarma</string>
-    <string name="alarm_edit_time">Editar</string>
     <string name="alarm_add_time">Añadir</string>
     <string name="alarm_times_full">Tres veces al día ya está bien</string>
     <string name="alarm_quick_weekdays">Laborables</string>
@@ -126,9 +115,6 @@
     <string name="alarm_snooze_off">Posponer: no</string>
     <string name="alarm_sound_custom">Tu propio archivo</string>
     <string name="alarm_once">Una vez</string>
-    <string name="alarm_repeat_daily">Todos los días</string>
-    <string name="alarm_repeat_weekdays">De diario (L–V)</string>
-    <string name="alarm_repeat_weekends">Fines de semana (S–D)</string>
 
     <string name="pref_reassemble_title">Recolocar</string>
     <string name="pref_reassemble_summary">Vuelve a montar de golpe las manecillas y números caídos</string>
@@ -148,9 +134,6 @@
     <string name="pref_system_time_summary">Resincroniza con la red o ajusta la hora a mano (Android solo permite hacerlo al propio sistema)</string>
     <string name="pref_advanced_title">Opciones avanzadas</string>
     <string name="pref_advanced_summary">Bajo tu responsabilidad: horas de la esfera, forma de la esfera, modo espejo, físicas táctiles, velocidad del tiempo…</string>
-    <string name="pref_alarm_enabled_title">Alarma</string>
-    <string name="pref_alarm_enabled_summary">Suena con las campanas sintetizadas de la propia app, incluso en segundo plano</string>
-    <string name="pref_alarm_time_title">Hora de la alarma</string>
     <string name="alarm_channel_name">Alarmas</string>
     <string name="alarm_ringing">Alarma de Weird Clock</string>
     <string name="alarm_stop">Detener</string>
@@ -174,13 +157,9 @@
     <string name="bpm_tap_hint">Marca el ritmo — toca en cualquier parte de arriba</string>
     <string name="bpm_metronome_hint">Toca el metrónomo y te mantiene el ritmo</string>
 
-    <string name="s3_flip_hint">Da la vuelta al móvil para voltear el reloj de arena</string>
-    <string name="s3_duration_prefix">"Duración: "</string>
-    <string name="s3_duration_min">%1$d min</string>
     <string name="reminder_add">Nuevo recordatorio</string>
     <string name="reminder_hint">¿Qué hay que recordar?</string>
     <string name="reminder_untitled">Recordatorio</string>
-    <string name="reminder_deleted">Recordatorio eliminado</string>
     <string name="pref_night_dim_title">Modo noche automático</string>
     <string name="pref_night_dim_summary" formatted="false">De 22:00 a 07:00 la esfera se atenúa al 30% para no iluminar el dormitorio</string>
     <string name="overlay_intro_title">El reloj de arena flotante</string>
@@ -257,11 +236,9 @@
     <string name="backup_failed">No se pudo escribir la copia</string>
     <string name="backup_restored">Restaurado: %1$d alarmas, %2$d recordatorios</string>
     <string name="backup_unreadable">Ese archivo no es una copia de Weird Clock</string>
-    <string name="backup_restart">Restaurado. Vuelve a abrir el reloj para verlo.</string>
 
     <string name="pref_birthday_title">Cumpleaños</string>
     <string name="pref_birthday_summary">Marcado en el calendario todos los años</string>
-    <string name="pref_birthday_none">Sin poner</string>
     <string name="pref_birthday_clear">Quitar</string>
     <string name="alarm_untitled">Alarma</string>
     <string name="reminder_notes">Notas</string>

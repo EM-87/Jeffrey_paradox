@@ -85,7 +85,7 @@ class WaveOneTest {
     @Test
     fun `by default an alarm may be put off as often as you like`() {
         assertEquals(0, AlarmScheduler.snoozeLimit(context))
-        assertTrue(AlarmScheduler.snooze(context, Prefs.ALARM_SOUND_BELLS, 5, alreadySnoozed = 99))
+        assertTrue(AlarmScheduler.snooze(context, android.content.Intent(), 5, alreadySnoozed = 99))
     }
 
     /**
@@ -99,15 +99,15 @@ class WaveOneTest {
         assertEquals(2, AlarmScheduler.snoozeLimit(context))
         assertTrue(
             "the first",
-            AlarmScheduler.snooze(context, Prefs.ALARM_SOUND_BELLS, 5, alreadySnoozed = 0)
+            AlarmScheduler.snooze(context, android.content.Intent(), 5, alreadySnoozed = 0)
         )
         assertTrue(
             "the second",
-            AlarmScheduler.snooze(context, Prefs.ALARM_SOUND_BELLS, 5, alreadySnoozed = 1)
+            AlarmScheduler.snooze(context, android.content.Intent(), 5, alreadySnoozed = 1)
         )
         assertFalse(
             "and no more",
-            AlarmScheduler.snooze(context, Prefs.ALARM_SOUND_BELLS, 5, alreadySnoozed = 2)
+            AlarmScheduler.snooze(context, android.content.Intent(), 5, alreadySnoozed = 2)
         )
     }
 

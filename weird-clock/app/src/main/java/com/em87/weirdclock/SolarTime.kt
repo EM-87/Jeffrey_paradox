@@ -16,20 +16,6 @@ import kotlin.math.roundToInt
 object SolarTime {
 
     /**
-     * When the sun rises and sets, for a place and a day, as minutes past
-     * local midnight. Null when the sun does nothing of the sort — above the
-     * Arctic circle in June there is no sunrise to report.
-     *
-     * The standard sunrise equation, and the reason it belongs here: it needs
-     * only the latitude, the longitude and the date. One coarse location fix
-     * serves for as long as the user stays in the region, and the seasons
-     * come out of the arithmetic rather than out of a network call.
-     *
-     * Sun's centre 0.833° below the horizon at the moment of rising: half a
-     * degree of disc, and a third of a degree of atmospheric refraction
-     * lifting the image of it over the edge.
-     */
-    /**
      * The sun's centre 0.833° below the horizon: the moment of rising.
      * Half a degree of disc, and a third of a degree of refraction lifting
      * the image of it over the edge.
@@ -42,6 +28,16 @@ object SolarTime {
      */
     const val ZENITH_CIVIL = 96.0
 
+    /**
+     * When the sun rises and sets, for a place and a day, as minutes past
+     * local midnight. Null when the sun does nothing of the sort — above the
+     * Arctic circle in June there is no sunrise to report.
+     *
+     * The standard sunrise equation, and the reason it belongs here: it needs
+     * only the latitude, the longitude and the date. One coarse location fix
+     * serves for as long as the user stays in the region, and the seasons
+     * come out of the arithmetic rather than out of a network call.
+     */
     fun sunriseSunset(
         latitudeDeg: Double,
         longitudeDeg: Double,

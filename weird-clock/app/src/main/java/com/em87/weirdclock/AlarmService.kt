@@ -222,7 +222,13 @@ class AlarmService : Service() {
             return START_NOT_STICKY
         }
         if (intent?.action == ACTION_SNOOZE) {
-            AlarmScheduler.snooze(this, sound, snoozeMinutes.coerceAtLeast(5), soundUri, snoozed)
+            // The same two things the ring screen's own Snooze does, and it
+            // only did one of them: booking the next go, but not calling
+            // off a nag that was already booked — which then went off in
+            // the middle of the snooze, from the one of the two buttons
+            // that is easiest to reach half asleep.
+            Nag.callOff(this)
+            AlarmScheduler.snooze(this, ringIntent(), snoozeMinutes.coerceAtLeast(5), snoozed)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -321,11 +327,7 @@ class AlarmService : Service() {
         // theatre: ignore it for three minutes and going back to sleep
         // costs nothing, which is the exact thing it was added to stop.
         if (Nag.wantsAnother(guardsStop(mission, fromTimer), nagRound)) {
-            Nag.arm(
-                this, sound, soundUri, label, snoozeMinutes,
-                vibrateEnabled, flashEnabled, mission, missionLevel,
-                gentleSeconds, gentleFlash, nagRound
-            )
+            Nag.arm(this, ringIntent(), nagRound)
         } else {
             // Nothing more is coming, so the app must stop saying one is.
             Nag.callOff(this)

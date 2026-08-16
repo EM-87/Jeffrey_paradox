@@ -164,11 +164,6 @@ class ClockView @JvmOverloads constructor(
         set(value) { field = value; cal.timeZone = value; invalidate() }
 
     /**
-     * When set, the dial shows a duration (stopwatch/countdown) instead of
-     * the time of day. Hands stay grabbable (winding forward more than one
-     * turn stamps CHEATER on the dial); shake-to-drop is disabled.
-     */
-    /**
      * When true (countdown being set), winding a hand commits the new value
      * through [onChronoAdjusted] with no spring-back, magnetized to round
      * durations, and the minute/hour hands take grab priority.
@@ -262,7 +257,6 @@ class ClockView @JvmOverloads constructor(
     private var tapDownY = 0f
     private val scrimPaint = Paint()
 
-    /** Enabled alarms as dial angles, drawn as dots just outside the rim. */
     /**
      * Alarm dots, as an angle and which turn of the dial the time is on.
      * The angle alone cannot say: that is the whole problem these solve.
@@ -271,11 +265,11 @@ class ClockView @JvmOverloads constructor(
         set(value) { field = value; invalidate() }
 
     /**
-     * Calendar events as (startAngle, sweepAngle) pairs, drawn Sectograph
-     * style: a wedge covering the time the event actually occupies. Alarms
-     * are instants and get dots; only events have duration.
+     * Event wedges: start angle, sweep, and the turn they belong to.
+     *
+     * Drawn Sectograph style — a wedge covering the time the event actually
+     * occupies. Alarms are instants and get dots; only events have a length.
      */
-    /** Event wedges: start angle, sweep, and the turn they belong to. */
     var eventArcs: List<DialArc> = emptyList()
         set(value) { field = value; invalidate() }
 
@@ -355,7 +349,22 @@ class ClockView @JvmOverloads constructor(
      */
     var onHorizontalSwipe: ((Boolean) -> Boolean)? = null
 
-    /** A flick up or down: between the clock row and the chronograph row. */
+    /**
+     * A flick up or down, if anybody is listening.
+     *
+     * The app is not. It used to move between the clock row and the
+     * chronograph row, and that was taken off the dials: the hourglass and
+     * the two chronographs are secondary things, reached by the button that
+     * names them, and a gesture that carried you to one by accident — from
+     * a dial you were winding, or a bubble you were flicking — cost more
+     * than it ever saved. The transitions themselves are untouched; what
+     * went is the way in.
+     *
+     * The hook stays because it is the view's, not the app's, and because
+     * leaving it null now costs nothing: [handleVerticalFling] asks for the
+     * listener before it gives anything up, so an unwired flick no longer
+     * aborts the hand under your finger.
+     */
     var onVerticalSwipe: ((up: Boolean) -> Boolean)? = null
 
     var chronoProvider: (() -> Long)? = null
@@ -1379,13 +1388,6 @@ class ClockView @JvmOverloads constructor(
     }
 
     /**
-     * A narrow grab tab just outside the rim, following the second hand's
-     * tip. It only covers the sector the hand actually occupies — so it
-     * doesn't swallow the background — but it makes the thin hand reachable
-     * even when every other hand is stacked on top of it at twelve. It also
-     * takes precedence over the crown, which lives at exactly that spot.
-     */
-    /**
      * The band between the minute hand's tip and the rim. Nobody reaching in
      * there means to grab the minute hand — its tip is the inner edge of the
      * band — so within it the second hand is the only hand on offer.
@@ -2340,12 +2342,6 @@ class ClockView @JvmOverloads constructor(
     }
 
     /**
-     * Magnet grid for setting durations: 5-minute multiples (which covers
-     * quarter, half and full hours) above 5 minutes, 30-second multiples
-     * below. Returns the detent value when [ms] is within its capture
-     * window, null otherwise.
-     */
-    /**
      * The spacing of the detents at [rel], and how near one has to be to
      * capture — or null for a hand with no grid of its own.
      *
@@ -2445,11 +2441,6 @@ class ClockView @JvmOverloads constructor(
 
     private fun snapCountdown(ms: Long, hand: Hand?): Long = magnetFor(ms, hand) ?: ms
 
-    /**
-     * Chronograph value including any winding offset and hold-freeze. May be
-     * negative while playing — the spring brings it back, and the countdown
-     * commit clamps at zero.
-     */
     /** What the dial currently reads while a time is being set, for tests. */
     internal fun settingValueMs(): Long? = chronoDisplayMs()
 
@@ -2472,6 +2463,11 @@ class ClockView @JvmOverloads constructor(
         return ((shown - magnetOrigin) % day + day) % day
     }
 
+    /**
+     * Chronograph value including any winding offset and hold-freeze. May be
+     * negative while playing — the spring brings it back, and the countdown
+     * commit clamps at zero.
+     */
     private fun chronoDisplayMs(): Long? = chronoProvider?.let { provider ->
         val raw = (chronoFrozenMs ?: provider()) + (visualOffsetSeconds * 1000.0).toLong()
         if (chronoWrapsDay) {
@@ -3330,22 +3326,6 @@ class ClockView @JvmOverloads constructor(
     }
 
     /**
-     * The corner marks for a chronograph reading: degrees-minutes-seconds
-     * style, so the tail gives the scale away — a reading whose last group
-     * is unmarked ends in hundredths, one ending in \u2033 ends in seconds.
-     */
-    /**
-     * Hours and minutes, and nothing else.
-     *
-     * The chronograph's readout swaps units as the value grows — hundredths
-     * under the hour, seconds over it — which is right for timing something
-     * and wrong for setting an alarm twice over. The digits shift sideways
-     * the moment you cross an hour, so the number you are reading moves
-     * under your eye; and hundredths of a second are not a thing anybody
-     * sets an alarm to. What you want is the minutes, plainly, because your
-     * finger is probably covering the hand.
-     */
-    /**
      * What the digital readout says, if anything.
      *
      * Its own function because *which* format is chosen is a decision with
@@ -3404,11 +3384,27 @@ class ClockView @JvmOverloads constructor(
         else -> unitsFor(chronoProvider?.invoke() ?: 0L)
     }
 
+    /**
+     * Hours and minutes, and nothing else.
+     *
+     * The chronograph's readout swaps units as the value grows — hundredths
+     * under the hour, seconds over it — which is right for timing something
+     * and wrong for setting an alarm twice over. The digits shift sideways
+     * the moment you cross an hour, so the number you are reading moves
+     * under your eye; and hundredths of a second are not a thing anybody
+     * sets an alarm to. What you want is the minutes, plainly, because your
+     * finger is probably covering the hand.
+     */
     private fun formatClockish(ms: Long): String {
         val abs = kotlin.math.abs(ms)
         return String.format(Locale.US, "%02d:%02d", abs / 3_600_000L, abs / 60_000L % 60L)
     }
 
+    /**
+     * The corner marks for a chronograph reading: degrees-minutes-seconds
+     * style, so the tail gives the scale away — a reading whose last group
+     * is unmarked ends in hundredths, one ending in \u2033 ends in seconds.
+     */
     private fun unitsFor(ms: Long): Array<String> =
         if (kotlin.math.abs(ms) < 3_600_000L) UNITS_STOPWATCH else UNITS_CLOCK
 

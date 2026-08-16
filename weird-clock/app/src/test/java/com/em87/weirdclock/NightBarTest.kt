@@ -127,9 +127,12 @@ class NightBarTest {
         }
         // And the rows that really did move are gone from where they were.
         assertFalse(readXml(R.xml.very_advanced_preferences).contains(Prefs.BELL_MARKS))
-        // These two are properties of an alarm now, not of the app.
-        assertFalse(readXml(R.xml.root_preferences).contains(Prefs.MISSION))
-        assertFalse(readXml(R.xml.root_preferences).contains(Prefs.GENTLE_WAKE))
+        // These two are properties of an alarm now, not of the app, and the
+        // old app-wide keys are written out rather than named through
+        // Prefs: the constants are gone, and a row that came back under the
+        // old key would have nothing left to fail against.
+        assertFalse(readXml(R.xml.root_preferences).contains("pref_mission"))
+        assertFalse(readXml(R.xml.root_preferences).contains("pref_gentle_wake"))
     }
 
     /** Every key named in a preference screen, as a set of strings. */
