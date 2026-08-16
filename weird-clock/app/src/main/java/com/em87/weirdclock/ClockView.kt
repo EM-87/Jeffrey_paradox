@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PointF
+import android.graphics.Rect
 import android.graphics.RectF
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -2492,6 +2493,120 @@ class ClockView @JvmOverloads constructor(
      * Filled in on demand, so it is current without a stream of
      * announcements nobody asked for.
      */
+    // ------------------------------------------- the dial, hand by hand
+
+    /**
+     * The hands a screen reader can reach, in the order they are read.
+     *
+     * The whole dial used to be one node. Everything on it is drawn on a
+     * canvas, so exploring by touch found a single rectangle that said the
+     * time and nothing else — a sighted user sees three hands and where
+     * each one points, and a TalkBack user got a number. These are the
+     * same three things, as separate nodes with their own bounds, so a
+     * finger dragged over the face finds them one at a time.
+     *
+     * Fallen hands are included on purpose. A hand lying at the bottom of
+     * the case is the single most surprising thing this clock does, and it
+     * was invisible to anybody not looking at it.
+     */
+    internal fun spokenHands(): List<Hand> = Hand.entries.filter {
+        if (it == Hand.SECOND && !showSecondHand) false else true
+    }
+
+    /** Where that hand is on screen, as a box a finger can find. */
+    internal fun handBounds(hand: Hand): Rect? {
+        if (hand !in spokenHands()) return null
+        val cx = width / 2f
+        val cy = height / 2f
+        val r = dialRadius()
+        if (r <= 0f) return null
+        if (isFallen(hand)) {
+            // Down in the debris. One box for the floor of the case rather
+            // than chasing a body that is still rolling: a node that moves
+            // under the finger is a node nobody can land on.
+            val floor = cy + r * 0.55f
+            return Rect(
+                (cx - r * 0.9f).toInt(), floor.toInt(),
+                (cx + r * 0.9f).toInt(), (cy + r).toInt()
+            )
+        }
+        val angle = angleOf(hand, currentAngles())
+        val tip = pointAt(cx, cy, angle, boundaryRadius(angle) * lengthOf(hand))
+        // The box is the tip and the middle, grown enough to be touchable:
+        // a hand is a line, and a line has no area to land a finger in.
+        val pad = r * 0.10f
+        return Rect(
+            (minOf(cx, tip.x) - pad).toInt(), (minOf(cy, tip.y) - pad).toInt(),
+            (maxOf(cx, tip.x) + pad).toInt(), (maxOf(cy, tip.y) + pad).toInt()
+        )
+    }
+
+    /** And what it says when the finger lands on it. */
+    internal fun handLabel(hand: Hand): CharSequence {
+        val name = context.getString(
+            when (hand) {
+                Hand.HOUR -> R.string.a11y_hand_hour
+                Hand.MINUTE -> R.string.a11y_hand_minute
+                Hand.SECOND -> R.string.a11y_hand_second
+            }
+        )
+        if (isFallen(hand)) return context.getString(R.string.a11y_hand_fallen, name)
+        // Where it points, said as a clock position rather than in degrees:
+        // "pointing at 7" is a thing a person can picture.
+        val angle = ((angleOf(hand, currentAngles()) % 360f) + 360f) % 360f
+        val oClock = Math.round(angle / 30f).let { if (it == 0 || it == 12) 12 else it }
+        return context.getString(R.string.a11y_hand_at, name, oClock)
+    }
+
+    private val handNodes = object : android.view.accessibility.AccessibilityNodeProvider() {
+
+        override fun createAccessibilityNodeInfo(virtualViewId: Int): AccessibilityNodeInfo? {
+            if (virtualViewId == HOST_VIEW_ID) {
+                val info = AccessibilityNodeInfo.obtain(this@ClockView)
+                onInitializeAccessibilityNodeInfo(info)
+                for (hand in spokenHands()) {
+                    info.addChild(this@ClockView, hand.ordinal)
+                }
+                return info
+            }
+            val hand = Hand.entries.getOrNull(virtualViewId) ?: return null
+            val bounds = handBounds(hand) ?: return null
+            val info = AccessibilityNodeInfo.obtain(this@ClockView, virtualViewId)
+            info.setParent(this@ClockView)
+            info.className = "android.view.View"
+            info.packageName = context.packageName
+            info.contentDescription = handLabel(hand)
+            info.setBoundsInParent(bounds)
+            val onScreen = IntArray(2).also { getLocationOnScreen(it) }
+            info.setBoundsInScreen(
+                Rect(
+                    bounds.left + onScreen[0], bounds.top + onScreen[1],
+                    bounds.right + onScreen[0], bounds.bottom + onScreen[1]
+                )
+            )
+            info.isEnabled = true
+            info.isVisibleToUser = true
+            return info
+        }
+
+        override fun performAction(
+            virtualViewId: Int,
+            action: Int,
+            arguments: android.os.Bundle?
+        ): Boolean {
+            // The hands are there to be read, not worked: everything that
+            // can be done to the dial is an action on the dial itself, so
+            // that a screen reader offers it in one place rather than three.
+            if (virtualViewId == HOST_VIEW_ID) {
+                return performAccessibilityAction(action, arguments)
+            }
+            return false
+        }
+    }
+
+    override fun getAccessibilityNodeProvider(): android.view.accessibility.AccessibilityNodeProvider =
+        handNodes
+
     override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
         super.onInitializeAccessibilityNodeInfo(info)
         if (info.contentDescription.isNullOrBlank()) {

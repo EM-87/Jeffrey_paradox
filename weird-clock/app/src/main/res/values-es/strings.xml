@@ -92,6 +92,11 @@
     <string name="alarm_mission_none">Ninguna: deslizar para parar</string>
     <string name="alarm_mission_maths_level">Cuentas · nivel %1$d</string>
     <string name="alarm_gentle_flash">…y luego el flash</string>
+    <string name="a11y_hand_hour">Aguja horaria</string>
+    <string name="a11y_hand_minute">Minutero</string>
+    <string name="a11y_hand_second">Segundero</string>
+    <string name="a11y_hand_at">%1$s, apuntando a las %2$d</string>
+    <string name="a11y_hand_fallen">%1$s, caída en el fondo de la caja</string>
     <string name="alarm_mission_shake">Sacudir el teléfono</string>
     <string name="alarm_flash">Flash</string>
     <string name="alarm_save">Guardar</string>

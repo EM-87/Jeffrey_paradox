@@ -7,6 +7,9 @@ import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -44,6 +47,9 @@ class AccessibilityTest {
             )
             layout(0, 0, 720, 720)
         }
+
+    /** A laid-out dial to poke at. */
+    private fun withDial(body: (ClockView) -> Unit) = body(dial())
 
     private fun node(view: ClockView): AccessibilityNodeInfo =
         AccessibilityNodeInfo.obtain().also { view.onInitializeAccessibilityNodeInfo(it) }
@@ -222,5 +228,127 @@ class AccessibilityTest {
             node(timeOfDay).actionList
                 .firstOrNull { it.id == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD }?.label
         )
+    }
+    // ------------------------------------------------ the dial, hand by hand
+
+    /**
+     * Each hand is its own node.
+     *
+     * Everything on this dial is drawn on a canvas, so the whole face used
+     * to be a single rectangle that said the time and nothing else: a
+     * sighted user sees three hands and where each one points, and a
+     * TalkBack user got a number. Now a finger dragged across the face
+     * finds them one at a time.
+     */
+    @Test
+    fun `a screen reader can find the hands one by one`() {
+        withDial { dial ->
+            val provider = dial.accessibilityNodeProvider
+            assertNotNull("the dial is still one node", provider)
+
+            val root = provider!!.createAccessibilityNodeInfo(
+                android.view.accessibility.AccessibilityNodeProvider.HOST_VIEW_ID
+            )!!
+            assertEquals("three hands, three children", 3, root.childCount)
+
+            for (hand in dial.spokenHands()) {
+                val node = provider.createAccessibilityNodeInfo(hand.ordinal)
+                assertNotNull("$hand has no node", node)
+                assertTrue(
+                    "$hand says nothing",
+                    !node!!.contentDescription.isNullOrBlank()
+                )
+            }
+        }
+    }
+
+    /** A hand that is not drawn is not there to be found either. */
+    @Test
+    fun `a hidden second hand has no node`() {
+        withDial { dial ->
+            dial.showSecondHand = false
+            assertFalse(ClockView.Hand.SECOND in dial.spokenHands())
+            assertNull(dial.handBounds(ClockView.Hand.SECOND))
+            val root = dial.accessibilityNodeProvider!!.createAccessibilityNodeInfo(
+                android.view.accessibility.AccessibilityNodeProvider.HOST_VIEW_ID
+            )!!
+            assertEquals(2, root.childCount)
+        }
+    }
+
+    /**
+     * Each one has somewhere to land. A node with an empty box is a node
+     * that exploring by touch can never reach, which is the whole point of
+     * having separate nodes at all.
+     */
+    @Test
+    fun `every hand has a box a finger can find`() {
+        withDial { dial ->
+            val cx = dial.width / 2
+            val cy = dial.height / 2
+            for (hand in dial.spokenHands()) {
+                val box = dial.handBounds(hand)!!
+                assertTrue("$hand is $box", box.width() > 0 && box.height() > 0)
+                // Room on every side of the middle, not merely a non-empty
+                // box. A hand is a line from the centre outwards, so with
+                // no padding the box always has the centre exactly on one
+                // of its edges — a shape with no width in the direction
+                // that matters, whichever way the hand happens to point.
+                assertTrue(
+                    "$hand at $box has no room around the middle ($cx, $cy)",
+                    box.left < cx && box.right > cx && box.top < cy && box.bottom > cy
+                )
+                assertTrue(
+                    "$hand at $box is off the ${dial.width}x${dial.height} dial",
+                    box.left >= -dial.width && box.right <= dial.width * 2
+                )
+            }
+        }
+    }
+
+    /** And it says where it points, in a way a person can picture. */
+    @Test
+    fun `a hand says which way it is pointing`() {
+        withDial { dial ->
+            val said = dial.handLabel(ClockView.Hand.HOUR).toString()
+            assertTrue("'$said'", said.isNotBlank())
+            assertTrue("'$said' names no hour", said.any { it.isDigit() })
+        }
+    }
+
+    /**
+     * A hand lying at the bottom of the case is the most surprising thing
+     * this clock does, and it was invisible to anybody not looking at it.
+     */
+    @Test
+    fun `a fallen hand says so`() {
+        withDial { dial ->
+            val standing = dial.handLabel(ClockView.Hand.MINUTE).toString()
+            dial.knockHandsOff()
+            val fallen = dial.handLabel(ClockView.Hand.MINUTE).toString()
+            assertNotEquals("a fallen hand reads the same as a standing one", standing, fallen)
+            assertNotNull("and it can still be found", dial.handBounds(ClockView.Hand.MINUTE))
+        }
+    }
+
+    /**
+     * The actions stay on the dial itself. Everything you can do to this
+     * clock is a thing you do to the clock, and offering the same three
+     * actions on each of three hands is a screen reader reading them nine
+     * times.
+     */
+    @Test
+    fun `the hands are for reading, and the dial is for doing`() {
+        withDial { dial ->
+            val provider = dial.accessibilityNodeProvider!!
+            assertFalse(
+                "a hand answered an action",
+                provider.performAction(
+                    ClockView.Hand.HOUR.ordinal,
+                    android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK,
+                    null
+                )
+            )
+        }
     }
 }
