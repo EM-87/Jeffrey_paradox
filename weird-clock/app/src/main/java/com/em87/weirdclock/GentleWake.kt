@@ -25,7 +25,7 @@ object GentleWake {
 
     /** Off, and the two ends of what can be asked for, in seconds. */
     const val OFF = 0
-    const val LONGEST = 300
+    const val LONGEST = 900
 
     /** How long the ramp lasts, read off the old app-wide setting. */
     fun seconds(stored: String?): Int = clamp(stored?.toIntOrNull() ?: OFF)
@@ -33,8 +33,14 @@ object GentleWake {
     /** And off an alarm, which keeps it as a number. */
     fun clamp(seconds: Int): Int = seconds.coerceIn(OFF, LONGEST)
 
-    /** The lengths offered, in seconds. Nothing, and then three sunrises. */
-    val CHOICES = intArrayOf(OFF, 30, 60, 180)
+    /**
+     * The lengths offered, in seconds.
+     *
+     * Minutes rather than seconds. Thirty seconds is not a sunrise, it is
+     * a screen coming on slightly late; the point of the thing is that it
+     * is already happening by the time you notice it.
+     */
+    val CHOICES = intArrayOf(OFF, 60, 180, 300, 600)
 
     /**
      * How bright the screen should be [elapsedMs] into a ramp of

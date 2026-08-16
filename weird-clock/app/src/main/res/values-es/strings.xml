@@ -87,6 +87,7 @@
     <string name="alarm_gentle">Despertar suave</string>
     <string name="alarm_gentle_off">De golpe</string>
     <string name="alarm_gentle_sec">Sube en %1$d s</string>
+    <string name="alarm_gentle_min">Sube en %1$d min</string>
     <string name="alarm_mission">Misión antisueño</string>
     <string name="alarm_mission_none">Ninguna: deslizar para parar</string>
     <string name="alarm_mission_maths">Una multiplicación</string>

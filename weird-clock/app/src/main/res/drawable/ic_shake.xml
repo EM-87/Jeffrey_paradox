@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The shaking mission: a handset with the waves pointing inwards, which
+     is what tells it apart from the vibration icon two places along —
+     that one is the phone giving off a buzz, this one is the phone being
+     shaken from both sides. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="18dp"
+    android:height="18dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineJoin="round"
+        android:pathData="M9.5,4.5L14.5,4.5L14.5,19.5L9.5,19.5z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M2.5,9L5,12L2.5,15 M21.5,9L19,12L21.5,15" />
+</vector>

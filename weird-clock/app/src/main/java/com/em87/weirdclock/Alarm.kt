@@ -154,34 +154,19 @@ object AlarmStore {
 
     /** Writes down whatever the shared list now says. */
     @Synchronized
-    /**
-     * Carries the two app-wide settings onto every alarm, once.
+    /*
+     * There was a migration here that copied the app-wide mission and
+     * gradual sunrise onto every existing alarm, so that nobody lost a
+     * setting they had switched on.
      *
-     * The mission and the gradual sunrise were settings of the app for one
-     * version, and are properties of an alarm now. Somebody who had a
-     * mission switched on this morning must still have it tomorrow — the
-     * whole point of it is that it is there when you would rather it were
-     * not, and silently dropping it is exactly the failure it exists to
-     * prevent.
-     *
-     * Marked done in a preference of its own rather than by checking
-     * whether any alarm carries one: an alarm turned back to "none" on
-     * purpose would otherwise have the old global answer put back on the
-     * next run, for ever.
+     * It was the wrong call, and it is gone. The old setting was app-wide
+     * because there was no alternative, not because somebody meant it to
+     * apply to every alarm they own — and the result was that every
+     * reminder in the list suddenly wanted a multiplication done before it
+     * would stop. Losing a setting is a small annoyance and can be put
+     * back in five seconds; a mission on the alarm that says the bread is
+     * done is the joke that stops being funny the first time it happens.
      */
-    fun adoptGlobals(context: Context) {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        if (prefs.getBoolean(Prefs.PER_ALARM_MIGRATED, false)) return
-        val mission = Mission.required(prefs.getString(Prefs.MISSION, null))
-        val gentle = GentleWake.seconds(prefs.getString(Prefs.GENTLE_WAKE, null))
-        prefs.edit().putBoolean(Prefs.PER_ALARM_MIGRATED, true).apply()
-        if (mission == Mission.NONE && gentle == 0) return
-        for (alarm in all(context)) {
-            alarm.mission = mission
-            alarm.gentleWakeSeconds = gentle
-        }
-        save(context)
-    }
 
     fun save(context: Context) {
         val alarms = shared ?: return

@@ -101,6 +101,7 @@
     <string name="alarm_gentle">Gentle wake</string>
     <string name="alarm_gentle_off">Straight on</string>
     <string name="alarm_gentle_sec">Comes up over %1$d s</string>
+    <string name="alarm_gentle_min">Comes up over %1$d min</string>
     <string name="alarm_mission">Anti-sleep mission</string>
     <string name="alarm_mission_none">None — slide to stop</string>
     <string name="alarm_mission_maths">A multiplication</string>

@@ -409,10 +409,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         SystemChrome.paint(this)
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        // The mission and the gradual sunrise were settings of the app for
-        // one version and belong to an alarm now. Somebody who had a
-        // mission switched on this morning must still have it tomorrow.
-        AlarmStore.adoptGlobals(this)
         // The floating hourglass used to be a yes/no switch; it is now a
         // choice of two. Carry the old answer over once.
         if (!prefs.contains(Prefs.COUNTDOWN_FLOAT)) {
@@ -1397,24 +1393,38 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun showAlarmSheet(alarm: Alarm, seed: Alarm? = null) =
         alarmSheet.show(alarm, seed)
 
-    /** Copies a sheet draft back onto the real alarm (adding it if new). */
+    /**
+     * Copies a sheet draft back onto the real alarm (adding it if new).
+     *
+     * Every field at once, rather than a list of assignments. The list was
+     * a field per line and it was wrong the moment an alarm grew a new
+     * one: the mission and the gradual sunrise were added, nobody added
+     * them here, and the result was two settings that could be chosen and
+     * not saved — you picked "straight on", pressed save, and the row came
+     * back saying thirty seconds, because the draft had been thrown away.
+     *
+     * The same mistake, in the same week, as the two counts dropped on the
+     * way through the alarm chain. So this one stops being a list.
+     */
+    /** For the tests: the card builder, which decides the marks on a row. */
+    internal fun alarmCardsForTest(): AlarmCards = alarmCards
+
+    /** The same, for the tests: saving is the step that lost two settings. */
+    internal fun commitDraftForTest(target: Alarm, draft: Alarm, isNew: Boolean) =
+        commitDraft(target, draft, isNew)
+
     private fun commitDraft(target: Alarm, draft: Alarm, isNew: Boolean) {
-        target.hour = draft.hour
-        target.minute = draft.minute
-        // A new alarm arrives switched on; an existing one keeps whatever its
-        // switch says. Renaming a sleeping alarm must not wake it.
-        if (isNew) target.enabled = true
-        target.sound = draft.sound
-        target.soundUri = draft.soundUri
-        target.daysMask = draft.daysMask
-        target.snoozeMinutes = draft.snoozeMinutes
-        target.label = draft.label
-        target.notes = draft.notes
-        target.vibrate = draft.vibrate
-        target.flash = draft.flash
-        target.durationMinutes = draft.durationMinutes
-        target.extraTimes = draft.extraTimes.toMutableList()
-        if (isNew && !alarms.contains(target)) alarms.add(target)
+        // The id belongs to the alarm and never to the draft; the switch is
+        // the alarm's too, since renaming a sleeping alarm must not wake it,
+        // and a new one arrives switched on.
+        val merged = draft.copy(
+            id = target.id,
+            enabled = if (isNew) true else target.enabled,
+            // copy() is shallow, and this one is a list the draft still holds.
+            extraTimes = draft.extraTimes.toMutableList()
+        )
+        val at = alarms.indexOfFirst { it.id == target.id }
+        if (at >= 0) alarms[at] = merged else alarms.add(merged)
         persistAlarms()
     }
 

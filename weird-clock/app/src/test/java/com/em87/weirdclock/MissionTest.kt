@@ -177,50 +177,109 @@ class MissionTest {
     // -------------------------------------------------- one alarm at a time
 
     /**
-     * Somebody who had a mission switched on this morning still has it
-     * tomorrow.
+     * Everything set on the sheet is what the alarm ends up with.
      *
-     * It was a setting of the app for one version and is a property of an
-     * alarm now, and the whole point of a mission is that it is there when
-     * you would rather it were not — silently dropping it in an update is
-     * exactly the failure it exists to prevent.
+     * Not "the mission survives" and "the sunrise survives", which is the
+     * shape of test that let this through: the copy back from the sheet
+     * was a field per line, and two new fields were simply not on the
+     * list. Picking "straight on" and saving gave you back thirty seconds,
+     * because what you chose had been thrown away.
+     *
+     * So this compares the *whole* alarm. A field added tomorrow and
+     * forgotten in the copy fails here without anybody remembering to come
+     * back and add a line.
      */
     @Test
-    fun `the app-wide answer is carried onto the alarms that existed`() {
-        prefs.edit()
-            .putString(Prefs.MISSION, Mission.SHAKE)
-            .putString(Prefs.GENTLE_WAKE, "60")
-            .commit()
-        AlarmStore.all(context).add(Alarm(1, 7, 0, true, Prefs.ALARM_SOUND_BELLS))
+    fun `saving an alarm keeps every single thing that was set on it`() {
+        val existing = Alarm(3, 6, 0, true, Prefs.ALARM_SOUND_BELLS)
+        AlarmStore.all(context).add(existing)
         AlarmStore.save(context)
 
-        AlarmStore.adoptGlobals(context)
+        // A draft with every field moved off its default.
+        val draft = Alarm(
+            id = 999, hour = 9, minute = 45, enabled = true,
+            sound = Prefs.ALARM_SOUND_BABY,
+            daysMask = Alarm.WEEKDAYS, snoozeMinutes = 10, label = "Gym",
+            soundUri = "content://x", vibrate = false, durationMinutes = 40,
+            flash = true, notes = "bring shoes",
+            mission = Mission.SHAKE, gentleWakeSeconds = 300,
+            extraTimes = mutableListOf(500)
+        )
 
-        val alarm = AlarmStore.all(context).first { it.id == 1 }
-        assertEquals(Mission.SHAKE, alarm.mission)
-        assertEquals(60, alarm.gentleWakeSeconds)
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            c.get().commitDraftForTest(existing, draft, isNew = false)
+        }
+
+        val saved = AlarmStore.all(context).first { it.id == 3 }
+        assertEquals(
+            "something set on the sheet did not survive being saved",
+            draft.copy(id = 3, enabled = saved.enabled), saved
+        )
     }
 
     /**
-     * And only once. An alarm turned back to "none" on purpose must stay
-     * that way, rather than having the old app-wide answer put back on it
-     * every time the app starts.
+     * And in particular the two that could not be turned off: choosing
+     * "none" or "straight on" has to stick.
      */
     @Test
-    fun `and never put back after it has been turned off`() {
-        prefs.edit().putString(Prefs.MISSION, Mission.SHAKE).commit()
-        AlarmStore.all(context).add(Alarm(1, 7, 0, true, Prefs.ALARM_SOUND_BELLS))
+    fun `both of them can be turned off again`() {
+        val existing = Alarm(4, 6, 0, true, Prefs.ALARM_SOUND_BELLS).apply {
+            mission = Mission.MATHS
+            gentleWakeSeconds = 60
+        }
+        AlarmStore.all(context).add(existing)
         AlarmStore.save(context)
-        AlarmStore.adoptGlobals(context)
 
-        AlarmStore.all(context).first { it.id == 1 }.mission = Mission.NONE
-        AlarmStore.save(context)
-        AlarmStore.adoptGlobals(context)
+        val draft = existing.copy(mission = Mission.NONE, gentleWakeSeconds = 0)
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            c.get().commitDraftForTest(existing, draft, isNew = false)
+        }
 
-        assertEquals(
-            Mission.NONE,
-            AlarmStore.all(context).first { it.id == 1 }.mission
-        )
+        val saved = AlarmStore.all(context).first { it.id == 4 }
+        assertEquals(Mission.NONE, saved.mission)
+        assertEquals(0, saved.gentleWakeSeconds)
+    }
+
+    /**
+     * A sunrise is measured in minutes.
+     *
+     * Half a minute is not a sunrise, it is a screen coming on slightly
+     * late — the point of the thing is that it is already happening by the
+     * time you notice it.
+     */
+    @Test
+    fun `the lengths offered are sunrises and not delays`() {
+        assertEquals("off has to be one of them", GentleWake.OFF, GentleWake.CHOICES.first())
+        val real = GentleWake.CHOICES.drop(1)
+        assertTrue("the shortest is $real", real.min() >= 60)
+        assertEquals("and they go up", real.sorted(), real)
+        for (choice in GentleWake.CHOICES) {
+            assertEquals("$choice is not offerable", choice, GentleWake.clamp(choice))
+        }
+    }
+
+    /**
+     * Two missions, two icons. A single mark saying only "there is a
+     * mission" leaves you opening the alarm to find out which.
+     */
+    @Test
+    fun `each mission wears its own mark`() {
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val cards = c.get().alarmCardsForTest()
+            val maths = cards.missionIcon(Mission.MATHS)
+            val shake = cards.missionIcon(Mission.SHAKE)
+            assertNotEquals("both missions look the same", maths, shake)
+            assertEquals("a sum wants a sum sign", R.drawable.ic_sigma, maths)
+            assertEquals(R.drawable.ic_shake, shake)
+            assertNotEquals(
+                "and neither may be the plain vibration mark, which is a"
+                    + " different thing two icons along",
+                R.drawable.ic_vibrate, shake
+            )
+        }
     }
 
     /** And both survive being written down and read back. */

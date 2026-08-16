@@ -105,10 +105,23 @@ class AlarmCards(
 
     /** The names the sound picker and the cards both use. */
     /** How long this alarm's screen takes to come up, in words. */
-    fun gentleLabel(seconds: Int): String = when (seconds) {
-        0 -> host.getString(R.string.alarm_gentle_off)
+    fun gentleLabel(seconds: Int): String = when {
+        seconds <= 0 -> host.getString(R.string.alarm_gentle_off)
+        seconds % 60 == 0 -> host.getString(R.string.alarm_gentle_min, seconds / 60)
         else -> host.getString(R.string.alarm_gentle_sec, seconds)
     }
+
+    /**
+     * Which icon says what this alarm will want.
+     *
+     * Two, not one: being woken to do arithmetic and being woken to shake
+     * the thing are quite different mornings, and a single mark saying
+     * only "there is a mission" leaves you opening the alarm to find out
+     * which.
+     */
+    internal fun missionIcon(mission: String?): Int =
+        if (Mission.required(mission) == Mission.SHAKE) R.drawable.ic_shake
+        else R.drawable.ic_sigma
 
     /** And what it will want before it stops. */
     fun missionLabel(mission: String?): String = when (Mission.required(mission)) {
@@ -245,6 +258,12 @@ class AlarmCards(
                 if (alarm.gentleWakeSeconds > 0) View.VISIBLE else View.GONE
             holder.iconMission.visibility =
                 if (Mission.any(alarm.mission)) View.VISIBLE else View.GONE
+            // Which mission, not merely that there is one: a sum sign for
+            // the one that wants arithmetic, a phone shaking for the one
+            // that wants shaking. Two icons for two quite different things
+            // to be woken by is worth the extra drawable.
+            holder.iconMission.setImageResource(missionIcon(alarm.mission))
+            holder.iconMission.contentDescription = missionLabel(alarm.mission)
             holder.iconCalendar.visibility =
                 if (alarm.durationMinutes > 0) View.VISIBLE else View.GONE
 
