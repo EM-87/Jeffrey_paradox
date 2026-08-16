@@ -201,13 +201,27 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** The card on screen: the row says which of the page's cards it is. */
     private fun current(): Card? = Cards.on(pager.currentItem, row)
-    private var stopwatchAccumMs = 0L
-    private var stopwatchStartedAt = 0L
-    private var stopwatchRunning = false
-    private var countdownRemainingMs = DEFAULT_COUNTDOWN_MS
-    private var countdownEndsAt = 0L
-    private var countdownRunning = false
-    private var countdownTotalMs = DEFAULT_COUNTDOWN_MS
+    /**
+     * The two chronographs, as arithmetic rather than as seven loose
+     * fields and a line of it repeated wherever a number was wanted.
+     *
+     * The properties below are the same names the rest of this screen has
+     * always used, pointing at the objects instead of at fields of their
+     * own — so the seventy-odd places that read them did not have to be
+     * rewritten to move the logic out. What moved is the part worth
+     * testing: what a running total is, what stopping banks, and what a
+     * countdown with nothing left does when you press start.
+     */
+    private val stopwatch = Chronograph { SystemClock.elapsedRealtime() }
+    private val countdown = Countdown({ SystemClock.elapsedRealtime() }, DEFAULT_COUNTDOWN_MS)
+
+    private var stopwatchAccumMs by stopwatch::accumMs
+    private var stopwatchStartedAt by stopwatch::startedAt
+    private val stopwatchRunning get() = stopwatch.running
+    private var countdownRemainingMs by countdown::remainingMs
+    private var countdownEndsAt by countdown::endsAt
+    private val countdownRunning get() = countdown.running
+    private var countdownTotalMs by countdown::totalMs
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -326,8 +340,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
 
             if (countdownRunning && countdownRemaining() == 0L) {
-                countdownRunning = false
-                countdownRemainingMs = 0L
+                countdown.reset()
                 CountdownService.clearPublished(this@MainActivity)
                 updateCountdownUi()
                 if (countdownPersistent) {
@@ -686,8 +699,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         CountdownService.stop(this)
         when (prefs.getString(Prefs.COUNTDOWN_RESULT, null)) {
             CountdownService.RESULT_FINISHED, CountdownService.RESULT_CANCELLED -> {
-                countdownRunning = false
-                countdownRemainingMs = 0L
+                countdown.reset()
                 prefs.edit().remove(Prefs.COUNTDOWN_RESULT).apply()
                 updateCountdownUi()
             }
@@ -697,17 +709,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // rather than ignored, so opening the app shows the real one.
                 val endsAt = prefs.getLong(Prefs.COUNTDOWN_ENDS_AT, 0L)
                 if (!countdownRunning && endsAt > SystemClock.elapsedRealtime()) {
-                    countdownEndsAt = endsAt
-                    countdownTotalMs = prefs.getLong(Prefs.COUNTDOWN_TOTAL, 60_000L)
-                    countdownRunning = true
+                    countdown.adopt(endsAt, prefs.getLong(Prefs.COUNTDOWN_TOTAL, 60_000L))
                     updateCountdownUi()
                 }
             }
             CountdownService.RESULT_EXTENDED -> {
                 // A minute was bought from the shade while we were away.
-                countdownEndsAt = prefs.getLong(Prefs.COUNTDOWN_ENDS_AT, countdownEndsAt)
-                countdownTotalMs = prefs.getLong(Prefs.COUNTDOWN_TOTAL, countdownTotalMs)
-                countdownRunning = true
+                countdown.adopt(
+                    prefs.getLong(Prefs.COUNTDOWN_ENDS_AT, countdownEndsAt),
+                    prefs.getLong(Prefs.COUNTDOWN_TOTAL, countdownTotalMs)
+                )
                 prefs.edit().remove(Prefs.COUNTDOWN_RESULT).apply()
                 updateCountdownUi()
             }
@@ -745,9 +756,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private fun restoreStopwatch() {
         val run = StopwatchStore.load(prefs) ?: return
-        stopwatchAccumMs = run.accumMs
-        stopwatchStartedAt = run.startedAt
-        stopwatchRunning = run.running
+        stopwatch.restore(run.accumMs, run.startedAt, run.running)
         stopwatchClockView?.importLaps(run.laps)
         stopwatchClockView?.chronoRunning = run.running
     }
@@ -950,9 +959,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.onChronoReset = { resetCountdown() }
             it.onChronoAdjusted = { ms ->
                 if (!countdownRunning) {
-                    countdownRemainingMs = ms
-                    // A freshly set countdown is all sand-up-top.
-                    countdownTotalMs = ms.coerceAtLeast(1000L)
+                    countdown.setTo(ms)
                     updateCountdownUi()
                 }
             }
@@ -1095,8 +1102,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     R.id.s3_d10 -> 10
                     else -> 15
                 }
-                countdownRemainingMs = minutes * 60_000L
-                countdownTotalMs = minutes * 60_000L
+                countdown.setTo(minutes * 60_000L)
                 chimePlayer.playTick()
                 updateCountdownUi()
             }
@@ -2511,12 +2517,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         )
     }
 
-    private fun stopwatchElapsed(): Long =
-        stopwatchAccumMs + if (stopwatchRunning) SystemClock.elapsedRealtime() - stopwatchStartedAt else 0L
+    private fun stopwatchElapsed(): Long = stopwatch.elapsed()
 
-    private fun countdownRemaining(): Long =
-        if (countdownRunning) (countdownEndsAt - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
-        else countdownRemainingMs
+    private fun countdownRemaining(): Long = countdown.remaining()
 
     /**
      * The last thing a pusher was felt to do. Only the tests read it: a
@@ -2543,20 +2546,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** Start/Pause pusher on the stopwatch dial (S-1). */
     private fun toggleStartPause() {
-        if (stopwatchRunning) {
-            stopwatchAccumMs = stopwatchElapsed()
-            stopwatchRunning = false
-        } else {
-            stopwatchStartedAt = SystemClock.elapsedRealtime()
-            stopwatchRunning = true
-        }
-        stopwatchClockView?.chronoRunning = stopwatchRunning
-        pushed(if (stopwatchRunning) Pusher.Feel.START else Pusher.Feel.STOP)
+        val nowRunning = stopwatch.startOrStop()
+        stopwatchClockView?.chronoRunning = nowRunning
+        pushed(if (nowRunning) Pusher.Feel.START else Pusher.Feel.STOP)
     }
 
     private fun resetChrono() {
-        stopwatchRunning = false
-        stopwatchAccumMs = 0L
+        stopwatch.reset()
         stopwatchClockView?.chronoRunning = false
         pushed(Pusher.Feel.RESET)
     }
@@ -2570,27 +2566,23 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** Start/Pause on the countdown dial (second page in chrono mode). */
     private fun toggleCountdown() {
-        if (countdownRunning) {
-            countdownRemainingMs = countdownRemaining()
-            countdownRunning = false
-            CountdownService.clearPublished(this)
-            pushed(Pusher.Feel.STOP)
-        } else if (countdownRemaining() > 0L) {
-            countdownEndsAt = SystemClock.elapsedRealtime() + countdownRemainingMs
-            countdownTotalMs = countdownRemainingMs
-            countdownRunning = true
+        val was = countdown.running
+        val nowRunning = countdown.startOrStop()
+        if (nowRunning) {
             // Published straight away: the tile in the shade knows about a
             // countdown started in the app without the app telling it.
             CountdownService.publish(this, countdownEndsAt, countdownTotalMs)
             pushed(Pusher.Feel.START)
+        } else if (was) {
+            CountdownService.clearPublished(this)
+            pushed(Pusher.Feel.STOP)
         }
         updateCountdownUi()
     }
 
     private fun resetCountdown() {
         // Back to zero; the user winds the hands to set a new time.
-        countdownRunning = false
-        countdownRemainingMs = 0L
+        countdown.reset()
         pushed(Pusher.Feel.RESET)
         CountdownService.clearPublished(this)
         updateCountdownUi()

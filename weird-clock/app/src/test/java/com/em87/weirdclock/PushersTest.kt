@@ -214,6 +214,33 @@ class PushersTest {
         }
     }
 
+    /**
+     * The number the watch keeps is the number the dial draws.
+     *
+     * The timing lives in its own class now, and the dial asks it through
+     * one lambda. That lambda is the whole join: if it stopped answering,
+     * the hands would sit at zero with the watch running merrily behind
+     * them, and every test of the arithmetic would still pass.
+     */
+    @Test
+    fun `the number the watch keeps reaches the dial`() {
+        onApp { app ->
+            app.press(R.id.to_stopwatch_button)
+            val dial = app.stopwatch()
+            assertEquals("a fresh watch is at nothing", 0L, dial.chronoProvider?.invoke())
+
+            dial.onChronoStartStop?.invoke()
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(
+                java.time.Duration.ofSeconds(5)
+            )
+
+            assertEquals(
+                "the dial is not reading the running watch",
+                5_000L, dial.chronoProvider?.invoke()
+            )
+        }
+    }
+
     // ---------------------------------------------------------- the feel
 
     /**
