@@ -67,6 +67,26 @@ object GentleWake {
         rampMs > 0L && elapsedMs < rampMs
 
     /**
+     * When the torch should start, in ms from the beginning of the
+     * ringing — or -1 for never.
+     *
+     * For the sleeper the sunrise does not reach. The point is that it
+     * comes *after*: a flash from the first second is the alarm equivalent
+     * of shouting, and there is already a per-alarm setting for people who
+     * want that. This one waits for the gentle half to have had its go and
+     * failed.
+     *
+     * Never without a sunrise to follow, because then there is nothing for
+     * it to be the second half of.
+     */
+    fun flashAfterMs(gentleSeconds: Int, wanted: Boolean): Long {
+        if (!wanted) return -1L
+        val ramp = clamp(gentleSeconds)
+        if (ramp <= 0) return -1L
+        return ramp * 1000L
+    }
+
+    /**
      * How far into the ramp we are, counted from when the *ringing*
      * started rather than from when the screen was built.
      *

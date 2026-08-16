@@ -159,12 +159,20 @@ class AlarmRingActivity : AppCompatActivity() {
 
     // ----------------------------------------------------------- missions
 
-    private var sum: Mission.Sum? = null
+    private var problem: Mission.Problem? = null
+
+    /** For the tests: the answer wanted right now, whatever the rung. */
+    internal val wantedAnswer: Int?
+        get() = problem?.answer
     private var shakes: Mission.Shakes? = null
     private var sensors: android.hardware.SensorManager? = null
 
     /** Which mission this screen is showing, once it has been asked. */
     internal var missionKind = Mission.NONE
+        private set
+
+    /** And on which rung of the ladder, when it is a sum. */
+    internal var missionLevel = Mission.DEFAULT_LEVEL
         private set
 
     private val shakeListener = object : android.hardware.SensorEventListener {
@@ -192,6 +200,9 @@ class AlarmRingActivity : AppCompatActivity() {
         // of the app, which meant one answer for the alarm that wakes you
         // and the reminder that says the bread is done.
         missionKind = Mission.required(intent.getStringExtra(AlarmScheduler.EXTRA_MISSION))
+        missionLevel = Mission.level(
+            intent.getIntExtra(AlarmScheduler.EXTRA_MISSION_LEVEL, Mission.DEFAULT_LEVEL)
+        )
         // A finished countdown is not a wake-up. Making somebody do sums to
         // silence the pasta timer would be a joke that stops being funny
         // the first time it happens.
@@ -245,7 +256,7 @@ class AlarmRingActivity : AppCompatActivity() {
         askAnother(prompt, answer)
         button.setOnClickListener {
             val typed = answer.text.toString()
-            if (Mission.solved(sum ?: return@setOnClickListener, typed)) {
+            if (Mission.solved(problem ?: return@setOnClickListener, typed)) {
                 stopRinging()
             } else {
                 // A fresh one, so a wrong answer cannot be got past by
@@ -257,10 +268,9 @@ class AlarmRingActivity : AppCompatActivity() {
     }
 
     private fun askAnother(prompt: TextView, answer: android.widget.EditText) {
-        val next = Mission.sum()
-        sum = next
-        prompt.text = next.text()
-        prompt.contentDescription = getString(R.string.mission_maths_a11y, next.a, next.b)
+        val next = Mission.problem(missionLevel)
+        problem = next
+        prompt.text = next.text
         answer.text = null
     }
 

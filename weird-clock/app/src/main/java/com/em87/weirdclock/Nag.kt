@@ -95,14 +95,16 @@ object Nag {
         vibrate: Boolean,
         flash: Boolean,
         mission: String,
+        missionLevel: Int,
         gentleSeconds: Int,
+        gentleFlash: Boolean,
         roundsSoFar: Int
     ) {
         val manager = context.getSystemService(AlarmManager::class.java) ?: return
         val at = System.currentTimeMillis() + MINUTES * 60_000L
         val fire = firePendingIntent(
             context, sound, soundUri, label, snoozeMinutes, vibrate, flash,
-            mission, gentleSeconds, roundsSoFar + 1
+            mission, missionLevel, gentleSeconds, gentleFlash, roundsSoFar + 1
         )
         val show = PendingIntent.getActivity(
             context,
@@ -134,7 +136,10 @@ object Nag {
      */
     fun callOff(context: Context) {
         context.getSystemService(AlarmManager::class.java)
-            ?.cancel(firePendingIntent(context, "", "", "", 0, true, false, Mission.NONE, 0, 0))
+            ?.cancel(firePendingIntent(
+                context, "", "", "", 0, true, false,
+                Mission.NONE, Mission.DEFAULT_LEVEL, 0, false, 0
+            ))
         prefs(context).edit()
             .remove(Prefs.NAG_AT)
             .remove(Prefs.NAG_ROUNDS)
@@ -160,7 +165,9 @@ object Nag {
         vibrate: Boolean,
         flash: Boolean,
         mission: String,
+        missionLevel: Int,
         gentleSeconds: Int,
+        gentleFlash: Boolean,
         round: Int
     ): PendingIntent = PendingIntent.getBroadcast(
         context,
@@ -177,7 +184,9 @@ object Nag {
             .putExtra(AlarmScheduler.EXTRA_FLASH, flash)
             // The next go is the same alarm, mission and sunrise included.
             .putExtra(AlarmScheduler.EXTRA_MISSION, mission)
+            .putExtra(AlarmScheduler.EXTRA_MISSION_LEVEL, missionLevel)
             .putExtra(AlarmScheduler.EXTRA_GENTLE, gentleSeconds)
+            .putExtra(AlarmScheduler.EXTRA_GENTLE_FLASH, gentleFlash)
             .putExtra(EXTRA_ROUND, round),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )

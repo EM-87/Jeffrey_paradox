@@ -41,40 +41,87 @@ class MissionTest {
     // ------------------------------------------------------------- the sum
 
     /**
-     * Out of the times tables most people have by heart, and inside what
-     * anybody can do at six in the morning. A sum nobody can do is an
-     * alarm that cannot be turned off, which is worse than one that can be
-     * turned off too easily.
+     * Five rungs, and every one of them has an answer a person can give.
+     *
+     * The whole ladder is a compromise between two ways of failing: too
+     * easy and it does not wake anybody, too hard and the alarm becomes a
+     * thing you dread — and a problem nobody can do at six in the morning
+     * is an alarm that cannot be turned off, which is worse than one that
+     * can be turned off too easily.
      */
     @Test
-    fun `the sum needs thinking about but is not cruel`() {
+    fun `every rung asks something with a whole-number answer`() {
         val random = Random(7)
-        repeat(500) {
-            val sum = Mission.sum(random)
-            assertTrue("${sum.text()}", sum.a in 3..9)
-            assertTrue("${sum.text()}", sum.b in 12..19)
-            assertTrue("nothing trivial", sum.a > 2 && sum.b > 10)
-            assertTrue("nor beyond doing in the head", sum.answer <= 200)
+        for (level in 1..Mission.LEVELS) {
+            repeat(300) {
+                val problem = Mission.problem(level, random)
+                assertTrue("$level: '${problem.text}' is blank", problem.text.isNotBlank())
+                assertTrue(
+                    "$level: '${problem.text}' answers ${problem.answer}",
+                    problem.answer > 0
+                )
+                assertTrue(
+                    "$level: '${problem.text}' wants ${problem.answer}, which is a lot",
+                    problem.answer <= 1000
+                )
+            }
         }
     }
 
-    /** It is not the same sum every time, or the answer becomes a habit. */
+    /** And they get harder going up, rather than merely different. */
     @Test
-    fun `it is a different sum each time`() {
+    fun `the ladder goes upwards`() {
+        val random = Random(3)
+        // The size of the answer is a poor measure of difficulty on its
+        // own, so this compares the bottom with the top, where the
+        // difference is not in doubt.
+        val easiest = (1..200).map { Mission.problem(1, random).answer }.average()
+        val hardest = (1..200).map { Mission.problem(4, random).answer }.average()
+        assertTrue("$easiest then $hardest", hardest > easiest * 10)
+        // The first rung is arithmetic a child does.
+        repeat(50) { assertTrue(Mission.problem(1, random).answer <= 18) }
+    }
+
+    /** The top rung is roots and an unknown, not more multiplying. */
+    @Test
+    fun `the top of the ladder is not just a bigger sum`() {
+        val random = Random(5)
+        val texts = (1..200).map { Mission.problem(5, random).text }
+        assertTrue("no roots in $texts", texts.any { it.contains("√") })
+        assertTrue("no unknowns", texts.any { it.contains("x") })
+    }
+
+    /** A level nobody recognises is the middle of the ladder, not a crash. */
+    @Test
+    fun `an impossible level is the middle one`() {
+        assertEquals(Mission.DEFAULT_LEVEL, Mission.level(0))
+        assertEquals(Mission.DEFAULT_LEVEL, Mission.level(99))
+        assertEquals(1, Mission.level(1))
+        assertEquals(Mission.LEVELS, Mission.level(Mission.LEVELS))
+        // And asking for one out of range still gives a real problem.
+        assertTrue(Mission.problem(0).answer > 0)
+        assertTrue(Mission.problem(99).answer > 0)
+    }
+
+    /** It is not the same problem every time, or the answer becomes a habit. */
+    @Test
+    fun `it is a different problem each time`() {
         val random = Random(11)
-        val seen = (1..40).map { Mission.sum(random) }.toSet()
-        assertTrue("only ${seen.size} distinct", seen.size > 10)
+        for (level in 1..Mission.LEVELS) {
+            val seen = (1..40).map { Mission.problem(level, random) }.toSet()
+            assertTrue("level $level: only ${seen.size} distinct", seen.size > 10)
+        }
     }
 
     @Test
     fun `a right answer is right and everything else is not`() {
-        val sum = Mission.Sum(7, 14)
-        assertTrue(Mission.solved(sum, "98"))
-        assertTrue("spaces are not a wrong answer", Mission.solved(sum, "  98 "))
-        assertFalse(Mission.solved(sum, "97"))
-        assertFalse("blank is wrong, not an error", Mission.solved(sum, ""))
-        assertFalse(Mission.solved(sum, "abc"))
-        assertFalse("and no cheating with the working", Mission.solved(sum, "7*14"))
+        val problem = Mission.Problem("7 × 14", 98)
+        assertTrue(Mission.solved(problem, "98"))
+        assertTrue("spaces are not a wrong answer", Mission.solved(problem, "  98 "))
+        assertFalse(Mission.solved(problem, "97"))
+        assertFalse("blank is wrong, not an error", Mission.solved(problem, ""))
+        assertFalse(Mission.solved(problem, "abc"))
+        assertFalse("and no cheating with the working", Mission.solved(problem, "7*14"))
     }
 
     // ---------------------------------------------------------- the shaking
@@ -410,6 +457,25 @@ class MissionTest {
             // The box and the button belong to the sum, not to this.
             assertEquals(View.GONE, app.findViewById<View>(R.id.mission_answer).visibility)
             assertEquals(View.GONE, app.findViewById<View>(R.id.mission_button).visibility)
+        }
+    }
+
+    /**
+     * The rung reaches the screen: an alarm set to the first rung must not
+     * be asking for square roots.
+     */
+    @Test
+    fun `the screen asks at the level the alarm was set to`() {
+        val intent = android.content.Intent(context, AlarmRingActivity::class.java)
+            .putExtra(AlarmScheduler.EXTRA_MISSION, Mission.MATHS)
+            .putExtra(AlarmScheduler.EXTRA_MISSION_LEVEL, 1)
+        Robolectric.buildActivity(AlarmRingActivity::class.java, intent).use { c ->
+            c.setup()
+            val app = c.get()
+            assertEquals(1, app.missionLevel)
+            val shown = app.findViewById<android.widget.TextView>(R.id.mission_prompt)
+                .text.toString()
+            assertTrue("the first rung must be a sum: '$shown'", shown.contains("+"))
         }
     }
 

@@ -90,7 +90,8 @@
     <string name="alarm_gentle_min">Sube en %1$d min</string>
     <string name="alarm_mission">Misión antisueño</string>
     <string name="alarm_mission_none">Ninguna: deslizar para parar</string>
-    <string name="alarm_mission_maths">Una multiplicación</string>
+    <string name="alarm_mission_maths_level">Cuentas · nivel %1$d</string>
+    <string name="alarm_gentle_flash">…y luego el flash</string>
     <string name="alarm_mission_shake">Sacudir el teléfono</string>
     <string name="alarm_flash">Flash</string>
     <string name="alarm_save">Guardar</string>
@@ -299,7 +300,6 @@
     <string name="mission_check">Parar la alarma</string>
     <string name="mission_open">Abrir</string>
     <string name="mission_answer_hint">Respuesta</string>
-    <string name="mission_maths_a11y">%1$d por %2$d</string>
     <string name="mission_shake_fmt">Sacude: %1$d / %2$d</string>
     <string name="nag_title">La alarma va a volver</string>
     <string name="nag_message">Su misión no se pasó, así que se ha citado otra vez a las %1$s. Lleva %2$d intentos.</string>

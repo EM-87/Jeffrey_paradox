@@ -111,6 +111,17 @@ class AlarmCards(
         else -> host.getString(R.string.alarm_gentle_sec, seconds)
     }
 
+    companion object {
+        /**
+         * Every mission you can pick, flattened: no mission, one entry per
+         * rung of the arithmetic ladder, and shaking.
+         */
+        val MISSION_CHOICES: List<Pair<String, Int>> =
+            listOf(Mission.NONE to Mission.DEFAULT_LEVEL) +
+                (1..Mission.LEVELS).map { Mission.MATHS to it } +
+                listOf(Mission.SHAKE to Mission.DEFAULT_LEVEL)
+    }
+
     /**
      * Which icon says what this alarm will want.
      *
@@ -123,12 +134,15 @@ class AlarmCards(
         if (Mission.required(mission) == Mission.SHAKE) R.drawable.ic_shake
         else R.drawable.ic_sigma
 
-    /** And what it will want before it stops. */
-    fun missionLabel(mission: String?): String = when (Mission.required(mission)) {
-        Mission.MATHS -> host.getString(R.string.alarm_mission_maths)
-        Mission.SHAKE -> host.getString(R.string.alarm_mission_shake)
-        else -> host.getString(R.string.alarm_mission_none)
-    }
+    /** And what it will want before it stops, rung included. */
+    fun missionLabel(mission: String?, level: Int = Mission.DEFAULT_LEVEL): String =
+        when (Mission.required(mission)) {
+            Mission.MATHS -> host.getString(
+                R.string.alarm_mission_maths_level, Mission.level(level)
+            )
+            Mission.SHAKE -> host.getString(R.string.alarm_mission_shake)
+            else -> host.getString(R.string.alarm_mission_none)
+        }
 
     fun soundLabel(sound: String): String = host.getString(
         when (sound) {
@@ -263,7 +277,8 @@ class AlarmCards(
             // that wants shaking. Two icons for two quite different things
             // to be woken by is worth the extra drawable.
             holder.iconMission.setImageResource(missionIcon(alarm.mission))
-            holder.iconMission.contentDescription = missionLabel(alarm.mission)
+            holder.iconMission.contentDescription =
+                missionLabel(alarm.mission, alarm.missionLevel)
             holder.iconCalendar.visibility =
                 if (alarm.durationMinutes > 0) View.VISIBLE else View.GONE
 

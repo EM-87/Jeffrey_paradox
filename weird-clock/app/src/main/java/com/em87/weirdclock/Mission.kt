@@ -20,42 +20,83 @@ object Mission {
     const val MATHS = "maths"
     const val SHAKE = "shake"
 
-    // ------------------------------------------------------------- sums
+    // ---------------------------------------------------------- the sums
+
+    /** How many rungs the ladder has. */
+    const val LEVELS = 5
+
+    /** The rung an alarm gets if nobody has said otherwise. */
+    const val DEFAULT_LEVEL = 3
 
     /**
-     * A sum, and the answer it wants.
+     * Something with a number for an answer.
      *
-     * Multiplication rather than addition, and out of the times tables
-     * most people have by heart: the point is a few seconds of actual
-     * thinking, and 6 + 9 is not thinking, it is reading.
+     * Written out rather than held as operands: by the top of the ladder
+     * the question is not "a something b" at all — a root has one operand
+     * and an equation has an unknown — and a shape that fits every rung is
+     * a shape that fits none of them well.
      */
-    data class Sum(val a: Int, val b: Int) {
-        val answer: Int get() = a * b
-
-        fun text(): String = "$a × $b"
-    }
+    data class Problem(val text: String, val answer: Int)
 
     /**
-     * One to be going on with.
+     * One to be going on with, at [level].
      *
-     * Both ends bounded: too easy and it does not wake anybody, too hard
-     * and the alarm becomes a thing you dread rather than a thing that
-     * works — and a sum nobody can do at six in the morning is an alarm
-     * that cannot be turned off, which is worse than one that can be
-     * turned off too easily.
+     * Five rungs, and the whole ladder is a compromise between two ways of
+     * failing. Too easy and it does not wake anybody, so the alarm is off
+     * and you are asleep again. Too hard and the alarm becomes a thing you
+     * dread — and a sum nobody can do at six in the morning is an alarm
+     * that cannot be turned off at all, which is worse than one that can be
+     * turned off too easily. So the bottom rung is arithmetic a child does
+     * and the top is a minute's thought, not a puzzle.
      */
-    fun sum(random: Random = Random.Default): Sum =
-        Sum(random.nextInt(3, 10), random.nextInt(12, 20))
+    fun problem(level: Int, random: Random = Random.Default): Problem =
+        when (level.coerceIn(1, LEVELS)) {
+            // Barely awake: single digits, no carrying.
+            1 -> random.nextInt(2, 10).let { a ->
+                val b = random.nextInt(2, 10)
+                Problem("$a + $b", a + b)
+            }
+            // Two digits, with a carry to keep it honest.
+            2 -> random.nextInt(13, 49).let { a ->
+                val b = random.nextInt(13, 49)
+                Problem("$a + $b", a + b)
+            }
+            // Out of the times tables most people have by heart.
+            3 -> random.nextInt(3, 10).let { a ->
+                val b = random.nextInt(12, 20)
+                Problem("$a × $b", a * b)
+            }
+            // Both sides two digits: doable in the head, with effort.
+            4 -> random.nextInt(12, 20).let { a ->
+                val b = random.nextInt(12, 20)
+                Problem("$a × $b", a * b)
+            }
+            // Roots and an unknown. Still whole numbers — an alarm is a bad
+            // place to find out your answer was right to two decimals.
+            else -> if (random.nextBoolean()) {
+                val root = random.nextInt(11, 32)
+                Problem("√${root * root}", root)
+            } else {
+                val x = random.nextInt(3, 20)
+                val a = random.nextInt(2, 10)
+                val b = random.nextInt(2, 30)
+                Problem("${a}x + $b = ${a * x + b}", x)
+            }
+        }
 
     /**
-     * Whether [typed] answers [sum].
+     * Whether [typed] answers [problem].
      *
      * Blank is wrong rather than an error: the field starts empty and
      * pressing the button with nothing in it is a thing a half-asleep hand
-     * does, and it should cost a new sum like any other wrong answer.
+     * does, and it should cost a new problem like any other wrong answer.
      */
-    fun solved(sum: Sum, typed: String): Boolean =
-        typed.trim().toIntOrNull() == sum.answer
+    fun solved(problem: Problem, typed: String): Boolean =
+        typed.trim().toIntOrNull() == problem.answer
+
+    /** Any level outside the ladder is the middle of it. */
+    fun level(stored: Int): Int =
+        if (stored in 1..LEVELS) stored else DEFAULT_LEVEL
 
     // ----------------------------------------------------------- shaking
 

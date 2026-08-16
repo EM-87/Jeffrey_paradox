@@ -104,7 +104,8 @@
     <string name="alarm_gentle_min">Comes up over %1$d min</string>
     <string name="alarm_mission">Anti-sleep mission</string>
     <string name="alarm_mission_none">None — slide to stop</string>
-    <string name="alarm_mission_maths">A multiplication</string>
+    <string name="alarm_mission_maths_level">Arithmetic · level %1$d</string>
+    <string name="alarm_gentle_flash">…and then the flash</string>
     <string name="alarm_mission_shake">Shake the phone</string>
     <string name="alarm_flash">Flash</string>
     <string name="alarm_save">Save</string>
@@ -302,7 +303,6 @@
     <string name="mission_check">Stop the alarm</string>
     <string name="mission_open">Open</string>
     <string name="mission_answer_hint">Answer</string>
-    <string name="mission_maths_a11y">%1$d times %2$d</string>
     <string name="mission_shake_fmt">Shake it: %1$d / %2$d</string>
     <string name="nag_title">The alarm is coming back</string>
     <string name="nag_message">Its mission was never passed, so it has booked itself another go at %1$s. It has tried %2$d times so far.</string>

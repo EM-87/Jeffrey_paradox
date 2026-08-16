@@ -223,6 +223,20 @@
                 style="@style/AlarmSheetRowValue" />
         </LinearLayout>
 
+        <!-- The second half of a gentle wake, for the sleeper the sunrise
+             does not reach. Does nothing without one. -->
+        <LinearLayout style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/alarm_gentle_flash" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/sheet_gentle_flash"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
         <!-- And what it takes to stop this one. -->
         <LinearLayout
             android:id="@+id/sheet_mission_row"

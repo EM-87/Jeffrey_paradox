@@ -34,7 +34,9 @@ object AlarmScheduler {
 
     /** This alarm's own mission, and its own gradual sunrise in seconds. */
     const val EXTRA_MISSION = "extra_mission"
+    const val EXTRA_MISSION_LEVEL = "extra_mission_level"
     const val EXTRA_GENTLE = "extra_gentle"
+    const val EXTRA_GENTLE_FLASH = "extra_gentle_flash"
 
     /**
      * Everything one ringing carries with it.
@@ -53,7 +55,8 @@ object AlarmScheduler {
     val CARRIED = arrayOf(
         EXTRA_ALARM_ID, EXTRA_REMINDER_ID, EXTRA_SOUND, EXTRA_SOUND_URI,
         EXTRA_SNOOZE, EXTRA_SNOOZE_COUNT, EXTRA_LABEL, EXTRA_VIBRATE,
-        EXTRA_FLASH, EXTRA_FROM_TIMER, EXTRA_MISSION, EXTRA_GENTLE,
+        EXTRA_FLASH, EXTRA_FROM_TIMER, EXTRA_MISSION, EXTRA_MISSION_LEVEL,
+        EXTRA_GENTLE, EXTRA_GENTLE_FLASH,
         Nag.EXTRA_ROUND
     )
 
@@ -182,7 +185,9 @@ object AlarmScheduler {
             intent.putExtra(EXTRA_VIBRATE, it.vibrate)
             intent.putExtra(EXTRA_FLASH, it.flash)
             intent.putExtra(EXTRA_MISSION, it.mission)
+            intent.putExtra(EXTRA_MISSION_LEVEL, it.missionLevel)
             intent.putExtra(EXTRA_GENTLE, it.gentleWakeSeconds)
+            intent.putExtra(EXTRA_GENTLE_FLASH, it.gentleFlash)
         }
         return PendingIntent.getBroadcast(
             context,

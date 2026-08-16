@@ -134,7 +134,9 @@ class AlarmService : Service() {
 
     /** This alarm's own mission and gradual sunrise. */
     private var mission = Mission.NONE
+    private var missionLevel = Mission.DEFAULT_LEVEL
     private var gentleSeconds = 0
+    private var gentleFlash = false
     private var fromTimer = false
     private var mediaPlayer: MediaPlayer? = null
     private var flashOn = false
@@ -231,6 +233,11 @@ class AlarmService : Service() {
         nagRound = intent?.getIntExtra(Nag.EXTRA_ROUND, 0) ?: 0
         mission = Mission.required(intent?.getStringExtra(AlarmScheduler.EXTRA_MISSION))
         gentleSeconds = intent?.getIntExtra(AlarmScheduler.EXTRA_GENTLE, 0) ?: 0
+        gentleFlash = intent?.getBooleanExtra(AlarmScheduler.EXTRA_GENTLE_FLASH, false) == true
+        missionLevel = Mission.level(
+            intent?.getIntExtra(AlarmScheduler.EXTRA_MISSION_LEVEL, Mission.DEFAULT_LEVEL)
+                ?: Mission.DEFAULT_LEVEL
+        )
         label = intent?.getStringExtra(AlarmScheduler.EXTRA_LABEL) ?: ""
         vibrateEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_VIBRATE, true) != false
         flashEnabled = intent?.getBooleanExtra(AlarmScheduler.EXTRA_FLASH, false) == true
@@ -288,6 +295,12 @@ class AlarmService : Service() {
         if (ramp) handler.postDelayed(rampLoop, 2000L)
         if (vibrateEnabled) handler.post(vibrateLoop)
         if (flashEnabled) handler.post(flashLoop)
+        // And for the sleeper the sunrise does not reach: the torch, but
+        // only once the gentle half has had its go and failed. A flash from
+        // the first second is a different setting, one line up.
+        GentleWake.flashAfterMs(gentleSeconds, gentleFlash)
+            .takeIf { it > 0L && !flashEnabled }
+            ?.let { handler.postDelayed(flashLoop, it) }
         val timeout = ringTimeoutMs(this)
         if (timeout > 0L) handler.postDelayed(giveUp, timeout)
         return START_NOT_STICKY
@@ -310,7 +323,8 @@ class AlarmService : Service() {
         if (Nag.wantsAnother(guardsStop(mission, fromTimer), nagRound)) {
             Nag.arm(
                 this, sound, soundUri, label, snoozeMinutes,
-                vibrateEnabled, flashEnabled, mission, gentleSeconds, nagRound
+                vibrateEnabled, flashEnabled, mission, missionLevel,
+                gentleSeconds, gentleFlash, nagRound
             )
         } else {
             // Nothing more is coming, so the app must stop saying one is.
@@ -444,7 +458,9 @@ class AlarmService : Service() {
         .putExtra(AlarmScheduler.EXTRA_FLASH, flashEnabled)
         .putExtra(Nag.EXTRA_ROUND, nagRound)
         .putExtra(AlarmScheduler.EXTRA_MISSION, mission)
+        .putExtra(AlarmScheduler.EXTRA_MISSION_LEVEL, missionLevel)
         .putExtra(AlarmScheduler.EXTRA_GENTLE, gentleSeconds)
+        .putExtra(AlarmScheduler.EXTRA_GENTLE_FLASH, gentleFlash)
         // The full-screen ring needs to know what ran out, the same
         // way the notification icon does.
         .putExtra(AlarmScheduler.EXTRA_FROM_TIMER, fromTimer)

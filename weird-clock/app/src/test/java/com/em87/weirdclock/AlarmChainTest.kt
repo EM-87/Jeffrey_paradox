@@ -44,7 +44,9 @@ class AlarmChainTest {
         .putExtra(AlarmScheduler.EXTRA_FLASH, true)
         .putExtra(AlarmScheduler.EXTRA_FROM_TIMER, true)
         .putExtra(AlarmScheduler.EXTRA_MISSION, Mission.SHAKE)
+        .putExtra(AlarmScheduler.EXTRA_MISSION_LEVEL, 4)
         .putExtra(AlarmScheduler.EXTRA_GENTLE, 60)
+        .putExtra(AlarmScheduler.EXTRA_GENTLE_FLASH, true)
         .putExtra(Nag.EXTRA_ROUND, 4)
 
     /** Nothing carried is lost on the way across. */
@@ -57,6 +59,49 @@ class AlarmChainTest {
             assertTrue("$key was dropped", to.extras?.containsKey(key) == true)
             assertEquals("$key changed", from.extras?.get(key), to.extras?.get(key))
         }
+    }
+
+    /**
+     * Every extra an alarm is actually armed with is on the list.
+     *
+     * The test above walks the list and checks each one survives, which is
+     * trivially true if somebody shortens the list — exactly how a dropped
+     * extra would look. This one goes the other way: it arms a real alarm,
+     * reads the intent the system was handed, and insists that nothing on
+     * it is missing from the list that gets copied. A field added to an
+     * alarm and forgotten in CARRIED fails here.
+     */
+    @Test
+    fun `nothing an alarm is armed with is left off the list`() {
+        AlarmStore.forget()
+        AlarmStore.all(context).add(
+            Alarm(1, 7, 0, true, Prefs.ALARM_SOUND_BELLS).apply {
+                mission = Mission.MATHS
+                missionLevel = 5
+                gentleWakeSeconds = 60
+                gentleFlash = true
+                flash = true
+                label = "Work"
+            }
+        )
+        AlarmStore.save(context)
+        AlarmScheduler.update(context)
+
+        val armed = org.robolectric.Shadows
+            .shadowOf(context.getSystemService(android.app.AlarmManager::class.java))
+            .scheduledAlarms
+            .mapNotNull { org.robolectric.Shadows.shadowOf(it.operation).savedIntent }
+            .firstOrNull { it.component?.className?.endsWith("AlarmReceiver") == true }
+        assertTrue("no alarm was armed at all", armed != null)
+
+        val carried = AlarmScheduler.CARRIED.toSet()
+        for (key in armed!!.extras?.keySet().orEmpty()) {
+            assertTrue(
+                "$key is put on the alarm and is not in CARRIED, so every hop drops it",
+                key in carried
+            )
+        }
+        AlarmStore.forget()
     }
 
     /** And what was not there does not appear out of nowhere. */
@@ -120,7 +165,9 @@ class AlarmChainTest {
                 AlarmScheduler.EXTRA_LABEL,
                 AlarmScheduler.EXTRA_FROM_TIMER,
                 AlarmScheduler.EXTRA_MISSION,
-                AlarmScheduler.EXTRA_GENTLE
+                AlarmScheduler.EXTRA_GENTLE,
+                AlarmScheduler.EXTRA_MISSION_LEVEL,
+                AlarmScheduler.EXTRA_GENTLE_FLASH
             )) {
                 assertTrue("$key never reaches the screen", intent.extras?.containsKey(key) == true)
             }

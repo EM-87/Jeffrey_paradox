@@ -97,6 +97,30 @@ class GentleWakeTest {
         assertEquals("and nothing absurd", GentleWake.LONGEST, GentleWake.seconds("99999"))
     }
 
+    /**
+     * And then the torch, for the sleeper the sunrise does not reach.
+     *
+     * After, and never instead. A flash from the first second is the alarm
+     * equivalent of shouting, and there is a separate per-alarm setting
+     * for people who want that; this one waits for the gentle half to have
+     * had its go and failed. Without a sunrise there is nothing for it to
+     * be the second half of, so it never fires at all.
+     */
+    @Test
+    fun `the torch waits for the sunrise to have failed`() {
+        assertEquals(60_000L, GentleWake.flashAfterMs(60, wanted = true))
+        assertEquals(600_000L, GentleWake.flashAfterMs(600, wanted = true))
+        assertEquals("not asked for", -1L, GentleWake.flashAfterMs(60, wanted = false))
+        assertEquals(
+            "nothing to be the second half of",
+            -1L, GentleWake.flashAfterMs(0, wanted = true)
+        )
+        assertTrue(
+            "and never at the same moment the screen starts",
+            GentleWake.flashAfterMs(60, true) > 0L
+        )
+    }
+
     // -------------------------------------------------------- on the screen
 
     private fun ring(seconds: Int = 0, body: (AlarmRingActivity) -> Unit) {

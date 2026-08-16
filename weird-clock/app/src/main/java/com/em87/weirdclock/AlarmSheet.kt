@@ -179,7 +179,7 @@ class AlarmSheet(
             view.findViewById<TextView>(R.id.sheet_gentle_value).text =
                 cards.gentleLabel(draft.gentleWakeSeconds)
             view.findViewById<TextView>(R.id.sheet_mission_value).text =
-                cards.missionLabel(draft.mission)
+                cards.missionLabel(draft.mission, draft.missionLevel)
             view.findViewById<TextView>(R.id.sheet_duration_value).text =
                 if (draft.durationMinutes <= 0) {
                     host.getString(R.string.reminder_duration_none)
@@ -335,13 +335,22 @@ class AlarmSheet(
         }
 
         view.findViewById<View>(R.id.sheet_mission_row).setOnClickListener {
-            val choices = listOf(Mission.NONE, Mission.MATHS, Mission.SHAKE)
+            // One list rather than a row for the kind and another for the
+            // rung: the rung means nothing without the sums, and a row that
+            // is meaningless most of the time is a row that gets read every
+            // time and skipped every time.
+            val choices = AlarmCards.MISSION_CHOICES
+            val current = choices.indexOfFirst {
+                it.first == Mission.required(draft.mission) &&
+                    (it.first != Mission.MATHS || it.second == Mission.level(draft.missionLevel))
+            }
             cards.pickFromList(
                 R.string.alarm_mission,
-                choices.map { cards.missionLabel(it) },
-                choices.indexOf(Mission.required(draft.mission)).coerceAtLeast(0)
+                choices.map { cards.missionLabel(it.first, it.second) },
+                current.coerceAtLeast(0)
             ) { which ->
-                draft.mission = choices[which]
+                draft.mission = choices[which].first
+                draft.missionLevel = choices[which].second
                 refresh()
             }
         }
@@ -357,6 +366,9 @@ class AlarmSheet(
         vibrateSwitch.setOnCheckedChangeListener { _, checked -> draft.vibrate = checked }
         flashSwitch.isChecked = draft.flash
         flashSwitch.setOnCheckedChangeListener { _, checked -> draft.flash = checked }
+        val gentleFlashSwitch = view.findViewById<SwitchCompat>(R.id.sheet_gentle_flash)
+        gentleFlashSwitch.isChecked = draft.gentleFlash
+        gentleFlashSwitch.setOnCheckedChangeListener { _, checked -> draft.gentleFlash = checked }
 
         view.findViewById<Button>(R.id.sheet_delete).setOnClickListener {
             androidx.appcompat.app.AlertDialog.Builder(host)

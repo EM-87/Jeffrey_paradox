@@ -43,6 +43,8 @@ data class Alarm(
      * stops being funny the first time it happens.
      */
     var mission: String = Mission.NONE,
+    /** Which rung of the arithmetic ladder, when the mission is a sum. */
+    var missionLevel: Int = Mission.DEFAULT_LEVEL,
     /**
      * How long this alarm's screen takes to come up, in seconds; 0 for
      * straight on.
@@ -52,6 +54,13 @@ data class Alarm(
      * screen that seems not to have come on.
      */
     var gentleWakeSeconds: Int = 0,
+    /**
+     * And then the torch, for the sleeper the sunrise does not reach.
+     *
+     * Distinct from [flash], which strobes from the first second. This one
+     * is the second half of a gentle wake and does nothing without one.
+     */
+    var gentleFlash: Boolean = false,
     /**
      * Free text kept with the alarm and read out by the dial, exactly as a
      * reminder's is.
@@ -187,7 +196,9 @@ object AlarmStore {
                     .put("duration", a.durationMinutes)
                     .put("flash", a.flash)
                     .put("mission", a.mission)
+                    .put("missionLevel", a.missionLevel)
                     .put("gentle", a.gentleWakeSeconds)
+                    .put("gentleFlash", a.gentleFlash)
                     .put("notes", a.notes)
                     .put("extraTimes", JSONArray(a.extraTimes))
             )
@@ -238,7 +249,9 @@ object AlarmStore {
                         // and picks up whatever was set globally — see
                         // AlarmStore.adoptGlobals.
                         mission = Mission.required(o.optString("mission", Mission.NONE)),
+                        missionLevel = Mission.level(o.optInt("missionLevel", Mission.DEFAULT_LEVEL)),
                         gentleWakeSeconds = o.optInt("gentle", 0),
+                        gentleFlash = o.optBoolean("gentleFlash", false),
                         notes = o.optString("notes", ""),
                         extraTimes = o.optJSONArray("extraTimes")?.let { arr ->
                             MutableList(arr.length()) { arr.getInt(it) }
