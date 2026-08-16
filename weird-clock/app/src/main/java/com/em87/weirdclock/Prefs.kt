@@ -128,7 +128,31 @@ object Prefs {
     const val ALARM_SOUND_BELLS = "bells"
     const val ALARM_SOUND_DIGITAL = "digital"
     const val ALARM_SOUND_BABY = "baby"
+
+    /**
+     * The zoo, all synthesised.
+     *
+     * Impressions rather than recordings, and deliberately so: a recording
+     * carries a licence and arithmetic does not, and this app ships exactly
+     * one sound file. The rattle is the nearest to the real animal and the
+     * dog the furthest — see [ChimePlayer] for which is which and why.
+     */
+    const val ALARM_SOUND_ROOSTER = "rooster"
+    const val ALARM_SOUND_SNAKE = "snake"
+    const val ALARM_SOUND_WOLF = "wolf"
+    const val ALARM_SOUND_DOG = "dog"
+
+    /** The bell at the end of a round, which is what a timer running out is. */
+    const val ALARM_SOUND_RING_BELL = "ringbell"
+
     const val ALARM_SOUND_CUSTOM = "custom"
+
+    /** Every sound an alarm can be given, in the order the picker shows them. */
+    val ALARM_SOUNDS = listOf(
+        ALARM_SOUND_BELLS, ALARM_SOUND_DIGITAL, ALARM_SOUND_RING_BELL,
+        ALARM_SOUND_BABY, ALARM_SOUND_ROOSTER, ALARM_SOUND_SNAKE,
+        ALARM_SOUND_WOLF, ALARM_SOUND_DOG
+    )
 
     // Legacy repeat keywords, still read when migrating old alarm stores.
     const val ALARM_REPEAT_DAILY = "daily"

@@ -149,6 +149,11 @@
     <string name="alarm_sound_bells">Bells</string>
     <string name="alarm_sound_digital">Digital beep</string>
     <string name="alarm_sound_baby">Crying baby</string>
+    <string name="alarm_sound_ring_bell">Ring bell</string>
+    <string name="alarm_sound_rooster">Cockerel</string>
+    <string name="alarm_sound_snake">Rattlesnake</string>
+    <string name="alarm_sound_wolf">Wolf</string>
+    <string name="alarm_sound_dog">Dog</string>
     <string name="pref_moon_phase_title">Moon phase</string>
     <string name="pref_moon_phase_summary">One glyph low on the dial showing what is actually up: the sun while the sun is up where you are, otherwise the moon and its phase. Useful indoors with no window. Needs one location fix for the sunrise; without one it stays the moon.</string>
     <string name="pref_alarm_markers_title">Alarms on the dial</string>

@@ -33,6 +33,18 @@ class ChimePlayer {
         const val HALF_HOUR_BELL_HZ = 784.0
         const val WINDING_BELL_HZ = 587.0
         const val DAY_CHIME_HZ = 880.0
+
+        /**
+         * The bell at the end of a round: high, bright and rung three times.
+         *
+         * Nearly an octave above the ship's bell and rung for a great deal
+         * longer, which is the whole difference between "the watch has
+         * changed" and "stop, that is the round". It is the same striking
+         * arithmetic underneath — a bell is a bell — so it borrows
+         * [bellBuffer] rather than getting a synthesiser of its own.
+         */
+        const val RING_BELL_HZ = 1174.7
+
         private const val SAMPLE_RATE = 44100
     }
 
@@ -204,23 +216,28 @@ class ChimePlayer {
 
     /** Classic digital alarm clock: four short square-wave beeps. */
     fun playDigitalAlarm() {
-        thread(name = "digital-synth") {
-            val buffer = FloatArray((1.0 * SAMPLE_RATE).toInt())
-            val beepLen = 0.09
-            for (b in 0 until 4) {
-                val start = (b * 0.16 * SAMPLE_RATE).toInt()
-                val samples = (beepLen * SAMPLE_RATE).toInt()
-                for (n in 0 until samples) {
-                    val i = start + n
-                    if (i >= buffer.size) break
-                    val t = n.toDouble() / SAMPLE_RATE
-                    val edge = min(t / 0.004, (beepLen - t) / 0.004).coerceIn(0.0, 1.0)
-                    val square = if (sin(2.0 * PI * 1870.0 * t) >= 0) 1.0 else -1.0
-                    buffer[i] += (square * 0.20 * edge).toFloat()
-                }
+        thread(name = "digital-synth") { playFloatBuffer(digitalBuffer()) }
+    }
+
+    internal fun digitalBuffer(): FloatArray {
+        val buffer = FloatArray((1.0 * SAMPLE_RATE).toInt())
+        val beepLen = 0.09
+        for (b in 0 until 4) {
+            val start = (b * 0.16 * SAMPLE_RATE).toInt()
+            val samples = (beepLen * SAMPLE_RATE).toInt()
+            for (n in 0 until samples) {
+                val i = start + n
+                if (i >= buffer.size) break
+                val t = n.toDouble() / SAMPLE_RATE
+                val edge = min(t / 0.004, (beepLen - t) / 0.004).coerceIn(0.0, 1.0)
+                val square = if (sin(2.0 * PI * 1870.0 * t) >= 0) 1.0 else -1.0
+                // Was 0.20, which measured two and a half times the level
+                // of the bells sitting next to it in the same picker — the
+                // sort of thing you find out once, at six in the morning.
+                buffer[i] += (square * 0.095 * edge).toFloat()
             }
-            playFloatBuffer(buffer)
         }
+        return buffer
     }
 
     /**
@@ -307,12 +324,14 @@ class ChimePlayer {
 
     /** Two synthesized baby wails: swept, wavering, saturated harmonics. */
     fun playBabyCry() {
-        thread(name = "cry-synth") {
-            val buffer = FloatArray((3.6 * SAMPLE_RATE).toInt())
-            addCryWail(buffer, 0.0, 1.4, 430.0)
-            addCryWail(buffer, 1.9, 1.5, 470.0)
-            playFloatBuffer(buffer)
-        }
+        thread(name = "cry-synth") { playFloatBuffer(babyCryBuffer()) }
+    }
+
+    internal fun babyCryBuffer(): FloatArray {
+        val buffer = FloatArray((3.6 * SAMPLE_RATE).toInt())
+        addCryWail(buffer, 0.0, 1.4, 430.0)
+        addCryWail(buffer, 1.9, 1.5, 470.0)
+        return buffer
     }
 
     private fun addCryWail(buffer: FloatArray, offsetSeconds: Double, duration: Double, baseHz: Double) {
@@ -339,6 +358,308 @@ class ChimePlayer {
             sample = tanh(sample * 1.6)
             buffer[i] += (sample * envelope * 0.24).toFloat()
         }
+    }
+
+    // ------------------------------------------------------------ the zoo
+
+    /*
+     * Four animals, made of arithmetic like everything else here.
+     *
+     * They are synthesised and not recorded, and that is a real limitation
+     * rather than a preference: a convincing cockerel is a recording of a
+     * cockerel, and the app has exactly one recording in it (a newborn,
+     * CC0) because a recording has a licence attached and arithmetic does
+     * not. So these are impressions. The rattle is the closest to the real
+     * thing — a rattlesnake is literally noise switched on and off sixty
+     * times a second, which is a thing arithmetic is good at — and the dog
+     * is the furthest, because a bark is a vocal tract and this is four
+     * harmonics and a formant.
+     *
+     * What they are all good at is the job: being unignorable at six in the
+     * morning and not being a bell. Each is measured against the bells for
+     * loudness, so none of them can be the one that makes you jump.
+     */
+
+    /**
+     * A hen-house at dawn: ki-ki-ri-kí, four syllables and the last one held.
+     *
+     * The crow is a harmonic stack driven hard enough to saturate, which is
+     * what gives a real one its brassy edge, with a breath of noise riding
+     * the envelope so it does not read as an organ.
+     */
+    fun playRooster() {
+        thread(name = "rooster-synth") { playFloatBuffer(roosterBuffer()) }
+    }
+
+    internal fun roosterBuffer(seed: Long = 7L): FloatArray {
+        val random = java.util.Random(seed)
+        val buffer = FloatArray((2.0 * SAMPLE_RATE).toInt())
+        // start, length, opening pitch, closing pitch. The first three are
+        // clipped syllables at much the same pitch; the fourth is the one
+        // everybody imitates, and it falls all the way through.
+        val syllables = arrayOf(
+            doubleArrayOf(0.00, 0.13, 720.0, 700.0),
+            doubleArrayOf(0.20, 0.13, 760.0, 730.0),
+            doubleArrayOf(0.40, 0.15, 640.0, 620.0),
+            doubleArrayOf(0.62, 0.80, 900.0, 520.0)
+        )
+        for (s in syllables) {
+            addCrow(buffer, s[0], s[1], s[2], s[3], random)
+        }
+        return buffer
+    }
+
+    private fun addCrow(
+        buffer: FloatArray,
+        offsetSeconds: Double,
+        duration: Double,
+        fromHz: Double,
+        toHz: Double,
+        random: java.util.Random
+    ) {
+        val start = (offsetSeconds * SAMPLE_RATE).toInt()
+        val length = (duration * SAMPLE_RATE).toInt()
+        val amps = doubleArrayOf(1.0, 0.85, 0.62, 0.44, 0.30, 0.20, 0.13)
+        var phase = 0.0
+        for (n in 0 until length) {
+            val i = start + n
+            if (i >= buffer.size) break
+            val t = n.toDouble() / SAMPLE_RATE
+            val x = t / duration
+            val hz = fromHz + (toHz - fromHz) * x
+            phase += 2.0 * PI * hz / SAMPLE_RATE
+            // Struck on, held, and let go: a crow starts abruptly and ends
+            // by running out of bird.
+            val envelope = (min(x / 0.04, 1.0) * min((1.0 - x) / 0.30, 1.0)).coerceIn(0.0, 1.0)
+            var sample = 0.0
+            for (h in amps.indices) sample += amps[h] * sin(phase * (h + 1))
+            // Driven into saturation, which is where the brassy edge comes
+            // from, plus a little rasp so it is a throat and not a pipe.
+            sample = tanh(sample * 1.9) + (random.nextDouble() * 2.0 - 1.0) * 0.10
+            buffer[i] += (sample * envelope * 0.13).toFloat()
+        }
+    }
+
+    /**
+     * A rattlesnake: the rattle, with the hiss underneath it.
+     *
+     * The one in here that is not an impression. A rattle really is
+     * broadband noise switched on and off about sixty times a second, so
+     * this is that — noise, brightened by differencing it, chopped by a
+     * sharp modulator — and the hiss is the same noise dulled instead and
+     * swelled slowly. Nothing about it is periodic in pitch, which is why
+     * it is so much harder to sleep through than a bell.
+     */
+    fun playRattle() {
+        thread(name = "rattle-synth") { playFloatBuffer(rattleBuffer()) }
+    }
+
+    internal fun rattleBuffer(seed: Long = 11L): FloatArray {
+        val random = java.util.Random(seed)
+        val duration = 2.4
+        val buffer = FloatArray((duration * SAMPLE_RATE).toInt())
+        var previous = 0.0
+        var lowpass = 0.0
+        for (i in buffer.indices) {
+            val t = i.toDouble() / SAMPLE_RATE
+            val x = t / duration
+            val noise = random.nextDouble() * 2.0 - 1.0
+            // Differencing is a high pass: it leaves the top of the noise,
+            // which is where a rattle lives.
+            val bright = noise - previous
+            previous = noise
+            // And a one-pole low pass leaves the bottom, for the hiss.
+            lowpass += (noise - lowpass) * 0.06
+            // Sixty a second, shaped so each burst has an edge rather than
+            // fading in — a rattle clatters, it does not throb.
+            val chop = (0.5 + 0.5 * sin(2.0 * PI * 58.0 * t)).let { it * it * it }
+            val swell = min(x / 0.12, 1.0) * min((1.0 - x) / 0.25, 1.0)
+            val sample = bright * chop * 0.55 + lowpass * 1.6 * (0.35 + 0.3 * sin(PI * x))
+            buffer[i] = (sample * swell * 0.40).toFloat()
+        }
+        return buffer
+    }
+
+    /**
+     * Something large, a long way off: two howls, rising and falling.
+     *
+     * A slow glissando with a waver in it, which is most of what a howl is.
+     * The point of it as an alarm is that it is the only voice here with no
+     * attack at all — it arrives out of nothing, and a sound that arrives
+     * out of nothing is a great deal harder to weave into a dream.
+     */
+    fun playHowl() {
+        thread(name = "howl-synth") { playFloatBuffer(howlBuffer()) }
+    }
+
+    internal fun howlBuffer(seed: Long = 13L): FloatArray {
+        val random = java.util.Random(seed)
+        val buffer = FloatArray((5.4 * SAMPLE_RATE).toInt())
+        addHowl(buffer, 0.0, 2.4, 380.0, 620.0, random)
+        addHowl(buffer, 2.8, 2.3, 420.0, 680.0, random)
+        return buffer
+    }
+
+    private fun addHowl(
+        buffer: FloatArray,
+        offsetSeconds: Double,
+        duration: Double,
+        lowHz: Double,
+        highHz: Double,
+        random: java.util.Random
+    ) {
+        val start = (offsetSeconds * SAMPLE_RATE).toInt()
+        val length = (duration * SAMPLE_RATE).toInt()
+        val amps = doubleArrayOf(1.0, 0.70, 0.44, 0.26, 0.14, 0.07)
+        var phase = 0.0
+        for (n in 0 until length) {
+            val i = start + n
+            if (i >= buffer.size) break
+            val t = n.toDouble() / SAMPLE_RATE
+            val x = t / duration
+            // Up in the first third, held across the middle, down at the
+            // end — and never a straight line, or it is a siren.
+            val climb = when {
+                x < 0.30 -> x / 0.30
+                x < 0.65 -> 1.0
+                else -> 1.0 - (x - 0.65) / 0.35 * 0.75
+            }
+            val vibrato = 1.0 + 0.02 * sin(2.0 * PI * 5.2 * t)
+            val hz = (lowHz + (highHz - lowHz) * climb) * vibrato
+            phase += 2.0 * PI * hz / SAMPLE_RATE
+            var sample = 0.0
+            for (h in amps.indices) sample += amps[h] * sin(phase * (h + 1))
+            sample += (random.nextDouble() * 2.0 - 1.0) * 0.06
+            // No attack worth the name at either end: it fades up out of
+            // nothing and back into it.
+            val envelope = (min(x / 0.18, 1.0) * min((1.0 - x) / 0.22, 1.0)).coerceIn(0.0, 1.0)
+            buffer[i] += (sample * envelope * 0.10).toFloat()
+        }
+    }
+
+    /**
+     * A dog, three times, at the door.
+     *
+     * The weakest impression of the four, and worth saying so: a bark is a
+     * vocal tract slamming shut, and this is a handful of harmonics under a
+     * formant with a burst of noise on the front. It reads as a dog because
+     * of its *rhythm* — short, hard, irregularly spaced — more than because
+     * of its timbre.
+     */
+    fun playBark() {
+        thread(name = "bark-synth") { playFloatBuffer(barkBuffer()) }
+    }
+
+    internal fun barkBuffer(seed: Long = 17L): FloatArray {
+        val random = java.util.Random(seed)
+        val buffer = FloatArray((1.6 * SAMPLE_RATE).toInt())
+        // Unevenly spaced. Three barks at a metronome's spacing is a
+        // machine; a dog is never quite regular.
+        addBark(buffer, 0.00, 250.0, random)
+        addBark(buffer, 0.34, 232.0, random)
+        addBark(buffer, 0.80, 244.0, random)
+        return buffer
+    }
+
+    private fun addBark(
+        buffer: FloatArray,
+        offsetSeconds: Double,
+        baseHz: Double,
+        random: java.util.Random
+    ) {
+        val duration = 0.19
+        val start = (offsetSeconds * SAMPLE_RATE).toInt()
+        val length = (duration * SAMPLE_RATE).toInt()
+        // The formant: which harmonic gets the emphasis, which is what
+        // makes a vowel a vowel and a "woof" not a hum.
+        val formantHz = 900.0
+        var phase = 0.0
+        for (n in 0 until length) {
+            val i = start + n
+            if (i >= buffer.size) break
+            val t = n.toDouble() / SAMPLE_RATE
+            val x = t / duration
+            val hz = baseHz * (1.0 - 0.22 * x)
+            phase += 2.0 * PI * hz / SAMPLE_RATE
+            var sample = 0.0
+            for (h in 1..10) {
+                val partialHz = hz * h
+                // A resonance around the formant, falling away either side.
+                val gain = 1.0 / (1.0 + ((partialHz - formantHz) / 520.0).let { it * it })
+                sample += gain * sin(phase * h) / h
+            }
+            // The consonant on the front: a dog is a burst before it is a note.
+            val burst = (random.nextDouble() * 2.0 - 1.0) * exp(-t * 220.0) * 0.7
+            val envelope = min(x / 0.03, 1.0) * exp(-x * 3.2)
+            buffer[i] += ((tanh(sample * 2.2) + burst) * envelope * 0.27).toFloat()
+        }
+    }
+
+    /** The end of the round. Three strikes, high and long. */
+    fun playRingBell() {
+        playBellSequence(3, false, RING_BELL_HZ, 3.4, 0.42)
+    }
+
+    /** The same, as samples, so it can be measured beside the others. */
+    internal fun ringBellBuffer(): FloatArray =
+        bellBuffer(3, false, RING_BELL_HZ, 3.4, 0.42)
+
+    /**
+     * One go of the alarm sound called [sound]; returns how long to leave
+     * before the next one, in milliseconds.
+     *
+     * One place that knows what each name sounds like. There were two — the
+     * ringing loop and, once the list grew past three, the preview in the
+     * picker — and two spellings of "what does a cockerel sound like" is
+     * how you end up choosing one sound in the evening and being woken by
+     * another.
+     *
+     * The gap is part of the sound and not an afterthought. A cockerel that
+     * crows again the instant it has finished is not a cockerel, it is a
+     * fire alarm made of poultry; a wolf needs the silence between howls
+     * more than it needs the howl. So each gap is its own buffer's length
+     * plus enough room to be a pause, which is why they are all different.
+     *
+     * The crying baby is the one exception in the app: it has a real
+     * recording behind it, played by the service through a MediaPlayer.
+     * What is here is the synthesised fallback, used when that file cannot
+     * be opened — and, for the same reason, what the picker previews.
+     */
+    fun playNamed(sound: String): Long {
+        val buffer = namedBuffer(sound)
+        thread(name = "alarm-synth") { playFloatBuffer(buffer) }
+        return gapAfter(sound)
+    }
+
+    /**
+     * The samples of one go of [sound] — the very ones [playNamed] plays.
+     *
+     * Not a second recipe for the test to look at. A measurement of
+     * something built alongside the thing that runs is a measurement of
+     * nothing, and this app has already had one test pass for exactly that
+     * reason.
+     */
+    internal fun namedBuffer(sound: String): FloatArray = when (sound) {
+        Prefs.ALARM_SOUND_DIGITAL -> digitalBuffer()
+        Prefs.ALARM_SOUND_BABY -> babyCryBuffer()
+        Prefs.ALARM_SOUND_RING_BELL -> ringBellBuffer()
+        Prefs.ALARM_SOUND_ROOSTER -> roosterBuffer()
+        Prefs.ALARM_SOUND_SNAKE -> rattleBuffer()
+        Prefs.ALARM_SOUND_WOLF -> howlBuffer()
+        Prefs.ALARM_SOUND_DOG -> barkBuffer()
+        else -> bellBuffer(3, false, SHIPS_HZ, 1.6, 0.5)
+    }
+
+    /** And how long to leave before going again. */
+    internal fun gapAfter(sound: String): Long = when (sound) {
+        Prefs.ALARM_SOUND_DIGITAL -> 1300L
+        Prefs.ALARM_SOUND_BABY -> 4200L
+        Prefs.ALARM_SOUND_RING_BELL -> 5200L
+        Prefs.ALARM_SOUND_ROOSTER -> 3200L
+        Prefs.ALARM_SOUND_SNAKE -> 3000L
+        Prefs.ALARM_SOUND_WOLF -> 6500L
+        Prefs.ALARM_SOUND_DOG -> 2200L
+        else -> 5000L
     }
 
     /** Whichever buffer [peal] calls for, ready to be measured or played. */
@@ -399,7 +720,7 @@ class ChimePlayer {
         }
     }
 
-    private fun toPcm(samples: FloatArray): ShortArray {
+    internal fun toPcm(samples: FloatArray): ShortArray {
         val pcm = ShortArray(samples.size)
         for (i in samples.indices) {
             pcm[i] = (samples[i].coerceIn(-1f, 1f) * Short.MAX_VALUE).toInt().toShort()
@@ -407,7 +728,15 @@ class ChimePlayer {
         return pcm
     }
 
-    private fun writeWav(file: File, pcm: ShortArray) {
+    /**
+     * A buffer as a .wav file.
+     *
+     * Used by the tick, which needs a file to hand to the SoundPool — and
+     * by the tests, which use it to write every voice out so that somebody
+     * with ears can listen to them without waiting for an alarm to go off.
+     * That is the nearest thing to hearing them this end has.
+     */
+    internal fun writeWav(file: File, pcm: ShortArray) {
         val dataSize = pcm.size * 2
         BufferedOutputStream(FileOutputStream(file)).use { out ->
             fun writeIntLE(v: Int) {

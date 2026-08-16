@@ -194,23 +194,17 @@ class AlarmService : Service() {
             if (v < 1f) handler.postDelayed(this, 2000L)
         }
     }
+    /**
+     * Ringing: one go of this alarm's voice, then wait as long as that
+     * voice asks for and go again.
+     *
+     * Which voice and how long it wants is [ChimePlayer.playNamed]'s to
+     * know, so that the sound previewed in the picker and the sound heard
+     * at six in the morning cannot be two different decisions.
+     */
     private val ringLoop = object : Runnable {
         override fun run() {
-            when (sound) {
-                Prefs.ALARM_SOUND_DIGITAL -> {
-                    chimePlayer.playDigitalAlarm()
-                    handler.postDelayed(this, 1300L)
-                }
-                Prefs.ALARM_SOUND_BABY -> {
-                    // Synthesized fallback, used only if MediaPlayer failed.
-                    chimePlayer.playBabyCry()
-                    handler.postDelayed(this, 4200L)
-                }
-                else -> {
-                    chimePlayer.playBellSequence(3, false, ChimePlayer.SHIPS_HZ, 1.6, 0.5)
-                    handler.postDelayed(this, 5000L)
-                }
-            }
+            handler.postDelayed(this, chimePlayer.playNamed(sound))
         }
     }
 

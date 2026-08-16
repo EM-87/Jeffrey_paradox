@@ -35,6 +35,19 @@ class CountdownService : Service() {
 
     companion object {
         const val ACTION_CANCEL = "com.em87.weirdclock.action.CANCEL_COUNTDOWN"
+
+        /**
+         * What running out sounds like.
+         *
+         * A timer running out is the end of a round, so it is the bell at
+         * the end of a round. Named once because there are two roads to it
+         * — hand over to the alarm service and be stopped by hand, or ring
+         * once and leave a notification — and they used to make two
+         * different sounds for the same event: ship's bells down one and
+         * quarter chimes down the other, so what a finished timer sounded
+         * like depended on a setting about notifications.
+         */
+        const val FINISHED_SOUND = Prefs.ALARM_SOUND_RING_BELL
         private const val EXTRA_ENDS_AT = "extra_ends_at"
         private const val EXTRA_TOTAL = "extra_total"
         private const val CHANNEL_ID = "countdown"
@@ -293,11 +306,13 @@ class CountdownService : Service() {
                 Intent(this, AlarmService::class.java)
                     .putExtra(AlarmScheduler.EXTRA_LABEL, getString(R.string.countdown_finished))
                     .putExtra(AlarmScheduler.EXTRA_FROM_TIMER, true)
+                    .putExtra(AlarmScheduler.EXTRA_SOUND, FINISHED_SOUND)
             )
             stopSelf()
             return
         }
-        chimePlayer.playQuarters()
+        // The same sound as the loud path above, by the same name.
+        chimePlayer.playNamed(FINISHED_SOUND)
         getSystemService(NotificationManager::class.java)?.notify(
             DONE_NOTIFICATION_ID,
             NotificationCompat.Builder(this, CHANNEL_ID)

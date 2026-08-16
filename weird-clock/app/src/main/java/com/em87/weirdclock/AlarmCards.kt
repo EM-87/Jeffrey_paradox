@@ -87,20 +87,40 @@ class AlarmCards(
     }
 
     /**
-     * The sounds on offer, shown as a list. Cycling through them one tap at a
-     * time meant walking past "your own file", and every pass through it threw
-     * you out into a file browser.
+     * The sounds on offer, shown as a list you can hear.
+     *
+     * Cycling through them one tap at a time meant walking past "your own
+     * file", and every pass through it threw you out into a file browser.
+     * So: a list. And now that the list is eight long and half of it is
+     * animals, tapping a name plays it and the choice is only made when you
+     * say so — picking a cockerel blind and finding out at six the next
+     * morning is not choosing, it is gambling.
+     *
+     * "Your own file" is the one that cannot be previewed here: it has no
+     * sound until the file browser has been through, which is the whole
+     * reason it is last.
      */
     fun pickSound(current: String, allowCustom: Boolean, onPicked: (String) -> Unit) {
-        val sounds = mutableListOf(
-            Prefs.ALARM_SOUND_BELLS, Prefs.ALARM_SOUND_DIGITAL, Prefs.ALARM_SOUND_BABY
-        )
+        val sounds = Prefs.ALARM_SOUNDS.toMutableList()
         if (allowCustom) sounds.add(Prefs.ALARM_SOUND_CUSTOM)
-        pickFromList(
-            R.string.pref_bell_style_title,
-            sounds.map { soundLabel(it) },
-            sounds.indexOf(current)
-        ) { which -> onPicked(sounds[which]) }
+        var chosen = sounds.indexOf(current).coerceAtLeast(0)
+        val player = ChimePlayer()
+        androidx.appcompat.app.AlertDialog.Builder(host)
+            .setTitle(R.string.pref_bell_style_title)
+            .setSingleChoiceItems(
+                sounds.map { soundLabel(it) }.toTypedArray(),
+                chosen
+            ) { _, which ->
+                chosen = which
+                if (sounds[which] != Prefs.ALARM_SOUND_CUSTOM) player.playNamed(sounds[which])
+            }
+            .setPositiveButton(android.R.string.ok) { _, _ -> onPicked(sounds[chosen]) }
+            .setNegativeButton(android.R.string.cancel, null)
+            // Whichever way it closes. A preview left playing over the top
+            // of the sheet you have just come back to is worse than no
+            // preview at all.
+            .setOnDismissListener { player.release() }
+            .show()
     }
 
     /** How long this alarm's screen takes to come up, in words. */
@@ -148,6 +168,11 @@ class AlarmCards(
         when (sound) {
             Prefs.ALARM_SOUND_DIGITAL -> R.string.alarm_sound_digital
             Prefs.ALARM_SOUND_BABY -> R.string.alarm_sound_baby
+            Prefs.ALARM_SOUND_RING_BELL -> R.string.alarm_sound_ring_bell
+            Prefs.ALARM_SOUND_ROOSTER -> R.string.alarm_sound_rooster
+            Prefs.ALARM_SOUND_SNAKE -> R.string.alarm_sound_snake
+            Prefs.ALARM_SOUND_WOLF -> R.string.alarm_sound_wolf
+            Prefs.ALARM_SOUND_DOG -> R.string.alarm_sound_dog
             Prefs.ALARM_SOUND_CUSTOM -> R.string.alarm_sound_custom
             else -> R.string.alarm_sound_bells
         }
