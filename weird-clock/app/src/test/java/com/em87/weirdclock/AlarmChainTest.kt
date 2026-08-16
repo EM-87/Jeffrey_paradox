@@ -73,6 +73,11 @@ class AlarmChainTest {
      */
     @Test
     fun `nothing an alarm is armed with is left off the list`() {
+        // The torch is the app's answer rather than the alarm's, so it is
+        // switched on here — otherwise EXTRA_FLASH would never be on the
+        // armed intent and this test would have nothing to say about it.
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().putBoolean(Prefs.ALARM_FLASH, true).commit()
         AlarmStore.forget()
         AlarmStore.all(context).add(
             Alarm(1, 7, 0, true, Prefs.ALARM_SOUND_BELLS).apply {
@@ -80,7 +85,6 @@ class AlarmChainTest {
                 missionLevel = 5
                 gentleWakeSeconds = 60
                 gentleFlash = true
-                flash = true
                 label = "Work"
             }
         )

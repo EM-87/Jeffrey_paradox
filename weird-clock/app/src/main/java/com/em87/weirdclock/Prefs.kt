@@ -57,6 +57,22 @@ object Prefs {
     const val ALARM_RAMP = "pref_alarm_ramp"
 
     /**
+     * Strobe the camera torch while an alarm is ringing.
+     *
+     * The app's answer and not each alarm's. It was a row on every alarm,
+     * and a row on every alarm is what a bottom sheet with fourteen of them
+     * is made of — the sheet had grown long enough that the time at the top
+     * could no longer be reached. It also never varied: whether a torch
+     * going off in a dark room is a help or an assault is a fact about the
+     * person, not about which alarm woke them.
+     *
+     * Not to be confused with the gradual sunrise's own torch, which stays
+     * on the alarm: that one comes *after* a sunrise has failed, so it only
+     * means anything to an alarm that has one.
+     */
+    const val ALARM_FLASH = "pref_alarm_flash"
+
+    /**
      * How many minutes an unattended alarm rings before giving up, or 0 for
      * never. Stored as a string because it comes from a ListPreference.
      */

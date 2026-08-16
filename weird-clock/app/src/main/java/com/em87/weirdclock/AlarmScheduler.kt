@@ -194,7 +194,7 @@ object AlarmScheduler {
             intent.putExtra(EXTRA_SNOOZE, it.snoozeMinutes)
             intent.putExtra(EXTRA_LABEL, it.label)
             intent.putExtra(EXTRA_VIBRATE, it.vibrate)
-            intent.putExtra(EXTRA_FLASH, it.flash)
+            intent.putExtra(EXTRA_FLASH, wantsFlash(context))
             intent.putExtra(EXTRA_MISSION, it.mission)
             intent.putExtra(EXTRA_MISSION_LEVEL, it.missionLevel)
             intent.putExtra(EXTRA_GENTLE, it.gentleWakeSeconds)
@@ -265,6 +265,17 @@ object AlarmScheduler {
         }
         return true
     }
+
+    /**
+     * Whether the torch strobes while an alarm rings.
+     *
+     * One answer for the app, read here at arming time, so that changing it
+     * in the settings takes effect on the next alarm rather than on the
+     * next alarm anybody happens to edit.
+     */
+    fun wantsFlash(context: Context): Boolean =
+        PreferenceManager.getDefaultSharedPreferences(context)
+            .getBoolean(Prefs.ALARM_FLASH, false)
 
     /** How many times one alarm may be put off, or 0 for as often as you like. */
     fun snoozeLimit(context: Context): Int =

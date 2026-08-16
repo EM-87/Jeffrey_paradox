@@ -2,7 +2,16 @@
 <!-- The alarm editor: a bottom sheet with the time up top (tap to wind it on
      the dial), the weekday strip, then the options, then delete and save in
      opposite corners. -->
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- A NestedScrollView and not a plain ScrollView, which is the whole
+     difference between a sheet you can scroll and a sheet you can only
+     close. A bottom sheet decides whether a downward drag belongs to the
+     content or to itself by asking the content, through the nested
+     scrolling protocol — and a plain ScrollView does not speak it. So the
+     sheet never heard "I still have room to scroll up", took every
+     downward drag for itself, and once you had scrolled down the only
+     thing left to do was close it. With enough rows on an alarm that
+     meant the time at the top became unreachable. -->
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/sheet_background">
@@ -153,20 +162,6 @@
                 style="@style/AlarmSheetRowValue" />
         </LinearLayout>
 
-        <!-- Snooze -->
-        <LinearLayout
-            android:id="@+id/sheet_row_snooze"
-            style="@style/AlarmSheetRow">
-
-            <TextView
-                style="@style/AlarmSheetRowTitle"
-                android:text="@string/alarm_snooze" />
-
-            <TextView
-                android:id="@+id/sheet_snooze_value"
-                style="@style/AlarmSheetRowValue" />
-        </LinearLayout>
-
         <!-- Duration: above zero it also becomes a dated calendar event. -->
         <LinearLayout
             android:id="@+id/sheet_row_duration"
@@ -194,17 +189,32 @@
                 android:layout_height="wrap_content" />
         </LinearLayout>
 
-        <!-- Flash -->
-        <LinearLayout style="@style/AlarmSheetRow">
+        <!-- And what it takes to stop this one. -->
+        <LinearLayout
+            android:id="@+id/sheet_mission_row"
+            style="@style/AlarmSheetRow">
 
             <TextView
                 style="@style/AlarmSheetRowTitle"
-                android:text="@string/alarm_flash" />
+                android:text="@string/alarm_mission" />
 
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/sheet_flash"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+            <TextView
+                android:id="@+id/sheet_mission_value"
+                style="@style/AlarmSheetRowValue" />
+        </LinearLayout>
+
+        <!-- Snooze -->
+        <LinearLayout
+            android:id="@+id/sheet_row_snooze"
+            style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/alarm_snooze" />
+
+            <TextView
+                android:id="@+id/sheet_snooze_value"
+                style="@style/AlarmSheetRowValue" />
         </LinearLayout>
 
         <!-- Gentle wake: this alarm's screen comes up rather than switching
@@ -237,20 +247,6 @@
                 android:layout_height="wrap_content" />
         </LinearLayout>
 
-        <!-- And what it takes to stop this one. -->
-        <LinearLayout
-            android:id="@+id/sheet_mission_row"
-            style="@style/AlarmSheetRow">
-
-            <TextView
-                style="@style/AlarmSheetRowTitle"
-                android:text="@string/alarm_mission" />
-
-            <TextView
-                android:id="@+id/sheet_mission_value"
-                style="@style/AlarmSheetRowValue" />
-        </LinearLayout>
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -277,4 +273,4 @@
         </LinearLayout>
 
     </LinearLayout>
-</ScrollView>
+</androidx.core.widget.NestedScrollView>

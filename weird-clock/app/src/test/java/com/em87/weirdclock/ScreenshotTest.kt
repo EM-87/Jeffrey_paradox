@@ -207,13 +207,16 @@ class ScreenshotTest {
     @Test
     fun `an alarm card with a sunrise and a mission on it`() {
         prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+        // The torch is the app's now, so the card's flash mark comes from
+        // here rather than from the alarm.
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().putBoolean(Prefs.ALARM_FLASH, true).commit()
         AlarmStore.forget()
         AlarmStore.all(context).add(
             Alarm(1, 7, 30, true, Prefs.ALARM_SOUND_BELLS).apply {
                 label = "Work"
                 mission = Mission.MATHS
                 gentleWakeSeconds = 60
-                flash = true
             }
         )
         AlarmStore.save(context)
@@ -257,5 +260,32 @@ class ScreenshotTest {
             }
             assertTrue(name, shoot(bar, name) > 2f)
         }
+    }
+
+    /**
+     * The alarm editor, whole, so the order of its rows can be looked at.
+     *
+     * The order is checked properly elsewhere, by walking the layout — this
+     * is for the half a test cannot judge: whether a sheet with this many
+     * rows on it reads as a list of settings or as a wall.
+     */
+    @Test
+    fun `the alarm editor, top to bottom`() {
+        val themed = androidx.appcompat.view.ContextThemeWrapper(
+            context, R.style.Theme_WeirdClock
+        )
+        val sheet = android.view.LayoutInflater.from(themed)
+            .inflate(R.layout.sheet_alarm_edit, null)
+        sheet.measure(
+            View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        sheet.layout(0, 0, 1080, sheet.measuredHeight)
+        assertTrue("the sheet drew nothing", shoot(sheet, "alarm-sheet") > 2f)
+        assertTrue(
+            "the sheet is ${sheet.measuredHeight}px tall — it has to scroll, " +
+                "which is the whole reason it must be able to scroll back",
+            sheet.measuredHeight > 0
+        )
     }
 }

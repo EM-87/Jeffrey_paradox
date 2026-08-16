@@ -2,7 +2,16 @@
 <!-- The reminder editor, built like the alarm one: the date up top, then
      name, time and duration as plain rows, delete and save in opposite
      corners. -->
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- A NestedScrollView and not a plain ScrollView, which is the whole
+     difference between a sheet you can scroll and a sheet you can only
+     close. A bottom sheet decides whether a downward drag belongs to the
+     content or to itself by asking the content, through the nested
+     scrolling protocol — and a plain ScrollView does not speak it. So the
+     sheet never heard "I still have room to scroll up", took every
+     downward drag for itself, and once you had scrolled down the only
+     thing left to do was close it. With enough rows on an alarm that
+     meant the time at the top became unreachable. -->
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/sheet_background">
@@ -173,4 +182,4 @@
         </LinearLayout>
 
     </LinearLayout>
-</ScrollView>
+</androidx.core.widget.NestedScrollView>

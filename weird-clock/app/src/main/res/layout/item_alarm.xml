@@ -144,7 +144,7 @@
                     android:layout_width="16dp"
                     android:layout_height="16dp"
                     android:layout_marginStart="8dp"
-                    android:contentDescription="@string/alarm_flash"
+                    android:contentDescription="@string/pref_alarm_flash_title"
                     android:src="@drawable/ic_flash" />
 
                 <ImageView

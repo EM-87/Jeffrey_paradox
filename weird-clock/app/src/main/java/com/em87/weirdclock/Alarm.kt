@@ -31,8 +31,6 @@ data class Alarm(
      * makes it a dated event, so it shows as a wedge on the dial.
      */
     var durationMinutes: Int = 0,
-    /** Strobe the camera flash while ringing. */
-    var flash: Boolean = false,
     /**
      * What has to be got right before *this* alarm will stop.
      *
@@ -57,7 +55,8 @@ data class Alarm(
     /**
      * And then the torch, for the sleeper the sunrise does not reach.
      *
-     * Distinct from [flash], which strobes from the first second. This one
+     * Distinct from the torch setting, which strobes from the first
+     * second and belongs to the app rather than to one alarm. This one
      * is the second half of a gentle wake and does nothing without one.
      */
     var gentleFlash: Boolean = false,
@@ -194,7 +193,6 @@ object AlarmStore {
                     .put("soundUri", a.soundUri)
                     .put("vibrate", a.vibrate)
                     .put("duration", a.durationMinutes)
-                    .put("flash", a.flash)
                     .put("mission", a.mission)
                     .put("missionLevel", a.missionLevel)
                     .put("gentle", a.gentleWakeSeconds)
@@ -243,7 +241,6 @@ object AlarmStore {
                         soundUri = o.optString("soundUri", ""),
                         vibrate = o.optBoolean("vibrate", true),
                         durationMinutes = o.optInt("duration", 0),
-                        flash = o.optBoolean("flash", false),
                         // Both were app-wide settings for one version. An
                         // alarm written before this build carries neither,
                         // and picks up whatever was set globally — see

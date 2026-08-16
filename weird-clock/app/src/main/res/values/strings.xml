@@ -96,7 +96,6 @@
     <string name="a11y_hand_at">%1$s, pointing at %2$d</string>
     <string name="a11y_hand_fallen">%1$s, fallen off and lying in the case</string>
     <string name="alarm_mission_shake">Shake the phone</string>
-    <string name="alarm_flash">Flash</string>
     <string name="alarm_save">Save</string>
     <string name="alarm_delete_confirm">This alarm will be gone for good.</string>
     <string name="reminder_delete_confirm">This reminder will be gone for good.</string>
@@ -193,6 +192,8 @@
     <string name="pref_countdown_persistent_summary">When the countdown ends, ring until you dismiss it</string>
     <string name="pref_solar_time_title">Sun time</string>
     <string name="pref_solar_time_summary">The whole clock runs on local apparent solar time — noon is when the sun actually crosses your meridian (one coarse location fix; alarms stay on civil time)</string>
+    <string name="pref_alarm_flash_title">Torch while ringing</string>
+    <string name="pref_alarm_flash_summary">Strobe the camera light with every alarm</string>
     <string name="pref_alarm_ramp_title">Gradual alarm volume</string>
     <string name="pref_alarm_ramp_summary">Alarms start quiet and climb to full volume over a minute</string>
     <string name="alarm_label_title">Alarm label</string>

@@ -97,7 +97,6 @@ class AlarmSheet(
         val soundValue = view.findViewById<TextView>(R.id.sheet_sound_value)
         val snoozeValue = view.findViewById<TextView>(R.id.sheet_snooze_value)
         val vibrateSwitch = view.findViewById<SwitchCompat>(R.id.sheet_vibrate)
-        val flashSwitch = view.findViewById<SwitchCompat>(R.id.sheet_flash)
         val daysRow = view.findViewById<LinearLayout>(R.id.sheet_days)
 
         // One little analog face per time: tapped it goes to the big dial to
@@ -364,8 +363,6 @@ class AlarmSheet(
 
         vibrateSwitch.isChecked = draft.vibrate
         vibrateSwitch.setOnCheckedChangeListener { _, checked -> draft.vibrate = checked }
-        flashSwitch.isChecked = draft.flash
-        flashSwitch.setOnCheckedChangeListener { _, checked -> draft.flash = checked }
         val gentleFlashSwitch = view.findViewById<SwitchCompat>(R.id.sheet_gentle_flash)
         gentleFlashSwitch.isChecked = draft.gentleFlash
         gentleFlashSwitch.setOnCheckedChangeListener { _, checked -> draft.gentleFlash = checked }

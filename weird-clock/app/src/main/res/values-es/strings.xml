@@ -87,7 +87,6 @@
     <string name="a11y_hand_at">%1$s, apuntando a las %2$d</string>
     <string name="a11y_hand_fallen">%1$s, caída en el fondo de la caja</string>
     <string name="alarm_mission_shake">Sacudir el teléfono</string>
-    <string name="alarm_flash">Flash</string>
     <string name="alarm_save">Guardar</string>
     <string name="alarm_delete_confirm">Esta alarma desaparecerá para siempre.</string>
     <string name="reminder_delete_confirm">Este recordatorio desaparecerá para siempre.</string>
@@ -147,6 +146,8 @@
     <string name="pref_countdown_persistent_summary">Al terminar la cuenta atrás, suena hasta que la valides</string>
     <string name="pref_solar_time_title">Hora del sol</string>
     <string name="pref_solar_time_summary">Todo el reloj corre en hora solar aparente local: el mediodía es cuando el sol cruza de verdad tu meridiano (una lectura de ubicación aproximada; las alarmas siguen en hora civil)</string>
+    <string name="pref_alarm_flash_title">Linterna al sonar</string>
+    <string name="pref_alarm_flash_summary">Parpadea la luz de la cámara con todas las alarmas</string>
     <string name="pref_alarm_ramp_title">Volumen creciente de alarma</string>
     <string name="pref_alarm_ramp_summary">Las alarmas empiezan suaves y suben a volumen completo en un minuto</string>
     <string name="alarm_label_title">Etiqueta de la alarma</string>
