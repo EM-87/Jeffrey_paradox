@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Second layer: things a curious user will enjoy, none of which can
-     break the clock. The genuinely dangerous knobs are one level further. -->
+<!--
+    Advanced options: the things you set once and then live with.
+
+    Nothing here is dangerous — the clock still tells the time whatever you
+    do on this screen. It is the second screen rather than the first only
+    because these are decisions, not adjustments: you pick your numerals
+    once and never think about them again.
+-->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
@@ -15,14 +21,6 @@
             app:useSimpleSummaryProvider="true" />
 
         <ListPreference
-            android:defaultValue="number"
-            android:entries="@array/date_format_entries"
-            android:entryValues="@array/date_format_values"
-            android:key="pref_date_format"
-            android:title="@string/pref_date_format_title"
-            app:useSimpleSummaryProvider="true" />
-
-        <ListPreference
             android:defaultValue="circle"
             android:entries="@array/dial_shape_entries"
             android:entryValues="@array/dial_shape_values"
@@ -30,29 +28,58 @@
             android:title="@string/pref_dial_shape_title"
             app:useSimpleSummaryProvider="true" />
 
+        <ListPreference
+            android:defaultValue="12"
+            android:entries="@array/hours_preset_entries"
+            android:entryValues="@array/hours_preset_values"
+            android:key="pref_hours_preset"
+            android:title="@string/pref_hours_preset_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <SeekBarPreference
+            android:defaultValue="12"
+            android:key="pref_hours_custom"
+            android:max="24"
+            android:title="@string/pref_hours_custom_title"
+            app:min="2"
+            app:showSeekBarValue="true" />
+
         <SwitchPreferenceCompat
             android:defaultValue="false"
-            android:key="pref_moon_phase"
-            android:summary="@string/pref_moon_phase_summary"
-            android:title="@string/pref_moon_phase_title" />
-
-        <SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:key="pref_alarm_markers"
-            android:summary="@string/pref_alarm_markers_summary"
-            android:title="@string/pref_alarm_markers_title" />
-
-        <ListPreference
-            android:defaultValue="clock"
-            android:entries="@array/mark_colors_entries"
-            android:entryValues="@array/mark_colors_values"
-            android:key="pref_mark_colors"
-            android:title="@string/pref_mark_colors_title"
-            app:useSimpleSummaryProvider="true" />
+            android:key="pref_mirror"
+            android:summary="@string/pref_mirror_summary"
+            android:title="@string/pref_mirror_title" />
 
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/category_alarms">
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_bells_background"
+            android:summary="@string/pref_bells_background_summary"
+            android:title="@string/pref_bells_background_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_alarm_ramp"
+            android:summary="@string/pref_alarm_ramp_summary"
+            android:title="@string/pref_alarm_ramp_title" />
+
+        <ListPreference
+            android:defaultValue="3"
+            android:entries="@array/ring_timeout_entries"
+            android:entryValues="@array/ring_timeout_values"
+            android:key="pref_ring_timeout"
+            android:summary="@string/pref_ring_timeout_summary"
+            android:title="@string/pref_ring_timeout_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_countdown_persistent"
+            android:summary="@string/pref_countdown_persistent_summary"
+            android:title="@string/pref_countdown_persistent_title" />
 
         <ListPreference
             android:defaultValue="analog"
@@ -63,82 +90,32 @@
             android:title="@string/pref_alarm_style_title"
             app:useSimpleSummaryProvider="true" />
 
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="@string/category_calendar">
-
-        <ListPreference
-            android:defaultValue="none"
-            android:entries="@array/past_days_entries"
-            android:entryValues="@array/past_days_values"
-            android:key="pref_past_days"
-            android:summary="@string/pref_past_days_summary"
-            android:title="@string/pref_past_days_title"
-            app:useSimpleSummaryProvider="true" />
-
-        <Preference
-            android:key="pref_birthday"
-            android:summary="@string/pref_birthday_summary"
-            android:title="@string/pref_birthday_title" />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="@string/category_hands">
+        <!-- The torch that takes over when a gradual sunrise has had its go
+             and failed. It belongs here rather than on each alarm because
+             it is an answer about you and not about one morning: whether a
+             sleeper the light does not reach wants the light turned up. -->
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_gentle_flash"
+            android:summary="@string/pref_gentle_flash_summary"
+            android:title="@string/pref_gentle_flash_title" />
 
         <SwitchPreferenceCompat
             android:defaultValue="true"
-            android:key="pref_second_hand"
-            android:title="@string/pref_second_hand_title" />
+            android:key="pref_alarm_markers"
+            android:summary="@string/pref_alarm_markers_summary"
+            android:title="@string/pref_alarm_markers_title" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/category_general">
 
         <SwitchPreferenceCompat
             android:defaultValue="false"
-            android:dependency="pref_second_hand"
-            android:key="pref_smooth_seconds"
-            android:summary="@string/pref_smooth_summary"
-            android:title="@string/pref_smooth_title" />
-
-        <ListPreference
-            android:defaultValue="none"
-            android:dependency="pref_second_hand"
-            android:entries="@array/fast_hand_entries"
-            android:entryValues="@array/fast_hand_values"
-            android:key="pref_fast_hand"
-            android:title="@string/pref_fast_hand_title"
-            app:useSimpleSummaryProvider="true" />
+            android:key="pref_ticking"
+            android:summary="@string/pref_ticking_summary"
+            android:title="@string/pref_ticking_title" />
 
     </PreferenceCategory>
-
-    <PreferenceCategory android:title="@string/category_timer">
-
-        <SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:key="pref_countdown_persistent"
-            android:summary="@string/pref_countdown_persistent_summary"
-            android:title="@string/pref_countdown_persistent_title" />
-
-        <ListPreference
-            android:defaultValue="overlay"
-            android:entries="@array/countdown_float_entries"
-            android:entryValues="@array/countdown_float_values"
-            android:key="pref_countdown_float"
-            android:summary="@string/pref_countdown_float_summary"
-            android:title="@string/pref_countdown_float_title"
-            app:useSimpleSummaryProvider="true" />
-
-        <SeekBarPreference
-            android:defaultValue="600"
-            android:key="pref_sand_grains"
-            android:max="900"
-            android:summary="@string/pref_sand_grains_summary"
-            android:title="@string/pref_sand_grains_title"
-            app:min="60"
-            app:showSeekBarValue="true" />
-
-    </PreferenceCategory>
-
-    <Preference
-        android:key="pref_very_advanced"
-        android:summary="@string/pref_very_advanced_summary"
-        android:title="@string/pref_very_advanced_title" />
 
 </PreferenceScreen>

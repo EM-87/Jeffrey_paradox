@@ -15,13 +15,11 @@
     <string name="pref_show_date_summary">Una complicación de fecha en la esfera</string>
     <string name="pref_date_format_title">Formato de fecha</string>
 
-    <string name="category_hands">Manecillas</string>
     <string name="pref_second_hand_title">Segundero</string>
     <string name="pref_smooth_title">Barrido suave</string>
     <string name="pref_smooth_summary">Se desliza de forma continua en vez de saltar cada segundo</string>
     <string name="pref_fast_hand_title">Manecilla rápida</string>
 
-    <string name="category_touch">Táctil</string>
     <string name="pref_touch_hands_title">Agarrar las manecillas</string>
     <string name="pref_touch_hands_summary">Dale cuerda a cualquier manecilla: las demás la siguen como engranajes, con campanadas a cada hora cruzada. Al soltarla vuelve rebotando, deshaciendo las mismas vueltas.</string>
     <string name="pref_pinch_zoom_title">Pellizcar para redimensionar</string>
@@ -80,7 +78,6 @@
     <string name="alarm_mission">Misión antisueño</string>
     <string name="alarm_mission_none">Ninguna: deslizar para parar</string>
     <string name="alarm_mission_maths_level">Cuentas · nivel %1$d</string>
-    <string name="alarm_gentle_flash">…y luego el flash</string>
     <string name="a11y_hand_hour">Aguja horaria</string>
     <string name="a11y_hand_minute">Minutero</string>
     <string name="a11y_hand_second">Segundero</string>
@@ -126,12 +123,9 @@
     <string name="pref_bells_background_title">Sonar con la app cerrada</string>
     <string name="pref_bells_background_summary">Las campanas dan las horas desde segundo plano, rearmándose solas cada vez</string>
     <string name="bells_channel_name">Campanadas horarias</string>
-    <string name="category_timer">Cuenta atrás</string>
     <string name="category_calendar">Calendario</string>
     <string name="pref_past_days_title">Días ya pasados</string>
     <string name="pref_past_days_summary">Marca los días que quedaron atrás: ya no se pueden programar, solo consultar</string>
-    <string name="pref_sand_grains_title">Granos de arena</string>
-    <string name="pref_sand_grains_summary">Más granos, arena más fina — y más trabajo para tu móvil</string>
     <string name="pref_very_advanced_title">Opciones demasiado avanzadas</string>
     <string name="pref_very_advanced_summary">Horas de la esfera, modo espejo, la velocidad del tiempo, físicas táctiles… avisado quedas, por segunda vez</string>
     <string name="pref_system_time_title">Fecha y hora del sistema</string>
@@ -147,7 +141,6 @@
     <string name="pref_solar_time_title">Hora del sol</string>
     <string name="pref_solar_time_summary">Todo el reloj corre en hora solar aparente local: el mediodía es cuando el sol cruza de verdad tu meridiano (una lectura de ubicación aproximada; las alarmas siguen en hora civil)</string>
     <string name="pref_alarm_flash_title">Linterna al sonar</string>
-    <string name="pref_alarm_flash_summary">Parpadea la luz de la cámara con todas las alarmas</string>
     <string name="pref_alarm_ramp_title">Volumen creciente de alarma</string>
     <string name="pref_alarm_ramp_summary">Las alarmas empiezan suaves y suben a volumen completo en un minuto</string>
     <string name="alarm_label_title">Etiqueta de la alarma</string>
@@ -282,7 +275,6 @@
     <string name="pref_ring_timeout_title">Cuánto suena una alarma</string>
     <string name="pref_ring_timeout_summary">Si nadie la atiende se rinde al cabo de este tiempo y deja una nota diciendo que sonó.</string>
     <string name="pref_snooze_limit_title">Veces que se puede posponer una alarma</string>
-    <string name="pref_snooze_limit_summary">Tras la última deja de ofrecerse el botón, para que haya algo por lo que levantarse.</string>
     <string name="pref_night_window_title">Horario nocturno</string>
     <string name="pref_night_window_off">Sin atenuar: los dos pines en la misma hora</string>
     <string name="mission_check">Parar la alarma</string>
@@ -293,4 +285,13 @@
     <string name="nag_message">Su misión no se pasó, así que se ha citado otra vez a las %1$s. Lleva %2$d intentos.</string>
     <string name="nag_call_off">Cancelarla</string>
     <string name="nag_leave_it">Dejarla</string>
+    <string name="category_general">General</string>
+    <string name="pref_version_title">Versión</string>
+    <string name="pref_gentle_flash_title">Linterna tras el amanecer</string>
+    <string name="pref_gentle_flash_summary">Cuando el amanecer gradual ha hecho lo que ha podido y sigues dormido, entra la linterna</string>
+    <string name="alarm_snooze_limit_none">Las veces que quieras</string>
+    <plurals name="alarm_snooze_limit_times">
+        <item quantity="one">Una vez, y a levantarse</item>
+        <item quantity="other">%d veces, y a levantarse</item>
+    </plurals>
 </resources>

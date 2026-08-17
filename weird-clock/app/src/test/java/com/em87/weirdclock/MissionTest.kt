@@ -248,7 +248,7 @@ class MissionTest {
             sound = Prefs.ALARM_SOUND_BABY,
             daysMask = Alarm.WEEKDAYS, snoozeMinutes = 10, label = "Gym",
             soundUri = "content://x", vibrate = false, durationMinutes = 40,
-            notes = "bring shoes",
+            flash = true, snoozeLimit = 3, notes = "bring shoes",
             mission = Mission.SHAKE, gentleWakeSeconds = 300,
             extraTimes = mutableListOf(500)
         )

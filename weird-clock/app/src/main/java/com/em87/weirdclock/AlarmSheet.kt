@@ -97,6 +97,9 @@ class AlarmSheet(
         val soundValue = view.findViewById<TextView>(R.id.sheet_sound_value)
         val snoozeValue = view.findViewById<TextView>(R.id.sheet_snooze_value)
         val vibrateSwitch = view.findViewById<SwitchCompat>(R.id.sheet_vibrate)
+        val flashSwitch = view.findViewById<SwitchCompat>(R.id.sheet_flash)
+        val snoozeLimitRow = view.findViewById<View>(R.id.sheet_row_snooze_limit)
+        val snoozeLimitValue = view.findViewById<TextView>(R.id.sheet_snooze_limit_value)
         val daysRow = view.findViewById<LinearLayout>(R.id.sheet_days)
 
         // One little analog face per time: tapped it goes to the big dial to
@@ -174,6 +177,18 @@ class AlarmSheet(
                 host.getString(R.string.alarm_snooze_min, draft.snoozeMinutes)
             } else {
                 host.getString(R.string.alarm_snooze_off)
+            }
+            // A limit on something that never happens is not a setting, it
+            // is a row in the way. It appears with the snooze and goes with
+            // it.
+            snoozeLimitRow.visibility =
+                if (draft.snoozeMinutes > 0) View.VISIBLE else View.GONE
+            snoozeLimitValue.text = if (draft.snoozeLimit > 0) {
+                host.resources.getQuantityString(
+                    R.plurals.alarm_snooze_limit_times, draft.snoozeLimit, draft.snoozeLimit
+                )
+            } else {
+                host.getString(R.string.alarm_snooze_limit_none)
             }
             view.findViewById<TextView>(R.id.sheet_gentle_value).text =
                 cards.gentleLabel(draft.gentleWakeSeconds)
@@ -303,6 +318,23 @@ class AlarmSheet(
             }
         }
 
+        snoozeLimitRow.setOnClickListener {
+            val choices = intArrayOf(0, 1, 2, 3, 5, 10)
+            cards.pickFromList(
+                R.string.pref_snooze_limit_title,
+                choices.map {
+                    if (it == 0) host.getString(R.string.alarm_snooze_limit_none)
+                    else host.resources.getQuantityString(
+                        R.plurals.alarm_snooze_limit_times, it, it
+                    )
+                },
+                choices.indexOf(draft.snoozeLimit).coerceAtLeast(0)
+            ) { which ->
+                draft.snoozeLimit = choices[which]
+                refresh()
+            }
+        }
+
         view.findViewById<View>(R.id.sheet_row_snooze).setOnClickListener {
             val choices = intArrayOf(0, 5, 10, 15)
             cards.pickFromList(
@@ -363,9 +395,8 @@ class AlarmSheet(
 
         vibrateSwitch.isChecked = draft.vibrate
         vibrateSwitch.setOnCheckedChangeListener { _, checked -> draft.vibrate = checked }
-        val gentleFlashSwitch = view.findViewById<SwitchCompat>(R.id.sheet_gentle_flash)
-        gentleFlashSwitch.isChecked = draft.gentleFlash
-        gentleFlashSwitch.setOnCheckedChangeListener { _, checked -> draft.gentleFlash = checked }
+        flashSwitch.isChecked = draft.flash
+        flashSwitch.setOnCheckedChangeListener { _, checked -> draft.flash = checked }
 
         view.findViewById<Button>(R.id.sheet_delete).setOnClickListener {
             androidx.appcompat.app.AlertDialog.Builder(host)

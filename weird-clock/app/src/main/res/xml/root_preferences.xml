@@ -1,151 +1,149 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The everyday menu: only what a person actually comes looking for.
-     Everything weird lives one level down. -->
+<!--
+    Options: the things somebody actually comes here to change.
+
+    Sorted by what they are about rather than by how clever they are, and
+    kept short by two rules. A row whose answer only matters once another
+    row is switched on does not appear until it is — the app's hours are no
+    question at all while the night mode is off — so the list you scroll is
+    only the list you are using. And the two deeper screens both hang off
+    this one rather than off each other, so getting from the far end of the
+    settings back to the clock is one press of Back and not three.
+-->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <!-- Panic button, first thing on screen; only shown when something is
-         actually out of place. -->
+    <!-- The panic button, which only appears when something is lying at the
+         bottom of the dial. Above the categories because when it is showing
+         it is the only thing you came for. -->
     <Preference
         android:key="pref_reassemble"
         android:summary="@string/pref_reassemble_summary"
         android:title="@string/pref_reassemble_title" />
 
-    <SwitchPreferenceCompat
-        android:defaultValue="false"
-        android:key="pref_night_dim"
-        android:summary="@string/pref_night_dim_summary"
-        android:title="@string/pref_night_dim_title" />
+    <PreferenceCategory android:title="@string/category_dial">
 
-    <!-- Hidden until there is a night to set the hours of: it sat there
-         asking a question nobody had opted into being asked. -->
-    <com.em87.weirdclock.NightWindowPreference
-        android:key="pref_night_window"
-        android:title="@string/pref_night_window_title"
-        app:isPreferenceVisible="false" />
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_night_dim"
+            android:summary="@string/pref_night_dim_summary"
+            android:title="@string/pref_night_dim_title" />
 
-    <ListPreference
-        android:defaultValue="midnight"
-        android:entries="@array/theme_entries"
-        android:entryValues="@array/theme_values"
-        android:key="pref_theme"
-        android:title="@string/pref_theme_title"
-        app:useSimpleSummaryProvider="true" />
+        <com.em87.weirdclock.NightWindowPreference
+            android:key="pref_night_window"
+            android:title="@string/pref_night_window_title" />
 
-    <SwitchPreferenceCompat
-        android:defaultValue="false"
-        android:key="pref_show_date"
-        android:summary="@string/pref_show_date_summary"
-        android:title="@string/pref_show_date_title" />
+        <ListPreference
+            android:defaultValue="midnight"
+            android:entries="@array/theme_entries"
+            android:entryValues="@array/theme_values"
+            android:key="pref_theme"
+            android:title="@string/pref_theme_title"
+            app:useSimpleSummaryProvider="true" />
 
-    <SwitchPreferenceCompat
-        android:defaultValue="false"
-        android:key="pref_bells"
-        android:summary="@string/pref_bells_summary"
-        android:title="@string/pref_bells_title" />
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_show_date"
+            android:summary="@string/pref_show_date_summary"
+            android:title="@string/pref_show_date_title" />
 
-    <ListPreference
-        android:defaultValue="count"
-        android:dependency="pref_bells"
-        android:entries="@array/bell_style_entries"
-        android:entryValues="@array/bell_style_values"
-        android:key="pref_bell_style"
-        android:title="@string/pref_bell_style_title"
-        app:useSimpleSummaryProvider="true" />
-
-    <ListPreference
-        android:defaultValue="hour"
-        android:dependency="pref_bells"
-        android:entries="@array/bell_marks_entries"
-        android:entryValues="@array/bell_marks_values"
-        android:key="pref_bell_marks"
-        android:title="@string/pref_bell_marks_title"
-        app:useSimpleSummaryProvider="true" />
-
-    <SwitchPreferenceCompat
-        android:defaultValue="false"
-        android:dependency="pref_bells"
-        android:key="pref_bells_background"
-        android:summary="@string/pref_bells_background_summary"
-        android:title="@string/pref_bells_background_title" />
-
-    <Preference
-        android:dependency="pref_bells"
-        android:key="pref_test_bells"
-        android:summary="@string/pref_test_bells_summary"
-        android:title="@string/pref_test_bells_title" />
-
-    <SwitchPreferenceCompat
-        android:defaultValue="false"
-        android:key="pref_ticking"
-        android:summary="@string/pref_ticking_summary"
-        android:title="@string/pref_ticking_title" />
-
-    <SwitchPreferenceCompat
-        android:defaultValue="true"
-        android:key="pref_alarm_ramp"
-        android:summary="@string/pref_alarm_ramp_summary"
-        android:title="@string/pref_alarm_ramp_title" />
-
-
-    <!-- The torch, which used to be a row on every single alarm. -->
-    <SwitchPreferenceCompat
-        android:defaultValue="false"
-        android:key="pref_alarm_flash"
-        android:summary="@string/pref_alarm_flash_summary"
-        android:title="@string/pref_alarm_flash_title" />
-
-    <ListPreference
-        android:defaultValue="3"
-        android:entries="@array/ring_timeout_entries"
-        android:entryValues="@array/ring_timeout_values"
-        android:key="pref_ring_timeout"
-        android:summary="@string/pref_ring_timeout_summary"
-        android:title="@string/pref_ring_timeout_title"
-        app:useSimpleSummaryProvider="true" />
-
-    <ListPreference
-        android:defaultValue="0"
-        android:entries="@array/snooze_limit_entries"
-        android:entryValues="@array/snooze_limit_values"
-        android:key="pref_snooze_limit"
-        android:summary="@string/pref_snooze_limit_summary"
-        android:title="@string/pref_snooze_limit_title"
-        app:useSimpleSummaryProvider="true" />
-
-
-    <SwitchPreferenceCompat
-        android:defaultValue="false"
-        android:key="pref_world_clock"
-        android:summary="@string/pref_world_clock_summary"
-        android:title="@string/pref_world_clock_title" />
-
-    <Preference
-        android:dependency="pref_world_clock"
-        android:key="pref_world_cities"
-        android:title="@string/pref_world_cities_title" />
-
-    <PreferenceCategory android:title="@string/category_backup">
-
-        <Preference
-            android:key="pref_backup_export"
-            android:summary="@string/pref_backup_export_summary"
-            android:title="@string/pref_backup_export_title" />
-
-        <Preference
-            android:key="pref_backup_import"
-            android:summary="@string/pref_backup_import_summary"
-            android:title="@string/pref_backup_import_title" />
+        <ListPreference
+            android:defaultValue="number"
+            android:entries="@array/date_format_entries"
+            android:entryValues="@array/date_format_values"
+            android:key="pref_date_format"
+            android:title="@string/pref_date_format_title"
+            app:useSimpleSummaryProvider="true" />
 
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="@string/category_alarms">
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_bells"
+            android:summary="@string/pref_bells_summary"
+            android:title="@string/pref_bells_title" />
+
+        <ListPreference
+            android:defaultValue="hour"
+            android:entries="@array/bell_marks_entries"
+            android:entryValues="@array/bell_marks_values"
+            android:key="pref_bell_marks"
+            android:title="@string/pref_bell_marks_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
+            android:defaultValue="count"
+            android:dependency="pref_bells"
+            android:entries="@array/bell_style_entries"
+            android:entryValues="@array/bell_style_values"
+            android:key="pref_bell_style"
+            android:title="@string/pref_bell_style_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <Preference
+            android:dependency="pref_bells"
+            android:key="pref_test_bells"
+            android:summary="@string/pref_test_bells_summary"
+            android:title="@string/pref_test_bells_title" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/category_calendar">
+
+        <ListPreference
+            android:defaultValue="none"
+            android:entries="@array/past_days_entries"
+            android:entryValues="@array/past_days_values"
+            android:key="pref_past_days"
+            android:summary="@string/pref_past_days_summary"
+            android:title="@string/pref_past_days_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <Preference
+            android:key="pref_birthday"
+            android:summary="@string/pref_birthday_summary"
+            android:title="@string/pref_birthday_title" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/category_general">
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_moon_phase"
+            android:summary="@string/pref_moon_phase_summary"
+            android:title="@string/pref_moon_phase_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_world_clock"
+            android:summary="@string/pref_world_clock_summary"
+            android:title="@string/pref_world_clock_title" />
+
+        <Preference
+            android:key="pref_world_cities"
+            android:title="@string/pref_world_cities_title" />
+
+    </PreferenceCategory>
+
+    <!-- Both deeper screens hang off this one. They used to be a ladder —
+         options, then advanced, then too advanced — so coming back to the
+         clock from the far end meant pressing Back three times to see what
+         you had just changed. -->
     <Preference
         android:key="pref_advanced"
         android:summary="@string/pref_advanced_summary"
         android:title="@string/pref_advanced_title" />
 
     <Preference
+        android:key="pref_very_advanced"
+        android:summary="@string/pref_very_advanced_summary"
+        android:title="@string/pref_very_advanced_title" />
+
+    <Preference
         android:key="pref_version"
-        android:title="@string/app_name" />
+        android:title="@string/pref_version_title" />
 
 </PreferenceScreen>

@@ -27,6 +27,24 @@ data class Alarm(
     var soundUri: String = "",
     var vibrate: Boolean = true,
     /**
+     * Strobe the camera torch while this one rings.
+     *
+     * Per alarm, because it is a fact about the morning: the alarm that has
+     * to get you out of bed can have the room lit, and the one about the
+     * bread does not need a lighthouse. It spent one version as an app-wide
+     * setting, which made every alarm a lighthouse or none of them.
+     */
+    var flash: Boolean = false,
+    /**
+     * How many times *this* one may be put off, or 0 for as often as you
+     * like.
+     *
+     * Same reasoning. One number for the whole app could only ever be right
+     * for one of the alarms it applied to, and it was applied to all of
+     * them — including the ones nobody has ever wanted to snooze.
+     */
+    var snoozeLimit: Int = 0,
+    /**
      * How long the thing this alarm is for lasts. Anything above zero also
      * makes it a dated event, so it shows as a wedge on the dial.
      */
@@ -52,14 +70,6 @@ data class Alarm(
      * screen that seems not to have come on.
      */
     var gentleWakeSeconds: Int = 0,
-    /**
-     * And then the torch, for the sleeper the sunrise does not reach.
-     *
-     * Distinct from the torch setting, which strobes from the first
-     * second and belongs to the app rather than to one alarm. This one
-     * is the second half of a gentle wake and does nothing without one.
-     */
-    var gentleFlash: Boolean = false,
     /**
      * Free text kept with the alarm and read out by the dial, exactly as a
      * reminder's is.
@@ -192,11 +202,12 @@ object AlarmStore {
                     .put("label", a.label)
                     .put("soundUri", a.soundUri)
                     .put("vibrate", a.vibrate)
+                    .put("flash", a.flash)
+                    .put("snoozeLimit", a.snoozeLimit)
                     .put("duration", a.durationMinutes)
                     .put("mission", a.mission)
                     .put("missionLevel", a.missionLevel)
                     .put("gentle", a.gentleWakeSeconds)
-                    .put("gentleFlash", a.gentleFlash)
                     .put("notes", a.notes)
                     .put("extraTimes", JSONArray(a.extraTimes))
             )
@@ -240,15 +251,21 @@ object AlarmStore {
                         label = o.optString("label", ""),
                         soundUri = o.optString("soundUri", ""),
                         vibrate = o.optBoolean("vibrate", true),
+                        flash = o.optBoolean("flash", false),
+                        // An alarm written before the limit belonged to an
+                        // alarm has no such field, and takes the app-wide
+                        // number that was in force when it was written —
+                        // rather than silently losing a limit somebody had
+                        // deliberately set.
+                        snoozeLimit = o.optInt(
+                            "snoozeLimit",
+                            prefs.getString(Prefs.SNOOZE_LIMIT, null)
+                                ?.toIntOrNull()?.coerceIn(0, 20) ?: 0
+                        ),
                         durationMinutes = o.optInt("duration", 0),
-                        // Both were app-wide settings for one version. An
-                        // alarm written before this build carries neither,
-                        // and picks up whatever was set globally — see
-                        // AlarmStore.adoptGlobals.
                         mission = Mission.required(o.optString("mission", Mission.NONE)),
                         missionLevel = Mission.level(o.optInt("missionLevel", Mission.DEFAULT_LEVEL)),
                         gentleWakeSeconds = o.optInt("gentle", 0),
-                        gentleFlash = o.optBoolean("gentleFlash", false),
                         notes = o.optString("notes", ""),
                         extraTimes = o.optJSONArray("extraTimes")?.let { arr ->
                             MutableList(arr.length()) { arr.getInt(it) }

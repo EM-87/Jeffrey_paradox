@@ -16,13 +16,11 @@
     <string name="pref_show_date_summary">A date complication on the dial</string>
     <string name="pref_date_format_title">Date format</string>
 
-    <string name="category_hands">Hands</string>
     <string name="pref_second_hand_title">Second hand</string>
     <string name="pref_smooth_title">Smooth sweep</string>
     <string name="pref_smooth_summary">Glide continuously instead of ticking once per second</string>
     <string name="pref_fast_hand_title">Fast hand</string>
 
-    <string name="category_touch">Touch</string>
     <string name="pref_touch_hands_title">Grab the hands</string>
     <string name="pref_touch_hands_summary">Wind any hand around the dial — the others follow like gears, with bells at every hour crossed. Let go and it springs back, unwinding the same turns.</string>
     <string name="pref_pinch_zoom_title">Pinch to resize</string>
@@ -89,7 +87,6 @@
     <string name="alarm_mission">Anti-sleep mission</string>
     <string name="alarm_mission_none">None — slide to stop</string>
     <string name="alarm_mission_maths_level">Arithmetic · level %1$d</string>
-    <string name="alarm_gentle_flash">…and then the flash</string>
     <string name="a11y_hand_hour">Hour hand</string>
     <string name="a11y_hand_minute">Minute hand</string>
     <string name="a11y_hand_second">Second hand</string>
@@ -170,14 +167,11 @@
     <string name="pref_bells_background_title">Ring with the app closed</string>
     <string name="pref_bells_background_summary">The bells keep the hours from the background, quietly re-arming themselves each time</string>
     <string name="bells_channel_name">Hourly bells</string>
-    <string name="category_timer">Timer</string>
     <string name="category_calendar">Calendar</string>
     <string name="pref_alarm_style_title">Alarms read as</string>
     <string name="pref_alarm_style_summary">Whether an alarm shows its time on a little face or in plain digits</string>
     <string name="pref_past_days_title">Days already gone</string>
     <string name="pref_past_days_summary">Mark the days behind you — they can no longer be scheduled, only read</string>
-    <string name="pref_sand_grains_title">Grains of sand</string>
-    <string name="pref_sand_grains_summary">More grains, finer sand — and more work for your phone</string>
     <string name="pref_very_advanced_title">Too-advanced options</string>
     <string name="pref_very_advanced_summary">Hours on the dial, mirror mode, the speed of time, touch physics… you were warned twice</string>
     <string name="pref_system_time_title">System date &amp; time</string>
@@ -193,7 +187,6 @@
     <string name="pref_solar_time_title">Sun time</string>
     <string name="pref_solar_time_summary">The whole clock runs on local apparent solar time — noon is when the sun actually crosses your meridian (one coarse location fix; alarms stay on civil time)</string>
     <string name="pref_alarm_flash_title">Torch while ringing</string>
-    <string name="pref_alarm_flash_summary">Strobe the camera light with every alarm</string>
     <string name="pref_alarm_ramp_title">Gradual alarm volume</string>
     <string name="pref_alarm_ramp_summary">Alarms start quiet and climb to full volume over a minute</string>
     <string name="alarm_label_title">Alarm label</string>
@@ -280,7 +273,6 @@
     <string name="pref_ring_timeout_title">How long an alarm rings</string>
     <string name="pref_ring_timeout_summary">Unattended, it gives up after this and leaves a note saying it rang.</string>
     <string name="pref_snooze_limit_title">Times an alarm may be snoozed</string>
-    <string name="pref_snooze_limit_summary">After the last one the button stops being offered, so there is something to get up for.</string>
     <string name="pref_night_window_title">Night hours</string>
     <string name="pref_night_window_off">No dimming — both pins on the same hour</string>
     <string name="mission_check">Stop the alarm</string>
@@ -291,4 +283,13 @@
     <string name="nag_message">Its mission was never passed, so it has booked itself another go at %1$s. It has tried %2$d times so far.</string>
     <string name="nag_call_off">Call it off</string>
     <string name="nag_leave_it">Leave it</string>
+    <string name="category_general">General</string>
+    <string name="pref_version_title">Version</string>
+    <string name="pref_gentle_flash_title">Torch after a gentle wake</string>
+    <string name="pref_gentle_flash_summary">When the gradual sunrise has had its go and you are still asleep, the torch takes over</string>
+    <string name="alarm_snooze_limit_none">As often as you like</string>
+    <plurals name="alarm_snooze_limit_times">
+        <item quantity="one">Once, then get up</item>
+        <item quantity="other">%d times, then get up</item>
+    </plurals>
 </resources>

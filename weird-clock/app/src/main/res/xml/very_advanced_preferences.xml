@@ -1,60 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Third layer: the machinery. Everything here can make the clock lie,
-     fall apart, or run backwards — which is, of course, the point. -->
+<!--
+    Too-advanced options: the machinery, and the two ways out.
+
+    What separates this screen from the one before it is not difficulty but
+    consequence. Everything here either changes how the clock answers to a
+    finger, or lets it lie about the time, or moves your data — and the
+    last two are things you should have to go looking for.
+
+    It hangs off the first screen rather than off the second, so Back from
+    here lands on the options and the next Back on the clock, which is
+    where you go to see what you have just done.
+-->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <PreferenceCategory android:title="@string/category_dial">
 
         <ListPreference
-            android:defaultValue="12"
-            android:entries="@array/hours_preset_entries"
-            android:entryValues="@array/hours_preset_values"
-            android:key="pref_hours_preset"
-            android:title="@string/pref_hours_preset_title"
+            android:defaultValue="clock"
+            android:entries="@array/mark_colors_entries"
+            android:entryValues="@array/mark_colors_values"
+            android:key="pref_mark_colors"
+            android:title="@string/pref_mark_colors_title"
             app:useSimpleSummaryProvider="true" />
 
-        <SeekBarPreference
-            android:defaultValue="12"
-            android:key="pref_hours_custom"
-            android:max="24"
-            android:title="@string/pref_hours_custom_title"
-            app:min="2"
-            app:showSeekBarValue="true" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_second_hand"
+            android:title="@string/pref_second_hand_title" />
 
         <SwitchPreferenceCompat
             android:defaultValue="false"
-            android:key="pref_mirror"
-            android:summary="@string/pref_mirror_summary"
-            android:title="@string/pref_mirror_title" />
+            android:key="pref_smooth_seconds"
+            android:summary="@string/pref_smooth_summary"
+            android:title="@string/pref_smooth_title" />
 
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="@string/category_time">
-
-        <SeekBarPreference
-            android:defaultValue="100"
-            android:key="pref_time_speed"
-            android:max="400"
-            android:summary="@string/pref_time_speed_summary"
-            android:title="@string/pref_time_speed_title"
-            app:min="25"
-            app:showSeekBarValue="true" />
-
-        <SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:key="pref_solar_time"
-            android:summary="@string/pref_solar_time_summary"
-            android:title="@string/pref_solar_time_title" />
-
-        <Preference
-            android:key="pref_system_time"
-            android:summary="@string/pref_system_time_summary"
-            android:title="@string/pref_system_time_title" />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="@string/category_touch">
+        <ListPreference
+            android:defaultValue="none"
+            android:entries="@array/fast_hand_entries"
+            android:entryValues="@array/fast_hand_values"
+            android:key="pref_fast_hand"
+            android:title="@string/pref_fast_hand_title"
+            app:useSimpleSummaryProvider="true" />
 
         <SwitchPreferenceCompat
             android:defaultValue="true"
@@ -73,6 +60,57 @@
             android:key="pref_shake_drop"
             android:summary="@string/pref_shake_drop_summary"
             android:title="@string/pref_shake_drop_title" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/category_general">
+
+        <ListPreference
+            android:defaultValue="overlay"
+            android:entries="@array/countdown_float_entries"
+            android:entryValues="@array/countdown_float_values"
+            android:key="pref_countdown_float"
+            android:summary="@string/pref_countdown_float_summary"
+            android:title="@string/pref_countdown_float_title"
+            app:useSimpleSummaryProvider="true" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/category_time">
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_solar_time"
+            android:summary="@string/pref_solar_time_summary"
+            android:title="@string/pref_solar_time_title" />
+
+        <Preference
+            android:key="pref_system_time"
+            android:summary="@string/pref_system_time_summary"
+            android:title="@string/pref_system_time_title" />
+
+        <SeekBarPreference
+            android:defaultValue="100"
+            android:key="pref_time_speed"
+            android:max="400"
+            android:summary="@string/pref_time_speed_summary"
+            android:title="@string/pref_time_speed_title"
+            app:min="25"
+            app:showSeekBarValue="true" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/category_backup">
+
+        <Preference
+            android:key="pref_backup_export"
+            android:summary="@string/pref_backup_export_summary"
+            android:title="@string/pref_backup_export_title" />
+
+        <Preference
+            android:key="pref_backup_import"
+            android:summary="@string/pref_backup_import_summary"
+            android:title="@string/pref_backup_import_title" />
 
     </PreferenceCategory>
 

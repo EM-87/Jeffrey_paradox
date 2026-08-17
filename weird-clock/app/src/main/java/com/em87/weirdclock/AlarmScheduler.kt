@@ -36,6 +36,18 @@ object AlarmScheduler {
 
     /** How many times this alarm has already been put off this morning. */
     const val EXTRA_SNOOZE_COUNT = "extra_snooze_count"
+
+    /**
+     * And how many times it may be, or 0 for as often as you like.
+     *
+     * On the intent rather than read from the settings wherever it is
+     * wanted, because it belongs to *this* alarm now. Read from a
+     * preference at each of the two places that ask — the ring screen, to
+     * decide whether to offer the button, and the scheduler, to decide
+     * whether to honour it — the two would answer for whichever alarm was
+     * edited last rather than for the one that is ringing.
+     */
+    const val EXTRA_SNOOZE_LIMIT = "extra_snooze_limit"
     const val EXTRA_LABEL = "extra_label"
     const val EXTRA_VIBRATE = "extra_vibrate"
     const val EXTRA_FLASH = "extra_flash"
@@ -65,7 +77,7 @@ object AlarmScheduler {
      */
     val CARRIED = arrayOf(
         EXTRA_ALARM_ID, EXTRA_REMINDER_ID, EXTRA_SOUND, EXTRA_SOUND_URI,
-        EXTRA_SNOOZE, EXTRA_SNOOZE_COUNT, EXTRA_LABEL, EXTRA_VIBRATE,
+        EXTRA_SNOOZE, EXTRA_SNOOZE_COUNT, EXTRA_SNOOZE_LIMIT, EXTRA_LABEL, EXTRA_VIBRATE,
         EXTRA_FLASH, EXTRA_FROM_TIMER, EXTRA_MISSION, EXTRA_MISSION_LEVEL,
         EXTRA_GENTLE, EXTRA_GENTLE_FLASH,
         Nag.EXTRA_ROUND
@@ -192,13 +204,17 @@ object AlarmScheduler {
             intent.putExtra(EXTRA_SOUND, it.sound)
             intent.putExtra(EXTRA_SOUND_URI, it.soundUri)
             intent.putExtra(EXTRA_SNOOZE, it.snoozeMinutes)
+            intent.putExtra(EXTRA_SNOOZE_LIMIT, it.snoozeLimit)
             intent.putExtra(EXTRA_LABEL, it.label)
             intent.putExtra(EXTRA_VIBRATE, it.vibrate)
-            intent.putExtra(EXTRA_FLASH, wantsFlash(context))
+            intent.putExtra(EXTRA_FLASH, it.flash)
             intent.putExtra(EXTRA_MISSION, it.mission)
             intent.putExtra(EXTRA_MISSION_LEVEL, it.missionLevel)
             intent.putExtra(EXTRA_GENTLE, it.gentleWakeSeconds)
-            intent.putExtra(EXTRA_GENTLE_FLASH, it.gentleFlash)
+            // The sunrise's own torch is the app's answer, not this
+            // alarm's: whether a sleeper the light cannot reach wants the
+            // light turned up is the same answer every morning.
+            intent.putExtra(EXTRA_GENTLE_FLASH, wantsGentleFlash(context))
         }
         return PendingIntent.getBroadcast(
             context,
@@ -237,7 +253,7 @@ object AlarmScheduler {
         minutes: Int,
         alreadySnoozed: Int = 0
     ): Boolean {
-        val limit = snoozeLimit(context)
+        val limit = snoozeLimit(from)
         if (limit in 1..alreadySnoozed) return false
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return false
         val at = System.currentTimeMillis() + minutes.coerceAtLeast(1) * 60_000L
@@ -267,21 +283,20 @@ object AlarmScheduler {
     }
 
     /**
-     * Whether the torch strobes while an alarm rings.
+     * Whether the torch takes over after a gradual sunrise has failed.
      *
      * One answer for the app, read here at arming time, so that changing it
      * in the settings takes effect on the next alarm rather than on the
      * next alarm anybody happens to edit.
      */
-    fun wantsFlash(context: Context): Boolean =
+    fun wantsGentleFlash(context: Context): Boolean =
         PreferenceManager.getDefaultSharedPreferences(context)
-            .getBoolean(Prefs.ALARM_FLASH, false)
+            .getBoolean(Prefs.GENTLE_FLASH, false)
 
-    /** How many times one alarm may be put off, or 0 for as often as you like. */
-    fun snoozeLimit(context: Context): Int =
-        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
-            .getString(Prefs.SNOOZE_LIMIT, null)
-            ?.toIntOrNull()
-            ?.coerceIn(0, 20)
-            ?: 0
+    /**
+     * How many times the ringing described by [intent] may be put off, or 0
+     * for as often as you like.
+     */
+    fun snoozeLimit(intent: Intent?): Int =
+        (intent?.getIntExtra(EXTRA_SNOOZE_LIMIT, 0) ?: 0).coerceIn(0, 20)
 }

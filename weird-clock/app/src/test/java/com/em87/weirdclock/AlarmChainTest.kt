@@ -39,6 +39,7 @@ class AlarmChainTest {
         .putExtra(AlarmScheduler.EXTRA_SOUND_URI, "content://somewhere")
         .putExtra(AlarmScheduler.EXTRA_SNOOZE, 9)
         .putExtra(AlarmScheduler.EXTRA_SNOOZE_COUNT, 3)
+        .putExtra(AlarmScheduler.EXTRA_SNOOZE_LIMIT, 6)
         .putExtra(AlarmScheduler.EXTRA_LABEL, "Work")
         .putExtra(AlarmScheduler.EXTRA_VIBRATE, false)
         .putExtra(AlarmScheduler.EXTRA_FLASH, true)
@@ -73,18 +74,20 @@ class AlarmChainTest {
      */
     @Test
     fun `nothing an alarm is armed with is left off the list`() {
-        // The torch is the app's answer rather than the alarm's, so it is
-        // switched on here — otherwise EXTRA_FLASH would never be on the
-        // armed intent and this test would have nothing to say about it.
+        // The sunrise's own torch is the app's answer rather than this
+        // alarm's, so it is switched on here — otherwise EXTRA_GENTLE_FLASH
+        // would never be on the armed intent and this test would have
+        // nothing to say about it.
         androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
-            .edit().putBoolean(Prefs.ALARM_FLASH, true).commit()
+            .edit().putBoolean(Prefs.GENTLE_FLASH, true).commit()
         AlarmStore.forget()
         AlarmStore.all(context).add(
             Alarm(1, 7, 0, true, Prefs.ALARM_SOUND_BELLS).apply {
                 mission = Mission.MATHS
                 missionLevel = 5
                 gentleWakeSeconds = 60
-                gentleFlash = true
+                flash = true
+                snoozeLimit = 3
                 label = "Work"
             }
         )

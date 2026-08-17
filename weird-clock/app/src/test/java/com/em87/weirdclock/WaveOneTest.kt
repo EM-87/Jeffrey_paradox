@@ -84,30 +84,43 @@ class WaveOneTest {
 
     @Test
     fun `by default an alarm may be put off as often as you like`() {
-        assertEquals(0, AlarmScheduler.snoozeLimit(context))
-        assertTrue(AlarmScheduler.snooze(context, android.content.Intent(), 5, alreadySnoozed = 99))
+        assertEquals(0, AlarmScheduler.snoozeLimit(android.content.Intent()))
+        assertTrue(
+            AlarmScheduler.snooze(context, android.content.Intent(), 5, alreadySnoozed = 99)
+        )
     }
 
     /**
-     * And with a limit, the last one has to be got up for. The count rides
-     * in the intent rather than in a preference, so it can never be a tally
-     * left over from an alarm three days ago.
+     * And with a limit, the last one has to be got up for.
+     *
+     * Both numbers ride in the intent rather than in a preference: the
+     * tally, so it can never be one left over from an alarm three days ago,
+     * and the limit itself, because it belongs to the alarm that is ringing
+     * and not to whichever alarm was edited last.
      */
     @Test
     fun `with a limit it eventually insists`() {
-        prefs.edit().putString(Prefs.SNOOZE_LIMIT, "2").commit()
-        assertEquals(2, AlarmScheduler.snoozeLimit(context))
-        assertTrue(
-            "the first",
-            AlarmScheduler.snooze(context, android.content.Intent(), 5, alreadySnoozed = 0)
-        )
-        assertTrue(
-            "the second",
-            AlarmScheduler.snooze(context, android.content.Intent(), 5, alreadySnoozed = 1)
-        )
+        val ringing = android.content.Intent()
+            .putExtra(AlarmScheduler.EXTRA_SNOOZE_LIMIT, 2)
+        assertEquals(2, AlarmScheduler.snoozeLimit(ringing))
+        assertTrue("the first", AlarmScheduler.snooze(context, ringing, 5, alreadySnoozed = 0))
+        assertTrue("the second", AlarmScheduler.snooze(context, ringing, 5, alreadySnoozed = 1))
+        assertFalse("and no more", AlarmScheduler.snooze(context, ringing, 5, alreadySnoozed = 2))
+    }
+
+    /** And a limit set on one alarm does not reach the alarm beside it. */
+    @Test
+    fun `one alarm's limit is not another's`() {
+        val limited = android.content.Intent()
+            .putExtra(AlarmScheduler.EXTRA_SNOOZE_LIMIT, 1)
+        val unlimited = android.content.Intent()
         assertFalse(
-            "and no more",
-            AlarmScheduler.snooze(context, android.content.Intent(), 5, alreadySnoozed = 2)
+            "the one that has to be got up for",
+            AlarmScheduler.snooze(context, limited, 5, alreadySnoozed = 1)
+        )
+        assertTrue(
+            "the one about the bread",
+            AlarmScheduler.snooze(context, unlimited, 5, alreadySnoozed = 1)
         )
     }
 

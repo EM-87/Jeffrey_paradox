@@ -189,18 +189,19 @@
                 android:layout_height="wrap_content" />
         </LinearLayout>
 
-        <!-- And what it takes to stop this one. -->
-        <LinearLayout
-            android:id="@+id/sheet_mission_row"
-            style="@style/AlarmSheetRow">
+        <!-- The torch, which is a property of the morning and not of the
+             app: the alarm that has to get you out of bed can have the room
+             lit, and the one about the bread does not need a lighthouse. -->
+        <LinearLayout style="@style/AlarmSheetRow">
 
             <TextView
                 style="@style/AlarmSheetRowTitle"
-                android:text="@string/alarm_mission" />
+                android:text="@string/pref_alarm_flash_title" />
 
-            <TextView
-                android:id="@+id/sheet_mission_value"
-                style="@style/AlarmSheetRowValue" />
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/sheet_flash"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
         </LinearLayout>
 
         <!-- Snooze -->
@@ -214,6 +215,23 @@
 
             <TextView
                 android:id="@+id/sheet_snooze_value"
+                style="@style/AlarmSheetRowValue" />
+        </LinearLayout>
+
+        <!-- Only worth asking once there is a snooze to limit, so it is not
+             here until there is one. Its own row rather than a number tucked
+             into the one above, because "every ten minutes" and "three times
+             and then get up" are two different decisions. -->
+        <LinearLayout
+            android:id="@+id/sheet_row_snooze_limit"
+            style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/pref_snooze_limit_title" />
+
+            <TextView
+                android:id="@+id/sheet_snooze_limit_value"
                 style="@style/AlarmSheetRowValue" />
         </LinearLayout>
 
@@ -233,18 +251,20 @@
                 style="@style/AlarmSheetRowValue" />
         </LinearLayout>
 
-        <!-- The second half of a gentle wake, for the sleeper the sunrise
-             does not reach. Does nothing without one. -->
-        <LinearLayout style="@style/AlarmSheetRow">
+        <!-- Last, because it is the last thing the alarm asks. Everything
+             above is how it wakes you; this is what it takes to make it
+             stop. -->
+        <LinearLayout
+            android:id="@+id/sheet_mission_row"
+            style="@style/AlarmSheetRow">
 
             <TextView
                 style="@style/AlarmSheetRowTitle"
-                android:text="@string/alarm_gentle_flash" />
+                android:text="@string/alarm_mission" />
 
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/sheet_gentle_flash"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+            <TextView
+                android:id="@+id/sheet_mission_value"
+                style="@style/AlarmSheetRowValue" />
         </LinearLayout>
 
         <LinearLayout

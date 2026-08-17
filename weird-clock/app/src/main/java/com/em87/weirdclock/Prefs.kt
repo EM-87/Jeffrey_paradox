@@ -56,21 +56,20 @@ object Prefs {
     const val BIRTHDAY = "pref_birthday"
     const val ALARM_RAMP = "pref_alarm_ramp"
 
+    // The plain torch was briefly the app's answer and is each alarm's
+    // again — see Alarm.flash. Only the wording of its row lives here now;
+    // pref_alarm_flash itself is no longer read or written.
+
     /**
-     * Strobe the camera torch while an alarm is ringing.
+     * The torch that takes over when a gradual sunrise has failed.
      *
-     * The app's answer and not each alarm's. It was a row on every alarm,
-     * and a row on every alarm is what a bottom sheet with fourteen of them
-     * is made of — the sheet had grown long enough that the time at the top
-     * could no longer be reached. It also never varied: whether a torch
-     * going off in a dark room is a help or an assault is a fact about the
-     * person, not about which alarm woke them.
-     *
-     * Not to be confused with the gradual sunrise's own torch, which stays
-     * on the alarm: that one comes *after* a sunrise has failed, so it only
-     * means anything to an alarm that has one.
+     * The app's answer and not each alarm's, which is the opposite way
+     * round from the plain torch above — and deliberately. Whether *this*
+     * morning should light the room is a thing about the morning; whether
+     * a sleeper the light cannot reach wants the light turned up is a
+     * thing about the sleeper, and the answer is the same every time.
      */
-    const val ALARM_FLASH = "pref_alarm_flash"
+    const val GENTLE_FLASH = "pref_gentle_flash"
 
     /**
      * How many minutes an unattended alarm rings before giving up, or 0 for
@@ -100,7 +99,13 @@ object Prefs {
     const val NAG_AT = "pref_nag_at"
     const val NAG_ROUNDS = "pref_nag_rounds"
 
-    /** How many times one alarm may be snoozed before it insists. */
+    /**
+     * How many times one alarm may be snoozed, from the versions it was one
+     * answer for the whole app. It belongs to an alarm now — the one that
+     * has to be got up for and the one about the bread want different
+     * answers — and this is read once, when an alarm from before the move
+     * is loaded, so that a limit somebody had set does not quietly vanish.
+     */
     const val SNOOZE_LIMIT = "pref_snooze_limit"
 
     const val WORLD_CLOCK = "pref_world_clock"
@@ -208,7 +213,6 @@ object Prefs {
 
     /** True when the countdown was last driven from the dial (S1), not S0. */
     const val TIMER_ON_DIAL = "pref_timer_on_dial"
-    const val SAND_GRAINS = "pref_sand_grains"
 
     /** Hours highlighted in the accent color, mirrored by the widget. */
     const val SELECTED_HOURS = "pref_selected_hours"

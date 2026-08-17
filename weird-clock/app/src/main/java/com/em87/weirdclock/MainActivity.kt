@@ -1968,7 +1968,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         refreshCalendarMarks()
         s3Sand?.let {
             it.theme = cv.theme
-            it.maxGrains = prefs.getInt(Prefs.SAND_GRAINS, 600)
+            // A fixed number now. It was a slider, and a slider for "how
+            // many grains" is a question nobody can answer without watching
+            // the sand fall — which is the thing the setting was in the way
+            // of. The hourglass is being rebuilt; the count comes back as
+            // part of that or not at all.
+            it.maxGrains = 600
             it.glassScale = cv.dialScale
             it.setTime(countdownTotalMs, countdownRemaining())
         }

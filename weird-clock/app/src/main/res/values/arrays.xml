@@ -159,18 +159,4 @@
         <item>10</item>
         <item>0</item>
     </string-array>
-    <string-array name="snooze_limit_entries">
-        <item>As often as you like</item>
-        <item>Once</item>
-        <item>Twice</item>
-        <item>Three times</item>
-        <item>Five times</item>
-    </string-array>
-    <string-array name="snooze_limit_values">
-        <item>0</item>
-        <item>1</item>
-        <item>2</item>
-        <item>3</item>
-        <item>5</item>
-    </string-array>
 </resources>

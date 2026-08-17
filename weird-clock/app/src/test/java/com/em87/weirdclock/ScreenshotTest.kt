@@ -207,16 +207,13 @@ class ScreenshotTest {
     @Test
     fun `an alarm card with a sunrise and a mission on it`() {
         prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
-        // The torch is the app's now, so the card's flash mark comes from
-        // here rather than from the alarm.
-        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
-            .edit().putBoolean(Prefs.ALARM_FLASH, true).commit()
         AlarmStore.forget()
         AlarmStore.all(context).add(
             Alarm(1, 7, 30, true, Prefs.ALARM_SOUND_BELLS).apply {
                 label = "Work"
                 mission = Mission.MATHS
                 gentleWakeSeconds = 60
+                flash = true
             }
         )
         AlarmStore.save(context)

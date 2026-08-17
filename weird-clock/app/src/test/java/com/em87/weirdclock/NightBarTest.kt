@@ -95,44 +95,154 @@ class NightBarTest {
     // ------------------------------------------------- the menu itself
 
     /**
-     * Every settings screen still has everything on it.
+     * Every settings screen, in full.
      *
-     * Moving one row out of a screen took eight others with it, and the
-     * only thing that noticed was a lint warning counted by hand. A menu
-     * is a list of promises; this is the list.
+     * Not "these rows are still there" but "these rows and no others".
+     * Moving one row out of a screen once took eight others with it, and
+     * the only thing that noticed was a lint warning counted by hand — a
+     * partial list would have missed that, because everything it named was
+     * still present. Written out as sets, a row that vanishes and a row
+     * that turns up on the wrong screen both fail here.
+     *
+     * It is a long test to read and that is the point: a menu is a list of
+     * promises, and this is the list.
      */
     @Test
-    fun `no settings screen has quietly lost a row`() {
+    fun `each settings screen holds exactly the rows it should`() {
         val screens = mapOf(
-            R.xml.root_preferences to listOf(
-                Prefs.NIGHT_DIM, Prefs.NIGHT_WINDOW, Prefs.THEME, Prefs.SHOW_DATE,
-                Prefs.BELLS, Prefs.BELL_STYLE, Prefs.BELL_MARKS, Prefs.BELLS_BACKGROUND,
-                Prefs.TEST_BELLS, Prefs.TICKING, Prefs.ALARM_RAMP,
-                Prefs.RING_TIMEOUT_MIN, Prefs.SNOOZE_LIMIT,
-                Prefs.WORLD_CLOCK, Prefs.ADVANCED
+            R.xml.root_preferences to setOf(
+                "pref_reassemble",
+                // Dial
+                "pref_night_dim", "pref_night_window", "pref_theme",
+                "pref_show_date", "pref_date_format",
+                // Alarm
+                "pref_bells", "pref_bell_marks", "pref_bell_style", "pref_test_bells",
+                // Calendar
+                "pref_past_days", "pref_birthday",
+                // General
+                "pref_moon_phase", "pref_world_clock", "pref_world_cities",
+                // And the ways on
+                "pref_advanced", "pref_very_advanced", "pref_version"
             ),
-            R.xml.very_advanced_preferences to listOf(
-                Prefs.HOURS_PRESET, Prefs.HOURS_CUSTOM, Prefs.MIRROR,
-                Prefs.TIME_SPEED, Prefs.SOLAR_TIME, "pref_system_time"
+            R.xml.advanced_preferences to setOf(
+                "pref_numerals", "pref_dial_shape", "pref_hours_preset",
+                "pref_hours_custom", "pref_mirror",
+                "pref_bells_background", "pref_alarm_ramp", "pref_ring_timeout",
+                "pref_countdown_persistent", "pref_alarm_style",
+                "pref_gentle_flash", "pref_alarm_markers",
+                "pref_ticking"
             ),
-            R.xml.advanced_preferences to listOf(
-                Prefs.MARK_COLORS, Prefs.BIRTHDAY
+            R.xml.very_advanced_preferences to setOf(
+                "pref_mark_colors", "pref_second_hand", "pref_smooth_seconds",
+                "pref_fast_hand", "pref_touch_hands", "pref_pinch_zoom",
+                "pref_shake_drop",
+                "pref_countdown_float",
+                "pref_solar_time", "pref_system_time", "pref_time_speed",
+                "pref_backup_export", "pref_backup_import"
             )
         )
-        for ((xml, keys) in screens) {
-            val text = readXml(xml)
-            for (key in keys) {
-                assertTrue("$key has gone missing", text.contains(key))
+        for ((xml, expected) in screens) {
+            assertEquals(expected, readXml(xml))
+        }
+    }
+
+    /**
+     * And the two deeper screens hang off the first one, not off each
+     * other.
+     *
+     * The ladder was the reason a change made at the far end took three
+     * presses of Back to go and look at — which is three presses of Back
+     * every time you adjust something and want to see what it did.
+     */
+    @Test
+    fun `both deeper screens are reachable from the first`() {
+        val root = readXml(R.xml.root_preferences)
+        assertTrue("advanced", "pref_advanced" in root)
+        assertTrue("too advanced", "pref_very_advanced" in root)
+        assertFalse(
+            "the too-advanced screen is still buried inside the advanced one",
+            "pref_very_advanced" in readXml(R.xml.advanced_preferences)
+        )
+    }
+
+    /**
+     * Nothing depends on a row that is not on its own screen.
+     *
+     * Android resolves `android:dependency` within one screen and throws
+     * when it cannot find the other end — so a row that moves screens takes
+     * its dependents down with it, at the moment the screen is opened and
+     * not before. Which is exactly what "ring with the app closed" did when
+     * the bells moved up to the first screen.
+     */
+    @Test
+    fun `no row depends on one from another screen`() {
+        for (xml in intArrayOf(
+            R.xml.root_preferences,
+            R.xml.advanced_preferences,
+            R.xml.very_advanced_preferences
+        )) {
+            val keys = readXml(xml)
+            for (needed in dependenciesIn(xml)) {
+                assertTrue(
+                    "a row here depends on $needed, which is on another screen",
+                    needed in keys
+                )
             }
         }
-        // And the rows that really did move are gone from where they were.
-        assertFalse(readXml(R.xml.very_advanced_preferences).contains(Prefs.BELL_MARKS))
-        // These two are properties of an alarm now, not of the app, and the
-        // old app-wide keys are written out rather than named through
-        // Prefs: the constants are gone, and a row that came back under the
-        // old key would have nothing left to fail against.
-        assertFalse(readXml(R.xml.root_preferences).contains("pref_mission"))
-        assertFalse(readXml(R.xml.root_preferences).contains("pref_gentle_wake"))
+    }
+
+    /**
+     * A row that only matters once another is on is not there until it is.
+     *
+     * This is the whole reorganisation in one test. Hiding rather than
+     * greying out, because a disabled row still costs a line of scrolling
+     * and still has to be read past to find out it is not the one you
+     * want — and the sheet and the menu had both grown long enough that
+     * scrolling was the problem.
+     */
+    @Test
+    fun `a conditional row appears with the switch above it`() {
+        val prefs = androidx.preference.PreferenceManager
+            .getDefaultSharedPreferences(
+                ApplicationProvider.getApplicationContext<android.content.Context>()
+            )
+        for ((parent, child) in listOf(
+            Prefs.NIGHT_DIM to Prefs.NIGHT_WINDOW,
+            Prefs.SHOW_DATE to Prefs.DATE_FORMAT,
+            Prefs.BELLS to Prefs.BELL_MARKS,
+            Prefs.WORLD_CLOCK to "pref_world_cities"
+        )) {
+            for (on in listOf(false, true)) {
+                prefs.edit().clear().putBoolean(parent, on).commit()
+                org.robolectric.Robolectric
+                    .buildActivity(SettingsActivity::class.java).use { c ->
+                        c.setup()
+                        val fragment = c.get().supportFragmentManager.fragments.first()
+                            as androidx.preference.PreferenceFragmentCompat
+                        val row = fragment.findPreference<androidx.preference.Preference>(child)
+                        assertNotNull("$child is not on the screen at all", row)
+                        assertEquals(
+                            "$child with $parent ${if (on) "on" else "off"}",
+                            on, row!!.isVisible
+                        )
+                    }
+            }
+        }
+    }
+
+    /** Every key a row on [xml] says it depends on. */
+    private fun dependenciesIn(xml: Int): Set<String> {
+        val parser = ApplicationProvider.getApplicationContext<android.content.Context>()
+            .resources.getXml(xml)
+        val found = HashSet<String>()
+        while (parser.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+            if (parser.eventType == org.xmlpull.v1.XmlPullParser.START_TAG) {
+                parser.getAttributeValue(
+                    "http://schemas.android.com/apk/res/android", "dependency"
+                )?.let { found.add(it) }
+            }
+        }
+        return found
     }
 
     /** Every key named in a preference screen, as a set of strings. */

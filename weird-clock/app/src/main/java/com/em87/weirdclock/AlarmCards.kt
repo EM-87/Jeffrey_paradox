@@ -288,11 +288,7 @@ class AlarmCards(
             holder.snoozeMin.text =
                 host.getString(R.string.reminder_duration_min, alarm.snoozeMinutes)
             holder.iconVibrate.visibility = if (alarm.vibrate) View.VISIBLE else View.GONE
-            // The torch belongs to the app now, so either every alarm will
-            // strobe or none will — and the mark says so on every card,
-            // which is the honest reading of "one answer for all of them".
-            holder.iconFlash.visibility =
-                if (prefs.getBoolean(Prefs.ALARM_FLASH, false)) View.VISIBLE else View.GONE
+            holder.iconFlash.visibility = if (alarm.flash) View.VISIBLE else View.GONE
             // Two things that are easy to set and then forget, and both
             // change what happens at six in the morning: a sunrise for the
             // screen that comes up slowly, and a multiplication sign for

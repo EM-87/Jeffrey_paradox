@@ -41,8 +41,106 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+
+    /**
+     * A preference screen, with the two things every one of them needs.
+     *
+     * [follows] is the conditional-row rule: a row whose answer only means
+     * something once another row is switched on is not shown until it is.
+     * [go] is the way down, which every screen now uses to reach every
+     * other, because the screens are a fan and no longer a ladder.
+     */
+    abstract class Screen : PreferenceFragmentCompat() {
+
+        /** Shows [child] only while the switch at [parent] is on. */
+        protected fun follows(parent: String, child: String) {
+            val row = findPreference<Preference>(child) ?: return
+            val on = findPreference<SwitchPreferenceCompat>(parent)
+            row.isVisible = on?.isChecked == true
+            on?.setOnPreferenceChangeListener { _, newValue ->
+                row.isVisible = newValue == true
+                true
+            }
+        }
+
+        /**
+         * Shows [child] only while the preference [key] is on, wherever it
+         * lives.
+         *
+         * The sibling version above cannot help when the two rows are on
+         * different screens — Android resolves `android:dependency` within
+         * one screen and throws when it cannot find the other end. Which is
+         * what "ring with the app closed" did the moment the bells moved to
+         * the first screen and it stayed on the second.
+         */
+        protected fun visibleWhen(key: String, child: String) {
+            findPreference<Preference>(child)?.isVisible =
+                preferenceManager.sharedPreferences?.getBoolean(key, false) == true
+        }
+
+        protected fun go(screen: PreferenceFragmentCompat) {
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.settings_container, screen)
+                .addToBackStack(null)
+                .commit()
+        }
+
+        /**
+         * Month and day only: a birthday repeats, so the year it first
+         * happened is not what the calendar needs — and asking for it makes
+         * the field feel like an identity form rather than a date to mark.
+         */
+        protected fun showBirthdayDialog() {
+            val stored = preferenceManager.sharedPreferences?.getInt(Prefs.BIRTHDAY, 0) ?: 0
+            val cal = java.util.Calendar.getInstance()
+            if (stored != 0) {
+                cal.set(java.util.Calendar.MONTH, stored / 100 - 1)
+                cal.set(java.util.Calendar.DAY_OF_MONTH, stored % 100)
+            }
+            // A leap year, so 29 February can be picked at all.
+            val picker = android.app.DatePickerDialog(
+                requireContext(),
+                { _, _, month, day ->
+                    preferenceManager.sharedPreferences?.edit()
+                        ?.putInt(Prefs.BIRTHDAY, (month + 1) * 100 + day)?.apply()
+                    updateBirthdaySummary()
+                },
+                2024, cal.get(java.util.Calendar.MONTH),
+                cal.get(java.util.Calendar.DAY_OF_MONTH)
+            )
+            picker.setButton(
+                android.app.DatePickerDialog.BUTTON_NEUTRAL,
+                getString(R.string.pref_birthday_clear)
+            ) { _, _ ->
+                preferenceManager.sharedPreferences?.edit()?.remove(Prefs.BIRTHDAY)?.apply()
+                updateBirthdaySummary()
+            }
+            picker.show()
+        }
+
+        /**
+         * The birthday row reads back the date it holds, because a settings
+         * row that says only "Birthday" gives no way to check what the app
+         * thinks yours is.
+         */
+        protected fun updateBirthdaySummary() {
+            val pref = findPreference<Preference>(Prefs.BIRTHDAY) ?: return
+            val stored = preferenceManager.sharedPreferences?.getInt(Prefs.BIRTHDAY, 0) ?: 0
+            pref.summary = if (stored == 0) {
+                getString(R.string.pref_birthday_summary)
+            } else {
+                val cal = java.util.Calendar.getInstance().apply {
+                    set(java.util.Calendar.MONTH, stored / 100 - 1)
+                    set(java.util.Calendar.DAY_OF_MONTH, stored % 100)
+                }
+                java.text.SimpleDateFormat("d MMMM", java.util.Locale.getDefault())
+                    .format(cal.time)
+            }
+        }
+    }
+
     /** The simple menu: only what the average user comes looking for. */
-    class RootSettingsFragment : PreferenceFragmentCompat() {
+    class RootSettingsFragment : Screen() {
 
         private val chimePlayer = ChimePlayer()
 
@@ -115,17 +213,19 @@ class SettingsActivity : AppCompatActivity() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
             updateCitiesSummary()
-            // The hours the night runs over are a question about a feature
-            // that is off by default, so they stay out of sight until it is
-            // switched on — and appear straight away when it is, rather
-            // than on the next visit to this screen.
-            val nightWindow = findPreference<Preference>(Prefs.NIGHT_WINDOW)
-            val nightDim = findPreference<SwitchPreferenceCompat>(Prefs.NIGHT_DIM)
-            nightWindow?.isVisible = nightDim?.isChecked == true
-            nightDim?.setOnPreferenceChangeListener { _, newValue ->
-                nightWindow?.isVisible = newValue == true
-                true
-            }
+            updateBirthdaySummary()
+            // A row whose answer only matters once another row is on does
+            // not appear until it is — and appears straight away when it
+            // does, rather than on the next visit to this screen. Which is
+            // most of what keeps this list short enough to read.
+            //
+            // Hiding rather than grâce-and-grey, deliberately: a disabled
+            // row still costs a line of scrolling and still has to be read
+            // past to find out it is not the one you want.
+            follows(Prefs.NIGHT_DIM, Prefs.NIGHT_WINDOW)
+            follows(Prefs.SHOW_DATE, Prefs.DATE_FORMAT)
+            follows(Prefs.BELLS, Prefs.BELL_MARKS)
+            follows(Prefs.WORLD_CLOCK, "pref_world_cities")
             // The panic button only appears when something is actually
             // lying at the bottom of the dial.
             findPreference<Preference>(Prefs.REASSEMBLE)?.isVisible =
@@ -163,10 +263,18 @@ class SettingsActivity : AppCompatActivity() {
                     return true
                 }
                 Prefs.ADVANCED -> {
-                    parentFragmentManager.beginTransaction()
-                        .replace(R.id.settings_container, AdvancedSettingsFragment())
-                        .addToBackStack(null)
-                        .commit()
+                    go(AdvancedSettingsFragment())
+                    return true
+                }
+                // Both deeper screens hang off this one now. They used to be
+                // a ladder, and coming back to the clock from the far end
+                // meant pressing Back three times to see what you had done.
+                "pref_very_advanced" -> {
+                    go(VeryAdvancedSettingsFragment())
+                    return true
+                }
+                Prefs.BIRTHDAY -> {
+                    showBirthdayDialog()
                     return true
                 }
                 "pref_world_cities" -> {
@@ -320,14 +428,64 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    /** Second layer: fun, harmless, and out of the average user's way. */
-    class AdvancedSettingsFragment : PreferenceFragmentCompat() {
+    /** The things you set once and then live with. */
+    class AdvancedSettingsFragment : Screen() {
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.advanced_preferences, rootKey)
+            // The bells are asked about on the first screen; whether they
+            // ring with the app closed is only a question once they do.
+            visibleWhen(Prefs.BELLS, Prefs.BELLS_BACKGROUND)
+
+            // How many hours the dial carries is a list, and "some other
+            // number" is one of its answers; the slider that asks which is
+            // no question at all until then.
+            val preset = findPreference<ListPreference>(Prefs.HOURS_PRESET)
+            val custom = findPreference<SeekBarPreference>(Prefs.HOURS_CUSTOM)
+            fun updateCustomVisibility(value: String?) {
+                custom?.isVisible = value == Prefs.HOURS_CUSTOM_VALUE
+            }
+            updateCustomVisibility(preset?.value)
+            preset?.setOnPreferenceChangeListener { _, newValue ->
+                updateCustomVisibility(newValue as? String)
+                true
+            }
+        }
+    }
+
+    /**
+     * The machinery: what answers to a finger, what can make the clock lie,
+     * and the two ways your data leaves the phone.
+     */
+    class VeryAdvancedSettingsFragment :
+        Screen(),
+        SharedPreferences.OnSharedPreferenceChangeListener {
+
+        private val exportLauncher = registerForActivityResult(
+            ActivityResultContracts.CreateDocument("application/json")
+        ) { uri -> if (uri != null) writeBackup(uri) }
+
+        private val importLauncher = registerForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri -> if (uri != null) readBackup(uri) }
+
+        override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+            setPreferencesFromResource(R.xml.very_advanced_preferences, rootKey)
+
+            // Both of the second hand's refinements are questions about a
+            // hand that may not be there.
+            follows(Prefs.SECOND_HAND, Prefs.SMOOTH_SECONDS)
+            follows(Prefs.SECOND_HAND, Prefs.FAST_HAND)
+
+            findPreference<SeekBarPreference>(Prefs.TIME_SPEED)
+                ?.setOnPreferenceChangeListener { _, newValue ->
+                    if (newValue != 100) showSpeedWarning()
+                    true
+                }
+
             // The floating hourglass draws over other apps, and Android only
             // lets it once the user has said so somewhere we cannot ask.
-            findPreference<androidx.preference.ListPreference>(Prefs.COUNTDOWN_FLOAT)
+            findPreference<ListPreference>(Prefs.COUNTDOWN_FLOAT)
                 ?.setOnPreferenceChangeListener { _, newValue ->
                     if (newValue == Prefs.FLOAT_OVERLAY &&
                         !Settings.canDrawOverlays(requireContext())
@@ -341,7 +499,7 @@ class SettingsActivity : AppCompatActivity() {
                     }
                     true
                 }
-            updateBirthdaySummary()
+
             // Marks by the sun need somewhere to stand. Without a fix the
             // app falls back to the dial's two turns — which is the honest
             // thing to do and, until now, entirely silent: the setting said
@@ -362,110 +520,85 @@ class SettingsActivity : AppCompatActivity() {
                 }
         }
 
-        /**
-         * The birthday row reads back the date it holds, because a settings
-         * row that says only "Birthday" gives no way to check what the app
-         * thinks yours is.
-         */
-        private fun updateBirthdaySummary() {
-            val pref = findPreference<Preference>(Prefs.BIRTHDAY) ?: return
-            val stored = preferenceManager.sharedPreferences?.getInt(Prefs.BIRTHDAY, 0) ?: 0
-            pref.summary = if (stored == 0) {
-                getString(R.string.pref_birthday_summary)
-            } else {
-                val cal = java.util.Calendar.getInstance().apply {
-                    set(java.util.Calendar.MONTH, stored / 100 - 1)
-                    set(java.util.Calendar.DAY_OF_MONTH, stored % 100)
+        override fun onPreferenceTreeClick(preference: Preference): Boolean {
+            when (preference.key) {
+                "pref_system_time" -> {
+                    // Android forbids apps from setting the clock, so this
+                    // hands over to the system's own date & time screen,
+                    // where the network resync toggle and the manual
+                    // setting both live.
+                    startActivity(Intent(Settings.ACTION_DATE_SETTINGS))
+                    return true
                 }
-                java.text.SimpleDateFormat("d MMMM", java.util.Locale.getDefault())
-                    .format(cal.time)
+                "pref_backup_export" -> {
+                    exportLauncher.launch("weird-clock-backup.json")
+                    return true
+                }
+                "pref_backup_import" -> {
+                    // Anything, not just application/json: file managers and
+                    // cloud providers hand these back as octet-stream or
+                    // text/plain often enough that filtering hides the very
+                    // file the user is looking for.
+                    importLauncher.launch(arrayOf("*/*"))
+                    return true
+                }
             }
+            return super.onPreferenceTreeClick(preference)
         }
 
         /**
-         * Month and day only: a birthday repeats, so the year it first
-         * happened is not what the calendar needs — and asking for it makes
-         * the field feel like an identity form rather than a date to mark.
+         * The backup file, written and read wherever the user keeps files.
+         *
+         * Through the document picker rather than to a folder of our own:
+         * it needs no permission, works on every version the app supports,
+         * and — the point of the whole exercise — lands somewhere that
+         * survives the app being uninstalled.
          */
-        private fun showBirthdayDialog() {
-            val stored = preferenceManager.sharedPreferences?.getInt(Prefs.BIRTHDAY, 0) ?: 0
-            val cal = java.util.Calendar.getInstance()
-            if (stored != 0) {
-                cal.set(java.util.Calendar.MONTH, stored / 100 - 1)
-                cal.set(java.util.Calendar.DAY_OF_MONTH, stored % 100)
+        private fun writeBackup(uri: Uri) {
+            val ok = try {
+                requireContext().contentResolver.openOutputStream(uri)?.use {
+                    it.write(Backup.export(requireContext()).toByteArray())
+                } != null
+            } catch (e: java.io.IOException) {
+                false
+            } catch (e: SecurityException) {
+                false
             }
-            // A leap year, so 29 February can be picked at all.
-            val picker = android.app.DatePickerDialog(
+            Toast.makeText(
                 requireContext(),
-                { _, _, month, day ->
-                    preferenceManager.sharedPreferences?.edit()
-                        ?.putInt(Prefs.BIRTHDAY, (month + 1) * 100 + day)?.apply()
-                    updateBirthdaySummary()
-                },
-                2024, cal.get(java.util.Calendar.MONTH),
-                cal.get(java.util.Calendar.DAY_OF_MONTH)
-            )
-            picker.setButton(
-                android.app.DatePickerDialog.BUTTON_NEUTRAL,
-                getString(R.string.pref_birthday_clear)
-            ) { _, _ ->
-                preferenceManager.sharedPreferences?.edit()?.remove(Prefs.BIRTHDAY)?.apply()
-                updateBirthdaySummary()
-            }
-            picker.show()
+                if (ok) R.string.backup_saved else R.string.backup_failed,
+                Toast.LENGTH_SHORT
+            ).show()
         }
 
-        override fun onPreferenceTreeClick(preference: Preference): Boolean {
-            if (preference.key == Prefs.BIRTHDAY) {
-                showBirthdayDialog()
-                return true
+        private fun readBackup(uri: Uri) {
+            val text = try {
+                requireContext().contentResolver.openInputStream(uri)
+                    ?.use { it.readBytes().toString(Charsets.UTF_8) }
+            } catch (e: java.io.IOException) {
+                null
+            } catch (e: SecurityException) {
+                null
             }
-            if (preference.key == "pref_very_advanced") {
-                parentFragmentManager.beginTransaction()
-                    .replace(R.id.settings_container, VeryAdvancedSettingsFragment())
-                    .addToBackStack(null)
-                    .commit()
-                return true
+            val restored = text?.let { Backup.import(requireContext(), it) }
+            if (restored == null) {
+                Toast.makeText(requireContext(), R.string.backup_unreadable, Toast.LENGTH_LONG)
+                    .show()
+                return
             }
-            return super.onPreferenceTreeClick(preference)
-        }
-    }
-
-    /** Third layer: the machinery that can make the clock lie. */
-    class VeryAdvancedSettingsFragment :
-        PreferenceFragmentCompat(),
-        SharedPreferences.OnSharedPreferenceChangeListener {
-
-        override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-            setPreferencesFromResource(R.xml.very_advanced_preferences, rootKey)
-
-            val preset = findPreference<ListPreference>(Prefs.HOURS_PRESET)
-            val custom = findPreference<SeekBarPreference>(Prefs.HOURS_CUSTOM)
-            fun updateCustomVisibility(value: String?) {
-                custom?.isVisible = value == Prefs.HOURS_CUSTOM_VALUE
-            }
-            updateCustomVisibility(preset?.value)
-            preset?.setOnPreferenceChangeListener { _, newValue ->
-                updateCustomVisibility(newValue as? String)
-                true
-            }
-
-            findPreference<SeekBarPreference>(Prefs.TIME_SPEED)
-                ?.setOnPreferenceChangeListener { _, newValue ->
-                    if (newValue != 100) showSpeedWarning()
-                    true
-                }
-        }
-
-        override fun onPreferenceTreeClick(preference: Preference): Boolean {
-            if (preference.key == "pref_system_time") {
-                // Android forbids apps from setting the clock, so this hands
-                // over to the system's own date & time screen, where the
-                // network resync toggle and the manual setting both live.
-                startActivity(Intent(Settings.ACTION_DATE_SETTINGS))
-                return true
-            }
-            return super.onPreferenceTreeClick(preference)
+            // Every alarm in the restored file needs its place in the
+            // system's alarm queue back; the queue is not ours and knew
+            // nothing about the restore.
+            AlarmScheduler.update(requireContext())
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.backup_restored, restored.alarms, restored.reminders),
+                Toast.LENGTH_LONG
+            ).show()
+            // The settings screen is now showing values that no longer
+            // exist, and so is the clock behind it. Start again from the
+            // restored file rather than write the stale ones back over it.
+            requireActivity().finishAffinity()
         }
 
         private fun showSpeedWarning() {

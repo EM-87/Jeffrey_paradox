@@ -85,11 +85,4 @@
         <item>10 minutos</item>
         <item>Hasta que se pare</item>
     </string-array>
-    <string-array name="snooze_limit_entries">
-        <item>Las que quieras</item>
-        <item>Una vez</item>
-        <item>Dos veces</item>
-        <item>Tres veces</item>
-        <item>Cinco veces</item>
-    </string-array>
 </resources>

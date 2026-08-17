@@ -71,7 +71,7 @@ class AlarmRingActivity : AppCompatActivity() {
         val snoozeButton = findViewById<Button>(R.id.snooze_button)
         val snoozeMinutes = intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE, 0)
         val already = intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_COUNT, 0)
-        val limit = AlarmScheduler.snoozeLimit(this)
+        val limit = AlarmScheduler.snoozeLimit(intent)
         // Offered only while it would do something. A Snooze button that
         // silently does nothing is worse than no button: the whole reason
         // for a limit is that the last one has to be got up for, and that
