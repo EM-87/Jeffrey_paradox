@@ -55,12 +55,6 @@
     <PreferenceCategory android:title="@string/category_alarms">
 
         <SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:key="pref_bells_background"
-            android:summary="@string/pref_bells_background_summary"
-            android:title="@string/pref_bells_background_title" />
-
-        <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="pref_alarm_ramp"
             android:summary="@string/pref_alarm_ramp_summary"

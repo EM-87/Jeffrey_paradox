@@ -3979,7 +3979,19 @@ class ClockView @JvmOverloads constructor(
     companion object {
         const val MIN_SCALE = 0.35f
         const val MAX_SCALE = 1f
-        private const val SHAKE_THRESHOLD = 14f // m/s² beyond gravity
+        /**
+         * How hard a knock has to be to shake something loose, in m/s²
+         * beyond gravity.
+         *
+         * Was 14, which a phone being set down on a table clears easily —
+         * so the hands came off on the way to the table rather than when
+         * anybody meant them to. Two and a half g is a deliberate rap on
+         * the glass: a movement of the hand, not the end of one.
+         */
+        private const val SHAKE_THRESHOLD = 25f
+
+        /** For the tests: how hard a knock has to be. */
+        internal fun shakeThresholdForTest(): Float = SHAKE_THRESHOLD
         private const val HOUR_LEN = 0.52f
         private const val MINUTE_LEN = 0.74f
         private const val SECOND_LEN = 0.82f

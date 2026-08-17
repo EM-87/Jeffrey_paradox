@@ -36,6 +36,24 @@
             android:contentDescription="@string/settings_title"
             android:src="@drawable/ic_settings" />
 
+        <!-- The way to put the hands back, opposite the way to the settings.
+             It is only there when there is something to put back, which is
+             why it can afford to be a button on the dial rather than a row
+             buried three screens into a menu — where, being a row, it was
+             also the one thing you could not find while looking straight at
+             the mess it fixes. -->
+        <ImageButton
+            android:id="@+id/reassemble_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|start"
+            android:layout_margin="12dp"
+            android:alpha="0.6"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/pref_reassemble_title"
+            android:src="@drawable/ic_toolbox"
+            android:visibility="gone" />
+
         <!-- Shown while setting an alarm or reminder time by winding. -->
         <LinearLayout
             android:id="@+id/alarm_set_banner"

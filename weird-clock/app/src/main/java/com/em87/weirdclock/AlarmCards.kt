@@ -173,6 +173,7 @@ class AlarmCards(
             Prefs.ALARM_SOUND_SNAKE -> R.string.alarm_sound_snake
             Prefs.ALARM_SOUND_WOLF -> R.string.alarm_sound_wolf
             Prefs.ALARM_SOUND_DOG -> R.string.alarm_sound_dog
+            Prefs.ALARM_SOUND_SILENT -> R.string.alarm_sound_silent
             Prefs.ALARM_SOUND_CUSTOM -> R.string.alarm_sound_custom
             else -> R.string.alarm_sound_bells
         }

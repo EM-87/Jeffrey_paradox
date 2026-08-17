@@ -36,8 +36,6 @@ object Backup {
         Prefs.COUNTDOWN_RESULT,
         Prefs.COUNTDOWN_PERSISTENT,
         Prefs.COUNTDOWN_BUBBLE,
-        Prefs.NEEDS_REASSEMBLY,
-        Prefs.REASSEMBLE_PENDING,
         Prefs.LOCATION_ASKED,
         Prefs.OVERLAY_ASKED,
         // A booking for one particular morning, and the tally that goes

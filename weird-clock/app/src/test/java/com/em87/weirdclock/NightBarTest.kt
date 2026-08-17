@@ -41,9 +41,37 @@ class NightBarTest {
     @Test
     fun `the bar is a day laid out flat`() {
         val bar = bar()
-        assertEquals(0f, bar.hourAt(0f), 0.01f)
-        assertEquals(24f, bar.hourAt(bar.width.toFloat()), 0.01f)
         assertEquals(12f, bar.hourAt(bar.width / 2f), 0.3f)
+        assertEquals("the left end is midnight", 0f, bar.hourAt(bar.leftEndForTest()), 0.01f)
+        assertEquals(
+            "and the right end is midnight again",
+            24f, bar.hourAt(bar.width - bar.leftEndForTest()), 0.05f
+        )
+    }
+
+    /**
+     * A day is round, so the bar is: drag the entry pin off the right-hand
+     * end and it comes back on at midnight.
+     *
+     * Ten at night to midnight is *forwards*, and forwards on this bar is
+     * rightwards — so that is the gesture somebody makes to ask for a night
+     * that starts at midnight. It used to stop dead at 23, which left the
+     * two hours either side of midnight as the only ones a drag could not
+     * reach: the band wrapped and the pin did not.
+     */
+    @Test
+    fun `a pin dragged off the end comes back on at the other`() {
+        val bar = bar()
+        bar.setWindow(22, 7)
+        bar.holdForTest(true)
+        // On to the right-hand end, which is where 22 → 23 → midnight goes.
+        bar.moveTo(bar.width - bar.leftEndForTest())
+        assertEquals("midnight, not stuck at eleven", 0, bar.from)
+
+        // And the same the other way, for the pin that lives near midnight.
+        bar.holdForTest(false)
+        bar.moveTo(-bar.width / 24f)
+        assertEquals("eleven at night", 23, bar.to)
     }
 
     /** Dragging a pin lands it on an hour mark, never between two. */
@@ -92,6 +120,45 @@ class NightBarTest {
         assertEquals("00:00 – 23:00", NightWindow.label(0, 23))
     }
 
+    // ------------------------------------------------------- the toolbox
+
+    /**
+     * The way to put the hands back is on the glass, and only when there is
+     * something to put back.
+     *
+     * It was a row three screens into the settings, which is the one place
+     * you cannot look while looking at the mess it fixes — and a dial with
+     * its hands on the floor is a dial you cannot wind, so the moment you
+     * need it is the moment the app is least willing to be navigated.
+     */
+    @Test
+    fun `the toolbox is only there when there is something to put back`() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(
+            ApplicationProvider.getApplicationContext<android.content.Context>()
+        ).edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+
+        org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            assertFalse("nothing has fallen and it is offering to help", c.get().reassembleShowing())
+        }
+    }
+
+    /**
+     * And a knock has to be a knock.
+     *
+     * Fourteen was clearing the jolt of a phone being set down on a table,
+     * so the hands came off on the way to the table rather than when
+     * anybody meant them to — which turns a thing you do for fun into a
+     * thing that happens to you.
+     */
+    @Test
+    fun `setting the phone down is not a knock`() {
+        assertTrue(
+            "a knock has to be a rap on the glass, not the end of a journey",
+            ClockView.shakeThresholdForTest() >= 20f
+        )
+    }
+
     // ------------------------------------------------- the menu itself
 
     /**
@@ -111,12 +178,12 @@ class NightBarTest {
     fun `each settings screen holds exactly the rows it should`() {
         val screens = mapOf(
             R.xml.root_preferences to setOf(
-                "pref_reassemble",
                 // Dial
                 "pref_night_dim", "pref_night_window", "pref_theme",
                 "pref_show_date", "pref_date_format",
                 // Alarm
                 "pref_bells", "pref_bell_marks", "pref_bell_style", "pref_test_bells",
+                "pref_bells_background",
                 // Calendar
                 "pref_past_days", "pref_birthday",
                 // General
@@ -127,7 +194,7 @@ class NightBarTest {
             R.xml.advanced_preferences to setOf(
                 "pref_numerals", "pref_dial_shape", "pref_hours_preset",
                 "pref_hours_custom", "pref_mirror",
-                "pref_bells_background", "pref_alarm_ramp", "pref_ring_timeout",
+                "pref_alarm_ramp", "pref_ring_timeout",
                 "pref_countdown_persistent", "pref_alarm_style",
                 "pref_gentle_flash", "pref_alarm_markers",
                 "pref_ticking"
@@ -206,27 +273,77 @@ class NightBarTest {
             .getDefaultSharedPreferences(
                 ApplicationProvider.getApplicationContext<android.content.Context>()
             )
-        for ((parent, child) in listOf(
-            Prefs.NIGHT_DIM to Prefs.NIGHT_WINDOW,
-            Prefs.SHOW_DATE to Prefs.DATE_FORMAT,
-            Prefs.BELLS to Prefs.BELL_MARKS,
-            Prefs.WORLD_CLOCK to "pref_world_cities"
+        for ((screen, pairs) in mapOf<() -> androidx.preference.PreferenceFragmentCompat?, List<Pair<String, String>>>(
+            { null } to listOf(
+                Prefs.NIGHT_DIM to Prefs.NIGHT_WINDOW,
+                Prefs.SHOW_DATE to Prefs.DATE_FORMAT,
+                Prefs.BELLS to Prefs.BELL_MARKS,
+                Prefs.BELLS to Prefs.BELL_STYLE,
+                Prefs.BELLS to Prefs.TEST_BELLS,
+                Prefs.BELLS to Prefs.BELLS_BACKGROUND,
+                Prefs.WORLD_CLOCK to "pref_world_cities"
+            ),
+            { SettingsActivity.VeryAdvancedSettingsFragment() } to listOf(
+                Prefs.SECOND_HAND to Prefs.SMOOTH_SECONDS,
+                Prefs.SECOND_HAND to Prefs.FAST_HAND
+            )
         )) {
-            for (on in listOf(false, true)) {
-                prefs.edit().clear().putBoolean(parent, on).commit()
-                org.robolectric.Robolectric
-                    .buildActivity(SettingsActivity::class.java).use { c ->
-                        c.setup()
-                        val fragment = c.get().supportFragmentManager.fragments.first()
-                            as androidx.preference.PreferenceFragmentCompat
-                        val row = fragment.findPreference<androidx.preference.Preference>(child)
-                        assertNotNull("$child is not on the screen at all", row)
-                        assertEquals(
-                            "$child with $parent ${if (on) "on" else "off"}",
-                            on, row!!.isVisible
-                        )
-                    }
+            for ((parent, child) in pairs) {
+                for (on in listOf(false, true)) {
+                    prefs.edit().clear().putBoolean(parent, on).commit()
+                    org.robolectric.Robolectric
+                        .buildActivity(SettingsActivity::class.java).use { c ->
+                            c.setup()
+                            val made = screen()
+                            val fragment = if (made == null) {
+                                c.get().supportFragmentManager.fragments.first()
+                                    as androidx.preference.PreferenceFragmentCompat
+                            } else {
+                                c.get().supportFragmentManager.beginTransaction()
+                                    .replace(R.id.settings_container, made).commitNow()
+                                made
+                            }
+                            val row =
+                                fragment.findPreference<androidx.preference.Preference>(child)
+                            assertNotNull("$child is not on the screen at all", row)
+                            assertEquals(
+                                "$child with $parent ${if (on) "on" else "off"}",
+                                on, row!!.isVisible
+                            )
+                        }
+                }
             }
+        }
+    }
+
+    /**
+     * And it hides the moment the switch is flicked, not on the next visit.
+     *
+     * The state on opening is the easy half. What somebody actually does is
+     * turn the switch off and watch the row below it — and a row that only
+     * takes the hint next time the screen is opened reads as a setting that
+     * did nothing.
+     */
+    @Test
+    fun `a conditional row goes as soon as the switch is turned off`() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(ctx)
+            .edit().clear().putBoolean(Prefs.SECOND_HAND, true).commit()
+        org.robolectric.Robolectric.buildActivity(SettingsActivity::class.java).use { c ->
+            c.setup()
+            val f = SettingsActivity.VeryAdvancedSettingsFragment()
+            c.get().supportFragmentManager.beginTransaction()
+                .replace(R.id.settings_container, f).commitNow()
+            val hand = f.findPreference<androidx.preference.SwitchPreferenceCompat>(
+                Prefs.SECOND_HAND
+            )!!
+            val smooth = f.findPreference<androidx.preference.Preference>(Prefs.SMOOTH_SECONDS)!!
+            assertTrue("set up wrong", smooth.isVisible)
+
+            hand.performClick()
+
+            assertFalse("the second hand is off and its refinement is still there", hand.isChecked)
+            assertFalse("smooth sweep outlived the hand it smooths", smooth.isVisible)
         }
     }
 

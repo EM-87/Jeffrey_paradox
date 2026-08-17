@@ -81,12 +81,12 @@
     <string name="alarm_quick_everyday">Every day</string>
     <string name="alarm_vibrate">Vibrate</string>
     <string name="alarm_gentle">Gentle wake</string>
-    <string name="alarm_gentle_off">Straight on</string>
-    <string name="alarm_gentle_sec">Comes up over %1$d s</string>
-    <string name="alarm_gentle_min">Comes up over %1$d min</string>
+    <string name="alarm_gentle_off">Off</string>
+    <string name="alarm_gentle_sec">%1$d seconds</string>
+    <string name="alarm_gentle_min">%1$d minutes</string>
     <string name="alarm_mission">Anti-sleep mission</string>
-    <string name="alarm_mission_none">None — slide to stop</string>
-    <string name="alarm_mission_maths_level">Arithmetic · level %1$d</string>
+    <string name="alarm_mission_none">Off</string>
+    <string name="alarm_mission_maths_level">Level %1$d</string>
     <string name="a11y_hand_hour">Hour hand</string>
     <string name="a11y_hand_minute">Minute hand</string>
     <string name="a11y_hand_second">Second hand</string>
@@ -151,19 +151,17 @@
     <string name="alarm_sound_wolf">Wolf</string>
     <string name="alarm_sound_dog">Dog</string>
     <string name="pref_moon_phase_title">Moon phase</string>
-    <string name="pref_moon_phase_summary">One glyph low on the dial showing what is actually up: the sun while the sun is up where you are, otherwise the moon and its phase. Useful indoors with no window. Needs one location fix for the sunrise; without one it stays the moon.</string>
+    <string name="pref_moon_phase_summary">The sun while the sun is up where you are, otherwise the moon and its phase. Uses your location.</string>
     <string name="pref_alarm_markers_title">Alarms on the dial</string>
     <string name="pref_alarm_markers_summary">Enabled alarms drawn as accent markers at their time on the clock face</string>
     <string name="alarm_snooze">Snooze</string>
     <string name="alarm_snooze_fmt">Snooze %1$d min</string>
-    <string name="alarm_snooze_min">Snooze: %1$d min</string>
-    <string name="alarm_snooze_off">Snooze: off</string>
+    <string name="alarm_snooze_min">%1$d minutes</string>
+    <string name="alarm_snooze_off">Off</string>
     <string name="alarm_sound_custom">Your own file</string>
     <string name="alarm_once">Once</string>
 
     <string name="pref_reassemble_title">Put everything back</string>
-    <string name="pref_reassemble_summary">Remounts fallen hands and numerals in one tap</string>
-    <string name="reassemble_done">Everything back in its place</string>
     <string name="pref_bells_background_title">Ring with the app closed</string>
     <string name="pref_bells_background_summary">The bells keep the hours from the background, quietly re-arming themselves each time</string>
     <string name="bells_channel_name">Hourly bells</string>
@@ -186,7 +184,6 @@
     <string name="pref_countdown_persistent_summary">When the countdown ends, ring until you dismiss it</string>
     <string name="pref_solar_time_title">Sun time</string>
     <string name="pref_solar_time_summary">The whole clock runs on local apparent solar time — noon is when the sun actually crosses your meridian (one coarse location fix; alarms stay on civil time)</string>
-    <string name="pref_alarm_flash_title">Torch while ringing</string>
     <string name="pref_alarm_ramp_title">Gradual alarm volume</string>
     <string name="pref_alarm_ramp_summary">Alarms start quiet and climb to full volume over a minute</string>
     <string name="alarm_label_title">Alarm label</string>
@@ -292,4 +289,6 @@
         <item quantity="one">Once, then get up</item>
         <item quantity="other">%d times, then get up</item>
     </plurals>
+    <string name="alarm_sound_silent">Silent — torch and buzz only</string>
+    <string name="alarm_flash">Flash</string>
 </resources>

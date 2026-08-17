@@ -6,6 +6,7 @@ import android.widget.LinearLayout
 import androidx.preference.PreferenceManager
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -117,6 +118,55 @@ class AlarmDialsTest {
         val alone = sizeOf(facesIn(row(7 to 0)).single()).first
         val quartered = sizeOf(facesIn(row(8 to 0, 12 to 0, 16 to 0, 20 to 0)).first()).first
         assertTrue("$quartered should be well under $alone", quartered < alone)
+    }
+
+    // ------------------------------------------------------ what the rows say
+
+    /**
+     * Nothing on a picker repeats the name of the row it opened from.
+     *
+     * A list under "Snooze" whose entries all began "Snooze:" said the word
+     * twice and left no room for the answer — and with the three of them
+     * switched off the sheet read "Snooze: off / Straight on / None — slide
+     * to stop" where it should have read "Off / Off / Off". Three different
+     * ways of saying the same thing is three things to work out instead of
+     * one thing to see.
+     */
+    @Test
+    fun `no option repeats the name of the row it belongs to`() {
+        val cards = cards()
+        for ((rowTitle, options) in mapOf(
+            R.string.alarm_snooze to listOf(
+                context.getString(R.string.alarm_snooze_off),
+                context.getString(R.string.alarm_snooze_min, 10)
+            ),
+            R.string.alarm_gentle to listOf(
+                cards.gentleLabel(0), cards.gentleLabel(180), cards.gentleLabel(30)
+            ),
+            R.string.alarm_mission to listOf(
+                cards.missionLabel(Mission.NONE),
+                cards.missionLabel(Mission.MATHS, 3),
+                cards.missionLabel(Mission.SHAKE)
+            )
+        )) {
+            val title = context.getString(rowTitle)
+            for (option in options) {
+                assertFalse(
+                    "'$option' repeats its own row, '$title'",
+                    option.contains(title.substringBefore(' '), ignoreCase = true)
+                )
+            }
+        }
+    }
+
+    /** And off is Off, in the same word, in all three of them. */
+    @Test
+    fun `every one of them is switched off the same way`() {
+        val cards = cards()
+        val off = context.getString(R.string.alarm_snooze_off)
+        assertEquals("the sunrise", off, cards.gentleLabel(0))
+        assertEquals("the mission", off, cards.missionLabel(Mission.NONE))
+        assertTrue("and it is short enough to read at a glance", off.length <= 4)
     }
 
     // ------------------------------------------------- the marks on the row

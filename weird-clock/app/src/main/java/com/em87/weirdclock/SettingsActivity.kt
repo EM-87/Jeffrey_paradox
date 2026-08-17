@@ -52,30 +52,25 @@ class SettingsActivity : AppCompatActivity() {
      */
     abstract class Screen : PreferenceFragmentCompat() {
 
-        /** Shows [child] only while the switch at [parent] is on. */
-        protected fun follows(parent: String, child: String) {
-            val row = findPreference<Preference>(child) ?: return
+        /**
+         * Shows [children] only while the switch at [parent] is on.
+         *
+         * All of them in one call, and not one call each, because a
+         * preference has room for exactly one change listener: asking twice
+         * about the same switch quietly threw the first answer away. Which
+         * is what happened — the second hand had two refinements under it,
+         * and turning the hand off hid the second one and left the first
+         * sitting there smoothing a hand that was no longer drawn.
+         */
+        protected fun follows(parent: String, vararg children: String) {
+            val rows = children.mapNotNull { findPreference<Preference>(it) }
             val on = findPreference<SwitchPreferenceCompat>(parent)
-            row.isVisible = on?.isChecked == true
+            fun apply(visible: Boolean) { rows.forEach { it.isVisible = visible } }
+            apply(on?.isChecked == true)
             on?.setOnPreferenceChangeListener { _, newValue ->
-                row.isVisible = newValue == true
+                apply(newValue == true)
                 true
             }
-        }
-
-        /**
-         * Shows [child] only while the preference [key] is on, wherever it
-         * lives.
-         *
-         * The sibling version above cannot help when the two rows are on
-         * different screens — Android resolves `android:dependency` within
-         * one screen and throws when it cannot find the other end. Which is
-         * what "ring with the app closed" did the moment the bells moved to
-         * the first screen and it stayed on the second.
-         */
-        protected fun visibleWhen(key: String, child: String) {
-            findPreference<Preference>(child)?.isVisible =
-                preferenceManager.sharedPreferences?.getBoolean(key, false) == true
         }
 
         protected fun go(screen: PreferenceFragmentCompat) {
@@ -224,13 +219,11 @@ class SettingsActivity : AppCompatActivity() {
             // past to find out it is not the one you want.
             follows(Prefs.NIGHT_DIM, Prefs.NIGHT_WINDOW)
             follows(Prefs.SHOW_DATE, Prefs.DATE_FORMAT)
-            follows(Prefs.BELLS, Prefs.BELL_MARKS)
+            follows(
+                Prefs.BELLS,
+                Prefs.BELL_MARKS, Prefs.BELL_STYLE, Prefs.TEST_BELLS, Prefs.BELLS_BACKGROUND
+            )
             follows(Prefs.WORLD_CLOCK, "pref_world_cities")
-            // The panic button only appears when something is actually
-            // lying at the bottom of the dial.
-            findPreference<Preference>(Prefs.REASSEMBLE)?.isVisible =
-                preferenceManager.sharedPreferences
-                    ?.getBoolean(Prefs.NEEDS_REASSEMBLY, false) == true
             // Installed version, so it's always clear which build is running.
             findPreference<Preference>("pref_version")?.summary = try {
                 val info = requireContext().packageManager
@@ -251,15 +244,6 @@ class SettingsActivity : AppCompatActivity() {
             when (preference.key) {
                 Prefs.TEST_BELLS -> {
                     playTestBells()
-                    return true
-                }
-                Prefs.REASSEMBLE -> {
-                    // Panic button: the clock picks everything up on resume.
-                    preferenceManager.sharedPreferences?.edit()
-                        ?.putBoolean(Prefs.REASSEMBLE_PENDING, true)
-                        ?.apply()
-                    Toast.makeText(requireContext(), R.string.reassemble_done, Toast.LENGTH_SHORT).show()
-                    requireActivity().finish()
                     return true
                 }
                 Prefs.ADVANCED -> {
@@ -433,9 +417,6 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.advanced_preferences, rootKey)
-            // The bells are asked about on the first screen; whether they
-            // ring with the app closed is only a question once they do.
-            visibleWhen(Prefs.BELLS, Prefs.BELLS_BACKGROUND)
 
             // How many hours the dial carries is a list, and "some other
             // number" is one of its answers; the slider that asks which is
@@ -474,8 +455,7 @@ class SettingsActivity : AppCompatActivity() {
 
             // Both of the second hand's refinements are questions about a
             // hand that may not be there.
-            follows(Prefs.SECOND_HAND, Prefs.SMOOTH_SECONDS)
-            follows(Prefs.SECOND_HAND, Prefs.FAST_HAND)
+            follows(Prefs.SECOND_HAND, Prefs.SMOOTH_SECONDS, Prefs.FAST_HAND)
 
             findPreference<SeekBarPreference>(Prefs.TIME_SPEED)
                 ?.setOnPreferenceChangeListener { _, newValue ->

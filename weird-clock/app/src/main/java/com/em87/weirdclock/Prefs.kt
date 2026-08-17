@@ -35,8 +35,9 @@ object Prefs {
     const val ALARM_ENABLED = "pref_alarm_enabled"
     const val ALARM_TIME = "pref_alarm_time"
     const val ADVANCED = "pref_advanced"
-    const val REASSEMBLE = "pref_reassemble"
-    const val REASSEMBLE_PENDING = "pref_reassemble_pending"
+    // The "put everything back" row and its two flags are gone: it is a
+    // button on the dial now, opposite the gear, and a button on the dial
+    // needs nothing written down to know whether to be there.
     const val TIME_SPEED = "pref_time_speed"
     const val SOLAR_TIME = "pref_solar_time"
     const val LAST_LONGITUDE = "pref_last_longitude"
@@ -166,13 +167,24 @@ object Prefs {
     /** The bell at the end of a round, which is what a timer running out is. */
     const val ALARM_SOUND_RING_BELL = "ringbell"
 
+    /**
+     * No sound at all: the torch and the vibration on their own.
+     *
+     * An alarm is not only a noise. Somebody who cannot hear one, or who
+     * shares a room with somebody who should not have to, still wants the
+     * light and the buzz — and until this the only way to get them was to
+     * pick a sound and then turn the volume down, which is a different
+     * thing from an alarm that is deliberately quiet.
+     */
+    const val ALARM_SOUND_SILENT = "silent"
+
     const val ALARM_SOUND_CUSTOM = "custom"
 
     /** Every sound an alarm can be given, in the order the picker shows them. */
     val ALARM_SOUNDS = listOf(
         ALARM_SOUND_BELLS, ALARM_SOUND_DIGITAL, ALARM_SOUND_RING_BELL,
         ALARM_SOUND_BABY, ALARM_SOUND_ROOSTER, ALARM_SOUND_SNAKE,
-        ALARM_SOUND_WOLF, ALARM_SOUND_DOG
+        ALARM_SOUND_WOLF, ALARM_SOUND_DOG, ALARM_SOUND_SILENT
     )
 
     // Legacy repeat keywords, still read when migrating old alarm stores.
@@ -180,7 +192,6 @@ object Prefs {
     const val ALARM_REPEAT_WEEKDAYS = "weekdays"
     const val ALARM_REPEAT_WEEKENDS = "weekends"
 
-    const val NEEDS_REASSEMBLY = "pref_needs_reassembly"
 
     /** Written by CountdownService for MainActivity to consume on resume. */
     const val COUNTDOWN_RESULT = "pref_countdown_result"

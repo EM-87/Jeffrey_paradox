@@ -225,6 +225,47 @@ class AlarmSheetTest {
         AlarmStore.forget()
     }
 
+    // ---------------------------------------------- the time you just wound
+
+    /**
+     * Winding a time leaves an *unsaved* change, not a silent one.
+     *
+     * The sheet edits a copy and nothing is committed until Save. The time
+     * was the one field that broke that rule: coming back from the dial it
+     * wrote itself straight onto the stored alarm — so the draft and the
+     * store already agreed, there was no unsaved change to warn about, and
+     * pulling the sheet down asked nothing.
+     *
+     * Which read, from the outside, as the change being thrown away: you
+     * wound a new time, dismissed the sheet, and the card still said the
+     * old one. This is that, measured: after winding, the store is
+     * untouched and the draft is the only thing that knows.
+     */
+    @Test
+    fun `winding a time leaves it in the draft and not in the store`() {
+        AlarmStore.forget()
+        val alarm = Alarm(1, 7, 0, true, Prefs.ALARM_SOUND_BELLS)
+        AlarmStore.all(context).add(alarm)
+        AlarmStore.save(context)
+
+        org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val draft = c.get().windAndConfirmForTest(alarm, 9, 30)
+
+            assertEquals("the draft is the one that learned it", 9, draft.hour)
+            assertEquals(30, draft.minute)
+            assertEquals(
+                "the stored alarm must not have been written to behind the sheet",
+                7, AlarmStore.all(context).first { it.id == 1 }.hour
+            )
+            assertTrue(
+                "so there is something for the sheet to ask about on the way out",
+                draft != AlarmStore.all(context).first { it.id == 1 }
+            )
+        }
+        AlarmStore.forget()
+    }
+
     /** The intent this app has just armed with the system, if any. */
     private fun armed(): android.content.Intent? = org.robolectric.Shadows
         .shadowOf(context.getSystemService(android.app.AlarmManager::class.java))

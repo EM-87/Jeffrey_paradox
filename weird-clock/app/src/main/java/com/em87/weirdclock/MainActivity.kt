@@ -69,6 +69,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var modeButton: ImageButton? = null
     private var homeButtonRow: View? = null
     private var settingsButton: ImageButton? = null
+
+    /**
+     * The way to put the hands back, opposite the way to the settings.
+     *
+     * It used to be a row three screens into the menu, which is the one
+     * place you cannot look while looking at the mess it fixes — and it had
+     * to be hunted for at the exact moment the app was least willing to be
+     * navigated, because a dial with its hands on the floor is a dial you
+     * cannot wind. On the glass, and only when there is something to put
+     * back, it is a button that answers the question it raises.
+     */
+    private var reassembleButton: ImageButton? = null
     private var alarmSetBanner: View? = null
     private var alarmSetLabel: TextView? = null
     private var sandStartStop: Button? = null
@@ -389,6 +401,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             ) {
                 applyPreferences()
             }
+
+            showReassembleIfNeeded()
 
             // "in 7 h 20 min" is only true for a minute at a time.
             val minuteNow = System.currentTimeMillis() / 60_000L
@@ -722,11 +736,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 updateCountdownUi()
             }
         }
-        // "Put everything back" panic button from settings.
-        if (prefs.getBoolean(Prefs.REASSEMBLE_PENDING, false)) {
-            prefs.edit().putBoolean(Prefs.REASSEMBLE_PENDING, false).apply()
-            reassembleEverything()
-        }
         offerToCallOffTheNag()
         // The store is not ours alone. The assistant adds alarms through
         // ClockIntentActivity, and a one-shot switches itself off from the
@@ -1053,14 +1062,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             .setOnClickListener { goTo(Card.REVERSE) }
         settingsButton = root.findViewById<ImageButton>(R.id.settings_button).also { button ->
             button.setOnClickListener {
-                // Let settings know whether the panic button should be offered.
-                prefs.edit()
-                    .putBoolean(Prefs.NEEDS_REASSEMBLY, sceneIsDisarranged())
-                    .apply()
                 // Opening our own settings is not "leaving the app": don't
                 // fire up the countdown notification and floating bubble.
                 openingSettings = true
                 startActivity(Intent(this, SettingsActivity::class.java))
+            }
+        }
+        reassembleButton = root.findViewById<ImageButton>(R.id.reassemble_button).also { button ->
+            button.setOnClickListener {
+                reassembleEverything()
+                showReassembleIfNeeded()
             }
         }
         alarmSetBanner = root.findViewById(R.id.alarm_set_banner)
@@ -1386,6 +1397,26 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** For the tests: the card builder, which decides the marks on a row. */
     internal fun alarmCardsForTest(): AlarmCards = alarmCards
 
+    /**
+     * For the tests: wind [alarm]'s time to [hour]:[minute] the way the dial
+     * does, and hand back the draft the sheet would reopen with.
+     *
+     * The whole point being what it does *not* touch. Winding used to write
+     * straight onto the stored alarm, which is why pulling the sheet down
+     * afterwards asked nothing and kept nothing.
+     */
+    internal fun windAndConfirmForTest(alarm: Alarm, hour: Int, minute: Int): Alarm {
+        val draft = alarm.copy(extraTimes = alarm.extraTimes.toMutableList())
+        dialJob = DialJob.AlarmTime(alarm, draft, isNew = false, timeIndex = 0)
+        alarmWorkingMs = (hour * 60L + minute) * 60_000L
+        confirmAlarmSet()
+        return draft
+    }
+
+    /** For the tests: whether the toolbox is being offered. */
+    internal fun reassembleShowing(): Boolean =
+        reassembleButton?.visibility == View.VISIBLE
+
     /** The same, for the tests: saving is the step that lost two settings. */
     internal fun commitDraftForTest(target: Alarm, draft: Alarm, isNew: Boolean) =
         commitDraft(target, draft, isNew)
@@ -1466,15 +1497,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val minute = (ms / 60_000L % 60L).toInt()
         dialJob = when (job) {
             is DialJob.AlarmTime -> {
-                job.target.setTime(job.timeIndex, hour, minute)
-                // The sheet edits a copy and is about to come back: the copy
-                // has to learn what was wound, or it would reopen showing the
-                // old time and write it back on save.
+                // Into the draft and *only* into the draft. The sheet edits a
+                // copy and nothing is committed until Save — and the time
+                // used to be the one field that broke that rule, writing
+                // itself straight onto the real alarm on the way back.
+                //
+                // Which is why winding a time and then pulling the sheet
+                // down asked nothing and kept nothing: the draft and the
+                // stored alarm already agreed, so there was no unsaved
+                // change to warn about, and the one place the new time
+                // lived was a draft nobody was going to commit.
                 job.draft.setTime(job.timeIndex, hour, minute)
-                persistAlarms()
-                // Confirmed, so it is an alarm like any other now — no longer
-                // the provisional one the exit would take away.
-                job.copy(isNew = false)
+                job
             }
             is DialJob.AlarmLength -> {
                 val (h, m) = job.draft.timeAt(0)
@@ -2312,6 +2346,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         lastVisibleDial = now
     }
 
+    /** The toolbox appears with the mess and goes with it. */
+    private fun showReassembleIfNeeded() {
+        val wanted = dialJob == null && row == Row.MIDDLE && sceneIsDisarranged()
+        reassembleButton?.visibility = if (wanted) View.VISIBLE else View.GONE
+    }
+
     private fun sceneIsDisarranged(): Boolean =
         clockView?.isDisarranged() == true ||
             stopwatchClockView?.isDisarranged() == true ||
@@ -2379,6 +2419,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // Bubbles belong to the clock, and fade with it.
         fadeCard(bubbleLayer, row == Row.MIDDLE && !setting, raise = false)
         settingsButton?.visibility = if (setting) View.GONE else View.VISIBLE
+        showReassembleIfNeeded()
         // The dial that is about to appear starts its hands where the one
         // leaving has them, and covers the distance itself. Seeded before
         // the swap, so the first frame it draws is already on its way — and

@@ -196,7 +196,7 @@
 
             <TextView
                 style="@style/AlarmSheetRowTitle"
-                android:text="@string/pref_alarm_flash_title" />
+                android:text="@string/alarm_flash" />
 
             <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/sheet_flash"

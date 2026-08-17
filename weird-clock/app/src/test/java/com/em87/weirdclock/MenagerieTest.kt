@@ -81,12 +81,31 @@ class MenagerieTest {
      */
     @Test
     fun `every alarm sound makes a noise and none of them clips`() {
-        for (sound in Prefs.ALARM_SOUNDS) {
+        for (sound in Prefs.ALARM_SOUNDS - Prefs.ALARM_SOUND_SILENT) {
             val b = player.namedBuffer(sound)
             assertTrue("$sound is silent", peak(b) > 0.05f)
             assertTrue("$sound peaks at ${peak(b)} and would clip", peak(b) <= 1f)
             assertTrue("$sound is over before it starts", b.size > rate / 4)
         }
+    }
+
+    /**
+     * Except the one that is meant to be, which really is.
+     *
+     * "Silent" is a sound this app makes, and it has to be made properly:
+     * not a quiet sound, not a sound at the bottom of the volume ramp —
+     * nothing at all, so that an alarm chosen to wake one person without
+     * waking the other stays that way however the volume is set.
+     */
+    @Test
+    fun `silence is silent`() {
+        assertEquals(
+            0f, peak(player.namedBuffer(Prefs.ALARM_SOUND_SILENT)), 0f
+        )
+        assertTrue(
+            "and it still comes round often enough to keep the torch going",
+            player.gapAfter(Prefs.ALARM_SOUND_SILENT) <= 3000L
+        )
     }
 
     /**
@@ -100,7 +119,7 @@ class MenagerieTest {
     @Test
     fun `no voice is much louder than the bells`() {
         val reference = rms(bells())
-        for (sound in Prefs.ALARM_SOUNDS) {
+        for (sound in Prefs.ALARM_SOUNDS - Prefs.ALARM_SOUND_SILENT) {
             val ratio = rms(player.namedBuffer(sound)) / reference
             assertTrue(
                 "$sound sits at ${"%.2f".format(ratio)}× the bells",
@@ -119,7 +138,7 @@ class MenagerieTest {
      */
     @Test
     fun `every voice is over before it goes again`() {
-        for (sound in Prefs.ALARM_SOUNDS) {
+        for (sound in Prefs.ALARM_SOUNDS - Prefs.ALARM_SOUND_SILENT) {
             val lengthMs = player.namedBuffer(sound).size * 1000L / rate
             val gap = player.gapAfter(sound)
             assertTrue(

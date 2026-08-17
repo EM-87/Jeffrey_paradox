@@ -13,14 +13,6 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <!-- The panic button, which only appears when something is lying at the
-         bottom of the dial. Above the categories because when it is showing
-         it is the only thing you came for. -->
-    <Preference
-        android:key="pref_reassemble"
-        android:summary="@string/pref_reassemble_summary"
-        android:title="@string/pref_reassemble_title" />
-
     <PreferenceCategory android:title="@string/category_dial">
 
         <SwitchPreferenceCompat
@@ -75,15 +67,19 @@
 
         <ListPreference
             android:defaultValue="count"
-            android:dependency="pref_bells"
             android:entries="@array/bell_style_entries"
             android:entryValues="@array/bell_style_values"
             android:key="pref_bell_style"
             android:title="@string/pref_bell_style_title"
             app:useSimpleSummaryProvider="true" />
 
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_bells_background"
+            android:summary="@string/pref_bells_background_summary"
+            android:title="@string/pref_bells_background_title" />
+
         <Preference
-            android:dependency="pref_bells"
             android:key="pref_test_bells"
             android:summary="@string/pref_test_bells_summary"
             android:title="@string/pref_test_bells_title" />

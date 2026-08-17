@@ -72,12 +72,12 @@
     <string name="alarm_quick_everyday">Todos</string>
     <string name="alarm_vibrate">Vibración</string>
     <string name="alarm_gentle">Despertar suave</string>
-    <string name="alarm_gentle_off">De golpe</string>
-    <string name="alarm_gentle_sec">Sube en %1$d s</string>
-    <string name="alarm_gentle_min">Sube en %1$d min</string>
+    <string name="alarm_gentle_off">No</string>
+    <string name="alarm_gentle_sec">%1$d segundos</string>
+    <string name="alarm_gentle_min">%1$d minutos</string>
     <string name="alarm_mission">Misión antisueño</string>
-    <string name="alarm_mission_none">Ninguna: deslizar para parar</string>
-    <string name="alarm_mission_maths_level">Cuentas · nivel %1$d</string>
+    <string name="alarm_mission_none">No</string>
+    <string name="alarm_mission_maths_level">Nivel %1$d</string>
     <string name="a11y_hand_hour">Aguja horaria</string>
     <string name="a11y_hand_minute">Minutero</string>
     <string name="a11y_hand_second">Segundero</string>
@@ -107,19 +107,17 @@
     <string name="alarm_sound_wolf">Lobo</string>
     <string name="alarm_sound_dog">Perro</string>
     <string name="pref_moon_phase_title">Fase lunar</string>
-    <string name="pref_moon_phase_summary">Un solo símbolo abajo en la esfera con lo que hay de verdad ahí fuera: el sol mientras el sol está alto donde estás, y si no la luna con su fase. Útil en interiores sin ventana. Necesita una medición de ubicación para el orto; sin ella se queda en la luna.</string>
+    <string name="pref_moon_phase_summary">El sol mientras el sol está alto donde estás, y si no la luna con su fase. Usa tu ubicación.</string>
     <string name="pref_alarm_markers_title">Alarmas en la esfera</string>
     <string name="pref_alarm_markers_summary">Las alarmas activas se dibujan como marcadores en su hora sobre la esfera</string>
     <string name="alarm_snooze">Posponer</string>
     <string name="alarm_snooze_fmt">Posponer %1$d min</string>
-    <string name="alarm_snooze_min">Posponer: %1$d min</string>
-    <string name="alarm_snooze_off">Posponer: no</string>
+    <string name="alarm_snooze_min">%1$d minutos</string>
+    <string name="alarm_snooze_off">No</string>
     <string name="alarm_sound_custom">Tu propio archivo</string>
     <string name="alarm_once">Una vez</string>
 
     <string name="pref_reassemble_title">Recolocar</string>
-    <string name="pref_reassemble_summary">Vuelve a montar de golpe las manecillas y números caídos</string>
-    <string name="reassemble_done">Todo en su sitio</string>
     <string name="pref_bells_background_title">Sonar con la app cerrada</string>
     <string name="pref_bells_background_summary">Las campanas dan las horas desde segundo plano, rearmándose solas cada vez</string>
     <string name="bells_channel_name">Campanadas horarias</string>
@@ -140,7 +138,6 @@
     <string name="pref_countdown_persistent_summary">Al terminar la cuenta atrás, suena hasta que la valides</string>
     <string name="pref_solar_time_title">Hora del sol</string>
     <string name="pref_solar_time_summary">Todo el reloj corre en hora solar aparente local: el mediodía es cuando el sol cruza de verdad tu meridiano (una lectura de ubicación aproximada; las alarmas siguen en hora civil)</string>
-    <string name="pref_alarm_flash_title">Linterna al sonar</string>
     <string name="pref_alarm_ramp_title">Volumen creciente de alarma</string>
     <string name="pref_alarm_ramp_summary">Las alarmas empiezan suaves y suben a volumen completo en un minuto</string>
     <string name="alarm_label_title">Etiqueta de la alarma</string>
@@ -294,4 +291,6 @@
         <item quantity="one">Una vez, y a levantarse</item>
         <item quantity="other">%d veces, y a levantarse</item>
     </plurals>
+    <string name="alarm_sound_silent">Silencio: solo linterna y vibración</string>
+    <string name="alarm_flash">Flash</string>
 </resources>

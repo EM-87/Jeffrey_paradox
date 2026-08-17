@@ -626,6 +626,12 @@ class ChimePlayer {
      * be opened — and, for the same reason, what the picker previews.
      */
     fun playNamed(sound: String): Long {
+        // Silence is a sound this app can make, and it has to be made
+        // properly: nothing played, and a gap short enough that the loop
+        // still comes round often — because the vibration and the torch
+        // are driven by their own loops and the ringing has to stay
+        // "ringing" for as long as they do.
+        if (sound == Prefs.ALARM_SOUND_SILENT) return gapAfter(sound)
         val buffer = namedBuffer(sound)
         thread(name = "alarm-synth") { playFloatBuffer(buffer) }
         return gapAfter(sound)
@@ -640,6 +646,8 @@ class ChimePlayer {
      * reason.
      */
     internal fun namedBuffer(sound: String): FloatArray = when (sound) {
+        // A second of nothing, which is what silence sounds like.
+        Prefs.ALARM_SOUND_SILENT -> FloatArray(SAMPLE_RATE)
         Prefs.ALARM_SOUND_DIGITAL -> digitalBuffer()
         Prefs.ALARM_SOUND_BABY -> babyCryBuffer()
         Prefs.ALARM_SOUND_RING_BELL -> ringBellBuffer()
@@ -652,6 +660,7 @@ class ChimePlayer {
 
     /** And how long to leave before going again. */
     internal fun gapAfter(sound: String): Long = when (sound) {
+        Prefs.ALARM_SOUND_SILENT -> 2000L
         Prefs.ALARM_SOUND_DIGITAL -> 1300L
         Prefs.ALARM_SOUND_BABY -> 4200L
         Prefs.ALARM_SOUND_RING_BELL -> 5200L

@@ -97,11 +97,21 @@ class NightBar @JvmOverloads constructor(
     private fun left() = paddingLeft + pinRadius
     private fun span() = (width - paddingLeft - paddingRight - 2f * pinRadius).coerceAtLeast(1f)
 
+    /** For the tests: where hour zero sits, one pin in from the edge. */
+    internal fun leftEndForTest(): Float = left()
+
     private fun xOf(hour: Float): Float = left() + hour / NightWindow.HOURS * span()
 
-    /** The hour under a finger at [x], as a fraction of the day. */
+    /**
+     * The hour under a finger at [x], as a fraction of the day.
+     *
+     * Not clamped: a finger that has run off the end of the bar is still
+     * saying something, and what it is saying is "keep going" — see
+     * [moveTo], which takes it round. Clamped, the two hours either side of
+     * midnight were the only two on the bar a drag could not reach.
+     */
     internal fun hourAt(x: Float): Float =
-        ((x - left()) / span() * NightWindow.HOURS).coerceIn(0f, NightWindow.HOURS.toFloat())
+        (x - left()) / span() * NightWindow.HOURS
 
     override fun onDraw(canvas: Canvas) {
         val midY = (height + paddingTop - paddingBottom) / 2f
@@ -171,16 +181,29 @@ class NightBar @JvmOverloads constructor(
 
     override fun performClick(): Boolean = super.performClick()
 
-    /** Puts whichever pin is held on the nearest hour mark. */
+    /**
+     * Puts whichever pin is held on the nearest hour mark, going round.
+     *
+     * Round, because a day is. Ten at night to midnight is *forwards*, and
+     * forwards on this bar is rightwards — so dragging the entry pin from
+     * 22 towards the right-hand end and on is the natural way to ask for a
+     * night that starts at midnight. It used to stop dead at 23: the band
+     * could wrap midnight but the pin could not, and the only way to reach
+     * hour 0 was to drag the whole way back round the other side, which is
+     * a thing nobody thinks of doing.
+     */
     internal fun moveTo(x: Float) {
         val entry = holding ?: return
-        // Rounded to the mark, and never onto the far end: midnight is the
-        // left-hand end of this bar, and a pin at both ends at once would be
-        // two names for the same instant.
-        val hour = hourAt(x).roundToInt().coerceIn(0, NightWindow.HOURS - 1)
+        val hour = wrapped(hourAt(x))
         if (entry) from = hour else to = hour
         invalidate()
         onChanged?.invoke(from, to)
+    }
+
+    /** An hour off the end of the bar comes back on at the other end. */
+    private fun wrapped(hour: Float): Int {
+        val rounded = hour.roundToInt()
+        return ((rounded % NightWindow.HOURS) + NightWindow.HOURS) % NightWindow.HOURS
     }
 
     /** For the tests: take hold of a pin without a MotionEvent. */
