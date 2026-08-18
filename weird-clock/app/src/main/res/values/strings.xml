@@ -7,13 +7,13 @@
     <string name="category_dial">Dial</string>
     <string name="pref_theme_title">Theme</string>
     <string name="pref_hours_preset_title">Hours on the dial</string>
-    <string name="pref_hours_custom_title">Custom hours</string>
+    <string name="pref_hours_custom_title">How many</string>
     <string name="pref_dial_shape_title">Dial shape</string>
     <string name="pref_numerals_title">Numerals</string>
     <string name="pref_mirror_title">Mirror mode</string>
     <string name="pref_mirror_summary">The clock runs counterclockwise, as seen in a mirror</string>
     <string name="pref_show_date_title">Show date</string>
-    <string name="pref_show_date_summary">A date complication on the dial</string>
+    <string name="pref_show_date_summary">A small date under the centre of the dial</string>
     <string name="pref_date_format_title">Date format</string>
 
     <string name="pref_second_hand_title">Second hand</string>
@@ -35,7 +35,7 @@
     <string name="pref_ticking_title">Ticking sound</string>
     <string name="pref_ticking_summary">A mechanical tick every second</string>
     <string name="pref_test_bells_title">Test the bells</string>
-    <string name="pref_test_bells_summary">Play a sample of the selected bell style</string>
+    <string name="pref_test_bells_summary">Hear the style above</string>
 
     <string name="category_time">Time itself</string>
     <string name="pref_time_speed_title" formatted="false">Time speed (%)</string>
@@ -171,11 +171,11 @@
     <string name="pref_past_days_title">Days already gone</string>
     <string name="pref_past_days_summary">Mark the days behind you — they can no longer be scheduled, only read</string>
     <string name="pref_very_advanced_title">Too-advanced options</string>
-    <string name="pref_very_advanced_summary">Hours on the dial, mirror mode, the speed of time, touch physics… you were warned twice</string>
+    <string name="pref_very_advanced_summary">What answers to a finger, what can make the clock lie, and your backup. Careful in here.</string>
     <string name="pref_system_time_title">System date &amp; time</string>
     <string name="pref_system_time_summary">Resync with the network or set the clock by hand (Android only lets the system itself do this)</string>
     <string name="pref_advanced_title">Advanced options</string>
-    <string name="pref_advanced_summary">At your own risk: hours on the dial, dial shape, mirror mode, touch physics, time speed…</string>
+    <string name="pref_advanced_summary">Numerals, dial shape, and how alarms behave. Set once and forgotten.</string>
     <string name="alarm_channel_name">Alarms</string>
     <string name="alarm_ringing">Weird Clock alarm</string>
     <string name="alarm_stop">Stop</string>
@@ -203,7 +203,7 @@
     <string name="reminder_hint">What needs remembering?</string>
     <string name="reminder_untitled">Reminder</string>
     <string name="pref_night_dim_title">Automatic night mode</string>
-    <string name="pref_night_dim_summary" formatted="false">From 22:00 to 07:00 the dial dims to 30% so it doesn’t light the bedroom</string>
+    <string name="pref_night_dim_summary" formatted="false">The dial dims over the hours below, so it doesn’t light the bedroom</string>
     <string name="overlay_intro_title">The floating hourglass</string>
     <string name="overlay_intro_message">When a countdown is running and you leave the app, a little hourglass can float over everything else, draining in real time. It needs the draw-over-apps permission — grant it now and forget about it, or do it later from Settings.</string>
     <string name="overlay_intro_grant">Allow</string>
@@ -223,9 +223,9 @@
 
     <string name="category_backup">Backup</string>
     <string name="pref_backup_export_title">Save a backup</string>
-    <string name="pref_backup_export_summary">Writes alarms, reminders and every setting to a file you choose. Reinstalling the app wipes them otherwise.</string>
+    <string name="pref_backup_export_summary">Writes alarms, reminders and every setting to a file you choose — reinstalling the app wipes them otherwise</string>
     <string name="pref_backup_import_title">Restore a backup</string>
-    <string name="pref_backup_import_summary">Reads a file saved here and replaces everything with it.</string>
+    <string name="pref_backup_import_summary">Reads a file saved here and replaces everything with it</string>
     <string name="backup_saved">Backup saved</string>
     <string name="backup_failed">Could not write the backup</string>
     <string name="backup_restored">Restored: %1$d alarms, %2$d reminders</string>
@@ -268,8 +268,8 @@
     <string name="a11y_longer">Longer</string>
     <string name="a11y_shorter">Shorter</string>
     <string name="pref_ring_timeout_title">How long an alarm rings</string>
-    <string name="pref_ring_timeout_summary">Unattended, it gives up after this and leaves a note saying it rang.</string>
-    <string name="pref_snooze_limit_title">Times an alarm may be snoozed</string>
+    <string name="pref_ring_timeout_summary">Unattended, it gives up after this and leaves a note saying it rang</string>
+    <string name="pref_snooze_limit_title">Snooze limit</string>
     <string name="pref_night_window_title">Night hours</string>
     <string name="pref_night_window_off">No dimming — both pins on the same hour</string>
     <string name="mission_check">Stop the alarm</string>
@@ -284,11 +284,13 @@
     <string name="pref_version_title">Version</string>
     <string name="pref_gentle_flash_title">Torch after a gentle wake</string>
     <string name="pref_gentle_flash_summary">When the gradual sunrise has had its go and you are still asleep, the torch takes over</string>
-    <string name="alarm_snooze_limit_none">As often as you like</string>
+    <string name="alarm_snooze_limit_none">Off</string>
     <plurals name="alarm_snooze_limit_times">
-        <item quantity="one">Once, then get up</item>
-        <item quantity="other">%d times, then get up</item>
+        <item quantity="one">Once</item>
+        <item quantity="other">%d times</item>
     </plurals>
-    <string name="alarm_sound_silent">Silent — torch and buzz only</string>
+    <string name="alarm_sound_silent">Silent</string>
     <string name="alarm_flash">Flash</string>
+    <string name="alarm_sound_title">Sound</string>
+    <string name="pref_date_order_title">Day or month first</string>
 </resources>

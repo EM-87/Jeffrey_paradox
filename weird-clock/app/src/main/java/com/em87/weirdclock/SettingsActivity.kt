@@ -73,6 +73,23 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
+        /**
+         * Shows [children] only while the preference [key] is on, wherever
+         * that preference lives.
+         *
+         * The sibling version above needs both rows on one screen, because
+         * that is all `android:dependency` and a change listener can see.
+         * This one reads the stored value instead, for the case where the
+         * switch and the question it governs belong on different screens —
+         * whether the dial shows a date at all is something you decide once
+         * and forget, and how it is written is a decision for the screen
+         * where the rest of the dial's spelling lives.
+         */
+        protected fun visibleWhen(key: String, vararg children: String) {
+            val on = preferenceManager.sharedPreferences?.getBoolean(key, false) == true
+            children.forEach { findPreference<Preference>(it)?.isVisible = on }
+        }
+
         protected fun go(screen: PreferenceFragmentCompat) {
             parentFragmentManager.beginTransaction()
                 .replace(R.id.settings_container, screen)
@@ -218,7 +235,6 @@ class SettingsActivity : AppCompatActivity() {
             // row still costs a line of scrolling and still has to be read
             // past to find out it is not the one you want.
             follows(Prefs.NIGHT_DIM, Prefs.NIGHT_WINDOW)
-            follows(Prefs.SHOW_DATE, Prefs.DATE_FORMAT)
             follows(
                 Prefs.BELLS,
                 Prefs.BELL_MARKS, Prefs.BELL_STYLE, Prefs.TEST_BELLS, Prefs.BELLS_BACKGROUND
@@ -417,6 +433,9 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.advanced_preferences, rootKey)
+            // How a date is written is no question at all while the dial is
+            // not showing one, and that switch lives on the first screen.
+            visibleWhen(Prefs.SHOW_DATE, Prefs.DATE_FORMAT, Prefs.DATE_ORDER)
 
             // How many hours the dial carries is a list, and "some other
             // number" is one of its answers; the slider that asks which is

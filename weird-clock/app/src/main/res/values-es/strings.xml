@@ -6,13 +6,13 @@
     <string name="category_dial">Esfera</string>
     <string name="pref_theme_title">Tema</string>
     <string name="pref_hours_preset_title">Horas en la esfera</string>
-    <string name="pref_hours_custom_title">Horas personalizadas</string>
+    <string name="pref_hours_custom_title">Cuántas</string>
     <string name="pref_dial_shape_title">Forma de la esfera</string>
     <string name="pref_numerals_title">Numeración</string>
     <string name="pref_mirror_title">Modo espejo</string>
     <string name="pref_mirror_summary">El reloj gira en sentido antihorario, como visto en un espejo</string>
     <string name="pref_show_date_title">Mostrar fecha</string>
-    <string name="pref_show_date_summary">Una complicación de fecha en la esfera</string>
+    <string name="pref_show_date_summary">Una fecha pequeña bajo el centro de la esfera</string>
     <string name="pref_date_format_title">Formato de fecha</string>
 
     <string name="pref_second_hand_title">Segundero</string>
@@ -34,7 +34,7 @@
     <string name="pref_ticking_title">Tictac</string>
     <string name="pref_ticking_summary">Un tic mecánico cada segundo</string>
     <string name="pref_test_bells_title">Probar las campanas</string>
-    <string name="pref_test_bells_summary">Reproduce una muestra del estilo de campana seleccionado</string>
+    <string name="pref_test_bells_summary">Oye el estilo de arriba</string>
 
     <string name="category_time">El tiempo mismo</string>
     <string name="pref_time_speed_title" formatted="false">Velocidad del tiempo (%)</string>
@@ -125,11 +125,11 @@
     <string name="pref_past_days_title">Días ya pasados</string>
     <string name="pref_past_days_summary">Marca los días que quedaron atrás: ya no se pueden programar, solo consultar</string>
     <string name="pref_very_advanced_title">Opciones demasiado avanzadas</string>
-    <string name="pref_very_advanced_summary">Horas de la esfera, modo espejo, la velocidad del tiempo, físicas táctiles… avisado quedas, por segunda vez</string>
+    <string name="pref_very_advanced_summary">Lo que responde al dedo, lo que puede hacer mentir al reloj, y tu copia de seguridad. Cuidado aquí dentro.</string>
     <string name="pref_system_time_title">Fecha y hora del sistema</string>
     <string name="pref_system_time_summary">Resincroniza con la red o ajusta la hora a mano (Android solo permite hacerlo al propio sistema)</string>
     <string name="pref_advanced_title">Opciones avanzadas</string>
-    <string name="pref_advanced_summary">Bajo tu responsabilidad: horas de la esfera, forma de la esfera, modo espejo, físicas táctiles, velocidad del tiempo…</string>
+    <string name="pref_advanced_summary">Números, forma de la esfera, y cómo se comportan las alarmas. Se ponen una vez y se olvidan.</string>
     <string name="alarm_channel_name">Alarmas</string>
     <string name="alarm_ringing">Alarma de Weird Clock</string>
     <string name="alarm_stop">Detener</string>
@@ -157,7 +157,7 @@
     <string name="reminder_hint">¿Qué hay que recordar?</string>
     <string name="reminder_untitled">Recordatorio</string>
     <string name="pref_night_dim_title">Modo noche automático</string>
-    <string name="pref_night_dim_summary" formatted="false">De 22:00 a 07:00 la esfera se atenúa al 30% para no iluminar el dormitorio</string>
+    <string name="pref_night_dim_summary" formatted="false">La esfera se atenúa durante las horas de abajo, para no iluminar el dormitorio</string>
     <string name="overlay_intro_title">El reloj de arena flotante</string>
     <string name="overlay_intro_message">Cuando una cuenta atrás corre y sales de la app, un pequeño reloj de arena puede flotar sobre todo lo demás, vaciándose en tiempo real. Necesita el permiso de superposición: concédelo ahora y olvídate, o hazlo más tarde desde Ajustes.</string>
     <string name="overlay_intro_grant">Permitir</string>
@@ -225,9 +225,9 @@
 
     <string name="category_backup">Copia de seguridad</string>
     <string name="pref_backup_export_title">Guardar una copia</string>
-    <string name="pref_backup_export_summary">Escribe alarmas, recordatorios y todos los ajustes en el archivo que elijas. Reinstalar la app se los lleva por delante.</string>
+    <string name="pref_backup_export_summary">Escribe alarmas, recordatorios y todos los ajustes en un fichero que elijas — reinstalar la app se los lleva</string>
     <string name="pref_backup_import_title">Restaurar una copia</string>
-    <string name="pref_backup_import_summary">Lee un archivo guardado aquí y lo sustituye todo por él.</string>
+    <string name="pref_backup_import_summary">Lee un fichero guardado aquí y lo reemplaza todo con él</string>
     <string name="backup_saved">Copia guardada</string>
     <string name="backup_failed">No se pudo escribir la copia</string>
     <string name="backup_restored">Restaurado: %1$d alarmas, %2$d recordatorios</string>
@@ -270,8 +270,8 @@
     <string name="a11y_longer">Más largo</string>
     <string name="a11y_shorter">Más corto</string>
     <string name="pref_ring_timeout_title">Cuánto suena una alarma</string>
-    <string name="pref_ring_timeout_summary">Si nadie la atiende se rinde al cabo de este tiempo y deja una nota diciendo que sonó.</string>
-    <string name="pref_snooze_limit_title">Veces que se puede posponer una alarma</string>
+    <string name="pref_ring_timeout_summary">Sin atender, se rinde tras esto y deja una nota diciendo que sonó</string>
+    <string name="pref_snooze_limit_title">Límite de posposiciones</string>
     <string name="pref_night_window_title">Horario nocturno</string>
     <string name="pref_night_window_off">Sin atenuar: los dos pines en la misma hora</string>
     <string name="mission_check">Parar la alarma</string>
@@ -286,11 +286,13 @@
     <string name="pref_version_title">Versión</string>
     <string name="pref_gentle_flash_title">Linterna tras el amanecer</string>
     <string name="pref_gentle_flash_summary">Cuando el amanecer gradual ha hecho lo que ha podido y sigues dormido, entra la linterna</string>
-    <string name="alarm_snooze_limit_none">Las veces que quieras</string>
+    <string name="alarm_snooze_limit_none">No</string>
     <plurals name="alarm_snooze_limit_times">
-        <item quantity="one">Una vez, y a levantarse</item>
-        <item quantity="other">%d veces, y a levantarse</item>
+        <item quantity="one">Una vez</item>
+        <item quantity="other">%d veces</item>
     </plurals>
-    <string name="alarm_sound_silent">Silencio: solo linterna y vibración</string>
+    <string name="alarm_sound_silent">Silencio</string>
     <string name="alarm_flash">Flash</string>
+    <string name="alarm_sound_title">Sonido</string>
+    <string name="pref_date_order_title">Día o mes primero</string>
 </resources>

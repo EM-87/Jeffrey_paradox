@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -120,6 +121,44 @@ class NightBarTest {
         assertEquals("00:00 – 23:00", NightWindow.label(0, 23))
     }
 
+    /**
+     * The bar is grabbed by its pins and nowhere else.
+     *
+     * It used to take hold anywhere along its length and jump the nearer
+     * pin to the finger — so a scroll of the settings list that happened to
+     * start on the bar changed the hours on the way past, silently. The
+     * rest of the bar belongs to the list.
+     */
+    @Test
+    fun `only the pins take hold, and the rest belongs to the list`() {
+        val bar = bar()
+        bar.setWindow(22, 7)
+        assertNotNull("the entry pin", bar.pinUnderForTest(bar.xOfForTest(22f)))
+        assertNotNull("the exit pin", bar.pinUnderForTest(bar.xOfForTest(7f)))
+        assertEquals("and it knows which is which", true, bar.pinUnderForTest(bar.xOfForTest(22f)))
+        assertEquals(false, bar.pinUnderForTest(bar.xOfForTest(7f)))
+
+        for (hour in intArrayOf(2, 4, 12, 15, 18)) {
+            assertNull(
+                "hour $hour is nowhere near a pin and the bar took it anyway",
+                bar.pinUnderForTest(bar.xOfForTest(hour.toFloat()))
+            )
+        }
+    }
+
+    /** And a touch on the bare track is handed back, so the list can scroll. */
+    @Test
+    fun `a touch away from the pins is not consumed`() {
+        val bar = bar()
+        bar.setWindow(22, 7)
+        val away = bar.xOfForTest(12f)
+        val event = android.view.MotionEvent.obtain(
+            0, 0, android.view.MotionEvent.ACTION_DOWN, away, 10f, 0
+        )
+        assertFalse("the bar swallowed a scroll", bar.onTouchEvent(event))
+        assertEquals("and moved a pin while it was at it", 22, bar.from)
+    }
+
     // ------------------------------------------------------- the toolbox
 
     /**
@@ -180,7 +219,7 @@ class NightBarTest {
             R.xml.root_preferences to setOf(
                 // Dial
                 "pref_night_dim", "pref_night_window", "pref_theme",
-                "pref_show_date", "pref_date_format",
+                "pref_show_date",
                 // Alarm
                 "pref_bells", "pref_bell_marks", "pref_bell_style", "pref_test_bells",
                 "pref_bells_background",
@@ -193,7 +232,8 @@ class NightBarTest {
             ),
             R.xml.advanced_preferences to setOf(
                 "pref_numerals", "pref_dial_shape", "pref_hours_preset",
-                "pref_hours_custom", "pref_mirror",
+                "pref_hours_custom", "pref_date_format", "pref_date_order",
+                "pref_mirror",
                 "pref_alarm_ramp", "pref_ring_timeout",
                 "pref_countdown_persistent", "pref_alarm_style",
                 "pref_gentle_flash", "pref_alarm_markers",
@@ -276,7 +316,6 @@ class NightBarTest {
         for ((screen, pairs) in mapOf<() -> androidx.preference.PreferenceFragmentCompat?, List<Pair<String, String>>>(
             { null } to listOf(
                 Prefs.NIGHT_DIM to Prefs.NIGHT_WINDOW,
-                Prefs.SHOW_DATE to Prefs.DATE_FORMAT,
                 Prefs.BELLS to Prefs.BELL_MARKS,
                 Prefs.BELLS to Prefs.BELL_STYLE,
                 Prefs.BELLS to Prefs.TEST_BELLS,

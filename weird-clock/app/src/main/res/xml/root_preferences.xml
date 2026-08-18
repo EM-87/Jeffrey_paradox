@@ -39,14 +39,6 @@
             android:summary="@string/pref_show_date_summary"
             android:title="@string/pref_show_date_title" />
 
-        <ListPreference
-            android:defaultValue="number"
-            android:entries="@array/date_format_entries"
-            android:entryValues="@array/date_format_values"
-            android:key="pref_date_format"
-            android:title="@string/pref_date_format_title"
-            app:useSimpleSummaryProvider="true" />
-
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/category_alarms">

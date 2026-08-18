@@ -124,6 +124,16 @@ class ClockView @JvmOverloads constructor(
         set(value) { field = value; invalidate() }
     var dateFormatStyle = DateFormatStyle.NUMBER
         set(value) { field = value; invalidate() }
+
+    /**
+     * Which way round the two numbers go. See [DateShape].
+     *
+     * Resolved to a plain boolean by whoever sets it, because "what does
+     * the phone say" is a question for a Context and this is a view that
+     * would rather be told.
+     */
+    var dateDayFirst = true
+        set(value) { field = value; invalidate() }
     var touchHandsEnabled = true
     var pinchZoomEnabled = true
     /** The seven-segment readout under the dial. */
@@ -465,8 +475,21 @@ class ClockView @JvmOverloads constructor(
         typeface = android.graphics.Typeface.DEFAULT_BOLD
     }
 
-    private val numberDateFormat by lazy { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
-    private val textDateFormat by lazy { SimpleDateFormat("EEE d MMM", Locale.getDefault()) }
+    // Rebuilt when the order changes rather than held for ever: it changes
+    // once in the life of an install, and a stale pattern is a date written
+    // the way somebody has just said they do not write dates.
+    private var numberDateFormat = SimpleDateFormat(DateShape.numberPattern(true), Locale.getDefault())
+    private var textDateFormat = SimpleDateFormat(DateShape.textPattern(true), Locale.getDefault())
+    private var formatsBuiltDayFirst = true
+
+    private fun dateFormats(): Pair<SimpleDateFormat, SimpleDateFormat> {
+        if (formatsBuiltDayFirst != dateDayFirst) {
+            numberDateFormat = SimpleDateFormat(DateShape.numberPattern(dateDayFirst), Locale.getDefault())
+            textDateFormat = SimpleDateFormat(DateShape.textPattern(dateDayFirst), Locale.getDefault())
+            formatsBuiltDayFirst = dateDayFirst
+        }
+        return numberDateFormat to textDateFormat
+    }
     private val cal: Calendar = Calendar.getInstance()
 
     private var selectedColor = 0
@@ -3799,15 +3822,16 @@ class ClockView @JvmOverloads constructor(
 
     private fun dateText(): String {
         cal.timeInMillis = displayNowMs() + (visualOffsetSeconds * 1000.0).toLong()
+        val (number, text) = dateFormats()
         return when (dateFormatStyle) {
-            DateFormatStyle.NUMBER -> numberDateFormat.format(Date(cal.timeInMillis))
-            DateFormatStyle.TEXT -> textDateFormat.format(Date(cal.timeInMillis))
-            DateFormatStyle.ROMAN -> {
-                val day = Roman.of(cal.get(Calendar.DAY_OF_MONTH))
-                val month = Roman.of(cal.get(Calendar.MONTH) + 1)
-                val year = Roman.of(cal.get(Calendar.YEAR))
-                "$day·$month·$year"
-            }
+            DateFormatStyle.NUMBER -> number.format(Date(cal.timeInMillis))
+            DateFormatStyle.TEXT -> text.format(Date(cal.timeInMillis))
+            DateFormatStyle.ROMAN -> DateShape.roman(
+                cal.get(Calendar.DAY_OF_MONTH),
+                cal.get(Calendar.MONTH) + 1,
+                cal.get(Calendar.YEAR),
+                dateDayFirst
+            )
         }
     }
 

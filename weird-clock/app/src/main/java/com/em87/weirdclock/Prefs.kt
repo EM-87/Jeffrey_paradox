@@ -8,6 +8,16 @@ object Prefs {
     const val THEME = "pref_theme"
     const val SHOW_DATE = "pref_show_date"
     const val DATE_FORMAT = "pref_date_format"
+
+    /**
+     * Day first or month first — see [DateShape].
+     *
+     * A different question from the one above, and the one people actually
+     * come looking for: "date format" is how it is *spelled* (digits, words
+     * or Roman numerals), and this is which of the two numbers means what.
+     * They were one row, which is why the wrong one kept being opened.
+     */
+    const val DATE_ORDER = "pref_date_order"
     const val MOON_PHASE = "pref_moon_phase"
     const val ALARM_MARKERS = "pref_alarm_markers"
     const val SECOND_HAND = "pref_second_hand"

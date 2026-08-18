@@ -183,13 +183,7 @@ class AlarmSheet(
             // it.
             snoozeLimitRow.visibility =
                 if (draft.snoozeMinutes > 0) View.VISIBLE else View.GONE
-            snoozeLimitValue.text = if (draft.snoozeLimit > 0) {
-                host.resources.getQuantityString(
-                    R.plurals.alarm_snooze_limit_times, draft.snoozeLimit, draft.snoozeLimit
-                )
-            } else {
-                host.getString(R.string.alarm_snooze_limit_none)
-            }
+            snoozeLimitValue.text = cards.snoozeLimitLabel(draft.snoozeLimit)
             view.findViewById<TextView>(R.id.sheet_gentle_value).text =
                 cards.gentleLabel(draft.gentleWakeSeconds)
             view.findViewById<TextView>(R.id.sheet_mission_value).text =
@@ -319,16 +313,18 @@ class AlarmSheet(
         }
 
         snoozeLimitRow.setOnClickListener {
-            val choices = intArrayOf(0, 1, 2, 3, 5, 10)
+            // The stored value joins the list if it is not already in it.
+            // An alarm carrying a limit from the version this was one
+            // number for the whole app can hold something the list does not
+            // offer — and a picker whose "current" is not among its choices
+            // silently ticks the first one instead, so opening it and
+            // pressing nothing changed the setting.
+            val choices = (intArrayOf(0, 1, 2, 3, 5, 10).toSortedSet() +
+                draft.snoozeLimit).toList()
             cards.pickFromList(
                 R.string.pref_snooze_limit_title,
-                choices.map {
-                    if (it == 0) host.getString(R.string.alarm_snooze_limit_none)
-                    else host.resources.getQuantityString(
-                        R.plurals.alarm_snooze_limit_times, it, it
-                    )
-                },
-                choices.indexOf(draft.snoozeLimit).coerceAtLeast(0)
+                choices.map { cards.snoozeLimitLabel(it) },
+                choices.indexOf(draft.snoozeLimit)
             ) { which ->
                 draft.snoozeLimit = choices[which]
                 refresh()

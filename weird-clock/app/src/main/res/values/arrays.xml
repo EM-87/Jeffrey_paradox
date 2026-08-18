@@ -159,4 +159,14 @@
         <item>10</item>
         <item>0</item>
     </string-array>
+    <string-array name="date_order_entries">
+        <item>As the phone writes them</item>
+        <item>Day first (15/03)</item>
+        <item>Month first (03/15)</item>
+    </string-array>
+    <string-array name="date_order_values">
+        <item>auto</item>
+        <item>day_first</item>
+        <item>month_first</item>
+    </string-array>
 </resources>

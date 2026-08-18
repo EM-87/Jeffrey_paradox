@@ -1939,6 +1939,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             Prefs.DATE_FORMAT_ROMAN -> ClockView.DateFormatStyle.ROMAN
             else -> ClockView.DateFormatStyle.NUMBER
         }
+        cv.dateDayFirst = DateShape.dayFirst(
+            DateShape.order(prefs.getString(Prefs.DATE_ORDER, DateShape.AUTO)),
+            phoneWritesDayFirst()
+        )
         // While a time is being wound the sky stays on whatever the setting
         // says, because there it is feedback rather than decoration — see
         // applyMode(). Without this, anything that reapplies preferences
@@ -2492,6 +2496,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         sandStartStop?.setText(if (countdownRunning) R.string.chrono_pause else R.string.chrono_start)
         syncS3DurationChecks()
     }
+
+    /**
+     * Which way round this phone writes dates.
+     *
+     * Asked of the system rather than guessed from the language: the two
+     * are not the same question, and somebody living somewhere that writes
+     * dates the other way round has already answered this once, in the
+     * place every other app on the phone reads it from.
+     */
+    private fun phoneWritesDayFirst(): Boolean =
+        android.text.format.DateFormat.getDateFormatOrder(this).firstOrNull() != 'M'
 
     private fun isNightNow(): Boolean {
         val cal = Calendar.getInstance()

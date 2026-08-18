@@ -106,7 +106,7 @@ class AlarmCards(
         var chosen = sounds.indexOf(current).coerceAtLeast(0)
         val player = ChimePlayer()
         androidx.appcompat.app.AlertDialog.Builder(host)
-            .setTitle(R.string.pref_bell_style_title)
+            .setTitle(R.string.alarm_sound_title)
             .setSingleChoiceItems(
                 sounds.map { soundLabel(it) }.toTypedArray(),
                 chosen
@@ -122,6 +122,21 @@ class AlarmCards(
             .setOnDismissListener { player.release() }
             .show()
     }
+
+    /**
+     * How many times this one may be put off, in words.
+     *
+     * Here beside the other three so that "off" is the same word in all
+     * four, and so that none of them repeats the row it hangs under. It
+     * was written out inside the sheet, which is how it came to say "As
+     * often as you like" while its three neighbours said "Off".
+     */
+    fun snoozeLimitLabel(limit: Int): String =
+        if (limit > 0) {
+            host.resources.getQuantityString(R.plurals.alarm_snooze_limit_times, limit, limit)
+        } else {
+            host.getString(R.string.alarm_snooze_limit_none)
+        }
 
     /** How long this alarm's screen takes to come up, in words. */
     fun gentleLabel(seconds: Int): String = when {

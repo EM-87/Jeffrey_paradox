@@ -85,4 +85,14 @@
         <item>10 minutos</item>
         <item>Hasta que se pare</item>
     </string-array>
+    <string-array name="date_order_entries">
+        <item>Como las escribe el móvil</item>
+        <item>Día primero (15/03)</item>
+        <item>Mes primero (03/15)</item>
+    </string-array>
+    <string-array name="date_order_values">
+        <item>auto</item>
+        <item>day_first</item>
+        <item>month_first</item>
+    </string-array>
 </resources>

@@ -155,7 +155,7 @@
 
             <TextView
                 style="@style/AlarmSheetRowTitle"
-                android:text="@string/pref_bell_style_title" />
+                android:text="@string/alarm_sound_title" />
 
             <TextView
                 android:id="@+id/sheet_sound_value"

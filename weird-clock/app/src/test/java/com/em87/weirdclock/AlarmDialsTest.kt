@@ -147,6 +147,11 @@ class AlarmDialsTest {
                 cards.missionLabel(Mission.NONE),
                 cards.missionLabel(Mission.MATHS, 3),
                 cards.missionLabel(Mission.SHAKE)
+            ),
+            R.string.pref_snooze_limit_title to listOf(
+                cards.snoozeLimitLabel(0),
+                cards.snoozeLimitLabel(1),
+                cards.snoozeLimitLabel(3)
             )
         )) {
             val title = context.getString(rowTitle)
@@ -159,6 +164,75 @@ class AlarmDialsTest {
         }
     }
 
+    /**
+     * And no two options in a list say the same thing at the same end.
+     *
+     * The sharper version of the rule above, and the one that catches what
+     * that one misses. "Once, then get up / 3 times, then get up / 5 times,
+     * then get up" repeats nothing from its row's title, so the first test
+     * is happy — and yet the list says "then get up" three times and the
+     * only thing that varies is the number, which is the part being read.
+     * Words every entry shares belong in the title.
+     */
+    @Test
+    fun `no list says the same words in every one of its options`() {
+        val cards = cards()
+        for ((what, options) in mapOf(
+            "the snooze" to listOf(
+                context.getString(R.string.alarm_snooze_off),
+                context.getString(R.string.alarm_snooze_min, 5),
+                context.getString(R.string.alarm_snooze_min, 10)
+            ),
+            "the sunrise" to listOf(
+                cards.gentleLabel(0), cards.gentleLabel(60), cards.gentleLabel(180)
+            ),
+            // The whole list as the picker shows it, not a slice of it: five
+            // rungs that all say "Level" read perfectly well beside "Off"
+            // and "Shake the phone", and it is the list somebody reads.
+            "the mission" to AlarmCards.MISSION_CHOICES.map { (kind, level) ->
+                cards.missionLabel(kind, level)
+            },
+            "the snooze limit" to listOf(
+                cards.snoozeLimitLabel(1), cards.snoozeLimitLabel(3), cards.snoozeLimitLabel(5)
+            ),
+            "the sounds" to Prefs.ALARM_SOUNDS.map { cards.soundLabel(it) }
+        )) {
+            // "Off" is left out of the comparison. It is one word by
+            // design and shares nothing with anything, so counting it would
+            // let a tail on every *other* entry through — which is exactly
+            // the shape the sunrise had: "Off / Comes up over 1 minute /
+            // Comes up over 3 minutes".
+            val off = context.getString(R.string.alarm_snooze_off)
+            val words = options.filter { it != off }
+                .map { it.split(' ').filter(String::isNotBlank) }
+            if (words.size < 2) continue
+
+            // A *phrase*, not a word. A unit shared by every entry is not
+            // repetition — "5 minutes / 10 minutes" is two lengths and the
+            // word "minutes" is what they are lengths of. Two words in a
+            // row at the same end of every entry is something else: it is a
+            // sentence that has been copied into each option instead of
+            // being written once, in the title.
+            fun common(lists: List<List<String>>): Int {
+                var n = 0
+                while (lists.all { it.size > n && it[n] == lists.first()[n] }) n++
+                return n
+            }
+            val front = common(words)
+            val back = common(words.map { it.reversed() })
+            assertTrue(
+                "$what begins every option with " +
+                    "${words.first().take(front)}: $options",
+                front < 2
+            )
+            assertTrue(
+                "$what ends every option with " +
+                    "${words.first().takeLast(back)}: $options",
+                back < 2
+            )
+        }
+    }
+
     /** And off is Off, in the same word, in all three of them. */
     @Test
     fun `every one of them is switched off the same way`() {
@@ -166,6 +240,7 @@ class AlarmDialsTest {
         val off = context.getString(R.string.alarm_snooze_off)
         assertEquals("the sunrise", off, cards.gentleLabel(0))
         assertEquals("the mission", off, cards.missionLabel(Mission.NONE))
+        assertEquals("the snooze limit", off, cards.snoozeLimitLabel(0))
         assertTrue("and it is short enough to read at a glance", off.length <= 4)
     }
 

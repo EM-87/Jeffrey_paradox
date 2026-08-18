@@ -157,11 +157,18 @@ class NightBar @JvmOverloads constructor(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                // The settings list scrolls, and it would happily take this
-                // gesture away half way through a drag.
+                // Only by the pins. It used to take hold anywhere along the
+                // bar and jump the nearer pin to the finger — which made a
+                // list-scroll that happened to start on the bar into a
+                // change of the hours, silently, on the way past.
+                //
+                // So a touch away from both pins is not ours: hand it back
+                // and let the list have it.
+                val grab = pinUnder(event.x) ?: return false
+                // And once it is ours, the list may not take it back
+                // half way through the drag.
                 parent?.requestDisallowInterceptTouchEvent(true)
-                holding = NightWindow.grabsEntry(hourAt(event.x), from, to)
-                moveTo(event.x)
+                holding = grab
             }
             MotionEvent.ACTION_MOVE -> moveTo(event.x)
             MotionEvent.ACTION_UP -> {
@@ -180,6 +187,29 @@ class NightBar @JvmOverloads constructor(
     }
 
     override fun performClick(): Boolean = super.performClick()
+
+    /**
+     * Which pin is under [x], or null for none of them.
+     *
+     * Measured against where the pins are *drawn* rather than round the
+     * clock, because this is a question about a finger and a circle on
+     * glass. The reach is generous — a pin is about nine density-pixels
+     * across and a fingertip is a great deal more — but it is finite, which
+     * is the whole point: the rest of the bar belongs to the list.
+     */
+    private fun pinUnder(x: Float): Boolean? {
+        val reach = pinRadius * 2.2f
+        val toEntry = kotlin.math.abs(x - xOf(from.toFloat()))
+        val toExit = kotlin.math.abs(x - xOf(to.toFloat()))
+        if (toEntry > reach && toExit > reach) return null
+        return toEntry <= toExit
+    }
+
+    /** For the tests: whether a touch at [x] would take hold of anything. */
+    internal fun pinUnderForTest(x: Float): Boolean? = pinUnder(x)
+
+    /** For the tests: where an hour sits along the bar. */
+    internal fun xOfForTest(hour: Float): Float = xOf(hour)
 
     /**
      * Puts whichever pin is held on the nearest hour mark, going round.

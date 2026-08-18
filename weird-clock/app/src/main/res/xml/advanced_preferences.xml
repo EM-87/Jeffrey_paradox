@@ -44,6 +44,26 @@
             app:min="2"
             app:showSeekBarValue="true" />
 
+        <ListPreference
+            android:defaultValue="number"
+            android:entries="@array/date_format_entries"
+            android:entryValues="@array/date_format_values"
+            android:key="pref_date_format"
+            android:title="@string/pref_date_format_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <!-- Which of the two numbers is the day. Nothing to do with the row
+             above, which is how the date is spelled: 03/04 is the third of
+             April or the fourth of March, and there is nothing in it to say
+             which. -->
+        <ListPreference
+            android:defaultValue="auto"
+            android:entries="@array/date_order_entries"
+            android:entryValues="@array/date_order_values"
+            android:key="pref_date_order"
+            android:title="@string/pref_date_order_title"
+            app:useSimpleSummaryProvider="true" />
+
         <SwitchPreferenceCompat
             android:defaultValue="false"
             android:key="pref_mirror"
