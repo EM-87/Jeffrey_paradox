@@ -54,6 +54,22 @@ object SkyGlyph {
     }
 
     /**
+     * How far through its phases the Moon is, 0 new and 0.5 full: one known
+     * new moon and the length of a month, counted forward.
+     *
+     * [Orrery.moonPhase] arrives at the same number from the other end,
+     * out of the Moon's and the Earth's orbits, and a test holds the two
+     * against each other. Neither is derived from the other, so agreement
+     * is worth something — the last time this app worked a thing out twice
+     * the copies disagreed for three versions.
+     */
+    fun phaseAt(whenMs: Long): Double {
+        // Julian date of a known new moon: 2000-01-06 18:14 UTC.
+        val julianNow = whenMs / 86_400_000.0 + 2_440_587.5
+        return (((julianNow - 2_451_550.26) / SYNODIC) % 1.0 + 1.0) % 1.0
+    }
+
+    /**
      * The classic two-shape construction — a dark disc, the lit half, and a
      * terminator ellipse whose signed width follows cos(2π·phase), painted
      * dark for crescents and lit for gibbous moons.
@@ -68,9 +84,7 @@ object SkyGlyph {
         rim: Paint,
         whenMs: Long = TimeKeeper.nowMs()
     ) {
-        // Julian date of a known new moon: 2000-01-06 18:14 UTC.
-        val julianNow = whenMs / 86_400_000.0 + 2_440_587.5
-        val phase = (((julianNow - 2_451_550.26) / SYNODIC) % 1.0 + 1.0) % 1.0
+        val phase = phaseAt(whenMs)
         val cosPhase = cos(2.0 * PI * phase)
         val litRight = phase < 0.5
 

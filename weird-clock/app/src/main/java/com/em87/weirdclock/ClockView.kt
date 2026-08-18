@@ -291,6 +291,20 @@ class ClockView @JvmOverloads constructor(
     var showMoonPhase = false
         set(value) { field = value; invalidate() }
 
+    /**
+     * Whether tapping the sky token opens the solar system.
+     *
+     * Off by default and hung off the token on purpose: the whole gesture
+     * is "press on the sky and the sky opens", and that only reads if there
+     * is already a sun or a moon there to press.
+     */
+    var orreryEnabled = false
+        set(value) {
+            field = value
+            if (!value) closeOrrery()
+            invalidate()
+        }
+
     /** Caption drawn inside the dial's upper half (world-clock city names). */
     var dialLabel: String? = null
         set(value) { field = value; invalidate() }
@@ -534,6 +548,9 @@ class ClockView @JvmOverloads constructor(
 
     /** Seconds added to display time by winding the hands. Zero at rest. */
     private var visualOffsetSeconds = 0.0
+
+    /** For the tests: how far the hands have been wound off the true time. */
+    internal fun handWindForTest(): Double = visualOffsetSeconds
     private var draggedHand: Hand? = null
 
     /** While a hand is held, the mechanism freezes at this display time. */
@@ -920,6 +937,10 @@ class ClockView @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
+        // The sky is a thing you open, look at and leave; coming back to a
+        // dial that is still showing the planets of a date you wound to
+        // three days ago would read as a clock that had stopped.
+        closeOrrery()
         removeCallbacks(ticker)
         sensorManager?.unregisterListener(shakeListener)
         sensorManager = null
@@ -947,6 +968,14 @@ class ClockView @JvmOverloads constructor(
         object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent): Boolean = true
 
+            /**
+             * A long press on the open sky goes looking for the next
+             * alignment. On a clock it does nothing, as before.
+             */
+            override fun onLongPress(e: MotionEvent) {
+                if (orreryShowing() && grabbedBody == null) leapToNextAlignment()
+            }
+
             override fun onDoubleTap(e: MotionEvent): Boolean {
                 if (!pinchZoomEnabled) return false
                 dialScale = 1f
@@ -955,6 +984,20 @@ class ClockView @JvmOverloads constructor(
             }
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                // The token first: a tap on the sun or the moon opens the
+                // sky behind it.
+                if (skyTokenAt(e.x, e.y)) {
+                    toggleOrrery()
+                    return true
+                }
+                // And once the sky is open, a tap on any empty part of it
+                // closes it again. Empty meaning not on a planet — those
+                // are for carrying, and a finger that only brushed one
+                // should not throw the whole view away.
+                if (orreryUp && tapCandidate && withinDial(e.x, e.y)) {
+                    toggleOrrery()
+                    return true
+                }
                 if (tapCandidate) handleNumeralTap(e.x, e.y)
                 return true
             }
@@ -1079,23 +1122,36 @@ class ClockView @JvmOverloads constructor(
                 // can be grabbed anywhere along its length — so the one
                 // gesture that has an alternative gives way.
                 markUnderFinger = markLabelAt(event.x, event.y)
-                val grabbedBody = markUnderFinger == null &&
+                // While the planets have the dial they own the touches: the
+                // hands are not there to be wound, and a finger that came
+                // down on Jupiter meant Jupiter. The token is left out of
+                // it, since that is the way back and must stay a tap.
+                val grabbedPlanet = markUnderFinger == null &&
+                    !skyTokenAt(event.x, event.y) &&
+                    grabBodyNear(event.x, event.y)
+                val grabbedDebris = markUnderFinger == null && !grabbedPlanet &&
                     grabFallenBodyNear(event.x, event.y)
-                if (markUnderFinger == null && !grabbedBody && touchHandsEnabled) {
+                if (markUnderFinger == null && !grabbedPlanet && !grabbedDebris &&
+                    touchHandsEnabled && !orreryShowing()
+                ) {
                     grabHandNear(event.x, event.y)
                 }
-                tapCandidate = !grabbedBody && draggedHand == null
+                tapCandidate = !grabbedDebris && !grabbedPlanet && draggedHand == null
                 tapDownX = event.x
                 tapDownY = event.y
                 // Own the gesture while manipulating the mechanism, so a
                 // hosting pager doesn't steal it as a horizontal page swipe.
-                if (grabbedBody || draggedHand != null) {
+                if (grabbedDebris || grabbedPlanet || draggedHand != null) {
                     parent?.requestDisallowInterceptTouchEvent(true)
                 }
             }
             MotionEvent.ACTION_MOVE -> {
-                debris.carried?.let { moveCarriedBody(it, event.x, event.y) }
-                    ?: dragTo(event.x, event.y)
+                if (grabbedBody != null) {
+                    dragBodyTo(event.x, event.y)
+                } else {
+                    debris.carried?.let { moveCarriedBody(it, event.x, event.y) }
+                        ?: dragTo(event.x, event.y)
+                }
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
                 // A second finger on a pusher while the first winds a hand is
@@ -1158,6 +1214,7 @@ class ClockView @JvmOverloads constructor(
                     performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                     invalidate()
                 }
+                releaseBody()
                 releaseDraggedHand()
                 releaseCarriedBody()
             }
@@ -2898,6 +2955,22 @@ class ClockView @JvmOverloads constructor(
     }
 
     /**
+     * The same trick for the hand-over to the solar system: one layer for
+     * the whole clock, faded as a single object.
+     */
+    private fun beginOrreryHandover(canvas: Canvas): Int {
+        val fade = orreryFade()
+        if (fade <= 0.01f) return -1
+        return canvas.saveLayerAlpha(
+            0f, 0f, width.toFloat(), height.toFloat(), (255 * (1f - fade)).toInt()
+        )
+    }
+
+    private fun endOrreryHandover(canvas: Canvas, layer: Int) {
+        if (layer >= 0) canvas.restoreToCount(layer)
+    }
+
+    /**
      * Draws the outgoing dial's furniture on this one, fading out as this
      * one's fades in.
      *
@@ -3012,6 +3085,9 @@ class ClockView @JvmOverloads constructor(
 
     private fun dialRadius(): Float = min(width, height) / 2f * 0.92f * dialScale * shapeBoost()
 
+    /** For the tests: how big the face is, so a touch can be aimed at it. */
+    internal fun dialRadiusForTest(): Float = dialRadius()
+
     /** The dial's current outer radius, for hosts that need it (bubbles). */
     fun currentDialRadius(): Float = dialRadius()
 
@@ -3080,6 +3156,13 @@ class ClockView @JvmOverloads constructor(
             canvas.drawPath(facePath, rimPaint)
         }
 
+        // Everything the clock is made of goes into one layer while the
+        // solar system is coming up, and the layer is what fades: ticks,
+        // numerals, date, marks, hands, the lot. Fading each of them
+        // separately would show them through one another on the way out,
+        // because a half-transparent hand crossing a half-transparent tick
+        // is darker than either.
+        val clockLayer = beginOrreryHandover(canvas)
         drawTicks(canvas, cx, cy, r)
         drawNumerals(canvas, cx, cy, r)
         dialLabel?.let { label ->
@@ -3142,6 +3225,17 @@ class ClockView @JvmOverloads constructor(
         drawFallenBodies(canvas)
 
         canvas.drawCircle(cx, cy, r * 0.035f, centerDotPaint)
+        endOrreryHandover(canvas, clockLayer)
+
+        // And the planets in their place.
+        //
+        // The sky token goes with the hands rather than staying on as the
+        // way back, and it has to: a moon glyph the size of Jupiter,
+        // sitting on Saturn's ring, in a picture that already has a Moon in
+        // it — the first drawing of this had one and it read as a ninth
+        // planet. The way back is a tap on any empty piece of sky, which is
+        // most of the dial, and the place the token was is part of it.
+        if (orreryShowing()) drawOrrery(canvas, cx, cy, r)
 
         // Digital 7-segment readout: the chronograph value in chrono modes,
         // or the current time while the hands are lying at the bottom of
@@ -3796,6 +3890,262 @@ class ClockView @JvmOverloads constructor(
         )
     }
 
+    // ------------------------------------------------------ the solar system
+
+    /** Whether the planets have the dial. */
+    private var orreryUp = false
+
+    /**
+     * When the fade between hands and planets started, or [NEVER] if it
+     * has not.
+     *
+     * The sentinel is not decoration. Zero would mean "the fade began at
+     * uptime zero", and uptime is measured from the last time the phone was
+     * switched on — so for the first half second after a reboot the dial
+     * would come up midway through a fade nobody asked for, with the
+     * planets showing and the hands half gone.
+     */
+    private var orreryChangedAt = NEVER
+
+    /**
+     * How far the solar system has been wound from now.
+     *
+     * It stays where it is left. The hands spring back because a clock that
+     * is not showing the time is broken; the orrery does not, because the
+     * whole reason to move it is to arrive at a date and read what is
+     * there, and a spring would snatch the answer away at the moment of
+     * finding it. Closing the sky puts it back to now.
+     */
+    private var orreryOffsetMs = 0L
+
+    private var grabbedBody: Orrery.Body? = null
+    private var lastBodyLongitude = 0.0
+
+    /** Where the Moon was standing when it let go of the mechanism. */
+    private var detachedMoonLongitude = 0.0
+    private var moonRejoinFrom = 0.0
+    private var moonRejoinAt = 0L
+
+    /** The instant the solar system is showing. */
+    internal fun orreryMs(): Long =
+        displayNowMs() + (visualOffsetSeconds * 1000.0).toLong() + orreryOffsetMs
+
+    /**
+     * How much of the dial the planets have, 0 to 1.
+     *
+     * Clocked off [SystemClock.uptimeMillis] like everything else that
+     * moves in this app, because the animator duration scale on the phone
+     * this is written for is turned off and a ValueAnimator would arrive
+     * fully faded on its first frame.
+     */
+    internal fun orreryFade(): Float {
+        if (orreryChangedAt == NEVER) return if (orreryUp) 1f else 0f
+        val t = ((SystemClock.uptimeMillis() - orreryChangedAt) / ORRERY_FADE_MS).coerceIn(0f, 1f)
+        val eased = t * t * (3f - 2f * t)
+        return if (orreryUp) eased else 1f - eased
+    }
+
+    /** Whether the planets are showing at all — as against fully faded out. */
+    internal fun orreryShowing(): Boolean = orreryFade() > 0.01f
+
+    /** Opens or closes the sky. Also the accessibility action. */
+    internal fun toggleOrrery() {
+        orreryUp = !orreryUp
+        orreryChangedAt = SystemClock.uptimeMillis()
+        if (!orreryUp) {
+            grabbedBody = null
+            orreryOffsetMs = 0L
+        }
+        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        invalidate()
+    }
+
+    private fun closeOrrery() {
+        if (!orreryUp) return
+        orreryUp = false
+        orreryChangedAt = SystemClock.uptimeMillis()
+        grabbedBody = null
+        orreryOffsetMs = 0L
+    }
+
+    /**
+     * Where the Moon is drawn.
+     *
+     * Three answers. Normally it is wherever the mechanism has it. While
+     * something other than the Earth is being carried it has let go — see
+     * [Orrery.moonFollows] — and it holds the angle it had when the hand
+     * went down. And for a moment after the hand comes off it slides the
+     * short way back to where it should be, because a body that vanishes
+     * from one side of its orbit and reappears on the other looks like a
+     * dropped frame rather than a gear re-engaging.
+     */
+    internal fun orreryMoonLongitude(): Double {
+        val live = Orrery.longitude(Orrery.Body.MOON, orreryMs())
+        if (grabbedBody != null && !Orrery.moonFollows(grabbedBody)) return detachedMoonLongitude
+        val t = (SystemClock.uptimeMillis() - moonRejoinAt) / MOON_REJOIN_MS
+        if (t in 0f..1f) {
+            val eased = t * t * (3f - 2f * t)
+            return Orrery.wrap(moonRejoinFrom + Orrery.shortWay(moonRejoinFrom, live) * eased)
+        }
+        return live
+    }
+
+    /** Which bodies stand in one line at the instant being shown. */
+    internal fun orreryAligned(): List<Orrery.Body> = Orrery.aligned(orreryMs(), ALIGNMENT_ARC)
+
+    /**
+     * Jumps to the next date on which three or more planets stand in one
+     * line, and says whether it found one.
+     *
+     * Dragging a planet about will stumble on an alignment eventually, and
+     * "eventually" is the problem — three of them inside twelve degrees is
+     * a thing that happens a couple of times a decade, and a finger looking
+     * for one by hand is a finger that gives up. So the dial will go and
+     * find the next one: a long press, a search forward through forty
+     * years a day at a time, and the date it lands on has the line drawn
+     * across it.
+     *
+     * Forty years because that is what can be searched inside the fifth of
+     * a second a long press already costs. Beyond it, keep pressing.
+     */
+    internal fun leapToNextAlignment(): Boolean {
+        val from = orreryMs() + CivilDays.DAY_MS
+        val found = Orrery.nextAlignment(
+            from, ALIGNMENT_ARC, atLeast = 3, limitDays = 40 * 365
+        ) ?: return false
+        orreryOffsetMs += found - orreryMs()
+        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        invalidate()
+        return true
+    }
+
+    /** Whether the Moon has currently let go of the mechanism. */
+    internal fun orreryMoonDetached(): Boolean =
+        grabbedBody != null && !Orrery.moonFollows(grabbedBody)
+
+    /** Which body a finger is holding, if any. */
+    internal fun orreryGrabbedForTest(): Orrery.Body? = grabbedBody
+
+    /**
+     * For the tests: carries [body] [degrees] round its orbit, the way a
+     * finger would, and hands back the date that lands under it.
+     */
+    internal fun windOrreryForTest(body: Orrery.Body, degrees: Double): Long {
+        val from = Orrery.longitude(body, orreryMs())
+        orreryOffsetMs += Orrery.stepMs(body, from, Orrery.wrap(from + degrees))
+        invalidate()
+        return orreryMs()
+    }
+
+    /** Where the sky token sits, which is also where the sky opens. */
+    private fun skyTokenX(): Float = width / 2f
+    private fun skyTokenY(): Float = height / 2f + apothemRadius() * 0.45f
+
+    /**
+     * Whether a touch landed on the sky token.
+     *
+     * A good deal wider than the glyph is drawn. It is seven hundredths of
+     * the dial across — under five millimetres on the phone this is written
+     * for — and a target that size answers about half the taps aimed at it.
+     */
+    internal fun skyTokenAt(x: Float, y: Float): Boolean {
+        if (!orreryEnabled || !showMoonPhase) return false
+        val r = dialRadius()
+        return hypot(x - skyTokenX(), y - skyTokenY()) < r * 0.16f
+    }
+
+    /** Whether a touch landed on the face at all. */
+    private fun withinDial(x: Float, y: Float): Boolean =
+        hypot(x - width / 2f, y - height / 2f) < dialRadius()
+
+    /**
+     * Takes hold of a planet, if there is one under the finger.
+     *
+     * The Moon's position is remembered here rather than read later,
+     * because the whole point of letting go is that it stops being a
+     * function of the time — and a moment later the time will have moved.
+     */
+    private fun grabBodyNear(x: Float, y: Float): Boolean {
+        if (!orreryShowing()) return false
+        val body = OrreryDial.bodyAt(
+            x, y, width / 2f, height / 2f, dialRadius(), orreryMs(), orreryMoonLongitude()
+        ) ?: return false
+        grabbedBody = body
+        lastBodyLongitude = OrreryDial.longitudeOf(width / 2f, height / 2f, x, y)
+        detachedMoonLongitude = orreryMoonLongitude()
+        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        invalidate()
+        return true
+    }
+
+    /**
+     * Carries the held body round, which is to say winds the whole system.
+     *
+     * The finger's angle is measured from the middle of the dial for a
+     * planet and from the Earth for the Moon, since that is what each of
+     * them actually goes round.
+     */
+    private fun dragBodyTo(x: Float, y: Float) {
+        val body = grabbedBody ?: return
+        val cx = width / 2f
+        val cy = height / 2f
+        val from = if (body == Orrery.Body.MOON) {
+            val earth = OrreryDial.positionOf(
+                Orrery.Body.EARTH, cx, cy, dialRadius(), orreryMs(), orreryMoonLongitude()
+            )
+            OrreryDial.longitudeOf(earth.x, earth.y, x, y)
+        } else {
+            OrreryDial.longitudeOf(cx, cy, x, y)
+        }
+        orreryOffsetMs += Orrery.stepMs(body, lastBodyLongitude, from)
+        lastBodyLongitude = from
+        invalidate()
+    }
+
+    /** Lets go, and starts the Moon sliding back if it had let go too. */
+    private fun releaseBody() {
+        val body = grabbedBody ?: return
+        if (!Orrery.moonFollows(body)) {
+            moonRejoinFrom = detachedMoonLongitude
+            moonRejoinAt = SystemClock.uptimeMillis()
+        }
+        grabbedBody = null
+        invalidate()
+    }
+
+    /**
+     * The date the solar system is standing on, in the dial's own date
+     * style — the same words the date window uses, so winding a planet
+     * moves a date that already looks familiar.
+     */
+    internal fun orreryDateText(): String = dateTextAt(orreryMs())
+
+    /** What is worth knowing about the day being shown, if anything. */
+    internal fun orreryCaption(): String? = OrreryDial.caption(
+        resources, orreryMs(),
+        TimeZone.getDefault().getOffset(orreryMs()),
+        orreryAligned()
+    )
+
+    private fun drawOrrery(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        val fade = orreryFade()
+        if (fade <= 0.01f) return
+        OrreryDial.draw(
+            canvas, cx, cy, r, theme, orreryMs(), fade,
+            orreryMoonLongitude(), orreryAligned(), orreryMoonDetached(), grabbedBody
+        )
+        datePaint.textSize = r * 0.085f
+        val was = datePaint.alpha
+        datePaint.alpha = (210 * fade).toInt()
+        val baseline = cy - apothemRadius() * 0.42f -
+            (datePaint.ascent() + datePaint.descent()) / 2f
+        canvas.drawText(orreryDateText(), cx, baseline, datePaint)
+        datePaint.alpha = was
+        orreryCaption()?.let {
+            OrreryDial.drawCaption(canvas, cx, baseline + r * 0.085f, r, theme, it, fade)
+        }
+    }
+
     /**
      * The time of day the dial is showing, wound offset and all: a fixed
      * face reports its own hour, a running one reports now, and one being
@@ -3820,8 +4170,18 @@ class ClockView @JvmOverloads constructor(
      */
     internal fun dateTextForTest(): String = dateText()
 
-    private fun dateText(): String {
-        cal.timeInMillis = displayNowMs() + (visualOffsetSeconds * 1000.0).toLong()
+    private fun dateText(): String =
+        dateTextAt(displayNowMs() + (visualOffsetSeconds * 1000.0).toLong())
+
+    /**
+     * Any date, in whatever shape this dial writes dates in — number, text
+     * or Roman, day first or month first.
+     *
+     * Split out for the solar system, which shows a date two centuries off
+     * and should not invent a second way of writing one to do it.
+     */
+    private fun dateTextAt(atMs: Long): String {
+        cal.timeInMillis = atMs
         val (number, text) = dateFormats()
         return when (dateFormatStyle) {
             DateFormatStyle.NUMBER -> number.format(Date(cal.timeInMillis))
@@ -4003,6 +4363,25 @@ class ClockView @JvmOverloads constructor(
     companion object {
         const val MIN_SCALE = 0.35f
         const val MAX_SCALE = 1f
+
+        /** A fade that has not started. See the field that holds it. */
+        private const val NEVER = Long.MIN_VALUE
+
+        /** How long the hands take to give the dial up to the planets. */
+        private const val ORRERY_FADE_MS = 520f
+
+        /** And how long the Moon takes to slide back after being let go. */
+        private const val MOON_REJOIN_MS = 700f
+
+        /**
+         * How wide an arc still counts as a line of planets.
+         *
+         * Twelve degrees. Wider and something is "aligned" most weeks,
+         * which is the same as never saying it; much tighter and three of
+         * them together is a once-in-a-lifetime event nobody will ever
+         * stumble on by dragging Neptune about.
+         */
+        private const val ALIGNMENT_ARC = 12.0
         /**
          * How hard a knock has to be to shake something loose, in m/s²
          * beyond gravity.

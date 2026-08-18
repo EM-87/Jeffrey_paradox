@@ -1413,6 +1413,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         return draft
     }
 
+    /** For the tests: the main dial, so a picture can be taken of it. */
+    internal fun clockForTest(): ClockView = clockView!!
+
     /** For the tests: what the calendar has been told about the cycle. */
     internal fun calendarCyclePhasesForTest(): Map<Int, Cycle.Phase> =
         calendarView?.cyclePhases ?: emptyMap()
@@ -1969,6 +1972,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // applyMode(). Without this, anything that reapplies preferences
         // mid-wind would take it away under the user's finger.
         cv.showMoonPhase = dialJob != null || prefs.getBoolean(Prefs.MOON_PHASE, false)
+        cv.orreryEnabled = dialJob == null && prefs.getBoolean(Prefs.ORRERY, false)
         updateAlarmMarkers()
         cv.touchHandsEnabled = prefs.getBoolean(Prefs.TOUCH_HANDS, true)
         cv.pinchZoomEnabled = prefs.getBoolean(Prefs.PINCH_ZOOM, true)
@@ -2431,6 +2435,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // proof the sunrise arithmetic works and the only way to
                 // watch a whole day go past without waiting for one.
                 it.showMoonPhase = prefs.getBoolean(Prefs.MOON_PHASE, false)
+                it.orreryEnabled = prefs.getBoolean(Prefs.ORRERY, false)
                 it.showSecondHand = prefs.getBoolean(Prefs.SECOND_HAND, true)
                 it.fastHand = readFastHand()
                 it.magnetOrigin = 0L

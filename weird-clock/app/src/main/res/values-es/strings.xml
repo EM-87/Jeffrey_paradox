@@ -329,4 +329,36 @@
         <item quantity="one">1 día</item>
         <item quantity="other">%d días</item>
     </plurals>
+
+    <!-- El sistema solar en la esfera -->
+    <string name="body_mercury">Mercurio</string>
+    <string name="body_venus">Venus</string>
+    <string name="body_earth">Tierra</string>
+    <string name="body_mars">Marte</string>
+    <string name="body_jupiter">Júpiter</string>
+    <string name="body_saturn">Saturno</string>
+    <string name="body_uranus">Urano</string>
+    <string name="body_neptune">Neptuno</string>
+    <string name="body_moon">Luna</string>
+    <string name="shower_quadrantids">Cuadrántidas</string>
+    <string name="shower_lyrids">Líridas</string>
+    <string name="shower_eta_aquariids">Eta Acuáridas</string>
+    <string name="shower_perseids">Perseidas</string>
+    <string name="shower_orionids">Oriónidas</string>
+    <string name="shower_leonids">Leónidas</string>
+    <string name="shower_geminids">Gemínidas</string>
+    <string name="shower_ursids">Úrsidas</string>
+    <string name="sky_solar_total">Eclipse total de sol</string>
+    <string name="sky_solar_annular">Eclipse anular de sol</string>
+    <string name="sky_solar_partial">Eclipse parcial de sol</string>
+    <string name="sky_lunar_total">Eclipse total de luna</string>
+    <string name="sky_lunar_partial">Eclipse parcial de luna</string>
+    <string name="sky_meteors">%1$s, máximo esta noche</string>
+    <string name="sky_comet">Cometa</string>
+    <string name="sky_full_moon">Luna llena</string>
+    <string name="sky_new_moon">Luna nueva</string>
+    <string name="sky_opposition">%1$s en su punto más brillante</string>
+    <string name="orrery_aligned">%1$s alineados</string>
+    <string name="orrery_title">Sistema solar</string>
+    <string name="orrery_summary">Toca el sol o la luna de la esfera y las agujas dejan paso a los planetas. Arrastra uno y el resto le siguen.</string>
 </resources>

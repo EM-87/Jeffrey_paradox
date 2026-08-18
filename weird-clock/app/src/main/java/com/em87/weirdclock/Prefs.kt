@@ -19,6 +19,15 @@ object Prefs {
      */
     const val DATE_ORDER = "pref_date_order"
     const val MOON_PHASE = "pref_moon_phase"
+
+    /**
+     * The solar system behind the sky token.
+     *
+     * Hangs off [MOON_PHASE] rather than standing alone, because the whole
+     * gesture is a tap on the sun or the moon and there is nothing to tap
+     * without one.
+     */
+    const val ORRERY = "pref_orrery"
     const val ALARM_MARKERS = "pref_alarm_markers"
     const val SECOND_HAND = "pref_second_hand"
     const val SMOOTH_SECONDS = "pref_smooth_seconds"

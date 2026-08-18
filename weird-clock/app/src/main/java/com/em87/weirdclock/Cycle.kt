@@ -308,38 +308,18 @@ object Cycle {
     /**
      * A calendar date as days since 1 January 1970.
      *
-     * Written out rather than taken from `LocalDate`, which wants API 26
-     * and this app supports 24. It is the standard civil-to-days
-     * arithmetic: shift the year to start in March so that the leap day
-     * falls at the end of it and every other month follows the same
-     * pattern, then count.
+     * The arithmetic itself is in [CivilDays], which the solar system uses
+     * too; these three stay here because the cycle talks in days from end
+     * to end and reading `Cycle.epochDay` at every call site is what the
+     * rest of this file is written for.
      */
-    fun epochDay(year: Int, month: Int, day: Int): Int {
-        val y = if (month <= 2) year - 1 else year
-        val era = (if (y >= 0) y else y - 399) / 400
-        val yoe = y - era * 400
-        val mp = (month + 9) % 12
-        val doy = (153 * mp + 2) / 5 + day - 1
-        val doe = yoe * 365 + yoe / 4 - yoe / 100 + doy
-        return era * 146097 + doe - 719468
-    }
+    fun epochDay(year: Int, month: Int, day: Int): Int =
+        CivilDays.epochDay(year, month, day)
 
     /** And back again, as year, month, day. */
-    fun dateOf(epochDay: Int): Triple<Int, Int, Int> {
-        val z = epochDay + 719468
-        val era = (if (z >= 0) z else z - 146096) / 146097
-        val doe = z - era * 146097
-        val yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365
-        val y = yoe + era * 400
-        val doy = doe - (365 * yoe + yoe / 4 - yoe / 100)
-        val mp = (5 * doy + 2) / 153
-        val d = doy - (153 * mp + 2) / 5 + 1
-        val m = if (mp < 10) mp + 3 else mp - 9
-        return Triple(if (m <= 2) y + 1 else y, m, d)
-    }
+    fun dateOf(epochDay: Int): Triple<Int, Int, Int> = CivilDays.dateOf(epochDay)
 
     /** Today, from a wall-clock instant and the zone it is read in. */
-    fun today(nowMs: Long, zoneOffsetMs: Int): Int =
-        Math.floorDiv(nowMs + zoneOffsetMs, 86_400_000L).toInt()
+    fun today(nowMs: Long, zoneOffsetMs: Int): Int = CivilDays.dayOf(nowMs, zoneOffsetMs)
 
 }

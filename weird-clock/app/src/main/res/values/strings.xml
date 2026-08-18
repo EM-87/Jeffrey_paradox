@@ -327,4 +327,36 @@
         <item quantity="one">1 day</item>
         <item quantity="other">%d days</item>
     </plurals>
+
+    <!-- The solar system on the dial -->
+    <string name="body_mercury">Mercury</string>
+    <string name="body_venus">Venus</string>
+    <string name="body_earth">Earth</string>
+    <string name="body_mars">Mars</string>
+    <string name="body_jupiter">Jupiter</string>
+    <string name="body_saturn">Saturn</string>
+    <string name="body_uranus">Uranus</string>
+    <string name="body_neptune">Neptune</string>
+    <string name="body_moon">Moon</string>
+    <string name="shower_quadrantids">Quadrantids</string>
+    <string name="shower_lyrids">Lyrids</string>
+    <string name="shower_eta_aquariids">Eta Aquariids</string>
+    <string name="shower_perseids">Perseids</string>
+    <string name="shower_orionids">Orionids</string>
+    <string name="shower_leonids">Leonids</string>
+    <string name="shower_geminids">Geminids</string>
+    <string name="shower_ursids">Ursids</string>
+    <string name="sky_solar_total">Total solar eclipse</string>
+    <string name="sky_solar_annular">Ring of fire eclipse</string>
+    <string name="sky_solar_partial">Partial solar eclipse</string>
+    <string name="sky_lunar_total">Total lunar eclipse</string>
+    <string name="sky_lunar_partial">Partial lunar eclipse</string>
+    <string name="sky_meteors">%1$s peak tonight</string>
+    <string name="sky_comet">Comet</string>
+    <string name="sky_full_moon">Full moon</string>
+    <string name="sky_new_moon">New moon</string>
+    <string name="sky_opposition">%1$s at its brightest</string>
+    <string name="orrery_aligned">%1$s in line</string>
+    <string name="orrery_title">Solar system</string>
+    <string name="orrery_summary">Tap the sun or moon on the dial and the hands give way to the planets. Drag one and the rest follow.</string>
 </resources>

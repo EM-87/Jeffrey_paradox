@@ -240,6 +240,7 @@ class SettingsActivity : AppCompatActivity() {
                 Prefs.BELL_MARKS, Prefs.BELL_STYLE, Prefs.TEST_BELLS, Prefs.BELLS_BACKGROUND
             )
             follows(Prefs.WORLD_CLOCK, "pref_world_cities")
+            follows(Prefs.MOON_PHASE, Prefs.ORRERY)
             // Installed version, so it's always clear which build is running.
             findPreference<Preference>("pref_version")?.summary = try {
                 val info = requireContext().packageManager

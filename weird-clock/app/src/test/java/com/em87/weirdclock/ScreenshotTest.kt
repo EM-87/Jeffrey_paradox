@@ -340,4 +340,77 @@ class ScreenshotTest {
             sheet.measuredHeight > 0
         )
     }
+
+    /**
+     * The solar system, at the moment it has the dial to itself.
+     *
+     * The one picture worth having of this feature: eight rings, eight
+     * bodies at the angles the arithmetic puts them at, the Moon on its own
+     * little ring around the Earth, and the date underneath. Whether that
+     * is legible or a tangle is not a thing anybody can reason their way to.
+     */
+    @Test
+    fun `the solar system on the dial`() {
+        prefs.edit().clear()
+            .putBoolean(Prefs.MOON_PHASE, true)
+            .putBoolean(Prefs.ORRERY, true)
+            .putString(Prefs.THEME, "midnight")
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val clock = c.get().clockForTest()
+            clock.toggleOrrery()
+            // Past the fade, so the picture is of the thing and not of the
+            // hands still leaving.
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(
+                java.time.Duration.ofMillis(900)
+            )
+            assertTrue(shoot(screenOf(c.get()), "orrery") > 3f)
+        }
+    }
+
+    /**
+     * The dial on a date with a line of planets across it, which is the
+     * thing the long press goes looking for and the one state of this
+     * feature nobody can check by dragging a finger about for a minute.
+     */
+    @Test
+    fun `the solar system on a day when three planets line up`() {
+        prefs.edit().clear()
+            .putBoolean(Prefs.MOON_PHASE, true)
+            .putBoolean(Prefs.ORRERY, true)
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val clock = c.get().clockForTest()
+            clock.toggleOrrery()
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(
+                java.time.Duration.ofMillis(900)
+            )
+            assertTrue("nothing lined up to photograph", clock.leapToNextAlignment())
+            assertTrue(shoot(screenOf(c.get()), "orrery-aligned") > 3f)
+        }
+    }
+
+    /**
+     * And the same dial wound forward by a drag on Neptune, which is how a
+     * date two hundred years out is arrived at.
+     */
+    @Test
+    fun `the solar system, wound a long way forward`() {
+        prefs.edit().clear()
+            .putBoolean(Prefs.MOON_PHASE, true)
+            .putBoolean(Prefs.ORRERY, true)
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val clock = c.get().clockForTest()
+            clock.toggleOrrery()
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(
+                java.time.Duration.ofMillis(900)
+            )
+            clock.windOrreryForTest(Orrery.Body.NEPTUNE, 140.0)
+            assertTrue(shoot(screenOf(c.get()), "orrery-wound") > 3f)
+        }
+    }
 }
