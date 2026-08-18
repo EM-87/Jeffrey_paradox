@@ -260,6 +260,61 @@ class ScreenshotTest {
     }
 
     /**
+     * A month with a cycle marked on it.
+     *
+     * The bars under the numbers are the whole feature, and how they read
+     * against the reminder dots, the birthday star and the little moons is
+     * something no assertion can answer. Drawn straight rather than through
+     * the app, because the app opens on the clock and this is a question
+     * about one page of it.
+     */
+    @Test
+    fun `a month with the cycle marked on it`() {
+        val themed = androidx.appcompat.view.ContextThemeWrapper(
+            context, R.style.Theme_WeirdClock
+        )
+        // Four months of twenty-eight-day cycles, the last one six days
+        // ago, so the month on screen carries recorded days, the fertile
+        // stretch and the predicted window all at once.
+        val now = System.currentTimeMillis()
+        val today = Cycle.today(now, java.util.TimeZone.getDefault().getOffset(now))
+        val record = (1..4).map { Cycle.Period(today - 6 - (4 - it) * 28, days = 5) }
+
+        val view = CalendarPageView(themed).apply {
+            theme = ClockThemes.MIDNIGHT
+            cyclePhases = (1..31).associateWith {
+                Cycle.phase(record, Cycle.epochDay(shownYear, shownMonth1, it), today)
+            }.filterValues { it != Cycle.Phase.NONE }
+            measure(
+                View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(1500, View.MeasureSpec.EXACTLY)
+            )
+            layout(0, 0, 1080, 1500)
+        }
+        assertTrue("the month drew nothing", shoot(view, "cycle-month") > 3f)
+        assertTrue(
+            "and nothing was marked on it",
+            view.cyclePhases.values.contains(Cycle.Phase.PERIOD)
+        )
+    }
+
+    /** And the sheet it is recorded from. */
+    @Test
+    fun `the cycle sheet`() {
+        val themed = androidx.appcompat.view.ContextThemeWrapper(
+            context, R.style.Theme_WeirdClock
+        )
+        val sheet = android.view.LayoutInflater.from(themed)
+            .inflate(R.layout.sheet_cycle, null)
+        sheet.measure(
+            View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        sheet.layout(0, 0, 1080, sheet.measuredHeight)
+        assertTrue("the sheet drew nothing", shoot(sheet, "cycle-sheet") > 2f)
+    }
+
+    /**
      * The alarm editor, whole, so the order of its rows can be looked at.
      *
      * The order is checked properly elsewhere, by walking the layout — this

@@ -293,4 +293,38 @@
     <string name="alarm_flash">Flash</string>
     <string name="alarm_sound_title">Sound</string>
     <string name="pref_date_order_title">Day or month first</string>
+    <string name="cycle_title">Cycle</string>
+    <string name="cycle_summary">Mark it on the calendar, and learn what your own cycles predict</string>
+    <string name="cycle_nothing_yet">Nothing recorded yet</string>
+    <string name="cycle_now">Day %1$d</string>
+    <string name="cycle_due_about_now">Due about now</string>
+    <string name="cycle_detail_none">Press the button on the first day and it starts learning</string>
+    <string name="cycle_detail_guessing">Guessing at %1$d days — one more and it starts using yours</string>
+    <string name="cycle_detail_window">Between %1$s and %2$s · your cycles run about %3$d days</string>
+    <string name="cycle_started">It started today</string>
+    <string name="cycle_started_correct">It started today (correct the date)</string>
+    <string name="cycle_another_day">It started another day…</string>
+    <string name="cycle_length_title">How long the last one ran</string>
+    <string name="cycle_length_unsaid">Not said</string>
+    <string name="cycle_history_title">Recorded</string>
+    <string name="cycle_history_none">Nothing yet</string>
+    <string name="cycle_forget_confirm">Take this one out of the record?</string>
+    <string name="cycle_forget">Take it out</string>
+    <string name="cycle_caveat">Arithmetic on the days you wrote down, kept on this phone and nowhere else. It is not a medical device and not a method of contraception.</string>
+    <plurals name="cycle_in_days">
+        <item quantity="one">Due tomorrow</item>
+        <item quantity="other">Due in %d days</item>
+    </plurals>
+    <plurals name="cycle_late">
+        <item quantity="one">1 day late</item>
+        <item quantity="other">%d days late</item>
+    </plurals>
+    <plurals name="cycle_history_count">
+        <item quantity="one">1 period</item>
+        <item quantity="other">%d periods</item>
+    </plurals>
+    <plurals name="cycle_length_days">
+        <item quantity="one">1 day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
 </resources>

@@ -277,6 +277,10 @@ class SettingsActivity : AppCompatActivity() {
                     showBirthdayDialog()
                     return true
                 }
+                Prefs.CYCLE -> {
+                    CycleSheet(requireActivity()) { }.show()
+                    return true
+                }
                 "pref_world_cities" -> {
                     showCitiesDialog()
                     return true

@@ -1413,6 +1413,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         return draft
     }
 
+    /** For the tests: what the calendar has been told about the cycle. */
+    internal fun calendarCyclePhasesForTest(): Map<Int, Cycle.Phase> =
+        calendarView?.cyclePhases ?: emptyMap()
+
     /** For the tests: whether the toolbox is being offered. */
     internal fun reassembleShowing(): Boolean =
         reassembleButton?.visibility == View.VISIBLE
@@ -1798,6 +1802,23 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
         }
         cal.yearMarks = marks
+
+        // And the cycle, day by day across the month on screen. Worked out
+        // here because [Cycle] answers in days counted from 1970 and the
+        // calendar thinks in days of a month, and this is the one place
+        // that knows which month is being looked at.
+        val record = CycleStore.all(this)
+        cal.cyclePhases = if (record.isEmpty()) {
+            emptyMap()
+        } else {
+            val now = Cycle.today(
+                TimeKeeper.nowMs(),
+                java.util.TimeZone.getDefault().getOffset(TimeKeeper.nowMs())
+            )
+            (1..daysInMonth).associateWith { day ->
+                Cycle.phase(record, Cycle.epochDay(cal.shownYear, cal.shownMonth1, day), now)
+            }.filterValues { it != Cycle.Phase.NONE }
+        }
     }
 
     /**

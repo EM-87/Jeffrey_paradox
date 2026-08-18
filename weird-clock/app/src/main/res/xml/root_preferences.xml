@@ -94,6 +94,11 @@
             android:summary="@string/pref_birthday_summary"
             android:title="@string/pref_birthday_title" />
 
+        <Preference
+            android:key="pref_cycle"
+            android:summary="@string/cycle_summary"
+            android:title="@string/cycle_title" />
+
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/category_general">

@@ -224,7 +224,7 @@ class NightBarTest {
                 "pref_bells", "pref_bell_marks", "pref_bell_style", "pref_test_bells",
                 "pref_bells_background",
                 // Calendar
-                "pref_past_days", "pref_birthday",
+                "pref_past_days", "pref_birthday", "pref_cycle",
                 // General
                 "pref_moon_phase", "pref_world_clock", "pref_world_cities",
                 // And the ways on

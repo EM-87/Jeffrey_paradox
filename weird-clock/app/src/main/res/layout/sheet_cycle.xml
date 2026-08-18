@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The cycle: what it says now, one button, and the rest underneath.
+
+     Almost every visit is to read one line or press one button, so those
+     two are the top of the sheet and everything else is a row below them. -->
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/sheet_background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="20dp">
+
+        <TextView
+            android:id="@+id/cycle_state"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/cycle_detail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textColor="?android:attr/textColorSecondary" />
+
+        <Button
+            android:id="@+id/cycle_started"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/cycle_started" />
+
+        <Button
+            android:id="@+id/cycle_another_day"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/cycle_another_day" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="20dp"
+            android:alpha="0.25"
+            android:background="@color/text_secondary" />
+
+        <!-- How long the last one ran. Asked of the last one only: the ones
+             before it are already written down, and correcting them is what
+             the history below is for. -->
+        <LinearLayout
+            android:id="@+id/cycle_row_length"
+            style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/cycle_length_title" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/cycle_row_history"
+            style="@style/AlarmSheetRow">
+
+            <TextView
+                style="@style/AlarmSheetRowTitle"
+                android:text="@string/cycle_history_title" />
+
+            <TextView
+                android:id="@+id/cycle_history"
+                style="@style/AlarmSheetRowValue" />
+        </LinearLayout>
+
+        <!-- Said plainly, once, at the bottom. It is arithmetic on the days
+             you wrote down and it knows nothing else about you. -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/cycle_caveat"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textColor="?android:attr/textColorSecondary" />
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

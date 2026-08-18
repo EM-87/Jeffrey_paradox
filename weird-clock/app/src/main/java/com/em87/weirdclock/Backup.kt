@@ -120,6 +120,7 @@ object Backup {
         // died. Drop the caches and count what actually came back.
         AlarmStore.forget()
         ReminderStore.forget()
+        CycleStore.forget()
         return Restored(AlarmStore.all(context).size, ReminderStore.all(context).size)
     }
 }

@@ -11,8 +11,8 @@ android {
         applicationId = "com.em87.weirdclock"
         minSdk = 24
         targetSdk = 35
-        versionCode = 131
-        versionName = "19.2"
+        versionCode = 132
+        versionName = "19.3"
     }
 
     // Shared signing key committed to the repo, so every APK — built on any

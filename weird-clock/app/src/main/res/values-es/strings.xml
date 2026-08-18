@@ -295,4 +295,38 @@
     <string name="alarm_flash">Flash</string>
     <string name="alarm_sound_title">Sonido</string>
     <string name="pref_date_order_title">Día o mes primero</string>
+    <string name="cycle_title">Ciclo</string>
+    <string name="cycle_summary">Márcalo en el calendario, y aprende lo que predicen tus propios ciclos</string>
+    <string name="cycle_nothing_yet">Nada registrado todavía</string>
+    <string name="cycle_now">Día %1$d</string>
+    <string name="cycle_due_about_now">Toca por estos días</string>
+    <string name="cycle_detail_none">Pulsa el botón el primer día y empieza a aprender</string>
+    <string name="cycle_detail_guessing">Suponiendo %1$d días — con uno más empieza a usar los tuyos</string>
+    <string name="cycle_detail_window">Entre el %1$s y el %2$s · tus ciclos duran unos %3$d días</string>
+    <string name="cycle_started">Empezó hoy</string>
+    <string name="cycle_started_correct">Empezó hoy (corregir la fecha)</string>
+    <string name="cycle_another_day">Empezó otro día…</string>
+    <string name="cycle_length_title">Cuánto duró el último</string>
+    <string name="cycle_length_unsaid">Sin decir</string>
+    <string name="cycle_history_title">Registrado</string>
+    <string name="cycle_history_none">Nada todavía</string>
+    <string name="cycle_forget_confirm">¿Sacar este del registro?</string>
+    <string name="cycle_forget">Sacarlo</string>
+    <string name="cycle_caveat">Aritmética sobre los días que anotaste, guardada en este móvil y en ningún otro sitio. No es un aparato médico ni un método anticonceptivo.</string>
+    <plurals name="cycle_in_days">
+        <item quantity="one">Toca mañana</item>
+        <item quantity="other">Toca en %d días</item>
+    </plurals>
+    <plurals name="cycle_late">
+        <item quantity="one">1 día de retraso</item>
+        <item quantity="other">%d días de retraso</item>
+    </plurals>
+    <plurals name="cycle_history_count">
+        <item quantity="one">1 periodo</item>
+        <item quantity="other">%d periodos</item>
+    </plurals>
+    <plurals name="cycle_length_days">
+        <item quantity="one">1 día</item>
+        <item quantity="other">%d días</item>
+    </plurals>
 </resources>

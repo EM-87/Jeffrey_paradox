@@ -63,6 +63,12 @@ object Prefs {
     /** Whether the location prompt has already been shown once. */
     const val LOCATION_ASKED = "pref_location_asked"
 
+    /**
+     * The way in to the cycle sheet. Not a value — nothing is stored under
+     * it; the record itself lives in [CycleStore] under its own key.
+     */
+    const val CYCLE = "pref_cycle"
+
     /** The user's own birthday as month * 100 + day; 0 for none. */
     const val BIRTHDAY = "pref_birthday"
     const val ALARM_RAMP = "pref_alarm_ramp"

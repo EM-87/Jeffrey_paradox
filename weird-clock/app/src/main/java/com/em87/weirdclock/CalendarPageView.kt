@@ -58,6 +58,17 @@ class CalendarPageView @JvmOverloads constructor(
      * a preference and gets a star of its own rather than another dot.
      */
     var birthday = 0
+
+    /**
+     * What each day of the shown month is, cycle-wise. Empty when nothing
+     * has been recorded, which is most people and every fresh install.
+     *
+     * Handed in already worked out rather than given the record and a
+     * calendar: [Cycle] answers in whole days counted from 1970 and this
+     * view thinks in days of a month, and the translation belongs at the
+     * one place that knows which month is on screen.
+     */
+    var cyclePhases: Map<Int, Cycle.Phase> = emptyMap()
         set(value) { field = value; invalidate() }
 
     /** How days already gone are shown, if at all. */
@@ -149,6 +160,8 @@ class CalendarPageView @JvmOverloads constructor(
     private val moonDarkPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val starPath = Path()
     private val moonLitPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val cyclePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val cycleRect = android.graphics.RectF()
 
     private val titleFormat = SimpleDateFormat("LLLL yyyy", Locale.getDefault())
     private val weekdayFormat = SimpleDateFormat("EEEEE", Locale.getDefault())
@@ -600,6 +613,15 @@ class CalendarPageView @JvmOverloads constructor(
                 moonLitPaint.alpha = 220
             }
 
+            // The cycle, as a bar under the number: a solid one for the days
+            // it happened, a hollow one for the days it is expected, and a
+            // thin one for the days between. Under, rather than a dot in a
+            // corner, because a cycle is a *run* of days and a bar reads as
+            // one — a row of dots would read as five separate things.
+            cyclePhases[day]?.takeIf { it != Cycle.Phase.NONE }?.let { phase ->
+                drawCycleBar(canvas, cx, cy + cellH * 0.20f, cellW, cellH, phase)
+            }
+
             // The birthday star, in the corner the reminder dots do not use,
             // so a birthday with a reminder on it shows both.
             if (birthday != 0 && birthday == (shown.get(Calendar.MONTH) + 1) * 100 + day) {
@@ -771,6 +793,47 @@ class CalendarPageView @JvmOverloads constructor(
         canvas.drawPath(starPath, moonLitPaint)
         moonLitPaint.color = color
         moonLitPaint.alpha = alpha
+    }
+
+    /**
+     * One day of the cycle, as a bar under the number.
+     *
+     * Four weights for four degrees of certainty, which is the whole point
+     * of the thing: a day that was written down is drawn solid, a day that
+     * is only predicted is drawn hollow, and a day that has gone past
+     * without the period arriving is drawn solid again but in the warning
+     * colour — because a delay is a fact, even if what it is a delay *from*
+     * was a guess.
+     */
+    private fun drawCycleBar(
+        canvas: Canvas,
+        cx: Float,
+        y: Float,
+        cellW: Float,
+        cellH: Float,
+        phase: Cycle.Phase
+    ) {
+        val halfWidth = cellW * 0.28f
+        val thickness = minOf(cellW, cellH) * when (phase) {
+            Cycle.Phase.FERTILE -> 0.045f
+            else -> 0.085f
+        }
+        cyclePaint.color = when (phase) {
+            Cycle.Phase.PERIOD, Cycle.Phase.LATE -> theme.secondHand
+            else -> theme.numeral
+        }
+        cyclePaint.alpha = when (phase) {
+            Cycle.Phase.PERIOD -> 255
+            Cycle.Phase.LATE -> 255
+            Cycle.Phase.PREDICTED -> 110
+            else -> 80
+        }
+        cyclePaint.style = if (phase == Cycle.Phase.PREDICTED) Paint.Style.STROKE else Paint.Style.FILL
+        cyclePaint.strokeWidth = thickness * 0.5f
+        cycleRect.set(cx - halfWidth, y - thickness / 2f, cx + halfWidth, y + thickness / 2f)
+        canvas.drawRoundRect(cycleRect, thickness / 2f, thickness / 2f, cyclePaint)
+        cyclePaint.style = Paint.Style.FILL
+        cyclePaint.alpha = 255
     }
 
     /** The same terminator-ellipse moon as the dial, in miniature. */
