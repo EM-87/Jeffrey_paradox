@@ -281,6 +281,27 @@ object Cycle {
         return (kept + Period(day, days)).sortedBy { it.start }
     }
 
+    /**
+     * What a tap on a calendar day does to the record.
+     *
+     * A day already inside a recorded period is being un-marked — that is
+     * what tapping a thing that is already on means everywhere else — and
+     * any other day starts one. By the period it falls in rather than by
+     * its start, so tapping the third day of a period removes that period
+     * instead of quietly starting a second one inside it.
+     *
+     * The sheet is still the place to say how long a period ran; this is
+     * for the two-second job the sheet is too much ceremony for.
+     */
+    fun tapped(periods: List<Period>, day: Int): List<Period> {
+        val covering = periods.firstOrNull { day in it.coveredDays() }
+        return if (covering != null) forget(periods, covering.start) else record(periods, day)
+    }
+
+    /** Whether [day] is inside a period that has been written down. */
+    fun marked(periods: List<Period>, day: Int): Boolean =
+        periods.any { day in it.coveredDays() }
+
     /** Takes one out again, by the day it started. */
     fun forget(periods: List<Period>, day: Int): List<Period> =
         periods.filterNot { it.start == day }

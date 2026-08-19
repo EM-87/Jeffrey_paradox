@@ -121,6 +121,19 @@ object Backup {
     const val KEEP = 7
 
     /**
+     * The restore points among [names], newest first.
+     *
+     * Newest first because that is the one somebody nearly always wants —
+     * "put it back the way it was this morning" — and because a list where
+     * the useful answer is at the bottom is a list you scroll past your
+     * own answer to reach.
+     */
+    fun pointsIn(names: List<String>): List<String> =
+        names.mapNotNull { name -> savedOn(name)?.let { it to name } }
+            .sortedByDescending { it.first }
+            .map { it.second }
+
+    /**
      * Which of [names] should be deleted to leave [keep] restore points.
      *
      * The oldest go. Anything in the folder that is not one of ours is not

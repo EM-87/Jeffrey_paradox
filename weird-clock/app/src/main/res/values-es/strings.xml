@@ -121,6 +121,9 @@
     <string name="backup_folder_refused">No se puede escribir en esa carpeta</string>
     <string name="widget_settings_title">Transparencia del widget</string>
     <string name="widget_alpha_reading">%1$d%% opaco</string>
+    <string name="backup_from_a_file">Un archivo en su lugar…</string>
+    <string name="cycle_mark_day">El periodo empezó aquí</string>
+    <string name="cycle_unmark_day">No era día de periodo</string>
     <string name="alarm_off_title">Desactivar esta alarma</string>
     <string name="alarm_off_message">La próxima le toca %1$s.</string>
     <string name="alarm_off_once">Solo esa</string>

@@ -1804,6 +1804,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** For the tests: the dial on the countdown card. */
     internal fun countdownForTest(): ClockView? = countdownClockView
 
+    /**
+     * For the tests: taps a day of the month shown on the calendar,
+     * returning the day it stands for.
+     */
+    internal fun markCycleForTest(day: Int): Int {
+        val cal = calendarView ?: return 0
+        markCycleOn(cal.shownYear, cal.shownMonth1, day)
+        return Cycle.epochDay(cal.shownYear, cal.shownMonth1, day)
+    }
+
     /** For the tests: the alarms this activity is holding. */
     internal fun alarmsForTest(): List<Alarm> = alarms
 
@@ -2445,10 +2455,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val year = cal.shownYear
         val month = cal.shownMonth1
         val dayReminders = reminders.filter { it.occursOn(year, month, day) }
-        if (dayReminders.isEmpty()) {
+        val cycleOn = prefs.getBoolean(Prefs.CYCLE, false)
+        // Nothing on the day and nothing else to offer: straight to the
+        // sheet, which is what a tap on an empty day has always meant.
+        if (dayReminders.isEmpty() && !cycleOn) {
             showReminderSheet(null, year, month, day)
             return
         }
+        val marking = if (cycleOn) cycleMarkLabel(year, month, day) else null
         val items = (
             dayReminders.map {
                 String.format(
@@ -2456,19 +2470,48 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     it.hour, it.minute,
                     it.label.ifBlank { getString(R.string.reminder_untitled) }
                 )
-            } + getString(R.string.reminder_add)
+            } + getString(R.string.reminder_add) + listOfNotNull(marking)
             ).toTypedArray()
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(String.format(Locale.US, "%02d/%02d/%04d", day, month, year))
             .setItems(items) { _, which ->
-                if (which < dayReminders.size) {
-                    showReminderSheet(dayReminders[which], year, month, day)
-                } else {
-                    showReminderSheet(null, year, month, day)
+                when {
+                    which < dayReminders.size ->
+                        showReminderSheet(dayReminders[which], year, month, day)
+                    which == dayReminders.size ->
+                        showReminderSheet(null, year, month, day)
+                    else -> markCycleOn(year, month, day)
                 }
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    /**
+     * What the cycle entry on a tapped day says it will do.
+     *
+     * Named for the outcome rather than for the feature — "period started
+     * here", not "cycle" — because a menu entry that names a subject
+     * rather than an action leaves you pressing it to find out.
+     */
+    private fun cycleMarkLabel(year: Int, month: Int, day: Int): String {
+        val on = Cycle.marked(
+            CycleStore.all(this), Cycle.epochDay(year, month, day)
+        )
+        return getString(if (on) R.string.cycle_unmark_day else R.string.cycle_mark_day)
+    }
+
+    /**
+     * Marks or unmarks a day, from the calendar, in one tap.
+     *
+     * The sheet is still where a period's length is set and where the
+     * history is edited. This is the two-second job that the sheet is too
+     * much ceremony for — and the one that was asked for by name.
+     */
+    private fun markCycleOn(year: Int, month: Int, day: Int) {
+        val at = Cycle.epochDay(year, month, day)
+        CycleStore.replace(this, Cycle.tapped(CycleStore.all(this), at))
+        refreshCalendarMarks()
     }
 
     // ------------------------------------------------- world-clock bubbles

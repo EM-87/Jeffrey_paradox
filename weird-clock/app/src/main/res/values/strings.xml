@@ -165,6 +165,9 @@
     <string name="backup_folder_refused">That folder cannot be written to</string>
     <string name="widget_settings_title">Widget transparency</string>
     <string name="widget_alpha_reading">%1$d%% solid</string>
+    <string name="backup_from_a_file">A file instead…</string>
+    <string name="cycle_mark_day">Period started here</string>
+    <string name="cycle_unmark_day">Not a period day after all</string>
     <string name="alarm_off_title">Turn this alarm off</string>
     <string name="alarm_off_message">It is next due %1$s.</string>
     <string name="alarm_off_once">Just that one</string>

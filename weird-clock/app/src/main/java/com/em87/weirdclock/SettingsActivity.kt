@@ -649,11 +649,7 @@ class SettingsActivity : AppCompatActivity() {
                     return true
                 }
                 "pref_backup_import" -> {
-                    // Anything, not just application/json: file managers and
-                    // cloud providers hand these back as octet-stream or
-                    // text/plain often enough that filtering hides the very
-                    // file the user is looking for.
-                    importLauncher.launch(arrayOf("*/*"))
+                    offerRestorePoints()
                     return true
                 }
                 Prefs.BACKUP_FOLDER -> {
@@ -662,6 +658,63 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }
             return super.onPreferenceTreeClick(preference)
+        }
+
+        /**
+         * The days there is a backup for, offered before the file picker.
+         *
+         * The app has been keeping one a day in a folder of its own, and
+         * making somebody go and find it in a file browser — among
+         * everything else in Documents, by a filename — is asking them to
+         * do the work the automatic backup was for. So the days come
+         * first, newest at the top, and "a file instead" is the last line
+         * for anybody restoring something they saved themselves.
+         *
+         * With no folder chosen there is nothing to list, and the picker
+         * opens as it always did.
+         */
+        private fun offerRestorePoints() {
+            val folder = preferenceManager.sharedPreferences
+                ?.getString(Prefs.BACKUP_FOLDER, "").orEmpty()
+            val tree = folder.takeIf { it.isNotBlank() }?.let {
+                androidx.documentfile.provider.DocumentFile.fromTreeUri(
+                    requireContext(), Uri.parse(it)
+                )
+            }
+            val points = tree?.listFiles()?.mapNotNull { it.name }
+                ?.let { Backup.pointsIn(it) }
+                .orEmpty()
+            if (points.isEmpty()) {
+                // Anything, not just application/json: file managers and
+                // cloud providers hand these back as octet-stream or
+                // text/plain often enough that filtering hides the very
+                // file the user is looking for.
+                importLauncher.launch(arrayOf("*/*"))
+                return
+            }
+            val labels = points.map { dayLabel(it) } + getString(R.string.backup_from_a_file)
+            AlertDialog.Builder(requireContext())
+                .setTitle(R.string.pref_backup_import_title)
+                .setItems(labels.toTypedArray()) { _, which ->
+                    if (which >= points.size) {
+                        importLauncher.launch(arrayOf("*/*"))
+                        return@setItems
+                    }
+                    tree?.findFile(points[which])?.uri?.let { readBackup(it) }
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+
+        /** A restore point's day, written the way the phone writes dates. */
+        private fun dayLabel(name: String): String {
+            val day = Backup.savedOn(name) ?: return name
+            val (year, month, dayOfMonth) = CivilDays.dateOf(day)
+            val cal = java.util.Calendar.getInstance().apply {
+                set(year, month - 1, dayOfMonth, 12, 0, 0)
+            }
+            return android.text.format.DateFormat.getMediumDateFormat(requireContext())
+                .format(cal.time)
         }
 
         /**
