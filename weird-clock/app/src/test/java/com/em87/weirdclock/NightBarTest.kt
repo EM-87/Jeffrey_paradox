@@ -321,6 +321,7 @@ class NightBarTest {
                 Prefs.BELLS to Prefs.BELL_STYLE,
                 Prefs.BELLS to Prefs.TEST_BELLS,
                 Prefs.BELLS to Prefs.BELLS_BACKGROUND,
+                Prefs.BELLS to Prefs.BELL_PRIORITY,
                 Prefs.WORLD_CLOCK to "pref_world_cities",
                 // The solar system hangs off the sky token, because the
                 // whole gesture is a tap on the sun or the moon and there
@@ -329,7 +330,9 @@ class NightBarTest {
             ),
             { SettingsActivity.VeryAdvancedSettingsFragment() } to listOf(
                 Prefs.SECOND_HAND to Prefs.SMOOTH_SECONDS,
-                Prefs.SECOND_HAND to Prefs.FAST_HAND
+                Prefs.SECOND_HAND to Prefs.FAST_HAND,
+                // The tick is the sound of that hand moving.
+                Prefs.SECOND_HAND to Prefs.TICKING
             )
         )) {
             for ((parent, child) in pairs) {
@@ -407,6 +410,20 @@ class NightBarTest {
     }
 
     /** Every key named in a preference screen, as a set of strings. */
+    private fun readXml(xml: Int): Set<String> {
+        val parser = ApplicationProvider.getApplicationContext<android.content.Context>()
+            .resources.getXml(xml)
+        val keys = HashSet<String>()
+        while (parser.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+            if (parser.eventType == org.xmlpull.v1.XmlPullParser.START_TAG) {
+                parser.getAttributeValue(
+                    "http://schemas.android.com/apk/res/android", "key"
+                )?.let { keys.add(it) }
+            }
+        }
+        return keys
+    }
+
     // ------------------------------------------- which rows sit under which
 
     /**
@@ -497,20 +514,6 @@ class NightBarTest {
                 ) {
                     keys.add(key)
                 }
-            }
-        }
-        return keys
-    }
-
-    private fun readXml(xml: Int): Set<String> {
-        val parser = ApplicationProvider.getApplicationContext<android.content.Context>()
-            .resources.getXml(xml)
-        val keys = HashSet<String>()
-        while (parser.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
-            if (parser.eventType == org.xmlpull.v1.XmlPullParser.START_TAG) {
-                parser.getAttributeValue(
-                    "http://schemas.android.com/apk/res/android", "key"
-                )?.let { keys.add(it) }
             }
         }
         return keys
