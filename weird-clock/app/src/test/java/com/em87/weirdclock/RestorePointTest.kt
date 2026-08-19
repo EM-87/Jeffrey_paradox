@@ -109,6 +109,32 @@ class RestorePointTest {
         }
     }
 
+    /**
+     * The newest is the one offered first.
+     *
+     * "Put it back the way it was this morning" is what somebody nearly
+     * always means, and a list where the useful answer is at the bottom is
+     * a list you scroll past your own answer to reach.
+     */
+    @Test
+    fun `the newest restore point is offered first`() {
+        val names = listOf(3, 1, 5, 2).map { Backup.nameFor(at(2026, 8, it)) }
+        assertEquals(
+            listOf(5, 3, 2, 1).map { Backup.nameFor(at(2026, 8, it)) },
+            Backup.pointsIn(names)
+        )
+    }
+
+    /** And nothing that is not ours is offered at all. */
+    @Test
+    fun `only our own files are offered to restore from`() {
+        val mixed = listOf("holiday.jpg", Backup.nameFor(at(2026, 8, 3)), "taxes.pdf")
+        assertEquals(
+            listOf(Backup.nameFor(at(2026, 8, 3))),
+            Backup.pointsIn(mixed)
+        )
+    }
+
     // ------------------------------------------------- what gets thrown away
 
     /** A week is kept and the oldest go. */

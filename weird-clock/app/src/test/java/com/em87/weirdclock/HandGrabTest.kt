@@ -346,7 +346,15 @@ class HandGrabTest {
         // Six degrees a second, so a ticking hand always lands on a
         // multiple of six and a sweeping one almost never does.
         val angle = v.secondAngleForTest()
-        assertEquals("$angle is not on a whole second", 0f, angle % 6f, 0.001f)
+        // How far it is from the nearest whole second, not what is left over
+        // after dividing by six. A hand dead on 234 degrees arrives as
+        // 233.99998 in single precision, whose remainder is 5.99998 — the
+        // largest number this could possibly produce, and a failure for
+        // being exactly right. This test tripped over that once in every
+        // sixty runs and passed on its own every time it was looked at.
+        val off = angle % 6f
+        val fromWhole = kotlin.math.min(off, 6f - off)
+        assertEquals("$angle is not on a whole second", 0f, fromWhole, 0.001f)
     }
 
     /**
