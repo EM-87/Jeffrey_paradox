@@ -183,6 +183,10 @@ class ClockWidgetProvider : AppWidgetProvider() {
             return (sideDp.coerceIn(MIN_DIAL_DP, MAX_DIAL_DP) * density).toInt()
         }
 
+        /** For the tests: the widget as it would be handed to a launcher. */
+        internal fun viewsForTest(context: Context, id: Int): RemoteViews =
+            buildViews(context, AppWidgetManager.getInstance(context), id)
+
         private fun buildViews(
             context: Context,
             manager: AppWidgetManager,

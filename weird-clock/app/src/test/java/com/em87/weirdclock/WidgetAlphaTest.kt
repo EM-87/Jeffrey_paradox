@@ -112,17 +112,21 @@ class WidgetAlphaTest {
      */
     @Test
     fun `the gear is on the widget and opens the slider`() {
-        val inflated = android.view.LayoutInflater.from(context)
-            .inflate(R.layout.widget_clock, null)
-        assertNotNull(
-            "there is no gear on the widget",
-            inflated.findViewById<android.view.View>(R.id.widget_gear)
-        )
-
         val activities = context.packageManager.queryIntentActivities(
             android.content.Intent(context, WidgetSettingsActivity::class.java), 0
         )
         assertTrue("the slider has no screen to live on", activities.isNotEmpty())
+
+        // Applied the way a launcher applies it, so what is measured is the
+        // widget as it is handed over. Asking only whether the layout has a
+        // gear in it proves the picture and nothing about the button: a
+        // gear nothing listens to is a gear that does not work, and that is
+        // the failure worth catching.
+        val applied = ClockWidgetProvider.viewsForTest(context, 1)
+            .apply(context, android.widget.FrameLayout(context))
+        val gear = applied.findViewById<android.view.View>(R.id.widget_gear)
+        assertNotNull("there is no gear on the widget", gear)
+        assertTrue("the gear on the widget does nothing", gear.hasOnClickListeners())
     }
 
     /** And the setting is not something the app's own settings can bury. */
