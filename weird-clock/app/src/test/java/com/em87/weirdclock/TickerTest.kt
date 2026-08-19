@@ -135,4 +135,50 @@ class TickerTest {
             )
         }
     }
+
+    /**
+     * A beat laid out in advance does not drift.
+     *
+     * The whole of the second fix: every tick's time is a multiple of a
+     * second from one fixed point, so a callback that arrives late does not
+     * move the one after it. Asking "how long until the next second?" each
+     * time round instead let every late callback push the next one later
+     * still.
+     */
+    @Test
+    fun `a beat laid out in advance does not drift`() {
+        val anchor = 5_000L
+        for (beat in 0..3600L) {
+            assertEquals(
+                "beat $beat has wandered off the second",
+                anchor + beat * 1000L, Ticker.beatAt(anchor, beat)
+            )
+        }
+    }
+
+    /**
+     * And it is re-laid when the two clocks part company.
+     *
+     * The anchor is in uptime and the seconds it lands on are wall-clock
+     * seconds, and those are not the same clock: uptime stops in deep sleep
+     * and the wall clock is corrected from the network. Left alone, the
+     * tick would end up sounding halfway between two seconds while the hand
+     * stepped on them.
+     */
+    @Test
+    fun `a tick that has drifted off the second is re-laid`() {
+        assertFalse("dead on the second", Ticker.needsResync(9_000L))
+        assertFalse("a hair early", Ticker.needsResync(8_950L))
+        assertFalse("a hair late", Ticker.needsResync(9_050L))
+        assertTrue("a third of a second adrift", Ticker.needsResync(9_330L))
+        assertTrue("and adrift the other way", Ticker.needsResync(8_700L))
+    }
+
+    /** The drift is signed: early is negative, late is positive. */
+    @Test
+    fun `drift says which side of the second it is on`() {
+        assertEquals(0L, Ticker.driftMs(4_000L))
+        assertEquals(40L, Ticker.driftMs(4_040L))
+        assertEquals(-60L, Ticker.driftMs(3_940L))
+    }
 }

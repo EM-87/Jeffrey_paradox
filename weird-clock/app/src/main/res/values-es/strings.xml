@@ -369,4 +369,8 @@
     <string name="pref_armed_title">Alarma registrada en el sistema</string>
     <string name="pref_armed_none">Ninguna. La barra de estado no tiene ningún despertador que dibujar.</string>
     <string name="pref_armed_at">%1$s. Si la barra de estado no muestra el reloj, es cosa del móvil y no de la app.</string>
+
+    <string name="pref_tick_precision_title">Precisión del tic</string>
+    <string name="pref_tick_precision_none">Todavía no ha sonado ninguno.</string>
+    <string name="pref_tick_precision_at">%1$d tics · peor retraso %2$d ms · %3$d perdidos · %4$d rechazados</string>
 </resources>

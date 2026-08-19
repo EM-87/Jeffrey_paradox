@@ -715,7 +715,18 @@ class ClockView @JvmOverloads constructor(
     })
 
     private var lastPhysicsAt = 0L
-    private var lastShakeAt = 0L
+
+    /**
+     * When the last knock was felt. Long ago, not zero.
+     *
+     * Zero means "at uptime zero", and uptime is counted from the last time
+     * the phone was switched on — so the guard that stops one blow being
+     * counted twice was also swallowing the first blow of the first second
+     * after a reboot. The fourth field in this file to have been caught
+     * saying it; the others are [orreryChangedAt], [moonRejoinAt] and
+     * `buttonsAnimStart`.
+     */
+    private var lastShakeAt = -1_000_000L
     private var lastCarryX = 0f
     private var lastCarryY = 0f
     private var lastCarryAt = 0L
@@ -723,12 +734,51 @@ class ClockView @JvmOverloads constructor(
     private var lowPassY = 9.81f
     private var lowPassZ = 0f
 
+    /**
+     * How many readings have arrived since the accelerometer was switched
+     * on, and whether the smoothing has been given a starting value.
+     *
+     * A knock is the difference between the raw reading and the smoothed
+     * one, and the smoothed one is a field that outlives the listener. Come
+     * back to this dial from another card — which detaches and re-attaches
+     * it — and the first reading is measured against a smoothed value from
+     * whenever the view was last on screen. Any change of posture in
+     * between reads as a blow.
+     *
+     * That is not a hypothetical: a phone was dropped hard, the clock was
+     * fine, and the hands were on the floor after a trip to the calendar
+     * and back. The drop had nothing to do with it. So the smoothing is
+     * seeded from the first reading rather than converged towards it, and
+     * nothing counts as a knock until it has settled.
+     */
+    private var settleSamples = 0
+    private var smoothingSeeded = false
+
+    // Two guards against the same phantom, and either one is enough on its
+    // own: seeding the smoothing from the first reading, and refusing to
+    // call anything a knock until it has settled. They are both kept
+    // because they are two lines between them and because the failure they
+    // prevent — a clock quietly taking itself apart in your pocket — is not
+    // one anybody would think to look for. A test breaks both at once, since
+    // breaking either alone leaves the other doing the work.
+
     private var sensorManager: SensorManager? = null
     private val shakeListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
             val ax = event.values[0]
             val ay = event.values[1]
             val az = event.values[2]
+            if (!smoothingSeeded) {
+                // Started from the first reading, not walked towards it: a
+                // smoothed value carried over from the last time this view
+                // was on screen is a phone in a different posture, and the
+                // difference between the two reads as a blow.
+                smoothingSeeded = true
+                lowPassX = ax
+                lowPassY = ay
+                lowPassZ = az
+            }
+            if (settleSamples < SETTLE_SAMPLES) settleSamples++
             // Heavy smoothing, then a dead zone: raw accelerometer noise on a
             // phone lying perfectly still was enough to make settled debris
             // shiver in place forever.
@@ -745,6 +795,9 @@ class ClockView @JvmOverloads constructor(
             applyGravity()
 
             if (!shakeDropEnabled || chronoProvider != null) return
+            // Nothing is a knock until the smoothing has caught up with
+            // where the phone actually is.
+            if (settleSamples < SETTLE_SAMPLES) return
             val devX = ax - lowPassX
             val devY = ay - lowPassY
             val devZ = az - lowPassZ
@@ -922,6 +975,7 @@ class ClockView @JvmOverloads constructor(
         timeScale = 1f
         debris.clear()
         fallenPlanets.clear()
+        sunFallen = false
         spring?.cancel()
         spring = null
         draggedHand = null
@@ -973,6 +1027,10 @@ class ClockView @JvmOverloads constructor(
         if (!shakeDropEnabled || chronoProvider != null) return
         if (sensorManager != null) return
         sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        // Whatever the smoothing thinks it knows is from the last time this
+        // view was on screen, and is not to be believed.
+        settleSamples = 0
+        smoothingSeeded = false
         sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sensorManager?.registerListener(shakeListener, it, SensorManager.SENSOR_DELAY_GAME)
         }
@@ -1029,11 +1087,10 @@ class ClockView @JvmOverloads constructor(
             }
 
             override fun onDoubleTap(e: MotionEvent): Boolean {
-                if (orreryShowing()) {
-                    orreryZoom = 1f
-                    invalidate()
-                    return true
-                }
+                // Nothing, while the planets have the dial. It undid the
+                // zoom, which is a thing a pinch already does and which
+                // nobody meant every time they tapped a planet twice.
+                if (orreryShowing()) return true
                 if (!pinchZoomEnabled) return false
                 dialScale = 1f
                 onDialScaleChanged?.invoke(dialScale)
@@ -1215,11 +1272,17 @@ class ClockView @JvmOverloads constructor(
                 // hands are not there to be wound, and a finger that came
                 // down on Jupiter meant Jupiter. The token is left out of
                 // it, since that is the way back and must stay a tap.
-                val grabbedPlanet = markUnderFinger == null &&
+                // Anything lying in the case comes first. A piece on the
+                // floor is the thing actually under the finger and whatever
+                // is still mounted is behind it — which is how the hands
+                // have always worked, and was not how the planets did: a
+                // planet knocked out of its orbit could not be picked up,
+                // because the orbit it had left took the touch instead.
+                val grabbedDebris = markUnderFinger == null &&
+                    grabFallenBodyNear(event.x, event.y)
+                val grabbedPlanet = markUnderFinger == null && !grabbedDebris &&
                     !skyTokenAt(event.x, event.y) &&
                     grabBodyNear(event.x, event.y)
-                val grabbedDebris = markUnderFinger == null && !grabbedPlanet &&
-                    grabFallenBodyNear(event.x, event.y)
                 if (markUnderFinger == null && !grabbedPlanet && !grabbedDebris &&
                     touchHandsEnabled && !orreryShowing()
                 ) {
@@ -1623,6 +1686,7 @@ class ClockView @JvmOverloads constructor(
             if (debris.bodies.isNotEmpty()) {
                 debris.clear()
                 fallenPlanets.clear()
+                sunFallen = false
                 soundListener?.onHandMounted()
                 tidied = true
             }
@@ -2231,6 +2295,23 @@ class ClockView @JvmOverloads constructor(
         // orbits and rolling about the case, which is the same joke as the
         // hands and the same physics.
         if (orreryShowing()) {
+            // The Sun first, and it is the whole point of the joke: a case
+            // whose eight planets are on the floor and whose star is still
+            // burning in the middle is a case that has been half tidied.
+            if (!sunFallen) {
+                sunFallen = true
+                debris.bodies.add(
+                    DialDebris.Body(
+                        kind = DialDebris.Kind.PLANET, hand = null, numeralHour = 0,
+                        label = "", x = cx, y = cy,
+                        vx = ivx + Random.nextFloat() * 160f - 80f,
+                        vy = ivy - Random.nextFloat() * 200f,
+                        angleDeg = 0f, angVel = Random.nextFloat() * 120f - 60f,
+                        halfLen = r * 0.055f, strokeWidth = 0f, textSize = 0f,
+                        colour = OrreryDial.sunColour(theme)
+                    )
+                )
+            }
             for (body in Orrery.planets + Orrery.Body.MOON) {
                 if (body in fallenPlanets) continue
                 val p = OrreryDial.positionOf(
@@ -2247,7 +2328,8 @@ class ClockView @JvmOverloads constructor(
                         angleDeg = 0f, angVel = Random.nextFloat() * 200f - 100f,
                         halfLen = OrreryDial.dotRadius(body, r, orreryZoom),
                         strokeWidth = 0f, textSize = 0f,
-                        colour = OrreryDial.colourOf(body, theme)
+                        colour = OrreryDial.colourOf(body, theme),
+                        planet = body
                     )
                 )
             }
@@ -2498,11 +2580,15 @@ class ClockView @JvmOverloads constructor(
             // where it goes round to is the date's business, not the
             // finger's.
             DialDebris.Kind.PLANET -> {
+                // Its own ring, at any angle — or the middle of the dial,
+                // which is where the hands go back and where the Sun
+                // belongs, and is the thing anybody tries first. Carrying
+                // eight planets each to its own invisible circle was a
+                // puzzle nobody asked to be set.
                 val out = hypot(x - cx, y - cy)
-                val nearest = planetNearestRing(out, r)
-                nearest != null && kotlin.math.abs(
-                    out - OrreryDial.ringRadius(nearest, r, orreryZoom)
-                ) < r * 0.07f
+                val home = b.planet?.let { OrreryDial.ringRadius(it, r, orreryZoom) }
+                out < r * 0.16f ||
+                    (home != null && kotlin.math.abs(out - home) < r * 0.13f)
             }
             // Complications go back to their own homes.
             DialDebris.Kind.MOON ->
@@ -2522,9 +2608,11 @@ class ClockView @JvmOverloads constructor(
             }
         }
         if (remount) {
-            // A planet goes back into the sky as well as out of the case.
+            // A planet goes back into the sky as well as out of the case —
+            // and the one that goes back is the one that was carried, which
+            // it now says for itself.
             if (b.kind == DialDebris.Kind.PLANET) {
-                planetNearestRing(hypot(x - cx, y - cy), r)?.let { fallenPlanets.remove(it) }
+                b.planet?.let { fallenPlanets.remove(it) } ?: run { sunFallen = false }
             }
             debris.bodies.remove(b)
             debris.carried = null
@@ -3709,7 +3797,13 @@ class ClockView @JvmOverloads constructor(
         // together in one place and mean exactly that; a chronograph card
         // is settable too, but its digits still change meaning.
         chronoSettable && chronoWrapsDay -> UNITS_NONE
-        else -> unitsFor(chronoProvider?.invoke() ?: 0L)
+        // From the number on the glass, not from the one in the
+        // chronograph. They are the same until a hand is being carried, and
+        // then the digits show where the hand is while the little marks
+        // beside them still described where it had been: wind past an hour
+        // and the display read hours with minute-and-second marks under it
+        // until the finger came off.
+        else -> unitsFor(chronoDisplayMs() ?: 0L)
     }
 
     /**
@@ -4179,6 +4273,9 @@ class ClockView @JvmOverloads constructor(
      */
     private val fallenPlanets = HashSet<Orrery.Body>()
 
+    /** Whether the Sun is one of the things rolling about the case. */
+    private var sunFallen = false
+
     /**
      * Which days of the shown year have something on them, and what.
      *
@@ -4323,6 +4420,7 @@ class ClockView @JvmOverloads constructor(
         // The planets go back in their orbits with the sky. They are only
         // on the floor of a case that is showing a solar system.
         fallenPlanets.clear()
+        sunFallen = false
         debris.bodies.removeAll { it.kind == DialDebris.Kind.PLANET }
     }
 
@@ -4336,6 +4434,12 @@ class ClockView @JvmOverloads constructor(
     internal fun leaveOrrery() {
         if (!orreryUp) return
         closeOrrery()
+        // Shut, not faded shut. Leaving the clock for a chronograph starts
+        // a hand-over of its own, and a sky fading back into hands at the
+        // same time is two animations across each other — which is what
+        // made that move look violent. The card change is the movement now;
+        // the sky is simply not there for it.
+        orreryChangedAt = NEVER
         invalidate()
     }
 
@@ -4397,6 +4501,10 @@ class ClockView @JvmOverloads constructor(
     /** Which body a finger is holding, if any. */
     internal fun orreryGrabbedForTest(): Orrery.Body? = grabbedBody
 
+    /** For the tests: attaching and detaching, without a window to do it. */
+    internal fun onAttachedToWindowForTest() = onAttachedToWindow()
+    internal fun onDetachedFromWindowForTest() = onDetachedFromWindow()
+
     /** For the tests: what the little bubble is saying, if anything. */
     internal fun markBubbleForTest(): String? = bubbleText
 
@@ -4412,17 +4520,28 @@ class ClockView @JvmOverloads constructor(
     /** For the tests: which planets are lying in the case. */
     internal fun fallenPlanetsForTest(): Set<Orrery.Body> = fallenPlanets
 
+    /** For the tests: some piece lying in the case, to pick up. */
+    internal fun debrisNearestForTest(): DialDebris.Body? =
+        // A planet, not the Sun: the Sun is a PLANET body with no planet on
+        // it, and a test that picked it up was asserting things about null.
+        debris.bodies.firstOrNull { it.kind == DialDebris.Kind.PLANET && it.planet != null }
+
     /**
-     * Of the planets currently on the floor, the one whose orbit passes
-     * closest to a given distance from the middle.
+     * For the tests: puts a named piece in the hand.
      *
-     * A planet is put back by carrying it to its own ring, at any angle at
-     * all: which angle is the date's business and not the finger's.
+     * Aimed rather than reached for: a touch at a planet's position picks
+     * up whatever is nearest, and with the hands on the floor too that is
+     * often a hand.
      */
-    private fun planetNearestRing(distance: Float, r: Float): Orrery.Body? =
-        fallenPlanets.minByOrNull {
-            kotlin.math.abs(OrreryDial.ringRadius(it, r, orreryZoom) - distance)
-        }
+    internal fun carryForTest(b: DialDebris.Body) {
+        debris.carried = b
+    }
+
+    /** For the tests: what the finger currently has hold of in the case. */
+    internal fun carriedForTest(): DialDebris.Body? = debris.carried
+
+    /** For the tests: whether the Sun is on the floor with them. */
+    internal fun sunFallenForTest(): Boolean = sunFallen
 
     /** Pinches the sky, the way two fingers would. */
     internal fun zoomOrrery(by: Float) {
@@ -4583,7 +4702,7 @@ class ClockView @JvmOverloads constructor(
         OrreryDial.draw(
             canvas, cx, cy, r, theme, orreryMs(), fade,
             orreryMoonLongitude(), orreryAligned(), orreryMoonDetached(), grabbedBody,
-            orreryZoom, orreryBusyDays.keys, fallenPlanets
+            orreryZoom, orreryBusyDays.keys, fallenPlanets, sunFallen
         )
         // Under the dial rather than on it, in the same place and at the
         // same size as the chronograph's readout — which is where this
@@ -4860,6 +4979,20 @@ class ClockView @JvmOverloads constructor(
          * the glass: a movement of the hand, not the end of one.
          */
         private const val SHAKE_THRESHOLD = 25f
+
+        /**
+         * How many readings the smoothing gets before a knock can be
+         * declared.
+         *
+         * At the rate this listener asks for, about a fifth of a second —
+         * long enough for the smoothing to sit on the phone's real posture,
+         * short enough that a genuine rap on the glass a moment after
+         * arriving still counts.
+         */
+        private const val SETTLE_SAMPLES = 8
+
+        /** For the tests: how long the sensor is given to settle. */
+        internal fun settleSamplesForTest(): Int = SETTLE_SAMPLES
 
         /** For the tests: how hard a knock has to be. */
         internal fun shakeThresholdForTest(): Float = SHAKE_THRESHOLD

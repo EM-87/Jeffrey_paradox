@@ -11,8 +11,8 @@ android {
         applicationId = "com.em87.weirdclock"
         minSdk = 24
         targetSdk = 35
-        versionCode = 136
-        versionName = "19.7"
+        versionCode = 137
+        versionName = "19.8"
     }
 
     // Shared signing key committed to the repo, so every APK — built on any
@@ -46,6 +46,13 @@ android {
     // simply spoke English at that one spot. Now the build says so.
     testOptions {
         unitTests.isIncludeAndroidResources = true
+        // The picture tests rasterise real phone-sized bitmaps, and there
+        // are enough of them now that the default heap runs out partway
+        // through the suite — which fails as an OutOfMemoryError in a test
+        // that happens to be unlucky rather than in the one at fault.
+        unitTests.all {
+            it.maxHeapSize = "3g"
+        }
     }
 
     lint {

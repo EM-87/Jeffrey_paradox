@@ -49,6 +49,12 @@ object OrreryDial {
     private const val SUN = 0xFFFFC93C.toInt()
 
     /**
+     * The smallest a planet's touch target may be, as a fraction of the
+     * dial — about twenty-two density-independent pixels on a phone.
+     */
+    private const val REACH_FLOOR = 0.115f
+
+    /**
      * The same colours, dropped in tone on a pale dial.
      *
      * Half of the planets are naturally light — Venus is straw, Saturn is
@@ -203,7 +209,14 @@ object OrreryDial {
             // Room around the smallest ones: Mercury is four pixels across
             // on a phone, and a target has to be bigger than the thing it
             // is a target for.
-            val reach = maxOf(dotRadius(body, r, zoom) * 2.4f, r * 0.055f)
+            //
+            // The floor used to be a twentieth of the dial, which on this
+            // phone is nine density-independent pixels — about a third of
+            // what a finger can be expected to hit, and the reason taking
+            // hold of a planet was "very difficult". Nearest wins, so a
+            // reach wide enough to overlap the next ring costs nothing: the
+            // touch still goes to whichever body is closest to it.
+            val reach = maxOf(dotRadius(body, r, zoom) * 2.4f, r * REACH_FLOOR)
             if (gap < reach && gap < bestGap) {
                 best = body
                 bestGap = gap
@@ -237,7 +250,8 @@ object OrreryDial {
         grabbed: Orrery.Body? = null,
         zoom: Float = 1f,
         busyDays: Set<Int> = emptySet(),
-        fallen: Set<Orrery.Body> = emptySet()
+        fallen: Set<Orrery.Body> = emptySet(),
+        sunIsDown: Boolean = false
     ) {
         if (alpha <= 0.01f) return
         val a = alpha.coerceIn(0f, 1f)
@@ -246,7 +260,7 @@ object OrreryDial {
         val days = Orrery.dayMarkFade(zoom)
         if (days > 0f) drawYearOfDays(canvas, cx, cy, r, theme, atMs, a * days, busyDays)
         if (aligned.size >= 3) drawAlignment(canvas, cx, cy, r, theme, atMs, aligned, a, zoom)
-        drawSun(canvas, cx, cy, r, theme, a)
+        if (!sunIsDown) drawSun(canvas, cx, cy, r, theme, a)
 
         for (body in Orrery.planets) {
             // A planet that has been knocked off its orbit is lying in the
@@ -372,9 +386,13 @@ object OrreryDial {
         }
     }
 
+    /** The Sun's colour, night included — the case needs it when it falls. */
+    internal fun sunColour(theme: ClockTheme): Int =
+        if (theme.dimmed) darkened(SUN, 0.70f) else SUN
+
     private fun drawSun(canvas: Canvas, cx: Float, cy: Float, r: Float, theme: ClockTheme, a: Float) {
         val sr = r * 0.055f
-        fill.color = if (theme.dimmed) darkened(SUN, 0.70f) else SUN
+        fill.color = sunColour(theme)
         fill.alpha = (60 * a).toInt()
         canvas.drawCircle(cx, cy, sr * 1.75f, fill)
         fill.alpha = (255 * a).toInt()

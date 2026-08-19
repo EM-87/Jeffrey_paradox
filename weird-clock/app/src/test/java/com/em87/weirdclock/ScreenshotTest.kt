@@ -544,13 +544,21 @@ class ScreenshotTest {
             clock.knockHandsOff()
             // Long enough for gravity to carry them somewhere they were not
             // before, so "drawn" cannot be confused with "still in orbit".
+            // One bitmap, drawn into over and over: forty of a phone-sized
+            // canvas is half a gigabyte, and the test ran the heap out.
+            val scratch = Bitmap.createBitmap(
+                clock.width.coerceAtLeast(1), clock.height.coerceAtLeast(1),
+                Bitmap.Config.ARGB_8888
+            )
+            val onto = Canvas(scratch)
             repeat(40) {
                 org.robolectric.shadows.ShadowSystemClock.advanceBy(
                     java.time.Duration.ofMillis(16)
                 )
                 clock.invalidate()
-                shootView(clock)
+                clock.draw(onto)
             }
+            scratch.recycle()
             assertTrue("nothing came off", clock.fallenPlanetsForTest().isNotEmpty())
             assertTrue(
                 "Jupiter vanished on its way to the floor",
@@ -558,14 +566,6 @@ class ScreenshotTest {
             )
             assertTrue(shoot(screenOf(c.get()), "orrery-spilled") > 3f)
         }
-    }
-
-    /** Draws [view] into a throwaway bitmap, for its side effects. */
-    private fun shootView(view: View) {
-        val bitmap = Bitmap.createBitmap(
-            view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), Bitmap.Config.ARGB_8888
-        )
-        view.draw(Canvas(bitmap))
     }
 
     /** How many pixels of one colour a view puts on the glass. */

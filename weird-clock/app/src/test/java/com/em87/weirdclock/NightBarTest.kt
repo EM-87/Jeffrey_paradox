@@ -226,7 +226,7 @@ class NightBarTest {
                 // Calendar
                 "pref_past_days", "pref_birthday", "pref_cycle",
                 // General
-                "pref_moon_phase", "pref_orrery", "pref_armed",
+                "pref_moon_phase", "pref_orrery", "pref_armed", "pref_tick_precision",
                 "pref_world_clock", "pref_world_cities",
                 // And the ways on
                 "pref_advanced", "pref_very_advanced", "pref_version"

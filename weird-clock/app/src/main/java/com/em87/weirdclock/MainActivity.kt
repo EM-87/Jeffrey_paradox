@@ -380,16 +380,52 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     @Volatile
     private var ticksWanted = false
 
+    /** The beat's fixed point, and how many have gone since. */
+    private var tickAnchorUptime = 0L
+    private var tickBeats = 0L
+
+    /** What the beat has been doing — see [Ticker.Record]. */
+    internal val tickRecord = Ticker.Record()
+
     private val tickBeat = object : Runnable {
         override fun run() {
+            val due = Ticker.beatAt(tickAnchorUptime, tickBeats)
+            val lag = SystemClock.uptimeMillis() - due
             // On the clock the second hand keeps, not the wall clock. They
             // are the same number until solar time is switched on, and then
             // they are minutes apart — so the tick would sound at one
             // instant and the hand step at another.
             val now = TimeKeeper.nowMs()
-            if (ticksWanted && Ticker.onTime(now)) chimePlayer.playTick()
-            tickHandler?.postDelayed(this, Ticker.delayToNext(TimeKeeper.nowMs()))
+            if (ticksWanted) {
+                if (!Ticker.onTime(now)) {
+                    tickRecord.missedIt()
+                } else if (chimePlayer.playTick()) {
+                    tickRecord.sounded(lag)
+                } else {
+                    tickRecord.refusedIt()
+                }
+            }
+            tickBeats++
+            // Laid out in advance and posted at an absolute time, so a
+            // callback that arrives late does not push the next one late as
+            // well. Only a real parting of the ways between uptime and the
+            // wall clock re-lays the beat.
+            if (Ticker.needsResync(now)) {
+                layTheBeat()
+            } else {
+                tickHandler?.postAtTime(this, Ticker.beatAt(tickAnchorUptime, tickBeats))
+            }
         }
+    }
+
+    /** Puts the anchor on the next whole second and counts from there. */
+    private fun layTheBeat() {
+        lastTickRecord = tickRecord
+        val handler = tickHandler ?: return
+        handler.removeCallbacks(tickBeat)
+        tickAnchorUptime = SystemClock.uptimeMillis() + Ticker.delayToNext(TimeKeeper.nowMs())
+        tickBeats = 0
+        handler.postAtTime(tickBeat, Ticker.beatAt(tickAnchorUptime, 0))
     }
 
     private fun startTicking() {
@@ -397,9 +433,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val thread = android.os.HandlerThread("ticks", android.os.Process.THREAD_PRIORITY_AUDIO)
         thread.start()
         tickThread = thread
-        tickHandler = android.os.Handler(thread.looper).also {
-            it.postDelayed(tickBeat, Ticker.delayToNext(TimeKeeper.nowMs()))
-        }
+        tickHandler = android.os.Handler(thread.looper)
+        layTheBeat()
     }
 
     private fun stopTicking() {
@@ -411,6 +446,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** For the tests: whether the tick would sound on this second. */
     internal fun ticksWantedForTest(): Boolean = ticksWanted
+
+
 
     /** Runs on (approximately) every second boundary, so ticks stay in step. */
     private val soundLoop = object : Runnable {
@@ -1593,6 +1630,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         return draft
     }
 
+    /** For the tests: the reset pusher on the countdown. */
+    internal fun resetCountdownForTest() = resetCountdown()
+
     /** For the tests: how long the countdown has left. */
     internal fun countdownRemainingForTest(): Long = countdownRemaining()
 
@@ -1603,8 +1643,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * change — and what is on trial is the accelerometer, not the buttons.
      */
     internal fun startCountdownForTest(ms: Long) {
-        countdownTotalMs = ms
-        countdownEndsAt = SystemClock.elapsedRealtime() + ms
+        // Through setTo, the way winding the hands does it. Writing the
+        // total and the end time by hand left the remaining time at
+        // whatever it had been, and startOrStop then started *that*.
+        countdown.setTo(ms)
         countdown.startOrStop()
     }
 
@@ -2871,12 +2913,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     private fun resetCountdown() {
-        // Back to zero; the user winds the hands to set a new time. The
-        // hands travel there rather than arriving: everything else on this
-        // dial travels, and a jump reads as a glitch.
+        // Back to the length it was last set to, not to nothing. Reset on a
+        // kitchen timer means "again", and the length you want again is the
+        // one you just used — winding three minutes back on by hand every
+        // time is the thing a reset button exists to save you.
+        //
+        // The hands travel there rather than arriving: everything else on
+        // this dial travels, and a jump reads as a glitch.
         val was = countdownRemaining()
+        val again = countdownTotalMs
         countdown.reset()
-        countdownClockView?.glideChronoTo(was, 0L)
+        if (again > 0L) countdown.setTo(again)
+        countdownClockView?.glideChronoTo(was, countdownRemaining())
         pushed(Pusher.Feel.RESET)
         CountdownService.clearPublished(this)
         updateCountdownUi()
@@ -3012,6 +3060,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     companion object {
+        /**
+         * What the running clock's tick has been doing, for whoever asks in
+         * the settings.
+         *
+         * Here rather than on the instance because the settings are a
+         * different activity, and the numbers worth reading are the ones
+         * from the clock that has been ticking all night.
+         */
+        @Volatile
+        var lastTickRecord: Ticker.Record? = null
+
         const val EXTRA_OPEN_ALARMS = "extra_open_alarms"
         const val EXTRA_OPEN_TIMER = "extra_open_timer"
         const val EXTRA_OPEN_CALENDAR = "extra_open_calendar"

@@ -117,8 +117,14 @@ class ChimePlayer {
      * worst a race can do is play a tick a moment after release, which
      * SoundPool ignores.
      */
-    fun playTick() {
-        if (tickReady) soundPool?.play(tickSoundId, 0.8f, 0.8f, 1, 0, 1f)
+    fun playTick(): Boolean {
+        val pool = soundPool ?: return false
+        if (!tickReady) return false
+        // Non-zero is a stream that started. Zero means the pool refused —
+        // out of streams, or the sample gone — and that is worth counting
+        // rather than shrugging at: it is the other half of "why did that
+        // tick not sound".
+        return pool.play(tickSoundId, 0.8f, 0.8f, 1, 0, 1f) != 0
     }
 
     /**

@@ -71,7 +71,16 @@ internal class DialDebris(private val dial: Case) {
          * date, so it cannot be asked what colour it is — it has to bring
          * the colour with it.
          */
-        val colour: Int = 0
+        val colour: Int = 0,
+        /**
+         * For a planet: which one.
+         *
+         * Without it, putting one back took whichever planet's orbit
+         * happened to be nearest the spot it was dropped on out of the
+         * fallen list — so carrying Neptune to the middle put Mercury back
+         * and left Neptune in the case for ever.
+         */
+        val planet: Orrery.Body? = null
     )
 
     val bodies = ArrayList<Body>()

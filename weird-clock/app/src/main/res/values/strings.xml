@@ -367,4 +367,8 @@
     <string name="pref_armed_title">Alarm registered with the system</string>
     <string name="pref_armed_none">Nothing. The status bar has no alarm to draw.</string>
     <string name="pref_armed_at">%1$s. If the status bar shows no clock, that is the phone\'s doing, not the app\'s.</string>
+
+    <string name="pref_tick_precision_title">Tick precision</string>
+    <string name="pref_tick_precision_none">Nothing ticked yet.</string>
+    <string name="pref_tick_precision_at">%1$d ticks · worst %2$d ms late · %3$d lost · %4$d refused</string>
 </resources>

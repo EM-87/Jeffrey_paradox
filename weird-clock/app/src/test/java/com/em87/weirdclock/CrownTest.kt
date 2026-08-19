@@ -145,4 +145,57 @@ class CrownTest {
         down.setTo(80L * 60 * 60 * 1000)
         assertEquals(24L * 60 * 60 * 1000, down.totalMs)
     }
+
+    /**
+     * The little marks beside the digits follow the digits.
+     *
+     * They were chosen from the chronograph's own value while the digits
+     * showed the value being wound, so carrying a hand past an hour gave a
+     * reading in hours with minute-and-second marks under it until the
+     * finger came off.
+     */
+    @Test
+    fun `the marks follow the digits while a hand is being carried`() {
+        val clock = dial()
+        clock.chronoProvider = { 30_000L }
+        clock.chronoSettable = true
+        val short = clock.readoutUnits()
+        // Wound past the hour: the digits now read hours, so the marks must
+        // read hours too.
+        clock.glideChronoTo(30_000L, 2 * 3_600_000L)
+        // Partway along, where the digits have crossed the hour: at the
+        // very first frame they still read half a minute, and the marks
+        // would be right for the wrong reason.
+        ShadowSystemClock.advanceBy(Duration.ofMillis(500))
+        val long = clock.readoutUnits()
+        assertFalse(
+            "the marks stayed on minutes and seconds while the digits showed hours",
+            short.contentEquals(long)
+        )
+    }
+
+    /**
+     * Reset puts the length back rather than clearing it.
+     *
+     * Reset on a kitchen timer means "again", and the length you want again
+     * is the one you just used. Winding three minutes back on by hand every
+     * time is the thing a reset button exists to save you.
+     */
+    @Test
+    fun `reset puts the length back rather than clearing it`() {
+        PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val activity = c.get()
+            activity.showCardForTest(Card.REVERSE)
+            activity.startCountdownForTest(3 * 60_000L)
+            activity.resetCountdownForTest()
+            assertEquals(
+                "three minutes had to be wound back on by hand",
+                3 * 60_000L, activity.countdownRemainingForTest()
+            )
+        }
+    }
 }

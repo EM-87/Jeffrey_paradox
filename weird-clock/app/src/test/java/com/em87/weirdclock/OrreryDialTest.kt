@@ -52,7 +52,12 @@ class OrreryDialTest {
     }
 
     private fun touch(view: ClockView, action: Int, x: Float, y: Float) {
-        val e = MotionEvent.obtain(0L, 0L, action, x, y, 0)
+        // Stamped with the real clock. The gesture detector tells a double
+        // tap from a stutter by the gap between the two, and events all
+        // stamped zero are no gap at all — so a double tap delivered that
+        // way is never recognised as one, and a test of it proves nothing.
+        val at = android.os.SystemClock.uptimeMillis()
+        val e = MotionEvent.obtain(at, at, action, x, y, 0)
         view.onTouchEvent(e)
         e.recycle()
     }
@@ -1039,5 +1044,130 @@ class OrreryDialTest {
             "no bubble, or the wrong one",
             context.getString(R.string.body_jupiter), clock.markBubbleForTest()
         )
+    }
+
+    /**
+     * Two taps in a row on the sky do nothing.
+     *
+     * They used to undo the zoom, which is a thing the pinch already does
+     * and which nobody meant every time they tapped a planet twice.
+     */
+    @Test
+    fun `a double tap leaves the zoom where it was`() {
+        val clock = openSky()
+        clock.zoomOrrery(100f)
+        val zoomed = clock.orreryZoomForTest()
+        assertTrue("it did not zoom at all", zoomed > 1.5f)
+        val (x, y) = emptySky(clock)
+        touch(clock, MotionEvent.ACTION_DOWN, x, y)
+        touch(clock, MotionEvent.ACTION_UP, x, y)
+        ShadowSystemClock.advanceBy(Duration.ofMillis(120))
+        touch(clock, MotionEvent.ACTION_DOWN, x, y)
+        touch(clock, MotionEvent.ACTION_UP, x, y)
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper())
+            .idleFor(Duration.ofMillis(600))
+        assertEquals(
+            "a double tap threw the zoom away",
+            zoomed, clock.orreryZoomForTest(), 0.001f
+        )
+    }
+
+    /**
+     * A finger comes down on the piece lying in the case, not on the orbit
+     * it fell out of.
+     *
+     * The orbit is still drawn under it and used to take the touch first,
+     * so a planet knocked loose could not be picked up at all — which made
+     * the case impossible to tidy by hand.
+     */
+    @Test
+    fun `a touch on a fallen planet picks up the planet, not its orbit`() {
+        val clock = openSky()
+        clock.knockHandsOff()
+        val body = clock.debrisNearestForTest()
+        assertNotNull("nothing fell", body)
+        touch(clock, MotionEvent.ACTION_DOWN, body!!.x, body.y)
+        assertNotNull(
+            "the orbit it fell out of took the touch",
+            clock.carriedForTest()
+        )
+        assertNull(
+            "and it grabbed something still in the sky as well",
+            clock.orreryGrabbedForTest()
+        )
+    }
+
+    /** The Sun comes off with the planets, or the case is half tidied. */
+    @Test
+    fun `a knock takes the Sun down too`() {
+        val clock = openSky()
+        assertFalse("it was already down", clock.sunFallenForTest())
+        clock.knockHandsOff()
+        assertTrue("the star is still burning in the middle", clock.sunFallenForTest())
+        clock.reassembleAll()
+        assertFalse("and it never went back up", clock.sunFallenForTest())
+    }
+
+    /**
+     * A planet is put back by carrying it to its own ring or to the middle.
+     *
+     * Eight planets each to its own invisible circle was a puzzle nobody
+     * asked to be set; the middle is where the hands go back, and it is the
+     * thing anybody tries first.
+     */
+    @Test
+    fun `a planet goes back to its ring or to the middle`() {
+        val clock = openSky()
+        val cx = clock.width / 2f
+        val cy = clock.height / 2f
+        val r = clock.dialRadiusForTest()
+        clock.knockHandsOff()
+        val before = clock.fallenPlanetsForTest().size
+        assertTrue("nothing fell", before > 0)
+
+        // Pick one up off the floor and carry it to the middle.
+        val body = clock.debrisNearestForTest()
+        assertNotNull("nothing to pick up", body)
+        clock.carryForTest(body!!)
+        touch(clock, MotionEvent.ACTION_MOVE, cx, cy)
+        touch(clock, MotionEvent.ACTION_UP, cx, cy)
+        assertFalse(
+            "carrying ${body.planet} to the middle did not put it back",
+            body.planet in clock.fallenPlanetsForTest()
+        )
+        // And only that one: putting Neptune back must not quietly put
+        // Mercury back with it.
+        assertEquals(
+            "more than the planet in hand went home",
+            before - 1, clock.fallenPlanetsForTest().size
+        )
+    }
+
+    /** And a touch on a planet is a target a finger can actually hit. */
+    @Test
+    fun `a planet is a target a finger can hit`() {
+        val clock = openSky()
+        val cx = clock.width / 2f
+        val cy = clock.height / 2f
+        val r = clock.dialRadiusForTest()
+        val density = clock.resources.displayMetrics.density
+        val now = TimeKeeper.nowMs()
+        // Ten density-independent pixels out, which is well inside how well
+        // a finger aims — and was outside the old target for every planet
+        // smaller than Jupiter.
+        val slip = 14f * density
+        for (body in Orrery.planets) {
+            val p = OrreryDial.positionOf(body, cx, cy, r, now, 0.0)
+            val hit = OrreryDial.bodyAt(p.x + slip, p.y, cx, cy, r, now, 0.0)
+            // The Earth and its Moon sit on top of one another, so a touch
+            // between the two is a fair answer either way — which is what
+            // the zoom is for. Every other planet is alone out there.
+            val fair = if (body == Orrery.Body.EARTH) {
+                hit == Orrery.Body.EARTH || hit == Orrery.Body.MOON
+            } else {
+                hit == body
+            }
+            assertTrue("$body cannot be hit from ${slip.toInt()}px away, got $hit", fair)
+        }
     }
 }

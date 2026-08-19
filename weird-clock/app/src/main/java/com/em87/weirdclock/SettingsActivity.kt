@@ -264,6 +264,22 @@ class SettingsActivity : AppCompatActivity() {
                     getString(R.string.pref_armed_at, at)
                 }
             }
+            // And what the tick has actually been doing. A tick heard to
+            // skip and never measured is an argument rather than a bug;
+            // these three numbers say which half is at fault — lateness is
+            // the scheduler's, a refusal is the audio system's, and a beat
+            // that never ran is neither.
+            findPreference<Preference>("pref_tick_precision")?.summary = run {
+                val beat = MainActivity.lastTickRecord
+                if (beat == null || beat.played == 0L) {
+                    getString(R.string.pref_tick_precision_none)
+                } else {
+                    getString(
+                        R.string.pref_tick_precision_at,
+                        beat.played, beat.worstLagMs, beat.lost, beat.refused
+                    )
+                }
+            }
             findPreference<Preference>("pref_version")?.summary = try {
                 val info = requireContext().packageManager
                     .getPackageInfo(requireContext().packageName, 0)

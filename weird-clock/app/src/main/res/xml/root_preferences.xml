@@ -147,6 +147,11 @@
         android:title="@string/pref_armed_title" />
 
     <Preference
+        android:key="pref_tick_precision"
+        android:selectable="false"
+        android:title="@string/pref_tick_precision_title" />
+
+    <Preference
         android:key="pref_version"
         android:title="@string/pref_version_title" />
 

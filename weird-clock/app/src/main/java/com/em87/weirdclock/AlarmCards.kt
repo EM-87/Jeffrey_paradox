@@ -282,19 +282,30 @@ class AlarmCards(
             // the dark. No colour filter at all — the drawable carries the
             // same tint as every other icon beside it, and forcing pure
             // white made this one glyph stand out from a row it is supposed
-            // to belong to. An alarm that rings several times a day is
-            // judged by its first.
-            val (fh, fm) = times[0]
-            val dark = DayNight.isDarkAt(fh, fm)
-            holder.iconDayNight.setImageResource(
-                if (dark) R.drawable.ic_moon else R.drawable.ic_sun
-            )
+            // to belong to.
+            //
+            // An alarm that rings in the light *and* in the dark gets
+            // neither glyph. It used to be judged by its first time, so an
+            // alarm set for seven in the morning and eleven at night showed
+            // a sun and said nothing true: the icon is there to be read at
+            // a glance, and one that is half wrong is worse than none.
+            val split = times.map { (h, m) -> DayNight.isDarkAt(h, m) }.distinct()
+            if (split.size > 1) {
+                holder.iconDayNight.visibility = View.INVISIBLE
+                holder.iconDayNight.contentDescription = null
+            } else {
+                val dark = split.first()
+                holder.iconDayNight.visibility = View.VISIBLE
+                holder.iconDayNight.setImageResource(
+                    if (dark) R.drawable.ic_moon else R.drawable.ic_sun
+                )
+                holder.iconDayNight.contentDescription = host.getString(
+                    if (dark) R.string.a11y_night else R.string.a11y_day
+                )
+            }
             // Views are recycled, and a filter set on a previous binding
             // would otherwise still be on this one.
             holder.iconDayNight.clearColorFilter()
-            holder.iconDayNight.contentDescription = host.getString(
-                if (dark) R.string.a11y_night else R.string.a11y_day
-            )
 
             // Icons appear only for what is actually switched on.
             holder.soundName.text = soundLabel(alarm.sound)
