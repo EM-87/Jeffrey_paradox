@@ -1170,4 +1170,175 @@ class OrreryDialTest {
             assertTrue("$body cannot be hit from ${slip.toInt()}px away, got $hit", fair)
         }
     }
+
+    // ------------------------------------------ which planet a finger meant
+
+    /**
+     * Taking hold of the Moon does not throw the sky across the years.
+     *
+     * The angle a grab starts from was measured about the middle of the
+     * dial and the angle every frame after it about the Earth, and the two
+     * were then subtracted from one another as though they were the same
+     * measurement. For a planet they are; for the Moon they are two quite
+     * different angles, so the very first move booked the difference
+     * between them as a movement of the finger — up to half a turn of an
+     * orbit that takes a month, in one frame.
+     *
+     * The Moon is the one body permanently sitting on top of another, so it
+     * is the one that gets taken hold of by mistake, which is why this
+     * showed up as "they overlap and it goes wrong there".
+     */
+    @Test
+    fun `taking hold of the Moon and not moving moves nothing`() {
+        val clock = openSky()
+        val cx = clock.width / 2f
+        val cy = clock.height / 2f
+        val r = clock.dialRadiusForTest()
+        val moon = OrreryDial.positionOf(
+            Orrery.Body.MOON, cx, cy, r, clock.orreryMs(), clock.orreryMoonLongitude()
+        )
+        touch(clock, MotionEvent.ACTION_DOWN, moon.x, moon.y)
+        assertEquals(
+            "the Moon was not the body under the finger",
+            Orrery.Body.MOON, clock.orreryGrabbedForTest()
+        )
+        val before = clock.orreryMs()
+        // The finger has not gone anywhere.
+        touch(clock, MotionEvent.ACTION_MOVE, moon.x, moon.y)
+        // A second of slack for the arithmetic and not a millisecond more
+        // of intent: with the two angles crossed this was days.
+        assertTrue(
+            "the sky jumped ${(clock.orreryMs() - before) / 86_400_000.0} days " +
+                "without the finger moving",
+            kotlin.math.abs(clock.orreryMs() - before) < 1000L
+        )
+    }
+
+    /**
+     * Where two rings are within a finger's width of each other, the ring
+     * under the finger decides which planet was meant.
+     *
+     * A reach wide enough for a finger is a little wider than the space
+     * between two rings, so there is a band in which a touch aimed at one
+     * planet is within reach of its neighbour as well — and whichever was
+     * nearest in plain pixels used to win it. Nearest is the wrong
+     * question there: the finger is on one ring or the other, and that is
+     * the answer everybody can see. Taking the wrong one is not a small
+     * error either, since the whole system then winds at that planet's
+     * speed, and Mercury's year is Neptune's fortnight.
+     */
+    @Test
+    fun `a finger on a ring takes the planet on that ring`() {
+        val cx = 500f
+        val cy = 500f
+        val r = 460f
+        // A moment when a pair of neighbours stand so that a point on the
+        // inner ring is nearer to the outer planet than to the inner one:
+        // found by looking, because the arithmetic decides where planets
+        // are and no date written down here would stay true of it.
+        var at = 0L
+        var inner = Orrery.Body.MERCURY
+        var outer = Orrery.Body.VENUS
+        var found = false
+        var day = 0L
+        outer@ while (day < 4000) {
+            val t = TimeKeeper.nowMs() + day * 86_400_000L
+            for (i in 0 until Orrery.planets.size - 1) {
+                val a = Orrery.planets[i]
+                val b = Orrery.planets[i + 1]
+                val ringA = OrreryDial.ringRadius(a, r)
+                val gap = OrreryDial.ringRadius(b, r) - ringA
+                val sep = Orrery.separation(
+                    Orrery.longitude(a, t), Orrery.longitude(b, t)
+                )
+                // How far round A's own ring the outer planet's direction
+                // is, as a straight line: that is how far the touch will be
+                // from A, while it is exactly [gap] from B.
+                val chord = 2f * ringA * kotlin.math.sin(Math.toRadians(sep / 2)).toFloat()
+                val reach = maxOf(OrreryDial.dotRadius(a, r) * 2.4f, r * 0.115f)
+                if (chord > gap * 1.05f && chord < reach * 0.92f) {
+                    at = t; inner = a; outer = b; found = true
+                    break@outer
+                }
+            }
+            day++
+        }
+        assertTrue("no such moment in eleven years of sky", found)
+
+        // On the inner planet's own ring, pointing the way the outer one
+        // lies.
+        val ring = OrreryDial.ringRadius(inner, r)
+        val angle = Math.toRadians(Orrery.longitude(outer, at))
+        val x = cx + (ring * kotlin.math.cos(angle)).toFloat()
+        val y = cy - (ring * kotlin.math.sin(angle)).toFloat()
+
+        val innerPos = OrreryDial.positionOf(inner, cx, cy, r, at, 0.0)
+        val outerPos = OrreryDial.positionOf(outer, cx, cy, r, at, 0.0)
+        assertTrue(
+            "the touch was not actually nearer the wrong planet, so this proves nothing",
+            kotlin.math.hypot(x - outerPos.x, y - outerPos.y) <
+                kotlin.math.hypot(x - innerPos.x, y - innerPos.y)
+        )
+        assertEquals(
+            "the touch went to $outer, one ring out from the ring it was on",
+            inner, OrreryDial.bodyAt(x, y, cx, cy, r, at, 0.0)
+        )
+    }
+
+    /**
+     * And a planet lying in the case is not in the sky to be taken hold of.
+     *
+     * It keeps its place in the arithmetic while it is on the floor — that
+     * is how it knows where to go back to — and the hit test read that
+     * place as though the planet were still standing in it. So a touch on
+     * an empty stretch of orbit took hold of nothing you could see and
+     * wound the whole system by it.
+     */
+    @Test
+    fun `an empty orbit hands out no grabs`() {
+        val clock = openSky()
+        val cx = clock.width / 2f
+        val cy = clock.height / 2f
+        val r = clock.dialRadiusForTest()
+        clock.knockHandsOff()
+        val down = clock.fallenPlanetsForTest()
+        assertTrue("nothing fell", down.isNotEmpty())
+        // Asked of the sky's own grab rather than of the geometry it calls:
+        // the hit test knowing about the floor is no use at all if the
+        // thing that calls it does not pass it on, and a version of this
+        // test that went straight to OrreryDial passed with that wire cut.
+        for (body in down) {
+            val where = OrreryDial.positionOf(
+                body, cx, cy, r, clock.orreryMs(), clock.orreryMoonLongitude()
+            )
+            val got = if (clock.grabBodyNearForTest(where.x, where.y)) {
+                clock.orreryGrabbedForTest()
+            } else {
+                null
+            }
+            assertTrue(
+                "$body is on the floor and was still handed out from its orbit",
+                got !in down
+            )
+        }
+    }
+
+    /**
+     * And with the planets down, the clock does not put a second row of
+     * digits over the sky's own.
+     *
+     * A knock takes the hands off with the planets, and hands on the floor
+     * make the clock spell the time out under the dial — in exactly the
+     * place the sky puts the date it is standing on. Two readouts, one
+     * through the other.
+     */
+    @Test
+    fun `a knocked sky shows the date and not the time as well`() {
+        val clock = openSky()
+        clock.knockHandsOff()
+        assertNull(
+            "the clock spelled the hour out over the sky's date",
+            clock.readoutText()
+        )
+    }
 }

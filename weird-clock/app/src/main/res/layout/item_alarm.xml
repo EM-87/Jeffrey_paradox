@@ -110,6 +110,16 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
+                <!-- Every gap in this row hangs off the *end* of the icon
+                     before it rather than the start of the icon after it,
+                     which is not a matter of taste. Any of these can be
+                     hidden — an alarm that rings on both sides of dusk has
+                     no sun and no moon — and a gap that belongs to the
+                     icon that is still there would survive its neighbour
+                     and sit in the row as a hole. Hung the other way, an
+                     icon takes its own spacing with it when it goes and
+                     the rest of the row closes up. -->
+
                 <!-- First in the row: is this alarm a day one or a night
                      one. The dots on the dial say it in colour; a card has
                      room to say it outright. -->
@@ -120,6 +130,7 @@
                     android:id="@+id/icon_daynight"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
+                    android:layout_marginEnd="8dp"
                     android:contentDescription="@string/a11y_day"
                     android:src="@drawable/ic_sun" />
 
@@ -127,7 +138,7 @@
                     android:id="@+id/icon_vibrate"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="8dp"
                     android:contentDescription="@string/alarm_vibrate"
                     android:src="@drawable/ic_vibrate" />
 
@@ -135,7 +146,7 @@
                     android:id="@+id/icon_calendar"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="8dp"
                     android:contentDescription="@string/reminder_duration"
                     android:src="@drawable/ic_calendar" />
 
@@ -143,7 +154,7 @@
                     android:id="@+id/icon_flash"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="8dp"
                     android:contentDescription="@string/alarm_flash"
                     android:src="@drawable/ic_flash" />
 
@@ -151,7 +162,7 @@
                     android:id="@+id/icon_gentle"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="8dp"
                     android:contentDescription="@string/alarm_gentle"
                     android:src="@drawable/ic_sunrise" />
 
@@ -159,15 +170,17 @@
                     android:id="@+id/icon_mission"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="8dp"
                     android:contentDescription="@string/alarm_mission"
                     android:src="@drawable/ic_mission" />
 
+                <!-- The snooze glyph and its minutes are one thing and go
+                     together, so the tight gap is between them and the
+                     wide one after the pair. -->
                 <ImageView
                     android:id="@+id/icon_snooze"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
-                    android:layout_marginStart="8dp"
                     android:contentDescription="@string/alarm_snooze"
                     android:src="@drawable/ic_snooze" />
 
@@ -176,6 +189,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="3dp"
+                    android:layout_marginEnd="8dp"
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
 
@@ -183,7 +197,6 @@
                     android:id="@+id/icon_sound"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
-                    android:layout_marginStart="8dp"
                     android:contentDescription="@string/pref_bell_style_title"
                     android:src="@drawable/ic_note" />
 

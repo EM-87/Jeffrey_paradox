@@ -226,6 +226,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private val stopwatch = Chronograph { SystemClock.elapsedRealtime() }
     private val countdown = Countdown({ SystemClock.elapsedRealtime() }, DEFAULT_COUNTDOWN_MS)
 
+    /** The two lengths the countdown's reset pusher swaps between. */
+    private val countdownLengths = Lengths().apply { adopt(DEFAULT_COUNTDOWN_MS) }
+
     private var stopwatchAccumMs by stopwatch::accumMs
     private var stopwatchStartedAt by stopwatch::startedAt
     private val stopwatchRunning get() = stopwatch.running
@@ -922,6 +925,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 val endsAt = prefs.getLong(Prefs.COUNTDOWN_ENDS_AT, 0L)
                 if (!countdownRunning && endsAt > SystemClock.elapsedRealtime()) {
                     countdown.adopt(endsAt, prefs.getLong(Prefs.COUNTDOWN_TOTAL, 60_000L))
+                    // The reset pusher goes back to the length it can see,
+                    // which now is this one and not whatever was on the dial
+                    // before the app went away.
+                    countdownLengths.adopt(countdownTotalMs)
                     updateCountdownUi()
                 }
             }
@@ -931,6 +938,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     prefs.getLong(Prefs.COUNTDOWN_ENDS_AT, countdownEndsAt),
                     prefs.getLong(Prefs.COUNTDOWN_TOTAL, countdownTotalMs)
                 )
+                countdownLengths.adopt(countdownTotalMs)
                 prefs.edit().remove(Prefs.COUNTDOWN_RESULT).apply()
                 updateCountdownUi()
             }
@@ -1175,6 +1183,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.onChronoAdjusted = { ms ->
                 if (!countdownRunning) {
                     countdown.setTo(ms)
+                    // Only what was chosen by hand goes into the memory, and
+                    // this is the one place a hand chooses: the hands are
+                    // committed on release, not while they are being
+                    // dragged, so the length before this one is a length
+                    // somebody meant rather than wherever a finger passed.
+                    countdownLengths.wound(countdown.remainingMs)
                     updateCountdownUi()
                 }
             }
@@ -1647,8 +1661,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // total and the end time by hand left the remaining time at
         // whatever it had been, and startOrStop then started *that*.
         countdown.setTo(ms)
+        countdownLengths.wound(countdown.remainingMs)
         countdown.startOrStop()
     }
+
+    /**
+     * For the tests: wind the countdown to [ms] and let go of the hand.
+     *
+     * Through the very callback the dial invokes on release, so that what
+     * is on trial is the wiring and not a copy of it kept alongside.
+     */
+    internal fun windCountdownForTest(ms: Long) {
+        countdownClockView?.onChronoAdjusted?.invoke(ms)
+    }
+
+    /** For the tests: the pair of lengths the reset pusher swaps between. */
+    internal fun countdownLengthsForTest(): Lengths = countdownLengths
 
     /** For the tests: put the app on a given card. */
     internal fun showCardForTest(card: Card) {
@@ -2918,10 +2946,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // one you just used — winding three minutes back on by hand every
         // time is the thing a reset button exists to save you.
         //
+        // On a countdown already sitting at its full length there is
+        // nothing to do "again", and the pusher used to sit there dead. So
+        // it offers the other length instead — the one set before this one
+        // — and swaps back on the next press. Which of the two it is comes
+        // from [Lengths], where it can be held to account.
+        //
         // The hands travel there rather than arriving: everything else on
         // this dial travels, and a jump reads as a glitch.
         val was = countdownRemaining()
-        val again = countdownTotalMs
+        val again = countdownLengths.onReset(countdownRunning, was)
         countdown.reset()
         if (again > 0L) countdown.setTo(again)
         countdownClockView?.glideChronoTo(was, countdownRemaining())

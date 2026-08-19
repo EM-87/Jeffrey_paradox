@@ -343,4 +343,57 @@ class AlarmDialsTest {
             spoken.contains("5")
         )
     }
+
+    // ------------------------------------------- the row with a mark missing
+
+    /** Lays the icon row out for real, so where things sit can be read. */
+    private fun laidOutRow(alarm: Alarm): android.view.View {
+        val holder = bind(alarm)
+        val row = holder.itemView.findViewById<android.view.View>(R.id.alarm_icons)
+        val wide = android.view.View.MeasureSpec.makeMeasureSpec(
+            1000, android.view.View.MeasureSpec.AT_MOST
+        )
+        row.measure(wide, wide)
+        row.layout(0, 0, row.measuredWidth, row.measuredHeight)
+        return row
+    }
+
+    /**
+     * With no sun and no moon the row closes up behind them.
+     *
+     * Hiding the glyph is only half the job. Left merely invisible it goes
+     * on holding its own width and its own gap, and the line of marks
+     * starts a finger's width in from where every other card starts it —
+     * which reads as a mark you cannot see rather than as a mark that
+     * isn't there.
+     */
+    @Test
+    fun `an alarm on both sides of dusk leaves no hole where its glyph was`() {
+        val mixed = plain().apply {
+            vibrate = true
+            hour = 7
+            minute = 0
+            extraTimes = mutableListOf(23 * 60)
+        }
+        val plainDay = plain().apply { vibrate = true }
+
+        val mixedRow = laidOutRow(mixed)
+        val dayRow = laidOutRow(plainDay)
+
+        val glyph = mixedRow.findViewById<android.view.View>(R.id.icon_daynight)
+        assertEquals(
+            "the sun or moon was still drawn for an alarm that is both",
+            View.GONE, glyph.visibility
+        )
+
+        val firstMark = mixedRow.findViewById<android.view.View>(R.id.icon_vibrate)
+        assertEquals(
+            "the row still begins where the glyph used to be",
+            0, firstMark.left
+        )
+        assertTrue(
+            "and the row is narrower by the missing mark and its gap",
+            mixedRow.measuredWidth < dayRow.measuredWidth
+        )
+    }
 }

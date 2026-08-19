@@ -239,4 +239,142 @@ class DialSettingTest {
         assertEquals(before.length, after.length)
         assertEquals(before.count { it == ':' }, after.count { it == ':' })
     }
+
+    // ------------------------------------------------- the stop at a full day
+
+    private fun touch(v: ClockView, action: Int, x: Float, y: Float) {
+        val at = android.os.SystemClock.uptimeMillis()
+        val e = android.view.MotionEvent.obtain(at, at, action, x, y, 0)
+        v.onTouchEvent(e)
+        e.recycle()
+    }
+
+    /**
+     * One gesture: take hold of a hand and turn it through each leg in turn.
+     *
+     * Legs rather than separate calls because taking hold again is what
+     * hides the bug — a fresh grab resets what has been turned so far, so a
+     * push into the stop and a pull back off it have to be the same
+     * uninterrupted gesture to prove anything.
+     *
+     * Real touch events, because what is on trial is the thing that
+     * accumulates degrees as they arrive; a helper that added them up
+     * itself would only be checking my arithmetic against my arithmetic.
+     */
+    private fun windBy(
+        v: ClockView,
+        hand: ClockView.Hand,
+        vararg legs: Double
+    ) {
+        // Any hand-over between one set of angles and another has to be
+        // over before the hand can be found: while one is running the hands
+        // are somewhere between where they were and where they belong, and
+        // a test that reaches for one lands on empty dial about half the
+        // time. Which is how this test first "failed".
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofSeconds(2))
+        val cx = v.width / 2f
+        val cy = v.height / 2f
+        // Where the hand actually is, asked of the view rather than worked
+        // out here: the middle of its box is the middle of the hand, and a
+        // second copy of the angle arithmetic in the test would only ever
+        // agree with itself.
+        val box = v.handBounds(hand)!!
+        val startX = box.exactCenterX()
+        val startY = box.exactCenterY()
+        val grip = kotlin.math.hypot(startX - cx, startY - cy)
+        val startDeg = Math.toDegrees(
+            kotlin.math.atan2((startY - cy).toDouble(), (startX - cx).toDouble())
+        )
+        fun at(deg: Double): Pair<Float, Float> {
+            val a = Math.toRadians(deg)
+            return (cx + grip * kotlin.math.cos(a)).toFloat() to
+                (cy + grip * kotlin.math.sin(a)).toFloat()
+        }
+        var here = startDeg
+        touch(v, android.view.MotionEvent.ACTION_DOWN, startX, startY)
+        for (leg in legs) {
+            val end = here + leg
+            val step = if (leg >= 0) 20.0 else -20.0
+            // Twenty degrees at a time: small enough that the half-turn
+            // rule which decides which way a finger went is never in doubt.
+            while (kotlin.math.abs(end - here) > 0.0001) {
+                here = if (kotlin.math.abs(end - here) < kotlin.math.abs(step)) end
+                else here + step
+                val p = at(here)
+                touch(v, android.view.MotionEvent.ACTION_MOVE, p.first, p.second)
+            }
+        }
+    }
+
+    /** A countdown dial with its hands at [ms], ready to be wound. */
+    private fun countdownAt(ms: Long): ClockView = dial().apply {
+        chronoProvider = { ms }
+        chronoSettable = true
+        chronoWrapsDay = false
+        showSecondHand = false
+    }
+
+    /**
+     * The hands hit something at twenty-four hours.
+     *
+     * The value was capped when it was committed and not before, so the
+     * hands went on turning past the end into hours that were quietly
+     * thrown away on release. Now they stand: a countdown cannot be wound
+     * past a day, and the dial says so while it is being wound rather than
+     * after the finger comes off.
+     */
+    @Test
+    fun `a countdown will not be wound past a day`() {
+        val v = countdownAt(3 * hour)
+        // The hour hand starts at three o'clock. Two and a half turns of it
+        // is thirty hours, which is well past the end.
+        windBy(v, ClockView.Hand.HOUR, 900.0)
+        assertEquals(
+            "the hands went on past a full day",
+            24 * hour, v.chronoShownForTest()
+        )
+    }
+
+    /**
+     * And it is a stop, not a jam.
+     *
+     * The turn beyond the end has to be given back rather than banked. Left
+     * banked, a hand pushed six hours into the wall would need six hours of
+     * unwinding before it moved at all — which feels like a dial that has
+     * broken rather than one that has reached its limit.
+     */
+    @Test
+    fun `winding back off the stop moves at once`() {
+        val v = countdownAt(3 * hour)
+        // One gesture: hard into the stop, then thirty degrees back, which
+        // is one hour of a twelve-hour hand.
+        windBy(v, ClockView.Hand.HOUR, 900.0, -30.0)
+        assertEquals(
+            "the hours wound past the end were banked against the stop",
+            23 * hour, v.chronoShownForTest()
+        )
+    }
+
+    /**
+     * A time of day has no such stop: it comes round again.
+     *
+     * The alarm dial is wound the same way, and midnight is a place on it
+     * rather than an end. A stop there would put one in the morning out of
+     * reach of a hand being turned forwards.
+     */
+    @Test
+    fun `a time of day is not stopped at midnight`() {
+        val v = dial().apply {
+            chronoProvider = { 22 * hour }
+            chronoSettable = true
+            chronoWrapsDay = true
+            showSecondHand = false
+        }
+        assertNull("a time of day was given an end", v.windingStopSeconds())
+        windBy(v, ClockView.Hand.HOUR, 180.0)
+        assertEquals(
+            "the dial stuck at midnight instead of going round",
+            4 * hour, v.chronoShownForTest()
+        )
+    }
 }

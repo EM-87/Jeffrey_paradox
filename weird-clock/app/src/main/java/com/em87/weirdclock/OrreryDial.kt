@@ -55,6 +55,27 @@ object OrreryDial {
     private const val REACH_FLOOR = 0.115f
 
     /**
+     * How much of the gap between two rings counts as "on this one",
+     * when deciding which of several planets in reach was meant.
+     *
+     * The reach has to be wider than the space between two rings — a finger
+     * is, and shrinking the target back below it is what made the planets
+     * impossible to take hold of in the first place. So on a crowded part
+     * of the dial two or three planets are within reach at once, and
+     * something has to choose. It used to be whichever was nearest in plain
+     * pixels, which is why grabbing worked perfectly with the planets
+     * spread out and went wrong when they bunched up: a touch aimed at
+     * Venus, a few pixels off towards Mercury, took Mercury and wound the
+     * whole system by Mercury's year.
+     *
+     * Distance across an orbit counts for much more than distance along it,
+     * because along an orbit there is nothing else to be confused with. So
+     * the ring your finger is on decides, which is how anybody points at a
+     * planet on a diagram — and being sloppy round the ring costs nothing.
+     */
+    private const val ACROSS_OF_GAP = 0.45f
+
+    /**
      * The same colours, dropped in tone on a pale dial.
      *
      * Half of the planets are naturally light — Venus is straw, Saturn is
@@ -179,6 +200,18 @@ object OrreryDial {
         Orrery.wrap(Math.toDegrees(kotlin.math.atan2((cy - y).toDouble(), (x - cx).toDouble())))
 
     /**
+     * How far apart two neighbouring rings are, in pixels.
+     *
+     * Taken from the rings themselves rather than written down, so that
+     * moving [Orrery.ringFraction] moves the targets with it.
+     */
+    private fun ringGap(r: Float, zoom: Float): Float {
+        val planets = Orrery.planets
+        return (Orrery.ringFraction(planets.last()) - Orrery.ringFraction(planets.first())) /
+            (planets.size - 1) * r * zoom
+    }
+
+    /**
      * Which body a finger has landed on, or null.
      *
      * Nearest wins rather than first found, which is what makes the Moon
@@ -187,6 +220,17 @@ object OrreryDial {
      * touch aimed at the Moon on the near side of its orbit. The order the
      * list is walked in does not matter, and an earlier version of this
      * comment claimed it did.
+     *
+     * Reach and choice are two different questions and are answered
+     * separately. Whether a body is in reach at all is a plain circle,
+     * wide enough for a finger. Which of the ones in reach was meant is
+     * decided by a distance that counts across an orbit far more heavily
+     * than along it — see [ACROSS_OF_GAP].
+     *
+     * [skip] is whatever is not in the sky to be taken hold of. A planet
+     * lying on the floor of the case still has a place in the arithmetic
+     * and none on the glass, and hit testing that did not know the
+     * difference handed out grabs of planets that were not there.
      */
     fun bodyAt(
         x: Float,
@@ -196,30 +240,51 @@ object OrreryDial {
         r: Float,
         atMs: Long,
         moonLongitude: Double,
-        zoom: Float = 1f
+        zoom: Float = 1f,
+        skip: Set<Orrery.Body> = emptySet()
     ): Orrery.Body? {
         var best: Orrery.Body? = null
-        var bestGap = Float.MAX_VALUE
+        var bestScore = Float.MAX_VALUE
+        val across = maxOf(ringGap(r, zoom) * ACROSS_OF_GAP, 1f)
+        val along = r * REACH_FLOOR
+        val fingerR = hypot(x - cx, y - cy)
         for (body in Orrery.planets + Orrery.Body.MOON) {
+            if (body in skip) continue
             val p = positionOf(body, cx, cy, r, atMs, moonLongitude, zoom)
             // A planet the zoom has pushed off the edge of the dial is not
             // there to be taken hold of.
             if (hypot(p.x - cx, p.y - cy) > r) continue
-            val gap = hypot(x - p.x, y - p.y)
+            val dot = dotRadius(body, r, zoom)
             // Room around the smallest ones: Mercury is four pixels across
             // on a phone, and a target has to be bigger than the thing it
-            // is a target for.
-            //
-            // The floor used to be a twentieth of the dial, which on this
-            // phone is nine density-independent pixels — about a third of
-            // what a finger can be expected to hit, and the reason taking
-            // hold of a planet was "very difficult". Nearest wins, so a
-            // reach wide enough to overlap the next ring costs nothing: the
-            // touch still goes to whichever body is closest to it.
-            val reach = maxOf(dotRadius(body, r, zoom) * 2.4f, r * REACH_FLOOR)
-            if (gap < reach && gap < bestGap) {
+            // is a target for. The floor was once a twentieth of the dial —
+            // nine density-independent pixels, about a third of what a
+            // finger can be expected to hit, and the reason taking hold of
+            // a planet was "very difficult".
+            val reach = maxOf(dot * 2.4f, r * REACH_FLOOR)
+            val gap = hypot(x - p.x, y - p.y)
+            if (gap >= reach) continue
+            val score = if (body == Orrery.Body.MOON) {
+                // The Moon is the one body not on a ring about the middle,
+                // and it sits inside the Earth's own reach. Plain distance
+                // for it, as a fraction of its reach so it can be set
+                // against the others: on the Moon it wins, a little off it
+                // the Earth does.
+                gap / reach
+            } else {
+                val ring = ringRadius(body, r, zoom)
+                val outward = kotlin.math.abs(fingerR - ring)
+                val alongArc = ring * Math.toRadians(
+                    Orrery.separation(
+                        Orrery.longitude(body, atMs),
+                        longitudeOf(cx, cy, x, y)
+                    )
+                ).toFloat()
+                hypot(outward / across, alongArc / along)
+            }
+            if (score < bestScore) {
                 best = body
-                bestGap = gap
+                bestScore = score
             }
         }
         return best

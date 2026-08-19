@@ -289,9 +289,14 @@ class AlarmCards(
             // alarm set for seven in the morning and eleven at night showed
             // a sun and said nothing true: the icon is there to be read at
             // a glance, and one that is half wrong is worse than none.
+            //
+            // Gone rather than merely invisible: an invisible one still
+            // holds its sixteen density-independent pixels open and the
+            // row begins with a hole. The rest of the marks move up and
+            // the line starts where a line should start.
             val split = times.map { (h, m) -> DayNight.isDarkAt(h, m) }.distinct()
             if (split.size > 1) {
-                holder.iconDayNight.visibility = View.INVISIBLE
+                holder.iconDayNight.visibility = View.GONE
                 holder.iconDayNight.contentDescription = null
             } else {
                 val dark = split.first()

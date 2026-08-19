@@ -1111,7 +1111,7 @@ class ClockView @JvmOverloads constructor(
                 if (orreryUp) {
                     OrreryDial.bodyAt(
                         e.x, e.y, width / 2f, height / 2f, dialRadius(),
-                        orreryMs(), orreryMoonLongitude(), orreryZoom
+                        orreryMs(), orreryMoonLongitude(), orreryZoom, fallenPlanets
                     )?.let { body ->
                         showMarkBubble(context.getString(OrreryDial.nameKeyOf(body)), e.x, e.y)
                         return true
@@ -1911,7 +1911,23 @@ class ClockView @JvmOverloads constructor(
             dropHands(0f, 0f)
             return
         }
-        val target = dragStartOffset + dragAccumDeg / 360.0 * secondsPerRevolution(hand)
+        var target = dragStartOffset + dragAccumDeg / 360.0 * secondsPerRevolution(hand)
+        // The stop at a full day. A countdown is capped at twenty-four hours
+        // when it is committed, but the hands went on turning past it and
+        // came back on release, so the last hour of winding did nothing and
+        // said nothing. Now they hit something: the hand stands at the top
+        // and will not go on, the way the chronograph will not be wound
+        // below nothing.
+        //
+        // The turn beyond the stop is given back rather than banked. Left
+        // banked, a hand pushed three hours into the wall would need three
+        // hours of unwinding before it moved again, which is a jam and not
+        // a stop.
+        val stop = windingStopSeconds()
+        if (stop != null && target > stop) {
+            dragAccumDeg = (stop - dragStartOffset) / secondsPerRevolution(hand) * 360.0
+            target = stop
+        }
         if (chronoSettable && chronoProvider != null && hand == Hand.SECOND) {
             // The second hand works like the minute hand: it ticks from
             // whole second to whole second — no landing in between — and
@@ -2001,6 +2017,32 @@ class ClockView @JvmOverloads constructor(
         Hand.SECOND -> 60.0
         Hand.MINUTE -> 3600.0
         Hand.HOUR -> hoursOnDial * 3600.0
+    }
+
+    /**
+     * How far a hand may be wound before it hits something, or null if it
+     * may be wound as far as anyone likes.
+     *
+     * Only a countdown has a far end. A day is where it stops, because that
+     * is where the value stops being taken: past twenty-four hours the hands
+     * have been round the whole face twice and there is nothing on the glass
+     * that could tell you where you are. Something wanted the day after
+     * tomorrow is an alarm, and this app has alarms.
+     *
+     * A time of day has no such end — it comes round again — and neither
+     * does a stopwatch being played with, where winding past the end is the
+     * point and the mechanism blows apart instead.
+     *
+     * Measured in the same units as the winding offset: seconds from
+     * wherever the hand was taken hold of.
+     */
+    internal fun windingStopSeconds(): Double? {
+        if (!chronoSettable || chronoProvider == null || chronoWrapsDay) return null
+        val baseMs = chronoFrozenMs ?: 0L
+        // Exactly a day: not a day less a second, so the readout can reach
+        // 24:00:00, and not a day plus anything, so what is committed is
+        // what was shown.
+        return (A_DAY_MS - baseMs) / 1000.0
     }
 
     /** Drops an in-progress wind without spring-back (the fling was a swipe). */
@@ -3762,6 +3804,16 @@ class ClockView @JvmOverloads constructor(
         // into negative time.
         chronoProvider != null && chronoSettable -> formatDuration(settingReadoutMs())
         chronoProvider != null -> formatDuration(chronoProvider?.invoke() ?: 0L)
+        // The sky has its own row of digits in exactly this place — the
+        // date the system is standing on — so the clock does not put a
+        // second row on top of it. A knock while the sky is up takes the
+        // hands down with the planets, and the hour and the date were being
+        // drawn over each other, one segment through the other.
+        //
+        // The sky wins because it is what is on screen: under a solar
+        // system, what the digits are for is saying which year you have
+        // wound yourself to.
+        orreryShowing() -> null
         anyHandFallen() -> {
             cal.timeInMillis = displayNowMs()
             String.format(
@@ -4501,6 +4553,18 @@ class ClockView @JvmOverloads constructor(
     /** Which body a finger is holding, if any. */
     internal fun orreryGrabbedForTest(): Orrery.Body? = grabbedBody
 
+    /**
+     * For the tests: what the sky hands over for a touch at this spot.
+     *
+     * Not through [onTouchEvent], for once, and for a reason worth writing
+     * down: anything lying in the case takes a touch before the sky does,
+     * and a planet knocked out of its orbit starts its fall from exactly
+     * the place in the orbit this test aims at. So the whole-stack version
+     * of the test was answered by the debris every time and would have
+     * passed with the sky's own hit test wired up wrong.
+     */
+    internal fun grabBodyNearForTest(x: Float, y: Float): Boolean = grabBodyNear(x, y)
+
     /** For the tests: attaching and detaching, without a window to do it. */
     internal fun onAttachedToWindowForTest() = onAttachedToWindow()
     internal fun onDetachedFromWindowForTest() = onDetachedFromWindow()
@@ -4602,7 +4666,7 @@ class ClockView @JvmOverloads constructor(
         if (!orreryShowing()) return false
         val body = OrreryDial.bodyAt(
             x, y, width / 2f, height / 2f, dialRadius(), orreryMs(),
-            orreryMoonLongitude(), orreryZoom
+            orreryMoonLongitude(), orreryZoom, fallenPlanets
         ) ?: return false
         grabbedBody = body
         // A hand on a planet ends the journey home wherever it has got to.
@@ -4610,11 +4674,40 @@ class ClockView @JvmOverloads constructor(
             orreryOffsetMs = windBack()
             glideStartedAt = NEVER
         }
-        lastBodyLongitude = OrreryDial.longitudeOf(width / 2f, height / 2f, x, y)
+        // From whatever that body actually goes round — which for the Moon
+        // is the Earth and not the middle of the dial. This was measured
+        // from the middle here and from the Earth on the very next move, so
+        // taking hold of the Moon booked the difference between two quite
+        // different angles as a movement of the finger: up to half a turn
+        // of the Moon's orbit in the first frame, which is a fortnight, and
+        // the whole sky jumped. The Moon is the one body that is always
+        // sitting on top of another one, so it is the one that gets grabbed
+        // by accident, which is why this looked like "they overlap and it
+        // goes wrong there".
         detachedMoonLongitude = orreryMoonLongitude()
+        lastBodyLongitude = fingerLongitude(body, x, y)
         performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         invalidate()
         return true
+    }
+
+    /**
+     * Which way the finger lies from whatever [body] goes round.
+     *
+     * The middle of the dial for a planet, the Earth for the Moon. Shared
+     * by the grab and the drag because the two have to agree: they are
+     * subtracted from one another every frame, and an angle measured from
+     * one centre less an angle measured from another is not a movement.
+     */
+    private fun fingerLongitude(body: Orrery.Body, x: Float, y: Float): Double {
+        val cx = width / 2f
+        val cy = height / 2f
+        if (body != Orrery.Body.MOON) return OrreryDial.longitudeOf(cx, cy, x, y)
+        val earth = OrreryDial.positionOf(
+            Orrery.Body.EARTH, cx, cy, dialRadius(), orreryMs(),
+            orreryMoonLongitude(), orreryZoom
+        )
+        return OrreryDial.longitudeOf(earth.x, earth.y, x, y)
     }
 
     /**
@@ -4626,17 +4719,7 @@ class ClockView @JvmOverloads constructor(
      */
     private fun dragBodyTo(x: Float, y: Float) {
         val body = grabbedBody ?: return
-        val cx = width / 2f
-        val cy = height / 2f
-        val from = if (body == Orrery.Body.MOON) {
-            val earth = OrreryDial.positionOf(
-                Orrery.Body.EARTH, cx, cy, dialRadius(), orreryMs(),
-                orreryMoonLongitude(), orreryZoom
-            )
-            OrreryDial.longitudeOf(earth.x, earth.y, x, y)
-        } else {
-            OrreryDial.longitudeOf(cx, cy, x, y)
-        }
+        val from = fingerLongitude(body, x, y)
         orreryOffsetMs += Orrery.stepMs(body, lastBodyLongitude, from)
         lastBodyLongitude = from
         invalidate()
@@ -4940,6 +5023,13 @@ class ClockView @JvmOverloads constructor(
 
         /** A fade that has not started. See the field that holds it. */
         private const val NEVER = Long.MIN_VALUE
+
+        /**
+         * The far end of a countdown, and the stop the hands hit there.
+         * The same day [Countdown.setTo] caps at, on this side of the glass
+         * so the hands and the value agree about where the end is.
+         */
+        internal const val A_DAY_MS = 24L * 60 * 60 * 1000
 
         /** How long the hands take to give the dial up to the planets. */
         private const val ORRERY_FADE_MS = 520f

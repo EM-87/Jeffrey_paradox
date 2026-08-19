@@ -198,4 +198,103 @@ class CrownTest {
             )
         }
     }
+
+    // --------------------------------------------- the two lengths, in turn
+
+    /**
+     * The lengths, on their own, away from the activity.
+     *
+     * Three for the tea and five for the eggs, and the pusher goes from one
+     * to the other and back for as long as you keep pressing it. The
+     * swapping must not count as choosing, or the two would collapse into
+     * one on the first press and the pusher would kill itself.
+     */
+    @Test
+    fun `reset swaps between the two lengths and keeps swapping`() {
+        val lengths = Lengths()
+        lengths.wound(3 * 60_000L)
+        lengths.wound(5 * 60_000L)
+
+        assertEquals(
+            "the pusher did not offer the length set before this one",
+            3 * 60_000L, lengths.onReset(running = false, remainingMs = 5 * 60_000L)
+        )
+        assertEquals(
+            "and it did not come back",
+            5 * 60_000L, lengths.onReset(running = false, remainingMs = 3 * 60_000L)
+        )
+        assertEquals(
+            "the second swap ate one of the two lengths",
+            3 * 60_000L, lengths.onReset(running = false, remainingMs = 5 * 60_000L)
+        )
+    }
+
+    /**
+     * A countdown part way down means "again", not "the other one".
+     *
+     * This is the whole of the distinction: reset on a timer that has been
+     * running is for starting it over, and swapping the length underneath
+     * somebody at that moment would be the worst thing the button could do.
+     */
+    @Test
+    fun `reset on a countdown part way down goes back to its own length`() {
+        val lengths = Lengths()
+        lengths.wound(3 * 60_000L)
+        lengths.wound(5 * 60_000L)
+        assertEquals(
+            "the length changed under a countdown that was merely paused",
+            5 * 60_000L, lengths.onReset(running = false, remainingMs = 90_000L)
+        )
+        assertEquals(
+            "and under one still running",
+            5 * 60_000L, lengths.onReset(running = true, remainingMs = 90_000L)
+        )
+    }
+
+    /** With only one length ever set there is nothing to swap to. */
+    @Test
+    fun `one length alone leaves reset where it is`() {
+        val lengths = Lengths()
+        lengths.wound(3 * 60_000L)
+        assertEquals(
+            3 * 60_000L, lengths.onReset(running = false, remainingMs = 3 * 60_000L)
+        )
+    }
+
+    /**
+     * And the same through the card, since the pusher is what presses it.
+     *
+     * The dial was sitting at its full length and the pusher did nothing at
+     * all — pressed, and the hands stayed where they were. Now it goes to
+     * the other length, which is the only answer that leaves the button
+     * alive.
+     */
+    @Test
+    fun `the reset pusher on a wound countdown offers the other length`() {
+        PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val activity = c.get()
+            activity.showCardForTest(Card.REVERSE)
+            activity.windCountdownForTest(3 * 60_000L)
+            activity.windCountdownForTest(5 * 60_000L)
+            assertEquals(
+                "winding the hands did not set the countdown",
+                5 * 60_000L, activity.countdownRemainingForTest()
+            )
+
+            activity.resetCountdownForTest()
+            assertEquals(
+                "the pusher sat there dead on a countdown already wound",
+                3 * 60_000L, activity.countdownRemainingForTest()
+            )
+            activity.resetCountdownForTest()
+            assertEquals(
+                "and it would not come back",
+                5 * 60_000L, activity.countdownRemainingForTest()
+            )
+        }
+    }
 }
