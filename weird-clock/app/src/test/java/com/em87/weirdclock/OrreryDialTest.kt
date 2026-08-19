@@ -792,6 +792,16 @@ class OrreryDialTest {
         assertTrue(clock.orreryShowing())
 
         activity.showCardForTest(Card.CALENDAR)
+        // The sky now leaves with the card that was carrying it rather than
+        // being taken out from under it, so the closing is a beat behind
+        // the card change — long enough for the two to dissolve into one
+        // another without a flash of clock face in between.
+        assertTrue(
+            "the sky was pulled out from under the card that was carrying it",
+            clock.orreryShowing()
+        )
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper())
+            .idleFor(Duration.ofMillis(900))
         ShadowSystemClock.advanceBy(Duration.ofMillis(900))
         assertFalse("it was still up on the way back", clock.orreryShowing())
     }

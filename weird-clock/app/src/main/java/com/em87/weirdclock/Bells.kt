@@ -186,6 +186,88 @@ object Bells {
     fun quiet(nightDim: Boolean, hour: Int, from: Int, to: Int): Boolean =
         nightDim && NightWindow.isNight(hour, from, to)
 
+    // ------------------------------------- when an alarm and a bell collide
+
+    /**
+     * Who gives way when an alarm and a peal want the same minute.
+     *
+     * Seven in the morning is both an hour to strike and, for most people,
+     * an hour to be woken at. The two sounded over each other, and which
+     * one you heard depended on the order two services happened to start
+     * in — so an alarm could arrive underneath eight strikes of a
+     * grandfather clock, which is nobody's idea of being woken up.
+     */
+    const val PRIORITY_ALARM = "alarm"
+    const val PRIORITY_BELLS = "bells"
+
+    /**
+     * How long a peal takes, in seconds.
+     *
+     * The same arithmetic that lays the samples out in [ChimePlayer],
+     * which is a thing worth being nervous about — so the test measures the
+     * buffer that actually gets played and holds this against it. The copy
+     * exists because the alarm has to know how long the bells will be
+     * before they have finished, and synthesising a peal in order to time
+     * it would be absurd.
+     */
+    fun pealSeconds(peal: Peal): Double = when (peal.voice) {
+        Voice.BEEP -> (peal.count - 1) * peal.interval + peal.ringSeconds + 0.05
+        Voice.QUARTER_CHIME -> peal.count * 0.62 + 1.2
+        Voice.BELL -> {
+            // The gap after a strike is short inside a pair and long
+            // between pairs, which is what makes a ship's bell sound like
+            // one; the last strike has no gap after it, only its own ring.
+            var t = 0.0
+            for (i in 0 until peal.count - 1) {
+                t += if (peal.pairGrouping && i % 2 == 0) 0.4 else peal.interval
+            }
+            t + peal.ringSeconds + 0.3
+        }
+    }
+
+    /**
+     * Whether a peal due now should be struck at all.
+     *
+     * Silent under a ringing alarm, unless the bells have been given the
+     * right of way. An alarm is the one sound in this app that somebody is
+     * relying on.
+     */
+    fun mayStrike(priority: String?, alarmRinging: Boolean): Boolean =
+        !alarmRinging || priority == PRIORITY_BELLS
+
+    /**
+     * How long an alarm should hold off for a peal already sounding, in
+     * milliseconds.
+     *
+     * Nothing at all unless the bells have the right of way — and never
+     * long, whatever the numbers say. The instant a peal ends is written
+     * down by whoever started it and read by somebody else, and a number
+     * passed between two processes is a number that can be stale. An alarm
+     * that does not go off is the worst thing this app could do, so the
+     * wait is capped at less than anybody would sleep through.
+     */
+    fun alarmHoldMs(
+        priority: String?,
+        soundingUntilMs: Long,
+        nowMs: Long,
+        capMs: Long = 20_000L
+    ): Long {
+        if (priority != PRIORITY_BELLS) return 0L
+        return (soundingUntilMs - nowMs).coerceIn(0L, capMs)
+    }
+
+    /**
+     * When the peal now sounding will have finished, on the same clock as
+     * [android.os.SystemClock.elapsedRealtime].
+     *
+     * Written down by whoever starts a peal and read by the alarm. Zero
+     * means nothing is sounding, which is also what it says after a
+     * restart — and a fresh process with an alarm to ring should not be
+     * waiting on bells it never heard.
+     */
+    @Volatile
+    var soundingUntil = 0L
+
     /**
      * A few seconds of [style] for the button in the settings that plays
      * one. Three strikes rather than whatever the hour happens to be —

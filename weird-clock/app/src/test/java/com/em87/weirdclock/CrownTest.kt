@@ -297,4 +297,73 @@ class CrownTest {
             )
         }
     }
+
+    // ------------------------------- the crown on a countdown that is running
+
+    /**
+     * On a running countdown the crown says how long it has been going.
+     *
+     * The hands can only show one of the two numbers, and the one they show
+     * is what is left — which is the right choice and leaves the other one
+     * unaskable. So the crown answers it, in a smaller row under the
+     * digits, the way a lap sits under a stopwatch's reading. Press again
+     * and it goes; again and it is back.
+     *
+     * And it must not send the hands home while the thing is running, which
+     * is what the crown does on a stopped one and is the last thing anybody
+     * wants three minutes into a boiling egg.
+     */
+    @Test
+    fun `the crown counts up under a running countdown`() {
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val activity = c.get()
+            activity.showCardForTest(Card.REVERSE)
+            activity.startCountdownForTest(3 * 60_000L)
+            val dial = activity.countdownForTest()!!
+
+            assertEquals(
+                "the second row was there before anybody asked for it",
+                null, dial.secondReadout?.invoke()
+            )
+
+            ShadowSystemClock.advanceBy(Duration.ofSeconds(20))
+            dial.crownTapForTest()
+            assertEquals(
+                "the crown did not say how long it had been running",
+                20_000L, dial.secondReadout?.invoke()
+            )
+            assertEquals(
+                "the crown sent the hands home on a countdown that was running",
+                2 * 60_000L + 40_000L, activity.countdownRemainingForTest()
+            )
+
+            dial.crownTapForTest()
+            assertEquals(
+                "it would not go away again",
+                null, dial.secondReadout?.invoke()
+            )
+            dial.crownTapForTest()
+            assertEquals(
+                "and it would not come back",
+                20_000L, dial.secondReadout?.invoke()
+            )
+        }
+    }
+
+    /** Stopped, it still sends the hands home — that job is not lost. */
+    @Test
+    fun `the crown still sends a stopped countdown home`() {
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val activity = c.get()
+            activity.showCardForTest(Card.REVERSE)
+            activity.windCountdownForTest(3 * 60_000L)
+            activity.countdownForTest()!!.crownTapForTest()
+            assertEquals(
+                "the hands stayed where they were",
+                0L, activity.countdownRemainingForTest()
+            )
+        }
+    }
 }

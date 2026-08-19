@@ -397,6 +397,16 @@ class ClockView @JvmOverloads constructor(
      */
     var onVerticalSwipe: ((up: Boolean) -> Boolean)? = null
 
+    /**
+     * A second row of digits under the readout, or none.
+     *
+     * Returning null means there is nothing to say, which is not the same
+     * as there being no provider: on the countdown this is switched on and
+     * off by the crown, and the switch lives with whoever owns the number
+     * rather than here.
+     */
+    var secondReadout: (() -> Long?)? = null
+
     var chronoProvider: (() -> Long)? = null
         set(value) {
             if (field !== value) {
@@ -3721,6 +3731,23 @@ class ClockView @JvmOverloads constructor(
             if (live) ladderTapTop = yTop
             drawSevenSegment(canvas, it, cx, yTop, digitH, liveUnits)
 
+            // A second, smaller row under the first, when something has
+            // asked for one. On the countdown it is how long the thing has
+            // been running — the number the dial cannot show, because its
+            // hands are busy showing what is left. Built like a lap ghost
+            // because that is what it is: the same digits, smaller and
+            // quieter, saying a second thing about the same run.
+            secondReadout?.invoke()?.let { under ->
+                val underH = digitH * 0.62f
+                val keep = digitalPaint.alpha
+                digitalPaint.alpha = 170
+                drawSevenSegment(
+                    canvas, formatDuration(under), cx, yTop + digitH * 1.28f, underH,
+                    unitsFor(under)
+                )
+                digitalPaint.alpha = keep
+            }
+
             // Ghost copies of the recent laps, stacked under the readout —
             // as many as the space below the dial can hold.
             if (chronoProvider != null && laps.isNotEmpty()) {
@@ -4482,15 +4509,31 @@ class ClockView @JvmOverloads constructor(
      * Walking off to the calendar and coming back to a solar system still
      * standing on a date wound to three days ago reads as a clock that has
      * stopped. It is a thing you open, look at, and leave.
+     *
+     * [afterMs] is how long this dial still has to be on screen for. Going
+     * to a chronograph, the two cards dissolve into one another, and this
+     * one is in that picture the whole way through: shutting the sky at the
+     * top of it put the hands back on a dial the eye is still looking at,
+     * so what you saw was a solar system, a flash of clock, and only then
+     * the chronograph arriving. Now the sky simply leaves with the card
+     * that was carrying it, and there is one movement instead of two.
      */
-    internal fun leaveOrrery() {
+    internal fun leaveOrrery(afterMs: Long = 0L) {
         if (!orreryUp) return
+        if (afterMs > 0L) {
+            removeCallbacks(shutTheSky)
+            postDelayed(shutTheSky, afterMs)
+            return
+        }
+        shutTheSky.run()
+    }
+
+    private val shutTheSky = Runnable {
+        if (!orreryUp) return@Runnable
         closeOrrery()
-        // Shut, not faded shut. Leaving the clock for a chronograph starts
-        // a hand-over of its own, and a sky fading back into hands at the
-        // same time is two animations across each other — which is what
-        // made that move look violent. The card change is the movement now;
-        // the sky is simply not there for it.
+        // Shut, not faded shut. By the time this runs the card is either
+        // gone or going, and a fade begun now would be a fade nobody sees
+        // finish — it would be a sky reappearing over the wrong card.
         orreryChangedAt = NEVER
         invalidate()
     }
@@ -4577,6 +4620,20 @@ class ClockView @JvmOverloads constructor(
 
     /** For the tests: the chronograph reading the dial is drawing. */
     internal fun chronoShownForTest(): Long = chronoDisplayMs() ?: 0L
+
+    /**
+     * For the tests: where the digital readout starts, in pixels down the
+     * view.
+     *
+     * From the same expression the drawing uses, so a test looking for the
+     * row under it is looking where the row actually is rather than where
+     * the test thinks it should be.
+     */
+    internal fun readoutTopForTest(): Float {
+        val r = dialRadius()
+        val digitH = r * 0.13f
+        return min(height / 2f + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
+    }
 
     /** How far the sky is zoomed, 1 to [Orrery.MAX_ZOOM]. */
     internal fun orreryZoomForTest(): Float = orreryZoom

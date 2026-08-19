@@ -50,6 +50,7 @@ object Prefs {
     const val BELLS = "pref_bells"
     const val BELL_STYLE = "pref_bell_style"
     const val BELLS_BACKGROUND = "pref_bells_background"
+    const val BELL_PRIORITY = "pref_bell_priority"
     /**
      * The old half-hour switch. Read only to work out what somebody
      * updating from a build that had it was already using; nothing writes

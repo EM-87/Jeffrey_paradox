@@ -190,7 +190,15 @@ class BellService : Service() {
             prefs.getInt(Prefs.NIGHT_FROM, NightWindow.DEFAULT_FROM),
             prefs.getInt(Prefs.NIGHT_TO, NightWindow.DEFAULT_TO)
         )
-        if (!quietHours) {
+        // And an alarm ringing right now keeps it quiet too, unless the
+        // bells have been given the right of way. Seven in the morning is
+        // an hour to strike and an hour to be woken at, and the two used
+        // to sound over each other.
+        val giveWay = !Bells.mayStrike(
+            prefs.getString(Prefs.BELL_PRIORITY, Bells.PRIORITY_ALARM),
+            AlarmService.ringing
+        )
+        if (!quietHours && !giveWay) {
             // The same rule the app uses while it is open. It used to be a
             // second copy of it, living here.
             Bells.peal(

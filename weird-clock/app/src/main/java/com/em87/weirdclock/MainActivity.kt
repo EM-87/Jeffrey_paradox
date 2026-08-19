@@ -229,6 +229,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** The two lengths the countdown's reset pusher swaps between. */
     private val countdownLengths = Lengths().apply { adopt(DEFAULT_COUNTDOWN_MS) }
 
+    /**
+     * Whether the crown has been asked for the time elapsed.
+     *
+     * Off to begin with: the countdown's own question is how long is left,
+     * and a second number under it is a second question that has to be
+     * asked for.
+     */
+    private var countdownElapsedShown = false
+
     private var stopwatchAccumMs by stopwatch::accumMs
     private var stopwatchStartedAt by stopwatch::startedAt
     private val stopwatchRunning get() = stopwatch.running
@@ -575,8 +584,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun keepScreenAwake() {
         if (!this::pager.isInitialized) return
         val card = current()
-        // Walking away from the clock puts the sky away with it.
-        if (card != Card.CLOCK) clockView?.leaveOrrery()
+        // Walking away from the clock puts the sky away with it — but not
+        // until the clock has finished walking away. The cards dissolve into
+        // one another and this one is in the picture the whole time, so
+        // closing the sky at the top of the move put the hands back on a
+        // dial still being looked at: a solar system, a flash of clock, and
+        // then the chronograph. The sky leaves with the card now.
+        if (card != Card.CLOCK) clockView?.leaveOrrery(CARD_FADE_MS.toLong())
         val awake = card == Card.CLOCK ||
             (card == Card.STOPWATCH && stopwatchRunning) ||
             ((card == Card.REVERSE || card == Card.HOURGLASS) && countdownRunning)
@@ -1194,6 +1208,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
             it.onDialScaleChanged = { scale -> shareDialScale(scale, it) }
             it.onHorizontalSwipe = { fingerRight -> swipeSideways(Card.REVERSE, fingerRight) }
+            it.secondReadout = {
+                // Only while it is running, and only when asked for. A
+                // stopped countdown has not been running for any length of
+                // time, and a row of digits saying so would be a row of
+                // zeroes.
+                if (countdownRunning && countdownElapsedShown) {
+                    (countdownTotalMs - countdownRemaining()).coerceAtLeast(0L)
+                } else {
+                    null
+                }
+            }
             it.onCrownTap = { tidied ->
                 // The winding crown tidies the whole scene, bubbles included.
                 crownSound(tidied)
@@ -1203,7 +1228,20 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // now sends the hands home to zero — the one thing you
                 // always want on that card, and it had to be asked for with
                 // the reset pusher.
-                if (!tidied) sendCountdownHome()
+                //
+                // While it is running, home to zero is exactly what you do
+                // not want, so the crown says something instead: how long
+                // the thing has been going, in a smaller row under the
+                // digits. The hands can only show what is left. Press again
+                // and it goes; again and it is back.
+                if (!tidied) {
+                    if (countdownRunning) {
+                        countdownElapsedShown = !countdownElapsedShown
+                        countdownClockView?.invalidate()
+                    } else {
+                        sendCountdownHome()
+                    }
+                }
             }
         }
         // The countdown goes straight home to the clock, skipping S0.
@@ -1677,6 +1715,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** For the tests: the pair of lengths the reset pusher swaps between. */
     internal fun countdownLengthsForTest(): Lengths = countdownLengths
+
+    /** For the tests: the dial on the countdown card. */
+    internal fun countdownForTest(): ClockView? = countdownClockView
 
     /** For the tests: put the app on a given card. */
     internal fun showCardForTest(card: Card) {
@@ -3013,6 +3054,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun onMinuteBoundary() {
         // Night mode keeps the house quiet: no bells while the dial is dim.
         if (!bellsEnabled || appliedNightDim) return
+        // So does an alarm going off, unless the bells have been given the
+        // right of way. The same rule the background bells follow, asked of
+        // the same place — this used to be the half that could disagree.
+        if (!Bells.mayStrike(
+                prefs.getString(Prefs.BELL_PRIORITY, Bells.PRIORITY_ALARM),
+                AlarmService.ringing
+            )
+        ) {
+            return
+        }
         val now = Calendar.getInstance()
         now.timeInMillis = TimeKeeper.nowMs()
         chimeAt(now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE))

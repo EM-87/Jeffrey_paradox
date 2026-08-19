@@ -222,7 +222,7 @@ class NightBarTest {
                 "pref_show_date",
                 // Alarm
                 "pref_bells", "pref_bell_marks", "pref_bell_style", "pref_test_bells",
-                "pref_bells_background",
+                "pref_bells_background", "pref_bell_priority",
                 // Calendar
                 "pref_past_days", "pref_birthday", "pref_cycle",
                 // General

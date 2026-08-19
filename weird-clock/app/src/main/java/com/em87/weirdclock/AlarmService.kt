@@ -117,6 +117,16 @@ class AlarmService : Service() {
          */
         var ringingSince = 0L
             private set
+
+        /**
+         * Whether an alarm is sounding right now.
+         *
+         * Derived rather than kept, so it cannot drift away from the thing
+         * it describes. The bells ask before they strike: seven in the
+         * morning is an hour to give and an hour to be woken at, and the
+         * two used to sound over each other.
+         */
+        val ringing: Boolean get() = ringingSince != 0L
     }
 
     private val chimePlayer = ChimePlayer()
@@ -244,7 +254,17 @@ class AlarmService : Service() {
         fromTimer = intent?.getBooleanExtra(AlarmScheduler.EXTRA_FROM_TIMER, false) == true
         ringingFromTimer = fromTimer
         ringingSince = android.os.SystemClock.elapsedRealtime()
-        val ramp = PreferenceManager.getDefaultSharedPreferences(this)
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        // The hour and the alarm want the same minute. Whichever gives way,
+        // it is decided here, once, before a note of either is played —
+        // they used to sound over each other and which you heard depended
+        // on the order two services happened to start in.
+        val priority = prefs.getString(Prefs.BELL_PRIORITY, Bells.PRIORITY_ALARM)
+        val waitForBells = Bells.alarmHoldMs(
+            priority, Bells.soundingUntil, android.os.SystemClock.elapsedRealtime()
+        )
+        if (waitForBells == 0L) ChimePlayer.silencePeal()
+        val ramp = prefs
             .getBoolean(Prefs.ALARM_RAMP, true)
         chimePlayer.volume = if (ramp) 0.15f else 1f
         rampStep = 0
@@ -259,39 +279,12 @@ class AlarmService : Service() {
 
         handler.removeCallbacksAndMessages(null)
         stopPlayback()
-        when {
-            sound == Prefs.ALARM_SOUND_CUSTOM && soundUri.isNotBlank() -> {
-                // A user-picked audio file (SAF, persisted read permission).
-                // If it went away — file deleted, permission revoked — the
-                // bells take over: an alarm must never fail silently.
-                mediaPlayer = try {
-                    MediaPlayer().apply {
-                        setDataSource(this@AlarmService, android.net.Uri.parse(soundUri))
-                        isLooping = true
-                        setVolume(chimePlayer.volume, chimePlayer.volume)
-                        prepare()
-                        start()
-                    }
-                } catch (e: Exception) {
-                    null
-                }
-                if (mediaPlayer == null) {
-                    sound = Prefs.ALARM_SOUND_BELLS
-                    handler.post(ringLoop)
-                }
-            }
-            sound == Prefs.ALARM_SOUND_BABY -> {
-                // A real newborn recording (CC0). Humans are wired to react to
-                // this; the synthesized wail is only a fallback.
-                mediaPlayer = MediaPlayer.create(this, R.raw.baby_cry)?.apply {
-                    isLooping = true
-                    setVolume(chimePlayer.volume, chimePlayer.volume)
-                    start()
-                }
-                if (mediaPlayer == null) handler.post(ringLoop)
-            }
-            else -> handler.post(ringLoop)
-        }
+        // Only the voice waits, and only when the bells have the right of
+        // way. The screen, the buzz and the torch are not competing with a
+        // bell for anybody's ear, and holding them back would be holding
+        // back the alarm itself.
+        if (waitForBells > 0L) handler.postDelayed(::startTheVoice, waitForBells)
+        else startTheVoice()
         if (ramp) handler.postDelayed(rampLoop, 2000L)
         if (vibrateEnabled) handler.post(vibrateLoop)
         if (flashEnabled) handler.post(flashLoop)
@@ -522,5 +515,48 @@ class AlarmService : Service() {
             builder.addAction(0, getString(R.string.alarm_snooze_fmt, snoozeMinutes), snoozePi)
         }
         return builder.build()
+    }
+
+    /**
+     * The alarm's own voice, started.
+     *
+     * Its own method because it is now sometimes started a moment late —
+     * see [Bells.alarmHoldMs] — and a block that can run either now or in
+     * twelve seconds is a block that wants a name.
+     */
+    private fun startTheVoice() {
+        when {
+            sound == Prefs.ALARM_SOUND_CUSTOM && soundUri.isNotBlank() -> {
+                // A user-picked audio file (SAF, persisted read permission).
+                // If it went away — file deleted, permission revoked — the
+                // bells take over: an alarm must never fail silently.
+                mediaPlayer = try {
+                    MediaPlayer().apply {
+                        setDataSource(this@AlarmService, android.net.Uri.parse(soundUri))
+                        isLooping = true
+                        setVolume(chimePlayer.volume, chimePlayer.volume)
+                        prepare()
+                        start()
+                    }
+                } catch (e: Exception) {
+                    null
+                }
+                if (mediaPlayer == null) {
+                    sound = Prefs.ALARM_SOUND_BELLS
+                    handler.post(ringLoop)
+                }
+            }
+            sound == Prefs.ALARM_SOUND_BABY -> {
+                // A real newborn recording (CC0). Humans are wired to react to
+                // this; the synthesized wail is only a fallback.
+                mediaPlayer = MediaPlayer.create(this, R.raw.baby_cry)?.apply {
+                    isLooping = true
+                    setVolume(chimePlayer.volume, chimePlayer.volume)
+                    start()
+                }
+                if (mediaPlayer == null) handler.post(ringLoop)
+            }
+            else -> handler.post(ringLoop)
+        }
     }
 }

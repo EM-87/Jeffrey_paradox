@@ -163,6 +163,16 @@
 
     <string name="pref_reassemble_title">Put everything back</string>
     <string name="pref_bells_background_title">Ring with the app closed</string>
+    <string name="pref_bell_priority_title">Alarm against bell</string>
+    <string name="pref_bell_priority_summary">Seven in the morning is an hour to strike and an hour to be woken at</string>
+    <string-array name="bell_priority_entries">
+        <item>The alarm cuts the bells short</item>
+        <item>The alarm waits for the bells</item>
+    </string-array>
+    <string-array name="bell_priority_values" translatable="false">
+        <item>alarm</item>
+        <item>bells</item>
+    </string-array>
     <string name="pref_bells_background_summary">The bells keep the hours from the background, quietly re-arming themselves each time</string>
     <string name="bells_channel_name">Hourly bells</string>
     <string name="category_calendar">Calendar</string>

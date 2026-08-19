@@ -71,6 +71,14 @@
             android:summary="@string/pref_bells_background_summary"
             android:title="@string/pref_bells_background_title" />
 
+        <ListPreference
+            android:defaultValue="alarm"
+            android:entries="@array/bell_priority_entries"
+            android:entryValues="@array/bell_priority_values"
+            android:key="pref_bell_priority"
+            android:summary="@string/pref_bell_priority_summary"
+            android:title="@string/pref_bell_priority_title" />
+
         <Preference
             android:key="pref_test_bells"
             android:summary="@string/pref_test_bells_summary"

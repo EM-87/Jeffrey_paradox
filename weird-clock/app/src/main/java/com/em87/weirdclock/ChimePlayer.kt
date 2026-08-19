@@ -5,6 +5,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.media.SoundPool
+import android.os.SystemClock
 import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -46,6 +47,33 @@ class ChimePlayer {
         const val RING_BELL_HZ = 1174.7
 
         private const val SAMPLE_RATE = 44100
+
+        /**
+         * Whichever player has a peal in the air.
+         *
+         * There is one of these per service and the peal is nearly always
+         * somebody else's: the bells ring from [BellService] and the alarm
+         * that wants them out of the way is in [AlarmService], each with a
+         * player of its own. Only one peal is ever sounding — the bells
+         * strike one hour at a time — so one reference is enough.
+         */
+        @Volatile
+        private var pealing: ChimePlayer? = null
+
+        /**
+         * Cuts short whatever peal is sounding, wherever it came from.
+         *
+         * For the alarm, when the alarm has the right of way. An alarm
+         * that has to wait out four strikes of a gong before it can be
+         * heard is an alarm the bells have overruled. Nothing else is
+         * touched: ticks and pushers go through the sound pool, not this
+         * track, so they are not in the line of fire.
+         */
+        fun silencePeal() {
+            pealing?.stopPealTrack()
+            pealing = null
+            Bells.soundingUntil = 0L
+        }
     }
 
     /** Master volume for bell buffers; ramped by the alarm service. */
@@ -177,6 +205,12 @@ class ChimePlayer {
 
     /** Rings whatever [Bells] decided on, on whichever voice it chose. */
     fun play(peal: Bells.Peal) {
+        // Written down before a note of it is made, because the thing that
+        // reads it is an alarm in another service deciding whether to wait,
+        // and it may ask half a second from now.
+        Bells.soundingUntil = SystemClock.elapsedRealtime() +
+            (Bells.pealSeconds(peal) * 1000).toLong()
+        pealing = this
         when (peal.voice) {
             Bells.Voice.BEEP ->
                 playBeepSequence(peal.count, peal.frequency, peal.ringSeconds, peal.interval)
@@ -717,6 +751,21 @@ class ChimePlayer {
                 it.setVolume(volume.coerceIn(0f, 1f))
                 it.play()
             }
+        }
+    }
+
+    /** Stops this player's own peal. See [silencePeal], which finds it. */
+    private fun stopPealTrack() {
+        synchronized(lock) {
+            try {
+                bellTrack?.pause()
+                bellTrack?.flush()
+            } catch (e: IllegalStateException) {
+                // Already finished on its own, which is the outcome we
+                // wanted anyway.
+            }
+            bellTrack?.release()
+            bellTrack = null
         }
     }
 

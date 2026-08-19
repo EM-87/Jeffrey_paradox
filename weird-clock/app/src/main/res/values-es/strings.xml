@@ -119,6 +119,12 @@
 
     <string name="pref_reassemble_title">Recolocar</string>
     <string name="pref_bells_background_title">Sonar con la app cerrada</string>
+    <string name="pref_bell_priority_title">Alarma contra campanada</string>
+    <string name="pref_bell_priority_summary">Las siete de la mañana son una hora que dar y una hora a la que despertarse</string>
+    <string-array name="bell_priority_entries">
+        <item>La alarma corta las campanadas</item>
+        <item>La alarma espera a las campanadas</item>
+    </string-array>
     <string name="pref_bells_background_summary">Las campanas dan las horas desde segundo plano, rearmándose solas cada vez</string>
     <string name="bells_channel_name">Campanadas horarias</string>
     <string name="category_calendar">Calendario</string>
