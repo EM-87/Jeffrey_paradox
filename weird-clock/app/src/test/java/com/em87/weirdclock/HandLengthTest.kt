@@ -25,17 +25,36 @@ class HandLengthTest {
     private val context: android.content.Context
         get() = ApplicationProvider.getApplicationContext()
 
+    /** What the dial is showing. Moved, never replaced — see [dial]. */
+    private var shownMs = 0L
+
     private fun dial(shape: ClockView.DialShape): ClockView {
         val themed = androidx.appcompat.view.ContextThemeWrapper(context, R.style.Theme_WeirdClock)
-        return ClockView(themed).apply {
+        val clock = ClockView(themed).apply {
             dialShape = shape
-            chronoProvider = { 0L }
+            // One provider, read again each time, rather than a new one per
+            // reading. Handing the dial a *different* provider starts a
+            // hand-over between the two sets of angles, and while one is
+            // running the hands are wherever the blend has them — so a test
+            // that swapped the provider sixty times measured the same
+            // frozen angle sixty times and could not have failed. It did
+            // not fail, either, which is how this was found.
+            chronoProvider = { shownMs }
             measure(
                 android.view.View.MeasureSpec.makeMeasureSpec(1000, android.view.View.MeasureSpec.EXACTLY),
                 android.view.View.MeasureSpec.makeMeasureSpec(1600, android.view.View.MeasureSpec.EXACTLY)
             )
             layout(0, 0, 1000, 1600)
         }
+        // Past any hand-over the provider set off, so the hands are where
+        // the time says and not somewhere between two answers.
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofSeconds(2))
+        return clock
+    }
+
+    /** Puts the dial on a given minute without disturbing its mechanism. */
+    private fun show(minute: Int) {
+        shownMs = minute * 60_000L
     }
 
     /**
@@ -66,7 +85,7 @@ class HandLengthTest {
         var shortest = Float.MAX_VALUE
         var longest = 0f
         for (minute in 0 until 60) {
-            clock.chronoProvider = { minute * 60_000L }
+            show(minute)
             val len = minuteHandLength(clock)
             if (len < shortest) shortest = len
             if (len > longest) longest = len
@@ -85,7 +104,7 @@ class HandLengthTest {
             var shortest = Float.MAX_VALUE
             var longest = 0f
             for (minute in 0 until 60) {
-                clock.chronoProvider = { minute * 60_000L }
+                show(minute)
                 val len = minuteHandLength(clock)
                 if (len < shortest) shortest = len
                 if (len > longest) longest = len
@@ -104,7 +123,7 @@ class HandLengthTest {
     @Test
     fun `a round face's hands are the length they always were`() {
         val round = dial(ClockView.DialShape.CIRCLE)
-        round.chronoProvider = { 0L }
+        show(0)
         val len = minuteHandLength(round)
         assertTrue(
             "a minute hand that reaches nowhere near the rim: $len of " +
@@ -135,7 +154,7 @@ class HandLengthTest {
                 r * kotlin.math.cos(Math.PI / shape.sides).toFloat()
             }
             for (minute in 0 until 60) {
-                clock.chronoProvider = { minute * 60_000L }
+                show(minute)
                 val len = minuteHandLength(clock)
                 assertTrue(
                     "$shape at minute $minute: the hand reaches $len, and the " +
@@ -158,7 +177,7 @@ class HandLengthTest {
     fun `a square face's hands still reach the middle of a side`() {
         val square = dial(ClockView.DialShape.SQUARE)
         // Twelve o'clock: straight up, at the middle of the top side.
-        square.chronoProvider = { 0L }
+        show(0)
         val len = minuteHandLength(square)
         val toTheSide = square.dialRadiusForTest() * kotlin.math.cos(Math.PI / 4).toFloat()
         assertTrue(
