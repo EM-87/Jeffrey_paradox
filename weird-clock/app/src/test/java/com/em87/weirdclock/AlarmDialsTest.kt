@@ -344,6 +344,27 @@ class AlarmDialsTest {
         )
     }
 
+    /**
+     * The snooze mark says there is one, and not how long it is for.
+     *
+     * The minutes were on the card because the number was known, not
+     * because anybody needed it there. What a card is for is what this
+     * alarm will do to you in the morning; how long its snooze runs is a
+     * question you ask inside the alarm, where you can also change it.
+     */
+    @Test
+    fun `the snooze mark says there is one and not how long`() {
+        val holder = bind(plain().apply { snoozeMinutes = 10 })
+        assertEquals(
+            "the snooze mark went missing with its minutes",
+            View.VISIBLE, holder.iconSnooze.visibility
+        )
+        assertEquals(
+            "the card still spells out how long the snooze is",
+            View.GONE, holder.snoozeMin.visibility
+        )
+    }
+
     // ------------------------------------------- the row with a mark missing
 
     /** Lays the icon row out for real, so where things sit can be read. */
