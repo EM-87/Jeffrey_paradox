@@ -94,6 +94,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var alarmsContainer: View? = null
     private var countdownContainer: View? = null
     private var alarmsRecycler: RecyclerView? = null
+
+    /** The "by time" button, shown only on a list arranged by hand. */
+    private var alarmsByTime: View? = null
     private var alarmsEmpty: TextView? = null
     private var countdownClockView: ClockView? = null
 
@@ -1162,8 +1165,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         alarmsRecycler = root.findViewById<RecyclerView>(R.id.alarms_recycler).also {
             it.layoutManager = LinearLayoutManager(this)
             it.adapter = alarmCards.adapter
+            attachAlarmDrag(it)
         }
         alarmsEmpty = root.findViewById(R.id.alarms_empty)
+        alarmsByTime = root.findViewById<View>(R.id.alarms_by_time).also { back ->
+            back.setOnClickListener {
+                AlarmOrder.clear(alarms)
+                sortAlarms()
+                persistAlarms()
+            }
+        }
         root.findViewById<FloatingActionButton>(R.id.add_alarm_fab).setOnClickListener {
             // A new alarm opens straight in the editor, at a civilised hour.
             showAlarmSheet(
@@ -1718,6 +1729,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** For the tests: the alarms this activity is holding. */
     internal fun alarmsForTest(): List<Alarm> = alarms
 
+    /** For the tests: repaint the alarms card from the list as it stands. */
+    internal fun refreshAlarmsForTest() = refreshAlarmsUi()
+
     /** For the tests: the switch on an alarm card, pressed. */
     internal fun toggleAlarmForTest(alarm: Alarm, checked: Boolean) = toggleAlarm(alarm, checked)
 
@@ -1921,18 +1935,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     /**
-     * Chronological, by the earliest time each alarm rings at — which is the
-     * time its card leads with. Alarms that share it keep a fixed order
-     * rather than shuffling on every save.
+     * Puts the cards in order — by the clock, or by hand.
+     *
+     * Which of the two, and what each means, lives in [AlarmOrder]. It used
+     * to be chronological and nothing else, which is right until somebody
+     * drags a card: a list that re-sorts itself after every drag makes
+     * dragging a thing you do and then watch being undone.
      */
-    private fun sortAlarms() {
-        alarms.sortWith(
-            compareBy(
-                { it.allTimes().first().let { (h, m) -> h * 60 + m } },
-                { it.id }
-            )
-        )
-    }
+    private fun sortAlarms() = AlarmOrder.sort(alarms)
 
     /**
      * Catches the screen up with whatever changed the lists while this
@@ -1951,6 +1961,76 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     @Suppress("NotifyDataSetChanged")
+    /**
+     * Takes hold of an alarm card and carries it up or down the list.
+     *
+     * Long press to pick one up, which is the gesture everything else on a
+     * phone uses for it, and which leaves an ordinary press and an ordinary
+     * scroll alone. The card lifts while it is held, because a card being
+     * carried and a card sitting still have to look different or the
+     * gesture reads as the list having gone wrong.
+     *
+     * The list stops sorting itself the moment anything is dropped
+     * somewhere new — see [AlarmOrder].
+     */
+    private fun attachAlarmDrag(list: RecyclerView) {
+        val helper = androidx.recyclerview.widget.ItemTouchHelper(
+            object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(
+                androidx.recyclerview.widget.ItemTouchHelper.UP or
+                    androidx.recyclerview.widget.ItemTouchHelper.DOWN,
+                // Nothing sideways. A card swiped off the list would be an
+                // alarm deleted by a gesture that is one slip from a page
+                // change, and this app is somebody's morning.
+                0
+            ) {
+                override fun onMove(
+                    recycler: RecyclerView,
+                    holder: RecyclerView.ViewHolder,
+                    target: RecyclerView.ViewHolder
+                ): Boolean {
+                    val from = holder.bindingAdapterPosition
+                    val to = target.bindingAdapterPosition
+                    if (from == RecyclerView.NO_POSITION || to == RecyclerView.NO_POSITION) {
+                        return false
+                    }
+                    AlarmOrder.moved(alarms, from, to)
+                    alarmCards.adapter.notifyItemMoved(from, to)
+                    return true
+                }
+
+                override fun onSwiped(holder: RecyclerView.ViewHolder, direction: Int) = Unit
+
+                override fun onSelectedChanged(
+                    holder: RecyclerView.ViewHolder?,
+                    actionState: Int
+                ) {
+                    super.onSelectedChanged(holder, actionState)
+                    if (actionState ==
+                        androidx.recyclerview.widget.ItemTouchHelper.ACTION_STATE_DRAG
+                    ) {
+                        holder?.itemView?.animate()?.scaleX(1.03f)?.scaleY(1.03f)
+                            ?.setDuration(120L)?.start()
+                        performHapticFeedbackOnList(list)
+                    }
+                }
+
+                override fun clearView(recycler: RecyclerView, holder: RecyclerView.ViewHolder) {
+                    super.clearView(recycler, holder)
+                    holder.itemView.animate().scaleX(1f).scaleY(1f).setDuration(120L).start()
+                    // Written down when it is put down, not on every step of
+                    // the way: a drag across six cards is one decision.
+                    persistAlarms()
+                    refreshAlarmsUi()
+                }
+            }
+        )
+        helper.attachToRecyclerView(list)
+    }
+
+    private fun performHapticFeedbackOnList(list: RecyclerView) {
+        list.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+    }
+
     /**
      * The switch on an alarm card.
      *
@@ -2018,6 +2098,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // source, this is just work.
         alarmCards.adapter.notifyDataSetChanged()
         alarmsEmpty?.visibility = if (alarms.isEmpty()) View.VISIBLE else View.GONE
+        // The way back out of a hand-arranged list, and only while there is
+        // one to get out of.
+        alarmsByTime?.visibility =
+            if (AlarmOrder.isManual(alarms)) View.VISIBLE else View.GONE
         updateAlarmMarkers()
     }
 

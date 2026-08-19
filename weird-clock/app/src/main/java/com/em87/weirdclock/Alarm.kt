@@ -40,6 +40,17 @@ data class Alarm(
      * instant that has passed is simply no longer a skip.
      */
     var skippedOccurrence: Long = 0L,
+    /**
+     * Where this alarm sits in a list somebody has arranged by hand, or -1
+     * if nobody has.
+     *
+     * The list is chronological until the first time a card is dragged, and
+     * after that it is whatever order it has been put in — those are the
+     * only two possibilities, and a list that reshuffled itself the moment
+     * you looked away would make dragging pointless. See [AlarmOrder],
+     * which is where the choice between the two lives.
+     */
+    var order: Int = -1,
     var vibrate: Boolean = true,
     /**
      * Strobe the camera torch while this one rings.
@@ -217,6 +228,7 @@ object AlarmStore {
                     .put("label", a.label)
                     .put("soundUri", a.soundUri)
                     .put("skipped", a.skippedOccurrence)
+                    .put("order", a.order)
                     .put("vibrate", a.vibrate)
                     .put("flash", a.flash)
                     .put("snoozeLimit", a.snoozeLimit)
@@ -279,6 +291,7 @@ object AlarmStore {
                                 ?.toIntOrNull()?.coerceIn(0, 20) ?: 0
                         ),
                         skippedOccurrence = o.optLong("skipped", 0L),
+                        order = o.optInt("order", -1),
                         durationMinutes = o.optInt("duration", 0),
                         mission = Mission.required(o.optString("mission", Mission.NONE)),
                         missionLevel = Mission.level(o.optInt("missionLevel", Mission.DEFAULT_LEVEL)),

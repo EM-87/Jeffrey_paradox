@@ -5,6 +5,7 @@ import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -102,15 +103,21 @@ class MenuIndentTest {
         }
     }
 
-    /** And the ones that govern nothing are not indented with them. */
+    /**
+     * And the ones that govern nothing start at the left edge.
+     *
+     * At the edge, not merely "no further in than the bells" — which is
+     * what this asked first, and which stays true when every row in the
+     * list is indented by the same amount. An indent everything shares is
+     * not an indent; it says nothing about which row belongs to which.
+     */
     @Test
     fun `a row that answers to nobody starts at the left`() {
         val fragment = rootScreen()
-        val flush = rowLeft(fragment, Prefs.BELLS)
-        for (key in listOf(Prefs.THEME, Prefs.SHOW_DATE, Prefs.MOON_PHASE)) {
-            assertTrue(
+        for (key in listOf(Prefs.BELLS, Prefs.THEME, Prefs.SHOW_DATE, Prefs.MOON_PHASE)) {
+            assertEquals(
                 "$key is indented as though it hung off something",
-                rowLeft(fragment, key) <= flush
+                0, rowLeft(fragment, key)
             )
         }
     }

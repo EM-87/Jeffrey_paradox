@@ -27,6 +27,23 @@
                 android:textSize="26sp"
                 android:textStyle="bold" />
 
+            <!-- Only there while there is something to undo: a list that
+                 has been arranged by hand no longer sorts itself, and this
+                 is the way back. It follows the toolbox's rule — a way out
+                 of a mess appears when there is a mess and not before. -->
+            <TextView
+                android:id="@+id/alarms_by_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="4dp"
+                android:text="@string/alarms_by_time"
+                android:textColor="@color/accent"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

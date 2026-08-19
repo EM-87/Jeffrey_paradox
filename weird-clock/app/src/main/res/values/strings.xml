@@ -157,6 +157,7 @@
     <string name="alarm_when_today">today at %1$s</string>
     <string name="alarm_when_tomorrow">tomorrow at %1$s</string>
     <string name="alarm_when_weekday">%1$s at %2$s</string>
+    <string name="alarms_by_time">By time</string>
     <string name="alarm_off_title">Turn this alarm off</string>
     <string name="alarm_off_message">It is next due %1$s.</string>
     <string name="alarm_off_once">Just that one</string>
