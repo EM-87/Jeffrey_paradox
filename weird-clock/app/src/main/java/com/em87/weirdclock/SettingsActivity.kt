@@ -74,7 +74,7 @@ class SettingsActivity : AppCompatActivity() {
          * sitting there smoothing a hand that was no longer drawn.
          */
         protected fun follows(parent: String, vararg children: String) {
-            nested.addAll(children)
+            nest(parent, children)
             val rows = children.mapNotNull { findPreference<Preference>(it) }
             val on = findPreference<SwitchPreferenceCompat>(parent)
             fun apply(visible: Boolean) { rows.forEach { it.isVisible = visible } }
@@ -86,15 +86,67 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         /**
-         * The rows that hang off another row, and are drawn a step in to
-         * say so.
+         * The same, but a row deep: each key is shown only while every
+         * switch above it in the list is on.
          *
-         * Registered by [follows] and [visibleWhen] rather than listed
-         * anywhere: hanging off a switch and being drawn as though you do
-         * are the same fact, and two lists of it would be two lists to keep
-         * in step.
+         * Two [follows] calls cannot do this. `follows(a, b)` then
+         * `follows(b, c)` leaves `c` showing whenever `b` is on — even with
+         * `a` off and `b` itself hidden, so the page ends with a row
+         * indented under nothing. And putting `c` in both calls does not
+         * fix it either: the second call decides, and it is the one that
+         * does not know about `a`.
+         *
+         * Each switch still gets exactly one listener, which is the rule
+         * this whole mechanism exists to keep.
          */
-        private val nested = HashSet<String>()
+        protected fun followsChain(vararg keys: String) {
+            for (i in 1 until keys.size) nested[keys[i]] = i
+            val switches = keys.map { findPreference<SwitchPreferenceCompat>(it) }
+
+            // [changed] is the switch being answered right now: its stored
+            // value is still the old one while the listener runs, so it is
+            // read from the answer instead.
+            fun apply(changed: Int, to: Boolean) {
+                var on = true
+                for (i in keys.indices) {
+                    if (i > 0) findPreference<Preference>(keys[i])?.isVisible = on
+                    on = on && (if (i == changed) to else switches[i]?.isChecked == true)
+                }
+            }
+            apply(-1, false)
+            for (i in 0 until keys.size - 1) {
+                switches[i]?.setOnPreferenceChangeListener { _, newValue ->
+                    apply(i, newValue == true)
+                    true
+                }
+            }
+        }
+
+        /**
+         * The rows that hang off another row, and how deep, so each is
+         * drawn that many steps in.
+         *
+         * Registered by [follows], [followsChain] and [visibleWhen] rather
+         * than listed anywhere: hanging off a switch and being drawn as
+         * though you do are the same fact, and two lists of it would be
+         * two lists to keep in step.
+         *
+         * A depth rather than a yes-or-no, because a row two deep drawn at
+         * one step in is a row that claims to belong to the wrong parent.
+         * The comets hang off the solar system, which hangs off the sky
+         * token, and level with the solar system they read as a second
+         * thing the sky token governs.
+         */
+        private val nested = HashMap<String, Int>()
+
+        /** How deep the row at [key] hangs, zero if it hangs off nothing. */
+        private fun depthOf(key: String): Int = nested[key] ?: 0
+
+        /** Records [children] as hanging one step below [parent]. */
+        private fun nest(parent: String, children: Array<out String>) {
+            val below = depthOf(parent) + 1
+            for (child in children) nested[child] = maxOf(depthOf(child), below)
+        }
 
         /**
          * The step itself.
@@ -125,15 +177,19 @@ class SettingsActivity : AppCompatActivity() {
                     // outright is library-private. Every row's title is its
                     // own on these screens.
                     val title = view.findViewById<android.widget.TextView>(android.R.id.title)
-                    outRect.left = if (title?.text?.toString() in nestedTitles()) step else 0
+                    outRect.left = step * (nestedTitles()[title?.text?.toString()] ?: 0)
                 }
             })
             return list
         }
 
-        /** What the nested rows are called, which is how they are known. */
-        private fun nestedTitles(): Set<String> =
-            nested.mapNotNull { findPreference<Preference>(it)?.title?.toString() }.toSet()
+        /** What the nested rows are called, and how deep — titles are how
+         *  a row is known here, the adapter that could name it outright
+         *  being library-private. */
+        private fun nestedTitles(): Map<String, Int> =
+            nested.mapNotNull { (key, depth) ->
+                findPreference<Preference>(key)?.title?.toString()?.let { it to depth }
+            }.toMap()
 
         /**
          * Shows [children] only while the preference [key] is on, wherever
@@ -148,7 +204,7 @@ class SettingsActivity : AppCompatActivity() {
          * where the rest of the dial's spelling lives.
          */
         protected fun visibleWhen(key: String, vararg children: String) {
-            nested.addAll(children)
+            nest(key, children)
             val on = preferenceManager.sharedPreferences?.getBoolean(key, false) == true
             children.forEach { findPreference<Preference>(it)?.isVisible = on }
         }
@@ -304,7 +360,7 @@ class SettingsActivity : AppCompatActivity() {
                 Prefs.BELL_PRIORITY
             )
             follows(Prefs.WORLD_CLOCK, "pref_world_cities")
-            follows(Prefs.MOON_PHASE, Prefs.ORRERY)
+            followsChain(Prefs.MOON_PHASE, Prefs.ORRERY, Prefs.COMETS)
             findPreference<Preference>("pref_version")?.summary = try {
                 val info = requireContext().packageManager
                     .getPackageInfo(requireContext().packageName, 0)

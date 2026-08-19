@@ -134,6 +134,12 @@
 
         <SwitchPreferenceCompat
             android:defaultValue="false"
+            android:key="pref_comets"
+            android:summary="@string/comets_summary"
+            android:title="@string/comets_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
             android:key="pref_world_clock"
             android:summary="@string/pref_world_clock_summary"
             android:title="@string/pref_world_clock_title" />

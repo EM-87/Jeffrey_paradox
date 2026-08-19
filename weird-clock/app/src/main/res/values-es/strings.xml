@@ -401,4 +401,13 @@
     <string name="pref_tick_precision_title">Precisión del tic</string>
     <string name="pref_tick_precision_none">Todavía no ha sonado ninguno.</string>
     <string name="pref_tick_precision_at">%1$d tics · peor retraso %2$d ms · %3$d perdidos · %4$d rechazados</string>
+    <string name="comets_title">Cometas</string>
+    <string name="comets_summary">Cuatro visitantes en las órbitas largas y estrechas que los hacen visitantes. Formas reales, fechas reales: la cola crece cuando cada uno se acerca.</string>
+    <string name="comet_encke">Encke</string>
+    <string name="comet_tempel_tuttle">Tempel\u2013Tuttle</string>
+    <string name="comet_halley">Halley</string>
+    <string name="comet_swift_tuttle">Swift\u2013Tuttle</string>
+    <string name="comet_visit">%1$s, más cerca el %2$s</string>
+    <string name="widget_orrery_label">Sistema solar</string>
+    <string name="widget_orrery_description">Dónde están hoy los planetas de verdad. Tócalo para abrir el cielo.</string>
 </resources>

@@ -336,6 +336,21 @@ class ClockView @JvmOverloads constructor(
             invalidate()
         }
 
+    /**
+     * Whether the four comets are drawn on the solar system.
+     *
+     * Its own switch under the orrery's, and off unless asked for. Their
+     * orbits cross every ring on the dial — that is what a comet is — so
+     * they are four long wires laid over the whole picture, and somebody
+     * who turned the planets on to look at the planets should get the
+     * planets.
+     */
+    var cometsEnabled = false
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     /** Caption drawn inside the dial's upper half (world-clock city names). */
     var dialLabel: String? = null
         set(value) { field = value; invalidate() }
@@ -465,6 +480,8 @@ class ClockView @JvmOverloads constructor(
      * winding fires its own ticks and two would be one too many.
      */
     fun isSecondHandGrabbed(): Boolean = draggedHand == Hand.SECOND
+
+    internal fun grabbedHandForTest(): Hand? = draggedHand
 
     fun isSecondHandFallen(): Boolean = isFallen(Hand.SECOND)
 
@@ -4985,7 +5002,7 @@ class ClockView @JvmOverloads constructor(
     internal fun orreryCaption(): String? = OrreryDial.caption(
         resources, orreryMs(),
         TimeZone.getDefault().getOffset(orreryMs()),
-        orreryAligned()
+        orreryAligned(), cometsEnabled
     )
 
     /** The planets lying in the case, each in the colour it brought down. */
@@ -5003,7 +5020,7 @@ class ClockView @JvmOverloads constructor(
         OrreryDial.draw(
             canvas, cx, cy, r, theme, orreryMs(), fade,
             orreryMoonLongitude(), orreryAligned(), orreryMoonDetached(), grabbedBody,
-            orreryZoom, orreryBusyDays.keys, fallenPlanets, sunFallen
+            orreryZoom, orreryBusyDays.keys, fallenPlanets, sunFallen, cometsEnabled
         )
         // Under the dial rather than on it, in the same place and at the
         // same size as the chronograph's readout — which is where this
@@ -5093,12 +5110,27 @@ class ClockView @JvmOverloads constructor(
     /** For the tests: the date string the last frame actually painted. */
     internal fun dateShownForTest(): String = datePainted
 
+    /**
+     * And how many frames have painted one at all.
+     *
+     * Counted as well as remembered, because the two questions come apart
+     * exactly where the interesting failure is. A date knocked off the
+     * dial leaves the last string it showed sitting in [datePainted]
+     * forever — so a test that reads only the string cannot tell "frozen
+     * because it is lying in the case" from "drawn again, and the same
+     * because the wind was thrown away when the mechanism went". The
+     * count can: a fallen date is not drawn, so the number stops.
+     */
+    internal fun datePaintsForTest(): Int = datePaints
+
     private var datePainted = ""
+    private var datePaints = 0
 
     private fun drawDate(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         if (isDateFallen()) return
         val text = dateText()
         datePainted = text
+        datePaints++
         datePaint.textSize = r * 0.085f * faceScale()
         val baseline = cy - apothemRadius() * 0.42f - (datePaint.ascent() + datePaint.descent()) / 2f
         canvas.drawText(text, cx, baseline, datePaint)

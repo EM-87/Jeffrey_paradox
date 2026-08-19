@@ -403,4 +403,13 @@
     <string name="pref_tick_precision_title">Tick precision</string>
     <string name="pref_tick_precision_none">Nothing ticked yet.</string>
     <string name="pref_tick_precision_at">%1$d ticks · worst %2$d ms late · %3$d lost · %4$d refused</string>
+    <string name="comets_title">Comets</string>
+    <string name="comets_summary">Four visitors on the long thin orbits that make them visitors. Real shapes, real dates: a tail grows as each one comes round.</string>
+    <string name="comet_encke">Encke</string>
+    <string name="comet_tempel_tuttle">Tempel\u2013Tuttle</string>
+    <string name="comet_halley">Halley</string>
+    <string name="comet_swift_tuttle">Swift\u2013Tuttle</string>
+    <string name="comet_visit">%1$s, closest %2$s</string>
+    <string name="widget_orrery_label">Solar system</string>
+    <string name="widget_orrery_description">Where the planets actually are today. Tap it to open the sky.</string>
 </resources>

@@ -7,6 +7,7 @@ import android.graphics.RectF
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * The solar system, drawn on the dial.
@@ -316,12 +317,14 @@ object OrreryDial {
         zoom: Float = 1f,
         busyDays: Set<Int> = emptySet(),
         fallen: Set<Orrery.Body> = emptySet(),
-        sunIsDown: Boolean = false
+        sunIsDown: Boolean = false,
+        comets: Boolean = true
     ) {
         if (alpha <= 0.01f) return
         val a = alpha.coerceIn(0f, 1f)
 
         drawRings(canvas, cx, cy, r, theme, a, zoom)
+        if (comets) drawComets(canvas, cx, cy, r, theme, atMs, a, zoom)
         val days = Orrery.dayMarkFade(zoom)
         if (days > 0f) drawYearOfDays(canvas, cx, cy, r, theme, atMs, a * days, busyDays)
         if (aligned.size >= 3) drawAlignment(canvas, cx, cy, r, theme, atMs, aligned, a, zoom)
@@ -448,6 +451,72 @@ object OrreryDial {
             // arcs lying on the wallpaper.
             if (radius > r) continue
             canvas.drawCircle(cx, cy, radius, stroke)
+        }
+    }
+
+    /**
+     * The visitors' orbits, and the visitors on them.
+     *
+     * Drawn under the planets rather than over them, because a comet's
+     * orbit crosses every ring on the dial and a wire laid over Jupiter
+     * would read as a thing attached to Jupiter.
+     *
+     * The ellipse is drawn about its own centre, which is not the Sun.
+     * That offset is the whole picture: the Sun sits at one focus, well
+     * off to one side, and it is why the comet spends a moment at the near
+     * end and a lifetime at the far one.
+     */
+    private fun drawComets(
+        canvas: Canvas, cx: Float, cy: Float, r: Float,
+        theme: ClockTheme, atMs: Long, a: Float, zoom: Float
+    ) {
+        for (comet in Comets.all) {
+            val o = Comets.orbitOf(comet)
+            val semiMajor = o.aphelionRing / (1f + o.eccentricity.toFloat()) * r * zoom
+            val semiMinor = semiMajor * sqrt(1.0 - o.eccentricity * o.eccentricity).toFloat()
+            // The middle of the ellipse, away from the Sun along the axis
+            // the near end points down.
+            val offset = semiMajor * o.eccentricity.toFloat()
+            val axis = Math.toRadians(o.perihelionLongitude)
+            val mx = cx - (offset * cos(axis)).toFloat()
+            val my = cy + (offset * sin(axis)).toFloat()
+            if (semiMajor + offset > r * 1.35f) continue
+
+            val near = Comets.nearness(comet, atMs)
+            stroke.color = theme.minorTick
+            stroke.strokeWidth = r * 0.003f
+            stroke.alpha = ((34 + 46 * near) * a).toInt()
+            canvas.save()
+            canvas.rotate(-o.perihelionLongitude.toFloat(), mx, my)
+            oval.set(mx - semiMajor, my - semiMinor, mx + semiMajor, my + semiMinor)
+            canvas.drawOval(oval, stroke)
+            canvas.restore()
+
+            val at = Comets.positionAt(comet, atMs)
+            val d = at.radius * r * zoom
+            if (d > r) continue
+            val p = pointOn(cx, cy, d, at.longitude)
+
+            // The tail points away from the Sun, never along the orbit —
+            // it is the Sun blowing the thing apart, not a wake. It grows
+            // as the visit comes on and is not there at all the rest of
+            // the time, which is also true.
+            if (near > 0f) {
+                val tail = r * 0.11f * near
+                val out = pointOn(cx, cy, d + tail, at.longitude)
+                stroke.color = theme.minorTick
+                stroke.strokeWidth = r * 0.008f
+                stroke.alpha = (150 * near * a).toInt()
+                stroke.strokeCap = Paint.Cap.ROUND
+                canvas.drawLine(p.x, p.y, out.x, out.y, stroke)
+                // Put back, because this paint is shared with the day
+                // marks and a round cap on a tick makes it a lozenge.
+                stroke.strokeCap = Paint.Cap.BUTT
+            }
+
+            fill.color = theme.minorTick
+            fill.alpha = ((120 + 135 * near) * a).toInt()
+            canvas.drawCircle(p.x, p.y, r * 0.011f * (1f + near), fill)
         }
     }
 
@@ -589,8 +658,20 @@ object OrreryDial {
         resources: android.content.res.Resources,
         atMs: Long,
         zoneOffsetMs: Int,
-        aligned: List<Orrery.Body>
+        aligned: List<Orrery.Body>,
+        comets: Boolean = false
     ): String? {
+        // Before the sky events, because a comet at its closest is rarer
+        // than anything on that list — which includes the full moon, and
+        // a full moon would shut the comet up one time in four.
+        if (comets) Comets.visiting(atMs)?.let {
+            return resources.getString(
+                R.string.comet_visit,
+                resources.getString(Comets.nameKeyOf(it)),
+                java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM)
+                    .format(java.util.Date(Comets.nearestPerihelion(it, atMs)))
+            )
+        }
         val day = CivilDays.dayOf(atMs, zoneOffsetMs)
         SkyEvents.on(day).firstOrNull()?.let { return nameOf(resources, it) }
         if (aligned.size >= 3) {

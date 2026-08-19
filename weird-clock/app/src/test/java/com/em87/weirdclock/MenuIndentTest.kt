@@ -122,6 +122,52 @@ class MenuIndentTest {
         }
     }
 
+    /**
+     * A row two deep needs both switches above it, not just the nearer one.
+     *
+     * The comets hang off the solar system, which hangs off the sky token.
+     * Written as two separate rules — comets follow the orrery, orrery
+     * follows the moon — the comets row survives its own parent being
+     * hidden: switch the moon off and the page ends with a row indented
+     * under nothing, offering to draw comets on a dial that is not there.
+     */
+    @Test
+    fun `a row two deep needs every switch above it`() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        fun commentsVisible(moon: Boolean, orrery: Boolean): Boolean {
+            prefs.edit()
+                .putBoolean(Prefs.OVERLAY_ASKED, true)
+                .putBoolean(Prefs.MOON_PHASE, moon)
+                .putBoolean(Prefs.ORRERY, orrery)
+                .commit()
+            val fragment = rootScreen()
+            return fragment.findPreference<Preference>(Prefs.COMETS)?.isVisible == true
+        }
+        assertTrue("the comets are hidden with both switches on", commentsVisible(true, true))
+        assertEquals(
+            "the comets are offered with the solar system switched off",
+            false, commentsVisible(true, false)
+        )
+        assertEquals(
+            "the comets are offered with the sky token switched off",
+            false, commentsVisible(false, true)
+        )
+    }
+
+    /** And the comets are drawn a step in, like everything that hangs off. */
+    @Test
+    fun `the comets start further in than the solar system`() {
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+            .putBoolean(Prefs.MOON_PHASE, true)
+            .putBoolean(Prefs.ORRERY, true)
+            .commit()
+        val fragment = rootScreen()
+        assertTrue(
+            "the comets start level with the solar system they belong to",
+            rowLeft(fragment, Prefs.COMETS) > rowLeft(fragment, Prefs.ORRERY)
+        )
+    }
+
     /** The other screens nest the same way. */
     @Test
     fun `the refinements under the second hand start further in`() {

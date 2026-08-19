@@ -860,6 +860,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // land on whatever else happened to share its page.
             pager.post { goTo(Card.CALENDAR, scroll = false) }
         }
+        if (intent.getBooleanExtra(EXTRA_OPEN_SKY, false)) {
+            pager.post { goTo(Card.CLOCK, scroll = false); openSky() }
+        }
 
         // Back goes back. It never did: the app has one activity, so the
         // button between the other two fell straight through to the system
@@ -987,6 +990,24 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         if (intent.getBooleanExtra(EXTRA_OPEN_ALARMS, false)) goTo(Card.ALARM)
         if (intent.getBooleanExtra(EXTRA_OPEN_TIMER, false)) goTo(timerCard())
         if (intent.getBooleanExtra(EXTRA_OPEN_CALENDAR, false)) goTo(Card.CALENDAR)
+        if (intent.getBooleanExtra(EXTRA_OPEN_SKY, false)) {
+            goTo(Card.CLOCK)
+            openSky()
+        }
+    }
+
+    /**
+     * Opens the solar system on the main dial, if it is switched on.
+     *
+     * Silently nothing if it is not: arriving from the widget is not a
+     * reason to turn on a setting somebody left off, and a card that
+     * opened something the settings say is off would be the app arguing
+     * with its own switches.
+     */
+    private fun openSky() {
+        val cv = clockView ?: return
+        if (!cv.orreryEnabled) return
+        if (!cv.orreryShowing()) cv.toggleOrrery()
     }
 
     override fun onResume() {
@@ -2630,6 +2651,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // mid-wind would take it away under the user's finger.
         cv.showMoonPhase = dialJob != null || prefs.getBoolean(Prefs.MOON_PHASE, false)
         cv.orreryEnabled = dialJob == null && prefs.getBoolean(Prefs.ORRERY, false)
+        cv.cometsEnabled = prefs.getBoolean(Prefs.COMETS, false)
         updateAlarmMarkers()
         cv.touchHandsEnabled = prefs.getBoolean(Prefs.TOUCH_HANDS, true)
         cv.pinchZoomEnabled = prefs.getBoolean(Prefs.PINCH_ZOOM, true)
@@ -3105,6 +3127,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // watch a whole day go past without waiting for one.
                 it.showMoonPhase = prefs.getBoolean(Prefs.MOON_PHASE, false)
                 it.orreryEnabled = prefs.getBoolean(Prefs.ORRERY, false)
+                it.cometsEnabled = prefs.getBoolean(Prefs.COMETS, false)
                 it.showSecondHand = prefs.getBoolean(Prefs.SECOND_HAND, true)
                 it.showMinuteHand = prefs.getBoolean(Prefs.MINUTE_HAND, true)
                 it.fastHand = readFastHand()
@@ -3466,6 +3489,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         const val EXTRA_OPEN_ALARMS = "extra_open_alarms"
         const val EXTRA_OPEN_TIMER = "extra_open_timer"
         const val EXTRA_OPEN_CALENDAR = "extra_open_calendar"
+
+        /**
+         * From the solar-system widget: open the clock with the sky
+         * already up.
+         *
+         * Somebody who taps a picture of the planets is asking for the
+         * planets, not for the front page with the planets one gesture
+         * away — and the gesture is a tap on the sun, which is not
+         * something a first-time tapper of the widget necessarily knows.
+         */
+        const val EXTRA_OPEN_SKY = "extra_open_sky"
 
         // The pager's three columns. Which card of each is showing is the
         // row's business, and both live in Cards, where the shape is.

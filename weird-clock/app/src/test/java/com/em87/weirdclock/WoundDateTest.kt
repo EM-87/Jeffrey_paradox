@@ -55,18 +55,46 @@ class WoundDateTest {
         e.recycle()
     }
 
-    /** Takes hold of a hand and turns it [degrees], the way a finger does. */
+    /**
+     * Takes hold of a hand and turns it [degrees], the way a finger does.
+     *
+     * Where along the hand matters, and getting it wrong is silent. This
+     * dial untangles a pile of hands by how far out the finger landed —
+     * near the middle is the short hand, out by the rim is the long one —
+     * so a grab aimed at the *middle* of the minute hand is inside the
+     * hour hand's ring and comes away with the hour hand. Which is what
+     * happened: eleven turns meant for the minute hand went onto the hour
+     * hand instead, blew its two-day budget, and threw the whole
+     * mechanism — date included — onto the floor of the case. The test
+     * then reported that the date was not being drawn, which was true and
+     * was not the fault of anything it was testing.
+     *
+     * So the grab is aimed at the hand's own ring, and the hand that came
+     * away is checked before anything is wound.
+     */
     private fun wind(v: ClockView, hand: ClockView.Hand, degrees: Double) {
         val cx = v.width / 2f
         val cy = v.height / 2f
-        val box = v.handBounds(hand)!!
-        val grip = kotlin.math.hypot(box.exactCenterX() - cx, box.exactCenterY() - cy)
+        val tip = v.handTipForTest(hand)
+        val reach = kotlin.math.hypot(tip.x - cx, tip.y - cy)
+        // Between the tip of the hand below and this hand's own tip, which
+        // is the band the dial reserves for it.
+        val inner = when (hand) {
+            ClockView.Hand.HOUR -> 0.15f
+            ClockView.Hand.MINUTE -> 0.52f / 0.74f
+            ClockView.Hand.SECOND -> 0.74f / 0.82f
+        }
+        val grip = reach * (inner + 1f) / 2f
         var deg = Math.toDegrees(
-            kotlin.math.atan2(
-                (box.exactCenterY() - cy).toDouble(), (box.exactCenterX() - cx).toDouble()
-            )
+            kotlin.math.atan2((tip.y - cy).toDouble(), (tip.x - cx).toDouble())
         )
-        touch(v, android.view.MotionEvent.ACTION_DOWN, box.exactCenterX(), box.exactCenterY())
+        val a0 = Math.toRadians(deg)
+        touch(
+            v, android.view.MotionEvent.ACTION_DOWN,
+            (cx + grip * kotlin.math.cos(a0)).toFloat(),
+            (cy + grip * kotlin.math.sin(a0)).toFloat()
+        )
+        assertEquals("the grab came away with the wrong hand", hand, v.grabbedHandForTest())
         var turned = 0.0
         while (turned < degrees) {
             turned += 15.0
@@ -167,6 +195,59 @@ class WoundDateTest {
             "the face is showing '${painted(v)}' and the dial says " +
                 "'${v.dateTextForTest()}'",
             painted(v) == v.dateTextForTest()
+        )
+    }
+
+    /**
+     * The one way the date really does stop following the hands: it is not
+     * on the dial any more.
+     *
+     * Wind a hand past what the mechanism will take and the whole thing
+     * comes apart — hands, numerals, moon and the date, all of it lying in
+     * the bottom of the case. The piece that falls keeps the date it was
+     * showing when it fell, frozen, because it is a piece of debris and
+     * not a display; and from then on winding the hands moves nothing,
+     * because there is nothing up there to move.
+     *
+     * Which is exactly what "the date has stopped updating" looks like
+     * from the outside, and worth pinning down as a thing the clock does
+     * on purpose rather than a thing it does wrong. The way back is the
+     * tidy-up button, and this checks that it is a way back.
+     */
+    @Test
+    fun `a date knocked off the dial stops following, and comes back tidied`() {
+        val v = dial(ClockView.DateFormatStyle.NUMBER)
+        val before = painted(v)
+        assertTrue("nothing was painted at all", before.isNotBlank())
+
+        // Two days is the hour hand's whole budget; three is past it.
+        windHours(v, ClockView.Hand.HOUR, 72.0)
+        assertTrue("winding a hand three days did not blow the mechanism", v.isDisarranged())
+
+        // Counted, not read. The explosion also throws the wind away, so
+        // the date the dial *would* compute goes back to today — which is
+        // the string that was there before it fell. Reading the string
+        // therefore cannot tell a frozen date from a redrawn one, and an
+        // earlier version of this test could not: it passed just as
+        // happily with the fallen check taken out.
+        val paints = v.datePaintsForTest()
+        painted(v)
+        painted(v)
+        assertEquals(
+            "a date lying in the case is still being drawn on the dial as well",
+            paints, v.datePaintsForTest()
+        )
+        assertEquals(
+            "and the string it is frozen at is not the one it fell with",
+            before, v.dateShownForTest()
+        )
+
+        v.reassembleAll()
+        val from = System.currentTimeMillis()
+        windHours(v, ClockView.Hand.HOUR, 36.0)
+        assertEquals(
+            "the date did not start following again once the dial was tidied",
+            v.dateTextAtForTest(from + 36 * 3_600_000L), painted(v)
         )
     }
 }

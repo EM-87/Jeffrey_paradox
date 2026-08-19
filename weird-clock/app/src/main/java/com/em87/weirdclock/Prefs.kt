@@ -30,6 +30,16 @@ object Prefs {
     const val ORRERY = "pref_orrery"
 
     /**
+     * The comets, drawn on the solar system.
+     *
+     * A sub-setting of [ORRERY] and off by default, because four long thin
+     * ellipses cross every ring on the dial and somebody who turned the
+     * planets on wanted planets. On, they are the only thing on this dial
+     * drawn to a shape rather than to a diagram — see [Comets].
+     */
+    const val COMETS = "pref_comets"
+
+    /**
      * Set when the phone refused an exact alarm and the app had to fall
      * back to a one-minute window.
      *

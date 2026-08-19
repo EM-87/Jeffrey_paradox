@@ -176,6 +176,26 @@
         </receiver>
 
         <receiver
+            android:name=".OrreryWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_orrery_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <!-- The planets are drawn for a date, so the picture goes
+                     stale when the date does. -->
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <!-- And its own wake-up, since nothing on this dial moves
+                     fast enough for the system to have a broadcast for. -->
+                <action android:name="com.em87.weirdclock.ORRERY_TICK" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_orrery_info" />
+        </receiver>
+
+        <receiver
             android:name=".HourglassWidgetProvider"
             android:exported="false"
             android:label="@string/widget_hourglass_label">

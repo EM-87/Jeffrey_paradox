@@ -142,6 +142,49 @@ class GlyphChartTest {
         }
     }
 
+    /**
+     * The visitors, at a few of the years they visit in.
+     *
+     * Four ellipses laid over eight circles is the kind of thing that
+     * either reads at a glance or is a ball of wool, and no number says
+     * which.
+     */
+    @Test
+    fun `the comets on the sky`() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.MOON_PHASE, true)
+            .putBoolean(Prefs.ORRERY, true)
+            .putBoolean(Prefs.COMETS, true)
+            .commit()
+        org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val activity = c.get()
+            val clock = activity.clockForTest()
+            clock.toggleOrrery()
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(
+                java.time.Duration.ofMillis(900)
+            )
+            val root = activity.window.decorView
+            root.measure(
+                android.view.View.MeasureSpec.makeMeasureSpec(1080, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(2200, android.view.View.MeasureSpec.EXACTLY)
+            )
+            root.layout(0, 0, 1080, 2200)
+            // 1986 is Halley at perihelion; 2061 is the next one; 2026 is
+            // an ordinary year with all four out at the far end.
+            for (year in listOf(1986, 2026, 2061)) {
+                clock.windOrreryToYearForTest(year)
+                val bitmap = Bitmap.createBitmap(1080, 2200, Bitmap.Config.ARGB_8888)
+                root.draw(Canvas(bitmap))
+                File(outDir, "comets-$year.png").outputStream().use {
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+                }
+            }
+        }
+    }
+
     /** The ten marks on the star, in a row like the table they came from. */
     @Test
     fun `the star alphabet`() {
