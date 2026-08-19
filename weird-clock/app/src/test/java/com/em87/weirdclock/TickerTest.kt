@@ -181,4 +181,72 @@ class TickerTest {
         assertEquals(40L, Ticker.driftMs(4_040L))
         assertEquals(-60L, Ticker.driftMs(3_940L))
     }
+
+    // ------------------------------------------------- how loud it is
+
+    /**
+     * The tick turns down for the night with everything else on the dial.
+     *
+     * The level that reads as "present" across a room in the afternoon
+     * reads as "loud" in the dark with your ear a foot from the phone —
+     * and the dial, the marks, the planets and the surround all dim for
+     * the night already. The one sound the clock makes did not.
+     */
+    @Test
+    fun `the tick is quieter at night`() {
+        assertTrue(
+            "the night tick is no quieter than the day one",
+            Ticker.tickVolume(night = true) < Ticker.tickVolume(night = false)
+        )
+    }
+
+    /**
+     * And it is quieter, not silent.
+     *
+     * A clock that ticks in a bedroom is the whole point of a ticking
+     * clock. Turning it off after dark would be turning the feature off at
+     * the hour somebody switched it on for.
+     */
+    @Test
+    fun `the tick does not go silent at night`() {
+        assertTrue(
+            "the tick is inaudible at night, which is not turning it down",
+            Ticker.tickVolume(night = true) > 0.1f
+        )
+    }
+
+    /**
+     * And the dial asks for the night level when the dial is dim.
+     *
+     * The rule above is arithmetic; this is the wiring. It reaches as far
+     * as the function the beat calls and no further — a beat that ignored
+     * that function and passed a number of its own would still slip past,
+     * which is worth saying out loud rather than implying.
+     */
+    @Test
+    fun `a dim dial ticks at the night level`() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val thisHour = java.util.Calendar.getInstance()
+            .get(java.util.Calendar.HOUR_OF_DAY)
+        for (night in listOf(false, true)) {
+            PreferenceManager.getDefaultSharedPreferences(ctx).edit().clear()
+                .putBoolean(Prefs.OVERLAY_ASKED, true)
+                .putBoolean(Prefs.NIGHT_DIM, night)
+                // A window that starts on this very hour and runs for two,
+                // so it is night whenever this test happens to run. A
+                // window from midnight to midnight is not the whole day —
+                // it is nothing, which is the sensible reading of a pair of
+                // pins that have been dragged on top of one another.
+                .putInt(Prefs.NIGHT_FROM, thisHour)
+                .putInt(Prefs.NIGHT_TO, (thisHour + 2) % 24)
+                .commit()
+            Robolectric.buildActivity(MainActivity::class.java).use { c ->
+                c.setup()
+                assertEquals(
+                    "with night mode ${if (night) "on" else "off"}",
+                    Ticker.tickVolume(night), c.get().tickLevelForTest(), 0.001f
+                )
+            }
+        }
+    }
 }

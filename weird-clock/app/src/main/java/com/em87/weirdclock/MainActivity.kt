@@ -266,6 +266,38 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** Refreshes the open edit sheet once the picker returns. */
     private var soundPickCallback: (() -> Unit)? = null
+    /**
+     * The phone's own sounds, chosen from the system's own list.
+     *
+     * Not through the document picker: these are not files on a disk
+     * anybody can browse to, they are whatever this phone shipped with,
+     * and the system is the only thing that can enumerate them. It also
+     * previews each one as you move down the list, which is the whole
+     * reason to use it rather than build a list of our own.
+     */
+    private val ringtonePickerLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val alarm = soundPickTarget
+            val done = soundPickCallback
+            soundPickTarget = null
+            soundPickCallback = null
+            if (alarm != null) {
+                val uri = result.data?.getParcelableExtra<android.net.Uri>(
+                    android.media.RingtoneManager.EXTRA_RINGTONE_PICKED_URI
+                )
+                if (uri != null) {
+                    alarm.sound = Prefs.ALARM_SOUND_SYSTEM
+                    alarm.soundUri = uri.toString()
+                } else if (alarm.soundUri.isBlank()) {
+                    // Backed out with nothing chosen and nothing to fall
+                    // back on: the bells, rather than an alarm that has a
+                    // voice named and no sound behind it.
+                    alarm.sound = Prefs.ALARM_SOUND_BELLS
+                }
+                if (done != null) done() else persistAlarms()
+            }
+        }
+
     private val soundPickerLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             val alarm = soundPickTarget
@@ -402,6 +434,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** What the beat has been doing — see [Ticker.Record]. */
     internal val tickRecord = Ticker.Record()
 
+    /**
+     * How loud this dial's tick should be at this moment.
+     *
+     * Only the seconds tick asks: the pushers and the crown are sounds you
+     * caused, and a click you asked for and cannot hear is a broken button.
+     * The tick is the one the room hears whether or not anybody touched
+     * anything, and the room at two in the morning is a different room.
+     */
+    private fun tickLevel(): Float = Ticker.tickVolume(appliedNightDim)
+
     private val tickBeat = object : Runnable {
         override fun run() {
             val due = Ticker.beatAt(tickAnchorUptime, tickBeats)
@@ -414,7 +456,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             if (ticksWanted) {
                 if (!Ticker.onTime(now)) {
                     tickRecord.missedIt()
-                } else if (chimePlayer.playTick()) {
+                    // Turned down for the night with everything else on
+                    // this dial. Only the seconds tick: the pushers and the
+                    // crown are things you did, and a click you asked for
+                    // that you cannot hear is a broken button.
+                } else if (chimePlayer.playTick(tickLevel())) {
                     tickRecord.sounded(lag)
                 } else {
                     tickRecord.refusedIt()
@@ -700,6 +746,38 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 soundPickTarget = target
                 soundPickCallback = onPicked
                 soundPickerLauncher.launch(arrayOf("audio/*"))
+            }
+
+            override fun pickSystemSound(target: Alarm, onPicked: () -> Unit) {
+                soundPickTarget = target
+                soundPickCallback = onPicked
+                ringtonePickerLauncher.launch(
+                    Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER)
+                        // Alarms first, but not alarms only: a great many
+                        // phones ship two alarm tones and forty ringtones,
+                        // and the one somebody wants to wake up to is often
+                        // among the forty.
+                        .putExtra(
+                            android.media.RingtoneManager.EXTRA_RINGTONE_TYPE,
+                            android.media.RingtoneManager.TYPE_ALARM or
+                                android.media.RingtoneManager.TYPE_RINGTONE or
+                                android.media.RingtoneManager.TYPE_NOTIFICATION
+                        )
+                        .putExtra(
+                            android.media.RingtoneManager.EXTRA_RINGTONE_TITLE,
+                            getString(R.string.alarm_sound_system)
+                        )
+                        // No "None": a silent alarm has its own entry in
+                        // the list this picker was opened from, and one
+                        // reached by accident here would be an alarm that
+                        // looks set and says nothing.
+                        .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                        .putExtra(
+                            android.media.RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
+                            target.soundUri.takeIf { it.isNotBlank() }
+                                ?.let { android.net.Uri.parse(it) }
+                        )
+                )
             }
         })
         reminderSheet = ReminderSheet(this, alarmCards, object : ReminderSheet.Callbacks {
@@ -1728,6 +1806,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** For the tests: the alarms this activity is holding. */
     internal fun alarmsForTest(): List<Alarm> = alarms
+
+    /** For the tests: how loud the seconds tick would be right now. */
+    internal fun tickLevelForTest(): Float = tickLevel()
 
     /** For the tests: repaint the alarms card from the list as it stands. */
     internal fun refreshAlarmsForTest() = refreshAlarmsUi()

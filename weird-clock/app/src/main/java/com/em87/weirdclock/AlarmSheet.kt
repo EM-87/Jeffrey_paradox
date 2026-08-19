@@ -72,6 +72,16 @@ class AlarmSheet(
 
         /** The SAF round trip for a user's own audio file. */
         fun pickAudioFile(target: Alarm, onPicked: () -> Unit)
+
+        /**
+         * The phone's own ringtones, alarms and notification sounds.
+         *
+         * A separate picker from the one that finds a file, because these
+         * are not files anybody can browse to: they are whatever this
+         * phone happens to ship with, and the system is the only thing
+         * that can list them.
+         */
+        fun pickSystemSound(target: Alarm, onPicked: () -> Unit)
     }
 
     fun show(alarm: Alarm, seed: Alarm? = null) {
@@ -305,8 +315,9 @@ class AlarmSheet(
         view.findViewById<View>(R.id.sheet_row_sound).setOnClickListener {
             cards.pickSound(draft.sound, allowCustom = true) { chosen ->
                 draft.sound = chosen
-                if (chosen == Prefs.ALARM_SOUND_CUSTOM) {
-                    callbacks.pickAudioFile(draft) { refresh() }
+                when (chosen) {
+                    Prefs.ALARM_SOUND_CUSTOM -> callbacks.pickAudioFile(draft) { refresh() }
+                    Prefs.ALARM_SOUND_SYSTEM -> callbacks.pickSystemSound(draft) { refresh() }
                 }
                 refresh()
             }

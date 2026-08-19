@@ -114,6 +114,7 @@
     <string name="alarm_when_tomorrow">mañana a las %1$s</string>
     <string name="alarm_when_weekday">el %1$s a las %2$s</string>
     <string name="alarms_by_time">Por hora</string>
+    <string name="alarm_sound_system">Un sonido del teléfono</string>
     <string name="alarm_off_title">Desactivar esta alarma</string>
     <string name="alarm_off_message">La próxima le toca %1$s.</string>
     <string name="alarm_off_once">Solo esa</string>

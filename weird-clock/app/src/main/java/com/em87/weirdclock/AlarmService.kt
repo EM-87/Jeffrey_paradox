@@ -526,7 +526,7 @@ class AlarmService : Service() {
      */
     private fun startTheVoice() {
         when {
-            sound == Prefs.ALARM_SOUND_CUSTOM && soundUri.isNotBlank() -> {
+            Prefs.playsFromUri(sound) && soundUri.isNotBlank() -> {
                 // A user-picked audio file (SAF, persisted read permission).
                 // If it went away — file deleted, permission revoked — the
                 // bells take over: an alarm must never fail silently.

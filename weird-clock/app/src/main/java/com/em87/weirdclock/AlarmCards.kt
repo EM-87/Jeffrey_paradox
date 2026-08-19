@@ -102,7 +102,10 @@ class AlarmCards(
      */
     fun pickSound(current: String, allowCustom: Boolean, onPicked: (String) -> Unit) {
         val sounds = Prefs.ALARM_SOUNDS.toMutableList()
-        if (allowCustom) sounds.add(Prefs.ALARM_SOUND_CUSTOM)
+        if (allowCustom) {
+            sounds.add(Prefs.ALARM_SOUND_SYSTEM)
+            sounds.add(Prefs.ALARM_SOUND_CUSTOM)
+        }
         var chosen = sounds.indexOf(current).coerceAtLeast(0)
         val player = ChimePlayer()
         androidx.appcompat.app.AlertDialog.Builder(host)
@@ -112,7 +115,11 @@ class AlarmCards(
                 chosen
             ) { _, which ->
                 chosen = which
-                if (sounds[which] != Prefs.ALARM_SOUND_CUSTOM) player.playNamed(sounds[which])
+                // Everything the app makes itself can be heard as it is
+                // picked. The two that are a file somewhere cannot: there
+                // is no file until the picker after this one has been
+                // through, and that picker plays its own previews.
+                if (!Prefs.playsFromUri(sounds[which])) player.playNamed(sounds[which])
             }
             .setPositiveButton(android.R.string.ok) { _, _ -> onPicked(sounds[chosen]) }
             .setNegativeButton(android.R.string.cancel, null)
@@ -189,6 +196,7 @@ class AlarmCards(
             Prefs.ALARM_SOUND_WOLF -> R.string.alarm_sound_wolf
             Prefs.ALARM_SOUND_DOG -> R.string.alarm_sound_dog
             Prefs.ALARM_SOUND_SILENT -> R.string.alarm_sound_silent
+            Prefs.ALARM_SOUND_SYSTEM -> R.string.alarm_sound_system
             Prefs.ALARM_SOUND_CUSTOM -> R.string.alarm_sound_custom
             else -> R.string.alarm_sound_bells
         }

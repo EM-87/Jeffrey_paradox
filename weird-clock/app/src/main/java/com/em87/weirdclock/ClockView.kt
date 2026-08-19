@@ -1888,7 +1888,7 @@ class ClockView @JvmOverloads constructor(
         cx: Float, cy: Float, r: Float
     ): Float {
         val angle = angleOf(hand, a)
-        val tip = pointAt(cx, cy, angle, boundaryRadius(angle) * lengthOf(hand))
+        val tip = pointAt(cx, cy, angle, handReach(hand))
         return distanceToSegment(x, y, cx, cy, tip.x, tip.y)
     }
 
@@ -2355,7 +2355,7 @@ class ClockView @JvmOverloads constructor(
         for (hand in Hand.entries) if (handIsOn(hand)) drops.add(hand)
         for (hand in drops) {
             if (isFallen(hand)) continue
-            val len = lengthOf(hand) * boundaryRadius(angleOf(hand, a))
+            val len = handReach(hand)
             val tail = tailOf(hand) * r
             addRodBody(
                 DialDebris.Kind.HAND, hand, angleOf(hand, a),
@@ -2551,7 +2551,7 @@ class ClockView @JvmOverloads constructor(
             if (!handIsOn(hand)) continue
             if (isFallen(hand)) continue
             val angle = angleOf(hand, a)
-            val tip = pointAt(cx, cy, angle, boundaryRadius(angle) * lengthOf(hand))
+            val tip = pointAt(cx, cy, angle, handReach(hand))
             val tail = pointAt(cx, cy, angle + 180f, r * tailOf(hand))
             debris.collideWithSegment(tail.x, tail.y, tip.x, tip.y, widthOf(hand) * r)
         }
@@ -2590,7 +2590,7 @@ class ClockView @JvmOverloads constructor(
             if (!handIsOn(hand)) continue
             if (isFallen(hand)) continue
             val angle = angleOf(hand, a)
-            val tip = pointAt(cx, cy, angle, boundaryRadius(angle) * lengthOf(hand))
+            val tip = pointAt(cx, cy, angle, handReach(hand))
             val tail = pointAt(cx, cy, angle + 180f, r * tailOf(hand))
             bars.add(HandBar(tail.x, tail.y, tip.x, tip.y, widthOf(hand) * r))
         }
@@ -2961,7 +2961,7 @@ class ClockView @JvmOverloads constructor(
             )
         }
         val angle = angleOf(hand, currentAngles())
-        val tip = pointAt(cx, cy, angle, boundaryRadius(angle) * lengthOf(hand))
+        val tip = pointAt(cx, cy, angle, handReach(hand))
         // The box is the tip and the middle, grown enough to be touchable:
         // a hand is a line, and a line has no area to land a finger in.
         val pad = r * 0.10f
@@ -3470,6 +3470,23 @@ class ClockView @JvmOverloads constructor(
         return r * apothemFraction / cos(Math.toRadians((psi - half).toDouble())).toFloat()
     }
 
+    /**
+     * How long a hand is, in pixels. The same at every angle.
+     *
+     * Measured against the circle that fits *inside* the dial rather than
+     * against the dial's own edge, which is what it used to be. On a round
+     * face the two are the same number and nobody could have noticed; on a
+     * square one the edge is half again as far away at the corners, so the
+     * hands stretched as they swept towards each corner and shrank back
+     * between them — a clock whose minute hand grows and shrinks four
+     * times an hour.
+     *
+     * The cost is that a square face's hands only touch the edge at the
+     * middle of each side, which is exactly what a real square clock does:
+     * the hand is a rod, and a rod does not know what shape its case is.
+     */
+    private fun handReach(hand: Hand): Float = apothemRadius() * lengthOf(hand)
+
     /** The polygon's inscribed radius — the safe zone for inner complications. */
     private fun apothemRadius(): Float {
         val n = dialShape.sides
@@ -3577,7 +3594,7 @@ class ClockView @JvmOverloads constructor(
             drawHand(
                 canvas, cx, cy,
                 angle,
-                boundaryRadius(angle) * lengthOf(hand),
+                handReach(hand),
                 r * tailOf(hand),
                 r * widthOf(hand),
                 paintOf(hand)
@@ -3717,7 +3734,7 @@ class ClockView @JvmOverloads constructor(
                 paint.alpha = alpha
                 drawHand(
                     canvas, cx, cy, angle,
-                    boundaryRadius(angle) * lengthOf(hand),
+                    handReach(hand),
                     r * tailOf(hand),
                     r * widthOf(hand),
                     paint

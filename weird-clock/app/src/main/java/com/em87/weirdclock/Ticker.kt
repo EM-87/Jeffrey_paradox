@@ -96,6 +96,18 @@ object Ticker {
         periodMs - Math.floorMod(nowMs, periodMs) > slackMs
 
     /**
+     * How loud the seconds tick is, out of one.
+     *
+     * Quieter at night, and not silent. A clock that ticks in a bedroom is
+     * the point of a ticking clock — it is company, and the whole reason
+     * anybody switches it on — but the level that reads as "present" across
+     * a room in the afternoon reads as "loud" in the dark with your ear a
+     * foot from the phone. Everything else on this dial already turns down
+     * for the night; the one sound it makes did not.
+     */
+    fun tickVolume(night: Boolean): Float = if (night) 0.25f else 0.8f
+
+    /**
      * What the beat has been doing, kept so somebody can be told.
      *
      * A tick that is heard to skip and cannot be measured is an argument,

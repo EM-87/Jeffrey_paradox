@@ -218,6 +218,27 @@ object Prefs {
 
     const val ALARM_SOUND_CUSTOM = "custom"
 
+    /**
+     * One of the phone's own ringtones, alarms or notification sounds.
+     *
+     * Different from [ALARM_SOUND_CUSTOM] only in where the URI came from:
+     * a file you went and found, or one the phone already had. Both play
+     * the same way, and [playsFromUri] is the question anything downstream
+     * actually wants to ask.
+     */
+    const val ALARM_SOUND_SYSTEM = "system"
+
+    /**
+     * Whether this voice is a file somewhere rather than something the app
+     * synthesises.
+     *
+     * Asked wherever a sound is played or judged. It was written out as
+     * "== custom" in each of those places, which is exactly the shape of
+     * thing that gets missed when a second one is added.
+     */
+    fun playsFromUri(sound: String?): Boolean =
+        sound == ALARM_SOUND_CUSTOM || sound == ALARM_SOUND_SYSTEM
+
     /** Every sound an alarm can be given, in the order the picker shows them. */
     val ALARM_SOUNDS = listOf(
         ALARM_SOUND_BELLS, ALARM_SOUND_DIGITAL, ALARM_SOUND_RING_BELL,
