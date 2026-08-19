@@ -237,7 +237,8 @@ class SettingsActivity : AppCompatActivity() {
             follows(Prefs.NIGHT_DIM, Prefs.NIGHT_WINDOW)
             follows(
                 Prefs.BELLS,
-                Prefs.BELL_MARKS, Prefs.BELL_STYLE, Prefs.TEST_BELLS, Prefs.BELLS_BACKGROUND
+                Prefs.BELL_MARKS, Prefs.BELL_STYLE, Prefs.TEST_BELLS, Prefs.BELLS_BACKGROUND,
+                Prefs.BELL_PRIORITY
             )
             follows(Prefs.WORLD_CLOCK, "pref_world_cities")
             follows(Prefs.MOON_PHASE, Prefs.ORRERY)
@@ -517,7 +518,13 @@ class SettingsActivity : AppCompatActivity() {
 
             // Both of the second hand's refinements are questions about a
             // hand that may not be there.
-            follows(Prefs.SECOND_HAND, Prefs.SMOOTH_SECONDS, Prefs.FAST_HAND)
+            // The tick joins them: it is the sound of the second hand
+            // moving, and a dial with no second hand on it has nothing to
+            // make that sound.
+            follows(
+                Prefs.SECOND_HAND,
+                Prefs.SMOOTH_SECONDS, Prefs.FAST_HAND, Prefs.TICKING
+            )
 
             findPreference<SeekBarPreference>(Prefs.TIME_SPEED)
                 ?.setOnPreferenceChangeListener { _, newValue ->

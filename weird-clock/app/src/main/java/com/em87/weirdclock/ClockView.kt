@@ -110,6 +110,31 @@ class ClockView @JvmOverloads constructor(
         set(value) { field = value.coerceIn(2, 24); invalidate() }
     var showSecondHand = true
         set(value) { field = value; invalidate() }
+
+    /**
+     * Whether the minute hand is drawn.
+     *
+     * A clock with no minute hand is read to the nearest hour, which is how
+     * a great many of them were read for a great many centuries — and on a
+     * face with numerals and no minute marks it is not even a loss.
+     */
+    var showMinuteHand = true
+        set(value) { field = value; invalidate() }
+
+    /**
+     * Whether a hand is on the dial at all.
+     *
+     * Asked in a dozen places — drawing, hit testing, falling, colliding,
+     * the reading a screen reader gets — and each of them used to carry its
+     * own copy of "second hand, and the second hand is switched off". One
+     * copy means a second hand that can be switched off; one *predicate*
+     * means any of them can.
+     */
+    internal fun handIsOn(hand: Hand): Boolean = when (hand) {
+        Hand.SECOND -> showSecondHand
+        Hand.MINUTE -> showMinuteHand
+        Hand.HOUR -> true
+    }
     var smoothSeconds = false
         set(value) { field = value; invalidate() }
     var fastHand = FastHandMode.NONE
@@ -1820,7 +1845,7 @@ class ClockView @JvmOverloads constructor(
             val reachable = mutableListOf<Pair<Hand, Float>>()
             for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
                 if (isFallen(hand)) continue
-                if (hand == Hand.SECOND && !showSecondHand) continue
+                if (!handIsOn(hand)) continue
                 val d = distanceToHand(hand, a, x, y, cx, cy, r)
                 if (d < threshold * grabLeniency(hand)) reachable.add(hand to d)
             }
@@ -2259,6 +2284,9 @@ class ClockView @JvmOverloads constructor(
 
     // -------------------------------------------------- fallen-body physics
 
+    /** For the tests: whether that hand is lying in the case. */
+    internal fun isFallenForTest(hand: Hand): Boolean = isFallen(hand)
+
     private fun isFallen(hand: Hand): Boolean =
         debris.bodies.any { it.kind == DialDebris.Kind.HAND && it.hand == hand }
 
@@ -2324,9 +2352,7 @@ class ClockView @JvmOverloads constructor(
         val ivx = impulseX * 35f
         val ivy = impulseY * 35f
         val drops = ArrayList<Hand>(3)
-        drops.add(Hand.HOUR)
-        drops.add(Hand.MINUTE)
-        if (showSecondHand) drops.add(Hand.SECOND)
+        for (hand in Hand.entries) if (handIsOn(hand)) drops.add(hand)
         for (hand in drops) {
             if (isFallen(hand)) continue
             val len = lengthOf(hand) * boundaryRadius(angleOf(hand, a))
@@ -2522,7 +2548,7 @@ class ClockView @JvmOverloads constructor(
     private fun resolveMountedHandCollisions(cx: Float, cy: Float, r: Float) {
         val a = currentAngles()
         for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
-            if (hand == Hand.SECOND && !showSecondHand) continue
+            if (!handIsOn(hand)) continue
             if (isFallen(hand)) continue
             val angle = angleOf(hand, a)
             val tip = pointAt(cx, cy, angle, boundaryRadius(angle) * lengthOf(hand))
@@ -2561,7 +2587,7 @@ class ClockView @JvmOverloads constructor(
         val a = currentAngles()
         val bars = ArrayList<HandBar>(8)
         for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
-            if (hand == Hand.SECOND && !showSecondHand) continue
+            if (!handIsOn(hand)) continue
             if (isFallen(hand)) continue
             val angle = angleOf(hand, a)
             val tip = pointAt(cx, cy, angle, boundaryRadius(angle) * lengthOf(hand))
@@ -2914,7 +2940,7 @@ class ClockView @JvmOverloads constructor(
      * was invisible to anybody not looking at it.
      */
     internal fun spokenHands(): List<Hand> = Hand.entries.filter {
-        if (it == Hand.SECOND && !showSecondHand) false else true
+        handIsOn(it)
     }
 
     /** Where that hand is on screen, as a box a finger can find. */
@@ -3545,7 +3571,7 @@ class ClockView @JvmOverloads constructor(
         }
 
         for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
-            if (hand == Hand.SECOND && !showSecondHand) continue
+            if (!handIsOn(hand)) continue
             if (isFallen(hand)) continue
             val angle = angleOf(hand, a)
             drawHand(
@@ -3680,7 +3706,7 @@ class ClockView @JvmOverloads constructor(
         for ((i, lap) in laps.withIndex()) {
             val alpha = 60 + 150 * (i + 1) / laps.size
             for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
-                if (hand == Hand.SECOND && !showSecondHand) continue
+                if (!handIsOn(hand)) continue
                 val angle = when (hand) {
                     Hand.HOUR -> lap.hour
                     Hand.MINUTE -> lap.minute

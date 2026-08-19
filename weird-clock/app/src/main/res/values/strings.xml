@@ -16,6 +16,8 @@
     <string name="pref_show_date_summary">A small date under the centre of the dial</string>
     <string name="pref_date_format_title">Date format</string>
 
+    <string name="pref_minute_hand_title">Minute hand</string>
+    <string name="pref_minute_hand_summary">Off, the clock is read to the nearest hour</string>
     <string name="pref_second_hand_title">Second hand</string>
     <string name="pref_smooth_title">Smooth sweep</string>
     <string name="pref_smooth_summary">Glide continuously instead of ticking once per second</string>
@@ -153,6 +155,7 @@
     <string name="pref_moon_phase_title">Moon phase</string>
     <string name="pref_moon_phase_summary">The sun while the sun is up where you are, otherwise the moon and its phase. Uses your location.</string>
     <string name="pref_alarm_markers_title">Alarms on the dial</string>
+    <string name="alarm_markers_card">Show alarms on the dial</string>
     <string name="pref_alarm_markers_summary">Enabled alarms drawn as accent markers at their time on the clock face</string>
     <string name="alarm_snooze">Snooze</string>
     <string name="alarm_snooze_fmt">Snooze %1$d min</string>

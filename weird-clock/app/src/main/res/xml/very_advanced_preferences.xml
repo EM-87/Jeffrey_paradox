@@ -24,6 +24,16 @@
             android:title="@string/pref_mark_colors_title"
             app:useSimpleSummaryProvider="true" />
 
+        <!-- The hands, from the slowest one anybody would think of turning
+             off downwards. A clock with no minute hand is a clock you read
+             to the nearest hour, which is how a great many of them were
+             read for a great many centuries. -->
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_minute_hand"
+            android:summary="@string/pref_minute_hand_summary"
+            android:title="@string/pref_minute_hand_title" />
+
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="pref_second_hand"
@@ -33,7 +43,8 @@
             android:defaultValue="false"
             android:key="pref_smooth_seconds"
             android:summary="@string/pref_smooth_summary"
-            android:title="@string/pref_smooth_title" />
+            android:title="@string/pref_smooth_title"
+            app:iconSpaceReserved="true" />
 
         <ListPreference
             android:defaultValue="none"
@@ -41,7 +52,19 @@
             android:entryValues="@array/fast_hand_values"
             android:key="pref_fast_hand"
             android:title="@string/pref_fast_hand_title"
+            app:iconSpaceReserved="true"
             app:useSimpleSummaryProvider="true" />
+
+        <!-- Down from the advanced screen, and under the second hand where
+             it belongs: the tick is the sound of that hand moving, and
+             offering it on a dial with no second hand on it is offering the
+             sound of something that is not there. -->
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_ticking"
+            android:summary="@string/pref_ticking_summary"
+            android:title="@string/pref_ticking_title"
+            app:iconSpaceReserved="true" />
 
         <SwitchPreferenceCompat
             android:defaultValue="true"

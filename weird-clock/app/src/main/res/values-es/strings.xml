@@ -15,6 +15,8 @@
     <string name="pref_show_date_summary">Una fecha pequeña bajo el centro de la esfera</string>
     <string name="pref_date_format_title">Formato de fecha</string>
 
+    <string name="pref_minute_hand_title">Minutero</string>
+    <string name="pref_minute_hand_summary">Sin él, el reloj se lee a la hora más próxima</string>
     <string name="pref_second_hand_title">Segundero</string>
     <string name="pref_smooth_title">Barrido suave</string>
     <string name="pref_smooth_summary">Se desliza de forma continua en vez de saltar cada segundo</string>
@@ -109,6 +111,7 @@
     <string name="pref_moon_phase_title">Fase lunar</string>
     <string name="pref_moon_phase_summary">El sol mientras el sol está alto donde estás, y si no la luna con su fase. Usa tu ubicación.</string>
     <string name="pref_alarm_markers_title">Alarmas en la esfera</string>
+    <string name="alarm_markers_card">Mostrar alarmas en la esfera</string>
     <string name="pref_alarm_markers_summary">Las alarmas activas se dibujan como marcadores en su hora sobre la esfera</string>
     <string name="alarm_snooze">Posponer</string>
     <string name="alarm_snooze_fmt">Posponer %1$d min</string>

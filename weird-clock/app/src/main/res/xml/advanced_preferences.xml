@@ -114,22 +114,6 @@
             android:summary="@string/pref_gentle_flash_summary"
             android:title="@string/pref_gentle_flash_title" />
 
-        <SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:key="pref_alarm_markers"
-            android:summary="@string/pref_alarm_markers_summary"
-            android:title="@string/pref_alarm_markers_title" />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="@string/category_general">
-
-        <SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:key="pref_ticking"
-            android:summary="@string/pref_ticking_summary"
-            android:title="@string/pref_ticking_title" />
-
     </PreferenceCategory>
 
 </PreferenceScreen>

@@ -2301,6 +2301,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // applyMode(). Anything that reapplies preferences mid-wind would
         // otherwise put it back under the user's finger.
         cv.showSecondHand = dialJob == null && prefs.getBoolean(Prefs.SECOND_HAND, true)
+        // The minute hand, unlike the second one, stays on while a time is
+        // being wound: it is one of the two hands you are placing.
+        cv.showMinuteHand = prefs.getBoolean(Prefs.MINUTE_HAND, true)
         cv.smoothSeconds = prefs.getBoolean(Prefs.SMOOTH_SECONDS, false)
         cv.mirrored = prefs.getBoolean(Prefs.MIRROR, false)
         cv.numeralStyle = readNumeralStyle()
@@ -2360,6 +2363,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // countdown too — where they are the whole point — until the
             // next time preferences happened to be applied.
             dial.showSecondHand = prefs.getBoolean(Prefs.SECOND_HAND, true)
+            dial.showMinuteHand = prefs.getBoolean(Prefs.MINUTE_HAND, true)
             dial.smoothSeconds = cv.smoothSeconds
             dial.mirrored = cv.mirrored
             dial.numeralStyle = cv.numeralStyle
@@ -2770,6 +2774,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // placed exactly, and it says nothing either of them does
                 // not. The same goes for a length.
                 it.showSecondHand = false
+                // The minute hand comes back whatever the setting says.
+                // Choosing an alarm for twenty past seven with the hour
+                // hand alone is choosing it to the nearest half hour, and
+                // this is the one screen where the hand is not decoration.
+                it.showMinuteHand = true
                 // And the tenths hand with it: it is the second hand's own
                 // decoration, and leaving it spinning on a face with no
                 // second hand on it is the strangest of both worlds.
@@ -2800,6 +2809,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 it.showMoonPhase = prefs.getBoolean(Prefs.MOON_PHASE, false)
                 it.orreryEnabled = prefs.getBoolean(Prefs.ORRERY, false)
                 it.showSecondHand = prefs.getBoolean(Prefs.SECOND_HAND, true)
+                it.showMinuteHand = prefs.getBoolean(Prefs.MINUTE_HAND, true)
                 it.fastHand = readFastHand()
                 it.magnetOrigin = 0L
                 it.chronoWrapsDay = false
