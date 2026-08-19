@@ -173,4 +173,43 @@ class AlarmOrderTest {
             )
         }
     }
+
+    /**
+     * A card being carried is not made bigger.
+     *
+     * It was scaled up a little while held, which looked right in the head
+     * and wrong on the glass: a list clips its children, so the card grew
+     * past the row it lives in and had its own edges sliced off — the one
+     * card you are looking at, with its margins cut. The lift the drag
+     * helper gives it is a shadow, and a shadow has no size to clip.
+     */
+    @Test
+    fun `a card being carried keeps its own size`() {
+        PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+        val stored = AlarmStore.all(context)
+        stored.clear()
+        stored.addAll(listOfAlarms(7, 13, 22))
+        AlarmStore.save(context)
+
+        org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val activity = c.get()
+            activity.showCardForTest(Card.ALARM)
+            val list = activity.findViewById<androidx.recyclerview.widget.RecyclerView>(
+                R.id.alarms_recycler
+            )
+            list.measure(
+                android.view.View.MeasureSpec.makeMeasureSpec(1000, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(3000, android.view.View.MeasureSpec.EXACTLY)
+            )
+            list.layout(0, 0, 1000, 3000)
+            assertTrue("no cards were laid out", list.childCount > 0)
+
+            val card = list.getChildAt(0)
+            activity.dragAlarmCardForTest(list, card)
+            assertEquals("the card grew sideways", 1f, card.scaleX, 0.001f)
+            assertEquals("and upwards", 1f, card.scaleY, 0.001f)
+        }
+    }
 }

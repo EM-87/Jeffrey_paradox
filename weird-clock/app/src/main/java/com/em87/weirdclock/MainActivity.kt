@@ -1814,6 +1814,19 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         return Cycle.epochDay(cal.shownYear, cal.shownMonth1, day)
     }
 
+    /**
+     * For the tests: picks an alarm card up, the way a long press does.
+     *
+     * Through the drag helper rather than by calling the callback, so what
+     * is measured is the card as the helper leaves it.
+     */
+    internal fun dragAlarmCardForTest(
+        list: RecyclerView,
+        card: android.view.View
+    ) {
+        alarmDragHelper?.startDrag(list.getChildViewHolder(card))
+    }
+
     /** For the tests: the alarms this activity is holding. */
     internal fun alarmsForTest(): List<Alarm> = alarms
 
@@ -2065,7 +2078,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * somewhere new — see [AlarmOrder].
      */
     private fun attachAlarmDrag(list: RecyclerView) {
-        val helper = androidx.recyclerview.widget.ItemTouchHelper(
+        alarmDragHelper = androidx.recyclerview.widget.ItemTouchHelper(
             object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(
                 androidx.recyclerview.widget.ItemTouchHelper.UP or
                     androidx.recyclerview.widget.ItemTouchHelper.DOWN,
@@ -2096,18 +2109,21 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     actionState: Int
                 ) {
                     super.onSelectedChanged(holder, actionState)
+                    // Lifted, not enlarged. Scaling a card up made it wider
+                    // than the row it lives in, and a list clips its
+                    // children — so the card being carried had its own
+                    // edges sliced off, which is the one card you are
+                    // looking at. The lift is the helper's own shadow,
+                    // which cannot be clipped because it is not size.
                     if (actionState ==
                         androidx.recyclerview.widget.ItemTouchHelper.ACTION_STATE_DRAG
                     ) {
-                        holder?.itemView?.animate()?.scaleX(1.03f)?.scaleY(1.03f)
-                            ?.setDuration(120L)?.start()
                         performHapticFeedbackOnList(list)
                     }
                 }
 
                 override fun clearView(recycler: RecyclerView, holder: RecyclerView.ViewHolder) {
                     super.clearView(recycler, holder)
-                    holder.itemView.animate().scaleX(1f).scaleY(1f).setDuration(120L).start()
                     // Written down when it is put down, not on every step of
                     // the way: a drag across six cards is one decision.
                     persistAlarms()
@@ -2115,8 +2131,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 }
             }
         )
-        helper.attachToRecyclerView(list)
+        alarmDragHelper?.attachToRecyclerView(list)
     }
+
+    /** The thing that carries an alarm card up and down the list. */
+    private var alarmDragHelper: androidx.recyclerview.widget.ItemTouchHelper? = null
 
     private fun performHapticFeedbackOnList(list: RecyclerView) {
         list.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)

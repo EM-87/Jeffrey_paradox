@@ -4784,6 +4784,23 @@ class ClockView @JvmOverloads constructor(
     }
 
     /**
+     * For the tests: puts the sky on a given year.
+     *
+     * By moving the offset rather than by turning a planet, because what
+     * is being tested is what the date window says and not how anybody got
+     * there — and reaching the year 3400 a planet at a time is a great
+     * many revolutions.
+     */
+    internal fun windOrreryToYearForTest(year: Int) {
+        val want = java.util.Calendar.getInstance().apply {
+            set(year, 5, 15, 12, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        orreryOffsetMs += want - orreryMs()
+        invalidate()
+    }
+
+    /**
      * For the tests: carries [body] [degrees] round its orbit, the way a
      * finger would, and hands back the date that lands under it.
      */
@@ -4930,7 +4947,20 @@ class ClockView @JvmOverloads constructor(
         val y = cal.get(Calendar.YEAR)
         val first = if (dateDayFirst) d else m
         val second = if (dateDayFirst) m else d
-        return String.format(Locale.US, "%02d %02d %d", first, second, y)
+        val year = OrreryYear.yearText(y, orreryScript())
+        return String.format(Locale.US, "%02d %02d %s", first, second, year)
+    }
+
+    /**
+     * Which alphabet the sky is writing its year in — see [OrreryYear].
+     *
+     * Read from the wound date rather than passed about, because three
+     * separate things need it and they must agree: the string, the way the
+     * string is drawn, and the test that asks whether they match.
+     */
+    internal fun orreryScript(): OrreryYear.Script {
+        cal.timeInMillis = orreryMs()
+        return OrreryYear.scriptFor(cal.get(Calendar.YEAR))
     }
 
     /** What is worth knowing about the day being shown, if anything. */
@@ -4966,7 +4996,30 @@ class ClockView @JvmOverloads constructor(
         val yTop = min(cy + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
         val keep = digitalPaint.alpha
         digitalPaint.alpha = (215 * fade).toInt()
-        drawSevenSegment(canvas, orreryDateDigits(), cx, yTop, digitH)
+        val script = orreryScript()
+        if (script == OrreryYear.Script.ROMAN) {
+            // Letters, so a segment display cannot show them: M and D and
+            // X are not shapes seven bars can make, and forcing them
+            // through would give a row of nonsense that happened to fit.
+            // Drawn as text, in the same place and at the same weight.
+            val was = datePaint.textSize
+            val wasColour = datePaint.color
+            datePaint.textSize = digitH * 0.95f
+            datePaint.color = digitalPaint.color
+            datePaint.alpha = (215 * fade).toInt()
+            canvas.drawText(
+                orreryDateDigits(), cx,
+                yTop - (datePaint.ascent() + datePaint.descent()) / 2f + digitH / 2f,
+                datePaint
+            )
+            datePaint.textSize = was
+            datePaint.color = wasColour
+        } else {
+            drawSevenSegment(
+                canvas, orreryDateDigits(), cx, yTop, digitH,
+                alien = script == OrreryYear.Script.YAUTJA
+            )
+        }
         digitalPaint.alpha = keep
         orreryCaption()?.let {
             OrreryDial.drawCaption(canvas, cx, yTop + digitH * 1.45f, r, theme, it, fade)
@@ -4997,6 +5050,9 @@ class ClockView @JvmOverloads constructor(
      */
     internal fun dateTextForTest(): String = dateText()
 
+    /** For the tests: how this dial would write the date of a given instant. */
+    internal fun dateTextAtForTest(atMs: Long): String = dateTextAt(atMs)
+
     private fun dateText(): String =
         dateTextAt(displayNowMs() + (visualOffsetSeconds * 1000.0).toLong())
 
@@ -5022,9 +5078,15 @@ class ClockView @JvmOverloads constructor(
         }
     }
 
+    /** For the tests: the date string the last frame actually painted. */
+    internal fun dateShownForTest(): String = datePainted
+
+    private var datePainted = ""
+
     private fun drawDate(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         if (isDateFallen()) return
         val text = dateText()
+        datePainted = text
         datePaint.textSize = r * 0.085f * faceScale()
         val baseline = cy - apothemRadius() * 0.42f - (datePaint.ascent() + datePaint.descent()) / 2f
         canvas.drawText(text, cx, baseline, datePaint)
@@ -5037,7 +5099,8 @@ class ClockView @JvmOverloads constructor(
         cx: Float,
         top: Float,
         digitH: Float,
-        units: Array<String>? = null
+        units: Array<String>? = null,
+        alien: Boolean = false
     ) {
         val digitW = digitH * 0.55f
         val gap = digitW * 0.45f
@@ -5140,7 +5203,18 @@ class ClockView @JvmOverloads constructor(
                 ' ' -> Unit
                 else -> {
                     val digit = c - '0'
-                    if (digit in 0..9) drawSegments(canvas, SEGMENT_BITS[digit], x, top, digitW, digitH)
+                    if (digit in 0..9) {
+                        // Same bars, a different alphabet lit on them —
+                        // which is what makes a year past three thousand
+                        // read as this display showing something else,
+                        // rather than as a picture pasted over it.
+                        val bits = if (alien) {
+                            OrreryYear.segmentsOf(c) ?: SEGMENT_BITS[digit]
+                        } else {
+                            SEGMENT_BITS[digit]
+                        }
+                        drawSegments(canvas, bits, x, top, digitW, digitH)
+                    }
                 }
             }
             x += advanceAt(i)
