@@ -5395,13 +5395,31 @@ class ClockView @JvmOverloads constructor(
         // eye reads these by the angle of the strokes, and an arm at
         // forty degrees in a tall box is a different glyph from the same
         // arm at forty-five.
-        val r = min(w, h) / 2f
-        // The diagonal arms stop short so the rim can pass outside them.
-        val d = r * 0.68f * 0.70710678f
+        val r = min(w, h) / 2f * 0.96f
+        // Every arm the same length, diagonals included, so the figure
+        // behind the glyph is an even asterisk. They were cut back to
+        // two-thirds at first so the rim could pass outside them, which
+        // turned each mark into a handful of stubby petals sitting in a
+        // ring — nothing like the eight-armed star the marks are drawn
+        // on. The rim crosses the diagonals now, and the diagonals come
+        // out past it at the corners, which is what it should look like.
+        val d = r * 0.70710678f
+
+        // Strokes, not bars. The sixteen-bar module is a display made of
+        // lit slabs and looks it; this alphabet is written, and written
+        // things are lines of one width with ends that stop.
+        val keepStyle = glyphPaint.style
+        val keepWidth = ghostPaint.strokeWidth
+        glyphPaint.style = Paint.Style.STROKE
+        glyphPaint.strokeWidth = t * 1.7f
+        glyphPaint.strokeCap = Paint.Cap.BUTT
+        ghostPaint.strokeWidth = (t * 0.30f).coerceAtLeast(0.75f)
 
         fun piece(bit: Int, x0: Float, y0: Float, x1: Float, y1: Float) {
-            barPath(x0, y0, x1, y1, t)
-            canvas.drawPath(glyphPath, if (bits and bit != 0) glyphPaint else ghostPaint)
+            canvas.drawLine(
+                x0, y0, x1, y1,
+                if (bits and bit != 0) glyphPaint else ghostPaint
+            )
         }
 
         fun arm(bit: Int, ex: Float, ey: Float) = piece(bit, mx, my, ex, ey)
@@ -5419,6 +5437,9 @@ class ClockView @JvmOverloads constructor(
         piece(SegmentGlyphs.RIM_SE, mx + r, my, mx, my + r)
         piece(SegmentGlyphs.RIM_SW, mx, my + r, mx - r, my)
         piece(SegmentGlyphs.RIM_NW, mx - r, my, mx, my - r)
+
+        glyphPaint.style = keepStyle
+        ghostPaint.strokeWidth = keepWidth
     }
 
     /**
