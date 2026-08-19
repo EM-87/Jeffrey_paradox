@@ -79,6 +79,11 @@
             android:summary="@string/pref_bell_priority_summary"
             android:title="@string/pref_bell_priority_title" />
 
+        <Preference
+            android:key="pref_test_bells"
+            android:summary="@string/pref_test_bells_summary"
+            android:title="@string/pref_test_bells_title" />
+
         <!-- Up from the advanced screen. It answers "what is my next alarm"
              at a glance, which is the most ordinary question anybody asks
              this app, and it was two screens down. -->
@@ -87,11 +92,6 @@
             android:key="pref_alarm_markers"
             android:summary="@string/pref_alarm_markers_summary"
             android:title="@string/pref_alarm_markers_title" />
-
-        <Preference
-            android:key="pref_test_bells"
-            android:summary="@string/pref_test_bells_summary"
-            android:title="@string/pref_test_bells_title" />
 
     </PreferenceCategory>
 
@@ -163,16 +163,6 @@
         android:key="pref_very_advanced"
         android:summary="@string/pref_very_advanced_summary"
         android:title="@string/pref_very_advanced_title" />
-
-    <Preference
-        android:key="pref_armed"
-        android:selectable="false"
-        android:title="@string/pref_armed_title" />
-
-    <Preference
-        android:key="pref_tick_precision"
-        android:selectable="false"
-        android:title="@string/pref_tick_precision_title" />
 
     <Preference
         android:key="pref_version"

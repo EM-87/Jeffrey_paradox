@@ -66,14 +66,26 @@
             android:label="@string/settings_title"
             android:parentActivityName=".MainActivity" />
 
-        <!-- Opened from the gear on the widget itself. Exported, because
-             the thing that starts it is a pending intent held by the
-             launcher, and a launcher is another app. -->
+        <!-- The widget's configuration screen, opened by the launcher from
+             the gear in the long-press popup.
+
+             Its own task affinity, and nothing else in it: on the app's
+             task, closing this landed on whatever the app had open — so
+             somebody who was on the home screen a second ago found
+             themselves inside the clock. Empty affinity keeps it out of
+             the app's back stack entirely, and Back goes where it came
+             from. -->
         <activity
             android:name=".WidgetSettingsActivity"
             android:exported="true"
             android:label="@string/widget_settings_title"
-            android:excludeFromRecents="true" />
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.WeirdClock.WidgetSettings">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
 
         <activity
             android:name=".BpmActivity"

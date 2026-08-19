@@ -60,4 +60,16 @@
         <item name="android:textColor">@color/text_secondary</item>
         <item name="android:textSize">14sp</item>
     </style>
+
+    <!-- The widget's own configuration screen: a panel over the home
+         screen, not an app that has been launched. Floating, so what is
+         behind it stays visible and backing out reads as closing a box
+         rather than as leaving somewhere. -->
+    <style name="Theme.WeirdClock.WidgetSettings" parent="Theme.WeirdClock">
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
+
 </resources>

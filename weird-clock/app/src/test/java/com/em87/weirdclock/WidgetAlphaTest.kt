@@ -104,29 +104,104 @@ class WidgetAlphaTest {
     }
 
     /**
-     * The gear is on the widget, and it leads somewhere.
+     * The gear is the launcher's, in the popup a long press brings up.
      *
-     * Two things that are easy to have one of without the other: a button
-     * drawn on the layout that nothing listens to, or a screen registered
-     * in the manifest that nothing opens.
+     * Three things have to be declared together and any two without the
+     * third get you nothing: the widget names a configuration activity,
+     * that activity is marked as one the launcher may open *again* after
+     * the widget has been placed — which is what actually puts the gear
+     * beside the bin — and it is marked optional so it is not shoved in
+     * front of somebody the moment they drop the widget.
+     *
+     * Read out of the declaration, which is as far as this can go. Whether
+     * a launcher then draws a gear is the launcher's business and is not
+     * observable from inside the app — the same position the status-bar
+     * alarm clock is in, and worth saying rather than implying. What is
+     * checked here is that our half is stated.
      */
     @Test
-    fun `the gear is on the widget and opens the slider`() {
-        val activities = context.packageManager.queryIntentActivities(
-            android.content.Intent(context, WidgetSettingsActivity::class.java), 0
+    fun `the launcher is told the widget can be reconfigured`() {
+        val xml = context.resources.getXml(R.xml.widget_info)
+        var configure: String? = null
+        var features: String? = null
+        var event = xml.next()
+        while (event != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+            if (event == org.xmlpull.v1.XmlPullParser.START_TAG) {
+                for (i in 0 until xml.attributeCount) {
+                    when (xml.getAttributeName(i)) {
+                        "configure" -> configure = xml.getAttributeValue(i)
+                        "widgetFeatures" -> features = xml.getAttributeValue(i)
+                    }
+                }
+            }
+            event = xml.next()
+        }
+        assertEquals(
+            "the widget names no configuration screen, so there is no gear",
+            WidgetSettingsActivity::class.java.name, configure
         )
-        assertTrue("the slider has no screen to live on", activities.isNotEmpty())
+        assertNotNull("the widget declares no features at all", features)
+        // As flags rather than as the words that were typed: the build
+        // compiles "reconfigurable|configuration_optional" down to a
+        // number, and a test looking for the words would be reading the
+        // source rather than what was produced from it.
+        val flags = features!!.removePrefix("0x").toInt(16)
+        assertTrue(
+            "the gear would only appear while the widget is being placed: $features",
+            flags and android.appwidget.AppWidgetProviderInfo.WIDGET_FEATURE_RECONFIGURABLE != 0
+        )
+        assertTrue(
+            "the slider is shoved in front of anybody who drops the widget: $features",
+            flags and
+                android.appwidget.AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL != 0
+        )
+    }
 
-        // Applied the way a launcher applies it, so what is measured is the
-        // widget as it is handed over. Asking only whether the layout has a
-        // gear in it proves the picture and nothing about the button: a
-        // gear nothing listens to is a gear that does not work, and that is
-        // the failure worth catching.
+    /**
+     * And nothing of ours is drawn on the widget to do that job.
+     *
+     * A gear in the corner of a clock face is a control sitting on the
+     * thing it configures, all day, for the sake of something set once.
+     */
+    @Test
+    fun `the widget itself is nothing but the clock`() {
         val applied = ClockWidgetProvider.viewsForTest(context, 1)
             .apply(context, android.widget.FrameLayout(context))
-        val gear = applied.findViewById<android.view.View>(R.id.widget_gear)
-        assertNotNull("there is no gear on the widget", gear)
-        assertTrue("the gear on the widget does nothing", gear.hasOnClickListeners())
+        assertEquals(
+            "something other than the dial is being drawn on the widget",
+            1, (applied as android.view.ViewGroup).childCount
+        )
+    }
+
+    /**
+     * Leaving the panel does not throw the widget away.
+     *
+     * A configuration activity that closes without answering tells the
+     * launcher the widget was never wanted, and the launcher deletes it.
+     * So somebody who opened this to look, changed nothing and pressed
+     * Back would lose the widget they had just placed — which is a
+     * spectacular way to fail at "adjust the transparency".
+     */
+    @Test
+    fun `backing out of the panel keeps the widget`() {
+        val intent = android.content.Intent(context, WidgetSettingsActivity::class.java)
+            .putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, 7)
+        org.robolectric.Robolectric.buildActivity(WidgetSettingsActivity::class.java, intent)
+            .use { c ->
+                c.setup()
+                val shadow = org.robolectric.Shadows.shadowOf(c.get())
+                assertEquals(
+                    "the launcher was told the widget was not wanted",
+                    android.app.Activity.RESULT_OK, shadow.resultCode
+                )
+                assertEquals(
+                    "and it was not told which widget",
+                    7,
+                    shadow.resultIntent?.getIntExtra(
+                        android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, -1
+                    )
+                )
+            }
     }
 
     /** And the setting is not something the app's own settings can bury. */

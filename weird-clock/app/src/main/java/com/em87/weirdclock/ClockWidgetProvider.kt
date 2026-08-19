@@ -200,19 +200,6 @@ class ClockWidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widget_analog_clock, openApp)
-            // The gear opens the one thing that can only be decided while
-            // looking at the home screen. Its own request code per widget,
-            // so two widgets do not share one intent.
-            views.setOnClickPendingIntent(
-                R.id.widget_gear,
-                PendingIntent.getActivity(
-                    context,
-                    id,
-                    Intent(context, WidgetSettingsActivity::class.java)
-                        .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id),
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-            )
 
             if (Build.VERSION.SDK_INT >= 31) {
                 val prefs = PreferenceManager.getDefaultSharedPreferences(context)

@@ -1,15 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The dial fills the widget; the gear sits in a corner of it.
+<!-- Nothing but the dial.
 
-     A configuration screen that only opens when the widget is first
-     dropped is a screen nobody ever sees again, and the one thing anybody
-     wants to change afterwards — how much of the wallpaper shows through —
-     is exactly the sort of thing you try, look at, and try again. So the
-     way back in is on the widget itself, which is where Samsung puts it
-     and where a thumb goes looking.
+     There was a gear in the corner for a version. It is the launcher's
+     job: a long press on any widget brings up a popup with a bin in it,
+     and the ones that can be reconfigured put a gear beside it. Drawing
+     our own meant a control sitting on a clock face all day for the sake
+     of a thing you set once — and in a place nobody looks for it.
 
-     Small and faint on purpose: it sits on a clock face all day, and a
-     control that shouts is a control you end up resenting. -->
+     The frame stays because the widget is more than its clock now: see
+     widget_info.xml. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
@@ -22,15 +21,5 @@
         android:hand_hour="@drawable/widget_hand_hour"
         android:hand_minute="@drawable/widget_hand_minute"
         android:hand_second="@drawable/widget_hand_second" />
-
-    <ImageView
-        android:id="@+id/widget_gear"
-        android:layout_width="18dp"
-        android:layout_height="18dp"
-        android:layout_gravity="top|end"
-        android:layout_margin="2dp"
-        android:alpha="0.35"
-        android:contentDescription="@string/widget_settings_title"
-        android:src="@drawable/ic_settings" />
 
 </FrameLayout>

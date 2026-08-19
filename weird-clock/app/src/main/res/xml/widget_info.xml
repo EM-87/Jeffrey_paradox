@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- minWidth is the size the widget is *dropped* at; minResizeWidth is how
+<!-- The gear that opens the transparency slider is the launcher's own,
+     in the popup that comes up on a long press beside the bin. It was
+     drawn in the corner of the widget for a version, which is a control
+     sitting on a clock face all day for the sake of a thing you set once
+     — and every other widget on the home screen puts it in the popup, so
+     that is where a thumb goes looking.
+
+     "reconfigurable" is what puts it there; "configuration_optional" is
+     what stops the same screen being shoved in front of somebody the
+     moment they drop the widget, before they have any reason to care.
+
+     minWidth is the size the widget is *dropped* at; minResizeWidth is how
      far the launcher will then let you pull it back in. Without the second
      one the first is also the floor, which is why this widget could only
      ever be made bigger. One cell is the floor now, and the dial is
@@ -16,4 +27,6 @@
     android:previewLayout="@layout/widget_clock"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:description="@string/widget_description" />
+    android:description="@string/widget_description"
+    android:configure="com.em87.weirdclock.WidgetSettingsActivity"
+    android:widgetFeatures="reconfigurable|configuration_optional" />

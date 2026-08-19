@@ -2224,7 +2224,8 @@ class ClockView @JvmOverloads constructor(
 
     private fun numeralRadiusFactor(): Float = if (hoursOnDial == 12) 0.76f else 0.68f
 
-    private fun numeralTextSize(r: Float): Float = if (hoursOnDial > 12) r * 0.11f else r * 0.16f
+    private fun numeralTextSize(r: Float): Float =
+        (if (hoursOnDial > 12) r * 0.11f else r * 0.16f) * faceScale()
 
     private fun visibleNumeralHours(): List<Int> {
         if (numeralStyle == NumeralStyle.NONE) return emptyList()
@@ -2243,9 +2244,22 @@ class ClockView @JvmOverloads constructor(
     private fun numeralLabel(hour: Int): String =
         if (numeralStyle == NumeralStyle.ROMAN) Roman.of(hour) else hour.toString()
 
+    /**
+     * Where an hour's numeral sits.
+     *
+     * On a ring, not on the outline. Following the edge is fine on a shape
+     * with eight sides and looks like an accident on one with three: the
+     * numerals string themselves along each slope, four of them nearly
+     * touching at a corner and a gap in the middle of every side, and the
+     * hour hand points at whichever happens to be nearest rather than at
+     * the hour.
+     *
+     * The ring is inside the flat of each side — the inscribed circle,
+     * which is the one circle every face this app draws has room for.
+     */
     private fun numeralPosition(hour: Int, cx: Float, cy: Float, r: Float): PointF {
         val angle = hour.toFloat() / hoursOnDial * 360f
-        return pointAt(cx, cy, angle, boundaryRadius(angle) * numeralRadiusFactor())
+        return pointAt(cx, cy, angle, apothemRadius() * numeralRadiusFactor())
     }
 
     private fun handleNumeralTap(x: Float, y: Float) {
@@ -2296,6 +2310,13 @@ class ClockView @JvmOverloads constructor(
         val cy = height / 2f
         return pointAt(cx, cy, angleOf(hand, currentAngles()), handReach(hand))
     }
+
+    /** For the tests: how big a numeral is drawn. */
+    internal fun numeralSizeForTest(): Float = numeralTextSize(dialRadius())
+
+    /** For the tests: where an hour's numeral sits. */
+    internal fun numeralPositionForTest(hour: Int): PointF =
+        numeralPosition(hour, width / 2f, height / 2f, dialRadius())
 
     /** For the tests: whether that hand is lying in the case. */
     internal fun isFallenForTest(hand: Hand): Boolean = isFallen(hand)
@@ -2369,16 +2390,17 @@ class ClockView @JvmOverloads constructor(
         for (hand in drops) {
             if (isFallen(hand)) continue
             val len = handReach(hand)
-            val tail = tailOf(hand) * r
+            val tail = tailOf(hand) * r * faceScale()
             addRodBody(
                 DialDebris.Kind.HAND, hand, angleOf(hand, a),
-                len, tail, widthOf(hand) * r * 2f, cx, cy, ivx, ivy
+                len, tail, widthOf(hand) * r * faceScale() * 2f, cx, cy, ivx, ivy
             )
         }
         if (fastHand != FastHandMode.NONE && !isFastHandFallen()) {
             addRodBody(
                 DialDebris.Kind.FAST_HAND, null, a.fast,
-                FAST_LEN * r, 0.05f * r, 0.008f * r * 2f, cx, cy, ivx, ivy
+                FAST_LEN * r * faceScale(), 0.05f * r * faceScale(),
+                0.008f * r * faceScale() * 2f, cx, cy, ivx, ivy
             )
         }
         // Nor are the planets. A knock hard enough to take the hands off
@@ -2444,7 +2466,7 @@ class ClockView @JvmOverloads constructor(
             }
             if (showDate && !isDateFallen()) {
                 val label = fallingDate
-                datePaint.textSize = r * 0.085f
+                datePaint.textSize = r * 0.085f * faceScale()
                 debris.bodies.add(
                     DialDebris.Body(
                         kind = DialDebris.Kind.DATE, hand = null, numeralHour = 0, label = label,
@@ -2565,8 +2587,8 @@ class ClockView @JvmOverloads constructor(
             if (isFallen(hand)) continue
             val angle = angleOf(hand, a)
             val tip = pointAt(cx, cy, angle, handReach(hand))
-            val tail = pointAt(cx, cy, angle + 180f, r * tailOf(hand))
-            debris.collideWithSegment(tail.x, tail.y, tip.x, tip.y, widthOf(hand) * r)
+            val tail = pointAt(cx, cy, angle + 180f, r * tailOf(hand) * faceScale())
+            debris.collideWithSegment(tail.x, tail.y, tip.x, tip.y, widthOf(hand) * r * faceScale())
         }
         if (showsFastHand() && !isFastHandFallen()) {
             val tip = pointAt(cx, cy, a.fast, r * FAST_LEN)
@@ -2604,8 +2626,8 @@ class ClockView @JvmOverloads constructor(
             if (isFallen(hand)) continue
             val angle = angleOf(hand, a)
             val tip = pointAt(cx, cy, angle, handReach(hand))
-            val tail = pointAt(cx, cy, angle + 180f, r * tailOf(hand))
-            bars.add(HandBar(tail.x, tail.y, tip.x, tip.y, widthOf(hand) * r))
+            val tail = pointAt(cx, cy, angle + 180f, r * tailOf(hand) * faceScale())
+            bars.add(HandBar(tail.x, tail.y, tip.x, tip.y, widthOf(hand) * r * faceScale()))
         }
         // And the ones on the floor. A hand that has come off is still a
         // bar of metal sliding about the case — the strangest thing it
@@ -3500,6 +3522,25 @@ class ClockView @JvmOverloads constructor(
      */
     private fun handReach(hand: Hand): Float = apothemRadius() * lengthOf(hand)
 
+    /**
+     * How much smaller everything drawn on the face is than it would be on
+     * a round dial of the same size.
+     *
+     * A square face is a circle with the corners added, and the circle
+     * inside it is nearly a third smaller across than the square is; a
+     * triangle's is half. The hands were the visible half of this and are
+     * measured against the inscribed circle now — but their *thickness*,
+     * the numerals, the minute marks and the little glyphs all went on
+     * being sized against the whole dial, so a triangular clock had half
+     * the hand carrying the same weight of ink, numerals nearly touching
+     * one another, and a moon the size of a hubcap.
+     *
+     * One number, applied to every size on the face. Positions are not
+     * touched: a numeral belongs near the edge and the edge is where the
+     * edge is.
+     */
+    private fun faceScale(): Float = apothemRadius() / dialRadius().coerceAtLeast(1f)
+
     /** The polygon's inscribed radius — the safe zone for inner complications. */
     private fun apothemRadius(): Float {
         val n = dialShape.sides
@@ -3597,7 +3638,10 @@ class ClockView @JvmOverloads constructor(
 
         // The tenths hand itself is a hand: it travels rather than fades.
         if (showsFastHand() && !isFastHandFallen()) {
-            drawHand(canvas, cx, cy, a.fast, r * FAST_LEN, r * 0.05f, r * 0.008f, fastHandPaint)
+            drawHand(
+                canvas, cx, cy, a.fast, r * FAST_LEN * faceScale(),
+                r * 0.05f * faceScale(), r * 0.008f * faceScale(), fastHandPaint
+            )
         }
 
         for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
@@ -3608,8 +3652,8 @@ class ClockView @JvmOverloads constructor(
                 canvas, cx, cy,
                 angle,
                 handReach(hand),
-                r * tailOf(hand),
-                r * widthOf(hand),
+                r * tailOf(hand) * faceScale(),
+                r * widthOf(hand) * faceScale(),
                 paintOf(hand)
             )
         }
@@ -3748,8 +3792,8 @@ class ClockView @JvmOverloads constructor(
                 drawHand(
                     canvas, cx, cy, angle,
                     handReach(hand),
-                    r * tailOf(hand),
-                    r * widthOf(hand),
+                    r * tailOf(hand) * faceScale(),
+                    r * widthOf(hand) * faceScale(),
                     paint
                 )
                 paint.alpha = was
@@ -4110,14 +4154,27 @@ class ClockView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * The minute and hour marks, on a ring rather than along the edge.
+     *
+     * The marks used to be laid on the outline, which on a square is a
+     * choice and on a triangle is a mess: they crowd towards each corner
+     * and thin out along each side, so the eye reads the shape instead of
+     * the hour, and the numerals — which sit on a circle — no longer stand
+     * over their own marks.
+     *
+     * The chapter ring is a circle on every face now. The polygon is the
+     * case, and a case is not the part you read the time off.
+     */
     private fun drawTicks(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         for (i in 0 until 60) {
             val angle = i / 60f * 360f
-            val b = boundaryRadius(angle)
+            val b = apothemRadius()
             val isMajor = hoursOnDial == 12 && i % 5 == 0
             val paint = if (isMajor) tickPaint else minorTickPaint
-            paint.strokeWidth = if (isMajor) r * 0.018f else r * 0.008f
-            val outerLen = if (isMajor) r * 0.08f else r * 0.045f
+            paint.strokeWidth =
+                (if (isMajor) r * 0.018f else r * 0.008f) * faceScale()
+            val outerLen = (if (isMajor) r * 0.08f else r * 0.045f) * faceScale()
             val from = pointAt(cx, cy, angle, b * 0.97f - outerLen)
             val to = pointAt(cx, cy, angle, b * 0.97f)
             canvas.drawLine(from.x, from.y, to.x, to.y, paint)
@@ -4125,8 +4182,8 @@ class ClockView @JvmOverloads constructor(
         if (hoursOnDial != 12) {
             for (i in 0 until hoursOnDial) {
                 val angle = i.toFloat() / hoursOnDial * 360f
-                val b = boundaryRadius(angle)
-                tickPaint.strokeWidth = r * 0.018f
+                val b = apothemRadius()
+                tickPaint.strokeWidth = r * 0.018f * faceScale()
                 val from = pointAt(cx, cy, angle, b * 0.80f)
                 val to = pointAt(cx, cy, angle, b * 0.87f)
                 canvas.drawLine(from.x, from.y, to.x, to.y, tickPaint)
@@ -4968,7 +5025,7 @@ class ClockView @JvmOverloads constructor(
     private fun drawDate(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         if (isDateFallen()) return
         val text = dateText()
-        datePaint.textSize = r * 0.085f
+        datePaint.textSize = r * 0.085f * faceScale()
         val baseline = cy - apothemRadius() * 0.42f - (datePaint.ascent() + datePaint.descent()) / 2f
         canvas.drawText(text, cx, baseline, datePaint)
     }

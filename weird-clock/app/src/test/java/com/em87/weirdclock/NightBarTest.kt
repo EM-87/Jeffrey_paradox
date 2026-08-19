@@ -226,7 +226,7 @@ class NightBarTest {
                 // Calendar
                 "pref_past_days", "pref_birthday", "pref_cycle",
                 // General
-                "pref_moon_phase", "pref_orrery", "pref_armed", "pref_tick_precision",
+                "pref_moon_phase", "pref_orrery",
                 "pref_world_clock", "pref_world_cities",
                 // And the ways on
                 "pref_advanced", "pref_very_advanced", "pref_version"
@@ -246,7 +246,9 @@ class NightBarTest {
                 "pref_shake_drop",
                 "pref_countdown_float",
                 "pref_solar_time", "pref_system_time", "pref_time_speed",
-                "pref_backup_folder", "pref_backup_export", "pref_backup_import"
+                "pref_backup_folder", "pref_backup_export", "pref_backup_import",
+                // What the app can see of itself, below a rule of its own.
+                "pref_armed", "pref_tick_precision"
             )
         )
         for ((xml, expected) in screens) {

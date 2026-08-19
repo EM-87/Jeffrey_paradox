@@ -305,45 +305,6 @@ class SettingsActivity : AppCompatActivity() {
             )
             follows(Prefs.WORLD_CLOCK, "pref_world_cities")
             follows(Prefs.MOON_PHASE, Prefs.ORRERY)
-            // Installed version, so it's always clear which build is running.
-            // What the *system* thinks is armed, read back from
-             // AlarmManager rather than from our own list.
-            //
-            // Its whole reason for existing is a question nobody could
-            // answer from here: the little clock in the status bar is drawn
-            // by Android whenever some app has an alarm clock registered,
-            // and when it does not appear there is no way to tell from
-            // inside the app whether the registration failed or the phone
-            // simply is not drawing it. This says which.
-            findPreference<Preference>("pref_armed")?.summary = run {
-                val manager = requireContext()
-                    .getSystemService(android.app.AlarmManager::class.java)
-                val next = manager?.nextAlarmClock
-                if (next == null) {
-                    getString(R.string.pref_armed_none)
-                } else {
-                    val at = java.text.DateFormat.getDateTimeInstance(
-                        java.text.DateFormat.SHORT, java.text.DateFormat.SHORT
-                    ).format(java.util.Date(next.triggerTime))
-                    getString(R.string.pref_armed_at, at)
-                }
-            }
-            // And what the tick has actually been doing. A tick heard to
-            // skip and never measured is an argument rather than a bug;
-            // these three numbers say which half is at fault — lateness is
-            // the scheduler's, a refusal is the audio system's, and a beat
-            // that never ran is neither.
-            findPreference<Preference>("pref_tick_precision")?.summary = run {
-                val beat = MainActivity.lastTickRecord
-                if (beat == null || beat.played == 0L) {
-                    getString(R.string.pref_tick_precision_none)
-                } else {
-                    getString(
-                        R.string.pref_tick_precision_at,
-                        beat.played, beat.worstLagMs, beat.lost, beat.refused
-                    )
-                }
-            }
             findPreference<Preference>("pref_version")?.summary = try {
                 val info = requireContext().packageManager
                     .getPackageInfo(requireContext().packageName, 0)
@@ -589,6 +550,45 @@ class SettingsActivity : AppCompatActivity() {
                 Prefs.SMOOTH_SECONDS, Prefs.FAST_HAND, Prefs.TICKING
             )
 
+            // Installed version, so it's always clear which build is running.
+            // What the *system* thinks is armed, read back from
+             // AlarmManager rather than from our own list.
+            //
+            // Its whole reason for existing is a question nobody could
+            // answer from here: the little clock in the status bar is drawn
+            // by Android whenever some app has an alarm clock registered,
+            // and when it does not appear there is no way to tell from
+            // inside the app whether the registration failed or the phone
+            // simply is not drawing it. This says which.
+            findPreference<Preference>("pref_armed")?.summary = run {
+                val manager = requireContext()
+                    .getSystemService(android.app.AlarmManager::class.java)
+                val next = manager?.nextAlarmClock
+                if (next == null) {
+                    getString(R.string.pref_armed_none)
+                } else {
+                    val at = java.text.DateFormat.getDateTimeInstance(
+                        java.text.DateFormat.SHORT, java.text.DateFormat.SHORT
+                    ).format(java.util.Date(next.triggerTime))
+                    getString(R.string.pref_armed_at, at)
+                }
+            }
+            // And what the tick has actually been doing. A tick heard to
+            // skip and never measured is an argument rather than a bug;
+            // these three numbers say which half is at fault — lateness is
+            // the scheduler's, a refusal is the audio system's, and a beat
+            // that never ran is neither.
+            findPreference<Preference>("pref_tick_precision")?.summary = run {
+                val beat = MainActivity.lastTickRecord
+                if (beat == null || beat.played == 0L) {
+                    getString(R.string.pref_tick_precision_none)
+                } else {
+                    getString(
+                        R.string.pref_tick_precision_at,
+                        beat.played, beat.worstLagMs, beat.lost, beat.refused
+                    )
+                }
+            }
             updateBackupFolderSummary()
 
             findPreference<SeekBarPreference>(Prefs.TIME_SPEED)
