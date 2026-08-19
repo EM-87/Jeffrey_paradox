@@ -418,14 +418,14 @@ class OrreryDialTest {
     // --------------------------------------------------------- the Moon
 
     /**
-     * Holding Mars lets the Moon go; holding the Earth does not.
+     * Holding Jupiter lets the Moon go; holding the Earth does not.
      *
      * The rule is [Orrery]'s and is tested there. What is tested here is
      * that the dial obeys it — that the Moon the *view* draws stops moving,
      * rather than the rule being true in a class nobody consults.
      */
     @Test
-    fun `the drawn Moon lets go of everything but the Earth`() {
+    fun `the drawn Moon lets go past Mars and not before`() {
         val clock = openSky()
         val cx = clock.width / 2f
         val cy = clock.height / 2f
@@ -439,9 +439,9 @@ class OrreryDialTest {
             assertEquals("did not take hold of $body", body, clock.orreryGrabbedForTest())
         }
 
-        grab(Orrery.Body.MARS)
+        grab(Orrery.Body.JUPITER)
         val heldAt = clock.orreryMoonLongitude()
-        clock.windOrreryForTest(Orrery.Body.MARS, 200.0)
+        clock.windOrreryForTest(Orrery.Body.JUPITER, 200.0)
         assertTrue("the Moon came along for the ride", clock.orreryMoonDetached())
         assertEquals(
             "the Moon moved while it was supposed to have let go",
@@ -455,6 +455,10 @@ class OrreryDialTest {
         val was = clock.orreryMoonLongitude()
         clock.windOrreryForTest(Orrery.Body.EARTH, 40.0)
         assertFalse("the Moon let go of the Earth too", clock.orreryMoonDetached())
+        assertTrue(
+            "and Mars, which is inside the line, must carry it too",
+            Orrery.moonFollows(Orrery.Body.MARS)
+        )
         assertTrue(
             "the Earth did not carry the Moon with it",
             Orrery.separation(was, clock.orreryMoonLongitude()) > 30.0
@@ -474,13 +478,13 @@ class OrreryDialTest {
         val cx = clock.width / 2f
         val cy = clock.height / 2f
         val r = clock.dialRadiusForTest()
-        val mars = OrreryDial.positionOf(
-            Orrery.Body.MARS, cx, cy, r, clock.orreryMs(), clock.orreryMoonLongitude()
+        val held = OrreryDial.positionOf(
+            Orrery.Body.JUPITER, cx, cy, r, clock.orreryMs(), clock.orreryMoonLongitude()
         )
-        touch(clock, MotionEvent.ACTION_DOWN, mars.x, mars.y)
+        touch(clock, MotionEvent.ACTION_DOWN, held.x, held.y)
         val heldAt = clock.orreryMoonLongitude()
-        clock.windOrreryForTest(Orrery.Body.MARS, 137.0)
-        touch(clock, MotionEvent.ACTION_UP, mars.x, mars.y)
+        clock.windOrreryForTest(Orrery.Body.JUPITER, 137.0)
+        touch(clock, MotionEvent.ACTION_UP, held.x, held.y)
 
         val home = Orrery.longitude(Orrery.Body.MOON, clock.orreryMs())
         assertTrue(
@@ -604,6 +608,362 @@ class OrreryDialTest {
             assertTrue(
                 "'$said' leaves out $body",
                 said!!.contains(context.getString(OrreryDial.nameKeyOf(body)))
+            )
+        }
+    }
+
+    // ------------------------------------------------------- the way back
+
+    /**
+     * The Sun is the way back to today, and it is a journey rather than a
+     * cut.
+     *
+     * Two hundred years of dial arriving in one frame is not something the
+     * eye reads as movement, and everything else on this clock travels. It
+     * runs home on the same curve the hands use crossing between the clock
+     * and the chronograph.
+     */
+    @Test
+    fun `tapping the Sun brings the sky home, travelling`() {
+        val clock = openSky()
+        clock.windOrreryForTest(Orrery.Body.NEPTUNE, 120.0)
+        val wound = clock.orreryMs()
+        assertTrue(
+            "the wind did nothing",
+            wound - TimeKeeper.nowMs() > 30L * 365 * 86_400_000L
+        )
+
+        tap(clock, clock.width / 2f, clock.height / 2f)
+        assertTrue("it is not travelling", clock.orreryGlidingHome())
+        // Partway: somewhere between where it was and today, and at neither
+        // end. A cut with a delay in front of it would sit at one of them.
+        ShadowSystemClock.advanceBy(Duration.ofMillis(600))
+        val midway = clock.orreryMs()
+        assertTrue("it jumped home", midway < wound)
+        assertTrue("it has not set off", midway > TimeKeeper.nowMs() + 86_400_000L)
+
+        ShadowSystemClock.advanceBy(Duration.ofMillis(1200))
+        assertTrue(
+            "it never arrived",
+            kotlin.math.abs(clock.orreryMs() - TimeKeeper.nowMs()) < 60_000L
+        )
+        assertFalse("it is still travelling", clock.orreryGlidingHome())
+    }
+
+    /** And tapping the Sun does not shut the sky, the way empty space does. */
+    @Test
+    fun `the Sun is not a way out`() {
+        val clock = openSky()
+        clock.windOrreryForTest(Orrery.Body.MARS, 60.0)
+        tap(clock, clock.width / 2f, clock.height / 2f)
+        // Past the fade before asking: a sky that has just been told to
+        // shut is still fully drawn for another half second, so asking
+        // straight away answers yes whatever happened.
+        ShadowSystemClock.advanceBy(Duration.ofMillis(900))
+        assertTrue("the sky shut instead of coming home", clock.orreryShowing())
+    }
+
+    /** A hand on a planet stops the journey where it has got to. */
+    @Test
+    fun `taking hold of a planet stops the journey home`() {
+        val clock = openSky()
+        clock.windOrreryForTest(Orrery.Body.JUPITER, 120.0)
+        tap(clock, clock.width / 2f, clock.height / 2f)
+        ShadowSystemClock.advanceBy(Duration.ofMillis(400))
+
+        val cx = clock.width / 2f
+        val cy = clock.height / 2f
+        val p = OrreryDial.positionOf(
+            Orrery.Body.JUPITER, cx, cy, clock.dialRadiusForTest(),
+            clock.orreryMs(), clock.orreryMoonLongitude()
+        )
+        touch(clock, MotionEvent.ACTION_DOWN, p.x, p.y)
+        assertFalse("it went on running home under the finger", clock.orreryGlidingHome())
+        val caught = clock.orreryMs()
+        ShadowSystemClock.advanceBy(Duration.ofMillis(2000))
+        assertEquals(
+            "it carried on home anyway",
+            caught.toDouble(), clock.orreryMs().toDouble(), 3000.0
+        )
+    }
+
+    /**
+     * A long press on a planet names it; a long press on empty sky goes
+     * hunting for an alignment.
+     *
+     * One gesture, and which of the two it is depends only on what is under
+     * the finger. Told apart here by what moves: naming a planet must not
+     * throw the date across the years.
+     */
+    @Test
+    fun `a long press on a planet names it instead of leaping`() {
+        val clock = openSky()
+        val cx = clock.width / 2f
+        val cy = clock.height / 2f
+        val p = OrreryDial.positionOf(
+            Orrery.Body.SATURN, cx, cy, clock.dialRadiusForTest(),
+            clock.orreryMs(), clock.orreryMoonLongitude()
+        )
+        touch(clock, MotionEvent.ACTION_DOWN, p.x, p.y)
+        val before = clock.orreryMs()
+        clock.pressAndHoldOnSky(p.x, p.y)
+        assertEquals(
+            "naming a planet moved the date",
+            before.toDouble(), clock.orreryMs().toDouble(), 5000.0
+        )
+        touch(clock, MotionEvent.ACTION_UP, p.x, p.y)
+
+        // And the same gesture on empty sky does leap, or the test above
+        // would pass just as well on a dial where nothing happens at all.
+        val (ex, ey) = emptySky(clock)
+        clock.pressAndHoldOnSky(ex, ey)
+        // Years, not milliseconds: an alignment of three planets is a long
+        // way off, and "the number went up a little" is a thing a clock
+        // does by itself.
+        assertTrue(
+            "holding on empty sky found nothing",
+            clock.orreryMs() - before > 30L * 86_400_000L
+        )
+    }
+
+    /** Walking away from the clock puts the sky away. */
+    @Test
+    fun `leaving the clock card shuts the sky`() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+        val clock = activity.clockForTest()
+        clock.toggleOrrery()
+        ShadowSystemClock.advanceBy(Duration.ofMillis(900))
+        assertTrue(clock.orreryShowing())
+
+        activity.showCardForTest(Card.CALENDAR)
+        ShadowSystemClock.advanceBy(Duration.ofMillis(900))
+        assertFalse("it was still up on the way back", clock.orreryShowing())
+    }
+
+    /**
+     * The host is told how far the sky has come.
+     *
+     * The world clock's bubbles float over the dial and have nothing to say
+     * about planets, so they leave with the hands — which they can only do
+     * if somebody tells them the hands are leaving.
+     */
+    @Test
+    fun `the host is told the sky is arriving`() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val clock = controller.get().clockForTest()
+        val heard = mutableListOf<Float>()
+        clock.onSkyFade = { heard.add(it) }
+        clock.toggleOrrery()
+        repeat(6) {
+            ShadowSystemClock.advanceBy(Duration.ofMillis(120))
+            clock.draw(android.graphics.Canvas(
+                android.graphics.Bitmap.createBitmap(4, 4, android.graphics.Bitmap.Config.ARGB_8888)
+            ))
+        }
+        assertTrue("nobody was told anything: $heard", heard.size >= 3)
+        assertTrue("it never reached the far end: $heard", heard.last() > 0.9f)
+    }
+
+    // ------------------------------------------------------------ the zoom
+
+    /**
+     * The pinch goes as far as the Earth's orbit and no further.
+     *
+     * That is the end of the journey rather than an arbitrary stop: with the
+     * Earth on the rim, one turn of the dial is one year, and the face can be
+     * marked out in days the way an ordinary one is marked out in hours.
+     */
+    @Test
+    fun `the zoom stops with the Earth on the rim`() {
+        val clock = openSky()
+        val r = clock.dialRadiusForTest()
+        clock.zoomOrrery(100f)
+        // The Earth ends up exactly where Neptune sits at rest, which is
+        // what "the outermost ring" means — stated that way rather than as
+        // a number, so the two cannot drift apart.
+        assertEquals(
+            "the Earth is not on the outermost ring at full zoom",
+            OrreryDial.ringRadius(Orrery.Body.NEPTUNE, r, 1f),
+            OrreryDial.ringRadius(Orrery.Body.EARTH, r, clock.orreryZoomForTest()),
+            r * 0.005f
+        )
+        clock.zoomOrrery(0.001f)
+        assertEquals("it zoomed out past the whole system", 1f, clock.orreryZoomForTest(), 0.001f)
+    }
+
+    /**
+     * Zoomed in, the small bodies become things a finger can hit.
+     *
+     * The reason for the whole gesture: the Earth is a dozen pixels across
+     * at rest and the Moon half that, and two things that small cannot be
+     * chosen between.
+     */
+    @Test
+    fun `zooming in makes the Earth and Moon reachable`() {
+        val clock = openSky()
+        val r = clock.dialRadiusForTest()
+        val restingMoon = OrreryDial.dotRadius(Orrery.Body.MOON, r, 1f)
+        val zoomedMoon = OrreryDial.dotRadius(Orrery.Body.MOON, r, Orrery.MAX_ZOOM)
+        assertTrue(
+            "the Moon is no bigger zoomed in: $restingMoon to $zoomedMoon",
+            zoomedMoon > restingMoon * 1.5f
+        )
+    }
+
+    /** And the outer planets, pushed off the dial, stop answering touches. */
+    @Test
+    fun `a planet pushed off the dial cannot be grabbed`() {
+        val clock = openSky()
+        val cx = clock.width / 2f
+        val cy = clock.height / 2f
+        val r = clock.dialRadiusForTest()
+        val zoom = Orrery.MAX_ZOOM
+        val p = OrreryDial.positionOf(
+            Orrery.Body.NEPTUNE, cx, cy, r, clock.orreryMs(), 0.0, zoom
+        )
+        assertTrue(
+            "Neptune is still on the dial at full zoom",
+            kotlin.math.hypot(p.x - cx, p.y - cy) > r
+        )
+        assertNull(
+            "something off the edge of the case answered a touch",
+            OrreryDial.bodyAt(p.x, p.y, cx, cy, r, clock.orreryMs(), 0.0, zoom)
+        )
+    }
+
+    /**
+     * The days of the year arrive with the zoom, not before it.
+     *
+     * Three hundred and sixty-five marks appearing in one frame is a
+     * flicker; arriving over the last third of the journey they read as
+     * something the zoom is uncovering.
+     */
+    @Test
+    fun `the year is marked out in days only at the far end of the zoom`() {
+        assertEquals("marks at rest", 0f, Orrery.dayMarkFade(1f), 0.001f)
+        assertEquals("marks halfway", 0f, Orrery.dayMarkFade(1f + (Orrery.MAX_ZOOM - 1f) * 0.4f), 0.001f)
+        assertTrue("no marks at the far end", Orrery.dayMarkFade(Orrery.MAX_ZOOM) > 0.99f)
+        val most = Orrery.dayMarkFade(1f + (Orrery.MAX_ZOOM - 1f) * 0.85f)
+        assertTrue("they arrive in one frame: $most", most > 0f && most < 1f)
+    }
+
+    /**
+     * A leap year gets its extra day, and gets it in the right place.
+     *
+     * Nothing counts to 365 anywhere: each mark is put where the Earth
+     * actually stands on that date, so a leap year simply has one more of
+     * them and no special case at all.
+     */
+    @Test
+    fun `a leap year has three hundred and sixty-six marks`() {
+        assertEquals(366, Orrery.daysInYear(2028))
+        assertEquals(365, Orrery.daysInYear(2026))
+        assertEquals("a century is not a leap year", 365, Orrery.daysInYear(2100))
+        assertEquals("but every fourth century is", 366, Orrery.daysInYear(2000))
+    }
+
+    /** A touch on the ring of days finds the day it points at. */
+    @Test
+    fun `a touch on the rim finds the day it points at`() {
+        val clock = openSky()
+        clock.zoomOrrery(100f)
+        val cx = clock.width / 2f
+        val cy = clock.height / 2f
+        val r = clock.dialRadiusForTest()
+        val today = CivilDays.dayOf(clock.orreryMs(), 0)
+        // Where today's mark is: the Earth's own place on the dial, out at
+        // the ring the dots sit on.
+        val angle = Orrery.longitude(Orrery.Body.EARTH, today * CivilDays.DAY_MS)
+        val ring = r * 0.94f + r * 0.035f
+        val x = cx + (ring * kotlin.math.cos(Math.toRadians(angle))).toFloat()
+        val y = cy - (ring * kotlin.math.sin(Math.toRadians(angle))).toFloat()
+        assertEquals(
+            "the rim does not know what day it is pointing at",
+            today,
+            OrreryDial.dayAt(x, y, cx, cy, r, clock.orreryMs(), clock.orreryZoomForTest())
+        )
+        // And a touch in the middle of the dial is not a day at all.
+        assertNull(OrreryDial.dayAt(cx, cy, cx, cy, r, clock.orreryMs(), Orrery.MAX_ZOOM))
+    }
+
+    /** Zoomed out, there are no days to touch. */
+    @Test
+    fun `there is no ring of days until the year is showing`() {
+        val clock = openSky()
+        val cx = clock.width / 2f
+        val cy = clock.height / 2f
+        val r = clock.dialRadiusForTest()
+        assertNull(
+            OrreryDial.dayAt(cx, cy - r * 0.97f, cx, cy, r, clock.orreryMs(), 1f)
+        )
+    }
+
+    // -------------------------------------------------------- knocked off
+
+    /**
+     * A knock takes the planets off their orbits too.
+     *
+     * The same joke as the hands and the same physics: they fall into the
+     * case and roll about under the phone's own gravity.
+     */
+    @Test
+    fun `a knock spills the planets into the case`() {
+        val clock = openSky()
+        assertTrue("something had already fallen", clock.fallenPlanetsForTest().isEmpty())
+        clock.knockHandsOff()
+        val fallen = clock.fallenPlanetsForTest()
+        assertTrue("nothing came off: $fallen", fallen.size >= 5)
+        assertTrue("the Earth stayed in orbit", Orrery.Body.EARTH in fallen)
+        assertTrue("and the Moon with it", Orrery.Body.MOON in fallen)
+    }
+
+    /** And putting everything back puts them back in the sky. */
+    @Test
+    fun `the toolbox puts the planets back in orbit`() {
+        val clock = openSky()
+        clock.knockHandsOff()
+        assertTrue(clock.fallenPlanetsForTest().isNotEmpty())
+        clock.reassembleAll()
+        assertTrue(
+            "the planets stayed on the floor",
+            clock.fallenPlanetsForTest().isEmpty()
+        )
+    }
+
+    /** Shutting the sky also puts them back: they belong to it. */
+    @Test
+    fun `shutting the sky sweeps the planets up`() {
+        val clock = openSky()
+        clock.knockHandsOff()
+        assertTrue(clock.fallenPlanetsForTest().isNotEmpty())
+        clock.toggleOrrery()
+        assertTrue(
+            "planets were left lying in a case with no solar system in it",
+            clock.fallenPlanetsForTest().isEmpty()
+        )
+    }
+
+    /**
+     * The planets go down with the dial at night.
+     *
+     * Their colours do not follow the theme — that is the point of them,
+     * since rust and straw are how you tell Mars from Venus — and "not
+     * themed" was being read as "not dimmed". Eight bright lamps over a
+     * dial turned down for the bedroom is worse than no dial at all.
+     */
+    @Test
+    fun `the planets are dimmed at night`() {
+        val day = ClockThemes.MIDNIGHT
+        val night = ClockThemes.dim(day)
+        fun brightness(c: Int) =
+            0.299 * (c shr 16 and 0xFF) + 0.587 * (c shr 8 and 0xFF) + 0.114 * (c and 0xFF)
+        for (body in Orrery.planets + Orrery.Body.MOON) {
+            val lit = brightness(OrreryDial.colourOf(body, day))
+            val dark = brightness(OrreryDial.colourOf(body, night))
+            assertTrue(
+                "$body is as bright at night ($dark) as by day ($lit)",
+                dark < lit * 0.6
             )
         }
     }

@@ -29,7 +29,17 @@ data class ClockTheme(
      */
     val amMark: Int = 0xFF43C463.toInt(),
     val pmMark: Int = 0xFF5C8DF6.toInt(),
-    val sunMark: Int = 0xFFFFC93C.toInt()
+    val sunMark: Int = 0xFFFFC93C.toInt(),
+    /**
+     * Whether this is a night-dimmed theme.
+     *
+     * Every colour in here has already been dropped to thirty per cent, so
+     * nothing that reads them needs to know. What needs to know is anything
+     * that draws in colours of its own — the planets, which are rust and
+     * straw and blue because that is how you tell Mars from Venus, and
+     * which sat over a dimmed dial at full strength like a row of lamps.
+     */
+    val dimmed: Boolean = false
 )
 
 object ClockThemes {
@@ -124,24 +134,35 @@ object ClockThemes {
     )
 
     /**
-     * Night mode: the same theme with every color at 30% brightness, so the
+     * One colour turned down for the night: thirty per cent of itself.
+     *
+     * Out on its own because the dial is not the only thing that has to
+     * obey. The page the dial sits on has a colour too, and in light mode
+     * it stayed white — a dimmed clock in the middle of a lit sheet of
+     * paper, which is the opposite of a dark bedroom.
+     */
+    fun dimColour(c: Int): Int {
+        val a = c ushr 24
+        val r = ((c shr 16 and 0xFF) * 0.30).toInt()
+        val g = ((c shr 8 and 0xFF) * 0.30).toInt()
+        val b = ((c and 0xFF) * 0.30).toInt()
+        return (a shl 24) or (r shl 16) or (g shl 8) or b
+    }
+
+    /**
+     * Night mode: the same theme with every colour at 30% brightness, so the
      * dial glows softly instead of lighting the bedroom.
      */
     fun dim(t: ClockTheme): ClockTheme {
-        fun d(c: Int): Int {
-            val a = c ushr 24
-            val r = ((c shr 16 and 0xFF) * 0.30).toInt()
-            val g = ((c shr 8 and 0xFF) * 0.30).toInt()
-            val b = ((c and 0xFF) * 0.30).toInt()
-            return (a shl 24) or (r shl 16) or (g shl 8) or b
-        }
+        fun d(c: Int): Int = dimColour(c)
         return ClockTheme(
             face = d(t.face), rim = d(t.rim), tick = d(t.tick),
             minorTick = d(t.minorTick), numeral = d(t.numeral),
             hourHand = d(t.hourHand), minuteHand = d(t.minuteHand),
             secondHand = d(t.secondHand), decimal = d(t.decimal),
             amMark = d(t.amMark), pmMark = d(t.pmMark), sunMark = d(t.sunMark),
-            centerDot = d(t.centerDot)
+            centerDot = d(t.centerDot),
+            dimmed = true
         )
     }
 

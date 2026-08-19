@@ -485,6 +485,30 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private var lastCountdownMinute = 0L
 
+    /** The page's own colour, before the night has anything to say about it. */
+    private var surroundColour = 0
+
+    /**
+     * Turns the page the dial sits on down with the dial.
+     *
+     * Night mode dropped the clock to thirty per cent and left everything
+     * around it alone. In dark mode nobody noticed, because the page was
+     * already dark; in light mode it was a dimmed clock in the middle of a
+     * lit sheet of paper, and the sheet is most of the screen.
+     */
+    private fun paintSurround() {
+        if (surroundColour == 0) return
+        window.setBackgroundDrawable(
+            android.graphics.drawable.ColorDrawable(
+                if (appliedNightDim) ClockThemes.dimColour(surroundColour) else surroundColour
+            )
+        )
+    }
+
+    /** For the tests: the colour behind everything. */
+    internal fun surroundColourForTest(): Int =
+        (window.decorView.background as? android.graphics.drawable.ColorDrawable)?.color ?: 0
+
     /**
      * Retimes the cards in place. Rebinding the whole list every minute would
      * be a lot of work to change eight characters, and would set every face
@@ -508,6 +532,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun keepScreenAwake() {
         if (!this::pager.isInitialized) return
         val card = current()
+        // Walking away from the clock puts the sky away with it.
+        if (card != Card.CLOCK) clockView?.leaveOrrery()
         val awake = card == Card.CLOCK ||
             (card == Card.STOPWATCH && stopwatchRunning) ||
             ((card == Card.REVERSE || card == Card.HOURGLASS) && countdownRunning)
@@ -521,6 +547,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        surroundColour = android.util.TypedValue().let { value ->
+            theme.resolveAttribute(android.R.attr.colorBackground, value, true)
+            value.data
+        }
         // The app's background runs behind the status and navigation bars,
         // so the clock looks like it goes on past the edges of the screen.
         SystemChrome.paint(this)
@@ -1563,12 +1593,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** For the tests: put the app on a given card. */
     internal fun showCardForTest(card: Card) {
         row = card.row
+        pager.setCurrentItem(card.page, false)
+        // The pager only swaps pages once it has been laid out again, and a
+        // picture taken before that is a picture of the page it was on.
+        pager.measure(
+            View.MeasureSpec.makeMeasureSpec(pager.width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(pager.height, View.MeasureSpec.EXACTLY)
+        )
+        pager.layout(pager.left, pager.top, pager.right, pager.bottom)
         keepScreenAwake()
-        pager.currentItem = card.page
     }
 
     /** For the tests: the main dial, so a picture can be taken of it. */
     internal fun clockForTest(): ClockView = clockView!!
+
+    /** For the tests: the theme the calendar is actually drawing with. */
+    internal fun calendarThemeForTest(): ClockTheme? = calendarView?.theme
 
     /** For the tests: what the calendar has been told about the cycle. */
     internal fun calendarCyclePhasesForTest(): Map<Int, Cycle.Phase> =
@@ -1926,6 +1966,38 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     // ---------------------------------------------------------- reminders
 
+    /**
+     * Every day of this year with something on it, and what.
+     *
+     * For the solar system zoomed out to the Earth's orbit, where the dial
+     * becomes a calendar of the year: a dot on each busy day, grey behind
+     * and bright ahead, so how full the year has been and how full it is
+     * about to get can be read round the rim at a glance.
+     *
+     * Only when the marks are wanted on the dial at all — it is the same
+     * question in a different shape, and somebody who has turned the marks
+     * off has said they do not want their diary on the clock face.
+     */
+    private fun busyDaysOfTheYear(): Map<Int, String> {
+        if (!prefs.getBoolean(Prefs.ALARM_MARKERS, true)) return emptyMap()
+        if (reminders.isEmpty()) return emptyMap()
+        val year = Calendar.getInstance().apply {
+            timeInMillis = TimeKeeper.nowMs()
+        }.get(Calendar.YEAR)
+        val busy = HashMap<Int, String>()
+        val probe = Calendar.getInstance()
+        for (month in 1..12) {
+            probe.set(year, month - 1, 1)
+            for (day in 1..probe.getActualMaximum(Calendar.DAY_OF_MONTH)) {
+                val on = reminders.filter { it.occursOn(year, month, day) }
+                if (on.isEmpty()) continue
+                busy[CivilDays.epochDay(year, month, day)] =
+                    on.joinToString(", ") { it.label.ifBlank { getString(R.string.reminder_untitled) } }
+            }
+        }
+        return busy
+    }
+
     private fun refreshCalendarMarks() {
         val cal = calendarView ?: return
         // A repeating reminder is on the calendar every time it comes round,
@@ -2112,6 +2184,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val resolvedTheme = ClockThemes.resolve(this, prefs.getString(Prefs.THEME, "midnight"))
             .let { if (appliedNightDim) ClockThemes.dim(it) else it }
         cv.theme = resolvedTheme
+        paintSurround()
         cv.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
         cv.dateFormatStyle = when (prefs.getString(Prefs.DATE_FORMAT, Prefs.DATE_FORMAT_NUMBER)) {
             Prefs.DATE_FORMAT_TEXT -> ClockView.DateFormatStyle.TEXT
@@ -2167,6 +2240,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             dial.pinchZoomEnabled = cv.pinchZoomEnabled
             dial.dialScale = cv.dialScale
         }
+
+        // The world clock's bubbles float over the dial, and over the
+        // planets too until told otherwise. They leave with the hands.
+        cv.onSkyFade = { fade -> worldBubbles.layer?.alpha = 1f - fade }
+        cv.orreryBusyDays = busyDaysOfTheYear()
 
         calendarView?.let {
             it.theme = cv.theme

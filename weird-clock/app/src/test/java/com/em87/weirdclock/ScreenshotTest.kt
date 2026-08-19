@@ -413,4 +413,101 @@ class ScreenshotTest {
             assertTrue(shoot(screenOf(c.get()), "orrery-wound") > 3f)
         }
     }
+
+    /**
+     * The dial at night, with the planets on it.
+     *
+     * Night mode drops the whole outfit to thirty per cent so the bedroom
+     * stays dark, and the planets are drawn in colours of their own —
+     * deliberately, since that is how you tell Mars from Venus. "Not
+     * themed" was being read as "not dimmed", and eight bright lamps over a
+     * dial turned down for the night is worse than no dial.
+     */
+    @Test
+    fun `the solar system at night`() {
+        prefs.edit().clear()
+            .putBoolean(Prefs.MOON_PHASE, true)
+            .putBoolean(Prefs.ORRERY, true)
+            .putBoolean(Prefs.NIGHT_DIM, true)
+            .putInt(Prefs.NIGHT_FROM, 0)
+            .putInt(Prefs.NIGHT_TO, 23)
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val clock = c.get().clockForTest()
+            clock.toggleOrrery()
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(
+                java.time.Duration.ofMillis(900)
+            )
+            assertTrue(shoot(screenOf(c.get()), "orrery-night") > 3f)
+        }
+    }
+
+    /** And the calendar at night, which is said to stay bright somewhere. */
+    @Test
+    fun `the calendar at night`() {
+        prefs.edit().clear()
+            .putBoolean(Prefs.NIGHT_DIM, true)
+            .putInt(Prefs.NIGHT_FROM, 0)
+            .putInt(Prefs.NIGHT_TO, 23)
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            c.get().showCardForTest(Card.CALENDAR)
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            c.get().showCardForTest(Card.CALENDAR)
+            assertTrue(shoot(screenOf(c.get()), "calendar-night") > 3f)
+        }
+    }
+
+    /**
+     * The solar system zoomed until the Earth's orbit is the rim.
+     *
+     * The far end of the pinch: the four outer planets have gone off the
+     * edge, the year is marked out in days round the face, and the days
+     * with something on them carry a dot outside it — grey behind, bright
+     * ahead. Whether that reads as a calendar or as a hedgehog is not a
+     * thing anybody can reason their way to.
+     */
+    @Test
+    fun `the solar system zoomed to the year`() {
+        prefs.edit().clear()
+            .putBoolean(Prefs.MOON_PHASE, true)
+            .putBoolean(Prefs.ORRERY, true)
+            .putBoolean(Prefs.ALARM_MARKERS, true)
+            .commit()
+        // A diary with something on it, so the dots have days to sit on.
+        val store = ReminderStore.all(context)
+        store.clear()
+        val cal = java.util.Calendar.getInstance()
+        for (offset in listOf(-120, -60, -21, -3, 5, 19, 44, 90, 150)) {
+            val d = java.util.Calendar.getInstance().apply {
+                add(java.util.Calendar.DAY_OF_YEAR, offset)
+            }
+            store.add(
+                Reminder(
+                    id = 1000 + offset,
+                    label = "Something",
+                    year = d.get(java.util.Calendar.YEAR),
+                    month = d.get(java.util.Calendar.MONTH) + 1,
+                    day = d.get(java.util.Calendar.DAY_OF_MONTH),
+                    hour = 10, minute = 0
+                )
+            )
+        }
+        ReminderStore.save(context)
+
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val clock = c.get().clockForTest()
+            clock.toggleOrrery()
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(
+                java.time.Duration.ofMillis(900)
+            )
+            clock.zoomOrrery(Orrery.MAX_ZOOM)
+            assertTrue(shoot(screenOf(c.get()), "orrery-year") > 3f)
+        }
+        ReminderStore.all(context).clear()
+        ReminderStore.save(context)
+    }
 }

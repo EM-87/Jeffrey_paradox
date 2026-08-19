@@ -484,6 +484,9 @@ class ClockView @JvmOverloads constructor(
     private val moonDarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val moonLitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val moonRimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+
+    /** For the planets lying in the case, each in the colour it brought. */
+    private val fallenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val cheaterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -890,6 +893,7 @@ class ClockView @JvmOverloads constructor(
         // that had to start it off.
         val now = SystemClock.uptimeMillis()
         if (orreryChangedAt != NEVER && now - orreryChangedAt < ORRERY_FADE_MS) return true
+        if (glideStartedAt != NEVER) return true
         return now - moonRejoinAt < MOON_REJOIN_MS
     }
 
@@ -903,6 +907,7 @@ class ClockView @JvmOverloads constructor(
     fun reassembleAll() {
         timeScale = 1f
         debris.clear()
+        fallenPlanets.clear()
         spring?.cancel()
         spring = null
         draggedHand = null
@@ -978,6 +983,16 @@ class ClockView @JvmOverloads constructor(
         context,
         object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
             override fun onScale(detector: ScaleGestureDetector): Boolean {
+                // With the planets on the dial a pinch means the solar
+                // system, not the screen. Making the whole face bigger
+                // while looking at eight orbits is answering a question
+                // nobody asked; pushing the orbits outwards is the one they
+                // did — and at the far end it turns the dial into a
+                // calendar of the year.
+                if (orreryShowing()) {
+                    zoomOrrery(detector.scaleFactor)
+                    return true
+                }
                 if (!pinchZoomEnabled) return false
                 dialScale *= detector.scaleFactor
                 onDialScaleChanged?.invoke(dialScale)
@@ -996,10 +1011,15 @@ class ClockView @JvmOverloads constructor(
              * alignment. On a clock it does nothing, as before.
              */
             override fun onLongPress(e: MotionEvent) {
-                if (orreryShowing() && grabbedBody == null) leapToNextAlignment()
+                pressAndHoldOnSky(e.x, e.y)
             }
 
             override fun onDoubleTap(e: MotionEvent): Boolean {
+                if (orreryShowing()) {
+                    orreryZoom = 1f
+                    invalidate()
+                    return true
+                }
                 if (!pinchZoomEnabled) return false
                 dialScale = 1f
                 onDialScaleChanged?.invoke(dialScale)
@@ -1012,6 +1032,25 @@ class ClockView @JvmOverloads constructor(
                 if (skyTokenAt(e.x, e.y)) {
                     toggleOrrery()
                     return true
+                }
+                // A day of the year, out past the rim, with something on
+                // it. Says what.
+                if (orreryUp && tapCandidate) {
+                    val day = OrreryDial.dayAt(
+                        e.x, e.y, width / 2f, height / 2f, dialRadius(),
+                        orreryMs(), orreryZoom
+                    )
+                    val what = day?.let { orreryBusyDays[it] }
+                    if (what != null) {
+                        showMarkBubble(what, e.x, e.y)
+                        return true
+                    }
+                }
+                // The Sun, which is where today is. A sky wound two
+                // hundred years on runs back to the date it is — travelling,
+                // not cutting, so the years can be seen going past.
+                if (orreryUp && sunAt(e.x, e.y)) {
+                    if (glideOrreryHome()) return true
                 }
                 // And once the sky is open, a tap on any empty part of it
                 // closes it again. Empty meaning not on a planet — those
@@ -1121,7 +1160,7 @@ class ClockView @JvmOverloads constructor(
             return true
         }
         gestureDetector.onTouchEvent(event)
-        if (pinchZoomEnabled) {
+        if (pinchZoomEnabled || orreryShowing()) {
             scaleDetector.onTouchEvent(event)
             if (scaleDetector.isInProgress) {
                 releaseDraggedHand()
@@ -2152,6 +2191,33 @@ class ClockView @JvmOverloads constructor(
                 FAST_LEN * r, 0.05f * r, 0.008f * r * 2f, cx, cy, ivx, ivy
             )
         }
+        // Nor are the planets. A knock hard enough to take the hands off
+        // takes the solar system with them: eight bodies out of their
+        // orbits and rolling about the case, which is the same joke as the
+        // hands and the same physics.
+        if (orreryShowing()) {
+            for (body in Orrery.planets + Orrery.Body.MOON) {
+                if (body in fallenPlanets) continue
+                val p = OrreryDial.positionOf(
+                    body, cx, cy, r, orreryMs(), orreryMoonLongitude(), orreryZoom
+                )
+                if (hypot(p.x - cx, p.y - cy) > r) continue
+                fallenPlanets.add(body)
+                debris.bodies.add(
+                    DialDebris.Body(
+                        kind = DialDebris.Kind.PLANET, hand = null, numeralHour = 0,
+                        label = "", x = p.x, y = p.y,
+                        vx = ivx + Random.nextFloat() * 220f - 110f,
+                        vy = ivy - Random.nextFloat() * 180f,
+                        angleDeg = 0f, angVel = Random.nextFloat() * 200f - 100f,
+                        halfLen = OrreryDial.dotRadius(body, r, orreryZoom),
+                        strokeWidth = 0f, textSize = 0f,
+                        colour = OrreryDial.colourOf(body, theme)
+                    )
+                )
+            }
+        }
+
         // Complications aren't screwed on any tighter than the hands.
         if (chronoProvider == null) {
             if (showMoonPhase && !isMoonFallen()) {
@@ -2392,6 +2458,17 @@ class ClockView @JvmOverloads constructor(
         val remount = when (b.kind) {
             // Hands click back onto the central axis.
             DialDebris.Kind.HAND, DialDebris.Kind.FAST_HAND -> hypot(x - cx, y - cy) < r * 0.18f
+            // A planet is put back by carrying it to its own orbit — the
+            // ring it belongs on, at any angle. Which angle does not matter:
+            // where it goes round to is the date's business, not the
+            // finger's.
+            DialDebris.Kind.PLANET -> {
+                val out = hypot(x - cx, y - cy)
+                val nearest = planetNearestRing(out, r)
+                nearest != null && kotlin.math.abs(
+                    out - OrreryDial.ringRadius(nearest, r, orreryZoom)
+                ) < r * 0.07f
+            }
             // Complications go back to their own homes.
             DialDebris.Kind.MOON ->
                 hypot(x - cx, y - (cy + apothemRadius() * 0.45f)) < r * 0.15f
@@ -2410,6 +2487,10 @@ class ClockView @JvmOverloads constructor(
             }
         }
         if (remount) {
+            // A planet goes back into the sky as well as out of the case.
+            if (b.kind == DialDebris.Kind.PLANET) {
+                planetNearestRing(hypot(x - cx, y - cy), r)?.let { fallenPlanets.remove(it) }
+            }
             debris.bodies.remove(b)
             debris.carried = null
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
@@ -3277,6 +3358,14 @@ class ClockView @JvmOverloads constructor(
         // planet. The way back is a tap on any empty piece of sky, which is
         // most of the dial, and the place the token was is part of it.
         if (orreryShowing()) drawOrrery(canvas, cx, cy, r)
+        // The host is told how far the sky has come, so it can take its own
+        // furniture off the dial — the world clock's bubbles float over the
+        // top of everything and have nothing to say about planets.
+        val skyNow = orreryFade()
+        if (skyNow != reportedSkyFade) {
+            reportedSkyFade = skyNow
+            onSkyFade?.invoke(skyNow)
+        }
 
         // Digital 7-segment readout: the chronograph value in chrono modes,
         // or the current time while the hands are lying at the bottom of
@@ -3678,6 +3767,10 @@ class ClockView @JvmOverloads constructor(
                     )
                     canvas.restore()
                 }
+                DialDebris.Kind.PLANET -> {
+                    fallenPaint.color = b.colour
+                    canvas.drawCircle(b.x, b.y, b.halfLen, fallenPaint)
+                }
                 DialDebris.Kind.MOON -> {
                     // The sun or the moon it was, not a white bead. It is
                     // the same drawing the dial uses, held at the hour it
@@ -3968,6 +4061,58 @@ class ClockView @JvmOverloads constructor(
      */
     private var orreryOffsetMs = 0L
 
+    /**
+     * The journey home, when the Sun is tapped.
+     *
+     * The offset is not simply set to zero: two hundred years of dial
+     * arriving in one frame is a cut, and everything else on this clock
+     * travels. It runs back on the same curve the hands use crossing
+     * between the clock and the chronograph, which is what makes it read as
+     * the same mechanism rather than a second idea about motion.
+     */
+    private var glideFromOffsetMs = 0L
+    private var glideStartedAt = NEVER
+
+    /**
+     * Told whenever the sky fades in or out, so the host can take its own
+     * furniture off the dial — the world clock's bubbles, which otherwise
+     * float over the planets.
+     */
+    var onSkyFade: ((Float) -> Unit)? = null
+    private var reportedSkyFade = -1f
+
+    /**
+     * How far the solar system has been zoomed, 1 to [Orrery.MAX_ZOOM].
+     *
+     * The pinch means something different once the planets have the dial.
+     * On a clock it makes the whole face bigger, which is a thing about the
+     * screen; here it pushes the orbits outwards, which is a thing about
+     * the solar system — and at the far end the Earth's orbit is the one on
+     * the rim and the dial becomes a calendar of the year.
+     */
+    private var orreryZoom = 1f
+
+    /**
+     * The planets that have been knocked off their orbits.
+     *
+     * They fall like the hands do and roll about the case under the same
+     * gravity. Kept as a set here as well as bodies in [debris] because the
+     * drawing has to know not to go on drawing them in the sky: a planet
+     * both in orbit and on the floor is two planets.
+     */
+    private val fallenPlanets = HashSet<Orrery.Body>()
+
+    /**
+     * Which days of the shown year have something on them, and what.
+     *
+     * Handed in rather than looked up, because the dial has no business
+     * knowing what a reminder is. Only used when the Earth's orbit has been
+     * zoomed out to the rim, where each day of the year has a mark of its
+     * own to hang a dot on.
+     */
+    var orreryBusyDays: Map<Int, String> = emptyMap()
+        set(value) { field = value; invalidate() }
+
     private var grabbedBody: Orrery.Body? = null
     private var lastBodyLongitude = 0.0
 
@@ -3990,7 +4135,61 @@ class ClockView @JvmOverloads constructor(
 
     /** The instant the solar system is showing. */
     internal fun orreryMs(): Long =
-        displayNowMs() + (visualOffsetSeconds * 1000.0).toLong() + orreryOffsetMs
+        displayNowMs() + (visualOffsetSeconds * 1000.0).toLong() + windBack()
+
+    /**
+     * How far the sky is wound at this instant — the whole offset, or what
+     * is left of it while it runs home.
+     */
+    private fun windBack(): Long {
+        if (glideStartedAt == NEVER) return orreryOffsetMs
+        val t = ((SystemClock.uptimeMillis() - glideStartedAt) / GLIDE_HOME_MS)
+            .coerceIn(0f, 1f)
+        if (t >= 1f) {
+            orreryOffsetMs = 0L
+            glideStartedAt = NEVER
+            return 0L
+        }
+        val eased = transitionInterpolator.getInterpolation(t)
+        return (glideFromOffsetMs * (1f - eased)).toLong()
+    }
+
+    /** Sends the sky back to today, travelling rather than cutting. */
+    internal fun glideOrreryHome(): Boolean {
+        val from = windBack()
+        if (from == 0L) return false
+        glideFromOffsetMs = from
+        orreryOffsetMs = from
+        glideStartedAt = SystemClock.uptimeMillis()
+        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        invalidate()
+        return true
+    }
+
+    /** Whether the sky is on its way back to today. */
+    internal fun orreryGlidingHome(): Boolean = glideStartedAt != NEVER
+
+    /**
+     * A finger held still on the open sky.
+     *
+     * On a planet it is asking what that is; on empty sky it is asking
+     * where the next alignment is. One gesture, and which of the two it
+     * means depends only on what is under it.
+     *
+     * Out of the gesture listener so it can be asked directly: a long press
+     * delivered through a detector is a thing that either happens or
+     * silently does not, and a test that cannot tell those apart proves
+     * nothing about either branch.
+     */
+    internal fun pressAndHoldOnSky(x: Float, y: Float) {
+        if (!orreryShowing()) return
+        val held = grabbedBody
+        if (held != null) {
+            showMarkBubble(context.getString(OrreryDial.nameKeyOf(held)), x, y)
+        } else {
+            leapToNextAlignment()
+        }
+    }
 
     /**
      * How much of the dial the planets have, 0 to 1.
@@ -4012,11 +4211,15 @@ class ClockView @JvmOverloads constructor(
 
     /** Opens or closes the sky. Also the accessibility action. */
     internal fun toggleOrrery() {
-        orreryUp = !orreryUp
-        orreryChangedAt = SystemClock.uptimeMillis()
-        if (!orreryUp) {
-            grabbedBody = null
-            orreryOffsetMs = 0L
+        if (orreryUp) {
+            // Through the one function that knows what closing means. This
+            // used to keep its own copy of the tidying-up, and the copy fell
+            // behind: shutting the sky left the planets that had been
+            // knocked out of it lying in a case with no solar system in it.
+            closeOrrery()
+        } else {
+            orreryUp = true
+            orreryChangedAt = SystemClock.uptimeMillis()
         }
         performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         invalidate()
@@ -4028,6 +4231,25 @@ class ClockView @JvmOverloads constructor(
         orreryChangedAt = SystemClock.uptimeMillis()
         grabbedBody = null
         orreryOffsetMs = 0L
+        glideStartedAt = NEVER
+        orreryZoom = 1f
+        // The planets go back in their orbits with the sky. They are only
+        // on the floor of a case that is showing a solar system.
+        fallenPlanets.clear()
+        debris.bodies.removeAll { it.kind == DialDebris.Kind.PLANET }
+    }
+
+    /**
+     * Puts the sky away because the dial is no longer being looked at.
+     *
+     * Walking off to the calendar and coming back to a solar system still
+     * standing on a date wound to three days ago reads as a clock that has
+     * stopped. It is a thing you open, look at, and leave.
+     */
+    internal fun leaveOrrery() {
+        if (!orreryUp) return
+        closeOrrery()
+        invalidate()
     }
 
     /**
@@ -4088,6 +4310,30 @@ class ClockView @JvmOverloads constructor(
     /** Which body a finger is holding, if any. */
     internal fun orreryGrabbedForTest(): Orrery.Body? = grabbedBody
 
+    /** How far the sky is zoomed, 1 to [Orrery.MAX_ZOOM]. */
+    internal fun orreryZoomForTest(): Float = orreryZoom
+
+    /** For the tests: which planets are lying in the case. */
+    internal fun fallenPlanetsForTest(): Set<Orrery.Body> = fallenPlanets
+
+    /**
+     * Of the planets currently on the floor, the one whose orbit passes
+     * closest to a given distance from the middle.
+     *
+     * A planet is put back by carrying it to its own ring, at any angle at
+     * all: which angle is the date's business and not the finger's.
+     */
+    private fun planetNearestRing(distance: Float, r: Float): Orrery.Body? =
+        fallenPlanets.minByOrNull {
+            kotlin.math.abs(OrreryDial.ringRadius(it, r, orreryZoom) - distance)
+        }
+
+    /** Pinches the sky, the way two fingers would. */
+    internal fun zoomOrrery(by: Float) {
+        orreryZoom = (orreryZoom * by).coerceIn(1f, Orrery.MAX_ZOOM)
+        invalidate()
+    }
+
     /**
      * For the tests: carries [body] [degrees] round its orbit, the way a
      * finger would, and hands back the date that lands under it.
@@ -4121,6 +4367,16 @@ class ClockView @JvmOverloads constructor(
         hypot(x - width / 2f, y - height / 2f) < dialRadius()
 
     /**
+     * Whether a touch landed on the Sun, which is the way back to today.
+     *
+     * Wider than the Sun is drawn, and it can afford to be: the innermost
+     * ring is a fifth of the way out and nothing else lives in between.
+     */
+    internal fun sunAt(x: Float, y: Float): Boolean =
+        orreryShowing() &&
+            hypot(x - width / 2f, y - height / 2f) < dialRadius() * 0.12f
+
+    /**
      * Takes hold of a planet, if there is one under the finger.
      *
      * The Moon's position is remembered here rather than read later,
@@ -4130,9 +4386,15 @@ class ClockView @JvmOverloads constructor(
     private fun grabBodyNear(x: Float, y: Float): Boolean {
         if (!orreryShowing()) return false
         val body = OrreryDial.bodyAt(
-            x, y, width / 2f, height / 2f, dialRadius(), orreryMs(), orreryMoonLongitude()
+            x, y, width / 2f, height / 2f, dialRadius(), orreryMs(),
+            orreryMoonLongitude(), orreryZoom
         ) ?: return false
         grabbedBody = body
+        // A hand on a planet ends the journey home wherever it has got to.
+        if (glideStartedAt != NEVER) {
+            orreryOffsetMs = windBack()
+            glideStartedAt = NEVER
+        }
         lastBodyLongitude = OrreryDial.longitudeOf(width / 2f, height / 2f, x, y)
         detachedMoonLongitude = orreryMoonLongitude()
         performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
@@ -4153,7 +4415,8 @@ class ClockView @JvmOverloads constructor(
         val cy = height / 2f
         val from = if (body == Orrery.Body.MOON) {
             val earth = OrreryDial.positionOf(
-                Orrery.Body.EARTH, cx, cy, dialRadius(), orreryMs(), orreryMoonLongitude()
+                Orrery.Body.EARTH, cx, cy, dialRadius(), orreryMs(),
+                orreryMoonLongitude(), orreryZoom
             )
             OrreryDial.longitudeOf(earth.x, earth.y, x, y)
         } else {
@@ -4182,6 +4445,25 @@ class ClockView @JvmOverloads constructor(
      */
     internal fun orreryDateText(): String = dateTextAt(orreryMs())
 
+    /**
+     * The same date as bare digits, for a display that has no letters and
+     * no oblique stroke in it.
+     *
+     * Spaces rather than a separator, because the only punctuation the
+     * seven-segment font owns is a colon and a colon between two numbers
+     * means a time. The day and month keep the order the dial writes them
+     * in, so it still reads the way the date window does.
+     */
+    internal fun orreryDateDigits(): String {
+        cal.timeInMillis = orreryMs()
+        val d = cal.get(Calendar.DAY_OF_MONTH)
+        val m = cal.get(Calendar.MONTH) + 1
+        val y = cal.get(Calendar.YEAR)
+        val first = if (dateDayFirst) d else m
+        val second = if (dateDayFirst) m else d
+        return String.format(Locale.US, "%02d %02d %d", first, second, y)
+    }
+
     /** What is worth knowing about the day being shown, if anything. */
     internal fun orreryCaption(): String? = OrreryDial.caption(
         resources, orreryMs(),
@@ -4194,17 +4476,22 @@ class ClockView @JvmOverloads constructor(
         if (fade <= 0.01f) return
         OrreryDial.draw(
             canvas, cx, cy, r, theme, orreryMs(), fade,
-            orreryMoonLongitude(), orreryAligned(), orreryMoonDetached(), grabbedBody
+            orreryMoonLongitude(), orreryAligned(), orreryMoonDetached(), grabbedBody,
+            orreryZoom, orreryBusyDays.keys, fallenPlanets
         )
-        datePaint.textSize = r * 0.085f
-        val was = datePaint.alpha
-        datePaint.alpha = (210 * fade).toInt()
-        val baseline = cy - apothemRadius() * 0.42f -
-            (datePaint.ascent() + datePaint.descent()) / 2f
-        canvas.drawText(orreryDateText(), cx, baseline, datePaint)
-        datePaint.alpha = was
+        // Low on the face and in the seven-segment digits, not in the
+        // system's own letters. Two reasons, and the second is the one that
+        // matters: it was across the middle of the dial, where the orbits
+        // are, and half of Mars spent the year behind it.
+        val digitH = r * 0.10f
+        val keep = digitalPaint.alpha
+        digitalPaint.alpha = (215 * fade).toInt()
+        drawSevenSegment(canvas, orreryDateDigits(), cx, cy + r * 0.50f, digitH)
+        digitalPaint.alpha = keep
         orreryCaption()?.let {
-            OrreryDial.drawCaption(canvas, cx, baseline + r * 0.085f, r, theme, it, fade)
+            OrreryDial.drawCaption(
+                canvas, cx, cy + r * 0.50f + digitH * 1.55f, r, theme, it, fade
+            )
         }
     }
 
@@ -4434,6 +4721,16 @@ class ClockView @JvmOverloads constructor(
 
         /** And how long the Moon takes to slide back after being let go. */
         private const val MOON_REJOIN_MS = 700f
+
+        /**
+         * How long the sky takes to run back to today.
+         *
+         * Longer than the fade, because it is a longer journey and the
+         * point of it is to be watched: the planets sweep back through
+         * however many years were wound on, and that is the only way to see
+         * how far you had gone.
+         */
+        private const val GLIDE_HOME_MS = 1400f
 
         /**
          * How wide an arc still counts as a line of planets.

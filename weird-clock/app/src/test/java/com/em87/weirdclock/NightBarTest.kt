@@ -321,7 +321,11 @@ class NightBarTest {
                 Prefs.BELLS to Prefs.BELL_STYLE,
                 Prefs.BELLS to Prefs.TEST_BELLS,
                 Prefs.BELLS to Prefs.BELLS_BACKGROUND,
-                Prefs.WORLD_CLOCK to "pref_world_cities"
+                Prefs.WORLD_CLOCK to "pref_world_cities",
+                // The solar system hangs off the sky token, because the
+                // whole gesture is a tap on the sun or the moon and there
+                // is nothing to tap without one.
+                Prefs.MOON_PHASE to Prefs.ORRERY
             ),
             { SettingsActivity.VeryAdvancedSettingsFragment() } to listOf(
                 Prefs.SECOND_HAND to Prefs.SMOOTH_SECONDS,

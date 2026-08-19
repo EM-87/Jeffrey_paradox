@@ -245,25 +245,51 @@ class OrreryTest {
     // -------------------------------------------------- the Moon lets go
 
     /**
-     * Force Mars and the Moon disengages; force the Earth and it comes
-     * along.
+     * The line falls between Mars and Jupiter.
      *
-     * This is the rule that keeps the thing usable. A month is small enough
-     * that any grab on anything further out than the Earth would spin the
-     * Moon into a grey ring, saying nothing and hiding the phase, which is
-     * the one thing the Moon is on this dial for.
+     * Not drawn by taste. Carrying a planet a whole turn moves time by its
+     * year, and the Moon goes round in a month, so the question is how many
+     * moons a turn is worth. Mars is twenty-five — quick, but each one is a
+     * shape that arrives. Jupiter is a hundred and fifty-nine, which is a
+     * grey ring, and it hides the phase, the one thing the Moon is here
+     * for.
      */
     @Test
-    fun `the Moon lets go of everything except the Earth`() {
+    fun `the inner planets drive the Moon and the outer ones let it go`() {
         assertTrue("nothing held, it turns", Orrery.moonFollows(null))
-        assertTrue("the Earth drives it", Orrery.moonFollows(Orrery.Body.EARTH))
-        assertTrue("and so does taking hold of the Moon itself", Orrery.moonFollows(Orrery.Body.MOON))
+        assertTrue(
+            "and so does taking hold of the Moon itself",
+            Orrery.moonFollows(Orrery.Body.MOON)
+        )
         for (body in listOf(
-            Orrery.Body.MERCURY, Orrery.Body.VENUS, Orrery.Body.MARS,
+            Orrery.Body.MERCURY, Orrery.Body.VENUS, Orrery.Body.EARTH, Orrery.Body.MARS
+        )) {
+            assertTrue("$body should carry the Moon with it", Orrery.moonFollows(body))
+        }
+        for (body in listOf(
             Orrery.Body.JUPITER, Orrery.Body.SATURN,
             Orrery.Body.URANUS, Orrery.Body.NEPTUNE
         )) {
             assertFalse("$body must not drag the Moon with it", Orrery.moonFollows(body))
+        }
+    }
+
+    /**
+     * And the line is drawn where the arithmetic says it should be.
+     *
+     * Every planet that drives the Moon is worth few enough moons a turn to
+     * be watched; every one that does not is worth too many. Change a
+     * period, or redraw the rule by hand, and the two stop agreeing.
+     */
+    @Test
+    fun `the Moon is let go exactly where it becomes a blur`() {
+        for (body in Orrery.planets) {
+            val moons = Orrery.periodDays(body) / Orrery.periodDays(Orrery.Body.MOON)
+            if (Orrery.moonFollows(body)) {
+                assertTrue("$body drives the Moon at $moons moons a turn, a blur", moons < 30)
+            } else {
+                assertTrue("$body was let go at only $moons moons a turn", moons > 30)
+            }
         }
     }
 

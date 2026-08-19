@@ -226,19 +226,22 @@ object Orrery {
     /**
      * Whether the Moon still turns while [grabbed] is being carried.
      *
-     * Forcing Saturn's orbit moves time in decades. The Moon, which goes
-     * round in a month, would answer by becoming a smear — hundreds of
-     * turns a second, telling nobody anything, and drowning the one thing
-     * the Moon is on this dial to say. So it lets go of the mechanism and
-     * stays where it was until the hand is off.
+     * The line falls between Mars and Jupiter, and it falls there because
+     * of what a person can watch. Carrying a planet a whole turn moves time
+     * by that planet's year, and the Moon goes round in a month, so a turn
+     * of Mars is twenty-five moons — quick, but each one is a shape that
+     * arrives. A turn of Jupiter is a hundred and fifty-nine, which is not
+     * a moon at all but a grey ring, and it hides the one thing the Moon is
+     * on this dial to say.
      *
-     * The Earth is the exception, and the whole reason the exception is
-     * worth having: carry the Earth and the Moon comes with it at
-     * thirteen turns to the year, slow enough to watch, which is how a
-     * full moon three months out is found.
+     * So the inner four drive it and the outer four do not: past Mars the
+     * Moon lets go of the mechanism and holds where it was until the hand
+     * comes off.
      */
-    fun moonFollows(grabbed: Body?): Boolean =
-        grabbed == null || grabbed == Body.EARTH || grabbed == Body.MOON
+    fun moonFollows(grabbed: Body?): Boolean = when (grabbed) {
+        null, Body.MOON, Body.MERCURY, Body.VENUS, Body.EARTH, Body.MARS -> true
+        else -> false
+    }
 
     // -------------------------------------------------------- alignments
 
@@ -322,7 +325,45 @@ object Orrery {
     private fun moonRingFraction(): Float = MOON_RING
 
     private const val INNERMOST = 0.20f
-    private const val OUTERMOST = 0.94f
+    /**
+     * The outermost ring, as a fraction of the dial.
+     *
+     * A little inside the rim, which is where the day marks live. It used
+     * to be 0.94 here *and* another 0.94 in the drawing, so the two agreed
+     * about the picture and disagreed about the arithmetic: [MAX_ZOOM]
+     * thought it was putting the Earth on the rim and was putting it six
+     * per cent short of it.
+     */
+    private const val OUTERMOST = 0.88f
+
+    /**
+     * How far the rings can be pushed out: until the Earth's orbit is the
+     * one on the rim.
+     *
+     * That is the end of the journey and not an arbitrary limit. With the
+     * Earth on the rim, one turn of the dial is one year, and the face can
+     * be marked out in days the way an ordinary one is marked out in hours.
+     * Anything beyond it would be a calendar with no year on it.
+     */
+    val MAX_ZOOM: Float = OUTERMOST / ringFraction(Body.EARTH)
+
+    /**
+     * How far out the days of the year have come, 0 to 1.
+     *
+     * They arrive over the last third of the journey rather than at the
+     * end of it: three hundred and sixty-five marks appearing in one frame
+     * is a flicker, and appearing gradually they read as something the
+     * zoom is uncovering.
+     */
+    fun dayMarkFade(zoom: Float): Float {
+        val from = 1f + (MAX_ZOOM - 1f) * 0.62f
+        if (zoom <= from) return 0f
+        return ((zoom - from) / (MAX_ZOOM - from)).coerceIn(0f, 1f)
+    }
+
+    /** Days in a civil year: 366 in a leap year, 365 otherwise. */
+    fun daysInYear(year: Int): Int =
+        CivilDays.epochDay(year + 1, 1, 1) - CivilDays.epochDay(year, 1, 1)
 
     /** The Moon's orbit, as a fraction of the dial — a small ring on Earth's. */
     const val MOON_RING = 0.055f

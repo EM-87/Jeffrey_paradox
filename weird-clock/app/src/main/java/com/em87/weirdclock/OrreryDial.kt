@@ -57,8 +57,14 @@ object OrreryDial {
      * alphabet (straw is still straw next to Mars's rust) while giving each
      * one an edge against the face it sits on.
      */
-    private fun colourOf(body: Orrery.Body, theme: ClockTheme): Int {
+    internal fun colourOf(body: Orrery.Body, theme: ClockTheme): Int {
         val raw = colours.getValue(body)
+        // Night first, and by the same thirty per cent the whole dial drops
+        // to. These colours do not follow the theme — that is the point of
+        // them — but "not themed" was being read as "not dimmed", and eight
+        // bright planets over a dial turned down for the bedroom is worse
+        // than no dial at all.
+        if (theme.dimmed) return darkened(raw, 0.70f)
         if (!isPale(theme.face)) return raw
         return darkened(raw, 0.42f)
     }
@@ -106,12 +112,27 @@ object OrreryDial {
 
     // ------------------------------------------------------------ geometry
 
-    /** How far out a body's ring is, in pixels. */
-    fun ringRadius(body: Orrery.Body, r: Float): Float = Orrery.ringFraction(body) * r * 0.94f
+    /**
+     * How far out a body's ring is, in pixels.
+     *
+     * [zoom] pushes the whole system outwards. At 1 the eight rings fill the
+     * dial; at [Orrery.MAX_ZOOM] the Earth's is the one on the rim and the
+     * four outer planets have gone off the edge of it.
+     */
+    fun ringRadius(body: Orrery.Body, r: Float, zoom: Float = 1f): Float =
+        Orrery.ringFraction(body) * r * zoom
 
-    /** How big a body is drawn, in pixels. */
-    fun dotRadius(body: Orrery.Body, r: Float): Float =
-        r * 0.052f * (sizes[body] ?: 0.4f)
+    /**
+     * How big a body is drawn, in pixels.
+     *
+     * The planets grow with the zoom, which is the point of zooming: the
+     * Earth is a dozen pixels across at rest and the Moon half that, and
+     * two things that small are not things a finger can choose between.
+     * Not the full factor, or Jupiter would fill a quarter of the face —
+     * enough to make the small ones reachable.
+     */
+    fun dotRadius(body: Orrery.Body, r: Float, zoom: Float = 1f): Float =
+        r * 0.052f * (sizes[body] ?: 0.4f) * (1f + (zoom - 1f) * 0.75f)
 
     /**
      * Where a body sits on the dial.
@@ -128,14 +149,15 @@ object OrreryDial {
         cy: Float,
         r: Float,
         atMs: Long,
-        moonLongitude: Double
+        moonLongitude: Double,
+        zoom: Float = 1f
     ): PointF {
         if (body == Orrery.Body.MOON) {
-            val earth = positionOf(Orrery.Body.EARTH, cx, cy, r, atMs, moonLongitude)
-            val ring = Orrery.MOON_RING * r
+            val earth = positionOf(Orrery.Body.EARTH, cx, cy, r, atMs, moonLongitude, zoom)
+            val ring = Orrery.MOON_RING * r * (1f + (zoom - 1f) * 0.75f)
             return pointOn(earth.x, earth.y, ring, moonLongitude)
         }
-        return pointOn(cx, cy, ringRadius(body, r), Orrery.longitude(body, atMs))
+        return pointOn(cx, cy, ringRadius(body, r, zoom), Orrery.longitude(body, atMs))
     }
 
     private fun pointOn(cx: Float, cy: Float, radius: Float, longitudeDeg: Double): PointF {
@@ -167,17 +189,21 @@ object OrreryDial {
         cy: Float,
         r: Float,
         atMs: Long,
-        moonLongitude: Double
+        moonLongitude: Double,
+        zoom: Float = 1f
     ): Orrery.Body? {
         var best: Orrery.Body? = null
         var bestGap = Float.MAX_VALUE
         for (body in Orrery.planets + Orrery.Body.MOON) {
-            val p = positionOf(body, cx, cy, r, atMs, moonLongitude)
+            val p = positionOf(body, cx, cy, r, atMs, moonLongitude, zoom)
+            // A planet the zoom has pushed off the edge of the dial is not
+            // there to be taken hold of.
+            if (hypot(p.x - cx, p.y - cy) > r) continue
             val gap = hypot(x - p.x, y - p.y)
             // Room around the smallest ones: Mercury is four pixels across
             // on a phone, and a target has to be bigger than the thing it
             // is a target for.
-            val reach = maxOf(dotRadius(body, r) * 2.4f, r * 0.055f)
+            val reach = maxOf(dotRadius(body, r, zoom) * 2.4f, r * 0.055f)
             if (gap < reach && gap < bestGap) {
                 best = body
                 bestGap = gap
@@ -208,27 +234,125 @@ object OrreryDial {
         moonLongitude: Double,
         aligned: List<Orrery.Body> = emptyList(),
         detachedMoon: Boolean = false,
-        grabbed: Orrery.Body? = null
+        grabbed: Orrery.Body? = null,
+        zoom: Float = 1f,
+        busyDays: Set<Int> = emptySet(),
+        fallen: Set<Orrery.Body> = emptySet()
     ) {
         if (alpha <= 0.01f) return
         val a = alpha.coerceIn(0f, 1f)
 
-        drawRings(canvas, cx, cy, r, theme, a)
-        if (aligned.size >= 3) drawAlignment(canvas, cx, cy, r, theme, atMs, aligned, a)
-        drawSun(canvas, cx, cy, r, a)
+        drawRings(canvas, cx, cy, r, theme, a, zoom)
+        val days = Orrery.dayMarkFade(zoom)
+        if (days > 0f) drawYearOfDays(canvas, cx, cy, r, theme, atMs, a * days, busyDays)
+        if (aligned.size >= 3) drawAlignment(canvas, cx, cy, r, theme, atMs, aligned, a, zoom)
+        drawSun(canvas, cx, cy, r, theme, a)
 
         for (body in Orrery.planets) {
-            val p = positionOf(body, cx, cy, r, atMs, moonLongitude)
-            if (body == Orrery.Body.SATURN) drawSaturnsRing(canvas, p.x, p.y, r, theme, a)
-            drawBody(canvas, p.x, p.y, dotRadius(body, r), colourOf(body, theme), a)
-            if (body == grabbed) drawHeld(canvas, p.x, p.y, dotRadius(body, r), theme, a)
-            if (body == Orrery.Body.EARTH) {
-                drawMoon(canvas, cx, cy, r, theme, atMs, moonLongitude, detachedMoon, a, grabbed)
+            // A planet that has been knocked off its orbit is lying in the
+            // case, and the case draws it.
+            if (body in fallen) continue
+            val p = positionOf(body, cx, cy, r, atMs, moonLongitude, zoom)
+            // Pushed off the edge by the zoom: not drawn rather than drawn
+            // outside the case, which would put Neptune on the wallpaper.
+            if (hypot(p.x - cx, p.y - cy) > r) continue
+            val dot = dotRadius(body, r, zoom)
+            if (body == Orrery.Body.SATURN) drawSaturnsRing(canvas, p.x, p.y, r, theme, a, zoom)
+            drawBody(canvas, p.x, p.y, dot, colourOf(body, theme), a)
+            if (body == grabbed) drawHeld(canvas, p.x, p.y, dot, theme, a)
+            if (body == Orrery.Body.EARTH && Orrery.Body.MOON !in fallen) {
+                drawMoon(canvas, cx, cy, r, theme, atMs, moonLongitude, detachedMoon, a, grabbed, zoom)
             }
         }
     }
 
-    private fun drawRings(canvas: Canvas, cx: Float, cy: Float, r: Float, theme: ClockTheme, a: Float) {
+    /**
+     * The year the dial is standing in, marked out in days.
+     *
+     * Each mark sits where the Earth actually stands on that day, not at an
+     * even three hundred and sixty-fifth of the circle. That costs a Kepler
+     * solve per day and buys two things: the Earth is always exactly on
+     * today's mark, and the leap year needs no special case at all — a leap
+     * year simply has one more mark on it, in its own place.
+     *
+     * The first of each month is drawn longer, because a ring of identical
+     * ticks is a texture rather than a calendar.
+     */
+    private fun drawYearOfDays(
+        canvas: Canvas,
+        cx: Float,
+        cy: Float,
+        r: Float,
+        theme: ClockTheme,
+        atMs: Long,
+        alpha: Float,
+        busyDays: Set<Int>
+    ) {
+        val year = CivilDays.dateOf(CivilDays.dayOf(atMs, 0)).first
+        val first = CivilDays.epochDay(year, 1, 1)
+        val today = CivilDays.dayOf(TimeKeeper.nowMs(), 0)
+        val rim = r * 0.94f
+        for (i in 0 until Orrery.daysInYear(year)) {
+            val day = first + i
+            val angle = Orrery.longitude(Orrery.Body.EARTH, day * CivilDays.DAY_MS)
+            val monthStart = CivilDays.dateOf(day).third == 1
+            val inner = rim - r * (if (monthStart) 0.045f else 0.022f)
+            val from = pointOn(cx, cy, inner, angle)
+            val to = pointOn(cx, cy, rim, angle)
+            stroke.color = theme.numeral
+            stroke.alpha = ((if (monthStart) 150 else 70) * alpha).toInt()
+            stroke.strokeWidth = r * (if (monthStart) 0.006f else 0.003f)
+            canvas.drawLine(from.x, from.y, to.x, to.y, stroke)
+
+            if (day in busyDays) {
+                // Outside the rim, where nothing else is: how full the year
+                // has been, and how full it is about to get, read round the
+                // dial at a glance. Past days grey, days to come bright.
+                val dot = pointOn(cx, cy, rim + r * 0.035f, angle)
+                fill.color = theme.numeral
+                fill.alpha = ((if (day < today) 90 else 230) * alpha).toInt()
+                canvas.drawCircle(dot.x, dot.y, r * 0.011f, fill)
+            }
+        }
+    }
+
+    /**
+     * Which day of the year a touch outside the rim is pointing at, or null
+     * if it is nowhere near the ring of dots.
+     */
+    fun dayAt(
+        x: Float,
+        y: Float,
+        cx: Float,
+        cy: Float,
+        r: Float,
+        atMs: Long,
+        zoom: Float
+    ): Int? {
+        if (Orrery.dayMarkFade(zoom) <= 0f) return null
+        val out = hypot(x - cx, y - cy)
+        val ring = r * 0.94f + r * 0.035f
+        if (kotlin.math.abs(out - ring) > r * 0.06f) return null
+        val angle = longitudeOf(cx, cy, x, y)
+        val year = CivilDays.dateOf(CivilDays.dayOf(atMs, 0)).first
+        val first = CivilDays.epochDay(year, 1, 1)
+        var best: Int? = null
+        var bestGap = 360.0
+        for (i in 0 until Orrery.daysInYear(year)) {
+            val day = first + i
+            val gap = Orrery.separation(
+                angle, Orrery.longitude(Orrery.Body.EARTH, day * CivilDays.DAY_MS)
+            )
+            if (gap < bestGap) { bestGap = gap; best = day }
+        }
+        // Within a day and a half of a mark, or it was a touch on the case.
+        return if (bestGap < 1.5) best else null
+    }
+
+    private fun drawRings(
+        canvas: Canvas, cx: Float, cy: Float, r: Float,
+        theme: ClockTheme, a: Float, zoom: Float
+    ) {
         stroke.color = theme.minorTick
         stroke.strokeWidth = r * 0.004f
         for (body in Orrery.planets) {
@@ -236,13 +360,21 @@ object OrreryDial {
             // stops eight concentric circles reading as a target.
             val depth = Orrery.planets.indexOf(body) / (Orrery.planets.size - 1f)
             stroke.alpha = ((90 - 40 * depth) * a).toInt()
-            canvas.drawCircle(cx, cy, ringRadius(body, r), stroke)
+            val radius = ringRadius(body, r, zoom)
+            // A circle drawn round the same centre and wider than the case
+            // has no part of it inside the case, so there is nothing to
+            // clip — it is simply not drawn. Clipping to the square the
+            // dial sits in was not enough: the corners of that square are
+            // outside the round face, and Jupiter's orbit came out as four
+            // arcs lying on the wallpaper.
+            if (radius > r) continue
+            canvas.drawCircle(cx, cy, radius, stroke)
         }
     }
 
-    private fun drawSun(canvas: Canvas, cx: Float, cy: Float, r: Float, a: Float) {
+    private fun drawSun(canvas: Canvas, cx: Float, cy: Float, r: Float, theme: ClockTheme, a: Float) {
         val sr = r * 0.055f
-        fill.color = SUN
+        fill.color = if (theme.dimmed) darkened(SUN, 0.70f) else SUN
         fill.alpha = (60 * a).toInt()
         canvas.drawCircle(cx, cy, sr * 1.75f, fill)
         fill.alpha = (255 * a).toInt()
@@ -259,8 +391,11 @@ object OrreryDial {
      * Saturn's ring, which is the only reason anybody can tell Saturn from
      * Jupiter at four pixels across.
      */
-    private fun drawSaturnsRing(canvas: Canvas, x: Float, y: Float, r: Float, theme: ClockTheme, a: Float) {
-        val rad = dotRadius(Orrery.Body.SATURN, r)
+    private fun drawSaturnsRing(
+        canvas: Canvas, x: Float, y: Float, r: Float,
+        theme: ClockTheme, a: Float, zoom: Float
+    ) {
+        val rad = dotRadius(Orrery.Body.SATURN, r, zoom)
         oval.set(x - rad * 2.1f, y - rad * 0.55f, x + rad * 2.1f, y + rad * 0.55f)
         stroke.color = colourOf(Orrery.Body.SATURN, theme)
         stroke.alpha = (210 * a).toInt()
@@ -287,16 +422,18 @@ object OrreryDial {
         moonLongitude: Double,
         detached: Boolean,
         a: Float,
-        grabbed: Orrery.Body?
+        grabbed: Orrery.Body?,
+        zoom: Float
     ) {
-        val earth = positionOf(Orrery.Body.EARTH, cx, cy, r, atMs, moonLongitude)
+        val earth = positionOf(Orrery.Body.EARTH, cx, cy, r, atMs, moonLongitude, zoom)
         stroke.color = theme.minorTick
         stroke.alpha = ((if (detached) 40 else 70) * a).toInt()
         stroke.strokeWidth = r * 0.003f
-        canvas.drawCircle(earth.x, earth.y, Orrery.MOON_RING * r, stroke)
+        val moonRing = Orrery.MOON_RING * r * (1f + (zoom - 1f) * 0.75f)
+        canvas.drawCircle(earth.x, earth.y, moonRing, stroke)
 
-        val p = positionOf(Orrery.Body.MOON, cx, cy, r, atMs, moonLongitude)
-        val rad = dotRadius(Orrery.Body.MOON, r)
+        val p = positionOf(Orrery.Body.MOON, cx, cy, r, atMs, moonLongitude, zoom)
+        val rad = dotRadius(Orrery.Body.MOON, r, zoom)
         if (detached) {
             // Let go of the mechanism: an outline, so it is plainly not
             // being driven rather than plainly broken.
@@ -341,13 +478,14 @@ object OrreryDial {
         theme: ClockTheme,
         atMs: Long,
         bodies: List<Orrery.Body>,
-        a: Float
+        a: Float,
+        zoom: Float
     ) {
         val first = Orrery.longitude(bodies.first(), atMs)
         val middle = Orrery.wrap(
             first + bodies.sumOf { Orrery.shortWay(first, Orrery.longitude(it, atMs)) } / bodies.size
         )
-        val out = bodies.maxOf { ringRadius(it, r) } * 1.06f
+        val out = (bodies.maxOf { ringRadius(it, r, zoom) } * 1.06f).coerceAtMost(r * 0.98f)
         val end = pointOn(cx, cy, out, middle)
         stroke.color = theme.secondHand
         stroke.alpha = (120 * a).toInt()

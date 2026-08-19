@@ -37,7 +37,7 @@ internal class DialDebris(private val dial: Case) {
         fun wallAt(angleDeg: Float): Float
     }
 
-    enum class Kind { HAND, FAST_HAND, NUMERAL, MOON, DATE }
+    enum class Kind { HAND, FAST_HAND, NUMERAL, MOON, DATE, PLANET }
 
     class Body(
         val kind: Kind,
@@ -63,7 +63,15 @@ internal class DialDebris(private val dial: Case) {
          * why the sun could set while it lay there.
          */
         val frozenTimeOfDayMs: Long = 0L,
-        val frozenWallMs: Long = 0L
+        val frozenWallMs: Long = 0L,
+        /**
+         * For a planet: the colour it was drawn in.
+         *
+         * A planet on the floor of the case is no longer a function of the
+         * date, so it cannot be asked what colour it is — it has to bring
+         * the colour with it.
+         */
+        val colour: Int = 0
     )
 
     val bodies = ArrayList<Body>()

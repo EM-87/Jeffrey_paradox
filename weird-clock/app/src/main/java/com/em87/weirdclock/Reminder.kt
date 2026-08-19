@@ -141,7 +141,7 @@ object ReminderStore {
 
     private const val KEY = "pref_reminders_json"
 
-    private const val NINETY_DAYS_MS = 90L * 86_400_000L
+    private const val A_YEAR_MS = 366L * 86_400_000L
 
     private var shared: MutableList<Reminder>? = null
 
@@ -201,10 +201,15 @@ object ReminderStore {
         }
         // A reminder that has passed is still worth having: the calendar
         // lets you open a spent day to read what it held, and that only
-        // works if it is still there. They keep for three months — long
-        // enough to look back over a season, short enough that the store
-        // does not grow forever. Repeating ones never expire.
-        val cutoff = System.currentTimeMillis() - NINETY_DAYS_MS
+        // works if it is still there.
+        //
+        // They keep for a year, which used to be three months. The year is
+        // what the solar system needs: zoom the Earth's orbit out to the rim
+        // and every day of it gets a mark, with a dot on the ones that were
+        // busy — and a whole turn of the Earth is exactly a year of them.
+        // Three months of memory would have left three quarters of that
+        // circle blank whatever the year had actually held.
+        val cutoff = System.currentTimeMillis() - A_YEAR_MS
         list.removeAll { it.repeat == Reminder.REPEAT_NEVER && it.timeInMillis() < cutoff }
         return list
     }
