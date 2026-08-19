@@ -65,12 +65,31 @@ class BellPriorityTest {
 
     // ------------------------------------------------- how long it waits
 
-    /** With the alarm first there is no waiting, whatever the bells are doing. */
+    /**
+     * With the alarm first there is no waiting, whatever the bells are
+     * doing — and the same with nothing chosen at all.
+     *
+     * The unset case is the one that matters most and the one this test
+     * was missing: it is what every phone already carrying this app will
+     * be running tomorrow morning, without anybody having chosen anything.
+     * A sabotage that made an unset preference wait out the bells broke
+     * nothing here until this line was added.
+     */
     @Test
     fun `the alarm does not wait when it has the right of way`() {
         assertEquals(
             0L,
             Bells.alarmHoldMs(Bells.PRIORITY_ALARM, soundingUntilMs = 90_000L, nowMs = 80_000L)
+        )
+        assertEquals(
+            "an alarm was held up by the bells on a phone that had chosen nothing",
+            0L,
+            Bells.alarmHoldMs(null, soundingUntilMs = 90_000L, nowMs = 80_000L)
+        )
+        assertEquals(
+            "and by a setting from some future version nobody here knows about",
+            0L,
+            Bells.alarmHoldMs("whatever", soundingUntilMs = 90_000L, nowMs = 80_000L)
         )
     }
 
