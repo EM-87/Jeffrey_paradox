@@ -122,6 +122,14 @@
 
     <PreferenceCategory android:title="@string/category_backup">
 
+        <!-- The automatic half, first, because it is the one that saves
+             somebody who never thinks about backups — which is everybody,
+             until the morning they need one. -->
+        <Preference
+            android:key="pref_backup_folder"
+            android:summary="@string/pref_backup_folder_summary"
+            android:title="@string/pref_backup_folder_title" />
+
         <Preference
             android:key="pref_backup_export"
             android:summary="@string/pref_backup_export_summary"

@@ -66,6 +66,15 @@
             android:label="@string/settings_title"
             android:parentActivityName=".MainActivity" />
 
+        <!-- Opened from the gear on the widget itself. Exported, because
+             the thing that starts it is a pending intent held by the
+             launcher, and a launcher is another app. -->
+        <activity
+            android:name=".WidgetSettingsActivity"
+            android:exported="true"
+            android:label="@string/widget_settings_title"
+            android:excludeFromRecents="true" />
+
         <activity
             android:name=".BpmActivity"
             android:exported="false"

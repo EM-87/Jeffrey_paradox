@@ -196,6 +196,19 @@ class ClockWidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widget_analog_clock, openApp)
+            // The gear opens the one thing that can only be decided while
+            // looking at the home screen. Its own request code per widget,
+            // so two widgets do not share one intent.
+            views.setOnClickPendingIntent(
+                R.id.widget_gear,
+                PendingIntent.getActivity(
+                    context,
+                    id,
+                    Intent(context, WidgetSettingsActivity::class.java)
+                        .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            )
 
             if (Build.VERSION.SDK_INT >= 31) {
                 val prefs = PreferenceManager.getDefaultSharedPreferences(context)
@@ -204,27 +217,29 @@ class ClockWidgetProvider : AppWidgetProvider() {
                 // On polygonal dials the rotating hand bitmaps must fit the
                 // inscribed circle, or they'd poke through the flat edges.
                 val fit = WidgetRenderer.handFitFraction(context)
+                // Everything fades together. A solid hand over a ghost of a
+                // face is not a transparent clock, it is a broken one.
+                val alpha = WidgetRenderer.opacity(prefs.getInt(Prefs.WIDGET_ALPHA, 100))
+                fun faded(bitmap: android.graphics.Bitmap) =
+                    Icon.createWithBitmap(WidgetRenderer.faded(bitmap, alpha))
                 views.setIcon(
                     R.id.widget_analog_clock, "setDial",
-                    Icon.createWithBitmap(WidgetRenderer.dialBitmap(context, size))
+                    faded(WidgetRenderer.dialBitmap(context, size))
                 )
                 views.setIcon(
                     R.id.widget_analog_clock, "setHourHand",
-                    Icon.createWithBitmap(WidgetRenderer.handBitmap(size, theme.hourHand, 0.52f * fit, 0.10f, 0.045f))
+                    faded(WidgetRenderer.handBitmap(size, theme.hourHand, 0.52f * fit, 0.10f, 0.045f))
                 )
                 views.setIcon(
                     R.id.widget_analog_clock, "setMinuteHand",
-                    Icon.createWithBitmap(WidgetRenderer.handBitmap(size, theme.minuteHand, 0.74f * fit, 0.12f, 0.03f))
+                    faded(WidgetRenderer.handBitmap(size, theme.minuteHand, 0.74f * fit, 0.12f, 0.03f))
                 )
                 val secondHand = if (prefs.getBoolean(Prefs.SECOND_HAND, true)) {
                     WidgetRenderer.handBitmap(size, theme.secondHand, 0.82f * fit, 0.18f, 0.012f)
                 } else {
                     WidgetRenderer.emptyBitmap()
                 }
-                views.setIcon(
-                    R.id.widget_analog_clock, "setSecondHand",
-                    Icon.createWithBitmap(secondHand)
-                )
+                views.setIcon(R.id.widget_analog_clock, "setSecondHand", faded(secondHand))
             }
             return views
         }

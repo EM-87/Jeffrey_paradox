@@ -27,7 +27,112 @@ import org.json.JSONObject
 object Backup {
 
     private const val MAGIC = "weird-clock-backup"
-    private const val VERSION = 1
+
+    /**
+     * What shape this file is in.
+     *
+     * Written into every file and read back out of one. A file from a
+     * later version than this build understands is refused rather than
+     * half-read: restoring a photograph of a clock with the parts you do
+     * not recognise silently dropped is how somebody loses the alarms they
+     * came to this file for.
+     *
+     * 1 — the preference store, typed.
+     * 2 — the same, plus dated restore points written without being asked.
+     */
+    const val VERSION = 2
+
+    /**
+     * Whether a file claims to come from a later version of the app.
+     *
+     * Version 1 files have no such claim and are read as they always were;
+     * everything this build writes claims 2. Anything above is a file this
+     * build cannot honestly promise to restore.
+     */
+    fun tooNew(json: String): Boolean {
+        val root = try {
+            JSONObject(json)
+        } catch (e: org.json.JSONException) {
+            return false
+        }
+        return root.optInt("version", 1) > VERSION
+    }
+
+    // ------------------------------------------------- the restore points
+
+    /** The name a restore point written at [atMs] is filed under. */
+    fun nameFor(atMs: Long): String {
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = atMs }
+        return String.format(
+            java.util.Locale.US, "%s-%04d-%02d-%02d.json", FILE_STEM,
+            cal.get(java.util.Calendar.YEAR),
+            cal.get(java.util.Calendar.MONTH) + 1,
+            cal.get(java.util.Calendar.DAY_OF_MONTH)
+        )
+    }
+
+    /** The stem every restore point's name begins with. */
+    const val FILE_STEM = "weird-clock"
+
+    /**
+     * The day a restore point was written, from its name, or null if the
+     * name is not one of ours.
+     *
+     * Read from the name rather than from the file, so a folder full of
+     * them can be sorted and pruned without opening any of them — and so a
+     * file somebody else put there is left alone rather than counted as a
+     * backup and deleted to make room.
+     */
+    fun savedOn(name: String): Int? {
+        val m = Regex("^${Regex.escape(FILE_STEM)}-(\\d{4})-(\\d{2})-(\\d{2})\\.json$")
+            .find(name) ?: return null
+        val (y, mo, d) = m.destructured
+        return CivilDays.epochDay(y.toInt(), mo.toInt(), d.toInt())
+    }
+
+    /**
+     * Whether it is worth writing another restore point.
+     *
+     * One a day. More often would fill the folder with fifty copies of a
+     * Tuesday and push out the week you actually want; less often and a
+     * day's work — a new alarm, a month of the cycle — could go missing
+     * between two of them.
+     *
+     * [lastMs] of zero means there has never been one, which is always due.
+     */
+    fun dueFor(lastMs: Long, nowMs: Long): Boolean {
+        if (lastMs <= 0L) return true
+        // Forward only in the sense that matters: a clock corrected
+        // backwards must not stop the backups for a day, so any change of
+        // civil day either way is a new day.
+        return dayOf(lastMs) != dayOf(nowMs)
+    }
+
+    private fun dayOf(ms: Long): Int {
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = ms }
+        return CivilDays.epochDay(
+            cal.get(java.util.Calendar.YEAR),
+            cal.get(java.util.Calendar.MONTH) + 1,
+            cal.get(java.util.Calendar.DAY_OF_MONTH)
+        )
+    }
+
+    /** How many days of restore points are worth keeping. */
+    const val KEEP = 7
+
+    /**
+     * Which of [names] should be deleted to leave [keep] restore points.
+     *
+     * The oldest go. Anything in the folder that is not one of ours is not
+     * in the answer at all — it is somebody else's file in somebody else's
+     * folder, and a backup feature that tidies up around itself is a
+     * backup feature that deletes a wedding photograph.
+     */
+    fun prune(names: List<String>, keep: Int = KEEP): List<String> {
+        val ours = names.mapNotNull { name -> savedOn(name)?.let { it to name } }
+        if (ours.size <= keep) return emptyList()
+        return ours.sortedByDescending { it.first }.drop(keep).map { it.second }
+    }
 
     /** Keys that describe this install rather than this user's clock. */
     private val SKIP = setOf(
@@ -42,7 +147,13 @@ object Backup {
         // with it. Restored onto another phone or another week they would
         // be a promise about an alarm that no longer exists.
         Prefs.NAG_AT,
-        Prefs.NAG_ROUNDS
+        Prefs.NAG_ROUNDS,
+        // Where this phone keeps its restore points, and when it last
+        // wrote one. Both describe the arrangement rather than the clock,
+        // and a folder from another phone is a folder this one cannot
+        // write to.
+        Prefs.BACKUP_FOLDER,
+        Prefs.BACKUP_AT
     )
 
     fun export(context: Context): String {
@@ -71,6 +182,51 @@ object Backup {
             .toString(2)
     }
 
+    // ------------------------------------------- writing one without being asked
+
+    /**
+     * Writes today's restore point, if there is a folder to write it in and
+     * one is due.
+     *
+     * Called wherever something worth keeping changes rather than on a
+     * schedule: a clock nobody has touched since yesterday has nothing new
+     * to save, and a phone that is switched off at midnight would miss a
+     * timed one anyway.
+     *
+     * Everything here can fail for reasons that are none of the user's
+     * business — a folder on a card that has been taken out, a permission
+     * the system dropped — and none of them is worth interrupting somebody
+     * for. A restore point that could not be written is not a broken
+     * alarm; it is a backup that will be written tomorrow instead.
+     */
+    fun autoSave(context: Context, nowMs: Long = System.currentTimeMillis()): Boolean {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val folder = prefs.getString(Prefs.BACKUP_FOLDER, "").orEmpty()
+        if (folder.isBlank()) return false
+        if (!dueFor(prefs.getLong(Prefs.BACKUP_AT, 0L), nowMs)) return false
+        return try {
+            val tree = androidx.documentfile.provider.DocumentFile.fromTreeUri(
+                context, android.net.Uri.parse(folder)
+            ) ?: return false
+            if (!tree.canWrite()) return false
+            val name = nameFor(nowMs)
+            // Today's is replaced rather than joined: two files for one day
+            // is one file too many, and the later one is the truer.
+            tree.findFile(name)?.delete()
+            val file = tree.createFile("application/json", name) ?: return false
+            context.contentResolver.openOutputStream(file.uri)?.use { out ->
+                out.write(export(context).toByteArray())
+            } ?: return false
+            for (stale in prune(tree.listFiles().mapNotNull { it.name })) {
+                tree.findFile(stale)?.delete()
+            }
+            prefs.edit().putLong(Prefs.BACKUP_AT, nowMs).apply()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     /** What a restored file turned out to hold. */
     data class Restored(val alarms: Int, val reminders: Int)
 
@@ -88,6 +244,11 @@ object Backup {
             return null
         }
         if (root.optString("magic") != MAGIC) return null
+        // A file from a later version of the app. Refused rather than
+        // half-read: restoring a photograph of a clock with the parts this
+        // build does not recognise silently dropped is how somebody loses
+        // the very alarms they opened the file for.
+        if (root.optInt("version", 1) > VERSION) return null
         val entries = root.optJSONObject("entries") ?: return null
 
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)

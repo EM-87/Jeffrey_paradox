@@ -159,6 +159,12 @@
     <string name="alarm_when_weekday">%1$s at %2$s</string>
     <string name="alarms_by_time">By time</string>
     <string name="alarm_sound_system">A sound from the phone</string>
+    <string name="pref_backup_folder_title">Automatic backups</string>
+    <string name="pref_backup_folder_summary">Choose a folder and the clock keeps a week of daily restore points in it</string>
+    <string name="pref_backup_folder_where">Kept in %1$s, one a day, a week at a time</string>
+    <string name="backup_folder_refused">That folder cannot be written to</string>
+    <string name="widget_settings_title">Widget transparency</string>
+    <string name="widget_alpha_reading">%1$d%% solid</string>
     <string name="alarm_off_title">Turn this alarm off</string>
     <string name="alarm_off_message">It is next due %1$s.</string>
     <string name="alarm_off_once">Just that one</string>

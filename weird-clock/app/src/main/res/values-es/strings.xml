@@ -115,6 +115,12 @@
     <string name="alarm_when_weekday">el %1$s a las %2$s</string>
     <string name="alarms_by_time">Por hora</string>
     <string name="alarm_sound_system">Un sonido del teléfono</string>
+    <string name="pref_backup_folder_title">Copias automáticas</string>
+    <string name="pref_backup_folder_summary">Elige una carpeta y el reloj guarda en ella una semana de puntos de restauración diarios</string>
+    <string name="pref_backup_folder_where">En %1$s, uno al día, una semana cada vez</string>
+    <string name="backup_folder_refused">No se puede escribir en esa carpeta</string>
+    <string name="widget_settings_title">Transparencia del widget</string>
+    <string name="widget_alpha_reading">%1$d%% opaco</string>
     <string name="alarm_off_title">Desactivar esta alarma</string>
     <string name="alarm_off_message">La próxima le toca %1$s.</string>
     <string name="alarm_off_once">Solo esa</string>

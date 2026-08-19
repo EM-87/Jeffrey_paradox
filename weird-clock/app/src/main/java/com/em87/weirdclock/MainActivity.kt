@@ -2164,6 +2164,26 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         AlarmStore.save(this)
         AlarmScheduler.update(this)
         refreshAlarmsUi()
+        keepARestorePoint()
+    }
+
+    /**
+     * Today's restore point, if there is a folder for it and today has not
+     * had one yet.
+     *
+     * Hung off the moments something worth keeping changes rather than off
+     * a schedule: a clock nobody has touched since yesterday has nothing
+     * new to save, and a phone switched off at midnight would miss a timed
+     * one anyway. [Backup.autoSave] decides whether there is anything to
+     * do — this is only the list of moments worth asking at.
+     *
+     * Off the main thread, because it writes a file to a folder that may
+     * be on a memory card or behind a cloud provider, and nothing about a
+     * backup is worth a dropped frame.
+     */
+    private fun keepARestorePoint() {
+        val app = applicationContext
+        kotlin.concurrent.thread(name = "restore-point") { Backup.autoSave(app) }
     }
 
     private fun refreshAlarmsUi() {
@@ -2417,6 +2437,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         AlarmScheduler.update(this)
         refreshCalendarMarks()
         updateAlarmMarkers()
+        keepARestorePoint()
     }
 
     private fun onCalendarDayTap(day: Int) {

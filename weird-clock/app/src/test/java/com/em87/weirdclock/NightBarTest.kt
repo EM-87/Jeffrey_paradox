@@ -246,7 +246,7 @@ class NightBarTest {
                 "pref_shake_drop",
                 "pref_countdown_float",
                 "pref_solar_time", "pref_system_time", "pref_time_speed",
-                "pref_backup_export", "pref_backup_import"
+                "pref_backup_folder", "pref_backup_export", "pref_backup_import"
             )
         )
         for ((xml, expected) in screens) {

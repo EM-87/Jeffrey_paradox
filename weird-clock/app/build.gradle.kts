@@ -11,8 +11,8 @@ android {
         applicationId = "com.em87.weirdclock"
         minSdk = 24
         targetSdk = 35
-        versionCode = 143
-        versionName = "20.4"
+        versionCode = 144
+        versionName = "20.5"
     }
 
     // Shared signing key committed to the repo, so every APK — built on any
@@ -94,4 +94,7 @@ dependencies {
     implementation("androidx.dynamicanimation:dynamicanimation:1.0.0")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.viewpager2:viewpager2:1.1.0")
+    // Walking a folder the user has handed over: a tree URI is not a path,
+    // and everything that reads one goes through this.
+    implementation("androidx.documentfile:documentfile:1.0.1")
 }

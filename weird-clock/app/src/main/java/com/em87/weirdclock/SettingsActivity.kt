@@ -589,6 +589,8 @@ class SettingsActivity : AppCompatActivity() {
                 Prefs.SMOOTH_SECONDS, Prefs.FAST_HAND, Prefs.TICKING
             )
 
+            updateBackupFolderSummary()
+
             findPreference<SeekBarPreference>(Prefs.TIME_SPEED)
                 ?.setOnPreferenceChangeListener { _, newValue ->
                     if (newValue != 100) showSpeedWarning()
@@ -654,8 +656,71 @@ class SettingsActivity : AppCompatActivity() {
                     importLauncher.launch(arrayOf("*/*"))
                     return true
                 }
+                Prefs.BACKUP_FOLDER -> {
+                    folderLauncher.launch(null)
+                    return true
+                }
             }
             return super.onPreferenceTreeClick(preference)
+        }
+
+        /**
+         * The folder the app keeps its own restore points in.
+         *
+         * A folder rather than a file, and granted once rather than asked
+         * for each time: the whole point is that it happens without anybody
+         * remembering to do it. Documents is the obvious place and the
+         * picker opens there, but it is the user's choice — a backup they
+         * cannot find is a backup they do not have.
+         */
+        private val folderLauncher =
+            registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+                if (uri == null) return@registerForActivityResult
+                try {
+                    requireContext().contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    )
+                } catch (e: SecurityException) {
+                    Toast.makeText(
+                        requireContext(), R.string.backup_folder_refused, Toast.LENGTH_LONG
+                    ).show()
+                    return@registerForActivityResult
+                }
+                preferenceManager.sharedPreferences?.edit()
+                    ?.putString(Prefs.BACKUP_FOLDER, uri.toString())
+                    // A folder just chosen has nothing in it yet, so the
+                    // first restore point is due now rather than tomorrow.
+                    ?.putLong(Prefs.BACKUP_AT, 0L)
+                    ?.commit()
+                Backup.autoSave(requireContext())
+                updateBackupFolderSummary()
+            }
+
+        /**
+         * The row says where the restore points go, or that nobody has
+         * said yet.
+         *
+         * A row reading only "Automatic backups" gives no way to find out
+         * where they are, which is the one thing you need to know on the
+         * day you want one.
+         */
+        protected fun updateBackupFolderSummary() {
+            val row = findPreference<Preference>(Prefs.BACKUP_FOLDER) ?: return
+            val stored = preferenceManager.sharedPreferences
+                ?.getString(Prefs.BACKUP_FOLDER, "").orEmpty()
+            row.summary = if (stored.isBlank()) {
+                getString(R.string.pref_backup_folder_summary)
+            } else {
+                val tree = androidx.documentfile.provider.DocumentFile.fromTreeUri(
+                    requireContext(), android.net.Uri.parse(stored)
+                )
+                getString(
+                    R.string.pref_backup_folder_where,
+                    tree?.name ?: android.net.Uri.parse(stored).lastPathSegment.orEmpty()
+                )
+            }
         }
 
         /**

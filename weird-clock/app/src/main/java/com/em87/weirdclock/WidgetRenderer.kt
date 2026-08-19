@@ -353,4 +353,37 @@ object WidgetRenderer {
     fun emptyBitmap(): Bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888).apply {
         eraseColor(Color.TRANSPARENT)
     }
+
+    /**
+     * How opaque the widget is drawn, out of 255, from a percentage.
+     *
+     * There is a floor, and it is not nought. A widget you can set to
+     * invisible is a widget you then cannot find to set back — it is still
+     * on the home screen, still taking a square of it, and the only way
+     * out is to guess where it was and long-press the wallpaper. So the
+     * bottom of the slider is faint rather than absent.
+     */
+    fun opacity(percent: Int): Int =
+        (percent.coerceIn(MIN_OPACITY_PERCENT, 100) * 255 / 100)
+
+    /** The faintest a widget may be made, as a percentage. */
+    const val MIN_OPACITY_PERCENT = 15
+
+    /**
+     * The same picture, drawn through at [alpha] out of 255.
+     *
+     * One place rather than a parameter threaded through every bitmap this
+     * file makes: the dial, three hands and whatever comes next all fade
+     * together or the widget comes apart — a solid hand over a ghost of a
+     * face is not a transparent clock, it is a broken one.
+     */
+    fun faded(source: Bitmap, alpha: Int): Bitmap {
+        if (alpha >= 255) return source
+        val out = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+        Canvas(out).drawBitmap(
+            source, 0f, 0f,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { this.alpha = alpha.coerceIn(0, 255) }
+        )
+        return out
+    }
 }

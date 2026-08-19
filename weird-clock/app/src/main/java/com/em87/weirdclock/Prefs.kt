@@ -62,6 +62,23 @@ object Prefs {
     /** How much of the hour the bells mark: the hour, the half, or quarters. */
     const val BELL_MARKS = "pref_bell_marks"
     const val TICKING = "pref_ticking"
+
+    /**
+     * How opaque the clock widget is drawn, as a percentage.
+     *
+     * On the home screen and not in the app's settings, because it is a
+     * decision you make while looking at the wallpaper behind it.
+     */
+    const val WIDGET_ALPHA = "pref_widget_alpha"
+
+    /**
+     * The folder the user has given the app to keep restore points in, as
+     * a persisted tree URI, or blank if nobody has been asked yet.
+     */
+    const val BACKUP_FOLDER = "pref_backup_folder"
+
+    /** When the last restore point was written. */
+    const val BACKUP_AT = "pref_backup_at"
     const val TEST_BELLS = "pref_test_bells"
     // Legacy single-alarm keys, kept only for migration to AlarmStore.
     const val ALARM_ENABLED = "pref_alarm_enabled"
