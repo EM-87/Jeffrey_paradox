@@ -427,47 +427,6 @@ class NightBarTest {
     // ------------------------------------------- which rows sit under which
 
     /**
-     * A row that only makes sense under another one says so by sitting a
-     * step in.
-     *
-     * These lists were flat, so "Bell style" and "Hourly bells" read as two
-     * unrelated questions rather than as a question and its answer — and
-     * turning the first one off made the rest disappear, which is a
-     * behaviour nobody can predict from a list that gives no sign the two
-     * are connected.
-     *
-     * The indent is the reserved icon gutter, which is how a preference
-     * screen shows nesting; what is checked here is that exactly the rows
-     * that are governed by another row have it, and no others. A row that
-     * gains a parent and not the indent, or the indent and not a parent,
-     * both fail.
-     */
-    @Test
-    fun `the nested rows are the ones that are indented`() {
-        val nested = mapOf(
-            R.xml.root_preferences to setOf(
-                // under Hourly bells
-                "pref_bell_marks", "pref_bell_style", "pref_bells_background",
-                "pref_bell_priority", "pref_test_bells",
-                // under Night mode
-                "pref_night_window",
-                // under Moon phase, which is the door the sky is behind
-                "pref_orrery",
-                // under World clock
-                "pref_world_cities"
-            ),
-            R.xml.advanced_preferences to emptySet(),
-            R.xml.very_advanced_preferences to setOf(
-                // under Second hand
-                "pref_smooth_seconds", "pref_fast_hand", "pref_ticking"
-            )
-        )
-        for ((xml, expected) in nested) {
-            assertEquals("in ${'$'}xml", expected, indentedIn(xml))
-        }
-    }
-
-    /**
      * And there is a rule across the page above the two ways down.
      *
      * Without it they read as two more General options — which is what a
@@ -496,27 +455,6 @@ class NightBarTest {
             }
         }
         assertTrue("the ways down hang off the end of the last list", separated)
-    }
-
-    /** Which rows on [xml] carry the indent. */
-    private fun indentedIn(xml: Int): Set<String> {
-        val parser = ApplicationProvider.getApplicationContext<android.content.Context>()
-            .resources.getXml(xml)
-        val keys = HashSet<String>()
-        while (parser.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
-            if (parser.eventType != org.xmlpull.v1.XmlPullParser.START_TAG) continue
-            val key = parser.getAttributeValue(
-                "http://schemas.android.com/apk/res/android", "key"
-            ) ?: continue
-            for (i in 0 until parser.attributeCount) {
-                if (parser.getAttributeName(i) == "iconSpaceReserved" &&
-                    parser.getAttributeValue(i) == "true"
-                ) {
-                    keys.add(key)
-                }
-            }
-        }
-        return keys
     }
 
     // ------------------------------------------------- the row it lives in

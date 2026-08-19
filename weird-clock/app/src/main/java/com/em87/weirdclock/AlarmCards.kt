@@ -316,9 +316,12 @@ class AlarmCards(
             holder.soundName.text = soundLabel(alarm.sound)
             val hasSnooze = alarm.snoozeMinutes > 0
             holder.iconSnooze.visibility = if (hasSnooze) View.VISIBLE else View.GONE
-            holder.snoozeMin.visibility = if (hasSnooze) View.VISIBLE else View.GONE
-            holder.snoozeMin.text =
-                host.getString(R.string.reminder_duration_min, alarm.snoozeMinutes)
+            // The glyph alone. The minutes were there because the number
+            // was known, not because anybody needed it: what a card is for
+            // is what this alarm will do to you, and "there is a snooze" is
+            // that. How long it is for is a question you ask inside the
+            // alarm, where you can change it.
+            holder.snoozeMin.visibility = View.GONE
             holder.iconVibrate.visibility = if (alarm.vibrate) View.VISIBLE else View.GONE
             holder.iconFlash.visibility = if (alarm.flash) View.VISIBLE else View.GONE
             // Two things that are easy to set and then forget, and both
@@ -434,10 +437,50 @@ class AlarmCards(
     private fun paintNextRing(holder: AlarmHolder, alarm: Alarm) {
         holder.next.visibility = if (alarm.enabled) View.VISIBLE else View.GONE
         if (!alarm.enabled) return
+        val now = System.currentTimeMillis()
+        // An alarm standing down for one morning says so. It is armed, and
+        // the line above would otherwise read as an ordinary wait — an
+        // alarm that looks armed and does not ring is worse than one that
+        // is plainly off.
+        if (AlarmScheduler.isSkippingNext(alarm, now)) {
+            holder.next.text = host.getString(
+                R.string.alarm_skipping,
+                whenIs(alarm.skippedOccurrence),
+                whenIs(AlarmScheduler.nextOccurrence(alarm, now))
+            )
+            return
+        }
         holder.next.text = host.getString(
             R.string.alarm_rings_in,
-            describeWait(AlarmScheduler.nextOccurrence(alarm) - System.currentTimeMillis())
+            describeWait(AlarmScheduler.nextOccurrence(alarm, now) - now)
         )
+    }
+
+    /**
+     * A day and a time, in as few words as it takes to be sure which one.
+     *
+     * "Tomorrow 07:00" rather than a date, because everything this is used
+     * for is within the week and a date makes you count.
+     */
+    fun whenIs(at: Long): String {
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = at }
+        val today = java.util.Calendar.getInstance()
+        val time = android.text.format.DateFormat.getTimeFormat(host).format(cal.time)
+        fun dayOf(c: java.util.Calendar) = CivilDays.epochDay(
+            c.get(java.util.Calendar.YEAR),
+            c.get(java.util.Calendar.MONTH) + 1,
+            c.get(java.util.Calendar.DAY_OF_MONTH)
+        )
+        return when (dayOf(cal) - dayOf(today)) {
+            0 -> host.getString(R.string.alarm_when_today, time)
+            1 -> host.getString(R.string.alarm_when_tomorrow, time)
+            else -> host.getString(
+                R.string.alarm_when_weekday,
+                java.text.SimpleDateFormat("EEEE", java.util.Locale.getDefault())
+                    .format(cal.time),
+                time
+            )
+        }
     }
 
     /** "2 d 3 h", "7 h 20 min", "45 min" — as coarse as the wait deserves. */

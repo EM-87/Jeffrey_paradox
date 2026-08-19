@@ -154,6 +154,14 @@
     <string name="alarm_sound_dog">Dog</string>
     <string name="pref_moon_phase_title">Moon phase</string>
     <string name="pref_moon_phase_summary">The sun while the sun is up where you are, otherwise the moon and its phase. Uses your location.</string>
+    <string name="alarm_when_today">today at %1$s</string>
+    <string name="alarm_when_tomorrow">tomorrow at %1$s</string>
+    <string name="alarm_when_weekday">%1$s at %2$s</string>
+    <string name="alarm_off_title">Turn this alarm off</string>
+    <string name="alarm_off_message">It is next due %1$s.</string>
+    <string name="alarm_off_once">Just that one</string>
+    <string name="alarm_off_for_good">Off for good</string>
+    <string name="alarm_skipping">Standing down %1$s · then %2$s</string>
     <string name="pref_alarm_markers_title">Alarms on the dial</string>
     <string name="alarm_markers_card">Show alarms on the dial</string>
     <string name="pref_alarm_markers_summary">Enabled alarms drawn as accent markers at their time on the clock face</string>

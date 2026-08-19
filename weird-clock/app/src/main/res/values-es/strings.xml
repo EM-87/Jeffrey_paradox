@@ -110,6 +110,14 @@
     <string name="alarm_sound_dog">Perro</string>
     <string name="pref_moon_phase_title">Fase lunar</string>
     <string name="pref_moon_phase_summary">El sol mientras el sol está alto donde estás, y si no la luna con su fase. Usa tu ubicación.</string>
+    <string name="alarm_when_today">hoy a las %1$s</string>
+    <string name="alarm_when_tomorrow">mañana a las %1$s</string>
+    <string name="alarm_when_weekday">el %1$s a las %2$s</string>
+    <string name="alarm_off_title">Desactivar esta alarma</string>
+    <string name="alarm_off_message">La próxima le toca %1$s.</string>
+    <string name="alarm_off_once">Solo esa</string>
+    <string name="alarm_off_for_good">Desactivar del todo</string>
+    <string name="alarm_skipping">Se salta %1$s · luego %2$s</string>
     <string name="pref_alarm_markers_title">Alarmas en la esfera</string>
     <string name="alarm_markers_card">Mostrar alarmas en la esfera</string>
     <string name="pref_alarm_markers_summary">Las alarmas activas se dibujan como marcadores en su hora sobre la esfera</string>

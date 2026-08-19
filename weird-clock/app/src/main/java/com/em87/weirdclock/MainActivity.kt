@@ -648,11 +648,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             dialTheme = { clockView?.theme ?: ClockThemes.MIDNIGHT },
             hoursOnDial = ::readHoursOnDial,
             dialShape = ::readDialShape,
-            onToggled = { alarm, checked ->
-                alarm.enabled = checked
-                if (checked) maybeRequestNotificationPermission()
-                persistAlarms()
-            },
+            onToggled = { alarm, checked -> toggleAlarm(alarm, checked) },
             onOpen = { alarm -> showAlarmSheet(alarm) }
         )
         alarmSheet = AlarmSheet(this, alarmCards, alarms, object : AlarmSheet.Callbacks {
@@ -1719,6 +1715,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** For the tests: the dial on the countdown card. */
     internal fun countdownForTest(): ClockView? = countdownClockView
 
+    /** For the tests: the alarms this activity is holding. */
+    internal fun alarmsForTest(): List<Alarm> = alarms
+
+    /** For the tests: the switch on an alarm card, pressed. */
+    internal fun toggleAlarmForTest(alarm: Alarm, checked: Boolean) = toggleAlarm(alarm, checked)
+
     /** For the tests: put the app on a given card. */
     internal fun showCardForTest(card: Card) {
         row = card.row
@@ -1949,6 +1951,53 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     @Suppress("NotifyDataSetChanged")
+    /**
+     * The switch on an alarm card.
+     *
+     * Turning a repeating alarm off is nearly always about one morning —
+     * a day off, a late night — and it is also the commonest way to miss
+     * the morning after, because nobody remembers to put it back. So a
+     * repeating alarm asks which you meant, the way Samsung's does, and
+     * "just tomorrow" leaves it armed with one occurrence let off.
+     *
+     * A one-shot is not asked: skipping its only occurrence and turning it
+     * off are the same thing.
+     */
+    private fun toggleAlarm(alarm: Alarm, checked: Boolean) {
+        if (checked) {
+            alarm.enabled = true
+            // Switching one back on is a decision about now, so it cancels
+            // any morning it was standing down for.
+            alarm.skippedOccurrence = 0L
+            maybeRequestNotificationPermission()
+            persistAlarms()
+            return
+        }
+        if (alarm.once || !alarm.enabled) {
+            alarm.enabled = false
+            persistAlarms()
+            return
+        }
+        val next = AlarmScheduler.nextOccurrence(alarm)
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.alarm_off_title)
+            .setMessage(getString(R.string.alarm_off_message, alarmCards.whenIs(next)))
+            .setPositiveButton(R.string.alarm_off_once) { _, _ ->
+                alarm.skippedOccurrence = next
+                persistAlarms()
+            }
+            .setNegativeButton(R.string.alarm_off_for_good) { _, _ ->
+                alarm.enabled = false
+                alarm.skippedOccurrence = 0L
+                persistAlarms()
+            }
+            // Backing out leaves the alarm exactly as it was — but the
+            // switch has already moved under the finger, so it has to be
+            // put back or the card is telling a lie.
+            .setOnDismissListener { refreshAlarmsUi() }
+            .show()
+    }
+
     private fun persistAlarms() {
         sortAlarms()
         AlarmStore.save(this)

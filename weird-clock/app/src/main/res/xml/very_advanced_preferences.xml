@@ -43,8 +43,7 @@
             android:defaultValue="false"
             android:key="pref_smooth_seconds"
             android:summary="@string/pref_smooth_summary"
-            android:title="@string/pref_smooth_title"
-            app:iconSpaceReserved="true" />
+            android:title="@string/pref_smooth_title" />
 
         <ListPreference
             android:defaultValue="none"
@@ -52,7 +51,6 @@
             android:entryValues="@array/fast_hand_values"
             android:key="pref_fast_hand"
             android:title="@string/pref_fast_hand_title"
-            app:iconSpaceReserved="true"
             app:useSimpleSummaryProvider="true" />
 
         <!-- Down from the advanced screen, and under the second hand where
@@ -63,8 +61,7 @@
             android:defaultValue="false"
             android:key="pref_ticking"
             android:summary="@string/pref_ticking_summary"
-            android:title="@string/pref_ticking_title"
-            app:iconSpaceReserved="true" />
+            android:title="@string/pref_ticking_title" />
 
         <SwitchPreferenceCompat
             android:defaultValue="true"

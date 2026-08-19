@@ -23,7 +23,6 @@
 
         <com.em87.weirdclock.NightWindowPreference
             android:key="pref_night_window"
-            app:iconSpaceReserved="true"
             android:title="@string/pref_night_window_title" />
 
         <ListPreference
@@ -55,7 +54,6 @@
             android:entries="@array/bell_marks_entries"
             android:entryValues="@array/bell_marks_values"
             android:key="pref_bell_marks"
-            app:iconSpaceReserved="true"
             android:title="@string/pref_bell_marks_title"
             app:useSimpleSummaryProvider="true" />
 
@@ -64,14 +62,12 @@
             android:entries="@array/bell_style_entries"
             android:entryValues="@array/bell_style_values"
             android:key="pref_bell_style"
-            app:iconSpaceReserved="true"
             android:title="@string/pref_bell_style_title"
             app:useSimpleSummaryProvider="true" />
 
         <SwitchPreferenceCompat
             android:defaultValue="false"
             android:key="pref_bells_background"
-            app:iconSpaceReserved="true"
             android:summary="@string/pref_bells_background_summary"
             android:title="@string/pref_bells_background_title" />
 
@@ -80,7 +76,6 @@
             android:entries="@array/bell_priority_entries"
             android:entryValues="@array/bell_priority_values"
             android:key="pref_bell_priority"
-            app:iconSpaceReserved="true"
             android:summary="@string/pref_bell_priority_summary"
             android:title="@string/pref_bell_priority_title" />
 
@@ -95,7 +90,6 @@
 
         <Preference
             android:key="pref_test_bells"
-            app:iconSpaceReserved="true"
             android:summary="@string/pref_test_bells_summary"
             android:title="@string/pref_test_bells_title" />
 
@@ -135,7 +129,6 @@
         <SwitchPreferenceCompat
             android:defaultValue="false"
             android:key="pref_orrery"
-            app:iconSpaceReserved="true"
             android:summary="@string/orrery_summary"
             android:title="@string/orrery_title" />
 
@@ -147,7 +140,6 @@
 
         <Preference
             android:key="pref_world_cities"
-            app:iconSpaceReserved="true"
             android:title="@string/pref_world_cities_title" />
 
     </PreferenceCategory>

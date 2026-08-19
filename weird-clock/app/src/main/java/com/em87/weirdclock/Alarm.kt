@@ -25,6 +25,21 @@ data class Alarm(
     var label: String = "",
     /** SAF URI of a user-picked audio file, used when [sound] is custom. */
     var soundUri: String = "",
+    /**
+     * One occurrence this alarm is letting itself off, as the instant it
+     * would have gone off.
+     *
+     * Switching a repeating alarm off because you are not getting up
+     * tomorrow is the commonest reason anybody touches that switch, and it
+     * is also the commonest way to miss the morning after — the alarm stays
+     * off because nobody remembers to put it back. So turning one off asks
+     * whether you mean today or for good.
+     *
+     * The instant rather than a flag, because "the next one" stops meaning
+     * anything the moment the time is edited or the day rolls over. An
+     * instant that has passed is simply no longer a skip.
+     */
+    var skippedOccurrence: Long = 0L,
     var vibrate: Boolean = true,
     /**
      * Strobe the camera torch while this one rings.
@@ -201,6 +216,7 @@ object AlarmStore {
                     .put("snoozeMin", a.snoozeMinutes)
                     .put("label", a.label)
                     .put("soundUri", a.soundUri)
+                    .put("skipped", a.skippedOccurrence)
                     .put("vibrate", a.vibrate)
                     .put("flash", a.flash)
                     .put("snoozeLimit", a.snoozeLimit)
@@ -262,6 +278,7 @@ object AlarmStore {
                             prefs.getString(Prefs.SNOOZE_LIMIT, null)
                                 ?.toIntOrNull()?.coerceIn(0, 20) ?: 0
                         ),
+                        skippedOccurrence = o.optLong("skipped", 0L),
                         durationMinutes = o.optInt("duration", 0),
                         mission = Mission.required(o.optString("mission", Mission.NONE)),
                         missionLevel = Mission.level(o.optInt("missionLevel", Mission.DEFAULT_LEVEL)),

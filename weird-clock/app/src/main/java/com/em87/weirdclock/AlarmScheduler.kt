@@ -177,8 +177,25 @@ object AlarmScheduler {
      * The soonest this alarm next goes off, across every time of day it is
      * set for — a three-times-a-day concept is still one armed alarm.
      */
-    fun nextOccurrence(alarm: Alarm, now: Long = System.currentTimeMillis()): Long =
-        alarm.allTimes().minOf { (h, m) -> nextOccurrenceOf(alarm, h, m, now) }
+    fun nextOccurrence(alarm: Alarm, now: Long = System.currentTimeMillis()): Long {
+        val soonest = alarm.allTimes().minOf { (h, m) -> nextOccurrenceOf(alarm, h, m, now) }
+        if (soonest != alarm.skippedOccurrence) return soonest
+        // This one has been let off. Ask again from a moment after it, so
+        // the answer is the one that comes next — which is the whole of
+        // "off just for today": the alarm is still armed, and tomorrow it
+        // rings.
+        return alarm.allTimes().minOf { (h, m) -> nextOccurrenceOf(alarm, h, m, soonest + 1000L) }
+    }
+
+    /**
+     * Whether [alarm] is standing down for its next turn.
+     *
+     * A skip that is in the past is not a skip: the morning it applied to
+     * has been and gone, and an alarm that goes on remembering it would be
+     * an alarm that skips the same weekday for ever.
+     */
+    fun isSkippingNext(alarm: Alarm, now: Long = System.currentTimeMillis()): Boolean =
+        alarm.skippedOccurrence > now
 
     private fun nextOccurrenceOf(alarm: Alarm, hour: Int, minute: Int, now: Long): Long {
         val cal = Calendar.getInstance().apply {

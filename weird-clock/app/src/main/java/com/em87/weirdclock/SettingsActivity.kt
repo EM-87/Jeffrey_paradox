@@ -18,6 +18,17 @@ import com.google.android.material.appbar.MaterialToolbar
 
 class SettingsActivity : AppCompatActivity() {
 
+    companion object {
+        /**
+         * How far a row that hangs off another one is drawn in.
+         *
+         * Enough to be seen without being read as a different list — the
+         * point is that "Bell style" belongs to "Hourly bells", not that it
+         * is somewhere else entirely.
+         */
+        const val NESTED_INDENT_DP = 24f
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
@@ -63,6 +74,7 @@ class SettingsActivity : AppCompatActivity() {
          * sitting there smoothing a hand that was no longer drawn.
          */
         protected fun follows(parent: String, vararg children: String) {
+            nested.addAll(children)
             val rows = children.mapNotNull { findPreference<Preference>(it) }
             val on = findPreference<SwitchPreferenceCompat>(parent)
             fun apply(visible: Boolean) { rows.forEach { it.isVisible = visible } }
@@ -72,6 +84,56 @@ class SettingsActivity : AppCompatActivity() {
                 true
             }
         }
+
+        /**
+         * The rows that hang off another row, and are drawn a step in to
+         * say so.
+         *
+         * Registered by [follows] and [visibleWhen] rather than listed
+         * anywhere: hanging off a switch and being drawn as though you do
+         * are the same fact, and two lists of it would be two lists to keep
+         * in step.
+         */
+        private val nested = HashSet<String>()
+
+        /**
+         * The step itself.
+         *
+         * An inset on the row as the list lays it out. Two other ways were
+         * tried and rejected: the attribute that reserves room for an icon,
+         * which this theme grants to every row already so it changed
+         * nothing at all, and a subclass of the preference adapter, which
+         * is library-private and rightly refused. This is the public way
+         * and the only one of the three that moves anything.
+         */
+        override fun onCreateRecyclerView(
+            inflater: android.view.LayoutInflater,
+            parent: android.view.ViewGroup,
+            savedInstanceState: Bundle?
+        ): androidx.recyclerview.widget.RecyclerView {
+            val list = super.onCreateRecyclerView(inflater, parent, savedInstanceState)
+            val step = (NESTED_INDENT_DP * resources.displayMetrics.density).toInt()
+            list.addItemDecoration(object :
+                androidx.recyclerview.widget.RecyclerView.ItemDecoration() {
+                override fun getItemOffsets(
+                    outRect: android.graphics.Rect,
+                    view: android.view.View,
+                    recycler: androidx.recyclerview.widget.RecyclerView,
+                    state: androidx.recyclerview.widget.RecyclerView.State
+                ) {
+                    // By title, because the adapter that could name the row
+                    // outright is library-private. Every row's title is its
+                    // own on these screens.
+                    val title = view.findViewById<android.widget.TextView>(android.R.id.title)
+                    outRect.left = if (title?.text?.toString() in nestedTitles()) step else 0
+                }
+            })
+            return list
+        }
+
+        /** What the nested rows are called, which is how they are known. */
+        private fun nestedTitles(): Set<String> =
+            nested.mapNotNull { findPreference<Preference>(it)?.title?.toString() }.toSet()
 
         /**
          * Shows [children] only while the preference [key] is on, wherever
@@ -86,6 +148,7 @@ class SettingsActivity : AppCompatActivity() {
          * where the rest of the dial's spelling lives.
          */
         protected fun visibleWhen(key: String, vararg children: String) {
+            nested.addAll(children)
             val on = preferenceManager.sharedPreferences?.getBoolean(key, false) == true
             children.forEach { findPreference<Preference>(it)?.isVisible = on }
         }
