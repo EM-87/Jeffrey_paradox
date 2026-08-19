@@ -486,6 +486,22 @@ class ClockView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
     }
+    /** A lit bar on one of the other two displays — see [SegmentGlyphs]. */
+    private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
+
+    /**
+     * And an unlit one: the outline of the bar, not the bar dimmed.
+     *
+     * Drawn faint and filled first, every module came out as a solid grey
+     * asterisk with the lit bars lost inside it — sixteen overlapping
+     * shapes are a lot of ink even at a sixth of the brightness. An
+     * outline is almost no ink and says the same thing.
+     */
+    private val ghostPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+    }
     private val hourHandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
@@ -4935,10 +4951,12 @@ class ClockView @JvmOverloads constructor(
      * The same date as bare digits, for a display that has no letters and
      * no oblique stroke in it.
      *
-     * Spaces rather than a separator, because the only punctuation the
-     * seven-segment font owns is a colon and a colon between two numbers
-     * means a time. The day and month keep the order the dial writes them
-     * in, so it still reads the way the date window does.
+     * Spaces rather than an oblique stroke, because none of the three
+     * displays owns one: the only punctuation they have is a colon, and a
+     * colon between two numbers means a time. The sixteen-bar row turns
+     * each space into a module with its middle dot lit; the seven-bar row
+     * leaves it blank. The day and month keep the order the dial writes
+     * them in, so it still reads the way the date window does.
      */
     internal fun orreryDateDigits(): String {
         cal.timeInMillis = orreryMs()
@@ -4997,28 +5015,22 @@ class ClockView @JvmOverloads constructor(
         val keep = digitalPaint.alpha
         digitalPaint.alpha = (215 * fade).toInt()
         val script = orreryScript()
-        if (script == OrreryYear.Script.ROMAN) {
-            // Letters, so a segment display cannot show them: M and D and
-            // X are not shapes seven bars can make, and forcing them
-            // through would give a row of nonsense that happened to fit.
-            // Drawn as text, in the same place and at the same weight.
-            val was = datePaint.textSize
-            val wasColour = datePaint.color
-            datePaint.textSize = digitH * 0.95f
-            datePaint.color = digitalPaint.color
-            datePaint.alpha = (215 * fade).toInt()
-            canvas.drawText(
-                orreryDateDigits(), cx,
-                yTop - (datePaint.ascent() + datePaint.descent()) / 2f + digitH / 2f,
-                datePaint
-            )
-            datePaint.textSize = was
-            datePaint.color = wasColour
-        } else {
-            drawSevenSegment(
-                canvas, orreryDateDigits(), cx, yTop, digitH,
-                alien = script == OrreryYear.Script.YAUTJA
-            )
+        val date = orreryDateDigits()
+        when (script) {
+            // Seven bars can make ten digits and nothing else, so a year
+            // in letters needs a display with more bars in it, not a
+            // different typeface pushed through the same slot.
+            OrreryYear.Script.ROMAN ->
+                drawOtherScript(canvas, date, cx, yTop, digitH)
+            // Day and month on the sixteen-bar module, which can still
+            // write a digit; the year on the star, which cannot write
+            // anything anybody here can read.
+            OrreryYear.Script.YAUTJA ->
+                drawOtherScript(
+                    canvas, date, cx, yTop, digitH,
+                    starFrom = date.lastIndexOf(' ') + 1
+                )
+            else -> drawSevenSegment(canvas, date, cx, yTop, digitH)
         }
         digitalPaint.alpha = keep
         orreryCaption()?.let {
@@ -5099,9 +5111,13 @@ class ClockView @JvmOverloads constructor(
         cx: Float,
         top: Float,
         digitH: Float,
-        units: Array<String>? = null,
-        alien: Boolean = false
+        units: Array<String>? = null
     ) {
+        // This row is on neither of the other two displays, and says so:
+        // a test asking which one the sky used gets an honest zero rather
+        // than whatever the last row to use one left behind.
+        barsPainted = 0
+        starsPainted = 0
         val digitW = digitH * 0.55f
         val gap = digitW * 0.45f
         val markW = digitW * 0.34f
@@ -5204,16 +5220,7 @@ class ClockView @JvmOverloads constructor(
                 else -> {
                     val digit = c - '0'
                     if (digit in 0..9) {
-                        // Same bars, a different alphabet lit on them —
-                        // which is what makes a year past three thousand
-                        // read as this display showing something else,
-                        // rather than as a picture pasted over it.
-                        val bits = if (alien) {
-                            OrreryYear.segmentsOf(c) ?: SEGMENT_BITS[digit]
-                        } else {
-                            SEGMENT_BITS[digit]
-                        }
-                        drawSegments(canvas, bits, x, top, digitW, digitH)
+                        drawSegments(canvas, SEGMENT_BITS[digit], x, top, digitW, digitH)
                     }
                 }
             }
@@ -5232,6 +5239,250 @@ class ClockView @JvmOverloads constructor(
         if (bits and 4 != 0) canvas.drawLine(x, mid + s, x, y + h - s, digitalPaint)
         if (bits and 2 != 0) canvas.drawLine(x, y + s, x, mid - s, digitalPaint)
         if (bits and 1 != 0) canvas.drawLine(x + s, mid, x + w - s, mid, digitalPaint)
+    }
+
+    // ------------------------------------------------- the other alphabets
+
+    /** Scratch, because a glyph is rebuilt on every frame. */
+    private val glyphPath = Path()
+
+    /**
+     * How many of each kind of module the last row put down.
+     *
+     * The only thing a picture of a date proves is that ink went down
+     * somewhere. These say which display was actually used and how much of
+     * it, which is what tells a test that a Roman year went through the
+     * sixteen-bar row rather than through the seven-bar one — where every
+     * letter in it would simply have been dropped on the floor.
+     */
+    private var barsPainted = 0
+    private var starsPainted = 0
+
+    /** For the tests: sixteen-bar modules in the last row the sky wrote. */
+    internal fun barsPaintedForTest(): Int = barsPainted
+
+    /** And star glyphs. */
+    internal fun starsPaintedForTest(): Int = starsPainted
+
+    /**
+     * One bar of a segment display: a long hexagon, pointed at both ends.
+     *
+     * The points are what make a row of these read as a display rather
+     * than as a diagram of one. Two bars meeting at a corner leave a thin
+     * V of background between them, so the corner of an `0` is a corner
+     * and not a blob, and the four diagonals of an `X` cross at a waist
+     * instead of a lump.
+     */
+    private fun barPath(x0: Float, y0: Float, x1: Float, y1: Float, t: Float) {
+        glyphPath.reset()
+        val len = hypot(x1 - x0, y1 - y0)
+        if (len < 0.01f) return
+        val ux = (x1 - x0) / len
+        val uy = (y1 - y0) / len
+        val nx = -uy * t
+        val ny = ux * t
+        // The tip stops short of the true corner, which is where the gap
+        // between two bars comes from.
+        val tip = t * 0.8f
+        val sh = min(t * 1.3f, (len - tip * 2f) * 0.35f).coerceAtLeast(0f)
+        val ax = x0 + ux * tip
+        val ay = y0 + uy * tip
+        val bx = x1 - ux * tip
+        val by = y1 - uy * tip
+        glyphPath.moveTo(ax, ay)
+        glyphPath.lineTo(ax + ux * sh + nx, ay + uy * sh + ny)
+        glyphPath.lineTo(bx - ux * sh + nx, by - uy * sh + ny)
+        glyphPath.lineTo(bx, by)
+        glyphPath.lineTo(bx - ux * sh - nx, by - uy * sh - ny)
+        glyphPath.lineTo(ax + ux * sh - nx, ay + uy * sh - ny)
+        glyphPath.close()
+    }
+
+    /**
+     * A sixteen-bar module, unlit bars and all.
+     *
+     * The unlit bars are drawn faintly rather than left out, which is what
+     * a real one looks like and is also the only thing that says the empty
+     * space beside `MMXXVI` is a display with nothing lit in it rather
+     * than the row having ended.
+     */
+    private fun drawSixteenModule(
+        canvas: Canvas, bits: Int, x: Float, y: Float, w: Float, h: Float, t: Float
+    ) {
+        val l = x
+        val rr = x + w
+        val mx = x + w / 2f
+        val tp = y
+        val bt = y + h
+        val my = y + h / 2f
+
+        fun bar(bit: Int, x0: Float, y0: Float, x1: Float, y1: Float) {
+            barPath(x0, y0, x1, y1, t)
+            canvas.drawPath(glyphPath, if (bits and bit != 0) glyphPaint else ghostPaint)
+        }
+
+        bar(SegmentGlyphs.A1, l, tp, mx, tp)
+        bar(SegmentGlyphs.A2, mx, tp, rr, tp)
+        bar(SegmentGlyphs.B, rr, tp, rr, my)
+        bar(SegmentGlyphs.C, rr, my, rr, bt)
+        bar(SegmentGlyphs.D2, mx, bt, rr, bt)
+        bar(SegmentGlyphs.D1, l, bt, mx, bt)
+        bar(SegmentGlyphs.E, l, my, l, bt)
+        bar(SegmentGlyphs.F, l, tp, l, my)
+        bar(SegmentGlyphs.H, l, tp, mx, my)
+        bar(SegmentGlyphs.I, mx, tp, mx, my)
+        bar(SegmentGlyphs.J, rr, tp, mx, my)
+        bar(SegmentGlyphs.K, mx, my, rr, bt)
+        bar(SegmentGlyphs.L, mx, my, mx, bt)
+        bar(SegmentGlyphs.M, mx, my, l, bt)
+        bar(SegmentGlyphs.G1, l, my, mx, my)
+        bar(SegmentGlyphs.G2, mx, my, rr, my)
+
+        // The dot in the middle, which is the row's separator: drawn last
+        // so it sits on top of the middle bars rather than under them.
+        val dot = t * 0.95f
+        canvas.drawCircle(
+            mx, my, dot,
+            if (bits and SegmentGlyphs.DOT != 0) glyphPaint else ghostPaint
+        )
+    }
+
+    /**
+     * One mark on the star: eight arms and the four chords that close it.
+     *
+     * Squarer than the sixteen-bar module because a star squashed into a
+     * digit's width stops being a star and becomes a squiggle — the eye
+     * reads these by the angle of the strokes and nothing else.
+     */
+    private fun drawStarGlyph(
+        canvas: Canvas, bits: Int, x: Float, y: Float, w: Float, h: Float, t: Float
+    ) {
+        val mx = x + w / 2f
+        val my = y + h / 2f
+        // A round star rather than one squashed into the module's box: the
+        // eye reads these by the angle of the strokes, and an arm at
+        // forty degrees in a tall box is a different glyph from the same
+        // arm at forty-five.
+        val r = min(w, h) / 2f
+        // The diagonal arms stop short so the rim can pass outside them.
+        val d = r * 0.68f * 0.70710678f
+
+        fun piece(bit: Int, x0: Float, y0: Float, x1: Float, y1: Float) {
+            barPath(x0, y0, x1, y1, t)
+            canvas.drawPath(glyphPath, if (bits and bit != 0) glyphPaint else ghostPaint)
+        }
+
+        fun arm(bit: Int, ex: Float, ey: Float) = piece(bit, mx, my, ex, ey)
+
+        arm(SegmentGlyphs.N, mx, my - r)
+        arm(SegmentGlyphs.S, mx, my + r)
+        arm(SegmentGlyphs.EAST, mx + r, my)
+        arm(SegmentGlyphs.WEST, mx - r, my)
+        arm(SegmentGlyphs.NE, mx + d, my - d)
+        arm(SegmentGlyphs.SE, mx + d, my + d)
+        arm(SegmentGlyphs.SW, mx - d, my + d)
+        arm(SegmentGlyphs.NW, mx - d, my - d)
+
+        piece(SegmentGlyphs.RIM_NE, mx, my - r, mx + r, my)
+        piece(SegmentGlyphs.RIM_SE, mx + r, my, mx, my + r)
+        piece(SegmentGlyphs.RIM_SW, mx, my + r, mx - r, my)
+        piece(SegmentGlyphs.RIM_NW, mx - r, my, mx, my - r)
+    }
+
+    /**
+     * A whole date on one of the two other displays.
+     *
+     * Both scripts go through here because both have the same problem the
+     * seven-bar row does not: the year is not four characters wide.
+     * `MDCCCLXXXVIII` is thirteen, and a row of thirteen modules at the
+     * size four digits want would run off both edges of the card, so the
+     * row is measured first and shrunk to fit.
+     *
+     * [starFrom] is where the language changes. Everything before it is
+     * drawn on the sixteen-bar module — which can write the day and the
+     * month as ordinary digits — and everything from it on is drawn on the
+     * star. That is the whole grammar of the far-future date: the part
+     * that has to stay readable is in a display we can read, and the year
+     * is in one we cannot.
+     */
+    private fun drawOtherScript(
+        canvas: Canvas, text: String, cx: Float, top: Float, digitH: Float,
+        starFrom: Int = Int.MAX_VALUE
+    ) {
+        val n = text.length
+        if (n == 0) return
+        // The separator is a module with only its middle dot lit, rather
+        // than a hole in the row: an empty space in a row of displays
+        // looks like the row stopped.
+        val glyphs = text.replace(' ', '·')
+        var h = digitH
+        val barW = h * 0.72f
+        val starW = h * 1.0f
+        fun widthAt(i: Int) = if (i >= starFrom) starW else barW
+        var gap = barW * 0.24f
+        var wide = (0 until n).sumOf { widthAt(it).toDouble() }.toFloat() + gap * (n - 1)
+        var k = 1f
+        val room = width * 0.94f
+        if (wide > room && wide > 0f) {
+            k = room / wide
+            h *= k
+            gap *= k
+            wide = room
+        }
+        val t = h * 0.056f
+        val keepStyle = glyphPaint.style
+        glyphPaint.style = Paint.Style.FILL
+        glyphPaint.color = digitalPaint.color
+        glyphPaint.alpha = digitalPaint.alpha
+        ghostPaint.color = digitalPaint.color
+        ghostPaint.strokeWidth = (t * 0.26f).coerceAtLeast(0.75f)
+        // The star is twelve pieces to the module's sixteen but they all
+        // meet in one point, so its unlit web is the louder of the two and
+        // is drawn fainter to compensate.
+        val barGhost = (digitalPaint.alpha * 0.40f).toInt()
+        val starGhost = (digitalPaint.alpha * 0.26f).toInt()
+
+        // Vertically centred on the line the seven-bar row would have
+        // used, so switching script does not make the date jump.
+        val y = top + (digitH - h) / 2f
+        var x = cx - wide / 2f
+        barsPainted = 0
+        starsPainted = 0
+        for (i in glyphs.indices) {
+            val c = glyphs[i]
+            val w = widthAt(i) * k
+            if (i >= starFrom) {
+                starsPainted++
+                // Thinner bars than the sixteen-bar module: a star is
+                // read by the angle of its strokes, and a fat stroke at
+                // this size is a wedge with no angle in it.
+                ghostPaint.alpha = starGhost
+                SegmentGlyphs.star(c)?.let { drawStarGlyph(canvas, it, x, y, w, h, t * 0.76f) }
+            } else {
+                barsPainted++
+                ghostPaint.alpha = barGhost
+                SegmentGlyphs.sixteen(c)?.let { drawSixteenModule(canvas, it, x, y, w, h, t) }
+            }
+            x += w + gap
+        }
+        glyphPaint.style = keepStyle
+    }
+
+    /**
+     * For the camera: a row of one of the other displays, drawn anywhere.
+     *
+     * These two alphabets are shapes and nothing else — there is no
+     * measurement of them that says whether an `M` looks like an `M` — so
+     * the way they get checked is by drawing a chart of every glyph and
+     * looking at it.
+     */
+    internal fun drawScriptForTest(
+        canvas: Canvas, text: String, cx: Float, top: Float, digitH: Float,
+        starFrom: Int = Int.MAX_VALUE
+    ) {
+        digitalPaint.color = android.graphics.Color.WHITE
+        digitalPaint.alpha = 255
+        drawOtherScript(canvas, text, cx, top, digitH, starFrom)
     }
 
     private fun drawHand(

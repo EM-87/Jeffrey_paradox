@@ -60,45 +60,6 @@ class OrreryYearTest {
         assertEquals("3211", OrreryYear.yearText(3211, OrreryYear.Script.YAUTJA))
     }
 
-    // ------------------------------------------------- the far-future glyphs
-
-    /**
-     * Ten glyphs, all different and none of them blank.
-     *
-     * The one rule an unreadable alphabet still has to obey: a digit that
-     * lights nothing is a gap in the year, and two digits that light the
-     * same bars are one digit as far as anybody looking can tell.
-     */
-    @Test
-    fun `the far-future digits are ten distinct marks`() {
-        val marks = ('0'..'9').map { OrreryYear.segmentsOf(it) }
-        assertTrue("some digit has no glyph", marks.all { it != null })
-        assertTrue("some glyph lights nothing at all", marks.all { it!! != 0 })
-        assertEquals("two digits look the same", 10, marks.toSet().size)
-    }
-
-    /** And they are not the ordinary digits with a hat on. */
-    @Test
-    fun `the far-future alphabet is not the one we use`() {
-        val ours = listOf(
-            0b1111110, 0b0110000, 0b1101101, 0b1111001, 0b0110011,
-            0b1011011, 0b1011111, 0b1110000, 0b1111111, 0b1111011
-        )
-        val theirs = ('0'..'9').map { OrreryYear.segmentsOf(it)!! }
-        assertTrue(
-            "the far-future year reads exactly like an ordinary one",
-            ours.zip(theirs).count { (a, b) -> a == b } <= 1
-        )
-    }
-
-    /** Anything that is not a digit has no glyph, rather than a wrong one. */
-    @Test
-    fun `only digits have glyphs`() {
-        for (c in listOf(' ', ':', 'M', '-', '/')) {
-            assertEquals("'$c' was given a glyph", null, OrreryYear.segmentsOf(c))
-        }
-    }
-
     // ------------------------------------------------- on the dial
 
     /** The date the sky writes carries the day and month as digits, always. */
@@ -129,15 +90,65 @@ class OrreryYearTest {
     }
 
     /**
-     * And a Roman year is drawn, rather than pushed through a display that
-     * cannot show it.
+     * Each script goes to the display that can show it.
      *
-     * M and D and X are not shapes seven bars can make. Forced through the
-     * segment display they would come out as whichever digits happened to
-     * fit — a row of nonsense that looks deliberate.
+     * Counted rather than looked at, because the way this goes wrong is
+     * silent: pushed through the seven-bar row, `MDCCL` is not drawn
+     * badly, it is not drawn at all — every letter falls through the digit
+     * branch and the year simply is not there, leaving a date that reads
+     * `06 15` and looks finished.
      */
     @Test
-    fun `a roman year is not pushed through the segment display`() {
+    fun `each script is drawn on the display that can show it`() {
+        val controller = org.robolectric.Robolectric
+            .buildActivity(MainActivity::class.java).setup()
+        val clock = controller.get().clockForTest()
+        clock.toggleOrrery()
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(900))
+        val canvas = android.graphics.Canvas(
+            android.graphics.Bitmap.createBitmap(1080, 2000, android.graphics.Bitmap.Config.ARGB_8888)
+        )
+        clock.measure(
+            android.view.View.MeasureSpec.makeMeasureSpec(1080, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec.makeMeasureSpec(2000, android.view.View.MeasureSpec.EXACTLY)
+        )
+        clock.layout(0, 0, 1080, 2000)
+
+        clock.windOrreryToYearForTest(1750)
+        var date = clock.orreryDateDigits()
+        clock.draw(canvas)
+        assertEquals(
+            "a Roman year did not reach the sixteen-bar display",
+            date.length, clock.barsPaintedForTest()
+        )
+        assertEquals("and it is not on the star", 0, clock.starsPaintedForTest())
+
+        clock.windOrreryToYearForTest(3400)
+        date = clock.orreryDateDigits()
+        clock.draw(canvas)
+        assertEquals(
+            "the far-future year is not four marks on the star",
+            4, clock.starsPaintedForTest()
+        )
+        assertEquals(
+            "the day and month did not stay on a display we can read",
+            date.length - 4, clock.barsPaintedForTest()
+        )
+
+        clock.windOrreryToYearForTest(2026)
+        clock.draw(canvas)
+        assertEquals(
+            "an ordinary year was sent somewhere other than the seven-bar row",
+            0, clock.barsPaintedForTest() + clock.starsPaintedForTest()
+        )
+    }
+
+    /**
+     * And a Roman year is written in letters, not in whichever digits
+     * happened to fit.
+     */
+    @Test
+    fun `a roman year is written in letters`() {
         val controller = org.robolectric.Robolectric
             .buildActivity(MainActivity::class.java).setup()
         val clock = controller.get().clockForTest()

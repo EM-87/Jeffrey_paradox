@@ -24,9 +24,9 @@ object OrreryYear {
         DIGITS,
 
         /**
-         * Past 3000. Segmented, like the digits beside it, and not a
-         * script anybody can read — which is the point of having wound
-         * yourself a thousand years into the future.
+         * Past 3000. Marks on a star rather than bars in a rectangle, and
+         * not a script anybody can read — which is the point of having
+         * wound yourself a thousand years into the future.
          */
         YAUTJA
     }
@@ -37,41 +37,6 @@ object OrreryYear {
         year < 3000 -> Script.DIGITS
         else -> Script.YAUTJA
     }
-
-    /**
-     * The seven segments each digit lights in the far-future alphabet.
-     *
-     * Ordered a(64) b(32) c(16) d(8) e(4) f(2) g(1), the same as the
-     * ordinary digits, so one renderer draws both — which is what makes
-     * this feel like the same display showing something else rather than
-     * like a picture pasted over it.
-     *
-     * These are made up, in the manner of the numerals in the films rather
-     * than copied from them: short strokes, corners rather than curves,
-     * and no two alike at a glance. Said plainly because a comment
-     * claiming they were authentic would be the kind of thing nobody could
-     * check and everybody would repeat.
-     *
-     * The one rule they must obey is the one ordinary digits obey: each
-     * lights a different set, and none is empty, or a year would read as a
-     * gap.
-     */
-    private val SEGMENTS = intArrayOf(
-        0b0011100, // 0 — the low corner
-        0b0000110, // 1
-        0b1000110, // 2
-        0b1001001, // 3
-        0b0101001, // 4
-        0b1010010, // 5
-        0b0110101, // 6
-        0b1100001, // 7
-        0b1011100, // 8
-        0b0111010  // 9
-    )
-
-    /** Which segments [digit] lights, or nothing if it is not a digit. */
-    fun segmentsOf(digit: Char): Int? =
-        if (digit in '0'..'9') SEGMENTS[digit - '0'] else null
 
     /**
      * How the year part of a date is written, given the script.

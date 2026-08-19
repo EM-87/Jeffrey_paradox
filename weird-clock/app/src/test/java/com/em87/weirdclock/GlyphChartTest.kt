@@ -1,0 +1,159 @@
+package com.em87.weirdclock
+
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+import java.io.File
+
+/**
+ * A chart of every glyph in the two other alphabets, written to a PNG.
+ *
+ * Shapes cannot be asserted. There is no number that says whether an `M`
+ * looks like an `M` or whether two marks on a star are far enough apart to
+ * be different digits, and the previous attempt at this alphabet was
+ * written blind and came out as noise — bits chosen so the counts came out
+ * right, never once drawn and looked at.
+ *
+ * So this is a camera. It checks only that ink went down, and its real
+ * output is the file: build/screenshots/glyphs-*.png, which somebody
+ * opens.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33], qualifiers = "w411dp-h891dp-xxhdpi")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class GlyphChartTest {
+
+    private val context: android.content.Context
+        get() = ApplicationProvider.getApplicationContext()
+
+    private val outDir = File("build/screenshots").apply { mkdirs() }
+
+    private fun view(w: Int, h: Int): ClockView {
+        val v = ClockView(context)
+        v.measure(
+            android.view.View.MeasureSpec.makeMeasureSpec(w, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec.makeMeasureSpec(h, android.view.View.MeasureSpec.EXACTLY)
+        )
+        v.layout(0, 0, w, h)
+        return v
+    }
+
+    /** Draws [rows] of text, one under the other, and returns the ink count. */
+    private fun chart(
+        name: String, rows: List<Pair<String, Int>>, digitH: Float, w: Int = 1080
+    ): Int {
+        val rowH = (digitH * 1.9f).toInt()
+        val h = rowH * rows.size + rowH / 2
+        val v = view(w, h)
+        val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.rgb(0x1d, 0x21, 0x29))
+        rows.forEachIndexed { i, (text, starFrom) ->
+            v.drawScriptForTest(
+                canvas, text, w / 2f, rowH * i + rowH * 0.55f, digitH, starFrom
+            )
+        }
+        File(outDir, "$name.png").outputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        var ink = 0
+        for (y in 0 until h step 2) for (x in 0 until w step 2) {
+            if (bitmap.getPixel(x, y) != Color.rgb(0x1d, 0x21, 0x29)) ink++
+        }
+        return ink
+    }
+
+    /** Every shape the sixteen-bar module can make, big enough to judge. */
+    @Test
+    fun `the sixteen bar alphabet`() {
+        val ink = chart(
+            "glyphs-sixteen",
+            listOf(
+                "0123456789" to Int.MAX_VALUE,
+                "IVXLCDM" to Int.MAX_VALUE,
+                "01·09·MMXXVI" to Int.MAX_VALUE,
+                "31·12·MDCCCLXXXVIII" to Int.MAX_VALUE
+            ),
+            digitH = 120f
+        )
+        assertTrue("nothing was drawn", ink > 500)
+    }
+
+    /** And the same at the size the orrery card actually uses. */
+    @Test
+    fun `the sixteen bar alphabet at the size it is used`() {
+        // digitH is r * 0.13 and r is about a third of the width.
+        val ink = chart(
+            "glyphs-sixteen-small",
+            listOf(
+                "01·09·MMXXVI" to Int.MAX_VALUE,
+                "31·12·MDCCCLXXXVIII" to Int.MAX_VALUE
+            ),
+            digitH = 47f
+        )
+        assertTrue("nothing was drawn", ink > 100)
+    }
+
+    /**
+     * And the sky itself, wound to a year in each script.
+     *
+     * A chart of glyphs says the alphabet is right; it says nothing about
+     * whether the row fits under the orrery, sits where the ordinary date
+     * sits, or is bright enough to read against the orbits. Only the real
+     * card can say that, so here it is, three times.
+     */
+    @Test
+    fun `the sky at a year in each script`() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.MOON_PHASE, true)
+            .putBoolean(Prefs.ORRERY, true)
+            .commit()
+        org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val activity = c.get()
+            val clock = activity.clockForTest()
+            clock.toggleOrrery()
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(
+                java.time.Duration.ofMillis(900)
+            )
+            val root = activity.window.decorView
+            root.measure(
+                android.view.View.MeasureSpec.makeMeasureSpec(1080, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(2200, android.view.View.MeasureSpec.EXACTLY)
+            )
+            root.layout(0, 0, 1080, 2200)
+            for (year in listOf(1750, 2026, 3400)) {
+                clock.windOrreryToYearForTest(year)
+                val bitmap = Bitmap.createBitmap(1080, 2200, Bitmap.Config.ARGB_8888)
+                root.draw(Canvas(bitmap))
+                File(outDir, "sky-$year.png").outputStream().use {
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+                }
+            }
+        }
+    }
+
+    /** The ten marks on the star, in a row like the table they came from. */
+    @Test
+    fun `the star alphabet`() {
+        val ink = chart(
+            "glyphs-star",
+            listOf(
+                "0123456789" to 0,
+                "01·09·3400" to 6,
+                "31·12·9999" to 6
+            ),
+            digitH = 120f
+        )
+        assertTrue("nothing was drawn", ink > 500)
+    }
+}
