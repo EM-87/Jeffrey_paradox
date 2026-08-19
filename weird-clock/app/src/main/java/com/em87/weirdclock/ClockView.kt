@@ -211,8 +211,14 @@ class ClockView @JvmOverloads constructor(
     var onChronoStartStop: (() -> Unit)? = null
     var onChronoReset: (() -> Unit)? = null
 
-    /** Easter egg: tapping the crown. Five frantic taps blow the hands off. */
-    var onCrownTap: (() -> Unit)? = null
+    /**
+     * Tapping the crown, with whether it found anything to put right.
+     *
+     * The flag is what tells the cuckoo from the click: winding a tidy dial
+     * used to set a whole bird off for nothing. Five frantic taps blow the
+     * hands off instead, which is the other thing a crown is for.
+     */
+    var onCrownTap: ((tidied: Boolean) -> Unit)? = null
     private val crownTapTimes = ArrayDeque<Long>()
 
     /** Receives the adjusted duration when the user sets the countdown. */
@@ -867,7 +873,14 @@ class ClockView @JvmOverloads constructor(
 
     private fun isAnimating(): Boolean =
         draggedHand != null || spring?.isRunning == true ||
-            debris.bodies.isNotEmpty() || transitionFrom != null ||
+            debris.bodies.isNotEmpty() ||
+            // Asked of the clock, not of the field. `transitionFrom` is
+            // only put back to null inside a draw, so a dial that stopped
+            // being drawn mid-hand-over went on claiming to be animating
+            // for ever — which is a claim that asks for sixty frames a
+            // second of nothing.
+            (transitionFrom != null &&
+                SystemClock.uptimeMillis() - transitionStartAt < TRANSITION_MS) ||
             // The crown and pushers fade on their own clock, and nothing was
             // asking for the frames to draw it with. Arriving, the hand-over
             // happened to provide them; leaving, there was no hand-over and
@@ -894,6 +907,7 @@ class ClockView @JvmOverloads constructor(
         val now = SystemClock.uptimeMillis()
         if (orreryChangedAt != NEVER && now - orreryChangedAt < ORRERY_FADE_MS) return true
         if (glideStartedAt != NEVER) return true
+        if (chronoGlideAt != NEVER) return true
         return now - moonRejoinAt < MOON_REJOIN_MS
     }
 
@@ -1033,6 +1047,19 @@ class ClockView @JvmOverloads constructor(
                     toggleOrrery()
                     return true
                 }
+                // A planet, named. A tap and not a long press: a finger
+                // that comes down on Jupiter and lifts again was asking
+                // which one that is, and nothing else on the sky answers a
+                // tap in that spot.
+                if (orreryUp) {
+                    OrreryDial.bodyAt(
+                        e.x, e.y, width / 2f, height / 2f, dialRadius(),
+                        orreryMs(), orreryMoonLongitude(), orreryZoom
+                    )?.let { body ->
+                        showMarkBubble(context.getString(OrreryDial.nameKeyOf(body)), e.x, e.y)
+                        return true
+                    }
+                }
                 // A day of the year, out past the rim, with something on
                 // it. Says what.
                 if (orreryUp && tapCandidate) {
@@ -1046,18 +1073,18 @@ class ClockView @JvmOverloads constructor(
                         return true
                     }
                 }
-                // The Sun, which is where today is. A sky wound two
-                // hundred years on runs back to the date it is — travelling,
-                // not cutting, so the years can be seen going past.
+                // The Sun is the way out, and it takes two presses when
+                // the sky has been wound: the first brings the date back to
+                // today — travelling, so the years can be seen going past —
+                // and the second shuts the sky. Nothing is put away while
+                // it is still somewhere else.
+                //
+                // And not at all while planets are lying in the case. The
+                // dial is not tidy, and putting a lid on an untidy dial is
+                // how you come back to one and wonder what happened.
                 if (orreryUp && sunAt(e.x, e.y)) {
-                    if (glideOrreryHome()) return true
-                }
-                // And once the sky is open, a tap on any empty part of it
-                // closes it again. Empty meaning not on a planet — those
-                // are for carrying, and a finger that only brushed one
-                // should not throw the whole view away.
-                if (orreryUp && tapCandidate && withinDial(e.x, e.y)) {
-                    toggleOrrery()
+                    if (fallenPlanets.isNotEmpty()) return true
+                    if (!glideOrreryHome()) toggleOrrery()
                     return true
                 }
                 if (tapCandidate) handleNumeralTap(e.x, e.y)
@@ -1588,9 +1615,16 @@ class ClockView @JvmOverloads constructor(
             soundListener?.onExploded()
             dropHands(0f, -8f)
         } else {
+            // Whether the crown found anything to put right. The cuckoo
+            // belongs to that and not to the crown: winding it on a tidy
+            // dial made a whole bird go off for nothing, several times a
+            // minute, which is how a good joke becomes a bad one.
+            var tidied = false
             if (debris.bodies.isNotEmpty()) {
                 debris.clear()
+                fallenPlanets.clear()
                 soundListener?.onHandMounted()
+                tidied = true
             }
             // Winding the crown resets the mechanism's conscience: the
             // faked laps and the stamp that shamed them both go.
@@ -1599,8 +1633,9 @@ class ClockView @JvmOverloads constructor(
                 cheaterUntil = 0L
                 cheaterFade = 0f
                 cheaterFlagged = false
+                tidied = true
             }
-            onCrownTap?.invoke()
+            onCrownTap?.invoke(tidied)
         }
     }
 
@@ -2658,12 +2693,51 @@ class ClockView @JvmOverloads constructor(
     }
 
     /**
+     * How far through the journey back to zero the hands are, or null if
+     * they are not on one.
+     *
+     * A stopwatch reset used to put the hands on twelve in a single frame,
+     * which on a dial where everything else travels reads as a glitch
+     * rather than as an action. They run back on the same curve the hands
+     * use crossing between the clock and the chronograph.
+     */
+    private fun chronoGlideMs(): Long? {
+        if (chronoGlideAt == NEVER) return null
+        val t = ((SystemClock.uptimeMillis() - chronoGlideAt) / CHRONO_GLIDE_MS)
+            .coerceIn(0f, 1f)
+        if (t >= 1f) {
+            chronoGlideAt = NEVER
+            return null
+        }
+        val eased = transitionInterpolator.getInterpolation(t)
+        return chronoGlideFrom + ((chronoGlideTo - chronoGlideFrom) * eased).toLong()
+    }
+
+    /**
+     * Sends the chronograph hands from where they are to [toMs], travelling.
+     *
+     * The caller has already told the chronograph itself; this is only
+     * about what the dial shows on the way there.
+     */
+    fun glideChronoTo(fromMs: Long, toMs: Long) {
+        if (fromMs == toMs) return
+        chronoGlideFrom = fromMs
+        chronoGlideTo = toMs
+        chronoGlideAt = SystemClock.uptimeMillis()
+        kickTicker()
+    }
+
+    /** Whether the chronograph hands are on their way somewhere. */
+    internal fun chronoGliding(): Boolean = chronoGlideAt != NEVER
+
+    /**
      * Chronograph value including any winding offset and hold-freeze. May be
      * negative while playing — the spring brings it back, and the countdown
      * commit clamps at zero.
      */
     private fun chronoDisplayMs(): Long? = chronoProvider?.let { provider ->
-        val raw = (chronoFrozenMs ?: provider()) + (visualOffsetSeconds * 1000.0).toLong()
+        val raw = (chronoGlideMs() ?: chronoFrozenMs ?: provider()) +
+            (visualOffsetSeconds * 1000.0).toLong()
         if (chronoWrapsDay) {
             val day = 86_400_000L
             ((raw % day) + day) % day
@@ -3349,6 +3423,13 @@ class ClockView @JvmOverloads constructor(
         canvas.drawCircle(cx, cy, r * 0.035f, centerDotPaint)
         endOrreryHandover(canvas, clockLayer)
 
+        // The pieces on the floor belong to the case, not to the clock, so
+        // they are drawn after the hand-over layer closes. Inside it they
+        // were painted at the layer's alpha — which is zero once the
+        // planets have the dial, so a knock made them vanish instead of
+        // spilling them.
+        if (orreryShowing()) drawFallenPlanets(canvas)
+
         // And the planets in their place.
         //
         // The sky token goes with the hands rather than staying on as the
@@ -3767,10 +3848,6 @@ class ClockView @JvmOverloads constructor(
                     )
                     canvas.restore()
                 }
-                DialDebris.Kind.PLANET -> {
-                    fallenPaint.color = b.colour
-                    canvas.drawCircle(b.x, b.y, b.halfLen, fallenPaint)
-                }
                 DialDebris.Kind.MOON -> {
                     // The sun or the moon it was, not a white bead. It is
                     // the same drawing the dial uses, held at the hour it
@@ -4133,6 +4210,11 @@ class ClockView @JvmOverloads constructor(
      */
     private var moonRejoinAt = -1_000_000L
 
+    /** The chronograph hands' journey back to zero — see [glideChronoTo]. */
+    private var chronoGlideFrom = 0L
+    private var chronoGlideTo = 0L
+    private var chronoGlideAt = NEVER
+
     /** The instant the solar system is showing. */
     internal fun orreryMs(): Long =
         displayNowMs() + (visualOffsetSeconds * 1000.0).toLong() + windBack()
@@ -4162,7 +4244,7 @@ class ClockView @JvmOverloads constructor(
         orreryOffsetMs = from
         glideStartedAt = SystemClock.uptimeMillis()
         performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-        invalidate()
+        kickTicker()
         return true
     }
 
@@ -4211,6 +4293,11 @@ class ClockView @JvmOverloads constructor(
 
     /** Opens or closes the sky. Also the accessibility action. */
     internal fun toggleOrrery() {
+        // The frame loop works out its delay when a frame is posted, so a
+        // fade started now would get whatever was already in the queue —
+        // up to a whole second of nothing, and then the far end. The file
+        // says as much above [kickTicker]; the sky was not listening.
+        kickTicker()
         if (orreryUp) {
             // Through the one function that knows what closing means. This
             // used to keep its own copy of the tidying-up, and the copy fell
@@ -4309,6 +4396,15 @@ class ClockView @JvmOverloads constructor(
 
     /** Which body a finger is holding, if any. */
     internal fun orreryGrabbedForTest(): Orrery.Body? = grabbedBody
+
+    /** For the tests: what the little bubble is saying, if anything. */
+    internal fun markBubbleForTest(): String? = bubbleText
+
+    /** For the tests: taps the winding crown. */
+    internal fun crownTapForTest() = handleCrownTap()
+
+    /** For the tests: the chronograph reading the dial is drawing. */
+    internal fun chronoShownForTest(): Long = chronoDisplayMs() ?: 0L
 
     /** How far the sky is zoomed, 1 to [Orrery.MAX_ZOOM]. */
     internal fun orreryZoomForTest(): Float = orreryZoom
@@ -4433,6 +4529,7 @@ class ClockView @JvmOverloads constructor(
         if (!Orrery.moonFollows(body)) {
             moonRejoinFrom = detachedMoonLongitude
             moonRejoinAt = SystemClock.uptimeMillis()
+            kickTicker()
         }
         grabbedBody = null
         invalidate()
@@ -4471,6 +4568,15 @@ class ClockView @JvmOverloads constructor(
         orreryAligned()
     )
 
+    /** The planets lying in the case, each in the colour it brought down. */
+    private fun drawFallenPlanets(canvas: Canvas) {
+        for (b in debris.bodies) {
+            if (b.kind != DialDebris.Kind.PLANET) continue
+            fallenPaint.color = b.colour
+            canvas.drawCircle(b.x, b.y, b.halfLen, fallenPaint)
+        }
+    }
+
     private fun drawOrrery(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         val fade = orreryFade()
         if (fade <= 0.01f) return
@@ -4479,19 +4585,19 @@ class ClockView @JvmOverloads constructor(
             orreryMoonLongitude(), orreryAligned(), orreryMoonDetached(), grabbedBody,
             orreryZoom, orreryBusyDays.keys, fallenPlanets
         )
-        // Low on the face and in the seven-segment digits, not in the
-        // system's own letters. Two reasons, and the second is the one that
-        // matters: it was across the middle of the dial, where the orbits
-        // are, and half of Mars spent the year behind it.
-        val digitH = r * 0.10f
+        // Under the dial rather than on it, in the same place and at the
+        // same size as the chronograph's readout — which is where this
+        // clock already puts a row of digits, so it needs no explaining.
+        // On the face it was lying across the orbits, and half of Mars
+        // spent the year behind it.
+        val digitH = r * 0.13f
+        val yTop = min(cy + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
         val keep = digitalPaint.alpha
         digitalPaint.alpha = (215 * fade).toInt()
-        drawSevenSegment(canvas, orreryDateDigits(), cx, cy + r * 0.50f, digitH)
+        drawSevenSegment(canvas, orreryDateDigits(), cx, yTop, digitH)
         digitalPaint.alpha = keep
         orreryCaption()?.let {
-            OrreryDial.drawCaption(
-                canvas, cx, cy + r * 0.50f + digitH * 1.55f, r, theme, it, fade
-            )
+            OrreryDial.drawCaption(canvas, cx, yTop + digitH * 1.45f, r, theme, it, fade)
         }
     }
 
@@ -4731,6 +4837,9 @@ class ClockView @JvmOverloads constructor(
          * how far you had gone.
          */
         private const val GLIDE_HOME_MS = 1400f
+
+        /** And how long the chronograph hands take to run back to zero. */
+        private const val CHRONO_GLIDE_MS = 700f
 
         /**
          * How wide an arc still counts as a line of planets.

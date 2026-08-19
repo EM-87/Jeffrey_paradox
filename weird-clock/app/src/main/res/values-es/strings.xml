@@ -365,4 +365,8 @@
     <string name="exact_alarms_title">Las alarmas no son exactas en este móvil</string>
     <string name="exact_alarms_message">Este móvil no deja que la app ponga alarmas exactas. Siguen sonando, pero hasta un minuto tarde, el ahorro de batería puede moverlas, y el icono del despertador no aparece en la barra de estado.</string>
     <string name="exact_alarms_grant">Permitir alarmas exactas</string>
+
+    <string name="pref_armed_title">Alarma registrada en el sistema</string>
+    <string name="pref_armed_none">Ninguna. La barra de estado no tiene ningún despertador que dibujar.</string>
+    <string name="pref_armed_at">%1$s. Si la barra de estado no muestra el reloj, es cosa del móvil y no de la app.</string>
 </resources>

@@ -382,10 +382,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private val tickBeat = object : Runnable {
         override fun run() {
-            if (ticksWanted && Ticker.onTime(System.currentTimeMillis())) {
-                chimePlayer.playTick()
-            }
-            tickHandler?.postDelayed(this, Ticker.delayToNext(System.currentTimeMillis()))
+            // On the clock the second hand keeps, not the wall clock. They
+            // are the same number until solar time is switched on, and then
+            // they are minutes apart — so the tick would sound at one
+            // instant and the hand step at another.
+            val now = TimeKeeper.nowMs()
+            if (ticksWanted && Ticker.onTime(now)) chimePlayer.playTick()
+            tickHandler?.postDelayed(this, Ticker.delayToNext(TimeKeeper.nowMs()))
         }
     }
 
@@ -395,7 +398,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         thread.start()
         tickThread = thread
         tickHandler = android.os.Handler(thread.looper).also {
-            it.postDelayed(tickBeat, Ticker.delayToNext(System.currentTimeMillis()))
+            it.postDelayed(tickBeat, Ticker.delayToNext(TimeKeeper.nowMs()))
         }
     }
 
@@ -1024,6 +1027,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         handler.removeCallbacks(soundLoop)
         handler.removeCallbacks(bubblePhysics)
         stopTicking()
+        // The sky is a thing you open, look at and leave. Coming back to
+        // one still standing on a date wound to last Tuesday reads as a
+        // clock that has stopped — and the view is never detached when the
+        // app goes to the background, so onDetachedFromWindow never ran.
+        clockView?.leaveOrrery()
         sensorManager?.unregisterListener(flipListener)
         ClockWidgetProvider.refreshAll(this)
         // And book the next wake-up, in case the settings just changed
@@ -1135,11 +1143,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
             it.onDialScaleChanged = { scale -> shareDialScale(scale, it) }
             it.onHorizontalSwipe = { fingerRight -> swipeSideways(Card.REVERSE, fingerRight) }
-            it.onCrownTap = {
+            it.onCrownTap = { tidied ->
                 // The winding crown tidies the whole scene, bubbles included.
-                chimePlayer.playCuckoo()
+                crownSound(tidied)
                 healBubbleClocks()
                 worldBubbles.dock()
+                // On the countdown the crown had nothing else to do, so it
+                // now sends the hands home to zero — the one thing you
+                // always want on that card, and it had to be asked for with
+                // the reset pusher.
+                if (!tidied) sendCountdownHome()
             }
         }
         // The countdown goes straight home to the clock, skipping S0.
@@ -1174,11 +1187,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
             it.onDialScaleChanged = { scale -> shareDialScale(scale, it) }
             it.onHorizontalSwipe = { fingerRight -> swipeSideways(Card.STOPWATCH, fingerRight) }
-            it.onCrownTap = {
+            it.onCrownTap = { tidied ->
                 // The winding crown tidies the whole scene, bubbles included.
-                chimePlayer.playCuckoo()
+                crownSound(tidied)
                 healBubbleClocks()
                 worldBubbles.dock()
+                // And on a stopwatch sitting at zero it puts the last run
+                // back, so a race stopped and cleared by accident is not
+                // gone: the crown is where a mechanical watch keeps its
+                // second thoughts.
+                if (!tidied) restoreLastRun()
             }
         }
         root.findViewById<ImageButton>(R.id.stopwatch_back_button).setOnClickListener {
@@ -1193,9 +1211,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // tomorrow holds, which is the one thing a twelve-hour face can
             // do that a list cannot.
             it.onShownDayChanged = { updateAlarmMarkers() }
-            it.onCrownTap = {
+            it.onCrownTap = { tidied ->
                 // The winding crown tidies the whole scene, bubbles included.
-                chimePlayer.playCuckoo()
+                crownSound(tidied)
                 healBubbleClocks()
                 worldBubbles.dock()
             }
@@ -2816,8 +2834,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     private fun resetChrono() {
+        // Remembered only when there is something to remember, so pressing
+        // reset twice does not replace the last race with nothing.
+        val was = stopwatch.elapsed()
+        if (was > 0L) lastRunMs = was
         stopwatch.reset()
         stopwatchClockView?.chronoRunning = false
+        stopwatchClockView?.glideChronoTo(was, 0L)
         pushed(Pusher.Feel.RESET)
     }
 
@@ -2848,13 +2871,60 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     private fun resetCountdown() {
-        // Back to zero; the user winds the hands to set a new time.
+        // Back to zero; the user winds the hands to set a new time. The
+        // hands travel there rather than arriving: everything else on this
+        // dial travels, and a jump reads as a glitch.
+        val was = countdownRemaining()
         countdown.reset()
+        countdownClockView?.glideChronoTo(was, 0L)
         pushed(Pusher.Feel.RESET)
         CountdownService.clearPublished(this)
         updateCountdownUi()
         HourglassWidgetProvider.pushIdle(this)
     }
+
+    /** The crown on the countdown: hands home to zero, travelling. */
+    private fun sendCountdownHome() {
+        if (countdownRunning) return
+        val was = countdownRemaining()
+        if (was == 0L) return
+        countdown.reset()
+        countdownClockView?.glideChronoTo(was, 0L)
+        updateCountdownUi()
+        HourglassWidgetProvider.pushIdle(this)
+    }
+
+    /**
+     * The click, or the bird.
+     *
+     * The cuckoo belongs to the crown having *done* something — put the
+     * hands back, or torn up the cheater's stamp. Winding a tidy dial set a
+     * whole bird off for nothing, several times a minute, which is how a
+     * good joke becomes a bad one. A tidy dial gets a click.
+     */
+    private fun crownSound(tidied: Boolean) {
+        if (tidied) chimePlayer.playCuckoo() else chimePlayer.playTick()
+    }
+
+    /**
+     * The last race, put back on a stopwatch that has been cleared.
+     *
+     * A stopwatch reads zero for two different reasons — it has never been
+     * run, or it has been run and cleared — and only one of them is worth
+     * offering to undo. So the reading is remembered when it is cleared and
+     * not when it is already zero, which is what keeps a second and third
+     * press of reset from wiping the memory of the first.
+     */
+    private fun restoreLastRun() {
+        val back = lastRunMs
+        if (back <= 0L || stopwatchRunning || stopwatch.elapsed() != 0L) return
+        stopwatch.restore(back, 0L, false)
+        stopwatchClockView?.glideChronoTo(0L, back)
+        stopwatchClockView?.invalidate()
+    }
+
+    /** The reading the stopwatch had when it was last cleared. */
+    private var lastRunMs = 0L
 
     // ------------------------------------------------- scheduled chimes
 

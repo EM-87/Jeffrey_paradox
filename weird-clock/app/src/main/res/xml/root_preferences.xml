@@ -142,6 +142,11 @@
         android:title="@string/pref_very_advanced_title" />
 
     <Preference
+        android:key="pref_armed"
+        android:selectable="false"
+        android:title="@string/pref_armed_title" />
+
+    <Preference
         android:key="pref_version"
         android:title="@string/pref_version_title" />
 

@@ -45,8 +45,14 @@ object Ticker {
      * playing it would put two ticks nearly on top of each other before the
      * next one arrives on time.
      */
-    fun onTime(nowMs: Long, periodMs: Long = 1000L, slackMs: Long = 250L): Boolean {
-        val into = Math.floorMod(nowMs, periodMs)
-        return into <= slackMs || periodMs - into <= slackMs
+    fun onTime(nowMs: Long, periodMs: Long = 1000L, slackMs: Long = 150L): Boolean {
+        // Only the second half of the old test survives, and the first half
+        // was doing harm. It refused any tick more than a quarter of a
+        // second late, which turned every late tick into a missing one —
+        // and a clock that misses a tick is a worse clock than one that
+        // ticks a little late. What is still refused is a tick that has
+        // arrived so late the next one is about to land: playing that would
+        // put two of them almost on top of each other.
+        return periodMs - Math.floorMod(nowMs, periodMs) > slackMs
     }
 }

@@ -93,7 +93,7 @@ class OrreryDialTest {
     // ---------------------------------------------------- opening and shutting
 
     /**
-     * A tap on the token opens the sky, and a tap on the empty sky shuts it.
+     * A tap on the token opens the sky; a tap on the Sun shuts it again.
      *
      * Delivered as touches and taken all the way through the gesture
      * detector, which is the part that was untested when this only asked
@@ -101,7 +101,7 @@ class OrreryDialTest {
      * be listening to it.
      */
     @Test
-    fun `a tap on the token opens the sky, and a tap on the sky shuts it`() {
+    fun `a tap on the token opens the sky, and the Sun shuts it`() {
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         val clock = controller.get().clockForTest()
         assertFalse("it opened by itself", clock.orreryShowing())
@@ -110,12 +110,44 @@ class OrreryDialTest {
         assertTrue("the token did not open anything", clock.orreryShowing())
 
         ShadowSystemClock.advanceBy(Duration.ofMillis(900))
-        // Empty sky: between the two outermost rings, at an angle with
-        // nothing on it, found by asking rather than by guessing.
+        tap(clock, clock.width / 2f, clock.height / 2f)
+        ShadowSystemClock.advanceBy(Duration.ofMillis(900))
+        assertFalse("the Sun would not shut it", clock.orreryShowing())
+    }
+
+    /**
+     * And empty sky no longer shuts it, because a tap out there is now for
+     * naming things.
+     */
+    @Test
+    fun `a tap on empty sky leaves the sky open`() {
+        val clock = openSky()
         val (x, y) = emptySky(clock)
         tap(clock, x, y)
         ShadowSystemClock.advanceBy(Duration.ofMillis(900))
-        assertFalse("it would not shut again", clock.orreryShowing())
+        assertTrue("empty sky put the whole thing away", clock.orreryShowing())
+    }
+
+    /**
+     * The Sun will not close over an untidy dial.
+     *
+     * Putting a lid on a case with planets rolling about in it is how you
+     * come back to one and wonder what happened. Pick them up first — the
+     * toolbox is there for exactly this.
+     */
+    @Test
+    fun `the Sun refuses to shut over planets on the floor`() {
+        val clock = openSky()
+        clock.knockHandsOff()
+        assertTrue("nothing fell", clock.fallenPlanetsForTest().isNotEmpty())
+        tap(clock, clock.width / 2f, clock.height / 2f)
+        ShadowSystemClock.advanceBy(Duration.ofMillis(900))
+        assertTrue("it shut with the planets still on the floor", clock.orreryShowing())
+
+        clock.reassembleAll()
+        tap(clock, clock.width / 2f, clock.height / 2f)
+        ShadowSystemClock.advanceBy(Duration.ofMillis(900))
+        assertFalse("and would not shut once tidied", clock.orreryShowing())
     }
 
     /**
@@ -155,6 +187,24 @@ class OrreryDialTest {
         assertTrue("it stopped asking halfway through", clock.isAnimatingForTest())
         ShadowSystemClock.advanceBy(Duration.ofMillis(2000))
         assertFalse("it went on asking after it had finished", clock.isAnimatingForTest())
+    }
+
+    /**
+     * And it throws away the frame already queued.
+     *
+     * Asking for frames is not the same as getting one. The loop works out
+     * its delay when a frame is posted, so a fade started a moment after a
+     * frame went into the queue would wait up to a whole second for it —
+     * and then arrive at the far end. Nothing but the counter can tell that
+     * apart from a fade that worked.
+     */
+    @Test
+    fun `opening the sky kicks the frame loop`() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val clock = controller.get().clockForTest()
+        val before = clock.tickerKicks
+        clock.toggleOrrery()
+        assertTrue("the queued frame was left where it was", clock.tickerKicks > before)
     }
 
     /** The fade is a fade: partway through, it is partway through. */
@@ -966,5 +1016,28 @@ class OrreryDialTest {
                 dark < lit * 0.6
             )
         }
+    }
+
+    /**
+     * A tap on a planet gives its name.
+     *
+     * A tap, not a long press: a finger that comes down on Jupiter and
+     * lifts again was asking which one that is, and nothing else on the sky
+     * answers a tap in that spot.
+     */
+    @Test
+    fun `a tap on a planet gives its name`() {
+        val clock = openSky()
+        val cx = clock.width / 2f
+        val cy = clock.height / 2f
+        val p = OrreryDial.positionOf(
+            Orrery.Body.JUPITER, cx, cy, clock.dialRadiusForTest(),
+            clock.orreryMs(), clock.orreryMoonLongitude()
+        )
+        tap(clock, p.x, p.y)
+        assertEquals(
+            "no bubble, or the wrong one",
+            context.getString(R.string.body_jupiter), clock.markBubbleForTest()
+        )
     }
 }

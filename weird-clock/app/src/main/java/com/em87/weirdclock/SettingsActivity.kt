@@ -242,6 +242,28 @@ class SettingsActivity : AppCompatActivity() {
             follows(Prefs.WORLD_CLOCK, "pref_world_cities")
             follows(Prefs.MOON_PHASE, Prefs.ORRERY)
             // Installed version, so it's always clear which build is running.
+            // What the *system* thinks is armed, read back from
+             // AlarmManager rather than from our own list.
+            //
+            // Its whole reason for existing is a question nobody could
+            // answer from here: the little clock in the status bar is drawn
+            // by Android whenever some app has an alarm clock registered,
+            // and when it does not appear there is no way to tell from
+            // inside the app whether the registration failed or the phone
+            // simply is not drawing it. This says which.
+            findPreference<Preference>("pref_armed")?.summary = run {
+                val manager = requireContext()
+                    .getSystemService(android.app.AlarmManager::class.java)
+                val next = manager?.nextAlarmClock
+                if (next == null) {
+                    getString(R.string.pref_armed_none)
+                } else {
+                    val at = java.text.DateFormat.getDateTimeInstance(
+                        java.text.DateFormat.SHORT, java.text.DateFormat.SHORT
+                    ).format(java.util.Date(next.triggerTime))
+                    getString(R.string.pref_armed_at, at)
+                }
+            }
             findPreference<Preference>("pref_version")?.summary = try {
                 val info = requireContext().packageManager
                     .getPackageInfo(requireContext().packageName, 0)

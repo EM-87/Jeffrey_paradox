@@ -363,4 +363,8 @@
     <string name="exact_alarms_title">Alarms are not exact on this phone</string>
     <string name="exact_alarms_message">This phone is not letting the app set exact alarms. They still ring, but up to a minute late, they can be pushed about by battery saving, and the alarm clock icon does not appear in the status bar.</string>
     <string name="exact_alarms_grant">Allow exact alarms</string>
+
+    <string name="pref_armed_title">Alarm registered with the system</string>
+    <string name="pref_armed_none">Nothing. The status bar has no alarm to draw.</string>
+    <string name="pref_armed_at">%1$s. If the status bar shows no clock, that is the phone\'s doing, not the app\'s.</string>
 </resources>

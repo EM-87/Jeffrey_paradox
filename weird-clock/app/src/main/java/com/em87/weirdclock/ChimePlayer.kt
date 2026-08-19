@@ -53,8 +53,20 @@ class ChimePlayer {
     var volume = 1f
 
     private var bellTrack: AudioTrack? = null
+    /**
+     * Volatile, and read without the lock — see [playTick].
+     *
+     * The lock is held while a bell is being built into an AudioTrack,
+     * which is tens of milliseconds of work on a buffer. A tick that had to
+     * wait for it arrived late, and late is the one thing a tick cannot be.
+     */
+    @Volatile
     private var soundPool: SoundPool? = null
+
+    @Volatile
     private var tickSoundId = 0
+
+    @Volatile
     private var tickReady = false
     private val lock = Any()
 
@@ -94,11 +106,19 @@ class ChimePlayer {
         }
     }
 
-    /** Short mechanical "tik". Prepared via [prepareTick]; cheap to spam. */
+    /**
+     * Short mechanical "tik", prepared via [prepareTick] and played without
+     * taking the lock.
+     *
+     * It used to take it, and the lock is also held while a bell is being
+     * synthesised into an AudioTrack — so an hourly chime, or a countdown
+     * finishing, stalled the tick behind it. SoundPool.play is safe to call
+     * from any thread; the three fields it needs are volatile, and the
+     * worst a race can do is play a tick a moment after release, which
+     * SoundPool ignores.
+     */
     fun playTick() {
-        synchronized(lock) {
-            if (tickReady) soundPool?.play(tickSoundId, 0.8f, 0.8f, 1, 0, 1f)
-        }
+        if (tickReady) soundPool?.play(tickSoundId, 0.8f, 0.8f, 1, 0, 1f)
     }
 
     /**

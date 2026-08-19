@@ -80,18 +80,23 @@ class TickerTest {
     }
 
     /**
-     * A tick most of a second late belongs to the second after it.
+     * A late tick is played; only one that has lost its second entirely is
+     * dropped.
      *
-     * Playing it anyway would put two ticks nearly on top of one another,
-     * because the next one is about to arrive on time.
+     * This started out refusing anything more than a quarter second late,
+     * which turned every late tick into a missing one — and a clock that
+     * misses a tick is a worse clock than one that ticks a little late.
+     * What is still refused is a tick so late that the next one is about to
+     * land, because playing it would put two of them almost together.
      */
     @Test
-    fun `a tick that has lost its second is not played`() {
+    fun `only a tick that has lost its second entirely is dropped`() {
         assertTrue("dead on", Ticker.onTime(4_000L))
-        assertTrue("a shade early", Ticker.onTime(3_900L))
         assertTrue("a shade late", Ticker.onTime(4_100L))
-        assertFalse("half a second adrift", Ticker.onTime(4_500L))
-        assertFalse("most of a second adrift", Ticker.onTime(4_600L))
+        assertTrue("half a second late is still this second's tick", Ticker.onTime(4_500L))
+        assertTrue("three quarters late", Ticker.onTime(4_750L))
+        assertFalse("the next one is already due", Ticker.onTime(4_900L))
+        assertFalse("and this is simply the next one, early", Ticker.onTime(3_950L))
     }
 
     // ---------------------------------------------------------- the wiring

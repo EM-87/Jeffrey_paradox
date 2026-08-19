@@ -510,4 +510,106 @@ class ScreenshotTest {
         ReminderStore.all(context).clear()
         ReminderStore.save(context)
     }
+
+    /**
+     * The planets knocked off their orbits are actually drawn.
+     *
+     * They were not. The pieces on the floor of the case were painted
+     * inside the layer that fades the clock away, and that layer is at
+     * alpha zero once the planets have the dial — so a knock made them
+     * vanish rather than spill. Nothing but a picture catches that: the
+     * bodies existed, rolled about under gravity and reported themselves
+     * correctly the whole time.
+     */
+    @Test
+    fun `the fallen planets are on the picture, not only in the list`() {
+        prefs.edit().clear()
+            .putBoolean(Prefs.MOON_PHASE, true)
+            .putBoolean(Prefs.ORRERY, true)
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val clock = c.get().clockForTest()
+            clock.toggleOrrery()
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(
+                java.time.Duration.ofMillis(900)
+            )
+            // Jupiter, which is the biggest disc on the dial and therefore
+            // the one with something to count. In orbit it is there; on the
+            // floor it must still be there, in the same colour, somewhere
+            // else. The bug painted it at alpha zero, so it was nowhere.
+            val jupiter = OrreryDial.colourOf(Orrery.Body.JUPITER, clock.theme)
+            val inOrbit = countColour(clock, jupiter)
+            assertTrue("Jupiter is not on the dial to begin with", inOrbit > 0)
+            clock.knockHandsOff()
+            // Long enough for gravity to carry them somewhere they were not
+            // before, so "drawn" cannot be confused with "still in orbit".
+            repeat(40) {
+                org.robolectric.shadows.ShadowSystemClock.advanceBy(
+                    java.time.Duration.ofMillis(16)
+                )
+                clock.invalidate()
+                shootView(clock)
+            }
+            assertTrue("nothing came off", clock.fallenPlanetsForTest().isNotEmpty())
+            assertTrue(
+                "Jupiter vanished on its way to the floor",
+                countColour(clock, jupiter) > 0
+            )
+            assertTrue(shoot(screenOf(c.get()), "orrery-spilled") > 3f)
+        }
+    }
+
+    /** Draws [view] into a throwaway bitmap, for its side effects. */
+    private fun shootView(view: View) {
+        val bitmap = Bitmap.createBitmap(
+            view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), Bitmap.Config.ARGB_8888
+        )
+        view.draw(Canvas(bitmap))
+    }
+
+    /** How many pixels of one colour a view puts on the glass. */
+    private fun countColour(view: View, colour: Int): Int {
+        val bitmap = Bitmap.createBitmap(
+            view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), Bitmap.Config.ARGB_8888
+        )
+        view.draw(Canvas(bitmap))
+        val r = (colour shr 16) and 0xFF
+        val g = (colour shr 8) and 0xFF
+        val b = colour and 0xFF
+        var found = 0
+        var y = 0
+        while (y < bitmap.height) {
+            var x = 0
+            while (x < bitmap.width) {
+                val p = bitmap.getPixel(x, y)
+                if (kotlin.math.abs(((p shr 16) and 0xFF) - r) < 6 &&
+                    kotlin.math.abs(((p shr 8) and 0xFF) - g) < 6 &&
+                    kotlin.math.abs((p and 0xFF) - b) < 6
+                ) found++
+                x += 2
+            }
+            y += 2
+        }
+        return found
+    }
+
+    /** How many different colours a view puts on the glass. */
+    private fun colourCount(view: View): Int {
+        val bitmap = Bitmap.createBitmap(
+            view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), Bitmap.Config.ARGB_8888
+        )
+        view.draw(Canvas(bitmap))
+        val seen = HashSet<Int>()
+        var y = 0
+        while (y < bitmap.height) {
+            var x = 0
+            while (x < bitmap.width) {
+                seen.add(bitmap.getPixel(x, y))
+                x += 3
+            }
+            y += 3
+        }
+        return seen.size
+    }
 }

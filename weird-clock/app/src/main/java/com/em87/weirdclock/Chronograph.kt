@@ -114,13 +114,26 @@ class Countdown(private val now: () -> Long, startingAt: Long) {
         remainingMs = 0L
     }
 
-    /** Wound to a new length by hand, which only makes sense while stopped. */
+    /**
+     * Wound to a new length by hand, which only makes sense while stopped.
+     *
+     * Never more than a day. Past that the hands have gone round the whole
+     * dial twice and the number underneath means nothing anybody can read
+     * off the face — and a thing you want to happen the day after tomorrow
+     * is an alarm, which this app already has and which survives the phone
+     * being switched off.
+     */
     fun setTo(ms: Long) {
-        remainingMs = ms
+        remainingMs = ms.coerceAtMost(A_DAY_MS)
         // A freshly set countdown is all sand up top, so the total it draws
         // against is the length just chosen — and never zero, or the sand
         // would be dividing by it.
-        totalMs = ms.coerceAtLeast(1000L)
+        totalMs = remainingMs.coerceAtLeast(1000L)
+    }
+
+    private companion object {
+        /** The longest a countdown can be wound to. */
+        const val A_DAY_MS = 24L * 60 * 60 * 1000
     }
 
     /** Adopted from elsewhere: the tile in the shade, or a spoken request. */
