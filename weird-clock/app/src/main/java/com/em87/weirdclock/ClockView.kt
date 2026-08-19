@@ -2284,6 +2284,19 @@ class ClockView @JvmOverloads constructor(
 
     // -------------------------------------------------- fallen-body physics
 
+    /**
+     * For the tests: where a named hand's tip is, right now.
+     *
+     * By name, because the alternative — picking a hand out of
+     * [mountedHands] by how long it is — stops working the moment the
+     * lengths are wrong, which is exactly the condition being tested for.
+     */
+    internal fun handTipForTest(hand: Hand): PointF {
+        val cx = width / 2f
+        val cy = height / 2f
+        return pointAt(cx, cy, angleOf(hand, currentAngles()), handReach(hand))
+    }
+
     /** For the tests: whether that hand is lying in the case. */
     internal fun isFallenForTest(hand: Hand): Boolean = isFallen(hand)
 

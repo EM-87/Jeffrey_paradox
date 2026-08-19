@@ -38,15 +38,19 @@ class HandLengthTest {
         }
     }
 
-    /** How far the minute hand's tip is from the middle, right now. */
+    /**
+     * How far the minute hand's tip is from the middle, right now.
+     *
+     * The hand is asked for by name. Picking it out of the mounted hands
+     * by how long it is — which is what this did first — stops working the
+     * moment the lengths are wrong, and the lengths being wrong is the
+     * whole subject: a sabotage that put the stretch back reordered the
+     * three and the test went on measuring the second hand, which points
+     * straight up throughout and is beautifully constant.
+     */
     private fun minuteHandLength(clock: ClockView): Float {
-        val bar = clock.mountedHands().let { bars ->
-            // The three hands are all at once here; the middle one by
-            // length is the minute hand, and it is the one that sweeps a
-            // whole face in an hour.
-            bars.sortedBy { hypot(it.x2 - clock.width / 2f, it.y2 - clock.height / 2f) }[1]
-        }
-        return hypot(bar.x2 - clock.width / 2f, bar.y2 - clock.height / 2f)
+        val tip = clock.handTipForTest(ClockView.Hand.MINUTE)
+        return hypot(tip.x - clock.width / 2f, tip.y - clock.height / 2f)
     }
 
     /**
@@ -108,6 +112,38 @@ class HandLengthTest {
             len > round.dialRadiusForTest() * 0.7f
         )
         assertTrue("and one that overshoots it", len <= round.dialRadiusForTest())
+    }
+
+    /**
+     * And no hand pokes out through a flat side.
+     *
+     * "The same length at every angle" is only half the claim, and a
+     * sabotage that made every hand the length of the dial's *outer*
+     * radius satisfied it while leaving the hands sticking through the
+     * sides of a square. The other half is that the length is the right
+     * one: no further out than the nearest point of the edge, which is the
+     * inscribed circle.
+     */
+    @Test
+    fun `no hand reaches outside the face it is drawn on`() {
+        for (shape in ClockView.DialShape.entries) {
+            val clock = dial(shape)
+            val r = clock.dialRadiusForTest()
+            // The nearest the edge ever comes to the middle: the radius on
+            // a circle, and the apothem on anything with corners.
+            val nearest = if (shape.sides < 3) r else {
+                r * kotlin.math.cos(Math.PI / shape.sides).toFloat()
+            }
+            for (minute in 0 until 60) {
+                clock.chronoProvider = { minute * 60_000L }
+                val len = minuteHandLength(clock)
+                assertTrue(
+                    "$shape at minute $minute: the hand reaches $len, and the " +
+                        "edge is $nearest away at its nearest",
+                    len <= nearest + 0.5f
+                )
+            }
+        }
     }
 
     /**
