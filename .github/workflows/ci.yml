@@ -1,0 +1,50 @@
+# The net.
+#
+# Everything in this project is checked by running it: five hundred tests,
+# lint over two modules, and a habit of breaking the code on purpose to see
+# whether the tests notice. All of that was run by hand, which means it was
+# run when somebody remembered. This runs it on every push, so a test that
+# stops passing says so on the day it stops rather than the next time
+# anybody thinks to look.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # The Android SDK is already on the runner image; this only accepts
+      # the licences and makes sure the platform the app compiles against
+      # is present.
+      - uses: android-actions/setup-android@v3
+
+      - name: Tests
+        working-directory: weird-clock
+        run: ./gradlew :app:testDebugUnitTest
+
+      # Both modules. Running only :app:lint is how a wear-module error went
+      # unseen for several versions.
+      - name: Lint
+        working-directory: weird-clock
+        run: ./gradlew :app:lint :wear:lint
+
+      # The reports are worth having when something fails, and only then.
+      - name: Reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            weird-clock/app/build/reports/
+            weird-clock/wear/build/reports/
+          retention-days: 7

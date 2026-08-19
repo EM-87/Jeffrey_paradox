@@ -133,6 +133,30 @@ class OrreryDialTest {
         ))
     }
 
+    /**
+     * The fade asks for the frames it needs to be a fade.
+     *
+     * It reads a clock every frame and nothing was requesting any, so it
+     * got whatever the dial happened to draw for other reasons — one a
+     * second from the ticking second hand, and none at all with the second
+     * hand switched off. The fade did not fail; it stuttered, which is
+     * harder to see and worse to look at.
+     */
+    @Test
+    fun `the sky asks for frames while it is fading`() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val clock = controller.get().clockForTest()
+        clock.showSecondHand = false
+        assertFalse("it wanted frames with nothing happening", clock.isAnimatingForTest())
+
+        clock.toggleOrrery()
+        assertTrue("the fade is not asking for frames", clock.isAnimatingForTest())
+        ShadowSystemClock.advanceBy(Duration.ofMillis(200))
+        assertTrue("it stopped asking halfway through", clock.isAnimatingForTest())
+        ShadowSystemClock.advanceBy(Duration.ofMillis(2000))
+        assertFalse("it went on asking after it had finished", clock.isAnimatingForTest())
+    }
+
     /** The fade is a fade: partway through, it is partway through. */
     @Test
     fun `the hands do not vanish in one frame`() {
@@ -462,6 +486,13 @@ class OrreryDialTest {
         assertTrue(
             "this drag did not move the Moon far enough to be worth sliding",
             Orrery.separation(heldAt, home) > 20.0
+        )
+        // And the dial must be asking for frames to slide it with: the
+        // slide reads a clock every frame, and a fade nobody draws is a
+        // jump with a pause in front of it.
+        assertTrue(
+            "nothing was asking for the frames the slide needs",
+            clock.isAnimatingForTest()
         )
         ShadowSystemClock.advanceBy(Duration.ofMillis(350))
         val midway = clock.orreryMoonLongitude()

@@ -28,6 +28,17 @@ object Prefs {
      * without one.
      */
     const val ORRERY = "pref_orrery"
+
+    /**
+     * Set when the phone refused an exact alarm and the app had to fall
+     * back to a one-minute window.
+     *
+     * Not a setting — a finding. Nothing writes it but [AlarmScheduler].
+     */
+    const val EXACT_DENIED = "pref_exact_denied"
+
+    /** Whether the warning above has already been shown once. */
+    const val EXACT_WARNED = "pref_exact_warned"
     const val ALARM_MARKERS = "pref_alarm_markers"
     const val SECOND_HAND = "pref_second_hand"
     const val SMOOTH_SECONDS = "pref_smooth_seconds"

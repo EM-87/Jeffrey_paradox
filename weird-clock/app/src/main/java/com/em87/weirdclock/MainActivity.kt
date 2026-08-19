@@ -294,6 +294,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private var sensorManager: SensorManager? = null
     private var deviceInverted = false
+
+    /** When the phone last came to be upside down, or zero if it is not. */
+    private var invertedSince = 0L
+
+    /** Whether this stretch of being upside down has already turned it. */
+    private var glassTurned = false
     private var flipLowPassX = 0f
     private var flipLowPassY = 9.81f
     private var lastBubbleJoltAt = 0L
@@ -318,6 +324,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
             if (nowInverted != deviceInverted) {
                 deviceInverted = nowInverted
+                invertedSince = if (nowInverted) now else 0L
+                if (!nowInverted) glassTurned = false
+            }
+            // Turned only once it has been held there — see [Hourglass].
+            // Acting the instant the phone passed upside down is what let a
+            // pocket finish a three-minute countdown.
+            if (deviceInverted && !glassTurned &&
+                Hourglass.turns(current(), countdownRunning, now - invertedSince)
+            ) {
+                glassTurned = true
                 onDeviceFlipped()
             }
         }
@@ -333,23 +349,75 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // The sand view needs no rotation: its grains obey real gravity, so
         // the pile is already physically where a flipped hourglass has it.
         // Only the clock swaps: fallen sand becomes sand still to fall.
-        if (row == Row.MIDDLE || !countdownRunning || countdownTotalMs <= 0L) return
-        val newRemaining = (countdownTotalMs - countdownRemaining()).coerceAtLeast(0L)
+        if (countdownTotalMs <= 0L) return
+        val newRemaining = Hourglass.turned(countdownTotalMs, countdownRemaining())
         countdownEndsAt = SystemClock.elapsedRealtime() + newRemaining
         chimePlayer.playTick()
         updateCountdownUi()
     }
 
+    // ------------------------------------------------------------ ticking
+
+    /**
+     * The second hand's tick, on a thread of its own.
+     *
+     * It used to ride the same handler as everything else that happens
+     * once a second, which is the same thread that draws the dial — and the
+     * dial is not cheap: eight planets, a physics step for whatever is
+     * lying in the case, a layer of transparency or two. A frame that ran
+     * long pushed the tick along with it, so ticks came late and sometimes
+     * two seconds apart. On a clock that is the one fault nobody can be
+     * talked out of hearing.
+     *
+     * So the timing lives here, where nothing draws. The thread reads one
+     * volatile flag and plays one sound; every decision about *whether* to
+     * tick is still made on the main thread, once a second, and left in
+     * [ticksWanted] for it to find.
+     */
+    private var tickThread: android.os.HandlerThread? = null
+    private var tickHandler: android.os.Handler? = null
+
+    @Volatile
+    private var ticksWanted = false
+
+    private val tickBeat = object : Runnable {
+        override fun run() {
+            if (ticksWanted && Ticker.onTime(System.currentTimeMillis())) {
+                chimePlayer.playTick()
+            }
+            tickHandler?.postDelayed(this, Ticker.delayToNext(System.currentTimeMillis()))
+        }
+    }
+
+    private fun startTicking() {
+        if (tickThread != null) return
+        val thread = android.os.HandlerThread("ticks", android.os.Process.THREAD_PRIORITY_AUDIO)
+        thread.start()
+        tickThread = thread
+        tickHandler = android.os.Handler(thread.looper).also {
+            it.postDelayed(tickBeat, Ticker.delayToNext(System.currentTimeMillis()))
+        }
+    }
+
+    private fun stopTicking() {
+        tickHandler?.removeCallbacks(tickBeat)
+        tickHandler = null
+        tickThread?.quitSafely()
+        tickThread = null
+    }
+
+    /** For the tests: whether the tick would sound on this second. */
+    internal fun ticksWantedForTest(): Boolean = ticksWanted
+
     /** Runs on (approximately) every second boundary, so ticks stay in step. */
     private val soundLoop = object : Runnable {
         override fun run() {
             val cv = clockView
-            if (tickingEnabled && row == Row.MIDDLE && cv != null &&
-                !cv.isSecondHandGrabbed() && !cv.isSecondHandFallen()
-            ) {
-                chimePlayer.playTick()
-            }
-
+            ticksWanted = tickingEnabled && row == Row.MIDDLE && cv != null &&
+                !cv.isSecondHandGrabbed() && !cv.isSecondHandFallen() &&
+                // A dial showing the planets is not showing a second hand,
+                // so there is nothing for a tick to be the sound of.
+                !cv.orreryShowing()
             if (countdownRunning && countdownRemaining() == 0L) {
                 countdown.reset()
                 CountdownService.clearPublished(this@MainActivity)
@@ -426,10 +494,33 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         alarmCards.retimeVisible(alarmsRecycler ?: return)
     }
 
+    /**
+     * Holds the screen on where it earns it, and lets it sleep everywhere
+     * else.
+     *
+     * The clock is a bedside clock: a face that goes black after thirty
+     * seconds is not one. A running stopwatch or countdown has the same
+     * claim — you are watching it. The calendar, the alarm list and an idle
+     * chronograph have none, and the flag was set once in onCreate and
+     * never cleared, so the whole app kept the screen burning whatever was
+     * on it.
+     */
+    private fun keepScreenAwake() {
+        if (!this::pager.isInitialized) return
+        val card = current()
+        val awake = card == Card.CLOCK ||
+            (card == Card.STOPWATCH && stopwatchRunning) ||
+            ((card == Card.REVERSE || card == Card.HOURGLASS) && countdownRunning)
+        if (awake) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         // The app's background runs behind the status and navigation bars,
         // so the clock looks like it goes on past the edges of the screen.
         SystemChrome.paint(this)
@@ -582,6 +673,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         pager.setCurrentItem(PAGE_HOME, false)
         pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
+                // A sideways swipe changes which card is showing without
+                // touching the row, so the screen-on flag is reconsidered
+                // here as well as wherever the row moves.
+                keepScreenAwake()
                 carryFallenHands()
                 // Landing on the alarms: whatever happened while away — a
                 // time wound on the dial, an alarm that rang — shows now.
@@ -633,6 +728,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
         sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         maybeIntroduceFloatingHourglass()
+        maybeWarnAboutExactAlarms()
     }
 
     /**
@@ -689,6 +785,39 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             .show()
     }
 
+    /**
+     * Says so when the phone will not let the app set an exact alarm.
+     *
+     * The failure is invisible by design of the platform: the alarm still
+     * rings, roughly, and the only outward sign is that the little clock
+     * that should appear in the status bar does not. An alarm that is
+     * quietly approximate is not something to find out about on a Monday.
+     */
+    private fun maybeWarnAboutExactAlarms() {
+        if (!prefs.getBoolean(Prefs.EXACT_DENIED, false)) return
+        if (prefs.getBoolean(Prefs.EXACT_WARNED, false)) return
+        prefs.edit().putBoolean(Prefs.EXACT_WARNED, true).apply()
+        val builder = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.exact_alarms_title)
+            .setMessage(R.string.exact_alarms_message)
+            .setNegativeButton(R.string.overlay_intro_later, null)
+        // The screen that grants it only exists from Android 12 on; before
+        // that the permission was not something a phone could withhold.
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            builder.setPositiveButton(R.string.exact_alarms_grant) { _, _ ->
+                runCatching {
+                    startActivity(
+                        Intent(
+                            android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                            android.net.Uri.parse("package:$packageName")
+                        )
+                    )
+                }
+            }
+        }
+        builder.show()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (intent.getBooleanExtra(EXTRA_OPEN_ALARMS, false)) goTo(Card.ALARM)
@@ -736,6 +865,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 updateCountdownUi()
             }
         }
+        keepScreenAwake()
         offerToCallOffTheNag()
         // The store is not ours alone. The assistant adds alarms through
         // ClockIntentActivity, and a one-shot switches itself off from the
@@ -753,7 +883,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // Prime the minute boundary so opening the app never chimes, and
         // start the loop on the next second boundary so ticks land in step.
         lastHandledMinute = TimeKeeper.nowMs() / 60000L
-        handler.postDelayed(soundLoop, 1000L - (System.currentTimeMillis() % 1000L))
+        handler.postDelayed(soundLoop, Ticker.delayToNext(System.currentTimeMillis()))
+        startTicking()
     }
 
     /**
@@ -862,6 +993,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         saveStopwatch()
         handler.removeCallbacks(soundLoop)
         handler.removeCallbacks(bubblePhysics)
+        stopTicking()
         sensorManager?.unregisterListener(flipListener)
         ClockWidgetProvider.refreshAll(this)
         // And book the next wake-up, in case the settings just changed
@@ -1413,6 +1545,28 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         return draft
     }
 
+    /** For the tests: how long the countdown has left. */
+    internal fun countdownRemainingForTest(): Long = countdownRemaining()
+
+    /**
+     * For the tests: start a countdown of [ms] on whichever card is showing.
+     *
+     * The pusher would do it too, but through three views and a page
+     * change — and what is on trial is the accelerometer, not the buttons.
+     */
+    internal fun startCountdownForTest(ms: Long) {
+        countdownTotalMs = ms
+        countdownEndsAt = SystemClock.elapsedRealtime() + ms
+        countdown.startOrStop()
+    }
+
+    /** For the tests: put the app on a given card. */
+    internal fun showCardForTest(card: Card) {
+        row = card.row
+        keepScreenAwake()
+        pager.currentItem = card.page
+    }
+
     /** For the tests: the main dial, so a picture can be taken of it. */
     internal fun clockForTest(): ClockView = clockView!!
 
@@ -1486,6 +1640,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         dialMagnetOrigin = magnetOrigin
         alarmWorkingMs = startMs
         row = Row.MIDDLE
+        keepScreenAwake()
         pager.currentItem = PAGE_HOME
         applyAlarmSetUi()
     }
@@ -2274,6 +2429,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // brought the alarms up for one frame and then faded them away.
         val leaving = Cards.on(wasPage, wasRow)
         row = card.row
+        keepScreenAwake()
         val turning = card.row != wasRow
         if (pager.currentItem != card.page) {
             pager.setCurrentItem(card.page, scroll && !turning)
@@ -2575,6 +2731,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun toggleStartPause() {
         val nowRunning = stopwatch.startOrStop()
         stopwatchClockView?.chronoRunning = nowRunning
+        // A running stopwatch is something you are watching, so it keeps
+        // the screen; a stopped one has no such claim.
+        keepScreenAwake()
         pushed(if (nowRunning) Pusher.Feel.START else Pusher.Feel.STOP)
     }
 
@@ -2605,6 +2764,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             pushed(Pusher.Feel.STOP)
         }
         updateCountdownUi()
+        // A countdown that has just been started, or stopped, changes
+        // whether this card has any claim on the screen staying lit.
+        keepScreenAwake()
     }
 
     private fun resetCountdown() {

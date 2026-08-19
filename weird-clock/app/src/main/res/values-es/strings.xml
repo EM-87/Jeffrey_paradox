@@ -361,4 +361,8 @@
     <string name="orrery_aligned">%1$s alineados</string>
     <string name="orrery_title">Sistema solar</string>
     <string name="orrery_summary">Toca el sol o la luna de la esfera y las agujas dejan paso a los planetas. Arrastra uno y el resto le siguen.</string>
+
+    <string name="exact_alarms_title">Las alarmas no son exactas en este móvil</string>
+    <string name="exact_alarms_message">Este móvil no deja que la app ponga alarmas exactas. Siguen sonando, pero hasta un minuto tarde, el ahorro de batería puede moverlas, y el icono del despertador no aparece en la barra de estado.</string>
+    <string name="exact_alarms_grant">Permitir alarmas exactas</string>
 </resources>

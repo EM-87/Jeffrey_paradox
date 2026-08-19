@@ -155,13 +155,21 @@ object AlarmScheduler {
                 AlarmManager.AlarmClockInfo(nextAt, show),
                 firePendingIntent(context, alarm, reminderId)
             )
+            prefs.edit().putBoolean(Prefs.EXACT_DENIED, false).apply()
         } catch (e: SecurityException) {
+            // The phone will not let this app set an exact alarm. It still
+            // rings — inside a minute of the right time — but two things are
+            // gone, and both used to go without a word: the alarm is no
+            // longer registered as an alarm clock, which is what draws the
+            // little clock in the status bar, and it can be pushed about by
+            // battery saving. Written down so somebody can be told.
             alarmManager.setWindow(
                 AlarmManager.RTC_WAKEUP,
                 nextAt,
                 60_000L,
                 firePendingIntent(context, alarm, reminderId)
             )
+            prefs.edit().putBoolean(Prefs.EXACT_DENIED, true).apply()
         }
     }
 

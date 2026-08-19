@@ -871,7 +871,30 @@ class ClockView @JvmOverloads constructor(
             // the fade got whatever frames the dial drew anyway — one a
             // second on a stopped chronograph. Hence a crown that grew in
             // and then vanished.
-            SystemClock.uptimeMillis() - buttonsAnimStart < BUTTONS_MS
+            SystemClock.uptimeMillis() - buttonsAnimStart < BUTTONS_MS ||
+            // The same trap, and it caught the solar system next: the fade
+            // between the hands and the planets reads a clock every frame
+            // and nothing was asking for frames to read it with. It got one
+            // a second from the ticking second hand, which is a fade in
+            // eight steps — and none at all with the second hand off.
+            skyIsMoving()
+
+    /**
+     * Whether the sky is mid-fade, or the Moon is sliding back into the
+     * mechanism after being let go.
+     */
+    private fun skyIsMoving(): Boolean {
+        // Asked of the clock rather than of the fade's value. At the very
+        // first frame the fade is still nought, and a predicate that read
+        // the value would decide nothing was happening on the one frame
+        // that had to start it off.
+        val now = SystemClock.uptimeMillis()
+        if (orreryChangedAt != NEVER && now - orreryChangedAt < ORRERY_FADE_MS) return true
+        return now - moonRejoinAt < MOON_REJOIN_MS
+    }
+
+    /** For the tests: whether the dial is asking for frames of its own. */
+    internal fun isAnimatingForTest(): Boolean = isAnimating()
 
     /** True when fallen pieces are lying around the dial. */
     fun isDisarranged(): Boolean = debris.bodies.isNotEmpty()
@@ -2090,6 +2113,14 @@ class ClockView @JvmOverloads constructor(
         val cy = height / 2f
         val r = dialRadius()
         if (r <= 0f) return
+        // What the dial is showing, read *before* the wind is thrown away
+        // three lines down. It used to be read after, so a dial wound
+        // forward to tomorrow dropped a date that said today: the piece
+        // that fell was not the piece that had been on the face.
+        val fallingDate = if (showDate) dateText() else ""
+        val fallingSkyTimeOfDay = shownTimeOfDayMs()
+        val fallingSkyWall = shownWallMs()
+
         // Winding state makes no sense once the hands are off the axis.
         spring?.cancel()
         spring = null
@@ -2131,12 +2162,14 @@ class ClockView @JvmOverloads constructor(
                         vx = ivx + Random.nextFloat() * 200f - 100f,
                         vy = ivy - Random.nextFloat() * 200f,
                         angleDeg = 0f, angVel = Random.nextFloat() * 240f - 120f,
-                        halfLen = r * 0.07f, strokeWidth = 0f, textSize = 0f
+                        halfLen = r * 0.07f, strokeWidth = 0f, textSize = 0f,
+                        frozenTimeOfDayMs = fallingSkyTimeOfDay,
+                        frozenWallMs = fallingSkyWall
                     )
                 )
             }
             if (showDate && !isDateFallen()) {
-                val label = dateText()
+                val label = fallingDate
                 datePaint.textSize = r * 0.085f
                 debris.bodies.add(
                     DialDebris.Body(
@@ -3085,6 +3118,14 @@ class ClockView @JvmOverloads constructor(
 
     private fun dialRadius(): Float = min(width, height) / 2f * 0.92f * dialScale * shapeBoost()
 
+    /** For the tests: the date written on the piece lying in the case. */
+    internal fun fallenDateForTest(): String? =
+        debris.bodies.firstOrNull { it.kind == DialDebris.Kind.DATE }?.label
+
+    /** For the tests: the instant the fallen sky token is stuck at. */
+    internal fun fallenSkyMomentForTest(): Long? =
+        debris.bodies.firstOrNull { it.kind == DialDebris.Kind.MOON }?.frozenWallMs
+
     /** For the tests: how big the face is, so a touch can be aimed at it. */
     internal fun dialRadiusForTest(): Float = dialRadius()
 
@@ -3638,9 +3679,18 @@ class ClockView @JvmOverloads constructor(
                     canvas.restore()
                 }
                 DialDebris.Kind.MOON -> {
-                    canvas.drawCircle(b.x, b.y, b.halfLen, moonLitPaint)
+                    // The sun or the moon it was, not a white bead. It is
+                    // the same drawing the dial uses, held at the hour it
+                    // was showing when it came off — see [SkyGlyph].
                     moonRimPaint.strokeWidth = b.halfLen * 0.12f
-                    canvas.drawCircle(b.x, b.y, b.halfLen, moonRimPaint)
+                    canvas.save()
+                    canvas.rotate(b.angleDeg, b.x, b.y)
+                    SkyGlyph.draw(
+                        canvas, b.x, b.y, b.halfLen,
+                        moonLitPaint, moonDarkPaint, moonRimPaint,
+                        b.frozenTimeOfDayMs, b.frozenWallMs
+                    )
+                    canvas.restore()
                 }
                 else -> {
                     val rad = Math.toRadians(b.angleDeg.toDouble())
@@ -3924,7 +3974,19 @@ class ClockView @JvmOverloads constructor(
     /** Where the Moon was standing when it let go of the mechanism. */
     private var detachedMoonLongitude = 0.0
     private var moonRejoinFrom = 0.0
-    private var moonRejoinAt = 0L
+
+    /**
+     * When the Moon last began sliding back into the mechanism.
+     *
+     * Long ago, not zero. Zero means "at uptime zero", and uptime is
+     * counted from the last time the phone was switched on — so for the
+     * first seven hundred milliseconds after a reboot the Moon would be
+     * drawn creeping in from longitude nought, and the dial would be asking
+     * for frames to draw it with. The third time this trap has been walked
+     * into in this file; the other two are [orreryChangedAt] and
+     * `buttonsAnimStart`.
+     */
+    private var moonRejoinAt = -1_000_000L
 
     /** The instant the solar system is showing. */
     internal fun orreryMs(): Long =

@@ -359,4 +359,8 @@
     <string name="orrery_aligned">%1$s in line</string>
     <string name="orrery_title">Solar system</string>
     <string name="orrery_summary">Tap the sun or moon on the dial and the hands give way to the planets. Drag one and the rest follow.</string>
+
+    <string name="exact_alarms_title">Alarms are not exact on this phone</string>
+    <string name="exact_alarms_message">This phone is not letting the app set exact alarms. They still ring, but up to a minute late, they can be pushed about by battery saving, and the alarm clock icon does not appear in the status bar.</string>
+    <string name="exact_alarms_grant">Allow exact alarms</string>
 </resources>

@@ -52,7 +52,18 @@ internal class DialDebris(private val dial: Case) {
         var angVel: Float,
         var halfLen: Float,
         var strokeWidth: Float,
-        var textSize: Float
+        var textSize: Float,
+        /**
+         * For the sky token: the hour of the day it was showing when it
+         * came off, and the instant it came off.
+         *
+         * A piece that has fallen off the dial has stopped being told the
+         * time — it is a bead of glass on the floor of the case. Without
+         * these it was redrawn every frame from the live clock, which is
+         * why the sun could set while it lay there.
+         */
+        val frozenTimeOfDayMs: Long = 0L,
+        val frozenWallMs: Long = 0L
     )
 
     val bodies = ArrayList<Body>()
