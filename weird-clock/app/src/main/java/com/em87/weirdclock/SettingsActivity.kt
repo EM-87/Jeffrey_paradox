@@ -606,6 +606,18 @@ class SettingsActivity : AppCompatActivity() {
                 Prefs.SMOOTH_SECONDS, Prefs.FAST_HAND, Prefs.TICKING
             )
 
+            // The shadows need a place to put the sun over. Without one
+            // they still work, from a middle latitude, and the row says so
+            // rather than leaving somebody to wonder why their December
+            // shadows are the wrong length.
+            DayNight.configure(requireContext())
+            if (!DayNight.hasFix()) {
+                findPreference<Preference>(Prefs.HAND_SHADOWS)?.let {
+                    it.summary = getString(R.string.pref_hand_shadows_summary) + " " +
+                        getString(R.string.pref_hand_shadows_nofix)
+                }
+            }
+
             // Installed version, so it's always clear which build is running.
             // What the *system* thinks is armed, read back from
              // AlarmManager rather than from our own list.

@@ -2652,6 +2652,20 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         cv.showMoonPhase = dialJob != null || prefs.getBoolean(Prefs.MOON_PHASE, false)
         cv.orreryEnabled = dialJob == null && prefs.getBoolean(Prefs.ORRERY, false)
         cv.cometsEnabled = prefs.getBoolean(Prefs.COMETS, false)
+        // The shadows want the sun where it actually is, so they want a
+        // place. DayNight has already read the stored fix; without one it
+        // falls back to a middle latitude and the zone's nominal longitude,
+        // because a switch that draws nothing when you turn it on is worse
+        // than one that is honest about guessing — see [HandShadow].
+        cv.handShadows = prefs.getBoolean(Prefs.HAND_SHADOWS, false)
+        DayNight.configure(this)
+        cv.shadowLatitude =
+            if (DayNight.hasFix()) DayNight.latitudeNow() else HandShadow.NO_FIX_LATITUDE
+        cv.shadowLongitude =
+            if (DayNight.hasFix()) DayNight.longitudeNow()
+            else HandShadow.longitudeFromZone(
+                java.util.TimeZone.getDefault().getOffset(System.currentTimeMillis())
+            )
         updateAlarmMarkers()
         cv.touchHandsEnabled = prefs.getBoolean(Prefs.TOUCH_HANDS, true)
         cv.pinchZoomEnabled = prefs.getBoolean(Prefs.PINCH_ZOOM, true)
@@ -3128,6 +3142,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 it.showMoonPhase = prefs.getBoolean(Prefs.MOON_PHASE, false)
                 it.orreryEnabled = prefs.getBoolean(Prefs.ORRERY, false)
                 it.cometsEnabled = prefs.getBoolean(Prefs.COMETS, false)
+                it.handShadows = prefs.getBoolean(Prefs.HAND_SHADOWS, false)
+                it.shadowLatitude = clockView?.shadowLatitude ?: HandShadow.NO_FIX_LATITUDE
+                it.shadowLongitude = clockView?.shadowLongitude ?: 0.0
                 it.showSecondHand = prefs.getBoolean(Prefs.SECOND_HAND, true)
                 it.showMinuteHand = prefs.getBoolean(Prefs.MINUTE_HAND, true)
                 it.fastHand = readFastHand()

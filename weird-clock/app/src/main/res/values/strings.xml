@@ -412,4 +412,7 @@
     <string name="comet_visit">%1$s, closest %2$s</string>
     <string name="widget_orrery_label">Solar system</string>
     <string name="widget_orrery_description">Where the planets actually are today. Tap it to open the sky.</string>
+    <string name="pref_hand_shadows_title">Hand shadows</string>
+    <string name="pref_hand_shadows_summary">The clock lies flat with 12 pointing north and the real sun crosses over it. The three hands sit at three heights, so they throw three shadows — none at all when the sun is overhead, long and slanted near the poles.</string>
+    <string name="pref_hand_shadows_nofix">No location yet, so the sun is crossing a middle latitude. It will use yours once the dial has a fix.</string>
 </resources>

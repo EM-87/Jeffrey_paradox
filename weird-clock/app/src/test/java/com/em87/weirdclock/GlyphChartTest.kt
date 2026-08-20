@@ -185,6 +185,75 @@ class GlyphChartTest {
         }
     }
 
+    /**
+     * The shadows, at three latitudes and three times of day.
+     *
+     * Nine dials in a grid, because the whole point of doing this with the
+     * real sun is that the answer is different in different places, and a
+     * single picture of one of them proves nothing about that.
+     */
+    @Test
+    fun `the hand shadows around the world`() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().clear().commit()
+        val side = 340
+        val places = listOf("equator" to 0.0, "madrid" to 40.4, "tromso" to 69.6)
+        val hours = listOf(9, 12, 16)
+        val w = side * hours.size
+        val h = side * places.size
+        val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.rgb(0x1d, 0x21, 0x29))
+        var ink = 0
+        places.forEachIndexed { row, (_, lat) ->
+            hours.forEachIndexed { col, hour ->
+                val v = view(side, side)
+                v.showDate = false
+                v.handShadows = true
+                v.shadowLatitude = lat
+                v.shadowLongitude = 0.0
+                // June, so the sun is as high as it gets and the three
+                // latitudes are as far apart as they get.
+                val cal = java.util.Calendar.getInstance(
+                    java.util.TimeZone.getTimeZone("UTC")
+                )
+                cal.clear()
+                cal.set(2026, 5, 21, hour, 0)
+                v.freezeAtForTest(cal.timeInMillis)
+                canvas.save()
+                canvas.translate(side * col.toFloat(), side * row.toFloat())
+                v.draw(canvas)
+                canvas.restore()
+                if (v.sunOverhead() != null) ink++
+            }
+        }
+        // And one big one, because nine small dials show that the three
+        // rows differ and nothing about whether a single shadow is any
+        // good. Tromsø in the late afternoon: the sun low, the shadows
+        // long, the three of them plainly three.
+        val big = view(900, 900)
+        big.showDate = false
+        big.handShadows = true
+        big.shadowLatitude = 69.6
+        big.shadowLongitude = 0.0
+        val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+        cal.clear()
+        cal.set(2026, 5, 21, 19, 40)
+        big.freezeAtForTest(cal.timeInMillis)
+        val one = Bitmap.createBitmap(900, 900, Bitmap.Config.ARGB_8888)
+        val oneCanvas = Canvas(one)
+        oneCanvas.drawColor(Color.rgb(0x1d, 0x21, 0x29))
+        big.draw(oneCanvas)
+        File(outDir, "hand-shadows-close.png").outputStream().use {
+            one.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+
+        File(outDir, "hand-shadows.png").outputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        assertTrue("the sun was down in every one of the nine", ink > 0)
+    }
+
     /** The ten marks on the star, in a row like the table they came from. */
     @Test
     fun `the star alphabet`() {

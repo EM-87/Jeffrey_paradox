@@ -40,6 +40,16 @@ object Prefs {
     const val COMETS = "pref_comets"
 
     /**
+     * Shadows under the hands, cast by the real sun — see [HandShadow].
+     *
+     * Off by default. It is a joke about the clock being an object lying
+     * flat in the sun with twelve pointing north, and how long the shadows
+     * get depends on how far up the sun climbs where you are, which is why
+     * it wants the same coarse location fix the sunrise arithmetic uses.
+     */
+    const val HAND_SHADOWS = "pref_hand_shadows"
+
+    /**
      * Set when the phone refused an exact alarm and the app had to fall
      * back to a one-minute window.
      *

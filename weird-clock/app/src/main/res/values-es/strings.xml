@@ -410,4 +410,7 @@
     <string name="comet_visit">%1$s, más cerca el %2$s</string>
     <string name="widget_orrery_label">Sistema solar</string>
     <string name="widget_orrery_description">Dónde están hoy los planetas de verdad. Tócalo para abrir el cielo.</string>
+    <string name="pref_hand_shadows_title">Sombras en las agujas</string>
+    <string name="pref_hand_shadows_summary">El reloj está tumbado con las 12 al norte y el sol real le pasa por encima. Las tres agujas están a tres alturas, así que dan tres sombras: ninguna con el sol en lo alto, largas y oblicuas cerca de los polos.</string>
+    <string name="pref_hand_shadows_nofix">Aún sin ubicación, así que el sol cruza una latitud media. Usará la tuya en cuanto la esfera tenga una.</string>
 </resources>

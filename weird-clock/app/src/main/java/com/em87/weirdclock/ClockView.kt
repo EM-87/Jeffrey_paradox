@@ -503,6 +503,19 @@ class ClockView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
     }
+    /**
+     * The shadow of a hand: the hand's own shape in the dark.
+     *
+     * Its own paint rather than the hand's with the colour changed,
+     * because the hand paints carry stroke widths that the drawing sets
+     * as it goes, and borrowing one meant the shadow and the hand were
+     * one object arguing about how wide it was.
+     */
+    private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+
     /** A lit bar on one of the other two displays — see [SegmentGlyphs]. */
     private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
@@ -2797,6 +2810,19 @@ class ClockView @JvmOverloads constructor(
     private var scaleAnchorDisplayMs = 0L
     private var scaleAnchorRealMs = 0L
 
+    /**
+     * For the camera: pin the dial to one instant.
+     *
+     * The shadows depend on the hour of the day and on nothing the test
+     * can otherwise reach, so a picture of them taken at whatever o'clock
+     * the build machine happened to be at says nothing about the ones
+     * taken beside it.
+     */
+    internal fun freezeAtForTest(atMs: Long) {
+        frozenDisplayMs = atMs
+        invalidate()
+    }
+
     private fun displayNowMs(): Long {
         frozenDisplayMs?.let { return it }
         val now = TimeKeeper.nowMs()
@@ -3676,6 +3702,12 @@ class ClockView @JvmOverloads constructor(
                 r * 0.05f * faceScale(), r * 0.008f * faceScale(), fastHandPaint
             )
         }
+
+        // Every shadow before any hand, because all three fall on the
+        // face. Drawn hand by hand as they were, the second hand's shadow
+        // landed on top of the hour hand, which is a shadow cast onto a
+        // thing standing above the surface it is cast on.
+        drawHandShadows(canvas, cx, cy, r, a)
 
         for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
             if (!handIsOn(hand)) continue
@@ -5536,6 +5568,98 @@ class ClockView @JvmOverloads constructor(
         digitalPaint.color = android.graphics.Color.WHITE
         digitalPaint.alpha = 255
         drawOtherScript(canvas, text, cx, top, digitH, starFrom)
+    }
+
+    /**
+     * Whether the hands throw shadows, and where the sun is when they do.
+     *
+     * Off by default: it is a joke about the clock being a real object
+     * lying in the sun, and a joke that is always on is furniture.
+     */
+    var handShadows = false
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /**
+     * How many shadows the last frame laid down.
+     *
+     * Counted rather than looked for in the pixels, because a shadow is
+     * black on a face that is nearly black and "is there ink here" is not
+     * a question the midnight theme answers usefully.
+     */
+    private var shadowsPainted = 0
+
+    /** For the tests: shadows drawn on the last frame. */
+    internal fun shadowsPaintedForTest(): Int = shadowsPainted
+
+    /** Where the sun is now, or null if it is down or the option is off. */
+    internal fun sunOverhead(): SolarTime.Position? {
+        if (!handShadows) return null
+        val at = displayNowMs() + (visualOffsetSeconds * 1000.0).toLong()
+        val where = SolarTime.position(shadowLatitude, shadowLongitude, at)
+        return if (where.altitudeDeg > 0.0) where else null
+    }
+
+    /**
+     * The place the sun is worked out for.
+     *
+     * Set from outside rather than read here, because a view has no
+     * business opening the preferences and this one is drawn in three
+     * places that get their settings by three different routes.
+     */
+    var shadowLatitude = HandShadow.NO_FIX_LATITUDE
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var shadowLongitude = 0.0
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /**
+     * The three shadows, if there is a sun to cast them.
+     *
+     * Each hand is drawn again, in the same shape and at the same length,
+     * shifted along the bearing the sun is not on by however far its own
+     * height reaches. Nothing here is a blur or a gradient: a shadow of a
+     * flat hand on a flat face in direct sun has an edge, and a soft one
+     * would read as a glow.
+     */
+    private fun drawHandShadows(canvas: Canvas, cx: Float, cy: Float, r: Float, a: Angles) {
+        shadowsPainted = 0
+        val sun = sunOverhead() ?: return
+        val strength = HandShadow.strength(sun.altitudeDeg)
+        if (strength <= 0.01f) return
+        val away = HandShadow.bearing(sun.azimuthDeg)
+        shadowsPainted = 0
+        // Black rather than a darkened face colour. A shadow is the
+        // absence of light, and on a pale dial that is grey and on a dark
+        // one it is nearly nothing — which is correct, and is also why the
+        // alpha is generous: it has to survive being drawn on midnight
+        // blue as well as on white.
+        shadowPaint.color = android.graphics.Color.BLACK
+        for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
+            if (!handIsOn(hand)) continue
+            if (isFallen(hand)) continue
+            val reach = HandShadow.reach(HandShadow.heightOf(hand), sun.altitudeDeg)
+            if (reach <= 0f) continue
+            val at = pointAt(cx, cy, away, reach * r)
+            shadowPaint.alpha = (110 * strength).toInt()
+            shadowsPainted++
+            drawHand(
+                canvas, at.x, at.y,
+                angleOf(hand, a),
+                handReach(hand),
+                r * tailOf(hand) * faceScale(),
+                r * widthOf(hand) * faceScale(),
+                shadowPaint
+            )
+        }
     }
 
     private fun drawHand(

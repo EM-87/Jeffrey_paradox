@@ -99,6 +99,66 @@ object SolarTime {
         return if (rise <= set) m in rise until set else m >= rise || m < set
     }
 
+    /**
+     * Where the sun actually is: how high, and which way round.
+     *
+     * [altitudeDeg] is degrees above the horizon, negative at night.
+     * [azimuthDeg] is the compass bearing of the sun — 0 north, 90 east,
+     * 180 south — which is the bearing a shadow runs *away* from.
+     */
+    data class Position(val altitudeDeg: Double, val azimuthDeg: Double)
+
+    /**
+     * The sun's altitude and azimuth for a place and an instant.
+     *
+     * The same declination and equation-of-time approximations the sunrise
+     * calculation above uses, so the two never disagree about what day of
+     * the year it is; and the standard hour-angle formulae on top. Good to
+     * a fraction of a degree, which is a great deal better than anything
+     * that depends on it here needs.
+     *
+     * The one subtlety is which side of the meridian the sun is on:
+     * altitude alone cannot say, since the sun is the same height at ten
+     * in the morning and two in the afternoon. The sign of the hour angle
+     * decides, and getting it wrong would put every morning shadow where
+     * its afternoon one belongs.
+     */
+    fun position(latitudeDeg: Double, longitudeDeg: Double, atMs: Long): Position {
+        val zone = TimeZone.getDefault()
+        val cal = Calendar.getInstance(zone).apply { timeInMillis = atMs }
+        val dayOfYear = cal.get(Calendar.DAY_OF_YEAR)
+        val b = 2.0 * Math.PI * (dayOfYear - 81) / 365.0
+        val declination = Math.toRadians(23.45) * sin(b)
+        val eotMinutes = 9.87 * sin(2.0 * b) - 7.53 * cos(b) - 1.5 * sin(b)
+
+        val zoneOffsetMinutes = zone.getOffset(atMs) / 60_000.0
+        val civilMinutes = cal.get(Calendar.HOUR_OF_DAY) * 60.0 +
+            cal.get(Calendar.MINUTE) + cal.get(Calendar.SECOND) / 60.0
+        // True solar minutes past local solar midnight.
+        val solarMinutes = civilMinutes + 4.0 * longitudeDeg + eotMinutes - zoneOffsetMinutes
+        // Fifteen degrees an hour, zero at solar noon, negative in the
+        // morning and positive in the afternoon.
+        val hourAngle = Math.toRadians(solarMinutes / 4.0 - 180.0)
+
+        val lat = Math.toRadians(latitudeDeg)
+        val sinAlt = (
+            sin(lat) * sin(declination) +
+                cos(lat) * cos(declination) * cos(hourAngle)
+            ).coerceIn(-1.0, 1.0)
+        val altitude = kotlin.math.asin(sinAlt)
+        val below = cos(altitude) * cos(lat)
+        // Straight overhead, or standing on a pole: every direction is the
+        // same direction and the azimuth means nothing. North, so that it
+        // is at least a number and not a NaN travelling into the drawing.
+        if (kotlin.math.abs(below) < 1e-9) {
+            return Position(Math.toDegrees(altitude), 0.0)
+        }
+        val cosAz = ((sin(declination) - sinAlt * sin(lat)) / below).coerceIn(-1.0, 1.0)
+        var azimuth = Math.toDegrees(acos(cosAz))
+        if (sin(hourAngle) > 0) azimuth = 360.0 - azimuth
+        return Position(Math.toDegrees(altitude), azimuth)
+    }
+
     /** Display offset (ms) that turns civil time into local solar time. */
     fun offsetMs(longitudeDeg: Double, nowMs: Long): Long {
         val civilOffset = TimeZone.getDefault().getOffset(nowMs).toLong()

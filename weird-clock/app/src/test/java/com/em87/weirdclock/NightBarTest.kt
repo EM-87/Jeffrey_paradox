@@ -241,7 +241,7 @@ class NightBarTest {
             ),
             R.xml.very_advanced_preferences to setOf(
                 "pref_mark_colors", "pref_minute_hand", "pref_second_hand",
-                "pref_smooth_seconds", "pref_fast_hand", "pref_ticking",
+                "pref_smooth_seconds", "pref_fast_hand", "pref_hand_shadows", "pref_ticking",
                 "pref_touch_hands", "pref_pinch_zoom",
                 "pref_shake_drop",
                 "pref_countdown_float",

@@ -52,6 +52,23 @@ object DayNight {
         markMode = if (asked == MARKS_SUN && located) MARKS_SUN else MARKS_CLOCK
     }
 
+    /**
+     * The place the app is working from, for anything that needs the sun
+     * itself rather than a sunrise time.
+     *
+     * The hand shadows are the caller: they want the sun's height right
+     * now, which is a different question from "is it up", and they want a
+     * plausible answer rather than none when there has never been a fix —
+     * see [HandShadow.NO_FIX_LATITUDE].
+     */
+    fun hasFix(): Boolean = located
+
+    /** The stored latitude, meaningless unless [hasFix]. */
+    fun latitudeNow(): Double = latitude
+
+    /** And the longitude. */
+    fun longitudeNow(): Double = longitude
+
     /** True while a fix would change what the app can show. */
     fun wantsLocation(context: android.content.Context): Boolean {
         val prefs = androidx.preference.PreferenceManager

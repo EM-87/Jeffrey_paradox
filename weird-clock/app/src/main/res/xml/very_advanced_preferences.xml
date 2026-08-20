@@ -53,6 +53,15 @@
             android:title="@string/pref_fast_hand_title"
             app:useSimpleSummaryProvider="true" />
 
+        <!-- Shadows belong with the hands rather than with the dial's
+             colours, because what they are actually about is the hands
+             standing at three different heights above the face. -->
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_hand_shadows"
+            android:summary="@string/pref_hand_shadows_summary"
+            android:title="@string/pref_hand_shadows_title" />
+
         <!-- Down from the advanced screen, and under the second hand where
              it belongs: the tick is the sound of that hand moving, and
              offering it on a dial with no second hand on it is offering the
