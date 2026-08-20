@@ -32,23 +32,42 @@ object HandShadow {
      * How high each hand rides above the face, as a fraction of the dial's
      * radius.
      *
-     * Taller than a real watch, and knowingly. A millimetre of arbor on a
-     * forty-millimetre dial is a fiftieth of the radius, and at a sun
-     * fifty degrees up that throws a shadow a fiftieth of the radius long
-     * — two pixels on a phone, which is not a shadow, it is a hand with a
-     * soft edge. These are the heights of a station clock rather than a
-     * wristwatch: far enough apart that the three shadows separate, close
-     * enough that they still read as one stack.
+     * A little more than a real watch and much less than the first
+     * attempt. Those were the heights of a station clock, and at a low sun
+     * the second hand's shadow ended up half a radius from the hand
+     * casting it — which is not a shadow, it is a second hand drawn twice.
+     * These are close to the millimetre of arbor a wristwatch actually
+     * has: far enough apart that the three still separate, near enough
+     * that each one stays under its own hand.
      *
      * The order is not a choice. The hour hand is lowest and the second
      * hand highest because that is how the arbors have to sit for the
      * hands to pass one another.
      */
     internal fun heightOf(hand: ClockView.Hand): Float = when (hand) {
-        ClockView.Hand.HOUR -> 0.045f
-        ClockView.Hand.MINUTE -> 0.070f
-        ClockView.Hand.SECOND -> 0.095f
+        ClockView.Hand.HOUR -> 0.017f
+        ClockView.Hand.MINUTE -> 0.027f
+        ClockView.Hand.SECOND -> 0.037f
     }
+
+    /**
+     * How many passes a soft shadow is drawn in, and how much wider each
+     * one is than the hand.
+     *
+     * A blur, done the only way that is certain to survive a hardware
+     * canvas: the same shape several times, each wider and fainter than
+     * the last, widest first. A mask filter would be one call and is the
+     * obvious thing to reach for, but it is among the operations hardware
+     * acceleration quietly declines, and a shadow that is soft on one
+     * phone and a hard black bar on another is worse than no shadow.
+     *
+     * The widths are a rough gaussian: most of the ink in the middle, a
+     * thin haze reaching about twice the hand's width.
+     */
+    val SOFTNESS: FloatArray = floatArrayOf(3.2f, 2.4f, 1.8f, 1.35f, 1.05f)
+
+    /** And how much of the shadow's darkness each of those passes lays down. */
+    val PASS_ALPHA: FloatArray = floatArrayOf(0.10f, 0.14f, 0.20f, 0.26f, 0.30f)
 
     /**
      * The longest a shadow is allowed to get, as a fraction of the dial.
@@ -109,6 +128,24 @@ object HandShadow {
      */
     fun bearing(azimuthDeg: Double): Float =
         (((azimuthDeg + 180.0) % 360.0 + 360.0) % 360.0).toFloat()
+
+    /**
+     * How much of a dome the dial reads as, from 0 to 1.
+     *
+     * Not a shadow of anything — it is the face itself catching the light
+     * across its own curve, which is what makes it look like an object
+     * with a belly rather than a circle printed on a screen. Strongest
+     * with the sun low and across, gone with the sun overhead, since a
+     * dome lit from straight above has no shaded side.
+     */
+    fun domeStrength(altitudeDeg: Double): Float {
+        // No horizon test of its own. [strength] is already zero below the
+        // horizon and this multiplies by it, so a second check here is a
+        // line that cannot run — which a sabotage found by deleting it and
+        // watching nothing fail.
+        val across = kotlin.math.cos(Math.toRadians(altitudeDeg)).toFloat()
+        return (across * strength(altitudeDeg)).coerceIn(0f, 1f)
+    }
 
     /**
      * How dark the shadow is, from 0 to 1.

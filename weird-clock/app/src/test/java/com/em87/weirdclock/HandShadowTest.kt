@@ -291,6 +291,86 @@ class HandShadowTest {
     }
 
     /**
+     * The dial's own curve comes and goes with the sun as well, and is
+     * strongest when the light is across it rather than down on it.
+     *
+     * A dome lit from straight overhead has no shaded side, so there is
+     * nothing to draw; a dome lit from near the horizon is half in shadow.
+     * The hand shadows do the opposite — longest at the horizon — which
+     * makes the two easy to wire to the same number by accident, and this
+     * says they are not.
+     */
+    @Test
+    fun `the dial's belly shows most when the light is across it`() {
+        assertEquals("a dome under a midnight sky", 0f, HandShadow.domeStrength(-2.0), 1e-6f)
+        assertTrue(
+            "the dome is as strong with the sun overhead as with it low",
+            HandShadow.domeStrength(85.0) < HandShadow.domeStrength(35.0)
+        )
+        assertTrue(
+            "the dome is not there at all in the middle of the day",
+            HandShadow.domeStrength(35.0) > 0.1f
+        )
+        assertTrue(
+            "the dome does not fade out with the sun at the horizon",
+            HandShadow.domeStrength(1.0) < HandShadow.domeStrength(35.0)
+        )
+    }
+
+    /**
+     * And a shadow is laid down soft, in passes.
+     *
+     * The widest pass goes first and the narrowest last, or the core of
+     * the shadow would be veiled by its own halo; and the narrowest is
+     * still at least as wide as the hand, or the shadow has a hard edge
+     * after all. Cheap, and the only blur a hardware canvas is certain not
+     * to decline.
+     */
+    @Test
+    fun `the shadow is laid down soft`() {
+        assertEquals(
+            "the passes and their weights do not match up",
+            HandShadow.SOFTNESS.size, HandShadow.PASS_ALPHA.size
+        )
+        assertTrue("a shadow drawn in one pass is not soft", HandShadow.SOFTNESS.size >= 3)
+        for (i in 1 until HandShadow.SOFTNESS.size) {
+            assertTrue(
+                "the passes do not narrow, so the core is drawn under its own haze",
+                HandShadow.SOFTNESS[i] < HandShadow.SOFTNESS[i - 1]
+            )
+            assertTrue(
+                "the passes do not darken as they narrow",
+                HandShadow.PASS_ALPHA[i] > HandShadow.PASS_ALPHA[i - 1]
+            )
+        }
+        assertTrue(
+            "the narrowest pass is thinner than the hand, so the shadow has a hard edge",
+            HandShadow.SOFTNESS.last() >= 1f
+        )
+        assertTrue(
+            "the passes add up to more than one solid shadow",
+            HandShadow.PASS_ALPHA.sum() <= 1.05f
+        )
+    }
+
+    /**
+     * And the hands sit low enough that a shadow stays under its own hand.
+     *
+     * They were nearly three times this at first, and at a low sun the
+     * second hand's shadow ended half a radius from the hand casting it —
+     * which is two second hands, not a hand and its shadow.
+     */
+    @Test
+    fun `a shadow stays near the hand that casts it`() {
+        val worst = HandShadow.reach(HandShadow.heightOf(ClockView.Hand.SECOND), 8.0)
+        assertTrue(
+            "at a sun eight degrees up the second hand's shadow is $worst of a " +
+                "radius away, which is a second second hand",
+            worst < 0.35f
+        )
+    }
+
+    /**
      * And nothing at night, however the option is set.
      *
      * Both halves, because they are two separate claims and only one of

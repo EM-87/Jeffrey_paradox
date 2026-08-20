@@ -78,6 +78,7 @@ class GlyphChartTest {
             listOf(
                 "0123456789" to Int.MAX_VALUE,
                 "IVXLCDM" to Int.MAX_VALUE,
+                "MDCLXVI" to Int.MAX_VALUE,
                 "01·09·MMXXVI" to Int.MAX_VALUE,
                 "31·12·MDCCCLXXXVIII" to Int.MAX_VALUE
             ),

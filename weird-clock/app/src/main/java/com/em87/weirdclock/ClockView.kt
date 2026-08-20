@@ -516,22 +516,14 @@ class ClockView @JvmOverloads constructor(
         strokeCap = Paint.Cap.ROUND
     }
 
+    /** The face's own curve, which is a gradient and not a shape. */
+    private val domePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+
     /** A lit bar on one of the other two displays — see [SegmentGlyphs]. */
     private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
 
-    /**
-     * And an unlit one: the outline of the bar, not the bar dimmed.
-     *
-     * Drawn faint and filled first, every module came out as a solid grey
-     * asterisk with the lit bars lost inside it — sixteen overlapping
-     * shapes are a lot of ink even at a sixth of the brightness. An
-     * outline is almost no ink and says the same thing.
-     */
-    private val ghostPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-    }
     private val hourHandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
@@ -5337,7 +5329,17 @@ class ClockView @JvmOverloads constructor(
      * and not a blob, and the four diagonals of an `X` cross at a waist
      * instead of a lump.
      */
-    private fun barPath(x0: Float, y0: Float, x1: Float, y1: Float, t: Float) {
+    private fun barPath(
+        x0: Float, y0: Float, x1: Float, y1: Float, t: Float,
+        // How far each end stops short of the point it was given, in
+        // thicknesses. The default leaves a hairline where two bars meet
+        // at a corner, which is what makes an `0` have corners. An arm of
+        // the star wants the opposite at its inner end: every arm of one
+        // star starts at that star's middle and they have to join there,
+        // or the glyph is a scatter of petals rather than a stroke.
+        startInset: Float = 0.8f,
+        endInset: Float = 0.8f
+    ) {
         glyphPath.reset()
         val len = hypot(x1 - x0, y1 - y0)
         if (len < 0.01f) return
@@ -5347,18 +5349,27 @@ class ClockView @JvmOverloads constructor(
         val ny = ux * t
         // The tip stops short of the true corner, which is where the gap
         // between two bars comes from.
-        val tip = t * 0.8f
-        val sh = min(t * 1.3f, (len - tip * 2f) * 0.35f).coerceAtLeast(0f)
-        val ax = x0 + ux * tip
-        val ay = y0 + uy * tip
-        val bx = x1 - ux * tip
-        val by = y1 - uy * tip
-        glyphPath.moveTo(ax, ay)
+        val head = t * startInset
+        val foot = t * endInset
+        val sh = min(t * 1.3f, (len - head - foot) * 0.35f).coerceAtLeast(0f)
+        val ax = x0 + ux * head
+        val ay = y0 + uy * head
+        val bx = x1 - ux * foot
+        val by = y1 - uy * foot
+        // The ends are flat, not pointed. A real segment is a stamped
+        // shape with a short square end and the corners cut off it, and a
+        // row of needle-sharp bars reads as a drawing of a display rather
+        // than as one.
+        val fx = -uy * t * 0.34f
+        val fy = ux * t * 0.34f
+        glyphPath.moveTo(ax + fx, ay + fy)
         glyphPath.lineTo(ax + ux * sh + nx, ay + uy * sh + ny)
         glyphPath.lineTo(bx - ux * sh + nx, by - uy * sh + ny)
-        glyphPath.lineTo(bx, by)
+        glyphPath.lineTo(bx + fx, by + fy)
+        glyphPath.lineTo(bx - fx, by - fy)
         glyphPath.lineTo(bx - ux * sh - nx, by - uy * sh - ny)
         glyphPath.lineTo(ax + ux * sh - nx, ay + uy * sh - ny)
+        glyphPath.lineTo(ax - fx, ay - fy)
         glyphPath.close()
     }
 
@@ -5380,35 +5391,52 @@ class ClockView @JvmOverloads constructor(
         val bt = y + h
         val my = y + h / 2f
 
+        // The halves that read as one bar when both are lit. A letter
+        // never lights half an upright, and an upright drawn as two bars
+        // with a nick between them is an upright with a nick in it.
+        fun both(a: Int, b: Int) = bits and a != 0 && bits and b != 0
+
         fun bar(bit: Int, x0: Float, y0: Float, x1: Float, y1: Float) {
+            if (bits and bit == 0) return
             barPath(x0, y0, x1, y1, t)
-            canvas.drawPath(glyphPath, if (bits and bit != 0) glyphPaint else ghostPaint)
+            canvas.drawPath(glyphPath, glyphPaint)
         }
 
-        bar(SegmentGlyphs.A1, l, tp, mx, tp)
-        bar(SegmentGlyphs.A2, mx, tp, rr, tp)
-        bar(SegmentGlyphs.B, rr, tp, rr, my)
-        bar(SegmentGlyphs.C, rr, my, rr, bt)
-        bar(SegmentGlyphs.D2, mx, bt, rr, bt)
-        bar(SegmentGlyphs.D1, l, bt, mx, bt)
-        bar(SegmentGlyphs.E, l, my, l, bt)
-        bar(SegmentGlyphs.F, l, tp, l, my)
+        fun whole(x0: Float, y0: Float, x1: Float, y1: Float) {
+            barPath(x0, y0, x1, y1, t)
+            canvas.drawPath(glyphPath, glyphPaint)
+        }
+
+        if (both(SegmentGlyphs.A1, SegmentGlyphs.A2)) whole(l, tp, rr, tp) else {
+            bar(SegmentGlyphs.A1, l, tp, mx, tp)
+            bar(SegmentGlyphs.A2, mx, tp, rr, tp)
+        }
+        if (both(SegmentGlyphs.D1, SegmentGlyphs.D2)) whole(l, bt, rr, bt) else {
+            bar(SegmentGlyphs.D1, l, bt, mx, bt)
+            bar(SegmentGlyphs.D2, mx, bt, rr, bt)
+        }
+        if (both(SegmentGlyphs.F, SegmentGlyphs.E)) whole(l, tp, l, bt) else {
+            bar(SegmentGlyphs.F, l, tp, l, my)
+            bar(SegmentGlyphs.E, l, my, l, bt)
+        }
+        if (both(SegmentGlyphs.B, SegmentGlyphs.C)) whole(rr, tp, rr, bt) else {
+            bar(SegmentGlyphs.B, rr, tp, rr, my)
+            bar(SegmentGlyphs.C, rr, my, rr, bt)
+        }
+        if (both(SegmentGlyphs.G1, SegmentGlyphs.G2)) whole(l, my, rr, my) else {
+            bar(SegmentGlyphs.G1, l, my, mx, my)
+            bar(SegmentGlyphs.G2, mx, my, rr, my)
+        }
         bar(SegmentGlyphs.H, l, tp, mx, my)
         bar(SegmentGlyphs.I, mx, tp, mx, my)
         bar(SegmentGlyphs.J, rr, tp, mx, my)
         bar(SegmentGlyphs.K, mx, my, rr, bt)
         bar(SegmentGlyphs.L, mx, my, mx, bt)
         bar(SegmentGlyphs.M, mx, my, l, bt)
-        bar(SegmentGlyphs.G1, l, my, mx, my)
-        bar(SegmentGlyphs.G2, mx, my, rr, my)
 
-        // The dot in the middle, which is the row's separator: drawn last
-        // so it sits on top of the middle bars rather than under them.
-        val dot = t * 0.95f
-        canvas.drawCircle(
-            mx, my, dot,
-            if (bits and SegmentGlyphs.DOT != 0) glyphPaint else ghostPaint
-        )
+        if (bits and SegmentGlyphs.DOT != 0) {
+            canvas.drawCircle(mx, my, t * 0.95f, glyphPaint)
+        }
     }
 
     /**
@@ -5422,56 +5450,64 @@ class ClockView @JvmOverloads constructor(
         canvas: Canvas, bits: Int, x: Float, y: Float, w: Float, h: Float, t: Float
     ) {
         val mx = x + w / 2f
-        val my = y + h / 2f
-        // A round star rather than one squashed into the module's box: the
-        // eye reads these by the angle of the strokes, and an arm at
-        // forty degrees in a tall box is a different glyph from the same
-        // arm at forty-five.
-        val r = min(w, h) / 2f * 0.96f
-        // Every arm the same length, diagonals included, so the figure
-        // behind the glyph is an even asterisk. They were cut back to
-        // two-thirds at first so the rim could pass outside them, which
-        // turned each mark into a handful of stubby petals sitting in a
-        // ring — nothing like the eight-armed star the marks are drawn
-        // on. The rim crosses the diagonals now, and the diagonals come
-        // out past it at the corners, which is what it should look like.
+        // The proportions are not a choice — they are forced by the `6`.
+        //
+        // Its diamond is the upper star's two lower diagonals meeting the
+        // lower star's two upper ones, so those four tips have to land on
+        // two points. A diagonal arm of length r reaches r/√2 downwards,
+        // so the two stars must sit exactly r·√2 apart; and for the N and
+        // S arms to reach the ends of the glyph, r is what is left over.
+        // Solve it and the stars land at 0.293 and 0.707 of the height
+        // with arms 0.293 long, which is what these numbers are. Guessed
+        // instead, the diamond came out as four arms pointing at each
+        // other and missing.
+        val r = h * 0.293f
+        val upper = y + h * 0.293f
+        val lower = y + h * 0.707f
         val d = r * 0.70710678f
 
-        // Strokes, not bars. The sixteen-bar module is a display made of
-        // lit slabs and looks it; this alphabet is written, and written
-        // things are lines of one width with ends that stop.
-        val keepStyle = glyphPaint.style
-        val keepWidth = ghostPaint.strokeWidth
-        glyphPaint.style = Paint.Style.STROKE
-        glyphPaint.strokeWidth = t * 1.7f
-        glyphPaint.strokeCap = Paint.Cap.BUTT
-        ghostPaint.strokeWidth = (t * 0.30f).coerceAtLeast(0.75f)
-
-        fun piece(bit: Int, x0: Float, y0: Float, x1: Float, y1: Float) {
-            canvas.drawLine(
-                x0, y0, x1, y1,
-                if (bits and bit != 0) glyphPaint else ghostPaint
-            )
+        // A leaf rather than a bar: pointed at both ends and widest a
+        // little under halfway out. Bars gave a row of dashes; the marks
+        // in the table are strokes of a tool that has a shape.
+        fun arm(bit: Int, cx: Float, cy: Float, ex: Float, ey: Float) {
+            if (bits and bit == 0) return
+            val ux = ex - cx
+            val uy = ey - cy
+            val len = hypot(ux, uy)
+            if (len < 0.01f) return
+            val nx = -uy / len * t
+            val ny = ux / len * t
+            val wide = 0.42f
+            glyphPath.reset()
+            glyphPath.moveTo(cx, cy)
+            glyphPath.lineTo(cx + ux * wide + nx, cy + uy * wide + ny)
+            glyphPath.lineTo(ex, ey)
+            glyphPath.lineTo(cx + ux * wide - nx, cy + uy * wide - ny)
+            glyphPath.close()
+            canvas.drawPath(glyphPath, glyphPaint)
         }
 
-        fun arm(bit: Int, ex: Float, ey: Float) = piece(bit, mx, my, ex, ey)
+        fun star(cy: Float, n: Int, ne: Int, e: Int, se: Int, s: Int, sw: Int, wst: Int, nw: Int) {
+            arm(n, mx, cy, mx, cy - r)
+            arm(s, mx, cy, mx, cy + r)
+            arm(e, mx, cy, mx + r, cy)
+            arm(wst, mx, cy, mx - r, cy)
+            arm(ne, mx, cy, mx + d, cy - d)
+            arm(se, mx, cy, mx + d, cy + d)
+            arm(sw, mx, cy, mx - d, cy + d)
+            arm(nw, mx, cy, mx - d, cy - d)
+        }
 
-        arm(SegmentGlyphs.N, mx, my - r)
-        arm(SegmentGlyphs.S, mx, my + r)
-        arm(SegmentGlyphs.EAST, mx + r, my)
-        arm(SegmentGlyphs.WEST, mx - r, my)
-        arm(SegmentGlyphs.NE, mx + d, my - d)
-        arm(SegmentGlyphs.SE, mx + d, my + d)
-        arm(SegmentGlyphs.SW, mx - d, my + d)
-        arm(SegmentGlyphs.NW, mx - d, my - d)
-
-        piece(SegmentGlyphs.RIM_NE, mx, my - r, mx + r, my)
-        piece(SegmentGlyphs.RIM_SE, mx + r, my, mx, my + r)
-        piece(SegmentGlyphs.RIM_SW, mx, my + r, mx - r, my)
-        piece(SegmentGlyphs.RIM_NW, mx - r, my, mx, my - r)
-
-        glyphPaint.style = keepStyle
-        ghostPaint.strokeWidth = keepWidth
+        star(
+            upper,
+            SegmentGlyphs.U_N, SegmentGlyphs.U_NE, SegmentGlyphs.U_E, SegmentGlyphs.U_SE,
+            SegmentGlyphs.U_S, SegmentGlyphs.U_SW, SegmentGlyphs.U_W, SegmentGlyphs.U_NW
+        )
+        star(
+            lower,
+            SegmentGlyphs.L_N, SegmentGlyphs.L_NE, SegmentGlyphs.L_E, SegmentGlyphs.L_SE,
+            SegmentGlyphs.L_S, SegmentGlyphs.L_SW, SegmentGlyphs.L_W, SegmentGlyphs.L_NW
+        )
     }
 
     /**
@@ -5501,8 +5537,8 @@ class ClockView @JvmOverloads constructor(
         // looks like the row stopped.
         val glyphs = text.replace(' ', '·')
         var h = digitH
-        val barW = h * 0.72f
-        val starW = h * 1.0f
+        val barW = h * 0.80f
+        val starW = h * 0.66f
         fun widthAt(i: Int) = if (i >= starFrom) starW else barW
         var gap = barW * 0.24f
         var wide = (0 until n).sumOf { widthAt(it).toDouble() }.toFloat() + gap * (n - 1)
@@ -5514,18 +5550,11 @@ class ClockView @JvmOverloads constructor(
             gap *= k
             wide = room
         }
-        val t = h * 0.056f
+        val t = h * 0.070f
         val keepStyle = glyphPaint.style
         glyphPaint.style = Paint.Style.FILL
         glyphPaint.color = digitalPaint.color
         glyphPaint.alpha = digitalPaint.alpha
-        ghostPaint.color = digitalPaint.color
-        ghostPaint.strokeWidth = (t * 0.26f).coerceAtLeast(0.75f)
-        // The star is twelve pieces to the module's sixteen but they all
-        // meet in one point, so its unlit web is the louder of the two and
-        // is drawn fainter to compensate.
-        val barGhost = (digitalPaint.alpha * 0.40f).toInt()
-        val starGhost = (digitalPaint.alpha * 0.26f).toInt()
 
         // Vertically centred on the line the seven-bar row would have
         // used, so switching script does not make the date jump.
@@ -5538,14 +5567,12 @@ class ClockView @JvmOverloads constructor(
             val w = widthAt(i) * k
             if (i >= starFrom) {
                 starsPainted++
-                // Thinner bars than the sixteen-bar module: a star is
-                // read by the angle of its strokes, and a fat stroke at
+                // Thinner bars than the sixteen-bar module: a mark on the
+                // star is read by the angle of its arms, and a fat arm at
                 // this size is a wedge with no angle in it.
-                ghostPaint.alpha = starGhost
-                SegmentGlyphs.star(c)?.let { drawStarGlyph(canvas, it, x, y, w, h, t * 0.76f) }
+                SegmentGlyphs.star(c)?.let { drawStarGlyph(canvas, it, x, y, w, h, t * 0.42f) }
             } else {
                 barsPainted++
-                ghostPaint.alpha = barGhost
                 SegmentGlyphs.sixteen(c)?.let { drawSixteenModule(canvas, it, x, y, w, h, t) }
             }
             x += w + gap
@@ -5636,12 +5663,14 @@ class ClockView @JvmOverloads constructor(
         val strength = HandShadow.strength(sun.altitudeDeg)
         if (strength <= 0.01f) return
         val away = HandShadow.bearing(sun.azimuthDeg)
-        shadowsPainted = 0
+
+        drawDialDome(canvas, cx, cy, r, sun)
+
         // Black rather than a darkened face colour. A shadow is the
         // absence of light, and on a pale dial that is grey and on a dark
         // one it is nearly nothing — which is correct, and is also why the
-        // alpha is generous: it has to survive being drawn on midnight
-        // blue as well as on white.
+        // alpha is not shy: it has to survive being laid on midnight blue
+        // as well as on white.
         shadowPaint.color = android.graphics.Color.BLACK
         for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
             if (!handIsOn(hand)) continue
@@ -5649,17 +5678,73 @@ class ClockView @JvmOverloads constructor(
             val reach = HandShadow.reach(HandShadow.heightOf(hand), sun.altitudeDeg)
             if (reach <= 0f) continue
             val at = pointAt(cx, cy, away, reach * r)
-            shadowPaint.alpha = (110 * strength).toInt()
+            val width = r * widthOf(hand) * faceScale()
+            // Widest and faintest first, so the haze goes down before the
+            // core and the core is not veiled by its own halo.
+            for (pass in HandShadow.SOFTNESS.indices) {
+                shadowPaint.alpha =
+                    (105 * strength * HandShadow.PASS_ALPHA[pass]).toInt().coerceIn(0, 255)
+                drawHand(
+                    canvas, at.x, at.y,
+                    angleOf(hand, a),
+                    handReach(hand),
+                    r * tailOf(hand) * faceScale(),
+                    width * HandShadow.SOFTNESS[pass],
+                    shadowPaint
+                )
+            }
             shadowsPainted++
-            drawHand(
-                canvas, at.x, at.y,
-                angleOf(hand, a),
-                handReach(hand),
-                r * tailOf(hand) * faceScale(),
-                r * widthOf(hand) * faceScale(),
-                shadowPaint
-            )
         }
+    }
+
+    /**
+     * The face's own curve: a belly, and a bevel round its edge.
+     *
+     * Not a shadow cast by anything — it is the dial catching the light
+     * across a surface that is not flat, and it is what makes the thing
+     * read as an object sitting in the sun rather than a circle printed on
+     * a screen. Both follow the same sun the hands do, so the whole
+     * picture is lit from one place.
+     *
+     * It fades out as the sun climbs, because a dome lit from straight
+     * overhead has no shaded side — which is the same reason the hands
+     * stop casting anything at noon on the equator.
+     */
+    private fun drawDialDome(
+        canvas: Canvas, cx: Float, cy: Float, r: Float, sun: SolarTime.Position
+    ) {
+        val dome = HandShadow.domeStrength(sun.altitudeDeg)
+        if (dome <= 0.02f) return
+        val toward = sun.azimuthDeg.toFloat()
+        val lit = pointAt(cx, cy, toward, r * 0.42f)
+
+        // The belly. Clear where the light lands, deepening away from it,
+        // and nowhere near black even at its darkest — the moment this is
+        // visible as a grey smudge it has stopped being a curve.
+        domePaint.shader = android.graphics.RadialGradient(
+            lit.x, lit.y, r * 1.45f,
+            intArrayOf(0, 0, (((44 * dome).toInt()) shl 24)),
+            floatArrayOf(0f, 0.45f, 1f),
+            android.graphics.Shader.TileMode.CLAMP
+        )
+        domePaint.style = Paint.Style.FILL
+        canvas.drawCircle(cx, cy, r, domePaint)
+
+        // The bevel: a ring at the rim, lit on the sun's side and shaded
+        // opposite, which is the one detail that says the edge has a
+        // thickness rather than being where the drawing stops.
+        val near = pointAt(cx, cy, toward, r)
+        val far = pointAt(cx, cy, toward + 180f, r)
+        domePaint.shader = android.graphics.LinearGradient(
+            near.x, near.y, far.x, far.y,
+            (((70 * dome).toInt()) shl 24) or 0xFFFFFF,
+            ((90 * dome).toInt()) shl 24,
+            android.graphics.Shader.TileMode.CLAMP
+        )
+        domePaint.style = Paint.Style.STROKE
+        domePaint.strokeWidth = r * 0.045f
+        canvas.drawCircle(cx, cy, r * 0.978f, domePaint)
+        domePaint.shader = null
     }
 
     private fun drawHand(
