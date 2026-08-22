@@ -443,6 +443,28 @@ class ScreenshotTest {
         }
     }
 
+    /**
+     * The calendar with the sky on it.
+     *
+     * A ring for an eclipse, a streak for a shower, two dots for an
+     * opposition, all at about eight pixels across in the corner of a
+     * date cell that already carries a moon, a reminder dot and possibly a
+     * star. Whether three marks that small can be told apart — and whether
+     * a month with several of them reads as a calendar or as a rash — is
+     * not something any assertion answers.
+     */
+    @Test
+    fun `the calendar with the sky on it`() {
+        prefs.edit().clear().commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            c.get().showCardForTest(Card.CALENDAR)
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            c.get().showCardForTest(Card.CALENDAR)
+            assertTrue(shoot(screenOf(c.get()), "calendar-sky") > 3f)
+        }
+    }
+
     /** And the calendar at night, which is said to stay bright somewhere. */
     @Test
     fun `the calendar at night`() {
@@ -538,7 +560,12 @@ class ScreenshotTest {
             // the one with something to count. In orbit it is there; on the
             // floor it must still be there, in the same colour, somewhere
             // else. The bug painted it at alpha zero, so it was nowhere.
-            val jupiter = OrreryDial.colourOf(Orrery.Body.JUPITER, clock.theme)
+            // The sky's own palette, not the clock's. Space is black in
+            // every theme now, so the planets are drawn against black
+            // whatever the dial is made of — and a colour taken from the
+            // clock's theme is the colour of a planet on a face that is
+            // not there any more.
+            val jupiter = OrreryDial.colourOf(Orrery.Body.JUPITER, clock.skyThemeForTest())
             val inOrbit = countColour(clock, jupiter)
             assertTrue("Jupiter is not on the dial to begin with", inOrbit > 0)
             clock.knockHandsOff()

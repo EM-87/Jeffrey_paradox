@@ -183,6 +183,27 @@ object ClockThemes {
      */
     fun contrastInk(theme: ClockTheme): Int = theme.numeral
 
+    /**
+     * The dial with the solar system on it.
+     *
+     * Space is black. It is black for everybody, in every theme, at every
+     * hour — a white dial with planets on it is a diagram of the solar
+     * system, and the whole point of this face is that it is a window
+     * rather than a diagram. So the sky brings its own colours with it and
+     * the dial fades to them as the planets arrive, instead of the theme
+     * deciding what the void looks like.
+     *
+     * Only the face and the things drawn *on* the face change. The rim is
+     * the case the thing is built into and stays whatever the clock is
+     * made of.
+     */
+    val SKY = MIDNIGHT.copy(
+        face = 0xFF05070D.toInt(),
+        tick = 0xFFDDE3F0.toInt(),
+        minorTick = 0xFF7A8398.toInt(),
+        numeral = 0xFFDDE3F0.toInt()
+    )
+
     fun byKey(key: String?): ClockTheme = when (key) {
         "ivory" -> IVORY
         "neon" -> NEON

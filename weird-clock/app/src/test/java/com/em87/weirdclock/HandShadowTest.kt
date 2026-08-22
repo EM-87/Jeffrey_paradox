@@ -453,13 +453,109 @@ class HandShadowTest {
      * with a right answer at one in the morning.
      */
     @Test
-    fun `no shadows after dark`() {
+    fun `no sunlight after dark`() {
         val v = dial()
         v.handShadows = true
         v.freezeAtForTest(utc(2026, 12, 21, 1))
         paint(v)
-        assertEquals("the hands throw shadows in the dark", 0, v.shadowsPaintedForTest())
         assertNull("the dial reckons there is a sun up at one in the morning", v.sunOverhead())
+    }
+
+    // ------------------------------------------------------------ by moonlight
+
+    /**
+     * After dark the shadows are the moon's, and they are a different
+     * thing from the sun's in every way that can be measured.
+     *
+     * The date is chosen for the moon rather than for the sun: a night
+     * with a bright moon well up, which is the only night this can be
+     * asked on. On a night with no moon the correct answer is no shadow at
+     * all, which is the test below.
+     */
+    @Test
+    fun `after dark the shadows are the moon's`() {
+        val night = brightNight() ?: return
+        val v = dial()
+        v.handShadows = true
+        v.freezeAtForTest(night)
+        paint(v)
+        assertNull("the sun is up in the middle of the night", v.sunOverhead())
+        val moon = v.moonOverheadForTest()
+        assertNotNull("a lit moon well up threw no light on the dial", moon)
+        assertTrue("the moon is below the horizon and still casting", moon!!.altitudeDeg > 0.0)
+        assertTrue(
+            "moonlight is as strong as sunlight, which it is not by a factor " +
+                "of about four hundred thousand: ${moon.brightness}",
+            moon.brightness < 0.5f
+        )
+        assertTrue("the moonlight cast nothing", v.shadowsPaintedForTest() > 0)
+    }
+
+    /**
+     * A new moon casts nothing, because a new moon is not there.
+     *
+     * It is not a dim moon: it crosses the sky with the sun, is up all day
+     * and invisible all night, and a shadow drawn by it would be a shadow
+     * drawn by an absence.
+     */
+    @Test
+    fun `a new moon throws no light`() {
+        val dark = newMoonNight() ?: return
+        val v = dial()
+        v.handShadows = true
+        v.freezeAtForTest(dark)
+        paint(v)
+        assertNull("the new moon is lighting the dial", v.moonOverheadForTest())
+        assertEquals("something threw a shadow on a moonless night", 0, v.shadowsPaintedForTest())
+    }
+
+    /** The moon's light rises and falls with how much of it is lit. */
+    @Test
+    fun `the moon's light follows its phase`() {
+        var full = 0.0
+        var new = 1.0
+        var fullAt = 0L
+        for (day in 0 until 30) {
+            val at = utc(2026, 1, 1, 0) + day * 86_400_000L
+            val lit = SolarTime.moonIllumination(at)
+            if (lit > full) { full = lit; fullAt = at }
+            if (lit < new) new = lit
+        }
+        assertTrue("the moon never gets full in a month: $full", full > 0.97)
+        assertTrue("the moon never goes new in a month: $new", new < 0.03)
+        // And the full moon is opposite the sun, which is why it is full:
+        // it stands highest in the middle of the night.
+        val sun = SolarTime.position(40.0, 0.0, fullAt)
+        val moon = SolarTime.moonPosition(40.0, 0.0, fullAt)
+        assertTrue(
+            "the full moon is on the same side of the sky as the sun, so it " +
+                "would not be full: sun ${sun.altitudeDeg}, moon ${moon.altitudeDeg}",
+            (sun.altitudeDeg > 0.0) != (moon.altitudeDeg > 0.0) ||
+                kotlin.math.abs(sun.altitudeDeg - moon.altitudeDeg) > 40.0
+        )
+    }
+
+    /** The first night in a month with the moon up, lit, and the sun down. */
+    private fun brightNight(): Long? {
+        for (step in 0 until 24 * 40) {
+            val at = utc(2026, 1, 1, 0) + step * 3_600_000L
+            if (SolarTime.position(40.0, 0.0, at).altitudeDeg > -6.0) continue
+            if (SolarTime.moonPosition(40.0, 0.0, at).altitudeDeg < 20.0) continue
+            if (SolarTime.moonIllumination(at) < 0.8) continue
+            return at
+        }
+        return null
+    }
+
+    /** And the first with the sun down and no moon worth the name. */
+    private fun newMoonNight(): Long? {
+        for (step in 0 until 24 * 40) {
+            val at = utc(2026, 1, 1, 0) + step * 3_600_000L
+            if (SolarTime.position(40.0, 0.0, at).altitudeDeg > -6.0) continue
+            if (SolarTime.moonIllumination(at) > 0.05) continue
+            return at
+        }
+        return null
     }
 
     /** A hand that is switched off casts nothing. */

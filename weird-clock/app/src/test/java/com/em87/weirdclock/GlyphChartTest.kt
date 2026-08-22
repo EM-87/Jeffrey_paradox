@@ -259,6 +259,52 @@ class GlyphChartTest {
     }
 
     /**
+     * The dial by moonlight.
+     *
+     * The thing that cannot be asserted: whether a shadow at a third of a
+     * daylight one, in a blue nobody can name, over a dial turned down for
+     * the bedroom, is a mood or a smudge. Beside it the same dial in the
+     * afternoon, so the two can be set against each other.
+     */
+    @Test
+    fun `the dial by moonlight`() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().clear().commit()
+        val side = 900
+        // A night with the moon well up and nearly full, found rather than
+        // guessed: a picture taken on a new-moon night would correctly show
+        // nothing at all and prove only that the search was not done.
+        var night = 0L
+        for (step in 0 until 24 * 40) {
+            val at = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+                .apply { clear(); set(2026, 0, 1, 0, 0) }.timeInMillis + step * 3_600_000L
+            if (SolarTime.position(40.0, 0.0, at).altitudeDeg > -8.0) continue
+            if (SolarTime.moonPosition(40.0, 0.0, at).altitudeDeg < 30.0) continue
+            if (SolarTime.moonIllumination(at) < 0.9) continue
+            night = at
+            break
+        }
+        assertTrue("no bright moonlit night in forty days", night != 0L)
+        val day = night + 12 * 3_600_000L
+
+        for ((name, at) in listOf("moonlit" to night, "sunlit" to day)) {
+            val v = view(side, side)
+            v.showDate = false
+            v.handShadows = true
+            v.shadowLatitude = 40.0
+            v.shadowLongitude = 0.0
+            v.freezeAtForTest(at)
+            val bitmap = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            canvas.drawColor(Color.rgb(0x1d, 0x21, 0x29))
+            v.draw(canvas)
+            File(outDir, "shadows-$name.png").outputStream().use {
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            }
+        }
+    }
+
+    /**
      * The hieroglyph numerals, one of each sign and a few real numbers.
      *
      * The only way to find out whether a coil of rope at eight pixels is

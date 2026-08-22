@@ -71,6 +71,18 @@ class CalendarPageView @JvmOverloads constructor(
     var cyclePhases: Map<Int, Cycle.Phase> = emptyMap()
         set(value) { field = value; invalidate() }
 
+    /**
+     * What the sky is doing on each day of the shown month, where it is
+     * doing anything.
+     *
+     * Handed in worked out rather than asked for here, for the reason the
+     * cycle phases are: [SkyEvents] answers in days counted from 1970 and
+     * this view thinks in days of a month, and the translation belongs at
+     * the one place that knows which month is on screen.
+     */
+    var skyDays: Map<Int, SkyEvents.Kind> = emptyMap()
+        set(value) { field = value; invalidate() }
+
     /** How days already gone are shown, if at all. */
     enum class PastStyle { NONE, DIM, CROSS, RING }
 
@@ -628,11 +640,66 @@ class CalendarPageView @JvmOverloads constructor(
                 drawStar(canvas, cx - cellW * 0.32f, cy - cellH * 0.26f, minOf(cellW, cellH) * 0.11f)
             }
 
+            // What the sky is doing, in the one corner nothing else uses.
+            // The moon's own nights are left to the little moon below —
+            // drawing a mark for a full moon beside a picture of a full
+            // moon is saying it twice.
+            skyDays[day]?.let { kind ->
+                drawSkyMark(
+                    canvas, cx - cellW * 0.30f, cy + cellH * 0.34f,
+                    minOf(cellW, cellH) * 0.12f, kind
+                )
+            }
+
             drawMiniMoon(canvas, cx, cy + cellH * 0.34f, minOf(cellW, cellH) * 0.10f, scratch.timeInMillis)
         }
         canvas.restore()
         canvas.restore()
         canvas.restore()
+    }
+
+    /**
+     * A day's sky event, small enough to sit in the corner of a date.
+     *
+     * Three shapes, because at eight pixels three is what can be told
+     * apart: a ring for an eclipse — the thing itself, one disc over
+     * another with a rim of light left — a streak for a meteor shower, and
+     * a pair of dots on a line for an opposition, which is what an
+     * opposition is: the Sun, the Earth and the planet in a row.
+     *
+     * The moons are not drawn here. Every cell already carries a little
+     * moon showing its own phase, and a mark saying "full moon" beside a
+     * picture of a full moon is the calendar saying it twice.
+     */
+    private fun drawSkyMark(
+        canvas: Canvas, cx: Float, cy: Float, size: Float, kind: SkyEvents.Kind
+    ) {
+        val colour = theme.decimal
+        when (kind) {
+            SkyEvents.Kind.SOLAR_ECLIPSE, SkyEvents.Kind.LUNAR_ECLIPSE -> {
+                todayRingPaint.color = colour
+                todayRingPaint.strokeWidth = size * 0.34f
+                canvas.drawCircle(cx, cy, size * 0.62f, todayRingPaint)
+                todayRingPaint.color = theme.decimal
+            }
+            SkyEvents.Kind.METEORS -> {
+                todayRingPaint.color = colour
+                todayRingPaint.strokeWidth = size * 0.30f
+                canvas.drawLine(
+                    cx - size * 0.62f, cy + size * 0.62f,
+                    cx + size * 0.62f, cy - size * 0.62f,
+                    todayRingPaint
+                )
+            }
+            SkyEvents.Kind.OPPOSITION, SkyEvents.Kind.COMET -> {
+                cyclePaint.color = colour
+                cyclePaint.style = Paint.Style.FILL
+                canvas.drawCircle(cx - size * 0.55f, cy, size * 0.30f, cyclePaint)
+                canvas.drawCircle(cx + size * 0.55f, cy, size * 0.42f, cyclePaint)
+            }
+            // The moons have a picture of themselves already.
+            else -> Unit
+        }
     }
 
     /** Which month cell of the year grid is under (x, y), or null. */

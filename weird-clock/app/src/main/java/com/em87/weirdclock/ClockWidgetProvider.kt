@@ -131,26 +131,43 @@ class ClockWidgetProvider : AppWidgetProvider() {
             manager.set(android.app.AlarmManager.RTC, at, skyIntent(context))
         }
 
+        /**
+         * The longest the widget may sleep while the dial is shaded.
+         *
+         * The dome follows the light round the sky, and the light moves
+         * fifteen degrees an hour. Sleeping until the *sky* next changes is
+         * right for the sun-or-moon glyph, which looks the same all
+         * afternoon, and quite wrong for a bevel that should have crept
+         * round a quarter of a turn by teatime. Half an hour is seven
+         * degrees of error, which is less than the width of the gradient's
+         * own falloff.
+         */
+        private const val SHADED_TICK_MS = 30 * 60_000L
+
         /** How long until the dial would draw something different, in ms. */
         internal fun nextSkyChangeMs(context: Context): Long {
             DayNight.configure(context)
+            val shaded = PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean(Prefs.HAND_SHADOWS, false)
+            fun capped(ms: Long) = if (shaded) minOf(ms, SHADED_TICK_MS) else ms
             val now = java.util.Calendar.getInstance()
             val minuteNow = now.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
                 now.get(java.util.Calendar.MINUTE)
             val sky = DayNight.sky(minuteNow)
             // Nowhere to stand: the moon's phase is all there is to draw and
             // it moves too slowly to chase. Midnight will catch it.
-            if (sky == null) return 6 * 60 * 60_000L
+            if (sky == null) return capped(6 * 60 * 60_000L)
             // Mid-crossing the glyph slides continuously, so look again
             // soon enough that it is never far out of step.
             if (sky is DayNight.Sky.Twilight) return 4 * 60_000L
+
             // Otherwise sleep until the sky is a different thing, which is
             // hours away in either direction.
             for (ahead in 1..(24 * 60)) {
                 val at = (minuteNow + ahead) % 1440
-                if (DayNight.sky(at) != sky) return ahead * 60_000L
+                if (DayNight.sky(at) != sky) return capped(ahead * 60_000L)
             }
-            return 6 * 60 * 60_000L
+            return capped(6 * 60 * 60_000L)
         }
 
         /** Re-render all widgets after the in-app settings change. */

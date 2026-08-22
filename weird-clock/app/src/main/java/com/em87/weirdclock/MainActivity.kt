@@ -1880,6 +1880,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** For the tests: the theme the calendar is actually drawing with. */
     internal fun calendarThemeForTest(): ClockTheme? = calendarView?.theme
 
+    /** For the tests: what the calendar has been told about the sky. */
+    internal fun calendarSkyForTest(): Map<Int, SkyEvents.Kind> =
+        calendarView?.skyDays ?: emptyMap()
+
+    /** For the tests: which month the calendar is showing. */
+    internal fun calendarYearForTest(): Int = calendarView?.shownYear ?: 0
+    internal fun calendarMonthForTest(): Int = calendarView?.shownMonth1 ?: 0
+
     /** For the tests: what the calendar has been told about the cycle. */
     internal fun calendarCyclePhasesForTest(): Map<Int, Cycle.Phase> =
         calendarView?.cyclePhases ?: emptyMap()
@@ -2462,6 +2470,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 Cycle.phase(record, Cycle.epochDay(cal.shownYear, cal.shownMonth1, day), now)
             }.filterValues { it != Cycle.Phase.NONE }
         }
+
+        // And the sky, the same way. The rarest thing on a day wins the
+        // one corner there is room for — an eclipse on the night of a
+        // shower is an eclipse, and that is the order [SkyEvents] answers
+        // in already.
+        cal.skyDays = (1..daysInMonth).mapNotNull { day ->
+            SkyEvents.headline(
+                CivilDays.epochDay(cal.shownYear, cal.shownMonth1, day)
+            )?.let { day to it.kind }
+        }.toMap()
     }
 
     /**
@@ -2502,6 +2520,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             showReminderSheet(null, year, month, day)
             return
         }
+
         val marking = if (cycleOn) cycleMarkLabel(year, month, day) else null
         val items = (
             dayReminders.map {
@@ -2513,7 +2532,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             } + getString(R.string.reminder_add) + listOfNotNull(marking)
             ).toTypedArray()
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle(String.format(Locale.US, "%02d/%02d/%04d", day, month, year))
+            .setTitle(dayTitle(year, month, day))
             .setItems(items) { _, which ->
                 when {
                     which < dayReminders.size ->
@@ -2525,6 +2544,20 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    /**
+     * A tapped day's own name: the date, and what the sky is doing on it.
+     *
+     * The mark in the corner of the cell says *that* something happens;
+     * this is where it says what. Without it the calendar has a symbol
+     * nobody can look up.
+     */
+    private fun dayTitle(year: Int, month: Int, day: Int): String {
+        val date = String.format(Locale.US, "%02d/%02d/%04d", day, month, year)
+        val sky = SkyEvents.headline(CivilDays.epochDay(year, month, day))
+            ?: return date
+        return date + "  ·  " + OrreryDial.nameOf(resources, sky)
     }
 
     /**
@@ -2705,6 +2738,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             dial.touchHandsEnabled = true
             dial.pinchZoomEnabled = cv.pinchZoomEnabled
             dial.dialScale = cv.dialScale
+            // And the light in the room, which they were not getting: a
+            // stopwatch is the same object lying on the same table as the
+            // clock, and swapping between the two put the sun out. What a
+            // chrono dial shows is an elapsed duration rather than a time
+            // of day, so its light is the light of now — see
+            // [ClockView.depictedMs].
+            dial.handShadows = cv.handShadows
+            dial.shadowLatitude = cv.shadowLatitude
+            dial.shadowLongitude = cv.shadowLongitude
         }
 
         // The world clock's bubbles float over the dial, and over the

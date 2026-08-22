@@ -516,9 +516,6 @@ class ClockView @JvmOverloads constructor(
         strokeCap = Paint.Cap.ROUND
     }
 
-    /** The face's own curve, which is a gradient and not a shape. */
-    private val domePaint = Paint(Paint.ANTI_ALIAS_FLAG)
-
     /** A lit bar on one of the other two displays — see [SegmentGlyphs]. */
     private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
@@ -1192,6 +1189,12 @@ class ClockView @JvmOverloads constructor(
                 }
                 // A day of the year, out past the rim, with something on
                 // it. Says what.
+                // The wound date is the thing on this screen that says
+                // where in time you are, so pressing it goes somewhere
+                // else in time: the next day the sky does something.
+                if (orreryUp && dateRowAt(e.x, e.y)) {
+                    if (leapToNextSkyEvent()) return true
+                }
                 if (orreryUp && tapCandidate) {
                     val day = OrreryDial.dayAt(
                         e.x, e.y, width / 2f, height / 2f, dialRadius(),
@@ -2479,7 +2482,12 @@ class ClockView @JvmOverloads constructor(
                         angleDeg = 0f, angVel = Random.nextFloat() * 200f - 100f,
                         halfLen = OrreryDial.dotRadius(body, r, orreryZoom),
                         strokeWidth = 0f, textSize = 0f,
-                        colour = OrreryDial.colourOf(body, theme),
+                        // The sky's palette, not the clock's: a planet
+                        // knocked out of an orbit drawn on black keeps the
+                        // colour it had a moment ago, and changing it on
+                        // the way down would read as a different planet
+                        // landing.
+                        colour = OrreryDial.colourOf(body, skyTheme()),
                         planet = body
                     )
                 )
@@ -3633,10 +3641,12 @@ class ClockView @JvmOverloads constructor(
         rimPaint.strokeWidth = r * 0.02f
         if (dialShape == DialShape.CIRCLE) {
             canvas.drawCircle(cx, cy, r, facePaint)
+            darkenToSky(canvas, cx, cy, r)
             canvas.drawCircle(cx, cy, r, rimPaint)
         } else {
             buildFacePath(cx, cy)
             canvas.drawPath(facePath, facePaint)
+            darkenToSky(canvas, cx, cy, r)
             canvas.drawPath(facePath, rimPaint)
         }
 
@@ -5119,11 +5129,105 @@ class ClockView @JvmOverloads constructor(
         }
     }
 
-    private fun drawOrrery(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+    /**
+     * The face going black as the planets arrive.
+     *
+     * Space is black in every theme — a white dial with planets on it is a
+     * diagram of the solar system, and this face is meant to be a window
+     * — so the sky brings its own ground with it and the dial fades to it
+     * over the same handover the hands fade out across. Laid over the face
+     * rather than swapped for it, so the crossfade is one movement instead
+     * of a cut.
+     *
+     * The rim is not touched: it is the case the thing is built into, and
+     * a case does not change colour because of what is being shown inside
+     * it.
+     */
+    private fun darkenToSky(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         val fade = orreryFade()
         if (fade <= 0.01f) return
+        voidPaint.color = skyTheme().face
+        voidPaint.alpha = (255 * fade).toInt()
+        if (dialShape == DialShape.CIRCLE) {
+            canvas.drawCircle(cx, cy, r, voidPaint)
+        } else {
+            canvas.drawPath(facePath, voidPaint)
+        }
+    }
+
+    private val voidPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+
+    /** For the tests: the palette the solar system is drawn in. */
+    internal fun skyThemeForTest(): ClockTheme = skyTheme()
+
+    /**
+     * The colours the solar system is drawn in.
+     *
+     * Its own palette rather than the dial's, because everything on it is
+     * read against black — the orbits, the day marks, the planets' own
+     * rust and straw. Night mode still applies: the sky is a bright thing
+     * on a dark face and turning the dial down for the bedroom has to turn
+     * it down too.
+     */
+    private fun skyTheme(): ClockTheme =
+        if (theme.dimmed) ClockThemes.dim(ClockThemes.SKY) else ClockThemes.SKY
+
+    /**
+     * Where the wound date is sitting, so a finger can find it.
+     *
+     * Empty whenever there is no row on the glass — the sky is shut, or it
+     * has been wound back past the invention of writing and there is no
+     * date to press.
+     */
+    private val dateRow = RectF()
+
+    /** For the tests: where the wound date ended up on the glass. */
+    internal fun dateRowForTest(): RectF = RectF(dateRow)
+
+    /** For the tests: whether a press there would land on the date. */
+    internal fun dateRowAtForTest(x: Float, y: Float): Boolean = dateRowAt(x, y)
+
+    /** For the tests: the instant the wound sky is standing at. */
+    internal fun orreryMsForTest(): Long = orreryMs()
+
+    /** Whether a touch landed on the wound date under the sky. */
+    private fun dateRowAt(x: Float, y: Float): Boolean =
+        orreryShowing() && !dateRow.isEmpty && dateRow.contains(x, y)
+
+    /**
+     * Winds the sky forward to the next day the sky does something.
+     *
+     * The date is the thing on this screen that says where in time you are,
+     * so it is the thing to press to go somewhere else in time — and the
+     * only somewhere worth offering is the next thing worth looking at. An
+     * eclipse, a shower, an opposition, or the Moon going new or full,
+     * whichever comes first; there is one within a fortnight of any date,
+     * because the Moon sees to it.
+     *
+     * Forward and not back. A sky wound backwards has a "next" too, but the
+     * whole gesture is "show me the next one", and a press that sometimes
+     * went the other way would be a press with a mood.
+     */
+    internal fun leapToNextSkyEvent(): Boolean {
+        val today = CivilDays.dayOf(orreryMs(), TimeZone.getDefault().getOffset(orreryMs()))
+        val next = SkyEvents.nextDay(today) ?: return false
+        // Noon, so the day is unambiguous whatever the zone does to it.
+        val at = (next * CivilDays.DAY_MS + CivilDays.DAY_MS / 2) -
+            TimeZone.getDefault().getOffset(orreryMs())
+        orreryOffsetMs += at - orreryMs()
+        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        invalidate()
+        return true
+    }
+
+    private fun drawOrrery(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        val fade = orreryFade()
+        if (fade <= 0.01f) {
+            dateRow.setEmpty()
+            return
+        }
         OrreryDial.draw(
-            canvas, cx, cy, r, theme, orreryMs(), fade,
+            canvas, cx, cy, r, skyTheme(), orreryMs(), fade,
             orreryMoonLongitude(), orreryAligned(), orreryMoonDetached(), grabbedBody,
             orreryZoom, orreryBusyDays.keys, fallenPlanets, sunFallen, cometsEnabled
         )
@@ -5134,6 +5238,12 @@ class ClockView @JvmOverloads constructor(
         // spent the year behind it.
         val digitH = r * 0.13f
         val yTop = min(cy + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
+        // Where the row ended up, so a finger can find it. Recorded rather
+        // than worked out twice: the row is placed against the bottom of
+        // the face and against the bottom of the screen, whichever comes
+        // first, and a hit box computed separately would be right on most
+        // phones and wrong on the ones that matter.
+        dateRow.set(0f, yTop - digitH * 0.45f, width.toFloat(), yTop + digitH * 1.75f)
         val keep = digitalPaint.alpha
         digitalPaint.alpha = (215 * fade).toInt()
         val script = orreryScript()
@@ -5149,6 +5259,8 @@ class ClockView @JvmOverloads constructor(
             wedgesPainted = 0
             printedChars = 0
             digitalPaint.alpha = keep
+            // Nothing drawn, nothing to press.
+            dateRow.setEmpty()
             return
         }
         if (script == OrreryYear.Script.EGYPTIAN || script == OrreryYear.Script.CUNEIFORM) {
@@ -6250,13 +6362,59 @@ class ClockView @JvmOverloads constructor(
     /** For the tests: shadows drawn on the last frame. */
     internal fun shadowsPaintedForTest(): Int = shadowsPainted
 
-    /** Where the sun is now, or null if it is down or the option is off. */
-    internal fun sunOverhead(): SolarTime.Position? {
-        if (!handShadows) return null
-        val at = displayNowMs() + (visualOffsetSeconds * 1000.0).toLong()
-        val where = SolarTime.position(shadowLatitude, shadowLongitude, at)
-        return if (where.altitudeDeg > 0.0) where else null
+    /**
+     * The instant the face is currently depicting.
+     *
+     * Not the same as "now", and the difference is the whole of a bug the
+     * user found: on the screen where a time is wound with the hands, the
+     * hands showed eleven at night while the shadows were still being cast
+     * by the sun that was actually up, so a face drawn under a moon had
+     * daylight shadows on it. The sky glyph had always used the wound time;
+     * the shadows were asking the clock.
+     *
+     * The chronograph is the exception, and [chronoWrapsDay] is what tells
+     * them apart: a wound alarm time is a time *of day* and belongs on
+     * today's date, while a stopwatch reading is an elapsed duration and
+     * means nothing as a time of day. A stopwatch lies in whatever light
+     * the room is in, which is the light of now.
+     */
+    private fun depictedMs(): Long {
+        val chrono = chronoDisplayMs()
+        if (chrono == null || !chronoWrapsDay) {
+            return displayNowMs() + (visualOffsetSeconds * 1000.0).toLong()
+        }
+        cal.timeInMillis = TimeKeeper.nowMs()
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        return cal.timeInMillis + ((chrono % CivilDays.DAY_MS) + CivilDays.DAY_MS) % CivilDays.DAY_MS
     }
+
+    /**
+     * Which light is on this dial, if any — see [HandShadow.lightAt], which
+     * knows the rule, and which the widget asks the same question of.
+     */
+    internal fun overheadLight(): HandShadow.Light? {
+        if (!handShadows) return null
+        return HandShadow.lightAt(shadowLatitude, shadowLongitude, depictedMs())
+    }
+
+    /**
+     * Where the sun is when the sun is what is lighting the dial.
+     *
+     * Kept as its own question because "is the sun up" and "is there a
+     * light" stopped being the same question the moment the moon started
+     * casting shadows too.
+     */
+    internal fun sunOverhead(): SolarTime.Position? =
+        overheadLight()?.takeIf { !it.moon }?.let {
+            SolarTime.Position(it.altitudeDeg, it.azimuthDeg)
+        }
+
+    /** For the tests: the moon's light on the dial, if it has any. */
+    internal fun moonOverheadForTest(): HandShadow.Light? =
+        overheadLight()?.takeIf { it.moon }
 
     /**
      * The place the sun is worked out for.
@@ -6288,19 +6446,20 @@ class ClockView @JvmOverloads constructor(
      */
     private fun drawHandShadows(canvas: Canvas, cx: Float, cy: Float, r: Float, a: Angles) {
         shadowsPainted = 0
-        val sun = sunOverhead() ?: return
-        val strength = HandShadow.strength(sun.altitudeDeg)
+        val light = overheadLight() ?: return
+        val strength = HandShadow.strength(light.altitudeDeg) * light.brightness
         if (strength <= 0.01f) return
-        val away = HandShadow.bearing(sun.azimuthDeg)
+        val away = HandShadow.bearing(light.azimuthDeg)
 
-        drawDialDome(canvas, cx, cy, r, sun)
+        drawDialDome(canvas, cx, cy, r, light)
 
-        // Black rather than a darkened face colour. A shadow is the
-        // absence of light, and on a pale dial that is grey and on a dark
-        // one it is nearly nothing — which is correct, and is also why the
-        // alpha is not shy: it has to survive being laid on midnight blue
-        // as well as on white.
-        shadowPaint.color = android.graphics.Color.BLACK
+        // Black by day, and by night the blue the eye insists moonlight is.
+        // A shadow is the absence of light, so on a pale dial it is grey
+        // and on a dark one it is nearly nothing — which is correct, and is
+        // also why the alpha is not shy: it has to survive being laid on
+        // midnight blue as well as on white.
+        shadowPaint.color =
+            if (light.moon) HandShadow.MOON_TINT else android.graphics.Color.BLACK
         // Clipped to the face, because the face is what the shadow falls
         // on. Without it a low sun slid the far end of each shadow over
         // the rim and onto the wallpaper, which is not a long shadow, it
@@ -6310,14 +6469,14 @@ class ClockView @JvmOverloads constructor(
         for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
             if (!handIsOn(hand)) continue
             if (isFallen(hand)) continue
-            val reach = HandShadow.reach(HandShadow.heightOf(hand), sun.altitudeDeg)
+            val reach = HandShadow.reach(HandShadow.heightOf(hand), light.altitudeDeg)
             if (reach <= 0f) continue
             val at = pointAt(cx, cy, away, reach * r)
             val width = r * widthOf(hand) * faceScale()
             // The haze is a band of its own width outside the hand's
             // outline, not a multiple of it, so a hair-thin second hand
             // gets the same soft edge the fat hour hand does.
-            val haze = r * HandShadow.penumbra(HandShadow.heightOf(hand), sun.altitudeDeg)
+            val haze = r * HandShadow.penumbra(HandShadow.heightOf(hand), light.altitudeDeg)
             // Widest and faintest first, so the haze goes down before the
             // core and the core is not veiled by its own halo.
             for (pass in HandShadow.SPREAD.indices) {
@@ -6371,40 +6530,13 @@ class ClockView @JvmOverloads constructor(
      * stop casting anything at noon on the equator.
      */
     private fun drawDialDome(
-        canvas: Canvas, cx: Float, cy: Float, r: Float, sun: SolarTime.Position
+        canvas: Canvas, cx: Float, cy: Float, r: Float, light: HandShadow.Light
     ) {
-        val dome = HandShadow.domeStrength(sun.altitudeDeg)
-        if (dome <= 0.02f) return
-        val toward = sun.azimuthDeg.toFloat()
-        val lit = pointAt(cx, cy, toward, r * 0.42f)
-
-        // The belly. Clear where the light lands, deepening away from it,
-        // and nowhere near black even at its darkest — the moment this is
-        // visible as a grey smudge it has stopped being a curve.
-        domePaint.shader = android.graphics.RadialGradient(
-            lit.x, lit.y, r * 1.45f,
-            intArrayOf(0, 0, (((44 * dome).toInt()) shl 24)),
-            floatArrayOf(0f, 0.45f, 1f),
-            android.graphics.Shader.TileMode.CLAMP
+        DialDome.draw(
+            canvas, cx, cy, r,
+            HandShadow.domeStrength(light.altitudeDeg) * light.brightness,
+            light.azimuthDeg.toFloat(), mirrored
         )
-        domePaint.style = Paint.Style.FILL
-        canvas.drawCircle(cx, cy, r, domePaint)
-
-        // The bevel: a ring at the rim, lit on the sun's side and shaded
-        // opposite, which is the one detail that says the edge has a
-        // thickness rather than being where the drawing stops.
-        val near = pointAt(cx, cy, toward, r)
-        val far = pointAt(cx, cy, toward + 180f, r)
-        domePaint.shader = android.graphics.LinearGradient(
-            near.x, near.y, far.x, far.y,
-            (((70 * dome).toInt()) shl 24) or 0xFFFFFF,
-            ((90 * dome).toInt()) shl 24,
-            android.graphics.Shader.TileMode.CLAMP
-        )
-        domePaint.style = Paint.Style.STROKE
-        domePaint.strokeWidth = r * 0.045f
-        canvas.drawCircle(cx, cy, r * 0.978f, domePaint)
-        domePaint.shader = null
     }
 
     private fun drawHand(

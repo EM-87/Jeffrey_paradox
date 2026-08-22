@@ -149,6 +149,36 @@ object SkyEvents {
     /** Whether anything at all is happening — cheap enough to ask per day. */
     fun anythingOn(day: Int): Boolean = on(day).isNotEmpty()
 
+    /**
+     * The next day after [afterDay] with anything on it, or null.
+     *
+     * Walked a day at a time rather than solved, because the four kinds of
+     * event are found four different ways — a table lookup, a fixed date in
+     * the year, a Kepler solve and a phase crossing — and the first day on
+     * which *any* of them fires has no closed form. The walk is short: the
+     * Moon is new or full every fortnight, so nothing is ever more than
+     * about a fortnight away, and the limit is there for the case where the
+     * arithmetic has been wound somewhere it stops working rather than
+     * because a long search is expected.
+     */
+    fun nextDay(afterDay: Int, limitDays: Int = 400): Int? {
+        for (ahead in 1..limitDays) {
+            val day = afterDay + ahead
+            if (anythingOn(day)) return day
+        }
+        return null
+    }
+
+    /**
+     * What to call a day's events on a calendar, when there is only room
+     * for one mark.
+     *
+     * The rarest thing wins, and [on] already returns them rarest first: an
+     * eclipse on the night of a meteor shower is an eclipse, and a day is
+     * not going to be remembered for the shower.
+     */
+    fun headline(day: Int): Event? = on(day).firstOrNull()
+
     /** Whether an eclipse falls on this day or either side of it. */
     private fun eclipsedNear(day: Int): Boolean = eclipses.any {
         kotlin.math.abs(CivilDays.epochDay(it.year, it.month, it.day) - day) <= 1

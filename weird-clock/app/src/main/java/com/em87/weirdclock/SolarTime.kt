@@ -124,6 +124,18 @@ object SolarTime {
      * its afternoon one belongs.
      */
     fun position(latitudeDeg: Double, longitudeDeg: Double, atMs: Long): Position {
+        val sun = sunAngles(longitudeDeg, atMs)
+        return placeIn(latitudeDeg, sun.first, sun.second)
+    }
+
+    /**
+     * The sun's hour angle and declination, in radians.
+     *
+     * Split out because the Moon needs the sun's own numbers to be worked
+     * out from: where the Moon is, in this approximation, is where the Sun
+     * is plus however far round the month has got — see [moonPosition].
+     */
+    private fun sunAngles(longitudeDeg: Double, atMs: Long): Pair<Double, Double> {
         val zone = TimeZone.getDefault()
         val cal = Calendar.getInstance(zone).apply { timeInMillis = atMs }
         val dayOfYear = cal.get(Calendar.DAY_OF_YEAR)
@@ -138,8 +150,14 @@ object SolarTime {
         val solarMinutes = civilMinutes + 4.0 * longitudeDeg + eotMinutes - zoneOffsetMinutes
         // Fifteen degrees an hour, zero at solar noon, negative in the
         // morning and positive in the afternoon.
-        val hourAngle = Math.toRadians(solarMinutes / 4.0 - 180.0)
+        return Math.toRadians(solarMinutes / 4.0 - 180.0) to declination
+    }
 
+    /**
+     * Altitude and azimuth for anything with an hour angle and a
+     * declination — the Sun, or the Moon standing in for it.
+     */
+    private fun placeIn(latitudeDeg: Double, hourAngle: Double, declination: Double): Position {
         val lat = Math.toRadians(latitudeDeg)
         val sinAlt = (
             sin(lat) * sin(declination) +
@@ -158,6 +176,59 @@ object SolarTime {
         if (sin(hourAngle) > 0) azimuth = 360.0 - azimuth
         return Position(Math.toDegrees(altitude), azimuth)
     }
+
+    /**
+     * Where the Moon is, to the accuracy this is worth doing at.
+     *
+     * The Moon's own orbit is a famously miserable thing to compute — the
+     * classical theory runs to hundreds of terms and Newton said it was the
+     * only problem that ever made his head ache. None of that is needed
+     * here. What a shadow needs is which way the light comes from and how
+     * high it is, and both fall out of one fact anybody can check by
+     * looking up: the phase *is* the angle between the Sun and the Moon.
+     * A full moon rises as the sun sets and stands due south at midnight,
+     * because it is exactly opposite the Sun; a new moon crosses the sky
+     * with the Sun and cannot be seen at all.
+     *
+     * So the Moon is put where the Sun is, turned through a whole circle
+     * over a lunar month, and its declination read off the ecliptic at the
+     * point it has reached. What that leaves out is the five degrees the
+     * Moon's orbit is tilted by, which moves it up or down by rather less
+     * than the width of a hand at arm's length — invisible in a shadow
+     * that is a few pixels long, and cheap at the price of not carrying a
+     * lunar theory around.
+     */
+    fun moonPosition(latitudeDeg: Double, longitudeDeg: Double, atMs: Long): Position {
+        val (sunHourAngle, _) = sunAngles(longitudeDeg, atMs)
+        val phase = SkyGlyph.phaseAt(atMs)
+        // The Moon runs eastward away from the Sun as the month goes on, so
+        // it crosses the meridian later and later: its hour angle is the
+        // Sun's, less however far round it has got.
+        val hourAngle = sunHourAngle - 2.0 * Math.PI * phase
+        // And its declination is the ecliptic's at the longitude it has
+        // reached, which is the Sun's longitude plus the same angle.
+        val zone = TimeZone.getDefault()
+        val cal = Calendar.getInstance(zone).apply { timeInMillis = atMs }
+        // The Sun's ecliptic longitude, zero at the vernal equinox, which
+        // is day eighty.
+        val sunLongitude = 2.0 * Math.PI * (cal.get(Calendar.DAY_OF_YEAR) - 80) / 365.25
+        val moonLongitude = sunLongitude + 2.0 * Math.PI * phase
+        val declination = kotlin.math.asin(
+            (sin(Math.toRadians(23.45)) * sin(moonLongitude)).coerceIn(-1.0, 1.0)
+        )
+        return placeIn(latitudeDeg, hourAngle, declination)
+    }
+
+    /**
+     * How much of the Moon's disc is lit, from 0 at new to 1 at full.
+     *
+     * Which is how much light there is to cast a shadow with. A new moon is
+     * not a dim moon, it is no moon: it is up all day and invisible all
+     * night, and a dial that drew a shadow by it would be drawing one by
+     * something that is not there.
+     */
+    fun moonIllumination(atMs: Long): Double =
+        (1.0 - cos(2.0 * Math.PI * SkyGlyph.phaseAt(atMs))) / 2.0
 
     /** Display offset (ms) that turns civil time into local solar time. */
     fun offsetMs(longitudeDeg: Double, nowMs: Long): Long {

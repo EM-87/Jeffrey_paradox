@@ -104,6 +104,42 @@ class WidgetAlphaTest {
     }
 
     /**
+     * At the top of the slider the widget is actually solid.
+     *
+     * It was not, and this is the fault the user found: the face was baked
+     * at two-thirds alpha so the wallpaper showed through, which was fine
+     * until there was a slider called opacity — turned all the way up, the
+     * widget was still a third transparent, because two fades were being
+     * multiplied and only one of them was the user's.
+     *
+     * Measured through the middle of the dial rather than at a corner: the
+     * corners of a widget bitmap are outside the round face and are
+     * transparent whatever the setting says.
+     */
+    @Test
+    fun `at full opacity the widget face is solid`() {
+        val bitmap = WidgetRenderer.dialBitmap(context, 200)
+        val middle = bitmap.getPixel(100, 100)
+        assertEquals(
+            "the face is see-through at the top of the slider",
+            255, Color.alpha(middle)
+        )
+        bitmap.recycle()
+    }
+
+    /** And the slider is what makes it see-through, all the way down. */
+    @Test
+    fun `the slider is the only thing that fades the widget`() {
+        val bitmap = WidgetRenderer.dialBitmap(context, 200)
+        val ghost = WidgetRenderer.faded(bitmap, WidgetRenderer.opacity(50))
+        assertEquals(
+            "half opacity is not half of solid",
+            WidgetRenderer.opacity(50), Color.alpha(ghost.getPixel(100, 100))
+        )
+        bitmap.recycle()
+    }
+
+    /**
      * The gear is the launcher's, in the popup a long press brings up.
      *
      * Three things have to be declared together and any two without the

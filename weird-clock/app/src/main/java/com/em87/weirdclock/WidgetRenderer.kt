@@ -86,8 +86,14 @@ object WidgetRenderer {
 
         val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
-            // Semi-transparent face so the wallpaper shows through.
-            color = theme.face and 0x00FFFFFF or (0xA6 shl 24)
+            // Solid. The face used to be baked at two-thirds alpha so the
+            // wallpaper showed through, which was fine until there was a
+            // slider called opacity: turned to a hundred per cent the
+            // widget was still a third transparent, because the two were
+            // multiplied and only one of them was the user's. The whole
+            // picture is faded once, at the end, by the amount asked for —
+            // see [faded].
+            color = theme.face or (0xFF shl 24)
         }
         val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
@@ -290,6 +296,31 @@ object WidgetRenderer {
         // dial: the widget is the face most people look at, and the whole
         // point of the complication is knowing whether it is light out
         // without going to a window.
+        // The dial's own curve, lit from wherever the sun or the moon
+        // actually is. The hands cannot have their shadows here — the
+        // system rotates a fixed bitmap for each one, so a shadow drawn
+        // into it would swing round with the hand instead of staying where
+        // the light put it — but the dome does not depend on the time at
+        // all, only on where the light is, and the widget already wakes
+        // itself when the sky changes. See [DialDome].
+        if (prefs.getBoolean(Prefs.HAND_SHADOWS, false)) {
+            val lat = if (DayNight.hasFix()) DayNight.latitudeNow() else HandShadow.NO_FIX_LATITUDE
+            val lon = if (DayNight.hasFix()) {
+                DayNight.longitudeNow()
+            } else {
+                HandShadow.longitudeFromZone(
+                    java.util.TimeZone.getDefault().getOffset(System.currentTimeMillis())
+                )
+            }
+            HandShadow.lightAt(lat, lon, System.currentTimeMillis())?.let { light ->
+                DialDome.draw(
+                    canvas, c, c, r,
+                    HandShadow.domeStrength(light.altitudeDeg) * light.brightness,
+                    light.azimuthDeg.toFloat()
+                )
+            }
+        }
+
         if (prefs.getBoolean(Prefs.MOON_PHASE, false)) {
             val now = Calendar.getInstance()
             val timeOfDay = now.get(Calendar.HOUR_OF_DAY) * 3_600_000L +

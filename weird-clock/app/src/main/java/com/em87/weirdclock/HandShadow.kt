@@ -45,9 +45,9 @@ object HandShadow {
      * hands to pass one another.
      */
     internal fun heightOf(hand: ClockView.Hand): Float = when (hand) {
-        ClockView.Hand.HOUR -> 0.017f
-        ClockView.Hand.MINUTE -> 0.027f
-        ClockView.Hand.SECOND -> 0.037f
+        ClockView.Hand.HOUR -> 0.010f
+        ClockView.Hand.MINUTE -> 0.015f
+        ClockView.Hand.SECOND -> 0.020f
     }
 
     /**
@@ -118,13 +118,15 @@ object HandShadow {
      * which does not read as a low sun, it reads as hands floating a foot
      * above the dial.
      *
-     * So it saturates early, and at a tenth of the radius rather than a
-     * fifth: a fifth still put the second hand's shadow far enough off to
-     * read as a second second hand. A shadow that has moved a tenth of the
-     * way to the rim has said everything it has to say about the sun being
-     * low, and the alpha is on its way out over the same stretch anyway.
+     * So it saturates early, and at a twentieth of the radius. It has been
+     * a fifth and then a tenth, and both were still reported from the phone
+     * as hands floating too high — the tell is the last hour before sunset,
+     * when a shadow sitting at its stop is the only thing on the dial that
+     * is not moving with the light. A twentieth is about the offset a real
+     * hand a millimetre off the dial throws, which is the thing being
+     * drawn.
      */
-    const val MAX_LENGTH = 0.10f
+    const val MAX_LENGTH = 0.05f
 
     /**
      * Below this the sun is too low to cast anything worth drawing.
@@ -136,6 +138,37 @@ object HandShadow {
      * than cast.
      */
     private const val FADE_FROM_DEG = 18.0
+
+    /**
+     * How much light a full moon casts, against the sun.
+     *
+     * Nothing like the truth, which is about a four-hundred-thousandth —
+     * an honest number here would be a shadow nobody could see on any
+     * screen. What is honest is the *shape* of it: the moonlight shadow
+     * follows the moon rather than the sun, it is far fainter than a
+     * daylight one, and it goes out entirely as the moon does.
+     */
+    const val MOONLIGHT = 0.34f
+
+    /**
+     * And what colour it is.
+     *
+     * Moonlight is reflected sunlight and is very nearly the same white,
+     * but a shadow seen by it does not look neutral — the eye's colour
+     * vision gives out at that light level and the blue-sensitive rods
+     * take over, so a moonlit night reads as blue. That is the Purkinje
+     * shift, and it is why every painter since the Renaissance has painted
+     * moonlight blue while every photometer says it is not.
+     */
+    const val MOON_TINT = 0xFF0B1638.toInt()
+
+    /**
+     * Below this much of a lit disc there is no moonlight worth drawing.
+     *
+     * A new moon is not a dim moon: it is up all day, invisible all night,
+     * and a shadow cast by it would be a shadow cast by nothing.
+     */
+    const val MOON_FLOOR = 0.12
 
     /**
      * A latitude to stand at when the phone has never had a fix.
@@ -199,6 +232,69 @@ object HandShadow {
         // watching nothing fail.
         val across = kotlin.math.cos(Math.toRadians(altitudeDeg)).toFloat()
         return (across * strength(altitudeDeg)).coerceIn(0f, 1f)
+    }
+
+    /**
+     * What is lighting the dial, if anything.
+     *
+     * By day the sun; by night the moon, which is a much stranger light and
+     * is drawn as one. [brightness] is how much of a shadow it casts
+     * against full sunlight, and [moon] is what colour it is.
+     */
+    data class Light(
+        val altitudeDeg: Double,
+        val azimuthDeg: Double,
+        val moon: Boolean,
+        val brightness: Float
+    )
+
+    /**
+     * Which light is on the dial at a place and an instant, and how much of
+     * it there is.
+     *
+     * Day and night are asked of [DayNight] rather than of the sun's
+     * altitude, so the shadows change over at the same moment everything
+     * else on the face does — the complication showing the sun setting, the
+     * mark colours, the theme. Twilight is the handover, and both lights
+     * are drawn through it at whatever share they have.
+     *
+     * At night there may be no light at all, and that is the answer rather
+     * than a failure: a new moon is up all day and invisible all night, and
+     * a shadow cast by it would be a shadow cast by nothing.
+     *
+     * Here rather than in the dial that draws it, because two dials draw it
+     * — the app's and the widget's — and the last time a piece of this
+     * arithmetic was written twice the two copies disagreed for three
+     * versions before anybody noticed.
+     */
+    fun lightAt(latitudeDeg: Double, longitudeDeg: Double, atMs: Long): Light? {
+        val cal = java.util.Calendar.getInstance()
+        cal.timeInMillis = atMs
+        val ofDay = cal.get(java.util.Calendar.HOUR_OF_DAY) * 3_600_000L +
+            cal.get(java.util.Calendar.MINUTE) * 60_000L
+        val sun = SolarTime.position(latitudeDeg, longitudeDeg, atMs)
+        val night = when (val sky = DayNight.skyMs(ofDay, atMs)) {
+            DayNight.Sky.Day -> 0f
+            is DayNight.Sky.Twilight -> sky.sunk
+            DayNight.Sky.Night -> 1f
+            // Nowhere to stand: no fix has ever been taken, so the dial has
+            // no opinion about when the day ends here. The sun's own
+            // altitude decides, which is what this did before there was a
+            // moon to hand over to.
+            else -> if (sun.altitudeDeg > 0.0) 0f else 1f
+        }
+        if (night < 1f && sun.altitudeDeg > 0.0) {
+            return Light(sun.altitudeDeg, sun.azimuthDeg, false, 1f - night)
+        }
+        if (night <= 0f) return null
+        val moon = SolarTime.moonPosition(latitudeDeg, longitudeDeg, atMs)
+        if (moon.altitudeDeg <= 0.0) return null
+        val lit = SolarTime.moonIllumination(atMs)
+        if (lit < MOON_FLOOR) return null
+        return Light(
+            moon.altitudeDeg, moon.azimuthDeg, true,
+            (night * MOONLIGHT * lit).toFloat()
+        )
     }
 
     /**
