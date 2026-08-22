@@ -489,6 +489,15 @@ object OrreryDial {
         theme: ClockTheme, atMs: Long, a: Float, zoom: Float
     ) {
         for (comet in Comets.all) {
+            // Wound far enough out, a comet stops being a position and
+            // becomes a decoration: the period is not a constant, and
+            // counting whole orbits from a known passage drifts by a
+            // return's worth of wander each time round — see
+            // [Comets.trust]. So they fade out with the drift rather than
+            // being drawn to five decimal places in 2000 BC.
+            val sure = Comets.trust(comet, atMs)
+            if (sure <= 0.02f) continue
+            val fade = a * sure
             val o = Comets.orbitOf(comet)
             val semiMajor = o.aphelionRing / (1f + o.eccentricity.toFloat()) * r * zoom
             val semiMinor = semiMajor * sqrt(1.0 - o.eccentricity * o.eccentricity).toFloat()
@@ -503,7 +512,7 @@ object OrreryDial {
             val near = Comets.nearness(comet, atMs)
             stroke.color = theme.minorTick
             stroke.strokeWidth = r * 0.003f
-            stroke.alpha = ((34 + 46 * near) * a).toInt()
+            stroke.alpha = ((34 + 46 * near) * fade).toInt()
             canvas.save()
             canvas.rotate(-o.perihelionLongitude.toFloat(), mx, my)
             oval.set(mx - semiMajor, my - semiMinor, mx + semiMajor, my + semiMinor)
@@ -524,7 +533,7 @@ object OrreryDial {
                 val out = pointOn(cx, cy, d + tail, at.longitude)
                 stroke.color = theme.minorTick
                 stroke.strokeWidth = r * 0.008f
-                stroke.alpha = (150 * near * a).toInt()
+                stroke.alpha = (150 * near * fade).toInt()
                 stroke.strokeCap = Paint.Cap.ROUND
                 canvas.drawLine(p.x, p.y, out.x, out.y, stroke)
                 // Put back, because this paint is shared with the day
@@ -533,7 +542,7 @@ object OrreryDial {
             }
 
             fill.color = theme.minorTick
-            fill.alpha = ((120 + 135 * near) * a).toInt()
+            fill.alpha = ((120 + 135 * near) * fade).toInt()
             canvas.drawCircle(p.x, p.y, r * 0.011f * (1f + near), fill)
         }
     }

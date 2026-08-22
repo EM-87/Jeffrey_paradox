@@ -51,7 +51,8 @@ object Comets {
         val eccentricity: Double,
         val perihelionMs: Long,
         val perihelionLongitude: Double,
-        val aphelionRing: Float
+        val aphelionRing: Float,
+        val wanderYears: Double
     )
 
     private const val YEAR_MS = 365.25 * 86_400_000.0
@@ -80,14 +81,27 @@ object Comets {
      * to be a sphere.
      */
     private val orbits = mapOf(
-        // 2020-06-26 to 2023-10-22.
-        Comet.ENCKE to Orbit(3.3211, 0.8483, iso(2020, 6, 26), 161.1, 0.50f),
-        // 1998-02-28 to 2031-05-20.
-        Comet.TEMPEL_TUTTLE to Orbit(33.2200, 0.9055, iso(1998, 2, 28), 47.8, 0.74f),
-        // 1986-02-09 to 2061-07-28.
-        Comet.HALLEY to Orbit(75.4629, 0.9671, iso(1986, 2, 9), 169.8, 0.86f),
-        // 1992-12-11 to 2126-07-16.
-        Comet.SWIFT_TUTTLE to Orbit(133.5900, 0.9632, iso(1992, 12, 11), 292.4, 0.94f)
+        // 2020-06-26 to 2023-10-22. The wander is not really wander here:
+        // the gap between those two passages is 3.3211 years and Encke's
+        // book period is 3.30, so every counted orbit is a fifth of a
+        // month out — which over a period this short is what runs it out
+        // of certainty inside a century and a half.
+        Comet.ENCKE to Orbit(3.3211, 0.8483, iso(2020, 6, 26), 161.1, 0.50f, 0.02),
+        // 1998-02-28 to 2031-05-20. Crosses Jupiter's orbit, and its
+        // recorded returns run from about 32.9 years to 33.5.
+        Comet.TEMPEL_TUTTLE to Orbit(33.2200, 0.9055, iso(1998, 2, 28), 47.8, 0.74f, 0.2),
+        // 1986-02-09 to 2061-07-28. Halley's thirty recorded returns run
+        // from 240 BC to 1986, and they average 74.2 years apart against
+        // the 75.46 pinned here — so every orbit counted backwards is
+        // about fifteen months out, and by the Norman conquest the sum is
+        // fourteen years. Which is the number, checked against the real
+        // return of 1066 rather than guessed at.
+        Comet.HALLEY to Orbit(75.4629, 0.9671, iso(1986, 2, 9), 169.8, 0.86f, 1.2),
+        // 1992-12-11 to 2126-07-16. The longest way out and the biggest
+        // kick when it comes back past the giants: its observed returns of
+        // 1737, 1862 and 1992 are 125 and 130 years apart, and the one
+        // before them is in 188.
+        Comet.SWIFT_TUTTLE to Orbit(133.5900, 0.9632, iso(1992, 12, 11), 292.4, 0.94f, 2.0)
     )
 
     /** The comets, innermost first — the order they are drawn in. */
@@ -215,9 +229,76 @@ object Comets {
      * actually an event.
      */
     fun visiting(atMs: Long, withinDays: Int = 42): Comet? =
-        all.map { it to abs(atMs - nearestPerihelion(it, atMs)) }
+        all.asSequence()
+            // And not a comet whose visit this cannot put a date on. Six
+            // weeks either side is a claim about a fortnight in a given
+            // year; made about a passage the arithmetic has drifted by
+            // decades, it is a made-up date said with a straight face.
+            .filter { trust(it, atMs) > 0.5f }
+            .map { it to abs(atMs - nearestPerihelion(it, atMs)) }
             .filter { it.second <= withinDays * 86_400_000L }
             .minByOrNull { it.second }?.first
+
+    // ------------------------------------------------- how far this is worth
+
+    /**
+     * How many returns away from the observed passage the dial is standing.
+     *
+     * Both directions: winding back three thousand years is the same
+     * arithmetic as winding forward three thousand, and the error grows
+     * the same way in each.
+     */
+    fun orbitsFrom(comet: Comet, atMs: Long): Double {
+        val o = orbitOf(comet)
+        return abs(atMs - o.perihelionMs) / (o.periodYears * YEAR_MS)
+    }
+
+    /**
+     * How wrong the date of a visit has become, in years.
+     *
+     * A comet does not have a period. Every time round it passes the giant
+     * planets and comes away on a slightly different orbit, and Halley's
+     * recorded returns are anywhere from seventy-four years apart to
+     * seventy-nine. Counting whole orbits from a known passage is exactly
+     * right for the visit before and the visit after, and the error is
+     * cumulative — one return's worth of wander for every return counted.
+     *
+     * A random walk would grow as the square root of the count and this
+     * grows linearly, which is the pessimistic reading. That is the right
+     * way to be wrong here: the failure being guarded against is a clock
+     * confidently drawing Halley in the wrong quarter of its orbit in 2000
+     * BC, and being early to admit it costs nothing but a fading dot.
+     */
+    fun driftYears(comet: Comet, atMs: Long): Double =
+        orbitsFrom(comet, atMs) * orbitOf(comet).wanderYears
+
+    /**
+     * How much of a comet is left, from 1 to 0.
+     *
+     * It fades as the drift grows and is gone once the drift is a quarter
+     * of the orbit — the point at which the comet could be anywhere on the
+     * near half of its ellipse and the dot on the glass is a decoration
+     * rather than a position.
+     *
+     * The four fade at four different rates, and they should: Encke goes
+     * round every three years so it runs out of returns quickly, while
+     * Swift-Tuttle's are a century and a third apart and it survives most
+     * of recorded history. What comes out is that Halley is on the dial
+     * for the whole span anybody has actually watched it — the Chinese
+     * records of 240 BC are inside the fade — and gone before the
+     * hieroglyphs give out, which is about right for a thing this model
+     * cannot know.
+     */
+    fun trust(comet: Comet, atMs: Long): Float {
+        val quarter = orbitOf(comet).periodYears / 4.0
+        return (1.0 - driftYears(comet, atMs) / quarter).coerceIn(0.0, 1.0).toFloat()
+    }
+
+    /** How far either way a comet is still drawn at all, in years. */
+    fun rangeYears(comet: Comet): Double {
+        val o = orbitOf(comet)
+        return o.periodYears / 4.0 / o.wanderYears * o.periodYears
+    }
 
     /** The name to put under the dial. */
     fun nameKeyOf(comet: Comet): Int = when (comet) {

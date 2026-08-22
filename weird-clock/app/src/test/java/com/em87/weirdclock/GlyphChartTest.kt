@@ -173,8 +173,12 @@ class GlyphChartTest {
             )
             root.layout(0, 0, 1080, 2200)
             // 1986 is Halley at perihelion; 2061 is the next one; 2026 is
-            // an ordinary year with all four out at the far end.
-            for (year in listOf(1986, 2026, 2061)) {
+            // an ordinary year with all four out at the far end. The other
+            // three are the wind back: Encke is the first to go, then
+            // Halley, and by the Bronze Age there are no visitors at all,
+            // because a fixed period counted that many times over is not a
+            // position — see [Comets.trust].
+            for (year in listOf(1986, 2026, 2061, 1900, 1200, -2000)) {
                 clock.windOrreryToYearForTest(year)
                 val bitmap = Bitmap.createBitmap(1080, 2200, Bitmap.Config.ARGB_8888)
                 root.draw(Canvas(bitmap))

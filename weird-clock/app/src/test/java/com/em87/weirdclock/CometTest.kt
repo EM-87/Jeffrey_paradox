@@ -24,7 +24,17 @@ class CometTest {
     private fun at(year: Int, month: Int, day: Int): Long {
         val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         cal.clear()
-        cal.set(year, month - 1, day)
+        // A Calendar has no negative years. Given one it quietly lands on
+        // the same year AD, which would put every wound-back date in this
+        // file four thousand years from where it was meant to be — and
+        // every assertion about a comet fading would pass or fail for
+        // reasons that have nothing to do with comets.
+        if (year < 1) {
+            cal.set(Calendar.ERA, java.util.GregorianCalendar.BC)
+            cal.set(1 - year, month - 1, day)
+        } else {
+            cal.set(year, month - 1, day)
+        }
         return cal.timeInMillis
     }
 
@@ -249,6 +259,121 @@ class CometTest {
     @Test
     fun `the visitors are the four and no others`() {
         assertNull("something was named on a day nobody visits", Comets.visiting(at(2005, 3, 3)))
+    }
+
+    // -------------------------------------------------- how far this is worth
+
+    /**
+     * A comet's period is not a constant, and the arithmetic here does not
+     * pretend otherwise for five thousand years.
+     *
+     * Halley's recorded returns are anywhere from 74.4 years apart to
+     * 79.1, and counting whole orbits from a known passage picks up a
+     * return's worth of that error every time round. Near the pinned
+     * passage the answer is as good as it gets; forty returns out it is
+     * wrong by a quarter of the orbit, which means the dot on the glass is
+     * not a position at all.
+     */
+    @Test
+    fun `a comet is certain near its own passage and gone far from it`() {
+        for (comet in Comets.all) {
+            val o = Comets.orbitOf(comet)
+            assertEquals(
+                "$comet is not trusted on the day it was actually seen",
+                1f, Comets.trust(comet, o.perihelionMs), 1e-4f
+            )
+            assertEquals(
+                "$comet survives being wound to the Bronze Age",
+                0f, Comets.trust(comet, at(-4000, 6, 15)), 1e-6f
+            )
+        }
+    }
+
+    /**
+     * And it fades rather than switching off.
+     *
+     * A comet that vanished between one frame and the next while the sky
+     * was being wound would read as a fault; a comet going quietly out is
+     * the drawing saying it no longer knows.
+     */
+    @Test
+    fun `the certainty falls away smoothly`() {
+        var last = 1f
+        var moved = 0
+        for (century in 0..30) {
+            val t = Comets.trust(Comets.Comet.HALLEY, at(1986 - century * 100, 2, 9))
+            assertTrue("Halley got surer the further back it was wound", t <= last + 1e-6f)
+            if (t < last - 1e-6f) moved++
+            last = t
+        }
+        assertTrue("the certainty never moved at all, so it is not a fade", moved > 10)
+        assertEquals("Halley never runs out", 0f, last, 1e-6f)
+    }
+
+    /**
+     * The four run out at four different distances, and in the right
+     * order.
+     *
+     * Encke goes round every three years and three months, so it burns
+     * through returns quickly however steady each one is; Swift-Tuttle's
+     * are a century and a third apart. A single horizon for all four would
+     * be a number picked to look reasonable rather than anything the
+     * comets said.
+     */
+    @Test
+    fun `the four run out at four different distances`() {
+        val ranges = Comets.all.associateWith { Comets.rangeYears(it) }
+        assertEquals("two comets have the same horizon", 4, ranges.values.toSet().size)
+        assertTrue(
+            "Encke outlasts Halley, which goes round twenty times less often",
+            ranges.getValue(Comets.Comet.ENCKE) < ranges.getValue(Comets.Comet.HALLEY)
+        )
+        // And the horizon is where the arithmetic actually gives out,
+        // which is nearer than it feels like it should be. Halley's first
+        // predicted return, 1759, is three orbits back and still good;
+        // 1066 is twelve orbits back and the fixed period has drifted
+        // fourteen years by then — the model really does put the Bayeux
+        // comet in 1080. Both of these were checked against the recorded
+        // returns rather than reasoned about.
+        assertTrue(
+            "Halley is not trusted at the first return anybody predicted",
+            Comets.trust(Comets.Comet.HALLEY, at(1759, 3, 13)) > 0.7f
+        )
+        assertTrue(
+            "the dial claims to know where Halley was in 1066, and it does " +
+                "not — a fixed period puts that return fourteen years late",
+            Comets.trust(Comets.Comet.HALLEY, at(1066, 3, 20)) < 0.5f
+        )
+    }
+
+    /**
+     * And a comet nobody can date is not named under the dial.
+     *
+     * Six weeks either side of perihelion is a claim about a fortnight in
+     * a given year. Made about a passage the arithmetic has drifted by
+     * decades it is a made-up date said with a straight face, which is
+     * worse than saying nothing.
+     */
+    @Test
+    fun `a comet the arithmetic cannot date is not named`() {
+        // A perihelion the model computes for a year it cannot vouch for:
+        // the date is still returned, and the caption still refuses it.
+        val far = Comets.nearestPerihelion(Comets.Comet.HALLEY, at(-3000, 6, 15))
+        assertTrue(
+            "the trust in Halley three thousand years back is not low",
+            Comets.trust(Comets.Comet.HALLEY, far) < 0.5f
+        )
+        assertNull(
+            "the sky named a comet on a date it invented",
+            Comets.visiting(far)
+        )
+        // And on a passage it can vouch for, it still says the name, or
+        // the assertion above is only saying that comets are never named.
+        assertEquals(
+            "no comet is named on a real perihelion date",
+            Comets.Comet.HALLEY,
+            Comets.visiting(Comets.orbitOf(Comets.Comet.HALLEY).perihelionMs)
+        )
     }
 
     private companion object {
