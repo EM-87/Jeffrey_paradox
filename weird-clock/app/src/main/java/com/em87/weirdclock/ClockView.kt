@@ -1186,7 +1186,7 @@ class ClockView @JvmOverloads constructor(
                         e.x, e.y, width / 2f, height / 2f, dialRadius(),
                         orreryMs(), orreryMoonLongitude(), orreryZoom, fallenPlanets
                     )?.let { body ->
-                        showMarkBubble(context.getString(OrreryDial.nameKeyOf(body)), e.x, e.y)
+                        showMarkBubble(bodyName(body), e.x, e.y)
                         return true
                     }
                 }
@@ -4613,7 +4613,7 @@ class ClockView @JvmOverloads constructor(
         if (!orreryShowing()) return
         val held = grabbedBody
         if (held != null) {
-            showMarkBubble(context.getString(OrreryDial.nameKeyOf(held)), x, y)
+            showMarkBubble(bodyName(held), x, y)
         } else {
             leapToNextAlignment()
         }
@@ -5030,6 +5030,10 @@ class ClockView @JvmOverloads constructor(
             return "${Roman.of(first)} ${Roman.of(second)} " +
                 OrreryYear.yearText(y, script)
         }
+        // Before writing there is no date at all — not a blank one. An
+        // empty string here is what stops the row being drawn, and every
+        // caller checks it.
+        if (script == OrreryYear.Script.NONE) return ""
         return String.format(
             Locale.US, "%02d/%02d/%s", first, second,
             OrreryYear.yearText(y, script)
@@ -5079,7 +5083,7 @@ class ClockView @JvmOverloads constructor(
      */
     internal fun orreryCaption(): String? {
         val script = orreryScript()
-        if (script == OrreryYear.Script.YAUTJA || script == OrreryYear.Script.EGYPTIAN) {
+        if (script != OrreryYear.Script.ROMAN && script != OrreryYear.Script.DIGITS) {
             return null
         }
         return OrreryDial.caption(
@@ -5089,6 +5093,22 @@ class ClockView @JvmOverloads constructor(
             latin = script == OrreryYear.Script.ROMAN
         )
     }
+
+    /**
+     * What to call a planet, in the voice of the century the sky is wound
+     * to.
+     *
+     * Three thousand years ago that dot was Dilbat and it took another
+     * three thousand to become Venus — see [SkyAge]. One function because
+     * two places ask (a tap on a planet, and letting go of one that was
+     * being carried) and a label that changed in one of them and not the
+     * other would be worse than neither.
+     */
+    private fun bodyName(body: Orrery.Body): String =
+        context.getString(OrreryDial.nameKeyOf(body, SkyAge.yearOf(orreryMs())))
+
+    /** For the tests: what the bubble would say about a planet right now. */
+    internal fun bodyNameForTest(body: Orrery.Body): String = bodyName(body)
 
     /** The planets lying in the case, each in the colour it brought down. */
     private fun drawFallenPlanets(canvas: Canvas) {
@@ -5118,8 +5138,25 @@ class ClockView @JvmOverloads constructor(
         digitalPaint.alpha = (215 * fade).toInt()
         val script = orreryScript()
         val date = orreryDateDigits()
-        if (script == OrreryYear.Script.EGYPTIAN) {
-            drawEgyptianDate(canvas, cx, yTop, digitH)
+        // Nothing was written down before the wedges, so nothing is drawn.
+        // The counters are cleared rather than left at whatever the last
+        // legible century put in them, or a test asking "is there a date"
+        // gets yesterday's answer.
+        if (script == OrreryYear.Script.NONE) {
+            barsPainted = 0
+            starsPainted = 0
+            egyptiansPainted = 0
+            wedgesPainted = 0
+            printedChars = 0
+            digitalPaint.alpha = keep
+            return
+        }
+        if (script == OrreryYear.Script.EGYPTIAN || script == OrreryYear.Script.CUNEIFORM) {
+            if (script == OrreryYear.Script.EGYPTIAN) {
+                drawEgyptianDate(canvas, cx, yTop, digitH)
+            } else {
+                drawCuneiformDate(canvas, cx, yTop, digitH)
+            }
             digitalPaint.alpha = keep
             orreryCaption()?.let {
                 OrreryDial.drawCaption(canvas, cx, yTop + digitH * 1.45f, r, theme, it, fade)
@@ -5130,8 +5167,17 @@ class ClockView @JvmOverloads constructor(
             // Seven bars can make ten digits and nothing else, so a year
             // in letters needs a display with more bars in it, not a
             // different typeface pushed through the same slot.
+            //
+            // Unless the year is older than the display is. A row of lit
+            // bars is nineteen-seventies electronics, and a date from 1750
+            // shown on one is the same sort of anachronism as Neptune over
+            // Babylon — so before 1970 the date is set in type instead.
             OrreryYear.Script.ROMAN ->
-                drawOtherScript(canvas, date, cx, yTop, digitH)
+                if (OrreryYear.isPrinted(SkyAge.yearOf(orreryMs()), script)) {
+                    drawPrintedDate(canvas, date, cx, yTop, digitH)
+                } else {
+                    drawOtherScript(canvas, date, cx, yTop, digitH)
+                }
             // Day and month on the sixteen-bar module, which can still
             // write a digit; the year on the star, which cannot write
             // anything anybody here can read.
@@ -5241,6 +5287,8 @@ class ClockView @JvmOverloads constructor(
         barsPainted = 0
         starsPainted = 0
         egyptiansPainted = 0
+        wedgesPainted = 0
+        printedChars = 0
         val digitW = digitH * 0.55f
         val gap = digitW * 0.45f
         val markW = digitW * 0.34f
@@ -5834,6 +5882,8 @@ class ClockView @JvmOverloads constructor(
         barsPainted = 0
         starsPainted = 0
         egyptiansPainted = 0
+        wedgesPainted = 0
+        printedChars = 0
         for (i in glyphs.indices) {
             val c = glyphs[i]
             val w = widthAt(i) * k
@@ -5895,6 +5945,8 @@ class ClockView @JvmOverloads constructor(
         egyptiansPainted = parts.sumOf { Egyptian.signCount(it) }
         barsPainted = 0
         starsPainted = 0
+        wedgesPainted = 0
+        printedChars = 0
     }
 
     /** For the tests: hieroglyphs in the last row the sky wrote. */
@@ -5910,6 +5962,251 @@ class ClockView @JvmOverloads constructor(
         carvedPaint.alpha = 255
         carvedPaint.strokeWidth = (h * 0.34f * 0.13f).coerceAtLeast(1.2f)
         return drawEgyptianNumber(canvas, value, x, y, h, h * 0.34f)
+    }
+
+    // -------------------------------------------------------------- the wedges
+
+    /**
+     * One impression of a reed in clay: either the vertical wedge worth
+     * one or the corner wedge worth ten.
+     *
+     * There are only two signs in the whole system, and they are the same
+     * stylus held two ways: end-on it leaves a long tapering nail, and
+     * turned on its corner it leaves a short hook. So they are drawn as
+     * two triangles with deliberately opposite proportions — the one tall
+     * and narrow with its point straight down, the ten wide and short with
+     * its point down and to the left — because the only thing a reader has
+     * to do with these is tell them apart at a glance in a row of nine.
+     *
+     * Filled, not stroked, which is where they differ from the hieroglyphs
+     * next door: a carved outline is a drawing of a thing, and a wedge is
+     * a hole punched in a surface.
+     */
+    private fun drawWedge(canvas: Canvas, ten: Boolean, x: Float, y: Float, w: Float, h: Float) {
+        glyphPath.reset()
+        if (ten) {
+            // The corner wedge: a flat head across the top and the point
+            // dropping away to the left, the way the corner of the reed
+            // comes out of the clay.
+            glyphPath.moveTo(x + w * 0.06f, y + h * 0.16f)
+            glyphPath.lineTo(x + w * 0.94f, y + h * 0.30f)
+            glyphPath.lineTo(x + w * 0.10f, y + h * 0.84f)
+        } else {
+            // The vertical wedge: a head at the top and a long tail to a
+            // point at the bottom. Five corners rather than three, because
+            // a plain triangle at this size is a spike and this has to
+            // read as something that was pressed.
+            val cx = x + w / 2f
+            glyphPath.moveTo(cx - w * 0.34f, y + h * 0.08f)
+            glyphPath.lineTo(cx + w * 0.34f, y + h * 0.08f)
+            glyphPath.lineTo(cx + w * 0.11f, y + h * 0.46f)
+            glyphPath.lineTo(cx, y + h * 0.94f)
+            glyphPath.lineTo(cx - w * 0.11f, y + h * 0.46f)
+        }
+        glyphPath.close()
+        canvas.drawPath(glyphPath, wedgePaint)
+    }
+
+    /**
+     * A whole number in wedges: its sexagesimal places, most significant
+     * first, tens before ones inside each place.
+     *
+     * The gap between places is wider than the gap inside one, and it has
+     * to be: place value with no nought means the only thing separating
+     * "one, twenty" from "eighty" is white space, and if the two gaps look
+     * alike the number cannot be read at all. An empty place — the hole
+     * where a nought would go — is that gap and nothing else, which is
+     * precisely the ambiguity the scribes lived with.
+     *
+     * Comes back with the width it used, since like the hieroglyphs a
+     * number's width here depends on the number.
+     */
+    private fun drawCuneiformNumber(
+        canvas: Canvas, value: Int, x: Float, y: Float, h: Float, unit: Float
+    ): Float {
+        var at = x
+        val places = Cuneiform.places(value)
+        for ((i, place) in places.withIndex()) {
+            for ((isTen, count) in listOf(true to place.tens, false to place.ones)) {
+                if (count == 0) continue
+                val rows = Cuneiform.rowsFor(count)
+                val across = Cuneiform.perRow(count)
+                val cellH = h / rows
+                // The ten is a squat hook and the one a tall nail, so they
+                // are given cells of different shapes to sit in.
+                val cellW = if (isTen) unit else unit * 0.62f
+                for (k in 0 until count) {
+                    val row = k / across
+                    val col = k % across
+                    val inRow = minOf(across, count - row * across)
+                    val indent = (across - inRow) / 2f
+                    drawWedge(
+                        canvas, isTen,
+                        at + (col + indent) * cellW, y + row * cellH,
+                        cellW, cellH
+                    )
+                }
+                at += across * cellW + unit * Cuneiform.GROUP_GAP
+            }
+            if (i < places.size - 1) at += unit * Cuneiform.PLACE_GAP
+        }
+        return at - x
+    }
+
+    /**
+     * The date in wedges: three numbers, each in sixties.
+     *
+     * Measured before it is drawn for the same reason the hieroglyphs are
+     * — nine wedges is wider than one — and laid out on the same line, so
+     * winding across the handover at three thousand before Christ changes
+     * the writing without moving the row.
+     */
+    private fun drawCuneiformDate(canvas: Canvas, cx: Float, top: Float, digitH: Float) {
+        cal.timeInMillis = orreryMs()
+        val d = cal.get(Calendar.DAY_OF_MONTH)
+        val m = cal.get(Calendar.MONTH) + 1
+        val y = signedYear()
+        val parts = intArrayOf(
+            if (dateDayFirst) d else m,
+            if (dateDayFirst) m else d,
+            (1 - y).coerceAtLeast(1)
+        )
+        val h = digitH * 1.05f
+        var unit = h * 0.30f
+        // Twice the gap between two sexagesimal places, which is itself
+        // much wider than the gap inside one. Three widths of white space,
+        // each meaning something different, and they have to be plainly
+        // ordered or the year's own place break reads as the break between
+        // the month and the year — which is what it did.
+        var gap = unit * Cuneiform.PLACE_GAP * 2.2f
+        fun widthOfNumber(v: Int): Float {
+            val places = Cuneiform.places(v)
+            var w = 0f
+            for (place in places) {
+                if (place.tens > 0) w += Cuneiform.perRow(place.tens) * unit + unit * Cuneiform.GROUP_GAP
+                if (place.ones > 0) w += Cuneiform.perRow(place.ones) * unit * 0.62f + unit * Cuneiform.GROUP_GAP
+            }
+            return w + (places.size - 1).coerceAtLeast(0) * unit * Cuneiform.PLACE_GAP
+        }
+        var wide = parts.sumOf { widthOfNumber(it).toDouble() }.toFloat() + gap * 2f
+        val room = width * 0.86f
+        if (wide > room && wide > 0f) {
+            val k = room / wide
+            unit *= k
+            gap *= k
+            wide = room
+        }
+        wedgePaint.color = digitalPaint.color
+        wedgePaint.alpha = digitalPaint.alpha
+        var x = cx - wide / 2f
+        for ((i, value) in parts.withIndex()) {
+            x += drawCuneiformNumber(canvas, value, x, top, h, unit)
+            if (i < parts.size - 1) x += gap
+        }
+        wedgesPainted = parts.sumOf { Cuneiform.wedgeCount(it) }
+        barsPainted = 0
+        starsPainted = 0
+        egyptiansPainted = 0
+        printedChars = 0
+    }
+
+    /** For the tests: wedges in the last row the sky wrote. */
+    internal fun wedgesPaintedForTest(): Int = wedgesPainted
+
+    private var wedgesPainted = 0
+
+    /**
+     * The clay the wedges are pressed into.
+     *
+     * Solid, where the hieroglyphs next door are outlines: a carved sign
+     * is a line drawn round a thing and a wedge is a hole punched in a
+     * surface, and at this size the difference between the two is most of
+     * what tells the two scripts apart.
+     */
+    private val wedgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
+
+    // ------------------------------------------------------------- printed
+
+    /**
+     * The type a date is set in when it is older than any display.
+     *
+     * A serif face, letter-spaced the way an inscription is: Roman
+     * numerals were cut into stone and set on title pages for two thousand
+     * years before anybody could light one up, and both of those put air
+     * between the letters. Nothing else on this dial uses a serif, which
+     * is what makes the change of century visible at a glance rather than
+     * only on reading the year.
+     */
+    private val printedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        textAlign = Paint.Align.CENTER
+        typeface = android.graphics.Typeface.create(
+            android.graphics.Typeface.SERIF, android.graphics.Typeface.NORMAL
+        )
+        letterSpacing = 0.16f
+    }
+
+    /**
+     * A date set in type rather than lit up.
+     *
+     * Fitted to the row the same way the bar displays are, because a Roman
+     * date is not a fixed number of characters wide —
+     * `XXVIII·XII·MDCCCLXXXVIII` is twenty-four of them — and a size that
+     * suits `I·I·MCM` runs a long year off both edges of the phone.
+     *
+     * Sat on the same line as every other display, so winding across 1970
+     * changes the face without moving the row.
+     */
+    private fun drawPrintedDate(
+        canvas: Canvas, text: String, cx: Float, top: Float, digitH: Float
+    ) {
+        barsPainted = 0
+        starsPainted = 0
+        egyptiansPainted = 0
+        wedgesPainted = 0
+        printedChars = 0
+        if (text.isEmpty()) return
+        // The groups are separated by a space in the string; on a printed
+        // date a middle dot is what a Roman inscription actually used, and
+        // it stops a long date reading as one word.
+        val set = text.replace(' ', '·')
+        printedPaint.color = digitalPaint.color
+        printedPaint.alpha = digitalPaint.alpha
+        printedPaint.textSize = digitH * 1.10f
+        val room = width * 0.86f
+        val wide = printedPaint.measureText(set)
+        if (wide > room && wide > 0f) printedPaint.textSize *= room / wide
+        // Centred on the line the lit displays use, so the row does not
+        // jump as the sky is wound across 1970.
+        val metrics = printedPaint.fontMetrics
+        val y = top + (digitH - (metrics.descent - metrics.ascent)) / 2f - metrics.ascent
+        canvas.drawText(set, cx, y, printedPaint)
+        printedChars = set.length
+    }
+
+    /** For the tests: characters set in type in the last row the sky wrote. */
+    internal fun printedCharsForTest(): Int = printedChars
+
+    private var printedChars = 0
+
+    /** For the camera: a printed date, drawn anywhere. */
+    internal fun drawPrintedForTest(
+        canvas: Canvas, text: String, cx: Float, top: Float, digitH: Float
+    ) {
+        digitalPaint.color = android.graphics.Color.WHITE
+        digitalPaint.alpha = 255
+        drawPrintedDate(canvas, text, cx, top, digitH)
+    }
+
+    /** For the camera: one number in wedges, drawn anywhere. */
+    internal fun drawCuneiformForTest(
+        canvas: Canvas, value: Int, x: Float, y: Float, h: Float
+    ): Float {
+        wedgePaint.color = android.graphics.Color.WHITE
+        wedgePaint.alpha = 255
+        return drawCuneiformNumber(canvas, value, x, y, h, h * 0.30f)
     }
 
     /**

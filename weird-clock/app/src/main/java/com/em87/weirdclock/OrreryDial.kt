@@ -249,8 +249,12 @@ object OrreryDial {
         val across = maxOf(ringGap(r, zoom) * ACROSS_OF_GAP, 1f)
         val along = r * REACH_FLOOR
         val fingerR = hypot(x - cx, y - cy)
+        // A planet nobody had found yet is not on the glass to be taken
+        // hold of. Worked out here rather than passed in, so that what can
+        // be grabbed and what is drawn can never disagree.
+        val unknown = SkyAge.unknownAt(atMs)
         for (body in Orrery.planets + Orrery.Body.MOON) {
-            if (body in skip) continue
+            if (body in skip || body in unknown) continue
             val p = positionOf(body, cx, cy, r, atMs, moonLongitude, zoom)
             // A planet the zoom has pushed off the edge of the dial is not
             // there to be taken hold of.
@@ -323,7 +327,12 @@ object OrreryDial {
         if (alpha <= 0.01f) return
         val a = alpha.coerceIn(0f, 1f)
 
-        drawRings(canvas, cx, cy, r, theme, a, zoom)
+        // Wound back far enough the sky thins out: Neptune goes in 1846,
+        // Uranus in 1781, and the five that can be seen with an eye go
+        // where the records do, leaving the Earth, the Moon and the Sun —
+        // see [SkyAge].
+        val unknown = SkyAge.unknownAt(atMs)
+        drawRings(canvas, cx, cy, r, theme, a, zoom, unknown)
         if (comets) drawComets(canvas, cx, cy, r, theme, atMs, a, zoom)
         val days = Orrery.dayMarkFade(zoom)
         if (days > 0f) drawYearOfDays(canvas, cx, cy, r, theme, atMs, a * days, busyDays)
@@ -334,6 +343,8 @@ object OrreryDial {
             // A planet that has been knocked off its orbit is lying in the
             // case, and the case draws it.
             if (body in fallen) continue
+            // One that has not been discovered yet is not lying anywhere.
+            if (body in unknown) continue
             val p = positionOf(body, cx, cy, r, atMs, moonLongitude, zoom)
             // Pushed off the edge by the zoom: not drawn rather than drawn
             // outside the case, which would put Neptune on the wallpaper.
@@ -433,11 +444,18 @@ object OrreryDial {
 
     private fun drawRings(
         canvas: Canvas, cx: Float, cy: Float, r: Float,
-        theme: ClockTheme, a: Float, zoom: Float
+        theme: ClockTheme, a: Float, zoom: Float,
+        unknown: Set<Orrery.Body> = emptySet()
     ) {
         stroke.color = theme.minorTick
         stroke.strokeWidth = r * 0.004f
         for (body in Orrery.planets) {
+            // No orbit for a planet nobody knew was there. The ring is the
+            // loudest part of a planet on this dial — a circle across the
+            // whole face against a dot four pixels wide — so leaving them
+            // in would say "eight planets" in the one year Herschel had
+            // not looked yet.
+            if (body in unknown) continue
             // The outer rings fainter than the inner ones, which is what
             // stops eight concentric circles reading as a target.
             val depth = Orrery.planets.indexOf(body) / (Orrery.planets.size - 1f)
@@ -791,7 +809,42 @@ object OrreryDial {
         )
     }
 
-    /** What a body is called. */
+    /**
+     * What a body was called in a given year — see [SkyAge].
+     *
+     * The names on this dial are the third or fourth set anybody has used.
+     * Wound back far enough Neptune is not there to be named at all, and
+     * the five that are there answer to Gu-utu and Dilbat rather than to
+     * Mercury and Venus. Uranus and Neptune have no older names for the
+     * plain reason that they had not been found yet — they keep the ones
+     * they were given, which are the only ones they have ever had.
+     */
+    fun nameKeyOf(body: Orrery.Body, year: Int): Int = when (SkyAge.eraFor(year)) {
+        SkyAge.Era.BABYLONIAN -> when (body) {
+            Orrery.Body.MERCURY -> R.string.bab_mercury
+            Orrery.Body.VENUS -> R.string.bab_venus
+            Orrery.Body.EARTH -> R.string.bab_earth
+            Orrery.Body.MARS -> R.string.bab_mars
+            Orrery.Body.JUPITER -> R.string.bab_jupiter
+            Orrery.Body.SATURN -> R.string.bab_saturn
+            Orrery.Body.MOON -> R.string.bab_moon
+            else -> nameKeyOf(body)
+        }
+        SkyAge.Era.GREEK -> when (body) {
+            Orrery.Body.MERCURY -> R.string.grk_mercury
+            Orrery.Body.VENUS -> R.string.grk_venus
+            Orrery.Body.EARTH -> R.string.grk_earth
+            Orrery.Body.MARS -> R.string.grk_mars
+            Orrery.Body.JUPITER -> R.string.grk_jupiter
+            Orrery.Body.SATURN -> R.string.grk_saturn
+            Orrery.Body.MOON -> R.string.grk_moon
+            else -> nameKeyOf(body)
+        }
+        SkyAge.Era.LATIN -> latinNameOf(body)
+        SkyAge.Era.MODERN -> nameKeyOf(body)
+    }
+
+    /** What a body is called now. */
     fun nameKeyOf(body: Orrery.Body): Int = when (body) {
         Orrery.Body.MERCURY -> R.string.body_mercury
         Orrery.Body.VENUS -> R.string.body_venus

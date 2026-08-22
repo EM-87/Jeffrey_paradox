@@ -131,7 +131,7 @@ class GlyphChartTest {
                 android.view.View.MeasureSpec.makeMeasureSpec(2200, android.view.View.MeasureSpec.EXACTLY)
             )
             root.layout(0, 0, 1080, 2200)
-            for (year in listOf(-1250, 1750, 1888, 2026, 3400)) {
+            for (year in listOf(-4000, -3200, -1250, 1750, 1800, 1888, 2026, 3400)) {
                 clock.windOrreryToYearForTest(year)
                 val bitmap = Bitmap.createBitmap(1080, 2200, Bitmap.Config.ARGB_8888)
                 root.draw(Canvas(bitmap))
@@ -289,6 +289,47 @@ class GlyphChartTest {
             if (bitmap.getPixel(x, y) != Color.rgb(0x1d, 0x21, 0x29)) ink++
         }
         assertTrue("nothing was carved", ink > 300)
+    }
+
+    /**
+     * The wedges, one to nine, the tens, and a few real dates.
+     *
+     * There are only two shapes in the whole script, so the only thing
+     * worth looking at is whether they can be told apart in a heap and
+     * whether the gap between one sexagesimal place and the next is
+     * plainly wider than the gap inside one — which is the entire
+     * difference between "one, twenty" and "eighty".
+     */
+    @Test
+    fun `the cuneiform numerals`() {
+        val w = 1080
+        val rowH = 150
+        val rows = listOf(
+            listOf(1, 2, 3, 4, 5, 6, 7, 8, 9),
+            listOf(10, 20, 30, 40, 50, 59),
+            listOf(60, 61, 80, 3600, 3601),
+            listOf(15, 6, 3001),
+            listOf(31, 12, 3499)
+        )
+        val bitmap = Bitmap.createBitmap(w, rowH * rows.size + 40, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.rgb(0x1d, 0x21, 0x29))
+        val v = view(w, rowH * rows.size + 40)
+        rows.forEachIndexed { r, values ->
+            var x = 40f
+            for (value in values) {
+                x += v.drawCuneiformForTest(canvas, value, x, 20f + r * rowH.toFloat(), 110f)
+                x += 52f
+            }
+        }
+        File(outDir, "glyphs-cuneiform.png").outputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        var ink = 0
+        for (y in 0 until bitmap.height step 2) for (x in 0 until w step 2) {
+            if (bitmap.getPixel(x, y) != Color.rgb(0x1d, 0x21, 0x29)) ink++
+        }
+        assertTrue("nothing was pressed into the clay", ink > 300)
     }
 
     /** The ten marks on the star, in a row like the table they came from. */

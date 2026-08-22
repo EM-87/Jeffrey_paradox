@@ -415,6 +415,29 @@
     <string name="pref_hand_shadows_title">Hand shadows</string>
     <string name="pref_hand_shadows_summary">The clock lies flat with 12 pointing north and the real sun crosses over it. The three hands sit at three heights, so they throw three shadows — none at all when the sun is overhead, long and slanted near the poles.</string>
     <string name="pref_hand_shadows_nofix">No location yet, so the sun is crossing a middle latitude. It will use yours once the dial has a fix.</string>
+    <!-- What the wandering stars were called before the Greeks, from the
+         Mesopotamian star lists. The planet name and, where they are not
+         the same word, the god behind it. Not translated: the point of
+         them is that they are Babylonian. -->
+    <string name="bab_mercury" translatable="false">Gu-utu</string>
+    <string name="bab_venus" translatable="false">Dilbat</string>
+    <string name="bab_earth" translatable="false">Ki</string>
+    <string name="bab_mars" translatable="false">Salbatanu</string>
+    <string name="bab_jupiter" translatable="false">Sagmegar</string>
+    <string name="bab_saturn" translatable="false">Kayamanu</string>
+    <string name="bab_moon" translatable="false">Sin</string>
+
+    <!-- And what the Greeks called them, which is mostly what they look
+         like: the Gleaming, the Light-bringer, the Fiery, the Shining,
+         the Blazing. Not translated, for the same reason. -->
+    <string name="grk_mercury" translatable="false">Stilbon</string>
+    <string name="grk_venus" translatable="false">Phosphoros</string>
+    <string name="grk_earth" translatable="false">Gaia</string>
+    <string name="grk_mars" translatable="false">Pyroeis</string>
+    <string name="grk_jupiter" translatable="false">Phaethon</string>
+    <string name="grk_saturn" translatable="false">Phainon</string>
+    <string name="grk_moon" translatable="false">Selene</string>
+
     <!-- Latin, for the years the sky writes in Roman. Not translated:
          the point of them is that they are Latin. -->
     <string name="lat_mercury" translatable="false">Mercurius</string>

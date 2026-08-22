@@ -156,7 +156,10 @@ class OrreryYearTest {
         )
         clock.layout(0, 0, 1080, 2000)
 
-        clock.windOrreryToYearForTest(1750)
+        // 1980 rather than 1750: the sixteen-bar module is a piece of
+        // nineteen-seventies electronics, and a Roman year older than the
+        // display is set in type instead — which is the next test.
+        clock.windOrreryToYearForTest(1980)
         var date = clock.orreryDateDigits()
         clock.draw(canvas)
         assertEquals(
@@ -183,6 +186,69 @@ class OrreryYearTest {
             "an ordinary year was sent somewhere other than the seven-bar row",
             0, clock.barsPaintedForTest() + clock.starsPaintedForTest()
         )
+    }
+
+    /**
+     * A Roman year older than the display it would be shown on is set in
+     * type instead.
+     *
+     * The sixteen-bar module is nineteen-seventies electronics. A date
+     * from 1750 lit up on one is the same sort of anachronism as Neptune
+     * over Babylon, and the line falls inside the Roman era rather than at
+     * the edge of it — 1970 is not where the numerals changed, it is where
+     * the technology for showing them arrived.
+     */
+    @Test
+    fun `a roman year older than the display is printed rather than lit`() {
+        val controller = org.robolectric.Robolectric
+            .buildActivity(MainActivity::class.java).setup()
+        val clock = controller.get().clockForTest()
+        clock.toggleOrrery()
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(900))
+        val canvas = android.graphics.Canvas(
+            android.graphics.Bitmap.createBitmap(
+                1080, 2000, android.graphics.Bitmap.Config.ARGB_8888
+            )
+        )
+        clock.measure(
+            android.view.View.MeasureSpec.makeMeasureSpec(1080, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec.makeMeasureSpec(2000, android.view.View.MeasureSpec.EXACTLY)
+        )
+        clock.layout(0, 0, 1080, 2000)
+
+        clock.windOrreryToYearForTest(1750)
+        clock.draw(canvas)
+        assertTrue(
+            "a date from 1750 was not set in type",
+            clock.printedCharsForTest() > 0
+        )
+        assertEquals(
+            "a date from 1750 was lit up on a display that did not exist",
+            0, clock.barsPaintedForTest()
+        )
+
+        // And on the other side of the line it is lit after all, or the
+        // assertion above is only saying that Roman dates are never lit.
+        clock.windOrreryToYearForTest(1980)
+        clock.draw(canvas)
+        assertTrue("a date from 1980 was not lit", clock.barsPaintedForTest() > 0)
+        assertEquals(
+            "a date from 1980 was set in type",
+            0, clock.printedCharsForTest()
+        )
+    }
+
+    /** The line itself, without a canvas. */
+    @Test
+    fun `the display arrives in nineteen seventy`() {
+        assertTrue(OrreryYear.isPrinted(1969, OrreryYear.Script.ROMAN))
+        assertTrue("1970 is the first year there is a display to light",
+            !OrreryYear.isPrinted(1970, OrreryYear.Script.ROMAN))
+        // Nothing else is ever printed: the hieroglyphs and the wedges are
+        // carved and pressed rather than displayed at all, and every year
+        // the other two rows are used for is well after 1970.
+        assertTrue(!OrreryYear.isPrinted(1750, OrreryYear.Script.DIGITS))
+        assertTrue(!OrreryYear.isPrinted(-1250, OrreryYear.Script.EGYPTIAN))
     }
 
     /**
