@@ -35,6 +35,9 @@ object DialDome {
      * @param towardDeg the bearing of the light, clockwise from twelve
      * @param mirrored whether the dial runs backwards, in which case so
      *   does every bearing on it
+     * @param tint the colour of the light itself, for the lit edge of the
+     *   bevel — white for the sun, and for the moon the blue the eye
+     *   insists moonlight is
      */
     fun draw(
         canvas: Canvas,
@@ -43,7 +46,8 @@ object DialDome {
         r: Float,
         strength: Float,
         towardDeg: Float,
-        mirrored: Boolean = false
+        mirrored: Boolean = false,
+        tint: Int = 0xFFFFFF
     ) {
         if (strength <= 0.02f) return
         val lit = pointAt(cx, cy, towardDeg, r * 0.42f, mirrored)
@@ -67,7 +71,7 @@ object DialDome {
         val far = pointAt(cx, cy, towardDeg + 180f, r, mirrored)
         paint.shader = LinearGradient(
             near.first, near.second, far.first, far.second,
-            (((70 * strength).toInt()) shl 24) or 0xFFFFFF,
+            (((70 * strength).toInt()) shl 24) or (tint and 0xFFFFFF),
             ((90 * strength).toInt()) shl 24,
             Shader.TileMode.CLAMP
         )

@@ -6535,7 +6535,8 @@ class ClockView @JvmOverloads constructor(
         DialDome.draw(
             canvas, cx, cy, r,
             HandShadow.domeStrength(light.altitudeDeg) * light.brightness,
-            light.azimuthDeg.toFloat(), mirrored
+            light.azimuthDeg.toFloat(), mirrored,
+            if (light.moon) HandShadow.MOON_SHEEN else 0xFFFFFF
         )
     }
 

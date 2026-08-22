@@ -163,6 +163,15 @@ object HandShadow {
     const val MOON_TINT = 0xFF0B1638.toInt()
 
     /**
+     * And the colour of the moonlight itself, for the lit side of things.
+     *
+     * The same shift, seen from the other end: where a moonlit shadow
+     * reads as blue, a moonlit edge reads as a cold blue-white rather than
+     * the warm one the sun leaves.
+     */
+    const val MOON_SHEEN = 0xC8D6FF
+
+    /**
      * Below this much of a lit disc there is no moonlight worth drawing.
      *
      * A new moon is not a dim moon: it is up all day, invisible all night,
