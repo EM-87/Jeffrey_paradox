@@ -415,4 +415,34 @@
     <string name="pref_hand_shadows_title">Hand shadows</string>
     <string name="pref_hand_shadows_summary">The clock lies flat with 12 pointing north and the real sun crosses over it. The three hands sit at three heights, so they throw three shadows — none at all when the sun is overhead, long and slanted near the poles.</string>
     <string name="pref_hand_shadows_nofix">No location yet, so the sun is crossing a middle latitude. It will use yours once the dial has a fix.</string>
+    <!-- Latin, for the years the sky writes in Roman. Not translated:
+         the point of them is that they are Latin. -->
+    <string name="lat_mercury" translatable="false">Mercurius</string>
+    <string name="lat_venus" translatable="false">Venus</string>
+    <string name="lat_earth" translatable="false">Terra</string>
+    <string name="lat_mars" translatable="false">Mars</string>
+    <string name="lat_jupiter" translatable="false">Iuppiter</string>
+    <string name="lat_saturn" translatable="false">Saturnus</string>
+    <string name="lat_uranus" translatable="false">Uranus</string>
+    <string name="lat_neptune" translatable="false">Neptunus</string>
+    <string name="lat_moon" translatable="false">Luna</string>
+    <string name="lat_aligned" translatable="false">%1$s in ordine</string>
+    <string name="lat_full_moon" translatable="false">Luna plena</string>
+    <string name="lat_new_moon" translatable="false">Luna nova</string>
+    <string name="lat_solar_total" translatable="false">Defectio solis tota</string>
+    <string name="lat_solar_annular" translatable="false">Defectio solis anularis</string>
+    <string name="lat_solar_partial" translatable="false">Defectio solis partialis</string>
+    <string name="lat_lunar_total" translatable="false">Defectio lunae tota</string>
+    <string name="lat_lunar_partial" translatable="false">Defectio lunae partialis</string>
+    <string name="lat_meteors" translatable="false">Stellae cadentes: %1$s</string>
+    <string name="lat_comet" translatable="false">Cometes</string>
+    <string name="lat_opposition" translatable="false">%1$s in oppositione</string>
+    <string name="lat_quadrantids" translatable="false">Quadrantidae</string>
+    <string name="lat_lyrids" translatable="false">Lyridae</string>
+    <string name="lat_eta_aquariids" translatable="false">Eta Aquariidae</string>
+    <string name="lat_perseids" translatable="false">Perseidae</string>
+    <string name="lat_orionids" translatable="false">Orionidae</string>
+    <string name="lat_leonids" translatable="false">Leonidae</string>
+    <string name="lat_geminids" translatable="false">Geminidae</string>
+    <string name="lat_ursids" translatable="false">Ursidae</string>
 </resources>

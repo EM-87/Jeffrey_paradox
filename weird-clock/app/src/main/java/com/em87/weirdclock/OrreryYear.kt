@@ -17,6 +17,13 @@ package com.em87.weirdclock
 object OrreryYear {
 
     enum class Script {
+        /**
+         * Before the year one: the oldest counting there is a picture of.
+         * Additive, no nought, a symbol for each power of ten written as
+         * many times as it is needed — see [Egyptian].
+         */
+        EGYPTIAN,
+
         /** Before 2000: the way the years were written at the time. */
         ROMAN,
 
@@ -33,6 +40,11 @@ object OrreryYear {
 
     /** Which alphabet a given year is written in. */
     fun scriptFor(year: Int): Script = when {
+        // Roman has no nought and no way to say "before", so the year one
+        // is where it gives out — and what is on the other side of it is
+        // not an earlier way of writing the same thing, it is an earlier
+        // idea of what writing a number is.
+        year < 1 -> Script.EGYPTIAN
         year < 2000 -> Script.ROMAN
         year < 3000 -> Script.DIGITS
         else -> Script.YAUTJA
@@ -47,10 +59,13 @@ object OrreryYear {
      * whole row is in.
      */
     fun yearText(year: Int, script: Script): String = when {
-        // Roman has no nought and no way to say "before". Wound back past
-        // the year one the sky drops to digits for the year rather than
-        // writing an empty group, which is what Roman.of(0) is.
         script == Script.ROMAN && year >= 1 -> Roman.of(year)
+        // Egyptian is drawn from the number rather than spelled out of
+        // characters — a tally of signs, not a string — so what comes back
+        // here is the number itself, and how far back it is. Years before
+        // the year one are counted forwards from it the way anybody
+        // counts backwards out loud: 44 before, not minus 44.
+        script == Script.EGYPTIAN -> (1 - year).coerceAtLeast(1).toString()
         else -> year.toString()
     }
 }

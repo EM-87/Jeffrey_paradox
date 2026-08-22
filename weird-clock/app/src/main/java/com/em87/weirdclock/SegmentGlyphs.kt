@@ -90,13 +90,15 @@ object SegmentGlyphs {
      *  - `I` is the left upright. One stroke, and it is the *left* one so
      *    that a row of them reads as a row of strokes rather than as bars
      *    floating in the middle of boxes.
-     *  - `V` is the two upper diagonals meeting in the middle. A V's
-     *    vertex is at the foot of the letter and here it is halfway up,
-     *    which is what a segment display does to a V and is how the real
-     *    ones look.
-     *  - `X` is all four diagonals, and they meet: see [JOINS_MIDDLE].
-     *  - `M` is `V` with both uprights added, which is how the letter is
-     *    built — two legs and a fold between them.
+     *  - `V` is the left upright, the lower-left diagonal climbing back to
+     *    the middle, and the upper-right one carrying on to the corner: a
+     *    V lying with its point at the bottom-left. Made instead of the
+     *    two *upper* diagonals it comes out as the top half of an `X`,
+     *    which is what it was and what it read as — an X somebody had cut
+     *    in half, sitting where a V should be.
+     *  - `X` is all four diagonals.
+     *  - `M` is both uprights with the two upper diagonals folded between
+     *    them, which is how the letter is built.
      *  - `L` is the left upright and the foot, and `C` adds the head.
      *  - `D` is the whole ring, which is what it is on the display this
      *    was read off — and which only works because there are no digits
@@ -113,7 +115,7 @@ object SegmentGlyphs {
      */
     private val SIXTEEN = mapOf(
         'I' to LEFT,
-        'V' to (H or J),
+        'V' to (LEFT or M or J),
         'X' to (H or J or K or M),
         'L' to (LEFT or FOOT),
         'C' to (TOP or LEFT or FOOT),
@@ -139,17 +141,17 @@ object SegmentGlyphs {
     )
 
     /**
-     * The bars that run to the middle of the module, and have to meet
-     * there.
+     * Nothing overlaps anything. Every bar stops a hair short of the point
+     * it is aimed at, including the middle.
      *
-     * Every other bar stops a hair short of its corner, which is what
-     * gives an `M` its notches and keeps a corner from turning into a
-     * blob. The four diagonals are the exception: they all end at the same
-     * point, so the same hair of daylight leaves a hole where they cross —
-     * and an `X` with a hole in the middle of it is an `X` somebody has
-     * cut. They overlap there instead.
+     * That hair is the display. A segment is a stamped piece of metal or a
+     * cut in a mask, and the daylight between one and the next is what
+     * says so — take it away where the four diagonals cross and the `X`
+     * stops being four bars and becomes a painted cross. It was taken
+     * away, on the theory that the gap read as a bite out of the letter.
+     * The bite was somewhere else entirely: the `V`.
      */
-    val JOINS_MIDDLE: Int = H or J or K or M or I or L or G1 or G2
+    val JOINS_MIDDLE: Int = 0
 
     // ------------------------------------------------- the star
 
@@ -197,16 +199,18 @@ object SegmentGlyphs {
     private const val RIGHT_CHEVRON = U_SE or L_NE
 
     /**
-     * Ten marks, nine shapes.
+     * Ten marks, ten shapes.
      *
      * A reading of a table rather than an invention, and said plainly
      * because it matters to anybody deciding how much to trust the
      * shapes. What is certain is the construction — two stars, sixteen
-     * arms, the stem through the middle, the diamond and its halves — and
-     * that `2` and `8` are the same symbol, which is a fact about the
-     * system and not a mistake in the reading. A numeral set where two
-     * digits share a glyph is the sort of thing you cannot arrive at by
-     * being sensible, so it is kept exactly as it is.
+     * arms, the stem through the middle, the diamond and its halves.
+     *
+     * The `2` and the `8` were one mark, which is what the table it was
+     * read off has; the later revisions of the numerals separate them, and
+     * so does this. A date that cannot tell the two apart is a date with a
+     * hole in it, and the mirror is the obvious place for the second one
+     * to go — the `2` leans left, the `8` leans right.
      *
      * Where an arm was ambiguous the tie went to keeping the rest apart,
      * since a display whose 3 and 7 are a coin toss has stopped being a
@@ -221,15 +225,27 @@ object SegmentGlyphs {
         '5' to (STEM or RIGHT_CHEVRON or L_SW),
         '6' to (STEM or DIAMOND),
         '7' to (STEM or U_NE or L_SW),
-        // The same as the 2. Not a slip: the table has one symbol for
-        // both, and a numeral set that reuses a glyph is not something
-        // anybody would arrive at by tidying.
-        '8' to (STEM or U_W or LEFT_CHEVRON or L_E),
+        // The mirror of the 2, which is what the later revisions of this
+        // numeral set do with it: the earlier one wrote both with the same
+        // mark, and a date that cannot tell 2 from 8 is a date with a hole
+        // in it.
+        '8' to (STEM or U_E or RIGHT_CHEVRON or L_W),
         '9' to (STEM or DIAMOND or U_NW or U_NE)
     )
 
+    /**
+     * The separator between the groups of a far-future date.
+     *
+     * Not an arm of either star: a small closed mark on the axis between
+     * them, where nothing else in the alphabet puts anything. A blank
+     * space would do the job of separating and none of the job of looking
+     * deliberate — the row reads as having stopped rather than as having
+     * three parts.
+     */
+    const val STAR_BREAK = 1 shl 16
+
     /** Which arms [c] lights, or nothing if it is not a digit. */
-    fun star(c: Char): Int? = STAR[c]
+    fun star(c: Char): Int? = if (c == '\u00b7' || c == ' ') STAR_BREAK else STAR[c]
 
     /** Every arm of the two stars, in drawing order. */
     val STAR_ARMS = intArrayOf(

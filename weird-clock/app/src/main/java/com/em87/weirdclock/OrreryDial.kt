@@ -659,7 +659,8 @@ object OrreryDial {
         atMs: Long,
         zoneOffsetMs: Int,
         aligned: List<Orrery.Body>,
-        comets: Boolean = false
+        comets: Boolean = false,
+        latin: Boolean = false
     ): String? {
         // Before the sky events, because a comet at its closest is rarer
         // than anything on that list — which includes the full moon, and
@@ -673,11 +674,15 @@ object OrreryDial {
             )
         }
         val day = CivilDays.dayOf(atMs, zoneOffsetMs)
-        SkyEvents.on(day).firstOrNull()?.let { return nameOf(resources, it) }
+        SkyEvents.on(day).firstOrNull()?.let {
+            return if (latin) latinNameOf(resources, it) else nameOf(resources, it)
+        }
         if (aligned.size >= 3) {
+            val names = aligned.joinToString(", ") {
+                resources.getString(if (latin) latinNameOf(it) else nameKeyOf(it))
+            }
             return resources.getString(
-                R.string.orrery_aligned,
-                aligned.joinToString(", ") { resources.getString(nameKeyOf(it)) }
+                if (latin) R.string.lat_aligned else R.string.orrery_aligned, names
             )
         }
         return null
@@ -721,6 +726,69 @@ object OrreryDial {
         SkyEvents.Shower.GEMINIDS -> R.string.shower_geminids
         SkyEvents.Shower.URSIDS -> R.string.shower_ursids
         else -> R.string.shower_perseids
+    }
+
+    /**
+     * What a body is called, in Latin.
+     *
+     * The dial writes its Roman years in Roman, and a caption in English
+     * under a date in Roman numerals is the same mistake the date itself
+     * used to make: half of it in one voice and half in another. So the
+     * whole caption goes with the script — the planets, the alignments,
+     * the eclipses, all of them — and Latin needs no translating because
+     * being Latin is the entire point of it.
+     */
+    private fun latinNameOf(body: Orrery.Body): Int = when (body) {
+        Orrery.Body.MERCURY -> R.string.lat_mercury
+        Orrery.Body.VENUS -> R.string.lat_venus
+        Orrery.Body.EARTH -> R.string.lat_earth
+        Orrery.Body.MARS -> R.string.lat_mars
+        Orrery.Body.JUPITER -> R.string.lat_jupiter
+        Orrery.Body.SATURN -> R.string.lat_saturn
+        Orrery.Body.URANUS -> R.string.lat_uranus
+        Orrery.Body.NEPTUNE -> R.string.lat_neptune
+        Orrery.Body.MOON -> R.string.lat_moon
+    }
+
+    private fun latinShowerName(shower: SkyEvents.Shower?): Int = when (shower) {
+        SkyEvents.Shower.QUADRANTIDS -> R.string.lat_quadrantids
+        SkyEvents.Shower.LYRIDS -> R.string.lat_lyrids
+        SkyEvents.Shower.ETA_AQUARIIDS -> R.string.lat_eta_aquariids
+        SkyEvents.Shower.ORIONIDS -> R.string.lat_orionids
+        SkyEvents.Shower.LEONIDS -> R.string.lat_leonids
+        SkyEvents.Shower.GEMINIDS -> R.string.lat_geminids
+        SkyEvents.Shower.URSIDS -> R.string.lat_ursids
+        else -> R.string.lat_perseids
+    }
+
+    /** One event, said in Latin. */
+    private fun latinNameOf(
+        resources: android.content.res.Resources,
+        event: SkyEvents.Event
+    ): String = when (event.kind) {
+        SkyEvents.Kind.SOLAR_ECLIPSE -> resources.getString(
+            when (event.grade) {
+                SkyEvents.Grade.TOTAL -> R.string.lat_solar_total
+                SkyEvents.Grade.ANNULAR -> R.string.lat_solar_annular
+                else -> R.string.lat_solar_partial
+            }
+        )
+        SkyEvents.Kind.LUNAR_ECLIPSE -> resources.getString(
+            when (event.grade) {
+                SkyEvents.Grade.TOTAL -> R.string.lat_lunar_total
+                else -> R.string.lat_lunar_partial
+            }
+        )
+        SkyEvents.Kind.METEORS -> resources.getString(
+            R.string.lat_meteors, resources.getString(latinShowerName(event.shower))
+        )
+        SkyEvents.Kind.COMET -> resources.getString(R.string.lat_comet)
+        SkyEvents.Kind.FULL_MOON -> resources.getString(R.string.lat_full_moon)
+        SkyEvents.Kind.NEW_MOON -> resources.getString(R.string.lat_new_moon)
+        SkyEvents.Kind.OPPOSITION -> resources.getString(
+            R.string.lat_opposition,
+            resources.getString(latinNameOf(event.body ?: Orrery.Body.MARS))
+        )
     }
 
     /** What a body is called. */

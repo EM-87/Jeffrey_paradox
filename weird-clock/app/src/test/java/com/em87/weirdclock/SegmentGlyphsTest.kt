@@ -79,42 +79,41 @@ class SegmentGlyphsTest {
             "X is not made of diagonals, so it is not an X",
             SegmentGlyphs.sixteen('X')!! and diagonals == diagonals
         )
+        // The V is the left upright and one diagonal each way — a V lying
+        // with its point at the bottom-left. Made of the two *upper*
+        // diagonals it is the top half of an X, which is what it was.
         assertEquals(
-            "V is not the two upper diagonals",
-            SegmentGlyphs.H or SegmentGlyphs.J, SegmentGlyphs.sixteen('V')
+            "V is the top half of an X",
+            SegmentGlyphs.F or SegmentGlyphs.E or SegmentGlyphs.M or SegmentGlyphs.J,
+            SegmentGlyphs.sixteen('V')
+        )
+        assertTrue(
+            "V and X are the same handful of diagonals",
+            SegmentGlyphs.sixteen('V')!! and diagonals != diagonals
         )
         assertEquals(
-            "M is not V with both uprights",
-            SegmentGlyphs.sixteen('V'),
-            SegmentGlyphs.sixteen('M')!! and SegmentGlyphs.sixteen('V')!!
+            "M is not both uprights with the two upper diagonals folded between",
+            SegmentGlyphs.F or SegmentGlyphs.E or SegmentGlyphs.B or SegmentGlyphs.C or
+                SegmentGlyphs.H or SegmentGlyphs.J,
+            SegmentGlyphs.sixteen('M')
         )
     }
 
     /**
-     * A bar that runs to the middle overlaps there instead of stopping
-     * short of it.
+     * Nothing overlaps anything, the middle included.
      *
-     * Every other bar leaves a hair of daylight at its corner, which is
-     * what gives an `M` its notches. The four diagonals all end at the
-     * same point, so the same hair leaves a hole where they cross — and an
-     * `X` with a hole in the middle is an `X` somebody has taken a bite
-     * out of, which is what was on the glass.
+     * The hair of daylight where two bars meet is the display: a segment
+     * is a stamped piece of metal, and the gap between one and the next is
+     * what says so. It was taken away where the four diagonals cross, on
+     * the theory that the gap was what made the `X` look bitten. The bite
+     * was somewhere else — the `V` was the top half of an `X` — and the
+     * gap belongs.
      */
     @Test
-    fun `the bars that meet in the middle are the ones that run to it`() {
-        val toMiddle = SegmentGlyphs.H or SegmentGlyphs.J or SegmentGlyphs.K or
-            SegmentGlyphs.M or SegmentGlyphs.I or SegmentGlyphs.L or
-            SegmentGlyphs.G1 or SegmentGlyphs.G2
+    fun `no bar overlaps another`() {
         assertEquals(
-            "a bar that does not reach the middle is being joined there anyway",
-            toMiddle, SegmentGlyphs.JOINS_MIDDLE
-        )
-        val outer = SegmentGlyphs.A1 or SegmentGlyphs.A2 or SegmentGlyphs.B or
-            SegmentGlyphs.C or SegmentGlyphs.D1 or SegmentGlyphs.D2 or
-            SegmentGlyphs.E or SegmentGlyphs.F
-        assertEquals(
-            "a bar round the outside is being overlapped into the middle",
-            0, SegmentGlyphs.JOINS_MIDDLE and outer
+            "some bar is being run past the point it was aimed at",
+            0, SegmentGlyphs.JOINS_MIDDLE
         )
     }
 
@@ -142,29 +141,43 @@ class SegmentGlyphsTest {
     }
 
     /**
-     * Ten digits, nine marks: the 2 and the 8 are one symbol.
+     * Ten digits, ten marks — including the 2 and the 8.
      *
-     * That is a fact about the alphabet and not a slip in reading it. A
-     * numeral set where two digits share a glyph is not something anybody
-     * arrives at by tidying, which is exactly why it is kept and why it is
-     * asserted here rather than quietly allowed — the obvious "fix" is to
-     * invent a different 8, and that would be inventing.
-     *
-     * Every other pair is distinct and no two are one stroke apart.
+     * The table these were read off writes both with the same symbol. The
+     * later revisions of the numerals separate them and so does this: a
+     * date that cannot tell 2 from 8 is a date with a hole in it, and the
+     * mirror is where the second one goes, since the 2 leans left.
      */
     @Test
-    fun `the twos and eights are one mark and the rest are nine`() {
-        assertEquals(
-            "the 2 and the 8 have drifted apart",
-            SegmentGlyphs.star('2'), SegmentGlyphs.star('8')
-        )
+    fun `the ten marks are ten and none is one stroke from another`() {
         val all = digits.associateWith { SegmentGlyphs.star(it)!! }
-        assertEquals("ten digits should make nine shapes", 9, all.values.toSet().size)
+        assertEquals("two digits share a mark", 10, all.values.toSet().size)
+        assertTrue(
+            "the 8 is not the mirror of the 2",
+            SegmentGlyphs.star('8') != SegmentGlyphs.star('2')
+        )
         for ((a, bitsA) in all) for ((b, bitsB) in all) {
             if (a >= b) continue
-            if (a == '2' && b == '8') continue
-            assertTrue("$a and $b are the same mark", bitsA != bitsB)
             assertTrue("$a becomes $b if one stroke goes", apart(bitsA, bitsB) >= 2)
+        }
+    }
+
+    /**
+     * And the break between groups is not a numeral.
+     *
+     * A blank space separates and looks like nothing; the mark sits on the
+     * axis between the two stars, where no digit puts anything, so it can
+     * never be read as one.
+     */
+    @Test
+    fun `the break between groups is nothing a digit could be`() {
+        val brk = SegmentGlyphs.star('\u00b7')
+        assertEquals("the separator is not its own mark", SegmentGlyphs.STAR_BREAK, brk)
+        for (c in digits) {
+            assertEquals(
+                "the digit $c uses the piece the separator is made of",
+                0, SegmentGlyphs.star(c)!! and SegmentGlyphs.STAR_BREAK
+            )
         }
     }
 

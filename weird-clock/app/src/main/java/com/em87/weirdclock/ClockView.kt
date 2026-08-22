@@ -4840,6 +4840,12 @@ class ClockView @JvmOverloads constructor(
         invalidate()
     }
 
+    /** For the tests: carries the sky on by a given stretch of time. */
+    internal fun nudgeOrreryForTest(ms: Long) {
+        orreryOffsetMs += ms
+        invalidate()
+    }
+
     /**
      * For the tests: puts the sky on a given year.
      *
@@ -4850,7 +4856,15 @@ class ClockView @JvmOverloads constructor(
      */
     internal fun windOrreryToYearForTest(year: Int) {
         val want = java.util.Calendar.getInstance().apply {
-            set(year, 5, 15, 12, 0, 0)
+            // Before the year one a Calendar wants the era said out loud
+            // and the year given as a positive count back from it; set a
+            // negative year and it quietly lands on the same year AD.
+            if (year < 1) {
+                set(java.util.Calendar.ERA, java.util.GregorianCalendar.BC)
+                set(1 - year, 5, 15, 12, 0, 0)
+            } else {
+                set(year, 5, 15, 12, 0, 0)
+            }
             set(java.util.Calendar.MILLISECOND, 0)
         }.timeInMillis
         orreryOffsetMs += want - orreryMs()
@@ -5003,7 +5017,7 @@ class ClockView @JvmOverloads constructor(
         cal.timeInMillis = orreryMs()
         val d = cal.get(Calendar.DAY_OF_MONTH)
         val m = cal.get(Calendar.MONTH) + 1
-        val y = cal.get(Calendar.YEAR)
+        val y = signedYear()
         val first = if (dateDayFirst) d else m
         val second = if (dateDayFirst) m else d
         val script = orreryScript()
@@ -5017,7 +5031,7 @@ class ClockView @JvmOverloads constructor(
                 OrreryYear.yearText(y, script)
         }
         return String.format(
-            Locale.US, "%02d %02d %s", first, second,
+            Locale.US, "%02d/%02d/%s", first, second,
             OrreryYear.yearText(y, script)
         )
     }
@@ -5031,15 +5045,50 @@ class ClockView @JvmOverloads constructor(
      */
     internal fun orreryScript(): OrreryYear.Script {
         cal.timeInMillis = orreryMs()
-        return OrreryYear.scriptFor(cal.get(Calendar.YEAR))
+        return OrreryYear.scriptFor(signedYear())
     }
 
-    /** What is worth knowing about the day being shown, if anything. */
-    internal fun orreryCaption(): String? = OrreryDial.caption(
-        resources, orreryMs(),
-        TimeZone.getDefault().getOffset(orreryMs()),
-        orreryAligned(), cometsEnabled
-    )
+    /**
+     * The year on [cal] as a number that can be negative.
+     *
+     * A Calendar never reports one. Wind the sky back past the year one
+     * and it hands over a cheerful positive year with a separate flag
+     * saying which side of the epoch it is on, so a script chosen from
+     * `get(YEAR)` alone sees 1251 where 1250 BC is, and writes it in
+     * Roman. Which is what it did.
+     */
+    private fun signedYear(): Int {
+        val year = cal.get(Calendar.YEAR)
+        return if (cal.get(Calendar.ERA) == java.util.GregorianCalendar.BC) 1 - year else year
+    }
+
+    /**
+     * What is worth knowing about the day being shown, if anything — and
+     * in the voice of the century it is being shown in.
+     *
+     * Latin under a Roman date, because a caption in English under a row
+     * of Roman numerals is the same fault the date itself had: half of it
+     * in one voice and half in another.
+     *
+     * Nothing at all past three thousand, or before the year one. The
+     * honest reason is that I have no alphabet for either — a Yautja
+     * script and a hieroglyphic one are both things I would be inventing,
+     * and inventing an alphabet is exactly what put noise on this screen
+     * before. A sky that far out saying nothing is better than a sky that
+     * far out saying it in English.
+     */
+    internal fun orreryCaption(): String? {
+        val script = orreryScript()
+        if (script == OrreryYear.Script.YAUTJA || script == OrreryYear.Script.EGYPTIAN) {
+            return null
+        }
+        return OrreryDial.caption(
+            resources, orreryMs(),
+            TimeZone.getDefault().getOffset(orreryMs()),
+            orreryAligned(), cometsEnabled,
+            latin = script == OrreryYear.Script.ROMAN
+        )
+    }
 
     /** The planets lying in the case, each in the colour it brought down. */
     private fun drawFallenPlanets(canvas: Canvas) {
@@ -5069,6 +5118,14 @@ class ClockView @JvmOverloads constructor(
         digitalPaint.alpha = (215 * fade).toInt()
         val script = orreryScript()
         val date = orreryDateDigits()
+        if (script == OrreryYear.Script.EGYPTIAN) {
+            drawEgyptianDate(canvas, cx, yTop, digitH)
+            digitalPaint.alpha = keep
+            orreryCaption()?.let {
+                OrreryDial.drawCaption(canvas, cx, yTop + digitH * 1.45f, r, theme, it, fade)
+            }
+            return
+        }
         when (script) {
             // Seven bars can make ten digits and nothing else, so a year
             // in letters needs a display with more bars in it, not a
@@ -5183,6 +5240,7 @@ class ClockView @JvmOverloads constructor(
         // than whatever the last row to use one left behind.
         barsPainted = 0
         starsPainted = 0
+        egyptiansPainted = 0
         val digitW = digitH * 0.55f
         val gap = digitW * 0.45f
         val markW = digitW * 0.34f
@@ -5204,6 +5262,7 @@ class ClockView @JvmOverloads constructor(
             val c = text[i]
             val w = when (c) {
                 ':' -> colonW
+                '/' -> colonW * 1.35f
                 ' ' -> digitW * 0.7f
                 else -> digitW
             }
@@ -5224,6 +5283,7 @@ class ClockView @JvmOverloads constructor(
         totalW -= if (text.isEmpty()) 0f else
             (advanceAt(text.length - 1) - when (text.last()) {
                 ':' -> colonW
+                '/' -> colonW * 1.35f
                 ' ' -> digitW * 0.7f
                 else -> digitW
             })
@@ -5281,6 +5341,16 @@ class ClockView @JvmOverloads constructor(
                     val mid = top + digitH / 2f
                     canvas.drawLine(x + w, mid, x + digitW - w, mid, digitalPaint)
                 }
+                '/' -> {
+                    // Not a segment any display owns — it is one stroke
+                    // across the cell. A date needs something between its
+                    // groups, and a blank space reads as the row having
+                    // ended rather than as a separator.
+                    val w = digitalPaint.strokeWidth * 0.8f
+                    canvas.drawLine(
+                        x + w, top + digitH - w, x + digitW - w, top + w, digitalPaint
+                    )
+                }
                 ' ' -> Unit
                 else -> {
                     val digit = c - '0'
@@ -5310,6 +5380,22 @@ class ClockView @JvmOverloads constructor(
 
     /** Scratch, because a glyph is rebuilt on every frame. */
     private val glyphPath = Path()
+
+    /** And scratch for the round parts of a hieroglyph. */
+    private val signOval = RectF()
+
+    /**
+     * The line a hieroglyph is drawn with.
+     *
+     * Stroked, not filled: a carved sign is a line round a thing, and the
+     * other two alphabets on this dial are lit bars, which is the whole
+     * difference between a display and an inscription.
+     */
+    private val carvedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
 
     /**
      * How many of each kind of module the last row put down.
@@ -5526,6 +5612,165 @@ class ClockView @JvmOverloads constructor(
             SegmentGlyphs.L_N, SegmentGlyphs.L_NE, SegmentGlyphs.L_E, SegmentGlyphs.L_SE,
             SegmentGlyphs.L_S, SegmentGlyphs.L_SW, SegmentGlyphs.L_W, SegmentGlyphs.L_NW
         )
+
+        // The break between groups: a small closed lozenge on the axis
+        // halfway between the two stars, where no numeral puts anything.
+        if (bits and SegmentGlyphs.STAR_BREAK != 0) {
+            val my = (upper + lower) / 2f
+            val across = t * 1.5f
+            val along = t * 2.6f
+            glyphPath.reset()
+            glyphPath.moveTo(mx, my - along)
+            glyphPath.lineTo(mx + across, my)
+            glyphPath.lineTo(mx, my + along)
+            glyphPath.lineTo(mx - across, my)
+            glyphPath.close()
+            canvas.drawPath(glyphPath, glyphPaint)
+        }
+    }
+
+    /**
+     * One Egyptian sign, drawn in the box from (x, y) to (x + w, y + h).
+     *
+     * Outlines rather than filled shapes, because that is what a carved
+     * hieroglyph is: a line round a thing. They are simplified hard — a
+     * coil of rope at eight pixels is a curl, and a god with his arms up
+     * is a stick with two arms up — but each keeps the one feature that
+     * tells it from its neighbours, which is the whole job at this size.
+     */
+    private fun drawEgyptianSign(
+        canvas: Canvas, sign: Egyptian.Sign, x: Float, y: Float, w: Float, h: Float
+    ) {
+        val cx = x + w / 2f
+        glyphPath.reset()
+        when (sign) {
+            // One: a plain upright stroke, which is what a tally is.
+            Egyptian.Sign.STROKE -> {
+                glyphPath.moveTo(cx, y + h * 0.10f)
+                glyphPath.lineTo(cx, y + h * 0.90f)
+            }
+            // Ten: a heel bone, drawn as the arch everyone draws it as.
+            Egyptian.Sign.HEEL -> {
+                glyphPath.moveTo(x + w * 0.12f, y + h * 0.85f)
+                glyphPath.cubicTo(
+                    x + w * 0.12f, y + h * 0.10f,
+                    x + w * 0.88f, y + h * 0.10f,
+                    x + w * 0.88f, y + h * 0.85f
+                )
+            }
+            // A hundred: a coil of rope. A curl with its end turned in,
+            // which is the part that stops it reading as another arch.
+            Egyptian.Sign.COIL -> {
+                glyphPath.moveTo(x + w * 0.10f, y + h * 0.80f)
+                glyphPath.cubicTo(
+                    x + w * 0.05f, y + h * 0.20f,
+                    x + w * 0.95f, y + h * 0.20f,
+                    x + w * 0.80f, y + h * 0.62f
+                )
+                glyphPath.cubicTo(
+                    x + w * 0.70f, y + h * 0.88f,
+                    x + w * 0.35f, y + h * 0.72f,
+                    x + w * 0.48f, y + h * 0.50f
+                )
+            }
+            // A thousand: a lotus. A stem, two leaves off it, and the
+            // flower opening at the top.
+            Egyptian.Sign.LOTUS -> {
+                glyphPath.moveTo(cx, y + h * 0.95f)
+                glyphPath.lineTo(cx, y + h * 0.42f)
+                glyphPath.moveTo(cx, y + h * 0.62f)
+                glyphPath.cubicTo(
+                    x + w * 0.10f, y + h * 0.58f,
+                    x + w * 0.08f, y + h * 0.34f,
+                    x + w * 0.26f, y + h * 0.34f
+                )
+                glyphPath.moveTo(cx, y + h * 0.62f)
+                glyphPath.cubicTo(
+                    x + w * 0.90f, y + h * 0.58f,
+                    x + w * 0.92f, y + h * 0.34f,
+                    x + w * 0.74f, y + h * 0.34f
+                )
+                glyphPath.moveTo(x + w * 0.24f, y + h * 0.12f)
+                glyphPath.lineTo(cx, y + h * 0.42f)
+                glyphPath.lineTo(x + w * 0.76f, y + h * 0.12f)
+            }
+            // Ten thousand: a finger, bent, with the nail on it.
+            Egyptian.Sign.FINGER -> {
+                glyphPath.moveTo(x + w * 0.34f, y + h * 0.92f)
+                glyphPath.lineTo(x + w * 0.34f, y + h * 0.30f)
+                glyphPath.cubicTo(
+                    x + w * 0.34f, y + h * 0.08f,
+                    x + w * 0.72f, y + h * 0.08f,
+                    x + w * 0.70f, y + h * 0.26f
+                )
+                glyphPath.moveTo(x + w * 0.40f, y + h * 0.22f)
+                glyphPath.lineTo(x + w * 0.64f, y + h * 0.20f)
+            }
+            // A hundred thousand: a tadpole, all head and tail.
+            Egyptian.Sign.TADPOLE -> {
+                signOval.set(x + w * 0.08f, y + h * 0.24f, x + w * 0.56f, y + h * 0.66f)
+                glyphPath.addOval(signOval, Path.Direction.CW)
+                glyphPath.moveTo(x + w * 0.54f, y + h * 0.50f)
+                glyphPath.cubicTo(
+                    x + w * 0.78f, y + h * 0.36f,
+                    x + w * 0.78f, y + h * 0.82f,
+                    x + w * 0.96f, y + h * 0.72f
+                )
+            }
+            // A million: the god with his arms up, who is holding the
+            // years apart. A stick figure, because at this size that is
+            // all a figure can be.
+            Egyptian.Sign.GOD -> {
+                signOval.set(x + w * 0.38f, y + h * 0.06f, x + w * 0.62f, y + h * 0.28f)
+                glyphPath.addOval(signOval, Path.Direction.CW)
+                glyphPath.moveTo(cx, y + h * 0.28f)
+                glyphPath.lineTo(cx, y + h * 0.66f)
+                glyphPath.moveTo(x + w * 0.06f, y + h * 0.12f)
+                glyphPath.lineTo(x + w * 0.30f, y + h * 0.40f)
+                glyphPath.moveTo(x + w * 0.94f, y + h * 0.12f)
+                glyphPath.lineTo(x + w * 0.70f, y + h * 0.40f)
+                glyphPath.moveTo(cx, y + h * 0.66f)
+                glyphPath.lineTo(x + w * 0.24f, y + h * 0.94f)
+                glyphPath.moveTo(cx, y + h * 0.66f)
+                glyphPath.lineTo(x + w * 0.76f, y + h * 0.94f)
+            }
+        }
+        canvas.drawPath(glyphPath, carvedPaint)
+    }
+
+    /**
+     * A whole number in hieroglyphs: the signs it tallies to, biggest
+     * first, each one's repeats stacked in short rows.
+     *
+     * Nine strokes side by side is a fence rather than a nine, which is
+     * why the Egyptians stacked them and why this does. The returned width
+     * is how much of the row the number took, since unlike every other
+     * script here a number's width depends on the number.
+     */
+    private fun drawEgyptianNumber(
+        canvas: Canvas, value: Int, x: Float, y: Float, h: Float, unit: Float
+    ): Float {
+        var at = x
+        for ((sign, count) in Egyptian.tally(value)) {
+            val rows = Egyptian.rowsFor(count)
+            val across = Egyptian.perRow(count)
+            val cellH = h / rows
+            for (i in 0 until count) {
+                val row = i / across
+                val col = i % across
+                // The last row is centred under the ones above it, the way
+                // a short row of tally marks sits.
+                val inRow = minOf(across, count - row * across)
+                val indent = (across - inRow) / 2f
+                drawEgyptianSign(
+                    canvas, sign,
+                    at + (col + indent) * unit, y + row * cellH,
+                    unit, cellH
+                )
+            }
+            at += across * unit + unit * 0.35f
+        }
+        return at - x
     }
 
     /**
@@ -5561,10 +5806,15 @@ class ClockView @JvmOverloads constructor(
         val barW = h * 0.80f
         val starW = h * 0.62f
         fun widthAt(i: Int) = if (i >= starFrom) starW else barW
-        var gap = barW * 0.24f
+        var gap = barW * 0.34f
         var wide = (0 until n).sumOf { widthAt(it).toDouble() }.toFloat() + gap * (n - 1)
         var k = 1f
-        val room = width * 0.94f
+        // Fourteen per cent of the width kept clear, not six. A Roman
+        // date can run to two dozen modules — XXVIII·XII·MDCCCLXXXVIII is
+        // twenty-four — and shrunk to fill every last pixel it ends up
+        // touching both edges of the phone, which reads as a row that has
+        // overflowed even though it has not.
+        val room = width * 0.86f
         if (wide > room && wide > 0f) {
             k = room / wide
             h *= k
@@ -5583,6 +5833,7 @@ class ClockView @JvmOverloads constructor(
         var x = cx - wide / 2f
         barsPainted = 0
         starsPainted = 0
+        egyptiansPainted = 0
         for (i in glyphs.indices) {
             val c = glyphs[i]
             val w = widthAt(i) * k
@@ -5602,9 +5853,69 @@ class ClockView @JvmOverloads constructor(
     }
 
     /**
+     * The date in hieroglyphs: three numbers, biggest sign first.
+     *
+     * Measured before it is drawn, because unlike every other script here
+     * a number's width depends on the number — nine strokes is wider than
+     * one — so where the row starts cannot be known until it is known how
+     * long the row is.
+     */
+    private fun drawEgyptianDate(canvas: Canvas, cx: Float, top: Float, digitH: Float) {
+        cal.timeInMillis = orreryMs()
+        val d = cal.get(Calendar.DAY_OF_MONTH)
+        val m = cal.get(Calendar.MONTH) + 1
+        val y = signedYear()
+        val parts = intArrayOf(
+            if (dateDayFirst) d else m,
+            if (dateDayFirst) m else d,
+            (1 - y).coerceAtLeast(1)
+        )
+        val h = digitH * 1.15f
+        var unit = h * 0.34f
+        var gap = unit * 1.1f
+        fun widthOfNumber(v: Int) =
+            Egyptian.tally(v).sumOf { Egyptian.perRow(it.second) } * unit +
+                Egyptian.tally(v).size * unit * 0.35f
+        var wide = parts.sumOf { widthOfNumber(it).toDouble() }.toFloat() + gap * 2f
+        val room = width * 0.86f
+        if (wide > room && wide > 0f) {
+            val k = room / wide
+            unit *= k
+            gap *= k
+            wide = room
+        }
+        carvedPaint.color = digitalPaint.color
+        carvedPaint.alpha = digitalPaint.alpha
+        carvedPaint.strokeWidth = (unit * 0.13f).coerceAtLeast(1.2f)
+        var x = cx - wide / 2f
+        for ((i, value) in parts.withIndex()) {
+            x += drawEgyptianNumber(canvas, value, x, top, h, unit)
+            if (i < parts.size - 1) x += gap
+        }
+        egyptiansPainted = parts.sumOf { Egyptian.signCount(it) }
+        barsPainted = 0
+        starsPainted = 0
+    }
+
+    /** For the tests: hieroglyphs in the last row the sky wrote. */
+    internal fun egyptiansPaintedForTest(): Int = egyptiansPainted
+
+    private var egyptiansPainted = 0
+
+    /** For the camera: one number in hieroglyphs, drawn anywhere. */
+    internal fun drawEgyptianForTest(
+        canvas: Canvas, value: Int, x: Float, y: Float, h: Float
+    ): Float {
+        carvedPaint.color = android.graphics.Color.WHITE
+        carvedPaint.alpha = 255
+        carvedPaint.strokeWidth = (h * 0.34f * 0.13f).coerceAtLeast(1.2f)
+        return drawEgyptianNumber(canvas, value, x, y, h, h * 0.34f)
+    }
+
+    /**
      * For the camera: a row of one of the other displays, drawn anywhere.
      *
-     * These two alphabets are shapes and nothing else — there is no
+     * These alphabets are shapes and nothing else — there is no
      * measurement of them that says whether an `M` looks like an `M` — so
      * the way they get checked is by drawing a chart of every glyph and
      * looking at it.

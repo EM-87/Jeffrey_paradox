@@ -131,7 +131,7 @@ class GlyphChartTest {
                 android.view.View.MeasureSpec.makeMeasureSpec(2200, android.view.View.MeasureSpec.EXACTLY)
             )
             root.layout(0, 0, 1080, 2200)
-            for (year in listOf(1750, 2026, 3400)) {
+            for (year in listOf(-1250, 1750, 1888, 2026, 3400)) {
                 clock.windOrreryToYearForTest(year)
                 val bitmap = Bitmap.createBitmap(1080, 2200, Bitmap.Config.ARGB_8888)
                 root.draw(Canvas(bitmap))
@@ -254,6 +254,43 @@ class GlyphChartTest {
         assertTrue("the sun was down in every one of the nine", ink > 0)
     }
 
+    /**
+     * The hieroglyph numerals, one of each sign and a few real numbers.
+     *
+     * The only way to find out whether a coil of rope at eight pixels is
+     * a coil of rope or a smudge.
+     */
+    @Test
+    fun `the hieroglyph numerals`() {
+        val w = 1080
+        val rowH = 150
+        val rows = listOf(
+            listOf(1, 2, 3, 4, 5, 6, 7, 8, 9),
+            listOf(10, 100, 1000, 10_000, 100_000, 1_000_000),
+            listOf(15, 6, 1251),
+            listOf(31, 12, 3999)
+        )
+        val bitmap = Bitmap.createBitmap(w, rowH * rows.size + 40, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.rgb(0x1d, 0x21, 0x29))
+        val v = view(w, rowH * rows.size + 40)
+        rows.forEachIndexed { r, values ->
+            var x = 40f
+            for (value in values) {
+                x += v.drawEgyptianForTest(canvas, value, x, 20f + r * rowH.toFloat(), 110f)
+                x += 46f
+            }
+        }
+        File(outDir, "glyphs-egyptian.png").outputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        var ink = 0
+        for (y in 0 until bitmap.height step 2) for (x in 0 until w step 2) {
+            if (bitmap.getPixel(x, y) != Color.rgb(0x1d, 0x21, 0x29)) ink++
+        }
+        assertTrue("nothing was carved", ink > 300)
+    }
+
     /** The ten marks on the star, in a row like the table they came from. */
     @Test
     fun `the star alphabet`() {
@@ -261,6 +298,7 @@ class GlyphChartTest {
             "glyphs-star",
             listOf(
                 "0123456789" to 0,
+                "0·1·2·3·4·5·6·7·8·9" to 0,
                 "03 13 3400" to 0,
                 "31 12 9999" to 0
             ),

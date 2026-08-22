@@ -105,7 +105,9 @@ class OrreryYearTest {
                 "'$text' does not end with the year it is standing on",
                 text.endsWith(OrreryYear.yearText(year, OrreryYear.scriptFor(year)))
             )
-            val groups = text.split(" ")
+            // Roman groups are spaced; digits are separated by an oblique
+            // stroke, which is a thing the seven-bar row draws for itself.
+            val groups = text.split(" ", "/")
             assertEquals("'$text' is not a day, a month and a year", 3, groups.size)
             if (OrreryYear.scriptFor(year) == OrreryYear.Script.ROMAN) {
                 assertTrue(
@@ -120,6 +122,10 @@ class OrreryYearTest {
                 assertTrue(
                     "'$text' is not day, month and year in digits",
                     groups.all { g -> g.all { it.isDigit() } }
+                )
+                assertEquals(
+                    "'$text' has no oblique strokes between its groups",
+                    2, text.count { it == '/' }
                 )
             }
         }
