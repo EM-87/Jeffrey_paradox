@@ -76,11 +76,10 @@ class GlyphChartTest {
         val ink = chart(
             "glyphs-sixteen",
             listOf(
-                "0123456789" to Int.MAX_VALUE,
                 "IVXLCDM" to Int.MAX_VALUE,
                 "MDCLXVI" to Int.MAX_VALUE,
-                "01·09·MMXXVI" to Int.MAX_VALUE,
-                "31·12·MDCCCLXXXVIII" to Int.MAX_VALUE
+                "III·IX·MMXXVI" to Int.MAX_VALUE,
+                "XXXI·XII·MDCCCLXXXVIII" to Int.MAX_VALUE
             ),
             digitH = 120f
         )
@@ -94,8 +93,8 @@ class GlyphChartTest {
         val ink = chart(
             "glyphs-sixteen-small",
             listOf(
-                "01·09·MMXXVI" to Int.MAX_VALUE,
-                "31·12·MDCCCLXXXVIII" to Int.MAX_VALUE
+                "III·IX·MMXXVI" to Int.MAX_VALUE,
+                "XXXI·XII·MDCCCLXXXVIII" to Int.MAX_VALUE
             ),
             digitH = 47f
         )
@@ -262,8 +261,8 @@ class GlyphChartTest {
             "glyphs-star",
             listOf(
                 "0123456789" to 0,
-                "01·09·3400" to 6,
-                "31·12·9999" to 6
+                "03 13 3400" to 0,
+                "31 12 9999" to 0
             ),
             digitH = 120f
         )

@@ -5006,8 +5006,20 @@ class ClockView @JvmOverloads constructor(
         val y = cal.get(Calendar.YEAR)
         val first = if (dateDayFirst) d else m
         val second = if (dateDayFirst) m else d
-        val year = OrreryYear.yearText(y, orreryScript())
-        return String.format(Locale.US, "%02d %02d %s", first, second, year)
+        val script = orreryScript()
+        // The whole date in one alphabet, day and month included. It used
+        // to be the year alone, with the day and month left in Arabic
+        // beside it, and that is two displays sharing a row: the joke is
+        // that the sky has been wound somewhere the date is written
+        // differently, not that a third of it has.
+        if (script == OrreryYear.Script.ROMAN) {
+            return "${Roman.of(first)} ${Roman.of(second)} " +
+                OrreryYear.yearText(y, script)
+        }
+        return String.format(
+            Locale.US, "%02d %02d %s", first, second,
+            OrreryYear.yearText(y, script)
+        )
     }
 
     /**
@@ -5067,10 +5079,7 @@ class ClockView @JvmOverloads constructor(
             // write a digit; the year on the star, which cannot write
             // anything anybody here can read.
             OrreryYear.Script.YAUTJA ->
-                drawOtherScript(
-                    canvas, date, cx, yTop, digitH,
-                    starFrom = date.lastIndexOf(' ') + 1
-                )
+                drawOtherScript(canvas, date, cx, yTop, digitH, starFrom = 0)
             else -> drawSevenSegment(canvas, date, cx, yTop, digitH)
         }
         digitalPaint.alpha = keep
@@ -5391,14 +5400,21 @@ class ClockView @JvmOverloads constructor(
         val bt = y + h
         val my = y + h / 2f
 
-        // The halves that read as one bar when both are lit. A letter
-        // never lights half an upright, and an upright drawn as two bars
-        // with a nick between them is an upright with a nick in it.
         fun both(a: Int, b: Int) = bits and a != 0 && bits and b != 0
 
-        fun bar(bit: Int, x0: Float, y0: Float, x1: Float, y1: Float) {
+        // A bar that ends at the middle of the module overlaps there
+        // rather than stopping short, or the four diagonals of an `X`
+        // leave a hole where they cross — see [SegmentGlyphs.JOINS_MIDDLE].
+        fun inset(bit: Int) =
+            if (bit and SegmentGlyphs.JOINS_MIDDLE != 0) -0.35f else 0.8f
+
+        fun bar(bit: Int, x0: Float, y0: Float, x1: Float, y1: Float, midAt: Int) {
             if (bits and bit == 0) return
-            barPath(x0, y0, x1, y1, t)
+            barPath(
+                x0, y0, x1, y1, t,
+                startInset = if (midAt < 0) inset(bit) else 0.8f,
+                endInset = if (midAt > 0) inset(bit) else 0.8f
+            )
             canvas.drawPath(glyphPath, glyphPaint)
         }
 
@@ -5408,31 +5424,33 @@ class ClockView @JvmOverloads constructor(
         }
 
         if (both(SegmentGlyphs.A1, SegmentGlyphs.A2)) whole(l, tp, rr, tp) else {
-            bar(SegmentGlyphs.A1, l, tp, mx, tp)
-            bar(SegmentGlyphs.A2, mx, tp, rr, tp)
+            bar(SegmentGlyphs.A1, l, tp, mx, tp, 0)
+            bar(SegmentGlyphs.A2, mx, tp, rr, tp, 0)
         }
         if (both(SegmentGlyphs.D1, SegmentGlyphs.D2)) whole(l, bt, rr, bt) else {
-            bar(SegmentGlyphs.D1, l, bt, mx, bt)
-            bar(SegmentGlyphs.D2, mx, bt, rr, bt)
+            bar(SegmentGlyphs.D1, l, bt, mx, bt, 0)
+            bar(SegmentGlyphs.D2, mx, bt, rr, bt, 0)
         }
         if (both(SegmentGlyphs.F, SegmentGlyphs.E)) whole(l, tp, l, bt) else {
-            bar(SegmentGlyphs.F, l, tp, l, my)
-            bar(SegmentGlyphs.E, l, my, l, bt)
+            bar(SegmentGlyphs.F, l, tp, l, my, 0)
+            bar(SegmentGlyphs.E, l, my, l, bt, 0)
         }
         if (both(SegmentGlyphs.B, SegmentGlyphs.C)) whole(rr, tp, rr, bt) else {
-            bar(SegmentGlyphs.B, rr, tp, rr, my)
-            bar(SegmentGlyphs.C, rr, my, rr, bt)
+            bar(SegmentGlyphs.B, rr, tp, rr, my, 0)
+            bar(SegmentGlyphs.C, rr, my, rr, bt, 0)
+        }
+        if (both(SegmentGlyphs.I, SegmentGlyphs.L)) whole(mx, tp, mx, bt) else {
+            bar(SegmentGlyphs.I, mx, tp, mx, my, 1)
+            bar(SegmentGlyphs.L, mx, my, mx, bt, -1)
         }
         if (both(SegmentGlyphs.G1, SegmentGlyphs.G2)) whole(l, my, rr, my) else {
-            bar(SegmentGlyphs.G1, l, my, mx, my)
-            bar(SegmentGlyphs.G2, mx, my, rr, my)
+            bar(SegmentGlyphs.G1, l, my, mx, my, 1)
+            bar(SegmentGlyphs.G2, mx, my, rr, my, -1)
         }
-        bar(SegmentGlyphs.H, l, tp, mx, my)
-        bar(SegmentGlyphs.I, mx, tp, mx, my)
-        bar(SegmentGlyphs.J, rr, tp, mx, my)
-        bar(SegmentGlyphs.K, mx, my, rr, bt)
-        bar(SegmentGlyphs.L, mx, my, mx, bt)
-        bar(SegmentGlyphs.M, mx, my, l, bt)
+        bar(SegmentGlyphs.H, l, tp, mx, my, 1)
+        bar(SegmentGlyphs.J, rr, tp, mx, my, 1)
+        bar(SegmentGlyphs.K, mx, my, rr, bt, -1)
+        bar(SegmentGlyphs.M, mx, my, l, bt, -1)
 
         if (bits and SegmentGlyphs.DOT != 0) {
             canvas.drawCircle(mx, my, t * 0.95f, glyphPaint)
@@ -5536,9 +5554,12 @@ class ClockView @JvmOverloads constructor(
         // than a hole in the row: an empty space in a row of displays
         // looks like the row stopped.
         val glyphs = text.replace(' ', '·')
-        var h = digitH
+        // The star wants more room than a bar module: its marks are three
+        // or four thin arms in a tall figure, and at the row height the
+        // Roman module is happy with they came out as scratches.
+        var h = digitH * (if (starFrom == 0) 1.35f else 1f)
         val barW = h * 0.80f
-        val starW = h * 0.66f
+        val starW = h * 0.62f
         fun widthAt(i: Int) = if (i >= starFrom) starW else barW
         var gap = barW * 0.24f
         var wide = (0 until n).sumOf { widthAt(it).toDouble() }.toFloat() + gap * (n - 1)
@@ -5570,7 +5591,7 @@ class ClockView @JvmOverloads constructor(
                 // Thinner bars than the sixteen-bar module: a mark on the
                 // star is read by the angle of its arms, and a fat arm at
                 // this size is a wedge with no angle in it.
-                SegmentGlyphs.star(c)?.let { drawStarGlyph(canvas, it, x, y, w, h, t * 0.42f) }
+                SegmentGlyphs.star(c)?.let { drawStarGlyph(canvas, it, x, y, w, h, t * 0.50f) }
             } else {
                 barsPainted++
                 SegmentGlyphs.sixteen(c)?.let { drawSixteenModule(canvas, it, x, y, w, h, t) }

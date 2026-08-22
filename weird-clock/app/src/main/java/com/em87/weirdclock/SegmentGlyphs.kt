@@ -69,45 +69,49 @@ object SegmentGlyphs {
     private const val FOOT = D1 or D2
 
     /**
-     * The seven Roman letters, and the digits that share the row with them.
+     * The seven Roman letters, and nothing else.
      *
-     * The letters are the reason the module has these bars at all, and each
-     * one is a shape rather than a lookup:
+     * No digits. The whole date changes script together — a day in Arabic
+     * beside a year in Roman is two displays sharing a row, which is what
+     * this looked like on the glass and was wrong twice over: wrong as a
+     * picture, and wrong as an idea, since the joke is that the sky has
+     * been wound somewhere the date is written differently, not that half
+     * of it has.
+     *
+     * Dropping the digits also takes a hack with them. `D` and `0` are the
+     * same ring on a display like this, so the nought had been slashed to
+     * keep them apart; with no nought there is no clash, and `D` can be
+     * what it should be — the centre upright with the ring's right-hand
+     * half round it. Drawn as the full ring, which is what it was, a `D`
+     * simply reads as an `O`.
+     *
+     * Each letter is a shape rather than a lookup:
      *
      *  - `I` is the left upright. One stroke, and it is the *left* one so
-     *    that a row of them reads as a row of strokes rather than as three
-     *    bars floating in the middle of three boxes.
-     *  - `V` is the two upper diagonals, meeting in the middle. A V's
-     *    vertex is at the bottom of the letter and here it is halfway up,
-     *    which is what a segment display does to a V and is exactly how the
-     *    real ones look.
-     *  - `X` is all four diagonals.
-     *  - `M` is `V` with both uprights added, which is also how the letter
-     *    is built: two legs and a fold between them.
-     *  - `L` is the left upright and the foot, `C` adds the head, and `D`
-     *    is the whole ring.
+     *    that a row of them reads as a row of strokes rather than as bars
+     *    floating in the middle of boxes.
+     *  - `V` is the two upper diagonals meeting in the middle. A V's
+     *    vertex is at the foot of the letter and here it is halfway up,
+     *    which is what a segment display does to a V and is how the real
+     *    ones look.
+     *  - `X` is all four diagonals, and they meet: see [JOINS_MIDDLE].
+     *  - `M` is `V` with both uprights added, which is how the letter is
+     *    built — two legs and a fold between them.
+     *  - `L` is the left upright and the foot, and `C` adds the head.
+     *  - `D` is the whole ring, which is what it is on the display this
+     *    was read off — and which only works because there are no digits
+     *    on the row. A ring is a `D` and a `0` at once, and the reason it
+     *    was reading as an `0` was not the shape: it was the day and the
+     *    month sitting beside it in Arabic. With those gone the ring has
+     *    nothing to be confused with, which is why a Roman display can
+     *    afford it and a mixed one cannot.
      *
-     * The first version of this had `V` as an upright falling to a corner
-     * with a diagonal climbing out of it — a shape arrived at by asking
-     * what could be made rather than by looking at one.
-     *
-     * `D` being the whole ring is why `0` is slashed. On a display that
-     * only ever writes Roman there is no clash, since there is no nought;
-     * this one carries the day and the month as digits in the same row, so
-     * the nought needs a mark on it. Slashed by a whole diagonal rather
-     * than half of one, so the two are two bars apart and not one.
+     *    It was tried as a centre upright with the right half of the ring
+     *    round it, which is the usual sixteen-segment `D`. On a module
+     *    this narrow the bowl comes out half a module wide and a whole
+     *    module tall, and reads as a nought with a bar beside it.
      */
     private val SIXTEEN = mapOf(
-        '0' to (RING or H or K),
-        '1' to RIGHT,
-        '2' to (TOP or B or G or E or FOOT),
-        '3' to (TOP or RIGHT or G or FOOT),
-        '4' to (F or RIGHT or G),
-        '5' to (TOP or F or G or C or FOOT),
-        '6' to (TOP or LEFT or G or C or FOOT),
-        '7' to (TOP or RIGHT),
-        '8' to (RING or G),
-        '9' to (TOP or F or B or G or C or FOOT),
         'I' to LEFT,
         'V' to (H or J),
         'X' to (H or J or K or M),
@@ -118,21 +122,34 @@ object SegmentGlyphs {
         '\u00b7' to DOT
     )
 
-    /** Which of the sixteen bars [c] lights, or nothing if it has no shape. */
+    /** Which of the bars [c] lights, or nothing if it has no shape. */
     fun sixteen(c: Char): Int? = SIXTEEN[c]
 
     /**
      * The pairs that are one bar when both halves are lit.
      *
-     * The module is built in halves because the digits need them — a `2`
-     * lights the top right upright and not the bottom one — but no letter
-     * ever does, and a letter drawn as two bars with a nick between them
-     * is a letter with a nick in it. So when both halves of an upright or
-     * a rail are on, one long bar is drawn instead of two.
+     * The module is built in halves because that is what the bars of a
+     * display like this are, but no letter ever lights half an upright,
+     * and an upright drawn as two bars with a nick between them is an
+     * upright with a nick in it. So when both halves are on, one long bar
+     * is drawn instead of two.
      */
     val JOINED: List<Pair<Int, Int>> = listOf(
-        A1 to A2, D1 to D2, F to E, B to C, G1 to G2
+        A1 to A2, D1 to D2, F to E, B to C, G1 to G2, I to L
     )
+
+    /**
+     * The bars that run to the middle of the module, and have to meet
+     * there.
+     *
+     * Every other bar stops a hair short of its corner, which is what
+     * gives an `M` its notches and keeps a corner from turning into a
+     * blob. The four diagonals are the exception: they all end at the same
+     * point, so the same hair of daylight leaves a hole where they cross —
+     * and an `X` with a hole in the middle of it is an `X` somebody has
+     * cut. They overlap there instead.
+     */
+    val JOINS_MIDDLE: Int = H or J or K or M or I or L or G1 or G2
 
     // ------------------------------------------------- the star
 

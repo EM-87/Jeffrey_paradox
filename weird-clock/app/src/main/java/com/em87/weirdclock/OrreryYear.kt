@@ -41,12 +41,16 @@ object OrreryYear {
     /**
      * How the year part of a date is written, given the script.
      *
-     * Only the year changes alphabet. The day and month keep their digits
-     * in every script: they are what tells you it is a date at all, and a
-     * date with nothing readable in it is a smudge rather than a joke.
+     * The day and the month change with it — see
+     * [ClockView.orreryDateDigits]. This is only the year part, kept
+     * separate because it is the part that decides which alphabet the
+     * whole row is in.
      */
-    fun yearText(year: Int, script: Script): String = when (script) {
-        Script.ROMAN -> Roman.of(year)
+    fun yearText(year: Int, script: Script): String = when {
+        // Roman has no nought and no way to say "before". Wound back past
+        // the year one the sky drops to digits for the year rather than
+        // writing an empty group, which is what Roman.of(0) is.
+        script == Script.ROMAN && year >= 1 -> Roman.of(year)
         else -> year.toString()
     }
 }

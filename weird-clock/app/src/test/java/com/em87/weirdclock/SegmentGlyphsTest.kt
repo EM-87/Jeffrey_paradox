@@ -27,10 +27,10 @@ class SegmentGlyphsTest {
 
     // ------------------------------------------------- the sixteen bars
 
-    /** Every digit and every Roman letter has a shape, and it is not blank. */
+    /** Every Roman letter has a shape, and it is not blank. */
     @Test
-    fun `every character the sixteen bar module has to write has a shape`() {
-        for (c in digits + romanLetters.toList()) {
+    fun `every letter the module has to write has a shape`() {
+        for (c in romanLetters) {
             val bits = SegmentGlyphs.sixteen(c)
             assertNotNull("'$c' has no shape at all", bits)
             assertTrue("'$c' lights nothing, so it is a gap in the date", bits!! != 0)
@@ -40,14 +40,14 @@ class SegmentGlyphsTest {
     /**
      * And no two of them are the same shape.
      *
-     * `I` and `1` are the pair this is really about: a module showing one
-     * upright could be either, and in `01·09·MMXXVI` both appear. They are
-     * kept apart by the `1` living against the module's right edge and the
-     * `I` down its middle.
+     * There are no digits on this row any more — the whole date changes
+     * script together — which is what lets `D` be the whole ring. A ring
+     * is a `D` and a `0` at once, and the only thing that ever made it
+     * read as a nought was a nought sitting beside it.
      */
     @Test
-    fun `no two characters are the same shape`() {
-        val all = (digits + romanLetters.toList()).associateWith { SegmentGlyphs.sixteen(it)!! }
+    fun `no two letters are the same shape`() {
+        val all = romanLetters.associateWith { SegmentGlyphs.sixteen(it)!! }
         for ((a, bitsA) in all) for ((b, bitsB) in all) {
             if (a >= b) continue
             assertTrue("'$a' and '$b' are the same shape", bitsA != bitsB)
@@ -55,40 +55,22 @@ class SegmentGlyphsTest {
     }
 
     /**
-     * A Roman letter is never one bar from anything else.
+     * No letter is one bar from another.
      *
      * The failure this guards is not somebody typing the table in wrong —
      * it is a date reading as a plausible other date. `MMXXVI` with one
      * bar dead should look broken, not like a different year.
-     *
-     * The digits are deliberately not held to this, and asking them to be
-     * was how this test first failed: `8` and `9` differ by one bar on
-     * every segment display ever made, as do `5` and `6` and `3` and `9`.
-     * Those are the shapes of the digits, and a `9` drawn some other way
-     * to satisfy a rule would be a worse `9`. The rule is for the shapes
-     * that were chosen here rather than inherited.
      */
     @Test
-    fun `no letter is one bar away from anything`() {
-        val all = (digits + romanLetters.toList()).associateWith { SegmentGlyphs.sixteen(it)!! }
-        for (a in romanLetters) for ((b, bitsB) in all) {
-            if (a == b) continue
-            assertTrue(
-                "'$a' becomes '$b' if one bar goes",
-                apart(all.getValue(a), bitsB) >= 2
-            )
+    fun `no letter is one bar away from another`() {
+        val all = romanLetters.associateWith { SegmentGlyphs.sixteen(it)!! }
+        for ((a, bitsA) in all) for ((b, bitsB) in all) {
+            if (a >= b) continue
+            assertTrue("'$a' becomes '$b' if one bar goes", apart(bitsA, bitsB) >= 2)
         }
     }
 
-    /**
-     * The letters use the pieces only letters need.
-     *
-     * With one exception, and it is the interesting one. `D` is the whole
-     * ring — which is what a Roman display does, since it has no nought to
-     * clash with — but this row carries the day and the month as digits
-     * beside the year, so the nought is there after all. It is slashed to
-     * keep them apart, which makes it the one digit with a diagonal in it.
-     */
+    /** The letters that are made of diagonals, and how they are related. */
     @Test
     fun `the diagonals are what the letters are for`() {
         val diagonals = SegmentGlyphs.H or SegmentGlyphs.J or
@@ -97,33 +79,52 @@ class SegmentGlyphsTest {
             "X is not made of diagonals, so it is not an X",
             SegmentGlyphs.sixteen('X')!! and diagonals == diagonals
         )
-        assertTrue(
+        assertEquals(
             "V is not the two upper diagonals",
-            SegmentGlyphs.sixteen('V') == (SegmentGlyphs.H or SegmentGlyphs.J)
+            SegmentGlyphs.H or SegmentGlyphs.J, SegmentGlyphs.sixteen('V')
         )
-        assertTrue(
+        assertEquals(
             "M is not V with both uprights",
-            SegmentGlyphs.sixteen('M')!! and SegmentGlyphs.sixteen('V')!! ==
-                SegmentGlyphs.sixteen('V')!!
-        )
-        for (d in digits) {
-            if (d == '0') continue
-            assertEquals(
-                "the digit $d is using a diagonal, which no digit needs",
-                0, SegmentGlyphs.sixteen(d)!! and diagonals
-            )
-        }
-        assertTrue(
-            "the nought is not slashed, so it is a D",
-            SegmentGlyphs.sixteen('0')!! and diagonals != 0
+            SegmentGlyphs.sixteen('V'),
+            SegmentGlyphs.sixteen('M')!! and SegmentGlyphs.sixteen('V')!!
         )
     }
 
-    /** Anything that is not in either alphabet has no shape, not a wrong one. */
+    /**
+     * A bar that runs to the middle overlaps there instead of stopping
+     * short of it.
+     *
+     * Every other bar leaves a hair of daylight at its corner, which is
+     * what gives an `M` its notches. The four diagonals all end at the
+     * same point, so the same hair leaves a hole where they cross — and an
+     * `X` with a hole in the middle is an `X` somebody has taken a bite
+     * out of, which is what was on the glass.
+     */
+    @Test
+    fun `the bars that meet in the middle are the ones that run to it`() {
+        val toMiddle = SegmentGlyphs.H or SegmentGlyphs.J or SegmentGlyphs.K or
+            SegmentGlyphs.M or SegmentGlyphs.I or SegmentGlyphs.L or
+            SegmentGlyphs.G1 or SegmentGlyphs.G2
+        assertEquals(
+            "a bar that does not reach the middle is being joined there anyway",
+            toMiddle, SegmentGlyphs.JOINS_MIDDLE
+        )
+        val outer = SegmentGlyphs.A1 or SegmentGlyphs.A2 or SegmentGlyphs.B or
+            SegmentGlyphs.C or SegmentGlyphs.D1 or SegmentGlyphs.D2 or
+            SegmentGlyphs.E or SegmentGlyphs.F
+        assertEquals(
+            "a bar round the outside is being overlapped into the middle",
+            0, SegmentGlyphs.JOINS_MIDDLE and outer
+        )
+    }
+
+    /** Anything that is not a Roman letter has no shape, not a wrong one. */
     @Test
     fun `characters with nothing to say have no shape`() {
-        for (c in listOf('Z', '/', '?', 'q')) {
+        for (c in listOf('Z', '/', '?', 'q', '0', '7')) {
             assertEquals("'$c' was given a shape", null, SegmentGlyphs.sixteen(c))
+        }
+        for (c in listOf('Z', '/', '?', 'q')) {
             assertEquals("'$c' was given a mark", null, SegmentGlyphs.star(c))
         }
     }
