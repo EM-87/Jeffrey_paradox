@@ -289,15 +289,34 @@ object Comets {
      * hieroglyphs give out, which is about right for a thing this model
      * cannot know.
      */
-    fun trust(comet: Comet, atMs: Long): Float {
-        val quarter = orbitOf(comet).periodYears / 4.0
-        return (1.0 - driftYears(comet, atMs) / quarter).coerceIn(0.0, 1.0).toFloat()
-    }
+    fun trust(comet: Comet, atMs: Long): Float =
+        (1.0 - driftYears(comet, atMs) / lostBy(comet)).coerceIn(0.0, 1.0).toFloat()
 
-    /** How far either way a comet is still drawn at all, in years. */
+    /**
+     * The drift at which a comet is no longer a position: a quarter of its
+     * own orbit.
+     *
+     * Its own function because two places need it and they must agree —
+     * how much is left, and how far out there is nothing left at all.
+     */
+    private fun lostBy(comet: Comet): Double = orbitOf(comet).periodYears / 4.0
+
+    /**
+     * How far either way a comet is still drawn at all, in years.
+     *
+     * Asked of [driftYears] rather than written out a second time. It was
+     * written out a second time, and a sabotage that changed how the drift
+     * accumulates left this function cheerfully reporting the old
+     * horizons — two expressions for one fact are two facts waiting to
+     * disagree.
+     */
     fun rangeYears(comet: Comet): Double {
         val o = orbitOf(comet)
-        return o.periodYears / 4.0 / o.wanderYears * o.periodYears
+        // One orbit on from the pinned passage, which is one orbit's worth
+        // of wander whatever shape the accumulation has.
+        val perOrbit = driftYears(comet, o.perihelionMs + (o.periodYears * YEAR_MS).toLong())
+        if (perOrbit <= 0.0) return Double.MAX_VALUE
+        return lostBy(comet) / perOrbit * o.periodYears
     }
 
     /** The name to put under the dial. */

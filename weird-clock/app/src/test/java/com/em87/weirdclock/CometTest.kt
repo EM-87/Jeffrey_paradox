@@ -322,11 +322,30 @@ class CometTest {
      */
     @Test
     fun `the four run out at four different distances`() {
-        val ranges = Comets.all.associateWith { Comets.rangeYears(it) }
-        assertEquals("two comets have the same horizon", 4, ranges.values.toSet().size)
+        val inYears = Comets.all.associateWith { Comets.rangeYears(it) }
+        assertEquals(
+            "something other than Encke is the first to go",
+            Comets.Comet.ENCKE, inYears.minByOrNull { it.value }!!.key
+        )
+        assertEquals(
+            "something other than Swift-Tuttle lasts longest",
+            Comets.Comet.SWIFT_TUTTLE, inYears.maxByOrNull { it.value }!!.key
+        )
+        // And the horizons counted in *returns* rather than years are not
+        // the same number either, which is the claim with teeth in it. A
+        // single wander figure shared by all four, or one taken as a fixed
+        // share of each period, would leave every comet good for the same
+        // number of trips round — and the whole point is that Halley comes
+        // away from the giant planets far more changed than Encke does, so
+        // it runs out of certainty in a third as many visits.
+        val inReturns = Comets.all.associateWith {
+            Comets.rangeYears(it) / Comets.orbitOf(it).periodYears
+        }
         assertTrue(
-            "Encke outlasts Halley, which goes round twenty times less often",
-            ranges.getValue(Comets.Comet.ENCKE) < ranges.getValue(Comets.Comet.HALLEY)
+            "Halley survives as many returns as Encke, which means the " +
+                "wander is one figure wearing four hats: $inReturns",
+            inReturns.getValue(Comets.Comet.HALLEY) <
+                inReturns.getValue(Comets.Comet.ENCKE) * 0.5
         )
         // And the horizon is where the arithmetic actually gives out,
         // which is nearer than it feels like it should be. Halley's first
