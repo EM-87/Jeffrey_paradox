@@ -593,6 +593,90 @@ class HandShadowTest {
         )
     }
 
+    /**
+     * The half moon in the evening sky is the *first* quarter, not the last.
+     *
+     * Which way round the month runs, and the full moon cannot answer it:
+     * half a turn behind the sun and half a turn ahead of it are the same
+     * place, so a moon turned the wrong way round its own month is
+     * invisible at full and obvious at quarter. A first-quarter moon rises
+     * about noon and stands nearly due south as the sun goes down —
+     * everybody has seen one — while a last-quarter moon does not rise
+     * until the middle of the night.
+     *
+     * The phase itself decides which is which, since the lit fraction
+     * cannot: a quarter moon is half lit going up and half lit coming
+     * down.
+     */
+    @Test
+    fun `the first quarter moon is high at sunset`() {
+        var found = 0L
+        var best = 90.0
+        for (step in 0 until 3 * 24 * 60) {
+            val at = utc(2026, 1, 1, 0) + step * 1_200_000L
+            val phase = SkyGlyph.phaseAt(at)
+            if (phase < 0.24 || phase > 0.26) continue
+            // Sunset: the sun on its way down through the horizon.
+            val sun = SolarTime.position(40.0, 0.0, at)
+            if (sun.altitudeDeg !in -2.0..2.0) continue
+            if (kotlin.math.abs(sun.altitudeDeg) < best) {
+                best = kotlin.math.abs(sun.altitudeDeg)
+                found = at
+            }
+        }
+        assertTrue("no first-quarter sunset in two months", found != 0L)
+        val moon = SolarTime.moonPosition(40.0, 0.0, found)
+        assertTrue(
+            "the half moon is not in the evening sky at all, so the month is " +
+                "running backwards: ${moon.altitudeDeg}",
+            moon.altitudeDeg > 20.0
+        )
+    }
+
+    /**
+     * The full moon rides high in winter and low in summer, which is the
+     * sun's own habit turned round.
+     *
+     * The only thing that tests the moon's declination, and the reason it
+     * needs testing: a moon given the *sun's* declination would still be
+     * opposite the sun in the sky, still up all night, still fine at every
+     * question asked above — and would ride low over the Christmas snow and
+     * high in June, which is backwards, and which anybody who has walked
+     * home on a December night would notice.
+     */
+    @Test
+    fun `the full moon is high in winter and low in summer`() {
+        val winter = peakOfFullMoonNear(utc(2026, 12, 1, 0))
+        val summer = peakOfFullMoonNear(utc(2026, 6, 1, 0))
+        assertTrue(
+            "the midwinter full moon at ${winter}° is no higher than the " +
+                "midsummer one at ${summer}°, so the moon is following the " +
+                "sun's declination rather than the far side of the ecliptic",
+            winter > summer + 25.0
+        )
+    }
+
+    /**
+     * How high the moon gets on the night it is fullest, within a month of
+     * [near].
+     */
+    private fun peakOfFullMoonNear(near: Long): Double {
+        var fullest = 0.0
+        var fullAt = near
+        for (step in 0 until 24 * 32) {
+            val at = near + step * 3_600_000L
+            val lit = SolarTime.moonIllumination(at)
+            if (lit > fullest) { fullest = lit; fullAt = at }
+        }
+        assertTrue("no full moon within a month of $near: $fullest", fullest > 0.97)
+        var highest = -90.0
+        for (step in -24..24) {
+            val at = fullAt + step * 3_600_000L
+            highest = maxOf(highest, SolarTime.moonPosition(40.0, 0.0, at).altitudeDeg)
+        }
+        return highest
+    }
+
     /** The moon's light rises and falls with how much of it is lit. */
     @Test
     fun `the moon goes new and full within a month`() {
