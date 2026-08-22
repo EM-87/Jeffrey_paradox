@@ -51,8 +51,8 @@ object HandShadow {
     }
 
     /**
-     * How many passes a soft shadow is drawn in, and how much wider each
-     * one is than the hand.
+     * How many passes a soft shadow is drawn in, and how far out from the
+     * hand's own outline each one reaches.
      *
      * A blur, done the only way that is certain to survive a hardware
      * canvas: the same shape several times, each wider and fainter than
@@ -61,27 +61,81 @@ object HandShadow {
      * acceleration quietly declines, and a shadow that is soft on one
      * phone and a hard black bar on another is worse than no shadow.
      *
-     * The widths are a rough gaussian: most of the ink in the middle, a
-     * thin haze reaching about twice the hand's width.
+     * These are fractions of the penumbra, not multiples of the hand's
+     * width, and that is the whole correction. Widths that were multiples
+     * of the hand made the softness depend on what was casting it: the
+     * hour hand is a fat wedge, so three times its width is a wide haze
+     * and looked blurred, while the second hand is a hair, so three times
+     * *its* width is still a hair — thirteen passes landing on the same
+     * two pixels, adding up to one hard black stick beside a red one.
+     * A penumbra does not know how wide the thing casting it is.
      */
-    val SOFTNESS: FloatArray = floatArrayOf(3.2f, 2.4f, 1.8f, 1.35f, 1.05f)
+    val SPREAD: FloatArray = floatArrayOf(
+        1.000f, 0.917f, 0.833f, 0.750f, 0.667f, 0.583f,
+        0.500f, 0.417f, 0.333f, 0.250f, 0.167f, 0.083f, 0f
+    )
 
-    /** And how much of the shadow's darkness each of those passes lays down. */
-    val PASS_ALPHA: FloatArray = floatArrayOf(0.10f, 0.14f, 0.20f, 0.26f, 0.30f)
+    /**
+     * And how much of the shadow's darkness each of those passes lays
+     * down.
+     *
+     * Thirteen passes and not five. Five is enough to be soft in the head
+     * and not on the glass: each one is a solid shape with an edge, and
+     * five edges a third of the hand's width apart are five edges you can
+     * count — the shadow came out banded, like a contour map of itself.
+     *
+     * The numbers are not chosen by eye. Stacked, the passes make a step
+     * function of distance from the hand: at a given distance you are
+     * under every pass wider than it, so the darkness there is the sum of
+     * their weights. Each weight is therefore the *difference* between a
+     * gaussian at its own spread and at the one before it, with the
+     * profile cut off at three sigma — so the outermost step is a hundredth
+     * of a shadow and the edge of the haze arrives at nothing at all.
+     */
+    val PASS_ALPHA: FloatArray = floatArrayOf(
+        0.011f, 0.012f, 0.021f, 0.036f, 0.056f, 0.081f,
+        0.108f, 0.133f, 0.149f, 0.148f, 0.128f, 0.087f, 0.031f
+    )
+
+    /**
+     * How soft the edge is, as a fraction of the dial's radius.
+     *
+     * It grows with the distance the shadow has travelled, which is the
+     * one part of a penumbra that is real: the further a shadow falls from
+     * the thing casting it, the wider the band where the sun is only half
+     * hidden. A hand lying almost on the face has an almost sharp shadow;
+     * a hand throwing one across the dial has a soft one.
+     */
+    fun penumbra(height: Float, altitudeDeg: Double): Float =
+        0.008f + reach(height, altitudeDeg) * 0.10f
 
     /**
      * The longest a shadow is allowed to get, as a fraction of the dial.
      *
-     * Not physics — physics says a shadow at sunset is a mile long. It is
-     * the point at which a shadow stops being a shadow and becomes a line
-     * across the face pointing at nothing, and the alpha is falling to
-     * nothing over the same stretch anyway, so what the cap actually stops
-     * is the arithmetic dividing by a tangent on its way to zero.
+     * Not physics — physics says a shadow at sunset is a mile long, and
+     * for a while this drew something close to it: at sunrise and sunset
+     * the shadows slid most of a radius off their hands and over the rim,
+     * which does not read as a low sun, it reads as hands floating a foot
+     * above the dial.
+     *
+     * So it saturates early, and at a tenth of the radius rather than a
+     * fifth: a fifth still put the second hand's shadow far enough off to
+     * read as a second second hand. A shadow that has moved a tenth of the
+     * way to the rim has said everything it has to say about the sun being
+     * low, and the alpha is on its way out over the same stretch anyway.
      */
-    const val MAX_LENGTH = 0.9f
+    const val MAX_LENGTH = 0.10f
 
-    /** Below this the sun is too low to cast anything worth drawing. */
-    private const val FADE_FROM_DEG = 12.0
+    /**
+     * Below this the sun is too low to cast anything worth drawing.
+     *
+     * Eighteen degrees rather than twelve, so that the fade is well under
+     * way by the time the length is against its stop — otherwise the last
+     * stretch before sunset is a shadow at full strength sitting at its
+     * maximum reach, which is the one arrangement that looks pinned rather
+     * than cast.
+     */
+    private const val FADE_FROM_DEG = 18.0
 
     /**
      * A latitude to stand at when the phone has never had a fix.

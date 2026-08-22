@@ -127,8 +127,16 @@ class HandShadowTest {
         assertEquals("a sun straight up is casting a shadow", 0f, HandShadow.reach(h, 90.0), 1e-4f)
         assertEquals("a shadow at forty-five degrees is not its own height", h, HandShadow.reach(h, 45.0), 1e-4f)
         assertTrue(
-            "a sun ten degrees up throws a shadow shorter than four heights",
-            HandShadow.reach(h, 10.0) > h * 4f
+            "a sun twenty degrees up throws a shadow shorter than two heights",
+            HandShadow.reach(h, 20.0) > h * 2f
+        )
+        // And below that the cap has taken over: the trigonometry says
+        // fifteen heights at ten degrees, and what is drawn is a tenth of
+        // the radius, because the honest answer looks like a hand floating
+        // a foot above the dial.
+        assertEquals(
+            "the length is still following the sun down to the horizon",
+            HandShadow.MAX_LENGTH, HandShadow.reach(h, 10.0), 1e-6f
         )
         assertEquals("the sun below the horizon casts something", 0f, HandShadow.reach(h, -1.0), 1e-6f)
     }
@@ -321,35 +329,98 @@ class HandShadowTest {
      * And a shadow is laid down soft, in passes.
      *
      * The widest pass goes first and the narrowest last, or the core of
-     * the shadow would be veiled by its own halo; and the narrowest is
-     * still at least as wide as the hand, or the shadow has a hard edge
-     * after all. Cheap, and the only blur a hardware canvas is certain not
-     * to decline.
+     * the shadow would be veiled by its own halo; and the last one adds
+     * nothing to the hand's own width, so the shadow's core is the shape
+     * of the hand and the haze is entirely outside it. Cheap, and the only
+     * blur a hardware canvas is certain not to decline.
      */
     @Test
     fun `the shadow is laid down soft`() {
         assertEquals(
             "the passes and their weights do not match up",
-            HandShadow.SOFTNESS.size, HandShadow.PASS_ALPHA.size
+            HandShadow.SPREAD.size, HandShadow.PASS_ALPHA.size
         )
-        assertTrue("a shadow drawn in one pass is not soft", HandShadow.SOFTNESS.size >= 3)
-        for (i in 1 until HandShadow.SOFTNESS.size) {
+        assertTrue("a shadow drawn in one pass is not soft", HandShadow.SPREAD.size >= 3)
+        for (i in 1 until HandShadow.SPREAD.size) {
             assertTrue(
                 "the passes do not narrow, so the core is drawn under its own haze",
-                HandShadow.SOFTNESS[i] < HandShadow.SOFTNESS[i - 1]
-            )
-            assertTrue(
-                "the passes do not darken as they narrow",
-                HandShadow.PASS_ALPHA[i] > HandShadow.PASS_ALPHA[i - 1]
+                HandShadow.SPREAD[i] < HandShadow.SPREAD[i - 1]
             )
         }
-        assertTrue(
-            "the narrowest pass is thinner than the hand, so the shadow has a hard edge",
-            HandShadow.SOFTNESS.last() >= 1f
+        assertEquals(
+            "the outermost pass does not reach the edge of the penumbra",
+            1f, HandShadow.SPREAD.first(), 1e-6f
+        )
+        assertEquals(
+            "the innermost pass is wider than the hand it belongs to",
+            0f, HandShadow.SPREAD.last(), 1e-6f
         )
         assertTrue(
             "the passes add up to more than one solid shadow",
             HandShadow.PASS_ALPHA.sum() <= 1.05f
+        )
+        assertTrue(
+            "the passes add up to so little there is no shadow",
+            HandShadow.PASS_ALPHA.sum() >= 0.95f
+        )
+    }
+
+    /**
+     * The steps between passes are too small to be seen as steps.
+     *
+     * This is the defect being fixed, stated as a number. Stacked, the
+     * passes make a staircase: at any distance from the hand you are under
+     * every pass wider than that, so the darkness there is the running sum
+     * of their weights, and a step in that sum is a visible contour line.
+     * Five passes made steps of a fifth of the shadow's darkness each and
+     * the result was banded like a map. Nothing here rises by more than a
+     * sixth, and — the part five passes could never do — the outermost
+     * step is a hundredth, so the haze begins at nothing instead of
+     * arriving with an edge.
+     */
+    @Test
+    fun `no single pass is a visible step`() {
+        for ((i, weight) in HandShadow.PASS_ALPHA.withIndex()) {
+            assertTrue(
+                "pass $i lays down $weight of the whole shadow in one go, " +
+                    "which is a contour line",
+                weight <= 1f / 6f
+            )
+        }
+        assertTrue(
+            "the shadow's outer edge arrives at ${HandShadow.PASS_ALPHA.first()} " +
+                "of full darkness, which is an edge",
+            HandShadow.PASS_ALPHA.first() <= 0.02f
+        )
+    }
+
+    /**
+     * And the softness belongs to the light, not to what is casting it.
+     *
+     * The banding had a second half that a picture of the hour hand alone
+     * would never have shown: the widths were multiples of the hand's own
+     * width, so the second hand — a hair — got a haze a hair wide, and its
+     * thirteen passes landed on top of one another as a single hard black
+     * stick beside the red one. A penumbra does not know how wide the
+     * thing casting it is, so this is measured against the dial.
+     */
+    @Test
+    fun `the haze is the same width whatever hand casts it`() {
+        val hour = HandShadow.penumbra(HandShadow.heightOf(ClockView.Hand.HOUR), 30.0)
+        val second = HandShadow.penumbra(HandShadow.heightOf(ClockView.Hand.SECOND), 30.0)
+        assertTrue("the haze has no width at all", hour > 0.004f)
+        assertTrue(
+            "the second hand's haze is a different order of thing from the " +
+                "hour hand's: $hour against $second",
+            second < hour * 2f
+        )
+        // It does grow with the distance travelled, which is the one part
+        // of a penumbra that is real.
+        assertTrue(
+            "a shadow thrown right across the dial is as sharp as one lying " +
+                "under its own hand",
+            HandShadow.penumbra(HandShadow.heightOf(ClockView.Hand.SECOND), 8.0) >
+                HandShadow.penumbra(HandShadow.heightOf(ClockView.Hand.SECOND), 80.0)
         )
     }
 
@@ -366,7 +437,7 @@ class HandShadowTest {
         assertTrue(
             "at a sun eight degrees up the second hand's shadow is $worst of a " +
                 "radius away, which is a second second hand",
-            worst < 0.35f
+            worst <= 0.12f
         )
     }
 

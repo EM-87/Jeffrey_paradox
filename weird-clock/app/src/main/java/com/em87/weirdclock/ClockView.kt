@@ -6004,6 +6004,12 @@ class ClockView @JvmOverloads constructor(
         // alpha is not shy: it has to survive being laid on midnight blue
         // as well as on white.
         shadowPaint.color = android.graphics.Color.BLACK
+        // Clipped to the face, because the face is what the shadow falls
+        // on. Without it a low sun slid the far end of each shadow over
+        // the rim and onto the wallpaper, which is not a long shadow, it
+        // is a shadow of something standing somewhere else.
+        canvas.save()
+        clipToFace(canvas, cx, cy, r)
         for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
             if (!handIsOn(hand)) continue
             if (isFallen(hand)) continue
@@ -6011,22 +6017,47 @@ class ClockView @JvmOverloads constructor(
             if (reach <= 0f) continue
             val at = pointAt(cx, cy, away, reach * r)
             val width = r * widthOf(hand) * faceScale()
+            // The haze is a band of its own width outside the hand's
+            // outline, not a multiple of it, so a hair-thin second hand
+            // gets the same soft edge the fat hour hand does.
+            val haze = r * HandShadow.penumbra(HandShadow.heightOf(hand), sun.altitudeDeg)
             // Widest and faintest first, so the haze goes down before the
             // core and the core is not veiled by its own halo.
-            for (pass in HandShadow.SOFTNESS.indices) {
+            for (pass in HandShadow.SPREAD.indices) {
                 shadowPaint.alpha =
-                    (105 * strength * HandShadow.PASS_ALPHA[pass]).toInt().coerceIn(0, 255)
+                    (128 * strength * HandShadow.PASS_ALPHA[pass]).toInt().coerceIn(0, 255)
                 drawHand(
                     canvas, at.x, at.y,
                     angleOf(hand, a),
                     handReach(hand),
                     r * tailOf(hand) * faceScale(),
-                    width * HandShadow.SOFTNESS[pass],
+                    width + 2f * haze * HandShadow.SPREAD[pass],
                     shadowPaint
                 )
             }
             shadowsPainted++
         }
+        canvas.restore()
+    }
+
+    /**
+     * Clips to the shape of the face, whatever shape that is.
+     *
+     * A round dial is a circle and a polygonal one is its polygon, and a
+     * shadow that ran over the flat edge of a hexagonal face would be
+     * wrong in a way that is easier to see than the round case.
+     */
+    private fun clipToFace(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        if (dialShape.sides < 3) {
+            facePath.reset()
+            facePath.addCircle(cx, cy, r, Path.Direction.CW)
+        } else {
+            // The same outline the face itself was drawn with a moment ago,
+            // corners and rotation included, rather than a second guess at
+            // what shape the dial is.
+            buildFacePath(cx, cy)
+        }
+        canvas.clipPath(facePath)
     }
 
     /**
