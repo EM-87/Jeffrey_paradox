@@ -492,47 +492,139 @@ class HandShadowTest {
     }
 
     /**
-     * A new moon casts nothing, because a new moon is not there.
+     * A moon below the horizon lights nothing, however full it is.
      *
-     * It is not a dim moon: it crosses the sky with the sun, is up all day
-     * and invisible all night, and a shadow drawn by it would be a shadow
-     * drawn by an absence.
+     * The obvious half, and the one that was being tested by accident. It
+     * needs a night with a bright moon that has not risen yet — a few days
+     * past full, in the hour or two of darkness before it comes up — and
+     * not a new-moon night, where the moon is *also* dark and the wrong
+     * guard does the work. Both guards were in place and each was masking
+     * the other's test: deleting either one changed nothing any assertion
+     * could see.
      */
     @Test
-    fun `a new moon throws no light`() {
-        val dark = newMoonNight() ?: return
+    fun `a moon below the horizon lights nothing`() {
+        val at = firstMomentWith { sun, moon, lit ->
+            sun.altitudeDeg < -12.0 && moon.altitudeDeg < -5.0 && lit > 0.6
+        }
+        assertNotNull(
+            "no dark hour in forty days with a bright moon still to rise, so " +
+                "this test is asking nothing",
+            at
+        )
         val v = dial()
         v.handShadows = true
-        v.freezeAtForTest(dark)
+        v.freezeAtForTest(at!!)
         paint(v)
-        assertNull("the new moon is lighting the dial", v.moonOverheadForTest())
-        assertEquals("something threw a shadow on a moonless night", 0, v.shadowsPaintedForTest())
+        assertNull("a moon under the horizon is lighting the dial", v.moonOverheadForTest())
+        assertEquals("something cast a shadow before moonrise", 0, v.shadowsPaintedForTest())
+    }
+
+    /**
+     * And a moon too dark lights nothing, however high it is.
+     *
+     * The other half, which needs the opposite awkward moment: a sliver a
+     * couple of days old, still up in the west after the sun has properly
+     * set. It is a narrow window — a new moon keeps the sun's hours, so it
+     * is only above a dark horizon for an hour or so either side of the
+     * new — which is exactly why the earlier version of this test never
+     * found itself in it and never checked anything.
+     */
+    @Test
+    fun `a moon too dark lights nothing`() {
+        val at = firstMomentWith { sun, moon, lit ->
+            sun.altitudeDeg < -8.0 && moon.altitudeDeg > 2.0 && lit < HandShadow.MOON_FLOOR
+        }
+        assertNotNull(
+            "no dark hour in forty days with a sliver moon still up, so this " +
+                "test is asking nothing",
+            at
+        )
+        val v = dial()
+        v.handShadows = true
+        v.freezeAtForTest(at!!)
+        paint(v)
+        assertNull("a sliver of moon is lighting the dial", v.moonOverheadForTest())
+        assertEquals("a sliver of moon cast a shadow", 0, v.shadowsPaintedForTest())
+    }
+
+    /**
+     * The full moon is opposite the sun, which is why it is full.
+     *
+     * The one claim the whole lunar approximation rests on: the phase *is*
+     * the angle between the two, so at the moment the moon is fullest it
+     * is half a turn behind the sun and stands highest when the sun stands
+     * lowest.
+     *
+     * Asked at the sun's own highest moment, and asked as two numbers with
+     * no way round them. It was asked as "either they are on opposite
+     * sides of the horizon *or* they are forty degrees apart", and the
+     * second half let a moon pinned to the sun's own hour angle through:
+     * the declination is worked out separately and still differed, so the
+     * altitudes were far enough apart to satisfy a test that should have
+     * caught it outright.
+     */
+    @Test
+    fun `the full moon stands opposite the sun`() {
+        var fullest = 0.0
+        var fullAt = 0L
+        for (step in 0 until 24 * 40) {
+            val at = utc(2026, 1, 1, 0) + step * 3_600_000L
+            val lit = SolarTime.moonIllumination(at)
+            if (lit > fullest) { fullest = lit; fullAt = at }
+        }
+        assertTrue("the moon never gets full in forty days: $fullest", fullest > 0.97)
+
+        // Noon of that day, found rather than assumed: twelve o'clock is
+        // not solar noon, and the point of this test is the hour angle.
+        var highest = -90.0
+        var noon = fullAt
+        for (step in -24..24) {
+            val at = fullAt + step * 3_600_000L
+            val alt = SolarTime.position(40.0, 0.0, at).altitudeDeg
+            if (alt > highest) { highest = alt; noon = at }
+        }
+        val moon = SolarTime.moonPosition(40.0, 0.0, noon)
+        assertTrue("the sun is not high at its own highest: $highest", highest > 20.0)
+        assertTrue(
+            "the full moon is up in the middle of the day, so it is not " +
+                "opposite the sun at all: ${moon.altitudeDeg}",
+            moon.altitudeDeg < -20.0
+        )
     }
 
     /** The moon's light rises and falls with how much of it is lit. */
     @Test
-    fun `the moon's light follows its phase`() {
+    fun `the moon goes new and full within a month`() {
         var full = 0.0
         var new = 1.0
-        var fullAt = 0L
         for (day in 0 until 30) {
-            val at = utc(2026, 1, 1, 0) + day * 86_400_000L
-            val lit = SolarTime.moonIllumination(at)
-            if (lit > full) { full = lit; fullAt = at }
+            val lit = SolarTime.moonIllumination(utc(2026, 1, 1, 0) + day * 86_400_000L)
+            if (lit > full) full = lit
             if (lit < new) new = lit
         }
         assertTrue("the moon never gets full in a month: $full", full > 0.97)
         assertTrue("the moon never goes new in a month: $new", new < 0.03)
-        // And the full moon is opposite the sun, which is why it is full:
-        // it stands highest in the middle of the night.
-        val sun = SolarTime.position(40.0, 0.0, fullAt)
-        val moon = SolarTime.moonPosition(40.0, 0.0, fullAt)
-        assertTrue(
-            "the full moon is on the same side of the sky as the sun, so it " +
-                "would not be full: sun ${sun.altitudeDeg}, moon ${moon.altitudeDeg}",
-            (sun.altitudeDeg > 0.0) != (moon.altitudeDeg > 0.0) ||
-                kotlin.math.abs(sun.altitudeDeg - moon.altitudeDeg) > 40.0
-        )
+    }
+
+    /**
+     * The first moment in forty days matching a condition on the sun, the
+     * moon and the phase — searched in twenty-minute steps.
+     *
+     * Twenty minutes and not an hour: the two windows these tests need are
+     * an hour or two wide and an hourly walk steps over them about half the
+     * time, which would make the tests pass or fail on the calendar.
+     */
+    private fun firstMomentWith(
+        want: (SolarTime.Position, SolarTime.Position, Double) -> Boolean
+    ): Long? {
+        for (step in 0 until 3 * 24 * 40) {
+            val at = utc(2026, 1, 1, 0) + step * 1_200_000L
+            val sun = SolarTime.position(40.0, 0.0, at)
+            val moon = SolarTime.moonPosition(40.0, 0.0, at)
+            if (want(sun, moon, SolarTime.moonIllumination(at))) return at
+        }
+        return null
     }
 
     /** The first night in a month with the moon up, lit, and the sun down. */
@@ -547,16 +639,6 @@ class HandShadowTest {
         return null
     }
 
-    /** And the first with the sun down and no moon worth the name. */
-    private fun newMoonNight(): Long? {
-        for (step in 0 until 24 * 40) {
-            val at = utc(2026, 1, 1, 0) + step * 3_600_000L
-            if (SolarTime.position(40.0, 0.0, at).altitudeDeg > -6.0) continue
-            if (SolarTime.moonIllumination(at) > 0.05) continue
-            return at
-        }
-        return null
-    }
 
     /** A hand that is switched off casts nothing. */
     @Test
