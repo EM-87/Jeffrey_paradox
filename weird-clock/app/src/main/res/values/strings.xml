@@ -39,6 +39,13 @@
     <string name="pref_test_bells_title">Test the bells</string>
     <string name="pref_test_bells_summary">Hear the style above</string>
 
+    <string name="pref_shadow_surface_title">Where the shadow falls</string>
+    <string name="pref_dial_marks_title">Marks on the dial</string>
+    <string name="pref_minute_marks_title">Minute marks</string>
+    <string name="pref_minute_marks_summary">The sixty small ticks between the hours</string>
+    <string name="pref_world_seconds_title">Second hands</string>
+    <string name="pref_world_seconds_summary">A sweeping second hand on each little clock</string>
+
     <string name="category_time">Time itself</string>
     <string name="pref_time_speed_title" formatted="false">Time speed (%)</string>
     <string name="pref_time_speed_summary">Make the clock run faster or slower than reality</string>
@@ -479,4 +486,25 @@
     <string name="lat_leonids" translatable="false">Leonidae</string>
     <string name="lat_geminids" translatable="false">Geminidae</string>
     <string name="lat_ursids" translatable="false">Ursidae</string>
+    <string-array name="shadow_surface_entries">
+        <item>Lying on the ground</item>
+        <item>Hanging on a wall</item>
+    </string-array>
+    <string-array name="shadow_surface_values" translatable="false">
+        <item>ground</item>
+        <item>wall</item>
+    </string-array>
+
+    <string-array name="dial_marks_entries">
+        <item>Twelve</item>
+        <item>Six</item>
+        <item>Four</item>
+        <item>None</item>
+    </string-array>
+    <string-array name="dial_marks_values" translatable="false">
+        <item>12</item>
+        <item>6</item>
+        <item>4</item>
+        <item>none</item>
+    </string-array>
 </resources>

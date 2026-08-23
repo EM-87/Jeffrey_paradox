@@ -97,9 +97,6 @@ class OrreryWidgetProvider : AppWidgetProvider() {
          */
         private const val TICK_MS = 6 * 60 * 60_000L
 
-        private const val DEFAULT_DP = 160
-        private const val MIN_DP = 64
-        private const val MAX_DP = 320
 
         private fun alarmManager(context: Context): android.app.AlarmManager? =
             context.getSystemService(android.app.AlarmManager::class.java)
@@ -137,21 +134,6 @@ class OrreryWidgetProvider : AppWidgetProvider() {
             for (id in ids) manager.updateAppWidget(id, buildViews(context, manager, id))
         }
 
-        /** How many pixels square to draw at, for the widget with this id. */
-        internal fun dialPixels(context: Context, manager: AppWidgetManager, id: Int): Int {
-            val options = manager.getAppWidgetOptions(id)
-            val wDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH)
-            val hDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
-            // A round dial in a rectangle: the square it needs is the
-            // smaller side, and every push crosses IPC whole, so both ends
-            // are capped.
-            val side = minOf(
-                wDp.takeIf { it > 0 } ?: DEFAULT_DP,
-                hDp.takeIf { it > 0 } ?: DEFAULT_DP
-            )
-            val density = context.resources.displayMetrics.density
-            return (side.coerceIn(MIN_DP, MAX_DP) * density).toInt()
-        }
 
         /**
          * The sky as a bitmap, at [atMs].
@@ -165,12 +147,17 @@ class OrreryWidgetProvider : AppWidgetProvider() {
             val theme = ClockThemes.resolve(context, prefs.getString(Prefs.THEME, "midnight"))
             val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
-            val alpha = WidgetRenderer.opacity(prefs.getInt(Prefs.WIDGET_ALPHA, 100))
+            val alpha = WidgetRenderer.alphaOf(context, Prefs.WIDGET_ALPHA_ORRERY)
             val face = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                 color = theme.face
             }
             val half = size / 2f
-            val r = half * 0.94f
+            // The same fraction of the bitmap the clock widget's dial
+            // takes, so the two are the same circle at the same widget
+            // size and can be stood side by side on a home screen. They
+            // were 0.94 and 0.90, which nobody would spot apart and which
+            // made that impossible.
+            val r = half * WidgetRenderer.DIAL_FRACTION
             canvas.drawCircle(half, half, r, face)
             OrreryDial.draw(
                 canvas, half, half, r, theme, atMs, 1f,
@@ -202,7 +189,7 @@ class OrreryWidgetProvider : AppWidgetProvider() {
             )
             views.setImageViewBitmap(
                 R.id.widget_orrery_image,
-                bitmap(context, dialPixels(context, manager, id), System.currentTimeMillis())
+                bitmap(context, WidgetRenderer.dialPixels(context, manager, id), System.currentTimeMillis())
             )
             views.setOnClickPendingIntent(R.id.widget_orrery_image, open)
             return views

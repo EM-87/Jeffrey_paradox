@@ -84,12 +84,58 @@ object Prefs {
     const val TICKING = "pref_ticking"
 
     /**
+     * Which surface the clock's shadow falls on.
+     *
+     * The whole engine rests on a conceit about where the clock is, and
+     * until now there was only one: lying flat on the ground with twelve
+     * pointing north. A wall clock is the other half of the world's
+     * clocks and casts a quite different shadow — the light comes at the
+     * face rather than across it, and the sun going behind the wall puts
+     * the shadow out altogether.
+     */
+    const val SHADOW_SURFACE = "pref_shadow_surface"
+    const val SHADOW_GROUND = "ground"
+    const val SHADOW_WALL = "wall"
+
+    /**
+     * How many marks the dial carries, and whether the minute ticks are
+     * among them.
+     *
+     * Twelve, six, four, none. The middle rung was asked for as eight and
+     * is six, because eight marks do not fall on the hours of a twelve-hour
+     * dial: twelve over eight is one and a half, so a mark would have to
+     * land halfway between two numerals, and the mark would then be
+     * pointing at nothing. Six is the next count down that still divides
+     * twelve — and it divides twenty-four as well, so the ladder is exact
+     * on both faces the app draws.
+     */
+    const val DIAL_MARKS = "pref_dial_marks"
+    const val MARKS_12 = "12"
+    const val MARKS_6 = "6"
+    const val MARKS_4 = "4"
+    const val MARKS_NONE = "none"
+    const val MINUTE_MARKS = "pref_minute_marks"
+
+    /** Whether the little world clocks carry second hands of their own. */
+    const val WORLD_SECONDS = "pref_world_seconds"
+
+    /**
      * How opaque the clock widget is drawn, as a percentage.
      *
      * On the home screen and not in the app's settings, because it is a
      * decision you make while looking at the wallpaper behind it.
      */
     const val WIDGET_ALPHA = "pref_widget_alpha"
+
+    /**
+     * And one for each of the other two widgets.
+     *
+     * Their own keys rather than the clock's, so that the solar system can
+     * be a ghost on the home screen while the clock beside it is solid.
+     * Three sliders moving one number would be three lies.
+     */
+    const val WIDGET_ALPHA_ORRERY = "pref_widget_alpha_orrery"
+    const val WIDGET_ALPHA_HOURGLASS = "pref_widget_alpha_hourglass"
 
     /**
      * The folder the user has given the app to keep restore points in, as

@@ -29,9 +29,21 @@ class HourglassView @JvmOverloads constructor(
     /** When true the sand stream flickers on its own (the S3 card). */
     var live = false
 
+    /**
+     * The panel the glass stands on.
+     *
+     * The theme's own face, not a hardcoded near-black. It was
+     * `0xCC10121A` — a dark slab whatever the dial was made of — so the
+     * countdown widget stayed night-coloured on a home screen where every
+     * other thing this app draws had gone light. The rim and the sand were
+     * themed all along, which made it worse rather than better: dark
+     * panel, light everything else.
+     *
+     * Kept a little transparent, as it was, so the wallpaper shows through
+     * the corners the way it does on the round widgets.
+     */
     private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = 0xCC10121A.toInt()
     }
     private val glassPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -45,6 +57,8 @@ class HourglassView @JvmOverloads constructor(
         val h = height.toFloat()
         if (w <= 0f || h <= 0f) return
 
+        backgroundPaint.color = theme.face
+        backgroundPaint.alpha = 0xCC
         canvas.drawRoundRect(RectF(0f, 0f, w, h), w * 0.16f, w * 0.16f, backgroundPaint)
 
         val glassTop = h * 0.10f

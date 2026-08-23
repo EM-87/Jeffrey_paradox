@@ -244,6 +244,91 @@ object HandShadow {
     }
 
     /**
+     * Which surface the clock is standing on, which decides what the sun
+     * does to it.
+     *
+     * [GROUND] is the conceit this engine was built on: the clock lying
+     * flat with twelve pointing north, so a compass bearing and a dial
+     * angle are the same number and a shadow runs away from the sun.
+     *
+     * [WALL] is the other half of the world's clocks, and it is a
+     * different problem rather than the same one turned round. The face is
+     * vertical, so twelve points *up* and not north; the light comes at
+     * the face instead of across it; the shadow of a hand standing off the
+     * face is the sun's direction projected onto the face, which can point
+     * anywhere including straight up; and when the sun goes round behind
+     * the wall there is no shadow at all, however high it still is. A
+     * ground clock never has that last problem and a wall clock has it for
+     * half of every day.
+     */
+    enum class Surface { GROUND, WALL }
+
+    /**
+     * Which way the wall faces, as a bearing.
+     *
+     * Towards the equator, which is where anybody hangs a clock they want
+     * the light on: south in the northern hemisphere and north in the
+     * southern. It is the same assumption every vertical sundial makes,
+     * and it is the only free parameter in the wall case — the ground case
+     * has none, because a horizontal face has no direction to face.
+     */
+    fun wallFacing(latitudeDeg: Double): Double = if (latitudeDeg >= 0.0) 180.0 else 0.0
+
+    /**
+     * Where a shadow falls on a vertical face, and how far.
+     *
+     * Returns the bearing clockwise from twelve and the reach as a
+     * multiple of the hand's height, or null when the sun is behind the
+     * wall and there is nothing to cast.
+     *
+     * The arithmetic is one projection. Put the sun's direction in
+     * ordinary compass-and-altitude terms, split it into the part along
+     * the face and the part into it, and the shadow is the first divided
+     * by the second, reversed. The part *into* the wall is what makes this
+     * different from the ground: as the sun swings round towards the plane
+     * of the face that divisor goes to nothing and the shadow runs away to
+     * infinity, which is exactly what happens on a real wall at the moment
+     * the light goes grazing along it.
+     */
+    fun onWall(
+        altitudeDeg: Double,
+        azimuthDeg: Double,
+        latitudeDeg: Double
+    ): Pair<Float, Float>? {
+        val alt = Math.toRadians(altitudeDeg)
+        val az = Math.toRadians(azimuthDeg)
+        val facing = Math.toRadians(wallFacing(latitudeDeg))
+        // East, north and up.
+        val sx = kotlin.math.cos(alt) * kotlin.math.sin(az)
+        val sy = kotlin.math.cos(alt) * kotlin.math.cos(az)
+        val sz = kotlin.math.sin(alt)
+        // The face's own axes: the way it looks, and the way "right" lies
+        // when you are looking at it.
+        val nx = kotlin.math.sin(facing)
+        val ny = kotlin.math.cos(facing)
+        val intoWall = sx * nx + sy * ny
+        // Behind the wall, or grazing it: no shadow, and no divisor either.
+        if (intoWall <= 0.02) return null
+        // "Right" belongs to whoever is looking at the clock, not to the
+        // wall: they stand in the room with their back to the light the
+        // wall faces, so for a south-facing wall they are looking north and
+        // their right hand is east. That is the normal turned a quarter
+        // anticlockwise, not clockwise — taken the other way round the
+        // whole model still works, still goes dark at the right hour and
+        // still stretches with the sun, and puts every morning shadow where
+        // its afternoon one belongs.
+        val right = -sx * kotlin.math.cos(facing) + sy * kotlin.math.sin(facing)
+        // The shadow runs away from the light across the face.
+        val alongFace = -right / intoWall
+        val upFace = -sz / intoWall
+        val reach = kotlin.math.hypot(alongFace, upFace)
+        // Twelve is up on a wall clock, so a bearing clockwise from twelve
+        // is measured from the face's own up.
+        val bearing = Math.toDegrees(kotlin.math.atan2(alongFace, upFace))
+        return (((bearing % 360.0 + 360.0) % 360.0).toFloat()) to reach.toFloat()
+    }
+
+    /**
      * What is lighting the dial, if anything.
      *
      * By day the sun; by night the moon, which is a much stranger light and

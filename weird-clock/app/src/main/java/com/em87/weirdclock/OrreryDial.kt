@@ -390,6 +390,55 @@ object OrreryDial {
     /** Scratch, for the round face that has no path of its own. */
     private val clip = android.graphics.Path()
 
+    private var quarterYear = Int.MIN_VALUE
+    private var quarterCache: Set<Int> = emptySet()
+
+    /**
+     * The four days a year the Earth crosses into a new quarter of the
+     * ecliptic: the solstices and the equinoxes.
+     *
+     * These are the answer to the question the ring kept raising — why the
+     * first of January is not at the top. Twelve on this dial is ecliptic
+     * longitude ninety, which is the December solstice by definition, and
+     * the year ring starts wherever the calendar starts, which is ten days
+     * later because Caesar put New Year where the consuls took office
+     * rather than where the sun turns. Rotating the ring to hide that would
+     * cost the one property that makes it worth drawing — that the Earth
+     * always stands exactly on today's mark. So the four real dates are
+     * marked instead, and the ten-day gap becomes something the dial says
+     * rather than something it gets wrong.
+     *
+     * Found by walking the year and watching for the crossing rather than
+     * by a formula, because the crossing is what is being drawn: the mark
+     * has to land on a day the ring actually has a tick for, and the
+     * nearest tick to an exact instant is not always the day the almanac
+     * prints. Cached, because the answer only changes once a year and the
+     * ring is redrawn many times a second.
+     */
+    fun quarterDays(year: Int): Set<Int> {
+        if (year == quarterYear) return quarterCache
+        val first = CivilDays.epochDay(year, 1, 1)
+        val found = mutableSetOf<Int>()
+        var wasQuadrant = -1
+        for (i in 0 until Orrery.daysInYear(year)) {
+            val day = first + i
+            val quadrant =
+                (Orrery.longitude(Orrery.Body.EARTH, day * CivilDays.DAY_MS) / 90.0).toInt()
+            // The day before, not this one. Each day is sampled at its own
+            // midnight, so finding the Earth past the boundary at the start
+            // of a day means it crossed at some point during the day
+            // before — and the day it crossed on is the date the almanac
+            // prints. Marked as found it, the ring put every solstice and
+            // equinox one tick late, which is invisible on the ring and
+            // wrong in the only place it can be checked.
+            if (wasQuadrant >= 0 && quadrant != wasQuadrant && i > 0) found += day - 1
+            wasQuadrant = quadrant
+        }
+        quarterYear = year
+        quarterCache = found
+        return found
+    }
+
     /**
      * The year the dial is standing in, marked out in days.
      *
@@ -416,16 +465,23 @@ object OrreryDial {
         val first = CivilDays.epochDay(year, 1, 1)
         val today = CivilDays.dayOf(TimeKeeper.nowMs(), 0)
         val rim = r * 0.94f
+        val quarters = quarterDays(year)
         for (i in 0 until Orrery.daysInYear(year)) {
             val day = first + i
             val angle = Orrery.longitude(Orrery.Body.EARTH, day * CivilDays.DAY_MS)
+            val quarterDay = day in quarters
             val monthStart = CivilDays.dateOf(day).third == 1
-            val inner = rim - r * (if (monthStart) 0.045f else 0.022f)
+            val length = when {
+                quarterDay -> 0.075f
+                monthStart -> 0.045f
+                else -> 0.022f
+            }
+            val inner = rim - r * length
             val from = pointOn(cx, cy, inner, angle)
             val to = pointOn(cx, cy, rim, angle)
             stroke.color = theme.numeral
-            stroke.alpha = ((if (monthStart) 150 else 70) * alpha).toInt()
-            stroke.strokeWidth = r * (if (monthStart) 0.006f else 0.003f)
+            stroke.alpha = ((if (quarterDay) 220 else if (monthStart) 150 else 70) * alpha).toInt()
+            stroke.strokeWidth = r * (if (quarterDay) 0.009f else if (monthStart) 0.006f else 0.003f)
             canvas.drawLine(from.x, from.y, to.x, to.y, stroke)
 
             if (day in busyDays) {
@@ -480,6 +536,10 @@ object OrreryDial {
     ) {
         stroke.color = theme.minorTick
         stroke.strokeWidth = r * 0.004f
+        // Stronger on a daylit sky. A thin grey circle that reads against
+        // black disappears against pale blue, and the orbits are the thing
+        // that makes this a solar system rather than nine dots.
+        val lift = if (isPale(theme.face)) 1.9f else 1f
         for (body in Orrery.planets) {
             // No orbit for a planet nobody knew was there. The ring is the
             // loudest part of a planet on this dial — a circle across the
@@ -490,7 +550,7 @@ object OrreryDial {
             // The outer rings fainter than the inner ones, which is what
             // stops eight concentric circles reading as a target.
             val depth = Orrery.planets.indexOf(body) / (Orrery.planets.size - 1f)
-            stroke.alpha = ((90 - 40 * depth) * a).toInt()
+            stroke.alpha = ((90 - 40 * depth) * a * lift).toInt().coerceAtMost(255)
             val radius = ringRadius(body, r, zoom)
             // A ring wider than the face has no part of it inside the face,
             // so there is nothing to draw. The whole sky is clipped to the

@@ -2283,6 +2283,16 @@ class ClockView @JvmOverloads constructor(
     private fun visibleNumeralHours(): List<Int> {
         if (numeralStyle == NumeralStyle.NONE) return emptyList()
         val n = hoursOnDial
+        // The numerals follow the marks. Asking for four marks and getting
+        // twelve numerals is a dial that has half heard you — and asking
+        // for none and getting all twelve is worse, because then the marks
+        // switch does nothing you can see.
+        if (dialMarks in 1 until n) {
+            // markedHours counts from zero, where zero is the top of the
+            // dial; an hour numeral counts from one and the top one is n.
+            return markedHours().map { if (it == 0) n else it }.sorted()
+        }
+        if (dialMarks <= 0) return emptyList()
         val step = if (n > 12) 2 else 1
         val list = ArrayList<Int>()
         var h = step
@@ -4241,6 +4251,45 @@ class ClockView @JvmOverloads constructor(
     }
 
     /**
+     * How many of the hours carry a mark.
+     *
+     * All twelve, or every other one, or the four quarters, or none. A
+     * dial with four marks on it is perfectly ordinary and reads at a
+     * glance; a dial with none is a Braun, and it is a real thing somebody
+     * would choose.
+     *
+     * Kept as "one in how many" rather than as a count, so it works on the
+     * dials that do not have twelve hours on them: a twenty-four hour face
+     * asked for four marks gets one every six hours, which is the same
+     * quarter of the dial the twelve-hour face gets.
+     */
+    var dialMarks = 12
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** Whether the sixty small ticks between the hours are drawn. */
+    var minuteMarks = true
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** Which hours carry a mark, given how many were asked for. */
+    private fun markedHours(): List<Int> {
+        if (dialMarks <= 0) return emptyList()
+        val n = hoursOnDial
+        // One mark every so many hours. The counts the settings offer all
+        // divide both twelve and twenty-four, so the division is exact
+        // there and the rounding only decides what a face with some other
+        // number of hours on it does — where the nearest whole spacing is
+        // the only answer that keeps the marks evenly spread.
+        val every = maxOf(1, Math.round(n.toFloat() / dialMarks))
+        return (0 until n).filter { it % every == 0 }
+    }
+
+    /**
      * The minute and hour marks, on a ring rather than along the edge.
      *
      * The marks used to be laid on the outline, which on a square is a
@@ -4253,25 +4302,45 @@ class ClockView @JvmOverloads constructor(
      * case, and a case is not the part you read the time off.
      */
     private fun drawTicks(canvas: Canvas, cx: Float, cy: Float, r: Float) {
-        for (i in 0 until 60) {
-            val angle = i / 60f * 360f
-            val b = apothemRadius()
-            val isMajor = hoursOnDial == 12 && i % 5 == 0
-            val paint = if (isMajor) tickPaint else minorTickPaint
-            paint.strokeWidth =
-                (if (isMajor) r * 0.018f else r * 0.008f) * faceScale()
-            val outerLen = (if (isMajor) r * 0.08f else r * 0.045f) * faceScale()
-            val from = pointAt(cx, cy, angle, b * 0.97f - outerLen)
-            val to = pointAt(cx, cy, angle, b * 0.97f)
-            canvas.drawLine(from.x, from.y, to.x, to.y, paint)
+        val hours = markedHours()
+        if (minuteMarks) {
+            for (i in 0 until 60) {
+                val angle = i / 60f * 360f
+                val b = apothemRadius()
+                // A minute tick that lands on a marked hour becomes the
+                // hour's own mark, on a twelve-hour face where the two
+                // rings coincide. Everywhere else the hours get a mark of
+                // their own below.
+                val isMajor = hoursOnDial == 12 && i % 5 == 0 && (i / 5) in hours
+                val paint = if (isMajor) tickPaint else minorTickPaint
+                paint.strokeWidth =
+                    (if (isMajor) r * 0.018f else r * 0.008f) * faceScale()
+                val outerLen = (if (isMajor) r * 0.08f else r * 0.045f) * faceScale()
+                val from = pointAt(cx, cy, angle, b * 0.97f - outerLen)
+                val to = pointAt(cx, cy, angle, b * 0.97f)
+                canvas.drawLine(from.x, from.y, to.x, to.y, paint)
+            }
         }
-        if (hoursOnDial != 12) {
-            for (i in 0 until hoursOnDial) {
+        // The hours themselves, wherever the minute ring did not already
+        // draw them: on a dial with no minute ticks, and on any dial whose
+        // hours do not fall on fifths of the circle.
+        //
+        // Where they go depends on why the ring did not draw them. With the
+        // minute ticks switched off the chapter ring is empty, so the hours
+        // take it over — the mark stays where it was and only its smaller
+        // neighbours disappear. With the minute ticks on but the hours off
+        // the fifths, the outer ring is occupied, so the hours go inside it,
+        // on a ring of their own that clears the numerals.
+        val ringDrewThem = minuteMarks && hoursOnDial == 12
+        if (!ringDrewThem) {
+            for (i in hours) {
                 val angle = i.toFloat() / hoursOnDial * 360f
                 val b = apothemRadius()
                 tickPaint.strokeWidth = r * 0.018f * faceScale()
-                val from = pointAt(cx, cy, angle, b * 0.80f)
-                val to = pointAt(cx, cy, angle, b * 0.87f)
+                val outer = if (minuteMarks) b * 0.87f else b * 0.97f
+                val len = if (minuteMarks) b * 0.07f else r * 0.08f * faceScale()
+                val from = pointAt(cx, cy, angle, outer - len)
+                val to = pointAt(cx, cy, angle, outer)
                 canvas.drawLine(from.x, from.y, to.x, to.y, tickPaint)
             }
         }
@@ -4813,13 +4882,13 @@ class ClockView @JvmOverloads constructor(
      * a second a long press already costs. Beyond it, keep pressing.
      */
     internal fun leapToNextAlignment(): Boolean {
-        val from = orreryMs() + CivilDays.DAY_MS
+        val from = orreryTargetMs() + CivilDays.DAY_MS
         val found = Orrery.nextAlignment(
             from, ALIGNMENT_ARC, atLeast = 3, limitDays = 40 * 365
         ) ?: return false
         // Travelling, like every other move that is not a finger on a
         // planet: the years going past is the thing worth seeing.
-        return glideOrreryTo(orreryOffsetMs + (found - orreryMs()))
+        return glideOrreryTo(orreryTargetOffsetMs() + (found - orreryTargetMs()))
     }
 
     /**
@@ -5277,8 +5346,15 @@ class ClockView @JvmOverloads constructor(
      * on a dark face and turning the dial down for the bedroom has to turn
      * it down too.
      */
-    private fun skyTheme(): ClockTheme =
-        if (theme.dimmed) ClockThemes.dim(ClockThemes.SKY) else ClockThemes.SKY
+    private fun skyTheme(): ClockTheme {
+        if (theme.dimmed) return ClockThemes.dim(ClockThemes.SKY)
+        // A pale clock gets the blue sky and a dark one gets the black.
+        // Black in a white case is a hole rather than a window, and the
+        // blue is the honest version anyway: Venus at noon is a party
+        // trick, not a contradiction, and every orrery ever built stood in
+        // front of a daylit room.
+        return if (ClockThemes.isPaleFace(theme)) ClockThemes.DAY_SKY else ClockThemes.SKY
+    }
 
     /**
      * Where the wound date is sitting, so a finger can find it.
@@ -5317,18 +5393,43 @@ class ClockView @JvmOverloads constructor(
      * went the other way would be a press with a mood.
      */
     internal fun leapToNextSkyEvent(): Boolean {
-        val today = CivilDays.dayOf(orreryMs(), TimeZone.getDefault().getOffset(orreryMs()))
+        // From where the sky is *going*, not from where it has got to. A
+        // second press part way through a journey used to ask "what is the
+        // next event after here", find the one already being travelled to,
+        // and set off for it again from a little further along — so
+        // tapping quickly looked like a dial that had jammed. Asked of the
+        // destination, presses queue up: each one adds an event, and a
+        // fast run of them goes several events forward at once.
+        val from = orreryTargetMs()
+        val today = CivilDays.dayOf(from, TimeZone.getDefault().getOffset(from))
         val next = SkyEvents.nextDay(today) ?: return false
         // Noon, so the day is unambiguous whatever the zone does to it.
         val at = (next * CivilDays.DAY_MS + CivilDays.DAY_MS / 2) -
-            TimeZone.getDefault().getOffset(orreryMs())
+            TimeZone.getDefault().getOffset(from)
         // Travelling, not jumping. The planets swing round their orbits at
         // the speeds their own years demand and you watch the weeks go by,
         // which is the same journey the sun's own press makes back to
         // today — and is most of what makes this a mechanism rather than a
         // date picker.
-        return glideOrreryTo(orreryOffsetMs + (at - orreryMs()))
+        return glideOrreryTo(orreryTargetOffsetMs() + (at - from))
     }
+
+    /**
+     * Where the sky is heading, as an instant and as an offset.
+     *
+     * The same as where it is when it is standing still. Everything that
+     * decides *where to go next* asks these rather than [orreryMs], so
+     * that a press landing part way through a journey adds to it instead
+     * of arguing with it.
+     */
+    private fun orreryTargetOffsetMs(): Long =
+        if (glideStartedAt == NEVER) orreryOffsetMs else glideToOffsetMs
+
+    private fun orreryTargetMs(): Long =
+        displayNowMs() + (visualOffsetSeconds * 1000.0).toLong() + orreryTargetOffsetMs()
+
+    /** For the tests: the instant the sky is on its way to. */
+    internal fun orreryTargetForTest(): Long = orreryTargetMs()
 
     private fun drawOrrery(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         val fade = orreryFade()
@@ -6718,7 +6819,7 @@ class ClockView @JvmOverloads constructor(
         }
 
     /**
-     * How many shadows the last frame laid down.
+     * How many shadows the last frame laid down, hands and wreckage both.
      *
      * Counted rather than looked for in the pixels, because a shadow is
      * black on a face that is nearly black and "is there ink here" is not
@@ -6803,6 +6904,21 @@ class ClockView @JvmOverloads constructor(
         }
 
     /**
+     * Whether the clock is lying on the ground or hanging on a wall.
+     *
+     * The engine was built on the first and only ever knew the first —
+     * see [HandShadow.Surface]. A wall clock is not the same problem
+     * turned round: twelve points up rather than north, the light comes
+     * at the face rather than across it, and the sun going behind the wall
+     * puts the shadow out however high it still is.
+     */
+    var shadowSurface = HandShadow.Surface.GROUND
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /**
      * The three shadows, if there is a sun to cast them.
      *
      * Each hand is drawn again, in the same shape and at the same length,
@@ -6816,7 +6932,19 @@ class ClockView @JvmOverloads constructor(
         val light = overheadLight() ?: return
         val strength = HandShadow.strength(light.altitudeDeg) * light.brightness
         if (strength <= 0.01f) return
-        val away = HandShadow.bearing(light.azimuthDeg)
+        // Where the shadow runs, and how far for each unit of a hand's
+        // height. On the ground both come out of the altitude alone; on a
+        // wall the sun's direction has to be projected onto the face, and
+        // it can come out pointing anywhere — including straight up, which
+        // a ground clock's shadow never does.
+        val onGround = shadowSurface == HandShadow.Surface.GROUND
+        val wall = if (onGround) {
+            null
+        } else {
+            HandShadow.onWall(light.altitudeDeg, light.azimuthDeg, shadowLatitude)
+                ?: return
+        }
+        val away = wall?.first ?: HandShadow.bearing(light.azimuthDeg)
 
         drawDialDome(canvas, cx, cy, r, light)
 
@@ -6836,7 +6964,12 @@ class ClockView @JvmOverloads constructor(
         for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
             if (!handIsOn(hand)) continue
             if (isFallen(hand)) continue
-            val reach = HandShadow.reach(HandShadow.heightOf(hand), light.altitudeDeg)
+            val height = HandShadow.heightOf(hand)
+            val reach = if (wall == null) {
+                HandShadow.reach(height, light.altitudeDeg)
+            } else {
+                (height * wall.second).coerceAtMost(HandShadow.MAX_LENGTH)
+            }
             if (reach <= 0f) continue
             val at = pointAt(cx, cy, away, reach * r)
             val width = r * widthOf(hand) * faceScale()
@@ -6860,7 +6993,68 @@ class ClockView @JvmOverloads constructor(
             }
             shadowsPainted++
         }
+        drawDebrisShadows(canvas, r, away, strength, light)
         canvas.restore()
+    }
+
+    /**
+     * And a shadow under whatever is lying in the case.
+     *
+     * A hand that falls off used to lose its shadow in the same frame,
+     * which reads as the light going out rather than as the hand landing.
+     * What a real one does is the opposite of nothing: an object lying
+     * *on* a surface still has a shadow, a tight dark line right under it
+     * where no light can get, and it is the shortest shadow that object
+     * will ever cast rather than the absence of one.
+     *
+     * So the contact height is a fraction of the lowest mounted hand's.
+     * The shadow does not vanish when a hand comes off — it collapses,
+     * which is what the eye expects from something that has just landed.
+     */
+    private fun drawDebrisShadows(
+        canvas: Canvas,
+        r: Float,
+        away: Float,
+        strength: Float,
+        light: HandShadow.Light
+    ) {
+        if (debris.bodies.isEmpty()) return
+        val height = HandShadow.heightOf(Hand.HOUR) * CONTACT_HEIGHT
+        val reach = if (shadowSurface == HandShadow.Surface.GROUND) {
+            HandShadow.reach(height, light.altitudeDeg)
+        } else {
+            val wall = HandShadow.onWall(light.altitudeDeg, light.azimuthDeg, shadowLatitude)
+                ?: return
+            (height * wall.second).coerceAtMost(HandShadow.MAX_LENGTH)
+        }
+        if (reach <= 0f) return
+        val rad = Math.toRadians(away.toDouble())
+        val dx = (sin(rad) * reach * r).toFloat() * if (mirrored) -1f else 1f
+        val dy = (-cos(rad) * reach * r).toFloat()
+        val haze = r * HandShadow.penumbra(height, light.altitudeDeg)
+        shadowPaint.color =
+            if (light.moon) HandShadow.MOON_TINT else android.graphics.Color.BLACK
+        for (b in debris.bodies) {
+            // Only the pieces that are a stroke of something: the numerals
+            // and the date are text, and a blurred copy of a word offset
+            // by three pixels is not a shadow, it is a printing fault.
+            if (b.kind == DialDebris.Kind.NUMERAL || b.kind == DialDebris.Kind.DATE) continue
+            val bodyRad = Math.toRadians(b.angleDeg.toDouble())
+            val dirX = sin(bodyRad).toFloat()
+            val dirY = -cos(bodyRad).toFloat()
+            for (pass in HandShadow.SPREAD.indices) {
+                shadowPaint.alpha =
+                    (128 * strength * HandShadow.PASS_ALPHA[pass]).toInt().coerceIn(0, 255)
+                shadowPaint.strokeWidth =
+                    b.strokeWidth + 2f * haze * HandShadow.SPREAD[pass]
+                canvas.drawLine(
+                    b.x + dx - dirX * b.halfLen, b.y + dy - dirY * b.halfLen,
+                    b.x + dx + dirX * b.halfLen, b.y + dy + dirY * b.halfLen,
+                    shadowPaint
+                )
+            }
+            shadowsPainted++
+        }
     }
 
     /**
@@ -6935,6 +7129,18 @@ class ClockView @JvmOverloads constructor(
     }
 
     companion object {
+        /**
+         * How high a fallen piece lies above the face, against the lowest
+         * mounted hand.
+         *
+         * A fifth: it is lying *on* the dial rather than turning above it,
+         * so what it has is a contact shadow — the tight dark line under
+         * something that is touching a surface. Not nothing, which is what
+         * it had, and which read as the light going out at the moment the
+         * hand came off.
+         */
+        private const val CONTACT_HEIGHT = 0.2f
+
         const val MIN_SCALE = 0.35f
         const val MAX_SCALE = 1f
 

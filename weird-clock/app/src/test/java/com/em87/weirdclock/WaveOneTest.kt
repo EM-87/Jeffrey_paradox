@@ -134,7 +134,7 @@ class WaveOneTest {
     @Test
     fun `a stretched widget is drawn bigger than a small one`() {
         val manager = AppWidgetManager.getInstance(context)
-        val small = ClockWidgetProvider.dialPixels(context, manager, 1)
+        val small = WidgetRenderer.dialPixels(context, manager, 1)
         assertTrue("some sensible size with nothing known", small > 0)
     }
 
@@ -147,7 +147,7 @@ class WaveOneTest {
     fun `and never smaller than legible nor bigger than sensible`() {
         val manager = AppWidgetManager.getInstance(context)
         val density = context.resources.displayMetrics.density
-        val size = ClockWidgetProvider.dialPixels(context, manager, 1)
+        val size = WidgetRenderer.dialPixels(context, manager, 1)
         assertTrue("$size", size >= (64 * density).toInt())
         assertTrue("$size", size <= (320 * density).toInt())
     }

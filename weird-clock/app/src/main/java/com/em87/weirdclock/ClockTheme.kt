@@ -204,6 +204,41 @@ object ClockThemes {
         numeral = 0xFFDDE3F0.toInt()
     )
 
+    /**
+     * And the daylight sky, for a dial that is not made of night.
+     *
+     * Black is what space is, and on the midnight dial that is exactly
+     * right. Dropped into a white clock it is a hole: the report from the
+     * phone was that it "contrasts a great deal", which it does — a black
+     * disc in a pale case reads as a piece missing rather than as a
+     * window.
+     *
+     * So a pale theme gets the sky the way you actually see it, which is
+     * blue. It is the honest version too: the naked-eye planets are
+     * daytime objects as often as not — Venus at noon is a famous party
+     * trick — and a diagram of the solar system on a blue ground is what
+     * every orrery ever built stood in front of.
+     *
+     * The orbits are drawn nearly twice as strongly here as on the night
+     * face, because a thin grey circle that reads on black disappears on
+     * pale blue.
+     */
+    val DAY_SKY = ClockTheme(
+        face = 0xFF9EC4E8.toInt(),
+        rim = 0xFF9AA2B4.toInt(),
+        tick = 0xFF16324B.toInt(),
+        minorTick = 0xFF2E5F87.toInt(),
+        numeral = 0xFF16324B.toInt(),
+        hourHand = 0xFF10121A.toInt(),
+        minuteHand = 0xFF2E3444.toInt(),
+        secondHand = 0xFFD32F2F.toInt(),
+        decimal = 0xFF00796B.toInt(),
+        centerDot = 0xFF10121A.toInt(),
+        amMark = 0xFF1E8E4A.toInt(),
+        pmMark = 0xFF2E5FD0.toInt(),
+        sunMark = 0xFFD09000.toInt()
+    )
+
     fun byKey(key: String?): ClockTheme = when (key) {
         "ivory" -> IVORY
         "neon" -> NEON
@@ -211,6 +246,15 @@ object ClockThemes {
         "sunset" -> SUNSET
         "daylight" -> DAYLIGHT
         else -> MIDNIGHT
+    }
+
+    /** Whether a theme's face is light enough to need dark ink on it. */
+    fun isPaleFace(theme: ClockTheme): Boolean {
+        val c = theme.face
+        val r = (c shr 16) and 0xFF
+        val g = (c shr 8) and 0xFF
+        val b = c and 0xFF
+        return 0.299f * r + 0.587f * g + 0.114f * b > 140f
     }
 
     private fun systemInDarkMode(context: android.content.Context): Boolean =

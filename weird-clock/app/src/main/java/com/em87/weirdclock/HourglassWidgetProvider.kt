@@ -74,6 +74,22 @@ class HourglassWidgetProvider : AppWidgetProvider() {
 
         fun pushIdle(context: Context) = push(context, 0L, 1L)
 
+        /**
+         * Repaints every countdown widget with whatever is on the timer.
+         *
+         * The other two providers have had one of these all along; this
+         * one only ever repainted when the countdown itself moved, so a
+         * change of opacity or of theme had to wait for the next tick of a
+         * timer that might not be running.
+         */
+        fun refreshAll(context: Context) {
+            val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+            val endsAt = prefs.getLong(Prefs.COUNTDOWN_ENDS_AT, 0L)
+            val total = prefs.getLong(Prefs.COUNTDOWN_TOTAL, 1L)
+            val left = (endsAt - android.os.SystemClock.elapsedRealtime()).coerceAtLeast(0L)
+            push(context, left, total.coerceAtLeast(1L))
+        }
+
         private fun renderBitmap(
             context: Context,
             remainingMs: Long,
@@ -90,7 +106,11 @@ class HourglassWidgetProvider : AppWidgetProvider() {
             view.layout(0, 0, width, height)
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             view.draw(Canvas(bitmap))
-            return bitmap
+            // Faded once at the end, by the amount asked for, exactly as
+            // the other two widgets are — see [WidgetRenderer.faded].
+            return WidgetRenderer.faded(
+                bitmap, WidgetRenderer.alphaOf(context, Prefs.WIDGET_ALPHA_HOURGLASS)
+            )
         }
     }
 }

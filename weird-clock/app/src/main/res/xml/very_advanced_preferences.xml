@@ -16,14 +16,6 @@
 
     <PreferenceCategory android:title="@string/category_dial">
 
-        <ListPreference
-            android:defaultValue="clock"
-            android:entries="@array/mark_colors_entries"
-            android:entryValues="@array/mark_colors_values"
-            android:key="pref_mark_colors"
-            android:title="@string/pref_mark_colors_title"
-            app:useSimpleSummaryProvider="true" />
-
         <!-- The hands, from the slowest one anybody would think of turning
              off downwards. A clock with no minute hand is a clock you read
              to the nearest hour, which is how a great many of them were
@@ -52,15 +44,6 @@
             android:key="pref_fast_hand"
             android:title="@string/pref_fast_hand_title"
             app:useSimpleSummaryProvider="true" />
-
-        <!-- Shadows belong with the hands rather than with the dial's
-             colours, because what they are actually about is the hands
-             standing at three different heights above the face. -->
-        <SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:key="pref_hand_shadows"
-            android:summary="@string/pref_hand_shadows_summary"
-            android:title="@string/pref_hand_shadows_title" />
 
         <!-- Down from the advanced screen, and under the second hand where
              it belongs: the tick is the sound of that hand moving, and

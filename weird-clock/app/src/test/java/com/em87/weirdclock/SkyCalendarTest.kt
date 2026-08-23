@@ -265,6 +265,50 @@ class SkyCalendarTest {
     }
 
     /**
+     * Pressed quickly, the presses add up instead of jamming.
+     *
+     * The dial travels to the event it was sent to, and travelling takes a
+     * second or so. A second press landing during that second used to ask
+     * "what is the next event after where the planets have got to" — and
+     * where they had got to was a few days short of the event already being
+     * travelled to, so the answer was that same event, and the dial set off
+     * for it again from slightly further along. Tap slowly and it walked
+     * the calendar; tap quickly and it stuck, which is exactly the way
+     * round a person would never guess.
+     *
+     * Asked of the destination instead, four quick presses are four events,
+     * and the only thing the speed changes is how much of the journey you
+     * see.
+     */
+    @Test
+    fun `pressing quickly stacks the leaps instead of jamming`() {
+        val clock = sky()
+        val start = CivilDays.dayOf(
+            clock.orreryTargetForTest(),
+            java.util.TimeZone.getDefault().getOffset(clock.orreryTargetForTest())
+        )
+        // Four presses inside a tenth of a second: far less than the
+        // journey, so every one after the first lands mid-flight.
+        val wanted = mutableListOf<Int>()
+        var day = start
+        repeat(4) {
+            day = SkyEvents.nextDay(day)!!
+            wanted += day
+            assertTrue("a quick press was refused", clock.leapToNextSkyEvent())
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(25))
+        }
+        clock.settleOrreryForTest()
+        val landed = dayOf(clock)
+        assertEquals(
+            "four quick presses did not go four events forward",
+            wanted.last(), landed
+        )
+        // Which is a real distance, not the same day dressed up: the fourth
+        // event is further off than the first.
+        assertTrue("the four events were all the same day", wanted.last() > wanted.first())
+    }
+
+    /**
      * And it travels there rather than arriving.
      *
      * The whole point of this dial is that time is a mechanism: carry a

@@ -44,8 +44,64 @@ object WidgetRenderer {
         return polygon * (DIAL_FRACTION / 0.94f)
     }
 
-    /** How much of the bitmap the dial itself occupies. */
-    private const val DIAL_FRACTION = 0.90f
+    /**
+     * How much of the bitmap the dial itself occupies.
+     *
+     * Shared by every widget this app draws, and that is the point of it
+     * being here. The clock kept 0.90 and the solar system 0.94, which
+     * nobody would ever notice apart — and which made the two impossible
+     * to place side by side on a home screen, because the same widget size
+     * gave two different circles.
+     */
+    const val DIAL_FRACTION = 0.90f
+
+    /** The size a widget is drawn at, in density-independent pixels. */
+    const val DEFAULT_DIAL_DP = 160
+    const val MIN_DIAL_DP = 64
+    const val MAX_DIAL_DP = 320
+
+    /**
+     * How many pixels square to draw at, for the widget with this id.
+     *
+     * One copy for all three widgets, for the same reason as the fraction
+     * above: a dial is round, so the square it needs is the smaller side,
+     * and every push crosses a process boundary whole, so both ends are
+     * capped.
+     */
+    fun dialPixels(
+        context: Context,
+        manager: android.appwidget.AppWidgetManager,
+        id: Int
+    ): Int {
+        val options = manager.getAppWidgetOptions(id)
+        val wDp = options.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH)
+        val hDp = options.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
+        val sideDp = minOf(
+            wDp.takeIf { it > 0 } ?: DEFAULT_DIAL_DP,
+            hDp.takeIf { it > 0 } ?: DEFAULT_DIAL_DP
+        )
+        val density = context.resources.displayMetrics.density
+        return (sideDp.coerceIn(MIN_DIAL_DP, MAX_DIAL_DP) * density).toInt()
+    }
+
+    /**
+     * Which stored opacity a widget goes by.
+     *
+     * One key each, so the solar system on the home screen can be a ghost
+     * while the clock beside it is solid. They shared a key when only the
+     * clock had a slider, and sharing it would have made the new sliders a
+     * lie: three controls moving one number.
+     */
+    fun alphaKeyOf(provider: String): String = when {
+        provider.endsWith("OrreryWidgetProvider") -> Prefs.WIDGET_ALPHA_ORRERY
+        provider.endsWith("HourglassWidgetProvider") -> Prefs.WIDGET_ALPHA_HOURGLASS
+        else -> Prefs.WIDGET_ALPHA
+    }
+
+    /** The opacity a widget is drawn at, from its own stored percentage. */
+    fun alphaOf(context: Context, key: String): Int = opacity(
+        PreferenceManager.getDefaultSharedPreferences(context).getInt(key, 100)
+    )
 
     fun dialBitmap(context: Context, sizePx: Int): Bitmap {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)

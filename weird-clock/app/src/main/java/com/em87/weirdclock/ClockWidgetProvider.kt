@@ -83,13 +83,6 @@ class ClockWidgetProvider : AppWidgetProvider() {
 
     companion object {
 
-        /** The size a widget nobody has stretched is drawn at, in dp. */
-        private const val DEFAULT_DIAL_DP = 160
-
-        /** And the ends of the range, so IPC never carries a poster. */
-        private const val MIN_DIAL_DP = 64
-        private const val MAX_DIAL_DP = 320
-
         /** Our own wake-up: the sky has changed and the dial is stale. */
         const val ACTION_SKY_TICK = "com.em87.weirdclock.SKY_TICK"
 
@@ -179,26 +172,6 @@ class ClockWidgetProvider : AppWidgetProvider() {
             }
         }
 
-        /**
-         * How many pixels square to render the dial at, for the widget
-         * with this id.
-         *
-         * Capped at both ends: every push crosses process boundaries whole,
-         * so a bitmap sized to a tablet's home screen is a bitmap being
-         * copied through IPC several times a minute.
-         */
-        internal fun dialPixels(context: Context, manager: AppWidgetManager, id: Int): Int {
-            val options = manager.getAppWidgetOptions(id)
-            val wDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH)
-            val hDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
-            // A dial is round, so the square it needs is the smaller side.
-            val sideDp = minOf(
-                wDp.takeIf { it > 0 } ?: DEFAULT_DIAL_DP,
-                hDp.takeIf { it > 0 } ?: DEFAULT_DIAL_DP
-            )
-            val density = context.resources.displayMetrics.density
-            return (sideDp.coerceIn(MIN_DIAL_DP, MAX_DIAL_DP) * density).toInt()
-        }
 
         /** For the tests: the widget as it would be handed to a launcher. */
         internal fun viewsForTest(context: Context, id: Int): RemoteViews =
@@ -221,13 +194,13 @@ class ClockWidgetProvider : AppWidgetProvider() {
             if (Build.VERSION.SDK_INT >= 31) {
                 val prefs = PreferenceManager.getDefaultSharedPreferences(context)
                 val theme = ClockThemes.resolve(context, prefs.getString(Prefs.THEME, "midnight"))
-                val size = dialPixels(context, manager, id)
+                val size = WidgetRenderer.dialPixels(context, manager, id)
                 // On polygonal dials the rotating hand bitmaps must fit the
                 // inscribed circle, or they'd poke through the flat edges.
                 val fit = WidgetRenderer.handFitFraction(context)
                 // Everything fades together. A solid hand over a ghost of a
                 // face is not a transparent clock, it is a broken one.
-                val alpha = WidgetRenderer.opacity(prefs.getInt(Prefs.WIDGET_ALPHA, 100))
+                val alpha = WidgetRenderer.alphaOf(context, Prefs.WIDGET_ALPHA)
                 fun faded(bitmap: android.graphics.Bitmap) =
                     Icon.createWithBitmap(WidgetRenderer.faded(bitmap, alpha))
                 views.setIcon(

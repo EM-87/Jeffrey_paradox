@@ -738,6 +738,192 @@ class HandShadowTest {
         )
     }
 
+    // ------------------------------------------------------ after they fall
+
+    /**
+     * A hand that falls off keeps a shadow.
+     *
+     * It used to lose it in the same frame it landed, and what that reads
+     * as is the light going out — the sun is still up, everything else on
+     * the dial is still casting, and the piece that just came off is the
+     * one thing lit from nowhere. What a real object lying on a surface
+     * has is the *shortest* shadow it will ever cast, a tight dark line
+     * directly under it, so the shadow collapses rather than vanishing.
+     */
+    @Test
+    fun `wreckage on the dial is still lit`() {
+        val v = shadowedDial()
+        paint(v)
+        val standing = v.shadowsPaintedForTest()
+        assertTrue("nothing was casting to begin with", standing > 0)
+        v.knockHandsOff()
+        paint(v)
+        assertTrue(
+            "the fallen hands went out with the light",
+            v.shadowsPaintedForTest() > 0
+        )
+    }
+
+    /** And the shadow it keeps is a short one, because it is lying down. */
+    @Test
+    fun `a fallen hand's shadow is shorter than a standing one`() {
+        // The contact height against the hour hand's mounted height, at the
+        // same sun: the reach is proportional to the height, so this is the
+        // whole of the claim in one comparison.
+        val mounted = HandShadow.heightOf(ClockView.Hand.HOUR)
+        val lying = mounted * 0.2f
+        val sun = 35.0
+        assertTrue(
+            "a hand on the floor throws as far as one on its pivot",
+            HandShadow.reach(lying, sun) < HandShadow.reach(mounted, sun)
+        )
+        assertTrue("a hand on the floor throws nothing at all", HandShadow.reach(lying, sun) > 0f)
+    }
+
+    /** A dial with the sun up, the shadows on, and hands to cast them. */
+    private fun shadowedDial(): ClockView {
+        val activity = org.robolectric.Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        return activity.clockForTest().apply {
+            handShadows = true
+            shadowLatitude = 40.0
+            shadowLongitude = 0.0
+            freezeAtForTest(utc(2026, 6, 21, 12))
+        }
+    }
+
+    // --------------------------------------------------------- on a wall
+
+    /**
+     * A wall clock is not a sundial lying face up, and the difference is
+     * not decoration.
+     *
+     * On the ground the sun is in front of you all day and the shadow is
+     * long when the sun is low. On a wall it is the other way round twice
+     * over: the shadow is long when the sun is *high*, because it is the
+     * height of the sun that pushes the shadow down the face — and for half
+     * the day there is no shadow at all, because the sun is round the back.
+     * Nothing that draws a ground shadow can pass this section by accident.
+     */
+    @Test
+    fun `a wall faces the equator`() {
+        assertEquals("a northern wall does not face south", 180.0, HandShadow.wallFacing(40.0), 1e-9)
+        assertEquals("a southern wall does not face north", 0.0, HandShadow.wallFacing(-33.0), 1e-9)
+    }
+
+    /** The sun round the back of the wall throws nothing on its face. */
+    @Test
+    fun `the sun behind the wall casts nothing`() {
+        assertNull(
+            "a wall clock in Madrid is lit from the north",
+            HandShadow.onWall(30.0, 0.0, 40.0)
+        )
+        assertNull(
+            "a wall clock in Sydney is lit from the south",
+            HandShadow.onWall(30.0, 180.0, -33.0)
+        )
+        // And grazing along the face is not a shadow either — it is a
+        // divisor going to nothing, and the reach it would give runs off
+        // the dial and away across the room.
+        assertNull("a grazing sun still throws", HandShadow.onWall(0.5, 90.0, 40.0))
+    }
+
+    /** Straight in front of the wall, the shadow drops straight down. */
+    @Test
+    fun `the sun in front of the wall drops the shadow to six`() {
+        val (bearing, reach) = HandShadow.onWall(30.0, 180.0, 40.0)!!
+        assertEquals("the shadow is not hanging straight down", 180f, bearing, 0.5f)
+        // Down the face by the tangent of the altitude: thirty degrees up
+        // is a shadow of 0.577 heights, and forty-five is exactly one.
+        assertEquals("the reach is not the tangent of the altitude", 0.5774f, reach, 1e-3f)
+        assertEquals(1f, HandShadow.onWall(45.0, 180.0, 40.0)!!.second, 1e-3f)
+    }
+
+    /**
+     * The higher the sun, the further down the wall the shadow reaches —
+     * which is the exact opposite of the ground, and the single cheapest
+     * way to tell the two models apart.
+     */
+    @Test
+    fun `a high sun throws a long shadow on a wall and a short one on the ground`() {
+        val low = HandShadow.onWall(20.0, 180.0, 40.0)!!.second
+        val high = HandShadow.onWall(70.0, 180.0, 40.0)!!.second
+        assertTrue("the wall shadow did not lengthen with the sun: $low then $high", high > low)
+        val h = HandShadow.heightOf(ClockView.Hand.MINUTE)
+        assertTrue(
+            "the ground shadow lengthened with the sun as well",
+            HandShadow.reach(h, 70.0) < HandShadow.reach(h, 20.0)
+        )
+    }
+
+    /**
+     * And it swings the way a wall shadow swings: morning light from the
+     * east puts the shadow on the left of the dial, afternoon light from
+     * the west puts it on the right.
+     *
+     * Left and right are the viewer's, standing in front of the clock. A
+     * north-facing viewer has east on their right hand, so the shadow
+     * running away from an eastern sun runs to their left — which on the
+     * dial is the half between six and twelve going anticlockwise, bearings
+     * of 180 to 360. This is the sign that a projection written from the
+     * wall's side of the plaster rather than the room's gets backwards, and
+     * it gets it backwards while still passing every other test here.
+     */
+    @Test
+    fun `morning light throws the wall shadow left and afternoon light right`() {
+        val morning = HandShadow.onWall(30.0, 135.0, 40.0)!!.first
+        val afternoon = HandShadow.onWall(30.0, 225.0, 40.0)!!.first
+        assertTrue("the morning shadow is not on the left of the dial: $morning", morning in 180f..360f)
+        assertTrue("the afternoon shadow is not on the right: $afternoon", afternoon in 0f..180f)
+        // Symmetrically, too: the two are the same angle either side of six.
+        assertEquals(
+            "the morning and afternoon shadows are not mirrored",
+            360f - morning, afternoon, 0.5f
+        )
+    }
+
+    /** South of the equator the wall faces north and the swing reverses. */
+    @Test
+    fun `the wall shadow swings the other way in the south`() {
+        // Sydney, sun in the north-east of a morning: the viewer faces
+        // south, so east is now on their left and the shadow goes right.
+        val morning = HandShadow.onWall(30.0, 45.0, -33.0)!!.first
+        assertTrue("the southern morning shadow is not on the right: $morning", morning in 0f..180f)
+    }
+
+    /** However the sun stands, the drawn shadow still stops at the rim. */
+    @Test
+    fun `a wall shadow never runs off the dial either`() {
+        val v = dial()
+        v.handShadows = true
+        v.shadowSurface = HandShadow.Surface.WALL
+        for (hour in 6..18) {
+            v.freezeAtForTest(utc(2026, 6, 21, hour))
+            paint(v)
+        }
+        for (hand in ClockView.Hand.entries) {
+            val h = HandShadow.heightOf(hand)
+            for (alt in 1..89) {
+                val wall = HandShadow.onWall(alt.toDouble(), 180.0, 40.0) ?: continue
+                val drawn = (h * wall.second).coerceAtMost(HandShadow.MAX_LENGTH)
+                assertTrue("a wall shadow ran off the dial at $alt degrees", drawn <= HandShadow.MAX_LENGTH)
+            }
+        }
+    }
+
+    /** And the setting is a setting: on the ground, nothing changes. */
+    @Test
+    fun `the ground is still the ground`() {
+        val v = dial()
+        v.handShadows = true
+        v.shadowSurface = HandShadow.Surface.GROUND
+        v.freezeAtForTest(utc(2026, 6, 21, 12))
+        paint(v)
+        val onGround = v.shadowsPaintedForTest()
+        v.shadowSurface = HandShadow.Surface.WALL
+        paint(v)
+        assertEquals("the wall lost a hand's shadow at noon", onGround, v.shadowsPaintedForTest())
+    }
+
     private fun dial(): ClockView {
         val themed = androidx.appcompat.view.ContextThemeWrapper(context, R.style.Theme_WeirdClock)
         return ClockView(themed).apply {

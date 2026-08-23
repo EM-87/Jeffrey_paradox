@@ -12,13 +12,19 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.PreferenceManager
 
 /**
- * How much of the wallpaper shows through the clock widget.
+ * How much of the wallpaper shows through a widget.
  *
- * One question, so one small panel with one slider on it. It is the
- * widget's configuration screen in the Android sense — the launcher opens
- * it from the gear in the popup a long press brings up, beside the bin —
- * which is where every other widget keeps its options and therefore where
- * a thumb goes looking.
+ * One question, so one small panel with one slider on it. It serves all
+ * three widgets — the clock, the solar system and the countdown — and
+ * works out which one it was opened for from the id the launcher hands
+ * it, because a configuration activity per widget would be three copies
+ * of one slider. Each widget keeps its own stored percentage, so the sky
+ * can be a ghost beside a solid clock.
+ *
+ * It is the widget's configuration screen in the Android sense — the
+ * launcher opens it from the gear in the popup a long press brings up,
+ * beside the bin — which is where every other widget keeps its options
+ * and therefore where a thumb goes looking.
  *
  * Two things it has to get right that a screen of the app's own would not
  * have to think about. It must look like something that opened *over* the
@@ -50,6 +56,14 @@ class WidgetSettingsActivity : AppCompatActivity() {
             AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId
         ))
 
+        // Which widget this was opened for. The launcher gives an id and
+        // the manager turns it into a provider; a widget being placed for
+        // the first time may not have one yet, and the clock is the
+        // sensible thing to assume when nothing else is known.
+        val provider = AppWidgetManager.getInstance(this)
+            .getAppWidgetInfo(widgetId)?.provider?.className.orEmpty()
+        val key = WidgetRenderer.alphaKeyOf(provider)
+
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         val pad = (24 * resources.displayMetrics.density).toInt()
 
@@ -63,8 +77,7 @@ class WidgetSettingsActivity : AppCompatActivity() {
         }
         val slider = SeekBar(this).apply {
             max = 100 - WidgetRenderer.MIN_OPACITY_PERCENT
-            progress = prefs.getInt(Prefs.WIDGET_ALPHA, 100) -
-                WidgetRenderer.MIN_OPACITY_PERCENT
+            progress = prefs.getInt(key, 100) - WidgetRenderer.MIN_OPACITY_PERCENT
         }
 
         fun percentOf(progress: Int) = progress + WidgetRenderer.MIN_OPACITY_PERCENT
@@ -78,8 +91,17 @@ class WidgetSettingsActivity : AppCompatActivity() {
                 val percent = percentOf(progress)
                 say(percent)
                 if (!fromUser) return
-                prefs.edit().putInt(Prefs.WIDGET_ALPHA, percent).apply()
-                ClockWidgetProvider.refreshAll(this@WidgetSettingsActivity)
+                prefs.edit().putInt(key, percent).apply()
+                // Only the kind being configured is repainted. All three
+                // would work and would be three bitmaps pushed through IPC
+                // for every step of a slider.
+                when (key) {
+                    Prefs.WIDGET_ALPHA_ORRERY ->
+                        OrreryWidgetProvider.refreshAll(this@WidgetSettingsActivity)
+                    Prefs.WIDGET_ALPHA_HOURGLASS ->
+                        HourglassWidgetProvider.refreshAll(this@WidgetSettingsActivity)
+                    else -> ClockWidgetProvider.refreshAll(this@WidgetSettingsActivity)
+                }
             }
 
             override fun onStartTrackingTouch(bar: SeekBar) = Unit

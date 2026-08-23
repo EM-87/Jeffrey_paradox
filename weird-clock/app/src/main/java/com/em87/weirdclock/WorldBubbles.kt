@@ -82,6 +82,9 @@ class WorldBubbles(
     /** True while anything is still in flight, so the scene counts as untidy. */
     fun anyMoving(): Boolean = bubbles.any { it.moving }
 
+    /** For the tests: the little dials themselves. */
+    internal fun clocksForTest(): List<ClockView> = bubbles.map { it.clock }
+
     private fun selectedWorldTzs(): List<String> {
         if (!prefs.getBoolean(Prefs.WORLD_CLOCK, false)) return emptyList()
         val set = prefs.getStringSet(Prefs.WORLD_TZS, null)
@@ -125,6 +128,23 @@ class WorldBubbles(
         dock()
     }
 
+    /**
+     * Whether the little clocks carry second hands of their own.
+     *
+     * Six sweeping hands on six bubbles is six things moving on a screen
+     * that already has three, and on a clock two centimetres across a
+     * second hand is a hair going round: it says nothing you could read
+     * and costs a frame every sixteen milliseconds to say it. Its own
+     * switch rather than the dial's, because the big face and the little
+     * ones are asking different questions — the big one can be read to the
+     * second and these cannot.
+     */
+    var secondHands = true
+        set(value) {
+            field = value
+            for (b in bubbles) b.clock.showSecondHand = value
+        }
+
     /** The bubbles wear whatever the main dial is wearing. */
     fun applyStyle(cv: ClockView) {
         for (b in bubbles) {
@@ -132,6 +152,7 @@ class WorldBubbles(
             b.clock.hoursOnDial = cv.hoursOnDial
             b.clock.dialShape = cv.dialShape
             b.clock.numeralStyle = cv.numeralStyle
+            b.clock.showSecondHand = secondHands
         }
     }
 

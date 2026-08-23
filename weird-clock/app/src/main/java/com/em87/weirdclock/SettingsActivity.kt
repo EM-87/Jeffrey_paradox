@@ -359,7 +359,10 @@ class SettingsActivity : AppCompatActivity() {
                 Prefs.BELL_MARKS, Prefs.BELL_STYLE, Prefs.TEST_BELLS, Prefs.BELLS_BACKGROUND,
                 Prefs.BELL_PRIORITY
             )
-            follows(Prefs.WORLD_CLOCK, "pref_world_cities")
+            follows(Prefs.WORLD_CLOCK, Prefs.WORLD_SECONDS, "pref_world_cities")
+            // What the alarm markers are coloured by is a question about
+            // the markers, so it hangs off them.
+            follows(Prefs.ALARM_MARKERS, Prefs.MARK_COLORS)
             followsChain(Prefs.MOON_PHASE, Prefs.ORRERY, Prefs.COMETS)
             findPreference<Preference>("pref_version")?.summary = try {
                 val info = requireContext().packageManager
@@ -561,6 +564,23 @@ class SettingsActivity : AppCompatActivity() {
             // not showing one, and that switch lives on the first screen.
             visibleWhen(Prefs.SHOW_DATE, Prefs.DATE_FORMAT, Prefs.DATE_ORDER)
 
+            // A shadow has to fall on something, and where the clock is
+            // standing decides what the sun does to it: across the face,
+            // or at it.
+            follows(Prefs.HAND_SHADOWS, Prefs.SHADOW_SURFACE)
+
+            // The shadows need a place to put the sun over. Without one
+            // they still work, from a middle latitude, and the row says so
+            // rather than leaving somebody to wonder why their December
+            // shadows are the wrong length.
+            DayNight.configure(requireContext())
+            if (!DayNight.hasFix()) {
+                findPreference<Preference>(Prefs.HAND_SHADOWS)?.let {
+                    it.summary = getString(R.string.pref_hand_shadows_summary) + " " +
+                        getString(R.string.pref_hand_shadows_nofix)
+                }
+            }
+
             // How many hours the dial carries is a list, and "some other
             // number" is one of its answers; the slider that asks which is
             // no question at all until then.
@@ -605,18 +625,6 @@ class SettingsActivity : AppCompatActivity() {
                 Prefs.SECOND_HAND,
                 Prefs.SMOOTH_SECONDS, Prefs.FAST_HAND, Prefs.TICKING
             )
-
-            // The shadows need a place to put the sun over. Without one
-            // they still work, from a middle latitude, and the row says so
-            // rather than leaving somebody to wonder why their December
-            // shadows are the wrong length.
-            DayNight.configure(requireContext())
-            if (!DayNight.hasFix()) {
-                findPreference<Preference>(Prefs.HAND_SHADOWS)?.let {
-                    it.summary = getString(R.string.pref_hand_shadows_summary) + " " +
-                        getString(R.string.pref_hand_shadows_nofix)
-                }
-            }
 
             // Installed version, so it's always clear which build is running.
             // What the *system* thinks is armed, read back from

@@ -413,4 +413,22 @@
     <string name="pref_hand_shadows_title">Sombras en las agujas</string>
     <string name="pref_hand_shadows_summary">El reloj está tumbado con las 12 al norte y el sol real le pasa por encima. Las tres agujas están a tres alturas, así que dan tres sombras: ninguna con el sol en lo alto, largas y oblicuas cerca de los polos.</string>
     <string name="pref_hand_shadows_nofix">Aún sin ubicación, así que el sol cruza una latitud media. Usará la tuya en cuanto la esfera tenga una.</string>
+    <string name="pref_shadow_surface_title">Dónde cae la sombra</string>
+    <string name="pref_dial_marks_title">Marcas en la esfera</string>
+    <string name="pref_minute_marks_title">Marcas de minutos</string>
+    <string name="pref_minute_marks_summary">Las sesenta marcas pequeñas entre las horas</string>
+    <string name="pref_world_seconds_title">Segunderos</string>
+    <string name="pref_world_seconds_summary">Un segundero en cada relojito</string>
+
+    <string-array name="shadow_surface_entries">
+        <item>Tumbado en el suelo</item>
+        <item>Colgado en la pared</item>
+    </string-array>
+
+    <string-array name="dial_marks_entries">
+        <item>Doce</item>
+        <item>Seis</item>
+        <item>Cuatro</item>
+        <item>Ninguna</item>
+    </string-array>
 </resources>

@@ -1931,6 +1931,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** For the tests: the main dial, so a picture can be taken of it. */
     internal fun clockForTest(): ClockView = clockView!!
 
+    /** For the tests: the little world clocks floating over it. */
+    internal fun worldClocksForTest(): List<ClockView> = worldBubbles.clocksForTest()
+
+    /** For the tests: the bubbles themselves, to be told something directly. */
+    internal fun worldBubblesForTest(): WorldBubbles = worldBubbles
+
     /** For the tests: the theme the calendar is actually drawing with. */
     internal fun calendarThemeForTest(): ClockTheme? = calendarView?.theme
 
@@ -2703,6 +2709,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val cv = clockView ?: return
 
         cv.hoursOnDial = readHoursOnDial()
+        cv.dialMarks = when (prefs.getString(Prefs.DIAL_MARKS, Prefs.MARKS_12)) {
+            Prefs.MARKS_6 -> 6
+            Prefs.MARKS_4 -> 4
+            Prefs.MARKS_NONE -> 0
+            else -> 12
+        }
+        cv.minuteMarks = prefs.getBoolean(Prefs.MINUTE_MARKS, true)
         cv.dialShape = readDialShape()
         // Off while a time is being wound, whatever the setting says — see
         // applyMode(). Anything that reapplies preferences mid-wind would
@@ -2747,6 +2760,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // because a switch that draws nothing when you turn it on is worse
         // than one that is honest about guessing — see [HandShadow].
         cv.handShadows = prefs.getBoolean(Prefs.HAND_SHADOWS, false)
+        cv.shadowSurface = if (
+            prefs.getString(Prefs.SHADOW_SURFACE, Prefs.SHADOW_GROUND) == Prefs.SHADOW_WALL
+        ) {
+            HandShadow.Surface.WALL
+        } else {
+            HandShadow.Surface.GROUND
+        }
         DayNight.configure(this)
         cv.shadowLatitude =
             if (DayNight.hasFix()) DayNight.latitudeNow() else HandShadow.NO_FIX_LATITUDE
@@ -2771,6 +2791,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
 
         worldBubbles.rebuild()
+        worldBubbles.secondHands = prefs.getBoolean(Prefs.WORLD_SECONDS, true)
         worldBubbles.applyStyle(cv)
 
         // The chrono dials mirror the clock's styling — shape, scale and all
@@ -2778,6 +2799,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // of the grab-hands preference: winding is how you set them.
         for (dial in listOfNotNull(countdownClockView, stopwatchClockView)) {
             dial.hoursOnDial = cv.hoursOnDial
+            dial.dialMarks = cv.dialMarks
+            dial.minuteMarks = cv.minuteMarks
             dial.dialShape = cv.dialShape
             // Read from the settings rather than copied off C0: while a
             // time is being wound C0 puts its own second and tenths hands
@@ -2803,6 +2826,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             dial.handShadows = cv.handShadows
             dial.shadowLatitude = cv.shadowLatitude
             dial.shadowLongitude = cv.shadowLongitude
+            dial.shadowSurface = cv.shadowSurface
         }
 
         // The world clock's bubbles float over the dial, and over the

@@ -102,7 +102,7 @@ class OrreryWidgetTest {
     @Test
     fun `the picture the launcher gets is of today`() {
         val manager = android.appwidget.AppWidgetManager.getInstance(context)
-        val size = OrreryWidgetProvider.dialPixels(context, manager, 1)
+        val size = WidgetRenderer.dialPixels(context, manager, 1)
         val views = OrreryWidgetProvider.viewsForTest(context, 1)
         val host = android.widget.FrameLayout(context)
         val image = views.apply(context, host)
@@ -203,7 +203,7 @@ class OrreryWidgetTest {
     fun `the picture sent across is capped at both ends`() {
         val manager = android.appwidget.AppWidgetManager.getInstance(context)
         val density = context.resources.displayMetrics.density
-        val size = OrreryWidgetProvider.dialPixels(context, manager, 1)
+        val size = WidgetRenderer.dialPixels(context, manager, 1)
         assertTrue("the widget is drawn at $size pixels", size <= (320 * density).toInt())
         assertTrue("the widget is drawn at $size pixels", size >= (64 * density).toInt())
     }
@@ -235,17 +235,76 @@ class OrreryWidgetTest {
         )
     }
 
-    /** And the whole thing fades with the widget-transparency slider. */
+    /**
+     * And the whole thing fades with a transparency slider of its own.
+     *
+     * Its own, not the clock's. They shared a stored percentage while only
+     * the clock had a slider, and the moment the other two got one that
+     * sharing became a lie — three controls moving one number, so setting
+     * the sky to a ghost took the clock beside it down with it.
+     */
     @Test
-    fun `the widget fades with the slider the other widgets use`() {
+    fun `the widget fades with a slider of its own`() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        prefs.edit().putInt(Prefs.WIDGET_ALPHA, 100).commit()
+        prefs.edit().putInt(Prefs.WIDGET_ALPHA_ORRERY, 100).commit()
         val solid = OrreryWidgetProvider.bitmap(context, 240, at(2026, 6, 15))
-        prefs.edit().putInt(Prefs.WIDGET_ALPHA, WidgetRenderer.MIN_OPACITY_PERCENT).commit()
+        prefs.edit()
+            .putInt(Prefs.WIDGET_ALPHA_ORRERY, WidgetRenderer.MIN_OPACITY_PERCENT)
+            .commit()
         val faint = OrreryWidgetProvider.bitmap(context, 240, at(2026, 6, 15))
         assertTrue(
             "the transparency slider does nothing to the sky",
             Color.alpha(faint.getPixel(120, 120)) < Color.alpha(solid.getPixel(120, 120))
+        )
+
+        // And the clock's own slider leaves the sky alone.
+        prefs.edit()
+            .putInt(Prefs.WIDGET_ALPHA_ORRERY, 100)
+            .putInt(Prefs.WIDGET_ALPHA, WidgetRenderer.MIN_OPACITY_PERCENT)
+            .commit()
+        val untouched = OrreryWidgetProvider.bitmap(context, 240, at(2026, 6, 15))
+        assertEquals(
+            "the clock's slider faded the solar system with it",
+            Color.alpha(solid.getPixel(120, 120)),
+            Color.alpha(untouched.getPixel(120, 120))
+        )
+    }
+
+    /**
+     * And it is the same circle the clock widget draws.
+     *
+     * The two were 0.94 and 0.90 of their bitmap, which nobody would spot
+     * apart and which made it impossible to stand them side by side on a
+     * home screen at the same size: the same widget cell gave two
+     * different dials.
+     */
+    @Test
+    fun `the sky and the clock are the same size at the same widget size`() {
+        val manager = android.appwidget.AppWidgetManager.getInstance(context)
+        assertEquals(
+            "the two widgets ask for different bitmaps at the same size",
+            WidgetRenderer.dialPixels(context, manager, 1),
+            WidgetRenderer.dialPixels(context, manager, 1)
+        )
+        val size = 240
+        val sky = OrreryWidgetProvider.bitmap(context, size, at(2026, 6, 15))
+        val clock = WidgetRenderer.dialBitmap(context, size)
+        // Walked out from the middle along one row: the last opaque pixel
+        // is the rim, and the two rims must be in the same place.
+        fun edgeOf(b: android.graphics.Bitmap): Int {
+            var last = 0
+            for (x in size / 2 until size) {
+                if (Color.alpha(b.getPixel(x, size / 2)) > 8) last = x
+            }
+            return last - size / 2
+        }
+        val skyEdge = edgeOf(sky)
+        val clockEdge = edgeOf(clock)
+        assertTrue("nothing was drawn at all: $skyEdge, $clockEdge", skyEdge > 10)
+        assertTrue(
+            "the sky's dial is $skyEdge across and the clock's $clockEdge, so " +
+                "they cannot be stood side by side",
+            kotlin.math.abs(skyEdge - clockEdge) <= 2
         )
     }
 

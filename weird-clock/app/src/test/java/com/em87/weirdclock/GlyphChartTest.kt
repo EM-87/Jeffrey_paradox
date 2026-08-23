@@ -305,6 +305,81 @@ class GlyphChartTest {
     }
 
     /**
+     * The same clock lying down and hanging up, through one day.
+     *
+     * The two are different problems rather than one turned round: on the
+     * ground the shadow runs away from the sun across the face, and on a
+     * wall the sun comes *at* the face and the shadow is its direction
+     * projected onto it — which can point anywhere, including straight up,
+     * and which goes out altogether when the sun swings round behind the
+     * wall. No number says whether that reads as a clock on a wall.
+     */
+    @Test
+    fun `the same clock on the ground and on a wall`() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().clear().commit()
+        val side = 300
+        val hours = listOf(8, 10, 12, 14, 16, 18)
+        val w = side * hours.size
+        val h = side * 2
+        val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.rgb(0x1d, 0x21, 0x29))
+        for ((row, surface) in listOf(
+            HandShadow.Surface.GROUND, HandShadow.Surface.WALL
+        ).withIndex()) {
+            hours.forEachIndexed { col, hour ->
+                val v = view(side, side)
+                v.showDate = false
+                v.handShadows = true
+                v.shadowSurface = surface
+                v.shadowLatitude = 40.0
+                v.shadowLongitude = 0.0
+                val cal = java.util.Calendar.getInstance(
+                    java.util.TimeZone.getTimeZone("UTC")
+                )
+                cal.clear()
+                cal.set(2026, 2, 21, hour, 0)
+                v.freezeAtForTest(cal.timeInMillis)
+                canvas.save()
+                canvas.translate(side * col.toFloat(), side * row.toFloat())
+                v.draw(canvas)
+                canvas.restore()
+            }
+        }
+        File(outDir, "shadows-ground-and-wall.png").outputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+    }
+
+    /** The dial with twelve marks on it, eight, four and none. */
+    @Test
+    fun `the dial with fewer marks on it`() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().clear().commit()
+        val side = 340
+        val w = side * 4
+        val bitmap = Bitmap.createBitmap(w, side * 2, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.rgb(0x1d, 0x21, 0x29))
+        for ((row, minutes) in listOf(true, false).withIndex()) {
+            listOf(12, 6, 4, 0).forEachIndexed { col, marks ->
+                val v = view(side, side)
+                v.showDate = false
+                v.dialMarks = marks
+                v.minuteMarks = minutes
+                canvas.save()
+                canvas.translate(side * col.toFloat(), side * row.toFloat())
+                v.draw(canvas)
+                canvas.restore()
+            }
+        }
+        File(outDir, "dial-marks.png").outputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+    }
+
+    /**
      * The hieroglyph numerals, one of each sign and a few real numbers.
      *
      * The only way to find out whether a coil of rope at eight pixels is

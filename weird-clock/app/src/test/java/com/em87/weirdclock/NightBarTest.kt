@@ -223,11 +223,13 @@ class NightBarTest {
                 // Alarm
                 "pref_bells", "pref_bell_marks", "pref_bell_style", "pref_test_bells",
                 "pref_bells_background", "pref_bell_priority", "pref_alarm_markers",
+                // What the markers are coloured by hangs off the markers.
+                "pref_mark_colors",
                 // Calendar
                 "pref_past_days", "pref_birthday", "pref_cycle",
                 // General
                 "pref_moon_phase", "pref_orrery", "pref_comets",
-                "pref_world_clock", "pref_world_cities",
+                "pref_world_clock", "pref_world_seconds", "pref_world_cities",
                 // And the ways on
                 "pref_advanced", "pref_very_advanced", "pref_version"
             ),
@@ -235,13 +237,18 @@ class NightBarTest {
                 "pref_numerals", "pref_dial_shape", "pref_hours_preset",
                 "pref_hours_custom", "pref_date_format", "pref_date_order",
                 "pref_mirror",
+                // How much of the dial is marked, and what the sun does to
+                // it — up from the too-advanced screen, where nobody found
+                // it.
+                "pref_dial_marks", "pref_minute_marks",
+                "pref_hand_shadows", "pref_shadow_surface",
                 "pref_alarm_ramp", "pref_ring_timeout",
                 "pref_countdown_persistent", "pref_alarm_style",
                 "pref_gentle_flash"
             ),
             R.xml.very_advanced_preferences to setOf(
-                "pref_mark_colors", "pref_minute_hand", "pref_second_hand",
-                "pref_smooth_seconds", "pref_fast_hand", "pref_hand_shadows", "pref_ticking",
+                "pref_minute_hand", "pref_second_hand",
+                "pref_smooth_seconds", "pref_fast_hand", "pref_ticking",
                 "pref_touch_hands", "pref_pinch_zoom",
                 "pref_shake_drop",
                 "pref_countdown_float",

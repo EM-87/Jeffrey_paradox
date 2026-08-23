@@ -110,6 +110,46 @@ class FurnitureFadeTest {
     }
 
     /**
+     * Where two pictures differ, for a failure message.
+     *
+     * Every assertion here is "these two pictures are the same" or "these
+     * two are not", and when one of them is wrong the report is a boolean:
+     * something differed, somewhere, by something. This class went out of
+     * step once during a full run and could not be made to do it again in
+     * isolation — a hundred and twenty repetitions of the same comparison
+     * came out identical every time — which means whatever moved was left
+     * behind by another class in the same sandbox. So the message carries
+     * the evidence: how many samples moved, the box they moved in, and
+     * what colour they went from and to. A red line across the middle is a
+     * second hand; a small patch at the top is the crown.
+     */
+    private fun where(a: Bitmap, b: Bitmap): String {
+        var n = 0
+        var minX = 720
+        var maxX = -1
+        var minY = 720
+        var maxY = -1
+        val samples = ArrayList<String>()
+        for (x in 0 until 720 step 2) {
+            for (y in 0 until 720 step 2) {
+                if (a.getPixel(x, y) == b.getPixel(x, y)) continue
+                n++
+                if (x < minX) minX = x
+                if (x > maxX) maxX = x
+                if (y < minY) minY = y
+                if (y > maxY) maxY = y
+                if (samples.size < 3) {
+                    samples += "($x,$y ${hex(a.getPixel(x, y))}->${hex(b.getPixel(x, y))})"
+                }
+            }
+        }
+        if (n == 0) return "nothing differed"
+        return "$n samples in $minX..$maxX by $minY..$maxY: ${samples.joinToString(" ")}"
+    }
+
+    private fun hex(colour: Int): String = Integer.toHexString(colour)
+
+    /**
      * Two dials built and rendered the same way must come out the same, or
      * nothing else in this file means anything.
      */
@@ -180,12 +220,15 @@ class FurnitureFadeTest {
      * of the identical fade. The crown is then the only thing that differs
      * between the two pictures — otherwise this test would pass on the
      * strength of the fade it is not testing.
+     *
      */
     @Test
     fun `a crown handed over dissolves on the dial that receives it`() {
+        val once = arrival(fromCrown = false)
+        val twice = arrival(fromCrown = false)
         assertFalse(
-            "the control must be reproducible",
-            differs(arrival(fromCrown = false), arrival(fromCrown = false))
+            "the control must be reproducible: ${where(once, twice)}",
+            differs(once, twice)
         )
         assertTrue(
             "a dial handed a crown must draw it",
@@ -196,12 +239,11 @@ class FurnitureFadeTest {
     /** And it is gone by the end, like any other fade. */
     @Test
     fun `and the inherited crown is gone once the fade is over`() {
+        val without = arrival(fromCrown = false, after = 2000L)
+        val with = arrival(fromCrown = true, after = 2000L)
         assertFalse(
-            "the crown must not still be sitting on a clock",
-            differs(
-                arrival(fromCrown = false, after = 2000L),
-                arrival(fromCrown = true, after = 2000L)
-            )
+            "the crown must not still be sitting on a clock: ${where(without, with)}",
+            differs(without, with)
         )
     }
 

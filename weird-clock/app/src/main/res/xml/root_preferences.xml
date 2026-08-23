@@ -93,6 +93,18 @@
             android:summary="@string/pref_alarm_markers_summary"
             android:title="@string/pref_alarm_markers_title" />
 
+        <!-- What the markers are coloured by, which is a question about the
+             markers and belonged under them. It was two screens away on
+             the too-advanced page, where it read as a fact about the dial
+             rather than about the thing it actually governs. -->
+        <ListPreference
+            android:defaultValue="clock"
+            android:entries="@array/mark_colors_entries"
+            android:entryValues="@array/mark_colors_values"
+            android:key="pref_mark_colors"
+            android:title="@string/pref_mark_colors_title"
+            app:useSimpleSummaryProvider="true" />
+
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/category_calendar">
@@ -143,6 +155,12 @@
             android:key="pref_world_clock"
             android:summary="@string/pref_world_clock_summary"
             android:title="@string/pref_world_clock_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_world_seconds"
+            android:summary="@string/pref_world_seconds_summary"
+            android:title="@string/pref_world_seconds_title" />
 
         <Preference
             android:key="pref_world_cities"
