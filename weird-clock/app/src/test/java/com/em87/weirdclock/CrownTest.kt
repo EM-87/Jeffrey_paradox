@@ -237,37 +237,16 @@ class CrownTest {
      * back" button that fires whenever it is pressed — the crown's other
      * job is tidying the scene, and that has to stay pressable on a dial
      * with three minutes on it.
-     */
-    @Test
-    fun `the crown leaves a wound countdown alone`() {
-        PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
-            .putBoolean(Prefs.OVERLAY_ASKED, true)
-            .commit()
-        Robolectric.buildActivity(MainActivity::class.java).use { c ->
-            c.setup()
-            val activity = c.get()
-            activity.showCardForTest(Card.REVERSE)
-            activity.windCountdownForTest(3 * 60_000L)
-            activity.windCountdownForTest(5 * 60_000L)
-            activity.countdownForTest()!!.crownTapForTest()
-            assertEquals(
-                "the crown overwrote a countdown that was already set",
-                5 * 60_000L, activity.countdownRemainingForTest()
-            )
-        }
-    }
-
-    /**
-     * And through the card the pusher clears whatever is on the dial.
      *
-     * The dial remembered *two* lengths for a while — three minutes for
-     * the tea, five for the eggs — and the reset pusher swapped between
-     * them. That only made sense while reset meant "again"; with reset
-     * meaning "clear", there is one length worth remembering and it is the
-     * one that was just cleared.
+     * Asked of a timer part way down rather than one freshly wound, and
+     * that is the whole test: on a freshly wound dial the length the crown
+     * would put back is the length already on it, so removing the guard
+     * changes nothing and the assertion passes on a dial with no guard at
+     * all. A running-down timer is the one state where the two numbers
+     * differ.
      */
     @Test
-    fun `the reset pusher clears a wound countdown and the crown restores it`() {
+    fun `the crown leaves a countdown that is part way down alone`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
             .commit()
@@ -275,22 +254,20 @@ class CrownTest {
             c.setup()
             val activity = c.get()
             activity.showCardForTest(Card.REVERSE)
-            activity.windCountdownForTest(3 * 60_000L)
-            activity.windCountdownForTest(5 * 60_000L)
-            assertEquals(
-                "winding the hands did not set the countdown",
-                5 * 60_000L, activity.countdownRemainingForTest()
-            )
+            activity.startCountdownForTest(3 * 60_000L)
+            ShadowSystemClock.advanceBy(Duration.ofSeconds(40))
+            // Stopped part way down, which is where a crown press is most
+            // likely and most destructive.
+            activity.countdownForTest()!!.onChronoStartStop?.invoke()
+            val left = activity.countdownRemainingForTest()
+            assertTrue("the countdown did not run down at all: $left", left < 3 * 60_000L)
+            assertTrue("it ran out entirely", left > 0L)
 
-            activity.resetCountdownForTest()
-            assertEquals(
-                "the pusher refilled the dial instead of clearing it",
-                0L, activity.countdownRemainingForTest()
-            )
             activity.countdownForTest()!!.crownTapForTest()
             assertEquals(
-                "the crown gave back the wrong length",
-                5 * 60_000L, activity.countdownRemainingForTest()
+                "the crown put the whole three minutes back on a timer that " +
+                    "was already going",
+                left, activity.countdownRemainingForTest()
             )
         }
     }

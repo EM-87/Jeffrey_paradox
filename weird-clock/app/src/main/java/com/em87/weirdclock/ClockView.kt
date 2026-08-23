@@ -4830,8 +4830,14 @@ class ClockView @JvmOverloads constructor(
      */
     internal fun settleOrreryForTest() {
         if (glideStartedAt == NEVER) return
-        orreryOffsetMs = glideToOffsetMs
-        glideStartedAt = NEVER
+        // Wound back so the journey is already over, and then *asked* —
+        // rather than setting the offset here, which is what it did and
+        // which was a second copy of the arriving. A sabotage that made
+        // the real journey end at the wrong end changed nothing any test
+        // could see, because every test that cared went through this and
+        // this had its own idea of where the far end was.
+        glideStartedAt -= (GLIDE_HOME_MS.toLong() + 1L)
+        windBack()
     }
 
     /** For the tests: whether the sky is on its way somewhere. */

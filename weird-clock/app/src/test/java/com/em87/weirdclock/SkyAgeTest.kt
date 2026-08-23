@@ -4,6 +4,7 @@ import androidx.preference.PreferenceManager
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -284,6 +285,168 @@ class SkyAgeTest {
             "the sky is not using its ordinary names in this century",
             context.getString(R.string.body_venus),
             clock.bodyNameForTest(Orrery.Body.VENUS)
+        )
+    }
+
+    /**
+     * No line is drawn across a sky with nothing in it to line up.
+     *
+     * [Orrery] does the arithmetic for all eight planets and knows nothing
+     * about who had been discovered, so wound back to the Bronze Age it
+     * went on reporting Neptune, Uranus and Saturn in a row — an alignment
+     * of three planets over a sky with three bodies in it, two of which
+     * nobody would find for four thousand years.
+     */
+    @Test
+    fun `no alignment is drawn over a sky with no planets in it`() {
+        val clock = sky()
+        // Before the records, where the sky is the Earth, the Moon and the
+        // Sun and nothing else.
+        clock.windOrreryToYearForTest(-3200)
+        assertEquals(
+            setOf(Orrery.Body.EARTH, Orrery.Body.MOON),
+            Orrery.Body.entries.toSet() - SkyAge.unknownIn(-3200)
+        )
+        // Walked forward a month, because an alignment is a thing that
+        // happens on particular days and a single day proves nothing: the
+        // raw arithmetic finds one somewhere in any long enough stretch.
+        var rawFound = false
+        for (day in 0 until 400) {
+            val at = clock.orreryMsForTest()
+            if (Orrery.aligned(at, 12.0).size >= 3) rawFound = true
+            assertTrue(
+                "the dial drew a line between planets nobody had found",
+                clock.orreryAligned().isEmpty()
+            )
+            clock.nudgeOrreryForTest(CivilDays.DAY_MS)
+        }
+        assertTrue(
+            "the raw arithmetic never lined three up in over a year, so this " +
+                "test never had anything to suppress",
+            rawFound
+        )
+    }
+
+    /**
+     * And no line is ever drawn *through* a planet nobody had found.
+     *
+     * The sharper half, and the one a sky with only two bodies in it
+     * cannot ask: in 1700 there are six planets and the raw arithmetic
+     * lines up three of them often enough — sometimes with Uranus or
+     * Neptune among them, which is a line drawn to a dot that is not on
+     * the glass.
+     */
+    @Test
+    fun `no line is drawn through a planet nobody had found`() {
+        val clock = sky()
+        clock.windOrreryToYearForTest(1700)
+        var raw = 0
+        for (day in 0 until 500) {
+            val at = clock.orreryMsForTest()
+            val all = Orrery.aligned(at, 12.0)
+            if (all.size >= 3 &&
+                (Orrery.Body.URANUS in all || Orrery.Body.NEPTUNE in all)
+            ) {
+                raw++
+            }
+            val drawn = clock.orreryAligned()
+            assertTrue(
+                "the dial lined up a planet nobody had found: $drawn",
+                Orrery.Body.URANUS !in drawn && Orrery.Body.NEPTUNE !in drawn
+            )
+            clock.nudgeOrreryForTest(CivilDays.DAY_MS)
+        }
+        assertTrue(
+            "the raw arithmetic never once put an undiscovered planet in a " +
+                "line, so this test had nothing to catch",
+            raw > 0
+        )
+    }
+
+    /** And in a year with eight planets in the sky, it still draws them. */
+    @Test
+    fun `an alignment is still drawn when the planets are all up there`() {
+        val at = Orrery.nextAlignment(
+            TimeKeeper.nowMs(), 12.0, atLeast = 3, limitDays = 20_000
+        )
+        assertNotNull("nothing lined up in fifty years", at)
+        val clock = sky()
+        clock.windOrreryToYearForTest(SkyAge.yearOf(at!!))
+        // The exact day, not just the year.
+        clock.nudgeOrreryForTest(at - clock.orreryMsForTest())
+        assertTrue(
+            "the line was suppressed in a century where every planet is known",
+            clock.orreryAligned().size >= 3
+        )
+    }
+
+    /**
+     * A planet the zoom has carried off the face is not there to be
+     * grabbed.
+     *
+     * The other half of the clipping: the sky is cut off at the rim now,
+     * so a planet whose ring has been pushed outside the face is not on
+     * the glass at all — and a hit test that still found it would hand out
+     * a grip on empty case and wind the whole sky by Neptune's year.
+     *
+     * Aimed at the one zoom where the question is live, which took a
+     * search to find. Pushed *far* off the face a planet is unreachable
+     * anyway — no point on the dial is within a finger's reach of it — so
+     * a test at full zoom passes whether the cull is there or not, and did.
+     * The case that decides is a planet just outside the rim: near enough
+     * that a finger on the rim is within reach of it, far enough that its
+     * centre is off the face.
+     */
+    @Test
+    fun `a planet just outside the rim cannot be grabbed`() {
+        val at = TimeKeeper.nowMs()
+        val r = 500f
+        val cx = 540f
+        val cy = 540f
+        // The zoom that puts Neptune's ring a little way outside the face:
+        // beyond the rim, but inside the reach of a finger placed on it.
+        var zoom = 0f
+        var step = 1.0f
+        while (step <= Orrery.MAX_ZOOM) {
+            val ring = OrreryDial.ringRadius(Orrery.Body.NEPTUNE, r, step)
+            if (ring in (r * 1.05f)..(r * 1.10f)) {
+                zoom = step
+                break
+            }
+            step += 0.005f
+        }
+        assertTrue("no zoom puts Neptune just off the rim", zoom > 0f)
+
+        // Where it is, and the point on the rim nearest to it — which is
+        // where a finger would go.
+        val p = OrreryDial.positionOf(Orrery.Body.NEPTUNE, cx, cy, r, at, 0.0, zoom)
+        val away = kotlin.math.hypot(p.x - cx, p.y - cy)
+        val onRim = android.graphics.PointF(
+            cx + (p.x - cx) / away * r,
+            cy + (p.y - cy) / away * r
+        )
+        val gap = kotlin.math.hypot(onRim.x - p.x, onRim.y - p.y)
+        assertTrue(
+            "Neptune is not outside the face at this zoom: $away against $r",
+            away > r + OrreryDial.dotRadius(Orrery.Body.NEPTUNE, r, zoom)
+        )
+        assertTrue(
+            "and it is too far off for a finger on the rim to reach anyway, " +
+                "so this test decides nothing: $gap",
+            gap < r * 0.115f
+        )
+        assertNull(
+            "a planet outside the face was grabbed from the rim",
+            OrreryDial.bodyAt(onRim.x, onRim.y, cx, cy, r, at, 0.0, zoom)
+        )
+
+        // And a planet still on the face at the same zoom is grabbable, or
+        // this says only that the hit test has stopped working.
+        val earth = OrreryDial.positionOf(Orrery.Body.EARTH, cx, cy, r, at, 0.0, zoom)
+        assertEquals(
+            "nothing at all can be grabbed at this zoom",
+            Orrery.Body.EARTH,
+            OrreryDial.bodyAt(earth.x, earth.y, cx, cy, r, at, 0.0, zoom)
         )
     }
 
