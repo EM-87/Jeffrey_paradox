@@ -55,34 +55,84 @@ class SkyCalendarTest {
             assertNotNull("nothing at all happens after day $day", next)
             worst = maxOf(worst, next!! - day)
         }
-        assertTrue("the sky went quiet for $worst days", worst <= 20)
+        // Four months, not a fortnight. The moons are no longer travelled
+        // to — see [SkyEvents.WORTH_A_JOURNEY] — and what is left is about
+        // seventeen days a year: eight showers, three or four oppositions
+        // and four to six eclipses, unevenly spread. That is the point of
+        // dropping the moons: a press now lands on something worth the
+        // journey rather than on the next fortnight.
+        assertTrue("the sky went quiet for $worst days", worst <= 130)
+    }
+
+    /**
+     * And the moons are not among them.
+     *
+     * The fortnightly ones are the whole reason this needed saying: left
+     * in, walking forward through next year meant twenty-six presses of
+     * "full moon, new moon, full moon" for every eclipse, and the eclipses
+     * were hidden among them. They are still on the calendar, where every
+     * day already carries a picture of the moon anyway.
+     */
+    @Test
+    fun `the journey does not stop for a moon`() {
+        var day = CivilDays.epochDay(2026, 1, 1)
+        var moonless = 0
+        repeat(12) {
+            val next = SkyEvents.nextDay(day) ?: return@repeat
+            val kinds = SkyEvents.on(next).map { e -> e.kind }
+            assertTrue(
+                "the sky was carried to a day whose only news is the moon: $kinds",
+                kinds.any { k ->
+                    k != SkyEvents.Kind.FULL_MOON && k != SkyEvents.Kind.NEW_MOON
+                }
+            )
+            moonless++
+            day = next
+        }
+        assertTrue("nothing was found to travel to at all", moonless > 6)
+        // But a moon is still a thing that happens, and the calendar still
+        // knows: the day it is on is busy, it simply is not worth a
+        // journey.
+        var moon = CivilDays.epochDay(2026, 1, 1)
+        while (SkyEvents.headline(moon)?.kind.let {
+                it != SkyEvents.Kind.FULL_MOON && it != SkyEvents.Kind.NEW_MOON
+            }
+        ) {
+            moon++
+        }
+        assertTrue("a full moon is not on the calendar at all", SkyEvents.anythingOn(moon))
+        assertTrue(
+            "a full moon is worth winding the sky a month for",
+            !SkyEvents.worthTravellingTo(moon)
+        )
     }
 
     /** And "next" means after, not on. */
     @Test
     fun `the next day is a later day`() {
         val busy = SkyEvents.eclipseDays().first().first
-        assertTrue("a day full of eclipse is not itself busy", SkyEvents.anythingOn(busy))
+        assertTrue("a day full of eclipse is not itself busy", SkyEvents.worthTravellingTo(busy))
         val next = SkyEvents.nextDay(busy)
         assertNotNull(next)
         assertTrue("the search handed back the day it started on", next!! > busy)
     }
 
-    /** Everything it finds is a day with something on it. */
+    /** Everything it finds is a day worth the journey, and nothing is skipped. */
     @Test
     fun `what it finds is a day with something on it`() {
         var day = CivilDays.epochDay(2026, 1, 1)
         repeat(30) {
             val next = SkyEvents.nextDay(day) ?: return@repeat
             assertTrue(
-                "the search stopped on a day with nothing on it",
-                SkyEvents.anythingOn(next)
+                "the search stopped on a day with nothing worth the journey on it",
+                SkyEvents.worthTravellingTo(next)
             )
-            // And nothing was skipped: every day in between is empty.
+            // And nothing was skipped: every day in between has nothing on
+            // it worth crossing a month for.
             for (between in (day + 1) until next) {
                 assertTrue(
-                    "day $between was stepped over and it had something on it",
-                    !SkyEvents.anythingOn(between)
+                    "day $between was stepped over and it was worth stopping at",
+                    !SkyEvents.worthTravellingTo(between)
                 )
             }
             day = next
@@ -185,6 +235,9 @@ class SkyCalendarTest {
         val clock = sky()
         val from = dayOf(clock)
         assertTrue("the sky would not move", clock.leapToNextSkyEvent())
+        // It travels rather than arriving — see the test below — so the
+        // journey is finished here and the question is where it ends up.
+        clock.settleOrreryForTest()
         val landed = dayOf(clock)
         assertTrue("the sky went backwards or stayed put", landed > from)
         assertTrue(
@@ -202,11 +255,43 @@ class SkyCalendarTest {
     fun `pressing again goes on to the next one`() {
         val clock = sky()
         clock.leapToNextSkyEvent()
+        clock.settleOrreryForTest()
         val first = dayOf(clock)
         clock.leapToNextSkyEvent()
+        clock.settleOrreryForTest()
         val second = dayOf(clock)
         assertTrue("the second press did not move the sky", second > first)
         assertTrue(SkyEvents.anythingOn(second))
+    }
+
+    /**
+     * And it travels there rather than arriving.
+     *
+     * The whole point of this dial is that time is a mechanism: carry a
+     * planet and the others follow at the speed their own year demands. A
+     * jump throws that away — the planets are simply somewhere else on the
+     * next frame, and the thing that made the sky worth winding is the bit
+     * you did not see.
+     */
+    @Test
+    fun `the sky travels to the next event rather than jumping`() {
+        val clock = sky()
+        val from = clock.orreryMsForTest()
+        assertTrue(clock.leapToNextSkyEvent())
+        assertTrue("the sky is not travelling", clock.orreryTravellingForTest())
+        // Within a millisecond: the clock itself is still running under it,
+        // and what is being asked is whether the *wound* offset jumped.
+        assertTrue(
+            "the sky arrived on the very frame the date was pressed",
+            kotlin.math.abs(clock.orreryMsForTest() - from) < 50L
+        )
+        // Part way along it is somewhere in between, at neither end.
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(500))
+        val midway = clock.orreryMsForTest()
+        assertTrue("it has not set off", midway > from)
+        clock.settleOrreryForTest()
+        assertTrue("it went no further than the first half of the journey",
+            clock.orreryMsForTest() > midway)
     }
 
     /**

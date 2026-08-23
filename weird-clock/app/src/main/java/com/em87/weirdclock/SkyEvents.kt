@@ -164,10 +164,30 @@ object SkyEvents {
     fun nextDay(afterDay: Int, limitDays: Int = 400): Int? {
         for (ahead in 1..limitDays) {
             val day = afterDay + ahead
-            if (anythingOn(day)) return day
+            if (worthTravellingTo(day)) return day
         }
         return null
     }
+
+    /**
+     * The kinds worth winding the sky across a month for.
+     *
+     * Not the moons. A new or full moon is the one thing on this list
+     * nobody needs telling about — it is in the sky every fortnight
+     * whether or not anybody looks, every day of the calendar already
+     * carries a little picture of the moon showing its own phase, and it
+     * is the *only* one of these that repeats often enough to matter.
+     * Left in, walking forward through next year's sky meant twenty-six
+     * presses of "full moon, new moon, full moon" for every eclipse, and
+     * the eclipses were hidden among them — a list of everything is a list
+     * of nothing.
+     */
+    private val WORTH_A_JOURNEY = setOf(
+        Kind.SOLAR_ECLIPSE, Kind.LUNAR_ECLIPSE, Kind.METEORS, Kind.COMET, Kind.OPPOSITION
+    )
+
+    /** Whether a day has something on it worth carrying the sky to. */
+    fun worthTravellingTo(day: Int): Boolean = on(day).any { it.kind in WORTH_A_JOURNEY }
 
     /**
      * What to call a day's events on a calendar, when there is only room

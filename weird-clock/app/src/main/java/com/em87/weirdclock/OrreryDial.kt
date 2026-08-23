@@ -256,10 +256,12 @@ object OrreryDial {
         for (body in Orrery.planets + Orrery.Body.MOON) {
             if (body in skip || body in unknown) continue
             val p = positionOf(body, cx, cy, r, atMs, moonLongitude, zoom)
-            // A planet the zoom has pushed off the edge of the dial is not
-            // there to be taken hold of.
-            if (hypot(p.x - cx, p.y - cy) > r) continue
             val dot = dotRadius(body, r, zoom)
+            // A planet the zoom has pushed clear off the edge is not there
+            // to be taken hold of. One with half of it still showing is:
+            // the clip cuts it at the rim and what is left is a thing on
+            // the glass, so a finger on it should find it.
+            if (hypot(p.x - cx, p.y - cy) > r + dot) continue
             // Room around the smallest ones: Mercury is four pixels across
             // on a phone, and a target has to be bigger than the thing it
             // is a target for. The floor was once a twentieth of the dial —
@@ -322,7 +324,8 @@ object OrreryDial {
         busyDays: Set<Int> = emptySet(),
         fallen: Set<Orrery.Body> = emptySet(),
         sunIsDown: Boolean = false,
-        comets: Boolean = true
+        comets: Boolean = true,
+        face: android.graphics.Path? = null
     ) {
         if (alpha <= 0.01f) return
         val a = alpha.coerceIn(0f, 1f)
@@ -332,10 +335,30 @@ object OrreryDial {
         // where the records do, leaving the Earth, the Moon and the Sun —
         // see [SkyAge].
         val unknown = SkyAge.unknownAt(atMs)
-        drawRings(canvas, cx, cy, r, theme, a, zoom, unknown)
-        if (comets) drawComets(canvas, cx, cy, r, theme, atMs, a, zoom)
+        // The year of days is the one thing that belongs *outside* the
+        // face: a ring of ticks on the rim with a dot beyond it for every
+        // busy day. It is drawn before the clip goes on, and everything
+        // else is drawn under it.
         val days = Orrery.dayMarkFade(zoom)
         if (days > 0f) drawYearOfDays(canvas, cx, cy, r, theme, atMs, a * days, busyDays)
+
+        // Everything in the sky is cut off at the edge of the face, which
+        // is what an edge is for. Zoomed out far enough the outer planets
+        // ride over the rim and onto the case, and used to hang there
+        // whole until their centre crossed the line and they vanished all
+        // at once — a planet leaving by the door rather than over the
+        // horizon. Now they slide under it.
+        canvas.save()
+        if (face != null) {
+            canvas.clipPath(face)
+        } else {
+            clip.reset()
+            clip.addCircle(cx, cy, r, android.graphics.Path.Direction.CW)
+            canvas.clipPath(clip)
+        }
+
+        drawRings(canvas, cx, cy, r, theme, a, zoom, unknown)
+        if (comets) drawComets(canvas, cx, cy, r, theme, atMs, a, zoom)
         if (aligned.size >= 3) drawAlignment(canvas, cx, cy, r, theme, atMs, aligned, a, zoom)
         if (!sunIsDown) drawSun(canvas, cx, cy, r, theme, a)
 
@@ -346,10 +369,14 @@ object OrreryDial {
             // One that has not been discovered yet is not lying anywhere.
             if (body in unknown) continue
             val p = positionOf(body, cx, cy, r, atMs, moonLongitude, zoom)
-            // Pushed off the edge by the zoom: not drawn rather than drawn
-            // outside the case, which would put Neptune on the wallpaper.
-            if (hypot(p.x - cx, p.y - cy) > r) continue
             val dot = dotRadius(body, r, zoom)
+            // Pushed clear off the edge by the zoom: not drawn at all,
+            // which saves the work. Anything still touching the face is
+            // drawn and the clip takes the half that is over the rim —
+            // that used to be this same test on the centre alone, so a
+            // planet stayed whole until its middle crossed the line and
+            // then disappeared in one frame.
+            if (hypot(p.x - cx, p.y - cy) > r + dot * 2f) continue
             if (body == Orrery.Body.SATURN) drawSaturnsRing(canvas, p.x, p.y, r, theme, a, zoom)
             drawBody(canvas, p.x, p.y, dot, colourOf(body, theme), a)
             if (body == grabbed) drawHeld(canvas, p.x, p.y, dot, theme, a)
@@ -357,7 +384,11 @@ object OrreryDial {
                 drawMoon(canvas, cx, cy, r, theme, atMs, moonLongitude, detachedMoon, a, grabbed, zoom)
             }
         }
+        canvas.restore()
     }
+
+    /** Scratch, for the round face that has no path of its own. */
+    private val clip = android.graphics.Path()
 
     /**
      * The year the dial is standing in, marked out in days.
@@ -461,13 +492,13 @@ object OrreryDial {
             val depth = Orrery.planets.indexOf(body) / (Orrery.planets.size - 1f)
             stroke.alpha = ((90 - 40 * depth) * a).toInt()
             val radius = ringRadius(body, r, zoom)
-            // A circle drawn round the same centre and wider than the case
-            // has no part of it inside the case, so there is nothing to
-            // clip — it is simply not drawn. Clipping to the square the
-            // dial sits in was not enough: the corners of that square are
-            // outside the round face, and Jupiter's orbit came out as four
-            // arcs lying on the wallpaper.
-            if (radius > r) continue
+            // A ring wider than the face has no part of it inside the face,
+            // so there is nothing to draw. The whole sky is clipped to the
+            // face now — see [draw] — which is what lets a ring that is
+            // only *partly* outside be drawn as an arc rather than skipped
+            // whole. On a polygonal dial that arc is what the corners were
+            // always missing.
+            if (radius > r * 1.45f) continue
             canvas.drawCircle(cx, cy, radius, stroke)
         }
     }
@@ -851,6 +882,62 @@ object OrreryDial {
         }
         SkyAge.Era.LATIN -> latinNameOf(body)
         SkyAge.Era.MODERN -> nameKeyOf(body)
+    }
+
+    /**
+     * What a comet was called in a given year.
+     *
+     * All four are named for men who worked out that the thing in the sky
+     * was the *same* thing that had been there before — which is what a
+     * periodic comet's name commemorates, and which happened long after
+     * anybody first saw them. Before that a comet had no name at all: it
+     * was the comet, the one in the sky that year, and every language on
+     * this dial has a word for that and nothing more. Halley's own returns
+     * were watched and written down for two thousand years under no name
+     * but that one.
+     */
+    fun cometNameKeyOf(comet: Comets.Comet, year: Int): Int {
+        if (Comets.wasNamedIn(comet, year)) return Comets.nameKeyOf(comet)
+        return when (SkyAge.eraFor(year)) {
+            SkyAge.Era.BABYLONIAN -> R.string.bab_comet
+            SkyAge.Era.GREEK -> R.string.grk_comet
+            SkyAge.Era.LATIN -> R.string.lat_comet
+            SkyAge.Era.MODERN -> R.string.sky_comet
+        }
+    }
+
+    /**
+     * Which comet a finger has landed on, if any.
+     *
+     * Answered from the same arithmetic that drew it, for the reason given
+     * at the top of this file. A comet the dial has stopped believing in —
+     * wound far enough out that a fixed period is no longer a position — is
+     * not on the glass and is not there to be tapped either.
+     */
+    fun cometAt(
+        x: Float,
+        y: Float,
+        cx: Float,
+        cy: Float,
+        r: Float,
+        atMs: Long,
+        zoom: Float = 1f
+    ): Comets.Comet? {
+        var best: Comets.Comet? = null
+        var bestGap = Float.MAX_VALUE
+        val reach = r * REACH_FLOOR
+        for (comet in Comets.all) {
+            if (Comets.trust(comet, atMs) <= 0.02f) continue
+            val at = Comets.positionAt(comet, atMs)
+            val d = at.radius * r * zoom
+            if (d > r) continue
+            val p = pointOn(cx, cy, d, at.longitude)
+            val gap = hypot(x - p.x, y - p.y)
+            if (gap >= reach || gap >= bestGap) continue
+            best = comet
+            bestGap = gap
+        }
+        return best
     }
 
     /** What a body is called now. */

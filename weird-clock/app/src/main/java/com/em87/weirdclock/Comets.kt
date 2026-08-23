@@ -319,6 +319,36 @@ object Comets {
         return lostBy(comet) / perOrbit * o.periodYears
     }
 
+    /**
+     * The year each of these stopped being "a comet" and got a name.
+     *
+     * Not the year it was first seen — Halley's returns are recorded back
+     * to 240 BC — but the year somebody worked out that the thing in the
+     * sky was the *same* thing that had been there before, which is what a
+     * periodic comet's name actually commemorates. Halley predicted the
+     * 1758 return and did not live to see it; the comet took his name
+     * after it arrived. Encke's is the same story: Méchain found it in
+     * 1786 and it is named for the man who computed the orbit thirty-three
+     * years later.
+     *
+     * Before those years a comet had no name at all. It was the comet of
+     * that year, and that is what the dial calls it — in whatever language
+     * the dial is speaking at the time.
+     */
+    fun namedFrom(comet: Comet): Int = when (comet) {
+        // The return that proved the prediction.
+        Comet.HALLEY -> 1759
+        // Encke published the orbit and the period.
+        Comet.ENCKE -> 1819
+        // Found by Swift in July 1862 and by Tuttle three days later.
+        Comet.SWIFT_TUTTLE -> 1862
+        // Tempel found it in December 1865, Tuttle in January 1866.
+        Comet.TEMPEL_TUTTLE -> 1866
+    }
+
+    /** Whether a comet had a name yet, in a given year. */
+    fun wasNamedIn(comet: Comet, year: Int): Boolean = year >= namedFrom(comet)
+
     /** The name to put under the dial. */
     fun nameKeyOf(comet: Comet): Int = when (comet) {
         Comet.ENCKE -> R.string.comet_encke

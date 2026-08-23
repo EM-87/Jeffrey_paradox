@@ -637,6 +637,10 @@ class OrreryDialTest {
         val clock = openSky()
         val before = clock.orreryMs()
         assertTrue("it found nothing in forty years", clock.leapToNextAlignment())
+        // The sky travels there rather than arriving, so the journey is
+        // finished here: what is on trial is the date it picks, not the
+        // easing that carries it.
+        clock.settleOrreryForTest()
         assertTrue("it went backwards", clock.orreryMs() > before)
         assertTrue(
             "it landed on a date with nothing in line on it",
@@ -645,6 +649,7 @@ class OrreryDialTest {
         // And again, so it moves on rather than sticking on the one it found.
         val first = clock.orreryMs()
         if (clock.leapToNextAlignment()) {
+            clock.settleOrreryForTest()
             assertTrue("it found the same day twice", clock.orreryMs() > first)
         }
     }
@@ -772,6 +777,7 @@ class OrreryDialTest {
         // would pass just as well on a dial where nothing happens at all.
         val (ex, ey) = emptySky(clock)
         clock.pressAndHoldOnSky(ex, ey)
+        clock.settleOrreryForTest()
         // Years, not milliseconds: an alignment of three planets is a long
         // way off, and "the number went up a little" is a thing a clock
         // does by itself.

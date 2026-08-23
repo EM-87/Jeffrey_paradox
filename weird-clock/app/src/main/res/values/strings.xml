@@ -405,6 +405,11 @@
     <string name="pref_tick_precision_at">%1$d ticks · worst %2$d ms late · %3$d lost · %4$d refused</string>
     <string name="comets_title">Comets</string>
     <string name="comets_summary">Four visitors on the long thin orbits that make them visitors. Real shapes, real dates: a tail grows as each one comes round.</string>
+    <!-- What a comet is called before anybody worked out it was the same
+         one coming back: nothing but "a comet", in the language of the
+         century. -->
+    <string name="grk_comet" translatable="false">Kometes</string>
+    <string name="bab_comet" translatable="false">Sallummu</string>
     <string name="comet_encke">Encke</string>
     <string name="comet_tempel_tuttle">Tempel\u2013Tuttle</string>
     <string name="comet_halley">Halley</string>

@@ -229,8 +229,20 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private val stopwatch = Chronograph { SystemClock.elapsedRealtime() }
     private val countdown = Countdown({ SystemClock.elapsedRealtime() }, DEFAULT_COUNTDOWN_MS)
 
-    /** The two lengths the countdown's reset pusher swaps between. */
-    private val countdownLengths = Lengths().apply { adopt(DEFAULT_COUNTDOWN_MS) }
+    /**
+     * The length the countdown last had on it, for the crown to give back.
+     *
+     * The exact counterpart of [lastRunMs] on the stopwatch, and for the
+     * same reason: a dial reading zero has been either never used or
+     * cleared, and only one of those is worth offering to undo.
+     *
+     * It was a small class holding *two* lengths, which the reset pusher
+     * swapped between — three minutes for the tea, five for the eggs. That
+     * only made sense while reset meant "again"; with reset meaning
+     * "clear", there is one length worth remembering and it is the one that
+     * was just cleared.
+     */
+    private var lastCountdownMs = 0L
 
     /**
      * Whether the crown has been asked for the time elapsed.
@@ -842,6 +854,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // here as well as wherever the row moves.
                 keepScreenAwake()
                 carryFallenHands()
+                closeSheetLeftBehind()
                 // Landing on the alarms: whatever happened while away — a
                 // time wound on the dial, an alarm that rang — shows now.
                 if (position == PAGE_RIGHT) refreshAlarmsUi()
@@ -1040,7 +1053,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     // The reset pusher goes back to the length it can see,
                     // which now is this one and not whatever was on the dial
                     // before the app went away.
-                    countdownLengths.adopt(countdownTotalMs)
+                    lastCountdownMs = countdownTotalMs
                     updateCountdownUi()
                 }
             }
@@ -1050,7 +1063,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     prefs.getLong(Prefs.COUNTDOWN_ENDS_AT, countdownEndsAt),
                     prefs.getLong(Prefs.COUNTDOWN_TOTAL, countdownTotalMs)
                 )
-                countdownLengths.adopt(countdownTotalMs)
+                lastCountdownMs = countdownTotalMs
                 prefs.edit().remove(Prefs.COUNTDOWN_RESULT).apply()
                 updateCountdownUi()
             }
@@ -1308,7 +1321,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                     // committed on release, not while they are being
                     // dragged, so the length before this one is a length
                     // somebody meant rather than wherever a finger passed.
-                    countdownLengths.wound(countdown.remainingMs)
+                    if (countdown.remainingMs > 0L) lastCountdownMs = countdown.remainingMs
                     updateCountdownUi()
                 }
             }
@@ -1330,22 +1343,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 crownSound(tidied)
                 healBubbleClocks()
                 worldBubbles.dock()
-                // On the countdown the crown had nothing else to do, so it
-                // now sends the hands home to zero — the one thing you
-                // always want on that card, and it had to be asked for with
-                // the reset pusher.
+                // And on a countdown sitting at zero it puts the last
+                // length back, exactly as the stopwatch's crown puts the
+                // last race back — the crown is where this watch keeps its
+                // second thoughts, on both cards.
                 //
-                // While it is running, home to zero is exactly what you do
-                // not want, so the crown says something instead: how long
-                // the thing has been going, in a smaller row under the
-                // digits. The hands can only show what is left. Press again
-                // and it goes; again and it is back.
+                // While it is running there is nothing to restore, so the
+                // crown says something instead: how long the thing has been
+                // going, in a smaller row under the digits. The hands can
+                // only show what is left. Press again and it goes; again
+                // and it is back.
                 if (!tidied) {
                     if (countdownRunning) {
                         countdownElapsedShown = !countdownElapsedShown
                         countdownClockView?.invalidate()
                     } else {
-                        sendCountdownHome()
+                        restoreLastCountdown()
                     }
                 }
             }
@@ -1497,6 +1510,46 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     /**
+     * The sheet or dialog on screen, and the card it belongs to.
+     *
+     * A sheet is part of a card: the reminder editor belongs to the
+     * calendar and the alarm editor to the alarm list, and neither has any
+     * business standing over the clock. It could, because a tap opens one
+     * at once and a swipe a moment later carries the card out from under
+     * it — press a date, flick sideways, and the reminder editor rises over
+     * the clock face like a window with no house.
+     */
+    private var openSheet: android.app.Dialog? = null
+    private var openSheetCard: Card? = null
+
+    /**
+     * Shuts a sheet whose card has gone.
+     *
+     * Only when the card has actually changed: a sheet that opens a second
+     * sheet — picking a sound, picking a repeat — is still on its own card
+     * and must survive.
+     */
+    private fun closeSheetLeftBehind() {
+        val sheet = openSheet ?: return
+        if (openSheetCard == showingCard()) return
+        openSheet = null
+        openSheetCard = null
+        if (sheet.isShowing) sheet.dismiss()
+    }
+
+    /** Which card is on the glass right now, if the pager is on one. */
+    private fun showingCard(): Card? = Cards.on(pager.currentItem, row)
+
+    /**
+     * Remembers a dialog and the card it was opened from, so it can be
+     * taken away with the card.
+     */
+    internal fun ownSheet(dialog: android.app.Dialog) {
+        openSheet = dialog
+        openSheetCard = showingCard()
+    }
+
+    /**
      * Real movement, both ways. The sheet's own behavior does the sliding —
      * driving the content view by hand fought the dialog's internal
      * container and lost — and dismissWithAnimation makes tapping outside
@@ -1506,6 +1559,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         sheet: com.google.android.material.bottomsheet.BottomSheetDialog,
         content: View
     ) {
+        ownSheet(sheet)
         sheet.dismissWithAnimation = true
         sheet.behavior.apply {
             skipCollapsed = true
@@ -1805,7 +1859,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // total and the end time by hand left the remaining time at
         // whatever it had been, and startOrStop then started *that*.
         countdown.setTo(ms)
-        countdownLengths.wound(countdown.remainingMs)
+        if (countdown.remainingMs > 0L) lastCountdownMs = countdown.remainingMs
         countdown.startOrStop()
     }
 
@@ -1819,8 +1873,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         countdownClockView?.onChronoAdjusted?.invoke(ms)
     }
 
-    /** For the tests: the pair of lengths the reset pusher swaps between. */
-    internal fun countdownLengthsForTest(): Lengths = countdownLengths
+    /** For the tests: the length the crown would give back. */
+    internal fun lastCountdownForTest(): Long = lastCountdownMs
 
     /** For the tests: the dial on the countdown card. */
     internal fun countdownForTest(): ClockView? = countdownClockView
@@ -2531,7 +2585,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 )
             } + getString(R.string.reminder_add) + listOfNotNull(marking)
             ).toTypedArray()
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        // Owned by the calendar, so a swipe away from the calendar takes it
+        // with it rather than leaving it standing over the clock.
+        ownSheet(androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(dayTitle(year, month, day))
             .setItems(items) { _, which ->
                 when {
@@ -2543,7 +2599,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 }
             }
             .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            .show())
     }
 
     /**
@@ -3005,6 +3061,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private fun goTo(card: Card, scroll: Boolean = true) {
         if (dialJob != null) return
+        closeSheetLeftBehind()
         handOverSource = visibleDial()
         val wasRow = row
         val wasPage = pager.currentItem
@@ -3371,37 +3428,53 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     private fun resetCountdown() {
-        // Back to the length it was last set to, not to nothing. Reset on a
-        // kitchen timer means "again", and the length you want again is the
-        // one you just used — winding three minutes back on by hand every
-        // time is the thing a reset button exists to save you.
+        // To nothing, like the stopwatch's reset beside it. It used to mean
+        // "again" — back to the length it was last set to — which is what a
+        // kitchen timer's reset means and is a perfectly good button. It is
+        // also the opposite of what the pusher one card away does, and the
+        // two dials are the same dial with different hands: a reset that
+        // clears on one page and refills on the other is a button whose
+        // meaning depends on which way you swiped to get there.
         //
-        // On a countdown already sitting at its full length there is
-        // nothing to do "again", and the pusher used to sit there dead. So
-        // it offers the other length instead — the one set before this one
-        // — and swaps back on the next press. Which of the two it is comes
-        // from [Lengths], where it can be held to account.
+        // Nothing is lost by it. The length goes to the crown, which is
+        // where this watch already keeps its second thoughts — see
+        // [restoreLastCountdown].
         //
         // The hands travel there rather than arriving: everything else on
         // this dial travels, and a jump reads as a glitch.
         val was = countdownRemaining()
-        val again = countdownLengths.onReset(countdownRunning, was)
+        // Remembered only when there is something to remember, so pressing
+        // reset twice does not replace the last length with nothing.
+        if (was > 0L) lastCountdownMs = was
         countdown.reset()
-        if (again > 0L) countdown.setTo(again)
-        countdownClockView?.glideChronoTo(was, countdownRemaining())
+        countdownClockView?.glideChronoTo(was, 0L)
         pushed(Pusher.Feel.RESET)
         CountdownService.clearPublished(this)
         updateCountdownUi()
         HourglassWidgetProvider.pushIdle(this)
     }
 
-    /** The crown on the countdown: hands home to zero, travelling. */
-    private fun sendCountdownHome() {
+    /**
+     * The crown on the countdown: the last length it was set to, put back.
+     *
+     * The stopwatch's crown does exactly this with the last race, and for
+     * exactly the same reason — a dial reading zero has been either never
+     * used or cleared, and only one of those is worth offering to undo. A
+     * three-minute timer cleared by accident is three minutes to wind back
+     * by hand, and the crown is where a mechanical watch keeps the way out
+     * of that.
+     *
+     * Only from zero. A countdown with something on it is not asking to be
+     * replaced, and the crown's other job — tidying the scene — still
+     * happens either way.
+     */
+    private fun restoreLastCountdown() {
         if (countdownRunning) return
-        val was = countdownRemaining()
-        if (was == 0L) return
-        countdown.reset()
-        countdownClockView?.glideChronoTo(was, 0L)
+        if (countdownRemaining() != 0L) return
+        val back = lastCountdownMs
+        if (back <= 0L) return
+        countdown.setTo(back)
+        countdownClockView?.glideChronoTo(0L, back)
         updateCountdownUi()
         HourglassWidgetProvider.pushIdle(this)
     }

@@ -175,14 +175,18 @@ class CrownTest {
     }
 
     /**
-     * Reset puts the length back rather than clearing it.
+     * Reset clears the countdown, the way the stopwatch's reset beside it
+     * clears the stopwatch.
      *
-     * Reset on a kitchen timer means "again", and the length you want again
-     * is the one you just used. Winding three minutes back on by hand every
-     * time is the thing a reset button exists to save you.
+     * It used to mean "again" — back to the length last set — which is what
+     * a kitchen timer's reset means and is a perfectly good button. It is
+     * also the opposite of what the pusher one card away does, and the two
+     * dials are the same dial with different hands: a reset that clears on
+     * one page and refills on the other is a button whose meaning depends
+     * on which way you swiped to get there.
      */
     @Test
-    fun `reset puts the length back rather than clearing it`() {
+    fun `reset clears the countdown`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
             .commit()
@@ -193,84 +197,77 @@ class CrownTest {
             activity.startCountdownForTest(3 * 60_000L)
             activity.resetCountdownForTest()
             assertEquals(
+                "the countdown was refilled instead of cleared",
+                0L, activity.countdownRemainingForTest()
+            )
+        }
+    }
+
+    /**
+     * And the crown puts the length back, which is where it went.
+     *
+     * The stopwatch's crown does exactly this with the last race. Nothing
+     * is lost by a reset that clears: the length moves to the crown, which
+     * is where this watch already keeps its second thoughts, on both cards.
+     */
+    @Test
+    fun `the crown puts the last countdown back`() {
+        PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val activity = c.get()
+            activity.showCardForTest(Card.REVERSE)
+            activity.startCountdownForTest(3 * 60_000L)
+            activity.resetCountdownForTest()
+            assertEquals(0L, activity.countdownRemainingForTest())
+            activity.countdownForTest()!!.crownTapForTest()
+            assertEquals(
                 "three minutes had to be wound back on by hand",
                 3 * 60_000L, activity.countdownRemainingForTest()
             )
         }
     }
 
-    // --------------------------------------------- the two lengths, in turn
-
     /**
-     * The lengths, on their own, away from the activity.
+     * The crown does not overwrite a countdown that has something on it.
      *
-     * Three for the tea and five for the eggs, and the pusher goes from one
-     * to the other and back for as long as you keep pressing it. The
-     * swapping must not count as choosing, or the two would collapse into
-     * one on the first press and the pusher would kill itself.
+     * It is an undo for a dial that reads zero, not a "put my last timer
+     * back" button that fires whenever it is pressed — the crown's other
+     * job is tidying the scene, and that has to stay pressable on a dial
+     * with three minutes on it.
      */
     @Test
-    fun `reset swaps between the two lengths and keeps swapping`() {
-        val lengths = Lengths()
-        lengths.wound(3 * 60_000L)
-        lengths.wound(5 * 60_000L)
-
-        assertEquals(
-            "the pusher did not offer the length set before this one",
-            3 * 60_000L, lengths.onReset(running = false, remainingMs = 5 * 60_000L)
-        )
-        assertEquals(
-            "and it did not come back",
-            5 * 60_000L, lengths.onReset(running = false, remainingMs = 3 * 60_000L)
-        )
-        assertEquals(
-            "the second swap ate one of the two lengths",
-            3 * 60_000L, lengths.onReset(running = false, remainingMs = 5 * 60_000L)
-        )
+    fun `the crown leaves a wound countdown alone`() {
+        PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val activity = c.get()
+            activity.showCardForTest(Card.REVERSE)
+            activity.windCountdownForTest(3 * 60_000L)
+            activity.windCountdownForTest(5 * 60_000L)
+            activity.countdownForTest()!!.crownTapForTest()
+            assertEquals(
+                "the crown overwrote a countdown that was already set",
+                5 * 60_000L, activity.countdownRemainingForTest()
+            )
+        }
     }
 
     /**
-     * A countdown part way down means "again", not "the other one".
+     * And through the card the pusher clears whatever is on the dial.
      *
-     * This is the whole of the distinction: reset on a timer that has been
-     * running is for starting it over, and swapping the length underneath
-     * somebody at that moment would be the worst thing the button could do.
+     * The dial remembered *two* lengths for a while — three minutes for
+     * the tea, five for the eggs — and the reset pusher swapped between
+     * them. That only made sense while reset meant "again"; with reset
+     * meaning "clear", there is one length worth remembering and it is the
+     * one that was just cleared.
      */
     @Test
-    fun `reset on a countdown part way down goes back to its own length`() {
-        val lengths = Lengths()
-        lengths.wound(3 * 60_000L)
-        lengths.wound(5 * 60_000L)
-        assertEquals(
-            "the length changed under a countdown that was merely paused",
-            5 * 60_000L, lengths.onReset(running = false, remainingMs = 90_000L)
-        )
-        assertEquals(
-            "and under one still running",
-            5 * 60_000L, lengths.onReset(running = true, remainingMs = 90_000L)
-        )
-    }
-
-    /** With only one length ever set there is nothing to swap to. */
-    @Test
-    fun `one length alone leaves reset where it is`() {
-        val lengths = Lengths()
-        lengths.wound(3 * 60_000L)
-        assertEquals(
-            3 * 60_000L, lengths.onReset(running = false, remainingMs = 3 * 60_000L)
-        )
-    }
-
-    /**
-     * And the same through the card, since the pusher is what presses it.
-     *
-     * The dial was sitting at its full length and the pusher did nothing at
-     * all — pressed, and the hands stayed where they were. Now it goes to
-     * the other length, which is the only answer that leaves the button
-     * alive.
-     */
-    @Test
-    fun `the reset pusher on a wound countdown offers the other length`() {
+    fun `the reset pusher clears a wound countdown and the crown restores it`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
             .commit()
@@ -287,12 +284,12 @@ class CrownTest {
 
             activity.resetCountdownForTest()
             assertEquals(
-                "the pusher sat there dead on a countdown already wound",
-                3 * 60_000L, activity.countdownRemainingForTest()
+                "the pusher refilled the dial instead of clearing it",
+                0L, activity.countdownRemainingForTest()
             )
-            activity.resetCountdownForTest()
+            activity.countdownForTest()!!.crownTapForTest()
             assertEquals(
-                "and it would not come back",
+                "the crown gave back the wrong length",
                 5 * 60_000L, activity.countdownRemainingForTest()
             )
         }
@@ -351,18 +348,34 @@ class CrownTest {
         }
     }
 
-    /** Stopped, it still sends the hands home — that job is not lost. */
+    /**
+     * Pressing reset twice does not lose the memory of the first.
+     *
+     * The guard that stops it is one line — the length is remembered only
+     * when there is one to remember — and without it the second press
+     * writes zero over three minutes and the crown has nothing to give
+     * back. The stopwatch has the same line for the same reason.
+     */
     @Test
-    fun `the crown still sends a stopped countdown home`() {
+    fun `pressing reset twice keeps the length`() {
+        PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .commit()
         Robolectric.buildActivity(MainActivity::class.java).use { c ->
             c.setup()
             val activity = c.get()
             activity.showCardForTest(Card.REVERSE)
             activity.windCountdownForTest(3 * 60_000L)
+            activity.resetCountdownForTest()
+            activity.resetCountdownForTest()
+            assertEquals(
+                "the second press wrote nothing over the length",
+                3 * 60_000L, activity.lastCountdownForTest()
+            )
             activity.countdownForTest()!!.crownTapForTest()
             assertEquals(
-                "the hands stayed where they were",
-                0L, activity.countdownRemainingForTest()
+                "the crown had nothing left to give back",
+                3 * 60_000L, activity.countdownRemainingForTest()
             )
         }
     }
