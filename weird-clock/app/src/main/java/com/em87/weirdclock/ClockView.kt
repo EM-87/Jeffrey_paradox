@@ -5161,6 +5161,30 @@ class ClockView @JvmOverloads constructor(
      */
     internal fun orreryCaption(): String? {
         val script = orreryScript()
+        // An Egyptian date is a regnal year, and a regnal year without the
+        // king whose year it is is not a date at all — "year fifteen" of
+        // whom? So the one thing said under a hieroglyphic date is the
+        // name, and it is said in our letters because there is no other
+        // way to say it: writing Ramesses in hieroglyphs means drawing his
+        // cartouche, which is a different sign for every king in the list
+        // and is a book rather than a caption.
+        if (script == OrreryYear.Script.EGYPTIAN) {
+            val at = orreryMs()
+            val year = SkyAge.yearOf(at)
+            val date = egyptianDate()
+            // The one thing Egypt did write down, over and over, for three
+            // thousand years: the morning Sothis comes back. It is the
+            // opening of the year and it arrives with the flood, and it
+            // beats the king's name on the day it happens. There is no
+            // certain Egyptian record of an eclipse at all — see
+            // [EgyptianCalendar.sothicDayOfYear] — so this is the whole of
+            // the Egyptian sky calendar, and it is a great deal more than
+            // nothing.
+            if (EgyptianCalendar.isSothicRising(date, year)) {
+                return context.getString(R.string.egy_sothis)
+            }
+            return date.king?.name
+        }
         if (script != OrreryYear.Script.ROMAN && script != OrreryYear.Script.DIGITS) {
             return null
         }
@@ -5880,6 +5904,131 @@ class ClockView @JvmOverloads constructor(
     }
 
     /**
+     * The word signs a date is built from — see [Egyptian.Word].
+     *
+     * Drawn with the same stroked line the numerals use, because they are
+     * the same kind of thing: a carved outline round a picture of
+     * something, and at this size the picture has to be reduced to the two
+     * or three lines that make it recognisable. A palm rib is a stem with
+     * notches down one side. A moon is a crescent. The sun is a disc with
+     * a dot in it, which is exactly how the Egyptians drew it and is why
+     * every astronomer since has used the same mark.
+     */
+    private fun drawEgyptianWord(
+        canvas: Canvas, word: Egyptian.Word, x: Float, y: Float, w: Float, h: Float
+    ) {
+        val cx = x + w / 2f
+        glyphPath.reset()
+        when (word) {
+            // The year: a palm rib stripped of its leaves, notched down one
+            // side. The Egyptians counted years on one, and the word for
+            // "year" is the word for the stick.
+            Egyptian.Word.YEAR -> {
+                glyphPath.moveTo(cx, y + h * 0.94f)
+                glyphPath.lineTo(cx, y + h * 0.16f)
+                glyphPath.moveTo(cx, y + h * 0.16f)
+                glyphPath.lineTo(x + w * 0.22f, y + h * 0.06f)
+                for (i in 0 until 4) {
+                    val ny = y + h * (0.26f + i * 0.17f)
+                    glyphPath.moveTo(cx, ny)
+                    glyphPath.lineTo(cx + w * 0.26f, ny - h * 0.07f)
+                }
+            }
+            // The month: the moon, lying on its back the way it does in
+            // Egypt, where it never stands up on its end as it does in the
+            // north.
+            Egyptian.Word.MONTH -> {
+                glyphPath.moveTo(x + w * 0.14f, y + h * 0.66f)
+                glyphPath.cubicTo(
+                    x + w * 0.18f, y + h * 0.26f,
+                    x + w * 0.82f, y + h * 0.26f,
+                    x + w * 0.86f, y + h * 0.66f
+                )
+                glyphPath.moveTo(x + w * 0.14f, y + h * 0.66f)
+                glyphPath.cubicTo(
+                    x + w * 0.30f, y + h * 0.50f,
+                    x + w * 0.70f, y + h * 0.50f,
+                    x + w * 0.86f, y + h * 0.66f
+                )
+            }
+            // The day: the sun, a disc with its own centre marked.
+            Egyptian.Word.DAY -> {
+                signOval.set(x + w * 0.16f, y + h * 0.26f, x + w * 0.84f, y + h * 0.74f)
+                glyphPath.addOval(signOval, Path.Direction.CW)
+                signOval.set(x + w * 0.45f, y + h * 0.46f, x + w * 0.55f, y + h * 0.54f)
+                glyphPath.addOval(signOval, Path.Direction.CW)
+            }
+            // Akhet, the inundation: water. Three ripples, which is how
+            // water was written for three thousand years.
+            Egyptian.Word.AKHET -> {
+                for (i in 0 until 3) {
+                    val wy = y + h * (0.34f + i * 0.16f)
+                    glyphPath.moveTo(x + w * 0.10f, wy)
+                    glyphPath.cubicTo(
+                        x + w * 0.32f, wy - h * 0.09f,
+                        x + w * 0.52f, wy + h * 0.09f,
+                        x + w * 0.90f, wy
+                    )
+                }
+            }
+            // Peret, the coming-forth: a shoot rising out of the ground as
+            // the flood goes down.
+            Egyptian.Word.PERET -> {
+                glyphPath.moveTo(x + w * 0.08f, y + h * 0.82f)
+                glyphPath.lineTo(x + w * 0.92f, y + h * 0.82f)
+                glyphPath.moveTo(cx, y + h * 0.82f)
+                glyphPath.lineTo(cx, y + h * 0.28f)
+                glyphPath.moveTo(cx, y + h * 0.46f)
+                glyphPath.cubicTo(
+                    x + w * 0.30f, y + h * 0.38f,
+                    x + w * 0.24f, y + h * 0.18f,
+                    x + w * 0.40f, y + h * 0.20f
+                )
+                glyphPath.moveTo(cx, y + h * 0.40f)
+                glyphPath.cubicTo(
+                    x + w * 0.72f, y + h * 0.32f,
+                    x + w * 0.78f, y + h * 0.12f,
+                    x + w * 0.60f, y + h * 0.14f
+                )
+            }
+            // Shemu, the harvest: an ear of grain on its stalk.
+            Egyptian.Word.SHEMU -> {
+                glyphPath.moveTo(cx, y + h * 0.94f)
+                glyphPath.lineTo(cx, y + h * 0.36f)
+                for (i in 0 until 3) {
+                    val gy = y + h * (0.20f + i * 0.16f)
+                    glyphPath.moveTo(cx, gy + h * 0.10f)
+                    glyphPath.cubicTo(
+                        x + w * 0.24f, gy + h * 0.06f,
+                        x + w * 0.26f, gy - h * 0.04f,
+                        x + w * 0.40f, gy - h * 0.02f
+                    )
+                    glyphPath.moveTo(cx, gy + h * 0.10f)
+                    glyphPath.cubicTo(
+                        x + w * 0.76f, gy + h * 0.06f,
+                        x + w * 0.74f, gy - h * 0.04f,
+                        x + w * 0.60f, gy - h * 0.02f
+                    )
+                }
+            }
+            // The five days upon the year: a star, for the gods born on
+            // them. They belong to no month and no season, and this is the
+            // sign that says so.
+            Egyptian.Word.UPON_THE_YEAR -> {
+                for (i in 0 until 5) {
+                    val a = Math.toRadians(-90.0 + i * 72.0)
+                    glyphPath.moveTo(cx, y + h * 0.50f)
+                    glyphPath.lineTo(
+                        cx + (kotlin.math.cos(a) * w * 0.40f).toFloat(),
+                        y + h * 0.50f + (kotlin.math.sin(a) * h * 0.36f).toFloat()
+                    )
+                }
+            }
+        }
+        canvas.drawPath(glyphPath, carvedPaint)
+    }
+
+    /**
      * One Egyptian sign, drawn in the box from (x, y) to (x + w, y + h).
      *
      * Outlines rather than filled shapes, because that is what a carved
@@ -6113,22 +6262,52 @@ class ClockView @JvmOverloads constructor(
      * long the row is.
      */
     private fun drawEgyptianDate(canvas: Canvas, cx: Float, top: Float, digitH: Float) {
-        cal.timeInMillis = orreryMs()
-        val d = cal.get(Calendar.DAY_OF_MONTH)
-        val m = cal.get(Calendar.MONTH) + 1
-        val y = signedYear()
-        val parts = intArrayOf(
-            if (dateDayFirst) d else m,
-            if (dateDayFirst) m else d,
-            (1 - y).coerceAtLeast(1)
+        val at = orreryMs()
+        val date = EgyptianCalendar.dateOf(
+            at, TimeZone.getDefault().getOffset(at), SkyAge.yearOf(at)
         )
+        // Regnal year, then month-of-season with its season, then day —
+        // the order a scribe wrote them in, and the order they are read
+        // in. Each number is preceded by the word it counts, which is the
+        // part a transliteration of our own date can never have: a bare
+        // "15" means nothing, and 𓆳 15 means "regnal year 15".
+        val words = ArrayList<Egyptian.Word>(4)
+        val counts = ArrayList<Int>(4)
+        if (date.regnalYear > 0) {
+            words.add(Egyptian.Word.YEAR)
+            counts.add(date.regnalYear)
+        }
+        if (date.epagomenal) {
+            // The five days upon the year belong to no month and no
+            // season, and a date on one says so instead of naming either.
+            words.add(Egyptian.Word.UPON_THE_YEAR)
+            counts.add(date.day)
+        } else {
+            words.add(Egyptian.Word.MONTH)
+            counts.add(date.monthOfSeason)
+            words.add(
+                when (date.season) {
+                    EgyptianCalendar.Season.AKHET -> Egyptian.Word.AKHET
+                    EgyptianCalendar.Season.PERET -> Egyptian.Word.PERET
+                    else -> Egyptian.Word.SHEMU
+                }
+            )
+            counts.add(0)
+            words.add(Egyptian.Word.DAY)
+            counts.add(date.day)
+        }
+
         val h = digitH * 1.15f
         var unit = h * 0.34f
         var gap = unit * 1.1f
-        fun widthOfNumber(v: Int) =
-            Egyptian.tally(v).sumOf { Egyptian.perRow(it.second) } * unit +
-                Egyptian.tally(v).size * unit * 0.35f
-        var wide = parts.sumOf { widthOfNumber(it).toDouble() }.toFloat() + gap * 2f
+        fun widthOfGroup(word: Egyptian.Word, value: Int): Float {
+            val sign = unit * 1.05f + unit * 0.25f
+            if (value <= 0) return sign
+            return sign + Egyptian.tally(value).sumOf { Egyptian.perRow(it.second) } * unit +
+                Egyptian.tally(value).size * unit * 0.35f
+        }
+        var wide = words.indices.sumOf { widthOfGroup(words[it], counts[it]).toDouble() }
+            .toFloat() + gap * (words.size - 1)
         val room = width * 0.86f
         if (wide > room && wide > 0f) {
             val k = room / wide
@@ -6140,15 +6319,36 @@ class ClockView @JvmOverloads constructor(
         carvedPaint.alpha = digitalPaint.alpha
         carvedPaint.strokeWidth = (unit * 0.13f).coerceAtLeast(1.2f)
         var x = cx - wide / 2f
-        for ((i, value) in parts.withIndex()) {
-            x += drawEgyptianNumber(canvas, value, x, top, h, unit)
-            if (i < parts.size - 1) x += gap
+        var carved = 0
+        for (i in words.indices) {
+            drawEgyptianWord(canvas, words[i], x, top, unit * 1.05f, h)
+            x += unit * 1.05f + unit * 0.25f
+            carved++
+            if (counts[i] > 0) {
+                x += drawEgyptianNumber(canvas, counts[i], x, top, h, unit)
+                carved += Egyptian.signCount(counts[i])
+            }
+            if (i < words.size - 1) x += gap
         }
-        egyptiansPainted = parts.sumOf { Egyptian.signCount(it) }
+        egyptiansPainted = carved
         barsPainted = 0
         starsPainted = 0
         wedgesPainted = 0
         printedChars = 0
+    }
+
+    /**
+     * The date the sky is standing on, as a scribe would have set it down.
+     *
+     * Asked for by the drawing, by the caption that names the king, and by
+     * the tests — which is why it is one function rather than three copies
+     * of the same conversion.
+     */
+    internal fun egyptianDate(): EgyptianCalendar.Date {
+        val at = orreryMs()
+        return EgyptianCalendar.dateOf(
+            at, TimeZone.getDefault().getOffset(at), SkyAge.yearOf(at)
+        )
     }
 
     /** For the tests: hieroglyphs in the last row the sky wrote. */
@@ -6167,6 +6367,63 @@ class ClockView @JvmOverloads constructor(
     }
 
     // -------------------------------------------------------------- the wedges
+
+    /**
+     * The word signs a wedge date is built from — see [Cuneiform.Word].
+     *
+     * Made of the same two impressions everything else in this script is,
+     * because that is all a reed has: MU is a vertical wedge crossed by
+     * two horizontals, ITI is a vertical with a corner wedge tucked into
+     * it, and UD is the sun on the horizon — a horizontal with a wedge
+     * rising out of it. Reduced hard, as everything on this row is, to
+     * whatever tells them apart at forty pixels.
+     */
+    private fun drawCuneiformWord(
+        canvas: Canvas, word: Cuneiform.Word, x: Float, y: Float, w: Float, h: Float
+    ) {
+        when (word) {
+            // MU, the year: an upright with two strokes across it.
+            Cuneiform.Word.YEAR -> {
+                drawWedge(canvas, false, x + w * 0.34f, y, w * 0.42f, h)
+                drawHorizontalWedge(canvas, x, y + h * 0.20f, w, h * 0.20f)
+                drawHorizontalWedge(canvas, x, y + h * 0.58f, w, h * 0.20f)
+            }
+            // ITI, the month: an upright with the corner wedge beside it.
+            Cuneiform.Word.MONTH -> {
+                drawWedge(canvas, false, x + w * 0.04f, y, w * 0.40f, h)
+                drawWedge(canvas, true, x + w * 0.46f, y + h * 0.10f, w * 0.54f, h * 0.60f)
+            }
+            // UD, the day: the sun coming up over a line.
+            Cuneiform.Word.DAY -> {
+                drawHorizontalWedge(canvas, x, y + h * 0.62f, w, h * 0.22f)
+                drawWedge(canvas, true, x + w * 0.18f, y + h * 0.10f, w * 0.64f, h * 0.46f)
+            }
+        }
+    }
+
+    /**
+     * A wedge lying on its side: the same impression, made with the reed
+     * turned through a right angle.
+     *
+     * A third shape only in the sense that a letter turned on its side is
+     * a third letter — the scribes had the one stylus and used it every
+     * way round, and the horizontal is as common on a tablet as the
+     * upright. It is not one of the two *numerals*, which is why it lives
+     * here with the words rather than in [drawWedge].
+     */
+    private fun drawHorizontalWedge(
+        canvas: Canvas, x: Float, y: Float, w: Float, h: Float
+    ) {
+        glyphPath.reset()
+        val cy = y + h / 2f
+        glyphPath.moveTo(x + w * 0.06f, cy - h * 0.34f)
+        glyphPath.lineTo(x + w * 0.06f, cy + h * 0.34f)
+        glyphPath.lineTo(x + w * 0.46f, cy + h * 0.11f)
+        glyphPath.lineTo(x + w * 0.96f, cy)
+        glyphPath.lineTo(x + w * 0.46f, cy - h * 0.11f)
+        glyphPath.close()
+        canvas.drawPath(glyphPath, wedgePaint)
+    }
 
     /**
      * One impression of a reed in clay: either the vertical wedge worth
@@ -6290,7 +6547,13 @@ class ClockView @JvmOverloads constructor(
             }
             return w + (places.size - 1).coerceAtLeast(0) * unit * Cuneiform.PLACE_GAP
         }
-        var wide = parts.sumOf { widthOfNumber(it).toDouble() }.toFloat() + gap * 2f
+        val words = if (dateDayFirst) {
+            listOf(Cuneiform.Word.DAY, Cuneiform.Word.MONTH, Cuneiform.Word.YEAR)
+        } else {
+            listOf(Cuneiform.Word.MONTH, Cuneiform.Word.DAY, Cuneiform.Word.YEAR)
+        }
+        var wide = parts.sumOf { widthOfNumber(it).toDouble() }.toFloat() + gap * 2f +
+            parts.size * (unit * 1.15f + unit * Cuneiform.GROUP_GAP * 2f)
         val room = width * 0.86f
         if (wide > room && wide > 0f) {
             val k = room / wide
@@ -6302,10 +6565,18 @@ class ClockView @JvmOverloads constructor(
         wedgePaint.alpha = digitalPaint.alpha
         var x = cx - wide / 2f
         for ((i, value) in parts.withIndex()) {
+            // The word first, then the number it counts. A tablet does not
+            // date itself with three bare numbers in a row: it writes MU,
+            // ITI, UD — year, month, day — in front of each one, and those
+            // are among the commonest signs there are, because nearly
+            // every tablet is dated. See [Cuneiform.Word] for how far this
+            // can honestly be taken.
+            drawCuneiformWord(canvas, words[i], x, top, unit * 1.15f, h)
+            x += unit * 1.15f + unit * Cuneiform.GROUP_GAP * 2f
             x += drawCuneiformNumber(canvas, value, x, top, h, unit)
             if (i < parts.size - 1) x += gap
         }
-        wedgesPainted = parts.sumOf { Cuneiform.wedgeCount(it) }
+        wedgesPainted = parts.sumOf { Cuneiform.wedgeCount(it) } + words.size
         barsPainted = 0
         starsPainted = 0
         egyptiansPainted = 0

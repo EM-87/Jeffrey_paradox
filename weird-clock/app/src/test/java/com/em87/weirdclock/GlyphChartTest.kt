@@ -131,7 +131,7 @@ class GlyphChartTest {
                 android.view.View.MeasureSpec.makeMeasureSpec(2200, android.view.View.MeasureSpec.EXACTLY)
             )
             root.layout(0, 0, 1080, 2200)
-            for (year in listOf(-4000, -3200, -1250, 1750, 1800, 1888, 2026, 3400)) {
+            for (year in listOf(-4000, -3200, -2560, -1250, 1750, 1800, 1888, 2026, 3400)) {
                 clock.windOrreryToYearForTest(year)
                 val bitmap = Bitmap.createBitmap(1080, 2200, Bitmap.Config.ARGB_8888)
                 root.draw(Canvas(bitmap))

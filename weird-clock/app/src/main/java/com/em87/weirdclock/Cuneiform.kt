@@ -87,6 +87,38 @@ object Cuneiform {
     /** How many wedges altogether, which is how much clay the number takes. */
     fun wedgeCount(value: Int): Int = places(value).sumOf { it.tens + it.ones }
 
+    // ------------------------------------------------------------ the words
+
+    /**
+     * The three signs that say what a number is counting.
+     *
+     * The user asked whether the wedge date was a straight transcription
+     * of ours with no word for day or month in it, and it was. A
+     * Mesopotamian date is not three numbers: it is *MU* n, *ITI* n, *UD*
+     * n — year, month, day — with the word written in front of each. They
+     * are among the commonest signs on any tablet, because almost every
+     * tablet is dated.
+     *
+     * How honest this can be has a limit, and it is worth being plain
+     * about. These signs and this way of dating belong to Sumerian and
+     * Babylonian scribes of the third millennium and after. The window
+     * this dial writes in wedges is earlier than that — proto-cuneiform,
+     * the Uruk tablets, where the marks are still pictures and almost
+     * every surviving one is an account of barley or beer rather than a
+     * dated record. There is no reconstructable civil calendar for it. So
+     * the words are right for cuneiform and early for the exact centuries
+     * they are drawn in, and the numbers underneath are what can honestly
+     * be shown: the year, month and day of a calendar the dial has to have
+     * in order to have a date at all.
+     *
+     * Nor was the Babylonian calendar a fixed thing. It was lunisolar —
+     * months began when the new crescent was seen, and a thirteenth month
+     * was inserted when the king or, later, the astronomers said so. The
+     * regular nineteen-year cycle is a fifth-century invention, two and a
+     * half thousand years after the window this writes in.
+     */
+    enum class Word { YEAR, MONTH, DAY }
+
     /**
      * The gap between the tens and the ones of one place, in wedge widths.
      *

@@ -200,13 +200,38 @@ class EgyptianTest {
      */
     @Test
     fun `the far scripts say nothing rather than saying it in English`() {
-        val old = sky()
-        old.windOrreryToYearForTest(-1250)
-        assertNull("a hieroglyphic date is captioned", captionSomewhereFrom(old))
-
         val far = sky()
         far.windOrreryToYearForTest(3400)
         assertNull("a far-future date is captioned", captionSomewhereFrom(far))
+    }
+
+    /**
+     * The hieroglyphs are the exception, and the exception is a name.
+     *
+     * A carved date is a *regnal* year — the thirtieth year of somebody —
+     * and a regnal year with nobody's name on it is not a date at all.
+     * There is no way round it: writing Ramesses in hieroglyphs means
+     * drawing his cartouche, which is a different set of signs for every
+     * king who ever reigned and is a book rather than a caption. So the
+     * one word said under a hieroglyphic date is a proper noun, which is
+     * the same concession the Roman date makes when it says Iuppiter.
+     */
+    @Test
+    fun `a hieroglyphic date is captioned with a name and nothing else`() {
+        val old = sky()
+        old.windOrreryToYearForTest(-1250)
+        val said = captionSomewhereFrom(old)
+        assertTrue("a carved date says nothing at all", said != null)
+        assertTrue(
+            "the caption under a carved date is a sentence rather than a name: $said",
+            said!!.split(" ").size <= 2
+        )
+        assertTrue(
+            "and it is not a name off the king list or the one star Egypt " +
+                "wrote about: $said",
+            EgyptianCalendar.kings.any { it.name == said } ||
+                said == context.getString(R.string.egy_sothis)
+        )
     }
 
     /** But an ordinary year does explain itself, or the test above is empty. */

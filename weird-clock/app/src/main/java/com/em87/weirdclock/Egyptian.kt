@@ -97,4 +97,26 @@ object Egyptian {
 
     /** And how many go in each row. */
     fun perRow(count: Int): Int = (count + rowsFor(count) - 1) / rowsFor(count)
+
+    // ------------------------------------------------------------ the words
+
+    /**
+     * The words a date is made of, each one a sign standing in front of the
+     * number it counts.
+     *
+     * This is the part a transliteration of our own date can never have. A
+     * row of three numbers is not an Egyptian date, it is our date wearing
+     * hieroglyphs: what makes it a date is that each number is *named* —
+     * regnal year fifteen, month three of Peret, day nine — and the naming
+     * is done with a sign, not with a position in the row.
+     *
+     * The signs are what the words were written with. [YEAR] is a stripped
+     * palm rib, which is what the Egyptians tallied years on and is the
+     * origin of the word: a notched stick. [MONTH] is the moon, because a
+     * month is a moon everywhere anybody has ever counted them, even in a
+     * calendar that had stopped following it. [DAY] is the sun. And the
+     * three seasons are the Nile: water for the flood, a shoot coming up
+     * for the land emerging from under it, and grain for the harvest.
+     */
+    enum class Word { YEAR, MONTH, DAY, AKHET, PERET, SHEMU, UPON_THE_YEAR }
 }

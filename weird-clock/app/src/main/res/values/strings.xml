@@ -420,6 +420,12 @@
     <string name="pref_hand_shadows_title">Hand shadows</string>
     <string name="pref_hand_shadows_summary">The clock lies flat with 12 pointing north and the real sun crosses over it. The three hands sit at three heights, so they throw three shadows — none at all when the sun is overhead, long and slanted near the poles.</string>
     <string name="pref_hand_shadows_nofix">No location yet, so the sun is crossing a middle latitude. It will use yours once the dial has a fix.</string>
+    <!-- Sopdet, the star we call Sirius, coming back at dawn after
+         seventy days away: the Egyptian new year, and the one
+         astronomical event they wrote down again and again. Not
+         translated: it is the star's name. -->
+    <string name="egy_sothis" translatable="false">Sopdet</string>
+
     <!-- What the wandering stars were called before the Greeks, from the
          Mesopotamian star lists. The planet name and, where they are not
          the same word, the god behind it. Not translated: the point of
