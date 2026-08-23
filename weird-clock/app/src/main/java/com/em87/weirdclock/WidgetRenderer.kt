@@ -173,34 +173,48 @@ object WidgetRenderer {
             canvas.drawPath(path, stroke)
         }
 
-        for (i in 0 until 60) {
-            val deg = i / 60f * 360f
-            val b = boundary(deg)
-            val angle = Math.toRadians(deg.toDouble())
-            val isMajor = hoursOnDial == 12 && i % 5 == 0
-            stroke.color = if (isMajor) theme.tick else theme.minorTick
-            stroke.strokeWidth = if (isMajor) r * 0.018f else r * 0.008f
-            val outerLen = if (isMajor) r * 0.08f else r * 0.045f
-            val sx = sin(angle).toFloat()
-            val cyy = cos(angle).toFloat()
-            canvas.drawLine(
-                c + sx * (b * 0.97f - outerLen), c - cyy * (b * 0.97f - outerLen),
-                c + sx * b * 0.97f, c - cyy * b * 0.97f,
-                stroke
-            )
+        // The same two rings the dial draws, and the same rule about which
+        // hours are on them — see [ChapterRing]. The geometry is written
+        // out again here because a widget is a bitmap rather than a view;
+        // the decision is not, because that is what stopped following the
+        // setting.
+        val marks = ChapterRing.marksFrom(prefs)
+        val minuteMarks = ChapterRing.minuteMarksFrom(prefs)
+        val marked = ChapterRing.markedHours(hoursOnDial, marks)
+        if (minuteMarks) {
+            for (i in 0 until 60) {
+                val deg = i / 60f * 360f
+                val b = boundary(deg)
+                val angle = Math.toRadians(deg.toDouble())
+                val isMajor = hoursOnDial == 12 && i % 5 == 0 && (i / 5) in marked
+                stroke.color = if (isMajor) theme.tick else theme.minorTick
+                stroke.strokeWidth = if (isMajor) r * 0.018f else r * 0.008f
+                val outerLen = if (isMajor) r * 0.08f else r * 0.045f
+                val sx = sin(angle).toFloat()
+                val cyy = cos(angle).toFloat()
+                canvas.drawLine(
+                    c + sx * (b * 0.97f - outerLen), c - cyy * (b * 0.97f - outerLen),
+                    c + sx * b * 0.97f, c - cyy * b * 0.97f,
+                    stroke
+                )
+            }
         }
-        if (hoursOnDial != 12) {
+        if (!(minuteMarks && hoursOnDial == 12)) {
             stroke.color = theme.tick
             stroke.strokeWidth = r * 0.018f
-            for (i in 0 until hoursOnDial) {
+            for (i in marked) {
                 val deg = i.toFloat() / hoursOnDial * 360f
                 val b = boundary(deg)
                 val angle = Math.toRadians(deg.toDouble())
                 val sx = sin(angle).toFloat()
                 val cyy = cos(angle).toFloat()
+                // On the chapter ring when it is empty, and inside it when
+                // the minute ticks have it — where the numerals are not.
+                val outer = if (minuteMarks) b * 0.87f else b * 0.97f
+                val len = if (minuteMarks) b * 0.07f else r * 0.08f
                 canvas.drawLine(
-                    c + sx * b * 0.80f, c - cyy * b * 0.80f,
-                    c + sx * b * 0.87f, c - cyy * b * 0.87f,
+                    c + sx * (outer - len), c - cyy * (outer - len),
+                    c + sx * outer, c - cyy * outer,
                     stroke
                 )
             }
@@ -214,15 +228,7 @@ object WidgetRenderer {
                 textSize = if (hoursOnDial > 12) r * 0.11f else r * 0.16f
             }
             val radiusFactor = if (hoursOnDial == 12) 0.76f else 0.68f
-            val step = if (hoursOnDial > 12) 2 else 1
-            val hours = ArrayList<Int>()
-            var h = step
-            while (h <= hoursOnDial) {
-                hours.add(h)
-                h += step
-            }
-            if (hoursOnDial % step != 0) hours.add(hoursOnDial)
-            for (hour in hours) {
+            for (hour in ChapterRing.numeralHours(hoursOnDial, marks)) {
                 val deg = hour.toFloat() / hoursOnDial * 360f
                 val radius = boundary(deg) * radiusFactor
                 val angle = Math.toRadians(deg.toDouble())

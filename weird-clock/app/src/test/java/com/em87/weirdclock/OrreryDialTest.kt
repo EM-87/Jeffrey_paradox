@@ -778,12 +778,24 @@ class OrreryDialTest {
         val (ex, ey) = emptySky(clock)
         clock.pressAndHoldOnSky(ex, ey)
         clock.settleOrreryForTest()
-        // Years, not milliseconds: an alignment of three planets is a long
-        // way off, and "the number went up a little" is a thing a clock
-        // does by itself.
+        // It went somewhere — days at least, which a running clock does not
+        // do by itself — and the somewhere it went is a sky with three
+        // planets lined up in it.
+        //
+        // Asked that way round rather than as a distance. This used to
+        // require thirty days, on the reasoning that "an alignment of three
+        // planets is a long way off", and that reasoning is simply wrong:
+        // three of eight planets inside a twelve degree arc is a common
+        // event, and the test sat there for months waiting for a year in
+        // which the next one happened to fall inside a month. It did —
+        // twenty-nine days — and the failure said nothing at all about the
+        // gesture it was supposed to be testing.
+        val moved = clock.orreryMs() - before
+        assertTrue("holding on empty sky did not move the sky: $moved ms", moved > 86_400_000L)
+        val there = Orrery.aligned(clock.orreryMs(), 12.0)
         assertTrue(
-            "holding on empty sky found nothing",
-            clock.orreryMs() - before > 30L * 86_400_000L
+            "the sky it leapt to has only ${there.size} planets lined up: $there",
+            there.size >= 3
         )
     }
 

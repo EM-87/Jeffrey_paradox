@@ -9,6 +9,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import kotlin.math.abs
 import kotlin.math.hypot
 
@@ -23,6 +24,7 @@ import kotlin.math.hypot
  * radius, and asked where they went.
  */
 @RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [33], qualifiers = "w411dp-h891dp-xxhdpi")
 class ChapterRingTest {
 
@@ -275,6 +277,84 @@ class ChapterRingTest {
             emptyList<Int>(),
             wordsOf(dial(0, true)).mapNotNull { it.toIntOrNull() }
         )
+    }
+
+    // ------------------------------------------------------- and the widget
+
+    /**
+     * The widget follows the setting too.
+     *
+     * It did not, and the reason is the reason this file exists: the
+     * widget is a bitmap shipped across a process boundary rather than a
+     * view, so it draws its own ticks with its own loop, and that loop
+     * still said sixty-and-twelve. Turning the marks down to four left the
+     * home screen with twelve of them — the app and the clock beside it
+     * disagreeing about what clock the user owns.
+     *
+     * Counted in ink rather than in draw calls, because the widget offers
+     * no canvas to listen to: a dial with fewer marks on it has less ink
+     * in the ring where the marks go.
+     */
+    @Test
+    fun `the widget draws the marks the dial was told to draw`() {
+        val twelve = ringInk(12)
+        val six = ringInk(6)
+        val four = ringInk(4)
+        val none = ringInk(0, minutes = false)
+        assertTrue("four marks put as much ink on the ring as twelve: $four vs $twelve", four < twelve)
+        assertTrue("four marks put as much ink on the ring as six: $four vs $six", four < six)
+        assertTrue("six marks put as much ink on the ring as twelve: $six vs $twelve", six < twelve)
+        // Not nothing: the widget draws a day-or-night glyph on the face
+        // as well, and it is in this band. What matters is that it is what
+        // is left — a bare ring is a small fraction of a marked one.
+        assertTrue("a widget asked for no marks still drew a ring: $none vs $twelve", none < twelve / 4)
+    }
+
+    /** And its minute ring answers its own switch. */
+    @Test
+    fun `the widget minute ticks answer their own switch`() {
+        val on = ringInk(12)
+        val off = ringInk(12, minutes = false)
+        assertTrue("switching the minute ticks off changed nothing: $off vs $on", off < on)
+        assertTrue("switching the minute ticks off emptied the ring", off > 0)
+    }
+
+    /**
+     * How much ink the widget put in the ring the marks live in.
+     *
+     * The band between the numerals and the rim, sampled for pixels that
+     * are neither the face nor the rim line.
+     */
+    private fun ringInk(marks: Int, minutes: Boolean = true): Int {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        prefs.edit()
+            .putString(
+                Prefs.DIAL_MARKS,
+                when (marks) {
+                    0 -> Prefs.MARKS_NONE
+                    4 -> Prefs.MARKS_4
+                    6 -> Prefs.MARKS_6
+                    else -> Prefs.MARKS_12
+                }
+            )
+            .putBoolean(Prefs.MINUTE_MARKS, minutes)
+            .putString(Prefs.NUMERALS, Prefs.NUMERALS_NONE)
+            .commit()
+        val px = 400
+        val bitmap = WidgetRenderer.dialBitmap(context, px)
+        val mid = px / 2f
+        val face = bitmap.getPixel(px / 2, px / 2 + px / 8)
+        var ink = 0
+        for (x in 0 until px) {
+            for (y in 0 until px) {
+                val d = hypot(x - mid, y - mid)
+                // Inside the rim line, outside where a numeral would be.
+                if (d < px * 0.30f || d > px * 0.42f) continue
+                if (bitmap.getPixel(x, y) != face) ink++
+            }
+        }
+        bitmap.recycle()
+        return ink
     }
 
     /** And each numeral stands over its own mark, not between two. */

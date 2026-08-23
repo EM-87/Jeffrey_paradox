@@ -107,6 +107,71 @@ class QuarterDaysTest {
         )
     }
 
+    // -------------------------------------------------- where the ring starts
+
+    /**
+     * The ring begins at the December solstice, not at New Year.
+     *
+     * This is the answer to the question, chosen for astronomical
+     * precision: a year starts when the sun turns. It is also the only
+     * answer that puts the start of the year at the top of this dial,
+     * because the top of this dial is ecliptic longitude ninety and that
+     * *is* the December solstice — so the alternative was a ring whose
+     * first day sat ten days round from twelve for reasons to do with
+     * Roman consuls.
+     */
+    @Test
+    fun `the year on the ring starts at the solstice`() {
+        val midMarch = CivilDays.epochDay(2026, 3, 15)
+        val start = dial.yearStart(midMarch)
+        val (year, month, _) = date(start)
+        assertEquals("the ring did not start in December", 12, month)
+        assertEquals("the ring started in the wrong December", 2025, year)
+        assertTrue(
+            "the ring's first day is not a solstice",
+            start in dial.quarterDays(2025)
+        )
+    }
+
+    /** A day after that December's solstice belongs to the next ring. */
+    @Test
+    fun `the ten days before new year belong to the year that has just begun`() {
+        val solstice = dial.quarterDays(2025).max()
+        assertEquals(
+            "the day after the solstice looked back to the old year",
+            solstice, dial.yearStart(solstice + 1)
+        )
+        assertEquals(
+            "new year's eve looked back to the old year",
+            solstice, dial.yearStart(CivilDays.epochDay(2025, 12, 31))
+        )
+        assertEquals(
+            "new year's day started a ring of its own",
+            solstice, dial.yearStart(CivilDays.epochDay(2026, 1, 1))
+        )
+        // And the day before it still belongs to the ring before.
+        assertTrue(
+            "the day before the solstice was pulled into the new year",
+            dial.yearStart(solstice - 1) < solstice
+        )
+    }
+
+    /** And it runs a whole year, solstice to solstice. */
+    @Test
+    fun `the ring is one turn of the earth long`() {
+        for (day in listOf(
+            CivilDays.epochDay(2024, 5, 1),
+            CivilDays.epochDay(2025, 5, 1),
+            CivilDays.epochDay(2026, 5, 1),
+            CivilDays.epochDay(2027, 5, 1)
+        )) {
+            val start = dial.yearStart(day)
+            val length = dial.yearLength(start)
+            assertTrue("a year on the ring is $length days long", length in 363..368)
+            assertTrue("the day being shown is not on its own ring", day in start until start + length)
+        }
+    }
+
     /** Asked twice, it answers the same — the cache is a cache. */
     @Test
     fun `the answer does not change when it is asked again`() {

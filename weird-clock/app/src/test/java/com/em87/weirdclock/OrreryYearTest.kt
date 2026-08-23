@@ -42,6 +42,62 @@ class OrreryYearTest {
 
     // ------------------------------------------------- which alphabet
 
+    /**
+     * The months are written on the ring, and only when the ring is a
+     * calendar.
+     *
+     * Zoomed out this is a solar system and the year marks are not drawn
+     * at all; twelve words round the rim of a solar system would be a
+     * label on the wrong thing. They arrive with the day ticks, on the
+     * same fade, when the pinch has gone far enough that the Earth's orbit
+     * is the rim.
+     *
+     * Caught as they are drawn rather than looked for in the pixels: a
+     * three-letter word bent round a circle at four per cent of the radius
+     * is a handful of grey pixels, and "is there ink here" cannot tell it
+     * from a tick.
+     */
+    @Test
+    fun `the months are written round the ring, and only when it is a calendar`() {
+        val zoomedOut = monthsDrawn(1f)
+        assertTrue("a solar system was labelled with months: $zoomedOut", zoomedOut.isEmpty())
+        val zoomedIn = monthsDrawn(Orrery.MAX_ZOOM)
+        assertEquals("the ring is not labelled with twelve months: $zoomedIn", 12, zoomedIn.size)
+        // Every month once, and the year's own first month at both ends of
+        // the ring is not two labels — the ring runs solstice to solstice,
+        // so December is the first month and the last one is November.
+        assertEquals("a month was written twice", zoomedIn.size, zoomedIn.toSet().size)
+    }
+
+    /** The words that went onto the ring at a given zoom. */
+    private fun monthsDrawn(zoom: Float): List<String> {
+        val names = java.text.DateFormatSymbols.getInstance().shortMonths.filter { it.isNotEmpty() }
+        val controller = org.robolectric.Robolectric.buildActivity(MainActivity::class.java).setup()
+        val clock = (controller.get() as MainActivity).clockForTest()
+        clock.toggleOrrery()
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(900))
+        clock.zoomOrrery(zoom)
+        val bitmap = android.graphics.Bitmap.createBitmap(
+            clock.width.coerceAtLeast(1), clock.height.coerceAtLeast(1),
+            android.graphics.Bitmap.Config.ARGB_8888
+        )
+        val seen = ArrayList<String>()
+        clock.draw(object : android.graphics.Canvas(bitmap) {
+            override fun drawTextOnPath(
+                text: String,
+                path: android.graphics.Path,
+                hOffset: Float,
+                vOffset: Float,
+                paint: android.graphics.Paint
+            ) {
+                if (text in names) seen += text
+                super.drawTextOnPath(text, path, hOffset, vOffset, paint)
+            }
+        })
+        bitmap.recycle()
+        return seen
+    }
+
     /** The three eras, and the two years they change on. */
     @Test
     fun `the year changes alphabet at two thousand and at three thousand`() {
@@ -90,7 +146,7 @@ class OrreryYearTest {
     fun `the whole date changes script together`() {
         val controller = org.robolectric.Robolectric
             .buildActivity(MainActivity::class.java).setup()
-        val clock = controller.get().clockForTest()
+        val clock = (controller.get() as MainActivity).clockForTest()
         clock.toggleOrrery()
         org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(900))
 
@@ -144,7 +200,7 @@ class OrreryYearTest {
     fun `each script is drawn on the display that can show it`() {
         val controller = org.robolectric.Robolectric
             .buildActivity(MainActivity::class.java).setup()
-        val clock = controller.get().clockForTest()
+        val clock = (controller.get() as MainActivity).clockForTest()
         clock.toggleOrrery()
         org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(900))
         val canvas = android.graphics.Canvas(
@@ -202,7 +258,7 @@ class OrreryYearTest {
     fun `a roman year older than the display is printed rather than lit`() {
         val controller = org.robolectric.Robolectric
             .buildActivity(MainActivity::class.java).setup()
-        val clock = controller.get().clockForTest()
+        val clock = (controller.get() as MainActivity).clockForTest()
         clock.toggleOrrery()
         org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(900))
         val canvas = android.graphics.Canvas(
@@ -259,7 +315,7 @@ class OrreryYearTest {
     fun `a roman year is written in letters`() {
         val controller = org.robolectric.Robolectric
             .buildActivity(MainActivity::class.java).setup()
-        val clock = controller.get().clockForTest()
+        val clock = (controller.get() as MainActivity).clockForTest()
         clock.toggleOrrery()
         org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(900))
         clock.windOrreryToYearForTest(1750)

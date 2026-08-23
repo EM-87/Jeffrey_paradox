@@ -2282,26 +2282,7 @@ class ClockView @JvmOverloads constructor(
 
     private fun visibleNumeralHours(): List<Int> {
         if (numeralStyle == NumeralStyle.NONE) return emptyList()
-        val n = hoursOnDial
-        // The numerals follow the marks. Asking for four marks and getting
-        // twelve numerals is a dial that has half heard you — and asking
-        // for none and getting all twelve is worse, because then the marks
-        // switch does nothing you can see.
-        if (dialMarks in 1 until n) {
-            // markedHours counts from zero, where zero is the top of the
-            // dial; an hour numeral counts from one and the top one is n.
-            return markedHours().map { if (it == 0) n else it }.sorted()
-        }
-        if (dialMarks <= 0) return emptyList()
-        val step = if (n > 12) 2 else 1
-        val list = ArrayList<Int>()
-        var h = step
-        while (h <= n) {
-            list.add(h)
-            h += step
-        }
-        if (n % step != 0) list.add(n)
-        return list
+        return ChapterRing.numeralHours(hoursOnDial, dialMarks)
     }
 
     private fun numeralLabel(hour: Int): String =
@@ -4277,17 +4258,7 @@ class ClockView @JvmOverloads constructor(
         }
 
     /** Which hours carry a mark, given how many were asked for. */
-    private fun markedHours(): List<Int> {
-        if (dialMarks <= 0) return emptyList()
-        val n = hoursOnDial
-        // One mark every so many hours. The counts the settings offer all
-        // divide both twelve and twenty-four, so the division is exact
-        // there and the rounding only decides what a face with some other
-        // number of hours on it does — where the nearest whole spacing is
-        // the only answer that keeps the marks evenly spread.
-        val every = maxOf(1, Math.round(n.toFloat() / dialMarks))
-        return (0 until n).filter { it % every == 0 }
-    }
+    private fun markedHours(): List<Int> = ChapterRing.markedHours(hoursOnDial, dialMarks)
 
     /**
      * The minute and hour marks, on a ring rather than along the edge.

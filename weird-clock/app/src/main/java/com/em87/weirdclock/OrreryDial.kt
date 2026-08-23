@@ -390,8 +390,7 @@ object OrreryDial {
     /** Scratch, for the round face that has no path of its own. */
     private val clip = android.graphics.Path()
 
-    private var quarterYear = Int.MIN_VALUE
-    private var quarterCache: Set<Int> = emptySet()
+    private val quarterCache = HashMap<Int, Set<Int>>()
 
     /**
      * The four days a year the Earth crosses into a new quarter of the
@@ -400,23 +399,27 @@ object OrreryDial {
      * These are the answer to the question the ring kept raising — why the
      * first of January is not at the top. Twelve on this dial is ecliptic
      * longitude ninety, which is the December solstice by definition, and
-     * the year ring starts wherever the calendar starts, which is ten days
-     * later because Caesar put New Year where the consuls took office
-     * rather than where the sun turns. Rotating the ring to hide that would
-     * cost the one property that makes it worth drawing — that the Earth
-     * always stands exactly on today's mark. So the four real dates are
-     * marked instead, and the ten-day gap becomes something the dial says
-     * rather than something it gets wrong.
+     * the calendar's New Year is ten days after that, because Caesar put it
+     * where the consuls took office rather than where the sun turns.
+     *
+     * The ring used to run January to December and start ten days late.
+     * Now it runs solstice to solstice — see [yearStart] — so the four are
+     * the year's own corners rather than four dates scattered through
+     * somebody's calendar, and the first of them is the top of the dial.
      *
      * Found by walking the year and watching for the crossing rather than
      * by a formula, because the crossing is what is being drawn: the mark
      * has to land on a day the ring actually has a tick for, and the
      * nearest tick to an exact instant is not always the day the almanac
      * prints. Cached, because the answer only changes once a year and the
-     * ring is redrawn many times a second.
+     * ring is redrawn many times a second — and by year rather than one at
+     * a time, because a ring that spans a New Year needs two of them.
      */
     fun quarterDays(year: Int): Set<Int> {
-        if (year == quarterYear) return quarterCache
+        quarterCache[year]?.let { return it }
+        // A dial being wound through the centuries would otherwise keep
+        // every year it passed through.
+        if (quarterCache.size > 8) quarterCache.clear()
         val first = CivilDays.epochDay(year, 1, 1)
         val found = mutableSetOf<Int>()
         var wasQuadrant = -1
@@ -434,10 +437,40 @@ object OrreryDial {
             if (wasQuadrant >= 0 && quadrant != wasQuadrant && i > 0) found += day - 1
             wasQuadrant = quadrant
         }
-        quarterYear = year
-        quarterCache = found
+        quarterCache[year] = found
         return found
     }
+
+    /**
+     * The December solstice of a calendar year: the day the astronomical
+     * year that ends in it begins.
+     */
+    private fun solsticeOf(year: Int): Int =
+        quarterDays(year).maxOrNull() ?: CivilDays.epochDay(year, 12, 21)
+
+    /**
+     * The day the astronomical year containing [day] began.
+     *
+     * The December solstice on or before it. Asked for what a year is, the
+     * answer chosen here is the sky's rather than the calendar's: the year
+     * begins when the sun turns. It is the older answer by several
+     * thousand years, it is the one every megalith in Europe is pointed
+     * at, and it is the only one that puts the start of the year at the
+     * top of a dial whose top is longitude ninety by construction.
+     *
+     * The cost is that a ring now spans two calendar years, which is the
+     * honest shape of the thing: the ten days between the solstice and New
+     * Year are ten days of the old year on a ring that has already turned.
+     */
+    fun yearStart(day: Int): Int {
+        val year = CivilDays.dateOf(day).first
+        val thisYears = solsticeOf(year)
+        return if (day >= thisYears) thisYears else solsticeOf(year - 1)
+    }
+
+    /** How many days that year runs for: one solstice to the next. */
+    fun yearLength(startDay: Int): Int =
+        solsticeOf(CivilDays.dateOf(startDay).first + 1) - startDay
 
     /**
      * The year the dial is standing in, marked out in days.
@@ -450,6 +483,10 @@ object OrreryDial {
      *
      * The first of each month is drawn longer, because a ring of identical
      * ticks is a texture rather than a calendar.
+     *
+     * It runs from one December solstice to the next rather than from
+     * January to January — see [yearStart] — so the year begins at the top
+     * of the dial, where the sun turns.
      */
     private fun drawYearOfDays(
         canvas: Canvas,
@@ -461,12 +498,13 @@ object OrreryDial {
         alpha: Float,
         busyDays: Set<Int>
     ) {
-        val year = CivilDays.dateOf(CivilDays.dayOf(atMs, 0)).first
-        val first = CivilDays.epochDay(year, 1, 1)
+        val shown = CivilDays.dayOf(atMs, 0)
+        val first = yearStart(shown)
         val today = CivilDays.dayOf(TimeKeeper.nowMs(), 0)
         val rim = r * 0.94f
-        val quarters = quarterDays(year)
-        for (i in 0 until Orrery.daysInYear(year)) {
+        val startYear = CivilDays.dateOf(first).first
+        val quarters = quarterDays(startYear) + quarterDays(startYear + 1)
+        for (i in 0 until yearLength(first)) {
             val day = first + i
             val angle = Orrery.longitude(Orrery.Body.EARTH, day * CivilDays.DAY_MS)
             val quarterDay = day in quarters
@@ -494,6 +532,95 @@ object OrreryDial {
                 canvas.drawCircle(dot.x, dot.y, r * 0.011f, fill)
             }
         }
+        drawMonthNames(canvas, cx, cy, r, theme, first, alpha)
+    }
+
+    private val monthPath = android.graphics.Path()
+    private val monthOval = android.graphics.RectF()
+
+    /**
+     * The months, written round the ring in the arc each one occupies.
+     *
+     * A ring of ticks with a longer tick every so often is a calendar only
+     * to somebody who already knows it is one. The names make it readable,
+     * and they are set along the curve rather than laid flat at the
+     * midpoint because a flat word on a circle this size either crosses
+     * the ticks or points at nothing: the arc a month occupies *is* the
+     * label's shape, and a word bent into it says "this stretch of the
+     * ring is October" without a leader line.
+     *
+     * Only with the day marks. The names ride the same fade the ticks do,
+     * so they appear when the ring is zoomed far enough in to be a
+     * calendar and are not there at all when it is a solar system.
+     *
+     * The arc is walked in whichever direction leaves the text the right
+     * way up: over the top of the dial that is clockwise on the screen,
+     * underneath it is the other way, and a version that picks one for the
+     * whole ring has half its months upside down.
+     */
+    private fun drawMonthNames(
+        canvas: Canvas,
+        cx: Float,
+        cy: Float,
+        r: Float,
+        theme: ClockTheme,
+        first: Int,
+        alpha: Float
+    ) {
+        val names = java.text.DateFormatSymbols.getInstance().shortMonths
+        text.color = theme.numeral
+        text.alpha = (150 * alpha).toInt()
+        text.textSize = r * 0.045f
+        text.textAlign = Paint.Align.CENTER
+        val radius = r * 0.94f - r * 0.075f
+        monthOval.set(cx - radius, cy - radius, cx + radius, cy + radius)
+        var day = first
+        val end = first + yearLength(first)
+        while (day < end) {
+            val (_, month, _) = CivilDays.dateOf(day)
+            // This month's run on the ring, clipped to the year the ring is
+            // showing: the first and last months are part months, and a
+            // label centred on the whole month would sit off the end.
+            val monthEnd = minOf(end, CivilDays.epochDay(
+                CivilDays.dateOf(day).first + if (month == 12) 1 else 0,
+                if (month == 12) 1 else month + 1,
+                1
+            ))
+            val from = Orrery.longitude(Orrery.Body.EARTH, day * CivilDays.DAY_MS)
+            val to = Orrery.longitude(Orrery.Body.EARTH, (monthEnd - 1) * CivilDays.DAY_MS)
+            // Screen angles run the other way round from ecliptic ones,
+            // because the sky's longitude climbs anticlockwise and a canvas
+            // measures clockwise.
+            val a0 = Orrery.wrap(-from).toFloat()
+            val a1 = Orrery.wrap(-to).toFloat()
+            val sweep = Orrery.wrap((a0 - a1).toDouble()).toFloat()
+            val middle = Orrery.wrap((a1 + sweep / 2f).toDouble())
+            // Above the middle of the dial, where the screen's y is less
+            // than the centre's: sin of a canvas angle is positive going
+            // down, so this is the negative half.
+            val overTheTop = kotlin.math.sin(Math.toRadians(middle)) < 0.0
+            monthPath.reset()
+            if (overTheTop) {
+                monthPath.addArc(monthOval, a1, sweep)
+            } else {
+                monthPath.addArc(monthOval, a0, -sweep)
+            }
+            val label = names.getOrNull(month - 1).orEmpty()
+            if (label.isNotEmpty() && sweep > 12f) {
+                // The two directions hang the glyphs off opposite sides of
+                // the path, so the offset that centres them in the band is
+                // not the same number twice. Measured off the render, not
+                // reasoned about: the underside sat a text height nearer
+                // the ticks than the top did.
+                canvas.drawTextOnPath(
+                    label, monthPath, 0f,
+                    if (overTheTop) text.textSize * 0.95f else -text.textSize * 1.4f,
+                    text
+                )
+            }
+            day = monthEnd
+        }
+        text.alpha = 255
     }
 
     /**
@@ -514,11 +641,12 @@ object OrreryDial {
         val ring = r * 0.94f + r * 0.035f
         if (kotlin.math.abs(out - ring) > r * 0.06f) return null
         val angle = longitudeOf(cx, cy, x, y)
-        val year = CivilDays.dateOf(CivilDays.dayOf(atMs, 0)).first
-        val first = CivilDays.epochDay(year, 1, 1)
+        // The same span the ring drew, or a touch would land on a day that
+        // has no mark under the finger.
+        val first = yearStart(CivilDays.dayOf(atMs, 0))
         var best: Int? = null
         var bestGap = 360.0
-        for (i in 0 until Orrery.daysInYear(year)) {
+        for (i in 0 until yearLength(first)) {
             val day = first + i
             val gap = Orrery.separation(
                 angle, Orrery.longitude(Orrery.Body.EARTH, day * CivilDays.DAY_MS)
