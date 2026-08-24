@@ -238,6 +238,46 @@ class MenuIndentTest {
     }
 
     /**
+     * A row arriving with somebody else's fading on it is restored.
+     *
+     * The list recycles its views: the one that carried a faded row a
+     * moment ago will carry an ordinary one next, still carrying the
+     * fading. A version that only ever fades and never restores leaves
+     * grey rows scattered down the page — and it cannot be caught by
+     * looking at a laid-out list, because a list long enough to hold every
+     * row at once never recycles anything. So the arriving is asked
+     * directly, with a view handed over in the state recycling leaves it
+     * in.
+     */
+    @Test
+    fun `a row arriving with an old fading on it is restored`() {
+        PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().putBoolean(Prefs.BELLS, false).commit()
+        val fragment = advancedScreen() as SettingsActivity.Screen
+        val list = fragment.listView
+        list.measure(
+            android.view.View.MeasureSpec.makeMeasureSpec(1000, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec.makeMeasureSpec(9000, android.view.View.MeasureSpec.EXACTLY)
+        )
+        list.layout(0, 0, 1000, 9000)
+        val ordinary = fragment.findPreference<Preference>(Prefs.NUMERALS)?.title?.toString()
+        var row: android.view.View? = null
+        for (i in 0 until list.childCount) {
+            val child = list.getChildAt(i)
+            val title = child.findViewById<android.widget.TextView>(android.R.id.title)
+            if (title?.text?.toString() == ordinary) row = child
+        }
+        assertTrue("the row to reuse was never laid out", row != null)
+        // As recycling hands it over: still wearing the last row's fading.
+        row!!.alpha = 0.45f
+        fragment.paintRowForTest(row)
+        assertEquals(
+            "an ordinary row kept the fading of whatever the view held before",
+            1f, row.alpha, 0.001f
+        )
+    }
+
+    /**
      * The sky's furniture is on the advanced page whatever the sky is
      * doing, faded when the sky is off.
      *

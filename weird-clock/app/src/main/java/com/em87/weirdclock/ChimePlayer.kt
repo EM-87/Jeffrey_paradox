@@ -742,9 +742,6 @@ class ChimePlayer {
         )
     }
 
-    /** How loud a buffer gets, and how loud it is on average while sounding. */
-    internal fun sampleRateForTest(): Int = SAMPLE_RATE
-
     private fun playFloatBuffer(buffer: FloatArray) {
         synchronized(lock) {
             bellTrack?.release()

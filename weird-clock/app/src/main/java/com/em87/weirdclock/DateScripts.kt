@@ -1083,13 +1083,6 @@ class DateScripts {
 
     private var printedChars = 0
 
-    /** For the camera: a printed date, drawn anywhere. */
-    internal fun drawPrintedForTest(
-        canvas: Canvas, text: String, cx: Float, top: Float, digitH: Float, boxWidth: Int
-    ) {
-        drawPrintedDate(canvas, whiteFrame(boxWidth), text, cx, top, digitH)
-    }
-
     /**
      * A frame for the camera: white ink on a box of a given width.
      *

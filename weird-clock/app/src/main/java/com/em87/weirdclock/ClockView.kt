@@ -569,11 +569,6 @@ class ClockView @JvmOverloads constructor(
         canvas: Canvas, value: Int, x: Float, y: Float, h: Float
     ): Float = scripts.drawCuneiformForTest(canvas, value, x, y, h)
 
-    /** For the camera: a printed date, drawn anywhere. */
-    internal fun drawPrintedForTest(
-        canvas: Canvas, text: String, cx: Float, top: Float, digitH: Float
-    ) = scripts.drawPrintedForTest(canvas, text, cx, top, digitH, width.coerceAtLeast(4000))
-
     private val digitalPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
@@ -5061,10 +5056,6 @@ class ClockView @JvmOverloads constructor(
         return hypot(x - skyTokenX(), y - skyTokenY()) < r * 0.16f
     }
 
-    /** Whether a touch landed on the face at all. */
-    private fun withinDial(x: Float, y: Float): Boolean =
-        hypot(x - width / 2f, y - height / 2f) < dialRadius()
-
     /**
      * Whether a touch landed on the Sun, which is the way back to today.
      *
@@ -5299,9 +5290,6 @@ class ClockView @JvmOverloads constructor(
      */
     private fun cometName(comet: Comets.Comet): String =
         context.getString(OrreryDial.cometNameKeyOf(comet, SkyAge.yearOf(orreryMs())))
-
-    /** For the tests: what the bubble would say about a comet right now. */
-    internal fun cometNameForTest(comet: Comets.Comet): String = cometName(comet)
 
     /** The planets lying in the case, each in the colour it brought down. */
     private fun drawFallenPlanets(canvas: Canvas) {

@@ -1787,9 +1787,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private fun miniDial(hour: Int, minute: Int): ClockView = alarmCards.miniDial(hour, minute)
 
-    private fun fillAlarmDials(row: LinearLayout, times: List<Pair<Int, Int>>) =
-        alarmCards.fillDials(row, times)
-
     private fun weekdayOrder(): List<Int> = alarmCards.weekdayOrder()
 
     private fun weekdayLetters(): List<String> = alarmCards.weekdayLetters()
@@ -2282,6 +2279,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * one fewer people want.
      */
     private fun offerToKeepTheDaysAfter(alarm: Alarm, next: Long) {
+        // A window needs a live one to hang off. Switching an alarm off is
+        // one of the last things that can happen on the way out of this
+        // activity — the switch is on screen, the finger is on it — and a
+        // popup shown against a token that has already gone throws rather
+        // than doing nothing.
+        if (isFinishing || isDestroyed) return
         val list = alarmsRecycler ?: return
         // The card itself when it is on screen, and the list when it is
         // not. A row scrolled out of sight has no view to hang anything
@@ -2804,9 +2807,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // actually wanted did nothing until they had found and turned on a
         // different one — see [Prefs.ORRERY].
         val sky = prefs.getBoolean(Prefs.ORRERY, false)
-        cv.showMoonPhase =
-            dialJob != null || sky || prefs.getBoolean(Prefs.MOON_PHASE, false)
-        cv.moonPhaseShown = sky.not() || prefs.getBoolean(Prefs.MOON_PHASE, false)
+        cv.showMoonPhase = dialJob != null || skyTokenWanted()
+        cv.moonPhaseShown = moonPhaseWanted()
         cv.orreryEnabled = dialJob == null && sky
         cv.cometsEnabled = prefs.getBoolean(Prefs.COMETS, false)
         cv.zodiacShown = prefs.getBoolean(Prefs.ZODIAC, false)
@@ -3097,6 +3099,34 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             else -> ClockView.DialShape.CIRCLE
         }
 
+    /**
+     * Whether there is a glyph on the dial to press.
+     *
+     * Asked in two places — when the settings are applied, and again when
+     * the dial goes back to being a clock after winding a time — and so
+     * written once. It was two copies of one rule, and the copies were
+     * enough to hide a sabotage: taking the solar system out of one of
+     * them left the other putting the door there anyway, and every test of
+     * the door went on passing against a switch that had stopped working
+     * on the path a person actually takes.
+     *
+     * The sky needs a door, so its own switch opens one. The moon
+     * complication puts one there on its own account, for somebody who
+     * wants the moon and no planets behind it.
+     */
+    private fun skyTokenWanted(): Boolean =
+        prefs.getBoolean(Prefs.ORRERY, false) || prefs.getBoolean(Prefs.MOON_PHASE, false)
+
+    /**
+     * And whether that glyph tracks the phase, or is a plain disc.
+     *
+     * With the sky shut the token is only there because the complication
+     * asked for it, so it always tracks; with the sky open it is the
+     * complication's own switch that decides.
+     */
+    private fun moonPhaseWanted(): Boolean =
+        !prefs.getBoolean(Prefs.ORRERY, false) || prefs.getBoolean(Prefs.MOON_PHASE, false)
+
     private fun readNumeralStyle(key: String = Prefs.NUMERALS): ClockView.NumeralStyle =
         when (prefs.getString(key, Prefs.NUMERALS_ARABIC)) {
             Prefs.NUMERALS_NONE -> ClockView.NumeralStyle.NONE
@@ -3321,10 +3351,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // and the sun sets under your finger, which is both the
                 // proof the sunrise arithmetic works and the only way to
                 // watch a whole day go past without waiting for one.
-                val skyOn = prefs.getBoolean(Prefs.ORRERY, false)
-                it.showMoonPhase = skyOn || prefs.getBoolean(Prefs.MOON_PHASE, false)
-                it.moonPhaseShown = !skyOn || prefs.getBoolean(Prefs.MOON_PHASE, false)
-                it.orreryEnabled = skyOn
+                it.showMoonPhase = skyTokenWanted()
+                it.moonPhaseShown = moonPhaseWanted()
+                it.orreryEnabled = prefs.getBoolean(Prefs.ORRERY, false)
                 it.cometsEnabled = prefs.getBoolean(Prefs.COMETS, false)
                 it.zodiacShown = prefs.getBoolean(Prefs.ZODIAC, false)
                 it.handShadows = prefs.getBoolean(Prefs.HAND_SHADOWS, false)

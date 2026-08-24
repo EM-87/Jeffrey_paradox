@@ -260,6 +260,9 @@ class SettingsActivity : AppCompatActivity() {
             view.alpha = if (on) 1f else fadedAlpha
         }
 
+        /** For the tests: paints one row as the list would when it arrives. */
+        internal fun paintRowForTest(view: android.view.View) = paintFaded(view)
+
         /**
          * Shows [children] only while the preference [key] is on, wherever
          * that preference lives.
