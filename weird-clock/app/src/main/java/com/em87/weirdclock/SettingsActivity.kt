@@ -180,6 +180,17 @@ class SettingsActivity : AppCompatActivity() {
                     outRect.left = step * (nestedTitles()[title?.text?.toString()] ?: 0)
                 }
             })
+            // And the fading, done as each row arrives rather than once at
+            // the start: the rows are recycled, so there is no moment at
+            // which they all exist to be painted.
+            list.addOnChildAttachStateChangeListener(
+                object : androidx.recyclerview.widget.RecyclerView.OnChildAttachStateChangeListener {
+                    override fun onChildViewAttachedToWindow(view: android.view.View) =
+                        paintFaded(view)
+
+                    override fun onChildViewDetachedFromWindow(view: android.view.View) = Unit
+                }
+            )
             return list
         }
 
@@ -190,6 +201,64 @@ class SettingsActivity : AppCompatActivity() {
             nested.mapNotNull { (key, depth) ->
                 findPreference<Preference>(key)?.title?.toString()?.let { it to depth }
             }.toMap()
+
+        /**
+         * The rows drawn faded because the switch that gives them their
+         * effect is off, and which switch that is.
+         *
+         * Different from [follows] on purpose, and the difference is what
+         * the row is for. A row that is hidden until its parent is on keeps
+         * the list short, which is right when the parent is on the same
+         * screen and one thumb-length away. It is wrong when the parent is
+         * two screens away: the bells' settings would simply not be on the
+         * advanced page at all, and somebody who came looking for them
+         * would conclude the app had lost them.
+         *
+         * So they stay, faded, and still work. Setting them up with the
+         * bells switched off and turning the bells on afterwards is a
+         * perfectly ordinary thing to want to do, and a disabled row would
+         * refuse it — which is why this fades rather than disabling.
+         */
+        private val dimmedBy = HashMap<String, String>()
+
+        /** How faded a row whose switch is off is drawn. */
+        private val fadedAlpha = 0.45f
+
+        /**
+         * Draws [children] faded whenever the preference at [parent] is
+         * off, wherever that preference lives, without taking them away
+         * and without making them unusable.
+         */
+        protected fun dimmedWhen(parent: String, vararg children: String) {
+            nest(parent, children)
+            for (child in children) dimmedBy[child] = parent
+        }
+
+        /** Which faded rows are called what, and whose switch each waits on. */
+        private fun dimmedTitles(): Map<String, String> =
+            dimmedBy.mapNotNull { (key, parent) ->
+                findPreference<Preference>(key)?.title?.toString()?.let { it to parent }
+            }.toMap()
+
+        /**
+         * Fades a row as it comes on screen, or restores it.
+         *
+         * Both halves matter: the list recycles its rows, so a view that
+         * carried a faded row a moment ago will carry an ordinary one next,
+         * and a version that only ever faded would leave grey rows
+         * scattered down the page.
+         */
+        private fun paintFaded(view: android.view.View) {
+            val title = view.findViewById<android.widget.TextView>(android.R.id.title)
+                ?.text?.toString()
+            val parent = dimmedTitles()[title]
+            if (parent == null) {
+                view.alpha = 1f
+                return
+            }
+            val on = preferenceManager.sharedPreferences?.getBoolean(parent, false) == true
+            view.alpha = if (on) 1f else fadedAlpha
+        }
 
         /**
          * Shows [children] only while the preference [key] is on, wherever
@@ -207,6 +276,23 @@ class SettingsActivity : AppCompatActivity() {
             nest(key, children)
             val on = preferenceManager.sharedPreferences?.getBoolean(key, false) == true
             children.forEach { findPreference<Preference>(it)?.isVisible = on }
+        }
+
+        /**
+         * What the bar at the top says this screen is.
+         *
+         * Every screen said "Settings", which is true of all three and
+         * useful about none: two taps down there is no way to tell the
+         * advanced page from the too-advanced one except by recognising a
+         * row on it. The default stays for the first screen, where it is
+         * the right answer.
+         */
+        open fun titleRes(): Int = R.string.settings_title
+
+        override fun onStart() {
+            super.onStart()
+            (activity as? androidx.appcompat.app.AppCompatActivity)
+                ?.supportActionBar?.setTitle(titleRes())
         }
 
         protected fun go(screen: PreferenceFragmentCompat) {
@@ -353,17 +439,7 @@ class SettingsActivity : AppCompatActivity() {
             // Hiding rather than grâce-and-grey, deliberately: a disabled
             // row still costs a line of scrolling and still has to be read
             // past to find out it is not the one you want.
-            follows(Prefs.NIGHT_DIM, Prefs.NIGHT_WINDOW)
-            follows(
-                Prefs.BELLS,
-                Prefs.BELL_MARKS, Prefs.BELL_STYLE, Prefs.TEST_BELLS, Prefs.BELLS_BACKGROUND,
-                Prefs.BELL_PRIORITY
-            )
             follows(Prefs.WORLD_CLOCK, Prefs.WORLD_SECONDS, "pref_world_cities")
-            // What the alarm markers are coloured by is a question about
-            // the markers, so it hangs off them.
-            follows(Prefs.ALARM_MARKERS, Prefs.MARK_COLORS)
-            followsChain(Prefs.MOON_PHASE, Prefs.ORRERY, Prefs.COMETS)
             findPreference<Preference>("pref_version")?.summary = try {
                 val info = requireContext().packageManager
                     .getPackageInfo(requireContext().packageName, 0)
@@ -558,6 +634,8 @@ class SettingsActivity : AppCompatActivity() {
     /** The things you set once and then live with. */
     class AdvancedSettingsFragment : Screen() {
 
+        override fun titleRes(): Int = R.string.title_advanced
+
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.advanced_preferences, rootKey)
             // How a date is written is no question at all while the dial is
@@ -568,6 +646,20 @@ class SettingsActivity : AppCompatActivity() {
             // standing decides what the sun does to it: across the face,
             // or at it.
             follows(Prefs.HAND_SHADOWS, Prefs.SHADOW_SURFACE)
+
+            // The rows whose switch is two screens away. Faded rather than
+            // hidden, and still usable — see [dimmedWhen]. Setting the bell
+            // style up before turning the bells on is an ordinary thing to
+            // want, and hiding the row would have refused it while looking
+            // like the app had lost the setting.
+            dimmedWhen(Prefs.NIGHT_DIM, Prefs.NIGHT_WINDOW)
+            dimmedWhen(
+                Prefs.BELLS,
+                Prefs.BELL_MARKS, Prefs.BELL_STYLE, Prefs.BELLS_BACKGROUND,
+                Prefs.BELL_PRIORITY, Prefs.TEST_BELLS
+            )
+            dimmedWhen(Prefs.ALARM_MARKERS, Prefs.MARK_COLORS)
+            dimmedWhen(Prefs.ORRERY, Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC)
 
             // The shadows need a place to put the sun over. Without one
             // they still work, from a middle latitude, and the row says so
@@ -612,6 +704,8 @@ class SettingsActivity : AppCompatActivity() {
         private val importLauncher = registerForActivityResult(
             ActivityResultContracts.OpenDocument()
         ) { uri -> if (uri != null) readBackup(uri) }
+
+        override fun titleRes(): Int = R.string.title_very_advanced
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.very_advanced_preferences, rootKey)

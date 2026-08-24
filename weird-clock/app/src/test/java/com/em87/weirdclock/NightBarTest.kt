@@ -216,19 +216,18 @@ class NightBarTest {
     @Test
     fun `each settings screen holds exactly the rows it should`() {
         val screens = mapOf(
+            // The first screen is switches. Everything that refines one of
+            // them lives on the advanced page, which is why this list is
+            // now short enough to read in one go.
             R.xml.root_preferences to setOf(
                 // Dial
-                "pref_night_dim", "pref_night_window", "pref_theme",
-                "pref_show_date",
+                "pref_night_dim", "pref_theme", "pref_show_date",
                 // Alarm
-                "pref_bells", "pref_bell_marks", "pref_bell_style", "pref_test_bells",
-                "pref_bells_background", "pref_bell_priority", "pref_alarm_markers",
-                // What the markers are coloured by hangs off the markers.
-                "pref_mark_colors",
+                "pref_bells", "pref_alarm_markers",
                 // Calendar
-                "pref_past_days", "pref_birthday", "pref_cycle",
-                // General
-                "pref_moon_phase", "pref_orrery", "pref_comets",
+                "pref_birthday", "pref_cycle",
+                // General — one switch for the whole sky
+                "pref_orrery",
                 "pref_world_clock", "pref_world_seconds", "pref_world_cities",
                 // And the ways on
                 "pref_advanced", "pref_very_advanced", "pref_version"
@@ -242,9 +241,19 @@ class NightBarTest {
                 // it.
                 "pref_dial_marks", "pref_minute_marks",
                 "pref_hand_shadows", "pref_shadow_surface",
+                // Which hours count as night, down from the first screen.
+                "pref_night_window",
+                // The bells' own settings, faded while the bells are off
+                // and configurable all the same.
+                "pref_bell_marks", "pref_bell_style", "pref_bells_background",
+                "pref_bell_priority", "pref_test_bells",
+                // The sky's furniture, behind the one switch that opens it.
+                "pref_moon_phase", "pref_comets", "pref_zodiac",
+                // The month page, which writes its days in its own numerals.
+                "pref_calendar_numerals", "pref_past_days",
                 "pref_alarm_ramp", "pref_ring_timeout",
                 "pref_countdown_persistent", "pref_alarm_style",
-                "pref_gentle_flash"
+                "pref_gentle_flash", "pref_mark_colors"
             ),
             R.xml.very_advanced_preferences to setOf(
                 "pref_minute_hand", "pref_second_hand",
@@ -324,18 +333,13 @@ class NightBarTest {
                 ApplicationProvider.getApplicationContext<android.content.Context>()
             )
         for ((screen, pairs) in mapOf<() -> androidx.preference.PreferenceFragmentCompat?, List<Pair<String, String>>>(
+            // What is left on the first screen after the refinements went
+            // to the advanced page: the cities, which are a list and not a
+            // setting, and which would be an empty screen with the world
+            // clock off.
             { null } to listOf(
-                Prefs.NIGHT_DIM to Prefs.NIGHT_WINDOW,
-                Prefs.BELLS to Prefs.BELL_MARKS,
-                Prefs.BELLS to Prefs.BELL_STYLE,
-                Prefs.BELLS to Prefs.TEST_BELLS,
-                Prefs.BELLS to Prefs.BELLS_BACKGROUND,
-                Prefs.BELLS to Prefs.BELL_PRIORITY,
-                Prefs.WORLD_CLOCK to "pref_world_cities",
-                // The solar system hangs off the sky token, because the
-                // whole gesture is a tap on the sun or the moon and there
-                // is nothing to tap without one.
-                Prefs.MOON_PHASE to Prefs.ORRERY
+                Prefs.WORLD_CLOCK to Prefs.WORLD_SECONDS,
+                Prefs.WORLD_CLOCK to "pref_world_cities"
             ),
             { SettingsActivity.VeryAdvancedSettingsFragment() } to listOf(
                 Prefs.SECOND_HAND to Prefs.SMOOTH_SECONDS,
@@ -469,30 +473,30 @@ class NightBarTest {
     // ------------------------------------------------- the row it lives in
 
     /**
-     * And the whole row is out of sight until there is a night to set the
-     * hours of: it was two rows asking a question about a feature that is
-     * off by default.
+     * And the row that sets those hours is on the advanced page now,
+     * faded until there is a night to set the hours of.
+     *
+     * It was hidden, on the first screen, under the switch that turns
+     * dimming on. It moved because it is a decision — which hours your
+     * household counts as night — and decisions live one screen in; and
+     * once it moved, hiding it became the wrong rule, because a row that
+     * is not on the page it belongs to reads as a row the app has lost.
      */
     @Test
-    fun `the hours are hidden until night mode is switched on`() {
+    fun `the hours are faded until night mode is switched on`() {
         val prefs = androidx.preference.PreferenceManager
             .getDefaultSharedPreferences(ApplicationProvider.getApplicationContext())
         prefs.edit().clear().commit()
 
         org.robolectric.Robolectric.buildActivity(SettingsActivity::class.java).use { c ->
             c.setup()
-            val fragment = c.get().supportFragmentManager.fragments.first()
-                as SettingsActivity.RootSettingsFragment
+            val fragment = SettingsActivity.AdvancedSettingsFragment()
+            c.get().supportFragmentManager.beginTransaction()
+                .replace(R.id.settings_container, fragment).commitNow()
             val row = fragment.findPreference<androidx.preference.Preference>(Prefs.NIGHT_WINDOW)
-            assertNotNull("the row must exist to be hidden", row)
-            assertFalse("nothing to set until dimming is on", row!!.isVisible)
-
-            val dim = fragment.findPreference<androidx.preference.SwitchPreferenceCompat>(
-                Prefs.NIGHT_DIM
-            )!!
-            dim.performClick()
-
-            assertTrue("and it appears the moment it is", row.isVisible)
+            assertNotNull("the row must be on the page to be faded", row)
+            assertTrue("the hours vanished with dimming off", row!!.isVisible)
+            assertTrue("and they must still be settable", row.isEnabled)
         }
     }
 }

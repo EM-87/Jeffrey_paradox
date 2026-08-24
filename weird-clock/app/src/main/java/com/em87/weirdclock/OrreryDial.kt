@@ -325,7 +325,8 @@ object OrreryDial {
         fallen: Set<Orrery.Body> = emptySet(),
         sunIsDown: Boolean = false,
         comets: Boolean = true,
-        face: android.graphics.Path? = null
+        face: android.graphics.Path? = null,
+        zodiac: Boolean = false
     ) {
         if (alpha <= 0.01f) return
         val a = alpha.coerceIn(0f, 1f)
@@ -340,7 +341,9 @@ object OrreryDial {
         // busy day. It is drawn before the clip goes on, and everything
         // else is drawn under it.
         val days = Orrery.dayMarkFade(zoom)
-        if (days > 0f) drawYearOfDays(canvas, cx, cy, r, theme, atMs, a * days, busyDays)
+        if (days > 0f) {
+            drawYearOfDays(canvas, cx, cy, r, theme, atMs, a * days, busyDays, zodiac)
+        }
 
         // Everything in the sky is cut off at the edge of the face, which
         // is what an edge is for. Zoomed out far enough the outer planets
@@ -496,7 +499,8 @@ object OrreryDial {
         theme: ClockTheme,
         atMs: Long,
         alpha: Float,
-        busyDays: Set<Int>
+        busyDays: Set<Int>,
+        zodiac: Boolean
     ) {
         val shown = CivilDays.dayOf(atMs, 0)
         val first = yearStart(shown)
@@ -533,6 +537,7 @@ object OrreryDial {
             }
         }
         drawMonthNames(canvas, cx, cy, r, theme, first, alpha)
+        if (zodiac) drawZodiac(canvas, cx, cy, r, theme, first, alpha)
     }
 
     private val monthPath = android.graphics.Path()
@@ -619,6 +624,95 @@ object OrreryDial {
                 )
             }
             day = monthEnd
+        }
+        text.alpha = 255
+    }
+
+    /**
+     * The twelve signs, in order from Aries.
+     *
+     * Unicode has them, which saves drawing twelve little pictures and
+     * costs a dependency on the phone's font having them — every Android
+     * font shipped this decade does.
+     */
+    private val SIGNS = listOf(
+        "♈", "♉", "♊", "♋", "♌", "♍",
+        "♎", "♏", "♐", "♑", "♒", "♓"
+    ).map { it + TEXT_PRESENTATION }
+
+    /**
+     * The character that says "draw this as a letter, not as a sticker".
+     *
+     * The zodiac signs live in a block Android hands to the colour emoji
+     * font by default, so without this each one arrives as a little
+     * coloured disc with a picture in it — twelve stickers stuck round an
+     * instrument. The variation selector asks for the text presentation,
+     * which is the line drawing that has been the printer's sign for these
+     * for four hundred years and looks like part of the dial.
+     */
+    private const val TEXT_PRESENTATION = '\uFE0E'.toString()
+
+    /**
+     * The first year the ring is willing to draw a sign in.
+     *
+     * The twelve equal signs are Babylonian and roughly fifth century BC —
+     * before that the ecliptic had constellations along it but had not been
+     * cut into twelve equal thirty-degree houses, which is what a sign is.
+     * Wound back past this the ring simply stops drawing them, in the same
+     * way it stops writing dates before there were calendars: the dial does
+     * not claim a thing about the sky that nobody had thought of yet.
+     */
+    const val ZODIAC_FROM_YEAR = -500
+
+    /**
+     * The signs, each written along the thirty degrees of ecliptic it names.
+     *
+     * Placed by the Sun rather than by the Earth. A sign is where the *Sun*
+     * stands — that is what "the Sun is in Leo" means — and this dial plots
+     * the Earth, which is always exactly opposite. So the arc a sign labels
+     * on this ring is the one a hundred and eighty degrees round from its
+     * own, and drawn without that half turn every sign would sit over the
+     * dates of the one across the year from it.
+     *
+     * Aries starts at the March equinox by definition, so no epoch or table
+     * is needed: the signs fall out of the same longitude the day marks are
+     * already drawn at.
+     */
+    private fun drawZodiac(
+        canvas: Canvas,
+        cx: Float,
+        cy: Float,
+        r: Float,
+        theme: ClockTheme,
+        first: Int,
+        alpha: Float
+    ) {
+        if (CivilDays.dateOf(first).first < ZODIAC_FROM_YEAR) return
+        text.color = theme.numeral
+        text.alpha = (120 * alpha).toInt()
+        text.textSize = r * 0.052f
+        text.textAlign = Paint.Align.CENTER
+        val radius = r * 0.94f - r * 0.155f
+        monthOval.set(cx - radius, cy - radius, cx + radius, cy + radius)
+        for (sign in SIGNS.indices) {
+            // The Sun's thirty degrees, turned round to the Earth's side.
+            val from = Orrery.wrap(180.0 + sign * 30.0)
+            val a0 = Orrery.wrap(-from).toFloat()
+            val a1 = Orrery.wrap(-(from + 30.0)).toFloat()
+            val sweep = 30f
+            val middle = Orrery.wrap((a1 + sweep / 2f).toDouble())
+            val overTheTop = kotlin.math.sin(Math.toRadians(middle)) < 0.0
+            monthPath.reset()
+            if (overTheTop) {
+                monthPath.addArc(monthOval, a1, sweep)
+            } else {
+                monthPath.addArc(monthOval, a0, -sweep)
+            }
+            canvas.drawTextOnPath(
+                SIGNS[sign], monthPath, 0f,
+                if (overTheTop) text.textSize * 0.95f else -text.textSize * 1.4f,
+                text
+            )
         }
         text.alpha = 255
     }

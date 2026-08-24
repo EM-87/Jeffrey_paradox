@@ -223,8 +223,8 @@
 
     <!-- Temporizador: la persiana, la burbuja y lo que flota mientras corre. -->
     <string name="countdown_add_minute">+1 min</string>
-    <string name="pref_countdown_float_title">Mientras corre un temporizador</string>
-    <string name="pref_countdown_float_summary">El reloj de arena flotante se queda donde lo arrastres y mantiene la cuenta atrás en pantalla sobre las demás apps. Necesita el permiso de dibujar sobre otras apps. Desactivado: solo la barra de progreso en la persiana.</string>
+    <string name="pref_countdown_float_title">Permiso de ventana flotante</string>
+    <string name="pref_countdown_float_summary">El reloj de arena flotante se queda donde lo arrastres y mantiene la cuenta atrás en pantalla sobre las demás apps, lo que exige el permiso de Android para dibujar sobre otras aplicaciones. Desactivado: la cuenta atrás vive en la persiana de notificaciones, en su barra de progreso.</string>
 
     <!-- Lo que la app le dice al sistema: avisos, atajos, tiles y canales. -->
     <string name="alarm_set_toast">Alarma puesta para las %1$s</string>
@@ -431,4 +431,14 @@
         <item>Cuatro</item>
         <item>Ninguna</item>
     </string-array>
+
+    <string name="title_advanced">Opciones avanzadas</string>
+    <string name="title_very_advanced">Opciones demasiado avanzadas</string>
+    <string name="category_bells">Campanadas</string>
+    <string name="category_orrery">Sistema solar</string>
+    <string name="category_widgets">Widgets</string>
+    <string name="pref_calendar_numerals_title">Numerales del calendario</string>
+    <string name="pref_calendar_numerals_summary">Cómo se escriben los días en la página del mes. La esfera conserva los suyos.</string>
+    <string name="pref_zodiac_title">Zodiaco</string>
+    <string name="pref_zodiac_summary">Los doce signos en el anillo del año, cada uno sobre los treinta grados de cielo que nombra. No se dibujan antes de que los babilonios partieran la eclíptica en doce, que es de donde vienen los signos.</string>
 </resources>

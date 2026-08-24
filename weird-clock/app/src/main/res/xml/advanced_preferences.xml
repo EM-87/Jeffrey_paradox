@@ -107,6 +107,120 @@
             android:title="@string/pref_shadow_surface_title"
             app:useSimpleSummaryProvider="true" />
 
+        <!-- Which hours count as night. Down from the first screen, where
+             the switch stays: whether the dial dims at night is something
+             you might change any evening, and which hours those are is a
+             fact about your household you set once. -->
+        <com.em87.weirdclock.NightWindowPreference
+            android:key="pref_night_window"
+            android:title="@string/pref_night_window_title" />
+
+    </PreferenceCategory>
+
+    <!--
+        The bells' own settings, down from the first screen.
+
+        They are faded rather than hidden while the bells are switched off,
+        and they still work. Hiding them would have been the usual rule
+        here, and it is the wrong one across a screen boundary: somebody
+        who comes to this page looking for the bell style and finds nothing
+        concludes the app has lost it, not that a switch two screens back
+        is off. Faded says the same thing and answers the question.
+    -->
+    <PreferenceCategory android:title="@string/category_bells">
+
+        <ListPreference
+            android:defaultValue="hour"
+            android:entries="@array/bell_marks_entries"
+            android:entryValues="@array/bell_marks_values"
+            android:key="pref_bell_marks"
+            android:title="@string/pref_bell_marks_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
+            android:defaultValue="count"
+            android:entries="@array/bell_style_entries"
+            android:entryValues="@array/bell_style_values"
+            android:key="pref_bell_style"
+            android:title="@string/pref_bell_style_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_bells_background"
+            android:summary="@string/pref_bells_background_summary"
+            android:title="@string/pref_bells_background_title" />
+
+        <ListPreference
+            android:defaultValue="alarm"
+            android:entries="@array/bell_priority_entries"
+            android:entryValues="@array/bell_priority_values"
+            android:key="pref_bell_priority"
+            android:summary="@string/pref_bell_priority_summary"
+            android:title="@string/pref_bell_priority_title" />
+
+        <Preference
+            android:key="pref_test_bells"
+            android:summary="@string/pref_test_bells_summary"
+            android:title="@string/pref_test_bells_title" />
+
+    </PreferenceCategory>
+
+    <!--
+        The sky's furniture, behind the one switch that opens it.
+
+        The moon complication is here rather than on the first screen
+        because it is not what anybody turns the sky on for: the glyph is
+        the door, and the door is the switch upstairs. What is left down
+        here are the three questions about what is drawn once you are
+        through it.
+    -->
+    <PreferenceCategory android:title="@string/category_orrery">
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_moon_phase"
+            android:summary="@string/pref_moon_phase_summary"
+            android:title="@string/pref_moon_phase_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_comets"
+            android:summary="@string/comets_summary"
+            android:title="@string/comets_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_zodiac"
+            android:summary="@string/pref_zodiac_summary"
+            android:title="@string/pref_zodiac_title" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/category_calendar">
+
+        <!-- The month page writes its days in its own numerals. It used to
+             borrow the dial's, which is a different question with a
+             different answer: Roman numerals are a fine thing to have on a
+             clock face and a grid of thirty-one of them is a puzzle. -->
+        <ListPreference
+            android:defaultValue="arabic"
+            android:entries="@array/numeral_entries"
+            android:entryValues="@array/numeral_values"
+            android:key="pref_calendar_numerals"
+            android:summary="@string/pref_calendar_numerals_summary"
+            android:title="@string/pref_calendar_numerals_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
+            android:defaultValue="none"
+            android:entries="@array/past_days_entries"
+            android:entryValues="@array/past_days_values"
+            android:key="pref_past_days"
+            android:summary="@string/pref_past_days_summary"
+            android:title="@string/pref_past_days_title"
+            app:useSimpleSummaryProvider="true" />
+
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/category_alarms">
@@ -150,6 +264,18 @@
             android:key="pref_gentle_flash"
             android:summary="@string/pref_gentle_flash_summary"
             android:title="@string/pref_gentle_flash_title" />
+
+        <!-- What the alarm marks on the dial are coloured by. Back here,
+             where it started: it is a decision about how the dial is drawn,
+             and the switch that says whether there are any marks at all is
+             the one that belongs on the first screen. -->
+        <ListPreference
+            android:defaultValue="clock"
+            android:entries="@array/mark_colors_entries"
+            android:entryValues="@array/mark_colors_values"
+            android:key="pref_mark_colors"
+            android:title="@string/pref_mark_colors_title"
+            app:useSimpleSummaryProvider="true" />
 
     </PreferenceCategory>
 

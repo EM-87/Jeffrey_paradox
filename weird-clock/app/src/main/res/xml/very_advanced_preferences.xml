@@ -75,7 +75,11 @@
 
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="@string/category_general">
+    <!-- Named for what it holds rather than for what is left over.
+         "General" is the heading a screen gives a row when nobody has
+         decided where it goes, and this row has a subject: it is the one
+         place the app asks for a permission from Android. -->
+    <PreferenceCategory android:title="@string/category_widgets">
 
         <ListPreference
             android:defaultValue="overlay"

@@ -35,8 +35,8 @@
     </string-array>
 
     <string-array name="countdown_float_entries">
-        <item>Nothing floating</item>
-        <item>Floating hourglass (our own)</item>
+        <item>Notification shade only</item>
+        <item>Floating hourglass</item>
     </string-array>
     <string-array name="countdown_float_values" translatable="false">
         <item>none</item>

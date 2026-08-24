@@ -323,6 +323,22 @@ class ClockView @JvmOverloads constructor(
         set(value) { field = value; invalidate() }
 
     /**
+     * Whether that glyph tracks the moon's phase, or is a plain disc.
+     *
+     * Two facts, not one, since the sky got a single switch of its own.
+     * The token has to exist whenever the solar system is on, because it is
+     * the thing you press to open it; whether it also reports what the moon
+     * is doing tonight is a separate question, and the one the row on the
+     * advanced page actually asks.
+     */
+    var moonPhaseShown = true
+        set(value) { field = value; invalidate() }
+
+    /** Whether the year ring carries the twelve signs — see [OrreryDial]. */
+    var zodiacShown = false
+        set(value) { field = value; invalidate() }
+
+    /**
      * Whether tapping the sky token opens the solar system.
      *
      * Off by default and hung off the token on purpose: the whole gesture
@@ -4518,7 +4534,8 @@ class ClockView @JvmOverloads constructor(
         moonRimPaint.strokeWidth = r * 0.008f
         SkyGlyph.draw(
             canvas, cx, cy + apothemRadius() * 0.45f, r * 0.07f,
-            moonLitPaint, moonDarkPaint, moonRimPaint, shownTimeOfDayMs()
+            moonLitPaint, moonDarkPaint, moonRimPaint, shownTimeOfDayMs(),
+            withPhase = moonPhaseShown
         )
     }
 
@@ -5421,7 +5438,7 @@ class ClockView @JvmOverloads constructor(
             canvas, cx, cy, r, skyTheme(), orreryMs(), fade,
             orreryMoonLongitude(), orreryAligned(), orreryMoonDetached(), grabbedBody,
             orreryZoom, orreryBusyDays.keys, fallenPlanets, sunFallen, cometsEnabled,
-            facePath
+            facePath, zodiacShown
         )
         // Under the dial rather than on it, in the same place and at the
         // same size as the chronograph's readout — which is where this

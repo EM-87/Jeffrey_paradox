@@ -18,16 +18,47 @@ object Prefs {
      * They were one row, which is why the wrong one kept being opened.
      */
     const val DATE_ORDER = "pref_date_order"
+
+    /**
+     * Whether the sky token tracks the moon's phase.
+     *
+     * It used to be the master switch of the whole sky, with the solar
+     * system hung off it, on the reasoning that the glyph is the door and
+     * there is nothing to tap without one. True, and the wrong way round:
+     * nobody turns on a moon glyph in order to reach the planets. So
+     * [ORRERY] is the switch now and it puts the door there itself; this
+     * stays for the person who wants the moon on the dial and no planets
+     * behind it.
+     */
     const val MOON_PHASE = "pref_moon_phase"
 
     /**
-     * The solar system behind the sky token.
+     * The sky: the token on the dial, and the solar system behind it.
      *
-     * Hangs off [MOON_PHASE] rather than standing alone, because the whole
-     * gesture is a tap on the sun or the moon and there is nothing to tap
-     * without one.
+     * One switch for the lot. It draws its own door, so it no longer
+     * depends on the moon complication being on.
      */
     const val ORRERY = "pref_orrery"
+
+    /**
+     * The twelve signs, written round the year ring beside the months.
+     *
+     * A sub-setting of [ORRERY], and one that knows what century it is in:
+     * the signs are a Babylonian invention and the ring can be wound back
+     * past them, where drawing them would be the dial claiming something
+     * about the sky that nobody had thought of yet.
+     */
+    const val ZODIAC = "pref_zodiac"
+
+    /**
+     * How the month page writes its days.
+     *
+     * Its own answer rather than the dial's. They were one setting, which
+     * is two different questions sharing a row: Roman numerals are a fine
+     * thing to have on a clock face, and a grid of thirty-one of them is a
+     * puzzle rather than a calendar.
+     */
+    const val CALENDAR_NUMERALS = "pref_calendar_numerals"
 
     /**
      * The comets, drawn on the solar system.

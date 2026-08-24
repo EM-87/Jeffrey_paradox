@@ -42,14 +42,15 @@ object SkyGlyph {
         dark: Paint,
         rim: Paint,
         timeOfDayMs: Long,
-        whenMs: Long = TimeKeeper.nowMs()
+        whenMs: Long = TimeKeeper.nowMs(),
+        withPhase: Boolean = true
     ) {
         when (val sky = DayNight.skyMs(timeOfDayMs, whenMs)) {
             DayNight.Sky.Day -> drawSun(canvas, cx, cy, mr, lit, rim)
             is DayNight.Sky.Twilight -> drawSettingSun(canvas, cx, cy, mr, sky.sunk, lit, rim)
             // Night, or nowhere to stand: the moon and its phase, which is
             // arithmetic that works anywhere on Earth.
-            else -> drawMoon(canvas, cx, cy, mr, lit, dark, rim, whenMs)
+            else -> drawMoon(canvas, cx, cy, mr, lit, dark, rim, whenMs, withPhase)
         }
     }
 
@@ -82,8 +83,18 @@ object SkyGlyph {
         lit: Paint,
         dark: Paint,
         rim: Paint,
-        whenMs: Long = TimeKeeper.nowMs()
+        whenMs: Long = TimeKeeper.nowMs(),
+        withPhase: Boolean = true
     ) {
+        // A plain disc when the phase is not wanted. The token still has to
+        // be there — it is the door to the solar system, and a door has to
+        // be somewhere — so switching the phase off leaves the moon whole
+        // rather than leaving nothing to press.
+        if (!withPhase) {
+            canvas.drawCircle(cx, cy, mr, lit)
+            canvas.drawCircle(cx, cy, mr, rim)
+            return
+        }
         val phase = phaseAt(whenMs)
         val cosPhase = cos(2.0 * PI * phase)
         val litRight = phase < 0.5

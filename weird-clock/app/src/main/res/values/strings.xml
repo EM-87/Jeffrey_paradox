@@ -122,8 +122,8 @@
     <string name="alarm_unsaved_message">You changed this alarm without saving.</string>
     <string name="alarm_discard">Discard</string>
     <string name="countdown_add_minute">+1 min</string>
-    <string name="pref_countdown_float_title">While a timer runs</string>
-    <string name="pref_countdown_float_summary">The floating hourglass sits where you drag it and keeps the countdown on screen over other apps. It needs the draw-over-apps permission. Off: the notification progress bar carries it alone.</string>
+    <string name="pref_countdown_float_title">Floating window permission</string>
+    <string name="pref_countdown_float_summary">The floating hourglass sits where you drag it and keeps a running countdown on screen over other apps, which needs the draw-over-other-apps permission from Android. Off: the countdown lives in the notification shade instead, on its progress bar.</string>
     <string name="alarm_set_toast">Alarm set for %1$s</string>
     <string name="timer_set_toast">Timer set for %1$d min %2$d s</string>
     <string name="shortcut_alarms">Alarms</string>
@@ -507,4 +507,14 @@
         <item>4</item>
         <item>none</item>
     </string-array>
+
+    <string name="title_advanced">Advanced settings</string>
+    <string name="title_very_advanced">Too-advanced settings</string>
+    <string name="category_bells">Hourly bells</string>
+    <string name="category_orrery">Solar system</string>
+    <string name="category_widgets">Widgets</string>
+    <string name="pref_calendar_numerals_title">Calendar numerals</string>
+    <string name="pref_calendar_numerals_summary">How the days are written on the month page. The dial keeps its own.</string>
+    <string name="pref_zodiac_title">Zodiac</string>
+    <string name="pref_zodiac_summary">The twelve signs on the year ring, each over the thirty degrees of sky it names. Not drawn before the Babylonians cut the ecliptic into twelve, which is where the signs come from.</string>
 </resources>

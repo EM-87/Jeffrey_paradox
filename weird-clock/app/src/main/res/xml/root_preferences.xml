@@ -3,12 +3,16 @@
     Options: the things somebody actually comes here to change.
 
     Sorted by what they are about rather than by how clever they are, and
-    kept short by two rules. A row whose answer only matters once another
-    row is switched on does not appear until it is — the app's hours are no
-    question at all while the night mode is off — so the list you scroll is
-    only the list you are using. And the two deeper screens both hang off
-    this one rather than off each other, so getting from the far end of the
-    settings back to the clock is one press of Back and not three.
+    kept short by one rule above all: a switch lives here and everything
+    that refines it lives on the advanced page. Whether the bells ring is a
+    question you answer once and might change any evening; which quarters
+    they mark and what they sound like are questions you answer once and
+    never revisit, and they were making this page twice as long as the
+    decisions it actually holds.
+
+    The two deeper screens both hang off this one rather than off each
+    other, so getting from the far end of the settings back to the clock is
+    one press of Back and not three.
 -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
@@ -20,10 +24,6 @@
             android:key="pref_night_dim"
             android:summary="@string/pref_night_dim_summary"
             android:title="@string/pref_night_dim_title" />
-
-        <com.em87.weirdclock.NightWindowPreference
-            android:key="pref_night_window"
-            android:title="@string/pref_night_window_title" />
 
         <ListPreference
             android:defaultValue="midnight"
@@ -49,74 +49,18 @@
             android:summary="@string/pref_bells_summary"
             android:title="@string/pref_bells_title" />
 
-        <ListPreference
-            android:defaultValue="hour"
-            android:entries="@array/bell_marks_entries"
-            android:entryValues="@array/bell_marks_values"
-            android:key="pref_bell_marks"
-            android:title="@string/pref_bell_marks_title"
-            app:useSimpleSummaryProvider="true" />
-
-        <ListPreference
-            android:defaultValue="count"
-            android:entries="@array/bell_style_entries"
-            android:entryValues="@array/bell_style_values"
-            android:key="pref_bell_style"
-            android:title="@string/pref_bell_style_title"
-            app:useSimpleSummaryProvider="true" />
-
-        <SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:key="pref_bells_background"
-            android:summary="@string/pref_bells_background_summary"
-            android:title="@string/pref_bells_background_title" />
-
-        <ListPreference
-            android:defaultValue="alarm"
-            android:entries="@array/bell_priority_entries"
-            android:entryValues="@array/bell_priority_values"
-            android:key="pref_bell_priority"
-            android:summary="@string/pref_bell_priority_summary"
-            android:title="@string/pref_bell_priority_title" />
-
-        <Preference
-            android:key="pref_test_bells"
-            android:summary="@string/pref_test_bells_summary"
-            android:title="@string/pref_test_bells_title" />
-
-        <!-- Up from the advanced screen. It answers "what is my next alarm"
-             at a glance, which is the most ordinary question anybody asks
-             this app, and it was two screens down. -->
+        <!-- Whether the dial carries any alarm marks at all. What colour
+             they are is a decision, and decisions live on the advanced
+             page. -->
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="pref_alarm_markers"
             android:summary="@string/pref_alarm_markers_summary"
             android:title="@string/pref_alarm_markers_title" />
 
-        <!-- What the markers are coloured by, which is a question about the
-             markers and belonged under them. It was two screens away on
-             the too-advanced page, where it read as a fact about the dial
-             rather than about the thing it actually governs. -->
-        <ListPreference
-            android:defaultValue="clock"
-            android:entries="@array/mark_colors_entries"
-            android:entryValues="@array/mark_colors_values"
-            android:key="pref_mark_colors"
-            android:title="@string/pref_mark_colors_title"
-            app:useSimpleSummaryProvider="true" />
-
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/category_calendar">
-
-        <ListPreference
-            android:defaultValue="none"
-            android:entries="@array/past_days_entries"
-            android:entryValues="@array/past_days_values"
-            android:key="pref_past_days"
-            android:summary="@string/pref_past_days_summary"
-            android:title="@string/pref_past_days_title"
-            app:useSimpleSummaryProvider="true" />
 
         <Preference
             android:key="pref_birthday"
@@ -132,23 +76,18 @@
 
     <PreferenceCategory android:title="@string/category_general">
 
-        <SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:key="pref_moon_phase"
-            android:summary="@string/pref_moon_phase_summary"
-            android:title="@string/pref_moon_phase_title" />
-
+        <!-- One switch for the whole sky. It used to be three, nested:
+             the moon complication, then the solar system behind it, then
+             the comets on that — which is the order they were built in and
+             not the order anybody thinks about them. Nobody wants "a moon
+             glyph"; they want the planets, and the glyph is the door. So
+             the door is the switch, and what is behind it is furniture on
+             the advanced page. -->
         <SwitchPreferenceCompat
             android:defaultValue="false"
             android:key="pref_orrery"
             android:summary="@string/orrery_summary"
             android:title="@string/orrery_title" />
-
-        <SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:key="pref_comets"
-            android:summary="@string/comets_summary"
-            android:title="@string/comets_title" />
 
         <SwitchPreferenceCompat
             android:defaultValue="false"

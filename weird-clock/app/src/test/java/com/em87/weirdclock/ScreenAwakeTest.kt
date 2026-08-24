@@ -28,6 +28,16 @@ class ScreenAwakeTest {
     private val context: android.content.Context
         get() = ApplicationProvider.getApplicationContext()
 
+    /**
+     * The hour it is right now, so a night window can be built around it.
+     *
+     * Nights wrap and cannot cover a whole day — dragging the two pins
+     * together means "no night", which is the sensible reading of them —
+     * so a test that wants it to be night has to say when now is.
+     */
+    private fun thisHour(): Int =
+        java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+
     @Before
     fun wipe() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
@@ -105,8 +115,13 @@ class ScreenAwakeTest {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
             .putBoolean(Prefs.NIGHT_DIM, true)
-            .putInt(Prefs.NIGHT_FROM, 0)
-            .putInt(Prefs.NIGHT_TO, 23)
+            // Anchored on the hour this test is running in, and two hours
+            // long. Zero to twenty-three looks like the whole day and is
+            // twenty-three twenty-fourths of it: the hour from eleven at
+            // night to midnight falls outside, so this passed for years and
+            // failed for one hour every evening.
+            .putInt(Prefs.NIGHT_FROM, thisHour())
+            .putInt(Prefs.NIGHT_TO, (thisHour() + 2) % 24)
             .commit()
         Robolectric.buildActivity(MainActivity::class.java).use { c ->
             c.setup()
@@ -135,8 +150,13 @@ class ScreenAwakeTest {
         }
         prefs.edit()
             .putBoolean(Prefs.NIGHT_DIM, true)
-            .putInt(Prefs.NIGHT_FROM, 0)
-            .putInt(Prefs.NIGHT_TO, 23)
+            // Anchored on the hour this test is running in, and two hours
+            // long. Zero to twenty-three looks like the whole day and is
+            // twenty-three twenty-fourths of it: the hour from eleven at
+            // night to midnight falls outside, so this passed for years and
+            // failed for one hour every evening.
+            .putInt(Prefs.NIGHT_FROM, thisHour())
+            .putInt(Prefs.NIGHT_TO, (thisHour() + 2) % 24)
             .commit()
         val byNight = Robolectric.buildActivity(MainActivity::class.java).use { c ->
             c.setup()

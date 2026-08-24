@@ -214,10 +214,14 @@ class BellPriorityTest {
      * A rule nobody can reach is a rule that does not exist, and this one
      * has no other way in: it decides what happens at an hour you are
      * asleep for.
+     *
+     * On the advanced page since the bells' own settings moved there —
+     * which is why this asks the menu rather than naming the screen it
+     * used to be on. What matters is that it is reachable, not where.
      */
     @Test
     fun `the choice is somewhere it can be made`() {
-        val xml = context.resources.getXml(R.xml.root_preferences)
+        val xml = context.resources.getXml(R.xml.advanced_preferences)
         var found = false
         var event = xml.next()
         while (event != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {

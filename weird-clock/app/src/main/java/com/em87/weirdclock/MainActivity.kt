@@ -2751,9 +2751,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // says, because there it is feedback rather than decoration — see
         // applyMode(). Without this, anything that reapplies preferences
         // mid-wind would take it away under the user's finger.
-        cv.showMoonPhase = dialJob != null || prefs.getBoolean(Prefs.MOON_PHASE, false)
-        cv.orreryEnabled = dialJob == null && prefs.getBoolean(Prefs.ORRERY, false)
+        // The sky's one switch puts its own door on the dial. It used to
+        // hang off the moon complication, which meant the switch a person
+        // actually wanted did nothing until they had found and turned on a
+        // different one — see [Prefs.ORRERY].
+        val sky = prefs.getBoolean(Prefs.ORRERY, false)
+        cv.showMoonPhase =
+            dialJob != null || sky || prefs.getBoolean(Prefs.MOON_PHASE, false)
+        cv.moonPhaseShown = sky.not() || prefs.getBoolean(Prefs.MOON_PHASE, false)
+        cv.orreryEnabled = dialJob == null && sky
         cv.cometsEnabled = prefs.getBoolean(Prefs.COMETS, false)
+        cv.zodiacShown = prefs.getBoolean(Prefs.ZODIAC, false)
         // The shadows want the sun where it actually is, so they want a
         // place. DayNight has already read the stored fix; without one it
         // falls back to a middle latitude and the zone's nominal longitude,
@@ -2836,7 +2844,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
         calendarView?.let {
             it.theme = cv.theme
-            it.numeralStyle = cv.numeralStyle
+            // Its own answer, not the dial's. Roman numerals are a fine
+            // thing to have on a clock face and a grid of thirty-one of
+            // them is a puzzle, so the two questions were separated.
+            it.numeralStyle = readNumeralStyle(Prefs.CALENDAR_NUMERALS)
             it.pastStyle = when (prefs.getString(Prefs.PAST_DAYS, Prefs.PAST_NONE)) {
                 Prefs.PAST_DIM -> CalendarPageView.PastStyle.DIM
                 Prefs.PAST_CROSS -> CalendarPageView.PastStyle.CROSS
@@ -3038,8 +3049,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             else -> ClockView.DialShape.CIRCLE
         }
 
-    private fun readNumeralStyle(): ClockView.NumeralStyle =
-        when (prefs.getString(Prefs.NUMERALS, Prefs.NUMERALS_ARABIC)) {
+    private fun readNumeralStyle(key: String = Prefs.NUMERALS): ClockView.NumeralStyle =
+        when (prefs.getString(key, Prefs.NUMERALS_ARABIC)) {
             Prefs.NUMERALS_NONE -> ClockView.NumeralStyle.NONE
             Prefs.NUMERALS_ROMAN -> ClockView.NumeralStyle.ROMAN
             else -> ClockView.NumeralStyle.ARABIC
@@ -3262,9 +3273,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // and the sun sets under your finger, which is both the
                 // proof the sunrise arithmetic works and the only way to
                 // watch a whole day go past without waiting for one.
-                it.showMoonPhase = prefs.getBoolean(Prefs.MOON_PHASE, false)
-                it.orreryEnabled = prefs.getBoolean(Prefs.ORRERY, false)
+                val skyOn = prefs.getBoolean(Prefs.ORRERY, false)
+                it.showMoonPhase = skyOn || prefs.getBoolean(Prefs.MOON_PHASE, false)
+                it.moonPhaseShown = !skyOn || prefs.getBoolean(Prefs.MOON_PHASE, false)
+                it.orreryEnabled = skyOn
                 it.cometsEnabled = prefs.getBoolean(Prefs.COMETS, false)
+                it.zodiacShown = prefs.getBoolean(Prefs.ZODIAC, false)
                 it.handShadows = prefs.getBoolean(Prefs.HAND_SHADOWS, false)
                 it.shadowLatitude = clockView?.shadowLatitude ?: HandShadow.NO_FIX_LATITUDE
                 it.shadowLongitude = clockView?.shadowLongitude ?: 0.0

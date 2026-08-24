@@ -79,6 +79,33 @@ class MenuIndentTest {
             as PreferenceFragmentCompat
     }
 
+    /** The advanced page, where everything that refines a switch now lives. */
+    private fun advancedScreen(): PreferenceFragmentCompat {
+        val controller = Robolectric.buildActivity(SettingsActivity::class.java).setup()
+        val fragment = SettingsActivity.AdvancedSettingsFragment()
+        controller.get().supportFragmentManager.beginTransaction()
+            .replace(R.id.settings_container, fragment).commitNow()
+        return fragment
+    }
+
+    /** How faded a row is drawn, 1 for an ordinary one. */
+    private fun rowAlpha(fragment: PreferenceFragmentCompat, key: String): Float {
+        val list = fragment.listView
+        list.measure(
+            android.view.View.MeasureSpec.makeMeasureSpec(1000, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec.makeMeasureSpec(9000, android.view.View.MeasureSpec.EXACTLY)
+        )
+        list.layout(0, 0, 1000, 9000)
+        val wanted = fragment.findPreference<Preference>(key)?.title?.toString()
+        assertTrue("$key is not on this screen", wanted != null)
+        for (i in 0 until list.childCount) {
+            val child = list.getChildAt(i)
+            val title = child.findViewById<android.widget.TextView>(android.R.id.title)
+            if (title?.text?.toString() == wanted) return child.alpha
+        }
+        throw AssertionError("$key was never laid out, so nothing was measured")
+    }
+
     /**
      * A row that hangs off the switch above it starts further in than the
      * switch does.
@@ -89,18 +116,59 @@ class MenuIndentTest {
      */
     @Test
     fun `the rows under the bells start further in than the bells`() {
-        val fragment = rootScreen()
-        val parent = rowLeft(fragment, Prefs.BELLS)
+        // On the advanced page now, with the switch they hang off two
+        // screens back. They are still drawn a step in, because the step is
+        // what says they belong to something rather than being five more
+        // settings of their own.
+        val fragment = advancedScreen()
+        val ordinary = rowLeft(fragment, Prefs.NUMERALS)
         for (child in listOf(
             Prefs.BELL_MARKS, Prefs.BELL_STYLE, Prefs.BELLS_BACKGROUND,
             Prefs.BELL_PRIORITY, Prefs.TEST_BELLS
         )) {
             val at = rowLeft(fragment, child)
             assertTrue(
-                "$child starts at $at, the same place as the switch it hangs off",
-                at > parent
+                "$child starts at $at, level with a row that hangs off nothing",
+                at > ordinary
             )
         }
+    }
+
+    /**
+     * And they are faded while the bells are off, and still there.
+     *
+     * The rule everywhere else on these screens is to hide a row until its
+     * switch is on, and it is the wrong rule across a screen boundary:
+     * somebody who opens the advanced page looking for the bell style and
+     * finds nothing concludes the app has lost it. Faded says the same
+     * thing and answers the question — and leaves the row working, so the
+     * style can be chosen before the bells are turned on.
+     */
+    @Test
+    fun `the bells' settings are faded while the bells are off, and still there`() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        prefs.edit().putBoolean(Prefs.BELLS, false).commit()
+        val off = advancedScreen()
+        assertTrue(
+            "the bell style vanished with the bells switched off",
+            off.findPreference<Preference>(Prefs.BELL_STYLE)?.isVisible == true
+        )
+        assertTrue(
+            "and it is still usable",
+            off.findPreference<Preference>(Prefs.BELL_STYLE)?.isEnabled == true
+        )
+        val faded = rowAlpha(off, Prefs.BELL_STYLE)
+        assertTrue("the bell style is not faded: $faded", faded < 0.9f)
+        assertEquals(
+            "an ordinary row was faded too",
+            1f, rowAlpha(off, Prefs.NUMERALS), 0.001f
+        )
+
+        prefs.edit().putBoolean(Prefs.BELLS, true).commit()
+        assertEquals(
+            "the bell style stayed faded with the bells on",
+            1f, rowAlpha(advancedScreen(), Prefs.BELL_STYLE), 0.001f
+        )
     }
 
     /**
@@ -114,7 +182,7 @@ class MenuIndentTest {
     @Test
     fun `a row that answers to nobody starts at the left`() {
         val fragment = rootScreen()
-        for (key in listOf(Prefs.BELLS, Prefs.THEME, Prefs.SHOW_DATE, Prefs.MOON_PHASE)) {
+        for (key in listOf(Prefs.BELLS, Prefs.THEME, Prefs.SHOW_DATE, Prefs.ORRERY)) {
             assertEquals(
                 "$key is indented as though it hung off something",
                 0, rowLeft(fragment, key)
@@ -123,48 +191,42 @@ class MenuIndentTest {
     }
 
     /**
-     * A row two deep needs both switches above it, not just the nearer one.
+     * The sky's furniture is on the advanced page whatever the sky is
+     * doing, faded when the sky is off.
      *
-     * The comets hang off the solar system, which hangs off the sky token.
-     * Written as two separate rules — comets follow the orrery, orrery
-     * follows the moon — the comets row survives its own parent being
-     * hidden: switch the moon off and the page ends with a row indented
-     * under nothing, offering to draw comets on a dial that is not there.
+     * It used to be a chain on the first screen — the moon complication,
+     * then the solar system behind it, then the comets on that — and the
+     * chain had to be written as one rule rather than three, or switching
+     * the moon off left the comets sitting there indented under nothing.
+     * There is no chain now: one switch opens the sky and the three
+     * questions about what is drawn in it live together.
      */
     @Test
-    fun `a row two deep needs every switch above it`() {
+    fun `the sky's furniture is faded while the sky is shut`() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        fun commentsVisible(moon: Boolean, orrery: Boolean): Boolean {
-            prefs.edit()
-                .putBoolean(Prefs.OVERLAY_ASKED, true)
-                .putBoolean(Prefs.MOON_PHASE, moon)
-                .putBoolean(Prefs.ORRERY, orrery)
-                .commit()
-            val fragment = rootScreen()
-            return fragment.findPreference<Preference>(Prefs.COMETS)?.isVisible == true
+        prefs.edit().putBoolean(Prefs.ORRERY, false).commit()
+        val shut = advancedScreen()
+        for (key in listOf(Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC)) {
+            assertTrue(
+                "$key vanished with the sky shut",
+                shut.findPreference<Preference>(key)?.isVisible == true
+            )
+            assertTrue("$key is not faded", rowAlpha(shut, key) < 0.9f)
         }
-        assertTrue("the comets are hidden with both switches on", commentsVisible(true, true))
-        assertEquals(
-            "the comets are offered with the solar system switched off",
-            false, commentsVisible(true, false)
-        )
-        assertEquals(
-            "the comets are offered with the sky token switched off",
-            false, commentsVisible(false, true)
-        )
+        prefs.edit().putBoolean(Prefs.ORRERY, true).commit()
+        val open = advancedScreen()
+        for (key in listOf(Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC)) {
+            assertEquals("$key stayed faded with the sky open", 1f, rowAlpha(open, key), 0.001f)
+        }
     }
 
-    /** And the comets are drawn a step in, like everything that hangs off. */
+    /** And it is drawn a step in, like everything that hangs off a switch. */
     @Test
     fun `the comets start further in than the solar system`() {
-        PreferenceManager.getDefaultSharedPreferences(context).edit()
-            .putBoolean(Prefs.MOON_PHASE, true)
-            .putBoolean(Prefs.ORRERY, true)
-            .commit()
-        val fragment = rootScreen()
+        val fragment = advancedScreen()
         assertTrue(
-            "the comets start level with the solar system they belong to",
-            rowLeft(fragment, Prefs.COMETS) > rowLeft(fragment, Prefs.ORRERY)
+            "the comets start level with a row that hangs off nothing",
+            rowLeft(fragment, Prefs.COMETS) > rowLeft(fragment, Prefs.NUMERALS)
         )
     }
 

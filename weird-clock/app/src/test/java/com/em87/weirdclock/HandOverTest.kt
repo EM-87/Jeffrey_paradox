@@ -105,17 +105,27 @@ class HandOverTest {
      */
     @Test
     fun `the hands take time about it`() {
-        val clock = dial()
+        // Both dials on a fixed time, so the journey is a known ninety
+        // degrees. It used to start from a live clock, which meant the
+        // distance travelled was whatever the hour hand happened to be
+        // doing — and for the minute either side of noon and midnight the
+        // whole journey was shorter than the half degree this asks for, so
+        // the test failed twice a day for a minute and passed the rest of
+        // the time.
+        val clock = dial(chrono = 3 * 3_600_000L)
         val stopwatch = dial(chrono = 0L)
+        val from = angles(clock).first
         stopwatch.handOverFrom(clock)
         // A third of a second in, it should be on its way and not there.
         org.robolectric.shadows.ShadowLooper.idleMainLooper(
             300, java.util.concurrent.TimeUnit.MILLISECONDS
         )
         val midway = angles(stopwatch).first
-        assertNotEquals("still travelling", 0f, midway)
-        assertTrue("midway=$midway start=${angles(clock).first}",
-            kotlin.math.abs(midway - angles(clock).first) > 0.5f)
+        assertNotEquals("it arrived on the first frame", 0f, midway)
+        assertTrue(
+            "it has not set off: midway=$midway start=$from",
+            kotlin.math.abs(midway - from) > 0.5f
+        )
     }
 
     /**
