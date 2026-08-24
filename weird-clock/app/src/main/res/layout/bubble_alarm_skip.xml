@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The offer that follows a repeating alarm being switched off.
+
+    A card rather than a bar: it hangs over the alarm it is about, so it
+    needs no words naming which alarm it means. It is one tappable surface
+    with no dismiss button on it — declining is done by not tapping, which
+    is the whole reason it replaced a dialog.
+-->
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:clickable="true"
+    android:focusable="true"
+    app:cardCornerRadius="18dp"
+    app:cardElevation="6dp">
+
+    <TextView
+        android:id="@+id/bubble_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxWidth="260dp"
+        android:paddingStart="16dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="10dp"
+        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+</com.google.android.material.card.MaterialCardView>

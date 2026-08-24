@@ -124,10 +124,6 @@
     <string name="backup_from_a_file">Un archivo en su lugar…</string>
     <string name="cycle_mark_day">El periodo empezó aquí</string>
     <string name="cycle_unmark_day">No era día de periodo</string>
-    <string name="alarm_off_title">Desactivar esta alarma</string>
-    <string name="alarm_off_message">La próxima le toca %1$s.</string>
-    <string name="alarm_off_once">Solo esa</string>
-    <string name="alarm_off_for_good">Desactivar del todo</string>
     <string name="alarm_skipping">Se salta %1$s · luego %2$s</string>
     <string name="pref_alarm_markers_title">Alarmas en la esfera</string>
     <string name="alarm_markers_card">Mostrar alarmas en la esfera</string>
@@ -441,4 +437,5 @@
     <string name="pref_calendar_numerals_summary">Cómo se escriben los días en la página del mes. La esfera conserva los suyos.</string>
     <string name="pref_zodiac_title">Zodiaco</string>
     <string name="pref_zodiac_summary">Los doce signos en el anillo del año, cada uno sobre los treinta grados de cielo que nombra. No se dibujan antes de que los babilonios partieran la eclíptica en doce, que es de donde vienen los signos.</string>
+    <string name="alarm_skip_bubble">¿Solo %1$s? Toca para conservarla los demás días.</string>
 </resources>

@@ -1937,6 +1937,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** For the tests: the bubbles themselves, to be told something directly. */
     internal fun worldBubblesForTest(): WorldBubbles = worldBubbles
 
+    /** For the tests: the numerals the month page is actually writing in. */
+    internal fun calendarNumeralsForTest(): ClockView.NumeralStyle? = calendarView?.numeralStyle
+
     /** For the tests: the theme the calendar is actually drawing with. */
     internal fun calendarThemeForTest(): ClockTheme? = calendarView?.theme
 
@@ -2252,29 +2255,74 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             persistAlarms()
             return
         }
-        if (alarm.once || !alarm.enabled) {
-            alarm.enabled = false
-            persistAlarms()
-            return
-        }
         val next = AlarmScheduler.nextOccurrence(alarm)
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle(R.string.alarm_off_title)
-            .setMessage(getString(R.string.alarm_off_message, alarmCards.whenIs(next)))
-            .setPositiveButton(R.string.alarm_off_once) { _, _ ->
-                alarm.skippedOccurrence = next
-                persistAlarms()
-            }
-            .setNegativeButton(R.string.alarm_off_for_good) { _, _ ->
-                alarm.enabled = false
-                alarm.skippedOccurrence = 0L
-                persistAlarms()
-            }
-            // Backing out leaves the alarm exactly as it was — but the
-            // switch has already moved under the finger, so it has to be
-            // put back or the card is telling a lie.
-            .setOnDismissListener { refreshAlarmsUi() }
-            .show()
+        alarm.enabled = false
+        alarm.skippedOccurrence = 0L
+        persistAlarms()
+        // A one-shot has nothing to offer: skipping its only occurrence and
+        // turning it off are the same thing.
+        if (!alarm.once) offerToKeepTheDaysAfter(alarm, next)
+    }
+
+    /**
+     * The bubble over a card whose alarm has just been switched off.
+     *
+     * This was a dialog, asked *before* the alarm went off: "just that one,
+     * or off for good?" It is the right question and it was in the wrong
+     * place. Switching an alarm off is one flick of a switch, and the
+     * dialog made it a flick and a tap — a toll paid every single time by
+     * everybody, including the people who meant exactly what the switch
+     * said.
+     *
+     * So the switch does what a switch does, at once, and the other reading
+     * is offered afterwards and costs nothing to decline. Tapped, the alarm
+     * comes back on with the one occurrence let off, which is what "just
+     * tomorrow" always meant. Ignored, it fades and the alarm stays off —
+     * so the cheap path is the common one, and the expensive path is the
+     * one fewer people want.
+     */
+    private fun offerToKeepTheDaysAfter(alarm: Alarm, next: Long) {
+        val list = alarmsRecycler ?: return
+        // The card itself when it is on screen, and the list when it is
+        // not. A row scrolled out of sight has no view to hang anything
+        // off, and dropping the offer on the floor in that case would make
+        // it arrive or not depending on how far down the alarm sat.
+        val at = alarms.indexOfFirst { it.id == alarm.id }
+        val row = list.findViewHolderForAdapterPosition(at)?.itemView ?: list
+        val bubble = layoutInflater.inflate(R.layout.bubble_alarm_skip, null)
+        bubble.findViewById<android.widget.TextView>(R.id.bubble_text).text =
+            getString(R.string.alarm_skip_bubble, alarmCards.whenIs(next))
+        val popup = android.widget.PopupWindow(
+            bubble,
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        )
+        popup.elevation = 8 * resources.displayMetrics.density
+        bubble.setOnClickListener {
+            alarm.enabled = true
+            alarm.skippedOccurrence = next
+            persistAlarms()
+            popup.dismiss()
+        }
+        skipBubble?.dismiss()
+        skipBubble = popup
+        popup.setOnDismissListener { if (skipBubble === popup) skipBubble = null }
+        popup.showAsDropDown(row, 0, -row.height / 3)
+        // Long enough to read and notice, short enough that it is not a
+        // thing to be dismissed. Ignoring it is a way of answering.
+        row.postDelayed({ if (popup.isShowing) popup.dismiss() }, SKIP_BUBBLE_MS)
+    }
+
+    /** The bubble on screen, if any, so a second flick replaces the first. */
+    private var skipBubble: android.widget.PopupWindow? = null
+
+    /** For the tests: whether the offer is on screen. */
+    internal fun skipBubbleShowingForTest(): Boolean = skipBubble?.isShowing == true
+
+    /** For the tests: taking the offer, as a tap on the bubble would. */
+    internal fun takeSkipOfferForTest() {
+        skipBubble?.contentView?.performClick()
     }
 
     private fun persistAlarms() {
@@ -3645,6 +3693,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     companion object {
+        /**
+         * How long the "just tomorrow" offer stays on screen.
+         *
+         * Long enough to read and notice; short enough that it is not a
+         * thing to be dismissed. Ignoring it is a way of answering, and an
+         * offer that has to be got rid of is the dialog again wearing a
+         * different shape.
+         */
+        const val SKIP_BUBBLE_MS = 6_000L
+
         /**
          * What the running clock's tick has been doing, for whoever asks in
          * the settings.

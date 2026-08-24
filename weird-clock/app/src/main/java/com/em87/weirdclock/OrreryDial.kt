@@ -326,7 +326,8 @@ object OrreryDial {
         sunIsDown: Boolean = false,
         comets: Boolean = true,
         face: android.graphics.Path? = null,
-        zodiac: Boolean = false
+        zodiac: Boolean = false,
+        res: android.content.res.Resources? = null
     ) {
         if (alpha <= 0.01f) return
         val a = alpha.coerceIn(0f, 1f)
@@ -342,7 +343,7 @@ object OrreryDial {
         // else is drawn under it.
         val days = Orrery.dayMarkFade(zoom)
         if (days > 0f) {
-            drawYearOfDays(canvas, cx, cy, r, theme, atMs, a * days, busyDays, zodiac)
+            drawYearOfDays(canvas, cx, cy, r, theme, atMs, a * days, busyDays, zodiac, res)
         }
 
         // Everything in the sky is cut off at the edge of the face, which
@@ -500,7 +501,8 @@ object OrreryDial {
         atMs: Long,
         alpha: Float,
         busyDays: Set<Int>,
-        zodiac: Boolean
+        zodiac: Boolean,
+        res: android.content.res.Resources?
     ) {
         val shown = CivilDays.dayOf(atMs, 0)
         val first = yearStart(shown)
@@ -536,8 +538,39 @@ object OrreryDial {
                 canvas.drawCircle(dot.x, dot.y, r * 0.011f, fill)
             }
         }
-        drawMonthNames(canvas, cx, cy, r, theme, first, alpha)
+        drawMonthNames(canvas, cx, cy, r, theme, first, alpha, res)
         if (zodiac) drawZodiac(canvas, cx, cy, r, theme, first, alpha)
+    }
+
+    /**
+     * What the months are called on a ring wound back to [year], or null
+     * if they had no names yet.
+     *
+     * The date under the dial changes script with the century — Roman
+     * letters behind us, digits through this millennium, hieroglyphs and
+     * cuneiform further back — and the months round the ring went on saying
+     * "Aug" through all of it, which is half a display in one alphabet and
+     * half in another. The same rule applies to both now.
+     *
+     * Before the year one there is nothing to write. These are Julian and
+     * Gregorian months on a ring that has been wound past the invention of
+     * either, and naming them would be the dial claiming a calendar nobody
+     * had. That is the rule the date row already follows for those
+     * centuries, and it is the reason the ring goes quiet rather than
+     * falling back to the nearest names to hand.
+     *
+     * Past three thousand the phone's own names stay. The far-future date
+     * is written in star glyphs that are drawn rather than typed, and a
+     * drawn glyph cannot be bent along an arc by the text engine — so the
+     * months there are the one place this rule is not yet carried through.
+     */
+    internal fun monthNamesFor(
+        res: android.content.res.Resources?,
+        year: Int
+    ): Array<String>? = when {
+        year < 1 -> null
+        year < 2000 && res != null -> res.getStringArray(R.array.lat_months)
+        else -> java.text.DateFormatSymbols.getInstance().shortMonths
     }
 
     private val monthPath = android.graphics.Path()
@@ -570,9 +603,10 @@ object OrreryDial {
         r: Float,
         theme: ClockTheme,
         first: Int,
-        alpha: Float
+        alpha: Float,
+        res: android.content.res.Resources?
     ) {
-        val names = java.text.DateFormatSymbols.getInstance().shortMonths
+        val names = monthNamesFor(res, CivilDays.dateOf(first).first) ?: return
         text.color = theme.numeral
         text.alpha = (150 * alpha).toInt()
         text.textSize = r * 0.045f
@@ -665,6 +699,18 @@ object OrreryDial {
     const val ZODIAC_FROM_YEAR = -500
 
     /**
+     * Which sign the Sun stands in, with the Earth at [earthLongitudeDeg].
+     *
+     * Half a turn, and that is the whole of it: a sign is where the Sun is,
+     * this dial plots the Earth, and the two are always exactly opposite.
+     * Zero is Aries, which starts at the March equinox by definition — so
+     * no epoch and no table are needed, and the signs fall out of the same
+     * longitude the day marks are already drawn at.
+     */
+    internal fun signAt(earthLongitudeDeg: Double): Int =
+        (Orrery.wrap(earthLongitudeDeg - 180.0) / 30.0).toInt().coerceIn(0, 11)
+
+    /**
      * The signs, each written along the thirty degrees of ecliptic it names.
      *
      * Placed by the Sun rather than by the Earth. A sign is where the *Sun*
@@ -695,7 +741,8 @@ object OrreryDial {
         val radius = r * 0.94f - r * 0.155f
         monthOval.set(cx - radius, cy - radius, cx + radius, cy + radius)
         for (sign in SIGNS.indices) {
-            // The Sun's thirty degrees, turned round to the Earth's side.
+            // The Sun's thirty degrees, turned round to the Earth's side —
+            // the inverse of [signAt], and the same half turn.
             val from = Orrery.wrap(180.0 + sign * 30.0)
             val a0 = Orrery.wrap(-from).toFloat()
             val a1 = Orrery.wrap(-(from + 30.0)).toFloat()

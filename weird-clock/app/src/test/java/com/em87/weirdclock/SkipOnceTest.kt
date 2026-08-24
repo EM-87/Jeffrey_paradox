@@ -164,6 +164,73 @@ class SkipOnceTest {
     }
 
     /**
+     * The switch switches it off, at once, and the other reading is
+     * offered afterwards.
+     *
+     * This was a dialog asked *before* the alarm went off, which made
+     * every single switching-off cost a flick and a tap — a toll paid by
+     * everybody, including the people who meant exactly what the switch
+     * said. So the switch does what a switch does and the offer follows,
+     * on a bubble over the card, costing nothing to decline.
+     */
+    @Test
+    fun `switching a repeating alarm off takes one flick and offers the rest`() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+        val list = AlarmStore.all(context)
+        list.clear()
+        list.add(daily(9))
+        AlarmStore.save(context)
+
+        org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val activity = c.get()
+            val alarm = activity.alarmsForTest().first()
+            activity.toggleAlarmForTest(alarm, false)
+            // Off already, with nothing asked and nothing to dismiss.
+            assertFalse("the switch did not switch it off", alarm.enabled)
+            assertEquals(
+                "it was left standing down for a morning instead of off",
+                0L, alarm.skippedOccurrence
+            )
+        }
+    }
+
+    /**
+     * And taking the offer puts it back on with one morning let off.
+     *
+     * The bubble is the whole of the old dialog's useful half. Tapped, the
+     * alarm comes back armed and stands down for exactly the occurrence
+     * that was next when the switch was flicked — which is what "just
+     * tomorrow" always meant.
+     */
+    @Test
+    fun `taking the offer keeps the alarm for the days after`() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+        val list = AlarmStore.all(context)
+        list.clear()
+        list.add(daily(9))
+        AlarmStore.save(context)
+
+        org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val activity = c.get()
+            val alarm = activity.alarmsForTest().first()
+            val next = AlarmScheduler.nextOccurrence(alarm)
+            activity.toggleAlarmForTest(alarm, false)
+            assertTrue("nothing was offered", activity.skipBubbleShowingForTest())
+            activity.takeSkipOfferForTest()
+            assertTrue("the offer did not bring it back", alarm.enabled)
+            assertEquals(
+                "it came back on without letting the morning off",
+                next, alarm.skippedOccurrence
+            )
+            assertFalse("the offer is still on screen", activity.skipBubbleShowingForTest())
+        }
+    }
+
+    /**
      * A one-shot is never asked which morning it means.
      *
      * It has exactly one, so letting it off and switching it off are the
@@ -196,6 +263,10 @@ class SkipOnceTest {
             assertEquals(
                 "a one-shot was given a morning to stand down for",
                 0L, alarm.skippedOccurrence
+            )
+            assertFalse(
+                "a one-shot was offered a choice it does not have",
+                activity.skipBubbleShowingForTest()
             )
         }
     }

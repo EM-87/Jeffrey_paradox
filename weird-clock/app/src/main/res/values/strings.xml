@@ -175,10 +175,6 @@
     <string name="backup_from_a_file">A file instead…</string>
     <string name="cycle_mark_day">Period started here</string>
     <string name="cycle_unmark_day">Not a period day after all</string>
-    <string name="alarm_off_title">Turn this alarm off</string>
-    <string name="alarm_off_message">It is next due %1$s.</string>
-    <string name="alarm_off_once">Just that one</string>
-    <string name="alarm_off_for_good">Off for good</string>
     <string name="alarm_skipping">Standing down %1$s · then %2$s</string>
     <string name="pref_alarm_markers_title">Alarms on the dial</string>
     <string name="alarm_markers_card">Show alarms on the dial</string>
@@ -517,4 +513,24 @@
     <string name="pref_calendar_numerals_summary">How the days are written on the month page. The dial keeps its own.</string>
     <string name="pref_zodiac_title">Zodiac</string>
     <string name="pref_zodiac_summary">The twelve signs on the year ring, each over the thirty degrees of sky it names. Not drawn before the Babylonians cut the ecliptic into twelve, which is where the signs come from.</string>
+    <!-- The months as Rome wrote them, for a ring wound back into the
+         Roman era. Not translated: they are the Latin names, and a Latin
+         name is the same in every language that has borrowed it. -->
+    <string-array name="lat_months" translatable="false">
+        <item>IAN</item>
+        <item>FEB</item>
+        <item>MAR</item>
+        <item>APR</item>
+        <item>MAI</item>
+        <item>IVN</item>
+        <item>IVL</item>
+        <item>AVG</item>
+        <item>SEP</item>
+        <item>OCT</item>
+        <item>NOV</item>
+        <item>DEC</item>
+    </string-array>
+    <!-- Offered on a bubble over the card after a repeating alarm is
+         switched off, rather than asked before it is. -->
+    <string name="alarm_skip_bubble">Just %1$s? Tap to keep it for the days after.</string>
 </resources>

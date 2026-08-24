@@ -3,7 +3,9 @@ package com.em87.weirdclock
 import androidx.preference.PreferenceManager
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -67,6 +69,62 @@ class OrreryYearTest {
         // the ring is not two labels — the ring runs solstice to solstice,
         // so December is the first month and the last one is November.
         assertEquals("a month was written twice", zoomedIn.size, zoomedIn.toSet().size)
+    }
+
+    /**
+     * And they are written in the alphabet of the century they are in.
+     *
+     * The date under the dial has changed script with the year for several
+     * versions — Roman letters behind us, digits through this millennium —
+     * and the months round the ring went on saying "Aug" through all of
+     * it. Half a display in one alphabet and half in another is the joke
+     * failing rather than landing: the point is that the sky has been
+     * wound somewhere dates are written differently, not that a third of
+     * one has.
+     *
+     * Before the year one they have no names at all. These are Julian and
+     * Gregorian months on a ring wound past the invention of either, and
+     * naming them would be the dial claiming a calendar nobody had — which
+     * is the rule the date row already follows there.
+     */
+    @Test
+    fun `the months are written in the alphabet of their century`() {
+        val res = context.resources
+        val latin = res.getStringArray(R.array.lat_months).toList()
+        assertEquals(
+            "a Roman year is not labelled in Latin",
+            latin, OrreryDial.monthNamesFor(res, 1750)?.toList()
+        )
+        assertEquals(
+            "the year one is not labelled in Latin",
+            latin, OrreryDial.monthNamesFor(res, 1)?.toList()
+        )
+        assertNotEquals(
+            "this millennium is being labelled in Latin",
+            latin, OrreryDial.monthNamesFor(res, 2026)?.toList()
+        )
+        for (year in listOf(0, -44, -1500, -3500)) {
+            assertNull(
+                "a ring wound to $year is labelled with months Rome had not invented",
+                OrreryDial.monthNamesFor(res, year)
+            )
+        }
+    }
+
+    /** And the Latin ones are Latin, not English with the vowels moved. */
+    @Test
+    fun `the latin months are spelled the way Rome spelled them`() {
+        val latin = context.resources.getStringArray(R.array.lat_months)
+        assertEquals("there are not twelve of them", 12, latin.size)
+        // Rome had no letter U: Iunius, Iulius, Augustus, Maius.
+        assertEquals("IVN", latin[5])
+        assertEquals("IVL", latin[6])
+        assertEquals("AVG", latin[7])
+        assertEquals("MAI", latin[4])
+        assertTrue(
+            "a Latin month is written with a letter Rome did not have",
+            latin.none { m -> m.any { it == 'U' || it == 'J' } }
+        )
     }
 
     /** The words that went onto the ring at a given zoom. */
