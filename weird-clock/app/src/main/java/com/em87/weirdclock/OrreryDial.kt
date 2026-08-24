@@ -708,7 +708,24 @@ object OrreryDial {
      * longitude the day marks are already drawn at.
      */
     internal fun signAt(earthLongitudeDeg: Double): Int =
-        (Orrery.wrap(earthLongitudeDeg - 180.0) / 30.0).toInt().coerceIn(0, 11)
+        (Orrery.wrap(earthLongitudeDeg - HALF_TURN) / 30.0).toInt().coerceIn(0, 11)
+
+    /**
+     * And back the other way: where on this ring a sign's thirty degrees
+     * begin, as an Earth longitude.
+     *
+     * The inverse of [signAt], written as its inverse rather than as the
+     * same half turn typed a second time. Two copies of one relationship
+     * is how a hit test comes to point at a different planet from the one
+     * that was drawn, and a drawing can drift from its own rule the same
+     * way: a sabotage that turned this round left every sign over the
+     * dates of the one across the year from it, and the rule the tests
+     * were asking about went on giving the right answer.
+     */
+    internal fun signStart(sign: Int): Double = Orrery.wrap(HALF_TURN + sign * 30.0)
+
+    /** The Earth is always exactly opposite the Sun, which is the whole trick. */
+    private const val HALF_TURN = 180.0
 
     /**
      * The signs, each written along the thirty degrees of ecliptic it names.
@@ -741,9 +758,8 @@ object OrreryDial {
         val radius = r * 0.94f - r * 0.155f
         monthOval.set(cx - radius, cy - radius, cx + radius, cy + radius)
         for (sign in SIGNS.indices) {
-            // The Sun's thirty degrees, turned round to the Earth's side —
-            // the inverse of [signAt], and the same half turn.
-            val from = Orrery.wrap(180.0 + sign * 30.0)
+            // The Sun's thirty degrees, turned round to the Earth's side.
+            val from = signStart(sign)
             val a0 = Orrery.wrap(-from).toFloat()
             val a1 = Orrery.wrap(-(from + 30.0)).toFloat()
             val sweep = 30f

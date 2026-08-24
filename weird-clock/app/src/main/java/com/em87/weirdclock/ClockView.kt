@@ -1100,7 +1100,7 @@ class ClockView @JvmOverloads constructor(
         // that had to start it off.
         val now = SystemClock.uptimeMillis()
         if (orreryChangedAt != NEVER && now - orreryChangedAt < ORRERY_FADE_MS) return true
-        if (glideStartedAt != NEVER) return true
+        if (winding.travelling()) return true
         if (chronoGlideAt != NEVER) return true
         return now - moonRejoinAt < MOON_REJOIN_MS
     }
@@ -4612,28 +4612,22 @@ class ClockView @JvmOverloads constructor(
     private var orreryChangedAt = NEVER
 
     /**
-     * How far the solar system has been wound from now.
+     * Where the sky has been wound to, and how it gets there — see
+     * [SkyWinding].
      *
-     * It stays where it is left. The hands spring back because a clock that
-     * is not showing the time is broken; the orrery does not, because the
-     * whole reason to move it is to arrive at a date and read what is
+     * It stays where it is left. The hands spring back because a clock
+     * that is not showing the time is broken; the sky does not, because
+     * the whole reason to move it is to arrive at a date and read what is
      * there, and a spring would snatch the answer away at the moment of
      * finding it. Closing the sky puts it back to now.
-     */
-    private var orreryOffsetMs = 0L
-
-    /**
-     * The journey home, when the Sun is tapped.
      *
-     * The offset is not simply set to zero: two hundred years of dial
-     * arriving in one frame is a cut, and everything else on this clock
-     * travels. It runs back on the same curve the hands use crossing
-     * between the clock and the chronograph, which is what makes it read as
-     * the same mechanism rather than a second idea about motion.
+     * And it travels rather than cutting. Two hundred years of dial
+     * arriving in one frame is an edit; everything else on this clock
+     * moves, and this runs on the same curve the hands use crossing
+     * between the clock and the chronograph, so that it reads as the same
+     * mechanism rather than as a second idea about motion.
      */
-    private var glideFromOffsetMs = 0L
-    private var glideToOffsetMs = 0L
-    private var glideStartedAt = NEVER
+    private val winding = SkyWinding(transitionInterpolator, GLIDE_HOME_MS)
 
     /**
      * Told whenever the sky fades in or out, so the host can take its own
@@ -4705,28 +4699,12 @@ class ClockView @JvmOverloads constructor(
 
     /** The instant the solar system is showing. */
     internal fun orreryMs(): Long =
-        displayNowMs() + (visualOffsetSeconds * 1000.0).toLong() + windBack()
+        displayNowMs() + (visualOffsetSeconds * 1000.0).toLong() + winding.windBack()
 
     /**
      * How far the sky is wound at this instant — the whole offset, or what
      * is left of it while it runs home.
      */
-    private fun windBack(): Long {
-        if (glideStartedAt == NEVER) return orreryOffsetMs
-        val t = ((SystemClock.uptimeMillis() - glideStartedAt) / GLIDE_HOME_MS)
-            .coerceIn(0f, 1f)
-        if (t >= 1f) {
-            orreryOffsetMs = glideToOffsetMs
-            glideStartedAt = NEVER
-            return orreryOffsetMs
-        }
-        val eased = transitionInterpolator.getInterpolation(t)
-        // In floating point: the two ends can be centuries apart in
-        // milliseconds, and a long multiplied by an eased fraction the
-        // integer way is a long that has already overflowed.
-        return glideFromOffsetMs +
-            ((glideToOffsetMs - glideFromOffsetMs).toDouble() * eased).toLong()
-    }
 
     /**
      * Carries the sky to a wound offset, travelling rather than cutting.
@@ -4739,12 +4717,7 @@ class ClockView @JvmOverloads constructor(
      * through here, eased in and out, and you watch the years go past.
      */
     internal fun glideOrreryTo(offsetMs: Long): Boolean {
-        val from = windBack()
-        if (from == offsetMs) return false
-        glideFromOffsetMs = from
-        glideToOffsetMs = offsetMs
-        orreryOffsetMs = from
-        glideStartedAt = SystemClock.uptimeMillis()
+        if (!winding.glideTo(offsetMs)) return false
         performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         kickTicker()
         return true
@@ -4754,7 +4727,7 @@ class ClockView @JvmOverloads constructor(
     internal fun glideOrreryHome(): Boolean = glideOrreryTo(0L)
 
     /** Whether the sky is on its way back to today. */
-    internal fun orreryGlidingHome(): Boolean = glideStartedAt != NEVER
+    internal fun orreryGlidingHome(): Boolean = winding.travelling()
 
     /**
      * A finger held still on the open sky.
@@ -4822,8 +4795,7 @@ class ClockView @JvmOverloads constructor(
         orreryUp = false
         orreryChangedAt = SystemClock.uptimeMillis()
         grabbedBody = null
-        orreryOffsetMs = 0L
-        glideStartedAt = NEVER
+        winding.reset()
         orreryZoom = 1f
         // The planets go back in their orbits with the sky. They are only
         // on the floor of a case that is showing a solar system.
@@ -4940,20 +4912,10 @@ class ClockView @JvmOverloads constructor(
      * The tests are about where it arrives; whether it eases on the way is
      * a separate question with a test of its own.
      */
-    internal fun settleOrreryForTest() {
-        if (glideStartedAt == NEVER) return
-        // Wound back so the journey is already over, and then *asked* —
-        // rather than setting the offset here, which is what it did and
-        // which was a second copy of the arriving. A sabotage that made
-        // the real journey end at the wrong end changed nothing any test
-        // could see, because every test that cared went through this and
-        // this had its own idea of where the far end was.
-        glideStartedAt -= (GLIDE_HOME_MS.toLong() + 1L)
-        windBack()
-    }
+    internal fun settleOrreryForTest() = winding.settleForTest()
 
     /** For the tests: whether the sky is on its way somewhere. */
-    internal fun orreryTravellingForTest(): Boolean = glideStartedAt != NEVER
+    internal fun orreryTravellingForTest(): Boolean = winding.travelling()
 
     /** Whether the Moon has currently let go of the mechanism. */
     internal fun orreryMoonDetached(): Boolean =
@@ -5038,7 +5000,7 @@ class ClockView @JvmOverloads constructor(
 
     /** For the tests: carries the sky on by a given stretch of time. */
     internal fun nudgeOrreryForTest(ms: Long) {
-        orreryOffsetMs += ms
+        winding.nudge(ms)
         invalidate()
     }
 
@@ -5063,7 +5025,7 @@ class ClockView @JvmOverloads constructor(
             }
             set(java.util.Calendar.MILLISECOND, 0)
         }.timeInMillis
-        orreryOffsetMs += want - orreryMs()
+        winding.nudge(want - orreryMs())
         invalidate()
     }
 
@@ -5073,7 +5035,7 @@ class ClockView @JvmOverloads constructor(
      */
     internal fun windOrreryForTest(body: Orrery.Body, degrees: Double): Long {
         val from = Orrery.longitude(body, orreryMs())
-        orreryOffsetMs += Orrery.stepMs(body, from, Orrery.wrap(from + degrees))
+        winding.nudge(Orrery.stepMs(body, from, Orrery.wrap(from + degrees)))
         invalidate()
         return orreryMs()
     }
@@ -5081,6 +5043,10 @@ class ClockView @JvmOverloads constructor(
     /** Where the sky token sits, which is also where the sky opens. */
     private fun skyTokenX(): Float = width / 2f
     private fun skyTokenY(): Float = height / 2f + apothemRadius() * 0.45f
+
+    /** For the tests: where the door to the sky is, so it can be pressed. */
+    internal fun skyTokenXForTest(): Float = skyTokenX()
+    internal fun skyTokenYForTest(): Float = skyTokenY()
 
     /**
      * Whether a touch landed on the sky token.
@@ -5124,10 +5090,7 @@ class ClockView @JvmOverloads constructor(
         ) ?: return false
         grabbedBody = body
         // A hand on a planet ends the journey home wherever it has got to.
-        if (glideStartedAt != NEVER) {
-            orreryOffsetMs = windBack()
-            glideStartedAt = NEVER
-        }
+        winding.stopHere()
         // From whatever that body actually goes round — which for the Moon
         // is the Earth and not the middle of the dial. This was measured
         // from the middle here and from the Earth on the very next move, so
@@ -5174,7 +5137,7 @@ class ClockView @JvmOverloads constructor(
     private fun dragBodyTo(x: Float, y: Float) {
         val body = grabbedBody ?: return
         val from = fingerLongitude(body, x, y)
-        orreryOffsetMs += Orrery.stepMs(body, lastBodyLongitude, from)
+        winding.nudge(Orrery.stepMs(body, lastBodyLongitude, from))
         lastBodyLongitude = from
         invalidate()
     }
@@ -5466,7 +5429,7 @@ class ClockView @JvmOverloads constructor(
      * of arguing with it.
      */
     private fun orreryTargetOffsetMs(): Long =
-        if (glideStartedAt == NEVER) orreryOffsetMs else glideToOffsetMs
+        winding.targetOffsetMs()
 
     private fun orreryTargetMs(): Long =
         displayNowMs() + (visualOffsetSeconds * 1000.0).toLong() + orreryTargetOffsetMs()

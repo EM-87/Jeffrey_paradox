@@ -89,6 +89,32 @@ class ZodiacTest {
         assertEquals("Aries", names[OrreryDial.signAt(earthOn(2026, 3, 25))])
     }
 
+    /**
+     * Where a sign is drawn and which sign a date falls in are the same
+     * fact, asked from the two ends.
+     *
+     * They were two copies of one half turn, and a sabotage that reversed
+     * the drawing left the rule answering correctly about a ring that had
+     * every sign six months out of place. So the drawing derives from the
+     * rule now, and this is the promise that it still does: start a sign,
+     * step into it, and ask which sign you are in.
+     */
+    @Test
+    fun `the sign drawn on an arc is the sign that arc belongs to`() {
+        for (sign in 0 until 12) {
+            val justInside = OrreryDial.signStart(sign) + 1.0
+            assertEquals(
+                "the arc drawn for ${names[sign]} belongs to ${names[OrreryDial.signAt(justInside)]}",
+                sign, OrreryDial.signAt(justInside)
+            )
+            val justBefore = OrreryDial.signStart(sign) - 1.0
+            assertEquals(
+                "the arc drawn for ${names[sign]} starts a degree too early or too late",
+                (sign + 11) % 12, OrreryDial.signAt(justBefore)
+            )
+        }
+    }
+
     /** Twelve of them, each a twelfth, and no gaps. */
     @Test
     fun `the ecliptic is cut into twelve equal signs`() {
@@ -131,6 +157,34 @@ class ZodiacTest {
         assertEquals(
             "a modern ring is not carrying all twelve signs",
             12, signsDrawn(2026).size
+        )
+    }
+
+    /**
+     * One switch puts the door on the dial as well as the sky behind it.
+     *
+     * The sky used to hang off the moon complication: the glyph was the
+     * thing you pressed, so there had to be one. Turned round — one switch
+     * for the lot — the switch has to put its own glyph there, or it is a
+     * setting that turns on a room with no door into it. Every existing
+     * test of the door switched the complication on itself and so could
+     * not see the difference.
+     */
+    @Test
+    fun `the sky's one switch puts a door on the dial by itself`() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().clear()
+            .putBoolean(Prefs.ORRERY, true)
+            // Off, deliberately: this is the case that used to leave the
+            // solar system switched on and unreachable.
+            .putBoolean(Prefs.MOON_PHASE, false)
+            .commit()
+        val controller = org.robolectric.Robolectric
+            .buildActivity(MainActivity::class.java).setup()
+        val clock = controller.get().clockForTest()
+        assertTrue(
+            "the sky is on and there is nothing on the dial to press",
+            clock.skyTokenAt(clock.skyTokenXForTest(), clock.skyTokenYForTest())
         )
     }
 

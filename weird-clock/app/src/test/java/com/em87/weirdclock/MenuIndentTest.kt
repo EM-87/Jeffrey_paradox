@@ -172,6 +172,53 @@ class MenuIndentTest {
     }
 
     /**
+     * And an ordinary row never inherits somebody else's fading.
+     *
+     * The list recycles its rows: the view that carried a faded one a
+     * moment ago will carry an ordinary one next. A version that only ever
+     * fades and never restores leaves grey rows scattered down the page,
+     * in places that have nothing to do with any switch — and every row
+     * being *somewhere* correct at some point means a test that checks one
+     * row at a time can miss it entirely.
+     *
+     * So this asks the whole page at once, with the switches off, which is
+     * the arrangement that has faded rows to spread around.
+     */
+    @Test
+    fun `only the rows waiting on a switch are faded`() {
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+            .putBoolean(Prefs.BELLS, false)
+            .putBoolean(Prefs.ORRERY, false)
+            .putBoolean(Prefs.NIGHT_DIM, false)
+            .putBoolean(Prefs.ALARM_MARKERS, false)
+            .commit()
+        val fragment = advancedScreen()
+        val waiting = setOf(
+            Prefs.BELL_MARKS, Prefs.BELL_STYLE, Prefs.BELLS_BACKGROUND,
+            Prefs.BELL_PRIORITY, Prefs.TEST_BELLS,
+            Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC,
+            Prefs.NIGHT_WINDOW, Prefs.MARK_COLORS
+        )
+        val ordinary = listOf(
+            Prefs.NUMERALS, Prefs.DIAL_SHAPE, Prefs.HOURS_PRESET, Prefs.MIRROR,
+            Prefs.DIAL_MARKS, Prefs.MINUTE_MARKS, Prefs.HAND_SHADOWS,
+            Prefs.CALENDAR_NUMERALS, Prefs.PAST_DAYS,
+            Prefs.ALARM_RAMP, Prefs.RING_TIMEOUT_MIN, Prefs.ALARM_STYLE,
+            Prefs.COUNTDOWN_PERSISTENT, Prefs.GENTLE_FLASH
+        )
+        for (key in ordinary) {
+            assertEquals(
+                "$key was faded, and it waits on nothing",
+                1f, rowAlpha(fragment, key), 0.001f
+            )
+        }
+        for (key in waiting) {
+            assertTrue("$key waits on a switch that is off and is not faded",
+                rowAlpha(fragment, key) < 0.9f)
+        }
+    }
+
+    /**
      * And the ones that govern nothing start at the left edge.
      *
      * At the edge, not merely "no further in than the bells" — which is
