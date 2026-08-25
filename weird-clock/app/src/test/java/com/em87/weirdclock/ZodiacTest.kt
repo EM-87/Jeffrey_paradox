@@ -2,6 +2,7 @@ package com.em87.weirdclock
 
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -186,6 +187,45 @@ class ZodiacTest {
             "the sky is on and there is nothing on the dial to press",
             clock.skyTokenAt(clock.skyTokenXForTest(), clock.skyTokenYForTest())
         )
+    }
+
+    /**
+     * And the moon complication decides whether that door tracks the
+     * phase.
+     *
+     * The two facts came apart when the sky got a switch of its own: the
+     * token has to be there whenever the solar system is on, because it is
+     * what you press to open it, and whether it also reports what the moon
+     * is doing tonight is the question the row on the advanced page asks.
+     * Written as one fact it would be a row that does nothing.
+     */
+    @Test
+    fun `the moon complication decides whether the door tracks the phase`() {
+        assertFalse(
+            "the door tracks the phase with the complication switched off",
+            moonPhaseShown(sky = true, complication = false)
+        )
+        assertTrue(
+            "the door stopped tracking the phase with the complication on",
+            moonPhaseShown(sky = true, complication = true)
+        )
+        // With the sky shut the token is only there because the
+        // complication asked for it, so it always tracks.
+        assertTrue(
+            "a moon complication on its own stopped showing a phase",
+            moonPhaseShown(sky = false, complication = true)
+        )
+    }
+
+    private fun moonPhaseShown(sky: Boolean, complication: Boolean): Boolean {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().clear()
+            .putBoolean(Prefs.ORRERY, sky)
+            .putBoolean(Prefs.MOON_PHASE, complication)
+            .commit()
+        val controller = org.robolectric.Robolectric
+            .buildActivity(MainActivity::class.java).setup()
+        return controller.get().clockForTest().moonPhaseShown
     }
 
     /** Which signs were written on a ring wound to [year]. */

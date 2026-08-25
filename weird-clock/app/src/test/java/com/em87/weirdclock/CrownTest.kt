@@ -75,6 +75,83 @@ class CrownTest {
     // ----------------------------------------------- the journey to zero
 
     /**
+     * Pressing the crown over and over on a chronograph does not throw the
+     * hands on the floor.
+     *
+     * Five presses in three seconds shakes the works loose, which was a
+     * fine joke while the crown had nothing else to do. Then it became the
+     * place both chronographs keep their second thoughts — press it on a
+     * stopped countdown and the length you set comes back — and pressing a
+     * control repeatedly is exactly what a person does when it does not
+     * seem to have worked. What they got was a cuckoo and a dial in
+     * pieces.
+     */
+    @Test
+    fun `hammering the crown on a chronograph does not break it`() {
+        PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val activity = c.get()
+            activity.showCardForTest(Card.REVERSE)
+            // Laid out for real, because hands cannot fall off a dial with
+            // no radius: [ClockView.dropHands] gives up when the face
+            // measures nothing, so without this the assertion below is true
+            // whatever the crown does.
+            val root = activity.window.decorView
+            root.measure(
+                android.view.View.MeasureSpec.makeMeasureSpec(1080, android.view.View.MeasureSpec.EXACTLY),
+                android.view.View.MeasureSpec.makeMeasureSpec(2200, android.view.View.MeasureSpec.EXACTLY)
+            )
+            root.layout(0, 0, 1080, 2200)
+            activity.startCountdownForTest(3 * 60_000L)
+            activity.countdownForTest()!!.onChronoStartStop?.invoke()
+            activity.resetCountdownForTest()
+
+            // Listened for rather than looked for. The countdown's dial is
+            // inside a page the test harness never measures, so it is nought
+            // by nought and its hands cannot fall however hard they are
+            // shaken — an assertion about wreckage there is true whatever
+            // the crown does. The bird is not: it goes off through this
+            // listener whether or not anybody laid the dial out, and the
+            // bird is what the report was about.
+            var exploded = 0
+            val dial = activity.countdownForTest()!!
+            dial.soundListener = object : ClockView.SoundListener {
+                override fun onTickCrossed() = Unit
+                override fun onHourCrossed() = Unit
+                override fun onDayCrossed() = Unit
+                override fun onHandMounted() = Unit
+                override fun onCheater() = Unit
+                override fun onExploded() { exploded++ }
+            }
+            // Five exactly, which is the number that used to set it off.
+            repeat(5) { dial.crownTapForTest() }
+            assertEquals("the crown set the cuckoo off on a chronograph", 0, exploded)
+            assertEquals(
+                "and it still put the length back",
+                3 * 60_000L, activity.countdownRemainingForTest()
+            )
+        }
+    }
+
+    /**
+     * The egg is still there on a dial where the crown has nothing else to
+     * do.
+     *
+     * Five presses exactly. A sixth finds hands on the floor and puts them
+     * back, which is the crown's other job doing precisely what it should
+     * — and which quietly undoes what the fifth press did.
+     */
+    @Test
+    fun `hammering the crown on a plain dial still shakes it loose`() {
+        val clock = dial()
+        repeat(5) { clock.crownTapForTest() }
+        assertTrue("the joke is gone from the face that can afford it", clock.isDisarranged())
+    }
+
+    /**
      * The hands travel back to zero instead of arriving there.
      *
      * Partway through they must be somewhere between the two and at neither
@@ -266,6 +343,24 @@ class CrownTest {
             activity.countdownForTest()!!.crownTapForTest()
             assertEquals(
                 "the crown did not put the three minutes that were set back",
+                3 * 60_000L, activity.countdownRemainingForTest()
+            )
+
+            // And again the long way round, through reset — which is where
+            // the fault actually lived. Reset wrote the memory from the
+            // time remaining, so a timer cleared part way down came back as
+            // however far down it had got. A test that only ever presses
+            // the crown never goes near that line.
+            activity.countdownForTest()!!.onChronoStartStop?.invoke()
+            ShadowSystemClock.advanceBy(Duration.ofSeconds(40))
+            activity.countdownForTest()!!.onChronoStartStop?.invoke()
+            val part = activity.countdownRemainingForTest()
+            assertTrue("it did not run down before the reset: $part", part < 3 * 60_000L)
+            activity.resetCountdownForTest()
+            assertEquals("reset did not clear it", 0L, activity.countdownRemainingForTest())
+            activity.countdownForTest()!!.crownTapForTest()
+            assertEquals(
+                "after a reset the crown put back what was left, not what was set",
                 3 * 60_000L, activity.countdownRemainingForTest()
             )
         }

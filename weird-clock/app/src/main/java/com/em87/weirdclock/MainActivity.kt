@@ -3109,65 +3109,23 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
     }
 
-    private fun readFastHand(): ClockView.FastHandMode =
-        when (prefs.getString(Prefs.FAST_HAND, Prefs.FAST_HAND_NONE)) {
-            Prefs.FAST_HAND_TENTHS -> ClockView.FastHandMode.TENTHS
-            Prefs.FAST_HAND_DECIMAL_MINUTE -> ClockView.FastHandMode.DECIMAL_MINUTE
-            else -> ClockView.FastHandMode.NONE
-        }
+    // What the stored settings mean, in one place — see [DialSettings].
+    // They lived here as a dozen little `when` blocks among three thousand
+    // lines about running an app, and twice this year the same rule turned
+    // out to be written in two of them.
 
-    private fun readDialShape(): ClockView.DialShape =
-        when (prefs.getString(Prefs.DIAL_SHAPE, Prefs.SHAPE_CIRCLE)) {
-            Prefs.SHAPE_TRIANGLE -> ClockView.DialShape.TRIANGLE
-            Prefs.SHAPE_SQUARE -> ClockView.DialShape.SQUARE
-            Prefs.SHAPE_HEXAGON -> ClockView.DialShape.HEXAGON
-            Prefs.SHAPE_OCTAGON -> ClockView.DialShape.OCTAGON
-            else -> ClockView.DialShape.CIRCLE
-        }
+    private fun readFastHand(): ClockView.FastHandMode = DialSettings.fastHand(prefs)
 
-    /**
-     * Whether there is a glyph on the dial to press.
-     *
-     * Asked in two places — when the settings are applied, and again when
-     * the dial goes back to being a clock after winding a time — and so
-     * written once. It was two copies of one rule, and the copies were
-     * enough to hide a sabotage: taking the solar system out of one of
-     * them left the other putting the door there anyway, and every test of
-     * the door went on passing against a switch that had stopped working
-     * on the path a person actually takes.
-     *
-     * The sky needs a door, so its own switch opens one. The moon
-     * complication puts one there on its own account, for somebody who
-     * wants the moon and no planets behind it.
-     */
-    private fun skyTokenWanted(): Boolean =
-        prefs.getBoolean(Prefs.ORRERY, false) || prefs.getBoolean(Prefs.MOON_PHASE, false)
+    private fun readDialShape(): ClockView.DialShape = DialSettings.dialShape(prefs)
 
-    /**
-     * And whether that glyph tracks the phase, or is a plain disc.
-     *
-     * With the sky shut the token is only there because the complication
-     * asked for it, so it always tracks; with the sky open it is the
-     * complication's own switch that decides.
-     */
-    private fun moonPhaseWanted(): Boolean =
-        !prefs.getBoolean(Prefs.ORRERY, false) || prefs.getBoolean(Prefs.MOON_PHASE, false)
+    private fun skyTokenWanted(): Boolean = DialSettings.skyTokenWanted(prefs)
+
+    private fun moonPhaseWanted(): Boolean = DialSettings.moonPhaseWanted(prefs)
 
     private fun readNumeralStyle(key: String = Prefs.NUMERALS): ClockView.NumeralStyle =
-        when (prefs.getString(key, Prefs.NUMERALS_ARABIC)) {
-            Prefs.NUMERALS_NONE -> ClockView.NumeralStyle.NONE
-            Prefs.NUMERALS_ROMAN -> ClockView.NumeralStyle.ROMAN
-            else -> ClockView.NumeralStyle.ARABIC
-        }
+        DialSettings.numerals(prefs, key)
 
-    private fun readHoursOnDial(): Int {
-        val preset = prefs.getString(Prefs.HOURS_PRESET, "12") ?: "12"
-        return if (preset == Prefs.HOURS_CUSTOM_VALUE) {
-            prefs.getInt(Prefs.HOURS_CUSTOM, 12)
-        } else {
-            preset.toIntOrNull() ?: 12
-        }
-    }
+    private fun readHoursOnDial(): Int = DialSettings.hoursOnDial(prefs)
 
     // ------------------------------------------------- chronograph modes
 
