@@ -1,5 +1,6 @@
 package com.em87.weirdclock
 
+import android.graphics.Rect
 import android.Manifest
 import android.content.Intent
 import android.content.SharedPreferences
@@ -2253,12 +2254,30 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             return
         }
         val next = AlarmScheduler.nextOccurrence(alarm)
+        // Where the card is, *before* the list is told anything. Switching
+        // an alarm off sorts the list and rebinds it, and after that the
+        // view holder for this alarm may be a different view or none at
+        // all — which is why the offer was arriving in the bottom corner
+        // of the screen instead of over the card it is about: the lookup
+        // found nothing and fell back to hanging the bubble off the list.
+        val over = if (alarm.once) null else cardBounds(alarm)
         alarm.enabled = false
         alarm.skippedOccurrence = 0L
         persistAlarms()
         // A one-shot has nothing to offer: skipping its only occurrence and
         // turning it off are the same thing.
-        if (!alarm.once) offerToKeepTheDaysAfter(alarm, next)
+        if (over != null) offerToKeepTheDaysAfter(alarm, next, over)
+    }
+
+    /** Where an alarm's card is on screen, or null if it is not. */
+    private fun cardBounds(alarm: Alarm): Rect? {
+        val list = alarmsRecycler ?: return null
+        val at = alarms.indexOfFirst { it.id == alarm.id }
+        if (at < 0) return null
+        val row = list.findViewHolderForAdapterPosition(at)?.itemView ?: return null
+        val where = IntArray(2)
+        row.getLocationInWindow(where)
+        return Rect(where[0], where[1], where[0] + row.width, where[1] + row.height)
     }
 
     /**
@@ -2278,7 +2297,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * so the cheap path is the common one, and the expensive path is the
      * one fewer people want.
      */
-    private fun offerToKeepTheDaysAfter(alarm: Alarm, next: Long) {
+    private fun offerToKeepTheDaysAfter(alarm: Alarm, next: Long, over: Rect) {
         // A window needs a live one to hang off. Switching an alarm off is
         // one of the last things that can happen on the way out of this
         // activity — the switch is on screen, the finger is on it — and a
@@ -2286,12 +2305,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // than doing nothing.
         if (isFinishing || isDestroyed) return
         val list = alarmsRecycler ?: return
-        // The card itself when it is on screen, and the list when it is
-        // not. A row scrolled out of sight has no view to hang anything
-        // off, and dropping the offer on the floor in that case would make
-        // it arrive or not depending on how far down the alarm sat.
-        val at = alarms.indexOfFirst { it.id == alarm.id }
-        val row = list.findViewHolderForAdapterPosition(at)?.itemView ?: list
         val bubble = layoutInflater.inflate(R.layout.bubble_alarm_skip, null)
         bubble.findViewById<android.widget.TextView>(R.id.bubble_text).text =
             getString(R.string.alarm_skip_bubble, alarmCards.whenIs(next))
@@ -2311,10 +2324,23 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         skipBubble?.dismiss()
         skipBubble = popup
         popup.setOnDismissListener { if (skipBubble === popup) skipBubble = null }
-        popup.showAsDropDown(row, 0, -row.height / 3)
+        // Centred over the card, in window coordinates taken before the
+        // list moved. Over it rather than under: it is about that alarm and
+        // nothing else, and a bubble that sits on the thing it is about
+        // needs no words saying which one it means.
+        bubble.measure(
+            android.view.View.MeasureSpec.UNSPECIFIED,
+            android.view.View.MeasureSpec.UNSPECIFIED
+        )
+        popup.showAtLocation(
+            list,
+            android.view.Gravity.NO_GRAVITY,
+            over.centerX() - bubble.measuredWidth / 2,
+            over.centerY() - bubble.measuredHeight / 2
+        )
         // Long enough to read and notice, short enough that it is not a
         // thing to be dismissed. Ignoring it is a way of answering.
-        row.postDelayed({ if (popup.isShowing) popup.dismiss() }, SKIP_BUBBLE_MS)
+        list.postDelayed({ if (popup.isShowing) popup.dismiss() }, SKIP_BUBBLE_MS)
     }
 
     /** The bubble on screen, if any, so a second flick replaces the first. */
@@ -3558,9 +3584,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // The hands travel there rather than arriving: everything else on
         // this dial travels, and a jump reads as a glitch.
         val was = countdownRemaining()
-        // Remembered only when there is something to remember, so pressing
-        // reset twice does not replace the last length with nothing.
-        if (was > 0L) lastCountdownMs = was
+        // What the crown remembers is the length somebody *set*, not what
+        // was left of it. This wrote the remaining time here, so a ten
+        // minute countdown stopped with three minutes to go and reset came
+        // back as three minutes — the crown taking you to the end of the
+        // count instead of to the beginning of it, which is the one thing
+        // it exists not to do. The length is remembered where a length is
+        // chosen: on release of the hands, and on adopting one from
+        // outside.
         countdown.reset()
         countdownClockView?.glideChronoTo(was, 0L)
         pushed(Pusher.Feel.RESET)
@@ -3585,7 +3616,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private fun restoreLastCountdown() {
         if (countdownRunning) return
-        if (countdownRemaining() != 0L) return
         val back = lastCountdownMs
         if (back <= 0L) return
         countdown.setTo(back)

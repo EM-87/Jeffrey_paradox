@@ -152,7 +152,7 @@ class EgyptianTest {
             clock.egyptiansPaintedForTest() > 0
         )
         assertEquals("part of it went to the Roman row", 0, clock.barsPaintedForTest())
-        assertEquals("part of it went to the star", 0, clock.starsPaintedForTest())
+        assertEquals("part of it went to the far-future face", 0, clock.yautjaCharsForTest())
 
         clock.windOrreryToYearForTest(1750)
         clock.draw(canvas)

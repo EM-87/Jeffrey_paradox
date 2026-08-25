@@ -61,13 +61,16 @@ class IdleWorkTest {
                 chronoProvider = { 7 * 3_600_000L }
             }
         )
-        // While it winds itself into place it is animating, and animating
-        // is exactly when it should be drawing.
-        assertTrue("it winds in first", still.tickDelayMs() >= 0L)
+        // Not even at birth. It used to wind itself in from whatever
+        // o'clock it happened to be, because being handed a provider
+        // started a journey — which is the right thing when a dial changes
+        // from one mode to another and nonsense on a face that has never
+        // been drawn, since it is not changing into anything. Opening the
+        // alarm drawer set a dozen little watches going for a second.
+        assertEquals("a still face asked for frames on its first breath", -1L, still.tickDelayMs())
         ShadowLooper.idleMainLooper(2, TimeUnit.SECONDS)
         still.handAngleForTest(ClockView.Hand.HOUR)
-
-        assertEquals("and then stops", -1L, still.tickDelayMs())
+        assertEquals("and it asks for none later either", -1L, still.tickDelayMs())
     }
 
     /**

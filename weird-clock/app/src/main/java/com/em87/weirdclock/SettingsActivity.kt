@@ -218,6 +218,16 @@ class SettingsActivity : AppCompatActivity() {
          * bells switched off and turning the bells on afterwards is a
          * perfectly ordinary thing to want to do, and a disabled row would
          * refuse it — which is why this fades rather than disabling.
+         *
+         * And they are *not* drawn a step in, unlike the rows that hang off
+         * a switch on their own page. An indent is a claim about the row
+         * above: it says "I belong to that one". With the parent two
+         * screens away there is no row above to belong to, so the indent
+         * pointed at whatever happened to be there — the night hours
+         * reading as a refinement of the hand shadows, a whole category
+         * shunted right for no reason a reader could see. The fading is
+         * what says these are waiting on something; it does not need the
+         * step, and the step was saying something false.
          */
         private val dimmedBy = HashMap<String, String>()
 
@@ -230,7 +240,6 @@ class SettingsActivity : AppCompatActivity() {
          * and without making them unusable.
          */
         protected fun dimmedWhen(parent: String, vararg children: String) {
-            nest(parent, children)
             for (child in children) dimmedBy[child] = parent
         }
 

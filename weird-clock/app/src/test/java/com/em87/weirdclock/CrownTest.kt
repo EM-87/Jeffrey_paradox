@@ -246,7 +246,7 @@ class CrownTest {
      * differ.
      */
     @Test
-    fun `the crown leaves a countdown that is part way down alone`() {
+    fun `the crown puts back the length that was set, not what was left`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
             .commit()
@@ -265,9 +265,8 @@ class CrownTest {
 
             activity.countdownForTest()!!.crownTapForTest()
             assertEquals(
-                "the crown put the whole three minutes back on a timer that " +
-                    "was already going",
-                left, activity.countdownRemainingForTest()
+                "the crown did not put the three minutes that were set back",
+                3 * 60_000L, activity.countdownRemainingForTest()
             )
         }
     }

@@ -380,6 +380,49 @@ class GlyphChartTest {
     }
 
     /**
+     * The Yautja alphabet, as the font draws it.
+     *
+     * A font rather than shapes worked out from a picture — which is the
+     * whole difference between this and the two goes before it. The chart
+     * is here for the same reason all the others are: there is no
+     * measurement of a letter that says whether it looks like the letter
+     * it is meant to be.
+     */
+    @Test
+    fun `the yautja alphabet`() {
+        val w = 1400
+        val rows = listOf(
+            "ABCDEFGHIJKLM",
+            "NOPQRSTUVWXYZ",
+            "0123456789",
+            "PREDATOR 3211"
+        )
+        val rowH = 190
+        val bitmap = Bitmap.createBitmap(w, rowH * rows.size + 40, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.rgb(0x11, 0x11, 0x11))
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(0xE0, 0x30, 0x30)
+            textAlign = android.graphics.Paint.Align.CENTER
+            textSize = 110f
+            typeface = androidx.core.content.res.ResourcesCompat.getFont(context, R.font.yautja)
+        }
+        val plain = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(0x90, 0x90, 0x90)
+            textAlign = android.graphics.Paint.Align.CENTER
+            textSize = 34f
+        }
+        for ((i, row) in rows.withIndex()) {
+            val y = 40f + i * rowH + 110f
+            canvas.drawText(row, w / 2f, y, paint)
+            canvas.drawText(row, w / 2f, y + 48f, plain)
+        }
+        File(outDir, "glyphs-yautja.png").outputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+    }
+
+    /**
      * The hieroglyph numerals, one of each sign and a few real numbers.
      *
      * The only way to find out whether a coil of rope at eight pixels is
@@ -455,21 +498,5 @@ class GlyphChartTest {
             if (bitmap.getPixel(x, y) != Color.rgb(0x1d, 0x21, 0x29)) ink++
         }
         assertTrue("nothing was pressed into the clay", ink > 300)
-    }
-
-    /** The ten marks on the star, in a row like the table they came from. */
-    @Test
-    fun `the star alphabet`() {
-        val ink = chart(
-            "glyphs-star",
-            listOf(
-                "0123456789" to 0,
-                "0·1·2·3·4·5·6·7·8·9" to 0,
-                "03 13 3400" to 0,
-                "31 12 9999" to 0
-            ),
-            digitH = 120f
-        )
-        assertTrue("nothing was drawn", ink > 500)
     }
 }

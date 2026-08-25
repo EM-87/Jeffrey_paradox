@@ -45,8 +45,55 @@ class DateScripts {
         val ink: Paint,
         val atMs: Long,
         val dayFirst: Boolean,
-        val boxWidth: Int
+        val boxWidth: Int,
+        val yautja: android.graphics.Typeface? = null
     )
+
+    /**
+     * The far-future face — see [Yautja].
+     *
+     * Set up once and handed the typeface per frame, because the frame is
+     * where anything belonging to the outside world comes in.
+     */
+    private val yautjaPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        textAlign = Paint.Align.CENTER
+        letterSpacing = 0.10f
+    }
+
+    /** For the tests: characters written in the far-future face. */
+    fun yautjaCharsForTest(): Int = yautjaChars
+
+    private var yautjaChars = 0
+
+    /**
+     * A date in the alphabet nobody here can read.
+     *
+     * It used to go through a reconstruction of that alphabet, worked out
+     * arm by arm from a photograph — which got the digits about right and
+     * the letters wrong, and could only ever write digits anyway. With the
+     * real font in hand it is simply text, so the row can say a word.
+     *
+     * Fitted to the box the way the printed date is, and for the same
+     * reason: a far-future date is not a fixed number of characters wide.
+     */
+    fun drawYautjaDate(
+        canvas: Canvas, frame: Frame, text: String, cx: Float, top: Float, digitH: Float
+    ) {
+        nothingWritten()
+        val face = frame.yautja ?: return
+        if (text.isEmpty()) return
+        yautjaPaint.typeface = face
+        yautjaPaint.color = frame.ink.color
+        yautjaPaint.alpha = frame.ink.alpha
+        yautjaPaint.textSize = digitH * 1.25f
+        val room = frame.boxWidth * 0.86f
+        val wide = yautjaPaint.measureText(text)
+        if (wide > room && wide > 0f) yautjaPaint.textSize *= room / wide
+        val metrics = yautjaPaint.fontMetrics
+        canvas.drawText(text, cx, top - metrics.ascent, yautjaPaint)
+        yautjaChars = text.length
+    }
 
     /** A lit bar on one of the other two displays — see [SegmentGlyphs]. */
     private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -84,7 +131,6 @@ class DateScripts {
      * letter in it would simply have been dropped on the floor.
      */
     private var barsPainted = 0
-    private var starsPainted = 0
 
     /**
      * A row that used none of these displays, and says so.
@@ -95,7 +141,7 @@ class DateScripts {
      */
     fun nothingWritten() {
         barsPainted = 0
-        starsPainted = 0
+        yautjaChars = 0
         egyptiansPainted = 0
         wedgesPainted = 0
         printedChars = 0
@@ -103,9 +149,6 @@ class DateScripts {
 
     /** For the tests: sixteen-bar modules in the last row the sky wrote. */
     internal fun barsPaintedForTest(): Int = barsPainted
-
-    /** And star glyphs. */
-    internal fun starsPaintedForTest(): Int = starsPainted
 
     /**
      * One bar of a segment display: a long hexagon, pointed at both ends.
@@ -235,91 +278,6 @@ class DateScripts {
         }
     }
 
-    /**
-     * One mark on the star: eight arms and the four chords that close it.
-     *
-     * Squarer than the sixteen-bar module because a star squashed into a
-     * digit's width stops being a star and becomes a squiggle — the eye
-     * reads these by the angle of the strokes and nothing else.
-     */
-    private fun drawStarGlyph(
-        canvas: Canvas, bits: Int, x: Float, y: Float, w: Float, h: Float, t: Float
-    ) {
-        val mx = x + w / 2f
-        // The proportions are not a choice — they are forced by the `6`.
-        //
-        // Its diamond is the upper star's two lower diagonals meeting the
-        // lower star's two upper ones, so those four tips have to land on
-        // two points. A diagonal arm of length r reaches r/√2 downwards,
-        // so the two stars must sit exactly r·√2 apart; and for the N and
-        // S arms to reach the ends of the glyph, r is what is left over.
-        // Solve it and the stars land at 0.293 and 0.707 of the height
-        // with arms 0.293 long, which is what these numbers are. Guessed
-        // instead, the diamond came out as four arms pointing at each
-        // other and missing.
-        val r = h * 0.293f
-        val upper = y + h * 0.293f
-        val lower = y + h * 0.707f
-        val d = r * 0.70710678f
-
-        // A leaf rather than a bar: pointed at both ends and widest a
-        // little under halfway out. Bars gave a row of dashes; the marks
-        // in the table are strokes of a tool that has a shape.
-        fun arm(bit: Int, cx: Float, cy: Float, ex: Float, ey: Float) {
-            if (bits and bit == 0) return
-            val ux = ex - cx
-            val uy = ey - cy
-            val len = hypot(ux, uy)
-            if (len < 0.01f) return
-            val nx = -uy / len * t
-            val ny = ux / len * t
-            val wide = 0.42f
-            glyphPath.reset()
-            glyphPath.moveTo(cx, cy)
-            glyphPath.lineTo(cx + ux * wide + nx, cy + uy * wide + ny)
-            glyphPath.lineTo(ex, ey)
-            glyphPath.lineTo(cx + ux * wide - nx, cy + uy * wide - ny)
-            glyphPath.close()
-            canvas.drawPath(glyphPath, glyphPaint)
-        }
-
-        fun star(cy: Float, n: Int, ne: Int, e: Int, se: Int, s: Int, sw: Int, wst: Int, nw: Int) {
-            arm(n, mx, cy, mx, cy - r)
-            arm(s, mx, cy, mx, cy + r)
-            arm(e, mx, cy, mx + r, cy)
-            arm(wst, mx, cy, mx - r, cy)
-            arm(ne, mx, cy, mx + d, cy - d)
-            arm(se, mx, cy, mx + d, cy + d)
-            arm(sw, mx, cy, mx - d, cy + d)
-            arm(nw, mx, cy, mx - d, cy - d)
-        }
-
-        star(
-            upper,
-            SegmentGlyphs.U_N, SegmentGlyphs.U_NE, SegmentGlyphs.U_E, SegmentGlyphs.U_SE,
-            SegmentGlyphs.U_S, SegmentGlyphs.U_SW, SegmentGlyphs.U_W, SegmentGlyphs.U_NW
-        )
-        star(
-            lower,
-            SegmentGlyphs.L_N, SegmentGlyphs.L_NE, SegmentGlyphs.L_E, SegmentGlyphs.L_SE,
-            SegmentGlyphs.L_S, SegmentGlyphs.L_SW, SegmentGlyphs.L_W, SegmentGlyphs.L_NW
-        )
-
-        // The break between groups: a small closed lozenge on the axis
-        // halfway between the two stars, where no numeral puts anything.
-        if (bits and SegmentGlyphs.STAR_BREAK != 0) {
-            val my = (upper + lower) / 2f
-            val across = t * 1.5f
-            val along = t * 2.6f
-            glyphPath.reset()
-            glyphPath.moveTo(mx, my - along)
-            glyphPath.lineTo(mx + across, my)
-            glyphPath.lineTo(mx, my + along)
-            glyphPath.lineTo(mx - across, my)
-            glyphPath.close()
-            canvas.drawPath(glyphPath, glyphPaint)
-        }
-    }
 
     /**
      * The word signs a date is built from — see [Egyptian.Word].
@@ -649,7 +607,6 @@ class DateScripts {
         val y = top + (digitH - h) / 2f
         var x = cx - wide / 2f
         barsPainted = 0
-        starsPainted = 0
         egyptiansPainted = 0
         wedgesPainted = 0
         printedChars = 0
@@ -657,11 +614,11 @@ class DateScripts {
             val c = glyphs[i]
             val w = widthAt(i) * k
             if (i >= starFrom) {
-                starsPainted++
                 // Thinner bars than the sixteen-bar module: a mark on the
                 // star is read by the angle of its arms, and a fat arm at
                 // this size is a wedge with no angle in it.
-                SegmentGlyphs.star(c)?.let { drawStarGlyph(canvas, it, x, y, w, h, t * 0.50f) }
+                // Nothing: the far-future row is written in its own face
+                // now — see [drawYautjaDate].
             } else {
                 barsPainted++
                 SegmentGlyphs.sixteen(c)?.let { drawSixteenModule(canvas, it, x, y, w, h, t) }
@@ -750,7 +707,6 @@ class DateScripts {
         }
         egyptiansPainted = carved
         barsPainted = 0
-        starsPainted = 0
         wedgesPainted = 0
         printedChars = 0
     }
@@ -997,7 +953,6 @@ class DateScripts {
         }
         wedgesPainted = parts.sumOf { Cuneiform.wedgeCount(it) } + words.size
         barsPainted = 0
-        starsPainted = 0
         egyptiansPainted = 0
         printedChars = 0
     }
@@ -1055,7 +1010,6 @@ class DateScripts {
         canvas: Canvas, frame: Frame, text: String, cx: Float, top: Float, digitH: Float
     ) {
         barsPainted = 0
-        starsPainted = 0
         egyptiansPainted = 0
         wedgesPainted = 0
         printedChars = 0

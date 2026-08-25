@@ -280,14 +280,14 @@ class OrreryYearTest {
             "a Roman year did not reach the sixteen-bar display",
             date.length, clock.barsPaintedForTest()
         )
-        assertEquals("and it is not on the star", 0, clock.starsPaintedForTest())
+        assertEquals("and it is not in the far-future face", 0, clock.yautjaCharsForTest())
 
         clock.windOrreryToYearForTest(3400)
         date = clock.orreryDateDigits()
         clock.draw(canvas)
         assertEquals(
-            "the whole far-future date is not on the star",
-            date.length, clock.starsPaintedForTest()
+            "the whole far-future date is not written in the far-future face",
+            date.length, clock.yautjaCharsForTest()
         )
         assertEquals(
             "part of the far-future date is on the other display",
@@ -298,7 +298,7 @@ class OrreryYearTest {
         clock.draw(canvas)
         assertEquals(
             "an ordinary year was sent somewhere other than the seven-bar row",
-            0, clock.barsPaintedForTest() + clock.starsPaintedForTest()
+            0, clock.barsPaintedForTest() + clock.yautjaCharsForTest()
         )
     }
 

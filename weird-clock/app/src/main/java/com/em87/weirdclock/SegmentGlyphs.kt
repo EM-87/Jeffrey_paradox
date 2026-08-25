@@ -153,105 +153,11 @@ object SegmentGlyphs {
      */
     val JOINS_MIDDLE: Int = 0
 
-    // ------------------------------------------------- the star
-
-    /*
-     * Two eight-armed stars, one above the other, sharing an axis.
-     *
-     * That is the whole trick of this alphabet and it took three goes to
-     * see. One star cannot make the shapes: the `6` is a closed diamond,
-     * and a diamond is not a subset of anything radiating from one point.
-     * With two stars it is four arms — the upper star's two lower
-     * diagonals and the lower star's two upper ones, meeting in pairs at a
-     * left point and a right point. Everything else falls out of the same
-     * arrangement: a chevron is half a diamond, and the long stem down the
-     * middle of nearly every digit is the top star's north arm and the
-     * bottom star's south arm.
-     *
-     * Sixteen arms, then, and no chords: nothing in this alphabet joins
-     * two points that are not both ends of arms.
-     */
-    const val U_N = 1 shl 0
-    const val U_NE = 1 shl 1
-    const val U_E = 1 shl 2
-    const val U_SE = 1 shl 3
-    const val U_S = 1 shl 4
-    const val U_SW = 1 shl 5
-    const val U_W = 1 shl 6
-    const val U_NW = 1 shl 7
-    const val L_N = 1 shl 8
-    const val L_NE = 1 shl 9
-    const val L_E = 1 shl 10
-    const val L_SE = 1 shl 11
-    const val L_S = 1 shl 12
-    const val L_SW = 1 shl 13
-    const val L_W = 1 shl 14
-    const val L_NW = 1 shl 15
-
-    /** The stem: down the middle, top to bottom, past both stars. */
-    private const val STEM = U_N or L_S
-
-    /** The closed rhombus between the two stars, which is the `6`. */
-    private const val DIAMOND = U_SW or U_SE or L_NW or L_NE
-
-    /** Its left half and its right half, which are the chevrons. */
-    private const val LEFT_CHEVRON = U_SW or L_NW
-    private const val RIGHT_CHEVRON = U_SE or L_NE
-
-    /**
-     * Ten marks, ten shapes.
-     *
-     * A reading of a table rather than an invention, and said plainly
-     * because it matters to anybody deciding how much to trust the
-     * shapes. What is certain is the construction — two stars, sixteen
-     * arms, the stem through the middle, the diamond and its halves.
-     *
-     * The `2` and the `8` were one mark, which is what the table it was
-     * read off has; the later revisions of the numerals separate them, and
-     * so does this. A date that cannot tell the two apart is a date with a
-     * hole in it, and the mirror is the obvious place for the second one
-     * to go — the `2` leans left, the `8` leans right.
-     *
-     * Where an arm was ambiguous the tie went to keeping the rest apart,
-     * since a display whose 3 and 7 are a coin toss has stopped being a
-     * display.
-     */
-    private val STAR = mapOf(
-        '0' to (STEM or U_SW or L_NE),
-        '1' to (STEM or U_W or L_E),
-        '2' to (STEM or U_W or LEFT_CHEVRON or L_E),
-        '3' to (U_E or L_SW or L_S),
-        '4' to (STEM or LEFT_CHEVRON),
-        '5' to (STEM or RIGHT_CHEVRON or L_SW),
-        '6' to (STEM or DIAMOND),
-        '7' to (STEM or U_NE or L_SW),
-        // The mirror of the 2, which is what the later revisions of this
-        // numeral set do with it: the earlier one wrote both with the same
-        // mark, and a date that cannot tell 2 from 8 is a date with a hole
-        // in it.
-        '8' to (STEM or U_E or RIGHT_CHEVRON or L_W),
-        '9' to (STEM or DIAMOND or U_NW or U_NE)
-    )
-
-    /**
-     * The separator between the groups of a far-future date.
-     *
-     * Not an arm of either star: a small closed mark on the axis between
-     * them, where nothing else in the alphabet puts anything. A blank
-     * space would do the job of separating and none of the job of looking
-     * deliberate — the row reads as having stopped rather than as having
-     * three parts.
-     */
-    const val STAR_BREAK = 1 shl 16
-
-    /** Which arms [c] lights, or nothing if it is not a digit. */
-    fun star(c: Char): Int? = if (c == '\u00b7' || c == ' ') STAR_BREAK else STAR[c]
-
-    /** Every arm of the two stars, in drawing order. */
-    val STAR_ARMS = intArrayOf(
-        U_N, U_NE, U_E, U_SE, U_S, U_SW, U_W, U_NW,
-        L_N, L_NE, L_E, L_SE, L_S, L_SW, L_W, L_NW
-    )
+    // The eight-armed star that wrote the far-future dates is gone. It
+    // was a reconstruction of an alphabet worked out from a photograph of
+    // a chart, and the real font arrived — see [Yautja]. A reconstruction
+    // kept beside the thing it was standing in for is a second answer to
+    // a question that now has one.
 
     /** Every one of the sixteen bars, in the same way. */
     val SIXTEEN_BARS = intArrayOf(

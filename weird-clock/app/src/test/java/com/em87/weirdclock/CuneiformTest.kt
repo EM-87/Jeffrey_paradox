@@ -197,7 +197,7 @@ class CuneiformTest {
             clock.wedgesPaintedForTest() > 0
         )
         assertEquals("part of it went to the Roman row", 0, clock.barsPaintedForTest())
-        assertEquals("part of it went to the star", 0, clock.starsPaintedForTest())
+        assertEquals("part of it went to the far-future face", 0, clock.yautjaCharsForTest())
         assertEquals("part of it was carved", 0, clock.egyptiansPaintedForTest())
     }
 
@@ -236,7 +236,7 @@ class CuneiformTest {
         assertEquals("wedges", 0, clock.wedgesPaintedForTest())
         assertEquals("hieroglyphs", 0, clock.egyptiansPaintedForTest())
         assertEquals("Roman bars", 0, clock.barsPaintedForTest())
-        assertEquals("marks on the star", 0, clock.starsPaintedForTest())
+        assertEquals("characters in the far-future face", 0, clock.yautjaCharsForTest())
     }
 
     /**

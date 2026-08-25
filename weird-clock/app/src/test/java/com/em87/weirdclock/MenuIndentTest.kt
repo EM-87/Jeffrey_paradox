@@ -115,21 +115,22 @@ class MenuIndentTest {
      * all does that. What it must not be is zero, which is what it was.
      */
     @Test
-    fun `the rows under the bells start further in than the bells`() {
+    fun `the rows under the bells start where every other row does`() {
         // On the advanced page now, with the switch they hang off two
-        // screens back. They are still drawn a step in, because the step is
-        // what says they belong to something rather than being five more
-        // settings of their own.
+        // screens back — and so *not* indented. An indent is a claim about
+        // the row above it: "I belong to that one". With no parent on the
+        // page there is nothing above to belong to, and the step pointed
+        // at whatever happened to be there instead.
         val fragment = advancedScreen()
         val ordinary = rowLeft(fragment, Prefs.NUMERALS)
         for (child in listOf(
             Prefs.BELL_MARKS, Prefs.BELL_STYLE, Prefs.BELLS_BACKGROUND,
-            Prefs.BELL_PRIORITY, Prefs.TEST_BELLS
+            Prefs.BELL_PRIORITY, Prefs.TEST_BELLS,
+            Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC, Prefs.NIGHT_WINDOW
         )) {
-            val at = rowLeft(fragment, child)
-            assertTrue(
-                "$child starts at $at, level with a row that hangs off nothing",
-                at > ordinary
+            assertEquals(
+                "$child is drawn a step in, under a row it has nothing to do with",
+                ordinary, rowLeft(fragment, child)
             )
         }
     }
@@ -307,13 +308,24 @@ class MenuIndentTest {
         }
     }
 
-    /** And it is drawn a step in, like everything that hangs off a switch. */
+    /**
+     * A row that really does hang off the one above it is still stepped in.
+     *
+     * The rule did not go away — it moved to where it means something.
+     * Where the switch and the question it governs are on the same page and
+     * next to each other, the step is what says so; where they are two
+     * screens apart, the fading says it instead.
+     */
     @Test
-    fun `the comets start further in than the solar system`() {
+    fun `a row under a switch on its own page is still stepped in`() {
+        // The shadows' surface only appears once the shadows are on, and a
+        // row that is not on the page cannot be measured.
+        PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().putBoolean(Prefs.HAND_SHADOWS, true).commit()
         val fragment = advancedScreen()
         assertTrue(
-            "the comets start level with a row that hangs off nothing",
-            rowLeft(fragment, Prefs.COMETS) > rowLeft(fragment, Prefs.NUMERALS)
+            "the shadow surface is level with the switch it hangs off",
+            rowLeft(fragment, Prefs.SHADOW_SURFACE) > rowLeft(fragment, Prefs.HAND_SHADOWS)
         )
     }
 

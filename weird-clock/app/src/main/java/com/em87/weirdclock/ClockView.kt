@@ -465,10 +465,20 @@ class ClockView @JvmOverloads constructor(
 
     var chronoProvider: (() -> Long)? = null
         set(value) {
-            if (field !== value) {
-                // Animate the hands from where they are to the new mode's
-                // positions instead of snapping.
-                beginTransition(currentAngles(), fades = hasDrawn)
+            // Travel from where the hands are to the new mode's positions
+            // instead of snapping — but only on a dial that has hands to
+            // travel from.
+            //
+            // A face that has never been drawn is not changing into
+            // anything; it is appearing for the first time, and "where the
+            // hands are" on it is whatever o'clock it happens to be. That
+            // is the reasoning the fade already followed, and the hands
+            // were left out of it: every mini dial on the alarm cards was
+            // born showing now and wound itself to its alarm's time, so
+            // opening the drawer set a dozen little watches going while the
+            // ones the list had recycled sat still.
+            if (field !== value && hasDrawn) {
+                beginTransition(currentAngles(), fades = true)
             }
             field = value
             spring?.cancel()
@@ -527,7 +537,7 @@ class ClockView @JvmOverloads constructor(
 
     /** What the writing needs to know about the frame it is being drawn on. */
     private fun scriptFrame(): DateScripts.Frame = DateScripts.Frame(
-        digitalPaint, orreryMs(), dateDayFirst, width
+        digitalPaint, orreryMs(), dateDayFirst, width, Yautja.face(context)
     )
 
     // The tests ask the dial which display wrote the row, because the dial
@@ -538,8 +548,8 @@ class ClockView @JvmOverloads constructor(
     /** For the tests: sixteen-bar modules in the last row the sky wrote. */
     internal fun barsPaintedForTest(): Int = scripts.barsPaintedForTest()
 
-    /** And star glyphs. */
-    internal fun starsPaintedForTest(): Int = scripts.starsPaintedForTest()
+    /** And characters in the far-future face. */
+    internal fun yautjaCharsForTest(): Int = scripts.yautjaCharsForTest()
 
     /** And hieroglyphs. */
     internal fun egyptiansPaintedForTest(): Int = scripts.egyptiansPaintedForTest()
@@ -1827,7 +1837,18 @@ class ClockView @JvmOverloads constructor(
         val now = SystemClock.uptimeMillis()
         crownTapTimes.addLast(now)
         while (crownTapTimes.size > 5) crownTapTimes.removeFirst()
-        if (crownTapTimes.size >= 5 && now - crownTapTimes.first() < 3000) {
+        // Five in three seconds shakes the works loose — and only on a
+        // face where the crown has nothing else to do.
+        //
+        // It had nothing else to do when this was written. Then the crown
+        // became the place both chronographs keep their second thoughts:
+        // press it on a stopped countdown and the length you set comes
+        // back. Pressing a control that does something several times in a
+        // row is what a person does when it does not seem to have worked,
+        // and what they got for it was a cuckoo and the hands on the
+        // floor. An egg that eats a working gesture is not an egg.
+        val eggAllowed = chronoProvider == null
+        if (eggAllowed && crownTapTimes.size >= 5 && now - crownTapTimes.first() < 3000) {
             crownTapTimes.clear()
             soundListener?.onExploded()
             dropHands(0f, -8f)
@@ -5505,7 +5526,7 @@ class ClockView @JvmOverloads constructor(
             // write a digit; the year on the star, which cannot write
             // anything anybody here can read.
             OrreryYear.Script.YAUTJA ->
-                scripts.drawOtherScript(canvas, scriptFrame(), date, cx, yTop, digitH, starFrom = 0)
+                scripts.drawYautjaDate(canvas, scriptFrame(), date, cx, yTop, digitH)
             else -> drawSevenSegment(canvas, date, cx, yTop, digitH)
         }
         digitalPaint.alpha = keep
