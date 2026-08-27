@@ -64,8 +64,26 @@ enum class DigitScript(val key: String) {
  */
 sealed class Cell {
 
-    /** A number, written out. [value] is what it says, for the drums. */
-    data class Number(val text: String, val value: Int, val of: Int) : Cell()
+    /**
+     * A number, written out.
+     *
+     * [value] is what it says and [of] how far its drum goes round, both
+     * for the idioms that turn. [weight] is what one detent of that drum
+     * is worth in minutes when somebody is setting a time on it — sixty
+     * for an hour's units, six hundred for its tens, one for a minute's —
+     * and nought for a number that is not a time and does not turn.
+     *
+     * Minutes rather than a digit, because that is what makes the carry
+     * fall out for free: roll the minute units past fifty-nine and the
+     * hour goes up, the way a counter does, without anybody writing a
+     * rule about it.
+     */
+    data class Number(
+        val text: String,
+        val value: Int,
+        val of: Int,
+        val weight: Int = 0
+    ) : Cell()
 
     /** The dots between two groups. */
     data object Colon : Cell()
@@ -119,12 +137,15 @@ object DigitalReadout {
         // The nought in front is a question about the hour and nothing
         // else. Nobody writes eight minutes past as 7:8, so the minutes
         // and the seconds are two digits whatever the switch says.
-        cells += group(shown, highest, padded = options.leadingZero, options.script)
+        cells += group(shown, highest, padded = options.leadingZero, options.script, unit = 60)
         cells += Cell.Colon
-        cells += group(minute, 59, padded = true, options.script)
+        cells += group(minute, 59, padded = true, options.script, unit = 1)
         if (options.seconds) {
             cells += Cell.Colon
-            cells += group(second, 59, padded = true, options.script)
+            // Seconds have no weight: nobody sets an alarm for twenty past
+            // seven and eleven seconds, and a drum that turns under a
+            // finger had better be a drum worth turning.
+            cells += group(second, 59, padded = true, options.script, unit = 0)
         }
         // The token goes on the end, where AM and PM go, and only when
         // there is a question for it to answer.
@@ -179,15 +200,20 @@ object DigitalReadout {
         value: Int,
         highest: Int,
         padded: Boolean,
-        script: DigitScript
+        script: DigitScript,
+        unit: Int = 0
     ): List<Cell> {
-        if (script == DigitScript.ROMAN) return listOf(Cell.Number(roman(value), value, highest))
+        // Rome does not split, so the whole group turns by one unit — a
+        // Roman hour has no tens digit to grab.
+        if (script == DigitScript.ROMAN) {
+            return listOf(Cell.Number(roman(value), value, highest, weight = unit))
+        }
         val tens = value / 10
         val units = value % 10
-        if (!padded && tens == 0) return listOf(Cell.Number("$units", units, of = 9))
+        if (!padded && tens == 0) return listOf(Cell.Number("$units", units, of = 9, weight = unit))
         return listOf(
-            Cell.Number("$tens", tens, of = highest / 10),
-            Cell.Number("$units", units, of = 9)
+            Cell.Number("$tens", tens, of = highest / 10, weight = unit * 10),
+            Cell.Number("$units", units, of = 9, weight = unit)
         )
     }
 

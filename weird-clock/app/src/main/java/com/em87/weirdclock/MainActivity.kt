@@ -1971,6 +1971,23 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         return draft
     }
 
+    /**
+     * For the tests: start setting a time the way the alarm sheet does,
+     * and hand back the draft the confirm will write into.
+     */
+    internal fun windAlarmForTest(hour: Int, minute: Int): Alarm {
+        val alarm = Alarm(id = 1, hour = hour, minute = minute, enabled = true, sound = "")
+        val draft = alarm.copy(extraTimes = alarm.extraTimes.toMutableList())
+        startDial(
+            DialJob.AlarmTime(alarm, draft, isNew = false, timeIndex = 0),
+            (hour * 3600L + minute * 60L) * 1000L
+        )
+        return draft
+    }
+
+    /** For the tests: the tick under the banner. */
+    internal fun confirmAlarmSetForTest() = confirmAlarmSet()
+
     /** For the tests: the reset pusher on the countdown. */
     internal fun resetCountdownForTest() = resetCountdown()
 
@@ -3556,6 +3573,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 it.magnetProfile = ClockView.MagnetProfile.COUNTDOWN
             }
             it.chronoButtons = false
+        }
+        // The digital answer to winding the hands: the digits themselves
+        // are the setter, and a finger rolls them. Same banner, same
+        // confirm, same working value — only the instrument differs.
+        digitalView?.let {
+            it.settingMs = if (setting) alarmWorkingMs else null
+            it.onSettingChanged = { ms -> if (dialJob != null) alarmWorkingMs = ms }
+            it.onDetent = { chimePlayer.playTick() }
         }
         stopwatchClockView?.chronoRunning = stopwatchRunning
         homeButtonRow?.visibility = if (setting) View.GONE else View.VISIBLE

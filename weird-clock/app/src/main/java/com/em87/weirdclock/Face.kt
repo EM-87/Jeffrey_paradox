@@ -114,7 +114,14 @@ object FaceOptions {
         // readouts of its own there is nothing honest to show on it.
         Prefs.WORLD_CLOCK,
         Prefs.WORLD_SECONDS,
-        Prefs.WORLD_CITIES
+        Prefs.WORLD_CITIES,
+        // How the date is spelled. On a screenful of digits that question
+        // is already answered by which numerals the digits are — a display
+        // made of bars cannot write "August" whatever this row says — so
+        // leaving it on the page is leaving a row that does nothing.
+        // Which way round the day and the month go is still a real
+        // question and stays.
+        Prefs.DATE_FORMAT
     )
 
     /** And the rows only a screenful of digits has. */

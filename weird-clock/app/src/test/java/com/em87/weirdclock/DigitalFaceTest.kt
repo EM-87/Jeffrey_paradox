@@ -239,6 +239,38 @@ class DigitalFaceTest {
     }
 
     /**
+     * Setting an alarm on the face with no hands.
+     *
+     * The whole flow is the dial's: the same banner, the same working
+     * value, the same confirm. Only the instrument is different — the
+     * digits are the setter and a finger rolls them — so what this checks
+     * is that the digital face is actually handed the job rather than the
+     * screen sitting there with a banner over a clock nobody can change.
+     */
+    @Test
+    fun `an alarm time is set by rolling the digits`() {
+        settled(Face.DIGITAL)
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val app = c.get()
+            val digits = app.digitalForTest()!!
+            assertNull("the face is setting something before it was asked", digits.settingMs)
+
+            val alarm = app.windAlarmForTest(7, 30)
+            assertEquals(
+                "the digits were not handed the time to set",
+                (7 * 60L + 30L) * 60_000L, digits.settingMs
+            )
+            // One click of the minutes' units drum, and the value the
+            // confirm will read must have moved with it.
+            digits.rollForTest(1, 5)
+            app.confirmAlarmSetForTest()
+            assertEquals("the roll never reached the alarm", 7 to 35, alarm.timeAt(0))
+            assertNull("the face is still in setting mode", digits.settingMs)
+        }
+    }
+
+    /**
      * A way in from outside that names a card this face has not got is
      * swallowed rather than obeyed.
      *

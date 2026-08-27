@@ -230,8 +230,34 @@ class DigitalClockView @JvmOverloads constructor(
         script = script,
         hour24 = hour24,
         leadingZero = leadingZero,
-        seconds = showSeconds
+        // No seconds while a time is being set. Nobody sets an alarm for
+        // twenty past seven and eleven seconds, and two more drums on the
+        // row are two more things to catch by accident.
+        seconds = showSeconds && settingMs == null
     )
+
+    /**
+     * A time being set, instead of the time it is.
+     *
+     * Null when the clock is a clock. Not null and the face shows this
+     * value, drops the seconds, and lets a finger roll the digits — which
+     * is the digital answer to winding the hands round the dial, and the
+     * one gesture on this face that has anything to grab: there is nothing
+     * to set on a clock showing the time, so nothing there takes a drag
+     * and the swipes between cards go on working.
+     */
+    var settingMs: Long? = null
+        set(value) {
+            field = value
+            rolling = null
+            invalidate()
+        }
+
+    /** Told when a finger moves the time being set. */
+    var onSettingChanged: ((Long) -> Unit)? = null
+
+    /** Told once per detent, so the app can make the noise. */
+    var onDetent: (() -> Unit)? = null
 
     /** The time this face is showing, which the tests can move. */
     internal var atMs: Long? = null
@@ -243,6 +269,15 @@ class DigitalClockView @JvmOverloads constructor(
     private fun nowMs(): Long = atMs ?: TimeKeeper.nowMs()
 
     private fun readout(): List<Cell> {
+        settingMs?.let { ms ->
+            val day = ((ms % DAY_MS) + DAY_MS) % DAY_MS
+            return DigitalReadout.time(
+                (day / 3_600_000L).toInt(),
+                (day / 60_000L % 60L).toInt(),
+                0,
+                options()
+            )
+        }
         val calendar = java.util.Calendar.getInstance().apply { timeInMillis = nowMs() }
         return DigitalReadout.time(
             calendar.get(java.util.Calendar.HOUR_OF_DAY),
@@ -337,8 +372,12 @@ class DigitalClockView @JvmOverloads constructor(
         if (width <= 0 || height <= 0) return
 
         laid.clear()
+        grabs.clear()
         val cells = readout()
-        val date = if (showDate) dateLine() else emptyList()
+        // No date under a time being set. It is not today's date that is
+        // being set, and a row of numbers nobody can touch under a row of
+        // numbers they can is an invitation to touch the wrong one.
+        val date = if (showDate && settingMs == null) dateLine() else emptyList()
 
         // One digit's width, chosen so the longest thing on the face fits
         // with a margin either side. Roman at twenty-three fifty-nine is
@@ -393,7 +432,21 @@ class DigitalClockView @JvmOverloads constructor(
         for ((i, cell) in cells.withIndex()) {
             val w = widthOf(cell) * digitW
             when (cell) {
-                is Cell.Number -> drawNumber(canvas, cell, "$tag$i", x, top, w, digitH)
+                is Cell.Number -> {
+                    drawNumber(canvas, cell, "$tag$i", x, top, w, digitH)
+                    // Only while there is something to set, and only on a
+                    // number worth turning. A grab box taller than the
+                    // digit, because a finger aiming at a bar half a
+                    // millimetre wide is a finger that misses.
+                    if (settingMs != null && cell.weight > 0) {
+                        grabs += Grab(
+                            x - digitW * 0.12f, top - digitH * 0.35f,
+                            x + w + digitW * 0.12f, top + digitH * 1.35f,
+                            cell.weight
+                        )
+                        drawHandles(canvas, x + w / 2f, top, digitH)
+                    }
+                }
                 // Rome's separator is a module with its dot lit, which is
                 // what the drawing does and what makes VII·XII read as one
                 // instrument rather than as two with a colon between them.
@@ -525,7 +578,169 @@ class DigitalClockView @JvmOverloads constructor(
     var onPoked: (() -> Unit)? = null
 
     override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
-        if (!pokeable || style != DigitStyle.SEGMENT) return super.onTouchEvent(event)
+        if (settingMs != null) return rollTouch(event)
+        if (pokeable && style == DigitStyle.SEGMENT) return pokeTouch(event)
+        return super.onTouchEvent(event)
+    }
+
+    /**
+     * The drum a finger has hold of, while it has hold of it.
+     *
+     * [weight] is what one detent is worth in minutes — see
+     * [Cell.Number.weight] — and [taken] how many detents have been paid
+     * out already, so a drag that goes down and comes back up ends where
+     * it started rather than somewhere further on.
+     */
+    private class Rolling(val weight: Int, val downY: Float, var taken: Int = 0)
+
+    private var rolling: Rolling? = null
+    private var lastMoveY = 0f
+    private var lastMoveAt = 0L
+    private var glide: android.animation.ValueAnimator? = null
+
+    /**
+     * Rolling a drum to set a time.
+     *
+     * Detents, because a number is not a continuous quantity: a drum lands
+     * on a number and clicks, and between two of them it is not showing
+     * half past anything. Inertia, because a drum has mass — and because
+     * reaching fifty-nine minutes one detent at a time is not a gesture
+     * anybody makes twice.
+     *
+     * The carry is not written down anywhere. Each drum is worth so many
+     * minutes and the total wraps into a day, so rolling the minutes past
+     * fifty-nine takes the hour with it exactly as a counter does — see
+     * [Cell.Number.weight].
+     */
+    private fun rollTouch(event: android.view.MotionEvent): Boolean {
+        when (event.actionMasked) {
+            android.view.MotionEvent.ACTION_DOWN -> {
+                glide?.cancel()
+                val weight = weightUnder(event.x, event.y)
+                if (weight == 0) return false
+                rolling = Rolling(weight, event.y)
+                lastMoveY = event.y
+                lastMoveAt = android.os.SystemClock.uptimeMillis()
+                parent?.requestDisallowInterceptTouchEvent(true)
+                return true
+            }
+            android.view.MotionEvent.ACTION_MOVE -> {
+                val hold = rolling ?: return false
+                // Up is forwards. A drum turns towards you as its numbers
+                // increase, which is the way every mechanical counter and
+                // every picker on every phone has ever gone.
+                val wanted = ((hold.downY - event.y) / detent()).toInt()
+                if (wanted != hold.taken) {
+                    step(hold.weight, wanted - hold.taken)
+                    hold.taken = wanted
+                }
+                val now = android.os.SystemClock.uptimeMillis()
+                if (now - lastMoveAt > 24L) {
+                    lastMoveY = event.y
+                    lastMoveAt = now
+                }
+                return true
+            }
+            android.view.MotionEvent.ACTION_UP -> {
+                val hold = rolling ?: return false
+                val elapsed =
+                    (android.os.SystemClock.uptimeMillis() - lastMoveAt).coerceAtLeast(1L)
+                val perSecond = (lastMoveY - event.y) / elapsed * 1000f
+                rolling = null
+                flingOn(hold.weight, perSecond)
+                return true
+            }
+            android.view.MotionEvent.ACTION_CANCEL -> {
+                rolling = null
+                return true
+            }
+        }
+        return false
+    }
+
+    /** How far a finger travels for one click of the drum. */
+    private fun detent(): Float = resources.displayMetrics.density * DETENT_DP
+
+    /** Which drum is under the finger, as its worth in minutes. */
+    private fun weightUnder(px: Float, py: Float): Int {
+        for (grab in grabs) {
+            if (px >= grab.left && px <= grab.right && py >= grab.top && py <= grab.bottom) {
+                return grab.weight
+            }
+        }
+        return 0
+    }
+
+    private fun step(weight: Int, by: Int) {
+        if (by == 0) return
+        val was = settingMs ?: return
+        val moved = was + by.toLong() * weight * 60_000L
+        val wrapped = ((moved % DAY_MS) + DAY_MS) % DAY_MS
+        if (wrapped == was) return
+        // Set without letting the setter drop the drag that is turning it.
+        val hold = rolling
+        settingMs = wrapped
+        rolling = hold
+        onSettingChanged?.invoke(wrapped)
+        repeat(kotlin.math.abs(by).coerceAtMost(3)) { onDetent?.invoke() }
+    }
+
+    /**
+     * The drum keeps turning after the finger lets go, and slows to a stop
+     * on a detent.
+     *
+     * Capped, and hard. An uncapped fling on a drum worth ten hours a
+     * click is a flick that puts the alarm most of a day from where
+     * anybody meant it — and the wrap makes that invisible: you look up
+     * and it is showing a plausible wrong time.
+     */
+    private fun flingOn(weight: Int, perSecond: Float) {
+        val steps = (perSecond / detent() * FLING_SECONDS).toInt()
+            .coerceIn(-MAX_FLING, MAX_FLING)
+        if (steps == 0) return
+        var paid = 0
+        glide = android.animation.ValueAnimator.ofInt(0, steps).apply {
+            duration = (kotlin.math.abs(steps) * FLING_MS_PER_STEP).coerceAtMost(900L)
+            interpolator = android.view.animation.DecelerateInterpolator(1.8f)
+            addUpdateListener {
+                val wanted = it.animatedValue as Int
+                step(weight, wanted - paid)
+                paid = wanted
+            }
+            start()
+        }
+    }
+
+    /** For the tests: turn the drum worth [weight] minutes by [steps]. */
+    internal fun rollForTest(weight: Int, steps: Int) = step(weight, steps)
+
+    /** For the tests: what a finger at this point would take hold of. */
+    internal fun weightUnderForTest(px: Float, py: Float): Int = weightUnder(px, py)
+
+    /** For the tests: the middle of the drum worth [weight] minutes. */
+    internal fun grabForTest(weight: Int): Pair<Float, Float> {
+        val grab = grabs.first { it.weight == weight }
+        return (grab.left + grab.right) / 2f to (grab.top + grab.bottom) / 2f
+    }
+
+    /**
+     * Where each drum ended up, so a finger can be told which it landed on.
+     *
+     * Only filled while a time is being set. A clock showing the time has
+     * nothing to grab, which is what keeps this gesture out of the way of
+     * the swipes between cards.
+     */
+    private class Grab(
+        val left: Float,
+        val top: Float,
+        val right: Float,
+        val bottom: Float,
+        val weight: Int
+    )
+
+    private val grabs = ArrayList<Grab>()
+
+    private fun pokeTouch(event: android.view.MotionEvent): Boolean {
         if (event.actionMasked != android.view.MotionEvent.ACTION_DOWN) {
             return event.actionMasked == android.view.MotionEvent.ACTION_UP
         }
@@ -699,6 +914,40 @@ class DigitalClockView @JvmOverloads constructor(
         lit.alpha = if (on) 255 else GHOST_ALPHA
     }
 
+    /**
+     * The two small arrows that say a drum can be turned.
+     *
+     * Without them this face is a number and a banner, and nothing on it
+     * says the number is the control. A dial does not have this problem —
+     * a hand sticking out of a clock is a handle and everybody knows it —
+     * and a row of digits has to be told to look grabbable.
+     *
+     * Faint on purpose. They are a hint and not furniture: once a finger
+     * is on the drum they have done their job, and a clock covered in
+     * arrows is a form.
+     */
+    private fun drawHandles(canvas: Canvas, cx: Float, top: Float, h: Float) {
+        punctuation(false)
+        lit.alpha = HANDLE_ALPHA
+        val wide = h * 0.13f
+        val tall = h * 0.075f
+        val away = h * 0.24f
+        for (up in listOf(true, false)) {
+            val tip = if (up) top - away - tall else top + h + away + tall
+            val base = if (up) top - away else top + h + away
+            val path = android.graphics.Path().apply {
+                moveTo(cx, tip)
+                lineTo(cx + wide / 2f, base)
+                lineTo(cx - wide / 2f, base)
+                close()
+            }
+            val was = lit.style
+            lit.style = Paint.Style.FILL
+            canvas.drawPath(path, lit)
+            lit.style = was
+        }
+    }
+
     private fun drawColon(canvas: Canvas, cx: Float, top: Float, h: Float) {
         val on = !blinkColon || (nowMs() / 1000L) % 2L == 0L
         punctuation(on)
@@ -808,7 +1057,26 @@ class DigitalClockView @JvmOverloads constructor(
          * reads as a thicket behind a letter.
          */
         private const val GHOST_ALPHA = 34
+
+        /** How faint the two arrows over a drum are. */
+        private const val HANDLE_ALPHA = 110
         private const val GHOST_ALPHA_SIXTEEN = 20
+
+        private const val DAY_MS = 86_400_000L
+
+        /**
+         * How far a finger travels for one click of the drum.
+         *
+         * A whole screen-height of dragging comes to about thirty clicks,
+         * which is the right order: the tens drum reaches any hour in two
+         * or three and the units drum any minute in a flick.
+         */
+        private const val DETENT_DP = 26f
+
+        /** How long a fling is worth, and how far it is allowed to carry. */
+        private const val FLING_SECONDS = 0.22f
+        private const val MAX_FLING = 22
+        private const val FLING_MS_PER_STEP = 34L
 
         private const val FRAME_MS = 16L
         private const val FLIP_MS = 260L

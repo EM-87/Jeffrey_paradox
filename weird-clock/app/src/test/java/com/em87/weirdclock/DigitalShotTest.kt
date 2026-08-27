@@ -167,6 +167,40 @@ class DigitalShotTest {
         }
     }
 
+    /**
+     * Setting a time on the face with no hands, in each idiom.
+     *
+     * The whole card, because the question this picture answers is not
+     * "do the digits look right" — it is whether somebody looking at it
+     * can tell there is something here to grab.
+     */
+    @Test
+    fun `an alarm being set by rolling the digits`() {
+        for (style in DigitStyle.entries) {
+            androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+                .edit().clear()
+                .putBoolean(Prefs.OVERLAY_ASKED, true)
+                .putBoolean(Prefs.FACE_ASKED, true)
+                .putString(Prefs.FACE, Face.DIGITAL.key)
+                .putString(Prefs.DIGIT_STYLE, style.key)
+                .commit()
+            org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
+                c.setup()
+                c.get().windAlarmForTest(7, 30)
+                val screen = c.get().findViewById<View>(android.R.id.content)
+                screen.measure(
+                    View.MeasureSpec.makeMeasureSpec(screen.width, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(screen.height, View.MeasureSpec.EXACTLY)
+                )
+                screen.layout(0, 0, screen.width, screen.height)
+                assertTrue(
+                    "digital-setting-${style.key}",
+                    shoot(screen, "digital-setting-${style.key}") > 3
+                )
+            }
+        }
+    }
+
     /** And the daylight theme, which is where a pale ghost bar shows up. */
     @Test
     fun `the same face in daylight`() {
