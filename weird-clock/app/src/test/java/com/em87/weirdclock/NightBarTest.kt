@@ -263,6 +263,7 @@ class NightBarTest {
                 // face is digital.
                 "pref_digit_style", "pref_digit_script", "pref_hour_24",
                 "pref_leading_zero", "pref_blink_colon",
+                "pref_segment_weight", "pref_segment_ghosts",
                 "pref_alarm_ramp", "pref_ring_timeout",
                 "pref_countdown_persistent", "pref_alarm_style",
                 "pref_gentle_flash", "pref_mark_colors"
@@ -271,7 +272,7 @@ class NightBarTest {
                 "pref_minute_hand", "pref_second_hand",
                 "pref_smooth_seconds", "pref_fast_hand", "pref_ticking",
                 "pref_touch_hands", "pref_pinch_zoom",
-                "pref_shake_drop",
+                "pref_shake_drop", "pref_poke_segments",
                 "pref_countdown_float",
                 "pref_solar_time", "pref_system_time", "pref_time_speed",
                 "pref_backup_folder", "pref_backup_export", "pref_backup_import",

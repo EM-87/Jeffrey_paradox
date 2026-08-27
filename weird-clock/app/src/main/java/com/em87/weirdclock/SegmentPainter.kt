@@ -1,0 +1,183 @@
+package com.em87.weirdclock
+
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
+import kotlin.math.hypot
+
+/**
+ * Draws the displays [Segments] describes.
+ *
+ * One painter for all three, because a bar is a bar: a stamped sliver of
+ * metal or a cut in a mask, wider in the middle than at its ends, stopping
+ * a hair short of whatever it points at. That hair is the display — take
+ * it away where four diagonals cross and the `X` stops being four bars and
+ * becomes a painted cross.
+ *
+ * The unlit bars are drawn too, faintly. That is not decoration: a display
+ * you can only see the lit half of is a picture of a number, and the ghost
+ * of the eight behind the seven is the thing that says there is a
+ * mechanism here at all. It is also the only thing that says the space
+ * beside `MMXXIV` is a display with nothing lit in it rather than the row
+ * having ended.
+ */
+class SegmentPainter {
+
+    /** How thick a bar is, as a share of the module's height. */
+    var thickness: Float = 0.055f
+
+    /** Whether the unlit bars are drawn behind the lit ones. */
+    var ghosts: Boolean = true
+
+    /** How faint they are when they are. */
+    var ghostAlpha: Int = 34
+
+    private val path = Path()
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+
+    /**
+     * A row of modules, laid out from [x] and [width] wide.
+     *
+     * [width] is the room the whole row gets, daylight between the modules
+     * included — measure it with [Segments.span], which knows how much of
+     * that is gap.
+     */
+    fun row(
+        canvas: Canvas,
+        kind: Segments.Kind,
+        masks: IntArray,
+        x: Float,
+        y: Float,
+        width: Float,
+        height: Float,
+        lit: Int,
+        dark: Int,
+        burnt: IntArray? = null
+    ) {
+        if (masks.isEmpty()) return
+        val gap = Segments.gap(kind)
+        val cell = width / (masks.size + (masks.size - 1) * gap)
+        val stride = cell * (1f + gap)
+        val t = height * thickness
+        for (stroke in Segments.plan(kind, masks, burnt)) {
+            if (!stroke.lit && !ghosts) continue
+            paint.color = if (stroke.lit) lit else dark
+            paint.alpha = if (stroke.lit) 255 else ghostAlpha
+            val bar = stroke.bar
+            val at = x + stride * stroke.at
+            if (bar.dot) {
+                canvas.drawCircle(at + bar.x0 * cell, y + bar.y0 * height, t * 1.15f, paint)
+                continue
+            }
+            sliver(
+                at + bar.x0 * cell, y + bar.y0 * height,
+                at + bar.x1 * cell, y + bar.y1 * height,
+                t, bar
+            )
+            canvas.drawPath(path, paint)
+        }
+    }
+
+    /**
+     * One bar as a six-sided sliver.
+     *
+     * The ends are cut, not pointed: a real segment is a stamped shape
+     * with a short square end and the corners taken off it, and a row of
+     * needle-sharp bars reads as a drawing of a display rather than as
+     * one. Where the bar runs into a junction — the middle of an `X`, the
+     * middle of a star — it overlaps instead, or the stroke has a hole in
+     * it exactly where the eye is looking.
+     */
+    private fun sliver(
+        x0: Float, y0: Float, x1: Float, y1: Float, unit: Float, bar: Segments.Bar
+    ) {
+        val t = unit * bar.weight
+        path.reset()
+        val len = hypot(x1 - x0, y1 - y0)
+        if (len < 0.01f) return
+        val ux = (x1 - x0) / len
+        val uy = (y1 - y0) / len
+        val h = t / 2f
+        val headJoins = bar.joinsAt == -1 || bar.joinsAt == 2
+        val tailJoins = bar.joinsAt == 1 || bar.joinsAt == 2
+        val head = if (headJoins) -t * 0.30f else t * 0.55f
+        val tail = if (tailJoins) -t * 0.30f else t * 0.55f
+        val ax = x0 + ux * head
+        val ay = y0 + uy * head
+        val bx = x1 - ux * tail
+        val by = y1 - uy * tail
+        // How far in from each end the bar reaches its full width.
+        val run = (len - head - tail).coerceAtLeast(t * 0.4f)
+        val sh = if (bar.shoulder > 0f) run * bar.shoulder else minOf(t * 0.8f, run * 0.32f)
+        val nAx = -uy * h
+        val nAy = ux * h
+        val nBx = nAx
+        val nBy = nAy
+        // The flat of each end.
+        val fAx = -uy * h * bar.flat
+        val fAy = ux * h * bar.flat
+        val fBx = fAx
+        val fBy = fAy
+        path.moveTo(ax + fAx, ay + fAy)
+        path.lineTo(ax + ux * sh + nAx, ay + uy * sh + nAy)
+        path.lineTo(bx - ux * sh + nBx, by - uy * sh + nBy)
+        path.lineTo(bx + fBx, by + fBy)
+        path.lineTo(bx - fBx, by - fBy)
+        path.lineTo(bx - ux * sh - nBx, by - uy * sh - nBy)
+        path.lineTo(ax + ux * sh - nAx, ay + uy * sh - nAy)
+        path.lineTo(ax - fAx, ay - fAy)
+        path.close()
+        if (bar.round) {
+            // The one bar the drawing gives a stadium to, because it is
+            // the only one that ends in mid-air rather than at a corner.
+            path.reset()
+            path.addRoundRect(
+                minOf(ax, bx) - h, minOf(ay, by) - h,
+                maxOf(ax, bx) + h, maxOf(ay, by) + h,
+                h, h, Path.Direction.CW
+            )
+        }
+    }
+
+    /**
+     * Which bar of the module at [x], [y] a finger at [px], [py] is on, or
+     * zero if it is on none of them.
+     *
+     * Nearest-bar rather than hit-testing the sliver itself: the bars are
+     * thin, a fingertip is not, and asking "which of these did you mean"
+     * is the question a touch on a display is actually asking. The
+     * distance is capped so a tap in the empty corner of a module hits
+     * nothing rather than lighting whatever was least far away.
+     */
+    fun barUnder(
+        kind: Segments.Kind,
+        px: Float, py: Float,
+        x: Float, y: Float, width: Float, height: Float
+    ): Int {
+        var best = 0
+        var bestD = Float.MAX_VALUE
+        for (bar in Segments.bars(kind)) {
+            val ax = x + bar.x0 * width
+            val ay = y + bar.y0 * height
+            val bx = x + bar.x1 * width
+            val by = y + bar.y1 * height
+            val d = distanceToBar(px, py, ax, ay, bx, by)
+            if (d < bestD) {
+                bestD = d
+                best = bar.bit
+            }
+        }
+        return if (bestD <= height * (thickness + 0.09f)) best else 0
+    }
+
+    private fun distanceToBar(
+        px: Float, py: Float, ax: Float, ay: Float, bx: Float, by: Float
+    ): Float {
+        val vx = bx - ax
+        val vy = by - ay
+        val len2 = vx * vx + vy * vy
+        if (len2 < 0.0001f) return hypot(px - ax, py - ay)
+        val t = (((px - ax) * vx + (py - ay) * vy) / len2).coerceIn(0f, 1f)
+        return hypot(px - (ax + vx * t), py - (ay + vy * t))
+    }
+}

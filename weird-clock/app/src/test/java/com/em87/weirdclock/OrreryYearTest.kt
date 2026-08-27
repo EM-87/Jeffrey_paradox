@@ -309,9 +309,12 @@ class OrreryYearTest {
         clock.windOrreryToYearForTest(1980)
         var date = clock.orreryDateDigits()
         clock.draw(canvas)
+        // Modules, not characters: a `V` is two of them on this display —
+        // see [Segments.masksOf] — so a date with two Vs in it lights
+        // fifteen modules to say thirteen letters.
         assertEquals(
             "a Roman year did not reach the sixteen-bar display",
-            date.length, clock.barsPaintedForTest()
+            Segments.width(Segments.Kind.SIXTEEN, date), clock.barsPaintedForTest()
         )
         assertEquals("and it is not in the far-future face", 0, clock.yautjaCharsForTest())
 

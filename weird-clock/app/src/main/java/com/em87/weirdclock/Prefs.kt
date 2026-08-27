@@ -48,6 +48,38 @@ object Prefs {
     /** Whether the colon blinks with the seconds, as a cheap clock's does. */
     const val BLINK_COLON = "pref_blink_colon"
 
+    /**
+     * How thick a bar is on the lit displays.
+     *
+     * A real display's segments are a stamped shape and the pen that
+     * stamps them is a decision somebody made once. Three of them here,
+     * because the difference between a hairline readout and a heavy one is
+     * the difference between a laboratory instrument and an alarm clock.
+     */
+    const val SEGMENT_WEIGHT = "pref_segment_weight"
+    const val WEIGHT_HAIRLINE = "hairline"
+    const val WEIGHT_NORMAL = "normal"
+    const val WEIGHT_HEAVY = "heavy"
+
+    /**
+     * Whether the unlit bars are drawn faintly behind the lit ones.
+     *
+     * On, because that ghost is the thing that says there is a mechanism
+     * here rather than a picture of a number — and off for anybody who
+     * wants the time and not the machine.
+     */
+    const val SEGMENT_GHOSTS = "pref_segment_ghosts"
+
+    /**
+     * Whether a bar can be poked out with a finger.
+     *
+     * Off. This app has always let you knock the hands off a dial and a
+     * display with a dead segment is the same joke on the same object, but
+     * somebody who chose digits chose them for clarity and a clock that
+     * starts lying because a sleeve brushed it is not that.
+     */
+    const val POKE_SEGMENTS = "pref_poke_segments"
+
     const val HOURS_PRESET = "pref_hours_preset"
     const val HOURS_CUSTOM = "pref_hours_custom"
     const val NUMERALS = "pref_numerals"

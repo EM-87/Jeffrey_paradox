@@ -123,7 +123,10 @@ object FaceOptions {
         Prefs.DIGIT_SCRIPT,
         Prefs.HOUR_24,
         Prefs.LEADING_ZERO,
-        Prefs.BLINK_COLON
+        Prefs.BLINK_COLON,
+        Prefs.SEGMENT_WEIGHT,
+        Prefs.SEGMENT_GHOSTS,
+        Prefs.POKE_SEGMENTS
     )
 
     /** Whether the row at [key] belongs on [face]'s screens. */

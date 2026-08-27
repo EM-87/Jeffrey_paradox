@@ -449,6 +449,16 @@
     <string name="pref_ticking_digital_title">Tic-tac</string>
     <string name="category_digits">Dígitos</string>
     <string name="category_screen">Pantalla</string>
+    <string name="pref_segment_weight_title">Grosor de las barras</string>
+    <string name="pref_segment_ghosts_title">Mostrar las barras apagadas</string>
+    <string name="pref_segment_ghosts_summary">El ocho tenue detrás del siete, que es lo que se ve en un display de verdad</string>
+    <string name="pref_poke_segments_title">Fundir segmentos</string>
+    <string name="pref_poke_segments_summary">Toca una barra y se muere. El reloj sigue con la hora y deja de darla — la caja de herramientas las repone</string>
+    <string-array name="segment_weight_entries">
+        <item>Fina</item>
+        <item>Normal</item>
+        <item>Gruesa</item>
+    </string-array>
     <string name="pref_digit_style_title">Cómo se forman los dígitos</string>
     <string name="pref_digit_script_title">Numerales</string>
     <string name="pref_hour_24_title">Veinticuatro horas</string>

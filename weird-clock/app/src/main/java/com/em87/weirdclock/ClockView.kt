@@ -5763,7 +5763,7 @@ class ClockView @JvmOverloads constructor(
                 else -> {
                     val digit = c - '0'
                     if (digit in 0..9) {
-                        drawSegments(canvas, SegmentGlyphs.seven(digit), x, top, digitW, digitH)
+                        drawSegments(canvas, Segments.seven(c), x, top, digitW, digitH)
                     }
                 }
             }
@@ -5775,13 +5775,17 @@ class ClockView @JvmOverloads constructor(
     private fun drawSegments(canvas: Canvas, bits: Int, x: Float, y: Float, w: Float, h: Float) {
         val s = digitalPaint.strokeWidth * 0.8f
         val mid = y + h / 2f
-        if (bits and 64 != 0) canvas.drawLine(x + s, y, x + w - s, y, digitalPaint)
-        if (bits and 32 != 0) canvas.drawLine(x + w, y + s, x + w, mid - s, digitalPaint)
-        if (bits and 16 != 0) canvas.drawLine(x + w, mid + s, x + w, y + h - s, digitalPaint)
-        if (bits and 8 != 0) canvas.drawLine(x + s, y + h, x + w - s, y + h, digitalPaint)
-        if (bits and 4 != 0) canvas.drawLine(x, mid + s, x, y + h - s, digitalPaint)
-        if (bits and 2 != 0) canvas.drawLine(x, y + s, x, mid - s, digitalPaint)
-        if (bits and 1 != 0) canvas.drawLine(x + s, mid, x + w - s, mid, digitalPaint)
+        // The bits are [Segments]'s, which is the only table of them left
+        // in this app. They were this file's own once, in a different
+        // order, and pointing this at the shared one without changing the
+        // decoding would have drawn every digit inside out.
+        if (bits and Segments.A != 0) canvas.drawLine(x + s, y, x + w - s, y, digitalPaint)
+        if (bits and Segments.B != 0) canvas.drawLine(x + w, y + s, x + w, mid - s, digitalPaint)
+        if (bits and Segments.C != 0) canvas.drawLine(x + w, mid + s, x + w, y + h - s, digitalPaint)
+        if (bits and Segments.D != 0) canvas.drawLine(x + s, y + h, x + w - s, y + h, digitalPaint)
+        if (bits and Segments.E != 0) canvas.drawLine(x, mid + s, x, y + h - s, digitalPaint)
+        if (bits and Segments.F != 0) canvas.drawLine(x, y + s, x, mid - s, digitalPaint)
+        if (bits and Segments.G != 0) canvas.drawLine(x + s, mid, x + w - s, mid, digitalPaint)
     }
 
 

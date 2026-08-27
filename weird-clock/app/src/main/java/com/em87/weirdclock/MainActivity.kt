@@ -2145,6 +2145,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** Every dial tidy again, and the bubbles docked with them. */
     private fun reassembleEverything() {
         prefs.edit().putFloat(Prefs.DIAL_SCALE, 1f).apply()
+        digitalView?.reassembleAll()
         clockView?.reassembleAll()
         countdownClockView?.reassembleAll()
         stopwatchClockView?.reassembleAll()
@@ -2941,6 +2942,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         face.hour24 = prefs.getBoolean(Prefs.HOUR_24, true)
         face.leadingZero = prefs.getBoolean(Prefs.LEADING_ZERO, true)
         face.blinkColon = prefs.getBoolean(Prefs.BLINK_COLON, false)
+        face.weight = when (prefs.getString(Prefs.SEGMENT_WEIGHT, Prefs.WEIGHT_NORMAL)) {
+            Prefs.WEIGHT_HAIRLINE -> 0.038f
+            Prefs.WEIGHT_HEAVY -> 0.080f
+            else -> 0.055f
+        }
+        face.ghosts = prefs.getBoolean(Prefs.SEGMENT_GHOSTS, true)
+        face.pokeable = prefs.getBoolean(Prefs.POKE_SEGMENTS, false)
+        face.onPoked = {
+            chimePlayer.playTick()
+            showReassembleIfNeeded()
+        }
         face.showSeconds = prefs.getBoolean(Prefs.SECOND_HAND, true)
         face.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
         face.dateDayFirst = DateShape.dayFirst(
@@ -3470,7 +3482,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     private fun sceneIsDisarranged(): Boolean =
-        clockView?.isDisarranged() == true ||
+        digitalView?.isDisarranged() == true ||
+            clockView?.isDisarranged() == true ||
             stopwatchClockView?.isDisarranged() == true ||
             countdownClockView?.isDisarranged() == true ||
             worldBubbles.anyMoving()

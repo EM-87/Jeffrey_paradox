@@ -124,6 +124,63 @@ class DigitalClockView @JvmOverloads constructor(
 
     private val card = Paint(Paint.ANTI_ALIAS_FLAG)
 
+    /** The one engine all three lit displays go through. */
+    private val segments = SegmentPainter()
+
+    /** How thick a bar is, as a share of the module's height. */
+    var weight: Float = 0.055f
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** Whether the unlit bars are drawn faintly behind the lit ones. */
+    var ghosts: Boolean = true
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /**
+     * Whether a bar can be poked out with a finger.
+     *
+     * Off unless asked for. Somebody who chose digits chose them for
+     * clarity, and a clock that quietly starts lying because a sleeve
+     * brushed it is not that — but this app has always let you knock the
+     * hands off a dial, and a display with a dead segment in it is the
+     * same joke on the same object. The toolbox button puts them back.
+     */
+    var pokeable: Boolean = false
+        set(value) {
+            field = value
+            if (!value) burnt.clear()
+            invalidate()
+        }
+
+    /**
+     * The bars somebody has poked out, by the place they are in.
+     *
+     * By place and not by value, because that is what a dead segment is: a
+     * bar in the third digit stays dead whatever number the third digit is
+     * showing. Which is exactly what makes it worth doing — the clock goes
+     * on telling the time and the time it tells is wrong.
+     */
+    private val burnt = HashMap<String, IntArray>()
+
+    private fun burntAt(key: String, modules: Int): IntArray? {
+        val held = burnt[key] ?: return null
+        return if (held.size == modules) held else null
+    }
+
+    /** Whether anything on this face has been poked out. */
+    fun isDisarranged(): Boolean = burnt.values.any { row -> row.any { it != 0 } }
+
+    /** Puts every poked-out bar back. */
+    fun reassembleAll() {
+        burnt.clear()
+        invalidate()
+    }
+
     /** The typeface a printed number is printed in, for this script. */
     private fun faceFor(): Typeface =
         if (script == DigitScript.YAUTJA) yautja ?: PRINT else PRINT
@@ -220,15 +277,40 @@ class DigitalClockView @JvmOverloads constructor(
      * something to hide by squeezing them.
      */
     private fun widthOf(cell: Cell): Float = when (cell) {
-        is Cell.Number -> 1f * cell.text.length
-        Cell.Colon -> 0.34f
-        Cell.Slash -> 0.5f
+        is Cell.Number ->
+            if (style == DigitStyle.SEGMENT) Segments.span(kind(), cell.text)
+            else cell.text.length.toFloat()
+        // On Rome's display the separator is a module with its dot lit, so
+        // it takes a module's room. On the other two it is punctuation and
+        // closes ranks with the groups either side of it.
+        Cell.Colon -> if (dotSeparator()) 1f else 0.34f
+        Cell.Slash -> if (dotSeparator()) 1f else 0.5f
         is Cell.Token -> 1f
     }
 
-    /** How wide a cell is against its own height, for this script. */
-    private fun cellRatio(): Float =
-        if (script == DigitScript.ROMAN) ROMAN_RATIO else DIGIT_RATIO
+    /** Which of the three displays this script goes on. */
+    private fun kind(): Segments.Kind = when (script) {
+        DigitScript.ROMAN -> Segments.Kind.SIXTEEN
+        DigitScript.YAUTJA -> Segments.Kind.STAR
+        else -> Segments.Kind.SEVEN
+    }
+
+    /** Whether the separator is a module of its own rather than two dots. */
+    private fun dotSeparator(): Boolean =
+        style == DigitStyle.SEGMENT && script == DigitScript.ROMAN
+
+    /**
+     * How wide a cell is against its own height.
+     *
+     * The lit displays each have their own answer and it is a measurement,
+     * not a preference — see [Segments.aspect]. A card or a drum is a
+     * different object and keeps the proportions a card has.
+     */
+    private fun cellRatio(): Float = when {
+        style == DigitStyle.SEGMENT -> Segments.aspect(kind())
+        script == DigitScript.ROMAN -> ROMAN_RATIO
+        else -> DIGIT_RATIO
+    }
 
     /** The whole row's width, in the same units, gaps included. */
     private fun rowWidth(cells: List<Cell>): Float {
@@ -254,6 +336,7 @@ class DigitalClockView @JvmOverloads constructor(
         canvas.drawColor(theme.face)
         if (width <= 0 || height <= 0) return
 
+        laid.clear()
         val cells = readout()
         val date = if (showDate) dateLine() else emptyList()
 
@@ -267,7 +350,7 @@ class DigitalClockView @JvmOverloads constructor(
         val digitW = if (widest > 0f) minOf(room / widest, height * TALLEST) else 0f
         val digitH = digitW / cellRatio()
 
-        lit.strokeWidth = digitH * 0.10f
+        lit.strokeWidth = digitH * weight * 1.6f
         ink.textSize = digitH * 0.92f
 
         // The date sits under the time, and the two together are centred on
@@ -305,14 +388,25 @@ class DigitalClockView @JvmOverloads constructor(
         var x = (width - total) / 2f
         val wasStroke = lit.strokeWidth
         val wasText = ink.textSize
-        lit.strokeWidth = digitH * 0.10f
+        lit.strokeWidth = digitH * weight * 1.6f
         ink.textSize = digitH * 0.92f
         for ((i, cell) in cells.withIndex()) {
             val w = widthOf(cell) * digitW
             when (cell) {
                 is Cell.Number -> drawNumber(canvas, cell, "$tag$i", x, top, w, digitH)
-                Cell.Colon -> drawColon(canvas, x + w / 2f, top, digitH)
-                Cell.Slash -> drawSlash(canvas, x, top, w, digitH)
+                // Rome's separator is a module with its dot lit, which is
+                // what the drawing does and what makes VII·XII read as one
+                // instrument rather than as two with a colon between them.
+                Cell.Colon -> if (dotSeparator()) {
+                    drawAsSegments(canvas, "·", x, top, w, digitH, "$tag$i")
+                } else {
+                    drawColon(canvas, x + w / 2f, top, digitH)
+                }
+                Cell.Slash -> if (dotSeparator()) {
+                    drawAsSegments(canvas, "·", x, top, w, digitH, "$tag$i")
+                } else {
+                    drawSlash(canvas, x, top, w, digitH)
+                }
                 is Cell.Token -> drawToken(canvas, cell.sun, x + w / 2f, top, digitH)
             }
             x += w + gapAfter(cells, i) * digitW
@@ -369,7 +463,7 @@ class DigitalClockView @JvmOverloads constructor(
         if (progress == 0f && before != null && before != cell.text) leaving[key] = before
         val from = if (progress < 1f) leaving[key] else null
         when (style) {
-            DigitStyle.SEGMENT -> drawAsSegments(canvas, cell.text, x, top, w, h)
+            DigitStyle.SEGMENT -> drawAsSegments(canvas, cell.text, x, top, w, h, key)
             DigitStyle.CARD -> drawAsCard(canvas, cell.text, from, progress, x, top, w, h)
             DigitStyle.ROLLER -> drawAsRoller(canvas, cell.text, from, progress, x, top, w, h)
         }
@@ -377,143 +471,84 @@ class DigitalClockView @JvmOverloads constructor(
     }
 
     /**
-     * Bars behind a mask.
+     * Bars behind a mask, on whichever of the three displays this script
+     * belongs to — see [Segments].
      *
-     * Ours go on the seven-bar display everybody pictures; Rome's go on the
-     * sixteen-bar module, which exists for exactly this reason — it can
-     * draw letters, and seven bars can draw the ten digits and nothing
-     * else. Theirs is a font, so it is written rather than lit: a display
-     * that could shape those glyphs out of bars would be a display nobody
-     * has ever built, and pretending otherwise was tried once here and
-     * came out as a row of stars.
+     * All three are lit now. Their numerals were a font here until the
+     * chart they come from was read arm by arm; a font is a picture of a
+     * display, and the one script on this clock that could not have an
+     * unlit bar behind it, could not be poked and could not be made
+     * thicker was the one that most looked like it should.
      */
-    private fun drawAsSegments(canvas: Canvas, text: String, x: Float, top: Float, w: Float, h: Float) {
-        when (script) {
-            DigitScript.ROMAN -> {
-                var at = x
-                val each = w / text.length.coerceAtLeast(1)
-                for (c in text) {
-                    drawSixteen(canvas, c, at, top, each * LETTER_FILL, h)
-                    at += each
-                }
-            }
-            DigitScript.YAUTJA -> drawAsWriting(canvas, text, x, top, w, h)
-            else -> {
-                var at = x
-                val each = w / text.length.coerceAtLeast(1)
-                for (c in text) {
-                    drawSeven(canvas, c, at, top, each * LETTER_FILL, h)
-                    at += each
-                }
-            }
-        }
-    }
-
-    private fun drawSeven(canvas: Canvas, c: Char, x: Float, y: Float, w: Float, h: Float) {
-        val bits = SegmentGlyphs.seven(c) ?: return
-        for (bit in intArrayOf(64, 32, 16, 8, 4, 2, 1)) {
-            paintBar(bits and bit != 0)
-            sevenBar(canvas, bit, x, y, w, h)
+    private fun drawAsSegments(
+        canvas: Canvas, text: String, x: Float, top: Float, w: Float, h: Float, key: String
+    ) {
+        val kind = kind()
+        val masks = Segments.spell(kind, text)
+        if (masks.isEmpty()) return
+        segments.thickness = weight
+        segments.ghosts = ghosts
+        segments.row(
+            canvas, kind, masks, x, top, w, h,
+            theme.decimal, theme.minorTick, burntAt(key, masks.size)
+        )
+        if (pokeable) {
+            val gap = Segments.gap(kind)
+            val cell = w / (masks.size + (masks.size - 1) * gap)
+            laid += Laid(key, kind, x, top, cell, cell * (1f + gap), h, masks.size)
         }
     }
 
     /**
-     * The unlit bars, at a tenth of the ink.
+     * Where a row of modules ended up, so a finger can be told which bar
+     * it landed on.
      *
-     * A display you can only see the lit half of is a picture of a number.
-     * The ghost of the eight behind the seven is what says there is a
-     * mechanism here — and it is what makes the thing read as a machine
-     * rather than as a label the app has printed.
+     * Recorded as the row is drawn rather than worked out again on touch:
+     * the layout depends on what the clock says, and the number a finger
+     * arrives at is the number that was on the glass, not the one the
+     * arithmetic would give a frame later.
      */
-    private fun paintBar(on: Boolean) {
-        lit.color = if (on) theme.decimal else theme.minorTick
-        lit.alpha = when {
-            on -> 255
-            script == DigitScript.ROMAN -> GHOST_ALPHA_SIXTEEN
-            else -> GHOST_ALPHA
-        }
-    }
+    private class Laid(
+        val key: String,
+        val kind: Segments.Kind,
+        val x: Float,
+        val top: Float,
+        val cell: Float,
+        val stride: Float,
+        val height: Float,
+        val modules: Int
+    )
 
-    private fun sevenBar(canvas: Canvas, bit: Int, x: Float, y: Float, w: Float, h: Float) {
-        val s = lit.strokeWidth * 0.8f
-        val mid = y + h / 2f
-        when (bit) {
-            64 -> canvas.drawLine(x + s, y, x + w - s, y, lit)
-            32 -> canvas.drawLine(x + w, y + s, x + w, mid - s, lit)
-            16 -> canvas.drawLine(x + w, mid + s, x + w, y + h - s, lit)
-            8 -> canvas.drawLine(x + s, y + h, x + w - s, y + h, lit)
-            4 -> canvas.drawLine(x, mid + s, x, y + h - s, lit)
-            2 -> canvas.drawLine(x, y + s, x, mid - s, lit)
-            1 -> canvas.drawLine(x + s, mid, x + w - s, mid, lit)
-        }
-    }
+    private val laid = ArrayList<Laid>()
 
-    /**
-     * One sixteen-bar module — see [SegmentGlyphs] for the shapes.
-     *
-     * The joined pairs are drawn as one bar rather than two. No letter ever
-     * lights half an upright, and an upright drawn as two bars with a nick
-     * between them is an upright with a nick in it.
-     */
-    private fun drawSixteen(canvas: Canvas, c: Char, x: Float, y: Float, w: Float, h: Float) {
-        val bits = SegmentGlyphs.sixteen(c) ?: return
-        val joined = SegmentGlyphs.JOINED.filter { (a, b) -> bits and a != 0 && bits and b != 0 }
-        val paired = joined.fold(0) { acc, (a, b) -> acc or a or b }
-        for (bar in SegmentGlyphs.SIXTEEN_BARS) {
-            if (bar and paired != 0) continue
-            paintBar(bits and bar != 0)
-            sixteenBar(canvas, bar, x, y, w, h)
-        }
-        for ((a, b) in SegmentGlyphs.JOINED) {
-            val both = bits and a != 0 && bits and b != 0
-            paintBar(both)
-            if (both) sixteenJoined(canvas, a, x, y, w, h)
-        }
-        if (bits and SegmentGlyphs.DOT != 0) {
-            paintBar(true)
-            canvas.drawPoint(x + w / 2f, y + h / 2f, lit)
-        }
-    }
+    /** Told when a bar goes out, so the app can make the noise. */
+    var onPoked: (() -> Unit)? = null
 
-    private fun sixteenBar(canvas: Canvas, bar: Int, x: Float, y: Float, w: Float, h: Float) {
-        val s = lit.strokeWidth * 0.8f
-        val midX = x + w / 2f
-        val midY = y + h / 2f
-        val right = x + w
-        val foot = y + h
-        when (bar) {
-            SegmentGlyphs.A1 -> canvas.drawLine(x + s, y, midX - s, y, lit)
-            SegmentGlyphs.A2 -> canvas.drawLine(midX + s, y, right - s, y, lit)
-            SegmentGlyphs.B -> canvas.drawLine(right, y + s, right, midY - s, lit)
-            SegmentGlyphs.C -> canvas.drawLine(right, midY + s, right, foot - s, lit)
-            SegmentGlyphs.D2 -> canvas.drawLine(midX + s, foot, right - s, foot, lit)
-            SegmentGlyphs.D1 -> canvas.drawLine(x + s, foot, midX - s, foot, lit)
-            SegmentGlyphs.E -> canvas.drawLine(x, midY + s, x, foot - s, lit)
-            SegmentGlyphs.F -> canvas.drawLine(x, y + s, x, midY - s, lit)
-            SegmentGlyphs.G1 -> canvas.drawLine(x + s, midY, midX - s, midY, lit)
-            SegmentGlyphs.G2 -> canvas.drawLine(midX + s, midY, right - s, midY, lit)
-            SegmentGlyphs.I -> canvas.drawLine(midX, y + s, midX, midY - s, lit)
-            SegmentGlyphs.L -> canvas.drawLine(midX, midY + s, midX, foot - s, lit)
-            SegmentGlyphs.H -> canvas.drawLine(x + s, y + s, midX - s, midY - s, lit)
-            SegmentGlyphs.J -> canvas.drawLine(right - s, y + s, midX + s, midY - s, lit)
-            SegmentGlyphs.K -> canvas.drawLine(midX + s, midY + s, right - s, foot - s, lit)
-            SegmentGlyphs.M -> canvas.drawLine(midX - s, midY + s, x + s, foot - s, lit)
+    override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
+        if (!pokeable || style != DigitStyle.SEGMENT) return super.onTouchEvent(event)
+        if (event.actionMasked != android.view.MotionEvent.ACTION_DOWN) {
+            return event.actionMasked == android.view.MotionEvent.ACTION_UP
         }
-    }
-
-    /** The two halves of a pair, as the one bar they make together. */
-    private fun sixteenJoined(canvas: Canvas, a: Int, x: Float, y: Float, w: Float, h: Float) {
-        val s = lit.strokeWidth * 0.8f
-        val midX = x + w / 2f
-        val midY = y + h / 2f
-        when (a) {
-            SegmentGlyphs.A1 -> canvas.drawLine(x + s, y, x + w - s, y, lit)
-            SegmentGlyphs.D1 -> canvas.drawLine(x + s, y + h, x + w - s, y + h, lit)
-            SegmentGlyphs.F -> canvas.drawLine(x, y + s, x, y + h - s, lit)
-            SegmentGlyphs.B -> canvas.drawLine(x + w, y + s, x + w, y + h - s, lit)
-            SegmentGlyphs.G1 -> canvas.drawLine(x + s, midY, x + w - s, midY, lit)
-            SegmentGlyphs.I -> canvas.drawLine(midX, y + s, midX, y + h - s, lit)
+        val row = laid.firstOrNull {
+            event.y >= it.top - it.height * 0.15f &&
+                event.y <= it.top + it.height * 1.15f &&
+                event.x >= it.x && event.x <= it.x + it.stride * it.modules
+        } ?: return false
+        val index = ((event.x - row.x) / row.stride).toInt().coerceIn(0, row.modules - 1)
+        val bit = segments.barUnder(
+            row.kind, event.x, event.y,
+            row.x + row.stride * index, row.top, row.cell, row.height
+        )
+        if (bit == 0) return false
+        val held = burnt.getOrPut(row.key) { IntArray(row.modules) }
+        if (held.size != row.modules) {
+            burnt[row.key] = IntArray(row.modules).also { it[index] = bit }
+        } else {
+            held[index] = held[index] xor bit
         }
+        onPoked?.invoke()
+        invalidate()
+        return true
     }
 
     /**
@@ -616,17 +651,6 @@ class DigitalClockView @JvmOverloads constructor(
         canvas.restore()
     }
 
-    /** Their alphabet, written rather than lit — see [Yautja]. */
-    private fun drawAsWriting(canvas: Canvas, text: String, x: Float, top: Float, w: Float, h: Float) {
-        val face = yautja ?: return
-        val was = ink.typeface
-        ink.typeface = face
-        ink.color = theme.decimal
-        fitInk(text, w, h)
-        canvas.drawText(text, x + w / 2f, top + h / 2f + inkOffset(text), ink)
-        ink.typeface = was
-    }
-
     /**
      * Sizes [ink] so [text] fills a box of [w] by [h].
      *
@@ -664,9 +688,20 @@ class DigitalClockView @JvmOverloads constructor(
 
     // ------------------------------------------------------ punctuation
 
+    /**
+     * The ink the punctuation is drawn in, lit or unlit.
+     *
+     * The same two colours the bars use, because the colon is part of the
+     * readout and not a caption on it.
+     */
+    private fun punctuation(on: Boolean) {
+        lit.color = if (on) theme.decimal else theme.minorTick
+        lit.alpha = if (on) 255 else GHOST_ALPHA
+    }
+
     private fun drawColon(canvas: Canvas, cx: Float, top: Float, h: Float) {
         val on = !blinkColon || (nowMs() / 1000L) % 2L == 0L
-        paintBar(on)
+        punctuation(on)
         canvas.drawPoint(cx, top + h * 0.32f, lit)
         canvas.drawPoint(cx, top + h * 0.68f, lit)
     }
@@ -684,7 +719,7 @@ class DigitalClockView @JvmOverloads constructor(
      * top of it.
      */
     private fun drawToken(canvas: Canvas, sun: Boolean, cx: Float, top: Float, h: Float) {
-        paintBar(true)
+        punctuation(true)
         val r = h * 0.20f
         val cy = top + h / 2f
         if (sun) {
@@ -719,7 +754,7 @@ class DigitalClockView @JvmOverloads constructor(
     }
 
     private fun drawSlash(canvas: Canvas, x: Float, top: Float, w: Float, h: Float) {
-        paintBar(true)
+        punctuation(true)
         val s = lit.strokeWidth * 0.8f
         canvas.drawLine(x + s, top + h - s, x + w - s, top + s, lit)
     }

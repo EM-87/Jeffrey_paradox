@@ -73,6 +73,15 @@
             android:summary="@string/pref_shake_drop_summary"
             android:title="@string/pref_shake_drop_title" />
 
+        <!-- The same joke on the other face: a dial you can knock the
+             hands off, a display you can put a dead segment in. Off,
+             because somebody who chose digits chose them for clarity. -->
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_poke_segments"
+            android:summary="@string/pref_poke_segments_summary"
+            android:title="@string/pref_poke_segments_title" />
+
     </PreferenceCategory>
 
     <!-- Named for what it holds rather than for what is left over.

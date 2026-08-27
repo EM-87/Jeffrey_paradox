@@ -49,6 +49,24 @@
             android:summary="@string/pref_blink_colon_summary"
             android:title="@string/pref_blink_colon_title" />
 
+        <!-- The pen the display is stamped with, and whether the bars it
+             is not using are drawn. Both are about the instrument rather
+             than about the time, which is why they are here and not on the
+             first screen. -->
+        <ListPreference
+            android:defaultValue="normal"
+            android:entries="@array/segment_weight_entries"
+            android:entryValues="@array/segment_weight_values"
+            android:key="pref_segment_weight"
+            android:title="@string/pref_segment_weight_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_segment_ghosts"
+            android:summary="@string/pref_segment_ghosts_summary"
+            android:title="@string/pref_segment_ghosts_title" />
+
     </PreferenceCategory>
 
     <PreferenceCategory

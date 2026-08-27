@@ -553,6 +553,21 @@
     <string name="pref_leading_zero_summary">09:05 rather than 9:05</string>
     <string name="pref_blink_colon_title">Blinking colon</string>
     <string name="pref_blink_colon_summary">The two dots go out on every other second, the way a cheap clock\'s do</string>
+    <string name="pref_segment_weight_title">Bar thickness</string>
+    <string name="pref_segment_ghosts_title">Show the unlit bars</string>
+    <string name="pref_segment_ghosts_summary">The faint eight behind the seven, which is what a real display looks like</string>
+    <string name="pref_poke_segments_title">Poke the segments out</string>
+    <string name="pref_poke_segments_summary">Touch a bar and it dies. The clock keeps the time and stops telling it — the toolbox puts them back</string>
+    <string-array name="segment_weight_entries">
+        <item>Hairline</item>
+        <item>Ordinary</item>
+        <item>Heavy</item>
+    </string-array>
+    <string-array name="segment_weight_values" translatable="false">
+        <item>hairline</item>
+        <item>normal</item>
+        <item>heavy</item>
+    </string-array>
     <string-array name="face_entries">
         <item>@string/face_analog</item>
         <item>@string/face_digital</item>

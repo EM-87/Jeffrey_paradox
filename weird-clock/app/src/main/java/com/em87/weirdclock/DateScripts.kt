@@ -95,7 +95,7 @@ class DateScripts {
         yautjaChars = text.length
     }
 
-    /** A lit bar on one of the other two displays — see [SegmentGlyphs]. */
+    /** A lit bar on one of the other two displays — see [Segments]. */
     private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
@@ -104,6 +104,19 @@ class DateScripts {
 
     /** Scratch, because a glyph is rebuilt on every frame. */
     private val glyphPath = Path()
+
+    /**
+     * The one engine every lit display in this app goes through.
+     *
+     * The unlit bars are off here. On the dial the date is a caption under
+     * the hands, not the instrument itself, and a row of faint ghosts
+     * under it reads as smudge rather than as mechanism — which is the one
+     * place in this app where that is true.
+     */
+    private val segments = SegmentPainter().apply {
+        ghosts = false
+        thickness = 0.062f
+    }
 
     /** And scratch for the round parts of a hieroglyph. */
     private val signOval = RectF()
@@ -202,82 +215,6 @@ class DateScripts {
         glyphPath.lineTo(ax - fx, ay - fy)
         glyphPath.close()
     }
-
-    /**
-     * A sixteen-bar module, unlit bars and all.
-     *
-     * The unlit bars are drawn faintly rather than left out, which is what
-     * a real one looks like and is also the only thing that says the empty
-     * space beside `MMXXVI` is a display with nothing lit in it rather
-     * than the row having ended.
-     */
-    private fun drawSixteenModule(
-        canvas: Canvas, bits: Int, x: Float, y: Float, w: Float, h: Float, t: Float
-    ) {
-        val l = x
-        val rr = x + w
-        val mx = x + w / 2f
-        val tp = y
-        val bt = y + h
-        val my = y + h / 2f
-
-        fun both(a: Int, b: Int) = bits and a != 0 && bits and b != 0
-
-        // A bar that ends at the middle of the module overlaps there
-        // rather than stopping short, or the four diagonals of an `X`
-        // leave a hole where they cross — see [SegmentGlyphs.JOINS_MIDDLE].
-        fun inset(bit: Int) =
-            if (bit and SegmentGlyphs.JOINS_MIDDLE != 0) -0.35f else 0.8f
-
-        fun bar(bit: Int, x0: Float, y0: Float, x1: Float, y1: Float, midAt: Int) {
-            if (bits and bit == 0) return
-            barPath(
-                x0, y0, x1, y1, t,
-                startInset = if (midAt < 0) inset(bit) else 0.8f,
-                endInset = if (midAt > 0) inset(bit) else 0.8f
-            )
-            canvas.drawPath(glyphPath, glyphPaint)
-        }
-
-        fun whole(x0: Float, y0: Float, x1: Float, y1: Float) {
-            barPath(x0, y0, x1, y1, t)
-            canvas.drawPath(glyphPath, glyphPaint)
-        }
-
-        if (both(SegmentGlyphs.A1, SegmentGlyphs.A2)) whole(l, tp, rr, tp) else {
-            bar(SegmentGlyphs.A1, l, tp, mx, tp, 0)
-            bar(SegmentGlyphs.A2, mx, tp, rr, tp, 0)
-        }
-        if (both(SegmentGlyphs.D1, SegmentGlyphs.D2)) whole(l, bt, rr, bt) else {
-            bar(SegmentGlyphs.D1, l, bt, mx, bt, 0)
-            bar(SegmentGlyphs.D2, mx, bt, rr, bt, 0)
-        }
-        if (both(SegmentGlyphs.F, SegmentGlyphs.E)) whole(l, tp, l, bt) else {
-            bar(SegmentGlyphs.F, l, tp, l, my, 0)
-            bar(SegmentGlyphs.E, l, my, l, bt, 0)
-        }
-        if (both(SegmentGlyphs.B, SegmentGlyphs.C)) whole(rr, tp, rr, bt) else {
-            bar(SegmentGlyphs.B, rr, tp, rr, my, 0)
-            bar(SegmentGlyphs.C, rr, my, rr, bt, 0)
-        }
-        if (both(SegmentGlyphs.I, SegmentGlyphs.L)) whole(mx, tp, mx, bt) else {
-            bar(SegmentGlyphs.I, mx, tp, mx, my, 1)
-            bar(SegmentGlyphs.L, mx, my, mx, bt, -1)
-        }
-        if (both(SegmentGlyphs.G1, SegmentGlyphs.G2)) whole(l, my, rr, my) else {
-            bar(SegmentGlyphs.G1, l, my, mx, my, 1)
-            bar(SegmentGlyphs.G2, mx, my, rr, my, -1)
-        }
-        bar(SegmentGlyphs.H, l, tp, mx, my, 1)
-        bar(SegmentGlyphs.J, rr, tp, mx, my, 1)
-        bar(SegmentGlyphs.K, mx, my, rr, bt, -1)
-        bar(SegmentGlyphs.M, mx, my, l, bt, -1)
-
-        if (bits and SegmentGlyphs.DOT != 0) {
-            canvas.drawCircle(mx, my, t * 0.95f, glyphPaint)
-        }
-    }
-
 
     /**
      * The word signs a date is built from — see [Egyptian.Word].
@@ -568,63 +505,40 @@ class DateScripts {
         canvas: Canvas, frame: Frame, text: String, cx: Float, top: Float, digitH: Float,
         starFrom: Int = Int.MAX_VALUE
     ) {
-        val n = text.length
-        if (n == 0) return
+        if (text.isEmpty()) return
         // The separator is a module with only its middle dot lit, rather
         // than a hole in the row: an empty space in a row of displays
         // looks like the row stopped.
-        val glyphs = text.replace(' ', '·')
-        // The star wants more room than a bar module: its marks are three
-        // or four thin arms in a tall figure, and at the row height the
-        // Roman module is happy with they came out as scratches.
-        var h = digitH * (if (starFrom == 0) 1.35f else 1f)
-        val barW = h * 0.80f
-        val starW = h * 0.62f
-        fun widthAt(i: Int) = if (i >= starFrom) starW else barW
-        var gap = barW * 0.34f
-        var wide = (0 until n).sumOf { widthAt(it).toDouble() }.toFloat() + gap * (n - 1)
-        var k = 1f
-        // Fourteen per cent of the width kept clear, not six. A Roman
-        // date can run to two dozen modules — XXVIII·XII·MDCCCLXXXVIII is
-        // twenty-four — and shrunk to fill every last pixel it ends up
-        // touching both edges of the phone, which reads as a row that has
-        // overflowed even though it has not.
+        val masks = Segments.spell(Segments.Kind.SIXTEEN, text.replace(' ', '·'))
+        if (masks.isEmpty()) return
+        // Fourteen per cent of the width kept clear, not six. A Roman date
+        // can run to two dozen modules — XXVIII·XII·MDCCCLXXXVIII is
+        // twenty-four, and a V is two of them — and shrunk to fill every
+        // last pixel it ends up touching both edges of the phone, which
+        // reads as a row that has overflowed even though it has not.
         val room = frame.boxWidth * 0.86f
-        if (wide > room && wide > 0f) {
-            k = room / wide
-            h *= k
-            gap *= k
-            wide = room
+        val gap = Segments.gap(Segments.Kind.SIXTEEN)
+        val span = masks.size + (masks.size - 1) * gap
+        var h = digitH
+        var moduleW = h * Segments.aspect(Segments.Kind.SIXTEEN)
+        if (moduleW * span > room) {
+            moduleW = room / span
+            h = moduleW / Segments.aspect(Segments.Kind.SIXTEEN)
         }
-        val t = h * 0.070f
+        val wide = moduleW * span
         val keepStyle = glyphPaint.style
         glyphPaint.style = Paint.Style.FILL
-        glyphPaint.color = frame.ink.color
-        glyphPaint.alpha = frame.ink.alpha
-
-        // Vertically centred on the line the seven-bar row would have
-        // used, so switching script does not make the date jump.
-        val y = top + (digitH - h) / 2f
-        var x = cx - wide / 2f
-        barsPainted = 0
+        barsPainted = masks.size
         egyptiansPainted = 0
         wedgesPainted = 0
         printedChars = 0
-        for (i in glyphs.indices) {
-            val c = glyphs[i]
-            val w = widthAt(i) * k
-            if (i >= starFrom) {
-                // Thinner bars than the sixteen-bar module: a mark on the
-                // star is read by the angle of its arms, and a fat arm at
-                // this size is a wedge with no angle in it.
-                // Nothing: the far-future row is written in its own face
-                // now — see [drawYautjaDate].
-            } else {
-                barsPainted++
-                SegmentGlyphs.sixteen(c)?.let { drawSixteenModule(canvas, it, x, y, w, h, t) }
-            }
-            x += w + gap
-        }
+        // Vertically centred on the line the seven-bar row would have
+        // used, so switching script does not make the date jump.
+        segments.row(
+            canvas, Segments.Kind.SIXTEEN, masks,
+            cx - wide / 2f, top + (digitH - h) / 2f, wide, h,
+            frame.ink.color, frame.ink.color
+        )
         glyphPaint.style = keepStyle
     }
 
