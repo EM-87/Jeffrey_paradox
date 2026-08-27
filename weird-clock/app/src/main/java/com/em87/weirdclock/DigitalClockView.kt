@@ -286,6 +286,21 @@ class DigitalClockView @JvmOverloads constructor(
             invalidate()
         }
 
+    /**
+     * A time of day to show and leave alone, as milliseconds since
+     * midnight.
+     *
+     * For the little faces that stand for an alarm: a still reading of one
+     * fixed time, with nothing to drag and no clock behind it. [settingMs]
+     * wins if both are set, because a time being edited is the one the
+     * finger is on.
+     */
+    var frozenMs: Long? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     /** Told when a finger moves the time being set. */
     var onSettingChanged: ((Long) -> Unit)? = null
 
@@ -307,7 +322,7 @@ class DigitalClockView @JvmOverloads constructor(
             .apply { timeInMillis = nowMs() }
 
     private fun readout(): List<Cell> {
-        settingMs?.let { ms ->
+        (settingMs ?: frozenMs)?.let { ms ->
             val day = ((ms % DAY_MS) + DAY_MS) % DAY_MS
             return DigitalReadout.time(
                 (day / 3_600_000L).toInt(),
@@ -437,10 +452,12 @@ class DigitalClockView @JvmOverloads constructor(
         laid.clear()
         grabs.clear()
         val cells = readout()
-        // No date under a time being set. It is not today's date that is
-        // being set, and a row of numbers nobody can touch under a row of
-        // numbers they can is an invitation to touch the wrong one.
-        val date = if (showDate && settingMs == null) dateLine() else emptyList()
+        // No date under a time being set, nor under a still one standing
+        // for an alarm. It is not today's date that is being set, and a
+        // row of numbers nobody can touch under a row of numbers they can
+        // is an invitation to touch the wrong one.
+        val date =
+            if (showDate && settingMs == null && frozenMs == null) dateLine() else emptyList()
 
         // One digit's width, chosen so the longest thing on the face fits
         // with a margin either side. Roman at twenty-three fifty-nine is

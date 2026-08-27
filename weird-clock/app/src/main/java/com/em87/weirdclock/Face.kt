@@ -156,10 +156,46 @@ object FaceOptions {
         key == Prefs.TICKING && face == Face.DIGITAL -> R.string.pref_ticking_digital_title
         // Headings too. "Dial" over three rows that still apply is the app
         // not having noticed which clock it is.
-        key == CAT_DIAL && face == Face.DIGITAL -> R.string.category_screen
+        (key == CAT_DIAL || key == CAT_DIAL_DEEP) && face == Face.DIGITAL ->
+            R.string.category_screen
         else -> null
     }
 
-    /** The heading whose rows outlive the dial they were named for. */
+    /**
+     * And the rows whose *explanation* is about a dial, on a clock with
+     * no dial.
+     *
+     * Found by looking at the page rather than by reading the table. The
+     * keys were right, the titles were right, and three summaries under
+     * them said "the dial dims", "under the centre of the dial" and "mini
+     * dials showing the time in other cities" — on a clock that has not
+     * got one. A row whose title is about you and whose subtitle is about
+     * somebody else is worse than a row that is simply missing.
+     */
+    fun summaryFor(face: Face, key: String): Int? {
+        if (face != Face.DIGITAL) return null
+        return when (key) {
+            Prefs.NIGHT_DIM -> R.string.pref_night_dim_summary_digital
+            Prefs.SHOW_DATE -> R.string.pref_show_date_summary_digital
+            Prefs.WORLD_CLOCK -> R.string.pref_world_clock_summary_digital
+            // The door to the second screen says what is behind it, and
+            // what is behind it is not the same on the two faces.
+            "pref_advanced" -> R.string.pref_advanced_summary_digital
+            // Nothing here for the rows that show their own value: the
+            // preference library refuses a summary on those, and the value
+            // is what the reader wanted anyway.
+            else -> null
+        }
+    }
+
+    /**
+     * The headings whose rows outlive the dial they were named for.
+     *
+     * Two of them, on two screens. The third was found by a test that
+     * reads every row of every built page looking for the word — which is
+     * how a heading with no key at all, on the screen nobody scrolls to
+     * the bottom of, turned up still saying Dial.
+     */
     const val CAT_DIAL = "cat_dial"
+    const val CAT_DIAL_DEEP = "cat_dial_deep"
 }

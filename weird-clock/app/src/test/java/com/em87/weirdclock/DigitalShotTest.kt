@@ -329,6 +329,45 @@ class DigitalShotTest {
         }
     }
 
+    /**
+     * The alarm editor, on both faces.
+     *
+     * Two places put a little face on screen for one fixed time — the
+     * list and this — and they disagreed: the list showed digits on a
+     * clock with no dial and the editor showed a row of little clock
+     * faces. Both go through one function now, and this is the picture
+     * that says so.
+     */
+    @Test
+    fun `the alarm editor on a face with no dials`() {
+        for (face in Face.entries) {
+            androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+                .edit().clear()
+                .putBoolean(Prefs.OVERLAY_ASKED, true)
+                .putBoolean(Prefs.FACE_ASKED, true)
+                .putString(Prefs.FACE, face.key)
+                .commit()
+            org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
+                c.setup()
+                val alarm = Alarm(id = 3, hour = 6, minute = 45, enabled = true, sound = "")
+                alarm.extraTimes.add(7 * 60 + 15)
+                c.get().showAlarmSheetForTest(alarm)
+                org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+                val sheet = androidx.appcompat.app.AppCompatDelegate::class.java.let {
+                    org.robolectric.shadows.ShadowDialog.getLatestDialog()
+                }
+                val content = sheet?.window?.decorView ?: return@use
+                content.measure(
+                    View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(1600, View.MeasureSpec.AT_MOST)
+                )
+                content.layout(0, 0, 1080, content.measuredHeight.coerceAtLeast(600))
+                val name = "alarm-editor-${face.key}"
+                assertTrue(name, shoot(content, name) > 3)
+            }
+        }
+    }
+
     /** And the daylight theme, which is where a pale ghost bar shows up. */
     @Test
     fun `the same face in daylight`() {

@@ -269,6 +269,7 @@ class NightBarTest {
                 "pref_gentle_flash", "pref_mark_colors"
             ),
             R.xml.very_advanced_preferences to setOf(
+                "cat_dial_deep",
                 "pref_minute_hand", "pref_second_hand",
                 "pref_smooth_seconds", "pref_fast_hand", "pref_ticking",
                 "pref_touch_hands", "pref_pinch_zoom",

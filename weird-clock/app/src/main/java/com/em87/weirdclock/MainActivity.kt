@@ -1992,6 +1992,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         return draft
     }
 
+    /** For the tests: open the alarm editor on an alarm. */
+    internal fun showAlarmSheetForTest(alarm: Alarm) = showAlarmSheet(alarm)
+
     /** For the tests: the tick under the banner. */
     internal fun confirmAlarmSetForTest() = confirmAlarmSet()
 

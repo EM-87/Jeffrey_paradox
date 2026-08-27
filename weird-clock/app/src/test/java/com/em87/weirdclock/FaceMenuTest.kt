@@ -183,6 +183,41 @@ class FaceMenuTest {
         assertEquals(context.getString(R.string.pref_seconds_title), onDigits)
     }
 
+    /**
+     * And the rows whose *explanation* is about a dial say something else.
+     *
+     * Found by looking at the built page and not at the table: the keys
+     * were right, the titles were right, and three summaries under them
+     * said "the dial dims", "a small date under the centre of the dial"
+     * and "mini dials showing the time in other cities" — on a clock that
+     * has not got one. A row whose title is about you and whose subtitle
+     * is about somebody else is worse than a row that is simply missing.
+     */
+    @Test
+    fun `no row explains itself in terms of a dial this clock has not got`() {
+        val dialWords = listOf("dial", "hands", "esfera", "agujas")
+        for (fragment in screensOf(Face.DIGITAL)) {
+            val screen = fragment.preferenceScreen
+            fun walk(group: PreferenceGroup) {
+                for (i in 0 until group.preferenceCount) {
+                    val row = group.getPreference(i)
+                    if (row is PreferenceGroup) walk(row)
+                    // Except the row that offers the hands in the first
+                    // place. "Hands, or digits" is what it is for.
+                    if (row.key == Prefs.FACE) continue
+                    val said = "${row.title} ${row.summary}".lowercase()
+                    for (word in dialWords) {
+                        assertFalse(
+                            "${row.key}: [${row.title}] [${row.summary}] on a clock with no dial",
+                            said.contains(word)
+                        )
+                    }
+                }
+            }
+            walk(screen)
+        }
+    }
+
     /** And the heading over the rows that outlive the dial is renamed too. */
     @Test
     fun `the dial's heading is not left over a clock that has no dial`() {

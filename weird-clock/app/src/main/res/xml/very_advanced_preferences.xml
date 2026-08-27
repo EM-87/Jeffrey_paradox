@@ -14,7 +14,12 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <PreferenceCategory android:title="@string/category_dial">
+    <!-- Keyed so the heading can be renamed with the face, like the one
+         on the other two screens: what is left under it on a clock with
+         no dial is still about the clock, but not about a dial. -->
+    <PreferenceCategory
+        android:key="cat_dial_deep"
+        android:title="@string/category_dial">
 
         <!-- The hands, from the slowest one anybody would think of turning
              off downwards. A clock with no minute hand is a clock you read

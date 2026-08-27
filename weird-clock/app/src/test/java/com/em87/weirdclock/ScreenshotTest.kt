@@ -195,6 +195,42 @@ class ScreenshotTest {
     }
 
     /**
+     * And the same three screens on the face with no hands, which are not
+     * the same three screens.
+     *
+     * Every row about a dial is gone, the digits' own rows are there
+     * instead, and two rows have changed their names. A test can say the
+     * keys are right; only a picture can say the page still reads as a
+     * page rather than as a list with holes in it.
+     */
+    @Test
+    fun `every settings screen on the digital face`() {
+        prefs.edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
+            .putString(Prefs.FACE, Face.DIGITAL.key)
+            .putBoolean(Prefs.BELLS, true)
+            .commit()
+        Robolectric.buildActivity(SettingsActivity::class.java).use { c ->
+            c.setup()
+            val fragment = c.get().supportFragmentManager.fragments.first()
+                as androidx.preference.PreferenceFragmentCompat
+            shootList(fragment, "settings-digital-root")
+        }
+        for ((name, fragment) in listOf(
+            "settings-digital-advanced" to SettingsActivity.AdvancedSettingsFragment(),
+            "settings-digital-very-advanced" to SettingsActivity.VeryAdvancedSettingsFragment()
+        )) {
+            Robolectric.buildActivity(SettingsActivity::class.java).use { c ->
+                c.setup()
+                c.get().supportFragmentManager.beginTransaction()
+                    .replace(R.id.settings_container, fragment).commitNow()
+                shootList(fragment, name)
+            }
+        }
+    }
+
+    /**
      * A preference list is a RecyclerView, so only what fits is ever laid
      * out. Measured tall enough for the whole list, every row is there.
      */

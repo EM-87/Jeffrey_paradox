@@ -318,6 +318,7 @@ class SettingsActivity : AppCompatActivity() {
             }
             val key = row.key ?: return
             FaceOptions.titleFor(face, key)?.let { row.setTitle(it) }
+            FaceOptions.summaryFor(face, key)?.let { row.setSummary(it) }
         }
 
         /** The face this app is wearing, for the screens to build against. */

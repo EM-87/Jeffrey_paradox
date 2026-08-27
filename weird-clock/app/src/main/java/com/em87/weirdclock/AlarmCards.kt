@@ -385,7 +385,7 @@ class AlarmCards(
 
         if (times.size == 1) {
             row.addView(
-                miniDial(times[0].first, times[0].second),
+                miniFace(times[0].first, times[0].second),
                 LinearLayout.LayoutParams(block, block)
             )
             return
@@ -409,7 +409,7 @@ class AlarmCards(
             }
             for ((column, t) in inLine.withIndex()) {
                 strip.addView(
-                    miniDial(t.first, t.second),
+                    miniFace(t.first, t.second),
                     LinearLayout.LayoutParams(small, small).apply {
                         if (column > 0) marginStart = gap
                     }
@@ -520,9 +520,34 @@ class AlarmCards(
     }
 
     /**
-     * A small, still face showing one fixed time of day, wearing whatever
-     * shape and hour count the big clock wears. Used both on the alarm cards
-     * and in the editor.
+     * A small, still face showing one fixed time — a dial on the face that
+     * has dials, a readout on the one that has not.
+     *
+     * Both are the same size, both are clickable and both say the same
+     * thing. Everything that puts one of these on screen goes through
+     * here rather than asking which kind it wants, because the two places
+     * that did ask disagreed: the list showed digits and the editor
+     * showed a row of little clock faces on a clock with no face.
+     */
+    fun miniFace(hour: Int, minute: Int, sky: Boolean = false): View {
+        if (alarmsAreAnalog()) return miniDial(hour, minute, sky)
+        return DigitalClockView(host).apply {
+            chip = true
+            frozenMs = (hour * 3_600_000L) + (minute * 60_000L)
+            showSeconds = false
+            showDate = false
+            theme = dialTheme()
+            style = DigitStyle.of(prefs.getString(Prefs.DIGIT_STYLE, null))
+            script = DigitScript.of(prefs.getString(Prefs.DIGIT_SCRIPT, null))
+            hour24 = prefs.getBoolean(Prefs.HOUR_24, true)
+            ghosts = prefs.getBoolean(Prefs.SEGMENT_GHOSTS, true)
+            yautja = Yautja.face(host)
+        }
+    }
+
+    /**
+     * The dial half of it: a small, still face showing one fixed time of
+     * day, wearing whatever shape and hour count the big clock wears.
      */
     fun miniDial(hour: Int, minute: Int, sky: Boolean = false): ClockView {
         val fixedMs = (hour * 3_600_000L) + (minute * 60_000L)
