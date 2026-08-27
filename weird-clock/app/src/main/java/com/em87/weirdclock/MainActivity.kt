@@ -689,6 +689,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         SystemChrome.paint(this)
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        // Somebody who has been using this app for weeks is not asked
+        // which clock they want. They did not choose the dial — it was the
+        // only one there was — but they have been living with it, and a
+        // modal question on the morning after an update, from the app that
+        // is now their alarm clock, is not a welcome. The row is the first
+        // one in the settings; that is discoverable enough.
+        if (!prefs.getBoolean(Prefs.FACE_ASKED, false) && prefs.contains(Prefs.OVERLAY_ASKED)) {
+            prefs.edit().putBoolean(Prefs.FACE_ASKED, true).apply()
+        }
         face = Face.of(prefs)
         // The floating hourglass used to be a yes/no switch; it is now a
         // choice of two. Carry the old answer over once.

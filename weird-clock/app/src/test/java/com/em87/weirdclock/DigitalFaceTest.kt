@@ -188,7 +188,10 @@ class DigitalFaceTest {
      */
     @Test
     fun `the first run asks which clock this is`() {
-        prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+        // Nothing at all, which is what a phone that has never run this
+        // app looks like — and the only state in which the question is
+        // asked, see below.
+        prefs.edit().clear().commit()
         Robolectric.buildActivity(MainActivity::class.java).use { c ->
             c.setup()
             assertNotNull("nobody was asked anything", c.get().faceDialog)
@@ -199,6 +202,29 @@ class DigitalFaceTest {
             c.get().chooseFace(Face.DIGITAL)
             assertTrue(prefs.getBoolean(Prefs.FACE_ASKED, false))
             assertEquals(Face.DIGITAL, Face.of(prefs))
+        }
+    }
+
+    /**
+     * And not on the first run of a *new version*, which is not the same
+     * thing at all.
+     *
+     * Everybody already using this app has settings, alarms and a dial
+     * they have got used to. They never chose it — there was nothing to
+     * choose — but a modal question about it on the morning after an
+     * update, from the app that is now their alarm clock, is an
+     * interruption and not an offer.
+     */
+    @Test
+    fun `somebody who already has the app is not asked`() {
+        prefs.edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putString(Prefs.THEME, "midnight")
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            assertNull("an old hand was asked to choose", c.get().faceDialog)
+            assertEquals("and was moved off the dial", Face.ANALOG, c.get().faceForTest())
         }
     }
 
