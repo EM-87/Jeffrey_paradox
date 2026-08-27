@@ -504,9 +504,20 @@ class AlarmCards(
         }
     }
 
-    /** Whether alarms show their times on little faces rather than in digits. */
-    fun alarmsAreAnalog(): Boolean =
-        prefs.getString(Prefs.ALARM_STYLE, Prefs.ALARM_STYLE_ANALOG) != Prefs.ALARM_STYLE_DIGITAL
+    /**
+     * Whether alarms show their times on little faces rather than in digits.
+     *
+     * Never on a face with no hands. The row that asks this is not on that
+     * face's settings at all — a clock with no dial has no opinion about
+     * little dials — so the answer has to come from what the clock is, or
+     * a digital user gets a page of miniature analogue faces and no way to
+     * say otherwise.
+     */
+    fun alarmsAreAnalog(): Boolean {
+        if (!Face.of(prefs).hands) return false
+        return prefs.getString(Prefs.ALARM_STYLE, Prefs.ALARM_STYLE_ANALOG) !=
+            Prefs.ALARM_STYLE_DIGITAL
+    }
 
     /**
      * A small, still face showing one fixed time of day, wearing whatever

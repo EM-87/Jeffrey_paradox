@@ -1394,6 +1394,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // The dial markers toggle belongs with the alarms, not buried in
         // settings three layers down.
         root.findViewById<SwitchCompat>(R.id.alarm_markers_switch).also { markers ->
+            // "Show alarms on the dial", on a clock with no dial. The row
+            // it mirrors is already off this face's settings — see
+            // [FaceOptions] — and this is the copy of it that lives on the
+            // card, which the settings could not reach.
+            val shown = if (face.hands) View.VISIBLE else View.GONE
+            markers.visibility = shown
+            root.findViewById<View>(R.id.alarm_markers_label).visibility = shown
             markers.isChecked = prefs.getBoolean(Prefs.ALARM_MARKERS, true)
             markers.setOnCheckedChangeListener { _, checked ->
                 prefs.edit().putBoolean(Prefs.ALARM_MARKERS, checked).apply()
@@ -3119,6 +3126,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             dial.shadowLatitude = cv.shadowLatitude
             dial.shadowLongitude = cv.shadowLongitude
             dial.shadowSurface = cv.shadowSurface
+            // The face with no hands has chronographs with no hands: the
+            // same case, the same crown, the same two pushers, and a
+            // screen where the movement was.
+            dial.lcdChrono = !face.hands
         }
 
         // The world clock's bubbles float over the dial, and over the

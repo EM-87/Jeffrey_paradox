@@ -3739,6 +3739,27 @@ class ClockView @JvmOverloads constructor(
 
     // ----------------------------------------------------------------- draw
 
+    /**
+     * A chronograph with a screen in it instead of hands.
+     *
+     * The case stays: the bezel, the crown, the two pushers, the lap
+     * ladder under it. That is the whole idea — a digital chronograph is
+     * not a number on a background, it is the same instrument with a
+     * different movement in it, and the crown keeps its second thoughts.
+     *
+     * Only meaningful on a face that is timing something. A clock with a
+     * screen where its hands go is not a clock, it is the other face.
+     */
+    var lcdChrono = false
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
+    /** Whether the hands have been swapped for a screen on this face. */
+    private fun lcd(): Boolean = lcdChrono && chronoProvider != null
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         // Noted before the frame rather than after it, so a transition
@@ -3774,8 +3795,10 @@ class ClockView @JvmOverloads constructor(
         // because a half-transparent hand crossing a half-transparent tick
         // is darker than either.
         val clockLayer = beginOrreryHandover(canvas)
-        drawTicks(canvas, cx, cy, r)
-        drawNumerals(canvas, cx, cy, r)
+        if (!lcd()) {
+            drawTicks(canvas, cx, cy, r)
+            drawNumerals(canvas, cx, cy, r)
+        }
         dialLabel?.let { label ->
             datePaint.textSize = r * 0.15f
             canvas.drawText(
@@ -3806,7 +3829,7 @@ class ClockView @JvmOverloads constructor(
         // The scale first and the ghosts on top of it. The other way round
         // the ten division marks were drawn across every recorded lap, so a
         // list of laps read as a list of laps with lines through it.
-        drawFastScale(canvas, cx, cy, r)
+        if (!lcd()) drawFastScale(canvas, cx, cy, r)
         drawLapGhosts(canvas, cx, cy, r)
         endFurniture(canvas, chronoLayer)
         drawGhost(canvas) {
@@ -3815,7 +3838,7 @@ class ClockView @JvmOverloads constructor(
         }
 
         // The tenths hand itself is a hand: it travels rather than fades.
-        if (showsFastHand() && !isFastHandFallen()) {
+        if (showsFastHand() && !isFastHandFallen() && !lcd()) {
             drawHand(
                 canvas, cx, cy, a.fast, r * FAST_LEN * faceScale(),
                 r * 0.05f * faceScale(), r * 0.008f * faceScale(), fastHandPaint
@@ -3826,9 +3849,10 @@ class ClockView @JvmOverloads constructor(
         // face. Drawn hand by hand as they were, the second hand's shadow
         // landed on top of the hour hand, which is a shadow cast onto a
         // thing standing above the surface it is cast on.
-        drawHandShadows(canvas, cx, cy, r, a)
+        if (!lcd()) drawHandShadows(canvas, cx, cy, r, a)
 
         for (hand in arrayOf(Hand.HOUR, Hand.MINUTE, Hand.SECOND)) {
+            if (lcd()) break
             if (!handIsOn(hand)) continue
             if (isFallen(hand)) continue
             val angle = angleOf(hand, a)
@@ -3844,7 +3868,7 @@ class ClockView @JvmOverloads constructor(
 
         drawFallenBodies(canvas)
 
-        canvas.drawCircle(cx, cy, r * 0.035f, centerDotPaint)
+        if (!lcd()) canvas.drawCircle(cx, cy, r * 0.035f, centerDotPaint)
         endOrreryHandover(canvas, clockLayer)
 
         // The pieces on the floor belong to the case, not to the clock, so
@@ -4009,11 +4033,32 @@ class ClockView @JvmOverloads constructor(
     private fun drawReadout(canvas: Canvas, cx: Float, cy: Float, r: Float, live: Boolean) {
         val digitalText = readoutText()
         digitalText?.let {
-            val digitH = r * 0.13f
-            val yTop = min(cy + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
+            // On a face with a screen in it the readout *is* the movement,
+            // so it goes inside the bezel where the hands were and takes
+            // as much of it as it can. Everywhere else it is a caption
+            // under the dial saying what the hands already said.
+            val inside = lcd()
+            val digitH =
+                if (inside) minOf(r * 0.42f, r * 1.45f / (0.82f * it.length.coerceAtLeast(1)))
+                else r * 0.13f
+            val yTop =
+                if (inside) cy - digitH / 2f
+                else min(cy + boundaryRadius(180f) + digitH * 0.4f, height - digitH * 1.6f)
             val liveUnits = readoutUnits()
-            if (live) ladderTapTop = yTop
+            // The ladder is tapped where the laps are, which on a screen
+            // face is still under the dial and not through the middle of
+            // the reading.
+            if (live) {
+                ladderTapTop =
+                    if (inside) min(cy + boundaryRadius(180f) + r * 0.05f, height - r * 0.2f)
+                    else yTop
+            }
+            // The unlit bars behind it, on the face that is a display.
+            // A screen you can only see the lit half of is a picture of a
+            // number; the ghost of the eight is what says it is a machine.
+            readoutGhosts = inside
             drawSevenSegment(canvas, it, cx, yTop, digitH, liveUnits)
+            readoutGhosts = false
 
             // A second, smaller row under the first, when something has
             // asked for one. On the countdown it is how long the thing has
@@ -4022,12 +4067,13 @@ class ClockView @JvmOverloads constructor(
             // because that is what it is: the same digits, smaller and
             // quieter, saying a second thing about the same run.
             secondReadout?.invoke()?.let { under ->
-                val underH = digitH * 0.62f
+                val underH = if (inside) r * 0.10f else digitH * 0.62f
                 val keep = digitalPaint.alpha
                 digitalPaint.alpha = 170
                 drawSevenSegment(
-                    canvas, formatDuration(under), cx, yTop + digitH * 1.28f, underH,
-                    unitsFor(under)
+                    canvas, formatDuration(under), cx,
+                    if (inside) cy + digitH * 0.72f else yTop + digitH * 1.28f,
+                    underH, unitsFor(under)
                 )
                 digitalPaint.alpha = keep
             }
@@ -4038,7 +4084,8 @@ class ClockView @JvmOverloads constructor(
                 // Newest lap first and largest, each older one a step
                 // smaller and fainter — a receding stack, which also means
                 // several more of them fit in the same strip.
-                var ghostY = yTop + digitH * 1.28f
+                var ghostY =
+                    if (inside) ladderTapTop + r * 0.06f else yTop + digitH * 1.28f
                 // The strip between the readout and the button row holds
                 // exactly seven rungs: with the step ratio fixed, the ladder
                 // is a geometric series, so the first rung is the strip
@@ -5772,7 +5819,27 @@ class ClockView @JvmOverloads constructor(
         units?.getOrNull(group)?.let { drawMark(it, x - gap * 0.55f) }
     }
 
+    /**
+     * Whether the readout draws its unlit bars. Only the face that is a
+     * display does; on a dial the row is a caption and a caption with
+     * grey eights behind it is a smudge.
+     */
+    private var readoutGhosts = false
+
     private fun drawSegments(canvas: Canvas, bits: Int, x: Float, y: Float, w: Float, h: Float) {
+        if (readoutGhosts) {
+            val keep = digitalPaint.alpha
+            val keptColour = digitalPaint.color
+            digitalPaint.color = theme.minorTick
+            digitalPaint.alpha = (keep * 0.16f).toInt().coerceAtLeast(20)
+            drawLitSegments(canvas, bits.inv(), x, y, w, h)
+            digitalPaint.color = keptColour
+            digitalPaint.alpha = keep
+        }
+        drawLitSegments(canvas, bits, x, y, w, h)
+    }
+
+    private fun drawLitSegments(canvas: Canvas, bits: Int, x: Float, y: Float, w: Float, h: Float) {
         val s = digitalPaint.strokeWidth * 0.8f
         val mid = y + h / 2f
         // The bits are [Segments]'s, which is the only table of them left

@@ -44,7 +44,10 @@
                 android:textSize="13sp"
                 android:visibility="gone" />
 
+            <!-- Keyed so it can go with its switch on a face that has no
+                 dial to show alarms on. -->
             <TextView
+                android:id="@+id/alarm_markers_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="8dp"

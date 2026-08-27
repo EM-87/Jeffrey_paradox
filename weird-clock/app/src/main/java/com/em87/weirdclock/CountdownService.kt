@@ -152,6 +152,14 @@ class CountdownService : Service() {
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
         val density = resources.displayMetrics.density
         val view = HourglassView(this).apply {
+            // The last hourglass left on a face that has not got one: the
+            // card went, the button to it went, and the thing that floats
+            // over other apps went on pouring sand.
+            lcd = !Face.of(
+                androidx.preference.PreferenceManager.getDefaultSharedPreferences(
+                    this@CountdownService
+                )
+            ).hands
             totalMs = this@CountdownService.totalMs
             theme = ClockThemes.resolve(this@CountdownService, prefs.getString(Prefs.THEME, "midnight"))
         }

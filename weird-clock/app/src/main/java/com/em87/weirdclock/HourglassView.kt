@@ -30,6 +30,23 @@ class HourglassView @JvmOverloads constructor(
     var live = false
 
     /**
+     * A screen in a case instead of sand in a glass.
+     *
+     * The floating countdown was the last hourglass left on a face that
+     * has not got one: the card was gone, the button to it was gone, and
+     * the thing that floats over other apps went on pouring sand. Same
+     * panel, same colours, same drag — a display where the glass was.
+     */
+    var lcd = false
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
+    private val segments = SegmentPainter().apply { thickness = 0.09f }
+
+    /**
      * The panel the glass stands on.
      *
      * The theme's own face, not a hardcoded near-black. It was
@@ -60,6 +77,11 @@ class HourglassView @JvmOverloads constructor(
         backgroundPaint.color = theme.face
         backgroundPaint.alpha = 0xCC
         canvas.drawRoundRect(RectF(0f, 0f, w, h), w * 0.16f, w * 0.16f, backgroundPaint)
+
+        if (lcd) {
+            drawScreen(canvas, w, h)
+            return
+        }
 
         val glassTop = h * 0.10f
         val glassBottom = h * 0.72f
@@ -133,14 +155,68 @@ class HourglassView @JvmOverloads constructor(
         // Remaining time.
         textPaint.color = theme.tick
         textPaint.textSize = h * 0.14f
+        canvas.drawText(label(), cx, h * 0.93f, textPaint)
+
+        if (live && remainingMs > 0L) postInvalidateDelayed(250L)
+    }
+
+    /** What is left, written the way a stopwatch writes it. */
+    private fun label(): String {
         val total = remainingMs / 1000L
-        val text = if (total >= 3600L) {
+        return if (total >= 3600L) {
             String.format(Locale.US, "%d:%02d:%02d", total / 3600, total / 60 % 60, total % 60)
         } else {
             String.format(Locale.US, "%02d:%02d", total / 60, total % 60)
         }
-        canvas.drawText(text, cx, h * 0.93f, textPaint)
+    }
 
-        if (live && remainingMs > 0L) postInvalidateDelayed(250L)
+    /**
+     * The floating countdown, for a clock with no glass in it.
+     *
+     * Two rows, because that is what the small screen has room for: the
+     * time left, big, and nothing else. The unlit bars are drawn behind
+     * it — over a wallpaper, at this size, that faint eight is most of
+     * what says the thing is a readout rather than a label.
+     */
+    private fun drawScreen(canvas: Canvas, w: Float, h: Float) {
+        val text = label()
+        val masks = Segments.spell(Segments.Kind.SEVEN, text.filter { it.isDigit() })
+        if (masks.isEmpty()) return
+        val room = w * 0.84f
+        val cellW = room / (masks.size * (1f + DIGIT_GAP) + COLON_CELLS)
+        val digitH = minOf(cellW / Segments.aspect(Segments.Kind.SEVEN), h * 0.46f)
+        val cell = digitH * Segments.aspect(Segments.Kind.SEVEN)
+        // The colon takes a third of a cell, so the row is the digits plus
+        // however many separators the label has in it.
+        val colons = text.count { !it.isDigit() }
+        val wide = cell * masks.size * (1f + DIGIT_GAP) + cell * COLON_W * colons
+        var x = (w - wide) / 2f
+        val top = (h - digitH) / 2f
+        var digit = 0
+        for (c in text) {
+            if (c.isDigit()) {
+                segments.row(
+                    canvas, Segments.Kind.SEVEN, intArrayOf(masks[digit]),
+                    x, top, cell, digitH, theme.decimal, theme.minorTick
+                )
+                digit++
+                x += cell * (1f + DIGIT_GAP)
+            } else {
+                sandPaint.color = theme.decimal
+                val dot = digitH * 0.075f
+                canvas.drawCircle(x + cell * COLON_W / 2f, top + digitH * 0.34f, dot, sandPaint)
+                canvas.drawCircle(x + cell * COLON_W / 2f, top + digitH * 0.70f, dot, sandPaint)
+                x += cell * COLON_W
+            }
+        }
+    }
+
+    private companion object {
+        /** How wide a separator is against a digit, and its share of the row. */
+        const val COLON_W = 0.40f
+        const val COLON_CELLS = 0.8f
+
+        /** Daylight between two digits, against a digit's own width. */
+        const val DIGIT_GAP = 0.18f
     }
 }

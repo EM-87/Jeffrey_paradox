@@ -201,6 +201,109 @@ class DigitalShotTest {
         }
     }
 
+    /**
+     * The two chronographs on the face with no hands.
+     *
+     * The case is the point: a digital chronograph is not a number on a
+     * background, it is the same instrument with a different movement in
+     * it — so the bezel, the crown and the two pushers have to still be
+     * there, and the picture is the only thing that can say whether they
+     * read as one object or as a screen with furniture round it.
+     */
+    @Test
+    fun `the chronographs with a screen in them`() {
+        for (card in listOf(Card.STOPWATCH, Card.REVERSE)) {
+            androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+                .edit().clear()
+                .putBoolean(Prefs.OVERLAY_ASKED, true)
+                .putBoolean(Prefs.FACE_ASKED, true)
+                .putString(Prefs.FACE, Face.DIGITAL.key)
+                .commit()
+            org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
+                c.setup()
+                c.get().goToForTest(card)
+                // The card that is leaving slides out rather than
+                // vanishing, so a picture taken in the same frame is a
+                // picture of the card we just left.
+                org.robolectric.shadows.ShadowSystemClock.advanceBy(
+                    java.time.Duration.ofMillis(600)
+                )
+                org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+                val screen = c.get().findViewById<View>(android.R.id.content)
+                screen.measure(
+                    View.MeasureSpec.makeMeasureSpec(screen.width, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(screen.height, View.MeasureSpec.EXACTLY)
+                )
+                screen.layout(0, 0, screen.width, screen.height)
+                val name = "digital-chrono-${card.name.lowercase()}"
+                assertTrue(name, shoot(screen, name) > 3)
+            }
+        }
+    }
+
+    /**
+     * The alarm card, on both faces.
+     *
+     * The row that says whether alarms wear little dials is not on the
+     * digital face's settings at all — a clock with no dial has no opinion
+     * about little dials — so the answer has to come from what the clock
+     * is, and this is the picture that says whether it did.
+     */
+    @Test
+    fun `the alarm card on a face with no dials`() {
+        for (face in Face.entries) {
+            androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+                .edit().clear()
+                .putBoolean(Prefs.OVERLAY_ASKED, true)
+                .putBoolean(Prefs.FACE_ASKED, true)
+                .putString(Prefs.FACE, face.key)
+                .commit()
+            AlarmStore.forget()
+            AlarmStore.all(context).apply {
+                clear()
+                add(Alarm(id = 1, hour = 7, minute = 30, enabled = true, sound = ""))
+                add(Alarm(id = 2, hour = 13, minute = 5, enabled = false, sound = ""))
+            }
+            AlarmStore.save(context)
+            org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
+                c.setup()
+                c.get().goToForTest(Card.ALARM)
+                org.robolectric.shadows.ShadowSystemClock.advanceBy(
+                    java.time.Duration.ofMillis(600)
+                )
+                org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+                val screen = c.get().findViewById<View>(android.R.id.content)
+                screen.measure(
+                    View.MeasureSpec.makeMeasureSpec(screen.width, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(screen.height, View.MeasureSpec.EXACTLY)
+                )
+                screen.layout(0, 0, screen.width, screen.height)
+                val name = "alarms-${face.key}"
+                assertTrue(name, shoot(screen, name) > 3)
+            }
+        }
+    }
+
+    /** The floating countdown, which was the last hourglass on this face. */
+    @Test
+    fun `the floating countdown with a screen in it`() {
+        for (lcd in listOf(false, true)) {
+            val view = HourglassView(context).apply {
+                theme = ClockThemes.MIDNIGHT
+                this.lcd = lcd
+                totalMs = 600_000L
+                remainingMs = 187_000L
+                measure(
+                    View.MeasureSpec.makeMeasureSpec(340, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(460, View.MeasureSpec.EXACTLY)
+                )
+                layout(0, 0, 340, 460)
+            }
+            val name = if (lcd) "float-screen" else "float-sand"
+            assertTrue(name, shoot(view, name) > 3)
+        }
+    }
+
     /** And the daylight theme, which is where a pale ghost bar shows up. */
     @Test
     fun `the same face in daylight`() {
