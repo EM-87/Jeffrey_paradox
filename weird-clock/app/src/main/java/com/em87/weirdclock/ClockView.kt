@@ -5763,7 +5763,7 @@ class ClockView @JvmOverloads constructor(
                 else -> {
                     val digit = c - '0'
                     if (digit in 0..9) {
-                        drawSegments(canvas, SEGMENT_BITS[digit], x, top, digitW, digitH)
+                        drawSegments(canvas, SegmentGlyphs.seven(digit), x, top, digitW, digitH)
                     }
                 }
             }
@@ -6239,10 +6239,5 @@ class ClockView @JvmOverloads constructor(
          * plus the last rung itself.
          */
         private const val LADDER_SPAN = 6.49f
-
-        private val SEGMENT_BITS = intArrayOf(
-            0b1111110, 0b0110000, 0b1101101, 0b1111001, 0b0110011,
-            0b1011011, 0b1011111, 0b1110000, 0b1111111, 0b1111011
-        )
     }
 }

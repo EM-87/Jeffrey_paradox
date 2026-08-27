@@ -103,6 +103,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private var calendarContainer: View? = null
     private var hourglassContainer: View? = null
+
+    /** The clock with no hands, on the faces that have one. */
+    private var digitalView: DigitalClockView? = null
     private var calendarView: CalendarPageView? = null
     private var s3Sand: SandHourglassView? = null
     private var s3DurationGroup: com.google.android.material.button.MaterialButtonToggleGroup? = null
@@ -1514,6 +1517,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // A knock hard enough to shed hands rattles the whole scene.
             it.onKnocked = { onDialKnocked() }
         }
+        digitalView = root.findViewById(R.id.digital_view)
         bubbleLayer = root.findViewById(R.id.bubble_layer)
         worldBubbles.layer = bubbleLayer
         modeButton = root.findViewById<ImageButton>(R.id.mode_button).also {
@@ -1608,6 +1612,19 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private fun takeAwayWhatThisFaceHasNot(root: View) {
         for (card in Card.entries - face.cards) containerOf(card)?.visibility = View.GONE
+        // One of the two clocks comes out of the card altogether — taken
+        // out rather than hidden, because a dial that is merely invisible
+        // still asks for a frame a second and still holds the
+        // accelerometer open waiting to be shaken. The object stays: the
+        // stopwatch, the calendar and the sand all take their styling off
+        // it, and a detached view answers those questions perfectly well.
+        if (face.hands) {
+            digitalView?.let { (it.parent as? ViewGroup)?.removeView(it) }
+            digitalView = null
+        } else {
+            digitalView?.visibility = View.VISIBLE
+            clockView?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        }
         // And the ways in. The hourglass is the only card with no second
         // door — the row of buttons on the clock names the other four — so
         // its button goes with it, rather than stranding a finger on a card
@@ -2049,6 +2066,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** For the tests: which card the pager and the row between them name. */
     internal fun showingCardForTest(): Card? = showingCard()
+
+    /** For the tests: the clock with no hands, when this face has one. */
+    internal fun digitalForTest(): DigitalClockView? = digitalView
+
+    /** For the tests: whether the dial is still in the layout at all. */
+    internal fun dialIsInTheCardForTest(): Boolean = clockView?.parent != null
 
     /** For the tests: the little world clocks floating over it. */
     internal fun worldClocksForTest(): List<ClockView> = worldBubbles.clocksForTest()
@@ -2893,6 +2916,31 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     // ------------------------------------------------------- preferences
 
+    /**
+     * The five questions the digits ask, and the two they share.
+     *
+     * Which numerals and how they are made are its own; whether the
+     * seconds are shown and whether it ticks are the dial's questions
+     * under different names — see [FaceOptions.titleFor] — so they are
+     * read from the same stored answers here.
+     */
+    private fun applyDigitalPreferences(theme: ClockTheme) {
+        val face = digitalView ?: return
+        face.theme = theme
+        face.style = DigitStyle.of(prefs.getString(Prefs.DIGIT_STYLE, null))
+        face.script = DigitScript.of(prefs.getString(Prefs.DIGIT_SCRIPT, null))
+        face.hour24 = prefs.getBoolean(Prefs.HOUR_24, true)
+        face.leadingZero = prefs.getBoolean(Prefs.LEADING_ZERO, true)
+        face.blinkColon = prefs.getBoolean(Prefs.BLINK_COLON, false)
+        face.showSeconds = prefs.getBoolean(Prefs.SECOND_HAND, true)
+        face.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
+        face.dateDayFirst = DateShape.dayFirst(
+            DateShape.order(prefs.getString(Prefs.DATE_ORDER, DateShape.AUTO)),
+            phoneWritesDayFirst()
+        )
+        face.yautja = Yautja.face(this)
+    }
+
     private fun applyPreferences() {
         TimeKeeper.setSpeedPercent(prefs.getInt(Prefs.TIME_SPEED, 100))
         applySolarTime()
@@ -2994,6 +3042,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 .putStringSet(Prefs.SELECTED_HOURS, hours.map { it.toString() }.toSet())
                 .apply()
         }
+        applyDigitalPreferences(cv.theme)
 
         worldBubbles.rebuild()
         worldBubbles.secondHands = prefs.getBoolean(Prefs.WORLD_SECONDS, true)
@@ -3379,7 +3428,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** Which dial a card shows, if it has one. */
     private fun dialOf(card: Card): ClockView? = when (card) {
-        Card.CLOCK -> clockView
+        // Null on a face with no dial, and it matters: the hand-over that
+        // carries one card's hands onto the next asks this, and a dial
+        // that is not on the screen has no hands to lend.
+        Card.CLOCK -> clockView.takeIf { face.hands }
         Card.STOPWATCH -> stopwatchClockView
         Card.REVERSE -> countdownClockView
         Card.HOURGLASS, Card.CALENDAR, Card.ALARM -> null

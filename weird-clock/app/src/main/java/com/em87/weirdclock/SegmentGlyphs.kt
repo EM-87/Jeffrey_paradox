@@ -26,6 +26,37 @@ package com.em87.weirdclock
  */
 object SegmentGlyphs {
 
+    // ------------------------------------------------- seven bars
+
+    /*
+     *      --a--
+     *     |     |
+     *     f     b
+     *     |     |
+     *      --g--
+     *     |     |
+     *     e     c
+     *     |     |
+     *      --d--
+     */
+    private val SEVEN = intArrayOf(
+        0b1111110, 0b0110000, 0b1101101, 0b1111001, 0b0110011,
+        0b1011011, 0b1011111, 0b1110000, 0b1111111, 0b1111011
+    )
+
+    /**
+     * The ten digits, ordered a(64) b(32) c(16) d(8) e(4) f(2) g(1).
+     *
+     * Written down once. This table was in three places — the dial's
+     * readout, the metronome, and then the digital face wanted it too —
+     * and three copies of a table is three chances to fix a `6` in two of
+     * them.
+     */
+    fun seven(digit: Int): Int = SEVEN[digit]
+
+    /** The same, for a character, or null if it is not a digit. */
+    fun seven(c: Char): Int? = if (c in '0'..'9') SEVEN[c - '0'] else null
+
     // ------------------------------------------------- sixteen bars
 
     /*
@@ -121,6 +152,13 @@ object SegmentGlyphs {
         'C' to (TOP or LEFT or FOOT),
         'D' to RING,
         'M' to (LEFT or RIGHT or H or J),
+        // Nulla \u2014 the word medieval computists wrote in the column where a
+        // Roman table needed a nothing, abbreviated to its initial. A clock
+        // has to write midnight and it has to write "and no minutes", and
+        // Rome left no numeral for either; N is the answer Rome's own
+        // arithmeticians reached for, which is a better one than leaving
+        // the space empty and letting it read as a display with a fault.
+        'N' to (LEFT or RIGHT or H or K),
         '\u00b7' to DOT
     )
 

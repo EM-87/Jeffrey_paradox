@@ -93,6 +93,92 @@ class DigitalFaceTest {
     }
 
     /**
+     * Only one of the two clocks is in the card, and the other is not
+     * there at all.
+     *
+     * Taken out rather than hidden. A dial that is merely invisible still
+     * asks for a frame a second and still holds the accelerometer open
+     * waiting to be shaken — which on the face that chose digits for
+     * simplicity is a whole mechanism running behind a wall.
+     */
+    @Test
+    fun `the face that is not being worn is not in the card`() {
+        settled(Face.DIGITAL)
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val app = c.get()
+            assertNotNull("there is no digital face on the digital face", app.digitalForTest())
+            assertFalse("the dial is still in the card", app.dialIsInTheCardForTest())
+        }
+        settled(Face.ANALOG)
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val app = c.get()
+            assertTrue("the dial went missing from the dial", app.dialIsInTheCardForTest())
+            assertNull("the digits are still in the card", app.digitalForTest())
+        }
+    }
+
+    /**
+     * The little world clocks are little dials, so they stay on the face
+     * that has one. Two clocks on one screen disagreeing about what kind of
+     * clock this is reads as a bug, whichever of them is right.
+     */
+    @Test
+    fun `no dials float over a screenful of digits`() {
+        settled(Face.DIGITAL)
+        prefs.edit()
+            .putBoolean(Prefs.WORLD_CLOCK, true)
+            .putStringSet(Prefs.WORLD_TZS, setOf("UTC", "Europe/Madrid"))
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            assertTrue(
+                "there are little dials on the digital face",
+                c.get().worldClocksForTest().isEmpty()
+            )
+        }
+        settled(Face.ANALOG)
+        prefs.edit()
+            .putBoolean(Prefs.WORLD_CLOCK, true)
+            .putStringSet(Prefs.WORLD_TZS, setOf("UTC", "Europe/Madrid"))
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            assertEquals(
+                "and the dial lost its own",
+                2, c.get().worldClocksForTest().size
+            )
+        }
+    }
+
+    /**
+     * The digits are told what the settings say, including the two
+     * questions the dial asks under other names.
+     */
+    @Test
+    fun `the digits are wearing what the settings chose`() {
+        settled(Face.DIGITAL)
+        prefs.edit()
+            .putString(Prefs.DIGIT_STYLE, Prefs.DIGITS_ROLLER)
+            .putString(Prefs.DIGIT_SCRIPT, Prefs.SCRIPT_ROMAN)
+            .putBoolean(Prefs.HOUR_24, false)
+            .putBoolean(Prefs.BLINK_COLON, true)
+            .putBoolean(Prefs.SECOND_HAND, false)
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val digits = c.get().digitalForTest()!!
+            assertEquals(DigitStyle.ROLLER, digits.style)
+            assertEquals(DigitScript.ROMAN, digits.script)
+            assertFalse(digits.hour24)
+            assertTrue(digits.blinkColon)
+            // The second hand's switch, which on this face is the seconds.
+            assertFalse("the seconds are still being counted", digits.showSeconds)
+        }
+    }
+
+    /**
      * The question is asked on the first run and the answer is acted on.
      *
      * Not written down until it is answered: a face the app picked on your

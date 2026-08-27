@@ -309,6 +309,8 @@ object Prefs {
     const val SNOOZE_LIMIT = "pref_snooze_limit"
 
     const val WORLD_CLOCK = "pref_world_clock"
+    /** The row that opens the city picker. */
+    const val WORLD_CITIES = "pref_world_cities"
     // Legacy single-city key, kept only for migration to WORLD_TZS.
     const val WORLD_TZ = "pref_world_tz"
     const val WORLD_TZS = "pref_world_tzs"

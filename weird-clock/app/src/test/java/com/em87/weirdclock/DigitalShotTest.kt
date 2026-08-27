@@ -1,0 +1,178 @@
+package com.em87.weirdclock
+
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.view.View
+import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+import java.io.File
+
+/**
+ * Pictures of the digital face, written to disk so somebody can look.
+ *
+ * A camera rather than a test — see [ScreenshotTest] — and here more than
+ * anywhere, because this face is nothing but drawing: three idioms times
+ * three alphabets is nine things that either look like a clock or look
+ * like a bug, and no assertion is going to tell the two apart.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33], qualifiers = "w411dp-h891dp-xxhdpi")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class DigitalShotTest {
+
+    private val context: android.content.Context
+        get() = ApplicationProvider.getApplicationContext()
+
+    private val outDir = File("build/screenshots").apply { mkdirs() }
+
+    /** A quarter past ten at night, which exercises every place at once. */
+    private fun atTwentyTwoFifteen(second: Int = 47): Long =
+        java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.AUGUST, 27, 22, 15, second)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+    private fun face(
+        style: DigitStyle,
+        script: DigitScript,
+        hour24: Boolean = true,
+        seconds: Boolean = true,
+        date: Boolean = true,
+        at: Long = atTwentyTwoFifteen()
+    ): DigitalClockView = DigitalClockView(context).apply {
+        theme = ClockThemes.MIDNIGHT
+        this.style = style
+        this.script = script
+        this.hour24 = hour24
+        showSeconds = seconds
+        showDate = date
+        yautja = Yautja.face(context)
+        atMs = at
+        measure(
+            View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(1400, View.MeasureSpec.EXACTLY)
+        )
+        layout(0, 0, 1080, 1400)
+    }
+
+    private fun shoot(view: View, name: String): Int {
+        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        view.draw(Canvas(bitmap))
+        File(outDir, "$name.png").outputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        val seen = HashSet<Int>()
+        var y = 0
+        while (y < view.height) {
+            var x = 0
+            while (x < view.width) {
+                seen.add(bitmap.getPixel(x, y))
+                x += 5
+            }
+            y += 5
+        }
+        return seen.size
+    }
+
+    @Test
+    fun `every idiom in every alphabet`() {
+        for (style in DigitStyle.entries) {
+            for (script in DigitScript.entries) {
+                val name = "digital-${style.key}-${script.key}"
+                assertTrue(name, shoot(face(style, script), name) > 3)
+            }
+        }
+    }
+
+    /** And the twelve-hour face, which is the one with a sun on it. */
+    @Test
+    fun `the twelve-hour face, morning and night`() {
+        val morning = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.AUGUST, 27, 9, 5, 0)
+        }.timeInMillis
+        assertTrue(
+            shoot(
+                face(DigitStyle.SEGMENT, DigitScript.ARABIC, hour24 = false, at = morning),
+                "digital-twelve-morning"
+            ) > 3
+        )
+        assertTrue(
+            shoot(
+                face(DigitStyle.SEGMENT, DigitScript.ARABIC, hour24 = false),
+                "digital-twelve-night"
+            ) > 3
+        )
+        assertTrue(
+            shoot(
+                face(DigitStyle.SEGMENT, DigitScript.ROMAN, hour24 = false, at = morning),
+                "digital-twelve-roman"
+            ) > 3
+        )
+    }
+
+    /** The plainest thing this face can be: hours and minutes, nothing else. */
+    @Test
+    fun `hours and minutes and nothing else`() {
+        assertTrue(
+            shoot(
+                face(DigitStyle.SEGMENT, DigitScript.ARABIC, seconds = false, date = false),
+                "digital-bare"
+            ) > 3
+        )
+    }
+
+    /** Midnight in Rome, which is the one with two noughts in it. */
+    @Test
+    fun `Rome at midnight`() {
+        val midnight = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.AUGUST, 27, 0, 0, 0)
+        }.timeInMillis
+        assertTrue(
+            shoot(
+                face(DigitStyle.SEGMENT, DigitScript.ROMAN, at = midnight),
+                "digital-rome-midnight"
+            ) > 3
+        )
+    }
+
+    /**
+     * And the whole card, which is the thing anybody actually looks at:
+     * the readout with the row of buttons under it and the gear on the
+     * corner, and the hourglass gone from between them.
+     */
+    @Test
+    fun `the card the digital clock arrives on`() {
+        for (style in DigitStyle.entries) {
+            androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+                .edit().clear()
+                .putBoolean(Prefs.OVERLAY_ASKED, true)
+                .putBoolean(Prefs.FACE_ASKED, true)
+                .putString(Prefs.FACE, Face.DIGITAL.key)
+                .putString(Prefs.DIGIT_STYLE, style.key)
+                .putBoolean(Prefs.SHOW_DATE, true)
+                .commit()
+            org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
+                c.setup()
+                val screen = c.get().findViewById<View>(android.R.id.content)
+                assertTrue(
+                    "digital-card-${style.key}",
+                    shoot(screen, "digital-card-whole-${style.key}") > 3
+                )
+            }
+        }
+    }
+
+    /** And the daylight theme, which is where a pale ghost bar shows up. */
+    @Test
+    fun `the same face in daylight`() {
+        val view = face(DigitStyle.SEGMENT, DigitScript.ARABIC).apply {
+            theme = ClockThemes.DAYLIGHT
+        }
+        assertTrue(shoot(view, "digital-daylight") > 3)
+    }
+}

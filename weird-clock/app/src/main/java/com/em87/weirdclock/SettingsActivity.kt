@@ -518,7 +518,7 @@ class SettingsActivity : AppCompatActivity() {
             // Hiding rather than grâce-and-grey, deliberately: a disabled
             // row still costs a line of scrolling and still has to be read
             // past to find out it is not the one you want.
-            follows(Prefs.WORLD_CLOCK, Prefs.WORLD_SECONDS, "pref_world_cities")
+            follows(Prefs.WORLD_CLOCK, Prefs.WORLD_SECONDS, Prefs.WORLD_CITIES)
             findPreference<Preference>("pref_version")?.summary = try {
                 val info = requireContext().packageManager
                     .getPackageInfo(requireContext().packageName, 0)
@@ -559,7 +559,7 @@ class SettingsActivity : AppCompatActivity() {
                     CycleSheet(requireActivity()) { }.show()
                     return true
                 }
-                "pref_world_cities" -> {
+                Prefs.WORLD_CITIES -> {
                     showCitiesDialog()
                     return true
                 }
@@ -624,7 +624,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         private fun updateCitiesSummary() {
-            findPreference<Preference>("pref_world_cities")?.summary =
+            findPreference<Preference>(Prefs.WORLD_CITIES)?.summary =
                 currentCities().joinToString(" · ") { cityName(it) }
                     .ifBlank { getString(R.string.world_add_city) }
         }

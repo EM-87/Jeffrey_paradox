@@ -216,7 +216,7 @@ class BpmView @JvmOverloads constructor(
                 canvas.drawLine(x + s, mid, x + digitW - s, mid, digitalPaint)
             } else {
                 val digit = c - '0'
-                if (digit in 0..9) drawSegments(canvas, SEGMENT_BITS[digit], x, top, digitW, digitH)
+                if (digit in 0..9) drawSegments(canvas, SegmentGlyphs.seven(digit), x, top, digitW, digitH)
             }
             x += digitW + gap
         }
@@ -237,9 +237,5 @@ class BpmView @JvmOverloads constructor(
     companion object {
         private const val RESET_GAP_MS = 2500L
         private const val MAX_SWING_DEG = 24.0
-        private val SEGMENT_BITS = intArrayOf(
-            0b1111110, 0b0110000, 0b1101101, 0b1111001, 0b0110011,
-            0b1011011, 0b1011111, 0b1110000, 0b1111111, 0b1111011
-        )
     }
 }

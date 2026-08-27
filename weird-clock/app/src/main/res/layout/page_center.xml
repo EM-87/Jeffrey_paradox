@@ -19,6 +19,17 @@
             android:layout_height="match_parent"
             android:padding="16dp" />
 
+        <!-- The same card with the digits in it. One of the two is taken
+             out of the layout at build time — see MainActivity — rather
+             than a second page holding a second copy of the settings
+             button, the button row and the banner, which are the card and
+             not the clock. -->
+        <com.em87.weirdclock.DigitalClockView
+            android:id="@+id/digital_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
         <!-- World-clock bubbles sit below the gear, which stays pressable. -->
         <FrameLayout
             android:id="@+id/bubble_layer"

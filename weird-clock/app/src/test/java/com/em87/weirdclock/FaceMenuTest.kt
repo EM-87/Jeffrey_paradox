@@ -99,7 +99,10 @@ class FaceMenuTest {
             Prefs.MINUTE_HAND, Prefs.SMOOTH_SECONDS, Prefs.FAST_HAND,
             Prefs.TOUCH_HANDS, Prefs.PINCH_ZOOM, Prefs.SHAKE_DROP,
             Prefs.ORRERY, Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC,
-            Prefs.ALARM_MARKERS, Prefs.MARK_COLORS, Prefs.ALARM_STYLE
+            Prefs.ALARM_MARKERS, Prefs.MARK_COLORS, Prefs.ALARM_STYLE,
+            // Little dials floating over a screenful of digits, until the
+            // digital face has bubbles of its own.
+            Prefs.WORLD_CLOCK, Prefs.WORLD_SECONDS, Prefs.WORLD_CITIES
         )) {
             assertFalse("$key is on a screenful of digits", key in digital)
         }
@@ -143,7 +146,7 @@ class FaceMenuTest {
             Prefs.THEME, Prefs.NIGHT_DIM, Prefs.NIGHT_WINDOW, Prefs.SHOW_DATE,
             Prefs.DATE_FORMAT, Prefs.DATE_ORDER, Prefs.CALENDAR_NUMERALS,
             Prefs.BELLS, Prefs.BELL_STYLE, Prefs.SECOND_HAND, Prefs.TICKING,
-            Prefs.WORLD_CLOCK, Prefs.ALARM_RAMP, Prefs.SOLAR_TIME
+            Prefs.ALARM_RAMP, Prefs.SOLAR_TIME
         )) {
             assertTrue("$key vanished from the dial", key in analog)
             assertTrue("$key vanished from the digits", key in digital)

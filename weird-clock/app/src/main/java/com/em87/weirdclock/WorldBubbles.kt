@@ -86,6 +86,11 @@ class WorldBubbles(
     internal fun clocksForTest(): List<ClockView> = bubbles.map { it.clock }
 
     private fun selectedWorldTzs(): List<String> {
+        // These are little dials, and little dials floating over a
+        // screenful of digits are two clocks disagreeing about what kind of
+        // clock this is. The face with no hands gets its own when it gets
+        // its own alarms — see [Face].
+        if (!Face.of(prefs).hands) return emptyList()
         if (!prefs.getBoolean(Prefs.WORLD_CLOCK, false)) return emptyList()
         val set = prefs.getStringSet(Prefs.WORLD_TZS, null)
         if (set != null) return set.toList().sorted()

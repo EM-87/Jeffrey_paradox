@@ -35,6 +35,19 @@ enum class Face(val key: String) {
      */
     DIGITAL("digital");
 
+    /**
+     * Whether the clock card is a dial with hands on it.
+     *
+     * A capability rather than "is it the analogue one", because it is
+     * about to have more than one false answer: a screenful of digits has
+     * no hands, and neither has a lit hemisphere, and the sundial has a
+     * shadow where the hands would be. Everything that only makes sense
+     * against a moving hand — knocking them off, grabbing one, carrying
+     * them from one card to the next — asks this.
+     */
+    val hands: Boolean
+        get() = this == ANALOG
+
     /** Which cards this face has. A card it cannot support is not there. */
     val cards: Set<Card>
         get() = when (this) {
@@ -95,7 +108,13 @@ object FaceOptions {
         Prefs.ZODIAC,
         Prefs.ALARM_MARKERS,
         Prefs.MARK_COLORS,
-        Prefs.ALARM_STYLE
+        Prefs.ALARM_STYLE,
+        // The world clock is here for now and not for ever: its bubbles
+        // are little dials, and until the face with no hands has little
+        // readouts of its own there is nothing honest to show on it.
+        Prefs.WORLD_CLOCK,
+        Prefs.WORLD_SECONDS,
+        Prefs.WORLD_CITIES
     )
 
     /** And the rows only a screenful of digits has. */
