@@ -535,6 +535,24 @@ class ClockView @JvmOverloads constructor(
      */
     private val scripts = DateScripts()
 
+    /**
+     * The face the century the sky is wound to writes its words in.
+     *
+     * Null everywhere but the far future, which means "the ordinary one" —
+     * the other eras' alphabets are drawn rather than typed, so a word in
+     * them is not something a typeface can do. This is the one era where
+     * the whole row, words included, can change together.
+     */
+    private fun eraFace(): android.graphics.Typeface? =
+        if (OrreryYear.scriptFor(SkyAge.yearOf(orreryMs())) == OrreryYear.Script.YAUTJA) {
+            Yautja.face(context)
+        } else {
+            null
+        }
+
+    /** For the tests: the face this century's words are written in. */
+    internal fun eraFaceForTest(): android.graphics.Typeface? = eraFace()
+
     /** What the writing needs to know about the frame it is being drawn on. */
     private fun scriptFrame(): DateScripts.Frame = DateScripts.Frame(
         digitalPaint, orreryMs(), dateDayFirst, width, Yautja.face(context)
@@ -1718,6 +1736,8 @@ class ClockView @JvmOverloads constructor(
             1f
         }
         bubbleTextPaint.textSize = r * 0.085f
+        // A name spoken in the voice of the century it is asked in.
+        bubbleTextPaint.typeface = if (orreryShowing()) eraFace() else null
         // The name on the first line and the note wrapped under it, because
         // a note is where the address and the room number go and neither
         // fits on one line beside a name.
@@ -5503,7 +5523,7 @@ class ClockView @JvmOverloads constructor(
             }
             digitalPaint.alpha = keep
             orreryCaption()?.let {
-                OrreryDial.drawCaption(canvas, cx, yTop + digitH * 1.45f, r, theme, it, fade)
+                OrreryDial.drawCaption(canvas, cx, yTop + digitH * 1.45f, r, theme, it, fade, eraFace())
             }
             return
         }
@@ -5531,7 +5551,7 @@ class ClockView @JvmOverloads constructor(
         }
         digitalPaint.alpha = keep
         orreryCaption()?.let {
-            OrreryDial.drawCaption(canvas, cx, yTop + digitH * 1.45f, r, theme, it, fade)
+            OrreryDial.drawCaption(canvas, cx, yTop + digitH * 1.45f, r, theme, it, fade, eraFace())
         }
     }
 

@@ -156,6 +156,39 @@ class OrreryYearTest {
         return seen
     }
 
+    /**
+     * The words beside the date change alphabet with it.
+     *
+     * You asked for the *texts* in the far-future script, not only the
+     * numbers, and for a long time only the numbers changed — the event
+     * caption under the dial and the little name bubble over a planet went
+     * on being written in ours. Half a display in one alphabet and half in
+     * another is the joke failing rather than landing.
+     *
+     * Only in that era. The other scripts on this dial are drawn glyph by
+     * glyph rather than typed, so a word in them is not something a
+     * typeface can do — and the honest thing there is what the ring already
+     * does with month names: say nothing rather than say it wrong.
+     */
+    @Test
+    fun `the words change alphabet with the date`() {
+        val controller = org.robolectric.Robolectric
+            .buildActivity(MainActivity::class.java).setup()
+        val clock = controller.get().clockForTest()
+        clock.toggleOrrery()
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(900))
+
+        clock.windOrreryToYearForTest(3400)
+        assertNotNull("the far future has no face to speak in", clock.eraFaceForTest())
+        for (year in listOf(2026, 1750, -1500)) {
+            clock.windOrreryToYearForTest(year)
+            assertNull(
+                "the year $year is being written in the far-future face",
+                clock.eraFaceForTest()
+            )
+        }
+    }
+
     /** The three eras, and the two years they change on. */
     @Test
     fun `the year changes alphabet at two thousand and at three thousand`() {

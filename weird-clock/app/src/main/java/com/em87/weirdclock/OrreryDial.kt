@@ -1306,11 +1306,19 @@ object OrreryDial {
         r: Float,
         theme: ClockTheme,
         caption: String,
-        alpha: Float
+        alpha: Float,
+        face: android.graphics.Typeface? = null
     ) {
         text.color = theme.numeral
         text.alpha = (170 * alpha.coerceIn(0f, 1f)).toInt()
         text.textSize = r * 0.062f
+        // In the voice of the century the sky is wound to. The date under
+        // the dial has changed alphabet with the year for a long time and
+        // the words beside it did not, which is half a display in one
+        // script and half in another — the same thing the months on the
+        // ring were doing.
+        text.typeface = face
         canvas.drawText(caption, cx, baselineY, text)
+        text.typeface = null
     }
 }
