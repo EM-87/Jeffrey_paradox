@@ -137,6 +137,17 @@ class DigitalFaceTest {
                 "there are little dials on the digital face",
                 c.get().worldClocksForTest().isEmpty()
             )
+            // And the cities are there all the same, as readouts. The
+            // point was never to take the world clock away.
+            assertEquals(
+                "the cities went missing with the dials",
+                2, c.get().worldReadoutsForTest().size
+            )
+            assertEquals(
+                "a readout is telling the wrong city's time",
+                setOf("UTC", "Europe/Madrid"),
+                c.get().worldReadoutsForTest().mapNotNull { it.zone?.id }.toSet()
+            )
         }
         settled(Face.ANALOG)
         prefs.edit()

@@ -304,6 +304,31 @@ class DigitalShotTest {
         }
     }
 
+    /**
+     * The world clock on the face with no hands: six little readouts
+     * floating over a big one, in the same idiom.
+     */
+    @Test
+    fun `the cities as little readouts`() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
+            .putString(Prefs.FACE, Face.DIGITAL.key)
+            .putBoolean(Prefs.WORLD_CLOCK, true)
+            .putStringSet(
+                Prefs.WORLD_TZS,
+                setOf("UTC", "Europe/Madrid", "America/New_York", "Asia/Tokyo")
+            )
+            .commit()
+        org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            val screen = c.get().findViewById<View>(android.R.id.content)
+            assertTrue("digital-world", shoot(screen, "digital-world") > 3)
+        }
+    }
+
     /** And the daylight theme, which is where a pale ghost bar shows up. */
     @Test
     fun `the same face in daylight`() {

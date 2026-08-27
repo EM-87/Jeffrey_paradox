@@ -102,7 +102,7 @@ class FaceMenuTest {
             Prefs.ALARM_MARKERS, Prefs.MARK_COLORS, Prefs.ALARM_STYLE,
             // Little dials floating over a screenful of digits, until the
             // digital face has bubbles of its own.
-            Prefs.WORLD_CLOCK, Prefs.WORLD_SECONDS, Prefs.WORLD_CITIES,
+            Prefs.WORLD_SECONDS,
             // A row that does nothing on this face: bars cannot spell
             // "August", and which numerals they are is the digits' own
             // question.
@@ -150,7 +150,10 @@ class FaceMenuTest {
             Prefs.THEME, Prefs.NIGHT_DIM, Prefs.NIGHT_WINDOW, Prefs.SHOW_DATE,
             Prefs.DATE_ORDER, Prefs.CALENDAR_NUMERALS,
             Prefs.BELLS, Prefs.BELL_STYLE, Prefs.SECOND_HAND, Prefs.TICKING,
-            Prefs.ALARM_RAMP, Prefs.SOLAR_TIME
+            Prefs.ALARM_RAMP, Prefs.SOLAR_TIME,
+            // The bubbles are readouts on the face with no hands, so the
+            // world clock itself is a question both faces can answer.
+            Prefs.WORLD_CLOCK, Prefs.WORLD_CITIES
         )) {
             assertTrue("$key vanished from the dial", key in analog)
             assertTrue("$key vanished from the digits", key in digital)

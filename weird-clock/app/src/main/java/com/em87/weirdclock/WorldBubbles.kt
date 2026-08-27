@@ -50,7 +50,16 @@ class WorldBubbles(
             value?.isMotionEventSplittingEnabled = true
         }
 
-    private inner class Bubble(val tzId: String, val view: View, val clock: ClockView) {
+    /**
+     * One floating city.
+     *
+     * [clock] is null on a face with no hands: the bubble is a readout
+     * there, and everything that only makes sense against a moving hand —
+     * seizing, running backwards, shedding a hand on a hard knock — has
+     * nothing to act on. The physics, the drag and the docking all work
+     * on [view] and never had an opinion about what was inside it.
+     */
+    private inner class Bubble(val tzId: String, val view: View, val clock: ClockView?) {
         var x = 0f
         var y = 0f
         var vx = 0f
@@ -83,14 +92,13 @@ class WorldBubbles(
     fun anyMoving(): Boolean = bubbles.any { it.moving }
 
     /** For the tests: the little dials themselves. */
-    internal fun clocksForTest(): List<ClockView> = bubbles.map { it.clock }
+    internal fun clocksForTest(): List<ClockView> = bubbles.mapNotNull { it.clock }
+
+    /** For the tests: the little readouts, on the face that has those. */
+    internal fun readoutsForTest(): List<DigitalClockView> =
+        bubbles.mapNotNull { it.view as? DigitalClockView }
 
     private fun selectedWorldTzs(): List<String> {
-        // These are little dials, and little dials floating over a
-        // screenful of digits are two clocks disagreeing about what kind of
-        // clock this is. The face with no hands gets its own when it gets
-        // its own alarms — see [Face].
-        if (!Face.of(prefs).hands) return emptyList()
         if (!prefs.getBoolean(Prefs.WORLD_CLOCK, false)) return emptyList()
         val set = prefs.getStringSet(Prefs.WORLD_TZS, null)
         if (set != null) return set.toList().sorted()
@@ -108,7 +116,29 @@ class WorldBubbles(
         bubbles.clear()
         val density = host.resources.displayMetrics.density
         val size = (108 * density).toInt()
+        val hands = Face.of(prefs).hands
         for (tz in tzs) {
+            val city = tz.substringAfterLast('/').replace('_', ' ')
+            if (!hands) {
+                // On a face with no hands a bubble is a small readout, in
+                // the same idiom the big one is drawn in: a dial floating
+                // over a screenful of digits is two clocks disagreeing
+                // about what kind of clock this is.
+                val panel = DigitalClockView(host).apply {
+                    zone = TimeZone.getTimeZone(tz)
+                    caption = city
+                    chip = true
+                    showSeconds = false
+                    showDate = false
+                    yautja = Yautja.face(host)
+                }
+                layer.addView(panel, FrameLayout.LayoutParams(size, size))
+                val floating = Bubble(tz, panel, null)
+                floating.sizePx = size.toFloat()
+                attachTouch(floating)
+                bubbles.add(floating)
+                continue
+            }
             val clock = ClockView(host).apply {
                 touchHandsEnabled = false
                 pinchZoomEnabled = false
@@ -121,7 +151,7 @@ class WorldBubbles(
                 showDigitalReadout = false
                 // The city rides inside the dial, where the date sits on the
                 // main clock — no caption hanging off the bubble.
-                dialLabel = tz.substringAfterLast('/').replace('_', ' ')
+                dialLabel = city
             }
             clock.timeZone = TimeZone.getTimeZone(tz)
             layer.addView(clock, FrameLayout.LayoutParams(size, size))
@@ -147,17 +177,41 @@ class WorldBubbles(
     var secondHands = true
         set(value) {
             field = value
-            for (b in bubbles) b.clock.showSecondHand = value
+            for (b in bubbles) b.clock?.showSecondHand = value
         }
+
+    /**
+     * What the little readouts are made of, on a face with no hands.
+     *
+     * Read from the same settings the big one uses rather than copied off
+     * it: the big face is not always there to copy from, and two clocks on
+     * one screen made of different digits is the thing this whole
+     * arrangement exists to avoid.
+     */
+    var digitStyle: DigitStyle = DigitStyle.SEGMENT
+    var digitScript: DigitScript = DigitScript.ARABIC
+    var hour24 = true
+    var segmentWeight = 0.055f
+    var segmentGhosts = true
 
     /** The bubbles wear whatever the main dial is wearing. */
     fun applyStyle(cv: ClockView) {
         for (b in bubbles) {
-            b.clock.theme = cv.theme
-            b.clock.hoursOnDial = cv.hoursOnDial
-            b.clock.dialShape = cv.dialShape
-            b.clock.numeralStyle = cv.numeralStyle
-            b.clock.showSecondHand = secondHands
+            val panel = b.view as? DigitalClockView
+            if (panel != null) {
+                panel.theme = cv.theme
+                panel.style = digitStyle
+                panel.script = digitScript
+                panel.hour24 = hour24
+                panel.weight = segmentWeight
+                panel.ghosts = segmentGhosts
+                continue
+            }
+            b.clock?.theme = cv.theme
+            b.clock?.hoursOnDial = cv.hoursOnDial
+            b.clock?.dialShape = cv.dialShape
+            b.clock?.numeralStyle = cv.numeralStyle
+            b.clock?.showSecondHand = secondHands
         }
     }
 
@@ -206,8 +260,8 @@ class WorldBubbles(
     fun seize(fraction: Float) {
         val count = (bubbles.size * fraction).toInt().coerceAtLeast(1)
         for (b in bubbles.shuffled().take(count)) {
-            if (b.clock.timeScale == 1f) {
-                b.clock.timeScale = if (Math.random() < 0.5) 0f else -1f
+            if (b.clock?.timeScale == 1f) {
+                b.clock?.timeScale = if (Math.random() < 0.5) 0f else -1f
             }
         }
     }
@@ -215,20 +269,20 @@ class WorldBubbles(
     /** A third of them lose their hands, as the main dial does. */
     fun knockSomeHandsOff() {
         for (b in bubbles.shuffled().take((bubbles.size + 2) / 3)) {
-            b.clock.knockHandsOff()
+            b.clock?.knockHandsOff()
         }
     }
 
     fun heal() {
         for (b in bubbles) {
-            b.clock.timeScale = 1f
+            b.clock?.timeScale = 1f
             b.damage.heal()
         }
     }
 
     /** The panic button reaches the bubbles' own fallen hands as well. */
     fun reassembleAll() {
-        for (b in bubbles) b.clock.reassembleAll()
+        for (b in bubbles) b.clock?.reassembleAll()
     }
 
     /**
@@ -408,10 +462,10 @@ class WorldBubbles(
      */
     private fun bruise(b: Bubble, force: Float) {
         when (b.damage.hit(abs(force), seizes = Math.random() < 0.5)) {
-            BubbleDamage.Effect.SEIZE -> b.clock.timeScale = 0f
-            BubbleDamage.Effect.REVERSE -> b.clock.timeScale = -1f
+            BubbleDamage.Effect.SEIZE -> b.clock?.timeScale = 0f
+            BubbleDamage.Effect.REVERSE -> b.clock?.timeScale = -1f
             BubbleDamage.Effect.BREAK ->
-                if (!b.clock.isDisarranged()) b.clock.knockHandsOff()
+                if (b.clock?.isDisarranged() == false) b.clock.knockHandsOff()
             null -> Unit
         }
     }
@@ -574,7 +628,7 @@ class WorldBubbles(
                 // feel only the phone. Cleared rather than left at whatever
                 // the last bounce was, or a settled bubble would go on
                 // pushing its own hands sideways for ever.
-                b.clock.setCarrierAcceleration(0f, 0f)
+                b.clock?.setCarrierAcceleration(0f, 0f)
                 continue
             }
             b.place()
@@ -589,7 +643,7 @@ class WorldBubbles(
                 .coerceIn(-CARRIER_MAX, CARRIER_MAX)
             val ay = (-(b.vy - b.prevVy) / dt * CARRIER_SHARE)
                 .coerceIn(-CARRIER_MAX, CARRIER_MAX)
-            b.clock.setCarrierAcceleration(ax, ay)
+            b.clock?.setCarrierAcceleration(ax, ay)
             b.prevVx = b.vx
             b.prevVy = b.vy
         }

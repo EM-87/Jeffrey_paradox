@@ -109,12 +109,11 @@ object FaceOptions {
         Prefs.ALARM_MARKERS,
         Prefs.MARK_COLORS,
         Prefs.ALARM_STYLE,
-        // The world clock is here for now and not for ever: its bubbles
-        // are little dials, and until the face with no hands has little
-        // readouts of its own there is nothing honest to show on it.
-        Prefs.WORLD_CLOCK,
+        // Six sweeping hands on six bubbles, on a face with no hands.
+        // The bubbles themselves are readouts now — see [WorldBubbles] —
+        // and a readout has no second hand to switch off, so this one row
+        // goes and the world clock stays.
         Prefs.WORLD_SECONDS,
-        Prefs.WORLD_CITIES,
         // How the date is spelled. On a screenful of digits that question
         // is already answered by which numerals the digits are — a display
         // made of bars cannot write "August" whatever this row says — so

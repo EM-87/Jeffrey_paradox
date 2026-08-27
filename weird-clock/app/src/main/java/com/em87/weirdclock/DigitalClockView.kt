@@ -103,6 +103,39 @@ class DigitalClockView @JvmOverloads constructor(
             invalidate()
         }
 
+    /**
+     * Which city's time this is, or the phone's own when nobody says.
+     *
+     * The little world clocks are readouts on this face rather than
+     * dials, and a readout that cannot be told which zone it is in is a
+     * readout that can only ever say one thing.
+     */
+    var zone: java.util.TimeZone? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** A city under the digits, on the readouts that carry one. */
+    var caption: String? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /**
+     * Draws a rounded panel behind the digits instead of filling the view.
+     *
+     * For a readout that floats over something else — a world-clock
+     * bubble, which has to read as an object lying on the clock and not
+     * as a hole cut in it.
+     */
+    var chip: Boolean = false
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     /** Their alphabet, when it is wanted and could be loaded. */
     var yautja: Typeface? = null
         set(value) {
@@ -268,6 +301,11 @@ class DigitalClockView @JvmOverloads constructor(
 
     private fun nowMs(): Long = atMs ?: TimeKeeper.nowMs()
 
+    /** A calendar in this readout's own zone, at the time it is showing. */
+    private fun calendar(): java.util.Calendar =
+        (zone?.let { java.util.Calendar.getInstance(it) } ?: java.util.Calendar.getInstance())
+            .apply { timeInMillis = nowMs() }
+
     private fun readout(): List<Cell> {
         settingMs?.let { ms ->
             val day = ((ms % DAY_MS) + DAY_MS) % DAY_MS
@@ -278,7 +316,7 @@ class DigitalClockView @JvmOverloads constructor(
                 options()
             )
         }
-        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = nowMs() }
+        val calendar = calendar()
         return DigitalReadout.time(
             calendar.get(java.util.Calendar.HOUR_OF_DAY),
             calendar.get(java.util.Calendar.MINUTE),
@@ -288,7 +326,7 @@ class DigitalClockView @JvmOverloads constructor(
     }
 
     private fun dateLine(): List<Cell> {
-        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = nowMs() }
+        val calendar = calendar()
         return DigitalReadout.date(
             calendar.get(java.util.Calendar.DAY_OF_MONTH),
             calendar.get(java.util.Calendar.MONTH) + 1,
@@ -368,8 +406,33 @@ class DigitalClockView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        canvas.drawColor(theme.face)
         if (width <= 0 || height <= 0) return
+        if (chip) {
+            // A panel and a rim. The fill alone is invisible: a bubble is
+            // the app's own face colour lying on the app's own background,
+            // and what makes it read as an object on top of the clock
+            // rather than a hole cut in it is the edge.
+            val inset = width * 0.02f
+            card.style = Paint.Style.FILL
+            card.color = theme.face
+            card.alpha = 0xE8
+            canvas.drawRoundRect(
+                inset, inset, width - inset, height - inset,
+                width * 0.18f, width * 0.18f, card
+            )
+            card.style = Paint.Style.STROKE
+            card.strokeWidth = width * 0.018f
+            card.color = theme.rim
+            card.alpha = 0xB0
+            canvas.drawRoundRect(
+                inset, inset, width - inset, height - inset,
+                width * 0.18f, width * 0.18f, card
+            )
+            card.style = Paint.Style.FILL
+            card.alpha = 255
+        } else {
+            canvas.drawColor(theme.face)
+        }
 
         laid.clear()
         grabs.clear()
@@ -397,12 +460,26 @@ class DigitalClockView @JvmOverloads constructor(
         // reads as one block, and centring the big row leaves the small one
         // hanging off the bottom of it.
         val dateH = if (date.isEmpty()) 0f else digitH * DATE_SCALE + digitH * DATE_GAP
-        val top = (height - digitH - dateH) / 2f
+        val said = caption
+        val capH = if (said == null) 0f else digitH * CAPTION_SCALE * 1.9f
+        val top = (height - digitH - dateH - capH) / 2f
         drawRow(canvas, cells, top, digitW, digitH, "t")
         if (date.isNotEmpty()) {
             drawRow(
                 canvas, date, top + digitH + digitH * DATE_GAP,
                 digitW * DATE_SCALE, digitH * DATE_SCALE, "d"
+            )
+        }
+        // The city rides under the digits, the way it rides inside the
+        // dial on the face that has one: a caption hanging off the bubble
+        // would make it two objects.
+        said?.let {
+            ink.typeface = PRINT
+            ink.color = theme.numeral
+            ink.textSize = digitH * CAPTION_SCALE
+            canvas.drawText(
+                it, width / 2f,
+                top + digitH + dateH + digitH * CAPTION_SCALE * 1.2f, ink
             )
         }
     }
@@ -1031,6 +1108,9 @@ class DigitalClockView @JvmOverloads constructor(
 
         /** And the tallest a digit may be, as a share of the face. */
         private const val TALLEST = 0.34f
+
+        /** How big the city under the digits is, against a digit. */
+        private const val CAPTION_SCALE = 0.30f
 
         /** The date's row, against the time's. */
         private const val DATE_SCALE = 0.34f

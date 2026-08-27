@@ -2109,6 +2109,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** For the tests: the little world clocks floating over it. */
     internal fun worldClocksForTest(): List<ClockView> = worldBubbles.clocksForTest()
 
+    /** For the tests: the same, on the face where they are readouts. */
+    internal fun worldReadoutsForTest(): List<DigitalClockView> = worldBubbles.readoutsForTest()
+
     /** For the tests: the bubbles themselves, to be told something directly. */
     internal fun worldBubblesForTest(): WorldBubbles = worldBubbles
 
@@ -3089,6 +3092,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
         applyDigitalPreferences(cv.theme)
 
+        // Told what the digits are made of before it is rebuilt, so a
+        // bubble is never born wearing last week's settings.
+        worldBubbles.digitStyle = DigitStyle.of(prefs.getString(Prefs.DIGIT_STYLE, null))
+        worldBubbles.digitScript = DigitScript.of(prefs.getString(Prefs.DIGIT_SCRIPT, null))
+        worldBubbles.hour24 = prefs.getBoolean(Prefs.HOUR_24, true)
+        worldBubbles.segmentWeight = digitalView?.weight ?: 0.055f
+        worldBubbles.segmentGhosts = prefs.getBoolean(Prefs.SEGMENT_GHOSTS, true)
         worldBubbles.rebuild()
         worldBubbles.secondHands = prefs.getBoolean(Prefs.WORLD_SECONDS, true)
         worldBubbles.applyStyle(cv)
