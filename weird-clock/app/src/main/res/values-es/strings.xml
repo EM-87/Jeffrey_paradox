@@ -438,4 +438,33 @@
     <string name="pref_zodiac_title">Zodiaco</string>
     <string name="pref_zodiac_summary">Los doce signos en el anillo del año, cada uno sobre los treinta grados de cielo que nombra. No se dibujan antes de que los babilonios partieran la eclíptica en doce, que es de donde vienen los signos.</string>
     <string name="alarm_skip_bubble">¿Solo %1$s? Toca para conservarla los demás días.</string>
+
+    <string name="pref_face_title">Tipo de reloj</string>
+    <string name="pref_face_summary">Agujas o dígitos. Decide de qué van las demás opciones, así que va la primera.</string>
+    <string name="face_ask_title">¿Qué reloj quieres?</string>
+    <string name="face_ask_message">Puedes cambiarlo luego en opciones, pero casi todo el mundo elige una vez y no vuelve a mirar.</string>
+    <string name="face_analog">Agujas</string>
+    <string name="face_digital">Dígitos</string>
+    <string name="pref_seconds_title">Segundos</string>
+    <string name="pref_ticking_digital_title">Tic-tac</string>
+    <string name="category_digits">Dígitos</string>
+    <string name="category_screen">Pantalla</string>
+    <string name="pref_digit_style_title">Cómo se forman los dígitos</string>
+    <string name="pref_digit_script_title">Numerales</string>
+    <string name="pref_hour_24_title">Veinticuatro horas</string>
+    <string name="pref_hour_24_summary">Desactivado: doce horas, con el sol o la luna al lado en vez de AM y PM</string>
+    <string name="pref_leading_zero_title">Cero delante</string>
+    <string name="pref_leading_zero_summary">09:05 en vez de 9:05</string>
+    <string name="pref_blink_colon_title">Dos puntos parpadeando</string>
+    <string name="pref_blink_colon_summary">Los dos puntos se apagan un segundo sí y otro no, como en un reloj barato</string>
+    <string-array name="digit_style_entries">
+        <item>Segmentos encendidos</item>
+        <item>Tarjetas</item>
+        <item>Ruedas</item>
+    </string-array>
+    <string-array name="digit_script_entries">
+        <item>Los nuestros (1, 2, 3…)</item>
+        <item>Los de Roma (I, II, III…)</item>
+        <item>Los suyos</item>
+    </string-array>
 </resources>

@@ -1,0 +1,162 @@
+package com.em87.weirdclock
+
+import androidx.preference.PreferenceManager
+import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.Robolectric
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+/**
+ * The app with the digits on, as far as the screen is concerned.
+ *
+ * The face is the one setting that changes what the app *is* rather than
+ * how it looks, so the things worth checking are the structural ones: that
+ * the cards it has not got are gone, that nothing on screen still offers to
+ * take you to one, and that the choice is asked for once and then never
+ * again.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33], qualifiers = "w411dp-h891dp-xxhdpi")
+class DigitalFaceTest {
+
+    private val context: android.content.Context
+        get() = ApplicationProvider.getApplicationContext()
+
+    private val prefs: android.content.SharedPreferences
+        get() = PreferenceManager.getDefaultSharedPreferences(context)
+
+    private fun settled(face: Face) {
+        prefs.edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
+            .putString(Prefs.FACE, face.key)
+            .commit()
+    }
+
+    /**
+     * The hourglass is sand in a glass, and there is no digital one — so
+     * the card is not merely hidden, there is no way to it.
+     *
+     * The button matters as much as the card. A hidden card with a live
+     * button pointing at it is the worse of the two failures: the finger
+     * lands, nothing happens, and the app looks broken rather than
+     * deliberate.
+     */
+    @Test
+    fun `there is no hourglass on a digital clock, nor a button to it`() {
+        settled(Face.DIGITAL)
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val app = c.get()
+            assertEquals(Face.DIGITAL, app.faceForTest())
+            // Asked for outright, which is the strongest form of the
+            // question: even told to go there, there is nothing to show.
+            app.goToForTest(Card.HOURGLASS)
+            assertFalse(
+                "the hourglass is on screen",
+                app.cardShowingForTest(Card.HOURGLASS)
+            )
+            // And the app did not go there anyway and land on an empty row,
+            // which is what "hide the card" on its own gets you: no
+            // hourglass, no clock, and a pager sitting on nothing.
+            assertEquals(
+                "the clock was left behind",
+                Card.CLOCK, app.showingCardForTest()
+            )
+            assertEquals(
+                "the button up to the hourglass is still there",
+                android.view.View.GONE, app.modeButtonForTest()?.visibility
+            )
+        }
+    }
+
+    /** And on a dial both are exactly where they have always been. */
+    @Test
+    fun `the dial still has its hourglass`() {
+        settled(Face.ANALOG)
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val app = c.get()
+            app.goToForTest(Card.HOURGLASS)
+            assertTrue("the hourglass went missing", app.cardShowingForTest(Card.HOURGLASS))
+            assertEquals(
+                android.view.View.VISIBLE, app.modeButtonForTest()?.visibility
+            )
+        }
+    }
+
+    /**
+     * The question is asked on the first run and the answer is acted on.
+     *
+     * Not written down until it is answered: a face the app picked on your
+     * behalf because a dialog was tapped through is the outcome the whole
+     * thing exists to avoid — so an unanswered question leaves no mark and
+     * comes back next time.
+     */
+    @Test
+    fun `the first run asks which clock this is`() {
+        prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            assertNotNull("nobody was asked anything", c.get().faceDialog)
+            assertFalse(
+                "the app answered for them",
+                prefs.getBoolean(Prefs.FACE_ASKED, false)
+            )
+            c.get().chooseFace(Face.DIGITAL)
+            assertTrue(prefs.getBoolean(Prefs.FACE_ASKED, false))
+            assertEquals(Face.DIGITAL, Face.of(prefs))
+        }
+    }
+
+    /** And only on the first run. */
+    @Test
+    fun `and never asks again`() {
+        settled(Face.ANALOG)
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            assertNull("asked twice", c.get().faceDialog)
+        }
+    }
+
+    /**
+     * A way in from outside that names a card this face has not got is
+     * swallowed rather than obeyed.
+     *
+     * The countdown notification and the sand widget both ask for "the
+     * timer", and what that means depends on which one was last looked at —
+     * a preference that can perfectly well say "the hourglass" on a phone
+     * whose face was changed since.
+     */
+    @Test
+    fun `a widget cannot send a digital clock to a card it has not got`() {
+        settled(Face.DIGITAL)
+        prefs.edit().putBoolean(Prefs.TIMER_ON_DIAL, false).commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            c.newIntent(
+                android.content.Intent(context, MainActivity::class.java)
+                    .putExtra(MainActivity.EXTRA_OPEN_TIMER, true)
+            )
+            val app = c.get()
+            assertFalse(
+                "the hourglass came up on a clock that has not got one",
+                app.cardShowingForTest(Card.HOURGLASS)
+            )
+            // And it landed on the timer this face does have, rather than
+            // swallowing the whole request and leaving somebody who tapped
+            // a notification looking at the clock.
+            assertEquals(
+                "the tap went nowhere",
+                Card.REVERSE, app.showingCardForTest()
+            )
+        }
+    }
+}

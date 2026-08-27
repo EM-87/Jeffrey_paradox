@@ -34,6 +34,7 @@ class CrownTest {
     fun wipe() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .commit()
     }
 
@@ -90,6 +91,7 @@ class CrownTest {
     fun `hammering the crown on a chronograph does not break it`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .commit()
         Robolectric.buildActivity(MainActivity::class.java).use { c ->
             c.setup()
@@ -266,6 +268,7 @@ class CrownTest {
     fun `reset clears the countdown`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .commit()
         Robolectric.buildActivity(MainActivity::class.java).use { c ->
             c.setup()
@@ -291,6 +294,7 @@ class CrownTest {
     fun `the crown puts the last countdown back`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .commit()
         Robolectric.buildActivity(MainActivity::class.java).use { c ->
             c.setup()
@@ -326,6 +330,7 @@ class CrownTest {
     fun `the crown puts back the length that was set, not what was left`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .commit()
         Robolectric.buildActivity(MainActivity::class.java).use { c ->
             c.setup()
@@ -431,6 +436,7 @@ class CrownTest {
     fun `pressing reset twice keeps the length`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .commit()
         Robolectric.buildActivity(MainActivity::class.java).use { c ->
             c.setup()

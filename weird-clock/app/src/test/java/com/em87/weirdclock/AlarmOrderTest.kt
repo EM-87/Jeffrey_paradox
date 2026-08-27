@@ -148,7 +148,8 @@ class AlarmOrderTest {
     @Test
     fun `the way back appears only on a list that has been arranged`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
-            .putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true).commit()
         val stored = AlarmStore.all(context)
         stored.clear()
         stored.addAll(listOfAlarms(7, 13, 22))
@@ -186,7 +187,8 @@ class AlarmOrderTest {
     @Test
     fun `a card being carried keeps its own size`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
-            .putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true).commit()
         val stored = AlarmStore.all(context)
         stored.clear()
         stored.addAll(listOfAlarms(7, 13, 22))

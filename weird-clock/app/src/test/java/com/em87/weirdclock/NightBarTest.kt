@@ -174,7 +174,10 @@ class NightBarTest {
     fun `the toolbox is only there when there is something to put back`() {
         androidx.preference.PreferenceManager.getDefaultSharedPreferences(
             ApplicationProvider.getApplicationContext<android.content.Context>()
-        ).edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+        ).edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
+            .commit()
 
         org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
             c.setup()
@@ -220,7 +223,11 @@ class NightBarTest {
             // them lives on the advanced page, which is why this list is
             // now short enough to read in one go.
             R.xml.root_preferences to setOf(
-                // Dial
+                // Which clock this is, above everything: it decides what
+                // the rest of these screens are even about.
+                "pref_face",
+                // Dial — keyed so its heading can be renamed with the face.
+                "cat_dial",
                 "pref_night_dim", "pref_theme", "pref_show_date",
                 // Alarm
                 "pref_bells", "pref_alarm_markers",
@@ -233,6 +240,7 @@ class NightBarTest {
                 "pref_advanced", "pref_very_advanced", "pref_version"
             ),
             R.xml.advanced_preferences to setOf(
+                "cat_dial",
                 "pref_numerals", "pref_dial_shape", "pref_hours_preset",
                 "pref_hours_custom", "pref_date_format", "pref_date_order",
                 "pref_mirror",
@@ -251,6 +259,10 @@ class NightBarTest {
                 "pref_moon_phase", "pref_comets", "pref_zodiac",
                 // The month page, which writes its days in its own numerals.
                 "pref_calendar_numerals", "pref_past_days",
+                // The digits' own settings, on the page only when the
+                // face is digital.
+                "pref_digit_style", "pref_digit_script", "pref_hour_24",
+                "pref_leading_zero", "pref_blink_colon",
                 "pref_alarm_ramp", "pref_ring_timeout",
                 "pref_countdown_persistent", "pref_alarm_style",
                 "pref_gentle_flash", "pref_mark_colors"

@@ -33,7 +33,8 @@ class NagTest {
     fun wipe() {
         // The first-run hourglass offer would otherwise be sitting on
         // screen in front of the dialog these tests are about.
-        prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+        prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true)
+                            .putBoolean(Prefs.FACE_ASKED, true).commit()
     }
 
     /**

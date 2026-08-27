@@ -140,7 +140,8 @@ class SkipOnceTest {
     @Test
     fun `turning it back on cancels the skip`() {
         androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
-            .edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+            .edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true)
+                           .putBoolean(Prefs.FACE_ASKED, true).commit()
         val list = AlarmStore.all(context)
         list.clear()
         list.add(daily(9).apply {
@@ -176,7 +177,8 @@ class SkipOnceTest {
     @Test
     fun `switching a repeating alarm off takes one flick and offers the rest`() {
         androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
-            .edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+            .edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true)
+                           .putBoolean(Prefs.FACE_ASKED, true).commit()
         val list = AlarmStore.all(context)
         list.clear()
         list.add(daily(9))
@@ -207,7 +209,8 @@ class SkipOnceTest {
     @Test
     fun `taking the offer keeps the alarm for the days after`() {
         androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
-            .edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+            .edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true)
+                           .putBoolean(Prefs.FACE_ASKED, true).commit()
         val list = AlarmStore.all(context)
         list.clear()
         list.add(daily(9))
@@ -242,6 +245,7 @@ class SkipOnceTest {
         androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
             .edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             // A store that has never been migrated has every dayless alarm
             // rewritten to "every day" on the way in — which is right, and
             // which quietly turned this one-shot into a repeating alarm and

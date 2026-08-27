@@ -40,6 +40,7 @@ class PhantomKnockTest {
     fun wipe() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .commit()
         Shadows.shadowOf(context.getSystemService(SensorManager::class.java))
             .addSensor(ShadowSensor.newInstance(Sensor.TYPE_ACCELEROMETER))

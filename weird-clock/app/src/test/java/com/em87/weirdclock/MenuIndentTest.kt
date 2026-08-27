@@ -39,6 +39,7 @@ class MenuIndentTest {
         // to be measured.
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .putBoolean(Prefs.BELLS, true)
             .putBoolean(Prefs.NIGHT_DIM, true)
             .putBoolean(Prefs.MOON_PHASE, true)

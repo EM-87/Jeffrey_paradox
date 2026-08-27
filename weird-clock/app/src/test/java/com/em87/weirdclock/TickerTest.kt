@@ -114,6 +114,7 @@ class TickerTest {
     fun `the planets silence the second hand`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .putBoolean(Prefs.TICKING, true)
             .putBoolean(Prefs.MOON_PHASE, true)
             .putBoolean(Prefs.ORRERY, true)
@@ -231,6 +232,7 @@ class TickerTest {
         for (night in listOf(false, true)) {
             PreferenceManager.getDefaultSharedPreferences(ctx).edit().clear()
                 .putBoolean(Prefs.OVERLAY_ASKED, true)
+                .putBoolean(Prefs.FACE_ASKED, true)
                 .putBoolean(Prefs.NIGHT_DIM, night)
                 // A window that starts on this very hour and runs for two,
                 // so it is night whenever this test happens to run. A

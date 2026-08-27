@@ -269,6 +269,63 @@ class SettingsActivity : AppCompatActivity() {
             view.alpha = if (on) 1f else fadedAlpha
         }
 
+        /**
+         * Takes off this screen every row the chosen face has no use for.
+         *
+         * Called by each screen before it does anything else, so the rest
+         * of a screen's set-up — the nesting, the fading, the conditional
+         * rows — only ever sees rows that are really there. A row removed
+         * here is gone rather than hidden: it is not a thing you might want
+         * later, it is a question this clock cannot be asked. There is no
+         * minute hand on a screenful of digits to switch off.
+         *
+         * The rule lives in [FaceOptions] and not here, and defaults to
+         * "both", so a third face means revisiting one table.
+         */
+        protected fun keepOnlyFor(face: Face) {
+            val screen = preferenceScreen ?: return
+            val doomed = ArrayList<Preference>()
+            fun walk(group: androidx.preference.PreferenceGroup) {
+                for (i in 0 until group.preferenceCount) {
+                    val row = group.getPreference(i)
+                    if (row is androidx.preference.PreferenceGroup) walk(row)
+                    val key = row.key
+                    if (key != null && !FaceOptions.shows(face, key)) doomed += row
+                }
+            }
+            walk(screen)
+            for (row in doomed) row.parent?.removePreference(row)
+            // And a category left with nothing in it is a heading over a
+            // hole, so it goes too.
+            val empty = ArrayList<androidx.preference.PreferenceGroup>()
+            for (i in 0 until screen.preferenceCount) {
+                val row = screen.getPreference(i)
+                if (row is androidx.preference.PreferenceGroup && row.preferenceCount == 0 &&
+                    row.title?.isNotEmpty() == true
+                ) {
+                    empty += row
+                }
+            }
+            for (row in empty) screen.removePreference(row)
+            // The rows that ask the same question on both faces answer to
+            // different names on each.
+            for (i in 0 until screen.preferenceCount) renameFor(face, screen.getPreference(i))
+        }
+
+        private fun renameFor(face: Face, row: Preference) {
+            if (row is androidx.preference.PreferenceGroup) {
+                for (i in 0 until row.preferenceCount) renameFor(face, row.getPreference(i))
+            }
+            val key = row.key ?: return
+            FaceOptions.titleFor(face, key)?.let { row.setTitle(it) }
+        }
+
+        /** The face this app is wearing, for the screens to build against. */
+        protected fun face(): Face {
+            val prefs = preferenceManager.sharedPreferences ?: return Face.ANALOG
+            return Face.of(prefs)
+        }
+
         /** For the tests: paints one row as the list would when it arrives. */
         internal fun paintRowForTest(view: android.view.View) = paintFaded(view)
 
@@ -441,6 +498,16 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
+            keepOnlyFor(face())
+            // Changing the face changes what every screen is *about*, so
+            // the screens are built again rather than edited in place.
+            // Without this the row above says "digits" while the fifty rows
+            // under it go on asking about hands until you back out and come
+            // in again.
+            findPreference<ListPreference>(Prefs.FACE)?.setOnPreferenceChangeListener { _, _ ->
+                view?.post { activity?.recreate() }
+                true
+            }
             updateCitiesSummary()
             updateBirthdaySummary()
             // A row whose answer only matters once another row is on does
@@ -650,6 +717,7 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.advanced_preferences, rootKey)
+            keepOnlyFor(face())
             // How a date is written is no question at all while the dial is
             // not showing one, and that switch lives on the first screen.
             visibleWhen(Prefs.SHOW_DATE, Prefs.DATE_FORMAT, Prefs.DATE_ORDER)
@@ -721,6 +789,7 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.very_advanced_preferences, rootKey)
+            keepOnlyFor(face())
 
             // Both of the second hand's refinements are questions about a
             // hand that may not be there.

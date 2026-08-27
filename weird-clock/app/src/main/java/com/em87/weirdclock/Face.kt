@@ -1,0 +1,137 @@
+package com.em87.weirdclock
+
+/**
+ * Which kind of clock this is.
+ *
+ * Not a skin. A face is a set of capabilities, and everything else follows
+ * from what the object physically is: a sundial cannot time a lap, cannot
+ * wake you and does not work at night; a globe's natural companion is the
+ * sky rather than a grid of days; a digital clock has no dial, so it has
+ * nowhere to put a sun to press and no hands to knock off.
+ *
+ * That is why this is an axis and not a switch. Two more faces are already
+ * wanted — the sundial, which would use the shadow engine that is already
+ * here, and a lit hemisphere — and the expensive mistake would be to write
+ * "is it digital" through the app and have to unpick it when the third one
+ * arrives. Each face says what it has; the menu, the cards and the gestures
+ * are read off that.
+ *
+ * Chosen once, at the first run, and rarely changed. Somebody who finds an
+ * analogue dial hard work sets it to digital and never opens the settings
+ * again — which is the whole reason the choice comes first.
+ */
+enum class Face(val key: String) {
+
+    /** The dial: hands, a case, and everything this app was built for. */
+    ANALOG("analog"),
+
+    /**
+     * Digits, full screen.
+     *
+     * It loses the hourglass, which is an analogue instrument; the solar
+     * system, because the glyph you press to open it lives on a dial; and
+     * everything about hands, cases and marks. What it keeps is what a
+     * person who chose it came for: the time, large, and an alarm.
+     */
+    DIGITAL("digital");
+
+    /** Which cards this face has. A card it cannot support is not there. */
+    val cards: Set<Card>
+        get() = when (this) {
+            ANALOG -> Card.entries.toSet()
+            // The hourglass is sand in a glass. There is no digital one.
+            DIGITAL -> Card.entries.toSet() - Card.HOURGLASS
+        }
+
+    companion object {
+
+        /** The face stored under [Prefs.FACE], or the dial if none is. */
+        fun of(prefs: android.content.SharedPreferences): Face {
+            val key = prefs.getString(Prefs.FACE, null)
+            return entries.firstOrNull { it.key == key } ?: ANALOG
+        }
+    }
+}
+
+/**
+ * Which settings belong to which face.
+ *
+ * One table, and the default is "both". That is the important half: a
+ * setting is common unless somebody says otherwise, so adding a face means
+ * revisiting this file and no other — rather than three lists of rows that
+ * can quietly disagree with each other and with the screens they describe.
+ *
+ * The rule for putting a key in here is not "does it look dial-shaped". It
+ * is whether the question still *means* anything on the other face. There
+ * is no minute hand to switch off on a digital clock, so that row is a row
+ * about nothing; but whether the seconds are shown is a real question on
+ * both, so it stays common and only its name changes.
+ */
+object FaceOptions {
+
+    /**
+     * The rows only a dial can answer, because they are about a dial:
+     * hands, a case, marks round a rim, and the sky behind it.
+     */
+    private val analogOnly = setOf(
+        Prefs.NUMERALS,
+        Prefs.DIAL_SHAPE,
+        Prefs.HOURS_PRESET,
+        Prefs.HOURS_CUSTOM,
+        Prefs.MIRROR,
+        Prefs.DIAL_MARKS,
+        Prefs.MINUTE_MARKS,
+        Prefs.HAND_SHADOWS,
+        Prefs.SHADOW_SURFACE,
+        Prefs.MINUTE_HAND,
+        Prefs.SMOOTH_SECONDS,
+        Prefs.FAST_HAND,
+        Prefs.TOUCH_HANDS,
+        Prefs.PINCH_ZOOM,
+        Prefs.SHAKE_DROP,
+        Prefs.ORRERY,
+        Prefs.MOON_PHASE,
+        Prefs.COMETS,
+        Prefs.ZODIAC,
+        Prefs.ALARM_MARKERS,
+        Prefs.MARK_COLORS,
+        Prefs.ALARM_STYLE
+    )
+
+    /** And the rows only a screenful of digits has. */
+    private val digitalOnly = setOf(
+        Prefs.DIGIT_STYLE,
+        Prefs.DIGIT_SCRIPT,
+        Prefs.HOUR_24,
+        Prefs.LEADING_ZERO,
+        Prefs.BLINK_COLON
+    )
+
+    /** Whether the row at [key] belongs on [face]'s screens. */
+    fun shows(face: Face, key: String): Boolean = when {
+        key in analogOnly -> face == Face.ANALOG
+        key in digitalOnly -> face == Face.DIGITAL
+        else -> true
+    }
+
+    /**
+     * The rows that ask the same question on both faces under different
+     * names, and what each face calls them.
+     *
+     * One stored answer, two names. Somebody who has turned the second hand
+     * off and then changes face finds the seconds already gone, which is
+     * what they asked for — the question was never about a hand, it was
+     * about whether this clock counts that far.
+     */
+    fun titleFor(face: Face, key: String): Int? = when {
+        key == Prefs.SECOND_HAND && face == Face.DIGITAL -> R.string.pref_seconds_title
+        key == Prefs.TICKING && face == Face.DIGITAL -> R.string.pref_ticking_digital_title
+        // Headings too. "Dial" over three rows that still apply is the app
+        // not having noticed which clock it is.
+        key == CAT_DIAL && face == Face.DIGITAL -> R.string.category_screen
+        else -> null
+    }
+
+    /** The heading whose rows outlive the dial they were named for. */
+    const val CAT_DIAL = "cat_dial"
+}

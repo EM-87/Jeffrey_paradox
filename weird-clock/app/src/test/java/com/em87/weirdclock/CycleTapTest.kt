@@ -101,6 +101,7 @@ class CycleTapTest {
     fun `a day tapped on the calendar is marked in the record`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .putBoolean(Prefs.CYCLE, true)
             .commit()
         org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
@@ -130,6 +131,7 @@ class CycleTapTest {
     fun `the day is painted as soon as it is marked`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .putBoolean(Prefs.CYCLE, true)
             .commit()
         org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->

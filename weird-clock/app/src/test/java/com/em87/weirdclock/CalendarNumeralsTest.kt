@@ -33,6 +33,7 @@ class CalendarNumeralsTest {
     fun wipe() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .commit()
     }
 

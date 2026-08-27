@@ -83,6 +83,7 @@ class ScreenshotTest {
     fun `the ring screen with a sum on it`() {
         prefs.edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .commit()
         val intent = android.content.Intent(context, AlarmRingActivity::class.java)
             .putExtra(AlarmScheduler.EXTRA_SNOOZE, 5)
@@ -104,6 +105,7 @@ class ScreenshotTest {
     fun `the ring screen with a sum, under the keyboard`() {
         prefs.edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .commit()
         val intent = android.content.Intent(context, AlarmRingActivity::class.java)
             .putExtra(AlarmScheduler.EXTRA_SNOOZE, 5)
@@ -128,6 +130,7 @@ class ScreenshotTest {
     fun `the ring screen counting shakes`() {
         prefs.edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .commit()
         org.robolectric.Shadows
             .shadowOf(context.getSystemService(android.hardware.SensorManager::class.java))
@@ -147,7 +150,8 @@ class ScreenshotTest {
     /** And the ordinary one, for comparison. */
     @Test
     fun `the ring screen as it has always been`() {
-        prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+        prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true)
+                            .putBoolean(Prefs.FACE_ASKED, true).commit()
         val intent = android.content.Intent(context, AlarmRingActivity::class.java)
             .putExtra(AlarmScheduler.EXTRA_SNOOZE, 5)
         Robolectric.buildActivity(AlarmRingActivity::class.java, intent).use { c ->
@@ -167,6 +171,7 @@ class ScreenshotTest {
     fun `every settings screen, top to bottom`() {
         prefs.edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .putBoolean(Prefs.BELLS, true)
             .putBoolean(Prefs.NIGHT_DIM, true)
             .commit()
@@ -216,7 +221,8 @@ class ScreenshotTest {
      */
     @Test
     fun `an alarm card with a sunrise and a mission on it`() {
-        prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+        prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true)
+                            .putBoolean(Prefs.FACE_ASKED, true).commit()
         AlarmStore.forget()
         AlarmStore.all(context).add(
             Alarm(1, 7, 30, true, Prefs.ALARM_SOUND_BELLS).apply {

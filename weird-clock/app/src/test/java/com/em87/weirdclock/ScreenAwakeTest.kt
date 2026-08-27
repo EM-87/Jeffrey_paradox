@@ -42,6 +42,7 @@ class ScreenAwakeTest {
     fun wipe() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .commit()
     }
 
@@ -114,6 +115,7 @@ class ScreenAwakeTest {
     fun `the calendar is dimmed at night with everything else`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .putBoolean(Prefs.NIGHT_DIM, true)
             // Anchored on the hour this test is running in, and two hours
             // long. Zero to twenty-three looks like the whole day and is
@@ -143,7 +145,8 @@ class ScreenAwakeTest {
     @Test
     fun `the page behind the dial is dimmed too`() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+        prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true)
+                            .putBoolean(Prefs.FACE_ASKED, true).commit()
         val byDay = Robolectric.buildActivity(MainActivity::class.java).use { c ->
             c.setup()
             c.get().surroundColourForTest()

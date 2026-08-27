@@ -35,6 +35,7 @@ class FallenPiecesTest {
     fun wipe() {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
             .putBoolean(Prefs.SHOW_DATE, true)
             .putBoolean(Prefs.MOON_PHASE, true)
             .commit()

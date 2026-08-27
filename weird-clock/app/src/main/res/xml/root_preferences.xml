@@ -17,7 +17,23 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <PreferenceCategory android:title="@string/category_dial">
+    <!-- The first question, above every category, because it decides what
+         the categories are about. A person who finds a dial hard work sets
+         this to digits once and never opens the settings again. -->
+    <ListPreference
+        android:defaultValue="analog"
+        android:entries="@array/face_entries"
+        android:entryValues="@array/face_values"
+        android:key="pref_face"
+        android:summary="@string/pref_face_summary"
+        android:title="@string/pref_face_title" />
+
+    <!-- Keyed so the heading can be renamed with the face: a screenful of
+         digits has no dial, and a category called Dial over three rows
+         that still apply to it is the app failing to notice what it is. -->
+    <PreferenceCategory
+        android:key="cat_dial"
+        android:title="@string/category_dial">
 
         <SwitchPreferenceCompat
             android:defaultValue="false"

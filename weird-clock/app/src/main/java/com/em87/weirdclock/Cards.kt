@@ -58,14 +58,18 @@ object Cards {
     val HOME = Card.CLOCK
 
     /**
-     * What lies [direction] of [from], or null if nothing does.
+     * What lies [direction] of [from] on [face], or null if nothing does.
      *
      * Worked out from the addresses rather than written down as a table:
      * a table can disagree with the layout, and this cannot. The holes are
      * real — there is no card left of the stopwatch, and a swipe that way
      * has to be swallowed rather than carried out.
+     *
+     * The face is asked because it decides which cards exist at all: a
+     * digital clock has no hourglass, so above the clock is one more of
+     * those holes rather than a card that has to be hidden after the fact.
      */
-    fun neighbour(from: Card, direction: Direction): Card? {
+    fun neighbour(from: Card, direction: Direction, face: Face): Card? {
         val page = from.page + when (direction) {
             Direction.LEFT -> -1
             Direction.RIGHT -> 1
@@ -77,12 +81,12 @@ object Cards {
             else -> 0
         }
         if (row !in Row.entries.indices) return null
-        return Card.entries.firstOrNull { it.page == page && it.row.ordinal == row }
+        return face.cards.firstOrNull { it.page == page && it.row.ordinal == row }
     }
 
-    /** Which card of [row] is on [page], if that page has one. */
-    fun on(page: Int, row: Row): Card? =
-        Card.entries.firstOrNull { it.page == page && it.row == row }
+    /** Which card of [row] is on [page] for [face], if that page has one. */
+    fun on(page: Int, row: Row, face: Face): Card? =
+        face.cards.firstOrNull { it.page == page && it.row == row }
 
     /**
      * Where a card arriving in place of one in [from] comes from: -1 for

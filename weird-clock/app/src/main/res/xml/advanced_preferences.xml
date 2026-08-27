@@ -10,7 +10,50 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <PreferenceCategory android:title="@string/category_dial">
+    <!-- The digits' own settings. They are only on the page at all when
+         the face is digital — see [FaceOptions] — so they need no switch
+         of their own to hide behind. -->
+    <PreferenceCategory android:title="@string/category_digits">
+
+        <ListPreference
+            android:defaultValue="segment"
+            android:entries="@array/digit_style_entries"
+            android:entryValues="@array/digit_style_values"
+            android:key="pref_digit_style"
+            android:title="@string/pref_digit_style_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
+            android:defaultValue="arabic"
+            android:entries="@array/digit_script_entries"
+            android:entryValues="@array/digit_script_values"
+            android:key="pref_digit_script"
+            android:title="@string/pref_digit_script_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_hour_24"
+            android:summary="@string/pref_hour_24_summary"
+            android:title="@string/pref_hour_24_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_leading_zero"
+            android:summary="@string/pref_leading_zero_summary"
+            android:title="@string/pref_leading_zero_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_blink_colon"
+            android:summary="@string/pref_blink_colon_summary"
+            android:title="@string/pref_blink_colon_title" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:key="cat_dial"
+        android:title="@string/category_dial">
 
         <ListPreference
             android:defaultValue="arabic"

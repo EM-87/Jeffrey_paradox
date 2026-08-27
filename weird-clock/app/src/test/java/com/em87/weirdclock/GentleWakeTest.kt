@@ -30,7 +30,8 @@ class GentleWakeTest {
 
     @Before
     fun wipe() {
-        prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true).commit()
+        prefs.edit().clear().putBoolean(Prefs.OVERLAY_ASKED, true)
+                            .putBoolean(Prefs.FACE_ASKED, true).commit()
     }
 
     /**

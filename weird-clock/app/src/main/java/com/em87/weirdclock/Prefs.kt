@@ -1,6 +1,53 @@
 package com.em87.weirdclock
 
 object Prefs {
+    /**
+     * Which kind of clock this is — see [Face].
+     *
+     * The first question the app asks and, for most people, the last: it
+     * decides what the other fifty settings are *about*. Not a switch but
+     * an axis, because two more faces are already wanted.
+     */
+    const val FACE = "pref_face"
+
+    /**
+     * Whether the face has been chosen at all.
+     *
+     * Separate from [FACE] rather than read as "is it unset", because a
+     * face that defaults to the dial is not the same fact as a face
+     * somebody has picked. The first run has one question to ask and has
+     * to know whether it has been answered.
+     */
+    const val FACE_ASKED = "pref_face_asked"
+
+    /**
+     * How the digits are made: lit segments, flip cards, or rollers.
+     *
+     * A digital clock has no hands to grab, and two of these three are
+     * mechanisms you can put a finger on — a stack of cards is flicked and
+     * a wheel is turned. That is where the gesture for setting a time
+     * comes from; see [Prefs.DIGIT_STYLE]'s use in the setting rows.
+     */
+    const val DIGIT_STYLE = "pref_digit_style"
+    const val DIGITS_SEGMENT = "segment"
+    const val DIGITS_CARD = "card"
+    const val DIGITS_ROLLER = "roller"
+
+    /** Which numerals the digits are made of: ours, Rome's, or theirs. */
+    const val DIGIT_SCRIPT = "pref_digit_script"
+    const val SCRIPT_ARABIC = "arabic"
+    const val SCRIPT_ROMAN = "roman"
+    const val SCRIPT_YAUTJA = "yautja"
+
+    /** Twenty-four hours, or twelve with the sun and the moon beside them. */
+    const val HOUR_24 = "pref_hour_24"
+
+    /** Whether a single-figure hour is written with a nought in front. */
+    const val LEADING_ZERO = "pref_leading_zero"
+
+    /** Whether the colon blinks with the seconds, as a cheap clock's does. */
+    const val BLINK_COLON = "pref_blink_colon"
+
     const val HOURS_PRESET = "pref_hours_preset"
     const val HOURS_CUSTOM = "pref_hours_custom"
     const val NUMERALS = "pref_numerals"

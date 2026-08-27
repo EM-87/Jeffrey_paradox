@@ -214,8 +214,19 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private var row = Cards.HOME.row
 
+    /**
+     * Which kind of clock this is, read once when the screen is built.
+     *
+     * Held rather than looked up because it decides how the screen is put
+     * together — which cards exist, what the middle one draws — and a
+     * question asked while the answer is changing underneath gets two
+     * different replies in one frame. Changing it in the settings rebuilds
+     * the screen; see [onResume].
+     */
+    private var face = Face.ANALOG
+
     /** The card on screen: the row says which of the page's cards it is. */
-    private fun current(): Card? = Cards.on(pager.currentItem, row)
+    private fun current(): Card? = Cards.on(pager.currentItem, row, face)
     /**
      * The two chronographs, as arithmetic rather than as seven loose
      * fields and a line of it repeated wherever a number was wanted.
@@ -675,6 +686,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         SystemChrome.paint(this)
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        face = Face.of(prefs)
         // The floating hourglass used to be a yes/no switch; it is now a
         // choice of two. Carry the old answer over once.
         if (!prefs.contains(Prefs.COUNTDOWN_FLOAT)) {
@@ -908,6 +920,67 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }.also { backOutOfSetMode = it })
 
         sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
+        // The one question the app asks before anything else, and only ever
+        // once. Everything below it is an introduction to a feature of a
+        // clock we have not decided on yet, so they wait their turn.
+        if (!askWhichFaceOnce()) settleInAfterTheFaceIsChosen()
+    }
+
+    /**
+     * First run only: which kind of clock this is going to be.
+     *
+     * Asked rather than defaulted, and asked first, because it is not a
+     * preference — it decides what the app is. Somebody who wants digits
+     * and is handed a dial has to find the settings, get past four screens
+     * of hands and marks, and know that the thing they want is in there at
+     * all; asking costs one tap and answers it.
+     *
+     * Not cancellable, and not written down until it is answered: a choice
+     * the app quietly made on your behalf because the screen was tapped
+     * through is exactly the outcome this exists to avoid. Killed before
+     * answering, it asks again.
+     *
+     * Returns true when the question is on screen, so the introductions
+     * that follow can wait for it.
+     */
+    private fun askWhichFaceOnce(): Boolean {
+        if (prefs.getBoolean(Prefs.FACE_ASKED, false)) return false
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.face_ask_title)
+            .setMessage(R.string.face_ask_message)
+            .setCancelable(false)
+            .setPositiveButton(R.string.face_analog) { _, _ -> chooseFace(Face.ANALOG) }
+            .setNegativeButton(R.string.face_digital) { _, _ -> chooseFace(Face.DIGITAL) }
+            .show()
+            .also { faceDialog = it }
+        return true
+    }
+
+    /** The first-run question, while it is on screen. */
+    internal var faceDialog: androidx.appcompat.app.AlertDialog? = null
+        private set
+
+    /**
+     * Writes down the answer to [askWhichFaceOnce] and acts on it.
+     *
+     * Rebuilding for the digital answer rather than switching the screen
+     * over in place: the cards are already built by then, and one of them
+     * is an hourglass that this face does not have.
+     */
+    internal fun chooseFace(chosen: Face) {
+        prefs.edit()
+            .putString(Prefs.FACE, chosen.key)
+            .putBoolean(Prefs.FACE_ASKED, true)
+            .apply()
+        if (chosen != face) {
+            recreate()
+            return
+        }
+        settleInAfterTheFaceIsChosen()
+    }
+
+    /** The introductions that only make sense once we know what we are. */
+    private fun settleInAfterTheFaceIsChosen() {
         maybeIntroduceFloatingHourglass()
         maybeWarnAboutExactAlarms()
     }
@@ -948,6 +1021,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * nobody would ever discover it exists.
      */
     private fun maybeIntroduceFloatingHourglass() {
+        // Nothing to introduce on a face that has no hourglass, and asking
+        // for a permission on behalf of something that is not there is how
+        // an app teaches people to say no to it.
+        if (Card.HOURGLASS !in face.cards) return
         if (prefs.getBoolean(Prefs.OVERLAY_ASKED, false)) return
         prefs.edit().putBoolean(Prefs.OVERLAY_ASKED, true).apply()
         if (android.provider.Settings.canDrawOverlays(this)) return
@@ -1035,6 +1112,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             return
         }
         lastUiMode = uiMode
+        // The face was changed in the settings while we were away. Rebuild
+        // for the same reason as above and a stronger one: this is not a
+        // repaint, it is a different instrument, with different cards and a
+        // different thing in the middle of the screen.
+        if (Face.of(prefs) != face) {
+            recreate()
+            return
+        }
         // The app is visible again: the notification takes a break, and we
         // pick up anything that happened to the countdown while away.
         CountdownService.stop(this)
@@ -1506,8 +1591,28 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 updateCountdownUi()
             }
         }
+        takeAwayWhatThisFaceHasNot(root)
         applyPreferences()
         applyRow(row)
+    }
+
+    /**
+     * Removes the cards this face does not have, and the ways to them.
+     *
+     * The page is inflated whole and then pruned, rather than laid out in
+     * two versions: one layout that always holds every card is one place to
+     * look when something is where it should not be, and the alternative is
+     * two files that drift apart. What has to be right is that a card the
+     * face has not got is gone *and* unreachable — a hidden card with a
+     * live button to it is worse than either.
+     */
+    private fun takeAwayWhatThisFaceHasNot(root: View) {
+        for (card in Card.entries - face.cards) containerOf(card)?.visibility = View.GONE
+        // And the ways in. The hourglass is the only card with no second
+        // door — the row of buttons on the clock names the other four — so
+        // its button goes with it, rather than stranding a finger on a card
+        // that is not there.
+        if (Card.HOURGLASS !in face.cards) modeButton?.visibility = View.GONE
     }
 
     /**
@@ -1539,7 +1644,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     /** Which card is on the glass right now, if the pager is on one. */
-    private fun showingCard(): Card? = Cards.on(pager.currentItem, row)
+    private fun showingCard(): Card? = Cards.on(pager.currentItem, row, face)
 
     /**
      * Remembers a dialog and the card it was opened from, so it can be
@@ -1928,6 +2033,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** For the tests: the main dial, so a picture can be taken of it. */
     internal fun clockForTest(): ClockView = clockView!!
+
+    /** For the tests: which face this screen was built for. */
+    internal fun faceForTest(): Face = face
+
+    /** For the tests: whether a card the face has not got is on the glass. */
+    internal fun cardShowingForTest(card: Card): Boolean =
+        containerOf(card)?.visibility == View.VISIBLE
+
+    /** For the tests: the button that goes up to the hourglass. */
+    internal fun modeButtonForTest(): View? = modeButton
+
+    /** For the tests: ask to go somewhere, and see whether the app agrees. */
+    internal fun goToForTest(card: Card) = goTo(card)
+
+    /** For the tests: which card the pager and the row between them name. */
+    internal fun showingCardForTest(): Card? = showingCard()
 
     /** For the tests: the little world clocks floating over it. */
     internal fun worldClocksForTest(): List<ClockView> = worldBubbles.clocksForTest()
@@ -3131,6 +3252,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** The centred bottom button goes up to the hourglass ⏳ and back 🕐. */
     private fun cycleMode() {
+        if (Card.HOURGLASS !in face.cards) return
         goTo(if (current() == Card.HOURGLASS) Card.CLOCK else Card.HOURGLASS)
     }
 
@@ -3142,8 +3264,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * widget, both landed on the sand even for somebody who only ever uses
      * the dial. It is written now, in [applyRow], as the rows are used.
      */
-    private fun timerCard(): Card =
-        if (prefs.getBoolean(Prefs.TIMER_ON_DIAL, false)) Card.REVERSE else Card.HOURGLASS
+    private fun timerCard(): Card = when {
+        // A face with no hourglass has one timer, and that is where every
+        // way in from outside lands, whatever was written down last.
+        Card.HOURGLASS !in face.cards -> Card.REVERSE
+        prefs.getBoolean(Prefs.TIMER_ON_DIAL, false) -> Card.REVERSE
+        else -> Card.HOURGLASS
+    }
 
     /**
      * Go to [card], however far away it is.
@@ -3158,6 +3285,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private fun goTo(card: Card, scroll: Boolean = true) {
         if (dialJob != null) return
+        // A widget, a notification or a shortcut can name a card this face
+        // has not got. There is nothing to show and nothing to animate, and
+        // going anyway left the pager on a page with a hidden card on it.
+        if (card !in face.cards) return
         closeSheetLeftBehind()
         handOverSource = visibleDial()
         val wasRow = row
@@ -3167,7 +3298,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // the page I have just arrived at", which on a diagonal names a
         // card that was never on screen at all — going to the countdown
         // brought the alarms up for one frame and then faded them away.
-        val leaving = Cards.on(wasPage, wasRow)
+        val leaving = Cards.on(wasPage, wasRow, face)
         row = card.row
         keepScreenAwake()
         val turning = card.row != wasRow
@@ -3214,7 +3345,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * app having missed it.
      */
     private fun swipeSideways(card: Card, fingerRight: Boolean): Boolean {
-        val there = Cards.neighbour(card, if (fingerRight) Direction.LEFT else Direction.RIGHT)
+        val there = Cards.neighbour(card, if (fingerRight) Direction.LEFT else Direction.RIGHT, face)
         if (there != null) goTo(there)
         return true
     }
@@ -3378,7 +3509,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // was built — which is why they used to be simply always there.
         // Which timer face was last looked at, so the notification and the
         // sand widget come back to the one actually in use.
-        Cards.on(pager.currentItem, row)?.let { here ->
+        Cards.on(pager.currentItem, row, face)?.let { here ->
             if (here == Card.REVERSE || here == Card.HOURGLASS) {
                 prefs.edit().putBoolean(Prefs.TIMER_ON_DIAL, here == Card.REVERSE).apply()
             }
@@ -3401,7 +3532,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // The card being left, when the hands are carrying the move and it
         // is not the pager that takes it away.
         val dissolving = leaving?.takeIf { handsCarryIt && it.row != row }
-        for (card in Card.entries) {
+        for (card in face.cards) {
             if (card == dissolving) continue
             // A card that is about to show gets its dial back: the last
             // time it was left, the dial was hidden out from under it.

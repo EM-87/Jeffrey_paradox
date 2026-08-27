@@ -533,4 +533,52 @@
     <!-- Offered on a bubble over the card after a repeating alarm is
          switched off, rather than asked before it is. -->
     <string name="alarm_skip_bubble">Just %1$s? Tap to keep it for the days after.</string>
+
+    <string name="pref_face_title">Kind of clock</string>
+    <string name="pref_face_summary">Hands, or digits. It decides what the rest of these settings are about, so it is the first one.</string>
+    <string name="face_ask_title">Which clock do you want?</string>
+    <string name="face_ask_message">You can change it later in the settings, but most people pick once and never look again.</string>
+    <string name="face_analog">Hands</string>
+    <string name="face_digital">Digits</string>
+    <string name="pref_seconds_title">Seconds</string>
+    <string name="pref_ticking_digital_title">Ticking</string>
+    <string name="category_digits">Digits</string>
+    <!-- What the Dial heading is called on a clock that has no dial. -->
+    <string name="category_screen">Screen</string>
+    <string name="pref_digit_style_title">How the digits are made</string>
+    <string name="pref_digit_script_title">Numerals</string>
+    <string name="pref_hour_24_title">Twenty-four hour</string>
+    <string name="pref_hour_24_summary">Off: twelve hours, with the sun or the moon beside them instead of AM and PM</string>
+    <string name="pref_leading_zero_title">Nought in front</string>
+    <string name="pref_leading_zero_summary">09:05 rather than 9:05</string>
+    <string name="pref_blink_colon_title">Blinking colon</string>
+    <string name="pref_blink_colon_summary">The two dots go out on every other second, the way a cheap clock\'s do</string>
+    <string-array name="face_entries">
+        <item>@string/face_analog</item>
+        <item>@string/face_digital</item>
+    </string-array>
+    <string-array name="face_values" translatable="false">
+        <item>analog</item>
+        <item>digital</item>
+    </string-array>
+    <string-array name="digit_style_entries">
+        <item>Lit segments</item>
+        <item>Flip cards</item>
+        <item>Rollers</item>
+    </string-array>
+    <string-array name="digit_style_values" translatable="false">
+        <item>segment</item>
+        <item>card</item>
+        <item>roller</item>
+    </string-array>
+    <string-array name="digit_script_entries">
+        <item>Ours (1, 2, 3…)</item>
+        <item>Rome\'s (I, II, III…)</item>
+        <item>Theirs</item>
+    </string-array>
+    <string-array name="digit_script_values" translatable="false">
+        <item>arabic</item>
+        <item>roman</item>
+        <item>yautja</item>
+    </string-array>
 </resources>
