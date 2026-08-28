@@ -537,8 +537,8 @@ class AlarmCards(
             showSeconds = false
             showDate = false
             theme = dialTheme()
-            style = DigitStyle.of(prefs.getString(Prefs.DIGIT_STYLE, null))
             script = DigitScript.of(prefs.getString(Prefs.DIGIT_SCRIPT, null))
+            style = DigitStyle.of(prefs.getString(Prefs.DIGIT_STYLE, null), script)
             hour24 = prefs.getBoolean(Prefs.HOUR_24, true)
             ghosts = prefs.getBoolean(Prefs.SEGMENT_GHOSTS, true)
             yautja = Yautja.face(host)

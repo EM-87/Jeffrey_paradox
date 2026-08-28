@@ -1,24 +1,26 @@
 package com.em87.weirdclock
 
 /**
- * Three displays, described once.
+ * Four displays, described once.
  *
  * Every number this app shows without hands goes through one of these:
- * seven bars for ours, the module below for Rome's, and a pair of stacked
- * stars for theirs. They are described here as topology — where each bar
- * runs inside a unit box, and which bars each character lights — and drawn
- * by [SegmentPainter], so a shape can be counted and compared without a
- * screen and so there is one place where a `V` is wrong rather than four.
+ * seven bars for ours, the module below for Rome's, a pair of stacked stars
+ * for theirs, and a calculator's nine. They are described here as topology
+ * — where each bar runs inside a unit box, and which bars each character
+ * lights — and drawn by [SegmentPainter], so a shape can be counted and
+ * compared without a screen and so there is one place where a `V` is wrong
+ * rather than four.
  *
- * The alphabets are not inventions. The Roman module is a drawing the
- * owner of this app made and handed over; the alien numerals are read off
- * a chart of the same provenance. Both were reconstructed here once from
- * memory and both came out subtly wrong in the way reconstructions do —
- * the `V` in particular, which is the reason this file exists.
+ * The alphabets are not inventions. Three of the four came out of drawings
+ * the owner of this app handed over, and the fourth off a chart of the same
+ * provenance. Two were reconstructed here from memory first and both came
+ * out subtly wrong in the way reconstructions do — the `V` in particular,
+ * which is the reason this file exists. Nothing in here is drawn from
+ * memory now.
  */
 object Segments {
 
-    /** Which of the three displays a character is going on. */
+    /** Which of the four displays a character is going on. */
     enum class Kind {
 
         /** Seven bars. Ten digits, and nothing else. */
@@ -56,7 +58,35 @@ object Segments {
          * not be poked, and could not be made thicker or thinner. A font
          * is a picture of a display; this is the display.
          */
-        STAR
+        STAR,
+
+        /**
+         * The Sharp Comet's nine, copied from the drawing.
+         *
+         * A calculator display from 1964, and the only one of the four
+         * that somebody sat down and *designed*. Seven bars is what falls
+         * out of drawing a figure eight with the fewest straight lines;
+         * this is what happens when the same problem is handed to a
+         * draughtsman who wants the numbers to look like numbers.
+         *
+         * The nine are a rail top and bottom, four arms into the corners,
+         * two stems up the middle, and a short dash at the waist. Three
+         * things about it are not what a seven-bar eye expects, and all
+         * three are the point of it:
+         *
+         *  - It leans, and every piece of it is a calligraphic stroke —
+         *    thin at the tips, fat in the belly, hooked at the ends. Not
+         *    one of the nine is a rectangle.
+         *  - There is no middle rail. A `2` runs its top-right arm into
+         *    its bottom-left one and they meet in the centre on their own.
+         *    The waist dash only fills the corner that crossing leaves
+         *    open, which is why it lights on `4`, `5`, `6`, `8` and `9`
+         *    and not on `2` or `3`.
+         *  - The `1` is a stroke up the middle rather than the two
+         *    right-hand bars, so it stands in its own cell instead of
+         *    leaning against the next digit.
+         */
+        NINE
     }
 
     // ------------------------------------------------------- seven bars
@@ -181,6 +211,59 @@ object Segments {
         UN or UE or UW or USE or USW or LNE or LE or LS or LNW   // 9
     )
 
+    // -------------------------------------------------- the Comet's nine
+
+    /*
+     *      ==ROOF==
+     *     /       /|
+     *  ARM_NW  STEM_UP  ARM_NE
+     *    /       /  |
+     *     ·     ·  -WAIST
+     *    /       /  |
+     *  ARM_SW STEM_DOWN ARM_SE
+     *   /       /    |
+     *    ==FLOOR==
+     *
+     * Leaning right, because the whole alphabet does.
+     */
+    const val ROOF = 1 shl 0
+    const val ARM_NW = 1 shl 1
+    const val STEM_UP = 1 shl 2
+    const val ARM_NE = 1 shl 3
+    const val WAIST = 1 shl 4
+    const val ARM_SW = 1 shl 5
+    const val STEM_DOWN = 1 shl 6
+    const val ARM_SE = 1 shl 7
+    const val FLOOR = 1 shl 8
+
+    /**
+     * The Comet's ten, read off the machine.
+     *
+     * Four of them were in the drawing already — it spells `12:43` in lit
+     * segments in one corner — and the owner of this app sent a photograph
+     * of the real tube counting `12345678` to settle the rest, which is
+     * the only reason `7` is an arm and a stem rather than the two
+     * right-hand arms a seven-bar display would use.
+     *
+     * The tell that this is the machine's table and not a translation of
+     * the seven-bar one: `2` and `3` light no waist, where every other
+     * display's `2` and `3` light their middle rail. They do not need it —
+     * their arms already cross the middle — and putting it in makes both
+     * of them read as an `8` with pieces missing.
+     */
+    private val COMET = intArrayOf(
+        ROOF or ARM_NW or ARM_NE or ARM_SW or ARM_SE or FLOOR,           // 0
+        STEM_UP or STEM_DOWN,                                            // 1
+        ROOF or ARM_NE or ARM_SW or FLOOR,                               // 2
+        ROOF or ARM_NE or ARM_SE or FLOOR,                               // 3
+        ARM_NW or ARM_NE or WAIST or STEM_DOWN,                          // 4
+        ROOF or ARM_NW or WAIST or ARM_SE or FLOOR,                      // 5
+        ROOF or ARM_NW or WAIST or ARM_SW or ARM_SE or FLOOR,            // 6
+        ROOF or ARM_NE or STEM_DOWN,                                     // 7
+        ROOF or ARM_NW or ARM_NE or WAIST or ARM_SW or ARM_SE or FLOOR,  // 8
+        ROOF or ARM_NW or ARM_NE or WAIST or ARM_SE or FLOOR             // 9
+    )
+
     // ------------------------------------------------------- the shapes
 
     /**
@@ -198,6 +281,13 @@ object Segments {
      * [SegmentPainter]. [joinsAt] says which ends run into a junction and
      * must overlap it rather than stop short: 0 neither, -1 the start, 1
      * the end, 2 both.
+     *
+     * [curved] says the outline bends, and so changes which way the
+     * thickness knob works on it: a bent bar is grown outwards from its
+     * own edges rather than away from the straight line between its ends,
+     * or the bend gets deeper instead of the metal getting thicker. Rome's
+     * bars are straight and take the simpler treatment; the Comet's are
+     * all bend.
      */
     class Bar(
         val bit: Int,
@@ -212,7 +302,8 @@ object Segments {
         val round: Boolean = false,
         val dot: Boolean = false,
         val radius: Float = 0f,
-        val outline: FloatArray? = null
+        val outline: FloatArray? = null,
+        val curved: Boolean = false
     )
 
     private val SEVEN_BARS = listOf(
@@ -265,12 +356,30 @@ object Segments {
      */
     fun native(kind: Kind): Float = when (kind) {
         Kind.SIXTEEN -> ROMAN_BAR
+        Kind.NINE -> COMET_BAR
         else -> 0.055f
+    }
+
+    /**
+     * How fat the dots of a separator are on [kind], across, as a share of
+     * a digit's height.
+     *
+     * A separate measurement from [native], because on the two displays
+     * that were drawn with one it is not the bar's thickness: Rome's dot
+     * is a third again as wide as its rails, and the Comet's colon is
+     * three pen widths across — a pair of round lamps beside a display of
+     * hairline strokes, which is what the drawing shows and what a colon
+     * made out of the bar's own width threw away.
+     */
+    fun separator(kind: Kind): Float = when (kind) {
+        Kind.SIXTEEN -> 0.1080f
+        Kind.NINE -> 0.1510f
+        else -> native(kind) * 1.6f
     }
 
     /** Whether [kind]'s bars have an exact shape to copy rather than a
      * sliver to make up. */
-    fun drawn(kind: Kind): Boolean = kind == Kind.SIXTEEN
+    fun drawn(kind: Kind): Boolean = kind == Kind.SIXTEEN || kind == Kind.NINE
 
     private val SIXTEEN_BARS = listOf(
         Bar(
@@ -355,6 +464,129 @@ object Segments {
         Bar(DOT, 0.764f, 0.5f, 0.764f, 0.5f, dot = true, radius = 0.0540f)
     )
 
+    /*
+     * The Comet's nine, copied out of the drawing the owner of this app
+     * handed over. The panel it came on has a bell on it, a SET label, and
+     * AM and PM — which is a clock's furniture and not a calculator's, so
+     * the drawing had already worked out what this display was for.
+     *
+     * Every vertex here is the file's. The curves in it are arcs, which a
+     * polygon cannot hold, so each one is walked at a step fine enough that
+     * it never sags more than a four-hundredth of a module — under a pixel
+     * at any size a phone will draw this at.
+     *
+     * Two measurements out of the same file:
+     *
+     *  - The module is 0.656 as wide as it is tall, and the digits sit on
+     *    a pitch a fifth wider than that. This is the one display here
+     *    with daylight between its cells and it needs it — see [gap].
+     *  - The pen is 0.032 of a module's height, measured across the waist
+     *    dash, which is the only piece of the nine that is a plain stadium
+     *    and the same width all the way along. Everything else tapers,
+     *    which is why the thickness knob has to grow these outwards
+     *    instead of measuring across them — see [SegmentPainter].
+     */
+    private const val COMET_BAR = 0.0320f
+
+    private val NINE_BARS = listOf(
+        Bar(
+            ROOF, 0.8812f, 0.0054f, 0.2475f, 0.0875f, curved = true,
+            outline = floatArrayOf(
+                0.5076f, 0.0000f, 0.4119f, 0.0092f, 0.3244f, 0.0360f,
+                0.2523f, 0.0782f, 0.2486f, 0.0826f, 0.2475f, 0.0875f,
+                0.2581f, 0.1135f, 0.2845f, 0.1340f, 0.3033f, 0.1361f,
+                0.3167f, 0.1273f, 0.3484f, 0.0852f, 0.3983f, 0.0516f,
+                0.4616f, 0.0297f, 0.5320f, 0.0216f, 0.8670f, 0.0216f,
+                0.8812f, 0.0162f, 0.8812f, 0.0054f, 0.8670f, 0.0000f
+            )
+        ),
+        Bar(
+            ARM_NW, 0.1858f, 0.1476f, 0.4994f, 0.5196f, curved = true,
+            outline = floatArrayOf(
+                0.4783f, 0.4956f, 0.3333f, 0.4956f, 0.2817f, 0.4855f,
+                0.2469f, 0.4586f, 0.2404f, 0.4235f, 0.2965f, 0.2066f,
+                0.2936f, 0.1897f, 0.2776f, 0.1763f, 0.2492f, 0.1604f,
+                0.2252f, 0.1416f, 0.2024f, 0.1359f, 0.1858f, 0.1476f,
+                0.1217f, 0.4144f, 0.1255f, 0.4563f, 0.1557f, 0.4933f,
+                0.2068f, 0.5187f, 0.2693f, 0.5276f, 0.4783f, 0.5276f,
+                0.4994f, 0.5196f, 0.4994f, 0.5036f
+            )
+        ),
+        Bar(
+            STEM_UP, 0.7597f, 0.0630f, 0.5230f, 0.4734f, curved = true,
+            outline = floatArrayOf(
+                0.6363f, 0.1162f, 0.5078f, 0.3795f, 0.4976f, 0.4191f,
+                0.5050f, 0.4590f, 0.5230f, 0.4734f, 0.5515f, 0.4739f,
+                0.5708f, 0.4603f, 0.6155f, 0.3724f, 0.6602f, 0.2846f,
+                0.7714f, 0.0946f, 0.7730f, 0.0776f, 0.7597f, 0.0630f,
+                0.7360f, 0.0560f, 0.6678f, 0.0587f, 0.6055f, 0.0769f,
+                0.5569f, 0.1084f, 0.5570f, 0.1124f, 0.5626f, 0.1136f,
+                0.5933f, 0.1088f, 0.6247f, 0.1064f, 0.6345f, 0.1093f
+            )
+        ),
+        Bar(
+            ARM_NE, 0.9598f, 0.0694f, 0.5884f, 0.4927f, curved = true,
+            outline = floatArrayOf(
+                0.9952f, 0.1266f, 0.9598f, 0.0694f, 0.9420f, 0.0583f,
+                0.9175f, 0.0595f, 0.9026f, 0.0722f, 0.8520f, 0.1818f,
+                0.7828f, 0.2869f, 0.6959f, 0.3862f, 0.5925f, 0.4784f,
+                0.5884f, 0.4927f, 0.6046f, 0.5025f, 0.6259f, 0.4987f,
+                0.7682f, 0.3969f, 0.8912f, 0.2849f, 0.9934f, 0.1642f,
+                1.0004f, 0.1455f
+            )
+        ),
+        Bar(
+            WAIST, 0.6940f, 0.5036f, 0.8808f, 0.5196f, curved = true,
+            outline = floatArrayOf(
+                0.8597f, 0.5276f, 0.8808f, 0.5196f, 0.8808f, 0.5036f,
+                0.8597f, 0.4956f, 0.7151f, 0.4956f, 0.6940f, 0.5036f,
+                0.6940f, 0.5196f, 0.7151f, 0.5276f
+            )
+        ),
+        Bar(
+            ARM_SW, 0.4462f, 0.5821f, 0.0567f, 0.8302f, curved = true,
+            outline = floatArrayOf(
+                0.4127f, 0.5736f, 0.2764f, 0.6481f, 0.1570f, 0.7342f,
+                0.0567f, 0.8302f, 0.1745f, 0.8302f, 0.2501f, 0.7457f,
+                0.3389f, 0.6670f, 0.4402f, 0.5950f, 0.4462f, 0.5821f,
+                0.4330f, 0.5719f
+            )
+        ),
+        Bar(
+            STEM_DOWN, 0.5135f, 0.6048f, 0.3154f, 0.9469f, curved = true,
+            outline = floatArrayOf(
+                0.4305f, 0.9469f, 0.5222f, 0.6219f, 0.5135f, 0.6048f,
+                0.4868f, 0.6006f, 0.4673f, 0.6132f, 0.3154f, 0.9469f
+            )
+        ),
+        Bar(
+            ARM_SE, 0.5497f, 0.5488f, 0.7900f, 0.8302f, curved = true,
+            outline = floatArrayOf(
+                0.7214f, 0.7479f, 0.7155f, 0.7722f, 0.7052f, 0.7959f,
+                0.6871f, 0.8302f, 0.7900f, 0.8302f, 0.7977f, 0.8195f,
+                0.8239f, 0.7614f, 0.8214f, 0.7008f, 0.7905f, 0.6436f,
+                0.7343f, 0.5955f, 0.6581f, 0.5611f, 0.5695f, 0.5438f,
+                0.5497f, 0.5488f, 0.5453f, 0.5625f, 0.5604f, 0.5723f,
+                0.6226f, 0.5910f, 0.6736f, 0.6210f, 0.7089f, 0.6595f,
+                0.7253f, 0.7031f
+            )
+        ),
+        Bar(
+            FLOOR, 0.7668f, 0.8622f, -0.0008f, 0.9242f, curved = true,
+            outline = floatArrayOf(
+                0.1225f, 1.0000f, 0.5001f, 1.0000f, 0.5735f, 0.9932f,
+                0.6411f, 0.9733f, 0.6975f, 0.9418f, 0.7384f, 0.9013f,
+                0.7668f, 0.8622f, 0.6701f, 0.8622f, 0.6575f, 0.8859f,
+                0.6279f, 0.9223f, 0.5829f, 0.9511f, 0.5266f, 0.9695f,
+                0.4644f, 0.9759f, 0.1945f, 0.9759f, 0.1569f, 0.9696f,
+                0.1286f, 0.9522f, 0.1163f, 0.9281f, 0.1232f, 0.9031f,
+                0.1365f, 0.8825f, 0.1505f, 0.8622f, 0.0293f, 0.8622f,
+                0.0204f, 0.8733f, 0.0117f, 0.8846f, -0.0008f, 0.9242f,
+                0.0178f, 0.9627f, 0.0627f, 0.9903f, 0.1225f, 1.0000f
+            )
+        )
+    )
+
     private val STAR_BARS: List<Bar> = buildList {
         val ux = 0.5f
         val uy = 0.25f
@@ -410,6 +642,7 @@ object Segments {
         Kind.SEVEN -> SEVEN_BARS
         Kind.SIXTEEN -> SIXTEEN_BARS
         Kind.STAR -> STAR_BARS
+        Kind.NINE -> NINE_BARS
     }
 
     /**
@@ -426,6 +659,10 @@ object Segments {
         // rails, out of the drawing: 6.725 over 12.441.
         Kind.SIXTEEN -> 0.5406f
         Kind.STAR -> 0.50f
+        // The ink of one digit, out of the drawing: 9.987 over 15.228.
+        // Wider than the rest because it leans, and a leaning digit has to
+        // pay for the run of its own slope.
+        Kind.NINE -> 0.6558f
     }
 
     /**
@@ -450,11 +687,17 @@ object Segments {
     /**
      * The daylight between two modules, as a share of a module's width.
      *
-     * None, anywhere. The modules that share an upright have nothing to
-     * put between them, and the two displays that do not share are grids
-     * that were drawn touching.
+     * None on three of the four. The modules that share an upright have
+     * nothing to put between them, and the two displays that do not share
+     * are grids that were drawn touching.
+     *
+     * The Comet is the exception and its own drawing settles it: four
+     * digits on a pitch of twelve, each of them ten wide. Two of its cells
+     * butted together would interleave, because its arms lean out past the
+     * edges of their own module — the foot of one digit would sit inside
+     * the head of the next.
      */
-    fun gap(kind: Kind): Float = 0f
+    fun gap(kind: Kind): Float = if (kind == Kind.NINE) 0.2016f else 0f
 
     /**
      * Which bars [c] lights, as one mask per module it takes up.
@@ -476,6 +719,14 @@ object Segments {
     fun masksOf(kind: Kind, c: Char): IntArray? = when (kind) {
         Kind.SEVEN -> if (c in '0'..'9') intArrayOf(DIGITS[c - '0']) else null
         Kind.STAR -> if (c in '0'..'9') intArrayOf(STARS[c - '0']) else null
+        // A calculator's alphabet, which is the ten and a minus and
+        // nothing else. There is not a letter in this display's reach.
+        Kind.NINE -> when {
+            c in '0'..'9' -> intArrayOf(COMET[c - '0'])
+            c == '-' -> intArrayOf(WAIST)
+            c == ' ' -> intArrayOf(0)
+            else -> null
+        }
         Kind.SIXTEEN -> when (c) {
             'I' -> intArrayOf(LEFT)
             'V' -> intArrayOf(BACKSLASH, SLASH)

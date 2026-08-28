@@ -68,7 +68,11 @@ object Weekday {
     /** The label for [calendar]'s day, on a face written in [script]. */
     fun of(calendar: Calendar, script: DigitScript): String = when (script) {
         DigitScript.ROMAN -> latin(calendar.get(Calendar.DAY_OF_WEEK))
-        DigitScript.YAUTJA -> isoNumber(calendar.get(Calendar.DAY_OF_WEEK)).toString()
+        // The two displays that cannot write a letter say which day it is
+        // the only way they can, which is Monday being one. A calculator
+        // has no more of an alphabet than they have.
+        DigitScript.YAUTJA, DigitScript.COMET ->
+            isoNumber(calendar.get(Calendar.DAY_OF_WEEK)).toString()
         DigitScript.ARABIC -> local(calendar)
     }
 }

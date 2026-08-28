@@ -23,6 +23,11 @@ import kotlin.math.hypot
  */
 class SegmentPainter {
 
+    private companion object {
+        /** How far a corner may stretch when a curved bar is grown. */
+        const val MITRE = 2.2f
+    }
+
     /**
      * How thick the bars are, as a multiple of what the display was drawn
      * at — see [Segments.native].
@@ -39,6 +44,16 @@ class SegmentPainter {
 
     /** How faint they are when they are. */
     var ghostAlpha: Int = 34
+
+    /**
+     * How bright the lit ones are, for a row that is not the headline.
+     *
+     * The day of the week beside a date, on a display with no letters in
+     * it: the same bars as everything else, turned down, because a
+     * weekday drawn at the strength of the reading reads as another two
+     * digits of it.
+     */
+    var litAlpha: Int = 255
 
     private val path = Path()
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -70,7 +85,7 @@ class SegmentPainter {
         for (stroke in Segments.plan(kind, masks, burnt)) {
             if (!stroke.lit && !ghosts) continue
             paint.color = if (stroke.lit) lit else dark
-            paint.alpha = if (stroke.lit) 255 else ghostAlpha
+            paint.alpha = if (stroke.lit) litAlpha else ghostAlpha
             val bar = stroke.bar
             val at = x + stride * stroke.at
             if (bar.dot) {
@@ -79,7 +94,11 @@ class SegmentPainter {
                 continue
             }
             if (bar.outline != null) {
-                outlineOf(bar, at, y, cell, height, weight)
+                if (bar.curved) {
+                    swollen(bar, at, y, cell, height, (weight - 1f) * Segments.native(kind) / 2f)
+                } else {
+                    outlineOf(bar, at, y, cell, height, weight)
+                }
             } else {
                 sliver(
                     at + bar.x0 * cell, y + bar.y0 * height,
@@ -136,6 +155,68 @@ class SegmentPainter {
             val sy = y + hy * height
             if (i == 0) path.moveTo(sx, sy) else path.lineTo(sx, sy)
             i += 2
+        }
+        path.close()
+    }
+
+    /**
+     * A bar whose shape is a curve, made thicker or thinner by growing.
+     *
+     * The other outline above widens a bar by pushing its vertices away
+     * from its own straight axis, which is exactly right for a straight
+     * piece of metal and wrong for a bent one: the Comet's top bar is a
+     * thin rail with a hook on the end of it, and measuring off the chord
+     * from one tip to the other would make the hook curl twice as far at
+     * twice the weight instead of the rail getting twice as thick. The
+     * shape would stop being the drawing's.
+     *
+     * So this one grows the outline outwards instead — every vertex slid
+     * along the bisector of the two edges meeting at it, which moves each
+     * piece of the edge away from itself and leaves the curvature alone.
+     * [d] is how far, in module heights, and it is negative for a thinner
+     * bar. The mitre is capped because the bars come to points, and an
+     * uncapped bisector at a point runs off to infinity.
+     */
+    private fun swollen(
+        bar: Segments.Bar, x: Float, y: Float, cell: Float, height: Float, d: Float
+    ) {
+        val pts = bar.outline ?: return
+        val n = pts.size / 2
+        if (n < 3) return
+        val ratio = cell / height
+        fun px(i: Int) = pts[(i % n + n) % n * 2] * ratio
+        fun py(i: Int) = pts[(i % n + n) % n * 2 + 1]
+        // Which side is out. Twice the signed area, whose sign is the
+        // winding, and with y downwards a positive one turns clockwise.
+        var twice = 0f
+        for (i in 0 until n) twice += px(i) * py(i + 1) - px(i + 1) * py(i)
+        val side = if (twice > 0f) 1f else -1f
+        path.reset()
+        for (i in 0 until n) {
+            // The outward normals of the two edges meeting here.
+            var ax = py(i) - py(i - 1)
+            var ay = px(i - 1) - px(i)
+            var bx = py(i + 1) - py(i)
+            var by = px(i) - px(i + 1)
+            val la = hypot(ax, ay)
+            val lb = hypot(bx, by)
+            if (la > 0.0001f) { ax /= la; ay /= la }
+            if (lb > 0.0001f) { bx /= lb; by /= lb }
+            var nx = (ax + bx) * side
+            var ny = (ay + by) * side
+            val len = hypot(nx, ny)
+            var out = d
+            if (len > 0.0001f) {
+                nx /= len
+                ny /= len
+                // How far along the bisector one unit of thickness is:
+                // one over the cosine of half the corner, capped.
+                val cos = (nx * bx * side + ny * by * side).coerceAtLeast(0.001f)
+                out = d * minOf(1f / cos, MITRE)
+            }
+            val sx = x + (px(i) + nx * out) * height
+            val sy = y + (py(i) + ny * out) * height
+            if (i == 0) path.moveTo(sx, sy) else path.lineTo(sx, sy)
         }
         path.close()
     }

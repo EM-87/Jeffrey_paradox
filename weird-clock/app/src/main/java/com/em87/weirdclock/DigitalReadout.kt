@@ -34,16 +34,29 @@ enum class DigitStyle(val key: String) {
     companion object {
         fun of(key: String?): DigitStyle =
             entries.firstOrNull { it.key == key } ?: SEGMENT
+
+        /**
+         * The same, for a script that may not have a choice — see
+         * [DigitScript.barsOnly].
+         *
+         * Resolved here rather than at each of the three places that read
+         * the two settings, because a rule kept in three places is a rule
+         * that holds in two: the face, the widget and the alarm card would
+         * each have to remember it, and the one that forgot would draw a
+         * Comet clock in the phone's own type and look like a setting that
+         * had not taken.
+         */
+        fun of(key: String?, script: DigitScript): DigitStyle =
+            if (script.barsOnly) SEGMENT else of(key)
     }
 }
 
 /**
  * Which numerals, which is a different question from how they are made.
  *
- * A flip card can carry any of the three on its face and a drum can have
- * any of them round it, so the two axes really are independent — with one
- * honest exception, noted on [SEGMENT_SCRIPTS]: bars can draw the shapes
- * they were built to draw and no others.
+ * A flip card can carry any of the first three on its face and a drum can
+ * have any of them round it, so the two axes really are independent — with
+ * one honest exception, which is [barsOnly].
  */
 enum class DigitScript(val key: String) {
 
@@ -54,7 +67,31 @@ enum class DigitScript(val key: String) {
     ROMAN(Prefs.SCRIPT_ROMAN),
 
     /** Theirs — see [Yautja]. A font, so it is drawn as writing. */
-    YAUTJA(Prefs.SCRIPT_YAUTJA);
+    YAUTJA(Prefs.SCRIPT_YAUTJA),
+
+    /**
+     * Our ten again, on a calculator's display from 1964 — see
+     * [Segments.Kind.NINE].
+     *
+     * The one entry on this list that names a machine rather than an
+     * alphabet, and it belongs here rather than on the other axis because
+     * that is the question it actually answers: somebody choosing it wants
+     * these *shapes*, and shapes are what a script is. It is also the only
+     * one of the four that cannot leave its own display.
+     */
+    COMET(Prefs.SCRIPT_COMET);
+
+    /**
+     * Whether this script exists as lit bars and nothing else.
+     *
+     * The other three are alphabets, and a flip card can be printed with
+     * any of them. The Comet's numerals are not an alphabet — they are the
+     * shape nine pieces of metal make when they are lit, and a card with
+     * them printed on it would be a photograph of a display. Asked for on
+     * a drum this quietly gives back the display instead, which is the
+     * only honest reading of the request.
+     */
+    val barsOnly: Boolean get() = this == COMET
 
     companion object {
         fun of(key: String?): DigitScript =

@@ -1,401 +1,258 @@
 package com.em87.weirdclock
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.util.Calendar
-import java.util.TimeZone
 
 /**
- * The visitors, and the arithmetic that says they are visitors.
+ * The calculator's nine, checked against the machine it came off.
  *
- * What makes a comet different from a planet on this dial is not its
- * colour: it is that it spends nearly all of its life at the far end of a
- * long ellipse and crosses the whole inner system in a few months. Every
- * test here is about that asymmetry, because it is the thing that would
- * quietly stop being true if the position were worked out the easy way —
- * an even angle round an oval — and the result would be Halley strolling
- * past the Earth for a decade.
+ * The shapes cannot be wrong — they are the drawing's own polygons and
+ * nothing here re-derives them — so what is left to get wrong is which
+ * nine light for each digit, and that is a table somebody typed. The four
+ * numerals in the drawing pin part of it down; a photograph of the real
+ * tube counting `12345678` pinned the rest.
+ *
+ * What the tests below look for is not "does 5 equal what I typed for 5",
+ * which is a mirror. It is the handful of things that are true of this
+ * display and would stop being true if the table were a seven-bar table
+ * with the names changed.
  */
 class CometTest {
 
-    private fun at(year: Int, month: Int, day: Int): Long {
-        val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-        cal.clear()
-        // A Calendar has no negative years. Given one it quietly lands on
-        // the same year AD, which would put every wound-back date in this
-        // file four thousand years from where it was meant to be — and
-        // every assertion about a comet fading would pass or fail for
-        // reasons that have nothing to do with comets.
-        if (year < 1) {
-            cal.set(Calendar.ERA, java.util.GregorianCalendar.BC)
-            cal.set(1 - year, month - 1, day)
-        } else {
-            cal.set(year, month - 1, day)
-        }
-        return cal.timeInMillis
-    }
+    private val nine = Segments.Kind.NINE
 
-    private fun yearOf(ms: Long): Int {
-        val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-        cal.timeInMillis = ms
-        return cal.get(Calendar.YEAR)
-    }
+    private fun of(c: Char): Int = Segments.masksOf(nine, c)!!.single()
 
-    // ------------------------------------------------------ the near end
+    private val stems = Segments.STEM_UP or Segments.STEM_DOWN
 
-    /** At perihelion a comet is as close to the Sun as it ever gets. */
+    /**
+     * Ten different numbers look like ten different things.
+     *
+     * The one failure a numeral table can have that nothing else catches:
+     * two digits that light the same metal are a clock that cannot tell
+     * you which of two times it is, and it reads perfectly well.
+     */
     @Test
-    fun `each comet is nearest the sun on the day it is said to be`() {
-        for (comet in Comets.all) {
-            val o = Comets.orbitOf(comet)
-            val near = Comets.positionAt(comet, o.perihelionMs).radius
-            val expected = o.aphelionRing * (1f - o.eccentricity.toFloat()) /
-                (1f + o.eccentricity.toFloat())
-            assertEquals(
-                "$comet is not at the near end of its own orbit on its perihelion date",
-                expected.toDouble(), near.toDouble(), expected * 0.02
-            )
+    fun `no two digits light the same segments`() {
+        val seen = HashMap<Int, Char>()
+        for (c in '0'..'9') {
+            val mask = of(c)
+            val already = seen.put(mask, c)
+            assertNull("$c and $already are the same shape", already)
+            assertTrue("$c lights nothing", mask != 0)
         }
+        assertEquals(10, seen.size)
     }
 
-    /** And half an orbit later it is as far away as it ever gets. */
+    /**
+     * There is no middle rail on this display, and `2` and `3` are where
+     * that shows.
+     *
+     * Every other display's `2` and `3` light their middle bar. These do
+     * not, because their arms already cross the centre — the top-right arm
+     * of a `2` runs into its bottom-left one and they meet there on their
+     * own. The waist dash is not a rail; it is the short piece that fills
+     * the corner those crossings leave open, which is why it belongs to
+     * `4`, `5`, `6`, `8` and `9` and to nothing else.
+     *
+     * This is the whole difference between the Comet's table and a
+     * seven-bar table with the names changed, so it is the assertion that
+     * would catch that mistake.
+     */
     @Test
-    fun `half an orbit later each comet is at the far end`() {
-        for (comet in Comets.all) {
-            val o = Comets.orbitOf(comet)
-            val half = (o.periodYears * 365.25 * DAY / 2).toLong()
-            val far = Comets.positionAt(comet, o.perihelionMs + half).radius
-            assertEquals(
-                "$comet does not reach the far end of its orbit",
-                o.aphelionRing.toDouble(), far.toDouble(), o.aphelionRing * 0.02
-            )
+    fun `the waist is not a middle rail`() {
+        for (c in "45689") {
+            assertTrue("$c has no waist", of(c) and Segments.WAIST != 0)
+        }
+        for (c in "01237") {
+            assertTrue("$c lit the waist", of(c) and Segments.WAIST == 0)
         }
     }
 
-    /** Nothing is ever drawn outside the case. */
+    /**
+     * The `1` stands up the middle, which is the other thing this display
+     * was designed to fix.
+     *
+     * On seven bars a one is the two right-hand bars, so it leans against
+     * whatever is beside it and a row of them looks like a fence with a
+     * gap. Here it is the two stems and nothing else, in the middle of its
+     * own cell.
+     */
     @Test
-    fun `no comet goes further out than its own far end`() {
-        for (comet in Comets.all) {
-            val o = Comets.orbitOf(comet)
-            val period = (o.periodYears * 365.25 * DAY).toLong()
-            for (step in 0 until 400) {
-                val r = Comets.positionAt(comet, o.perihelionMs + period * step / 400).radius
-                assertTrue(
-                    "$comet reached $r, past its far end of ${o.aphelionRing}",
-                    r <= o.aphelionRing * 1.001f
-                )
+    fun `the one is the two stems and stands in the middle`() {
+        assertEquals(stems, of('1'))
+        // And the stems belong to the three digits with a stroke through
+        // the middle. Anything else lighting one is a digit with a bar
+        // across its face.
+        for (c in '0'..'9') {
+            val hasStem = of(c) and stems != 0
+            assertEquals("$c disagrees about its stem", c in "147", hasStem)
+        }
+    }
+
+    /**
+     * Eight lights everything except the stems, and every digit without a
+     * stroke through it fits inside it.
+     *
+     * The `8` on a segment display is the test pattern — it is what the
+     * display looks like with the mask off — and any digit that lights
+     * metal the `8` does not is a digit drawn outside its own glyph.
+     */
+    @Test
+    fun `eight is every digit that has no stroke through it`() {
+        val eight = of('8')
+        assertEquals("eight lit a stem", 0, eight and stems)
+        for (c in "023569") {
+            assertEquals("$c goes outside the eight", 0, of(c) and eight.inv())
+        }
+        // And it really is all seven of the rest.
+        val every = Segments.bars(nine).fold(0) { a, b -> a or b.bit }
+        assertEquals(every and stems.inv(), eight)
+    }
+
+    /** A calculator has ten digits and a minus, and not one letter. */
+    @Test
+    fun `the alphabet is the ten and a minus`() {
+        assertEquals(intArrayOf(Segments.WAIST).toList(), of('-').let { listOf(it) })
+        assertNotNull(Segments.masksOf(nine, ' '))
+        for (c in "IVXLCDMN ABZ") {
+            if (c == ' ') continue
+            assertNull("$c is not on a calculator", Segments.masksOf(nine, c))
+        }
+    }
+
+    /**
+     * Nine pieces of metal, every one of them a shape out of the file.
+     *
+     * There is nothing to make up on this display — no sliver, no dot, no
+     * bar the painter has to guess the ends of. A bar here without an
+     * outline is a bar that got lost between the drawing and the file.
+     */
+    @Test
+    fun `there are nine bars and all nine are drawings`() {
+        val bars = Segments.bars(nine)
+        assertEquals(9, bars.size)
+        assertTrue(Segments.drawn(nine))
+        for (bar in bars) {
+            val outline = bar.outline
+            assertNotNull("a bar has no shape", outline)
+            assertTrue("a bar is not a polygon", outline!!.size >= 8)
+            assertEquals("a bar has half a vertex", 0, outline.size % 2)
+            assertTrue("a bar is not curved", bar.curved)
+            // Inside its own module, near enough — the arms lean out over
+            // the edges by a hair and that is what the gap is for.
+            var i = 0
+            while (i < outline.size) {
+                assertTrue("a vertex is off the module: ${outline[i]}", outline[i] in -0.05f..1.05f)
+                assertTrue("a vertex is off the module: ${outline[i + 1]}", outline[i + 1] in -0.05f..1.05f)
+                i += 2
             }
         }
+        // Every one of the nine is somebody's, and no two share a bit.
+        assertEquals(9, bars.map { it.bit }.toSet().size)
+        val every = bars.fold(0) { a, b -> a or b.bit }
+        for (c in '0'..'9') assertEquals("$c lights metal that is not there", 0, of(c) and every.inv())
     }
 
     /**
-     * The whole point: a comet hurries through the inner system and
-     * dawdles at the far end.
+     * This display has daylight between its cells, and it is the only one
+     * that does.
      *
-     * Measured rather than asserted about, because it is exactly what an
-     * even angle round an oval would get wrong while still producing a
-     * position on the right curve at the right two dates. Halley's orbit
-     * is 0.967 eccentric, so it should spend a few per cent of its
-     * seventy-five years inside the near half of its own range and nearly
-     * all of the rest beyond it.
+     * Not a taste: the arms lean out past the edges of their own module,
+     * so two digits butted together interleave — the bottom of one sits
+     * inside the top of the next. The drawing puts four digits on a pitch
+     * a fifth wider than their ink, and that fifth is this number.
      */
     @Test
-    fun `a comet spends almost none of its life near the sun`() {
-        val comet = Comets.Comet.HALLEY
-        val o = Comets.orbitOf(comet)
-        val period = (o.periodYears * 365.25 * DAY).toLong()
-        val steps = 2000
-        val half = o.aphelionRing / 2f
-        val inside = (0 until steps).count {
-            Comets.positionAt(comet, o.perihelionMs + period * it / steps).radius < half
+    fun `the cells stand apart, and none of them is shared`() {
+        assertTrue(Segments.gap(nine) > 0.15f)
+        for (other in Segments.Kind.entries - nine) {
+            assertEquals("$other grew a gap", 0f, Segments.gap(other), 0f)
         }
-        val share = inside.toFloat() / steps
-        assertTrue(
-            "Halley spends ${(share * 100).toInt()}% of its orbit in the inner half, " +
-                "which is a planet's life and not a comet's",
-            share < 0.20f
-        )
-        assertTrue("Halley never comes into the inner half at all", share > 0.01f)
+        // Nothing is shared and nothing is spelled around, so a four digit
+        // number is four cells and the room it needs is those four plus
+        // the three gaps between them.
+        assertFalse(Segments.butted(nine))
+        assertEquals(4, Segments.width(nine, "1234"))
+        assertEquals(4f + 3f * Segments.gap(nine), Segments.span(nine, "1234"), 0.0001f)
     }
 
-    // --------------------------------------------------------- the dates
-
-    /** The next return of each comet is the one that has been predicted. */
+    /**
+     * The module is wider than the others, because it leans.
+     *
+     * Out of the drawing: 9.987 of ink across, 15.228 tall. A display of
+     * upright bars can be narrow; one where every stroke is at an angle
+     * has to pay for the run of the slope.
+     */
     @Test
-    fun `each comet comes back when it is expected to`() {
-        val expected = mapOf(
-            Comets.Comet.ENCKE to at(2023, 10, 22),
-            Comets.Comet.TEMPEL_TUTTLE to at(2031, 5, 20),
-            Comets.Comet.HALLEY to at(2061, 7, 28),
-            Comets.Comet.SWIFT_TUTTLE to at(2126, 7, 16)
-        )
-        for ((comet, want) in expected) {
-            val got = Comets.nextPerihelion(comet, Comets.orbitOf(comet).perihelionMs + DAY)
+    fun `the module is the drawing's proportion`() {
+        assertEquals(0.6558f, Segments.aspect(nine), 0.0005f)
+        assertTrue(Segments.aspect(nine) > Segments.aspect(Segments.Kind.SIXTEEN))
+    }
+
+    /**
+     * The colon beside these digits is the drawing's two lamps and not two
+     * dots of the bar's own width.
+     *
+     * The pen here is a third of what the other displays draw with, so a
+     * separator sized from it comes out as two specks. The drawing has the
+     * answer and it is three pen widths across.
+     */
+    @Test
+    fun `the separator is the drawing's, not the pen's`() {
+        assertTrue(Segments.separator(nine) > Segments.native(nine) * 3f)
+        // And nothing changed for the two displays that never had one
+        // drawn: their colon is still made out of their own bar.
+        for (other in listOf(Segments.Kind.SEVEN, Segments.Kind.STAR)) {
+            assertEquals(Segments.native(other) * 1.6f, Segments.separator(other), 0.0001f)
+        }
+    }
+
+    /**
+     * These numerals cannot leave their own display.
+     *
+     * A flip card with them printed on it would be a photograph of a
+     * display, which is the one thing this app has consistently refused to
+     * be — so asking for a drum and getting the bars is the honest reading
+     * of the request. The rule lives in one place because the face, the
+     * widget and the alarm card all read the same two settings.
+     */
+    @Test
+    fun `the Comet is bars whatever else is asked for`() {
+        for (key in listOf(Prefs.DIGITS_ROLLER, Prefs.DIGITS_CARD, Prefs.DIGITS_PLAIN, null)) {
             assertEquals(
-                "$comet is predicted back on ${java.util.Date(got)}, not ${java.util.Date(want)}",
-                0.0, (got - want).toDouble() / DAY, 2.0
+                "$key got past the Comet",
+                DigitStyle.SEGMENT, DigitStyle.of(key, DigitScript.COMET)
+            )
+        }
+        // And it is the only script that takes the choice away.
+        for (script in DigitScript.entries - DigitScript.COMET) {
+            assertFalse(script.barsOnly)
+            assertEquals(
+                DigitStyle.ROLLER, DigitStyle.of(Prefs.DIGITS_ROLLER, script)
             )
         }
     }
 
     /**
-     * Winding backwards asks for the visit you are standing in, not the
-     * one after it.
+     * A display with no letters says the day of the week as a number.
      *
-     * Somebody who has wound the sky to 1910 is looking at Halley in 1910.
-     * Being told the next one is in 1986 is true and useless.
+     * The alternative is a weekday drawn in the phone's own type beside
+     * numerals out of a 1964 calculator, which is two clocks in one line.
      */
     @Test
-    fun `the date offered is the visit being looked at`() {
-        val nineteenTen = Comets.nearestPerihelion(Comets.Comet.HALLEY, at(1910, 6, 1))
-        assertEquals(
-            "the sky wound to 1910 is naming some other visit",
-            1910, yearOf(nineteenTen)
-        )
-        val today = Comets.nearestPerihelion(Comets.Comet.HALLEY, at(2026, 1, 1))
-        assertTrue(
-            "standing halfway between two visits it named neither",
-            yearOf(today) == 1986 || yearOf(today) == 2061
-        )
-        // The year after a visit is the case that separates "nearest" from
-        // "next", and 1910 does not: a comet has just gone, and the one
-        // being looked at is the one that has just gone. Without this the
-        // whole test passes with "nearest" replaced by "the one after",
-        // because 1910 rounds and ceilings to the same visit.
-        assertEquals(
-            "eleven months after a visit it is already announcing the next one, " +
-                "seventy-five years out",
-            1986, yearOf(Comets.nearestPerihelion(Comets.Comet.HALLEY, at(1987, 1, 1)))
-        )
-    }
-
-    /** A comet gets its name under the dial only when it is actually here. */
-    @Test
-    fun `a comet is named only around its own visit`() {
-        assertEquals(
-            "Halley is not named on the day it comes closest",
-            Comets.Comet.HALLEY, Comets.visiting(at(1986, 2, 9))
-        )
-        assertEquals(
-            "Halley is still being announced a month and a half after it left",
-            null, Comets.visiting(at(1986, 6, 1))
-        )
-    }
-
-    /**
-     * And it is not named most of the time.
-     *
-     * Encke comes round every three years and three months, so a window
-     * wide enough to be generous would put its name under the dial for
-     * most of history — which would make the caption a fixture rather than
-     * a remark, and hide the eclipses and the full moons behind it.
-     */
-    @Test
-    fun `most days have no comet to announce`() {
-        var named = 0
-        val from = at(2000, 1, 1)
-        for (day in 0 until 3650) {
-            if (Comets.visiting(from + day * DAY) != null) named++
+    fun `the weekday is a number on a display with no letters`() {
+        val monday = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.AUGUST, 24)
         }
-        assertTrue(
-            "a comet is named on ${named * 100 / 3650}% of days, which is a fixture",
-            named * 100 / 3650 < 25
-        )
-        assertTrue("no comet is ever named", named > 0)
-    }
-
-    /** The tail arrives with the visit and is gone the rest of the time. */
-    @Test
-    fun `the tail grows as the visit comes on`() {
-        val comet = Comets.Comet.HALLEY
-        val onTheDay = Comets.nearness(comet, at(1986, 2, 9))
-        val monthsOut = Comets.nearness(comet, at(1985, 8, 9))
-        val decadesOut = Comets.nearness(comet, at(2010, 2, 9))
-        assertTrue("no tail at perihelion", onTheDay > 0.95f)
-        assertTrue("a comet six months out has no tail at all", monthsOut > 0.01f)
-        assertTrue(
-            "the tail is the same six months out as it is at perihelion, " +
-                "so it is not growing at all",
-            monthsOut < onTheDay * 0.9f
-        )
-        assertEquals("a comet halfway out still has a tail", 0f, decadesOut, 0.0001f)
-    }
-
-    // -------------------------------------------------------- the names
-
-    /** Every comet has a name, and they are all different. */
-    @Test
-    fun `the four are four`() {
-        val keys = Comets.all.map { Comets.nameKeyOf(it) }
-        assertEquals("two comets share a name", 4, keys.toSet().size)
-        assertEquals("a comet is missing from the list", 4, Comets.all.size)
-    }
-
-    /** A position is a real number, at every date, for every comet. */
-    @Test
-    fun `the arithmetic never gives up`() {
-        for (comet in Comets.all) {
-            val o = Comets.orbitOf(comet)
-            val period = (o.periodYears * 365.25 * DAY).toLong()
-            for (step in -100..100) {
-                val where = Comets.positionAt(comet, o.perihelionMs + period * step / 97)
-                assertNotNull("$comet has no position at step $step", where)
-                assertTrue(
-                    "$comet came out as ${where.radius} at step $step",
-                    where.radius.isFinite() && where.radius >= 0f
-                )
-                assertTrue(
-                    "$comet came out pointing at ${where.longitude}",
-                    where.longitude.isFinite() && where.longitude in 0.0..360.0
-                )
-            }
+        assertEquals("1", Weekday.of(monday, DigitScript.COMET))
+        val sunday = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.AUGUST, 23)
         }
-    }
-
-    /** Nothing that is not a comet has an orbit. */
-    @Test
-    fun `the visitors are the four and no others`() {
-        assertNull("something was named on a day nobody visits", Comets.visiting(at(2005, 3, 3)))
-    }
-
-    // -------------------------------------------------- how far this is worth
-
-    /**
-     * A comet's period is not a constant, and the arithmetic here does not
-     * pretend otherwise for five thousand years.
-     *
-     * Halley's recorded returns are anywhere from 74.4 years apart to
-     * 79.1, and counting whole orbits from a known passage picks up a
-     * return's worth of that error every time round. Near the pinned
-     * passage the answer is as good as it gets; forty returns out it is
-     * wrong by a quarter of the orbit, which means the dot on the glass is
-     * not a position at all.
-     */
-    @Test
-    fun `a comet is certain near its own passage and gone far from it`() {
-        for (comet in Comets.all) {
-            val o = Comets.orbitOf(comet)
-            assertEquals(
-                "$comet is not trusted on the day it was actually seen",
-                1f, Comets.trust(comet, o.perihelionMs), 1e-4f
-            )
-            assertEquals(
-                "$comet survives being wound to the Bronze Age",
-                0f, Comets.trust(comet, at(-4000, 6, 15)), 1e-6f
-            )
-        }
-    }
-
-    /**
-     * And it fades rather than switching off.
-     *
-     * A comet that vanished between one frame and the next while the sky
-     * was being wound would read as a fault; a comet going quietly out is
-     * the drawing saying it no longer knows.
-     */
-    @Test
-    fun `the certainty falls away smoothly`() {
-        var last = 1f
-        var moved = 0
-        for (century in 0..30) {
-            val t = Comets.trust(Comets.Comet.HALLEY, at(1986 - century * 100, 2, 9))
-            assertTrue("Halley got surer the further back it was wound", t <= last + 1e-6f)
-            if (t < last - 1e-6f) moved++
-            last = t
-        }
-        assertTrue("the certainty never moved at all, so it is not a fade", moved > 10)
-        assertEquals("Halley never runs out", 0f, last, 1e-6f)
-    }
-
-    /**
-     * The four run out at four different distances, and in the right
-     * order.
-     *
-     * Encke goes round every three years and three months, so it burns
-     * through returns quickly however steady each one is; Swift-Tuttle's
-     * are a century and a third apart. A single horizon for all four would
-     * be a number picked to look reasonable rather than anything the
-     * comets said.
-     */
-    @Test
-    fun `the four run out at four different distances`() {
-        val inYears = Comets.all.associateWith { Comets.rangeYears(it) }
-        assertEquals(
-            "something other than Encke is the first to go",
-            Comets.Comet.ENCKE, inYears.minByOrNull { it.value }!!.key
-        )
-        assertEquals(
-            "something other than Swift-Tuttle lasts longest",
-            Comets.Comet.SWIFT_TUTTLE, inYears.maxByOrNull { it.value }!!.key
-        )
-        // And the horizons counted in *returns* rather than years are not
-        // the same number either, which is the claim with teeth in it. A
-        // single wander figure shared by all four, or one taken as a fixed
-        // share of each period, would leave every comet good for the same
-        // number of trips round — and the whole point is that Halley comes
-        // away from the giant planets far more changed than Encke does, so
-        // it runs out of certainty in a third as many visits.
-        val inReturns = Comets.all.associateWith {
-            Comets.rangeYears(it) / Comets.orbitOf(it).periodYears
-        }
-        assertTrue(
-            "Halley survives as many returns as Encke, which means the " +
-                "wander is one figure wearing four hats: $inReturns",
-            inReturns.getValue(Comets.Comet.HALLEY) <
-                inReturns.getValue(Comets.Comet.ENCKE) * 0.5
-        )
-        // And the horizon is where the arithmetic actually gives out,
-        // which is nearer than it feels like it should be. Halley's first
-        // predicted return, 1759, is three orbits back and still good;
-        // 1066 is twelve orbits back and the fixed period has drifted
-        // fourteen years by then — the model really does put the Bayeux
-        // comet in 1080. Both of these were checked against the recorded
-        // returns rather than reasoned about.
-        assertTrue(
-            "Halley is not trusted at the first return anybody predicted",
-            Comets.trust(Comets.Comet.HALLEY, at(1759, 3, 13)) > 0.7f
-        )
-        assertTrue(
-            "the dial claims to know where Halley was in 1066, and it does " +
-                "not — a fixed period puts that return fourteen years late",
-            Comets.trust(Comets.Comet.HALLEY, at(1066, 3, 20)) < 0.5f
-        )
-    }
-
-    /**
-     * And a comet nobody can date is not named under the dial.
-     *
-     * Six weeks either side of perihelion is a claim about a fortnight in
-     * a given year. Made about a passage the arithmetic has drifted by
-     * decades it is a made-up date said with a straight face, which is
-     * worse than saying nothing.
-     */
-    @Test
-    fun `a comet the arithmetic cannot date is not named`() {
-        // A perihelion the model computes for a year it cannot vouch for:
-        // the date is still returned, and the caption still refuses it.
-        val far = Comets.nearestPerihelion(Comets.Comet.HALLEY, at(-3000, 6, 15))
-        assertTrue(
-            "the trust in Halley three thousand years back is not low",
-            Comets.trust(Comets.Comet.HALLEY, far) < 0.5f
-        )
-        assertNull(
-            "the sky named a comet on a date it invented",
-            Comets.visiting(far)
-        )
-        // And on a passage it can vouch for, it still says the name, or
-        // the assertion above is only saying that comets are never named.
-        assertEquals(
-            "no comet is named on a real perihelion date",
-            Comets.Comet.HALLEY,
-            Comets.visiting(Comets.orbitOf(Comets.Comet.HALLEY).perihelionMs)
-        )
-    }
-
-    private companion object {
-        const val DAY = 86_400_000L
+        assertEquals("7", Weekday.of(sunday, DigitScript.COMET))
     }
 }

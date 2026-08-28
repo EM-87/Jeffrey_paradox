@@ -3206,8 +3206,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun applyDigitalPreferences(theme: ClockTheme) {
         val face = digitalView ?: return
         face.theme = theme
-        face.style = DigitStyle.of(prefs.getString(Prefs.DIGIT_STYLE, null))
         face.script = DigitScript.of(prefs.getString(Prefs.DIGIT_SCRIPT, null))
+        face.style = DigitStyle.of(prefs.getString(Prefs.DIGIT_STYLE, null), face.script)
         face.hour24 = prefs.getBoolean(Prefs.HOUR_24, true)
         face.leadingZero = prefs.getBoolean(Prefs.LEADING_ZERO, true)
         face.blinkColon = prefs.getBoolean(Prefs.BLINK_COLON, false)

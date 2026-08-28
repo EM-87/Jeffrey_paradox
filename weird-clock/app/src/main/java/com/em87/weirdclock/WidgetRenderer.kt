@@ -131,8 +131,8 @@ object WidgetRenderer {
         val view = DigitalClockView(context).apply {
             theme = widgetTheme(context)
             chip = true
-            style = DigitStyle.of(prefs.getString(Prefs.DIGIT_STYLE, null))
             script = DigitScript.of(prefs.getString(Prefs.DIGIT_SCRIPT, null))
+            style = DigitStyle.of(prefs.getString(Prefs.DIGIT_STYLE, null), script)
             hour24 = prefs.getBoolean(Prefs.HOUR_24, true)
             leadingZero = prefs.getBoolean(Prefs.LEADING_ZERO, true)
             showSeconds = false

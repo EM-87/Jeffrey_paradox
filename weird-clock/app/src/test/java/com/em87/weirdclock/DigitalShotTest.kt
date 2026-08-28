@@ -46,7 +46,12 @@ class DigitalShotTest {
         at: Long = atTwentyTwoFifteen()
     ): DigitalClockView = DigitalClockView(context).apply {
         theme = ClockThemes.MIDNIGHT
-        this.style = style
+        // Through the same rule the app uses, so these pictures are of
+        // things somebody can actually reach: a script that only exists as
+        // lit bars comes out as lit bars however it was asked for, and a
+        // sheet showing a Comet flip card would be a picture of a state
+        // the settings cannot produce.
+        this.style = DigitStyle.of(style.key, script)
         this.script = script
         this.hour24 = hour24
         showSeconds = seconds
@@ -77,6 +82,41 @@ class DigitalShotTest {
             y += 5
         }
         return seen.size
+    }
+
+    /**
+     * The calculator's numerals, on the face rather than on a strip.
+     *
+     * The drawing's own reading — `12:43` — because that is the one
+     * picture in this app that can be laid straight over the file it came
+     * out of, colon and all.
+     */
+    @Test
+    fun `the calculator's display, telling the time`() {
+        val at = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.AUGUST, 27, 12, 43, 9)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        assertTrue(
+            shoot(
+                face(DigitStyle.SEGMENT, DigitScript.COMET, at = at, seconds = false),
+                "digital-comet-1243"
+            ) > 3
+        )
+        assertTrue(
+            shoot(
+                face(DigitStyle.SEGMENT, DigitScript.COMET, at = at),
+                "digital-comet-seconds"
+            ) > 3
+        )
+        // And on twelve hours, where the sun or the moon stands in for the
+        // AM and PM the drawing's own panel has printed on it.
+        assertTrue(
+            shoot(
+                face(DigitStyle.SEGMENT, DigitScript.COMET, hour24 = false, at = at),
+                "digital-comet-twelve"
+            ) > 3
+        )
     }
 
     @Test

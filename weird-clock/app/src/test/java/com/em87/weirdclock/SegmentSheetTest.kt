@@ -199,4 +199,107 @@ class SegmentSheetTest {
             ) > 3
         )
     }
+
+    /**
+     * The Comet's ten, and the strip with all nine lit.
+     *
+     * The strip is the one to hold against the drawing: the drawing *is*
+     * four cells with every segment lit, so anything in it that is not in
+     * the picture — the hook on the end of the top rail, the taper on the
+     * arms, the daylight between the cells — is a thing that got lost on
+     * the way out of the file.
+     */
+    @Test
+    fun `the calculator's ten, and its specimen strip`() {
+        val nine = Segments.Kind.NINE
+        val ten = Segments.spell(nine, "0123456789")
+        assertTrue(sheet("segsheet-comet-digits", nine, ten) > 3)
+        assertTrue(sheet("segsheet-comet-bare", nine, ten, ghosts = false) > 3)
+        val every = Segments.bars(nine).fold(0) { a, b -> a or b.bit }
+        assertTrue(sheet("segsheet-comet-strip", nine, IntArray(4) { every }) > 3)
+        // The four the drawing itself spells, and a clock time.
+        assertTrue(sheet("segsheet-comet-1243", nine, Segments.spell(nine, "1243")) > 3)
+        assertTrue(
+            sheet(
+                "segsheet-comet-thin", nine, Segments.spell(nine, "1243"), weight = 0.6f
+            ) > 3
+        )
+        assertTrue(
+            sheet(
+                "segsheet-comet-fat", nine, Segments.spell(nine, "1243"), weight = 1.8f
+            ) > 3
+        )
+    }
+
+    /**
+     * The thickness knob on a bar that bends.
+     *
+     * The other displays widen a bar by pushing its edges away from the
+     * straight line between its ends, and on this one that is the wrong
+     * operation — the top rail is a hairline with a hook on it, and
+     * measuring off the chord between the hook's tip and the rail's end
+     * would deepen the hook instead of thickening the rail. So these bars
+     * are grown outwards from their own edges instead, and this is what
+     * says the growing works: more metal at every step up, and none of it
+     * outside the cell it belongs to.
+     *
+     * The second half is the one that matters. An outward offset with its
+     * sign the wrong way round makes a heavier setting *thinner*, which is
+     * exactly what the first picture of this showed and what no assertion
+     * about "it drew something" would have caught.
+     */
+    @Test
+    fun `a curved bar grows outwards and stays in its cell`() {
+        val nine = Segments.Kind.NINE
+        val masks = Segments.spell(nine, "8")
+        val height = 300f
+        val cell = height * Segments.aspect(nine)
+        var last = 0
+        for (weight in listOf(0.6f, 1.0f, 1.4f, 1.8f)) {
+            // Room all round, so ink that escapes the cell is visible
+            // rather than clipped off the edge of the bitmap.
+            val pad = 60
+            val bitmap = Bitmap.createBitmap(
+                cell.toInt() + pad * 2, height.toInt() + pad * 2, Bitmap.Config.ARGB_8888
+            )
+            val canvas = Canvas(bitmap)
+            canvas.drawColor(0xFF000000.toInt())
+            SegmentPainter().apply { ghosts = false; this.weight = weight }.row(
+                canvas, nine, masks, pad.toFloat(), pad.toFloat(), cell, height,
+                0xFFFFFFFF.toInt(), 0xFF000000.toInt()
+            )
+            var ink = 0
+            var minX = bitmap.width
+            var maxX = 0
+            var minY = bitmap.height
+            var maxY = 0
+            for (y in 0 until bitmap.height) {
+                for (x in 0 until bitmap.width) {
+                    if (bitmap.getPixel(x, y) and 0xFF <= 128) continue
+                    ink++
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    if (y < minY) minY = y
+                    if (y > maxY) maxY = y
+                }
+            }
+            assertTrue(
+                "at $weight the display has $ink lit pixels, against $last before it",
+                ink > last
+            )
+            last = ink
+            // The arms lean out over the module's edges by a hair, which
+            // is what the gap between cells is for. A tenth of a module is
+            // that hair; anything more is metal running away.
+            val slack = cell * 0.10f
+            assertTrue(
+                "at $weight the ink runs from $minX to $maxX outside its cell",
+                minX > pad - slack && maxX < pad + cell + slack
+            )
+            assertTrue(
+                "at $weight the ink runs from $minY to $maxY outside its cell",
+                minY > pad - slack && maxY < pad + height + slack
+            )
+        }
+    }
 }

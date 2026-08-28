@@ -44,11 +44,13 @@ object Prefs {
     const val DIGITS_CARD = "card"
     const val DIGITS_ROLLER = "roller"
 
-    /** Which numerals the digits are made of: ours, Rome's, or theirs. */
+    /** Which numerals the digits are made of: ours, Rome's, theirs, or a
+     * calculator's. */
     const val DIGIT_SCRIPT = "pref_digit_script"
     const val SCRIPT_ARABIC = "arabic"
     const val SCRIPT_ROMAN = "roman"
     const val SCRIPT_YAUTJA = "yautja"
+    const val SCRIPT_COMET = "comet"
 
     /** Twenty-four hours, or twelve with the sun and the moon beside them. */
     const val HOUR_24 = "pref_hour_24"

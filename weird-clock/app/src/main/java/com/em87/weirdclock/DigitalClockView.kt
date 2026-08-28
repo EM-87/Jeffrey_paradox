@@ -481,6 +481,7 @@ class DigitalClockView @JvmOverloads constructor(
     private fun kind(): Segments.Kind = when (script) {
         DigitScript.ROMAN -> Segments.Kind.SIXTEEN
         DigitScript.YAUTJA -> Segments.Kind.STAR
+        DigitScript.COMET -> Segments.Kind.NINE
         else -> Segments.Kind.SEVEN
     }
 
@@ -699,12 +700,17 @@ class DigitalClockView @JvmOverloads constructor(
      * The date, with the day of the week beside it.
      *
      * One row and not two, the way a watch has always done it: the day is
-     * a three-letter label sitting in front of the numbers, close enough
-     * to belong to them. Drawn in print rather than in bars because two of
-     * the three alphabets on this clock have no letters at all — the
-     * sixteen-bar module can write eight Roman numerals and nothing else,
-     * and theirs is ten numerals. Which language it is in is [Weekday]'s
-     * question and not this one's.
+     * a short label sitting in front of the numbers, close enough to
+     * belong to them. Which language it is in is [Weekday]'s question and
+     * not this one's.
+     *
+     * Drawn in print where it is a word, because two of the four alphabets
+     * here have no letters at all — the sixteen-bar module can write eight
+     * Roman numerals and nothing else. Where it is a *number*, which is
+     * what a display with no letters falls back to, it goes in that
+     * display's own bars and turned down: a lone digit in the phone's type
+     * beside a date made of lit metal is two clocks on one line, which is
+     * exactly what the first picture of the Comet face showed.
      */
     private fun drawDateLine(
         canvas: Canvas,
@@ -716,6 +722,10 @@ class DigitalClockView @JvmOverloads constructor(
     ) {
         if (day == null) {
             drawRow(canvas, date, top, digitW, digitH, "d")
+            return
+        }
+        if (script.barsOnly) {
+            drawDayInBars(canvas, date, day, top, digitW, digitH)
             return
         }
         ink.typeface = if (script == DigitScript.YAUTJA) yautja ?: PRINT else PRINT
@@ -730,6 +740,42 @@ class DigitalClockView @JvmOverloads constructor(
         canvas.drawText(day, left, top + digitH * 0.76f, ink)
         ink.alpha = 255
         ink.textAlign = Paint.Align.CENTER
+        drawRow(canvas, date, top, digitW, digitH, "d", leftEdge = left + label + gap)
+    }
+
+    /**
+     * The day of the week as a number, in the display's own metal.
+     *
+     * No ghosts behind it. A single unlit module beside the date would
+     * read as a place the date had lost a digit out of, which is the one
+     * thing a ghost is there to stop happening.
+     */
+    private fun drawDayInBars(
+        canvas: Canvas,
+        date: List<Cell>,
+        day: String,
+        top: Float,
+        digitW: Float,
+        digitH: Float
+    ) {
+        val kind = kind()
+        val masks = Segments.spell(kind, day)
+        if (masks.isEmpty()) {
+            drawRow(canvas, date, top, digitW, digitH, "d")
+            return
+        }
+        val label = Segments.span(kind, day) * digitW
+        val gap = digitH * WEEKDAY_GAP
+        val left = (width - (label + gap + rowWidth(date) * digitW)) / 2f
+        segments.weight = weight
+        segments.ghosts = false
+        segments.litAlpha = WEEKDAY_ALPHA
+        segments.row(
+            canvas, kind, masks, left, top, label, digitH,
+            theme.decimal, theme.minorTick
+        )
+        segments.litAlpha = 255
+        segments.ghosts = ghosts
         drawRow(canvas, date, top, digitW, digitH, "d", leftEdge = left + label + gap)
     }
 
@@ -1461,11 +1507,24 @@ class DigitalClockView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * The two dots between the groups.
+     *
+     * A third and two thirds of the way down, which is where every clock
+     * with a colon on it puts them and — checked afterwards, not chosen —
+     * within half a percent of where the Comet's drawing puts its two
+     * lamps. Their size is the display's own and not the bar's: see
+     * [Segments.separator], which is there because a colon drawn at the
+     * thickness of a hairline stroke disappears.
+     */
     private fun drawColon(canvas: Canvas, cx: Float, top: Float, h: Float) {
         val on = !blinkColon || (nowMs() / 1000L) % 2L == 0L
         punctuation(on)
+        val was = lit.strokeWidth
+        lit.strokeWidth = h * Segments.separator(kind()) * weight
         canvas.drawPoint(cx, top + h * 0.32f, lit)
         canvas.drawPoint(cx, top + h * 0.68f, lit)
+        lit.strokeWidth = was
     }
 
     /**
