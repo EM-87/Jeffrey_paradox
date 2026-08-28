@@ -136,6 +136,45 @@ object Prefs {
 
     /** Whether the countdown widget writes its time in the phone's type. */
     const val WIDGET_SAND_PLAIN = "pref_widget_sand_plain"
+
+    // ------------------------------------------------------- the sundial
+
+    /**
+     * Which of the three instruments the sundial is.
+     *
+     * Not a skin: a plate on the ground, a plate on a wall and a plate
+     * parallel to the equator are three different objects with three
+     * different formulae, and the one thing they have in common is the
+     * style being parallel to the earth's axis. See [Sundial].
+     */
+    const val SUNDIAL_KIND = "pref_sundial_kind"
+
+    /** And the shape of the stone, which is the only cosmetic choice. */
+    const val SUNDIAL_PLATE = "pref_sundial_plate"
+
+    /**
+     * Whether the latitude comes from the phone or from the slider.
+     *
+     * It has to be settable by hand. A sundial without a latitude is a
+     * fan of lines that means nothing, and a face that says "no fix" is a
+     * face that does not work indoors, on a plane, or for anybody who
+     * will not give a clock their location.
+     */
+    const val SUNDIAL_LATITUDE_FIXED = "pref_sundial_latitude_fixed"
+    const val SUNDIAL_LATITUDE = "pref_sundial_latitude"
+
+    /** Whether the phone is the dial, with an arrow to point it by. */
+    const val SUNDIAL_COMPASS = "pref_sundial_compass"
+
+    /** The Latin motto round the rim, and the half-hour marks. */
+    const val SUNDIAL_MOTTO = "pref_sundial_motto"
+    const val SUNDIAL_HALVES = "pref_sundial_halves"
+
+    /** And whether the hours are cut in Roman numerals, as they were. */
+    const val SUNDIAL_ROMAN = "pref_sundial_roman"
+
+    /** Which projection the home-screen sundial widget draws. */
+    const val WIDGET_SUNDIAL_KIND = "pref_widget_sundial_kind"
     const val DATE_FORMAT = "pref_date_format"
 
     /**

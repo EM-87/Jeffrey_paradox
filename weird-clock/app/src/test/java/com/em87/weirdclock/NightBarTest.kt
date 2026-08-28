@@ -264,6 +264,10 @@ class NightBarTest {
                 // face is digital.
                 "pref_digit_style", "pref_digit_script", "pref_hour_24",
                 "pref_leading_zero", "pref_blink_colon",
+                "pref_sundial_kind", "pref_sundial_plate",
+                "pref_sundial_latitude_fixed", "pref_sundial_latitude",
+                "pref_sundial_compass", "pref_sundial_roman",
+                "pref_sundial_halves", "pref_sundial_motto",
                 "pref_segment_weight", "pref_bedside_seconds", "pref_bedside_date",
                 "pref_segment_ghosts",
                 "pref_alarm_ramp", "pref_ring_timeout",

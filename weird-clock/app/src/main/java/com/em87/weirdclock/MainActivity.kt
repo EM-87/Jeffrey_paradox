@@ -106,6 +106,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** The clock with no hands, on the faces that have one. */
     private var digitalView: DigitalClockView? = null
+    private var sundialView: SundialView? = null
     private var calendarView: CalendarPageView? = null
     private var s3Sand: SandHourglassView? = null
     private var s3DurationGroup: com.google.android.material.button.MaterialButtonToggleGroup? = null
@@ -229,7 +230,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var face = Face.ANALOG
 
     /** The card on screen: the row says which of the page's cards it is. */
-    private fun current(): Card? = Cards.on(pager.currentItem, row, face)
+    private fun current(): Card? = Cards.on(Cards.pageAt(pager.currentItem, face), row, face)
     /**
      * The two chronographs, as arithmetic rather than as seven loose
      * fields and a line of it repeated wherever a number was wanted.
@@ -954,7 +955,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         pager.adapter = PagerAdapter()
         // The app opens on the clock, with calendar and alarms one swipe
         // away on either side.
-        pager.setCurrentItem(PAGE_HOME, false)
+        pager.setCurrentItem(Cards.positionOf(PAGE_HOME, face), false)
         pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
                 // A sideways swipe changes which card is showing without
@@ -966,7 +967,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 closeSheetLeftBehind()
                 // Landing on the alarms: whatever happened while away — a
                 // time wound on the dial, an alarm that rang — shows now.
-                if (position == PAGE_RIGHT) refreshAlarmsUi()
+                if (Cards.pageAt(position, face) == PAGE_RIGHT) refreshAlarmsUi()
             }
         })
         if (intent.getBooleanExtra(EXTRA_OPEN_ALARMS, false)) {
@@ -1041,15 +1042,37 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private fun askWhichFaceOnce(): Boolean {
         if (prefs.getBoolean(Prefs.FACE_ASKED, false)) return false
+        // A list rather than two buttons. A dialog has room for three of
+        // those and there are three faces already, with more wanted — and
+        // the third would have had to be the "neutral" one, which is
+        // where a dialog puts the answer it expects nobody to pick.
+        //
+        // Each line says what it is rather than the dialog carrying one
+        // paragraph about all of them: the choice decides what the app
+        // *is*, and "you can change it later" underneath three bare nouns
+        // is a paragraph about the dialog rather than about the clocks.
+        val names = Face.entries.map { getString(describeOf(it)) }.toTypedArray()
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(R.string.face_ask_title)
-            .setMessage(R.string.face_ask_message)
             .setCancelable(false)
-            .setPositiveButton(R.string.face_analog) { _, _ -> chooseFace(Face.ANALOG) }
-            .setNegativeButton(R.string.face_digital) { _, _ -> chooseFace(Face.DIGITAL) }
+            .setItems(names) { _, which -> chooseFace(Face.entries[which]) }
             .show()
             .also { faceDialog = it }
         return true
+    }
+
+    /** What each face is called, in one place rather than three. */
+    private fun nameOf(face: Face): Int = when (face) {
+        Face.ANALOG -> R.string.face_analog
+        Face.DIGITAL -> R.string.face_digital
+        Face.SUNDIAL -> R.string.face_sundial
+    }
+
+    /** And what each one *is*, for the one screen where it is being chosen. */
+    private fun describeOf(face: Face): Int = when (face) {
+        Face.ANALOG -> R.string.face_long_analog
+        Face.DIGITAL -> R.string.face_long_digital
+        Face.SUNDIAL -> R.string.face_long_sundial
     }
 
     /** The first-run question, while it is on screen. */
@@ -1420,9 +1443,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private inner class PagerAdapter : RecyclerView.Adapter<PageHolder>() {
 
-        override fun getItemCount(): Int = 3
+        // Only the pages this face has cards on — see [Cards.pagesOf].
+        // A sundial has no alarm and no chronograph, so its right-hand
+        // page holds nothing, and a swipe onto a blank page is worse than
+        // a swipe that does nothing.
+        override fun getItemCount(): Int = Cards.pagesOf(face).size
 
-        override fun getItemViewType(position: Int): Int = position
+        override fun getItemViewType(position: Int): Int = Cards.pageAt(position, face)
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PageHolder {
             val inflater = LayoutInflater.from(parent.context)
@@ -1443,6 +1470,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** C-1 calendar / S-1 stopwatch. */
     private fun bindLeftPage(root: View) {
         calendarContainer = root.findViewById(R.id.calendar_container)
+        hideCardsThisFaceHasNot()
         calendarView = root.findViewById<CalendarPageView>(R.id.calendar_view).also {
             it.onDayTap = { day -> onCalendarDayTap(day) }
             it.onMonthChanged = { refreshCalendarMarks() }
@@ -1458,6 +1486,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun bindRightPage(root: View) {
         alarmsContainer = root.findViewById(R.id.alarms_container)
         countdownContainer = root.findViewById(R.id.countdown_container)
+        hideCardsThisFaceHasNot()
 
         alarmsRecycler = root.findViewById<RecyclerView>(R.id.alarms_recycler).also {
             it.layoutManager = LinearLayoutManager(this)
@@ -1621,6 +1650,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             it.onKnocked = { onDialKnocked() }
         }
         digitalView = root.findViewById(R.id.digital_view)
+        sundialView = root.findViewById(R.id.sundial_view)
         bubbleLayer = root.findViewById(R.id.bubble_layer)
         worldBubbles.layer = bubbleLayer
         modeButton = root.findViewById<ImageButton>(R.id.mode_button).also {
@@ -1714,25 +1744,52 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * live button to it is worse than either.
      */
     private fun takeAwayWhatThisFaceHasNot(root: View) {
-        for (card in Card.entries - face.cards) containerOf(card)?.visibility = View.GONE
+        hideCardsThisFaceHasNot()
         // One of the two clocks comes out of the card altogether — taken
         // out rather than hidden, because a dial that is merely invisible
         // still asks for a frame a second and still holds the
         // accelerometer open waiting to be shaken. The object stays: the
         // stopwatch, the calendar and the sand all take their styling off
         // it, and a detached view answers those questions perfectly well.
-        if (face.hands) {
+        // Three clocks in the card and one of them stays. The other two
+        // come out altogether rather than being hidden, because a dial
+        // that is merely invisible still asks for a frame a second and
+        // still holds the accelerometer open waiting to be shaken.
+        val keep = when (face) {
+            Face.ANALOG -> R.id.clock_view
+            Face.DIGITAL -> R.id.digital_view
+            Face.SUNDIAL -> R.id.sundial_view
+        }
+        if (keep != R.id.digital_view) {
             digitalView?.let { (it.parent as? ViewGroup)?.removeView(it) }
             digitalView = null
         } else {
             digitalView?.visibility = View.VISIBLE
+        }
+        if (keep != R.id.sundial_view) {
+            sundialView?.let { (it.parent as? ViewGroup)?.removeView(it) }
+            sundialView = null
+        } else {
+            sundialView?.visibility = View.VISIBLE
+        }
+        // The dial is the exception: the stopwatch, the calendar and the
+        // sand all take their styling off it, and a detached view answers
+        // those questions perfectly well — so it is detached rather than
+        // dropped.
+        if (keep != R.id.clock_view) {
             clockView?.let { (it.parent as? ViewGroup)?.removeView(it) }
         }
-        // And the ways in. The hourglass is the only card with no second
-        // door — the row of buttons on the clock names the other four — so
-        // its button goes with it, rather than stranding a finger on a card
-        // that is not there.
-        if (Card.HOURGLASS !in face.cards) modeButton?.visibility = View.GONE
+        // And the ways in. A hidden card with a live button pointing at it
+        // is the worse of the two failures: the finger lands, nothing
+        // happens, and the app looks broken rather than deliberate.
+        //
+        // One line per door rather than a rule about the hourglass, which
+        // is what this was: the hourglass was the only card that could go
+        // missing until a face turned up with no alarm and no chronograph
+        // at all, and then three buttons on the clock pointed at nothing.
+        for ((card, button) in doorsFrom(root)) {
+            if (card !in face.cards) button?.visibility = View.GONE
+        }
     }
 
     /**
@@ -1764,7 +1821,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     /** Which card is on the glass right now, if the pager is on one. */
-    private fun showingCard(): Card? = Cards.on(pager.currentItem, row, face)
+    private fun showingCard(): Card? = Cards.on(Cards.pageAt(pager.currentItem, face), row, face)
 
     /**
      * Remembers a dialog and the card it was opened from, so it can be
@@ -2160,7 +2217,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** For the tests: put the app on a given card. */
     internal fun showCardForTest(card: Card) {
         row = card.row
-        pager.setCurrentItem(card.page, false)
+        pager.setCurrentItem(Cards.positionOf(card.page, face), false)
         // The pager only swaps pages once it has been laid out again, and a
         // picture taken before that is a picture of the page it was on.
         pager.measure(
@@ -2195,6 +2252,52 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** For the tests: whether the dial is still in the layout at all. */
     internal fun dialIsInTheCardForTest(): Boolean = clockView?.parent != null
+
+    /** For the tests: the shadow, on the face that is one. */
+    internal fun sundialForTest(): SundialView? = sundialView
+
+    // ------------------------------------------------------ which way north
+
+    /**
+     * The phone's own bearing, for the dial you hold up at the sun.
+     *
+     * The rotation vector rather than the raw magnetometer: the platform
+     * already fuses the compass with the gyroscope and the accelerometer,
+     * and doing that by hand is how an app ends up with a needle that
+     * swings when you walk. Registered only while the face wants it, and
+     * at the slowest rate the system offers — the arrow is telling you
+     * which way to turn, not steering a boat.
+     */
+    private var bearingListener: android.hardware.SensorEventListener? = null
+
+    private fun listenForBearing(wanted: Boolean) {
+        val sensors = sensorManager ?: return
+        if (!wanted) {
+            bearingListener?.let { sensors.unregisterListener(it) }
+            bearingListener = null
+            sundialView?.phoneBearing = null
+            return
+        }
+        if (bearingListener != null) return
+        val sensor = sensors.getDefaultSensor(android.hardware.Sensor.TYPE_ROTATION_VECTOR)
+            ?: return
+        val matrix = FloatArray(9)
+        val angles = FloatArray(3)
+        val listener = object : android.hardware.SensorEventListener {
+            override fun onSensorChanged(event: android.hardware.SensorEvent) {
+                android.hardware.SensorManager.getRotationMatrixFromVector(matrix, event.values)
+                android.hardware.SensorManager.getOrientation(matrix, angles)
+                val degrees = (Math.toDegrees(angles[0].toDouble()) + 360.0) % 360.0
+                sundialView?.phoneBearing = degrees
+            }
+
+            override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) = Unit
+        }
+        sensors.registerListener(
+            listener, sensor, android.hardware.SensorManager.SENSOR_DELAY_UI
+        )
+        bearingListener = listener
+    }
 
     /** For the tests: the little world clocks floating over it. */
     internal fun worldClocksForTest(): List<ClockView> = worldBubbles.clocksForTest()
@@ -2292,7 +2395,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         alarmWorkingMs = startMs
         row = Row.MIDDLE
         keepScreenAwake()
-        pager.currentItem = PAGE_HOME
+        pager.currentItem = Cards.positionOf(PAGE_HOME, face)
         applyAlarmSetUi()
     }
 
@@ -2367,10 +2470,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             if (alarms.removeAll { it.id == job.draft.id }) persistAlarms()
         }
         applyAlarmSetUi()
-        pager.currentItem = when (job) {
-            is DialJob.ReminderTime, is DialJob.ReminderLength -> PAGE_LEFT
-            else -> PAGE_RIGHT
-        }
+        pager.currentItem = Cards.positionOf(
+            when (job) {
+                is DialJob.ReminderTime, is DialJob.ReminderLength -> PAGE_LEFT
+                else -> PAGE_RIGHT
+            },
+            face
+        )
         when (job) {
             is DialJob.AlarmTime -> showAlarmSheet(job.target, job.draft)
             is DialJob.AlarmLength -> showAlarmSheet(job.target, job.draft)
@@ -3192,6 +3298,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 .apply()
         }
         applyDigitalPreferences(cv.theme)
+        applySundialPreferences(cv.theme)
 
         // The other cities. On the dial they are bubbles to be thrown
         // about; on the face with no hands they are a ladder under the
@@ -3499,7 +3606,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         closeSheetLeftBehind()
         handOverSource = visibleDial()
         val wasRow = row
-        val wasPage = pager.currentItem
+        val wasPage = Cards.pageAt(pager.currentItem, face)
         // Which card is on screen *now*, asked before anything moves. Asked
         // afterwards it was "which card of the row I am leaving lives on
         // the page I have just arrived at", which on a diagonal names a
@@ -3509,8 +3616,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         row = card.row
         keepScreenAwake()
         val turning = card.row != wasRow
-        if (pager.currentItem != card.page) {
-            pager.setCurrentItem(card.page, scroll && !turning)
+        if (Cards.pageAt(pager.currentItem, face) != card.page) {
+            pager.setCurrentItem(Cards.positionOf(card.page, face), scroll && !turning)
         }
         // And only the page we stayed on can dissolve anything: on a
         // diagonal the pager takes the old page away in the same frame, so
@@ -3593,6 +3700,35 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         Card.STOPWATCH -> stopwatchClockView
         Card.REVERSE -> countdownClockView
         Card.HOURGLASS, Card.CALENDAR, Card.ALARM -> null
+    }
+
+    /**
+     * The buttons under the clock, and which card each one opens.
+     *
+     * The hourglass's is the middle one and is kept as a field because
+     * the rest of the app talks to it; the other four are only ever
+     * looked up here.
+     */
+    private fun doorsFrom(root: View): List<Pair<Card, View?>> = listOf(
+        Card.CALENDAR to root.findViewById<View>(R.id.to_calendar_button),
+        Card.STOPWATCH to root.findViewById<View>(R.id.to_stopwatch_button),
+        Card.HOURGLASS to modeButton,
+        Card.REVERSE to root.findViewById<View>(R.id.to_countdown_button),
+        Card.ALARM to root.findViewById<View>(R.id.to_alarms_button)
+    )
+
+    /**
+     * Hides every card this face has not got, wherever it lives.
+     *
+     * Called from all three page binders rather than only from the middle
+     * one, because the pager builds its pages when it reaches them: the
+     * alarm card's container does not exist yet when the clock's page is
+     * bound, so hiding it there hid nothing and the alarms turned up on a
+     * face with no alarm. Cheap and idempotent, which is what lets it be
+     * called three times.
+     */
+    private fun hideCardsThisFaceHasNot() {
+        for (card in Card.entries - face.cards) containerOf(card)?.visibility = View.GONE
     }
 
     /** And which view is the whole card. */
@@ -3728,7 +3864,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // was built — which is why they used to be simply always there.
         // Which timer face was last looked at, so the notification and the
         // sand widget come back to the one actually in use.
-        Cards.on(pager.currentItem, row, face)?.let { here ->
+        Cards.on(Cards.pageAt(pager.currentItem, face), row, face)?.let { here ->
             if (here == Card.REVERSE || here == Card.HOURGLASS) {
                 prefs.edit().putBoolean(Prefs.TIMER_ON_DIAL, here == Card.REVERSE).apply()
             }
@@ -3779,6 +3915,39 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         s3Sand?.setTime(countdownTotalMs, countdownRemaining())
         sandStartStop?.setText(if (countdownRunning) R.string.chrono_pause else R.string.chrono_start)
         syncS3DurationChecks()
+    }
+
+    /**
+     * The sundial, dressed from the same stored answers.
+     *
+     * Latitude first, because it is the one number the instrument cannot
+     * do without: it is the angle the style stands at and it is inside
+     * every hour line. Taken from the last fix when there is one and the
+     * owner has not overruled it, and from the slider otherwise — a face
+     * that only works with a location is a face that does not work
+     * indoors, on a plane, or for anybody who will not tell a clock where
+     * they are.
+     */
+    private fun applySundialPreferences(theme: ClockTheme) {
+        val dial = sundialView ?: return
+        dial.theme = theme
+        dial.kind = Sundial.Kind.entries
+            .firstOrNull { it.key == prefs.getString(Prefs.SUNDIAL_KIND, null) }
+            ?: Sundial.Kind.HORIZONTAL
+        dial.plate = Sundial.Plate.entries
+            .firstOrNull { it.key == prefs.getString(Prefs.SUNDIAL_PLATE, null) }
+            ?: Sundial.Plate.ROUND
+        DayNight.configure(this)
+        val byHand = prefs.getBoolean(Prefs.SUNDIAL_LATITUDE_FIXED, false)
+        dial.latitude =
+            if (!byHand && DayNight.hasFix()) DayNight.latitudeNow()
+            else prefs.getInt(Prefs.SUNDIAL_LATITUDE, 40).toDouble()
+        dial.longitude = if (DayNight.hasFix()) DayNight.longitudeNow() else 0.0
+        dial.roman = prefs.getBoolean(Prefs.SUNDIAL_ROMAN, true)
+        dial.motto = prefs.getBoolean(Prefs.SUNDIAL_MOTTO, true)
+        dial.halfHours = prefs.getBoolean(Prefs.SUNDIAL_HALVES, true)
+        dial.compass = prefs.getBoolean(Prefs.SUNDIAL_COMPASS, false)
+        listenForBearing(dial.compass)
     }
 
     /**

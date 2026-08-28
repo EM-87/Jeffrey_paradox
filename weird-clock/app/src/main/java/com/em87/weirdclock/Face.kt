@@ -33,7 +33,24 @@ enum class Face(val key: String) {
      * everything about hands, cases and marks. What it keeps is what a
      * person who chose it came for: the time, large, and an alarm.
      */
-    DIGITAL("digital");
+    DIGITAL("digital"),
+
+    /**
+     * A shadow on a plate, which is the oldest clock there is.
+     *
+     * It loses more than any other face and every loss is the object
+     * being honest. There is no alarm, because a shadow cannot wake you;
+     * no stopwatch and no countdown, because a sundial has no moving part
+     * to start and stop; and after sunset there is no time at all, which
+     * is not a fault to be worked around but the whole reason somebody
+     * chooses it.
+     *
+     * What it keeps is what an instrument of its age would have had
+     * beside it: sand in a glass for measuring an interval, and a
+     * calendar — the two things a sundial genuinely cannot do and that a
+     * Roman would have had on the same table.
+     */
+    SUNDIAL("sundial");
 
     /**
      * Whether the clock card is a dial with hands on it.
@@ -66,7 +83,22 @@ enum class Face(val key: String) {
             ANALOG -> Card.entries.toSet()
             // The hourglass is sand in a glass. There is no digital one.
             DIGITAL -> Card.entries.toSet() - Card.HOURGLASS
+            // A shadow cannot wake you and has nothing to start or stop.
+            // Sand and a calendar are exactly the two things a sundial
+            // cannot do and that its owner would have had anyway.
+            SUNDIAL -> setOf(Card.CLOCK, Card.CALENDAR, Card.HOURGLASS)
         }
+
+    /**
+     * Whether this clock only works while the sun is up.
+     *
+     * One face answers yes, and it is not a defect: an instrument that
+     * stops at sunset is what somebody chooses when they are not choosing
+     * a clock to be woken by. Everything that would ring, count or wake
+     * asks this before it offers itself.
+     */
+    val daylightOnly: Boolean
+        get() = this == SUNDIAL
 
     companion object {
 
@@ -157,10 +189,43 @@ object FaceOptions {
         Prefs.BEDSIDE_DATE
     )
 
+    /** And the rows only a shadow on a plate has. */
+    private val sundialOnly = setOf(
+        Prefs.SUNDIAL_KIND,
+        Prefs.SUNDIAL_PLATE,
+        Prefs.SUNDIAL_LATITUDE_FIXED,
+        Prefs.SUNDIAL_LATITUDE,
+        Prefs.SUNDIAL_COMPASS,
+        Prefs.SUNDIAL_MOTTO,
+        Prefs.SUNDIAL_HALVES,
+        Prefs.SUNDIAL_ROMAN
+    )
+
+    /**
+     * The rows a face without an alarm has nothing to say about.
+     *
+     * Not "analogue only" and not "digital only" — these are rows about a
+     * thing that rings, on the one face that cannot. A shadow does not
+     * wake anybody, so how loudly it does so, how long it goes on for and
+     * whether it flashes the torch are three questions about nothing.
+     *
+     * Kept as its own list rather than folded into the two above, because
+     * what it is about is the *card* being missing, and the next face to
+     * lose a card will lose a different one.
+     */
+    private val needsAnAlarm = setOf(
+        Prefs.ALARM_RAMP,
+        Prefs.RING_TIMEOUT_MIN,
+        Prefs.GENTLE_FLASH,
+        Prefs.COUNTDOWN_PERSISTENT
+    )
+
     /** Whether the row at [key] belongs on [face]'s screens. */
     fun shows(face: Face, key: String): Boolean = when {
         key in analogOnly -> face == Face.ANALOG
         key in digitalOnly -> face == Face.DIGITAL
+        key in sundialOnly -> face == Face.SUNDIAL
+        key in needsAnAlarm -> Card.ALARM in face.cards
         else -> true
     }
 
@@ -180,6 +245,8 @@ object FaceOptions {
         // not having noticed which clock it is.
         (key == CAT_DIAL || key == CAT_DIAL_DEEP) && face == Face.DIGITAL ->
             R.string.category_screen
+        (key == CAT_DIAL || key == CAT_DIAL_DEEP) && face == Face.SUNDIAL ->
+            R.string.category_plate
         else -> null
     }
 
@@ -195,6 +262,17 @@ object FaceOptions {
      * somebody else is worse than a row that is simply missing.
      */
     fun summaryFor(face: Face, key: String): Int? {
+        if (face == Face.SUNDIAL) {
+            return when (key) {
+                // The sun does not dim at ten at night; it sets. And the
+                // date under a sundial is cut into the plate, not printed
+                // under a set of hands.
+                Prefs.NIGHT_DIM -> R.string.pref_night_dim_summary_sundial
+                Prefs.SHOW_DATE -> R.string.pref_show_date_summary_sundial
+                "pref_advanced" -> R.string.pref_advanced_summary_sundial
+                else -> null
+            }
+        }
         if (face != Face.DIGITAL) return null
         return when (key) {
             Prefs.NIGHT_DIM -> R.string.pref_night_dim_summary_digital
@@ -220,4 +298,5 @@ object FaceOptions {
      */
     const val CAT_DIAL = "cat_dial"
     const val CAT_DIAL_DEEP = "cat_dial_deep"
+
 }

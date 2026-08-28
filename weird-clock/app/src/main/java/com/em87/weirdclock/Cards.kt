@@ -58,6 +58,44 @@ object Cards {
     val HOME = Card.CLOCK
 
     /**
+     * The pages this face actually uses, left to right.
+     *
+     * The pager has always had three, because the app has always had
+     * cards on all three. A face can empty one — a sundial has no alarm
+     * and no chronograph, so the right-hand page holds nothing at all —
+     * and a swipe onto a blank page is worse than a swipe that does
+     * nothing. So the pager is built from this rather than from a
+     * constant, and a page with nothing on it does not exist.
+     *
+     * The positions the pager works in are therefore not page numbers any
+     * more. [pageAt] and [positionOf] are the two directions of that, and
+     * everything that names a card from a swipe or swipes to a named card
+     * goes through one of them.
+     */
+    fun pagesOf(face: Face): List<Int> =
+        (PAGE_LEFT..PAGE_RIGHT).filter { page ->
+            Card.entries.any { it.page == page && it in face.cards }
+        }
+
+    /** Which page the pager's [position] is showing on [face]. */
+    fun pageAt(position: Int, face: Face): Int {
+        val pages = pagesOf(face)
+        if (pages.isEmpty()) return PAGE_HOME
+        return pages[position.coerceIn(0, pages.size - 1)]
+    }
+
+    /** And which position of the pager a [page] is at, or the nearest. */
+    fun positionOf(page: Int, face: Face): Int {
+        val pages = pagesOf(face)
+        val at = pages.indexOf(page)
+        if (at >= 0) return at
+        // A page this face has not got: the nearest one it has, so a
+        // request to go somewhere impossible lands somewhere sensible
+        // rather than out of bounds.
+        return pages.indices.minByOrNull { kotlin.math.abs(pages[it] - page) } ?: 0
+    }
+
+    /**
      * What lies [direction] of [from] on [face], or null if nothing does.
      *
      * Worked out from the addresses rather than written down as a table:

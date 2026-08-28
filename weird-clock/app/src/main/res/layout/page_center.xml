@@ -30,6 +30,15 @@
             android:layout_height="match_parent"
             android:visibility="gone" />
 
+        <!-- And the oldest of the three: a shadow on a plate. Taken out
+             of the layout on the two faces that are not it, exactly as
+             the other two are — see MainActivity. -->
+        <com.em87.weirdclock.SundialView
+            android:id="@+id/sundial_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
         <!-- World-clock bubbles sit below the gear, which stays pressable. -->
         <FrameLayout
             android:id="@+id/bubble_layer"

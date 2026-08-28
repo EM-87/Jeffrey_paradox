@@ -61,6 +61,65 @@
             android:title="@string/pref_segment_weight_title"
             app:useSimpleSummaryProvider="true" />
 
+        <!-- The sundial's own rows. Every one of them is about the
+             instrument rather than about the time, which is why they are
+             here and not on the first screen — except the latitude,
+             which is the one number the thing cannot work without and is
+             here because that is where its neighbours are. -->
+        <ListPreference
+            android:defaultValue="floor"
+            android:entries="@array/sundial_kind_entries"
+            android:entryValues="@array/sundial_kind_values"
+            android:key="pref_sundial_kind"
+            android:title="@string/pref_sundial_kind_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
+            android:defaultValue="round"
+            android:entries="@array/sundial_plate_entries"
+            android:entryValues="@array/sundial_plate_values"
+            android:key="pref_sundial_plate"
+            android:title="@string/pref_sundial_plate_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_sundial_latitude_fixed"
+            android:summary="@string/pref_sundial_latitude_fixed_summary"
+            android:title="@string/pref_sundial_latitude_fixed_title" />
+
+        <SeekBarPreference
+            android:defaultValue="40"
+            android:key="pref_sundial_latitude"
+            android:max="89"
+            android:title="@string/pref_sundial_latitude_title"
+            app:min="-89"
+            app:showSeekBarValue="true" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_sundial_compass"
+            android:summary="@string/pref_sundial_compass_summary"
+            android:title="@string/pref_sundial_compass_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_sundial_roman"
+            android:summary="@string/pref_sundial_roman_summary"
+            android:title="@string/pref_sundial_roman_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_sundial_halves"
+            android:summary="@string/pref_sundial_halves_summary"
+            android:title="@string/pref_sundial_halves_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_sundial_motto"
+            android:summary="@string/pref_sundial_motto_summary"
+            android:title="@string/pref_sundial_motto_title" />
+
         <!-- What survives when the phone goes on its side and the clock
              takes the screen. Off by default: full screen was asked for
              as a way of getting rid of things, and a bedside clock with

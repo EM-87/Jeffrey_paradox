@@ -442,7 +442,9 @@
     <string name="pref_face_title">Tipo de reloj</string>
     <string name="pref_face_summary">Agujas o dígitos. Decide de qué van las demás opciones, así que va la primera.</string>
     <string name="face_ask_title">¿Qué reloj quieres?</string>
-    <string name="face_ask_message">Puedes cambiarlo luego en opciones, pero casi todo el mundo elige una vez y no vuelve a mirar.</string>
+    <string name="face_long_analog">Agujas — una esfera con caja, que puedes desmontar</string>
+    <string name="face_long_digital">Dígitos — grandes, a pantalla completa, y alarma</string>
+    <string name="face_long_sundial">Una sombra — el más antiguo, y se para al anochecer</string>
     <string name="face_analog">Agujas</string>
     <string name="face_digital">Dígitos</string>
     <string name="pref_seconds_title">Segundos</string>
@@ -495,4 +497,32 @@
     <string name="pref_widget_date_summary">Bajo la hora, en la pantalla de inicio</string>
     <string name="pref_widget_plain_title">Tipografía simple</string>
     <string name="pref_widget_plain_summary">Los números del teléfono en vez de barras encendidas</string>
+    <string name="face_sundial">Una sombra</string>
+    <string name="category_plate">La piedra</string>
+    <string name="pref_night_dim_summary_sundial">Todo se atenúa en las horas de abajo, para que la piedra no ilumine el cuarto</string>
+    <string name="pref_show_date_summary_sundial">Una fecha pequeña bajo el reloj</string>
+    <string name="pref_advanced_summary_sundial">La piedra, las horas, el cielo y la arena</string>
+    <string name="pref_sundial_kind_title">Dónde está la piedra</string>
+    <string name="pref_sundial_plate_title">Forma de la piedra</string>
+    <string name="pref_sundial_latitude_fixed_title">Fijar la latitud a mano</string>
+    <string name="pref_sundial_latitude_fixed_summary">Un reloj tallado para un sitio se equivoca una hora en otro</string>
+    <string name="pref_sundial_latitude_title">Latitud</string>
+    <string name="pref_sundial_compass_title">Apuntar al sol</string>
+    <string name="pref_sundial_compass_summary">Una flecha en el borde, verde cuando el móvil está alineado</string>
+    <string name="pref_sundial_motto_title">Lema en el borde</string>
+    <string name="pref_sundial_motto_summary">Uno al día, en latín, como se tallaban</string>
+    <string name="pref_sundial_halves_title">Medias horas</string>
+    <string name="pref_sundial_halves_summary">Marcas cortas entre las líneas horarias</string>
+    <string name="pref_sundial_roman_title">Horas romanas</string>
+    <string name="pref_sundial_roman_summary">De I a XII, que es lo que ha llevado siempre un reloj de sol</string>
+    <string-array name="sundial_kind_entries">
+        <item>En el suelo</item>
+        <item>En una pared al sol</item>
+        <item>Paralela al ecuador</item>
+    </string-array>
+    <string-array name="sundial_plate_entries">
+        <item>Redonda</item>
+        <item>Cuadrada</item>
+        <item>Octogonal</item>
+    </string-array>
 </resources>

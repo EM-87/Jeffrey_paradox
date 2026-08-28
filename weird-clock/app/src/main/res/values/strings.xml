@@ -537,7 +537,9 @@
     <string name="pref_face_title">Kind of clock</string>
     <string name="pref_face_summary">Hands, or digits. It decides what the rest of these settings are about, so it is the first one.</string>
     <string name="face_ask_title">Which clock do you want?</string>
-    <string name="face_ask_message">You can change it later in the settings, but most people pick once and never look again.</string>
+    <string name="face_long_analog">Hands — a dial with a case, that you can take apart</string>
+    <string name="face_long_digital">Digits — big, full screen, and an alarm</string>
+    <string name="face_long_sundial">A shadow — the oldest one, and it stops at sunset</string>
     <string name="face_analog">Hands</string>
     <string name="face_digital">Digits</string>
     <string name="pref_seconds_title">Seconds</string>
@@ -577,10 +579,12 @@
     <string-array name="face_entries">
         <item>@string/face_analog</item>
         <item>@string/face_digital</item>
+        <item>@string/face_sundial</item>
     </string-array>
     <string-array name="face_values" translatable="false">
         <item>analog</item>
         <item>digital</item>
+        <item>sundial</item>
     </string-array>
     <string-array name="digit_style_entries">
         <item>Lit segments</item>
@@ -617,4 +621,42 @@
     <string name="pref_widget_date_summary">Under the time, on the home screen</string>
     <string name="pref_widget_plain_title">Plain type</string>
     <string name="pref_widget_plain_summary">The phone\'s own numbers instead of lit bars</string>
+    <string name="face_sundial">A shadow</string>
+    <string name="category_plate">The plate</string>
+    <string name="pref_night_dim_summary_sundial">Everything dims in the hours below, so the plate does not light the room</string>
+    <string name="pref_show_date_summary_sundial">A small date under the dial</string>
+    <string name="pref_advanced_summary_sundial">The plate, the hours, the sky and the sand</string>
+    <string name="pref_sundial_kind_title">Where the plate lies</string>
+    <string name="pref_sundial_plate_title">Shape of the plate</string>
+    <string name="pref_sundial_latitude_fixed_title">Set the latitude by hand</string>
+    <string name="pref_sundial_latitude_fixed_summary">A dial cut for one place reads an hour wrong in another</string>
+    <string name="pref_sundial_latitude_title">Latitude</string>
+    <string name="pref_sundial_compass_title">Point it at the sun</string>
+    <string name="pref_sundial_compass_summary">An arrow round the rim, green when the phone is lined up</string>
+    <string name="pref_sundial_motto_title">Motto round the rim</string>
+    <string name="pref_sundial_motto_summary">One a day, in Latin, as they were cut</string>
+    <string name="pref_sundial_halves_title">Half hours</string>
+    <string name="pref_sundial_halves_summary">Short marks between the hour lines</string>
+    <string name="pref_sundial_roman_title">Roman hours</string>
+    <string name="pref_sundial_roman_summary">I to XII, which is what a dial has always had on it</string>
+    <string-array name="sundial_kind_entries">
+        <item>Flat on the ground</item>
+        <item>On a wall facing the sun</item>
+        <item>Parallel to the equator</item>
+    </string-array>
+    <string-array name="sundial_kind_values" translatable="false">
+        <item>floor</item>
+        <item>wall</item>
+        <item>equatorial</item>
+    </string-array>
+    <string-array name="sundial_plate_entries">
+        <item>Round</item>
+        <item>Square</item>
+        <item>Eight-sided</item>
+    </string-array>
+    <string-array name="sundial_plate_values" translatable="false">
+        <item>round</item>
+        <item>square</item>
+        <item>octagon</item>
+    </string-array>
 </resources>

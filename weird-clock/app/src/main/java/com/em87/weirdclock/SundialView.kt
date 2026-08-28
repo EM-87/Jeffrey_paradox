@@ -160,7 +160,7 @@ class SundialView @JvmOverloads constructor(
         drawHourLines(canvas, cx, cy, r, hangs)
         drawShadow(canvas, cx, cy, r, sky, hangs)
         drawGnomon(canvas, cx, cy, r, hangs)
-        drawEngraving(canvas, cx, h / 2f, r, sky)
+        drawEngraving(canvas, cx, h / 2f, r, sky, hangs)
         if (compass) drawCompass(canvas, cx, h / 2f, r, sky)
     }
 
@@ -234,30 +234,68 @@ class SundialView @JvmOverloads constructor(
      * stone.
      */
     private fun drawHourLines(canvas: Canvas, cx: Float, cy: Float, r: Float, hangs: Boolean) {
-        val reach = r * 1.6f
+        val px = width / 2f
+        val py = height / 2f
         for (h in Sundial.hourLines(kind, latitude)) {
             val a = Sundial.lineAngle(kind, latitude, h.toDouble())
             val noon = h == 0
+            val reach = edge(cx, cy, a, hangs, px, py, r * RIM)
             line.color = theme.tick
             line.alpha = if (noon) 255 else 190
             line.strokeWidth = r * (if (noon) 0.024f else 0.013f)
-            strokeAlong(canvas, cx, cy, a, r * 0.10f, reach, hangs)
-            drawHourNumber(canvas, cx, cy, r, a, h, hangs)
+            strokeAlong(canvas, cx, cy, a, r * 0.05f, reach, hangs)
+            drawHourNumber(canvas, cx, cy, a, h, hangs, reach + r * 0.075f)
         }
         if (!halfHours) return
+        // Short marks near the rim rather than a second fan out of the
+        // middle: half hours are a subdivision of the scale and belong on
+        // the scale, and a full-length line for each was a dial with
+        // twice as many hours on it as it has.
         line.color = theme.minorTick
-        line.alpha = 150
-        line.strokeWidth = r * 0.008f
+        line.alpha = 160
+        line.strokeWidth = r * 0.009f
         val most = Sundial.readableHours(kind, latitude)
         var h = -most + 0.5
         while (h < most) {
-            if (abs(h % 1.0) > 0.4) {
-                val a = Sundial.lineAngle(kind, latitude, h)
-                strokeAlong(canvas, cx, cy, a, r * 0.55f, reach, hangs)
-            }
+            val a = Sundial.lineAngle(kind, latitude, h)
+            val to = edge(cx, cy, a, hangs, px, py, r * RIM)
+            strokeAlong(canvas, cx, cy, a, to - r * 0.10f, to, hangs)
             h += 1.0
         }
         line.alpha = 255
+    }
+
+    /**
+     * How far along a line from the gnomon's foot the plate's edge is.
+     *
+     * The reason this exists rather than a fixed radius: the foot is not
+     * the middle of the plate. It sits well off centre — that is what
+     * makes the fan open away from it — so a numeral placed at the same
+     * distance along every line lands near the rim at six o'clock and in
+     * a heap in the middle at noon, which is what it did. Every numeral
+     * belongs where its own line reaches the edge, which is where a mason
+     * would have cut it.
+     *
+     * The plate is treated as its inscribed circle even when it is a
+     * square: the difference is a few per cent at the corners, and the
+     * numerals sit inside the rim in either case.
+     */
+    private fun edge(
+        cx: Float, cy: Float, degrees: Double, hangs: Boolean,
+        px: Float, py: Float, radius: Float
+    ): Float {
+        val a = Math.toRadians(degrees - 90.0 + if (hangs) 180.0 else 0.0)
+        val dx = cos(a)
+        val dy = sin(a)
+        val ox = (cx - px).toDouble()
+        val oy = (cy - py).toDouble()
+        // |o + t·d| = radius, with d a unit vector, so t is the positive
+        // root of t² + 2(o·d)t + (o·o − radius²).
+        val b = ox * dx + oy * dy
+        val c = ox * ox + oy * oy - radius.toDouble() * radius
+        val disc = b * b - c
+        if (disc <= 0.0) return radius
+        return (-b + kotlin.math.sqrt(disc)).toFloat()
     }
 
     /**
@@ -295,25 +333,24 @@ class SundialView @JvmOverloads constructor(
         canvas: Canvas,
         cx: Float,
         cy: Float,
-        r: Float,
         degrees: Double,
         hoursFromNoon: Int,
-        hangs: Boolean
+        hangs: Boolean,
+        at: Float
     ) {
         val hour = ((12 + hoursFromNoon) + 11) % 12 + 1
         val text = if (roman) Roman.of(hour) else "$hour"
         val a = Math.toRadians(degrees - 90.0 + if (hangs) 180.0 else 0.0)
-        // Just inside the rim, on the line, where a dial cuts them.
-        val at = r * 0.80f
+        val r = min(width, height) * 0.42f
         val x = cx + (cos(a) * at).toFloat()
         val y = cy + (sin(a) * at).toFloat()
-        // Off the plate: a line so bunched against the noon line that its
-        // number would sit outside the stone gets no number, which is what
-        // a mason would have done.
-        if (kotlin.math.hypot(x - width / 2f, y - height / 2f) > r * 0.94f) return
+        // Off the stone: a numeral whose line reaches the edge so close to
+        // the corner that its number would sit outside gets no number,
+        // which is what a mason would have done.
+        if (kotlin.math.hypot(x - width / 2f, y - height / 2f) > r * 0.99f) return
         ink.typeface = CUT
         ink.textAlign = Paint.Align.CENTER
-        ink.textSize = r * 0.13f
+        ink.textSize = r * 0.11f
         ink.color = theme.numeral
         canvas.drawText(text, x, y + ink.textSize * 0.36f, ink)
     }
@@ -383,27 +420,49 @@ class SundialView @JvmOverloads constructor(
      * a diagram is what you can actually read a shadow off.
      */
     private fun drawGnomon(canvas: Canvas, cx: Float, cy: Float, r: Float, hangs: Boolean) {
-        val rise = Math.toRadians(Sundial.styleAngle(kind, latitude))
-        val base = r * 0.62f
-        val up = if (hangs) 1f else -1f
-        path.reset()
-        path.moveTo(cx, cy)
-        path.lineTo(cx, cy + up * base)
-        path.lineTo(cx + (base / kotlin.math.tan(rise).coerceAtLeast(0.05)).toFloat(), cy + up * base)
-        path.close()
-        fill.color = theme.rim
-        fill.alpha = 235
+        // The plate is the clip and the gnomon is what gets drawn, so the
+        // two cannot share the scratch path — they did once, and what
+        // came out was the plate's own outline stroked in the gnomon's
+        // ink, which looks enough like a design to survive a glance.
         canvas.save()
         platePath(width / 2f, height / 2f, r)
-        canvas.clipPath(path.let { path })
-        canvas.restore()
-        canvas.drawPath(path, fill)
+        canvas.clipPath(path)
+
+        // Seen from above, which is how the rest of the plate is drawn: a
+        // gnomon in plan is a thin wedge lying along the noon line, wide
+        // at the foot and coming to a point where the style ends. Drawn
+        // in elevation instead — a right triangle standing up off the
+        // plate — it covered a quarter of the dial and pointed at three
+        // o'clock, which is a picture of a sundial photographed from the
+        // side laid over a plan of one.
+        val a = Math.toRadians(-90.0 + if (hangs) 180.0 else 0.0)
+        val dx = cos(a).toFloat()
+        val dy = sin(a).toFloat()
+        val nx = -dy
+        val ny = dx
+        val long = r * 0.52f
+        val wide = r * 0.055f
+        gnomon.reset()
+        gnomon.moveTo(cx + nx * wide, cy + ny * wide)
+        gnomon.lineTo(cx + dx * long, cy + dy * long)
+        gnomon.lineTo(cx - nx * wide, cy - ny * wide)
+        gnomon.close()
+        fill.color = theme.rim
+        fill.alpha = 235
+        canvas.drawPath(gnomon, fill)
         line.color = theme.tick
         line.alpha = 255
-        line.strokeWidth = r * 0.014f
-        canvas.drawPath(path, line)
+        line.strokeWidth = r * 0.010f
+        canvas.drawPath(gnomon, line)
         fill.alpha = 255
+        canvas.restore()
+        // The foot itself, which is the point every hour line runs from
+        // and the one place on the plate a reader has to be able to find.
+        fill.color = theme.tick
+        canvas.drawCircle(cx, cy, r * 0.020f, fill)
     }
+
+    private val gnomon = Path()
 
     // ---------------------------------------------------- the engraving
 
@@ -416,13 +475,18 @@ class SundialView @JvmOverloads constructor(
      * is, and the parts that say so are as much the instrument as the
      * hour lines.
      */
-    private fun drawEngraving(canvas: Canvas, cx: Float, cy: Float, r: Float, sky: Sky) {
+    private fun drawEngraving(
+        canvas: Canvas, cx: Float, cy: Float, r: Float, sky: Sky, hangs: Boolean
+    ) {
         ink.typeface = CUT
         ink.textAlign = Paint.Align.CENTER
         ink.color = theme.numeral
         ink.alpha = 150
         ink.textSize = r * 0.085f
-        canvas.drawText(latitudeLabel(), cx, cy + r * 0.66f, ink)
+        // Opposite the fan. The fan opens downward on a wall and upward on
+        // the ground, so a latitude cut at a fixed place under the middle
+        // sat on top of the wall dial's noon numeral.
+        canvas.drawText(latitudeLabel(), cx, cy + (if (hangs) -r * 0.60f else r * 0.66f), ink)
         ink.alpha = 255
         if (!motto) return
         // Round the rim, the way it is cut. Upright text under a dial is a
@@ -509,5 +573,14 @@ class SundialView @JvmOverloads constructor(
     private companion object {
         /** The one colour on this face that is not the theme's: "yes". */
         const val GREEN = 0xFF43C463.toInt()
+
+        /**
+         * How far out the hour lines run, as a share of the plate.
+         *
+         * Short of the rim, because the rim is where the motto is cut and
+         * a line running into an inscription is a line somebody has to
+         * read past.
+         */
+        const val RIM = 0.80f
     }
 }
