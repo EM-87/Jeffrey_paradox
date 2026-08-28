@@ -144,7 +144,13 @@ object FaceOptions {
         Prefs.BLINK_COLON,
         Prefs.SEGMENT_WEIGHT,
         Prefs.SEGMENT_GHOSTS,
-        Prefs.POKE_SEGMENTS
+        Prefs.POKE_SEGMENTS,
+        // Both of these are rows about a face made of digits. The dial
+        // writes its date as a caption under the hands, in a strip with
+        // no room for a day beside it, and says what is armed with a
+        // marker on the rim rather than with a line of text.
+        Prefs.SHOW_WEEKDAY,
+        Prefs.SHOW_NEXT_ALARM
     )
 
     /** Whether the row at [key] belongs on [face]'s screens. */

@@ -3073,6 +3073,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
         face.showSeconds = prefs.getBoolean(Prefs.SECOND_HAND, true)
         face.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
+        face.showWeekday = prefs.getBoolean(Prefs.SHOW_WEEKDAY, true)
+        // What is armed, asked of the same scheduler that arms it rather
+        // than of the alarm list: a dated reminder can easily ring before
+        // every alarm on the list, and a face that only knew about alarms
+        // would say nothing on the night the reminder is the one thing
+        // set.
+        face.nextAlarmMs =
+            if (prefs.getBoolean(Prefs.SHOW_NEXT_ALARM, true)) nextRingMs() else null
         face.dateDayFirst = DateShape.dayFirst(
             DateShape.order(prefs.getString(Prefs.DATE_ORDER, DateShape.AUTO)),
             phoneWritesDayFirst()
@@ -3769,6 +3777,26 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         s3Sand?.setTime(countdownTotalMs, countdownRemaining())
         sandStartStop?.setText(if (countdownRunning) R.string.chrono_pause else R.string.chrono_start)
         syncS3DurationChecks()
+    }
+
+    /**
+     * Whatever rings first, alarm or reminder, or nothing.
+     *
+     * The same sum the quick-settings tile does — see [AlarmTileService] —
+     * because they are answering the same question and two answers to it
+     * that can disagree is worse than either.
+     */
+    private fun nextRingMs(): Long? {
+        val now = TimeKeeper.nowMs()
+        val alarm = AlarmStore.all(this)
+            .filter { it.enabled }
+            .minOfOrNull { AlarmScheduler.nextOccurrence(it) }
+        val reminder = ReminderStore.all(this)
+            .filter { it.rings }
+            .map { it.ringAtMillis() }
+            .filter { it > now }
+            .minOrNull()
+        return listOfNotNull(alarm, reminder).minOrNull()
     }
 
     /**

@@ -55,9 +55,26 @@
             android:summary="@string/pref_show_date_summary"
             android:title="@string/pref_show_date_title" />
 
+        <!-- The day of the week, which is the one thing about today a
+             number cannot tell you. Only on the face made of digits: the
+             dial's date is a caption under the hands and has no room. -->
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_show_weekday"
+            android:summary="@string/pref_show_weekday_summary"
+            android:title="@string/pref_show_weekday_title" />
+
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/category_alarms">
+
+        <!-- A flag on the face saying one is armed. Not "when is my
+             alarm", which is what the list is for: "did I set one". -->
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_next_alarm"
+            android:summary="@string/pref_next_alarm_summary"
+            android:title="@string/pref_next_alarm_title" />
 
         <SwitchPreferenceCompat
             android:defaultValue="false"

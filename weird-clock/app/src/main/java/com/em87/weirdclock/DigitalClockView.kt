@@ -132,6 +132,36 @@ class DigitalClockView @JvmOverloads constructor(
             invalidate()
         }
 
+    /**
+     * Whether the day of the week goes beside the date.
+     *
+     * Its own switch rather than part of the date, because they answer
+     * different questions: the date is which day of the month it is and
+     * this is which day of the *week* — the one thing about today that a
+     * number cannot tell you, since 27/08 says nothing until you have
+     * counted. Every digital clock ever built has it.
+     */
+    var showWeekday: Boolean = true
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /**
+     * When the next alarm goes off, or nothing if none is armed.
+     *
+     * Handed in rather than looked up, because a view that reads the alarm
+     * list is a view that has to be told when the alarm list changes and
+     * has no way of finding out. What it answers is not "when is my alarm"
+     * — the list is for that — it is "did I actually set one", which is
+     * the question somebody asks at midnight with the light off.
+     */
+    var nextAlarmMs: Long? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     /** A city under the digits, on the readouts that carry one. */
     var caption: String? = null
         set(value) {
@@ -477,7 +507,8 @@ class DigitalClockView @JvmOverloads constructor(
         cells: List<Cell>,
         date: List<Cell>,
         said: String?,
-        ladder: List<WorldClocks.City>
+        ladder: List<WorldClocks.City>,
+        alarm: Boolean
     ): Float {
         var stack = if (cells.isEmpty()) 0f else 1f
         if (date.isNotEmpty()) stack += DATE_SCALE + DATE_GAP
@@ -486,6 +517,7 @@ class DigitalClockView @JvmOverloads constructor(
             stack += CITY_GAP + ladder.size * CITY_SCALE +
                 (ladder.size - 1) * CITY_SCALE * CITY_STEP
         }
+        if (alarm) stack += ALARM_GAP + ALARM_SCALE
         return stack.coerceAtLeast(1f)
     }
 
@@ -556,6 +588,13 @@ class DigitalClockView @JvmOverloads constructor(
         // a chip on a home screen and a readout being wound are not places
         // to put a list of the world.
         val ladder = if (chip || settingMs != null || frozenMs != null) emptyList() else cities
+        val day =
+            if (showWeekday && date.isNotEmpty()) Weekday.of(calendar(), script) else null
+        // The alarm goes on the face and not on a bubble or a wound time:
+        // it is a thing about today, and neither of those is today.
+        val alarm =
+            if (chip || settingMs != null || frozenMs != null) null
+            else nextAlarmMs?.let { alarmCells(it) }
 
         // One digit's width, chosen so the longest thing on the face fits
         // with a margin either side. Roman at twenty-three fifty-nine is
@@ -563,7 +602,13 @@ class DigitalClockView @JvmOverloads constructor(
         // decides is whichever is longer today — asked every frame, because
         // it changes when the hour does.
         val room = width * (1f - 2f * (if (fullScreen) BEDSIDE_MARGIN else MARGIN))
-        val widest = maxOf(rowWidth(cells), rowWidth(date) * DATE_SCALE)
+        val widest = maxOf(
+            rowWidth(cells),
+            // The day sits beside the date, so the pair of them is one row
+            // and it is the pair that has to fit.
+            (rowWidth(date) + weekdayCells(day)) * DATE_SCALE,
+            alarm?.let { (rowWidth(it) + ALARM_FLAG) * ALARM_SCALE } ?: 0f
+        )
         val tallest = height * (if (fullScreen) BEDSIDE_TALLEST else TALLEST)
         // And the whole block has to fit as well as one digit of it. Only
         // the digit was capped for a long time, which is right until the
@@ -571,7 +616,7 @@ class DigitalClockView @JvmOverloads constructor(
         // narrow before it is too short, and a home-screen widget pulled
         // four cells wide and one tall is the other way round. That widget
         // drew its date through the bottom of its own panel.
-        val stack = stackOf(cells, date, said, ladder)
+        val stack = stackOf(cells, date, said, ladder, alarm != null)
         val byHeight = height * (if (chip) CHIP_BLOCK_FILL else BLOCK_FILL) / stack * cellRatio()
         val digitW = if (widest > 0f) minOf(room / widest, tallest, byHeight) else 0f
         val digitH = digitW / cellRatio()
@@ -589,12 +634,13 @@ class DigitalClockView @JvmOverloads constructor(
         val ladderH =
             if (ladder.isEmpty()) 0f
             else digitH * CITY_GAP + ladder.size * rungH + (ladder.size - 1) * rungH * CITY_STEP
-        val top = (height - digitH - dateH - capH - ladderH) / 2f
+        val alarmH = if (alarm == null) 0f else digitH * (ALARM_GAP + ALARM_SCALE)
+        val top = (height - digitH - dateH - capH - ladderH - alarmH) / 2f
         drawRow(canvas, cells, top, digitW, digitH, "t")
         if (date.isNotEmpty()) {
-            drawRow(
-                canvas, date, top + digitH + digitH * DATE_GAP,
-                digitW * DATE_SCALE, digitH * DATE_SCALE, "d"
+            drawDateLine(
+                canvas, date, day, top + digitH + digitH * DATE_GAP,
+                digitW * DATE_SCALE, digitH * DATE_SCALE
             )
         }
         // The city rides under the digits, the way it rides inside the
@@ -616,6 +662,118 @@ class DigitalClockView @JvmOverloads constructor(
                 digitW * CITY_SCALE, rungH
             )
         }
+        if (alarm != null) {
+            drawAlarmLine(
+                canvas, alarm,
+                top + digitH + dateH + capH + ladderH + digitH * ALARM_GAP,
+                digitW * ALARM_SCALE, digitH * ALARM_SCALE
+            )
+        }
+    }
+
+    /**
+     * The date, with the day of the week beside it.
+     *
+     * One row and not two, the way a watch has always done it: the day is
+     * a three-letter label sitting in front of the numbers, close enough
+     * to belong to them. Drawn in print rather than in bars because two of
+     * the three alphabets on this clock have no letters at all — the
+     * sixteen-bar module can write eight Roman numerals and nothing else,
+     * and theirs is ten numerals. Which language it is in is [Weekday]'s
+     * question and not this one's.
+     */
+    private fun drawDateLine(
+        canvas: Canvas,
+        date: List<Cell>,
+        day: String?,
+        top: Float,
+        digitW: Float,
+        digitH: Float
+    ) {
+        if (day == null) {
+            drawRow(canvas, date, top, digitW, digitH, "d")
+            return
+        }
+        ink.typeface = if (script == DigitScript.YAUTJA) yautja ?: PRINT else PRINT
+        ink.textSize = digitH * WEEKDAY_SIZE
+        ink.textAlign = Paint.Align.LEFT
+        val label = ink.measureText(day)
+        val gap = digitH * WEEKDAY_GAP
+        val dateW = rowWidth(date) * digitW
+        val left = (width - (label + gap + dateW)) / 2f
+        ink.color = theme.numeral
+        ink.alpha = WEEKDAY_ALPHA
+        canvas.drawText(day, left, top + digitH * 0.76f, ink)
+        ink.alpha = 255
+        ink.textAlign = Paint.Align.CENTER
+        drawRow(canvas, date, top, digitW, digitH, "d", leftEdge = left + label + gap)
+    }
+
+    /** What time the next alarm goes off, in this face's own numerals. */
+    private fun alarmCells(atMs: Long): List<Cell> {
+        val calendar = calendar()
+        calendar.timeInMillis = atMs
+        return DigitalReadout.time(
+            calendar.get(java.util.Calendar.HOUR_OF_DAY),
+            calendar.get(java.util.Calendar.MINUTE),
+            0,
+            options().copy(seconds = false)
+        )
+    }
+
+    /**
+     * The next alarm, with a bell in front of it.
+     *
+     * A bell rather than a word, because it has to survive three
+     * alphabets and every language the phone speaks, and because that is
+     * what a watch puts there. Drawn small and quiet: it is a flag saying
+     * something is armed, not a second time to read.
+     */
+    private fun drawAlarmLine(
+        canvas: Canvas,
+        alarm: List<Cell>,
+        top: Float,
+        digitW: Float,
+        digitH: Float
+    ) {
+        val flag = digitH * ALARM_FLAG
+        val row = rowWidth(alarm) * digitW
+        val left = (width - (flag + row)) / 2f
+        drawBell(canvas, left + flag * 0.42f, top + digitH * 0.5f, digitH * 0.42f)
+        drawRow(canvas, alarm, top, digitW, digitH, "a", leftEdge = left + flag)
+    }
+
+    /**
+     * A bell, in the ink the bars are lit in.
+     *
+     * Four strokes and no font: a glyph borrowed from a typeface is a
+     * glyph that is missing on somebody's phone, and this one has to be
+     * there or the row is a time with nothing saying what it is.
+     */
+    private fun drawBell(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        lit.style = Paint.Style.FILL
+        lit.color = theme.decimal
+        lit.alpha = 255
+        bell.reset()
+        // The dome, sitting on its rim, with the clapper under it.
+        bell.moveTo(cx - r * 0.72f, cy + r * 0.42f)
+        bell.quadTo(cx - r * 0.60f, cy + r * 0.30f, cx - r * 0.56f, cy - r * 0.10f)
+        bell.quadTo(cx - r * 0.50f, cy - r * 0.86f, cx, cy - r * 0.86f)
+        bell.quadTo(cx + r * 0.50f, cy - r * 0.86f, cx + r * 0.56f, cy - r * 0.10f)
+        bell.quadTo(cx + r * 0.60f, cy + r * 0.30f, cx + r * 0.72f, cy + r * 0.42f)
+        bell.close()
+        canvas.drawPath(bell, lit)
+        canvas.drawCircle(cx, cy + r * 0.62f, r * 0.20f, lit)
+    }
+
+    private val bell = android.graphics.Path()
+
+    /** How wide a weekday label is, in date-cell widths. */
+    private fun weekdayCells(day: String?): Float {
+        if (day == null) return 0f
+        // Measured in the same units the row is, so the pair can be capped
+        // together: a three-letter label is about two thirds of a cell.
+        return day.length * WEEKDAY_CELLS + WEEKDAY_GAP
     }
 
     /**
@@ -1389,6 +1547,23 @@ class DigitalClockView @JvmOverloads constructor(
         private const val CITY_NAME = 0.62f
         private const val CITY_GUTTER = 0.55f
         private const val CITY_ALPHA = 170
+
+        /**
+         * The day of the week beside the date: how big the label is
+         * against a date digit, how far it sits from the numbers, how
+         * loud it is, and roughly how much of a cell one letter of it
+         * takes — which is only used for reserving room, so an estimate
+         * that errs generous is the right kind of wrong.
+         */
+        private const val WEEKDAY_SIZE = 0.80f
+        private const val WEEKDAY_GAP = 0.55f
+        private const val WEEKDAY_ALPHA = 190
+        private const val WEEKDAY_CELLS = 0.42f
+
+        /** And the alarm flag under everything: its size and its bell. */
+        private const val ALARM_SCALE = 0.24f
+        private const val ALARM_GAP = 0.34f
+        private const val ALARM_FLAG = 1.15f
 
         /** How big the city under the digits is, against a digit. */
         private const val CAPTION_SCALE = 0.30f

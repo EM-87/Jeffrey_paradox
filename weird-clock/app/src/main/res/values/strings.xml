@@ -602,4 +602,8 @@
         <item>roman</item>
         <item>yautja</item>
     </string-array>
+    <string name="pref_show_weekday_title">Day of the week</string>
+    <string name="pref_show_weekday_summary">Mon, Tue… beside the date. In Latin on a Roman face</string>
+    <string name="pref_next_alarm_title">Next alarm on the clock</string>
+    <string name="pref_next_alarm_summary">A small bell and the time, when one is armed</string>
 </resources>

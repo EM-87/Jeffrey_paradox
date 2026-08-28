@@ -86,6 +86,27 @@ object Prefs {
     const val MIRROR = "pref_mirror"
     const val THEME = "pref_theme"
     const val SHOW_DATE = "pref_show_date"
+
+    /**
+     * The day of the week, beside the date.
+     *
+     * The one thing about today a number cannot tell you: 27/08 says
+     * nothing until you have counted. Every digital clock ever built has
+     * it and this one did not — see [Weekday], which also decides what
+     * language it is in, because the three scripts are three different
+     * claims about what kind of clock this is.
+     */
+    const val SHOW_WEEKDAY = "pref_show_weekday"
+
+    /**
+     * The next alarm, on the face.
+     *
+     * Standard equipment: a watch has a flag, a lock screen has the time
+     * itself. What it answers is not "when is my alarm" — that is what the
+     * alarm list is for — it is "did I actually set one", which is the
+     * question somebody asks at midnight with the light off.
+     */
+    const val SHOW_NEXT_ALARM = "pref_next_alarm"
     const val DATE_FORMAT = "pref_date_format"
 
     /**

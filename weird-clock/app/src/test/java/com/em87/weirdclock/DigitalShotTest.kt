@@ -381,6 +381,27 @@ class DigitalShotTest {
     }
 
     /**
+     * The day of the week and the next alarm, which every digital clock
+     * ever built has and this one did not.
+     *
+     * Three alphabets, because the day name is the one thing on this face
+     * that cannot be drawn with the bars: two of the three alphabets have
+     * no letters at all. Rome gets the planet the day is named after and
+     * theirs gets the number, and whether that reads as belonging to the
+     * clock or as a label stuck on it is a look and not an assertion.
+     */
+    @Test
+    fun `the day of the week, and what is armed`() {
+        for (script in DigitScript.entries) {
+            val view = face(DigitStyle.SEGMENT, script).apply {
+                showWeekday = true
+                nextAlarmMs = atTwentyTwoFifteen() + 9 * 3_600_000L + 15 * 60_000L
+            }
+            assertTrue(shoot(view, "digital-day-alarm-${script.key}") > 3)
+        }
+    }
+
+    /**
      * The home-screen widget on the face with no hands.
      *
      * Three alphabets and three sizes, because the widget is the one part

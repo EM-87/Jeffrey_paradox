@@ -229,8 +229,9 @@ class NightBarTest {
                 // Dial — keyed so its heading can be renamed with the face.
                 "cat_dial",
                 "pref_night_dim", "pref_theme", "pref_show_date",
+                "pref_show_weekday",
                 // Alarm
-                "pref_bells", "pref_alarm_markers",
+                "pref_next_alarm", "pref_bells", "pref_alarm_markers",
                 // Calendar
                 "pref_birthday", "pref_cycle",
                 // General — one switch for the whole sky
