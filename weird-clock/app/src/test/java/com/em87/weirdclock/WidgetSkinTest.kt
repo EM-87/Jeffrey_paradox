@@ -192,6 +192,49 @@ class WidgetSkinTest {
         )
     }
 
+    // ------------------------------------------------ inside its panel
+
+    /**
+     * The clock stays inside the panel drawn round it.
+     *
+     * Only one digit's size was ever capped, which is right for every
+     * window this app lays itself out in: a phone-shaped card runs out of
+     * width long before it runs out of height. A widget is the one thing
+     * whose shape somebody else chooses, and pulled four cells wide and
+     * one tall the height is what runs out — so the date was drawn through
+     * the bottom of the widget's own panel, on a rounded rectangle that
+     * makes it look like a printing fault.
+     *
+     * Checked at three shapes, because the one that was wrong looked
+     * perfect at the other two.
+     */
+    @Test
+    fun `the widget clock does not spill out of its panel`() {
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+            .putString(Prefs.FACE, Face.DIGITAL.key)
+            .putBoolean(Prefs.SHOW_DATE, true)
+            .commit()
+        for ((w, h) in listOf(720 to 300, 360 to 360, 320 to 480)) {
+            val bitmap = WidgetRenderer.digitalBitmap(context, w, h)
+            val edgeY = (h * 0.055f).toInt()
+            val edgeX = (w * 0.055f).toInt()
+            var out = 0
+            for (y in 0 until h) {
+                for (x in 0 until w) {
+                    val inMargin = y < edgeY || y >= h - edgeY || x < edgeX || x >= w - edgeX
+                    if (!inMargin) continue
+                    // The panel's own rim is drawn out here and is allowed
+                    // to be; nothing the clock says is.
+                    if (bitmap.getPixel(x, y) and 0xFFFFFF ==
+                        ClockThemes.resolve(context, null).decimal and 0xFFFFFF
+                    ) out++
+                }
+            }
+            assertEquals("the clock is drawn over the edge of its panel at ${w}x$h", 0, out)
+            bitmap.recycle()
+        }
+    }
+
     /** How many rows are lit right across the widget. */
     private fun wideRows(bitmap: android.graphics.Bitmap): Int {
         val lit = ClockThemes.resolve(context, null).decimal and 0xFFFFFF

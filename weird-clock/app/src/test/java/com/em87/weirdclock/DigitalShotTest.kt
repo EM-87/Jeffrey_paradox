@@ -381,6 +381,41 @@ class DigitalShotTest {
     }
 
     /**
+     * The home-screen widget on the face with no hands.
+     *
+     * Three alphabets and three sizes, because the widget is the one part
+     * of this app whose shape somebody else chooses: it is dropped at two
+     * cells square and then pulled to whatever fits their home screen, and
+     * the panel, the corner radius and the digits all have to survive
+     * being four cells wide and one tall.
+     */
+    @Test
+    fun `the clock widget on a face with no hands`() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
+            .putString(Prefs.FACE, Face.DIGITAL.key)
+            .putBoolean(Prefs.SHOW_DATE, true)
+            .commit()
+        for ((w, h) in listOf(360 to 360, 720 to 300, 320 to 480)) {
+            for (script in DigitScript.entries) {
+                androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+                    .edit().putString(Prefs.DIGIT_SCRIPT, script.key).commit()
+                val bitmap = WidgetRenderer.digitalBitmap(context, w, h)
+                val name = "widget-digital-${script.key}-${w}x$h"
+                File(outDir, "$name.png").outputStream().use {
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+                }
+                var seen = HashSet<Int>()
+                for (y in 0 until h step 4) for (x in 0 until w step 4) seen.add(bitmap.getPixel(x, y))
+                assertTrue(name, seen.size > 3)
+                bitmap.recycle()
+            }
+        }
+    }
+
+    /**
      * The world clock, on the face that stacks it.
      *
      * The whole of what this face does with the world clock is in this

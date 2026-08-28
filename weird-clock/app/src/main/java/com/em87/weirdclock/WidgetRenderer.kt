@@ -103,6 +103,103 @@ object WidgetRenderer {
         PreferenceManager.getDefaultSharedPreferences(context).getInt(key, 100)
     )
 
+    /**
+     * The same clock on the face with no hands: a readout, on a panel, at
+     * the size the launcher is actually showing.
+     *
+     * Every question the in-app face answers is answered here from the
+     * same stored answers — which idiom, which alphabet, twelve hours or
+     * twenty-four, the leading zero, the bar thickness, the unlit bars,
+     * the date, the theme and the night dim. A widget that is the app's
+     * clock in every respect but four is a widget somebody has to learn
+     * separately.
+     *
+     * Three things it deliberately does not do, and each is a decision
+     * rather than an omission:
+     *
+     *  - No seconds. A widget that repaints every second is a widget that
+     *    empties a battery, and there is no cheap way to tick one: the
+     *    system draws its own AnalogClock for nothing, and this is a
+     *    bitmap that has to be pushed across to the launcher whole.
+     *  - No other cities. The ladder is a list, and a list needs a screen
+     *    to be worth reading; at two cells square it would shrink the time
+     *    to nothing to make room for something illegible.
+     *  - No poking, no rolling, no falling. A widget is a picture.
+     */
+    fun digitalBitmap(context: Context, widthPx: Int, heightPx: Int): Bitmap {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val view = DigitalClockView(context).apply {
+            theme = widgetTheme(context)
+            chip = true
+            style = DigitStyle.of(prefs.getString(Prefs.DIGIT_STYLE, null))
+            script = DigitScript.of(prefs.getString(Prefs.DIGIT_SCRIPT, null))
+            hour24 = prefs.getBoolean(Prefs.HOUR_24, true)
+            leadingZero = prefs.getBoolean(Prefs.LEADING_ZERO, true)
+            showSeconds = false
+            showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
+            dateDayFirst = DateShape.dayFirst(
+                DateShape.order(prefs.getString(Prefs.DATE_ORDER, DateShape.AUTO)),
+                // Asked of the system rather than guessed from the
+                // language, exactly as the in-app face asks it.
+                android.text.format.DateFormat.getDateFormatOrder(context)
+                    .firstOrNull() != 'M'
+            )
+            weight = when (prefs.getString(Prefs.SEGMENT_WEIGHT, Prefs.WEIGHT_NORMAL)) {
+                Prefs.WEIGHT_HAIRLINE -> 0.70f
+                Prefs.WEIGHT_HEAVY -> 1.45f
+                else -> 1f
+            }
+            ghosts = prefs.getBoolean(Prefs.SEGMENT_GHOSTS, true)
+            yautja = Yautja.face(context)
+        }
+        view.measure(
+            android.view.View.MeasureSpec.makeMeasureSpec(widthPx, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec.makeMeasureSpec(heightPx, android.view.View.MeasureSpec.EXACTLY)
+        )
+        view.layout(0, 0, widthPx, heightPx)
+        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        view.draw(Canvas(bitmap))
+        return bitmap
+    }
+
+    /**
+     * The theme a widget wears, night dim included.
+     *
+     * The dim is not a decoration on the in-app clock — it is the answer
+     * to "it is dark in here" — and a widget that stays at full strength
+     * on a home screen the owner is looking at in bed is the one place
+     * that answer is most wanted.
+     */
+    fun widgetTheme(context: Context): ClockTheme {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val theme = ClockThemes.resolve(context, prefs.getString(Prefs.THEME, "midnight"))
+        if (!prefs.getBoolean(Prefs.NIGHT_DIM, false)) return theme
+        val now = Calendar.getInstance()
+        val night = NightWindow.isNight(
+            now.get(Calendar.HOUR_OF_DAY),
+            prefs.getInt(Prefs.NIGHT_FROM, NightWindow.DEFAULT_FROM),
+            prefs.getInt(Prefs.NIGHT_TO, NightWindow.DEFAULT_TO)
+        )
+        return if (night) ClockThemes.dim(theme) else theme
+    }
+
+    /** How big the launcher is actually showing this widget, in pixels. */
+    fun widgetPixels(
+        context: Context,
+        manager: android.appwidget.AppWidgetManager,
+        id: Int
+    ): Pair<Int, Int> {
+        val options = manager.getAppWidgetOptions(id)
+        val density = context.resources.displayMetrics.density
+        val wDp = options.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH)
+            .takeIf { it > 0 } ?: DEFAULT_DIAL_DP
+        val hDp = options.getInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
+            .takeIf { it > 0 } ?: DEFAULT_DIAL_DP
+        // Capped, because every push crosses to the launcher whole.
+        return (wDp.coerceIn(40, 400) * density).toInt() to
+            (hDp.coerceIn(40, 400) * density).toInt()
+    }
+
     fun dialBitmap(context: Context, sizePx: Int): Bitmap {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         val theme = ClockThemes.resolve(context, prefs.getString(Prefs.THEME, "midnight"))

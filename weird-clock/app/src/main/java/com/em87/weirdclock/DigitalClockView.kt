@@ -142,9 +142,12 @@ class DigitalClockView @JvmOverloads constructor(
     /**
      * Draws a rounded panel behind the digits instead of filling the view.
      *
-     * For a readout that floats over something else — a world-clock
-     * bubble, which has to read as an object lying on the clock and not
-     * as a hole cut in it.
+     * For a readout that sits on something that is not ours: a world-clock
+     * bubble lying on the clock, or the home-screen widget lying on
+     * somebody's wallpaper. Both have to read as an object on top of
+     * something rather than as a hole cut in it, and both are the whole of
+     * what they show — so this also takes the ladder of other cities off,
+     * which is a list for a clock that has a screen to spare.
      */
     var chip: Boolean = false
         set(value) {
@@ -460,6 +463,32 @@ class DigitalClockView @JvmOverloads constructor(
         else -> DIGIT_RATIO
     }
 
+    /**
+     * How tall everything this face is about to draw comes to, measured in
+     * digit heights.
+     *
+     * The same sum the layout below does, done before there is a digit
+     * height to do it with — which is the point: it is what turns "how
+     * tall may one digit be" into "how tall may all of this be", and it
+     * has to agree with the drawing exactly or the block is centred on a
+     * height it does not have.
+     */
+    private fun stackOf(
+        cells: List<Cell>,
+        date: List<Cell>,
+        said: String?,
+        ladder: List<WorldClocks.City>
+    ): Float {
+        var stack = if (cells.isEmpty()) 0f else 1f
+        if (date.isNotEmpty()) stack += DATE_SCALE + DATE_GAP
+        if (said != null) stack += CAPTION_SCALE * 1.9f
+        if (ladder.isNotEmpty()) {
+            stack += CITY_GAP + ladder.size * CITY_SCALE +
+                (ladder.size - 1) * CITY_SCALE * CITY_STEP
+        }
+        return stack.coerceAtLeast(1f)
+    }
+
     /** The whole row's width, in the same units, gaps included. */
     private fun rowWidth(cells: List<Cell>): Float {
         var total = 0f
@@ -487,21 +516,25 @@ class DigitalClockView @JvmOverloads constructor(
             // the app's own face colour lying on the app's own background,
             // and what makes it read as an object on top of the clock
             // rather than a hole cut in it is the edge.
-            val inset = width * 0.02f
+            // Measured against the shorter side, not the width. A bubble
+            // is square so the two agree; a widget stretched four cells
+            // wide is not, and a corner radius that is a fifth of *that*
+            // is a lozenge with a clock in it.
+            val side = minOf(width, height).toFloat()
+            val inset = side * 0.02f
+            val corner = side * 0.18f
             card.style = Paint.Style.FILL
             card.color = theme.face
             card.alpha = 0xE8
             canvas.drawRoundRect(
-                inset, inset, width - inset, height - inset,
-                width * 0.18f, width * 0.18f, card
+                inset, inset, width - inset, height - inset, corner, corner, card
             )
             card.style = Paint.Style.STROKE
-            card.strokeWidth = width * 0.018f
+            card.strokeWidth = side * 0.018f
             card.color = theme.rim
             card.alpha = 0xB0
             canvas.drawRoundRect(
-                inset, inset, width - inset, height - inset,
-                width * 0.18f, width * 0.18f, card
+                inset, inset, width - inset, height - inset, corner, corner, card
             )
             card.style = Paint.Style.FILL
             card.alpha = 255
@@ -518,6 +551,11 @@ class DigitalClockView @JvmOverloads constructor(
         // is an invitation to touch the wrong one.
         val date =
             if (showDate && settingMs == null && frozenMs == null) dateLine() else emptyList()
+        val said = caption
+        // The ladder of other cities, which is only ever on the main face:
+        // a chip on a home screen and a readout being wound are not places
+        // to put a list of the world.
+        val ladder = if (chip || settingMs != null || frozenMs != null) emptyList() else cities
 
         // One digit's width, chosen so the longest thing on the face fits
         // with a margin either side. Roman at twenty-three fifty-nine is
@@ -527,7 +565,15 @@ class DigitalClockView @JvmOverloads constructor(
         val room = width * (1f - 2f * (if (fullScreen) BEDSIDE_MARGIN else MARGIN))
         val widest = maxOf(rowWidth(cells), rowWidth(date) * DATE_SCALE)
         val tallest = height * (if (fullScreen) BEDSIDE_TALLEST else TALLEST)
-        val digitW = if (widest > 0f) minOf(room / widest, tallest) else 0f
+        // And the whole block has to fit as well as one digit of it. Only
+        // the digit was capped for a long time, which is right until the
+        // width stops being what binds — the in-app face is always too
+        // narrow before it is too short, and a home-screen widget pulled
+        // four cells wide and one tall is the other way round. That widget
+        // drew its date through the bottom of its own panel.
+        val stack = stackOf(cells, date, said, ladder)
+        val byHeight = height * (if (chip) CHIP_BLOCK_FILL else BLOCK_FILL) / stack * cellRatio()
+        val digitW = if (widest > 0f) minOf(room / widest, tallest, byHeight) else 0f
         val digitH = digitW / cellRatio()
 
         lit.strokeWidth = barWidth(digitH)
@@ -538,12 +584,7 @@ class DigitalClockView @JvmOverloads constructor(
         // reads as one block, and centring the big row leaves the small one
         // hanging off the bottom of it.
         val dateH = if (date.isEmpty()) 0f else digitH * DATE_SCALE + digitH * DATE_GAP
-        val said = caption
         val capH = if (said == null) 0f else digitH * CAPTION_SCALE * 1.9f
-        // The ladder of other cities, which is only ever on the main face:
-        // a chip in a bubble and a readout being wound are not places to
-        // put a list of the world.
-        val ladder = if (chip || settingMs != null || frozenMs != null) emptyList() else cities
         val rungH = digitH * CITY_SCALE
         val ladderH =
             if (ladder.isEmpty()) 0f
@@ -1313,6 +1354,20 @@ class DigitalClockView @JvmOverloads constructor(
          */
         private const val BEDSIDE_MARGIN = 0.035f
         private const val BEDSIDE_TALLEST = 0.62f
+
+        /**
+         * How much of the height everything drawn may take between it.
+         *
+         * Generous, because on every face laid out in a phone-shaped
+         * window the width runs out first and this never bites. It bites
+         * on the one thing whose shape somebody else chooses: a widget
+         * pulled four cells wide and one tall, where the room is all
+         * horizontal — and where a panel with rounded corners is drawn
+         * round the lot, so the block has to keep clear of the corners as
+         * well as the edges.
+         */
+        private const val BLOCK_FILL = 0.95f
+        private const val CHIP_BLOCK_FILL = 0.80f
 
         /** The longest a press can be and still count as a tap. */
         private const val TAP_MS = 400L

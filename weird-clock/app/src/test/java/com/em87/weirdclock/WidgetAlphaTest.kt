@@ -198,14 +198,62 @@ class WidgetAlphaTest {
      *
      * A gear in the corner of a clock face is a control sitting on the
      * thing it configures, all day, for the sake of something set once.
+     *
+     * The layout holds two clocks now — a dial and a readout — and exactly
+     * one of them is ever showing, so what this asks is that nothing
+     * *else* is there and that the widget is not showing two clocks at
+     * once.
      */
     @Test
     fun `the widget itself is nothing but the clock`() {
-        val applied = ClockWidgetProvider.viewsForTest(context, 1)
-            .apply(context, android.widget.FrameLayout(context))
-        assertEquals(
-            "something other than the dial is being drawn on the widget",
-            1, (applied as android.view.ViewGroup).childCount
+        for (face in Face.entries) {
+            androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+                .edit().putString(Prefs.FACE, face.key).commit()
+            val applied = ClockWidgetProvider.viewsForTest(context, 1)
+                .apply(context, android.widget.FrameLayout(context))
+                    as android.view.ViewGroup
+            val showing = (0 until applied.childCount)
+                .map { applied.getChildAt(it) }
+                .filter { it.visibility == android.view.View.VISIBLE }
+            assertEquals(
+                "the widget is showing ${showing.size} things and should show one",
+                1, showing.size
+            )
+            val id = showing.single().id
+            if (face.hands) {
+                assertEquals("a dial went missing", R.id.widget_analog_clock, id)
+            } else {
+                assertEquals(
+                    "the face with no hands is still a dial on the home screen",
+                    R.id.widget_digital_clock, id
+                )
+            }
+        }
+    }
+
+    /**
+     * The two clocks are woken on completely different schedules, and the
+     * widget has to change its mind when the face does.
+     *
+     * A bitmap of the time goes stale in a minute. A dial whose hands the
+     * system draws goes stale when the sun moves, which is hours. A widget
+     * that changed face and kept the dial's schedule sat on the same
+     * minute until sunset.
+     */
+    @Test
+    fun `the wake-up follows the face`() {
+        val prefs = androidx.preference.PreferenceManager
+            .getDefaultSharedPreferences(context)
+        prefs.edit().putString(Prefs.FACE, Face.DIGITAL.key).commit()
+        val digits = ClockWidgetProvider.nextRepaintMs(context)
+        assertTrue(
+            "a clock made of digits is sleeping $digits ms through a minute",
+            digits in 1..60_000L
+        )
+        prefs.edit().putString(Prefs.FACE, Face.ANALOG.key).commit()
+        assertTrue(
+            "the dial is being woken as often as a digital clock",
+            ClockWidgetProvider.nextRepaintMs(context) > 60_000L
         )
     }
 

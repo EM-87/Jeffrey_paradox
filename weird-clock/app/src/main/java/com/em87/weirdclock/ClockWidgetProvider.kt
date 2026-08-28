@@ -12,12 +12,28 @@ import android.widget.RemoteViews
 import androidx.preference.PreferenceManager
 
 /**
- * Home-screen widget. It uses the platform AnalogClock remote view, so the
- * system keeps it ticking all day with zero battery cost to the app. On
- * API 31+ the dial and hands are re-rendered from the app's current settings
- * (theme, hours on the dial, numerals, date), so the widget is a copy of the
- * in-app clock; older devices fall back to the static Midnight drawables.
- * Tapping it opens the full app.
+ * Home-screen widget, in whichever of the two clocks this app is.
+ *
+ * On the dial it is the platform's AnalogClock remote view, so the system
+ * keeps it ticking all day at no cost to the app; on API 31+ the dial and
+ * hands are re-rendered from the app's own settings — theme, hours on the
+ * dial, numerals, date — so the widget is a copy of the in-app clock, and
+ * older devices fall back to the static Midnight drawables.
+ *
+ * On the face with no hands it is a readout on a panel, drawn by this app
+ * — see [WidgetRenderer.digitalBitmap]. Somebody who chose a screenful of
+ * digits and then found an analogue dial on their home screen was being
+ * shown a clock the app itself no longer has, in the one place they see it
+ * without opening anything.
+ *
+ * The two are not the same kind of object and the difference is the whole
+ * design of this file. The AnalogClock ticks itself; a bitmap has to be
+ * pushed to the launcher whole, once a minute, on an alarm this widget
+ * books for itself. So the digital one shows no seconds — see the
+ * renderer, which says why — and the alarm asks [nextRepaintMs] how long
+ * it may sleep rather than assuming.
+ *
+ * Tapping either opens the full app.
  */
 class ClockWidgetProvider : AppWidgetProvider() {
 
@@ -83,7 +99,16 @@ class ClockWidgetProvider : AppWidgetProvider() {
 
     companion object {
 
-        /** Our own wake-up: the sky has changed and the dial is stale. */
+        /**
+         * Our own wake-up: what is drawn has gone stale.
+         *
+         * Two quite different staleness. On the dial it is the sky — the
+         * sun-or-moon glyph and the shading, which the system has no
+         * broadcast for and which change hours apart. On the face with no
+         * hands it is the time itself, once a minute. One alarm either
+         * way, re-armed each time it fires, because a repeating alarm
+         * cannot change its own period and this one has to.
+         */
         const val ACTION_SKY_TICK = "com.em87.weirdclock.SKY_TICK"
 
         private fun alarmManager(context: Context): android.app.AlarmManager? =
@@ -116,12 +141,37 @@ class ClockWidgetProvider : AppWidgetProvider() {
          * a clock has no business asking for.
          */
         fun scheduleSkyTick(context: Context) {
+            val digits = !Face.of(
+                PreferenceManager.getDefaultSharedPreferences(context)
+            ).hands
             // Below 31 the dial is a static drawable with no sky on it, so
             // there would be nothing to repaint when the alarm went off.
-            if (Build.VERSION.SDK_INT < 31) return
+            // The digital widget is a bitmap at every version and always
+            // has something to repaint.
+            if (Build.VERSION.SDK_INT < 31 && !digits) return
             val manager = alarmManager(context) ?: return
-            val at = System.currentTimeMillis() + nextSkyChangeMs(context)
+            val at = System.currentTimeMillis() + nextRepaintMs(context)
             manager.set(android.app.AlarmManager.RTC, at, skyIntent(context))
+        }
+
+        /**
+         * How long the widget may sleep before what it draws is wrong.
+         *
+         * A minute on the face with no hands, to the boundary rather than
+         * a minute from now — a clock that repaints half a second late
+         * every time drifts a whole minute behind inside an hour. The
+         * alarm is inexact on purpose: an exact one needs a permission a
+         * clock widget has no business asking for, and the cost of being a
+         * few seconds late is that the minute changes a few seconds late
+         * on a screen nobody is looking at, because the launcher is not on
+         * top when the phone is idle.
+         */
+        internal fun nextRepaintMs(context: Context): Long {
+            if (!Face.of(PreferenceManager.getDefaultSharedPreferences(context)).hands) {
+                val into = System.currentTimeMillis() % 60_000L
+                return 60_000L - into
+            }
+            return nextSkyChangeMs(context)
         }
 
         /**
@@ -163,13 +213,22 @@ class ClockWidgetProvider : AppWidgetProvider() {
             return capped(6 * 60 * 60_000L)
         }
 
-        /** Re-render all widgets after the in-app settings change. */
+        /**
+         * Re-render all widgets after the in-app settings change.
+         *
+         * And re-book the wake-up, because one of the settings that can
+         * have changed is which clock this is — and the two want to be
+         * woken hours apart and once a minute. A widget that changed face
+         * and kept the dial's schedule sat on the same minute until
+         * sunset.
+         */
         fun refreshAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, ClockWidgetProvider::class.java))
             for (id in ids) {
                 manager.updateAppWidget(id, buildViews(context, manager, id))
             }
+            if (ids.isNotEmpty()) scheduleSkyTick(context)
         }
 
 
@@ -190,9 +249,31 @@ class ClockWidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widget_analog_clock, openApp)
+            views.setOnClickPendingIntent(R.id.widget_digital_clock, openApp)
+
+            val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+            if (!Face.of(prefs).hands) {
+                // The face with no hands. One of the two children is shown
+                // and the other hidden, rather than two providers with two
+                // entries in the launcher's list: it is one clock, and
+                // nobody should have to find and place a different widget
+                // to stop looking at a dial they did not choose.
+                views.setViewVisibility(R.id.widget_analog_clock, android.view.View.GONE)
+                views.setViewVisibility(R.id.widget_digital_clock, android.view.View.VISIBLE)
+                val (w, h) = WidgetRenderer.widgetPixels(context, manager, id)
+                views.setImageViewBitmap(
+                    R.id.widget_digital_clock,
+                    WidgetRenderer.faded(
+                        WidgetRenderer.digitalBitmap(context, w, h),
+                        WidgetRenderer.alphaOf(context, Prefs.WIDGET_ALPHA)
+                    )
+                )
+                return views
+            }
+            views.setViewVisibility(R.id.widget_analog_clock, android.view.View.VISIBLE)
+            views.setViewVisibility(R.id.widget_digital_clock, android.view.View.GONE)
 
             if (Build.VERSION.SDK_INT >= 31) {
-                val prefs = PreferenceManager.getDefaultSharedPreferences(context)
                 val theme = ClockThemes.resolve(context, prefs.getString(Prefs.THEME, "midnight"))
                 val size = WidgetRenderer.dialPixels(context, manager, id)
                 // On polygonal dials the rotating hand bitmaps must fit the

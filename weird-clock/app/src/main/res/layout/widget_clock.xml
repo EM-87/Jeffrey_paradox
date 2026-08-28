@@ -22,4 +22,20 @@
         android:hand_minute="@drawable/widget_hand_minute"
         android:hand_second="@drawable/widget_hand_second" />
 
+    <!-- The same widget on the face with no hands. One of the two is
+         hidden whenever the widget is built, rather than a second provider
+         with a second entry in the launcher's list: it is one clock, and
+         somebody who chose digits should not have to find and place a
+         different widget to stop looking at a dial.
+
+         The system's AnalogClock ticks itself for nothing; this is a
+         bitmap and has to be repainted, so it says only as much as it can
+         afford to — see ClockWidgetProvider. -->
+    <ImageView
+        android:id="@+id/widget_digital_clock"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@string/a11y_clock"
+        android:visibility="gone" />
+
 </FrameLayout>
