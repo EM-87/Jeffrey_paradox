@@ -173,8 +173,25 @@ object Prefs {
     /** And whether the hours are cut in Roman numerals, as they were. */
     const val SUNDIAL_ROMAN = "pref_sundial_roman"
 
-    /** Which projection the home-screen sundial widget draws. */
-    const val WIDGET_SUNDIAL_KIND = "pref_widget_sundial_kind"
+    /**
+     * Whether the date under the plate is read in the Julian calendar.
+     *
+     * The one the dial would have been cut for — see [JulianCalendar].
+     * Thirteen days behind ours today, and the gap grows.
+     */
+    const val SUNDIAL_JULIAN = "pref_sundial_julian"
+
+    /**
+     * Whether the home-screen sundial hangs on a wall or lies on the
+     * ground.
+     *
+     * The two projections, and only those: a widget is a picture and the
+     * dial you point at the sun is a thing you hold. Its own key rather
+     * than the app's, because the plate in the garden and the plate on
+     * the home screen are two different objects and there is no reason
+     * they should be the same one.
+     */
+    const val WIDGET_SUNDIAL_WALL = "pref_widget_sundial_wall"
     const val DATE_FORMAT = "pref_date_format"
 
     /**

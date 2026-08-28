@@ -198,7 +198,8 @@ object FaceOptions {
         Prefs.SUNDIAL_COMPASS,
         Prefs.SUNDIAL_MOTTO,
         Prefs.SUNDIAL_HALVES,
-        Prefs.SUNDIAL_ROMAN
+        Prefs.SUNDIAL_ROMAN,
+        Prefs.SUNDIAL_JULIAN
     )
 
     /**

@@ -166,13 +166,35 @@ class ClockWidgetProvider : AppWidgetProvider() {
          * on a screen nobody is looking at, because the launcher is not on
          * top when the phone is idle.
          */
-        internal fun nextRepaintMs(context: Context): Long {
-            if (!Face.of(PreferenceManager.getDefaultSharedPreferences(context)).hands) {
-                val into = System.currentTimeMillis() % 60_000L
-                return 60_000L - into
+        internal fun nextRepaintMs(context: Context): Long = when (
+            Face.of(PreferenceManager.getDefaultSharedPreferences(context))
+        ) {
+            Face.ANALOG -> nextSkyChangeMs(context)
+            // A bitmap of the time is wrong the moment the minute turns.
+            // To the boundary and not a minute from now, or a clock that
+            // repaints half a second late every time is a minute behind
+            // within the hour.
+            Face.DIGITAL -> 60_000L - System.currentTimeMillis() % 60_000L
+            // A shadow moves fifteen degrees an hour, so a quarter of a
+            // degree a minute: ten minutes is two and a half degrees,
+            // which is smaller than the shadow's own soft edge. And there
+            // is nothing at all to repaint after sunset, so it sleeps
+            // until the sky is a different thing.
+            Face.SUNDIAL -> {
+                DayNight.configure(context)
+                val now = java.util.Calendar.getInstance()
+                val minute = now.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
+                    now.get(java.util.Calendar.MINUTE)
+                // Not knowing counts as daylight: a widget that goes to
+                // sleep for six hours because it has never had a fix is a
+                // widget that is wrong all morning.
+                if (DayNight.sunIsUp(minute) != false) SHADOW_TICK_MS
+                else maxOf(nextSkyChangeMs(context), SHADOW_TICK_MS)
             }
-            return nextSkyChangeMs(context)
         }
+
+        /** How often the shadow is worth redrawing while the sun is up. */
+        private const val SHADOW_TICK_MS = 10 * 60_000L
 
         /**
          * The longest the widget may sleep while the dial is shaded.
@@ -252,7 +274,8 @@ class ClockWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_digital_clock, openApp)
 
             val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-            if (!Face.of(prefs).hands) {
+            val face = Face.of(prefs)
+            if (!face.hands) {
                 // The face with no hands. One of the two children is shown
                 // and the other hidden, rather than two providers with two
                 // entries in the launcher's list: it is one clock, and
@@ -261,11 +284,13 @@ class ClockWidgetProvider : AppWidgetProvider() {
                 views.setViewVisibility(R.id.widget_analog_clock, android.view.View.GONE)
                 views.setViewVisibility(R.id.widget_digital_clock, android.view.View.VISIBLE)
                 val (w, h) = WidgetRenderer.widgetPixels(context, manager, id)
+                val drawn =
+                    if (face == Face.SUNDIAL) WidgetRenderer.sundialBitmap(context, w, h)
+                    else WidgetRenderer.digitalBitmap(context, w, h)
                 views.setImageViewBitmap(
                     R.id.widget_digital_clock,
                     WidgetRenderer.faded(
-                        WidgetRenderer.digitalBitmap(context, w, h),
-                        WidgetRenderer.alphaOf(context, Prefs.WIDGET_ALPHA)
+                        drawn, WidgetRenderer.alphaOf(context, Prefs.WIDGET_ALPHA)
                     )
                 )
                 return views

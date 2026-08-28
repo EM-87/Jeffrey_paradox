@@ -525,4 +525,8 @@
         <item>Cuadrada</item>
         <item>Octogonal</item>
     </string-array>
+    <string name="pref_widget_sundial_wall_title">En pared</string>
+    <string name="pref_widget_sundial_wall_summary">En vez de tumbado en el suelo</string>
+    <string name="pref_sundial_julian_title">Calendario juliano</string>
+    <string name="pref_sundial_julian_summary">Aquel para el que se habría tallado la piedra. Trece días por detrás del nuestro</string>
 </resources>

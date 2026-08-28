@@ -223,8 +223,11 @@ class WidgetAlphaTest {
             if (face.hands) {
                 assertEquals("a dial went missing", R.id.widget_analog_clock, id)
             } else {
+                // Both of the faces with no hands draw their own bitmap
+                // into the same child. What they draw differs; that it is
+                // drawn at all is what this asks.
                 assertEquals(
-                    "the face with no hands is still a dial on the home screen",
+                    "$face is still a dial on the home screen",
                     R.id.widget_digital_clock, id
                 )
             }
@@ -255,6 +258,52 @@ class WidgetAlphaTest {
             "the dial is being woken as often as a digital clock",
             ClockWidgetProvider.nextRepaintMs(context) > 60_000L
         )
+        // And a shadow moves a quarter of a degree a minute, so it is
+        // neither of the two: often enough that the shadow never jumps,
+        // rarely enough that a picture of a stone is not repainted every
+        // minute of the day.
+        prefs.edit().putString(Prefs.FACE, Face.SUNDIAL.key).commit()
+        val shadow = ClockWidgetProvider.nextRepaintMs(context)
+        assertTrue(
+            "the sundial widget is being woken like a digital clock: $shadow",
+            shadow >= 5 * 60_000L
+        )
+    }
+
+    /**
+     * The sundial widget is a picture of a thing standing where it was
+     * put, and its own switch says where that is.
+     *
+     * Its own key and not the app's, because the plate in the garden and
+     * the plate on the home screen are two different objects and there is
+     * no reason they should agree.
+     */
+    @Test
+    fun `the home-screen sundial has its own projection`() {
+        val prefs = androidx.preference.PreferenceManager
+            .getDefaultSharedPreferences(context)
+        prefs.edit()
+            .putString(Prefs.FACE, Face.SUNDIAL.key)
+            .putBoolean(Prefs.SUNDIAL_LATITUDE_FIXED, true)
+            .putInt(Prefs.SUNDIAL_LATITUDE, 45)
+            .putBoolean(Prefs.WIDGET_SUNDIAL_WALL, false)
+            .commit()
+        val flat = WidgetRenderer.sundialBitmap(context, 400, 400)
+        prefs.edit().putBoolean(Prefs.WIDGET_SUNDIAL_WALL, true).commit()
+        val wall = WidgetRenderer.sundialBitmap(context, 400, 400)
+        var same = 0
+        for (y in 0 until 400 step 3) {
+            for (x in 0 until 400 step 3) {
+                if (flat.getPixel(x, y) == wall.getPixel(x, y)) same++
+            }
+        }
+        val of = (400 / 3 + 1) * (400 / 3 + 1)
+        assertTrue(
+            "the wall dial and the ground dial came out the same picture",
+            same < of * 0.92
+        )
+        flat.recycle()
+        wall.recycle()
     }
 
     /**

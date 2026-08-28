@@ -3946,6 +3946,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         dial.roman = prefs.getBoolean(Prefs.SUNDIAL_ROMAN, true)
         dial.motto = prefs.getBoolean(Prefs.SUNDIAL_MOTTO, true)
         dial.halfHours = prefs.getBoolean(Prefs.SUNDIAL_HALVES, true)
+        dial.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
+        dial.julian = prefs.getBoolean(Prefs.SUNDIAL_JULIAN, false)
         dial.compass = prefs.getBoolean(Prefs.SUNDIAL_COMPASS, false)
         listenForBearing(dial.compass)
     }

@@ -659,4 +659,8 @@
         <item>square</item>
         <item>octagon</item>
     </string-array>
+    <string name="pref_widget_sundial_wall_title">On a wall</string>
+    <string name="pref_widget_sundial_wall_summary">Rather than lying flat on the ground</string>
+    <string name="pref_sundial_julian_title">Julian calendar</string>
+    <string name="pref_sundial_julian_summary">The one the plate would have been cut for. Thirteen days behind ours</string>
 </resources>

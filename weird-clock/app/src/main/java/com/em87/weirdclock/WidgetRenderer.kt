@@ -187,6 +187,48 @@ object WidgetRenderer {
         return if (night) ClockThemes.dim(theme) else theme
     }
 
+    /**
+     * The oldest clock, on somebody's home screen.
+     *
+     * Fixed projection and nothing else: no arrow, no compass, no
+     * pointing the phone anywhere. A widget is a picture of an instrument
+     * standing where it was put, which is what a real sundial is — the
+     * one you turn towards the sun is the one in your hand.
+     *
+     * The plate is its own panel, so unlike the digits this needs nothing
+     * drawn behind it. What it does need is the latitude, which is the
+     * one number the thing cannot work without.
+     */
+    fun sundialBitmap(context: Context, widthPx: Int, heightPx: Int): Bitmap {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        DayNight.configure(context)
+        val byHand = prefs.getBoolean(Prefs.SUNDIAL_LATITUDE_FIXED, false)
+        val view = SundialView(context).apply {
+            theme = widgetTheme(context)
+            kind =
+                if (prefs.getBoolean(Prefs.WIDGET_SUNDIAL_WALL, false)) Sundial.Kind.VERTICAL
+                else Sundial.Kind.HORIZONTAL
+            plate = Sundial.Plate.entries
+                .firstOrNull { it.key == prefs.getString(Prefs.SUNDIAL_PLATE, null) }
+                ?: Sundial.Plate.ROUND
+            latitude =
+                if (!byHand && DayNight.hasFix()) DayNight.latitudeNow()
+                else prefs.getInt(Prefs.SUNDIAL_LATITUDE, 40).toDouble()
+            longitude = if (DayNight.hasFix()) DayNight.longitudeNow() else 0.0
+            roman = prefs.getBoolean(Prefs.SUNDIAL_ROMAN, true)
+            motto = prefs.getBoolean(Prefs.SUNDIAL_MOTTO, true)
+            halfHours = prefs.getBoolean(Prefs.SUNDIAL_HALVES, true)
+        }
+        view.measure(
+            android.view.View.MeasureSpec.makeMeasureSpec(widthPx, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec.makeMeasureSpec(heightPx, android.view.View.MeasureSpec.EXACTLY)
+        )
+        view.layout(0, 0, widthPx, heightPx)
+        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        view.draw(Canvas(bitmap))
+        return bitmap
+    }
+
     /** How big the launcher is actually showing this widget, in pixels. */
     fun widgetPixels(
         context: Context,

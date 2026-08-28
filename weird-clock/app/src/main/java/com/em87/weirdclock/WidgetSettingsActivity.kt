@@ -174,6 +174,14 @@ class WidgetSettingsActivity : AppCompatActivity() {
                 )
             )
             provider.endsWith("OrreryWidgetProvider") -> emptyList()
+            Face.of(prefs) == Face.SUNDIAL -> listOf(
+                Extra(
+                    Prefs.WIDGET_SUNDIAL_WALL,
+                    R.string.pref_widget_sundial_wall_title,
+                    R.string.pref_widget_sundial_wall_summary,
+                    false
+                )
+            )
             !Face.of(prefs).hands -> listOf(
                 Extra(
                     Prefs.WIDGET_DATE,

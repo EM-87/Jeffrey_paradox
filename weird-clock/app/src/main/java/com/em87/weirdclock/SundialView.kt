@@ -68,6 +68,21 @@ class SundialView @JvmOverloads constructor(
     var roman: Boolean = true
         set(value) { field = value; invalidate() }
 
+    /**
+     * Whether the date is cut under the plate, and in whose calendar.
+     *
+     * The Julian one is here because it is the calendar the plate would
+     * have been cut for: every dial older than 1582 was made under it,
+     * Britain read dials by it until 1752, and it is thirteen days behind
+     * ours today — see [JulianCalendar]. It is not offered as a better
+     * calendar. It is what was on the stone.
+     */
+    var showDate: Boolean = false
+        set(value) { field = value; invalidate() }
+
+    var julian: Boolean = false
+        set(value) { field = value; invalidate() }
+
     /** Whether the Latin motto is cut round the rim. */
     var motto: Boolean = true
         set(value) { field = value; invalidate() }
@@ -489,6 +504,15 @@ class SundialView @JvmOverloads constructor(
         canvas.drawText(latitudeLabel(), cx, cy + (if (hangs) -r * 0.60f else r * 0.66f), ink)
         ink.alpha = 255
         if (!motto) return
+        if (showDate) {
+            ink.alpha = 190
+            ink.textSize = r * 0.10f
+            canvas.drawText(
+                dateLabel(), cx, cy + (if (hangs) -r * 0.60f else r * 0.66f) +
+                    (if (hangs) -r * 0.14f else r * 0.14f), ink
+            )
+            ink.alpha = 255
+        }
         // Round the rim, the way it is cut. Upright text under a dial is a
         // caption; text following the edge is an inscription.
         rim.set(cx - r * 1.06f, cy - r * 1.06f, cx + r * 1.06f, cy + r * 1.06f)
@@ -498,6 +522,29 @@ class SundialView @JvmOverloads constructor(
         ink.textSize = r * 0.088f
         ink.color = theme.minorTick
         canvas.drawTextOnPath(Sundial.motto(sky.dayOfYear), path, 0f, 0f, ink)
+    }
+
+    /**
+     * The date, in Roman numerals and in whichever calendar the plate is
+     * being read under.
+     *
+     * Day and month only. A sundial that carried the year would be a dial
+     * that had to be recut every January, and no dial anywhere has ever
+     * had one on it.
+     */
+    private fun dateLabel(): String {
+        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = nowMs() }
+        var day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
+        var month = calendar.get(java.util.Calendar.MONTH) + 1
+        if (julian) {
+            val old = JulianCalendar.of(
+                calendar.get(java.util.Calendar.YEAR), month, day
+            )
+            day = old.day
+            month = old.month
+        }
+        return if (roman) "${Roman.of(day)} \u00b7 ${Roman.of(month)}"
+        else "$day / $month"
     }
 
     /**
