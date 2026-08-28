@@ -53,11 +53,12 @@ class WorldBubbles(
     /**
      * One floating city.
      *
-     * [clock] is null on a face with no hands: the bubble is a readout
-     * there, and everything that only makes sense against a moving hand —
-     * seizing, running backwards, shedding a hand on a hard knock — has
-     * nothing to act on. The physics, the drag and the docking all work
-     * on [view] and never had an opinion about what was inside it.
+     * [clock] and [view] are the same object. They were not, for one
+     * version: the face with no hands floated little readouts here
+     * instead, and floating anything is the wrong answer on that face —
+     * see [DigitalClockView.cities]. The pair is kept because the physics
+     * and the docking work on a view and have never had an opinion about
+     * what is inside it, and the next face along may want that again.
      */
     private inner class Bubble(val tzId: String, val view: View, val clock: ClockView?) {
         var x = 0f
@@ -94,51 +95,30 @@ class WorldBubbles(
     /** For the tests: the little dials themselves. */
     internal fun clocksForTest(): List<ClockView> = bubbles.mapNotNull { it.clock }
 
-    /** For the tests: the little readouts, on the face that has those. */
-    internal fun readoutsForTest(): List<DigitalClockView> =
-        bubbles.mapNotNull { it.view as? DigitalClockView }
-
-    private fun selectedWorldTzs(): List<String> {
-        if (!prefs.getBoolean(Prefs.WORLD_CLOCK, false)) return emptyList()
-        val set = prefs.getStringSet(Prefs.WORLD_TZS, null)
-        if (set != null) return set.toList().sorted()
-        // Migration from the old single-city preference.
-        return listOf(prefs.getString(Prefs.WORLD_TZ, "UTC") ?: "UTC")
-    }
-
+    /**
+     * Bubbles are for the dial, and only for the dial.
+     *
+     * They were built on both faces for a while — little readouts
+     * floating over the big one — and that was the wrong shape for the
+     * face with no hands. Somebody who chose a screenful of digits did
+     * not choose six draggable toys to bounce off each other; they want
+     * to know what time it is in Tokyo. That face stacks the cities under
+     * the time instead, and this builds nothing there — see
+     * [DigitalClockView.cities].
+     */
     fun rebuild() {
         val layer = this.layer ?: return
-        // At full zoom about six bubbles fit; the picker enforces the cap.
-        val tzs = selectedWorldTzs().take(6)
+        val tzs =
+            if (Face.of(prefs).hands) WorldClocks.chosen(prefs).map { it.tzId }
+            else emptyList()
         if (tzs == tzsApplied) return
         tzsApplied = tzs
         layer.removeAllViews()
         bubbles.clear()
         val density = host.resources.displayMetrics.density
         val size = (108 * density).toInt()
-        val hands = Face.of(prefs).hands
         for (tz in tzs) {
             val city = tz.substringAfterLast('/').replace('_', ' ')
-            if (!hands) {
-                // On a face with no hands a bubble is a small readout, in
-                // the same idiom the big one is drawn in: a dial floating
-                // over a screenful of digits is two clocks disagreeing
-                // about what kind of clock this is.
-                val panel = DigitalClockView(host).apply {
-                    zone = TimeZone.getTimeZone(tz)
-                    caption = city
-                    chip = true
-                    showSeconds = false
-                    showDate = false
-                    yautja = Yautja.face(host)
-                }
-                layer.addView(panel, FrameLayout.LayoutParams(size, size))
-                val floating = Bubble(tz, panel, null)
-                floating.sizePx = size.toFloat()
-                attachTouch(floating)
-                bubbles.add(floating)
-                continue
-            }
             val clock = ClockView(host).apply {
                 touchHandsEnabled = false
                 pinchZoomEnabled = false
@@ -180,33 +160,9 @@ class WorldBubbles(
             for (b in bubbles) b.clock?.showSecondHand = value
         }
 
-    /**
-     * What the little readouts are made of, on a face with no hands.
-     *
-     * Read from the same settings the big one uses rather than copied off
-     * it: the big face is not always there to copy from, and two clocks on
-     * one screen made of different digits is the thing this whole
-     * arrangement exists to avoid.
-     */
-    var digitStyle: DigitStyle = DigitStyle.SEGMENT
-    var digitScript: DigitScript = DigitScript.ARABIC
-    var hour24 = true
-    var segmentWeight = 1f
-    var segmentGhosts = true
-
     /** The bubbles wear whatever the main dial is wearing. */
     fun applyStyle(cv: ClockView) {
         for (b in bubbles) {
-            val panel = b.view as? DigitalClockView
-            if (panel != null) {
-                panel.theme = cv.theme
-                panel.style = digitStyle
-                panel.script = digitScript
-                panel.hour24 = hour24
-                panel.weight = segmentWeight
-                panel.ghosts = segmentGhosts
-                continue
-            }
             b.clock?.theme = cv.theme
             b.clock?.hoursOnDial = cv.hoursOnDial
             b.clock?.dialShape = cv.dialShape

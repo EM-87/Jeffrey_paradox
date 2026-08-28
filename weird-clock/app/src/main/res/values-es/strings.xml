@@ -452,7 +452,7 @@
     <string name="pref_night_dim_summary_digital" formatted="false">La pantalla se atenúa en las horas de abajo, para que no ilumine el dormitorio</string>
     <string name="pref_show_date_summary_digital">Una fecha pequeña debajo de la hora</string>
     <string name="pref_advanced_summary_digital">Cómo se hacen los dígitos, las campanadas y cómo se comportan las alarmas. Se ajusta una vez y se olvida.</string>
-    <string name="pref_world_clock_summary_digital">Pequeños displays con la hora de otras ciudades</string>
+    <string name="pref_world_clock_summary_digital">La hora de otras ciudades, en una lista bajo esta</string>
     <string name="pref_segment_weight_title">Grosor de las barras</string>
     <string name="pref_segment_ghosts_title">Mostrar las barras apagadas</string>
     <string name="pref_segment_ghosts_summary">El ocho tenue detrás del siete, que es lo que se ve en un display de verdad</string>

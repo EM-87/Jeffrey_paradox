@@ -130,6 +130,124 @@ class WidgetSkinTest {
         assertTrue("the countdown panel is not dark in a dark theme", luma(dark) < 80f)
     }
 
+    // ------------------------------------------------ sand, or a strip
+
+    /**
+     * On a face with no glass in it the countdown is a progress bar.
+     *
+     * Sand in a glass is a picture of a fraction; a strip that empties is
+     * the digital drawing of the same thing. The digits alone are not:
+     * they say how long is left and never how much has gone.
+     *
+     * Measured by how much of the strip is lit at two different times,
+     * because that is the whole claim. An assertion that "a bar is drawn"
+     * would pass with a bar that never moves.
+     */
+    @Test
+    fun `the sand becomes a strip that empties`() {
+        val full = litAcross(600_000L, 600_000L)
+        val part = litAcross(600_000L, 150_000L)
+        val gone = litAcross(600_000L, 0L)
+        // The strip is much the widest thing drawn in the lit colour, so
+        // the longest run of it across any row is the strip — until there
+        // is no strip, and then it is one bar of a digit.
+        assertTrue("the strip is not full at the start: $full", full > 400)
+        assertTrue("a quarter left is not a quarter of the strip: $part", part in 100..200)
+        assertTrue("the strip did not empty: $gone", gone < 100)
+    }
+
+    /**
+     * And the home-screen countdown follows the face, which is the half
+     * that was missed.
+     *
+     * The card went and the button to it went, and this went on pouring
+     * sand on the home screen — in the one place the owner of the phone
+     * sees it without opening anything.
+     */
+    @Test
+    fun `the countdown widget pours sand only on the face that has glass`() {
+        val drawn = HashMap<Face, Int>()
+        for (face in Face.entries) {
+            PreferenceManager.getDefaultSharedPreferences(context).edit()
+                .putString(Prefs.FACE, face.key).commit()
+            val bitmap = HourglassWidgetProvider.renderForTest(
+                context, 600_000L, 600_000L, 680, 920
+            )
+            drawn[face] = wideRows(bitmap)
+            bitmap.recycle()
+        }
+        // A strip is a rectangle: dozens of rows, all of them nearly the
+        // full width of the widget. A bulb of sand is curved, so it has
+        // one widest row and that one is narrower than this — which is why
+        // the test counts rows and not the widest of them. Counting the
+        // widest put an hourglass at 388 pixels against a strip's 517,
+        // which is a difference a slightly rounder bulb would erase.
+        assertTrue(
+            "there is no strip on the face with no glass: ${drawn[Face.DIGITAL]}",
+            drawn.getValue(Face.DIGITAL) > 10
+        )
+        assertEquals(
+            "the hourglass grew a progress bar",
+            0, drawn.getValue(Face.ANALOG)
+        )
+    }
+
+    /** How many rows are lit right across the widget. */
+    private fun wideRows(bitmap: android.graphics.Bitmap): Int {
+        val lit = ClockThemes.resolve(context, null).decimal and 0xFFFFFF
+        val wide = bitmap.width * 0.66f
+        var rows = 0
+        for (y in 0 until bitmap.height) {
+            var run = 0
+            var longest = 0
+            for (x in 0 until bitmap.width) {
+                if (bitmap.getPixel(x, y) and 0xFFFFFF == lit) {
+                    run++
+                    if (run > longest) longest = run
+                } else {
+                    run = 0
+                }
+            }
+            if (longest > wide) rows++
+        }
+        return rows
+    }
+
+    /** The longest unbroken run of lit pixels across any one row. */
+    private fun litAcross(totalMs: Long, remainingMs: Long): Int {
+        val view = HourglassView(context).apply {
+            theme = ClockThemes.MIDNIGHT
+            lcd = true
+            this.totalMs = totalMs
+            this.remainingMs = remainingMs
+        }
+        val w = 680
+        val h = 920
+        view.measure(
+            android.view.View.MeasureSpec.makeMeasureSpec(w, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec.makeMeasureSpec(h, android.view.View.MeasureSpec.EXACTLY)
+        )
+        view.layout(0, 0, w, h)
+        val bitmap = android.graphics.Bitmap.createBitmap(
+            w, h, android.graphics.Bitmap.Config.ARGB_8888
+        )
+        view.draw(android.graphics.Canvas(bitmap))
+        var longest = 0
+        for (y in 0 until h) {
+            var run = 0
+            for (x in 0 until w) {
+                if (bitmap.getPixel(x, y) == ClockThemes.MIDNIGHT.decimal) {
+                    run++
+                    if (run > longest) longest = run
+                } else {
+                    run = 0
+                }
+            }
+        }
+        bitmap.recycle()
+        return longest
+    }
+
     private fun luma(c: Int): Float {
         val r = (c shr 16) and 0xFF
         val g = (c shr 8) and 0xFF

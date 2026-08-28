@@ -171,12 +171,17 @@ class HourglassView @JvmOverloads constructor(
     }
 
     /**
-     * The floating countdown, for a clock with no glass in it.
+     * The countdown, for a clock with no glass in it.
      *
-     * Two rows, because that is what the small screen has room for: the
-     * time left, big, and nothing else. The unlit bars are drawn behind
-     * it — over a wallpaper, at this size, that faint eight is most of
-     * what says the thing is a readout rather than a label.
+     * The time left in bars, and a progress bar under it. The bar is the
+     * hourglass: sand in a glass is a picture of a fraction, and the
+     * digital drawing of that fraction is a strip that empties — which is
+     * also the one thing the digits cannot say, because a number tells you
+     * how long is left and not how much of it has gone.
+     *
+     * The unlit bars are drawn behind the digits. Over a wallpaper, at
+     * this size, that faint eight is most of what says the thing is a
+     * readout rather than a label.
      */
     private fun drawScreen(canvas: Canvas, w: Float, h: Float) {
         val text = label()
@@ -191,7 +196,9 @@ class HourglassView @JvmOverloads constructor(
         val colons = text.count { !it.isDigit() }
         val wide = cell * masks.size * (1f + DIGIT_GAP) + cell * COLON_W * colons
         var x = (w - wide) / 2f
-        val top = (h - digitH) / 2f
+        val barH = digitH * BAR_HEIGHT
+        val block = digitH + digitH * BAR_GAP + barH
+        val top = (h - block) / 2f
         var digit = 0
         for (c in text) {
             if (c.isDigit()) {
@@ -209,7 +216,39 @@ class HourglassView @JvmOverloads constructor(
                 x += cell * COLON_W
             }
         }
+        drawBar(canvas, w, top + digitH + digitH * BAR_GAP, barH)
     }
+
+    /**
+     * The sand, as a strip.
+     *
+     * It empties from the right the way the top bulb does: what is left is
+     * lit, what has gone is the track behind it. Drawn even at rest and
+     * even when it is full, because a bar that is only there while
+     * something is running is a bar nobody learns to read — and an idle
+     * countdown with a full strip under it is telling you exactly what an
+     * hourglass standing untipped tells you.
+     */
+    private fun drawBar(canvas: Canvas, w: Float, top: Float, barH: Float) {
+        val left = (w - w * BAR_WIDTH) / 2f
+        val right = left + w * BAR_WIDTH
+        val round = barH / 2f
+        barRect.set(left, top, right, top + barH)
+        sandPaint.color = theme.minorTick
+        sandPaint.alpha = 0x66
+        canvas.drawRoundRect(barRect, round, round, sandPaint)
+        sandPaint.alpha = 255
+        val left0 = (remainingMs.toFloat() / totalMs.toFloat()).coerceIn(0f, 1f)
+        if (left0 <= 0f) return
+        // Never thinner than it is tall: a strip a pixel wide with rounded
+        // ends is a smudge, and the last seconds are when somebody is
+        // actually looking at it.
+        barRect.set(left, top, maxOf(left + barH, left + (right - left) * left0), top + barH)
+        sandPaint.color = theme.decimal
+        canvas.drawRoundRect(barRect, round, round, sandPaint)
+    }
+
+    private val barRect = RectF()
 
     private companion object {
         /** How wide a separator is against a digit, and its share of the row. */
@@ -218,5 +257,15 @@ class HourglassView @JvmOverloads constructor(
 
         /** Daylight between two digits, against a digit's own width. */
         const val DIGIT_GAP = 0.18f
+
+        /**
+         * The progress bar: how tall and how wide it is, and how far under
+         * the digits it sits. All against the digit's height, so it stays
+         * the same object on a widget the size of a stamp and one that
+         * takes half the home screen.
+         */
+        const val BAR_HEIGHT = 0.19f
+        const val BAR_GAP = 0.34f
+        const val BAR_WIDTH = 0.76f
     }
 }

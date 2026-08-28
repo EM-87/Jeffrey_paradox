@@ -120,12 +120,19 @@ class DigitalFaceTest {
     }
 
     /**
+     * Nothing floats over a screenful of digits.
+     *
      * The little world clocks are little dials, so they stay on the face
-     * that has one. Two clocks on one screen disagreeing about what kind of
-     * clock this is reads as a bug, whichever of them is right.
+     * that has one — two clocks on one screen disagreeing about what kind
+     * of clock this is reads as a bug, whichever of them is right. They
+     * were readouts floating in bubbles here for a while, which fixed only
+     * half of that: somebody who chose a screenful of digits did not
+     * choose six draggable toys either. The cities are a ladder under the
+     * time now, and the whole of the world clock on this face is that
+     * list.
      */
     @Test
-    fun `no dials float over a screenful of digits`() {
+    fun `nothing floats over a screenful of digits`() {
         settled(Face.DIGITAL)
         prefs.edit()
             .putBoolean(Prefs.WORLD_CLOCK, true)
@@ -137,16 +144,21 @@ class DigitalFaceTest {
                 "there are little dials on the digital face",
                 c.get().worldClocksForTest().isEmpty()
             )
-            // And the cities are there all the same, as readouts. The
+            assertTrue(
+                "there are bubbles of some other kind, then",
+                c.get().findViewById<android.view.ViewGroup>(R.id.bubble_layer)
+                    .childCount == 0
+            )
+            // And the cities are there all the same, under the time. The
             // point was never to take the world clock away.
             assertEquals(
-                "the cities went missing with the dials",
-                2, c.get().worldReadoutsForTest().size
+                "the cities went missing with the bubbles",
+                2, c.get().worldLadderForTest().size
             )
             assertEquals(
-                "a readout is telling the wrong city's time",
+                "the ladder is showing the wrong cities",
                 setOf("UTC", "Europe/Madrid"),
-                c.get().worldReadoutsForTest().mapNotNull { it.zone?.id }.toSet()
+                c.get().worldLadderForTest().map { it.tzId }.toSet()
             )
         }
         settled(Face.ANALOG)

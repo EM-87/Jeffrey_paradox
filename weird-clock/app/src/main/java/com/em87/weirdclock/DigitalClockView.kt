@@ -116,6 +116,22 @@ class DigitalClockView @JvmOverloads constructor(
             invalidate()
         }
 
+    /**
+     * The other cities this clock is also showing, stacked under it.
+     *
+     * The face with no hands used to float them as little readouts over
+     * the big one, which is the dial's idiom borrowed by a face that has
+     * no business with it: somebody who chose a screenful of digits did
+     * not choose six draggable toys, they want to know what time it is in
+     * Tokyo. So they are a ladder under the time, in the same bars, the
+     * way a chronograph stacks its laps.
+     */
+    var cities: List<WorldClocks.City> = emptyList()
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     /** A city under the digits, on the readouts that carry one. */
     var caption: String? = null
         set(value) {
@@ -524,7 +540,15 @@ class DigitalClockView @JvmOverloads constructor(
         val dateH = if (date.isEmpty()) 0f else digitH * DATE_SCALE + digitH * DATE_GAP
         val said = caption
         val capH = if (said == null) 0f else digitH * CAPTION_SCALE * 1.9f
-        val top = (height - digitH - dateH - capH) / 2f
+        // The ladder of other cities, which is only ever on the main face:
+        // a chip in a bubble and a readout being wound are not places to
+        // put a list of the world.
+        val ladder = if (chip || settingMs != null || frozenMs != null) emptyList() else cities
+        val rungH = digitH * CITY_SCALE
+        val ladderH =
+            if (ladder.isEmpty()) 0f
+            else digitH * CITY_GAP + ladder.size * rungH + (ladder.size - 1) * rungH * CITY_STEP
+        val top = (height - digitH - dateH - capH - ladderH) / 2f
         drawRow(canvas, cells, top, digitW, digitH, "t")
         if (date.isNotEmpty()) {
             drawRow(
@@ -544,6 +568,72 @@ class DigitalClockView @JvmOverloads constructor(
                 top + digitH + dateH + digitH * CAPTION_SCALE * 1.2f, ink
             )
         }
+        if (ladder.isNotEmpty()) {
+            drawCities(
+                canvas, ladder,
+                top + digitH + dateH + capH + digitH * CITY_GAP,
+                digitW * CITY_SCALE, rungH
+            )
+        }
+    }
+
+    /**
+     * The other cities, as a ladder of readouts under the time.
+     *
+     * Two columns, and both of them justified rather than centred: the
+     * names end where the digits begin, so five cities of five different
+     * lengths read as a list and not as a heap. The times are the same
+     * bars the big one is made of, at a quarter of the size, which is what
+     * makes this a clock with a second display on it rather than a clock
+     * with a caption.
+     *
+     * Hours and minutes only. A second hand on a city eight time zones
+     * away is a number that changes every second and tells you nothing:
+     * the question is what part of the day it is over there.
+     */
+    private fun drawCities(
+        canvas: Canvas,
+        ladder: List<WorldClocks.City>,
+        top: Float,
+        digitW: Float,
+        digitH: Float
+    ) {
+        val rows = ladder.map { it to cityCells(it) }
+        val timeW = rows.maxOf { rowWidth(it.second) } * digitW
+        ink.typeface = PRINT
+        ink.textSize = digitH * CITY_NAME
+        ink.textAlign = Paint.Align.RIGHT
+        val nameW = rows.maxOf { ink.measureText(it.first.name) }
+        val gutter = digitH * CITY_GUTTER
+        val block = nameW + gutter + timeW
+        val left = (width - block) / 2f
+        var y = top
+        for ((city, cells) in rows) {
+            ink.color = theme.numeral
+            ink.alpha = CITY_ALPHA
+            canvas.drawText(city.name, left + nameW, y + digitH * 0.78f, ink)
+            ink.alpha = 255
+            // Right-aligned against the far edge, so the minutes of every
+            // city line up whatever the hours are written in.
+            drawRow(
+                canvas, cells, y, digitW, digitH, "w${city.tzId}",
+                leftEdge = left + nameW + gutter + timeW - rowWidth(cells) * digitW
+            )
+            y += digitH * (1f + CITY_STEP)
+        }
+        ink.textAlign = Paint.Align.CENTER
+    }
+
+    /** What time it is in one of them, to the minute. */
+    private fun cityCells(city: WorldClocks.City): List<Cell> {
+        val calendar = java.util.Calendar.getInstance(city.zone)
+        calendar.timeInMillis = nowMs()
+        return DigitalReadout.time(
+            calendar.get(java.util.Calendar.HOUR_OF_DAY),
+            calendar.get(java.util.Calendar.MINUTE),
+            0,
+            options().copy(seconds = false)
+        )
     }
 
     /**
@@ -560,10 +650,11 @@ class DigitalClockView @JvmOverloads constructor(
         top: Float,
         digitW: Float,
         digitH: Float,
-        tag: String
+        tag: String,
+        leftEdge: Float? = null
     ) {
         val total = rowWidth(cells) * digitW
-        var x = (width - total) / 2f
+        var x = leftEdge ?: ((width - total) / 2f)
         val wasStroke = lit.strokeWidth
         val wasText = ink.textSize
         lit.strokeWidth = barWidth(digitH)
@@ -1225,6 +1316,24 @@ class DigitalClockView @JvmOverloads constructor(
 
         /** The longest a press can be and still count as a tap. */
         private const val TAP_MS = 400L
+
+        /**
+         * The ladder of other cities: how big a rung is, how much air is
+         * above the first one and between them, how far the names sit from
+         * the digits, and how loud a name is against a lit bar.
+         *
+         * Quiet on purpose. This is a second display on the same
+         * instrument, not a second clock: it has to be readable from the
+         * same distance and it must never be the first thing the eye lands
+         * on, which is what a row of digits the same size as the time
+         * would be.
+         */
+        private const val CITY_SCALE = 0.26f
+        private const val CITY_GAP = 0.30f
+        private const val CITY_STEP = 0.34f
+        private const val CITY_NAME = 0.62f
+        private const val CITY_GUTTER = 0.55f
+        private const val CITY_ALPHA = 170
 
         /** How big the city under the digits is, against a digit. */
         private const val CAPTION_SCALE = 0.30f

@@ -381,6 +381,26 @@ class DigitalShotTest {
     }
 
     /**
+     * The world clock, on the face that stacks it.
+     *
+     * The whole of what this face does with the world clock is in this
+     * picture: no bubbles, no toys, a list of cities under the time in the
+     * same bars. Whether it reads as one instrument with a second display
+     * or as a clock with a table stuck to it is not something an assertion
+     * can answer.
+     */
+    @Test
+    fun `the other cities, stacked under the time`() {
+        for (script in listOf(DigitScript.ARABIC, DigitScript.ROMAN)) {
+            val view = face(DigitStyle.SEGMENT, script).apply {
+                cities = listOf("Europe/Madrid", "America/New_York", "Asia/Tokyo")
+                    .map { WorldClocks.City(it) }
+            }
+            assertTrue(shoot(view, "digital-cities-${script.key}") > 3)
+        }
+    }
+
+    /**
      * The bedside clock: on its side, with the screen to itself.
      *
      * Three alphabets, because the widest of them is what decides how big

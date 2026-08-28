@@ -550,7 +550,7 @@
     <string name="pref_night_dim_summary_digital" formatted="false">The screen dims over the hours below, so it doesn\'t light the bedroom</string>
     <string name="pref_show_date_summary_digital">A small date under the time</string>
     <string name="pref_advanced_summary_digital">How the digits are made, the bells, and how alarms behave. Set once and forgotten.</string>
-    <string name="pref_world_clock_summary_digital">Little readouts showing the time in other cities</string>
+    <string name="pref_world_clock_summary_digital">The time in other cities, listed under this one</string>
     <string name="pref_digit_style_title">How the digits are made</string>
     <string name="pref_digit_script_title">Numerals</string>
     <string name="pref_hour_24_title">Twenty-four hour</string>

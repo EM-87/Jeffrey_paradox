@@ -12,10 +12,16 @@ import android.widget.RemoteViews
 import androidx.preference.PreferenceManager
 
 /**
- * Home-screen hourglass widget. While a countdown runs it shows the live
- * sand level and remaining time (pushed by CountdownService in the
- * background, or by MainActivity while the app is open); idle, it sits with
- * all the sand at rest. Tapping opens the app.
+ * Home-screen countdown widget. While a countdown runs it shows the live
+ * level and the remaining time (pushed by CountdownService in the
+ * background, or by MainActivity while the app is open); idle, it sits
+ * full and at rest. Tapping opens the app.
+ *
+ * What it draws follows the face. On the dial it is an hourglass, with
+ * sand in the top bulb and a stream between them; on a screenful of digits
+ * it is the same fraction as a progress bar under the time, because sand
+ * in a glass is a picture of a fraction and a strip that empties is the
+ * digital drawing of the same thing.
  */
 class HourglassWidgetProvider : AppWidgetProvider() {
 
@@ -74,6 +80,15 @@ class HourglassWidgetProvider : AppWidgetProvider() {
 
         fun pushIdle(context: Context) = push(context, 0L, 1L)
 
+        /** For the tests: what this widget would actually put on the glass. */
+        internal fun renderForTest(
+            context: Context,
+            remainingMs: Long,
+            totalMs: Long,
+            width: Int,
+            height: Int
+        ): Bitmap = renderBitmap(context, remainingMs, totalMs, width, height)
+
         /**
          * Repaints every countdown widget with whatever is on the timer.
          *
@@ -100,6 +115,12 @@ class HourglassWidgetProvider : AppWidgetProvider() {
             val prefs = PreferenceManager.getDefaultSharedPreferences(context)
             val view = HourglassView(context).apply {
                 theme = ClockThemes.resolve(context, prefs.getString(Prefs.THEME, "midnight"))
+                // Sand in a glass on a face that has no glass in it. The
+                // card went and the button to it went, and this went on
+                // pouring on the home screen — which is the same mistake
+                // the floating bubble made, in the one place the owner of
+                // the phone sees it without opening anything.
+                lcd = !Face.of(prefs).hands
                 this.totalMs = totalMs
                 this.remainingMs = remainingMs
             }
