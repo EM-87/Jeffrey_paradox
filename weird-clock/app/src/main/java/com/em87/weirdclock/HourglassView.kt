@@ -44,7 +44,7 @@ class HourglassView @JvmOverloads constructor(
             invalidate()
         }
 
-    private val segments = SegmentPainter().apply { thickness = 0.09f }
+    private val segments = SegmentPainter().apply { weight = 1.64f }
 
     /**
      * The panel the glass stands on.

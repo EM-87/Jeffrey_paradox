@@ -115,7 +115,6 @@ class DateScripts {
      */
     private val segments = SegmentPainter().apply {
         ghosts = false
-        thickness = 0.062f
     }
 
     /** And scratch for the round parts of a hieroglyph. */

@@ -39,8 +39,17 @@ object Segments {
         SIXTEEN,
 
         /**
-         * Theirs: two eight-armed stars, one above the other, sharing the
-         * arm between them. Fifteen bars.
+         * Theirs: two eight-armed stars, one above the other. Eighteen
+         * bars.
+         *
+         * The two stars do not share an arm, which is the correction the
+         * chart forced. Where they meet, four bars come to a point and
+         * stop short of it: the upper star's south arm, the lower star's
+         * north arm, and the middle rail split into its two halves. No
+         * numeral lights any of the four. They are the whole of what this
+         * display can do and never does, and the chart draws all four —
+         * so drawing one long arm through the middle instead was a
+         * display with three bars missing and one bar too long.
          *
          * Their numerals were a font until now, which meant the one script
          * on this clock that could not have an unlit bar behind it, could
@@ -121,6 +130,10 @@ object Segments {
      * the upper star's lower diagonals and the lower star's upper ones
      * land on the same two points — which is why a 6 closes into a
      * diamond and does not merely look like one.
+     *
+     * The waist between them is its own crossing: [US] down to it, [LN]
+     * up to it, [MW] and [ME] out to the sides, four bars stopping short
+     * of one point.
      */
     const val UN = 1 shl 0
     const val UNE = 1 shl 1
@@ -137,6 +150,15 @@ object Segments {
     const val LSW = 1 shl 12
     const val LW = 1 shl 13
     const val LNW = 1 shl 14
+
+    /*
+     * And the four in the middle that no numeral lights: the two stars'
+     * facing arms, and the rail across the waist in its two halves. They
+     * exist because the chart draws them, and they are only ever ghosts.
+     */
+    const val LN = 1 shl 15
+    const val MW = 1 shl 16
+    const val ME = 1 shl 17
 
     /**
      * Their ten digits, read off the chart arm by arm.
@@ -162,18 +184,20 @@ object Segments {
     // ------------------------------------------------------- the shapes
 
     /**
-     * One bar, in a box one unit wide and one unit tall.
+     * One bar, in a box one unit wide and one unit tall, y downwards.
      *
-     * [joinsAt] says which ends run into a junction and must overlap it
-     * rather than stop short of it: 0 neither, -1 the start, 1 the end, 2
-     * both. A bar that stops short at a corner is what gives a `0` its
-     * corners; a bar that stops short at the middle of an `X` leaves a
-     * hole where the stroke crosses.
+     * [x0],[y0]–[x1],[y1] is the bar's axis. [outline] is its exact shape
+     * when there is one to copy: the Roman module's eight pieces are the
+     * polygons out of the drawing itself, vertex for vertex, and are
+     * neither approximated nor re-derived. Its vertices are in the same
+     * box, and the thickness knob moves each of them along the bar's own
+     * normal — see [SegmentPainter.outlineOf] — so a fatter display is the
+     * drawing's shape widened rather than a different shape.
      *
-     * Nothing overlaps anything except where it must. Every bar stops a
-     * hair short of the point it is aimed at, and that hair is the
-     * display: take it away where four diagonals cross and the `X` stops
-     * being four bars and becomes a painted cross.
+     * Where there is no outline the painter makes a sliver — see
+     * [SegmentPainter]. [joinsAt] says which ends run into a junction and
+     * must overlap it rather than stop short: 0 neither, -1 the start, 1
+     * the end, 2 both.
      */
     class Bar(
         val bit: Int,
@@ -182,29 +206,13 @@ object Segments {
         val x1: Float,
         val y1: Float,
         val joinsAt: Int = 0,
-        /**
-         * How thick this bar is against the others.
-         *
-         * One, everywhere on the two flat displays. That is a measurement
-         * and not a choice: the drawing's uprights come out seven pixels
-         * wide and its diagonals six, near enough the same pen. An earlier
-         * pass here gave the diagonals two and a half times the weight and
-         * a taper to a point, which is what a sixteen-segment module looks
-         * like in most people's memory and is not what this one looks
-         * like at all.
-         */
         val weight: Float = 1f,
-        /** How wide the cut end is, against the bar's own width. */
         val flat: Float = 0.42f,
-        /**
-         * How far in from each end the bar reaches full width, as a share
-         * of its length. Nought leaves it to the thickness — a short
-         * chamfer, so the end reads as cut. Their arms want a long one:
-         * every arm of a star is a spindle, pointed at both ends.
-         */
         val shoulder: Float = 0f,
         val round: Boolean = false,
-        val dot: Boolean = false
+        val dot: Boolean = false,
+        val radius: Float = 0f,
+        val outline: FloatArray? = null
     )
 
     private val SEVEN_BARS = listOf(
@@ -218,27 +226,133 @@ object Segments {
     )
 
     /*
-     * Measured off the drawing rather than remembered.
+     * Rome's module, copied out of the drawing.
      *
-     * The one thing memory got wrong and the tape got right: the diagonals
-     * do not start in the corners. They start on the top and bottom rails,
-     * a tenth of the way in, which is what leaves daylight at each corner
-     * where three bars would otherwise pile up — and what gives the `M`
-     * its shape.
+     * Not measured off a photograph this time and not reconstructed: the
+     * file itself was read and these are its polygons. Three things in it
+     * are not what a reconstruction would have guessed, and all three were
+     * wrong here before:
+     *
+     *  - There is one upright, on the left. The right-hand one belongs to
+     *    the module after it, and ten modules have eleven uprights between
+     *    them. Two neighbours drawing an upright each is the double stroke
+     *    that gave this away.
+     *  - The diagonals are a little fatter than the rails — 0.090 against
+     *    0.081 — and they start almost in the corners rather than a tenth
+     *    of the way along the rail.
+     *  - The module is 0.541 as wide as it is tall, not 0.59, and every
+     *    bar stops short of what it points at by about half its own width.
+     *    That daylight is the display.
+     *
+     * The rails are 0.0811 of a module's height thick in the file, and the
+     * thickness knob is read against that: at 0.0811 this display is the
+     * drawing at 1:1, and every other setting is the drawing's own outlines
+     * moved along their normals. The diagonals stay proportionally fatter
+     * because that difference is inside the polygons and not applied to
+     * them.
      */
-    private const val NOTCH = 0.10f
+    private const val ROMAN_BAR = 0.0811f
+
+    /**
+     * How thick a bar of [kind] is when nobody has asked for anything, as
+     * a share of a module's height.
+     *
+     * The thickness knob is a multiple of this rather than a number of its
+     * own, because "normal" does not mean the same thing on three displays
+     * that were not drawn to the same weight. Rome's is the figure out of
+     * the file, so at normal that display is the drawing at 1:1; the other
+     * two are what they were tuned to by eye.
+     */
+    fun native(kind: Kind): Float = when (kind) {
+        Kind.SIXTEEN -> ROMAN_BAR
+        else -> 0.055f
+    }
+
+    /** Whether [kind]'s bars have an exact shape to copy rather than a
+     * sliver to make up. */
+    fun drawn(kind: Kind): Boolean = kind == Kind.SIXTEEN
 
     private val SIXTEEN_BARS = listOf(
-        Bar(TOP, 0f, 0f, 1f, 0f),
-        Bar(BOTTOM, 0f, 1f, 1f, 1f),
-        Bar(LEFT, 0f, 0f, 0f, 1f),
-        Bar(RIGHT, 1f, 0f, 1f, 1f),
-        Bar(H, NOTCH, 0f, 0.5f, 0.5f),
-        Bar(J, 1f - NOTCH, 0f, 0.5f, 0.5f),
-        Bar(K, 1f - NOTCH, 1f, 0.5f, 0.5f),
-        Bar(M, NOTCH, 1f, 0.5f, 0.5f),
-        Bar(G1, 0.08f, 0.5f, 0.45f, 0.5f, round = true),
-        Bar(DOT, 0.68f, 0.5f, 0.68f, 0.5f, dot = true)
+        Bar(
+            TOP, 0.069f, 0.004f, 0.931f, 0.004f,
+            outline = floatArrayOf(
+                0.0873f, -0.0406f, 0.0688f, -0.0116f, 0.1653f, 0.0291f,
+                0.2268f, 0.0405f, 0.7732f, 0.0405f, 0.8347f, 0.0291f,
+                0.9312f, -0.0116f, 0.9127f, -0.0406f
+            )
+        ),
+        Bar(
+            BOTTOM, 0.069f, 0.996f, 0.931f, 0.996f,
+            outline = floatArrayOf(
+                0.0873f, 1.0406f, 0.0688f, 1.0115f, 0.1653f, 0.9709f,
+                0.2268f, 0.9595f, 0.7732f, 0.9595f, 0.8347f, 0.9709f,
+                0.9312f, 1.0115f, 0.9127f, 1.0406f
+            )
+        ),
+        Bar(
+            LEFT, 0f, 0.041f, 0f, 0.959f,
+            outline = floatArrayOf(
+                0.0732f, 0.8377f, 0.0750f, 0.8273f, 0.0750f, 0.1727f,
+                0.0732f, 0.1623f, 0.0294f, 0.0411f, -0.0294f, 0.0411f,
+                -0.0732f, 0.1623f, -0.0750f, 0.1727f, -0.0750f, 0.8273f,
+                -0.0732f, 0.8377f, -0.0294f, 0.9589f, 0.0294f, 0.9589f
+            )
+        ),
+        Bar(
+            RIGHT, 1f, 0.041f, 1f, 0.959f,
+            outline = floatArrayOf(
+                1.0732f, 0.8377f, 1.0750f, 0.8273f, 1.0750f, 0.1727f,
+                1.0732f, 0.1623f, 1.0294f, 0.0411f, 0.9706f, 0.0411f,
+                0.9268f, 0.1623f, 0.9250f, 0.1727f, 0.9250f, 0.8273f,
+                0.9268f, 0.8377f, 0.9706f, 0.9589f, 1.0294f, 0.9589f
+            )
+        ),
+        Bar(
+            G1, 0.105f, 0.5f, 0.376f, 0.5f,
+            outline = floatArrayOf(
+                0.3266f, 0.5405f, 0.3534f, 0.5316f, 0.3759f, 0.5072f,
+                0.3759f, 0.4927f, 0.3534f, 0.4684f, 0.3266f, 0.4595f,
+                0.1350f, 0.4595f, 0.1050f, 0.4757f, 0.1050f, 0.5243f,
+                0.1350f, 0.5405f
+            )
+        ),
+        Bar(
+            H, 0.085f, 0.031f, 0.472f, 0.488f,
+            outline = floatArrayOf(
+                0.4850f, 0.4757f, 0.4550f, 0.4919f, 0.4272f, 0.4919f,
+                0.4004f, 0.4829f, 0.1098f, 0.1688f, 0.1011f, 0.1549f,
+                0.0601f, 0.0414f, 0.1080f, 0.0255f, 0.1508f, 0.0435f,
+                0.1787f, 0.0620f, 0.4744f, 0.3817f, 0.4850f, 0.4059f
+            )
+        ),
+        Bar(
+            J, 0.915f, 0.031f, 0.528f, 0.488f,
+            outline = floatArrayOf(
+                0.5150f, 0.4757f, 0.5450f, 0.4919f, 0.5728f, 0.4919f,
+                0.5996f, 0.4829f, 0.8902f, 0.1688f, 0.8990f, 0.1549f,
+                0.9399f, 0.0414f, 0.8920f, 0.0255f, 0.8492f, 0.0435f,
+                0.8213f, 0.0620f, 0.5256f, 0.3817f, 0.5150f, 0.4059f
+            )
+        ),
+        Bar(
+            K, 0.915f, 0.969f, 0.528f, 0.512f,
+            outline = floatArrayOf(
+                0.5150f, 0.5243f, 0.5450f, 0.5081f, 0.5728f, 0.5081f,
+                0.5996f, 0.5171f, 0.8902f, 0.8312f, 0.8990f, 0.8451f,
+                0.9399f, 0.9586f, 0.8920f, 0.9745f, 0.8492f, 0.9565f,
+                0.8213f, 0.9380f, 0.5256f, 0.6183f, 0.5150f, 0.5941f
+            )
+        ),
+        Bar(
+            M, 0.085f, 0.969f, 0.472f, 0.512f,
+            outline = floatArrayOf(
+                0.4850f, 0.5243f, 0.4550f, 0.5081f, 0.4272f, 0.5081f,
+                0.4004f, 0.5171f, 0.1098f, 0.8312f, 0.1011f, 0.8451f,
+                0.0601f, 0.9586f, 0.1080f, 0.9745f, 0.1508f, 0.9565f,
+                0.1787f, 0.9380f, 0.4744f, 0.6183f, 0.4850f, 0.5941f
+            )
+        ),
+        Bar(DOT, 0.764f, 0.5f, 0.764f, 0.5f, dot = true, radius = 0.0540f)
     )
 
     private val STAR_BARS: List<Bar> = buildList {
@@ -268,6 +382,16 @@ object Segments {
         add(arm(USW, uy, 0f, 0.5f))
         add(arm(UW, uy, 0f, 0.25f))
         add(arm(UNW, uy, 0f, 0f))
+        // The waist. The two stars face each other across it without
+        // touching, and the rail through it is two bars and not one, so
+        // all four stop short of the point they meet at — see the ghosts
+        // on the chart, which is the only place they are ever seen.
+        add(arm(LN, ly, 0.5f, 0.5f))
+        val rail = { bit: Int, tx: Float ->
+            Bar(bit, ux, 0.5f, tx, 0.5f, flat = 0.15f, shoulder = 0.13f)
+        }
+        add(rail(MW, 0f))
+        add(rail(ME, 1f))
         add(arm(LNE, ly, 1f, 0.5f))
         add(arm(LE, ly, 1f, 0.75f))
         add(arm(LSE, ly, 1f, 1f))
@@ -294,36 +418,39 @@ object Segments {
      */
     fun aspect(kind: Kind): Float = when (kind) {
         Kind.SEVEN -> 0.55f
-        Kind.SIXTEEN -> 0.59f
+        // The pitch between two uprights over the height between the two
+        // rails, out of the drawing: 6.725 over 12.441.
+        Kind.SIXTEEN -> 0.5406f
         Kind.STAR -> 0.50f
     }
 
     /**
      * Whether neighbouring modules share the upright between them.
      *
-     * Nothing does, and it was worth finding out the hard way. The drawing
-     * this display copies shows its modules touching, with one upright at
-     * each boundary — so they were built that way, and every year in the
-     * nineteen hundreds came out wrong. `MCM` is `M`, `C`, `M`: the `C`
-     * has no right-hand upright of its own, but the `M` after it does, and
-     * a shared boundary put that upright hard against the `C` and closed
-     * it into a `D`. 1980 read as MDMLXXX.
+     * Rome's do, and the drawing settles it: ten modules in the specimen
+     * strip have eighty-one polygons between them, which is ten lots of
+     * eight and one upright over. Each module carries a left-hand upright
+     * and the strip carries one more at the end. Drawing an upright on
+     * each side of every module puts two strokes a hair apart at every
+     * boundary, which is exactly what it looked like.
      *
-     * A specimen sheet draws its modules adjacent to show the array. A
-     * clock has to be read. So the modules stand apart, each with its own
-     * two uprights and daylight between — see [gap] — which is also how
-     * every display of this kind that anybody has ever built is laid out.
+     * Sharing costs something, and [spell] pays it rather than this. `MCM`
+     * is `M`, `C`, `M`; the `C` has no upright of its own on the right but
+     * the `M` after it lights the shared one, and 1980 came out MDMLXXX.
+     * So a module whose right-hand neighbour would close it into a
+     * different letter gets a blank module after it — one dark cell, only
+     * where it is needed, instead of prising the whole display apart.
      */
-    fun butted(kind: Kind): Boolean = false
+    fun butted(kind: Kind): Boolean = kind == Kind.SIXTEEN
 
     /**
      * The daylight between two modules, as a share of a module's width.
      *
-     * Enough to see, and no more: the letters of a Roman numeral belong to
-     * one number and a gap wide enough to read as a space would break
-     * `MMXXIV` into pieces.
+     * None, anywhere. The modules that share an upright have nothing to
+     * put between them, and the two displays that do not share are grids
+     * that were drawn touching.
      */
-    fun gap(kind: Kind): Float = if (kind == Kind.SIXTEEN) 0.22f else 0f
+    fun gap(kind: Kind): Float = 0f
 
     /**
      * Which bars [c] lights, as one mask per module it takes up.
@@ -371,14 +498,60 @@ object Segments {
      */
     fun seven(c: Char): Int = masksOf(Kind.SEVEN, c)?.single() ?: 0
 
-    /** How many modules [text] takes on [kind], `V` counting for two. */
-    fun width(kind: Kind, text: String): Int =
-        text.sumOf { masksOf(kind, it)?.size ?: 0 }
+    /**
+     * How many modules [text] takes on [kind].
+     *
+     * Not the number of characters: a `V` is two modules, and a `C` whose
+     * neighbour would close it into a `D` buys a dark one — so this asks
+     * [spell] rather than counting, and every caller that reserves room
+     * gets the same answer as the thing that draws it.
+     */
+    fun width(kind: Kind, text: String): Int = spell(kind, text).size
 
-    /** [text] as one mask per module, unknown characters left out. */
+    /**
+     * Every mask this display can make, so [spell] can ask whether one
+     * letter with one more upright is a different letter.
+     */
+    private val ROMAN_GLYPHS: Set<Int> by lazy {
+        val all = HashSet<Int>()
+        for (c in "IVXLCDMN·") masksOf(Kind.SIXTEEN, c)?.forEach { all += it }
+        all
+    }
+
+    /**
+     * Whether the upright [a] and [b] share would turn one of them into
+     * some other letter.
+     *
+     * The whole cost of a shared upright, in one question. `C` is the only
+     * letter this catches in Rome's alphabet — `C` plus a right-hand
+     * upright is `D` — but it is asked of the alphabet and not of `C`, so
+     * a letter added later cannot slip past it.
+     */
+    private fun collides(a: Int, b: Int): Boolean {
+        val lit = a and RIGHT != 0 || b and LEFT != 0
+        if (!lit) return false
+        if (a and RIGHT == 0 && (a or RIGHT) in ROMAN_GLYPHS) return true
+        return b and LEFT == 0 && (b or LEFT) in ROMAN_GLYPHS
+    }
+
+    /**
+     * [text] as one mask per module, unknown characters left out.
+     *
+     * On a display whose modules share their uprights this is also where
+     * the ambiguity is paid for: between two letters that the shared
+     * upright would turn into a third, a dark module goes in. `MCM` is
+     * four cells, and reads as `MCM` instead of `MDM`.
+     */
     fun spell(kind: Kind, text: String): IntArray {
         val out = ArrayList<Int>(text.length + 2)
         for (c in text) masksOf(kind, c)?.forEach { out += it }
+        if (butted(kind)) {
+            var i = 0
+            while (i < out.size - 1) {
+                if (collides(out[i], out[i + 1])) out.add(i + 1, 0)
+                i++
+            }
+        }
         return out.toIntArray()
     }
 
@@ -398,9 +571,20 @@ object Segments {
      *
      * The ghosts come first, so nothing lit is ever drawn under something
      * faint.
+     *
+     * Where the modules share their uprights this is also the only place
+     * that knows it: N modules have N+1 uprights between and around them,
+     * each drawn once, and each lit if either of the two letters it stands
+     * between asks for it. Drawing one per side instead is two strokes a
+     * hair apart at every boundary — the thing this display was reported
+     * for.
      */
     fun plan(kind: Kind, masks: IntArray, burnt: IntArray? = null): List<Stroke> {
+        if (masks.isEmpty()) return emptyList()
         val bars = bars(kind)
+        val shared = butted(kind)
+
+        fun dead(i: Int, bit: Int) = (burnt?.getOrNull(i) ?: 0) and bit != 0
 
         fun on(i: Int, bit: Int): Boolean {
             if (i !in masks.indices || bit == 0) return false
@@ -408,17 +592,40 @@ object Segments {
             // A bar somebody has poked out stays dark however hard the
             // number tries to light it. That is what a dead segment is,
             // and it is why a poked clock can end up lying to you.
-            return (burnt?.getOrNull(i) ?: 0) and bit == 0
+            return !dead(i, bit)
         }
 
+        /**
+         * Whether the upright to the left of module [i] is lit. Either
+         * neighbour can light it, and a poke on either side kills it —
+         * there is one piece of metal there, not two.
+         */
+        fun upright(i: Int): Boolean {
+            if (dead(i, LEFT) || (i > 0 && dead(i - 1, RIGHT))) return false
+            if (i in masks.indices && masks[i] and LEFT != 0) return true
+            return i > 0 && masks[i - 1] and RIGHT != 0
+        }
+
+        val left = bars.firstOrNull { it.bit == LEFT }
+        val right = bars.firstOrNull { it.bit == RIGHT }
         val out = ArrayList<Stroke>(masks.size * bars.size)
         for (wanted in listOf(false, true)) {
             for (i in masks.indices) {
                 for (bar in bars) {
+                    if (shared && (bar.bit == LEFT || bar.bit == RIGHT)) continue
                     if (on(i, bar.bit) != wanted) continue
                     out += Stroke(i, bar, wanted)
                 }
             }
+            if (!shared || left == null || right == null) continue
+            for (i in masks.indices) {
+                if (upright(i) == wanted) out += Stroke(i, left, wanted)
+            }
+            // And the one that closes the row, which belongs to no module
+            // and is drawn on the right-hand edge of the last.
+            val last = masks.size - 1
+            val end = !dead(last, RIGHT) && masks[last] and RIGHT != 0
+            if (end == wanted) out += Stroke(last, right, wanted)
         }
         return out
     }

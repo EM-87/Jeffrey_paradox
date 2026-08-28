@@ -23,8 +23,16 @@ import kotlin.math.hypot
  */
 class SegmentPainter {
 
-    /** How thick a bar is, as a share of the module's height. */
-    var thickness: Float = 0.055f
+    /**
+     * How thick the bars are, as a multiple of what the display was drawn
+     * at — see [Segments.native].
+     *
+     * A multiple and not a share of the module, because the three displays
+     * were not drawn to the same weight and one number cannot be "normal"
+     * on all of them. Rome's came out of a file with its thickness in it;
+     * setting this to one is that display at 1:1 and nothing else.
+     */
+    var weight: Float = 1f
 
     /** Whether the unlit bars are drawn behind the lit ones. */
     var ghosts: Boolean = true
@@ -58,7 +66,7 @@ class SegmentPainter {
         val gap = Segments.gap(kind)
         val cell = width / (masks.size + (masks.size - 1) * gap)
         val stride = cell * (1f + gap)
-        val t = height * thickness
+        val t = height * Segments.native(kind) * weight
         for (stroke in Segments.plan(kind, masks, burnt)) {
             if (!stroke.lit && !ghosts) continue
             paint.color = if (stroke.lit) lit else dark
@@ -66,16 +74,70 @@ class SegmentPainter {
             val bar = stroke.bar
             val at = x + stride * stroke.at
             if (bar.dot) {
-                canvas.drawCircle(at + bar.x0 * cell, y + bar.y0 * height, t * 1.15f, paint)
+                val r = if (bar.radius > 0f) height * bar.radius * weight else t * 1.15f
+                canvas.drawCircle(at + bar.x0 * cell, y + bar.y0 * height, r, paint)
                 continue
             }
-            sliver(
-                at + bar.x0 * cell, y + bar.y0 * height,
-                at + bar.x1 * cell, y + bar.y1 * height,
-                t, bar
-            )
+            if (bar.outline != null) {
+                outlineOf(bar, at, y, cell, height, weight)
+            } else {
+                sliver(
+                    at + bar.x0 * cell, y + bar.y0 * height,
+                    at + bar.x1 * cell, y + bar.y1 * height,
+                    t, bar
+                )
+            }
             canvas.drawPath(path, paint)
         }
+    }
+
+    /**
+     * A bar whose exact shape is known, at whatever thickness this display
+     * is set to.
+     *
+     * The vertices are the drawing's, so the only freedom left is how fat
+     * the bar is — and a bar gets fatter by its edges moving away from its
+     * own axis, not by being scaled. Each vertex is split into how far
+     * along the bar it is and how far off to the side, and only the second
+     * half is multiplied. At [swell] of one this is the drawing, vertex for
+     * vertex; at two it is the same shape with twice the metal, ends and
+     * mitres and all.
+     *
+     * Done in units of the module's height so the normal is a real normal:
+     * measuring across a diagonal in a box that is half as wide as it is
+     * tall would put the extra metal on the skew.
+     */
+    private fun outlineOf(
+        bar: Segments.Bar, x: Float, y: Float, cell: Float, height: Float, swell: Float
+    ) {
+        val pts = bar.outline ?: return
+        // The axis, in height units.
+        val ratio = cell / height
+        val ax = bar.x0 * ratio
+        val ay = bar.y0
+        var vx = bar.x1 * ratio - ax
+        var vy = bar.y1 - ay
+        val len = hypot(vx, vy)
+        if (len < 0.0001f) return
+        vx /= len
+        vy /= len
+        path.reset()
+        var i = 0
+        while (i < pts.size) {
+            val px = pts[i] * ratio - ax
+            val py = pts[i + 1] - ay
+            val along = px * vx + py * vy
+            val off = (-px * vy + py * vx) * swell
+            val hx = ax + along * vx - off * vy
+            val hy = ay + along * vy + off * vx
+            // Back out of height units. Both axes are in them now, so both
+            // come back the same way.
+            val sx = x + hx * height
+            val sy = y + hy * height
+            if (i == 0) path.moveTo(sx, sy) else path.lineTo(sx, sy)
+            i += 2
+        }
+        path.close()
     }
 
     /**
@@ -167,7 +229,7 @@ class SegmentPainter {
                 best = bar.bit
             }
         }
-        return if (bestD <= height * (thickness + 0.09f)) best else 0
+        return if (bestD <= height * (Segments.native(kind) * weight + 0.09f)) best else 0
     }
 
     private fun distanceToBar(

@@ -126,43 +126,80 @@ class SegmentsTest {
         assertEquals(2, Segments.masksOf(Segments.Kind.SIXTEEN, 'V')!!.size)
     }
 
-    // ------------------------------------------------- standing apart
+    // ------------------------------------------------ the shared upright
 
     /**
-     * Rome's modules stand apart, each with its own two uprights.
+     * Rome's modules share the upright between them, and the drawing is
+     * what says so.
      *
-     * They were butted at first, sharing one upright at every boundary,
-     * because that is what the drawing shows — and every year in the
-     * nineteen hundreds came out wrong. `MCM` is `M`, `C`, `M`: the `C`
-     * has no right-hand upright, the `M` after it does, and a shared
-     * boundary stood that upright hard against the `C` and closed it into
-     * a `D`. 1980 read as MDMLXXX on the dial, which is where it was
-     * caught — by looking at it.
+     * Ten modules in its specimen strip come to eighty-one polygons: ten
+     * lots of eight, and one upright over. Each module carries a left-hand
+     * upright and the strip closes with one more. Giving every module an
+     * upright on both sides puts two strokes a hair apart at every
+     * boundary, which is what the display was reported for and what an
+     * eleventh polygon nobody counted would have gone on hiding.
+     */
+    @Test
+    fun `ten modules have eleven uprights between them`() {
+        assertTrue("the drawing's modules touch", Segments.butted(Segments.Kind.SIXTEEN))
+        assertEquals("and there is nothing to put between them", 0f, Segments.gap(Segments.Kind.SIXTEEN), 0f)
+        val strip = Segments.plan(Segments.Kind.SIXTEEN, IntArray(10) { Segments.LEFT })
+        val uprights = strip.count { it.bar.bit == Segments.LEFT || it.bar.bit == Segments.RIGHT }
+        assertEquals("ten modules, eleven uprights", 11, uprights)
+        assertEquals("and each one drawn exactly once", 11, uprights)
+    }
+
+    /**
+     * A shared upright is lit if either letter beside it asks for one, and
+     * drawn once either way.
+     */
+    @Test
+    fun `the upright between two letters is one bar with two owners`() {
+        val kind = Segments.Kind.SIXTEEN
+        // X lights no upright, I lights its left one. The boundary between
+        // them belongs to the I and is lit; the one before the X is not.
+        val strokes = Segments.plan(kind, Segments.spell(kind, "XI"))
+        val posts = strokes.filter { it.bar.bit == Segments.LEFT || it.bar.bit == Segments.RIGHT }
+        assertEquals("two modules, three uprights", 3, posts.size)
+        assertEquals("only the one the I owns is lit", 1, posts.count { it.lit })
+    }
+
+    /**
+     * And the price of sharing, paid where it is owed.
      *
-     * So the rule is the one every display of this kind actually uses, and
-     * this is the test that says so: a `C` beside an `M` lights the bars a
-     * `C` lights and no others.
+     * `MCM` is `M`, `C`, `M`. The `C` has no right-hand upright, the `M`
+     * after it does, and a shared boundary stands that upright hard
+     * against the `C` and closes it into a `D` — 1980 read as MDMLXXX on
+     * the dial, which is where it was caught, by looking at it. So a dark
+     * module goes in between: one cell, only where a letter would turn
+     * into another letter, instead of prising the whole display apart.
      */
     @Test
     fun `a C beside an M is still a C`() {
-        val masks = Segments.spell(Segments.Kind.SIXTEEN, "MCM")
-        assertEquals(3, masks.size)
-        assertEquals(
-            "the C picked up an upright from its neighbour",
-            Segments.masksOf(Segments.Kind.SIXTEEN, 'C')!!.single(), masks[1]
-        )
-        assertFalse("nothing here shares an upright", Segments.butted(Segments.Kind.SIXTEEN))
-        assertTrue("and there is daylight between the modules", Segments.gap(Segments.Kind.SIXTEEN) > 0f)
+        val kind = Segments.Kind.SIXTEEN
+        val masks = Segments.spell(kind, "MCM")
+        assertEquals("the C needs a dark cell to keep its right side open", 4, masks.size)
+        assertEquals(Segments.masksOf(kind, 'C')!!.single(), masks[1])
+        assertEquals("and the cell after it is blank", 0, masks[2])
+        // Nothing else in the alphabet pays it. `CX` is safe because an X
+        // lights no upright at all, and `MM` because both already do.
+        assertEquals(2, Segments.width(kind, "CX"))
+        assertEquals(2, Segments.width(kind, "MM"))
+        assertEquals(3, Segments.width(kind, "MCX"))
     }
 
-    /** The gaps are inside the number, so whatever is laid out beside it knows. */
+    /** What a number costs in modules, which is what the layout reserves. */
     @Test
-    fun `a number asks for the room its gaps take`() {
+    fun `a number asks for exactly the modules it uses`() {
         val kind = Segments.Kind.SIXTEEN
         assertEquals(4, Segments.width(kind, "XIV"))
-        assertEquals(4f + 3f * Segments.gap(kind), Segments.span(kind, "XIV"), 0.0001f)
-        assertEquals("one module needs no gap", 1f, Segments.span(kind, "I"), 0.0001f)
+        assertEquals(4f, Segments.span(kind, "XIV"), 0.0001f)
+        assertEquals("one module is one module", 1f, Segments.span(kind, "I"), 0.0001f)
         assertEquals("and nothing needs nothing", 0f, Segments.span(kind, ""), 0.0001f)
+        assertEquals(
+            "the room reserved is the room drawn",
+            Segments.spell(kind, "MCMLXXX").size, Segments.width(kind, "MCMLXXX")
+        )
     }
 
     // ------------------------------------------------------- their stars
@@ -193,18 +230,44 @@ class SegmentsTest {
     }
 
     /**
-     * The arm between the two stars is one arm and not two.
+     * The four bars in the middle that no numeral ever lights.
      *
-     * Two stacked stars have sixteen arms between them and this display
-     * has fifteen: the upper one's downward arm and the lower one's upward
-     * arm stand in exactly the same place, so there is one bar there. Drawn
-     * as two it is twice as bright as every other arm, which is the sort of
-     * thing nobody sees and everybody notices.
+     * The chart draws them and the display has to have them: the upper
+     * star's south arm, the lower star's north arm, and the rail across
+     * the waist in its two halves, four bars stopping short of one point.
+     * They were one long shared arm here, which is three bars missing and
+     * one bar too long, and the only place it shows is the ghosts — which
+     * is exactly where it was reported from.
      */
     @Test
-    fun `the two stars share the arm between them`() {
+    fun `the middle holds four bars no numeral uses`() {
+        val kind = Segments.Kind.STAR
+        val bars = Segments.bars(kind)
+        assertEquals("eighteen arms, not fifteen", 18, bars.size)
+        val ever = (0..9).fold(0) { a, d -> a or Segments.spell(kind, "$d").single() }
+        for (bit in listOf(Segments.US, Segments.LN, Segments.MW, Segments.ME)) {
+            assertEquals("a numeral lights a middle bar", 0, ever and bit)
+        }
+        // And they are four separate bars meeting at the waist, not one
+        // stroke through it: each has an end at the centre of the module.
+        val middle = bars.filter { it.bit in listOf(Segments.US, Segments.LN, Segments.MW, Segments.ME) }
+        for (bar in middle) {
+            val ends = listOf(bar.x0 to bar.y0, bar.x1 to bar.y1)
+            assertTrue("${bar.bit} does not reach the waist", (0.5f to 0.5f) in ends)
+        }
+        // None of them runs past it, which is what one shared arm did.
+        for (bar in middle) {
+            assertTrue(
+                "a middle bar crosses the waist",
+                (bar.y0 <= 0.5f && bar.y1 <= 0.5f) || (bar.y0 >= 0.5f && bar.y1 >= 0.5f)
+            )
+        }
+    }
+
+    /** No two arms stand in the same place, whatever their number is. */
+    @Test
+    fun `every arm has the waist or a star to itself`() {
         val bars = Segments.bars(Segments.Kind.STAR)
-        assertEquals("fifteen arms, not sixteen", 15, bars.size)
         val places = bars.map { setOf(it.x0 to it.y0, it.x1 to it.y1) }
         assertEquals("two arms are in the same place", places.size, places.distinct().size)
     }

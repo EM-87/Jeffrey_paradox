@@ -191,7 +191,7 @@ class WorldBubbles(
     var digitStyle: DigitStyle = DigitStyle.SEGMENT
     var digitScript: DigitScript = DigitScript.ARABIC
     var hour24 = true
-    var segmentWeight = 0.055f
+    var segmentWeight = 1f
     var segmentGhosts = true
 
     /** The bubbles wear whatever the main dial is wearing. */

@@ -2973,9 +2973,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         face.leadingZero = prefs.getBoolean(Prefs.LEADING_ZERO, true)
         face.blinkColon = prefs.getBoolean(Prefs.BLINK_COLON, false)
         face.weight = when (prefs.getString(Prefs.SEGMENT_WEIGHT, Prefs.WEIGHT_NORMAL)) {
-            Prefs.WEIGHT_HAIRLINE -> 0.038f
-            Prefs.WEIGHT_HEAVY -> 0.080f
-            else -> 0.055f
+            Prefs.WEIGHT_HAIRLINE -> 0.70f
+            Prefs.WEIGHT_HEAVY -> 1.45f
+            else -> 1f
         }
         face.ghosts = prefs.getBoolean(Prefs.SEGMENT_GHOSTS, true)
         face.pokeable = prefs.getBoolean(Prefs.POKE_SEGMENTS, false)
@@ -3100,7 +3100,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         worldBubbles.digitStyle = DigitStyle.of(prefs.getString(Prefs.DIGIT_STYLE, null))
         worldBubbles.digitScript = DigitScript.of(prefs.getString(Prefs.DIGIT_SCRIPT, null))
         worldBubbles.hour24 = prefs.getBoolean(Prefs.HOUR_24, true)
-        worldBubbles.segmentWeight = digitalView?.weight ?: 0.055f
+        worldBubbles.segmentWeight = digitalView?.weight ?: 1f
         worldBubbles.segmentGhosts = prefs.getBoolean(Prefs.SEGMENT_GHOSTS, true)
         worldBubbles.rebuild()
         worldBubbles.secondHands = prefs.getBoolean(Prefs.WORLD_SECONDS, true)

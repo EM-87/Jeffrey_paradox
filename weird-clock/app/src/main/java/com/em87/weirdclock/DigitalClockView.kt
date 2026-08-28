@@ -160,8 +160,11 @@ class DigitalClockView @JvmOverloads constructor(
     /** The one engine all three lit displays go through. */
     private val segments = SegmentPainter()
 
-    /** How thick a bar is, as a share of the module's height. */
-    var weight: Float = 0.055f
+    /**
+     * How thick the bars are, as a multiple of what the display was drawn
+     * at — see [SegmentPainter.weight].
+     */
+    var weight: Float = 1f
         set(value) {
             field = value
             invalidate()
@@ -383,6 +386,21 @@ class DigitalClockView @JvmOverloads constructor(
         else -> Segments.Kind.SEVEN
     }
 
+    /**
+     * How thick a bar comes out at this size, in pixels.
+     *
+     * The punctuation is drawn with a stroke rather than through
+     * [SegmentPainter], so it has to arrive at the same number the painter
+     * does or the colon stops matching the digits it stands between. It
+     * did not, for one build: [weight] became a multiple of what each
+     * display was drawn at instead of a share of the digit's height, and
+     * this line went on multiplying by the digit's height — a colon one
+     * and a half digits across, which a screenshot showed as a blob with
+     * the numerals somewhere underneath it.
+     */
+    private fun barWidth(digitH: Float): Float =
+        digitH * Segments.native(kind()) * weight * 1.6f
+
     /** Whether the separator is a module of its own rather than two dots. */
     private fun dotSeparator(): Boolean =
         style == DigitStyle.SEGMENT && script == DigitScript.ROMAN
@@ -469,7 +487,7 @@ class DigitalClockView @JvmOverloads constructor(
         val digitW = if (widest > 0f) minOf(room / widest, height * TALLEST) else 0f
         val digitH = digitW / cellRatio()
 
-        lit.strokeWidth = digitH * weight * 1.6f
+        lit.strokeWidth = barWidth(digitH)
         ink.textSize = digitH * 0.92f
 
         // The date sits under the time, and the two together are centred on
@@ -521,7 +539,7 @@ class DigitalClockView @JvmOverloads constructor(
         var x = (width - total) / 2f
         val wasStroke = lit.strokeWidth
         val wasText = ink.textSize
-        lit.strokeWidth = digitH * weight * 1.6f
+        lit.strokeWidth = barWidth(digitH)
         ink.textSize = digitH * 0.92f
         for ((i, cell) in cells.withIndex()) {
             val w = widthOf(cell) * digitW
@@ -633,7 +651,7 @@ class DigitalClockView @JvmOverloads constructor(
         val kind = kind()
         val masks = Segments.spell(kind, text)
         if (masks.isEmpty()) return
-        segments.thickness = weight
+        segments.weight = weight
         segments.ghosts = ghosts
         segments.row(
             canvas, kind, masks, x, top, w, h,
