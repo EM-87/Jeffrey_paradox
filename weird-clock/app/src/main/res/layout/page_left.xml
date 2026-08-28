@@ -16,6 +16,18 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:padding="8dp" />
+
+        <!-- And, on the face that is already a picture of where the earth
+             is, the rest of the family instead of a grid of days. The
+             dial is the host because the dial owns the sky, the winding
+             and every gesture that reaches a planet; it simply is not
+             being a clock here — see ClockView.skyOnly. -->
+        <com.em87.weirdclock.ClockView
+            android:id="@+id/orrery_card_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="12dp"
+            android:visibility="gone" />
     </FrameLayout>
 
 

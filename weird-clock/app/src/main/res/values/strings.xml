@@ -580,11 +580,13 @@
         <item>@string/face_analog</item>
         <item>@string/face_digital</item>
         <item>@string/face_sundial</item>
+        <item>@string/face_hemisphere</item>
     </string-array>
     <string-array name="face_values" translatable="false">
         <item>analog</item>
         <item>digital</item>
         <item>sundial</item>
+        <item>hemisphere</item>
     </string-array>
     <string-array name="digit_style_entries">
         <item>Lit segments</item>
@@ -663,4 +665,25 @@
     <string name="pref_widget_sundial_wall_summary">Rather than lying flat on the ground</string>
     <string name="pref_sundial_julian_title">Julian calendar</string>
     <string name="pref_sundial_julian_summary">The one the plate would have been cut for. Thirteen days behind ours</string>
+    <string name="face_hemisphere">The world</string>
+    <string name="face_long_hemisphere">The world — the earth turning under the sun, with you on it</string>
+    <string name="pref_hemisphere_view_title">How the world is seen</string>
+    <string name="pref_hemisphere_sun_at_title">Where the sun sits</string>
+    <string name="pref_hemisphere_sun_at_summary">Degrees round from the right, which is where it belongs</string>
+    <string name="pref_hemisphere_ring_title">Ring of hours</string>
+    <string name="pref_hemisphere_ring_summary">Twenty-four solar hours round the world</string>
+    <string name="pref_hemisphere_numbers_title">Numbers on the ring</string>
+    <string name="pref_hemisphere_numbers_summary">Every third hour. The sun stands in for noon</string>
+    <string name="pref_hemisphere_meridians_title">Meridian notches</string>
+    <string name="pref_hemisphere_meridians_summary">Every fifteen degrees, which is where an hour would change</string>
+    <string-array name="hemisphere_view_entries">
+        <item>Over the north pole</item>
+        <item>Over the south pole</item>
+        <item>As a ball</item>
+    </string-array>
+    <string-array name="hemisphere_view_values" translatable="false">
+        <item>north</item>
+        <item>south</item>
+        <item>globe</item>
+    </string-array>
 </resources>

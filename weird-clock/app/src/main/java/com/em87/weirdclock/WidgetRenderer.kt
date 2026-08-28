@@ -229,6 +229,45 @@ object WidgetRenderer {
         return bitmap
     }
 
+    /**
+     * The planet, on somebody's home screen.
+     *
+     * The same instrument as the face, at whatever size the launcher is
+     * showing it — which is small, so the ring of hours comes off: at two
+     * cells square the numbers would be three pixels tall and the world
+     * would be half the widget. What is left is the picture, which is the
+     * part that is worth looking at anyway.
+     */
+    fun hemisphereBitmap(context: Context, widthPx: Int, heightPx: Int): Bitmap {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        DayNight.configure(context)
+        val view = HemisphereView(context).apply {
+            theme = widgetTheme(context)
+            this.view = Hemisphere.View.entries
+                .firstOrNull { it.key == prefs.getString(Prefs.HEMISPHERE_VIEW, null) }
+                ?: Hemisphere.View.NORTH
+            sunAt = prefs.getInt(Prefs.HEMISPHERE_SUN_AT, 0).toDouble()
+            // Small: the ring goes, the notches stay. A notch is one line
+            // and still says where an hour changes; a numeral at this size
+            // is a smudge.
+            hourRing = false
+            meridians = prefs.getBoolean(Prefs.HEMISPHERE_MERIDIANS, true)
+            located = DayNight.hasFix()
+            if (DayNight.hasFix()) {
+                latitude = DayNight.latitudeNow()
+                longitude = DayNight.longitudeNow()
+            }
+        }
+        view.measure(
+            android.view.View.MeasureSpec.makeMeasureSpec(widthPx, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec.makeMeasureSpec(heightPx, android.view.View.MeasureSpec.EXACTLY)
+        )
+        view.layout(0, 0, widthPx, heightPx)
+        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        view.draw(Canvas(bitmap))
+        return bitmap
+    }
+
     /** How big the launcher is actually showing this widget, in pixels. */
     fun widgetPixels(
         context: Context,

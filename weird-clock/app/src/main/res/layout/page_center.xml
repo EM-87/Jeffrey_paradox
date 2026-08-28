@@ -39,6 +39,13 @@
             android:layout_height="match_parent"
             android:visibility="gone" />
 
+        <!-- And the fourth: the planet itself, turning under the sun. -->
+        <com.em87.weirdclock.HemisphereView
+            android:id="@+id/hemisphere_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
         <!-- World-clock bubbles sit below the gear, which stays pressable. -->
         <FrameLayout
             android:id="@+id/bubble_layer"

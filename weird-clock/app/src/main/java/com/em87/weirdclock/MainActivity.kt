@@ -107,6 +107,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** The clock with no hands, on the faces that have one. */
     private var digitalView: DigitalClockView? = null
     private var sundialView: SundialView? = null
+    private var hemisphereView: HemisphereView? = null
+    private var orreryCardView: ClockView? = null
     private var calendarView: CalendarPageView? = null
     private var s3Sand: SandHourglassView? = null
     private var s3DurationGroup: com.google.android.material.button.MaterialButtonToggleGroup? = null
@@ -1066,6 +1068,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         Face.ANALOG -> R.string.face_analog
         Face.DIGITAL -> R.string.face_digital
         Face.SUNDIAL -> R.string.face_sundial
+        Face.HEMISPHERE -> R.string.face_hemisphere
     }
 
     /** And what each one *is*, for the one screen where it is being chosen. */
@@ -1073,6 +1076,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         Face.ANALOG -> R.string.face_long_analog
         Face.DIGITAL -> R.string.face_long_digital
         Face.SUNDIAL -> R.string.face_long_sundial
+        Face.HEMISPHERE -> R.string.face_long_hemisphere
     }
 
     /** The first-run question, while it is on screen. */
@@ -1478,6 +1482,30 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 prefs.edit().putBoolean(Prefs.WEEK_START_MONDAY, monday).apply()
             }
         }
+        // On the face that is already a picture of where the earth is, a
+        // grid of days is the wrong neighbour: one step further out is
+        // the rest of the family, which is the same idea and the thing
+        // somebody looking at a lit hemisphere wants next.
+        //
+        // Both are taken out of the layout rather than hidden, which is
+        // what the three clocks on the middle page do and for the same
+        // reason: an invisible calendar still asks for its marks and its
+        // reminders every time a month changes, and an invisible sky
+        // still runs a frame loop for planets nobody is looking at. The
+        // calendar is bound first and then dropped, because everything
+        // that talks to it asks politely and a null is an answer.
+        val sky = root.findViewById<ClockView>(R.id.orrery_card_view)
+        if (face.showsOrrery) {
+            sky.visibility = View.VISIBLE
+            sky.soundListener = this
+            sky.skyOnly = true
+            orreryCardView = sky
+            calendarView?.let { (it.parent as? ViewGroup)?.removeView(it) }
+            calendarView = null
+        } else {
+            (sky.parent as? ViewGroup)?.removeView(sky)
+            orreryCardView = null
+        }
         applyPreferences()
         applyRow(row)
     }
@@ -1651,6 +1679,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
         digitalView = root.findViewById(R.id.digital_view)
         sundialView = root.findViewById(R.id.sundial_view)
+        hemisphereView = root.findViewById(R.id.hemisphere_view)
         bubbleLayer = root.findViewById(R.id.bubble_layer)
         worldBubbles.layer = bubbleLayer
         modeButton = root.findViewById<ImageButton>(R.id.mode_button).also {
@@ -1759,6 +1788,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             Face.ANALOG -> R.id.clock_view
             Face.DIGITAL -> R.id.digital_view
             Face.SUNDIAL -> R.id.sundial_view
+            Face.HEMISPHERE -> R.id.hemisphere_view
         }
         if (keep != R.id.digital_view) {
             digitalView?.let { (it.parent as? ViewGroup)?.removeView(it) }
@@ -1771,6 +1801,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             sundialView = null
         } else {
             sundialView?.visibility = View.VISIBLE
+        }
+        if (keep != R.id.hemisphere_view) {
+            hemisphereView?.let { (it.parent as? ViewGroup)?.removeView(it) }
+            hemisphereView = null
+        } else {
+            hemisphereView?.visibility = View.VISIBLE
         }
         // The dial is the exception: the stopwatch, the calendar and the
         // sand all take their styling off it, and a detached view answers
@@ -2255,6 +2291,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** For the tests: the shadow, on the face that is one. */
     internal fun sundialForTest(): SundialView? = sundialView
+
+    /** For the tests: the world, on the face that is one. */
+    internal fun hemisphereForTest(): HemisphereView? = hemisphereView
+
+    /** For the tests: the sky where the calendar would be. */
+    internal fun orreryCardForTest(): ClockView? = orreryCardView
+
+    /** And the month page, which is gone on the face that swaps it. */
+    internal fun calendarViewForTest(): CalendarPageView? = calendarView
 
     // ------------------------------------------------------ which way north
 
@@ -3299,6 +3344,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
         applyDigitalPreferences(cv.theme)
         applySundialPreferences(cv.theme)
+        applyHemispherePreferences(cv.theme)
+        // The sky on the calendar's card wears whatever the clock does,
+        // and is told the same things about the solar system: it is the
+        // same object doing the same job on a different page.
+        orreryCardView?.let { sky ->
+            sky.theme = cv.theme
+            sky.orreryEnabled = true
+            sky.cometsEnabled = cv.cometsEnabled
+            sky.zodiacShown = cv.zodiacShown
+            sky.orreryBusyDays = cv.orreryBusyDays
+        }
 
         // The other cities. On the dial they are bubbles to be thrown
         // about; on the face with no hands they are a ladder under the
@@ -3950,6 +4006,32 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         dial.julian = prefs.getBoolean(Prefs.SUNDIAL_JULIAN, false)
         dial.compass = prefs.getBoolean(Prefs.SUNDIAL_COMPASS, false)
         listenForBearing(dial.compass)
+    }
+
+    /**
+     * The world, dressed from the same stored answers.
+     *
+     * The dot is the only thing here that can be missing: a clock whose
+     * hand sits at nought because it has never had a location fix is a
+     * clock that is confidently wrong, so it is not drawn at all until
+     * the app knows where it is.
+     */
+    private fun applyHemispherePreferences(theme: ClockTheme) {
+        val world = hemisphereView ?: return
+        world.theme = theme
+        world.view = Hemisphere.View.entries
+            .firstOrNull { it.key == prefs.getString(Prefs.HEMISPHERE_VIEW, null) }
+            ?: Hemisphere.View.NORTH
+        world.sunAt = prefs.getInt(Prefs.HEMISPHERE_SUN_AT, 0).toDouble()
+        world.hourRing = prefs.getBoolean(Prefs.HEMISPHERE_RING, true)
+        world.hourNumbers = prefs.getBoolean(Prefs.HEMISPHERE_NUMBERS, true)
+        world.meridians = prefs.getBoolean(Prefs.HEMISPHERE_MERIDIANS, true)
+        DayNight.configure(this)
+        world.located = DayNight.hasFix()
+        if (DayNight.hasFix()) {
+            world.latitude = DayNight.latitudeNow()
+            world.longitude = DayNight.longitudeNow()
+        }
     }
 
     /**

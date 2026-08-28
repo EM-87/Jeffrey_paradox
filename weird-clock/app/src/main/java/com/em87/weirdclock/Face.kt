@@ -50,7 +50,26 @@ enum class Face(val key: String) {
      * calendar — the two things a sundial genuinely cannot do and that a
      * Roman would have had on the same table.
      */
-    SUNDIAL("sundial");
+    SUNDIAL("sundial"),
+
+    /**
+     * The earth itself, turning under a nailed-down sun.
+     *
+     * There is no dial and there are no hands: the sun is fixed to one
+     * side of the screen, the world turns beneath it once a day, and the
+     * red dot where you are standing is the hand. That is not a metaphor
+     * — a clock has always been a model of exactly this, and reading it
+     * is reading your own longitude against the sun.
+     *
+     * Its owner is somewhere between the two others: not the person who
+     * wants the time in the largest possible numbers, and not the one who
+     * came for a toy that stops working at dusk. So it keeps the alarm
+     * and both chronographs — in digits, since there is no dial to put
+     * hands on — loses the sand, which is one instrument too many on a
+     * face about the planet, and swaps the calendar for the solar system,
+     * which is the same picture one step further out.
+     */
+    HEMISPHERE("hemisphere");
 
     /**
      * Whether the clock card is a dial with hands on it.
@@ -87,7 +106,22 @@ enum class Face(val key: String) {
             // Sand and a calendar are exactly the two things a sundial
             // cannot do and that its owner would have had anyway.
             SUNDIAL -> setOf(Card.CLOCK, Card.CALENDAR, Card.HOURGLASS)
+            // Sand in a glass is an instrument too many beside a turning
+            // planet, and the calendar's card holds the solar system here
+            // instead — see [showsOrrery].
+            HEMISPHERE -> Card.entries.toSet() - Card.HOURGLASS
         }
+
+    /**
+     * Whether the calendar's card holds the solar system instead.
+     *
+     * A grid of days is the wrong neighbour for a face that is already a
+     * picture of where the earth is. One step further out is the rest of
+     * the family, which is the same idea and the thing somebody looking
+     * at a lit hemisphere would want next.
+     */
+    val showsOrrery: Boolean
+        get() = this == HEMISPHERE
 
     /**
      * Whether this clock only works while the sun is up.
@@ -221,11 +255,21 @@ object FaceOptions {
         Prefs.COUNTDOWN_PERSISTENT
     )
 
+    /** And the rows only the turning world has. */
+    private val hemisphereOnly = setOf(
+        Prefs.HEMISPHERE_VIEW,
+        Prefs.HEMISPHERE_SUN_AT,
+        Prefs.HEMISPHERE_RING,
+        Prefs.HEMISPHERE_NUMBERS,
+        Prefs.HEMISPHERE_MERIDIANS
+    )
+
     /** Whether the row at [key] belongs on [face]'s screens. */
     fun shows(face: Face, key: String): Boolean = when {
         key in analogOnly -> face == Face.ANALOG
         key in digitalOnly -> face == Face.DIGITAL
         key in sundialOnly -> face == Face.SUNDIAL
+        key in hemisphereOnly -> face == Face.HEMISPHERE
         key in needsAnAlarm -> Card.ALARM in face.cards
         else -> true
     }

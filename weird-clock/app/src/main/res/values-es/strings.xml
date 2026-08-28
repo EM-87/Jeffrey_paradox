@@ -529,4 +529,20 @@
     <string name="pref_widget_sundial_wall_summary">En vez de tumbado en el suelo</string>
     <string name="pref_sundial_julian_title">Calendario juliano</string>
     <string name="pref_sundial_julian_summary">Aquel para el que se habría tallado la piedra. Trece días por detrás del nuestro</string>
+    <string name="face_hemisphere">El mundo</string>
+    <string name="face_long_hemisphere">El mundo — la Tierra girando bajo el sol, contigo encima</string>
+    <string name="pref_hemisphere_view_title">Cómo se ve el mundo</string>
+    <string name="pref_hemisphere_sun_at_title">Dónde está el sol</string>
+    <string name="pref_hemisphere_sun_at_summary">Grados desde la derecha, que es donde le corresponde</string>
+    <string name="pref_hemisphere_ring_title">Anillo de horas</string>
+    <string name="pref_hemisphere_ring_summary">Veinticuatro horas solares alrededor del mundo</string>
+    <string name="pref_hemisphere_numbers_title">Números en el anillo</string>
+    <string name="pref_hemisphere_numbers_summary">Cada tres horas. El sol hace de mediodía</string>
+    <string name="pref_hemisphere_meridians_title">Muescas de meridiano</string>
+    <string name="pref_hemisphere_meridians_summary">Cada quince grados, donde cambiaría la hora</string>
+    <string-array name="hemisphere_view_entries">
+        <item>Sobre el polo norte</item>
+        <item>Sobre el polo sur</item>
+        <item>Como una bola</item>
+    </string-array>
 </resources>

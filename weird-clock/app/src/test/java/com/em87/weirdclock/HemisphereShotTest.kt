@@ -1,0 +1,159 @@
+package com.em87.weirdclock
+
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.view.View
+import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+import java.io.File
+
+/**
+ * Pictures of the earth, because a mirrored world looks exactly as
+ * plausible as a correct one.
+ *
+ * [HemisphereTest] can prove that the pole is in the middle and that the
+ * thing turns the right way, and it cannot tell you whether what comes out
+ * looks like the earth. That needs somebody who knows where Africa is to
+ * look at it, which is what these are for.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33], qualifiers = "w411dp-h891dp-xxhdpi")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class HemisphereShotTest {
+
+    private val context: android.content.Context
+        get() = ApplicationProvider.getApplicationContext()
+
+    private val outDir = File("build/screenshots").apply { mkdirs() }
+
+    /** Noon over Greenwich at midsummer, so the terminator is at its most bent. */
+    private fun midsummerNoon(): Long =
+        java.util.Calendar.getInstance().apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+            set(2026, java.util.Calendar.JUNE, 21, 12, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+    private fun globe(
+        which: Hemisphere.View = Hemisphere.View.NORTH,
+        at: Long = midsummerNoon(),
+        sunAt: Double = 0.0,
+        ring: Boolean = true,
+        notches: Boolean = true
+    ): HemisphereView = HemisphereView(context).apply {
+        theme = ClockThemes.MIDNIGHT
+        view = which
+        this.sunAt = sunAt
+        hourRing = ring
+        meridians = notches
+        latitude = 40.4
+        longitude = -3.7
+        located = true
+        atMs = at
+        measure(
+            View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY)
+        )
+        layout(0, 0, 1000, 1000)
+    }
+
+    private fun shoot(v: View, name: String): Int {
+        val bitmap = Bitmap.createBitmap(v.width, v.height, Bitmap.Config.ARGB_8888)
+        v.draw(Canvas(bitmap))
+        File(outDir, "$name.png").outputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        val seen = HashSet<Int>()
+        var y = 0
+        while (y < v.height) {
+            var x = 0
+            while (x < v.width) {
+                seen.add(bitmap.getPixel(x, y)); x += 4
+            }
+            y += 4
+        }
+        return seen.size
+    }
+
+    /** The three ways of looking at it. */
+    @Test
+    fun `north, south and the ball`() {
+        for (which in Hemisphere.View.entries) {
+            assertTrue(shoot(globe(which), "hemi-${which.key}") > 200)
+        }
+    }
+
+    /**
+     * The same world six hours apart, which is the clock working.
+     *
+     * If these two come out the same picture the earth is not turning,
+     * and if the dot has not moved a quarter of the way round then it is
+     * not the hand.
+     */
+    @Test
+    fun `six hours later the world has turned a quarter`() {
+        val noon = midsummerNoon()
+        assertTrue(shoot(globe(at = noon), "hemi-noon") > 200)
+        assertTrue(shoot(globe(at = noon + 6 * 3_600_000L), "hemi-six-later") > 200)
+        assertTrue(shoot(globe(at = noon + 12 * 3_600_000L), "hemi-midnight") > 200)
+    }
+
+    /** And the sun can be pinned somewhere else. */
+    @Test
+    fun `the sun moved to the top`() {
+        assertTrue(shoot(globe(sunAt = 90.0), "hemi-sun-top") > 200)
+    }
+
+    /** The plainest it gets: no ring, no notches, just the world. */
+    @Test
+    fun `the world on its own`() {
+        assertTrue(shoot(globe(ring = false, notches = false), "hemi-bare") > 200)
+    }
+
+    /**
+     * The whole card, and the sky where the calendar would be.
+     *
+     * The two pictures somebody actually sees on this face: the planet
+     * with its buttons under it, and the page one swipe left, which is
+     * the solar system rather than a grid of days.
+     */
+    @Test
+    fun `the card, and the sky next door`() {
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
+            .putString(Prefs.FACE, Face.HEMISPHERE.key)
+            .commit()
+        org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            c.get().hemisphereForTest()?.atMs = midsummerNoon()
+            val screen = c.get().findViewById<View>(android.R.id.content)
+            assertTrue(shoot(screen, "hemi-card") > 50)
+            c.get().goToForTest(Card.CALENDAR)
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(
+                java.time.Duration.ofMillis(1200)
+            )
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            assertTrue(shoot(screen, "hemi-sky-card") > 50)
+        }
+    }
+
+    /** Midwinter, when the terminator bends the other way. */
+    @Test
+    fun `midwinter, with the shadow over the pole`() {
+        val winter = java.util.Calendar.getInstance().apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+            set(2026, java.util.Calendar.DECEMBER, 21, 12, 0, 0)
+        }.timeInMillis
+        assertTrue(shoot(globe(at = winter), "hemi-midwinter") > 200)
+        assertTrue(
+            shoot(globe(which = Hemisphere.View.GLOBE, at = winter), "hemi-globe-midwinter") > 200
+        )
+    }
+}

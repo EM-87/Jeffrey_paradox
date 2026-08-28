@@ -192,6 +192,29 @@ object Prefs {
      * they should be the same one.
      */
     const val WIDGET_SUNDIAL_WALL = "pref_widget_sundial_wall"
+
+    // ---------------------------------------------------- the hemisphere
+
+    /** Which pole the world is being looked at over, or whether it is a ball. */
+    const val HEMISPHERE_VIEW = "pref_hemisphere_view"
+
+    /**
+     * Where the sun is pinned, in degrees anticlockwise from the right.
+     *
+     * The right is where it belongs and is the default: the world is read
+     * left to right, so a sun on the right is the afternoon side and the
+     * dot climbs towards it all morning. It is a preference because
+     * somebody who wants noon at the top is not wrong, they are just
+     * thinking of a clock.
+     */
+    const val HEMISPHERE_SUN_AT = "pref_hemisphere_sun_at"
+
+    /** The ring of hours round the world, and the numbers on it. */
+    const val HEMISPHERE_RING = "pref_hemisphere_ring"
+    const val HEMISPHERE_NUMBERS = "pref_hemisphere_numbers"
+
+    /** And the notches at every fifteenth meridian. */
+    const val HEMISPHERE_MERIDIANS = "pref_hemisphere_meridians"
     const val DATE_FORMAT = "pref_date_format"
 
     /**

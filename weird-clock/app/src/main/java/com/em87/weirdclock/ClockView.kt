@@ -3757,8 +3757,33 @@ class ClockView @JvmOverloads constructor(
             invalidate()
         }
 
-    /** Whether the hands have been swapped for a screen on this face. */
-    private fun lcd(): Boolean = lcdChrono && chronoProvider != null
+    /**
+     * The sky, and nothing else.
+     *
+     * For the face that shows the solar system where its calendar would
+     * be. The dial is still the host — it owns the sky, the winding, the
+     * comets and every gesture that reaches them — but the clock part of
+     * it has no business being there: a set of hands over the planets is
+     * a clock somebody has to look past.
+     *
+     * Reuses the same guards the chronograph's screen uses, because they
+     * suppress exactly the same list. What was a question about one
+     * feature is now a question about whether this dial is being a dial
+     * at all, which is what it should have been from the start.
+     */
+    var skyOnly = false
+        set(value) {
+            if (field == value) return
+            field = value
+            if (value) {
+                orreryEnabled = true
+                if (!orreryShowing()) toggleOrrery()
+            }
+            invalidate()
+        }
+
+    /** Whether the hands have been swapped for something else on this face. */
+    private fun lcd(): Boolean = skyOnly || (lcdChrono && chronoProvider != null)
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -4038,6 +4063,7 @@ class ClockView @JvmOverloads constructor(
             // as much of it as it can. Everywhere else it is a caption
             // under the dial saying what the hands already said.
             val inside = lcd()
+            if (skyOnly) return
             val digitH =
                 if (inside) minOf(r * 0.46f, LCD_ROW * r / (0.82f * it.length.coerceAtLeast(1)))
                 else r * 0.13f

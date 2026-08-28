@@ -61,6 +61,46 @@
             android:title="@string/pref_segment_weight_title"
             app:useSimpleSummaryProvider="true" />
 
+        <!-- The turning world's own rows. Everything here is about how
+             the planet is being looked at, which is the only decision
+             this face offers: what it says is not a preference, it is
+             where the sun is. -->
+        <ListPreference
+            android:defaultValue="north"
+            android:entries="@array/hemisphere_view_entries"
+            android:entryValues="@array/hemisphere_view_values"
+            android:key="pref_hemisphere_view"
+            android:title="@string/pref_hemisphere_view_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <SeekBarPreference
+            android:defaultValue="0"
+            android:key="pref_hemisphere_sun_at"
+            android:max="330"
+            android:title="@string/pref_hemisphere_sun_at_title"
+            android:summary="@string/pref_hemisphere_sun_at_summary"
+            app:min="0"
+            app:seekBarIncrement="30"
+            app:showSeekBarValue="true" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_hemisphere_ring"
+            android:summary="@string/pref_hemisphere_ring_summary"
+            android:title="@string/pref_hemisphere_ring_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_hemisphere_numbers"
+            android:summary="@string/pref_hemisphere_numbers_summary"
+            android:title="@string/pref_hemisphere_numbers_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_hemisphere_meridians"
+            android:summary="@string/pref_hemisphere_meridians_summary"
+            android:title="@string/pref_hemisphere_meridians_title" />
+
         <!-- The sundial's own rows. Every one of them is about the
              instrument rather than about the time, which is why they are
              here and not on the first screen — except the latitude,

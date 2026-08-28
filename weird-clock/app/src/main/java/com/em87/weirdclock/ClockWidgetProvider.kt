@@ -180,6 +180,10 @@ class ClockWidgetProvider : AppWidgetProvider() {
             // which is smaller than the shadow's own soft edge. And there
             // is nothing at all to repaint after sunset, so it sleeps
             // until the sky is a different thing.
+            // The world turns a quarter of a degree a minute, which at
+            // the size of a widget is under a pixel. Five minutes is a
+            // pixel or four, and nobody watches a widget continuously.
+            Face.HEMISPHERE -> 5 * 60_000L
             Face.SUNDIAL -> {
                 DayNight.configure(context)
                 val now = java.util.Calendar.getInstance()
@@ -284,9 +288,11 @@ class ClockWidgetProvider : AppWidgetProvider() {
                 views.setViewVisibility(R.id.widget_analog_clock, android.view.View.GONE)
                 views.setViewVisibility(R.id.widget_digital_clock, android.view.View.VISIBLE)
                 val (w, h) = WidgetRenderer.widgetPixels(context, manager, id)
-                val drawn =
-                    if (face == Face.SUNDIAL) WidgetRenderer.sundialBitmap(context, w, h)
-                    else WidgetRenderer.digitalBitmap(context, w, h)
+                val drawn = when (face) {
+                    Face.SUNDIAL -> WidgetRenderer.sundialBitmap(context, w, h)
+                    Face.HEMISPHERE -> WidgetRenderer.hemisphereBitmap(context, w, h)
+                    else -> WidgetRenderer.digitalBitmap(context, w, h)
+                }
                 views.setImageViewBitmap(
                     R.id.widget_digital_clock,
                     WidgetRenderer.faded(

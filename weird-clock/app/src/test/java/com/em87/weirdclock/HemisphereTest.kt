@@ -1,0 +1,249 @@
+package com.em87.weirdclock
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import kotlin.math.abs
+import kotlin.math.hypot
+
+/**
+ * The earth as the clock, checked without one.
+ *
+ * A projection is the kind of code where a sign is either right or puts
+ * every morning in the afternoon, and nothing on screen will tell you
+ * which — a mirrored world looks exactly as plausible as a correct one
+ * until somebody who knows where Japan is looks at it. So the claims here
+ * are the ones that can be stated in words: where the pole goes, where
+ * noon goes, which way round the thing turns, and that projecting a place
+ * and unprojecting it again gives the place back.
+ */
+class HemisphereTest {
+
+    private fun at(view: Hemisphere.View, lat: Double, lon: Double, sub: Double = 0.0) =
+        Hemisphere.project(view, lat, lon, sub, 0.0)
+
+    /**
+     * The pole is the middle and the far pole is the rim, with the
+     * equator exactly halfway between.
+     *
+     * That is the whole reason for this projection over the obvious one:
+     * every distance from the pole is to scale, so the entire world fits
+     * on the disc and nobody is left off the map.
+     */
+    @Test
+    fun `the pole is the middle and the far pole is the rim`() {
+        val north = at(Hemisphere.View.NORTH, 90.0, 0.0)
+        assertEquals(0.0, hypot(north[0], north[1]), 0.0001)
+        assertEquals(0.5, hypot(at(Hemisphere.View.NORTH, 0.0, 0.0).let { it[0] }, 0.0), 0.0001)
+        val far = at(Hemisphere.View.NORTH, -90.0, 0.0)
+        assertEquals(1.0, hypot(far[0], far[1]), 0.0001)
+        // And upside down for the other one.
+        assertEquals(
+            0.0,
+            hypot(
+                at(Hemisphere.View.SOUTH, -90.0, 0.0)[0],
+                at(Hemisphere.View.SOUTH, -90.0, 0.0)[1]
+            ),
+            0.0001
+        )
+    }
+
+    /**
+     * Noon is on the right, which is where the sun is nailed.
+     *
+     * Everything on this face is measured from the sun rather than from
+     * Greenwich, because the sun is the thing that is not moving. A place
+     * at the subsolar longitude is at three o'clock on the disc whatever
+     * the actual longitude is.
+     */
+    @Test
+    fun `the place under the sun is on the right`() {
+        for (sub in listOf(-170.0, -30.0, 0.0, 95.0, 179.0)) {
+            for (view in Hemisphere.View.entries) {
+                val here = Hemisphere.project(view, 0.0, sub, sub, 0.0)
+                assertTrue("$view put noon on the wrong side", here[0] > 0.4)
+                assertEquals("$view put noon off the equator line", 0.0, here[1], 0.0001)
+            }
+        }
+    }
+
+    /**
+     * And the sun can be moved, which is the one thing on this face that
+     * is a preference.
+     */
+    @Test
+    fun `the sun can be put anywhere round the rim`() {
+        val right = Hemisphere.project(Hemisphere.View.NORTH, 0.0, 0.0, 0.0, 0.0)
+        val top = Hemisphere.project(Hemisphere.View.NORTH, 0.0, 0.0, 0.0, 90.0)
+        assertTrue("noon did not move", right[0] > 0.4)
+        assertTrue("the sun did not go to the top", top[1] < -0.4)
+        assertEquals(0.0, top[0], 0.0001)
+    }
+
+    /**
+     * Seen from above the north pole the earth turns anticlockwise, and
+     * from underneath it turns the other way.
+     *
+     * This is the sign that would look perfectly fine mirrored and put
+     * every morning in the afternoon. It is also why clocks go clockwise:
+     * the first ones copied a shadow in the northern hemisphere, which is
+     * the same rotation seen from the other side.
+     */
+    @Test
+    fun `the world turns anticlockwise over the north pole and the other way over the south`() {
+        // A place an hour east of the sun — which is an hour past noon
+        // there — should be *above* the noon line seen from the north,
+        // since anticlockwise on a screen with y downwards is upwards on
+        // the right-hand side.
+        val north = at(Hemisphere.View.NORTH, 0.0, 15.0)
+        assertTrue("the north view turns the wrong way", north[1] < 0.0)
+        val south = at(Hemisphere.View.SOUTH, 0.0, 15.0)
+        assertTrue("the south view turns the wrong way", south[1] > 0.0)
+    }
+
+    /**
+     * Every point on the disc comes back to the place it was drawn from.
+     *
+     * The inverse is what paints the earth into the circle, so the two
+     * have to agree exactly or the map is drawn shifted from the marks on
+     * top of it — which is a bug that looks like a slightly wrong map.
+     */
+    @Test
+    fun `projecting a place and unprojecting it gives the place back`() {
+        for (view in Hemisphere.View.entries) {
+            for (lat in listOf(-80.0, -40.0, -5.0, 0.0, 12.0, 51.0, 85.0)) {
+                for (lon in listOf(-175.0, -90.0, -20.0, 0.0, 45.0, 120.0, 178.0)) {
+                    val on = Hemisphere.project(view, lat, lon, 0.0, 0.0)
+                    // The globe hides half the world, and a place behind
+                    // it has no point on the disc to come back from.
+                    if (on[2] < 0.0) continue
+                    val back = Hemisphere.unproject(view, on[0], on[1], 0.0)
+                    assertNotNull("$view lost ($lat, $lon)", back)
+                    assertEquals("$view moved the latitude", lat, back!![0], 0.02)
+                    assertEquals(
+                        "$view moved the longitude",
+                        0.0, abs(Hemisphere.wrap(lon - back[1])), 0.05
+                    )
+                }
+            }
+        }
+    }
+
+    /** Nothing outside the circle is anywhere on earth. */
+    @Test
+    fun `off the disc is nowhere`() {
+        for (view in Hemisphere.View.entries) {
+            assertNull(Hemisphere.unproject(view, 1.2, 0.0, 0.0))
+            assertNull(Hemisphere.unproject(view, 0.8, 0.8, 0.0))
+        }
+    }
+
+    /**
+     * It is daylight under the sun and dark on the other side of the
+     * world, and the line between is ninety degrees away.
+     */
+    @Test
+    fun `the sun is up under the sun and down behind it`() {
+        assertTrue(Hemisphere.isLit(0.0, 0.0, 0.0))
+        assertFalse(Hemisphere.isLit(0.0, 180.0, 0.0))
+        assertEquals(1.0, Hemisphere.cosZenith(0.0, 0.0, 0.0), 0.0001)
+        assertEquals(0.0, Hemisphere.cosZenith(0.0, 90.0, 0.0), 0.0001)
+        // At midsummer the north pole is lit all the way round and the
+        // south pole is dark all the way round, which is the one fact
+        // about the terminator everybody already knows.
+        for (lon in listOf(0.0, 90.0, 180.0, -90.0)) {
+            assertTrue("the midnight sun went out", Hemisphere.isLit(89.0, lon, 23.4))
+            assertFalse("the polar night lit up", Hemisphere.isLit(-89.0, lon, 23.4))
+        }
+    }
+
+    /**
+     * The terminator really is the line where the sun sets.
+     *
+     * Walked round rather than solved, so what is worth checking is that
+     * every point of it is on the edge of the light — which is the one
+     * property the walk could get wrong without looking wrong.
+     */
+    @Test
+    fun `every point of the terminator has the sun on the horizon`() {
+        for (sub in listOf(-23.4, -10.0, 0.0, 15.0, 23.4)) {
+            val ring = Hemisphere.terminator(Hemisphere.View.NORTH, sub, 0.0, points = 36)
+            assertEquals(36 * 3, ring.size)
+            for (i in 0 until 36) {
+                val back = Hemisphere.unproject(
+                    Hemisphere.View.NORTH, ring[i * 3], ring[i * 3 + 1], 0.0
+                )
+                assertNotNull(back)
+                assertEquals(
+                    "a point of the terminator is not on the horizon",
+                    0.0, Hemisphere.cosZenith(back!![0], back[1], sub), 0.02
+                )
+            }
+        }
+    }
+
+    /**
+     * The ring of hours, and the fact that it is the whole clock.
+     *
+     * The sun is at noon and the world turns fifteen degrees an hour, so
+     * a quarter of the way round is six hours. Which way round depends on
+     * which pole you are over, and getting it backwards would put every
+     * morning in the afternoon with nothing on screen to say so.
+     */
+    @Test
+    fun `the ring of hours is fifteen degrees each and runs with the world`() {
+        assertEquals(12.0, Hemisphere.hourAt(Hemisphere.View.NORTH, 0.0), 0.0001)
+        assertEquals(18.0, Hemisphere.hourAt(Hemisphere.View.NORTH, 90.0), 0.0001)
+        assertEquals(6.0, Hemisphere.hourAt(Hemisphere.View.NORTH, -90.0), 0.0001)
+        assertEquals(6.0, Hemisphere.hourAt(Hemisphere.View.SOUTH, 90.0), 0.0001)
+        // And the two directions agree with each other.
+        for (view in Hemisphere.View.entries) {
+            for (hour in 0..23) {
+                assertEquals(
+                    "$view disagrees with itself at $hour",
+                    hour.toDouble(),
+                    ((Hemisphere.hourAt(view, Hemisphere.bearingOfHour(view, hour)) + 24.0) % 24.0),
+                    0.0001
+                )
+            }
+        }
+    }
+
+    /**
+     * The marks are meridians and not time zones, and there are
+     * twenty-four of them.
+     *
+     * A time zone map has a hundred and thirty-eight edges in it and most
+     * of them follow a river; a turning globe cannot honestly draw those.
+     * What it can draw is the fifteen-degree meridians the zones were
+     * meant to be.
+     */
+    @Test
+    fun `there are twenty-four meridians, fifteen degrees apart`() {
+        assertEquals(24, Hemisphere.meridians().size)
+        assertTrue(Hemisphere.onAMeridian(0.0))
+        assertTrue(Hemisphere.onAMeridian(15.0))
+        assertTrue(Hemisphere.onAMeridian(-45.2))
+        assertFalse(Hemisphere.onAMeridian(7.5))
+        assertFalse(Hemisphere.onAMeridian(22.0))
+    }
+
+    /** And the sun really is overhead where the sun is overhead. */
+    @Test
+    fun `the subsolar point is where it is noon`() {
+        val at = java.util.Calendar.getInstance().apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+            set(2026, java.util.Calendar.JUNE, 21, 12, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val sub = Hemisphere.subsolar(at)
+        // Midsummer: the sun is over the tropic of Cancer.
+        assertEquals("the sun is not over the tropic at midsummer", 23.4, sub[0], 0.6)
+        // And at noon UTC it is near Greenwich, give or take the equation
+        // of time, which is a couple of degrees at most.
+        assertTrue("noon UTC is not near Greenwich: ${sub[1]}", abs(sub[1]) < 4.0)
+    }
+}
