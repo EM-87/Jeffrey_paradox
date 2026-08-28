@@ -204,28 +204,37 @@ class ScreenshotTest {
      * page rather than as a list with holes in it.
      */
     @Test
-    fun `every settings screen on the digital face`() {
-        prefs.edit().clear()
-            .putBoolean(Prefs.OVERLAY_ASKED, true)
-            .putBoolean(Prefs.FACE_ASKED, true)
-            .putString(Prefs.FACE, Face.DIGITAL.key)
-            .putBoolean(Prefs.BELLS, true)
-            .commit()
-        Robolectric.buildActivity(SettingsActivity::class.java).use { c ->
-            c.setup()
-            val fragment = c.get().supportFragmentManager.fragments.first()
-                as androidx.preference.PreferenceFragmentCompat
-            shootList(fragment, "settings-digital-root")
-        }
-        for ((name, fragment) in listOf(
-            "settings-digital-advanced" to SettingsActivity.AdvancedSettingsFragment(),
-            "settings-digital-very-advanced" to SettingsActivity.VeryAdvancedSettingsFragment()
-        )) {
+    fun `every settings screen on every face`() {
+        // Every face, and not the one this was written for. The pictures
+        // stopped at the digits while two more faces were added, and what
+        // nobody looked at was the page the last of them actually opens:
+        // a heading saying Dial, a night switch explaining that the dial
+        // dims, a date switch for a face that prints no date, and mini
+        // dials offered for other cities to a turning planet.
+        for (face in Face.entries - Face.ANALOG) {
+            prefs.edit().clear()
+                .putBoolean(Prefs.OVERLAY_ASKED, true)
+                .putBoolean(Prefs.FACE_ASKED, true)
+                .putString(Prefs.FACE, face.key)
+                .putBoolean(Prefs.BELLS, true)
+                .commit()
             Robolectric.buildActivity(SettingsActivity::class.java).use { c ->
                 c.setup()
-                c.get().supportFragmentManager.beginTransaction()
-                    .replace(R.id.settings_container, fragment).commitNow()
-                shootList(fragment, name)
+                val fragment = c.get().supportFragmentManager.fragments.first()
+                    as androidx.preference.PreferenceFragmentCompat
+                shootList(fragment, "settings-${face.key}-root")
+            }
+            for ((name, fragment) in listOf(
+                "settings-${face.key}-advanced" to SettingsActivity.AdvancedSettingsFragment(),
+                "settings-${face.key}-very-advanced" to
+                    SettingsActivity.VeryAdvancedSettingsFragment()
+            )) {
+                Robolectric.buildActivity(SettingsActivity::class.java).use { c ->
+                    c.setup()
+                    c.get().supportFragmentManager.beginTransaction()
+                        .replace(R.id.settings_container, fragment).commitNow()
+                    shootList(fragment, name)
+                }
             }
         }
     }

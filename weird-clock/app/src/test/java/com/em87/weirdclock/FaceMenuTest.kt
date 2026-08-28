@@ -195,8 +195,21 @@ class FaceMenuTest {
      */
     @Test
     fun `no row explains itself in terms of a dial this clock has not got`() {
-        val dialWords = listOf("dial", "hands", "esfera", "agujas")
-        for (fragment in screensOf(Face.DIGITAL)) {
+        // Every face without one, and not just the digits. This test had
+        // the one face it was written for hard-coded into it, and two more
+        // arrived afterwards — which is how a menu ended up telling
+        // somebody looking at a turning planet that the *dial* dims at
+        // night, that the date goes under the centre of the *dial*, and
+        // offering them mini *dials* for other cities on a face that has
+        // none and draws none.
+        for (face in Face.entries.filter { !it.hands })
+        // A sundial is a dial: its plate is one, the lines on it are dial
+        // furniture, and a summary saying so is describing the object
+        // rather than borrowing another face's word. What it has not got
+        // is hands, and that half of the rule still applies to it.
+        for (word in if (face == Face.SUNDIAL) listOf("hands", "agujas")
+                     else listOf("dial", "hands", "esfera", "agujas"))
+        for (fragment in screensOf(face)) {
             val screen = fragment.preferenceScreen
             fun walk(group: PreferenceGroup) {
                 for (i in 0 until group.preferenceCount) {
@@ -206,29 +219,122 @@ class FaceMenuTest {
                     // place. "Hands, or digits" is what it is for.
                     if (row.key == Prefs.FACE) continue
                     val said = "${row.title} ${row.summary}".lowercase()
-                    for (word in dialWords) {
-                        assertFalse(
-                            "${row.key}: [${row.title}] [${row.summary}] on a clock with no dial",
-                            said.contains(word)
-                        )
-                    }
+                    assertFalse(
+                        "$face — ${row.key}: [${row.title}] [${row.summary}]",
+                        said.contains(word)
+                    )
                 }
             }
             walk(screen)
         }
     }
 
-    /** And the heading over the rows that outlive the dial is renamed too. */
+    /**
+     * And the heading over the rows that outlive the dial is renamed too —
+     * on every face, and each to something of its own.
+     *
+     * Named rather than merely "not Dial": four faces sharing one heading
+     * would pass a test that only looked for the word, and the point of
+     * the heading is that it says which instrument these rows are about.
+     */
     @Test
     fun `the dial's heading is not left over a clock that has no dial`() {
-        val heading = screensOf(Face.DIGITAL)[1]
-            .findPreference<Preference>(FaceOptions.CAT_DIAL)?.title?.toString()
-        assertEquals(context.getString(R.string.category_screen), heading)
-        assertEquals(
-            context.getString(R.string.category_dial),
-            screensOf(Face.ANALOG)[1]
-                .findPreference<Preference>(FaceOptions.CAT_DIAL)?.title?.toString()
+        val expected = mapOf(
+            Face.ANALOG to R.string.category_dial,
+            Face.DIGITAL to R.string.category_screen,
+            Face.SUNDIAL to R.string.category_plate,
+            Face.HEMISPHERE to R.string.category_world
         )
+        assertEquals("a face has no heading of its own", Face.entries.size, expected.size)
+        // And the heading over the readout rows, which mean two different
+        // things on the two faces that keep them.
+        assertEquals(
+            context.getString(R.string.category_readouts),
+            screensOf(Face.HEMISPHERE)[1]
+                .findPreference<Preference>(FaceOptions.CAT_DIGITS)?.title?.toString()
+        )
+        assertEquals(
+            context.getString(R.string.category_digits),
+            screensOf(Face.DIGITAL)[1]
+                .findPreference<Preference>(FaceOptions.CAT_DIGITS)?.title?.toString()
+        )
+        val seen = HashSet<String>()
+        for ((face, title) in expected) {
+            val heading = screensOf(face)[1]
+                .findPreference<Preference>(FaceOptions.CAT_DIAL)?.title?.toString()
+            assertEquals("$face", context.getString(title), heading)
+            assertTrue("$face borrowed another face's heading", seen.add(heading!!))
+        }
+    }
+
+    /**
+     * A row that does nothing on this face is not on this face's menu.
+     *
+     * The complement of every other test here, and the one that would have
+     * caught the whole of what the last two faces got wrong: a switch that
+     * is drawn, remembered and obeyed by nobody. Spelled out per face,
+     * because the only honest source for "does this do anything" is
+     * somebody having looked.
+     */
+    @Test
+    fun `no row on a face is about a thing that face has not got`() {
+        val world = everyKeyFor(Face.HEMISPHERE)
+        for (key in listOf(
+            // No month page — the calendar's card holds the solar system.
+            Prefs.BIRTHDAY, Prefs.CYCLE, Prefs.CALENDAR_NUMERALS, Prefs.PAST_DAYS,
+            // No other cities, by its owner's own instruction.
+            Prefs.WORLD_CLOCK, Prefs.WORLD_CITIES,
+            // And nowhere at all that a date is printed.
+            Prefs.SHOW_DATE
+        )) {
+            assertFalse("$key is on the world's menu and does nothing", key in world)
+        }
+        val plate = everyKeyFor(Face.SUNDIAL)
+        for (key in listOf(
+            Prefs.WORLD_CLOCK, Prefs.WORLD_CITIES,
+            // Nothing on a sundial counts seconds, so a switch marked
+            // "second hand" and a mechanical tick under it were two rows
+            // about a movement that face has not got.
+            Prefs.SECOND_HAND, Prefs.TICKING
+        )) {
+            assertFalse("$key is on the sundial's menu and does nothing", key in plate)
+        }
+        // And they stay wherever something does count them: a hand, a
+        // readout with seconds in it, a chronograph with a screen.
+        for (face in Face.entries - Face.SUNDIAL) {
+            assertTrue("$face lost its seconds", Prefs.SECOND_HAND in everyKeyFor(face))
+        }
+        // And the sundial keeps its date, which is cut into the plate.
+        assertTrue(Prefs.SHOW_DATE in plate)
+        assertTrue(Prefs.SHOW_DATE in everyKeyFor(Face.ANALOG))
+    }
+
+    /**
+     * And the reverse: a row that *is* obeyed on this face is on its menu.
+     *
+     * The turning world has no hands, so it cannot put a dial on an alarm
+     * card or a movement inside a chronograph — both become readouts, and
+     * both are drawn from these four settings. They were being obeyed
+     * there and were reachable only by switching to the digital face,
+     * changing them, and switching back.
+     */
+    @Test
+    fun `the rows a face obeys are on its menu`() {
+        val world = everyKeyFor(Face.HEMISPHERE)
+        for (key in listOf(
+            Prefs.DIGIT_STYLE, Prefs.DIGIT_SCRIPT, Prefs.HOUR_24, Prefs.SEGMENT_GHOSTS
+        )) {
+            assertTrue("$key is obeyed on the world and hidden there", key in world)
+        }
+        // The dial draws its alarm cards as little dials, so none of the
+        // four means anything on it.
+        val analog = everyKeyFor(Face.ANALOG)
+        for (key in listOf(Prefs.DIGIT_STYLE, Prefs.DIGIT_SCRIPT, Prefs.SEGMENT_GHOSTS)) {
+            assertFalse("$key came back to the dial", key in analog)
+        }
+        // Neither does the sundial: it has no alarm and no chronograph.
+        val plate = everyKeyFor(Face.SUNDIAL)
+        assertFalse(Prefs.DIGIT_SCRIPT in plate)
     }
 
     /**

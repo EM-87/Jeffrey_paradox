@@ -544,7 +544,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private val soundLoop = object : Runnable {
         override fun run() {
             val cv = clockView
-            ticksWanted = tickingEnabled && row == Row.MIDDLE && cv != null &&
+            // A tick is the sound of a second going past, and one face
+            // has nothing that counts them. The dial it borrows for the
+            // chronographs' styling is still alive and detached, so this
+            // went on ticking behind a shadow on a plate.
+            ticksWanted = tickingEnabled && face.countsSeconds &&
+                row == Row.MIDDLE && cv != null &&
                 !cv.isSecondHandGrabbed() && !cv.isSecondHandFallen() &&
                 // A dial showing the planets is not showing a second hand,
                 // so there is nothing for a tick to be the sound of.
@@ -1289,6 +1294,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // back with that stale list meant a spoken alarm was invisible, and
         // the next save here wrote it back out of existence.
         refreshFromStores()
+        // And whatever the list says, arm it. The four ways an armed alarm
+        // gets thrown away have a receiver of their own — see
+        // [RearmReceiver] — and this is the fifth, which cannot have one:
+        // an app that has been force-stopped is told nothing about
+        // anything, and its alarms are gone until somebody opens it. This
+        // is that opening. It writes one AlarmManager entry and costs
+        // nothing, and the alternative is a clock that is quietly not
+        // armed for reasons its owner has no way of knowing about.
+        AlarmScheduler.update(this)
         applyPreferences()
         sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sensorManager?.registerListener(flipListener, it, SensorManager.SENSOR_DELAY_UI)

@@ -535,7 +535,7 @@
     <string name="alarm_skip_bubble">Just %1$s? Tap to keep it for the days after.</string>
 
     <string name="pref_face_title">Kind of clock</string>
-    <string name="pref_face_summary">Hands, or digits. It decides what the rest of these settings are about, so it is the first one.</string>
+    <string name="pref_face_summary">Hands, digits, a shadow, or the earth itself. It decides what the rest of these settings are about, so it is the first one.</string>
     <string name="face_ask_title">Which clock do you want?</string>
     <string name="face_long_analog">Hands — a dial with a case, that you can take apart</string>
     <string name="face_long_digital">Digits — big, full screen, and an alarm</string>
@@ -545,6 +545,7 @@
     <string name="pref_seconds_title">Seconds</string>
     <string name="pref_ticking_digital_title">Ticking</string>
     <string name="category_digits">Digits</string>
+    <string name="category_readouts">Readouts</string>
     <!-- What the Dial heading is called on a clock that has no dial. -->
     <string name="category_screen">Screen</string>
     <!-- The same three rows, on a clock with no dial. Only the noun
@@ -627,8 +628,11 @@
     <string name="pref_widget_plain_summary">The phone\'s own numbers instead of lit bars</string>
     <string name="face_sundial">A shadow</string>
     <string name="category_plate">The plate</string>
+    <string name="category_world">World</string>
+    <string name="pref_night_dim_summary_world">Everything dims in the hours below, so the world does not light the room</string>
+    <string name="pref_advanced_summary_world">The world, the ring of hours, the bells, and how alarms behave</string>
     <string name="pref_night_dim_summary_sundial">Everything dims in the hours below, so the plate does not light the room</string>
-    <string name="pref_show_date_summary_sundial">A small date under the dial</string>
+    <string name="pref_show_date_summary_sundial">A small date cut into the plate</string>
     <string name="pref_advanced_summary_sundial">The plate, the hours, the sky and the sand</string>
     <string name="pref_sundial_kind_title">Where the plate lies</string>
     <string name="pref_sundial_plate_title">Shape of the plate</string>

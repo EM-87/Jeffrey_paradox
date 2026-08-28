@@ -440,7 +440,7 @@
     <string name="alarm_skip_bubble">¿Solo %1$s? Toca para conservarla los demás días.</string>
 
     <string name="pref_face_title">Tipo de reloj</string>
-    <string name="pref_face_summary">Agujas o dígitos. Decide de qué van las demás opciones, así que va la primera.</string>
+    <string name="pref_face_summary">Agujas, dígitos, una sombra o la propia Tierra. Decide de qué van las demás opciones, así que va la primera.</string>
     <string name="face_ask_title">¿Qué reloj quieres?</string>
     <string name="face_long_analog">Agujas — una esfera con caja, que puedes desmontar</string>
     <string name="face_long_digital">Dígitos — grandes, a pantalla completa, y alarma</string>
@@ -450,6 +450,7 @@
     <string name="pref_seconds_title">Segundos</string>
     <string name="pref_ticking_digital_title">Tic-tac</string>
     <string name="category_digits">Dígitos</string>
+    <string name="category_readouts">Lecturas</string>
     <string name="category_screen">Pantalla</string>
     <string name="pref_night_dim_summary_digital" formatted="false">La pantalla se atenúa en las horas de abajo, para que no ilumine el dormitorio</string>
     <string name="pref_show_date_summary_digital">Una fecha pequeña debajo de la hora</string>
@@ -500,8 +501,11 @@
     <string name="pref_widget_plain_summary">Los números del teléfono en vez de barras encendidas</string>
     <string name="face_sundial">Una sombra</string>
     <string name="category_plate">La piedra</string>
+    <string name="category_world">Mundo</string>
+    <string name="pref_night_dim_summary_world">Todo se atenúa en las horas de abajo, para que el mundo no ilumine la habitación</string>
+    <string name="pref_advanced_summary_world">El mundo, el anillo de horas, las campanas y el comportamiento de las alarmas</string>
     <string name="pref_night_dim_summary_sundial">Todo se atenúa en las horas de abajo, para que la piedra no ilumine el cuarto</string>
-    <string name="pref_show_date_summary_sundial">Una fecha pequeña bajo el reloj</string>
+    <string name="pref_show_date_summary_sundial">Una fecha pequeña grabada en la placa</string>
     <string name="pref_advanced_summary_sundial">La piedra, las horas, el cielo y la arena</string>
     <string name="pref_sundial_kind_title">Dónde está la piedra</string>
     <string name="pref_sundial_plate_title">Forma de la piedra</string>

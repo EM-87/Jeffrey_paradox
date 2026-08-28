@@ -148,10 +148,15 @@
             android:exported="false" />
 
         <receiver
-            android:name=".BootReceiver"
+            android:name=".RearmReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <!-- Every build handed to this phone cancels its alarms. -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <!-- And an armed alarm is an instant, not a time of day. -->
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
             </intent-filter>
         </receiver>
 

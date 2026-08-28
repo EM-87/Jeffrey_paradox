@@ -13,7 +13,9 @@
     <!-- The digits' own settings. They are only on the page at all when
          the face is digital — see [FaceOptions] — so they need no switch
          of their own to hide behind. -->
-    <PreferenceCategory android:title="@string/category_digits">
+    <PreferenceCategory
+        android:key="cat_digits"
+        android:title="@string/category_digits">
 
         <ListPreference
             android:defaultValue="segment"

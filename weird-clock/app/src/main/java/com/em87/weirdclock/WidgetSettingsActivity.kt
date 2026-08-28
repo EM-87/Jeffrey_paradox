@@ -182,7 +182,11 @@ class WidgetSettingsActivity : AppCompatActivity() {
                     false
                 )
             )
-            !Face.of(prefs).hands -> listOf(
+            // The date, on the one face whose widget draws one. It used to
+            // be every face without hands, which put the switch on the
+            // turning world's widget too — where nothing reads it and
+            // there is nowhere in a disc to print a date anyway.
+            Face.of(prefs) == Face.DIGITAL -> listOf(
                 Extra(
                     Prefs.WIDGET_DATE,
                     R.string.pref_widget_date_title,

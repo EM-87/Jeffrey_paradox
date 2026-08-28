@@ -87,11 +87,13 @@ enum class Face(val key: String) {
     /**
      * Whether this face is worth turning the phone sideways for.
      *
-     * A screenful of digits gets bigger when the screen does; a dial is a
-     * round thing in a rectangular window and gains nothing but a wider
-     * margin. That is why this is a capability and not "is it digital":
-     * the lit hemisphere that is wanted next fills a landscape window as
-     * happily as the digits do, and the sundial does not.
+     * A screenful of digits gets bigger when the screen does; anything
+     * round is a circle in a rectangular window and gains nothing from
+     * the extra width but a wider margin. This was written expecting the
+     * hemisphere to answer yes and it does not, for exactly that reason —
+     * a globe is as round as a dial. It stays a capability rather than
+     * "is it digital" because the thing it is really asking is whether
+     * this face is bounded by the shorter side of the screen.
      */
     val fills: Boolean
         get() = this == DIGITAL
@@ -122,6 +124,67 @@ enum class Face(val key: String) {
      */
     val showsOrrery: Boolean
         get() = this == HEMISPHERE
+
+    /**
+     * Whether there is a month page behind the calendar's button.
+     *
+     * Not the same as having the card: the turning world has the card and
+     * puts the solar system on it, so every row about how a grid of days
+     * is drawn — its numerals, its crossed-off days, a birthday, a cycle
+     * — is a row about something that is not there.
+     */
+    val hasCalendar: Boolean
+        get() = Card.CALENDAR in cards && !showsOrrery
+
+    /**
+     * Whether this face can show the time in other cities.
+     *
+     * Two faces can and they do it differently — bubbles thrown about a
+     * dial, a ladder under the digits — and the other two simply cannot:
+     * there is nowhere on a plate or a planet to put five more clocks,
+     * and neither of them tried. The rows were on both menus anyway.
+     */
+    val showsOtherCities: Boolean
+        get() = this == ANALOG || this == DIGITAL
+
+    /**
+     * Whether this face prints the date anywhere.
+     *
+     * Three do — under the hands, under the time, cut into the plate. The
+     * turning world does not, and a switch offering one was a switch that
+     * did nothing at all.
+     */
+    val showsDate: Boolean
+        get() = this != HEMISPHERE
+
+    /**
+     * Whether any part of this face is a time written in bars.
+     *
+     * True of the digits, obviously. It is also true of the turning
+     * world, and that is the point of asking it this way: a face with no
+     * hands cannot put a dial on an alarm card or a movement inside a
+     * chronograph, so both of those become readouts — which makes "which
+     * numerals" and "how are they made" real questions on a face that is
+     * not itself made of digits. They were hidden there, and the answers
+     * went on being used.
+     */
+    val readsOutInDigits: Boolean
+        get() = !hands && cards.any {
+            it == Card.ALARM || it == Card.STOPWATCH || it == Card.REVERSE
+        }
+
+    /**
+     * Whether anything on this face counts seconds.
+     *
+     * Three do: a second hand, a readout with seconds on it, a
+     * chronograph with a screen in it. A shadow does not, and neither
+     * does anything else on that face — so a switch marked "second hand"
+     * and a mechanical tick under it were sitting on a sundial's menu,
+     * under a heading that had already been carefully renamed to "the
+     * plate". A picture of the page found it; reading the table did not.
+     */
+    val countsSeconds: Boolean
+        get() = this != SUNDIAL
 
     /**
      * Whether this clock only works while the sun is up.
@@ -203,13 +266,9 @@ object FaceOptions {
 
     /** And the rows only a screenful of digits has. */
     private val digitalOnly = setOf(
-        Prefs.DIGIT_STYLE,
-        Prefs.DIGIT_SCRIPT,
-        Prefs.HOUR_24,
         Prefs.LEADING_ZERO,
         Prefs.BLINK_COLON,
         Prefs.SEGMENT_WEIGHT,
-        Prefs.SEGMENT_GHOSTS,
         Prefs.POKE_SEGMENTS,
         // Both of these are rows about a face made of digits. The dial
         // writes its date as a caption under the hands, in a strip with
@@ -221,6 +280,55 @@ object FaceOptions {
         // is a question only a face that fills one can be asked.
         Prefs.BEDSIDE_SECONDS,
         Prefs.BEDSIDE_DATE
+    )
+
+    /**
+     * The rows about how a number is written, wherever one is written.
+     *
+     * These four were on the digits' own list, which was right when the
+     * digits were the only face that drew one. They are not: the world's
+     * alarm list is a column of little segment displays and its
+     * chronographs have screens where the movement would be, all of them
+     * drawn from exactly these settings — which were unreachable on that
+     * face while being obeyed on it.
+     *
+     * The four that stayed behind are the ones only the big readout has:
+     * a leading nought, a blinking colon, how thick the bars are, and
+     * whether a finger can poke one out. Nothing on an alarm card reads
+     * any of them.
+     */
+    private val readouts = setOf(
+        Prefs.DIGIT_STYLE,
+        Prefs.DIGIT_SCRIPT,
+        Prefs.HOUR_24,
+        Prefs.SEGMENT_GHOSTS
+    )
+
+    /**
+     * The rows about a grid of days, on the faces that have one.
+     *
+     * The turning world has the calendar's card and the solar system on
+     * it, so all four of these were describing a page that face does not
+     * open.
+     */
+    private val needsACalendar = setOf(
+        Prefs.BIRTHDAY,
+        Prefs.CYCLE,
+        Prefs.CALENDAR_NUMERALS,
+        Prefs.PAST_DAYS
+    )
+
+    /**
+     * And the rows about the time somewhere else.
+     *
+     * A dial throws them about as bubbles and a screenful of digits
+     * stacks them under the time. A plate and a planet do neither, and
+     * both rows sat on both menus doing nothing — on the world's menu
+     * against its owner's explicit "no world clock here".
+     */
+    private val needsOtherCities = setOf(
+        Prefs.WORLD_CLOCK,
+        Prefs.WORLD_CITIES
     )
 
     /** And the rows only a shadow on a plate has. */
@@ -271,6 +379,11 @@ object FaceOptions {
         key in sundialOnly -> face == Face.SUNDIAL
         key in hemisphereOnly -> face == Face.HEMISPHERE
         key in needsAnAlarm -> Card.ALARM in face.cards
+        key in readouts -> face.readsOutInDigits
+        key in needsACalendar -> face.hasCalendar
+        key in needsOtherCities -> face.showsOtherCities
+        key == Prefs.SHOW_DATE -> face.showsDate
+        key == Prefs.SECOND_HAND || key == Prefs.TICKING -> face.countsSeconds
         else -> true
     }
 
@@ -292,6 +405,14 @@ object FaceOptions {
             R.string.category_screen
         (key == CAT_DIAL || key == CAT_DIAL_DEEP) && face == Face.SUNDIAL ->
             R.string.category_plate
+        (key == CAT_DIAL || key == CAT_DIAL_DEEP) && face == Face.HEMISPHERE ->
+            R.string.category_world
+        // These four rows survive onto the world's page because they are
+        // obeyed there, but not as the face: they are the alarm list and
+        // the two chronographs, which have screens where their movements
+        // would be. "Digits" over them on a face made of planet reads as
+        // a heading about the planet.
+        key == CAT_DIGITS && face == Face.HEMISPHERE -> R.string.category_readouts
         else -> null
     }
 
@@ -315,6 +436,15 @@ object FaceOptions {
                 Prefs.NIGHT_DIM -> R.string.pref_night_dim_summary_sundial
                 Prefs.SHOW_DATE -> R.string.pref_show_date_summary_sundial
                 "pref_advanced" -> R.string.pref_advanced_summary_sundial
+                else -> null
+            }
+        }
+        if (face == Face.HEMISPHERE) {
+            return when (key) {
+                // Neither of these has a dial to talk about, and the door
+                // to the second screen does not open onto dial shapes.
+                Prefs.NIGHT_DIM -> R.string.pref_night_dim_summary_world
+                "pref_advanced" -> R.string.pref_advanced_summary_world
                 else -> null
             }
         }
@@ -343,5 +473,8 @@ object FaceOptions {
      */
     const val CAT_DIAL = "cat_dial"
     const val CAT_DIAL_DEEP = "cat_dial_deep"
+
+    /** And the one over the rows about how a number is written. */
+    const val CAT_DIGITS = "cat_digits"
 
 }

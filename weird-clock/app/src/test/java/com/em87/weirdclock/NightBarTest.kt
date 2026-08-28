@@ -242,6 +242,10 @@ class NightBarTest {
             ),
             R.xml.advanced_preferences to setOf(
                 "cat_dial",
+                // Keyed so its heading can be renamed too: on the world
+                // these rows are the alarm list and the chronographs, not
+                // the face.
+                "cat_digits",
                 "pref_numerals", "pref_dial_shape", "pref_hours_preset",
                 "pref_hours_custom", "pref_date_format", "pref_date_order",
                 "pref_mirror",
