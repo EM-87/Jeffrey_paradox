@@ -61,6 +61,23 @@
             android:title="@string/pref_segment_weight_title"
             app:useSimpleSummaryProvider="true" />
 
+        <!-- What survives when the phone goes on its side and the clock
+             takes the screen. Off by default: full screen was asked for
+             as a way of getting rid of things, and a bedside clock with
+             the seconds running and a date under them is the card again,
+             only bigger. -->
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_bedside_seconds"
+            android:summary="@string/pref_bedside_seconds_summary"
+            android:title="@string/pref_bedside_seconds_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_bedside_date"
+            android:summary="@string/pref_bedside_date_summary"
+            android:title="@string/pref_bedside_date_title" />
+
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="pref_segment_ghosts"

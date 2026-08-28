@@ -4039,7 +4039,7 @@ class ClockView @JvmOverloads constructor(
             // under the dial saying what the hands already said.
             val inside = lcd()
             val digitH =
-                if (inside) minOf(r * 0.42f, r * 1.45f / (0.82f * it.length.coerceAtLeast(1)))
+                if (inside) minOf(r * 0.46f, LCD_ROW * r / (0.82f * it.length.coerceAtLeast(1)))
                 else r * 0.13f
             val yTop =
                 if (inside) cy - digitH / 2f
@@ -5690,6 +5690,17 @@ class ClockView @JvmOverloads constructor(
     }
 
     // Seven-segment bits, ordered a(64) b(32) c(16) d(8) e(4) f(2) g(1).
+    /**
+     * How much of the bezel the screen may take, across.
+     *
+     * A chronograph with a screen in it is mostly screen — that is what
+     * makes it one rather than a dial with a number written on it. This
+     * was a fifth narrower, from before there was a panel round the
+     * digits: a row of bars floating in the middle of a circle wants air
+     * round it, and a piece of glass cut into the face does not.
+     */
+    private val LCD_ROW = 1.62f
+
     /** Scratch for the screen panel, so onDraw allocates nothing. */
     private val screenRect = RectF()
     private val screenPaint = Paint(Paint.ANTI_ALIAS_FLAG)

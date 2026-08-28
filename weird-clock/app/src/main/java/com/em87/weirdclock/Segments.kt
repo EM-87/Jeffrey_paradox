@@ -359,10 +359,14 @@ object Segments {
         val ux = 0.5f
         val uy = 0.25f
         val ly = 0.75f
-        // Every arm runs out of its star's middle, so the inner end has
-        // to overlap it: eight arms that each stop a hair short leave a
-        // hole where the eye is looking, and the glyph reads as a scatter
-        // of petals rather than as a stroke.
+        // Every arm runs out of its star's middle and stops short of it,
+        // the same way the four at the waist do. It was drawn the other
+        // way round first — the arms overlapping the centre so the glyph
+        // read as one stroke — and that was the wrong instinct twice over:
+        // it makes eight bars into a blob at exactly the point the eye
+        // lands, and it is not what the chart shows. Every arm on the
+        // chart is a separate piece of metal with daylight round its foot,
+        // which is what a segment display is.
         //
         // Otherwise an arm is the same bar as every other bar here. The
         // chart's arms measure four pixels across an eighteen-pixel run,
@@ -373,7 +377,7 @@ object Segments {
         // a thin bar is. The tips do come to a point — two pixels of it in
         // eighteen — where the Roman module's ends are cut square.
         fun arm(bit: Int, cy: Float, tx: Float, ty: Float) =
-            Bar(bit, ux, cy, tx, ty, joinsAt = -1, flat = 0.15f, shoulder = 0.13f)
+            Bar(bit, ux, cy, tx, ty, flat = 0.15f, shoulder = 0.13f)
         add(arm(UN, uy, 0.5f, 0f))
         add(arm(UNE, uy, 1f, 0f))
         add(arm(UE, uy, 1f, 0.25f))
@@ -509,48 +513,68 @@ object Segments {
     fun width(kind: Kind, text: String): Int = spell(kind, text).size
 
     /**
-     * Every mask this display can make, so [spell] can ask whether one
-     * letter with one more upright is a different letter.
-     */
-    private val ROMAN_GLYPHS: Set<Int> by lazy {
-        val all = HashSet<Int>()
-        for (c in "IVXLCDMN·") masksOf(Kind.SIXTEEN, c)?.forEach { all += it }
-        all
-    }
-
-    /**
-     * Whether the upright [a] and [b] share would turn one of them into
-     * some other letter.
+     * Whether two letters standing next to each other would run together.
      *
-     * The whole cost of a shared upright, in one question. `C` is the only
-     * letter this catches in Rome's alphabet — `C` plus a right-hand
-     * upright is `D` — but it is asked of the alphabet and not of `C`, so
-     * a letter added later cannot slip past it.
+     * Read off the drawings rather than reasoned about, and the reasoning
+     * was wrong. The owner of this display sent two specimens — `MMXXIV`
+     * and `VII·XII` — and both were decoded bar by bar off the image
+     * rather than eyeballed. Ten modules each, and the dark ones fall in
+     * exactly the places this predicate puts them:
+     *
+     *     M _ M _ X X _ I V V          V V _ I I · _ X _ I I
+     *
+     * Two things in that are not what a rule about ambiguity produces.
+     * `XX` has no gap, and `II` has no gap either — but `MM`, `MX` and
+     * `XI` all do. What separates them is not whether the pair could be
+     * misread; it is whether there is a full-height upright lit between
+     * them *and* something else pressed against it. Two `X`s share no
+     * upright at all and have daylight between their diagonals. Two `I`s
+     * share one, but an `I` is nothing but that upright, so what you see
+     * is two strokes a whole module apart — which is exactly what two
+     * ones should look like. An `M` beside anything glues its own upright
+     * to the next letter's corner, and that is the join the eye reads as
+     * one glyph.
+     *
+     * This replaces a narrower rule that only broke up pairs which would
+     * spell a different letter. That rule was right about `MCM` and wrong
+     * about everything else, and the display it produced was the one that
+     * came back with "there are two Ms stuck together".
      */
-    private fun collides(a: Int, b: Int): Boolean {
-        val lit = a and RIGHT != 0 || b and LEFT != 0
-        if (!lit) return false
-        if (a and RIGHT == 0 && (a or RIGHT) in ROMAN_GLYPHS) return true
-        return b and LEFT == 0 && (b or LEFT) in ROMAN_GLYPHS
+    private fun runsTogether(a: Int, b: Int): Boolean {
+        // The separator is the one exception, and its own shape explains
+        // it: the dot sits right of centre in its module, so it already
+        // has air on its left and none on its right. Both specimens show
+        // a dark module after the dot and none before it.
+        if (a and DOT != 0) return true
+        val upright = a and RIGHT != 0 || b and LEFT != 0
+        if (!upright) return false
+        // Anything of a's that reaches its right-hand edge, or of b's that
+        // reaches its left-hand one. The rails end a fifteenth of a module
+        // short of the corner and the diagonals start a twelfth short,
+        // which at this size is the same thing as touching.
+        return a and (TOP or BOTTOM or J or K) != 0 ||
+            b and (TOP or BOTTOM or H or M) != 0
     }
 
     /**
      * [text] as one mask per module, unknown characters left out.
      *
      * On a display whose modules share their uprights this is also where
-     * the ambiguity is paid for: between two letters that the shared
-     * upright would turn into a third, a dark module goes in. `MCM` is
-     * four cells, and reads as `MCM` instead of `MDM`.
+     * the letters are spaced — see [runsTogether]. The gap goes between
+     * *characters* and never inside one: a `V` is two modules of one
+     * letter and putting a dark cell between its halves would take the
+     * point off the V.
      */
     fun spell(kind: Kind, text: String): IntArray {
-        val out = ArrayList<Int>(text.length + 2)
-        for (c in text) masksOf(kind, c)?.forEach { out += it }
-        if (butted(kind)) {
-            var i = 0
-            while (i < out.size - 1) {
-                if (collides(out[i], out[i + 1])) out.add(i + 1, 0)
-                i++
+        val out = ArrayList<Int>(text.length * 2 + 2)
+        var previous: Int? = null
+        for (c in text) {
+            val masks = masksOf(kind, c) ?: continue
+            if (butted(kind) && previous != null && runsTogether(previous, masks.first())) {
+                out += 0
             }
+            masks.forEach { out += it }
+            previous = masks.last()
         }
         return out.toIntArray()
     }

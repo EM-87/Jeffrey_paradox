@@ -129,6 +129,30 @@ object SolarTime {
     }
 
     /**
+     * How far round the sun has got today, in degrees from solar noon.
+     *
+     * Negative in the morning, positive after. This is apparent solar
+     * time and not clock time: the two differ by up to a quarter of an
+     * hour, twice a year, in opposite directions. A sundial is handed
+     * this — see [Sundial] — because a dial handed clock time is a dial
+     * that is wrong for eleven months of the twelve, and being wrong is
+     * the one thing a sundial is famous for not being.
+     */
+    fun hourAngleDeg(longitudeDeg: Double, atMs: Long): Double =
+        Math.toDegrees(sunAngles(longitudeDeg, atMs).first)
+
+    /**
+     * How far the sun is above or below the equator today, in degrees.
+     *
+     * Between about ±23.45°, and nought at the equinoxes. The equatorial
+     * dial needs it, because it is what says which of that dial's two
+     * faces the sun is shining on — and that it is shining on neither for
+     * a few days in March and September.
+     */
+    fun declinationDeg(atMs: Long): Double =
+        Math.toDegrees(sunAngles(0.0, atMs).second)
+
+    /**
      * The sun's hour angle and declination, in radians.
      *
      * Split out because the Moon needs the sun's own numbers to be worked

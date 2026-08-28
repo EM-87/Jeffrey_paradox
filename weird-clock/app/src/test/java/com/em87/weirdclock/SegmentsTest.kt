@@ -1,5 +1,6 @@
 package com.em87.weirdclock
 
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -46,7 +47,12 @@ class SegmentsTest {
         // the second's starts at its bottom-left, which is the same point.
         assertTrue("the first half must run top-left to bottom-right", v[0] == Segments.H or Segments.K)
         assertTrue("and the second bottom-left to top-right", v[1] == Segments.J or Segments.M)
-        assertEquals("MMXXIV is seven modules wide", 7, Segments.width(Segments.Kind.SIXTEEN, "MMXXIV"))
+        // And the V's two halves are never prised apart by the letter
+        // spacing: they are one character, and a dark cell between them
+        // would take the point off the V.
+        val spelled = Segments.spell(Segments.Kind.SIXTEEN, "IV")
+        assertEquals(Segments.H or Segments.K, spelled[spelled.size - 2])
+        assertEquals(Segments.J or Segments.M, spelled.last())
     }
 
     /**
@@ -156,12 +162,66 @@ class SegmentsTest {
     @Test
     fun `the upright between two letters is one bar with two owners`() {
         val kind = Segments.Kind.SIXTEEN
-        // X lights no upright, I lights its left one. The boundary between
-        // them belongs to the I and is lit; the one before the X is not.
+        // `XI` is three modules once the letters are spaced — X, a dark
+        // one, I — so four uprights, of which only the I's is lit.
         val strokes = Segments.plan(kind, Segments.spell(kind, "XI"))
         val posts = strokes.filter { it.bar.bit == Segments.LEFT || it.bar.bit == Segments.RIGHT }
-        assertEquals("two modules, three uprights", 3, posts.size)
+        assertEquals("three modules, four uprights", 4, posts.size)
         assertEquals("only the one the I owns is lit", 1, posts.count { it.lit })
+    }
+
+    // ------------------------------------------------ the two specimens
+
+    /**
+     * The owner's own `MMXXIV`, decoded off the drawing bar by bar.
+     *
+     * Ten modules, and the dark ones are where they are on the paper.
+     * This is the strongest assertion in the file because it is not an
+     * opinion about how letters should be spaced — it is the display
+     * itself, read off the image rather than eyeballed, and it caught a
+     * spacing rule that was right about `MCM` and wrong about everything
+     * else.
+     */
+    @Test
+    fun `the specimen the owner drew, module for module`() {
+        val kind = Segments.Kind.SIXTEEN
+        val masks = Segments.spell(kind, "MMXXIV")
+        assertEquals("MMXXIV is ten modules on the drawing", 10, masks.size)
+        val m = Segments.masksOf(kind, 'M')!!.single()
+        val x = Segments.masksOf(kind, 'X')!!.single()
+        val i = Segments.masksOf(kind, 'I')!!.single()
+        val v = Segments.masksOf(kind, 'V')!!
+        assertArrayEquals(
+            intArrayOf(m, 0, m, 0, x, x, 0, i, v[0], v[1]),
+            masks
+        )
+    }
+
+    /**
+     * And the other one, which is where the separator's own spacing comes
+     * from.
+     *
+     * `VII·XII`, also ten modules. Two things in it are not what a rule
+     * about ambiguity produces: `II` has no gap in it, twice — an `I` is
+     * nothing but an upright, so two of them are already a module apart —
+     * and the dot has a dark module after it and none before, which its
+     * own shape explains, since it sits right of centre and already has
+     * air on its left.
+     */
+    @Test
+    fun `and the specimen with the separator in it`() {
+        val kind = Segments.Kind.SIXTEEN
+        val masks = Segments.spell(kind, "VII\u00b7XI")
+        assertEquals("the second specimen is ten modules too", 10, masks.size)
+        val x = Segments.masksOf(kind, 'X')!!.single()
+        val i = Segments.masksOf(kind, 'I')!!.single()
+        val v = Segments.masksOf(kind, 'V')!!
+        val dot = Segments.masksOf(kind, '\u00b7')!!.single()
+        assertArrayEquals(intArrayOf(v[0], v[1], 0, i, i, dot, 0, x, 0, i), masks)
+        assertEquals("two ones were prised apart", i, masks[3])
+        assertEquals("and the second is right beside the first", i, masks[4])
+        assertEquals("the dot lost its module", dot, masks[5])
+        assertEquals("and the air after it", 0, masks[6])
     }
 
     /**
@@ -178,22 +238,38 @@ class SegmentsTest {
     fun `a C beside an M is still a C`() {
         val kind = Segments.Kind.SIXTEEN
         val masks = Segments.spell(kind, "MCM")
-        assertEquals("the C needs a dark cell to keep its right side open", 4, masks.size)
-        assertEquals(Segments.masksOf(kind, 'C')!!.single(), masks[1])
-        assertEquals("and the cell after it is blank", 0, masks[2])
-        // Nothing else in the alphabet pays it. `CX` is safe because an X
-        // lights no upright at all, and `MM` because both already do.
-        assertEquals(2, Segments.width(kind, "CX"))
-        assertEquals(2, Segments.width(kind, "MM"))
-        assertEquals(3, Segments.width(kind, "MCX"))
+        assertEquals("M C M is five modules with the letters spaced", 5, masks.size)
+        assertEquals(Segments.masksOf(kind, 'C')!!.single(), masks[2])
+        assertEquals("the C has a dark cell in front of it", 0, masks[1])
+        assertEquals("and one behind it", 0, masks[3])
+        // Which also disposes of the reason this test was written. `MCM`
+        // read as `MDM` on the dial when the C's right-hand upright was
+        // the M's left-hand one; there is a dark module between them now,
+        // and it is there for spacing rather than for ambiguity — the
+        // narrower rule was the one that got the rest of the alphabet
+        // wrong.
+        // 1980, which is where this was first caught. `LXXX` needs no
+        // gaps at all — an L lights no right-hand upright and an X lights
+        // neither — so the whole year is ten modules, three of them dark
+        // and all three in the first half.
+        assertEquals("1980 is ten modules", 10, Segments.width(kind, "MCMLXXX"))
+        val m = Segments.masksOf(kind, 'M')!!.single()
+        val c = Segments.masksOf(kind, 'C')!!.single()
+        val l = Segments.masksOf(kind, 'L')!!.single()
+        val x = Segments.masksOf(kind, 'X')!!.single()
+        assertArrayEquals(
+            intArrayOf(m, 0, c, 0, m, 0, l, x, x, x),
+            Segments.spell(kind, "MCMLXXX")
+        )
     }
 
     /** What a number costs in modules, which is what the layout reserves. */
     @Test
     fun `a number asks for exactly the modules it uses`() {
         val kind = Segments.Kind.SIXTEEN
-        assertEquals(4, Segments.width(kind, "XIV"))
-        assertEquals(4f, Segments.span(kind, "XIV"), 0.0001f)
+        // X, a dark cell, I, and the V's two halves.
+        assertEquals(5, Segments.width(kind, "XIV"))
+        assertEquals(5f, Segments.span(kind, "XIV"), 0.0001f)
         assertEquals("one module is one module", 1f, Segments.span(kind, "I"), 0.0001f)
         assertEquals("and nothing needs nothing", 0f, Segments.span(kind, ""), 0.0001f)
         assertEquals(

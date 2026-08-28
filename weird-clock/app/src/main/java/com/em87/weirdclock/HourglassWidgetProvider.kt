@@ -121,6 +121,7 @@ class HourglassWidgetProvider : AppWidgetProvider() {
                 // the floating bubble made, in the one place the owner of
                 // the phone sees it without opening anything.
                 lcd = !Face.of(prefs).hands
+                plain = prefs.getBoolean(Prefs.WIDGET_SAND_PLAIN, false)
                 this.totalMs = totalMs
                 this.remainingMs = remainingMs
             }

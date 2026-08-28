@@ -136,7 +136,11 @@ object WidgetRenderer {
             hour24 = prefs.getBoolean(Prefs.HOUR_24, true)
             leadingZero = prefs.getBoolean(Prefs.LEADING_ZERO, true)
             showSeconds = false
-            showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
+            // Its own switch and not the card's. A widget is two cells of
+            // somebody's home screen and the date takes a third of them —
+            // whether that is worth it is a question about the home
+            // screen, not about the clock inside the app.
+            showDate = prefs.getBoolean(Prefs.WIDGET_DATE, false)
             dateDayFirst = DateShape.dayFirst(
                 DateShape.order(prefs.getString(Prefs.DATE_ORDER, DateShape.AUTO)),
                 // Asked of the system rather than guessed from the

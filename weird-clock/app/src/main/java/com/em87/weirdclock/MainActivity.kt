@@ -3074,6 +3074,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         face.showSeconds = prefs.getBoolean(Prefs.SECOND_HAND, true)
         face.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
         face.showWeekday = prefs.getBoolean(Prefs.SHOW_WEEKDAY, true)
+        face.bedsideSeconds = prefs.getBoolean(Prefs.BEDSIDE_SECONDS, false)
+        face.bedsideDate = prefs.getBoolean(Prefs.BEDSIDE_DATE, false)
         // What is armed, asked of the same scheduler that arms it rather
         // than of the alarm list: a dated reminder can easily ring before
         // every alarm on the list, and a face that only knew about alarms

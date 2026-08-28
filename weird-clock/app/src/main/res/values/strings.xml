@@ -584,11 +584,13 @@
     </string-array>
     <string-array name="digit_style_entries">
         <item>Lit segments</item>
+        <item>Plain type</item>
         <item>Flip cards</item>
         <item>Rollers</item>
     </string-array>
     <string-array name="digit_style_values" translatable="false">
         <item>segment</item>
+        <item>plain</item>
         <item>card</item>
         <item>roller</item>
     </string-array>
@@ -606,4 +608,13 @@
     <string name="pref_show_weekday_summary">Mon, Tue… beside the date. In Latin on a Roman face</string>
     <string name="pref_next_alarm_title">Next alarm on the clock</string>
     <string name="pref_next_alarm_summary">A small bell and the time, when one is armed</string>
+    <string name="sundial_flat_here">THIS DIAL IS FLAT HERE</string>
+    <string name="pref_bedside_seconds_title">Seconds when full screen</string>
+    <string name="pref_bedside_seconds_summary">On its side the clock drops them unless you want them</string>
+    <string name="pref_bedside_date_title">Date when full screen</string>
+    <string name="pref_bedside_date_summary">A bedside clock is usually the time and nothing else</string>
+    <string name="pref_widget_date_title">Date on the widget</string>
+    <string name="pref_widget_date_summary">Under the time, on the home screen</string>
+    <string name="pref_widget_plain_title">Plain type</string>
+    <string name="pref_widget_plain_summary">The phone\'s own numbers instead of lit bars</string>
 </resources>

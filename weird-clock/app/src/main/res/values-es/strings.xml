@@ -473,6 +473,7 @@
     <string name="pref_blink_colon_summary">Los dos puntos se apagan un segundo sí y otro no, como en un reloj barato</string>
     <string-array name="digit_style_entries">
         <item>Segmentos encendidos</item>
+        <item>Tipografía simple</item>
         <item>Tarjetas</item>
         <item>Ruedas</item>
     </string-array>
@@ -485,4 +486,13 @@
     <string name="pref_show_weekday_summary">Lun, Mar… junto a la fecha. En latín en la cara romana</string>
     <string name="pref_next_alarm_title">Próxima alarma en el reloj</string>
     <string name="pref_next_alarm_summary">Una campana pequeña y la hora, cuando hay alguna armada</string>
+    <string name="sundial_flat_here">AQVI ESTE RELOJ ES PLANO</string>
+    <string name="pref_bedside_seconds_title">Segundos a pantalla completa</string>
+    <string name="pref_bedside_seconds_summary">De lado el reloj los quita salvo que los quieras</string>
+    <string name="pref_bedside_date_title">Fecha a pantalla completa</string>
+    <string name="pref_bedside_date_summary">Un reloj de mesilla suele ser la hora y nada más</string>
+    <string name="pref_widget_date_title">Fecha en el widget</string>
+    <string name="pref_widget_date_summary">Bajo la hora, en la pantalla de inicio</string>
+    <string name="pref_widget_plain_title">Tipografía simple</string>
+    <string name="pref_widget_plain_summary">Los números del teléfono en vez de barras encendidas</string>
 </resources>

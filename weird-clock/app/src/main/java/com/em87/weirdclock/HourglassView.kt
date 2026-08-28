@@ -44,6 +44,21 @@ class HourglassView @JvmOverloads constructor(
             invalidate()
         }
 
+    /**
+     * Whether the time is set in the phone's own type rather than in bars.
+     *
+     * The bars are an object and the type is a number, and on a widget
+     * the size of a stamp the number wins: a seven-bar `8` at forty
+     * pixels is a smudge with a hole in it, and the strip underneath is
+     * already saying what kind of instrument this is.
+     */
+    var plain = false
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
     private val segments = SegmentPainter().apply { weight = 1.64f }
 
     /**
@@ -199,6 +214,20 @@ class HourglassView @JvmOverloads constructor(
         val barH = digitH * BAR_HEIGHT
         val block = digitH + digitH * BAR_GAP + barH
         val top = (h - block) / 2f
+        if (plain) {
+            textPaint.color = theme.decimal
+            textPaint.typeface = android.graphics.Typeface.create(
+                "sans-serif-medium", android.graphics.Typeface.BOLD
+            )
+            textPaint.textSize = digitH * 1.05f
+            val metrics = textPaint.fontMetrics
+            canvas.drawText(
+                text, w / 2f,
+                top + digitH / 2f - (metrics.ascent + metrics.descent) / 2f, textPaint
+            )
+            drawBar(canvas, w, top + digitH + digitH * BAR_GAP, barH)
+            return
+        }
         var digit = 0
         for (c in text) {
             if (c.isDigit()) {

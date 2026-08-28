@@ -150,7 +150,11 @@ object FaceOptions {
         // no room for a day beside it, and says what is armed with a
         // marker on the rim rather than with a line of text.
         Prefs.SHOW_WEEKDAY,
-        Prefs.SHOW_NEXT_ALARM
+        Prefs.SHOW_NEXT_ALARM,
+        // And what the clock keeps when it takes the whole screen, which
+        // is a question only a face that fills one can be asked.
+        Prefs.BEDSIDE_SECONDS,
+        Prefs.BEDSIDE_DATE
     )
 
     /** Whether the row at [key] belongs on [face]'s screens. */

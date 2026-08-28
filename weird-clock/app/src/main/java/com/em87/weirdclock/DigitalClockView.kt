@@ -236,6 +236,21 @@ class DigitalClockView @JvmOverloads constructor(
         }
 
     /**
+     * What the clock keeps when it has the screen to itself.
+     *
+     * Their own switches rather than the card's, because they are a
+     * different question: somebody who wants the seconds on the card is
+     * not thereby asking for them across a bedroom at three in the
+     * morning. Both off by default — full screen was asked for as a way
+     * of getting rid of things.
+     */
+    var bedsideSeconds: Boolean = false
+        set(value) { field = value; invalidate() }
+
+    var bedsideDate: Boolean = false
+        set(value) { field = value; invalidate() }
+
+    /**
      * A tap on the glass, when there is nothing else for a tap to do.
      *
      * The bedside clock has no buttons on it, and something has to bring
@@ -331,6 +346,10 @@ class DigitalClockView @JvmOverloads constructor(
 
     private fun changeMs(): Long = when (style) {
         DigitStyle.SEGMENT -> 0L
+        // Type does not move. A number that fades or slides is a number
+        // pretending to be a machine, which is the one thing this idiom
+        // is for not being.
+        DigitStyle.PLAIN -> 0L
         DigitStyle.CARD -> FLIP_MS
         DigitStyle.ROLLER -> ROLL_MS
     }
@@ -344,7 +363,11 @@ class DigitalClockView @JvmOverloads constructor(
         // No seconds while a time is being set. Nobody sets an alarm for
         // twenty past seven and eleven seconds, and two more drums on the
         // row are two more things to catch by accident.
-        seconds = showSeconds && settingMs == null
+        //
+        // And the clock with the screen to itself asks its own switch: a
+        // bedside clock is a clock and nothing else, which is what makes
+        // it worth standing a phone on its side for.
+        seconds = (if (fullScreen) bedsideSeconds else showSeconds) && settingMs == null
     )
 
     /**
@@ -581,8 +604,9 @@ class DigitalClockView @JvmOverloads constructor(
         // for an alarm. It is not today's date that is being set, and a
         // row of numbers nobody can touch under a row of numbers they can
         // is an invitation to touch the wrong one.
+        val dated = if (fullScreen) bedsideDate else showDate
         val date =
-            if (showDate && settingMs == null && frozenMs == null) dateLine() else emptyList()
+            if (dated && settingMs == null && frozenMs == null) dateLine() else emptyList()
         val said = caption
         // The ladder of other cities, which is only ever on the main face:
         // a chip on a home screen and a readout being wound are not places
@@ -946,6 +970,7 @@ class DigitalClockView @JvmOverloads constructor(
         val from = if (progress < 1f) leaving[key] else null
         when (style) {
             DigitStyle.SEGMENT -> drawAsSegments(canvas, cell.text, x, top, w, h, key)
+            DigitStyle.PLAIN -> drawAsPrint(canvas, cell.text, x, top, w, h)
             DigitStyle.CARD -> drawAsCard(canvas, cell.text, from, progress, x, top, w, h)
             DigitStyle.ROLLER -> drawAsRoller(canvas, cell.text, from, progress, x, top, w, h)
         }
@@ -1232,6 +1257,26 @@ class DigitalClockView @JvmOverloads constructor(
         onPoked?.invoke()
         invalidate()
         return true
+    }
+
+    /**
+     * Type, centred in its cell, and nothing round it.
+     *
+     * No panel, no hinge, no drum. What makes the other three idioms
+     * objects is exactly what this one has to be without, or it is a
+     * flip card with the card taken away rather than a clock printed on
+     * a screen.
+     */
+    private fun drawAsPrint(
+        canvas: Canvas, text: String, x: Float, top: Float, w: Float, h: Float
+    ) {
+        ink.color = theme.decimal
+        ink.typeface = faceFor()
+        ink.textAlign = Paint.Align.CENTER
+        fitInk(text, w, h)
+        val metrics = ink.fontMetrics
+        val middle = top + h / 2f - (metrics.ascent + metrics.descent) / 2f
+        canvas.drawText(text, x + w / 2f, middle, ink)
     }
 
     /**

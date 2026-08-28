@@ -14,6 +14,17 @@ enum class DigitStyle(val key: String) {
     /** Bars behind a mask, lit and unlit. */
     SEGMENT(Prefs.DIGITS_SEGMENT),
 
+    /**
+     * The phone's own type, and nothing else.
+     *
+     * The one idiom here that is not a machine. It reads at a glance from
+     * across a room, it can write any of the three alphabets without a
+     * table, and it is what somebody who simply wants the time actually
+     * wants — which is a good enough reason on a face whose whole premise
+     * is that its owner is not looking for a puzzle.
+     */
+    PLAIN(Prefs.DIGITS_PLAIN),
+
     /** A card with the number on it, hinged across the middle. */
     CARD(Prefs.DIGITS_CARD),
 

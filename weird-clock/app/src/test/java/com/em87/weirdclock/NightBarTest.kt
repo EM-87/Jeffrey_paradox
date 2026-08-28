@@ -264,7 +264,8 @@ class NightBarTest {
                 // face is digital.
                 "pref_digit_style", "pref_digit_script", "pref_hour_24",
                 "pref_leading_zero", "pref_blink_colon",
-                "pref_segment_weight", "pref_segment_ghosts",
+                "pref_segment_weight", "pref_bedside_seconds", "pref_bedside_date",
+                "pref_segment_ghosts",
                 "pref_alarm_ramp", "pref_ring_timeout",
                 "pref_countdown_persistent", "pref_alarm_style",
                 "pref_gentle_flash", "pref_mark_colors"

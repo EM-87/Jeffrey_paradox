@@ -30,6 +30,17 @@ object Prefs {
      */
     const val DIGIT_STYLE = "pref_digit_style"
     const val DIGITS_SEGMENT = "segment"
+
+    /**
+     * The plainest one: the phone's own type, at whatever size fits.
+     *
+     * Everything else on this face is an object — bars behind a mask, a
+     * card on a hinge, a drum in a window — and every one of them is a
+     * machine somebody has to look at twice. This is the clock for
+     * somebody who wants to know what time it is, and it belonged here
+     * from the start.
+     */
+    const val DIGITS_PLAIN = "plain"
     const val DIGITS_CARD = "card"
     const val DIGITS_ROLLER = "roller"
 
@@ -107,6 +118,24 @@ object Prefs {
      * question somebody asks at midnight with the light off.
      */
     const val SHOW_NEXT_ALARM = "pref_next_alarm"
+
+    /**
+     * What survives when the clock takes the whole screen.
+     *
+     * A bedside clock is a clock and nothing else — that is what makes it
+     * worth standing a phone on its side for — and a screen with the
+     * seconds counting and a date under them is the card again, only
+     * bigger. Both default to off, because "full screen" was asked for as
+     * a way of getting rid of things.
+     */
+    const val BEDSIDE_SECONDS = "pref_bedside_seconds"
+    const val BEDSIDE_DATE = "pref_bedside_date"
+
+    /** Whether the home-screen clock widget carries the date. */
+    const val WIDGET_DATE = "pref_widget_date"
+
+    /** Whether the countdown widget writes its time in the phone's type. */
+    const val WIDGET_SAND_PLAIN = "pref_widget_sand_plain"
     const val DATE_FORMAT = "pref_date_format"
 
     /**

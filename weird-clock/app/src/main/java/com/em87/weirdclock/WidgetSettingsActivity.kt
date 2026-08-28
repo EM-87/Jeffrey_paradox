@@ -4,6 +4,7 @@ import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.SeekBar
@@ -133,8 +134,106 @@ class WidgetSettingsActivity : AppCompatActivity() {
                 addView(title)
                 addView(reading)
                 addView(slider)
+                for (extra in extrasFor(provider)) addView(switchFor(extra))
                 addView(done)
             }
         )
+    }
+
+    /**
+     * One switch on the widget's own panel.
+     *
+     * Widgets grew options that are about the widget rather than about
+     * the clock inside the app — whether the date is worth a third of two
+     * cells of somebody's home screen, whether a countdown the size of a
+     * stamp is better set in type than in bars — and there was nowhere to
+     * put them. They do not belong in the app's settings: they are
+     * questions about a thing on the home screen, asked from the home
+     * screen, which is exactly what a configuration activity is for.
+     */
+    private class Extra(val key: String, val title: Int, val summary: Int, val default: Boolean)
+
+    /**
+     * Which of them this widget has.
+     *
+     * By provider and not by face, with one exception that is about the
+     * face: the clock widget's date only exists on the face that draws
+     * its own bitmap, because the dial's widget is the system's own
+     * AnalogClock with a dial painted behind it and has nowhere to put a
+     * date that is not already on the dial.
+     */
+    private fun extrasFor(provider: String): List<Extra> {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        return when {
+            provider.endsWith("HourglassWidgetProvider") -> listOf(
+                Extra(
+                    Prefs.WIDGET_SAND_PLAIN,
+                    R.string.pref_widget_plain_title,
+                    R.string.pref_widget_plain_summary,
+                    false
+                )
+            )
+            provider.endsWith("OrreryWidgetProvider") -> emptyList()
+            !Face.of(prefs).hands -> listOf(
+                Extra(
+                    Prefs.WIDGET_DATE,
+                    R.string.pref_widget_date_title,
+                    R.string.pref_widget_date_summary,
+                    false
+                )
+            )
+            else -> emptyList()
+        }
+    }
+
+    /** And the row it is drawn as, repainting the widget as it is flipped. */
+    private fun switchFor(extra: Extra): View {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val pad = (12 * resources.displayMetrics.density).toInt()
+        val label = TextView(this).apply {
+            setText(extra.title)
+            textSize = 16f
+        }
+        val note = TextView(this).apply {
+            setText(extra.summary)
+            textSize = 13f
+            alpha = 0.7f
+        }
+        val toggle = android.widget.Switch(this).apply {
+            isChecked = prefs.getBoolean(extra.key, extra.default)
+            setOnCheckedChangeListener { _, on ->
+                prefs.edit().putBoolean(extra.key, on).apply()
+                refresh()
+            }
+        }
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, pad, 0, 0)
+            addView(
+                LinearLayout(this@WidgetSettingsActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(label)
+                    addView(note)
+                    layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+                }
+            )
+            addView(toggle)
+        }
+    }
+
+    /** Repaints whichever widget this panel was opened for. */
+    private fun refresh() {
+        val provider = AppWidgetManager.getInstance(this)
+            .getAppWidgetInfo(
+                intent?.getIntExtra(
+                    AppWidgetManager.EXTRA_APPWIDGET_ID,
+                    AppWidgetManager.INVALID_APPWIDGET_ID
+                ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
+            )?.provider?.className.orEmpty()
+        when {
+            provider.endsWith("OrreryWidgetProvider") -> OrreryWidgetProvider.refreshAll(this)
+            provider.endsWith("HourglassWidgetProvider") -> HourglassWidgetProvider.refreshAll(this)
+            else -> ClockWidgetProvider.refreshAll(this)
+        }
     }
 }

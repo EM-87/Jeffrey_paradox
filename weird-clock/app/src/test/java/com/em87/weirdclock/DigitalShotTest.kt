@@ -381,6 +381,35 @@ class DigitalShotTest {
     }
 
     /**
+     * The clock with the screen to itself and nothing else on it.
+     *
+     * The whole of what "full screen" was asked for: no seconds, no date,
+     * no furniture. Shot beside the version that keeps them, because the
+     * difference is the feature.
+     */
+    @Test
+    fun `full screen, bare and not bare`() {
+        for (bare in listOf(true, false)) {
+            val view = DigitalClockView(context).apply {
+                theme = ClockThemes.MIDNIGHT
+                style = DigitStyle.SEGMENT
+                script = DigitScript.ARABIC
+                fullScreen = true
+                bedsideSeconds = !bare
+                bedsideDate = !bare
+                yautja = Yautja.face(context)
+                atMs = atTwentyTwoFifteen()
+                measure(
+                    View.MeasureSpec.makeMeasureSpec(1600, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY)
+                )
+                layout(0, 0, 1600, 720)
+            }
+            assertTrue(shoot(view, if (bare) "bedside-bare" else "bedside-full") > 3)
+        }
+    }
+
+    /**
      * The day of the week and the next alarm, which every digital clock
      * ever built has and this one did not.
      *
