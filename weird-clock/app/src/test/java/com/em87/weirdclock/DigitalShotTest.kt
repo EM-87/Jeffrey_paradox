@@ -218,6 +218,9 @@ class DigitalShotTest {
                 .putBoolean(Prefs.OVERLAY_ASKED, true)
                 .putBoolean(Prefs.FACE_ASKED, true)
                 .putString(Prefs.FACE, Face.DIGITAL.key)
+                // On the dark theme, where the screen has to read as a
+                // darker panel cut into a dark dial rather than as a hole.
+                .putString(Prefs.THEME, "terminal")
                 .commit()
             org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
                 c.setup()
@@ -375,5 +378,37 @@ class DigitalShotTest {
             theme = ClockThemes.DAYLIGHT
         }
         assertTrue(shoot(view, "digital-daylight") > 3)
+    }
+
+    /**
+     * The bedside clock: on its side, with the screen to itself.
+     *
+     * Three alphabets, because the widest of them is what decides how big
+     * any of them can be — Rome writes a quarter past ten in thirteen
+     * modules where we write it in six — and a landscape window that fits
+     * the Roman one is a window with a lot of air round the Arabic one.
+     * Whether that is right is not an assertion, it is a look.
+     */
+    @Test
+    fun `the clock on its side, filling the screen`() {
+        for (script in DigitScript.entries) {
+            val view = DigitalClockView(context).apply {
+                theme = ClockThemes.MIDNIGHT
+                style = DigitStyle.SEGMENT
+                this.script = script
+                hour24 = true
+                showSeconds = true
+                showDate = true
+                fullScreen = true
+                yautja = Yautja.face(context)
+                atMs = atTwentyTwoFifteen()
+                measure(
+                    View.MeasureSpec.makeMeasureSpec(1600, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY)
+                )
+                layout(0, 0, 1600, 720)
+            }
+            assertTrue(shoot(view, "bedside-${script.name.lowercase()}") > 3)
+        }
     }
 }

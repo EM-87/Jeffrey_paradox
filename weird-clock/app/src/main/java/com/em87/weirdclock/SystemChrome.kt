@@ -52,6 +52,26 @@ object SystemChrome {
     }
 
     /**
+     * Takes the status and navigation bars away, or gives them back.
+     *
+     * For the bedside clock — see [Bedside] — and nothing else. The clock
+     * on its side is the whole screen, and the last two things on it that
+     * are not the clock are the notification shade's row of icons and the
+     * gesture bar. They come back on a swipe from the edge, which is the
+     * behaviour anybody with a phone already knows, and they come back for
+     * good the moment the phone is turned upright again.
+     */
+    fun bars(activity: Activity, hidden: Boolean) {
+        val window = activity.window
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (hidden) hide(WindowInsetsCompat.Type.systemBars())
+            else show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    /**
      * Keeps [view]'s content clear of the bars while its background stays
      * behind them — padding moves the content, never the paint.
      */

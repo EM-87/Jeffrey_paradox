@@ -4053,6 +4053,12 @@ class ClockView @JvmOverloads constructor(
                     if (inside) min(cy + boundaryRadius(180f) + r * 0.05f, height - r * 0.2f)
                     else yTop
             }
+            // The window the digits sit behind, on the face that is a
+            // display. Drawn before them, because it is what they are on.
+            if (inside) {
+                val underH = if (secondReadout?.invoke() != null) r * 0.10f else 0f
+                drawScreenFrame(canvas, cx, cy, r, digitH, underH, it, liveUnits)
+            }
             // The unlit bars behind it, on the face that is a display.
             // A screen you can only see the lit half of is a picture of a
             // number; the ghost of the eight is what says it is a machine.
@@ -5684,6 +5690,136 @@ class ClockView @JvmOverloads constructor(
     }
 
     // Seven-segment bits, ordered a(64) b(32) c(16) d(8) e(4) f(2) g(1).
+    /** Scratch for the screen panel, so onDraw allocates nothing. */
+    private val screenRect = RectF()
+    private val screenPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    /**
+     * The screen the readout is printed on.
+     *
+     * This face was a bezel with a row of lit bars floating in the middle
+     * of it, which reads as a number written on a dial rather than as an
+     * instrument with a display. What was missing is the thing round the
+     * digits: a rectangle of darker glass with its corners taken off,
+     * sitting a little below the surface — see [ScreenFrame], which owns
+     * the arithmetic, including the part that is easy to miss, that a
+     * rectangle inside a circle is limited by its corners and not by its
+     * width.
+     *
+     * Three passes and nothing clever. A soft edge underneath so the panel
+     * sits in the face instead of on it, the glass, and one quiet line
+     * round the outside that is the edge of the cut.
+     */
+    private fun drawScreenFrame(
+        canvas: Canvas,
+        cx: Float,
+        cy: Float,
+        r: Float,
+        digitH: Float,
+        underH: Float,
+        text: String,
+        units: Array<String>?
+    ) {
+        val rowW = sevenSegmentWidth(text, digitH, units)
+        val underW = if (underH > 0f) sevenSegmentWidth(text, underH, null) else 0f
+        val wanted = maxOf(rowW, underW) / 2f + digitH * ScreenFrame.PAD_X
+        // The second row hangs below the middle, so the panel is not
+        // centred on the digits — it is centred on everything in it.
+        val topEdge = cy - digitH / 2f - digitH * ScreenFrame.PAD_Y
+        val bottomEdge =
+            if (underH > 0f) cy + digitH * 0.72f + underH + digitH * ScreenFrame.PAD_Y
+            else cy + digitH / 2f + digitH * ScreenFrame.PAD_Y
+        val middle = (topEdge + bottomEdge) / 2f
+        val fitted = ScreenFrame.fit(wanted, (bottomEdge - topEdge) / 2f, r)
+        val halfW = fitted[0]
+        val halfH = fitted[1]
+        val corner = minOf(halfW, halfH) * 2f * ScreenFrame.CORNER
+
+        // The recess. Widest and faintest first, the way the hands' own
+        // shadows are drawn and for the same reason — a mask filter is one
+        // call and is among the things a hardware canvas declines.
+        val blur = digitH * 0.20f
+        screenPaint.style = Paint.Style.FILL
+        for (i in ScreenFrame.SPREAD.indices) {
+            val out = blur * ScreenFrame.SPREAD[i]
+            screenPaint.color = 0xFF000000.toInt()
+            screenPaint.alpha = (ScreenFrame.WEIGHT[i] * 255f).toInt().coerceIn(0, 255)
+            screenRect.set(
+                cx - halfW - out, middle - halfH - out + blur * 0.35f,
+                cx + halfW + out, middle + halfH + out + blur * 0.35f
+            )
+            canvas.drawRoundRect(screenRect, corner + out, corner + out, screenPaint)
+        }
+
+        screenRect.set(cx - halfW, middle - halfH, cx + halfW, middle + halfH)
+        screenPaint.color = ScreenFrame.glass(theme.face)
+        screenPaint.alpha = 255
+        canvas.drawRoundRect(screenRect, corner, corner, screenPaint)
+
+        screenPaint.style = Paint.Style.STROKE
+        screenPaint.strokeWidth = maxOf(1f, r * 0.006f)
+        screenPaint.color = theme.rim
+        screenPaint.alpha = 0x90
+        canvas.drawRoundRect(screenRect, corner, corner, screenPaint)
+        screenPaint.style = Paint.Style.FILL
+        screenPaint.alpha = 255
+    }
+
+    /**
+     * How wide that row comes out, without drawing it.
+     *
+     * Split off the drawing rather than copied out of it, because the two
+     * have to agree exactly: this is what centres the row and what the
+     * screen behind it is cut to, and a second copy of the arithmetic
+     * would be a panel that fits the digits until somebody changes a gap.
+     */
+    private fun sevenSegmentWidth(
+        text: String,
+        digitH: Float,
+        units: Array<String>? = null
+    ): Float {
+        val digitW = digitH * 0.55f
+        val gap = digitW * 0.45f
+        val markW = digitW * 0.34f
+        val colonW = digitW * 0.34f
+        val tightGap = gap * 0.45f
+
+        fun markWidth(m: String): Float = when (m) {
+            "\"" -> markW * 1.55f
+            "" -> 0f
+            else -> markW
+        }
+
+        fun glyphWidth(c: Char): Float = when (c) {
+            ':' -> colonW
+            '/' -> colonW * 1.35f
+            ' ' -> digitW * 0.7f
+            else -> digitW
+        }
+
+        fun advanceAt(i: Int): Float {
+            val c = text[i]
+            val next = text.getOrNull(i + 1)
+            return glyphWidth(c) + if (c == ':' || next == ':') tightGap else gap
+        }
+
+        var totalW = 0f
+        var g = 0
+        for (i in text.indices) {
+            if (text[i] == ':') {
+                totalW += (units?.getOrNull(g)?.let { markWidth(it) } ?: 0f)
+                g++
+            }
+            totalW += advanceAt(i)
+        }
+        totalW += (units?.getOrNull(g)?.let { markWidth(it) } ?: 0f)
+        // The last glyph brings no gap after it.
+        if (text.isNotEmpty()) {
+            totalW -= advanceAt(text.length - 1) - glyphWidth(text.last())
+        }
+        return totalW
+    }
+
     private fun drawSevenSegment(
         canvas: Canvas,
         text: String,
@@ -5725,23 +5861,7 @@ class ClockView @JvmOverloads constructor(
             return w + if (c == ':' || next == ':') tightGap else gap
         }
 
-        var totalW = 0f
-        var g = 0
-        for (i in text.indices) {
-            if (text[i] == ':') {
-                totalW += (units?.getOrNull(g)?.let { markWidth(it) } ?: 0f)
-                g++
-            }
-            totalW += advanceAt(i)
-        }
-        totalW += (units?.getOrNull(g)?.let { markWidth(it) } ?: 0f)
-        totalW -= if (text.isEmpty()) 0f else
-            (advanceAt(text.length - 1) - when (text.last()) {
-                ':' -> colonW
-                '/' -> colonW * 1.35f
-                ' ' -> digitW * 0.7f
-                else -> digitW
-            })
+        val totalW = sevenSegmentWidth(text, digitH, units)
 
         var x = cx - totalW / 2f
         digitalPaint.strokeWidth = digitH * 0.10f

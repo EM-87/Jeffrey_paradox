@@ -170,6 +170,32 @@ class DigitalClockView @JvmOverloads constructor(
             invalidate()
         }
 
+    /**
+     * Whether this clock has the screen to itself.
+     *
+     * Set when the phone goes on its side on the face that fills one — see
+     * [Bedside]. It only changes how big the digits are allowed to get:
+     * the card's own furniture is taken away by whoever owns the card, and
+     * a view that hid other people's buttons would be a view reaching out
+     * of its own window.
+     */
+    var fullScreen: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
+    /**
+     * A tap on the glass, when there is nothing else for a tap to do.
+     *
+     * The bedside clock has no buttons on it, and something has to bring
+     * them back for somebody who does not know that a swipe is the way
+     * out. A tap is that something; it is not offered while a bar can be
+     * poked out or a drum turned, because those are what a tap means then.
+     */
+    var onTapped: (() -> Unit)? = null
+
     /** Whether the unlit bars are drawn faintly behind the lit ones. */
     var ghosts: Boolean = true
         set(value) {
@@ -482,9 +508,10 @@ class DigitalClockView @JvmOverloads constructor(
         // three times the width of the same time in ours, and the row that
         // decides is whichever is longer today — asked every frame, because
         // it changes when the hour does.
-        val room = width * (1f - 2f * MARGIN)
+        val room = width * (1f - 2f * (if (fullScreen) BEDSIDE_MARGIN else MARGIN))
         val widest = maxOf(rowWidth(cells), rowWidth(date) * DATE_SCALE)
-        val digitW = if (widest > 0f) minOf(room / widest, height * TALLEST) else 0f
+        val tallest = height * (if (fullScreen) BEDSIDE_TALLEST else TALLEST)
+        val digitW = if (widest > 0f) minOf(room / widest, tallest) else 0f
         val digitH = digitW / cellRatio()
 
         lit.strokeWidth = barWidth(digitH)
@@ -692,7 +719,46 @@ class DigitalClockView @JvmOverloads constructor(
     override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
         if (settingMs != null) return rollTouch(event)
         if (pokeable && style == DigitStyle.SEGMENT) return pokeTouch(event)
+        if (onTapped != null) return tapTouch(event)
         return super.onTouchEvent(event)
+    }
+
+    /** Where and when a finger came down, for telling a tap from a swipe. */
+    private var tapX = 0f
+    private var tapY = 0f
+    private var tapAt = 0L
+
+    /**
+     * A tap, and only a tap.
+     *
+     * Down and up in the same place inside the time it takes to tap is a
+     * tap; anything else is the pager's sideways swipe or a finger resting
+     * on the glass, and both of those have to go on working — which is why
+     * this measures rather than treating every touch as a press.
+     */
+    private fun tapTouch(event: android.view.MotionEvent): Boolean {
+        when (event.actionMasked) {
+            android.view.MotionEvent.ACTION_DOWN -> {
+                tapX = event.x
+                tapY = event.y
+                tapAt = android.os.SystemClock.uptimeMillis()
+            }
+            android.view.MotionEvent.ACTION_UP -> {
+                val slop = android.view.ViewConfiguration.get(context).scaledTouchSlop
+                val moved = kotlin.math.hypot(event.x - tapX, event.y - tapY)
+                val took = android.os.SystemClock.uptimeMillis() - tapAt
+                if (moved <= slop && took <= TAP_MS) {
+                    performClick()
+                    onTapped?.invoke()
+                }
+            }
+        }
+        return true
+    }
+
+    override fun performClick(): Boolean {
+        super.performClick()
+        return true
     }
 
     /**
@@ -1143,6 +1209,22 @@ class DigitalClockView @JvmOverloads constructor(
 
         /** And the tallest a digit may be, as a share of the face. */
         private const val TALLEST = 0.34f
+
+        /**
+         * The same two, for a clock that has the screen to itself.
+         *
+         * The card's numbers are a compromise with the gear in one corner,
+         * the toolbox in the other and five buttons along the bottom. With
+         * those gone the only thing left to be polite to is the edge of
+         * the glass, and a bedside clock that is still a third of the
+         * height of the screen is a bedside clock nobody can read from the
+         * bed.
+         */
+        private const val BEDSIDE_MARGIN = 0.035f
+        private const val BEDSIDE_TALLEST = 0.62f
+
+        /** The longest a press can be and still count as a tap. */
+        private const val TAP_MS = 400L
 
         /** How big the city under the digits is, against a digit. */
         private const val CAPTION_SCALE = 0.30f

@@ -48,6 +48,18 @@ enum class Face(val key: String) {
     val hands: Boolean
         get() = this == ANALOG
 
+    /**
+     * Whether this face is worth turning the phone sideways for.
+     *
+     * A screenful of digits gets bigger when the screen does; a dial is a
+     * round thing in a rectangular window and gains nothing but a wider
+     * margin. That is why this is a capability and not "is it digital":
+     * the lit hemisphere that is wanted next fills a landscape window as
+     * happily as the digits do, and the sundial does not.
+     */
+    val fills: Boolean
+        get() = this == DIGITAL
+
     /** Which cards this face has. A card it cannot support is not there. */
     val cards: Set<Card>
         get() = when (this) {

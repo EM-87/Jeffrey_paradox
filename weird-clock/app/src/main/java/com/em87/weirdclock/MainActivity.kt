@@ -677,6 +677,89 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
     }
 
+    // ------------------------------------------------- the bedside clock
+
+    /**
+     * Whether the card's furniture is out of the way right now.
+     *
+     * Kept rather than read off the views, because the buttons come and go
+     * for other reasons too — the toolbox only exists when there is a mess
+     * to tidy, the hourglass button only on a face that has one — and
+     * "put them back" has to mean "put back whatever was there", not "show
+     * all five".
+     */
+    private var bedside = false
+
+    /** Set while a tap has brought the buttons back for a few seconds. */
+    private var chromeShownAt = 0L
+
+    private val hideChromeAgain = Runnable { applyBedside() }
+
+    /**
+     * Puts the card away, or brings it back.
+     *
+     * Called from everywhere the answer can change — the page moving, the
+     * phone turning over, coming back from the settings — because every
+     * one of those is a way to arrive in landscape on the clock and none
+     * of them is the others.
+     */
+    private fun applyBedside() {
+        if (!this::pager.isInitialized) return
+        val digits = digitalView ?: return
+        // Two answers, not one. The first is whether this is a bedside
+        // clock at all — which is what decides whether a tap means
+        // anything — and the second is whether its buttons happen to be
+        // showing this second, which a tap has just changed.
+        val standing = Bedside.wanted(
+            face, showingCard(), Bedside.landscape(pager.width, pager.height)
+        )
+        val want = standing && !chromeIsBeingShown()
+        bedside = want
+        digits.fullScreen = standing
+        val furniture = if (want) View.GONE else View.VISIBLE
+        settingsButton?.visibility = furniture
+        homeButtonRow?.visibility = furniture
+        // The toolbox is not simply the opposite: it is only ever there
+        // when something has been knocked apart, so hiding it is safe and
+        // showing it is not.
+        if (want) reassembleButton?.visibility = View.GONE else showReassembleIfNeeded()
+        SystemChrome.bars(this, hidden = want)
+        digits.onTapped = if (standing) ({ revealChrome() }) else null
+    }
+
+    private fun chromeIsBeingShown(): Boolean =
+        chromeShownAt != 0L &&
+            android.os.SystemClock.uptimeMillis() - chromeShownAt < Bedside.CHROME_MS
+
+    /**
+     * Brings the buttons back for a moment.
+     *
+     * The way out of a screen with nothing on it. A second tap puts them
+     * away again rather than making somebody wait for the timer, because a
+     * control that only works in one direction is half a control.
+     */
+    private fun revealChrome() {
+        handler.removeCallbacks(hideChromeAgain)
+        chromeShownAt = if (chromeIsBeingShown()) 0L else android.os.SystemClock.uptimeMillis()
+        applyBedside()
+        if (chromeShownAt != 0L) {
+            handler.postDelayed(hideChromeAgain, Bedside.CHROME_MS)
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // The window has not been laid out at the new size yet, so the
+        // decision waits a frame for one — asking now measures the shape
+        // the phone has just stopped being.
+        if (this::pager.isInitialized) pager.post { applyBedside() }
+    }
+
+    /** For the tests, which cannot turn a phone over. */
+    internal fun bedsideForTest(): Boolean = bedside
+
+    internal fun applyBedsideForTest() = applyBedside()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -878,6 +961,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // touching the row, so the screen-on flag is reconsidered
                 // here as well as wherever the row moves.
                 keepScreenAwake()
+                applyBedside()
                 carryFallenHands()
                 closeSheetLeftBehind()
                 // Landing on the alarms: whatever happened while away — a
@@ -995,6 +1079,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun settleInAfterTheFaceIsChosen() {
         maybeIntroduceFloatingHourglass()
         maybeWarnAboutExactAlarms()
+        // Started with the phone already on its side, which is how a
+        // bedside clock is usually started.
+        if (this::pager.isInitialized) pager.post { applyBedside() }
     }
 
     /**
