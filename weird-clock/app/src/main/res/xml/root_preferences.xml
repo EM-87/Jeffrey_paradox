@@ -101,6 +101,14 @@
 
     <PreferenceCategory android:title="@string/category_calendar">
 
+        <!-- The other diary: the one with the dentist in it. Read only,
+             asked for once, and off until it is. -->
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_agenda"
+            android:summary="@string/pref_agenda_summary"
+            android:title="@string/pref_agenda_title" />
+
         <Preference
             android:key="pref_birthday"
             android:summary="@string/pref_birthday_summary"

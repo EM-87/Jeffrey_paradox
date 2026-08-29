@@ -44,13 +44,15 @@ class HemisphereShotTest {
         at: Long = midsummerNoon(),
         sunAt: Double = 0.0,
         ring: Boolean = true,
-        notches: Boolean = true
+        notches: Boolean = true,
+        clouds: Bitmap? = null
     ): HemisphereView = HemisphereView(context).apply {
         theme = ClockThemes.MIDNIGHT
         view = which
         this.sunAt = sunAt
         hourRing = ring
         meridians = notches
+        this.clouds = clouds
         latitude = 40.4
         longitude = -3.7
         located = true
@@ -155,5 +157,64 @@ class HemisphereShotTest {
         assertTrue(
             shoot(globe(which = Hemisphere.View.GLOBE, at = winter), "hemi-globe-midwinter") > 200
         )
+    }
+
+    /**
+     * A real day's satellite mosaic, kept beside the tests.
+     *
+     * NASA's, fetched once and committed rather than downloaded while the
+     * tests run: a test that needs the internet is a test that fails on a
+     * train. It is the same request [SatelliteClouds.url] makes.
+     */
+    private fun satellite(): Bitmap {
+        val bytes = javaClass.classLoader!!.getResourceAsStream("gibs-sample.jpg")!!
+            .use { it.readBytes() }
+        return android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)!!
+    }
+
+    /**
+     * The world wearing yesterday's weather, on all three views.
+     *
+     * The only thing worth checking here is the thing only an eye can
+     * check: whether the cloud sits *on* the earth — cyclones over the
+     * ocean, the fronts running the right way, the continents still
+     * legible under it — or whether it has been laid on top like a sheet
+     * of tracing paper, which is what a projection out of step with the
+     * map underneath looks like.
+     */
+    @Test
+    fun `the globe wearing the satellite clouds`() {
+        val sky = satellite()
+        for (which in Hemisphere.View.entries) {
+            assertTrue(
+                shoot(globe(which = which, clouds = sky), "hemisphere-clouds-${which.key}") > 3
+            )
+        }
+        // And the same three without them, for the comparison.
+        for (which in Hemisphere.View.entries) {
+            assertTrue(shoot(globe(which = which), "hemisphere-bare-${which.key}") > 3)
+        }
+    }
+
+    /**
+     * The clouds are drawn from the picture, and go when it goes.
+     *
+     * A pixel count rather than a look: a layer wired to nothing would
+     * still photograph beautifully, since the earth underneath is already
+     * a photograph.
+     */
+    @Test
+    fun `the cloud layer is wired to the picture`() {
+        val bare = Bitmap.createBitmap(1000, 1000, Bitmap.Config.ARGB_8888)
+        globe(which = Hemisphere.View.GLOBE).draw(Canvas(bare))
+        val clouded = Bitmap.createBitmap(1000, 1000, Bitmap.Config.ARGB_8888)
+        globe(which = Hemisphere.View.GLOBE, clouds = satellite()).draw(Canvas(clouded))
+        var moved = 0
+        for (y in 0 until 1000 step 2) {
+            for (x in 0 until 1000 step 2) {
+                if (bare.getPixel(x, y) != clouded.getPixel(x, y)) moved++
+            }
+        }
+        assertTrue("the globe ignored the satellite picture: $moved pixels", moved > 5000)
     }
 }

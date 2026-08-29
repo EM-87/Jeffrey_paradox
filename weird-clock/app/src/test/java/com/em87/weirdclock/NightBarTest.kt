@@ -234,8 +234,8 @@ class NightBarTest {
                 "pref_show_weekday",
                 // Alarm
                 "pref_next_alarm", "pref_bells", "pref_alarm_markers",
-                // Calendar
-                "pref_birthday", "pref_cycle",
+                // Calendar — the app's own, and the phone's other one.
+                "pref_agenda", "pref_birthday", "pref_cycle",
                 // General — one switch for the whole sky
                 "pref_orrery",
                 "pref_world_clock", "pref_world_seconds", "pref_world_cities",
@@ -273,11 +273,12 @@ class NightBarTest {
                 "pref_hemisphere_view", "pref_hemisphere_sun_at",
                 "pref_hemisphere_compass",
                 "pref_hemisphere_ring", "pref_hemisphere_numbers",
-                "pref_hemisphere_meridians",
+                "pref_hemisphere_meridians", "pref_hemisphere_clouds",
                 "pref_sundial_kind", "pref_sundial_plate",
                 "pref_sundial_latitude_fixed", "pref_sundial_latitude",
                 "pref_sundial_compass", "pref_sundial_roman",
-                "pref_sundial_halves", "pref_sundial_julian", "pref_sundial_motto",
+                "pref_sundial_halves", "pref_sundial_calendar", "pref_sundial_motto",
+                "pref_sundial_glass",
                 "pref_segment_weight", "pref_bedside_seconds", "pref_bedside_date",
                 "pref_segment_ghosts",
                 "pref_alarm_ramp", "pref_ring_timeout",

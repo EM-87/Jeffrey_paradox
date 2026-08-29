@@ -20,6 +20,10 @@
       no prompt, so the asking has to be a switch inside the app that says
       what it is going to do. See WeatherStore.
     -->
+    <!-- Read only, and there is no write anywhere in this app. A clock
+         that can see the diary is not a diary. -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 

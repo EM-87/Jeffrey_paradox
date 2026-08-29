@@ -291,6 +291,23 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             if (granted) applyPreferences()
         }
 
+    /** Whether the calendar has been asked about since the app opened. */
+    private var agendaAskedThisRun = false
+
+    /**
+     * The one permission this app asks for that is about somebody's life
+     * rather than about the clock — see [AgendaStore].
+     *
+     * Refusing it leaves the switch on and the diary empty, which is the
+     * honest state: the owner said yes to the feature and no to the
+     * permission, and quietly turning the switch back off would be the app
+     * arguing with them.
+     */
+    private val calendarPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) applyPreferences()
+        }
+
     /** Alarm whose custom sound file is being picked, while SAF is open. */
     private var soundPickTarget: Alarm? = null
 
@@ -2954,7 +2971,36 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                         endMinute = reminder.hour * 60 + reminder.minute + reminder.durationMinutes
                     )
                 }
-            alarmArcs + reminderArcs
+            // And the other diary, which is the one with the dentist in
+            // it. Wedges rather than dots because an appointment has a
+            // length, and never thinner than a hair — see
+            // [Agenda.wedgeMinutes], since a fifteen-minute stand-up on a
+            // twelve-hour dial is three quarters of a degree.
+            val untitled = getString(R.string.agenda_untitled)
+            val dayStart = Calendar.getInstance().apply {
+                timeInMillis = markedDayMs
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            val agendaArcs = agendaOn(markedDayMs).mapNotNull { event ->
+                val at = Agenda.minutesOn(event, dayStart) ?: return@mapNotNull null
+                val minutes = Agenda.wedgeMinutes(at[1])
+                val hour = at[0] / 60
+                val minute = at[0] % 60
+                DialArc(
+                    (hour + minute / 60f) % n / n * 360f,
+                    minutes / 60f / n * 360f,
+                    DayNight.isDarkAt(hour, minute),
+                    fromCalendar = true,
+                    label = Agenda.titleOf(event, untitled),
+                    notes = "",
+                    startMinute = at[0],
+                    endMinute = at[0] + minutes
+                )
+            }
+            alarmArcs + reminderArcs + agendaArcs
         }
     }
 
@@ -2965,6 +3011,54 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             month != now.get(Calendar.MONTH) + 1 -> month < now.get(Calendar.MONTH) + 1
             else -> day < now.get(Calendar.DAY_OF_MONTH)
         }
+    }
+
+    /**
+     * The phone's own diary for a day, or nothing.
+     *
+     * Asked of the provider each time rather than kept: a cache of
+     * somebody's diary is a copy of somebody's diary and would have to
+     * live somewhere — see [AgendaStore], which is also where the switch
+     * and the permission are checked, so every caller here can simply ask
+     * and get an empty list when it is not wanted.
+     */
+    private fun agendaOn(whenMs: Long): List<Agenda.Event> {
+        val start = Calendar.getInstance().apply {
+            timeInMillis = whenMs
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        return AgendaStore.between(this, start, start + Agenda.DAY_MS)
+    }
+
+    /** Which days of a window have something in the diary on them. */
+    private fun agendaDays(fromMs: Long, toMs: Long): Set<Int> {
+        val events = AgendaStore.between(this, fromMs, toMs)
+        if (events.isEmpty()) return emptySet()
+        val days = HashSet<Int>()
+        val probe = Calendar.getInstance()
+        val zone = java.util.TimeZone.getDefault()
+        for (event in events) {
+            // An all-day event is stored against UTC midnight and is not a
+            // span of hours at all, so its days are counted in UTC — read
+            // in local time a birthday lands on the day before all
+            // afternoon west of Greenwich.
+            val offset = if (event.allDay) 0 else zone.getOffset(event.startMs)
+            var day = CivilDays.dayOf(event.startMs, offset)
+            // The instant an event *ends* belongs to the previous day, so
+            // a nine-to-five does not mark tomorrow as well.
+            val last = CivilDays.dayOf(
+                maxOf(event.startMs, event.endMs - 1),
+                if (event.allDay) 0 else zone.getOffset(maxOf(event.startMs, event.endMs - 1))
+            )
+            while (day <= last && days.size < AgendaStore.MOST) {
+                days += day
+                day++
+            }
+        }
+        return days
     }
 
     /**
@@ -3000,19 +3094,39 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private fun busyDaysOfTheYear(): Map<Int, String> {
         if (!prefs.getBoolean(Prefs.ALARM_MARKERS, true)) return emptyMap()
-        if (reminders.isEmpty()) return emptyMap()
         val year = Calendar.getInstance().apply {
             timeInMillis = TimeKeeper.nowMs()
         }.get(Calendar.YEAR)
+        // The phone's diary as well as the app's own reminders, named the
+        // same way: on a ring of three hundred and sixty-five days a
+        // dentist's appointment and a note to feed the cat are the same
+        // kind of mark.
+        val yearStart = Calendar.getInstance().apply {
+            clear()
+            set(year, 0, 1)
+        }.timeInMillis
+        val booked = HashMap<Int, MutableList<String>>()
+        val untitled = getString(R.string.agenda_untitled)
+        val zone = java.util.TimeZone.getDefault()
+        for (event in AgendaStore.between(
+            this, yearStart, yearStart + Agenda.YEAR_DAYS * Agenda.DAY_MS
+        )) {
+            val offset = if (event.allDay) 0 else zone.getOffset(event.startMs)
+            booked.getOrPut(CivilDays.dayOf(event.startMs, offset)) { ArrayList() } +=
+                Agenda.titleOf(event, untitled)
+        }
+        if (reminders.isEmpty() && booked.isEmpty()) return emptyMap()
         val busy = HashMap<Int, String>()
         val probe = Calendar.getInstance()
         for (month in 1..12) {
             probe.set(year, month - 1, 1)
             for (day in 1..probe.getActualMaximum(Calendar.DAY_OF_MONTH)) {
+                val epochDay = CivilDays.epochDay(year, month, day)
                 val on = reminders.filter { it.occursOn(year, month, day) }
+                    .map { it.label.ifBlank { getString(R.string.reminder_untitled) } } +
+                    (booked[epochDay] ?: emptyList())
                 if (on.isEmpty()) continue
-                busy[CivilDays.epochDay(year, month, day)] =
-                    on.joinToString(", ") { it.label.ifBlank { getString(R.string.reminder_untitled) } }
+                busy[epochDay] = on.joinToString(", ")
             }
         }
         return busy
@@ -3028,11 +3142,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }.getActualMaximum(Calendar.DAY_OF_MONTH)
         // Split by the half of the day each one falls in, so the calendar
         // says the same thing the dial does.
+        // The phone's own diary for the month on screen, worked out once:
+        // the two halves of the day and the year dots all want it, and
+        // three queries for one month would be three copies of the same
+        // answer.
+        val monthStart = Calendar.getInstance().apply {
+            clear()
+            set(cal.shownYear, cal.shownMonth1 - 1, 1)
+        }.timeInMillis
+        val booked = agendaDays(monthStart, monthStart + (daysInMonth + 1) * Agenda.DAY_MS)
+        fun bookedOn(day: Int): Boolean =
+            booked.contains(CivilDays.epochDay(cal.shownYear, cal.shownMonth1, day))
         cal.morningDays = (1..daysInMonth).filter { day ->
             reminders.any {
                 it.occursOn(cal.shownYear, cal.shownMonth1, day) &&
                     !DayNight.isDarkAt(it.hour, it.minute)
-            }
+            } || bookedOn(day)
         }.toSet()
         cal.eveningDays = (1..daysInMonth).filter { day ->
             reminders.any {
@@ -3043,10 +3168,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // Year view dots every busy day of the whole year at once.
         val marks = mutableSetOf<Int>()
         val probe = Calendar.getInstance()
+        val yearStart = Calendar.getInstance().apply {
+            clear()
+            set(cal.shownYear, 0, 1)
+        }.timeInMillis
+        val bookedYear = agendaDays(yearStart, yearStart + Agenda.YEAR_DAYS * Agenda.DAY_MS)
         for (m in 1..12) {
             probe.set(cal.shownYear, m - 1, 1)
             for (d in 1..probe.getActualMaximum(Calendar.DAY_OF_MONTH)) {
-                if (reminders.any { it.occursOn(cal.shownYear, m, d) }) {
+                if (reminders.any { it.occursOn(cal.shownYear, m, d) } ||
+                    bookedYear.contains(CivilDays.epochDay(cal.shownYear, m, d))
+                ) {
                     marks.add((m - 1) * 100 + d)
                 }
             }
@@ -3057,6 +3189,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // here because [Cycle] answers in days counted from 1970 and the
         // calendar thinks in days of a month, and this is the one place
         // that knows which month is being looked at.
+        askAboutTheCalendarOnce()
         val record = CycleStore.all(this)
         cal.cyclePhases = if (record.isEmpty()) {
             emptyMap()
@@ -3518,6 +3651,24 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
         tickingEnabled = prefs.getBoolean(Prefs.TICKING, false)
         countdownPersistent = prefs.getBoolean(Prefs.COUNTDOWN_PERSISTENT, true)
+    }
+
+    /**
+     * Asks for the calendar, once per run, if it has been switched on
+     * without it.
+     *
+     * Once, because a permission dialog that comes back every time the app
+     * is opened is how somebody learns to press Deny without reading it.
+     * And the switch is left alone either way: refusing leaves it on and
+     * the diary empty, which is exactly what happened — the owner said yes
+     * to the feature and no to the permission — where turning it back off
+     * would be the app arguing with them.
+     */
+    private fun askAboutTheCalendarOnce() {
+        if (!prefs.getBoolean(Prefs.AGENDA, false)) return
+        if (AgendaStore.allowed(this) || agendaAskedThisRun) return
+        agendaAskedThisRun = true
+        calendarPermissionLauncher.launch(Manifest.permission.READ_CALENDAR)
     }
 
     /**
@@ -4056,8 +4207,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         dial.motto = prefs.getBoolean(Prefs.SUNDIAL_MOTTO, true)
         dial.halfHours = prefs.getBoolean(Prefs.SUNDIAL_HALVES, true)
         dial.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
-        dial.julian = prefs.getBoolean(Prefs.SUNDIAL_JULIAN, false)
+        dial.reckoning = Sundial.Reckoning.of(
+            prefs.getString(Prefs.SUNDIAL_CALENDAR, null),
+            prefs.getBoolean(Prefs.SUNDIAL_JULIAN, false)
+        )
         dial.compass = prefs.getBoolean(Prefs.SUNDIAL_COMPASS, false)
+        dial.instruments = prefs.getBoolean(Prefs.SUNDIAL_GLASS, true)
+        // Read out of what was written down last time, the same as the
+        // dial's own sky token — see [WeatherStore]. Nothing on this face
+        // fetches anything.
+        dial.outside = WeatherStore.cached(this)
         // One listener, two faces. Whichever of them wants it keeps it on.
         listenForBearing(dial.compass || worldIsPointing())
     }
@@ -4083,6 +4242,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val pointing = prefs.getBoolean(Prefs.HEMISPHERE_COMPASS, false) && DayNight.hasFix()
         if (!pointing) world.sunAt = prefs.getInt(Prefs.HEMISPHERE_SUN_AT, 0).toDouble()
         listenForBearing(pointing || (sundialView?.compass ?: false))
+        // Yesterday's photograph of the earth, if it has been asked for
+        // and has arrived. Read off the disc and never fetched here — see
+        // [CloudStore], which does the fetching on a thread of its own.
+        world.clouds = CloudStore.cached(this)
+        if (CloudStore.wanted(this)) CloudStore.refreshInBackground(this)
         world.hourRing = prefs.getBoolean(Prefs.HEMISPHERE_RING, true)
         world.hourNumbers = prefs.getBoolean(Prefs.HEMISPHERE_NUMBERS, true)
         world.meridians = prefs.getBoolean(Prefs.HEMISPHERE_MERIDIANS, true)

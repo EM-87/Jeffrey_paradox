@@ -542,8 +542,6 @@
     </string-array>
     <string name="pref_widget_sundial_wall_title">En pared</string>
     <string name="pref_widget_sundial_wall_summary">En vez de tumbado en el suelo</string>
-    <string name="pref_sundial_julian_title">Calendario juliano</string>
-    <string name="pref_sundial_julian_summary">Aquel para el que se habría tallado la piedra. Trece días por detrás del nuestro</string>
     <string name="face_hemisphere">El mundo</string>
     <string name="face_long_hemisphere">El mundo — la Tierra girando bajo el sol, contigo encima</string>
     <string name="pref_hemisphere_view_title">Cómo se ve el mundo</string>
@@ -562,4 +560,37 @@
         <item>Sobre el polo sur</item>
         <item>Como una bola</item>
     </string-array>
+
+    <!-- Las cinco palabras del bar\u00f3metro aneroide, tal como se
+         grababan. -->
+    <string-array name="barometer_legend">
+        <item>Tormenta</item>
+        <item>Lluvia</item>
+        <item>Variable</item>
+        <item>Buen tiempo</item>
+        <item>Muy seco</item>
+    </string-array>
+    <string name="barometer_hpa">%1$d hPa</string>
+    <string name="thermometer_degrees">%1$d\u00b0</string>
+    <string name="pref_sundial_glass_title">Bar\u00f3metro y term\u00f3metro</string>
+    <string name="pref_sundial_glass_summary">Un bar\u00f3metro aneroide y un term\u00f3metro en el pedestal bajo el reloj, como los llevaba uno de jard\u00edn. Necesita el tiempo activado</string>
+
+    <!-- La capa de nubes por sat\u00e9lite. -->
+    <string name="pref_hemisphere_clouds_title">Nubes de sat\u00e9lite</string>
+    <string name="pref_hemisphere_clouds_summary">Las nubes de ayer sobre el globo, de la foto diaria MODIS de la Tierra entera que publica la NASA. Cada sitio se tom\u00f3 al pasar el sat\u00e9lite por encima, sobre las diez y media de la ma\u00f1ana all\u00ed. Unos 80 kB cada seis horas. Necesita el tiempo activado</string>
+
+    <!-- Las tres estaciones del a\u00f1o civil egipcio. -->
+    <string-array name="egyptian_seasons">
+        <item>Ajet</item>
+        <item>Peret</item>
+        <item>Shemu</item>
+    </string-array>
+    <string name="egyptian_epagomenal">Sobre el a\u00f1o</string>
+    <string name="pref_sundial_calendar_title">Calendario bajo la placa</string>
+
+    <!-- El calendario del tel\u00e9fono, solo lectura. -->
+    <string name="pref_agenda_title">Tu calendario</string>
+    <string name="pref_agenda_summary">Apagado. Encendido, lo que hay en el calendario del tel\u00e9fono se dibuja en el reloj y en la p\u00e1gina del mes junto a tus recordatorios. Solo lectura: este reloj no puede a\u00f1adir, mover ni borrar nada, y nada de lo que lee se guarda ni se env\u00eda a ning\u00fan sitio</string>
+    <string name="pref_agenda_denied">Sin permiso para leer el calendario no hay nada que dibujar</string>
+    <string name="agenda_untitled">Cita</string>
 </resources>

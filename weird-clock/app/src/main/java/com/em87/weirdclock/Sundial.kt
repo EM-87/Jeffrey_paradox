@@ -280,4 +280,93 @@ object Sundial {
 
     /** All of them, for the test that checks nobody has typed a J or a U. */
     internal fun mottoes(): Array<String> = MOTTOES
+
+    // ------------------------------------------------ what day it is
+
+    /**
+     * Which calendar the date under the plate is read in.
+     *
+     * Three, and not one of them is offered as a better calendar than
+     * ours. The Julian is the one the plate would have been cut under —
+     * every dial older than 1582 was made in it, Britain read dials by it
+     * until 1752 — and the Egyptian is the oldest calendar anybody ever
+     * did arithmetic in, which is what a shadow clock is for. Ptolemy
+     * computed in it and so did Copernicus, a thousand years after the
+     * last person in Egypt used it for anything.
+     */
+    enum class Reckoning(val key: String) {
+        GREGORIAN("gregorian"),
+        JULIAN("julian"),
+        EGYPTIAN("egyptian");
+
+        companion object {
+            /**
+             * Reading the stored answer, including the old yes-or-no.
+             *
+             * This was a switch called "Julian calendar" for eleven
+             * versions, so every phone that ever turned it on has a
+             * boolean written down and no string at all. [was] is that
+             * boolean, and it is only consulted when there is no newer
+             * answer.
+             */
+            fun of(key: String?, was: Boolean): Reckoning =
+                entries.firstOrNull { it.key == key }
+                    ?: if (was) JULIAN else GREGORIAN
+        }
+    }
+
+    /**
+     * The date cut under the plate, in whichever calendar it is read in.
+     *
+     * Day and month only, in ours and in Rome's — a dial carrying a year
+     * would be a dial that had to be recut every January, and no dial
+     * anywhere has ever had one on it. Egypt is the exception and cannot
+     * help being one: its dates are *regnal*, counted from whichever king
+     * is on the throne, so the year is not a number you can leave off. It
+     * is written the way Egyptology writes it and the way the stone does
+     * — the month of the season in Roman numerals, then the season, then
+     * the day.
+     *
+     * [seasons] and [epagomenal] are handed in rather than looked up,
+     * because this file is arithmetic and those are words in whatever
+     * language the phone is set to.
+     */
+    fun dateLabel(
+        atMs: Long,
+        zoneOffsetMs: Int,
+        reckoning: Reckoning,
+        roman: Boolean,
+        seasons: List<String> = emptyList(),
+        epagomenal: String = ""
+    ): String {
+        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = atMs }
+        val year = calendar.get(java.util.Calendar.YEAR)
+        var day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
+        var month = calendar.get(java.util.Calendar.MONTH) + 1
+        fun figure(n: Int) = if (roman) Roman.of(n) else n.toString()
+        when (reckoning) {
+            Reckoning.JULIAN -> {
+                val old = JulianCalendar.of(year, month, day)
+                day = old.day
+                month = old.month
+            }
+            Reckoning.EGYPTIAN -> {
+                val date = EgyptianCalendar.dateOf(atMs, zoneOffsetMs, year)
+                // The five days over at the end belong to no month at
+                // all — the "days upon the year", on which five gods were
+                // born — so they are named rather than numbered into one.
+                if (date.epagomenal || date.season == null) {
+                    return "$epagomenal ${figure(date.day)}"
+                }
+                val season = seasons.getOrNull(date.season.ordinal) ?: date.season.name
+                // The month of the season is in Roman numerals whichever
+                // way the numerals switch is set, because that is not this
+                // app's choice: I Akhet, II Akhet, III Akhet, IV Akhet is
+                // how every Egyptologist since Champollion has written it.
+                return "${Roman.of(date.monthOfSeason)} $season ${figure(date.day)}"
+            }
+            Reckoning.GREGORIAN -> Unit
+        }
+        return if (roman) "${Roman.of(day)} \u00b7 ${Roman.of(month)}" else "$day / $month"
+    }
 }

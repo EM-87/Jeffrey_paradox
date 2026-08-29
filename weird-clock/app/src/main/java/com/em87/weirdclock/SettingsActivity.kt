@@ -27,6 +27,18 @@ class SettingsActivity : AppCompatActivity() {
          * is somewhere else entirely.
          */
         const val NESTED_INDENT_DP = 24f
+
+        /**
+         * How many lines a summary may run to before somebody should have
+         * written less.
+         *
+         * Well above the longest one here, which is eleven — this is not a
+         * budget to spend, it is the line past which a settings row has
+         * stopped being a settings row. AndroidX's own cap of ten is below
+         * what this app already writes, so it had to move; leaving it at
+         * no cap at all would mean nothing ever noticed a runaway string.
+         */
+        const val WHOLE_SUMMARY = 16
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -185,13 +197,41 @@ class SettingsActivity : AppCompatActivity() {
             // which they all exist to be painted.
             list.addOnChildAttachStateChangeListener(
                 object : androidx.recyclerview.widget.RecyclerView.OnChildAttachStateChangeListener {
-                    override fun onChildViewAttachedToWindow(view: android.view.View) =
+                    override fun onChildViewAttachedToWindow(view: android.view.View) {
                         paintFaded(view)
+                        letItFinish(view)
+                    }
 
                     override fun onChildViewDetachedFromWindow(view: android.view.View) = Unit
                 }
             )
             return list
+        }
+
+        /**
+         * Lets a summary run to the end of its last sentence.
+         *
+         * AndroidX stops one at ten lines and does not ellipsise the
+         * eleventh — it clips it, mid-word, behind a scroll bar that a
+         * settings list will not let anybody drag. Ten lines is a sensible
+         * cap for an app whose summaries are labels. It is the wrong one
+         * here, where they are how the app explains itself and several of
+         * them are a paragraph on purpose.
+         *
+         * Found on the row that could least afford it. *Hand shadows*
+         * carries an extra sentence while the phone has no location fix,
+         * which took it to eleven lines and cut it at "It will use yours
+         * once the dial has" — and a phone with no fix yet is a first run,
+         * the only time that sentence is ever shown at all.
+         *
+         * Still a cap, not a licence: [WHOLE_SUMMARY] is far above
+         * anything here and [RowFitTest] fails if a row ever reaches it,
+         * because a settings row that needs sixteen lines is a bug of a
+         * different kind.
+         */
+        private fun letItFinish(view: android.view.View) {
+            view.findViewById<android.widget.TextView>(android.R.id.summary)?.maxLines =
+                WHOLE_SUMMARY
         }
 
         /** What the nested rows are called, and how deep — titles are how
@@ -535,6 +575,20 @@ class SettingsActivity : AppCompatActivity() {
                     preferenceManager.sharedPreferences?.getString(Prefs.DIGIT_SCRIPT, null)
                 ) != DigitScript.ROMAN_COMET
             }
+            // The calendar row says out loud when it has been switched on
+            // and refused, which is a state somebody can otherwise sit in
+            // for weeks wondering why the month page is empty. Read every
+            // time the screen is opened, because the answer can change in
+            // the system settings while this app is not looking.
+            findPreference<SwitchPreferenceCompat>(Prefs.AGENDA)?.let { row ->
+                val note = getString(R.string.pref_agenda_summary)
+                row.summary =
+                    if (row.isChecked && !AgendaStore.allowed(requireContext())) {
+                        getString(R.string.pref_agenda_denied) + ". " + note
+                    } else {
+                        note
+                    }
+            }
             // Changing the face changes what every screen is *about*, so
             // the screens are built again rather than edited in place.
             // Without this the row above says "digits" while the fifty rows
@@ -776,6 +830,15 @@ class SettingsActivity : AppCompatActivity() {
             )
             dimmedWhen(Prefs.ALARM_MARKERS, Prefs.MARK_COLORS)
             dimmedWhen(Prefs.ORRERY, Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC)
+            // Which calendar the plate is read under is not a question
+            // while the plate carries no date. Faded and not hidden,
+            // because the switch that governs it is on the first screen
+            // and a row that vanishes two screens from its cause reads as
+            // a setting the app has lost.
+            dimmedWhen(Prefs.SHOW_DATE, Prefs.SUNDIAL_CALENDAR)
+            // And two needles with nothing to point at while the
+            // network switch is off.
+            dimmedWhen(Prefs.WEATHER, Prefs.SUNDIAL_GLASS, Prefs.HEMISPHERE_CLOUDS)
             // Where the sun is nailed means nothing while the phone is
             // doing the pointing. Registered on this screen because that
             // is the screen both rows are on — see [FadedRowTest], which

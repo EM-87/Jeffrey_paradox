@@ -678,8 +678,6 @@
     </string-array>
     <string name="pref_widget_sundial_wall_title">On a wall</string>
     <string name="pref_widget_sundial_wall_summary">Rather than lying flat on the ground</string>
-    <string name="pref_sundial_julian_title">Julian calendar</string>
-    <string name="pref_sundial_julian_summary">The one the plate would have been cut for. Thirteen days behind ours</string>
     <string name="face_hemisphere">The world</string>
     <string name="face_long_hemisphere">The world — the earth turning under the sun, with you on it</string>
     <string name="pref_hemisphere_view_title">How the world is seen</string>
@@ -703,4 +701,45 @@
         <item>south</item>
         <item>globe</item>
     </string-array>
+
+    <!-- The two instruments on the sundial's pedestal. The five words are
+         what English aneroid barometers were engraved with from about
+         1850; they are a rule of thumb about pressure over the British
+         Isles rather than a forecast, and they are here because they were
+         there. -->
+    <string-array name="barometer_legend">
+        <item>Stormy</item>
+        <item>Rain</item>
+        <item>Change</item>
+        <item>Fair</item>
+        <item>Very dry</item>
+    </string-array>
+    <string name="barometer_hpa">%1$d hPa</string>
+    <string name="thermometer_degrees">%1$d\u00b0</string>
+    <string name="pref_sundial_glass_title">Glass and thermometer</string>
+    <string name="pref_sundial_glass_summary">A weather glass and a thermometer on the pedestal under the dial, the way a garden one carried them. Needs the weather switched on</string>
+
+    <!-- The satellite cloud layer. Named for what it is: NASA's daily
+         MODIS mosaic, which is a day old and photographed in the morning
+         wherever you are. -->
+    <string name="pref_hemisphere_clouds_title">Satellite clouds</string>
+    <string name="pref_hemisphere_clouds_summary">Yesterday\'s clouds on the globe, from NASA\'s daily MODIS photograph of the whole earth. Each place was taken as the satellite came over it, around half past ten in the morning there. About 80 kB, once every six hours. Needs the weather switched on</string>
+
+    <!-- The Egyptian civil year: three seasons of four months, named for
+         what the Nile was doing when the calendar was young. It drifted a
+         day every four years and the names went on meaning what they had
+         always meant, which is its own small comedy. -->
+    <string-array name="egyptian_seasons">
+        <item>Akhet</item>
+        <item>Peret</item>
+        <item>Shemu</item>
+    </string-array>
+    <string name="egyptian_epagomenal">Upon the year</string>
+    <string name="pref_sundial_calendar_title">Calendar under the plate</string>
+
+    <!-- The phone's own calendar, read only. -->
+    <string name="pref_agenda_title">Your calendar</string>
+    <string name="pref_agenda_summary">Off. On, what is in the phone\'s calendar is drawn on the clock and on the month page beside your own reminders. Read only — this clock cannot add, move or delete anything, and nothing it reads is written down or sent anywhere</string>
+    <string name="pref_agenda_denied">Without permission to read the calendar there is nothing to draw</string>
+    <string name="agenda_untitled">Appointment</string>
 </resources>

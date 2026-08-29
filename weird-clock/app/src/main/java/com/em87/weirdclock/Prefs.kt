@@ -158,6 +158,18 @@ object Prefs {
     const val WEATHER = "pref_weather"
 
     /**
+     * Whether the clock may look at the phone's own calendar — see
+     * [AgendaStore].
+     *
+     * Off, and the only setting in this app behind a *permission* rather
+     * than behind a switch alone. What is on the other side of it is a
+     * list of where somebody will be and who with, so the rules are narrow
+     * and stated: read only, never written down, never in a backup, and
+     * nothing anywhere that could send one of these anywhere.
+     */
+    const val AGENDA = "pref_agenda"
+
+    /**
      * Whether this clock is allowed to tell the rest of the house what it
      * is doing — see [Ifttt].
      *
@@ -227,10 +239,36 @@ object Prefs {
     /**
      * Whether the date under the plate is read in the Julian calendar.
      *
-     * The one the dial would have been cut for — see [JulianCalendar].
-     * Thirteen days behind ours today, and the gap grows.
+     * A switch for eleven versions and now one of three answers — see
+     * [SUNDIAL_CALENDAR]. Kept rather than deleted, because it is still
+     * written down on every phone that ever turned it on, and
+     * [Sundial.Reckoning.of] is what reads it.
      */
     const val SUNDIAL_JULIAN = "pref_sundial_julian"
+
+    /**
+     * Which calendar the date under the plate is read in.
+     *
+     * Ours, Rome's, or Egypt's. Not one of the three is offered as a
+     * better calendar: the Julian is what the stone would have been cut
+     * under, and the Egyptian civil year — twelve months of thirty days in
+     * three seasons, with five days over — is the one Ptolemy and
+     * Copernicus both did their arithmetic in, fifteen hundred years
+     * apart, because a year that never changes length is a year you can
+     * subtract. See [EgyptianCalendar].
+     */
+    const val SUNDIAL_CALENDAR = "pref_sundial_calendar"
+
+    /**
+     * Whether the weather glass and the thermometer stand under the plate.
+     *
+     * A garden dial was rarely on its own: the pedestal carried these two
+     * as well, because between them the three answered the three questions
+     * somebody stepping outside actually had. On by default and dead
+     * anyway until the weather switch is on, since there is nothing for a
+     * needle to point at until then — see [WeatherGlass].
+     */
+    const val SUNDIAL_GLASS = "pref_sundial_glass"
 
     /**
      * Whether the home-screen sundial hangs on a wall or lies on the
@@ -278,6 +316,16 @@ object Prefs {
 
     /** And the notches at every fifteenth meridian. */
     const val HEMISPHERE_MERIDIANS = "pref_hemisphere_meridians"
+
+    /**
+     * Whether the globe wears the satellite's clouds.
+     *
+     * NASA publish one complete true-colour photograph of the earth a day,
+     * free and keyless, and this is the switch that puts it on the world.
+     * On by default and dead until the weather switch is on, because it is
+     * the largest thing this app ever downloads — see [CloudStore].
+     */
+    const val HEMISPHERE_CLOUDS = "pref_hemisphere_clouds"
     const val DATE_FORMAT = "pref_date_format"
 
     /**

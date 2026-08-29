@@ -570,6 +570,13 @@ object WidgetRenderer {
             val now = Calendar.getInstance()
             val timeOfDay = now.get(Calendar.HOUR_OF_DAY) * 3_600_000L +
                 now.get(Calendar.MINUTE) * 60_000L
+            // The same sky token as the app's, weather and all. Read out of
+            // the cache and never fetched: a widget renders in whatever
+            // process the launcher feels like waking, and a clock face that
+            // opens a socket to draw itself is a clock face that sometimes
+            // does not draw. The app refreshes it; this shows whatever the
+            // app last agreed on — see [WeatherStore].
+            val outside = WeatherStore.cached(context)
             SkyGlyph.draw(
                 canvas, c, c + apothemR * 0.45f, r * 0.07f,
                 Paint(Paint.ANTI_ALIAS_FLAG).apply { color = theme.numeral },
@@ -579,7 +586,9 @@ object WidgetRenderer {
                     style = Paint.Style.STROKE
                     strokeWidth = r * 0.008f
                 },
-                timeOfDay
+                timeOfDay,
+                weather = Weather.look(outside),
+                weatherSure = outside.cloudPercent.trust != Weather.Trust.LONE
             )
         }
 

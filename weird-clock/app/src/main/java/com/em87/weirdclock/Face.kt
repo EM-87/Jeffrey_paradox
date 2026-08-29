@@ -341,7 +341,8 @@ object FaceOptions {
         Prefs.SUNDIAL_MOTTO,
         Prefs.SUNDIAL_HALVES,
         Prefs.SUNDIAL_ROMAN,
-        Prefs.SUNDIAL_JULIAN
+        Prefs.SUNDIAL_CALENDAR,
+        Prefs.SUNDIAL_GLASS
     )
 
     /**
@@ -370,7 +371,8 @@ object FaceOptions {
         Prefs.HEMISPHERE_COMPASS,
         Prefs.HEMISPHERE_RING,
         Prefs.HEMISPHERE_NUMBERS,
-        Prefs.HEMISPHERE_MERIDIANS
+        Prefs.HEMISPHERE_MERIDIANS,
+        Prefs.HEMISPHERE_CLOUDS
     )
 
     /** Whether the row at [key] belongs on [face]'s screens. */

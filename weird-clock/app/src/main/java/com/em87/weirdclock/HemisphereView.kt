@@ -64,6 +64,26 @@ class HemisphereView @JvmOverloads constructor(
     var located: Boolean = false
         set(value) { field = value; invalidate() }
 
+    /**
+     * Yesterday's clouds, photographed from orbit.
+     *
+     * An equirectangular picture of the whole earth, handed in the same
+     * way as everything else this view draws from — see [CloudStore],
+     * which is what fetches it, and [SatelliteClouds], which is the rule
+     * that turns a photograph into a veil.
+     *
+     * Null is the ordinary state: nobody has switched the weather on, or
+     * the picture has not arrived yet, and the globe is the globe it has
+     * always been.
+     */
+    var clouds: Bitmap? = null
+        set(value) {
+            if (field === value) return
+            field = value
+            discard()
+            invalidate()
+        }
+
     /** The ring of hours round the world, and what is on it. */
     var hourRing: Boolean = true
         set(value) { field = value; invalidate() }
@@ -130,14 +150,17 @@ class HemisphereView @JvmOverloads constructor(
      */
     private var dayDisc: Bitmap? = null
     private var nightDisc: Bitmap? = null
+    private var cloudDisc: Bitmap? = null
     private var bakedFor: String? = null
 
     private fun discard() {
         dayDisc?.recycle()
         nightDisc?.recycle()
+        cloudDisc?.recycle()
         shadow?.recycle()
         dayDisc = null
         nightDisc = null
+        cloudDisc = null
         shadow = null
         bakedFor = null
         maskedFor = null
@@ -174,6 +197,15 @@ class HemisphereView @JvmOverloads constructor(
         day.getPixels(dayPixels, 0, day.width, 0, 0, day.width, day.height)
         val nightPixels = IntArray(night.width * night.height)
         night.getPixels(nightPixels, 0, night.width, 0, 0, night.width, night.height)
+        // And the satellite's picture, if there is one, through the same
+        // inverse projection — a third disc rather than a second pass,
+        // because working out which place a point of the disc is takes
+        // longer than reading three maps at it.
+        val sky = clouds
+        val veil = if (sky == null) null else IntArray(size * size)
+        val skyPixels = if (sky == null) null else IntArray(sky.width * sky.height).also {
+            sky.getPixels(it, 0, sky.width, 0, 0, sky.width, sky.height)
+        }
         // On the globe the turn is baked in; on the flat views it is not,
         // and the disc is turned when it is drawn.
         val turn = if (view == Hemisphere.View.GLOBE) quantise(spinDeg) else 0.0
@@ -188,10 +220,18 @@ class HemisphereView @JvmOverloads constructor(
                 val at = py * size + px
                 lit[at] = sample(dayPixels, day.width, day.height, u, v)
                 dark[at] = sample(nightPixels, night.width, night.height, u, v)
+                if (veil != null && skyPixels != null && sky != null) {
+                    veil[at] = SatelliteClouds.tint(
+                        sample(skyPixels, sky.width, sky.height, u, v),
+                        view != Hemisphere.View.GLOBE,
+                        kotlin.math.hypot(x, y)
+                    )
+                }
             }
         }
         dayDisc = Bitmap.createBitmap(lit, size, size, Bitmap.Config.ARGB_8888)
         nightDisc = Bitmap.createBitmap(dark, size, size, Bitmap.Config.ARGB_8888)
+        cloudDisc = veil?.let { Bitmap.createBitmap(it, size, size, Bitmap.Config.ARGB_8888) }
         bakedFor = key
     }
 
@@ -266,6 +306,13 @@ class HemisphereView @JvmOverloads constructor(
         canvas.save()
         canvas.rotate(-spin, cx, cy)
         canvas.drawBitmap(day, src, dst, blit)
+        // The clouds go on the daylit map and under the night one, which
+        // is not an ordering trick — corrected reflectance is sunlight
+        // coming back off the top of the cloud, so there is no night half
+        // of this photograph to draw. Laying it under the night layer
+        // means the dark side covers it exactly where the satellite had
+        // nothing to see.
+        cloudDisc?.let { canvas.drawBitmap(it, src, dst, blit) }
         canvas.restore()
 
         // The night side, over the day one, through a mask of where the

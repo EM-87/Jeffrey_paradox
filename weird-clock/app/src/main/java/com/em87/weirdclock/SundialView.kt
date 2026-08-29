@@ -69,18 +69,23 @@ class SundialView @JvmOverloads constructor(
         set(value) { field = value; invalidate() }
 
     /**
-     * Whether the date is cut under the plate, and in whose calendar.
+     * Whether the date is cut under the plate at all.
      *
-     * The Julian one is here because it is the calendar the plate would
-     * have been cut for: every dial older than 1582 was made under it,
-     * Britain read dials by it until 1752, and it is thirteen days behind
-     * ours today — see [JulianCalendar]. It is not offered as a better
-     * calendar. It is what was on the stone.
+     * Which calendar it is read in is [reckoning], and the two are
+     * separate switches on separate screens — which is exactly how one of
+     * them once came to govern the other by accident.
      */
     var showDate: Boolean = false
         set(value) { field = value; invalidate() }
 
-    var julian: Boolean = false
+    /**
+     * Which calendar it is read in — see [Sundial.Reckoning].
+     *
+     * Three, and none of them offered as better than ours: the Julian is
+     * what the stone would have been cut under, and the Egyptian is the
+     * calendar that made arithmetic on dates possible at all.
+     */
+    var reckoning: Sundial.Reckoning = Sundial.Reckoning.GREGORIAN
         set(value) { field = value; invalidate() }
 
     /** Whether the Latin motto is cut round the rim. */
@@ -105,6 +110,28 @@ class SundialView @JvmOverloads constructor(
 
     /** Which way the top of the phone is pointing, when anything knows. */
     var phoneBearing: Double? = null
+        set(value) { field = value; invalidate() }
+
+    /**
+     * Whether the glass and the thermometer stand beside the dial.
+     *
+     * A garden dial was rarely on its own: the pedestal carried a weather
+     * glass and a thermometer too, because between them the three answered
+     * the three questions somebody stepping outside actually had. The
+     * arithmetic is [WeatherGlass].
+     */
+    var instruments: Boolean = true
+        set(value) { field = value; invalidate() }
+
+    /**
+     * What the sky is doing, handed in rather than looked up.
+     *
+     * The same rule every other view in this app follows — see
+     * [ClockView.weather]. Nothing on this face ever touches the network;
+     * [WeatherStore] is the one thing that does, and the activity is what
+     * asks it.
+     */
+    var outside: Weather.Sky? = null
         set(value) { field = value; invalidate() }
 
     /** For the tests and the widget: pretend it is this instant. */
@@ -168,6 +195,11 @@ class SundialView @JvmOverloads constructor(
         val cy = h / 2f + (if (hangs) -r * 0.30f else r * 0.30f)
 
         drawPlate(canvas, cx, h / 2f, r)
+        // Before the early return below, because a dial that cannot work
+        // where you are standing is still a pedestal with two working
+        // instruments on it. Somebody on the equator with a flat dial has
+        // more use for a thermometer than anybody.
+        drawInstruments(canvas, cx, h / 2f, r, h)
         if (Sundial.collapses(kind, latitude)) {
             drawNoDial(canvas, cx, h / 2f, r)
             return
@@ -503,7 +535,12 @@ class SundialView @JvmOverloads constructor(
         // sat on top of the wall dial's noon numeral.
         canvas.drawText(latitudeLabel(), cx, cy + (if (hangs) -r * 0.60f else r * 0.66f), ink)
         ink.alpha = 255
-        if (!motto) return
+        // Before the motto and not after it. The early return below stood
+        // in front of this for as long as both rows have existed, so a
+        // dial with the Latin switched off lost its date as well — two
+        // rows on two different screens, one silently governing the other,
+        // and the only clue that anything had happened was the Julian
+        // calendar row still working on a date nobody could see.
         if (showDate) {
             ink.alpha = 190
             ink.textSize = r * 0.10f
@@ -513,6 +550,7 @@ class SundialView @JvmOverloads constructor(
             )
             ink.alpha = 255
         }
+        if (!motto) return
         // Round the rim, the way it is cut. Upright text under a dial is a
         // caption; text following the edge is an inscription.
         rim.set(cx - r * 1.06f, cy - r * 1.06f, cx + r * 1.06f, cy + r * 1.06f)
@@ -533,18 +571,15 @@ class SundialView @JvmOverloads constructor(
      * had one on it.
      */
     private fun dateLabel(): String {
-        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = nowMs() }
-        var day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
-        var month = calendar.get(java.util.Calendar.MONTH) + 1
-        if (julian) {
-            val old = JulianCalendar.of(
-                calendar.get(java.util.Calendar.YEAR), month, day
-            )
-            day = old.day
-            month = old.month
-        }
-        return if (roman) "${Roman.of(day)} \u00b7 ${Roman.of(month)}"
-        else "$day / $month"
+        val ms = nowMs()
+        return Sundial.dateLabel(
+            ms,
+            java.util.TimeZone.getDefault().getOffset(ms),
+            reckoning,
+            roman,
+            resources.getStringArray(R.array.egyptian_seasons).toList(),
+            context.getString(R.string.egyptian_epagomenal)
+        )
     }
 
     /**
@@ -558,6 +593,173 @@ class SundialView @JvmOverloads constructor(
         val degrees = total.toInt()
         val minutes = ((total - degrees) * 60.0).toInt()
         return "$degrees° $minutes′ ${if (south) "S" else "N"}"
+    }
+
+    // ----------------------------------------------------- the pedestal
+
+    /**
+     * The weather glass and the thermometer, standing under the plate.
+     *
+     * Under it and not on it. Everything already cut into the plate is
+     * part of the instrument — the hour lines are a projection, the
+     * latitude is what the projection was made for — and a needle sitting
+     * among them would read as one more thing the sun does. On the
+     * pedestal below, they read as what they are: two other instruments,
+     * bolted to the same post, answering the two other questions somebody
+     * stepping outside has.
+     *
+     * Below on a wall dial as well, where the fan hangs the other way
+     * up — the same two instruments in the same place, because the
+     * alternative was above the plate and above the plate is where the
+     * motto is cut.
+     *
+     * The arithmetic — where the needle points, how full the tube is, and
+     * which of the five words is engraved under the needle — is
+     * [WeatherGlass], so all of it can be checked without a screen.
+     */
+    private fun drawInstruments(
+        canvas: Canvas, cx: Float, cy: Float, r: Float, h: Float
+    ) {
+        if (!instruments) return
+        val sky = outside ?: return
+        if (!WeatherGlass.readable(sky)) return
+        // What is left under the plate. A view no taller than it is wide
+        // has none, and two instruments squeezed into nothing is worse
+        // than two instruments nobody asked for.
+        val room = h - (cy + r)
+        if (room < r * 0.42f) return
+        val box = min(r * 0.62f, room * 0.78f)
+        val top = cy + r + (room - box) * 0.40f
+        val bottom = top + box
+        val alpha = WeatherGlass.ink(sky)
+        drawGlass(canvas, cx - r * 0.46f, top, bottom, box, sky, alpha)
+        drawThermometer(canvas, cx + r * 0.46f, top, bottom, box, sky, alpha)
+    }
+
+    /**
+     * The glass: an arc, five marks, and a needle over them.
+     *
+     * The five words are what was engraved on English aneroids from about
+     * 1850 and they are a rule of thumb about pressure over the British
+     * Isles — wrong at altitude, wrong in the tropics, half right
+     * anywhere. They are here because they were there. The honest part is
+     * the needle and the number under the pivot.
+     */
+    private fun drawGlass(
+        canvas: Canvas, x: Float, top: Float, bottom: Float, box: Float,
+        sky: Weather.Sky, alpha: Int
+    ) {
+        val hPa = sky.pressureHpa.value ?: return
+        val pivotY = bottom - box * 0.30f
+        val radius = box * 0.40f
+        ink.typeface = CUT
+        ink.textAlign = Paint.Align.CENTER
+        ink.color = theme.numeral
+        // The word above the arc, where a maker's name went, and not
+        // inside it: inside is where the needle sweeps, and the first
+        // version put the pressure there and drew both of them through
+        // each other.
+        ink.alpha = (alpha * 0.85f).toInt()
+        ink.textSize = box * 0.155f
+        canvas.drawText(
+            resources.getStringArray(R.array.barometer_legend)[WeatherGlass.legend(hPa)],
+            x, top + box * 0.16f, ink
+        )
+        line.color = theme.numeral
+        line.alpha = alpha
+        line.strokeWidth = box * 0.026f
+        rim.set(x - radius, pivotY - radius, x + radius, pivotY + radius)
+        canvas.drawArc(rim, 180f, 180f, false, line)
+        // The five marks the words are engraved at, cut through the arc
+        // the way they are on a real face.
+        line.strokeWidth = box * 0.020f
+        for (mark in WeatherGlass.MARKS) {
+            val at = Math.toRadians(180.0 + 180.0 * WeatherGlass.swing(mark))
+            val inner = radius * 0.80f
+            canvas.drawLine(
+                x + (cos(at) * inner).toFloat(), pivotY + (sin(at) * inner).toFloat(),
+                x + (cos(at) * radius).toFloat(), pivotY + (sin(at) * radius).toFloat(),
+                line
+            )
+        }
+        val at = Math.toRadians(180.0 + 180.0 * WeatherGlass.swing(hPa))
+        line.strokeWidth = box * 0.034f
+        canvas.drawLine(
+            x, pivotY,
+            x + (cos(at) * radius * 0.86f).toFloat(),
+            pivotY + (sin(at) * radius * 0.86f).toFloat(),
+            line
+        )
+        fill.color = theme.numeral
+        fill.alpha = alpha
+        canvas.drawCircle(x, pivotY, box * 0.048f, fill)
+        ink.alpha = alpha
+        ink.textSize = box * 0.20f
+        canvas.drawText(
+            context.getString(R.string.barometer_hpa, Math.round(hPa)), x, bottom, ink
+        )
+        ink.alpha = 255
+        line.alpha = 255
+        fill.alpha = 255
+    }
+
+    /**
+     * The thermometer: a tube, a bulb, and a column standing in it.
+     *
+     * Drawn as the object rather than as a second needle. Two round gauges
+     * side by side are two things nobody can tell apart at a glance, and a
+     * column of liquid is legible before it is read — you can see it is
+     * cold from across the room, which is the whole use of a thermometer
+     * on a wall.
+     *
+     * Its reading sits on the same line as the glass's, which is what
+     * makes the two of them read as one pedestal rather than as two
+     * drawings that happen to be next to each other.
+     */
+    private fun drawThermometer(
+        canvas: Canvas, x: Float, top: Float, bottom: Float, box: Float,
+        sky: Weather.Sky, alpha: Int
+    ) {
+        val celsius = sky.temperatureC.value ?: return
+        val bulb = box * 0.105f
+        val bulbY = bottom - box * 0.30f
+        val tubeTop = top + box * 0.14f
+        val tubeBottom = bulbY - bulb * 0.30f
+        val wide = box * 0.055f
+        line.color = theme.numeral
+        line.alpha = alpha
+        line.strokeWidth = box * 0.024f
+        rim.set(x - wide, tubeTop, x + wide, tubeBottom)
+        canvas.drawRoundRect(rim, wide, wide, line)
+        canvas.drawCircle(x, bulbY, bulb, line)
+        // Every ten degrees, on the left, where they do not fight the
+        // reading under the bulb for room.
+        line.strokeWidth = box * 0.016f
+        val height = tubeBottom - tubeTop
+        for (tick in WeatherGlass.ticks()) {
+            val y = tubeBottom - height * tick
+            canvas.drawLine(x - wide * 2.3f, y, x - wide, y, line)
+        }
+        // The column: from inside the bulb up to the reading. The bulb is
+        // always full, because a bulb with nothing in it is a broken
+        // thermometer rather than a cold one.
+        fill.color = theme.numeral
+        fill.alpha = alpha
+        canvas.drawCircle(x, bulbY, bulb * 0.80f, fill)
+        val stands = tubeBottom - height * WeatherGlass.column(celsius)
+        rim.set(x - wide * 0.42f, stands, x + wide * 0.42f, bulbY)
+        canvas.drawRoundRect(rim, wide * 0.42f, wide * 0.42f, fill)
+        ink.typeface = CUT
+        ink.textAlign = Paint.Align.CENTER
+        ink.color = theme.numeral
+        ink.alpha = alpha
+        ink.textSize = box * 0.20f
+        canvas.drawText(
+            context.getString(R.string.thermometer_degrees, Math.round(celsius)), x, bottom, ink
+        )
+        ink.alpha = 255
+        line.alpha = 255
+        fill.alpha = 255
     }
 
     /** A dial that cannot work where you are standing, saying so. */

@@ -169,4 +169,19 @@
         <item>day_first</item>
         <item>month_first</item>
     </string-array>
+
+    <!-- Which calendar the sundial's date is read in. None of the three is
+         offered as better than ours: the Julian is the one the stone would
+         have been cut under, and the Egyptian is the one Ptolemy and
+         Copernicus both did their arithmetic in. -->
+    <string-array name="sundial_calendar_entries">
+        <item>Ours (Gregorian)</item>
+        <item>Julian, as the stone was cut</item>
+        <item>Egyptian, by season and king</item>
+    </string-array>
+    <string-array name="sundial_calendar_values" translatable="false">
+        <item>gregorian</item>
+        <item>julian</item>
+        <item>egyptian</item>
+    </string-array>
 </resources>

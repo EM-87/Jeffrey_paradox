@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,7 +47,13 @@ class SundialShotTest {
         at: Long = juneAfternoon(),
         compass: Boolean = false,
         bearing: Double? = null,
-        theme: ClockTheme = ClockThemes.IVORY
+        theme: ClockTheme = ClockThemes.IVORY,
+        motto: Boolean = true,
+        showDate: Boolean = false,
+        reckoning: Sundial.Reckoning = Sundial.Reckoning.GREGORIAN,
+        outside: Weather.Sky? = null,
+        w: Int = 1000,
+        h: Int = 1000
     ): SundialView = SundialView(context).apply {
         this.theme = theme
         this.kind = kind
@@ -55,12 +62,16 @@ class SundialShotTest {
         longitude = -3.7
         this.compass = compass
         phoneBearing = bearing
+        this.motto = motto
+        this.showDate = showDate
+        this.reckoning = reckoning
+        this.outside = outside
         atMs = at
         measure(
-            View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY)
+            View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY)
         )
-        layout(0, 0, 1000, 1000)
+        layout(0, 0, w, h)
     }
 
     private fun shoot(view: View, name: String): Int {
@@ -175,5 +186,203 @@ class SundialShotTest {
         assertTrue(
             shoot(dial(theme = ClockThemes.MIDNIGHT), "sundial-midnight") > 3
         )
+    }
+
+    /** A sky with everything in it, for the pedestal's two instruments. */
+    private fun weather(
+        hPa: Double, celsius: Double, trust: Weather.Trust = Weather.Trust.AGREED
+    ) = Weather.Sky(
+        temperatureC = Weather.Agreed(celsius, trust),
+        pressureHpa = Weather.Agreed(hPa, trust),
+        cloudPercent = Weather.Agreed(20.0, trust),
+        answered = if (trust == Weather.Trust.AGREED) 3 else 1,
+        atMs = juneAfternoon()
+    )
+
+    /**
+     * The glass and the thermometer, in the four states worth looking at.
+     *
+     * A pedestal is not a number: whether these read as two brass
+     * instruments or as two diagrams is a thing only a picture can say,
+     * and the four here are the ones that look different — a high glass
+     * on a hot day, a low one in the cold, an unconfirmed reading drawn
+     * faint, and the wall dial, which hangs the other way up and keeps
+     * them in the same place anyway.
+     */
+    @Test
+    fun `the pedestal carries a glass and a thermometer`() {
+        val phone = 1000 to 1900
+        assertTrue(
+            shoot(
+                dial(outside = weather(1024.0, 27.0), w = phone.first, h = phone.second),
+                "sundial-glass-fair"
+            ) > 3
+        )
+        assertTrue(
+            shoot(
+                dial(outside = weather(974.0, -4.0), w = phone.first, h = phone.second),
+                "sundial-glass-stormy"
+            ) > 3
+        )
+        assertTrue(
+            shoot(
+                dial(
+                    outside = weather(1002.0, 14.0, Weather.Trust.LONE),
+                    w = phone.first, h = phone.second
+                ),
+                "sundial-glass-lone"
+            ) > 3
+        )
+        assertTrue(
+            shoot(
+                dial(
+                    kind = Sundial.Kind.VERTICAL, outside = weather(1013.0, 18.0),
+                    w = phone.first, h = phone.second
+                ),
+                "sundial-glass-wall"
+            ) > 3
+        )
+        // And on the dark theme, which is what most of this app wears.
+        assertTrue(
+            shoot(
+                dial(
+                    theme = ClockThemes.MIDNIGHT, outside = weather(1030.0, 31.0),
+                    w = phone.first, h = phone.second
+                ),
+                "sundial-glass-midnight"
+            ) > 3
+        )
+    }
+
+    /**
+     * The pedestal is drawn from the reading, is switched off with its
+     * row, and is not there at all before anybody asks for the weather.
+     *
+     * The pictures above say it looks like two instruments. This says it
+     * is two instruments — that the needle and the column are wired to
+     * numbers rather than drawn at a pleasant angle, which is exactly the
+     * failure a screenshot cannot see.
+     */
+    @Test
+    fun `the pedestal follows the reading and goes with its switch`() {
+        val tall = 1900
+        val band = (1250 to 1800)
+        val bare = pixels(dial(w = 1000, h = tall))
+        val fair = pixels(dial(outside = weather(1024.0, 27.0), w = 1000, h = tall))
+        assertTrue(
+            "nothing was drawn under the plate for a sky that had a reading",
+            differ(bare, fair, band.first, band.second) > 400
+        )
+        // A different sky is a different pedestal: a needle and a column
+        // drawn at a fixed angle would pass everything above this line.
+        val storm = pixels(dial(outside = weather(974.0, -4.0), w = 1000, h = tall))
+        assertTrue(
+            "the needle and the column did not move with the weather",
+            differ(fair, storm, band.first, band.second) > 200
+        )
+        // And the row takes them away.
+        val off = SundialView(context).apply {
+            theme = ClockThemes.IVORY
+            latitude = 40.4
+            longitude = -3.7
+            atMs = juneAfternoon()
+            outside = weather(1024.0, 27.0)
+            instruments = false
+            measure(
+                View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(tall, View.MeasureSpec.EXACTLY)
+            )
+            layout(0, 0, 1000, tall)
+        }
+        assertEquals(
+            "switched off, something was still standing under the plate",
+            0, differ(bare, pixels(off), band.first, band.second)
+        )
+    }
+
+    /** One view, drawn. */
+    private fun pixels(view: View): Bitmap =
+        Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888).also {
+            view.draw(Canvas(it))
+        }
+
+    /**
+     * How many pixels of a band two drawings disagree about.
+     *
+     * Counting ink instead was the first attempt and it measured nothing:
+     * "not the background colour" is true of the whole plate, so a band
+     * across the plate came to the same 41,130 pixels whether the date was
+     * cut into it or not, and the test passed the broken code and the
+     * fixed code identically. A difference between two pictures cannot go
+     * wrong that way — it is nought exactly when the two are the same
+     * picture, which is the thing being claimed.
+     */
+    private fun differ(a: Bitmap, b: Bitmap, top: Int, bottom: Int): Int {
+        var n = 0
+        for (y in top until bottom) {
+            for (x in 0 until a.width) if (a.getPixel(x, y) != b.getPixel(x, y)) n++
+        }
+        return n
+    }
+
+    /**
+     * The date is cut under the plate whether or not the motto is.
+     *
+     * Two rows on two different screens, and for eleven versions one of
+     * them quietly governed the other: the engraving bailed out on the
+     * motto before it ever reached the date, so somebody who turned the
+     * Latin off lost the date with it and had no way of telling why. The
+     * only clue was that the row for the Julian calendar underneath went
+     * on working on a date that was no longer there.
+     *
+     * Measured in the band where the date is cut rather than counted
+     * across the whole picture: a dial without a motto is a dial with a
+     * whole inscription missing, so the difference the picture makes is
+     * enormous and would have swamped a date.
+     */
+    @Test
+    fun `the date survives the motto being turned off`() {
+        val top = 800
+        val bottom = 880
+        val without = differ(
+            pixels(dial(motto = false, showDate = false)),
+            pixels(dial(motto = false, showDate = true)),
+            top, bottom
+        )
+        assertTrue(
+            "the date switch changes nothing while the motto is off: $without pixels",
+            without > 300
+        )
+        // And it is still there with the motto on, so this did not fix one
+        // by breaking the other.
+        val with = differ(
+            pixels(dial(motto = true, showDate = false)),
+            pixels(dial(motto = true, showDate = true)),
+            top, bottom
+        )
+        assertTrue("the date went missing with the motto on: $with pixels", with > 300)
+        // The same date, cut in the same place, whatever the rim says.
+        assertEquals("the two dates are not the same date", without, with)
+        assertTrue(shoot(dial(motto = false, showDate = true), "sundial-date-no-motto") > 3)
+    }
+
+    /**
+     * The date cut in all three calendars, so somebody can look at them.
+     *
+     * "II Akhet 15" is longer than "XXI · VI" and is the reason to take a
+     * picture rather than to trust the string: a label wide enough to run
+     * into the hour numerals either side of it is a label that is wrong
+     * whatever it says.
+     */
+    @Test
+    fun `the date in all three calendars`() {
+        for (reckoning in Sundial.Reckoning.entries) {
+            assertTrue(
+                shoot(
+                    dial(showDate = true, reckoning = reckoning),
+                    "sundial-date-${reckoning.key}"
+                ) > 3
+            )
+        }
     }
 }

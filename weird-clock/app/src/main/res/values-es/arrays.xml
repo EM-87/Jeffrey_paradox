@@ -95,4 +95,16 @@
         <item>day_first</item>
         <item>month_first</item>
     </string-array>
+
+    <!-- En qu\u00e9 calendario se lee la fecha del reloj de sol. -->
+    <string-array name="sundial_calendar_entries">
+        <item>El nuestro (gregoriano)</item>
+        <item>Juliano, como se grab\u00f3 la piedra</item>
+        <item>Egipcio, por estaci\u00f3n y rey</item>
+    </string-array>
+    <string-array name="sundial_calendar_values" translatable="false">
+        <item>gregorian</item>
+        <item>julian</item>
+        <item>egyptian</item>
+    </string-array>
 </resources>

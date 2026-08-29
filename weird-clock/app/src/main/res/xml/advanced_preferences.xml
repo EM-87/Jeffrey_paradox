@@ -109,6 +109,15 @@
             android:summary="@string/pref_hemisphere_meridians_summary"
             android:title="@string/pref_hemisphere_meridians_title" />
 
+        <!-- The one thing on this face that is downloaded rather than
+             computed. Faded while the weather is off, since that is the
+             switch that lets anything here open a socket at all. -->
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_hemisphere_clouds"
+            android:summary="@string/pref_hemisphere_clouds_summary"
+            android:title="@string/pref_hemisphere_clouds_title" />
+
         <!-- The sundial's own rows. Every one of them is about the
              instrument rather than about the time, which is why they are
              here and not on the first screen — except the latitude,
@@ -162,17 +171,32 @@
             android:summary="@string/pref_sundial_halves_summary"
             android:title="@string/pref_sundial_halves_title" />
 
-        <SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:key="pref_sundial_julian"
-            android:summary="@string/pref_sundial_julian_summary"
-            android:title="@string/pref_sundial_julian_title" />
+        <!-- Three calendars, where there was a switch for one. The old
+             yes-or-no is still written down on every phone that turned it
+             on, and Sundial.Reckoning.of reads it. -->
+        <ListPreference
+            android:defaultValue="gregorian"
+            android:entries="@array/sundial_calendar_entries"
+            android:entryValues="@array/sundial_calendar_values"
+            android:key="pref_sundial_calendar"
+            android:title="@string/pref_sundial_calendar_title"
+            app:useSimpleSummaryProvider="true" />
 
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="pref_sundial_motto"
             android:summary="@string/pref_sundial_motto_summary"
             android:title="@string/pref_sundial_motto_title" />
+
+        <!-- The other two instruments off the same pedestal. Faded rather
+             than hidden while the weather is off, because the weather
+             switch is two screens away and a row that vanishes that far
+             from its cause reads as a setting the app has lost. -->
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_sundial_glass"
+            android:summary="@string/pref_sundial_glass_summary"
+            android:title="@string/pref_sundial_glass_title" />
 
         <!-- What survives when the phone goes on its side and the clock
              takes the screen. Off by default: full screen was asked for

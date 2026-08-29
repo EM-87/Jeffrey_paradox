@@ -123,6 +123,31 @@ class FadedRowTest {
         assertEquals("and never came back", 1f, lit!!, 0.001f)
     }
 
+    /**
+     * And the calendar row waits on there being a date to write.
+     *
+     * It went on standing at full strength on a plate with nothing cut
+     * into it, offering three ways of spelling a date that was not there —
+     * the twin of the drawing bug found the same afternoon, where the
+     * motto switch was silently taking the date away with it.
+     */
+    @Test
+    fun `the calendar row fades while the dial shows no date`() {
+        val name = context.getString(R.string.pref_sundial_calendar_title)
+        PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
+            .putBoolean(Prefs.OVERLAY_ASKED, true)
+            .putBoolean(Prefs.FACE_ASKED, true)
+            .putString(Prefs.FACE, Face.SUNDIAL.key)
+            .putBoolean(Prefs.SHOW_DATE, false)
+            .commit()
+        val dateless = advancedAlphaOf(name)
+        assertNotNull("the calendar row is not on the sundial's advanced screen", dateless)
+        assertTrue("it stayed bright with no date to spell: $dateless", dateless!! < 0.99f)
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+            .putBoolean(Prefs.SHOW_DATE, true).commit()
+        assertEquals("and never came back", 1f, advancedAlphaOf(name)!!, 0.001f)
+    }
+
     /** The same reading, on the screen behind the first one. */
     private fun advancedAlphaOf(title: String): Float? {
         val controller = Robolectric.buildActivity(SettingsActivity::class.java).setup()
