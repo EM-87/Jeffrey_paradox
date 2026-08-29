@@ -206,7 +206,7 @@ class DigitalClockView @JvmOverloads constructor(
 
     private val card = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    /** The one engine all three lit displays go through. */
+    /** The one engine every lit display goes through. */
     private val segments = SegmentPainter()
 
     /**
@@ -470,11 +470,13 @@ class DigitalClockView @JvmOverloads constructor(
             if (style == DigitStyle.SEGMENT) Segments.span(kind(), cell.text)
             else cell.text.length.toFloat()
         // Punctuation, which closes ranks with the groups either side of
-        // it. It was a whole module on Rome's display, back when Rome's
-        // module wrote the time and lighting its dot was what made
-        // VII\u00b7XII read as one instrument — see [dotSeparator].
-        Cell.Colon -> if (dotSeparator()) 1f else 0.34f
-        Cell.Slash -> if (dotSeparator()) 1f else 0.5f
+        // it. It was a whole module on Rome's display for a while — back
+        // when Rome's module wrote the *time*, and lighting the dot inside
+        // a module of its own was what made VII\u00b7XII read as one
+        // instrument. Rome writes the date now, on a rail of its own, and
+        // nothing on this face wants a module for a colon any more.
+        Cell.Colon -> 0.34f
+        Cell.Slash -> 0.5f
         is Cell.Token -> 1f
     }
 
@@ -505,18 +507,6 @@ class DigitalClockView @JvmOverloads constructor(
      */
     private fun barWidth(digitH: Float): Float =
         digitH * Segments.native(kind()) * weight * 1.6f
-
-    /**
-     * Whether the separator is a module of its own rather than two dots.
-     *
-     * It was, while Rome's module wrote the time: a dot lit inside a
-     * module of its own is what the drawing does, and it made `VII·XII`
-     * read as one instrument. Rome writes the date now and the time is
-     * the calculator's, whose own drawing puts two round lamps between
-     * the groups — so nothing on this face wants a module any more. The
-     * function stays because the rails still spell their dots that way.
-     */
-    private fun dotSeparator(): Boolean = false
 
     /**
      * How wide a cell is against its own height.
@@ -674,9 +664,11 @@ class DigitalClockView @JvmOverloads constructor(
         // smaller clock — but reserving for both of them always made the
         // time a third smaller than it needed to be on a panel showing
         // neither, which is most of the day on a twenty-four hour clock.
-        val lamps = if (!panel) 0 else
-            (if (nextAlarmMs != null && !chip) 1 else 0) +
-                (if (CometPanel.moonLit(hourNow(), hour24)) 1 else 0)
+        // Worked out once. Both of these ask the calendar what hour it is,
+        // and this runs every frame.
+        val bellLit = panel && nextAlarmMs != null && !chip
+        val moonLit = panel && CometPanel.moonLit(hourNow(), hour24)
+        val lamps = (if (bellLit) 1 else 0) + (if (moonLit) 1 else 0)
         val widest = maxOf(
             rowWidth(cells) + lamps * lampRoom(),
             // The day sits beside the date, so the pair of them is one row
@@ -733,7 +725,9 @@ class DigitalClockView @JvmOverloads constructor(
         rails?.let { drawRail(canvas, it.first, top, railH) }
         drawRow(canvas, cells, timeTop, digitW, digitH, "t")
         rails?.let { drawRail(canvas, it.second, timeTop + digitH + railGap, railH) }
-        if (panel) drawLamps(canvas, timeTop, digitW, digitH, rowWidth(cells) * digitW)
+        if (panel) {
+            drawLamps(canvas, timeTop, digitW, digitH, rowWidth(cells) * digitW, bellLit, moonLit)
+        }
         if (date.isNotEmpty()) {
             drawDateLine(
                 canvas, date, day, timeTop + digitH + digitH * DATE_GAP,
@@ -781,13 +775,12 @@ class DigitalClockView @JvmOverloads constructor(
      * belong to them. Which language it is in is [Weekday]'s question and
      * not this one's.
      *
-     * Drawn in print where it is a word, because two of the four alphabets
-     * here have no letters at all — the sixteen-bar module can write eight
-     * Roman numerals and nothing else. Where it is a *number*, which is
-     * what a display with no letters falls back to, it goes in that
-     * display's own bars and turned down: a lone digit in the phone's type
-     * beside a date made of lit metal is two clocks on one line, which is
-     * exactly what the first picture of the Comet face showed.
+     * Drawn in print, always. There was a second path here that drew it in
+     * the display's own bars, for the one script whose weekday was a
+     * *number* — and that script is gone: it is half of the panel now, and
+     * the panel writes its date on rails and has no weekday at all, since
+     * Rome's module has no letters for one. So this is the print path and
+     * nothing else, which is what it was before the Comet arrived.
      */
     private fun drawDateLine(
         canvas: Canvas,
@@ -799,10 +792,6 @@ class DigitalClockView @JvmOverloads constructor(
     ) {
         if (day == null) {
             drawRow(canvas, date, top, digitW, digitH, "d")
-            return
-        }
-        if (script.barsOnly) {
-            drawDayInBars(canvas, date, day, top, digitW, digitH)
             return
         }
         ink.typeface = if (script == DigitScript.YAUTJA) yautja ?: PRINT else PRINT
@@ -865,11 +854,18 @@ class DigitalClockView @JvmOverloads constructor(
     /**
      * The two lamps at the ends of the panel: an alarm, and a moon.
      *
-     * The bell says something the line under the clock cannot: whether
-     * anything at all is armed. That is a different question from what
-     * time it goes off, which is what the next-alarm row is for and which
-     * has its own switch — so this one is not governed by it. A lamp that
-     * only lights when you have also asked for a caption is not a lamp.
+     * The bell follows the same switch the line under the clock does, and
+     * the KDoc here said the opposite for one build: "a different
+     * question, so not governed by it". It is governed by it — the face is
+     * only ever told when the next alarm is when that switch is on — and a
+     * comment claiming otherwise is worse than no comment, because the
+     * next person to read it stops checking.
+     *
+     * Which turns out to be the better rule anyway. The switch means "does
+     * this clock talk about my alarm", and on this panel it talks about it
+     * the way the drawing does: a lamp at the end of the time rather than
+     * a line of text. The line is still underneath saying *when*, with its
+     * own bell taken off, because two bells is one alarm drawn twice.
      *
      * The moon is the panel's whole answer to which half of the day this
      * is. The drawing gives it one lamp and no sun, so it lights before
@@ -880,17 +876,23 @@ class DigitalClockView @JvmOverloads constructor(
      * the wifi fan beside them are for a machine that is not this phone.
      */
     private fun drawLamps(
-        canvas: Canvas, top: Float, digitW: Float, digitH: Float, timeWide: Float
+        canvas: Canvas,
+        top: Float,
+        digitW: Float,
+        digitH: Float,
+        timeWide: Float,
+        bell: Boolean,
+        moon: Boolean
     ) {
         val left = (width - timeWide) / 2f
         val cy = top + digitH / 2f
-        if (nextAlarmMs != null && !chip) {
+        if (bell) {
             drawIcon(
                 canvas, CometPanel.BELL, digitH * BELL_WIDE, digitH * BELL_TALL,
                 left - digitW * CometPanel.LAMP_GAP - digitH * BELL_WIDE, cy
             )
         }
-        if (CometPanel.moonLit(hourNow(), hour24)) {
+        if (moon) {
             drawIcon(
                 canvas, CometPanel.MOON, digitH * MOON_SIDE, digitH * MOON_SIDE,
                 left + timeWide + digitW * CometPanel.LAMP_GAP, cy
@@ -925,45 +927,14 @@ class DigitalClockView @JvmOverloads constructor(
         lit.style = was
     }
 
-    /** The hour this face is showing, for the lamp that names the half-day. */
-    private fun hourNow(): Int =
-        calendar().apply { timeInMillis = nowMs() }.get(java.util.Calendar.HOUR_OF_DAY)
-
     /**
-     * The day of the week as a number, in the display's own metal.
+     * The hour this face is showing, for the lamp that names the half-day.
      *
-     * No ghosts behind it. A single unlit module beside the date would
-     * read as a place the date had lost a digit out of, which is the one
-     * thing a ghost is there to stop happening.
+     * Through [calendar], which is already wound to now and already in this
+     * readout's own zone — so a world clock's panel says morning when it is
+     * morning there.
      */
-    private fun drawDayInBars(
-        canvas: Canvas,
-        date: List<Cell>,
-        day: String,
-        top: Float,
-        digitW: Float,
-        digitH: Float
-    ) {
-        val kind = kind()
-        val masks = Segments.spell(kind, day)
-        if (masks.isEmpty()) {
-            drawRow(canvas, date, top, digitW, digitH, "d")
-            return
-        }
-        val label = Segments.span(kind, day) * digitW
-        val gap = digitH * WEEKDAY_GAP
-        val left = (width - (label + gap + rowWidth(date) * digitW)) / 2f
-        segments.weight = weight
-        segments.ghosts = false
-        segments.litAlpha = WEEKDAY_ALPHA
-        segments.row(
-            canvas, kind, masks, left, top, label, digitH,
-            theme.decimal, theme.minorTick
-        )
-        segments.litAlpha = 255
-        segments.ghosts = ghosts
-        drawRow(canvas, date, top, digitW, digitH, "d", leftEdge = left + label + gap)
-    }
+    private fun hourNow(): Int = calendar().get(java.util.Calendar.HOUR_OF_DAY)
 
     /** What time the next alarm goes off, in this face's own numerals. */
     private fun alarmCells(atMs: Long): List<Cell> {
@@ -1135,19 +1106,8 @@ class DigitalClockView @JvmOverloads constructor(
                         drawHandles(canvas, x + w / 2f, top, digitH)
                     }
                 }
-                // Rome's separator is a module with its dot lit, which is
-                // what the drawing does and what makes VII·XII read as one
-                // instrument rather than as two with a colon between them.
-                Cell.Colon -> if (dotSeparator()) {
-                    drawAsSegments(canvas, "·", x, top, w, digitH, "$tag$i")
-                } else {
-                    drawColon(canvas, x + w / 2f, top, digitH)
-                }
-                Cell.Slash -> if (dotSeparator()) {
-                    drawAsSegments(canvas, "·", x, top, w, digitH, "$tag$i")
-                } else {
-                    drawSlash(canvas, x, top, w, digitH)
-                }
+                Cell.Colon -> drawColon(canvas, x + w / 2f, top, digitH)
+                Cell.Slash -> drawSlash(canvas, x, top, w, digitH)
                 is Cell.Token -> drawToken(canvas, cell.sun, x + w / 2f, top, digitH)
             }
             x += w + gapAfter(cells, i) * digitW
@@ -1213,10 +1173,10 @@ class DigitalClockView @JvmOverloads constructor(
     }
 
     /**
-     * Bars behind a mask, on whichever of the three displays this script
-     * belongs to — see [Segments].
+     * Bars behind a mask, on whichever display this script writes its
+     * numbers on — see [Segments].
      *
-     * All three are lit now. Their numerals were a font here until the
+     * Every one of them is lit now. Theirs were a font here until the
      * chart they come from was read arm by arm; a font is a picture of a
      * display, and the one script on this clock that could not have an
      * unlit bar behind it, could not be poked and could not be made

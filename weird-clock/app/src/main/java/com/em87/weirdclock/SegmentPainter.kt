@@ -8,7 +8,7 @@ import kotlin.math.hypot
 /**
  * Draws the displays [Segments] describes.
  *
- * One painter for all three, because a bar is a bar: a stamped sliver of
+ * One painter for all four, because a bar is a bar: a stamped sliver of
  * metal or a cut in a mask, wider in the middle than at its ends, stopping
  * a hair short of whatever it points at. That hair is the display — take
  * it away where four diagonals cross and the `X` stops being four bars and
@@ -32,7 +32,7 @@ class SegmentPainter {
      * How thick the bars are, as a multiple of what the display was drawn
      * at — see [Segments.native].
      *
-     * A multiple and not a share of the module, because the three displays
+     * A multiple and not a share of the module, because the four displays
      * were not drawn to the same weight and one number cannot be "normal"
      * on all of them. Rome's came out of a file with its thickness in it;
      * setting this to one is that display at 1:1 and nothing else.
@@ -44,16 +44,6 @@ class SegmentPainter {
 
     /** How faint they are when they are. */
     var ghostAlpha: Int = 34
-
-    /**
-     * How bright the lit ones are, for a row that is not the headline.
-     *
-     * The day of the week beside a date, on a display with no letters in
-     * it: the same bars as everything else, turned down, because a
-     * weekday drawn at the strength of the reading reads as another two
-     * digits of it.
-     */
-    var litAlpha: Int = 255
 
     private val path = Path()
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -85,7 +75,7 @@ class SegmentPainter {
         for (stroke in Segments.plan(kind, masks, burnt)) {
             if (!stroke.lit && !ghosts) continue
             paint.color = if (stroke.lit) lit else dark
-            paint.alpha = if (stroke.lit) litAlpha else ghostAlpha
+            paint.alpha = if (stroke.lit) 255 else ghostAlpha
             val bar = stroke.bar
             val at = x + stride * stroke.at
             if (bar.dot) {

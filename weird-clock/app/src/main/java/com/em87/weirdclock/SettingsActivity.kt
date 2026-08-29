@@ -520,6 +520,21 @@ class SettingsActivity : AppCompatActivity() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.root_preferences, rootKey)
             keepOnlyFor(face())
+            // The day of the week, which one of the numerals cannot write.
+            // The panel's date is a rail of Rome's module, Rome's module
+            // has eight letters in it, and every Latin day name wants one
+            // it has not got — see [CometPanel.rails].
+            //
+            // Registered here and not beside the numerals it depends on,
+            // which is two screens away: the fading is looked up on the
+            // screen the *row* is on, so a rule written next to its cause
+            // rather than next to its effect never fires at all. It was,
+            // for one build.
+            dimmedUnless(Prefs.SHOW_WEEKDAY) {
+                DigitScript.of(
+                    preferenceManager.sharedPreferences?.getString(Prefs.DIGIT_SCRIPT, null)
+                ) != DigitScript.ROMAN_COMET
+            }
             // Changing the face changes what every screen is *about*, so
             // the screens are built again rather than edited in place.
             // Without this the row above says "digits" while the fifty rows
@@ -761,15 +776,6 @@ class SettingsActivity : AppCompatActivity() {
             )
             dimmedWhen(Prefs.ALARM_MARKERS, Prefs.MARK_COLORS)
             dimmedWhen(Prefs.ORRERY, Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC)
-            // And the day of the week, which the panel cannot write: its
-            // date rail is Rome's module and none of the Latin day names
-            // fit inside the eight letters that module has — see
-            // [CometPanel.rails].
-            dimmedUnless(Prefs.SHOW_WEEKDAY) {
-                DigitScript.of(
-                    preferenceManager.sharedPreferences?.getString(Prefs.DIGIT_SCRIPT, null)
-                ) != DigitScript.ROMAN_COMET
-            }
 
             // The shadows need a place to put the sun over. Without one
             // they still work, from a middle latitude, and the row says so
