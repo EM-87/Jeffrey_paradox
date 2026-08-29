@@ -400,8 +400,17 @@ object FaceOptions {
      * about whether this clock counts that far.
      */
     fun titleFor(face: Face, key: String): Int? = when {
-        key == Prefs.SECOND_HAND && face == Face.DIGITAL -> R.string.pref_seconds_title
-        key == Prefs.TICKING && face == Face.DIGITAL -> R.string.pref_ticking_digital_title
+        // Every face without hands, and not only the digits. This said
+        // `== DIGITAL` for five versions, and in that time a face made of
+        // planet arrived with the same two rows on it: an inventory of
+        // the built menus showed the turning world offering a *second
+        // hand* and a tick, under a heading that had already been
+        // carefully renamed to "The world". The seconds are real there —
+        // the alarm list and the two chronographs have screens — but a
+        // hand is not, and the test that forbids a handless face from
+        // naming hands was looking for the plural.
+        key == Prefs.SECOND_HAND && !face.hands -> R.string.pref_seconds_title
+        key == Prefs.TICKING && !face.hands -> R.string.pref_ticking_digital_title
         // Headings too. "Dial" over three rows that still apply is the app
         // not having noticed which clock it is.
         (key == CAT_DIAL || key == CAT_DIAL_DEEP) && face == Face.DIGITAL ->

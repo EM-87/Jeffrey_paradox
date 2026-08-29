@@ -757,6 +757,15 @@ class HandShadowTest {
         val standing = v.shadowsPaintedForTest()
         assertTrue("nothing was casting to begin with", standing > 0)
         v.knockHandsOff()
+        // Wound back to noon, because knocking the hands off throws the
+        // winding away — which is right, since a dial with its hands on
+        // the floor is not showing a time any more — and that includes
+        // the frozen one a test set. Without this line the light on the
+        // dial is the light outside the machine running the test, so
+        // this passed all day and failed after sunset at forty north,
+        // which is a test that reads the real sky and reports it as a
+        // fault in the drawing.
+        v.freezeAtForTest(utc(2026, 6, 21, 12))
         paint(v)
         assertTrue(
             "the fallen hands went out with the light",

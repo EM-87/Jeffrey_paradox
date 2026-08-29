@@ -207,8 +207,13 @@ class FaceMenuTest {
         // furniture, and a summary saying so is describing the object
         // rather than borrowing another face's word. What it has not got
         // is hands, and that half of the rule still applies to it.
-        for (word in if (face == Face.SUNDIAL) listOf("hands", "agujas")
-                     else listOf("dial", "hands", "esfera", "agujas"))
+        // Singular as well as plural, which is the hole this had in it:
+        // "Second hand" was on the turning world's own menu for five
+        // versions and slipped past a list that only knew "hands". The
+        // one honest singular is "by hand" — setting the latitude, or the
+        // clock — so that phrase is taken out before looking.
+        for (word in if (face == Face.SUNDIAL) listOf("hand", "aguja")
+                     else listOf("dial", "hand", "esfera", "aguja"))
         for (fragment in screensOf(face)) {
             val screen = fragment.preferenceScreen
             fun walk(group: PreferenceGroup) {
@@ -219,6 +224,7 @@ class FaceMenuTest {
                     // place. "Hands, or digits" is what it is for.
                     if (row.key == Prefs.FACE) continue
                     val said = "${row.title} ${row.summary}".lowercase()
+                        .replace("by hand", "").replace("a mano", "")
                     assertFalse(
                         "$face — ${row.key}: [${row.title}] [${row.summary}]",
                         said.contains(word)
