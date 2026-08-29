@@ -538,6 +538,8 @@
     <string name="pref_hemisphere_view_title">Cómo se ve el mundo</string>
     <string name="pref_hemisphere_sun_at_title">Dónde está el sol</string>
     <string name="pref_hemisphere_sun_at_summary">Grados desde la derecha, que es donde le corresponde</string>
+    <string name="pref_hemisphere_compass_title">Apuntar al sol con el móvil</string>
+    <string name="pref_hemisphere_compass_summary">Sostenlo plano y gira hasta que la imagen coincida con el cielo. La mitad iluminada es de donde viene la luz, y el punto mira hacia donde miras tú</string>
     <string name="pref_hemisphere_ring_title">Anillo de horas</string>
     <string name="pref_hemisphere_ring_summary">Veinticuatro horas solares alrededor del mundo</string>
     <string name="pref_hemisphere_numbers_title">Números en el anillo</string>

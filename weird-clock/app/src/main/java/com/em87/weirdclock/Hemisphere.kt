@@ -263,6 +263,45 @@ object Hemisphere {
     }
 
     /**
+     * How coarsely a compass reading is taken, in degrees.
+     *
+     * A phone lying still on a table reports a bearing that wanders a
+     * degree or two, and a world that twitches while nobody is touching it
+     * is a world that looks broken. Rounding the reading is what stops
+     * that.
+     *
+     * It also happens to be what makes the globe affordable. That view is
+     * a sphere, so turning it is not turning a finished picture — the map
+     * has to be projected again, a quarter of a million points of it, and
+     * it is already only redrawn every degree and a half. Handing it a raw
+     * compass would have it doing that several times a second for as long
+     * as the phone is in a hand.
+     */
+    const val STEADY = 5.0
+
+    /** A compass reading, rounded until it holds still. */
+    fun steady(degrees: Double): Double = Math.round(degrees / STEADY) * STEADY
+
+    /**
+     * Where the sun belongs on the disc when the phone is doing the
+     * pointing.
+     *
+     * The other way of using this face: instead of nailing the sun to one
+     * side of the screen and reading the dot against it, hold the phone
+     * flat and turn until the picture agrees with the sky. The sun on
+     * screen then really is in the direction of the sun, the lit half of
+     * the world is the half the light is coming from, and the red dot is
+     * standing where you are standing, facing the way you are facing.
+     *
+     * Screen up is wherever the phone's top points, so the sun's place on
+     * screen is how far round the sun is from that — and [sunAtDeg] is
+     * measured from the right rather than from the top, anticlockwise,
+     * which is the quarter turn in here.
+     */
+    fun sunAtFrom(phoneBearingDeg: Double, sunAzimuthDeg: Double): Double =
+        wrap(90.0 - (sunAzimuthDeg - steady(phoneBearingDeg)))
+
+    /**
      * The angular distance between two places, in degrees.
      *
      * For the dot: a place on the far side of a globe is behind the world

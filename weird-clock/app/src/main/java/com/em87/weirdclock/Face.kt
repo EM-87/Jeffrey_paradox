@@ -367,6 +367,7 @@ object FaceOptions {
     private val hemisphereOnly = setOf(
         Prefs.HEMISPHERE_VIEW,
         Prefs.HEMISPHERE_SUN_AT,
+        Prefs.HEMISPHERE_COMPASS,
         Prefs.HEMISPHERE_RING,
         Prefs.HEMISPHERE_NUMBERS,
         Prefs.HEMISPHERE_MERIDIANS

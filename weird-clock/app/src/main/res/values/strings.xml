@@ -674,6 +674,8 @@
     <string name="pref_hemisphere_view_title">How the world is seen</string>
     <string name="pref_hemisphere_sun_at_title">Where the sun sits</string>
     <string name="pref_hemisphere_sun_at_summary">Degrees round from the right, which is where it belongs</string>
+    <string name="pref_hemisphere_compass_title">Point the phone at the sun</string>
+    <string name="pref_hemisphere_compass_summary">Hold it flat and turn until the picture agrees with the sky. The lit half is the half the light is coming from, and the dot faces the way you do</string>
     <string name="pref_hemisphere_ring_title">Ring of hours</string>
     <string name="pref_hemisphere_ring_summary">Twenty-four solar hours round the world</string>
     <string name="pref_hemisphere_numbers_title">Numbers on the ring</string>

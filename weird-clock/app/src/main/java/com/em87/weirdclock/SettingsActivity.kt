@@ -776,6 +776,14 @@ class SettingsActivity : AppCompatActivity() {
             )
             dimmedWhen(Prefs.ALARM_MARKERS, Prefs.MARK_COLORS)
             dimmedWhen(Prefs.ORRERY, Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC)
+            // Where the sun is nailed means nothing while the phone is
+            // doing the pointing. Registered on this screen because that
+            // is the screen both rows are on — see [FadedRowTest], which
+            // exists because this rule was once written on the wrong one.
+            dimmedUnless(Prefs.HEMISPHERE_SUN_AT) {
+                preferenceManager.sharedPreferences
+                    ?.getBoolean(Prefs.HEMISPHERE_COMPASS, false) != true
+            }
 
             // The shadows need a place to put the sun over. Without one
             // they still work, from a middle latitude, and the row says so

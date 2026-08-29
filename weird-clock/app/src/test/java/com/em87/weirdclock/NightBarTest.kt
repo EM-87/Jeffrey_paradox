@@ -269,6 +269,7 @@ class NightBarTest {
                 "pref_digit_style", "pref_digit_script", "pref_hour_24",
                 "pref_leading_zero", "pref_blink_colon",
                 "pref_hemisphere_view", "pref_hemisphere_sun_at",
+                "pref_hemisphere_compass",
                 "pref_hemisphere_ring", "pref_hemisphere_numbers",
                 "pref_hemisphere_meridians",
                 "pref_sundial_kind", "pref_sundial_plate",

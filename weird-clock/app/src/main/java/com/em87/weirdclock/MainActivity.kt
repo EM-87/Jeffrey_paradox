@@ -2329,12 +2329,26 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private var bearingListener: android.hardware.SensorEventListener? = null
 
+    /** Whether the turning world is being pointed rather than nailed. */
+    private fun worldIsPointing(): Boolean =
+        hemisphereView != null &&
+            prefs.getBoolean(Prefs.HEMISPHERE_COMPASS, false) &&
+            DayNight.hasFix()
+
     private fun listenForBearing(wanted: Boolean) {
         val sensors = sensorManager ?: return
         if (!wanted) {
             bearingListener?.let { sensors.unregisterListener(it) }
             bearingListener = null
             sundialView?.phoneBearing = null
+            // And the world goes back to wherever the setting nails the
+            // sun, rather than keeping the last bearing it happened to
+            // hear before the switch went off.
+            //
+            // Set here rather than by asking the preferences to be applied
+            // again, which is where the two of them called each other
+            // round and round until the stack ran out.
+            hemisphereView?.sunAt = prefs.getInt(Prefs.HEMISPHERE_SUN_AT, 0).toDouble()
             return
         }
         if (bearingListener != null) return
@@ -2348,6 +2362,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 android.hardware.SensorManager.getOrientation(matrix, angles)
                 val degrees = (Math.toDegrees(angles[0].toDouble()) + 360.0) % 360.0
                 sundialView?.phoneBearing = degrees
+                // The same reading, doing a different job: on the sundial
+                // it is an arrow saying which way to turn, and on the
+                // world it turns the picture so the sun on screen is the
+                // sun in the sky — see [Hemisphere.sunAtFrom].
+                hemisphereView?.let { world ->
+                    if (!DayNight.hasFix()) return@let
+                    val sun = SolarTime.position(
+                        DayNight.latitudeNow(), DayNight.longitudeNow(), TimeKeeper.nowMs()
+                    )
+                    world.sunAt = Hemisphere.sunAtFrom(degrees, sun.azimuthDeg)
+                }
             }
 
             override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) = Unit
@@ -4019,7 +4044,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         dial.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
         dial.julian = prefs.getBoolean(Prefs.SUNDIAL_JULIAN, false)
         dial.compass = prefs.getBoolean(Prefs.SUNDIAL_COMPASS, false)
-        listenForBearing(dial.compass)
+        // One listener, two faces. Whichever of them wants it keeps it on.
+        listenForBearing(dial.compass || worldIsPointing())
     }
 
     /**
@@ -4036,7 +4062,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         world.view = Hemisphere.View.entries
             .firstOrNull { it.key == prefs.getString(Prefs.HEMISPHERE_VIEW, null) }
             ?: Hemisphere.View.NORTH
-        world.sunAt = prefs.getInt(Prefs.HEMISPHERE_SUN_AT, 0).toDouble()
+        // Nailed down, or pointed. Pointed needs a fix — the sun's bearing
+        // is a fact about where you are standing — so a phone that has
+        // never had one falls back to the setting rather than putting the
+        // sun in a confidently wrong place.
+        val pointing = prefs.getBoolean(Prefs.HEMISPHERE_COMPASS, false) && DayNight.hasFix()
+        if (!pointing) world.sunAt = prefs.getInt(Prefs.HEMISPHERE_SUN_AT, 0).toDouble()
+        listenForBearing(pointing || (sundialView?.compass ?: false))
         world.hourRing = prefs.getBoolean(Prefs.HEMISPHERE_RING, true)
         world.hourNumbers = prefs.getBoolean(Prefs.HEMISPHERE_NUMBERS, true)
         world.meridians = prefs.getBoolean(Prefs.HEMISPHERE_MERIDIANS, true)

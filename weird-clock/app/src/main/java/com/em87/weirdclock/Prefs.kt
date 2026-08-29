@@ -220,6 +220,18 @@ object Prefs {
      */
     const val HEMISPHERE_SUN_AT = "pref_hemisphere_sun_at"
 
+    /**
+     * Whether the phone points at the sun instead of the setting above.
+     *
+     * The other way of using this face. Nailed down, the sun sits where
+     * the row above puts it and the dot is read against it. Pointed, the
+     * phone is held flat and turned until the picture agrees with the sky
+     * — and then the lit half of the world is the half the light is
+     * really coming from, and the dot is standing where you are standing,
+     * facing the way you are facing. See [Hemisphere.sunAtFrom].
+     */
+    const val HEMISPHERE_COMPASS = "pref_hemisphere_compass"
+
     /** The ring of hours round the world, and the numbers on it. */
     const val HEMISPHERE_RING = "pref_hemisphere_ring"
     const val HEMISPHERE_NUMBERS = "pref_hemisphere_numbers"

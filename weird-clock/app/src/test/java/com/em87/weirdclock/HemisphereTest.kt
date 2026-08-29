@@ -231,6 +231,65 @@ class HemisphereTest {
         assertFalse(Hemisphere.onAMeridian(22.0))
     }
 
+    /**
+     * With the compass on, the sun on screen is the sun in the sky.
+     *
+     * Screen up is wherever the phone's top is pointing. So facing north
+     * with the sun due east puts it on the right; facing east with the sun
+     * ahead puts it at the top; and turning the phone turns the picture
+     * under it, which is the whole point of holding it flat.
+     */
+    @Test
+    fun `pointing the phone puts the sun where the sun is`() {
+        // Facing north, sun due east: the sun is to the right, which is
+        // where this face nails it by default.
+        assertEquals(0.0, Hemisphere.sunAtFrom(0.0, 90.0), 0.0001)
+        // Facing north, sun due south: below.
+        assertEquals(-90.0, Hemisphere.sunAtFrom(0.0, 180.0), 0.0001)
+        // Facing east, sun due east: straight ahead, so up the screen.
+        assertEquals(90.0, Hemisphere.sunAtFrom(90.0, 90.0), 0.0001)
+        // Facing south, sun due north: behind you, so down.
+        assertEquals(-90.0, Hemisphere.sunAtFrom(180.0, 0.0), 0.0001)
+        // And turning the phone one way turns the picture the other, which
+        // is what keeps the sun pointing at the sun.
+        val still = Hemisphere.sunAtFrom(0.0, 120.0)
+        val turned = Hemisphere.sunAtFrom(30.0, 120.0)
+        assertEquals(30.0, Hemisphere.wrap(turned - still), 0.0001)
+    }
+
+    /**
+     * And the reading is rounded until it holds still.
+     *
+     * A phone lying on a table wanders a degree or two, and this face
+     * cannot afford to follow it: the globe is a sphere, so turning it
+     * means projecting a quarter of a million points again. A world that
+     * twitches while nobody is touching it looks broken, and one that
+     * re-projects itself several times a second while it does so is worse.
+     */
+    @Test
+    fun `a compass reading is rounded until it holds still`() {
+        // Same bucket, so the same answer. The boundary is at 102.5, and
+        // writing this test with 101 and 103.9 in it was a reminder that a
+        // rounding rule has edges wherever you put them.
+        assertEquals(Hemisphere.steady(101.0), Hemisphere.steady(102.4), 0.0001)
+        assertEquals(100.0, Hemisphere.steady(101.0), 0.0001)
+        assertEquals(105.0, Hemisphere.steady(104.0), 0.0001)
+        // The jitter of a phone at rest never moves the picture.
+        val at = Hemisphere.sunAtFrom(200.0, 45.0)
+        for (wobble in listOf(-1.5, -0.7, 0.0, 0.9, 1.9)) {
+            assertEquals(
+                "the world moved on a phone nobody touched",
+                at, Hemisphere.sunAtFrom(200.0 + wobble, 45.0), 0.0001
+            )
+        }
+        // A real turn does move it.
+        assertTrue(
+            kotlin.math.abs(
+                Hemisphere.wrap(Hemisphere.sunAtFrom(215.0, 45.0) - at)
+            ) > 10.0
+        )
+    }
+
     /** And the sun really is overhead where the sun is overhead. */
     @Test
     fun `the subsolar point is where it is noon`() {
