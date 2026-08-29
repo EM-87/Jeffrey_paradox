@@ -581,12 +581,18 @@ class SettingsActivity : AppCompatActivity() {
             // time the screen is opened, because the answer can change in
             // the system settings while this app is not looking.
             findPreference<SwitchPreferenceCompat>(Prefs.AGENDA)?.let { row ->
-                val note = getString(R.string.pref_agenda_summary)
                 row.summary =
                     if (row.isChecked && !AgendaStore.allowed(requireContext())) {
-                        getString(R.string.pref_agenda_denied) + ". " + note
+                        // The refusal *instead of* the ordinary
+                        // description, not in front of it. Prepending it
+                        // gave a row that said "there is nothing to draw"
+                        // and then "Off." under a switch that was visibly
+                        // on — see the pictures taken of this row, which
+                        // is the only reason anybody saw it.
+                        getString(R.string.pref_agenda_denied) + " " +
+                            getString(R.string.pref_agenda_promise)
                     } else {
-                        note
+                        getString(R.string.pref_agenda_summary)
                     }
             }
             // Changing the face changes what every screen is *about*, so

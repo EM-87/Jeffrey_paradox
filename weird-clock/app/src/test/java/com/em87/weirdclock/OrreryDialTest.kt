@@ -538,12 +538,30 @@ class OrreryDialTest {
         )
         touch(clock, MotionEvent.ACTION_DOWN, held.x, held.y)
         val heldAt = clock.orreryMoonLongitude()
-        clock.windOrreryForTest(Orrery.Body.JUPITER, 137.0)
+        // Wound until the Moon has visibly moved, rather than by one
+        // number chosen once.
+        //
+        // A wind of 137° on Jupiter is four and a half years, and the Moon
+        // goes round fifty-seven times in that — where it lands depends
+        // entirely on what day the test is run. This asserted a single
+        // wind and then checked that the Moon had gone somewhere, so it
+        // passed or failed by the calendar: green all morning and red
+        // after lunch on the day this was noticed, with nothing in the
+        // app changed in between. The state this test is *about* is a
+        // Moon far from home; so it winds until it has one.
+        var tries = 0
+        while (Orrery.separation(
+                heldAt, Orrery.longitude(Orrery.Body.MOON, clock.orreryMs())
+            ) < 25.0 && tries < 20
+        ) {
+            clock.windOrreryForTest(Orrery.Body.JUPITER, 137.0)
+            tries++
+        }
         touch(clock, MotionEvent.ACTION_UP, held.x, held.y)
 
         val home = Orrery.longitude(Orrery.Body.MOON, clock.orreryMs())
         assertTrue(
-            "this drag did not move the Moon far enough to be worth sliding",
+            "no wind of Jupiter put the Moon far enough from home to slide back",
             Orrery.separation(heldAt, home) > 20.0
         )
         // And the dial must be asking for frames to slide it with: the

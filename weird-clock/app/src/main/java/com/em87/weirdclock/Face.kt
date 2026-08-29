@@ -406,8 +406,14 @@ object FaceOptions {
         // not having noticed which clock it is.
         (key == CAT_DIAL || key == CAT_DIAL_DEEP) && face == Face.DIGITAL ->
             R.string.category_screen
+        // Two headings on this face and they had swapped jobs. "The
+        // plate" stood over the date's order and the night hours, which
+        // are not the plate; "Digits" stood over ten rows about a stone,
+        // a style, its numerals and two brass instruments, which are not
+        // digits. Only one of the two headings had ever been checked, so
+        // both went unnoticed for as long as the face has existed.
         (key == CAT_DIAL || key == CAT_DIAL_DEEP) && face == Face.SUNDIAL ->
-            R.string.category_plate
+            R.string.category_reading
         (key == CAT_DIAL || key == CAT_DIAL_DEEP) && face == Face.HEMISPHERE ->
             R.string.category_world
         // These four rows survive onto the world's page because they are
@@ -416,6 +422,7 @@ object FaceOptions {
         // would be. "Digits" over them on a face made of planet reads as
         // a heading about the planet.
         key == CAT_DIGITS && face == Face.HEMISPHERE -> R.string.category_readouts
+        key == CAT_DIGITS && face == Face.SUNDIAL -> R.string.category_plate
         else -> null
     }
 

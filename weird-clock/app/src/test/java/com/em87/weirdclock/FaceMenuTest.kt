@@ -230,6 +230,88 @@ class FaceMenuTest {
     }
 
     /**
+     * No heading names a thing the face under it has not got.
+     *
+     * The other half of the rule, and the half nobody had written. The
+     * test below checks the *dial* heading on every face and there are
+     * two headings on those screens; the second one said **Digits** on the
+     * sundial, over ten rows about a stone plate, the style standing on
+     * it, the numerals cut round it and two brass instruments — for as
+     * long as that face has existed. And the first said **The plate**
+     * over the date's order and the night hours, which are not the plate.
+     * The two had swapped jobs and each was individually plausible.
+     *
+     * So this reads every category heading on every screen of every face
+     * and asks the same question the row test asks: does this word name
+     * something this clock actually has?
+     */
+    @Test
+    fun `no heading names an instrument this clock has not got`() {
+        val digits = context.getString(R.string.category_digits).lowercase()
+        val dial = context.getString(R.string.category_dial).lowercase()
+        for (face in Face.entries) {
+            for (fragment in screensOf(face)) {
+                val screen = fragment.preferenceScreen
+                fun walk(group: PreferenceGroup) {
+                    for (i in 0 until group.preferenceCount) {
+                        val row = group.getPreference(i)
+                        if (row !is PreferenceGroup) continue
+                        val said = row.title?.toString()?.lowercase() ?: ""
+                        if (!face.readsOutInDigits) {
+                            assertFalse(
+                                "$face — ${row.key} is headed [${row.title}] on a clock with " +
+                                    "no digits on it",
+                                said == digits
+                            )
+                        }
+                        if (!face.hands) {
+                            assertFalse(
+                                "$face — ${row.key} is headed [${row.title}] on a clock with " +
+                                    "no hands",
+                                said == dial
+                            )
+                        }
+                        walk(row)
+                    }
+                }
+                walk(screen)
+            }
+        }
+    }
+
+    /**
+     * And no two headings on one screen say the same thing.
+     *
+     * Which is the failure the fix above could have walked straight into:
+     * renaming the wrong heading to "The plate" would have given that
+     * screen two of them, and a reader would have no way of telling which
+     * list they were in.
+     */
+    @Test
+    fun `two headings on one screen never say the same thing`() {
+        for (face in Face.entries) {
+            for (fragment in screensOf(face)) {
+                val seen = HashSet<String>()
+                fun walk(group: PreferenceGroup) {
+                    for (i in 0 until group.preferenceCount) {
+                        val row = group.getPreference(i)
+                        if (row !is PreferenceGroup) continue
+                        val said = row.title?.toString().orEmpty()
+                        if (said.isNotBlank()) {
+                            assertTrue(
+                                "$face has two headings reading [$said]",
+                                seen.add(said)
+                            )
+                        }
+                        walk(row)
+                    }
+                }
+                walk(fragment.preferenceScreen)
+            }
+        }
+    }
+
+    /**
      * And the heading over the rows that outlive the dial is renamed too —
      * on every face, and each to something of its own.
      *
@@ -242,22 +324,32 @@ class FaceMenuTest {
         val expected = mapOf(
             Face.ANALOG to R.string.category_dial,
             Face.DIGITAL to R.string.category_screen,
-            Face.SUNDIAL to R.string.category_plate,
+            // Not "The plate": that heading has moved to the other
+            // category on this screen, which is the one that actually
+            // holds the plate. What is left under this one is the date's
+            // order and the night hours — how the thing is read.
+            Face.SUNDIAL to R.string.category_reading,
             Face.HEMISPHERE to R.string.category_world
         )
         assertEquals("a face has no heading of its own", Face.entries.size, expected.size)
-        // And the heading over the readout rows, which mean two different
-        // things on the two faces that keep them.
-        assertEquals(
-            context.getString(R.string.category_readouts),
-            screensOf(Face.HEMISPHERE)[1]
-                .findPreference<Preference>(FaceOptions.CAT_DIGITS)?.title?.toString()
+        // And the heading over the rows that outlive the digits, which
+        // means a different thing on each of the three faces that keep
+        // them: the digits themselves, the world's readouts, and — the one
+        // that was wrong for as long as the face existed — the sundial's
+        // own plate.
+        val borrowed = mapOf(
+            Face.DIGITAL to R.string.category_digits,
+            Face.HEMISPHERE to R.string.category_readouts,
+            Face.SUNDIAL to R.string.category_plate
         )
-        assertEquals(
-            context.getString(R.string.category_digits),
-            screensOf(Face.DIGITAL)[1]
-                .findPreference<Preference>(FaceOptions.CAT_DIGITS)?.title?.toString()
-        )
+        for ((face, title) in borrowed) {
+            assertEquals(
+                "$face",
+                context.getString(title),
+                screensOf(face)[1]
+                    .findPreference<Preference>(FaceOptions.CAT_DIGITS)?.title?.toString()
+            )
+        }
         val seen = HashSet<String>()
         for ((face, title) in expected) {
             val heading = screensOf(face)[1]

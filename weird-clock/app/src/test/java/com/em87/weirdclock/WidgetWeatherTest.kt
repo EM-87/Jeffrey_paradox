@@ -107,6 +107,15 @@ class WidgetWeatherTest {
         val foul = WidgetRenderer.dialBitmap(context, 400)
         val moved = differ(fair, foul)
         assertTrue("the widget's sky token ignored the weather", moved > 40)
+        // Kept as pictures too: the difference being non-zero says the
+        // weather arrives, and only a look says the little cloud on a
+        // home-screen dial reads as a cloud rather than as a smudge.
+        val out = java.io.File("build/screenshots").apply { mkdirs() }
+        for ((name, bitmap) in listOf("widget-sky-clear" to fair, "widget-sky-storm" to foul)) {
+            java.io.File(out, "$name.png").outputStream().use {
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+        }
     }
 
     /**

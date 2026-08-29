@@ -573,7 +573,7 @@
     <string name="barometer_hpa">%1$d hPa</string>
     <string name="thermometer_degrees">%1$d\u00b0</string>
     <string name="pref_sundial_glass_title">Bar\u00f3metro y term\u00f3metro</string>
-    <string name="pref_sundial_glass_summary">Un bar\u00f3metro aneroide y un term\u00f3metro en el pedestal bajo el reloj, como los llevaba uno de jard\u00edn. Necesita el tiempo activado</string>
+    <string name="pref_sundial_glass_summary">Un bar\u00f3metro aneroide y un term\u00f3metro en el pedestal bajo la placa, como los llevaba un reloj de sol de jard\u00edn. Necesita el tiempo activado</string>
 
     <!-- La capa de nubes por sat\u00e9lite. -->
     <string name="pref_hemisphere_clouds_title">Nubes de sat\u00e9lite</string>
@@ -591,6 +591,10 @@
     <!-- El calendario del tel\u00e9fono, solo lectura. -->
     <string name="pref_agenda_title">Tu calendario</string>
     <string name="pref_agenda_summary">Apagado. Encendido, lo que hay en el calendario del tel\u00e9fono se dibuja en el reloj y en la p\u00e1gina del mes junto a tus recordatorios. Solo lectura: este reloj no puede a\u00f1adir, mover ni borrar nada, y nada de lo que lee se guarda ni se env\u00eda a ning\u00fan sitio</string>
-    <string name="pref_agenda_denied">Sin permiso para leer el calendario no hay nada que dibujar</string>
+    <string name="pref_agenda_denied">Encendido, pero no se le ha dado permiso para leer el calendario, as\u00ed que no hay nada que dibujar.</string>
     <string name="agenda_untitled">Cita</string>
+
+    <!-- Los dos encabezados del reloj de sol. -->
+    <string name="category_reading">La lectura</string>
+    <string name="pref_agenda_promise">Solo lectura: este reloj no puede a\u00f1adir, mover ni borrar nada, y nada de lo que lee se guarda ni se env\u00eda a ning\u00fan sitio</string>
 </resources>
