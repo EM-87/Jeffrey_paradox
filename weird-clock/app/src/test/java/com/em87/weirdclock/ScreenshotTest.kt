@@ -271,14 +271,36 @@ class ScreenshotTest {
      */
     private fun shootList(fragment: androidx.preference.PreferenceFragmentCompat, name: String) {
         val list = fragment.listView
-        val rows = fragment.preferenceScreen.preferenceCount
-        val tall = 200 * rows + 400
+        // Every row, not every top-level child. Counting the children of
+        // the screen counts *categories*, so a page of eight categories
+        // was measured for eight rows and the picture stopped somewhere in
+        // the middle of it — which meant the bottom of every settings
+        // screen had never been looked at, on any face.
+        fun count(group: androidx.preference.PreferenceGroup): Int {
+            var n = group.preferenceCount
+            for (i in 0 until group.preferenceCount) {
+                val row = group.getPreference(i)
+                if (row is androidx.preference.PreferenceGroup) n += count(row)
+            }
+            return n
+        }
+        val rows = count(fragment.preferenceScreen)
+        val tall = 260 * rows + 400
+        // Let the activity finish its own layout *first*, then stretch the
+        // list and draw it without idling again.
+        //
+        // The other way round is what this did for eleven versions, and it
+        // did nothing at all: measuring a view and then letting the looper
+        // run hands it straight back to the activity, which lays it out to
+        // the size of the screen. So every settings picture ever taken was
+        // one screenful, the bottom of every page had never been looked at
+        // by anybody, and the comment here said the opposite.
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
         list.measure(
             View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(tall, View.MeasureSpec.EXACTLY)
         )
         list.layout(0, 0, 1080, tall)
-        org.robolectric.shadows.ShadowLooper.idleMainLooper()
         assertTrue(name, shoot(list, name) > 3f)
     }
 

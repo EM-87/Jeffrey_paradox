@@ -220,6 +220,26 @@ class AlarmService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    /**
+     * Tells the rest of the house that something is ringing.
+     *
+     * A countdown running out and an alarm going off are two different
+     * events, because a house wants them to mean different things: one is
+     * "the rice is done" and the other is "it is morning".
+     */
+    private fun tellTheHouse(fromTimer: Boolean, label: String) {
+        val now = java.util.Calendar.getInstance()
+        IftttStore.fire(
+            this,
+            if (fromTimer) Ifttt.Event.TIMER else Ifttt.Event.ALARM,
+            label,
+            Ifttt.clockOf(
+                now.get(java.util.Calendar.HOUR_OF_DAY),
+                now.get(java.util.Calendar.MINUTE)
+            )
+        )
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             stopSelf()
@@ -254,6 +274,13 @@ class AlarmService : Service() {
         fromTimer = intent?.getBooleanExtra(AlarmScheduler.EXTRA_FROM_TIMER, false) == true
         ringingFromTimer = fromTimer
         ringingSince = android.os.SystemClock.elapsedRealtime()
+        // And the house, if it has been asked to care. Fired here rather
+        // than from the receiver because this is the moment the sound
+        // actually starts — a webhook sent from a scheduler that then
+        // fails to ring is a sunrise with no alarm behind it. On a thread
+        // of its own: there is a bell to play and nothing waits for a
+        // webhook. See [IftttStore], where all four gates live.
+        tellTheHouse(fromTimer, label)
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         // The hour and the alarm want the same minute. Whichever gives way,
         // it is decided here, once, before a note of either is played —

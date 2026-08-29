@@ -156,6 +156,11 @@
             android:name=".BellReceiver"
             android:exported="false" />
 
+        <!-- The alarm before the alarm: one webhook and nothing else. -->
+        <receiver
+            android:name=".HouseReceiver"
+            android:exported="false" />
+
         <receiver
             android:name=".RearmReceiver"
             android:exported="false">

@@ -166,7 +166,13 @@ object Backup {
         // and a folder from another phone is a folder this one cannot
         // write to.
         Prefs.BACKUP_FOLDER,
-        Prefs.BACKUP_AT
+        Prefs.BACKUP_AT,
+        // A webhook key is a secret, and a backup is a plain file in a
+        // folder somebody chose — which may be a shared one, and is
+        // certainly readable by anything that can read files. Anybody
+        // holding it can fire the house. It is worth losing on a restore
+        // and the settings row says so.
+        Prefs.IFTTT_KEY
     )
 
     fun export(context: Context): String {

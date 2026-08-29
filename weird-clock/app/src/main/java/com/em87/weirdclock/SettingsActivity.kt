@@ -855,6 +855,22 @@ class SettingsActivity : AppCompatActivity() {
             // and when it does not appear there is no way to tell from
             // inside the app whether the registration failed or the phone
             // simply is not drawing it. This says which.
+            // Whether there is a key at all, said out loud. An
+            // EditTextPreference with a fixed summary looks the same empty
+            // as full, and this one is deliberately not in the backup — so
+            // the first thing after a restore would otherwise be a switch
+            // that says it is on, a row that says nothing, and a house
+            // that never hears anything again.
+            findPreference<Preference>(Prefs.IFTTT_KEY)?.let { row ->
+                val stored = preferenceManager.sharedPreferences
+                    ?.getString(Prefs.IFTTT_KEY, null)
+                val note = getString(R.string.pref_ifttt_key_summary)
+                row.summary = if (Ifttt.usable(stored)) {
+                    getString(R.string.pref_ifttt_key_set, note)
+                } else {
+                    getString(R.string.pref_ifttt_key_none, note)
+                }
+            }
             findPreference<Preference>("pref_armed")?.summary = run {
                 val manager = requireContext()
                     .getSystemService(android.app.AlarmManager::class.java)

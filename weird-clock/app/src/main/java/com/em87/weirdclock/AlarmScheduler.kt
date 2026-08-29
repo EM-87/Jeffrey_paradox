@@ -171,6 +171,62 @@ object AlarmScheduler {
             )
             prefs.edit().putBoolean(Prefs.EXACT_DENIED, true).apply()
         }
+        armTheHouse(context, alarmManager, nextAt, alarm)
+    }
+
+    /**
+     * And a second, earlier alarm whose only job is to tell the house.
+     *
+     * The one event that earns the whole webhook feature: a lamp asked to
+     * simulate a sunrise at the same instant the bell rings has simulated
+     * nothing. So the house is told a chosen number of minutes ahead —
+     * see [Prefs.IFTTT_LEAD] — and that means a second entry, because
+     * there is nothing else running at half past six in the morning to
+     * notice anything.
+     *
+     * Armed and cancelled with the alarm it belongs to, out of the same
+     * function, so the two cannot drift apart: an alarm turned off leaves
+     * no lead behind it, and the four events that throw an alarm away —
+     * see [RearmReceiver] — put this back with it.
+     */
+    private fun armTheHouse(
+        context: Context,
+        alarmManager: AlarmManager,
+        nextAt: Long,
+        alarm: Alarm
+    ) {
+        val pending = housePendingIntent(context, alarm)
+        alarmManager.cancel(pending)
+        if (!IftttStore.wanted(context)) return
+        val lead = IftttStore.lead(context)
+        if (lead <= 0) return
+        val at = nextAt - lead * 60_000L
+        // A lead that is already in the past is an alarm less than the
+        // lead away, which is an ordinary thing at bedtime. Nothing to
+        // arm: the ring itself will tell the house soon enough.
+        if (at <= System.currentTimeMillis()) return
+        try {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
+        } catch (e: SecurityException) {
+            // Not worth an exact slot's argument. A sunrise that starts a
+            // few minutes late is still a sunrise.
+            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, at, 5 * 60_000L, pending)
+        }
+    }
+
+    /** Where the lead alarm lands, and what it carries. */
+    private fun housePendingIntent(context: Context, alarm: Alarm?): PendingIntent {
+        val intent = Intent(context, HouseReceiver::class.java)
+        alarm?.let {
+            intent.putExtra(EXTRA_LABEL, it.label)
+            intent.putExtra(HouseReceiver.EXTRA_AT, nextOccurrence(it))
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            HouseReceiver.REQUEST,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     /**
@@ -218,7 +274,12 @@ object AlarmScheduler {
     }
 
     fun cancel(context: Context) {
-        context.getSystemService(AlarmManager::class.java)?.cancel(firePendingIntent(context, null, -1))
+        val manager = context.getSystemService(AlarmManager::class.java) ?: return
+        manager.cancel(firePendingIntent(context, null, -1))
+        // The lead goes with it. An alarm turned off that still tells the
+        // house it is coming is a bedroom that lights itself up for
+        // nothing, half an hour before an alarm that was cancelled.
+        manager.cancel(housePendingIntent(context, null))
     }
 
     private fun firePendingIntent(context: Context, alarm: Alarm?, reminderId: Int): PendingIntent {

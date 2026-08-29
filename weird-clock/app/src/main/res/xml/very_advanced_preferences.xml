@@ -152,6 +152,35 @@
 
     </PreferenceCategory>
 
+    <!-- The house. Its own category on the deepest screen, because it is
+         the one thing here that reaches outside the phone and does
+         something in a room: the switch, the secret, and how much warning
+         a sunrise scene gets. -->
+    <PreferenceCategory android:title="@string/category_house">
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_ifttt"
+            android:summary="@string/pref_ifttt_summary"
+            android:title="@string/pref_ifttt_title" />
+
+        <EditTextPreference
+            android:key="pref_ifttt_key"
+            android:summary="@string/pref_ifttt_key_summary"
+            android:title="@string/pref_ifttt_key_title" />
+
+        <SeekBarPreference
+            android:defaultValue="30"
+            android:key="pref_ifttt_lead"
+            android:max="120"
+            android:summary="@string/pref_ifttt_lead_summary"
+            android:title="@string/pref_ifttt_lead_title"
+            app:min="0"
+            app:seekBarIncrement="5"
+            app:showSeekBarValue="true" />
+
+    </PreferenceCategory>
+
     <!-- What the app can see of itself, below a rule of its own. Neither
          is a setting: one says whether the system has an alarm of ours
          registered, the other what the tick has actually been doing. They

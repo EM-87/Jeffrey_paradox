@@ -485,6 +485,15 @@
         <item>Los suyos</item>
         <item>Roma y la Comet</item>
     </string-array>
+    <string name="category_house">La casa</string>
+    <string name="pref_ifttt_title">Contárselo a la casa (IFTTT)</string>
+    <string name="pref_ifttt_summary">Apagado. Encendido, una alarma avisa a tu casa: weird_clock_soon antes de sonar, y luego alarm, snooze, dismiss y timer. Cinco eventos fijos, y no se puede poner otra dirección</string>
+    <string name="pref_ifttt_key_title">Clave del webhook</string>
+    <string name="pref_ifttt_key_summary">De ifttt.com, Webhooks, Documentation. A propósito no entra en las copias de seguridad — una clave en un fichero plano es una clave con la que cualquiera puede disparar tu casa — así que hay que volver a escribirla tras restaurar</string>
+    <string name="pref_ifttt_key_set">Hay una clave puesta. %1$s</string>
+    <string name="pref_ifttt_key_none">Sin clave, así que no se envía nada nunca. %1$s</string>
+    <string name="pref_ifttt_lead_title">Minutos de aviso</string>
+    <string name="pref_ifttt_lead_summary">Cuánto antes de una alarma se envía weird_clock_soon. Una lámpara que empieza su amanecer cuando suena la campana no ha simulado nada. Cero no envía nada por adelantado</string>
     <string name="pref_weather_title">Clima</string>
     <string name="pref_weather_summary">Apagado. Al encenderlo el reloj pregunta a tres servicios públicos — Open-Meteo, MET Norway y wttr.in — por tu ubicación redondeada a un kilómetro, cada media hora. Es lo único aquí que usa la red</string>
     <string name="pref_show_weekday_title">Día de la semana</string>

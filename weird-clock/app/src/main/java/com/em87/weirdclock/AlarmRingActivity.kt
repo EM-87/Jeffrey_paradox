@@ -88,6 +88,15 @@ class AlarmRingActivity : AppCompatActivity() {
                 // what comes back in ten minutes is this alarm, mission and
                 // sunrise and all, and not a stripped-down copy of it.
                 AlarmScheduler.snooze(this, intent, snoozeMinutes, already)
+                // The house is told how long it has got, so a sunrise
+                // scene can stand down and come back rather than finishing
+                // its ramp to an empty room.
+                IftttStore.fire(
+                    this, Ifttt.Event.SNOOZE,
+                    intent.getStringExtra(AlarmScheduler.EXTRA_LABEL) ?: "",
+                    null,
+                    snoozeMinutes.toString()
+                )
                 startService(Intent(this, AlarmService::class.java).setAction(AlarmService.ACTION_STOP))
                 finish()
             }
@@ -100,6 +109,13 @@ class AlarmRingActivity : AppCompatActivity() {
         // earlier round would otherwise go off after a morning that had
         // already been got up for.
         Nag.callOff(this)
+        // And the house, which is the one that means somebody is awake —
+        // the point at which a bedroom's sunrise has done its job and the
+        // rest of the morning can start.
+        IftttStore.fire(
+            this, Ifttt.Event.DISMISS,
+            intent.getStringExtra(AlarmScheduler.EXTRA_LABEL) ?: ""
+        )
         startService(Intent(this, AlarmService::class.java).setAction(AlarmService.ACTION_STOP))
         finish()
     }

@@ -157,6 +157,31 @@ object Prefs {
      */
     const val WEATHER = "pref_weather"
 
+    /**
+     * Whether this clock is allowed to tell the rest of the house what it
+     * is doing — see [Ifttt].
+     *
+     * Off, and the second setting here that turns a network on. Different
+     * from the weather in the direction that matters: the weather *asks*
+     * and this one *pushes*, so a mistake here happens in somebody's
+     * living room rather than on their screen.
+     */
+    const val IFTTT = "pref_ifttt"
+
+    /**
+     * The webhook key, which is a secret and is kept out of the backup.
+     *
+     * A backup is a plain file in a folder somebody chose, and a key in it
+     * is a key anybody who reads that file can fire the house with. So it
+     * is on [Backup]'s skip list, and the settings row says out loud that
+     * it will need typing again after a restore — a silent gap being the
+     * one outcome worse than either.
+     */
+    const val IFTTT_KEY = "pref_ifttt_key"
+
+    /** How many minutes before an alarm the house is told it is coming. */
+    const val IFTTT_LEAD = "pref_ifttt_lead"
+
     /** Whether the home-screen clock widget carries the date. */
     const val WIDGET_DATE = "pref_widget_date"
 

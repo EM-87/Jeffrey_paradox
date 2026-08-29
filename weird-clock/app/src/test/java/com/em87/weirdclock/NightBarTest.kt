@@ -294,6 +294,8 @@ class NightBarTest {
                 "pref_solar_time", "pref_system_time", "pref_time_speed",
                 "pref_backup_folder", "pref_backup_export", "pref_backup_import",
                 // What the app can see of itself, below a rule of its own.
+                // The one category here that reaches outside the phone.
+                "pref_ifttt", "pref_ifttt_key", "pref_ifttt_lead",
                 "pref_armed", "pref_tick_precision"
             )
         )
