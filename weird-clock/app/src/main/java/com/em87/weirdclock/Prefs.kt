@@ -52,6 +52,15 @@ object Prefs {
     const val SCRIPT_YAUTJA = "yautja"
     const val SCRIPT_COMET = "comet"
 
+    /**
+     * The two above, merged — see [DigitScript.ROMAN_COMET].
+     *
+     * The old two keys are kept rather than deleted, because they are
+     * still written down in the settings of every phone that had either
+     * of them chosen. [DigitScript.of] reads them and lands on this.
+     */
+    const val SCRIPT_ROMAN_COMET = "roman_comet"
+
     /** Twenty-four hours, or twelve with the sun and the moon beside them. */
     const val HOUR_24 = "pref_hour_24"
 

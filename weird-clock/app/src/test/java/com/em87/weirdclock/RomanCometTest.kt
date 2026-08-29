@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The calculator's nine, checked against the machine it came off.
+ * The Roman Comet: the calculator's nine and Rome's module, as one panel.
  *
  * The shapes cannot be wrong — they are the drawing's own polygons and
  * nothing here re-derives them — so what is left to get wrong is which
@@ -21,7 +21,7 @@ import org.junit.Test
  * display and would stop being true if the table were a seven-bar table
  * with the names changed.
  */
-class CometTest {
+class RomanCometTest {
 
     private val nine = Segments.Kind.NINE
 
@@ -213,7 +213,7 @@ class CometTest {
     }
 
     /**
-     * These numerals cannot leave their own display.
+     * These numerals cannot leave their own displays.
      *
      * A flip card with them printed on it would be a photograph of a
      * display, which is the one thing this app has consistently refused to
@@ -222,37 +222,153 @@ class CometTest {
      * widget and the alarm card all read the same two settings.
      */
     @Test
-    fun `the Comet is bars whatever else is asked for`() {
+    fun `the panel is bars whatever else is asked for`() {
         for (key in listOf(Prefs.DIGITS_ROLLER, Prefs.DIGITS_CARD, Prefs.DIGITS_PLAIN, null)) {
             assertEquals(
-                "$key got past the Comet",
-                DigitStyle.SEGMENT, DigitStyle.of(key, DigitScript.COMET)
+                "$key got past the panel",
+                DigitStyle.SEGMENT, DigitStyle.of(key, DigitScript.ROMAN_COMET)
             )
         }
         // And it is the only script that takes the choice away.
-        for (script in DigitScript.entries - DigitScript.COMET) {
+        for (script in DigitScript.entries - DigitScript.ROMAN_COMET) {
             assertFalse(script.barsOnly)
-            assertEquals(
-                DigitStyle.ROLLER, DigitStyle.of(Prefs.DIGITS_ROLLER, script)
-            )
+            assertEquals(DigitStyle.ROLLER, DigitStyle.of(Prefs.DIGITS_ROLLER, script))
+        }
+    }
+
+    /**
+     * Nobody who had chosen either half of this wakes up with an ordinary
+     * clock.
+     *
+     * Two entries on the numerals list became one, and both of the old
+     * keys are still written down in the settings of the phones that had
+     * them. Falling through to the default would turn a Roman clock into
+     * our ten digits overnight, silently, and the person it would happen
+     * to first is the one who drew the module.
+     */
+    @Test
+    fun `both of the scripts this replaced land on it`() {
+        assertEquals(DigitScript.ROMAN_COMET, DigitScript.of(Prefs.SCRIPT_ROMAN))
+        assertEquals(DigitScript.ROMAN_COMET, DigitScript.of(Prefs.SCRIPT_COMET))
+        assertEquals(DigitScript.ROMAN_COMET, DigitScript.of(Prefs.SCRIPT_ROMAN_COMET))
+        // And nothing else moved.
+        assertEquals(DigitScript.ARABIC, DigitScript.of(Prefs.SCRIPT_ARABIC))
+        assertEquals(DigitScript.YAUTJA, DigitScript.of(Prefs.SCRIPT_YAUTJA))
+        assertEquals(DigitScript.ARABIC, DigitScript.of("something else entirely"))
+        assertEquals(DigitScript.ARABIC, DigitScript.of(null))
+        // The list itself is three now, not four.
+        assertEquals(3, DigitScript.entries.size)
+    }
+
+    /**
+     * The two rails say the date, and they say it in Rome's numerals
+     * because that is what the rail is made of.
+     *
+     * Day and month above, the year below. There is no choice about the
+     * numerals: a sixteen-bar module cannot write an 8.
+     */
+    @Test
+    fun `the rails carry the date, and the year underneath`() {
+        val day = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.AUGUST, 29)
+        }
+        assertEquals(
+            "XXIX\u00b7VIII" to "MMXXVI",
+            CometPanel.rails(day, dayFirst = true)
+        )
+        assertEquals(
+            "VIII\u00b7XXIX" to "MMXXVI",
+            CometPanel.rails(day, dayFirst = false)
+        )
+        // And every rail this panel can be asked to draw is a rail it can
+        // actually spell: no character falls out.
+        //
+        // This is the assertion that found the weekday. Rome's module has
+        // eight letters and every Latin day name wants one it has not got,
+        // so a rail reading IOV\u00b7I\u00b7I silently dropped its O and
+        // came out as IV — a Thursday that reads as the fourth of the
+        // month. There is no weekday on this panel because of this test.
+        for (month in 1..12) {
+            for (dayOfMonth in 1..28) {
+                val at = java.util.Calendar.getInstance().apply {
+                    set(2026, month - 1, dayOfMonth)
+                }
+                val (top, bottom) = CometPanel.rails(at, dayFirst = true)
+                for (text in listOf(top, bottom)) {
+                    for (c in text) {
+                        assertNotNull(
+                            "the rail cannot write $c in $text",
+                            Segments.masksOf(Segments.Kind.SIXTEEN, c)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * The moon lamp names the half of the day, and only when there is one
+     * to name.
+     *
+     * The drawing gives the panel one lamp and no sun, so it lights before
+     * noon and goes out after. On a twenty-four hour clock there is no
+     * ambiguity to resolve and it never lights — the way the AM and PM
+     * legends printed on a real panel do not.
+     */
+    @Test
+    fun `the moon lights in the morning and never on a twenty-four hour clock`() {
+        assertTrue(CometPanel.moonLit(0, hour24 = false))
+        assertTrue(CometPanel.moonLit(11, hour24 = false))
+        assertFalse(CometPanel.moonLit(12, hour24 = false))
+        assertFalse(CometPanel.moonLit(23, hour24 = false))
+        for (hour in 0..23) {
+            assertFalse("the moon lit at $hour", CometPanel.moonLit(hour, hour24 = true))
+        }
+    }
+
+    /**
+     * The panel's proportions are the drawing's, and the rails really are
+     * shorter than the digits.
+     *
+     * Two displays drawn to two different sizes, put on one panel. Get the
+     * ratio wrong and they stop reading as one instrument — which is the
+     * only thing this fusion has to get right.
+     */
+    @Test
+    fun `the rail is the drawing's fraction of a digit`() {
+        // 12.441 between the module's rails over 15.228 of Comet digit.
+        assertEquals(12.441f / 15.228f, CometPanel.RAIL, 0.001f)
+        assertTrue(CometPanel.RAIL < 1f)
+        assertTrue(CometPanel.RAIL_GAP > 0f && CometPanel.RAIL_GAP < CometPanel.RAIL)
+        // And the colon leans, because everything on this display does.
+        assertTrue(CometPanel.COLON_LEAN > 0f)
+    }
+
+    /** The two lamps are shapes out of the file, not drawn from memory. */
+    @Test
+    fun `the lamps are the drawing's own outlines`() {
+        assertEquals("the bell lost its ringing", 3, CometPanel.BELL.size)
+        assertEquals(1, CometPanel.MOON.size)
+        for (shape in CometPanel.BELL + CometPanel.MOON) {
+            assertTrue("a lamp is not a polygon", shape.size >= 8)
+            assertEquals("a lamp has half a vertex", 0, shape.size % 2)
+            for (v in shape) assertTrue("a lamp runs off its own box: $v", v in -0.001f..1.001f)
         }
     }
 
     /**
      * A display with no letters says the day of the week as a number.
      *
-     * The alternative is a weekday drawn in the phone's own type beside
-     * numerals out of a 1964 calculator, which is two clocks in one line.
+     * The panel is the exception and the reason it exists: its rails are
+     * made of the one display here that has letters in it, so it says the
+     * day in Latin rather than as a figure.
      */
     @Test
-    fun `the weekday is a number on a display with no letters`() {
+    fun `the panel says its weekday in Latin and the star display in numbers`() {
         val monday = java.util.Calendar.getInstance().apply {
             set(2026, java.util.Calendar.AUGUST, 24)
         }
-        assertEquals("1", Weekday.of(monday, DigitScript.COMET))
-        val sunday = java.util.Calendar.getInstance().apply {
-            set(2026, java.util.Calendar.AUGUST, 23)
-        }
-        assertEquals("7", Weekday.of(sunday, DigitScript.COMET))
+        assertEquals("LVN", Weekday.of(monday, DigitScript.ROMAN_COMET))
+        assertEquals("1", Weekday.of(monday, DigitScript.YAUTJA))
     }
 }

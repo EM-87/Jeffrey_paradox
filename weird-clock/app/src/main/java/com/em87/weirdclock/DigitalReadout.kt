@@ -63,23 +63,24 @@ enum class DigitScript(val key: String) {
     /** 0 to 9, and the reason a seven-bar display has seven bars. */
     ARABIC(Prefs.SCRIPT_ARABIC),
 
-    /** I to M, on the sixteen-bar module that exists to draw letters. */
-    ROMAN(Prefs.SCRIPT_ROMAN),
-
     /** Theirs — see [Yautja]. A font, so it is drawn as writing. */
     YAUTJA(Prefs.SCRIPT_YAUTJA),
 
     /**
-     * Our ten again, on a calculator's display from 1964 — see
-     * [Segments.Kind.NINE].
+     * Both of the drawn displays at once — see [CometPanel].
      *
-     * The one entry on this list that names a machine rather than an
-     * alphabet, and it belongs here rather than on the other axis because
-     * that is the question it actually answers: somebody choosing it wants
-     * these *shapes*, and shapes are what a script is. It is also the only
-     * one of the four that cannot leave its own display.
+     * This was two entries on this list for a while: Rome's module, which
+     * writes letters and draws numbers nobody can read at a glance, and a
+     * calculator's nine, which draws a beautiful number and cannot write a
+     * letter at all. Neither was a whole clock. They are one panel now,
+     * with the time in the calculator's digits and the date in Rome's
+     * module on rails above and below it, and each alphabet does the one
+     * thing it is good at.
+     *
+     * The one entry here that names machines rather than an alphabet, and
+     * the only one that cannot leave its own displays.
      */
-    COMET(Prefs.SCRIPT_COMET);
+    ROMAN_COMET(Prefs.SCRIPT_ROMAN_COMET);
 
     /**
      * Whether this script exists as lit bars and nothing else.
@@ -91,11 +92,23 @@ enum class DigitScript(val key: String) {
      * a drum this quietly gives back the display instead, which is the
      * only honest reading of the request.
      */
-    val barsOnly: Boolean get() = this == COMET
+    val barsOnly: Boolean get() = this == ROMAN_COMET
 
     companion object {
-        fun of(key: String?): DigitScript =
-            entries.firstOrNull { it.key == key } ?: ARABIC
+
+        /**
+         * The script stored under that key, with the two that were merged
+         * landing on the one that replaced them.
+         *
+         * Somebody had Rome's numerals set — the owner of this app did —
+         * and somebody had the calculator's. Neither key exists any more,
+         * and without this line both of them would fall through to the
+         * default and quietly turn a Roman clock into an ordinary one.
+         */
+        fun of(key: String?): DigitScript = when (key) {
+            Prefs.SCRIPT_ROMAN, Prefs.SCRIPT_COMET -> ROMAN_COMET
+            else -> entries.firstOrNull { it.key == key } ?: ARABIC
+        }
     }
 }
 
@@ -185,15 +198,15 @@ object DigitalReadout {
         // The nought in front is a question about the hour and nothing
         // else. Nobody writes eight minutes past as 7:8, so the minutes
         // and the seconds are two digits whatever the switch says.
-        cells += group(shown, highest, padded = options.leadingZero, options.script, unit = 60)
+        cells += group(shown, highest, padded = options.leadingZero, unit = 60)
         cells += Cell.Colon
-        cells += group(minute, 59, padded = true, options.script, unit = 1)
+        cells += group(minute, 59, padded = true, unit = 1)
         if (options.seconds) {
             cells += Cell.Colon
             // Seconds have no weight: nobody sets an alarm for twenty past
             // seven and eleven seconds, and a drum that turns under a
             // finger had better be a drum worth turning.
-            cells += group(second, 59, padded = true, options.script, unit = 0)
+            cells += group(second, 59, padded = true, unit = 0)
         }
         // The token goes on the end, where AM and PM go, and only when
         // there is a question for it to answer.
@@ -212,16 +225,16 @@ object DigitalReadout {
         val cells = ArrayList<Cell>(8)
         cells += group(
             if (dayFirst) day else month, if (dayFirst) 31 else 12,
-            padded = true, options.script
+            padded = true
         )
         cells += Cell.Slash
         cells += group(
             if (dayFirst) month else day, if (dayFirst) 12 else 31,
-            padded = true, options.script
+            padded = true
         )
         cells += Cell.Slash
         cells += Cell.Number(
-            if (options.script == DigitScript.ROMAN) roman(year) else "$year",
+            "$year",
             year, of = 0
         )
         return cells
@@ -238,24 +251,22 @@ object DigitalReadout {
     /**
      * One number, as the cells it takes up.
      *
-     * Arabic and Yautja split into two — a drum can turn under each one,
-     * and [Cell.Number.of] says how far round that drum goes, so the tens
-     * of an hour stop at two rather than pretending there is a 94 o'clock.
-     * Roman does not split: the second digit of XLVII is not a thing, and
-     * neither is a drum with XLVII round it.
+     * Always two, now that every script on this face writes its numbers
+     * with our ten digits — a drum can turn under each one, and
+     * [Cell.Number.of] says how far round that drum goes, so the tens of
+     * an hour stop at two rather than pretending there is a 94 o'clock.
+     *
+     * There used to be an exception. Rome's numerals were the *time* on
+     * this face, and the second digit of XLVII is not a thing, so the
+     * whole group was one uncuttable cell. Rome writes the date now and
+     * the exception went with it.
      */
     private fun group(
         value: Int,
         highest: Int,
         padded: Boolean,
-        script: DigitScript,
         unit: Int = 0
     ): List<Cell> {
-        // Rome does not split, so the whole group turns by one unit — a
-        // Roman hour has no tens digit to grab.
-        if (script == DigitScript.ROMAN) {
-            return listOf(Cell.Number(roman(value), value, highest, weight = unit))
-        }
         val tens = value / 10
         val units = value % 10
         if (!padded && tens == 0) return listOf(Cell.Number("$units", units, of = 9, weight = unit))

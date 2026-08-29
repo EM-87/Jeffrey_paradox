@@ -112,25 +112,34 @@ class DigitalReadoutTest {
      */
     @Test
     fun `Rome writes its nothing`() {
-        assertEquals("VII:V", at(7, 5, script = DigitScript.ROMAN))
-        assertEquals("N:N", at(0, 0, script = DigitScript.ROMAN))
-        assertEquals("XXIII:LIX", at(23, 59, script = DigitScript.ROMAN))
-        assertEquals("XII:N☾", at(0, 0, script = DigitScript.ROMAN, hour24 = false))
         assertEquals("N", DigitalReadout.roman(0))
+        assertEquals("MMXXVI", DigitalReadout.roman(2026))
+        // Rome does not write the *time* any more — see [CometPanel]. It
+        // writes the date on a rail, where a nought never comes up, and
+        // the letter stays because the function is still the one place
+        // that knows Rome has no numeral for nothing.
     }
 
     /**
-     * A Roman group is one cell, because the second digit of XLVII is not
-     * a thing — and a drum with XLVII round it is not a thing either.
+     * Every script splits its numbers into digits now, because every one
+     * of them writes the time with our ten.
+     *
+     * There used to be an exception: Rome's numerals were the time, and
+     * the second digit of XLVII is not a thing, so the whole group was one
+     * uncuttable cell that no drum could turn. Rome writes the date now
+     * and the exception went with it — which means the drums work on every
+     * script there is, and setting a time by rolling it is no longer a
+     * thing two of the four could not do.
      */
     @Test
-    fun `Rome does not split its numbers into digits`() {
-        val roman = DigitalReadout.time(
-            23, 59, 0, DigitalReadout.Options(script = DigitScript.ROMAN)
-        )
-        assertEquals("two numbers and a colon", 3, roman.size)
-        val arabic = DigitalReadout.time(23, 59, 0, DigitalReadout.Options())
-        assertEquals("four digits and a colon", 5, arabic.size)
+    fun `every script splits its numbers into digits`() {
+        for (script in DigitScript.entries) {
+            val cells = DigitalReadout.time(
+                23, 59, 0, DigitalReadout.Options(script = script)
+            )
+            assertEquals("$script", 5, cells.size)
+            assertEquals("$script", 4, cells.count { it is Cell.Number })
+        }
     }
 
     /**
@@ -159,15 +168,21 @@ class DigitalReadoutTest {
         val options = DigitalReadout.Options()
         assertEquals("27/08/2026", say(DigitalReadout.date(27, 8, 2026, true, options)))
         assertEquals("08/27/2026", say(DigitalReadout.date(27, 8, 2026, false, options)))
-        assertEquals(
-            "XXVII/VIII/MMXXVI",
-            say(
-                DigitalReadout.date(
-                    27, 8, 2026, true,
-                    DigitalReadout.Options(script = DigitScript.ROMAN)
+        // And the same on every script, because the date line is our ten
+        // digits wherever it appears. The panel does not use this at all:
+        // its date is two rails of Rome's module — see [CometPanel].
+        for (script in DigitScript.entries) {
+            assertEquals(
+                "$script",
+                "27/08/2026",
+                say(
+                    DigitalReadout.date(
+                        27, 8, 2026, true,
+                        DigitalReadout.Options(script = script)
+                    )
                 )
             )
-        )
+        }
     }
 
     /** The year is one cell however long it is: nobody rolls a millennium. */

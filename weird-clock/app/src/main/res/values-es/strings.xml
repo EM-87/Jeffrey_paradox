@@ -482,9 +482,8 @@
     </string-array>
     <string-array name="digit_script_entries">
         <item>Los nuestros (1, 2, 3…)</item>
-        <item>Los de Roma (I, II, III…)</item>
         <item>Los suyos</item>
-        <item>Los de una calculadora (Sharp Comet, 1964)</item>
+        <item>Roma y la Comet</item>
     </string-array>
     <string name="pref_show_weekday_title">Día de la semana</string>
     <string name="pref_show_weekday_summary">Lun, Mar… junto a la fecha. En latín en la cara romana</string>

@@ -92,29 +92,38 @@ class DigitalShotTest {
      * out of, colon and all.
      */
     @Test
-    fun `the calculator's display, telling the time`() {
+    fun `the panel, telling the time`() {
         val at = java.util.Calendar.getInstance().apply {
             set(2026, java.util.Calendar.AUGUST, 27, 12, 43, 9)
             set(java.util.Calendar.MILLISECOND, 0)
         }.timeInMillis
         assertTrue(
             shoot(
-                face(DigitStyle.SEGMENT, DigitScript.COMET, at = at, seconds = false),
-                "digital-comet-1243"
+                face(DigitStyle.SEGMENT, DigitScript.ROMAN_COMET, at = at, seconds = false),
+                "panel-1243"
             ) > 3
         )
         assertTrue(
             shoot(
-                face(DigitStyle.SEGMENT, DigitScript.COMET, at = at),
-                "digital-comet-seconds"
+                face(DigitStyle.SEGMENT, DigitScript.ROMAN_COMET, at = at),
+                "panel-seconds"
+            ) > 3
+        )
+        // Both lamps at once: an alarm armed and a morning, which is the
+        // only reading where the panel has anything lit at either end.
+        assertTrue(
+            shoot(
+                face(DigitStyle.SEGMENT, DigitScript.ROMAN_COMET, hour24 = false, at = at - 5 * 3_600_000L)
+                    .apply { nextAlarmMs = at + 3_600_000L },
+                "panel-lamps"
             ) > 3
         )
         // And on twelve hours, where the sun or the moon stands in for the
         // AM and PM the drawing's own panel has printed on it.
         assertTrue(
             shoot(
-                face(DigitStyle.SEGMENT, DigitScript.COMET, hour24 = false, at = at),
-                "digital-comet-twelve"
+                face(DigitStyle.SEGMENT, DigitScript.ROMAN_COMET, hour24 = false, at = at),
+                "panel-twelve"
             ) > 3
         )
     }
@@ -149,8 +158,11 @@ class DigitalShotTest {
         )
         assertTrue(
             shoot(
-                face(DigitStyle.SEGMENT, DigitScript.ROMAN, hour24 = false, at = morning),
-                "digital-twelve-roman"
+                face(
+                    DigitStyle.SEGMENT, DigitScript.ROMAN_COMET,
+                    hour24 = false, at = morning
+                ),
+                "digital-twelve-panel"
             ) > 3
         )
     }
@@ -166,16 +178,19 @@ class DigitalShotTest {
         )
     }
 
-    /** Midnight in Rome, which is the one with two noughts in it. */
+    /**
+     * The panel at midnight, which is the one with two noughts on it and a
+     * rail that has just rolled over.
+     */
     @Test
-    fun `Rome at midnight`() {
+    fun `the panel at midnight`() {
         val midnight = java.util.Calendar.getInstance().apply {
             set(2026, java.util.Calendar.AUGUST, 27, 0, 0, 0)
         }.timeInMillis
         assertTrue(
             shoot(
-                face(DigitStyle.SEGMENT, DigitScript.ROMAN, at = midnight),
-                "digital-rome-midnight"
+                face(DigitStyle.SEGMENT, DigitScript.ROMAN_COMET, at = midnight),
+                "panel-midnight"
             ) > 3
         )
     }
@@ -503,6 +518,26 @@ class DigitalShotTest {
                 bitmap.recycle()
             }
         }
+        // And the panel with its date on, which is the one script whose
+        // date is two rails of a second display rather than a line of
+        // digits. A widget two cells square is the smallest place either
+        // of them ever has to work.
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit()
+            .putString(Prefs.DIGIT_SCRIPT, DigitScript.ROMAN_COMET.key)
+            .putBoolean(Prefs.WIDGET_DATE, true)
+            .commit()
+        for ((w, h) in listOf(360 to 360, 720 to 300)) {
+            val bitmap = WidgetRenderer.digitalBitmap(context, w, h)
+            val name = "widget-panel-dated-${w}x$h"
+            File(outDir, "$name.png").outputStream().use {
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            }
+            val seen = HashSet<Int>()
+            for (y in 0 until h step 4) for (x in 0 until w step 4) seen.add(bitmap.getPixel(x, y))
+            assertTrue(name, seen.size > 3)
+            bitmap.recycle()
+        }
     }
 
     /**
@@ -516,7 +551,7 @@ class DigitalShotTest {
      */
     @Test
     fun `the other cities, stacked under the time`() {
-        for (script in listOf(DigitScript.ARABIC, DigitScript.ROMAN)) {
+        for (script in listOf(DigitScript.ARABIC, DigitScript.ROMAN_COMET)) {
             val view = face(DigitStyle.SEGMENT, script).apply {
                 cities = listOf("Europe/Madrid", "America/New_York", "Asia/Tokyo")
                     .map { WorldClocks.City(it) }

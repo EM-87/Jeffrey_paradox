@@ -469,19 +469,25 @@ class DigitalClockView @JvmOverloads constructor(
         is Cell.Number ->
             if (style == DigitStyle.SEGMENT) Segments.span(kind(), cell.text)
             else cell.text.length.toFloat()
-        // On Rome's display the separator is a module with its dot lit, so
-        // it takes a module's room. On the other two it is punctuation and
-        // closes ranks with the groups either side of it.
+        // Punctuation, which closes ranks with the groups either side of
+        // it. It was a whole module on Rome's display, back when Rome's
+        // module wrote the time and lighting its dot was what made
+        // VII\u00b7XII read as one instrument — see [dotSeparator].
         Cell.Colon -> if (dotSeparator()) 1f else 0.34f
         Cell.Slash -> if (dotSeparator()) 1f else 0.5f
         is Cell.Token -> 1f
     }
 
-    /** Which of the three displays this script goes on. */
+    /**
+     * Which display the *numbers* on this face go on.
+     *
+     * The panel has two, and this is the one the time is written in. Its
+     * other alphabet is Rome's module and it never writes a number here —
+     * see [drawRail].
+     */
     private fun kind(): Segments.Kind = when (script) {
-        DigitScript.ROMAN -> Segments.Kind.SIXTEEN
         DigitScript.YAUTJA -> Segments.Kind.STAR
-        DigitScript.COMET -> Segments.Kind.NINE
+        DigitScript.ROMAN_COMET -> Segments.Kind.NINE
         else -> Segments.Kind.SEVEN
     }
 
@@ -500,9 +506,17 @@ class DigitalClockView @JvmOverloads constructor(
     private fun barWidth(digitH: Float): Float =
         digitH * Segments.native(kind()) * weight * 1.6f
 
-    /** Whether the separator is a module of its own rather than two dots. */
-    private fun dotSeparator(): Boolean =
-        style == DigitStyle.SEGMENT && script == DigitScript.ROMAN
+    /**
+     * Whether the separator is a module of its own rather than two dots.
+     *
+     * It was, while Rome's module wrote the time: a dot lit inside a
+     * module of its own is what the drawing does, and it made `VII·XII`
+     * read as one instrument. Rome writes the date now and the time is
+     * the calculator's, whose own drawing puts two round lamps between
+     * the groups — so nothing on this face wants a module any more. The
+     * function stays because the rails still spell their dots that way.
+     */
+    private fun dotSeparator(): Boolean = false
 
     /**
      * How wide a cell is against its own height.
@@ -511,11 +525,8 @@ class DigitalClockView @JvmOverloads constructor(
      * not a preference — see [Segments.aspect]. A card or a drum is a
      * different object and keeps the proportions a card has.
      */
-    private fun cellRatio(): Float = when {
-        style == DigitStyle.SEGMENT -> Segments.aspect(kind())
-        script == DigitScript.ROMAN -> ROMAN_RATIO
-        else -> DIGIT_RATIO
-    }
+    private fun cellRatio(): Float =
+        if (style == DigitStyle.SEGMENT) Segments.aspect(kind()) else DIGIT_RATIO
 
     /**
      * How tall everything this face is about to draw comes to, measured in
@@ -600,14 +611,44 @@ class DigitalClockView @JvmOverloads constructor(
 
         laid.clear()
         grabs.clear()
-        val cells = readout()
+        // The panel is this script's whole clock card: two lamps at the
+        // ends of the time, and the date on rails above and below it when
+        // there is a date to show. The lamps come with the display and the
+        // rails are the date's own switch — see [CometPanel].
+        val panel = script == DigitScript.ROMAN_COMET && style == DigitStyle.SEGMENT &&
+            settingMs == null && frozenMs == null
+        val cells = readout().let {
+            // The moon at the end of a twelve-hour reading is a lamp on
+            // this panel's glass rather than a glyph in the row — it is
+            // drawn outside the digits, where the drawing puts it. Two
+            // moons saying the same thing was the first thing a picture of
+            // this face showed.
+            if (panel) it.filterNot { cell -> cell is Cell.Token } else it
+        }
         // No date under a time being set, nor under a still one standing
         // for an alarm. It is not today's date that is being set, and a
         // row of numbers nobody can touch under a row of numbers they can
         // is an invitation to touch the wrong one.
         val dated = if (fullScreen) bedsideDate else showDate
+        // The panel writes its date on two rails of Rome's module rather
+        // than as a line of digits under the time — see [CometPanel]. Not
+        // while a time is being wound or standing for an alarm: it is not
+        // today's date that is being set, and the rails would be saying
+        // something about a different day from the one on screen.
+        val rails =
+            if (script == DigitScript.ROMAN_COMET && dated &&
+                settingMs == null && frozenMs == null
+            ) {
+                CometPanel.rails(calendar(), dateDayFirst)
+            } else {
+                null
+            }
         val date =
-            if (dated && settingMs == null && frozenMs == null) dateLine() else emptyList()
+            if (rails == null && dated && settingMs == null && frozenMs == null) {
+                dateLine()
+            } else {
+                emptyList()
+            }
         val said = caption
         // The ladder of other cities, which is only ever on the main face:
         // a chip on a home screen and a readout being wound are not places
@@ -627,12 +668,23 @@ class DigitalClockView @JvmOverloads constructor(
         // decides is whichever is longer today — asked every frame, because
         // it changes when the hour does.
         val room = width * (1f - 2f * (if (fullScreen) BEDSIDE_MARGIN else MARGIN))
+        // Room either side for whichever lamps are going to light, and for
+        // no others. They sit outside the digits on the drawing and a lamp
+        // hanging off the edge of the screen is worse than a slightly
+        // smaller clock — but reserving for both of them always made the
+        // time a third smaller than it needed to be on a panel showing
+        // neither, which is most of the day on a twenty-four hour clock.
+        val lamps = if (!panel) 0 else
+            (if (nextAlarmMs != null && !chip) 1 else 0) +
+                (if (CometPanel.moonLit(hourNow(), hour24)) 1 else 0)
         val widest = maxOf(
-            rowWidth(cells),
+            rowWidth(cells) + lamps * lampRoom(),
             // The day sits beside the date, so the pair of them is one row
             // and it is the pair that has to fit.
             (rowWidth(date) + weekdayCells(day)) * DATE_SCALE,
-            alarm?.let { (rowWidth(it) + ALARM_FLAG) * ALARM_SCALE } ?: 0f
+            alarm?.let {
+                (rowWidth(it) + if (panel) 0f else ALARM_FLAG) * ALARM_SCALE
+            } ?: 0f
         )
         val tallest = height * (if (fullScreen) BEDSIDE_TALLEST else TALLEST)
         // And the whole block has to fit as well as one digit of it. Only
@@ -641,7 +693,8 @@ class DigitalClockView @JvmOverloads constructor(
         // narrow before it is too short, and a home-screen widget pulled
         // four cells wide and one tall is the other way round. That widget
         // drew its date through the bottom of its own panel.
-        val stack = stackOf(cells, date, said, ladder, alarm != null)
+        val stack = stackOf(cells, date, said, ladder, alarm != null) +
+            if (rails != null) 2f * (CometPanel.RAIL + CometPanel.RAIL_GAP) else 0f
         val byHeight = height * (if (chip) CHIP_BLOCK_FILL else BLOCK_FILL) / stack * cellRatio()
         val digitW = if (widest > 0f) minOf(room / widest, tallest, byHeight) else 0f
         val digitH = digitW / cellRatio()
@@ -660,11 +713,30 @@ class DigitalClockView @JvmOverloads constructor(
             if (ladder.isEmpty()) 0f
             else digitH * CITY_GAP + ladder.size * rungH + (ladder.size - 1) * rungH * CITY_STEP
         val alarmH = if (alarm == null) 0f else digitH * (ALARM_GAP + ALARM_SCALE)
-        val top = (height - digitH - dateH - capH - ladderH - alarmH) / 2f
-        drawRow(canvas, cells, top, digitW, digitH, "t")
+        // The rails fit themselves to the clock rather than the other way
+        // round. Rome's module is narrow and a date is a lot of them —
+        // XXVIII·VIII is sixteen — so a panel sized by its longest rail
+        // puts a postage stamp of a time between two long grey bars, which
+        // is a date with a clock on it. The drawing's own ratio is what a
+        // rail gets when it fits; a rail that does not fit gets shorter,
+        // and the time stays the size of the time.
+        val railH = if (rails == null) 0f else minOf(
+            digitH * CometPanel.RAIL,
+            railFit(rails.first, room),
+            railFit(rails.second, room)
+        )
+        val railGap = digitH * CometPanel.RAIL_GAP
+        val railsH = if (rails == null) 0f else 2f * (railH + railGap)
+        val top = (height - digitH - railsH - dateH - capH - ladderH - alarmH) / 2f
+        // The panel, top rail first, so the time lands between the two.
+        val timeTop = if (rails == null) top else top + railH + railGap
+        rails?.let { drawRail(canvas, it.first, top, railH) }
+        drawRow(canvas, cells, timeTop, digitW, digitH, "t")
+        rails?.let { drawRail(canvas, it.second, timeTop + digitH + railGap, railH) }
+        if (panel) drawLamps(canvas, timeTop, digitW, digitH, rowWidth(cells) * digitW)
         if (date.isNotEmpty()) {
             drawDateLine(
-                canvas, date, day, top + digitH + digitH * DATE_GAP,
+                canvas, date, day, timeTop + digitH + digitH * DATE_GAP,
                 digitW * DATE_SCALE, digitH * DATE_SCALE
             )
         }
@@ -677,21 +749,26 @@ class DigitalClockView @JvmOverloads constructor(
             ink.textSize = digitH * CAPTION_SCALE
             canvas.drawText(
                 it, width / 2f,
-                top + digitH + dateH + digitH * CAPTION_SCALE * 1.2f, ink
+                timeTop + digitH + railsH / 2f + dateH + digitH * CAPTION_SCALE * 1.2f, ink
             )
         }
         if (ladder.isNotEmpty()) {
             drawCities(
                 canvas, ladder,
-                top + digitH + dateH + capH + digitH * CITY_GAP,
+                timeTop + digitH + railsH / 2f + dateH + capH + digitH * CITY_GAP,
                 digitW * CITY_SCALE, rungH
             )
         }
         if (alarm != null) {
             drawAlarmLine(
                 canvas, alarm,
-                top + digitH + dateH + capH + ladderH + digitH * ALARM_GAP,
-                digitW * ALARM_SCALE, digitH * ALARM_SCALE
+                timeTop + digitH + railsH / 2f + dateH + capH + ladderH + digitH * ALARM_GAP,
+                digitW * ALARM_SCALE, digitH * ALARM_SCALE,
+                // The panel has a bell lamp of its own, at the end of the
+                // time. Two bells on one card is the same fault as the two
+                // moons: the lamp says something is armed, the line says
+                // when, and the reader sees one alarm drawn twice.
+                flagged = !panel
             )
         }
     }
@@ -742,6 +819,115 @@ class DigitalClockView @JvmOverloads constructor(
         ink.textAlign = Paint.Align.CENTER
         drawRow(canvas, date, top, digitW, digitH, "d", leftEdge = left + label + gap)
     }
+
+    // ------------------------------------------------------- the panel
+
+    /**
+     * The tallest a rail of [text] may be and still fit across [room].
+     *
+     * Rome's module and the calculator's digit are two different sizes of
+     * two different displays, and this is the one place that converts
+     * between them: how many modules the text spells, and how wide a
+     * module is against its own height.
+     */
+    private fun railFit(text: String, room: Float): Float {
+        val span = Segments.span(Segments.Kind.SIXTEEN, text)
+        if (span <= 0f) return Float.MAX_VALUE
+        return room / (span * Segments.aspect(Segments.Kind.SIXTEEN))
+    }
+
+    /** And how much a lamp claims at the end of the time row. */
+    private fun lampRoom(): Float =
+        (CometPanel.LAMP_GAP + BELL_WIDE) / cellRatio()
+
+    /**
+     * One rail of Rome's module, centred, with the date on it.
+     *
+     * Drawn straight through [SegmentPainter] rather than through a row of
+     * cells, because a rail is not a readout: nothing on it turns, nothing
+     * on it can be wound, and a `V` on this display is two modules of one
+     * letter — which is a fact about the alphabet and not about the layout
+     * above it.
+     */
+    private fun drawRail(canvas: Canvas, text: String, top: Float, height: Float) {
+        val kind = Segments.Kind.SIXTEEN
+        val masks = Segments.spell(kind, text)
+        if (masks.isEmpty()) return
+        val wide = Segments.span(kind, text) * height * Segments.aspect(kind)
+        segments.weight = weight
+        segments.ghosts = ghosts
+        segments.row(
+            canvas, kind, masks, (width - wide) / 2f, top, wide, height,
+            theme.decimal, theme.minorTick
+        )
+    }
+
+    /**
+     * The two lamps at the ends of the panel: an alarm, and a moon.
+     *
+     * The bell says something the line under the clock cannot: whether
+     * anything at all is armed. That is a different question from what
+     * time it goes off, which is what the next-alarm row is for and which
+     * has its own switch — so this one is not governed by it. A lamp that
+     * only lights when you have also asked for a caption is not a lamp.
+     *
+     * The moon is the panel's whole answer to which half of the day this
+     * is. The drawing gives it one lamp and no sun, so it lights before
+     * noon and goes out after, and on a twenty-four hour clock it never
+     * lights at all — see [CometPanel.moonLit].
+     *
+     * Both are on the drawing's own outlines. The gears, the battery and
+     * the wifi fan beside them are for a machine that is not this phone.
+     */
+    private fun drawLamps(
+        canvas: Canvas, top: Float, digitW: Float, digitH: Float, timeWide: Float
+    ) {
+        val left = (width - timeWide) / 2f
+        val cy = top + digitH / 2f
+        if (nextAlarmMs != null && !chip) {
+            drawIcon(
+                canvas, CometPanel.BELL, digitH * BELL_WIDE, digitH * BELL_TALL,
+                left - digitW * CometPanel.LAMP_GAP - digitH * BELL_WIDE, cy
+            )
+        }
+        if (CometPanel.moonLit(hourNow(), hour24)) {
+            drawIcon(
+                canvas, CometPanel.MOON, digitH * MOON_SIDE, digitH * MOON_SIDE,
+                left + timeWide + digitW * CometPanel.LAMP_GAP, cy
+            )
+        }
+    }
+
+    /** One lamp, from its outline, with its left edge at [x] and centred on [cy]. */
+    private fun drawIcon(
+        canvas: Canvas,
+        shape: Array<FloatArray>,
+        wide: Float,
+        tall: Float,
+        x: Float,
+        cy: Float
+    ) {
+        punctuation(true)
+        val was = lit.style
+        lit.style = Paint.Style.FILL
+        val path = android.graphics.Path()
+        for (poly in shape) {
+            var i = 0
+            while (i < poly.size) {
+                val px = x + poly[i] * wide
+                val py = cy - tall / 2f + poly[i + 1] * tall
+                if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
+                i += 2
+            }
+            path.close()
+        }
+        canvas.drawPath(path, lit)
+        lit.style = was
+    }
+
+    /** The hour this face is showing, for the lamp that names the half-day. */
+    private fun hourNow(): Int =
+        calendar().apply { timeInMillis = nowMs() }.get(java.util.Calendar.HOUR_OF_DAY)
 
     /**
      * The day of the week as a number, in the display's own metal.
@@ -804,12 +990,15 @@ class DigitalClockView @JvmOverloads constructor(
         alarm: List<Cell>,
         top: Float,
         digitW: Float,
-        digitH: Float
+        digitH: Float,
+        flagged: Boolean
     ) {
-        val flag = digitH * ALARM_FLAG
+        val flag = if (flagged) digitH * ALARM_FLAG else 0f
         val row = rowWidth(alarm) * digitW
         val left = (width - (flag + row)) / 2f
-        drawBell(canvas, left + flag * 0.42f, top + digitH * 0.5f, digitH * 0.42f)
+        if (flagged) {
+            drawBell(canvas, left + flag * 0.42f, top + digitH * 0.5f, digitH * 0.42f)
+        }
         drawRow(canvas, alarm, top, digitW, digitH, "a", leftEdge = left + flag)
     }
 
@@ -1522,8 +1711,13 @@ class DigitalClockView @JvmOverloads constructor(
         punctuation(on)
         val was = lit.strokeWidth
         lit.strokeWidth = h * Segments.separator(kind()) * weight
-        canvas.drawPoint(cx, top + h * 0.32f, lit)
-        canvas.drawPoint(cx, top + h * 0.68f, lit)
+        // The panel's whole alphabet leans, and on the drawing so does its
+        // colon: the upper lamp sits to the right of the lower one. Two
+        // dots on a vertical line between two leaning digits are the only
+        // upright thing on the panel, and they show.
+        val lean = if (script == DigitScript.ROMAN_COMET) h * CometPanel.COLON_LEAN else 0f
+        canvas.drawPoint(cx + lean, top + h * 0.32f, lit)
+        canvas.drawPoint(cx - lean, top + h * 0.68f, lit)
         lit.strokeWidth = was
     }
 
@@ -1587,12 +1781,15 @@ class DigitalClockView @JvmOverloads constructor(
          *
          * Seven bars make a narrow digit and sixteen make a squarer one —
          * there are four diagonals in there and a diagonal across a slot
-         * is a stroke, not a letter. Rome's clock comes out shorter as
-         * well as wider, which is the honest price of writing twenty-three
-         * fifty-nine as XXIII:LIX and not something to hide by squeezing.
+         * is a stroke, not a letter.
+         *
+         * There was a second one here for Rome's module printed as type,
+         * back when Rome's numerals were the time on a flip card. Rome
+         * writes the date now, on a rail made of its own metal, and a
+         * rail is never printed — so the number went with the case that
+         * used it.
          */
         private const val DIGIT_RATIO = 0.55f
-        private const val ROMAN_RATIO = 0.72f
 
         /** The space between two digits, and the tighter one by the dots. */
         private const val GAP = 0.28f
@@ -1662,6 +1859,17 @@ class DigitalClockView @JvmOverloads constructor(
         private const val WEEKDAY_SIZE = 0.80f
         private const val WEEKDAY_GAP = 0.55f
         private const val WEEKDAY_ALPHA = 190
+
+        /**
+         * The two lamps, in digit heights, straight off the drawing.
+         *
+         * The bell is taller than it is wide because two arcs of ringing
+         * hang under it, and those arcs are half its height — leave them
+         * out and it is a bell that is not doing anything.
+         */
+        private const val BELL_WIDE = 0.3435f
+        private const val BELL_TALL = 0.5597f
+        private const val MOON_SIDE = 0.3189f
         private const val WEEKDAY_CELLS = 0.42f
 
         /** And the alarm flag under everything: its size and its bell. */

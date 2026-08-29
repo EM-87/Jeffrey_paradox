@@ -192,8 +192,12 @@ class DigitalFaceTest {
         Robolectric.buildActivity(MainActivity::class.java).use { c ->
             c.setup()
             val digits = c.get().digitalForTest()!!
-            assertEquals(DigitStyle.ROLLER, digits.style)
-            assertEquals(DigitScript.ROMAN, digits.script)
+            // Rome's key is still written down on phones that had it
+            // chosen, and there is no Roman script any more — it lands on
+            // the panel that replaced it. Which only exists as lit bars,
+            // so the drum that was also asked for is quietly refused.
+            assertEquals(DigitScript.ROMAN_COMET, digits.script)
+            assertEquals(DigitStyle.SEGMENT, digits.style)
             assertFalse(digits.hour24)
             assertTrue(digits.blinkColon)
             // The second hand's switch, which on this face is the seconds.

@@ -229,7 +229,7 @@ class SettingsActivity : AppCompatActivity() {
          * what says these are waiting on something; it does not need the
          * step, and the step was saying something false.
          */
-        private val dimmedBy = HashMap<String, String>()
+        private val dimmedBy = HashMap<String, () -> Boolean>()
 
         /** How faded a row whose switch is off is drawn. */
         private val fadedAlpha = 0.45f
@@ -240,13 +240,34 @@ class SettingsActivity : AppCompatActivity() {
          * and without making them unusable.
          */
         protected fun dimmedWhen(parent: String, vararg children: String) {
-            for (child in children) dimmedBy[child] = parent
+            for (child in children) {
+                dimmedBy[child] = {
+                    preferenceManager.sharedPreferences?.getBoolean(parent, false) == true
+                }
+            }
         }
 
-        /** Which faded rows are called what, and whose switch each waits on. */
-        private fun dimmedTitles(): Map<String, String> =
-            dimmedBy.mapNotNull { (key, parent) ->
-                findPreference<Preference>(key)?.title?.toString()?.let { it to parent }
+        /**
+         * The same, for a row whose effect depends on something that is not
+         * a switch.
+         *
+         * The weekday is the case that needed it. It is a real question on
+         * three of the four alphabets and an impossible one on the fourth:
+         * the panel writes its date on a rail of Rome's module, and Rome's
+         * module has eight letters in it — none of the Latin day names fit
+         * inside I, V, X, L, C, D, M and N. So the row cannot be answered
+         * while that script is chosen, and a switch that is drawn, tapped
+         * and ignored is the thing this app keeps having to go back and
+         * remove.
+         */
+        protected fun dimmedUnless(child: String, bright: () -> Boolean) {
+            dimmedBy[child] = bright
+        }
+
+        /** Which faded rows are called what, and what each is waiting on. */
+        private fun dimmedTitles(): Map<String, () -> Boolean> =
+            dimmedBy.mapNotNull { (key, bright) ->
+                findPreference<Preference>(key)?.title?.toString()?.let { it to bright }
             }.toMap()
 
         /**
@@ -260,13 +281,12 @@ class SettingsActivity : AppCompatActivity() {
         private fun paintFaded(view: android.view.View) {
             val title = view.findViewById<android.widget.TextView>(android.R.id.title)
                 ?.text?.toString()
-            val parent = dimmedTitles()[title]
-            if (parent == null) {
+            val bright = dimmedTitles()[title]
+            if (bright == null) {
                 view.alpha = 1f
                 return
             }
-            val on = preferenceManager.sharedPreferences?.getBoolean(parent, false) == true
-            view.alpha = if (on) 1f else fadedAlpha
+            view.alpha = if (bright()) 1f else fadedAlpha
         }
 
         /**
@@ -741,6 +761,15 @@ class SettingsActivity : AppCompatActivity() {
             )
             dimmedWhen(Prefs.ALARM_MARKERS, Prefs.MARK_COLORS)
             dimmedWhen(Prefs.ORRERY, Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC)
+            // And the day of the week, which the panel cannot write: its
+            // date rail is Rome's module and none of the Latin day names
+            // fit inside the eight letters that module has — see
+            // [CometPanel.rails].
+            dimmedUnless(Prefs.SHOW_WEEKDAY) {
+                DigitScript.of(
+                    preferenceManager.sharedPreferences?.getString(Prefs.DIGIT_SCRIPT, null)
+                ) != DigitScript.ROMAN_COMET
+            }
 
             // The shadows need a place to put the sun over. Without one
             // they still work, from a middle latitude, and the row says so

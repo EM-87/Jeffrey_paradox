@@ -603,15 +603,13 @@
     </string-array>
     <string-array name="digit_script_entries">
         <item>Ours (1, 2, 3…)</item>
-        <item>Rome\'s (I, II, III…)</item>
         <item>Theirs</item>
-        <item>A calculator\'s (Sharp Comet, 1964)</item>
+        <item>Rome and the Comet</item>
     </string-array>
     <string-array name="digit_script_values" translatable="false">
         <item>arabic</item>
-        <item>roman</item>
         <item>yautja</item>
-        <item>comet</item>
+        <item>roman_comet</item>
     </string-array>
     <string name="pref_show_weekday_title">Day of the week</string>
     <string name="pref_show_weekday_summary">Mon, Tue… beside the date. In Latin on a Roman face</string>
