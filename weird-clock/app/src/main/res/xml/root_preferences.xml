@@ -59,6 +59,12 @@
              number cannot tell you. Only on the face made of digits: the
              dial's date is a caption under the hands and has no room. -->
         <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_weather"
+            android:summary="@string/pref_weather_summary"
+            android:title="@string/pref_weather_title" />
+
+        <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="pref_show_weekday"
             android:summary="@string/pref_show_weekday_summary"

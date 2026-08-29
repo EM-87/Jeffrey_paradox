@@ -142,6 +142,21 @@ object Prefs {
     const val BEDSIDE_SECONDS = "pref_bedside_seconds"
     const val BEDSIDE_DATE = "pref_bedside_date"
 
+    /**
+     * Whether this clock is allowed to ask what the weather is doing.
+     *
+     * Off, and it is the only setting in this app that turns a network on.
+     * Everything else here works with the phone in a drawer; this one asks
+     * three public forecast services about a location rounded to about a
+     * kilometre, thirty minutes apart, and reads nothing back but numbers.
+     *
+     * A switch rather than a permission prompt because there is no prompt
+     * to have — the internet is granted at install without asking — so the
+     * only honest place to put the question is here, with the answer
+     * defaulting to no. See [WeatherStore].
+     */
+    const val WEATHER = "pref_weather"
+
     /** Whether the home-screen clock widget carries the date. */
     const val WIDGET_DATE = "pref_widget_date"
 

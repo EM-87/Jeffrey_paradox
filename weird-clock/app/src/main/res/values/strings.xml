@@ -611,6 +611,8 @@
         <item>yautja</item>
         <item>roman_comet</item>
     </string-array>
+    <string name="pref_weather_title">Weather</string>
+    <string name="pref_weather_summary">Off. Turning it on lets the clock ask three public forecast services — Open-Meteo, MET Norway and wttr.in — about your location rounded to a kilometre, every half hour. It is the only thing here that uses the network</string>
     <string name="pref_show_weekday_title">Day of the week</string>
     <string name="pref_show_weekday_summary">Mon, Tue… beside the date. In Latin on a Roman face</string>
     <string name="pref_next_alarm_title">Next alarm on the clock</string>

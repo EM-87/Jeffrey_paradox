@@ -485,6 +485,8 @@
         <item>Los suyos</item>
         <item>Roma y la Comet</item>
     </string-array>
+    <string name="pref_weather_title">Clima</string>
+    <string name="pref_weather_summary">Apagado. Al encenderlo el reloj pregunta a tres servicios públicos — Open-Meteo, MET Norway y wttr.in — por tu ubicación redondeada a un kilómetro, cada media hora. Es lo único aquí que usa la red</string>
     <string name="pref_show_weekday_title">Día de la semana</string>
     <string name="pref_show_weekday_summary">Lun, Mar… junto a la fecha. En latín en la cara romana</string>
     <string name="pref_next_alarm_title">Próxima alarma en el reloj</string>

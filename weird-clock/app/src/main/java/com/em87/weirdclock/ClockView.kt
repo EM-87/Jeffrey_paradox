@@ -4705,11 +4705,37 @@ class ClockView @JvmOverloads constructor(
         SkyGlyph.draw(
             canvas, cx, cy + apothemRadius() * 0.45f, r * 0.07f,
             moonLitPaint, moonDarkPaint, moonRimPaint, shownTimeOfDayMs(),
-            withPhase = moonPhaseShown
+            withPhase = moonPhaseShown,
+            weather = weather,
+            weatherSure = weatherSure
         )
     }
 
     // ------------------------------------------------------ the solar system
+
+    /**
+     * What the sky is doing, or nothing if nobody has been asked.
+     *
+     * Handed in rather than looked up, the same as the next alarm and for
+     * the same reason: a view that reads a store is a view that has to be
+     * told when the store changes and has no way of finding out. Nothing
+     * here ever touches the network — see [WeatherStore], which is the one
+     * thing in this app that does.
+     */
+    var weather: Weather.Look? = null
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
+    /** And whether a second service confirmed it. */
+    var weatherSure: Boolean = true
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
 
     /** Whether the planets have the dial. */
     private var orreryUp = false

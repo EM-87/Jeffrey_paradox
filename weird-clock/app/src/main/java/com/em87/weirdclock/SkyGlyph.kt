@@ -9,7 +9,8 @@ import kotlin.math.sin
 
 /**
  * The sky, drawn small: the sun while the sun is up, the moon and its phase
- * once it is down, and the sun crossing the horizon in between.
+ * once it is down, the sun crossing the horizon in between — and, when this
+ * clock has been allowed to ask, whatever weather is in front of all three.
  *
  * Lives on its own because two dials draw it — the app's and the widget's —
  * and the last time a piece of dial arithmetic was written twice, the two
@@ -43,7 +44,9 @@ object SkyGlyph {
         rim: Paint,
         timeOfDayMs: Long,
         whenMs: Long = TimeKeeper.nowMs(),
-        withPhase: Boolean = true
+        withPhase: Boolean = true,
+        weather: Weather.Look? = null,
+        weatherSure: Boolean = true
     ) {
         when (val sky = DayNight.skyMs(timeOfDayMs, whenMs)) {
             DayNight.Sky.Day -> drawSun(canvas, cx, cy, mr, lit, rim)
@@ -52,6 +55,9 @@ object SkyGlyph {
             // arithmetic that works anywhere on Earth.
             else -> drawMoon(canvas, cx, cy, mr, lit, dark, rim, whenMs, withPhase)
         }
+        // And whatever is in front of it — see [WeatherGlyph], which draws
+        // nothing at all on a clear day.
+        WeatherGlyph.draw(canvas, weather, cx, cy, mr, lit, dark, weatherSure)
     }
 
     /**

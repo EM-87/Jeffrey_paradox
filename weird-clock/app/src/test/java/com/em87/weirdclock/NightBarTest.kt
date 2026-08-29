@@ -229,6 +229,8 @@ class NightBarTest {
                 // Dial — keyed so its heading can be renamed with the face.
                 "cat_dial",
                 "pref_night_dim", "pref_theme", "pref_show_date",
+                // The one switch in this app that turns a network on.
+                "pref_weather",
                 "pref_show_weekday",
                 // Alarm
                 "pref_next_alarm", "pref_bells", "pref_alarm_markers",

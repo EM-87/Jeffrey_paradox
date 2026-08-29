@@ -3448,6 +3448,20 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         cv.onSkyFade = { fade -> worldBubbles.layer?.alpha = 1f - fade }
         cv.orreryBusyDays = busyDaysOfTheYear()
 
+        // Whatever the sky is doing, if this clock has been allowed to
+        // ask. Read out of what was written down last time so the face can
+        // draw immediately, and a fetch started behind it when that is old
+        // — see [WeatherStore], the one thing in this app that opens a
+        // socket, and only ever with the switch on.
+        val outside = WeatherStore.cached(this)
+        cv.weather = Weather.look(outside)
+        cv.weatherSure = outside.cloudPercent.trust != Weather.Trust.LONE
+        if (WeatherStore.wanted(this) && DayNight.hasFix()) {
+            WeatherStore.refreshInBackground(
+                this, DayNight.latitudeNow(), DayNight.longitudeNow()
+            )
+        }
+
         calendarView?.let {
             it.theme = cv.theme
             // Its own answer, not the dial's. Roman numerals are a fine
