@@ -203,6 +203,32 @@ class ScreenshotTest {
      * keys are right; only a picture can say the page still reads as a
      * page rather than as a list with holes in it.
      */
+    /**
+     * The four instruments, each on its own clock card.
+     *
+     * One picture of what this app actually is now. There was no shot of
+     * the dial's own card at all — every other picture of it is a detail,
+     * a shape or a night — so the one thing nobody could look at side by
+     * side was the set.
+     */
+    @Test
+    fun `the four faces, side by side`() {
+        for (face in Face.entries) {
+            prefs.edit().clear()
+                .putBoolean(Prefs.OVERLAY_ASKED, true)
+                .putBoolean(Prefs.FACE_ASKED, true)
+                .putString(Prefs.FACE, face.key)
+                .putBoolean(Prefs.SHOW_DATE, true)
+                .commit()
+            Robolectric.buildActivity(MainActivity::class.java).use { c ->
+                c.setup()
+                org.robolectric.shadows.ShadowLooper.idleMainLooper()
+                val screen = c.get().findViewById<View>(android.R.id.content)
+                assertTrue(face.key, shoot(screen, "face-${face.key}") > 3f)
+            }
+        }
+    }
+
     @Test
     fun `every settings screen on every face`() {
         // Every face, and not the one this was written for. The pictures
