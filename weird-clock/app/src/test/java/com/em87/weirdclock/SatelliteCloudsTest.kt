@@ -101,41 +101,36 @@ class SatelliteCloudsTest {
     /**
      * The veil is refused where the projection cannot carry it.
      *
-     * At the rim of a flat view the far pole — one point of the map — is
-     * stretched round the whole circle, so a bright pixel there becomes a
+     * All three views are a ball now, and a ball has a limb: at the rim
+     * you are looking along the surface, so a thin band of screen carries
+     * an enormous amount of world and a bright pixel there becomes a
      * halo the width of a finger made out of one pixel's worth of answer.
-     * That is what the first version drew, and it read as a scratch on the
-     * lens.
+     * That is what the first version drew, and it read as a scratch on
+     * the lens.
      */
     @Test
     fun `the edge of the projection gets no cloud`() {
-        // Flat: whole in the middle, gone before the rim.
-        assertEquals(1f, SatelliteClouds.edge(true, 0.0), 0.0001f)
-        assertEquals(1f, SatelliteClouds.edge(true, SatelliteClouds.FLAT_FULL), 0.0001f)
-        assertEquals(0f, SatelliteClouds.edge(true, SatelliteClouds.FLAT_GONE), 0.0001f)
+        assertEquals(1f, SatelliteClouds.edge(0.0), 0.0001f)
+        assertEquals("the middle of the world lost its clouds",
+            1f, SatelliteClouds.edge(0.8), 0.0001f)
+        assertTrue("the limb kept its full veil", SatelliteClouds.edge(0.995) < 0.4f)
         assertEquals("something was drawn on the rim itself",
-            0f, SatelliteClouds.edge(true, 1.0), 0.0001f)
-        val half = SatelliteClouds.edge(
-            true, (SatelliteClouds.FLAT_FULL + SatelliteClouds.FLAT_GONE) / 2.0
-        )
+            0f, SatelliteClouds.edge(1.0), 0.0001f)
+        // And it really fades rather than switching off: the reading
+        // halfway down the limb is halfway down the veil.
+        val facing = SatelliteClouds.LIMB / 2.0
+        val half = SatelliteClouds.edge(Math.sqrt(1.0 - facing * facing))
         assertEquals("the fade is not a fade", 0.5f, half, 0.02f)
-
-        // The ball: whole across the face, thinned only at the limb.
-        assertEquals(1f, SatelliteClouds.edge(false, 0.0), 0.0001f)
-        assertEquals("the middle of the globe lost its clouds",
-            1f, SatelliteClouds.edge(false, 0.8), 0.0001f)
-        assertTrue("the limb kept its full veil", SatelliteClouds.edge(false, 0.995) < 0.4f)
-        assertEquals(0f, SatelliteClouds.edge(false, 1.0), 0.0001f)
     }
 
     /** And the tint carries the two of them together, as white. */
     @Test
     fun `the tint is white at the strength that place has earned`() {
         val cloud = (0xFF shl 24) or 0xFAFAFC
-        val middle = SatelliteClouds.tint(cloud, true, 0.1)
+        val middle = SatelliteClouds.tint(cloud, 0.1)
         assertEquals("it is not white", 0xFFFFFF, middle and 0x00FFFFFF)
         assertEquals(SatelliteClouds.veil(cloud), (middle ushr 24) and 0xFF)
-        val rim = SatelliteClouds.tint(cloud, true, 0.99)
+        val rim = SatelliteClouds.tint(cloud, 1.0)
         assertEquals("the rim was painted after all", 0, (rim ushr 24) and 0xFF)
     }
 }

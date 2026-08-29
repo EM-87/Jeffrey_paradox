@@ -4234,7 +4234,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         world.theme = theme
         world.view = Hemisphere.View.entries
             .firstOrNull { it.key == prefs.getString(Prefs.HEMISPHERE_VIEW, null) }
-            ?: Hemisphere.View.NORTH
+            ?: Hemisphere.defaultView(if (DayNight.hasFix()) DayNight.latitudeNow() else 0.0)
         // Nailed down, or pointed. Pointed needs a fix — the sun's bearing
         // is a fact about where you are standing — so a phone that has
         // never had one falls back to the setting rather than putting the

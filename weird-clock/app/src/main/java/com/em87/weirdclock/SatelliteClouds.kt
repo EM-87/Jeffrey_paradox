@@ -161,44 +161,39 @@ object SatelliteClouds {
      * How much of the veil survives this far out from the middle of the
      * disc, where [rho] is nought at the centre and one at the rim.
      *
-     * Not a softening for the look of it. Both projections on this face
-     * fall apart at their edge, in the same way and for the same reason:
-     * the far pole is a single point of the map and the rim is a whole
-     * circle, so one pixel of the photograph is smeared right round the
-     * picture. Drawn at full strength that is a white halo the width of a
-     * finger made out of one pixel's worth of answer — which the flat
-     * views did, and it looked like a scratch on the lens rather than
-     * like weather.
+     * Not a softening for the look of it. All three views are the same
+     * projection now — a ball, from three places — and a ball has a limb:
+     * at the rim you are looking along the surface, so a thin band of
+     * screen carries an enormous amount of world and one pixel of the
+     * photograph is smeared right round the picture. It is also where you
+     * would be looking through the most air, so fading there is what a
+     * photograph of a planet actually does.
      *
-     * The globe has the milder version of the same problem: at the limb
-     * you are looking along the surface, so a thin band of screen carries
-     * an enormous amount of world. It is also where you would be looking
-     * through the most air, so fading there is what a photograph of a
-     * planet actually does.
+     * There used to be a second rule here, for the two flat views back
+     * when they were charts that reached the far pole: their rim was one
+     * point of the map stretched round a whole circle, which drew a white
+     * halo the width of a finger out of one pixel's worth of answer. Those
+     * views are hemispheres now and their rim is the equator seen
+     * edge-on, which is the ordinary limb and wants the ordinary rule.
      *
      * The map underneath is not faded — it has the same distortion and
      * always has, and changing that would be redrawing the earth. What is
      * refused here is *adding* a claim at a place where the projection
      * cannot carry one.
      */
-    fun edge(flat: Boolean, rho: Double): Float {
+    fun edge(rho: Double): Float {
         if (rho >= 1.0) return 0f
-        if (flat) return (((FLAT_GONE - rho) / (FLAT_GONE - FLAT_FULL)).toFloat()).coerceIn(0f, 1f)
-        // On the ball, how much of the surface is facing you.
+        // How much of the surface is facing you.
         val facing = Math.sqrt(1.0 - rho * rho)
         return ((facing / LIMB).toFloat()).coerceIn(0f, 1f)
     }
 
-    /** Whole out to here on the flat views, and gone by here. */
-    const val FLAT_FULL = 0.72
-    const val FLAT_GONE = 0.93
-
-    /** And how far round the ball's limb the veil is thinned. */
+    /** How far round the limb the veil is thinned. */
     const val LIMB = 0.35
 
     /** One pixel of the photograph, at the strength that place can carry. */
-    fun tint(argb: Int, flat: Boolean, rho: Double): Int {
-        val alpha = (veil(argb) * edge(flat, rho)).toInt().coerceIn(0, 255)
+    fun tint(argb: Int, rho: Double): Int {
+        val alpha = (veil(argb) * edge(rho)).toInt().coerceIn(0, 255)
         return (alpha shl 24) or 0x00FFFFFF
     }
 }

@@ -110,8 +110,23 @@ class WidgetWeatherTest {
         // Kept as pictures too: the difference being non-zero says the
         // weather arrives, and only a look says the little cloud on a
         // home-screen dial reads as a cloud rather than as a smudge.
+        //
+        // Photographed with its hands on — see [WidgetShot]. What is
+        // measured above is the dial bitmap, which is what this app
+        // draws; what is *shown* has to be the whole widget, because a
+        // picture of the dial alone is a picture of a clock with no
+        // hands, and that is what every report of this widget has shown.
         val out = java.io.File("build/screenshots").apply { mkdirs() }
-        for ((name, bitmap) in listOf("widget-sky-clear" to fair, "widget-sky-storm" to foul)) {
+        val when01 = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.AUGUST, 27, 10, 8, 30)
+        }.timeInMillis
+        remember(clear)
+        val clearShot = WidgetShot.wholeDial(context, 400, when01)
+        remember(storm)
+        val stormShot = WidgetShot.wholeDial(context, 400, when01)
+        for ((name, bitmap) in listOf(
+            "widget-sky-clear" to clearShot, "widget-sky-storm" to stormShot
+        )) {
             java.io.File(out, "$name.png").outputStream().use {
                 bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
             }

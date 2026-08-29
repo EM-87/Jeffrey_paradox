@@ -437,6 +437,7 @@ class SundialView @JvmOverloads constructor(
     private fun drawShadow(
         canvas: Canvas, cx: Float, cy: Float, r: Float, sky: Sky, hangs: Boolean
     ) {
+        shadowRay = null
         val angle = Sundial.shadowAngle(
             kind, latitude, sky.hoursFromNoon, sky.altitude, sky.declination
         ) ?: return
@@ -450,12 +451,34 @@ class SundialView @JvmOverloads constructor(
         val dy = sin(a).toFloat()
         val nx = -dy
         val ny = dx
+        shadowRay = floatArrayOf(cx, cy, dx, dy, reach)
         canvas.save()
         platePath(width / 2f, height / 2f, r)
         canvas.clipPath(path)
+        // The far end goes out rather than stopping.
+        //
+        // It used to be cut straight across, and on a photograph of the
+        // dial that is what it looked like: a black tapered plank lying
+        // on the stone with a sawn end. A shadow has no such edge. The
+        // sun is half a degree wide, so every edge of it is a penumbra —
+        // and the tip is the furthest point from the thing casting it,
+        // which makes it the softest part of the whole shape, not the
+        // hardest. The sides were already soft, drawn in three spreading
+        // passes; only the end was not, and being the only hard line in
+        // the picture is what made it the thing the eye landed on.
+        //
+        // A gradient down the shadow's own length rather than a rounded
+        // cap: a cap would be a shape, and what is wanted is the absence
+        // of one.
+        fill.shader = android.graphics.LinearGradient(
+            cx, cy, cx + dx * reach, cy + dy * reach,
+            intArrayOf(BLACK, BLACK, BLACK and 0xFFFFFF),
+            floatArrayOf(0f, TIP_FADE, 1f),
+            android.graphics.Shader.TileMode.CLAMP
+        )
         for (pass in 0 until 3) {
             val spread = r * (0.030f + pass * 0.022f)
-            fill.color = 0xFF000000.toInt()
+            fill.color = BLACK
             fill.alpha = if (lined) 70 - pass * 18 else 26 - pass * 7
             path.reset()
             path.moveTo(cx + nx * spread * 0.55f, cy + ny * spread * 0.55f)
@@ -465,9 +488,22 @@ class SundialView @JvmOverloads constructor(
             path.close()
             canvas.drawPath(path, fill)
         }
+        fill.shader = null
         fill.alpha = 255
         canvas.restore()
     }
+
+    /**
+     * Where the shadow was last drawn: its foot, its direction and how
+     * far it goes.
+     *
+     * Only so a test can walk down it and measure how dark it is at each
+     * step. Working the same geometry out again in the test would be a
+     * test of a copy of the arithmetic rather than of the picture, and
+     * the fault this was written for was in the picture.
+     */
+    internal var shadowRay: FloatArray? = null
+        private set
 
     /** Whether the phone is pointed close enough to the sun to be read. */
     private fun aligned(sky: Sky): Boolean {
@@ -883,5 +919,20 @@ class SundialView @JvmOverloads constructor(
          * read past.
          */
         const val RIM = 0.80f
+
+        /** The shadow, which is black on every dial in every theme. */
+        const val BLACK = 0xFF000000.toInt()
+
+        /**
+         * How far along the shadow its tip starts giving out.
+         *
+         * Two thirds of the way, which is a lot — and it has to be. The
+         * penumbra at the end of a shadow this long is not a hairline: at
+         * the low sun that makes a long shadow the tip is soft for a
+         * good part of its length, which is why the far end of a real
+         * gnomon's shadow cannot be pointed at to the nearest minute and
+         * why every dial worth reading is read at its root.
+         */
+        const val TIP_FADE = 0.62f
     }
 }

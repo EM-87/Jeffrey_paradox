@@ -43,7 +43,9 @@ class DigitalShotTest {
         hour24: Boolean = true,
         seconds: Boolean = true,
         date: Boolean = true,
-        at: Long = atTwentyTwoFifteen()
+        at: Long = atTwentyTwoFifteen(),
+        w: Int = 1080,
+        h: Int = 1400
     ): DigitalClockView = DigitalClockView(context).apply {
         theme = ClockThemes.MIDNIGHT
         // Through the same rule the app uses, so these pictures are of
@@ -59,10 +61,26 @@ class DigitalShotTest {
         yautja = Yautja.face(context)
         atMs = at
         measure(
-            View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(1400, View.MeasureSpec.EXACTLY)
+            View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY)
         )
-        layout(0, 0, 1080, 1400)
+        layout(0, 0, w, h)
+    }
+
+    /**
+     * The four mechanisms with the phone on its side.
+     *
+     * A picture, because a landscape face is the one shape nobody looks
+     * at while they are building one: the block is centred on a height
+     * that has run out, and what fills a portrait card leaves a
+     * letterbox with the date printed through the bottom of it.
+     */
+    @Test
+    fun `the four mechanisms lying down`() {
+        for (style in DigitStyle.entries) {
+            val view = face(style, DigitScript.ARABIC, w = 2340, h = 900)
+            assertTrue(shoot(view, "landscape-${style.key}") > 3)
+        }
     }
 
     private fun shoot(view: View, name: String): Int {

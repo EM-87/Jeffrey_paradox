@@ -223,7 +223,6 @@ class HemisphereView @JvmOverloads constructor(
                 if (veil != null && skyPixels != null && sky != null) {
                     veil[at] = SatelliteClouds.tint(
                         sample(skyPixels, sky.width, sky.height, u, v),
-                        view != Hemisphere.View.GLOBE,
                         kotlin.math.hypot(x, y)
                     )
                 }

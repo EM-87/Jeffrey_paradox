@@ -26,20 +26,43 @@ class HemisphereTest {
         Hemisphere.project(view, lat, lon, sub, 0.0)
 
     /**
-     * The pole is the middle and the far pole is the rim, with the
-     * equator exactly halfway between.
+     * The pole is the middle, the equator is the rim, and the half of the
+     * world behind is behind.
      *
-     * That is the whole reason for this projection over the obvious one:
-     * every distance from the pole is to scale, so the entire world fits
-     * on the disc and nobody is left off the map.
+     * This is the change the face was asked for and the reason it needed
+     * asking for. It used to run every distance from the pole to scale —
+     * pole in the middle, equator halfway out, far pole smeared round the
+     * whole rim — so a north-polar view had South Africa in it, which is
+     * not a thing anybody has ever seen. It is orthographic now: how far
+     * out a place lands is how far it stands from the earth's axis, which
+     * is the cosine of its latitude, and it crowds towards the rim the
+     * way a football does.
      */
     @Test
-    fun `the pole is the middle and the far pole is the rim`() {
+    fun `the pole is the middle and the equator is the rim`() {
         val north = at(Hemisphere.View.NORTH, 90.0, 0.0)
-        assertEquals(0.0, hypot(north[0], north[1]), 0.0001)
-        assertEquals(0.5, hypot(at(Hemisphere.View.NORTH, 0.0, 0.0).let { it[0] }, 0.0), 0.0001)
-        val far = at(Hemisphere.View.NORTH, -90.0, 0.0)
-        assertEquals(1.0, hypot(far[0], far[1]), 0.0001)
+        assertEquals("the pole is not in the middle", 0.0, hypot(north[0], north[1]), 0.0001)
+        assertEquals(
+            "the equator is not the rim",
+            1.0, hypot(at(Hemisphere.View.NORTH, 0.0, 0.0)[0], 0.0), 0.0001
+        )
+        // Halfway out is thirty degrees of latitude from the rim, not
+        // forty-five: that is the whole difference between a ball and a
+        // ruler, and it is what a linear squeeze got wrong.
+        assertEquals(
+            "the squeeze is even, which no round thing is",
+            0.5, hypot(at(Hemisphere.View.NORTH, 60.0, 0.0)[0], 0.0), 0.0001
+        )
+        // And the far half is behind the near half rather than round the
+        // edge of it. Same third number as the globe has always used.
+        assertTrue(
+            "the southern hemisphere is on the front of the north view",
+            at(Hemisphere.View.NORTH, -30.0, 0.0)[2] < 0.0
+        )
+        assertTrue(
+            "the northern hemisphere is on the front of the south view",
+            at(Hemisphere.View.SOUTH, 30.0, 0.0)[2] < 0.0
+        )
         // And upside down for the other one.
         assertEquals(
             0.0,
@@ -49,6 +72,49 @@ class HemisphereTest {
             ),
             0.0001
         )
+    }
+
+    /**
+     * And the map painted into the disc never reaches the other half.
+     *
+     * The projection is one thing and the painting is another: the disc
+     * is filled by asking, for every pixel of it, which place is there.
+     * Under the old rule that question answered "Cape Town" a little way
+     * in from the rim of a *north* polar view, and the picture agreed —
+     * which is how somebody looking at it noticed. This walks the whole
+     * disc and asks whether any point of it comes back from the far
+     * hemisphere.
+     */
+    @Test
+    fun `the inverse never lands on the far side`() {
+        for ((view, sign) in listOf(Hemisphere.View.NORTH to 1.0, Hemisphere.View.SOUTH to -1.0)) {
+            var seen = 0
+            var y = -1.0
+            while (y <= 1.0) {
+                var x = -1.0
+                while (x <= 1.0) {
+                    val place = Hemisphere.unproject(view, x, y, 0.0)
+                    if (place != null) {
+                        seen++
+                        assertTrue(
+                            "$view has the other hemisphere in it, at ($x, $y): ${place[0]}",
+                            sign * place[0] >= -0.0001
+                        )
+                    }
+                    x += 0.01
+                }
+                y += 0.01
+            }
+            assertTrue("$view painted nothing at all", seen > 20000)
+        }
+    }
+
+    /** And nobody is left off the map, because there are two of them. */
+    @Test
+    fun `the view follows the pole you are standing under`() {
+        assertEquals(Hemisphere.View.SOUTH, Hemisphere.defaultView(-33.9))
+        assertEquals(Hemisphere.View.NORTH, Hemisphere.defaultView(40.4))
+        assertEquals(Hemisphere.View.NORTH, Hemisphere.defaultView(0.0))
     }
 
     /**
@@ -172,7 +238,16 @@ class HemisphereTest {
         for (sub in listOf(-23.4, -10.0, 0.0, 15.0, 23.4)) {
             val ring = Hemisphere.terminator(Hemisphere.View.NORTH, sub, 0.0, points = 36)
             assertEquals(36 * 3, ring.size)
+            var seen = 0
             for (i in 0 until 36) {
+                // Only the half of it that is in front. The view is a
+                // hemisphere now, so the terminator goes round the back
+                // like everything else, and a point back there comes out
+                // of the inverse as its own reflection on the near side —
+                // which is a different place, with the sun somewhere
+                // else.
+                if (ring[i * 3 + 2] < 0.0) continue
+                seen++
                 val back = Hemisphere.unproject(
                     Hemisphere.View.NORTH, ring[i * 3], ring[i * 3 + 1], 0.0
                 )
@@ -182,6 +257,7 @@ class HemisphereTest {
                     0.0, Hemisphere.cosZenith(back!![0], back[1], sub), 0.02
                 )
             }
+            assertTrue("no terminator on the near side at all", seen > 8)
         }
     }
 

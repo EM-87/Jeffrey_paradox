@@ -166,18 +166,18 @@ class DigitalReadoutTest {
     @Test
     fun `the date is written the way the phone writes dates`() {
         val options = DigitalReadout.Options()
-        assertEquals("27/08/2026", say(DigitalReadout.date(27, 8, 2026, true, options)))
-        assertEquals("08/27/2026", say(DigitalReadout.date(27, 8, 2026, false, options)))
+        assertEquals("27/08", say(DigitalReadout.date(27, 8, true, options)))
+        assertEquals("08/27", say(DigitalReadout.date(27, 8, false, options)))
         // And the same on every script, because the date line is our ten
         // digits wherever it appears. The panel does not use this at all:
         // its date is two rails of Rome's module — see [CometPanel].
         for (script in DigitScript.entries) {
             assertEquals(
                 "$script",
-                "27/08/2026",
+                "27/08",
                 say(
                     DigitalReadout.date(
-                        27, 8, 2026, true,
+                        27, 8, true,
                         DigitalReadout.Options(script = script)
                     )
                 )
@@ -185,12 +185,20 @@ class DigitalReadoutTest {
         }
     }
 
-    /** The year is one cell however long it is: nobody rolls a millennium. */
+    /**
+     * Nobody has ever looked at a clock to find out what year it is.
+     *
+     * Four digits that change once a year, on the row that has to share
+     * its width with the day of the week, costing every other number on
+     * it a third of its size.
+     */
     @Test
-    fun `the year is not a row of drums`() {
-        val cells = DigitalReadout.date(1, 1, 2026, true, DigitalReadout.Options())
-        assertEquals("2026", (cells.last() as Cell.Number).text)
-        assertEquals("and it turns nowhere", 0, (cells.last() as Cell.Number).of)
+    fun `the date line does not carry the year`() {
+        val cells = DigitalReadout.date(1, 1, true, DigitalReadout.Options())
+        // Two drums, a slash, two drums. Each number is a pair of cells
+        // because each digit of it is its own wheel — see [group].
+        assertEquals("day, slash, month and nothing else", 5, cells.size)
+        assertEquals("01/01", say(cells))
     }
 
     /** Theirs is a font, so it lays out exactly as ours does. */

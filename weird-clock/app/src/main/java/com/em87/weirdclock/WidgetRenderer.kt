@@ -245,7 +245,9 @@ object WidgetRenderer {
             theme = widgetTheme(context)
             this.view = Hemisphere.View.entries
                 .firstOrNull { it.key == prefs.getString(Prefs.HEMISPHERE_VIEW, null) }
-                ?: Hemisphere.View.NORTH
+                ?: Hemisphere.defaultView(
+                    if (DayNight.hasFix()) DayNight.latitudeNow() else 0.0
+                )
             sunAt = prefs.getInt(Prefs.HEMISPHERE_SUN_AT, 0).toDouble()
             // Small: the ring goes, the notches stay. A notch is one line
             // and still says where an hour changes; a numeral at this size

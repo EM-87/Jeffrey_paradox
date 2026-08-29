@@ -65,14 +65,60 @@ object Weekday {
             ?.uppercase(locale)
             ?: LATIN[(calendar.get(Calendar.DAY_OF_WEEK) - 1).coerceIn(0, 6)]
 
-    /** The label for [calendar]'s day, on a face written in [script]. */
-    fun of(calendar: Calendar, script: DigitScript): String = when (script) {
-        // The panel writes its day on a rail made of Rome's module, which
-        // is the one display here that has letters in it at all.
-        DigitScript.ROMAN_COMET -> latin(calendar.get(Calendar.DAY_OF_WEEK))
-        // And the display that cannot write a letter says which day it is
-        // the only way it can, which is Monday being one.
-        DigitScript.YAUTJA -> isoNumber(calendar.get(Calendar.DAY_OF_WEEK)).toString()
-        DigitScript.ARABIC -> local(calendar)
+    /**
+     * How many characters a *narrow* weekday name may honestly be.
+     *
+     * One in most languages and two in a few — Chinese writes 週一, and
+     * cutting that to 週 turns seven different days into one character
+     * repeated seven times.
+     */
+    const val NARROW = 2
+
+    /**
+     * One day's initial for a strip of seven, whatever the calendar hands
+     * back.
+     *
+     * The narrow name is asked for with a five-letter pattern, and on a
+     * phone that is what it gives. It is not a promise: the pattern is
+     * only defined up to four letters, so an implementation is free to
+     * return the whole word — and one does. Seven whole words where seven
+     * initials were expected is not a strip, it is a smear, and it has
+     * been in every photograph of an alarm this app has ever taken.
+     *
+     * The same fault was found and fixed on the month page a version ago
+     * by measuring the name against the column it had to fit in. There is
+     * no column here — the strip is a run of text in a row of a list — so
+     * the rule is the length instead: anything longer than a narrow name
+     * could honestly be is cut to its first character.
+     */
+    fun narrow(name: String): String {
+        if (name.isEmpty()) return name
+        if (name.codePointCount(0, name.length) <= NARROW) return name
+        return name.substring(0, name.offsetByCodePoints(0, 1))
+    }
+
+    /**
+     * The label for [calendar]'s day, on a face written in [script].
+     *
+     * [lit] is whether the face is made of bars rather than of type, and
+     * it decides the whole question. Not one of the four displays this
+     * clock draws can spell a day of the week: seven bars and the Sharp's
+     * nine and the eighteen-arm stars are ten digits each with no letters
+     * at all, and Rome's module has exactly I V X L C D M and a dot. So a
+     * lit face says the day the only way a display can, which is Monday
+     * being one — and that is not a compromise invented here, it is what
+     * the alien face has done since it arrived, for the same reason.
+     *
+     * Printed on a card or a drum, it is type beside type, and type can
+     * say Thursday.
+     */
+    fun of(calendar: Calendar, script: DigitScript, lit: Boolean = false): String = when {
+        lit -> isoNumber(calendar.get(Calendar.DAY_OF_WEEK)).toString()
+        // The panel writes its day in Latin: its numbers are printed, and
+        // Rome is what this script is being.
+        script == DigitScript.ROMAN_COMET -> latin(calendar.get(Calendar.DAY_OF_WEEK))
+        script == DigitScript.YAUTJA ->
+            isoNumber(calendar.get(Calendar.DAY_OF_WEEK)).toString()
+        else -> local(calendar)
     }
 }

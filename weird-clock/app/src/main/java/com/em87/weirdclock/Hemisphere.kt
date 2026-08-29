@@ -33,14 +33,32 @@ object Hemisphere {
     enum class View(val key: String) {
 
         /**
-         * Straight down on the north pole, flattened so that every
-         * distance from the pole is to scale.
+         * Straight down on the north pole, from a long way off.
          *
-         * The whole world fits: the pole is the middle, the equator is
-         * halfway out and the far pole is the rim. That is the point of
-         * choosing this projection over the obvious one — a hemisphere
-         * that only shows half the earth leaves half the people who might
-         * use it off the map.
+         * A hemisphere, and only a hemisphere: the pole is the middle,
+         * the equator is the rim, and the southern half of the world is
+         * round the back where it belongs. The name of this face said so
+         * all along.
+         *
+         * It used to show the whole world. The rule was that distance
+         * from the pole ran to scale — the pole in the middle, the
+         * equator halfway out, the far pole smeared all the way round the
+         * rim — on the argument that a hemisphere leaves half the people
+         * who might use it off the map. That argument was wrong twice.
+         * It is wrong because there is a south view, sitting right next
+         * to this one, for exactly those people. And it is wrong because
+         * the picture it produced was not of the earth: standing over the
+         * north pole and reading South Africa off the rim is not
+         * something anybody has ever done, and the giveaway was that the
+         * squeeze it applied to the map was even all the way out, which
+         * no round thing does.
+         *
+         * So the rule is the ball's rule now: how far out a place lands
+         * is how far it is from the axis of the earth, which is the
+         * cosine of its latitude. Everything crowds together towards the
+         * rim, as it does on a football, and the equator is edge-on. The
+         * two flat views and the globe are one projection with the camera
+         * in three places.
          */
         NORTH("north"),
 
@@ -57,6 +75,22 @@ object Hemisphere {
          */
         GLOBE("globe")
     }
+
+    /**
+     * Which pole to look down when nobody has chosen.
+     *
+     * It used to be the north one for everybody, and it could afford to
+     * be: the flat views showed the whole world, so somebody in Santiago
+     * got a picture with Santiago in it, upside down and stretched round
+     * the rim, but in it. They are hemispheres now, and a southerner
+     * handed the north view is handed a picture of the half of the earth
+     * they are not standing on, with no dot on it anywhere.
+     *
+     * Nought degrees is north, which is a coin toss on the equator and
+     * the right one: the switch is one tap away and either view shows
+     * where you are, on the rim.
+     */
+    fun defaultView(latDeg: Double): View = if (latDeg < 0.0) View.SOUTH else View.NORTH
 
     /** How far the globe is tipped towards you, in degrees. */
     const val TILT = 24.0
@@ -109,19 +143,38 @@ object Hemisphere {
         // because the sun is the thing that is not moving here.
         val fromSun = wrap(lonDeg - subsolarLonDeg)
         return when (view) {
-            View.NORTH -> flat((90.0 - latDeg) / 180.0, fromSun + sunAtDeg)
+            View.NORTH -> polar(latDeg, fromSun + sunAtDeg, north = true)
             // From underneath, east is the other way round the disc.
-            View.SOUTH -> flat((90.0 + latDeg) / 180.0, -fromSun + sunAtDeg)
+            View.SOUTH -> polar(latDeg, -fromSun + sunAtDeg, north = false)
             View.GLOBE -> ball(latDeg, fromSun + sunAtDeg)
         }
     }
 
-    /** The flat projections: a distance from the middle and a bearing. */
-    private fun flat(rho: Double, thetaDeg: Double): DoubleArray {
+    /**
+     * The two views down a pole: a distance from the middle and a bearing.
+     *
+     * Orthographic, which is the word for looking at a ball from far
+     * enough away that the lines of sight are parallel. How far out a
+     * place lands is how far it stands from the earth's axis, and that is
+     * the cosine of its latitude — one at the equator, nought at either
+     * pole.
+     *
+     * The third number is which side of the world the place is on, the
+     * same as it means on the globe: half the earth is behind the other
+     * half here too, now that this is a picture of a ball rather than a
+     * chart. It is the sine of the latitude, which is the height above
+     * the equator — positive for the north view when the place is north,
+     * and the other way about from underneath.
+     */
+    private fun polar(latDeg: Double, thetaDeg: Double, north: Boolean): DoubleArray {
+        val lat = Math.toRadians(latDeg)
         val t = Math.toRadians(thetaDeg)
+        val rho = cos(lat)
         // Anticlockwise on screen, which is which way the earth turns
         // seen from above the north pole.
-        return doubleArrayOf(rho * cos(t), -rho * sin(t), 1.0)
+        return doubleArrayOf(
+            rho * cos(t), -rho * sin(t), if (north) sin(lat) else -sin(lat)
+        )
     }
 
     /**
@@ -154,12 +207,14 @@ object Hemisphere {
         if (rho > 1.0) return null
         return when (view) {
             View.NORTH -> {
+                // Back out of the cosine: the colatitude is the arcsine
+                // of how far out the point is.
                 val theta = Math.toDegrees(atan2(-y, x)) - sunAtDeg
-                doubleArrayOf(90.0 - rho * 180.0, wrap(theta))
+                doubleArrayOf(90.0 - Math.toDegrees(asin(rho.coerceIn(0.0, 1.0))), wrap(theta))
             }
             View.SOUTH -> {
                 val theta = Math.toDegrees(atan2(-y, x)) - sunAtDeg
-                doubleArrayOf(rho * 180.0 - 90.0, wrap(-theta))
+                doubleArrayOf(Math.toDegrees(asin(rho.coerceIn(0.0, 1.0))) - 90.0, wrap(-theta))
             }
             View.GLOBE -> {
                 // Back out of the orthographic: the near half of a unit
@@ -260,13 +315,17 @@ object Hemisphere {
      * question because they are one claim: that the angle round the disc
      * is a longitude.
      *
-     * On the two flat ones it is exact, and not approximately: those are
-     * azimuthal projections about the pole, so the angle round the disc
-     * from the sun *is* the longitude from the sun, which *is* the hour.
-     * The ring is the same fact as the map.
+     * On the two polar ones it is exact, and not approximately: they are
+     * looked at straight down the axis, so the angle round the disc from
+     * the sun *is* the longitude from the sun, which *is* the hour. That
+     * survived the change from a chart to a ball untouched — how far out
+     * a place is drawn changed, and which way round from the sun it is
+     * did not. The ring is the same fact as the map.
      *
-     * On the ball it is neither. That projection is orthographic and
-     * tipped, so the angle round the disc is not a longitude at all — the
+     * On the ball it is neither, and the difference is the tilt rather
+     * than the projection: it is looked at from over the tropics rather
+     * than from over a pole, so the angle round the disc is not a
+     * longitude at all — the
      * equator at three hours from noon is drawn at 202° where the ring
      * prints its numeral at 225°, an hour and a half out. And half the
      * hours it labels are longitudes on the far side of the world, which

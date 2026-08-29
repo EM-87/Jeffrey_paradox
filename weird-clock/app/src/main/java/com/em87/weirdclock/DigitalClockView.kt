@@ -446,7 +446,6 @@ class DigitalClockView @JvmOverloads constructor(
         return DigitalReadout.date(
             calendar.get(java.util.Calendar.DAY_OF_MONTH),
             calendar.get(java.util.Calendar.MONTH) + 1,
-            calendar.get(java.util.Calendar.YEAR),
             dateDayFirst,
             options()
         )
@@ -454,6 +453,20 @@ class DigitalClockView @JvmOverloads constructor(
 
     /** For the tests: the cells this face is showing right now. */
     internal fun cellsForTest(): List<Cell> = readout()
+
+    /**
+     * Whether the face is on its side — see [LYING_DOWN].
+     *
+     * Not the bedside clock, which is a landscape clock on purpose: the
+     * whole reason somebody stands a phone on its edge by the bed is to
+     * be read from across the room, and that mode has its own switch for
+     * whether the date comes along.
+     */
+    private fun lyingDown(): Boolean = !fullScreen && width > height * LYING_DOWN
+
+    /** For the tests: whether this face is showing a date at all. */
+    internal fun datedForTest(): Boolean =
+        (if (fullScreen) bedsideDate else showDate) && !lyingDown()
 
     // ------------------------------------------------------------ layout
 
@@ -619,7 +632,7 @@ class DigitalClockView @JvmOverloads constructor(
         // for an alarm. It is not today's date that is being set, and a
         // row of numbers nobody can touch under a row of numbers they can
         // is an invitation to touch the wrong one.
-        val dated = if (fullScreen) bedsideDate else showDate
+        val dated = (if (fullScreen) bedsideDate else showDate) && !lyingDown()
         // The panel writes its date on two rails of Rome's module rather
         // than as a line of digits under the time — see [CometPanel]. Not
         // while a time is being wound or standing for an alarm: it is not
@@ -645,7 +658,11 @@ class DigitalClockView @JvmOverloads constructor(
         // to put a list of the world.
         val ladder = if (chip || settingMs != null || frozenMs != null) emptyList() else cities
         val day =
-            if (showWeekday && date.isNotEmpty()) Weekday.of(calendar(), script) else null
+            if (showWeekday && date.isNotEmpty()) {
+                Weekday.of(calendar(), script, lit = style == DigitStyle.SEGMENT)
+            } else {
+                null
+            }
         // The alarm goes on the face and not on a bubble or a wound time:
         // it is a thing about today, and neither of those is today.
         val alarm =
@@ -775,12 +792,22 @@ class DigitalClockView @JvmOverloads constructor(
      * belong to them. Which language it is in is [Weekday]'s question and
      * not this one's.
      *
-     * Drawn in print, always. There was a second path here that drew it in
-     * the display's own bars, for the one script whose weekday was a
-     * *number* — and that script is gone: it is half of the panel now, and
-     * the panel writes its date on rails and has no weekday at all, since
-     * Rome's module has no letters for one. So this is the print path and
-     * nothing else, which is what it was before the Comet arrived.
+     * Drawn on whatever the rest of the row is drawn on, which is the
+     * thing this had wrong. A face made of lit bars was writing the day
+     * of the week in the phone's own user-interface typeface, in bold,
+     * beside a display: a photograph of it shows `SAT` in Roboto standing
+     * next to numerals made of glowing metal, and it reads as a caption
+     * the app forgot to finish rather than as part of the clock.
+     *
+     * A display cannot spell it. Seven bars have ten digits and no
+     * letters, the stars have ten and no letters, the Comet's nine were
+     * drawn for a calculator, and Rome's module has exactly the seven
+     * numerals and a dot — none of them can write SAT, or SÁB, or 土, and
+     * inventing the letters would be inventing a machine that never
+     * existed. What a display *can* light is a number, so a lit face says
+     * the day the way this app's alien face has always said it: Monday is
+     * one. The name comes back the moment the numbers are printed rather
+     * than lit, because then it is type beside type.
      */
     private fun drawDateLine(
         canvas: Canvas,
@@ -794,17 +821,36 @@ class DigitalClockView @JvmOverloads constructor(
             drawRow(canvas, date, top, digitW, digitH, "d")
             return
         }
+        val gap = digitH * (if (style == DigitStyle.SEGMENT) WEEKDAY_LIT_GAP else WEEKDAY_GAP)
+        val dateW = rowWidth(date) * digitW
+        if (style == DigitStyle.SEGMENT) {
+            // A module of the same display, at the same size, with the
+            // same unlit bars behind it as every other cell on the face.
+            val label = Segments.span(kind(), day) * digitW
+            val left = (width - (label + gap + dateW)) / 2f
+            drawAsSegments(canvas, day, left, top, label, digitH, "w")
+            drawRow(canvas, date, top, digitW, digitH, "d", leftEdge = left + label + gap)
+            return
+        }
         ink.typeface = if (script == DigitScript.YAUTJA) yautja ?: PRINT else PRINT
         ink.textSize = digitH * WEEKDAY_SIZE
         ink.textAlign = Paint.Align.LEFT
         val label = ink.measureText(day)
-        val gap = digitH * WEEKDAY_GAP
-        val dateW = rowWidth(date) * digitW
         val left = (width - (label + gap + dateW)) / 2f
+        // On its own leaf, hinged like the numbers beside it. A card is
+        // an object, and the one thing on the stack that was not printed
+        // on one was the only word on the row.
+        val pad = digitH * WEEKDAY_PAD
+        if (style == DigitStyle.CARD) {
+            drawLeaf(canvas, left - pad, top, label + pad * 2f, digitH)
+        }
         ink.color = theme.numeral
         ink.alpha = WEEKDAY_ALPHA
         canvas.drawText(day, left, top + digitH * 0.76f, ink)
         ink.alpha = 255
+        if (style == DigitStyle.CARD) {
+            drawHinge(canvas, left - pad, top, label + pad * 2f, digitH)
+        }
         ink.textAlign = Paint.Align.CENTER
         drawRow(canvas, date, top, digitW, digitH, "d", leftEdge = left + label + gap)
     }
@@ -847,7 +893,15 @@ class DigitalClockView @JvmOverloads constructor(
         segments.ghosts = ghosts
         segments.row(
             canvas, kind, masks, (width - wide) / 2f, top, wide, height,
-            theme.decimal, theme.minorTick
+            // Lit in the face's own ink rather than in the colour the
+            // digits are. There are two displays on this panel and they
+            // are two different machines: the Sharp's nine glow, because
+            // that is what a Comet's tube did, and Rome's module is a
+            // bank of white bars above and below them. Drawn in the same
+            // cyan they read as one display in three rows, and a panel
+            // whose whole idea is that it is two instruments bolted
+            // together was hiding it.
+            ClockThemes.contrastInk(theme), theme.minorTick
         )
     }
 
@@ -1001,8 +1055,12 @@ class DigitalClockView @JvmOverloads constructor(
     /** How wide a weekday label is, in date-cell widths. */
     private fun weekdayCells(day: String?): Float {
         if (day == null) return 0f
-        // Measured in the same units the row is, so the pair can be capped
-        // together: a three-letter label is about two thirds of a cell.
+        // A lit face writes it on the display, where a cell is a cell and
+        // there is nothing to estimate.
+        if (style == DigitStyle.SEGMENT) return Segments.span(kind(), day) + WEEKDAY_LIT_GAP
+        // Printed, it is type, and type is measured in the same units the
+        // row is so the pair can be capped together: a three-letter label
+        // is about two thirds of a cell.
         return day.length * WEEKDAY_CELLS + WEEKDAY_GAP
     }
 
@@ -1469,9 +1527,7 @@ class DigitalClockView @JvmOverloads constructor(
         ink.typeface = faceFor()
         ink.textAlign = Paint.Align.CENTER
         fitInk(text, w, h)
-        val metrics = ink.fontMetrics
-        val middle = top + h / 2f - (metrics.ascent + metrics.descent) / 2f
-        canvas.drawText(text, x + w / 2f, middle, ink)
+        canvas.drawText(text, x + w / 2f, top + h / 2f + inkOffset(), ink)
     }
 
     /**
@@ -1493,10 +1549,7 @@ class DigitalClockView @JvmOverloads constructor(
         w: Float,
         h: Float
     ) {
-        val mid = top + h / 2f
-        card.color = theme.rim
-        card.alpha = 60
-        canvas.drawRoundRect(x, top, x + w, top + h, h * 0.08f, h * 0.08f, card)
+        drawLeaf(canvas, x, top, w, h)
         ink.color = theme.decimal
         ink.typeface = faceFor()
         fitInk(text, w, h)
@@ -1513,8 +1566,28 @@ class DigitalClockView @JvmOverloads constructor(
                 drawHalf(canvas, text, x, top, w, h, upper = true, at = (progress - 0.5f) * 2f)
             }
         }
-        // The hinge, which is the whole reason the thing reads as two cards
-        // and not as one number cut in half.
+        drawHinge(canvas, x, top, w, h)
+    }
+
+    /** The blank card a number is printed on. */
+    private fun drawLeaf(canvas: Canvas, x: Float, top: Float, w: Float, h: Float) {
+        card.color = theme.rim
+        card.alpha = 60
+        canvas.drawRoundRect(x, top, x + w, top + h, h * 0.08f, h * 0.08f, card)
+    }
+
+    /**
+     * The hinge, which is the whole reason the thing reads as two cards
+     * and not as one number cut in half.
+     *
+     * Its own function because the numbers are not the only thing on this
+     * face printed on a card. The day of the week sat beside them on
+     * nothing at all — a word floating next to a stack of leaves — and a
+     * card with no hinge in a row of cards with hinges is the one place
+     * the eye goes.
+     */
+    private fun drawHinge(canvas: Canvas, x: Float, top: Float, w: Float, h: Float) {
+        val mid = top + h / 2f
         card.color = theme.face
         card.alpha = 255
         canvas.drawRect(x, mid - h * 0.012f, x + w, mid + h * 0.012f, card)
@@ -1534,7 +1607,7 @@ class DigitalClockView @JvmOverloads constructor(
         canvas.save()
         canvas.clipRect(x, if (upper) top else mid, x + w, if (upper) mid else top + h)
         canvas.scale(1f, at.coerceAtLeast(0.001f), x + w / 2f, mid)
-        canvas.drawText(text, x + w / 2f, mid + inkOffset(text), ink)
+        canvas.drawText(text, x + w / 2f, mid + inkOffset(), ink)
         canvas.restore()
     }
 
@@ -1564,15 +1637,52 @@ class DigitalClockView @JvmOverloads constructor(
         canvas.save()
         canvas.clipRect(x, top, x + w, top + h)
         val eased = ROLL_EASE.getInterpolation(progress.coerceIn(0f, 1f))
-        val baseline = top + h / 2f + inkOffset(text)
+        val baseline = top + h / 2f + inkOffset()
         if (from != null && progress < 1f) {
             canvas.drawText(from, x + w / 2f, baseline - h * eased, ink)
             canvas.drawText(text, x + w / 2f, baseline + h * (1f - eased), ink)
         } else {
             canvas.drawText(text, x + w / 2f, baseline, ink)
         }
+        drawCurve(canvas, x, top, w, h)
         canvas.restore()
     }
+
+    /**
+     * The shading that makes a drum a drum.
+     *
+     * The window is flat and the thing behind it is not: a cylinder turns
+     * away from the eye at both ends of the slot, so the number goes into
+     * shadow before it reaches the edge and there is a band across the
+     * middle where the drum is facing you square on. Painted over the
+     * digit rather than under it, because what is being drawn is the
+     * light on the paper of the drum, and the number is printed on that
+     * paper.
+     *
+     * In the face's own colour, so it reads as the number going away into
+     * the dark of the case rather than as a grey wash laid on top of it —
+     * and it works on a light theme for the same reason, where going away
+     * means going pale.
+     */
+    private fun drawCurve(canvas: Canvas, x: Float, top: Float, w: Float, h: Float) {
+        val dark = theme.face and 0xFFFFFF
+        curve.shader = android.graphics.LinearGradient(
+            0f, top, 0f, top + h,
+            intArrayOf(
+                dark or (DRUM_SHADE shl 24),
+                dark,
+                (theme.rim and 0xFFFFFF) or (DRUM_SHEEN shl 24),
+                dark,
+                dark or (DRUM_SHADE shl 24)
+            ),
+            floatArrayOf(0f, DRUM_REACH, 0.5f, 1f - DRUM_REACH, 1f),
+            android.graphics.Shader.TileMode.CLAMP
+        )
+        canvas.drawRect(x, top, x + w, top + h, curve)
+        curve.shader = null
+    }
+
+    private val curve = Paint(Paint.ANTI_ALIAS_FLAG)
 
     /**
      * Sizes [ink] so [text] fills a box of [w] by [h].
@@ -1587,13 +1697,58 @@ class DigitalClockView @JvmOverloads constructor(
     private fun fitInk(text: String, w: Float, h: Float) {
         if (text.isEmpty()) return
         ink.textSize = h
+        val gauge = gauge()
+        if (gauge.wide <= 0f || gauge.tall <= 0f) return
+        // One character to a cell, whatever the cell is holding.
+        val cell = w / text.length
+        ink.textSize = h * minOf(cell * FILL / gauge.wide, h * FILL / gauge.tall)
+    }
+
+    /** The ink of the widest and the tallest digit, at [ink]'s size now. */
+    private class Gauge(val wide: Float, val tall: Float, val top: Float, val bottom: Float)
+
+    /**
+     * All ten digits measured together, rather than the one in this cell.
+     *
+     * The reason a `1` on this face was a fifth taller than the digits
+     * either side of it, in every photograph of a card, a drum or a
+     * printed clock this app has ever taken.
+     *
+     * A cell is sized to fill its box, and a box has two sides: the size
+     * that fits across and the size that fits down, whichever is smaller.
+     * A `1` is a quarter as wide as an `8` in the ink, so its width never
+     * came close to binding and it was drawn at the full height of the
+     * cell — while every other digit was squeezed to fit the width. The
+     * cell was the same size in both cases. What differed was the glyph
+     * inside it, which is exactly what must *not* decide the size of
+     * type: a row of numbers is a row of one size, and a display where
+     * one numeral is bigger than its neighbours reads as a broken font.
+     *
+     * So the ten are measured as a set and the widest and the tallest of
+     * them settle the size, once, for whatever the cell happens to be
+     * showing. The baseline comes from the same measurement for the same
+     * reason — centring each glyph on its own ink puts a `1` and a `7` at
+     * two different heights.
+     *
+     * Not cached: it is ten calls to the text engine per row per frame,
+     * and the alternative is a cache to invalidate whenever the typeface,
+     * the size or the script changes, which is three ways to draw the
+     * wrong thing to save arithmetic nobody can measure.
+     */
+    private fun gauge(): Gauge {
         val bounds = android.graphics.Rect()
-        ink.getTextBounds(text, 0, text.length, bounds)
-        if (bounds.width() <= 0 || bounds.height() <= 0) return
-        ink.textSize = h * minOf(
-            w * FILL / bounds.width(),
-            h * FILL / bounds.height()
-        )
+        var wide = 0
+        var tall = 0
+        var top = 0
+        var bottom = 0
+        for (i in DIGITS.indices) {
+            ink.getTextBounds(DIGITS, i, i + 1, bounds)
+            wide = maxOf(wide, bounds.width())
+            tall = maxOf(tall, bounds.height())
+            top = minOf(top, bounds.top)
+            bottom = maxOf(bottom, bounds.bottom)
+        }
+        return Gauge(wide.toFloat(), tall.toFloat(), top.toFloat(), bottom.toFloat())
     }
 
     /**
@@ -1603,10 +1758,9 @@ class DigitalClockView @JvmOverloads constructor(
      * alphabet hangs differently again, so centring on the metrics leaves
      * the row sitting high or low depending on which alphabet it is in.
      */
-    private fun inkOffset(text: String): Float {
-        val bounds = android.graphics.Rect()
-        ink.getTextBounds(text, 0, text.length, bounds)
-        return -(bounds.top + bounds.bottom) / 2f
+    private fun inkOffset(): Float {
+        val gauge = gauge()
+        return -(gauge.top + gauge.bottom) / 2f
     }
 
     // ------------------------------------------------------ punctuation
@@ -1820,6 +1974,36 @@ class DigitalClockView @JvmOverloads constructor(
         private const val WEEKDAY_GAP = 0.55f
         private const val WEEKDAY_ALPHA = 190
 
+        /** And the air either side of it on the card it is printed on. */
+        private const val WEEKDAY_PAD = 0.16f
+
+        /**
+         * Wider on a lit face, where the day is a numeral like the ones
+         * beside it.
+         *
+         * `4 27/08` with the ordinary gap in it is one number and a date;
+         * with a whole dark cell between them it is two readings, which
+         * is what it is.
+         */
+        private const val WEEKDAY_LIT_GAP = 1.10f
+
+        /**
+         * How much wider than tall a face has to be before it is lying
+         * down.
+         *
+         * Anything past this and the date comes off. A clock on its side
+         * has the width for the time and nothing else: the block is
+         * centred as one object, so a date under a row of digits that
+         * already fills the screen pushes the time up off the middle and
+         * hangs a small line of numbers in the space underneath it. A
+         * phone turned sideways showed exactly that, in all four
+         * mechanisms.
+         *
+         * Well past square, because a widget two cells by two is not a
+         * clock lying down, it is a small clock.
+         */
+        private const val LYING_DOWN = 1.30f
+
         /**
          * The two lamps, in digit heights, straight off the drawing.
          *
@@ -1846,6 +2030,27 @@ class DigitalClockView @JvmOverloads constructor(
 
         /** How much of its box a printed glyph fills. */
         private const val FILL = 0.86f
+
+        /** The ten, for measuring a row of type against — see [gauge]. */
+        private const val DIGITS = "0123456789"
+
+        /**
+         * How dark the ends of a drum's window go, and how far in the
+         * shade reaches from each end.
+         *
+         * A drum is a cylinder seen through a slot, so the number on it
+         * curves away at the top and the bottom and the light leaves it
+         * before the edge of the window does. Without this the roller and
+         * the flip card were the same object at rest: a rounded panel
+         * with a number in it, told apart only by watching one of them
+         * change. A photograph of the four mechanisms had two that were
+         * the same picture.
+         */
+        private const val DRUM_SHADE = 0xD0
+        private const val DRUM_REACH = 0.34f
+
+        /** And the sheen across the middle of it, where the drum faces you. */
+        private const val DRUM_SHEEN = 0x24
 
         /**
          * And how much of its cell a lit one does. The rest is the daylight

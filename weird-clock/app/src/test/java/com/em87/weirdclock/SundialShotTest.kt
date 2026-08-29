@@ -92,6 +92,27 @@ class SundialShotTest {
         return seen.size
     }
 
+    /**
+     * The shadow through a day, which is the part of this face that moves.
+     *
+     * Five pictures because one is not enough to judge it: at noon the
+     * shadow is a stub and any end at all looks like an end, and it is
+     * only when the sun is low and the shadow is most of the plate long
+     * that the tip is the biggest thing in the picture. It was cut off
+     * square there — a black plank with a sawn end lying on the stone.
+     */
+    @Test
+    fun `the shadow through the day`() {
+        for (hour in listOf(7, 9, 12, 16, 19)) {
+            val at = java.util.Calendar.getInstance().apply {
+                set(2026, java.util.Calendar.JUNE, 21, hour, 0, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            val name = "sundial-hour-%02d".format(hour)
+            assertTrue(name, shoot(dial(at = at), name) > 3)
+        }
+    }
+
     /** The three instruments, which are three different objects. */
     @Test
     fun `the three kinds of dial`() {

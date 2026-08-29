@@ -587,12 +587,21 @@ class AlarmCards(
         return if (mondayFirst) base.drop(1) + base.first() else base
     }
 
+    /**
+     * The seven initials over the alarm's days, and the seven buttons that
+     * turn them on.
+     *
+     * Cut to a narrow name rather than trusted to be one — see
+     * [Weekday.narrow]. The calendar was handing back SUNDAY MONDAY
+     * TUESDAY and the strip was wrapping to three lines of an alarm card
+     * that has room for one.
+     */
     fun weekdayLetters(): List<String> {
         val format = java.text.SimpleDateFormat("EEEEE", Locale.getDefault())
         val cal = Calendar.getInstance()
         return weekdayOrder().map { dow ->
             cal.set(Calendar.DAY_OF_WEEK, dow)
-            format.format(cal.time).uppercase(Locale.getDefault())
+            Weekday.narrow(format.format(cal.time).uppercase(Locale.getDefault()))
         }
     }
 }

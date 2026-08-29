@@ -217,12 +217,20 @@ object DigitalReadout {
     /**
      * The cells for a date, in the order this phone writes them.
      *
-     * The year is one cell however long it is: it is the one number on a
-     * clock that is not a position on a wheel, and splitting it into four
-     * would offer to roll the millennium.
+     * The day and the month, and not the year. A clock says what a clock
+     * is asked: what time is it, and — because the answer is often "too
+     * late for that" — what day. Nobody has ever looked at a clock to
+     * find out what year it is, and four digits that never change are
+     * four digits of the row's width spent on the one number the reader
+     * already knows. It cost the rest of the line a third of its size to
+     * say it.
+     *
+     * The panel is the exception and keeps its year, on a rail of its
+     * own: there it is not competing with the date for a row, it is the
+     * bottom edge of a drawn instrument — see [CometPanel.rails].
      */
-    fun date(day: Int, month: Int, year: Int, dayFirst: Boolean, options: Options): List<Cell> {
-        val cells = ArrayList<Cell>(8)
+    fun date(day: Int, month: Int, dayFirst: Boolean, options: Options): List<Cell> {
+        val cells = ArrayList<Cell>(5)
         cells += group(
             if (dayFirst) day else month, if (dayFirst) 31 else 12,
             padded = true
@@ -231,11 +239,6 @@ object DigitalReadout {
         cells += group(
             if (dayFirst) month else day, if (dayFirst) 12 else 31,
             padded = true
-        )
-        cells += Cell.Slash
-        cells += Cell.Number(
-            "$year",
-            year, of = 0
         )
         return cells
     }
