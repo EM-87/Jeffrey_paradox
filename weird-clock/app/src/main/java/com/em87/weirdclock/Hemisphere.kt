@@ -252,10 +252,39 @@ object Hemisphere {
     }
 
     /**
+     * Whether anything round the rim means anything on this view.
+     *
+     * Covers all four things this face draws in *bearing* — the ring of
+     * hours, its numerals, the meridian notches inside the rim, and the
+     * line from the dot out to the hour it is pointing at. They are one
+     * question because they are one claim: that the angle round the disc
+     * is a longitude.
+     *
+     * On the two flat ones it is exact, and not approximately: those are
+     * azimuthal projections about the pole, so the angle round the disc
+     * from the sun *is* the longitude from the sun, which *is* the hour.
+     * The ring is the same fact as the map.
+     *
+     * On the ball it is neither. That projection is orthographic and
+     * tipped, so the angle round the disc is not a longitude at all — the
+     * equator at three hours from noon is drawn at 202° where the ring
+     * prints its numeral at 225°, an hour and a half out. And half the
+     * hours it labels are longitudes on the far side of the world, which
+     * is a scale with numbers on it for places that are not in the
+     * picture.
+     *
+     * So the ball does not get one. The face is bigger without it, which
+     * is the right trade for the view somebody chooses because it looks
+     * like the earth rather than like a diagram.
+     */
+    fun hasRimScale(view: View): Boolean = view != View.GLOBE
+
+    /**
      * And the other way: where on the rim a whole hour of the day falls.
      *
      * For the ring of numerals, which is the only part of this face that
-     * has to be laid out rather than painted.
+     * has to be laid out rather than painted. Only asked on the views
+     * [hasRimScale] allows, because it is only true on those.
      */
     fun bearingOfHour(view: View, hour: Int): Double {
         val d = wrap((hour - 12) * 15.0)

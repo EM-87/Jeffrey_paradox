@@ -145,6 +145,17 @@ class SundialView @JvmOverloads constructor(
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val path = Path()
     private val rim = RectF()
+
+    /**
+     * A second path, for the shapes that are made of two shapes.
+     *
+     * The thermometer's glass and its liquid are each a tube joined to a
+     * bulb, and each has to be one outline rather than two — a rounded
+     * rectangle and a circle drawn separately leave the tube's bottom arc
+     * running across the bulb. Unioning needs somewhere to put the other
+     * half, and allocating a Path per frame is not that.
+     */
+    private val glassBulb = Path()
     private val CUT: Typeface = Typeface.create("serif", Typeface.BOLD)
 
     /**
@@ -184,7 +195,16 @@ class SundialView @JvmOverloads constructor(
         canvas.drawColor(theme.face)
 
         val sky = sky()
-        val r = min(w, h) * 0.42f
+        // Smaller in the hand than on the table, and for a reason that is
+        // not taste. The motto is cut round the rim at 1.06 of the plate
+        // and its letters stand out to about 1.15; the compass ring was
+        // drawn at 1.10, straight through the middle of the Latin, with
+        // the arrow head sitting on a letter. There is no room to put the
+        // ring outside the motto at full size — 1.20 of the plate plus the
+        // arrow's nose is past the edge of the view — so the plate gives
+        // up the difference. Nothing is dropped: outside, pointing a phone
+        // at the sun, both are still there.
+        val r = min(w, h) * (if (compass) 0.37f else 0.42f)
         val cx = w / 2f
         // The gnomon stands on the noon line, and the whole fan opens away
         // from it — so the dial's centre is not the plate's centre. A
@@ -721,34 +741,64 @@ class SundialView @JvmOverloads constructor(
         sky: Weather.Sky, alpha: Int
     ) {
         val celsius = sky.temperatureC.value ?: return
-        val bulb = box * 0.105f
+        val bulb = box * 0.115f
         val bulbY = bottom - box * 0.30f
         val tubeTop = top + box * 0.14f
-        val tubeBottom = bulbY - bulb * 0.30f
-        val wide = box * 0.055f
+        val wide = box * 0.050f
         line.color = theme.numeral
         line.alpha = alpha
-        line.strokeWidth = box * 0.024f
-        rim.set(x - wide, tubeTop, x + wide, tubeBottom)
-        canvas.drawRoundRect(rim, wide, wide, line)
-        canvas.drawCircle(x, bulbY, bulb, line)
-        // Every ten degrees, on the left, where they do not fight the
-        // reading under the bulb for room.
-        line.strokeWidth = box * 0.016f
-        val height = tubeBottom - tubeTop
+        val glass = box * 0.022f
+        line.strokeWidth = glass
+
+        // The outline is one shape, and that is the whole of this fix.
+        //
+        // Drawn as a rounded rectangle and then a circle, the two outlines
+        // cross: the tube's bottom arc runs across the top of the bulb, so
+        // the join has a line through it that no thermometer has. And the
+        // liquid was a disc smaller than the outline, which left a ring of
+        // background between the two and made the bulb read as a washer.
+        // Unioned first and stroked once, there is nothing to cross.
+        path.reset()
+        rim.set(x - wide, tubeTop, x + wide, bulbY)
+        path.addRoundRect(rim, wide, wide, Path.Direction.CW)
+        glassBulb.reset()
+        glassBulb.addCircle(x, bulbY, bulb, Path.Direction.CW)
+        path.op(glassBulb, Path.Op.UNION)
+        canvas.drawPath(path, line)
+
+        // The scale runs from the top of the bulb to the top of the tube,
+        // so nought degrees is where the liquid actually starts and the
+        // lowest mark sits on the bulb's shoulder instead of across it.
+        val zero = bulbY - bulb
+        val height = zero - tubeTop
+        line.strokeWidth = box * 0.015f
         for (tick in WeatherGlass.ticks()) {
-            val y = tubeBottom - height * tick
-            canvas.drawLine(x - wide * 2.3f, y, x - wide, y, line)
+            val y = zero - height * tick
+            canvas.drawLine(x - wide * 2.6f, y, x - wide * 1.25f, y, line)
         }
-        // The column: from inside the bulb up to the reading. The bulb is
-        // always full, because a bulb with nothing in it is a broken
-        // thermometer rather than a cold one.
+
+        // And the liquid is the bulb and the column as one shape too,
+        // inset by half the outline so it sits inside the glass rather
+        // than under it. The bulb is always full: a bulb with nothing in
+        // it is a broken thermometer, not a cold one.
         fill.color = theme.numeral
         fill.alpha = alpha
-        canvas.drawCircle(x, bulbY, bulb * 0.80f, fill)
-        val stands = tubeBottom - height * WeatherGlass.column(celsius)
+        // Half the outline, not all of it. A whole stroke width left a
+        // ring of background three pixels wide between the mercury and
+        // the glass — invisible on a phone and not invisible to the test
+        // that counts marks across the bulb, which is the point of having
+        // one: a stroke is centred on its path, so only half of it is
+        // inside the shape.
+        val inset = glass * 0.5f
+        val stands = zero - height * WeatherGlass.column(celsius)
+        path.reset()
         rim.set(x - wide * 0.42f, stands, x + wide * 0.42f, bulbY)
-        canvas.drawRoundRect(rim, wide * 0.42f, wide * 0.42f, fill)
+        path.addRoundRect(rim, wide * 0.42f, wide * 0.42f, Path.Direction.CW)
+        glassBulb.reset()
+        glassBulb.addCircle(x, bulbY, bulb - inset, Path.Direction.CW)
+        path.op(glassBulb, Path.Op.UNION)
+        canvas.drawPath(path, fill)
+
         ink.typeface = CUT
         ink.textAlign = Paint.Align.CENTER
         ink.color = theme.numeral
@@ -795,7 +845,9 @@ class SundialView @JvmOverloads constructor(
         val off = if (bearing == null) null else Sundial.offBy(bearing, sky.azimuth)
         val good = off != null && abs(off) <= Sundial.ALIGNED_DEGREES
         val at = Math.toRadians((off ?: 0.0) - 90.0)
-        val ring = r * 1.10f
+        // Outside the motto, which reaches about 1.15 — see the plate's
+        // own radius in onDraw, which shrinks to leave room for this.
+        val ring = r * 1.20f
         line.color = if (good) GREEN else theme.minorTick
         line.alpha = if (bearing == null) 90 else 255
         line.strokeWidth = r * 0.02f

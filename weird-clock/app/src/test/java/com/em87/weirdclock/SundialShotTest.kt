@@ -300,6 +300,141 @@ class SundialShotTest {
         )
     }
 
+    /**
+     * The thermometer's bulb is one solid thing.
+     *
+     * Its owner reported this by eye and it took three separate faults to
+     * make it: the tube was a rounded rectangle and the bulb a circle,
+     * stroked one after the other, so the tube's bottom arc ran straight
+     * across the top of the bulb; the liquid was a disc four fifths of the
+     * bulb's radius, leaving a ring of background between the mercury and
+     * the glass; and the lowest scale mark was drawn across the bulb's
+     * shoulder. Together they read as a washer on a stick.
+     *
+     * Measured rather than looked at, and this is the measurement that
+     * catches all three: a horizontal line through the middle of the bulb
+     * crosses **one** run of ink. Glass, gap, mercury, gap, glass is five,
+     * and five is what the old drawing gave.
+     */
+    @Test
+    fun `the thermometer's bulb is solid and not a washer`() {
+        val tall = 1900
+        val wide = 1000
+        val map = pixels(dial(outside = weather(1024.0, 27.0), w = wide, h = tall))
+        // Worked out the same way the drawing does, so this does not have
+        // to be edited every time the pedestal moves.
+        val r = 0.42f * minOf(wide, tall)
+        val cy = tall / 2f
+        val room = tall - (cy + r)
+        val box = minOf(r * 0.62f, room * 0.78f)
+        val top = cy + r + (room - box) * 0.40f
+        val bulbY = (top + box - box * 0.30f).toInt()
+        val x = (wide / 2f + r * 0.46f).toInt()
+        val ground = map.getPixel(6, bulbY)
+        var runs = 0
+        var inRun = false
+        var ink = 0
+        for (px in (x - 90)..(x + 90)) {
+            val lit = map.getPixel(px, bulbY) != ground
+            if (lit && !inRun) runs++
+            if (lit) ink++
+            inRun = lit
+        }
+        assertTrue("nothing was drawn where the bulb should be", ink > 20)
+        assertEquals(
+            "the bulb has a gap in it: $runs separate marks across its middle",
+            1, runs
+        )
+
+        // And the inside of it is one flat colour.
+        //
+        // This is the half that catches the join, and it took two tries to
+        // find a measurement that does. Looking for the plate showing
+        // through finds nothing: the mercury is painted after the glass
+        // and covers the tube's bottom end either way. What gives it away
+        // is that both are painted at four-fifths opacity, so where the
+        // tube's own rounded end lies inside the bulb the two coats
+        // overlap and that patch comes out darker — a dark U sitting in
+        // the middle of the bulb, which is exactly what the owner saw.
+        // One shape cannot overlap itself.
+        val bulb = box * 0.115f
+        val heart = map.getPixel(x, bulbY)
+        var blotchy = 0
+        for (py in (bulbY - bulb * 0.6f).toInt()..(bulbY + bulb * 0.6f).toInt()) {
+            for (px in (x - bulb * 0.6f).toInt()..(x + bulb * 0.6f).toInt()) {
+                if (Math.hypot((px - x).toDouble(), (py - bulbY).toDouble()) > bulb * 0.6) continue
+                if (map.getPixel(px, py) != heart) blotchy++
+            }
+        }
+        assertEquals(
+            "the bulb is not one flat colour: $blotchy pixels differ from its middle",
+            0, blotchy
+        )
+    }
+
+    /**
+     * The compass ring is outside the motto, not through it.
+     *
+     * Reported by looking at the face: the green ring crossed the middle
+     * of SOL ME PROBAT VNVM and the arrow head sat on the P. Both live in
+     * the same narrow band just outside the plate — the motto's baseline
+     * at 1.06 of it and its letters standing out to about 1.15, the ring
+     * at 1.10 — and there was no room to move the ring out without going
+     * past the edge of the view, so the plate is what gives.
+     *
+     * Measured as two radii rather than looked at again: the nearest green
+     * pixel to the middle must be further out than the furthest letter of
+     * the motto.
+     */
+    @Test
+    fun `the compass ring clears the motto`() {
+        val sun = SolarTime.position(40.4, -3.7, juneAfternoon()).azimuthDeg
+        val map = pixels(dial(compass = true, bearing = sun + 3.0))
+        val middle = 500.0
+        // Matched against the two colours themselves rather than against
+        // "dark" and "greenish". Two looser versions of this both failed
+        // on the *fixed* drawing: the ring is darker than the stone, so
+        // "not the background" counted the ring as the motto, and the
+        // ring's anti-aliased edge is neither one colour nor the other,
+        // so a hue test counted that instead. A distance to a known
+        // colour has neither problem — it finds the solid middle of a
+        // letter and the solid middle of the ring and nothing between.
+        fun near(p: Int, to: Int): Boolean {
+            val d = Math.abs(((p shr 16) and 0xFF) - ((to shr 16) and 0xFF)) +
+                Math.abs(((p shr 8) and 0xFF) - ((to shr 8) and 0xFF)) +
+                Math.abs((p and 0xFF) - (to and 0xFF))
+            return d < 60
+        }
+        val ink = ClockThemes.IVORY.minorTick
+        var greenest = Double.MAX_VALUE
+        var motto = 0.0
+        for (y in 0 until 1000) {
+            for (x in 0 until 1000) {
+                val p = map.getPixel(x, y)
+                val away = Math.hypot(x - middle, y - middle)
+                if (near(p, SUNDIAL_GREEN)) greenest = minOf(greenest, away)
+                if (near(p, ink) && away > 215.0) motto = maxOf(motto, away)
+            }
+        }
+        assertTrue("no green ring was drawn at all", greenest < 1000.0)
+        // And the whole ring is in the picture. Moving it out without
+        // shrinking the plate puts the top of it above the view, which
+        // the radii above would not have noticed: there is green in the
+        // corners either way.
+        var overhead = false
+        for (y in 10 until 500) if (near(map.getPixel(500, y), SUNDIAL_GREEN)) overhead = true
+        assertTrue("the top of the compass ring is off the screen", overhead)
+        assertTrue("no motto was found outside the rim", motto > 215.0)
+        assertTrue(
+            "the compass ring is drawn through the motto: green from $greenest, " +
+                "letters out to $motto",
+            greenest > motto
+        )
+    }
+
+    /** The one colour on the sundial that is not the theme's: "yes". */
+    private val SUNDIAL_GREEN = 0xFF43C463.toInt()
+
     /** One view, drawn. */
     private fun pixels(view: View): Bitmap =
         Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888).also {

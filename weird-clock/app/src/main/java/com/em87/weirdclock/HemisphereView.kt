@@ -262,16 +262,28 @@ class HemisphereView @JvmOverloads constructor(
         val sub = Hemisphere.subsolar(ms)
         val subLat = sub[0]
         val subLon = sub[1]
-        val r = min(w, h) * (if (hourRing) 0.355f else 0.47f)
+        // Nothing is drawn round the rim where the rim is not a bearing
+        // — see [Hemisphere.hasRimScale]. On the ball the ring was out by
+        // an hour and a half and labelled longitudes on the far side of
+        // the world, and the notches were fifteen-degree meridians drawn
+        // fifteen degrees apart on a projection where they are not.
+        val rimScale = Hemisphere.hasRimScale(view)
+        val ring = hourRing && rimScale
+        // And the world takes the room the ring is not using — but only
+        // as much as leaves the sun somewhere to stand. At 0.47 the sun
+        // mark was off the side of the view entirely, which is what
+        // turning the ring off has quietly done on every view since the
+        // switch existed.
+        val r = min(w, h) * (if (ring) 0.355f else 0.42f)
         val cx = w / 2f
         val cy = h / 2f
 
         bake(-subLon + sunAt)
         drawWorld(canvas, cx, cy, r, subLat, subLon)
-        if (meridians) drawMeridians(canvas, cx, cy, r, subLon)
-        drawSunMark(canvas, cx, cy, r)
-        if (located) drawYou(canvas, cx, cy, r, subLat, subLon)
-        if (hourRing) drawHours(canvas, cx, cy, r)
+        if (meridians && rimScale) drawMeridians(canvas, cx, cy, r, subLon)
+        drawSunMark(canvas, cx, cy, r, ring)
+        if (located) drawYou(canvas, cx, cy, r, subLat, subLon, ring)
+        if (ring) drawHours(canvas, cx, cy, r)
     }
 
     /**
@@ -429,9 +441,13 @@ class HemisphereView @JvmOverloads constructor(
      * sun; that is the definition the whole face is built on, and drawing
      * both was two marks fighting over one bearing.
      */
-    private fun drawSunMark(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+    private fun drawSunMark(canvas: Canvas, cx: Float, cy: Float, r: Float, ring: Boolean) {
         val a = Math.toRadians(sunAt)
-        val at = if (hourRing) r * 1.22f else r * 1.10f
+        // Outside the ring when there is one, and just off the world when
+        // there is not. 1.10 was the old answer and it was wrong: with the
+        // ring off the disc grows, and 1.10 of the grown radius put the
+        // sun past the edge of the view.
+        val at = if (ring) r * 1.22f else r * 1.06f
         val x = cx + (cos(a) * at).toFloat()
         val y = cy - (sin(a) * at).toFloat()
         fill.color = SUN
@@ -459,7 +475,8 @@ class HemisphereView @JvmOverloads constructor(
      * is a clock that is confidently wrong.
      */
     private fun drawYou(
-        canvas: Canvas, cx: Float, cy: Float, r: Float, subLat: Double, subLon: Double
+        canvas: Canvas, cx: Float, cy: Float, r: Float, subLat: Double, subLon: Double,
+        ring: Boolean
     ) {
         val on = Hemisphere.project(view, latitude, longitude, subLon, sunAt)
         // Behind the world, on the globe.
@@ -473,6 +490,12 @@ class HemisphereView @JvmOverloads constructor(
         canvas.drawCircle(x, y, r * 0.055f, line)
         // And the line out to the hour it is pointing at, which is the
         // only thing on the face that says this is a clock and not a map.
+        // With no ring there is no hour to point at, and a line reaching
+        // for a scale that is not there is worse than no line.
+        if (!ring) {
+            line.alpha = 255
+            return
+        }
         line.alpha = 110
         line.strokeWidth = r * 0.006f
         val len = kotlin.math.hypot(on[0], on[1])

@@ -849,6 +849,22 @@ class SettingsActivity : AppCompatActivity() {
             // doing the pointing. Registered on this screen because that
             // is the screen both rows are on — see [FadedRowTest], which
             // exists because this rule was once written on the wrong one.
+            // Everything drawn round the rim is exact on the two flat
+            // views and meaningless on the ball, so none of it is drawn
+            // there — see [Hemisphere.hasRimScale]. The rows fade rather
+            // than vanish: changing the view back is one tap.
+            for (key in listOf(
+                Prefs.HEMISPHERE_RING, Prefs.HEMISPHERE_NUMBERS, Prefs.HEMISPHERE_MERIDIANS
+            )) {
+                dimmedUnless(key) {
+                    Hemisphere.hasRimScale(
+                        Hemisphere.View.entries.firstOrNull {
+                            it.key == preferenceManager.sharedPreferences
+                                ?.getString(Prefs.HEMISPHERE_VIEW, null)
+                        } ?: Hemisphere.View.NORTH
+                    )
+                }
+            }
             dimmedUnless(Prefs.HEMISPHERE_SUN_AT) {
                 preferenceManager.sharedPreferences
                     ?.getBoolean(Prefs.HEMISPHERE_COMPASS, false) != true
