@@ -178,6 +178,29 @@ class CalendarPageView @JvmOverloads constructor(
     private val titleFormat = SimpleDateFormat("LLLL yyyy", Locale.getDefault())
     private val weekdayFormat = SimpleDateFormat("EEEEE", Locale.getDefault())
 
+    /**
+     * The letter over a column, whatever the calendar hands back.
+     *
+     * "EEEEE" asks for the narrow name — S, M, T — and on a phone that is
+     * what it gives. It is not a promise: the pattern is only defined for
+     * four letters or fewer, so an implementation is free to return the
+     * whole word, and one does. Seven whole words across seven narrow
+     * columns is not a header, it is a smear, and that is what the month
+     * page has been photographed with for as long as there has been a
+     * month page — in every screenshot, unread, because nobody looks at
+     * the part of a picture they already know the shape of.
+     *
+     * So the name is measured against the column it has to fit in, and cut
+     * to its first letter when it does not. That is also the right answer
+     * for a language whose narrow names are two characters wide.
+     */
+    private fun weekdayInitial(day: Date, columnWidth: Float): String {
+        val name = weekdayFormat.format(day).uppercase(Locale.getDefault())
+        if (name.isEmpty()) return name
+        if (headerPaint.measureText(name) <= columnWidth * 0.86f) return name
+        return name.substring(0, name.offsetByCodePoints(0, 1))
+    }
+
     private fun dayLabel(day: Int): String =
         if (numeralStyle == ClockView.NumeralStyle.ROMAN) Roman.of(day) else day.toString()
 
@@ -532,7 +555,7 @@ class CalendarPageView @JvmOverloads constructor(
                 scratch.add(Calendar.DAY_OF_MONTH, 1)
             }
             canvas.drawText(
-                weekdayFormat.format(Date(scratch.timeInMillis)).uppercase(Locale.getDefault()),
+                weekdayInitial(Date(scratch.timeInMillis), cellW),
                 gridLeft + cellW * (i + 0.5f),
                 headerY,
                 headerPaint
