@@ -26,7 +26,8 @@ import kotlin.math.hypot
  *
  * What it needs from its host it is handed: the layer to live in, a way to
  * ask where the main dial is and whether it is currently an obstacle, and
- * which way is down.
+ * which way is down. And [wake], which it calls whenever something has
+ * happened that the physics will have to look at — see [needsFrames].
  */
 class WorldBubbles(
     private val host: Context,
@@ -35,7 +36,8 @@ class WorldBubbles(
     private val mainDial: () -> ClockView?,
     private val dialIsObstacle: () -> Boolean,
     private val gravityX: () -> Float,
-    private val gravityY: () -> Float
+    private val gravityY: () -> Float,
+    private val wake: () -> Unit = {}
 ) {
 
     /** Set once the home page has been bound; null before that. */
@@ -91,6 +93,34 @@ class WorldBubbles(
 
     /** True while anything is still in flight, so the scene counts as untidy. */
     fun anyMoving(): Boolean = bubbles.any { it.moving }
+
+    /**
+     * Whether there is any point in stepping this at sixty a second.
+     *
+     * There usually is not. The world clocks are off out of the box, and
+     * with none of them on there is nothing on the layer at all — yet the
+     * loop that drives this ran every sixteen milliseconds for as long as
+     * the app was open, on every card and in every menu, waking the main
+     * looper sixty times a second to ask an empty list to do nothing. The
+     * work was nil and the wake-ups were not, and they are the part a
+     * battery notices.
+     *
+     * Three things are worth a frame: a bubble in flight, a finger on one,
+     * and a bubble parked inside the dial's reach — that last because a
+     * hand sweeping round can strike something standing perfectly still,
+     * which is the whole of the golf. Anything else that could disturb the
+     * scene is an event, and every one of them rings [wake].
+     */
+    fun needsFrames(): Boolean {
+        if (bubbles.isEmpty()) return false
+        if (bubbles.any { it.moving || it.dragged }) return true
+        val layer = this.layer ?: return false
+        val reach = mainDial()?.currentDialRadius() ?: 0f
+        return bubbles.any { b ->
+            hypot(b.centerX() - layer.width / 2f, b.centerY() - layer.height / 2f) <
+                reach + b.sizePx / 2f
+        }
+    }
 
     /** For the tests: the little dials themselves. */
     internal fun clocksForTest(): List<ClockView> = bubbles.mapNotNull { it.clock }
@@ -200,6 +230,7 @@ class WorldBubbles(
             }
             layoutRow(top, 8 * density)
             layoutRow(bottom, layer.height - size - 64 * density)
+            wake()
         }
     }
 
@@ -210,6 +241,7 @@ class WorldBubbles(
             b.vx = (Math.random().toFloat() - 0.5f) * 400f
             b.vy = -Math.random().toFloat() * 250f
         }
+        wake()
     }
 
     /** Freezes (or reverses) a fraction of the world clocks, at random. */
@@ -251,6 +283,7 @@ class WorldBubbles(
             b.vx += -devX * 26f
             b.vy += devY * 26f
         }
+        wake()
     }
 
     /**
@@ -279,6 +312,7 @@ class WorldBubbles(
                 b.place()
             }
         }
+        wake()
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -307,6 +341,7 @@ class WorldBubbles(
                         b.vx = 0f
                         b.vy = 0f
                         layer?.parent?.requestDisallowInterceptTouchEvent(true)
+                        wake()
                     }
                     true
                 }
@@ -332,13 +367,14 @@ class WorldBubbles(
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
-                    if (drag.up(id)) { b.dragged = false; release(b) }
+                    if (drag.up(id)) { b.dragged = false; release(b); wake() }
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     drag.cancel()
                     b.dragged = false
                     release(b)
+                    wake()
                     true
                 }
                 else -> false
@@ -433,18 +469,7 @@ class WorldBubbles(
     }
 
     fun step() {
-        if (bubbles.isEmpty()) return
-        // A parked bubble out on the edge costs nothing to skip, but one
-        // sitting on the face is in reach of the hands and has to be
-        // stepped — a bubble standing still in the arc of a wound hand is
-        // the whole of the shot.
-        val reach = (mainDial()?.currentDialRadius() ?: 0f)
-        val layerNow = this.layer
-        val withinReach = layerNow != null && bubbles.any { b ->
-            hypot(b.centerX() - layerNow.width / 2f, b.centerY() - layerNow.height / 2f) <
-                reach + b.sizePx / 2f
-        }
-        if (!withinReach && bubbles.none { it.moving }) return
+        if (!needsFrames()) return
         val layer = this.layer ?: return
         val w = layer.width.toFloat()
         val h = layer.height.toFloat()

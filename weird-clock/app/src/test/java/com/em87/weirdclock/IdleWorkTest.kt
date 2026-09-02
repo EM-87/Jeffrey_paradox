@@ -224,4 +224,91 @@ class IdleWorkTest {
     fun `with no location it sleeps rather than spinning`() {
         assertEquals(6 * 60 * 60_000L, ClockWidgetProvider.nextSkyChangeMs(context))
     }
+
+    // -------------------------------------------------- the bubble physics
+
+    private fun opened(cities: Set<String>): MainActivity {
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+            .putBoolean(Prefs.WORLD_CLOCK, cities.isNotEmpty())
+            .putStringSet(Prefs.WORLD_TZS, cities)
+            .commit()
+        val activity = org.robolectric.Robolectric.buildActivity(MainActivity::class.java)
+            .setup().get()
+        ShadowLooper.idleMainLooper(200, TimeUnit.MILLISECONDS)
+        return activity
+    }
+
+    /**
+     * With no world clocks there is nothing to bounce, and nothing to
+     * bounce should cost nothing.
+     *
+     * The loop that steps the bubbles used to be posted in onResume and
+     * re-post itself every sixteen milliseconds until onPause, whatever
+     * was on the screen. The cities are off out of the box, so the common
+     * case — a phone sitting on a desk with the clock card open — was
+     * sixty wake-ups a second to hand an empty list to a function that
+     * returns immediately. No work and a great many wake-ups, which is the
+     * shape of a thing a battery notices and a profiler does not.
+     */
+    @Test
+    @Config(sdk = [33], qualifiers = "w411dp-h891dp-xxhdpi")
+    fun `with no world clocks the physics loop never runs`() {
+        val activity = opened(emptySet())
+        assertFalse(
+            "sixty frames a second for an empty list",
+            activity.bubblesRunningForTest()
+        )
+    }
+
+    /**
+     * And parked ones out of the hands' reach cost nothing either.
+     *
+     * Docked, a bubble sits above or below the dial and nothing can happen
+     * to it that is not somebody doing something — so the loop is allowed
+     * to hang up until they do.
+     */
+    @Test
+    @Config(sdk = [33], qualifiers = "w411dp-h891dp-xxhdpi")
+    fun `docked bubbles let the loop hang up`() {
+        val activity = opened(setOf("Europe/Madrid", "Asia/Tokyo"))
+        assertEquals("the cities did not arrive", 2, activity.worldClocksForTest().size)
+        assertFalse(
+            "a scene standing still kept asking for frames",
+            activity.bubblesRunningForTest()
+        )
+    }
+
+    /** A knock shakes them loose, and that has to start it again. */
+    @Test
+    @Config(sdk = [33], qualifiers = "w411dp-h891dp-xxhdpi")
+    fun `a knock starts the physics again`() {
+        val activity = opened(setOf("Europe/Madrid", "Asia/Tokyo"))
+        activity.worldBubblesForTest().free()
+        assertTrue(
+            "the bubbles were let go and nothing was stepping them",
+            activity.bubblesRunningForTest()
+        )
+        ShadowLooper.idleMainLooper(100, TimeUnit.MILLISECONDS)
+        assertTrue(
+            "and it stopped while they were still in flight",
+            activity.bubblesRunningForTest()
+        )
+    }
+
+    /** And putting everything back stops it again, without being told. */
+    @Test
+    @Config(sdk = [33], qualifiers = "w411dp-h891dp-xxhdpi")
+    fun `the loop hangs itself up when the scene settles`() {
+        val activity = opened(setOf("Europe/Madrid", "Asia/Tokyo"))
+        activity.worldBubblesForTest().free()
+        ShadowLooper.idleMainLooper(100, TimeUnit.MILLISECONDS)
+        assertTrue("nothing was moving to begin with", activity.bubblesRunningForTest())
+
+        activity.worldBubblesForTest().dock()
+        ShadowLooper.idleMainLooper(200, TimeUnit.MILLISECONDS)
+        assertFalse(
+            "everything was put back and the loop kept going",
+            activity.bubblesRunningForTest()
+        )
+    }
 }

@@ -996,7 +996,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             mainDial = { clockView },
             dialIsObstacle = { row == Row.MIDDLE },
             gravityX = ::viewGravityX,
-            gravityY = ::viewGravityY
+            gravityY = ::viewGravityY,
+            wake = ::kickBubbles
         )
         chimePlayer.prepareTick(this)
         sortAlarms()
@@ -1355,7 +1356,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             sensorManager?.registerListener(flipListener, it, SensorManager.SENSOR_DELAY_UI)
         }
         handler.removeCallbacks(bubblePhysics)
-        handler.post(bubblePhysics)
+        bubblesRunning = false
+        bubblesAllowed = true
+        kickBubbles()
         // Prime the minute boundary so opening the app never chimes, and
         // start the loop on the next second boundary so ticks land in step.
         lastHandledMinute = TimeKeeper.nowMs() / 60000L
@@ -1468,6 +1471,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // reclaim it at any point afterwards without another word.
         saveStopwatch()
         handler.removeCallbacks(soundLoop)
+        bubblesAllowed = false
+        bubblesRunning = false
         handler.removeCallbacks(bubblePhysics)
         stopTicking()
         // The sky is a thing you open, look at and leave. Coming back to
@@ -3372,9 +3377,39 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private val bubblePhysics = object : Runnable {
         override fun run() {
             worldBubbles.step()
-            handler.postDelayed(this, 16L)
+            if (bubblesAllowed && worldBubbles.needsFrames()) {
+                handler.postDelayed(this, 16L)
+            } else {
+                bubblesRunning = false
+            }
         }
     }
+
+    /** Whether the loop above is currently posted. */
+    private var bubblesRunning = false
+
+    /** And whether it is allowed to be: only while the window is up. */
+    private var bubblesAllowed = false
+
+    /**
+     * Starts the physics if there is anything for it to do.
+     *
+     * This used to be one line in [onResume] and the loop never stopped
+     * again until [onPause] — sixty wake-ups a second for the whole time
+     * the app was open, whether or not a single world clock existed. Now
+     * the loop hangs itself up the moment the scene goes still, and every
+     * event that could disturb it comes back through here: see
+     * [WorldBubbles.needsFrames], which is what decides both.
+     */
+    private fun kickBubbles() {
+        if (bubblesRunning || !bubblesAllowed) return
+        if (!worldBubbles.needsFrames()) return
+        bubblesRunning = true
+        handler.post(bubblePhysics)
+    }
+
+    /** For the tests: whether the sixty-a-second loop is posted. */
+    internal fun bubblesRunningForTest(): Boolean = bubblesRunning
 
     /**
      * Escalating damage, knock by knock: hands first (bubbles break loose

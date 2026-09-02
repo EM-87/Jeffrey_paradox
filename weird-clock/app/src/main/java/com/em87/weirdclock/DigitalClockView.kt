@@ -354,9 +354,26 @@ class DigitalClockView @JvmOverloads constructor(
      * one a second, because the blinking colon and a card still falling
      * both live inside that minute. While something is moving it asks for
      * every frame there is, and stops the moment it lands.
+     *
+     * A breath is the third case and it shipped without one. Everything
+     * else that happens inside a second either lands somewhere ([moving])
+     * or is a switch thrown on the second itself, and a colon that swells
+     * is neither: asked for one frame a second it was drawn at the top of
+     * every second, where the swell is at its fullest, and so sat at full
+     * brightness for ever doing nothing whatever. The setting worked, the
+     * arithmetic was right, and there was no way to see it.
      */
-    private fun delayToNextFrame(): Long =
-        if (moving()) FRAME_MS else Ticker.delayToNext(System.currentTimeMillis())
+    private fun delayToNextFrame(): Long = when {
+        moving() -> FRAME_MS
+        breathing() -> BREATH_MS
+        else -> Ticker.delayToNext(System.currentTimeMillis())
+    }
+
+    /** Whether the colon is swelling rather than switching. */
+    private fun breathing(): Boolean = blinkColon && breathingColon
+
+    /** For the tests: what it asks for next. */
+    internal fun frameDelayForTest(): Long = delayToNextFrame()
 
     private fun moving(): Boolean =
         drawn.values.any { android.os.SystemClock.uptimeMillis() - it.changedAt < changeMs() }
@@ -1838,7 +1855,7 @@ class DigitalClockView @JvmOverloads constructor(
      * thickness of a hairline stroke disappears.
      */
     private fun drawColon(canvas: Canvas, cx: Float, top: Float, h: Float) {
-        val breathing = blinkColon && breathingColon
+        val breathing = breathing()
         val on = !blinkColon || breathing || (nowMs() / 1000L) % 2L == 0L
         punctuation(on)
         // Breathing takes the same second the blink would have used and
@@ -2118,6 +2135,17 @@ class DigitalClockView @JvmOverloads constructor(
         private const val FLING_MS_PER_STEP = 34L
 
         private const val FRAME_MS = 16L
+
+        /**
+         * And the frame a breath gets, which is a slower one.
+         *
+         * Thirty a second rather than sixty: this is one number sliding
+         * between a quarter and full over half a second, and the eye
+         * cannot tell the two rates apart on it. The face it runs on is
+         * the one somebody chose because they wanted to know the time, and
+         * it can spend half as much of the battery on the ornament.
+         */
+        private const val BREATH_MS = 33L
         private const val FLIP_MS = 260L
         private const val ROLL_MS = 320L
 
