@@ -149,7 +149,7 @@ class FaceMenuTest {
         for (key in listOf(
             Prefs.THEME, Prefs.NIGHT_DIM, Prefs.NIGHT_WINDOW, Prefs.SHOW_DATE,
             Prefs.DATE_ORDER, Prefs.CALENDAR_NUMERALS,
-            Prefs.BELLS, Prefs.BELL_STYLE, Prefs.SECOND_HAND, Prefs.TICKING,
+            Prefs.BELLS, Prefs.BELL_STYLE,
             Prefs.ALARM_RAMP, Prefs.SOLAR_TIME,
             // The bubbles are readouts on the face with no hands, so the
             // world clock itself is a question both faces can answer.
@@ -161,26 +161,33 @@ class FaceMenuTest {
     }
 
     /**
-     * One stored answer, two names.
+     * Two faces, two questions, two answers.
      *
-     * Somebody who turns the second hand off and then changes face finds
-     * the seconds already gone — which is what they asked for, because the
-     * question was never about a hand. Making it two preferences would have
-     * been the obvious thing and would have lost the answer at the door.
+     * They shared one for five versions, on the argument that the question
+     * was never about a hand: it was about whether this clock counts that
+     * far. The argument is good and it was still wrong, because somebody
+     * owns both faces. Turning the seconds off on a screenful of digits
+     * took the second hand off the dial with them, and the only row that
+     * would do it was two screens deep on the *other* face, under the name
+     * "Second hand". So each face keeps its own, where it can be found.
      */
     @Test
-    fun `the same row asks the same question under two names`() {
-        val onADial = screensOf(Face.ANALOG).last()
-            .findPreference<Preference>(Prefs.SECOND_HAND)?.title?.toString()
-        val onDigits = screensOf(Face.DIGITAL).last()
-            .findPreference<Preference>(Prefs.SECOND_HAND)?.title?.toString()
-        assertNotNull("the seconds row is not on the dial's screen", onADial)
-        assertNotNull("the seconds row is not on the digital screen", onDigits)
+    fun `each face has its own seconds, on its own page`() {
+        val dial = everyKeyFor(Face.ANALOG)
+        val digits = everyKeyFor(Face.DIGITAL)
+        assertTrue("the dial lost its second hand", Prefs.SECOND_HAND in dial)
+        assertFalse("the dial is offering a digital clock's seconds", Prefs.DIGITAL_SECONDS in dial)
+        assertTrue("the digits lost their seconds", Prefs.DIGITAL_SECONDS in digits)
         assertFalse(
-            "a screenful of digits is still calling it a hand: $onDigits",
-            onADial == onDigits
+            "a screenful of digits is still being offered a second hand",
+            Prefs.SECOND_HAND in digits
         )
-        assertEquals(context.getString(R.string.pref_seconds_title), onDigits)
+        // And the digits' row is on the page somebody looking for it opens
+        // first, not two screens in beside the pen weights.
+        assertNotNull(
+            "the digits' seconds are not on the first screen",
+            screensOf(Face.DIGITAL).first().findPreference<Preference>(Prefs.DIGITAL_SECONDS)
+        )
     }
 
     /**
@@ -397,9 +404,20 @@ class FaceMenuTest {
         )) {
             assertFalse("$key is on the sundial's menu and does nothing", key in plate)
         }
-        // And they stay wherever something does count them: a hand, a
-        // readout with seconds in it, a chronograph with a screen.
-        for (face in Face.entries - Face.SUNDIAL) {
+        // A second hand and a tick are facts about a mechanism, so they
+        // stay on the one face that has one and nowhere else. What the
+        // other faces get instead is their own row, where they need one:
+        // a screenful of digits can count seconds and says so under its
+        // own name — see [Prefs.DIGITAL_SECONDS].
+        for (face in Face.entries - Face.ANALOG) {
+            val menu = everyKeyFor(face)
+            assertFalse(
+                "$face is offering a second hand on a clock with no hands",
+                Prefs.SECOND_HAND in menu
+            )
+            assertFalse("$face is offering a tick with nothing to tick", Prefs.TICKING in menu)
+        }
+        for (face in listOf(Face.ANALOG)) {
             assertTrue("$face lost its seconds", Prefs.SECOND_HAND in everyKeyFor(face))
         }
         // And the sundial keeps its date, which is cut into the plate.

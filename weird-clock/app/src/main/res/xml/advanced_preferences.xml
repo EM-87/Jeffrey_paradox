@@ -17,22 +17,11 @@
         android:key="cat_digits"
         android:title="@string/category_digits">
 
-        <ListPreference
-            android:defaultValue="segment"
-            android:entries="@array/digit_style_entries"
-            android:entryValues="@array/digit_style_values"
-            android:key="pref_digit_style"
-            android:title="@string/pref_digit_style_title"
-            app:useSimpleSummaryProvider="true" />
-
-        <ListPreference
-            android:defaultValue="arabic"
-            android:entries="@array/digit_script_entries"
-            android:entryValues="@array/digit_script_values"
-            android:key="pref_digit_script"
-            android:title="@string/pref_digit_script_title"
-            app:useSimpleSummaryProvider="true" />
-
+        <!-- The mechanism and the alphabet used to be here. They are the
+             two decisions that *make* this face — everything else on this
+             screen refines one of them — so they moved to the first
+             screen, where somebody who has just chosen a digital clock
+             will look for them. -->
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="pref_hour_24"

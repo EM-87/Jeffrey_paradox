@@ -166,10 +166,14 @@ class ClockView @JvmOverloads constructor(
         set(value) { field = value; invalidate() }
     var shakeDropEnabled = true
         set(value) {
+            if (field == value) return
             field = value
             // Turned on from settings while already on screen: pick the
-            // accelerometer back up, since attaching is long past.
-            if (value && isAttachedToWindow) listenForShakes()
+            // accelerometer back up, since attaching is long past. And
+            // turned off — by settings, or by swiping to a card where a
+            // knock means nothing — put it down, because a listener left
+            // running is the whole of what this switch costs.
+            if (value) listenForShakes() else stopListeningForShakes()
         }
     var dialScale = 1f
         set(value) {
@@ -1184,6 +1188,25 @@ class ClockView @JvmOverloads constructor(
     }
 
     /**
+     * The accelerometer follows the *window*, not the view.
+     *
+     * A view stays attached while the app is in the background: Android
+     * does not take the hierarchy apart when an activity stops, so a dial
+     * that registers its listener on attach and drops it on detach goes on
+     * listening with the screen off and the app closed. Knock the phone on
+     * a table on the way past and the clock is found the next morning with
+     * its hands on the floor, by somebody who never touched it.
+     *
+     * This is the one signal that says the window is really gone —
+     * stopped, screen off, another app in front — and it arrives on attach
+     * too, so nothing is lost by hanging the listener off it.
+     */
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        if (visibility == VISIBLE) listenForShakes() else stopListeningForShakes()
+    }
+
+    /**
      * A face that cannot be shaken has no use for the accelerometer, and an
      * alarm list can hold a dozen of these little ones at once.
      */
@@ -1200,14 +1223,18 @@ class ClockView @JvmOverloads constructor(
         }
     }
 
+    private fun stopListeningForShakes() {
+        sensorManager?.unregisterListener(shakeListener)
+        sensorManager = null
+    }
+
     override fun onDetachedFromWindow() {
         // The sky is a thing you open, look at and leave; coming back to a
         // dial that is still showing the planets of a date you wound to
         // three days ago would read as a clock that had stopped.
         closeOrrery()
         removeCallbacks(ticker)
-        sensorManager?.unregisterListener(shakeListener)
-        sensorManager = null
+        stopListeningForShakes()
         spring?.cancel()
         spring = null
         super.onDetachedFromWindow()
@@ -1475,11 +1502,44 @@ class ClockView @JvmOverloads constructor(
                 tapDownY = event.y
                 // Own the gesture while manipulating the mechanism, so a
                 // hosting pager doesn't steal it as a horizontal page swipe.
-                if (grabbedDebris || grabbedPlanet || draggedHand != null) {
+                //
+                // A planet and a piece of wreckage are small, deliberate
+                // targets: a finger that lands on one meant it, and the
+                // gesture is claimed there and then. A *hand* is not. It
+                // is a stroke across most of the dial with a grab radius
+                // of nearly half an inch either side, so on the card that
+                // fills the screen almost every swipe starts on one — and
+                // claiming at the touch meant the swipe from the clock to
+                // the alarms simply did not happen. So the hand waits: see
+                // [handClaimed] and the move below.
+                handClaimed = false
+                if (grabbedDebris || grabbedPlanet) {
                     parent?.requestDisallowInterceptTouchEvent(true)
                 }
             }
             MotionEvent.ACTION_MOVE -> {
+                // A hand that has not yet said whether it is being wound
+                // or swiped past.
+                //
+                // Nothing is refused here and nothing is given back: the
+                // hand goes on following the finger exactly as before, and
+                // the only thing at stake is whether the pager is *allowed*
+                // to take the gesture away. Until the drag has proved
+                // itself a wind it is allowed to, which is the whole fix —
+                // and if it does take it this view gets a cancel and lets
+                // go by itself. Winding loses nothing either way, because
+                // the wind is accumulated from the angle round the dial
+                // and not from one move to the next.
+                if (draggedHand != null && !handClaimed) {
+                    val dx = event.x - tapDownX
+                    val dy = event.y - tapDownY
+                    if (hypot(dx, dy) >= pageSlop() &&
+                        kotlin.math.abs(dx) <= kotlin.math.abs(dy) * FLAT_SWIPE
+                    ) {
+                        handClaimed = true
+                        parent?.requestDisallowInterceptTouchEvent(true)
+                    }
+                }
                 if (grabbedBody != null) {
                     dragBodyTo(event.x, event.y)
                 } else {
@@ -3782,6 +3842,19 @@ class ClockView @JvmOverloads constructor(
             invalidate()
         }
 
+    /**
+     * Whether the hand under the finger has been taken to be a wind.
+     *
+     * False from the moment a hand is grabbed until the finger has moved
+     * far enough to say what it is doing. See the move handler: a flat
+     * sideways drag is a page turn and gives the hand back.
+     */
+    private var handClaimed = false
+
+    /** How far a finger travels before it has said what it is doing. */
+    private fun pageSlop(): Float =
+        android.view.ViewConfiguration.get(context).scaledTouchSlop.toFloat()
+
     /** Whether the hands have been swapped for something else on this face. */
     private fun lcd(): Boolean = skyOnly || (lcdChrono && chronoProvider != null)
 
@@ -4910,8 +4983,18 @@ class ClockView @JvmOverloads constructor(
     /** Whether the planets are showing at all — as against fully faded out. */
     internal fun orreryShowing(): Boolean = orreryFade() > 0.01f
 
-    /** Opens or closes the sky. Also the accessibility action. */
+    /**
+     * Opens or closes the sky. Also the accessibility action.
+     *
+     * There is one dial it cannot close. On the face made of planet the
+     * solar system has a card of its own — [skyOnly] — and that card is
+     * the sky and nothing else: no hands, no readout, no sun token to
+     * tap. Closing it there left a blank rectangle with no way back into
+     * it, which is not a state anybody chose and not one they could get
+     * out of. The way out of that card is the swipe that got you into it.
+     */
     internal fun toggleOrrery() {
+        if (skyOnly && orreryUp) return
         // The frame loop works out its delay when a frame is posted, so a
         // fade started now would get whatever was already in the queue —
         // up to a whole second of nothing, and then the far end. The file
@@ -5080,6 +5163,10 @@ class ClockView @JvmOverloads constructor(
     /** For the tests: attaching and detaching, without a window to do it. */
     internal fun onAttachedToWindowForTest() = onAttachedToWindow()
     internal fun onDetachedFromWindowForTest() = onDetachedFromWindow()
+
+    /** For the tests: the window going away under an attached view. */
+    internal fun windowVisibilityForTest(visible: Boolean) =
+        onWindowVisibilityChanged(if (visible) VISIBLE else INVISIBLE)
 
     /** For the tests: what the little bubble is saying, if anything. */
     internal fun markBubbleForTest(): String? = bubbleText
@@ -6415,6 +6502,23 @@ class ClockView @JvmOverloads constructor(
          * stumble on by dragging Neptune about.
          */
         private const val ALIGNMENT_ARC = 12.0
+        /**
+         * How much flatter than tall a drag has to be before it is a page
+         * turn rather than a wind.
+         *
+         * Two and a half is deliberately lenient towards the clock: a
+         * wind is a rotation and only a hand near six or twelve is wound
+         * by moving sideways, and even then the finger curves within a
+         * few pixels. A page swipe is a straight flat shove.
+         *
+         * Nothing is lost by guessing wrong in either direction. Guess
+         * "page" on a wind and the pager will not take it unless the drag
+         * really is flat enough for its own slop, and the wind carries on;
+         * guess "wind" on a swipe and the page does not turn, which is one
+         * more try.
+         */
+        private const val FLAT_SWIPE = 2.5f
+
         /**
          * How hard a knock has to be to shake something loose, in m/s²
          * beyond gravity.

@@ -30,5 +30,22 @@
             android:visibility="gone" />
     </FrameLayout>
 
+    <!-- The toolbox, again.
+         There is one on the clock's own page and it could not reach this
+         one: the button is found by id inside the page it is on, so the
+         card that is nothing but sky had planets on its floor and nothing
+         anywhere to pick them up with. Same id, same handler, one per
+         page. -->
+    <ImageButton
+        android:id="@+id/reassemble_button"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="top|start"
+        android:layout_margin="12dp"
+        android:alpha="0.6"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/pref_reassemble_title"
+        android:src="@drawable/ic_toolbox"
+        android:visibility="gone" />
 
 </FrameLayout>

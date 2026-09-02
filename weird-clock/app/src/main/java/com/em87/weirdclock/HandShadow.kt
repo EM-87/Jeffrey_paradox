@@ -129,15 +129,30 @@ object HandShadow {
     const val MAX_LENGTH = 0.05f
 
     /**
-     * Below this the sun is too low to cast anything worth drawing.
+     * How far above the horizon the sun starts losing its shadow.
      *
-     * Eighteen degrees rather than twelve, so that the fade is well under
-     * way by the time the length is against its stop — otherwise the last
-     * stretch before sunset is a shadow at full strength sitting at its
-     * maximum reach, which is the one arrangement that looks pinned rather
+     * Six degrees, which at a middle latitude is the last twenty-five
+     * minutes of the day. It was eighteen, on the argument that the fade
+     * ought to be well under way before the length is against its stop —
+     * otherwise the last stretch before sunset is a shadow at full
+     * strength sitting at its maximum reach, which looks pinned rather
      * than cast.
+     *
+     * That argument was answering the right worry with the wrong tool.
+     * Eighteen degrees is an hour and a half of afternoon at forty north,
+     * and over that hour and a half the shadows quietly went out while
+     * the sun was still visibly up — which somebody found by winding the
+     * hands and reported as the shadow disappearing in broad daylight. It
+     * is: a shadow at a fifth of its darkness is a shadow nobody can see,
+     * and low sun is when shadows are at their most obvious, not their
+     * least.
+     *
+     * What answers the pinned look is [penumbra], which widens with the
+     * same falling sun and was already doing the work: a long shadow that
+     * has stopped growing and gone soft reads as a low sun. One that has
+     * stopped growing and gone *faint* reads as a bug.
      */
-    private const val FADE_FROM_DEG = 18.0
+    private const val FADE_FROM_DEG = 6.0
 
     /**
      * How much light a full moon casts, against the sun.
@@ -394,7 +409,7 @@ object HandShadow {
     /**
      * How dark the shadow is, from 0 to 1.
      *
-     * Full while the sun is properly up, fading out over the last twelve
+     * Full while the sun is properly up, fading out over the last few
      * degrees before it sets — which is both what happens and what stops
      * the shadow snapping off at the horizon like a light being switched.
      */

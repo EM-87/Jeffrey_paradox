@@ -82,6 +82,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * back, it is a button that answers the question it raises.
      */
     private var reassembleButton: ImageButton? = null
+
+    /**
+     * The same toolbox, on the page the solar system has to itself.
+     *
+     * One per page rather than one shared: the button is found by id
+     * inside the page it lives on, and the card that is nothing but sky
+     * is on a different page from the clock. Planets knocked out of their
+     * orbits there had nothing anywhere to pick them up with.
+     */
+    private var orreryToolbox: ImageButton? = null
     private var alarmSetBanner: View? = null
     private var alarmSetLabel: TextView? = null
     private var sandStartStop: Button? = null
@@ -565,7 +575,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // has nothing that counts them. The dial it borrows for the
             // chronographs' styling is still alive and detached, so this
             // went on ticking behind a shadow on a plate.
-            ticksWanted = tickingEnabled && face.countsSeconds &&
+            // Only a mechanism ticks. It used to be anything that
+            // counted seconds, which had a screenful of digits and a
+            // turning planet ticking like an escapement.
+            ticksWanted = tickingEnabled && face.hands &&
                 row == Row.MIDDLE && cv != null &&
                 !cv.isSecondHandGrabbed() && !cv.isSecondHandFallen() &&
                 // A dial showing the planets is not showing a second hand,
@@ -692,6 +705,23 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // dial still being looked at: a solar system, a flash of clock, and
         // then the chronograph. The sky leaves with the card now.
         if (card != Card.CLOCK) clockView?.leaveOrrery(CARD_FADE_MS.toLong())
+        // And a knock only reaches the card being looked at.
+        //
+        // Two things were wrong at once. The dial listened to the
+        // accelerometer for as long as it was attached, which is for as
+        // long as the app exists — so a phone knocked in a pocket, or set
+        // down hard with the screen off, was opened later to find the
+        // hands on the floor and nothing to explain it. And every dial in
+        // the app listened at once, including the ones on cards nobody
+        // was looking at.
+        //
+        // A knock now has to land somewhere it means something: the clock
+        // itself, or the card that is nothing but sky, both of them in
+        // front of you. See [ClockView.onWindowVisibilityChanged] for the
+        // other half, which is the window rather than the card.
+        val knockable = prefs.getBoolean(Prefs.SHAKE_DROP, true)
+        clockView?.shakeDropEnabled = knockable && card == Card.CLOCK
+        orreryCardView?.shakeDropEnabled = knockable && card == Card.CALENDAR
         val awake = card == Card.CLOCK ||
             (card == Card.STOPWATCH && stopwatchRunning) ||
             ((card == Card.REVERSE || card == Card.HOURGLASS) && countdownRunning)
@@ -1531,11 +1561,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             sky.soundListener = this
             sky.skyOnly = true
             orreryCardView = sky
+            orreryToolbox = root.findViewById<ImageButton>(R.id.reassemble_button).also { button ->
+                button.setOnClickListener {
+                    reassembleEverything()
+                    showReassembleIfNeeded()
+                }
+            }
             calendarView?.let { (it.parent as? ViewGroup)?.removeView(it) }
             calendarView = null
         } else {
             (sky.parent as? ViewGroup)?.removeView(sky)
             orreryCardView = null
+            orreryToolbox = null
         }
         applyPreferences()
         applyRow(row)
@@ -2432,6 +2469,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     internal fun reassembleShowing(): Boolean =
         reassembleButton?.visibility == View.VISIBLE
 
+    /** And the same one, on the page the solar system has to itself. */
+    internal fun orreryToolboxShowing(): Boolean =
+        orreryToolbox?.visibility == View.VISIBLE
+
+    /** For the tests: work out whether either toolbox is wanted, now. */
+    internal fun showReassembleForTest() = showReassembleIfNeeded()
+
     /** The same, for the tests: saving is the step that lost two settings. */
     internal fun commitDraftForTest(target: Alarm, draft: Alarm, isNew: Boolean) =
         commitDraft(target, draft, isNew)
@@ -2469,6 +2513,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         prefs.edit().putFloat(Prefs.DIAL_SCALE, 1f).apply()
         digitalView?.reassembleAll()
         clockView?.reassembleAll()
+        orreryCardView?.reassembleAll()
         countdownClockView?.reassembleAll()
         stopwatchClockView?.reassembleAll()
         worldBubbles.reassembleAll()
@@ -3394,7 +3439,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             chimePlayer.playTick()
             showReassembleIfNeeded()
         }
-        face.showSeconds = prefs.getBoolean(Prefs.SECOND_HAND, true)
+        // Its own switch, on its own page — see [Prefs.DIGITAL_SECONDS].
+        face.showSeconds = prefs.getBoolean(Prefs.DIGITAL_SECONDS, false)
         face.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
         face.showWeekday = prefs.getBoolean(Prefs.SHOW_WEEKDAY, true)
         face.bedsideSeconds = prefs.getBoolean(Prefs.BEDSIDE_SECONDS, false)
@@ -3503,7 +3549,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         updateAlarmMarkers()
         cv.touchHandsEnabled = prefs.getBoolean(Prefs.TOUCH_HANDS, true)
         cv.pinchZoomEnabled = prefs.getBoolean(Prefs.PINCH_ZOOM, true)
-        cv.shakeDropEnabled = prefs.getBoolean(Prefs.SHAKE_DROP, true)
+        // Only where a knock means something, and only on the card in
+        // front of you — see [keepScreenAwake], which owns that half.
+        cv.shakeDropEnabled = prefs.getBoolean(Prefs.SHAKE_DROP, true) &&
+            current() == Card.CLOCK
         cv.dialScale = prefs.getFloat(Prefs.DIAL_SCALE, 1f)
         cv.setSelectedHours(
             prefs.getStringSet(Prefs.SELECTED_HOURS, emptySet())
@@ -4012,6 +4061,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun showReassembleIfNeeded() {
         val wanted = dialJob == null && row == Row.MIDDLE && sceneIsDisarranged()
         reassembleButton?.visibility = if (wanted) View.VISIBLE else View.GONE
+        orreryToolbox?.visibility =
+            if (orreryCardView?.isDisarranged() == true) View.VISIBLE else View.GONE
     }
 
     private fun sceneIsDisarranged(): Boolean =

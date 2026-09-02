@@ -266,6 +266,7 @@ object FaceOptions {
 
     /** And the rows only a screenful of digits has. */
     private val digitalOnly = setOf(
+        Prefs.DIGITAL_SECONDS,
         Prefs.LEADING_ZERO,
         Prefs.BLINK_COLON,
         Prefs.SEGMENT_WEIGHT,
@@ -386,7 +387,14 @@ object FaceOptions {
         key in needsACalendar -> face.hasCalendar
         key in needsOtherCities -> face.showsOtherCities
         key == Prefs.SHOW_DATE -> face.showsDate
-        key == Prefs.SECOND_HAND || key == Prefs.TICKING -> face.countsSeconds
+        // A second hand and a tick are two facts about a *mechanism*, and
+        // three of the four faces have not got one. They were shown
+        // wherever anything counted seconds, which put a row called
+        // "second hand" on a turning planet and made a screenful of
+        // digits tick like an escapement. The digits keep their own
+        // seconds row — see [Prefs.DIGITAL_SECONDS] — and a shadow and a
+        // planet keep nothing, because nothing on either of them ticks.
+        key == Prefs.SECOND_HAND || key == Prefs.TICKING -> face.hands
         else -> true
     }
 
@@ -400,17 +408,15 @@ object FaceOptions {
      * about whether this clock counts that far.
      */
     fun titleFor(face: Face, key: String): Int? = when {
-        // Every face without hands, and not only the digits. This said
-        // `== DIGITAL` for five versions, and in that time a face made of
-        // planet arrived with the same two rows on it: an inventory of
-        // the built menus showed the turning world offering a *second
-        // hand* and a tick, under a heading that had already been
-        // carefully renamed to "The world". The seconds are real there —
-        // the alarm list and the two chronographs have screens — but a
-        // hand is not, and the test that forbids a handless face from
-        // naming hands was looking for the plural.
-        key == Prefs.SECOND_HAND && !face.hands -> R.string.pref_seconds_title
-        key == Prefs.TICKING && !face.hands -> R.string.pref_ticking_digital_title
+        // The two rows about the *readouts* on a face that is not made of
+        // them. On the turning world these say how the little screens on
+        // its alarm cards and its chronographs are drawn, which is a true
+        // thing about that face and reads, under the digits' own names,
+        // like the digital clock's menu turned up on the wrong page.
+        key == Prefs.DIGIT_STYLE && face == Face.HEMISPHERE ->
+            R.string.pref_readout_style_title
+        key == Prefs.DIGIT_SCRIPT && face == Face.HEMISPHERE ->
+            R.string.pref_readout_script_title
         // Headings too. "Dial" over three rows that still apply is the app
         // not having noticed which clock it is.
         (key == CAT_DIAL || key == CAT_DIAL_DEEP) && face == Face.DIGITAL ->

@@ -295,9 +295,18 @@ class OrreryDialTest {
         for (body in Orrery.planets) {
             val p = OrreryDial.positionOf(body, cx, cy, r, now, 0.0)
             for (dx in listOf(-slip, slip)) {
+                val found = OrreryDial.bodyAt(p.x + dx, p.y, cx, cy, r, now, 0.0)
+                // The Moon rides on the Earth and wins ties on purpose —
+                // see the test below, which is the reason. It is drawn a
+                // couple of millimetres off, so three millimetres off the
+                // Earth is sometimes *on* the Moon, and when it is, the
+                // Moon answering is the right answer and not a miss. This
+                // test read the real clock and so failed for a few hours
+                // whenever the two lined up that way.
+                if (body == Orrery.Body.EARTH && found == Orrery.Body.MOON) continue
                 assertEquals(
                     "$body was missed by a finger ${slip.toInt()}px off",
-                    body, OrreryDial.bodyAt(p.x + dx, p.y, cx, cy, r, now, 0.0)
+                    body, found
                 )
             }
         }

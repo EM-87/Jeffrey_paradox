@@ -382,24 +382,30 @@ class ScreenshotTest {
         val themed = androidx.appcompat.view.ContextThemeWrapper(
             context, R.style.Theme_WeirdClock
         )
-        // Four months of twenty-eight-day cycles, the last one six days
-        // ago, so the month on screen carries recorded days, the fertile
-        // stretch and the predicted window all at once.
-        val now = System.currentTimeMillis()
-        val today = Cycle.today(now, java.util.TimeZone.getDefault().getOffset(now))
-        val record = (1..4).map { Cycle.Period(today - 6 - (4 - it) * 28, days = 5) }
-
         val view = CalendarPageView(themed).apply {
             theme = ClockThemes.MIDNIGHT
-            cyclePhases = (1..31).associateWith {
-                Cycle.phase(record, Cycle.epochDay(shownYear, shownMonth1, it), today)
-            }.filterValues { it != Cycle.Phase.NONE }
             measure(
                 View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(1500, View.MeasureSpec.EXACTLY)
             )
             layout(0, 0, 1080, 1500)
         }
+        // Four months of twenty-eight-day cycles, the last one starting on
+        // the twelfth of the month *on screen*, so the picture carries
+        // recorded days, the fertile stretch and the predicted window all
+        // at once.
+        //
+        // Anchored to the month the page is showing rather than to the
+        // real one. Counting back six days from today put the last period
+        // in the previous month for the first week of every month, and
+        // the picture came out with nothing marked on it — which this
+        // test then reported as a fault in the drawing.
+        val anchor = Cycle.epochDay(view.shownYear, view.shownMonth1, 12)
+        val record = (1..4).map { Cycle.Period(anchor - (4 - it) * 28, days = 5) }
+        val today = anchor + 6
+        view.cyclePhases = (1..31).associateWith {
+            Cycle.phase(record, Cycle.epochDay(view.shownYear, view.shownMonth1, it), today)
+        }.filterValues { it != Cycle.Phase.NONE }
         assertTrue("the month drew nothing", shoot(view, "cycle-month") > 3f)
         assertTrue(
             "and nothing was marked on it",

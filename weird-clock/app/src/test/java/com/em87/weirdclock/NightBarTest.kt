@@ -227,6 +227,10 @@ class NightBarTest {
                 // the rest of these screens are even about.
                 "pref_face",
                 // Dial — keyed so its heading can be renamed with the face.
+                // What the display is, which is the decision every other
+                // row about the digits refines. It was two taps in.
+                "cat_digits",
+                "pref_digit_style", "pref_digit_script", "pref_digital_seconds",
                 "cat_dial",
                 "pref_night_dim", "pref_theme", "pref_show_date",
                 // The one switch in this app that turns a network on.
@@ -268,7 +272,7 @@ class NightBarTest {
                 "pref_calendar_numerals", "pref_past_days",
                 // The digits' own settings, on the page only when the
                 // face is digital.
-                "pref_digit_style", "pref_digit_script", "pref_hour_24",
+                "pref_hour_24",
                 "pref_leading_zero", "pref_blink_colon",
                 "pref_hemisphere_view", "pref_hemisphere_sun_at",
                 "pref_hemisphere_compass",

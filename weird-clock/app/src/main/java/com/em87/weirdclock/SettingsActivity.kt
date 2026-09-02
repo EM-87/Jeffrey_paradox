@@ -304,6 +304,45 @@ class SettingsActivity : AppCompatActivity() {
             dimmedBy[child] = bright
         }
 
+        /**
+         * The alphabets this mechanism can actually be written in.
+         *
+         * Re-read every time the mechanism changes, because the two rows
+         * sit next to each other and somebody will change one and look
+         * straight at the other.
+         */
+        protected fun narrowTheScripts() {
+            val style = findPreference<androidx.preference.ListPreference>(Prefs.DIGIT_STYLE)
+            val script = findPreference<androidx.preference.ListPreference>(Prefs.DIGIT_SCRIPT)
+                ?: return
+            fun apply(chosen: String?) {
+                val lit = DigitStyle.of(chosen, DigitScript.ARABIC) == DigitStyle.SEGMENT
+                val entries = resources.getStringArray(R.array.digit_script_entries)
+                val values = resources.getStringArray(R.array.digit_script_values)
+                val keep = values.indices.filter {
+                    lit || values[it] != Prefs.SCRIPT_ROMAN_COMET
+                }
+                script.entries = keep.map { entries[it] }.toTypedArray()
+                script.entryValues = keep.map { values[it] }.toTypedArray()
+                // A mechanism that cannot carry the chosen alphabet leaves
+                // the row showing a value that is no longer on its own
+                // list, which the preference library draws as blank.
+                if (!lit && script.value == Prefs.SCRIPT_ROMAN_COMET) {
+                    script.value = Prefs.SCRIPT_ARABIC
+                }
+                script.setTitle(
+                    if (lit) R.string.pref_segments_title else R.string.pref_digit_script_title
+                )
+            }
+            apply(preferenceManager.sharedPreferences?.getString(Prefs.DIGIT_STYLE, null))
+            // The listener runs before the new value is stored, so the
+            // one it is handed is the only one that is true yet.
+            style?.setOnPreferenceChangeListener { _, chosen ->
+                apply(chosen as? String)
+                true
+            }
+        }
+
         /** Which faded rows are called what, and what each is waiting on. */
         private fun dimmedTitles(): Map<String, () -> Boolean> =
             dimmedBy.mapNotNull { (key, bright) ->
@@ -575,6 +614,18 @@ class SettingsActivity : AppCompatActivity() {
                     preferenceManager.sharedPreferences?.getString(Prefs.DIGIT_SCRIPT, null)
                 ) != DigitScript.ROMAN_COMET
             }
+            // And the alphabet follows the mechanism it is written on.
+            //
+            // Two of the three can be printed as well as lit — ours and
+            // theirs are alphabets, and a flip card can be stamped with
+            // either. The Comet's nine cannot: they are the shape nine
+            // pieces of metal make when they are lit, and a card with
+            // them printed on it would be a photograph of a display, not
+            // a card. So the row keeps its two answers on a printed
+            // mechanism and gains the third on a lit one, rather than
+            // offering a choice that silently changes the mechanism back
+            // — which is what it did.
+            narrowTheScripts()
             // The calendar row says out loud when it has been switched on
             // and refused, which is a state somebody can otherwise sit in
             // for weeks wondering why the month page is empty. Read every

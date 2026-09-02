@@ -28,6 +28,41 @@
         android:summary="@string/pref_face_summary"
         android:title="@string/pref_face_title" />
 
+    <!-- What the display is, which on a digital clock is the whole of
+         what makes it that clock rather than another one. It was on the
+         advanced screen, two taps in, with the pen weights and the unlit
+         bars — which is where you keep the refinements, not the decision
+         they refine. The heading is renamed with the face: on the turning
+         world these three are about the little screens on its alarm cards
+         and its chronographs, not about the face. -->
+    <PreferenceCategory
+        android:key="cat_digits"
+        android:title="@string/category_digits">
+
+        <ListPreference
+            android:defaultValue="segment"
+            android:entries="@array/digit_style_entries"
+            android:entryValues="@array/digit_style_values"
+            android:key="pref_digit_style"
+            android:title="@string/pref_mechanism_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
+            android:defaultValue="arabic"
+            android:entries="@array/digit_script_entries"
+            android:entryValues="@array/digit_script_values"
+            android:key="pref_digit_script"
+            android:title="@string/pref_segments_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_digital_seconds"
+            android:summary="@string/pref_digital_seconds_summary"
+            android:title="@string/pref_digital_seconds_title" />
+
+    </PreferenceCategory>
+
     <!-- Keyed so the heading can be renamed with the face: a screenful of
          digits has no dial, and a category called Dial over three rows
          that still apply to it is the app failing to notice what it is. -->

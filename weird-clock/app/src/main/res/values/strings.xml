@@ -535,13 +535,13 @@
     <string name="alarm_skip_bubble">Just %1$s? Tap to keep it for the days after.</string>
 
     <string name="pref_face_title">Kind of clock</string>
-    <string name="pref_face_summary">Hands, digits, a shadow, or the earth itself. It decides what the rest of these settings are about, so it is the first one.</string>
+    <string name="pref_face_summary">Analogue, digital, solar or hemispheric. It decides what the rest of these settings are about, so it is the first one.</string>
     <string name="face_ask_title">Which clock do you want?</string>
     <string name="face_long_analog">Hands — a dial with a case, that you can take apart</string>
     <string name="face_long_digital">Digits — big, full screen, and an alarm</string>
     <string name="face_long_sundial">A shadow — the oldest one, and it stops at sunset</string>
-    <string name="face_analog">Hands</string>
-    <string name="face_digital">Digits</string>
+    <string name="face_analog">Analogue</string>
+    <string name="face_digital">Digital</string>
     <string name="pref_seconds_title">Seconds</string>
     <string name="pref_ticking_digital_title">Ticking</string>
     <string name="category_digits">Digits</string>
@@ -635,7 +635,7 @@
     <string name="pref_widget_date_summary">Under the time, on the home screen</string>
     <string name="pref_widget_plain_title">Plain type</string>
     <string name="pref_widget_plain_summary">The phone\'s own numbers instead of lit bars</string>
-    <string name="face_sundial">A shadow</string>
+    <string name="face_sundial">Solar</string>
     <string name="category_plate">The plate</string>
     <string name="category_world">World</string>
     <string name="pref_night_dim_summary_world">Everything dims in the hours below, so the world does not light the room</string>
@@ -678,7 +678,7 @@
     </string-array>
     <string name="pref_widget_sundial_wall_title">On a wall</string>
     <string name="pref_widget_sundial_wall_summary">Rather than lying flat on the ground</string>
-    <string name="face_hemisphere">The world</string>
+    <string name="face_hemisphere">Hemispheric</string>
     <string name="face_long_hemisphere">The world — the earth turning under the sun, with you on it</string>
     <string name="pref_hemisphere_view_title">How the world is seen</string>
     <string name="pref_hemisphere_sun_at_title">Where the sun sits</string>
@@ -750,4 +750,10 @@
          one said for as long as the face has existed. -->
     <string name="category_reading">The reading</string>
     <string name="pref_agenda_promise">Read only — this clock cannot add, move or delete anything, and nothing it reads is written down or sent anywhere</string>
+    <string name="pref_mechanism_title">Mechanism</string>
+    <string name="pref_segments_title">Kind of segments</string>
+    <string name="pref_readout_style_title">How the readouts are made</string>
+    <string name="pref_readout_script_title">Readout numerals</string>
+    <string name="pref_digital_seconds_title">Seconds</string>
+    <string name="pref_digital_seconds_summary">The seconds on the face, beside the minutes</string>
 </resources>

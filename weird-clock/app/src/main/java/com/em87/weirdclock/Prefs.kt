@@ -121,6 +121,20 @@ object Prefs {
     const val SHOW_WEEKDAY = "pref_show_weekday"
 
     /**
+     * Whether a face made of digits counts seconds.
+     *
+     * Its own answer, and not the dial's. The two shared one for five
+     * versions on the argument that the question was never about a hand —
+     * it was about whether this clock counts that far — and that argument
+     * is good until somebody owns both faces. Turning the seconds off on
+     * a digital clock then took the second hand off the dial as well, and
+     * the only row that did it was two screens deep on the *other* face,
+     * called "Second hand". That is not one question asked twice, it is
+     * two questions with one answer between them.
+     */
+    const val DIGITAL_SECONDS = "pref_digital_seconds"
+
+    /**
      * The next alarm, on the face.
      *
      * Standard equipment: a watch has a flag, a lock screen has the time

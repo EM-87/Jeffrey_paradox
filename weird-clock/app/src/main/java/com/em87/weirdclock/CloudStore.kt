@@ -86,13 +86,39 @@ object CloudStore {
 
     private fun file(context: Context): File = File(context.cacheDir, FILE)
 
-    /** The picture on disk, or nothing. */
+    /**
+     * The one decoded copy of the picture on disk, or nothing.
+     *
+     * Held rather than decoded each time, and that is not an optimisation
+     * — it is the difference between the clouds working and not. The
+     * globe keeps its projected disc against the *identity* of the
+     * picture it was projected from, because projecting a quarter of a
+     * million points is not something to do twice for the same photograph.
+     * This handed back a brand-new bitmap on every call, so every time
+     * anything reapplied the settings — coming back to the app, swiping to
+     * another card, night falling — the globe decided its clouds had
+     * changed, threw away three baked discs and did the whole projection
+     * again from a fresh eighty-kilobyte JPEG decode. Which is why they
+     * flickered in and out, and a good part of why the battery noticed.
+     *
+     * Keyed on the file's timestamp, so a fresh fetch is picked up and
+     * nothing else is.
+     */
+    private var held: Bitmap? = null
+    private var heldAt = 0L
+
     fun cached(context: Context): Bitmap? {
         if (!wanted(context)) return null
         val on = file(context)
         if (!on.exists()) return null
+        val stamp = on.lastModified()
+        held?.let { if (heldAt == stamp && !it.isRecycled) return it }
         return try {
             BitmapFactory.decodeFile(on.path, BitmapFactory.Options().apply { inScaled = false })
+                ?.also {
+                    held = it
+                    heldAt = stamp
+                }
         } catch (e: Exception) {
             // A half-written file from a fetch that was killed partway.
             null
@@ -140,6 +166,8 @@ object CloudStore {
 
     /** Throws the picture away, for the switch being turned off. */
     fun forget(context: Context) {
+        held = null
+        heldAt = 0L
         file(context).delete()
         PreferenceManager.getDefaultSharedPreferences(context).edit().remove(WHEN).apply()
     }

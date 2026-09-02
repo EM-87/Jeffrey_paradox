@@ -141,6 +141,32 @@ class HandShadowTest {
         assertEquals("the sun below the horizon casts something", 0f, HandShadow.reach(h, -1.0), 1e-6f)
     }
 
+    /**
+     * An afternoon sun still casts a shadow, and casts it at full strength.
+     *
+     * The fade used to begin eighteen degrees above the horizon, which at
+     * forty north is an hour and a half before sunset. Over that hour and
+     * a half the shadows went out while the sun was plainly still up, and
+     * winding the hands back through the afternoon showed them vanishing
+     * in daylight — reported as exactly that. Ten degrees is twenty
+     * minutes short of sunset and is still full daylight; nothing should
+     * have started fading yet.
+     */
+    @Test
+    fun `the shadow keeps its strength while the sun is up`() {
+        assertEquals("a sun ten degrees up is already fading", 1f, HandShadow.strength(10.0), 1e-4f)
+        assertEquals("and thirty degrees certainly is", 1f, HandShadow.strength(30.0), 1e-4f)
+        // And it still gives out rather than snapping at the horizon,
+        // which is the thing the long fade was there to prevent.
+        assertTrue("the last degrees do not fade", HandShadow.strength(1.0) < 0.4f)
+        assertEquals("something is cast below the horizon", 0f, HandShadow.strength(-0.5), 1e-6f)
+        assertTrue(
+            "the fade is not monotonic",
+            HandShadow.strength(1.0) < HandShadow.strength(3.0) &&
+                HandShadow.strength(3.0) < HandShadow.strength(5.0)
+        )
+    }
+
     /** However low the sun gets, the shadow stops somewhere. */
     @Test
     fun `a shadow never runs off the dial`() {
@@ -270,9 +296,15 @@ class HandShadowTest {
         assertEquals("there are shadows at night", 0f, HandShadow.strength(-1.0), 1e-6f)
         assertEquals("there are shadows at the horizon", 0f, HandShadow.strength(0.0), 1e-6f)
         assertEquals("the midday shadow is not solid", 1f, HandShadow.strength(45.0), 1e-6f)
-        val low = HandShadow.strength(3.0)
-        assertTrue("a shadow at three degrees is as dark as one at noon: $low", low < 0.5f)
-        assertTrue("a shadow at three degrees is not there at all", low > 0f)
+        // One degree, not three. The fade used to run from eighteen
+        // degrees down and so had a shadow at half strength an hour
+        // before sunset, which is what "the shadow disappears in
+        // daylight" was — see [HandShadow.FADE_FROM_DEG]. It runs from
+        // six now, so three degrees is halfway down and one is nearly
+        // out.
+        val low = HandShadow.strength(1.0)
+        assertTrue("a shadow at one degree is as dark as one at noon: $low", low < 0.5f)
+        assertTrue("a shadow at one degree is not there at all", low > 0f)
     }
 
     // ---------------------------------------------------------- on the dial
