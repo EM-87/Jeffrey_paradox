@@ -84,6 +84,23 @@ class DigitalClockView @JvmOverloads constructor(
             invalidate()
         }
 
+    /**
+     * Whether the colon breathes instead of blinking.
+     *
+     * A blink is a square wave: on for a second, off for a second, which
+     * is what a cheap clock does because a cheap clock has one bit to
+     * spend on it. This is the other thing the same second can be spent
+     * on — the dots swell and fade over the whole of it, so the face is
+     * alive without anything on it ever being *gone*. Which also answers
+     * the reason blinking is off by default: nothing here switches off in
+     * a dark bedroom, it only leans.
+     */
+    var breathingColon: Boolean = false
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     var showSeconds: Boolean = false
         set(value) {
             field = value
@@ -1821,8 +1838,17 @@ class DigitalClockView @JvmOverloads constructor(
      * thickness of a hairline stroke disappears.
      */
     private fun drawColon(canvas: Canvas, cx: Float, top: Float, h: Float) {
-        val on = !blinkColon || (nowMs() / 1000L) % 2L == 0L
+        val breathing = blinkColon && breathingColon
+        val on = !blinkColon || breathing || (nowMs() / 1000L) % 2L == 0L
         punctuation(on)
+        // Breathing takes the same second the blink would have used and
+        // spends it going round rather than switching: full at the top of
+        // the second, down to a quarter at the half, and back. Applied
+        // over the lit colour rather than instead of it, so the dots stay
+        // the display's own colour throughout.
+        if (breathing) {
+            lit.alpha = (255 * DigitalReadout.breath(nowMs())).toInt().coerceIn(0, 255)
+        }
         val was = lit.strokeWidth
         lit.strokeWidth = h * Segments.separator(kind()) * weight
         // The panel's whole alphabet leans, and on the drawing so does its

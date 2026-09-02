@@ -217,4 +217,25 @@ class HemisphereShotTest {
         }
         assertTrue("the globe ignored the satellite picture: $moved pixels", moved > 5000)
     }
+
+    /**
+     * The world opened out, which is what the pinch is for.
+     *
+     * Three pictures because the middle one is the interesting one: the
+     * ring on its way out, half faded, with the world already growing
+     * past where its ticks are. Only a look says whether that reads as
+     * furniture getting out of the way or as a mess.
+     */
+    @Test
+    fun `the world opened out`() {
+        for ((name, zoom) in listOf(
+            "hemi-zoom-none" to Hemisphere.ZOOM_MIN,
+            "hemi-zoom-half" to (Hemisphere.ZOOM_MIN + Hemisphere.ZOOM_MAX) / 2f,
+            "hemi-zoom-full" to Hemisphere.ZOOM_MAX
+        )) {
+            val view = globe()
+            view.zoom = zoom
+            assertTrue(name, shoot(view, name) > 200)
+        }
+    }
 }

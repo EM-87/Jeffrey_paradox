@@ -66,6 +66,72 @@ object GentleWake {
     fun ramping(elapsedMs: Long, rampMs: Long): Boolean =
         rampMs > 0L && elapsedMs < rampMs
 
+    // -------------------------------------------- once somebody is awake
+
+    /**
+     * What a window asks for when it wants the phone's own brightness
+     * back.
+     *
+     * `WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE`, written out
+     * so this file stays arithmetic and can be tested without a window.
+     */
+    const val THE_PHONE_S_OWN = -1f
+
+    /**
+     * How long the screen takes to catch up once it has been touched.
+     *
+     * Short, but not instant. Somebody who has just picked the phone up
+     * has been looking at a dim screen for a moment and their eyes are
+     * where the screen was; a jump to full is the slab of white light
+     * this whole file exists to avoid, half a second later than usual.
+     */
+    const val TAKEOVER_MS = 900L
+
+    /**
+     * The dimmest the screen is allowed to settle at once it is being
+     * looked at.
+     *
+     * A sunrise that is still creeping up from a twelfth after somebody
+     * has picked the phone up is a screen they cannot read — and if the
+     * alarm has a sum on it, one they cannot answer. Whatever else
+     * happens, a touched screen is a legible screen.
+     */
+    const val AWAKE_FLOOR = 0.25f
+
+    /** And what to settle at on a phone with no light sensor in it. */
+    const val NO_SENSOR = 0.7f
+
+    /**
+     * How bright the screen has to be to be read in a room of [lux].
+     *
+     * Logarithmic, because light is: a bedroom at night is under a lux, a
+     * lamp on is a hundred, and a window in the morning is thousands, and
+     * those three are one, two and four decades apart rather than
+     * anything a straight line can join. A thousand lux is a room with
+     * daylight in it and takes the whole screen; a dark one takes
+     * [AWAKE_FLOOR] and no more, which is the point of the mode.
+     */
+    fun forRoom(lux: Float): Float {
+        val l = lux.coerceAtLeast(1f)
+        val t = (Math.log10(l.toDouble()) / 3.0).coerceIn(0.0, 1.0).toFloat()
+        return AWAKE_FLOOR + (1f - AWAKE_FLOOR) * t
+    }
+
+    /**
+     * The hand-over: from where the sunrise had got to, up to what the
+     * room needs, over [TAKEOVER_MS].
+     *
+     * Straight rather than squared. The squaring in [brightness] is there
+     * to keep the first seconds of a sunrise slow for somebody asleep;
+     * this is for somebody awake and holding the phone, who wants the
+     * screen legible and is not going to be startled by it.
+     */
+    fun handover(sinceTouchMs: Long, from: Float, to: Float): Float {
+        if (sinceTouchMs >= TAKEOVER_MS) return to
+        val x = (sinceTouchMs.toFloat() / TAKEOVER_MS).coerceIn(0f, 1f)
+        return from + (to - from) * x
+    }
+
     /**
      * When the torch should start, in ms from the beginning of the
      * ringing — or -1 for never.

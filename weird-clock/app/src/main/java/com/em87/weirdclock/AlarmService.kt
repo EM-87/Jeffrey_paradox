@@ -116,7 +116,7 @@ class AlarmService : Service() {
          * number is not what time it is — it is how far past it you are.
          */
         var ringingSince = 0L
-            private set
+            internal set
 
         /**
          * Whether an alarm is sounding right now.

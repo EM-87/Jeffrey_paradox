@@ -273,7 +273,7 @@ class NightBarTest {
                 // The digits' own settings, on the page only when the
                 // face is digital.
                 "pref_hour_24",
-                "pref_leading_zero", "pref_blink_colon",
+                "pref_leading_zero", "pref_blink_colon", "pref_colon_breathes",
                 "pref_hemisphere_view", "pref_hemisphere_sun_at",
                 "pref_hemisphere_compass",
                 "pref_hemisphere_ring", "pref_hemisphere_numbers",

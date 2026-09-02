@@ -447,8 +447,6 @@
     <string name="face_long_sundial">Una sombra — el más antiguo, y se para al anochecer</string>
     <string name="face_analog">Analógico</string>
     <string name="face_digital">Digital</string>
-    <string name="pref_seconds_title">Segundos</string>
-    <string name="pref_ticking_digital_title">Tic-tac</string>
     <string name="category_digits">Dígitos</string>
     <string name="category_readouts">Lecturas</string>
     <string name="category_screen">Pantalla</string>
@@ -466,7 +464,6 @@
         <item>Normal</item>
         <item>Gruesa</item>
     </string-array>
-    <string name="pref_digit_style_title">Cómo se forman los dígitos</string>
     <string name="pref_digit_script_title">Numerales</string>
     <string name="pref_hour_24_title">Veinticuatro horas</string>
     <string name="pref_hour_24_summary">Desactivado: doce horas, con el sol o la luna al lado en vez de AM y PM</string>
@@ -522,8 +519,8 @@
     <string name="pref_sundial_latitude_fixed_title">Fijar la latitud a mano</string>
     <string name="pref_sundial_latitude_fixed_summary">Un reloj tallado para un sitio se equivoca una hora en otro</string>
     <string name="pref_sundial_latitude_title">Latitud</string>
-    <string name="pref_sundial_compass_title">Apuntar al sol</string>
-    <string name="pref_sundial_compass_summary">Una flecha en el borde, verde cuando el móvil está alineado</string>
+    <string name="pref_sundial_compass_title">Sostenerlo en la mano</string>
+    <string name="pref_sundial_compass_summary">La sombra cae donde la pone el sol de verdad y la placa gira con el móvil, así que el reloj solo acierta cuando lo has alineado. Una marca en el borde dice dónde está el meridiano. Solo la placa horizontal</string>
     <string name="pref_sundial_motto_title">Lema en el borde</string>
     <string name="pref_sundial_motto_summary">Uno al día, en latín, como se tallaban</string>
     <string name="pref_sundial_halves_title">Medias horas</string>
@@ -603,4 +600,12 @@
     <string name="pref_readout_script_title">Numerales de las lecturas</string>
     <string name="pref_digital_seconds_title">Segundos</string>
     <string name="pref_digital_seconds_summary">Los segundos en la cara, junto a los minutos</string>
+    <string name="compass_north">N</string>
+    <string name="compass_south">S</string>
+    <string name="pref_colon_breathes_title">Dos puntos que respiran</string>
+    <string name="pref_colon_breathes_summary">Los puntos crecen y se apagan a lo largo del segundo en vez de encenderse y apagarse</string>
+    <string name="widget_analog_label">Weird Clock — analógico</string>
+    <string name="widget_digital_label">Weird Clock — digital</string>
+    <string name="widget_sundial_label">Weird Clock — solar</string>
+    <string name="widget_world_label">Weird Clock — hemisférico</string>
 </resources>

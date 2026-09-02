@@ -95,6 +95,93 @@ object Hemisphere {
     /** How far the globe is tipped towards you, in degrees. */
     const val TILT = 24.0
 
+    // ------------------------------------------------------- how big it is
+
+    /**
+     * How far the world can be opened out, as a multiplier.
+     *
+     * The face is a picture of the earth and it was drawn at a third of
+     * the screen so that a ring of numerals could have the rest. Somebody
+     * who wants to look at the earth wants the earth, so it opens: pinch
+     * and the world grows until it is nearly the whole of the shorter
+     * side, and the ring — which is furniture, not the instrument — gets
+     * out of the way as it goes.
+     */
+    const val ZOOM_MIN = 1.0f
+    const val ZOOM_MAX = 1.6f
+
+    /** The three radii the world can have, as shares of the shorter side. */
+    const val WORLD_RINGED = 0.355f
+    const val WORLD_BARE = 0.42f
+    const val WORLD_FULL = 0.445f
+
+    /** How far into the zoom we are, from nought to one. */
+    private fun into(zoom: Float): Float =
+        ((zoom - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN)).coerceIn(0f, 1f)
+
+    /**
+     * How big the world is drawn, as a share of the shorter side.
+     *
+     * It starts where it always was — smaller with a ring round it,
+     * because the ring has to go somewhere — and opens to nearly the edge.
+     * Not *to* the edge: the sun is nailed outside the world and has to
+     * stay in the picture, which is the last twentieth.
+     */
+    fun worldRadius(zoom: Float, ringed: Boolean): Float {
+        val base = if (ringed) WORLD_RINGED else WORLD_BARE
+        return base + (WORLD_FULL - base) * into(zoom)
+    }
+
+    /**
+     * How much of the ring of hours is left at this zoom.
+     *
+     * One while the world is still small enough to leave room for it,
+     * then down to nothing well before the world arrives — so the ring
+     * gives way rather than being run over. A scale that is half under
+     * the thing it is measuring is worse than no scale.
+     */
+    fun ringFade(zoom: Float): Float {
+        val t = into(zoom)
+        return ((RING_GONE - t) / (RING_GONE - RING_HOLDS)).coerceIn(0f, 1f)
+    }
+
+    /**
+     * Whole out to here, and gone by here — in fifths of the zoom, so the
+     * ring leaves in the first fifth of it and the other four fifths are
+     * a clean globe.
+     *
+     * It has to leave that early because it cannot be *moved*: its ticks
+     * sit a twentieth of the screen outside where the world starts, so by
+     * the time the world has grown a twentieth it is standing on them.
+     * A scale drawn across the thing it is measuring is not a scale, and
+     * the choice is between the ring going quickly and the world not
+     * opening at all.
+     */
+    private const val RING_HOLDS = 0.04f
+    private const val RING_GONE = 0.20f
+
+    // ------------------------------------------------------ turning it
+
+    /**
+     * How much time a turn of the world is worth, in milliseconds per
+     * degree.
+     *
+     * The world goes round once a day, so a degree is four minutes. That
+     * is the whole of the conversion and it is why the earth can be
+     * *wound*: turning it is not a camera move, it is moving the clock —
+     * the terminator goes with it, the dot goes with it, and letting go
+     * springs back to now, exactly as winding a hand does.
+     */
+    const val MS_PER_DEGREE = 240_000L
+
+    /** What a drag of [degrees] round the disc is worth, in milliseconds. */
+    fun windBy(view: View, degrees: Double): Long {
+        // From over the south pole the world turns the other way round the
+        // screen, so a finger going the same way means the other thing.
+        val sense = if (view == View.SOUTH) -1.0 else 1.0
+        return (-sense * degrees * MS_PER_DEGREE).toLong()
+    }
+
     /**
      * Where the sun is directly overhead, right now.
      *
@@ -345,10 +432,36 @@ object Hemisphere {
      * has to be laid out rather than painted. Only asked on the views
      * [hasRimScale] allows, because it is only true on those.
      */
-    fun bearingOfHour(view: View, hour: Int): Double {
-        val d = wrap((hour - 12) * 15.0)
+    fun bearingOfHour(view: View, hour: Int): Double = bearingOfTime(view, hour.toDouble())
+
+    /**
+     * The same for a fraction of an hour, which is what a clock reads.
+     *
+     * The whole hours are for the numerals; this is for anything that has
+     * to point at a *time* — the meridian your official hour is kept by,
+     * for one, which is almost never a whole number of hours from the sun
+     * and is never on a numeral.
+     */
+    fun bearingOfTime(view: View, hours: Double): Double {
+        val d = wrap((hours - 12.0) * 15.0)
         return if (view == View.SOUTH) -d else d
     }
+
+    /**
+     * The meridian a clock in this time zone is keeping, as a longitude.
+     *
+     * Official time is solar time somewhere else. A zone is a promise that
+     * everybody inside it will use the sun of one line of longitude — the
+     * offset from Greenwich times fifteen degrees — and the whole of what
+     * is strange about clocks is the gap between that line and the one you
+     * are standing on. Vigo and Warsaw keep the same hour and the sun is
+     * two and a half hours apart between them.
+     *
+     * Summer time is in the offset and belongs there: it is not a
+     * different rule, it is the same rule with the country pretending to
+     * be one meridian further east.
+     */
+    fun zoneMeridian(offsetMs: Int): Double = wrap(offsetMs / 3_600_000.0 * 15.0)
 
     /**
      * How coarsely a compass reading is taken, in degrees.

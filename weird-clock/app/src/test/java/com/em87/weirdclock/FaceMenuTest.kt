@@ -230,8 +230,13 @@ class FaceMenuTest {
                     // Except the row that offers the hands in the first
                     // place. "Hands, or digits" is what it is for.
                     if (row.key == Prefs.FACE) continue
+                    // The two honest hands are the reader's own: setting
+                    // something *by hand*, and holding a dial *in your
+                    // hand*, which is the one mode a sundial has that a
+                    // garden dial has not.
                     val said = "${row.title} ${row.summary}".lowercase()
                         .replace("by hand", "").replace("a mano", "")
+                        .replace("in your hand", "").replace("en la mano", "")
                     assertFalse(
                         "$face — ${row.key}: [${row.title}] [${row.summary}]",
                         said.contains(word)

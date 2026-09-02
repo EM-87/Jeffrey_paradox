@@ -132,14 +132,81 @@ class AlarmRingActivity : AppCompatActivity() {
     internal val screenBrightness: Float
         get() = window.attributes.screenBrightness
 
+    /**
+     * When the screen was first touched, and how bright it was then.
+     *
+     * A sunrise is for somebody asleep. The moment they pick the phone up
+     * it is for somebody awake, and going on creeping up from a twelfth
+     * of full brightness leaves them holding a screen they cannot read —
+     * with, if the alarm has a sum on it, numbers they cannot make out
+     * well enough to answer. Worse in a room that is already light, where
+     * a dim screen is simply invisible.
+     */
+    private var touchedAt = 0L
+    private var touchedFrom = 0f
+
+    /** How light the room is, if this phone can tell. */
+    private var lux: Float? = null
+
+    /** What the screen settles at once somebody is holding it. */
+    private fun litEnough(): Float =
+        lux?.let { GentleWake.forRoom(it) } ?: GentleWake.NO_SENSOR
+
     private val brighten = object : Runnable {
         override fun run() {
             val elapsed = ringingFor()
-            setBrightness(GentleWake.brightness(elapsed, gentleRampMs))
-            // Re-posted only while there is ramp left, so a screen that has
-            // arrived at full brightness costs nothing to sit on.
-            if (GentleWake.ramping(elapsed, gentleRampMs)) handler.postDelayed(this, 100L)
+            if (!GentleWake.ramping(elapsed, gentleRampMs)) {
+                // The sunrise is over. The screen goes back to whatever
+                // the phone was set to rather than sitting at full — which
+                // is what it did, and is a slab of white light at the end
+                // of a mode whose whole purpose is not being one.
+                setBrightness(GentleWake.THE_PHONE_S_OWN)
+                return
+            }
+            setBrightness(
+                if (touchedAt > 0L) {
+                    GentleWake.handover(
+                        android.os.SystemClock.elapsedRealtime() - touchedAt,
+                        touchedFrom, litEnough()
+                    )
+                } else {
+                    GentleWake.brightness(elapsed, gentleRampMs)
+                }
+            )
+            handler.postDelayed(this, 100L)
         }
+    }
+
+    /**
+     * Somebody is awake and holding it, so the sunrise gives way.
+     *
+     * Called by the framework for every touch and key press the window
+     * sees, which is exactly the question being asked: not "has the ramp
+     * finished" but "is anybody looking".
+     */
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        if (gentleRampMs <= 0L || touchedAt > 0L) return
+        touchedAt = android.os.SystemClock.elapsedRealtime()
+        touchedFrom = screenBrightness.coerceAtLeast(GentleWake.FLOOR)
+        handler.removeCallbacks(brighten)
+        handler.post(brighten)
+    }
+
+    /** For the tests: pretend the screen has been touched. */
+    internal fun touchForTest() = onUserInteraction()
+
+    /** And that the room is this bright. */
+    internal fun roomForTest(value: Float?) {
+        lux = value
+    }
+
+    private val lightListener = object : android.hardware.SensorEventListener {
+        override fun onSensorChanged(event: android.hardware.SensorEvent) {
+            lux = event.values.firstOrNull()
+        }
+
+        override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) = Unit
     }
 
     /**
@@ -167,6 +234,19 @@ class AlarmRingActivity : AppCompatActivity() {
         // taking the screen brightness over at all is a thing to do only
         // when somebody has said so.
         if (gentleRampMs <= 0L) return
+        // How light the room is, so that a screen somebody picks up is
+        // bright enough to read in *that* room rather than at a level
+        // chosen for a dark one. Registered only for a gentle wake, and
+        // dropped with the window: it is one reading a second at the
+        // slowest rate the framework offers.
+        (getSystemService(SENSOR_SERVICE) as? android.hardware.SensorManager)?.let { manager ->
+            manager.getDefaultSensor(android.hardware.Sensor.TYPE_LIGHT)?.let { sensor ->
+                manager.registerListener(
+                    lightListener, sensor,
+                    android.hardware.SensorManager.SENSOR_DELAY_NORMAL
+                )
+            }
+        }
         // Set here and now, not on the next pass of the looper: a posted
         // message runs after this window has had its first frame, which is
         // the frame that was arriving at full brightness.
@@ -300,6 +380,8 @@ class AlarmRingActivity : AppCompatActivity() {
     override fun onDestroy() {
         AlarmService.onStopped = null
         sensors?.unregisterListener(shakeListener)
+        (getSystemService(SENSOR_SERVICE) as? android.hardware.SensorManager)
+            ?.unregisterListener(lightListener)
         handler.removeCallbacks(brighten)
         super.onDestroy()
     }

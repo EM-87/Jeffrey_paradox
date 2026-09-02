@@ -103,11 +103,154 @@ class HemisphereView @JvmOverloads constructor(
     var meridians: Boolean = true
         set(value) { field = value; invalidate() }
 
+    /**
+     * How far the world has been opened out, from one to
+     * [Hemisphere.ZOOM_MAX].
+     *
+     * Not stored anywhere. A zoom is a thing you do while looking, like
+     * leaning in, and a clock that comes back tomorrow still leaning in
+     * is a clock that has been left in a state rather than set to one.
+     */
+    var zoom: Float = Hemisphere.ZOOM_MIN
+        set(value) {
+            val next = value.coerceIn(Hemisphere.ZOOM_MIN, Hemisphere.ZOOM_MAX)
+            if (next == field) return
+            field = next
+            invalidate()
+        }
+
+    /**
+     * How far the world has been wound off the time it is, in
+     * milliseconds.
+     *
+     * The earth turns once a day, so turning it *is* winding a clock: the
+     * terminator goes round with it, the dot goes round with it, and
+     * letting go springs back to now. That is the same gesture the dial
+     * has and it is the same idea — this face simply has one hand, and it
+     * is the planet.
+     */
+    private var wound = 0L
+    private var springBack: android.animation.ValueAnimator? = null
+
     /** For the tests and the widget: pretend it is this instant. */
     internal var atMs: Long? = null
         set(value) { field = value; invalidate() }
 
-    private fun nowMs(): Long = atMs ?: TimeKeeper.nowMs()
+    private fun nowMs(): Long = (atMs ?: TimeKeeper.nowMs()) + wound
+
+    /** For the tests: how far the world has been turned off now. */
+    internal fun woundForTest(): Long = wound
+
+    // ------------------------------------------------------------- touch
+
+    private var lastBearing = 0.0
+    private var downX = 0f
+    private var downY = 0f
+    private var turning = false
+
+    private val scaleDetector = android.view.ScaleGestureDetector(
+        context,
+        object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: android.view.ScaleGestureDetector): Boolean {
+                zoom *= detector.scaleFactor
+                return true
+            }
+        }
+    )
+
+    /** Which way round the middle a point is, in degrees. */
+    private fun bearingAt(x: Float, y: Float): Double =
+        Math.toDegrees(kotlin.math.atan2((y - height / 2f).toDouble(), (x - width / 2f).toDouble()))
+
+    /**
+     * The world is put back when nobody is looking at it.
+     *
+     * Both of these are things you do while looking — leaning in, and
+     * pushing the planet round — and neither is a setting. Coming back to
+     * a clock still zoomed in on a world wound to three hours ago is
+     * coming back to a clock that has stopped.
+     */
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        if (visibility == VISIBLE) return
+        springBack?.cancel()
+        springBack = null
+        wound = 0L
+        zoom = Hemisphere.ZOOM_MIN
+    }
+
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
+        scaleDetector.onTouchEvent(event)
+        if (scaleDetector.isInProgress) {
+            turning = false
+            return true
+        }
+        when (event.actionMasked) {
+            android.view.MotionEvent.ACTION_DOWN -> {
+                springBack?.cancel()
+                springBack = null
+                lastBearing = bearingAt(event.x, event.y)
+                downX = event.x
+                downY = event.y
+                turning = false
+            }
+            android.view.MotionEvent.ACTION_MOVE -> {
+                // The same rule the dial's hands follow, and for the same
+                // reason: this face lives on a card in a pager, so a flat
+                // sideways shove has to be allowed to turn the page. Only
+                // once the drag has curved does the world claim it — and
+                // once claimed it keeps it for the rest of the gesture.
+                if (!turning) {
+                    val dx = event.x - downX
+                    val dy = event.y - downY
+                    if (kotlin.math.hypot(dx, dy) < slop()) return true
+                    if (kotlin.math.abs(dx) > kotlin.math.abs(dy) * FLAT_SWIPE) return true
+                    turning = true
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    lastBearing = bearingAt(event.x, event.y)
+                }
+                val now = bearingAt(event.x, event.y)
+                var moved = now - lastBearing
+                while (moved > 180.0) moved -= 360.0
+                while (moved < -180.0) moved += 360.0
+                lastBearing = now
+                wound += Hemisphere.windBy(view, moved)
+                invalidate()
+            }
+            android.view.MotionEvent.ACTION_UP,
+            android.view.MotionEvent.ACTION_CANCEL -> {
+                turning = false
+                unwind()
+            }
+        }
+        return true
+    }
+
+    private fun slop(): Float =
+        android.view.ViewConfiguration.get(context).scaledTouchSlop.toFloat()
+
+    /**
+     * Lets the world go, and it comes back.
+     *
+     * A clock that stays where it was pushed is a clock that has been
+     * broken rather than played with. The hands spring back to the time;
+     * so does the planet.
+     */
+    private fun unwind() {
+        if (wound == 0L) return
+        val from = wound
+        springBack?.cancel()
+        springBack = android.animation.ValueAnimator.ofFloat(1f, 0f).apply {
+            duration = UNWIND_MS
+            interpolator = android.view.animation.DecelerateInterpolator(1.6f)
+            addUpdateListener {
+                wound = (from * (it.animatedValue as Float)).toLong()
+                invalidate()
+            }
+            start()
+        }
+    }
 
     private val ink = Paint(Paint.ANTI_ALIAS_FLAG)
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -234,9 +377,21 @@ class HemisphereView @JvmOverloads constructor(
         bakedFor = key
     }
 
-    /** The globe is redrawn every degree and a half, which is six minutes. */
-    private fun quantise(spinDeg: Double): Double =
-        Math.round(spinDeg / 1.5).toDouble() * 1.5
+    /**
+     * The globe is redrawn every degree and a half, which is six minutes
+     * — and every six degrees while a finger is turning it.
+     *
+     * Coarser under a finger because a wind is a quarter of a turn in a
+     * second: at a degree and a half that is sixty projections of a
+     * quarter of a million points inside that second, and the world would
+     * stutter exactly while somebody was moving it. Six degrees is
+     * fifteen, which is a frame rate, and the difference is invisible on
+     * something being dragged.
+     */
+    private fun quantise(spinDeg: Double): Double {
+        val step = if (turning) 6.0 else 1.5
+        return Math.round(spinDeg / step).toDouble() * step
+    }
 
     private fun sample(pixels: IntArray, w: Int, h: Int, u: Double, v: Double): Int {
         val x = (u * w).toInt().coerceIn(0, w - 1)
@@ -267,22 +422,29 @@ class HemisphereView @JvmOverloads constructor(
         // the world, and the notches were fifteen-degree meridians drawn
         // fifteen degrees apart on a projection where they are not.
         val rimScale = Hemisphere.hasRimScale(view)
-        val ring = hourRing && rimScale
         // And the world takes the room the ring is not using — but only
         // as much as leaves the sun somewhere to stand. At 0.47 the sun
         // mark was off the side of the view entirely, which is what
         // turning the ring off has quietly done on every view since the
         // switch existed.
-        val r = min(w, h) * (if (ring) 0.355f else 0.42f)
+        //
+        // Opened out with a pinch, and the ring gives way as it goes: it
+        // is furniture and the earth is the instrument. Its own radius
+        // does not move — a scale that slides about is not a scale — it
+        // simply fades, and is gone before the world reaches it.
+        val fade = if (rimScale) Hemisphere.ringFade(zoom) else 0f
+        val ring = hourRing && rimScale && fade > 0.01f
+        val ringR = min(w, h) * Hemisphere.WORLD_RINGED
+        val r = min(w, h) * Hemisphere.worldRadius(zoom, hourRing && rimScale)
         val cx = w / 2f
         val cy = h / 2f
 
         bake(-subLon + sunAt)
         drawWorld(canvas, cx, cy, r, subLat, subLon)
         if (meridians && rimScale) drawMeridians(canvas, cx, cy, r, subLon)
-        drawSunMark(canvas, cx, cy, r, ring)
+        drawSunMark(canvas, cx, cy, r, ring, ringR)
         if (located) drawYou(canvas, cx, cy, r, subLat, subLon, ring)
-        if (ring) drawHours(canvas, cx, cy, r)
+        if (ring) drawHours(canvas, cx, cy, ringR, fade)
     }
 
     /**
@@ -440,13 +602,15 @@ class HemisphereView @JvmOverloads constructor(
      * sun; that is the definition the whole face is built on, and drawing
      * both was two marks fighting over one bearing.
      */
-    private fun drawSunMark(canvas: Canvas, cx: Float, cy: Float, r: Float, ring: Boolean) {
+    private fun drawSunMark(
+        canvas: Canvas, cx: Float, cy: Float, r: Float, ring: Boolean, ringR: Float
+    ) {
         val a = Math.toRadians(sunAt)
         // Outside the ring when there is one, and just off the world when
         // there is not. 1.10 was the old answer and it was wrong: with the
         // ring off the disc grows, and 1.10 of the grown radius put the
         // sun past the edge of the view.
-        val at = if (ring) r * 1.22f else r * 1.06f
+        val at = if (ring) ringR * 1.22f else r * 1.06f
         val x = cx + (cos(a) * at).toFloat()
         val y = cy - (sin(a) * at).toFloat()
         fill.color = SUN
@@ -506,7 +670,64 @@ class HemisphereView @JvmOverloads constructor(
             )
         }
         line.alpha = 255
+        drawOfficial(canvas, cx, cy, r, subLon)
     }
+
+    /**
+     * And the meridian your clock is actually keeping.
+     *
+     * The red line is your longitude, so the hour it points at is your
+     * *solar* time — the sun over your own head. Nobody's clock says that.
+     * A time zone is a promise that everybody inside it will use the sun
+     * of one line of longitude, and the blue line is that line: where the
+     * hour on your phone is genuinely noon. The gap between the two is the
+     * whole of what is strange about official time, drawn rather than
+     * explained, and on this face it is a few degrees or most of an hour
+     * depending on which side of a zone you live on.
+     *
+     * Dotted by drawing the dots, not by a path effect: a dash is one of
+     * the things a hardware canvas quietly declines, and a line that is
+     * dotted on one phone and solid on another is two different drawings.
+     */
+    private fun drawOfficial(canvas: Canvas, cx: Float, cy: Float, r: Float, subLon: Double) {
+        val at = Hemisphere.project(
+            view, latitude, Hemisphere.zoneMeridian(zoneOffsetMs()), subLon, sunAt
+        )
+        val len = kotlin.math.hypot(at[0], at[1])
+        if (len < 1e-6) return
+        val ux = (at[0] / len).toFloat()
+        val uy = (at[1] / len).toFloat()
+        line.color = OFFICIAL
+        line.alpha = 190
+        line.strokeWidth = r * 0.008f
+        var t = OFFICIAL_FROM
+        while (t < 1f) {
+            val to = kotlin.math.min(1f, t + OFFICIAL_DOT)
+            canvas.drawLine(
+                cx + ux * r * t, cy + uy * r * t,
+                cx + ux * r * to, cy + uy * r * to, line
+            )
+            t += OFFICIAL_DOT + OFFICIAL_GAP
+        }
+        line.alpha = 255
+    }
+
+    /**
+     * The phone's offset from Greenwich now, summer time included.
+     *
+     * Read here rather than passed in because it is a fact about the
+     * phone and not a setting; overridable so a test can stand somewhere
+     * other than wherever it is running.
+     */
+    private fun zoneOffsetMs(): Int =
+        zoneOffset ?: java.util.TimeZone.getDefault().getOffset(nowMs())
+
+    /** For the tests: pretend to be in this zone. */
+    internal var zoneOffset: Int? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
 
     /**
      * The twenty-four hours round the outside.
@@ -515,19 +736,19 @@ class HemisphereView @JvmOverloads constructor(
      * government says. Noon is under the sun by construction, which is
      * the whole of the arithmetic — see [Hemisphere.hourAt].
      */
-    private fun drawHours(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+    private fun drawHours(canvas: Canvas, cx: Float, cy: Float, r: Float, fade: Float) {
         val ring = r * 1.06f
         line.color = theme.minorTick
         line.strokeWidth = r * 0.008f
         ink.typeface = PRINT
         ink.textAlign = Paint.Align.CENTER
-        ink.textSize = r * 0.088f
+        ink.textSize = r * 0.088f * fade
         for (hour in 0..23) {
             val a = Math.toRadians(Hemisphere.bearingOfHour(view, hour) + sunAt)
             val dx = cos(a).toFloat()
             val dy = -sin(a).toFloat()
             val major = hour % 6 == 0
-            line.alpha = if (major) 235 else 120
+            line.alpha = ((if (major) 235 else 120) * fade).toInt().coerceIn(0, 255)
             canvas.drawLine(
                 cx + dx * ring, cy + dy * ring,
                 cx + dx * (ring + r * (if (major) 0.055f else 0.030f)),
@@ -538,6 +759,7 @@ class HemisphereView @JvmOverloads constructor(
             // there and the sun is what noon means.
             if (!hourNumbers || hour % 3 != 0 || hour == 12) continue
             ink.color = theme.numeral
+            ink.alpha = (255 * fade).toInt().coerceIn(0, 255)
             val at = r * 1.22f
             canvas.drawText(
                 "$hour",
@@ -545,6 +767,7 @@ class HemisphereView @JvmOverloads constructor(
             )
         }
         line.alpha = 255
+        ink.alpha = 255
         rim.set(cx - ring, cy - ring, cx + ring, cy + ring)
     }
 
@@ -570,6 +793,31 @@ class HemisphereView @JvmOverloads constructor(
         /** The sun, and you. */
         const val SUN = 0xFFFFC93C.toInt()
         const val YOU = 0xFFFF4B4B.toInt()
+
+        /**
+         * And the meridian your clock keeps, which is a different colour
+         * because it is a different claim: the red one is where you are
+         * and the blue one is where your hour comes from.
+         */
+        const val OFFICIAL = 0xFF5AA9FF.toInt()
+
+        /** How long the world takes to come back to now. */
+        const val UNWIND_MS = 700L
+
+        /**
+         * How much flatter than tall a drag has to be before it is a page
+         * turn rather than a turn of the world.
+         *
+         * The same number the dial uses on its hands, for the same
+         * reason: both faces sit on a card in a pager, and a flat shove
+         * across one has to be allowed to mean "next card".
+         */
+        const val FLAT_SWIPE = 2.5f
+
+        /** How far out the dots start, and how long the dots and gaps are. */
+        const val OFFICIAL_FROM = 0.10f
+        const val OFFICIAL_DOT = 0.035f
+        const val OFFICIAL_GAP = 0.030f
 
         val PRINT: Typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
     }

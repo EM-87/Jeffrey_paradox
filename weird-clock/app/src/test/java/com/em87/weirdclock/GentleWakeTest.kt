@@ -215,4 +215,66 @@ class GentleWakeTest {
         assertEquals(0L, GentleWake.elapsed(ringingSince = 0L, now = 900_000L))
         assertEquals("nor ever backwards", 0L, GentleWake.elapsed(5_000L, 1_000L))
     }
+
+    // ------------------------------------------ once somebody is awake
+
+    /**
+     * A screen that has been picked up is a screen that has to be read.
+     *
+     * The sunrise is for somebody asleep. Reported from the phone: pick it
+     * up two minutes into a five-minute sunrise and the screen is still at
+     * a fifth of full, which in a bedroom that is already light is a black
+     * rectangle — and if the alarm has a sum on it, a black rectangle with
+     * the answer hidden in it.
+     */
+    @Test
+    fun `the hand-over goes from where the sunrise had got to`() {
+        val was = GentleWake.brightness(30_000L, 300_000L)
+        val room = GentleWake.forRoom(200f)
+        assertEquals("it does not start where the sunrise was", was, GentleWake.handover(0L, was, room), 0.0001f)
+        assertEquals("it never arrives", room, GentleWake.handover(GentleWake.TAKEOVER_MS, was, room), 0.0001f)
+        assertEquals("it overshoots", room, GentleWake.handover(9_000L, was, room), 0.0001f)
+        val middle = GentleWake.handover(GentleWake.TAKEOVER_MS / 2, was, room)
+        assertTrue("the hand-over is not a climb", middle > was && middle < room)
+    }
+
+    /**
+     * And it climbs to what the room needs, not to full.
+     *
+     * A dark bedroom takes a quarter of the screen and a room with
+     * daylight in it takes all of it, which is the difference between
+     * being able to read the thing and being dazzled by it.
+     */
+    @Test
+    fun `the room decides how bright is bright enough`() {
+        val dark = GentleWake.forRoom(0.5f)
+        val lamp = GentleWake.forRoom(150f)
+        val daylight = GentleWake.forRoom(4000f)
+        assertEquals("a dark room is not left at the floor", GentleWake.AWAKE_FLOOR, dark, 0.001f)
+        assertEquals("daylight does not take the whole screen", 1f, daylight, 0.001f)
+        assertTrue("the three rooms are not told apart", dark < lamp && lamp < daylight)
+        // Whatever the room, it is legible.
+        for (lux in listOf(0f, 1f, 10f, 100f, 1000f, 10_000f)) {
+            assertTrue("$lux lux left the screen unreadable", GentleWake.forRoom(lux) >= GentleWake.AWAKE_FLOOR)
+        }
+    }
+
+    /**
+     * And when the sunrise is over the screen is handed back.
+     *
+     * Not left at full, which is what it did: the end of a mode whose
+     * whole purpose is not being a slab of white light was a slab of
+     * white light. The phone's own setting is the right answer — it is
+     * what somebody chose, and it is what every other screen on the
+     * phone is about to use.
+     */
+    @Test
+    fun `the phone gets its own brightness back`() {
+        assertEquals(
+            "a window asking for this does not get the phone's setting",
+            android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE,
+            GentleWake.THE_PHONE_S_OWN,
+            0.0001f
+        )
+    }
 }

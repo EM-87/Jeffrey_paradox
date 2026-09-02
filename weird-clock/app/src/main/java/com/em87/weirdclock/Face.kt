@@ -267,6 +267,7 @@ object FaceOptions {
     /** And the rows only a screenful of digits has. */
     private val digitalOnly = setOf(
         Prefs.DIGITAL_SECONDS,
+        Prefs.COLON_BREATHES,
         Prefs.LEADING_ZERO,
         Prefs.BLINK_COLON,
         Prefs.SEGMENT_WEIGHT,

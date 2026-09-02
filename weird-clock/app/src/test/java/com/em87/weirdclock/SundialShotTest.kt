@@ -409,8 +409,12 @@ class SundialShotTest {
      */
     @Test
     fun `the compass ring clears the motto`() {
-        val sun = SolarTime.position(40.4, -3.7, juneAfternoon()).azimuthDeg
-        val map = pixels(dial(compass = true, bearing = sun + 3.0))
+        // Three degrees off the meridian, which is inside the tolerance
+        // and so is green. It used to be three degrees off the *sun*,
+        // back when the mark pointed there — see [Sundial.alignBearing].
+        val map = pixels(
+            dial(compass = true, bearing = Sundial.alignBearing(40.4) + 3.0)
+        )
         val middle = 500.0
         // Matched against the two colours themselves rather than against
         // "dark" and "greenish". Two looser versions of this both failed

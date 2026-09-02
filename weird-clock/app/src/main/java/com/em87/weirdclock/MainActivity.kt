@@ -3441,6 +3441,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         }
         // Its own switch, on its own page — see [Prefs.DIGITAL_SECONDS].
         face.showSeconds = prefs.getBoolean(Prefs.DIGITAL_SECONDS, false)
+        face.breathingColon = prefs.getBoolean(Prefs.COLON_BREATHES, false)
         face.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
         face.showWeekday = prefs.getBoolean(Prefs.SHOW_WEEKDAY, true)
         face.bedsideSeconds = prefs.getBoolean(Prefs.BEDSIDE_SECONDS, false)

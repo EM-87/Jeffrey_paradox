@@ -135,6 +135,15 @@ object Prefs {
     const val DIGITAL_SECONDS = "pref_digital_seconds"
 
     /**
+     * Whether the blinking colon breathes instead of blinking.
+     *
+     * The same second, spent differently: a blink is a square wave and
+     * this is a swell. It hangs off the blink rather than standing beside
+     * it because it is not a third thing — it is how the blink is done.
+     */
+    const val COLON_BREATHES = "pref_colon_breathes"
+
+    /**
      * The next alarm, on the face.
      *
      * Standard equipment: a watch has a flag, a lock screen has the time

@@ -542,8 +542,6 @@
     <string name="face_long_sundial">A shadow — the oldest one, and it stops at sunset</string>
     <string name="face_analog">Analogue</string>
     <string name="face_digital">Digital</string>
-    <string name="pref_seconds_title">Seconds</string>
-    <string name="pref_ticking_digital_title">Ticking</string>
     <string name="category_digits">Digits</string>
     <string name="category_readouts">Readouts</string>
     <!-- What the Dial heading is called on a clock that has no dial. -->
@@ -554,7 +552,6 @@
     <string name="pref_show_date_summary_digital">A small date under the time</string>
     <string name="pref_advanced_summary_digital">How the digits are made, the bells, and how alarms behave. Set once and forgotten.</string>
     <string name="pref_world_clock_summary_digital">The time in other cities, listed under this one</string>
-    <string name="pref_digit_style_title">How the digits are made</string>
     <string name="pref_digit_script_title">Numerals</string>
     <string name="pref_hour_24_title">Twenty-four hour</string>
     <string name="pref_hour_24_summary">Off: twelve hours, with the sun or the moon beside them instead of AM and PM</string>
@@ -648,8 +645,8 @@
     <string name="pref_sundial_latitude_fixed_title">Set the latitude by hand</string>
     <string name="pref_sundial_latitude_fixed_summary">A dial cut for one place reads an hour wrong in another</string>
     <string name="pref_sundial_latitude_title">Latitude</string>
-    <string name="pref_sundial_compass_title">Point it at the sun</string>
-    <string name="pref_sundial_compass_summary">An arrow round the rim, green when the phone is lined up</string>
+    <string name="pref_sundial_compass_title">Hold it in your hand</string>
+    <string name="pref_sundial_compass_summary">The shadow falls where the sun really puts it and the plate turns with the phone, so the dial is only right when you have lined it up. A mark on the rim says where the meridian is. The flat plate only</string>
     <string name="pref_sundial_motto_title">Motto round the rim</string>
     <string name="pref_sundial_motto_summary">One a day, in Latin, as they were cut</string>
     <string name="pref_sundial_halves_title">Half hours</string>
@@ -756,4 +753,12 @@
     <string name="pref_readout_script_title">Readout numerals</string>
     <string name="pref_digital_seconds_title">Seconds</string>
     <string name="pref_digital_seconds_summary">The seconds on the face, beside the minutes</string>
+    <string name="compass_north">N</string>
+    <string name="compass_south">S</string>
+    <string name="pref_colon_breathes_title">Breathing colon</string>
+    <string name="pref_colon_breathes_summary">The dots swell and fade over the second instead of switching off</string>
+    <string name="widget_analog_label">Weird Clock — analogue</string>
+    <string name="widget_digital_label">Weird Clock — digital</string>
+    <string name="widget_sundial_label">Weird Clock — solar</string>
+    <string name="widget_world_label">Weird Clock — hemispheric</string>
 </resources>

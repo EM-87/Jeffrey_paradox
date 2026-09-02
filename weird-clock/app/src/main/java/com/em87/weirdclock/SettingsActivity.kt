@@ -865,6 +865,19 @@ class SettingsActivity : AppCompatActivity() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.advanced_preferences, rootKey)
             keepOnlyFor(face())
+            // The dial in your hand is the flat one. A wall dial is set on
+            // a wall and an equatorial plate is tilted to the equator, and
+            // neither is in the plane a phone held level is in, so turning
+            // the phone says nothing about either — see [Sundial.pointable].
+            dimmedUnless(Prefs.SUNDIAL_COMPASS) {
+                Sundial.pointable(
+                    Sundial.Kind.entries.firstOrNull {
+                        it.key == preferenceManager.sharedPreferences
+                            ?.getString(Prefs.SUNDIAL_KIND, null)
+                    } ?: Sundial.Kind.HORIZONTAL
+                )
+            }
+
             // How a date is written is no question at all while the dial is
             // not showing one, and that switch lives on the first screen.
             visibleWhen(Prefs.SHOW_DATE, Prefs.DATE_FORMAT, Prefs.DATE_ORDER)
@@ -873,6 +886,10 @@ class SettingsActivity : AppCompatActivity() {
             // standing decides what the sun does to it: across the face,
             // or at it.
             follows(Prefs.HAND_SHADOWS, Prefs.SHADOW_SURFACE)
+
+            // Breathing is how the blink is done, so it means nothing
+            // with the blink off.
+            dimmedWhen(Prefs.BLINK_COLON, Prefs.COLON_BREATHES)
 
             // The rows whose switch is two screens away. Faded rather than
             // hidden, and still usable — see [dimmedWhen]. Setting the bell

@@ -244,6 +244,24 @@ object DigitalReadout {
     }
 
     /**
+     * How lit a breathing colon is, from a quarter to full, at [atMs].
+     *
+     * One breath to the second, and a cosine rather than a triangle
+     * because a triangle has a corner at each end and the eye finds
+     * corners. It never reaches nothing: a colon that goes out is a blink
+     * with extra steps, and the whole point of this is a face that moves
+     * without anything on it disappearing.
+     */
+    fun breath(atMs: Long): Float {
+        val into = ((atMs % 1000L) + 1000L) % 1000L / 1000.0
+        val swell = (Math.cos(2.0 * Math.PI * into) + 1.0) / 2.0
+        return (BREATH_FLOOR + (1f - BREATH_FLOOR) * swell).toFloat()
+    }
+
+    /** The dimmest a breath goes. */
+    const val BREATH_FLOOR = 0.25f
+
+    /**
      * Twelve rather than nought, and one to twelve rather than thirteen to
      * twenty-three. Midnight is XII on a Roman face and 12 on ours, which
      * is what every twelve-hour clock ever made has done and what writing

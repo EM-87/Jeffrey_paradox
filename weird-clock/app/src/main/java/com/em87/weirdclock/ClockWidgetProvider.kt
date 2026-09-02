@@ -35,13 +35,28 @@ import androidx.preference.PreferenceManager
  *
  * Tapping either opens the full app.
  */
-class ClockWidgetProvider : AppWidgetProvider() {
+open class ClockWidgetProvider : AppWidgetProvider() {
+
+    /**
+     * Which clock this widget is, or null for "whichever the app is".
+     *
+     * This one follows the app, and every widget anybody has on a home
+     * screen today is this one, so it goes on following it. The four
+     * beneath are each pinned to one face — see [FaceWidgets] — because a
+     * home screen is not a settings page: somebody who wants a sundial
+     * beside a digital clock should be able to drop both, and choosing
+     * from the launcher's own list is how every other widget on the phone
+     * is chosen.
+     */
+    protected open val pinned: Face? get() = null
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         for (widgetId in appWidgetIds) {
-            appWidgetManager.updateAppWidget(widgetId, buildViews(context, appWidgetManager, widgetId))
+            appWidgetManager.updateAppWidget(
+                widgetId, buildViews(context, appWidgetManager, widgetId, pinned)
+            )
         }
-        scheduleSkyTick(context)
+        scheduleSkyTick(context, javaClass, pinned)
     }
 
     /**
@@ -61,19 +76,21 @@ class ClockWidgetProvider : AppWidgetProvider() {
     ) {
         super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
         appWidgetManager.updateAppWidget(
-            appWidgetId, buildViews(context, appWidgetManager, appWidgetId)
+            appWidgetId, buildViews(context, appWidgetManager, appWidgetId, pinned)
         )
     }
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        scheduleSkyTick(context)
+        scheduleSkyTick(context, javaClass, pinned)
     }
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
-        // The last widget is gone; stop waking up for it.
-        alarmManager(context)?.cancel(skyIntent(context))
+        // The last widget of *this* kind is gone; stop waking up for it.
+        // Each kind books its own, because a sundial and a digital clock
+        // want waking at completely different rates.
+        alarmManager(context)?.cancel(skyIntent(context, javaClass))
     }
 
     /**
@@ -91,8 +108,8 @@ class ClockWidgetProvider : AppWidgetProvider() {
             Intent.ACTION_TIME_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED -> refreshAll(context)
             ACTION_SKY_TICK -> {
-                refreshAll(context)
-                scheduleSkyTick(context)
+                refreshKind(context, javaClass, pinned)
+                scheduleSkyTick(context, javaClass, pinned)
             }
         }
     }
@@ -114,10 +131,34 @@ class ClockWidgetProvider : AppWidgetProvider() {
         private fun alarmManager(context: Context): android.app.AlarmManager? =
             context.getSystemService(android.app.AlarmManager::class.java)
 
-        private fun skyIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
+        /**
+         * Every kind of clock widget there is, and which face each one
+         * is. The first follows the app; the rest are themselves.
+         */
+        val KINDS: List<Pair<Class<out ClockWidgetProvider>, Face?>> = listOf(
+            ClockWidgetProvider::class.java to null,
+            AnalogWidgetProvider::class.java to Face.ANALOG,
+            DigitalWidgetProvider::class.java to Face.DIGITAL,
+            SundialWidgetProvider::class.java to Face.SUNDIAL,
+            WorldWidgetProvider::class.java to Face.HEMISPHERE
+        )
+
+        /**
+         * One wake-up per kind, and they must not share a slot.
+         *
+         * An alarm is identified by its request code and its intent, so
+         * five providers booking with the same code would be one alarm
+         * that five widgets kept overwriting — the sundial's ten minutes
+         * would cancel the digital clock's next minute and the clock
+         * would sit still. The class's own name is the code.
+         */
+        private fun skyIntent(
+            context: Context,
+            cls: Class<out ClockWidgetProvider>
+        ): PendingIntent = PendingIntent.getBroadcast(
             context,
-            1,
-            Intent(context, ClockWidgetProvider::class.java).setAction(ACTION_SKY_TICK),
+            cls.name.hashCode(),
+            Intent(context, cls).setAction(ACTION_SKY_TICK),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -140,18 +181,22 @@ class ClockWidgetProvider : AppWidgetProvider() {
          * to a sunrise costs nothing, and an exact alarm needs a permission
          * a clock has no business asking for.
          */
-        fun scheduleSkyTick(context: Context) {
-            val digits = !Face.of(
-                PreferenceManager.getDefaultSharedPreferences(context)
-            ).hands
+        fun scheduleSkyTick(
+            context: Context,
+            cls: Class<out ClockWidgetProvider> = ClockWidgetProvider::class.java,
+            pinned: Face? = null
+        ) {
+            val digits = !(
+                pinned ?: Face.of(PreferenceManager.getDefaultSharedPreferences(context))
+                ).hands
             // Below 31 the dial is a static drawable with no sky on it, so
             // there would be nothing to repaint when the alarm went off.
             // The digital widget is a bitmap at every version and always
             // has something to repaint.
             if (Build.VERSION.SDK_INT < 31 && !digits) return
             val manager = alarmManager(context) ?: return
-            val at = System.currentTimeMillis() + nextRepaintMs(context)
-            manager.set(android.app.AlarmManager.RTC, at, skyIntent(context))
+            val at = System.currentTimeMillis() + nextRepaintMs(context, pinned)
+            manager.set(android.app.AlarmManager.RTC, at, skyIntent(context, cls))
         }
 
         /**
@@ -166,8 +211,8 @@ class ClockWidgetProvider : AppWidgetProvider() {
          * on a screen nobody is looking at, because the launcher is not on
          * top when the phone is idle.
          */
-        internal fun nextRepaintMs(context: Context): Long = when (
-            Face.of(PreferenceManager.getDefaultSharedPreferences(context))
+        internal fun nextRepaintMs(context: Context, pinned: Face? = null): Long = when (
+            pinned ?: Face.of(PreferenceManager.getDefaultSharedPreferences(context))
         ) {
             Face.ANALOG -> nextSkyChangeMs(context)
             // A bitmap of the time is wrong the moment the minute turns.
@@ -249,23 +294,33 @@ class ClockWidgetProvider : AppWidgetProvider() {
          * sunset.
          */
         fun refreshAll(context: Context) {
+            for ((cls, pinned) in KINDS) refreshKind(context, cls, pinned)
+        }
+
+        /** And one kind of them, which is what a wake-up is booked for. */
+        private fun refreshKind(
+            context: Context,
+            cls: Class<out ClockWidgetProvider>,
+            pinned: Face?
+        ) {
             val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, ClockWidgetProvider::class.java))
+            val ids = manager.getAppWidgetIds(ComponentName(context, cls))
             for (id in ids) {
-                manager.updateAppWidget(id, buildViews(context, manager, id))
+                manager.updateAppWidget(id, buildViews(context, manager, id, pinned))
             }
-            if (ids.isNotEmpty()) scheduleSkyTick(context)
+            if (ids.isNotEmpty()) scheduleSkyTick(context, cls, pinned)
         }
 
 
         /** For the tests: the widget as it would be handed to a launcher. */
-        internal fun viewsForTest(context: Context, id: Int): RemoteViews =
-            buildViews(context, AppWidgetManager.getInstance(context), id)
+        internal fun viewsForTest(context: Context, id: Int, pinned: Face? = null): RemoteViews =
+            buildViews(context, AppWidgetManager.getInstance(context), id, pinned)
 
         private fun buildViews(
             context: Context,
             manager: AppWidgetManager,
-            id: Int
+            id: Int,
+            pinned: Face?
         ): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.widget_clock)
             val openApp = PendingIntent.getActivity(
@@ -278,7 +333,7 @@ class ClockWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_digital_clock, openApp)
 
             val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-            val face = Face.of(prefs)
+            val face = pinned ?: Face.of(prefs)
             if (!face.hands) {
                 // The face with no hands. One of the two children is shown
                 // and the other hidden, rather than two providers with two

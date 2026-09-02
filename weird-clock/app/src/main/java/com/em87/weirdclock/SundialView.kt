@@ -29,9 +29,11 @@ import kotlin.math.sin
  * Two ways to use it, and they are the two ways anybody uses a real one.
  * Standing still, the dial assumes it is laid out properly — noon towards
  * the pole — and just tells the time. In [compass] mode it is in your
- * hand: an arrow round the rim points at where the sun really is, goes
- * green when the phone is lined up with it, and the shadow is only honest
- * while it is green.
+ * hand and nothing is assumed: the shadow falls where the sun really puts
+ * it, the engraved hour lines turn with the plate, and a mark on the rim
+ * says which way the meridian is and goes green when you have found it.
+ * The time is right at that one heading and wrong everywhere else, which
+ * is what aligning a dial has always meant.
  */
 class SundialView @JvmOverloads constructor(
     context: Context,
@@ -204,7 +206,8 @@ class SundialView @JvmOverloads constructor(
         // arrow's nose is past the edge of the view — so the plate gives
         // up the difference. Nothing is dropped: outside, pointing a phone
         // at the sun, both are still there.
-        val r = min(w, h) * (if (compass) 0.37f else 0.42f)
+        val pointing = compass && Sundial.pointable(kind)
+        val r = min(w, h) * (if (pointing) 0.37f else 0.42f)
         val cx = w / 2f
         // The gnomon stands on the noon line, and the whole fan opens away
         // from it — so the dial's centre is not the plate's centre. A
@@ -438,13 +441,23 @@ class SundialView @JvmOverloads constructor(
         canvas: Canvas, cx: Float, cy: Float, r: Float, sky: Sky, hangs: Boolean
     ) {
         shadowRay = null
-        val angle = Sundial.shadowAngle(
+        val ideal = Sundial.shadowAngle(
             kind, latitude, sky.hoursFromNoon, sky.altitude, sky.declination
         ) ?: return
-        // In compass mode the dial is only honest while it is pointed the
-        // right way, so a shadow that goes on being drawn while the phone
-        // is facing the wrong way is a clock quietly making something up.
-        val lined = !compass || aligned(sky)
+        // Held in the hand, the shadow goes where the sun really puts it.
+        //
+        // It used to be drawn on the hour line for the time whatever the
+        // phone was doing, and *faded* while the phone was not pointed at
+        // the sun — a drawing apologising for itself. What a dial does
+        // instead is stay still: the shadow keeps its place in the world
+        // and the engraved lines sweep past under it as the plate turns,
+        // so the time is right at the one heading where the two agree and
+        // wrong everywhere else. Which is the whole of what aligning a
+        // dial means, and the only thing that makes the compass worth
+        // having — see [Sundial.trueShadowAngle].
+        val pointing = compass && Sundial.pointable(kind) && phoneBearing != null
+        val angle =
+            if (pointing) Sundial.shadowInHand(ideal, phoneBearing!!, latitude) else ideal
         val reach = Sundial.shadowReach(sky.altitude) * r * 1.45f
         val a = Math.toRadians(angle - 90.0 + if (hangs) 180.0 else 0.0)
         val dx = cos(a).toFloat()
@@ -479,7 +492,7 @@ class SundialView @JvmOverloads constructor(
         for (pass in 0 until 3) {
             val spread = r * (0.030f + pass * 0.022f)
             fill.color = BLACK
-            fill.alpha = if (lined) 70 - pass * 18 else 26 - pass * 7
+            fill.alpha = 70 - pass * 18
             path.reset()
             path.moveTo(cx + nx * spread * 0.55f, cy + ny * spread * 0.55f)
             path.lineTo(cx + dx * reach + nx * spread, cy + dy * reach + ny * spread)
@@ -504,12 +517,6 @@ class SundialView @JvmOverloads constructor(
      */
     internal var shadowRay: FloatArray? = null
         private set
-
-    /** Whether the phone is pointed close enough to the sun to be read. */
-    private fun aligned(sky: Sky): Boolean {
-        val bearing = phoneBearing ?: return false
-        return abs(Sundial.offBy(bearing, sky.azimuth)) <= Sundial.ALIGNED_DEGREES
-    }
 
     // -------------------------------------------------------- the gnomon
 
@@ -867,18 +874,25 @@ class SundialView @JvmOverloads constructor(
     // --------------------------------------------------------- compass
 
     /**
-     * The arrow that says which way to turn, and goes green when you have.
+     * The mark that says which way to turn, and goes green when you have.
      *
      * The one piece of this face that is not an instrument: a real dial
      * is aligned once, with a compass, by somebody who then leaves it
      * where it is. A phone is picked up and put down again, so the dial
-     * has to be able to say "not like that" — and going green is what
-     * turns pointing a phone at the sun into something worth doing.
+     * has to be able to say "not like that".
+     *
+     * It points along the meridian and not at the sun — see
+     * [Sundial.alignBearing]. Pointing at the sun told you where the sun
+     * was, which you can see; this tells you how to hold the plate so the
+     * shadow lands on the hour it is.
      */
     private fun drawCompass(canvas: Canvas, cx: Float, cy: Float, r: Float, sky: Sky) {
         if (sky.altitude <= 0.0) return
+        if (!Sundial.pointable(kind)) return
         val bearing = phoneBearing
-        val off = if (bearing == null) null else Sundial.offBy(bearing, sky.azimuth)
+        val off =
+            if (bearing == null) null
+            else Sundial.offBy(bearing, Sundial.alignBearing(latitude))
         val good = off != null && abs(off) <= Sundial.ALIGNED_DEGREES
         val at = Math.toRadians((off ?: 0.0) - 90.0)
         // Outside the motto, which reaches about 1.15 — see the plate's
@@ -903,6 +917,23 @@ class SundialView @JvmOverloads constructor(
         path.lineTo(hx + (cos(right) * nose).toFloat(), hy + (sin(right) * nose).toFloat())
         path.close()
         canvas.drawPath(path, fill)
+        // And which way it is pointing, in one letter, because an arrow
+        // on a rim with no letter beside it is an arrow that could be
+        // pointing at anything.
+        ink.typeface = CUT
+        ink.textAlign = Paint.Align.CENTER
+        ink.textSize = r * 0.10f
+        ink.color = if (good) GREEN else theme.numeral
+        ink.alpha = if (bearing == null) 110 else 235
+        canvas.drawText(
+            context.getString(
+                if (latitude >= 0.0) R.string.compass_north else R.string.compass_south
+            ),
+            hx + (cos(at) * nose * 2.1f).toFloat(),
+            hy + (sin(at) * nose * 2.1f).toFloat() + ink.textSize * 0.36f,
+            ink
+        )
+        ink.alpha = 255
         fill.alpha = 255
         line.alpha = 255
     }

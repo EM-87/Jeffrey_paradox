@@ -40,6 +40,14 @@
             android:summary="@string/pref_blink_colon_summary"
             android:title="@string/pref_blink_colon_title" />
 
+        <!-- How the blink is done, rather than a second thing that
+             blinks. Faded while the blink is off — see [dimmedWhen]. -->
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_colon_breathes"
+            android:summary="@string/pref_colon_breathes_summary"
+            android:title="@string/pref_colon_breathes_title" />
+
         <!-- The pen the display is stamped with, and whether the bars it
              is not using are drawn. Both are about the instrument rather
              than about the time, which is why they are here and not on the

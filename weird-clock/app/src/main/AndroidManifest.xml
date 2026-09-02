@@ -198,6 +198,75 @@
                 android:resource="@xml/widget_info" />
         </receiver>
 
+        <!-- And one apiece, so a home screen can hold more than one clock
+             — see [FaceWidgets]. They share this one's drawing, its
+             settings screen and its wake-ups; all they answer is which
+             clock they are. -->
+
+        <receiver
+            android:name=".AnalogWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_analog_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="com.em87.weirdclock.SKY_TICK" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".DigitalWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_digital_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="com.em87.weirdclock.SKY_TICK" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SundialWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_sundial_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="com.em87.weirdclock.SKY_TICK" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".WorldWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_world_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="com.em87.weirdclock.SKY_TICK" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
+
         <receiver
             android:name=".OrreryWidgetProvider"
             android:exported="false"

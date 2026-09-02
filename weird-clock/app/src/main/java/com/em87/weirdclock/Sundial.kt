@@ -231,18 +231,76 @@ object Sundial {
     }
 
     /**
-     * How far off the phone is from facing the sun, in degrees, signed.
+     * How far off the phone is from a bearing, in degrees, signed.
      *
-     * For the mode where the dial is not on a table but in your hand: an
-     * arrow round the rim points at the sun and goes green when the phone
-     * is lined up with it. Negative means the sun is to the left.
+     * Negative means the target is to the left. For the mode where the
+     * dial is not on a table but in your hand — see [alignBearing], which
+     * says what the target is and why it is not the sun.
      */
-    fun offBy(phoneBearingDeg: Double, sunAzimuthDeg: Double): Double {
-        var d = sunAzimuthDeg - phoneBearingDeg
+    fun offBy(phoneBearingDeg: Double, targetBearingDeg: Double): Double {
+        var d = targetBearingDeg - phoneBearingDeg
         while (d > 180.0) d -= 360.0
         while (d < -180.0) d += 360.0
         return d
     }
+
+    /**
+     * Which way the plate's noon line has to point for the dial to be
+     * read at all.
+     *
+     * The meridian: north from the northern hemisphere, south from the
+     * southern one, because the noon line points away from the observer
+     * and at noon the sun is behind them. Every dial ever built is set
+     * this way and then left alone; the whole trade of a dialist is
+     * getting this one line right.
+     *
+     * It is not the sun, and this used to be. Pointing a phone *at the
+     * sun* is a qibla compass with a dial drawn on it — it tells you
+     * where the sun is, which you can see, rather than how to hold the
+     * instrument so it tells you the time. And the shadow was softened
+     * while you were not pointing at it, which is a drawing apologising
+     * for itself. What a dial in your hand does instead is simpler and
+     * true: the shadow falls where the sun really puts it, the engraved
+     * hour lines turn with the plate, and the time is right at the one
+     * heading where the two agree. This says which heading that is.
+     */
+    fun alignBearing(latitudeDeg: Double): Double = if (latitudeDeg >= 0.0) 0.0 else 180.0
+
+    /**
+     * Where the shadow lands on a plate that is being held at
+     * [phoneBearingDeg] instead of set on the meridian.
+     *
+     * The shadow belongs to the world and the engraving belongs to the
+     * plate. Turn the plate and the engraving turns with it while the
+     * shadow does not, so on screen — where the plate is what is fixed —
+     * the shadow swings the other way, degree for degree. That is the
+     * whole of it, and it is why aligning a dial means anything: at the
+     * heading [alignBearing] asks for, the shadow is back on the hour line
+     * that [shadowAngle] engraved for it, and at every other heading it is
+     * pointing at an hour that is not the time.
+     *
+     * The first version of this took the shadow to be the sun's bearing
+     * turned round, which is the shadow of a *stick*. The thing casting
+     * this one is the style — the sloping edge parallel to the earth's
+     * axis — and its shadow is the hour line, which is the entire reason a
+     * sundial keeps time through the year instead of only on one day.
+     * They were nearly thirty degrees apart at seven in the morning.
+     */
+    fun shadowInHand(
+        engravedAngleDeg: Double,
+        phoneBearingDeg: Double,
+        latitudeDeg: Double
+    ): Double = engravedAngleDeg + offBy(phoneBearingDeg, alignBearing(latitudeDeg))
+
+    /**
+     * Whether a dial of this kind can be aligned by turning the phone.
+     *
+     * Only the one you lay flat. A wall dial is set on a wall and an
+     * equatorial plate is tilted to the equator; neither is in the plane
+     * a phone held level is in, so turning the phone tells you nothing
+     * about either.
+     */
+    fun pointable(kind: Kind): Boolean = kind == Kind.HORIZONTAL
 
     /** Close enough to read the dial by. A real one is not fussier. */
     const val ALIGNED_DEGREES = 10.0
