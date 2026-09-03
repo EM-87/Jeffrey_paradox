@@ -6250,7 +6250,7 @@ class ClockView @JvmOverloads constructor(
     private fun drawHandShadows(canvas: Canvas, cx: Float, cy: Float, r: Float, a: Angles) {
         shadowsPainted = 0
         val light = overheadLight() ?: return
-        val strength = HandShadow.strength(light.altitudeDeg) * light.brightness
+        val strength = HandShadow.strength(light)
         if (strength <= 0.01f) return
         // Where the shadow runs, and how far for each unit of a hand's
         // height. On the ground both come out of the altitude alone; on a
@@ -6415,7 +6415,7 @@ class ClockView @JvmOverloads constructor(
     ) {
         DialDome.draw(
             canvas, cx, cy, r,
-            HandShadow.domeStrength(light.altitudeDeg) * light.brightness,
+            HandShadow.domeStrength(light) * light.brightness,
             light.azimuthDeg.toFloat(), mirrored,
             if (light.moon) HandShadow.MOON_SHEEN else 0xFFFFFF
         )

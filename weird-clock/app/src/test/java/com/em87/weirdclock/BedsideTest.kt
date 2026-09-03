@@ -149,6 +149,67 @@ class BedsideTest {
     }
 
     /**
+     * The two switches the bedside clock has of its own.
+     *
+     * They were reported twice as doing nothing, and the second time it
+     * was measured: nothing was wrong with them at all — [Bedside.wanted]
+     * asks whether the *pager* is wider than it is tall, and turning a
+     * phone over changes the window before it changes the pager, so
+     * anything reading the switch at that moment is reading the portrait
+     * answer. What was missing was this test, which is why the report kept
+     * coming back.
+     */
+    @Test
+    fun `the bedside clock keeps its own seconds and its own date`() {
+        settled(Face.DIGITAL)
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+            .putBoolean(Prefs.BEDSIDE_SECONDS, true)
+            .putBoolean(Prefs.BEDSIDE_DATE, true)
+            // And the card's own two off, so what is seen can only have
+            // come from the pair above.
+            .putBoolean(Prefs.DIGITAL_SECONDS, false)
+            .putBoolean(Prefs.SHOW_DATE, false)
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val app = c.get()
+            val digits = app.digitalForTest()!!
+            assertFalse("the card is showing seconds it was not asked for", colons(digits) > 1)
+            assertFalse("and a date", digits.datedForTest())
+
+            turnSideways(app)
+            assertTrue("full screen and no seconds", colons(digits) > 1)
+            assertTrue("full screen and no date", digits.datedForTest())
+        }
+    }
+
+    /** And with them off, the bedside clock is the time and nothing else. */
+    @Test
+    fun `switched off, the bedside clock is bare`() {
+        settled(Face.DIGITAL)
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+            // The card's own two on, so a face that read the wrong pair
+            // would show both.
+            .putBoolean(Prefs.DIGITAL_SECONDS, true)
+            .putBoolean(Prefs.SHOW_DATE, true)
+            .commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            val app = c.get()
+            val digits = app.digitalForTest()!!
+            assertTrue("the card lost the seconds it was asked for", colons(digits) > 1)
+
+            turnSideways(app)
+            assertFalse("the bedside clock kept the card's seconds", colons(digits) > 1)
+            assertFalse("and the card's date", digits.datedForTest())
+        }
+    }
+
+    /** How many colons are on the row: one is hours and minutes, two is seconds. */
+    private fun colons(digits: DigitalClockView): Int =
+        digits.cellsForTest().count { it is Cell.Colon }
+
+    /**
      * Turns the phone over the way the system does: the configuration
      * changes, the window is laid out at the new size, and the activity is
      * told. The pager's own size is what the rule measures, so it is set

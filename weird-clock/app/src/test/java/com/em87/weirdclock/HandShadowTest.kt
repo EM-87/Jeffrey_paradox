@@ -37,6 +37,10 @@ class HandShadowTest {
     }
 
     /** An instant, given in UTC so the test does not depend on a zone. */
+    /** The sun that high, straight ahead, with nothing dimming it. */
+    private fun sunAt(altitudeDeg: Double): HandShadow.Light =
+        HandShadow.Light(altitudeDeg, 180.0, moon = false, brightness = 1f)
+
     private fun utc(year: Int, month: Int, day: Int, hour: Int, minute: Int = 0): Long {
         val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         cal.clear()
@@ -138,7 +142,18 @@ class HandShadowTest {
             "the length is still following the sun down to the horizon",
             HandShadow.MAX_LENGTH, HandShadow.reach(h, 10.0), 1e-6f
         )
-        assertEquals("the sun below the horizon casts something", 0f, HandShadow.reach(h, -1.0), 1e-6f)
+        // And below the horizon it is at its stop rather than back under
+        // its own hand. The shadow does not end at sunset — the light
+        // does not — so a length of nought there was the fade being
+        // applied twice, once as darkness and once as geometry.
+        assertEquals(
+            "a shadow a degree past sunset has gone back under its hand",
+            HandShadow.MAX_LENGTH, HandShadow.reach(h, -1.0), 1e-6f
+        )
+        assertEquals(
+            "and something is still cast after the sky has gone dark",
+            0f, HandShadow.reach(h, -7.0), 1e-6f
+        )
     }
 
     /**
@@ -156,14 +171,44 @@ class HandShadowTest {
     fun `the shadow keeps its strength while the sun is up`() {
         assertEquals("a sun ten degrees up is already fading", 1f, HandShadow.strength(10.0), 1e-4f)
         assertEquals("and thirty degrees certainly is", 1f, HandShadow.strength(30.0), 1e-4f)
-        // And it still gives out rather than snapping at the horizon,
-        // which is the thing the long fade was there to prevent.
-        assertTrue("the last degrees do not fade", HandShadow.strength(1.0) < 0.4f)
-        assertEquals("something is cast below the horizon", 0f, HandShadow.strength(-0.5), 1e-6f)
+        // Half at the horizon itself, and out by the end of civil
+        // twilight. The fade used to finish at sunset, so every shadow on
+        // the dial was gone while the face was still drawing a lit
+        // twilight sky over it.
+        assertEquals("sunset is not the middle of the fade", 0.5f, HandShadow.strength(0.0), 0.02f)
+        assertTrue("twilight has no shadows", HandShadow.strength(-3.0) > 0.05f)
+        assertEquals("something is cast after dark", 0f, HandShadow.strength(-7.0), 1e-6f)
         assertTrue(
             "the fade is not monotonic",
-            HandShadow.strength(1.0) < HandShadow.strength(3.0) &&
+            HandShadow.strength(-3.0) < HandShadow.strength(1.0) &&
+                HandShadow.strength(1.0) < HandShadow.strength(3.0) &&
                 HandShadow.strength(3.0) < HandShadow.strength(5.0)
+        )
+    }
+
+    /**
+     * The moon's shadow ends at the moon's own horizon.
+     *
+     * The sun goes on lighting the sky after it sets and its shadows go
+     * with it; the moon is a lamp and a lamp behind the hill is off. Both
+     * fades are the same curve and they end in different places, which is
+     * the one asymmetry here worth a test — written the same for both, a
+     * moonrise put a half-strength shadow on the dial from one minute to
+     * the next.
+     */
+    @Test
+    fun `the moon's shadow gives out at its own horizon`() {
+        assertEquals(
+            "a moon below the hill is still casting",
+            0f, HandShadow.strength(-0.5, moon = true), 1e-6f
+        )
+        assertTrue(
+            "and it arrives at half strength the moment it clears it",
+            HandShadow.strength(0.2, moon = true) < 0.1f
+        )
+        assertEquals(
+            "a moon well up does not cast fully",
+            1f, HandShadow.strength(20.0, moon = true), 1e-6f
         )
     }
 
@@ -293,18 +338,14 @@ class HandShadowTest {
     /** Nothing at night, full daylight when the sun is properly up. */
     @Test
     fun `the shadow fades out with the sun`() {
-        assertEquals("there are shadows at night", 0f, HandShadow.strength(-1.0), 1e-6f)
-        assertEquals("there are shadows at the horizon", 0f, HandShadow.strength(0.0), 1e-6f)
+        assertEquals("there are shadows after dark", 0f, HandShadow.strength(-6.5), 1e-6f)
         assertEquals("the midday shadow is not solid", 1f, HandShadow.strength(45.0), 1e-6f)
-        // One degree, not three. The fade used to run from eighteen
-        // degrees down and so had a shadow at half strength an hour
-        // before sunset, which is what "the shadow disappears in
-        // daylight" was — see [HandShadow.FADE_FROM_DEG]. It runs from
-        // six now, so three degrees is halfway down and one is nearly
-        // out.
+        // The window straddles the sunset now rather than ending at it —
+        // see [HandShadow.FADE_FROM_DEG]. A degree up is a little past
+        // halfway down and a degree under is a little short of it.
         val low = HandShadow.strength(1.0)
-        assertTrue("a shadow at one degree is as dark as one at noon: $low", low < 0.5f)
-        assertTrue("a shadow at one degree is not there at all", low > 0f)
+        assertTrue("a shadow at one degree is as dark as one at noon: $low", low < 0.75f)
+        assertTrue("a shadow at one degree is not there at all", low > 0.4f)
     }
 
     // ---------------------------------------------------------- on the dial
@@ -342,18 +383,18 @@ class HandShadowTest {
      */
     @Test
     fun `the dial's belly shows most when the light is across it`() {
-        assertEquals("a dome under a midnight sky", 0f, HandShadow.domeStrength(-2.0), 1e-6f)
+        assertEquals("a dome under a midnight sky", 0f, HandShadow.domeStrength(sunAt(-7.0)), 1e-6f)
         assertTrue(
             "the dome is as strong with the sun overhead as with it low",
-            HandShadow.domeStrength(85.0) < HandShadow.domeStrength(35.0)
+            HandShadow.domeStrength(sunAt(85.0)) < HandShadow.domeStrength(sunAt(35.0))
         )
         assertTrue(
             "the dome is not there at all in the middle of the day",
-            HandShadow.domeStrength(35.0) > 0.1f
+            HandShadow.domeStrength(sunAt(35.0)) > 0.1f
         )
         assertTrue(
             "the dome does not fade out with the sun at the horizon",
-            HandShadow.domeStrength(1.0) < HandShadow.domeStrength(35.0)
+            HandShadow.domeStrength(sunAt(-4.0)) < HandShadow.domeStrength(sunAt(35.0))
         )
     }
 

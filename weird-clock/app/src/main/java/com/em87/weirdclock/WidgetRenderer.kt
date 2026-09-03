@@ -561,7 +561,7 @@ object WidgetRenderer {
             HandShadow.lightAt(lat, lon, System.currentTimeMillis())?.let { light ->
                 DialDome.draw(
                     canvas, c, c, r,
-                    HandShadow.domeStrength(light.altitudeDeg) * light.brightness,
+                    HandShadow.domeStrength(light) * light.brightness,
                     light.azimuthDeg.toFloat(),
                     tint = if (light.moon) HandShadow.MOON_SHEEN else 0xFFFFFF
                 )

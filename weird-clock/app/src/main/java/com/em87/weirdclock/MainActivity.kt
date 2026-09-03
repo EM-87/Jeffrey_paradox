@@ -804,10 +804,38 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
-        // The window has not been laid out at the new size yet, so the
-        // decision waits a frame for one — asking now measures the shape
-        // the phone has just stopped being.
-        if (this::pager.isInitialized) pager.post { applyBedside() }
+        applyBedsideOnceItIsThatShape()
+    }
+
+    /**
+     * Asks again as soon as the pager is the shape the phone just became.
+     *
+     * The rule measures the pager, and at the moment the phone is turned
+     * over the pager is still the shape it has stopped being — so this
+     * cannot be asked now. It used to be posted instead, and a post is the
+     * next *message*, which is not the next *layout*: on a phone where the
+     * message ran first the answer was taken from the old shape, the clock
+     * did not go full screen, and its two switches appeared to do nothing.
+     * That was reported twice, and both times everything they were blamed
+     * on turned out to be wired correctly.
+     *
+     * So: on the next layout, whenever that is, and once more on the next
+     * message in case nothing is laid out at all. Asking twice costs
+     * nothing — the answer is a pure function of three things and setting
+     * it again to what it already is changes nothing.
+     */
+    private fun applyBedsideOnceItIsThatShape() {
+        if (!this::pager.isInitialized) return
+        pager.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+            override fun onLayoutChange(
+                v: View, l: Int, t: Int, r: Int, b: Int,
+                ol: Int, ot: Int, or_: Int, ob: Int
+            ) {
+                v.removeOnLayoutChangeListener(this)
+                applyBedside()
+            }
+        })
+        pager.post { applyBedside() }
     }
 
     /** For the tests, which cannot turn a phone over. */
@@ -1161,7 +1189,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         maybeWarnAboutExactAlarms()
         // Started with the phone already on its side, which is how a
         // bedside clock is usually started.
-        if (this::pager.isInitialized) pager.post { applyBedside() }
+        applyBedsideOnceItIsThatShape()
     }
 
     /**

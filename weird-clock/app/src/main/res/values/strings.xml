@@ -624,10 +624,10 @@
     <string name="pref_next_alarm_title">Next alarm on the clock</string>
     <string name="pref_next_alarm_summary">A small bell and the time, when one is armed</string>
     <string name="sundial_flat_here">THIS DIAL IS FLAT HERE</string>
-    <string name="pref_bedside_seconds_title">Seconds when full screen</string>
-    <string name="pref_bedside_seconds_summary">On its side the clock drops them unless you want them</string>
-    <string name="pref_bedside_date_title">Date when full screen</string>
-    <string name="pref_bedside_date_summary">A bedside clock is usually the time and nothing else</string>
+    <string name="pref_bedside_seconds_title">Seconds on the bedside clock</string>
+    <string name="pref_bedside_seconds_summary">Turn the phone on its side and the clock takes the screen. It drops these unless you want them</string>
+    <string name="pref_bedside_date_title">Date on the bedside clock</string>
+    <string name="pref_bedside_date_summary">Also only with the phone on its side: a bedside clock is usually the time and nothing else</string>
     <string name="pref_widget_date_title">Date on the widget</string>
     <string name="pref_widget_date_summary">Under the time, on the home screen</string>
     <string name="pref_widget_plain_title">Plain type</string>

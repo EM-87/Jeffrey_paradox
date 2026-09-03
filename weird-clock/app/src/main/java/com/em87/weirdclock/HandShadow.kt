@@ -129,30 +129,34 @@ object HandShadow {
     const val MAX_LENGTH = 0.05f
 
     /**
-     * How far above the horizon the sun starts losing its shadow.
+     * The two altitudes a shadow fades between.
      *
-     * Six degrees, which at a middle latitude is the last twenty-five
-     * minutes of the day. It was eighteen, on the argument that the fade
-     * ought to be well under way before the length is against its stop —
-     * otherwise the last stretch before sunset is a shadow at full
-     * strength sitting at its maximum reach, which looks pinned rather
-     * than cast.
+     * Full above six degrees and nothing below minus six, which is the end
+     * of civil twilight — so the fade straddles the sunset rather than
+     * finishing at it.
      *
-     * That argument was answering the right worry with the wrong tool.
-     * Eighteen degrees is an hour and a half of afternoon at forty north,
-     * and over that hour and a half the shadows quietly went out while
-     * the sun was still visibly up — which somebody found by winding the
-     * hands and reported as the shadow disappearing in broad daylight. It
-     * is: a shadow at a fifth of its darkness is a shadow nobody can see,
-     * and low sun is when shadows are at their most obvious, not their
-     * least.
+     * It used to finish at it, and both halves of that were wrong. The top
+     * was eighteen degrees for a while, which at forty north is an hour and
+     * a half of afternoon spent quietly going out while the sun is still
+     * visibly up; that came down to six. But the bottom was the horizon,
+     * and the horizon is not where a shadow ends. Sunset is the moment the
+     * sun's own disc goes, not the moment its light does: for the half hour
+     * afterwards the sky is still bright enough to read by and things on
+     * the ground still have shadows, softer and longer every minute until
+     * there is nothing but skylight left. Cut off at the horizon, every
+     * shadow on the dial went out while the face was still drawing a lit
+     * twilight sky above it — reported, correctly, as the shadows vanishing
+     * suddenly at dawn and dusk.
      *
-     * What answers the pinned look is [penumbra], which widens with the
-     * same falling sun and was already doing the work: a long shadow that
-     * has stopped growing and gone soft reads as a low sun. One that has
-     * stopped growing and gone *faint* reads as a bug.
+     * Between the two it is a smoothstep rather than a straight line. A
+     * ramp has a corner at each end, the eye finds corners, and the corner
+     * at the top of this one is exactly where somebody winding the hands
+     * through the afternoon is looking.
      */
-    private const val FADE_FROM_DEG = 6.0
+    const val FADE_FROM_DEG = 6.0
+
+    /** And where it is finally out — see [FADE_FROM_DEG]. */
+    const val FADE_TO_DEG = -6.0
 
     /**
      * How much light a full moon casts, against the sun.
@@ -223,8 +227,15 @@ object HandShadow {
      * failure — and zero when the sun is down.
      */
     fun reach(height: Float, altitudeDeg: Double): Float {
-        if (altitudeDeg <= 0.0) return 0f
+        if (altitudeDeg <= FADE_TO_DEG) return 0f
         if (altitudeDeg >= 89.99) return 0f
+        // Below the horizon the tangent turns and the arithmetic stops
+        // meaning anything, but the shadow does not stop existing — it is
+        // past every stop it has, which is what [MAX_LENGTH] is. Returning
+        // nought here put the shadow back under its own hand for the whole
+        // of twilight, on top of the fade that was already switching it
+        // off there.
+        if (altitudeDeg <= 0.0) return MAX_LENGTH
         val long = height / tan(Math.toRadians(altitudeDeg)).toFloat()
         return long.coerceAtMost(MAX_LENGTH)
     }
@@ -249,13 +260,13 @@ object HandShadow {
      * with the sun low and across, gone with the sun overhead, since a
      * dome lit from straight above has no shaded side.
      */
-    fun domeStrength(altitudeDeg: Double): Float {
-        // No horizon test of its own. [strength] is already zero below the
-        // horizon and this multiplies by it, so a second check here is a
-        // line that cannot run — which a sabotage found by deleting it and
-        // watching nothing fail.
-        val across = kotlin.math.cos(Math.toRadians(altitudeDeg)).toFloat()
-        return (across * strength(altitudeDeg)).coerceIn(0f, 1f)
+    fun domeStrength(light: Light): Float {
+        // No horizon test of its own. [strength] is already zero once the
+        // light is out and this multiplies by it, so a second check here is
+        // a line that cannot run — which a sabotage found by deleting it
+        // and watching nothing fail.
+        val across = kotlin.math.cos(Math.toRadians(light.altitudeDeg)).toFloat()
+        return (across * strength(light.altitudeDeg, light.moon)).coerceIn(0f, 1f)
     }
 
     /**
@@ -392,30 +403,70 @@ object HandShadow {
             // moon to hand over to.
             else -> if (sun.altitudeDeg > 0.0) 0f else 1f
         }
-        if (night < 1f && sun.altitudeDeg > 0.0) {
-            return Light(sun.altitudeDeg, sun.azimuthDeg, false, 1f - night)
+        val bySun =
+            if (night < 1f && sun.altitudeDeg > FADE_TO_DEG) {
+                Light(sun.altitudeDeg, sun.azimuthDeg, false, 1f - night)
+            } else {
+                null
+            }
+        val byMoon = if (night <= 0f) null else {
+            val moon = SolarTime.moonPosition(latitudeDeg, longitudeDeg, atMs)
+            val lit = SolarTime.moonIllumination(atMs)
+            if (moon.altitudeDeg <= 0.0 || lit < MOON_FLOOR) {
+                null
+            } else {
+                Light(
+                    moon.altitudeDeg, moon.azimuthDeg, true,
+                    (night * MOONLIGHT * lit).toFloat()
+                )
+            }
         }
-        if (night <= 0f) return null
-        val moon = SolarTime.moonPosition(latitudeDeg, longitudeDeg, atMs)
-        if (moon.altitudeDeg <= 0.0) return null
-        val lit = SolarTime.moonIllumination(atMs)
-        if (lit < MOON_FLOOR) return null
-        return Light(
-            moon.altitudeDeg, moon.azimuthDeg, true,
-            (night * MOONLIGHT * lit).toFloat()
-        )
+        // Whichever is actually darkening the dial more, which is a real
+        // question now that both of them can be doing it at once. The sun
+        // used to hand over at the horizon, where it happened to be casting
+        // nothing and so the handover was invisible. Now it casts through
+        // twilight, and handing over at the end of twilight would put the
+        // moon's shadow on at full moonlight from one minute to the next.
+        // Handed over where the two are equal instead, the darkness does
+        // not change at all across the swap — only the bearing, at the one
+        // moment in the evening when the shadows are faintest and softest.
+        val fromSun = bySun?.let { strength(it) } ?: 0f
+        val fromMoon = byMoon?.let { strength(it) } ?: 0f
+        if (fromSun <= 0f && fromMoon <= 0f) return null
+        return if (fromMoon > fromSun) byMoon else bySun
     }
 
     /**
      * How dark the shadow is, from 0 to 1.
      *
-     * Full while the sun is properly up, fading out over the last few
-     * degrees before it sets — which is both what happens and what stops
-     * the shadow snapping off at the horizon like a light being switched.
+     * Full while the sun is properly up and gone by the end of twilight,
+     * with a smoothstep between the two — see [FADE_FROM_DEG]. At the
+     * moment of sunset itself it is at half, which is the whole point: that
+     * is when a real shadow is longest, softest and most obviously a
+     * shadow.
      */
-    fun strength(altitudeDeg: Double): Float {
-        if (altitudeDeg <= 0.0) return 0f
+    fun strength(altitudeDeg: Double, moon: Boolean = false): Float {
+        val out = if (moon) MOON_FADE_TO_DEG else FADE_TO_DEG
         if (altitudeDeg >= FADE_FROM_DEG) return 1f
-        return (altitudeDeg / FADE_FROM_DEG).toFloat()
+        if (altitudeDeg <= out) return 0f
+        val t = ((altitudeDeg - out) / (FADE_FROM_DEG - out)).toFloat()
+        return t * t * (3f - 2f * t)
     }
+
+    /**
+     * Where the moon's own shadow gives out, which is the horizon.
+     *
+     * The sun goes on lighting the sky for half an hour after it sets and
+     * the shadows go with it — that is what twilight is. The moon does no
+     * such thing: it is a lamp, and a lamp that has gone behind the hill is
+     * off. So its fade ends at nought rather than at minus six, and the
+     * only reason this is a constant rather than a number written into the
+     * line above is that it is the difference between the two lights and
+     * deserves saying out loud.
+     */
+    const val MOON_FADE_TO_DEG = 0.0
+
+    /** How dark a given light makes the shadows, all told. */
+    fun strength(light: Light): Float =
+        strength(light.altitudeDeg, light.moon) * light.brightness
 }
