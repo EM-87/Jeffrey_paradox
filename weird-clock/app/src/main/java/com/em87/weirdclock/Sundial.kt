@@ -267,30 +267,95 @@ object Sundial {
     fun alignBearing(latitudeDeg: Double): Double = if (latitudeDeg >= 0.0) 0.0 else 180.0
 
     /**
-     * Where the shadow lands on a plate that is being held at
-     * [phoneBearingDeg] instead of set on the meridian.
+     * Where the style's shadow really falls on a plate held like this.
      *
-     * The shadow belongs to the world and the engraving belongs to the
-     * plate. Turn the plate and the engraving turns with it while the
-     * shadow does not, so on screen — where the plate is what is fixed —
-     * the shadow swings the other way, degree for degree. That is the
-     * whole of it, and it is why aligning a dial means anything: at the
-     * heading [alignBearing] asks for, the shadow is back on the hour line
-     * that [shadowAngle] engraved for it, and at every other heading it is
-     * pointing at an hour that is not the time.
+     * [shadowInHand] answers the same question for a plate that is
+     * *level* and only turned — which is most of the way there and is
+     * where this started, because turning is the part somebody does on
+     * purpose. But nobody holds a phone flat. It sits at twenty or thirty
+     * degrees in the hand, and on a real dial that is not a small error:
+     * tilt the plate and the style tilts with it, so it stops being
+     * parallel to the earth's axis and its shadow stops falling on the
+     * hour lines at all. The dial being wrong when it is not held level
+     * is not a defect to hide — it is the reason a dial is set in stone
+     * and left alone, and it is the one thing this mode is for showing.
      *
-     * The first version of this took the shadow to be the sun's bearing
-     * turned round, which is the shadow of a *stick*. The thing casting
-     * this one is the style — the sloping edge parallel to the earth's
-     * axis — and its shadow is the hour line, which is the entire reason a
-     * sundial keeps time through the year instead of only on one day.
-     * They were nearly thirty degrees apart at seven in the morning.
+     * So the shadow is worked out from where the style actually is. The
+     * style is a rod through the middle of the plate, lying in the noon
+     * plane at the dial's own latitude above the face; the phone says
+     * which way the plate's own three axes point in the world; the sun is
+     * where the sun is. The shadow of the rod's tip is where the ray from
+     * it away from the sun meets the plate, and the answer is that point's
+     * bearing on the plate, clockwise from the noon line.
+     *
+     * Null when the sun is behind the plate or grazing it — a phone
+     * turned face down has no shadow on its face, and the divisor here is
+     * how far the sun is above the plate rather than above the horizon.
+     *
+     * [right], [top] and [normal] are the plate's own axes in world
+     * coordinates — east, north and up — which is what a rotation matrix
+     * from the phone's own sensor is three columns of. Handed in rather
+     * than derived from three angles, because Euler angles have a sign
+     * convention per platform and a matrix does not.
      */
-    fun shadowInHand(
-        engravedAngleDeg: Double,
-        phoneBearingDeg: Double,
+    fun shadowOnPlate(
+        sunAltitudeDeg: Double,
+        sunAzimuthDeg: Double,
+        right: DoubleArray,
+        top: DoubleArray,
+        normal: DoubleArray,
         latitudeDeg: Double
-    ): Double = engravedAngleDeg + offBy(phoneBearingDeg, alignBearing(latitudeDeg))
+    ): Double? {
+        val alt = Math.toRadians(sunAltitudeDeg)
+        val az = Math.toRadians(sunAzimuthDeg)
+        val sun = doubleArrayOf(
+            cos(alt) * sin(az), cos(alt) * cos(az), sin(alt)
+        )
+        val onto = dot(sun, normal)
+        // Level with the plate or under it: nothing is cast on this face.
+        if (onto <= GRAZING) return null
+        // The style, in the plate's own axes: up the noon line and
+        // inclined at the latitude the plate is engraved for. Its whole
+        // point is to be parallel to the earth's axis when the plate is
+        // level and pointing at the pole, and this is that vector written
+        // in the plate's terms so that tilting the plate takes it with it.
+        val lean = Math.toRadians(abs(latitudeDeg))
+        val style = DoubleArray(3) { i ->
+            top[i] * cos(lean) + normal[i] * sin(lean)
+        }
+        // Where the ray from the style's tip, away from the sun, crosses
+        // the face of the plate.
+        val t = dot(style, normal) / onto
+        val landed = DoubleArray(3) { i -> style[i] - t * sun[i] }
+        val x = dot(landed, right)
+        val y = dot(landed, top)
+        if (abs(x) < 1e-12 && abs(y) < 1e-12) return null
+        return Math.toDegrees(atan2(x, y))
+    }
+
+    /**
+     * The three axes of a plate lying flat with its noon line at that
+     * bearing.
+     *
+     * For a phone that can say which way it is facing and not which way
+     * it is leaning — an old one, or one whose rotation vector is not
+     * worth reading. Flat is the assumption the whole compass mode used
+     * to make about every phone.
+     */
+    fun levelPlate(bearingDeg: Double): Array<DoubleArray> {
+        val a = Math.toRadians(bearingDeg)
+        return arrayOf(
+            doubleArrayOf(cos(a), -sin(a), 0.0),
+            doubleArrayOf(sin(a), cos(a), 0.0),
+            doubleArrayOf(0.0, 0.0, 1.0)
+        )
+    }
+
+    /** How far above the plate the sun has to be to cast anything at all. */
+    private const val GRAZING = 0.02
+
+    private fun dot(a: DoubleArray, b: DoubleArray): Double =
+        a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 
     /**
      * Whether a dial of this kind can be aligned by turning the phone.

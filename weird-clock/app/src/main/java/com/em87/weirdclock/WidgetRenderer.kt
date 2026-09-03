@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Typeface
 import androidx.preference.PreferenceManager
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -92,11 +93,63 @@ object WidgetRenderer {
      * clock had a slider, and sharing it would have made the new sliders a
      * lie: three controls moving one number.
      */
-    fun alphaKeyOf(provider: String): String = when {
-        provider.endsWith("OrreryWidgetProvider") -> Prefs.WIDGET_ALPHA_ORRERY
-        provider.endsWith("HourglassWidgetProvider") -> Prefs.WIDGET_ALPHA_HOURGLASS
-        else -> Prefs.WIDGET_ALPHA
+    fun alphaKeyOf(provider: String): String = WidgetKind.of(provider).alphaKey
+
+    /**
+     * Whether this kind is drawn on a card.
+     *
+     * Some of them arrived with one and some without — the globe carries
+     * its own black sky and the dial is a face on the wallpaper — which is
+     * a difference nobody chose and everybody noticed. It is a switch now,
+     * defaulting to whatever each of them already looked like, so nobody's
+     * home screen changes under them.
+     */
+    fun grounded(context: Context, kind: WidgetKind): Boolean =
+        PreferenceManager.getDefaultSharedPreferences(context)
+            .getBoolean(kind.pref("ground"), kind.groundByDefault)
+
+    /**
+     * The card, drawn behind whatever the widget is.
+     *
+     * The same shape the face with no hands has always drawn behind
+     * itself — a rounded square with a rim — so a home screen holding two
+     * of these holds two of the same object. Its colour is the theme's,
+     * except on the globe: what is behind the world is space, and space is
+     * black whatever the clock is wearing.
+     */
+    fun onCard(source: Bitmap, kind: WidgetKind, theme: ClockTheme): Bitmap {
+        val out = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        val side = minOf(source.width, source.height).toFloat()
+        val inset = side * 0.02f
+        val corner = side * 0.18f
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        paint.style = Paint.Style.FILL
+        paint.color = if (kind == WidgetKind.GLOBE) SPACE else theme.face
+        paint.alpha = 0xE8
+        canvas.drawRoundRect(
+            inset, inset, source.width - inset, source.height - inset, corner, corner, paint
+        )
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = side * 0.018f
+        paint.color = theme.rim
+        paint.alpha = 0xB0
+        canvas.drawRoundRect(
+            inset, inset, source.width - inset, source.height - inset, corner, corner, paint
+        )
+        paint.style = Paint.Style.FILL
+        paint.alpha = 255
+        canvas.drawBitmap(source, 0f, 0f, null)
+        return out
     }
+
+    /** What is behind the world, which is not a colour anybody chose. */
+    private const val SPACE = 0xFF05070D.toInt()
+
+    /** The card, or not, depending on what this kind has been told. */
+    fun grounded(context: Context, kind: WidgetKind, source: Bitmap): Bitmap =
+        if (!grounded(context, kind)) source
+        else onCard(source, kind, widgetTheme(context))
 
     /** The opacity a widget is drawn at, from its own stored percentage. */
     fun alphaOf(context: Context, key: String): Int = opacity(
@@ -131,8 +184,15 @@ object WidgetRenderer {
         val view = DigitalClockView(context).apply {
             theme = widgetTheme(context)
             chip = true
-            script = DigitScript.of(prefs.getString(Prefs.DIGIT_SCRIPT, null))
-            style = DigitStyle.of(prefs.getString(Prefs.DIGIT_STYLE, null), script)
+            ground = false
+            // Its own mechanism, if it has been given one. A home screen
+            // is not a settings page: somebody can want flip cards on the
+            // wall and lit bars in the app, and until this row existed the
+            // widget was whatever the app had been left on.
+            style = DigitStyle.of(
+                prefs.getString(WidgetKind.DIGITS.pref("mechanism"), null)
+            ).takeIf { prefs.contains(WidgetKind.DIGITS.pref("mechanism")) }
+                ?: DigitStyle.of(prefs)
             hour24 = prefs.getBoolean(Prefs.HOUR_24, true)
             leadingZero = prefs.getBoolean(Prefs.LEADING_ZERO, true)
             showSeconds = false
@@ -154,7 +214,6 @@ object WidgetRenderer {
                 else -> 1f
             }
             ghosts = prefs.getBoolean(Prefs.SEGMENT_GHOSTS, true)
-            yautja = Yautja.face(context)
         }
         view.measure(
             android.view.View.MeasureSpec.makeMeasureSpec(widthPx, android.view.View.MeasureSpec.EXACTLY),
@@ -205,6 +264,7 @@ object WidgetRenderer {
         val byHand = prefs.getBoolean(Prefs.SUNDIAL_LATITUDE_FIXED, false)
         val view = SundialView(context).apply {
             theme = widgetTheme(context)
+            ground = false
             kind =
                 if (prefs.getBoolean(Prefs.WIDGET_SUNDIAL_WALL, false)) Sundial.Kind.VERTICAL
                 else Sundial.Kind.HORIZONTAL
@@ -253,8 +313,15 @@ object WidgetRenderer {
             // smudge, and the two marks that are worth the room are the
             // sun and the moon.
             hourRing = false
-            showSun = prefs.getBoolean(Prefs.HEMISPHERE_SUN, true)
+            ground = false
+            // Its own sun, because it is also its own zoom: with nothing
+            // standing outside the world the world fills the widget, and a
+            // widget is small enough for that to be the whole point.
+            showSun = prefs.getBoolean(
+                WidgetKind.GLOBE.pref("sun"), prefs.getBoolean(Prefs.HEMISPHERE_SUN, true)
+            )
             showMoon = prefs.getBoolean(Prefs.HEMISPHERE_MOON, true)
+            zoom = if (showSun) Hemisphere.ZOOM_MIN else Hemisphere.ZOOM_MAX
             located = DayNight.hasFix()
             if (DayNight.hasFix()) {
                 latitude = DayNight.latitudeNow()
@@ -268,6 +335,71 @@ object WidgetRenderer {
         view.layout(0, 0, widthPx, heightPx)
         val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
         view.draw(Canvas(bitmap))
+        return bitmap
+    }
+
+    /**
+     * The weather on its own, with no clock on it at all.
+     *
+     * The only widget here that is not an instrument for telling the time,
+     * and it is here because somebody asked for it in the plainest terms:
+     * a widget that gives the weather and the temperature. Everything on
+     * it is already drawn somewhere in this app — the sun or the moon and
+     * whatever is in front of it are [SkyGlyph]'s, the reading is
+     * [WeatherStore]'s — so what this adds is a size and a place for two
+     * of them.
+     *
+     * Nothing is fetched here. The reading is whatever the app last
+     * agreed on with the three services it asks; on a phone that has
+     * never had the weather switched on there is nothing to draw and it
+     * says so, rather than showing a number it has not got.
+     */
+    fun weatherBitmap(context: Context, widthPx: Int, heightPx: Int): Bitmap {
+        val theme = widgetTheme(context)
+        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        DayNight.configure(context)
+        val sky = WeatherStore.cached(context)
+        val look = Weather.look(sky)
+        val side = minOf(widthPx, heightPx).toFloat()
+
+        val lit = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+            color = theme.numeral
+        }
+        val dark = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+            color = theme.face
+        }
+        val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            color = theme.rim
+            strokeWidth = side * 0.012f
+        }
+        // Up and a little left of the middle, with the reading under it:
+        // the token is the picture and the number is the caption, which is
+        // the way round every weather widget ever made has had it.
+        val now = Calendar.getInstance()
+        val ofDay = now.get(Calendar.HOUR_OF_DAY) * 3_600_000L +
+            now.get(Calendar.MINUTE) * 60_000L
+        SkyGlyph.draw(
+            canvas, widthPx / 2f, heightPx * 0.36f, side * 0.16f,
+            lit, dark, rim, ofDay,
+            weather = look,
+            weatherSure = sky.answered > 1
+        )
+
+        val ink = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = theme.numeral
+            textAlign = Paint.Align.CENTER
+            typeface = android.graphics.Typeface.create("sans-serif-medium", Typeface.BOLD)
+        }
+        val degrees = sky.temperatureC.value
+        ink.textSize = side * 0.30f
+        canvas.drawText(
+            if (degrees == null) "--°" else "${Math.round(degrees)}°",
+            widthPx / 2f, heightPx * 0.80f, ink
+        )
         return bitmap
     }
 

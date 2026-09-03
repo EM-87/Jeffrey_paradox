@@ -39,12 +39,12 @@ class FadedRowTest {
     private val context: android.content.Context
         get() = ApplicationProvider.getApplicationContext()
 
-    private fun wearing(script: DigitScript) {
+    private fun wearing(mechanism: DigitStyle) {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.OVERLAY_ASKED, true)
             .putBoolean(Prefs.FACE_ASKED, true)
             .putString(Prefs.FACE, Face.DIGITAL.key)
-            .putString(Prefs.DIGIT_SCRIPT, script.key)
+            .putString(Prefs.DIGIT_STYLE, mechanism.key)
             .commit()
     }
 
@@ -80,26 +80,26 @@ class FadedRowTest {
     }
 
     /**
-     * The weekday is faded on the one script that cannot write one, and
-     * ordinary on the three that can.
+     * The weekday is faded on the one mechanism that cannot write one, and
+     * ordinary on the rest.
      *
      * Faded rather than taken away, and that is deliberate: turning it on
-     * and then changing numerals is a perfectly ordinary thing to want to
-     * do, and a row that had been removed would have refused it.
+     * and then changing the mechanism is a perfectly ordinary thing to
+     * want to do, and a row that had been removed would have refused it.
      */
     @Test
     fun `the weekday fades on the display that has no letters for it`() {
         val name = context.getString(R.string.pref_show_weekday_title)
-        wearing(DigitScript.ROMAN_COMET)
+        wearing(DigitStyle.COMET)
         val onThePanel = alphaOf(name)
         assertNotNull("the weekday row is not on the first screen at all", onThePanel)
         assertTrue(
             "the weekday is drawn at $onThePanel on a display that cannot write one",
             onThePanel!! < 0.99f
         )
-        for (script in DigitScript.entries - DigitScript.ROMAN_COMET) {
-            wearing(script)
-            assertEquals("$script lost its weekday", 1f, alphaOf(name)!!, 0.001f)
+        for (mechanism in DigitStyle.entries - DigitStyle.COMET) {
+            wearing(mechanism)
+            assertEquals("$mechanism lost its weekday", 1f, alphaOf(name)!!, 0.001f)
         }
     }
 

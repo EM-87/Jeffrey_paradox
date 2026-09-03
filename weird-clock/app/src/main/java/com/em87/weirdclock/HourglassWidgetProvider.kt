@@ -115,12 +115,15 @@ class HourglassWidgetProvider : AppWidgetProvider() {
             val prefs = PreferenceManager.getDefaultSharedPreferences(context)
             val view = HourglassView(context).apply {
                 theme = ClockThemes.resolve(context, prefs.getString(Prefs.THEME, "midnight"))
-                // Sand in a glass on a face that has no glass in it. The
-                // card went and the button to it went, and this went on
-                // pouring on the home screen — which is the same mistake
-                // the floating bubble made, in the one place the owner of
-                // the phone sees it without opening anything.
-                lcd = !Face.of(prefs).hands
+                // Its own answer, and the app's only until somebody gives
+                // it one. Sand in a glass on a face that has no glass in
+                // it was the first version of this and it was wrong the
+                // other way round: the widget changed shape because the
+                // clock inside the app had, which from the home screen is
+                // a widget changing for no reason at all.
+                lcd = prefs.getBoolean(
+                    Prefs.widgetHourglassDigits, !Face.of(prefs).hands
+                )
                 plain = prefs.getBoolean(Prefs.WIDGET_SAND_PLAIN, false)
                 this.totalMs = totalMs
                 this.remainingMs = remainingMs
@@ -131,7 +134,8 @@ class HourglassWidgetProvider : AppWidgetProvider() {
             // Faded once at the end, by the amount asked for, exactly as
             // the other two widgets are — see [WidgetRenderer.faded].
             return WidgetRenderer.faded(
-                bitmap, WidgetRenderer.alphaOf(context, Prefs.WIDGET_ALPHA_HOURGLASS)
+                WidgetRenderer.grounded(context, WidgetKind.HOURGLASS, bitmap),
+                WidgetRenderer.alphaOf(context, Prefs.WIDGET_ALPHA_HOURGLASS)
             )
         }
     }

@@ -241,6 +241,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private var face = Face.ANALOG
 
+    /**
+     * The face a widget asked for, for this visit only.
+     *
+     * Null the rest of the time, which is every other way into this app.
+     * It is not written to the settings and it does not survive being
+     * left: see [EXTRA_SHOW_FACE].
+     */
+    private var borrowedFace: Face? = null
+
     /** The card on screen: the row says which of the page's cards it is. */
     private fun current(): Card? = Cards.on(Cards.pageAt(pager.currentItem, face), row, face)
     /**
@@ -865,6 +874,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             prefs.edit().putBoolean(Prefs.FACE_ASKED, true).apply()
         }
         face = Face.of(prefs)
+        // Unless a widget has asked for one for this visit — see
+        // [EXTRA_SHOW_FACE]. Nothing is written down: the next time the
+        // app is opened from anywhere else it is whatever it was.
+        borrowedFace = intent?.getStringExtra(EXTRA_SHOW_FACE)
+            ?.let { key -> Face.entries.firstOrNull { it.key == key } }
+        borrowedFace?.let { face = it }
         // The floating hourglass used to be a yes/no switch; it is now a
         // choice of two. Carry the old answer over once.
         if (!prefs.contains(Prefs.COUNTDOWN_FLOAT)) {
@@ -1285,6 +1300,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // Kept, because a rebuild reads it again: without this the face a
+        // widget lent us would be given back by the very rebuild that was
+        // meant to show it.
+        setIntent(intent)
         if (intent.getBooleanExtra(EXTRA_OPEN_ALARMS, false)) goTo(Card.ALARM)
         if (intent.getBooleanExtra(EXTRA_OPEN_TIMER, false)) goTo(timerCard())
         if (intent.getBooleanExtra(EXTRA_OPEN_CALENDAR, false)) goTo(Card.CALENDAR)
@@ -1292,6 +1311,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             goTo(Card.CLOCK)
             openSky()
         }
+        // A widget pinned to a clock, tapped while the app was already
+        // open behind it: the same borrowing, and the same going back.
+        intent.getStringExtra(EXTRA_SHOW_FACE)
+            ?.let { key -> Face.entries.firstOrNull { it.key == key } }
+            ?.let { wanted ->
+                if (wanted != face) {
+                    borrowedFace = wanted
+                    recreate()
+                } else {
+                    goTo(Card.CLOCK)
+                }
+            }
     }
 
     /**
@@ -1323,7 +1354,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // for the same reason as above and a stronger one: this is not a
         // repaint, it is a different instrument, with different cards and a
         // different thing in the middle of the screen.
-        if (Face.of(prefs) != face) {
+        // Unless the face being shown is one a widget lent us for this
+        // visit, in which case the settings disagreeing with it is the
+        // whole point rather than a change to rebuild for.
+        if (borrowedFace == null && Face.of(prefs) != face) {
             recreate()
             return
         }
@@ -2428,6 +2462,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             bearingListener?.let { sensors.unregisterListener(it) }
             bearingListener = null
             sundialView?.phoneBearing = null
+            sundialView?.phoneOrientation = null
             // And the world goes back to wherever the setting nails the
             // sun, rather than keeping the last bearing it happened to
             // hear before the switch went off.
@@ -2449,6 +2484,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 android.hardware.SensorManager.getOrientation(matrix, angles)
                 val degrees = (Math.toDegrees(angles[0].toDouble()) + 360.0) % 360.0
                 sundialView?.phoneBearing = degrees
+                // And the whole matrix, which says how it is being held
+                // rather than only which way it is turned — see
+                // [Sundial.shadowOnPlate]. Copied, because this one is
+                // written over on every reading.
+                sundialView?.phoneOrientation = matrix.copyOf()
                 // The same reading, doing a different job: on the sundial
                 // it is an arrow saying which way to turn, and on the
                 // world it turns the picture so the sun on screen is the
@@ -3486,8 +3526,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun applyDigitalPreferences(theme: ClockTheme) {
         val face = digitalView ?: return
         face.theme = theme
-        face.script = DigitScript.of(prefs.getString(Prefs.DIGIT_SCRIPT, null))
-        face.style = DigitStyle.of(prefs.getString(Prefs.DIGIT_STYLE, null), face.script)
+        face.style = DigitStyle.of(prefs)
         face.hour24 = prefs.getBoolean(Prefs.HOUR_24, true)
         face.leadingZero = prefs.getBoolean(Prefs.LEADING_ZERO, true)
         face.blinkColon = prefs.getBoolean(Prefs.BLINK_COLON, false)
@@ -3505,6 +3544,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // Its own switch, on its own page — see [Prefs.DIGITAL_SECONDS].
         face.showSeconds = prefs.getBoolean(Prefs.DIGITAL_SECONDS, false)
         face.breathingColon = prefs.getBoolean(Prefs.COLON_BREATHES, false)
+        face.colonPeriodMs =
+            prefs.getString(Prefs.COLON_PERIOD, null)?.toLongOrNull()
+                ?: DigitalReadout.SECOND_MS
         face.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
         face.showWeekday = prefs.getBoolean(Prefs.SHOW_WEEKDAY, true)
         face.bedsideSeconds = prefs.getBoolean(Prefs.BEDSIDE_SECONDS, false)
@@ -3520,7 +3562,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             DateShape.order(prefs.getString(Prefs.DATE_ORDER, DateShape.AUTO)),
             phoneWritesDayFirst()
         )
-        face.yautja = Yautja.face(this)
     }
 
     private fun applyPreferences() {
@@ -4361,6 +4402,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // and has arrived. Read off the disc and never fetched here — see
         // [CloudStore], which does the fetching on a thread of its own.
         world.clouds = CloudStore.cached(this)
+        // And which day's, once the world starts being turned — see
+        // [HemisphereView.cloudsOn].
+        world.cloudsOn = { at -> CloudStore.cached(this, at) }
         if (CloudStore.wanted(this)) CloudStore.refreshInBackground(this)
         world.hourRing = prefs.getBoolean(Prefs.HEMISPHERE_RING, true)
         world.hourNumbers = prefs.getBoolean(Prefs.HEMISPHERE_NUMBERS, true)
@@ -4717,6 +4761,19 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
          * something a first-time tapper of the widget necessarily knows.
          */
         const val EXTRA_OPEN_SKY = "extra_open_sky"
+
+        /**
+         * From a widget pinned to one clock: show me that clock, once.
+         *
+         * Tapping a picture of the globe and arriving at a dial is the
+         * widget lying about what it is. Tapping it and having the app
+         * *change* to the globe would be worse — a widget is not a
+         * setting, and somebody with four of them on a home screen would
+         * be reconfiguring their clock every time they looked at one. So
+         * it is a visit: the face is borrowed for as long as the app is
+         * open and given back on the way out.
+         */
+        const val EXTRA_SHOW_FACE = "extra_show_face"
 
         // The pager's three columns. Which card of each is showing is the
         // row's business, and both live in Cards, where the shape is.

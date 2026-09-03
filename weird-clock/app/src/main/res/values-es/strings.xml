@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="settings_title">Ajustes</string>
-    <string name="widget_description">Weird Clock en tu pantalla de inicio</string>
+    <string name="widget_description">El reloj que tengas puesto en la app</string>
 
     <string name="category_dial">Esfera</string>
     <string name="pref_theme_title">Tema</string>
@@ -120,6 +120,13 @@
     <string name="pref_backup_folder_where">En %1$s, uno al día, una semana cada vez</string>
     <string name="backup_folder_refused">No se puede escribir en esa carpeta</string>
     <string name="widget_settings_title">Transparencia del widget</string>
+    <string name="widget_settings_for">Widget de %1$s</string>
+    <string name="pref_widget_ground_title">Fondo</string>
+    <string name="pref_widget_ground_summary">Una tarjeta detrás, o tu fondo de pantalla directamente</string>
+    <string name="pref_widget_hourglass_digits_title">Mostrarlo en dígitos</string>
+    <string name="pref_widget_hourglass_digits_summary">Una barra que se vacía en vez de arena que cae, esté como esté la app</string>
+    <string name="pref_widget_globe_sun_title">El sol junto al mundo</string>
+    <string name="pref_widget_globe_sun_summary">Apagado, nada queda fuera del mundo y este llena el widget</string>
     <string name="widget_alpha_reading">%1$d%% opaco</string>
     <string name="backup_from_a_file">Un archivo en su lugar…</string>
     <string name="cycle_mark_day">El periodo empezó aquí</string>
@@ -166,7 +173,7 @@
     <string name="pref_alarm_ramp_summary">Las alarmas empiezan suaves y suben a volumen completo en un minuto</string>
     <string name="alarm_label_title">Etiqueta de la alarma</string>
     <string name="alarm_label_hint">Añadir etiqueta…</string>
-    <string name="widget_hourglass_label">Reloj de arena Weird Clock</string>
+    <string name="widget_hourglass_label">Reloj de arena</string>
     <string name="widget_hourglass_description">Reloj de arena con la cuenta atrás en marcha</string>
     <string name="countdown_channel_name">Cuenta atrás</string>
     <string name="countdown_notification_title">Cuenta atrás en marcha</string>
@@ -404,7 +411,7 @@
     <string name="comet_halley">Halley</string>
     <string name="comet_swift_tuttle">Swift\u2013Tuttle</string>
     <string name="comet_visit">%1$s, más cerca el %2$s</string>
-    <string name="widget_orrery_label">Sistema solar</string>
+    <string name="widget_orrery_label">Planetas</string>
     <string name="widget_orrery_description">Dónde están hoy los planetas de verdad. Tócalo para abrir el cielo.</string>
     <string name="pref_hand_shadows_title">Sombras en las agujas</string>
     <string name="pref_hand_shadows_summary">El reloj está tumbado con las 12 al norte y el sol real le pasa por encima. Las tres agujas están a tres alturas, así que dan tres sombras: ninguna con el sol en lo alto, largas y oblicuas cerca de los polos.</string>
@@ -464,22 +471,23 @@
         <item>Normal</item>
         <item>Gruesa</item>
     </string-array>
-    <string name="pref_digit_script_title">Numerales</string>
     <string name="pref_hour_24_title">Veinticuatro horas</string>
     <string name="pref_hour_24_summary">Desactivado: doce horas, con el sol o la luna al lado en vez de AM y PM</string>
     <string name="pref_leading_zero_title">Cero delante</string>
     <string name="pref_leading_zero_summary">09:05 en vez de 9:05</string>
     <string name="pref_blink_colon_title">Dos puntos parpadeando</string>
     <string name="pref_blink_colon_summary">Los dos puntos se apagan un segundo sí y otro no, como en un reloj barato</string>
+    <string name="pref_colon_period_title">Lo que dura un parpadeo</string>
+    <string-array name="colon_period_entries">
+        <item>Medio segundo</item>
+        <item>Un segundo</item>
+        <item>Dos segundos</item>
+    </string-array>
     <string-array name="digit_style_entries">
         <item>Segmentos encendidos</item>
         <item>Tipografía simple</item>
         <item>Tarjetas</item>
         <item>Ruedas</item>
-    </string-array>
-    <string-array name="digit_script_entries">
-        <item>Los nuestros (1, 2, 3…)</item>
-        <item>Los suyos</item>
         <item>Roma y la Comet</item>
     </string-array>
     <string name="category_house">La casa</string>
@@ -599,17 +607,21 @@
     <string name="category_reading">La lectura</string>
     <string name="pref_agenda_promise">Solo lectura: este reloj no puede a\u00f1adir, mover ni borrar nada, y nada de lo que lee se guarda ni se env\u00eda a ning\u00fan sitio</string>
     <string name="pref_mechanism_title">Mecanismo</string>
-    <string name="pref_segments_title">Tipo de segmentos</string>
     <string name="pref_readout_style_title">Cómo se hacen las lecturas</string>
-    <string name="pref_readout_script_title">Numerales de las lecturas</string>
     <string name="pref_digital_seconds_title">Segundos</string>
     <string name="pref_digital_seconds_summary">Los segundos en la cara, junto a los minutos</string>
     <string name="compass_north">N</string>
     <string name="compass_south">S</string>
     <string name="pref_colon_breathes_title">Dos puntos que respiran</string>
     <string name="pref_colon_breathes_summary">Los puntos crecen y se apagan a lo largo del segundo en vez de encenderse y apagarse</string>
-    <string name="widget_analog_label">Weird Clock — analógico</string>
-    <string name="widget_digital_label">Weird Clock — digital</string>
-    <string name="widget_sundial_label">Weird Clock — solar</string>
-    <string name="widget_world_label">Weird Clock — hemisférico</string>
+    <string name="widget_dial_label">Esfera</string>
+    <string name="widget_dial_description">El reloj de agujas, siempre, esté como esté la app</string>
+    <string name="widget_digits_label">Dígitos</string>
+    <string name="widget_digits_description">La pantalla de números, con el mecanismo que elijas para él</string>
+    <string name="widget_sundial_label">Reloj de sol</string>
+    <string name="widget_sundial_description">Una sombra sobre piedra, tallada para tu latitud</string>
+    <string name="widget_globe_label">Globo</string>
+    <string name="widget_globe_description">La Tierra girando bajo el sol, contigo encima</string>
+    <string name="widget_weather_label">Clima</string>
+    <string name="widget_weather_description">El cielo y la temperatura, y ningún reloj</string>
 </resources>

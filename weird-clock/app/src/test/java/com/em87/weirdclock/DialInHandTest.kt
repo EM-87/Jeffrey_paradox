@@ -54,11 +54,14 @@ class DialInHandTest {
                 Sundial.Kind.HORIZONTAL, lat, hours, sun.altitudeDeg,
                 SolarTime.declinationDeg(at)
             ) ?: continue
+            val axes = Sundial.levelPlate(Sundial.alignBearing(lat))
             assertEquals(
                 "at %02d:00 an aligned dial has moved its own shadow".format(hour),
                 engraved,
-                Sundial.shadowInHand(engraved, Sundial.alignBearing(lat), lat),
-                1e-9
+                Sundial.shadowOnPlate(
+                    sun.altitudeDeg, sun.azimuthDeg, axes[0], axes[1], axes[2], lat
+                )!!,
+                0.6
             )
             checked++
         }
@@ -66,35 +69,91 @@ class DialInHandTest {
     }
 
     /**
-     * And turning the phone turns the shadow under the plate, degree for
-     * degree, which is what makes the alignment worth finding.
+     * And turning the phone moves the shadow off its hour line, the other
+     * way from the turn, which is what makes the alignment worth finding.
      *
-     * The other way about from the phone: the engraving is fixed to the
-     * plate and the shadow is fixed to the world, so on a screen where
-     * the plate is what stands still, the shadow is what moves.
+     * Not degree for degree, which is what this used to say. The
+     * engraving is fixed to the plate and so is the style — turn the
+     * plate and the style stops pointing at the pole, so the shadow moves
+     * too, by less. See [SundialTiltTest], which has the whole of it.
      */
     @Test
-    fun `turning the phone turns the shadow the other way`() {
-        val engraved = 25.0
-        val straight = Sundial.shadowInHand(engraved, 0.0, 40.4)
-        val turned = Sundial.shadowInHand(engraved, 40.0, 40.4)
-        assertEquals("an aligned dial is not showing its own hour", engraved, straight, 1e-9)
-        assertEquals("the shadow went round with the plate", -40.0, turned - straight, 1e-9)
+    fun `turning the phone moves the shadow the other way`() {
+        val lat = 40.4
+        val at = noonish()
+        val sun = SolarTime.position(lat, 0.0, at)
+        fun shadowAt(bearing: Double): Double {
+            val axes = Sundial.levelPlate(bearing)
+            return Sundial.shadowOnPlate(
+                sun.altitudeDeg, sun.azimuthDeg, axes[0], axes[1], axes[2], lat
+            )!!
+        }
+        val straight = shadowAt(0.0)
+        val turned = shadowAt(40.0)
+        assertTrue("the shadow went round with the plate", turned < straight)
+        assertTrue(
+            "the shadow moved further than the plate did",
+            kotlin.math.abs(turned - straight) < 40.0
+        )
     }
 
     /**
-     * A dial pointed the wrong way tells the wrong time, and says so by
-     * doing it rather than by fading.
+     * Only one heading reads the right hour all day.
+     *
+     * That is the sharp form of what aligning a dial means, and it is
+     * worth stating that way because the loose form is not true: a plate
+     * turned right round reads the right hour at some moment of some day
+     * the way a stopped clock does — this very latitude, turned a quarter
+     * turn, is within a degree of right at ten in the morning. What no
+     * other heading can do is be right at *every* hour, and that is the
+     * whole reason a dialist spends the afternoon on one line.
      */
     @Test
-    fun `a plate off the meridian points at the wrong hour`() {
-        val engraved = 25.0
-        val off = Sundial.shadowInHand(engraved, 90.0, 40.4)
+    fun `only the meridian reads the right hour all day`() {
+        val lat = 40.4
+        fun worstErrorAt(bearing: Double): Double {
+            var worst = 0.0
+            val axes = Sundial.levelPlate(bearing)
+            for (hour in 8..16) {
+                val at = java.util.Calendar.getInstance().apply {
+                    timeZone = java.util.TimeZone.getTimeZone("UTC")
+                    set(2026, java.util.Calendar.JUNE, 21, hour, 0, 0)
+                    set(java.util.Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                val sun = SolarTime.position(lat, 0.0, at)
+                if (sun.altitudeDeg <= 5.0) continue
+                val engraved = Sundial.lineAngle(
+                    Sundial.Kind.HORIZONTAL, lat, SolarTime.hourAngleDeg(0.0, at) / 15.0
+                )
+                val shadow = Sundial.shadowOnPlate(
+                    sun.altitudeDeg, sun.azimuthDeg, axes[0], axes[1], axes[2], lat
+                ) ?: continue
+                var off = shadow - engraved
+                while (off > 180.0) off -= 360.0
+                while (off <= -180.0) off += 360.0
+                worst = maxOf(worst, kotlin.math.abs(off))
+            }
+            return worst
+        }
         assertTrue(
-            "a plate a quarter turn out is still reading the right hour",
-            kotlin.math.abs(off - engraved) > Sundial.ALIGNED_DEGREES
+            "an aligned dial is wrong somewhere in the day: ${worstErrorAt(0.0)}°",
+            worstErrorAt(0.0) < 1.0
         )
+        for (bearing in listOf(20.0, 45.0, 90.0, 150.0, 250.0, 320.0)) {
+            assertTrue(
+                "a plate at $bearing° read the right hour all day",
+                worstErrorAt(bearing) > Sundial.ALIGNED_DEGREES
+            )
+        }
     }
+
+    /** Ten in the morning at midsummer, so there is plenty of sun. */
+    private fun noonish(): Long =
+        java.util.Calendar.getInstance().apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+            set(2026, java.util.Calendar.JUNE, 21, 10, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
 
     /** Only the plate you can lay flat is aligned by turning a phone. */
     @Test

@@ -163,10 +163,7 @@ class CountdownService : Service() {
             // And in the idiom the face is wearing: somebody who chose
             // plain type for the clock did not choose bars for the thing
             // that floats over other apps.
-            plain = DigitStyle.of(
-                prefs.getString(Prefs.DIGIT_STYLE, null),
-                DigitScript.of(prefs.getString(Prefs.DIGIT_SCRIPT, null))
-            ) == DigitStyle.PLAIN
+            plain = DigitStyle.of(prefs) == DigitStyle.PLAIN
             totalMs = this@CountdownService.totalMs
             theme = ClockThemes.resolve(this@CountdownService, prefs.getString(Prefs.THEME, "midnight"))
         }

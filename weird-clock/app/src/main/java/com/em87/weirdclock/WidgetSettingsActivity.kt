@@ -63,13 +63,18 @@ class WidgetSettingsActivity : AppCompatActivity() {
         // sensible thing to assume when nothing else is known.
         val provider = AppWidgetManager.getInstance(this)
             .getAppWidgetInfo(widgetId)?.provider?.className.orEmpty()
-        val key = WidgetRenderer.alphaKeyOf(provider)
+        val kind = WidgetKind.of(provider)
+        val key = kind.alphaKey
 
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         val pad = (24 * resources.displayMetrics.density).toInt()
 
         val title = TextView(this).apply {
-            setText(R.string.widget_settings_title)
+            // The widget's own name, so a panel opened from a home screen
+            // holding four of these says which one it is. It said "Widget
+            // transparency" on all of them, which was true of the only
+            // control there used to be and is not a name.
+            text = getString(R.string.widget_settings_for, getString(nameOf(kind)))
             textSize = 19f
         }
         val reading = TextView(this).apply {
@@ -96,13 +101,7 @@ class WidgetSettingsActivity : AppCompatActivity() {
                 // Only the kind being configured is repainted. All three
                 // would work and would be three bitmaps pushed through IPC
                 // for every step of a slider.
-                when (key) {
-                    Prefs.WIDGET_ALPHA_ORRERY ->
-                        OrreryWidgetProvider.refreshAll(this@WidgetSettingsActivity)
-                    Prefs.WIDGET_ALPHA_HOURGLASS ->
-                        HourglassWidgetProvider.refreshAll(this@WidgetSettingsActivity)
-                    else -> ClockWidgetProvider.refreshAll(this@WidgetSettingsActivity)
-                }
+                repaint(kind)
             }
 
             override fun onStartTrackingTouch(bar: SeekBar) = Unit
@@ -134,7 +133,8 @@ class WidgetSettingsActivity : AppCompatActivity() {
                 addView(title)
                 addView(reading)
                 addView(slider)
-                for (extra in extrasFor(provider)) addView(switchFor(extra))
+                for (extra in extrasFor(kind)) addView(switchFor(extra, kind))
+                mechanismRow(kind)?.let { addView(it) }
                 addView(done)
             }
         )
@@ -162,44 +162,127 @@ class WidgetSettingsActivity : AppCompatActivity() {
      * AnalogClock with a dial painted behind it and has nowhere to put a
      * date that is not already on the dial.
      */
-    private fun extrasFor(provider: String): List<Extra> {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        return when {
-            provider.endsWith("HourglassWidgetProvider") -> listOf(
-                Extra(
+    private fun extrasFor(kind: WidgetKind): List<Extra> {
+        val rows = ArrayList<Extra>()
+        // Every one of them, because the thing somebody noticed is that
+        // some had a background and some did not — see [WidgetKind]. The
+        // default is what each of them already looked like.
+        rows += Extra(
+            kind.pref("ground"),
+            R.string.pref_widget_ground_title,
+            R.string.pref_widget_ground_summary,
+            kind.groundByDefault
+        )
+        when (kind) {
+            WidgetKind.HOURGLASS -> {
+                rows += Extra(
                     Prefs.WIDGET_SAND_PLAIN,
                     R.string.pref_widget_plain_title,
                     R.string.pref_widget_plain_summary,
                     false
                 )
-            )
-            provider.endsWith("OrreryWidgetProvider") -> emptyList()
-            Face.of(prefs) == Face.SUNDIAL -> listOf(
-                Extra(
-                    Prefs.WIDGET_SUNDIAL_WALL,
-                    R.string.pref_widget_sundial_wall_title,
-                    R.string.pref_widget_sundial_wall_summary,
+                // Its own answer rather than the app's. The hourglass on
+                // the home screen used to be sand or a bar depending on
+                // which face the app happened to be left on, which is a
+                // widget changing shape for a reason nobody can see from
+                // the home screen.
+                rows += Extra(
+                    Prefs.widgetHourglassDigits,
+                    R.string.pref_widget_hourglass_digits_title,
+                    R.string.pref_widget_hourglass_digits_summary,
                     false
                 )
+            }
+            WidgetKind.SUNDIAL -> rows += Extra(
+                Prefs.WIDGET_SUNDIAL_WALL,
+                R.string.pref_widget_sundial_wall_title,
+                R.string.pref_widget_sundial_wall_summary,
+                false
             )
-            // The date, on the one face whose widget draws one. It used to
-            // be every face without hands, which put the switch on the
-            // turning world's widget too — where nothing reads it and
-            // there is nowhere in a disc to print a date anyway.
-            Face.of(prefs) == Face.DIGITAL -> listOf(
-                Extra(
-                    Prefs.WIDGET_DATE,
-                    R.string.pref_widget_date_title,
-                    R.string.pref_widget_date_summary,
-                    false
-                )
+            WidgetKind.DIGITS -> rows += Extra(
+                Prefs.WIDGET_DATE,
+                R.string.pref_widget_date_title,
+                R.string.pref_widget_date_summary,
+                false
             )
-            else -> emptyList()
+            // The sun is the only thing standing outside the world, so on
+            // a widget its switch is also what lets the world fill the
+            // whole of it.
+            WidgetKind.GLOBE -> rows += Extra(
+                kind.pref("sun"),
+                R.string.pref_widget_globe_sun_title,
+                R.string.pref_widget_globe_sun_summary,
+                true
+            )
+            // The one that follows the app answers the app's questions,
+            // and the date is the one it has of its own — on the face
+            // that draws a bitmap, since the dial's widget is the
+            // system's own AnalogClock and has nowhere to put one.
+            WidgetKind.FOLLOWING ->
+                if (!Face.of(PreferenceManager.getDefaultSharedPreferences(this)).hands) {
+                    rows += Extra(
+                        Prefs.WIDGET_DATE,
+                        R.string.pref_widget_date_title,
+                        R.string.pref_widget_date_summary,
+                        false
+                    )
+                }
+            else -> Unit
+        }
+        return rows
+    }
+
+    /**
+     * The mechanism row, which only the digits have.
+     *
+     * A list rather than a switch, and the only control here that is not
+     * one — so it is built separately rather than bent into [Extra]. Left
+     * unset it follows the app, which is what it did before it could be
+     * set at all.
+     */
+    private fun mechanismRow(kind: WidgetKind): View? {
+        if (kind != WidgetKind.DIGITS) return null
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val pad = (12 * resources.displayMetrics.density).toInt()
+        val names = resources.getStringArray(R.array.digit_style_entries)
+        val values = resources.getStringArray(R.array.digit_style_values)
+        val label = TextView(this).apply {
+            setText(R.string.pref_mechanism_title)
+            textSize = 16f
+        }
+        val choices = android.widget.Spinner(this).apply {
+            adapter = android.widget.ArrayAdapter(
+                this@WidgetSettingsActivity,
+                android.R.layout.simple_spinner_dropdown_item,
+                names
+            )
+            val chosen = prefs.getString(kind.pref("mechanism"), null)
+                ?: DigitStyle.of(prefs).key
+            setSelection(values.indexOf(chosen).coerceAtLeast(0))
+            onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: android.widget.AdapterView<*>?,
+                    view: View?,
+                    position: Int,
+                    id: Long
+                ) {
+                    prefs.edit().putString(kind.pref("mechanism"), values[position]).apply()
+                    repaint(kind)
+                }
+
+                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
+            }
+        }
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, pad, 0, 0)
+            addView(label)
+            addView(choices)
         }
     }
 
     /** And the row it is drawn as, repainting the widget as it is flipped. */
-    private fun switchFor(extra: Extra): View {
+    private fun switchFor(extra: Extra, kind: WidgetKind): View {
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         val pad = (12 * resources.displayMetrics.density).toInt()
         val label = TextView(this).apply {
@@ -215,7 +298,7 @@ class WidgetSettingsActivity : AppCompatActivity() {
             isChecked = prefs.getBoolean(extra.key, extra.default)
             setOnCheckedChangeListener { _, on ->
                 prefs.edit().putBoolean(extra.key, on).apply()
-                refresh()
+                repaint(kind)
             }
         }
         return LinearLayout(this).apply {
@@ -234,18 +317,24 @@ class WidgetSettingsActivity : AppCompatActivity() {
     }
 
     /** Repaints whichever widget this panel was opened for. */
-    private fun refresh() {
-        val provider = AppWidgetManager.getInstance(this)
-            .getAppWidgetInfo(
-                intent?.getIntExtra(
-                    AppWidgetManager.EXTRA_APPWIDGET_ID,
-                    AppWidgetManager.INVALID_APPWIDGET_ID
-                ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
-            )?.provider?.className.orEmpty()
-        when {
-            provider.endsWith("OrreryWidgetProvider") -> OrreryWidgetProvider.refreshAll(this)
-            provider.endsWith("HourglassWidgetProvider") -> HourglassWidgetProvider.refreshAll(this)
+    private fun repaint(kind: WidgetKind) {
+        when (kind) {
+            WidgetKind.ORRERY -> OrreryWidgetProvider.refreshAll(this)
+            WidgetKind.HOURGLASS -> HourglassWidgetProvider.refreshAll(this)
+            WidgetKind.WEATHER -> WeatherWidgetProvider.refreshAll(this)
             else -> ClockWidgetProvider.refreshAll(this)
         }
+    }
+
+    /** What this kind is called, which is what the launcher calls it. */
+    private fun nameOf(kind: WidgetKind): Int = when (kind) {
+        WidgetKind.FOLLOWING -> R.string.app_name
+        WidgetKind.DIAL -> R.string.widget_dial_label
+        WidgetKind.DIGITS -> R.string.widget_digits_label
+        WidgetKind.SUNDIAL -> R.string.widget_sundial_label
+        WidgetKind.GLOBE -> R.string.widget_globe_label
+        WidgetKind.ORRERY -> R.string.widget_orrery_label
+        WidgetKind.HOURGLASS -> R.string.widget_hourglass_label
+        WidgetKind.WEATHER -> R.string.widget_weather_label
     }
 }

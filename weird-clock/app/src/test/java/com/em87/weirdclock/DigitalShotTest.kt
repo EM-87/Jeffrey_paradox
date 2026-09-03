@@ -39,7 +39,6 @@ class DigitalShotTest {
 
     private fun face(
         style: DigitStyle,
-        script: DigitScript,
         hour24: Boolean = true,
         seconds: Boolean = true,
         date: Boolean = true,
@@ -48,17 +47,10 @@ class DigitalShotTest {
         h: Int = 1400
     ): DigitalClockView = DigitalClockView(context).apply {
         theme = ClockThemes.MIDNIGHT
-        // Through the same rule the app uses, so these pictures are of
-        // things somebody can actually reach: a script that only exists as
-        // lit bars comes out as lit bars however it was asked for, and a
-        // sheet showing a Comet flip card would be a picture of a state
-        // the settings cannot produce.
-        this.style = DigitStyle.of(style.key, script)
-        this.script = script
+        this.style = style
         this.hour24 = hour24
         showSeconds = seconds
         showDate = date
-        yautja = Yautja.face(context)
         atMs = at
         measure(
             View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
@@ -76,9 +68,9 @@ class DigitalShotTest {
      * letterbox with the date printed through the bottom of it.
      */
     @Test
-    fun `the four mechanisms lying down`() {
+    fun `every mechanism lying down`() {
         for (style in DigitStyle.entries) {
-            val view = face(style, DigitScript.ARABIC, w = 2340, h = 900)
+            val view = face(style, w = 2340, h = 900)
             assertTrue(shoot(view, "landscape-${style.key}") > 3)
         }
     }
@@ -117,13 +109,13 @@ class DigitalShotTest {
         }.timeInMillis
         assertTrue(
             shoot(
-                face(DigitStyle.SEGMENT, DigitScript.ROMAN_COMET, at = at, seconds = false),
+                face(DigitStyle.SEGMENT, at = at, seconds = false),
                 "panel-1243"
             ) > 3
         )
         assertTrue(
             shoot(
-                face(DigitStyle.SEGMENT, DigitScript.ROMAN_COMET, at = at),
+                face(DigitStyle.SEGMENT, at = at),
                 "panel-seconds"
             ) > 3
         )
@@ -131,7 +123,7 @@ class DigitalShotTest {
         // only reading where the panel has anything lit at either end.
         assertTrue(
             shoot(
-                face(DigitStyle.SEGMENT, DigitScript.ROMAN_COMET, hour24 = false, at = at - 5 * 3_600_000L)
+                face(DigitStyle.SEGMENT, hour24 = false, at = at - 5 * 3_600_000L)
                     .apply { nextAlarmMs = at + 3_600_000L },
                 "panel-lamps"
             ) > 3
@@ -140,19 +132,17 @@ class DigitalShotTest {
         // AM and PM the drawing's own panel has printed on it.
         assertTrue(
             shoot(
-                face(DigitStyle.SEGMENT, DigitScript.ROMAN_COMET, hour24 = false, at = at),
+                face(DigitStyle.SEGMENT, hour24 = false, at = at),
                 "panel-twelve"
             ) > 3
         )
     }
 
     @Test
-    fun `every idiom in every alphabet`() {
+    fun `every idiom there is`() {
         for (style in DigitStyle.entries) {
-            for (script in DigitScript.entries) {
-                val name = "digital-${style.key}-${script.key}"
-                assertTrue(name, shoot(face(style, script), name) > 3)
-            }
+            val name = "digital-${style.key}"
+            assertTrue(name, shoot(face(style), name) > 3)
         }
     }
 
@@ -164,22 +154,19 @@ class DigitalShotTest {
         }.timeInMillis
         assertTrue(
             shoot(
-                face(DigitStyle.SEGMENT, DigitScript.ARABIC, hour24 = false, at = morning),
+                face(DigitStyle.SEGMENT, hour24 = false, at = morning),
                 "digital-twelve-morning"
             ) > 3
         )
         assertTrue(
             shoot(
-                face(DigitStyle.SEGMENT, DigitScript.ARABIC, hour24 = false),
+                face(DigitStyle.SEGMENT, hour24 = false),
                 "digital-twelve-night"
             ) > 3
         )
         assertTrue(
             shoot(
-                face(
-                    DigitStyle.SEGMENT, DigitScript.ROMAN_COMET,
-                    hour24 = false, at = morning
-                ),
+                face(DigitStyle.COMET, hour24 = false, at = morning),
                 "digital-twelve-panel"
             ) > 3
         )
@@ -190,7 +177,7 @@ class DigitalShotTest {
     fun `hours and minutes and nothing else`() {
         assertTrue(
             shoot(
-                face(DigitStyle.SEGMENT, DigitScript.ARABIC, seconds = false, date = false),
+                face(DigitStyle.SEGMENT, seconds = false, date = false),
                 "digital-bare"
             ) > 3
         )
@@ -207,7 +194,7 @@ class DigitalShotTest {
         }.timeInMillis
         assertTrue(
             shoot(
-                face(DigitStyle.SEGMENT, DigitScript.ROMAN_COMET, at = midnight),
+                face(DigitStyle.SEGMENT, at = midnight),
                 "panel-midnight"
             ) > 3
         )
@@ -447,7 +434,7 @@ class DigitalShotTest {
     /** And the daylight theme, which is where a pale ghost bar shows up. */
     @Test
     fun `the same face in daylight`() {
-        val view = face(DigitStyle.SEGMENT, DigitScript.ARABIC).apply {
+        val view = face(DigitStyle.SEGMENT).apply {
             theme = ClockThemes.DAYLIGHT
         }
         assertTrue(shoot(view, "digital-daylight") > 3)
@@ -466,11 +453,9 @@ class DigitalShotTest {
             val view = DigitalClockView(context).apply {
                 theme = ClockThemes.MIDNIGHT
                 style = DigitStyle.SEGMENT
-                script = DigitScript.ARABIC
                 fullScreen = true
                 bedsideSeconds = !bare
                 bedsideDate = !bare
-                yautja = Yautja.face(context)
                 atMs = atTwentyTwoFifteen()
                 measure(
                     View.MeasureSpec.makeMeasureSpec(1600, View.MeasureSpec.EXACTLY),
@@ -494,12 +479,12 @@ class DigitalShotTest {
      */
     @Test
     fun `the day of the week, and what is armed`() {
-        for (script in DigitScript.entries) {
-            val view = face(DigitStyle.SEGMENT, script).apply {
+        for (style in listOf(DigitStyle.SEGMENT, DigitStyle.COMET)) {
+            val view = face(style).apply {
                 showWeekday = true
                 nextAlarmMs = atTwentyTwoFifteen() + 9 * 3_600_000L + 15 * 60_000L
             }
-            assertTrue(shoot(view, "digital-day-alarm-${script.key}") > 3)
+            assertTrue(shoot(view, "digital-day-alarm-${style.key}") > 3)
         }
     }
 
@@ -522,11 +507,11 @@ class DigitalShotTest {
             .putBoolean(Prefs.SHOW_DATE, true)
             .commit()
         for ((w, h) in listOf(360 to 360, 720 to 300, 320 to 480)) {
-            for (script in DigitScript.entries) {
+            for (style in DigitStyle.entries) {
                 androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
-                    .edit().putString(Prefs.DIGIT_SCRIPT, script.key).commit()
+                    .edit().putString(Prefs.DIGIT_STYLE, style.key).commit()
                 val bitmap = WidgetRenderer.digitalBitmap(context, w, h)
-                val name = "widget-digital-${script.key}-${w}x$h"
+                val name = "widget-digital-${style.key}-${w}x$h"
                 File(outDir, "$name.png").outputStream().use {
                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
                 }
@@ -542,7 +527,7 @@ class DigitalShotTest {
         // of them ever has to work.
         androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
             .edit()
-            .putString(Prefs.DIGIT_SCRIPT, DigitScript.ROMAN_COMET.key)
+            .putString(Prefs.DIGIT_STYLE, DigitStyle.COMET.key)
             .putBoolean(Prefs.WIDGET_DATE, true)
             .commit()
         for ((w, h) in listOf(360 to 360, 720 to 300)) {
@@ -569,12 +554,12 @@ class DigitalShotTest {
      */
     @Test
     fun `the other cities, stacked under the time`() {
-        for (script in listOf(DigitScript.ARABIC, DigitScript.ROMAN_COMET)) {
-            val view = face(DigitStyle.SEGMENT, script).apply {
+        for (style in listOf(DigitStyle.SEGMENT, DigitStyle.COMET)) {
+            val view = face(style).apply {
                 cities = listOf("Europe/Madrid", "America/New_York", "Asia/Tokyo")
                     .map { WorldClocks.City(it) }
             }
-            assertTrue(shoot(view, "digital-cities-${script.key}") > 3)
+            assertTrue(shoot(view, "digital-cities-${style.key}") > 3)
         }
     }
 
@@ -589,16 +574,14 @@ class DigitalShotTest {
      */
     @Test
     fun `the clock on its side, filling the screen`() {
-        for (script in DigitScript.entries) {
+        for (mechanism in listOf(DigitStyle.SEGMENT, DigitStyle.COMET)) {
             val view = DigitalClockView(context).apply {
                 theme = ClockThemes.MIDNIGHT
-                style = DigitStyle.SEGMENT
-                this.script = script
+                style = mechanism
                 hour24 = true
                 showSeconds = true
                 showDate = true
                 fullScreen = true
-                yautja = Yautja.face(context)
                 atMs = atTwentyTwoFifteen()
                 measure(
                     View.MeasureSpec.makeMeasureSpec(1600, View.MeasureSpec.EXACTLY),
@@ -606,7 +589,7 @@ class DigitalShotTest {
                 )
                 layout(0, 0, 1600, 720)
             }
-            assertTrue(shoot(view, "bedside-${script.name.lowercase()}") > 3)
+            assertTrue(shoot(view, "bedside-${mechanism.key}") > 3)
         }
     }
 }

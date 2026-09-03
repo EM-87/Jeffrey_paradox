@@ -323,10 +323,17 @@ open class ClockWidgetProvider : AppWidgetProvider() {
             pinned: Face?
         ): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.widget_clock)
+            // Tapping a widget pinned to one clock opens that clock, for
+            // this visit only — see [MainActivity.EXTRA_SHOW_FACE]. The
+            // request codes have to differ per kind or the four widgets
+            // share one PendingIntent and the last one built wins, which
+            // is how a tap on the globe used to arrive at the dial.
             val openApp = PendingIntent.getActivity(
                 context,
-                0,
-                Intent(context, MainActivity::class.java),
+                if (pinned == null) 0 else pinned.ordinal + 1,
+                Intent(context, MainActivity::class.java).apply {
+                    pinned?.let { putExtra(MainActivity.EXTRA_SHOW_FACE, it.key) }
+                },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widget_analog_clock, openApp)
@@ -334,6 +341,10 @@ open class ClockWidgetProvider : AppWidgetProvider() {
 
             val prefs = PreferenceManager.getDefaultSharedPreferences(context)
             val face = pinned ?: Face.of(prefs)
+            // Which of the widgets in the launcher's list this one is, so
+            // it can be asked what it has been set to — see [WidgetKind].
+            val kind = WidgetKind.entries.firstOrNull { it.pinned == pinned && it.pinned != null }
+                ?: WidgetKind.FOLLOWING
             if (!face.hands) {
                 // The face with no hands. One of the two children is shown
                 // and the other hidden, rather than two providers with two
@@ -351,7 +362,8 @@ open class ClockWidgetProvider : AppWidgetProvider() {
                 views.setImageViewBitmap(
                     R.id.widget_digital_clock,
                     WidgetRenderer.faded(
-                        drawn, WidgetRenderer.alphaOf(context, Prefs.WIDGET_ALPHA)
+                        WidgetRenderer.grounded(context, kind, drawn),
+                        WidgetRenderer.alphaOf(context, Prefs.WIDGET_ALPHA)
                     )
                 )
                 return views
@@ -372,7 +384,11 @@ open class ClockWidgetProvider : AppWidgetProvider() {
                     Icon.createWithBitmap(WidgetRenderer.faded(bitmap, alpha))
                 views.setIcon(
                     R.id.widget_analog_clock, "setDial",
-                    faded(WidgetRenderer.dialBitmap(context, size))
+                    faded(
+                        WidgetRenderer.grounded(
+                            context, kind, WidgetRenderer.dialBitmap(context, size)
+                        )
+                    )
                 )
                 views.setIcon(
                     R.id.widget_analog_clock, "setHourHand",

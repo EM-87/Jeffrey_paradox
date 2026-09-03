@@ -117,8 +117,6 @@ object Weekday {
         // The panel writes its day in Latin: its numbers are printed, and
         // Rome is what this script is being.
         script == DigitScript.ROMAN_COMET -> latin(calendar.get(Calendar.DAY_OF_WEEK))
-        script == DigitScript.YAUTJA ->
-            isoNumber(calendar.get(Calendar.DAY_OF_WEEK)).toString()
         else -> local(calendar)
     }
 }

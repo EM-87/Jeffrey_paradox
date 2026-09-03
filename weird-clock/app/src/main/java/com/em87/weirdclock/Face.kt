@@ -268,6 +268,7 @@ object FaceOptions {
     private val digitalOnly = setOf(
         Prefs.DIGITAL_SECONDS,
         Prefs.COLON_BREATHES,
+        Prefs.COLON_PERIOD,
         Prefs.LEADING_ZERO,
         Prefs.BLINK_COLON,
         Prefs.SEGMENT_WEIGHT,
@@ -301,7 +302,6 @@ object FaceOptions {
      */
     private val readouts = setOf(
         Prefs.DIGIT_STYLE,
-        Prefs.DIGIT_SCRIPT,
         Prefs.HOUR_24,
         Prefs.SEGMENT_GHOSTS
     )
@@ -418,8 +418,6 @@ object FaceOptions {
         // like the digital clock's menu turned up on the wrong page.
         key == Prefs.DIGIT_STYLE && face == Face.HEMISPHERE ->
             R.string.pref_readout_style_title
-        key == Prefs.DIGIT_SCRIPT && face == Face.HEMISPHERE ->
-            R.string.pref_readout_script_title
         // Headings too. "Dial" over three rows that still apply is the app
         // not having noticed which clock it is.
         (key == CAT_DIAL || key == CAT_DIAL_DEEP) && face == Face.DIGITAL ->

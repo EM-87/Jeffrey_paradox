@@ -41,9 +41,38 @@ object CloudStore {
      */
     const val TOO_BIG = 3 * 1024 * 1024
 
-    /** Where the last one is, and when it came. */
+    /**
+     * Where they are kept, and when the last look for a new one was.
+     *
+     * One file per day rather than one file, which is two features and a
+     * bug fix in the same change. The bug: a single file was written in
+     * place, so a second fetch landing while the first was half done left
+     * a truncated JPEG on disk, and a truncated JPEG decodes to nothing —
+     * which is a globe with no clouds on it until the next fetch six
+     * hours later, reported as the clouds sometimes not being there. The
+     * feature: the world can be wound backwards, and a week of days on
+     * disk means winding it back a day changes the weather with it.
+     */
     private const val WHEN = "pref_clouds_at"
-    private const val FILE = "clouds.jpg"
+    private const val PREFIX = "clouds-"
+    private const val SUFFIX = ".jpg"
+
+    /** And the one file the single-file version used, for tidying away. */
+    private const val WAS = "clouds.jpg"
+
+    /** How many days are worth keeping, which is how far back the globe goes. */
+    const val KEEP_DAYS = 7
+
+    /**
+     * And how many of them one fetch will go and get.
+     *
+     * A week of pictures is half a megabyte, which is not a thing to do
+     * to somebody's data allowance in one go the first time they open the
+     * globe. Three at a time fills the week in over two or three days of
+     * ordinary use, and the days that are not there yet simply show the
+     * nearest one that is.
+     */
+    const val AT_A_TIME = 3
 
     /**
      * One fetch of bytes, so the tests can watch without a network.
@@ -84,7 +113,17 @@ object CloudStore {
             prefs.getBoolean(Prefs.HEMISPHERE_CLOUDS, true)
     }
 
-    private fun file(context: Context): File = File(context.cacheDir, FILE)
+    private fun file(context: Context, day: String): File =
+        File(context.cacheDir, "$PREFIX$day$SUFFIX")
+
+    /** Which day's photograph belongs on a globe wound to that instant. */
+    fun dayOf(atMs: Long): String = SatelliteClouds.dayFor(atMs)
+
+    /** That day, and the six before it, freshest first. */
+    private fun daysBack(fromMs: Long): List<String> =
+        (0 until KEEP_DAYS).map { dayOf(fromMs - it * DAY_MS) }
+
+    private const val DAY_MS = 24L * 60L * 60L * 1000L
 
     /**
      * The one decoded copy of the picture on disk, or nothing.
@@ -98,25 +137,39 @@ object CloudStore {
      * anything reapplied the settings — coming back to the app, swiping to
      * another card, night falling — the globe decided its clouds had
      * changed, threw away three baked discs and did the whole projection
-     * again from a fresh eighty-kilobyte JPEG decode. Which is why they
-     * flickered in and out, and a good part of why the battery noticed.
+     * again from a fresh eighty-kilobyte JPEG decode.
      *
-     * Keyed on the file's timestamp, so a fresh fetch is picked up and
-     * nothing else is.
+     * One held copy and not a week of them: a day is a megabyte decoded,
+     * and winding the world back through a week would otherwise be seven
+     * of them sitting in memory for the sake of a gesture that is over in
+     * a second.
      */
     private var held: Bitmap? = null
+    private var heldDay: String? = null
     private var heldAt = 0L
 
-    fun cached(context: Context): Bitmap? {
+    /**
+     * The clouds for a globe showing [atMs], which is not always now.
+     *
+     * The nearest day at or before the one asked for, because that is what
+     * the sky over a place actually was. Falling forward to a later day
+     * only when there is nothing earlier at all — a globe wound back to
+     * before the first picture we ever fetched, which is better served by
+     * the oldest weather we have than by none.
+     */
+    fun cached(context: Context, atMs: Long = TimeKeeper.nowMs()): Bitmap? {
         if (!wanted(context)) return null
-        val on = file(context)
-        if (!on.exists()) return null
+        val wanted = daysBack(atMs).firstOrNull { file(context, it).exists() }
+            ?: onDisk(context).lastOrNull()
+            ?: return null
+        val on = file(context, wanted)
         val stamp = on.lastModified()
-        held?.let { if (heldAt == stamp && !it.isRecycled) return it }
+        held?.let { if (heldDay == wanted && heldAt == stamp && !it.isRecycled) return it }
         return try {
             BitmapFactory.decodeFile(on.path, BitmapFactory.Options().apply { inScaled = false })
                 ?.also {
                     held = it
+                    heldDay = wanted
                     heldAt = stamp
                 }
         } catch (e: Exception) {
@@ -125,40 +178,106 @@ object CloudStore {
         }
     }
 
-    /** Whether what is on disk is old enough to be worth replacing. */
+    /** Which days are on disk, oldest first. */
+    private fun onDisk(context: Context): List<String> =
+        (context.cacheDir.listFiles() ?: emptyArray())
+            .mapNotNull {
+                val name = it.name
+                if (name.startsWith(PREFIX) && name.endsWith(SUFFIX)) {
+                    name.removePrefix(PREFIX).removeSuffix(SUFFIX)
+                } else {
+                    null
+                }
+            }
+            .sorted()
+
+    /** Whether what is on disk is old enough to be worth adding to. */
     fun stale(context: Context, nowMs: Long = TimeKeeper.nowMs()): Boolean {
         if (!wanted(context)) return false
-        if (!file(context).exists()) return true
-        val at = PreferenceManager.getDefaultSharedPreferences(context).getLong(WHEN, 0L)
-        return at <= 0L || nowMs - at >= EVERY_MS || nowMs < at
+        // Today's is missing: go now, whatever the throttle says. This is
+        // the first run and the morning after every night.
+        if (!file(context, dayOf(nowMs)).exists()) return true
+        if (daysBack(nowMs).any { !file(context, it).exists() }) {
+            val at = PreferenceManager.getDefaultSharedPreferences(context).getLong(WHEN, 0L)
+            return at <= 0L || nowMs - at >= EVERY_MS || nowMs < at
+        }
+        return false
     }
 
     /**
-     * Fetch one, if it is wanted and what there is has gone off.
+     * Fetch what is missing, newest first, and throw away what is too old.
      *
      * Blocking. Returns whether anything new was written.
      */
     fun refresh(context: Context, nowMs: Long = TimeKeeper.nowMs()): Boolean {
         if (!wanted(context)) return false
-        val bytes = fetch.get(SatelliteClouds.url(nowMs)) ?: return false
-        // Decoded before it is kept. A file that turns out not to be a
-        // picture is a globe that draws nothing every frame for six hours,
-        // and finding that out now costs one decode.
-        if (BitmapFactory.decodeByteArray(bytes, 0, bytes.size) == null) return false
-        return try {
-            file(context).writeBytes(bytes)
-            PreferenceManager.getDefaultSharedPreferences(context)
-                .edit().putLong(WHEN, nowMs).apply()
-            true
-        } catch (e: Exception) {
-            false
+        // The single file the first version kept, which is now nobody's
+        // day and would sit in the cache for ever.
+        File(context.cacheDir, WAS).delete()
+        var got = 0
+        for (day in daysBack(nowMs)) {
+            if (got >= AT_A_TIME) break
+            if (file(context, day).exists()) continue
+            val bytes = fetch.get(SatelliteClouds.url(day)) ?: continue
+            // Decoded before it is kept. A file that turns out not to be a
+            // picture is a globe that draws nothing every frame for six
+            // hours, and finding that out now costs one decode.
+            if (BitmapFactory.decodeByteArray(bytes, 0, bytes.size) == null) continue
+            if (write(context, day, bytes)) got++
+        }
+        PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().putLong(WHEN, nowMs).apply()
+        prune(context, nowMs)
+        return got > 0
+    }
+
+    /**
+     * Written beside itself and then moved into place.
+     *
+     * A rename is atomic and a write is not, and the difference is the
+     * whole of one bug: two fetches overlapping wrote the same file at
+     * once, and half a JPEG decodes to nothing at all.
+     */
+    private fun write(context: Context, day: String, bytes: ByteArray): Boolean = try {
+        val part = File(context.cacheDir, "$PREFIX$day$SUFFIX.part")
+        part.writeBytes(bytes)
+        part.renameTo(file(context, day)) || run { part.delete(); false }
+    } catch (e: Exception) {
+        false
+    }
+
+    /** Anything older than the week goes. */
+    private fun prune(context: Context, nowMs: Long) {
+        val keep = daysBack(nowMs).toSet()
+        for (day in onDisk(context)) {
+            if (day !in keep) file(context, day).delete()
         }
     }
 
-    /** And the same on a thread nothing is waiting for. */
+    /**
+     * And the same on a thread nothing is waiting for.
+     *
+     * One at a time. It used to start a thread every time the settings
+     * were applied — coming back to the app, swiping a card, night falling
+     * — so three or four of them could be writing the same file at once.
+     */
+    @Volatile
+    private var fetching = false
+
     fun refreshInBackground(context: Context) {
         if (!wanted(context) || !stale(context)) return
-        Thread { refresh(context) }.apply {
+        synchronized(this) {
+            if (fetching) return
+            fetching = true
+        }
+        val app = context.applicationContext
+        Thread {
+            try {
+                refresh(app)
+            } finally {
+                fetching = false
+            }
+        }.apply {
             isDaemon = true
             start()
         }
@@ -167,8 +286,10 @@ object CloudStore {
     /** Throws the picture away, for the switch being turned off. */
     fun forget(context: Context) {
         held = null
+        heldDay = null
         heldAt = 0L
-        file(context).delete()
+        File(context.cacheDir, WAS).delete()
+        for (day in onDisk(context)) file(context, day).delete()
         PreferenceManager.getDefaultSharedPreferences(context).edit().remove(WHEN).apply()
     }
 }

@@ -225,7 +225,18 @@ class WidgetSkinTest {
                     if (!inMargin) continue
                     // The panel's own rim is drawn out here and is allowed
                     // to be; nothing the clock says is.
-                    if (bitmap.getPixel(x, y) and 0xFFFFFF ==
+                    //
+                    // Solidly the display's colour, alpha and all. The
+                    // widget's background is a switch now, so this
+                    // picture can be drawn on nothing — and against
+                    // nothing the *anti-aliased* edge of a bar comes back
+                    // as the pure colour at a fifth of an alpha, which
+                    // masking the alpha off counted as a bar lying in the
+                    // margin. It is not one; it is the soft edge of one
+                    // two pixels inside it.
+                    val pixel = bitmap.getPixel(x, y)
+                    if (android.graphics.Color.alpha(pixel) > 160 &&
+                        pixel and 0xFFFFFF ==
                         ClockThemes.resolve(context, null).decimal and 0xFFFFFF
                     ) out++
                 }

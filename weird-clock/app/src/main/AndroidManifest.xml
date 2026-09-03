@@ -206,7 +206,7 @@
         <receiver
             android:name=".AnalogWidgetProvider"
             android:exported="false"
-            android:label="@string/widget_analog_label">
+            android:label="@string/widget_dial_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="android.intent.action.DATE_CHANGED" />
@@ -216,13 +216,13 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info" />
+                android:resource="@xml/widget_dial_info" />
         </receiver>
 
         <receiver
             android:name=".DigitalWidgetProvider"
             android:exported="false"
-            android:label="@string/widget_digital_label">
+            android:label="@string/widget_digits_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="android.intent.action.DATE_CHANGED" />
@@ -232,7 +232,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info" />
+                android:resource="@xml/widget_digits_info" />
         </receiver>
 
         <receiver
@@ -248,13 +248,13 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info" />
+                android:resource="@xml/widget_sundial_info" />
         </receiver>
 
         <receiver
             android:name=".WorldWidgetProvider"
             android:exported="false"
-            android:label="@string/widget_world_label">
+            android:label="@string/widget_globe_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="android.intent.action.DATE_CHANGED" />
@@ -264,7 +264,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info" />
+                android:resource="@xml/widget_globe_info" />
         </receiver>
 
         <receiver
@@ -285,6 +285,19 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_orrery_info" />
+        </receiver>
+
+        <receiver
+            android:name=".WeatherWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_weather_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.em87.weirdclock.WEATHER_TICK" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_weather_info" />
         </receiver>
 
         <receiver

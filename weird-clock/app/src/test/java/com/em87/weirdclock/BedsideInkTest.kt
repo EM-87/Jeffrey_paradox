@@ -43,7 +43,6 @@ class BedsideInkTest {
         DigitalClockView(context).apply {
             theme = ClockThemes.MIDNIGHT
             style = DigitStyle.SEGMENT
-            script = DigitScript.ARABIC
             hour24 = true
             showWeekday = false
             fullScreen = true

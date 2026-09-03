@@ -44,8 +44,17 @@ object Prefs {
     const val DIGITS_CARD = "card"
     const val DIGITS_ROLLER = "roller"
 
-    /** Which numerals the digits are made of: ours, Rome's, theirs, or a
-     * calculator's. */
+    /** Rome and the calculator, on one panel — see [CometPanel]. */
+    const val DIGITS_COMET = "comet"
+
+    /**
+     * The alphabet the numbers were written in, which is not a setting any
+     * more — see [DigitScript].
+     *
+     * The key is still read, and only read: somebody who chose Rome has
+     * the panel stored here rather than on the mechanism's own key, and
+     * [DigitStyle.of] is what turns that back into the clock they had.
+     */
     const val DIGIT_SCRIPT = "pref_digit_script"
     const val SCRIPT_ARABIC = "arabic"
     const val SCRIPT_ROMAN = "roman"
@@ -144,6 +153,17 @@ object Prefs {
     const val COLON_BREATHES = "pref_colon_breathes"
 
     /**
+     * How long one blink, or one breath, takes.
+     *
+     * Stored as milliseconds in a string, because it is a list and a list
+     * of numbers is still a list. A second is what a cheap clock does and
+     * is the default; two is a slow pulse that reads as breathing rather
+     * than as a fault, which is what somebody asked for after living with
+     * the one-second version for a version.
+     */
+    const val COLON_PERIOD = "pref_colon_period"
+
+    /**
      * The next alarm, on the face.
      *
      * Standard equipment: a watch has a flag, a lock screen has the time
@@ -222,6 +242,16 @@ object Prefs {
 
     /** Whether the countdown widget writes its time in the phone's type. */
     const val WIDGET_SAND_PLAIN = "pref_widget_sand_plain"
+
+    /**
+     * Whether the hourglass widget is a bar of digits rather than sand.
+     *
+     * Its own answer and not the app's. It used to follow the face, so an
+     * hourglass on the home screen turned into a progress bar because
+     * somebody had changed the clock inside the app — a widget changing
+     * shape for a reason nobody can see from the home screen.
+     */
+    val widgetHourglassDigits: String get() = WidgetKind.HOURGLASS.pref("digits")
 
     // ------------------------------------------------------- the sundial
 

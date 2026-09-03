@@ -6,6 +6,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
 
 /**
  * The Roman Comet: the calculator's nine and Rome's module, as one panel.
@@ -21,6 +22,8 @@ import org.junit.Test
  * display and would stop being true if the table were a seven-bar table
  * with the names changed.
  */
+@RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [33])
 class RomanCometTest {
 
     private val nine = Segments.Kind.NINE
@@ -222,18 +225,18 @@ class RomanCometTest {
      * widget and the alarm card all read the same two settings.
      */
     @Test
-    fun `the panel is bars whatever else is asked for`() {
-        for (key in listOf(Prefs.DIGITS_ROLLER, Prefs.DIGITS_CARD, Prefs.DIGITS_PLAIN, null)) {
-            assertEquals(
-                "$key got past the panel",
-                DigitStyle.SEGMENT, DigitStyle.of(key, DigitScript.ROMAN_COMET)
-            )
+    fun `the panel is a mechanism of its own now`() {
+        // It used to be a *numeral*, which meant three of the four
+        // mechanisms could not carry it and the rule that quietly turned
+        // them all back into lit bars had to be written down and obeyed in
+        // three places. One list, and the question does not arise.
+        assertEquals(DigitScript.ROMAN_COMET, DigitScript.forStyle(DigitStyle.COMET))
+        for (style in DigitStyle.entries - DigitStyle.COMET) {
+            assertEquals("$style writes the panel's numerals",
+                DigitScript.ARABIC, DigitScript.forStyle(style))
         }
-        // And it is the only script that takes the choice away.
-        for (script in DigitScript.entries - DigitScript.ROMAN_COMET) {
-            assertFalse(script.barsOnly)
-            assertEquals(DigitStyle.ROLLER, DigitStyle.of(Prefs.DIGITS_ROLLER, script))
-        }
+        assertEquals("the panel is not on the list of mechanisms",
+            DigitStyle.COMET, DigitStyle.of(Prefs.DIGITS_COMET))
     }
 
     /**
@@ -247,17 +250,25 @@ class RomanCometTest {
      * to first is the one who drew the module.
      */
     @Test
-    fun `both of the scripts this replaced land on it`() {
-        assertEquals(DigitScript.ROMAN_COMET, DigitScript.of(Prefs.SCRIPT_ROMAN))
-        assertEquals(DigitScript.ROMAN_COMET, DigitScript.of(Prefs.SCRIPT_COMET))
-        assertEquals(DigitScript.ROMAN_COMET, DigitScript.of(Prefs.SCRIPT_ROMAN_COMET))
-        // And nothing else moved.
-        assertEquals(DigitScript.ARABIC, DigitScript.of(Prefs.SCRIPT_ARABIC))
-        assertEquals(DigitScript.YAUTJA, DigitScript.of(Prefs.SCRIPT_YAUTJA))
-        assertEquals(DigitScript.ARABIC, DigitScript.of("something else entirely"))
-        assertEquals(DigitScript.ARABIC, DigitScript.of(null))
-        // The list itself is three now, not four.
-        assertEquals(3, DigitScript.entries.size)
+    fun `everybody who chose this still has it`() {
+        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(
+            androidx.test.core.app.ApplicationProvider.getApplicationContext()
+        )
+        for (old in listOf(Prefs.SCRIPT_ROMAN, Prefs.SCRIPT_COMET, Prefs.SCRIPT_ROMAN_COMET)) {
+            prefs.edit().clear().putString(Prefs.DIGIT_SCRIPT, old).commit()
+            assertEquals("$old woke up as an ordinary clock",
+                DigitStyle.COMET, DigitStyle.of(prefs))
+        }
+        // And nobody else moved. The alphabet list is gone, so somebody
+        // who had the alien font gets the mechanism they had chosen
+        // underneath it — which for all but one of them was lit bars.
+        prefs.edit().clear()
+            .putString(Prefs.DIGIT_SCRIPT, Prefs.SCRIPT_YAUTJA)
+            .putString(Prefs.DIGIT_STYLE, Prefs.DIGITS_ROLLER)
+            .commit()
+        assertEquals(DigitStyle.ROLLER, DigitStyle.of(prefs))
+        prefs.edit().clear().commit()
+        assertEquals(DigitStyle.SEGMENT, DigitStyle.of(prefs))
     }
 
     /**
@@ -364,11 +375,11 @@ class RomanCometTest {
      * day in Latin rather than as a figure.
      */
     @Test
-    fun `the panel says its weekday in Latin and the star display in numbers`() {
+    fun `the panel says its weekday in Latin and everything else says it plainly`() {
         val monday = java.util.Calendar.getInstance().apply {
             set(2026, java.util.Calendar.AUGUST, 24)
         }
         assertEquals("LVN", Weekday.of(monday, DigitScript.ROMAN_COMET))
-        assertEquals("1", Weekday.of(monday, DigitScript.YAUTJA))
+        assertEquals("mon", Weekday.of(monday, DigitScript.ARABIC).lowercase().take(3))
     }
 }

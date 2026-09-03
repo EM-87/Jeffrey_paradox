@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the launcher shows in its list. Drawn rather than photographed:
+     a screenshot of a widget is a screenshot of one theme at one size,
+     and these have to read at a centimetre square in a grid of other
+     people's icons. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="72dp"
+    android:height="72dp"
+    android:viewportWidth="72"
+    android:viewportHeight="72">
+    <path
+        android:fillColor="#141821"
+        android:pathData="M36,4a32,32 0 1,0 0.1,0z" />
+    <path
+        android:strokeColor="#8FA3C0"
+        android:strokeWidth="2"
+        android:pathData="M36,5a31,31 0 1,0 0.1,0z" />
+    <path android:fillColor="#E8EDF5" android:pathData="M35,36l0,-19l2,0l0,19z" />
+    <path android:fillColor="#E8EDF5" android:pathData="M35,35l17,0l0,2l-17,0z" />
+    <path android:fillColor="#FF4B4B" android:pathData="M35.4,37l0,14l1.2,0l0,-14z" />
+    <path android:fillColor="#E8EDF5" android:pathData="M36,33a3,3 0 1,0 0.1,0z" />
+</vector>

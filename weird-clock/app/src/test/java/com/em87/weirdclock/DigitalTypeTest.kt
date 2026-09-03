@@ -44,7 +44,6 @@ class DigitalTypeTest {
     ): DigitalClockView = DigitalClockView(context).apply {
         theme = ClockThemes.MIDNIGHT
         this.style = style
-        script = DigitScript.ARABIC
         hour24 = true
         showSeconds = false
         showDate = date

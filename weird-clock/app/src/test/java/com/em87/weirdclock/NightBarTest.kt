@@ -230,7 +230,7 @@ class NightBarTest {
                 // What the display is, which is the decision every other
                 // row about the digits refines. It was two taps in.
                 "cat_digits",
-                "pref_digit_style", "pref_digit_script", "pref_digital_seconds",
+                "pref_digit_style", "pref_digital_seconds",
                 "cat_dial",
                 "pref_night_dim", "pref_theme", "pref_show_date",
                 // The one switch in this app that turns a network on.
@@ -273,7 +273,7 @@ class NightBarTest {
                 // The digits' own settings, on the page only when the
                 // face is digital.
                 "pref_hour_24",
-                "pref_leading_zero", "pref_blink_colon", "pref_colon_breathes",
+                "pref_leading_zero", "pref_blink_colon", "pref_colon_breathes", "pref_colon_period",
                 "pref_hemisphere_view", "pref_hemisphere_sun_at",
                 "pref_hemisphere_compass",
                 "pref_hemisphere_ring", "pref_hemisphere_numbers",

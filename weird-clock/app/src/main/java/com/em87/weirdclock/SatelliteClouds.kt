@@ -92,11 +92,21 @@ object SatelliteClouds {
      * where you are afterwards, on the phone. There is nothing in this
      * request that says who is asking.
      */
-    fun url(nowMs: Long): String =
+    fun url(nowMs: Long): String = url(dayFor(nowMs))
+
+    /**
+     * And for a day by name, which is how a week of them is fetched.
+     *
+     * The store keeps one picture per day so the globe can be wound
+     * backwards through the week — see [CloudStore] — and asks for them
+     * by the day rather than by an instant, because "thirty hours before
+     * some time on that day" is a sum that has already been done by then.
+     */
+    fun url(day: String): String =
         "$HOST?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0" +
             "&LAYERS=$LAYER&CRS=EPSG:4326&BBOX=-90,-180,90,180" +
             "&WIDTH=$WIDTH&HEIGHT=$HEIGHT&FORMAT=image/jpeg" +
-            "&TIME=${dayFor(nowMs)}"
+            "&TIME=$day"
 
     // ------------------------------------------------------------- the veil
 

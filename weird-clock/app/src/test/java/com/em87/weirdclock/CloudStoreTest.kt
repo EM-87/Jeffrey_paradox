@@ -96,13 +96,91 @@ class CloudStoreTest {
         assertTrue(asked.isEmpty())
     }
 
-    /** On, one fetch puts a picture on disc that the globe can read. */
+    /** On, one run puts pictures on disc that the globe can read. */
     @Test
-    fun `on, it fetches once and the picture decodes`() {
+    fun `on, it fetches and the picture decodes`() {
         assertTrue(CloudStore.refresh(context))
-        assertEquals(1, asked.size)
-        assertTrue("it asked somewhere else", asked.single().startsWith(SatelliteClouds.HOST))
+        assertEquals(
+            "a run is meant to be a handful of days, not a week",
+            CloudStore.AT_A_TIME, asked.size
+        )
+        assertTrue("it asked somewhere else", asked.all { it.startsWith(SatelliteClouds.HOST) })
         assertNotNull("what was kept is not a picture", CloudStore.cached(context))
+    }
+
+    /**
+     * A week of them, so the globe can be wound back through it.
+     *
+     * The world turns under a finger and the terminator goes with it; the
+     * weather has to go too, or winding the world back a day is yesterday's
+     * earth wearing today's cyclone. A few days a run, so the first time
+     * somebody opens the globe is not half a megabyte.
+     */
+    @Test
+    fun `it fills in a week, a few days at a time`() {
+        val now = TimeKeeper.nowMs()
+        // The same instant each time, so the week being filled is the
+        // only thing moving. Three runs is what a week at three a run
+        // takes; a fourth would have nothing left to ask for.
+        var runs = 0
+        while (CloudStore.refresh(context, now) && runs < 10) runs++
+        assertTrue("it never filled the week: $runs runs", runs in 2..4)
+        assertEquals(
+            "the week is not a week",
+            CloudStore.KEEP_DAYS,
+            asked.map { it.substringAfter("&TIME=") }.distinct().size
+        )
+        // And every day of it can be read back, which is the whole point.
+        for (back in 0 until CloudStore.KEEP_DAYS) {
+            assertNotNull(
+                "no clouds for $back days ago",
+                CloudStore.cached(context, now - back * 24L * 60L * 60L * 1000L)
+            )
+        }
+    }
+
+    /**
+     * A day it has not got falls back to the nearest one it has.
+     *
+     * Which is what a photograph of the sky means: the nearest earlier day
+     * is what the weather actually was, and a globe wound back to before
+     * the first picture we ever fetched is better served by the oldest
+     * weather we have than by none.
+     */
+    @Test
+    fun `a day with no picture wears the nearest one there is`() {
+        val now = TimeKeeper.nowMs()
+        assertTrue(CloudStore.refresh(context, now))
+        val day = 24L * 60L * 60L * 1000L
+        assertNotNull("nothing for today", CloudStore.cached(context, now))
+        assertNotNull(
+            "nothing for a day nobody has fetched",
+            CloudStore.cached(context, now - 30L * day)
+        )
+    }
+
+    /**
+     * Two fetches at once do not leave half a picture on the disc.
+     *
+     * This was the bug behind "the clouds are sometimes not there". The
+     * file was written in place and a thread was started every time the
+     * settings were applied — coming back to the app, swiping a card,
+     * night falling — so two of them could be writing the same bytes at
+     * the same moment, and half a JPEG decodes to nothing at all.
+     */
+    @Test
+    fun `only one fetch runs at a time`() {
+        val started = java.util.concurrent.atomic.AtomicInteger()
+        val letGo = java.util.concurrent.CountDownLatch(1)
+        CloudStore.fetch = CloudStore.Fetch {
+            started.incrementAndGet()
+            letGo.await(2, java.util.concurrent.TimeUnit.SECONDS)
+            sample()
+        }
+        repeat(5) { CloudStore.refreshInBackground(context) }
+        Thread.sleep(120)
+        assertEquals("five threads went to NASA at once", 1, started.get())
+        letGo.countDown()
     }
 
     /**

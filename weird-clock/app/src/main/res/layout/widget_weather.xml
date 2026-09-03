@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One picture: the sky's own token with whatever is in front of it, and
+     the temperature under it. Everything on it is drawn by the app rather
+     than laid out here, for the same reason the clock widget's digital
+     half is a bitmap: a RemoteViews layout can hold a number and cannot
+     hold a moon with a cloud across it. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/widget_weather_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@string/widget_weather_label" />
+
+</FrameLayout>

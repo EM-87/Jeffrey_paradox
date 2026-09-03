@@ -110,9 +110,35 @@ class SundialView @JvmOverloads constructor(
     var compass: Boolean = false
         set(value) { field = value; invalidate() }
 
+    /**
+     * Whether the stone the dial is cut into is painted behind it.
+     *
+     * On everywhere in the app. Off on a home screen that would rather
+     * have its wallpaper — see [WidgetKind].
+     */
+    var ground: Boolean = true
+        set(value) { field = value; invalidate() }
+
     /** Which way the top of the phone is pointing, when anything knows. */
     var phoneBearing: Double? = null
         set(value) { field = value; invalidate() }
+
+    /**
+     * And how it is being held, which is the other half of that.
+     *
+     * The phone's own rotation matrix, nine numbers, as the sensor hands
+     * it over: the plate's three axes in east-north-up terms. A bearing
+     * alone says which way the dial is turned and takes it on trust that
+     * it is lying flat, which is the one thing a phone in a hand is never
+     * doing — see [Sundial.shadowOnPlate]. Null on a phone whose rotation
+     * vector is not worth reading, and then the bearing alone is used and
+     * flat is assumed, which is what this did for everybody.
+     */
+    var phoneOrientation: FloatArray? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
 
     /**
      * Whether the glass and the thermometer stand beside the dial.
@@ -194,7 +220,7 @@ class SundialView @JvmOverloads constructor(
         val w = width.toFloat()
         val h = height.toFloat()
         if (w <= 0f || h <= 0f) return
-        canvas.drawColor(theme.face)
+        if (ground) canvas.drawColor(theme.face)
 
         val sky = sky()
         // Smaller in the hand than on the table, and for a reason that is
@@ -428,6 +454,31 @@ class SundialView @JvmOverloads constructor(
     // ------------------------------------------------------- the shadow
 
     /**
+     * The plate's three axes in the world, from whatever the phone knows.
+     *
+     * A rotation matrix's columns are the device's own axes in east,
+     * north and up — x to the right of the screen, y out of its top, z
+     * out of its face — which is exactly what a plate lying on the glass
+     * has. With no matrix the bearing is all there is and the plate is
+     * taken to be flat, which is what this assumed about every phone
+     * until the tilt was asked for.
+     */
+    private fun plateAxes(): Array<DoubleArray>? {
+        val m = phoneOrientation
+        if (m != null && m.size >= 9) {
+            return arrayOf(
+                doubleArrayOf(m[0].toDouble(), m[3].toDouble(), m[6].toDouble()),
+                doubleArrayOf(m[1].toDouble(), m[4].toDouble(), m[7].toDouble()),
+                doubleArrayOf(m[2].toDouble(), m[5].toDouble(), m[8].toDouble())
+            )
+        }
+        return phoneBearing?.let { Sundial.levelPlate(it) }
+    }
+
+    /** For the tests: the plate's axes as the phone is holding it. */
+    internal fun plateAxesForTest(): Array<DoubleArray>? = plateAxes()
+
+    /**
      * The shadow of the style, which is the only moving part.
      *
      * A wedge rather than a line, and it spreads as it goes: a real
@@ -455,9 +506,20 @@ class SundialView @JvmOverloads constructor(
         // wrong everywhere else. Which is the whole of what aligning a
         // dial means, and the only thing that makes the compass worth
         // having — see [Sundial.trueShadowAngle].
+        //
+        // Worked out from where the style actually is rather than by
+        // swinging the engraved line — see [Sundial.shadowOnPlate]. The
+        // difference is the tilt: a phone is never flat, and a tilted
+        // plate carries its style with it, so the shadow moves by rather
+        // less than the turn and by something at all when the phone is
+        // only leaned. Without that the mode was a picture being spun.
         val pointing = compass && Sundial.pointable(kind) && phoneBearing != null
+        val held = if (!pointing) null else plateAxes()
         val angle =
-            if (pointing) Sundial.shadowInHand(ideal, phoneBearing!!, latitude) else ideal
+            if (held == null) ideal
+            else Sundial.shadowOnPlate(
+                sky.altitude, sky.azimuth, held[0], held[1], held[2], latitude
+            ) ?: return
         val reach = Sundial.shadowReach(sky.altitude) * r * 1.45f
         val a = Math.toRadians(angle - 90.0 + if (hangs) 180.0 else 0.0)
         val dx = cos(a).toFloat()

@@ -29,86 +29,88 @@ enum class DigitStyle(val key: String) {
     CARD(Prefs.DIGITS_CARD),
 
     /** A drum with the numbers round it, seen through a window. */
-    ROLLER(Prefs.DIGITS_ROLLER);
+    ROLLER(Prefs.DIGITS_ROLLER),
+
+    /**
+     * Rome's module and a calculator's nine, on one panel — see
+     * [CometPanel].
+     *
+     * This was a *numeral* for a while and sat on a second list beside
+     * this one, which was the wrong shape for it twice over. It is not an
+     * alphabet: it is the shape nine pieces of metal make when they are
+     * lit, and it cannot leave its own displays — so three of the four
+     * entries on this list could not carry it, and the row that offered
+     * it had to be narrowed by hand depending on what this row said. Two
+     * lists where the second one is mostly a function of the first is one
+     * list, and this is it.
+     */
+    COMET(Prefs.DIGITS_COMET);
 
     companion object {
         fun of(key: String?): DigitStyle =
             entries.firstOrNull { it.key == key } ?: SEGMENT
 
         /**
-         * The same, for a script that may not have a choice — see
-         * [DigitScript.barsOnly].
+         * What the settings actually say, old settings included.
          *
-         * Resolved here rather than at each of the three places that read
-         * the two settings, because a rule kept in three places is a rule
-         * that holds in two: the face, the widget and the alarm card would
-         * each have to remember it, and the one that forgot would draw a
-         * Comet clock in the phone's own type and look like a setting that
-         * had not taken.
+         * Read here rather than at each of the three places that ask —
+         * the face, the widget and the alarm card — because a rule kept
+         * in three places is a rule that holds in two.
+         *
+         * The old answer was two settings: a mechanism and an alphabet.
+         * The alphabet is gone (one of the three was a font nobody could
+         * read a time in, and the other two were the mechanism wearing a
+         * hat), so anybody who had the panel had it stored on the *other*
+         * key. Without this line their clock would quietly become an
+         * ordinary one on the version that dropped the row.
          */
-        fun of(key: String?, script: DigitScript): DigitStyle =
-            if (script.barsOnly) SEGMENT else of(key)
+        fun of(prefs: android.content.SharedPreferences): DigitStyle {
+            val script = prefs.getString(Prefs.DIGIT_SCRIPT, null)
+            if (script == Prefs.SCRIPT_ROMAN ||
+                script == Prefs.SCRIPT_COMET ||
+                script == Prefs.SCRIPT_ROMAN_COMET
+            ) {
+                return COMET
+            }
+            return of(prefs.getString(Prefs.DIGIT_STYLE, null))
+        }
     }
 }
 
 /**
- * Which numerals, which is a different question from how they are made.
+ * Which numerals a mechanism writes its numbers in.
  *
- * A flip card can carry any of the first three on its face and a drum can
- * have any of them round it, so the two axes really are independent — with
- * one honest exception, which is [barsOnly].
+ * Not a setting any more. It was one — three alphabets on a list of their
+ * own — and two of the three had no business being there: one was a font
+ * from a film that nobody can read a time in, and the other was not an
+ * alphabet at all but a pair of drawn displays that could only ever be
+ * themselves. What is left is a fact about the mechanism, so it is
+ * derived from the mechanism and this type is kept because several things
+ * that draw a number still have to ask which of the two they are writing.
  */
-enum class DigitScript(val key: String) {
+enum class DigitScript {
 
     /** 0 to 9, and the reason a seven-bar display has seven bars. */
-    ARABIC(Prefs.SCRIPT_ARABIC),
-
-    /** Theirs — see [Yautja]. A font, so it is drawn as writing. */
-    YAUTJA(Prefs.SCRIPT_YAUTJA),
+    ARABIC,
 
     /**
      * Both of the drawn displays at once — see [CometPanel].
      *
-     * This was two entries on this list for a while: Rome's module, which
-     * writes letters and draws numbers nobody can read at a glance, and a
+     * This was two entries on the old list: Rome's module, which writes
+     * letters and draws numbers nobody can read at a glance, and a
      * calculator's nine, which draws a beautiful number and cannot write a
      * letter at all. Neither was a whole clock. They are one panel now,
      * with the time in the calculator's digits and the date in Rome's
      * module on rails above and below it, and each alphabet does the one
      * thing it is good at.
-     *
-     * The one entry here that names machines rather than an alphabet, and
-     * the only one that cannot leave its own displays.
      */
-    ROMAN_COMET(Prefs.SCRIPT_ROMAN_COMET);
-
-    /**
-     * Whether this script exists as lit bars and nothing else.
-     *
-     * The other three are alphabets, and a flip card can be printed with
-     * any of them. The Comet's numerals are not an alphabet — they are the
-     * shape nine pieces of metal make when they are lit, and a card with
-     * them printed on it would be a photograph of a display. Asked for on
-     * a drum this quietly gives back the display instead, which is the
-     * only honest reading of the request.
-     */
-    val barsOnly: Boolean get() = this == ROMAN_COMET
+    ROMAN_COMET;
 
     companion object {
 
-        /**
-         * The script stored under that key, with the two that were merged
-         * landing on the one that replaced them.
-         *
-         * Somebody had Rome's numerals set — the owner of this app did —
-         * and somebody had the calculator's. Neither key exists any more,
-         * and without this line both of them would fall through to the
-         * default and quietly turn a Roman clock into an ordinary one.
-         */
-        fun of(key: String?): DigitScript = when (key) {
-            Prefs.SCRIPT_ROMAN, Prefs.SCRIPT_COMET -> ROMAN_COMET
-            else -> entries.firstOrNull { it.key == key } ?: ARABIC
-        }
+        /** Which numerals that mechanism writes in. */
+        fun forStyle(style: DigitStyle): DigitScript =
+            if (style == DigitStyle.COMET) ROMAN_COMET else ARABIC
     }
 }
 
@@ -246,20 +248,38 @@ object DigitalReadout {
     /**
      * How lit a breathing colon is, from a quarter to full, at [atMs].
      *
-     * One breath to the second, and a cosine rather than a triangle
+     * One breath to [periodMs], and a cosine rather than a triangle
      * because a triangle has a corner at each end and the eye finds
      * corners. It never reaches nothing: a colon that goes out is a blink
      * with extra steps, and the whole point of this is a face that moves
      * without anything on it disappearing.
      */
-    fun breath(atMs: Long): Float {
-        val into = ((atMs % 1000L) + 1000L) % 1000L / 1000.0
+    fun breath(atMs: Long, periodMs: Long = SECOND_MS): Float {
+        val every = periodMs.coerceAtLeast(1L)
+        val into = ((atMs % every) + every) % every / every.toDouble()
         val swell = (Math.cos(2.0 * Math.PI * into) + 1.0) / 2.0
         return (BREATH_FLOOR + (1f - BREATH_FLOOR) * swell).toFloat()
     }
 
+    /**
+     * And whether a blinking colon is lit at [atMs].
+     *
+     * Half of [periodMs] on and half off, which is what a blink is. Here
+     * rather than in the drawing because the breath is here and the two
+     * are one setting seen from two sides — and because a colon that
+     * blinks on one clock and breathes on another out of step would be
+     * two clocks.
+     */
+    fun blink(atMs: Long, periodMs: Long = SECOND_MS): Boolean {
+        val every = periodMs.coerceAtLeast(1L)
+        return ((atMs / every) % 2L + 2L) % 2L == 0L
+    }
+
     /** The dimmest a breath goes. */
     const val BREATH_FLOOR = 0.25f
+
+    /** What a colon does by default, which is what a cheap clock does. */
+    const val SECOND_MS = 1000L
 
     /**
      * Twelve rather than nought, and one to twelve rather than thirteen to

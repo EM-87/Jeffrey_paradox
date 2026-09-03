@@ -48,6 +48,16 @@
             android:summary="@string/pref_colon_breathes_summary"
             android:title="@string/pref_colon_breathes_title" />
 
+        <!-- And how long one of them takes, blink or breath. Faded with
+             the two above, for the same reason. -->
+        <ListPreference
+            android:defaultValue="1000"
+            android:entries="@array/colon_period_entries"
+            android:entryValues="@array/colon_period_values"
+            android:key="pref_colon_period"
+            android:title="@string/pref_colon_period_title"
+            app:useSimpleSummaryProvider="true" />
+
         <!-- The pen the display is stamped with, and whether the bars it
              is not using are drawn. Both are about the instrument rather
              than about the time, which is why they are here and not on the

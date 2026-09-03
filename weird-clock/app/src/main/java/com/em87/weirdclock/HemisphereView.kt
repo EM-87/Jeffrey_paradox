@@ -40,6 +40,17 @@ class HemisphereView @JvmOverloads constructor(
     var theme: ClockTheme = ClockThemes.MIDNIGHT
         set(value) { field = value; invalidate() }
 
+    /**
+     * Whether the black of space is painted behind the world.
+     *
+     * On everywhere in the app, where the globe fills a card and the sky
+     * is the card. Turnable off for the home screen, where what is behind
+     * the world is somebody's wallpaper and whether they want to see it is
+     * their business rather than this app's — see [WidgetKind].
+     */
+    var ground: Boolean = true
+        set(value) { field = value; invalidate() }
+
     /** Which way the world is being looked at. */
     var view: Hemisphere.View = Hemisphere.View.NORTH
         set(value) {
@@ -85,6 +96,27 @@ class HemisphereView @JvmOverloads constructor(
             if (field === value) return
             field = value
             discard()
+            invalidate()
+        }
+
+    /**
+     * Where to ask for the clouds of a particular day, when the world is
+     * being wound.
+     *
+     * The globe can be turned back through the week now, and the weather
+     * has to go back with it or the winding is a lie: yesterday's earth
+     * with today's cyclone on it. Handed in as a question rather than as
+     * a picture because the answer depends on where the world has been
+     * turned to, which this view is the only thing that knows — see
+     * [CloudStore.cached], which keeps a week and hands back the nearest
+     * day it has.
+     *
+     * Null on the widget and in the tests, and then [clouds] is whatever
+     * was last set, which is what this did for everybody.
+     */
+    var cloudsOn: ((Long) -> Bitmap?)? = null
+        set(value) {
+            field = value
             invalidate()
         }
 
@@ -552,7 +584,7 @@ class HemisphereView @JvmOverloads constructor(
         // reason it is on the solar system: a white ground behind the
         // earth is a diagram of a planet and the point of this one is
         // that it is a window.
-        canvas.drawColor(SPACE)
+        if (ground) canvas.drawColor(SPACE)
 
         val ms = nowMs()
         val sub = Hemisphere.subsolar(ms)
@@ -589,6 +621,9 @@ class HemisphereView @JvmOverloads constructor(
         val cx = w / 2f
         val cy = h / 2f
 
+        // The weather of the day the world is wound to, which on a globe
+        // standing at now is simply today's.
+        cloudsOn?.let { clouds = it(ms) }
         bake(-subLon + sunAt)
         drawWorld(canvas, cx, cy, r, subLat, subLon)
         if (showSun) drawSunMark(canvas, cx, cy, r, ring, ringR)

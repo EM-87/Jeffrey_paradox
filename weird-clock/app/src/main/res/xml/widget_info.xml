@@ -24,7 +24,7 @@
     android:targetCellHeight="2"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/widget_clock"
-    android:previewLayout="@layout/widget_clock"
+    android:previewImage="@drawable/widget_preview_app"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:description="@string/widget_description"

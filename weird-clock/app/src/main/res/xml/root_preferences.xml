@@ -47,14 +47,6 @@
             android:title="@string/pref_mechanism_title"
             app:useSimpleSummaryProvider="true" />
 
-        <ListPreference
-            android:defaultValue="arabic"
-            android:entries="@array/digit_script_entries"
-            android:entryValues="@array/digit_script_values"
-            android:key="pref_digit_script"
-            android:title="@string/pref_segments_title"
-            app:useSimpleSummaryProvider="true" />
-
         <SwitchPreferenceCompat
             android:defaultValue="false"
             android:key="pref_digital_seconds"

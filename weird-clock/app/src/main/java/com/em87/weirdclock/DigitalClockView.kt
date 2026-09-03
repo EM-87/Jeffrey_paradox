@@ -50,14 +50,13 @@ class DigitalClockView @JvmOverloads constructor(
             invalidate()
         }
 
-    /** Which numerals they are made of. */
-    var script: DigitScript = DigitScript.ARABIC
-        set(value) {
-            if (field == value) return
-            field = value
-            drawn.clear()
-            invalidate()
-        }
+    /**
+     * Which numerals they are written in, which the mechanism decides.
+     *
+     * Was a setting of its own and is now a fact about [style] — see
+     * [DigitScript].
+     */
+    val script: DigitScript get() = DigitScript.forStyle(style)
 
     var hour24: Boolean = true
         set(value) {
@@ -98,6 +97,19 @@ class DigitalClockView @JvmOverloads constructor(
     var breathingColon: Boolean = false
         set(value) {
             field = value
+            invalidate()
+        }
+
+    /**
+     * How long one blink or one breath takes, in milliseconds.
+     *
+     * A second by default, which is a cheap clock. Two is a slow pulse
+     * that reads as something breathing rather than as a loose
+     * connection, and half a second is a clock in a hurry.
+     */
+    var colonPeriodMs: Long = DigitalReadout.SECOND_MS
+        set(value) {
+            field = value.coerceAtLeast(1L)
             invalidate()
         }
 
@@ -202,8 +214,15 @@ class DigitalClockView @JvmOverloads constructor(
             invalidate()
         }
 
-    /** Their alphabet, when it is wanted and could be loaded. */
-    var yautja: Typeface? = null
+    /**
+     * Whether anything is painted behind the numbers.
+     *
+     * On everywhere in the app, where the face is a card or a screen. Off
+     * on a home screen that would rather show its wallpaper through the
+     * clock — see [WidgetKind]. It takes the panel's rim with it, which is
+     * right: a rim round nothing is a card that has lost its middle.
+     */
+    var ground: Boolean = true
         set(value) {
             field = value
             invalidate()
@@ -326,7 +345,7 @@ class DigitalClockView @JvmOverloads constructor(
 
     /** The typeface a printed number is printed in, for this script. */
     private fun faceFor(): Typeface =
-        if (script == DigitScript.YAUTJA) yautja ?: PRINT else PRINT
+        PRINT
 
     // --------------------------------------------------------- the clock
 
@@ -386,6 +405,9 @@ class DigitalClockView @JvmOverloads constructor(
         DigitStyle.PLAIN -> 0L
         DigitStyle.CARD -> FLIP_MS
         DigitStyle.ROLLER -> ROLL_MS
+        // The panel is lit bars like the first one, and bars do not
+        // travel: they are on or they are off.
+        DigitStyle.COMET -> 0L
     }
 
     // ----------------------------------------------------- what is shown
@@ -534,11 +556,8 @@ class DigitalClockView @JvmOverloads constructor(
      * other alphabet is Rome's module and it never writes a number here —
      * see [drawRail].
      */
-    private fun kind(): Segments.Kind = when (script) {
-        DigitScript.YAUTJA -> Segments.Kind.STAR
-        DigitScript.ROMAN_COMET -> Segments.Kind.NINE
-        else -> Segments.Kind.SEVEN
-    }
+    private fun kind(): Segments.Kind =
+        if (script == DigitScript.ROMAN_COMET) Segments.Kind.NINE else Segments.Kind.SEVEN
 
     /**
      * How thick a bar comes out at this size, in pixels.
@@ -615,7 +634,11 @@ class DigitalClockView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (width <= 0 || height <= 0) return
-        if (chip) {
+        if (!ground) {
+            // Nothing behind the numbers at all, which is neither the
+            // card nor the flat fill: a home screen that would rather see
+            // its own wallpaper through the clock — see [WidgetKind].
+        } else if (chip) {
             // A panel and a rim. The fill alone is invisible: a bubble is
             // the app's own face colour lying on the app's own background,
             // and what makes it read as an object on top of the clock
@@ -652,7 +675,7 @@ class DigitalClockView @JvmOverloads constructor(
         // ends of the time, and the date on rails above and below it when
         // there is a date to show. The lamps come with the display and the
         // rails are the date's own switch — see [CometPanel].
-        val panel = script == DigitScript.ROMAN_COMET && style == DigitStyle.SEGMENT &&
+        val panel = style == DigitStyle.COMET &&
             settingMs == null && frozenMs == null
         val cells = readout().let {
             // The moon at the end of a twelve-hour reading is a lamp on
@@ -673,7 +696,7 @@ class DigitalClockView @JvmOverloads constructor(
         // today's date that is being set, and the rails would be saying
         // something about a different day from the one on screen.
         val rails =
-            if (script == DigitScript.ROMAN_COMET && dated &&
+            if (style == DigitStyle.COMET && dated &&
                 settingMs == null && frozenMs == null
             ) {
                 CometPanel.rails(calendar(), dateDayFirst)
@@ -866,7 +889,7 @@ class DigitalClockView @JvmOverloads constructor(
             drawRow(canvas, date, top, digitW, digitH, "d", leftEdge = left + label + gap)
             return
         }
-        ink.typeface = if (script == DigitScript.YAUTJA) yautja ?: PRINT else PRINT
+        ink.typeface = PRINT
         ink.textSize = digitH * WEEKDAY_SIZE
         ink.textAlign = Paint.Align.LEFT
         val label = ink.measureText(day)
@@ -1256,7 +1279,8 @@ class DigitalClockView @JvmOverloads constructor(
         if (progress == 0f && before != null && before != cell.text) leaving[key] = before
         val from = if (progress < 1f) leaving[key] else null
         when (style) {
-            DigitStyle.SEGMENT -> drawAsSegments(canvas, cell.text, x, top, w, h, key)
+            DigitStyle.SEGMENT, DigitStyle.COMET ->
+                drawAsSegments(canvas, cell.text, x, top, w, h, key)
             DigitStyle.PLAIN -> drawAsPrint(canvas, cell.text, x, top, w, h)
             DigitStyle.CARD -> drawAsCard(canvas, cell.text, from, progress, x, top, w, h)
             DigitStyle.ROLLER -> drawAsRoller(canvas, cell.text, from, progress, x, top, w, h)
@@ -1856,7 +1880,7 @@ class DigitalClockView @JvmOverloads constructor(
      */
     private fun drawColon(canvas: Canvas, cx: Float, top: Float, h: Float) {
         val breathing = breathing()
-        val on = !blinkColon || breathing || (nowMs() / 1000L) % 2L == 0L
+        val on = !blinkColon || breathing || DigitalReadout.blink(nowMs(), colonPeriodMs)
         punctuation(on)
         // Breathing takes the same second the blink would have used and
         // spends it going round rather than switching: full at the top of
@@ -1864,7 +1888,8 @@ class DigitalClockView @JvmOverloads constructor(
         // over the lit colour rather than instead of it, so the dots stay
         // the display's own colour throughout.
         if (breathing) {
-            lit.alpha = (255 * DigitalReadout.breath(nowMs())).toInt().coerceIn(0, 255)
+            lit.alpha = (255 * DigitalReadout.breath(nowMs(), colonPeriodMs))
+                .toInt().coerceIn(0, 255)
         }
         val was = lit.strokeWidth
         lit.strokeWidth = h * Segments.separator(kind()) * weight

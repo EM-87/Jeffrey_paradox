@@ -3,7 +3,9 @@ package com.em87.weirdclock
 import android.view.MotionEvent
 import androidx.preference.PreferenceManager
 import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -102,5 +104,46 @@ class PageSwipeTest {
         for (step in 1..8) touch(clock, MotionEvent.ACTION_MOVE, x, y - step * 25f)
         touch(clock, MotionEvent.ACTION_UP, x, y - 200f)
         assertTrue("a wind can be taken away by a pager", parent.held)
+    }
+
+    /**
+     * And the hand does not twitch while the swipe is making its mind up.
+     *
+     * The claim was deferred and the *movement* was not, so for the first
+     * few pixels of every page swipe the hand followed the finger, then
+     * the pager took the gesture and the hand sprang back. That flick is
+     * the small step somebody kept feeling on the way from the clock to
+     * the alarms — one frame of a hand going somewhere it was not going to
+     * stay.
+     */
+    @Test
+    fun `a flat swipe does not move the hand at all`() {
+        val (clock, _) = dial()
+        clock.onAttachedToWindowForTest()
+        val (x, y) = onTheHourHand(clock)
+        val before = clock.handAngleForTest(ClockView.Hand.HOUR)
+        touch(clock, MotionEvent.ACTION_DOWN, x, y)
+        for (step in 1..8) touch(clock, MotionEvent.ACTION_MOVE, x - step * 25f, y)
+        assertEquals(
+            "the hand moved during a page swipe",
+            before, clock.handAngleForTest(ClockView.Hand.HOUR), 0.01f
+        )
+        touch(clock, MotionEvent.ACTION_CANCEL, x - 200f, y)
+    }
+
+    /** And a real wind still winds, picking the finger up where it is. */
+    @Test
+    fun `a drag that curves winds the hand`() {
+        val (clock, _) = dial()
+        clock.onAttachedToWindowForTest()
+        val (x, y) = onTheHourHand(clock)
+        val before = clock.handAngleForTest(ClockView.Hand.HOUR)
+        touch(clock, MotionEvent.ACTION_DOWN, x, y)
+        for (step in 1..10) touch(clock, MotionEvent.ACTION_MOVE, x, y - step * 25f)
+        assertNotEquals(
+            "the hand did not move under a wind",
+            before, clock.handAngleForTest(ClockView.Hand.HOUR), 0.01f
+        )
+        touch(clock, MotionEvent.ACTION_UP, x, y - 250f)
     }
 }

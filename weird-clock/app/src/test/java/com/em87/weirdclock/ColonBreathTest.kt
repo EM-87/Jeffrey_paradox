@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -47,7 +48,6 @@ class ColonBreathTest {
         DigitalClockView(context).apply {
             theme = ClockThemes.MIDNIGHT
             style = DigitStyle.SEGMENT
-            script = DigitScript.ARABIC
             hour24 = true
             showSeconds = false
             showDate = false
@@ -109,6 +109,43 @@ class ColonBreathTest {
         assertTrue(
             "the face was no dimmer at the half second: $top then $half",
             half < top
+        )
+    }
+
+    /**
+     * And the blink can be made slow, or quick.
+     *
+     * The rate is one setting for both, which is the only way the two can
+     * be the same thing seen from two sides: a colon that blinks once a
+     * second and breathes once every two is two clocks.
+     */
+    @Test
+    fun `the blink and the breath keep the same time`() {
+        for (period in listOf(500L, 1000L, 2000L)) {
+            assertTrue(
+                "a blink of ${period}ms is not on at the top of its own beat",
+                DigitalReadout.blink(0L, period)
+            )
+            assertFalse(
+                "and off at the half",
+                DigitalReadout.blink(period, period)
+            )
+            assertEquals(
+                "a breath of ${period}ms is not full at the top of its beat",
+                1f, DigitalReadout.breath(0L, period), 0.001f
+            )
+            assertEquals(
+                "and at its floor halfway through",
+                DigitalReadout.BREATH_FLOOR,
+                DigitalReadout.breath(period / 2, period), 0.001f
+            )
+        }
+        // And a slow one really is slower: at three quarters of a second
+        // the quick one has been round and back and the slow one has not
+        // reached the bottom yet.
+        assertTrue(
+            "two seconds is not slower than one",
+            DigitalReadout.breath(750L, 2000L) < DigitalReadout.breath(750L, 1000L)
         )
     }
 

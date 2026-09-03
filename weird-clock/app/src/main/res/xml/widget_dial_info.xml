@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The dial, whatever the app is set to. Its own entry in the launcher list, its own icon and its own settings — see WidgetKind. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="40dp"
+    android:minResizeHeight="40dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_clock"
+    android:previewImage="@drawable/widget_preview_dial"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_dial_description"
+    android:configure="com.em87.weirdclock.WidgetSettingsActivity"
+    android:widgetFeatures="reconfigurable|configuration_optional" />

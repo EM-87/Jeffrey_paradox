@@ -164,7 +164,9 @@ class OrreryWidgetProvider : AppWidgetProvider() {
                 Orrery.longitude(Orrery.Body.MOON, atMs),
                 comets = prefs.getBoolean(Prefs.COMETS, false)
             )
-            return WidgetRenderer.faded(bitmap, alpha)
+            return WidgetRenderer.faded(
+                WidgetRenderer.grounded(context, WidgetKind.ORRERY, bitmap), alpha
+            )
         }
 
         /** For the tests: the widget as it would be handed to a launcher. */

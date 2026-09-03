@@ -10,7 +10,7 @@
     android:updatePeriodMillis="0"
     android:widgetFeatures="reconfigurable|configuration_optional"
     android:initialLayout="@layout/widget_hourglass"
-    android:previewLayout="@layout/widget_hourglass"
+    android:previewImage="@drawable/widget_preview_hourglass"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:description="@string/widget_hourglass_description" />

@@ -201,12 +201,16 @@ class DigitalReadoutTest {
         assertEquals("01/01", say(cells))
     }
 
-    /** Theirs is a font, so it lays out exactly as ours does. */
+    /** The panel writes the same numbers in the same places. */
     @Test
-    fun `the alien numerals sit where ours do`() {
+    fun `the panel's numerals sit where ours do`() {
         assertEquals(
             say(DigitalReadout.time(7, 5, 0, DigitalReadout.Options())),
-            say(DigitalReadout.time(7, 5, 0, DigitalReadout.Options(script = DigitScript.YAUTJA)))
+            say(
+                DigitalReadout.time(
+                    7, 5, 0, DigitalReadout.Options(script = DigitScript.ROMAN_COMET)
+                )
+            )
         )
     }
 }

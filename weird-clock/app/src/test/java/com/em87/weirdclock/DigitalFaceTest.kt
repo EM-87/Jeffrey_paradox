@@ -193,11 +193,11 @@ class DigitalFaceTest {
             c.setup()
             val digits = c.get().digitalForTest()!!
             // Rome's key is still written down on phones that had it
-            // chosen, and there is no Roman script any more — it lands on
-            // the panel that replaced it. Which only exists as lit bars,
-            // so the drum that was also asked for is quietly refused.
+            // chosen, and there is no alphabet setting any more — it lands
+            // on the panel that replaced it, which is a mechanism of its
+            // own, so the drum that was also asked for is quietly refused.
             assertEquals(DigitScript.ROMAN_COMET, digits.script)
-            assertEquals(DigitStyle.SEGMENT, digits.style)
+            assertEquals(DigitStyle.COMET, digits.style)
             assertFalse(digits.hour24)
             assertTrue(digits.blinkColon)
             // The second hand's switch, which on this face is the seconds.

@@ -1540,7 +1540,22 @@ class ClockView @JvmOverloads constructor(
                         parent?.requestDisallowInterceptTouchEvent(true)
                     }
                 }
-                if (grabbedBody != null) {
+                if (draggedHand != null && !handClaimed) {
+                    // Held, but not yet ours: the hand does not move.
+                    //
+                    // It used to, and that was the small step somebody
+                    // kept feeling at the start of a swipe from the clock
+                    // to the alarms. For the first few pixels — before the
+                    // drag has said whether it is a wind or a page turn —
+                    // the hand was following the finger, so it visibly
+                    // twitched, the pager then took the gesture, and the
+                    // hand sprang back. Nothing is lost by waiting: the
+                    // wind is accumulated from one move to the next, so
+                    // keeping the reference angle fresh here means the
+                    // hand picks the finger up exactly where it is when
+                    // the drag does prove itself, with no jump at all.
+                    lastTouchDeg = touchAngleDeg(event.x, event.y)
+                } else if (grabbedBody != null) {
                     dragBodyTo(event.x, event.y)
                 } else {
                     debris.carried?.let { moveCarriedBody(it, event.x, event.y) }

@@ -157,4 +157,64 @@ class ShadowTipTest {
             tip > root + 120
         )
     }
+
+    /**
+     * And the tilt reaches the drawing.
+     *
+     * The arithmetic is measured in [SundialTiltTest]; what is measured
+     * here is that the view is wired to it, which is the half that a pure
+     * test cannot see. Two shadows on the same dial at the same instant,
+     * one from a phone lying flat and one from a phone leaned back twenty
+     * degrees, and they have to be in different places — for a version
+     * the second one was the first, because only a bearing was ever
+     * handed over.
+     */
+    @Test
+    fun `leaning the phone moves the shadow on the plate`() {
+        fun dial(orientation: FloatArray?): FloatArray? {
+            val view = SundialView(context).apply {
+                theme = ClockThemes.IVORY
+                kind = Sundial.Kind.HORIZONTAL
+                plate = Sundial.Plate.ROUND
+                latitude = 40.4
+                longitude = -3.7
+                motto = false
+                halfHours = false
+                compass = true
+                phoneBearing = 0.0
+                phoneOrientation = orientation
+                atMs = highSun()
+                measure(
+                    View.MeasureSpec.makeMeasureSpec(side, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(side, View.MeasureSpec.EXACTLY)
+                )
+                layout(0, 0, side, side)
+            }
+            val map = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
+            view.draw(Canvas(map))
+            map.recycle()
+            return view.shadowRay
+        }
+        // A rotation matrix, by columns: the device's right, top and face
+        // in east, north and up. Flat first, then leaned back twenty
+        // degrees about its own right edge.
+        val flat = floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f)
+        val p = Math.toRadians(20.0)
+        val leaned = floatArrayOf(
+            1f, 0f, 0f,
+            0f, Math.cos(p).toFloat(), -Math.sin(p).toFloat(),
+            0f, Math.sin(p).toFloat(), Math.cos(p).toFloat()
+        )
+        val level = dial(flat)
+        val tilted = dial(leaned)
+        assertNotNull("the flat dial drew no shadow", level)
+        assertNotNull("the leaned dial drew no shadow", tilted)
+        val turned = kotlin.math.abs(
+            Math.toDegrees(
+                Math.atan2(tilted!![3].toDouble(), tilted[2].toDouble()) -
+                    Math.atan2(level!![3].toDouble(), level[2].toDouble())
+            )
+        )
+        assertTrue("leaning the phone did nothing to the shadow: $turned°", turned > 1.0)
+    }
 }

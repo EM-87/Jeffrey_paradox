@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The one that follows the app, so it is drawn as both at once. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="72dp"
+    android:height="72dp"
+    android:viewportWidth="72"
+    android:viewportHeight="72">
+    <path android:fillColor="#141821" android:pathData="M4,10h64v52h-64z" />
+    <path android:strokeColor="#8FA3C0" android:strokeWidth="2" android:pathData="M20,36a15,15 0 1,0 0.1,0z" />
+    <path android:fillColor="#E8EDF5" android:pathData="M19.2,36L19.2,26L20.8,26L20.8,36z" />
+    <path android:fillColor="#E8EDF5" android:pathData="M20,35.2L29,35.2L29,36.8L20,36.8z" />
+    <path android:fillColor="#22D3EE" android:pathData="M40,26h18v3h-18z" />
+    <path android:fillColor="#22D3EE" android:pathData="M40,30h3v6h-3z" />
+    <path android:fillColor="#22D3EE" android:pathData="M55,30h3v6h-3z" />
+    <path android:fillColor="#22D3EE" android:pathData="M40,37h18v3h-18z" />
+    <path android:fillColor="#22D3EE" android:pathData="M40,41h3v6h-3z" />
+    <path android:fillColor="#22D3EE" android:pathData="M55,41h3v6h-3z" />
+    <path android:fillColor="#22D3EE" android:pathData="M40,48h18v3h-18z" />
+</vector>

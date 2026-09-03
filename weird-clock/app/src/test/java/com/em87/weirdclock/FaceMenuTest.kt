@@ -117,7 +117,7 @@ class FaceMenuTest {
     fun `and it has the rows a screenful of digits needs`() {
         val digital = everyKeyFor(Face.DIGITAL)
         for (key in listOf(
-            Prefs.DIGIT_STYLE, Prefs.DIGIT_SCRIPT, Prefs.HOUR_24,
+            Prefs.DIGIT_STYLE, Prefs.HOUR_24,
             Prefs.LEADING_ZERO, Prefs.BLINK_COLON
         )) {
             assertTrue("$key is missing from the digital settings", key in digital)
@@ -129,7 +129,7 @@ class FaceMenuTest {
     fun `the dial has no rows about digits`() {
         val analog = everyKeyFor(Face.ANALOG)
         for (key in listOf(
-            Prefs.DIGIT_STYLE, Prefs.DIGIT_SCRIPT, Prefs.HOUR_24,
+            Prefs.DIGIT_STYLE, Prefs.HOUR_24,
             Prefs.LEADING_ZERO, Prefs.BLINK_COLON
         )) {
             assertFalse("$key is on a dial", key in analog)
@@ -443,19 +443,18 @@ class FaceMenuTest {
     fun `the rows a face obeys are on its menu`() {
         val world = everyKeyFor(Face.HEMISPHERE)
         for (key in listOf(
-            Prefs.DIGIT_STYLE, Prefs.DIGIT_SCRIPT, Prefs.HOUR_24, Prefs.SEGMENT_GHOSTS
+            Prefs.DIGIT_STYLE, Prefs.HOUR_24, Prefs.SEGMENT_GHOSTS
         )) {
             assertTrue("$key is obeyed on the world and hidden there", key in world)
         }
         // The dial draws its alarm cards as little dials, so none of the
         // four means anything on it.
         val analog = everyKeyFor(Face.ANALOG)
-        for (key in listOf(Prefs.DIGIT_STYLE, Prefs.DIGIT_SCRIPT, Prefs.SEGMENT_GHOSTS)) {
+        for (key in listOf(Prefs.DIGIT_STYLE, Prefs.SEGMENT_GHOSTS)) {
             assertFalse("$key came back to the dial", key in analog)
         }
         // Neither does the sundial: it has no alarm and no chronograph.
         val plate = everyKeyFor(Face.SUNDIAL)
-        assertFalse(Prefs.DIGIT_SCRIPT in plate)
     }
 
     /**

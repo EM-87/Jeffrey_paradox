@@ -9,8 +9,8 @@
     android:configure="com.em87.weirdclock.WidgetSettingsActivity"
     android:updatePeriodMillis="0"
     android:widgetFeatures="reconfigurable|configuration_optional"
-    android:initialLayout="@layout/widget_orrery"
-    android:previewImage="@drawable/widget_preview_orrery"
+    android:initialLayout="@layout/widget_weather"
+    android:previewImage="@drawable/widget_preview_weather"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:description="@string/widget_orrery_description" />
+    android:description="@string/widget_weather_description" />
