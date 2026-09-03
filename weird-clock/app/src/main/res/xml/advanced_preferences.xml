@@ -100,11 +100,25 @@
             android:summary="@string/pref_hemisphere_numbers_summary"
             android:title="@string/pref_hemisphere_numbers_title" />
 
+        <!-- The sun is the only thing standing outside the world, so its
+             switch is also what decides how far the world can open. -->
         <SwitchPreferenceCompat
             android:defaultValue="true"
-            android:key="pref_hemisphere_meridians"
-            android:summary="@string/pref_hemisphere_meridians_summary"
-            android:title="@string/pref_hemisphere_meridians_title" />
+            android:key="pref_hemisphere_sun"
+            android:summary="@string/pref_hemisphere_sun_summary"
+            android:title="@string/pref_hemisphere_sun_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_hemisphere_moon"
+            android:summary="@string/pref_hemisphere_moon_summary"
+            android:title="@string/pref_hemisphere_moon_title" />
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_hemisphere_alarms"
+            android:summary="@string/pref_hemisphere_alarms_summary"
+            android:title="@string/pref_hemisphere_alarms_title" />
 
         <!-- The one thing on this face that is downloaded rather than
              computed. Faded while the weather is off, since that is the

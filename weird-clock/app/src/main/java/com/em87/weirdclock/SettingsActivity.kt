@@ -922,7 +922,8 @@ class SettingsActivity : AppCompatActivity() {
             // there — see [Hemisphere.hasRimScale]. The rows fade rather
             // than vanish: changing the view back is one tap.
             for (key in listOf(
-                Prefs.HEMISPHERE_RING, Prefs.HEMISPHERE_NUMBERS, Prefs.HEMISPHERE_MERIDIANS
+                Prefs.HEMISPHERE_RING, Prefs.HEMISPHERE_NUMBERS,
+                Prefs.HEMISPHERE_MOON, Prefs.HEMISPHERE_ALARMS
             )) {
                 dimmedUnless(key) {
                     Hemisphere.hasRimScale(

@@ -373,7 +373,9 @@ object FaceOptions {
         Prefs.HEMISPHERE_COMPASS,
         Prefs.HEMISPHERE_RING,
         Prefs.HEMISPHERE_NUMBERS,
-        Prefs.HEMISPHERE_MERIDIANS,
+        Prefs.HEMISPHERE_SUN,
+        Prefs.HEMISPHERE_MOON,
+        Prefs.HEMISPHERE_ALARMS,
         Prefs.HEMISPHERE_CLOUDS
     )
 

@@ -498,9 +498,9 @@
     <string name="pref_next_alarm_title">Próxima alarma en el reloj</string>
     <string name="pref_next_alarm_summary">Una campana pequeña y la hora, cuando hay alguna armada</string>
     <string name="sundial_flat_here">AQVI ESTE RELOJ ES PLANO</string>
-    <string name="pref_bedside_seconds_title">Segundos en el reloj de mesilla</string>
+    <string name="pref_bedside_seconds_title">Segundos de mesilla</string>
     <string name="pref_bedside_seconds_summary">Pon el móvil de lado y el reloj se queda la pantalla. Los quita salvo que los quieras</string>
-    <string name="pref_bedside_date_title">Fecha en el reloj de mesilla</string>
+    <string name="pref_bedside_date_title">Fecha de mesilla</string>
     <string name="pref_bedside_date_summary">También solo con el móvil de lado: un reloj de mesilla suele ser la hora y nada más</string>
     <string name="pref_widget_date_title">Fecha en el widget</string>
     <string name="pref_widget_date_summary">Bajo la hora, en la pantalla de inicio</string>
@@ -550,8 +550,12 @@
     <string name="pref_hemisphere_ring_summary">Veinticuatro horas solares alrededor del mundo</string>
     <string name="pref_hemisphere_numbers_title">Números en el anillo</string>
     <string name="pref_hemisphere_numbers_summary">Cada tres horas. El sol hace de mediodía</string>
-    <string name="pref_hemisphere_meridians_title">Muescas de meridiano</string>
-    <string name="pref_hemisphere_meridians_summary">Cada quince grados, donde cambiaría la hora</string>
+    <string name="pref_hemisphere_sun_title">El sol en la corona</string>
+    <string name="pref_hemisphere_sun_summary">Donde está el mediodía. Quítalo y el mundo se abre hasta el borde de la pantalla</string>
+    <string name="pref_hemisphere_moon_title">La luna en la corona</string>
+    <string name="pref_hemisphere_moon_summary">A la hora que lleva su meridiano, con la fase de esta noche</string>
+    <string name="pref_hemisphere_alarms_title">Alarmas en la corona</string>
+    <string name="pref_hemisphere_alarms_summary">Lo que está armado, marcado a la hora en que sonará</string>
     <string-array name="hemisphere_view_entries">
         <item>Sobre el polo norte</item>
         <item>Sobre el polo sur</item>

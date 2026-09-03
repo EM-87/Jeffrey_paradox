@@ -4364,7 +4364,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         if (CloudStore.wanted(this)) CloudStore.refreshInBackground(this)
         world.hourRing = prefs.getBoolean(Prefs.HEMISPHERE_RING, true)
         world.hourNumbers = prefs.getBoolean(Prefs.HEMISPHERE_NUMBERS, true)
-        world.meridians = prefs.getBoolean(Prefs.HEMISPHERE_MERIDIANS, true)
+        world.showSun = prefs.getBoolean(Prefs.HEMISPHERE_SUN, true)
+        world.showMoon = prefs.getBoolean(Prefs.HEMISPHERE_MOON, true)
+        // What is armed, as times of day, so the rim of hours can carry
+        // them. Asked of the scheduler rather than of the alarm list, for
+        // the same reason the digital face's next-alarm line is — see
+        // [nextRingMs].
+        world.alarmsAt =
+            if (!prefs.getBoolean(Prefs.HEMISPHERE_ALARMS, true)) emptyList()
+            else alarms.filter { it.enabled }.map {
+                it.hour * 3_600_000L + it.minute * 60_000L
+            }
         DayNight.configure(this)
         world.located = DayNight.hasFix()
         if (DayNight.hasFix()) {

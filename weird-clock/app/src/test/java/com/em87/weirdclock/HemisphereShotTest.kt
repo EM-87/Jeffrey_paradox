@@ -51,7 +51,7 @@ class HemisphereShotTest {
         view = which
         this.sunAt = sunAt
         hourRing = ring
-        meridians = notches
+        showMoon = notches
         this.clouds = clouds
         latitude = 40.4
         longitude = -3.7

@@ -337,8 +337,16 @@ object Prefs {
     const val HEMISPHERE_RING = "pref_hemisphere_ring"
     const val HEMISPHERE_NUMBERS = "pref_hemisphere_numbers"
 
-    /** And the notches at every fifteenth meridian. */
-    const val HEMISPHERE_MERIDIANS = "pref_hemisphere_meridians"
+    /**
+     * The two lights on the rim, and what is armed.
+     *
+     * The sun's switch is not a cosmetic one: it is the only thing drawn
+     * outside the world, so turning it off is what lets the world open to
+     * the edge of the screen.
+     */
+    const val HEMISPHERE_SUN = "pref_hemisphere_sun"
+    const val HEMISPHERE_MOON = "pref_hemisphere_moon"
+    const val HEMISPHERE_ALARMS = "pref_hemisphere_alarms"
 
     /**
      * Whether the globe wears the satellite's clouds.

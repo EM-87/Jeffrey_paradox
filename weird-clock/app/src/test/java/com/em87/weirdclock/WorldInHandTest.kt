@@ -82,27 +82,105 @@ class WorldInHandTest {
     }
 
     /**
-     * A drag round the disc winds it, a flat shove does not, and letting
-     * go brings it back.
+     * A finger on the world turns the world, whichever way it goes.
      *
-     * The flat shove is the page swipe: this face lives on a card in a
-     * pager and a sideways drag across it has to be allowed to mean "next
-     * card" — the same rule the dial's hands follow.
+     * It used to have to prove itself first: a drag was given to the pager
+     * unless it curved, which is the rule the dial's *hands* follow and
+     * the wrong one here. A hand is a thin thing on a wide face and most
+     * of the face is not it; the world is the face. So a straight
+     * sideways push on the equator — the most obvious way there is to
+     * spin a globe — turned the page instead, and the planet could only be
+     * turned up and down. Now the rule is the one the dial really uses:
+     * inside the instrument, the instrument has it.
      */
     @Test
-    fun `an arc winds the world and a flat swipe does not`() {
-        val flat = world()
-        touch(flat, MotionEvent.ACTION_DOWN, 700f, 500f)
-        for (step in 1..8) touch(flat, MotionEvent.ACTION_MOVE, 700f - step * 30f, 500f)
-        assertEquals("a page swipe turned the world", 0L, flat.woundForTest())
+    fun `a finger anywhere on the world turns it`() {
+        for ((name, dx, dy) in listOf(
+            Triple("sideways", -30f, 0f),
+            Triple("up", 0f, -30f),
+            Triple("across", -20f, -20f)
+        )) {
+            val globe = world()
+            touch(globe, MotionEvent.ACTION_DOWN, 700f, 500f)
+            for (step in 1..8) {
+                touch(globe, MotionEvent.ACTION_MOVE, 700f + step * dx, 500f + step * dy)
+            }
+            assertFalse("a $name drag on the world did not turn it", globe.woundForTest() == 0L)
+            assertTrue(
+                "a quarter of the disc turned it by more than a day",
+                kotlin.math.abs(globe.woundForTest()) < 24 * 3_600_000L
+            )
+        }
+    }
 
-        val turned = world()
-        touch(turned, MotionEvent.ACTION_DOWN, 700f, 500f)
-        for (step in 1..8) touch(turned, MotionEvent.ACTION_MOVE, 700f, 500f - step * 30f)
-        assertFalse("the world did not turn under an arc", turned.woundForTest() == 0L)
+    /**
+     * And a finger off the world leaves it alone.
+     *
+     * The margin outside the disc is where the page swipe lives. Without
+     * one there is no way to leave this card by dragging at all, which is
+     * a face you can get to and not leave.
+     */
+    @Test
+    fun `a finger outside the world is a page swipe`() {
+        val globe = world()
+        // Half past four on the rim: outside a disc of 0.355 of a
+        // thousand, and well inside the view.
+        touch(globe, MotionEvent.ACTION_DOWN, 900f, 500f)
+        for (step in 1..8) touch(globe, MotionEvent.ACTION_MOVE, 900f - step * 30f, 500f)
+        assertEquals("a swipe in the margin turned the world", 0L, globe.woundForTest())
+    }
+
+    /**
+     * Thrown, it keeps going; left alone, it comes back.
+     *
+     * The arithmetic is [WorldSpin] and is measured there. What is
+     * measured here is that the view is wired to it: that letting go with
+     * some speed leaves the world turning for a while rather than
+     * arriving, and that it does arrive in the end.
+     */
+    @Test
+    fun `a thrown world keeps turning and then comes home`() {
+        val globe = world()
+        touch(globe, MotionEvent.ACTION_DOWN, 700f, 500f)
+        for (step in 1..6) touch(globe, MotionEvent.ACTION_MOVE, 700f, 500f - step * 40f)
+        val held = globe.woundForTest()
+        assertFalse("nothing was wound to throw", held == 0L)
+
+        globe.letGoForTest(400.0)
+        assertTrue("letting go of a moving world stopped it dead", globe.spinningForTest())
+        // A fifth of a second in, it has gone further rather than back.
+        var went = 0L
+        repeat(12) {
+            globe.stepSpinForTest(1.0 / 60.0)
+            went = globe.woundForTest()
+        }
         assertTrue(
-            "a quarter of the disc turned it by more than a day",
-            kotlin.math.abs(turned.woundForTest()) < 24 * 3_600_000L
+            "the world came straight back instead of carrying on: $held then $went",
+            kotlin.math.abs(went) > kotlin.math.abs(held)
         )
+
+        var frames = 0
+        while (globe.spinningForTest() && frames < 60 * 30) {
+            globe.stepSpinForTest(1.0 / 60.0)
+            frames++
+        }
+        assertFalse("the world never stopped", globe.spinningForTest())
+        assertEquals("and it did not come home", 0L, globe.woundForTest())
+    }
+
+    /** A finger that stops before lifting has not thrown anything. */
+    @Test
+    fun `letting go of a still world simply puts it back`() {
+        val globe = world()
+        touch(globe, MotionEvent.ACTION_DOWN, 700f, 500f)
+        touch(globe, MotionEvent.ACTION_MOVE, 700f, 460f)
+        globe.letGoForTest(0.0)
+        var frames = 0
+        while (globe.spinningForTest() && frames < 60 * 30) {
+            globe.stepSpinForTest(1.0 / 60.0)
+            frames++
+        }
+        assertEquals("it did not settle back on the time it is", 0L, globe.woundForTest())
+        assertTrue("it took $frames frames to put back a nudge", frames < 60 * 6)
     }
 }

@@ -249,11 +249,12 @@ object WidgetRenderer {
                     if (DayNight.hasFix()) DayNight.latitudeNow() else 0.0
                 )
             sunAt = prefs.getInt(Prefs.HEMISPHERE_SUN_AT, 0).toDouble()
-            // Small: the ring goes, the notches stay. A notch is one line
-            // and still says where an hour changes; a numeral at this size
-            // is a smudge.
+            // Small: the ring of hours goes. A numeral at this size is a
+            // smudge, and the two marks that are worth the room are the
+            // sun and the moon.
             hourRing = false
-            meridians = prefs.getBoolean(Prefs.HEMISPHERE_MERIDIANS, true)
+            showSun = prefs.getBoolean(Prefs.HEMISPHERE_SUN, true)
+            showMoon = prefs.getBoolean(Prefs.HEMISPHERE_MOON, true)
             located = DayNight.hasFix()
             if (DayNight.hasFix()) {
                 latitude = DayNight.latitudeNow()

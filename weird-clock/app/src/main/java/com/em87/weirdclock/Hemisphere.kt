@@ -108,12 +108,23 @@ object Hemisphere {
      * out of the way as it goes.
      */
     const val ZOOM_MIN = 1.0f
-    const val ZOOM_MAX = 1.6f
+    const val ZOOM_MAX = 2.0f
 
-    /** The three radii the world can have, as shares of the shorter side. */
+    /** The radii the world can have, as shares of the shorter side. */
     const val WORLD_RINGED = 0.355f
     const val WORLD_BARE = 0.42f
     const val WORLD_FULL = 0.445f
+
+    /**
+     * And how big it goes when there is nothing outside it.
+     *
+     * Half the shorter side is the edge of the screen exactly. The sun is
+     * the only thing that stands outside the world, so with the sun turned
+     * off the last twentieth that was being kept for it is the world's —
+     * which was asked for in those words, and is the reason the sun has a
+     * switch at all.
+     */
+    const val WORLD_EDGE = 0.5f
 
     /** How far into the zoom we are, from nought to one. */
     private fun into(zoom: Float): Float =
@@ -127,10 +138,25 @@ object Hemisphere {
      * Not *to* the edge: the sun is nailed outside the world and has to
      * stay in the picture, which is the last twentieth.
      */
-    fun worldRadius(zoom: Float, ringed: Boolean): Float {
-        val base = if (ringed) WORLD_RINGED else WORLD_BARE
-        return base + (WORLD_FULL - base) * into(zoom)
+    fun worldRadius(zoom: Float, ringed: Boolean, sunOutside: Boolean = true): Float {
+        val t = into(zoom)
+        val top = if (sunOutside) WORLD_FULL else WORLD_EDGE
+        if (!ringed) return WORLD_BARE + (top - WORLD_BARE) * t
+        // With a ring there, the world opens in two goes: it creeps while
+        // the ring is still fading, stopping short of the ticks, and then
+        // takes the whole of the rest of the room once the ring has gone.
+        // One straight line from here to the edge would have the world
+        // standing on its own scale before the scale had finished leaving,
+        // which is the thing [ringFade] exists to prevent.
+        if (t <= RING_GONE) {
+            return WORLD_RINGED + (WORLD_UNDER_RING - WORLD_RINGED) * (t / RING_GONE)
+        }
+        return WORLD_UNDER_RING +
+            (top - WORLD_UNDER_RING) * ((t - RING_GONE) / (1f - RING_GONE))
     }
+
+    /** As far as the world may come while its own ring is still there. */
+    const val WORLD_UNDER_RING = WORLD_RINGED * 1.04f
 
     /**
      * How much of the ring of hours is left at this zoom.
@@ -158,7 +184,7 @@ object Hemisphere {
      * opening at all.
      */
     private const val RING_HOLDS = 0.04f
-    private const val RING_GONE = 0.20f
+    private const val RING_GONE = 0.28f
 
     // ------------------------------------------------------ turning it
 
@@ -196,6 +222,27 @@ object Hemisphere {
         val greenwich = SolarTime.hourAngleDeg(0.0, atMs)
         return doubleArrayOf(declination, wrap(-greenwich))
     }
+
+    /**
+     * Where the moon is overhead, as a longitude.
+     *
+     * The same question as [subsolar] asked of the other light. The moon
+     * runs eastward away from the sun as the month goes on — that is what
+     * a phase *is* — so it is however far round the month has got, east of
+     * wherever the sun is. New moon and the two are in the same place;
+     * full moon and they are opposite, which is why a full moon rises as
+     * the sun sets.
+     */
+    fun sublunar(atMs: Long): Double =
+        wrap(subsolar(atMs)[1] + 360.0 * SkyGlyph.phaseAt(atMs))
+
+    /**
+     * And which solar hour that meridian is keeping, for the rim.
+     *
+     * Noon is under the sun by construction on this face, so the moon's
+     * hour is twelve plus however far round the month has got.
+     */
+    fun moonHour(atMs: Long): Double = 12.0 + 24.0 * SkyGlyph.phaseAt(atMs)
 
     /** An angle brought into −180…180, which several things below need. */
     fun wrap(degrees: Double): Double {

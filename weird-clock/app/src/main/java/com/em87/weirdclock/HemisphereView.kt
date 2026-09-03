@@ -62,7 +62,11 @@ class HemisphereView @JvmOverloads constructor(
 
     /** Whether the app has any business drawing that dot at all. */
     var located: Boolean = false
-        set(value) { field = value; invalidate() }
+        set(value) {
+            field = value
+            keepPinging()
+            invalidate()
+        }
 
     /**
      * Yesterday's clouds, photographed from orbit.
@@ -92,15 +96,37 @@ class HemisphereView @JvmOverloads constructor(
         set(value) { field = value; invalidate() }
 
     /**
-     * Notches inside the rim at every fifteenth meridian.
+     * Whether the sun is drawn outside the world.
      *
-     * Meridians and not time zones: a zone map has a hundred and
-     * thirty-eight edges and most of them follow a river, and a turning
-     * globe cannot honestly draw those. These are the meridians the zones
-     * were meant to be, so a dot crossing one is the moment the hour
-     * changes where you are standing if nobody had ever drawn a border.
+     * On by default and now able to be turned off, which is not a
+     * cosmetic switch: the sun is the only thing standing outside the
+     * disc, so with it gone the world can open all the way to the edge of
+     * the screen — see [Hemisphere.WORLD_EDGE].
      */
-    var meridians: Boolean = true
+    var showSun: Boolean = true
+        set(value) { field = value; invalidate() }
+
+    /**
+     * And the moon, which was not drawn at all.
+     *
+     * It goes on the same rim as the sun, at the hour its own meridian is
+     * keeping — see [Hemisphere.moonHour] — so the gap between the two
+     * marks is the phase, drawn rather than stated. On a full moon they
+     * are opposite each other, which is why a full moon rises as the sun
+     * sets, and this face is the only place in the app where you can see
+     * that being true rather than be told it.
+     */
+    var showMoon: Boolean = true
+        set(value) { field = value; invalidate() }
+
+    /**
+     * The alarms that are armed, as milliseconds into the day.
+     *
+     * Marked on the ring of hours, where the hour they will ring at
+     * falls. The dial has had them on its rim for a long time; this face
+     * has a rim of its own and the same claim to make on it.
+     */
+    var alarmsAt: List<Long> = emptyList()
         set(value) { field = value; invalidate() }
 
     /**
@@ -148,6 +174,15 @@ class HemisphereView @JvmOverloads constructor(
     private var downY = 0f
     private var turning = false
 
+    /** Where the finger was last, and when, so a fling has a speed. */
+    private var lastMoveAt = 0L
+    private var flungAt = 0.0
+
+    /** What the world is doing on its own — see [WorldSpin]. */
+    private var spin = WorldSpin.State()
+    private var spinning = false
+    private var spunAt = 0L
+
     private val scaleDetector = android.view.ScaleGestureDetector(
         context,
         object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -162,6 +197,14 @@ class HemisphereView @JvmOverloads constructor(
     private fun bearingAt(x: Float, y: Float): Double =
         Math.toDegrees(kotlin.math.atan2((y - height / 2f).toDouble(), (x - width / 2f).toDouble()))
 
+    /** How far from the middle, as a share of the world's own radius. */
+    private fun intoWorld(x: Float, y: Float): Float {
+        val r = min(width, height) *
+            Hemisphere.worldRadius(zoom, hourRing && Hemisphere.hasRimScale(view))
+        if (r <= 0f) return Float.MAX_VALUE
+        return kotlin.math.hypot(x - width / 2f, y - height / 2f) / r
+    }
+
     /**
      * The world is put back when nobody is looking at it.
      *
@@ -172,12 +215,52 @@ class HemisphereView @JvmOverloads constructor(
      */
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
-        if (visibility == VISIBLE) return
-        springBack?.cancel()
-        springBack = null
+        if (visibility == VISIBLE) {
+            keepPinging()
+            return
+        }
+        pinging = false
+        removeCallbacks(pinger)
+        spinning = false
+        spin = WorldSpin.State()
         wound = 0L
         zoom = Hemisphere.ZOOM_MIN
     }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        keepPinging()
+    }
+
+    /**
+     * The frames the ping needs, and only those.
+     *
+     * Twenty a second while there is a dot to draw a ring round and the
+     * window is up, and none at all otherwise — which is most of the time,
+     * since three of the four faces are not this one. A loop that runs
+     * whether or not anything is moving is the one thing in this app that
+     * has already been found costing a battery for nothing.
+     */
+    private var pinging = false
+
+    private val pinger = object : Runnable {
+        override fun run() {
+            if (!pinging) return
+            invalidate()
+            postDelayed(this, PING_FRAME_MS)
+        }
+    }
+
+    private fun keepPinging() {
+        val wanted = located && isAttachedToWindow && windowVisibility == VISIBLE
+        if (wanted == pinging) return
+        pinging = wanted
+        removeCallbacks(pinger)
+        if (wanted) postDelayed(pinger, PING_FRAME_MS)
+    }
+
+    /** For the tests: whether the ping is asking for frames. */
+    internal fun pingingForTest(): Boolean = pinging
 
     @android.annotation.SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
@@ -188,69 +271,120 @@ class HemisphereView @JvmOverloads constructor(
         }
         when (event.actionMasked) {
             android.view.MotionEvent.ACTION_DOWN -> {
-                springBack?.cancel()
-                springBack = null
+                spinning = false
+                spin = WorldSpin.State()
                 lastBearing = bearingAt(event.x, event.y)
                 downX = event.x
                 downY = event.y
-                turning = false
+                lastMoveAt = android.os.SystemClock.uptimeMillis()
+                flungAt = 0.0
+                // A finger on the world is turning the world, and that is
+                // the whole of the rule — the same one the dial has, where
+                // a finger on a hand is holding a hand. It used to have to
+                // prove itself first by dragging in a curve, so a straight
+                // sideways push on the equator turned the page instead,
+                // and the world could only be turned up and down. Outside
+                // the world there is nothing to hold and the swipe goes
+                // through to the pager, which is what a margin is for.
+                turning = intoWorld(event.x, event.y) <= 1f
+                if (turning) parent?.requestDisallowInterceptTouchEvent(true)
             }
             android.view.MotionEvent.ACTION_MOVE -> {
-                // The same rule the dial's hands follow, and for the same
-                // reason: this face lives on a card in a pager, so a flat
-                // sideways shove has to be allowed to turn the page. Only
-                // once the drag has curved does the world claim it — and
-                // once claimed it keeps it for the rest of the gesture.
-                if (!turning) {
-                    val dx = event.x - downX
-                    val dy = event.y - downY
-                    if (kotlin.math.hypot(dx, dy) < slop()) return true
-                    if (kotlin.math.abs(dx) > kotlin.math.abs(dy) * FLAT_SWIPE) return true
-                    turning = true
-                    parent?.requestDisallowInterceptTouchEvent(true)
-                    lastBearing = bearingAt(event.x, event.y)
-                }
+                if (!turning) return true
                 val now = bearingAt(event.x, event.y)
                 var moved = now - lastBearing
                 while (moved > 180.0) moved -= 360.0
                 while (moved < -180.0) moved += 360.0
                 lastBearing = now
+                val at = android.os.SystemClock.uptimeMillis()
+                val dt = (at - lastMoveAt).coerceAtLeast(1L) / 1000.0
+                lastMoveAt = at
+                // Smoothed, because one frame of a finger is a noisy
+                // measurement and the last one before it is lifted is the
+                // noisiest of all — that is the frame a fling is read
+                // from, and unsmoothed it is as often a stop as a throw.
+                flungAt = flungAt * 0.6 + (moved / dt) * 0.4
                 wound += Hemisphere.windBy(view, moved)
                 invalidate()
             }
             android.view.MotionEvent.ACTION_UP,
             android.view.MotionEvent.ACTION_CANCEL -> {
+                if (!turning) return true
                 turning = false
-                unwind()
+                // A finger that has stopped is not a throw, however fast
+                // it was going a moment ago.
+                val still = android.os.SystemClock.uptimeMillis() - lastMoveAt > STALE_MS
+                letGo(if (still) 0.0 else flungAt)
             }
         }
         return true
     }
 
-    private fun slop(): Float =
-        android.view.ViewConfiguration.get(context).scaledTouchSlop.toFloat()
-
     /**
-     * Lets the world go, and it comes back.
+     * Lets the world go, and it finds its own way back.
      *
      * A clock that stays where it was pushed is a clock that has been
-     * broken rather than played with. The hands spring back to the time;
-     * so does the planet.
+     * broken rather than played with, so it does come home — but it is a
+     * planet and not a hand, and it takes its time about it. The
+     * arithmetic is [WorldSpin]; this is the frame loop that runs it and
+     * the conversion between a degree of turn and four minutes of clock.
      */
-    private fun unwind() {
-        if (wound == 0L) return
-        val from = wound
-        springBack?.cancel()
-        springBack = android.animation.ValueAnimator.ofFloat(1f, 0f).apply {
-            duration = UNWIND_MS
-            interpolator = android.view.animation.DecelerateInterpolator(1.6f)
-            addUpdateListener {
-                wound = (from * (it.animatedValue as Float)).toLong()
-                invalidate()
+    private fun letGo(rateDegPerSec: Double) {
+        val off = wound.toDouble() / Hemisphere.MS_PER_DEGREE * windSense()
+        spin = WorldSpin.let(-off, rateDegPerSec)
+        if (WorldSpin.resting(spin)) {
+            wound = 0L
+            spinning = false
+            invalidate()
+            return
+        }
+        spinning = true
+        spunAt = android.os.SystemClock.uptimeMillis()
+        postOnAnimation(spinner)
+    }
+
+    /**
+     * Which way a degree of finger is a millisecond of clock.
+     *
+     * [Hemisphere.windBy] knows it and hands back milliseconds; this is
+     * the same fact the other way round, so that a wind measured in
+     * milliseconds can be handed to a physics that thinks in degrees.
+     */
+    private fun windSense(): Double =
+        Hemisphere.windBy(view, 1.0).toDouble() / Hemisphere.MS_PER_DEGREE
+
+    private val spinner = object : Runnable {
+        override fun run() {
+            if (!spinning) return
+            val at = android.os.SystemClock.uptimeMillis()
+            spin = WorldSpin.step(spin, (at - spunAt) / 1000.0)
+            spunAt = at
+            if (WorldSpin.resting(spin)) {
+                spinning = false
+                wound = 0L
+            } else {
+                wound = (-spin.degrees * windSense() * Hemisphere.MS_PER_DEGREE).toLong()
+                postOnAnimation(this)
             }
-            start()
+            invalidate()
         }
     }
+
+    /** For the tests: whether the world is still going round on its own. */
+    internal fun spinningForTest(): Boolean = spinning
+
+    /** For the tests: one frame of the physics, without a clock to wait for. */
+    internal fun stepSpinForTest(seconds: Double) {
+        spin = WorldSpin.step(spin, seconds)
+        wound =
+            if (WorldSpin.resting(spin)) 0L
+            else (-spin.degrees * windSense() * Hemisphere.MS_PER_DEGREE).toLong()
+        spinning = !WorldSpin.resting(spin)
+        invalidate()
+    }
+
+    /** For the tests: let it go from here, at this many degrees a second. */
+    internal fun letGoForTest(rateDegPerSec: Double) = letGo(rateDegPerSec)
 
     private val ink = Paint(Paint.ANTI_ALIAS_FLAG)
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -311,6 +445,8 @@ class HemisphereView @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        pinging = false
+        removeCallbacks(pinger)
         discard()
     }
 
@@ -389,7 +525,13 @@ class HemisphereView @JvmOverloads constructor(
      * something being dragged.
      */
     private fun quantise(spinDeg: Double): Double {
-        val step = if (turning) 6.0 else 1.5
+        // Coarse whenever the world is moving, not only while a finger is
+        // on it. Letting go used to drop straight back to a degree and a
+        // half, so the world came home through sixty projections of a
+        // quarter of a million points — which is not a spring-back, it is
+        // a series of stills, and it was reported as the world simply
+        // reappearing where it started.
+        val step = if (turning || spinning) 6.0 else 1.5
         return Math.round(spinDeg / step).toDouble() * step
     }
 
@@ -435,14 +577,23 @@ class HemisphereView @JvmOverloads constructor(
         val fade = if (rimScale) Hemisphere.ringFade(zoom) else 0f
         val ring = hourRing && rimScale && fade > 0.01f
         val ringR = min(w, h) * Hemisphere.WORLD_RINGED
-        val r = min(w, h) * Hemisphere.worldRadius(zoom, hourRing && rimScale)
+        val r = min(w, h) *
+            Hemisphere.worldRadius(
+                zoom, hourRing && rimScale,
+                // The world only takes the last twentieth when there is
+                // genuinely nothing standing in it. The moon lives out
+                // there too, and a moon half off the top of the screen is
+                // a worse trade than a slightly smaller earth.
+                sunOutside = showSun || (showMoon && rimScale)
+            )
         val cx = w / 2f
         val cy = h / 2f
 
         bake(-subLon + sunAt)
         drawWorld(canvas, cx, cy, r, subLat, subLon)
-        if (meridians && rimScale) drawMeridians(canvas, cx, cy, r, subLon)
-        drawSunMark(canvas, cx, cy, r, ring, ringR)
+        if (showSun) drawSunMark(canvas, cx, cy, r, ring, ringR)
+        if (showMoon && rimScale) drawMoonMark(canvas, cx, cy, r, ring, ringR, ms)
+        if (ring) drawAlarms(canvas, cx, cy, ringR, fade)
         if (located) drawYou(canvas, cx, cy, r, subLat, subLon, ring)
         if (ring) drawHours(canvas, cx, cy, ringR, fade)
     }
@@ -571,30 +722,6 @@ class HemisphereView @JvmOverloads constructor(
     }
 
     /**
-     * The twenty-four meridians, as notches inside the rim.
-     *
-     * Short, and inside: they are a scale on the world rather than a grid
-     * over it, and a full set of lines across the map would be a diagram
-     * again.
-     */
-    private fun drawMeridians(canvas: Canvas, cx: Float, cy: Float, r: Float, subLon: Double) {
-        line.color = 0xFFFFFFFF.toInt()
-        line.alpha = 90
-        line.strokeWidth = r * 0.006f
-        for (hour in Hemisphere.meridians()) {
-            val bearing = Hemisphere.bearingOfHour(view, hour)
-            val a = Math.toRadians(bearing + sunAt)
-            val dx = cos(a).toFloat()
-            val dy = -sin(a).toFloat()
-            canvas.drawLine(
-                cx + dx * r * 0.93f, cy + dy * r * 0.93f,
-                cx + dx * r, cy + dy * r, line
-            )
-        }
-        line.alpha = 255
-    }
-
-    /**
      * The sun, outside the world, where it has been pinned.
      *
      * It stands in the ring where the twelve would be, and the twelve is
@@ -630,6 +757,72 @@ class HemisphereView @JvmOverloads constructor(
     }
 
     /**
+     * The moon, on the same rim, at the hour its own meridian keeps.
+     *
+     * Smaller than the sun and grey, and it carries its phase: the disc is
+     * drawn as the lit fraction actually is tonight, so a new moon is a
+     * ring with nothing in it and a full one is a full circle. The mark's
+     * *position* already says the same thing — it is the angle between the
+     * two marks — and having it said twice is what makes it read as an
+     * instrument rather than as a decoration.
+     */
+    private fun drawMoonMark(
+        canvas: Canvas, cx: Float, cy: Float, r: Float, ring: Boolean, ringR: Float, ms: Long
+    ) {
+        val a = Math.toRadians(Hemisphere.bearingOfTime(view, Hemisphere.moonHour(ms)) + sunAt)
+        val at = if (ring) ringR * 1.22f else r * 1.06f
+        val x = cx + (cos(a) * at).toFloat()
+        val y = cy - (sin(a) * at).toFloat()
+        val lit = SolarTime.moonIllumination(ms).toFloat()
+        line.color = MOON
+        line.alpha = 200
+        line.strokeWidth = r * 0.008f
+        canvas.drawCircle(x, y, r * 0.042f, line)
+        if (lit > 0.02f) {
+            fill.color = MOON
+            fill.alpha = (255 * lit).toInt().coerceIn(0, 255)
+            canvas.drawCircle(x, y, r * 0.042f, fill)
+            fill.alpha = 255
+        }
+        line.alpha = 255
+    }
+
+    /**
+     * What is armed, marked on the ring where it will ring.
+     *
+     * The same claim the dial makes on its own rim, on the one face that
+     * has a rim of hours rather than of half-days: an alarm at seven in
+     * the morning and one at seven at night are two different places
+     * here, which on a twelve-hour dial they are not.
+     */
+    private fun drawAlarms(canvas: Canvas, cx: Float, cy: Float, r: Float, fade: Float) {
+        if (alarmsAt.isEmpty()) return
+        line.color = ALARM
+        line.strokeWidth = r * 0.014f
+        line.alpha = (230 * fade).toInt().coerceIn(0, 255)
+        val ringAt = r * 1.06f
+        // Civil times on a solar ring, so they have to be converted: the
+        // numbers round this rim are what the sun says over your own head,
+        // and seven o'clock on a phone is not seven o'clock by the sun
+        // anywhere except on your zone's own meridian at two moments in
+        // the year. Half an hour of Spain is most of a numeral.
+        val toSolar = SolarTime.offsetMs(longitude, nowMs())
+        for (ms in alarmsAt) {
+            val solar = ms + toSolar
+            val hours = ((solar % CivilDays.DAY_MS + CivilDays.DAY_MS) % CivilDays.DAY_MS) /
+                3_600_000.0
+            val a = Math.toRadians(Hemisphere.bearingOfTime(view, hours) + sunAt)
+            val dx = cos(a).toFloat()
+            val dy = -sin(a).toFloat()
+            canvas.drawLine(
+                cx + dx * ringAt, cy + dy * ringAt,
+                cx + dx * (ringAt + r * 0.055f), cy + dy * (ringAt + r * 0.055f), line
+            )
+        }
+        line.alpha = 255
+    }
+
+    /**
      * You, which is the hand.
      *
      * A dot and a ring round it, because a dot alone on a photograph of
@@ -646,31 +839,82 @@ class HemisphereView @JvmOverloads constructor(
         if (on[2] < 0.0) return
         val x = cx + (on[0] * r).toFloat()
         val y = cy + (on[1] * r).toFloat()
+        drawPing(canvas, x, y, r)
         fill.color = YOU
         canvas.drawCircle(x, y, r * 0.024f, fill)
         line.color = YOU
         line.strokeWidth = r * 0.010f
         canvas.drawCircle(x, y, r * 0.055f, line)
-        // And the line out to the hour it is pointing at, which is the
-        // only thing on the face that says this is a clock and not a map.
-        // With no ring there is no hour to point at, and a line reaching
-        // for a scale that is not there is worse than no line.
-        if (!ring) {
-            line.alpha = 255
-            return
-        }
-        line.alpha = 110
-        line.strokeWidth = r * 0.006f
+        // And the two meridians: yours, out to the rim, and the one your
+        // clock is actually keeping.
+        //
+        // Drawn at every zoom now. They used to go with the ring of
+        // hours, on the argument that a line reaching for a scale that is
+        // not there is worse than no line — which is true of a line and
+        // false of these two, because they are not pointing at the scale.
+        // They are the hands. Somebody opening the world out watched both
+        // of them disappear a fifth of the way into the pinch and quite
+        // reasonably reported it as a bug.
         val len = kotlin.math.hypot(on[0], on[1])
         if (len > 0.02) {
-            canvas.drawLine(
-                x, y,
-                cx + (on[0] / len * r).toFloat(), cy + (on[1] / len * r).toFloat(),
-                line
+            beads(
+                canvas, cx, cy, r,
+                (on[0] / len).toFloat(), (on[1] / len).toFloat(),
+                YOU, YOURS_FROM, (kotlin.math.hypot(x - cx, y - cy) / r)
             )
         }
-        line.alpha = 255
         drawOfficial(canvas, cx, cy, r, subLon)
+    }
+
+    /**
+     * A meridian, as a string of beads from the middle out to the rim.
+     *
+     * Dashes before, and a dash is a piece of a line: two dashed lines a
+     * few degrees apart read as one broken line rather than as two
+     * claims. Round beads read as marks laid along a bearing, which is
+     * what these are — and they are what somebody asked for by name.
+     *
+     * [from] is where the string starts, as a share of the radius, so a
+     * bead is never drawn under the dot at the middle of it.
+     */
+    private fun beads(
+        canvas: Canvas, cx: Float, cy: Float, r: Float,
+        ux: Float, uy: Float, colour: Int, from: Float, skipTo: Float = 0f
+    ) {
+        fill.color = colour
+        var t = from
+        while (t < 1f) {
+            // Nothing under the ring round the dot: a bead there is a
+            // bead on top of the one mark this face cannot spare.
+            if (skipTo <= 0f || kotlin.math.abs(t - skipTo) > BEAD_CLEAR) {
+                fill.alpha = 210
+                canvas.drawCircle(cx + ux * r * t, cy + uy * r * t, r * BEAD, fill)
+            }
+            t += BEAD_STEP
+        }
+        fill.alpha = 255
+    }
+
+    /**
+     * The radar ping under the dot.
+     *
+     * One ring a second, growing out and fading as it goes, because the
+     * red dot is four pixels of red on a photograph of the earth and the
+     * eye does not find it. It is the oldest trick there is for saying
+     * "here" on a map of the world and it costs nothing to be honest
+     * about: this is not a measurement of anything, it is a thing that
+     * moves so that a thing that does not gets looked at.
+     */
+    private fun drawPing(canvas: Canvas, x: Float, y: Float, r: Float) {
+        val into = ((android.os.SystemClock.uptimeMillis() % PING_MS).toFloat() / PING_MS)
+        line.color = YOU
+        line.strokeWidth = r * 0.006f
+        for (ring in 0 until PINGS) {
+            val at = (into + ring.toFloat() / PINGS) % 1f
+            line.alpha = (150 * (1f - at) * (1f - at)).toInt().coerceIn(0, 255)
+            canvas.drawCircle(x, y, r * (0.055f + at * PING_REACH), line)
+        }
+        line.alpha = 255
     }
 
     /**
@@ -695,21 +939,10 @@ class HemisphereView @JvmOverloads constructor(
         )
         val len = kotlin.math.hypot(at[0], at[1])
         if (len < 1e-6) return
-        val ux = (at[0] / len).toFloat()
-        val uy = (at[1] / len).toFloat()
-        line.color = OFFICIAL
-        line.alpha = 190
-        line.strokeWidth = r * 0.008f
-        var t = OFFICIAL_FROM
-        while (t < 1f) {
-            val to = kotlin.math.min(1f, t + OFFICIAL_DOT)
-            canvas.drawLine(
-                cx + ux * r * t, cy + uy * r * t,
-                cx + ux * r * to, cy + uy * r * to, line
-            )
-            t += OFFICIAL_DOT + OFFICIAL_GAP
-        }
-        line.alpha = 255
+        beads(
+            canvas, cx, cy, r,
+            (at[0] / len).toFloat(), (at[1] / len).toFloat(), OFFICIAL, OFFICIAL_FROM
+        )
     }
 
     /**
@@ -801,23 +1034,41 @@ class HemisphereView @JvmOverloads constructor(
          */
         const val OFFICIAL = 0xFF5AA9FF.toInt()
 
-        /** How long the world takes to come back to now. */
-        const val UNWIND_MS = 700L
+        /**
+         * How long a finger may have been still before letting go stops
+         * counting as a throw.
+         *
+         * Somebody who drags the world round and then holds it there for
+         * a moment before lifting has not thrown it, whatever the last
+         * measured speed says.
+         */
+        const val STALE_MS = 90L
+
+        /** The moon on the rim, and an armed alarm on it. */
+        const val MOON = 0xFFD8DEEA.toInt()
+        const val ALARM = 0xFF7CE08A.toInt()
+
+        /** How far out each string of beads starts. */
+        const val OFFICIAL_FROM = 0.10f
+        const val YOURS_FROM = 0.16f
+
+        /** And how big a bead is, and how far apart they sit. */
+        const val BEAD = 0.011f
+        const val BEAD_STEP = 0.062f
+
+        /** How close to the dot's own ring a bead may come. */
+        const val BEAD_CLEAR = 0.05f
 
         /**
-         * How much flatter than tall a drag has to be before it is a page
-         * turn rather than a turn of the world.
-         *
-         * The same number the dial uses on its hands, for the same
-         * reason: both faces sit on a card in a pager, and a flat shove
-         * across one has to be allowed to mean "next card".
+         * The ping: how long one ring takes to go out, how many are on
+         * their way at once, and how far they get.
          */
-        const val FLAT_SWIPE = 2.5f
+        const val PING_MS = 2200L
+        const val PINGS = 2
+        const val PING_REACH = 0.13f
 
-        /** How far out the dots start, and how long the dots and gaps are. */
-        const val OFFICIAL_FROM = 0.10f
-        const val OFFICIAL_DOT = 0.035f
-        const val OFFICIAL_GAP = 0.030f
+        /** Twenty a second, which is plenty for a ring growing slowly. */
+        const val PING_FRAME_MS = 50L
 
         val PRINT: Typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
     }

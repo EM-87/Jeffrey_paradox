@@ -105,7 +105,7 @@ class RimScaleTest {
             this.view = which
             hourRing = ring
             hourNumbers = ring
-            meridians = notches
+            showMoon = notches
             latitude = 40.4
             longitude = -3.7
             located = true

@@ -624,9 +624,9 @@
     <string name="pref_next_alarm_title">Next alarm on the clock</string>
     <string name="pref_next_alarm_summary">A small bell and the time, when one is armed</string>
     <string name="sundial_flat_here">THIS DIAL IS FLAT HERE</string>
-    <string name="pref_bedside_seconds_title">Seconds on the bedside clock</string>
+    <string name="pref_bedside_seconds_title">Bedside seconds</string>
     <string name="pref_bedside_seconds_summary">Turn the phone on its side and the clock takes the screen. It drops these unless you want them</string>
-    <string name="pref_bedside_date_title">Date on the bedside clock</string>
+    <string name="pref_bedside_date_title">Bedside date</string>
     <string name="pref_bedside_date_summary">Also only with the phone on its side: a bedside clock is usually the time and nothing else</string>
     <string name="pref_widget_date_title">Date on the widget</string>
     <string name="pref_widget_date_summary">Under the time, on the home screen</string>
@@ -686,8 +686,12 @@
     <string name="pref_hemisphere_ring_summary">Twenty-four solar hours round the world</string>
     <string name="pref_hemisphere_numbers_title">Numbers on the ring</string>
     <string name="pref_hemisphere_numbers_summary">Every third hour. The sun stands in for noon</string>
-    <string name="pref_hemisphere_meridians_title">Meridian notches</string>
-    <string name="pref_hemisphere_meridians_summary">Every fifteen degrees, which is where an hour would change</string>
+    <string name="pref_hemisphere_sun_title">The sun on the rim</string>
+    <string name="pref_hemisphere_sun_summary">Where noon is. Turn it off and the world opens to the edge of the screen</string>
+    <string name="pref_hemisphere_moon_title">The moon on the rim</string>
+    <string name="pref_hemisphere_moon_summary">At the hour its own meridian keeps, carrying tonight\'s phase</string>
+    <string name="pref_hemisphere_alarms_title">Alarms on the ring</string>
+    <string name="pref_hemisphere_alarms_summary">What is armed, marked at the hour it will ring</string>
     <string-array name="hemisphere_view_entries">
         <item>Over the north pole</item>
         <item>Over the south pole</item>

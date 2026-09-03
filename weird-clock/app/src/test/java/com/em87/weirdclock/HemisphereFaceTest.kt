@@ -118,8 +118,8 @@ class HemisphereFaceTest {
     fun `the world's rows belong to the world`() {
         for (key in listOf(
             Prefs.HEMISPHERE_VIEW, Prefs.HEMISPHERE_SUN_AT, Prefs.HEMISPHERE_RING,
-            Prefs.HEMISPHERE_NUMBERS, Prefs.HEMISPHERE_MERIDIANS,
-            Prefs.HEMISPHERE_COMPASS
+            Prefs.HEMISPHERE_NUMBERS, Prefs.HEMISPHERE_SUN, Prefs.HEMISPHERE_MOON,
+            Prefs.HEMISPHERE_ALARMS, Prefs.HEMISPHERE_COMPASS
         )) {
             assertTrue(key, FaceOptions.shows(Face.HEMISPHERE, key))
             for (other in Face.entries - Face.HEMISPHERE) {
