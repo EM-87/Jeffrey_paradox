@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The panel the launcher's gear opens.
+
+     It had none, and on a floating translucent window that means the
+     home screen shows straight through the text — which is the one place
+     in this app where a transparent background is definitely not what
+     anybody asked for. The window itself stays translucent so the corners
+     are round and the wallpaper dims behind it; this is what the rows
+     stand on. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="?attr/colorSurface" />
+    <corners android:radius="20dp" />
+    <stroke
+        android:width="1dp"
+        android:color="?attr/colorOutline" />
+</shape>

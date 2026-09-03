@@ -126,6 +126,10 @@ class WidgetSettingsActivity : AppCompatActivity() {
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(pad, pad, pad, pad)
+                // The window is floating and translucent, so without this
+                // the home screen shows through the rows — see
+                // widget_settings_panel.xml.
+                setBackgroundResource(R.drawable.widget_settings_panel)
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
@@ -173,6 +177,30 @@ class WidgetSettingsActivity : AppCompatActivity() {
             R.string.pref_widget_ground_summary,
             kind.groundByDefault
         )
+        // The seconds, on the two kinds that have any: a hand that sweeps
+        // on the dial, a counter beside the digits. Both default to what
+        // the app is doing, so nothing changes until somebody says so.
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val face = if (kind.pinned != null) kind.pinned else Face.of(prefs)
+        if (kind == WidgetKind.DIAL || kind == WidgetKind.DIGITS ||
+            kind == WidgetKind.FOLLOWING
+        ) {
+            rows += if (face != null && !face.hands) {
+                Extra(
+                    kind.pref("seconds"),
+                    R.string.pref_widget_seconds_title,
+                    R.string.pref_widget_seconds_summary,
+                    false
+                )
+            } else {
+                Extra(
+                    kind.pref("seconds"),
+                    R.string.pref_widget_second_hand_title,
+                    R.string.pref_widget_second_hand_summary,
+                    prefs.getBoolean(Prefs.SECOND_HAND, true)
+                )
+            }
+        }
         when (kind) {
             WidgetKind.HOURGLASS -> {
                 rows += Extra(
@@ -219,7 +247,7 @@ class WidgetSettingsActivity : AppCompatActivity() {
             // that draws a bitmap, since the dial's widget is the
             // system's own AnalogClock and has nowhere to put one.
             WidgetKind.FOLLOWING ->
-                if (!Face.of(PreferenceManager.getDefaultSharedPreferences(this)).hands) {
+                if (face != null && !face.hands) {
                     rows += Extra(
                         Prefs.WIDGET_DATE,
                         R.string.pref_widget_date_title,

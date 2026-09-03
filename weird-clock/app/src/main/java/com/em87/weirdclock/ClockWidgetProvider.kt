@@ -361,11 +361,25 @@ open class ClockWidgetProvider : AppWidgetProvider() {
                 }
                 views.setImageViewBitmap(
                     R.id.widget_digital_clock,
-                    WidgetRenderer.faded(
-                        WidgetRenderer.grounded(context, kind, drawn),
-                        WidgetRenderer.alphaOf(context, Prefs.WIDGET_ALPHA)
-                    )
+                    WidgetRenderer.dress(context, kind, drawn)
                 )
+                // And the seconds, which tick by themselves — see the
+                // layout, which says why they are not part of the picture.
+                // Only on the face that has a time to count them against:
+                // a sundial's shadow and a turning world have no seconds
+                // in them at all.
+                val counting = face == Face.DIGITAL &&
+                    prefs.getBoolean(kind.pref("seconds"), false)
+                views.setViewVisibility(
+                    R.id.widget_digital_seconds,
+                    if (counting) android.view.View.VISIBLE else android.view.View.GONE
+                )
+                if (counting) {
+                    views.setTextColor(
+                        R.id.widget_digital_seconds,
+                        WidgetRenderer.widgetTheme(context).decimal
+                    )
+                }
                 return views
             }
             views.setViewVisibility(R.id.widget_analog_clock, android.view.View.VISIBLE)
@@ -377,16 +391,30 @@ open class ClockWidgetProvider : AppWidgetProvider() {
                 // On polygonal dials the rotating hand bitmaps must fit the
                 // inscribed circle, or they'd poke through the flat edges.
                 val fit = WidgetRenderer.handFitFraction(context)
-                // Everything fades together. A solid hand over a ghost of a
-                // face is not a transparent clock, it is a broken one.
-                val alpha = WidgetRenderer.alphaOf(context, Prefs.WIDGET_ALPHA)
+                // Two opacities, not one — see [WidgetRenderer.marked]. The
+                // flat ground goes as far as the slider asks; the hands do
+                // not, because a hand that has faded out is not a
+                // transparent clock, it is a stopped one.
+                val ink = WidgetRenderer.markAlphaOf(context, kind)
                 fun faded(bitmap: android.graphics.Bitmap) =
-                    Icon.createWithBitmap(WidgetRenderer.faded(bitmap, alpha))
+                    Icon.createWithBitmap(WidgetRenderer.faded(bitmap, ink))
                 views.setIcon(
                     R.id.widget_analog_clock, "setDial",
-                    faded(
-                        WidgetRenderer.grounded(
-                            context, kind, WidgetRenderer.dialBitmap(context, size)
+                    Icon.createWithBitmap(
+                        WidgetRenderer.dress(
+                            context, kind,
+                            WidgetRenderer.dialBitmap(
+                                context, size,
+                                // Pre-divided, because this bitmap is
+                                // faded again on the way out with
+                                // everything printed on it: baking the
+                                // face at the ground's own alpha would
+                                // multiply the two and put it below what
+                                // the slider asked for.
+                                WidgetRenderer.beforeMarking(
+                                    WidgetRenderer.groundAlphaOf(context, kind), ink
+                                )
+                            )
                         )
                     )
                 )
@@ -398,7 +426,16 @@ open class ClockWidgetProvider : AppWidgetProvider() {
                     R.id.widget_analog_clock, "setMinuteHand",
                     faded(WidgetRenderer.handBitmap(size, theme.minuteHand, 0.74f * fit, 0.12f, 0.03f))
                 )
-                val secondHand = if (prefs.getBoolean(Prefs.SECOND_HAND, true)) {
+                // Its own switch, falling back to the app's. A dial on a
+                // home screen is looked at for a second and a sweeping
+                // hand on it is the only thing there that never stops
+                // moving — which some people want and some people want
+                // gone, and until this row existed neither could have it
+                // without changing the clock inside the app.
+                val sweeping = prefs.getBoolean(
+                    kind.pref("seconds"), prefs.getBoolean(Prefs.SECOND_HAND, true)
+                )
+                val secondHand = if (sweeping) {
                     WidgetRenderer.handBitmap(size, theme.secondHand, 0.82f * fit, 0.18f, 0.012f)
                 } else {
                     WidgetRenderer.emptyBitmap()

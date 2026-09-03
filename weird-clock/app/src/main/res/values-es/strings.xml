@@ -121,6 +121,10 @@
     <string name="backup_folder_refused">No se puede escribir en esa carpeta</string>
     <string name="widget_settings_title">Transparencia del widget</string>
     <string name="widget_settings_for">Widget de %1$s</string>
+    <string name="pref_widget_second_hand_title">Segundero</string>
+    <string name="pref_widget_second_hand_summary">Lo único de la pantalla de inicio que no para nunca</string>
+    <string name="pref_widget_seconds_title">Segundos</string>
+    <string name="pref_widget_seconds_summary">Un contador junto a la hora, corriendo por su cuenta</string>
     <string name="pref_widget_ground_title">Fondo</string>
     <string name="pref_widget_ground_summary">Una tarjeta detrás, o tu fondo de pantalla directamente</string>
     <string name="pref_widget_hourglass_digits_title">Mostrarlo en dígitos</string>
@@ -623,5 +627,9 @@
     <string name="widget_globe_label">Globo</string>
     <string name="widget_globe_description">La Tierra girando bajo el sol, contigo encima</string>
     <string name="widget_weather_label">Clima</string>
+    <string name="widget_weather_locate">Buscarme otra vez</string>
+    <string name="widget_weather_off">Clima apagado</string>
+    <string name="widget_weather_nowhere">Sin posición</string>
+    <string name="widget_weather_waiting">Preguntando…</string>
     <string name="widget_weather_description">El cielo y la temperatura, y ningún reloj</string>
 </resources>

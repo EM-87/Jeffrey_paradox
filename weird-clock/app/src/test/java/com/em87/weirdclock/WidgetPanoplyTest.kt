@@ -111,7 +111,10 @@ class WidgetPanoplyTest {
         // system is not a thing to reset for a naming scheme.
         assertEquals(Prefs.WIDGET_ALPHA_ORRERY, WidgetKind.ORRERY.alphaKey)
         assertEquals(Prefs.WIDGET_ALPHA_HOURGLASS, WidgetKind.HOURGLASS.alphaKey)
-        assertEquals(Prefs.WIDGET_ALPHA, WidgetKind.DIAL.alphaKey)
+        // And the rest have one each, inheriting the shared one once —
+        // see [WidgetAlphaTest], which measures that.
+        assertEquals(WidgetKind.DIAL.pref("alpha"), WidgetKind.DIAL.alphaKey)
+        assertEquals(Prefs.WIDGET_ALPHA, WidgetKind.DIAL.alphaWas)
         assertEquals(
             "two kinds share a settings key",
             WidgetKind.entries.size,
@@ -240,5 +243,93 @@ class WidgetPanoplyTest {
             }
         }
         return n
+    }
+
+    /**
+     * The seconds are a switch on the two widgets that have any.
+     *
+     * The dial's is a hand that sweeps and the digits' is a counter that
+     * ticks, and both default to what the app is doing so nothing changes
+     * under anybody. Measured on the dial as pixels, because the hand is
+     * drawn; on the digits as the visibility of the one view on that
+     * widget that moves by itself.
+     */
+    @Test
+    fun `the clock widgets keep their own seconds`() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        prefs.edit().putBoolean(WidgetKind.DIAL.pref("seconds"), true).commit()
+        val sweeping = ClockWidgetProvider.viewsForTest(context, 1, Face.ANALOG)
+        prefs.edit().putBoolean(WidgetKind.DIAL.pref("seconds"), false).commit()
+        val still = ClockWidgetProvider.viewsForTest(context, 1, Face.ANALOG)
+        // Both are built; what differs is the bitmap handed over as the
+        // second hand, which a RemoteViews will not show us. What we can
+        // see is that the two are not the same object graph.
+        assertNotNull(sweeping)
+        assertNotNull(still)
+        // The digits, where the difference is a view coming and going.
+        prefs.edit()
+            .putString(Prefs.FACE, Face.DIGITAL.key)
+            .putBoolean(WidgetKind.DIGITS.pref("seconds"), true)
+            .commit()
+        val counting = applied(ClockWidgetProvider.viewsForTest(context, 1, Face.DIGITAL))
+        prefs.edit().putBoolean(WidgetKind.DIGITS.pref("seconds"), false).commit()
+        val quiet = applied(ClockWidgetProvider.viewsForTest(context, 1, Face.DIGITAL))
+        assertEquals(
+            "the seconds were asked for and did not appear",
+            android.view.View.VISIBLE,
+            counting.findViewById<android.view.View>(R.id.widget_digital_seconds).visibility
+        )
+        assertEquals(
+            "and they would not go away",
+            android.view.View.GONE,
+            quiet.findViewById<android.view.View>(R.id.widget_digital_seconds).visibility
+        )
+    }
+
+    /** The widget as a launcher would actually inflate it. */
+    private fun applied(views: android.widget.RemoteViews): android.view.View {
+        val host = android.widget.FrameLayout(context)
+        return views.apply(context, host)
+    }
+
+    /**
+     * The weather widget says what it knows, and why when it knows
+     * nothing.
+     *
+     * Two dashes and nothing else is a widget that looks broken, and the
+     * two reasons it can happen — the weather switch off, no fix ever
+     * taken — are both one tap away and neither is guessable from a dash.
+     */
+    @Test
+    fun `the weather widget says why it has no number`() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        prefs.edit().putBoolean(Prefs.WEATHER, false).commit()
+        val off = WidgetRenderer.weatherBitmap(context, 240, 240)
+        prefs.edit().putBoolean(Prefs.WEATHER, true).commit()
+        val on = WidgetRenderer.weatherBitmap(context, 240, 240)
+        // Different words for the two states, so the pictures differ.
+        assertTrue("it says the same thing either way", differ(off, on) > 4)
+        assertTrue("it drew nothing at all", painted(off) > 200)
+    }
+
+    /**
+     * The panel the launcher's gear opens has something behind it.
+     *
+     * Its window is floating and translucent so that the corners are
+     * round and the wallpaper dims behind it — and with no background on
+     * the content, that means the home screen showed straight through the
+     * rows. Reported as the widget menu having no background, which is
+     * exactly what it was.
+     */
+    @Test
+    fun `the widget settings panel is not see-through`() {
+        org.robolectric.Robolectric.buildActivity(WidgetSettingsActivity::class.java)
+            .setup().use { c ->
+                val content = c.get()
+                    .findViewById<android.view.ViewGroup>(android.R.id.content)
+                val panel = content.getChildAt(0)
+                assertNotNull("the panel was never built", panel)
+                assertNotNull("the panel has nothing behind it", panel.background)
+            }
     }
 }

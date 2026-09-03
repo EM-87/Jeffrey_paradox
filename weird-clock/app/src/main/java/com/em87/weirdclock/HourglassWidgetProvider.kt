@@ -133,10 +133,7 @@ class HourglassWidgetProvider : AppWidgetProvider() {
             view.draw(Canvas(bitmap))
             // Faded once at the end, by the amount asked for, exactly as
             // the other two widgets are — see [WidgetRenderer.faded].
-            return WidgetRenderer.faded(
-                WidgetRenderer.grounded(context, WidgetKind.HOURGLASS, bitmap),
-                WidgetRenderer.alphaOf(context, Prefs.WIDGET_ALPHA_HOURGLASS)
-            )
+            return WidgetRenderer.dress(context, WidgetKind.HOURGLASS, bitmap)
         }
     }
 }

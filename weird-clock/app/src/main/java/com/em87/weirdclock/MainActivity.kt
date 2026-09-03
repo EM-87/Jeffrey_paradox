@@ -3891,66 +3891,18 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private fun requestOneFix() {
         if (locationFixPending) return
-        val lm = getSystemService(LocationManager::class.java) ?: return
-        val provider = when {
-            lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ->
-                LocationManager.NETWORK_PROVIDER
-            lm.isProviderEnabled(LocationManager.GPS_PROVIDER) ->
-                LocationManager.GPS_PROVIDER
-            else -> return
-        }
-        val listener = object : android.location.LocationListener {
-            override fun onLocationChanged(location: android.location.Location) {
-                try {
-                    lm.removeUpdates(this)
-                } catch (e: SecurityException) {
-                    // Permission withdrawn mid-flight; nothing left to stop.
-                }
-                locationFixPending = false
-                prefs.edit()
-                    .putFloat(Prefs.LAST_LONGITUDE, location.longitude.toFloat())
-                    .putFloat(Prefs.LAST_LATITUDE, location.latitude.toFloat())
-                    .apply()
-                DayNight.configure(this@MainActivity)
-                clockView?.invalidate()
-            }
-
-            // Required on API levels below 30, where the default methods of
-            // LocationListener do not exist yet.
-            override fun onStatusChanged(p: String?, s: Int, e: android.os.Bundle?) = Unit
-            override fun onProviderEnabled(p: String) = Unit
-            override fun onProviderDisabled(p: String) = Unit
-        }
-        try {
-            locationFixPending = true
-            lm.requestLocationUpdates(provider, 0L, 0f, listener, mainLooper)
-        } catch (e: SecurityException) {
+        locationFixPending = true
+        Whereabouts.oneFix(this, mainLooper) { got ->
             locationFixPending = false
+            if (got) clockView?.invalidate()
         }
     }
 
     private fun readLongitude(): Double? {
-        val lm = getSystemService(LocationManager::class.java)
-        var best: android.location.Location? = null
-        if (lm != null) {
-            for (provider in lm.allProviders) {
-                try {
-                    val location = lm.getLastKnownLocation(provider) ?: continue
-                    if (best == null || location.time > best!!.time) best = location
-                } catch (e: SecurityException) {
-                    // Provider needs a finer permission; skip it.
-                }
-            }
-        }
-        best?.let {
-            // Both halves of the fix: the sunrise equation needs the
-            // latitude, and one measurement then serves the whole year.
-            prefs.edit()
-                .putFloat(Prefs.LAST_LONGITUDE, it.longitude.toFloat())
-                .putFloat(Prefs.LAST_LATITUDE, it.latitude.toFloat())
-                .apply()
-            return it.longitude
-        }
+        // The best fix anything on the phone already has, which costs no
+        // radio at all — see [Whereabouts], which the weather widget's own
+        // button goes through as well.
+        Whereabouts.lastKnown(this)
         return if (prefs.contains(Prefs.LAST_LONGITUDE)) {
             prefs.getFloat(Prefs.LAST_LONGITUDE, 0f).toDouble()
         } else {

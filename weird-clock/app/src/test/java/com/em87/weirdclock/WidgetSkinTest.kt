@@ -44,23 +44,31 @@ class WidgetSkinTest {
      *
      * They looked the same on screen and shared a key underneath, so
      * fading the sky faded the clock too and the second panel you opened
-     * showed you the first one's number.
+     * showed you the first one's number. That was three of them once and
+     * is all eight now: five of the clocks were still sharing one, which
+     * was reported as fading any of them fading the lot.
      */
     @Test
     fun `each widget has a fade slider of its own`() {
-        val clock = WidgetRenderer.alphaKeyOf("com.em87.weirdclock.ClockWidgetProvider")
-        val sky = WidgetRenderer.alphaKeyOf("com.em87.weirdclock.OrreryWidgetProvider")
-        val glass = WidgetRenderer.alphaKeyOf("com.em87.weirdclock.HourglassWidgetProvider")
-        assertEquals(Prefs.WIDGET_ALPHA, clock)
-        assertEquals(Prefs.WIDGET_ALPHA_ORRERY, sky)
-        assertEquals(Prefs.WIDGET_ALPHA_HOURGLASS, glass)
-        assertEquals("three widgets, three keys", 3, setOf(clock, sky, glass).size)
+        val keys = WidgetKind.entries.map { it.alphaKey }
+        assertEquals("two widgets share a slider", keys.size, keys.distinct().size)
+        assertEquals(
+            Prefs.WIDGET_ALPHA_ORRERY,
+            WidgetRenderer.alphaKeyOf("com.em87.weirdclock.OrreryWidgetProvider")
+        )
+        assertEquals(
+            Prefs.WIDGET_ALPHA_HOURGLASS,
+            WidgetRenderer.alphaKeyOf("com.em87.weirdclock.HourglassWidgetProvider")
+        )
     }
 
     /** Anything else — a widget added later — falls back to the clock's. */
     @Test
     fun `an unknown widget uses the clock's slider`() {
-        assertEquals(Prefs.WIDGET_ALPHA, WidgetRenderer.alphaKeyOf("com.example.SomethingElse"))
+        assertEquals(
+            WidgetKind.FOLLOWING.alphaKey,
+            WidgetRenderer.alphaKeyOf("com.example.SomethingElse")
+        )
     }
 
     /** And each key is read on its own, full strength when untouched. */

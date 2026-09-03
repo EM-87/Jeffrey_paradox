@@ -14,4 +14,22 @@
         android:layout_height="match_parent"
         android:contentDescription="@string/widget_weather_label" />
 
+    <!-- Ask again where we are.
+
+         A weather widget with no way to say "I have moved" is a widget
+         that is wrong in a new city until somebody thinks to open the
+         app, which is the thing a widget exists to save you. It refreshes
+         the reading and every other widget with it — see
+         [WeatherWidgetProvider]. -->
+    <ImageView
+        android:id="@+id/widget_weather_locate"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="6dp"
+        android:alpha="0.55"
+        android:contentDescription="@string/widget_weather_locate"
+        android:padding="4dp"
+        android:src="@drawable/ic_widget_locate" />
+
 </FrameLayout>

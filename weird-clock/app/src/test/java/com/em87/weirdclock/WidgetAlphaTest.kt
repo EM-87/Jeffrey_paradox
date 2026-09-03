@@ -346,4 +346,114 @@ class WidgetAlphaTest {
             255, WidgetRenderer.opacity(prefs.getInt(Prefs.WIDGET_ALPHA, 100))
         )
     }
+
+    // ------------------------------- one slider, two opacities, per widget
+
+    /**
+     * Each widget's slider is its own.
+     *
+     * Five of them read one key, so making the globe a ghost made a ghost
+     * of the dial beside it and of the digits beside that — reported as
+     * exactly that, with the solar system noted as the one that behaved.
+     * The two that already had keys of their own keep them; the rest get
+     * their own and inherit the shared value once, so nothing on anybody's
+     * home screen moves until they move a slider.
+     */
+    @Test
+    fun `every widget has a slider of its own`() {
+        val prefs = androidx.preference.PreferenceManager
+            .getDefaultSharedPreferences(context)
+        prefs.edit().clear().commit()
+        assertEquals(
+            "two kinds share a transparency",
+            WidgetKind.entries.size,
+            WidgetKind.entries.map { it.alphaKey }.distinct().size
+        )
+        // The shared key is what they all start from.
+        prefs.edit().putInt(Prefs.WIDGET_ALPHA, 40).commit()
+        for (kind in listOf(
+            WidgetKind.DIAL, WidgetKind.DIGITS, WidgetKind.GLOBE,
+            WidgetKind.SUNDIAL, WidgetKind.FOLLOWING, WidgetKind.WEATHER
+        )) {
+            assertEquals(
+                "$kind did not inherit the transparency it had",
+                40, WidgetRenderer.percentOf(context, kind)
+            )
+        }
+        // And from then on they are separate: moving one leaves the rest.
+        prefs.edit().putInt(WidgetKind.GLOBE.alphaKey, 90).commit()
+        assertEquals(90, WidgetRenderer.percentOf(context, WidgetKind.GLOBE))
+        assertEquals(
+            "the dial went with the globe",
+            40, WidgetRenderer.percentOf(context, WidgetKind.DIAL)
+        )
+        // The solar system was never in the pool and is not now.
+        assertEquals(100, WidgetRenderer.percentOf(context, WidgetKind.ORRERY))
+        prefs.edit().clear().commit()
+    }
+
+    /**
+     * A transparency slider settles a widget into a wallpaper. It does not
+     * take the time off it.
+     *
+     * One number in the settings and two on the glass: the flat ground
+     * goes as far as the slider asks and the marks — the numerals, the
+     * hands, the planets — keep most of their solidity, because a widget
+     * you can no longer read the time on is not a transparent clock.
+     */
+    @Test
+    fun `the marks stay solid while the ground fades`() {
+        for (percent in WidgetRenderer.MIN_OPACITY_PERCENT..100 step 5) {
+            val ground = WidgetRenderer.opacity(percent)
+            val marks = WidgetRenderer.marked(ground)
+            assertTrue("$percent%: the marks faded past the ground", marks >= ground)
+            assertTrue(
+                "$percent%: the marks went below their floor",
+                marks >= (255 * WidgetRenderer.MARK_FLOOR).toInt() - 1
+            )
+            assertTrue("$percent%: the marks went over solid", marks <= 255)
+        }
+        // And at the top nothing is faded at all.
+        assertEquals(255, WidgetRenderer.marked(255))
+        // At the bottom the ground is nearly gone and the time is not.
+        val bottom = WidgetRenderer.opacity(WidgetRenderer.MIN_OPACITY_PERCENT)
+        assertTrue("the ground is still solid at the bottom", bottom < 128)
+        assertTrue("the marks went with it", WidgetRenderer.marked(bottom) > 128)
+    }
+
+    /**
+     * And on the glass: the dial's face fades further than its numerals.
+     *
+     * Measured on two renderings of the same dial, one at each of the two
+     * opacities the slider produces, because "passed an alpha to the fill
+     * paint" is the sort of line that can quietly do nothing.
+     */
+    @Test
+    fun `the dial's face fades further than what is printed on it`() {
+        // The face is baked pre-divided and the whole picture is faded
+        // again on the way out, so the two together land on the number the
+        // slider asked for — checked here, because the compensation is
+        // exactly the sort of arithmetic that can be applied twice or not
+        // at all and look plausible either way.
+        assertEquals(255, WidgetRenderer.beforeMarking(255, 255))
+        // Within a step of it: both halves are integer division, so the
+        // round trip loses at most one of two hundred and fifty-six.
+        assertEquals(
+            "the pre-division does not undo the second fade",
+            64.0,
+            (WidgetRenderer.beforeMarking(64, 200) * 200 / 255).toDouble(),
+            1.5
+        )
+        val faint = WidgetRenderer.dialBitmap(context, 240, 60)
+        val solid = WidgetRenderer.dialBitmap(context, 240, 255)
+        // The middle of the dial is face and nothing else.
+        val middleFaint = Color.alpha(faint.getPixel(120, 120))
+        val middleSolid = Color.alpha(solid.getPixel(120, 120))
+        assertTrue(
+            "the face ignored its own opacity: $middleFaint against $middleSolid",
+            middleFaint < middleSolid - 40
+        )
+        faint.recycle()
+        solid.recycle()
+    }
 }

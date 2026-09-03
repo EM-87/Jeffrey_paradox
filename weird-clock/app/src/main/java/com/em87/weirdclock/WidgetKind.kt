@@ -47,17 +47,27 @@ enum class WidgetKind(val key: String, val pinned: Face?) {
     fun pref(name: String): String = "pref_widget_${key}_$name"
 
     /**
-     * Where its transparency lives, which is not [pref] for three of them.
+     * Where its transparency lives.
      *
-     * These three keys are on phones already and somebody's ghost of a
-     * clock is not a thing to reset for the sake of a naming scheme. The
-     * clock kinds share one, which is what they have always done.
+     * Its own, which it was not: five of these shared one key, so making
+     * the globe a ghost made a ghost of the dial beside it and of the
+     * digits beside that. Only the two that already had a key of their own
+     * keep it, because somebody's half-faded solar system is not a thing
+     * to reset for the sake of a naming scheme — and the rest fall back to
+     * the shared one the first time they are asked, so nothing changes on
+     * anybody's home screen until they move a slider.
      */
     val alphaKey: String
         get() = when (this) {
             ORRERY -> Prefs.WIDGET_ALPHA_ORRERY
             HOURGLASS -> Prefs.WIDGET_ALPHA_HOURGLASS
-            WEATHER -> pref("alpha")
+            else -> pref("alpha")
+        }
+
+    /** And the key it inherits from, once, if it has never been set. */
+    val alphaWas: String?
+        get() = when (this) {
+            ORRERY, HOURGLASS -> null
             else -> Prefs.WIDGET_ALPHA
         }
 

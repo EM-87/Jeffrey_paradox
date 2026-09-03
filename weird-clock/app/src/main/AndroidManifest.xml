@@ -294,6 +294,7 @@
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.em87.weirdclock.WEATHER_TICK" />
+                <action android:name="com.em87.weirdclock.WEATHER_LOCATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

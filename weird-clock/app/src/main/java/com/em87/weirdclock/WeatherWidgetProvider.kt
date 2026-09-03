@@ -58,9 +58,12 @@ class WeatherWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == ACTION_WEATHER_TICK) {
-            refreshAll(context)
-            scheduleTick(context)
+        when (intent.action) {
+            ACTION_WEATHER_TICK -> {
+                refreshAll(context)
+                scheduleTick(context)
+            }
+            ACTION_WEATHER_LOCATE -> locate(context, goAsync())
         }
     }
 
@@ -68,6 +71,9 @@ class WeatherWidgetProvider : AppWidgetProvider() {
 
         /** Our own wake-up: the sky has had time to change. */
         const val ACTION_WEATHER_TICK = "com.em87.weirdclock.WEATHER_TICK"
+
+        /** And the button on it: ask again where we are. */
+        const val ACTION_WEATHER_LOCATE = "com.em87.weirdclock.WEATHER_LOCATE"
 
         /**
          * How often it looks again.
@@ -106,22 +112,99 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             )
         }
 
-        /** Repaints every weather widget, and asks for a fresh reading. */
+        /**
+         * Repaints every weather widget, and asks for a fresh reading.
+         *
+         * Both halves, and the second one used to be half a thing: the
+         * fetch was started on a thread and nothing repainted when it
+         * landed, so a newly placed widget drew the empty cache — two
+         * dashes where the temperature goes — and kept drawing it until
+         * the next half-hourly tick. Reported, correctly, as the widget
+         * not working. The repaint now waits for the fetch.
+         */
         fun refreshAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(
                 ComponentName(context, WeatherWidgetProvider::class.java)
             )
             if (ids.isEmpty()) return
+            paint(context, manager, ids)
             // On the same terms the app asks on, which includes never
             // asking at all with the switch off.
             DayNight.configure(context)
-            if (WeatherStore.wanted(context) && DayNight.hasFix()) {
-                WeatherStore.refreshInBackground(
-                    context, DayNight.latitudeNow(), DayNight.longitudeNow()
-                )
+            if (!WeatherStore.wanted(context) || !DayNight.hasFix()) return
+            if (!WeatherStore.stale(context)) return
+            val app = context.applicationContext
+            Thread {
+                WeatherStore.refresh(app, DayNight.latitudeNow(), DayNight.longitudeNow())
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    val again = AppWidgetManager.getInstance(app)
+                    paint(app, again, again.getAppWidgetIds(
+                        ComponentName(app, WeatherWidgetProvider::class.java)
+                    ))
+                }
+            }.apply {
+                isDaemon = true
+                start()
             }
+        }
+
+        private fun paint(context: Context, manager: AppWidgetManager, ids: IntArray) {
             for (id in ids) manager.updateAppWidget(id, buildViews(context, manager, id))
+        }
+
+        /**
+         * The button: find out where we are, and tell the whole app.
+         *
+         * A fix is written down once and read by everything — the sunrise,
+         * the shadows, the globe, the weather — so asking again from here
+         * is not a weather-widget thing, it is the app's one measurement
+         * being taken again. Every widget is repainted afterwards for that
+         * reason, and the app itself picks it up the next time it is
+         * looked at, because it reads the same two floats.
+         *
+         * A broadcast receiver is allowed about ten seconds of life, which
+         * is why the fix gets seven — see
+         * [Whereabouts.WAIT_FROM_A_WIDGET_MS].
+         */
+        private fun locate(
+            context: Context,
+            pending: android.content.BroadcastReceiver.PendingResult?
+        ) {
+            val app = context.applicationContext
+            fun done() {
+                DayNight.configure(app)
+                val manager = AppWidgetManager.getInstance(app)
+                paint(app, manager, manager.getAppWidgetIds(
+                    ComponentName(app, WeatherWidgetProvider::class.java)
+                ))
+                // Everything else the fix is read by. The whole point of
+                // the button is that one measurement serves the lot.
+                ClockWidgetProvider.refreshAll(app)
+                OrreryWidgetProvider.refreshAll(app)
+                pending?.finish()
+            }
+            fun fetchThenDone() {
+                if (!WeatherStore.wanted(app) || !DayNight.hasFix()) {
+                    done()
+                    return
+                }
+                Thread {
+                    WeatherStore.refresh(app, DayNight.latitudeNow(), DayNight.longitudeNow())
+                    android.os.Handler(android.os.Looper.getMainLooper()).post { done() }
+                }.apply {
+                    isDaemon = true
+                    start()
+                }
+            }
+            // What something else has already paid for first, and only
+            // then the radio.
+            Whereabouts.lastKnown(app)
+            DayNight.configure(app)
+            Whereabouts.oneFix(
+                app, android.os.Looper.getMainLooper(),
+                Whereabouts.WAIT_FROM_A_WIDGET_MS
+            ) { fetchThenDone() }
         }
 
         /** For the tests: the widget as it would be handed to a launcher. */
@@ -143,14 +226,21 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
             )
+            views.setOnClickPendingIntent(
+                R.id.widget_weather_locate,
+                PendingIntent.getBroadcast(
+                    context,
+                    "weather-locate".hashCode(),
+                    Intent(context, WeatherWidgetProvider::class.java)
+                        .setAction(ACTION_WEATHER_LOCATE),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            )
             val (w, h) = WidgetRenderer.widgetPixels(context, manager, id)
             views.setImageViewBitmap(
                 R.id.widget_weather_image,
-                WidgetRenderer.faded(
-                    WidgetRenderer.grounded(
-                        context, WidgetKind.WEATHER, WidgetRenderer.weatherBitmap(context, w, h)
-                    ),
-                    WidgetRenderer.alphaOf(context, WidgetKind.WEATHER.alphaKey)
+                WidgetRenderer.dress(
+                    context, WidgetKind.WEATHER, WidgetRenderer.weatherBitmap(context, w, h)
                 )
             )
             return views

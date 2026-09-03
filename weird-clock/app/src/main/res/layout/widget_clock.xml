@@ -38,4 +38,29 @@
         android:contentDescription="@string/a11y_clock"
         android:visibility="gone" />
 
+    <!-- The seconds, and the one thing on this widget that moves by
+         itself.
+
+         A bitmap has to be pushed to the launcher whole, and a widget
+         that pushed one every second would be a widget doing sixty times
+         the work of every other clock on the phone for the sake of two
+         digits. This is the platform's own TextClock, which ticks in the
+         launcher's process for nothing — the same bargain the dial makes
+         with AnalogClock, and the reason that widget can have a sweeping
+         second hand at all. It is the system's type rather than the
+         app's display, and it is small and to one side for that reason:
+         it is a counter beside the clock, not part of it. -->
+    <TextClock
+        android:id="@+id/widget_digital_seconds"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="10dp"
+        android:layout_marginBottom="8dp"
+        android:format12Hour=":ss"
+        android:format24Hour=":ss"
+        android:includeFontPadding="false"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
 </FrameLayout>

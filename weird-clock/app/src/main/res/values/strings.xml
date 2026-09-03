@@ -172,6 +172,10 @@
     <string name="backup_folder_refused">That folder cannot be written to</string>
     <string name="widget_settings_title">Widget transparency</string>
     <string name="widget_settings_for">%1$s widget</string>
+    <string name="pref_widget_second_hand_title">Second hand</string>
+    <string name="pref_widget_second_hand_summary">The one thing on a home screen that never stops moving</string>
+    <string name="pref_widget_seconds_title">Seconds</string>
+    <string name="pref_widget_seconds_summary">A counter beside the time, ticking on its own</string>
     <string name="pref_widget_ground_title">Background</string>
     <string name="pref_widget_ground_summary">A card behind it, or your wallpaper straight through</string>
     <string name="pref_widget_hourglass_digits_title">Show it as digits</string>
@@ -777,5 +781,9 @@
     <string name="widget_globe_label">Globe</string>
     <string name="widget_globe_description">The earth turning under the sun, with you on it</string>
     <string name="widget_weather_label">Weather</string>
+    <string name="widget_weather_locate">Find me again</string>
+    <string name="widget_weather_off">Weather is off</string>
+    <string name="widget_weather_nowhere">No fix yet</string>
+    <string name="widget_weather_waiting">Asking…</string>
     <string name="widget_weather_description">The sky and the temperature, and no clock at all</string>
 </resources>

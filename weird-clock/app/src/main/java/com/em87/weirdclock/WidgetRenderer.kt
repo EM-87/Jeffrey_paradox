@@ -120,31 +120,58 @@ object WidgetRenderer {
     fun onCard(source: Bitmap, kind: WidgetKind, theme: ClockTheme): Bitmap {
         val out = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
-        val side = minOf(source.width, source.height).toFloat()
+        card(canvas, source.width, source.height, kind, theme, 255)
+        canvas.drawBitmap(source, 0f, 0f, null)
+        return out
+    }
+
+    /** And the card itself, at whatever opacity it has been given. */
+    fun card(
+        canvas: Canvas,
+        width: Int,
+        height: Int,
+        kind: WidgetKind,
+        theme: ClockTheme,
+        alpha: Int
+    ) {
+        val side = minOf(width, height).toFloat()
         val inset = side * 0.02f
         val corner = side * 0.18f
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         paint.style = Paint.Style.FILL
         paint.color = if (kind == WidgetKind.GLOBE) SPACE else theme.face
-        paint.alpha = 0xE8
-        canvas.drawRoundRect(
-            inset, inset, source.width - inset, source.height - inset, corner, corner, paint
-        )
+        paint.alpha = (0xE8 * alpha / 255).coerceIn(0, 255)
+        canvas.drawRoundRect(inset, inset, width - inset, height - inset, corner, corner, paint)
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = side * 0.018f
         paint.color = theme.rim
-        paint.alpha = 0xB0
-        canvas.drawRoundRect(
-            inset, inset, source.width - inset, source.height - inset, corner, corner, paint
-        )
-        paint.style = Paint.Style.FILL
-        paint.alpha = 255
-        canvas.drawBitmap(source, 0f, 0f, null)
-        return out
+        paint.alpha = (0xB0 * alpha / 255).coerceIn(0, 255)
+        canvas.drawRoundRect(inset, inset, width - inset, height - inset, corner, corner, paint)
     }
 
     /** What is behind the world, which is not a colour anybody chose. */
     private const val SPACE = 0xFF05070D.toInt()
+
+    /**
+     * The finished widget: its card, its marks, and the two opacities.
+     *
+     * One place, so every widget fades the same way — and so that the
+     * ground and the marks cannot drift apart, which is what happens when
+     * two callers each remember to do half of it.
+     */
+    fun dress(context: Context, kind: WidgetKind, marks: Bitmap): Bitmap {
+        val ground = groundAlphaOf(context, kind)
+        val ink = markAlphaOf(context, kind)
+        if (!grounded(context, kind)) return faded(marks, ink)
+        val out = Bitmap.createBitmap(marks.width, marks.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        card(canvas, marks.width, marks.height, kind, widgetTheme(context), ground)
+        canvas.drawBitmap(
+            marks, 0f, 0f,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { alpha = ink }
+        )
+        return out
+    }
 
     /** The card, or not, depending on what this kind has been told. */
     fun grounded(context: Context, kind: WidgetKind, source: Bitmap): Bitmap =
@@ -155,6 +182,69 @@ object WidgetRenderer {
     fun alphaOf(context: Context, key: String): Int = opacity(
         PreferenceManager.getDefaultSharedPreferences(context).getInt(key, 100)
     )
+
+    /**
+     * How solid this kind has been asked to be, as a percentage.
+     *
+     * Its own answer, inheriting the shared one the first time — see
+     * [WidgetKind.alphaWas]. Five of these used to read the same key, so
+     * fading the globe faded the dial beside it.
+     */
+    fun percentOf(context: Context, kind: WidgetKind): Int {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        if (prefs.contains(kind.alphaKey)) return prefs.getInt(kind.alphaKey, 100)
+        val was = kind.alphaWas ?: return 100
+        return prefs.getInt(was, 100)
+    }
+
+    /**
+     * And the two opacities that come out of it.
+     *
+     * One number in the settings and two on the glass, because a
+     * transparency slider is for *settling the widget into the wallpaper*
+     * and not for making it unreadable. The flat ground — the card, the
+     * face of the dial — takes the whole of it; the marks on top of it,
+     * which are the numbers and the hands and the planets, take a
+     * fraction. At a quarter solid the ground is nearly gone and the time
+     * is still there to read, which is the thing somebody actually wants
+     * when they reach for that slider.
+     */
+    fun groundAlphaOf(context: Context, kind: WidgetKind): Int =
+        opacity(percentOf(context, kind))
+
+    fun markAlphaOf(context: Context, kind: WidgetKind): Int =
+        marked(groundAlphaOf(context, kind))
+
+    /**
+     * What to bake a flat colour at so that, faded again with the marks
+     * over it, it lands on the opacity that was asked for.
+     *
+     * The dial is one bitmap: its face and its numerals are painted
+     * together and go to the launcher together, so the face's own
+     * transparency has to be put in before the whole thing is faded and
+     * taken back out again here. Anything already fainter than the marks
+     * stays where it is.
+     */
+    fun beforeMarking(ground: Int, marks: Int): Int =
+        if (marks <= 0) 0 else (ground * 255 / marks).coerceIn(0, 255)
+
+    /** The mark's own opacity, from the ground's. */
+    fun marked(ground: Int): Int =
+        maxOf((255 * MARK_FLOOR).toInt(), 255 - ((255 - ground) * FLAT_SHARE).toInt())
+            .coerceIn(0, 255)
+
+    /**
+     * How much of the fading the marks take, and how faint they may get.
+     *
+     * Under a third, with a floor at nearly three quarters solid. Those
+     * two numbers are the whole of the rule and they were set by looking:
+     * at the bottom of the slider the ground is a ghost and the time is
+     * still plainly there, which is what somebody reaching for a
+     * transparency slider wants. A hand that has disappeared with the
+     * background is not a transparent clock, it is a broken one.
+     */
+    const val FLAT_SHARE = 0.30f
+    const val MARK_FLOOR = 0.72f
 
     /**
      * The same clock on the face with no hands: a readout, on a panel, at
@@ -400,6 +490,32 @@ object WidgetRenderer {
             if (degrees == null) "--°" else "${Math.round(degrees)}°",
             widthPx / 2f, heightPx * 0.80f, ink
         )
+        // And why, when there is no number.
+        //
+        // Two dashes and nothing else is a widget that looks broken, and
+        // for the two reasons this can happen it is not broken at all: the
+        // weather switch is off, or nothing has ever told this phone where
+        // it is. Both are one tap away — the switch inside the app, the
+        // fix from the button on this very widget — and neither is
+        // guessable from a dash.
+        if (degrees == null) {
+            ink.textSize = side * 0.095f
+            ink.alpha = 190
+            canvas.drawText(
+                context.getString(
+                    when {
+                        !WeatherStore.wanted(context) -> R.string.widget_weather_off
+                        !DayNight.hasFix() -> R.string.widget_weather_nowhere
+                        // On, located, and nothing agreed yet: it is on its
+                        // way, or the three services were all down when it
+                        // last looked.
+                        else -> R.string.widget_weather_waiting
+                    }
+                ),
+                widthPx / 2f, heightPx * 0.93f, ink
+            )
+            ink.alpha = 255
+        }
         return bitmap
     }
 
@@ -420,7 +536,16 @@ object WidgetRenderer {
             (hDp.coerceIn(40, 400) * density).toInt()
     }
 
-    fun dialBitmap(context: Context, sizePx: Int): Bitmap {
+    /**
+     * The dial's face, with everything printed on it.
+     *
+     * [faceAlpha] is how solid the flat colour of the face is, on its own.
+     * Everything printed over it stays solid here and is faded once at the
+     * end with the hands, so the numerals and the ticks keep the solidity
+     * a transparency slider is not meant to take from them — see
+     * [WidgetRenderer.marked].
+     */
+    fun dialBitmap(context: Context, sizePx: Int, faceAlpha: Int = 255): Bitmap {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         val theme = ClockThemes.resolve(context, prefs.getString(Prefs.THEME, "midnight"))
         val preset = prefs.getString(Prefs.HOURS_PRESET, "12") ?: "12"
@@ -465,8 +590,11 @@ object WidgetRenderer {
             // widget was still a third transparent, because the two were
             // multiplied and only one of them was the user's. The whole
             // picture is faded once, at the end, by the amount asked for —
-            // see [faded].
+            // see [faded]. What is fadeable *here* is the flat colour of
+            // the face and nothing else: a widget settling into a
+            // wallpaper should lose its background, not its numerals.
             color = theme.face or (0xFF shl 24)
+            alpha = faceAlpha.coerceIn(0, 255)
         }
         val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE

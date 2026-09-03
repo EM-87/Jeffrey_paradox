@@ -147,7 +147,7 @@ class OrreryWidgetProvider : AppWidgetProvider() {
             val theme = ClockThemes.resolve(context, prefs.getString(Prefs.THEME, "midnight"))
             val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
-            val alpha = WidgetRenderer.alphaOf(context, Prefs.WIDGET_ALPHA_ORRERY)
+            val alpha = WidgetRenderer.markAlphaOf(context, WidgetKind.ORRERY)
             val face = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                 color = theme.face
             }
@@ -164,9 +164,7 @@ class OrreryWidgetProvider : AppWidgetProvider() {
                 Orrery.longitude(Orrery.Body.MOON, atMs),
                 comets = prefs.getBoolean(Prefs.COMETS, false)
             )
-            return WidgetRenderer.faded(
-                WidgetRenderer.grounded(context, WidgetKind.ORRERY, bitmap), alpha
-            )
+            return WidgetRenderer.dress(context, WidgetKind.ORRERY, bitmap)
         }
 
         /** For the tests: the widget as it would be handed to a launcher. */
