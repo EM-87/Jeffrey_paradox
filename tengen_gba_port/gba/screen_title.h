@@ -10,8 +10,10 @@
  * and the whole cathedral survive at original size, and three of the four
  * border columns stay on each side. Nothing is scaled.
  *
- * One palette covers the screen: the ROM's own nametable has no attribute
- * table here, because the artwork is drawn entirely in bgPalette0's blues.
+ * The screen uses ALL FOUR of bgPalette0's palettes, chosen per 2x2
+ * block by its attribute table — that is where the cathedral's reds and
+ * greens come from. An earlier pass here assumed one palette covered it
+ * and produced a monochrome title.
  */
 #ifndef SCREEN_TITLE_H
 #define SCREEN_TITLE_H
@@ -44,9 +46,28 @@ static const uint8_t kScreenTitleTiles[600] = {
     0x09, 0x1B, 0x1C, 0xDF, 0xE0, 0xE1, 0xE2, 0xE3, 0x1D, 0x42, 0xE4, 0x42, 0x40, 0x39, 0x3E, 0xE5, 0x3A, 0x3B, 0xE6, 0x37, 0xE7, 0x39, 0xE8, 0x3B, 0xE9, 0x41, 0xEA, 0x26, 0x27, 0x0F,
 };
 
-/* bgPalette0's first palette: the blues the title art uses. */
-static const uint8_t kTitlePalette[4] = {
-    0x0F, 0x31, 0x21, 0x11
+/* Which of bgPalette0's four palettes each tile uses. */
+static const uint8_t kScreenTitlePalettes[600] = {
+    2, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 2,
+    2, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 2,
+    2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2,
+    2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2,
+    2, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 2,
+    2, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 2,
+    3, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 3,
+    3, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 3,
+    2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2,
+    1, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 1,
+    1, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 1,
+    2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2,
+    2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2,
+    3, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 3,
+    3, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 3,
+    2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 0, 0, 2,
+    2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 0, 0, 2,
+    2, 0, 0, 2, 2, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 3, 3, 1, 1, 1, 1, 2, 2, 2, 2, 0, 0, 2,
+    2, 0, 0, 2, 2, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 3, 3, 1, 1, 1, 1, 2, 2, 2, 2, 0, 0, 2,
+    2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2,
 };
 
 #endif /* SCREEN_TITLE_H */

@@ -132,4 +132,9 @@ static const uint8_t kDancerStage[18][4] = {
 static const uint8_t kDancerStartX[DANCER_SOLO_COUNT] = { 0x61, 0x61, 0x61, 0x61, 0x61, 0x61 };
 static const uint8_t kDancerStartY[DANCER_SOLO_COUNT] = { 0xD0, 0xB8, 0xA0, 0x88, 0x70, 0x58 };
 
+/* The OAM attribute byte each one is given: its low two bits pick one
+ * of spritePalette2's four palettes, which is why the six are not all
+ * the same colour. */
+static const uint8_t kDancerAttr[DANCER_SOLO_COUNT] = { 0x00, 0x02, 0x03, 0x00, 0x02, 0x03 };
+
 #endif /* DANCER_POSES_H */
