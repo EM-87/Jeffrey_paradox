@@ -1,0 +1,246 @@
+# Tengen NES Tetris -> GBA port
+#
+# Two build modes:
+#
+#   make / make test   Native host build of the platform-independent core
+#                       plus its unit tests. Needs only gcc. This is the
+#                       day-to-day loop: the core is developed and verified
+#                       against the disassembly here, on the host, before it
+#                       ever touches a GBA.
+#
+#   make gba            Cross-compiles the core (unmodified) and the gba/
+#                       layer into build/tengen.gba, header fixed so it boots
+#                       on hardware. Needs arm-none-eabi-gcc (devkitARM too,
+#                       if DEVKITARM is set) and the headers `make assets`
+#                       generates from a cartridge dump.
+
+CC      ?= gcc
+CFLAGS  ?= -std=c99 -Wall -Wextra -Wpedantic -g -O1
+BUILD   := build
+
+CORE_SRC := src/tengen_core.c src/tengen_link.c src/tengen_ai.c
+CORE_HDR := src/tengen_core.h src/tengen_link.h src/tengen_ai.h
+TEST_SRC := tests/test_tengen.c
+TEST_BIN := $(BUILD)/test_tengen
+
+.PHONY: all test clean gba
+
+all: test
+
+$(BUILD):
+	mkdir -p $(BUILD)
+
+$(TEST_BIN): $(CORE_SRC) $(CORE_HDR) $(TEST_SRC) | $(BUILD)
+	$(CC) $(CFLAGS) $(CORE_SRC) $(TEST_SRC) -o $(TEST_BIN)
+
+test: $(TEST_BIN)
+	./$(TEST_BIN)
+
+clean:
+	rm -rf $(BUILD)
+
+# ---------------------------------------------------------------------------
+# GBA cross-build
+#
+# Uses a stock arm-none-eabi toolchain rather than requiring devkitARM: the
+# GBA-side code depends only on hardware registers it declares itself (see
+# gba/gba_hw.h), plus a hand-written crt0 and linker script. If DEVKITARM is
+# set, its toolchain is used instead — same sources either way.
+#
+# Install the toolchain with e.g.:
+#   apt-get install gcc-arm-none-eabi        (Debian/Ubuntu)
+#   brew install --cask gcc-arm-embedded     (macOS)
+#
+# The resulting ROM boots on real hardware: the build finishes by running
+# devkitPro's own `gbafix` (vendored in tools/gbafix/, LGPL — see the README
+# there) over the linked binary, which stamps the cartridge header's boot logo
+# and complement check. Without that step the BIOS refuses to start the ROM.
+# ---------------------------------------------------------------------------
+ifdef DEVKITARM
+ARMPREFIX := $(DEVKITARM)/bin/arm-none-eabi-
+else
+ARMPREFIX := arm-none-eabi-
+endif
+
+ARMCC      := $(ARMPREFIX)gcc
+ARMOBJCOPY := $(ARMPREFIX)objcopy
+
+# ARM7TDMI. -mthumb keeps the code small, which matters because it runs from
+# the 16-bit-wide cartridge bus: an ARM instruction is two bus reads there and
+# a Thumb one is one. FOR A LONG TIME IT DID NOT APPLY: the compile line below
+# ended in `-marm gba/crt0.s ...`, and the last of two conflicting flags wins,
+# so every C file was built ARM whatever this said. crt0.s carries its own
+# `.arm` and needs no flag. Built as the comment always claimed, the image is
+# 9KB smaller and the worst frame measured (VERSUS COMPUTER, the computer
+# choosing) goes from 67% of the frame to 53%. Code that must be ARM says so
+# per function (IWRAM_CODE in gba_hw.h), and vsync picks its SWI encoding by
+# __thumb__.
+#
+# -flto IS NOT A NICETY HERE, it is what keeps the drawing inside the vertical
+# blank. The front end was one file for a long time and the compiler could
+# inline freely across all of it; splitting it into five took that away, the
+# frame's drawing grew by about 5%, and it started overrunning the blank --
+# which does not look like "slow", it looks like the TOP of whatever was drawn
+# last going missing, because the beam has already passed those scanlines by
+# the time they are written. The pause menu's heading vanished exactly that
+# way. Link-time optimisation gives the inlining back across the five files,
+# and the image comes out smaller than the single file's was.
+ARMFLAGS := -mcpu=arm7tdmi -mtune=arm7tdmi -mthumb -mthumb-interwork \
+            -std=c99 -Wall -Wextra -O2 -flto -ffreestanding -fno-builtin \
+            -fomit-frame-pointer
+# -nostartfiles (not -nostdlib): crt0.s replaces the toolchain's startup, but
+# libc and libgcc are still wanted — the core calls memcpy/memset, and the
+# 32-bit division in the score wrap needs libgcc's helper. Nothing here pulls
+# in newlib's syscall-backed side (no malloc, no stdio), so no stubs needed.
+ARMLDFLAGS := -T gba/gba.ld -nostartfiles -Wl,--gc-sections
+
+# Graphics headers built from a cartridge dump by `make assets`. They are not
+# in version control (the artwork is the original game's), so the ROM target
+# checks for them and says what to do rather than failing in the compiler.
+GBA_ASSETS := gba/tiles_game.h gba/screen_1p.h gba/screen_coop.h \
+              gba/screen_leaderboard.h gba/palettes_rom.h gba/audio_prg.h
+
+# The front end is five files sharing gba/port.h; see the note at the top of
+# that header for what is in which.
+GBA_SRC  := gba/main.c gba/video.c gba/hud.c gba/frontend.c gba/match.c \
+            gba/nes_audio.c gba/nes6502.c gba/handtunes.c gba/link.c $(CORE_SRC)
+GBA_ELF  := $(BUILD)/tengen.elf
+GBA_ROM  := $(BUILD)/tengen.gba
+
+gba: $(GBA_ROM)
+
+# The generated headers are prerequisites through $(wildcard) rather than
+# directly: that way regenerating assets rebuilds the ROM, while a missing one
+# still reaches the helpful message below instead of "no rule to make target".
+$(GBA_ELF): $(GBA_SRC) $(CORE_HDR) gba/port.h gba/gba_hw.h gba/link.h \
+             gba/crt0.s gba/gba.ld \
+             $(wildcard $(GBA_ASSETS)) | $(BUILD)
+	@command -v $(ARMCC) >/dev/null 2>&1 || { \
+	    echo "error: $(ARMCC) not found."; \
+	    echo "Install an arm-none-eabi toolchain (see the Makefile header),"; \
+	    echo "or point DEVKITARM at a devkitARM install."; \
+	    exit 1; }
+	@for h in $(GBA_ASSETS); do test -f $$h || { \
+	    echo "error: $$h is missing."; \
+	    echo "The port's graphics come from an original cartridge dump and are"; \
+	    echo "not committed here. Generate them once with:"; \
+	    echo "    make assets ROM=/path/to/tetris.nes"; \
+	    exit 1; }; done
+	$(ARMCC) $(ARMFLAGS) $(ARMLDFLAGS) gba/crt0.s $(GBA_SRC) -o $@
+
+GBAFIX := $(BUILD)/gbafix
+
+$(GBAFIX): tools/gbafix/gbafix.c | $(BUILD)
+	$(CC) -O2 -w -o $@ $<
+
+$(GBA_ROM): $(GBA_ELF) $(GBAFIX)
+	$(ARMOBJCOPY) -O binary $< $@
+	$(GBAFIX) $@ -tTENGENTETRIS -cCTTE -m00 -p
+	@echo "Built $@ ($$(wc -c < $@) bytes) - header fixed, boots on hardware"
+
+# Builds the port's graphics from an original cartridge dump: tiles, palettes
+# and the screen layout, all taken from the ROM rather than redrawn. Nothing
+# here ships game artwork; you supply the dump.
+#   make assets ROM=/path/to/tetris.nes
+.PHONY: assets
+assets:
+	@test -n "$(ROM)" || { echo "usage: make assets ROM=/path/to/tetris.nes [PROTO=\"proto_a.nes proto_b.nes ...\"]"; exit 1; }
+	python3 tools/extract_assets.py "$(ROM)" $(foreach p,$(PROTO),--proto "$(p)") -o gba/
+
+# THE PORT AGAINST THE CARTRIDGE ITSELF, frame by frame — not against the
+# disassembly, which is what everything else here measures. Boots an original
+# dump in tools/nes_console.py, plays a fixed script on both it and
+# src/tengen_core.c from the same seed, and diffs a line per frame. Slow (an
+# interpreter: about fifteen seconds per thousand frames), so it is not in
+# gba-check; reach for it after touching tengen_step.
+#   make trace ROM=/path/to/tetris.nes [FRAMES=3000]
+# ...AND THE TUNES AGAINST THE CARTRIDGE'S, the same way: an original dump
+# played into a 1 PLAYER game with each tune chosen, its APU register file
+# read every frame, and the port's lined up against it note by note. The
+# golden in gba-check hears only the title theme on a fresh engine; this is
+# what caught the engine reset the port never sent (NES_AUDIO_RESET). About
+# two minutes; not in gba-check for that reason.
+#   make tune-check ROM=/path/to/tetris.nes
+.PHONY: tune-check
+tune-check: $(GBA_ROM)
+	@test -n "$(ROM)" || { echo "usage: make tune-check ROM=/path/to/tetris.nes"; exit 1; }
+	python3 tools/probes/tune_vs_cartridge.py "$(ROM)" $(GBA_ROM)
+
+# ...AND THE JOINS A CLEARED ROW BREAKS, which `make trace` cannot reach:
+# its button script never completes a row. Plants one in both machines and
+# compares the cells the clear is supposed to rewrite.
+#   make clear-check ROM=/path/to/tetris.nes
+.PHONY: clear-check
+clear-check: $(GBA_ROM)
+	@test -n "$(ROM)" || { echo "usage: make clear-check ROM=/path/to/tetris.nes"; exit 1; }
+	python3 tools/probes/clear_joins.py "$(ROM)" $(GBA_ROM)
+
+# ...AND THE COSSACKS' CHOREOGRAPHY, both casts: the port runs the cartridge's
+# own driver in C over the cartridge's own programmes, so this runs the 6502
+# one beside it on the same seed and compares the tiles frame by frame.
+#   make dance-check ROM=/path/to/tetris.nes
+.PHONY: dance-check
+dance-check: $(GBA_ROM)
+	@test -n "$(ROM)" || { echo "usage: make dance-check ROM=/path/to/tetris.nes"; exit 1; }
+	python3 tools/probes/dance_vs_cartridge.py "$(ROM)" $(GBA_ROM)
+
+TRACE_CORE := $(BUILD)/trace_core
+
+$(TRACE_CORE): tools/trace_core.c $(CORE_SRC) $(CORE_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) tools/trace_core.c $(CORE_SRC) -o $@
+
+.PHONY: trace
+trace: $(TRACE_CORE)
+	@test -n "$(ROM)" || { echo "usage: make trace ROM=/path/to/tetris.nes [FRAMES=3000]"; exit 1; }
+	python3 tools/trace_match.py "$(ROM)" --frames $(or $(FRAMES),3000) --core $(TRACE_CORE) --outdir $(BUILD)
+
+# Verifies the asset conversion's format handling without needing a ROM.
+.PHONY: assets-check
+assets-check:
+	python3 tools/extract_assets.py --self-test
+
+# Boots the ROM in mGBA headlessly and checks it actually renders and plays,
+# rather than merely linking. The last two are the two-player mode: one console
+# on its own reaching the link screen and giving up gracefully, then TWO cores
+# with a simulated cable between them playing the same match byte for byte.
+# Needs: pip install pygba (plus the mGBA shared library, e.g. apt-get install
+# libmgba0.10).
+.PHONY: gba-check
+gba-check: $(GBA_ROM)
+	python3 tools/check_header.py $(GBA_ROM)
+	python3 tools/run_rom.py $(GBA_ROM) --selftest
+	python3 tools/run_rom.py $(GBA_ROM) --lineclear
+	python3 tools/run_rom.py $(GBA_ROM) --pause
+	python3 tools/run_rom.py $(GBA_ROM) --audio
+	python3 tools/run_rom.py $(GBA_ROM) --pause-audio
+	python3 tools/run_rom.py $(GBA_ROM) --title
+	python3 tools/run_rom.py $(GBA_ROM) --skin
+	python3 tools/run_rom.py $(GBA_ROM) --handtunes
+	python3 tools/run_rom.py $(GBA_ROM) --xe
+	python3 tools/run_rom.py $(GBA_ROM) --credits
+	python3 tools/run_rom.py $(GBA_ROM) --leave-title
+	python3 tools/run_rom.py $(GBA_ROM) --braid
+	python3 tools/run_rom.py $(GBA_ROM) --handicap
+	python3 tools/run_rom.py $(GBA_ROM) --panel
+	python3 tools/run_rom.py $(GBA_ROM) --next-palette
+	python3 tools/run_rom.py $(GBA_ROM) --menu
+	python3 tools/run_rom.py $(GBA_ROM) --computer
+	python3 tools/run_rom.py $(GBA_ROM) --coopai
+	python3 tools/run_rom.py $(GBA_ROM) --versushud
+	python3 tools/run_rom.py $(GBA_ROM) --statsshow
+	python3 tools/run_rom.py $(GBA_ROM) --sleep
+	python3 tools/run_rom.py $(GBA_ROM) --demo
+	python3 tools/run_rom.py $(GBA_ROM) --falling
+	python3 tools/run_rom.py $(GBA_ROM) --points
+	python3 tools/run_rom.py $(GBA_ROM) --leaderboard
+	python3 tools/run_rom.py $(GBA_ROM) --tables
+	python3 tools/run_rom.py $(GBA_ROM) --coophud
+	python3 tools/run_rom.py $(GBA_ROM) --pausemenu
+	python3 tools/run_rom.py $(GBA_ROM) --quit-audio
+	python3 tools/run_rom.py $(GBA_ROM) --stats
+	python3 tools/run_rom.py $(GBA_ROM) --effects
+	python3 tools/run_rom.py $(GBA_ROM) --loans
+	python3 tools/run_rom.py $(GBA_ROM) --onscreen
+	python3 tools/run_rom.py $(GBA_ROM) --gameover
+	python3 tools/run_rom.py $(GBA_ROM) --link
+	python3 tools/run_link.py $(GBA_ROM)

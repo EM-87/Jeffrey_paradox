@@ -1,0 +1,2260 @@
+# Tengen Tetris (NES) → GBA: verified mechanics and open questions
+
+This is the distilled result of the research passes over `disasm/main.asm.txt`
+(the Tengen Tetris NES disassembly — see `disasm/README.md.txt` for that
+project's own scope/credits) plus `disasm/notes.txt.txt`, `disasm/tetris-ram.asm.txt`
+and `disasm/constants.asm.txt`. Its job is to save the next session from
+re-deriving anything below from scratch, and to point precisely at what's
+still unknown so it can be tightened without re-reading the whole disassembly.
+
+Every "VERIFIED" item was confirmed by reading the actual 6502 and, where the
+logic wasn't obvious from a single glance (carry-flag conventions, nibble
+packing, ASCII-digit arithmetic), tracing it by hand to a plain-English rule
+before it went into `src/tengen_core.c`, with a test in
+`tests/test_tengen.c` pinning the behavior. Several of these took two passes
+to get right — the wall kick, the DAS charge, the spawn table's indexing and
+the level-up rule were all initially plausible-looking and wrong — so treat
+"it compiles and looks reasonable" as no evidence at all here.
+
+## Resolution mapping (the reason this project is feasible as a "1:1" port)
+
+- GBA screen: 240×160 px, tile modes are 8×8 tiles → 30×20 tiles visible.
+- NES screen: 256×240 px → 32×30 tiles visible.
+- Tengen's playfield is fixed at 10 columns × 20 rows of 8×8 tiles = **80×160 px**,
+  at nametable columns 2-11, with the cartridge's braided frame at columns 0-1
+  and 12-13 — so the framed board is 14 columns, **112×160 px**.
+- 160 px is exactly the GBA's full screen height. The playfield needs **zero**
+  vertical scaling or cropping on GBA — every row is visible, pixel-for-pixel,
+  same as NES, and it keeps the NES's own column positions.
+- **The walls are frame ART, not blocks.** The ROM never paints its playfield
+  buffer's wall cells over them; they are drawn once with the screen. Three
+  things say so: exactly ten blank columns sit between the frames in the
+  nametable, the line-clear sweep runs from x `$10` to `$58` (columns 2 to 11
+  and no further, `L8840`), and the pause plaque is blitted at column 12,
+  right where the frame starts. A renderer that draws the core's wall
+  sentinels as block tiles covers that art and shifts the field a column —
+  which is exactly what an earlier pass of this port did.
+- The NES screen holds TWO such framed board areas: columns 0-13 and columns
+  18-31. 2P puts a player in each; 1P draws its score panel over the second.
+- **Horizontally**, 32 columns become 30 and the columns are also
+  RESEQUENCED. On the NES the 1P playfield sits well left of centre, because
+  the screen is really two board areas and 1P plays in one; on a GBA showing
+  one player that reads as lopsided. So the runs of columns are reordered to
+  put the ten playable ones dead centre (port columns 10-19, 80px of screen
+  either side) with the HUD split around them: counters and statistics left,
+  next piece right. Every run moves whole — nothing is scaled or cropped —
+  and the two columns that do not fit are the second board area's right
+  frame, which has nothing left to frame. `SCREEN_SEGMENTS` in
+  `tools/extract_assets.py` is the order; `make gba-check` asserts the
+  centring against the running ROM.
+- **Vertically**, 30 rows become 20 and the field needs all 20 — so the GBA
+  window is exactly the NES's playfield rows (8-27). That costs the NES's
+  header strip, which is where its SCORE / LINES / LEVEL / NEXT labels live,
+  so those move into the side panel the NES left mostly empty. Same tiles,
+  same lettering, stacked instead of spread. This is the one deliberate
+  rearrangement in the whole port.
+- `make gba-check` asserts all of it against a running ROM: the field's
+  column bounds, that both wall columns reach the full 160px, and that the
+  border, banner and panel are all actually drawn.
+
+## VERIFIED
+
+| Mechanic | ROM location | Summary |
+|---|---|---|
+| **Playfield geometry** | `initPlayer1orCoopPlayfield`, `main.asm.txt:3468-3503`; buffer size at `tetris-ram.asm.txt:206-208` | Each ROM row is 8 bytes / 16 nibbles: nibbles 3-12 are the ten playable cells, 2 and 13 are the walls, 0-1 and 14-15 padding. The buffer holds 26 open rows (0-25) plus two solid floor rows, so **the floor is row 26** and the buffer is 28×8 = 224 = `$E0` bytes exactly, matching the RAM reservation. The **visible field is ROM rows 6-25** (20 rows). Three independent things confirm this: the top-out check compares against row 6 (`main.asm.txt:589`), the scoring routine subtracts against 26 (`main.asm.txt:1062`), and the sprite-position math derived from it maps `$2D` 0→217px and 20→57px, i.e. exactly a 160px-tall, 20-row field (`main.asm.txt:220-229`). This core keeps the ROM's coordinates rather than remapping them, so piece positions can be diffed against the disassembly directly. |
+| **Coop is 12 columns wide, not 10** | `main.asm.txt:3480-3489` and its own comment at `:3483` | In coop the ROM writes `$00` where it would otherwise write the `$F0`/`$0F` wall nibbles, "to add 1 column on either side". The core reproduces this by storing 12 columns always and placing a `TT_WALL` sentinel in the outer two only outside coop — same trick the ROM uses, and it makes both collision and full-row detection mode-agnostic for free. |
+| Piece ids | `notes.txt.txt:11-18` | 0=none,1=I,2=T,3=O,4=J,5=L,6=S,7=Z. Matches `TengenTetromino`. |
+| Orientation bitmaps (all 7 pieces × 4 orientations) | `main.asm.txt:1104-1124` | Transcribed verbatim into `kOrientationBitmap`. S has no explicitly-labeled table in the ROM but the disassembler's own comment at `main.asm.txt:1120-1121` confirms the `orientationTiles` bytes double as S's bitmap; used as such. |
+| Sub-tile ids (cosmetic joined-block art) | `main.asm.txt:1125-1150` | Transcribed verbatim into `kTileIds`. Not used by collision, only by the renderer later. |
+| Spawn position | `main.asm.txt:3688-3721`, `constants.asm.txt:63` | Row = 4 always (`TETROMINO_Y_INIT`) — that's two rows **above** the visible field, so pieces slide in from off-screen. Orientation resets to 0. The column table `tetrominoXSpawnTable = {3, 9, 7}` is **not** indexed the way its layout suggests: `main.asm.txt:3716-3720` loads entry [2] = 7 for 1P *and* 2P (dead centre), and only indexes by player — 3 for P1, 9 for P2 — in coop, where both share one wide field and start on opposite sides. Easy to get backwards; the first pass here did. |
+| **Top-out rule** | `main.asm.txt:588-590` | Game over is decided at lock time by position, not by a blocked spawn: if the piece comes to rest with its bounding box still starting above the visible field (`y < 6`), the game ends and the piece is never planted. |
+| RNG algorithm | `main.asm.txt:3812-3832` | 16-bit state split across two bytes (aliased onto `ppuControl`/`ppuMask` in the ROM — a space-saving trick, not a design constraint we need to keep). Pseudocode in the source comment was traced against the 6502 and matches exactly; see `tengen_rng_step`. |
+| Piece selector ("reroll on 0 of 8", no anti-repeat) | `main.asm.txt:3688-3703` (`getNextTetromino`) | Step the RNG 5 times (`genNextPseudoRandom5x`), mask to 0..7, reroll while the result is 0. **There is no check against the previously dealt piece.** This is a real, documented Tengen quirk (unlike the Nintendo-published NES Tetris) and is why Tengen can deal long same-piece or S/Z droughts. |
+| Both players' RNGs share a seed at game start | `main.asm.txt:3319-3326` | `player1RNGSeed`/`player2RNGSeed`/`savedRNGSeed` are all copied from the same `rngSeed` when a game starts. |
+| DAS timing | `main.asm.txt:96-150` (`doSomethingWithInputDuringGameplay`) | A shift fires from two sources OR'd together: the fresh press (the caller hands the edge bits in via `player1ControllerNew`, `main.asm.txt:82`) and the DAS repeat. The counter increments on **every** frame the direction is held, the press frame included — so the first repeat lands on the 11th frame *of the hold*, not 11 frames after it. On firing it reloads to **5, not 0**, which is what makes every subsequent repeat 6 frames apart. Encoded as `TENGEN_DAS_CHARGE_FIRST`/`TENGEN_DAS_CHARGE_REPEAT`. |
+| Auto-rotate | `main.asm.txt:153-183` | Holding B (`autoRotateCounterP1/2`) or A (`autoRotateClockwiseP1/2`) charges a counter; at 15 frames (`$0F`) the ROM ORs the button into the synthesised press mask and the piece turns. **AND THEN THE COUNTER GOES BACK TO ZERO, so the repeat is every fifteen frames — four turns a second.** The reset is a FALL-THROUGH and is easy to miss: after `tya`/`ora`/`tay` the code runs straight into `@BNotPressed`, whose whole body is `lda #$00` / `sta autoRotateCounterP1,x`; the branch that skips it (`bcc L80D5`) is the one taken while the counter is still under fifteen. This row used to claim the opposite — "never reloaded down, fires every single frame" — and the port implemented that, which is why a held button spun the piece unrenderably fast. Measured on the cartridge (`nes_console`, B held from a standing start): it turns on frames 1, 15, 30, 45, 60 and `$01AE` reads 0 on each. Not the DAS pattern next door either, which reloads to 5 of 11 and so repeats every 6. B increments orientation (this file calls that "clockwise"); A decrements it ("counter-clockwise") — the ROM's own variable names for these two counters are reversed from what they do, which is worth remembering if `main.asm.txt` is read again later. |
+| Wall kick | `main.asm.txt:538-575` | Traced via the actual carry-flag convention of `checkPositionAndClearFlagsOnCarrySet` (confirmed by reading `main.asm.txt:1017-1073`: the routine returns **carry SET = valid position**, via the `$2D` sentinel — `$2D` starts at `$FF`/negative and a `bmi`+`sec` path returns carry set only when no collision was ever recorded during the scan). With that convention, rotation is: try the new orientation in place → if valid, keep it; else shift one column **left** and try the same new orientation → if valid, keep both; else revert orientation and position entirely. It never tries right. This matches the wiki quote already sitting in `notes.txt.txt:160`: *"Because basic rotation can fail when a piece is against the right wall, but not when the same piece is against the left wall, this game will wallkick one square to the left if basic rotation fails."* — including the (real, faithfully reproduced) oddity that it still only ever tries left even flush against the left wall, where a left kick can't possibly help. |
+| Level-up thresholds | `main.asm.txt:1473-1478` (`bonusLinesTable`), **and its two readers at `:1482-1487` and `:3145-3151`** | Bytes decode as ASCII digit pairs: 03,06,09,12,15,20,25,30,...,95. **THOSE PAIRS ARE HUNDREDS-AND-TENS, NOT TENS-AND-ONES.** Both readers compare them against `player1LinesHundreds` and `player1LinesTens` — the top two digits of the line counter — so the ones digit never enters the test and "03" means the first total whose tens digit is 3: **thirty lines**. The real curve is **30, 60, 90, 120, 150, then every 50 to 950**, which is also what the ROM's own comment above the table says ("first check at X03X, then every 30 lines until X150 at which point it's every 50 lines"). Reading the pairs as tens-and-ones gives 3, 6, 9 ... 95 — a level every three lines — and that is what this port shipped with until it was caught; the table is 21 entries either way, which is why the count matched while every value was ten times too small. `TENGEN_LEVEL_LINE_THRESHOLDS` now holds the line totals and `TENGEN_LEVEL_LINE_TENS` the ROM's own pairs. |
+| **Level is recomputed, not incremented** | `main.asm.txt:3140-3186` | On every line clear the ROM walks `bonusLinesTable` from the start, counts how many thresholds the running line total has reached, and sets the level to `start_level + that count` — committing it only if it's higher than the current level. This is not equivalent to stepping the level by one per clear: a clear that crosses two thresholds at once advances two levels. The start level offsets the whole curve, and the ones digit is clamped at '7' so the result never exceeds 17. |
+| "Plant piece into playfield" on lock | `main.asm.txt:856-908` (`L8565`) | Confirms the nibble-packing scheme; reimplemented behaviorally (not bit-for-bit) in `lock_piece`. |
+| **Gravity curve** | `main.asm.txt:3970-4025` (`L9AEE`, `possibleFallTimerTable` at `$9B36`) | 18 entries, one per level 0-17: 33,28,24,20,17,14,11,9,7,6,5,5,4,4,3,4,3,3 frames per row. **Entry 15 (4) is genuinely slower than entry 14 (3)** — the ROM's bytes really do bump back up; it's not a transcription slip, and the fractional masks below depend on it. Coop uses a separate, strictly monotonic table (`L9B48` at `$9B48`): 33,28,24,20,18,17,16,15,14,13,12,11,10,9,8,7,6,5. |
+| **Fractional gravity (levels 10-17)** | `main.asm.txt:3985-4000`, mask table `L9B50` at `$9B50` | For levels ≥10 the ROM ANDs the piece's current row with a per-level mask and either uses `table[level]` or falls back to `table[level-1]`, so a level can average a non-integer frames-per-row (level 15 alternates 4/3 for an effective 3.5; level 14 uses 3 one row in four for 3.75). The polarity of the test **flips** between the 10-15 band (`beq`) and the 16+ band (`bne`). Masks for levels 10-17: `01,00,01,00,03,01,03,00`. The mask bytes physically overlap the tail of the coop fall-timer table — deliberate ROM byte reuse, not an error. |
+| **Level cap** | `main.asm.txt:3168-3170` | The level-up code clamps the displayed level to "17", which is exactly the length of the fall-timer table. `TENGEN_MAX_LEVEL`. |
+| **Soft drop requires Down alone** | `main.asm.txt:185-188` | `and #DOWN+LEFT+RIGHT; cmp #DOWN` — holding Down together with Left or Right does **not** soft drop; it resets the soft-drop threshold to 5 instead. Same exclusivity applies in reverse to DAS (`main.asm.txt:111-114`): the DAS counter only charges while Down is *not* held. |
+| **Soft-drop acceleration** | `main.asm.txt:189-216` | Every time the soft drop fires it tightens its own threshold by one (floored at 1), so a held Down accelerates: first step after 20 frames, then 19, 18… Releasing Down (or pressing a direction) resets the threshold to **5**, not back to 20 — so a second soft drop on the same piece bites much faster than the first. `L9AEE` additionally clamps the threshold to the level's gravity value, so soft dropping is never slower than plain gravity (`main.asm.txt:4008-4011`). |
+| **Fresh direction press swallowed after Down** | `main.asm.txt:98-107` | A new Left/Right press is discarded outright if Down was held on the *previous* frame — you cannot start a horizontal move on the frame you stop soft-dropping. |
+| **Scoring** | `L9A47` at `main.asm.txt:3874-3893`, multiply `L98D7` at `:3632-3685`, doubling `L9A17` at `:3843-3871`, digit accumulate `L9A6A` at `:3894-3948` | Points are awarded **per piece locked, not per line cleared** — clearing lines pays nothing directly. The award is `(level+1) × ((level+1) + rows_above_floor)`, where `rows_above_floor` is `$2D` = 26 − (row of the lowest cell the piece collided with), so **resting higher pays more**: it rewards building tall, not dropping far. It doubles when `dropRatePossible < 2`, i.e. when a soft drop has fully accelerated. The level term reads oddly in the ROM (ones digit + 1, plus a flat +10 when the tens digit is set) but works out to exactly `level + 1` across the whole 0-17 range, precisely because the level caps at 17. The running total is six ASCII digits, and its hundred-thousands digit is replaced by `'1'` rather than carrying when it would pass `'9'` (`:3942-3946`), so the score wraps to 100000 rather than saturating. |
+| **Palettes** | `piecePaletteIndex0..B` at `main.asm.txt:5364-5399`; `setPiecePalette` at `:5338`; `setPlayfieldPaletteFromLevel` at `:5328` | One table of twelve three-colour entries serves double duty: indexed by PIECE ID it colours a piece (entry 1 = I, 2 = T, ... 7 = Z), and indexed by the LEVEL'S ONES DIGIT it colours the playfield — which is why the field recolours each level and repeats every ten. Entry 10 is the line-clear flash, 11 the bonus animation. Transcribed into `gba/palette.h`. The NES colour indices are in the ROM; what they *look like* is in the PPU hardware and is only ever approximated. |
+| **Settled blocks are not coloured per piece** | `main.asm.txt:3723-3728` vs `:3205`, palette addresses at `:5334-5342` | `setPiecePalette` writes to `$3F11+`, a SPRITE palette, and is called once per piece dealt; `setPlayfieldPaletteFromLevel` writes to `$3F01+`, a BACKGROUND palette, and is called on level-up. So the falling piece and the next-piece preview are sprites carrying their own colour, while everything already locked is background drawn in one level-wide scheme. A renderer that tints settled blocks by the piece they came from looks wrong — this port did exactly that until the palette code was traced. |
+| **The playfield stores tile ids, not piece ids** | `notes.txt.txt:35` ("nibble aligns with tile index"), planting code at `main.asm.txt:928-935` | Each playfield nibble holds the sub-tile index (1-14) taken from `orientationTiles`, not the piece id. This core stores piece ids instead, which is behaviourally identical (both just mean "occupied") and lets it keep per-piece information the ROM discards — but it means the joined-block artwork can't be reproduced exactly until the field also carries tile ids. That's the one remaining structural gap for pixel-perfect settled blocks; it only matters once real CHR art is available. |
+| **Attribute tables are NOT beside their nametables** | copy loop in `sendNametableToPPU`, `main.asm.txt:6941-6963`; screen addresses at `nametableAddressTable`, `:6990-6998` | A screen is 960 tile ids plus a 64-byte attribute table saying which of four palettes each 2x2 block uses, and `sendNametableToPPU` copies **1024** bytes to `$2000`. But the screens are stored **960 bytes apart**, so slicing "nametable then attributes" out of the ROM hands you the next screen's first two rows and calls them palettes. It looks almost right and is wrong everywhere: this port had the playfield's braided frame changing colour down its length and a monochrome title before the screens were read by RUNNING that routine on the 6502 interpreter instead (`read_screen` in `tools/extract_assets.py`). The truth: the 1P frame is uniformly bank 2 top to bottom, the playfield is bank 0 (which is what `setPlayfieldPaletteFromLevel` recolours), the banner is bank 3, and the whole header strip is bank 3. |
+| **Which palette set each screen uses** | `updatePalette` at `main.asm.txt:5268-5287`, tables at `:5292-5321`; callers at `:2044`, `:3308-3310`, `:4492-4494`, `:4547-4549` | `updatePalette(n)` writes 16 bytes — four palettes — from `bgPalette0 + n*16` to the background palettes for n<3 and the sprite palettes for n>=3. Title: `bgPalette0` + `spritePalette1`. Menu: `bgPalette1` + `spritePalette0`. Game: `bgPalette2` + `spritePalette0`. The level-up interlude switches sprites to `spritePalette2`, and the dancers' own attribute bytes (`$8E78`) pick among its four — which is why the six are three different colours, not one. The title screen in particular uses **all four** of its palettes; assuming one covered it is what made this port's title monochrome. |
+| **Screen layout** | `gameModeNametable1P` at `main.asm.txt:C028` onward | The 1P screen is 32x30 tiles and is built from TWO identical framed board areas side by side: braid at columns 0-1, ten playable columns at 2-11, braid at 12-13, the 4-column TETRIS banner at 14-17, then the same again — braid at 18-19, ten columns at 20-29, braid at 30-31. The playfield rows are 8-27, exactly 20. 2P puts a player in each area; 1P draws its score/stats panel over the second one, which is why that half is blank in the nametable. The header strip in rows 0-7 holds the SCORE / LINES / LEVEL / NEXT labels; those are multi-tile graphics, while "HIGH SCORE" and "STATS" are plain ASCII, because the tileset's letters and digits sit at their ASCII codes. |
+| **The playfield's tiles come from the nibble itself** | `L8544` at `main.asm.txt:829-842` | The routine that fills the screen buffer stores the playfield nibble **directly** as the nametable tile id — no lookup, no offset. So cell value 1-14 is a block tile and the wall's `$F` is tile `$0F`, which is why walls need no special case in the renderer. `$0F` is a block graphic with transparent corners, not a solid bar; a renderer that assumes a solid wall column will look wrong. |
+| **The dancers** | poses at `$C8BC-$C9FF`; positions at `$8E5C/$8E6A/$8E78`; how many, at `main.asm.txt:2085-2108`; stage blit `levelUpAnimationColsRows1` at `$B7FF` with tiles at `LC82C` ($C82C); driver `LB015` at `:6392-6499` | Sprites, four 8x8 tiles in a 2x2 each. **A 1P or 2P game shows six**, stacked in ONE column at x `$61` with y `$D0,$B8,$A0,$88,$70,$58` — 24 pixels apart; coop instead uses entries 6-13, in pairs down the two sides. How many actually appear is `L8D8B` (`:2050-2082`) and it is now ported: **one, plus one per triple and two per tetris cleared since the last level-up**, summed over the players still in the game, capped at 8 and then at **6 in 1P and 2P** — coop is the only mode that uses all eight, because it is the only one with a second column of positions. Singles and doubles buy nothing. The tally lives at `$6C-$73` (two players interleaved, `$6C`/`$6E`/`$70`/`$72` for p1 = singles/doubles/triples/tetrises), is zeroed on a new game (`:3455-3458`) and again by `finishLevelUpAnimation` (`:2476-2482`), so it is **per level, not per game**; the level-up screen also weights it x1/x4/x9/x25 (`L8E54`, `:2160`) for its bonus figures, which the port does not show. In the port it is `TengenPlayerState.clear_counts` and `tengen_dancer_count`. The level-up blit is not just clearing the TETRIS banner to make room: it **draws their stage** into it — 4 columns x 18 rows at nametable (14,10), five ledges of tile `$9D` one every three rows, i.e. 24 pixels apart, exactly under the six dancers' feet. They start just left of the banner and walk right onto it, one pixel every four frames, while the pose advances every eight. **The driver is now traced too** (`LB015`): each dancer holds a pointer into a little program (`$019A/$01A2`), advanced by one 2-byte entry every 8 frames, and what an entry MEANS is decided by comparing its value against two addresses — `>= $C8BC` is a pose (four tile ids), `>= $B14D` but below that is a jump to another program, and below `$B14D` it is a random branch: `shuffleRngSeed5x` picks one of sixteen pointers from the table the entry names. A dancer only walks while its program lies below `$B181`. **And it is what the port runs now**, in C over the slice of the cartridge it already carries for the sound engine: `dancers_begin` / `dancers_step` / `dance_settle` in `gba/hud.c` read the programs, the branch tables and the poses at the addresses the 6502 knows them by, and roll the cartridge's own `shuffleRngSeed5x` for the branches. TWO THINGS THAT LOOK LIKE HOUSEKEEPING AND ARE THE CHOREOGRAPHY ITSELF. The start table `L8E86` has **fourteen** entries and is indexed by the POSITION a dancer stands in, not by its number — 0-5 down a solo column, 6-13 in coop's two — which is what `L8DE4`'s `tya / asl a / tax` does. And the slots the cast does NOT fill have to be left empty: `L8E46` zeroes their pointers and `LB019` skips a pointer whose high byte is zero, so a troupe of six rolls the dice six times a frame. Giving the two spare slots a programme anyway cost nothing on screen — they are never drawn — and moved every other dancer onto a different branch, because the dice are shared. `make dance-check` runs `LB015` on the interpreter beside the port on the same seed and compares the tiles frame by frame, for both casts. Everything else about them — art, poses, stage, positions, count, cadence — is the ROM's. |
+| **Title and menu screens** | `titleScreenNametable` at `$CA00`; `menuNametable` at `$B8A8` | The title is 32x30 with a 4-tile-thick border; its nametable carries **no** attribute table (the next thing in the ROM is `fireworksData00`), because the whole screen is drawn in one palette — bgPalette0's blues. The menu is the same decorative frame with an empty middle the game writes its wording into at runtime, which is why its selection screens all look alike. |
+| **The line-clear animation** | timer set at `main.asm.txt:1192-1197`; sprite staged by `L87FB` at `:1230-1273`; driver `stageLineClearAnimation` at `:1274-1338`; the write-back `L89E9` at `:1508-1546`; strings `lineClearSingle..lineClearTetris` at `:1548-1561`; palette `piecePaletteIndexA` at `:5394-5396` | Completing rows does **not** collapse them: the ROM marks each completed row with `$FE`, holds the game for `lineClearTimerP1` frames (`$1D` = 29 in 1P/2P, `$21` = 33 in coop) and animates them, collapsing only when the timer expires. The animation is a puff of smoke crossing each completed row left to right — five 8x8 sprites, tiles `$5B..$5F`, drawn in `piecePaletteIndexA`, which is `$0F,$0F,$0F`: **flat black**, a silhouette. Only the head is staged when the row completes; each step the sprite still sitting at the field's first column clones itself one OAM slot back with the next tile down, so the trail builds itself up to five. It advances one column **every other frame** — the driver decrements the timer every frame but acts only on odd values (`lsr a / bcc`, `:1280-1283`) — giving 14 steps for the 29-frame hold. The trailing sprite writes one character per column into the row it passes over, spelling `" SINGLE     "` / `" DOUBLE     "` / `" TRIPLE     "` / `" TETRIS     "` (12 characters, one per playfield column, walls included) chosen by `12 × rows_cleared` bytes past `lineClearTable`. The string is 12 bytes but the sweep only crosses the ten playable columns, so its last two characters are never used; the tail, starting four columns behind the head, reaches the tenth column on the last step of the hold. |
+| **Pause** | `pauseOrUnpause` at `main.asm.txt:7184-7215`; gating at `:444-446`; plaque data at `:7293-7312` and `:8027-8028`, tiles at `:8061-8063` | Start toggles `gameState` between PLAYING (0) and PAUSED (1), and is ignored from any other state — so it does nothing on the game-over screen. Pausing stops gameplay but **not** the line-clear animation, because `stageLineClearAnimation` is called from the main loop unconditionally (`:66-70`) while `branchOnActiveDemoOrGameOver` returns early unless `gameState` is 0. The plaque is an 8×2 blit of the cartridge's own tiles at nametable (12,8), coloured with background palette 3 (`pauseAttrs` = `$EF,$BF`); unpausing restores those same two rows from `gameModeNametable1P+268`. |
+| **The sound engine runs, it is not ported** | entry points `setMusicOrSoundEffect` at `main.asm.txt:8357` and `updateAudio` at `:8376`; APU write-out `setApuRegisters` at `:9617-9711`; note periods `LDD37` at `:10495`; music tracks from `musicTrackLoginska1` at `:10651` | Tengen's audio is a dense piece of 6502 — vibrato, portamento, per-channel envelopes and a sound-effect priority system that decides which channels an effect may steal from the music — working almost entirely through unlabelled RAM. Rather than transcribe (that is, guess at) it, the port **executes it**: `gba/nes6502.c` is a small 6502 interpreter and `gba/audio_prg.h` is the slice of the cartridge holding the engine and every note of its music. Two facts make that affordable and safe, and both are measured rather than assumed. It touches **nothing** outside RAM and `$4000-$4017` — no PPU, no mapper — which `tools/extract_assets.py` re-proves on every asset build by running all 25 tracks and trapping any other access. And it is small: ~600 6502 instructions per frame typical, ~2300 in its worst, which is why the interpreter fits in a GBA frame with room to spare (`make gba-check` asserts gravity still lands on exactly 33 frames per row). The APU-to-PSG mapping in `gba/nes_audio.c` is the one thing genuinely translated; it is documented there. |
+| **The audio cues** | game over `main.asm.txt:608, 620`; piece drop `:637`; level-up interlude `:2038`; line clear and its level-up variant `:3207-3213`; title `:4489`; menu move `:4655`; pause suspend/resume `:7204-7211`; codes `:7089, 7127` | Which sound plays when, taken one by one rather than invented. Notably: a line clear that also raises the level plays `MUSIC_LEVELUP_INTRO` **instead of** `SOUND_LINECLEAR`, not as well as; topping out plays `MUSIC_SILENCE` and then `MUSIC_GAMEOVER`; and every applied cheat code plays `SOUND_SCREEN_SWITCH`. |
+| **The cheat codes** | `checkCodeInput` at `main.asm.txt:7025-7182`; tables at `:7175-7182`; snapshot `L85B3` at `:911-925`; undo disarm `L94E4` at `:3087-3092`; long-bar refresh at `:3189-3190` | Entered **while paused**, one button per frame, and only if that player is still alive. Level up = Up Down Up Down Left Right B B A; long bar = Down Down Left Right Left Right B A; undo = Left Down Right Up Left Down Right B A. All three live in ONE table and share ONE cursor (`codeInputYPlayer1`), which is why several behaviours fall out that look like bugs and are not: a first press is tested against all three starts and commits to the first that matches (undo, then long bar, then level up); a press that breaks a sequence is **swallowed**, not re-tested; and the cursor is **never rewound on success**, so the last button of a completed code re-fires it — that is how the level-up code is repeated with bare A presses. Limits: level up is unlimited but stops at 17 (`:7059-7067`); the long bar is once per level, and only levelling up **by play** hands it back (`:3189-3190` — the level-up code deliberately doesn't, so the two can't be alternated); the undo is once per game and needs a snapshot, which a line clear wipes. The undo takes the last locked piece back out of the field, makes the piece you were holding `next`, rewinds the RNG to `lastRNGSeedP1`, and drops the recovered piece in at the top. |
+
+## PLACEHOLDER (implemented, but not yet checked against this ROM)
+
+Nothing. Every mechanic the core implements is now traced to the
+disassembly and cited both here and at its point of use in
+`src/tengen_core.c`, and the graphics all come from the cartridge rather
+than being redrawn.
+
+Nothing in the front end is approximated any more either: the dancers'
+individual choreography scripts were the last of it, and the port now RUNS
+the cartridge's own driver over the cartridge's own programs. See The
+dancers, and `make dance-check`.
+
+One known deviation, documented rather than reproduced: the ROM keeps score
+and line counts as ASCII digits and does its arithmetic digit by digit. The
+core uses plain integers and reproduces the one place where that's
+observable — the score wrapping to 100000 past 999999. The line counter has
+a similar digit clamp (`main.asm.txt:3129-3133`) that isn't modelled,
+because reaching 10000 lines in one game isn't a realistic scenario to
+preserve bug-for-bug.
+
+## Suggested next disassembly targets (in priority order)
+
+Three of the five that stood here are DONE and were stale: the 2P starting
+handicap (`initHandicapGarbage`, traced in full and applied on both consoles
+of a linked match — `run_rom.py --handicap`), the attract demo (`--demo`),
+and each dancer's choreography script, which is not walked any more but RUN
+(`make dance-check`). What is genuinely left:
+
+1. WHICH of a prototype's seven block tiles belongs to WHICH tetromino.
+   That the rule is "one tile for the whole piece" is measured and shipped
+   (below); which id maps to which square or stripe pattern in those builds
+   is not, so the port uses its own piece ids and the textures come out
+   permuted against the dumps'. Every tetromino still has its own, which is
+   what the art is for.
+
+## The prototypes' PIECE ART, and the one thing about it that is not cosmetic
+
+Their title screens ship (L+R on the title cycles them) and so does the rest
+of their look — the green fret round the board and the flat or striped blocks
+(CLAUDE.md roadmap 31). The frame is twenty-two tile slots re-uploaded in
+place, so it needs no new draw path at all.
+
+**THE CELL ENCODING IS NOT THE RELEASE'S, THOUGH.** The release has FOURTEEN
+block graphics at `$01-$0E` and `kTileIds` (`main.asm.txt:1125-1150`) picks one
+per cell so that four squares read as one joined shape; the prototypes have
+SEVEN, one per tetromino — `$01-$03` flat and `$04-$07` striped — and write all
+four of a piece's cells with the same one, which is how they tell seven pieces
+apart on a board with a single palette to share.
+
+Measured rather than assumed, by the same method as everything else here:
+proto_b was left playing itself on `nes_console` and its playfield watched
+against its nametable. Two findings, and the first hid the second for a while:
+
+* the FALLING piece is written into the playfield buffer in these builds
+  (as `$1`) where the release draws it as a sprite, so a frame-by-frame diff
+  reports every new group of four as `$1` and says nothing about the lock;
+* and every piece that settled wrote four cells of ONE value — never four of
+  four, which is what the release does.
+
+`piece_id_cells` on `TengenGame` is that. Occupancy is `cell != 0` everywhere
+and `TT_WALL` is 15 either way, so nothing downstream notices. **It is off over
+the cable**: a linked match is two consoles comparing state byte for byte, and
+one of them in a prototype's clothes would diverge in the playfield itself.
+
+### What a skin covers, and the three things that make it awkward
+
+The frame is **twenty-four tiles**, not the six the board happens to use: the
+menu frame and the HIGH SCORES frame are complete two-tile-thick borders, four
+corners and four runs, and replacing six of them left those screens two thirds
+in the release's blue braid and one third in the prototype's green fret.
+
+**The menu frame's palette is bgPalette1 bank 2**, so a skin has to recolour
+that as well as the game's bank 2 — and doing so dragged the NOTES with it,
+because they were sharing it. They have bank 15 now, the one background
+palette nothing else claims (0-3 game, 4-7 title, 8-11 menu, 12-14 the falling
+piece, the preview and the partner's), so PRESS START TO PLAY keeps the
+cartridge's pale blue whatever the frame is wearing.
+
+**One release tile does two jobs.** The port's panels run their top edge in
+kBraidBottom because that is the run the coop screen's elbows sit on, and the
+menu's bottom border is the same tile. On a prototype the elbows come from its
+TOP corners, so the panel wants its top run while the menu still wants its
+bottom one. The panel's got a pair of its own above tile 255 —
+`SKIN_PANEL_RUN_BASE` — which a text background can address (1024 tiles) and
+which the release fills with its own `$89`/`$8E` art, so nothing changes with
+no skin on.
+
+**And the banner is not a slot swap at all.** The vertical TETRIS in the HUD
+and the horizontal logo on the menus are the same six letters — literally the
+same 39 tiles in the release — so they change together; but the release REUSES
+a tile between letters where these builds use a distinct one at each place
+(`$A3` alone stands at five positions on proto_b), so no map from release tile
+numbers to prototype ones can carry it. The prototype's own tiles are packed
+into a window of their own and drawn by its own numbers. The logo is SEARCHED
+for on each dump's menu screen, as a 3x24 block made only of banner tiles,
+because the three do not agree on where it is — proto_b has it at rows 12-14
+and proto_c at 10-12 — and **proto_a has no menu logo at all**, so its menus
+keep the release's rather than a hole.
+
+### ...and the RULES those builds play by
+
+`proto_rules`, the second flag. These are documented differences, per build,
+and A, B and C agree on all of them, which is why they are one flag and not
+three tables. In the core:
+
+| | the release | the prototypes |
+|---|---|---|
+| level up | 30, 60, 90, 120, then every 50 (`TENGEN_LEVEL_LINE_THRESHOLDS`) | every **ten** lines, flat |
+| rotation against a wall | kicks one column LEFT | **no kick at all** — "blocks often cannot be turned when they are pressed against the wall" is exactly the absence of it |
+| a completed row | held 29 frames while a sweep crosses it and writes SINGLE / DOUBLE / TRIPLE / TETRIS | goes the frame it completes |
+
+and two in the front end: a level-up brings **no cossacks and no BONUS tally**
+(those builds carry straight on; the jingle still plays, because it is a sound
+and not a show), and **PAUSE does not silence the music**.
+
+**What is deliberately not taken** is the SHAPE of their front end — only
+1 PLAYER and 2 PLAYER, a LEVEL SELECT — 0 to 9 in plain text on B, C and D
+(measured), and four difficulty steps (BEGINNER / INTERMEDIATE / ADVANCED /
+EXPERT = levels 0, 3, 6, 9) on A by the list, whose menu is drawn as art —
+no handicap and no music menu — because taking those away on a chord rung at the title would
+remove things this port has and a player chose. Same for the GAME OVER
+plaque's blue border and their HIGH SCORE opening at 0 rather than 17000.
+All of them are a decision away, not a trace away.
+
+## The walls do not stop at the top of the visible field
+
+The ROM's playfield is one flat array of 8-byte rows starting at row 0, and
+`L89C3` (`main.asm.txt:1481-1503`) writes the `$F0`/`$0F` wall nibbles into
+every row it builds — the rows a piece SPAWNS in included. Only coop leaves
+them clear (`bit playMode` there), which is what widens its field to twelve.
+
+The port stores only the twenty visible rows, so the spawn rows have to assert
+the walls themselves. Treating them as open space instead was a real bug and a
+nasty one: a piece could be walked sideways into the wall column while it was
+still above the field, and the first row it descended into then blocked it —
+so it came to rest at y=5, one short of `TENGEN_TOPOUT_ROW`, which ends the
+game. Four pieces into an empty board, GAME OVER, with nothing on screen to
+explain it.
+
+Two tests guard it: `test_the_walls_reach_above_the_visible_field` for the
+rule, and `test_random_play_never_tops_out_on_a_nearly_empty_board`, which
+plays 300 random games and fails if any ends with fewer than 24 cells down.
+The second is the one that would have caught it: the rule it tests is not a
+ROM detail, it is "a game does not end for no reason".
+
+## The GAME OVER plaque, and the frame the HUD borrows from it
+
+`gameOverTiles` ($C800, `main.asm.txt:8064-8067`) is six columns by four rows,
+blitted at nametable (4,12) in 1P — the middle of the playfield — by
+`gameOver1pColsRows1` (`$86,$04`) and `gameOver1pPPUAddr1` ($2184), in
+background palette 3:
+
+    29 2A 2A 2A 2A 2B        a box top
+    2C 47 41 4D 45 2F        | G  A  M  E |
+    2C 4F 56 45 52 2F        | O  V  E  R |
+    3A 3B 3B 3B 3B 3C        a box bottom
+
+so the cartridge's own thin frame is in there, and the port's HUD panels are
+drawn with it. What they had before was `$75`/`$76` with **`$79` as a
+right-hand cap, and `$79` is not a cap** — it is an unrelated block, which is
+what the grey stubs beside SCORE / LINES / LEVEL were. The header strip's real
+rules run the width of the NES screen and are junctions of a grid the port has
+no room for.
+
+**AND THE PLAQUE IS A COUNTDOWN, NOT A PROMPT — on a timer that is the state
+number itself.** The top-out writes one value into two places
+(`main.asm.txt:605-607`):
+
+    lda #GAMESTATE_GAMEOVER   ; $F9
+    sta gameState
+    sta player1FallTimer      ; ...and so the timer starts at 249
+
+`L9205` (`:2667-2673`) then decrements that byte on every OTHER frame
+(`lsr a` / `bcs` on `frameCounterLow`) and jumps to `initializeLeaderboard` at
+zero: **498 frames, 8.3 seconds**, with no button involved.
+
+`initializeLeaderboard` (`:2963-2995`) sets `player2FallTimer` to `$0A` and
+**does not touch player1's**, which is the zero the countdown just arrived at.
+So `L91F8`'s (`:2653-2657`) first `dec` UNDERFLOWS to 255, and at one
+decrement every fourth frame (`and #$03`) the HIGH SCORES page holds for
+**1020 frames, 17 seconds**, before `initializeTitleScreen`.
+
+Measured on the cartridge rather than taken on trust — field buried,
+`gameState` watched: `$F9` at frame 48, `$F8` at 546, the title at 1571, so
+498 and 1025, the five being where the frame counter's phase falls. The port
+used to wait for a button on the plaque and let go of the table after 300
+frames, which is the wrong way round on both counts.
+
+## The menu loses two columns, and not from the middle
+
+The menu's horizontal TETRIS logo is at rows 10-12, columns 4-27: six letters
+of exactly four columns each, with no empty middle to borrow from. Taking the
+two spare columns from there cut the third letter's last column and the
+fourth's first, mashing the T and the R together. They come out of the blank
+padding at columns 2 and 29 instead.
+
+## The 1P screen, and what the port does with it
+
+The cartridge's 32 columns are three things side by side, and reading them
+wrong is what made every earlier layout here lopsided:
+
+| NES columns | What it is |
+| --- | --- |
+| 0-1 | braid `6A 6B` — the playfield's LEFT wall |
+| 2-11 | the ten playable columns, rows 8-27 |
+| 12-13 | braid `73 74` — its RIGHT wall |
+| 14-17 | the vertical TETRIS banner, a raised pillar |
+| 18-19 | braid `6A 6B` again |
+| 20-29 | the score panel: blank canvas the game writes into |
+| 30-31 | braid `73 74` |
+
+`6A 6B` is a left-hand wall and `73 74` a right-hand one, and the pair either
+side of a run is what makes it read as a recessed well; the banner has them
+the other way round, which is what makes IT read as raised. Rows 0-1 and
+28-29 close the frame top and bottom, and rows 2-7 are the header strip
+(SCORE / HIGH SCORE / LINES / LEVEL / STATS / NEXT).
+
+The port's thirty columns are `8 | 2 | 10 | 2 | 8`: a box, the board's own
+braid, the ten playable columns, the braid, a box of the same width. What
+that costs is the TETRIS banner, which has no room on the play screen any
+more — the right-hand box becomes the dancers' stage during a level-up, the
+way the cartridge's own blit takes over the banner.
+
+Two fix-ups the column runs cannot express, both because a column is not
+uniform down its length: NES rows 8-9 of columns 12-13 hold the banner box's
+top corners rather than braid, and rows 26-27 of columns 21-27 hold the piece
+icons. Both are patched in `reflow_screen`.
+
+### The piece statistics are BARS
+
+`L9997` (`main.asm.txt:3752-3798`) draws each piece's count as a vertical bar
+growing out of a little picture of that piece, not as a number:
+
+    tile = $21 + (count & 7)          eight steps of fill inside one tile
+    row  = base - (count >> 3)        every eighth piece moves up a row
+
+so after N pieces the bar is N/8 solid tiles with an N%8 partial on top. The
+icons sit at nametable rows 26-27, columns 21-27, and the attribute table
+gives the I its own palette (bank 3), T/O/J/L a second (bank 1) and S/Z a
+third (bank 2) — which is why the row is not seven identical shapes. The ROM
+caps the bar at 144 (`cmp #$90 / bcs`), exactly the 18 rows its panel is
+tall; the port's box is shorter so the same rule caps lower.
+
+The column is HEADED, not boxed. On the NES 1P screen the word STATS sits
+between two grey rules and the icons stand on the frame's own bottom edge,
+with nothing else in the column — and seven bars do not fit inside the
+six-column interior a bordered box would leave. An earlier pass drew a single
+rule immediately under the NEXT box's own bottom edge, which read as two
+borders stacked and as a grey bar belonging to nothing; that is the same
+complaint the header strip's rules drew before them.
+
+### How long the dancers dance
+
+Not a number to guess at. `checkLevelUp` (`main.asm.txt:1956-1979`) reuses
+player1FallTimer as the interlude's clock and advances it once every SIXTEEN
+frames (`lda frameCounterLow / and #$0F / bne`):
+
+| Timer | What happens |
+| --- | --- |
+| 0 | `showLevelBonus` (:1926): silence, gameState = LEVELUP |
+| 13 | `L8D6B` (:2034): level-up music, the dancers' palette, the stage blit, and the timer is forced to `$7C` = 124 |
+| 124 → 244 | they perform — 120 steps of 16 frames, about 32 seconds |
+| 244 | `L9035` (:2393) starts the wind-down, forcing the timer to `$F5` |
+| wraps past 255 | `finishLevelUpAnimation` (:2465), back to play |
+
+A button does not cut it short, it fast-forwards. `L9035` (`:2393-2411`)
+reads `player1ControllerNew | player2ControllerNew` — either pad, any newly
+pressed button, and only while the timer is still below `$F4` — then silences
+the music and computes `$7C - timer - 5` **in eight bits, compared unsigned**
+against `$F5`. That underflow is the whole behaviour: a press in the first
+few steps lands on `$FB` and a press after about the sixth on `$F5`, so what
+you buy is a wind-down of between five and eleven steps, one to three seconds,
+never an instant cut. It also does `frameCounterLow &= $F0` so the next step
+starts from a fresh sixteen.
+
+The natural end at `$F4` reaches the same `$F5` by a different door (`beq
+L9053`, taken BEFORE the silence), which is why the level-up music plays out
+when you let the show finish and stops dead when you cut it.
+
+Measured on the port: untouched the dancers are on screen 1871 frames; a
+button ends it 176 frames (2.9s) later, whenever it is pressed.
+
+### Pausing hides nothing
+
+`stageCurrentAndNextSprites` (`main.asm.txt:1687-1693`) is the only thing that
+decides whether the falling piece and the preview are on screen, and it reads
+`gameState`:
+
+    cmp #GAMESTATE_GAMEOVER ($F9)  -> draw
+    cmp #GAMESTATE_DEMO     ($FB)  -> draw
+    cmp #GAMESTATE_LEVELUP  ($03)  -> bcs: skip
+    otherwise                      -> draw
+
+`GAMESTATE_PAUSED` is `$01`, below `$03`, so it falls through to the drawing
+path: **the falling piece and the next piece both stay on screen while
+paused**, and so does the settled field — pausing only patches the PAUSE
+plaque into the background (`updateGameBackground`, `:7217`) and leaves the
+rest of the nametable alone. Only the level-up interlude ($03 and up) takes
+the pieces down. The port matches; the one difference is that its falling
+piece is a background tile rather than a sprite, so the plaque covers it
+instead of the other way round on the two rows they share.
+
+### The sixth dancer stands on the border, not on a ledge
+
+The level-up blit lays FIVE ledges (`kDancerStage`, tile `$9D` at rows 3, 6,
+9, 12 and 15 of the eighteen it writes from nametable row 10), so their tops
+are at NES y 104, 128, 152, 176 and 200. `kDancerStartY` puts SIX dancers at
+y 208, 184, 160, 136, 112 and 88, each sprite 16px tall, so their feet land at
+224, 200, 176, 152, 128 and 104. Five of those are ledges; the sixth, at 224,
+is the border tiles across the bottom of the NES screen.
+
+The port's window is NES nametable rows 8-27 and stops one row short of that
+border, which left the bottom dancer treading air on the screen edge. The show
+therefore starts one tile row higher (`DANCER_LIFT`) and the port draws a
+sixth ledge of the same `$9D` below the blit. The 24-pixel spacing that ties
+the two ROM tables together is untouched; only the whole column moves.
+
+### Where the PAUSE plaque goes
+
+`pausePPUAddr1 = $210C` with `pauseColsRows1 = $88,$02` — eight columns by two
+rows at nametable (12,8), i.e. columns 12-19 of 32. That is the middle of the
+screen, and the relationship worth keeping is "centred", not "column 12":
+on thirty columns it centres at 11.
+
+### $4015 is this engine's note-off
+
+The sound engine sets the length counter's halt bit on every note it starts
+(`$4000 = $B7`) and ends notes by clearing the channel's bit in `$4015`,
+several times a frame as it works through the voices. So the APU's length
+counters never count down in this game, and a port that models them gets
+nothing; what it must do instead is treat the enable bits as part of "has
+this channel changed". Measured against the running ROM, not assumed.
+
+## The title screen's sprites are the cartridge, running
+
+Two routines draw everything that moves on the title screen, and neither is
+reimplemented in the port — both are executed, on the same 6502 interpreter
+that already runs the sound engine (`gba/nes6502.c`, `gba/audio_prg.h`), and
+`gba/frontend.c` copies the sprites they leave in `oamStaging` ($0500) into GBA
+OAM. `make gba-check --title` asserts all of it against a running ROM.
+
+### drawCathedralSprites (`$B369`, main.asm.txt:6850)
+
+Eighteen sprites laid over the cathedral, from a table the disassembly itself
+labels *"this table is obfuscated"*. Each 4-byte entry is `tile, attr, packed,
+packed`, and the position comes out of the last two by an ASL x3 for x, then
+two `LSR`/`ROR` pairs, an `AND #$F8` and an `SBC ppuScrollYOffset` for y. Its
+own worked example is the only readable description of the encoding:
+
+    in  $02,$03,$CF,$01   ->   out y=$6F, tile=$02, attr=$03, x=$78
+
+and the port reproduces it exactly, because it runs it. The eighteen come out
+at NES x 120-160, y 111-175 — the central tower's stripes and the middle
+domes, detail the background cannot hold under the NES's one-palette-per-16px
+attribute grid.
+
+The port stages them ONCE per visit to the title rather than every frame. The
+cartridge re-runs the routine every frame only because its NMI rebuilds the
+whole OAM page every frame; the inputs are a constant table and
+`ppuScrollYOffset`, which nothing but the title's hidden both-Downs scroll
+(main.asm.txt:4470-4476) changes and this port has no scroll. Interpreting
+~500 6502 instructions to arrive at the same eighteen bytes was costing about
+one frame in fifty-five, which `--title` measures directly.
+
+### The fireworks (`$A9CE`, main.asm.txt:5730)
+
+A little bytecode, run once per frame. `addrTableAB25` ($AB25) holds four
+scripts; the title always takes the first, `relatedToFireworksTable0`, while a
+top-out during a game picks one of the four at random and plays a top-out
+sound with it. Each script entry is three bytes — the high and low halves of a
+pointer, plus a step code — naming one of nine 8x6 blocks of tile ids
+(`fireworksData00`..`08`, `$CDC0`-`$CF78`) that expand into a burst, or the
+sparkle frames built from tiles `$14`-`$17`.
+
+| Where | What |
+| --- | --- |
+| `LAA70` (:5836) | starts a burst: 45 sprites (OAM entries 19-63), y from `$50` on the title, x clamped to `$2C`..`$D4` then less `$1C`, rows 24px apart |
+| `LACA0` (:6096) | one step: a random drift of -15..+15 in x and 0..7 in y applied to all 45, and a random one of four palettes |
+| `LA9E9` (:5752) | advances the script every fourth frame (`frameCounterLow & 3`) |
+| `LA9DE` (:5740) | counts down `player2FallTimer` to the next burst — `rng & $3F + 8`, so 8 to 71 frames |
+| `LAA07` (:5772) | ON THE TITLE, stops scheduling once `frameCounterHigh` reaches 4 |
+
+That last row is why `initializeTitleScreen` zeroing the frame counter
+(main.asm.txt:4483-4485) matters: the show lasts about 1024 frames — seventeen
+seconds — per visit, and without restarting the counter it would play once and
+never again. (At `frameCounterHigh` = 5 and `frameCounterLow` = `$20` the
+cartridge starts its attract-mode demo, main.asm.txt:4154-4160. Not ported.)
+
+The bursts call `setMusicOrSoundEffect` themselves, which is why they have to
+run on the sound engine's machine and not a second one: the bang comes out of
+the same RAM the music does and mixes by the cartridge's own priority rules.
+
+### What the narrower screen costs
+
+The sprites are placed in NES screen pixels, and the port's title is a
+composition rather than a window — ten of the thirty rows are dropped (see
+TITLE_ROW_BLOCKS) — so a sprite's row goes through `kTitleRowMap`, the same
+list the artwork was cut with, and one standing on a dropped row is hidden
+rather than moved. Horizontally the port keeps NES columns 2-29, so a burst
+that `LACA0` has drifted far enough sideways clips at the edge. It clips on
+the NES too, eight pixels later.
+
+### CHR bank 3
+
+None of this draws with the dancers' tiles: the title's sprites come from CHR
+bank 3, which holds the cathedral overlay at `$02`-`$13`, the sparkles at
+`$14`-`$17` and the firework bursts filling everything from `$90` up. The port
+uploads it above the dancers' 256 tiles and installs `spritePalette1` for it,
+which is the set the title itself installs (main.asm.txt:4492-4494).
+
+## The prototype title screens, and how they were got
+
+Tengen made this game more than twice. Besides the release there are the
+prototype cartridges, and the three dumps to hand do NOT carry the same
+earlier title:
+
+| Dump | Screen |
+| --- | --- |
+| `proto_a` | "TETRIS" over a Moscow skyline in a plain grey box, over four lines ending LICENSED BY NINTENDO OF AMERICA INC. — from before the lawsuit |
+| `proto_b` | "TENGEN PRESENTS / TETRIS" over St Basil's, gold-and-blue onion domes, in a green fret border where the release has its blue braid |
+| `proto_c` | the same cathedral and border with the logo replaced by a line of text: "THE SOVIET MIND GAME" |
+
+The port offers all of them as skins: L+R on the title cycles the release and
+each dump given, announced with `SOUND_CHIRP` ($10), one of the four effects
+`constants.asm.txt` marks "maybe unused" — so the egg speaks in the game's own
+voice with a sound the game itself never plays.
+
+### Run the cartridge, do not search it
+
+The first pass at this searched the ROM. The prototype upload routine is a
+flat four-page copy —
+
+    sta $3C / lda TABLE,y / sta $3D / bit PPUSTATUS
+    lda #$20 / sta PPUADDR / lda #$00 / sta PPUADDR
+    tay / ldx #$04
+  @page:
+    lda ($3C),y / sta PPUDATA / iny / bne @page / inc $3D / dex / bne @page
+
+— so in ONE of the dumps each screen is 960 plain bytes in the ROM, and
+rendering all five pointers in that routine's table by hand identified the
+title at `$A3C4`. It worked, and it was the wrong shape of answer. It needed
+the attribute table traced separately (the copy overwrites `$23C0`, then
+`$904D` uploads the real attributes there, RLE'd as (count, value) pairs from
+`$907D`; the blob's last 64 bytes are PROGRAM, which is what put the cathedral
+in stripes the first time) and the palette traced separately (four 16-byte
+sets at `$91E5`, and the title's is index 0 per its own setup at `$8C7C`, not
+the index 2 an earlier pass had picked by eye). And it left a note saying the
+other two dumps hid their screens in a format nothing recognised.
+
+The right method was already in this file, being used on the release:
+`read_screen` RUNS `sendNametableToPPU` rather than decompressing it here.
+`boot_prototype` does the same thing one level up — it runs the whole
+cartridge:
+
+- reset vector into `nes_cpu` with `ppu=True`, `strict=False`;
+- an NMI forced every 30000 instructions, because the reset code only STAGES
+  the palette in RAM and it is the vblank handler that sends it to `$3F00`;
+- 1.2M instructions, then read `$2000`-`$23FF` and `$3F00` back.
+
+No address to guess, no format to recognise, and nothing traced per dump. All
+three give up complete, distinct screens, and the capture is byte-identical at
+500k, 1M, 1.5M and 3M instructions — the ROM sits on its title waiting for
+Start.
+
+It is also more faithful for the dump the flat read DID handle: "TM (c)1987
+ACADEMYSOFT-ELORG." and "(c)1988 TENGEN." are written afterwards by a separate
+text routine, so the shipped skin had neither line and the composition was
+dropping both rows as blank.
+
+### Which pattern table
+
+Not PPUCTRL. All three upload their nametables during forced blank with
+PPUCTRL clear, and `proto_c` never sets bit 4 at all under this interpreter,
+though its screen plainly renders out of bank 1 (bank 0 gives it the in-game
+HUD's tiles as noise). So `proto_pattern_table` measures instead: a screen
+rendered from the wrong half of the CHR leaves tiles it USES blank, and the
+right half leaves only the two the screens really do use blank — `$00` for the
+black field and `$20` for the space in the text. That separates `proto_b`
+(10 blank-among-used in bank 0 against 2 in bank 1) and `proto_c` (27 against
+2); `proto_a` ties at 2 and 2, which is why the known dumps carry their
+pattern table in their recipe and the measurement is the fallback.
+
+### Fitting 32x30 into 30x20
+
+This part stays a judgement, so it is made by hand per screen and keyed to the
+MD5 of the captured 1024 bytes — the screen, not the file, so a redump or a
+rename still matches and an unknown screen is never squeezed by a recipe meant
+for another. Two columns come off all of them the same way (the outer column
+each side: the thin rule outside the fret, or nothing at all).
+
+**THE CATHEDRAL COMES FIRST, AND THE COPYRIGHT LINES PAY FOR IT.** Both
+St Basil's screens carry "TM (C)1987 ACADEMYSOFT-ELORG." and "(C)1988 TENGEN."
+across their bottom, five rows with the blanks, and both used to buy those by
+dropping the middle of the central tower — the spike, the gold ball and the
+shoulder — so the building came out beheaded. The cathedral IS the screen on
+those two, so the credit lines go and the tower comes back. `proto_a` keeps
+its text: it is the one signed "LICENSED BY NINTENDO OF AMERICA INC.", from
+before the lawsuit, and that line is the whole point of that dump.
+
+- `proto_a` FITS. Eleven rows of picture and four of text, so all ten dropped
+  rows are blank: two above the box, two below, one under the last line.
+- `proto_b` gives up rows 9-10, the one-tile-wide spike ABOVE the ball — which
+  is exactly what the release's own composition gives up, and for the same
+  reason — plus the blank row between PRESENTS and the logo. Everything from
+  the ball down is there, and the ball lands directly under the Я.
+- `proto_c` keeps the tower WHOLE, spike and all: its heading is one line of
+  text where proto_b has four rows of big letters, so dropping the same two
+  credit lines leaves room to spare and its four rows of empty sky pay the
+  rest. Sky is the one thing a screen can be short of without anyone noticing.
+
+For a dump with no recipe, `auto_compose` drops only rows and columns that
+render entirely blank, taking from the middle of the longest run each time so
+the loss is spread; if it cannot find ten and two it refuses with a reason and
+the port builds with `SCREEN_PROTO_AVAILABLE 0`.
+
+### What the port does and does not carry over
+
+The skin is only ever the PICTURE. The cathedral overlay and the fireworks
+stay on the release screen and are hidden on the prototypes', because they ARE
+the release's — their sprites are placed in NES pixels over the release
+cathedral, and no prototype composition has the same rows or an empty sky to
+burst in. Putting them there would be inventing something no cartridge does.
+
+Each prototype brings a whole 256-tile pattern table of its own, and charblock
+0 has one 256-tile window free above the release title's (512-767). Only one
+title is ever on screen, so they take turns in that window: `upload_proto_tiles`
+refills it on each swap, after `clear_screen` has blanked the map, since 8KB is
+far more than a vblank holds and with the map blank none of it is visible while
+it is being written. That is what makes the number of skins a question of
+cartridge space rather than of video memory.
+
+## The COMPUTER player, traced and ported
+
+`computerMove` (`main.asm.txt:4207-4307`) is what drives VERSUS COMPUTER and
+WITH COMPUTER, and the attract demo. It is `src/tengen_ai.c` now, transcribed
+rather than reinterpreted — where the ROM's arithmetic overflows a byte, so
+does the port's, because the placements it picks are only the cartridge's if
+the wrap-around is too.
+
+**Which board each mode plays on** is `playModeTable` (`$9F51`), five bytes
+for the five GAME SELECT entries: `00 01 FF 01 FF`. So VERSUS is 2P's board —
+two separate ten-wide fields, a race — and **WITH COMPUTER is COOP's**: one
+twelve-wide field shared with it. In both the computer is player 2
+(`main.asm.txt:3736-3749`), and it reads one field, `playfieldPages,x` indexed
+by playMode (`$8562` = `06 07 06`): its own in a race, the shared one in WITH.
+
+**The height profile.** `computerMove` first walks the playfield building
+`computerScratchA`, sixteen entries — one per nibble column — each the BYTE
+OFFSET of the first non-empty cell, found by stepping down in eights from
+`$28`, so the first row it actually reads is `$30`, ROM row 6. Heights are
+therefore in byte units, eight to a row, which is what makes every number in
+the thing a multiple of eight. A column empty to the bottom stops on the solid
+floor at rows 26-27 and reads `$D0`; a wall reads `$30`, and so do the `$FF`
+padding bytes either side of every row (`initPlayer1orCoopPlayfield` writes
+bytes 0 and 7 as `$FF`, `:3471-3473`), which is how the well term below tells
+"there is a wall here" from "there is a stack here".
+
+**`computerMoveSelectTableOffsetBy18` ($A0D9) is the piece table**, indexed
+`piece * 16 + orientation * 4`, four bytes an entry: a SIGNED bonus, then the
+piece's bottom profile, `$80`-terminated. **The profile is each column's
+bottom RELATIVE TO THE PIECE'S LEFTMOST OCCUPIED COLUMN**, and generating that
+from the port's own `kOrientationBitmap` reproduces all 28 entries byte for
+byte — so the port derives it rather than transcribing it, and a test checks
+the derivation. Only the 28 bonus bytes are copied, because taste cannot be
+derived from anything.
+
+**TWO SCORERS, NOT A RANKING.** `possibleComputerChoosingMove` (`:4311-4357`)
+scores a placement that sits FLUSH — every column of the piece's bottom
+landing exactly on the terrain under it — and the moment one does not, hands
+the whole thing to `L9DA3` (`:4361-4429`), which drops the piece column by
+column, lifts it onto whatever it reaches first, and scores where it comes to
+rest. They write to two different slots of `computerScratchB` and are compared
+once at the end. Both score the same way: **the resting height, less the well
+term, plus the piece's bonus — and higher is better**, because height counts
+downward.
+
+The bumpy scorer refuses two things the flush one does not — a score that
+borrows, and one below `$20` — and will not start from column `$0C` or beyond,
+which the flush one is happy to do. That asymmetry is the cartridge's.
+
+**The well term** (`L9E31`, `:4433-4462`) is the only place either scorer looks
+beside the piece rather than under it. If the column to the right is a wall it
+averages the LEFT neighbour with the piece's own column; if the left is, it
+averages the right one; if neither, it averages the two neighbours. The
+wall cases subtract the caller's bias — `$0C` from the flush scorer, `$00`
+from the bumpy one — and everything is then shifted down two.
+
+Its index can run past the sixteen columns: `computerScratchA+1,y` with y the
+placement's rightmost column reaches `scratchA[17]` when a four-wide piece is
+tried at column 13, which is the byte its own caller just saved the table index
+into. It is reachable and harmless, and the port's scratch is sized to nineteen
+so it happens there too rather than being clamped into something the cartridge
+never computes.
+
+**The tie-break** is `adc #$0B` and a carry test (`:4285-4297`): the flush
+candidate wins unless the bumpy one beats it by more than eleven. Only the two
+SCORES are cleared at the top of `computerMove` — the two candidates' columns
+and orientations are not — so a call that finds nothing at all quietly keeps
+the placement the piece before it chose.
+
+**The last step is a coordinate fix.** All of the above works in the piece's
+leftmost OCCUPIED column; the driver compares against `player1TetrominoX`,
+which is its bitmap's left edge. Those are the same column for every piece and
+orientation but one — the I standing on end occupies its bitmap's second
+column — so the I, and only the I, gets a column back (`:4299-4305`).
+
+**The driver** (`:4170-4202`) is four lines and the cartridge comments it
+itself: "shifting occurs every 8 frames; rotation every 16". A shift is LEFT or
+RIGHT toward the target column; a rotation is B for one or two steps and A for
+three, which is the same as one step the other way. It never presses DOWN — the
+computer does not soft-drop, so every piece it places takes the whole of
+gravity to land. Playing it out on the host it lasts forty to ninety pieces and
+clears a handful of lines before burying itself, which is about what the
+cartridge's does. It also has **no settling delay of any kind**: the shift is
+off `frameCounterLow` alone, so a piece can be yanked sideways on the very
+frame it spawns. The port gave the attract demo a thirty-frame pause on the
+argument that an instant twitch reads as a machine; what it actually reads as
+is a slower computer, and it is gone.
+
+**AND IN "WITH COMPUTER" IT RE-PLANS ON THE HUMAN'S SPAWNS TOO** — which is
+the whole of its manners on a shared board, and hangs on one `txa`/`beq`.
+`getNextTetromino` ends (`:3740-3749`) with
+
+```
+    lda menuGameMode
+    cmp #MENU_GAMEMODE_VS      ; $03
+    bcc return                 ; 2 PLAYER, COOPERATIVE: no computer at all
+    bne L9992                  ; $04 WITH COMPUTER: always
+    txa                        ; $03 VERSUS...
+    beq return                 ; ...only when the computer itself spawned
+L9992:
+    ldx #$01
+    jmp computerMove
+```
+
+VERSUS is two separate boards, so player 1's spawn is none of the computer's
+business and the `beq` sends it home. WITH COMPUTER is ONE twelve-wide field,
+and there the branch is skipped: every spawn, the human's included, calls
+`computerMove` for player 2 — which re-reads the board and re-picks a column
+for the piece the computer is **still holding**. That is how the cartridge
+notices that the hole it was aiming at has just been filled in. The port
+committed on its own spawn and never looked again, so it planted its piece on
+top of whatever the human had put there; `tengen_ai_rechoose` is that second
+look, identical to the first but for the port's own settle clock, which keeps
+running rather than restarting a piece halfway down.
+
+**AND THAT IS ALL THE MANNERS THE CARTRIDGE GIVES IT**, which is not enough,
+and the port's own answer is `coop_aware` — off unless the cheat chord has
+been rung, because WITH COMPUTER is a mode the cartridge ships. What the
+re-plan cannot fix is that `computerMove` reads the SETTLED board: the other
+player's falling piece is solid to this one (`checkCoopCollision`) and
+invisible to both scorers, so the two of them score the same twelve columns
+with the same routine and pick the same one. MEASURED over twenty-four
+playouts with the computer on both pads: **48% of every shift either of them
+asked for was refused, and nine in ten of those by the partner** rather than
+by the wall or by the terrain.
+
+Two things, each worth about half the gain:
+
+* **The shadow** (`tengen_ai_shadow`). The partner's piece is dropped
+  straight down onto the settled field and the columns it covers WHERE IT
+  COMES TO REST are raised. Where it comes to rest, not where it is: a
+  column the partner is merely passing through is not full, and a piece
+  stacked against that phantom wall leaves a hole the moment the partner
+  lands lower. As future terrain it is right, and the computer stacks flush
+  on what its partner is about to put down.
+* **Waiting its turn** (`tengen_ai_buttons`). The soft drop is dropped while
+  the piece is still short of the column it wants. A shift the partner
+  refuses is retried eight frames later, and a piece that kept dropping
+  meanwhile is a row lower and out of position.
+
+Together: 908 pieces and 34 lines become 1637 and 197, holes fall from 903
+to 666, refusals from 48% to 27%. It costs about eighty frames a piece
+instead of sixty-six and it cannot hang, since gravity runs whether Down is
+pressed or not. Capping the wait at 32, 48, 64 or 96 frames was tried and
+every cap was worse than none.
+
+**TWO THINGS THAT WERE TRIED AND ARE WORSE**, kept here so they are not
+tried again. RE-PLANNING WHEN THE PARTNER MOVES rather than only when it
+spawns: chasing a shadow that shifts every eight frames means never reaching
+any target, and it took 197 lines down to about 40. And TEACHING THE HEIGHT
+PROFILE TO REPORT A CAVITY — the "it cannot slide a piece under one already
+placed" complaint — by flood-filling the empty cells reachable from above
+and reporting the deepest one per column: 1637 pieces and 197 lines became
+905 and 102 with a one-cell probe and 1177 and 152 with a two-cell one. The
+cartridge's scorer drops a piece onto a surface from above and its driver
+steers by column alone; a cavity it aims at but cannot steer into is a piece
+hung on the overhang. That one stays unsolved rather than papered over.
+
+## The attract demo
+
+`demoStart` (`main.asm.txt:3216-3230`) is four lines and then the ordinary
+game init: gameState becomes `GAMESTATE_DEMO` (`$FB`), **playMode 0** — one
+board, one player — the music is SUSPENDED, player 1's score and lines digits
+are set to ASCII zeroes, and it falls into `skipOverScoreReset`. Nothing else
+about it is special. What makes it a demo is only who presses the buttons and
+what a press on the real pad does.
+
+**It starts off the title's own clock**: `frameCounterHigh` 5 and
+`frameCounterLow` `$20` (`:4154-4160`), which is 1312 frames — about
+twenty-two seconds, and 288 frames after the fireworks stop themselves at
+`frameCounterHigh` 4. The port already feeds that counter to the cartridge's
+firework code, so it starts the demo off the very same number.
+
+**The computer plays PLAYER 1 here**, not player 2:
+`loadComputerInputOrMoveScreen` reaches `@compInputForDemo` with X still zero
+(`:4118`), where the VS and WITH paths do an `inx` first. Same chooser, same
+driver, same cadence.
+
+**A press is the way out, not a move.** `processMenuInput`'s test for gameState
+`$FB` falls to `$9F9A`, where SELECT or START goes to GAME SELECT
+(`:4633-4638`) — and `handleGameOver` refuses to restart anything while the
+state is `$FB` (`cpy #$FB / beq`, `:477`), so the demo cannot be resurrected
+by holding A+B either.
+
+**What ends it is the port's own choice.** The cartridge's demo tops out and
+goes to its high-score table, and from there to the title on another timer.
+The port HAS that table now, but the demo does not go to it — a score nobody
+played for has no business on the board, and the cartridge agrees: the
+insertion (L81DD) is reached only when gameState is 0, which the demo's $FB
+is not. So the demo's game over holds for three seconds and the title comes
+back. Measured on the built ROM the computer lasts about 35,000
+frames — ten minutes — before burying itself, which is the same chooser at the
+same gravity the cartridge has.
+
+## The attract demo
+
+`demoStart` (`main.asm.txt:3216-3230`) is four lines and then the ordinary
+game init: gameState becomes `GAMESTATE_DEMO` (`$FB`), **playMode 0** — one
+board, one player — the music is SUSPENDED, player 1's score and lines digits
+are set to ASCII zeroes, and it falls into `skipOverScoreReset`. Nothing else
+about it is special. What makes it a demo is only who presses the buttons and
+what a press on the real pad does.
+
+**It starts off the title's own clock**: `frameCounterHigh` 5 and
+`frameCounterLow` `$20` (`:4154-4160`), which is 1312 frames — about
+twenty-two seconds, and 288 frames after the fireworks stop themselves at
+`frameCounterHigh` 4. The port already feeds that counter to the cartridge's
+firework code, so it starts the demo off the very same number.
+
+**The computer plays PLAYER 1 here**, not player 2:
+`loadComputerInputOrMoveScreen` reaches `@compInputForDemo` with X still zero
+(`:4118`), where the VS and WITH paths do an `inx` first. Same chooser, same
+driver, same cadence.
+
+**A press is the way out, not a move.** `processMenuInput`'s test for gameState
+`$FB` falls to `$9F9A`, where SELECT or START goes to GAME SELECT
+(`:4633-4638`) — and `handleGameOver` refuses to restart anything while the
+state is `$FB` (`cpy #$FB / beq`, `:477`), so the demo cannot be resurrected
+by holding A+B either.
+
+**What ends it is the port's own choice.** The cartridge's demo tops out and
+goes to its high-score table, and from there to the title on another timer.
+The port HAS that table now, but the demo does not go to it — a score nobody
+played for has no business on the board, and the cartridge agrees: the
+insertion (L81DD) is reached only when gameState is 0, which the demo's $FB
+is not. So the demo's game over holds for three seconds and the title comes
+back. Measured on the built ROM the computer lasts about 35,000
+frames — ten minutes — before burying itself, which is the same chooser at the
+same gravity the cartridge has.
+
+## The starting handicap
+
+`endPlayfieldInit` (`main.asm.txt:3536-3546`) reads `menuPlayer1Handicap`
+(`$04F3`) — or player 2's, unless the COMPUTER is playing — and if it is not
+zero calls `initHandicapGarbage`.
+
+**How much.** `garbageHeightData` is `$B8,$A0,$88,$70` for handicaps 1-4
+against a playfield that ends at `$D0` with eight bytes to a row: **three rows
+per step**, 3 / 6 / 9 / 12, counted up from the floor.
+
+**What it looks like**, and it is not a wall with a gap:
+
+* Every empty cell in the row is filled with probability **seven in eight**
+  (`genNextPseudoRandom3x / and #$07`; zero leaves it empty). `L98AD` works a
+  BYTE at a time, high nibble then low — left to right — and skips a nibble
+  that is already occupied, so the wall columns cost no random numbers at all.
+  **Coop therefore gets twelve draws a row where 1P and 2P get ten**, because
+  its wall nibbles are `$00`. Reproducing that walk exactly is what keeps a
+  seed producing the same field it produces on the cartridge.
+* **Then**, if the row came out with seven or more cells filled,
+  `genNextPseudoRandom2x & 3` picks one of bytes 2-5 and one more draw picks
+  which of its two nibbles to clear (`$F0` keeps the high one, `$0F` the low).
+  So the guaranteed hole is always in the middle eight columns, never against
+  a wall — and no row can arrive complete, which would otherwise clear itself
+  on the first frame.
+
+The cell value written is `$F`, the same sentinel the wall columns hold, and
+that is the cartridge's own choice rather than a shortcut: `$F` is a real
+block tile in its set — a lone shaded block — so garbage draws correctly with
+no renderer change at all.
+
+**EVERY CALL STARTS FROM `savedRNGSeed`**, and that was read wrong for a
+long time. `lda savedRNGSeed / sta rngSeed` is the fifth thing
+`initHandicapGarbage` does (`:3554-3557`) — INSIDE the routine, not before
+it — so the two players' piles are dealt from the same number and two equal
+handicaps bury two boards identically. The port ran one sequence through both
+calls, which gave player 2 a different pile from player 1's for the same
+setting. It is corrected, and the reseed is what A+B's restart needs in any
+case: without it the pile a restarted board gets would depend on how far the
+first one had wound the generator.
+
+In the port it is `tengen_apply_handicap`, drawing from a `garbage_rng` the
+game seeds alongside its piece RNG, so two consoles from one seed bury each
+other identically. The HANDICAP screen carries the two values; over the cable
+they need a lobby stage of their own, because two handicaps of nought to four
+want six bits and CONFIG had four left.
+
+## LEVEL SETTINGS: what the ROM's four menu screens are for, and why this
+## port has one
+
+`processMenuInput` walks FOUR separate gameStates, one setting each, with
+START between them (`main.asm.txt:4711-4726`):
+
+    GAMESTATE_GAME_TYPE    $FC --START--> initializeLevelSelectMenu   $FD
+    GAMESTATE_LEVEL_SELECT $FD --START--> initializeHandicapMenu      $FE
+    GAMESTATE_HANDICAP     $FE --START--> initializeMusicSelectMenu   $FF
+    GAMESTATE_MUSIC_SELECT $FF --START--> initializeGameMode          (play)
+
+and its level list is a COLUMN of ten with a cursor arrow beside it:
+`p1levelSelectArrowPpuAddrs` (`$A0B5`) is ten PPU addresses one row apart at
+column 13, `p2levelSelectArrowPpuAddrs` (`$A0C9`) the same at column 17.
+
+**This port tried both shapes and keeps neither.** One page with all three
+settings printed flat was nine rows of text with no gap in them, and it read
+as a wall. Copying the cartridge's four screens fixed the crowding and bought
+three near-empty pages plus a tune you chose two screens after you had started
+hearing it. The reason is that the ROM's shape answers a problem this port
+does not have: that console drew to a television across a room, where few
+large well-separated lines is the only thing that works, and a vertical list
+of ten is easier to read at three metres than a row of ten. A GBA is held at
+arm's length; its constraint is 240x160 of ROOM, not legibility at distance.
+
+So: **one page, three fields, a cursor.** UP/DOWN/SELECT move it, LEFT/RIGHT
+change the field it is on, START or A plays. `draw_level_settings`.
+
+What IS kept from the cartridge is everything that is a rule rather than a
+layout, and reading that code turned up three things nobody had:
+
+**The choice counts are a table, and it is misnamed.** The six bytes at
+`computerMoveSelectTable` (`$A0E3`, `main.asm.txt:4835`) are
+`$05,$0A,$0A,$05,$05,$05`, read by `LA048` at `$A063` as the wrap-around
+limit: five game types, ten levels for player 1 and ten for player 2, FIVE
+handicaps each — which independently confirms the nought-to-four range traced
+from `garbageHeightData` — and five tunes, which is `musicSelectTable`
+exactly. Only the bytes from `$A0EB` on are the COMPUTER player's. Likewise
+the four words at `$A0D9` the disassembly calls
+`computerMoveSelectTableOffsetBy18` are the last two entries of the player-2
+arrow list, `$2291` and `$22B1`, continuing its column — not a table at all.
+
+**SELECT is a cursor button.** `$9FBC` and `$9FED` both mask
+`BUTTON_UP+BUTTON_DOWN+BUTTON_SELECT`, and inside `LA048` the add is
+carry-set unless UP is held, so SELECT moves the cursor the way DOWN does.
+
+**The cartridge's two menu arrows are printable.** `menuArrowTables`
+(`$A0A5`, `main.asm.txt:4797`) is annotated "$3E = right arrow, $3F = left
+arrow", and this tile set is indexed straight off ASCII: `$3E` is `'>'` and
+`$3F` is `'?'`. So writing those two characters prints the ROM's own arrows,
+with nothing generated and nothing drawn by hand. Which arrow per screen is
+the same table: right for the player-1 column (it sits left of its digits),
+left for player 2's, because the two lists are mirrored about the centre.
+
+**What it does NOT have is parentheses.** `$28` and `$29`, where ASCII puts
+`(` and `)`, hold pieces of the game's border art in this tile set, so a label
+like "HANDICAP (L-R TO SET)" prints two blocks of border in the middle of
+itself. What parentheses are wanted for is separating a note from its label,
+and a PALETTE does that at least as well — bank 2's first colour is the menu's
+pale cyan `$31` against bank 3's white. `BANK_NOTE` carries what is left of
+that: the handicap's depth line and the one at the foot.
+
+**The control hints are gone.** They were three of the six lines on the page,
+and with a cursor sitting beside the chosen row and values that change under
+left and right, none of them was telling anybody anything they had not already
+worked out. What is left is a two-column TABLE: labels from one column and
+values from another, both fixed for all three rows, so the eye reads two
+columns and not three sentences. Eight for the longest label plus three of gap
+plus eleven for the longest tune name is twenty-two of the interior's
+twenty-six, which centres the block with two either side; the cursor lives in
+the left margin, the way a menu arrow does. START TO PLAY goes under it.
+
+**What the handicap costs rides its own line**, two columns after the value
+and in the note's colour, because a count is a remark about the value rather
+than a second setting. The word BURIES is what got dropped to make it fit:
+"12 ROWS" says the same in seven columns. Two players have two counts and no
+room for them, so there the line below comes back.
+
+**The last row with air under it is 16.** The frame's bottom braid begins at
+y=145, so a line on row 17 ends one pixel short of touching it.
+`make gba-check --menu` finds the braid by looking for the first scanline the
+frame fills right across, rather than trusting a constant, and fails if the
+text comes within four pixels of it.
+
+## The level-up show, and who gets to see it
+
+The cartridge's interlude sends a troupe out onto a stage that takes the whole
+right-hand column. In this port that column is the TETRIS banner's, so the
+show can only be had by giving up the piece histogram — and switching HUD
+modes to watch a dance is a silly thing to ask of a player.
+
+So the interlude happens in both HUD modes, with its own music and its own
+traced 32 seconds, and only the DRAWING differs:
+
+* **HUD BANNER** gets the cartridge's show: the stage, the ledges, and one to
+  six dancers by `L8D8B`'s count.
+* **HUD STATS** keeps the histogram and gives the show its OTHER box: the
+  counters in the left panel go for the length of the show and the same
+  troupe, by the same count, walks on there from the screen's open edge —
+  the solo column's six floors are the panel's four ledges, the screen's
+  bottom edge and one ledge drawn for the show in NEXT's compartment. The
+  cossack already standing over the histogram dances it in place
+  (`g_idle_show`) at the show's own eight-frame cadence. See
+  `draw_stats_show`.
+
+(It used to be him alone, on the reasoning that the troupe was what HUD
+BANNER paid back for giving up the piece counts. What that threw away is the
+one thing the cast SAYS — how well the level went, one to six — so HUD STATS
+now has the troupe too.)
+
+**And he stops when the game does.** A cossack swaying behind the PAUSE plaque
+while the music is suspended was the one part of the screen that had not
+noticed the game had stopped; `paused` freezes him now, the same way a dead
+board does.
+
+## The histogram gets a background too, for the two pixels it did not want
+
+The counters' two pixels are the panel layer's, and the offset layer had to
+ride down with them or the NEXT preview would have come apart — its label is
+on the panel's map and its odd-width pieces on the offset one. But the PIECE
+HISTOGRAM shares that offset layer, for its own three horizontal pixels, and
+it did not want the two vertical ones: its icons stand on the box's last
+interior row and fill their two tiles to the last pixel, so two pixels down
+put the tall I hard against the braid.
+
+A scroll is one number for a whole background, so the only way to give the
+histogram three pixels across and none down is to give it a background.
+Screenblock 31 is the last one before the sprite tiles and nothing else wanted
+it. Having its own scroll, it uses it: two pixels UP, which leaves the three
+of air the rest of the HUD keeps. `make gba-check --panel` measures that gap
+off the framebuffer along with the counters' four.
+
+That is four backgrounds now, and each one exists for a scroll the others
+cannot share: BG0 the playfield and the cartridge's art at the grid, BG1 three
+pixels across and the panel's two down, BG2 the panel's two down alone, BG3
+three across and two up.
+
+## The preview's cell closes where its content does
+
+In HUD BANNER the NEXT block sits in the four rows the statistics give up, and
+half a tile of offset-layer scroll centres its 23 pixels of ink in their 32.
+In HUD STATS that trick is not available: the offset layer is carrying the
+statistics, and its scroll is one number for the whole layer.
+
+It does not need to be. At orientation 0 every one of the seven pieces is two
+rows tall — `kOrientationBitmap`'s second byte is `$00` for all of them — so a
+label over a piece is 23 pixels, and a cell of THREE rows fits it exactly with
+nothing to centre. Moving the rule up one row is the whole fix, and it gives
+the box the same rhythm the counters opposite have: three pixels of air above
+the label, two below the last of the ink, then the rule.
+
+## Two bugs that hid inside "it looks right"
+
+**The preview wore the falling piece's colours.** `setPiecePalette`
+(`main.asm.txt:5338`) indexes `kRomPiecePalettes` by PIECE ID and writes one
+palette; the port drew BOTH the falling piece and the NEXT preview out of that
+one bank, so the preview was painted in the colours of the piece already in
+play and changed colour under you every time one locked. On the cartridge the
+preview is not a sprite at all, so there was nothing to copy — a second bank
+(`PAL_NEXT_BANK`, 13) loaded from the same table by the next piece's id is the
+cheapest thing that is right. `make gba-check --next-palette` walks a whole
+game and compares the two banks against what each piece's colours turned out
+to be, so it cannot pass by accident on a pair that happens to match.
+
+**PAUSE did not stop MUSIC MIX.** `MUSIC_SUSPEND` silences the cartridge's
+engine only; Korobeiniki runs on the GBA's own PSG and has to be stopped
+alongside it. The test was `g_music == MUSIC_KOROBEINIKI`, which misses the
+case where the tune playing is Korobeiniki because the MIX is on its turn —
+and the mix OPENS on it, so it was every first level of every mixed game.
+`current_tune()` resolves the rotation first.
+
+## COOPERATIVE, which the cartridge had already drawn
+
+Coop needed a screen the port did not have, and it turned out the cartridge
+ships one: **screen 5**, and it is laid out the way a GBA wants already.
+
+    cols  0-7   left panel: LEVEL, and four of the dancers' ledges
+    cols  8-9   braid: the wide field's left wall
+    cols 10-21  playfield: TWELVE playable columns x 20 rows, from row 8
+    cols 22-23  braid: the right wall
+    cols 24-31  right panel: HIGH and SCORE, and the other four ledges
+
+So there is no resequencing to do — coop is the one mode the NES also draws
+symmetrically — and the reflow is only the two columns every screen gives up
+to fit thirty, taken **one from each end**. That leaves the field dead centre
+(GBA columns 9-20, x 72..167, centred on 120) and seven columns of panel
+either side. `COOP_SEGMENTS` in the extractor; `gba/screen_coop.h`.
+
+**The board is twelve wide because the ROM leaves its wall nibbles open** when
+playMode is coop (`main.asm.txt:3480-3489`, and its own comment there: "to add
+1 column on either side"). The core already stored twelve columns and put the
+sentinel in the outer two only outside coop, so nothing there changed; what
+changed is that the port now reads the field's origin and width through
+`field_tx()` / `field_cols()` rather than off the 1P constants.
+
+### The panel the port uses is the COOP screen's, shelves and all
+
+The 1P panel the port started with was a closed box of rope with the
+cartridge's grey header rule (`$76`) between the counters. The coop screen's
+is better and it is the cartridge's own: open at the bottom, with the blue
+DANCERS' LEDGE (`$9D`) ruled across it every three rows — one tall
+compartment at the top and four short ones under it. Five compartments, and
+the HUD has exactly five things to say, so NEXT stopped moving between the
+two boxes and took the tall one for good.
+
+**BOTH PANELS ARE INVERTED Ls**, mirrors of each other: rope along the top and
+down the side facing the board, open at the bottom and at the screen's own
+edge. The right one was a closed box until the banner needed a frame — six
+letters of three rows each is eighteen rows with no padding anywhere in it,
+and a closed box leaves sixteen, which is why the vertical TETRIS used to take
+the whole column and the rope with it. Rows 2-19 of an open panel are eighteen
+exactly. The histogram got its two rows back at the same time: its icons stand
+on the last interior row, and that row is 19 now.
+
+Four numbers in it are not free, and three of them look like constants:
+
+* **the counters' layer is two pixels UP, and it used to be two down.** Down
+  was right while every counter hung under something — SCORE's ceiling was the
+  braid and the other three had a rule, and the two pixels were what gave
+  SCORE the same headroom as the rest. Between SHELVES it is wrong: a label
+  over a value is fifteen pixels of ink and the space between two shelves is
+  twenty, so the block wants two and a half pixels at each end, and two down
+  gave it six above and MINUS ONE below — a value whose last row of pixels is
+  drawn on the shelf under it, which is "tocan el suelo de la balda". Two up
+  leaves two and three.
+* **NEXT alone is drawn on the MAIN layer.** Everything else rides the
+  counters' layer; NEXT does not, because the PIECE picks its own layer by
+  width (an odd-width preview is centred with the offset layer's three pixels)
+  and those two layers do not share a vertical scroll. A piece two pixels off
+  its own word, with one pixel between them, is the word and the piece
+  touching — which in coop, where the panel layer and the offset layer had
+  disagreed by two since they were given different scrolls, was a visible
+  overlap on five pieces of seven.
+* **the NEXT block is FOUR rows, not three.** A blank one between the word and
+  the piece. The block art fills its tiles to the top edge, so a piece drawn
+  straight under the label has the label's baseline and the block's first row
+  of pixels on consecutive scanlines. Four rows of content also centre exactly
+  in the compartment's six, which three never did.
+* **the right box keeps ONE shelf, on the left box's first row, and only in
+  HUD Stats.** A shelf a row lower than its neighbour across the board reads
+  as a mistake however good the reason; and a line across the middle of a
+  vertical TETRIS is a line across the middle of a vertical TETRIS, so HUD
+  Banner has none. In HUD Stats the cossack stands on it — he used to be
+  parked in the bottom of the left panel under four counters — and the
+  histogram's bars start under it.
+
+`make gba-check --panel` measures all of it off the framebuffer: four blue
+shelves, the same air under each, and NEXT centred in its cell.
+
+**And the coop screen's own two top corners are gone.** The rope along the top
+of each coop panel ends, at the screen's edge, in a piece that turns UP (`$88`
+left, `$8A` right, against the run's `$89`). On the NES that is right — the
+rope framed the whole 256x240 screen and those two are where it turned to come
+back down the outside — but thirty columns of GBA cut that outside off, so
+what was left was a corner with nothing round it. The run instead, so the rope
+leaves the screen straight, the way it does in the port's own boxes.
+
+### The two falling pieces are solid to each other, and it takes a routine
+
+`checkCoopCollision` (`main.asm.txt:1827-1924`). This one is easy to miss
+because nothing points at it: the playfield buffer holds only SETTLED blocks —
+a falling piece lives in four bytes of zero page and is drawn as sprites — so
+the ordinary collision check cannot see the partner's piece at all, and a port
+that stops there has two players sharing a board and walking through each
+other like ghosts. Which is what this port did until it was reported.
+
+It is not a bounding box. It brings the two pieces into one frame and ANDs
+their bitmaps:
+
+* they must be within three rows AND three columns, in the ROM's own piece
+  coordinates, or there is nothing to test (`:8C1B`, `:8C30`); a partner with
+  no piece in play cannot be hit (`:8C4C`);
+* MY 4x4 bitmap is shifted into the PARTNER'S frame by **`4*dy + dx` bits** —
+  which works because `orientationTable`'s entries are four bits to the row,
+  so a row of difference is four bits and a column is one (`:8C5F-:8C80`);
+* shifting a 4x4 bitmap sideways WRAPS bits out of one row into the next, so
+  the columns that wrapped are masked off. That is all `@coopCollisionTable2`
+  is: `1000 / 1100 / 1110 / 1111 / 0111 / 0011 / 0001`, one per distance
+  (`:8C81-8C90`);
+* AND the two. Any bit left is an overlap.
+
+`bit playMode / bpl` at `:8C2C` is why none of it reaches 1P or 2P.
+
+**Three callers, and all three matter.**
+
+| Where | What it does |
+| --- | --- |
+| `checkPositionAndClearFlagsOnCarrySet` (`:1017`) | The partner is asked BEFORE the field, on every shift and every rotation, kick included. Carry clear = invalid. |
+| the gravity step (`:580`) | A partner underneath goes to `L840B` (`:604-616`), which is **not** the lock path: the piece is put back, its fall timer set to 1 and its soft-drop threshold to 5, so it HOVERS and retries every frame. Two pieces resting on each other must not merge into the board. |
+| `L862E` (`:993-1010`), off a refused shift | The stagger, and what stops two players pressed together from deadlocking: the HIGHER piece's fall timer goes up by two, or the partner's does if I am the lower. Both are +2 — the second looks like +1 but is reached through a `cmp` that fell through, so the carry is set. |
+
+And the thing that makes the stagger bite: a **refused** shift reloads the
+auto-repeat to `$09` (`:527`, `:540`), two frames short of its charge rather
+than the usual six, so a piece held against something asks three times as
+often as one moving freely. The port was missing that too; it is
+`TENGEN_DAS_CHARGE_BLOCKED` now, and it applies to a wall in 1P exactly as it
+does to a partner in coop, because the ROM does not distinguish.
+
+`tengen_coop_pieces_overlap` in the core, four tests in `tests/test_tengen.c`,
+and `make gba-check --falling` intersects the two pieces' cells off the
+running ROM every frame for 2400 frames — a different route to the same
+question, so the check is not asking the code under test to mark its own work.
+
+**ONE preview, not two.** Both players' lookahead randomisers are seeded from
+the same number (`main.asm.txt:3319-3326`) and each steps its own once per
+spawn, so the two sequences are identical from the first piece to the last
+however differently the two play — measured on the built ROM over a linked
+match, and true frame for frame. Drawing NEXT twice would be drawing the same
+piece twice.
+
+**The dancers already have their stage.** Entries 6-13 of the ROM's position
+tables (`$8E5C`/`$8E6A`/`$8E78`) pair the eight of them off down the two sides
+at NES x `$40` and `$B1` with four heights, and those heights put their feet
+exactly on the ledges the coop nametable carries. Attribute bit 6 is set on
+the left-hand ones — the same sprite MIRRORED, which is what makes a column
+walking left face the way it is going. So the port blits no stage in coop: it
+is showing the cartridge's own screen, and the dancers walk outward onto it.
+Coop is the only mode that uses all eight, which is why `tengen_dancer_count`
+caps at six everywhere else.
+
+What the port adds is what screen 5 keeps in a band the GBA cannot show
+(rows 0-9, cut like the 1P screen's own header): NEXT. The panels are not
+boxes — the cartridge leaves them open with the ledges ruled across — so the
+HUD lays into the six rows above the first ledge and the pair between the
+first two, using those ledges where the 1P panel would draw a rule.
+
+And L+R does nothing there: coop has no boxes to swap, and the banner's column
+is the middle of the board.
+
+## The fireworks are placed over the frame and drawn BEHIND it
+
+Measured off the ROM's own `oamStaging` over a whole title show (1100
+frames): every burst is a 7x7 grid of sprites 56 pixels square at a fixed
+height (y 81-137), and its x goes anywhere from 16 to 240 of the NES's 256
+— twelve bursts at 167, 184, 125, 128, 68, 122, 99, 184, 168, 184, 34 and 16.
+Five of the twelve cross the braid. The frame still contains them, and the
+reason is one bit: **every firework sprite has attribute `$24`-`$27`, bit 5
+set, "behind the background"**, so the PPU draws it only where the
+background is colour 0 — the black sky — and the braid, the cathedral, the
+logo, the ™ and the credits are opaque and cover it. The cathedral overlay's
+own sprites (`$00`-`$03`) have the bit clear and stay in front.
+
+This note used to say only the first half ("they burst over the braid and
+onto the outer band of ingots"), which is true of where they are PLACED and
+wrong about what you SEE. The port then drew them in front of everything,
+which does put them over the braid — reported, rightly, as not what the
+cartridge does — and answered it by clamping each burst's centre one radius
+inside the frame. That moved every burst near an edge somewhere the
+cartridge never puts one. It is the priority now (`TITLE_FIREWORK_PRIO`, OBJ
+priority 2 against backgrounds at 0 and 1) and no clamp; `--title` checks
+it. The port runs `LA9CE` itself, so the positions are the cartridge's,
+mapped through the composition by each burst's own centre.
+
+**And there is no sunset.** A melon on the list said the cartridge's title
+has "a dithered sky behind" the bursts that the port does not draw.
+Rendered with its sprites, it does not: the sky is colour 0 from the TM to
+the credits. The only dithering on that screen is the bursts themselves —
+rings and clouds of single dots, which is how their tiles are drawn.
+
+## MUSIC MIX, and why it turns over at the level and not at the end of a tune
+
+The same L+R that uncovers Korobeiniki uncovers a sixth entry that is not a
+tune: MUSIC MIX plays the five in turn.
+
+**When it changes is a traced decision, not a taste one.** "When the tune
+ends" needs a tune length, and these tunes loop. Correlating the melody
+registers (pulse 1 and 2, period and volume) over two hundred seconds of each
+of them, taken off `tools/nes_cpu.py`, finds a clean loop for exactly one:
+
+| Tune | Best period | Match |
+| --- | --- | --- |
+| Troika | 1969 frames (32.8 s) | 99-100% |
+| Karinka | 2560 frames (42.7 s) | 44% |
+| Loginska | 4381 frames (73.0 s) | 28% |
+| Bradinsky | 3142 frames (52.4 s) | 17% |
+
+Only Troika repeats. Hashing the engine's whole RAM alongside the APU finds no
+exact repeat in any of them inside 150 seconds, because their vibrato and RNG
+counters never come back to where they were. So a "song length" for the other
+three would be a number invented here rather than one traced from the
+cartridge — ground rule 2, and the reason the mix does not use one.
+
+The LEVEL-UP is a boundary the cartridge does define. The tune already stops
+there for the dancers and is started again when they finish, so the mix simply
+hands that restart the next entry; a linked match, which has no interlude,
+asks for it on the spot instead. It also means the music changes because you
+played well, which a timer could never manage.
+
+## The port against the cartridge, frame by frame
+
+Everything else in this file measures the port against the DISASSEMBLY —
+against a reading of what the ROM does. `make trace ROM=...` measures it
+against the ROM.
+
+`tools/nes_cpu.py` was written to run PIECES of this cartridge: the sound
+engine, and `sendNametableToPPU`. It turns out to run the whole game, and
+only three things were missing, each of which took a few lines
+(`tools/nes_console.py`):
+
+* **A controller.** `pollController` ($A400) strobes $4016 and reads it eight
+  times, bit 0 into player 1. A shift register latched on the strobe.
+* **A vblank flag that CLEARS.** nes_cpu pins PPUSTATUS's bit 7 high so that
+  "wait for vblank" loops fall through. `enablePPURendering` ($A465) waits for
+  the opposite — for it to clear — so a flag pinned high is a loop the game
+  never leaves, and it never leaves its title screen.
+* **An NMI only when the cartridge asks.** PPUCTRL bit 7 is the enable and the
+  ROM clears it whenever it does not want interrupting. Firing one anyway runs
+  the handler at a moment the code is not ready for: with that bug the game
+  walked from its own title screen into GAMESTATE_PLAYING with nothing
+  touching the pad.
+
+With those, `tools/trace_match.py` boots a dump, walks its four menus into a
+1 PLAYER game, reads `savedRNGSeed` out of its RAM, seeds `src/tengen_core.c`
+with the same number, feeds both the same button script and diffs a line per
+frame: piece, orientation, row, column, next, fall timer, level, lines, score
+and all two hundred playable cells.
+
+### What it found
+
+Three timing faults, none of which any reading of the disassembly had caught,
+and each worth a frame:
+
+**The first piece of a game falls on a timer of 48, not 20.**
+`getNextTetromino` loads `#$14`, then finds `current` zero — nothing has been
+dealt yet — takes the `beq`, overwrites it with `#$30`, and goes round again
+with the piece it has just rolled. Every later spawn has a real `next` waiting
+and keeps the 20. The port pre-rolled `next` in `tengen_new_game` and set a
+flat 20, so its first piece started falling twenty-eight frames early.
+
+**A spawn costs a whole frame.** `activeGamePlay` ends
+
+    lda player1TetrominoCurrent,x
+    bne L8320               ; there is a piece: play it
+    jmp getNextTetromino    ; there is not: deal one, and that is the frame
+
+a `jmp`, not a `jsr`. The frame that deals a piece does nothing else: no
+input, and no decrement of the counter `L8320` would have touched. The port
+spawned inline from the lock path and from the end of the line-clear
+animation, so every piece in the game started falling one frame early.
+Locking now stores zero over the piece the way `L8417` does, and the frame
+after it deals.
+
+**The soft drop reloads the fall timer in the INPUT phase.** `jsr L9AEE` sits
+inside the soft-drop branch at `$8116`, which runs before the frame's own
+gravity decrement — so that decrement still takes one off what the reload just
+loaded. The port reloaded after it and ended every soft-drop frame a frame
+high: 33 where the cartridge had 32.
+
+With those three fixed the two agree for three thousand consecutive frames,
+board and all, through locks and scoring.
+
+### What it confirmed
+
+Two measurements are now unit tests in `tests/test_tengen.c`, so they outlive
+the harness:
+
+* **The pieces.** A real cartridge, from `savedRNGSeed` $C6F0, dealt
+  `L J L T S T T S O J L`. Seeding the port's generator with the same number
+  deals the same eleven — the RNG, the five steps a draw, the mask, the reroll
+  on zero and the piece numbering, all confirmed against the hardware's own
+  code. A brute force over all 65536 seeds finds exactly four that produce
+  that sequence: $C6F0 and the three differing only in bits eleven draws
+  cannot reach.
+* **The cadence.** Taken up with the cartridge's OWN level-up code, it falls
+  at 5 6 5 6 on level 10, 3 4 4 4 on 14, 4 3 3 3 on 16 and a flat 3 on 17 —
+  the whole fractional band including the polarity flip at 16, where the SLOW
+  entry is the one row in four rather than the fast one.
+
+### COOPERATIVE too
+
+`make trace ... --coop` walks GAME SELECT down to COOPERATIVE and plays both
+pads — the second from the same generator started elsewhere, so the two are
+independent — and compares both players' pieces, both fall timers and the
+whole TWELVE-wide shared board. It runs to the end of a match: **2244 frames
+identical**, which puts the coop collision routine, the stagger and the shared
+field alongside everything 1 PLAYER already covered.
+
+Two things about coop that the harness had to learn, and neither is the
+port's:
+
+* **Its lookahead seed arrives a frame late.** In 1 PLAYER `savedRNGSeed` and
+  `player1RNGSeed` agree by the time the game starts. In COOPERATIVE
+  `savedRNGSeed` reads zero and the game spends a frame copying `rngSeed` into
+  both players' seeds before it deals, so the trace waits for `player1RNGSeed`
+  ($5C) to appear and starts counting there.
+* **Its deal frame decrements.** In 1 PLAYER the frame that deals leaves
+  `player1FallTimer` at 48. In COOPERATIVE the same frame deals for BOTH
+  players and then runs `L8320`'s `dec player1FallTimer,x` for both, leaving
+  47 — confirmed by logging every write to $6A with its PC:
+
+      $992D  $6A <- 20    getNextTetromino's own #$14
+      $994E  $6A <- 48    ...and the #$30 for a game's first piece
+      $9934  $64 <- 1     the piece
+      (the same three for player 2, x=1)
+      $8327  $6A <- 47    L8320's decrement, both players
+
+  `tengen_new_game` produces 48 in either mode, so the core is one frame young
+  at a coop match's start and the comparison drops that frame rather than
+  pretend otherwise. One frame, once, at the start of one mode; everything
+  after it matches exactly.
+
+### What it does not model
+
+Cycle timing (a frame is a fixed count of instructions, which is plenty for a
+main loop written to finish inside one), sprite-0 hit, and the mapper's CHR
+banking, which only moves tiles about. None of them reach the game's own
+state, and thousands of identical frames in both modes are the evidence.
+
+## Tetris Tengen XE, decoded record by record
+
+The mod is distributed as a ten-record IPS patch and described as adding two
+levels **and** three engine improvements: a drop-speed adjustment, a fix for
+graphical glitches, and a change to the soft drop. The patch was decoded
+rather than taken at its word, and only the first of those four is in it.
+
+| Record | Address | Was | Is | What it does |
+| --- | --- | --- | --- | --- |
+| 1 | `$956A` | `69 30` | `65 31` | `ADC #'0'` becomes `ADC $31` — the level digit adds a base the new code puts in zero page, which is how a tens digit appears at all |
+| 2 | `$9573` | `37 90 02 A9 37` | `39 90 02 A9 39` | checkLevelUp's ones-digit clamp, `'7'` to `'9'`: **the level cap, 17 to 19** |
+| 3 | `$9651` | | `4C 30 FF EA EA` | `JMP $FF30` in the level renderer |
+| 4 | `$9B12` | `50 9B` | `EE FE` | mask table pointer (first of two) |
+| 5 | `$9B1C` | | 15 bytes | the second mask pointer and both fall-timer pointers: `$9B36`->`$FED0`, `$9B48`->`$FEE4` |
+| 6 | `$A030` | `56 9F` | `10 FF` | the level-select entry goes through the new code |
+| 7 | `$A247` | | 55 bytes | the menu line: `TO SELECT LEVELS 10-19 ... HOLD A AND PRESS START` |
+| 8 | `$FED0` | (zero) | 49 bytes | the three replacement tables |
+| 9 | `$FF10` | (zero) | 24 bytes | the level-select handler: A held -> `$31` = `':'`, else `'0'` |
+| 10 | `$FF30` | (zero) | 14 bytes | the tens digit for the on-screen level |
+
+**Records 1, 3, 6, 7, 9 and 10 are all one thing**: making a two-digit level
+selectable and displayable on a console whose level menu is a fixed column of
+ten lines. This port's level is a number you wind up and down, so none of that
+machinery is needed here — only what it is machinery *for*.
+
+### The three tables, and what they do and do not change
+
+The 49 bytes at `$FED0` are three tables end to end:
+
+| | Address | Bytes |
+| --- | --- | --- |
+| 1P/2P fall timers | `$FED0` | `33 28 24 20 17 14 11 9 7 6 5 5 4 4 3 4 3 3` **`2 1`** |
+| coop fall timers | `$FEE4` | `33 28 24 20 18 17 16 15 14 13 12 11 10 9 8 7 6 5` **`4 3`** |
+| fractional masks | `$FEEE`+level | `01 00 01 00 03 01 03 00` **`01`** |
+
+**Levels 0 through 17 are byte-identical to the cartridge's** in both
+fall-timer tables, and the masks for 10-17 are identical too. There is no
+drop-speed smoothing in this patch. Nothing it touches is anywhere near the
+OAM staging or the sprite code, so there is no graphical-glitch fix in it
+either, and it does not touch `main.asm.txt:184-216` or anything else the
+soft drop reads. Two new levels is the whole of it.
+
+### Two things the mod gets wrong, AND THE PORT MENDS BOTH
+
+They were reproduced for a while, on the usual principle. They are not the
+cartridge's quirks, though — they are a patch that stops one address short —
+and both of them break the one thing the mod exists to do, so the port fixes
+them. **This is the only place in the project where something is deliberately
+not as its source behaves**, and each fix is `xe`-only: with the flag off the
+cartridge is untouched, and the two levels do not exist to get wrong.
+
+**Level 19 never used its own entry.** The mask pointer is `$FEEE` and the
+replacement block ends at `$FF00`, so level 18's mask is the last byte in it
+and level 19's would be at `$FF01` — which the patch never writes and the
+cartridge leaves at `$00`. L9AEE's level >= 16 branch decrements on a zero
+result, so on the mod level 19 always falls back to entry 18 and runs at a
+flat 2 frames a row, with the `01` at the end of its own table dead. A mod
+whose entire content is two more levels, one of which is a copy of the other,
+is half of what it says. The port gives level 19 the `$01` the pattern asks
+for — the same byte level 18 got — so 19 alternates entries 19 and 18, one
+frame and two, exactly as 18 alternates 18 and 17.
+
+**The level CODE could not reach them.** There are TWO clamps in the
+cartridge: checkLevelUp's at `$9573`, which the patch raises, and the cheat's
+own at `$B4F7` (`cmp #'8' / bne / cpy #'1' / beq`), which it does not. So on
+the mod the Up-Down-Up-Down-Left-Right-B-B-A code cannot get you from 17 to
+18 — only playing can — while from 18 the same digit test happily lets it
+carry on past the end of the mod's tables. Under `xe` the port drops that
+refusal and lets the level cap be the only ceiling: 17 -> 18 -> 19 and stop.
+Without `xe` the ROM's refusal at 17 stands, because there it is the ROM's own
+design and the tables really do end.
+
+### In the port
+
+`game->xe`, set at `tengen_new_game`, behind the same L+R as the tunes and the
+pause menu. The tables in `src/tengen_core.c` carry the two extra entries each
+and the cap becomes `TENGEN_LEVEL_CAP(xe)`; everything below level 18 is
+bit-for-bit what it was, which is what a unit test asserts directly. The flag
+travels to the other console in the lobby's CONFIG word, which grew the level
+field from four bits to five on the way — nineteen does not fit in four, and a
+silent wrap to 3 is exactly the sort of thing that only shows up as a desync.
+
+## Korobeiniki and Katyusha are not on this cartridge
+
+Worth stating plainly, because they are the only things in this port that are
+not the ROM's. Tengen's four tunes are Loginska, Bradinsky, Karinka and Troika
+(`constants.asm.txt:39-42`). Neither Korobeiniki — the pedlars' song from the
+1860s that most people call "the Tetris theme", because Nintendo's Game Boy
+version used it — nor Katyusha is among them, and there is no arrangement of
+either anywhere in this ROM to extract.
+
+**Kalinka needed nothing adding.** Karinka IS Kalinka (Larionov, 1860):
+Tengen's own transliteration of the title, played by the cartridge's own
+engine. Katyusha went in instead, which is a different song entirely.
+
+**And Katyusha is not public domain**, unlike the other two. Matvei Blanter
+wrote it in 1938 and died in 1990, so under life+70 the melody is protected in
+Russia and the EU until 2061; in the US its status turns on the restoration of
+Soviet-era works rather than on anything simple. Korobeiniki (Nekrasov's text,
+1861) and Kalinka (1860) are out of copyright everywhere. It is here because
+it was asked for, and `gba/handtunes.h` carries the same note where anyone
+editing the score will read it.
+
+**Its notes are not from memory.** Two independent public transcriptions agree
+on the melody bar the odd passing ornament: thesession.org tune 14315 (K:Amin,
+M:2/4) and John Chambers' 1999 posting of the Musica Viva setting (K:Em, the
+same tune a fourth down). What is in the file is those two in A minor, taking
+the plainer reading wherever they differ.
+
+Both are entered by hand, in `gba/handtunes.c`, hidden behind L+R on the
+selection screen. Three consequences, all deliberate:
+
+* **They do not go through the cartridge's engine.** Feeding it one would mean
+  writing new data in a music format nobody has documented and patching it
+  into the ROM image. That is exactly the kind of thing this project does not
+  do, so the file is a small sequencer of its own writing the GBA's PSG.
+* **They share, they do not replace.** Choosing one tells the cartridge's engine
+  to play `MUSIC_SILENCE` and leaves it running, so every sound EFFECT is
+  still the ROM's — and, exactly as on the cartridge, an effect briefly steals
+  a pulse channel from the music and the next note takes it back.
+* **PAUSE needs its own stop.** `MUSIC_SUSPEND` only reaches the cartridge's
+  engine. `run_rom.py --handtunes` measures the sound registers to prove the
+  pause is real, that each tune actually changes pitch rather than sitting on
+  one note, that the two are different scores and not one played twice, and
+  that the ROM's engine is still sounding underneath.
+
+The note table is not typed by ear either: a GBA pulse channel runs at
+`f = 131072 / (2048 - R)`, so `R = 2048 - 131072/f`, and the table is that
+formula evaluated for equal temperament with A4 = 440 Hz. Any row of it can be
+checked with a calculator.
+
+The unlock travels over the link cable, because the lobby already exchanges
+the tune and only the master's survives the handshake — so a linked player who
+never found the code still hears it.
+
+## LA035: silence first, and the cursor plays the tune
+
+Two bugs came out of the same routine not being read closely enough.
+
+`setMusicOrSoundEffect` ($CFB1) only QUEUES a request: a ring at $0200-$0207
+with its write index at $0209 and its read index at $0208, and a full queue
+drops the request. Handing the engine a new track does NOT stop the old one —
+that is what `LA035` (main.asm.txt:4730-4735) is for:
+
+    LA035:  lda #MUSIC_SILENCE / jsr setMusicOrSoundEffect
+            ldy menuMusic / lda musicSelectTable,y / jmp setMusicOrSoundEffect
+
+**Silence, then the track, every time.** Without the silence the previous
+tune's channels keep running underneath the new one, which is exactly how the
+title theme ended up audible on top of a match's music.
+
+And `musicSelectTable` ($A043) is `$08, $04, $05, $06, $07` — the
+disassembly's own comment reads *"silence, loginska, bradinsky, karinka,
+troika"*. FIVE entries, the first of which is no music at all. The port
+offered only the four tunes for several builds, quietly dropping one of the
+cartridge's own choices.
+
+`LA035` has two callers worth knowing about:
+
+| Where | When |
+| --- | --- |
+| `$A00A` (main.asm.txt:4694-4696) | every cursor move while gameState is GAMESTATE_MUSIC_SELECT |
+| `$976C` (main.asm.txt:3428) | when a game starts |
+
+The first is the interesting one: **moving the cursor plays the tune under
+it**, and that — not anything explicit — is what stops the title theme on the
+cartridge. This port folds the ROM's separate MUSIC SELECT screen into its
+level-select screen, so it previews on cursor moves there, and once on
+arrival so the screen tells the truth about what is playing.
+
+## The title is the only screen with sprites on it
+
+The cathedral overlay and the fireworks are OAM, and nothing else in the port
+ever writes OAM — so nothing else ever cleared it, and leaving the title left
+sixty-three sprites standing in the middle of GAME SELECT and every screen
+after. `make gba-check --leave-title` now asserts both this and the music
+above, since neither would show up in any other check.
+
+## The HUD, inside the braid
+
+The blue rope beside the playfield is the same weave the cartridge borders its
+whole 1P screen with, so it has corners and horizontal runs as well as the
+vertical ones everybody notices — read straight off the border of SCREEN_1P by
+`read_braid_frame`, all of it in background palette bank 2:
+
+| Piece | Tiles |
+| --- | --- |
+| corners (2x2) | TL `60 61 / 65 66`, TR `9E 64 / 9F 69`, BL `87 88 / 8C 8D`, BR `8A 8B / 8F D1` |
+| top / bottom run | `62 / 67` and `89 / 8E`, one column, two rows |
+| left / right run | `6A 6B` and `73 74`, two columns, one row |
+
+**Two tiles thick, and that is not adjustable**: each tile is one half of the
+rope cut lengthwise (render `$6A` and `$6B` side by side and it is obvious).
+That single fact decides the whole layout. The reflow is `10 | 10 | 10` — a
+box of rope, the ten playable columns, another box — and each box spends its
+frame on three sides only, opening at the screen's edge where the screen
+already ends, which buys **eight columns and sixteen rows** of interior. See
+"Eight columns, and why the panels open at the screen's edge" for why eight is
+the number that matters.
+
+What fits, and what had to give:
+
+* **Left**: SCORE, LINES, LEVEL and HIGH SCORE, each a label row over a value
+  row. No frame around each counter any more — the box IS the frame, which is
+  what makes the screen read as one object rather than a stack of little
+  plaques.
+* **Right**: NEXT over the piece statistics, in ONE rank of seven, which is
+  what the cartridge draws and what eight columns finally allow. The icons, the
+  bar tiles, the palettes and the arithmetic are all the ROM's.
+* **The banner does not fit at all.** It is six letters of three rows each,
+  eighteen rows with no padding anywhere in it, against sixteen of interior.
+  So when L+R calls for it, it takes the column instead of the box — except
+  for the two rope columns nearest the board, which are redrawn as a plain
+  strip, because the playfield keeps its own frame whatever the HUD is doing.
+  The dancers' stage is handled the same way.
+
+### The weave has a direction, and it is the BOX's direction
+
+`kBraidLeft` (`6A 6B`) and `kBraidRight` (`73 74`) are the cartridge's own
+columns 8-9 and 20-21 — the two sides of ITS border — and they are mirrors of
+each other, as are the four corners. They only fit each other one way, and
+this has now been got wrong in both directions, so it is worth writing down
+which way and why.
+
+**The tile is chosen by which side OF THE PANEL it is on**, not by which side
+of the board:
+
+| Panel | Its rope | Run | Corners |
+| --- | --- | --- | --- |
+| left, cols 0-9 | on its RIGHT | `kBraidRight` | TR / BR |
+| right, cols 20-29 | on its LEFT | `kBraidLeft` | TL / BL |
+
+Choosing by the board instead — the run beside the board's left edge taking
+the cartridge's own left-border tiles, so each vertical run sits exactly where
+the ROM has it — is tempting and wrong: the corners it then meets are its
+mirror, and the weave breaks at all four of them. The box wins. These are
+boxes now, and a box's own four pieces have to agree with each other before
+they agree with anything else. What it costs is paid where nobody looks: the
+rope beside the playfield is the mirror of the cartridge's.
+
+**What it must never cost is the weave changing direction when the HUD does.**
+L+R hands the right column to the banner, which redraws those two columns as a
+plain strip, and the strip has to use the panel's own tile or the weave flips
+as the box comes and goes — which is what "cambia la greca de sentido" was.
+`make gba-check --braid` asks exactly that, off the SCREEN rather than the map
+so a mismatched palette bank cannot slip through: the sixteen pixels beside
+the board must be identical in both modes, the two panels' runs must be
+mirrors of each other, and coming back from the banner must restore what was
+there.
+
+### The labels carry a piece of the grid, and it comes off exactly
+
+SCORE, LINES, LEVEL and NEXT are lifted from the cartridge's own nametable
+rather than spelled in the ASCII tileset, so they are the game's lettering.
+But its 1P panel rules each counter off with a grid, and the tiles at the
+START and END of each word carry a vertical fragment of it — grey pixels
+hanging off the S and the E for no reason once the grid is gone.
+
+They come off exactly, not by redrawing: **the grid is colour 3 and the
+lettering colour 1**, so `strip_grid` zeroes colour 3 in those tiles and
+re-encodes them, and what is left is the letter alone. The cleaned words go
+into their own tile range (`HUD_LABEL_TILE_BASE`, 768 up) so the originals
+stay available.
+
+The grid itself is worth keeping, just not there: tile `$76` is four rows of
+colour 3 — the ROM's own rule — and the port lays a row of it under each
+counter's value, which is where the cartridge's grid ran anyway. Memorable,
+and now it separates the entries instead of fraying the words.
+
+## The fireworks are one object
+
+`LAA41` (`main.asm.txt:5807-5820`) walks staging entries `$4C` upwards adding
+the same offset to every one of their Y bytes: forty-five sprites, ONE burst,
+one motion. And they are a 7x7 GRID minus its corners, forty-eight pixels
+square — the ring you see is in the TILES each cell is given, not in where the
+cells are.
+
+That matters for a composition that drops rows out of the middle of the
+picture. The cathedral's eighteen sprites are fixed artwork lining up with
+fixed background, so one of them landing on a dropped row has nothing left to
+line up with and is rightly hidden. Sending the fireworks through the same
+per-sprite map deletes whichever of the forty-five happen to be crossing a
+dropped row, and a burst forty pixels across is usually crossing one — a ring
+with a band missing out of its middle, which is what "ya no son redondos" was.
+Measured: sixteen of sixty-four sprites gone.
+
+So the burst is mapped ONCE, by the middle of its own bounding box, and every
+sprite in it moves by that one offset. Where it appears shifts by up to a
+couple of tiles from where the cartridge puts it, which a firework has no
+business minding, and it stays round.
+
+## MUSIC_SILENCE is a stop for ONE PRIORITY CLASS, and the title theme is not in it
+
+This took three passes to corner, and each pass was a real finding sitting on
+top of the next one, so all of it is here.
+
+`$08` is not a tune. It dispatches to `LD040` (`main.asm.txt:8462-8476`),
+which walks the engine's ELEVEN VOICE SLOTS and frees every one whose PRIORITY
+CLASS matches `$020B` — and `$08`'s argument is SEVEN. The classes, measured
+slot by slot off `tools/nes_cpu.py`:
+
+| Class | Who |
+| --- | --- |
+| 7 | Loginska, Bradinsky, Karinka, Troika, the level-up jingle |
+| 8 | **the title theme, and the game-over tune** |
+| 29 | the drop, the line clear, the menu click, the chirp |
+| 62 | the screen switch, the top-out |
+
+So `MUSIC_SILENCE` stops the four in-game tunes and nothing else. And
+`LD0E4`'s allocator refuses to evict a slot held at a higher priority
+(`:8637-8641`), so a class-7 tune can never displace the class-8 theme however
+politely it is asked. `LD0E4` also refuses a class-8 song that is ALREADY in a
+slot outright (`:8590-8597`), which is why the theme would not even restart.
+
+That is every symptom at once, and it explains why each earlier fix only moved
+the problem: the theme playing on under GAME SELECT; the theme coming back at
+LEVEL SELECT and running to its END before the chosen tune could take the
+slots; a match started early carrying it along. Suspending it (see below) only
+muted it — the slots were still its.
+
+**The fix is the cartridge's own routine with the argument it is never given.**
+`LD040` begins `sta $020B`, so calling it with 8 frees the title theme's class
+exactly the way `$08` frees the tunes'. Both together empty every music slot
+and `$4015` reads zero: real silence, with the effects (classes 29 and 62)
+untouched, so the screen-switch blip is still heard in full.
+
+`make gba-check --leave-title` now asks WHO HOLDS THE SLOTS rather than how
+loud it is — GAME SELECT must hold none, LEVEL SELECT only class 7 — which is
+the question the volume could never answer.
+
+### What was tried first, and why it was not enough
+
+`MUSIC_SUSPEND` ($01), the half of `pauseOrUnpause`'s pair
+(`main.asm.txt:7204-7211`), silences every channel and holds them there until
+`MUSIC_RESUME` ($02). It is still what PAUSE uses, and two things about it are
+worth keeping written down: sound effects queued after it still play, and
+RESUME is NOT free when nothing is suspended — on a cold engine it costs the
+first frame of the tune. But it is a mute, not a stop: the theme kept its
+slots through it and came back on the RESUME.
+
+`updateAudio` also takes exactly ONE request off the ring per frame
+(`$CFCC-$CFDB`), so the order requests are queued in is the order they are
+heard in, a frame apart, and `$CFC3` DROPS on a full ring. Both matter for any
+sequence longer than two.
+
+What stops it is **`MUSIC_SUSPEND` ($01)**, the half of `pauseOrUnpause`'s
+pair (`main.asm.txt:7204-7211`). It silences every channel and holds them
+there until `MUSIC_RESUME` ($02). Two things about it make it the right tool
+for leaving a screen as well as for pausing:
+
+* **TWO sound effects queued after it still play, and only two.** This was
+  written down too broadly the first time and cost a whole session's audio
+  later on, so here it is as measured — suspend the engine on GAME SELECT and
+  hand it each cue in turn:
+
+  | heard under SUSPEND | silent under SUSPEND |
+  | --- | --- |
+  | SCREEN_SWITCH `$15` (12 frames), TOPOUT `$16` | DROP `$0E`, LINECLEAR `$13`, MENU_SELECT `$14`, CHIRP `$10`, ALARM `$12`, and every tune |
+
+  It is the priority classes again: the two that survive are class 62, and
+  everything gagged is class 29 or a tune. The tunes are not even refused
+  their slots — `$0292` fills with 33s and 29s exactly as it would unsuspended
+  — they simply never reach the speaker. So a SUSPEND that is never resumed is
+  not "the music is off", it is **the machine is mute**: no piece landing, no
+  game-over jingle, no menu blip, no title theme, until the console is
+  switched off. Anything that tears a PAUSED game down has to send the RESUME
+  itself, because nothing else will — see `pause_menu_input` in `gba/match.c`,
+  where EXIT does, and `make gba-check --quit-audio`, which walks that road
+  and counts frames with a channel sounding at every screen it leads to.
+* **RESUME is not free when nothing is suspended.** On a cold engine an extra
+  RESUME costs the first frame of the tune and the recordings drift from
+  there, so the port tracks whether it suspended rather than firing one
+  hopefully. `stop_music` / `resume_music` in `gba/frontend.c` are that pair, and
+  pause, the front end and the way back to the title all go through them.
+* **AND RESUME GOES LAST.** `updateAudio` takes exactly ONE request off the
+  ring per frame (`$CFCC-$CFDB`), so the order they are queued in is the order
+  they are heard in, a frame apart. Resuming BEFORE loading the new track —
+  which is what the first version of this did — hands the suspended track a
+  frame or two of the speaker before the silence meant to replace it arrives:
+  the title theme turning up under the tune you are choosing on the level
+  screen, and worse when the ring is busy enough to DROP the silence ($CFC3
+  drops on full). Loading the new track while the engine is still frozen and
+  only then letting it go has no such window.
+* **And a tune that is no tune never lets it go at all.** NO MUSIC is
+  `musicSelectTable`'s first entry, the silence — nothing follows it to take
+  the speaker back, so it is the one menu choice that must leave the engine
+  suspended. That is where a resumed title theme used to surface, and
+  `make gba-check --leave-title` now listens for two seconds there.
+
+The cartridge never needs any of this: its front end is a one-way chain and
+its title theme is *meant* to carry on into the menus. This port can walk
+back, so it needs a way to stop.
+
+## The title's frame is two frames, and the screen's shape decides which
+
+The 32x30 title has a band of gold ingots with red and green jewels set into
+it, two tiles thick, and inside that a blue braid, another two tiles thick.
+Eight tiles of frame on every side is more than a 30x20 screen carries
+alongside the picture — VERTICALLY. Horizontally there is room for both,
+because the GBA's screen is wide and the picture is not: the port keeps the
+BRAID whole on all four sides, and the ingots and jewels in the two side bands
+the widescreen leaves over. So the picture is framed the way the cartridge
+frames it, and the bands are filled with the cartridge's own gold rather than
+with black.
+
+**Both bands are a two-tile pattern** — a jewel (tiles `00 01` / `04 05`) then
+an ingot (`08 09` / `11 12`) — so every row and column kept is kept in its
+PAIR. Take one row of a jewel and you get half a jewel.
+
+| Kept | What it is |
+| --- | --- |
+| cols 0-1, 30-31 | the ingot band, down the two side bands |
+| cols 2-3, 28-29 | the braid, framing the picture |
+| rows 2-3, 26-27 | the braid's top and bottom bands |
+| rows 4-5 | TENGEN |
+| rows 8-11 | the TETRIS logo, ™ included |
+| rows 14-23 | the cathedral, whole and 1:1 |
+
+Twenty rows and thirty columns exactly. What it costs: the ingot band's top
+and bottom rows (rows 0-1 and 28-29 — the band survives where the screen is
+wide, which is the sides), PRESENTS, THE SOVIET MIND GAME, both copyright
+lines (the credit moved to GAME SELECT) and the top two rows of the spire.
+
+### The two dropped columns come one from each side, not two from one
+
+The cartridge's picture is centred on source column 15.5: TENGEN at columns
+10-21, the cathedral at 8-23, the spire at 15-16, all with the same middle,
+inside a frame whose interior is columns 4-27. Thirty screen columns means
+dropping two of the thirty-two, and WHICH two is not free. Taking both off the
+left (which this did, dropping 4 and 5) leaves every element where it was but
+pulls the frame's right half two columns in behind them, so the whole picture
+ends up one column left of its own frame — small, and plainly visible once
+looked for. Dropping 4 and 27 instead leaves the interior at 5-26, centred on
+15.5 again: measured on the built ROM, TENGEN and the cathedral both come out
+with equal margins, and the logo is half a tile right of centre because the
+cartridge draws it that way.
+
+Neither dropped column costs anything. Inside the rows this layout keeps, both
+are blank in every one; column 27 carries the last letter of the copyright
+line, and that row is not kept either.
+
+### The spire is printed over the logo, and it takes TWO tiles
+
+Dropping source rows 12-13 takes the top of the cathedral's one-tile-wide
+spire with them — and the tip is the thing the eye misses. It goes back into
+the logo, and the spire is three tiles stacked, so both of the dropped ones
+have to come or the join shows:
+
+| Source | Tile | What it is | Goes into |
+| --- | --- | --- | --- |
+| (12,16) | `$7C` | the finial: a thin pole flaring at its base | row 10, col 16 (`$1D`, blank) |
+| (13,16) | `$7E` | the gold ball, which JOINS finial to roof | row 11, col 16 (`$73`) |
+| (14,16) | `$7F` | the top of the red tent — already kept | — |
+
+Printing only the finial is what "la punta de la catedral tiene un glitch
+grafico" was: it floated eight pixels above the roof with black in between.
+Row 10 column 16 is a genuine hole in the logo, right between its third and
+fourth letters; row 11 column 16 is `$73`, which is three pixels of two
+letters' bottom serif and nothing else, so the ball fits there and the spire
+comes out whole on three consecutive rows exactly as the cartridge stacks
+them. The ball's left neighbour, `$7D` at (13,15), is ONE pixel of its left
+edge and does not come — row 11 column 15 is a solid bar of lettering.
+
+Each overlay entry carries the tile its destination must already hold, and
+`compose_title` checks it, so a different dump or a changed composition fails
+loudly instead of quietly painting over a letter.
+
+### Sprites go through the same rearrangement, in BOTH axes
+
+`kTitleRowMap` was not enough once the composition started dropping columns as
+well: the picture keeps its place and the frame's right half moves two columns
+left, so there is a `kTitleColMap` too, and both are generated from the same
+lists the artwork is cut with. A sprite standing on a row or column the composition
+dropped is hidden rather than moved somewhere it does not belong — which is
+why the cathedral overlay puts up seventeen of its eighteen sprites now. The
+eighteenth belonged to a spire row that is no longer there, so it has nothing
+left to overlay; `make gba-check --title` allows for that and would still
+catch a map that had gone wrong.
+
+## What the front end answers to, and it is not what a modern pad suggests
+
+`processMenuInput` (main.asm.txt:4614-4702) is short and unambiguous, and two
+of its three lines were missing from the port for a long time:
+
+| Where | Mask | What it does |
+| --- | --- | --- |
+| title, `$9FA4` | `BUTTON_SELECT+BUTTON_START` | either one goes to GAME SELECT |
+| menus, `$9FBC`/`$9FED` | `BUTTON_UP+BUTTON_DOWN+BUTTON_SELECT` | moves the cursor |
+| menus, `$A011` | `BUTTON_START` | confirms, and nothing else does |
+
+**SELECT moves the cursor the same way DOWN does**, which is not a guess:
+`LA048` (:4730) saves the buttons, sets the carry, and adds `$FE` if UP is held
+or `0` otherwise — so with the carry it is cursor−1 for UP and cursor+1 for
+everything else, SELECT included. That is the whole of "SELECT does not
+select".
+
+The cartridge has **no back button** on its menus: they are a one-way chain
+with an idle timer (`dec player1FallTimer` at `$9FB1`) that drops back to the
+title. So B here, and A as a second confirm, are the PORT'S — the only two
+buttons in `gba/main.c` and `gba/match.c` that are not the ROM's, and marked as such.
+
+## The front end's music belongs to the screen
+
+The preview used to follow the player backwards: pick a tune, cancel out of
+the cable screen, back out to GAME SELECT, back out to the title, and the tune
+was still playing over the cathedral. Every transition remembered to START
+music and none remembered to put the old one back.
+
+The fix is to stop treating it as a thing transitions do. The title theme
+belongs to the title AND to GAME SELECT — on the cartridge nothing changes the
+music between them — and the level screen plays whichever tune the cursor is
+on. `front_music()` is called by each screen every frame and does nothing when
+what it is asked for is already playing, so backing out restores the theme by
+construction rather than by remembering to.
+
+The click before the tune, too: the cartridge queues `SOUND_MENU_SELECT` at
+`$9FC4` and only then calls `LA035` at `$A00A`.
+
+## The fireworks are in the audio measurement, and had to be held out of it
+
+`make gba-check --audio` compares the emulated APU against a golden recording
+frame by frame, and it started failing at frame 139 the moment the title
+screen learned to set off fireworks. Nothing was wrong with either: **every
+burst calls `setMusicOrSoundEffect` of its own** (`LACA0`, main.asm.txt:6104-
+6109), so the title's APU carries bangs the reference interpreter never made.
+
+Two things came out of chasing it:
+
+* The golden is now recorded the way the port starts a tune — `MUSIC_SILENCE`
+  and then the track, `LA035`'s order — because a recording of something the
+  ROM never does is not a reference.
+* It still has to be the TITLE theme, from a fresh engine. Recording a later
+  tune and meeting it mid-session matches nothing at all: the engine carries
+  state between tracks (envelope phases, vibrato counters), so only a track
+  started from reset can be matched against a reference started the same way.
+* The bursts are held off with the cartridge's own lever — `player2FallTimer`
+  ($6B), which `LA9DE` counts down and fires a burst at zero (:5740). The
+  harness keeps it away from zero for the duration. That is a fixture, never
+  anything the ROM knows about, the same shape as planting completed rows for
+  the line-clear check. With it, 399 of 399 frames are identical.
+
+## On a cable, the choosing comes after the connecting
+
+Only one of two linked players should be picking the level and the tune, and
+neither console knows which one that is until the cable has told them — the
+master is whichever end the hardware says it is. So 2 PLAYER now goes straight
+to the lobby, and the level screen comes afterwards, on the master only.
+
+The handshake did not have to change to allow it, because it is stop-and-wait:
+`tengen_lobby_start_held` parks the master at `TENGEN_LOBBY_HELLO` and
+`tengen_lobby_release` lets it run on. While parked the slave keeps echoing
+HELLO, every transfer succeeds and `idle` never climbs, so parking costs
+nothing — `test_the_lobby_connects_first_and_the_master_chooses_after` holds
+for twice the give-up window and then completes anyway.
+
+Two things that are easy to get wrong and were:
+
+* **The level screen has to keep the cable turning.** A lobby that stops
+  transferring looks exactly like a lobby whose cable fell out, and the guest
+  would give up after ten seconds of the master reading a menu.
+* **The jump to the menu has to be one-way.** Testing "connected and not
+  ready" sent the master back to the level screen the frame after it chose, and
+  it ping-ponged there while the guest went off and started the match alone.
+  `hold` is the flag that makes it happen once.
+
+The guest gets one of the cartridge's own cossacks in the middle of the screen,
+working through the same pose table the level-up interlude uses. It has nothing
+to read — the level and the tune are the master's — and a dancer that keeps
+dancing is a better status light than a line of text: while he moves, the cable
+is alive.
+
+## Eight columns, and why the panels open at the screen's edge
+
+The piece statistics are NOT seven separable icons. They are one seven-tile
+picture, drawn interlocked across the tile boundaries — render `kStatsIcons`
+side by side and the tetrominoes plainly straddle their tiles — so they cannot
+be squeezed into six columns at any pitch, sprites or not. (The BAR tiles can:
+they use six pixels of their eight. The icons are the constraint.)
+
+A closed braid box is two tiles of rope on all four sides, so a ten-column box
+leaves six, and six forces the histogram into two ranks. Opening the panel at
+the screen's edge — where the screen already ends, and where the cartridge's own
+HUD columns run into its screen border — leaves EIGHT, which is the seven-tile
+strip in one row with a column to spare, and room above it for NEXT.
+
+So the rope now runs along the top, the bottom and the side facing the board,
+with its corners on the board side only, because that is the only side that has
+one. The playfield's own frame is untouched: the panel's inner run is exactly
+where the cartridge's vertical run always was.
+
+One consequence worth writing down, because it cost a debugging session: the
+left panel's content is indented one column off the screen edge, and clearing a
+row with the panel's FULL interior width from that indented start runs one
+column past the interior and erases the rope itself, a row at a time. `BOX_L_W`
+is the interior minus that indent.
+
+### The spare column is worth three pixels, and they need a second background
+
+Seven tiles in eight columns leaves one spare, and there is nowhere honest to
+put it: the strip's own ink is inset two pixels on its left and flush on its
+right, so on the tile grid it can only ever sit 2/8 or 10/0 — visibly left of
+centre either way, which is what "las fichas de las barras de stats estan
+lijeramente descentradas a la izquierda" was. It wants to move three pixels.
+
+The art cannot move with it. The icons are one interlocked picture whose seven
+tiles carry three different palettes, so a three-pixel redraw fuses two banks
+into the tiles either side of a palette change; and the BARS above them are
+dynamic, so the same shift would have to fuse two neighbouring bars — nine fill
+levels each — into every tile they share. Neither is a table anyone can build.
+
+So the statistics ride their own background. `SCREENBLOCK_STATS` (29) holds
+just that block, `REG_BG1HOFS` is 512-3, and BG1 sits at priority 0 over BG0's
+1. Two other things ended up needing the same half-pixel and now share it —
+see "What else rides the offset layer" below. Everywhere that map is not written it holds tile 0, which is transparent in
+every pixel — verified, not assumed — so the rest of the screen is BG0 exactly
+as before. Icons and bars move together, the cartridge's art is untouched, and
+the strip ends up five pixels from the rope and six from the screen edge, which
+is as centred as an odd width gets. Anything that takes the right panel over —
+the banner, the dancers' stage, a race — has to clear that map too, not just
+BG0's; `clear_stats_layer` is that call and there are four of them.
+
+### What else rides the offset layer
+
+The same trick, twice more, because the same arithmetic keeps coming up: art
+that is centred on the TILE grid but whose INK is not centred inside its
+tiles.
+
+**The NEXT preview.** The block art has a one-pixel inset on its left, so a
+piece `w` tiles wide is `8w-1` pixels of ink and centring that in the panel's
+64 wants its first tile at `(65-8w)/16` — a whole number of tiles when `w` is
+even, half a tile out when it is odd. The O (2 tiles) and the I (4) land
+within half a pixel of centre on the main layer; the T, J, L, S and Z (3
+tiles, so five pieces of seven) land three and a half pixels left, which is
+what "la siguiente ficha esta alineada a la izquierda" still was after the
+columns were squared up. Those five are drawn on the offset layer instead and
+come out half a pixel the other side. Measured on the built ROM, all seven now
+sit at 31.0 or 32.0 against an ideal of 31.5.
+
+**TENGEN, and only TENGEN.** Nothing on the title is centred where the tile
+grid says it is, and the reason took two passes to see. Measured on the built
+ROM as centres of MASS — ink weighted by pixel, which is what an eye reads —
+against a frame interior running 32..207 and therefore centred on 119.5:
+
+| | unshifted |
+| --- | --- |
+| cathedral | 124.0 |
+| TENGEN | 119.9 |
+| TETRIS | 118.2 |
+
+**The cathedral's own art leans four and a half pixels right of the middle of
+its own frame**, and the cathedral is the picture. So the words are not read
+against the frame at all, they are read against it — which is why TENGEN kept
+looking left however carefully the columns were squared up, and why centring
+the words on the frame (both at +2) did not settle it. TENGEN goes on the
+offset layer at FOUR pixels, putting its mass at 123.9.
+
+**TETRIS stays where the cartridge draws it**, two pixels left of the frame's
+centre, and that is a deliberate trade. The spire's finial is printed into the
+gap between its third and fourth letters while the rest of the spire is down
+in the cathedral, so the letters and the pole have to agree with each other:
+unshifted, the gap runs 118..131 and the pole stands at 123. Shift the logo
+right and the gap goes with it while the pole does not, which is the pole
+leaning against the T. A logo two pixels off centre that its own spire comes
+cleanly out of beats a centred one that it does not.
+
+The frame stays off the layer too: four pixels of braid sliding out from under
+the ingots is far more visible than four pixels of lettering ever were.
+
+### A THIRD background, for the counters' two pixels
+
+SCORE sat one pixel below the box's braid while LINES, LEVEL and HIGH each had
+three below their rule: a rule tile carries two blank pixels under its bar and
+the label glyphs one above their ink, and the top of the box gives neither.
+
+It cannot be fixed by moving anything on the layers that already exist:
+
+* **BG0 cannot scroll.** It carries the counters AND the playfield, and the
+  playfield's 160 pixels are the entire height of the screen with nothing
+  spare at either end. Scrolling it crops the board.
+* **The box has no spare row.** Four counters of three rows each fill rows
+  2-13 and the preview takes 14-17, which is the interior exactly.
+* **The offset layer is already three pixels right**, for the statistics, and
+  a scroll is per-layer, not per-tile — so the counters cannot borrow it
+  without going three pixels sideways with it.
+
+So the counters get their own map, screenblock 30, scrolled two pixels down
+(`SCREENBLOCK_PANEL` / `PANEL_SHIFT_PX`), and the offset layer rides down with
+them so the statistics and the odd-width previews stay level with the labels.
+The braid does not move: it is drawn on BG0 and stays there, and so does the
+TETRIS banner, which is art aligned to the screen rather than a counter.
+
+It is a switch rather than a second set of drawing functions — `g_panel_layer`
+is on for the length of `draw_panel` and `set_map_tile` reads it — because the
+panel is drawn with the same `draw_text`/`draw_number`/`draw_rule` the menus
+use, and those should not have to know which background they are writing to.
+
+`make gba-check --panel` counts the four gaps off the framebuffer and fails
+unless they are equal; they are three pixels each.
+
+### Drawing the title once per visit, not once per frame
+
+Moving the words to a second layer doubled what `draw_title` writes — 1200 map
+entries — and on top of the cartridge's own cathedral and fireworks code
+running under it that was enough to miss a vblank every sixty frames, which
+`make gba-check --title` caught. Nothing in those tiles changes while the
+title is up (everything that moves there is a sprite), so it draws once and
+`clear_screen` arms it again. Every path that reaches the title goes through
+one.
+
+## Two players over a link cable
+
+The cartridge's 2P is a RACE: two independent 10-wide playfields, and nothing
+crosses between them during play (`main.asm.txt:3545-3598` deals one player a
+pile of garbage before the first piece and that is the whole of the
+interaction). That is what makes a link cable simple — there is no game state
+to reconcile, only inputs — and it is why the port does 2P as LOCKSTEP: both
+consoles run the same core over the same seed and simulate BOTH players,
+each sending only its own buttons.
+
+Where each piece lives, and why:
+
+| Piece | Where | Why there |
+| --- | --- | --- |
+| The lockstep itself and the handshake that sets up a match | `src/tengen_link.c` | Platform-independent, so `make test` can run two of them against each other and compare byte for byte. Lockstep and stop-and-wait handshakes are exactly the kind of thing that looks right and silently diverges. |
+| The cable | `gba/link.c` | GBA serial multiplayer mode, driven by the serial interrupt: the handler queues each transfer and immediately loads the next word, so the send register is never stale and no transfer is ever missed. Nothing in it blocks. |
+| The screens | `gba/main.c` and `gba/frontend.c` | GAME SELECT, the link screen, and a match loop that differs from a solo game in three places only. |
+
+Two things worth knowing before touching any of it:
+
+- **The wire word's top bit is always zero.** A GBA reads `$FFFF` from the
+  slot of a console that is not there, so no real word may look like one. The
+  frame counter is therefore seven bits, not eight.
+- **The SD bit is not "a cable is attached".** A GBA with nothing plugged in
+  reads SD set and SI set — indistinguishable from a slave waiting for its
+  parent. The only proof of a cable is a transfer that came back with a real
+  word in both slots, which is what `link_connected()` reports.
+
+`make gba-check` runs two mGBA cores with a simulated cable between them
+(`tools/run_link.py`) and asserts their whole game state stays identical byte
+for byte while the two players are fed opposite buttons.
+
+### A+B PUTS A DEAD BOARD BACK ON ITS FEET
+
+`activeGamePlay` falls into `handleGameOver` (`main.asm.txt:472-490`) the
+moment `player1GameActive,x` reads zero — whether or not the other board is
+still going — and there A and B HELD together (not pressed; the test is on
+`player1ControllerHeld,x`) start that player again on the spot. In a race
+that is one board restarting while the other plays on, which is what a race
+between two people needs to be playable at all.
+
+`restartVsMode` (`:3402-3465`) is what it runs, and its order is worth
+keeping: the score's six digits and the line count's four go back to ASCII
+zeroes; the level goes back to **that player's own** `menuPlayer1StartLevel`,
+so the two can restart onto different levels; the RNG goes back to
+`savedRNGSeed`, so the new board is dealt exactly what the match opened with;
+`player1GameActive,x` is set from whatever is in A at that point, which is
+`$30`, because any non-zero is alive; the two cheat codes, the undo's memory
+and the level's clear tally are cleared; the playfield is laid out again; and
+`endPlayfieldInit` deals the handicap pile again. Nothing of the other
+player's is touched.
+
+**WHICH MODES.** `handleGameOver` branches on playMode before anything else:
+0 (1P) and `$FF` (COOPERATIVE, and WITH COMPUTER with it) jump to
+`initializeGameMode` instead, which is a WHOLE NEW GAME rather than one
+board. The port takes the race and not that one — see CLAUDE.md for why. The
+VERSUS guard that stops the computer restarting itself (`:830C-830E`) is
+unreachable in the port for a different reason: `tengen_ai_buttons` picks one
+rotation button or the other and never both, and a test says so.
+
+**AND THE GAME IT JUST FINISHED IS NOT LOST**, which is the other half and
+the reason the melon asked what happens to five accumulated games. `L81DD` —
+the leaderboard insert — is called from the TOP-OUT itself (`:600`, the `jsr`
+straight after the flag is cleared), not from the end of the match. So each
+board that dies is written down as it dies and five games are five rows. The
+cartridge keeps one typing flag per PLAYER (`$74`/`$75`) and marks each row
+with its owner in the top two bits of its initials, so Left and Right walk a
+player between their own rows on the page; the port types them one after the
+other, oldest first, which is the same set in a fixed order.
+
+Over a cable the restart is driven by BUTTONS, which cross the wire, so it
+has to happen inside the core on the frame both consoles agree on —
+`tengen_step` does it, off the held buttons it is already given. Done in the
+front end off the local keypad it would part the two simulations on that
+frame and they would never meet again. `tools/run_link.py` restarts one
+console's board mid-race and then compares the whole game state byte for
+byte, which is the only statement of that worth making.
+
+### ...and the cable outlives the match, by three letters
+
+Lockstep means each console has simulated the rival's board all along, so it
+knows their score and their lines to the byte — the check above is exactly
+that claim. It simply never wrote them down: only the local player went on
+the local HIGH SCORES page, so a race ended with two pages that disagreed
+about who had been there. **Both players are inserted on both tables now.**
+
+The one thing lockstep cannot hand over is the NAME the person at the other
+end typed, and that is the whole of what crosses: three letters each way,
+between the last piece and the bottom of the page. `TengenNameSwap`
+(`src/tengen_link.c`) is the exchange and `link_name_step` carries it.
+
+Three things about it, each of which was a decision:
+
+- **It is not stop-and-wait, and the lobby is.** The handshake has one side
+  asking and the other answering, so there is a tag to echo. This is
+  symmetric: both ends have something to say and neither is waiting on the
+  other's permission. So each console sends its three letters round and
+  round, one per transfer, and says in bit 8 of every word — the RECEIPT —
+  whether it has all three of the other's yet. A lost transfer costs one turn
+  of the wheel instead of a stall.
+- **The LINGER at the end is not padding.** The last thing each console is
+  waiting for is the other's receipt, so one that went quiet the moment it
+  had everything would leave the other holding the letters with no way to
+  learn that its own had arrived — and on the master, the only end that
+  starts transfers, that is a hang rather than a delay.
+- **It starts when the match ends, not when the page comes up.** One player
+  sits on the game-over plaque and the other does not, so the two reach the
+  table seconds apart; starting the exchange at the plaque is what keeps
+  either end from waiting on the other's button. What it sends, though, waits
+  for the page: `g_leader_row` reads -1 both before the typing is offered and
+  after it is done, and a send gated on that alone went out on the plaque
+  with the letters of a row nobody had been shown.
+
+What it does NOT solve, and this is an edge rather than an oversight: the two
+tables are two consoles' own histories, so a score can make one and miss the
+other. A player whose score reaches the rival's table but not their own is
+never offered the typing, and sends the letters an untyped row carries —
+which is what the cartridge prints for a row nobody typed.
+
+`tools/run_link.py` plays the whole road on two cores: a linked 2P game, two
+scores planted identically on both (the only way to touch memory without
+breaking the lockstep the checks above just proved), both boards buried, two
+different names typed on two different consoles, and then both pages read
+back off the tilemap — the scores, the names, and each name beside the score
+that earned it.
+
+## A note on frame rate
+
+NES NTSC runs at ~60.0988 Hz; GBA runs at ~59.7275 Hz. `tengen_step` is
+designed to be called once per rendered frame on either platform with no
+compensation for that ~0.6% difference — it's small enough (over a 20-line
+game, well under a frame of total drift) that it isn't worth the complexity
+before more of the core is verified. Revisit only if playtesting shows it
+matters.
