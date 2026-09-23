@@ -82,4 +82,4 @@ jobs:
       - name: make assets-check
         run: make assets-check
       - name: Python tools compile
-        run: python -m py_compile tools/*.py tools/probes/*.py
+        run: python -m py_compile tools/*.py tools/probes/*.py tools/romcheck/*.py
