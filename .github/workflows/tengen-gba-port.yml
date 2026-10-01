@@ -63,6 +63,9 @@ jobs:
   core-arm:
     name: Core cross-compiles for the GBA
     runs-on: ubuntu-latest
+    # An apt mirror that hangs once held a PR for hours: a few minutes is
+    # all this job ever takes.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Install arm-none-eabi-gcc
