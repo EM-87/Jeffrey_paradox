@@ -9,6 +9,26 @@
 #include "port.h"
 
 
+#ifdef TENGEN_MULTIBOOT
+/* The image as it landed in external WRAM: its first sixteen bytes are the
+ * header the sender gave it (wireless_multiboot_send patches them). */
+static bool booted_over_air(void) {
+    static const char kTag[9] = { 'R', 'F', 'U', '-', 'M', 'B', 'O', 'O', 'T' };
+    const volatile uint8_t *at = (const volatile uint8_t *)0x02000004;
+    for (int i = 0; i < 9; i++)
+        if (at[i] != (uint8_t)kTag[i]) return false;
+    return true;
+}
+#endif
+
+/* One frame of the send over the air: the screen, the sound, and B. */
+static bool air_send_frame(int stage, uint32_t done, uint32_t total) {
+    vsync();
+    draw_air_sending(stage, done, total);
+    audio_frame();
+    return (read_buttons() & TENGEN_BTN_B) != 0;
+}
+
 int main(void) {
     /* First: every screen from here on waits for its frame in vsync(), and
      * vsync() sleeps until an interrupt that this is what switches on. */
@@ -17,9 +37,15 @@ int main(void) {
      * does): see erase_records_prompt. */
     bool erase_asked = erase_chord_held();
     /* A Wireless Adapter in the port, asked once (wireless.c): if one
-     * answers, 2 PLAYER and COOPERATIVE go over the air. Not on the
-     * Single-Pak copy, which came over a cable. */
-#ifndef TENGEN_MULTIBOOT
+     * answers, 2 PLAYER and COOPERATIVE go over the air. The Single-Pak copy
+     * asks only if it came over the air itself — the adapter's loader wants
+     * RFU-MBOOT in bytes 4-15 of what it boots, so the copy finds those in
+     * its own image — and never if it came over a cable, where the login's
+     * trip through general purpose would be a flutter on the sender's lobby. */
+#ifdef TENGEN_MULTIBOOT
+    wireless_client_only();
+    if (booted_over_air()) wireless_detect();
+#else
     wireless_detect();
 #endif
     /* ...and otherwise the cable answers from the start, wherever the
@@ -100,6 +126,12 @@ int main(void) {
     /* The Single-Pak send that starts by itself; see the LINK CABLE screen. */
 #define AUTO_SEND_FRAMES 45
     int auto_send_wait = 0;
+#ifndef TENGEN_MULTIBOOT
+    /* The adapter asked for again from the cable's screen; see there. */
+#define RADIO_FIRST_TRY 180
+#define RADIO_RETRY 300
+    int radio_wait = 0;
+#endif
     bool auto_send_refused = false;
     uint8_t held_last = 0;
     bool sweeping = false;   /* true while the line-clear sweep owns the OAM */
@@ -758,6 +790,40 @@ int main(void) {
                 continue;
             }
 
+#ifndef TENGEN_MULTIBOOT
+            /* THE ADAPTER, PLUGGED IN AFTER POWER-ON. It is asked for at
+             * power-on (wireless_detect), and a player who plugs it in later
+             * finds the cable's screen. So the cable's screen asks too —
+             * only when nobody is on the cable at all (link_peer): the
+             * login takes the port through general purpose, which a
+             * console of ours on the other end would hear as a flutter, and
+             * one in its BIOS is found by the probe. Every few seconds,
+             * while nobody comes; found, the screen is the WIRELESS one. */
+            /* (Not on a Game Boy Player, whose port the cable borrows.) */
+            if (!lobby.linked && !wireless_on() && !gbp_present() &&
+                link_peer() == LINK_PEER_NOBODY) {
+                if (++radio_wait >= RADIO_FIRST_TRY) {
+                    radio_wait = RADIO_FIRST_TRY - RADIO_RETRY;
+                    link_shutdown();
+                    wireless_detect();
+                    link_rest();
+                    link_init();     /* over the air, if it answered */
+                    tengen_lobby_forget(&lobby, link_is_master());
+                }
+            } else {
+                radio_wait = 0;
+            }
+            /* ...and the other way: one that stops answering before anybody
+             * was found over it (wireless.c gives up on it) hands the
+             * screen back to the cable. */
+            if (wireless_on() && !wireless_present() && !lobby.linked) {
+                link_shutdown();
+                link_rest();
+                link_init();
+                tengen_lobby_forget(&lobby, link_is_master());
+            }
+#endif
+
             /* SINGLE-PAK: SELECT, while nobody has answered, sends the game
              * to a console with no cartridge (link_multiboot_send) — from
              * the cartridge, the image it carries; from a console that got
@@ -781,6 +847,30 @@ int main(void) {
             }
             bool auto_send = auto_send_wait >= AUTO_SEND_FRAMES &&
                              !auto_send_refused;
+            /* ...AND OVER THE AIR: SELECT on the WIRELESS screen while
+             * nobody is found opens a room the adapter's loader on a GBA
+             * with no cartridge can pick (wireless_multiboot_send). Once
+             * the game is across, both look for each other as usual. */
+            if (!lobby.linked && wireless_on() && (pressed & TENGEN_BTN_SELECT)) {
+                screen_blip();
+                link_shutdown();
+                WlSendResult r = wireless_multiboot_send(single_pak_image(),
+                                                         single_pak_length(),
+                                                         air_send_frame);
+                if (r == WL_SEND_DONE)
+                    for (int wait = 0; wait < 60; wait++) {
+                        vsync();
+                        audio_frame();
+                    }
+                held_last = read_buttons();   /* B is not the lobby's */
+                link_init();
+                tengen_lobby_forget(&lobby, link_is_master());
+                screen_blip();
+                vsync();
+                audio_frame();
+                clear_screen();
+                continue;
+            }
             if (!lobby.linked && !wireless_on() &&
                 ((pressed & TENGEN_BTN_SELECT) || auto_send)) {
                 const uint8_t *img = single_pak_image();
