@@ -149,6 +149,12 @@ perder. El logo es de Nintendo y no va en el repo: se genera con
 pérdidas (240x160) de un juego que lo muestre; sin él no sale ni se busca el
 Player.
 
+**Borde para la tele**: `python3 tools/make_border.py titulo.png --preview
+vista.png` hace un marco 4:3 de 640x480 con los lingotes y las joyas de las
+columnas del título, y la ventana de 480x320 transparente en el centro, para
+la superposición o el bisel de un emulador. Sale del arte del cartucho, así
+que se genera y no se sube.
+
 **Al encender sale el logo de Tengen** sobre blanco, como en los juegos de
 GBA, y solo al encender (no tras el reinicio por botones ni en la copia
 Single-Pak). El logo no va en el repo: se genera una vez con
