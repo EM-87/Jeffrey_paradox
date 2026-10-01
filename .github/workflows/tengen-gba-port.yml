@@ -46,6 +46,15 @@ jobs:
           make clean
           make test CFLAGS="-std=c99 -Wall -Wextra -g -O1 -fsanitize=address,undefined -fno-sanitize-recover=all"
 
+      # The fuzzers: every mode played by random hands and the computer,
+      # and the lobby and names swap over a link that loses transfers, with
+      # the invariants checked as they go (sanitizers on). A short run here;
+      # `make fuzz FUZZ_GAMES=... FUZZ_RUNS=...` for a long one.
+      - name: make fuzz
+        run: |
+          make clean
+          make fuzz
+
       # The host half of `make trace` (the port against the cartridge, frame
       # by frame). The comparison needs a dump; building it does not.
       - name: trace harness builds
