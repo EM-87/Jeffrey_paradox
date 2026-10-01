@@ -68,8 +68,17 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      # With network timeouts and retries: a mirror that stopped answering
+      # held this step until the job's own limit, twice in one afternoon.
       - name: Install arm-none-eabi-gcc
-        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi
+        run: |
+          APT="-o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Acquire::Retries=3"
+          for try in 1 2 3; do
+            sudo timeout 180 apt-get $APT update &&
+            sudo timeout 240 apt-get $APT install -y gcc-arm-none-eabi && break
+            echo "apt failed (try $try), retrying"; sleep 10
+          done
+          command -v arm-none-eabi-gcc
       # The platform-independent core with the ROM's own flags (see ARMFLAGS
       # in the Makefile). The gba/ layer cannot be built here: it includes
       # the headers `make assets` generates from a dump.
