@@ -558,14 +558,26 @@ the emulator (`make rom-en`, `make script ISO=...`).
   ("I'm ready to go!" / "Before I go...", 16 and 14 bytes; "That's
   right!" / "That's wrong!"), drawn in the yellow balloon over the
   question (the full-width font makes the balloon wide: phase 5).
-- **Dates and times are still Japanese in shape.** The STR_YEAR..STR_SEC
-  substitutions (`mString_Load_YearStringFromRom`...) write the number
-  followed by a unit word from the string bank (年, 月, 日, 時, 分): with
-  the GameCube's words in those slots Rover's question reads
-  "p.m.OH:1Min on Satu 4Mon 14Da, 2001Ye?". The GameCube formats the date
-  in code (month name, day, year; 12-hour clock); the N64's functions
-  need the same treatment, and the string slots they read need English
-  of the right kind. Task for the rest of phase 4.
+- **Dates and times, the GameCube's way.** The cartridge's STR_YEAR..STR_SEC
+  write the number and a unit word from the string bank (年, 月, 日, 時, 分,
+  `mString_Load_*StringFromRom`); with the GameCube's words in those slots
+  Rover's question read "p.m.OH:1Min on Satu 4Mon 14Da, 2001Ye?". The
+  GameCube builds them in code (`m_string.c`: the year, the month's name
+  from string 0x66D on, the weekday from 9, the day's ordinal from 0x64E
+  on, the hour 1-12, the minute in two digits) and has a separate
+  STR_AMPM (code 0x76). The en build: the string bank runs to 0x679
+  entries so that it holds those names and ordinals (`af_text.py --count`;
+  the reader's cap follows), the message substitutions use new builders
+  in the GameCube's formats with 16-byte buffers (`mString_en_*`), and
+  STR_AMPM rides on code 71 (LUCK_6 on the cartridge, used by neither
+  bank: its handler copies "a.m."/"p.m." in the en build; the compiler
+  writes 71 where the bank text says `<STR_AMPM>`). The old builders keep
+  their byte limits, since overlays in asm call them with their own
+  buffers (`ovl__00815B70`, `6C97F0`, `func_8095BA60_jp`...), and produce
+  English inside them: "2001", "Apr" (the month name's first three
+  letters, its standard abbreviation for all twelve), "14th", "12p.m.".
+  Measured: Rover's question now reads "12:01 p.m. on Saturday, April
+  14th, 2001?" (the emulator's clock starts at noon on 14 April 2001).
 - **The animals' names** are 6 bytes on the N64 (`PLAYER_NAME_LEN`, used
   as `ANIMAL_NAME_LEN`), read from the file at vrom 0xE04000 at 8 + 6n
   (`mNpc_LoadNpcNameString`); the GameCube's `npc_name_str_table.bin` is
@@ -575,6 +587,25 @@ the emulator (`make rom-en`, `make script ISO=...`).
   segment's .bin: 232 names, 38 of them longer than 6 (Hornsby, Baabara,
   Cashmere...) and cut for now. Widening the field means the save data's
   layout: a decision for phase 5 or 6, noted here.
+- **The letters are half the GameCube's size, in the save data.** The
+  mail banks are read by `code/m_handbill.s` (asm): three tables of 0x220
+  (544) u32 ends — headers (`D_D12000`, text at `D_D11000`, entries under
+  14 bytes), footers (`D_D15000`/`D_D13000`, under 19) and bodies
+  (`D_D10000`/`D_D07000`, under 105) — plus `D_D1A000` (0xA970 bytes,
+  `func_80093F94_jp`), and `m_field_make.s` reads three small files at
+  `D_D58000`-`D_D5A000`. The letter itself is saved: `Mail_c`
+  (`include/m_mail.h`) holds a header of 10 bytes (16 minus the 6 of the
+  name), a body of 96 and a footer of 16, where the GameCube's holds 26,
+  192 and 32 (its banks: `mail_data` 1,500 entries, `maila/b/c_data`,
+  `ps_data`, `super_data`...). So the official English letters do not fit
+  the cartridge's letters: either the save layout grows (every `Mail_c`
+  in the houses' mailboxes, the pockets, the post office: the flash
+  save's size and every struct that holds one), or the letters are
+  rewritten to fit 96 bytes (about a thousand of them, our own text). A
+  decision, not a measurement: noted for the user. The asm readers can be
+  redirected without touching the asm: they use only %hi/%lo of the
+  `D_Dxxxxx` symbols, which the en build can define as new segments'
+  `_ROM_START` in its linker scripts.
 - **What the first English ROM shows** (screenshots in the scratchpad):
   K.K.'s intro and Rover's questions in English, typed in the Japanese
   font's full-width cells (16 px per character: the 0x7000-byte font at

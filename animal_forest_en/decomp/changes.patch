@@ -71,6 +71,28 @@ index d2906f3..b04be7b 100644
  
  MessageWindow* mMsg_Get_base_window_p(void);
  s32 func_8009D200_jp(MessageWindow* msg, s32 priority);
+diff --git a/include/m_string.h b/include/m_string.h
+index f336639..e9ea309 100644
+--- a/include/m_string.h
++++ b/include/m_string.h
+@@ -16,4 +16,17 @@ s32 mString_Load_MinStringFromRom(char* dst, lbRTC_min_t min);
+ s32 mString_Load_SecStringFromRom(char* dst, lbRTC_sec_t sec);
+ s32 mString_Load_NumberStringAddUnitFromRom(char* dst, u16 num, s32 idx);
+ 
++
++/* The translation's builders (src/code/m_string.c): the GameCube's formats. */
++#define mString_EN_LEN 16
++s32 mString_en_HourNumber(char* dst, lbRTC_hour_t hour);
++s32 mString_en_Year(char* dst, lbRTC_year_t year);
++s32 mString_en_Month(char* dst, lbRTC_month_t month);
++s32 mString_en_Week(char* dst, lbRTC_weekday_t weekday);
++s32 mString_en_Day(char* dst, lbRTC_day_t day);
++s32 mString_en_Hour(char* dst, lbRTC_hour_t hour);
++s32 mString_en_Min(char* dst, lbRTC_min_t min);
++s32 mString_en_Sec(char* dst, lbRTC_sec_t sec);
++s32 mString_en_AmPm(char* dst, lbRTC_hour_t hour);
++
+ #endif
 diff --git a/include/tables/dmatables/dmadata_table_jp.h b/include/tables/dmatables/dmadata_table_jp.h
 index b8df70f..a442ee2 100644
 --- a/include/tables/dmatables/dmadata_table_jp.h
@@ -254,7 +276,7 @@ index d4a7b38..07380bd 100644
  
          y += 16.0f;
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
-index 03981c7..20ad012 100644
+index 03981c7..da23ef7 100644
 --- a/src/code/m_msg_main.c
 +++ b/src/code/m_msg_main.c
 @@ -1,4 +1,5 @@
@@ -469,7 +491,98 @@ index 03981c7..20ad012 100644
  }
  
  size_t mMsg_Get_Length_String(char* str, s32 strLen) {
-@@ -1129,7 +1147,7 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
+@@ -1014,8 +1032,8 @@ s32 mMsg_CopyTail(struct Actor* actor, char* data, s32 startIdx, s32 len) {
+ s32 mMsg_CopyYear(char* data, s32 startIdx, s32 len) {
+     s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
+     u16 value = common_data.time.rtcTime.year;
+-    char str[6];
+-    s32 strLen = mString_Load_YearStringFromRom(str, value);
++    char str[mString_EN_LEN];
++    s32 strLen = mString_en_Year(str, value);
+     s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
+ 
+     func_8009EB44_jp(&data[startIdx], str, strLen);
+@@ -1025,8 +1043,8 @@ s32 mMsg_CopyYear(char* data, s32 startIdx, s32 len) {
+ s32 mMsg_CopyMonth(char* data, s32 startIdx, s32 len) {
+     s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
+     u8 value = common_data.time.rtcTime.month;
+-    char str[6];
+-    s32 strLen = mString_Load_MonthStringFromRom(str, value);
++    char str[mString_EN_LEN];
++    s32 strLen = mString_en_Month(str, value);
+     s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
+ 
+     func_8009EB44_jp(&data[startIdx], str, strLen);
+@@ -1036,8 +1054,8 @@ s32 mMsg_CopyMonth(char* data, s32 startIdx, s32 len) {
+ s32 mMsg_CopyWeek(char* data, s32 startIdx, s32 len) {
+     s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
+     u8 value = common_data.time.rtcTime.weekday;
+-    char str[6];
+-    s32 strLen = mString_Load_WeekStringFromRom(str, value);
++    char str[mString_EN_LEN];
++    s32 strLen = mString_en_Week(str, value);
+     s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
+ 
+     func_8009EB44_jp(&data[startIdx], str, strLen);
+@@ -1047,8 +1065,8 @@ s32 mMsg_CopyWeek(char* data, s32 startIdx, s32 len) {
+ s32 mMsg_CopyDay(char* data, s32 startIdx, s32 len) {
+     s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
+     u8 value = common_data.time.rtcTime.day;
+-    char str[4];
+-    s32 strLen = mString_Load_DayStringFromRom(str, value);
++    char str[mString_EN_LEN];
++    s32 strLen = mString_en_Day(str, value);
+     s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
+ 
+     func_8009EB44_jp(&data[startIdx], str, strLen);
+@@ -1058,8 +1076,8 @@ s32 mMsg_CopyDay(char* data, s32 startIdx, s32 len) {
+ s32 mMsg_CopyHour(char* data, s32 startIdx, s32 len) {
+     s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
+     u8 value = common_data.time.rtcTime.hour;
+-    char str[6];
+-    s32 strLen = mString_Load_HourStringFromRom(str, value);
++    char str[mString_EN_LEN];
++    s32 strLen = mString_en_Hour(str, value);
+     s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
+ 
+     func_8009EB44_jp(&data[startIdx], str, strLen);
+@@ -1069,8 +1087,8 @@ s32 mMsg_CopyHour(char* data, s32 startIdx, s32 len) {
+ s32 mMsg_CopyMin(char* data, s32 startIdx, s32 len) {
+     s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
+     u8 value = common_data.time.rtcTime.min;
+-    char str[6];
+-    s32 strLen = mString_Load_MinStringFromRom(str, value);
++    char str[mString_EN_LEN];
++    s32 strLen = mString_en_Min(str, value);
+     s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
+ 
+     func_8009EB44_jp(&data[startIdx], str, strLen);
+@@ -1080,8 +1098,22 @@ s32 mMsg_CopyMin(char* data, s32 startIdx, s32 len) {
+ s32 mMsg_CopySec(char* data, s32 startIdx, s32 len) {
+     s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
+     u8 value = common_data.time.rtcTime.sec;
+-    char str[6];
+-    s32 strLen = mString_Load_SecStringFromRom(str, value);
++    char str[mString_EN_LEN];
++    s32 strLen = mString_en_Sec(str, value);
++    s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
++
++    func_8009EB44_jp(&data[startIdx], str, strLen);
++    return newLen;
++}
++
++/* STR_AMPM, the GameCube's code 0x76: the translation's bank carries it as
++ * code 71 (LUCK_6 on the cartridge, used by neither game's bank; its handler
++ * below). "a.m." or "p.m." for the hour now. */
++s32 mMsg_CopyAmPm(char* data, s32 startIdx, s32 len) {
++    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
++    u8 value = common_data.time.rtcTime.hour;
++    char str[mString_EN_LEN];
++    s32 strLen = mString_en_AmPm(str, value);
+     s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
+ 
+     func_8009EB44_jp(&data[startIdx], str, strLen);
+@@ -1129,7 +1161,7 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
  
  s32 mMsg_CopyDetermination(MessageWindow* msg, char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
@@ -478,7 +591,7 @@ index 03981c7..20ad012 100644
      s32 strLen = msg->choiceWindow.data.determinationLenght;
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
-@@ -1914,25 +1932,24 @@ s32 func_800A0DF4_jp(MessageWindow* msg, s32* idxP, s32 selectCount) {
+@@ -1914,25 +1946,24 @@ s32 func_800A0DF4_jp(MessageWindow* msg, s32* idxP, s32 selectCount) {
      }
  
      if (selectCount >= 2 && selectCount <= mChoice_CHOICE_NUM) {
@@ -515,7 +628,21 @@ index 03981c7..20ad012 100644
          }
      }
  
-@@ -2952,26 +2969,26 @@ void func_800A3220_jp(MessageWindow* msg, struct Game* game) {
+@@ -2237,7 +2268,12 @@ s32 func_800A1A64_jp(MessageWindow* msg, s32* idxP) {
+ }
+ 
+ s32 func_800A1A84_jp(MessageWindow* msg, s32* idxP) {
+-    return func_800A197C_jp(msg, idxP, 6);
++    /* The cartridge: LUCK_6, func_800A197C_jp(msg, idxP, 6). The translation: STR_AMPM. */
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
++
++    msg->msgData->msgLen = mMsg_CopyAmPm(data, *idxP, len);
++    return mMsg_RESULT_VOID;
+ }
+ 
+ s32 func_800A1AA4_jp(MessageWindow* msg, s32* idxP) {
+@@ -2952,26 +2988,26 @@ void func_800A3220_jp(MessageWindow* msg, struct Game* game) {
  
  void mMsg_ct(struct Game_Play* game_play) {
      func_8009E6F8_jp((struct Game*)game_play);
@@ -550,23 +677,33 @@ index 03981c7..20ad012 100644
 +    func_800A3220_jp(&mMsg_window, (struct Game*)game_play);
  }
 diff --git a/src/code/m_string.c b/src/code/m_string.c
-index 7b8e5b5..9ea9b22 100644
+index 7b8e5b5..dcfdd10 100644
 --- a/src/code/m_string.c
 +++ b/src/code/m_string.c
-@@ -5,8 +5,9 @@
+@@ -5,29 +5,39 @@
  #include "m_msg_main.h"
  #include "6B3DC0.h"
  
 -extern u32 D_D18000[];
 -extern u32 D_D16000;
++/* The translation's string bank goes on past the cartridge's 0x61A entries to
++ * the GameCube's month names and day ordinals (its numbering: tools/af_text.py
++ * --bank string --count). */
++#define mString_EN_STRING_NUM 0x679
++#define mString_EN_DAY_START 0x64E   /* "1st".."31st" */
++#define mString_EN_MONTH_START 0x66D /* "January".."December" */
++#define mString_AM 1
++#define mString_PM 2
++
 +#include "segment_symbols.h"
 +DECLARE_ROM_SEGMENT(msg_en_string_index); /* the translation's string bank (tools/af_text.py --bank string) */
 +DECLARE_ROM_SEGMENT(msg_en_string_text);
  void mString_Get_StringDataAddressAndSize(s32 idx, uintptr_t* vramp, size_t* size) {
      s32 sized;
      uintptr_t offsetPtrs[5];
-@@ -14,20 +15,20 @@ void mString_Get_StringDataAddressAndSize(s32 idx, uintptr_t* vramp, size_t* siz
-     if (idx >= 0 && idx < 0x61A) {
+ 
+-    if (idx >= 0 && idx < 0x61A) {
++    if (idx >= 0 && idx < mString_EN_STRING_NUM) {
          uintptr_t vrom;
          if (idx & 1) {
 -            DmaMgr_RequestSyncDebug(offsetPtrs, (u32)&D_D18000[idx - 1], 8, "../m_string.c", 62);
@@ -590,6 +727,180 @@ index 7b8e5b5..9ea9b22 100644
              *size = sized;
          } else {
              *vramp = NULL;
+@@ -43,7 +53,7 @@ void mString_Load_StringFromRom(char* dst, s32 dstLen, s32 strIdx) {
+     uintptr_t stringAddr;
+     size_t stringSize;
+ 
+-    if (strIdx >= 0 && strIdx < 0x61A) {
++    if (strIdx >= 0 && strIdx < mString_EN_STRING_NUM) {
+         mString_Get_StringDataAddressAndSize(strIdx, &stringAddr, &stringSize);
+ 
+         if (stringSize == 0) {
+@@ -78,26 +88,20 @@ void mString_Load_StringFromRom(char* dst, s32 dstLen, s32 strIdx) {
+ }
+ 
+ s32 mString_Load_YearStringFromRom(char* dst, lbRTC_year_t year) {
+-    s32 idx;
+-
+-    if (year < lbRTC_YEAR_MIN || year > lbRTC_YEAR_MAX) {
+-        year = GAME_YEAR_MIN;
+-    }
+-
+-    idx = mFont_UnintToString(dst, year, 6, TRUE, FALSE);
+-    mString_Load_StringFromRom(&dst[idx], 6 - idx, 3);
++    /* The cartridge: the number and ねん in 6 bytes; English: the number. */
++    mem_clear((u8*)dst, 6, ' ');
++    mFont_UnintToString(dst, year, 6, TRUE, FALSE);
+     return mMsg_Get_Length_String(dst, 6);
+ }
+ 
+ s32 mString_Load_MonthStringFromRom(char* dst, lbRTC_month_t month) {
+-    s32 idx;
+-
+-    if (month < lbRTC_JANUARY || month > lbRTC_DECEMBER) {
+-        month = lbRTC_JANUARY;
++    /* The cartridge: the number and がつ in 4 bytes; English: the month's first
++     * three letters ("Apr"), which is its standard abbreviation for all twelve. */
++    if (month < 1 || month > 12) {
++        month = 1;
+     }
+-
+-    idx = mFont_UnintToString(dst, month, 4, TRUE, FALSE);
+-    mString_Load_StringFromRom(&dst[idx], 4 - idx, 4);
++    mString_Load_StringFromRom(dst, 3, mString_EN_MONTH_START + month - 1);
++    dst[3] = ' ';
+     return mMsg_Get_Length_String(dst, 4);
+ }
+ 
+@@ -111,33 +115,25 @@ s32 mString_Load_WeekStringFromRom(char* dst, lbRTC_weekday_t weekday) {
+ }
+ 
+ s32 mString_Load_DayStringFromRom(char* dst, lbRTC_day_t day) {
+-    s32 idx;
+-
++    /* The cartridge: the number and にち in 4 bytes; English: the ordinal ("14th"). */
+     if (day < 1 || day > 31) {
+         day = 1;
+     }
+-
+-    idx = mFont_UnintToString(dst, day, 4, TRUE, FALSE);
+-    mString_Load_StringFromRom(&dst[idx], 4 - idx, 5);
++    mString_Load_StringFromRom(dst, 4, mString_EN_DAY_START + day - 1);
+     return mMsg_Get_Length_String(dst, 4);
+ }
+ 
+ s32 mString_Load_HourStringFromRom(char* dst, lbRTC_hour_t hour) {
+-    UNUSED s32 pad;
+-    s32 specifier;
++    /* The cartridge: ごぜん/ごご, the number and じ in 6 bytes; English: "5p.m.",
++     * at most "12a.m.", 6 bytes. */
+     s32 len;
+ 
+     if (hour >= lbRTC_HOURS_PER_DAY) {
+         hour = 0;
+     }
+-
+-    specifier = hour < 12 ? 1 : 2;
+-
+-    mString_Load_StringFromRom(dst, 6, specifier);
+-    len = mMsg_Get_Length_String(dst, 6);
+-    len += mFont_UnintToString(dst + len, hour % 12, 6 - len, TRUE, FALSE);
+-
+-    mString_Load_StringFromRom(dst + len, 6 - len, 6);
++    mem_clear((u8*)dst, 6, ' ');
++    len = mString_en_HourNumber(dst, hour);
++    mString_Load_StringFromRom(dst + len, 6 - len, hour < 12 ? mString_AM : mString_PM);
+     return mMsg_Get_Length_String(dst, 6);
+ }
+ 
+@@ -171,3 +167,87 @@ s32 mString_Load_NumberStringAddUnitFromRom(char* dst, u16 num, s32 idx) {
+     mString_Load_StringFromRom(&dst[len], 10 - len, idx);
+     return mMsg_Get_Length_String(dst, 10);
+ }
++
++/* The translation's builders for the message substitutions (STR_YEAR..STR_SEC,
++ * STR_AMPM), in the GameCube's formats: "2001", "April", "Saturday", "14th",
++ * "5", "07", "09", "p.m.". dst holds at least mString_EN_LEN bytes. */
++s32 mString_en_HourNumber(char* dst, lbRTC_hour_t hour) {
++    s32 h = hour % 12;
++
++    if (h == 0) {
++        h = 12;
++    }
++    if (h >= 10) {
++        dst[0] = '1';
++        dst[1] = '0' + h - 10;
++        return 2;
++    }
++    dst[0] = '0' + h;
++    return 1;
++}
++
++static s32 mString_en_TwoDigits(char* dst, s32 value) {
++    dst[0] = '0' + (value / 10) % 10;
++    dst[1] = '0' + value % 10;
++    return 2;
++}
++
++s32 mString_en_Year(char* dst, lbRTC_year_t year) {
++    mem_clear((u8*)dst, mString_EN_LEN, ' ');
++    mFont_UnintToString(dst, year, 6, TRUE, FALSE);
++    return mMsg_Get_Length_String(dst, mString_EN_LEN);
++}
++
++s32 mString_en_Month(char* dst, lbRTC_month_t month) {
++    if (month < 1 || month > 12) {
++        month = 1;
++    }
++    mString_Load_StringFromRom(dst, mString_EN_LEN, mString_EN_MONTH_START + month - 1);
++    return mMsg_Get_Length_String(dst, mString_EN_LEN);
++}
++
++s32 mString_en_Week(char* dst, lbRTC_weekday_t weekday) {
++    if (weekday > 6) {
++        weekday = 0;
++    }
++    mString_Load_StringFromRom(dst, mString_EN_LEN, weekday + 9);
++    return mMsg_Get_Length_String(dst, mString_EN_LEN);
++}
++
++s32 mString_en_Day(char* dst, lbRTC_day_t day) {
++    if (day < 1 || day > 31) {
++        day = 1;
++    }
++    mString_Load_StringFromRom(dst, mString_EN_LEN, mString_EN_DAY_START + day - 1);
++    return mMsg_Get_Length_String(dst, mString_EN_LEN);
++}
++
++s32 mString_en_Hour(char* dst, lbRTC_hour_t hour) {
++    if (hour >= lbRTC_HOURS_PER_DAY) {
++        hour = 0;
++    }
++    mem_clear((u8*)dst, mString_EN_LEN, ' ');
++    return mString_en_HourNumber(dst, hour);
++}
++
++s32 mString_en_Min(char* dst, lbRTC_min_t min) {
++    if (min >= lbRTC_MINUTES_PER_HOUR) {
++        min = 0;
++    }
++    mem_clear((u8*)dst, mString_EN_LEN, ' ');
++    return mString_en_TwoDigits(dst, min);
++}
++
++s32 mString_en_Sec(char* dst, lbRTC_sec_t sec) {
++    if (sec >= 60) {
++        sec = 0;
++    }
++    mem_clear((u8*)dst, mString_EN_LEN, ' ');
++    return mString_en_TwoDigits(dst, sec);
++}
++
++s32 mString_en_AmPm(char* dst, lbRTC_hour_t hour) {
++    mString_Load_StringFromRom(dst, mString_EN_LEN, hour < 12 ? mString_AM : mString_PM);
++    return mMsg_Get_Length_String(dst, mString_EN_LEN);
++}
++
 diff --git a/src/dmadata/dmadata.c b/src/dmadata/dmadata.c
 index 3ba98f9..49b1f45 100644
 --- a/src/dmadata/dmadata.c

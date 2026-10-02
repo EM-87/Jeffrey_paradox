@@ -13,8 +13,9 @@
   (named in the dmadata table, whose padding shrinks by their entries);
   the message cap is 0x600 with a buffer of its own, choice strings are
   24 bytes, the window's free and item strings 32, the window and the
-  choice strings are C globals, and the four NON_MATCHING functions of
-  `m_msg_main.c` are built from their C.
+  choice strings are C globals, the four NON_MATCHING functions of
+  `m_msg_main.c` are built from their C, and dates and times are built in
+  the GameCube's formats (`m_string.c`, STR_AMPM on code 71).
   Its ROM is never compared with the cartridge: `make rom-en` builds it
   with `code` moved to the end of the ROM so that it can grow, its data
   block kept at its address modulo 0x10000 (an object whose data changes

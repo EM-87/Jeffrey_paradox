@@ -574,6 +574,23 @@ class Script(unittest.TestCase):
         self.assertEqual(out[14:20], b"Cashme")
         self.assertEqual(cut, [(1, "Cashmere")])
 
+    def test_carried_codes_and_counts(self):
+        toks = msgbank.parse("It's <STR_HOUR> <STR_AMPM>.<MSGEND>")
+        self.assertEqual(af_text.check_message(0, toks, 32, 4, 0x400), [])        # carried: not an error
+        self.assertIn(bytes([0x7F, msgbank.NAMES["LUCK_6"]]), msgbank.encode(af_text.carried(toks)))
+        with tempfile.TemporaryDirectory() as d:
+            paths = {k: os.path.join(d, k + ".txt") for k in ("n64", "gc", "out")}
+            open(paths["n64"], "w").write("## 0\nあ\n\n## 1\nい\n\n")
+            open(paths["gc"], "w").write("## 0\nRed\n\n## 1\nBlue\n\n## 2\n\n\n## 3\nJanuary\n\n")
+            old = af_text.N64_COUNT
+            try:
+                af_text.N64_COUNT = 4
+                af_text.draft(paths["n64"], paths["gc"], "-", paths["out"], [])
+            finally:
+                af_text.N64_COUNT = old
+            back = msgbank.Bank.parse_dump(open(paths["out"], encoding="utf-8").read())
+            self.assertEqual([msgbank.render(back[n]) for n in range(4)], ["Red", "Blue", "", "January"])
+
 
 if __name__ == "__main__":
     unittest.main()

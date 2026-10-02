@@ -14,7 +14,10 @@ window offers, single lines) or string (1,562: catchphrases, names of
 animals, fish, insects..., single lines). The count and the default
 --max-bytes come from it; the choice and string banks keep the same
 numbering on the GameCube, so their draft is simply the GameCube's entry
-by number where it is not empty (no alignment file: pass `-`).
+by number where it is not empty (no alignment file: pass `-`). --count
+overrides the count: the en string bank goes on to 0x679 entries, through
+the GameCube's day ordinals (0x64E) and month names (0x66D), which the en
+build's date builders read.
 
 A bank text is tools/msgbank.py's dump form: `## number`, the message with
 its codes as `<NAME hex>`, `#:` notes. compile needs every number 0..11751
@@ -41,11 +44,13 @@ system", "The GameCube script"):
 draft takes, for each N64 number, the GameCube text when af_align says it
 is the same message (same, plain, edited: edited ones get a note), else
 the Japanese with a note; the GameCube-only codes become what the N64 can
-do: CUTARTICLE, CAPITALIZE, SETCURSORJUST, CLRCUSRORJUST, STR_AMPM and
-SPACE are dropped (counted), MALEFEMALECHK keeps its first alternative,
-anything else is kept and reported for the check to refuse. Characters
-the N64 charset lacks are given their plain ASCII (é -> e, the GameCube's
-marks their nearest). --overrides files (our own translations, in the
+do: CUTARTICLE, CAPITALIZE, SETCURSORJUST, CLRCUSRORJUST and SPACE are
+dropped (counted), STR_AMPM is kept (compiled as code 71, which the en
+build reads as it), MALEFEMALECHK keeps its first alternative,
+SELNOBCLOSE becomes the N64's SELNOB, anything else is kept and reported
+for the check to refuse. Characters the N64 charset lacks are given
+their plain ASCII (é -> e, the GameCube's marks their nearest; each
+replacement is counted). --overrides files (our own translations, in the
 repository) replace messages by number.
 """
 
@@ -62,7 +67,16 @@ N64_COUNT = 0x2DE8                       # the message bank; main() sets it from
 N64_CODE_MAX = 0x60
 TERMINATORS = {NAMES["MSGEND"], NAMES["MSGCONTINUE"], NAMES["MSGTIMEEND"]}
 PAGE_BREAKS = {NAMES["BTN"], NAMES["MSGCLEAR"]}
-DROP = {NAMES[n] for n in ("CUTARTICLE", "CAPTIALIZE", "SETCURSORJUST", "CLRCUSRORJUST", "STR_AMPM", "SPACE")}
+DROP = {NAMES[n] for n in ("CUTARTICLE", "CAPTIALIZE", "SETCURSORJUST", "CLRCUSRORJUST", "SPACE")}
+# GameCube codes the translation's N64 code carries under another number: the
+# bank text keeps the GameCube's name, compile writes the N64's (changes.patch,
+# src/code/m_msg_main.c: code 71, LUCK_6 on the cartridge and in neither bank,
+# is STR_AMPM in the en build).
+N64_CARRIED = {NAMES["STR_AMPM"]: NAMES["LUCK_6"]}
+
+
+def carried(tokens):
+    return [("c", N64_CARRIED[t[1]], t[2]) if t[0] == "c" and t[1] in N64_CARRIED else t for t in tokens]
 FALLBACK = {"…": "...", "“": '"', "”": '"', "‘": "'", "’": "'", "–": "-", "—": "-",
             "ー": "-", "¡": "!", "¿": "?", "ß": "ss", "Æ": "AE", "æ": "ae", "Ø": "O", "ø": "o", "Ð": "D", "ð": "d",
             "Þ": "Th", "þ": "th", "·": ".", "•": "*", "×": "x", "°": "o"}
@@ -130,6 +144,7 @@ def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0, singl
     """[(level, text)] for one message; allowed_lines: what its original showed;
     single: a choice or free string (no codes, no terminator, one line)."""
     problems = []
+    tokens = carried(tokens)
     try:
         raw = encode(tokens)
     except ValueError as e:
@@ -201,7 +216,7 @@ def run_checks(messages, cols, lines, max_bytes, reference=None, single=False):
 def compile_bank(messages, text_path, index_path):
     text, ends = bytearray(), []
     for n in range(N64_COUNT):
-        text += encode(messages[n])
+        text += encode(carried(messages[n]))
         ends.append(len(text))
     text += bytes(-len(text) % 16)
     open(text_path, "wb").write(text)
@@ -229,6 +244,9 @@ def draft(n64_path, gc_path, align_path, out_path, overrides):
         if n in ours:
             tokens = ours[n]
             counts["ours"] += 1
+        elif n not in n64:                   # past the cartridge's count (--count): the GameCube's, or nothing
+            tokens = adapt(gc[n], counts) if gc.get(n) else []
+            counts["beyond the cartridge"] += 1
         elif cls in ("same", "plain", "edited") and n in gc:
             tokens = adapt(gc[n], counts)
             counts["official " + cls] += 1
@@ -248,13 +266,16 @@ def draft(n64_path, gc_path, align_path, out_path, overrides):
 def main(argv):
     global N64_COUNT
     opts = {"--cols": 32, "--lines": 4, "--max-bytes": None}
-    args, overrides, reference, bank, i = [], [], None, "message", 0
+    args, overrides, reference, bank, count, i = [], [], None, "message", None, 0
     while i < len(argv):
         if argv[i] in opts:
             opts[argv[i]] = int(argv[i + 1], 0)
             i += 2
         elif argv[i] == "--bank":
             bank = argv[i + 1]
+            i += 2
+        elif argv[i] == "--count":
+            count = int(argv[i + 1], 0)
             i += 2
         elif argv[i] == "--reference":
             reference = load_bank(argv[i + 1])
@@ -265,7 +286,7 @@ def main(argv):
         else:
             args.append(argv[i])
             i += 1
-    N64_COUNT = N64_BANKS[bank][2]
+    N64_COUNT = count if count is not None else N64_BANKS[bank][2]
     if opts["--max-bytes"] is None:
         opts["--max-bytes"] = N64_BANKS[bank][3]
     cmd = args[0]

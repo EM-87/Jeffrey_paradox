@@ -185,7 +185,7 @@ $(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(EN_CHOICE) $(EN_STRING) $(GC_DIR)/n64_jp
 	mkdir -p $(EN_ASSETS)
 	$(PYTHON) tools/af_text.py compile $(EN_BANK) $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/msg_index.bin --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600
 	$(PYTHON) tools/af_text.py compile $(EN_CHOICE) $(EN_ASSETS)/choice_text.bin $(EN_ASSETS)/choice_index.bin --bank choice --max-bytes 24
-	$(PYTHON) tools/af_text.py compile $(EN_STRING) $(EN_ASSETS)/string_text.bin $(EN_ASSETS)/string_index.bin --bank string --max-bytes 64
+	$(PYTHON) tools/af_text.py compile $(EN_STRING) $(EN_ASSETS)/string_text.bin $(EN_ASSETS)/string_index.bin --bank string --max-bytes 64 --count 0x679
 
 $(EN_NAMES): $(BASEROM) tools/af_names.py $(wildcard $(GC_DIR)/npc_name_str_table.bin)
 	@if [ -s $(GC_DIR)/npc_name_str_table.bin ]; then $(PYTHON) tools/af_names.py $(BASEROM) $(GC_DIR)/npc_name_str_table.bin $@ | tail -1; \
@@ -236,10 +236,10 @@ script: $(BASEROM) $(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n6
 	$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/string_data.bin $(GC_DIR)/string_data_table.bin $(GC_DIR)/gc_string_en.txt
 	$(PYTHON) tools/af_text.py draft $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/gc_choice_en.txt - $(GC_DIR)/en_choice.txt --bank choice \
 		$(foreach f,$(wildcard script/choice/*.txt),--overrides $(f)) | tail -1
-	$(PYTHON) tools/af_text.py draft $(GC_DIR)/n64_string_jp.txt $(GC_DIR)/gc_string_en.txt - $(GC_DIR)/en_string.txt --bank string \
+	$(PYTHON) tools/af_text.py draft $(GC_DIR)/n64_string_jp.txt $(GC_DIR)/gc_string_en.txt - $(GC_DIR)/en_string.txt --bank string --count 0x679 \
 		$(foreach f,$(wildcard script/string/*.txt),--overrides $(f)) | tail -1
 	$(PYTHON) tools/af_text.py check $(GC_DIR)/en_choice.txt --bank choice --max-bytes 24 | tail -1
-	$(PYTHON) tools/af_text.py check $(GC_DIR)/en_string.txt --bank string --max-bytes 64 | tail -1
+	$(PYTHON) tools/af_text.py check $(GC_DIR)/en_string.txt --bank string --max-bytes 64 --count 0x679 | tail -1
 
 # Edit build/af_en directly, then keep the work in decomp/changes.patch
 # (the diff against the committed matching baseline).
