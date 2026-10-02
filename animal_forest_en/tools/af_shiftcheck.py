@@ -15,7 +15,10 @@ checks exactly that against the reference (matching) build's map:
     and buffers) has the same size and sits at its old address + D;
   * every symbol of the block is at its old address + D;
   * D is a multiple of 0x10000 (D = 0 when the text did not grow);
-  * what is not in the block (boot, dmadata, the overlays) did not move.
+  * what is not in the block (boot, dmadata, the overlays) did not move:
+    every symbol, and every section mark of boot and dmadata; inside
+    dmadata only the marks and the table's start are held, since the
+    table grows into its own padding when the translation adds files.
 
 An object named with --moved is exempt, as is each `object section` line
 of --moved-list (what tools/af_relink.py writes: only the sections whose
@@ -114,9 +117,17 @@ def check(ref, new, moved=()):
     def in_moved(addr):
         return any(lo <= addr < hi for lo, hi in moved_ranges)
 
+    for name, addr in ref.marks.items():
+        if name.startswith(("boot_", "dmadata_", "makerom_")):
+            got = new.marks.get(name)
+            if got != addr:
+                errors.append("mark %s: %#x -> %s, expected %#x" % (name, addr, "gone" if got is None else "%#x" % got, addr))
+    dmadata_first = min((addr for addr, out in ref.symbols.values() if out == ".dmadata"), default=None)
     for name, (addr, out) in ref.symbols.items():
         if out is not None and out.startswith(".segment_"):
             continue                        # assets: nominal addresses
+        if out == ".dmadata" and addr != dmadata_first:
+            continue                        # the table may grow into its padding
         got = new.symbols.get(name)
         if in_block(out, addr):
             if in_moved(addr):

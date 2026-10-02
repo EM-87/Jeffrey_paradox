@@ -6,9 +6,12 @@
   `make verify` builds the ROM with it and compares with the dump. It is
   code we wrote; no data from the ROM goes in it.
 
-- `changes.patch` — what the translation changes on purpose (buffers, the
-  text system, the script), applied on top of `matching.patch` in a second
-  checkout, `build/af_en`, where that patch is committed as the baseline.
+- `changes.patch` — what the translation changes on purpose, applied on
+  top of `matching.patch` in a second checkout, `build/af_en`, where that
+  patch is committed as the baseline. Today: the message loader reads the
+  bank from two segments of its own (`msg_en_text`, `msg_en_index`,
+  named in the dmadata table, whose padding shrinks by their two
+  entries), with a 0x600-byte cap and its own buffer.
   Its ROM is never compared with the cartridge: `make rom-en` builds it
   with `code` moved to the end of the ROM so that it can grow, its data
   block kept at its address modulo 0x10000 (an object whose data changes

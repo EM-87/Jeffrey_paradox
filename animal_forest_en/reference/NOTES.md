@@ -458,3 +458,70 @@ cartridge's bank, with `make script ISO=...` (`tools/gciso.py`,
   look like the N64 shifted by 8: 385 of 552 exact structural twins at
   +8. The terminator count settled it; the lesson is the usual one: a
   header is a measurement, not an assumption.
+
+## The English bank in the ROM (phase 4, task 11)
+
+How the translation's text gets into the game, measured on the build and
+the emulator (`make rom-en`, `make script ISO=...`).
+
+- **Two plain segments at the end of the ROM.** `tools/af_text.py compile`
+  writes `msg_text.bin` and `msg_index.bin` (the cartridge's format: text,
+  then u32 ends, 16-byte padded) into `build/af_en/assets/jp/en/`; the
+  decomp's Makefile turns any `assets/jp/**/*.bin` into an object;
+  `tools/af_relink.py --segment` places each as its own ROM segment after
+  `code` (4 KB aligned, vrom 0x19DE000 and 0x1B03000 in the first build);
+  two `DEFINE_DMA_ENTRY` lines (changes.patch,
+  `include/tables/dmatables/dmadata_table_jp.h`) give them dmadata
+  entries, and `sDmaDataPadding` in `src/dmadata/dmadata.c` shrinks by
+  their 32 bytes so dmadata keeps its size (0xD3F0: 3,375 entries, the
+  terminator and 0xF0 of padding), hence its ROM and RAM neighbours keep
+  their addresses (dmadata_VRAM_END = code_VRAM = 0x80051A80, checked).
+  They are plain, not compressed, because the loader reads messages in
+  pieces straight from the ROM (`DmaMgr_RequestSyncDebug` of a few bytes
+  of index, then of the message), which only a plain file allows.
+  `func_8009E388_jp` reads `SEGMENT_ROM_START(msg_en_index)` and
+  `SEGMENT_ROM_START(msg_en_text)` instead of 0xCF9000/0xBD4000
+  (changes.patch, `src/code/m_msg_main.c`). Proof: with the cartridge's
+  own bank compiled into the segments (byte-identical, checked in the
+  uncompressed ROM) the game reaches the name dial at frame 2414 as the
+  cartridge does.
+- **The buffer.** The cartridge's message buffer `B_80141FF0_jp` is 0x420
+  bytes in an asm bss file (0x10 of header, 0x410 of text) and the loader
+  refuses messages over 0x400 (`mMsg_MSG_SIZE_MAX`). Ten of the official
+  English messages are 1,031-1,224 bytes (the GameCube's buffer is 1,536,
+  1,600 allocated), so the en build sets the cap to 0x600 and gives the
+  window its own buffer, a C global of 0x620 in `m_msg_main.c` (the
+  cartridge's is only ever reached through `msgData`, set at init):
+  new bss, which the layout rule carries to `code_en` (0x800FF370, the
+  block then at +0x10000; af_shiftcheck 0 violations).
+- **The draft** (`tools/af_text.py draft`, from `build/gc/align.tsv`):
+  7,239 same + 1,413 plain + 2,131 edited messages take the GameCube's
+  text, 709 removed + 260 different keep the Japanese with a `TODO`
+  note (the 6% to translate; `script/*.txt` is where ours go). Of the
+  GameCube-only codes inside: CUTARTICLE dropped 970 times, CAPITALIZE 92,
+  SETCURSORJUST/CLRCURSORJUST 56/46, STR_AMPM 43, SPACE 3, SELNOBCLOSE
+  mapped to the N64's SELNOB 10 (the closet prompt); characters outside
+  the N64 charset: ç->c 13, ÷->? 13, ú/ü->u, a few GameCube marks (□ ☃ ⚷)
+  to `?` (phase 5 gives them glyphs or words). `af_text.py check` with
+  the cap at 0x600: 0 errors, 84 warnings (70 lines over 32 characters,
+  the five-line pages). Of the 11,752 messages, 94% keep their longest
+  line within 32 characters.
+- **Lines per page.** The cartridge's own bank has 14 messages whose
+  page runs to 5 or 6 lines after a BTN without MSGCLEAR, the English
+  draft 12; the checker only warns. TODO(verify): what the window does
+  with the fifth line (scroll, or draw below the balloon).
+- **What the first English ROM shows** (screenshots in the scratchpad):
+  K.K.'s intro and Rover's questions in English, typed in the Japanese
+  font's full-width cells (16 px per character: the 0x7000-byte font at
+  ROM 0xBCD000 is 256 glyphs of 16x14 at 4 bpp), so an English line is
+  cut at about 20 characters; the NPC name tag is still Japanese (the
+  names are another bank). The game's flow is intact: pressing A every
+  25 frames, the name dial opens after 113 presses (frame 3289) against
+  the cartridge's 78 (frame 2414), the difference being English pages
+  that take two presses (one ends the typing, one turns the page). The
+  "edited" messages of the train intro (1124, 10950, 1127, 10953) differ
+  from the N64's only in pauses, the date's field order and an
+  expression code, so taking the GameCube's codes there was safe. That is phase 5's work: a proportional Latin font
+  in `m_font` (`code/6B3DC0`, asm; the GameCube's `m_font_offset` is the
+  map for widths), the name and item banks (`D_D16000/D_D18000`,
+  `D_D05000/D_D06000`, the NPC names).

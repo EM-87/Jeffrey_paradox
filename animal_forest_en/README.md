@@ -116,12 +116,18 @@ la numeración de mensajes de Doubutsu no Mori, y de los 11.752 mensajes del
 N64, el 73,6 % tiene su texto oficial en inglés tal cual (mismos códigos de
 control), el 18,1 % lo tiene con retoques, el 6 % no lo tiene (mensajes de
 depuración y líneas que GameCube quitó) y el 2,2 % cambió de sentido
-(`reference/NOTES.md`, "The GameCube script"). Falta el compilador del banco
-N64 con su comprobador de tamaño, y traducir del japonés lo que no tiene
-texto oficial.
+(`reference/NOTES.md`, "The GameCube script"). `tools/af_text.py` compila el
+banco inglés (el oficial donde lo hay, el japonés con una nota `TODO`
+donde no) a los dos archivos que lee el juego, comprobando antes lo que el
+sistema de mensajes del N64 admite (caracteres, códigos, tamaño, líneas), y
+`make rom-en` los enlaza como dos segmentos al final del ROM con sus
+entradas de dmadata (`decomp/changes.patch`). El primer ROM en inglés ya
+habla: K.K. en inglés en la intro, con la fuente japonesa (de ancho fijo,
+16 px por letra: la fuente es la fase 5). Nuestras traducciones de lo que
+GameCube no tiene van en `script/`.
 
-Lo que viene: ese compilador, y la fuente y los gráficos occidentales de
-GameCube.
+Lo que viene: la fuente proporcional y los gráficos occidentales de
+GameCube, los bancos de nombres y objetos, y traducir ese 6 %.
 
 ## Dónde está cada cosa
 
@@ -140,9 +146,11 @@ GameCube.
   `af_match.py`/`af_try.py`/`af_wrap.py`/`af_bench.py` (igualar funciones),
   `af_relink.py`/`af_relsyms.py`/`af_ranges.py`/`af_dmaorder.py` (la
   disposición del ROM traducido), `af_shiftcheck.py`/`af_anchors.py`/
-  `af_luicheck.py` (sus pruebas), y `gciso.py`/`msgbank.py`/`af_align.py`
+  `af_luicheck.py` (sus pruebas), `gciso.py`/`msgbank.py`/`af_align.py`
   (el disco de GameCube, los bancos de texto de ambos juegos y su
-  correspondencia).
+  correspondencia) y `af_text.py` (el banco inglés: borrador, comprobador y
+  compilador).
+- `script/` — nuestro texto: lo que no tiene versión oficial.
 - `tests/` — `test_tools.py` (`make test`) y `emu_check.py`
   (`make emu-check`).
 - `reference/NOTES.md` — lo verificado, con su fuente.

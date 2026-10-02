@@ -4,10 +4,12 @@ the cartridge's code assumes is in place.
 
     tools/af_relink.py linker_scripts/jp/animalforest.ld --ref REF_MAP
                        [--map PASS1_MAP] [--moved-out FILE] [--next-rom 0x73F4D0]
+                       [--segment NAME=build/assets/jp/en/file.o ...] [--pristine FILE]
 
 Run in a decomp checkout after `make extract`, on the linker script splat
-generated; a pristine copy is kept beside it (`.splat`) and every run
-starts from that copy, so the result never depends on the previous run.
+generated; a pristine copy is kept under build/ (`--pristine` names
+another place) and every run starts from that copy, so the result never
+depends on the previous run.
 Three things are done (reference/NOTES.md, "Shiftability"):
 
 1. The `.code` block (and the NOLOAD `.buffers_bss` that follows it in
@@ -31,6 +33,12 @@ Three things are done (reference/NOTES.md, "Shiftability"):
    loaded from the ROM like the rest of code, so its bss arrives zeroed.
    The moved sections are listed in --moved-out (`object section` per
    line), for af_shiftcheck; the object's other sections stay in place.
+
+4. Each --segment NAME=OBJECT becomes a plain (uncompressed, never loaded
+   whole) ROM segment after code: NAME_ROM_START/END for a dmadata entry
+   (include/tables/dmatables/dmadata_table_jp.h names it), 4 KB aligned
+   like the cartridge's own files. The translation's text banks live
+   there (tools/af_text.py writes the objects' .bin files).
 """
 
 import os
@@ -134,11 +142,41 @@ def rigid_block(lines, data_off, moved, text_end):
     return lines[:begin + 1] + region + lines[begin + 1:]
 
 
+def segments(lines, specs):
+    """Plain ROM segments NAME=OBJECT appended after code and buffers."""
+    block = []
+    for spec in specs:
+        name, _, obj = spec.partition("=")
+        block += ["    /* af_relink: %s, a plain segment of the translation (tools/af_text.py) */" % name,
+                  "    __romPos = ALIGN(__romPos, 0x1000);",
+                  "    %s_ROM_START = __romPos;" % name,
+                  "    .%s : AT(%s_ROM_START) SUBALIGN(16)" % (name, name),
+                  "    {",
+                  "        FILL(0x00000000);",
+                  "        %s_DATA_START = .;" % name,
+                  "        %s(.data);" % obj,
+                  "        %s_DATA_END = .;" % name,
+                  "    }",
+                  "    __romPos += SIZEOF(.%s);" % name,
+                  "    %s_ROM_END = __romPos;" % name,
+                  "    __romPos = ALIGN(__romPos, 16);",
+                  "    . = ALIGN(., 16);",
+                  ""]
+    tail = lines.index("    /DISCARD/ :")
+    return lines[:tail] + block + lines[tail:]
+
+
 def main(argv):
-    path, ref_path, map_path, moved_out, next_rom = None, None, None, None, None
+    path, ref_path, map_path, moved_out, next_rom, segs, pristine = None, None, None, None, None, [], None
     i = 0
     while i < len(argv):
-        if argv[i] == "--ref":
+        if argv[i] == "--segment":
+            segs.append(argv[i + 1])
+            i += 2
+        elif argv[i] == "--pristine":
+            pristine = argv[i + 1]
+            i += 2
+        elif argv[i] == "--ref":
             ref_path = argv[i + 1]
             i += 2
         elif argv[i] == "--map":
@@ -153,10 +191,11 @@ def main(argv):
         else:
             path = argv[i]
             i += 1
-    pristine = path + ".splat"
+    pristine = pristine or os.path.join("build", path.lstrip("/") + ".splat")
     if not os.path.exists(pristine):
         if MARK in open(path).read():
             raise SystemExit("af_relink: %s is already relinked and %s is missing: run make extract" % (path, pristine))
+        os.makedirs(os.path.dirname(pristine) or ".", exist_ok=True)
         open(pristine, "w").write(open(path).read())
     lines = open(pristine).read().split("\n")
 
@@ -171,11 +210,14 @@ def main(argv):
         else:
             text_end = ref.marks["code_TEXT_END"]
         lines = rigid_block(lines, ref.marks["code_DATA_START"] - ref.marks["code_TEXT_START"], moved, text_end)
+    if segs:
+        lines = segments(lines, segs)
     if moved_out:
         open(moved_out, "w").write("".join(sorted(set("%s %s\n" % (obj, sec) for sec, obj, _, _ in moved))))
     open(path, "w").write("\n".join(lines))
     print("af_relink: code and buffers moved to the end (%s stays at 0x%X); data block kept modulo 0x10000; "
-          "%d object section%s in code_en" % (segment, next_rom, len(moved), "" if len(moved) == 1 else "s"))
+          "%d object section%s in code_en; %d plain segment%s after code"
+          % (segment, next_rom, len(moved), "" if len(moved) == 1 else "s", len(segs), "" if len(segs) == 1 else "s"))
     for sec, obj, size, old in moved:
         print("  %s(%s): %#x -> %#x bytes" % (obj, sec, old, size))
     return 0

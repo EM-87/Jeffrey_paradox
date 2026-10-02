@@ -1,5 +1,6 @@
 """The tools' own tests: nothing here needs the cartridge (make test)."""
 
+import collections
 import hashlib
 import os
 import struct
@@ -20,6 +21,7 @@ import af_ranges  # noqa: E402
 import af_relink  # noqa: E402
 import af_relsyms  # noqa: E402
 import af_shiftcheck  # noqa: E402
+import af_text  # noqa: E402
 import gciso  # noqa: E402
 import msgbank  # noqa: E402
 import rom  # noqa: E402
@@ -216,10 +218,11 @@ class Shiftability(unittest.TestCase):
             open(p, "w").write(script)
             open(ref, "w").write(mapfile(0x100))
             open(new, "w").write(mapfile(0x140))                       # b.o's data grew
-            af_relink.main([p, "--ref", ref, "--next-rom", "0x73F4D0"])
+            pristine = os.path.join(d, "a.ld.splat")
+            af_relink.main([p, "--ref", ref, "--next-rom", "0x73F4D0", "--pristine", pristine])
             out = open(p).read()
-            self.assertTrue(os.path.exists(p + ".splat"))
-            af_relink.main([p, "--ref", ref, "--next-rom", "0x73F4D0"])  # idempotent
+            self.assertTrue(os.path.exists(pristine))
+            af_relink.main([p, "--ref", ref, "--next-rom", "0x73F4D0", "--pristine", pristine])  # idempotent
             self.assertEqual(open(p).read(), out)
             lines = out.splitlines()
             self.assertLess(lines.index("    __romPos = 0x73F4D0; /* ovl_select keeps the cartridge's vrom */"),
@@ -232,7 +235,7 @@ class Shiftability(unittest.TestCase):
             self.assertIn("        build/src/code/b.o(.data);", lines)      # nothing moved yet
             # second pass, with the map of the first link: b.o's data goes to code_en, its slot is a hole
             moved = os.path.join(d, "moved.txt")
-            af_relink.main([p, "--ref", ref, "--map", new, "--moved-out", moved, "--next-rom", "0x73F4D0"])
+            af_relink.main([p, "--ref", ref, "--map", new, "--moved-out", moved, "--next-rom", "0x73F4D0", "--pristine", pristine])
             lines = open(p).read().splitlines()
             self.assertEqual(open(moved).read(), "build/src/code/b.o .data\n")
             self.assertLess(lines.index("        code_en_DATA_START = .;"), lines.index("        build/src/code/b.o(.data);"))
@@ -352,6 +355,16 @@ class Shiftability(unittest.TestCase):
             self.assertEqual(run(mapfile(0, moved_at=0x80200000), "build/src/code/a.o"), (0, []))
             delta, errors = run(mapfile(0, moved_at=0x80207FF0), "build/src/code/a.o")
             self.assertTrue(any("crosses a 64 KB" in e for e in errors), errors)
+            # dmadata: the padding may move inside the section, its marks and table may not
+            dma = (".dmadata        0x80044690     0xd3f0 load address 0x19d40\n"
+                   " .data          0x80044690     0xd3f0 build/src/dmadata/dmadata.o\n"
+                   "                0x80044690                dma_rom_ad\n"
+                   "                0x%08x                sDmaDataPadding\n"
+                   "                0x%08x                        dmadata_VRAM_END = .\n")
+            open(ref, "w").write(dma % (0x80051990, 0x80051A80) + mapfile(0))
+            self.assertEqual(run(dma % (0x800519B0, 0x80051A80) + mapfile(0)), (0, []))
+            delta, errors = run(dma % (0x800519B0, 0x80051AA0) + mapfile(0))
+            self.assertTrue(any("mark dmadata_VRAM_END" in e for e in errors), errors)
 
     def test_anchors_catch_a_fold_spelled_with_a_function(self):
         mapfile = (".code           0x80051a80   0x100000 load address 0x01914000\n"
@@ -470,6 +483,76 @@ class Script(unittest.TestCase):
         self.assertEqual(af_align.classify([demo, name, end], [demo, end]), "edited")
         other = ("c", msgbank.NAMES["DEMONPC0"], b"\x00\x00\x03")
         self.assertEqual(af_align.classify([demo, end], [other, ("t", "x"), end]), "different")
+
+    def test_compiler_checks_and_writes_the_files(self):
+        end, btn, clear = "<MSGEND>", "<BTN>", "<MSGCLEAR>"
+        good = {0: "Hello\nthere" + end, 1: "a\nb\nc\nd" + btn + "\n" + clear + "e" + end}
+        msgs = {n: msgbank.parse(s) for n, s in good.items()}
+        self.assertEqual(af_text.check_message(0, msgs[0], 32, 4, 0x400), [])
+        self.assertEqual(af_text.check_message(1, msgs[1], 32, 4, 0x400), [])
+        five = msgbank.parse("a\nb\nc\nd\ne" + end)
+        self.assertEqual([lv for lv, _ in af_text.check_message(2, five, 32, 4, 0x400)], ["warning"])
+        self.assertIn("as the original", af_text.check_message(2, five, 32, 4, 0x400, allowed_lines=5)[0][1])
+        self.assertEqual(af_text.page_lines(five), 5)
+        self.assertEqual([lv for lv, _ in af_text.check_message(3, msgbank.parse("x" * 40 + end), 32, 4, 0x400)], ["warning"])
+        self.assertEqual([lv for lv, _ in af_text.check_message(4, msgbank.parse("no end"), 32, 4, 0x400)], ["error"])
+        self.assertEqual([lv for lv, _ in af_text.check_message(5, msgbank.parse("é" + end), 32, 4, 0x400)], ["error"])
+        self.assertEqual([lv for lv, _ in af_text.check_message(6, msgbank.parse("<CUTARTICLE>x" + end), 32, 4, 0x400)], ["error"])
+        self.assertEqual([lv for lv, _ in af_text.check_message(7, msgbank.parse("x" * 0x500 + end), 32, 4, 0x400)][0], "error")
+        with tempfile.TemporaryDirectory() as d:
+            text, index = os.path.join(d, "t.bin"), os.path.join(d, "i.bin")
+            all_msgs = {n: msgbank.parse("<MSGEND>") for n in range(af_text.N64_COUNT)}
+            all_msgs.update(msgs)
+            af_text.compile_bank(all_msgs, text, index)
+            t = open(text, "rb").read()
+            ends = struct.unpack(">%dI" % af_text.N64_COUNT, open(index, "rb").read())
+            self.assertEqual(t[:ends[0]], msgbank.encode(msgs[0]))
+            self.assertEqual(t[ends[0]:ends[1]], msgbank.encode(msgs[1]))
+            self.assertEqual(len(t) % 16, 0)
+
+    def test_draft_adapts_the_official_text(self):
+        counts = collections.Counter()
+        gc = msgbank.parse("<CUTARTICLE>Hey, caf\u00e9 \u2665!<MALEFEMALECHK 00010002><MSGEND>")
+        out = af_text.adapt(gc, counts)
+        self.assertEqual(msgbank.render(out), "Hey, cafe ♥!<MSGEND>")      # the heart is in the N64 charset
+        self.assertEqual(counts["dropped CUTARTICLE"], 1)
+        with tempfile.TemporaryDirectory() as d:
+            paths = {k: os.path.join(d, k + ".txt") for k in ("n64", "gc", "ours", "out")}
+            n64 = "".join("## %d\n%s<MSGEND>\n\n" % (n, "jp%d" % n) for n in range(af_text.N64_COUNT))
+            gc = "".join("## %d\n%s<MSGEND>\n\n" % (n, "en%d" % n) for n in range(5))
+            open(paths["n64"], "w").write(n64)
+            open(paths["gc"], "w").write(gc)
+            open(paths["ours"], "w").write("## 1\nours<MSGEND>\n\n")
+            align = os.path.join(d, "align.tsv")
+            rows = ["number\tclass\tn64\tgc\n", "0\tsame\t\t\n", "1\tplain\t\t\n", "2\tedited\t\t\n", "3\tremoved\t\t\n", "4\tdifferent\t\t\n"]
+            open(align, "w").write("".join(rows))
+            af_text.draft(paths["n64"], paths["gc"], align, paths["out"], [paths["ours"]])
+            back = msgbank.Bank.parse_dump(open(paths["out"], encoding="utf-8").read())
+            got = {n: msgbank.render(back[n]) for n in range(6)}
+            self.assertEqual(got, {0: "en0<MSGEND>", 1: "ours<MSGEND>", 2: "en2<MSGEND>", 3: "jp3<MSGEND>",
+                                   4: "jp4<MSGEND>", 5: "jp5<MSGEND>"})
+            self.assertEqual(len(back), af_text.N64_COUNT)
+
+    def test_relink_adds_plain_segments(self):
+        script = ("SECTIONS\n{\n    __romPos = 0;\n"
+                  "    code_ROM_START = __romPos;\n    .code 0x80051A80 : AT(code_ROM_START) SUBALIGN(16)\n    {\n"
+                  "        code_TEXT_START = .;\n        code_TEXT_END = .;\n        code_DATA_START = .;\n    }\n"
+                  "    __romPos += SIZEOF(.code);\n    code_ROM_END = __romPos;\n    code_VRAM_END = .;\n"
+                  "    __romPos = ALIGN(__romPos, 16);\n    . = ALIGN(., 16);\n\n"
+                  "    buffers_ROM_START = __romPos;\n    buffers_ROM_END = __romPos;\n    __romPos = ALIGN(__romPos, 16);\n    . = ALIGN(., 16);\n\n"
+                  "    ovl_select_ROM_START = __romPos;\n    ovl_select_ROM_END = __romPos;\n    __romPos = ALIGN(__romPos, 16);\n    . = ALIGN(., 16);\n\n"
+                  "    /DISCARD/ :\n    {\n        *(*);\n    }\n}\n")
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "a.ld")
+            open(p, "w").write(script)
+            af_relink.main([p, "--next-rom", "0x73F4D0", "--pristine", p + ".splat",
+                            "--segment", "msg_en_text=build/assets/jp/en/msg_text.o"])
+            lines = open(p).read().splitlines()
+            start = lines.index("    msg_en_text_ROM_START = __romPos;")
+            self.assertLess(lines.index("    buffers_ROM_START = __romPos;"), start)
+            self.assertLess(start, lines.index("    /DISCARD/ :"))
+            self.assertIn("        build/assets/jp/en/msg_text.o(.data);", lines[start:start + 8])
+            self.assertEqual(lines[start - 1], "    __romPos = ALIGN(__romPos, 0x1000);")
 
 
 if __name__ == "__main__":

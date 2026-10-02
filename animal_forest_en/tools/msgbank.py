@@ -20,7 +20,7 @@ data, 16,273 non-zero entries, each 32 bytes earlier).
 The text form: characters as themselves, a message's newlines (0xCD) as
 newlines, a control code as `<NAME>` or `<NAME hex-arguments>`, a literal
 `<` as `\<`, a byte the charset does not name as `{hex}`. Each message is
-headed by `## number`. The N64 charset is the AF Project's reading of the
+headed by `## number`; a line starting `#:` is a note and not text. The N64 charset is the AF Project's reading of the
 font (its Documentation/text table.txt: kana, ASCII and a few marks; 0x80
 is unnamed); the GameCube charset and code names are ac-decomp's
 (tools/msg_tool.py, CC0). Nothing of the banks themselves is in this file.
@@ -199,6 +199,8 @@ class Bank:
             if line.startswith("## ") and line[3:].strip().isdigit():
                 flush()
                 number, lines = int(line[3:]), []
+            elif line.startswith("#:"):
+                continue                        # a note for the reader, not text
             else:
                 lines.append(line)
         flush()

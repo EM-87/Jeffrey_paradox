@@ -128,6 +128,15 @@ REF_MAP  := $(AF_DIR)/build/animalforest-jp.map
 EN_MAP   := $(AF_EN_DIR)/build/animalforest-jp.map
 EN_LD    := linker_scripts/jp/animalforest.ld
 EN_MOVED := $(AF_EN_DIR)/build/af_en_moved.txt
+# The message bank the ROM gets: the English draft when `make script` has
+# made it from the user's disc, else the cartridge's own (so the build and
+# its plumbing work without the disc). Compiled into two plain segments
+# after code (tools/af_text.py, af_relink --segment, dmadata entries in
+# changes.patch); the objects come from the .bin files the decomp picks up.
+GC_DIR    := $(BUILD)/gc
+EN_BANK   := $(if $(wildcard $(GC_DIR)/en_bank.txt),$(GC_DIR)/en_bank.txt,$(GC_DIR)/n64_jp.txt)
+EN_ASSETS := $(AF_EN_DIR)/assets/jp/en
+EN_SEGMENTS := --segment msg_en_text=build/assets/jp/en/msg_text.o --segment msg_en_index=build/assets/jp/en/msg_index.o
 
 $(AF_EN_DIR)/.stamp-checkout: decomp/AF_REV $(MATCHING) $(CHANGES)
 	@if [ "$$(git -C $(AF_EN_DIR) rev-parse HEAD~0 2>/dev/null)" = "" ]; then \
@@ -148,7 +157,7 @@ $(AF_EN_DIR)/.stamp-setup: $(AF_EN_DIR)/.stamp-checkout $(BASEROM)
 
 $(AF_EN_DIR)/.stamp-extract: $(AF_EN_DIR)/.stamp-setup
 	$(MAKE) -C $(AF_EN_DIR) extract >$(BUILD)/af_en-extract.log 2>&1
-	rm -f $(AF_EN_DIR)/$(EN_LD).splat
+	rm -f $(AF_EN_DIR)/build/$(EN_LD).splat
 	@touch $@
 
 decomp-en: $(AF_EN_DIR)/.stamp-extract
@@ -157,12 +166,23 @@ decomp-en: $(AF_EN_DIR)/.stamp-extract
 # relative, the sizes every object's data had, and the layout to prove
 # against. Two links: the first measures the objects, the second lays them
 # out (the script is rewritten from splat's pristine copy each time).
-rom-en: decomp-en rom
+$(GC_DIR)/n64_jp.txt: $(BASEROM) tools/msgbank.py
+	mkdir -p $(GC_DIR)
+	$(PYTHON) tools/msgbank.py check-n64 $(BASEROM)
+	$(PYTHON) tools/msgbank.py dump-n64 $(BASEROM) $@
+
+$(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/msg_index.bin: $(EN_BANK) $(GC_DIR)/n64_jp.txt tools/af_text.py tools/msgbank.py
+	mkdir -p $(EN_ASSETS)
+	$(PYTHON) tools/af_text.py compile $(EN_BANK) $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/msg_index.bin --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600
+
+en-bank: $(EN_ASSETS)/msg_text.bin
+
+rom-en: decomp-en rom en-bank
 	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relsyms.py $(CURDIR)/$(REF_MAP) linker_scripts/jp/auto/undefined_syms_auto.ld
-	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relink.py $(EN_LD) --ref $(CURDIR)/$(REF_MAP)
+	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relink.py $(EN_LD) --ref $(CURDIR)/$(REF_MAP) $(EN_SEGMENTS)
 	rm -f $(AF_EN_DIR)/build/linker_scripts/jp/auto/undefined_syms_auto.ld $(AF_EN_DIR)/build/animalforest-jp.elf $(AF_EN_DIR)/build/animalforest-jp.z64
 	$(MAKE) -C $(AF_EN_DIR) -j$(JOBS) build/animalforest-jp.elf
-	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relink.py $(EN_LD) --ref $(CURDIR)/$(REF_MAP) --map build/animalforest-jp.map --moved-out $(CURDIR)/$(EN_MOVED)
+	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relink.py $(EN_LD) --ref $(CURDIR)/$(REF_MAP) --map build/animalforest-jp.map --moved-out $(CURDIR)/$(EN_MOVED) $(EN_SEGMENTS)
 	$(MAKE) -C $(AF_EN_DIR) -j$(JOBS) build/animalforest-jp.z64
 	$(PYTHON) tools/af_shiftcheck.py $(REF_MAP) $(EN_MAP) --moved-list $(EN_MOVED)
 	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_anchors.py $(CURDIR)/$(REF_MAP)
@@ -184,19 +204,18 @@ route-en: emu rom-en
 # ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it
 # produces lands in build/gc, which git ignores: the banks, their dumps and
 # the message-by-message comparison with the cartridge's bank.
-GC_DIR := $(BUILD)/gc
 GC_FILES := forest_2nd.arc/message_data.bin forest_2nd.arc/message_data_table.bin \
 	forest_2nd.arc/npc_name_str_table.bin forest_1st.arc/string_data.bin forest_1st.arc/string_data_table.bin \
 	forest_1st.arc/select_data.bin forest_1st.arc/select_data_table.bin forest_1st.arc/mail_data.bin \
 	forest_1st.arc/mail_data_table.bin
-script: $(BASEROM)
+script: $(BASEROM) $(GC_DIR)/n64_jp.txt
 	@test -n "$(ISO)" || { echo "make script ISO=path/to/Animal_Crossing_USA.iso"; exit 1; }
-	mkdir -p $(GC_DIR)
 	@for f in $(GC_FILES); do $(PYTHON) tools/gciso.py extract "$(ISO)" $$f $(GC_DIR)/$$(basename $$f) || exit 1; done
-	$(PYTHON) tools/msgbank.py check-n64 $(BASEROM)
-	$(PYTHON) tools/msgbank.py dump-n64 $(BASEROM) $(GC_DIR)/n64_jp.txt
 	$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/message_data.bin $(GC_DIR)/message_data_table.bin $(GC_DIR)/gc_en.txt
 	$(PYTHON) tools/af_align.py $(BASEROM) $(GC_DIR)/message_data.bin $(GC_DIR)/message_data_table.bin $(GC_DIR)/align.tsv
+	$(PYTHON) tools/af_text.py draft $(GC_DIR)/n64_jp.txt $(GC_DIR)/gc_en.txt $(GC_DIR)/align.tsv $(GC_DIR)/en_bank.txt \
+		$(foreach f,$(wildcard script/*.txt),--overrides $(f))
+	$(PYTHON) tools/af_text.py check $(GC_DIR)/en_bank.txt --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600 | tail -1
 
 # Edit build/af_en directly, then keep the work in decomp/changes.patch
 # (the diff against the committed matching baseline).

@@ -1,0 +1,264 @@
+#!/usr/bin/env python3
+"""The translation's message bank for the N64: drafted from the official
+script, checked against what the cartridge's message system can take,
+compiled to the files the ROM reads.
+
+    tools/af_text.py draft  N64_DUMP GC_DUMP ALIGN.tsv OUT.txt [--overrides FILE ...]
+    tools/af_text.py check  BANK.txt [--cols 32] [--lines 4] [--max-bytes 0x400] [--reference N64_DUMP]
+    tools/af_text.py compile BANK.txt TEXT.bin INDEX.bin [the same options]
+
+A bank text is tools/msgbank.py's dump form: `## number`, the message with
+its codes as `<NAME hex>`, `#:` notes. compile needs every number 0..11751
+(the cartridge's count: the game addresses messages by number) and writes
+the text file and the u32 table of ends, 16-byte padded, that the message
+loader (`func_8009E388_jp`) reads through dmadata.
+
+The checks are the measured limits (reference/NOTES.md, "The message
+system", "The GameCube script"):
+  * every character has a byte in the N64 charset (an accented letter does
+    not, until phase 5 gives it a glyph: it is an error);
+  * every code is one the N64 has (0..0x60) with its argument size;
+  * a message is at most --max-bytes (0x400: the loader refuses longer
+    ones) and ends with MSGEND, MSGCONTINUE or MSGTIMEEND;
+  * a page (up to BTN/MSGCLEAR) has at most --lines lines (4 on both
+    games) and a line at most --cols characters; both are warnings: the
+    width is the font's, which phase 5 decides (32 is the GameCube's
+    practical English line in the N64's window), and 14 of the cartridge's
+    own messages show 5 or 6 lines after a BTN without MSGCLEAR, so the
+    window must take them somehow (TODO(verify) in the emulator: scroll or
+    overflow). --reference (the cartridge's dump) marks the ones the
+    original already had.
+
+draft takes, for each N64 number, the GameCube text when af_align says it
+is the same message (same, plain, edited: edited ones get a note), else
+the Japanese with a note; the GameCube-only codes become what the N64 can
+do: CUTARTICLE, CAPITALIZE, SETCURSORJUST, CLRCUSRORJUST, STR_AMPM and
+SPACE are dropped (counted), MALEFEMALECHK keeps its first alternative,
+anything else is kept and reported for the check to refuse. Characters
+the N64 charset lacks are given their plain ASCII (é -> e, the GameCube's
+marks their nearest). --overrides files (our own translations, in the
+repository) replace messages by number.
+"""
+
+import collections
+import os
+import struct
+import sys
+import unicodedata
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from msgbank import N64_BYTES, NAMES, Bank, encode, parse, render  # noqa: E402
+
+N64_COUNT = 0x2DE8
+N64_CODE_MAX = 0x60
+TERMINATORS = {NAMES["MSGEND"], NAMES["MSGCONTINUE"], NAMES["MSGTIMEEND"]}
+PAGE_BREAKS = {NAMES["BTN"], NAMES["MSGCLEAR"]}
+DROP = {NAMES[n] for n in ("CUTARTICLE", "CAPTIALIZE", "SETCURSORJUST", "CLRCUSRORJUST", "STR_AMPM", "SPACE")}
+FALLBACK = {"…": "...", "“": '"', "”": '"', "‘": "'", "’": "'", "–": "-", "—": "-",
+            "ー": "-", "¡": "!", "¿": "?", "ß": "ss", "Æ": "AE", "æ": "ae", "Ø": "O", "ø": "o", "Ð": "D", "ð": "d",
+            "Þ": "Th", "þ": "th", "·": ".", "•": "*", "×": "x", "°": "o"}
+
+
+def ascii_fallback(text, counts=None):
+    out = []
+    for c in text:
+        if c in N64_BYTES or c == "\n":
+            out.append(c)
+            continue
+        if c in FALLBACK:
+            rep = FALLBACK[c]
+        else:
+            base = "".join(ch for ch in unicodedata.normalize("NFKD", c) if not unicodedata.combining(ch))
+            rep = base if base and all(ch in N64_BYTES for ch in base) else "?"
+        if counts is not None:
+            counts["%s -> %s" % (c, rep)] += 1
+        out.append(rep)
+    return "".join(out)
+
+
+def adapt(tokens, counts):
+    """GameCube tokens as N64 tokens."""
+    out = []
+    for t in tokens:
+        if t[0] == "t":
+            out.append(("t", ascii_fallback(t[1], counts)))
+        elif t[1] in DROP:
+            counts["dropped " + ["%d" % t[1], *[n for n in NAMES if NAMES[n] == t[1]]][-1]] += 1
+        elif t[1] == NAMES["MALEFEMALECHK"]:
+            counts["MALEFEMALECHK kept first"] += 1   # TODO(verify): its 4 argument bytes' meaning
+        elif t[1] == NAMES["SELNOBCLOSE"]:
+            out.append(("c", NAMES["SELNOB"], b""))    # the N64's choice without B; "close" is the GameCube's variant
+            counts["SELNOBCLOSE as SELNOB"] += 1
+        else:
+            out.append(t)
+    return out
+
+
+def page_lines(tokens):
+    """the most lines any page of the message shows"""
+    most, page = 0, [0]
+
+    def shown():
+        n = len(page)
+        while n > 1 and page[n - 1] == 0:
+            n -= 1
+        return n
+
+    for t in tokens:
+        if t[0] == "t":
+            for k, part in enumerate(t[1].split("\n")):
+                if k:
+                    page.append(0)
+                page[-1] += len(part)
+        elif t[1] in PAGE_BREAKS or t[1] in TERMINATORS:
+            most = max(most, shown())
+            if t[1] == NAMES["MSGCLEAR"]:
+                page = [0]
+    return max(most, shown())
+
+
+def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0):
+    """[(level, text)] for one message; allowed_lines: what its original showed."""
+    problems = []
+    try:
+        raw = encode(tokens)
+    except ValueError as e:
+        return [("error", "%s" % e)]
+    if len(raw) > max_bytes:
+        problems.append(("error", "%d bytes, the loader takes %d" % (len(raw), max_bytes)))
+    codes = [t for t in tokens if t[0] == "c"]
+    for t in codes:
+        if t[1] > N64_CODE_MAX:
+            problems.append(("error", "code %d is the GameCube's, not the N64's" % t[1]))
+    if not codes or codes[-1][1] not in TERMINATORS or tokens[-1] != codes[-1]:
+        problems.append(("error", "does not end with MSGEND, MSGCONTINUE or MSGTIMEEND"))
+    page = [0]                                  # the lines of the page so far, as lengths
+
+    def shown():
+        """lines the page shows: a newline right before a break opens no line"""
+        n = len(page)
+        while n > 1 and page[n - 1] == 0:
+            n -= 1
+        return n
+
+    for t in tokens:
+        if t[0] == "t":
+            for k, part in enumerate(t[1].split("\n")):
+                if k:
+                    page.append(0)
+                page[-1] += len(part)
+                if page[-1] > cols:
+                    problems.append(("warning", "a line of %d characters (--cols %d)" % (page[-1], cols)))
+        elif t[1] in PAGE_BREAKS or t[1] in TERMINATORS:
+            if shown() > lines:
+                problems.append(("warning", "a page of %d lines (--lines %d%s)"
+                                 % (shown(), lines, ", as the original" if shown() <= allowed_lines else "")))
+            if t[1] == NAMES["MSGCLEAR"]:
+                page = [0]
+    return problems
+
+
+def load_bank(path):
+    return Bank.parse_dump(open(path, encoding="utf-8").read())
+
+
+def run_checks(messages, cols, lines, max_bytes, reference=None):
+    errors = warnings = 0
+    for number in sorted(messages):
+        allowed = page_lines(reference[number]) if reference and number in reference else 0
+        for level, text in check_message(number, messages[number], cols, lines, max_bytes, allowed):
+            print("%s %d: %s" % (level, number, text))
+            if level == "error":
+                errors += 1
+            else:
+                warnings += 1
+    missing = [n for n in range(N64_COUNT) if n not in messages]
+    if missing:
+        print("error: %d numbers missing (first %s)" % (len(missing), missing[:5]))
+        errors += 1
+    extra = [n for n in messages if n >= N64_COUNT]
+    if extra:
+        print("error: numbers past %d: %s" % (N64_COUNT - 1, extra[:5]))
+        errors += 1
+    print("af_text: %d messages, %d errors, %d warnings" % (len(messages), errors, warnings))
+    return errors
+
+
+def compile_bank(messages, text_path, index_path):
+    text, ends = bytearray(), []
+    for n in range(N64_COUNT):
+        text += encode(messages[n])
+        ends.append(len(text))
+    text += bytes(-len(text) % 16)
+    open(text_path, "wb").write(text)
+    open(index_path, "wb").write(struct.pack(">%dI" % len(ends), *ends))
+    print("%s: %#x bytes; %s: %d ends" % (text_path, len(text), index_path, len(ends)))
+
+
+def draft(n64_path, gc_path, align_path, out_path, overrides):
+    n64, gc = load_bank(n64_path), load_bank(gc_path)
+    classes = {}
+    for line in open(align_path, encoding="utf-8").read().splitlines()[1:]:
+        number, cls = line.split("\t")[:2]
+        classes[int(number)] = cls
+    ours = {}
+    for path in overrides:
+        ours.update(load_bank(path))
+    counts, out = collections.Counter(), []
+    for n in range(N64_COUNT):
+        cls = classes.get(n, "different")
+        note = ""
+        if n in ours:
+            tokens = ours[n]
+            counts["ours"] += 1
+        elif cls in ("same", "plain", "edited") and n in gc:
+            tokens = adapt(gc[n], counts)
+            counts["official " + cls] += 1
+            if cls == "edited":
+                note = "#: the GameCube edited this message; the Japanese had: %s\n" % render(n64[n]).replace("\n", "¶")
+        else:
+            tokens = n64[n]
+            counts["japanese " + cls] += 1
+            note = "#: TODO translate (%s: no official text)\n" % cls
+        out.append("## %d\n%s%s\n\n" % (n, note, render(tokens)))
+    open(out_path, "w", encoding="utf-8").write("".join(out))
+    for k in sorted(counts):
+        print("  %-28s %d" % (k, counts[k]))
+    print("%s: %d messages" % (out_path, N64_COUNT))
+
+
+def main(argv):
+    opts = {"--cols": 32, "--lines": 4, "--max-bytes": 0x400}
+    args, overrides, reference, i = [], [], None, 0
+    while i < len(argv):
+        if argv[i] in opts:
+            opts[argv[i]] = int(argv[i + 1], 0)
+            i += 2
+        elif argv[i] == "--reference":
+            reference = load_bank(argv[i + 1])
+            i += 2
+        elif argv[i] == "--overrides":
+            overrides.append(argv[i + 1])
+            i += 2
+        else:
+            args.append(argv[i])
+            i += 1
+    cmd = args[0]
+    if cmd == "draft":
+        draft(args[1], args[2], args[3], args[4], overrides)
+        return 0
+    messages = load_bank(args[1])
+    errors = run_checks(messages, opts["--cols"], opts["--lines"], opts["--max-bytes"], reference)
+    if cmd == "check":
+        return 1 if errors else 0
+    if cmd == "compile":
+        if errors:
+            print("af_text: not compiled")
+            return 1
+        compile_bank(messages, args[2], args[3])
+        return 0
+    raise SystemExit(__doc__)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

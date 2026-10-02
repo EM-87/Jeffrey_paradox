@@ -1,0 +1,112 @@
+diff --git a/include/m_msg_main.h b/include/m_msg_main.h
+index d2906f3..f1c931f 100644
+--- a/include/m_msg_main.h
++++ b/include/m_msg_main.h
+@@ -43,7 +43,7 @@ struct Color_RGBA8;
+  * 0xCF9000 and the text at ROM 0xBD4000; a message longer than
+  * mMsg_MSG_SIZE_MAX bytes is refused (func_8009E388_jp). */
+ #define mMsg_MSG_NUM 0x2DE8
+-#define mMsg_MSG_SIZE_MAX 0x400
++#define mMsg_MSG_SIZE_MAX 0x600 /* the cartridge's 0x400; the GameCube's English runs to 1,224 bytes (its own buffer is 1,536) */
+ 
+ /* Control codes: mMsg_CHAR_CONTROL, then one of these, then arguments.
+  * Numbered as the N64 code reads them (the GameCube's differ). */
+diff --git a/include/tables/dmatables/dmadata_table_jp.h b/include/tables/dmatables/dmadata_table_jp.h
+index b8df70f..e589d69 100644
+--- a/include/tables/dmatables/dmadata_table_jp.h
++++ b/include/tables/dmatables/dmadata_table_jp.h
+@@ -3380,3 +3380,8 @@ DEFINE_DMA_ENTRY(anime_texture_4_static, "anime_texture_4_static")
+ DEFINE_DMA_ENTRY(anime_texture_5_static, "anime_texture_5_static")
+ DEFINE_DMA_ENTRY(anime_texture_6_static, "anime_texture_6_static")
+ DEFINE_DMA_ENTRY(softsprite_matrix_static, "softsprite_matrix_static")
++/* The translation's message bank (tools/af_text.py, tools/af_relink.py --segment):
++ * plain files after code, read in pieces by the message loader like the
++ * cartridge's text and index files. */
++DEFINE_DMA_ENTRY(msg_en_text, "msg_en_text")
++DEFINE_DMA_ENTRY(msg_en_index, "msg_en_index")
+diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
+index 03981c7..b94930d 100644
+--- a/src/code/m_msg_main.c
++++ b/src/code/m_msg_main.c
+@@ -1,4 +1,5 @@
+ #include "global.h"
++#include "segment_symbols.h"
+ #include "m_msg_main.h"
+ #include "m_choice_main.h"
+ #include "6B3DC0.h"
+@@ -33,13 +34,20 @@ void func_80091AB0_jp(struct mFontSentence* sentence, u8* str, s32 len, u32 flag
+                       xy_t* scale, Color_RGBA8* color, s32 voicePos, u8 voiceNo, s16 voiceNpcId);
+ void func_80091E0C_jp(struct mFontSentence* sentence, struct Game* game, Gfx** gfxP);
+ 
+-extern mMsg_Data B_80141FF0_jp; /* the message being shown: 0x10 bytes, then 0x410 of text */
++extern mMsg_Data B_80141FF0_jp; /* the cartridge's buffer: 0x10 bytes, then 0x410 of text; unused here */
++/* The translation's buffer: the loader writes up to (ofs + size + 7) & ~7 bytes,
++ * ofs < 8, size <= mMsg_MSG_SIZE_MAX. New bss: the build puts it in code_en. */
++static u64 mMsg_en_buffer[(0x10 + mMsg_MSG_SIZE_MAX + 0x10) / sizeof(u64)];
+ extern MessageWindow B_80142410_jp; /* the message window */
+-extern u8 D_BD4000[]; /* ROM: the message text */
++/* The translation's message bank: two plain segments at the end of the ROM
++ * (tools/af_text.py writes them, tools/af_relink.py places them, dmadata
++ * names them), in place of the cartridge's text at 0xBD4000 and index at
++ * 0xCF9000. */
++DECLARE_ROM_SEGMENT(msg_en_text);
+ extern u8 D_80107B70_jp[6]; /* 0x7F, colour code, r, g, b, length: the player's name */
+ extern u8 D_80107B78_jp[][3]; /* the colours free strings 1, 2 and 5 can take */
+ extern u8 D_80107B88_jp[6]; /* 0x7F, colour code, r, g, b, length: a coloured free string */
+-extern u8 D_CF9000[]; /* ROM: the message index */
++DECLARE_ROM_SEGMENT(msg_en_index);
+ extern Gfx D_8010A7C0_jp[]; /* the window (con_kaiwa2_modelT in AC GCN) */
+ extern Gfx D_8010AD28_jp[]; /* the name plate (con_kaiwaname_modelT) */
+ extern Gfx D_8010AD98_jp[]; /* the window's render setup (mMsg_init_disp) */
+@@ -646,23 +654,23 @@ void func_8009E388_jp(s32 index, RomOffset* addr, u32* size) {
+         s32 len;
+ 
+         if (index & 1) {
+-            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_CF9000 + (index - 1) * sizeof(u32), 2 * sizeof(u32),
++            DmaMgr_RequestSyncDebug(buf, SEGMENT_ROM_START(msg_en_index) + (index - 1) * sizeof(u32), 2 * sizeof(u32),
+                                     "../m_msg_main.c", 855);
+             start = buf[0];
+             len = buf[1] - start;
+         } else if (index == 0) {
+-            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_CF9000, 2 * sizeof(u32), "../m_msg_main.c", 862);
++            DmaMgr_RequestSyncDebug(buf, SEGMENT_ROM_START(msg_en_index), 2 * sizeof(u32), "../m_msg_main.c", 862);
+             start = 0;
+             len = buf[0];
+         } else {
+-            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_CF9000 + (index - 2) * sizeof(u32), 4 * sizeof(u32),
++            DmaMgr_RequestSyncDebug(buf, SEGMENT_ROM_START(msg_en_index) + (index - 2) * sizeof(u32), 4 * sizeof(u32),
+                                     "../m_msg_main.c", 868);
+             start = buf[1];
+             len = buf[2] - start;
+         }
+ 
+         if (len <= mMsg_MSG_SIZE_MAX) {
+-            *addr = (RomOffset)D_BD4000 + start;
++            *addr = SEGMENT_ROM_START(msg_en_text) + start;
+             *size = len;
+         } else {
+             *addr = 0;
+@@ -758,11 +766,11 @@ s32 func_8009E6D4_jp(void) {
+ }
+ 
+ void func_8009E6F8_jp(struct Game* game) {
+-    B_80141FF0_jp.dataLoaded = FALSE;
++    ((mMsg_Data*)mMsg_en_buffer)->dataLoaded = FALSE;
+     B_80142410_jp.dataLoaded = FALSE;
+     B_80142410_jp.msgNo = 0;
+     B_80142410_jp.unk_008 = 0;
+-    B_80142410_jp.msgData = &B_80141FF0_jp;
++    B_80142410_jp.msgData = (mMsg_Data*)mMsg_en_buffer;
+     B_80142410_jp.centerX = 160.0f;
+     B_80142410_jp.centerY = 185.4f;
+     B_80142410_jp.width = 245.0f;
+diff --git a/src/dmadata/dmadata.c b/src/dmadata/dmadata.c
+index 3ba98f9..0a0fd6e 100644
+--- a/src/dmadata/dmadata.c
++++ b/src/dmadata/dmadata.c
+@@ -18,4 +18,4 @@ DmaEntry dma_rom_ad[] = {
+ 
+ #undef DEFINE_DMA_ENTRY
+ 
+-u8 sDmaDataPadding[0xF0] = { 0 };
++u8 sDmaDataPadding[0xF0 - 2 * sizeof(DmaEntry)] = { 0 }; /* two entries added for the translation: the table keeps its size */
