@@ -541,11 +541,31 @@ the emulator (`make rom-en`, `make script ISO=...`).
   and the 32-byte ones are appended after 0x2F0 (the window is 0x610),
   and the choice window's answers live in globals of their own
   (`mChoice_en_strings`, `mChoice_en_determination`) instead of its
-  struct. With the three banks and the names in, the English ROM plays
-  the whole route like the cartridge: name dial 3289, town 4117, station
-  9298, houses 12173 (the cartridge: 2414/2975/8154/11030; English pages
-  take a press more). A probe that seemed to show the choice window
-  missing was holding A (CLAUDE.md, emulator traps).
+  struct. With the three banks and the names in (and the literal below
+  fixed), the English ROM plays the whole route like the cartridge: name
+  dial 3289, town 4120, station 9300, houses 12176 (the cartridge:
+  2414/2975/8154/11030; English pages take a press more). A probe that seemed to show the choice window
+  missing was holding A (CLAUDE.md, emulator traps); the window really
+  was missing, though, for another reason: `mChoice_Add_choice_data`
+  guards its length with a literal `< 11` that renaming the constant did
+  not reach, so the English answers (13 bytes) were never added, the
+  window opened with no strings and resolved itself at once, and Nook's
+  questions later hung the game (frame 11052). Measured from RAM: the
+  loaded answers were in `mMsg_choice_str`, `stringLens` all zero. When
+  a constant grows, grep the number. With the literal fixed, a probe that
+  watches the choice window's `isWindowVisible` in RAM (Choice + 0xA4)
+  finds both of the intro's choice windows with the English answers
+  ("I'm ready to go!" / "Before I go...", 16 and 14 bytes; "That's
+  right!" / "That's wrong!"), drawn in the yellow balloon over the
+  question (the full-width font makes the balloon wide: phase 5).
+- **Dates and times are still Japanese in shape.** The STR_YEAR..STR_SEC
+  substitutions (`mString_Load_YearStringFromRom`...) write the number
+  followed by a unit word from the string bank (年, 月, 日, 時, 分): with
+  the GameCube's words in those slots Rover's question reads
+  "p.m.OH:1Min on Satu 4Mon 14Da, 2001Ye?". The GameCube formats the date
+  in code (month name, day, year; 12-hour clock); the N64's functions
+  need the same treatment, and the string slots they read need English
+  of the right kind. Task for the rest of phase 4.
 - **The animals' names** are 6 bytes on the N64 (`PLAYER_NAME_LEN`, used
   as `ANIMAL_NAME_LEN`), read from the file at vrom 0xE04000 at 8 + 6n
   (`mNpc_LoadNpcNameString`); the GameCube's `npc_name_str_table.bin` is

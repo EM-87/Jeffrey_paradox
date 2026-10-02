@@ -89,7 +89,7 @@ index b8df70f..a442ee2 100644
 +DEFINE_DMA_ENTRY(msg_en_string_text, "msg_en_string_text")
 +DEFINE_DMA_ENTRY(msg_en_string_index, "msg_en_string_index")
 diff --git a/src/code/m_choice_main.c b/src/code/m_choice_main.c
-index d4a7b38..28eea22 100644
+index d4a7b38..07380bd 100644
 --- a/src/code/m_choice_main.c
 +++ b/src/code/m_choice_main.c
 @@ -1,4 +1,5 @@
@@ -119,6 +119,15 @@ index d4a7b38..28eea22 100644
  void mChoice_init(Choice* choice, UNUSED Game* game) {
      choice->centerX = 191.0f;
      choice->centerY = 83.0f;
+@@ -81,7 +87,7 @@ void mChoice_Init_choice_data(Choice* choice) {
+ }
+ 
+ s32 mChoice_Add_choice_data(Choice* choice, char* str, s32 max_len) {
+-    if (str != NULL && max_len > 0 && max_len < 11) {
++    if (str != NULL && max_len > 0 && max_len <= Choice_EN_STRING_LEN) { /* the cartridge: < 11 */
+         s32 len;
+         int idx;
+         s32* t;
 @@ -92,7 +98,7 @@ s32 mChoice_Add_choice_data(Choice* choice, char* str, s32 max_len) {
          if (choice->data.choiceNum < Choice_CHOICE_MAX) {
              idx = *t;
