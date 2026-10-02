@@ -43,10 +43,10 @@ index 5223795..a920508 100644
      /* 0x0F438 */ u8 stationType;
      /* 0x0F439 */ u8 saveWeather;
 diff --git a/include/m_msg_main.h b/include/m_msg_main.h
-index c06adbb..3b346cb 100644
+index c06adbb..d2906f3 100644
 --- a/include/m_msg_main.h
 +++ b/include/m_msg_main.h
-@@ -4,104 +4,294 @@
+@@ -4,104 +4,300 @@
  #include "ultra64.h"
  #include "unk.h"
  #include "m_choice_main.h"
@@ -54,6 +54,7 @@ index c06adbb..3b346cb 100644
 +#include "m_std_dma.h"
  
 +struct Game;
++struct gfxprint;
  struct Game_Play;
  struct Actor;
  struct Color_RGBA8;
@@ -75,6 +76,8 @@ index c06adbb..3b346cb 100644
 +#define mMsg_MAIL_LINE_WIDTH 16 /* characters before a forced new line */
 +#define mMsg_MAIL_LINES_MAX 5
 +#define mMsg_MAX_LINE 4
++
++#define mMsg_MODE_FONT 1 /* draw into the font display list (else the opaque one) */
 +
 +#define mMsg_CHAR_SPACE 0x20
 +#define mMsg_CHAR_NEW_LINE 0xCD
@@ -182,6 +185,9 @@ index c06adbb..3b346cb 100644
 +} mMsg_Data;
 +
 +struct MessageWindow;
++
++/* A state's setup or frame function (m_msg's proc tables). */
++typedef void (*mMsg_MainProc)(struct MessageWindow* msg, struct Game* game);
 +
 +/* A control code's handler: reads the code at *idxP, moves *idxP past it,
 + * returns an mMsg_RESULT. */
@@ -428,7 +434,7 @@ index c06adbb..3b346cb 100644
  s32 mMsg_CopyPlayerName(char*, s32, s32);
  s32 mMsg_CopyTalkName(struct Actor*, char*, s32, s32);
  s32 mMsg_CopyTail(struct Actor*, char*, s32, s32);
-@@ -113,176 +303,176 @@ s32 mMsg_CopyHour(char*, s32, s32);
+@@ -113,189 +309,189 @@ s32 mMsg_CopyHour(char*, s32, s32);
  s32 mMsg_CopyMin(char*, s32, s32);
  s32 mMsg_CopySec(char*, s32, s32);
  s32 mMsg_CopyFree(MessageWindow*, s32, char*, s32, s32);
@@ -603,6 +609,16 @@ index c06adbb..3b346cb 100644
 -// void func_800A28DC_jp();
 -// void func_800A2904_jp();
 -// void func_800A2948_jp();
+-// void func_800A29B0_jp();
+-// void func_800A2AB0_jp();
+-// void func_800A2AD0_jp();
+-// void func_800A2BB0_jp();
+-// void func_800A2C4C_jp();
+-// void func_800A2CE4_jp();
+-// void func_800A2EAC_jp();
+-// void func_800A3190_jp();
+-// void func_800A31D8_jp();
+-// void func_800A3220_jp();
 +s32 func_8009F670_jp(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len);
 +s32 func_8009F730_jp(s32 code);
 +s32 func_8009F75C_jp(s32 code);
@@ -768,24 +784,29 @@ index c06adbb..3b346cb 100644
 +void func_800A28DC_jp(MessageWindow* msg, int scaleDone);
 +void func_800A2904_jp(MessageWindow* msg, struct Game* game);
 +void func_800A2948_jp(MessageWindow* msg, struct Game* game);
- // void func_800A29B0_jp();
- // void func_800A2AB0_jp();
- // void func_800A2AD0_jp();
-@@ -290,7 +480,7 @@ void mMsg_sound_spec_change_voice(UNK_PTR arg0);
- // void func_800A2C4C_jp();
- // void func_800A2CE4_jp();
- // void func_800A2EAC_jp();
--// void func_800A3190_jp();
++void func_800A29B0_jp(MessageWindow* msg, struct Game* game, s32 mode);
++void func_800A2AB0_jp(void);
++void func_800A2AD0_jp(MessageWindow* msg, struct Game* game, s32 mode);
++void func_800A2BB0_jp(MessageWindow* msg, struct Game* game, s32 mode);
++void func_800A2C4C_jp(MessageWindow* msg, struct Game* game, s32 mode);
++void func_800A2CE4_jp(MessageWindow* msg, struct Game* game, s32 mode);
++void func_800A2EAC_jp(MessageWindow* msg, struct Game* game);
 +void func_800A3190_jp(MessageWindow* msg, struct Game* game);
- // void func_800A31D8_jp();
- // void func_800A3220_jp();
++void func_800A31D8_jp(MessageWindow* msg, struct Game* game);
++void func_800A3220_jp(MessageWindow* msg, struct Game* game);
  void mMsg_ct(struct Game_Play* game_play);
+ void func_800A3304_jp(struct Game_Play* game_play);
+-// void func_800A332C_jp();
++void func_800A332C_jp(struct gfxprint* gfxprint);
+ void mMsg_Main(struct Game_Play* game_play);
+ void mMsg_Draw(struct Game_Play* game_play);
+ // void func_800A4448_jp();
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
 new file mode 100644
-index 0000000..9d169d0
+index 0000000..fdf5c88
 --- /dev/null
 +++ b/src/code/m_msg_main.c
-@@ -0,0 +1,2812 @@
+@@ -0,0 +1,3055 @@
 +#include "global.h"
 +#include "m_msg_main.h"
 +#include "m_choice_main.h"
@@ -799,6 +820,10 @@ index 0000000..9d169d0
 +#include "m_private_internals.h"
 +#include "audio.h"
 +#include "m_bgm.h"
++#include "gfx.h"
++#include "sys_matrix.h"
++#include "game.h"
++#include "libu64/gfxprint.h"
 +
 +/* common_data.clip.handOverItemClip (m_clip.h leaves it incomplete: a new
 + * type there reorders other files' bss under IDO) */
@@ -807,6 +832,16 @@ index 0000000..9d169d0
 +    /* 0x10 */ struct Actor* masterActor; /* the actor handing the item over, or NULL */
 +}; // size >= 0x14
 +
++/* A line of text as the font code draws it (mFontSentence in AC GCN);
++ * its fields are not traced yet, its size is func_800A2EAC_jp's frame. */
++struct mFontSentence {
++    /* 0x00 */ UNK_TYPE1 unk_00[0x88];
++}; // size = 0x88 TODO(verify)
++
++void func_80091AB0_jp(struct mFontSentence* sentence, u8* str, s32 len, u32 flags, xy_t* pos, s32 lineType,
++                      xy_t* scale, Color_RGBA8* color, s32 voicePos, u8 voiceNo, s16 voiceNpcId);
++void func_80091E0C_jp(struct mFontSentence* sentence, struct Game* game, Gfx** gfxP);
++
 +extern mMsg_Data B_80141FF0_jp; /* the message being shown: 0x10 bytes, then 0x410 of text */
 +extern MessageWindow B_80142410_jp; /* the message window */
 +extern u8 D_BD4000[]; /* ROM: the message text */
@@ -814,6 +849,9 @@ index 0000000..9d169d0
 +extern u8 D_80107B78_jp[][3]; /* the colours free strings 1, 2 and 5 can take */
 +extern u8 D_80107B88_jp[6]; /* 0x7F, colour code, r, g, b, length: a coloured free string */
 +extern u8 D_CF9000[]; /* ROM: the message index */
++extern Gfx D_8010A7C0_jp[]; /* the window (con_kaiwa2_modelT in AC GCN) */
++extern Gfx D_8010AD28_jp[]; /* the name plate (con_kaiwaname_modelT) */
++extern Gfx D_8010AD98_jp[]; /* the window's render setup (mMsg_init_disp) */
 +extern u8 D_80107B90_jp[]; /* the voice sound of each character */
 +extern u8 D_80107C90_jp; /* the message speed last given to the audio driver */
 +extern u8 D_80107C94_jp[mMsg_BGM_NUM]; /* the songs a message can start */
@@ -3491,35 +3529,261 @@ index 0000000..9d169d0
 +    msg->requestedPriority = 4;
 +}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A29B0_jp.s")
++/* m_msg_draw_window (AC GCN): the window, its name plate and the continue
++ * button, drawn into the font display list or the opaque one. */
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2AB0_jp.s")
++void func_800A29B0_jp(MessageWindow* msg, struct Game* game, s32 mode) {
++    GraphicsContext* gfxCtx = game->gfxCtx;
++    f32 scale = msg->windowScale;
++    f32 centerX = (msg->centerX - (SCREEN_WIDTH * 0.5f)) * 16.0f;
++    f32 centerY = (-msg->centerY + (SCREEN_HEIGHT * 0.5f)) * 16.0f;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2AD0_jp.s")
++    Matrix_push();
++    Matrix_translate(centerX, centerY, 0.0f, MTXMODE_APPLY);
++    Matrix_scale(scale, scale, scale, MTXMODE_APPLY);
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2BB0_jp.s")
++    OPEN_DISPS(gfxCtx);
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2C4C_jp.s")
++    if (mode == mMsg_MODE_FONT) {
++        gSPMatrix(FONT_DISP++, _Matrix_to_Mtx_new(gfxCtx), G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
++    } else {
++        gSPMatrix(POLY_OPA_DISP++, _Matrix_to_Mtx_new(gfxCtx), G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
++    }
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2CE4_jp.s")
++    CLOSE_DISPS(gfxCtx);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2EAC_jp.s")
++void func_800A2AB0_jp(void) {
++    Matrix_pull();
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3190_jp.s")
++void func_800A2AD0_jp(MessageWindow* msg, struct Game* game, s32 mode) {
++    GraphicsContext* gfxCtx = game->gfxCtx;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A31D8_jp.s")
++    OPEN_DISPS(gfxCtx);
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3220_jp.s")
++    if (mode == mMsg_MODE_FONT) {
++        gDPSetPrimColor(FONT_DISP++, 0, 255, msg->nameBackgroundColor.r, msg->nameBackgroundColor.g,
++                        msg->nameBackgroundColor.b, 255);
++        gSPDisplayList(FONT_DISP++, D_8010AD28_jp);
++    } else {
++        gDPSetPrimColor(POLY_OPA_DISP++, 0, 255, msg->nameBackgroundColor.r, msg->nameBackgroundColor.g,
++                        msg->nameBackgroundColor.b, 255);
++        gSPDisplayList(POLY_OPA_DISP++, D_8010AD28_jp);
++    }
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/mMsg_ct.s")
++    CLOSE_DISPS(gfxCtx);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3304_jp.s")
++void func_800A2BB0_jp(MessageWindow* msg, struct Game* game, s32 mode) {
++    char name[ANIMAL_NAME_LEN];
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A332C_jp.s")
++    mNpc_GetNpcWorldName(name, (Npc*)msg->clientActor);
++    mFont_SetLineStrings_AndSpace(game, name, msg->clientNameLen, msg->nameplateX, msg->nameplateY,
++                                  msg->nameTextColor.r, msg->nameTextColor.g, msg->nameTextColor.b,
++                                  msg->nameTextColor.a, FALSE, FALSE, TRUE, 1.0f, 1.0f, mode);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/mMsg_Main.s")
++void func_800A2C4C_jp(MessageWindow* msg, struct Game* game, s32 mode) {
++    if (msg->showContinueButton != FALSE && msg->lockContinue == FALSE) {
++        mFont_SetMarkChar(game, 3, 257.0f, 136.0f, msg->continueButtonColor.r, msg->continueButtonColor.g,
++                          msg->continueButtonColor.b, msg->continueButtonColor.a, FALSE, 1.0f, 1.0f, mode);
++    }
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/mMsg_Draw.s")
++void func_800A2CE4_jp(MessageWindow* msg, struct Game* game, s32 mode) {
++    GraphicsContext* gfxCtx = game->gfxCtx;
++    Color_RGBA8* windowBackgroundColor = &msg->windowBackgroundColor;
++
++    OPEN_DISPS(gfxCtx);
++
++    if (mode == mMsg_MODE_FONT) {
++        gSPDisplayList(FONT_DISP++, D_8010AD98_jp);
++        gDPSetPrimColor(FONT_DISP++, 0, 255, windowBackgroundColor->r, windowBackgroundColor->g,
++                        windowBackgroundColor->b, windowBackgroundColor->a);
++        gSPDisplayList(FONT_DISP++, D_8010A7C0_jp);
++
++        if (msg->showActorName) {
++            func_800A2AD0_jp(msg, game, mode);
++            func_800A2BB0_jp(msg, game, mode);
++        }
++
++        func_800A2C4C_jp(msg, game, mode);
++    } else {
++        gSPDisplayList(POLY_OPA_DISP++, D_8010AD98_jp);
++        gDPSetPrimColor(POLY_OPA_DISP++, 0, 255, windowBackgroundColor->r, windowBackgroundColor->g,
++                        windowBackgroundColor->b, windowBackgroundColor->a);
++        gSPDisplayList(POLY_OPA_DISP++, D_8010A7C0_jp);
++
++        if (msg->showActorName) {
++            func_800A2AD0_jp(msg, game, mode);
++            func_800A2BB0_jp(msg, game, mode);
++        }
++
++        func_800A2C4C_jp(msg, game, mode);
++    }
++
++    CLOSE_DISPS(gfxCtx);
++}
++
++/* m_msg_draw_font: the text, a line at a time, up to the cursor. */
++
++void func_800A2EAC_jp(MessageWindow* msg, struct Game* game) {
++    struct mFontSentence sentence;
++    u8* lastP = &msg->msgData->text[msg->endTextCursorIdx];
++    u8* startP = &msg->msgData->text[msg->startTextCursorIdx];
++    s32 lineNum;
++    u8* curP;
++    u8 code;
++    u8 contType;
++    s32 len;
++    s32 lineLen;
++    s32 totalLen;
++    xy_t scale;
++    xy_t pos;
++    Gfx* gfx;
++    s32 lineEndFlag;
++    s32 sentenceFinishedFlag;
++    u32 sentenceFlags;
++    s32 sentenceVoiceIdx = msg->voiceTextIdx - msg->startTextCursorIdx;
++
++    if (fabsf(msg->textScale) < 0.001f) {
++        return;
++    }
++
++    OPEN_DISPS(game->gfxCtx);
++
++    gfx = FONT_DISP;
++
++    scale.x = msg->textScale;
++    scale.y = msg->textScale;
++
++    pos.x = msg->centerX - (96.0f * scale.x);
++    pos.y = msg->centerY - (32.0f * scale.y);
++
++    lineNum = 0;
++    sentenceFinishedFlag = FALSE;
++    totalLen = 0;
++
++    while (lineNum < msg->textLines && sentenceFinishedFlag == FALSE) {
++        for (lineLen = 0, curP = startP, lineEndFlag = FALSE; curP < lastP && lineEndFlag == FALSE;
++             len = func_8009034C_jp(curP), curP += len, lineLen += len) {
++            code = curP[0];
++
++            if (code == mMsg_CHAR_NEW_LINE) {
++                lineEndFlag = TRUE;
++            } else if (code == mMsg_CHAR_CONTROL) {
++                contType = curP[1];
++                if (contType == mMsg_CODE_LAST || contType == mMsg_CODE_CONTINUE ||
++                    contType == mMsg_CODE_MSG_TIME_END) {
++                    lineEndFlag = TRUE;
++                    sentenceFinishedFlag = TRUE;
++                }
++            }
++        }
++
++        if (curP >= lastP) {
++            sentenceFinishedFlag = TRUE;
++        }
++
++        if (lineNum == 0) {
++            sentenceFlags = 0x40;
++        } else {
++            sentenceFlags = 0x58;
++        }
++
++        if ((msg->statusFlags & mMsg_STATUS_FLAG_VOICE_ENTRY) && sentenceVoiceIdx >= totalLen &&
++            sentenceVoiceIdx < (totalLen + lineLen)) {
++            sentenceFlags |= 0x80;
++        }
++
++        func_80091AB0_jp(&sentence, startP, lineLen, sentenceFlags, &pos, 0, &scale, &msg->fontColor[lineNum],
++                         sentenceVoiceIdx - totalLen, msg->voiceNo, msg->voiceNpcId);
++        func_80091E0C_jp(&sentence, game, &gfx);
++
++        pos.y += 16.0f * scale.y;
++        startP = curP;
++        lineNum++;
++        totalLen += lineLen;
++    }
++
++    FONT_DISP = gfx;
++
++    CLOSE_DISPS(game->gfxCtx);
++
++    msg->statusFlags &= ~mMsg_STATUS_FLAG_VOICE_ENTRY;
++}
++
++/* m_msg (AC GCN): the window's state machine, and the game's entry points. */
++
++void func_800A3190_jp(MessageWindow* msg, struct Game* game) {
++    /* static tables here in AC GCN; still in the data asm */
++    extern mMsg_MainProc D_8010AE00_jp[mMsg_INDEX_NUM]; /* the setup of each state */
++    s32 idx = msg->requestedMainIndex;
++
++    if (idx >= 0) {
++        if (idx >= mMsg_INDEX_NUM || D_8010AE00_jp[idx] == NULL) {
++            return;
++        }
++
++        (*D_8010AE00_jp[idx])(msg, game);
++    }
++}
++
++void func_800A31D8_jp(MessageWindow* msg, struct Game* game) {
++    extern mMsg_MainProc D_8010AE20_jp[mMsg_INDEX_NUM]; /* each state, every frame */
++    s32 idx = msg->mainIndex;
++
++    if (idx >= 0) {
++        if (idx >= mMsg_INDEX_NUM || D_8010AE20_jp[idx] == NULL) {
++            return;
++        }
++
++        (*D_8010AE20_jp[idx])(msg, game);
++    }
++}
++
++void func_800A3220_jp(MessageWindow* msg, struct Game* game) {
++    if (msg->drawFlag && msg->dataLoaded) {
++        mFont_SetMatrix(game->gfxCtx, mMsg_MODE_FONT);
++        func_800A29B0_jp(msg, game, mMsg_MODE_FONT);
++        func_800A2CE4_jp(msg, game, mMsg_MODE_FONT);
++        func_800A2AB0_jp();
++        mFont_UnSetMatrix(game->gfxCtx, mMsg_MODE_FONT);
++
++        if (msg->msgData->dataLoaded) {
++            func_800A2EAC_jp(msg, game);
++        }
++
++        mChoice_Draw(&msg->choiceWindow, game, mMsg_MODE_FONT);
++    }
++}
++
++void mMsg_ct(struct Game_Play* game_play) {
++    func_8009E6F8_jp((struct Game*)game_play);
++    mChoice_ct(&B_80142410_jp.choiceWindow, (struct Game*)game_play);
++}
++
++void func_800A3304_jp(struct Game_Play* game_play) {
++    mChoice_dt(&B_80142410_jp.choiceWindow, (struct Game*)game_play);
++}
++
++void func_800A332C_jp(gfxprint* gfxprint) {
++    if (B_80142410_jp.msgData != NULL) {
++        gfxprint_color(gfxprint, 245, 255, 250, 255);
++        gfxprint_locate8x8(gfxprint, 3, 6);
++        gfxprint_printf(gfxprint, "%5d", B_80142410_jp.msgData->msgNo);
++    }
++}
++
++void mMsg_Main(struct Game_Play* game_play) {
++    func_800A31D8_jp(&B_80142410_jp, (struct Game*)game_play);
++    mChoice_Main(&B_80142410_jp.choiceWindow, (struct Game*)game_play);
++}
++
++void mMsg_Draw(struct Game_Play* game_play) {
++    func_800A3220_jp(&B_80142410_jp, (struct Game*)game_play);
++}
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/mMsm_ClearRecord.s")
 +

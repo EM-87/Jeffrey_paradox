@@ -32,8 +32,10 @@ context m2c reads types from. A function is done when `af_match.py` says
 ## Where we are
 
 `code/m_msg_main` (the message system, 322 functions at 0x8009D1F0-
-0x800A5630) is a C file; functions move from asm to C in batches: 268 in
-C so far, 264 matching (the other 4 behind NON_MATCHING). `tools/af_bench.py`
+0x800A5630) is a C file; functions move from asm to C in batches: 283 in
+C so far, 279 matching (the other 4 behind NON_MATCHING): the whole message
+system. What is left in asm (0x800A33AC on) is the museum's mail, `mMsm_*`,
+which splat put in the same file. `tools/af_bench.py`
 sweeps variants of one function in seconds when the first try does not
 match. The
 GameCube decomp's `src/game/m_msg*.c_inc` is the map; the layout of
