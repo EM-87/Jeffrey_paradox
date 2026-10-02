@@ -32,14 +32,14 @@ system", "The GameCube script"):
   * every code is one the N64 has (0..0x60) with its argument size;
   * a message is at most --max-bytes (0x400: the loader refuses longer
     ones) and ends with MSGEND, MSGCONTINUE or MSGTIMEEND;
-  * a page (up to BTN/MSGCLEAR) has at most --lines lines (4 on both
-    games) and a line at most --cols characters; both are warnings: the
-    width is the font's, which phase 5 decides (32 is the GameCube's
-    practical English line in the N64's window), and 14 of the cartridge's
-    own messages show 5 or 6 lines after a BTN without MSGCLEAR, so the
-    window must take them somehow (TODO(verify) in the emulator: scroll or
-    overflow). --reference (the cartridge's dump) marks the ones the
-    original already had.
+  * a page (up to MSGCLEAR) has at most --lines lines (4 on both games:
+    the window draws that many from the page's start and never a fifth,
+    measured), an error unless the cartridge's own message already had
+    more (--reference, its dump: 14 messages do, their extra lines never
+    shown); draft splits such pages with BTN and MSGCLEAR;
+  * a line has at most --cols characters (a warning: the width is the
+    font's, which phase 5 decides; 32 is the GameCube's practical English
+    line in the N64's window).
 
 draft takes, for each N64 number, the GameCube text when af_align says it
 is the same message (same, plain, edited: edited ones get a note), else
@@ -97,6 +97,57 @@ def ascii_fallback(text, counts=None):
             counts["%s -> %s" % (c, rep)] += 1
         out.append(rep)
     return "".join(out)
+
+
+STR_CODES = {NAMES[n] for n in NAMES if n.startswith("STR_")}
+
+
+def split_pages(tokens, lines=4, counts=None):
+    """Insert <BTN>, newline, <MSGCLEAR> before the line that would be the
+    (lines+1)th of a page: the window draws `lines` lines from the page's
+    start and a further one is never shown (measured, NOTES)."""
+    items = []
+    for t in tokens:
+        if t[0] == "t":
+            items += [("ch", c) for c in t[1]]
+        else:
+            items.append(t)
+    breaks = PAGE_BREAKS | TERMINATORS
+
+    def visible_ahead(i):
+        for it in items[i:]:
+            if it[0] == "ch":
+                if it[1] not in " \n":
+                    return True
+            elif it[1] in breaks:
+                return False
+            elif it[1] in STR_CODES:
+                return True
+        return False
+
+    out, line = [], 0
+    for i, it in enumerate(items):
+        if it[0] == "ch" and it[1] == "\n":
+            if line == lines - 1 and visible_ahead(i + 1):
+                out += [("c", NAMES["BTN"], b""), ("ch", "\n"), ("c", NAMES["MSGCLEAR"], b"")]
+                line = 0
+                if counts is not None:
+                    counts["pages split"] += 1
+                continue
+            line += 1
+        elif it[0] == "c" and it[1] == NAMES["MSGCLEAR"]:
+            line = 0
+        out.append(it)
+    merged = []
+    for it in out:
+        if it[0] == "ch":
+            if merged and merged[-1][0] == "t":
+                merged[-1] = ("t", merged[-1][1] + it[1])
+            else:
+                merged.append(("t", it[1]))
+        else:
+            merged.append(it)
+    return merged
 
 
 def adapt(tokens, counts):
@@ -180,8 +231,10 @@ def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0, singl
                     problems.append(("warning", "a line of %d characters (--cols %d)" % (page[-1], cols)))
         elif t[1] in PAGE_BREAKS or t[1] in TERMINATORS:
             if shown() > lines:
-                problems.append(("warning", "a page of %d lines (--lines %d%s)"
-                                 % (shown(), lines, ", as the original" if shown() <= allowed_lines else "")))
+                if shown() <= allowed_lines:
+                    problems.append(("warning", "a page of %d lines (--lines %d), as the original" % (shown(), lines)))
+                else:
+                    problems.append(("error", "a page of %d lines: the window draws %d" % (shown(), lines)))
             if t[1] == NAMES["MSGCLEAR"]:
                 page = [0]
     return problems
@@ -256,6 +309,8 @@ def draft(n64_path, gc_path, align_path, out_path, overrides):
             tokens = n64[n]
             counts["japanese " + cls] += 1
             note = "#: TODO translate (%s: no official text)\n" % cls
+        if N64_COUNT == N64_BANKS["message"][2]:
+            tokens = split_pages(tokens, 4, counts)
         out.append("## %d\n%s%s\n\n" % (n, note, render(tokens)))
     open(out_path, "w", encoding="utf-8").write("".join(out))
     for k in sorted(counts):

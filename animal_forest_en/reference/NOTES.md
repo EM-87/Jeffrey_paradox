@@ -506,10 +506,20 @@ the emulator (`make rom-en`, `make script ISO=...`).
   the cap at 0x600: 0 errors, 84 warnings (70 lines over 32 characters,
   the five-line pages). Of the 11,752 messages, 94% keep their longest
   line within 32 characters.
-- **Lines per page.** The cartridge's own bank has 14 messages whose
-  page runs to 5 or 6 lines after a BTN without MSGCLEAR, the English
-  draft 12; the checker only warns. TODO(verify): what the window does
-  with the fifth line (scroll, or draw below the balloon).
+- **Lines per page: four, and a fifth is lost.** The window draws at
+  most `textLines` lines (4, `mMsg_MAX_LINE`) from the page's first
+  character (`startTextCursorIdx`), which only MSGCLEAR moves
+  (`func_8009E344_jp`); BTN waits for the button and lets the text go
+  on (`func_800A0770_jp`). So a fifth line before the next MSGCLEAR is
+  typed but never drawn. Measured with a test page of five lines in
+  K.K.'s first message: the window shows LINE ONE to LINE FOUR, then
+  the clear. The GameCube's drawing loop is the same
+  (`m_msg_draw_font.c_inc`, `text_lines` = 4), so its 12 English pages of
+  five lines and the cartridge's own 14 lose a line too. `af_text.py
+  draft` splits such pages (a BTN and a MSGCLEAR before the fifth line:
+  9 splits in the English draft) and the checker makes a page of more
+  than four lines an error, unless the cartridge's own message already
+  had it (`--reference`).
 - **The other banks, and the window's strings.** The answers a choice
   window offers and the free strings (catchphrases, the names of animals,
   fish and insects, the date's words) are two more banks of the same
@@ -606,6 +616,12 @@ the emulator (`make rom-en`, `make script ISO=...`).
   redirected without touching the asm: they use only %hi/%lo of the
   `D_Dxxxxx` symbols, which the en build can define as new segments'
   `_ROM_START` in its linker scripts.
+- **What is left to translate ourselves.** Of the 969 messages with no
+  official text (709 removed, 260 reused), 287 are spare placeholders
+  (よび, "spare"), 211 the debug and test texts of numbers 0-210, 78 have
+  only codes; 393 are real lines, about 23,500 Japanese characters (the
+  moving-in talk, letters' replies 7167-7230, a few shop lines...). Plus
+  107 free strings. They go in `script/` as our own translation.
 - **What the first English ROM shows** (screenshots in the scratchpad):
   K.K.'s intro and Rover's questions in English, typed in the Japanese
   font's full-width cells (16 px per character: the 0x7000-byte font at

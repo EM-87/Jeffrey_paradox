@@ -497,8 +497,16 @@ class Script(unittest.TestCase):
         self.assertEqual(af_text.check_message(0, msgs[0], 32, 4, 0x400), [])
         self.assertEqual(af_text.check_message(1, msgs[1], 32, 4, 0x400), [])
         five = msgbank.parse("a\nb\nc\nd\ne" + end)
-        self.assertEqual([lv for lv, _ in af_text.check_message(2, five, 32, 4, 0x400)], ["warning"])
+        self.assertEqual([lv for lv, _ in af_text.check_message(2, five, 32, 4, 0x400)], ["error"])
         self.assertIn("as the original", af_text.check_message(2, five, 32, 4, 0x400, allowed_lines=5)[0][1])
+        split = af_text.split_pages(five)
+        self.assertEqual(msgbank.render(split), "a\nb\nc\nd<BTN>\n<MSGCLEAR>e<MSGEND>")
+        self.assertEqual(af_text.check_message(2, split, 32, 4, 0x400), [])
+        # a trailing newline before a break opens no line, and a cleared page starts again
+        self.assertEqual(msgbank.render(af_text.split_pages(msgbank.parse("a\nb\nc\nd\n<BTN>\n<MSGCLEAR>e\nf<MSGEND>"))),
+                         "a\nb\nc\nd\n<BTN>\n<MSGCLEAR>e\nf<MSGEND>")
+        self.assertEqual(msgbank.render(af_text.split_pages(msgbank.parse("a\nb\nc\nd\n<STR_TAIL>.<MSGEND>"))),
+                         "a\nb\nc\nd<BTN>\n<MSGCLEAR><STR_TAIL>.<MSGEND>")
         self.assertEqual(af_text.page_lines(five), 5)
         self.assertEqual([lv for lv, _ in af_text.check_message(3, msgbank.parse("x" * 40 + end), 32, 4, 0x400)], ["warning"])
         self.assertEqual([lv for lv, _ in af_text.check_message(4, msgbank.parse("no end"), 32, 4, 0x400)], ["error"])
