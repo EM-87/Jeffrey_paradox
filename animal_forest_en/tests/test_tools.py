@@ -13,12 +13,15 @@ sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 
 import af_anchors  # noqa: E402
+import af_align  # noqa: E402
 import af_dmaorder  # noqa: E402
 import af_luicheck  # noqa: E402
 import af_ranges  # noqa: E402
 import af_relink  # noqa: E402
 import af_relsyms  # noqa: E402
 import af_shiftcheck  # noqa: E402
+import gciso  # noqa: E402
+import msgbank  # noqa: E402
 import rom  # noqa: E402
 import ups  # noqa: E402
 from contact import read_png  # noqa: E402
@@ -385,6 +388,88 @@ class Shiftability(unittest.TestCase):
             self.assertEqual(af_anchors.main([m, "--asm", os.path.join(d, "asm")]), 1)
             open(s, "w").write(right)
             self.assertEqual(af_anchors.main([m, "--asm", os.path.join(d, "asm")]), 0)
+
+
+class Script(unittest.TestCase):
+    """The text tools, on banks made up here (the real ones stay on the user's machine)."""
+
+    def test_message_text_round_trips(self):
+        raw = bytes([0x7F, 9, 0, 0, 0x16]) + "こんにちは<!".encode("ascii", "ignore")  # DEMONPC0 then text
+        raw = bytes([0x7F, 9, 0, 0, 0x16]) + msgbank.encode([("t", "こんにちは\n<!")]) + bytes([0x7F, 3, 8, 0x7F, 0])
+        text = msgbank.render(msgbank.decode(raw, msgbank.N64_CHARS))
+        self.assertEqual(text, "<DEMONPC0 000016>こんにちは\n\\<!<PAUSE 08><MSGEND>")
+        self.assertEqual(msgbank.encode(msgbank.parse(text)), raw)
+        self.assertEqual(msgbank.render(msgbank.decode(b"\x80\x7f\x00", msgbank.N64_CHARS)), "{80}<MSGEND>")
+        self.assertEqual(msgbank.encode(msgbank.parse("{80}<MSGEND>")), b"\x80\x7f\x00")
+        with self.assertRaises(ValueError):
+            msgbank.encode([("t", "é")])                       # not in the N64 charset
+
+    def test_banks_and_dumps(self):
+        msgs = [b"A\x7f\x00", b"", b"B\xcdC\x7f\x01"]
+        ends, acc = [], 0
+        for m in msgs:
+            acc += len(m)
+            ends.append(acc if m else 0)
+        table = struct.pack(">%dI" % len(ends), *ends)
+        bank = msgbank.Bank.from_table(b"".join(msgs), table, msgbank.N64_CHARS)
+        self.assertEqual(bank.messages, msgs)
+        gc = msgbank.Bank.from_table(bytes(32) + b"".join(msgs), bytes(32) + table, msgbank.GC_CHARS, header=32)
+        self.assertEqual(gc.messages, msgs)
+        dump = bank.dump()
+        self.assertEqual(dump, "## 0\nA<MSGEND>\n\n## 1\n\n\n## 2\nB\nC<MSGCONTINUE>\n\n")
+        back = msgbank.Bank.parse_dump(dump)
+        self.assertEqual([msgbank.encode(back[i]) for i in range(3)], msgs)
+        # a cartridge: dmadata at 0x19D40 names the index and text files, stored plain
+        rom = bytearray(0x30000)
+        entries = [(0xBD4000, 0xBD4000 + 0x20, 0x20000, 0), (0xCF9000, 0xCF9000 + 4 * 0x2DE8, 0x21000, 0)]
+        for i, e in enumerate(entries):
+            struct.pack_into(">IIII", rom, 0x19D40 + 16 * i, *e)
+        rom[0x20000:0x20000 + len(b"".join(msgs))] = b"".join(msgs)
+        rom[0x21000:0x21000 + len(table)] = table
+        cart = msgbank.Bank.from_n64(bytes(rom))
+        self.assertEqual(cart.messages, msgs)
+
+    def test_disc_and_archive(self):
+        # a RARC with one file, inside a disc with one file in a directory
+        name_tab = b"\0.\0..\0msg.bin\0"
+        member = b"hello"
+        dh = struct.pack(">IIIIII", 1, 0x20, 2, 0x20 + 0x10, len(name_tab), 0x20 + 0x10 + 40)
+        dirs = b"ROOT" + struct.pack(">IHHI", 0, 0, 2, 0)
+        files = struct.pack(">HHIIII", 0, 0, (0x02 << 24) | 1, 0, 0, 0)          # "." directory entry
+        files += struct.pack(">HHIIII", 1, 0, (0x11 << 24) | 6, 0, len(member), 0)  # msg.bin
+        body = dh + bytes(8) + dirs + files + name_tab                               # dirs at 0x20, files at 0x30, names at 0x58
+        data_off = 0x20 + len(body)
+        rarc = struct.pack(">4sIII", b"RARC", data_off + len(member), 0x20, data_off) + bytes(16) + body + member
+        arc = gciso.Rarc(rarc)
+        self.assertEqual(arc.read("msg.bin"), member)
+        fst_names = b"\0dir\0a.arc\0"
+        fst = struct.pack(">III", 1 << 24, 0, 3)                       # root: 3 entries
+        fst += struct.pack(">III", (1 << 24) | 1, 0, 3)                 # "dir", parent 0, next index 3
+        fst += struct.pack(">III", 5, 0x1000, len(rarc))                # "a.arc" at 0x1000
+        fst += fst_names
+        disc = bytearray(0x2000)
+        disc[:6] = b"GAFE01"
+        disc[0x20:0x2E] = b"AnimalCrossing"
+        struct.pack_into(">II", disc, 0x424, 0x500, len(fst))
+        disc[0x500:0x500 + len(fst)] = fst
+        disc[0x1000:0x1000 + len(rarc)] = rarc
+        d = gciso.Disc(bytes(disc))
+        self.assertEqual((d.game, d.name), ("GAFE01", "AnimalCrossing"))
+        self.assertEqual(list(d.files), ["dir/a.arc"])
+        self.assertEqual(gciso.extract(d, "dir/a.arc/msg.bin"), member)
+
+    def test_alignment_classes(self):
+        demo = ("c", msgbank.NAMES["DEMONPC0"], b"\x00\x00\x16")
+        end = ("c", msgbank.NAMES["MSGEND"], b"")
+        pause = ("c", msgbank.NAMES["PAUSE"], b"\x08")
+        self.assertEqual(af_align.classify([demo, ("t", "a"), end], [demo, ("t", "b"), pause, end]), "same")
+        self.assertEqual(af_align.classify([("t", "a"), end], [("t", "b"), end]), "plain")
+        self.assertEqual(af_align.classify([demo, ("t", "a"), end], [end]), "removed")
+        self.assertEqual(af_align.classify([end], [end]), "plain")
+        name = ("c", msgbank.NAMES["STR_PLAYERNAME"], b"")
+        self.assertEqual(af_align.classify([demo, name, end], [demo, end]), "edited")
+        other = ("c", msgbank.NAMES["DEMONPC0"], b"\x00\x00\x03")
+        self.assertEqual(af_align.classify([demo, end], [other, ("t", "x"), end]), "different")
 
 
 if __name__ == "__main__":

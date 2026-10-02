@@ -180,6 +180,24 @@ emu-check-en: emu rom-en
 route-en: emu rom-en
 	$(PYTHON) tools/route_newgame.py $(EMU_DIR) $(EN_ROM) $(BUILD)/route-en
 
+# -- the GameCube script (phase 4) -------------------------------------------
+# ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it
+# produces lands in build/gc, which git ignores: the banks, their dumps and
+# the message-by-message comparison with the cartridge's bank.
+GC_DIR := $(BUILD)/gc
+GC_FILES := forest_2nd.arc/message_data.bin forest_2nd.arc/message_data_table.bin \
+	forest_2nd.arc/npc_name_str_table.bin forest_1st.arc/string_data.bin forest_1st.arc/string_data_table.bin \
+	forest_1st.arc/select_data.bin forest_1st.arc/select_data_table.bin forest_1st.arc/mail_data.bin \
+	forest_1st.arc/mail_data_table.bin
+script: $(BASEROM)
+	@test -n "$(ISO)" || { echo "make script ISO=path/to/Animal_Crossing_USA.iso"; exit 1; }
+	mkdir -p $(GC_DIR)
+	@for f in $(GC_FILES); do $(PYTHON) tools/gciso.py extract "$(ISO)" $$f $(GC_DIR)/$$(basename $$f) || exit 1; done
+	$(PYTHON) tools/msgbank.py check-n64 $(BASEROM)
+	$(PYTHON) tools/msgbank.py dump-n64 $(BASEROM) $(GC_DIR)/n64_jp.txt
+	$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/message_data.bin $(GC_DIR)/message_data_table.bin $(GC_DIR)/gc_en.txt
+	$(PYTHON) tools/af_align.py $(BASEROM) $(GC_DIR)/message_data.bin $(GC_DIR)/message_data_table.bin $(GC_DIR)/align.tsv
+
 # Edit build/af_en directly, then keep the work in decomp/changes.patch
 # (the diff against the committed matching baseline).
 decomp-patch-en:

@@ -49,7 +49,8 @@ the why and the state, `reference/NOTES.md` for what is verified.
 
 - `Makefile` — baserom, decomp checkout/extract/build, verify, emulator,
   emu-check, nafe, test; `rom-en`, `emu-check-en`, `route-en` and
-  `decomp-patch-en` for the translation's build in `build/af_en`.
+  `decomp-patch-en` for the translation's build in `build/af_en`; `script`
+  for the GameCube text (ISO=).
 - `decomp/AF_REV`, `decomp/matching.patch` (decompiled code, must rebuild
   the cartridge), `decomp/changes.patch` (the translation, on top) — what
   we build.
@@ -76,6 +77,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
 - `tools/` — `rom.py`, `ups.py`, `nafe.py`, `nafe_diff.py` (the 2010
   patch against the original, by file and function), `route_newgame.py`
   (power-on to the houses, states on the way).
+- `tools/gciso.py`, `msgbank.py`, `af_align.py` — the GameCube script
+  (`make script ISO=...`): the disc's files and RARC members, both games'
+  message banks as one tagged text (and the N64's back to bytes), and the
+  message-by-message comparison; output in `build/gc/`, never committed
+  (NOTES, "The GameCube script").
 - `tests/` — `test_tools.py`, `emu_check.py`.
 - `reference/NOTES.md` — verified facts with sources.
 

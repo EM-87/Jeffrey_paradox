@@ -393,3 +393,68 @@ the matching build (`make verify` stays identical).
   old address (`N64(watch=True)`, `watch(start, end, read=True)`): one
   hit named the function in a run that four rounds of bisection had only
   narrowed to an object.
+
+## The GameCube script (phase 4): what the disc holds and how it maps
+
+Measured on the user's Animal Crossing disc (GAFE01, "AnimalCrossing", a
+compacted image: 10 files, the FST at 0xFE500 placing them) and the
+cartridge's bank, with `make script ISO=...` (`tools/gciso.py`,
+`msgbank.py`, `af_align.py`; everything it writes stays in `build/gc/`).
+
+- **Where the text is.** `forest_2nd.arc` (RARC) holds
+  `message_data.bin` (0x2932E0 bytes) and `message_data_table.bin`
+  (0x11170: 17,500 u32 ends), plus `npc_name_str_table.bin`;
+  `forest_1st.arc` holds the free strings (`string_data`, 2,500 entries),
+  the choices (`select_data`, 750), the mail banks (`mail_data`,
+  `maila/b/c_data`), the shop and sign banks (`ps_data`, `super_data`...),
+  each a data file with a `_table.bin` of ends. The disc also carries
+  `foresta.map` (4.8 MB: the game's full symbol map) and `foresta.rel.szs`.
+- **The bank format is the N64's.** One byte per character, 0x7F then a
+  code number for a control code; the table is u32 end offsets; message n
+  is `[end(n-1), end(n))` (GameCube `mMsg_Get_BodyParam`, N64
+  `func_8009E388_jp`). The GameCube's two files start with 32 bytes that
+  the game's ARAM copies skip (eight zero entries in the table; some
+  character codes in the data): message 0 ends at the table's ninth entry.
+  Proof: 16,273 terminators (MSGEND/MSGCONTINUE/MSGTIMEEND) in the data,
+  16,273 non-zero table entries, each exactly 32 less than a terminator's
+  end. The N64's files are stored plain in the cartridge (dmadata: text at
+  prom 0x9C11C0, index at 0xAE5BD0), so the dump reads them directly;
+  `tools/msgbank.py check-n64` dumps, parses and re-encodes the 11,752
+  messages to the same bytes.
+- **Control codes are the same numbers.** The 97 N64 codes
+  (`D_80106BF4_jp`: two bytes per code, size then kind, read by
+  `func_8009034C_jp`) have the sizes of GameCube codes 0..96, name by
+  name (MSGEND 0 ... STR_MAIL 64, SNDCUT 0x51, BGMMAKE 0x56, BGMDELETE
+  0x57, MSGTIMEEND 0x58, SNDTRGSYS 0x59). The N64 bank uses 0..94. The
+  GameCube added 97..122; inside the N64's numbering it uses CUTARTICLE
+  (1,097 times), CAPITALIZE (125), SETCURSORJUST/CLRCURSORJUST (143/132),
+  STR_AMPM (45), SETNEXTMSG4/5, SETSELSTR5/6, SELNOBCLOSE,
+  SETNEXTMSGRNDSECTION, STR_ISLANDNAME, MALEFEMALECHK, SPACE: the English
+  article machinery and the island, which the N64 code does not have. The
+  compiler (phase 4) must implement or strip each of them.
+- **Charsets.** Both ASCII-shaped from 0x20 (`0`-`9` at 0x30, `A` at 0x41,
+  `a` at 0x61, 0xCD newline, 0x2B a heart, 0x2F a note); the N64 has kana
+  where the GameCube has accented Latin (the AF Project's text table, in
+  `tools/msgbank.py`; 0x80 unnamed, written `{80}`), the GameCube's is
+  ac-decomp's CHAR_MAP (CC0). No English letter needs a new code; the
+  accented ones and the GameCube's symbols are phase 5's font work.
+- **The numbering is shared.** The GameCube kept Doubutsu no Mori's
+  message numbers: the follow-up numbers inside SETNEXTMSG* codes are
+  identical in both banks (N64 7633 and GameCube 7633 both continue with
+  0x1DE8-0x1DEA), and compared number by number on the codes that carry
+  meaning (expressions, substitutions, follow-ups, choices, sounds; not
+  pauses, buttons, line breaks or the article codes): of 11,752 N64
+  messages, **7,239 (61.6%) have the same structural codes** in the same
+  slot, 1,413 (12.0%) have none on either side (same by numbering alone:
+  greetings, one-liners), 2,131 (18.1%) share codes but differ (the
+  message rewritten or re-timed for English; still the same message, to
+  take with care), 709 (6.0%) have an empty or bare GameCube slot (the
+  debug messages 1-18, and lines the GameCube dropped, like 100 and 197
+  of the moving-in talk: to translate from the Japanese), 260 (2.2%) have
+  nothing in common (the slot was reused). The GameCube's 4,521 further
+  messages (11,752-16,272) are its own content. `build/gc/align.tsv` has
+  the class and both texts for every number.
+- **A first wrong cut** (the table read from entry 0) made the GameCube
+  look like the N64 shifted by 8: 385 of 552 exact structural twins at
+  +8. The terminator count settled it; the lesson is the usual one: a
+  header is a measurement, not an assumption.

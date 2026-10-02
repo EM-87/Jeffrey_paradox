@@ -45,6 +45,8 @@ make emu-check                    # lo arranca en el emulador sin ventana
 make rom-en                       # la traducción: mismo código + decomp/changes.patch,
                                   # con code libre de crecer (build/animalforest-en.z64)
 make route-en                     # la juega en el emulador hasta las casas
+make script ISO=ruta/al/disco.iso # el guion oficial de GameCube: extrae los bancos de texto
+                                  # y los compara mensaje a mensaje con el del cartucho (build/gc/)
 make test                         # tests de las herramientas, sin ROM
 make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010, para estudiarlo
 ```
@@ -106,9 +108,20 @@ puerta del tren en cuanto los datos se movían; con ella corregida, un ROM
 con todo el bloque desplazado 64 KB juega el recorrido entero igual que el
 original (`reference/NOTES.md`, "Shiftability").
 
-Lo que viene: el guion (el oficial de GameCube donde coincida, el resto
-traducido del japonés) con un comprobador que no deja compilar un texto que
-no entra, y la fuente y los gráficos occidentales de GameCube.
+**Fase 4 — el guion oficial de GameCube: en curso.** `make script` lee del
+disco del usuario (sin ventana, sin copiar nada al repositorio) los bancos
+de texto de Animal Crossing y los compara con el del cartucho
+(`tools/gciso.py`, `msgbank.py`, `af_align.py`). Medido: GameCube conservó
+la numeración de mensajes de Doubutsu no Mori, y de los 11.752 mensajes del
+N64, el 73,6 % tiene su texto oficial en inglés tal cual (mismos códigos de
+control), el 18,1 % lo tiene con retoques, el 6 % no lo tiene (mensajes de
+depuración y líneas que GameCube quitó) y el 2,2 % cambió de sentido
+(`reference/NOTES.md`, "The GameCube script"). Falta el compilador del banco
+N64 con su comprobador de tamaño, y traducir del japonés lo que no tiene
+texto oficial.
+
+Lo que viene: ese compilador, y la fuente y los gráficos occidentales de
+GameCube.
 
 ## Dónde está cada cosa
 
@@ -126,8 +139,10 @@ no entra, y la fuente y los gráficos occidentales de GameCube.
   ver qué cambió), `route_newgame.py` (partida nueva hasta las casas),
   `af_match.py`/`af_try.py`/`af_wrap.py`/`af_bench.py` (igualar funciones),
   `af_relink.py`/`af_relsyms.py`/`af_ranges.py`/`af_dmaorder.py` (la
-  disposición del ROM traducido) y `af_shiftcheck.py`/`af_anchors.py`/
-  `af_luicheck.py` (sus pruebas).
+  disposición del ROM traducido), `af_shiftcheck.py`/`af_anchors.py`/
+  `af_luicheck.py` (sus pruebas), y `gciso.py`/`msgbank.py`/`af_align.py`
+  (el disco de GameCube, los bancos de texto de ambos juegos y su
+  correspondencia).
 - `tests/` — `test_tools.py` (`make test`) y `emu_check.py`
   (`make emu-check`).
 - `reference/NOTES.md` — lo verificado, con su fuente.
