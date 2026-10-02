@@ -21,6 +21,7 @@ and a frame is what the player sees change.
 
 import calendar
 import ctypes
+import hashlib
 import os
 import struct
 import threading
@@ -58,6 +59,11 @@ M64P_BKP_FLAG_ENABLED, M64P_BKP_FLAG_READ, M64P_BKP_FLAG_WRITE, M64P_BKP_FLAG_EX
 
 FRONTEND_API_VERSION = 0x020106
 RDRAM_SIZE = 8 * 1024 * 1024
+
+# mupen64plus.ini gives each ROM, by MD5, its save type and pak settings.
+# This is the cartridge every ROM we build is a rebuild of (its entry:
+# Flash RAM, Controller Pak).
+ORIGINAL_MD5 = "A4F7C57C180297B2E7BA5A5FEB44FE0B"  # Doubutsu no Mori (J) [!]
 
 EMU_MODES = {"interpreter": 0, "cached": 1, "dynarec": 2}
 
@@ -104,10 +110,16 @@ def write_png(path, width, height, rgb):
 class N64:
     def __init__(self, emu_dir, rom, workdir, emumode="dynarec", watch=False,
                  vi_filtered=True, timeout=30.0, verbose=False,
-                 clock=(2001, 4, 14, 12, 0, 0)):
+                 clock=(2001, 4, 14, 12, 0, 0), like=ORIGINAL_MD5):
         """emu_dir: emu/build.sh's output. rom: the cartridge, big-endian
         (.z64) bytes. workdir: where the flash save, the Controller Pak and
         states go (created; delete it for a fresh cartridge).
+
+        like: the MD5 whose mupen64plus.ini entry a ROM the ini does not
+        list plays with (save type, paks); the original cartridge's by
+        default, since every ROM built here is a rebuild of it. None: the
+        core's defaults for an unknown ROM (4 KB EEPROM where this game
+        has Flash RAM).
 
         watch=True turns the debugger on so watch() works; memory
         watchpoints only fire under the interpreters, so it forces
@@ -130,6 +142,7 @@ class N64:
         self.timeout = timeout
         self.verbose = verbose
         self.clock = clock
+        self.like = like
 
         self.frame = 0          # rendered frames since power-on
         self.hits = []          # (pc, accessed address, flags) per watchpoint hit
@@ -153,6 +166,32 @@ class N64:
 
     def _lib(self, name):
         return ctypes.CDLL(os.path.join(self.emu_dir, name), mode=ctypes.RTLD_GLOBAL)
+
+    def _data_dir(self):
+        """The core's data directory, holding mupen64plus.ini. The core
+        looks the ROM up there by MD5 for its save type and pak settings
+        (this cartridge: Flash RAM, Controller Pak); a ROM it does not know
+        gets the defaults, 4 KB EEPROM. A rebuilt ROM is the same
+        cartridge, so when its MD5 is missing a copy of the ini in workdir
+        gets an entry referring to `like`, as the ini's own entries for the
+        2010 translation refer to the original (RefMD5). The core then
+        logs "Save type: 3" (SAVETYPE_FLASH_RAM) for it; measured."""
+        src = os.path.join(self.emu_dir, "data")
+        if self.like is None:
+            return src
+        md5 = hashlib.md5(self.rom).hexdigest().upper()
+        with open(os.path.join(src, "mupen64plus.ini"), "rb") as f:
+            ini = f.read()
+        if ("[%s]" % md5).encode() in ini:
+            return src
+        name = self.rom[0x20:0x34].decode("ascii", "replace").strip()
+        crc1, crc2 = struct.unpack(">II", self.rom[0x10:0x18])
+        out = os.path.join(self.workdir, "data")
+        os.makedirs(out, exist_ok=True)
+        entry = "\n\n[%s]\nGoodName=%s (rebuilt)\nCRC=%08X %08X\nRefMD5=%s\n" % (md5, name, crc1, crc2, self.like)
+        with open(os.path.join(out, "mupen64plus.ini"), "wb") as f:
+            f.write(ini.rstrip(b"\n") + entry.encode())
+        return out
 
     def start(self):
         core = self.core = self._lib("libmupen64plus.so.2")
@@ -192,7 +231,7 @@ class N64:
             core.HeadlessFixClock(self._clock_base, 0)
 
         cfg = self.workdir.encode()
-        data = os.path.join(self.emu_dir, "data").encode()
+        data = self._data_dir().encode()
         self._check(core.CoreStartup(FRONTEND_API_VERSION, cfg, data, None, self._debug_cb, None, self._state_cb), "CoreStartup")
 
         section = ctypes.c_void_p()

@@ -48,8 +48,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
 ## Where things live
 
 - `Makefile` — baserom, decomp checkout/extract/build, verify, emulator,
-  emu-check, nafe, test.
-- `decomp/AF_REV`, `decomp/patches/` — what we build.
+  emu-check, nafe, test; `rom-en`, `emu-check-en`, `route-en` and
+  `decomp-patch-en` for the translation's build in `build/af_en`.
+- `decomp/AF_REV`, `decomp/matching.patch` (decompiled code, must rebuild
+  the cartridge), `decomp/changes.patch` (the translation, on top) — what
+  we build.
 - `emu/` — the headless N64. `build.sh` pins and builds mupen64plus-core
   (debugger on), mupen64plus-rsp-cxd4, angrylion-rdp-plus with
   `headless_output.c` instead of OpenGL, and `input_headless.c`;
@@ -61,6 +64,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
   matching: per-function check, trying variants in the file, NON_MATCHING
   wrapping, and sweeping many variants fast outside the build (run in
   build/af).
+- `tools/af_relink.py`, `af_relsyms.py`, `af_ranges.py`, `af_dmaorder.py` —
+  the translation's build (`make rom-en`, in build/af_en): `code` moved to
+  the end of the ROM so that it can grow, the RAM addresses splat left
+  absolute made relative, and the compressed ROM's ranges and dmadata order
+  (NOTES, "Shiftability").
 - `tools/` — `rom.py`, `ups.py`, `nafe.py`, `nafe_diff.py` (the 2010
   patch against the original, by file and function), `route_newgame.py`
   (power-on to the houses, states on the way).
@@ -108,3 +116,13 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `N64(watch=True)` switches to the cached interpreter (the dynarec does
   not check them) and `watch()` converts to physical, which is what the
   core compares. They only see the CPU: RDP/RSP writes never fire.
+- **The core picks the save type by the ROM's MD5** (mupen64plus.ini:
+  Flash RAM for this cartridge; an unknown ROM gets 4 KB EEPROM). `N64()`
+  gives an unknown ROM the original's entry (`like=`), so a rebuilt ROM
+  saves as the cartridge does.
+- **A screen detector proven on one ROM is not proven on another.** The
+  route's name-dial check was tuned on the 2010 patch's English dial and
+  missed the cartridge's kana dial (one ring pixel differs); every rebuilt
+  ROM then "failed" the route at the same frame, and so did the original.
+  Before blaming a ROM, run the original through the same check, and look
+  at the screenshots.

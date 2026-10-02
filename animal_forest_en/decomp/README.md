@@ -6,8 +6,12 @@
   `make verify` builds the ROM with it and compares with the dump. It is
   code we wrote; no data from the ROM goes in it.
 
-Later, `changes.patch` will hold what we change on purpose (the
-translation's buffers, the text system), applied on top of matching code.
+- `changes.patch` — what the translation changes on purpose (buffers, the
+  text system, the script), applied on top of `matching.patch` in a second
+  checkout, `build/af_en`, where that patch is committed as the baseline.
+  Its ROM is never compared with the cartridge: `make rom-en` builds it
+  with `code` moved to the end of the ROM so that it can grow (see
+  `reference/NOTES.md`, "Shiftability"), and `make route-en` plays it.
 
 ## Working on it
 
@@ -24,6 +28,9 @@ python3 ../../tools/af_match.py --diff src/code/m_msg_main.c FUNC
 python3 ../../tools/af_match.py --all src/code/m_msg_main.c
 cd ../.. && make decomp-patch && make verify
 ```
+
+The translation's changes are made the same way in `build/af_en` and kept
+with `make decomp-patch-en` (the diff against the matching baseline there).
 
 `tools/m2ctx.py src/code/FILE.c` (in build/af) regenerates `ctx.c`, the
 context m2c reads types from. A function is done when `af_match.py` says

@@ -42,6 +42,9 @@ ellos.
 ```sh
 make ROM=ruta/a/tu/volcado        # compila el ROM y lo verifica
 make emu-check                    # lo arranca en el emulador sin ventana
+make rom-en                       # la traducción: mismo código + decomp/changes.patch,
+                                  # con code libre de crecer (build/animalforest-en.z64)
+make route-en                     # la juega en el emulador hasta las casas
 make test                         # tests de las herramientas, sin ROM
 make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010, para estudiarlo
 ```

@@ -15,7 +15,7 @@ What has been checked, and how. Anything not here is unverified.
 ## The decomp rebuilds the cartridge
 
 `make` (setup, extract, build, compress) produces
-`build/animalforest-en.z64` identical to the dump (`cmp`), about two minutes
+`build/animalforest-match.z64` identical to the dump (`cmp`), about two minutes
 from a fresh checkout on 4 cores. The uncompressed intermediate is
 `d7ae64f2f47a9fa3f87686a3c5ce09af` (the decomp's `checksum.md5`).
 
@@ -69,6 +69,25 @@ What it took (each found by a failing comparison, in this order):
    `gamma_filters`, per-worker `vi_rseed`). Reseeded per scanline by
    `emu/patches/angrylion-rdp-plus-vi-noise.patch`. The hardware's noise is
    random, so a fixed seed is no less faithful.
+
+- **The save type comes from mupen64plus.ini, by MD5.** The original's
+  entry (`A4F7C57C...`) says `SaveType=Flash RAM`, `Mempak=Yes`; the 2010
+  translation is listed with `RefMD5` pointing at it. A ROM the ini does
+  not know gets 4 KB EEPROM. `N64()` writes a copy of the ini into its
+  workdir with an entry for the ROM's MD5 referring to the original
+  (`like=ORIGINAL_MD5`); the core then logs `Save type: 3` (Flash RAM) for
+  a rebuilt ROM (measured). What that would otherwise break is not
+  measured: it was not what stalled the route (next item).
+- **The route's name-dial detector was tuned on the 2010 patch only.**
+  `afplay.name_dial_open` read the dial's ring at (270,195), which is
+  (41,57,169) on the English dial and (75,131,195) on the kana dial, so
+  every Japanese-layout ROM, the original included, "never reached the
+  name dial" (frame 5464: the 200-press budget), while screenshots showed
+  the dial open since frame ~3089. The ring's deep blue at (280,200) is
+  (67,83,234) on both; the pointer at (320,205) was already common.
+  Lesson kept in CLAUDE.md: prove a detector on the original before
+  reading its verdict on a rebuilt ROM.
+
 
 ## The AF Project ROM in the emulator
 
@@ -256,3 +275,50 @@ Measured on its ROM (`tools/nafe_diff.py` and the bank itself):
   (IDO): a `struct HandOverItemClip` definition in `m_clip.h` swapped
   `l_fossil_block` and `l_haniwa_block` in `m_all_grow.o`. Only the
   whole-ROM check catches it; such types stay local to the file using them.
+
+## Shiftability (phase 3): what pins the cartridge's layout
+
+Measured on the decomp at AF_REV, to decide how the translation can grow
+code and text without breaking the rest.
+
+- **ROM (vrom) layout.** dmadata is generated from the linker's segment
+  symbols (`src/dmadata/dmadata.c`, `tables/dmadata_table.h`) and the
+  actor/game overlay tables from `SEGMENT_ROM_START(ovl_*)`, so those
+  follow any move. What does not: about **4,400 vrom addresses written as
+  plain numbers in asm data tables** (`.word 0x011E6000`: 1,902 each in
+  `ac_my_room` and `catalog_ovl`, 222 in `ef_effect_control`, 56 in
+  `code/729E40.data.s`...) and ~120 `D_XXXXXX = 0xXXXXXX;` absolutes in
+  `linker_scripts/jp/undefined_syms.ld` (plus splat's `auto/`). Moving any
+  original segment would need all of them symbolic. **Decision: nothing in
+  the original vrom layout moves.** `code` is cut out of its place in the
+  generated linker script and appended after the last segment
+  (`tools/af_relink.py`: `__romPos` pinned to 0x73F4D0 where it was, so
+  every other segment keeps its vrom; the compressed ROM has no hole since
+  compress.py lays out only what dmadata lists). New text banks will be
+  new segments at the end too. Nothing refers to code's vrom but
+  `SEGMENT_ROM_START(code)` in `src/boot/idle.c` (grepped: no numeric
+  reference to 0x675720-0x73F4D0 anywhere).
+- **RAM.** `buffers` is placed at `code_VRAM_END` and the system heap runs
+  from `SEGMENT_VRAM_END(buffers)` to the framebuffer (`src/code/main.c`),
+  so a bigger `code` only shrinks the heap. Pins that broke a 64 KB growth
+  (the game hung at frame 1: the graphics pools were written into code's
+  moved bss): four `D_801524C0_jp`/`gGfxPools`... absolutes in
+  `undefined_syms.ld` (removed; the bss asm defines them) and 22 absolutes
+  splat emits for addresses inside data it gave no label to
+  (`D_80104509_jp` = `D_80104508_jp+1`...), made relative from the matching
+  build's map by `tools/af_relsyms.py`. One `lui` splat had not paired with
+  its `lo` (`B_8011B8B0_jp`, `code/67D890.s`) is paired through
+  `relocs/reloc_addrs-jp.txt`. All of this is byte-neutral: `make verify`
+  stays identical with it, and it is in `matching.patch`.
+- **Compression.** compress.py numbers dmadata entries sorted by vrom while
+  compress_ranges.py numbers them in yaml order; with code last they
+  disagree, so `tools/af_ranges.py` computes the ranges from the map, and
+  `tools/af_dmaorder.py` writes the table back in the table's order. The
+  checksum is recomputed by `tools/rom.py fixcrc`. Nothing in the game
+  reads the table by index (the DMA manager's index functions have no
+  callers).
+- **The first "failure" of the relocated ROM was the test, not the ROM**:
+  see "The route's name-dial detector" above. With the fixed detector the
+  relocated ROM passes the name and town dials like the original; the rest
+  of the route and the grown `code` are being measured (pending at this
+  commit; the result goes here).

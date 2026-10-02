@@ -801,6 +801,31 @@ index c06adbb..d2906f3 100644
  void mMsg_Main(struct Game_Play* game_play);
  void mMsg_Draw(struct Game_Play* game_play);
  // void func_800A4448_jp();
+diff --git a/linker_scripts/jp/undefined_syms.ld b/linker_scripts/jp/undefined_syms.ld
+index b76c1c1..ee822b1 100644
+--- a/linker_scripts/jp/undefined_syms.ld
++++ b/linker_scripts/jp/undefined_syms.ld
+@@ -5658,8 +5658,4 @@ obj_e_koinobori_shadowT_model = 0x06001E48; //
+ 
+ // Buffers
+ 
+-D_801524C0_jp = 0x801524C0; //
+-D_801530C0_jp = 0x801530C0; //
+-D_80153CC0_jp = 0x80153CC0; //
+-gGfxPools = 0x801540C0; //
+ D_801948E0_jp = 0x801948E0; //
+diff --git a/relocs/reloc_addrs-jp.txt b/relocs/reloc_addrs-jp.txt
+index a135725..b2d3344 100644
+--- a/relocs/reloc_addrs-jp.txt
++++ b/relocs/reloc_addrs-jp.txt
+@@ -119,3 +119,7 @@ rom:0x8B137C symbol:Npc_Shop_Master_Profile reloc:MIPS_LO16 addend:-0xB560
+ // has reached the end of the loop.
+ rom:0x8CCCA4 symbol:aSTR_overlay reloc:MIPS_HI16 addend:0x18000
+ rom:0x8CCCA8 symbol:aSTR_overlay reloc:MIPS_LO16 addend:0x18000
++
++// code: a %hi/%lo pair splat does not see as one (the lui is before a branch)
++rom:0x67DA98 symbol:B_8011B8B0_jp reloc:MIPS_HI16
++rom:0x67DADC symbol:B_8011B8B0_jp reloc:MIPS_LO16
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
 new file mode 100644
 index 0000000..03981c7

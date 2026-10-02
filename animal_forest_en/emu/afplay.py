@@ -37,10 +37,14 @@ def menu_open(n64):
 
 
 def name_dial_open(n64):
-    """The name-entry dial: blue ring, yellow pointer below the knob."""
-    r, g, b = pix(n64, 270, 195)
+    """The name-entry dial: blue ring, yellow pointer below the knob.
+    Measured on the cartridge's kana dial and the 2010 patch's: the pointer
+    is at the same place on both; the ring's lighter rim differs (at
+    270,195 the kana dial reads 75,131,195 and the English one 41,57,169),
+    its deep blue at 280,200 does not (67,83,234 on both)."""
+    r, g, b = pix(n64, 280, 200)
     r2, g2, b2 = pix(n64, 320, 205)
-    return b > 140 and r < 80 and g < 90 and r2 > 220 and g2 > 220 and b2 < 80
+    return b > 180 and r < 110 and g < 120 and r2 > 220 and g2 > 220 and b2 < 80
 
 
 def dark_fraction(n64):
