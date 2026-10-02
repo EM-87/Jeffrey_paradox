@@ -73,6 +73,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   calling a function done.
 - **A shared header change can reorder another file's bss under IDO**
   (see NOTES). Keep new types local to the file that needs them.
+- **Truth-valued functions return `int`** (`s32` is `long` to IDO and
+  adds a temporary), and **declarations shape code under `-g3`**: which
+  block a local is declared in, and the order, change branches and the
+  stack frame (NOTES, "Matching notes").
 - **C that does not match goes behind `#ifdef NON_MATCHING`** with the
   GLOBAL_ASM in the `#else` (`tools/af_wrap.py`); the matching patch must
   build the cartridge.

@@ -194,10 +194,26 @@ Measured on its ROM (`tools/nafe_diff.py` and the bank itself):
 
 - IDO 7.1 `-O2 -g3`, like all of `code/` (IDO 5.3 gives 55/64, `-O2`
   alone 27/64 on the first 64 functions).
-- `return A && B;` here compiles with the result in v0 directly; written
-  that way in C it goes through a temporary. Three such functions are still
-  NON_MATCHING (the permuter only matched one with a `volatile` return type,
-  which is not accepted).
+- **Functions returning a truth value are `int`, not `s32`.** `s32` is
+  `long` to IDO, and `return A && B;` in a `long` function goes through a
+  temporary (the comparison is `int`, then converted): the result lands in
+  v1 and is moved to v0. Declared `int`, it is computed in v0, as the
+  cartridge has it (m_bgm.c in the decomp does the same). This was the
+  whole difference in four functions held back as NON_MATCHING.
+- **Under `-g3`, a block that declares something is laid out apart.** An
+  `if` branch with a declaration in it (even an `extern`) gets its own exit
+  (the `move v0,v1` duplicated per branch, a load not hoisted above the
+  branch). The GameCube source's block-local `static` tables (`mode_table`
+  in `mMsg_sound_voice_mode_get`) are such declarations; while the table
+  stays in the asm data, an `extern` in the block reproduces it
+  (func_8009FC5C_jp).
+- **Which locals are declared at function scope, and in what order, sets
+  the stack frame.** func_8009F8AC_jp matched only with `data`, `npcId`,
+  `voice` at function scope in that order and the voice mode in its block
+  (the frame and the spill slot of `voice` both depend on it). A bench for
+  trying such layouts quickly: compile one function alone with
+  `tools/ido/linux/7.1/cc -c -G 0 -non_shared -Xcpluscomm -Wab,-r4300_mul
+  -mips2 -EB -O2 -g3` and minimal types, and compare with `expected/`.
 - **Adding a type to a shared header can reorder another file's bss**
   (IDO): a `struct HandOverItemClip` definition in `m_clip.h` swapped
   `l_fossil_block` and `l_haniwa_block` in `m_all_grow.o`. Only the

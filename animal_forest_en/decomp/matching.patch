@@ -27,11 +27,26 @@ index 2c5d2ac..f1c04ef 100644
      /* 0x08C */ struct StructureClip* structureClip; 
      /* 0x090 */ Clip_unk_090* unk_090;
      /* 0x094 */ struct ToolClip* toolClip;
+diff --git a/include/m_common_data.h b/include/m_common_data.h
+index 5223795..a920508 100644
+--- a/include/m_common_data.h
++++ b/include/m_common_data.h
+@@ -97,7 +97,9 @@ typedef struct Save {
+     /* 0x0EF64 */ UNK_TYPE1 unk_0EF64[0x4B8];
+     /* 0x0F41C */ SnowmanData snowmanData[SNOWMAN_SAVE_COUNT];
+     /* 0x0F428 */ u64 melody;
+-    /* 0x0F430 */ UNK_TYPE1 unk_F430[0x4];
++    /* 0x0F430 */ UNK_TYPE1 unk_F430;
++    /* 0x0F431 */ u8 voiceMode; // 2: silent (m_msg_main.c); "config.voice_mode" in AC GCN decomp
++    /* 0x0F432 */ UNK_TYPE1 unk_F432[0x2];
+     /* 0x0F434 */ lbRTC_ymd_t renewTime;
+     /* 0x0F438 */ u8 stationType;
+     /* 0x0F439 */ u8 saveWeather;
 diff --git a/include/m_msg_main.h b/include/m_msg_main.h
-index c06adbb..9ddf56c 100644
+index c06adbb..828a742 100644
 --- a/include/m_msg_main.h
 +++ b/include/m_msg_main.h
-@@ -4,104 +4,259 @@
+@@ -4,104 +4,270 @@
  #include "ultra64.h"
  #include "unk.h"
  #include "m_choice_main.h"
@@ -89,6 +104,10 @@ index c06adbb..9ddf56c 100644
 +#define mMsg_CODE_MSG_TIME_END 0x58
 +#define mMsg_CODE_SOUND_TRG_SYS 0x59
 +
++/* Status flags, numbered as the GameCube's (those traced so far). */
++#define mMsg_STATUS_FLAG_SOUND_CUT (1 << 0) /* func_8009F8AC_jp */
++#define mMsg_STATUS_FLAG_SPEC_VOICE (1 << 4) /* func_8009FCE0_jp */
++#define mMsg_STATUS_FLAG_VOICE_ENTRY (1 << 5) /* func_8009F830_jp */
 +#define mMsg_STATUS_FLAG_IDLING_REQ (1 << 6)
 +#define mMsg_STATUS_FLAG_IDLING_NOW (1 << 7)
 +
@@ -176,7 +195,14 @@ index c06adbb..9ddf56c 100644
 +    /* 0x1AC */ s32 nowDisplayLine;
      /* 0x1B0 */ Choice choiceWindow;
 -} MessageWindow; // size >= 0x26C
-+    /* 0x26C */ UNK_TYPE1 unk_26C[0x280 - 0x26C];
++    /* 0x26C */ UNK_TYPE1 unk_26C[0x4];
++    /* 0x270 */ u16 unk_270;
++    /* 0x272 */ s16 voiceNpcId; /* the speaker's voice (func_8009F800_jp) */
++    /* 0x274 */ s32 voiceTextIdx; /* where in the text the voice was entered */
++    /* 0x278 */ u8 voiceNo; /* the sound for that character (func_8009F75C_jp) */
++    /* 0x279 */ s8 unk_279;
++    /* 0x27A */ UNK_TYPE1 unk_27A[0x2];
++    /* 0x27C */ s32 spec; /* the sound spec set for the speaker's voice */
 +    /* 0x280 */ u8 freeStrColorIdx[3]; /* for free strings 1, 2 and 5 */
 +    /* 0x283 */ UNK_TYPE1 unk_283[0x28C - 0x283];
 +    /* 0x28C */ u32 statusFlags; /* mMsg_STATUS_FLAG_ */
@@ -276,7 +302,7 @@ index c06adbb..9ddf56c 100644
 -// void func_8009E6D4_jp();
 -// void func_8009E6F8_jp();
 +s32 func_8009D274_jp(MessageWindow* msg);
-+s32 mMsg_Check_not_series_main_wait(MessageWindow* msg);
++int mMsg_Check_not_series_main_wait(MessageWindow* msg);
 +s32 mMsg_Check_main_hide(MessageWindow* msg);
 +void func_8009D308_jp(MessageWindow* msg, struct Actor* actor, s32 showName);
 +s32 func_8009D3B4_jp(void);
@@ -300,7 +326,7 @@ index c06adbb..9ddf56c 100644
 +void mMsg_Set_mail_str(MessageWindow* msg, s32 mailStrNo, char* str, s32 strLen);
 +void func_8009DBA4_jp(MessageWindow* msg, s32 msgNo);
 +s32 func_8009DBB0_jp(MessageWindow* msg);
-+s32 func_8009DBE0_jp(void);
++int func_8009DBE0_jp(void);
 +s32 func_8009DC04_jp(MessageWindow* msg, s32 idx);
 +s32 func_8009DC2C_jp(u8* data, s32 start, s32 length, u8 code);
 +s32 func_8009DCD0_jp(u8* data, s32 idx);
@@ -324,7 +350,7 @@ index c06adbb..9ddf56c 100644
 +void func_8009E118_jp(MessageWindow* msg, s32 idx, s32* bgmType, s32* stopType);
 +s32 func_8009E144_jp(u8* data, s32 idx);
 +s32 func_8009E17C_jp(MessageWindow* msg, s32 idx);
-+s32 func_8009E1A4_jp(u8* data, s32 idx);
++int func_8009E1A4_jp(u8* data, s32 idx);
 +s32 func_8009E1D0_jp(MessageWindow* msg, s32 idx);
 +s32 func_8009E1F8_jp(MessageWindow* msg);
 +void func_8009E218_jp(u8* data, s32 idx, s32* seNo);
@@ -378,7 +404,7 @@ index c06adbb..9ddf56c 100644
  s32 mMsg_CopyPlayerName(char*, s32, s32);
  s32 mMsg_CopyTalkName(struct Actor*, char*, s32, s32);
  s32 mMsg_CopyTail(struct Actor*, char*, s32, s32);
-@@ -113,7 +268,7 @@ s32 mMsg_CopyHour(char*, s32, s32);
+@@ -113,36 +279,36 @@ s32 mMsg_CopyHour(char*, s32, s32);
  s32 mMsg_CopyMin(char*, s32, s32);
  s32 mMsg_CopySec(char*, s32, s32);
  s32 mMsg_CopyFree(MessageWindow*, s32, char*, s32, s32);
@@ -387,24 +413,66 @@ index c06adbb..9ddf56c 100644
  s32 mMsg_CopyDetermination(MessageWindow*, char*, s32, s32);
  s32 mMsg_CopyCountryName(char*,s32,s32);
  s32 mMsg_CopyRamdomNumber2(char*,s32,s32);
-@@ -131,9 +286,9 @@ s32 mMsg_CopyItem(MessageWindow*, s32, char*, s32, s32);
- // void func_8009F9F8_jp();
- // void func_8009FA18_jp();
- // void func_8009FA38_jp();
+ s32 mMsg_CopyItem(MessageWindow*, s32, char*, s32, s32);
+-// void func_8009F670_jp();
+-// void func_8009F730_jp();
+-// void func_8009F75C_jp();
+-// void func_8009F790_jp();
+-// void func_8009F7CC_jp();
+-// void func_8009F800_jp();
+-// void func_8009F830_jp();
+-// void func_8009F864_jp();
+-// void func_8009F8AC_jp();
+-// void func_8009F9D8_jp();
+-// void func_8009F9F8_jp();
+-// void func_8009FA18_jp();
+-// void func_8009FA38_jp();
 -// void func_8009FA58_jp();
-+void func_8009FA58_jp(f32 timer);
- // void func_8009FAD4_jp();
+-// void func_8009FAD4_jp();
 -// void func_8009FB2C_jp();
+-// void func_8009FB54_jp();
+-// void func_8009FBD8_jp();
+-// void func_8009FC2C_jp();
+-// void func_8009FC5C_jp();
+-// void func_8009FCB8_jp();
+-// void func_8009FCE0_jp();
+-void mMsg_sound_spec_change_voice(UNK_PTR arg0);
+-// void func_8009FD80_jp();
+-// void func_8009FDA0_jp();
++s32 func_8009F670_jp(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len);
++s32 func_8009F730_jp(s32 code);
++s32 func_8009F75C_jp(s32 code);
++int func_8009F790_jp(MessageWindow* msg);
++int func_8009F7CC_jp(MessageWindow* msg);
++s32 func_8009F800_jp(MessageWindow* msg);
++void func_8009F830_jp(MessageWindow* msg, s32 idx, u8 voiceNo, s16 npcId);
++void func_8009F864_jp(MessageWindow* msg);
++int func_8009F8AC_jp(MessageWindow* msg, s32 idx);
++void func_8009F9D8_jp(void);
++void func_8009F9F8_jp(void);
++void func_8009FA18_jp(void);
++void func_8009FA38_jp(void);
++void func_8009FA58_jp(f32 timer);
++void func_8009FAD4_jp(void);
 +void func_8009FB2C_jp(u8 status);
- // void func_8009FB54_jp();
- // void func_8009FBD8_jp();
- // void func_8009FC2C_jp();
++void func_8009FB54_jp(s32 bgmNo, s32 stopType);
++void func_8009FBD8_jp(s32 bgmNo, s32 stopType);
++void func_8009FC2C_jp(s32 seNo);
++u8 func_8009FC5C_jp(MessageWindow* msg);
++void func_8009FCB8_jp(MessageWindow* msg);
++void func_8009FCE0_jp(MessageWindow* msg);
++s32 mMsg_sound_spec_change_voice(MessageWindow* msg);
++void func_8009FD80_jp(MessageWindow* msg);
++void func_8009FDA0_jp(MessageWindow* msg);
+ // void func_8009FDF8_jp();
+ // void func_8009FE4C_jp();
+ // void func_8009FE6C_jp();
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
 new file mode 100644
-index 0000000..6f6d321
+index 0000000..3715070
 --- /dev/null
 +++ b/src/code/m_msg_main.c
-@@ -0,0 +1,1628 @@
+@@ -0,0 +1,1798 @@
 +#include "global.h"
 +#include "m_msg_main.h"
 +#include "m_choice_main.h"
@@ -416,6 +484,8 @@ index 0000000..6f6d321
 +#include "m_land.h"
 +#include "m_lib.h"
 +#include "m_private_internals.h"
++#include "audio.h"
++#include "m_bgm.h"
 +
 +/* common_data.clip.handOverItemClip (m_clip.h leaves it incomplete: a new
 + * type there reorders other files' bss under IDO) */
@@ -431,6 +501,11 @@ index 0000000..6f6d321
 +extern u8 D_80107B78_jp[][3]; /* the colours free strings 1, 2 and 5 can take */
 +extern u8 D_80107B88_jp[6]; /* 0x7F, colour code, r, g, b, length: a coloured free string */
 +extern u8 D_CF9000[]; /* ROM: the message index */
++extern u8 D_80107B90_jp[]; /* the voice sound of each character */
++extern u8 D_80107C90_jp; /* the message speed last given to the audio driver */
++extern u8 D_80107C94_jp[mMsg_BGM_NUM]; /* the songs a message can start */
++extern u16 D_80107C9C_jp[mMsg_BGM_STOP_TYPE_NUM]; /* how they stop */
++extern u16 D_80107CA4_jp[mMsg_SE_NUM]; /* the sound effects a message can play */
 +
 +
 +MessageWindow* mMsg_Get_base_window_p(void) {
@@ -460,14 +535,10 @@ index 0000000..6f6d321
 +    return mMsg_Check_main_index(msg, mMsg_INDEX_WAIT);
 +}
 +
-+#ifdef NON_MATCHING
-+s32 mMsg_Check_not_series_main_wait(MessageWindow* msg) {
++int mMsg_Check_not_series_main_wait(MessageWindow* msg) {
 +    return !(mMsg_Check_main_index(msg, mMsg_INDEX_WAIT) || mMsg_Check_main_index(msg, mMsg_INDEX_APPEAR_WAIT) ||
 +             mMsg_Check_main_index(msg, mMsg_INDEX_DISAPPEAR_WAIT));
 +}
-+#else
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/mMsg_Check_not_series_main_wait.s")
-+#endif
 +
 +s32 mMsg_Check_main_hide(MessageWindow* msg) {
 +    return mMsg_Check_main_index(msg, mMsg_INDEX_HIDE);
@@ -743,13 +814,9 @@ index 0000000..6f6d321
 +    return -1;
 +}
 +
-+#ifdef NON_MATCHING
-+s32 func_8009DBE0_jp(void) {
++int func_8009DBE0_jp(void) {
 +    return common_data.clip.handOverItemClip != NULL && common_data.clip.handOverItemClip->masterActor != NULL;
 +}
-+#else
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009DBE0_jp.s")
-+#endif
 +
 +s32 func_8009DC04_jp(MessageWindow* msg, s32 idx) {
 +    return func_800903A8_jp(msg->msgData->text, idx);
@@ -972,15 +1039,11 @@ index 0000000..6f6d321
 +    return func_8009E144_jp(msg->msgData->text, idx);
 +}
 +
-+#ifdef NON_MATCHING
-+s32 func_8009E1A4_jp(u8* data, s32 idx) {
++int func_8009E1A4_jp(u8* data, s32 idx) {
 +    u8* codeP = &data[idx];
 +
 +    return (codeP[0] == mMsg_CHAR_CONTROL && codeP[1] == mMsg_CODE_MSG_TIME_END);
 +}
-+#else
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009E1A4_jp.s")
-+#endif
 +
 +s32 func_8009E1D0_jp(MessageWindow* msg, s32 idx) {
 +    return func_8009E1A4_jp(msg->msgData->text, idx);
@@ -1596,55 +1659,230 @@ index 0000000..6f6d321
 +    }
 +}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F670_jp.s")
++s32 func_8009F670_jp(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len) {
++    if (strNo < 0 || strNo >= mMsg_MAIL_STR_NUM) {
++        strNo = 0;
++    }
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F730_jp.s")
++    {
++        s32 commandLen;
++        char* freeStr;
++        s32 freeStrLen;
++        s32 newLen;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F75C_jp.s")
++        commandLen = func_800903A8_jp((u8*)data, startIdx);
++        freeStr = (char*)msg->mailStr[strNo];
++        freeStrLen = mMsg_Get_Length_String(freeStr, mMsg_MAIL_STRING_LEN);
++        newLen = func_8009EA2C_jp(data, startIdx + freeStrLen, startIdx + commandLen, len, TRUE);
++        func_8009EB44_jp(&data[startIdx], freeStr, freeStrLen);
++        return newLen;
++    }
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F790_jp.s")
++/* The sound each character makes as it is typed out (voice_get in AC GCN). */
++s32 func_8009F730_jp(s32 code) {
++    if (code == mMsg_CHAR_CONTROL || code == 0x80) {
++        return -1;
++    }
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F7CC_jp.s")
++    return D_80107B90_jp[code];
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F800_jp.s")
++s32 func_8009F75C_jp(s32 code) {
++    if (code == mMsg_CHAR_NEW_LINE) {
++        return 0x53;
++    }
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F830_jp.s")
++    return func_8009F730_jp(code);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F864_jp.s")
++/* Messages spoken in a special voice: the start and end of events. */
++int func_8009F790_jp(MessageWindow* msg) {
++    s32 msgNo = msg->msgData->msgNo;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F8AC_jp.s")
++    return (msgNo >= 0x1743 && msgNo <= 0x1756) || (msgNo >= 0x1799 && msgNo <= 0x17AC);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F9D8_jp.s")
++int func_8009F7CC_jp(MessageWindow* msg) {
++    return msg->showActorName || func_8009F790_jp(msg);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F9F8_jp.s")
++s32 func_8009F800_jp(MessageWindow* msg) {
++    s32 id = 0;
++    Actor* actor = msg->clientActor;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FA18_jp.s")
++    if (actor != NULL && actor->part == ACTOR_PART_NPC) {
++        id = ((Npc*)actor)->voiceId;
++    }
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FA38_jp.s")
++    return id;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FA58_jp.s")
++void func_8009F830_jp(MessageWindow* msg, s32 idx, u8 voiceNo, s16 npcId) {
++    msg->voiceTextIdx = idx;
++    msg->voiceNo = voiceNo;
++    msg->voiceNpcId = npcId;
++    msg->statusFlags |= mMsg_STATUS_FLAG_VOICE_ENTRY;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FAD4_jp.s")
++void func_8009F864_jp(MessageWindow* msg) {
++    sAdo_VoiceSe(0x53, func_8009F800_jp(msg), 0x20);
++    msg->statusFlags &= ~mMsg_STATUS_FLAG_VOICE_ENTRY;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FB2C_jp.s")
++int func_8009F8AC_jp(MessageWindow* msg, s32 idx) {
++    u8* data = msg->msgData->text;
++    s32 npcId;
++    s32 voice = func_8009F75C_jp(data[idx]);
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FB54_jp.s")
++    if (voice < 0) {
++        return FALSE;
++    } else if (msg->statusFlags & mMsg_STATUS_FLAG_SOUND_CUT) {
++        s32 voiceMode = common_data.save.voiceMode;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FBD8_jp.s")
++        if (voiceMode != 2) {
++            sAdo_SysTrgStart(0x54);
++        }
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FC2C_jp.s")
++        func_8009F864_jp(msg);
++        return FALSE;
++    } else {
++        npcId = (voice == 0x54) ? 0 : func_8009F800_jp(msg);
++        func_8009F830_jp(msg, idx, voice, npcId);
++        return voice != 0x55 && voice != 0x50 && voice != 0x4E && voice != 0x4F && voice != 0x52 && voice != 0x54;
++    }
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FC5C_jp.s")
++void func_8009F9D8_jp(void) {
++    sAdo_SysTrgStart(0xB);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FCB8_jp.s")
++void func_8009F9F8_jp(void) {
++    sAdo_SysTrgStart(4);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FCE0_jp.s")
++void func_8009FA18_jp(void) {
++    sAdo_SysTrgStart(5);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/mMsg_sound_spec_change_voice.s")
++void func_8009FA38_jp(void) {
++    sAdo_SysTrgStart(0x15);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FD80_jp.s")
++void func_8009FA58_jp(f32 timer) {
++    u8 speed = (s32)timer;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FDA0_jp.s")
++    speed++;
++
++    if (speed > 0) {
++        if (sAdo_MessageSpeedGet() != speed) {
++            sAdo_MessageSpeed(speed);
++        }
++
++        D_80107C90_jp = speed;
++    } else {
++        sAdo_MessageSpeed(1);
++        D_80107C90_jp = 1;
++    }
++}
++
++void func_8009FAD4_jp(void) {
++    if (D_80107C90_jp != 1) {
++        D_80107C90_jp = 1;
++    } else if (sAdo_MessageSpeedGet() != 1) {
++        sAdo_MessageSpeed(1);
++    }
++}
++
++void func_8009FB2C_jp(u8 status) {
++    sAdo_MessageStatus(status);
++}
++
++void func_8009FB54_jp(s32 bgmNo, s32 stopType) {
++    if (bgmNo == 0) {
++        mBGMPsComp_make_ps_quiet(D_80107C9C_jp[stopType]);
++    } else if (bgmNo == 6) {
++        mBGMPsComp_make_ps_fc_quietField(D_80107C9C_jp[stopType]);
++    } else {
++        mBGMPsComp_make_ps_demo(D_80107C94_jp[bgmNo], D_80107C9C_jp[stopType]);
++    }
++}
++
++void func_8009FBD8_jp(s32 bgmNo, s32 stopType) {
++    if (bgmNo == 0) {
++        mBGMPsComp_delete_ps_quiet();
++    } else {
++        mBGMPsComp_delete_ps_demo(D_80107C94_jp[bgmNo], D_80107C9C_jp[stopType]);
++    }
++}
++
++void func_8009FC2C_jp(s32 seNo) {
++    sAdo_SysTrgStart(D_80107CA4_jp[seNo]);
++}
++
++u8 func_8009FC5C_jp(MessageWindow* msg) {
++    s32 modeType = common_data.save.voiceMode;
++    u8 mode;
++
++    if (func_8009F7CC_jp(msg)) {
++        /* A static table here in AC GCN (mode_table); declared in this block
++         * because the block's scope shapes the code (IDO -g3). */
++        extern u8 D_80107CB4_jp[];
++
++        mode = D_80107CB4_jp[modeType];
++    } else if (modeType == 2) {
++        mode = 2;
++    } else {
++        mode = 1;
++    }
++
++    return mode;
++}
++
++void func_8009FCB8_jp(MessageWindow* msg) {
++    sAdo_SetVoiceMode(func_8009FC5C_jp(msg));
++}
++
++void func_8009FCE0_jp(MessageWindow* msg) {
++    s32 spec;
++
++    if (func_8009F790_jp(msg)) {
++        spec = 4;
++    } else {
++        spec = mNpc_GetNpcSoundSpec(msg->clientActor);
++    }
++
++    sAdo_SpecChange(spec);
++    msg->statusFlags |= mMsg_STATUS_FLAG_SPEC_VOICE;
++    msg->spec = spec;
++}
++
++s32 mMsg_sound_spec_change_voice(MessageWindow* msg) {
++    if (func_8009FC5C_jp(msg) == 0) {
++        func_8009FCE0_jp(msg);
++        return TRUE;
++    }
++
++    return FALSE;
++}
++
++void func_8009FD80_jp(MessageWindow* msg) {
++    if (msg->statusFlags & mMsg_STATUS_FLAG_SPEC_VOICE) {
++        msg->statusFlags &= ~mMsg_STATUS_FLAG_SPEC_VOICE;
++    }
++}
++
++void func_8009FDA0_jp(MessageWindow* msg) {
++    Actor* actor = msg->clientActor;
++
++    if (actor != NULL && actor->part == ACTOR_PART_NPC) {
++        u16 fgName = actor->fgName;
++
++        if (fgName == 0xD026 || fgName == 0xD037) {
++            sAdo_SpecChange(msg->spec);
++        }
++    }
++}
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FDF8_jp.s")
 +
@@ -2033,6 +2271,21 @@ index 0000000..6f6d321
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A524C_jp.s")
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A5460_jp.s")
+diff --git a/src/overlays/actors/ovl_Npc/ac_npc.h b/src/overlays/actors/ovl_Npc/ac_npc.h
+index 81ac120..f656590 100644
+--- a/src/overlays/actors/ovl_Npc/ac_npc.h
++++ b/src/overlays/actors/ovl_Npc/ac_npc.h
+@@ -23,7 +23,9 @@ typedef struct Npc {
+     /* 0x708 */ s32 unk_708;
+     /* 0x70C */ UNK_TYPE1 unk_70C[0x1E4];
+     /* 0x8F0 */ ClObjPipe collider;
+-    /* 0x90C */ UNK_TYPE1 unk_90C[0x30];
++    /* 0x90C */ UNK_TYPE1 unk_90C[0x24];
++    /* 0x930 */ s32 voiceId; // "talk_info.npc_voice_id" in AC GCN decomp
++    /* 0x934 */ UNK_TYPE1 unk_934[0x8];
+ } Npc; // size = 0x93C
+ 
+ #endif
 diff --git a/yamls/jp/code.yaml b/yamls/jp/code.yaml
 index c052055..33d2b39 100644
 --- a/yamls/jp/code.yaml
