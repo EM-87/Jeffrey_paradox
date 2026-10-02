@@ -187,6 +187,24 @@ Measured on its ROM (`tools/nafe_diff.py` and the bank itself):
   museum's mail record, `mMsm_*`). It also passes the full length on to
   `mChoice_Add_choice_data`, whose slots are 10 bytes too. Real memory
   corruption, measured; **not proven** to be the hang people report.
+- **The grown mail-text tables** (vroms 0xD10000 body, 0xD12000 header,
+  0xD15000 footer; `m_handbill`'s `func_80093878/5F8/738_jp` locate an
+  entry, `func_80093DA8/B28/C98_jp` load it) do **not** overflow. The
+  originals refuse an entry past 0x220 or longer than 105/14/19 bytes; the
+  patch allows 0x3D6 entries of 104/24/32 bytes (its locator at 0x800C3E54
+  takes the limit as an argument). The body is DMA'd into `B_80140748_jp`
+  (0x78 bytes; the largest aligned transfer, 112, fits) and copied into the
+  96-byte `MailContent.body` through a `< 96` clamp; the header goes
+  through a 23-byte stack buffer and a copy clamped to the caller's size;
+  the footer's copy had no clamp in the original (16-byte field, 19-byte
+  limit) and the patch *added* one (`min(size, len)`). The hypothesis above
+  ("where those grown tables are loaded into RAM buffers sized for the
+  original") is dropped: every loader reads one entry at a time.
+- **Verdict so far:** the message buffer, the mail text and the name
+  fields hold; the one measured corruption is the choice strings (above),
+  inside the 6,784-byte block the patch wrote over the cursor's handlers
+  (`func_800A05A8_jp` on; now `func_800A0DF4_jp` in C). Our translation
+  will size that array from the strings, not the other way round.
 - Its notes claim 8-byte names "wherever they may be used"; the save
   structures hold 6 (player and town names in `PersonalID_c`). Unchecked.
 
