@@ -1,0 +1,18 @@
+diff --git a/src/core/n64video/vi.c b/src/core/n64video/vi.c
+index 6c0a803..7683525 100644
+--- a/src/core/n64video/vi.c
++++ b/src/core/n64video/vi.c
+@@ -159,6 +159,13 @@ static void vi_process_full_parallel(uint32_t worker_id)
+ 
+         struct n64video_pixel* pixel_row = &prescale[prescale_ptr + linecount * y];
+ 
++        /* animal_forest_en/emu: the gamma dither's noise from a seed fixed
++         * per line, so the picture depends only on RDRAM and the VI
++         * registers. Per worker it hung on which lines a worker drew
++         * before, and on nothing a savestate keeps. The hardware's noise is
++         * random, so one seed is as faithful as another. */
++        state[worker_id].vi_rseed = 3 + (uint32_t)y * 13;
++
+         yfrac = (curry >> 5) & 0x1f;
+         pixels = vi_width_low * prevy;
+         nextpixels = vi_width_low + pixels;

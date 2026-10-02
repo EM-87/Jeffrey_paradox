@@ -1,0 +1,150 @@
+diff --git a/src/api/api_export.ver b/src/api/api_export.ver
+index 289adf2..55405c0 100644
+--- a/src/api/api_export.ver
++++ b/src/api/api_export.ver
+@@ -1,4 +1,6 @@
+ { global:
++HeadlessClockVis;
++HeadlessFixClock;
+ ConfigExternalGetParameter;
+ ConfigExternalOpen;
+ ConfigExternalClose;
+diff --git a/src/backends/clock_ctime_plus_delta.c b/src/backends/clock_ctime_plus_delta.c
+index f4b1492..eaa43e1 100644
+--- a/src/backends/clock_ctime_plus_delta.c
++++ b/src/backends/clock_ctime_plus_delta.c
+@@ -21,8 +21,32 @@
+ 
+ #include "clock_ctime_plus_delta.h"
+ 
++#include "api/m64p_types.h"
++
+ #include <time.h>
+ 
++/* Headless runs (animal_forest_en/emu): a clock that starts where the
++ * frontend says and advances with emulated time, 60 VIs to the second, so
++ * the same inputs see the same date on every run. */
++static long long l_fixed_clock_base = -1;
++unsigned int g_fixed_clock_vis;
++
++EXPORT void CALL HeadlessFixClock(long long base, unsigned int vis)
++{
++    l_fixed_clock_base = base;
++    g_fixed_clock_vis = vis;
++}
++
++int headless_clock_fixed(void)
++{
++    return l_fixed_clock_base >= 0;
++}
++
++EXPORT unsigned int CALL HeadlessClockVis(void)
++{
++    return g_fixed_clock_vis;
++}
++
+ 
+ time_t ctime_plus_delta_get_time(void* clock)
+ {
+@@ -30,6 +54,9 @@ time_t ctime_plus_delta_get_time(void* clock)
+         ? 0
+         : *(time_t*)clock;
+ 
++    if (l_fixed_clock_base >= 0)
++        return user_delta + (time_t)(l_fixed_clock_base + g_fixed_clock_vis / 60);
++
+     return user_delta + time(NULL);
+ }
+ 
+diff --git a/src/main/main.c b/src/main/main.c
+index 87dab35..566a08d 100644
+--- a/src/main/main.c
++++ b/src/main/main.c
+@@ -946,6 +946,18 @@ static void video_plugin_render_callback(int bScreenRedrawn)
+     }
+ }
+ 
++/* For savestates (savestates.c): the frame number goes in the state, so a
++ * loaded state counts frames from where it was saved. */
++unsigned int headless_get_frame(void)
++{
++    return l_CurrentFrame;
++}
++
++void headless_set_frame(unsigned int frame)
++{
++    l_CurrentFrame = frame;
++}
++
+ void new_frame(void)
+ {
+     if (g_FrameCallback != NULL)
+@@ -1063,8 +1075,13 @@ static void pause_loop(void)
+ 
+ /* called on vertical interrupt.
+  * Allow the core to perform various things */
++extern unsigned int g_fixed_clock_vis;
++int headless_clock_fixed(void);
++
+ void new_vi(void)
+ {
++    g_fixed_clock_vis++;
++
+ #if defined(PROFILE)
+     timed_sections_refresh();
+ #endif
+@@ -1617,7 +1634,9 @@ m64p_error main_run(void)
+     }
+ 
+     /* Seed MPK ID gen using current time */
+-    uint64_t mpk_seed = !netplay_is_init() ? (uint64_t)time(NULL) : 0;
++    /* A fixed clock (HeadlessFixClock) wants the same Controller Pak on
++     * every run too, as netplay does. */
++    uint64_t mpk_seed = (!netplay_is_init() && !headless_clock_fixed()) ? (uint64_t)time(NULL) : 0;
+     l_mpk_idgen = xoshiro256pp_seed(mpk_seed);
+ 
+     /* take the r4300 emulator mode from the config file at this point and cache it in a global variable */
+diff --git a/src/main/savestates.c b/src/main/savestates.c
+index 646abb0..7048e0e 100644
+--- a/src/main/savestates.c
++++ b/src/main/savestates.c
+@@ -59,6 +59,15 @@ enum { DD_DISK_ID_OFFSET = 0x43670 };
+ 
+ static const char* savestate_magic = "M64+SAVE";
+ static const int savestate_latest_version = 0x00010900;  /* 1.9 */
++
++/* animal_forest_en/emu: the fixed clock's VI count and the frame number,
++ * kept in the spare room of the extra-state area. The RTC in the state
++ * remembers the time it last read; without the count it would jump on
++ * load. An unpatched core leaves these bytes zero and never reads them. */
++#define HEADLESS_STATE_MAGIC 0x484c434bu /* "HLCK" */
++extern unsigned int g_fixed_clock_vis;
++unsigned int headless_get_frame(void);
++void headless_set_frame(unsigned int frame);
+ static const unsigned char pj64_magic[4] = { 0xC8, 0xA6, 0xD8, 0x23 };
+ 
+ static savestates_job job = savestates_job_nothing;
+@@ -877,6 +886,12 @@ static int savestates_load_m64p(struct device* dev, char *filepath)
+             /* extra cp0 and cp2 state */
+             *r4300_cp0_latch(&dev->r4300.cp0) = GETDATA(curr, uint64_t);
+             *r4300_cp2_latch(&dev->r4300.cp2) = GETDATA(curr, uint64_t);
++
++            if (GETDATA(curr, uint32_t) == HEADLESS_STATE_MAGIC)
++            {
++                g_fixed_clock_vis = GETDATA(curr, uint32_t);
++                headless_set_frame(GETDATA(curr, uint32_t));
++            }
+         }
+     }
+     else
+@@ -1916,6 +1931,10 @@ static int savestates_save_m64p(const struct device* dev, char *filepath)
+     PUTDATA(curr, uint64_t, *r4300_cp0_latch((struct cp0*)&dev->r4300.cp0));
+     PUTDATA(curr, uint64_t, *r4300_cp2_latch((struct cp2*)&dev->r4300.cp2));
+ 
++    PUTDATA(curr, uint32_t, HEADLESS_STATE_MAGIC);
++    PUTDATA(curr, uint32_t, g_fixed_clock_vis);
++    PUTDATA(curr, uint32_t, headless_get_frame());
++
+     init_work(&save->work, savestates_save_m64p_work);
+     queue_work(&save->work);
+ 

@@ -1,0 +1,14 @@
+# Everything built or extracted: the decomp checkout, the emulator, ROMs.
+build/
+__pycache__/
+
+# Nothing from Nintendo goes in this repository: no ROM, no disc image, no
+# text or graphics taken from either. What we hand out is a patch.
+*.z64
+*.n64
+*.v64
+*.iso
+*.gcm
+*.rvz
+*.ups
+*.xdelta

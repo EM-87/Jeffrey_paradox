@@ -1,0 +1,47 @@
+# Animal Forest (N64) in English: the checks that need no cartridge dump.
+#
+# Building the ROM, `make verify` and `make emu-check` need the user's dump
+# of Doubutsu no Mori, which is not in this repository and must not be. What
+# runs here is the tools' own tests (byte orders, the header CRC against
+# ipl3checksum's vector, UPS, the emulator frontend's helpers) and the
+# headless emulator's build from its pinned sources.
+name: animal-forest-en
+
+on:
+  push:
+    paths:
+      - "animal_forest_en/**"
+      - ".github/workflows/animal-forest-en.yml"
+  pull_request:
+    paths:
+      - "animal_forest_en/**"
+      - ".github/workflows/animal-forest-en.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: animal_forest_en
+
+jobs:
+  tools:
+    name: Tools (no ROM)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: make test
+        run: make test
+
+  emu:
+    name: Headless emulator build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencies
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y -o Acquire::Retries=3 libsdl2-dev libpng-dev zlib1g-dev
+      - name: make emu
+        run: make emu
