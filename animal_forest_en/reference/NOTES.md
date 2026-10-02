@@ -218,6 +218,13 @@ Measured on its ROM (`tools/nafe_diff.py` and the bank itself):
   `or` the other way round); a character tested once needed a local
   (`u8 c = data[idx];`); the length growth in func_8009EA2C_jp a local of
   its own.
+- **Statement order is the GameCube's even when the stores are not**: IDO
+  sinks a store to the end of a run of stores to the same base, so
+  `msg->mainData.savedMainIndex = requestData->value;` written first (as
+  the GameCube has it) is stored last on the cartridge, and written last it
+  takes other registers (func_800A289C_jp and its siblings).
+- `x = x | y` and `x |= y` on a `u16` array element compile differently
+  (func_800A0BB4_jp needed the former).
 - **A fake match, when nothing natural is found, is marked as the decomp
   marks them**: `if (1) {} //! FAKE` (func_8009FFB0_jp: it splits a
   `default:` block so that the switch is laid out as on the cartridge).
