@@ -78,8 +78,12 @@ make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010, para estudi
   un savestate cargado repite los mismos frames, píxeles y RAM.
 - `make nafe` reconstruye el ROM del AF Project desde tu volcado y lo
   verifica contra la huella que tiene registrada mupen64plus. Arranca y se
-  juega en el emulador. Siguiente paso: reproducir su cuelgue y ver qué
-  memoria pisa.
+  juega: la intro, los nombres, la llegada, Nook y las casas funcionan
+  (`tools/route_newgame.py` hace ese recorrido solo). Su cuelgue, según se
+  cuenta, aparece en momentos distintos y a veces tras días de juego: no
+  se busca jugando sino comparando. `tools/nafe_diff.py` lista, archivo por
+  archivo y función por función, todo lo que cambió el parche
+  (`reference/NOTES.md`).
 
 Lo que viene: pasar el sistema de mensajes (`m_msg_main`) a C usando el de
 GameCube como mapa, comprobar qué partes del ROM toleran que el código
@@ -93,11 +97,13 @@ no entra, y la fuente y los gráficos occidentales de GameCube.
 - `decomp/` — `AF_REV` (el commit de zeldaret/af) y `patches/` (nuestros
   cambios sobre él, en orden).
 - `emu/` — el emulador: `build.sh`, `n64emu.py`, `headless_output.c`,
-  `input_headless.c`, `patches/`, `symbols.py` (nombres de funciones y
+  `input_headless.c`, `patches/`, `afplay.py` (qué hay en pantalla y
+  cómo responder: diálogos, menús, el dial de nombres), `symbols.py` (nombres de funciones y
   variables desde el mapa del decomp) y `contact.py` (varias capturas en
   una hoja).
 - `tools/` — `rom.py` (orden de bytes, identidad, CRC de la cabecera),
-  `ups.py` y `nafe.py` (el parche de 2010).
+  `ups.py`, `nafe.py` y `nafe_diff.py` (el parche de 2010: aplicarlo y
+  ver qué cambió), `route_newgame.py` (partida nueva hasta las casas).
 - `tests/` — `test_tools.py` (`make test`) y `emu_check.py`
   (`make emu-check`).
 - `reference/NOTES.md` — lo verificado, con su fuente.

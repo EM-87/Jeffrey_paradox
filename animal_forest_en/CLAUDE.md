@@ -54,9 +54,12 @@ the why and the state, `reference/NOTES.md` for what is verified.
   (debugger on), mupen64plus-rsp-cxd4, angrylion-rdp-plus with
   `headless_output.c` instead of OpenGL, and `input_headless.c`;
   `patches/` are our changes to them; `n64emu.py` is the frontend;
+  `afplay.py` reads the game's screens (dialogue, choices, name dial);
   `symbols.py` names addresses from the decomp's map; `contact.py` puts
   screenshots on one sheet.
-- `tools/` — `rom.py`, `ups.py`, `nafe.py`.
+- `tools/` — `rom.py`, `ups.py`, `nafe.py`, `nafe_diff.py` (the 2010
+  patch against the original, by file and function), `route_newgame.py`
+  (power-on to the houses, states on the way).
 - `tests/` — `test_tools.py`, `emu_check.py`.
 - `reference/NOTES.md` — verified facts with sources.
 

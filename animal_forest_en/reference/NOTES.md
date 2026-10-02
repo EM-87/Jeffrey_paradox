@@ -72,12 +72,54 @@ What it took (each found by a failing comparison, in this order):
 
 ## The AF Project ROM in the emulator
 
-Boots and plays the same opening as the original: the title reads "Animal
-Forest", START leads to K.K.'s stage, his first line reads "So, you've
-dec…" where the original has 「やあ、ついに ひとり」. Its own notes list
-the known bugs ("BEFORE YOU EVEN THINK OF PATCHING!.txt", Caveats): mail
-text split across a 0x60 limit, entries 0–0xD2 of message.txt left in
-Japanese, a possible hang arriving in town with a new player, Katrina's
-text, line 912 not jumping to 913, and console-only save corruption from
-mail and train bugs. The hang the user reports (around "the third house")
-is not reproduced yet.
+Played by hand from power-on through the intro (K.K., the train, Rover,
+both name dials), the arrival, Nook's welcome, viewing three of the four
+houses, declining two and taking the third, and Nook's rundown of the
+house (Gyroid, saving): no hang, text fits its balloons. Its title reads
+"Animal Forest"; the RTC reads "12:01 p.m. on Saturday" (2001-04-14 was a
+Saturday). `tools/route_newgame.py` replays the way to the houses on its
+own (states at frames 3289 name dial, 4119 town dial, 9301 platform, 12178
+houses, on the NAFE ROM), in about six minutes.
+
+How the game takes the pad (found by trying; `emu/afplay.py`): A advances
+dialogue; a choice balloon moves with the stick, not the D-pad; the name
+dial types the letter the stick points at when A is pressed with the stick
+held (centred, A does nothing); START ends a name, Z switches alphabet.
+
+The user's report, from what people describe online: the hang comes at
+different moments and places, some only after days of play. That fits the
+corruption of long-lived or saved data better than one broken scene, and
+is not something a scripted walk will find. So the approach is static.
+
+## What the 2010 patch changed (tools/nafe_diff.py)
+
+Both ROMs read through their dmadata and every file Yaz0-decompressed,
+paired by vrom address (the patch reordered the table and reused the
+16-byte `anime_*_static` placeholder entries for its own banks; its notes
+call vroms "codewords"). 76 files differ; 234,143 bytes changed inside the
+original files and 2,491,837 non-zero bytes added past the original data's
+end (ROM 0xFBC870).
+
+- **Code.** `code`: 14,502 bytes in 116 places, named by the map:
+  `mChoice_*` (choice balloons: data, widths, ROM loads, drawing),
+  `mMsg_CopyTalkName`, `mMsg_CopyTail`, `mMsg_CopyYear`,
+  `mMsg_CopyDetermination` (the substitutions into messages),
+  `mIN_copy_name_str` (item names), and many still unnamed
+  `func_800xxxxx_jp`, the largest a 6,784-byte run from
+  `func_800A05A8_jp`. Overlays: `ovl_select`, `tag_ovl`, `ledit_ovl`,
+  `board_ovl` (message board), `map_ovl`, `catalog_ovl`,
+  `ovl_Quest_Manager`, `ovl_Npc_Rcn_Guide`/`2`, `ovl_Animal_Logo`,
+  `ovl_Mikanbox` and a dozen unnamed ones; `boot` (`bcopy`,
+  `fault_AddHungupAndCrashImpl`) and the header.
+- **Text banks.** The main message text (vrom 0xBD4000, 0x124A10 bytes) is
+  gone from the table; its replacement is vrom 0x1914000, 0x290000 bytes at
+  ROM 0x1000000. Its index (vrom 0xCF9000) grew 0xB7B0 → 0x10000. Four
+  tables grew 0x890 → 0xF60 (vroms 0xD10000, 0xD12000, 0xD15000) and one
+  0x1870 → 0x2000 (0xD18000): "as many valid entries as in Animal
+  Crossing", per the patch notes. New banks at vroms 0xD09000 and
+  0x1BA5000–0x1BE6000 (select, mail, super, ps, string texts and more).
+- **Hypothesis, unverified:** where those grown tables are loaded into RAM
+  buffers sized for the original, the copy runs past them. The references
+  are not symbolic in the decomp (no `segment_00D10000` use outside
+  dmadata); they will show when `m_msg_main` (10,569 lines of asm) is in
+  C, which is phase 2 anyway.

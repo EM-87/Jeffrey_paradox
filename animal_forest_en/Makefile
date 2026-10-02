@@ -4,6 +4,7 @@
 #                                    checked (today: identical to the dump)
 #   make emu-check ROM=...           boots it in the headless emulator
 #   make nafe ROM=... NAFE_UPS=...   the AF Project's 2010 patch, to study
+#   make nafe-diff                   what that patch changed, by function
 #   make test                        the tools' own tests (no ROM needed)
 #
 # ROM is only needed once: it is normalised into build/baserom.z64.
@@ -28,7 +29,7 @@ BASEROM  := $(BUILD)/baserom.z64
 OUT_ROM  := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all baserom decomp rom verify emu emu-check nafe test clean distclean
+.PHONY: all baserom decomp rom verify emu emu-check nafe nafe-diff test clean distclean
 
 all: verify
 
@@ -107,6 +108,10 @@ $(NAFE_ROM): $(BASEROM)
 	$(PYTHON) tools/nafe.py $(BASEROM) "$(NAFE_UPS)" $@
 
 nafe: $(NAFE_ROM)
+
+# What the 2010 patch changed, file by file, function by function.
+nafe-diff: $(NAFE_ROM) rom
+	$(PYTHON) tools/nafe_diff.py $(BASEROM) $(NAFE_ROM) $(AF_DIR)/build/animalforest-jp.map
 
 # -- housekeeping -----------------------------------------------------------
 
