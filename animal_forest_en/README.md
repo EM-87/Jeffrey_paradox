@@ -61,7 +61,7 @@ make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010, para estudi
   `make verify` lo comprueba con `cmp`: es la prueba de que la cadena de
   herramientas funciona antes de tocar nada.
 
-**Fase 1 — banco de pruebas: en curso.**
+**Fase 1 — banco de pruebas: hecha.**
 
 - `emu/`: una N64 sin ventana manejada desde Python, frame a frame
   (`emu/n64emu.py`). mupen64plus-core con su depurador (puntos de
@@ -88,17 +88,34 @@ make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010, para estudi
   archivo y función por función, todo lo que cambió el parche
   (`reference/NOTES.md`).
 
-Lo que viene: pasar el sistema de mensajes (`m_msg_main`) a C usando el de
-GameCube como mapa, comprobar qué partes del ROM toleran que el código
-cambie de tamaño, el guion (el oficial de GameCube donde coincida, el resto
+**Fase 2 — el sistema de mensajes en C: hecha.** `m_msg_main` (322
+funciones) es un archivo C en `decomp/matching.patch`; 279 de las 283 que
+están en C compilan a los bytes exactos del cartucho y las otras 4 quedan
+tras `NON_MATCHING` con su ensamblador original. El tamaño real de cada
+búfer y lo que el parche de 2010 corrompió están en `reference/NOTES.md`.
+
+**Fase 3 — que el ROM tolere cambios de tamaño: hecha la regla, probada.**
+`make rom-en` compila la traducción con `code` al final del ROM (libre de
+crecer) y su bloque de datos en la misma dirección módulo 64 KB; un objeto
+cuyos datos cambien de tamaño pasa a una región `code_en`. Antes de
+comprimir, tres comprobaciones prueban la disposición contra el mapa del
+cartucho (`tools/af_shiftcheck.py`, `af_anchors.py`, `af_luicheck.py`). Lo
+que las motivó: una dirección que el desensamblado atribuía a la función
+equivocada (en `ovl_Birth_Control`) y que dejaba a Rover plantado en la
+puerta del tren en cuanto los datos se movían; con ella corregida, un ROM
+con todo el bloque desplazado 64 KB juega el recorrido entero igual que el
+original (`reference/NOTES.md`, "Shiftability").
+
+Lo que viene: el guion (el oficial de GameCube donde coincida, el resto
 traducido del japonés) con un comprobador que no deja compilar un texto que
 no entra, y la fuente y los gráficos occidentales de GameCube.
 
 ## Dónde está cada cosa
 
 - `Makefile` — todo lo de arriba.
-- `decomp/` — `AF_REV` (el commit de zeldaret/af) y `patches/` (nuestros
-  cambios sobre él, en orden).
+- `decomp/` — `AF_REV` (el commit de zeldaret/af), `matching.patch` (lo
+  descompilado: reconstruye el cartucho) y `changes.patch` (la traducción,
+  encima).
 - `emu/` — el emulador: `build.sh`, `n64emu.py`, `headless_output.c`,
   `input_headless.c`, `patches/`, `afplay.py` (qué hay en pantalla y
   cómo responder: diálogos, menús, el dial de nombres), `symbols.py` (nombres de funciones y
@@ -106,7 +123,11 @@ no entra, y la fuente y los gráficos occidentales de GameCube.
   una hoja).
 - `tools/` — `rom.py` (orden de bytes, identidad, CRC de la cabecera),
   `ups.py`, `nafe.py` y `nafe_diff.py` (el parche de 2010: aplicarlo y
-  ver qué cambió), `route_newgame.py` (partida nueva hasta las casas).
+  ver qué cambió), `route_newgame.py` (partida nueva hasta las casas),
+  `af_match.py`/`af_try.py`/`af_wrap.py`/`af_bench.py` (igualar funciones),
+  `af_relink.py`/`af_relsyms.py`/`af_ranges.py`/`af_dmaorder.py` (la
+  disposición del ROM traducido) y `af_shiftcheck.py`/`af_anchors.py`/
+  `af_luicheck.py` (sus pruebas).
 - `tests/` — `test_tools.py` (`make test`) y `emu_check.py`
   (`make emu-check`).
 - `reference/NOTES.md` — lo verificado, con su fuente.

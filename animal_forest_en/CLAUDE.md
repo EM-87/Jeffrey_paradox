@@ -66,9 +66,13 @@ the why and the state, `reference/NOTES.md` for what is verified.
   build/af).
 - `tools/af_relink.py`, `af_relsyms.py`, `af_ranges.py`, `af_dmaorder.py` —
   the translation's build (`make rom-en`, in build/af_en): `code` moved to
-  the end of the ROM so that it can grow, the RAM addresses splat left
-  absolute made relative, and the compressed ROM's ranges and dmadata order
-  (NOTES, "Shiftability").
+  the end of the ROM so that it can grow, its data block kept at its
+  address modulo 0x10000 with changed objects taken out to `code_en`, the
+  RAM addresses splat left absolute made relative, and the compressed ROM's
+  ranges and dmadata order (NOTES, "Shiftability").
+- `tools/af_shiftcheck.py`, `af_anchors.py`, `af_luicheck.py` — the proofs
+  `make rom-en` runs before compressing: the block moved as one piece, no
+  address spelled with the wrong symbol, no shared `lui` broken.
 - `tools/` — `rom.py`, `ups.py`, `nafe.py`, `nafe_diff.py` (the 2010
   patch against the original, by file and function), `route_newgame.py`
   (power-on to the houses, states on the way).
@@ -93,6 +97,14 @@ the why and the state, `reference/NOTES.md` for what is verified.
 - **The decomp's make does not track every object**: after building an
   object a different way (NON_MATCHING), delete it and the ELF before
   checking the ROM. `af_match.py` always rebuilds its object.
+- **The disassembly can name an address after the wrong symbol and still
+  match.** IDO folds constant indexes into addresses (`table[name -
+  0x8000]` becomes `table - 0x10000`, inside some unrelated function), and
+  splat spells that with the nearest symbol below. The bytes are the
+  cartridge's until the layout changes. Spell such a reference with its
+  table in `relocs/reloc_addrs-jp.txt` (`addend:-0x10000`); never trust a
+  matching build as proof that the symbols are right. `tools/af_anchors.py`
+  finds the class (NOTES, "Shiftability").
 
 ## Emulator traps (each cost a wrong result before it was known)
 

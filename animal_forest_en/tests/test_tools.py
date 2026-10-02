@@ -12,10 +12,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 
+import af_anchors  # noqa: E402
 import af_dmaorder  # noqa: E402
+import af_luicheck  # noqa: E402
 import af_ranges  # noqa: E402
 import af_relink  # noqa: E402
 import af_relsyms  # noqa: E402
+import af_shiftcheck  # noqa: E402
 import rom  # noqa: E402
 import ups  # noqa: E402
 from contact import read_png  # noqa: E402
@@ -176,9 +179,13 @@ class Shiftability(unittest.TestCase):
             got = af_dmaorder.entries(open(m, "rb").read(), 0x100)
         self.assertEqual(got, [(0x1000, 0x2000, 0, 0x40), (0x2000, 0x3000, 0x40, 0x80), (0x3000, 0x4000, 0x80, 0xC0)])
 
-    def test_relink_moves_code_to_the_end(self):
+    def test_relink_moves_code_to_the_end_and_keeps_the_block_in_place(self):
         script = ("SECTIONS\n{\n    __romPos = 0;\n"
-                  "    code_ROM_START = __romPos;\n    .code 0x80051A80 : AT(code_ROM_START) { *(.text); }\n"
+                  "    code_ROM_START = __romPos;\n    .code 0x80051A80 : AT(code_ROM_START) SUBALIGN(16)\n    {\n"
+                  "        code_TEXT_START = .;\n        build/src/code/a.o(.text);\n        code_TEXT_END = .;\n"
+                  "        code_DATA_START = .;\n        code_a = .;\n        build/src/code/a.o(.data);\n"
+                  "        code_b = .;\n        build/src/code/b.o(.data);\n        code_DATA_END = .;\n"
+                  "        code_RODATA_START = .;\n        build/src/code/b.o(.rodata);\n        code_RODATA_END = .;\n    }\n"
                   "    __romPos += SIZEOF(.code);\n    code_ROM_END = __romPos;\n    code_VRAM_END = .;\n"
                   "    __romPos = ALIGN(__romPos, 16);\n    . = ALIGN(., 16);\n\n"
                   "    buffers_ROM_START = __romPos;\n    .buffers_bss code_VRAM_END (NOLOAD) { *(.bss); }\n"
@@ -187,19 +194,51 @@ class Shiftability(unittest.TestCase):
                   "    __romPos += SIZEOF(.ovl_select);\n    ovl_select_ROM_END = __romPos;\n"
                   "    __romPos = ALIGN(__romPos, 16);\n    . = ALIGN(., 16);\n\n"
                   "    /DISCARD/ :\n    {\n        *(*);\n    }\n}\n")
+
+        def mapfile(b_size):
+            return (".code           0x80051a80   0x100000 load address 0x01914000\n"
+                    "                0x80051a80                        code_TEXT_START = .\n"
+                    " .text          0x80051a80    0xadcf0 build/src/code/a.o\n"
+                    "                0x800ff370                        code_TEXT_END = .\n"
+                    "                0x800ff370                        code_DATA_START = .\n"
+                    " .data          0x800ff370       0x20 build/src/code/a.o\n"
+                    " .data          0x800ff390      0x%x build/src/code/b.o\n"
+                    "                0x80116110                        code_RODATA_START = .\n"
+                    " .rodata        0x80116110       0x10 build/src/code/b.o\n"
+                    ".buffers_bss    0x801524c0    0x42420\n"
+                    " .bss           0x801524c0    0x42420 build/asm/buffers.o\n"
+                    "                0x801948e0                        buffers_VRAM_END = .\n" % b_size)
         with tempfile.TemporaryDirectory() as d:
-            p = os.path.join(d, "a.ld")
+            p, ref, new = [os.path.join(d, n) for n in ("a.ld", "ref.map", "new.map")]
             open(p, "w").write(script)
-            af_relink.main([p, "--next-rom", "0x73F4D0"])
+            open(ref, "w").write(mapfile(0x100))
+            open(new, "w").write(mapfile(0x140))                       # b.o's data grew
+            af_relink.main([p, "--ref", ref, "--next-rom", "0x73F4D0"])
             out = open(p).read()
-            af_relink.main([p, "--next-rom", "0x73F4D0"])     # idempotent
+            self.assertTrue(os.path.exists(p + ".splat"))
+            af_relink.main([p, "--ref", ref, "--next-rom", "0x73F4D0"])  # idempotent
             self.assertEqual(open(p).read(), out)
-        lines = out.splitlines()
-        self.assertLess(lines.index("    __romPos = 0x73F4D0; /* ovl_select keeps the cartridge's vrom */"),
-                        lines.index("    ovl_select_ROM_START = __romPos;"))
-        self.assertLess(lines.index("    ovl_select_ROM_END = __romPos;"), lines.index("    code_ROM_START = __romPos;"))
-        self.assertLess(lines.index("    code_ROM_START = __romPos;"), lines.index("    buffers_ROM_START = __romPos;"))
-        self.assertLess(lines.index("    buffers_ROM_START = __romPos;"), lines.index("    /DISCARD/ :"))
+            lines = out.splitlines()
+            self.assertLess(lines.index("    __romPos = 0x73F4D0; /* ovl_select keeps the cartridge's vrom */"),
+                            lines.index("    ovl_select_ROM_START = __romPos;"))
+            self.assertLess(lines.index("    ovl_select_ROM_END = __romPos;"), lines.index("    code_ROM_START = __romPos;"))
+            self.assertLess(lines.index("    code_ROM_START = __romPos;"), lines.index("    buffers_ROM_START = __romPos;"))
+            self.assertLess(lines.index("    buffers_ROM_START = __romPos;"), lines.index("    /DISCARD/ :"))
+            pad = "        . += (0x10000 - ((. - 0xAD8F0) & 0xFFFF)) & 0xFFFF;"   # . is the offset in .code
+            self.assertEqual(lines.index(pad) + 1, lines.index("        code_DATA_START = .;"))
+            self.assertIn("        build/src/code/b.o(.data);", lines)      # nothing moved yet
+            # second pass, with the map of the first link: b.o's data goes to code_en, its slot is a hole
+            moved = os.path.join(d, "moved.txt")
+            af_relink.main([p, "--ref", ref, "--map", new, "--moved-out", moved, "--next-rom", "0x73F4D0"])
+            lines = open(p).read().splitlines()
+            self.assertEqual(open(moved).read(), "build/src/code/b.o .data\n")
+            self.assertLess(lines.index("        code_en_DATA_START = .;"), lines.index("        build/src/code/b.o(.data);"))
+            self.assertLess(lines.index("        build/src/code/b.o(.data);"), lines.index("        code_en_DATA_END = .;"))
+            self.assertLess(lines.index("        code_en_BSS_END = .;"), lines.index(pad))
+            hole = [l for l in lines if l.startswith("        . += 0x100; /* af_relink: build/src/code/b.o(.data)")]
+            self.assertEqual(len(hole), 1)
+            self.assertLess(lines.index("        code_a = .;"), lines.index(hole[0]))
+            self.assertIn("        build/src/code/b.o(.rodata);", lines[lines.index("        code_RODATA_START = .;"):])
 
     def test_ranges_follow_the_vrom_order(self):
         with tempfile.TemporaryDirectory() as d:
@@ -232,6 +271,120 @@ class Shiftability(unittest.TestCase):
                 os.chdir(cwd)
         # vrom order: makerom(0) ovl_a(1) ovl_b(2) tex(3) code(4): compressed are 1, 2 and 4
         self.assertEqual(buf.getvalue().strip(), "1-2,4")
+
+    def test_luicheck_sees_a_shared_lui_break(self):
+        asm = ("glabel func_80051A80_jp\n"
+               "/* 0 80051A80 3C018011 */  lui   $at, %hi(RO_FLT_80117250_jp)\n"
+               "/* 4 80051A84 C4247250 */  lwc1  $f4, %lo(RO_FLT_80117250_jp)($at)\n"
+               "/* 8 80051A88 C4267254 */  lwc1  $f6, %lo(RO_FLT_80117254_jp)($at)\n"
+               "/* C 80051A8C 3C018012 */  lui   $at, %hi(D_80120000_jp)\n"
+               "/* 10 80051A90 8C210000 */  lw    $at, %lo(D_80120000_jp)($at)\n"
+               "  jr    $ra\n   nop\n")
+        def mapfile(first, second, other=0x80120000):
+            return ("                0x%08x                RO_FLT_80117250_jp\n"
+                    "                0x%08x                RO_FLT_80117254_jp\n"
+                    "                0x%08x                D_80120000_jp\n" % (first, second, other))
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, "asm", "code"))
+            open(os.path.join(d, "asm", "code", "f.s"), "w").write(asm)
+            ref, same, broken = [os.path.join(d, n) for n in ("ref.map", "same.map", "broken.map")]
+            open(ref, "w").write(mapfile(0x80117250, 0x80117254))
+            open(same, "w").write(mapfile(0x80137250, 0x80137254))           # both, two windows up
+            open(broken, "w").write(mapfile(0x80117250, 0x80118254))         # the halves part
+            pairs = af_luicheck.mixed_pairs(os.path.join(d, "asm"))
+            self.assertEqual([(p[3], p[5]) for p in pairs], [("RO_FLT_80117250_jp", "RO_FLT_80117254_jp")])
+            self.assertEqual(af_luicheck.main([ref, same, "--asm", os.path.join(d, "asm")]), 0)
+            self.assertEqual(af_luicheck.main([ref, broken, "--asm", os.path.join(d, "asm")]), 1)
+
+    def test_shiftcheck_wants_the_block_rigid(self):
+        def mapfile(delta, rodata_extra=0, moved_at=None):
+            d = delta
+            text = (".code           0x80051a80   0x100000 load address 0x01914000\n"
+                    "                0x80051a80                        code_TEXT_START = .\n"
+                    " .text          0x80051a80     0x1000 build/src/code/a.o\n"
+                    "                0x80051a80                func_80051A80_jp\n"
+                    "                0x%08x                        code_DATA_START = .\n" % (0x800ff370 + d))
+            if moved_at is None:
+                text += (" .data          0x%08x       0x20 build/src/code/a.o\n"
+                         "                0x%08x                D_800FF370_jp\n" % (0x800ff370 + d, 0x800ff370 + d))
+            nxt = 0x800ff390 + d            # a moved object leaves its slot as a hole
+            text += (" .data          0x%08x      0x100 build/src/code/b.o\n"
+                     "                0x%08x                D_800FF390_jp\n"
+                     "                0x%08x                        code_RODATA_START = .\n"
+                     " .rodata        0x%08x       0x10 build/src/code/b.o\n"
+                     "                0x%08x                RO_800FF490_jp\n"
+                     % (nxt, nxt, nxt + 0x100 + rodata_extra, nxt + 0x100 + rodata_extra, nxt + 0x100 + rodata_extra))
+            end = nxt + 0x110 + rodata_extra
+            text += (".code_bss       0x%08x     0x1000\n"
+                     "                0x%08x                        code_BSS_START = .\n"
+                     " .bss           0x%08x     0x1000 build/src/code/b.o\n"
+                     "                0x%08x                B_800FF4A0_jp\n"
+                     ".buffers_bss    0x%08x      0x100\n"
+                     " .bss           0x%08x      0x100 build/asm/buffers.o\n"
+                     "                0x%08x                        buffers_VRAM_END = .\n"
+                     % (end, end, end, end, end + 0x1000, end + 0x1000, end + 0x1100))
+            if moved_at is not None:
+                text += (".code_en_data   0x%08x       0x20\n"
+                         " .data          0x%08x       0x20 build/src/code/a.o\n"
+                         "                0x%08x                D_800FF370_jp\n" % (moved_at, moved_at, moved_at))
+            text += (".ovl_x          0x80800000      0x100 load address 0x00800000\n"
+                     " .text          0x80800000      0x100 build/src/overlays/x.o\n"
+                     "                0x80800000                func_80800000_jp\n")
+            return text
+        with tempfile.TemporaryDirectory() as d:
+            ref = os.path.join(d, "ref.map")
+            open(ref, "w").write(mapfile(0))
+            def run(text, *args):
+                p = os.path.join(d, "new.map")
+                open(p, "w").write(text)
+                return af_shiftcheck.check(af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(p), list(args))
+            self.assertEqual(run(mapfile(0)), (0, []))
+            self.assertEqual(run(mapfile(0x20000)), (0x20000, []))           # the whole block, two windows up
+            delta, errors = run(mapfile(0x1000))
+            self.assertTrue(any("multiple of 0x10000" in e for e in errors))
+            delta, errors = run(mapfile(0, rodata_extra=0x10))               # b.o's data grew: bss slid
+            self.assertTrue(any("build/src/code/b.o .rodata" in e for e in errors), errors)
+            delta, errors = run(mapfile(0, moved_at=0x80200000))             # a.o's data left the block
+            self.assertTrue(any("build/src/code/a.o .data" in e for e in errors), errors)   # left without --moved
+            self.assertEqual(run(mapfile(0, moved_at=0x80200000), "build/src/code/a.o"), (0, []))
+            delta, errors = run(mapfile(0, moved_at=0x80207FF0), "build/src/code/a.o")
+            self.assertTrue(any("crosses a 64 KB" in e for e in errors), errors)
+
+    def test_anchors_catch_a_fold_spelled_with_a_function(self):
+        mapfile = (".code           0x80051a80   0x100000 load address 0x01914000\n"
+                   "                0x80051a80                        code_TEXT_START = .\n"
+                   " .text          0x800fae00     0x1000 build/asm/jp/code/audio.o\n"
+                   "                0x800fae84                Na_KishaStatusLevel\n"
+                   "                0x800ff370                        code_DATA_START = .\n"
+                   " .data          0x800ff370    0xb000 build/asm/jp/data/code/a.data.o\n"
+                   "                0x800ff370                D_800FF370_jp\n"
+                   " .data          0x8010af00      0x5a0 build/src/code/m_name_table.o\n"
+                   "                0x8010af00                move_obj_profile_table\n"
+                   "                0x8010af2c                actor_profile_table\n"
+                   ".code_bss       0x8010b4a0     0x1000\n"
+                   " .bss           0x8010b4a0     0x1000 build/src/code/m_name_table.o\n"
+                   ".buffers_bss    0x8010c4a0      0x100\n"
+                   " .bss           0x8010c4a0      0x100 build/asm/buffers.o\n"
+                   "                0x8010c5a0                        buffers_VRAM_END = .\n")
+        wrong = ("glabel func_80936000_jp\n"
+                 "/* 0 80936000 3C078010 */  lui   $a3, %hi(Na_KishaStatusLevel + 0x7C)\n"
+                 "/* 4 80936004 00E83821 */  addu  $a3, $a3, $t0\n"
+                 "/* 8 80936008 84E7AF00 */  lh    $a3, %lo(Na_KishaStatusLevel + 0x7C)($a3)\n"
+                 "/* C 8093600C 8C62000C */  lw    $v0, %lo(D_800FF370_jp + 0xC)($v1)\n")
+        right = wrong.replace("Na_KishaStatusLevel + 0x7C", "move_obj_profile_table - 0x10000")
+        with tempfile.TemporaryDirectory() as d:
+            m = os.path.join(d, "x.map")
+            open(m, "w").write(mapfile)
+            os.makedirs(os.path.join(d, "asm", "f"))
+            s = os.path.join(d, "asm", "f", "f.s")
+            open(s, "w").write(wrong)
+            layout = af_anchors.Layout(m)
+            errors, notes = af_anchors.check(layout, os.path.join(d, "asm"))
+            self.assertEqual([k[0] for k in errors], ["Na_KishaStatusLevel"])
+            self.assertEqual(layout.tables_above(0x800FAF00), ["move_obj_profile_table (-0x10000)"])
+            self.assertEqual(af_anchors.main([m, "--asm", os.path.join(d, "asm")]), 1)
+            open(s, "w").write(right)
+            self.assertEqual(af_anchors.main([m, "--asm", os.path.join(d, "asm")]), 0)
 
 
 if __name__ == "__main__":

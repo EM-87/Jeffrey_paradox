@@ -10,8 +10,14 @@
   text system, the script), applied on top of `matching.patch` in a second
   checkout, `build/af_en`, where that patch is committed as the baseline.
   Its ROM is never compared with the cartridge: `make rom-en` builds it
-  with `code` moved to the end of the ROM so that it can grow (see
-  `reference/NOTES.md`, "Shiftability"), and `make route-en` plays it.
+  with `code` moved to the end of the ROM so that it can grow, its data
+  block kept at its address modulo 0x10000 (an object whose data changes
+  size goes to a `code_en` region instead), proves the layout against the
+  matching build's map (`tools/af_shiftcheck.py`, `af_anchors.py`,
+  `af_luicheck.py`; see `reference/NOTES.md`, "Shiftability"), and
+  `make route-en` plays it. The rule for a change: text may grow; data of
+  an existing object had better not change size (if it does, the build
+  moves it and says so); new data goes in new objects.
 
 ## Working on it
 

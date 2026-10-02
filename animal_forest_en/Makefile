@@ -114,11 +114,20 @@ decomp-patch:
 # changes.patch applied on that. Its ROM is never compared with the
 # cartridge; instead `code` is moved to the end of the ROM so that it can
 # grow without moving anything else (tools/af_relink.py: about 4,400 vrom
-# addresses sit as plain numbers in asm data tables), the RAM addresses
-# splat left absolute are made relative (tools/af_relsyms.py, from the
-# matching build's map), and the ROM is compressed with the dmadata in the
-# table's order (tools/af_ranges.py, af_dmaorder.py) and its checksum
-# recomputed. The result is checked by playing it (route-en).
+# addresses sit as plain numbers in asm data tables), its data block is
+# kept at its address modulo 0x10000 with objects whose data changed size
+# taken out to a code_en region (same tool, from the map of a first link),
+# the RAM addresses splat left absolute are made relative
+# (tools/af_relsyms.py, from the matching build's map), and the layout is
+# proved before the ROM is compressed: af_shiftcheck (the block moved as
+# one), af_anchors (no address spelled with the wrong symbol), af_luicheck
+# (no shared lui broken). Then compress.py, the dmadata back in the
+# table's order (af_ranges.py, af_dmaorder.py) and the checksum. The result
+# is checked by playing it (route-en). NOTES.md, "Shiftability".
+REF_MAP  := $(AF_DIR)/build/animalforest-jp.map
+EN_MAP   := $(AF_EN_DIR)/build/animalforest-jp.map
+EN_LD    := linker_scripts/jp/animalforest.ld
+EN_MOVED := $(AF_EN_DIR)/build/af_en_moved.txt
 
 $(AF_EN_DIR)/.stamp-checkout: decomp/AF_REV $(MATCHING) $(CHANGES)
 	@if [ "$$(git -C $(AF_EN_DIR) rev-parse HEAD~0 2>/dev/null)" = "" ]; then \
@@ -139,16 +148,25 @@ $(AF_EN_DIR)/.stamp-setup: $(AF_EN_DIR)/.stamp-checkout $(BASEROM)
 
 $(AF_EN_DIR)/.stamp-extract: $(AF_EN_DIR)/.stamp-setup
 	$(MAKE) -C $(AF_EN_DIR) extract >$(BUILD)/af_en-extract.log 2>&1
-	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relink.py linker_scripts/jp/animalforest.ld
+	rm -f $(AF_EN_DIR)/$(EN_LD).splat
 	@touch $@
 
 decomp-en: $(AF_EN_DIR)/.stamp-extract
 
-# The matching build's map names the RAM addresses to make relative.
+# The matching build's map is the reference: the RAM addresses to make
+# relative, the sizes every object's data had, and the layout to prove
+# against. Two links: the first measures the objects, the second lays them
+# out (the script is rewritten from splat's pristine copy each time).
 rom-en: decomp-en rom
-	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relsyms.py $(CURDIR)/$(AF_DIR)/build/animalforest-jp.map linker_scripts/jp/auto/undefined_syms_auto.ld
+	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relsyms.py $(CURDIR)/$(REF_MAP) linker_scripts/jp/auto/undefined_syms_auto.ld
+	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relink.py $(EN_LD) --ref $(CURDIR)/$(REF_MAP)
 	rm -f $(AF_EN_DIR)/build/linker_scripts/jp/auto/undefined_syms_auto.ld $(AF_EN_DIR)/build/animalforest-jp.elf $(AF_EN_DIR)/build/animalforest-jp.z64
+	$(MAKE) -C $(AF_EN_DIR) -j$(JOBS) build/animalforest-jp.elf
+	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relink.py $(EN_LD) --ref $(CURDIR)/$(REF_MAP) --map build/animalforest-jp.map --moved-out $(CURDIR)/$(EN_MOVED)
 	$(MAKE) -C $(AF_EN_DIR) -j$(JOBS) build/animalforest-jp.z64
+	$(PYTHON) tools/af_shiftcheck.py $(REF_MAP) $(EN_MAP) --moved-list $(EN_MOVED)
+	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_anchors.py $(CURDIR)/$(REF_MAP)
+	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_luicheck.py $(CURDIR)/$(REF_MAP) build/animalforest-jp.map
 	cd $(AF_EN_DIR) && .venv/bin/python3 tools/compress.py --in build/animalforest-jp.z64 --out $(CURDIR)/$(EN_ROM) \
 		--dma-start `tools/dmadata_start.sh mips-linux-gnu-nm build/animalforest-jp.elf` \
 		--compress `$(PYTHON) $(CURDIR)/tools/af_ranges.py build/animalforest-jp.map` --threads $(JOBS)

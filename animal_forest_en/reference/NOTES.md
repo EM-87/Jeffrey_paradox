@@ -279,7 +279,9 @@ Measured on its ROM (`tools/nafe_diff.py` and the bank itself):
 ## Shiftability (phase 3): what pins the cartridge's layout
 
 Measured on the decomp at AF_REV, to decide how the translation can grow
-code and text without breaking the rest.
+code and text without breaking the rest. The result is a layout rule, the
+tools that enforce it, and one asm correction; all of it byte-neutral for
+the matching build (`make verify` stays identical).
 
 - **ROM (vrom) layout.** dmadata is generated from the linker's segment
   symbols (`src/dmadata/dmadata.c`, `tables/dmadata_table.h`) and the
@@ -297,19 +299,87 @@ code and text without breaking the rest.
   compress.py lays out only what dmadata lists). New text banks will be
   new segments at the end too. Nothing refers to code's vrom but
   `SEGMENT_ROM_START(code)` in `src/boot/idle.c` (grepped: no numeric
-  reference to 0x675720-0x73F4D0 anywhere).
-- **RAM.** `buffers` is placed at `code_VRAM_END` and the system heap runs
-  from `SEGMENT_VRAM_END(buffers)` to the framebuffer (`src/code/main.c`),
-  so a bigger `code` only shrinks the heap. Pins that broke a 64 KB growth
-  (the game hung at frame 1: the graphics pools were written into code's
-  moved bss): four `D_801524C0_jp`/`gGfxPools`... absolutes in
-  `undefined_syms.ld` (removed; the bss asm defines them) and 22 absolutes
-  splat emits for addresses inside data it gave no label to
-  (`D_80104509_jp` = `D_80104508_jp+1`...), made relative from the matching
-  build's map by `tools/af_relsyms.py`. One `lui` splat had not paired with
-  its `lo` (`B_8011B8B0_jp`, `code/67D890.s`) is paired through
-  `relocs/reloc_addrs-jp.txt`. All of this is byte-neutral: `make verify`
-  stays identical with it, and it is in `matching.patch`.
+  reference to 0x675720-0x73F4D0 anywhere). Proof: the relocated ROM
+  (code at vrom 0x1914000, nothing else changed) plays the whole route
+  like the cartridge (name dial frame 2414, town 2976, station 8154,
+  houses 11032, against 2414/2975/8154/11030; the drift is one frame of
+  timing).
+- **RAM: what must stay symbolic.** `buffers` is placed at `code_VRAM_END`
+  and the system heap runs from `SEGMENT_VRAM_END(buffers)` to the
+  framebuffer (`src/code/main.c`), so a bigger `code` only shrinks the
+  heap (a control with 64 KB less heap and nothing moved plays the whole
+  route: 2414/2970/8147/11023). Pins that broke a 64 KB growth (the game
+  hung at frame 1: the graphics pools were written into code's moved bss):
+  four `D_801524C0_jp`/`gGfxPools`... absolutes in `undefined_syms.ld`
+  (removed; the bss asm defines them) and 22 absolutes splat emits for
+  addresses inside data it gave no label to (`D_80104509_jp` =
+  `D_80104508_jp+1`...), made relative from the matching build's map by
+  `tools/af_relsyms.py`. One `lui` splat had not paired with its `lo`
+  (`B_8011B8B0_jp`, `code/67D890.s`) is paired through
+  `relocs/reloc_addrs-jp.txt`.
+- **RAM: what cannot be made symbolic, and the rule that keeps it.** Two
+  things in the code's own addresses are invisible to the linker:
+  1. `lui` halves shared between two symbols. MIPS loads an address as
+     `lui %hi(A)` + `%lo(B)(reg)`, and IDO (and the libultra asm) reuses
+     one `lui` for neighbouring symbols; the disassembly keeps the pair
+     with two names. The halves agree only while both symbols are in the
+     same 64 KB `%hi` window, so the pair breaks when they move by
+     different amounts, or by the same amount that is not a multiple of
+     0x10000. `tools/af_luicheck.py` finds them in the asm (165 pairs
+     tracked by register, 41 it cannot track) and tells which a new map
+     breaks; IDO's own sharing inside each C object is not in the asm at
+     all.
+  2. Distances between objects. A whole-data shift by 0x10000 keeps every
+     pair, and `af_luicheck` agreed, yet the ROM failed: pads of 64 KB put
+     at section boundaries (before .data, .rodata, .bss, buffers) showed
+     that only moving **.data** broke it, and bisecting the pad point over
+     the data objects left one, `m_name_table.o`. A read watchpoint on its
+     old addresses caught the culprit at frame 1639: `ovl_Birth_Control`'s
+     `func_8093629C_jp` reading `move_obj_profile_table` by an address
+     spelled `Na_KishaStatusLevel + 0x7C` (a function in the audio code).
+     IDO had folded the actor name's type bits into the address
+     (`table[name - 0x8000]` on an s16 table = `table - 0x10000`), the
+     address landed inside an unrelated function, and splat named it after
+     the nearest symbol below. Same bytes as the cartridge; but the table
+     moves and the function does not, so the spawner read zeros, the train
+     window never came, and Rover stood at the door (the "no second
+     dialogue" of every grown ROM, frame 1964 on). The decomp itself had
+     the other one in the same function on a wrong data symbol
+     (`D_80100C30_jp - 0x7D04` = `actor_profile_table - 0x12000`, type
+     0x9000). Both are now spelled with their table in
+     `relocs/reloc_addrs-jp.txt` (addend -0x10000 and -0x12000), and
+     `tools/af_anchors.py` scans the asm for the class: a load or store
+     spelled with a text symbol plus an offset, or any reference whose
+     address falls in another object than its symbol and is not a
+     4 KB-round negative fold. In `code` there were these two; the eight
+     outside are overlay-internal folds (`Npc_Police_Profile - 0x74`...)
+     and boot's `sBootStack + 0x400`, which move with their own overlay or
+     never move.
+
+  **The rule (`tools/af_relink.py`, proved after every link by
+  `tools/af_shiftcheck.py`):** the cartridge's data block (code's .data,
+  .rodata, .bss and `buffers`) moves as one piece, by a multiple of
+  0x10000. Text may grow in place: the block's start is padded back to its
+  original address modulo 0x10000 (`. += (0x10000 - ((. - 0xAD8F0) &
+  0xFFFF)) & 0xFFFF`, 0xAD8F0 being the block's offset in `.code`: inside
+  an output section `.` is that offset, `ADDR(.code)` is refused there and
+  `ABSOLUTE(.)` wrapped the section around the address space, measured
+  on a one-section script), costing up to 64 KB of heap per
+  64 KB of text. An object whose .data, .rodata or .bss changes size (or a
+  new one) cannot stay in the block: a second `af_relink` pass, with the
+  map of a first link, moves its sections to a `code_en` region between
+  the text and the block, leaves a hole of the old size in its slot, and
+  keeps each moved section inside one 64 KB `%hi` window (IDO shares
+  `lui`s within an object). code_en is loaded from the ROM with the rest
+  of code, so its bss arrives zeroed and nothing has to clear it.
+  `af_shiftcheck` then checks every input section and symbol of the block
+  against the matching map (same size, old address + D, D a multiple of
+  0x10000), the moved ones outside it and inside one window, and boot and
+  the overlays unmoved. With the two anchors fixed, the 64 KB whole-block
+  shift reaches the name dial at frame 2414 like the cartridge, and the
+  ROM with the pad before `m_name_table.o` that failed before passes too.
+  A 4 KB data shift hung at boot (frame 134); the rule never produces one
+  and it was not analysed further.
 - **Compression.** compress.py numbers dmadata entries sorted by vrom while
   compress_ranges.py numbers them in yaml order; with code last they
   disagree, so `tools/af_ranges.py` computes the ranges from the map, and
@@ -318,7 +388,8 @@ code and text without breaking the rest.
   reads the table by index (the DMA manager's index functions have no
   callers).
 - **The first "failure" of the relocated ROM was the test, not the ROM**:
-  see "The route's name-dial detector" above. With the fixed detector the
-  relocated ROM passes the name and town dials like the original; the rest
-  of the route and the grown `code` are being measured (pending at this
-  commit; the result goes here).
+  see "The route's name-dial detector" above. Before blaming a layout, run
+  the cartridge through the same check; before blaming a symbol, watch its
+  old address (`N64(watch=True)`, `watch(start, end, read=True)`): one
+  hit named the function in a run that four rounds of bisection had only
+  narrowed to an object.
