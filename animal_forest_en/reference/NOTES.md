@@ -123,3 +123,82 @@ end (ROM 0xFBC870).
   are not symbolic in the decomp (no `segment_00D10000` use outside
   dmadata); they will show when `m_msg_main` (10,569 lines of asm) is in
   C, which is phase 2 anyway.
+
+## The message system (code/m_msg_main, phase 2)
+
+A C file since `decomp/matching.patch` (yaml: `c`, `.rodata`); functions
+move from asm to C one at a time, and `make verify` proves the ROM is still
+the cartridge. Traced from the N64 code (function names are the decomp's
+`func_` ones until renamed; the GameCube name in brackets):
+
+- **MessageWindow** (`B_80142410_jp`, 0x2F0 bytes, `include/m_msg_main.h`).
+  Same as the GameCube's up to 0x34; then free strings **20 x 10 bytes**
+  at 0x38 (GC 20 x 16), item strings **5 x 10** at 0x100 (GC 5 x 16), the
+  mail string **1 x 0x44** at 0x132 (GC 132), colours at 0x176 (packed: an
+  RGBA8 has alignment 1), the choice window at 0x1B0 (0xBC bytes, GC 0x100);
+  from 0x280 on, the GameCube's fields shifted by -0x180 (status flags
+  0x28C, cursors 0x29C/0x2A0, main index 0x2B4, request data 0x2E0). No
+  English articles. (`mMsg_Set_free_str`, `_item_str`, `_mail_str` and
+  `func_8009D9A4_jp`/`func_8009DA1C_jp` [Get_free/item_str] all pad with
+  spaces to 10; the mail string forces a new line (0xCD) every 16 characters
+  and stops at 5 lines.)
+- **The bank** (`func_8009E388_jp` [mMsg_Get_MsgDataAddressAndSize]):
+  0x2DE8 messages; index of u32 end offsets at ROM 0xCF9000, text at
+  0xBD4000; a message longer than **0x400** bytes is refused (address 0).
+- **The buffer** (`func_8009E558_jp` [mMsg_LoadMsgData], `func_8009E6F8_jp`
+  [mMsg_init]): `B_80141FF0_jp`, 0x420 bytes = a 0x10 header and **0x410 of
+  text**, immediately followed by the window. The DMA writes
+  `(ofs + size + 7) & ~7` bytes, at most 0x408 with the 0x400 cap.
+- **Substitutions** (codes 0x1A-0x3F after 0x7F: player name, talk name,
+  tail, year..sec, free strings 0-19, determination, country name, random
+  number, items 0-4; table in `src/code/m_choice_main.c`) expand in place
+  through `func_8009EA2C_jp` [mMsg_MoveDataCut]. Its guard: if the grown
+  message would pass 0x400 the rest is not moved, but the length still
+  grows and the caller copies its string over what follows (same flaw as
+  the GameCube's). Control-code sizes: table `D_80106BF4_jp` (2 bytes per
+  code, 0x61 codes; `func_8009034C_jp`).
+- **Names**: player name 6 bytes (`PrivateInfo.playerId.playerName`,
+  `common_data.privateInfo`), town name 6, animal names 6, catchphrase
+  ("tail") 4.
+- **Choices**: the message system loads up to 4 choice strings from ROM
+  (index < 460) into a static `char[4][10]` at 0x80142700, right after the
+  window (`func_800A0DF4_jp` -> `mChoice_Load_ChoseStringFromRom`).
+- **Control codes** (N64 numbering, differs from GC): 0x00 last, 0x01
+  continue, 0x03 cursor time (no x2: 30 fps logic), 0x05 colour, 0x08-0x0C
+  demo orders, 0x0D select window, 0x51 sound cut, 0x56/0x57 bgm make/delete,
+  0x58 time end, 0x59 system sound.
+
+### The 2010 patch against these buffers (verdict so far)
+
+Measured on its ROM (`tools/nafe_diff.py` and the bank itself):
+
+- Its message locator (`func_8009E388_jp`, replaced by a stub into its own
+  routine at 0x800C3E54) **clamps** sizes to 0x400 ("max strlen"), so the
+  buffer cannot overflow from loading; and no message of its bank is longer
+  than 0x400 anyway (largest **0x3F9**; the original's largest is 0x38A).
+- Expansion: counting every substitution at the 10-byte maximum, one
+  message (0x2511) could reach 0x401; the original's worst case is 0x392.
+  Not a source of frequent failures.
+- **Choice strings**: its strings run to 19 bytes and its version of
+  `mChoice_Load_ChoseStringFromRom` drops the 10-byte clamp
+  (`sltiu at,v1,-1`), so each string spills up to 9 bytes past its 10-byte
+  slot; past the last slot that is past the `char[4][10]` array, into 8
+  bytes of padding and, at 19 bytes, the first byte of `B_80142730_jp` (the
+  museum's mail record, `mMsm_*`). It also passes the full length on to
+  `mChoice_Add_choice_data`, whose slots are 10 bytes too. Real memory
+  corruption, measured; **not proven** to be the hang people report.
+- Its notes claim 8-byte names "wherever they may be used"; the save
+  structures hold 6 (player and town names in `PersonalID_c`). Unchecked.
+
+### Matching notes
+
+- IDO 7.1 `-O2 -g3`, like all of `code/` (IDO 5.3 gives 55/64, `-O2`
+  alone 27/64 on the first 64 functions).
+- `return A && B;` here compiles with the result in v0 directly; written
+  that way in C it goes through a temporary. Three such functions are still
+  NON_MATCHING (the permuter only matched one with a `volatile` return type,
+  which is not accepted).
+- **Adding a type to a shared header can reorder another file's bss**
+  (IDO): a `struct HandOverItemClip` definition in `m_clip.h` swapped
+  `l_fossil_block` and `l_haniwa_block` in `m_all_grow.o`. Only the
+  whole-ROM check catches it; such types stay local to the file using them.

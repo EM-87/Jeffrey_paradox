@@ -1,0 +1,2057 @@
+diff --git a/include/6B3DC0.h b/include/6B3DC0.h
+index d37d396..61702d8 100644
+--- a/include/6B3DC0.h
++++ b/include/6B3DC0.h
+@@ -14,8 +14,8 @@ void func_80090130_jp(s32 arg0);
+ // void func_80090188_jp();
+ // void func_8009028C_jp();
+ s32 mFont_GetStringWidth(char*, s32, s32);
+-// void func_8009034C_jp();
+-// void func_800903A8_jp();
++s32 func_8009034C_jp(u8* code); /* size of the control code at code */
++s32 func_800903A8_jp(u8* data, s32 idx); /* size of the character or control code at data[idx] */
+ // void func_800903CC_jp();
+ // void func_800903E4_jp();
+ // void func_8009040C_jp();
+diff --git a/include/m_clip.h b/include/m_clip.h
+index 2c5d2ac..f1c04ef 100644
+--- a/include/m_clip.h
++++ b/include/m_clip.h
+@@ -269,7 +269,8 @@ typedef struct Clip {
+     /* 0x078 */ struct WeatherClip* weatherClip;
+     /* 0x07C */ Clip_unk_07C* unk_07C; 
+     /* 0x080 */ MyRoomClip* myRoomClip;
+-    /* 0x084 */ s8 unk_084[0x8];
++    /* 0x084 */ s8 unk_084[0x4];
++    /* 0x088 */ struct HandOverItemClip* handOverItemClip;
+     /* 0x08C */ struct StructureClip* structureClip; 
+     /* 0x090 */ Clip_unk_090* unk_090;
+     /* 0x094 */ struct ToolClip* toolClip;
+diff --git a/include/m_msg_main.h b/include/m_msg_main.h
+index c06adbb..9ddf56c 100644
+--- a/include/m_msg_main.h
++++ b/include/m_msg_main.h
+@@ -4,104 +4,259 @@
+ #include "ultra64.h"
+ #include "unk.h"
+ #include "m_choice_main.h"
++#include "color.h"
++#include "m_std_dma.h"
+ 
+ struct Game_Play;
+ struct Actor;
+ struct Color_RGBA8;
+ 
++/*
++ * The message window. Laid out after the GameCube's mMsg_Window_c
++ * (ac-decomp include/m_msg.h), with every offset traced from the N64 code
++ * that uses it; fields named unk_ are not identified yet. Smaller than the
++ * GameCube's: names and item names hold 10 bytes (16 there), the mail
++ * string 0x44 (132 there), and there are no English articles.
++ */
++
++#define mMsg_FREE_STR_NUM 20
++#define mMsg_FREE_STRING_LEN 10
++#define mMsg_ITEM_STR_NUM 5
++#define mMsg_ITEM_STRING_LEN 10
++#define mMsg_MAIL_STR_NUM 1
++#define mMsg_MAIL_STRING_LEN 0x44
++#define mMsg_MAIL_LINE_WIDTH 16 /* characters before a forced new line */
++#define mMsg_MAIL_LINES_MAX 5
++#define mMsg_MAX_LINE 4
++
++#define mMsg_CHAR_SPACE 0x20
++#define mMsg_CHAR_NEW_LINE 0xCD
++#define mMsg_CHAR_CONTROL 0x7F
++#define mMsg_CHAR_HYPHEN 0x90
++
++/* The message bank: 0x2DE8 messages, an index of u32 offsets at ROM
++ * 0xCF9000 and the text at ROM 0xBD4000; a message longer than
++ * mMsg_MSG_SIZE_MAX bytes is refused (func_8009E388_jp). */
++#define mMsg_MSG_NUM 0x2DE8
++#define mMsg_MSG_SIZE_MAX 0x400
++
++/* Control codes: mMsg_CHAR_CONTROL, then one of these, then arguments.
++ * Numbered as the N64 code reads them (the GameCube's differ). */
++#define mMsg_CODE_LAST 0x00
++#define mMsg_CODE_CONTINUE 0x01
++#define mMsg_CODE_CURSOR_SET_TIME 0x03
++#define mMsg_CODE_COLOR 0x05
++#define mMsg_CODE_SET_DEMO_ORDER_PLAYER 0x08
++#define mMsg_CODE_SET_DEMO_ORDER_NPC0 0x09
++#define mMsg_CODE_SET_DEMO_ORDER_NPC1 0x0A
++#define mMsg_CODE_SET_DEMO_ORDER_NPC2 0x0B
++#define mMsg_CODE_SET_DEMO_ORDER_QUEST 0x0C
++#define mMsg_CODE_SET_SELECT_WINDOW 0x0D
++#define mMsg_CODE_SOUND_CUT 0x51
++#define mMsg_CODE_BGM_MAKE 0x56
++#define mMsg_CODE_BGM_DELETE 0x57
++#define mMsg_CODE_MSG_TIME_END 0x58
++#define mMsg_CODE_SOUND_TRG_SYS 0x59
++
++#define mMsg_STATUS_FLAG_IDLING_REQ (1 << 6)
++#define mMsg_STATUS_FLAG_IDLING_NOW (1 << 7)
++
++#define mMsg_BGM_NUM 8
++#define mMsg_BGM_STOP_TYPE_NUM 3
++#define mMsg_SE_NUM 7
++
++typedef enum mMsg_INDEX {
++    /* 0 */ mMsg_INDEX_HIDE,
++    /* 1 */ mMsg_INDEX_APPEAR,
++    /* 2 */ mMsg_INDEX_NORMAL,
++    /* 3 */ mMsg_INDEX_CURSOL,
++    /* 4 */ mMsg_INDEX_DISAPPEAR,
++    /* 5 */ mMsg_INDEX_APPEAR_WAIT,
++    /* 6 */ mMsg_INDEX_WAIT,
++    /* 7 */ mMsg_INDEX_DISAPPEAR_WAIT,
++    /* 8 */ mMsg_INDEX_NUM
++} mMsg_INDEX;
++
++typedef struct mMsg_Request_MainAppear_Data {
++    /* 0x0 */ struct Actor* speakerActor;
++    /* 0x4 */ s32 msgNo;
++    /* 0x8 */ s32 nameShownFlag;
++    /* 0xC */ Color_RGBA8 windowColor;
++} mMsg_Request_MainAppear_Data; // size = 0x10
++
++typedef struct mMsg_Request_MainAppearWait_Data {
++    /* 0x0 */ s32 lastMainIndex;
++    /* 0x4 */ u32 setupFlag;
++} mMsg_Request_MainAppearWait_Data;
++
++typedef struct mMsg_Request_Index_Data {
++    /* 0x0 */ s32 value; /* last main index, or wait flag */
++} mMsg_Request_Index_Data;
++
++typedef union mMsg_Request_Data {
++    mMsg_Request_MainAppear_Data mainAppear;
++    mMsg_Request_MainAppearWait_Data mainAppearWait;
++    mMsg_Request_Index_Data mainIndex;
++    u64 align;
++} mMsg_Request_Data; // size = 0x10
++
++typedef union mMsg_Main_Data {
++    s32 savedMainIndex;
++    u64 align;
++} mMsg_Main_Data; // size = 0x8
++
++typedef struct mMsg_Data {
++    /* 0x0 */ s32 dataLoaded;
++    /* 0x4 */ s32 msgNo;
++    /* 0x8 */ s32 msgLen;
++    /* 0xC */ s32 cut;
++    /* 0x10 */ u8 text[1]; /* TODO(verify) size: messages are at most 0x400 bytes (func_8009E388_jp) */
++} mMsg_Data;
++
+ typedef struct MessageWindow {
+-    /* 0x000 */ UNK_TYPE1 unk_000[0x1B0];
++    /* 0x000 */ s32 dataLoaded;
++    /* 0x004 */ s32 msgNo;
++    /* 0x008 */ UNK_TYPE4 unk_008;
++    /* 0x00C */ struct mMsg_Data* msgData;
++    /* 0x010 */ f32 centerX;
++    /* 0x014 */ f32 centerY;
++    /* 0x018 */ f32 width;
++    /* 0x01C */ f32 height;
++    /* 0x020 */ struct Actor* clientActor;
++    /* 0x024 */ s32 showActorName;
++    /* 0x028 */ s32 clientNameLen;
++    /* 0x02C */ f32 nameplateX;
++    /* 0x030 */ f32 nameplateY;
++    /* 0x034 */ s32 showContinueButton;
++    /* 0x038 */ u8 freeStr[mMsg_FREE_STR_NUM][mMsg_FREE_STRING_LEN];
++    /* 0x100 */ u8 itemStr[mMsg_ITEM_STR_NUM][mMsg_ITEM_STRING_LEN];
++    /* 0x132 */ u8 mailStr[mMsg_MAIL_STR_NUM][mMsg_MAIL_STRING_LEN];
++    /* 0x176 */ Color_RGBA8 nameTextColor;
++    /* 0x17A */ Color_RGBA8 nameBackgroundColor;
++    /* 0x17E */ Color_RGBA8 windowBackgroundColor;
++    /* 0x182 */ Color_RGBA8 fontColor[mMsg_MAX_LINE];
++    /* 0x192 */ Color_RGBA8 continueButtonColor;
++    /* 0x198 */ f32 fontScaleX;
++    /* 0x19C */ f32 fontScaleY;
++    /* 0x1A0 */ UNK_TYPE4 unk_1A0;
++    /* 0x1A4 */ UNK_TYPE4 unk_1A4;
++    /* 0x1A8 */ s32 textLines;
++    /* 0x1AC */ s32 nowDisplayLine;
+     /* 0x1B0 */ Choice choiceWindow;
+-} MessageWindow; // size >= 0x26C
++    /* 0x26C */ UNK_TYPE1 unk_26C[0x280 - 0x26C];
++    /* 0x280 */ u8 freeStrColorIdx[3]; /* for free strings 1, 2 and 5 */
++    /* 0x283 */ UNK_TYPE1 unk_283[0x28C - 0x283];
++    /* 0x28C */ u32 statusFlags; /* mMsg_STATUS_FLAG_ */
++    /* 0x290 */ f32 timer;
++    /* 0x294 */ f32 cursorTimer;
++    /* 0x298 */ f32 continueButtonTimer;
++    /* 0x29C */ s32 startTextCursorIdx;
++    /* 0x2A0 */ s32 endTextCursorIdx;
++    /* 0x2A4 */ f32 windowScale;
++    /* 0x2A8 */ f32 textScale;
++    /* 0x2AC */ s32 requestedMainIndex;
++    /* 0x2B0 */ s32 requestedPriority;
++    /* 0x2B4 */ s32 mainIndex;
++    /* 0x2B8 */ s32 drawFlag;
++    /* 0x2BC */ s32 cancelFlag;
++    /* 0x2C0 */ s32 cancelableFlag;
++    /* 0x2C4 */ s32 continueMsgNo;
++    /* 0x2C8 */ s32 continueCancelFlag;
++    /* 0x2CC */ s32 forceNext;
++    /* 0x2D0 */ s32 lockContinue;
++    /* 0x2D4 */ u8 nowUtter;
++    /* 0x2D8 */ mMsg_Main_Data mainData;
++    /* 0x2E0 */ mMsg_Request_Data requestData;
++} MessageWindow; // size = 0x2F0
+ 
+ MessageWindow* mMsg_Get_base_window_p(void);
+-// void func_8009D200_jp();
+-// void func_8009D210_jp();
++s32 func_8009D200_jp(MessageWindow* msg, s32 priority);
++s32 func_8009D210_jp(MessageWindow* msg, s32 index, s32 priority);
+ s32 mMsg_Check_main_index(MessageWindow*, s32);
+-// void func_8009D274_jp();
+-UNK_RET mMsg_Check_not_series_main_wait(UNK_PTR arg0);
+-UNK_RET mMsg_Check_main_hide(UNK_PTR arg0);
+-// void func_8009D308_jp();
+-// void func_8009D3B4_jp();
+-s32 mMsg_request_main_appear(MessageWindow*, struct Actor*, s32 , struct Color_RGBA8*,
+-                                    s32, s32);
+-// void func_8009D458_jp();
+-// void func_8009D4A0_jp();
+-// void func_8009D4F0_jp();
+-// void func_8009D510_jp();
+-// void func_8009D530_jp();
+-// void func_8009D578_jp();
+-// void func_8009D5CC_jp();
+-// void func_8009D620_jp();
+-// void func_8009D640_jp();
+-// void func_8009D688_jp();
+-void mMsg_Set_free_str(UNK_PTR arg0, s32 arg1, UNK_PTR arg2, s32 arg3); 
+-// void func_8009D820_jp();
+-void mMsg_Set_item_str(UNK_PTR arg0, s32 arg1, char* str, s32 size);
+-// void func_8009D9A4_jp();
+-// void func_8009DA1C_jp();
+-void mMsg_Set_mail_str(UNK_PTR arg0, s32 arg1, char* str, s32 size);
+-// void func_8009DBA4_jp();
+-// void func_8009DBB0_jp();
+-// void func_8009DBE0_jp();
+-// void func_8009DC04_jp();
+-// void func_8009DC2C_jp();
+-// void func_8009DCD0_jp();
+-// void func_8009DD04_jp();
+-// void func_8009DD2C_jp();
+-// void func_8009DD64_jp();
+-// void func_8009DD8C_jp();
+-// void func_8009DDB8_jp();
+-// void func_8009DDE4_jp();
+-// void func_8009DE28_jp();
+-// void func_8009DE6C_jp();
+-// void func_8009DE94_jp();
+-// void func_8009DEE8_jp();
+-// void func_8009DF1C_jp();
+-// void func_8009DF90_jp();
+-// void func_8009DFBC_jp();
+-// void func_8009DFF4_jp();
+-// void func_8009E01C_jp();
+-// void func_8009E084_jp();
+-// void func_8009E0B0_jp();
+-// void func_8009E118_jp();
+-// void func_8009E144_jp();
+-// void func_8009E17C_jp();
+-// void func_8009E1A4_jp();
+-// void func_8009E1D0_jp();
+-// void func_8009E1F8_jp();
+-// void func_8009E218_jp();
+-// void func_8009E264_jp();
+-// void func_8009E28C_jp();
+-// void func_8009E2D0_jp();
+-// void func_8009E338_jp();
+-// void func_8009E344_jp();
+-// void func_8009E374_jp();
+-// void func_8009E388_jp();
+-// void func_8009E4C8_jp();
+-// void func_8009E558_jp();
+-// void func_8009E658_jp();
+-// void func_8009E6B8_jp();
+-// void func_8009E6C4_jp();
+-// void func_8009E6D4_jp();
+-// void func_8009E6F8_jp();
++s32 func_8009D274_jp(MessageWindow* msg);
++s32 mMsg_Check_not_series_main_wait(MessageWindow* msg);
++s32 mMsg_Check_main_hide(MessageWindow* msg);
++void func_8009D308_jp(MessageWindow* msg, struct Actor* actor, s32 showName);
++s32 func_8009D3B4_jp(void);
++s32 mMsg_request_main_appear(MessageWindow* msg, struct Actor* actor, s32 showName, Color_RGBA8* windowColor,
++                             s32 msgNo, s32 priority);
++s32 func_8009D458_jp(MessageWindow* msg, s32 lastMainIndex, s32 priority);
++s32 func_8009D4A0_jp(MessageWindow* msg, s32 lastMainIndex);
++s32 func_8009D4F0_jp(MessageWindow* msg);
++s32 func_8009D510_jp(MessageWindow* msg);
++s32 func_8009D530_jp(MessageWindow* msg, s32 lastMainIndex, s32 priority);
++s32 func_8009D578_jp(MessageWindow* msg, s32 lastMainIndex, u32 setupFlag, s32 priority);
++s32 func_8009D5CC_jp(MessageWindow* msg, s32 clearFlag);
++s32 func_8009D620_jp(MessageWindow* msg);
++s32 func_8009D640_jp(MessageWindow* msg, s32 waitFlag, s32 priority);
++s32 func_8009D688_jp(MessageWindow* msg, s32 waitFlag, s32 priority);
++void mMsg_Set_free_str(MessageWindow* msg, s32 freeStrNo, char* str, s32 strLen);
++void func_8009D820_jp(MessageWindow* msg, s32 strNo, char* str, s32 strLen, s32 colorId);
++void mMsg_Set_item_str(MessageWindow* msg, s32 itemStrNo, char* str, s32 strLen);
++void func_8009D9A4_jp(MessageWindow* msg, s32 freeStrNo, char* dst);
++void func_8009DA1C_jp(MessageWindow* msg, s32 itemStrNo, char* dst);
++void mMsg_Set_mail_str(MessageWindow* msg, s32 mailStrNo, char* str, s32 strLen);
++void func_8009DBA4_jp(MessageWindow* msg, s32 msgNo);
++s32 func_8009DBB0_jp(MessageWindow* msg);
++s32 func_8009DBE0_jp(void);
++s32 func_8009DC04_jp(MessageWindow* msg, s32 idx);
++s32 func_8009DC2C_jp(u8* data, s32 start, s32 length, u8 code);
++s32 func_8009DCD0_jp(u8* data, s32 idx);
++s32 func_8009DD04_jp(MessageWindow* msg, s32 idx);
++s32 func_8009DD2C_jp(u8* data, s32 idx);
++s32 func_8009DD64_jp(MessageWindow* msg, s32 idx);
++s32 func_8009DD8C_jp(MessageWindow* msg);
++s32 func_8009DDB8_jp(MessageWindow* msg);
++s32 func_8009DDE4_jp(MessageWindow* msg);
++f32 func_8009DE28_jp(u8* data, s32 idx);
++f32 func_8009DE6C_jp(MessageWindow* msg, s32 idx);
++s32 func_8009DE94_jp(u8* data, s32 idx, u8* r, u8* g, u8* b);
++s32 func_8009DEE8_jp(MessageWindow* msg, s32 idx, u8* r, u8* g, u8* b);
++s32 func_8009DF1C_jp(u8* data, s32 idx, s32* orderIdx, u16* orderVal);
++s32 func_8009DF90_jp(MessageWindow* msg, s32 idx, s32* orderIdx, u16* orderVal);
++s32 func_8009DFBC_jp(u8* data, s32 idx);
++s32 func_8009DFF4_jp(MessageWindow* msg, s32 idx);
++void func_8009E01C_jp(u8* data, s32 idx, s32* bgmType, s32* stopType);
++void func_8009E084_jp(MessageWindow* msg, s32 idx, s32* bgmType, s32* stopType);
++void func_8009E0B0_jp(u8* data, s32 idx, s32* bgmType, s32* stopType);
++void func_8009E118_jp(MessageWindow* msg, s32 idx, s32* bgmType, s32* stopType);
++s32 func_8009E144_jp(u8* data, s32 idx);
++s32 func_8009E17C_jp(MessageWindow* msg, s32 idx);
++s32 func_8009E1A4_jp(u8* data, s32 idx);
++s32 func_8009E1D0_jp(MessageWindow* msg, s32 idx);
++s32 func_8009E1F8_jp(MessageWindow* msg);
++void func_8009E218_jp(u8* data, s32 idx, s32* seNo);
++void func_8009E264_jp(MessageWindow* msg, s32 idx, s32* seNo);
++void func_8009E28C_jp(MessageWindow* msg, s32 lineNo, u8 r, u8 g, u8 b, u8 a);
++void func_8009E2D0_jp(MessageWindow* msg);
++void func_8009E338_jp(MessageWindow* msg);
++void func_8009E344_jp(MessageWindow* msg);
++void func_8009E374_jp(MessageWindow* msg, f32 timer);
++void func_8009E388_jp(s32 index, RomOffset* addr, u32* size);
++s32 func_8009E4C8_jp(u8* data);
++s32 func_8009E558_jp(mMsg_Data* data, s32 index, s32 cut);
++s32 func_8009E658_jp(MessageWindow* msg, s32 index);
++void func_8009E6B8_jp(MessageWindow* msg);
++void func_8009E6C4_jp(MessageWindow* msg);
++s32 func_8009E6D4_jp(void);
++void func_8009E6F8_jp(struct Game* game);
+ size_t mMsg_Get_Length_String(char*, s32);
+-// void func_8009E908_jp();
+-// void func_8009E94C_jp();
+-// void func_8009E970_jp();
+-// void func_8009E990_jp();
+-// void func_8009E9A4_jp();
+-// void func_8009E9B4_jp();
+-// void func_8009E9C0_jp();
+-// void func_8009E9D0_jp();
+-// void func_8009E9DC_jp();
+-// void func_8009E9E8_jp();
+-// void func_8009E9F8_jp();
+-// void func_8009EA04_jp();
+-// void func_8009EA18_jp();
+-// void func_8009EA2C_jp();
+-// void func_8009EB44_jp();
+-// void func_8009EBB0_jp();
++s32 func_8009E908_jp(MessageWindow* msg);
++s32 func_8009E94C_jp(MessageWindow* msg);
++s32 func_8009E970_jp(MessageWindow* msg);
++s32 func_8009E990_jp(MessageWindow* msg);
++void func_8009E9A4_jp(MessageWindow* msg);
++void func_8009E9B4_jp(MessageWindow* msg);
++void func_8009E9C0_jp(MessageWindow* msg);
++void func_8009E9D0_jp(MessageWindow* msg);
++s32 func_8009E9DC_jp(MessageWindow* msg);
++void func_8009E9E8_jp(MessageWindow* msg);
++void func_8009E9F8_jp(MessageWindow* msg);
++void func_8009EA04_jp(MessageWindow* msg);
++s32 func_8009EA18_jp(MessageWindow* msg);
++s32 func_8009EA2C_jp(char* data, s32 dstIdx, s32 srcIdx, s32 len, s32 spaceFlag);
++void func_8009EB44_jp(char* dst, char* src, s32 len);
++s32 func_8009EBB0_jp(char* data, s32* startIdx, s32 len);
+ s32 mMsg_CopyPlayerName(char*, s32, s32);
+ s32 mMsg_CopyTalkName(struct Actor*, char*, s32, s32);
+ s32 mMsg_CopyTail(struct Actor*, char*, s32, s32);
+@@ -113,7 +268,7 @@ s32 mMsg_CopyHour(char*, s32, s32);
+ s32 mMsg_CopyMin(char*, s32, s32);
+ s32 mMsg_CopySec(char*, s32, s32);
+ s32 mMsg_CopyFree(MessageWindow*, s32, char*, s32, s32);
+-// void func_8009F2EC_jp();
++s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colorId);
+ s32 mMsg_CopyDetermination(MessageWindow*, char*, s32, s32);
+ s32 mMsg_CopyCountryName(char*,s32,s32);
+ s32 mMsg_CopyRamdomNumber2(char*,s32,s32);
+@@ -131,9 +286,9 @@ s32 mMsg_CopyItem(MessageWindow*, s32, char*, s32, s32);
+ // void func_8009F9F8_jp();
+ // void func_8009FA18_jp();
+ // void func_8009FA38_jp();
+-// void func_8009FA58_jp();
++void func_8009FA58_jp(f32 timer);
+ // void func_8009FAD4_jp();
+-// void func_8009FB2C_jp();
++void func_8009FB2C_jp(u8 status);
+ // void func_8009FB54_jp();
+ // void func_8009FBD8_jp();
+ // void func_8009FC2C_jp();
+diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
+new file mode 100644
+index 0000000..6f6d321
+--- /dev/null
++++ b/src/code/m_msg_main.c
+@@ -0,0 +1,1628 @@
++#include "global.h"
++#include "m_msg_main.h"
++#include "m_choice_main.h"
++#include "6B3DC0.h"
++#include "m_npc.h"
++#include "m_common_data.h"
++#include "m_clip.h"
++#include "m_string.h"
++#include "m_land.h"
++#include "m_lib.h"
++#include "m_private_internals.h"
++
++/* common_data.clip.handOverItemClip (m_clip.h leaves it incomplete: a new
++ * type there reorders other files' bss under IDO) */
++struct HandOverItemClip {
++    /* 0x00 */ UNK_TYPE1 unk_00[0x10];
++    /* 0x10 */ struct Actor* masterActor; /* the actor handing the item over, or NULL */
++}; // size >= 0x14
++
++extern mMsg_Data B_80141FF0_jp; /* the message being shown: 0x10 bytes, then 0x410 of text */
++extern MessageWindow B_80142410_jp; /* the message window */
++extern u8 D_BD4000[]; /* ROM: the message text */
++extern u8 D_80107B70_jp[6]; /* 0x7F, colour code, r, g, b, length: the player's name */
++extern u8 D_80107B78_jp[][3]; /* the colours free strings 1, 2 and 5 can take */
++extern u8 D_80107B88_jp[6]; /* 0x7F, colour code, r, g, b, length: a coloured free string */
++extern u8 D_CF9000[]; /* ROM: the message index */
++
++
++MessageWindow* mMsg_Get_base_window_p(void) {
++    return &B_80142410_jp;
++}
++
++s32 func_8009D200_jp(MessageWindow* msg, s32 priority) {
++    s32 requested = msg->requestedPriority;
++
++    return priority > requested;
++}
++
++s32 func_8009D210_jp(MessageWindow* msg, s32 index, s32 priority) {
++    if (func_8009D200_jp(msg, priority)) {
++        msg->requestedMainIndex = index;
++        msg->requestedPriority = priority;
++        return TRUE;
++    }
++    return FALSE;
++}
++
++s32 mMsg_Check_main_index(MessageWindow* msg, s32 index) {
++    return msg->mainIndex == index;
++}
++
++s32 func_8009D274_jp(MessageWindow* msg) {
++    return mMsg_Check_main_index(msg, mMsg_INDEX_WAIT);
++}
++
++#ifdef NON_MATCHING
++s32 mMsg_Check_not_series_main_wait(MessageWindow* msg) {
++    return !(mMsg_Check_main_index(msg, mMsg_INDEX_WAIT) || mMsg_Check_main_index(msg, mMsg_INDEX_APPEAR_WAIT) ||
++             mMsg_Check_main_index(msg, mMsg_INDEX_DISAPPEAR_WAIT));
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/mMsg_Check_not_series_main_wait.s")
++#endif
++
++s32 mMsg_Check_main_hide(MessageWindow* msg) {
++    return mMsg_Check_main_index(msg, mMsg_INDEX_HIDE);
++}
++
++#ifdef NON_MATCHING
++void func_8009D308_jp(MessageWindow* msg, struct Actor* actor, s32 showName) {
++    if (actor != NULL) {
++        char name[16];
++        f32 ofsX;
++        s32 len;
++
++        msg->clientActor = actor;
++        msg->showActorName = showName;
++
++        mNpc_GetNpcWorldName(name, (Npc*)actor);
++        len = mMsg_Get_Length_String(name, 6);
++        ofsX = (72.0f - mFont_GetStringWidth(name, len, 0)) * 0.5f;
++
++        msg->nameplateX = 61.0f + ofsX;
++        msg->nameplateY = 64.0f;
++        msg->clientNameLen = len;
++    } else {
++        msg->clientActor = NULL;
++        msg->showActorName = FALSE;
++    }
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009D308_jp.s")
++#endif
++
++s32 func_8009D3B4_jp(void) {
++    return func_8009D210_jp(mMsg_Get_base_window_p(), mMsg_INDEX_HIDE, 9);
++}
++
++s32 mMsg_request_main_appear(MessageWindow* msg, struct Actor* actor, s32 showName, Color_RGBA8* windowColor, s32 msgNo,
++                             s32 priority) {
++    if (func_8009D210_jp(msg, mMsg_INDEX_APPEAR, priority)) {
++        mMsg_Request_MainAppear_Data* data = &msg->requestData.mainAppear;
++
++        data->speakerActor = actor;
++        data->nameShownFlag = showName;
++        data->windowColor = *windowColor;
++        data->msgNo = msgNo;
++        return TRUE;
++    }
++    return FALSE;
++}
++
++s32 func_8009D458_jp(MessageWindow* msg, s32 lastMainIndex, s32 priority) {
++    if (func_8009D210_jp(msg, mMsg_INDEX_DISAPPEAR_WAIT, priority)) {
++        msg->requestData.mainIndex.value = lastMainIndex;
++        return TRUE;
++    }
++    return FALSE;
++}
++
++s32 func_8009D4A0_jp(MessageWindow* msg, s32 lastMainIndex) {
++    if (mChoice_check_main_index(mChoice_Get_base_window_p()) == 0) {
++        return func_8009D458_jp(msg, lastMainIndex, 5);
++    }
++    return FALSE;
++}
++
++s32 func_8009D4F0_jp(MessageWindow* msg) {
++    return func_8009D4A0_jp(msg, msg->mainIndex);
++}
++
++s32 func_8009D510_jp(MessageWindow* msg) {
++    return func_8009D4A0_jp(msg, mMsg_INDEX_NORMAL);
++}
++
++s32 func_8009D530_jp(MessageWindow* msg, s32 lastMainIndex, s32 priority) {
++    if (func_8009D210_jp(msg, mMsg_INDEX_WAIT, priority)) {
++        msg->requestData.mainIndex.value = lastMainIndex;
++        return TRUE;
++    }
++    return FALSE;
++}
++
++s32 func_8009D578_jp(MessageWindow* msg, s32 lastMainIndex, u32 setupFlag, s32 priority) {
++    if (func_8009D210_jp(msg, mMsg_INDEX_APPEAR_WAIT, priority)) {
++        mMsg_Request_MainAppearWait_Data* data = &msg->requestData.mainAppearWait;
++
++        data->lastMainIndex = lastMainIndex;
++        data->setupFlag = setupFlag;
++        return TRUE;
++    }
++    return FALSE;
++}
++
++s32 func_8009D5CC_jp(MessageWindow* msg, s32 clearFlag) {
++    s32 mainIndex = msg->mainIndex;
++
++    if (mainIndex == mMsg_INDEX_WAIT) {
++        s32 lastMainIndex = msg->mainData.savedMainIndex;
++        u32 setupFlag = clearFlag ? TRUE : FALSE;
++
++        return func_8009D578_jp(msg, lastMainIndex, setupFlag, 5);
++    }
++    return FALSE;
++}
++
++s32 func_8009D620_jp(MessageWindow* msg) {
++    return func_8009D5CC_jp(msg, TRUE);
++}
++
++s32 func_8009D640_jp(MessageWindow* msg, s32 waitFlag, s32 priority) {
++    if (func_8009D210_jp(msg, mMsg_INDEX_NORMAL, priority)) {
++        msg->requestData.mainIndex.value = waitFlag;
++        return TRUE;
++    }
++    return FALSE;
++}
++
++s32 func_8009D688_jp(MessageWindow* msg, s32 waitFlag, s32 priority) {
++    if (func_8009D210_jp(msg, mMsg_INDEX_CURSOL, priority)) {
++        msg->requestData.mainIndex.value = waitFlag;
++        return TRUE;
++    }
++    return FALSE;
++}
++
++void mMsg_Set_free_str(MessageWindow* msg, s32 freeStrNo, char* str, s32 strLen) {
++    if (freeStrNo >= 0 && freeStrNo < mMsg_FREE_STR_NUM && str != NULL) {
++        s32 i;
++        char* freeStr = (char*)msg->freeStr[freeStrNo];
++
++        if (strLen > mMsg_FREE_STRING_LEN) {
++            strLen = mMsg_FREE_STRING_LEN;
++        }
++
++        for (i = 0; i < mMsg_FREE_STRING_LEN; i++) {
++            if (i < strLen) {
++                freeStr[i] = str[i];
++            } else {
++                freeStr[i] = mMsg_CHAR_SPACE;
++            }
++        }
++    }
++
++    if (freeStrNo == 1) {
++        msg->freeStrColorIdx[0] = 0;
++    } else if (freeStrNo == 2) {
++        msg->freeStrColorIdx[1] = 0;
++    } else if (freeStrNo == 5) {
++        msg->freeStrColorIdx[2] = 0;
++    }
++}
++
++void func_8009D820_jp(MessageWindow* msg, s32 strNo, char* str, s32 strLen, s32 colorId) {
++    mMsg_Set_free_str(msg, strNo, str, strLen);
++
++    if (colorId != 0) {
++        if (strNo == 1) {
++            msg->freeStrColorIdx[0] = colorId;
++        } else if (strNo == 2) {
++            msg->freeStrColorIdx[1] = colorId;
++        } else if (strNo == 5) {
++            msg->freeStrColorIdx[2] = colorId;
++        }
++    }
++}
++
++void mMsg_Set_item_str(MessageWindow* msg, s32 itemStrNo, char* str, s32 strLen) {
++    if (itemStrNo >= 0 && itemStrNo < mMsg_ITEM_STR_NUM && str != NULL) {
++        s32 i;
++        char* itemStr = (char*)msg->itemStr[itemStrNo];
++
++        if (strLen > mMsg_ITEM_STRING_LEN) {
++            strLen = mMsg_ITEM_STRING_LEN;
++        }
++
++        for (i = 0; i < mMsg_ITEM_STRING_LEN; i++) {
++            if (i < strLen) {
++                itemStr[i] = str[i];
++            } else {
++                itemStr[i] = mMsg_CHAR_SPACE;
++            }
++        }
++    }
++}
++
++void func_8009D9A4_jp(MessageWindow* msg, s32 freeStrNo, char* dst) {
++    if (freeStrNo >= 0 && freeStrNo < mMsg_FREE_STR_NUM && dst != NULL) {
++        s32 i;
++        u8* freeStr = msg->freeStr[freeStrNo];
++
++        for (i = 0; i < mMsg_FREE_STRING_LEN; i++) {
++            dst[i] = freeStr[i];
++        }
++    }
++}
++
++void func_8009DA1C_jp(MessageWindow* msg, s32 itemStrNo, char* dst) {
++    if (itemStrNo >= 0 && itemStrNo < mMsg_ITEM_STR_NUM && dst != NULL) {
++        s32 i;
++        u8* itemStr = msg->itemStr[itemStrNo];
++
++        for (i = 0; i < mMsg_ITEM_STRING_LEN; i++) {
++            dst[i] = itemStr[i];
++        }
++    }
++}
++
++void mMsg_Set_mail_str(MessageWindow* msg, s32 mailStrNo, char* str, s32 strLen) {
++    if (mailStrNo >= 0 && mailStrNo < mMsg_MAIL_STR_NUM && str != NULL) {
++        s32 src;
++        s32 dst;
++        char* dstP;
++        char* srcP;
++        s32 rows;
++        s32 width;
++
++        if (strLen > mMsg_MAIL_STRING_LEN) {
++            strLen = mMsg_MAIL_STRING_LEN;
++        }
++
++        dst = 0;
++        dstP = (char*)msg->mailStr[mailStrNo];
++        srcP = str;
++        rows = 0;
++        width = 0;
++
++        for (src = 0; src < strLen; src++) {
++            u8 c = *srcP++;
++
++            if (c == mMsg_CHAR_NEW_LINE) {
++                rows++;
++                *dstP++ = c;
++                dst++;
++                width = 0;
++
++                if (dst >= mMsg_MAIL_STRING_LEN || rows >= mMsg_MAIL_LINES_MAX) {
++                    break;
++                }
++            } else {
++                *dstP++ = c;
++                dst++;
++                width++;
++
++                if (dst >= mMsg_MAIL_STRING_LEN) {
++                    break;
++                } else if (width >= mMsg_MAIL_LINE_WIDTH) {
++                    rows++;
++                    *dstP++ = mMsg_CHAR_NEW_LINE;
++                    dst++;
++                    width = 0;
++
++                    if (dst >= mMsg_MAIL_STRING_LEN || rows >= mMsg_MAIL_LINES_MAX) {
++                        break;
++                    }
++                }
++            }
++        }
++
++        for (; dst < mMsg_MAIL_STRING_LEN; dst++) {
++            *dstP++ = mMsg_CHAR_SPACE;
++        }
++    }
++}
++
++void func_8009DBA4_jp(MessageWindow* msg, s32 msgNo) {
++    msg->continueMsgNo = msgNo;
++}
++
++s32 func_8009DBB0_jp(MessageWindow* msg) {
++    mMsg_Data* data = msg->msgData;
++
++    if (msg->dataLoaded && data->dataLoaded) {
++        return data->msgNo;
++    }
++    return -1;
++}
++
++#ifdef NON_MATCHING
++s32 func_8009DBE0_jp(void) {
++    return common_data.clip.handOverItemClip != NULL && common_data.clip.handOverItemClip->masterActor != NULL;
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009DBE0_jp.s")
++#endif
++
++s32 func_8009DC04_jp(MessageWindow* msg, s32 idx) {
++    return func_800903A8_jp(msg->msgData->text, idx);
++}
++
++s32 func_8009DC2C_jp(u8* data, s32 start, s32 length, u8 code) {
++    s32 res = 0;
++    s32 i = start;
++    u8* nowP;
++    u8 nowCode;
++
++    while (i < length) {
++        nowP = &data[i];
++        nowCode = *nowP;
++
++        if (nowCode == mMsg_CHAR_CONTROL) {
++            i += func_8009034C_jp(nowP);
++        } else if (nowCode == code) {
++            res++;
++            i++;
++        } else {
++            break;
++        }
++    }
++
++    return res;
++}
++
++s32 func_8009DCD0_jp(u8* data, s32 idx) {
++    u8 code = data[idx];
++
++    if (code == mMsg_CHAR_CONTROL) {
++        code = data[idx + 1];
++
++        if (code == mMsg_CODE_LAST) {
++            return TRUE;
++        }
++    }
++
++    return FALSE;
++}
++
++s32 func_8009DD04_jp(MessageWindow* msg, s32 idx) {
++    return func_8009DCD0_jp(msg->msgData->text, idx);
++}
++
++s32 func_8009DD2C_jp(u8* data, s32 idx) {
++    u8 code = data[idx];
++
++    if (code == mMsg_CHAR_CONTROL) {
++        code = data[idx + 1];
++
++        if (code == mMsg_CODE_CONTINUE) {
++            return TRUE;
++        }
++    }
++
++    return FALSE;
++}
++
++s32 func_8009DD64_jp(MessageWindow* msg, s32 idx) {
++    return func_8009DD2C_jp(msg->msgData->text, idx);
++}
++
++s32 func_8009DD8C_jp(MessageWindow* msg) {
++    if (func_8009DD64_jp(msg, msg->endTextCursorIdx)) {
++        return TRUE;
++    }
++
++    return FALSE;
++}
++
++s32 func_8009DDB8_jp(MessageWindow* msg) {
++    if (func_8009DD04_jp(msg, msg->endTextCursorIdx)) {
++        return TRUE;
++    }
++
++    return FALSE;
++}
++
++s32 func_8009DDE4_jp(MessageWindow* msg) {
++    u8* data = msg->msgData->text;
++    s32 idx = msg->endTextCursorIdx;
++    u8 code = data[idx];
++
++    if (code == mMsg_CHAR_CONTROL) {
++        code = data[idx + 1];
++
++        if (code == mMsg_CODE_SET_SELECT_WINDOW) {
++            return TRUE;
++        }
++    }
++
++    return FALSE;
++}
++
++f32 func_8009DE28_jp(u8* data, s32 idx) {
++    u8 code = data[idx];
++
++    if (code == mMsg_CHAR_CONTROL) {
++        code = data[idx + 1];
++
++        if (code == mMsg_CODE_CURSOR_SET_TIME) {
++            code = data[idx + 2];
++
++            return (f32)(s32)code;
++        }
++    }
++
++    return 0.0f;
++}
++
++f32 func_8009DE6C_jp(MessageWindow* msg, s32 idx) {
++    return func_8009DE28_jp(msg->msgData->text, idx);
++}
++
++s32 func_8009DE94_jp(u8* data, s32 idx, u8* r, u8* g, u8* b) {
++    u8 code = data[idx];
++
++    if (code == mMsg_CHAR_CONTROL) {
++        code = data[idx + 1];
++
++        if (code == mMsg_CODE_COLOR) {
++            *r = data[idx + 2];
++            *g = data[idx + 3];
++            *b = data[idx + 4];
++            return TRUE;
++        }
++    }
++
++    return FALSE;
++}
++
++s32 func_8009DEE8_jp(MessageWindow* msg, s32 idx, u8* r, u8* g, u8* b) {
++    return func_8009DE94_jp(msg->msgData->text, idx, r, g, b);
++}
++
++s32 func_8009DF1C_jp(u8* data, s32 idx, s32* orderIdx, u16* orderVal) {
++    u8 code = data[idx];
++
++    if (code == mMsg_CHAR_CONTROL) {
++        code = data[idx + 1];
++
++        if (code == mMsg_CODE_SET_DEMO_ORDER_PLAYER || code == mMsg_CODE_SET_DEMO_ORDER_NPC0 ||
++            code == mMsg_CODE_SET_DEMO_ORDER_NPC1 || code == mMsg_CODE_SET_DEMO_ORDER_NPC2 ||
++            code == mMsg_CODE_SET_DEMO_ORDER_QUEST) {
++            u16 val;
++
++            *orderIdx = data[idx + 2];
++            val = (u16)(data[idx + 3]) << 8;
++            *orderVal = val | ((data[idx + 4]) & 0xFF);
++            return TRUE;
++        }
++    }
++
++    return FALSE;
++}
++
++s32 func_8009DF90_jp(MessageWindow* msg, s32 idx, s32* orderIdx, u16* orderVal) {
++    return func_8009DF1C_jp(msg->msgData->text, idx, orderIdx, orderVal);
++}
++
++s32 func_8009DFBC_jp(u8* data, s32 idx) {
++    if (data[idx] == mMsg_CHAR_CONTROL && data[idx + 1] == mMsg_CODE_SOUND_CUT) {
++        return data[idx + 2];
++    }
++
++    return FALSE;
++}
++
++s32 func_8009DFF4_jp(MessageWindow* msg, s32 idx) {
++    return func_8009DFBC_jp(msg->msgData->text, idx);
++}
++
++void func_8009E01C_jp(u8* data, s32 idx, s32* bgmType, s32* stopType) {
++    u8* codeP = &data[idx];
++
++    if (codeP[0] == mMsg_CHAR_CONTROL && codeP[1] == mMsg_CODE_BGM_MAKE && codeP[2] < mMsg_BGM_NUM &&
++        codeP[3] < mMsg_BGM_STOP_TYPE_NUM) {
++        *bgmType = codeP[2];
++        *stopType = codeP[3];
++    } else {
++        *bgmType = mMsg_BGM_NUM;
++        *stopType = mMsg_BGM_STOP_TYPE_NUM;
++    }
++}
++
++void func_8009E084_jp(MessageWindow* msg, s32 idx, s32* bgmType, s32* stopType) {
++    func_8009E01C_jp(msg->msgData->text, idx, bgmType, stopType);
++}
++
++void func_8009E0B0_jp(u8* data, s32 idx, s32* bgmType, s32* stopType) {
++    u8* codeP = &data[idx];
++
++    if (codeP[0] == mMsg_CHAR_CONTROL && codeP[1] == mMsg_CODE_BGM_DELETE && codeP[2] < mMsg_BGM_NUM &&
++        codeP[3] < mMsg_BGM_STOP_TYPE_NUM) {
++        *bgmType = codeP[2];
++        *stopType = codeP[3];
++    } else {
++        *bgmType = mMsg_BGM_NUM;
++        *stopType = mMsg_BGM_STOP_TYPE_NUM;
++    }
++}
++
++void func_8009E118_jp(MessageWindow* msg, s32 idx, s32* bgmType, s32* stopType) {
++    func_8009E0B0_jp(msg->msgData->text, idx, bgmType, stopType);
++}
++
++s32 func_8009E144_jp(u8* data, s32 idx) {
++    u8* codeP = &data[idx];
++
++    if (codeP[0] == mMsg_CHAR_CONTROL && codeP[1] == mMsg_CODE_MSG_TIME_END) {
++        return codeP[2];
++    }
++
++    return 0;
++}
++
++s32 func_8009E17C_jp(MessageWindow* msg, s32 idx) {
++    return func_8009E144_jp(msg->msgData->text, idx);
++}
++
++#ifdef NON_MATCHING
++s32 func_8009E1A4_jp(u8* data, s32 idx) {
++    u8* codeP = &data[idx];
++
++    return (codeP[0] == mMsg_CHAR_CONTROL && codeP[1] == mMsg_CODE_MSG_TIME_END);
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009E1A4_jp.s")
++#endif
++
++s32 func_8009E1D0_jp(MessageWindow* msg, s32 idx) {
++    return func_8009E1A4_jp(msg->msgData->text, idx);
++}
++
++s32 func_8009E1F8_jp(MessageWindow* msg) {
++    return func_8009E1D0_jp(msg, msg->endTextCursorIdx);
++}
++
++void func_8009E218_jp(u8* data, s32 idx, s32* seNo) {
++    u8* codeP = &data[idx];
++
++    if (codeP[0] == mMsg_CHAR_CONTROL && codeP[1] == mMsg_CODE_SOUND_TRG_SYS && codeP[2] < mMsg_SE_NUM) {
++        *seNo = codeP[2];
++    } else {
++        *seNo = mMsg_SE_NUM;
++    }
++}
++
++void func_8009E264_jp(MessageWindow* msg, s32 idx, s32* seNo) {
++    func_8009E218_jp(msg->msgData->text, idx, seNo);
++}
++
++void func_8009E28C_jp(MessageWindow* msg, s32 lineNo, u8 r, u8 g, u8 b, u8 a) {
++    if (lineNo >= 0 && lineNo < mMsg_MAX_LINE) {
++        Color_RGBA8* color = &msg->fontColor[lineNo];
++
++        color->r = r;
++        color->g = g;
++        color->b = b;
++        color->a = a;
++    }
++}
++
++void func_8009E2D0_jp(MessageWindow* msg) {
++    s32 i;
++
++    for (i = 0; i < mMsg_MAX_LINE; i++) {
++        func_8009E28C_jp(msg, i, 50, 60, 50, 255);
++    }
++}
++
++void func_8009E338_jp(MessageWindow* msg) {
++    msg->nowDisplayLine = 0;
++}
++
++void func_8009E344_jp(MessageWindow* msg) {
++    msg->startTextCursorIdx = msg->endTextCursorIdx;
++    func_8009E2D0_jp(msg);
++    func_8009E338_jp(msg);
++}
++
++void func_8009E374_jp(MessageWindow* msg, f32 timer) {
++    msg->cursorTimer = timer;
++}
++
++void func_8009E388_jp(s32 index, RomOffset* addr, u32* size) {
++    u32 buf[6];
++
++    if (index >= 0 && index < mMsg_MSG_NUM) {
++        s32 start;
++        s32 len;
++
++        if (index & 1) {
++            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_CF9000 + (index - 1) * sizeof(u32), 2 * sizeof(u32),
++                                    "../m_msg_main.c", 855);
++            start = buf[0];
++            len = buf[1] - start;
++        } else if (index == 0) {
++            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_CF9000, 2 * sizeof(u32), "../m_msg_main.c", 862);
++            start = 0;
++            len = buf[0];
++        } else {
++            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_CF9000 + (index - 2) * sizeof(u32), 4 * sizeof(u32),
++                                    "../m_msg_main.c", 868);
++            start = buf[1];
++            len = buf[2] - start;
++        }
++
++        if (len <= mMsg_MSG_SIZE_MAX) {
++            *addr = (RomOffset)D_BD4000 + start;
++            *size = len;
++        } else {
++            *addr = 0;
++            *size = 0;
++        }
++    } else {
++        *addr = 0;
++        *size = 0;
++    }
++}
++
++s32 func_8009E4C8_jp(u8* data) {
++    s32 i = 0;
++
++    while (TRUE) {
++        if (func_8009DCD0_jp(data, i) || func_8009DD2C_jp(data, i) || func_8009E1A4_jp(data, i)) {
++            i += func_800903A8_jp(data, i);
++            break;
++        }
++
++        i += func_800903A8_jp(data, i);
++        if (i >= mMsg_MSG_SIZE_MAX) {
++            break;
++        }
++    }
++
++    return i;
++}
++
++#ifdef NON_MATCHING
++s32 func_8009E558_jp(mMsg_Data* data, s32 index, s32 cut) {
++    if (data != NULL) {
++        RomOffset addr;
++        u32 size;
++
++        func_8009E388_jp(index, &addr, &size);
++
++        if (addr != 0 && size != 0) {
++            RomOffset alignedAddr = addr & ~7;
++            s32 ofs = addr - alignedAddr;
++            u8* text = data->text;
++            s32 i;
++            s32 len;
++            u8* dstP;
++            u8* srcP;
++
++            DmaMgr_RequestSyncDebug(text, alignedAddr, (ofs + size + 7) & ~7, "../m_msg_main.c", 962);
++
++            len = size;
++            dstP = text;
++            srcP = data->text + ofs;
++
++            for (i = 0; i < len; i++) {
++                *dstP++ = *srcP++;
++            }
++
++            data->dataLoaded = TRUE;
++            data->msgNo = index;
++            data->msgLen = func_8009E4C8_jp(text);
++            data->cut = cut;
++            return TRUE;
++        }
++    }
++
++    data->dataLoaded = FALSE;
++    return FALSE;
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009E558_jp.s")
++#endif
++
++s32 func_8009E658_jp(MessageWindow* msg, s32 index) {
++    if (index >= 0 && index < mMsg_MSG_NUM && func_8009E558_jp(msg->msgData, index, FALSE)) {
++        msg->endTextCursorIdx = 0;
++        func_8009E344_jp(msg);
++        func_8009E374_jp(msg, 10.0f);
++        return TRUE;
++    }
++
++    return FALSE;
++}
++
++void func_8009E6B8_jp(MessageWindow* msg) {
++    msg->nowUtter = FALSE;
++}
++
++void func_8009E6C4_jp(MessageWindow* msg) {
++    msg->nowUtter = TRUE;
++}
++
++s32 func_8009E6D4_jp(void) {
++    return mMsg_Get_base_window_p()->nowUtter;
++}
++
++void func_8009E6F8_jp(struct Game* game) {
++    B_80141FF0_jp.dataLoaded = FALSE;
++    B_80142410_jp.dataLoaded = FALSE;
++    B_80142410_jp.msgNo = 0;
++    B_80142410_jp.unk_008 = 0;
++    B_80142410_jp.msgData = &B_80141FF0_jp;
++    B_80142410_jp.centerX = 160.0f;
++    B_80142410_jp.centerY = 185.4f;
++    B_80142410_jp.width = 245.0f;
++    B_80142410_jp.height = 96.0f;
++    B_80142410_jp.clientActor = NULL;
++    B_80142410_jp.clientNameLen = 0;
++    B_80142410_jp.nameplateX = 61.0f;
++    B_80142410_jp.nameplateY = 64.0f;
++    B_80142410_jp.showContinueButton = FALSE;
++    B_80142410_jp.nameTextColor.r = 0x32;
++    B_80142410_jp.nameTextColor.g = 0x5A;
++    B_80142410_jp.nameTextColor.b = 0;
++    B_80142410_jp.nameTextColor.a = 0xFF;
++    B_80142410_jp.nameBackgroundColor.r = 0xA0;
++    B_80142410_jp.nameBackgroundColor.g = 0xD7;
++    B_80142410_jp.nameBackgroundColor.b = 0x1E;
++    B_80142410_jp.nameBackgroundColor.a = 0xFF;
++    B_80142410_jp.windowBackgroundColor.r = 0xEB;
++    B_80142410_jp.windowBackgroundColor.g = 0xFF;
++    B_80142410_jp.windowBackgroundColor.b = 0xEB;
++    B_80142410_jp.windowBackgroundColor.a = 0xFF;
++    func_8009E2D0_jp(&B_80142410_jp);
++    func_8009E338_jp(&B_80142410_jp);
++    B_80142410_jp.continueButtonColor.r = 0;
++    B_80142410_jp.continueButtonColor.g = 0;
++    B_80142410_jp.continueButtonColor.b = 0xFF;
++    B_80142410_jp.continueButtonColor.a = 0;
++    B_80142410_jp.fontScaleX = 1.0f;
++    B_80142410_jp.fontScaleY = 1.0f;
++    B_80142410_jp.unk_1A0 = 196;
++    B_80142410_jp.unk_1A4 = 66;
++    B_80142410_jp.textLines = mMsg_MAX_LINE;
++    B_80142410_jp.nowDisplayLine = 0;
++    B_80142410_jp.timer = 0.0f;
++    func_8009E374_jp(&B_80142410_jp, 0.0f);
++    B_80142410_jp.continueButtonTimer = 0.0f;
++    B_80142410_jp.startTextCursorIdx = 0;
++    B_80142410_jp.endTextCursorIdx = 0;
++    B_80142410_jp.windowScale = 0.0f;
++    B_80142410_jp.textScale = 1.0f;
++    B_80142410_jp.requestedMainIndex = -1;
++    B_80142410_jp.requestedPriority = 0;
++    B_80142410_jp.mainIndex = mMsg_INDEX_HIDE;
++    B_80142410_jp.drawFlag = 0;
++    B_80142410_jp.cancelFlag = 0;
++    B_80142410_jp.cancelableFlag = 0;
++    B_80142410_jp.continueMsgNo = 0xFFFF;
++    func_8009E9B4_jp(&B_80142410_jp);
++    func_8009E9D0_jp(&B_80142410_jp);
++    func_8009E9F8_jp(&B_80142410_jp);
++    func_8009FA58_jp(0.0f);
++    func_8009FB2C_jp(0);
++    B_80142410_jp.freeStrColorIdx[0] = 0;
++    B_80142410_jp.statusFlags &= ~(mMsg_STATUS_FLAG_IDLING_REQ | mMsg_STATUS_FLAG_IDLING_NOW);
++    B_80142410_jp.freeStrColorIdx[1] = 0;
++    B_80142410_jp.freeStrColorIdx[2] = 0;
++}
++
++size_t mMsg_Get_Length_String(char* str, s32 strLen) {
++    s32 i;
++
++    for (i = strLen - 1; i >= 0; i--) {
++        if (str[i] != mMsg_CHAR_SPACE) {
++            break;
++        }
++    }
++
++    return i + 1;
++}
++
++s32 func_8009E908_jp(MessageWindow* msg) {
++    if (msg->mainIndex == mMsg_INDEX_NORMAL) {
++        if (func_8009DD8C_jp(msg)) {
++            return TRUE;
++        }
++    }
++
++    return FALSE;
++}
++
++s32 func_8009E94C_jp(MessageWindow* msg) {
++    if (msg->mainIndex == mMsg_INDEX_NORMAL) {
++        return TRUE;
++    }
++
++    return FALSE;
++}
++
++s32 func_8009E970_jp(MessageWindow* msg) {
++    if (msg->mainIndex == mMsg_INDEX_HIDE) {
++        return TRUE;
++    }
++
++    return FALSE;
++}
++
++s32 func_8009E990_jp(MessageWindow* msg) {
++    return msg->mainIndex == mMsg_INDEX_DISAPPEAR;
++}
++
++void func_8009E9A4_jp(MessageWindow* msg) {
++    msg->continueCancelFlag = TRUE;
++}
++
++void func_8009E9B4_jp(MessageWindow* msg) {
++    msg->continueCancelFlag = FALSE;
++}
++
++void func_8009E9C0_jp(MessageWindow* msg) {
++    msg->forceNext = TRUE;
++}
++
++void func_8009E9D0_jp(MessageWindow* msg) {
++    msg->forceNext = FALSE;
++}
++
++s32 func_8009E9DC_jp(MessageWindow* msg) {
++    return msg->lockContinue;
++}
++
++void func_8009E9E8_jp(MessageWindow* msg) {
++    msg->lockContinue = TRUE;
++}
++
++void func_8009E9F8_jp(MessageWindow* msg) {
++    msg->lockContinue = FALSE;
++}
++
++void func_8009EA04_jp(MessageWindow* msg) {
++    msg->statusFlags |= mMsg_STATUS_FLAG_IDLING_REQ;
++}
++
++s32 func_8009EA18_jp(MessageWindow* msg) {
++    return (msg->statusFlags & mMsg_STATUS_FLAG_IDLING_NOW) != 0;
++}
++
++#ifdef NON_MATCHING
++s32 func_8009EA2C_jp(char* data, s32 dstIdx, s32 srcIdx, s32 len, s32 spaceFlag) {
++    s32 newLen = len;
++
++    if (dstIdx < srcIdx) {
++        while (srcIdx < len) {
++            data[dstIdx] = data[srcIdx];
++            dstIdx++;
++            srcIdx++;
++        }
++
++        newLen -= srcIdx - dstIdx;
++
++        if (spaceFlag) {
++            while (dstIdx < len) {
++                data[dstIdx] = mMsg_CHAR_SPACE;
++                dstIdx++;
++            }
++        }
++    } else if (dstIdx > srcIdx) {
++        s32 moveSize = len - srcIdx;
++
++        newLen = newLen + (dstIdx - srcIdx);
++        /* Too long: the text is not moved, but the length still grows and the
++         * caller still copies its string over what follows. */
++        if (newLen <= mMsg_MSG_SIZE_MAX) {
++            s32 i;
++            char* dstP = data + newLen - 1;
++            char* srcP = data + len - 1;
++
++            for (i = 0; i < moveSize; i++) {
++                *dstP-- = *srcP--;
++            }
++        }
++    }
++
++    return newLen;
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009EA2C_jp.s")
++#endif
++
++void func_8009EB44_jp(char* dst, char* src, s32 len) {
++    s32 i;
++
++    for (i = 0; i < len; i++) {
++        *dst++ = *src++;
++    }
++}
++
++s32 func_8009EBB0_jp(char* data, s32* startIdx, s32 len) {
++    char* name;
++    s32 hyphenCount;
++    s32 nameLen;
++    s32 commandLen;
++    s32 newLen;
++    s32 initialStartIdx;
++
++    name = common_data.privateInfo->playerId.playerName;
++    nameLen = mMsg_Get_Length_String(name, PLAYER_NAME_LEN);
++    initialStartIdx = *startIdx;
++    commandLen = func_800903A8_jp((u8*)data, *startIdx);
++
++    if (nameLen > 0) {
++        hyphenCount = func_8009DC2C_jp((u8*)data, (*startIdx) + commandLen, len, mMsg_CHAR_HYPHEN);
++        D_80107B70_jp[5] = nameLen + hyphenCount;
++        newLen = func_8009EA2C_jp(data, initialStartIdx + sizeof(D_80107B70_jp), initialStartIdx, len, FALSE);
++        func_8009EB44_jp(data + initialStartIdx, (char*)D_80107B70_jp, sizeof(D_80107B70_jp));
++        *startIdx += sizeof(D_80107B70_jp);
++    } else {
++        newLen = len;
++    }
++
++    return newLen;
++}
++
++s32 mMsg_CopyPlayerName(char* data, s32 startIdx, s32 len) {
++    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
++    char* name = common_data.privateInfo->playerId.playerName;
++    s32 nameLen = mMsg_Get_Length_String(name, PLAYER_NAME_LEN);
++    s32 newLen = func_8009EA2C_jp(data, startIdx + nameLen, startIdx + commandLen, len, FALSE);
++
++    func_8009EB44_jp(&data[startIdx], name, nameLen);
++    return newLen;
++}
++
++s32 mMsg_CopyTalkName(struct Actor* actor, char* data, s32 startIdx, s32 len) {
++    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
++    char name[6];
++    s32 nameLen;
++    s32 newLen;
++
++    if (actor != NULL) {
++        mNpc_GetNpcWorldName(name, (Npc*)actor);
++        nameLen = mMsg_Get_Length_String(name, sizeof(name));
++    } else {
++        nameLen = 0;
++    }
++
++    newLen = func_8009EA2C_jp(data, startIdx + nameLen, startIdx + commandLen, len, FALSE);
++    func_8009EB44_jp(&data[startIdx], name, nameLen);
++    return newLen;
++}
++
++s32 mMsg_CopyTail(struct Actor* actor, char* data, s32 startIdx, s32 len) {
++    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
++    char* tail = actor != NULL ? mNpc_GetWordEnding(actor) : NULL;
++    s32 tailLen = actor != NULL ? mMsg_Get_Length_String(tail, 4) : 0;
++    s32 newLen;
++
++    newLen = func_8009EA2C_jp(data, startIdx + tailLen, startIdx + commandLen, len, FALSE);
++    func_8009EB44_jp(&data[startIdx], tail, tailLen);
++    return newLen;
++}
++
++s32 mMsg_CopyYear(char* data, s32 startIdx, s32 len) {
++    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
++    u16 value = common_data.time.rtcTime.year;
++    char str[6];
++    s32 strLen = mString_Load_YearStringFromRom(str, value);
++    s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
++
++    func_8009EB44_jp(&data[startIdx], str, strLen);
++    return newLen;
++}
++
++s32 mMsg_CopyMonth(char* data, s32 startIdx, s32 len) {
++    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
++    u8 value = common_data.time.rtcTime.month;
++    char str[6];
++    s32 strLen = mString_Load_MonthStringFromRom(str, value);
++    s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
++
++    func_8009EB44_jp(&data[startIdx], str, strLen);
++    return newLen;
++}
++
++s32 mMsg_CopyWeek(char* data, s32 startIdx, s32 len) {
++    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
++    u8 value = common_data.time.rtcTime.weekday;
++    char str[6];
++    s32 strLen = mString_Load_WeekStringFromRom(str, value);
++    s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
++
++    func_8009EB44_jp(&data[startIdx], str, strLen);
++    return newLen;
++}
++
++s32 mMsg_CopyDay(char* data, s32 startIdx, s32 len) {
++    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
++    u8 value = common_data.time.rtcTime.day;
++    char str[4];
++    s32 strLen = mString_Load_DayStringFromRom(str, value);
++    s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
++
++    func_8009EB44_jp(&data[startIdx], str, strLen);
++    return newLen;
++}
++
++s32 mMsg_CopyHour(char* data, s32 startIdx, s32 len) {
++    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
++    u8 value = common_data.time.rtcTime.hour;
++    char str[6];
++    s32 strLen = mString_Load_HourStringFromRom(str, value);
++    s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
++
++    func_8009EB44_jp(&data[startIdx], str, strLen);
++    return newLen;
++}
++
++s32 mMsg_CopyMin(char* data, s32 startIdx, s32 len) {
++    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
++    u8 value = common_data.time.rtcTime.min;
++    char str[6];
++    s32 strLen = mString_Load_MinStringFromRom(str, value);
++    s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
++
++    func_8009EB44_jp(&data[startIdx], str, strLen);
++    return newLen;
++}
++
++s32 mMsg_CopySec(char* data, s32 startIdx, s32 len) {
++    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
++    u8 value = common_data.time.rtcTime.sec;
++    char str[6];
++    s32 strLen = mString_Load_SecStringFromRom(str, value);
++    s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
++
++    func_8009EB44_jp(&data[startIdx], str, strLen);
++    return newLen;
++}
++
++s32 mMsg_CopyFree(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len) {
++    if (strNo < 0 || strNo >= mMsg_FREE_STR_NUM) {
++        strNo = 0;
++    }
++
++    {
++        s32 commandLen;
++        char* freeStr;
++        s32 freeStrLen;
++        s32 newLen;
++
++        commandLen = func_800903A8_jp((u8*)data, startIdx);
++        freeStr = (char*)msg->freeStr[strNo];
++        freeStrLen = mMsg_Get_Length_String(freeStr, mMsg_FREE_STRING_LEN);
++        newLen = func_8009EA2C_jp(data, startIdx + freeStrLen, startIdx + commandLen, len, FALSE);
++        func_8009EB44_jp(&data[startIdx], freeStr, freeStrLen);
++        return newLen;
++    }
++}
++
++s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colorId) {
++    s32 freeStrLen;
++    s32 newLen;
++    s32 srcIdx;
++    u8* color;
++
++    freeStrLen = mMsg_Get_Length_String(freeStr, mMsg_FREE_STRING_LEN);
++    srcIdx = *startIdx;
++    color = D_80107B78_jp[colorId];
++    D_80107B88_jp[2] = color[0];
++    D_80107B88_jp[3] = color[1];
++    D_80107B88_jp[4] = color[2];
++    D_80107B88_jp[5] = freeStrLen;
++    newLen = func_8009EA2C_jp(data, srcIdx + sizeof(D_80107B88_jp), srcIdx, len, FALSE);
++    func_8009EB44_jp(data + srcIdx, (char*)D_80107B88_jp, sizeof(D_80107B88_jp));
++    (*startIdx) += sizeof(D_80107B88_jp);
++    return newLen;
++}
++
++s32 mMsg_CopyDetermination(MessageWindow* msg, char* data, s32 startIdx, s32 len) {
++    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
++    char* str = msg->choiceWindow.data.determinationString;
++    s32 strLen = msg->choiceWindow.data.determinationLenght;
++    s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
++
++    func_8009EB44_jp(&data[startIdx], str, strLen);
++    return newLen;
++}
++
++s32 mMsg_CopyCountryName(char* data, s32 startIdx, s32 len) {
++    s32 newLen;
++    s32 newStartIdx;
++    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
++    char* landName = mLd_GetLandName();
++    s32 landNameLen = mMsg_Get_Length_String(landName, LAND_NAME_SIZE);
++
++    newStartIdx = startIdx + landNameLen;
++    newLen = func_8009EA2C_jp(data, startIdx + landNameLen, startIdx + commandLen, len, FALSE);
++    func_8009EB44_jp(&data[startIdx], landName, landNameLen);
++
++    /* むら (mura, "village") after the name: string 0x1E4 */
++    {
++        char muraStr[mMsg_FREE_STRING_LEN];
++        char* muraStrP = muraStr;
++        s32 muraSize;
++
++        mString_Load_StringFromRom(muraStrP, sizeof(muraStr), 0x1E4);
++        muraSize = mMsg_Get_Length_String(muraStrP, sizeof(muraStr));
++        newLen = func_8009EA2C_jp(data, newStartIdx + muraSize, newStartIdx, newLen, FALSE);
++        func_8009EB44_jp(&data[newStartIdx], muraStrP, muraSize);
++    }
++
++    return newLen;
++}
++
++s32 mMsg_CopyRamdomNumber2(char* data, s32 startIdx, s32 len) {
++    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
++    u16 rng = get_random_timer(0, 100) % 100;
++    char str[2];
++    s32 strLen = mFont_UnintToString(str, rng, 2, TRUE, FALSE);
++    s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
++
++    func_8009EB44_jp(&data[startIdx], str, strLen);
++    return newLen;
++}
++
++s32 mMsg_CopyItem(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len) {
++    if (strNo < 0 || strNo >= mMsg_ITEM_STR_NUM) {
++        strNo = 0;
++    }
++
++    {
++        s32 commandLen;
++        char* freeStr;
++        s32 freeStrLen;
++        s32 newLen;
++
++        commandLen = func_800903A8_jp((u8*)data, startIdx);
++        freeStr = (char*)msg->itemStr[strNo];
++        freeStrLen = mMsg_Get_Length_String(freeStr, mMsg_ITEM_STRING_LEN);
++        newLen = func_8009EA2C_jp(data, startIdx + freeStrLen, startIdx + commandLen, len, FALSE);
++        func_8009EB44_jp(&data[startIdx], freeStr, freeStrLen);
++        return newLen;
++    }
++}
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F670_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F730_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F75C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F790_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F7CC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F800_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F830_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F864_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F8AC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F9D8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009F9F8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FA18_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FA38_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FA58_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FAD4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FB2C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FB54_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FBD8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FC2C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FC5C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FCB8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FCE0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/mMsg_sound_spec_change_voice.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FD80_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FDA0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FDF8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FE4C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FE6C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FE90_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FF24_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FF68_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FFB0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0110_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A014C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0184_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A01C8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A03B0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0478_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A04E4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A054C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A05A8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A05D8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0614_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0650_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A06AC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0770_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A07E8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0864_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A08B0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A08F8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0964_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0984_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A09A4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A09C4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A09E4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0A04_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0A60_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0B14_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0B34_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0B54_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0B74_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0B94_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0BB4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0D94_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0DB4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0DD4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0DF4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0FCC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0FEC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A100C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A102C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1078_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A10D8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1124_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1170_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A11B4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A11F8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A123C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1280_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A12C4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1308_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A134C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1394_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A141C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1444_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1468_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A148C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A14B4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A14DC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1500_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1528_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1550_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1578_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A15A0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A15C8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A15F0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1618_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1640_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1668_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1690_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A16B8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A16E0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1708_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1730_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1774_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A17B8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A17FC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1844_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A186C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1894_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A18BC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A18E4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A190C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1954_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A197C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A19C4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A19E4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1A04_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1A24_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1A44_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1A64_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1A84_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1AA4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1AC4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1AE4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1B04_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1B4C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1B6C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1B8C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1BAC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1BCC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1BEC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1C24_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1CA4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1CDC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1D14_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1D4C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1DD0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1E38_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1EA0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1F1C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1F7C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1FB4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2000_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A204C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2098_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A20E0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2150_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A21C0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A223C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A24A8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A24D0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2538_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2588_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2620_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2648_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A268C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A272C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2784_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A27FC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A287C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A289C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A28DC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2904_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2948_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A29B0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2AB0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2AD0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2BB0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2C4C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2CE4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A2EAC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3190_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A31D8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3220_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/mMsg_ct.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3304_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A332C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/mMsg_Main.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/mMsg_Draw.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/mMsm_ClearRecord.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3420_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A345C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A34E8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A35C8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3658_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/mMsm_SendInformationMail.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3784_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A37D0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3810_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3A5C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3B84_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3C18_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3CF0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3E34_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3F70_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3FB4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4184_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A41BC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4254_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A43C0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4448_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A44D4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4508_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A456C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4614_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A46F0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A49E8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4A84_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4B00_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4D10_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4DC8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4E74_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4F38_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4FD0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A50AC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A518C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A524C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A5460_jp.s")
+diff --git a/yamls/jp/code.yaml b/yamls/jp/code.yaml
+index c052055..33d2b39 100644
+--- a/yamls/jp/code.yaml
++++ b/yamls/jp/code.yaml
+@@ -55,7 +55,7 @@
+       - [0x6BFE60, c, code/m_mail]
+       - [0x6C05A0, c, code/m_mail_check]
+       - [0x6C0690, asm, code/6C0690]
+-      - [0x6C0E90, asm, code/m_msg_main]
++      - [0x6C0E90, c, code/m_msg_main]
+       - [0x6C92D0, c, code/m_name_table]
+       - [0x6C97F0, asm, code/6C97F0]
+       - [0x6CA4B0, c, code/m_npc]
+@@ -250,7 +250,7 @@
+       - [0x73AD90, .rodata, code/m_kankyo]
+       - [0x73AED0, .rodata, code/m_lib]
+       - [0x73AEE0, .rodata, code/m_lights]
+-      - [0x73AEF0, rodata, code/m_msg_main]
++      - [0x73AEF0, .rodata, code/m_msg_main]
+       - [0x73AF40, rodata, code/73AF40]
+       - [0x73AF50, .rodata, code/m_npc]
+       - [0x73B000, .rodata, code/m_olib]

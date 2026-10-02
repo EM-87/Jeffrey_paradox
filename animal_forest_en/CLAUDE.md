@@ -57,11 +57,28 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `afplay.py` reads the game's screens (dialogue, choices, name dial);
   `symbols.py` names addresses from the decomp's map; `contact.py` puts
   screenshots on one sheet.
+- `tools/af_match.py`, `af_try.py`, `af_wrap.py` — matching: per-function
+  check, trying variants, NON_MATCHING wrapping (run in build/af).
 - `tools/` — `rom.py`, `ups.py`, `nafe.py`, `nafe_diff.py` (the 2010
   patch against the original, by file and function), `route_newgame.py`
   (power-on to the houses, states on the way).
 - `tests/` — `test_tools.py`, `emu_check.py`.
 - `reference/NOTES.md` — verified facts with sources.
+
+## Decomp traps
+
+- **The whole ROM is the arbiter.** `tools/af_match.py` compares one
+  function at a time (data references masked); only `make verify` sees
+  rodata order, bss order and anything another file does. Run it before
+  calling a function done.
+- **A shared header change can reorder another file's bss under IDO**
+  (see NOTES). Keep new types local to the file that needs them.
+- **C that does not match goes behind `#ifdef NON_MATCHING`** with the
+  GLOBAL_ASM in the `#else` (`tools/af_wrap.py`); the matching patch must
+  build the cartridge.
+- **The decomp's make does not track every object**: after building an
+  object a different way (NON_MATCHING), delete it and the ELF before
+  checking the ROM. `af_match.py` always rebuilds its object.
 
 ## Emulator traps (each cost a wrong result before it was known)
 
