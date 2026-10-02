@@ -32,7 +32,10 @@ context m2c reads types from. A function is done when `af_match.py` says
 ## Where we are
 
 `code/m_msg_main` (the message system, 322 functions at 0x8009D1F0-
-0x800A5630) is a C file; functions move from asm to C one at a time. The
+0x800A5630) is a C file; functions move from asm to C in batches: 217 in
+C so far, 213 matching (the other 4 behind NON_MATCHING). `tools/af_bench.py`
+sweeps variants of one function in seconds when the first try does not
+match. The
 GameCube decomp's `src/game/m_msg*.c_inc` is the map; the layout of
 `MessageWindow` and its buffers is traced from the N64 code itself
 (`reference/NOTES.md`, "The message system").

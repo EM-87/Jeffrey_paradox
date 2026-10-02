@@ -199,7 +199,8 @@ Measured on its ROM (`tools/nafe_diff.py` and the bank itself):
   temporary (the comparison is `int`, then converted): the result lands in
   v1 and is moved to v0. Declared `int`, it is computed in v0, as the
   cartridge has it (m_bgm.c in the decomp does the same). This was the
-  whole difference in four functions held back as NON_MATCHING.
+  whole difference in three functions held back as NON_MATCHING, and in
+  three more of the sound block.
 - **Under `-g3`, a block that declares something is laid out apart.** An
   `if` branch with a declaration in it (even an `extern`) gets its own exit
   (the `move v0,v1` duplicated per branch, a load not hoisted above the
@@ -209,11 +210,23 @@ Measured on its ROM (`tools/nafe_diff.py` and the bank itself):
   (func_8009FC5C_jp).
 - **Which locals are declared at function scope, and in what order, sets
   the stack frame.** func_8009F8AC_jp matched only with `data`, `npcId`,
-  `voice` at function scope in that order and the voice mode in its block
-  (the frame and the spill slot of `voice` both depend on it). A bench for
-  trying such layouts quickly: compile one function alone with
-  `tools/ido/linux/7.1/cc -c -G 0 -non_shared -Xcpluscomm -Wab,-r4300_mul
-  -mips2 -EB -O2 -g3` and minimal types, and compare with `expected/`.
+  `voice` at function scope in that order and the voice mode in its block;
+  func_8009D308_jp only with `f32 ofsX; char name[16]; s32 len;`.
+- **Expression shape picks registers and operand order.** Two bytes made
+  into a message number match as `n = data[i + 2] << 8; n = (0xFF &
+  data[i + 3]) | n;` (the GameCube's `n |= ...` gives the operands of the
+  `or` the other way round); a character tested once needed a local
+  (`u8 c = data[idx];`); the length growth in func_8009EA2C_jp a local of
+  its own.
+- **A fake match, when nothing natural is found, is marked as the decomp
+  marks them**: `if (1) {} //! FAKE` (func_8009FFB0_jp: it splits a
+  `default:` block so that the switch is laid out as on the cartridge).
+- `tools/af_bench.py` compiles variants of one function alone, with the
+  file's prelude, in about 0.1 s each, and counts differences against
+  `expected/`: the way to sweep declaration orders and expression shapes.
+  The permuter (decomp-permuter, `import.py` then `permuter.py`) finds
+  what to look for when nothing obvious works; its results are rewritten
+  as natural C or marked FAKE, never committed as they come.
 - **Adding a type to a shared header can reorder another file's bss**
   (IDO): a `struct HandOverItemClip` definition in `m_clip.h` swapped
   `l_fossil_block` and `l_haniwa_block` in `m_all_grow.o`. Only the

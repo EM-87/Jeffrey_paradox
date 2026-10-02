@@ -43,16 +43,17 @@ index 5223795..a920508 100644
      /* 0x0F438 */ u8 stationType;
      /* 0x0F439 */ u8 saveWeather;
 diff --git a/include/m_msg_main.h b/include/m_msg_main.h
-index c06adbb..828a742 100644
+index c06adbb..351bddf 100644
 --- a/include/m_msg_main.h
 +++ b/include/m_msg_main.h
-@@ -4,104 +4,270 @@
+@@ -4,104 +4,285 @@
  #include "ultra64.h"
  #include "unk.h"
  #include "m_choice_main.h"
 +#include "color.h"
 +#include "m_std_dma.h"
  
++struct Game;
  struct Game_Play;
  struct Actor;
  struct Color_RGBA8;
@@ -106,14 +107,28 @@ index c06adbb..828a742 100644
 +
 +/* Status flags, numbered as the GameCube's (those traced so far). */
 +#define mMsg_STATUS_FLAG_SOUND_CUT (1 << 0) /* func_8009F8AC_jp */
++#define mMsg_STATUS_FLAG_NO_SE_PAGE_OKURI (1 << 1) /* func_800A01C8_jp */
++#define mMsg_STATUS_FLAG_LAST_DELAY (1 << 3) /* func_800A05D8_jp */
 +#define mMsg_STATUS_FLAG_SPEC_VOICE (1 << 4) /* func_8009FCE0_jp */
 +#define mMsg_STATUS_FLAG_VOICE_ENTRY (1 << 5) /* func_8009F830_jp */
 +#define mMsg_STATUS_FLAG_IDLING_REQ (1 << 6)
 +#define mMsg_STATUS_FLAG_IDLING_NOW (1 << 7)
++#define mMsg_STATUS_FLAG_FAST_TEXT (1 << 8) /* func_800A06AC_jp */
 +
 +#define mMsg_BGM_NUM 8
 +#define mMsg_BGM_STOP_TYPE_NUM 3
 +#define mMsg_SE_NUM 7
++
++#define mMsg_BUTTON_TURN_TIME 30.0f /* frames per blink of the continue button */
++
++/* What a control code handler returns to the cursor (m_msg_cursol in AC GCN). */
++typedef enum mMsg_RESULT {
++    /* 0 */ mMsg_RESULT_VOID,  /* go on typing */
++    /* 1 */ mMsg_RESULT_FALSE, /* stop here this frame, the code is done */
++    /* 2 */ mMsg_RESULT_TRUE   /* stop here, waiting */
++} mMsg_RESULT;
++
++#define mChoice_CHOICE_NUM 4 /* choices in a select window (6 on the GameCube) */
 +
 +typedef enum mMsg_INDEX {
 +    /* 0 */ mMsg_INDEX_HIDE,
@@ -196,7 +211,7 @@ index c06adbb..828a742 100644
      /* 0x1B0 */ Choice choiceWindow;
 -} MessageWindow; // size >= 0x26C
 +    /* 0x26C */ UNK_TYPE1 unk_26C[0x4];
-+    /* 0x270 */ u16 unk_270;
++    /* 0x270 */ u16 endTimer; /* frames left before the window closes by itself; 0: never (func_800A014C_jp) */
 +    /* 0x272 */ s16 voiceNpcId; /* the speaker's voice (func_8009F800_jp) */
 +    /* 0x274 */ s32 voiceTextIdx; /* where in the text the voice was entered */
 +    /* 0x278 */ u8 voiceNo; /* the sound for that character (func_8009F75C_jp) */
@@ -404,7 +419,7 @@ index c06adbb..828a742 100644
  s32 mMsg_CopyPlayerName(char*, s32, s32);
  s32 mMsg_CopyTalkName(struct Actor*, char*, s32, s32);
  s32 mMsg_CopyTail(struct Actor*, char*, s32, s32);
-@@ -113,36 +279,36 @@ s32 mMsg_CopyHour(char*, s32, s32);
+@@ -113,125 +294,125 @@ s32 mMsg_CopyHour(char*, s32, s32);
  s32 mMsg_CopyMin(char*, s32, s32);
  s32 mMsg_CopySec(char*, s32, s32);
  s32 mMsg_CopyFree(MessageWindow*, s32, char*, s32, s32);
@@ -439,6 +454,95 @@ index c06adbb..828a742 100644
 -void mMsg_sound_spec_change_voice(UNK_PTR arg0);
 -// void func_8009FD80_jp();
 -// void func_8009FDA0_jp();
+-// void func_8009FDF8_jp();
+-// void func_8009FE4C_jp();
+-// void func_8009FE6C_jp();
+-// void func_8009FE90_jp();
+-// void func_8009FF24_jp();
+-// void func_8009FF68_jp();
+-// void func_8009FFB0_jp();
+-// void func_800A0110_jp();
+-// void func_800A014C_jp();
+-// void func_800A0184_jp();
+-// void func_800A01C8_jp();
+-// void func_800A03B0_jp();
+-// void func_800A0478_jp();
+-// void func_800A04E4_jp();
+-// void func_800A054C_jp();
+-// void func_800A05A8_jp();
+-// void func_800A05D8_jp();
+-// void func_800A0614_jp();
+-// void func_800A0650_jp();
+-// void func_800A06AC_jp();
+-// void func_800A0770_jp();
+-// void func_800A07E8_jp();
+-// void func_800A0864_jp();
+-// void func_800A08B0_jp();
+-// void func_800A08F8_jp();
+-// void func_800A0964_jp();
+-// void func_800A0984_jp();
+-// void func_800A09A4_jp();
+-// void func_800A09C4_jp();
+-// void func_800A09E4_jp();
+-// void func_800A0A04_jp();
+-// void func_800A0A60_jp();
+-// void func_800A0B14_jp();
+-// void func_800A0B34_jp();
+-// void func_800A0B54_jp();
+-// void func_800A0B74_jp();
+-// void func_800A0B94_jp();
+-// void func_800A0BB4_jp();
+-// void func_800A0D94_jp();
+-// void func_800A0DB4_jp();
+-// void func_800A0DD4_jp();
+-// void func_800A0DF4_jp();
+-// void func_800A0FCC_jp();
+-// void func_800A0FEC_jp();
+-// void func_800A100C_jp();
+-// void func_800A102C_jp();
+-// void func_800A1078_jp();
+-// void func_800A10D8_jp();
+-// void func_800A1124_jp();
+-// void func_800A1170_jp();
+-// void func_800A11B4_jp();
+-// void func_800A11F8_jp();
+-// void func_800A123C_jp();
+-// void func_800A1280_jp();
+-// void func_800A12C4_jp();
+-// void func_800A1308_jp();
+-// void func_800A134C_jp();
+-// void func_800A1394_jp();
+-// void func_800A141C_jp();
+-// void func_800A1444_jp();
+-// void func_800A1468_jp();
+-// void func_800A148C_jp();
+-// void func_800A14B4_jp();
+-// void func_800A14DC_jp();
+-// void func_800A1500_jp();
+-// void func_800A1528_jp();
+-// void func_800A1550_jp();
+-// void func_800A1578_jp();
+-// void func_800A15A0_jp();
+-// void func_800A15C8_jp();
+-// void func_800A15F0_jp();
+-// void func_800A1618_jp();
+-// void func_800A1640_jp();
+-// void func_800A1668_jp();
+-// void func_800A1690_jp();
+-// void func_800A16B8_jp();
+-// void func_800A16E0_jp();
+-// void func_800A1708_jp();
+-// void func_800A1730_jp();
+-// void func_800A1774_jp();
+-// void func_800A17B8_jp();
+-// void func_800A17FC_jp();
+-// void func_800A1844_jp();
+-// void func_800A186C_jp();
+-// void func_800A1894_jp();
+-// void func_800A18BC_jp();
+-// void func_800A18E4_jp();
+-// void func_800A190C_jp();
+-// void func_800A1954_jp();
 +s32 func_8009F670_jp(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len);
 +s32 func_8009F730_jp(s32 code);
 +s32 func_8009F75C_jp(s32 code);
@@ -464,15 +568,113 @@ index c06adbb..828a742 100644
 +s32 mMsg_sound_spec_change_voice(MessageWindow* msg);
 +void func_8009FD80_jp(MessageWindow* msg);
 +void func_8009FDA0_jp(MessageWindow* msg);
- // void func_8009FDF8_jp();
- // void func_8009FE4C_jp();
- // void func_8009FE6C_jp();
++void func_8009FDF8_jp(MessageWindow* msg);
++void func_8009FE4C_jp(MessageWindow* msg, struct Game* game);
++void func_8009FE6C_jp(MessageWindow* msg, struct Game* game);
++int func_8009FE90_jp(MessageWindow* msg, struct Game* game);
++void func_8009FF24_jp(MessageWindow* msg, struct Game* game, int scaleDone);
++void func_8009FF68_jp(MessageWindow* msg, struct Game* game);
++void func_8009FFB0_jp(MessageWindow* msg, struct Game* game);
++int func_800A0110_jp(MessageWindow* msg);
++int func_800A014C_jp(MessageWindow* msg);
++void func_800A0184_jp(MessageWindow* msg);
++void func_800A01C8_jp(MessageWindow* msg, struct Game* game);
++void func_800A03B0_jp(MessageWindow* msg, struct Game* game);
++void func_800A0478_jp(MessageWindow* msg, struct Game* game);
++void func_800A04E4_jp(MessageWindow* msg, struct Game* game);
++int func_800A054C_jp(MessageWindow* msg);
++int func_800A05A8_jp(MessageWindow* msg, s32 idx);
++s32 func_800A05D8_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0614_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0650_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A06AC_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0770_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A07E8_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0864_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A08B0_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A08F8_jp(MessageWindow* msg, s32* idxP, s32 demoType);
++s32 func_800A0964_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0984_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A09A4_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A09C4_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A09E4_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0A04_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0A60_jp(MessageWindow* msg, s32* idxP, s32 selectNo);
++s32 func_800A0B14_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0B34_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0B54_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0B74_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0B94_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0BB4_jp(MessageWindow* msg, s32* idxP, s32 max);
++s32 func_800A0D94_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0DB4_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0DD4_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0DF4_jp(MessageWindow* msg, s32* idxP, s32 selectCount);
++s32 func_800A0FCC_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A0FEC_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A100C_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A102C_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1078_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A10D8_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1124_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1170_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A11B4_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A11F8_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A123C_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1280_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A12C4_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1308_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A134C_jp(MessageWindow* msg, s32 idx, s32 freeStrNo);
++s32 func_800A1394_jp(MessageWindow* msg, s32* idxP, s32 freeStrNo, s32 colorId);
++s32 func_800A141C_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1444_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1468_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A148C_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A14B4_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A14DC_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1500_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1528_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1550_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1578_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A15A0_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A15C8_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A15F0_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1618_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1640_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1668_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1690_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A16B8_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A16E0_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1708_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1730_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1774_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A17B8_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A17FC_jp(MessageWindow* msg, s32 idx, s32 itemStrNo);
++s32 func_800A1844_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A186C_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A1894_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A18BC_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A18E4_jp(MessageWindow* msg, s32* idxP);
++s32 func_800A190C_jp(MessageWindow* msg, s32 idx, s32 mailStrNo);
++s32 func_800A1954_jp(MessageWindow* msg, s32* idxP);
+ // void func_800A197C_jp();
+ // void func_800A19C4_jp();
+ // void func_800A19E4_jp();
+@@ -290,7 +471,7 @@ void mMsg_sound_spec_change_voice(UNK_PTR arg0);
+ // void func_800A2C4C_jp();
+ // void func_800A2CE4_jp();
+ // void func_800A2EAC_jp();
+-// void func_800A3190_jp();
++void func_800A3190_jp(MessageWindow* msg, struct Game* game);
+ // void func_800A31D8_jp();
+ // void func_800A3220_jp();
+ void mMsg_ct(struct Game_Play* game_play);
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
 new file mode 100644
-index 0000000..3715070
+index 0000000..099f021
 --- /dev/null
 +++ b/src/code/m_msg_main.c
-@@ -0,0 +1,1798 @@
+@@ -0,0 +1,2404 @@
 +#include "global.h"
 +#include "m_msg_main.h"
 +#include "m_choice_main.h"
@@ -544,11 +746,10 @@ index 0000000..3715070
 +    return mMsg_Check_main_index(msg, mMsg_INDEX_HIDE);
 +}
 +
-+#ifdef NON_MATCHING
 +void func_8009D308_jp(MessageWindow* msg, struct Actor* actor, s32 showName) {
 +    if (actor != NULL) {
-+        char name[16];
 +        f32 ofsX;
++        char name[16];
 +        s32 len;
 +
 +        msg->clientActor = actor;
@@ -566,9 +767,6 @@ index 0000000..3715070
 +        msg->showActorName = FALSE;
 +    }
 +}
-+#else
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009D308_jp.s")
-+#endif
 +
 +s32 func_8009D3B4_jp(void) {
 +    return func_8009D210_jp(mMsg_Get_base_window_p(), mMsg_INDEX_HIDE, 9);
@@ -1156,6 +1354,7 @@ index 0000000..3715070
 +
 +#ifdef NON_MATCHING
 +s32 func_8009E558_jp(mMsg_Data* data, s32 index, s32 cut) {
++
 +    if (data != NULL) {
 +        RomOffset addr;
 +        u32 size;
@@ -1165,25 +1364,24 @@ index 0000000..3715070
 +        if (addr != 0 && size != 0) {
 +            RomOffset alignedAddr = addr & ~7;
 +            s32 ofs = addr - alignedAddr;
-+            u8* text = data->text;
 +            s32 i;
 +            s32 len;
 +            u8* dstP;
 +            u8* srcP;
 +
-+            DmaMgr_RequestSyncDebug(text, alignedAddr, (ofs + size + 7) & ~7, "../m_msg_main.c", 962);
++            DmaMgr_RequestSyncDebug(data->text, alignedAddr, (ofs + size + 7) & ~7, "../m_msg_main.c", 962);
 +
 +            len = size;
-+            dstP = text;
++            dstP = data->text;
 +            srcP = data->text + ofs;
 +
 +            for (i = 0; i < len; i++) {
 +                *dstP++ = *srcP++;
 +            }
 +
-+            data->dataLoaded = TRUE;
 +            data->msgNo = index;
-+            data->msgLen = func_8009E4C8_jp(text);
++            data->dataLoaded = TRUE;
++            data->msgLen = func_8009E4C8_jp(data->text);
 +            data->cut = cut;
 +            return TRUE;
 +        }
@@ -1361,7 +1559,6 @@ index 0000000..3715070
 +    return (msg->statusFlags & mMsg_STATUS_FLAG_IDLING_NOW) != 0;
 +}
 +
-+#ifdef NON_MATCHING
 +s32 func_8009EA2C_jp(char* data, s32 dstIdx, s32 srcIdx, s32 len, s32 spaceFlag) {
 +    s32 newLen = len;
 +
@@ -1381,9 +1578,10 @@ index 0000000..3715070
 +            }
 +        }
 +    } else if (dstIdx > srcIdx) {
++        s32 growth = dstIdx - srcIdx;
 +        s32 moveSize = len - srcIdx;
 +
-+        newLen = newLen + (dstIdx - srcIdx);
++        newLen += growth;
 +        /* Too long: the text is not moved, but the length still grows and the
 +         * caller still copies its string over what follows. */
 +        if (newLen <= mMsg_MSG_SIZE_MAX) {
@@ -1399,9 +1597,6 @@ index 0000000..3715070
 +
 +    return newLen;
 +}
-+#else
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009EA2C_jp.s")
-+#endif
 +
 +void func_8009EB44_jp(char* dst, char* src, s32 len) {
 +    s32 i;
@@ -1884,183 +2079,796 @@ index 0000000..3715070
 +    }
 +}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FDF8_jp.s")
++void func_8009FDF8_jp(MessageWindow* msg) {
++    Actor* actor = msg->clientActor;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FE4C_jp.s")
++    if (actor != NULL && actor->part == ACTOR_PART_NPC) {
++        u16 fgName = actor->fgName;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FE6C_jp.s")
++        if (fgName == 0xD026 || fgName == 0xD037) {
++            sAdo_SpecChange(7);
++        }
++    }
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FE90_jp.s")
++/* m_msg_hide (AC GCN): the window is hidden. */
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FF24_jp.s")
++void func_8009FE4C_jp(MessageWindow* msg, struct Game* game) {
++    func_800A3190_jp(msg, game);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FF68_jp.s")
++void func_8009FE6C_jp(MessageWindow* msg, struct Game* game) {
++    func_8009E6F8_jp(game);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_8009FFB0_jp.s")
++/* m_msg_appear: the window opens. */
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0110_jp.s")
++int func_8009FE90_jp(MessageWindow* msg, struct Game* game) {
++    if (msg->timer < 9.0f) {
++        f32 scale;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A014C_jp.s")
++        msg->timer += 1.0f;
++        scale = get_percent_forAccelBrake(msg->timer, 0.0f, 9.0f, 0.0f, 0.0f);
++        msg->windowScale = scale;
++        msg->textScale = scale;
++        return FALSE;
++    } else {
++        msg->windowScale = 1.0f;
++        msg->textScale = 1.0f;
++        msg->timer = 0.0f;
++        return TRUE;
++    }
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0184_jp.s")
++void func_8009FF24_jp(MessageWindow* msg, struct Game* game, int scaleDone) {
++    if (scaleDone && func_8009D688_jp(msg, FALSE, 5)) {
++        func_8009E374_jp(msg, 10.0f);
++    }
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A01C8_jp.s")
++void func_8009FF68_jp(MessageWindow* msg, struct Game* game) {
++    int scaleDone = func_8009FE90_jp(msg, game);
 +
++    func_8009FF24_jp(msg, game, scaleDone);
++    func_800A3190_jp(msg, game);
++}
++
++void func_8009FFB0_jp(MessageWindow* msg, struct Game* game) {
++    mMsg_Request_MainAppear_Data* appearData = &msg->requestData.mainAppear;
++    s32 msgNo = appearData->msgNo;
++
++    if (func_8009E558_jp(msg->msgData, msgNo, FALSE)) {
++        struct Actor* actor = appearData->speakerActor;
++        s32 showName = appearData->nameShownFlag;
++
++        func_8009D308_jp(msg, actor, showName);
++        msg->windowBackgroundColor = appearData->windowColor;
++        mMsg_sound_spec_change_voice(msg);
++        func_8009FCB8_jp(msg);
++        msg->mainIndex = mMsg_INDEX_APPEAR;
++        msg->drawFlag = TRUE;
++        msg->showContinueButton = FALSE;
++        msg->requestedMainIndex = -1;
++        msg->requestedPriority = 4;
++        msg->startTextCursorIdx = 0;
++        msg->endTextCursorIdx = 0;
++        msg->windowScale = 0.0f;
++        msg->textScale = 0.0f;
++        msg->timer = 0.0f;
++
++        if (msg->clientActor != NULL) {
++            switch (mNpc_GetNpcSex(msg->clientActor)) {
++                case NPC_SEX_MALE:
++                    msg->nameBackgroundColor.r = 70;
++                    msg->nameBackgroundColor.g = 245;
++                    msg->nameBackgroundColor.b = 255;
++                    msg->nameTextColor.r = 0;
++                    msg->nameTextColor.g = 0;
++                    msg->nameTextColor.b = 15;
++                    break;
++
++                case NPC_SEX_FEMALE:
++                    msg->nameBackgroundColor.r = 235;
++                    msg->nameBackgroundColor.g = 140;
++                    msg->nameBackgroundColor.b = 210;
++                    msg->nameTextColor.r = 45;
++                    msg->nameTextColor.g = 0;
++                    msg->nameTextColor.b = 30;
++                    break;
++
++                default:
++                    if (1) {} //! FAKE
++                    msg->nameBackgroundColor.r = 185;
++                    msg->nameBackgroundColor.g = 255;
++                    msg->nameBackgroundColor.b = 0;
++                    msg->nameTextColor.r = 0;
++                    msg->nameTextColor.g = 30;
++                    msg->nameTextColor.b = 0;
++                    break;
++            }
++        }
++
++        msg->dataLoaded = TRUE;
++    } else {
++        msg->dataLoaded = FALSE;
++    }
++}
++
++/* m_msg_normal: the text is shown, waiting for the player. */
++
++int func_800A0110_jp(MessageWindow* msg) {
++    return chkTrigger(A_BUTTON) || chkTrigger(B_BUTTON);
++}
++
++int func_800A014C_jp(MessageWindow* msg) {
++    if (msg->endTimer == 0) {
++        return FALSE;
++    } else if (msg->endTimer == 1) {
++        return TRUE;
++    } else {
++        msg->endTimer--;
++        return FALSE;
++    }
++}
++
++void func_800A0184_jp(MessageWindow* msg) {
++    if (func_8009D210_jp(msg, mMsg_INDEX_DISAPPEAR, 5)) {
++        func_8009E344_jp(msg);
++        func_8009E9D0_jp(msg);
++    }
++}
++
++void func_800A01C8_jp(MessageWindow* msg, struct Game* game) {
++    if (func_800A014C_jp(msg) && func_8009E1F8_jp(msg)) {
++        func_800A0184_jp(msg);
++    } else if ((func_800A0110_jp(msg) || msg->forceNext) && msg->lockContinue == FALSE) {
++        int last = FALSE;
++
++        if (func_8009DD8C_jp(msg) && msg->continueCancelFlag == FALSE) {
++            s32 continueMsg = msg->continueMsgNo;
++
++            if (continueMsg >= 0 && func_8009E658_jp(msg, continueMsg)) {
++                if (func_8009D688_jp(msg, FALSE, 5) && msg->forceNext == FALSE && func_8009DDE4_jp(msg) == FALSE) {
++                    if ((msg->statusFlags & mMsg_STATUS_FLAG_NO_SE_PAGE_OKURI) == 0) {
++                        func_8009F9D8_jp();
++                    }
++                }
++
++                func_8009E9D0_jp(msg);
++                func_8009DBA4_jp(msg, -1);
++            }
++        } else if ((func_8009DD8C_jp(msg) && msg->continueCancelFlag) || (last = func_8009DDB8_jp(msg)) ||
++                   func_8009E1F8_jp(msg)) {
++            if ((msg->statusFlags & mMsg_STATUS_FLAG_IDLING_NOW) == 0) {
++                if (last && (msg->statusFlags & mMsg_STATUS_FLAG_IDLING_REQ)) {
++                    msg->statusFlags |= mMsg_STATUS_FLAG_IDLING_NOW;
++                } else {
++                    func_800A0184_jp(msg);
++                }
++            }
++        } else if (func_8009D688_jp(msg, FALSE, 5)) {
++            if (msg->forceNext == FALSE && func_8009DDE4_jp(msg) == FALSE &&
++                (msg->statusFlags & mMsg_STATUS_FLAG_NO_SE_PAGE_OKURI) == 0) {
++                func_8009F9D8_jp();
++            }
++
++            func_8009E9D0_jp(msg);
++        }
++    }
++}
++
++#ifdef NON_MATCHING
++void func_800A03B0_jp(MessageWindow* msg, struct Game* game) {
++    f32* timer = &msg->continueButtonTimer;
++    f32 target;
++
++    (*timer) += 1.0f;
++    if (*timer >= mMsg_BUTTON_TURN_TIME) {
++        *timer = 0.0f;
++    }
++
++    target = (*timer - mMsg_BUTTON_TURN_TIME * 0.5f) / (mMsg_BUTTON_TURN_TIME * 0.5f);
++    target = target <= 0.0f ? 1.0f + target : 1.0f - target;
++
++    if (target < 0.0f) {
++        target = 0.0f;
++    } else if (target > 1.0f) {
++        target = 1.0f;
++    }
++
++    msg->continueButtonColor.a = (s32)(target * 255.0f);
++}
++#else
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A03B0_jp.s")
++#endif
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0478_jp.s")
++void func_800A0478_jp(MessageWindow* msg, struct Game* game) {
++    func_800A03B0_jp(msg, game);
++    func_800A01C8_jp(msg, game);
++    func_800A3190_jp(msg, game);
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A04E4_jp.s")
++    if (msg->mainIndex != mMsg_INDEX_NORMAL) {
++        msg->statusFlags &= ~mMsg_STATUS_FLAG_NO_SE_PAGE_OKURI;
++    }
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A054C_jp.s")
++void func_800A04E4_jp(MessageWindow* msg, struct Game* game) {
++    mMsg_Request_Index_Data* normalData = &msg->requestData.mainIndex;
++    s32 waitFlag = normalData->value;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A05A8_jp.s")
++    msg->mainIndex = mMsg_INDEX_NORMAL;
++    msg->drawFlag = TRUE;
++    msg->requestedMainIndex = -1;
++    msg->requestedPriority = 4;
++    msg->statusFlags &= ~mMsg_STATUS_FLAG_IDLING_NOW;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A05D8_jp.s")
++    if (waitFlag != TRUE) {
++        msg->continueButtonTimer = 0.0f;
++        msg->continueButtonColor.a = 0;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0614_jp.s")
++        if (msg->endTimer == 0) {
++            msg->showContinueButton = TRUE;
++        } else {
++            msg->showContinueButton = FALSE;
++        }
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0650_jp.s")
++        msg->cancelFlag = FALSE;
++    }
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A06AC_jp.s")
++/* m_msg_cursol (AC GCN): the text is typed out, one character at a time;
++ * each control code met on the way has a handler, returning mMsg_RESULT_. */
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0770_jp.s")
++int func_800A054C_jp(MessageWindow* msg) {
++    if (msg->cancelableFlag != FALSE && msg->cancelFlag == FALSE) {
++        if (chkTrigger(A_BUTTON) || chkTrigger(B_BUTTON)) {
++            return TRUE;
++        }
++    }
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A07E8_jp.s")
++    return FALSE;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0864_jp.s")
++int func_800A05A8_jp(MessageWindow* msg, s32 idx) {
++    u8* data = msg->msgData->text;
++    u8 c = data[idx];
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A08B0_jp.s")
++    if (c == mMsg_CHAR_CONTROL) {
++        return TRUE;
++    }
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A08F8_jp.s")
++    return FALSE;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0964_jp.s")
++s32 func_800A05D8_jp(MessageWindow* msg, s32* idxP) {
++    msg->endTextCursorIdx = *idxP;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0984_jp.s")
++    if (msg->statusFlags & mMsg_STATUS_FLAG_LAST_DELAY) {
++        msg->statusFlags &= ~mMsg_STATUS_FLAG_LAST_DELAY;
++        return mMsg_RESULT_FALSE;
++    } else {
++        msg->statusFlags |= mMsg_STATUS_FLAG_LAST_DELAY;
++        return mMsg_RESULT_TRUE;
++    }
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A09A4_jp.s")
++s32 func_800A0614_jp(MessageWindow* msg, s32* idxP) {
++    msg->endTextCursorIdx = *idxP;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A09C4_jp.s")
++    if (msg->statusFlags & mMsg_STATUS_FLAG_LAST_DELAY) {
++        msg->statusFlags &= ~mMsg_STATUS_FLAG_LAST_DELAY;
++        return mMsg_RESULT_FALSE;
++    } else {
++        msg->statusFlags |= mMsg_STATUS_FLAG_LAST_DELAY;
++        return mMsg_RESULT_TRUE;
++    }
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A09E4_jp.s")
++s32 func_800A0650_jp(MessageWindow* msg, s32* idxP) {
++    (*idxP) += func_8009DC04_jp(msg, *idxP);
++    msg->endTextCursorIdx = *idxP;
++    func_8009E344_jp(msg);
++    func_8009E374_jp(msg, 10.0f);
++    return mMsg_RESULT_TRUE;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0A04_jp.s")
++s32 func_800A06AC_jp(MessageWindow* msg, s32* idxP) {
++    f32 setTime = func_8009DE6C_jp(msg, *idxP);
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0A60_jp.s")
++    (*idxP) += func_8009DC04_jp(msg, *idxP);
++    msg->endTextCursorIdx = *idxP;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0B14_jp.s")
++    if (msg->cancelFlag) {
++        return mMsg_RESULT_VOID;
++    }
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0B34_jp.s")
++    if (setTime > 0.0f) {
++        msg->cursorTimer = setTime;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0B54_jp.s")
++        if (msg->statusFlags & mMsg_STATUS_FLAG_FAST_TEXT) {
++            func_8009FA58_jp(1.0f);
++        } else {
++            func_8009FA58_jp(setTime);
++        }
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0B74_jp.s")
++        return mMsg_RESULT_TRUE;
++    }
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0B94_jp.s")
++    return mMsg_RESULT_VOID;
++}
 +
++s32 func_800A0770_jp(MessageWindow* msg, s32* idxP) {
++    if (msg->statusFlags & mMsg_STATUS_FLAG_LAST_DELAY) {
++        msg->statusFlags &= ~mMsg_STATUS_FLAG_LAST_DELAY;
++        (*idxP) += func_8009DC04_jp(msg, *idxP);
++        msg->endTextCursorIdx = *idxP;
++        return mMsg_RESULT_FALSE;
++    } else {
++        msg->statusFlags |= mMsg_STATUS_FLAG_LAST_DELAY;
++        msg->endTextCursorIdx = *idxP;
++        return mMsg_RESULT_TRUE;
++    }
++}
++
++s32 func_800A07E8_jp(MessageWindow* msg, s32* idxP) {
++    s32 displayedLine = msg->nowDisplayLine;
++    Color_RGBA8* textColor;
++
++    if (displayedLine >= 0 && displayedLine < mMsg_MAX_LINE) {
++        textColor = &msg->fontColor[displayedLine];
++    } else {
++        textColor = &msg->fontColor[0];
++    }
++
++    func_8009DEE8_jp(msg, *idxP, &textColor->r, &textColor->g, &textColor->b);
++    (*idxP) += func_8009DC04_jp(msg, *idxP);
++    return mMsg_RESULT_VOID;
++}
++
++s32 func_800A0864_jp(MessageWindow* msg, s32* idxP) {
++    (*idxP) += func_8009DC04_jp(msg, *idxP);
++    msg->cancelableFlag = TRUE;
++    return mMsg_RESULT_VOID;
++}
++
++s32 func_800A08B0_jp(MessageWindow* msg, s32* idxP) {
++    (*idxP) += func_8009DC04_jp(msg, *idxP);
++    msg->cancelFlag = FALSE;
++    msg->cancelableFlag = FALSE;
++    return mMsg_RESULT_VOID;
++}
++
++s32 func_800A08F8_jp(MessageWindow* msg, s32* idxP, s32 demoType) {
++    s32 idx;
++    u16 val;
++
++    func_8009DF90_jp(msg, *idxP, &idx, &val);
++    mDemo_Set_OrderValue(demoType, idx, val);
++    (*idxP) += func_8009DC04_jp(msg, *idxP);
++    return mMsg_RESULT_VOID;
++}
++
++s32 func_800A0964_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A08F8_jp(msg, idxP, DEMO_ORDER_PLAYER);
++}
++
++s32 func_800A0984_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A08F8_jp(msg, idxP, DEMO_ORDER_NPC0);
++}
++
++s32 func_800A09A4_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A08F8_jp(msg, idxP, DEMO_ORDER_NPC1);
++}
++
++s32 func_800A09C4_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A08F8_jp(msg, idxP, DEMO_ORDER_NPC2);
++}
++
++s32 func_800A09E4_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A08F8_jp(msg, idxP, DEMO_ORDER_QUEST);
++}
++
++s32 func_800A0A04_jp(MessageWindow* msg, s32* idxP) {
++    (*idxP) += func_8009DC04_jp(msg, *idxP);
++    msg->endTextCursorIdx = *idxP;
++    mChoice_Change_request_main_index(&msg->choiceWindow, 1);
++    return mMsg_RESULT_TRUE;
++}
++
++s32 func_800A0A60_jp(MessageWindow* msg, s32* idxP, s32 selectNo) {
++    u16 msgNo;
++    u8* data = msg->msgData->text;
++    s32 choiceNo = mChoice_Get_ChoseNum(mChoice_Get_base_window_p());
++
++    msgNo = data[(*idxP) + 2] << 8;
++    msgNo = (0xFF & data[(*idxP) + 3]) | msgNo;
++
++    if (selectNo == 0xFF || selectNo == choiceNo) {
++        if (msgNo != 0xFFFF) {
++            func_8009DBA4_jp(msg, msgNo);
++        } else {
++            func_8009E9A4_jp(msg);
++        }
++    }
++
++    (*idxP) += func_8009DC04_jp(msg, *idxP);
++    return mMsg_RESULT_VOID;
++}
++
++s32 func_800A0B14_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A0A60_jp(msg, idxP, 0xFF);
++}
++
++s32 func_800A0B34_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A0A60_jp(msg, idxP, 0);
++}
++
++s32 func_800A0B54_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A0A60_jp(msg, idxP, 1);
++}
++
++s32 func_800A0B74_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A0A60_jp(msg, idxP, 2);
++}
++
++s32 func_800A0B94_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A0A60_jp(msg, idxP, 3);
++}
++
++#ifdef NON_MATCHING
++s32 func_800A0BB4_jp(MessageWindow* msg, s32* idxP, s32 max) {
++    u16 msgTbl[4];
++    u8* data = msg->msgData->text;
++    s32 selected = get_random_timer(0, max);
++    s32 i;
++
++    for (i = 0; i < max; i++) {
++        msgTbl[i] = data[(*idxP) + 2 + i * 2] << 8;
++        msgTbl[i] = (0xFF & data[(*idxP) + 3 + i * 2]) | msgTbl[i];
++    }
++
++    if (selected < 0 || selected >= max) {
++        selected = 0;
++    }
++
++    func_8009DBA4_jp(msg, msgTbl[selected]);
++    (*idxP) += func_8009DC04_jp(msg, *idxP);
++    return mMsg_RESULT_VOID;
++}
++#else
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0BB4_jp.s")
++#endif
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0D94_jp.s")
++s32 func_800A0D94_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A0BB4_jp(msg, idxP, 2);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0DB4_jp.s")
++s32 func_800A0DB4_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A0BB4_jp(msg, idxP, 3);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0DD4_jp.s")
++s32 func_800A0DD4_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A0BB4_jp(msg, idxP, 4);
++}
 +
++#ifdef NON_MATCHING
++s32 func_800A0DF4_jp(MessageWindow* msg, s32* idxP, s32 selectCount) {
++    u8* data = msg->msgData->text;
++    s32 idTbl[mChoice_CHOICE_NUM];
++    u16 id;
++
++    id = data[(*idxP) + 2] << 8;
++    id = (0xFF & data[(*idxP) + 3]) | id;
++    idTbl[0] = id;
++
++    id = data[(*idxP) + 4] << 8;
++    id = (0xFF & data[(*idxP) + 5]) | id;
++    idTbl[1] = id;
++
++    if (selectCount > 2) {
++        id = data[(*idxP) + 6] << 8;
++        id = (0xFF & data[(*idxP) + 7]) | id;
++        idTbl[2] = id;
++    }
++
++    if (selectCount > 3) {
++        id = data[(*idxP) + 8] << 8;
++        id = (0xFF & data[(*idxP) + 9]) | id;
++        idTbl[3] = id;
++    }
++
++    if (selectCount >= 2 && selectCount <= mChoice_CHOICE_NUM) {
++        /* A static array here in AC GCN (str); still in the bss asm, and
++         * declared in this block because the block's scope shapes the code. */
++        extern char B_80142700_jp[mChoice_CHOICE_NUM][Choice_CHOICE_STRING_LEN];
++        s32 i;
++        struct Actor* actor = msg->clientActor;
++
++        for (i = 0; i < selectCount; i++) {
++            mChoice_Load_ChoseStringFromRom((s32)mChoice_Get_base_window_p(), B_80142700_jp[i], idTbl[i], actor);
++        }
++
++        {
++            char* str0 = B_80142700_jp[0];
++            char* str1 = B_80142700_jp[1];
++            char* str2 = selectCount > 2 ? B_80142700_jp[2] : NULL;
++            char* str3 = selectCount > 3 ? B_80142700_jp[3] : NULL;
++
++            mChoice_Set_choice_data(mChoice_Get_base_window_p(), str0, Choice_CHOICE_STRING_LEN, str1,
++                                    Choice_CHOICE_STRING_LEN, str2, Choice_CHOICE_STRING_LEN, str3,
++                                    Choice_CHOICE_STRING_LEN);
++        }
++    }
++
++    (*idxP) += func_8009DC04_jp(msg, *idxP);
++    return mMsg_RESULT_VOID;
++}
++#else
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0DF4_jp.s")
++#endif
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0FCC_jp.s")
++s32 func_800A0FCC_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A0DF4_jp(msg, idxP, 2);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A0FEC_jp.s")
++s32 func_800A0FEC_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A0DF4_jp(msg, idxP, 3);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A100C_jp.s")
++s32 func_800A100C_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A0DF4_jp(msg, idxP, 4);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A102C_jp.s")
++s32 func_800A102C_jp(MessageWindow* msg, s32* idxP) {
++    (*idxP) += func_8009DC04_jp(msg, *idxP);
++    func_8009E9C0_jp(msg);
++    return mMsg_RESULT_VOID;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1078_jp.s")
++s32 func_800A1078_jp(MessageWindow* msg, s32* idxP) {
++    mMsg_Data* msgData = msg->msgData;
++    char* data = (char*)msgData->text;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A10D8_jp.s")
++    msgData->msgLen = func_8009EBB0_jp(data, idxP, msgData->msgLen);
++    msgData->msgLen = mMsg_CopyPlayerName(data, *idxP, msgData->msgLen);
++    return mMsg_RESULT_VOID;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1124_jp.s")
++s32 func_800A10D8_jp(MessageWindow* msg, s32* idxP) {
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1170_jp.s")
++    msg->msgData->msgLen = mMsg_CopyTalkName(msg->clientActor, data, *idxP, len);
++    return mMsg_RESULT_VOID;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A11B4_jp.s")
++s32 func_800A1124_jp(MessageWindow* msg, s32* idxP) {
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A11F8_jp.s")
++    msg->msgData->msgLen = mMsg_CopyTail(msg->clientActor, data, *idxP, len);
++    return mMsg_RESULT_VOID;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A123C_jp.s")
++s32 func_800A1170_jp(MessageWindow* msg, s32* idxP) {
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1280_jp.s")
++    msg->msgData->msgLen = mMsg_CopyYear(data, *idxP, len);
++    return mMsg_RESULT_VOID;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A12C4_jp.s")
++s32 func_800A11B4_jp(MessageWindow* msg, s32* idxP) {
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1308_jp.s")
++    msg->msgData->msgLen = mMsg_CopyMonth(data, *idxP, len);
++    return mMsg_RESULT_VOID;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A134C_jp.s")
++s32 func_800A11F8_jp(MessageWindow* msg, s32* idxP) {
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1394_jp.s")
++    msg->msgData->msgLen = mMsg_CopyWeek(data, *idxP, len);
++    return mMsg_RESULT_VOID;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A141C_jp.s")
++s32 func_800A123C_jp(MessageWindow* msg, s32* idxP) {
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1444_jp.s")
++    msg->msgData->msgLen = mMsg_CopyDay(data, *idxP, len);
++    return mMsg_RESULT_VOID;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1468_jp.s")
++s32 func_800A1280_jp(MessageWindow* msg, s32* idxP) {
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A148C_jp.s")
++    msg->msgData->msgLen = mMsg_CopyHour(data, *idxP, len);
++    return mMsg_RESULT_VOID;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A14B4_jp.s")
++s32 func_800A12C4_jp(MessageWindow* msg, s32* idxP) {
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A14DC_jp.s")
++    msg->msgData->msgLen = mMsg_CopyMin(data, *idxP, len);
++    return mMsg_RESULT_VOID;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1500_jp.s")
++s32 func_800A1308_jp(MessageWindow* msg, s32* idxP) {
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1528_jp.s")
++    msg->msgData->msgLen = mMsg_CopySec(data, *idxP, len);
++    return mMsg_RESULT_VOID;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1550_jp.s")
++s32 func_800A134C_jp(MessageWindow* msg, s32 idx, s32 freeStrNo) {
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1578_jp.s")
++    msg->msgData->msgLen = mMsg_CopyFree(msg, freeStrNo, data, idx, len);
++    return mMsg_RESULT_VOID;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A15A0_jp.s")
++s32 func_800A1394_jp(MessageWindow* msg, s32* idxP, s32 freeStrNo, s32 colorId) {
++    if (colorId != 0) {
++        mMsg_Data* msgData = msg->msgData;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A15C8_jp.s")
++        msgData->msgLen =
++            func_8009F2EC_jp((char*)msgData->text, idxP, msgData->msgLen, (char*)msg->freeStr[freeStrNo], colorId);
++    }
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A15F0_jp.s")
++    func_800A134C_jp(msg, *idxP, freeStrNo);
++    return mMsg_RESULT_VOID;
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1618_jp.s")
++s32 func_800A141C_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 0);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1640_jp.s")
++s32 func_800A1444_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A1394_jp(msg, idxP, 1, msg->freeStrColorIdx[0]);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1668_jp.s")
++s32 func_800A1468_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A1394_jp(msg, idxP, 2, msg->freeStrColorIdx[1]);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1690_jp.s")
++s32 func_800A148C_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 3);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A16B8_jp.s")
++s32 func_800A14B4_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 4);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A16E0_jp.s")
++s32 func_800A14DC_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A1394_jp(msg, idxP, 5, msg->freeStrColorIdx[2]);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1708_jp.s")
++s32 func_800A1500_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 6);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1730_jp.s")
++s32 func_800A1528_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 7);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1774_jp.s")
++s32 func_800A1550_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 8);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A17B8_jp.s")
++s32 func_800A1578_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 9);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A17FC_jp.s")
++s32 func_800A15A0_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 10);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1844_jp.s")
++s32 func_800A15C8_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 11);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A186C_jp.s")
++s32 func_800A15F0_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 12);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1894_jp.s")
++s32 func_800A1618_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 13);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A18BC_jp.s")
++s32 func_800A1640_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 14);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A18E4_jp.s")
++s32 func_800A1668_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 15);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A190C_jp.s")
++s32 func_800A1690_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 16);
++}
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A1954_jp.s")
++s32 func_800A16B8_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 17);
++}
++
++s32 func_800A16E0_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 18);
++}
++
++s32 func_800A1708_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A134C_jp(msg, *idxP, 19);
++}
++
++s32 func_800A1730_jp(MessageWindow* msg, s32* idxP) {
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
++
++    msg->msgData->msgLen = mMsg_CopyDetermination(msg, data, *idxP, len);
++    return mMsg_RESULT_VOID;
++}
++
++s32 func_800A1774_jp(MessageWindow* msg, s32* idxP) {
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
++
++    msg->msgData->msgLen = mMsg_CopyCountryName(data, *idxP, len);
++    return mMsg_RESULT_VOID;
++}
++
++s32 func_800A17B8_jp(MessageWindow* msg, s32* idxP) {
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
++
++    msg->msgData->msgLen = mMsg_CopyRamdomNumber2(data, *idxP, len);
++    return mMsg_RESULT_VOID;
++}
++
++s32 func_800A17FC_jp(MessageWindow* msg, s32 idx, s32 itemStrNo) {
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
++
++    msg->msgData->msgLen = mMsg_CopyItem(msg, itemStrNo, data, idx, len);
++    return mMsg_RESULT_VOID;
++}
++
++s32 func_800A1844_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A17FC_jp(msg, *idxP, 0);
++}
++
++s32 func_800A186C_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A17FC_jp(msg, *idxP, 1);
++}
++
++s32 func_800A1894_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A17FC_jp(msg, *idxP, 2);
++}
++
++s32 func_800A18BC_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A17FC_jp(msg, *idxP, 3);
++}
++
++s32 func_800A18E4_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A17FC_jp(msg, *idxP, 4);
++}
++
++s32 func_800A190C_jp(MessageWindow* msg, s32 idx, s32 mailStrNo) {
++    char* data = (char*)msg->msgData->text;
++    s32 len = msg->msgData->msgLen;
++
++    msg->msgData->msgLen = func_8009F670_jp(msg, mailStrNo, data, idx, len);
++    return mMsg_RESULT_VOID;
++}
++
++s32 func_800A1954_jp(MessageWindow* msg, s32* idxP) {
++    return func_800A190C_jp(msg, *idxP, 0);
++}
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A197C_jp.s")
 +

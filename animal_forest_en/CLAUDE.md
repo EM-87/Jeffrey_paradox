@@ -57,8 +57,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `afplay.py` reads the game's screens (dialogue, choices, name dial);
   `symbols.py` names addresses from the decomp's map; `contact.py` puts
   screenshots on one sheet.
-- `tools/af_match.py`, `af_try.py`, `af_wrap.py` — matching: per-function
-  check, trying variants, NON_MATCHING wrapping (run in build/af).
+- `tools/af_match.py`, `af_try.py`, `af_wrap.py`, `af_bench.py` —
+  matching: per-function check, trying variants in the file, NON_MATCHING
+  wrapping, and sweeping many variants fast outside the build (run in
+  build/af).
 - `tools/` — `rom.py`, `ups.py`, `nafe.py`, `nafe_diff.py` (the 2010
   patch against the original, by file and function), `route_newgame.py`
   (power-on to the houses, states on the way).
