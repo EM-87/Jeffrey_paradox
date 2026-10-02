@@ -510,6 +510,51 @@ the emulator (`make rom-en`, `make script ISO=...`).
   page runs to 5 or 6 lines after a BTN without MSGCLEAR, the English
   draft 12; the checker only warns. TODO(verify): what the window does
   with the fifth line (scroll, or draw below the balloon).
+- **The other banks, and the window's strings.** The answers a choice
+  window offers and the free strings (catchphrases, the names of animals,
+  fish and insects, the date's words) are two more banks of the same
+  shape (`m_choice_main.c`: index 0xD06000, text 0xD05000, 460 entries,
+  at most 10 bytes; `m_string.c`: 0xD18000/0xD16000, 1,562 entries, at
+  most 64), and the GameCube's `select_data` and `string_data` keep their
+  numbering too (N64 37/38 あってるよ/ちがってるよ! are its "That's
+  right!"/"That's wrong!", 'だニ' is 'kittycat'): `tools/af_text.py
+  --bank choice|string` drafts them entry by entry (460 of 460 and 1,455
+  of 1,562 have GameCube text) and compiles them into four more plain
+  segments (six dmadata entries in all, 0x60 of the 0xF0 padding). The
+  English answers run to 19 bytes and 238 of them pass 10, so the en
+  build's `Choice_CHOICE_STRING_LEN` is 24 and the reader's cap follows
+  it; one free string, 1372 (the door note of an animal who is out, four
+  16-cell lines on the N64), is 88 bytes on the GameCube and gets our own
+  64 in `script/string/`. The window's free and item strings grow from 10
+  to 32 bytes (`mMsg_FREE_STRING_LEN`, `mMsg_ITEM_STRING_LEN`): the
+  struct no longer fits the cartridge's 0x2F0 bytes of asm bss, so the en
+  build's window and choice strings are C globals (`mMsg_window`,
+  `mMsg_choice_str`, in code_en) and the four functions that never
+  matched the cartridge (`func_8009E558_jp`, `func_800A03B0_jp`,
+  `func_800A0DF4_jp`, `func_800A223C_jp`) are built from their C there
+  (`#define NON_MATCHING` in `m_msg_main.c`). The asm elsewhere reaches
+  both windows through `mMsg_Get_base_window_p` (675 calls) and
+  `mChoice_Get_base_window_p` (155), almost always to hand the pointer to
+  a C function; it reads a field by offset once (0x186, a font colour,
+  `ovl__00814FA0`). So the structs keep every original field where it
+  was: the window's 10-byte arrays stay as `legacyFreeStr`/`legacyItemStr`
+  and the 32-byte ones are appended after 0x2F0 (the window is 0x610),
+  and the choice window's answers live in globals of their own
+  (`mChoice_en_strings`, `mChoice_en_determination`) instead of its
+  struct. With the three banks and the names in, the English ROM plays
+  the whole route like the cartridge: name dial 3289, town 4117, station
+  9298, houses 12173 (the cartridge: 2414/2975/8154/11030; English pages
+  take a press more). A probe that seemed to show the choice window
+  missing was holding A (CLAUDE.md, emulator traps).
+- **The animals' names** are 6 bytes on the N64 (`PLAYER_NAME_LEN`, used
+  as `ANIMAL_NAME_LEN`), read from the file at vrom 0xE04000 at 8 + 6n
+  (`mNpc_LoadNpcNameString`); the GameCube's `npc_name_str_table.bin` is
+  236 names of 8 bytes, its name n + 4 being the N64's n (Bob/ニコバン,
+  Olivia/オリビア, Kabuki/かぶきち, Monique/ジェーン...). `tools/af_names.py`
+  writes them into a copy of the segment that the en build uses as the
+  segment's .bin: 232 names, 38 of them longer than 6 (Hornsby, Baabara,
+  Cashmere...) and cut for now. Widening the field means the save data's
+  layout: a decision for phase 5 or 6, noted here.
 - **What the first English ROM shows** (screenshots in the scratchpad):
   K.K.'s intro and Rover's questions in English, typed in the Japanese
   font's full-width cells (16 px per character: the 0x7000-byte font at

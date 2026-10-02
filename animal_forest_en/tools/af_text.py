@@ -4,8 +4,17 @@ script, checked against what the cartridge's message system can take,
 compiled to the files the ROM reads.
 
     tools/af_text.py draft  N64_DUMP GC_DUMP ALIGN.tsv OUT.txt [--overrides FILE ...]
-    tools/af_text.py check  BANK.txt [--cols 32] [--lines 4] [--max-bytes 0x400] [--reference N64_DUMP]
+    tools/af_text.py draft  N64_DUMP GC_DUMP - OUT.txt --bank choice|string [--overrides FILE ...]
+    tools/af_text.py check  BANK.txt [--bank message] [--cols 32] [--lines 4] [--max-bytes N] [--reference N64_DUMP]
     tools/af_text.py compile BANK.txt TEXT.bin INDEX.bin [the same options]
+
+--bank names which of the cartridge's banks the text is (tools/msgbank.py
+N64_BANKS): message (11,752 entries), choice (460: the answers a choice
+window offers, single lines) or string (1,562: catchphrases, names of
+animals, fish, insects..., single lines). The count and the default
+--max-bytes come from it; the choice and string banks keep the same
+numbering on the GameCube, so their draft is simply the GameCube's entry
+by number where it is not empty (no alignment file: pass `-`).
 
 A bank text is tools/msgbank.py's dump form: `## number`, the message with
 its codes as `<NAME hex>`, `#:` notes. compile needs every number 0..11751
@@ -47,9 +56,9 @@ import sys
 import unicodedata
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from msgbank import N64_BYTES, NAMES, Bank, encode, parse, render  # noqa: E402
+from msgbank import N64_BANKS, N64_BYTES, NAMES, Bank, encode, parse, render  # noqa: E402
 
-N64_COUNT = 0x2DE8
+N64_COUNT = 0x2DE8                       # the message bank; main() sets it from --bank
 N64_CODE_MAX = 0x60
 TERMINATORS = {NAMES["MSGEND"], NAMES["MSGCONTINUE"], NAMES["MSGTIMEEND"]}
 PAGE_BREAKS = {NAMES["BTN"], NAMES["MSGCLEAR"]}
@@ -117,8 +126,9 @@ def page_lines(tokens):
     return max(most, shown())
 
 
-def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0):
-    """[(level, text)] for one message; allowed_lines: what its original showed."""
+def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0, single=False):
+    """[(level, text)] for one message; allowed_lines: what its original showed;
+    single: a choice or free string (no codes, no terminator, one line)."""
     problems = []
     try:
         raw = encode(tokens)
@@ -127,6 +137,10 @@ def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0):
     if len(raw) > max_bytes:
         problems.append(("error", "%d bytes, the loader takes %d" % (len(raw), max_bytes)))
     codes = [t for t in tokens if t[0] == "c"]
+    if single:
+        if codes or "\n" in "".join(t[1] for t in tokens if t[0] == "t"):
+            problems.append(("error", "a choice or string is one line of text, no codes"))
+        return problems
     for t in codes:
         if t[1] > N64_CODE_MAX:
             problems.append(("error", "code %d is the GameCube's, not the N64's" % t[1]))
@@ -162,11 +176,11 @@ def load_bank(path):
     return Bank.parse_dump(open(path, encoding="utf-8").read())
 
 
-def run_checks(messages, cols, lines, max_bytes, reference=None):
+def run_checks(messages, cols, lines, max_bytes, reference=None, single=False):
     errors = warnings = 0
     for number in sorted(messages):
         allowed = page_lines(reference[number]) if reference and number in reference else 0
-        for level, text in check_message(number, messages[number], cols, lines, max_bytes, allowed):
+        for level, text in check_message(number, messages[number], cols, lines, max_bytes, allowed, single):
             print("%s %d: %s" % (level, number, text))
             if level == "error":
                 errors += 1
@@ -198,9 +212,13 @@ def compile_bank(messages, text_path, index_path):
 def draft(n64_path, gc_path, align_path, out_path, overrides):
     n64, gc = load_bank(n64_path), load_bank(gc_path)
     classes = {}
-    for line in open(align_path, encoding="utf-8").read().splitlines()[1:]:
-        number, cls = line.split("\t")[:2]
-        classes[int(number)] = cls
+    if align_path == "-":                   # a single-line bank: the same numbering, entry by entry
+        for n in range(N64_COUNT):
+            classes[n] = "same" if gc.get(n) else "removed"
+    else:
+        for line in open(align_path, encoding="utf-8").read().splitlines()[1:]:
+            number, cls = line.split("\t")[:2]
+            classes[int(number)] = cls
     ours = {}
     for path in overrides:
         ours.update(load_bank(path))
@@ -228,11 +246,15 @@ def draft(n64_path, gc_path, align_path, out_path, overrides):
 
 
 def main(argv):
-    opts = {"--cols": 32, "--lines": 4, "--max-bytes": 0x400}
-    args, overrides, reference, i = [], [], None, 0
+    global N64_COUNT
+    opts = {"--cols": 32, "--lines": 4, "--max-bytes": None}
+    args, overrides, reference, bank, i = [], [], None, "message", 0
     while i < len(argv):
         if argv[i] in opts:
             opts[argv[i]] = int(argv[i + 1], 0)
+            i += 2
+        elif argv[i] == "--bank":
+            bank = argv[i + 1]
             i += 2
         elif argv[i] == "--reference":
             reference = load_bank(argv[i + 1])
@@ -243,12 +265,15 @@ def main(argv):
         else:
             args.append(argv[i])
             i += 1
+    N64_COUNT = N64_BANKS[bank][2]
+    if opts["--max-bytes"] is None:
+        opts["--max-bytes"] = N64_BANKS[bank][3]
     cmd = args[0]
     if cmd == "draft":
         draft(args[1], args[2], args[3], args[4], overrides)
         return 0
     messages = load_bank(args[1])
-    errors = run_checks(messages, opts["--cols"], opts["--lines"], opts["--max-bytes"], reference)
+    errors = run_checks(messages, opts["--cols"], opts["--lines"], opts["--max-bytes"], reference, bank != "message")
     if cmd == "check":
         return 1 if errors else 0
     if cmd == "compile":

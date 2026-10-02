@@ -135,8 +135,16 @@ EN_MOVED := $(AF_EN_DIR)/build/af_en_moved.txt
 # changes.patch); the objects come from the .bin files the decomp picks up.
 GC_DIR    := $(BUILD)/gc
 EN_BANK   := $(if $(wildcard $(GC_DIR)/en_bank.txt),$(GC_DIR)/en_bank.txt,$(GC_DIR)/n64_jp.txt)
+EN_CHOICE := $(if $(wildcard $(GC_DIR)/en_choice.txt),$(GC_DIR)/en_choice.txt,$(GC_DIR)/n64_choice_jp.txt)
+EN_STRING := $(if $(wildcard $(GC_DIR)/en_string.txt),$(GC_DIR)/en_string.txt,$(GC_DIR)/n64_string_jp.txt)
 EN_ASSETS := $(AF_EN_DIR)/assets/jp/en
-EN_SEGMENTS := --segment msg_en_text=build/assets/jp/en/msg_text.o --segment msg_en_index=build/assets/jp/en/msg_index.o
+EN_SEGMENTS := --segment msg_en_text=build/assets/jp/en/msg_text.o --segment msg_en_index=build/assets/jp/en/msg_index.o \
+	--segment msg_en_choice_text=build/assets/jp/en/choice_text.o --segment msg_en_choice_index=build/assets/jp/en/choice_index.o \
+	--segment msg_en_string_text=build/assets/jp/en/string_text.o --segment msg_en_string_index=build/assets/jp/en/string_index.o
+# The animals' names: the cartridge's name segment with the GameCube's names
+# in its 6-byte fields (tools/af_names.py), as the en build's copy of the
+# segment's .bin; the cartridge's own when the disc's table is not there.
+EN_NAMES := $(AF_EN_DIR)/assets/jp/segment_00E04000.bin
 
 $(AF_EN_DIR)/.stamp-checkout: decomp/AF_REV $(MATCHING) $(CHANGES)
 	@if [ "$$(git -C $(AF_EN_DIR) rev-parse HEAD~0 2>/dev/null)" = "" ]; then \
@@ -166,16 +174,24 @@ decomp-en: $(AF_EN_DIR)/.stamp-extract
 # relative, the sizes every object's data had, and the layout to prove
 # against. Two links: the first measures the objects, the second lays them
 # out (the script is rewritten from splat's pristine copy each time).
-$(GC_DIR)/n64_jp.txt: $(BASEROM) tools/msgbank.py
+$(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n64_string_jp.txt: $(BASEROM) tools/msgbank.py
 	mkdir -p $(GC_DIR)
 	$(PYTHON) tools/msgbank.py check-n64 $(BASEROM)
-	$(PYTHON) tools/msgbank.py dump-n64 $(BASEROM) $@
+	$(PYTHON) tools/msgbank.py dump-n64 $(BASEROM) $(GC_DIR)/n64_jp.txt message
+	$(PYTHON) tools/msgbank.py dump-n64 $(BASEROM) $(GC_DIR)/n64_choice_jp.txt choice
+	$(PYTHON) tools/msgbank.py dump-n64 $(BASEROM) $(GC_DIR)/n64_string_jp.txt string
 
-$(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/msg_index.bin: $(EN_BANK) $(GC_DIR)/n64_jp.txt tools/af_text.py tools/msgbank.py
+$(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(EN_CHOICE) $(EN_STRING) $(GC_DIR)/n64_jp.txt tools/af_text.py tools/msgbank.py
 	mkdir -p $(EN_ASSETS)
 	$(PYTHON) tools/af_text.py compile $(EN_BANK) $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/msg_index.bin --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600
+	$(PYTHON) tools/af_text.py compile $(EN_CHOICE) $(EN_ASSETS)/choice_text.bin $(EN_ASSETS)/choice_index.bin --bank choice --max-bytes 24
+	$(PYTHON) tools/af_text.py compile $(EN_STRING) $(EN_ASSETS)/string_text.bin $(EN_ASSETS)/string_index.bin --bank string --max-bytes 64
 
-en-bank: $(EN_ASSETS)/msg_text.bin
+$(EN_NAMES): $(BASEROM) tools/af_names.py $(wildcard $(GC_DIR)/npc_name_str_table.bin)
+	@if [ -s $(GC_DIR)/npc_name_str_table.bin ]; then $(PYTHON) tools/af_names.py $(BASEROM) $(GC_DIR)/npc_name_str_table.bin $@ | tail -1; \
+	else echo "names: the cartridge's (no $(GC_DIR)/npc_name_str_table.bin)"; fi
+
+en-bank: $(EN_ASSETS)/msg_text.bin $(EN_NAMES)
 
 rom-en: decomp-en rom en-bank
 	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relsyms.py $(CURDIR)/$(REF_MAP) linker_scripts/jp/auto/undefined_syms_auto.ld
@@ -208,7 +224,7 @@ GC_FILES := forest_2nd.arc/message_data.bin forest_2nd.arc/message_data_table.bi
 	forest_2nd.arc/npc_name_str_table.bin forest_1st.arc/string_data.bin forest_1st.arc/string_data_table.bin \
 	forest_1st.arc/select_data.bin forest_1st.arc/select_data_table.bin forest_1st.arc/mail_data.bin \
 	forest_1st.arc/mail_data_table.bin
-script: $(BASEROM) $(GC_DIR)/n64_jp.txt
+script: $(BASEROM) $(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n64_string_jp.txt
 	@test -n "$(ISO)" || { echo "make script ISO=path/to/Animal_Crossing_USA.iso"; exit 1; }
 	@for f in $(GC_FILES); do $(PYTHON) tools/gciso.py extract "$(ISO)" $$f $(GC_DIR)/$$(basename $$f) || exit 1; done
 	$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/message_data.bin $(GC_DIR)/message_data_table.bin $(GC_DIR)/gc_en.txt
@@ -216,6 +232,14 @@ script: $(BASEROM) $(GC_DIR)/n64_jp.txt
 	$(PYTHON) tools/af_text.py draft $(GC_DIR)/n64_jp.txt $(GC_DIR)/gc_en.txt $(GC_DIR)/align.tsv $(GC_DIR)/en_bank.txt \
 		$(foreach f,$(wildcard script/*.txt),--overrides $(f))
 	$(PYTHON) tools/af_text.py check $(GC_DIR)/en_bank.txt --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600 | tail -1
+	$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/select_data.bin $(GC_DIR)/select_data_table.bin $(GC_DIR)/gc_choice_en.txt
+	$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/string_data.bin $(GC_DIR)/string_data_table.bin $(GC_DIR)/gc_string_en.txt
+	$(PYTHON) tools/af_text.py draft $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/gc_choice_en.txt - $(GC_DIR)/en_choice.txt --bank choice \
+		$(foreach f,$(wildcard script/choice/*.txt),--overrides $(f)) | tail -1
+	$(PYTHON) tools/af_text.py draft $(GC_DIR)/n64_string_jp.txt $(GC_DIR)/gc_string_en.txt - $(GC_DIR)/en_string.txt --bank string \
+		$(foreach f,$(wildcard script/string/*.txt),--overrides $(f)) | tail -1
+	$(PYTHON) tools/af_text.py check $(GC_DIR)/en_choice.txt --bank choice --max-bytes 24 | tail -1
+	$(PYTHON) tools/af_text.py check $(GC_DIR)/en_string.txt --bank string --max-bytes 64 | tail -1
 
 # Edit build/af_en directly, then keep the work in decomp/changes.patch
 # (the diff against the committed matching baseline).

@@ -8,10 +8,13 @@
 
 - `changes.patch` — what the translation changes on purpose, applied on
   top of `matching.patch` in a second checkout, `build/af_en`, where that
-  patch is committed as the baseline. Today: the message loader reads the
-  bank from two segments of its own (`msg_en_text`, `msg_en_index`,
-  named in the dmadata table, whose padding shrinks by their two
-  entries), with a 0x600-byte cap and its own buffer.
+  patch is committed as the baseline. Today: the message, choice and
+  string loaders read their banks from six plain segments of their own
+  (named in the dmadata table, whose padding shrinks by their entries);
+  the message cap is 0x600 with a buffer of its own, choice strings are
+  24 bytes, the window's free and item strings 32, the window and the
+  choice strings are C globals, and the four NON_MATCHING functions of
+  `m_msg_main.c` are built from their C.
   Its ROM is never compared with the cartridge: `make rom-en` builds it
   with `code` moved to the end of the ROM so that it can grow, its data
   block kept at its address modulo 0x10000 (an object whose data changes

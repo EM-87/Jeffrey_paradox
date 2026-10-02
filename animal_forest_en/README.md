@@ -120,14 +120,16 @@ depuración y líneas que GameCube quitó) y el 2,2 % cambió de sentido
 banco inglés (el oficial donde lo hay, el japonés con una nota `TODO`
 donde no) a los dos archivos que lee el juego, comprobando antes lo que el
 sistema de mensajes del N64 admite (caracteres, códigos, tamaño, líneas), y
-`make rom-en` los enlaza como dos segmentos al final del ROM con sus
-entradas de dmadata (`decomp/changes.patch`). El primer ROM en inglés ya
-habla: K.K. en inglés en la intro, con la fuente japonesa (de ancho fijo,
-16 px por letra: la fuente es la fase 5). Nuestras traducciones de lo que
-GameCube no tiene van en `script/`.
+`make rom-en` los enlaza como segmentos al final del ROM con sus entradas
+de dmadata (`decomp/changes.patch`): los mensajes, las respuestas de las
+elecciones, las cadenas (nombres de bichos y peces, muletillas, fechas) y
+los nombres de los animales (6 letras en el N64: 38 de 232 quedan cortados
+por ahora). El ROM en inglés ya habla: K.K. y Rover en la intro, con la
+fuente japonesa (de ancho fijo, 16 px por letra: la fuente es la fase 5).
+Nuestras traducciones de lo que GameCube no tiene van en `script/`.
 
 Lo que viene: la fuente proporcional y los gráficos occidentales de
-GameCube, los bancos de nombres y objetos, y traducir ese 6 %.
+GameCube, las cartas, y traducir ese 6 %.
 
 ## Dónde está cada cosa
 

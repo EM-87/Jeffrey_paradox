@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The message banks of both games, as one tagged text, and back.
 
-    tools/msgbank.py dump-n64 ROM OUT.txt        the cartridge's bank (from the dump)
+    tools/msgbank.py dump-n64 ROM OUT.txt [BANK]  the cartridge's bank (message, choice or string)
     tools/msgbank.py dump-gc DATA TABLE OUT.txt  a GameCube bank (tools/gciso.py extracts them)
     tools/msgbank.py check-n64 ROM               dump, parse and encode again: must be the same bytes
 
@@ -38,6 +38,12 @@ COMMANDS = ['MSGEND', 'MSGCONTINUE', 'MSGCLEAR', 'PAUSE', 'BTN', 'TEXTCOLOR', 'A
 SIZES = [2, 2, 2, 3, 2, 5, 2, 2, 5, 5, 5, 5, 5, 2, 4, 4, 4, 4, 4, 6, 8, 10, 6, 8, 10, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 6, 3, 3, 3, 3, 2, 4, 4, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 6, 3, 3, 4, 3, 2, 2, 6, 2, 2, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 4, 4, 12, 14]
 
 CODE_NUM_N64 = 0x61                      # D_80106BF4_jp: (size, kind) per code, 97 codes
+# The cartridge's banks: index vrom, text vrom, count, the reader's size cap
+# (src/code/m_msg_main.c func_8009E388_jp, m_choice_main.c
+# mChoice_Get_StringDataAddressAndSize, m_string.c mString_Get_StringDataAddressAndSize).
+N64_BANKS = {"message": (0xCF9000, 0xBD4000, 0x2DE8, 0x400),
+             "choice": (0xD06000, 0xD05000, 460, 10),
+             "string": (0xD18000, 0xD16000, 0x61A, 64)}
 NAMES = {name: i for i, name in enumerate(COMMANDS)}
 N64_BYTES = {c: i for i, c in reversed(list(enumerate(N64_CHARS))) if c}
 TERMINATORS = (NAMES["MSGEND"], NAMES["MSGCONTINUE"], NAMES["MSGTIMEEND"])
@@ -152,8 +158,9 @@ class Bank:
         return cls(messages, chars)
 
     @classmethod
-    def from_n64(cls, rom):
-        """From the cartridge (big-endian), through dmadata."""
+    def from_n64(cls, rom, bank="message"):
+        """From the cartridge (big-endian), through dmadata: the message bank,
+        or the choice strings or the free strings (N64_BANKS)."""
         def prom(vrom):
             off = 0x19D40
             while True:
@@ -165,9 +172,9 @@ class Bank:
                         raise ValueError("vrom %#x is compressed in this ROM" % vrom)
                     return ps + (vrom - vs), ve - vrom
                 off += 16
-        idx, idx_size = prom(0xCF9000)
-        txt, txt_size = prom(0xBD4000)
-        n = 0x2DE8
+        index_vrom, text_vrom, n, _ = N64_BANKS[bank]
+        idx, idx_size = prom(index_vrom)
+        txt, txt_size = prom(text_vrom)
         return cls.from_table(rom[txt:txt + txt_size], rom[idx:idx + 4 * n], N64_CHARS)
 
     @classmethod
@@ -210,7 +217,7 @@ class Bank:
 def main(argv):
     cmd = argv[0]
     if cmd == "dump-n64":
-        bank = Bank.from_n64(open(argv[1], "rb").read())
+        bank = Bank.from_n64(open(argv[1], "rb").read(), argv[3] if len(argv) > 3 else "message")
         open(argv[2], "w", encoding="utf-8").write(bank.dump())
         print("%s: %d messages" % (argv[2], len(bank)))
     elif cmd == "dump-gc":
@@ -218,11 +225,15 @@ def main(argv):
         open(argv[3], "w", encoding="utf-8").write(bank.dump())
         print("%s: %d messages" % (argv[3], len(bank)))
     elif cmd == "check-n64":
-        bank = Bank.from_n64(open(argv[1], "rb").read())
-        back = Bank.parse_dump(bank.dump())
-        bad = [i for i, m in enumerate(bank.messages) if encode(back[i]) != m]
-        print("round trip: %d messages, %d differ" % (len(bank), len(bad)), bad[:5])
-        return 1 if bad else 0
+        rom = open(argv[1], "rb").read()
+        failed = 0
+        for name in N64_BANKS:
+            bank = Bank.from_n64(rom, name)
+            back = Bank.parse_dump(bank.dump())
+            bad = [i for i, m in enumerate(bank.messages) if encode(back[i]) != m]
+            print("round trip, %s bank: %d entries, %d differ %s" % (name, len(bank), len(bad), bad[:5] if bad else ""))
+            failed += len(bad)
+        return 1 if failed else 0
     else:
         raise SystemExit(__doc__)
     return 0

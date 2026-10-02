@@ -17,6 +17,7 @@ import af_anchors  # noqa: E402
 import af_align  # noqa: E402
 import af_dmaorder  # noqa: E402
 import af_luicheck  # noqa: E402
+import af_names  # noqa: E402
 import af_ranges  # noqa: E402
 import af_relink  # noqa: E402
 import af_relsyms  # noqa: E402
@@ -346,6 +347,11 @@ class Shiftability(unittest.TestCase):
                 return af_shiftcheck.check(af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(p), list(args))
             self.assertEqual(run(mapfile(0)), (0, []))
             self.assertEqual(run(mapfile(0x20000)), (0x20000, []))           # the whole block, two windows up
+            gone = []
+            p2 = os.path.join(d, "gone.map")
+            open(p2, "w").write(mapfile(0).replace("                0x800ff490                RO_800FF490_jp\n", ""))
+            self.assertEqual(af_shiftcheck.check(af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(p2), [], gone), (0, []))
+            self.assertEqual(gone, ["RO_800FF490_jp"])
             delta, errors = run(mapfile(0x1000))
             self.assertTrue(any("multiple of 0x10000" in e for e in errors))
             delta, errors = run(mapfile(0, rodata_extra=0x10))               # b.o's data grew: bss slid
@@ -553,6 +559,20 @@ class Script(unittest.TestCase):
             self.assertLess(start, lines.index("    /DISCARD/ :"))
             self.assertIn("        build/assets/jp/en/msg_text.o(.data);", lines[start:start + 8])
             self.assertEqual(lines[start - 1], "    __romPos = ALIGN(__romPos, 0x1000);")
+
+    def test_single_line_banks_and_names(self):
+        ok = msgbank.parse("That's right!")
+        self.assertEqual(af_text.check_message(37, ok, 32, 4, 24, single=True), [])
+        self.assertEqual([lv for lv, _ in af_text.check_message(0, msgbank.parse("two\nlines"), 32, 4, 24, single=True)], ["error"])
+        self.assertEqual([lv for lv, _ in af_text.check_message(0, msgbank.parse("x<MSGEND>"), 32, 4, 24, single=True)], ["error"])
+        # the name segment: 8 bytes of header, 6-byte names; the GameCube's table skips 4 and is 8 wide
+        seg = bytes(8) + msgbank.encode([("t", "ニコバン  ")]) + msgbank.encode([("t", "オリビア  ")])
+        table = bytes(32) + b"Bob     " + b"Cashmere"
+        self.assertEqual(af_names.english_names(table), ["Bob", "Cashmere"])
+        out, cut = af_names.rename(seg, af_names.english_names(table))
+        self.assertEqual(out[8:14], b"Bob   ")
+        self.assertEqual(out[14:20], b"Cashme")
+        self.assertEqual(cut, [(1, "Cashmere")])
 
 
 if __name__ == "__main__":

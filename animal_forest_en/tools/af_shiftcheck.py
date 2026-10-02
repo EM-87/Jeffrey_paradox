@@ -13,7 +13,8 @@ checks exactly that against the reference (matching) build's map:
 
   * every input section of the block (.data/.rodata/.bss of each object,
     and buffers) has the same size and sits at its old address + D;
-  * every symbol of the block is at its old address + D;
+  * every symbol of the block is at its old address + D (a symbol the new
+    link no longer defines is only reported: nothing can refer to it);
   * D is a multiple of 0x10000 (D = 0 when the text did not grow);
   * what is not in the block (boot, dmadata, the overlays) did not move:
     every symbol, and every section mark of boot and dmadata; inside
@@ -80,9 +81,13 @@ def is_moved(moved, obj, sec):
     return obj in moved or (obj, sec) in moved
 
 
-def check(ref, new, moved=()):
-    """moved: object paths (all their sections) and/or (object, section) pairs."""
+def check(ref, new, moved=(), gone=None):
+    """moved: object paths (all their sections) and/or (object, section) pairs.
+    gone, a list, collects the reference's symbols the new link no longer has
+    (a C function built in place of its asm loses the asm's labels): not a
+    break, since nothing can refer to a symbol the linker does not define."""
     errors = []
+    gone = [] if gone is None else gone
     block_lo, block_hi = ref.marks["code_DATA_START"], ref.marks["buffers_VRAM_END"]
     delta = new.marks["code_DATA_START"] - block_lo
     if delta % 0x10000 or delta < 0:
@@ -141,7 +146,7 @@ def check(ref, new, moved=()):
         else:
             continue
         if got is None:
-            errors.append("symbol %s (%#x) is gone" % (name, addr))
+            gone.append(name)                # nothing can refer to it: the link would have failed
         elif got[0] != want:
             errors.append("symbol %s: %#x -> %#x, expected %#x" % (name, addr, got[0], want))
     return delta, errors
@@ -163,9 +168,13 @@ def main(argv):
         else:
             args.append(argv[i])
             i += 1
-    delta, errors = check(LinkMap(args[0]), LinkMap(args[1]), moved)
+    gone = []
+    delta, errors = check(LinkMap(args[0]), LinkMap(args[1]), moved, gone)
     for e in errors[:40]:
         print("  " + e)
+    if gone:
+        print("  %d symbol%s of the reference no longer exist (nothing can refer to them): %s%s"
+              % (len(gone), "" if len(gone) == 1 else "s", ", ".join(gone[:4]), "..." if len(gone) > 4 else ""))
     if len(errors) > 40:
         print("  ... %d more" % (len(errors) - 40))
     print("af_shiftcheck: the block moved by %#x; %d violation%s" % (delta, len(errors), "" if len(errors) == 1 else "s"))

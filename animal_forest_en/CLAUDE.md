@@ -77,13 +77,15 @@ the why and the state, `reference/NOTES.md` for what is verified.
 - `tools/` — `rom.py`, `ups.py`, `nafe.py`, `nafe_diff.py` (the 2010
   patch against the original, by file and function), `route_newgame.py`
   (power-on to the houses, states on the way).
-- `tools/gciso.py`, `msgbank.py`, `af_align.py`, `af_text.py` — the
-  GameCube script (`make script ISO=...`): the disc's files and RARC
-  members, both games' message banks as one tagged text (and the N64's
-  back to bytes), the message-by-message comparison, and the English bank
-  drafted, checked and compiled for the ROM; output in `build/gc/`, never
-  committed. `script/*.txt` holds our own translations, laid over the
-  draft (NOTES, "The GameCube script", "The English bank in the ROM").
+- `tools/gciso.py`, `msgbank.py`, `af_align.py`, `af_text.py`,
+  `af_names.py` — the GameCube script (`make script ISO=...`): the disc's
+  files and RARC members, both games' banks (messages, choices, strings)
+  as one tagged text (and the N64's back to bytes), the message-by-message
+  comparison, the English banks drafted, checked and compiled for the ROM,
+  and the animals' names; output in `build/gc/`, never committed.
+  `script/*.txt`, `script/choice/`, `script/string/` hold our own text,
+  laid over the drafts (NOTES, "The GameCube script", "The English bank
+  in the ROM").
 - `tests/` — `test_tools.py`, `emu_check.py`.
 - `reference/NOTES.md` — verified facts with sources.
 
@@ -140,6 +142,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
   Flash RAM for this cartridge; an unknown ROM gets 4 KB EEPROM). `N64()`
   gives an unknown ROM the original's entry (`like=`), so a rebuilt ROM
   saves as the cartridge does.
+- **`frames(n)` without buttons keeps the pad as it was.** A loop that
+  presses A with `frames(3, A)` and then waits with `frames(1)` holds A
+  for the whole wait: the game sees one long press and never turns the
+  page (two probes "found" a stuck dialogue this way). Release it:
+  `frames(n, 0)`, or `press()`.
 - **A screen detector proven on one ROM is not proven on another.** The
   route's name-dial check was tuned on the 2010 patch's English dial and
   missed the cartridge's kana dial (one ring pixel differs); every rebuilt

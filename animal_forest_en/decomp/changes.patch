@@ -1,7 +1,43 @@
+diff --git a/include/m_choice_main.h b/include/m_choice_main.h
+index 9d68ff0..8972588 100644
+--- a/include/m_choice_main.h
++++ b/include/m_choice_main.h
+@@ -7,7 +7,8 @@
+ struct Game;
+ struct Actor;
+ 
+-#define Choice_CHOICE_STRING_LEN 10
++#define Choice_CHOICE_STRING_LEN 10 /* the cartridge's, in the Choice struct (its layout is kept) */
++#define Choice_EN_STRING_LEN 24     /* the translation's answers, in globals of their own: the GameCube's run to 19 bytes */
+ 
+ typedef enum Choice_CHOICE {
+     Choice_CHOICE0,
+@@ -86,6 +87,9 @@ typedef struct Choice {
+     /* 0xB9 */ u8 noCloseFlag;  // pressing B won't auto-cancel the choice selection?
+ } Choice; // size = 0xBC
+ 
++extern char mChoice_en_strings[Choice_CHOICE_MAX][Choice_EN_STRING_LEN];  /* the choice window's answers (one window) */
++extern char mChoice_en_determination[Choice_EN_STRING_LEN];
++
+ 
+ Choice* mChoice_Get_base_window_p();
+ void mChoice_init(Choice* choice,  struct Game* game);
 diff --git a/include/m_msg_main.h b/include/m_msg_main.h
-index d2906f3..f1c931f 100644
+index d2906f3..b04be7b 100644
 --- a/include/m_msg_main.h
 +++ b/include/m_msg_main.h
+@@ -22,9 +22,9 @@ struct Color_RGBA8;
+  */
+ 
+ #define mMsg_FREE_STR_NUM 20
+-#define mMsg_FREE_STRING_LEN 10
++#define mMsg_FREE_STRING_LEN 32 /* the cartridge's 10; English names and items need more (the GameCube uses 16) */
+ #define mMsg_ITEM_STR_NUM 5
+-#define mMsg_ITEM_STRING_LEN 10
++#define mMsg_ITEM_STRING_LEN 32 /* the cartridge's 10 */
+ #define mMsg_MAIL_STR_NUM 1
+ #define mMsg_MAIL_STRING_LEN 0x44
+ #define mMsg_MAIL_LINE_WIDTH 16 /* characters before a forced new line */
 @@ -43,7 +43,7 @@ struct Color_RGBA8;
   * 0xCF9000 and the text at ROM 0xBD4000; a message longer than
   * mMsg_MSG_SIZE_MAX bytes is refused (func_8009E388_jp). */
@@ -11,11 +47,35 @@ index d2906f3..f1c931f 100644
  
  /* Control codes: mMsg_CHAR_CONTROL, then one of these, then arguments.
   * Numbered as the N64 code reads them (the GameCube's differ). */
+@@ -162,8 +162,8 @@ typedef struct MessageWindow {
+     /* 0x02C */ f32 nameplateX;
+     /* 0x030 */ f32 nameplateY;
+     /* 0x034 */ s32 showContinueButton;
+-    /* 0x038 */ u8 freeStr[mMsg_FREE_STR_NUM][mMsg_FREE_STRING_LEN];
+-    /* 0x100 */ u8 itemStr[mMsg_ITEM_STR_NUM][mMsg_ITEM_STRING_LEN];
++    /* 0x038 */ u8 legacyFreeStr[mMsg_FREE_STR_NUM][10]; /* the cartridge's 10-byte strings: kept so that every offset stays */
++    /* 0x100 */ u8 legacyItemStr[mMsg_ITEM_STR_NUM][10];
+     /* 0x132 */ u8 mailStr[mMsg_MAIL_STR_NUM][mMsg_MAIL_STRING_LEN];
+     /* 0x176 */ Color_RGBA8 nameTextColor;
+     /* 0x17A */ Color_RGBA8 nameBackgroundColor;
+@@ -208,7 +208,11 @@ typedef struct MessageWindow {
+     /* 0x2D4 */ u8 nowUtter;
+     /* 0x2D8 */ mMsg_Main_Data mainData;
+     /* 0x2E0 */ mMsg_Request_Data requestData;
+-} MessageWindow; // size = 0x2F0
++    /* 0x2F0: the cartridge's window ends here. The translation's wide strings follow,
++     * so that asm reading the window by offset (one overlay does) still reads right. */
++    /* 0x2F0 */ u8 freeStr[mMsg_FREE_STR_NUM][mMsg_FREE_STRING_LEN];
++    /* 0x570 */ u8 itemStr[mMsg_ITEM_STR_NUM][mMsg_ITEM_STRING_LEN];
++} MessageWindow; // size = 0x610 (the cartridge's: 0x2F0)
+ 
+ MessageWindow* mMsg_Get_base_window_p(void);
+ s32 func_8009D200_jp(MessageWindow* msg, s32 priority);
 diff --git a/include/tables/dmatables/dmadata_table_jp.h b/include/tables/dmatables/dmadata_table_jp.h
-index b8df70f..e589d69 100644
+index b8df70f..a442ee2 100644
 --- a/include/tables/dmatables/dmadata_table_jp.h
 +++ b/include/tables/dmatables/dmadata_table_jp.h
-@@ -3380,3 +3380,8 @@ DEFINE_DMA_ENTRY(anime_texture_4_static, "anime_texture_4_static")
+@@ -3380,3 +3380,12 @@ DEFINE_DMA_ENTRY(anime_texture_4_static, "anime_texture_4_static")
  DEFINE_DMA_ENTRY(anime_texture_5_static, "anime_texture_5_static")
  DEFINE_DMA_ENTRY(anime_texture_6_static, "anime_texture_6_static")
  DEFINE_DMA_ENTRY(softsprite_matrix_static, "softsprite_matrix_static")
@@ -24,8 +84,168 @@ index b8df70f..e589d69 100644
 + * cartridge's text and index files. */
 +DEFINE_DMA_ENTRY(msg_en_text, "msg_en_text")
 +DEFINE_DMA_ENTRY(msg_en_index, "msg_en_index")
++DEFINE_DMA_ENTRY(msg_en_choice_text, "msg_en_choice_text")
++DEFINE_DMA_ENTRY(msg_en_choice_index, "msg_en_choice_index")
++DEFINE_DMA_ENTRY(msg_en_string_text, "msg_en_string_text")
++DEFINE_DMA_ENTRY(msg_en_string_index, "msg_en_string_index")
+diff --git a/src/code/m_choice_main.c b/src/code/m_choice_main.c
+index d4a7b38..28eea22 100644
+--- a/src/code/m_choice_main.c
++++ b/src/code/m_choice_main.c
+@@ -1,4 +1,5 @@
+ #include "m_choice_main.h"
++#include "segment_symbols.h"
+ #include "m_msg_main.h"
+ #include "game.h"
+ #include "m_actor.h"
+@@ -9,13 +10,18 @@
+ #include "sys_matrix.h"
+ #include "6B3DC0.h"
+ 
+-extern u32 D_D06000[];
+-extern u32 D_D05000[];
++DECLARE_ROM_SEGMENT(msg_en_choice_index); /* the translation's choice bank (tools/af_text.py --bank choice) */
++DECLARE_ROM_SEGMENT(msg_en_choice_text);
+ 
+ Choice* mChoice_Get_base_window_p() {
+     return &mMsg_Get_base_window_p()->choiceWindow;
+ }
+ 
++/* The translation's answers: the cartridge's live in the Choice struct, 10 bytes
++ * each; these are wider and outside it, so that the struct keeps its layout. */
++char mChoice_en_strings[Choice_CHOICE_MAX][Choice_EN_STRING_LEN];
++char mChoice_en_determination[Choice_EN_STRING_LEN];
++
+ void mChoice_init(Choice* choice, UNUSED Game* game) {
+     choice->centerX = 191.0f;
+     choice->centerY = 83.0f;
+@@ -92,7 +98,7 @@ s32 mChoice_Add_choice_data(Choice* choice, char* str, s32 max_len) {
+         if (choice->data.choiceNum < Choice_CHOICE_MAX) {
+             idx = *t;
+             len = mMsg_Get_Length_String(str, max_len);
+-            dst = choice->data.strings[idx];
++            dst = mChoice_en_strings[idx];
+ 
+             for (i = 0; i < len; i++) {
+                 *dst++ = *str++;
+@@ -111,19 +117,19 @@ void mChoice_Set_choice_data(Choice* choice, char* str0, s32 str0len, char* str1
+                              char* str3, s32 str3len) {
+     mChoice_Init_choice_data(choice);
+ 
+-    if (str0 != NULL && str0len > 0 && str0len <= Choice_CHOICE_STRING_LEN) {
++    if (str0 != NULL && str0len > 0 && str0len <= Choice_EN_STRING_LEN) {
+         mChoice_Add_choice_data(choice, str0, str0len);
+     }
+ 
+-    if (str1 != NULL && str1len > 0 && str1len <= Choice_CHOICE_STRING_LEN) {
++    if (str1 != NULL && str1len > 0 && str1len <= Choice_EN_STRING_LEN) {
+         mChoice_Add_choice_data(choice, str1, str1len);
+     }
+ 
+-    if (str2 != NULL && str2len > 0 && str2len <= Choice_CHOICE_STRING_LEN) {
++    if (str2 != NULL && str2len > 0 && str2len <= Choice_EN_STRING_LEN) {
+         mChoice_Add_choice_data(choice, str2, str2len);
+     }
+ 
+-    if (str3 != NULL && str3len > 0 && str3len <= Choice_CHOICE_STRING_LEN) {
++    if (str3 != NULL && str3len > 0 && str3len <= Choice_EN_STRING_LEN) {
+         mChoice_Add_choice_data(choice, str3, str3len);
+     }
+ }
+@@ -134,7 +140,7 @@ s32 mChoice_Get_MaxStringDotWidth(Choice* choice) {
+     s32 maxWidth = 0;
+ 
+     for (i = 0; i < choiceNum; i++) {
+-        char* str = choice->data.strings[i];
++        char* str = mChoice_en_strings[i];
+         s32 len = choice->data.stringLens[i];
+         s32 width = mFont_GetStringWidth(str, len, 0);
+ 
+@@ -204,23 +210,23 @@ void mChoice_Get_StringDataAddressAndSize(s32 idx, u32** addr, u32* size) {
+         if (idx & 1) {
+             temp0 = idx - 1;
+ 
+-            DmaMgr_RequestSyncDebug(vram, (uintptr_t)&D_D06000[temp0], 8, "../m_choice_main.c", 454);
++            DmaMgr_RequestSyncDebug(vram, SEGMENT_ROM_START(msg_en_choice_index) + temp0 * sizeof(u32), 8, "../m_choice_main.c", 454);
+             vrom = vram[0];
+             sizeCalc = vram[1] - vrom;
+         } else if (idx == 0) {
+-            DmaMgr_RequestSyncDebug(vram, (uintptr_t)&D_D06000[0], 8, "../m_choice_main.c", 461);
++            DmaMgr_RequestSyncDebug(vram, SEGMENT_ROM_START(msg_en_choice_index), 8, "../m_choice_main.c", 461);
+             vrom = 0;
+             sizeCalc = vram[0];
+         } else {
+             temp1 = idx - 2;
+ 
+-            DmaMgr_RequestSyncDebug(vram, (uintptr_t)&D_D06000[temp1], 16, "../m_choice_main.c", 467);
++            DmaMgr_RequestSyncDebug(vram, SEGMENT_ROM_START(msg_en_choice_index) + temp1 * sizeof(u32), 16, "../m_choice_main.c", 467);
+             vrom = vram[1];
+             sizeCalc = vram[2] - vrom;
+         }
+ 
+-        if (sizeCalc < 11) {
+-            *addr = (u32*)((uintptr_t)vrom + (uintptr_t)&D_D05000);
++        if (sizeCalc <= Choice_EN_STRING_LEN) { /* the cartridge: < 11 */
++            *addr = (u32*)((uintptr_t)vrom + SEGMENT_ROM_START(msg_en_choice_text));
+             *size = sizeCalc;
+         } else {
+             *addr = NULL;
+@@ -533,7 +539,7 @@ void mChoice_Load_ChoseStringFromRom(UNUSED s32 unused, char* str, s32 idx, Acto
+         mChoice_Get_StringDataAddressAndSize(idx, &addr, &size);
+ 
+         if (size == 0) {
+-            mem_clear((u8*)str, Choice_CHOICE_STRING_LEN, ' ');
++            mem_clear((u8*)str, Choice_EN_STRING_LEN, ' ');
+         } else if (addr != NULL) {
+             char vram[29];
+             s32 alignedSize = ((u32)addr & ~7);
+@@ -547,10 +553,10 @@ void mChoice_Load_ChoseStringFromRom(UNUSED s32 unused, char* str, s32 idx, Acto
+                 char* src;
+                 s32 i;
+ 
+-                if (size < Choice_CHOICE_STRING_LEN) {
++                if (size < Choice_EN_STRING_LEN) {
+                     len = size;
+                 } else {
+-                    len = Choice_CHOICE_STRING_LEN;
++                    len = Choice_EN_STRING_LEN;
+                 }
+ 
+                 dst = str;
+@@ -560,11 +566,11 @@ void mChoice_Load_ChoseStringFromRom(UNUSED s32 unused, char* str, s32 idx, Acto
+                     *dst++ = *src++;
+                 }
+ 
+-                for (; i < Choice_CHOICE_STRING_LEN; i++) {
++                for (; i < Choice_EN_STRING_LEN; i++) {
+                     *dst++ = ' ';
+                 }
+ 
+-                mChoice_Change_ControlCode(str, Choice_CHOICE_STRING_LEN, actor);
++                mChoice_Change_ControlCode(str, Choice_EN_STRING_LEN, actor);
+             }
+         }
+     }
+@@ -642,7 +648,7 @@ void mChoice_determimation_set(Choice* choice) {
+     ChoiceData* choiceData = &choice->data;
+     s32 idx = choice->selectedChoiceIdx;
+ 
+-    bcopy(choiceData->strings[idx], choiceData->determinationString, Choice_CHOICE_STRING_LEN);
++    bcopy(mChoice_en_strings[idx], mChoice_en_determination, Choice_EN_STRING_LEN);
+     choiceData->determinationLenght = choiceData->stringLens[idx];
+     choiceData->selectedChoiceIdx = idx;
+ }
+@@ -1009,7 +1015,7 @@ void mChoice_DrawFont(Choice* choice, Game* game, s32 type) {
+             b = choice->textColor.b;
+         }
+ 
+-        mFont_SetLineStrings_AndSpace(game, choice->data.strings[i], choice->data.stringLens[i], x, y, r, g, b, 255,
++        mFont_SetLineStrings_AndSpace(game, mChoice_en_strings[i], choice->data.stringLens[i], x, y, r, g, b, 255,
+                                       FALSE, FALSE, 0, 1.0f, 1.0f, type);
+ 
+         y += 16.0f;
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
-index 03981c7..b94930d 100644
+index 03981c7..20ad012 100644
 --- a/src/code/m_msg_main.c
 +++ b/src/code/m_msg_main.c
 @@ -1,4 +1,5 @@
@@ -34,17 +254,35 @@ index 03981c7..b94930d 100644
  #include "m_msg_main.h"
  #include "m_choice_main.h"
  #include "6B3DC0.h"
-@@ -33,13 +34,20 @@ void func_80091AB0_jp(struct mFontSentence* sentence, u8* str, s32 len, u32 flag
+@@ -16,6 +17,12 @@
+ #include "game.h"
+ #include "libu64/gfxprint.h"
+ 
++/* The translation builds the four functions that do not match the cartucho's
++ * bytes from their C (func_8009E558_jp, func_800A03B0_jp, func_800A0DF4_jp,
++ * func_800A223C_jp): the window's layout changes below, and asm with the old
++ * offsets could not follow it. */
++#define NON_MATCHING
++
+ /* common_data.clip.handOverItemClip (m_clip.h leaves it incomplete: a new
+  * type there reorders other files' bss under IDO) */
+ struct HandOverItemClip {
+@@ -33,13 +40,24 @@ void func_80091AB0_jp(struct mFontSentence* sentence, u8* str, s32 len, u32 flag
                        xy_t* scale, Color_RGBA8* color, s32 voicePos, u8 voiceNo, s16 voiceNpcId);
  void func_80091E0C_jp(struct mFontSentence* sentence, struct Game* game, Gfx** gfxP);
  
 -extern mMsg_Data B_80141FF0_jp; /* the message being shown: 0x10 bytes, then 0x410 of text */
+-extern MessageWindow B_80142410_jp; /* the message window */
+-extern u8 D_BD4000[]; /* ROM: the message text */
 +extern mMsg_Data B_80141FF0_jp; /* the cartridge's buffer: 0x10 bytes, then 0x410 of text; unused here */
 +/* The translation's buffer: the loader writes up to (ofs + size + 7) & ~7 bytes,
 + * ofs < 8, size <= mMsg_MSG_SIZE_MAX. New bss: the build puts it in code_en. */
 +static u64 mMsg_en_buffer[(0x10 + mMsg_MSG_SIZE_MAX + 0x10) / sizeof(u64)];
- extern MessageWindow B_80142410_jp; /* the message window */
--extern u8 D_BD4000[]; /* ROM: the message text */
++/* The message window: the cartridge's B_80142410_jp is 0x2F0 bytes of asm bss;
++ * with the wider strings the struct no longer fits it, so the translation's
++ * window is this C global (new bss: the build puts it in code_en). */
++MessageWindow mMsg_window;
++char mMsg_choice_str[mChoice_CHOICE_NUM][Choice_EN_STRING_LEN]; /* the answers as loaded from the bank */
 +/* The translation's message bank: two plain segments at the end of the ROM
 + * (tools/af_text.py writes them, tools/af_relink.py places them, dmadata
 + * names them), in place of the cartridge's text at 0xBD4000 and index at
@@ -58,7 +296,16 @@ index 03981c7..b94930d 100644
  extern Gfx D_8010A7C0_jp[]; /* the window (con_kaiwa2_modelT in AC GCN) */
  extern Gfx D_8010AD28_jp[]; /* the name plate (con_kaiwaname_modelT) */
  extern Gfx D_8010AD98_jp[]; /* the window's render setup (mMsg_init_disp) */
-@@ -646,23 +654,23 @@ void func_8009E388_jp(s32 index, RomOffset* addr, u32* size) {
+@@ -51,7 +69,7 @@ extern u16 D_80107CA4_jp[mMsg_SE_NUM]; /* the sound effects a message can play *
+ 
+ 
+ MessageWindow* mMsg_Get_base_window_p(void) {
+-    return &B_80142410_jp;
++    return &mMsg_window;
+ }
+ 
+ s32 func_8009D200_jp(MessageWindow* msg, s32 priority) {
+@@ -646,23 +664,23 @@ void func_8009E388_jp(s32 index, RomOffset* addr, u32* size) {
          s32 len;
  
          if (index & 1) {
@@ -86,22 +333,256 @@ index 03981c7..b94930d 100644
              *size = len;
          } else {
              *addr = 0;
-@@ -758,11 +766,11 @@ s32 func_8009E6D4_jp(void) {
+@@ -758,67 +776,67 @@ s32 func_8009E6D4_jp(void) {
  }
  
  void func_8009E6F8_jp(struct Game* game) {
 -    B_80141FF0_jp.dataLoaded = FALSE;
-+    ((mMsg_Data*)mMsg_en_buffer)->dataLoaded = FALSE;
-     B_80142410_jp.dataLoaded = FALSE;
-     B_80142410_jp.msgNo = 0;
-     B_80142410_jp.unk_008 = 0;
+-    B_80142410_jp.dataLoaded = FALSE;
+-    B_80142410_jp.msgNo = 0;
+-    B_80142410_jp.unk_008 = 0;
 -    B_80142410_jp.msgData = &B_80141FF0_jp;
-+    B_80142410_jp.msgData = (mMsg_Data*)mMsg_en_buffer;
-     B_80142410_jp.centerX = 160.0f;
-     B_80142410_jp.centerY = 185.4f;
-     B_80142410_jp.width = 245.0f;
+-    B_80142410_jp.centerX = 160.0f;
+-    B_80142410_jp.centerY = 185.4f;
+-    B_80142410_jp.width = 245.0f;
+-    B_80142410_jp.height = 96.0f;
+-    B_80142410_jp.clientActor = NULL;
+-    B_80142410_jp.clientNameLen = 0;
+-    B_80142410_jp.nameplateX = 61.0f;
+-    B_80142410_jp.nameplateY = 64.0f;
+-    B_80142410_jp.showContinueButton = FALSE;
+-    B_80142410_jp.nameTextColor.r = 0x32;
+-    B_80142410_jp.nameTextColor.g = 0x5A;
+-    B_80142410_jp.nameTextColor.b = 0;
+-    B_80142410_jp.nameTextColor.a = 0xFF;
+-    B_80142410_jp.nameBackgroundColor.r = 0xA0;
+-    B_80142410_jp.nameBackgroundColor.g = 0xD7;
+-    B_80142410_jp.nameBackgroundColor.b = 0x1E;
+-    B_80142410_jp.nameBackgroundColor.a = 0xFF;
+-    B_80142410_jp.windowBackgroundColor.r = 0xEB;
+-    B_80142410_jp.windowBackgroundColor.g = 0xFF;
+-    B_80142410_jp.windowBackgroundColor.b = 0xEB;
+-    B_80142410_jp.windowBackgroundColor.a = 0xFF;
+-    func_8009E2D0_jp(&B_80142410_jp);
+-    func_8009E338_jp(&B_80142410_jp);
+-    B_80142410_jp.continueButtonColor.r = 0;
+-    B_80142410_jp.continueButtonColor.g = 0;
+-    B_80142410_jp.continueButtonColor.b = 0xFF;
+-    B_80142410_jp.continueButtonColor.a = 0;
+-    B_80142410_jp.fontScaleX = 1.0f;
+-    B_80142410_jp.fontScaleY = 1.0f;
+-    B_80142410_jp.unk_1A0 = 196;
+-    B_80142410_jp.unk_1A4 = 66;
+-    B_80142410_jp.textLines = mMsg_MAX_LINE;
+-    B_80142410_jp.nowDisplayLine = 0;
+-    B_80142410_jp.timer = 0.0f;
+-    func_8009E374_jp(&B_80142410_jp, 0.0f);
+-    B_80142410_jp.continueButtonTimer = 0.0f;
+-    B_80142410_jp.startTextCursorIdx = 0;
+-    B_80142410_jp.endTextCursorIdx = 0;
+-    B_80142410_jp.windowScale = 0.0f;
+-    B_80142410_jp.textScale = 1.0f;
+-    B_80142410_jp.requestedMainIndex = -1;
+-    B_80142410_jp.requestedPriority = 0;
+-    B_80142410_jp.mainIndex = mMsg_INDEX_HIDE;
+-    B_80142410_jp.drawFlag = 0;
+-    B_80142410_jp.cancelFlag = 0;
+-    B_80142410_jp.cancelableFlag = 0;
+-    B_80142410_jp.continueMsgNo = 0xFFFF;
+-    func_8009E9B4_jp(&B_80142410_jp);
+-    func_8009E9D0_jp(&B_80142410_jp);
+-    func_8009E9F8_jp(&B_80142410_jp);
++    ((mMsg_Data*)mMsg_en_buffer)->dataLoaded = FALSE;
++    mMsg_window.dataLoaded = FALSE;
++    mMsg_window.msgNo = 0;
++    mMsg_window.unk_008 = 0;
++    mMsg_window.msgData = (mMsg_Data*)mMsg_en_buffer;
++    mMsg_window.centerX = 160.0f;
++    mMsg_window.centerY = 185.4f;
++    mMsg_window.width = 245.0f;
++    mMsg_window.height = 96.0f;
++    mMsg_window.clientActor = NULL;
++    mMsg_window.clientNameLen = 0;
++    mMsg_window.nameplateX = 61.0f;
++    mMsg_window.nameplateY = 64.0f;
++    mMsg_window.showContinueButton = FALSE;
++    mMsg_window.nameTextColor.r = 0x32;
++    mMsg_window.nameTextColor.g = 0x5A;
++    mMsg_window.nameTextColor.b = 0;
++    mMsg_window.nameTextColor.a = 0xFF;
++    mMsg_window.nameBackgroundColor.r = 0xA0;
++    mMsg_window.nameBackgroundColor.g = 0xD7;
++    mMsg_window.nameBackgroundColor.b = 0x1E;
++    mMsg_window.nameBackgroundColor.a = 0xFF;
++    mMsg_window.windowBackgroundColor.r = 0xEB;
++    mMsg_window.windowBackgroundColor.g = 0xFF;
++    mMsg_window.windowBackgroundColor.b = 0xEB;
++    mMsg_window.windowBackgroundColor.a = 0xFF;
++    func_8009E2D0_jp(&mMsg_window);
++    func_8009E338_jp(&mMsg_window);
++    mMsg_window.continueButtonColor.r = 0;
++    mMsg_window.continueButtonColor.g = 0;
++    mMsg_window.continueButtonColor.b = 0xFF;
++    mMsg_window.continueButtonColor.a = 0;
++    mMsg_window.fontScaleX = 1.0f;
++    mMsg_window.fontScaleY = 1.0f;
++    mMsg_window.unk_1A0 = 196;
++    mMsg_window.unk_1A4 = 66;
++    mMsg_window.textLines = mMsg_MAX_LINE;
++    mMsg_window.nowDisplayLine = 0;
++    mMsg_window.timer = 0.0f;
++    func_8009E374_jp(&mMsg_window, 0.0f);
++    mMsg_window.continueButtonTimer = 0.0f;
++    mMsg_window.startTextCursorIdx = 0;
++    mMsg_window.endTextCursorIdx = 0;
++    mMsg_window.windowScale = 0.0f;
++    mMsg_window.textScale = 1.0f;
++    mMsg_window.requestedMainIndex = -1;
++    mMsg_window.requestedPriority = 0;
++    mMsg_window.mainIndex = mMsg_INDEX_HIDE;
++    mMsg_window.drawFlag = 0;
++    mMsg_window.cancelFlag = 0;
++    mMsg_window.cancelableFlag = 0;
++    mMsg_window.continueMsgNo = 0xFFFF;
++    func_8009E9B4_jp(&mMsg_window);
++    func_8009E9D0_jp(&mMsg_window);
++    func_8009E9F8_jp(&mMsg_window);
+     func_8009FA58_jp(0.0f);
+     func_8009FB2C_jp(0);
+-    B_80142410_jp.freeStrColorIdx[0] = 0;
+-    B_80142410_jp.statusFlags &= ~(mMsg_STATUS_FLAG_IDLING_REQ | mMsg_STATUS_FLAG_IDLING_NOW);
+-    B_80142410_jp.freeStrColorIdx[1] = 0;
+-    B_80142410_jp.freeStrColorIdx[2] = 0;
++    mMsg_window.freeStrColorIdx[0] = 0;
++    mMsg_window.statusFlags &= ~(mMsg_STATUS_FLAG_IDLING_REQ | mMsg_STATUS_FLAG_IDLING_NOW);
++    mMsg_window.freeStrColorIdx[1] = 0;
++    mMsg_window.freeStrColorIdx[2] = 0;
+ }
+ 
+ size_t mMsg_Get_Length_String(char* str, s32 strLen) {
+@@ -1129,7 +1147,7 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
+ 
+ s32 mMsg_CopyDetermination(MessageWindow* msg, char* data, s32 startIdx, s32 len) {
+     s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
+-    char* str = msg->choiceWindow.data.determinationString;
++    char* str = mChoice_en_determination;
+     s32 strLen = msg->choiceWindow.data.determinationLenght;
+     s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
+ 
+@@ -1914,25 +1932,24 @@ s32 func_800A0DF4_jp(MessageWindow* msg, s32* idxP, s32 selectCount) {
+     }
+ 
+     if (selectCount >= 2 && selectCount <= mChoice_CHOICE_NUM) {
+-        /* A static array here in AC GCN (str); still in the bss asm, and
+-         * declared in this block because the block's scope shapes the code. */
+-        extern char B_80142700_jp[mChoice_CHOICE_NUM][Choice_CHOICE_STRING_LEN];
++        /* A static array here in AC GCN (str); the cartridge's is 4 x 10 of
++         * bss asm, the translation's is mMsg_choice_str, 4 x Choice_EN_STRING_LEN. */
+         s32 i;
+         struct Actor* actor = msg->clientActor;
+ 
+         for (i = 0; i < selectCount; i++) {
+-            mChoice_Load_ChoseStringFromRom((s32)mChoice_Get_base_window_p(), B_80142700_jp[i], idTbl[i], actor);
++            mChoice_Load_ChoseStringFromRom((s32)mChoice_Get_base_window_p(), mMsg_choice_str[i], idTbl[i], actor);
+         }
+ 
+         {
+-            char* str0 = B_80142700_jp[0];
+-            char* str1 = B_80142700_jp[1];
+-            char* str2 = selectCount > 2 ? B_80142700_jp[2] : NULL;
+-            char* str3 = selectCount > 3 ? B_80142700_jp[3] : NULL;
+-
+-            mChoice_Set_choice_data(mChoice_Get_base_window_p(), str0, Choice_CHOICE_STRING_LEN, str1,
+-                                    Choice_CHOICE_STRING_LEN, str2, Choice_CHOICE_STRING_LEN, str3,
+-                                    Choice_CHOICE_STRING_LEN);
++            char* str0 = mMsg_choice_str[0];
++            char* str1 = mMsg_choice_str[1];
++            char* str2 = selectCount > 2 ? mMsg_choice_str[2] : NULL;
++            char* str3 = selectCount > 3 ? mMsg_choice_str[3] : NULL;
++
++            mChoice_Set_choice_data(mChoice_Get_base_window_p(), str0, Choice_EN_STRING_LEN, str1,
++                                    Choice_EN_STRING_LEN, str2, Choice_EN_STRING_LEN, str3,
++                                    Choice_EN_STRING_LEN);
+         }
+     }
+ 
+@@ -2952,26 +2969,26 @@ void func_800A3220_jp(MessageWindow* msg, struct Game* game) {
+ 
+ void mMsg_ct(struct Game_Play* game_play) {
+     func_8009E6F8_jp((struct Game*)game_play);
+-    mChoice_ct(&B_80142410_jp.choiceWindow, (struct Game*)game_play);
++    mChoice_ct(&mMsg_window.choiceWindow, (struct Game*)game_play);
+ }
+ 
+ void func_800A3304_jp(struct Game_Play* game_play) {
+-    mChoice_dt(&B_80142410_jp.choiceWindow, (struct Game*)game_play);
++    mChoice_dt(&mMsg_window.choiceWindow, (struct Game*)game_play);
+ }
+ 
+ void func_800A332C_jp(gfxprint* gfxprint) {
+-    if (B_80142410_jp.msgData != NULL) {
++    if (mMsg_window.msgData != NULL) {
+         gfxprint_color(gfxprint, 245, 255, 250, 255);
+         gfxprint_locate8x8(gfxprint, 3, 6);
+-        gfxprint_printf(gfxprint, "%5d", B_80142410_jp.msgData->msgNo);
++        gfxprint_printf(gfxprint, "%5d", mMsg_window.msgData->msgNo);
+     }
+ }
+ 
+ void mMsg_Main(struct Game_Play* game_play) {
+-    func_800A31D8_jp(&B_80142410_jp, (struct Game*)game_play);
+-    mChoice_Main(&B_80142410_jp.choiceWindow, (struct Game*)game_play);
++    func_800A31D8_jp(&mMsg_window, (struct Game*)game_play);
++    mChoice_Main(&mMsg_window.choiceWindow, (struct Game*)game_play);
+ }
+ 
+ void mMsg_Draw(struct Game_Play* game_play) {
+-    func_800A3220_jp(&B_80142410_jp, (struct Game*)game_play);
++    func_800A3220_jp(&mMsg_window, (struct Game*)game_play);
+ }
+diff --git a/src/code/m_string.c b/src/code/m_string.c
+index 7b8e5b5..9ea9b22 100644
+--- a/src/code/m_string.c
++++ b/src/code/m_string.c
+@@ -5,8 +5,9 @@
+ #include "m_msg_main.h"
+ #include "6B3DC0.h"
+ 
+-extern u32 D_D18000[];
+-extern u32 D_D16000;
++#include "segment_symbols.h"
++DECLARE_ROM_SEGMENT(msg_en_string_index); /* the translation's string bank (tools/af_text.py --bank string) */
++DECLARE_ROM_SEGMENT(msg_en_string_text);
+ void mString_Get_StringDataAddressAndSize(s32 idx, uintptr_t* vramp, size_t* size) {
+     s32 sized;
+     uintptr_t offsetPtrs[5];
+@@ -14,20 +15,20 @@ void mString_Get_StringDataAddressAndSize(s32 idx, uintptr_t* vramp, size_t* siz
+     if (idx >= 0 && idx < 0x61A) {
+         uintptr_t vrom;
+         if (idx & 1) {
+-            DmaMgr_RequestSyncDebug(offsetPtrs, (u32)&D_D18000[idx - 1], 8, "../m_string.c", 62);
++            DmaMgr_RequestSyncDebug(offsetPtrs, SEGMENT_ROM_START(msg_en_string_index) + (idx - 1) * sizeof(u32), 8, "../m_string.c", 62);
+             vrom = offsetPtrs[0];
+             sized = offsetPtrs[1] - vrom;
+         } else if (idx == 0) {
+-            DmaMgr_RequestSyncDebug(offsetPtrs, (u32)&D_D18000, 8, "../m_string.c", 69);
++            DmaMgr_RequestSyncDebug(offsetPtrs, SEGMENT_ROM_START(msg_en_string_index), 8, "../m_string.c", 69);
+             vrom = 0;
+             sized = offsetPtrs[0] - vrom;
+         } else {
+-            DmaMgr_RequestSyncDebug(offsetPtrs, (u32)&D_D18000[idx - 2], 16, "../m_string.c", 75);
++            DmaMgr_RequestSyncDebug(offsetPtrs, SEGMENT_ROM_START(msg_en_string_index) + (idx - 2) * sizeof(u32), 16, "../m_string.c", 75);
+             vrom = offsetPtrs[1];
+             sized = offsetPtrs[2] - vrom;
+         }
+         if (sized < 65) {
+-            *vramp = (uintptr_t)vrom + (u32)&D_D16000;
++            *vramp = (uintptr_t)vrom + SEGMENT_ROM_START(msg_en_string_text);
+             *size = sized;
+         } else {
+             *vramp = NULL;
 diff --git a/src/dmadata/dmadata.c b/src/dmadata/dmadata.c
-index 3ba98f9..0a0fd6e 100644
+index 3ba98f9..49b1f45 100644
 --- a/src/dmadata/dmadata.c
 +++ b/src/dmadata/dmadata.c
 @@ -18,4 +18,4 @@ DmaEntry dma_rom_ad[] = {
@@ -109,4 +590,4 @@ index 3ba98f9..0a0fd6e 100644
  #undef DEFINE_DMA_ENTRY
  
 -u8 sDmaDataPadding[0xF0] = { 0 };
-+u8 sDmaDataPadding[0xF0 - 2 * sizeof(DmaEntry)] = { 0 }; /* two entries added for the translation: the table keeps its size */
++u8 sDmaDataPadding[0xF0 - 6 * sizeof(DmaEntry)] = { 0 }; /* six entries added for the translation: the table keeps its size */

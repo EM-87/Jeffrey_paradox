@@ -1,0 +1,5 @@
+## 1372
+#: the note on the door of an animal who is out. The cartridge stores it as
+#: four lines of 16 cells with no line codes, 64 bytes: so does this.
+Sorry, I'm out! Come on in and  make yourself athome.           
+
