@@ -803,10 +803,10 @@ index c06adbb..d2906f3 100644
  // void func_800A4448_jp();
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
 new file mode 100644
-index 0000000..fdf5c88
+index 0000000..03981c7
 --- /dev/null
 +++ b/src/code/m_msg_main.c
-@@ -0,0 +1,3055 @@
+@@ -0,0 +1,2977 @@
 +#include "global.h"
 +#include "m_msg_main.h"
 +#include "m_choice_main.h"
@@ -3784,84 +3784,102 @@ index 0000000..fdf5c88
 +void mMsg_Draw(struct Game_Play* game_play) {
 +    func_800A3220_jp(&B_80142410_jp, (struct Game*)game_play);
 +}
+diff --git a/src/code/m_museum.c b/src/code/m_museum.c
+new file mode 100644
+index 0000000..1ed7ca9
+--- /dev/null
++++ b/src/code/m_museum.c
+@@ -0,0 +1,90 @@
++#include "global.h"
++#include "m_museum.h"
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/mMsm_ClearRecord.s")
++/*
++ * The museum (m_museum.c in AC GCN) and, from func_800A4448_jp on, the
++ * mushrooms (m_mushroom.c there; func_800A4D10_jp is
++ * mMsr_FirstClearMushroom). One object here: every object in the
++ * cartridge's code segment starts on 16 bytes, and the mushroom code starts
++ * at 0x800A4448, so the two cannot have been separate files.
++ */
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3420_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/mMsm_ClearRecord.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A345C_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A3420_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A34E8_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A345C_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A35C8_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A34E8_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3658_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A35C8_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/mMsm_SendInformationMail.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A3658_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3784_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/mMsm_SendInformationMail.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A37D0_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A3784_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3810_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A37D0_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3A5C_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A3810_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3B84_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A3A5C_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3C18_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A3B84_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3CF0_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A3C18_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3E34_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A3CF0_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3F70_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A3E34_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A3FB4_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A3F70_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4184_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A3FB4_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A41BC_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A4184_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4254_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A41BC_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A43C0_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A4254_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4448_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A43C0_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A44D4_jp.s")
++/* m_mushroom */
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4508_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A4448_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A456C_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A44D4_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4614_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A4508_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A46F0_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A456C_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A49E8_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A4614_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4A84_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A46F0_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4B00_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A49E8_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4D10_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A4A84_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4DC8_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A4B00_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4E74_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A4D10_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4F38_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A4DC8_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A4FD0_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A4E74_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A50AC_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A4F38_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A518C_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A4FD0_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A524C_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A50AC_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_msg_main/func_800A5460_jp.s")
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A518C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A524C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A5460_jp.s")
 diff --git a/src/overlays/actors/ovl_Npc/ac_npc.h b/src/overlays/actors/ovl_Npc/ac_npc.h
 index 81ac120..f656590 100644
 --- a/src/overlays/actors/ovl_Npc/ac_npc.h
@@ -3878,19 +3896,20 @@ index 81ac120..f656590 100644
  
  #endif
 diff --git a/yamls/jp/code.yaml b/yamls/jp/code.yaml
-index c052055..33d2b39 100644
+index c052055..a4ceb07 100644
 --- a/yamls/jp/code.yaml
 +++ b/yamls/jp/code.yaml
-@@ -55,7 +55,7 @@
+@@ -55,7 +55,8 @@
        - [0x6BFE60, c, code/m_mail]
        - [0x6C05A0, c, code/m_mail_check]
        - [0x6C0690, asm, code/6C0690]
 -      - [0x6C0E90, asm, code/m_msg_main]
 +      - [0x6C0E90, c, code/m_msg_main]
++      - [0x6C70A0, c, code/m_museum]
        - [0x6C92D0, c, code/m_name_table]
        - [0x6C97F0, asm, code/6C97F0]
        - [0x6CA4B0, c, code/m_npc]
-@@ -250,7 +250,7 @@
+@@ -250,7 +251,7 @@
        - [0x73AD90, .rodata, code/m_kankyo]
        - [0x73AED0, .rodata, code/m_lib]
        - [0x73AEE0, .rodata, code/m_lights]
