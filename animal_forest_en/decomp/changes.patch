@@ -324,10 +324,10 @@ index f336639..e9ea309 100644
 +
  #endif
 diff --git a/include/tables/dmatables/dmadata_table_jp.h b/include/tables/dmatables/dmadata_table_jp.h
-index b8df70f..a442ee2 100644
+index b8df70f..3a66df0 100644
 --- a/include/tables/dmatables/dmadata_table_jp.h
 +++ b/include/tables/dmatables/dmadata_table_jp.h
-@@ -3380,3 +3380,12 @@ DEFINE_DMA_ENTRY(anime_texture_4_static, "anime_texture_4_static")
+@@ -3380,3 +3380,15 @@ DEFINE_DMA_ENTRY(anime_texture_4_static, "anime_texture_4_static")
  DEFINE_DMA_ENTRY(anime_texture_5_static, "anime_texture_5_static")
  DEFINE_DMA_ENTRY(anime_texture_6_static, "anime_texture_6_static")
  DEFINE_DMA_ENTRY(softsprite_matrix_static, "softsprite_matrix_static")
@@ -340,6 +340,9 @@ index b8df70f..a442ee2 100644
 +DEFINE_DMA_ENTRY(msg_en_choice_index, "msg_en_choice_index")
 +DEFINE_DMA_ENTRY(msg_en_string_text, "msg_en_string_text")
 +DEFINE_DMA_ENTRY(msg_en_string_index, "msg_en_string_index")
++/* The translation's letters, all eight banks (tools/af_text.py compile-letters). */
++DEFINE_DMA_ENTRY(mail_en_text, "mail_en_text")
++DEFINE_DMA_ENTRY(mail_en_index, "mail_en_index")
 diff --git a/src/code/m_choice_main.c b/src/code/m_choice_main.c
 index d4a7b38..07380bd 100644
 --- a/src/code/m_choice_main.c
@@ -968,6 +971,547 @@ index f3f7472..cb05ef4 100644
              func_8008FA74_jp();
              ret = 1;
              func_8008ECA0_jp();
+diff --git a/src/code/m_handbill.c b/src/code/m_handbill.c
+index 34e9b7f..439d087 100644
+--- a/src/code/m_handbill.c
++++ b/src/code/m_handbill.c
+@@ -4,11 +4,13 @@
+ #include "m_msg_main.h"
+ #include "m_std_dma.h"
+ #include "6B3DC0.h"
++#include "segment_symbols.h"
+ 
+ /*
+  * The letters (ac-decomp's m_handbill.c is the map): the shop's and the game's
+  * letters by number, a header (D_D12000/D_D11000), a footer (D_D15000/D_D13000)
+- * and a body (D_D10000/D_D07000), 0x220 each, with the free strings put in.
++ * and a body (D_D10000/D_D07000), 0x220 each, with the free strings put in;
++ * the en build reads its own banks instead (below).
+  */
+ 
+ #define mHandbill_FREE_STR_NUM 20
+@@ -26,24 +28,6 @@ typedef s32 (*mHandbill_PUT_STRING_PROC)(u8*, s32, s32, s32, s32);
+ extern u8 B_80140680_jp[mHandbill_FREE_STR_NUM][mHandbill_FREE_STR_LEN]; /* the free strings */
+ extern u8 B_80140748_jp[];                                                /* the body's DMA buffer */
+ extern mHandbill_PUT_STRING_PROC D_80107020_jp[];                         /* by control code */
+-extern u8 D_D07000[];
+-extern u8 D_D10000[];
+-extern u8 D_D11000[];
+-extern u8 D_D12000[];
+-extern u8 D_D13000[];
+-extern u8 D_D15000[];
+-extern char RO_STR_80116FC0_jp[];
+-extern char RO_STR_80116FD0_jp[];
+-extern char RO_STR_80116FE0_jp[];
+-extern char RO_STR_80116FF0_jp[];
+-extern char RO_STR_80117000_jp[];
+-extern char RO_STR_80117010_jp[];
+-extern char RO_STR_80117020_jp[];
+-extern char RO_STR_80117030_jp[];
+-extern char RO_STR_80117040_jp[];
+-extern char RO_STR_80117050_jp[];
+-extern char RO_STR_80117060_jp[];
+-extern char RO_STR_80117070_jp[];
+ 
+ enum {
+     mHandbillz_TYPE_SUPER,
+@@ -54,6 +38,38 @@ enum {
+     mHandbillz_TYPE_NUM
+ };
+ 
++/*
++ * The en build's letters (tools/af_text.py compile-letters): the eight
++ * banks in one index and one text segment, each bank's entries numbered
++ * on from the one before (LETTER_FIRST there), at the GameCube's lengths
++ * (LETTER_CAPS). The loaders make the whole letter, at the GameCube's
++ * sizes, in mHandbill_en_letter, and give their callers the cartridge's
++ * sizes as before: Mail_c keeps its 10, 96 and 16 bytes.
++ */
++DECLARE_ROM_SEGMENT(mail_en_index);
++DECLARE_ROM_SEGMENT(mail_en_text);
++
++#define mHandbill_EN_HEADER_FIRST 0
++#define mHandbill_EN_BODY_FIRST 544
++#define mHandbill_EN_FOOTER_FIRST 1088
++#define mHandbill_EN_HEADER_CAP 32
++#define mHandbill_EN_BODY_CAP 192
++#define mHandbill_EN_FOOTER_CAP 32
++#define mHandbill_EN_SUPER_BUF_LEN 43 /* the GameCube's header buffer, before the name's room is taken off */
++#define mHandbill_EN_HEADER_LEN 24    /* the GameCube's MAIL_HEADER_LEN */
++#define mHandbill_EN_BODY_LEN 192     /* the GameCube's MAIL_BODY_LEN */
++#define mHandbill_EN_FOOTER_LEN 32    /* the GameCube's MAIL_FOOTER_LEN */
++
++typedef struct mHandbill_en_Letter {
++    /* 0x00 */ u8 header[mHandbill_EN_HEADER_LEN];
++    /* 0x18 */ s32 headerBackStart;
++    /* 0x1C */ u8 body[mHandbill_EN_BODY_LEN];
++    /* 0xDC */ u8 footer[mHandbill_EN_FOOTER_LEN];
++} mHandbill_en_Letter; // size = 0xFC
++
++mHandbill_en_Letter mHandbill_en_letter;            /* the last letter the loaders made, whole */
++static u64 mHandbill_en_dma[(mHandbill_EN_BODY_CAP + 16) / sizeof(u64)]; /* an entry's text, read eight-aligned */
++
+ /* The villagers' letters (ac-decomp's mHandbillz): header, three body parts and footer from one segment */
+ typedef struct mHandbillzDMA_c {
+     /* 0x00 */ s32 type;
+@@ -64,12 +80,6 @@ typedef struct mHandbillzDMA_c {
+     /* 0x14 */ u32 dma_size;
+ } mHandbillzDMA_c; // size = 0x18
+ 
+-extern u32 D_801071A4_jp[]; /* the longest text of each type */
+-extern u32 D_801071B8_jp[]; /* each type's table, as a segment 6 address */
+-extern u32 D_801071CC_jp[]; /* each type's text, as a segment 6 address */
+-extern u8 D_6000000[];
+-extern u8 D_D1A000[];
+-extern char RO_STR_80117080_jp[];
+ extern char RO_STR_80117090_jp[];
+ 
+ 
+@@ -335,34 +345,50 @@ void func_80093520_jp(u8* buf, s32 buf_size, s32 str_len, s32* header_back_start
+     }
+ }
+ 
++/* The en build's lookup: entry `entry` of the letters' table, refused (0, 0) past `cap` bytes */
++static void mHandbill_en_GetParam(s32 entry, s32 cap, RomOffset* addr, s32* size) {
++    u64 buf64[2];
++    u32* buf = (u32*)buf64;
++    s32 start;
++    s32 len;
++
++    if (entry == 0) {
++        DmaMgr_RequestSyncDebug(buf, SEGMENT_ROM_START(mail_en_index), 2 * sizeof(u32), "../m_handbill.c", __LINE__);
++        start = 0;
++        len = buf[0];
++    } else if (entry & 1) {
++        DmaMgr_RequestSyncDebug(buf, SEGMENT_ROM_START(mail_en_index) + (entry - 1) * sizeof(u32), 2 * sizeof(u32),
++                                "../m_handbill.c", __LINE__);
++        start = buf[0];
++        len = buf[1] - start;
++    } else {
++        DmaMgr_RequestSyncDebug(buf, SEGMENT_ROM_START(mail_en_index) + (entry - 2) * sizeof(u32), 4 * sizeof(u32),
++                                "../m_handbill.c", __LINE__);
++        start = buf[1];
++        len = buf[2] - start;
++    }
++    if (len <= cap) {
++        *addr = SEGMENT_ROM_START(mail_en_text) + start;
++        *size = len;
++    } else {
++        *addr = 0;
++        *size = 0;
++    }
++}
++
++/* An entry's text into dst (size bytes, at most the cap the lookup took) */
++static void mHandbill_en_Read(u8* dst, RomOffset addr, s32 size) {
++    RomOffset aligned = addr & ~7;
++    u32 ofs = addr - aligned;
++
++    DmaMgr_RequestSyncDebug(mHandbill_en_dma, aligned, (ofs + size + 7) & ~7, "../m_handbill.c", __LINE__);
++    bcopy((u8*)mHandbill_en_dma + ofs, dst, size);
++}
++
+ /* mHandbill_Get_SuperStringDataAddressAndSize: a header */
+ void func_800935F8_jp(s32 no, RomOffset* addr, s32* size) {
+-    u32 buf[6];
+-
+     if (no >= 0 && no < mHandbill_MAIL_NUM) {
+-        s32 start;
+-        s32 len;
+-
+-        if (no & 1) {
+-            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D12000 + (no - 1) * sizeof(u32), 2 * sizeof(u32), RO_STR_80116FC0_jp, 827);
+-            start = buf[0];
+-            len = buf[1] - start;
+-        } else if (no == 0) {
+-            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D12000, 2 * sizeof(u32), RO_STR_80116FD0_jp, 834);
+-            start = 0;
+-            len = buf[0];
+-        } else {
+-            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D12000 + (no - 2) * sizeof(u32), 4 * sizeof(u32), RO_STR_80116FE0_jp, 840);
+-            start = buf[1];
+-            len = buf[2] - start;
+-        }
+-        if (len < 0xE) {
+-            *addr = (RomOffset)D_D11000 + start;
+-            *size = len;
+-        } else {
+-            *addr = 0;
+-            *size = 0;
+-        }
++        mHandbill_en_GetParam(mHandbill_EN_HEADER_FIRST + no, mHandbill_EN_HEADER_CAP, addr, size);
+     } else {
+         *addr = 0;
+         *size = 0;
+@@ -371,32 +397,8 @@ void func_800935F8_jp(s32 no, RomOffset* addr, s32* size) {
+ 
+ /* mHandbill_Get_PsStringDataAddressAndSize: a footer */
+ void func_80093738_jp(s32 no, RomOffset* addr, s32* size) {
+-    u32 buf[6];
+-
+     if (no >= 0 && no < mHandbill_MAIL_NUM) {
+-        s32 start;
+-        s32 len;
+-
+-        if (no & 1) {
+-            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D15000 + (no - 1) * sizeof(u32), 2 * sizeof(u32), RO_STR_80116FF0_jp, 895);
+-            start = buf[0];
+-            len = buf[1] - start;
+-        } else if (no == 0) {
+-            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D15000, 2 * sizeof(u32), RO_STR_80117000_jp, 902);
+-            start = 0;
+-            len = buf[0];
+-        } else {
+-            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D15000 + (no - 2) * sizeof(u32), 4 * sizeof(u32), RO_STR_80117010_jp, 908);
+-            start = buf[1];
+-            len = buf[2] - start;
+-        }
+-        if (len < 0x13) {
+-            *addr = (RomOffset)D_D13000 + start;
+-            *size = len;
+-        } else {
+-            *addr = 0;
+-            *size = 0;
+-        }
++        mHandbill_en_GetParam(mHandbill_EN_FOOTER_FIRST + no, mHandbill_EN_FOOTER_CAP, addr, size);
+     } else {
+         *addr = 0;
+         *size = 0;
+@@ -405,32 +407,8 @@ void func_80093738_jp(s32 no, RomOffset* addr, s32* size) {
+ 
+ /* mHandbill_Get_MailStringDataAddressAndSize: a body */
+ void func_80093878_jp(s32 no, RomOffset* addr, s32* size) {
+-    u32 buf[6];
+-
+     if (no >= 0 && no < mHandbill_MAIL_NUM) {
+-        s32 start;
+-        s32 len;
+-
+-        if (no & 1) {
+-            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D10000 + (no - 1) * sizeof(u32), 2 * sizeof(u32), RO_STR_80117020_jp, 963);
+-            start = buf[0];
+-            len = buf[1] - start;
+-        } else if (no == 0) {
+-            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D10000, 2 * sizeof(u32), RO_STR_80117030_jp, 970);
+-            start = 0;
+-            len = buf[0];
+-        } else {
+-            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D10000 + (no - 2) * sizeof(u32), 4 * sizeof(u32), RO_STR_80117040_jp, 976);
+-            start = buf[1];
+-            len = buf[2] - start;
+-        }
+-        if (len < 0x69) {
+-            *addr = (RomOffset)D_D07000 + start;
+-            *size = len;
+-        } else {
+-            *addr = 0;
+-            *size = 0;
+-        }
++        mHandbill_en_GetParam(mHandbill_EN_BODY_FIRST + no, mHandbill_EN_BODY_CAP, addr, size);
+     } else {
+         *addr = 0;
+         *size = 0;
+@@ -458,113 +436,71 @@ void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s3
+     }
+ }
+ 
+-/* mHandbill_Load_SuperStringFromRom */
++/* mHandbill_Load_SuperStringFromRom: the whole header in mHandbill_en_letter, its start in buf */
+ void func_80093B28_jp(u8* buf, s32 buf_size, s32* header_back_start, s32 super_no) {
+     RomOffset addr;
+-    u32 size;
+-    u8 buff[0x1D + 3];
+-    u32 aligned;
+-    u32 ofs;
+-    u32 dma_size;
+-    u8 super_buf[mHandbill_SUPER_BUF_LEN + 1];
++    s32 size;
++    u8 raw[mHandbill_EN_HEADER_CAP];
++    u8 super_buf[mHandbill_EN_SUPER_BUF_LEN];
+     s32 temp_header_back_start;
+ 
+     if (super_no >= 0 && super_no < mHandbill_MAIL_NUM) {
+         func_800935F8_jp(super_no, &addr, &size);
+         mem_clear(buf, buf_size, ' ');
++        mem_clear(mHandbill_en_letter.header, mHandbill_EN_HEADER_LEN, ' ');
+         if (addr != 0 && size != 0) {
+-            s32 i;
+-            s32 move_size;
+-            u8* dst;
+-            u8* src;
+-            s32 len;
+-
+-            aligned = addr & ~7;
+-            ofs = addr - aligned;
+-            dma_size = (ofs + size + 7) & ~7;
+-            bzero(buff, 0x1D);
+-            DmaMgr_RequestSyncDebug(buff, aligned, dma_size, RO_STR_80117050_jp, 0x45E);
+-            // Without it IDO loads size straight into the loop's bound (decomp-permuter's find).
+-            if (!size && !size && !size) {} //! FAKE
+-            move_size = size;
+-            dst = buff;
+-            src = buff + ofs;
+-            for (i = 0; i < move_size; i++) {
+-                *dst++ = *src++;
+-            }
+-            mem_clear(super_buf, mHandbill_SUPER_BUF_LEN, ' ');
+-            func_800939B8_jp(super_buf, mHandbill_SUPER_BUF_LEN, &temp_header_back_start, buff, size);
+-            func_80093520_jp(super_buf, mHandbill_SUPER_BUF_LEN, size - 1, &temp_header_back_start, mHandbill_FILL_SPACE);
+-            len = (buf_size < mHandbill_SUPER_BUF_LEN) ? buf_size : mHandbill_SUPER_BUF_LEN;
+-            bcopy(super_buf, buf, len);
++            mHandbill_en_Read(raw, addr, size);
++            mem_clear(super_buf, mHandbill_EN_SUPER_BUF_LEN, ' ');
++            func_800939B8_jp(super_buf, mHandbill_EN_SUPER_BUF_LEN, &temp_header_back_start, raw, size);
++            func_80093520_jp(super_buf, mHandbill_EN_SUPER_BUF_LEN, size - 1, &temp_header_back_start,
++                             mHandbill_FILL_SPACE);
++            bcopy(super_buf, buf, (buf_size < mHandbill_EN_SUPER_BUF_LEN) ? buf_size : mHandbill_EN_SUPER_BUF_LEN);
++            bcopy(super_buf, mHandbill_en_letter.header, mHandbill_EN_HEADER_LEN);
++            mHandbill_en_letter.headerBackStart = temp_header_back_start;
+             *header_back_start = temp_header_back_start;
+         }
+     }
+ }
+ 
+-/* mHandbill_Load_PsStringFromRom */
++/* mHandbill_Load_PsStringFromRom: the whole footer in mHandbill_en_letter, its start in buf */
+ void func_80093C98_jp(u8* buf, s32 buf_size, s32 ps_no) {
+     RomOffset addr;
+-    u32 size;
+-    u8 buff[0x28];
++    s32 size;
++    u8* footer = mHandbill_en_letter.footer;
+ 
+     if (ps_no >= 0 && ps_no < mHandbill_MAIL_NUM) {
+         func_80093738_jp(ps_no, &addr, &size);
+         if (size == 0) {
+             mem_clear(buf, buf_size, ' ');
++            mem_clear(footer, mHandbill_EN_FOOTER_LEN, ' ');
+         } else if (addr != 0) {
+-            u32 aligned = addr & ~7;
+-            u32 ofs = addr - aligned;
+-            UNUSED s32 pad[2];
+-            s32 i;
+-            u8* dst;
+-            u8* src;
+-            s32 sz;
+-
+-            DmaMgr_RequestSyncDebug(buff, aligned, (ofs + size + 7) & ~7, RO_STR_80117060_jp, 0x4C6);
+-            dst = buf;
+-            src = buff + ofs;
+-            sz = size;
+-            for (i = 0; i < sz; i++) {
+-                *dst++ = *src++;
+-            }
+-            for (; i < buf_size; i++) {
+-                *dst++ = ' ';
+-            }
+-            func_80093478_jp(buf, buf_size, size, mHandbill_FILL_SPACE);
++            s32 len = (buf_size < mHandbill_EN_FOOTER_LEN) ? buf_size : mHandbill_EN_FOOTER_LEN;
++
++            mem_clear(footer, mHandbill_EN_FOOTER_LEN, ' ');
++            mHandbill_en_Read(footer, addr, size);
++            func_80093478_jp(footer, mHandbill_EN_FOOTER_LEN, size, mHandbill_FILL_SPACE);
++            mem_clear(buf, buf_size, ' ');
++            bcopy(footer, buf, len);
+         }
+     }
+ }
+ 
+-/* mHandbill_Load_MailFromRom */
++/* mHandbill_Load_MailFromRom: the whole body in mHandbill_en_letter, its start (0x60 bytes) in buf */
+ void func_80093DA8_jp(u8* buf, s32 mail_no) {
+     RomOffset addr;
+-    u32 size;
++    s32 size;
++    u8* body = mHandbill_en_letter.body;
+ 
+     if (mail_no >= 0 && mail_no < mHandbill_MAIL_NUM) {
+         func_80093878_jp(mail_no, &addr, &size);
+         if (size == 0) {
+             mem_clear(buf, mHandbill_BODY_LEN, 0xCD);
++            mem_clear(body, mHandbill_EN_BODY_LEN, 0xCD);
+         } else if (addr != 0) {
+-            u32 aligned = addr & ~7;
+-            u32 ofs = addr - aligned;
+-            UNUSED s32 pad[2];
+-            s32 i;
+-            u8* dst;
+-            u8* src;
+-            s32 sz;
+-
+-            DmaMgr_RequestSyncDebug(B_80140748_jp, aligned, (ofs + size + 7) & ~7, RO_STR_80117070_jp, 0x51D);
+-            dst = buf;
+-            src = B_80140748_jp + ofs;
+-            sz = (size < mHandbill_BODY_LEN) ? size : mHandbill_BODY_LEN;
+-            for (i = 0; i < sz; i++) {
+-                *dst++ = *src++;
+-            }
+-            for (; i < mHandbill_BODY_LEN; i++) {
+-                *dst++ = 0xCD;
+-            }
+-            func_80093478_jp(buf, mHandbill_BODY_LEN, sz, mHandbill_FILL_RETURN);
++            mem_clear(body, mHandbill_EN_BODY_LEN, 0xCD);
++            mHandbill_en_Read(body, addr, size);
++            func_80093478_jp(body, mHandbill_EN_BODY_LEN, size, mHandbill_FILL_RETURN);
++            bcopy(body, buf, mHandbill_BODY_LEN);
+         }
+     }
+ }
+@@ -582,30 +518,17 @@ void mHandbill_Load_HandbillFromRom2(u8* header, s32 header_size, s32* header_ba
+     func_80093DA8_jp(body, mail_no);
+ }
+ 
+-/* mHandbillzDMA_body_addr_set */
++/* mHandbillzDMA_body_addr_set: the en build's table, each type's bank (LETTER_FIRST, LETTER_CAPS) */
+ s32 func_80093F94_jp(mHandbillzDMA_c* dma_info) {
+-    u32 buf[2];
+-    s32 first_entry = dma_info->num == 0;
+-    u32 ofs = first_entry ? 0 : (dma_info->num - 1) << 2;
+-    u32 addr;
+-    u32 seg = (u32)D_6000000;
+-    RomOffset rom_start = (RomOffset)D_D1A000;
+-
+-    // The comma keeps IDO from reassociating the sum (decomp-permuter's find).
+-    addr = ofs + D_801071B8_jp[dma_info->type] - (0, seg); //! FAKE
+-    DmaMgr_RequestSyncDebug(buf, rom_start + addr, 2 * sizeof(u32), RO_STR_80117080_jp, 0x61F);
+-    addr = D_801071CC_jp[dma_info->type] - seg;
+-    if (first_entry) {
+-        dma_info->dma_size = buf[0];
+-    } else {
+-        addr += buf[0];
+-        dma_info->dma_size = buf[1] - buf[0];
+-    }
+-    dma_info->dma_addr = rom_start + addr;
+-    if (dma_info->dma_size <= D_801071A4_jp[dma_info->type]) {
+-        return TRUE;
+-    }
+-    return FALSE;
++    static s16 first[mHandbillz_TYPE_NUM] = { 1632, 2016, 2400, 2784, 3168 };
++    static s16 cap[mHandbillz_TYPE_NUM] = { 32, 96, 96, 48, 32 };
++    RomOffset addr;
++    s32 size;
++
++    mHandbill_en_GetParam(first[dma_info->type] + dma_info->num, cap[dma_info->type], &addr, &size);
++    dma_info->dma_addr = addr;
++    dma_info->dma_size = size;
++    return addr != 0;
+ }
+ 
+ /* mHandbillzDMA_body_load */
+@@ -641,29 +564,32 @@ s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
+     }
+ }
+ 
+-/* mHandbillz_super_load */
++/* mHandbillz_super_load: the whole header in mHandbill_en_letter, its start in the caller's buffer */
+ s32 func_800941B0_jp(HandbillzInfo* info) {
+     mHandbillzDMA_c dma_info;
+-    u8 ram[0x1D + 3];
++    u64 ram[(mHandbill_EN_HEADER_CAP + 8) / sizeof(u64)];
+ 
+-    bzero(ram, 0x1D);
++    bzero(ram, sizeof(ram));
+ 
+     dma_info.type = mHandbillz_TYPE_SUPER;
+     dma_info.num = info->superNo;
+-    dma_info.ram_buf = ram;
+-    dma_info.ram_buf_size = 0x1D;
++    dma_info.ram_buf = (u8*)ram;
++    dma_info.ram_buf_size = sizeof(ram);
+ 
+     if (func_800940A8_jp(&dma_info)) {
+-        u8 super_buf[mHandbill_SUPER_BUF_LEN + 1];
++        u8 super_buf[mHandbill_EN_SUPER_BUF_LEN];
+         s32 header_back_start;
+         s32 len;
+ 
+-        mem_clear(super_buf, mHandbill_SUPER_BUF_LEN, ' ');
+-        func_800939B8_jp(super_buf, mHandbill_SUPER_BUF_LEN, &header_back_start, ram, dma_info.dma_size);
+-        func_80093520_jp(super_buf, mHandbill_SUPER_BUF_LEN, dma_info.dma_size - 1, &header_back_start, mHandbill_FILL_SPACE);
++        mem_clear(super_buf, mHandbill_EN_SUPER_BUF_LEN, ' ');
++        func_800939B8_jp(super_buf, mHandbill_EN_SUPER_BUF_LEN, &header_back_start, (u8*)ram, dma_info.dma_size);
++        func_80093520_jp(super_buf, mHandbill_EN_SUPER_BUF_LEN, dma_info.dma_size - 1, &header_back_start,
++                         mHandbill_FILL_SPACE);
+         mem_clear(info->superBuf, info->superBufSize, ' ');
+-        len = info->superBufSize < mHandbill_SUPER_BUF_LEN ? info->superBufSize : mHandbill_SUPER_BUF_LEN;
++        len = info->superBufSize < mHandbill_EN_SUPER_BUF_LEN ? info->superBufSize : mHandbill_EN_SUPER_BUF_LEN;
+         bcopy(super_buf, info->superBuf, len);
++        bcopy(super_buf, mHandbill_en_letter.header, mHandbill_EN_HEADER_LEN);
++        mHandbill_en_letter.headerBackStart = header_back_start;
+ 
+         info->headerBackStart = header_back_start;
+         return TRUE;
+@@ -672,14 +598,16 @@ s32 func_800941B0_jp(HandbillzInfo* info) {
+     }
+ }
+ 
+-/* mHandbillz_mail_load */
++/* mHandbillz_mail_load: the three parts joined, whole, in mHandbill_en_letter (at most the GameCube's 192
++   bytes), their start in the caller's buffer */
+ s32 func_800942A0_jp(HandbillzInfo* info) {
+     mHandbillzDMA_c dma_info[3];
+     mHandbillzDMA_c* dma_p;
+     s32 i;
+     s32 success = TRUE;
+     u32 total_size = 0;
+-    u8* dst = info->mailBuf;
++    u8* body = mHandbill_en_letter.body;
++    u8* dst = body;
+ 
+     dma_info[0].type = mHandbillz_TYPE_MAILA;
+     dma_info[0].num = info->mailANo;
+@@ -696,7 +624,7 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+         if (func_800940A8_jp(dma_p)) {
+             total_size += dma_p->dma_size;
+ 
+-            if (total_size <= info->mailBufSize) {
++            if (total_size <= mHandbill_EN_BODY_LEN) {
+                 bcopy(B_80140748_jp, dst, dma_p->dma_size);
+                 dst += dma_p->dma_size;
+             } else {
+@@ -708,17 +636,18 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+     }
+ 
+     if (success) {
+-        if (info->mailBufSize > total_size) {
+-            mem_clear(dst, info->mailBufSize - total_size, 0xCD);
++        if (mHandbill_EN_BODY_LEN > total_size) {
++            mem_clear(dst, mHandbill_EN_BODY_LEN - total_size, 0xCD);
+         }
+ 
+-        func_80093478_jp(info->mailBuf, info->mailBufSize, total_size, mHandbill_FILL_RETURN);
++        func_80093478_jp(body, mHandbill_EN_BODY_LEN, total_size, mHandbill_FILL_RETURN);
++        bcopy(body, info->mailBuf, (info->mailBufSize < mHandbill_EN_BODY_LEN) ? info->mailBufSize : mHandbill_EN_BODY_LEN);
+     }
+ 
+     return success;
+ }
+ 
+-/* mHandbillz_ps_load */
++/* mHandbillz_ps_load: the whole footer in mHandbill_en_letter, its start in the caller's buffer */
+ s32 func_80094400_jp(HandbillzInfo* info) {
+     mHandbillzDMA_c dma_info;
+     u8 ram[0x22 + 6];
+@@ -731,13 +660,13 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+     dma_info.ram_buf_size = 0x22;
+ 
+     if (func_800940A8_jp(&dma_info)) {
+-        bcopy(ram, info->psBuf, dma_info.dma_size);
+-
+-        if (info->psBufSize > dma_info.dma_size) {
+-            mem_clear(info->psBuf + dma_info.dma_size, info->psBufSize - dma_info.dma_size, ' ');
+-        }
++        u8* footer = mHandbill_en_letter.footer;
+ 
+-        func_80093478_jp(info->psBuf, info->psBufSize, dma_info.dma_size, mHandbill_FILL_SPACE);
++        mem_clear(footer, mHandbill_EN_FOOTER_LEN, ' ');
++        bcopy(ram, footer, dma_info.dma_size);
++        func_80093478_jp(footer, mHandbill_EN_FOOTER_LEN, dma_info.dma_size, mHandbill_FILL_SPACE);
++        mem_clear(info->psBuf, info->psBufSize, ' ');
++        bcopy(footer, info->psBuf, (info->psBufSize < mHandbill_EN_FOOTER_LEN) ? info->psBufSize : mHandbill_EN_FOOTER_LEN);
+         return TRUE;
+     } else {
+         return FALSE;
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
 index 03981c7..da23ef7 100644
 --- a/src/code/m_msg_main.c
@@ -1595,7 +2139,7 @@ index 7b8e5b5..dcfdd10 100644
 +}
 +
 diff --git a/src/dmadata/dmadata.c b/src/dmadata/dmadata.c
-index 3ba98f9..49b1f45 100644
+index 3ba98f9..56b6afc 100644
 --- a/src/dmadata/dmadata.c
 +++ b/src/dmadata/dmadata.c
 @@ -18,4 +18,4 @@ DmaEntry dma_rom_ad[] = {
@@ -1603,4 +2147,4 @@ index 3ba98f9..49b1f45 100644
  #undef DEFINE_DMA_ENTRY
  
 -u8 sDmaDataPadding[0xF0] = { 0 };
-+u8 sDmaDataPadding[0xF0 - 6 * sizeof(DmaEntry)] = { 0 }; /* six entries added for the translation: the table keeps its size */
++u8 sDmaDataPadding[0xF0 - 8 * sizeof(DmaEntry)] = { 0 }; /* eight entries added for the translation: the table keeps its size */

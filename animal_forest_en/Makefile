@@ -45,7 +45,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
+.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
 
 all: verify
 
@@ -141,7 +141,15 @@ EN_STRING := $(if $(wildcard $(GC_DIR)/en_string.txt),$(GC_DIR)/en_string.txt,$(
 EN_ASSETS := $(AF_EN_DIR)/assets/jp/en
 EN_SEGMENTS := --segment msg_en_text=build/assets/jp/en/msg_text.o --segment msg_en_index=build/assets/jp/en/msg_index.o \
 	--segment msg_en_choice_text=build/assets/jp/en/choice_text.o --segment msg_en_choice_index=build/assets/jp/en/choice_index.o \
-	--segment msg_en_string_text=build/assets/jp/en/string_text.o --segment msg_en_string_index=build/assets/jp/en/string_index.o
+	--segment msg_en_string_text=build/assets/jp/en/string_text.o --segment msg_en_string_index=build/assets/jp/en/string_index.o \
+	--segment mail_en_text=build/assets/jp/en/mail_text.o --segment mail_en_index=build/assets/jp/en/mail_index.o
+# The letters the ROM gets, the same way: the English drafts where `make
+# script` has made them, else the cartridge's own banks; all eight in one
+# text and one index segment (tools/af_text.py compile-letters; the en
+# build's m_handbill.c reads them).
+LETTER_BANKS := mail_header mail_body mail_footer vmail_header vmail_a vmail_b vmail_c vmail_footer
+N64_LETTERS := $(foreach b,$(LETTER_BANKS),$(GC_DIR)/n64_$(b).txt)
+EN_LETTERS := $(foreach b,$(LETTER_BANKS),$(if $(wildcard $(GC_DIR)/en_$(b).txt),$(GC_DIR)/en_$(b).txt,$(GC_DIR)/n64_$(b).txt))
 # The animals' names: the cartridge's name segment with the GameCube's names
 # in its 6-byte fields (tools/af_names.py), as the en build's copy of the
 # segment's .bin; the cartridge's own when the disc's table is not there.
@@ -188,11 +196,19 @@ $(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(EN_CHOICE) $(EN_STRING) $(GC_DIR)/n64_jp
 	$(PYTHON) tools/af_text.py compile $(EN_CHOICE) $(EN_ASSETS)/choice_text.bin $(EN_ASSETS)/choice_index.bin --bank choice --max-bytes 24
 	$(PYTHON) tools/af_text.py compile $(EN_STRING) $(EN_ASSETS)/string_text.bin $(EN_ASSETS)/string_index.bin --bank string --max-bytes 64 --count 0x679
 
+$(N64_LETTERS): $(GC_DIR)/n64_%.txt: $(BASEROM) tools/msgbank.py
+	mkdir -p $(GC_DIR)
+	$(PYTHON) tools/msgbank.py dump-n64 $(BASEROM) $@ $*
+
+$(EN_ASSETS)/mail_text.bin: $(EN_LETTERS) tools/af_text.py tools/msgbank.py
+	mkdir -p $(EN_ASSETS)
+	$(PYTHON) tools/af_text.py compile-letters $(EN_ASSETS)/mail_text.bin $(EN_ASSETS)/mail_index.bin $(EN_LETTERS)
+
 $(EN_NAMES): $(BASEROM) tools/af_names.py $(wildcard $(GC_DIR)/npc_name_str_table.bin)
 	@if [ -s $(GC_DIR)/npc_name_str_table.bin ]; then $(PYTHON) tools/af_names.py $(BASEROM) $(GC_DIR)/npc_name_str_table.bin $@ | tail -1; \
 	else echo "names: the cartridge's (no $(GC_DIR)/npc_name_str_table.bin)"; fi
 
-en-bank: $(EN_ASSETS)/msg_text.bin $(EN_NAMES)
+en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES)
 
 rom-en: decomp-en rom en-bank
 	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relsyms.py $(CURDIR)/$(REF_MAP) linker_scripts/jp/auto/undefined_syms_auto.ld
@@ -221,6 +237,12 @@ route-en: emu rom-en
 # (tests/emu_save.py; NOTES, "The compressed save").
 save-check-en: route-en
 	$(PYTHON) tests/emu_save.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(BUILD)/route-en/4-houses.st $(BUILD)/emu-save-en
+
+# The en build's letter loaders, called from a hook in the houses' state of
+# route-en, against a model of the cartridge's expander over the en build's
+# letter files (tests/emu_letters.py; NOTES, "The letters in the en build").
+letters-check-en: route-en
+	$(PYTHON) tests/emu_letters.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-letters-en
 
 # -- the GameCube script (phase 4) -------------------------------------------
 # ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it

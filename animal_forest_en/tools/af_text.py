@@ -7,6 +7,7 @@ compiled to the files the ROM reads.
     tools/af_text.py draft  N64_DUMP GC_DUMP - OUT.txt --bank choice|string [--overrides FILE ...]
     tools/af_text.py check  BANK.txt [--bank message] [--cols 32] [--lines 4] [--max-bytes N] [--reference N64_DUMP]
     tools/af_text.py compile BANK.txt TEXT.bin INDEX.bin [the same options]
+    tools/af_text.py compile-letters TEXT.bin INDEX.bin MAIL_HEADER.txt ... VMAIL_FOOTER.txt
 
 --bank names which of the cartridge's banks the text is (tools/msgbank.py
 N64_BANKS): message (11,752 entries), choice (460: the answers a choice
@@ -33,6 +34,13 @@ its codes as `<NAME hex>`, `#:` notes. compile needs every number 0..11751
 the text file and the u32 table of ends, 16-byte padded, that the message
 loader (`func_8009E388_jp`) reads through dmadata.
 
+compile-letters takes the eight letter banks in LETTER_BANKS' order and
+writes them as one text file and one table of ends (the en build's two
+letter segments, read by its m_handbill.c): bank b's entry n is entry
+LETTER_FIRST[b] + n of the table, from the end before it (0 for the very
+first) to its own, so the cartridge's way of finding an entry works on
+the whole table.
+
 The checks are the measured limits (reference/NOTES.md, "The message
 system", "The GameCube script"):
   * every character has a byte in the N64 charset (an accented letter does
@@ -48,6 +56,8 @@ system", "The GameCube script"):
   * a line has at most --cols characters (a warning: the width is the
     font's, which phase 5 decides; 32 is the GameCube's practical English
     line in the N64's window).
+  * a letter's only codes are the free strings (STR_FREE0..19): the
+    letters' expander has a handler for nothing else and stops on it;
   * a free string (STR_FREE0..19) the cartridge's own message does not
     use is a warning (--reference): the game fills free strings for the
     message it shows, and an unfilled one prints the slot's leftovers (a
@@ -93,6 +103,19 @@ N64_CARRIED = {NAMES["STR_AMPM"]: NAMES["LUCK_6"]}
 # expanded later by the loader.
 LETTER_CAPS = {"mail_header": 32, "mail_body": 192, "mail_footer": 32, "vmail_header": 32,
                "vmail_a": 96, "vmail_b": 96, "vmail_c": 48, "vmail_footer": 32}
+
+
+LETTER_BANKS = ("mail_header", "mail_body", "mail_footer",
+                "vmail_header", "vmail_a", "vmail_b", "vmail_c", "vmail_footer")
+
+
+def letter_count(bank):
+    return 544 if bank.startswith("mail") else 384
+
+
+LETTER_FIRST = {}
+for _bank in LETTER_BANKS:
+    LETTER_FIRST[_bank] = sum(letter_count(b) for b in LETTER_BANKS[:LETTER_BANKS.index(_bank)])
 
 
 def carried(tokens):
@@ -238,8 +261,10 @@ def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0, singl
     codes = [t for t in tokens if t[0] == "c"]
     if letter:
         for t in codes:
-            if not COMMANDS[t[1]].startswith("STR_") or t[1] > N64_CODE_MAX:
-                problems.append(("error", "code %s in a letter (only the N64's strings)" % COMMANDS[t[1]]))
+            if not COMMANDS[t[1]].startswith("STR_FREE"):
+                # the letters' expander (func_80093478_jp) has a handler for the twenty free strings
+                # only (D_80107020_jp) and does not move past any other code: the game would hang
+                problems.append(("error", "code %s in a letter (only the free strings)" % COMMANDS[t[1]]))
         return problems
     if single:
         if codes or "\n" in "".join(t[1] for t in tokens if t[0] == "t"):
@@ -315,6 +340,31 @@ def compile_bank(messages, text_path, index_path):
     open(text_path, "wb").write(text)
     open(index_path, "wb").write(struct.pack(">%dI" % len(ends), *ends))
     print("%s: %#x bytes; %s: %d ends" % (text_path, len(text), index_path, len(ends)))
+
+
+def compile_letters(paths, text_path, index_path, cols=32, lines=4):
+    """The eight letter banks (LETTER_BANKS order) as one text and one table
+    of ends; None if a bank does not pass its checks."""
+    global N64_COUNT
+    text, ends, errors = bytearray(), [], 0
+    for bank, path in zip(LETTER_BANKS, paths):
+        N64_COUNT = letter_count(bank)
+        messages = load_bank(path)
+        print("%s (%s):" % (bank, os.path.basename(path)))
+        errors += run_checks(messages, cols, lines, LETTER_CAPS[bank], None, True, True)
+        for n in range(N64_COUNT):
+            text += encode(carried(messages.get(n, [])))
+            ends.append(len(text))
+    if errors:
+        print("af_text: letters not compiled")
+        return None
+    text += bytes(-len(text) % 16)
+    index = struct.pack(">%dI" % len(ends), *ends)
+    index += bytes(-len(index) % 16)
+    open(text_path, "wb").write(text)
+    open(index_path, "wb").write(index)
+    print("%s: %#x bytes; %s: %d ends" % (text_path, len(text), index_path, len(ends)))
+    return text, index
 
 
 def draft(n64_path, gc_path, align_path, out_path, overrides):
@@ -399,6 +449,10 @@ def main(argv):
         else:
             args.append(argv[i])
             i += 1
+    if args and args[0] == "compile-letters":
+        if len(args) != 3 + len(LETTER_BANKS):
+            raise SystemExit(__doc__)
+        return 0 if compile_letters(args[3:], args[1], args[2], opts["--cols"], opts["--lines"]) else 1
     N64_COUNT = count if count is not None else N64_BANKS[bank][2]
     if bank in LETTER_CAPS:
         N64_COUNT = count if count is not None else (544 if bank.startswith("mail") else 384)

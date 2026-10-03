@@ -187,10 +187,12 @@ def section_of(map_path, obj, sec):
     raise SystemExit("no %s %s in %s" % (sec, obj, map_path))
 
 
-def build_hook(af_en, en_elf, hole, hole_size, mttime_words, mttime):
+def build_hook(af_en, en_elf, hole, hole_size, mttime_words, mttime, source=None):
+    """The hook (HOOK_C, or another source with a hook_main and a hook_ctl) and
+    its stub, linked for the hole; (bytes, the stub's address, hook_ctl's)."""
     work = tempfile.mkdtemp()
     with open(os.path.join(work, "hook.c"), "w") as f:
-        f.write(HOOK_C)
+        f.write(HOOK_C if source is None else source)
     cc = os.path.join(af_en, "tools", "ido", "linux", "7.1", "cc")
     subprocess.run([cc, "-c", "-G", "0", "-non_shared", "-Xcpluscomm", "-nostdinc", "-Wab,-r4300_mul",
                     "-O2", "-mips2", "-o", "hook.o", "hook.c"], cwd=work, check=True)

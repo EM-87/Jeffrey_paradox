@@ -44,7 +44,8 @@ the why and the state, `reference/NOTES.md` for what is verified.
 6. **Every claim of "done" runs `make test` and `make emu-check`.**
    `make test` needs no ROM and runs in CI; `make emu-check` needs the
    user's dump and stays local. A change to the
-   save code also runs `make save-check-en`.
+   save code also runs `make save-check-en`, one to the letters `make
+   letters-check-en`.
 
 ## Where things live
 
@@ -92,7 +93,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
 - `tools/aflz.py` — the en build's save compressor in Python (the twin
   of `include/af_lz.h` in changes.patch): slot images packed and read.
 - `tests/` — `test_tools.py`, `emu_check.py`, `emu_save.py` (the en
-  save driven through a hook in the running game: `make save-check-en`).
+  save driven through a hook in the running game: `make save-check-en`),
+  `emu_letters.py` (the en letter loaders through the same hook, against
+  a model of the cartridge's expander: `make letters-check-en`).
 - `reference/NOTES.md` — verified facts with sources.
 
 ## Decomp traps

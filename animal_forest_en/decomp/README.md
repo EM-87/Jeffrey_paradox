@@ -10,7 +10,10 @@
   top of `matching.patch` in a second checkout, `build/af_en`, where that
   patch is committed as the baseline. Today: the message, choice and
   string loaders read their banks from six plain segments of their own
-  (named in the dmadata table, whose padding shrinks by their entries);
+  and the letters' loaders theirs from two more (named in the dmadata
+  table, whose padding shrinks by their entries; the letters are made
+  whole at the GameCube's sizes, their callers given the cartridge's:
+  reference/NOTES.md, "The letters in the en build");
   the message cap is 0x600 with a buffer of its own, choice strings are
   24 bytes, the window's free and item strings 32, the window and the
   choice strings are C globals, the four NON_MATCHING functions of

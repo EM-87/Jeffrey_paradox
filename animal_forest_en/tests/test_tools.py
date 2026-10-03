@@ -534,6 +534,10 @@ class Script(unittest.TestCase):
                          ["error"])                                      # a letter has no page codes
         self.assertEqual([lv for lv, _ in af_text.check_message(0, msgbank.parse("x" * 200), 32, 4, 192, letter=True)],
                          ["error"])
+        # the letters' expander handles the free strings only: any other string code would hang it
+        self.assertEqual([lv for lv, _ in af_text.check_message(0, msgbank.parse("Hi <STR_PLAYERNAME>!"), 32, 4, 192,
+                                                                letter=True)], ["error"])
+        self.assertEqual(af_text.check_message(0, msgbank.parse("<STR_FREE19>"), 32, 4, 192, letter=True), [])
         with tempfile.TemporaryDirectory() as d:
             jp, out = os.path.join(d, "jp.txt"), os.path.join(d, "out.txt")
             open(jp, "w", encoding="utf-8").write("## 0\n<STR_FREE1>\u3088\u308a\n\n## 1\n<STR_FREE14>\u306e<STR_FREE1>\u3088\u308a\n\n")
@@ -545,6 +549,38 @@ class Script(unittest.TestCase):
                 af_text.N64_COUNT = old
             back = msgbank.Bank.parse_dump(open(out, encoding="utf-8").read())
             self.assertEqual([msgbank.render(back[n]) for n in range(2)], ["<STR_FREE1>", "<STR_FREE1>"])
+
+    def test_letters_compile_to_one_table(self):
+        # the eight banks, numbered on from one another, each entry from the end before it
+        self.assertEqual([af_text.LETTER_FIRST[b] for b in af_text.LETTER_BANKS],
+                         [0, 544, 1088, 1632, 2016, 2400, 2784, 3168])
+        with tempfile.TemporaryDirectory() as d:
+            paths = []
+            for bank in af_text.LETTER_BANKS:
+                path = os.path.join(d, bank + ".txt")
+                count = af_text.letter_count(bank)
+                open(path, "w", encoding="utf-8").write("".join("## %d\n%s%d\n\n" % (n, bank[:2], n % 7)
+                                                                  for n in range(count)))
+                paths.append(path)
+            old = af_text.N64_COUNT
+            try:
+                text, index = af_text.compile_letters(paths, os.path.join(d, "t.bin"), os.path.join(d, "i.bin"))
+            finally:
+                af_text.N64_COUNT = old
+            ends = struct.unpack(">3552I", index[:3552 * 4])
+            self.assertEqual(len(index) % 16, 0)
+            self.assertEqual(len(text) % 16, 0)
+
+            def entry(g):
+                return text[ends[g - 1] if g else 0:ends[g]]
+            self.assertEqual(entry(0), msgbank.encode([("t", "ma0")]))
+            self.assertEqual(entry(544 + 9), msgbank.encode([("t", "ma2")]))
+            self.assertEqual(entry(3168 + 383), msgbank.encode([("t", "vm5")]))
+            open(paths[1], "a", encoding="utf-8").write("## 3\nHi <STR_PLAYERNAME>\n\n")
+            try:
+                self.assertIsNone(af_text.compile_letters(paths, os.path.join(d, "t.bin"), os.path.join(d, "i.bin")))
+            finally:
+                af_text.N64_COUNT = old
 
     def test_compiler_checks_and_writes_the_files(self):
         end, btn, clear = "<MSGEND>", "<BTN>", "<MSGCLEAR>"

@@ -823,3 +823,45 @@ now; what goes in it is the next step).
   repairs slot 1 with slot 0's image by frame 400, loads the save and the
   extension, and the save the game makes by itself on arriving keeps the
   extension in both slots.
+
+## The letters in the en build (phase 4, the letters' second step)
+
+- **The banks.** `tools/af_text.py compile-letters` writes the eight
+  letter banks (the English drafts of `make script`, or the cartridge's
+  own without the disc) as one text file and one table of u32 ends, two
+  plain segments after code (`mail_en_text`, `mail_en_index`; dmadata now
+  has eight entries of the translation's and seven of padding). The banks
+  follow one another in the table (shop headers from 0, bodies from 544,
+  footers from 1088, then the villagers' header, three parts and footer
+  from 1632, 2016, 2400, 2784, 3168), each entry running from the end
+  before it, so the cartridge's way of finding an entry (an odd number
+  reads two ends, an even one four, eight-aligned) works on the whole
+  table. Caps are the en build's (LETTER_CAPS: 32, 192, 32; 32, 96, 96,
+  48, 32): the GameCube's longest entries are 23, 177, 30 and 20, 62, 90,
+  32. The English banks are 0x24700 bytes of text, the cartridge's
+  0x13070.
+- **A letter's only codes are the free strings.** The expander
+  (`func_80093478_jp`, `func_80093520_jp`) looks a code up in
+  `D_80107020_jp`, which has handlers for STR_FREE0..19 and nothing else,
+  and on any other code returns without moving on: the game would hang.
+  `af_text.py` refuses any other code in a letter; none of the official
+  letters has one.
+- **The loaders** (decomp/changes.patch, `src/code/m_handbill.c`) read
+  the en segments and make the whole letter at the GameCube's sizes in
+  `mHandbill_en_letter` (header 24 bytes and its name position, body
+  192, footer 32: ac-decomp's MAIL_HEADER_LEN, MAIL_BODY_LEN,
+  MAIL_FOOTER_LEN), and give their callers the first bytes as the
+  cartridge did, so every caller (the mother's letters, the shops', the
+  events', the villagers') and `Mail_c` (10, 96, 16) stay as they are.
+  The header goes through a 43-byte buffer, as the GameCube's does; the
+  villagers' body is the three parts joined, failing past 192 bytes
+  (none can: the longest parts make 184).
+- **Measured** (`make letters-check-en`, `tests/emu_letters.py`: the
+  loaders called from a hook in the houses' state, twenty known free
+  strings written first, against a Python model of the cartridge's
+  expander over the en build's own files): all 544 shop letters and 60
+  villagers' letters come out byte for byte, in the callers' buffers and
+  whole; 333 of the shop letters' parts put free strings in, and 492 of
+  the 544 bodies run past the letter's 96 bytes. That rest has no home
+  yet: the extension (`mFRm_en_ext`) is the next step, and the letter
+  screen showing it the one after.
