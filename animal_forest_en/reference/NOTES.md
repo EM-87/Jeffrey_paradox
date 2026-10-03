@@ -675,15 +675,15 @@ the emulator (`make rom-en`, `make script ISO=...`).
   offsets): header, three body parts and a footer, 384 entries each. The
   disc's (`forest_1st.arc`): `super_data`, `mail_data` and `ps_data`
   (982 entries: headers, bodies, footers) and `superz_data`,
-  `maila/b/c_data` (384). The GameCube kept the numbering: all 544 shop
-  letters and all 384 villager letters are the same letter at the same
-  number (511 of the 544 bodies have the same free strings; the other 33,
-  the same letters with the date in other slots). The villagers'
-  footers ("<name>より", 192 of them with the town) have no GameCube bank;
-  the draft signs with the name (`STR_FREE1`), our own text. The
-  GameCube's longest entries: header 23 bytes, body 177 (490 of the 544
-  pass the cartridge's 96), footer 30; the villagers' parts 20, 62, 90,
-  32. `make script` dumps both, drafts `en_mail_*.txt`/`en_vmail_*.txt`
+  `maila/b/c_data`, `psz_data` (384; ac-decomp's `m_handbill.c` names
+  them, and maps one to one onto the N64's functions). The GameCube kept
+  the numbering: all 544 shop letters and all 384 villager letters are
+  the same letter at the same number (511 of the 544 bodies have the same
+  free strings; the other 33, the same letters with the date in other
+  slots; the villagers' footers, "<name>より", are "From <name>" and
+  the like). The GameCube's longest entries: header 23 bytes, body 177
+  (490 of the 544 pass the cartridge's 96), footer 30; the villagers'
+  parts 20, 62, 90, 32. `make script` dumps both, drafts `en_mail_*.txt`/`en_vmail_*.txt`
   and checks them (0 errors; 6 bodies and 5 villager openings print free
   strings the cartridge's letter does not: to adapt). Trailing newlines,
   which letters have, are written `{cd}` in the dumps.

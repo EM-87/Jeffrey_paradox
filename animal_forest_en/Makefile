@@ -229,11 +229,11 @@ save-check-en: route-en
 GC_FILES := forest_2nd.arc/message_data.bin forest_2nd.arc/message_data_table.bin \
 	forest_2nd.arc/npc_name_str_table.bin forest_1st.arc/string_data.bin forest_1st.arc/string_data_table.bin \
 	forest_1st.arc/select_data.bin forest_1st.arc/select_data_table.bin \
-	$(foreach f,mail super ps superz maila mailb mailc,forest_1st.arc/$(f)_data.bin forest_1st.arc/$(f)_data_table.bin)
+	$(foreach f,mail super ps superz maila mailb mailc psz,forest_1st.arc/$(f)_data.bin forest_1st.arc/$(f)_data_table.bin)
 # The letters: each cartridge bank (tools/msgbank.py N64_BANKS) and the
-# GameCube's bank of the same numbering (NOTES, "The letters"); the
-# villagers' footers have none.
-LETTER_PAIRS := mail_header:super mail_body:mail mail_footer:ps vmail_header:superz vmail_a:maila vmail_b:mailb vmail_c:mailc vmail_footer:-
+# GameCube's bank of the same numbering (NOTES, "The English bank in the
+# ROM", the letter banks).
+LETTER_PAIRS := mail_header:super mail_body:mail mail_footer:ps vmail_header:superz vmail_a:maila vmail_b:mailb vmail_c:mailc vmail_footer:psz
 script: $(BASEROM) $(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n64_string_jp.txt
 	@test -n "$(ISO)" || { echo "make script ISO=path/to/Animal_Crossing_USA.iso"; exit 1; }
 	@for f in $(GC_FILES); do $(PYTHON) tools/gciso.py extract "$(ISO)" $$f $(GC_DIR)/$$(basename $$f) || exit 1; done

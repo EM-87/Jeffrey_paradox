@@ -15,9 +15,9 @@ animals, fish, insects..., single lines), or a letter bank: mail_header,
 mail_body, mail_footer (544 each: the shop's and the game's letters, the
 GameCube's super_data, mail_data and ps_data by number) and vmail_header,
 vmail_a, vmail_b, vmail_c, vmail_footer (384 each: the villagers' letters,
-the GameCube's superz_data and maila/b/c_data; the footer has no GameCube
-bank: pass `-` for the GameCube dump and the draft writes the sender's
-name, STR_FREE1, as our own text; the Japanese adds their town, FREE14). A letter is lines
+the GameCube's superz_data, maila/b/c_data and psz_data). With `-` for
+the GameCube dump the draft writes the sender's name, STR_FREE1, as our
+own text (the Japanese footers add their town, FREE14). A letter is lines
 of text and free strings, no terminator; its default --max-bytes is the
 en build's (LETTER_CAPS, from the GameCube's longest entries). The count and the default
 --max-bytes come from it; the choice and string banks keep the same
