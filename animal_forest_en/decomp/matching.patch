@@ -42,6 +42,74 @@ index 5223795..a920508 100644
      /* 0x0F434 */ lbRTC_ymd_t renewTime;
      /* 0x0F438 */ u8 stationType;
      /* 0x0F439 */ u8 saveWeather;
+diff --git a/include/m_flashrom.h b/include/m_flashrom.h
+index e6a026a..2753a99 100644
+--- a/include/m_flashrom.h
++++ b/include/m_flashrom.h
+@@ -6,47 +6,31 @@
+ 
+ struct CommonData;
+ 
+-// void func_8008ECA0_jp();
+-// void func_8008ECC8_jp();
+-// void func_8008ECF0_jp();
+-// void func_8008ED14_jp();
++struct gfxprint;
++
++void func_8008ECA0_jp(void);
++void func_8008ECC8_jp(s32 error);
++void func_8008ECF0_jp(s32 error);
++void func_8008ED14_jp(struct gfxprint* gfxprint);
+ void func_8008EE24_jp(void);
+-// void func_8008EE5C_jp();
+-// void func_8008EE6C_jp();
++s32 func_8008EE5C_jp(void);
++u8 func_8008EE6C_jp(void);
+ u16 func_8008EE7C_jp(UNK_PTR, s32);
+ u16 func_8008EEB4_jp(void*, UNK_TYPE, u16);
+-// void func_8008EEE8_jp();
+-// void func_8008EF0C_jp();
+ s32 mFRm_CheckSaveData(void);
+ void mFRm_ClearSaveCheckData(struct CommonData* common_data);
+-// void func_8008EFDC_jp();
+-// void func_8008F020_jp();
+-// void func_8008F040_jp();
+-// void func_8008F0A0_jp();
+-// void func_8008F1BC_jp();
++s32 func_8008F1BC_jp(void* arg0, void* arg1);
+ void func_8008F210_jp(void);
+-// void func_8008F23C_jp();
+-// void func_8008F24C_jp();
+-// void func_8008F530_jp();
+-// void func_8008F5FC_jp();
+-// void func_8008F648_jp();
++s32 func_8008F23C_jp(void);
+ s32 func_8008F768_jp(UNK_PTR arg0, UNK_PTR arg1);
+ s32 func_8008F7C8_jp(void);
+-// void func_8008F8A0_jp();
+-// void func_8008F938_jp();
+-// void func_8008F968_jp();
+-// void func_8008FA28_jp();
++s32 func_8008F8A0_jp(void* dst, u32 startPage);
++void func_8008F938_jp(void);
++s32 func_8008F968_jp(void);
+ void func_8008FA50_jp(void);
+-// void func_8008FA74_jp();
+-// void func_8008FAB4_jp();
+-// void func_8008FAE0_jp();
+-// void func_8008FB64_jp();
+-// void func_8008FBEC_jp();
+-// void func_8008FCE8_jp();
+-// void func_8008FDD4_jp();
+-// void func_8008FE74_jp();
+-// void func_8008FF60_jp();
++s32 func_8008FA74_jp(void);
++s32 func_8008FAB4_jp(void);
+ s32 func_80090044_jp(void);
+-// void func_800900B0_jp();
++void func_800900B0_jp(struct gfxprint* gfxprint);
+ 
+ #endif
 diff --git a/include/m_msg_main.h b/include/m_msg_main.h
 index c06adbb..d2906f3 100644
 --- a/include/m_msg_main.h
@@ -845,6 +913,689 @@ index a135725..e238b31 100644
 +// code: a %hi/%lo pair splat does not see as one (the lui is before a branch)
 +rom:0x67DA98 symbol:B_8011B8B0_jp reloc:MIPS_HI16
 +rom:0x67DADC symbol:B_8011B8B0_jp reloc:MIPS_LO16
+diff --git a/src/code/m_flashrom.c b/src/code/m_flashrom.c
+new file mode 100644
+index 0000000..f3f7472
+--- /dev/null
++++ b/src/code/m_flashrom.c
+@@ -0,0 +1,677 @@
++#include "global.h"
++#include "m_flashrom.h"
++#include "sFRm_flashrom.h"
++#include "m_common_data.h"
++#include "m_lib.h"
++#include "m_malloc.h"
++#include "m_time.h"
++#include "lb_rtc.h"
++#include "6FD410.h"
++#include "libu64/gfxprint.h"
++#include "PR/os_internal_flash.h"
++
++/*
++ * The save in Flash RAM: the first 0xF980 bytes of common_data's Save, in
++ * one of two slots of 0x200 pages (128 bytes each; pages 0 and 0x200). A
++ * header at the start (mFRm_chk_t) holds "NAFJ", the town's id and a
++ * checksum that makes the 16-bit sum of the 0xF980 bytes zero. Three ways
++ * in: at boot both slots are read and compared, and a bad one is repaired
++ * from the good one (func_8008F768_jp, from the trademark screen); the
++ * normal save copies common_data to a buffer, writes slot 0, reads it back,
++ * then the same for slot 1 (func_80090044_jp); and the save menu erases
++ * the chip and writes slot 0 page by page (func_8008F7C8_jp).
++ */
++
++typedef struct mFRm_chk_t {
++    /* 0x00 */ s32 unk_00;
++    /* 0x04 */ u32 code;    /* mFRm_SAVE_CODE */
++    /* 0x08 */ u16 landId;  /* 0x30xx */
++    /* 0x0A */ lbRTC_time_c time;
++    /* 0x12 */ u16 checksum;
++} mFRm_chk_t; // size = 0x14
++
++#define mFRm_SAVE_CODE 0x4E41464A /* "NAFJ" */
++#define mFRm_SAVE_SIZE 0xF980
++#define mFRm_SLOT_PAGES 0x200
++#define mFRm_SAVE_PAGES (mFRm_SAVE_SIZE / FLASH_BLOCK_SIZE) /* 0x1F3 */
++#define mFRm_WRITE_PAGES 0x80
++#define mFRm_ERROR_NUM 6
++
++/* The repair at boot (one slot copied over the other). */
++typedef struct mFRm_SlotWork {
++    /* 0x00 */ s32 state;
++    /* 0x04 */ u32 page;
++    /* 0x08 */ s32 slot;
++    /* 0x0C */ u8* cur;
++    /* 0x10 */ u8* base;
++    /* 0x14 */ s32 retry;
++} mFRm_SlotWork; // size = 0x18
++
++/* The normal save (both slots, each read back). */
++typedef struct mFRm_SaveWork {
++    /* 0x00 */ s32 state;
++    /* 0x04 */ u32 page;
++    /* 0x08 */ u8* cur;
++    /* 0x0C */ u8* base;
++    /* 0x10 */ s32 verifyRetry;
++    /* 0x14 */ s32 writeRetry;
++    /* 0x18 */ s32 readRetry;
++    /* 0x1C */ s32 allocRetry;
++} mFRm_SaveWork; // size = 0x20
++
++typedef s32 (*mFRm_SlotProc)(void*, void*, mFRm_SlotWork*);
++typedef s32 (*mFRm_SaveProc)(mFRm_SaveWork*);
++
++extern s32 D_80106A90_jp; /* the slot the game loaded */
++extern s32 D_80106A94_jp; /* the boot check is running */
++extern u8 D_80106A98_jp;
++extern s32 D_80106A9C_jp[mFRm_ERROR_NUM]; /* errors, shown by func_8008ED14_jp */
++extern mFRm_SlotProc D_80106AB4_jp[2];
++extern mFRm_SlotProc D_80106ABC_jp[4];
++extern mFRm_SaveProc D_80106ACC_jp[];
++extern char RO_STR_80116F10_jp[];
++extern char RO_STR_80116F14_jp[];
++extern char RO_STR_80116F18_jp[];
++extern char RO_STR_80116F1C_jp[];
++extern char RO_STR_80116F20_jp[];
++extern char RO_STR_80116F24_jp[];
++extern char RO_STR_80116F28_jp[];
++extern mFRm_SlotWork B_8013A380_jp;
++extern mFRm_SaveWork B_8013A398_jp;
++
++void func_8008ECA0_jp(void) {
++    bzero(D_80106A9C_jp, sizeof(D_80106A9C_jp));
++}
++
++void func_8008ECC8_jp(s32 error) {
++    if (error >= 0 && error < mFRm_ERROR_NUM) {
++        D_80106A9C_jp[error] = TRUE;
++    }
++}
++
++void func_8008ECF0_jp(s32 error) {
++    if (error >= 0 && error < mFRm_ERROR_NUM) {
++        D_80106A9C_jp[error] = FALSE;
++    }
++}
++
++void func_8008ED14_jp(gfxprint* gfxprint) {
++    gfxprint_color(gfxprint, 250, 100, 250, 255);
++    gfxprint_locate8x8(gfxprint, 22, 3);
++    if (D_80106A9C_jp[0]) {
++        gfxprint_printf(gfxprint, RO_STR_80116F10_jp);
++    }
++    if (D_80106A9C_jp[1]) {
++        gfxprint_printf(gfxprint, RO_STR_80116F14_jp);
++    }
++    if (D_80106A9C_jp[2]) {
++        gfxprint_printf(gfxprint, RO_STR_80116F18_jp);
++    }
++    if (D_80106A9C_jp[3]) {
++        gfxprint_printf(gfxprint, RO_STR_80116F1C_jp);
++    }
++    if (D_80106A9C_jp[4]) {
++        gfxprint_printf(gfxprint, RO_STR_80116F20_jp);
++    }
++    if (D_80106A9C_jp[5]) {
++        gfxprint_printf(gfxprint, RO_STR_80116F24_jp);
++    }
++}
++
++void func_8008EE24_jp(void) {
++    sFRm_Init();
++    func_8008FA50_jp();
++    D_80106A90_jp = 0;
++    D_80106A94_jp = 0;
++}
++
++s32 func_8008EE5C_jp(void) {
++    return D_80106A90_jp;
++}
++
++u8 func_8008EE6C_jp(void) {
++    return D_80106A98_jp;
++}
++
++#ifdef NON_MATCHING
++u16 func_8008EE7C_jp(UNK_PTR data, s32 size) {
++    u16 sum = 0;
++
++    if (!(size & 1)) {
++        while (size != 0) {
++            sum += *(u16*)data;
++            size -= 2;
++            data = (u16*)data + 1;
++        }
++    }
++    return sum;
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_flashrom/func_8008EE7C_jp.s")
++#endif
++
++u16 func_8008EEB4_jp(void* data, UNK_TYPE size, u16 checksum) {
++    return ~(func_8008EE7C_jp(data, size) - checksum) + 1;
++}
++
++int func_8008EEE8_jp(mFRm_chk_t* chk) {
++    int ret = FALSE;
++
++    if (chk->code == mFRm_SAVE_CODE) {
++        ret = TRUE;
++    }
++    return ret;
++}
++
++int func_8008EF0C_jp(mFRm_chk_t* chk, u16 landId) {
++    int ret = FALSE;
++
++    if (func_8008EEE8_jp(chk) && (chk->landId & 0xFF00) == 0x3000 && chk->landId == landId) {
++        ret = TRUE;
++    }
++    return ret;
++}
++
++s32 mFRm_CheckSaveData(void) {
++    return func_8008EF0C_jp((mFRm_chk_t*)&common_data, common_data.save.landInfo.id);
++}
++
++void mFRm_ClearSaveCheckData(struct CommonData* data) {
++    mFRm_chk_t* chk = (mFRm_chk_t*)data;
++
++    chk->code = -1;
++    chk->landId = 0xFFFF;
++    mem_copy((u8*)&chk->time, (u8*)&mTM_rtcTime_clear_code, sizeof(lbRTC_time_c));
++    chk->checksum = 0;
++}
++
++void func_8008EFDC_jp(mFRm_chk_t* chk) {
++    u16 landId = common_data.save.landInfo.id;
++
++    chk->code = mFRm_SAVE_CODE;
++    chk->landId = landId;
++    lbRTC_TimeCopy(&chk->time, &common_data.time.rtcTime);
++}
++
++void func_8008F020_jp(mFRm_SlotWork* work) {
++    work->state = 0;
++    work->page = 0;
++    work->slot = 0;
++    work->cur = NULL;
++    work->base = NULL;
++    work->retry = 0;
++}
++
++s32 func_8008F040_jp(void* data, s32 slot, mFRm_SlotWork* work) {
++    u32 page = (slot == 0) ? 0 : mFRm_SLOT_PAGES;
++
++    work->state = 1;
++    work->page = page;
++    work->slot = slot;
++    work->cur = data;
++    work->base = data;
++    work->retry = 0;
++    sFRm_WriteAsync(data, page, mFRm_WRITE_PAGES);
++    return 0;
++}
++
++s32 func_8008F0A0_jp(void* arg0, void* arg1, mFRm_SlotWork* work) {
++    u32 start;
++    s32 ret;
++
++    ret = 0;
++    start = work->slot << 9;
++    if (sFRm_IsBusy() == TRUE) {
++        if (sFRm_GetResult() == -1) {
++            if (work->retry < 3) {
++                work->cur = work->base;
++                sFRm_WriteAsync(work->cur, start, mFRm_WRITE_PAGES);
++                work->retry++;
++                work->page = start;
++            } else {
++                func_8008F020_jp(work);
++                ret = -1;
++                func_8008ECC8_jp(2);
++            }
++        } else {
++            work->page += mFRm_WRITE_PAGES;
++            if (work->page >= start + mFRm_SLOT_PAGES) {
++                sFRm_AwaitResult();
++                func_8008F020_jp(work);
++                ret = 1;
++            } else {
++                sFRm_AwaitResult();
++                work->cur += mFRm_WRITE_PAGES * FLASH_BLOCK_SIZE;
++                sFRm_WriteAsync(work->cur, work->page, mFRm_WRITE_PAGES);
++            }
++        }
++    }
++    return ret;
++}
++
++s32 func_8008F1BC_jp(void* arg0, void* arg1) {
++    mFRm_SlotWork* work = &B_8013A380_jp;
++    s32 state = work->state;
++    s32 ret = 1;
++
++    if (state >= 0 && state < 2) {
++        ret = D_80106AB4_jp[state](arg0, arg1, work);
++    }
++    return ret;
++}
++
++void func_8008F210_jp(void) {
++    func_8008F020_jp(&B_8013A380_jp);
++    D_80106A94_jp = 0;
++}
++
++s32 func_8008F23C_jp(void) {
++    return D_80106A94_jp;
++}
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_flashrom/func_8008F24C_jp.s")
++
++#ifdef NON_MATCHING
++s32 func_8008F530_jp(void* data, void* arg1, mFRm_SlotWork* work) {
++    s32 ret = 0;
++    s32 tries = 0;
++    u32 page = work->page;
++    s32 res;
++
++    do {
++        res = func_8008F8A0_jp(data, page);
++        tries++;
++    } while (res == 0 && tries != 3);
++
++    if (res == 1) {
++        work->state = 2;
++        work->cur = data;
++        work->base = data;
++        work->retry = 0;
++        if (work->slot == 0) {
++            work->page = mFRm_SLOT_PAGES;
++            work->slot = 1;
++        } else {
++            work->page = 0;
++            work->slot = 0;
++        }
++    } else {
++        func_8008F020_jp(work);
++        ret = 1;
++    }
++    return ret;
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_flashrom/func_8008F530_jp.s")
++#endif
++
++s32 func_8008F5FC_jp(void* arg0, void* arg1, mFRm_SlotWork* work) {
++    work->cur = work->base;
++    sFRm_WriteAsync(work->cur, work->page, mFRm_WRITE_PAGES);
++    work->state = 3;
++    return 0;
++}
++
++s32 func_8008F648_jp(void* data, void* arg1, mFRm_SlotWork* work) {
++    u32 start;
++    s32 ret;
++
++    ret = 0;
++    start = work->slot << 9;
++    if (sFRm_IsBusy() == TRUE) {
++        if (sFRm_GetResult() == -1) {
++            if (work->retry < 3) {
++                work->cur = work->base;
++                sFRm_WriteAsync(data, start, mFRm_WRITE_PAGES);
++                work->retry++;
++                work->page = start;
++            } else {
++                func_8008F020_jp(work);
++                ret = 1;
++                func_8008ECC8_jp(2);
++            }
++        } else {
++            work->page += mFRm_WRITE_PAGES;
++            if (work->page >= start + mFRm_SLOT_PAGES) {
++                sFRm_AwaitResult();
++                func_8008F020_jp(work);
++                ret = 1;
++            } else {
++                sFRm_AwaitResult();
++                work->cur += mFRm_WRITE_PAGES * FLASH_BLOCK_SIZE;
++                sFRm_WriteAsync(work->cur, work->page, mFRm_WRITE_PAGES);
++            }
++        }
++    }
++    return ret;
++}
++
++s32 func_8008F768_jp(UNK_PTR arg0, UNK_PTR arg1) {
++    mFRm_SlotWork* work = &B_8013A380_jp;
++    s32 state = work->state;
++    s32 ret;
++
++    if (state >= 0 && state < 4) {
++        ret = D_80106ABC_jp[state](arg0, arg1, work);
++    } else {
++        func_8008F020_jp(work);
++        ret = 1;
++    }
++    return ret;
++}
++
++#ifdef NON_MATCHING
++s32 func_8008F7C8_jp(void) {
++    u8* p = (u8*)&common_data;
++    s32 ret = 0;
++    u32 page;
++    s32 tries;
++    s32 res;
++    u32 pages = mFRm_SAVE_PAGES;
++
++    sFRm_EraseAll();
++    func_8008EFDC_jp((mFRm_chk_t*)&common_data);
++    ((mFRm_chk_t*)&common_data)->checksum =
++        func_8008EEB4_jp(&common_data, mFRm_SAVE_SIZE, ((mFRm_chk_t*)&common_data)->checksum);
++
++    for (page = 0; page != pages; page++, p += FLASH_BLOCK_SIZE) {
++        if (sFRm_WritePage(p, page) == -1) {
++            tries = 0;
++            do {
++                res = sFRm_WritePage(p, page);
++                tries++;
++            } while (res != 0 && tries != 3);
++            if (res == -1) {
++                ret = -1;
++            }
++        }
++    }
++    return ret;
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_flashrom/func_8008F7C8_jp.s")
++#endif
++
++#ifdef NON_MATCHING
++s32 func_8008F8A0_jp(void* dst, u32 startPage) {
++    UNUSED s32 pad[2];
++    u8* p = dst;
++    s32 ret = TRUE;
++    u32 end = startPage + mFRm_SAVE_PAGES;
++    u32 page;
++
++    if (sFRm_IsInit() == TRUE) {
++        for (page = startPage; page < end; page++, p += FLASH_BLOCK_SIZE) {
++            if (sFRm_ReadPage(p, page) == -1) {
++                ret = FALSE;
++                break;
++            }
++        }
++    } else {
++        ret = FALSE;
++    }
++    return ret;
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_flashrom/func_8008F8A0_jp.s")
++#endif
++
++void func_8008F938_jp(void) {
++    func_8008F8A0_jp(&common_data, D_80106A90_jp << 9);
++}
++
++#ifdef NON_MATCHING
++s32 func_8008F968_jp(void) {
++    s32 tries = 0;
++    s32 ret = FALSE;
++    UNUSED s32 pad;
++    u32 page = D_80106A90_jp << 9;
++    void* buf = zelda_malloc(mFRm_SAVE_SIZE);
++    s32 res;
++
++    if (buf != NULL) {
++        do {
++            res = func_8008F8A0_jp(buf, page);
++            tries++;
++        } while (tries < 3 && res == 0);
++
++        if (res == TRUE && func_8008EEE8_jp(buf) == TRUE) {
++            bcopy(buf, &common_data, mFRm_SAVE_SIZE);
++            ret = TRUE;
++        }
++        if (buf != NULL) {
++            zelda_free(buf);
++        }
++    }
++    return ret;
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_flashrom/func_8008F968_jp.s")
++#endif
++
++void func_8008FA28_jp(mFRm_SaveWork* work) {
++    work->state = 0;
++    work->page = 0;
++    work->cur = NULL;
++    work->base = NULL;
++    work->verifyRetry = 0;
++    work->writeRetry = 0;
++    work->readRetry = 0;
++    work->allocRetry = 0;
++}
++
++void func_8008FA50_jp(void) {
++    func_8008FA28_jp(&B_8013A398_jp);
++}
++
++#ifdef NON_MATCHING
++s32 func_8008FA74_jp(void) {
++    /* B_8013A398_jp.base, under the name the bss asm gives it */
++    extern s32 B_8013A3A4_jp;
++
++    if (B_8013A3A4_jp != 0) {
++        func_800D986C_jp(B_8013A3A4_jp);
++    }
++    func_8008FA28_jp(&B_8013A398_jp);
++    return 1;
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_flashrom/func_8008FA74_jp.s")
++#endif
++
++s32 func_8008FAB4_jp(void) {
++    sFRm_AwaitResult();
++    func_8008FA74_jp();
++    return 1;
++}
++
++s32 func_8008FAE0_jp(mFRm_SaveWork* work) {
++    s32 ret = 0;
++
++    func_8008ECA0_jp();
++    work->cur = func_800D97A0_jp(mFRm_SAVE_SIZE);
++    if (work->cur != NULL) {
++        work->base = work->cur;
++        work->state = 1;
++        work->allocRetry = 0;
++    } else if (work->allocRetry < 10) {
++        work->allocRetry++;
++    } else {
++        func_8008FA74_jp();
++        ret = -1;
++        func_8008ECC8_jp(1);
++    }
++    return ret;
++}
++
++s32 func_8008FB64_jp(mFRm_SaveWork* work) {
++    mFRm_chk_t* chk = (mFRm_chk_t*)work->cur;
++
++    bcopy(&common_data, chk, mFRm_SAVE_SIZE);
++    work->page = 0;
++    work->writeRetry = 0;
++    chk->unk_00 = 2;
++    func_8008EFDC_jp(chk);
++    chk->checksum = func_8008EEB4_jp(chk, mFRm_SAVE_SIZE, chk->checksum);
++    sFRm_WriteAsync(work->cur, 0, mFRm_WRITE_PAGES);
++    work->state = 2;
++    return 0;
++}
++
++s32 func_8008FBEC_jp(mFRm_SaveWork* work) {
++    s32 ret = 0;
++
++    if (sFRm_IsBusy() == TRUE) {
++        if (sFRm_GetResult() == -1) {
++            if (work->writeRetry < 3) {
++                work->page = 0;
++                work->cur = work->base;
++                sFRm_WriteAsync(work->cur, 0, mFRm_WRITE_PAGES);
++                work->writeRetry++;
++            } else {
++                func_8008FAB4_jp();
++                ret = -1;
++                func_8008ECC8_jp(2);
++            }
++        } else {
++            work->page += mFRm_WRITE_PAGES;
++            if (work->page >= mFRm_SLOT_PAGES) {
++                sFRm_AwaitResult();
++                work->state = 3;
++                work->writeRetry = 0;
++                work->cur = work->base;
++            } else {
++                sFRm_AwaitResult();
++                work->cur += mFRm_WRITE_PAGES * FLASH_BLOCK_SIZE;
++                sFRm_WriteAsync(work->cur, work->page, mFRm_WRITE_PAGES);
++            }
++        }
++    }
++    return ret;
++}
++
++s32 func_8008FCE8_jp(mFRm_SaveWork* work) {
++    UNUSED s32 pad;
++    s32 ret = 0;
++
++    if (func_8008F8A0_jp(work->cur, 0) == TRUE) {
++        work->readRetry = 0;
++        if (func_8008EE7C_jp(work->cur, mFRm_SAVE_SIZE) == 0) {
++            work->state = 5;
++            work->page = mFRm_SLOT_PAGES;
++            sFRm_WriteAsync(work->cur, mFRm_SLOT_PAGES, mFRm_WRITE_PAGES);
++            work->verifyRetry = 0;
++        } else if (work->verifyRetry < 3) {
++            work->verifyRetry++;
++            work->state = 1;
++        } else {
++            func_8008FA74_jp();
++            ret = -1;
++            func_8008ECC8_jp(4);
++        }
++    } else if (work->readRetry < 3) {
++        work->readRetry++;
++    } else {
++        func_8008FA74_jp();
++        ret = -1;
++        func_8008ECC8_jp(3);
++    }
++    return ret;
++}
++
++s32 func_8008FDD4_jp(mFRm_SaveWork* work) {
++    s32 ret = 0;
++
++    work->cur = work->base;
++    if (func_8008F8A0_jp(work->cur, 0) == TRUE) {
++        work->readRetry = 0;
++        work->state = 5;
++        work->page = mFRm_SLOT_PAGES;
++        sFRm_WriteAsync(work->cur, mFRm_SLOT_PAGES, mFRm_WRITE_PAGES);
++    } else if (work->readRetry < 3) {
++        work->readRetry++;
++    } else {
++        func_8008FA74_jp();
++        ret = -1;
++        func_8008ECC8_jp(3);
++    }
++    return ret;
++}
++
++s32 func_8008FE74_jp(mFRm_SaveWork* work) {
++    s32 ret = 0;
++
++    if (sFRm_IsBusy() == TRUE) {
++        if (sFRm_GetResult() == -1) {
++            if (work->writeRetry < 3) {
++                work->cur = work->base;
++                work->state = 4;
++                work->writeRetry++;
++            } else {
++                func_8008FAB4_jp();
++                ret = -1;
++                func_8008ECC8_jp(2);
++            }
++        } else {
++            work->page += mFRm_WRITE_PAGES;
++            if (work->page >= 2 * mFRm_SLOT_PAGES) {
++                sFRm_AwaitResult();
++                work->state = 6;
++                work->writeRetry = 0;
++                work->cur = work->base;
++            } else {
++                sFRm_AwaitResult();
++                work->cur += mFRm_WRITE_PAGES * FLASH_BLOCK_SIZE;
++                sFRm_WriteAsync(work->cur, work->page, mFRm_WRITE_PAGES);
++            }
++        }
++    }
++    return ret;
++}
++
++s32 func_8008FF60_jp(mFRm_SaveWork* work) {
++    s32 ret = 0;
++
++    if (func_8008F8A0_jp(work->cur, mFRm_SLOT_PAGES) == TRUE) {
++        work->readRetry = 0;
++        if (func_8008EE7C_jp(work->cur, mFRm_SAVE_SIZE) == 0) {
++            func_8008FA74_jp();
++            ret = 1;
++            func_8008ECA0_jp();
++        } else if (work->verifyRetry < 3) {
++            work->verifyRetry++;
++            work->state = 4;
++        } else {
++            func_8008FA74_jp();
++            ret = -1;
++            func_8008ECC8_jp(4);
++        }
++    } else if (work->readRetry < 3) {
++        work->readRetry++;
++    } else {
++        func_8008FA74_jp();
++        ret = -1;
++        func_8008ECC8_jp(3);
++    }
++    return ret;
++}
++
++s32 func_80090044_jp(void) {
++    s32 state = B_8013A398_jp.state;
++    s32 ret = -1;
++
++    if (sFRm_IsInit()) {
++        ret = D_80106ACC_jp[state](&B_8013A398_jp);
++    } else {
++        func_8008ECC8_jp(0);
++    }
++    return ret;
++}
++
++void func_800900B0_jp(gfxprint* gfxprint) {
++    if ((u8)common_data.save.unk_0F8AC == 1) {
++        gfxprint_color(gfxprint, 50, 250, 100, 255);
++        gfxprint_locate8x8(gfxprint, 29, 3);
++        gfxprint_printf(gfxprint, RO_STR_80116F28_jp);
++    }
++}
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
 new file mode 100644
 index 0000000..03981c7
@@ -3940,9 +4691,18 @@ index 81ac120..f656590 100644
  
  #endif
 diff --git a/yamls/jp/code.yaml b/yamls/jp/code.yaml
-index c052055..a4ceb07 100644
+index c052055..9a58e5c 100644
 --- a/yamls/jp/code.yaml
 +++ b/yamls/jp/code.yaml
+@@ -39,7 +39,7 @@
+       - [0x6A83A0, asm, code/m_field_assessment]
+       - [0x6A8B70, asm, code/m_field_make]
+       - [0x6AB8D0, c, code/m_field_info]
+-      - [0x6B2940, asm, code/m_flashrom]
++      - [0x6B2940, c, code/m_flashrom]
+       - [0x6B3DC0, asm, code/6B3DC0]
+       - [0x6B6560, asm, code/m_handbill]
+       - [0x6B81C0, asm, code/m_home]
 @@ -55,7 +55,8 @@
        - [0x6BFE60, c, code/m_mail]
        - [0x6C05A0, c, code/m_mail_check]

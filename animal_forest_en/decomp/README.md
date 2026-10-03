@@ -51,6 +51,14 @@ context m2c reads types from. A function is done when `af_match.py` says
 
 ## Where we are
 
+`code/m_flashrom` (the save in Flash RAM, 42 functions) is a C file too: 35
+compile to the cartridge's bytes, 6 are behind NON_MATCHING (the checksum
+loop, which IDO unrolls and the cartridge does not; the load into
+common_data; the slot repair read; the page reader and writer; the save
+buffer's free) and the boot comparison of the two slots is still asm. The
+translation changes it to compress each copy (`reference/NOTES.md`, "The
+letters").
+
 `code/m_msg_main` (the message system, 322 functions at 0x8009D1F0-
 0x800A5630) is a C file; functions move from asm to C in batches: 283 in
 C so far, 279 matching (the other 4 behind NON_MATCHING): the whole message
