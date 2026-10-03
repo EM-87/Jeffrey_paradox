@@ -3,7 +3,10 @@
 import collections
 import hashlib
 import os
+import random
+import shutil
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -13,6 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 
+import aflz  # noqa: E402
 import af_anchors  # noqa: E402
 import af_align  # noqa: E402
 import af_dmaorder  # noqa: E402
@@ -621,6 +625,118 @@ class Script(unittest.TestCase):
                 af_text.N64_COUNT = old
             back = msgbank.Bank.parse_dump(open(paths["out"], encoding="utf-8").read())
             self.assertEqual([msgbank.render(back[n]) for n in range(4)], ["Red", "Blue", "", "January"])
+
+
+def save_like(seed=1):
+    """0xF980 bytes shaped like a save: records with small values, names, long runs of zeros."""
+    rnd = random.Random(seed)
+    out = bytearray(aflz.SAVE_SIZE)
+    for at in range(0, 0x9000, 0x40):
+        out[at:at + 16] = bytes(rnd.randrange(8) for _ in range(16))
+        out[at + 16:at + 22] = b"urld\x00\x00"
+    for at in range(0x9000, 0xC000, 2):
+        out[at] = rnd.choice((0, 0, 0x11, 0x25))
+    return bytes(out)
+
+
+def changes_patch_file(name):
+    """A new file's text as decomp/changes.patch adds it (None if it does not)."""
+    lines, inside = [], False
+    with open(os.path.join(HERE, "..", "decomp", "changes.patch"), encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("diff --git"):
+                inside = line.rstrip().endswith(" b/" + name)
+            elif inside and line.startswith("+") and not line.startswith("+++"):
+                lines.append(line[1:])
+    return "".join(lines) or None
+
+
+class Save(unittest.TestCase):
+    """The en build's compressed save (tools/aflz.py and its C twin, include/af_lz.h)."""
+
+    def test_round_trips(self):
+        rnd = random.Random(2)
+        cases = [b"", b"x", b"abcabcabcabcabc", bytes(0xF980), save_like(),
+                 rnd.randbytes(3000),
+                 b" ".join(rnd.choice((b"dear", b"the", b"letter", b"town")) for _ in range(900))]
+        for data in cases:
+            packed = aflz.compress(data)
+            self.assertEqual(aflz.decompress(packed, len(data)), data)
+        self.assertLess(len(aflz.compress(save_like())), 0x4000)
+
+    def test_encoding(self):
+        # Yaz0's: group byte MSB first, set bit = literal; 2-byte ref (len-2)<<12 | dist-1; 3-byte for 18+
+        self.assertEqual(aflz.compress(b"abcabcabcabcabc"), bytes([0xE0, 0x61, 0x62, 0x63, 0xA0, 0x02]))
+        self.assertEqual(aflz.compress(bytes(20)), bytes([0x80, 0x00, 0x00, 0x00, 0x01]))
+        self.assertEqual(aflz.compress(bytes(0x113)), bytes([0xA0, 0x00, 0x00, 0x00, 0xFF, 0x00]))  # 1 + 0x111 + 1
+        self.assertIsNone(aflz.compress(bytes(0xFFFF)))                # positions are 16-bit in the C
+        self.assertIsNone(aflz.compress(bytes(range(256)) * 4, cap=100))
+
+    def test_decompress_checks(self):
+        packed = aflz.compress(b"abcabcabcabcabc")
+        self.assertIsNone(aflz.decompress(packed[:-1], 15))           # ends early
+        self.assertIsNone(aflz.decompress(packed + b"\x00", 15))       # bytes left over
+        self.assertIsNone(aflz.decompress(bytes([0x00, 0x10, 0x05]), 3))  # refers before the start
+        self.assertIsNone(aflz.decompress(packed, 14))                 # runs past the end
+
+    def test_slot_images(self):
+        save = save_like()
+        ext = b"Dear urld, the letter's official text." * 40
+        image, compressed = aflz.pack(save, ext)
+        self.assertTrue(compressed)
+        self.assertEqual(len(image), aflz.SLOT_SIZE)
+        magic, save_comp, ext_size, ext_comp, ext_sum = struct.unpack(">IIIII", image[:20])
+        self.assertEqual((magic, ext_size, ext_sum), (0x41465A31, len(ext), sum(ext)))
+        self.assertEqual(image[20 + save_comp + ext_comp:], bytes(aflz.SLOT_SIZE - 20 - save_comp - ext_comp))
+        self.assertEqual(aflz.unpack(image), (save, ext))
+        self.assertEqual(aflz.unpack(aflz.pack(save)[0]), (save, b""))
+        # a save that does not compress is written as the cartridge writes it, and read so
+        noise = random.Random(3).randbytes(aflz.SAVE_SIZE)
+        image, compressed = aflz.pack(noise, ext)
+        self.assertFalse(compressed)
+        self.assertEqual(image, noise + bytes(aflz.SLOT_SIZE - aflz.SAVE_SIZE))
+        self.assertEqual(aflz.unpack(image), (noise, None))
+        damaged = bytearray(aflz.pack(save, ext)[0])
+        damaged[20 + save_comp + 3] ^= 0xFF
+        with self.assertRaises(ValueError):
+            aflz.unpack(bytes(damaged))
+
+    def test_c_twin_matches(self):
+        header = changes_patch_file("include/af_lz.h")
+        cc = shutil.which("cc") or shutil.which("gcc")
+        if header is None or cc is None:
+            self.skipTest("needs include/af_lz.h in decomp/changes.patch and a host C compiler")
+        prog = r"""
+#include <stdio.h>
+#include "af_lz.h"
+static aflz_Work work;
+static unsigned char src[0x10000], dst[0x12000], back[0x10000];
+int main(int argc, char** argv) {
+    FILE* f = fopen(argv[1], "rb");
+    int n = fread(src, 1, sizeof(src), f), c;
+    fclose(f);
+    c = aflz_compress(src, n, dst, sizeof(dst), &work);
+    if (c < 0 || !aflz_decompress(dst, c, back, n)) return 2;
+    f = fopen(argv[2], "wb");
+    fwrite(dst, 1, c, f);
+    fclose(f);
+    return 0;
+}
+"""
+        rnd = random.Random(4)
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "af_lz.h"), "w") as f:
+                f.write(header)
+            with open(os.path.join(tmp, "t.c"), "w") as f:
+                f.write(prog)
+            exe = os.path.join(tmp, "t")
+            subprocess.run([cc, "-O1", "-o", exe, os.path.join(tmp, "t.c")], check=True)
+            for data in (save_like(5), rnd.randbytes(5000), b"abcabcabcabcabc"):
+                with open(os.path.join(tmp, "in"), "wb") as f:
+                    f.write(data)
+                subprocess.run([exe, os.path.join(tmp, "in"), os.path.join(tmp, "out")], check=True)
+                with open(os.path.join(tmp, "out"), "rb") as f:
+                    self.assertEqual(f.read(), aflz.compress(data))
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@
 #                                    decomp/changes.patch, code free to grow
 #   make emu-check-en / route-en     the translation booted / played to the
 #                                    houses in the emulator
+#   make save-check-en               its compressed save written and read back
 #   make nafe ROM=... NAFE_UPS=...   the AF Project's 2010 patch, to study
 #   make nafe-diff                   what that patch changed, by function
 #   make test                        the tools' own tests (no ROM needed)
@@ -44,7 +45,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
+.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
 
 all: verify
 
@@ -215,6 +216,11 @@ emu-check-en: emu rom-en
 
 route-en: emu rom-en
 	$(PYTHON) tools/route_newgame.py $(EMU_DIR) $(EN_ROM) $(BUILD)/route-en
+
+# The en build's compressed save, driven from the houses' state of route-en
+# (tests/emu_save.py; NOTES, "The compressed save").
+save-check-en: route-en
+	$(PYTHON) tests/emu_save.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(BUILD)/route-en/4-houses.st $(BUILD)/emu-save-en
 
 # -- the GameCube script (phase 4) -------------------------------------------
 # ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it

@@ -669,3 +669,78 @@ the emulator (`make rom-en`, `make script ISO=...`).
   in `m_font` (`code/6B3DC0`, asm; the GameCube's `m_font_offset` is the
   map for widths), the name and item banks (`D_D16000/D_D18000`,
   `D_D05000/D_D06000`, the NPC names).
+
+## The compressed save (phase 4, the letters' first step)
+
+The official letters need more room than the cartridge's save gives them
+(above: header 26/body 192/footer 32 against 10/96/16). The user chose to
+keep the save's layout and both flash copies, and to store each copy
+compressed, with room after it for the letters' extension (the extra
+text, kept in RAM by the en build: `mFRm_en_ext`, up to 0x2000 bytes for
+now; what goes in it is the next step).
+
+- **The cartridge's flash save** (`src/code/m_flashrom.c`, in C and
+  matching but for six functions, decomp/matching.patch): the first
+  0xF980 bytes of `common_data`, in one of two slots of 0x200 pages of 128
+  bytes (pages 0 and 0x200), a header (`mFRm_chk_t`) holding "NAFJ", the
+  town's id, the time and a checksum making the 16-bit sum zero. Four
+  ways in: the boot check (`func_8008F24C_jp`, asm, from the trademark
+  screen: both slots read and compared; a bad one is repaired from the
+  good one by `func_8008F530_jp`..`F648`), the normal save
+  (`func_80090044_jp`'s states: copy, stamp, write slot 0, read back,
+  write slot 1, read back; from `m_cpak.c` and the train), the slot
+  writer (`func_8008F1BC_jp`: one slot from a buffer the caller fills and
+  stamps; the gyroid's save and quit, `Npc_Restart`, and the station,
+  through `code/6B8F20.s`), and the save menu's synchronous write
+  (`func_8008F7C8_jp`: erase the chip, write slot 0 page by page;
+  `ovl_save_menu`, and `Animal_Logo` at a new game). Every read goes
+  through `func_8008F8A0_jp(dst, page)`; the game loads with
+  `func_8008F968_jp` (title) and `func_8008F938_jp` (new game).
+- **The buffers they use.** The normal save's and the gyroid's buffer is
+  not malloc'd: `func_800D97A0_jp` asks graph for the framebuffer it is
+  about to stop showing (`graph.c`, `cfbinfo.c`; any size under 0x25800,
+  320x240x2) and the screen holds the last frame while the save runs.
+  The save menu's write has no buffer at all (it writes from
+  `common_data`).
+- **The en build's slot image** (decomp/changes.patch: `m_flashrom.c`,
+  `include/af_lz.h`; `tools/aflz.py` is the same in Python): a 20-byte
+  header ("AFZ1", the save stream's size, the extension's raw and
+  compressed sizes and the sum of its bytes, big-endian), the save stream,
+  the extension stream, zeros to 0x10000. The compressor is LZSS in
+  Yaz0's encoding, greedy, hash chains of 32 steps inside a 4 KB window,
+  16 KB of work area; the C and the Python produce the same bytes (a host
+  build of the header against the Python, in `make test`). When the two
+  streams do not fit in 0x10000 the slot gets the cartridge's format (the
+  save as it is). Reads take both formats: a slot without "AFZ1" is the
+  cartridge's, so the cartridge's saves load in the en build (measured:
+  a town written in the cartridge's format is loaded and played). The
+  cartridge cannot read the en build's compressed slots.
+- **Where each path finds its memory.** The borrowed framebuffer
+  (0x25800 bytes) holds the image, the save's copy and the work: 0x23980
+  bytes, image first for the normal save (its states rewind to
+  `work->base`), the caller's copy first for the gyroid's. The save menu
+  takes them from the game state's heap when it has room (the save
+  menu's state has its megabyte nearly free) and writes the cartridge's
+  format when it has not, which is the new game's case (play holds the
+  whole heap; nothing has an extension yet). Reads decompress straight
+  from the flash a page at a time through a 128-byte buffer on its own
+  cache lines (`sFRm_ReadPage` invalidates them); the boot repair copies
+  the good slot's image as it is (0x200 pages into the trademark screen's
+  64 KB buffers); the read-back checks compare the written pages with the
+  image instead of a checksum. A damaged stream leaves the rest of the
+  save 0xFF, as an erased chip reads, so the checksum fails as it would.
+- **Measured** (`tests/emu_save.py`, `make save-check-en`: a hook built
+  with the decomp's IDO into the hole `m_choice_main`'s text left in code,
+  called each frame from `mTM_time`, drives the game's own functions from
+  the houses' state): the save compresses from 63,872 bytes to about
+  3,700; with 3,000 bytes of extension the image is 4,342 bytes of the
+  slot's 65,536. The normal save takes 31 frames, the gyroid's 32; both
+  leave both slots compressed, the save as stamped and the extension
+  whole, and the load brings both back. The save menu's write is
+  compressed where the game state's heap has room (called on the
+  trademark screen at frame 100, its megabyte nearly free; play has taken
+  the whole heap by frame 200) and falls back to the cartridge's format
+  in play; both erase slot 1 as the cartridge does. A fresh boot with slot 0 compressed and slot 1 erased
+  repairs slot 1 with slot 0's image by frame 400, loads the save and the
+  extension, and the save the game makes by itself on arriving keeps the
+  extension in both slots.

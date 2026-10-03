@@ -14,8 +14,11 @@
   the message cap is 0x600 with a buffer of its own, choice strings are
   24 bytes, the window's free and item strings 32, the window and the
   choice strings are C globals, the four NON_MATCHING functions of
-  `m_msg_main.c` are built from their C, and dates and times are built in
-  the GameCube's formats (`m_string.c`, STR_AMPM on code 71).
+  `m_msg_main.c` are built from their C, dates and times are built in
+  the GameCube's formats (`m_string.c`, STR_AMPM on code 71), and the
+  flash save is written compressed with room for the letters' extension
+  (`m_flashrom.c`, `include/af_lz.h`; reference/NOTES.md, "The compressed
+  save").
   Its ROM is never compared with the cartridge: `make rom-en` builds it
   with `code` moved to the end of the ROM so that it can grow and nothing
   of it moved in RAM (a section that grows, or a new one, goes to a

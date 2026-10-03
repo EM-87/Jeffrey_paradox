@@ -1,3 +1,219 @@
+diff --git a/include/af_lz.h b/include/af_lz.h
+new file mode 100644
+index 0000000..0faf26b
+--- /dev/null
++++ b/include/af_lz.h
+@@ -0,0 +1,210 @@
++#ifndef AF_LZ_H
++#define AF_LZ_H
++
++/*
++ * The translation's compressor for the save (reference/NOTES.md, "The
++ * compressed save"): LZSS in Yaz0's encoding (a group byte for 8 items,
++ * MSB first; a set bit is a literal byte, a clear one a back-reference of
++ * 2 bytes, length 3-17, or 3 bytes, length 18-0x111, within 0x1000 bytes),
++ * greedy, with hash chains limited to the window. Header-only and free of
++ * the game's headers, so that tools/aflz.py's twin and a host test build
++ * the same code: the caller supplies the work area (aflz_Work, 16 KB).
++ * Inputs are shorter than 0xFFFF bytes (positions fit in 16 bits).
++ */
++
++#define AFLZ_WINDOW 0x1000
++#define AFLZ_MAX_LEN 0x111
++#define AFLZ_HASH_SIZE 0x1000
++#define AFLZ_CHAIN 32
++#define AFLZ_NONE 0xFFFF
++#define AFLZ_MAX_INPUT 0xFFFF
++
++typedef struct aflz_Work {
++    unsigned short head[AFLZ_HASH_SIZE];   /* last position of each 3-byte hash, AFLZ_NONE for none */
++    unsigned short prevDist[AFLZ_WINDOW];  /* distance to the previous position with the same hash, 0 for none */
++} aflz_Work;
++
++/* The next byte of a stream (0-255), or -1 at its end or on an error. */
++typedef int (*aflz_GetFn)(void* ctx);
++
++typedef struct aflz_Mem {
++    const unsigned char* p;
++    int left;
++} aflz_Mem;
++
++static unsigned int aflz_hash(const unsigned char* p) {
++    return ((p[0] << 4) ^ (p[1] << 2) ^ p[2]) & (AFLZ_HASH_SIZE - 1);
++}
++
++static void aflz_insert(aflz_Work* work, const unsigned char* src, int pos, int size) {
++    unsigned int h;
++    int prev;
++
++    if (pos + 3 > size) {
++        return;
++    }
++    h = aflz_hash(&src[pos]);
++    prev = work->head[h];
++    work->prevDist[pos & (AFLZ_WINDOW - 1)] =
++        (prev != AFLZ_NONE && pos - prev < AFLZ_WINDOW) ? (pos - prev) : 0;
++    work->head[h] = pos;
++}
++
++/* Compressed size, or -1 if it would pass cap (or size is too big). */
++static int aflz_compress(const unsigned char* src, int size, unsigned char* dst, int cap, aflz_Work* work) {
++    int i, out = 0, pos = 0;
++
++    if (size >= AFLZ_MAX_INPUT) {
++        return -1;
++    }
++    for (i = 0; i < AFLZ_HASH_SIZE; i++) {
++        work->head[i] = AFLZ_NONE;
++    }
++    for (i = 0; i < AFLZ_WINDOW; i++) {
++        work->prevDist[i] = 0;
++    }
++
++    while (pos < size) {
++        int groupAt = out, bit;
++        unsigned char flags = 0;
++
++        if (out + 1 > cap) {
++            return -1;
++        }
++        dst[out++] = 0;
++        for (bit = 0; bit < 8 && pos < size; bit++) {
++            int bestLen = 0, bestDist = 0;
++
++            if (pos + 3 <= size) {
++                int cand = work->head[aflz_hash(&src[pos])];
++                int steps = 0;
++
++                while (cand != AFLZ_NONE && pos - cand <= AFLZ_WINDOW && steps < AFLZ_CHAIN) {
++                    int len = 0, d;
++
++                    while (len < AFLZ_MAX_LEN && pos + len < size && src[cand + len] == src[pos + len]) {
++                        len++;
++                    }
++                    if (len > bestLen) {
++                        bestLen = len;
++                        bestDist = pos - cand;
++                        if (len == AFLZ_MAX_LEN) {
++                            break;
++                        }
++                    }
++                    d = work->prevDist[cand & (AFLZ_WINDOW - 1)];
++                    if (d == 0) {
++                        break;
++                    }
++                    cand -= d;
++                    steps++;
++                }
++            }
++            if (bestLen >= 3) {
++                int dist = bestDist - 1, k;
++
++                if (bestLen < 0x12) {
++                    if (out + 2 > cap) {
++                        return -1;
++                    }
++                    dst[out++] = ((bestLen - 2) << 4) | (dist >> 8);
++                    dst[out++] = dist & 0xFF;
++                } else {
++                    if (out + 3 > cap) {
++                        return -1;
++                    }
++                    dst[out++] = dist >> 8;
++                    dst[out++] = dist & 0xFF;
++                    dst[out++] = bestLen - 0x12;
++                }
++                for (k = 0; k < bestLen; k++) {
++                    aflz_insert(work, src, pos + k, size);
++                }
++                pos += bestLen;
++            } else {
++                if (out + 1 > cap) {
++                    return -1;
++                }
++                flags |= 0x80 >> bit;
++                dst[out++] = src[pos];
++                aflz_insert(work, src, pos, size);
++                pos++;
++            }
++        }
++        dst[groupAt] = flags;
++    }
++    return out;
++}
++
++/*
++ * 1 when dstSize bytes come out of the stream, 0 if it ends early, fails
++ * or points outside what has come out. Reads no further than it needs;
++ * whether the stream had exactly that many bytes is the caller's check.
++ */
++static int aflz_decompress_get(aflz_GetFn get, void* ctx, unsigned char* dst, int dstSize) {
++    int out = 0;
++
++    while (out < dstSize) {
++        int flags = get(ctx), bit;
++
++        if (flags < 0) {
++            return 0;
++        }
++        for (bit = 0; bit < 8 && out < dstSize; bit++) {
++            if (flags & (0x80 >> bit)) {
++                int c = get(ctx);
++
++                if (c < 0) {
++                    return 0;
++                }
++                dst[out++] = c;
++            } else {
++                int b0 = get(ctx), b1, len, from;
++
++                if (b0 < 0 || (b1 = get(ctx)) < 0) {
++                    return 0;
++                }
++                from = out - (((b0 & 0xF) << 8 | b1) + 1);
++                len = b0 >> 4;
++                if (len == 0) {
++                    int b2 = get(ctx);
++
++                    if (b2 < 0) {
++                        return 0;
++                    }
++                    len = b2 + 0x12;
++                } else {
++                    len += 2;
++                }
++                if (from < 0 || out + len > dstSize) {
++                    return 0;
++                }
++                while (len-- > 0) {
++                    dst[out++] = dst[from++];
++                }
++            }
++        }
++    }
++    return 1;
++}
++
++static int aflz_mem_get(void* ctx) {
++    aflz_Mem* mem = (aflz_Mem*)ctx;
++
++    if (mem->left <= 0) {
++        return -1;
++    }
++    mem->left--;
++    return *mem->p++;
++}
++
++/* 1 when exactly dstSize bytes come out of exactly srcSize bytes, 0 otherwise. */
++static int aflz_decompress(const unsigned char* src, int srcSize, unsigned char* dst, int dstSize) {
++    aflz_Mem mem;
++
++    mem.p = src;
++    mem.left = srcSize;
++    return aflz_decompress_get(aflz_mem_get, &mem, dst, dstSize) && mem.left == 0;
++}
++
++#endif
 diff --git a/include/m_choice_main.h b/include/m_choice_main.h
 index 9d68ff0..8972588 100644
 --- a/include/m_choice_main.h
@@ -22,6 +238,20 @@ index 9d68ff0..8972588 100644
  
  Choice* mChoice_Get_base_window_p();
  void mChoice_init(Choice* choice,  struct Game* game);
+diff --git a/include/m_flashrom.h b/include/m_flashrom.h
+index 2753a99..7bf3a38 100644
+--- a/include/m_flashrom.h
++++ b/include/m_flashrom.h
+@@ -33,4 +33,9 @@ s32 func_8008FAB4_jp(void);
+ s32 func_80090044_jp(void);
+ void func_800900B0_jp(struct gfxprint* gfxprint);
+ 
++/* The translation: the letters' extension, saved with the save (m_flashrom.c, reference/NOTES.md "The compressed save"). */
++#define mFRm_EN_EXT_CAP 0x2000
++extern u8 mFRm_en_ext[mFRm_EN_EXT_CAP];
++extern s32 mFRm_en_extSize;
++
+ #endif
 diff --git a/include/m_msg_main.h b/include/m_msg_main.h
 index d2906f3..b04be7b 100644
 --- a/include/m_msg_main.h
@@ -275,6 +505,469 @@ index d4a7b38..07380bd 100644
                                        FALSE, FALSE, 0, 1.0f, 1.0f, type);
  
          y += 16.0f;
+diff --git a/src/code/m_flashrom.c b/src/code/m_flashrom.c
+index f3f7472..cb05ef4 100644
+--- a/src/code/m_flashrom.c
++++ b/src/code/m_flashrom.c
+@@ -9,6 +9,9 @@
+ #include "6FD410.h"
+ #include "libu64/gfxprint.h"
+ #include "PR/os_internal_flash.h"
++#include "game.h"
++#include "TwoHeadArena.h"
++#include "af_lz.h"
+ 
+ /*
+  * The save in Flash RAM: the first 0xF980 bytes of common_data's Save, in
+@@ -79,6 +82,196 @@ extern char RO_STR_80116F28_jp[];
+ extern mFRm_SlotWork B_8013A380_jp;
+ extern mFRm_SaveWork B_8013A398_jp;
+ 
++/*
++ * The translation's save (reference/NOTES.md, "The compressed save"). A
++ * slot holds an image: a header (mFRm_en_hdr_t), the save (the same
++ * 0xF980 bytes, header and checksum included) and the letters' extension
++ * (mFRm_en_ext), each compressed with include/af_lz.h, then zeros; or,
++ * when the two do not fit in the slot, the save as the cartridge writes
++ * it. Reads take both, so the cartridge's saves load (without extension).
++ *
++ * Every write is of an image. The normal save and the gyroid's
++ * (func_8008F040_jp) borrow a framebuffer (func_800D97A0_jp: 0x25800
++ * bytes), which holds the image, the save's copy and the compressor's
++ * work; the save menu's write takes them from the game state's heap when
++ * it has room, and writes the cartridge's format when it has not (at a
++ * new game, where play holds the whole heap and nothing has an
++ * extension yet). The boot repair copies a slot's image as it is, and
++ * checks read back the image's pages. Reads decompress from the flash a
++ * page at a time.
++ */
++
++#define mFRm_EN_MAGIC 0x41465A31 /* "AFZ1" */
++#define mFRm_EN_SLOT_SIZE (mFRm_SLOT_PAGES * FLASH_BLOCK_SIZE) /* 0x10000 */
++/* the normal save's borrowed framebuffer: the image first (work->base), the save's copy, the work */
++#define mFRm_EN_COPY_AT mFRm_EN_SLOT_SIZE
++#define mFRm_EN_WORK_AT (mFRm_EN_COPY_AT + mFRm_SAVE_SIZE)
++#define mFRm_EN_BUF_SIZE (mFRm_EN_WORK_AT + sizeof(aflz_Work)) /* 0x23980, under func_800D97A0_jp's 0x25800 */
++
++typedef struct mFRm_en_hdr_t {
++    /* 0x00 */ u32 magic;    /* mFRm_EN_MAGIC */
++    /* 0x04 */ u32 saveComp; /* the save's stream, right after this header */
++    /* 0x08 */ u32 extSize;
++    /* 0x0C */ u32 extComp;  /* the extension's stream, after the save's */
++    /* 0x10 */ u32 extSum;   /* the extension's bytes added up */
++} mFRm_en_hdr_t; // size = 0x14
++
++typedef struct mFRm_en_Reader {
++    /* 0x00 */ u8* buf;   /* mFRm_en_Page() */
++    /* 0x04 */ u32 page;  /* the next page to read */
++    /* 0x08 */ s32 pos;   /* in buf */
++    /* 0x0C */ s32 left;  /* bytes of the stream still to come */
++    /* 0x10 */ s32 error; /* a page could not be read */
++} mFRm_en_Reader; // size = 0x14
++
++u8 mFRm_en_ext[mFRm_EN_EXT_CAP];
++s32 mFRm_en_extSize;
++static s32 mFRm_en_savePages; /* the normal save's image, in pages */
++static u64 mFRm_en_pageBuf[(FLASH_BLOCK_SIZE + 0x10) / sizeof(u64)];
++
++/* A page's buffer on cache lines of its own (sFRm_ReadPage invalidates them). */
++static u8* mFRm_en_Page(void) {
++    return (u8*)(((u32)mFRm_en_pageBuf + 0xF) & ~0xF);
++}
++
++static s32 mFRm_en_ReadHeader(mFRm_en_hdr_t* hdr, u32 startPage) {
++    u8* buf = mFRm_en_Page();
++
++    if (sFRm_ReadPage(buf, startPage) == -1) {
++        return FALSE;
++    }
++    bcopy(buf, hdr, sizeof(mFRm_en_hdr_t));
++    return TRUE;
++}
++
++/* The streams' sizes stay inside the slot. */
++static s32 mFRm_en_Fits(mFRm_en_hdr_t* hdr) {
++    return hdr->saveComp <= mFRm_EN_SLOT_SIZE - sizeof(mFRm_en_hdr_t) &&
++           hdr->extComp <= mFRm_EN_SLOT_SIZE - sizeof(mFRm_en_hdr_t) - hdr->saveComp;
++}
++
++/* A stream of size bytes at offset in the slot at startPage; FALSE if its first page could not be read. */
++static s32 mFRm_en_Open(mFRm_en_Reader* r, u32 startPage, u32 offset, s32 size) {
++    r->buf = mFRm_en_Page();
++    r->page = startPage + offset / FLASH_BLOCK_SIZE;
++    r->pos = offset % FLASH_BLOCK_SIZE;
++    r->left = size;
++    r->error = FALSE;
++    if (sFRm_ReadPage(r->buf, r->page) == -1) {
++        r->error = TRUE;
++        return FALSE;
++    }
++    r->page++;
++    return TRUE;
++}
++
++static int mFRm_en_Get(void* ctx) {
++    mFRm_en_Reader* r = (mFRm_en_Reader*)ctx;
++
++    if (r->left <= 0) {
++        return -1;
++    }
++    if (r->pos == FLASH_BLOCK_SIZE) {
++        if (sFRm_ReadPage(r->buf, r->page) == -1) {
++            r->error = TRUE;
++            r->left = 0;
++            return -1;
++        }
++        r->page++;
++        r->pos = 0;
++    }
++    r->left--;
++    return r->buf[r->pos++];
++}
++
++/* The image of save and the extension in image (0x10000 bytes); returns the pages it fills. */
++static s32 mFRm_en_Pack(u8* save, u8* image, aflz_Work* work) {
++    mFRm_en_hdr_t* hdr = (mFRm_en_hdr_t*)image;
++    u8* out = image + sizeof(mFRm_en_hdr_t);
++    s32 room = mFRm_EN_SLOT_SIZE - sizeof(mFRm_en_hdr_t);
++    s32 saveComp = aflz_compress(save, mFRm_SAVE_SIZE, out, room, work);
++    s32 extComp = 0;
++    u32 sum = 0;
++    s32 used;
++    s32 i;
++
++    if (saveComp >= 0 && mFRm_en_extSize > 0) {
++        extComp = aflz_compress(mFRm_en_ext, mFRm_en_extSize, out + saveComp, room - saveComp, work);
++    }
++    if (saveComp < 0 || extComp < 0) {
++        /* too big for the slot: the cartridge's format */
++        bcopy(save, image, mFRm_SAVE_SIZE);
++        bzero(image + mFRm_SAVE_SIZE, mFRm_EN_SLOT_SIZE - mFRm_SAVE_SIZE);
++        return mFRm_SAVE_PAGES;
++    }
++    for (i = 0; i < mFRm_en_extSize; i++) {
++        sum += mFRm_en_ext[i];
++    }
++    hdr->magic = mFRm_EN_MAGIC;
++    hdr->saveComp = saveComp;
++    hdr->extSize = mFRm_en_extSize;
++    hdr->extComp = extComp;
++    hdr->extSum = sum;
++    used = sizeof(mFRm_en_hdr_t) + saveComp + extComp;
++    bzero(image + used, mFRm_EN_SLOT_SIZE - used);
++    return (used + FLASH_BLOCK_SIZE - 1) / FLASH_BLOCK_SIZE;
++}
++
++/* 1 if the slot at startPage begins with the image's pages, 0 if not, -1 if a page could not be read. */
++static s32 mFRm_en_Verify(u8* image, u32 startPage, s32 pages) {
++    u8* buf = mFRm_en_Page();
++    s32 i;
++
++    for (i = 0; i < pages; i++, image += FLASH_BLOCK_SIZE) {
++        if (sFRm_ReadPage(buf, startPage + i) == -1) {
++            return -1;
++        }
++        if (bcmp(buf, image, FLASH_BLOCK_SIZE) != 0) {
++            return 0;
++        }
++    }
++    return 1;
++}
++
++/* The slot at startPage as it is (0x10000 bytes), for the boot repair. */
++static s32 mFRm_en_ReadImage(u8* dst, u32 startPage) {
++    u32 page;
++
++    if (sFRm_IsInit() != TRUE) {
++        return FALSE;
++    }
++    for (page = startPage; page < startPage + mFRm_SLOT_PAGES; page++, dst += FLASH_BLOCK_SIZE) {
++        if (sFRm_ReadPage(dst, page) == -1) {
++            return FALSE;
++        }
++    }
++    return TRUE;
++}
++
++/* The extension of the slot at startPage into mFRm_en_ext; none when the slot has none or it does not check. */
++static void mFRm_en_LoadExt(u32 startPage) {
++    mFRm_en_hdr_t hdr;
++    mFRm_en_Reader r;
++    u32 sum = 0;
++    s32 i;
++
++    mFRm_en_extSize = 0;
++    if (!mFRm_en_ReadHeader(&hdr, startPage) || hdr.magic != mFRm_EN_MAGIC || !mFRm_en_Fits(&hdr) ||
++        hdr.extSize == 0 || hdr.extSize > mFRm_EN_EXT_CAP) {
++        return;
++    }
++    if (!mFRm_en_Open(&r, startPage, sizeof(mFRm_en_hdr_t) + hdr.saveComp, hdr.extComp) ||
++        !aflz_decompress_get(mFRm_en_Get, &r, mFRm_en_ext, hdr.extSize) || r.left != 0) {
++        return;
++    }
++    for (i = 0; i < (s32)hdr.extSize; i++) {
++        sum += mFRm_en_ext[i];
++    }
++    if (sum == hdr.extSum) {
++        mFRm_en_extSize = hdr.extSize;
++    }
++}
++
+ void func_8008ECA0_jp(void) {
+     bzero(D_80106A9C_jp, sizeof(D_80106A9C_jp));
+ }
+@@ -204,14 +397,20 @@ void func_8008F020_jp(mFRm_SlotWork* work) {
+ 
+ s32 func_8008F040_jp(void* data, s32 slot, mFRm_SlotWork* work) {
+     u32 page = (slot == 0) ? 0 : mFRm_SLOT_PAGES;
++    u8* image = data;
+ 
++    if (data == B_80146084_jp) {
++        /* the save in a borrowed framebuffer (the gyroid's, func_80095FE0_jp): the image and the work after it */
++        image = (u8*)data + mFRm_SAVE_SIZE;
++        mFRm_en_Pack(data, image, (aflz_Work*)(image + mFRm_EN_SLOT_SIZE));
++    }
+     work->state = 1;
+     work->page = page;
+     work->slot = slot;
+-    work->cur = data;
+-    work->base = data;
++    work->cur = image;
++    work->base = image;
+     work->retry = 0;
+-    sFRm_WriteAsync(data, page, mFRm_WRITE_PAGES);
++    sFRm_WriteAsync(image, page, mFRm_WRITE_PAGES);
+     return 0;
+ }
+ 
+@@ -271,15 +470,15 @@ s32 func_8008F23C_jp(void) {
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_flashrom/func_8008F24C_jp.s")
+ 
+-#ifdef NON_MATCHING
+ s32 func_8008F530_jp(void* data, void* arg1, mFRm_SlotWork* work) {
+     s32 ret = 0;
+     s32 tries = 0;
+     u32 page = work->page;
+     s32 res;
+ 
++    /* the good slot's image as it is, written over the other by the next states */
+     do {
+-        res = func_8008F8A0_jp(data, page);
++        res = mFRm_en_ReadImage(data, page);
+         tries++;
+     } while (res == 0 && tries != 3);
+ 
+@@ -301,9 +500,6 @@ s32 func_8008F530_jp(void* data, void* arg1, mFRm_SlotWork* work) {
+     }
+     return ret;
+ }
+-#else
+-#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_flashrom/func_8008F530_jp.s")
+-#endif
+ 
+ s32 func_8008F5FC_jp(void* arg0, void* arg1, mFRm_SlotWork* work) {
+     work->cur = work->base;
+@@ -360,9 +556,9 @@ s32 func_8008F768_jp(UNK_PTR arg0, UNK_PTR arg1) {
+     return ret;
+ }
+ 
+-#ifdef NON_MATCHING
+ s32 func_8008F7C8_jp(void) {
+     u8* p = (u8*)&common_data;
++    u8* image = NULL;
+     s32 ret = 0;
+     u32 page;
+     s32 tries;
+@@ -374,6 +570,15 @@ s32 func_8008F7C8_jp(void) {
+     ((mFRm_chk_t*)&common_data)->checksum =
+         func_8008EEB4_jp(&common_data, mFRm_SAVE_SIZE, ((mFRm_chk_t*)&common_data)->checksum);
+ 
++    /* the image and the work from the game state's heap, kept until the state ends */
++    if (gamePT != NULL && THA_getFreeBytes(&gamePT->heap) >= (s32)(mFRm_EN_SLOT_SIZE + sizeof(aflz_Work) + 0x10)) {
++        image = THA_alloc16(&gamePT->heap, mFRm_EN_SLOT_SIZE + sizeof(aflz_Work));
++    }
++    if (image != NULL) {
++        pages = mFRm_en_Pack(p, image, (aflz_Work*)(image + mFRm_EN_SLOT_SIZE));
++        p = image;
++    }
++
+     for (page = 0; page != pages; page++, p += FLASH_BLOCK_SIZE) {
+         if (sFRm_WritePage(p, page) == -1) {
+             tries = 0;
+@@ -388,43 +593,49 @@ s32 func_8008F7C8_jp(void) {
+     }
+     return ret;
+ }
+-#else
+-#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_flashrom/func_8008F7C8_jp.s")
+-#endif
+ 
+-#ifdef NON_MATCHING
+ s32 func_8008F8A0_jp(void* dst, u32 startPage) {
+-    UNUSED s32 pad[2];
++    mFRm_en_hdr_t hdr;
++    mFRm_en_Reader r;
+     u8* p = dst;
+-    s32 ret = TRUE;
+-    u32 end = startPage + mFRm_SAVE_PAGES;
+     u32 page;
+ 
+-    if (sFRm_IsInit() == TRUE) {
+-        for (page = startPage; page < end; page++, p += FLASH_BLOCK_SIZE) {
++    if (sFRm_IsInit() != TRUE || !mFRm_en_ReadHeader(&hdr, startPage)) {
++        return FALSE;
++    }
++    if (hdr.magic != mFRm_EN_MAGIC) {
++        /* the cartridge's format */
++        bcopy(mFRm_en_Page(), p, FLASH_BLOCK_SIZE);
++        p += FLASH_BLOCK_SIZE;
++        for (page = startPage + 1; page < startPage + mFRm_SAVE_PAGES; page++, p += FLASH_BLOCK_SIZE) {
+             if (sFRm_ReadPage(p, page) == -1) {
+-                ret = FALSE;
+-                break;
++                return FALSE;
+             }
+         }
+-    } else {
+-        ret = FALSE;
++        return TRUE;
+     }
+-    return ret;
++    /* what a damaged stream leaves out reads 0xFF, as an erased chip does: the checksum fails */
++    mem_clear(dst, mFRm_SAVE_SIZE, 0xFF);
++    if (mFRm_en_Fits(&hdr)) {
++        if (!mFRm_en_Open(&r, startPage, sizeof(mFRm_en_hdr_t), hdr.saveComp)) {
++            return FALSE;
++        }
++        aflz_decompress_get(mFRm_en_Get, &r, dst, mFRm_SAVE_SIZE);
++        if (r.error) {
++            return FALSE;
++        }
++    }
++    return TRUE;
+ }
+-#else
+-#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_flashrom/func_8008F8A0_jp.s")
+-#endif
+ 
+ void func_8008F938_jp(void) {
+     func_8008F8A0_jp(&common_data, D_80106A90_jp << 9);
++    mFRm_en_LoadExt(D_80106A90_jp << 9);
+ }
+ 
+-#ifdef NON_MATCHING
+ s32 func_8008F968_jp(void) {
+     s32 tries = 0;
+     s32 ret = FALSE;
+-    UNUSED s32 pad;
+     u32 page = D_80106A90_jp << 9;
+     void* buf = zelda_malloc(mFRm_SAVE_SIZE);
+     s32 res;
+@@ -437,6 +648,7 @@ s32 func_8008F968_jp(void) {
+ 
+         if (res == TRUE && func_8008EEE8_jp(buf) == TRUE) {
+             bcopy(buf, &common_data, mFRm_SAVE_SIZE);
++            mFRm_en_LoadExt(page);
+             ret = TRUE;
+         }
+         if (buf != NULL) {
+@@ -445,9 +657,6 @@ s32 func_8008F968_jp(void) {
+     }
+     return ret;
+ }
+-#else
+-#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_flashrom/func_8008F968_jp.s")
+-#endif
+ 
+ void func_8008FA28_jp(mFRm_SaveWork* work) {
+     work->state = 0;
+@@ -489,7 +698,7 @@ s32 func_8008FAE0_jp(mFRm_SaveWork* work) {
+     s32 ret = 0;
+ 
+     func_8008ECA0_jp();
+-    work->cur = func_800D97A0_jp(mFRm_SAVE_SIZE);
++    work->cur = func_800D97A0_jp(mFRm_EN_BUF_SIZE);
+     if (work->cur != NULL) {
+         work->base = work->cur;
+         work->state = 1;
+@@ -505,7 +714,7 @@ s32 func_8008FAE0_jp(mFRm_SaveWork* work) {
+ }
+ 
+ s32 func_8008FB64_jp(mFRm_SaveWork* work) {
+-    mFRm_chk_t* chk = (mFRm_chk_t*)work->cur;
++    mFRm_chk_t* chk = (mFRm_chk_t*)(work->base + mFRm_EN_COPY_AT);
+ 
+     bcopy(&common_data, chk, mFRm_SAVE_SIZE);
+     work->page = 0;
+@@ -513,6 +722,8 @@ s32 func_8008FB64_jp(mFRm_SaveWork* work) {
+     chk->unk_00 = 2;
+     func_8008EFDC_jp(chk);
+     chk->checksum = func_8008EEB4_jp(chk, mFRm_SAVE_SIZE, chk->checksum);
++    mFRm_en_savePages = mFRm_en_Pack((u8*)chk, work->base, (aflz_Work*)(work->base + mFRm_EN_WORK_AT));
++    work->cur = work->base;
+     sFRm_WriteAsync(work->cur, 0, mFRm_WRITE_PAGES);
+     work->state = 2;
+     return 0;
+@@ -551,12 +762,12 @@ s32 func_8008FBEC_jp(mFRm_SaveWork* work) {
+ }
+ 
+ s32 func_8008FCE8_jp(mFRm_SaveWork* work) {
+-    UNUSED s32 pad;
+     s32 ret = 0;
++    s32 res = mFRm_en_Verify(work->cur, 0, mFRm_en_savePages);
+ 
+-    if (func_8008F8A0_jp(work->cur, 0) == TRUE) {
++    if (res != -1) {
+         work->readRetry = 0;
+-        if (func_8008EE7C_jp(work->cur, mFRm_SAVE_SIZE) == 0) {
++        if (res == 1) {
+             work->state = 5;
+             work->page = mFRm_SLOT_PAGES;
+             sFRm_WriteAsync(work->cur, mFRm_SLOT_PAGES, mFRm_WRITE_PAGES);
+@@ -580,22 +791,13 @@ s32 func_8008FCE8_jp(mFRm_SaveWork* work) {
+ }
+ 
+ s32 func_8008FDD4_jp(mFRm_SaveWork* work) {
+-    s32 ret = 0;
+-
++    /* the image is whole (the checks read into a page of their own): slot 1 written again from it */
+     work->cur = work->base;
+-    if (func_8008F8A0_jp(work->cur, 0) == TRUE) {
+-        work->readRetry = 0;
+-        work->state = 5;
+-        work->page = mFRm_SLOT_PAGES;
+-        sFRm_WriteAsync(work->cur, mFRm_SLOT_PAGES, mFRm_WRITE_PAGES);
+-    } else if (work->readRetry < 3) {
+-        work->readRetry++;
+-    } else {
+-        func_8008FA74_jp();
+-        ret = -1;
+-        func_8008ECC8_jp(3);
+-    }
+-    return ret;
++    work->readRetry = 0;
++    work->state = 5;
++    work->page = mFRm_SLOT_PAGES;
++    sFRm_WriteAsync(work->cur, mFRm_SLOT_PAGES, mFRm_WRITE_PAGES);
++    return 0;
+ }
+ 
+ s32 func_8008FE74_jp(mFRm_SaveWork* work) {
+@@ -631,10 +833,11 @@ s32 func_8008FE74_jp(mFRm_SaveWork* work) {
+ 
+ s32 func_8008FF60_jp(mFRm_SaveWork* work) {
+     s32 ret = 0;
++    s32 res = mFRm_en_Verify(work->cur, mFRm_SLOT_PAGES, mFRm_en_savePages);
+ 
+-    if (func_8008F8A0_jp(work->cur, mFRm_SLOT_PAGES) == TRUE) {
++    if (res != -1) {
+         work->readRetry = 0;
+-        if (func_8008EE7C_jp(work->cur, mFRm_SAVE_SIZE) == 0) {
++        if (res == 1) {
+             func_8008FA74_jp();
+             ret = 1;
+             func_8008ECA0_jp();
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
 index 03981c7..da23ef7 100644
 --- a/src/code/m_msg_main.c
