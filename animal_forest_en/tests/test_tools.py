@@ -517,6 +517,34 @@ class Script(unittest.TestCase):
         other = ("c", msgbank.NAMES["DEMONPC0"], b"\x00\x00\x03")
         self.assertEqual(af_align.classify([demo, end], [other, ("t", "x"), end]), "different")
 
+    def test_letters_keep_their_trailing_newlines(self):
+        raw = msgbank.encode([("t", "To my sweet,\n,\n")])
+        bank = msgbank.Bank([raw, msgbank.encode([("t", "Bye!")])], msgbank.N64_CHARS)
+        dump = bank.dump()
+        self.assertEqual(dump, "## 0\nTo my sweet,\n,{cd}\n\n## 1\nBye!\n\n")
+        back = msgbank.Bank.parse_dump(dump)
+        self.assertEqual(msgbank.encode(back[0]), raw)
+        self.assertEqual(msgbank.render(back[0]), "To my sweet,\n,\n")
+
+    def test_letter_banks_check_and_draft(self):
+        body = msgbank.parse("Hello, <STR_FREE0>.\nThanks!\n")
+        self.assertEqual(af_text.check_message(0, body, 32, 4, 192, letter=True), [])
+        self.assertEqual([lv for lv, _ in af_text.check_message(0, msgbank.parse("x<BTN>"), 32, 4, 192, letter=True)],
+                         ["error"])                                      # a letter has no page codes
+        self.assertEqual([lv for lv, _ in af_text.check_message(0, msgbank.parse("x" * 200), 32, 4, 192, letter=True)],
+                         ["error"])
+        with tempfile.TemporaryDirectory() as d:
+            jp, out = os.path.join(d, "jp.txt"), os.path.join(d, "out.txt")
+            open(jp, "w", encoding="utf-8").write("## 0\n<STR_FREE1>\u3088\u308a\n\n## 1\n<STR_FREE14>\u306e<STR_FREE1>\u3088\u308a\n\n")
+            old = af_text.N64_COUNT
+            try:
+                af_text.N64_COUNT = 2
+                af_text.draft(jp, "-", "-", out, [])                    # the villagers' footers: the sender, ours
+            finally:
+                af_text.N64_COUNT = old
+            back = msgbank.Bank.parse_dump(open(out, encoding="utf-8").read())
+            self.assertEqual([msgbank.render(back[n]) for n in range(2)], ["<STR_FREE1>", "<STR_FREE1>"])
+
     def test_compiler_checks_and_writes_the_files(self):
         end, btn, clear = "<MSGEND>", "<BTN>", "<MSGCLEAR>"
         good = {0: "Hello\nthere" + end, 1: "a\nb\nc\nd" + btn + "\n" + clear + "e" + end}

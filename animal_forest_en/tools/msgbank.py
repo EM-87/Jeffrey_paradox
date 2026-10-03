@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The message banks of both games, as one tagged text, and back.
 
-    tools/msgbank.py dump-n64 ROM OUT.txt [BANK]  the cartridge's bank (message, choice or string)
+    tools/msgbank.py dump-n64 ROM OUT.txt [BANK]  the cartridge's bank (N64_BANKS: message, choice, string, the letters)
     tools/msgbank.py dump-gc DATA TABLE OUT.txt  a GameCube bank (tools/gciso.py extracts them)
     tools/msgbank.py check-n64 ROM               dump, parse and encode again: must be the same bytes
 
@@ -18,7 +18,7 @@ ends at the table's ninth entry (measured: 16,273 terminators in the
 data, 16,273 non-zero entries, each 32 bytes earlier).
 
 The text form: characters as themselves, a message's newlines (0xCD) as
-newlines, a control code as `<NAME>` or `<NAME hex-arguments>`, a literal
+newlines (trailing ones, which letters have, as `{cd}`), a control code as `<NAME>` or `<NAME hex-arguments>`, a literal
 `<` as `\<`, a byte the charset does not name as `{hex}`. Each message is
 headed by `## number`; a line starting `#:` is a note and not text. The N64 charset is the AF Project's reading of the
 font (its Documentation/text table.txt: kana, ASCII and a few marks; 0x80
@@ -41,9 +41,22 @@ CODE_NUM_N64 = 0x61                      # D_80106BF4_jp: (size, kind) per code,
 # The cartridge's banks: index vrom, text vrom, count, the reader's size cap
 # (src/code/m_msg_main.c func_8009E388_jp, m_choice_main.c
 # mChoice_Get_StringDataAddressAndSize, m_string.c mString_Get_StringDataAddressAndSize).
+# The letters (code/m_handbill.s): the shop's and the game's letters by number,
+# a header, a body and a footer each (func_80093B28_jp, func_80093DA8_jp,
+# func_80093C98_jp: cut to 10, 96 and 16 bytes in the letter), and the
+# villagers' letters, five sub-banks of one file at 0xD1A000 (func_80093F94_jp,
+# through the tables at D_801071A4_jp/B8/CC: header, three body parts, footer).
 N64_BANKS = {"message": (0xCF9000, 0xBD4000, 0x2DE8, 0x400),
              "choice": (0xD06000, 0xD05000, 460, 10),
-             "string": (0xD18000, 0xD16000, 0x61A, 64)}
+             "string": (0xD18000, 0xD16000, 0x61A, 64),
+             "mail_header": (0xD12000, 0xD11000, 0x220, 10),
+             "mail_body": (0xD10000, 0xD07000, 0x220, 0x60),
+             "mail_footer": (0xD15000, 0xD13000, 0x220, 16),
+             "vmail_header": (0xD1A000 + 0xA360, 0xD1A000 + 0x80D0, 388, 13),
+             "vmail_a": (0xD1A000 + 0x8B20, 0xD1A000 + 0x0000, 388, 0x68),
+             "vmail_b": (0xD1A000 + 0x9130, 0xD1A000 + 0x26F0, 388, 0x68),
+             "vmail_c": (0xD1A000 + 0x9740, 0xD1A000 + 0x63E0, 388, 0x68),
+             "vmail_footer": (0xD1A000 + 0x9D50, 0xD1A000 + 0x7860, 388, 0x12)}
 NAMES = {name: i for i, name in enumerate(COMMANDS)}
 N64_BYTES = {c: i for i, c in reversed(list(enumerate(N64_CHARS))) if c}
 TERMINATORS = (NAMES["MSGEND"], NAMES["MSGCONTINUE"], NAMES["MSGTIMEEND"])
@@ -183,11 +196,11 @@ class Bank:
 
     def dump(self):
         out = []
+        newline = "{%02x}" % self.chars.index("\n")
         for i, m in enumerate(self.messages):
             text = self.text(i)
-            if text.endswith("\n"):
-                raise ValueError("message %d ends with a newline; the dump could not keep it" % i)
-            out.append("## %d\n%s\n\n" % (i, text))
+            kept = text.rstrip("\n")         # trailing newlines (letters have them) in the byte form
+            out.append("## %d\n%s%s\n\n" % (i, kept, newline * (len(text) - len(kept))))
         return "".join(out)
 
     @staticmethod
@@ -200,7 +213,10 @@ class Bank:
                 body = "\n".join(lines)
                 while body.endswith("\n"):
                     body = body[:-1]
-                out[number] = parse(body)
+                kept = body
+                while kept.endswith("{cd}"):        # dump()'s trailing newlines, newlines again
+                    kept = kept[:-4]
+                out[number] = parse(kept + "\n" * ((len(body) - len(kept)) // 4))
 
         for line in text.split("\n"):
             if line.startswith("## ") and line[3:].strip().isdigit():

@@ -228,8 +228,12 @@ save-check-en: route-en
 # the message-by-message comparison with the cartridge's bank.
 GC_FILES := forest_2nd.arc/message_data.bin forest_2nd.arc/message_data_table.bin \
 	forest_2nd.arc/npc_name_str_table.bin forest_1st.arc/string_data.bin forest_1st.arc/string_data_table.bin \
-	forest_1st.arc/select_data.bin forest_1st.arc/select_data_table.bin forest_1st.arc/mail_data.bin \
-	forest_1st.arc/mail_data_table.bin
+	forest_1st.arc/select_data.bin forest_1st.arc/select_data_table.bin \
+	$(foreach f,mail super ps superz maila mailb mailc,forest_1st.arc/$(f)_data.bin forest_1st.arc/$(f)_data_table.bin)
+# The letters: each cartridge bank (tools/msgbank.py N64_BANKS) and the
+# GameCube's bank of the same numbering (NOTES, "The letters"); the
+# villagers' footers have none.
+LETTER_PAIRS := mail_header:super mail_body:mail mail_footer:ps vmail_header:superz vmail_a:maila vmail_b:mailb vmail_c:mailc vmail_footer:-
 script: $(BASEROM) $(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n64_string_jp.txt
 	@test -n "$(ISO)" || { echo "make script ISO=path/to/Animal_Crossing_USA.iso"; exit 1; }
 	@for f in $(GC_FILES); do $(PYTHON) tools/gciso.py extract "$(ISO)" $$f $(GC_DIR)/$$(basename $$f) || exit 1; done
@@ -246,6 +250,14 @@ script: $(BASEROM) $(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n6
 		$(foreach f,$(wildcard script/string/*.txt),--overrides $(f)) | tail -1
 	$(PYTHON) tools/af_text.py check $(GC_DIR)/en_choice.txt --bank choice --max-bytes 24 | tail -1
 	$(PYTHON) tools/af_text.py check $(GC_DIR)/en_string.txt --bank string --max-bytes 64 --count 0x679 | tail -1
+	@for pair in $(LETTER_PAIRS); do bank=$${pair%%:*}; gc=$${pair##*:}; \
+		$(PYTHON) tools/msgbank.py dump-n64 $(BASEROM) $(GC_DIR)/n64_$$bank.txt $$bank >/dev/null || exit 1; \
+		if [ "$$gc" = "-" ]; then gcdump=-; else gcdump=$(GC_DIR)/gc_$${gc}.txt; \
+			$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/$${gc}_data.bin $(GC_DIR)/$${gc}_data_table.bin $$gcdump >/dev/null || exit 1; fi; \
+		$(PYTHON) tools/af_text.py draft $(GC_DIR)/n64_$$bank.txt $$gcdump - $(GC_DIR)/en_$$bank.txt --bank $$bank \
+			$$(for f in script/$$bank/*.txt; do [ -f "$$f" ] && echo --overrides $$f; done) | tail -1 || exit 1; \
+		$(PYTHON) tools/af_text.py check $(GC_DIR)/en_$$bank.txt --bank $$bank --reference $(GC_DIR)/n64_$$bank.txt | tail -1; \
+	done
 
 # Edit build/af_en directly, then keep the work in decomp/changes.patch
 # (the diff against the committed matching baseline).

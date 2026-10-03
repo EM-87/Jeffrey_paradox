@@ -663,6 +663,30 @@ the emulator (`make rom-en`, `make script ISO=...`).
   cartridge itself. Adapting them is translation work of its own: rules
   applied to the official text at build time, or our own lines from the
   Japanese in `script/`, never the official text in the repository.
+- **The letter banks, both games, by number.** The cartridge's
+  (`tools/msgbank.py` N64_BANKS, byte-exact round trip): the shop's and
+  the game's letters, 544 each of headers (`D_D12000`/`D_D11000`), bodies
+  (`D_D10000`/`D_D07000`) and footers (`D_D15000`/`D_D13000`), cut by
+  their loaders to 10, 96 and 16 bytes (`func_80093B28_jp`,
+  `func_80093DA8_jp`, which pads with newlines, `func_80093C98_jp`); and
+  the villagers' letters, five sub-banks of the file at 0xD1A000 read by
+  `func_80093F94_jp` through `D_801071A4_jp` (caps 13, 104, 104, 104,
+  18), `D_801071B8_jp` (tables) and `D_801071CC_jp` (texts, as segment-6
+  offsets): header, three body parts and a footer, 384 entries each. The
+  disc's (`forest_1st.arc`): `super_data`, `mail_data` and `ps_data`
+  (982 entries: headers, bodies, footers) and `superz_data`,
+  `maila/b/c_data` (384). The GameCube kept the numbering: all 544 shop
+  letters and all 384 villager letters are the same letter at the same
+  number (511 of the 544 bodies have the same free strings; the other 33,
+  the same letters with the date in other slots). The villagers'
+  footers ("<name>より", 192 of them with the town) have no GameCube bank;
+  the draft signs with the name (`STR_FREE1`), our own text. The
+  GameCube's longest entries: header 23 bytes, body 177 (490 of the 544
+  pass the cartridge's 96), footer 30; the villagers' parts 20, 62, 90,
+  32. `make script` dumps both, drafts `en_mail_*.txt`/`en_vmail_*.txt`
+  and checks them (0 errors; 6 bodies and 5 villager openings print free
+  strings the cartridge's letter does not: to adapt). Trailing newlines,
+  which letters have, are written `{cd}` in the dumps.
 - **What is left to translate ourselves.** Of the 969 messages with no
   official text (709 removed, 260 reused), 287 are spare placeholders
   (よび, "spare"), 211 the debug and test texts of numbers 0-210, 78 have

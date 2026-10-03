@@ -10,8 +10,16 @@ compiled to the files the ROM reads.
 
 --bank names which of the cartridge's banks the text is (tools/msgbank.py
 N64_BANKS): message (11,752 entries), choice (460: the answers a choice
-window offers, single lines) or string (1,562: catchphrases, names of
-animals, fish, insects..., single lines). The count and the default
+window offers, single lines), string (1,562: catchphrases, names of
+animals, fish, insects..., single lines), or a letter bank: mail_header,
+mail_body, mail_footer (544 each: the shop's and the game's letters, the
+GameCube's super_data, mail_data and ps_data by number) and vmail_header,
+vmail_a, vmail_b, vmail_c, vmail_footer (384 each: the villagers' letters,
+the GameCube's superz_data and maila/b/c_data; the footer has no GameCube
+bank: pass `-` for the GameCube dump and the draft writes the sender's
+name, STR_FREE1, as our own text; the Japanese adds their town, FREE14). A letter is lines
+of text and free strings, no terminator; its default --max-bytes is the
+en build's (LETTER_CAPS, from the GameCube's longest entries). The count and the default
 --max-bytes come from it; the choice and string banks keep the same
 numbering on the GameCube, so their draft is simply the GameCube's entry
 by number where it is not empty (no alignment file: pass `-`). --count
@@ -68,7 +76,7 @@ import sys
 import unicodedata
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from msgbank import N64_BANKS, N64_BYTES, NAMES, Bank, encode, parse, render  # noqa: E402
+from msgbank import COMMANDS, N64_BANKS, N64_BYTES, NAMES, Bank, encode, parse, render  # noqa: E402
 
 N64_COUNT = 0x2DE8                       # the message bank; main() sets it from --bank
 N64_CODE_MAX = 0x60
@@ -80,13 +88,19 @@ DROP = {NAMES[n] for n in ("CUTARTICLE", "CAPTIALIZE", "SETCURSORJUST", "CLRCUSR
 # src/code/m_msg_main.c: code 71, LUCK_6 on the cartridge and in neither bank,
 # is STR_AMPM in the en build).
 N64_CARRIED = {NAMES["STR_AMPM"]: NAMES["LUCK_6"]}
+# The en build's letter banks: room for the GameCube's longest entry (header
+# 23 bytes, body 177, footer 30, the villagers' parts 20/62/90/32), free strings
+# expanded later by the loader.
+LETTER_CAPS = {"mail_header": 32, "mail_body": 192, "mail_footer": 32, "vmail_header": 32,
+               "vmail_a": 96, "vmail_b": 96, "vmail_c": 48, "vmail_footer": 32}
 
 
 def carried(tokens):
     return [("c", N64_CARRIED[t[1]], t[2]) if t[0] == "c" and t[1] in N64_CARRIED else t for t in tokens]
 FALLBACK = {"…": "...", "“": '"', "”": '"', "‘": "'", "’": "'", "–": "-", "—": "-",
             "ー": "-", "¡": "!", "¿": "?", "ß": "ss", "Æ": "AE", "æ": "ae", "Ø": "O", "ø": "o", "Ð": "D", "ð": "d",
-            "Þ": "Th", "þ": "th", "·": ".", "•": "*", "×": "x", "°": "o"}
+            "Þ": "Th", "þ": "th", "·": ".", "•": "*", "×": "x", "°": "o",
+            "~": "～", "😃": "☺", "😄": "☺"}               # the N64 font's wave dash and face
 
 
 def ascii_fallback(text, counts=None):
@@ -203,10 +217,11 @@ def free_strings(tokens):
     return set(re.findall(r"<(STR_FREE\d+)>", render(tokens)))
 
 
-def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0, single=False, original=None):
+def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0, single=False, original=None, letter=False):
     """[(level, text)] for one message; allowed_lines: what its original showed;
     single: a choice or free string (no codes, no terminator, one line);
-    original: the cartridge's message, for the free strings the game fills."""
+    original: the cartridge's message, for the free strings the game fills;
+    letter: a letter's part (lines and free strings, no terminator)."""
     problems = []
     if original is not None:
         unfilled = free_strings(tokens) - free_strings(original)
@@ -221,6 +236,11 @@ def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0, singl
     if len(raw) > max_bytes:
         problems.append(("error", "%d bytes, the loader takes %d" % (len(raw), max_bytes)))
     codes = [t for t in tokens if t[0] == "c"]
+    if letter:
+        for t in codes:
+            if not COMMANDS[t[1]].startswith("STR_") or t[1] > N64_CODE_MAX:
+                problems.append(("error", "code %s in a letter (only the N64's strings)" % COMMANDS[t[1]]))
+        return problems
     if single:
         if codes or "\n" in "".join(t[1] for t in tokens if t[0] == "t"):
             problems.append(("error", "a choice or string is one line of text, no codes"))
@@ -262,12 +282,13 @@ def load_bank(path):
     return Bank.parse_dump(open(path, encoding="utf-8").read())
 
 
-def run_checks(messages, cols, lines, max_bytes, reference=None, single=False):
+def run_checks(messages, cols, lines, max_bytes, reference=None, single=False, letter=False):
     errors = warnings = 0
     for number in sorted(messages):
         allowed = page_lines(reference[number]) if reference and number in reference else 0
-        original = reference.get(number) if reference and not single else None
-        for level, text in check_message(number, messages[number], cols, lines, max_bytes, allowed, single, original):
+        original = reference.get(number) if reference and (letter or not single) else None
+        for level, text in check_message(number, messages[number], cols, lines, max_bytes, allowed, single and not letter,
+                                         original, letter):
             print("%s %d: %s" % (level, number, text))
             if level == "error":
                 errors += 1
@@ -297,7 +318,18 @@ def compile_bank(messages, text_path, index_path):
 
 
 def draft(n64_path, gc_path, align_path, out_path, overrides):
-    n64, gc = load_bank(n64_path), load_bank(gc_path)
+    n64 = load_bank(n64_path)
+    if gc_path == "-":                      # no GameCube bank (the villagers' footers): the sender's name, ours
+        out, sender = [], ("c", NAMES["STR_FREE1"], b"")
+        for n in range(N64_COUNT):
+            codes = [t for t in n64.get(n, []) if t[0] == "c"]
+            tokens = [sender] if sender in codes else codes
+            out.append("## %d\n#: ours: the sender's name, as the GameCube signs villagers' letters\n%s\n\n"
+                       % (n, render(tokens)))
+        open(out_path, "w", encoding="utf-8").write("".join(out))
+        print("%s: %d messages, the sender's name" % (out_path, N64_COUNT))
+        return
+    gc = load_bank(gc_path)
     classes = {}
     if align_path == "-":                   # a single-line bank: the same numbering, entry by entry
         for n in range(N64_COUNT):
@@ -335,7 +367,9 @@ def draft(n64_path, gc_path, align_path, out_path, overrides):
             note = "#: TODO translate (%s: no official text)\n" % cls
         if N64_COUNT == N64_BANKS["message"][2]:
             tokens = split_pages(tokens, 4, counts)
-        out.append("## %d\n%s%s\n\n" % (n, note, render(tokens)))
+        text = render(tokens)
+        kept = text.rstrip("\n")               # trailing newlines (letters) as dump() writes them
+        out.append("## %d\n%s%s%s\n\n" % (n, note, kept, "{cd}" * (len(text) - len(kept))))
     open(out_path, "w", encoding="utf-8").write("".join(out))
     for k in sorted(counts):
         print("  %-28s %d" % (k, counts[k]))
@@ -366,14 +400,17 @@ def main(argv):
             args.append(argv[i])
             i += 1
     N64_COUNT = count if count is not None else N64_BANKS[bank][2]
+    if bank in LETTER_CAPS:
+        N64_COUNT = count if count is not None else (544 if bank.startswith("mail") else 384)
     if opts["--max-bytes"] is None:
-        opts["--max-bytes"] = N64_BANKS[bank][3]
+        opts["--max-bytes"] = LETTER_CAPS.get(bank, N64_BANKS[bank][3])
     cmd = args[0]
     if cmd == "draft":
         draft(args[1], args[2], args[3], args[4], overrides)
         return 0
     messages = load_bank(args[1])
-    errors = run_checks(messages, opts["--cols"], opts["--lines"], opts["--max-bytes"], reference, bank != "message")
+    errors = run_checks(messages, opts["--cols"], opts["--lines"], opts["--max-bytes"], reference, bank != "message",
+                        bank in LETTER_CAPS)
     if cmd == "check":
         return 1 if errors else 0
     if cmd == "compile":

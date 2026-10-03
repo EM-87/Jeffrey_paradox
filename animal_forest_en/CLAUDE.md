@@ -81,11 +81,12 @@ the why and the state, `reference/NOTES.md` for what is verified.
   (power-on to the houses, states on the way).
 - `tools/gciso.py`, `msgbank.py`, `af_align.py`, `af_text.py`,
   `af_names.py` — the GameCube script (`make script ISO=...`): the disc's
-  files and RARC members, both games' banks (messages, choices, strings)
-  as one tagged text (and the N64's back to bytes), the message-by-message
-  comparison, the English banks drafted, checked and compiled for the ROM,
-  and the animals' names; output in `build/gc/`, never committed.
-  `script/*.txt`, `script/choice/`, `script/string/` hold our own text,
+  files and RARC members, both games' banks (messages, choices, strings,
+  the eight letter banks) as one tagged text (and the N64's back to
+  bytes), the message-by-message comparison, the English banks drafted,
+  checked and compiled for the ROM, and the animals' names; output in
+  `build/gc/`, never committed. `script/*.txt`, `script/choice/`,
+  `script/string/`, `script/<letter bank>/` hold our own text,
   laid over the drafts (NOTES, "The GameCube script", "The English bank
   in the ROM").
 - `tools/aflz.py` — the en build's save compressor in Python (the twin
