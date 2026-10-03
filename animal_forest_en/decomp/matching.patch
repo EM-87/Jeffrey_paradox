@@ -1596,6 +1596,765 @@ index 0000000..f3f7472
 +        gfxprint_printf(gfxprint, RO_STR_80116F28_jp);
 +    }
 +}
+diff --git a/src/code/m_handbill.c b/src/code/m_handbill.c
+new file mode 100644
+index 0000000..34e9b7f
+--- /dev/null
++++ b/src/code/m_handbill.c
+@@ -0,0 +1,753 @@
++#include "global.h"
++#include "m_handbill.h"
++#include "m_lib.h"
++#include "m_msg_main.h"
++#include "m_std_dma.h"
++#include "6B3DC0.h"
++
++/*
++ * The letters (ac-decomp's m_handbill.c is the map): the shop's and the game's
++ * letters by number, a header (D_D12000/D_D11000), a footer (D_D15000/D_D13000)
++ * and a body (D_D10000/D_D07000), 0x220 each, with the free strings put in.
++ */
++
++#define mHandbill_FREE_STR_NUM 20
++#define mHandbill_FREE_STR_LEN 10
++#define mHandbill_MAIL_NUM 0x220
++#define mHandbill_BODY_LEN 0x60
++#define mHandbill_SUPER_BUF_LEN 0x17
++
++#define mHandbill_FILL_NONE 0
++#define mHandbill_FILL_RETURN 1
++#define mHandbill_FILL_SPACE 2
++
++typedef s32 (*mHandbill_PUT_STRING_PROC)(u8*, s32, s32, s32, s32);
++
++extern u8 B_80140680_jp[mHandbill_FREE_STR_NUM][mHandbill_FREE_STR_LEN]; /* the free strings */
++extern u8 B_80140748_jp[];                                                /* the body's DMA buffer */
++extern mHandbill_PUT_STRING_PROC D_80107020_jp[];                         /* by control code */
++extern u8 D_D07000[];
++extern u8 D_D10000[];
++extern u8 D_D11000[];
++extern u8 D_D12000[];
++extern u8 D_D13000[];
++extern u8 D_D15000[];
++extern char RO_STR_80116FC0_jp[];
++extern char RO_STR_80116FD0_jp[];
++extern char RO_STR_80116FE0_jp[];
++extern char RO_STR_80116FF0_jp[];
++extern char RO_STR_80117000_jp[];
++extern char RO_STR_80117010_jp[];
++extern char RO_STR_80117020_jp[];
++extern char RO_STR_80117030_jp[];
++extern char RO_STR_80117040_jp[];
++extern char RO_STR_80117050_jp[];
++extern char RO_STR_80117060_jp[];
++extern char RO_STR_80117070_jp[];
++
++enum {
++    mHandbillz_TYPE_SUPER,
++    mHandbillz_TYPE_MAILA,
++    mHandbillz_TYPE_MAILB,
++    mHandbillz_TYPE_MAILC,
++    mHandbillz_TYPE_PS,
++    mHandbillz_TYPE_NUM
++};
++
++/* The villagers' letters (ac-decomp's mHandbillz): header, three body parts and footer from one segment */
++typedef struct mHandbillzDMA_c {
++    /* 0x00 */ s32 type;
++    /* 0x04 */ s32 num;
++    /* 0x08 */ u8* ram_buf;
++    /* 0x0C */ size_t ram_buf_size;
++    /* 0x10 */ RomOffset dma_addr;
++    /* 0x14 */ u32 dma_size;
++} mHandbillzDMA_c; // size = 0x18
++
++extern u32 D_801071A4_jp[]; /* the longest text of each type */
++extern u32 D_801071B8_jp[]; /* each type's table, as a segment 6 address */
++extern u32 D_801071CC_jp[]; /* each type's text, as a segment 6 address */
++extern u8 D_6000000[];
++extern u8 D_D1A000[];
++extern char RO_STR_80117080_jp[];
++extern char RO_STR_80117090_jp[];
++
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_handbill/Balloon_init.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_handbill/Balloon_move.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_handbill/Balloon_kill.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_handbill/Balloon_look_up.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_handbill/func_80092BA0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_handbill/func_80092BE8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_handbill/mHsRm_GetHuusuiRoom.s")
++
++void mHandbill_Set_free_str(s32 str_num, char* str, s32 str_len) {
++    s32 i;
++    u8* free_str;
++
++    if (str_num >= 0 && str_num < mHandbill_FREE_STR_NUM && str != NULL) {
++        free_str = B_80140680_jp[str_num];
++        if (str_len > mHandbill_FREE_STR_LEN) {
++            str_len = mHandbill_FREE_STR_LEN;
++        }
++        for (i = 0; i < str_len; i++) {
++            free_str[i] = str[i];
++        }
++        for (; i < mHandbill_FREE_STR_LEN; i++) {
++            free_str[i] = ' ';
++        }
++    }
++}
++
++/* mHandbill_CopyString */
++void func_80092E14_jp(u8* dst, u8* src, s32 len) {
++    s32 i;
++
++    for (i = 0; i < len; i++) {
++        *dst++ = *src++;
++    }
++}
++
++/* mHandbill_MoveDataCut: data[src_idx..data_len) moved to dst_idx; the new length */
++s32 func_80092E80_jp(u8* data, s32 buf_size, s32 dst_idx, s32 src_idx, s32 data_len, s32 fill_type) {
++    s32 new_len = data_len;
++
++    if (dst_idx < src_idx) {
++        while (src_idx < data_len) {
++            data[dst_idx] = data[src_idx];
++            dst_idx++;
++            src_idx++;
++        }
++        new_len -= src_idx - dst_idx;
++        if (fill_type != mHandbill_FILL_NONE) {
++            u8 fill_char;
++
++            if (fill_type == mHandbill_FILL_RETURN) {
++                fill_char = 0xCD;
++            } else {
++                fill_char = ' ';
++            }
++            while (dst_idx < data_len) {
++                data[dst_idx++] = fill_char;
++            }
++        }
++    } else {
++        s32 diff = dst_idx - src_idx;
++
++        if (dst_idx > src_idx) {
++            s32 move_size = data_len - src_idx;
++            s32 i;
++            u8* dst;
++            u8* src;
++
++            new_len = new_len + diff;
++            if (new_len > buf_size) {
++                data_len -= new_len - buf_size;
++                move_size -= new_len - buf_size;
++                new_len = buf_size;
++            }
++            dst = data + new_len - 1;
++            src = data + data_len - 1;
++            for (i = 0; i < move_size; i++) {
++                *dst-- = *src--;
++            }
++        }
++    }
++    return new_len;
++}
++
++/* mHandbill_Put_String_FREE */
++s32 func_80092FC4_jp(u8* str, s32 buf_size, s32 start_idx, s32 str_len, s32 str_no, s32 fill_type) {
++    s32 code_size;
++    UNUSED s32 pad;
++    u8* free_str;
++    s32 free_str_len;
++    s32 cut_len;
++
++    if (str_no < 0 || str_no >= mHandbill_FREE_STR_NUM) {
++        str_no = 0;
++    }
++    free_str = B_80140680_jp[str_no];
++    code_size = func_800903A8_jp(str, start_idx);
++    free_str_len = mMsg_Get_Length_String(free_str, mHandbill_FREE_STR_LEN);
++    cut_len = func_80092E80_jp(str, buf_size, start_idx + free_str_len, start_idx + code_size, str_len, fill_type);
++    if (cut_len >= buf_size && free_str_len > buf_size - start_idx) {
++        free_str_len = buf_size - start_idx;
++    }
++    func_80092E14_jp(&str[start_idx], free_str, free_str_len);
++    return cut_len;
++}
++
++/* mHandbill_Put_String_FREE0 */
++s32 func_800930B0_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 0, fill_type);
++}
++
++/* mHandbill_Put_String_FREE1 */
++s32 func_800930D8_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 1, fill_type);
++}
++
++/* mHandbill_Put_String_FREE2 */
++s32 func_80093104_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 2, fill_type);
++}
++
++/* mHandbill_Put_String_FREE3 */
++s32 func_80093130_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 3, fill_type);
++}
++
++/* mHandbill_Put_String_FREE4 */
++s32 func_8009315C_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 4, fill_type);
++}
++
++/* mHandbill_Put_String_FREE5 */
++s32 func_80093188_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 5, fill_type);
++}
++
++/* mHandbill_Put_String_FREE6 */
++s32 func_800931B4_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 6, fill_type);
++}
++
++/* mHandbill_Put_String_FREE7 */
++s32 func_800931E0_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 7, fill_type);
++}
++
++/* mHandbill_Put_String_FREE8 */
++s32 func_8009320C_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 8, fill_type);
++}
++
++/* mHandbill_Put_String_FREE9 */
++s32 func_80093238_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 9, fill_type);
++}
++
++/* mHandbill_Put_String_FREE10 */
++s32 func_80093264_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 10, fill_type);
++}
++
++/* mHandbill_Put_String_FREE11 */
++s32 func_80093290_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 11, fill_type);
++}
++
++/* mHandbill_Put_String_FREE12 */
++s32 func_800932BC_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 12, fill_type);
++}
++
++/* mHandbill_Put_String_FREE13 */
++s32 func_800932E8_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 13, fill_type);
++}
++
++/* mHandbill_Put_String_FREE14 */
++s32 func_80093314_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 14, fill_type);
++}
++
++/* mHandbill_Put_String_FREE15 */
++s32 func_80093340_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 15, fill_type);
++}
++
++/* mHandbill_Put_String_FREE16 */
++s32 func_8009336C_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 16, fill_type);
++}
++
++/* mHandbill_Put_String_FREE17 */
++s32 func_80093398_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 17, fill_type);
++}
++
++/* mHandbill_Put_String_FREE18 */
++s32 func_800933C4_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 18, fill_type);
++}
++
++/* mHandbill_Put_String_FREE19 */
++s32 func_800933F0_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    return func_80092FC4_jp(buf, buf_size, start_idx, str_len, 19, fill_type);
++}
++
++/* mHandbill_Put_String */
++s32 func_8009341C_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
++    s32 type = buf[start_idx + 1];
++
++    if (type >= 0 && type < 0x61) {
++        mHandbill_PUT_STRING_PROC proc = D_80107020_jp[type];
++
++        if (proc != NULL) {
++            return proc(buf, buf_size, start_idx, str_len, fill_type);
++        }
++    }
++    return str_len;
++}
++
++/* mHandbill_Change_ControlCode */
++void func_80093478_jp(u8* buf, s32 buf_size, s32 str_len, s32 fill_type) {
++    s32 len = str_len;
++    s32 pos = 0;
++    u8 c;
++
++    while (pos < len) {
++        c = buf[pos];
++        if (c == 0x7F) {
++            len = func_8009341C_jp(buf, buf_size, pos, len, fill_type);
++        } else {
++            pos++;
++        }
++    }
++}
++
++/* mHandbill_Change_ControlCode2: the header's name position follows the strings put in */
++void func_80093520_jp(u8* buf, s32 buf_size, s32 str_len, s32* header_back_start, s32 fill_type) {
++    s32 len = str_len;
++    s32 pos = 0;
++    s32 now_str_len;
++    u8 c;
++
++    while (pos < len) {
++        now_str_len = len;
++        c = buf[pos];
++        if (c == 0x7F) {
++            len = func_8009341C_jp(buf, buf_size, pos, len, fill_type);
++            if (pos < *header_back_start) {
++                *header_back_start += len - now_str_len;
++            }
++        } else {
++            pos++;
++        }
++    }
++}
++
++/* mHandbill_Get_SuperStringDataAddressAndSize: a header */
++void func_800935F8_jp(s32 no, RomOffset* addr, s32* size) {
++    u32 buf[6];
++
++    if (no >= 0 && no < mHandbill_MAIL_NUM) {
++        s32 start;
++        s32 len;
++
++        if (no & 1) {
++            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D12000 + (no - 1) * sizeof(u32), 2 * sizeof(u32), RO_STR_80116FC0_jp, 827);
++            start = buf[0];
++            len = buf[1] - start;
++        } else if (no == 0) {
++            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D12000, 2 * sizeof(u32), RO_STR_80116FD0_jp, 834);
++            start = 0;
++            len = buf[0];
++        } else {
++            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D12000 + (no - 2) * sizeof(u32), 4 * sizeof(u32), RO_STR_80116FE0_jp, 840);
++            start = buf[1];
++            len = buf[2] - start;
++        }
++        if (len < 0xE) {
++            *addr = (RomOffset)D_D11000 + start;
++            *size = len;
++        } else {
++            *addr = 0;
++            *size = 0;
++        }
++    } else {
++        *addr = 0;
++        *size = 0;
++    }
++}
++
++/* mHandbill_Get_PsStringDataAddressAndSize: a footer */
++void func_80093738_jp(s32 no, RomOffset* addr, s32* size) {
++    u32 buf[6];
++
++    if (no >= 0 && no < mHandbill_MAIL_NUM) {
++        s32 start;
++        s32 len;
++
++        if (no & 1) {
++            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D15000 + (no - 1) * sizeof(u32), 2 * sizeof(u32), RO_STR_80116FF0_jp, 895);
++            start = buf[0];
++            len = buf[1] - start;
++        } else if (no == 0) {
++            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D15000, 2 * sizeof(u32), RO_STR_80117000_jp, 902);
++            start = 0;
++            len = buf[0];
++        } else {
++            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D15000 + (no - 2) * sizeof(u32), 4 * sizeof(u32), RO_STR_80117010_jp, 908);
++            start = buf[1];
++            len = buf[2] - start;
++        }
++        if (len < 0x13) {
++            *addr = (RomOffset)D_D13000 + start;
++            *size = len;
++        } else {
++            *addr = 0;
++            *size = 0;
++        }
++    } else {
++        *addr = 0;
++        *size = 0;
++    }
++}
++
++/* mHandbill_Get_MailStringDataAddressAndSize: a body */
++void func_80093878_jp(s32 no, RomOffset* addr, s32* size) {
++    u32 buf[6];
++
++    if (no >= 0 && no < mHandbill_MAIL_NUM) {
++        s32 start;
++        s32 len;
++
++        if (no & 1) {
++            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D10000 + (no - 1) * sizeof(u32), 2 * sizeof(u32), RO_STR_80117020_jp, 963);
++            start = buf[0];
++            len = buf[1] - start;
++        } else if (no == 0) {
++            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D10000, 2 * sizeof(u32), RO_STR_80117030_jp, 970);
++            start = 0;
++            len = buf[0];
++        } else {
++            DmaMgr_RequestSyncDebug(buf, (RomOffset)D_D10000 + (no - 2) * sizeof(u32), 4 * sizeof(u32), RO_STR_80117040_jp, 976);
++            start = buf[1];
++            len = buf[2] - start;
++        }
++        if (len < 0x69) {
++            *addr = (RomOffset)D_D07000 + start;
++            *size = len;
++        } else {
++            *addr = 0;
++            *size = 0;
++        }
++    } else {
++        *addr = 0;
++        *size = 0;
++    }
++}
++
++/* mHandbill_CheckSuperStringBorderAndCopy: the header without its newline, which marks where the name goes */
++void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s32 src_size) {
++    s32 lines = 0;
++    s32 dst_pos = 0;
++    s32 src_pos = 0;
++
++    for (src_pos = 0; src_pos < src_size; src_pos++) {
++        if (*src == 0xCD) {
++            lines++;
++            *header_back_start = src_pos;
++        } else if (dst_pos < dst_size) {
++            *dst++ = *src;
++            dst_pos++;
++        }
++        src++;
++    }
++    if (lines != 1) {
++        *header_back_start = src_size;
++    }
++}
++
++/* mHandbill_Load_SuperStringFromRom */
++void func_80093B28_jp(u8* buf, s32 buf_size, s32* header_back_start, s32 super_no) {
++    RomOffset addr;
++    u32 size;
++    u8 buff[0x1D + 3];
++    u32 aligned;
++    u32 ofs;
++    u32 dma_size;
++    u8 super_buf[mHandbill_SUPER_BUF_LEN + 1];
++    s32 temp_header_back_start;
++
++    if (super_no >= 0 && super_no < mHandbill_MAIL_NUM) {
++        func_800935F8_jp(super_no, &addr, &size);
++        mem_clear(buf, buf_size, ' ');
++        if (addr != 0 && size != 0) {
++            s32 i;
++            s32 move_size;
++            u8* dst;
++            u8* src;
++            s32 len;
++
++            aligned = addr & ~7;
++            ofs = addr - aligned;
++            dma_size = (ofs + size + 7) & ~7;
++            bzero(buff, 0x1D);
++            DmaMgr_RequestSyncDebug(buff, aligned, dma_size, RO_STR_80117050_jp, 0x45E);
++            // Without it IDO loads size straight into the loop's bound (decomp-permuter's find).
++            if (!size && !size && !size) {} //! FAKE
++            move_size = size;
++            dst = buff;
++            src = buff + ofs;
++            for (i = 0; i < move_size; i++) {
++                *dst++ = *src++;
++            }
++            mem_clear(super_buf, mHandbill_SUPER_BUF_LEN, ' ');
++            func_800939B8_jp(super_buf, mHandbill_SUPER_BUF_LEN, &temp_header_back_start, buff, size);
++            func_80093520_jp(super_buf, mHandbill_SUPER_BUF_LEN, size - 1, &temp_header_back_start, mHandbill_FILL_SPACE);
++            len = (buf_size < mHandbill_SUPER_BUF_LEN) ? buf_size : mHandbill_SUPER_BUF_LEN;
++            bcopy(super_buf, buf, len);
++            *header_back_start = temp_header_back_start;
++        }
++    }
++}
++
++/* mHandbill_Load_PsStringFromRom */
++void func_80093C98_jp(u8* buf, s32 buf_size, s32 ps_no) {
++    RomOffset addr;
++    u32 size;
++    u8 buff[0x28];
++
++    if (ps_no >= 0 && ps_no < mHandbill_MAIL_NUM) {
++        func_80093738_jp(ps_no, &addr, &size);
++        if (size == 0) {
++            mem_clear(buf, buf_size, ' ');
++        } else if (addr != 0) {
++            u32 aligned = addr & ~7;
++            u32 ofs = addr - aligned;
++            UNUSED s32 pad[2];
++            s32 i;
++            u8* dst;
++            u8* src;
++            s32 sz;
++
++            DmaMgr_RequestSyncDebug(buff, aligned, (ofs + size + 7) & ~7, RO_STR_80117060_jp, 0x4C6);
++            dst = buf;
++            src = buff + ofs;
++            sz = size;
++            for (i = 0; i < sz; i++) {
++                *dst++ = *src++;
++            }
++            for (; i < buf_size; i++) {
++                *dst++ = ' ';
++            }
++            func_80093478_jp(buf, buf_size, size, mHandbill_FILL_SPACE);
++        }
++    }
++}
++
++/* mHandbill_Load_MailFromRom */
++void func_80093DA8_jp(u8* buf, s32 mail_no) {
++    RomOffset addr;
++    u32 size;
++
++    if (mail_no >= 0 && mail_no < mHandbill_MAIL_NUM) {
++        func_80093878_jp(mail_no, &addr, &size);
++        if (size == 0) {
++            mem_clear(buf, mHandbill_BODY_LEN, 0xCD);
++        } else if (addr != 0) {
++            u32 aligned = addr & ~7;
++            u32 ofs = addr - aligned;
++            UNUSED s32 pad[2];
++            s32 i;
++            u8* dst;
++            u8* src;
++            s32 sz;
++
++            DmaMgr_RequestSyncDebug(B_80140748_jp, aligned, (ofs + size + 7) & ~7, RO_STR_80117070_jp, 0x51D);
++            dst = buf;
++            src = B_80140748_jp + ofs;
++            sz = (size < mHandbill_BODY_LEN) ? size : mHandbill_BODY_LEN;
++            for (i = 0; i < sz; i++) {
++                *dst++ = *src++;
++            }
++            for (; i < mHandbill_BODY_LEN; i++) {
++                *dst++ = 0xCD;
++            }
++            func_80093478_jp(buf, mHandbill_BODY_LEN, sz, mHandbill_FILL_RETURN);
++        }
++    }
++}
++
++void mHandbill_Load_HandbillFromRom(u8* header, s32* header_back_start, u8* footer, u8* body, s32 mail_no) {
++    func_80093B28_jp(header, 10, header_back_start, mail_no);
++    func_80093C98_jp(footer, 16, mail_no);
++    func_80093DA8_jp(body, mail_no);
++}
++
++void mHandbill_Load_HandbillFromRom2(u8* header, s32 header_size, s32* header_back_start, u8* footer, s32 footer_size,
++                                     u8* body, s32 mail_no) {
++    func_80093B28_jp(header, header_size, header_back_start, mail_no);
++    func_80093C98_jp(footer, footer_size, mail_no);
++    func_80093DA8_jp(body, mail_no);
++}
++
++/* mHandbillzDMA_body_addr_set */
++s32 func_80093F94_jp(mHandbillzDMA_c* dma_info) {
++    u32 buf[2];
++    s32 first_entry = dma_info->num == 0;
++    u32 ofs = first_entry ? 0 : (dma_info->num - 1) << 2;
++    u32 addr;
++    u32 seg = (u32)D_6000000;
++    RomOffset rom_start = (RomOffset)D_D1A000;
++
++    // The comma keeps IDO from reassociating the sum (decomp-permuter's find).
++    addr = ofs + D_801071B8_jp[dma_info->type] - (0, seg); //! FAKE
++    DmaMgr_RequestSyncDebug(buf, rom_start + addr, 2 * sizeof(u32), RO_STR_80117080_jp, 0x61F);
++    addr = D_801071CC_jp[dma_info->type] - seg;
++    if (first_entry) {
++        dma_info->dma_size = buf[0];
++    } else {
++        addr += buf[0];
++        dma_info->dma_size = buf[1] - buf[0];
++    }
++    dma_info->dma_addr = rom_start + addr;
++    if (dma_info->dma_size <= D_801071A4_jp[dma_info->type]) {
++        return TRUE;
++    }
++    return FALSE;
++}
++
++/* mHandbillzDMA_body_load */
++s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
++    if (func_80093F94_jp(dma_info)) {
++        mem_clear(dma_info->ram_buf, dma_info->ram_buf_size, ' ');
++
++        if (dma_info->dma_size != 0) {
++            UNUSED s32 pad;
++            u32 aligned_addr = dma_info->dma_addr & ~1;
++            u32 data_ofs = dma_info->dma_addr & 1;
++            u32 size = (dma_info->dma_size + data_ofs + 1) & ~1;
++
++            DmaMgr_RequestSyncDebug(dma_info->ram_buf, aligned_addr, size, RO_STR_80117090_jp, 0x664);
++
++            if (data_ofs != 0) {
++                s32 i;
++                s32 size = dma_info->dma_size;
++                u8* src;
++                u8* dst;
++
++                dst = dma_info->ram_buf;
++                src = dst + data_ofs;
++                for (i = 0; i < size; i++, src++, dst++) {
++                    *dst = *src;
++                }
++            }
++        }
++
++        return TRUE;
++    } else {
++        return FALSE;
++    }
++}
++
++/* mHandbillz_super_load */
++s32 func_800941B0_jp(HandbillzInfo* info) {
++    mHandbillzDMA_c dma_info;
++    u8 ram[0x1D + 3];
++
++    bzero(ram, 0x1D);
++
++    dma_info.type = mHandbillz_TYPE_SUPER;
++    dma_info.num = info->superNo;
++    dma_info.ram_buf = ram;
++    dma_info.ram_buf_size = 0x1D;
++
++    if (func_800940A8_jp(&dma_info)) {
++        u8 super_buf[mHandbill_SUPER_BUF_LEN + 1];
++        s32 header_back_start;
++        s32 len;
++
++        mem_clear(super_buf, mHandbill_SUPER_BUF_LEN, ' ');
++        func_800939B8_jp(super_buf, mHandbill_SUPER_BUF_LEN, &header_back_start, ram, dma_info.dma_size);
++        func_80093520_jp(super_buf, mHandbill_SUPER_BUF_LEN, dma_info.dma_size - 1, &header_back_start, mHandbill_FILL_SPACE);
++        mem_clear(info->superBuf, info->superBufSize, ' ');
++        len = info->superBufSize < mHandbill_SUPER_BUF_LEN ? info->superBufSize : mHandbill_SUPER_BUF_LEN;
++        bcopy(super_buf, info->superBuf, len);
++
++        info->headerBackStart = header_back_start;
++        return TRUE;
++    } else {
++        return FALSE;
++    }
++}
++
++/* mHandbillz_mail_load */
++s32 func_800942A0_jp(HandbillzInfo* info) {
++    mHandbillzDMA_c dma_info[3];
++    mHandbillzDMA_c* dma_p;
++    s32 i;
++    s32 success = TRUE;
++    u32 total_size = 0;
++    u8* dst = info->mailBuf;
++
++    dma_info[0].type = mHandbillz_TYPE_MAILA;
++    dma_info[0].num = info->mailANo;
++    dma_info[1].type = mHandbillz_TYPE_MAILB;
++    dma_info[1].num = info->mailBNo;
++    dma_info[2].type = mHandbillz_TYPE_MAILC;
++    dma_info[2].num = info->mailCNo;
++
++    for (i = 0, dma_p = dma_info; i < 3 && success; i++, dma_p++) {
++        bzero(B_80140748_jp, 0x78);
++        dma_p->ram_buf = B_80140748_jp;
++        dma_p->ram_buf_size = 0x78;
++
++        if (func_800940A8_jp(dma_p)) {
++            total_size += dma_p->dma_size;
++
++            if (total_size <= info->mailBufSize) {
++                bcopy(B_80140748_jp, dst, dma_p->dma_size);
++                dst += dma_p->dma_size;
++            } else {
++                success = FALSE;
++            }
++        } else {
++            success = FALSE;
++        }
++    }
++
++    if (success) {
++        if (info->mailBufSize > total_size) {
++            mem_clear(dst, info->mailBufSize - total_size, 0xCD);
++        }
++
++        func_80093478_jp(info->mailBuf, info->mailBufSize, total_size, mHandbill_FILL_RETURN);
++    }
++
++    return success;
++}
++
++/* mHandbillz_ps_load */
++s32 func_80094400_jp(HandbillzInfo* info) {
++    mHandbillzDMA_c dma_info;
++    u8 ram[0x22 + 6];
++
++    bzero(ram, 0x22);
++
++    dma_info.type = mHandbillz_TYPE_PS;
++    dma_info.num = info->psNo;
++    dma_info.ram_buf = ram;
++    dma_info.ram_buf_size = 0x22;
++
++    if (func_800940A8_jp(&dma_info)) {
++        bcopy(ram, info->psBuf, dma_info.dma_size);
++
++        if (info->psBufSize > dma_info.dma_size) {
++            mem_clear(info->psBuf + dma_info.dma_size, info->psBufSize - dma_info.dma_size, ' ');
++        }
++
++        func_80093478_jp(info->psBuf, info->psBufSize, dma_info.dma_size, mHandbill_FILL_SPACE);
++        return TRUE;
++    } else {
++        return FALSE;
++    }
++}
++
++s32 mHandbillz_load(HandbillzInfo* info) {
++    s32 super_res = func_800941B0_jp(info);
++    s32 mail_res = func_800942A0_jp(info);
++    s32 ps_res = func_80094400_jp(info);
++
++    return super_res && mail_res && ps_res;
++}
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
 new file mode 100644
 index 0000000..03981c7
@@ -4691,18 +5450,21 @@ index 81ac120..f656590 100644
  
  #endif
 diff --git a/yamls/jp/code.yaml b/yamls/jp/code.yaml
-index c052055..9a58e5c 100644
+index c052055..be1204a 100644
 --- a/yamls/jp/code.yaml
 +++ b/yamls/jp/code.yaml
-@@ -39,7 +39,7 @@
+@@ -39,9 +39,9 @@
        - [0x6A83A0, asm, code/m_field_assessment]
        - [0x6A8B70, asm, code/m_field_make]
        - [0x6AB8D0, c, code/m_field_info]
 -      - [0x6B2940, asm, code/m_flashrom]
 +      - [0x6B2940, c, code/m_flashrom]
        - [0x6B3DC0, asm, code/6B3DC0]
-       - [0x6B6560, asm, code/m_handbill]
+-      - [0x6B6560, asm, code/m_handbill]
++      - [0x6B6560, c, code/m_handbill]
        - [0x6B81C0, asm, code/m_home]
+       - [0x6B8880, asm, code/m_house]
+       - [0x6B8A70, c, code/m_land]
 @@ -55,7 +55,8 @@
        - [0x6BFE60, c, code/m_mail]
        - [0x6C05A0, c, code/m_mail_check]

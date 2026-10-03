@@ -264,10 +264,31 @@ Measured on its ROM (`tools/nafe_diff.py` and the bank itself):
   (func_800A0BB4_jp needed the former).
 - **A fake match, when nothing natural is found, is marked as the decomp
   marks them**: `if (1) {} //! FAKE` (func_8009FFB0_jp: it splits a
-  `default:` block so that the switch is laid out as on the cartridge).
+  `default:` block so that the switch is laid out as on the cartridge;
+  func_80093B28_jp and func_80093F94_jp have one each, permuter finds).
+- **A loop bound held in a local is not reloaded; a memory one is.** A
+  copy bounded by an address-taken `size` reloads it after every store;
+  `sz = size;` keeps it in a register, and IDO unrolls the loop by four
+  unless the bound stays `size`'s own load (func_80093C98_jp matched with
+  `sz` as the bound and `size` in the call after it, func_80093DA8_jp
+  unrolled with a computed `sz`).
+- **Parameters walked directly, or locals walking them, are different
+  code**: func_800939B8_jp matched only with `*dst++ = *src` on the
+  parameters themselves; func_80092E80_jp only with `dst_idx++;
+  src_idx++;` as statements and the growth `dst_idx - src_idx` a local of
+  the `else` block.
+- **Constants of different types are not shared**: `bzero(buf, 0x78)`
+  and a `size_t` field set to 0x78 load the constant twice, as the
+  cartridge does (func_800942A0_jp); with an `s32` field IDO keeps one
+  register for both.
 - `tools/af_bench.py` compiles variants of one function alone, with the
   file's prelude, in about 0.1 s each, and counts differences against
   `expected/`: the way to sweep declaration orders and expression shapes.
+  The prelude gets prototypes of the functions the file defines before
+  the one benched: without them a call to a file-local function is an
+  implicit declaration, which IDO compiles differently
+  (func_80094400_jp: 46 differences alone, none in the file, until the
+  prototype of `func_80093478_jp` was added).
   The permuter (decomp-permuter, `import.py` then `permuter.py`) finds
   what to look for when nothing obvious works; its results are rewritten
   as natural C or marked FAKE, never committed as they come.
@@ -630,7 +651,7 @@ the emulator (`make rom-en`, `make script ISO=...`).
   Cashmere...) and cut for now. Widening the field means the save data's
   layout: a decision for phase 5 or 6, noted here.
 - **The letters are half the GameCube's size, in the save data.** The
-  mail banks are read by `code/m_handbill.s` (asm): three tables of 0x220
+  mail banks are read by `code/m_handbill.c`: three tables of 0x220
   (544) u32 ends — headers (`D_D12000`, text at `D_D11000`, entries under
   14 bytes), footers (`D_D15000`/`D_D13000`, under 19) and bodies
   (`D_D10000`/`D_D07000`, under 105) — plus `D_D1A000` (0xA970 bytes,
@@ -687,6 +708,25 @@ the emulator (`make rom-en`, `make script ISO=...`).
   and checks them (0 errors; 6 bodies and 5 villager openings print free
   strings the cartridge's letter does not: to adapt). Trailing newlines,
   which letters have, are written `{cd}` in the dumps.
+- **How the loaders read them** (`src/code/m_handbill.c`, matching since
+  it moved to C). A shop letter's header is DMA'd into 0x1D bytes on the
+  stack, copied without its one newline (`func_800939B8_jp`: the
+  newline's position is where the player's name goes,
+  `header_back_start`; with no newline or two, the end) into 0x17 bytes,
+  free strings put in (`func_80093520_jp`), and cut to the caller's size;
+  the footer is DMA'd into 0x28 bytes on the stack and padded with
+  spaces; the body through `B_80140748_jp` (0x78 bytes), cut to 0x60 and
+  padded with newlines (0xCD). Entries are found by their table's u32
+  ends (entry n: from end n-1 to end n), read eight-aligned. A villager's
+  letter (`mHandbillz_load`, the `HandbillzInfo` of `m_handbill.h`) is
+  five lookups in the file at `D_D1A000`, each part's table and text
+  given as segment-6 addresses (`D_801071B8_jp`, `D_801071CC_jp`) and
+  read two-aligned; a part longer than its cap (`D_801071A4_jp`: 13,
+  104, 104, 104, 18) fails the whole letter, as does a body whose three
+  parts pass the caller's `mailBufSize`; the three parts are joined in
+  the caller's buffer and padded with newlines. All of these take the
+  caller's sizes, so longer letters need the callers' buffers and the
+  caps, not new loaders.
 - **What is left to translate ourselves.** Of the 969 messages with no
   official text (709 removed, 260 reused), 287 are spare placeholders
   (よび, "spare"), 211 the debug and test texts of numbers 0-210, 78 have

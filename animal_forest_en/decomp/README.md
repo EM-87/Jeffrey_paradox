@@ -62,6 +62,12 @@ buffer's free) and the boot comparison of the two slots is still asm. The
 translation changes it to compress each copy (`reference/NOTES.md`, "The
 letters").
 
+`code/m_handbill` (49 functions at 0x800928C0-0x80094514: the letters'
+loaders and their free strings, after the balloon and feng shui code) is
+a C file too: the 42 letter functions all compile to the cartridge's
+bytes (two with a `//! FAKE` the permuter found), the 7 before them are
+still asm (`reference/NOTES.md`, "How the loaders read them").
+
 `code/m_msg_main` (the message system, 322 functions at 0x8009D1F0-
 0x800A5630) is a C file; functions move from asm to C in batches: 283 in
 C so far, 279 matching (the other 4 behind NON_MATCHING): the whole message

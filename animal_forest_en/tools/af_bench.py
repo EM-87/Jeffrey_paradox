@@ -41,13 +41,35 @@ def instructions(obj, func):
     return rows
 
 
+DEFINITION = re.compile(r"^([A-Za-z_][^\n;{]*?(\w+)\([^;{]*\))\s*\{", flags=re.M)
+
+
+def prototypes(text, func):
+    """Declarations of the functions the file defines before FUNC, as the
+    compiler sees them there. Without them a call to a file-local function
+    is an implicit declaration, which IDO compiles differently (it once
+    made 46 of func_80094400_jp's instructions differ). Definitions under
+    NON_MATCHING are left out: the build does not see them either."""
+    hidden = []
+    for m in re.finditer(r"^#ifdef NON_MATCHING\n.*?^#else\n", text, flags=re.M | re.S):
+        hidden.append((m.start(), m.end()))
+    out = []
+    for m in DEFINITION.finditer(text):
+        if m.group(2) == func:
+            break
+        if any(a <= m.start() < b for a, b in hidden) or m.group(1).startswith("static"):
+            continue
+        out.append(m.group(1) + ";")
+    return "\n".join(out) + "\n"
+
+
 def main(argv):
     show = "--show" in argv
     argv = [a for a in argv if a != "--show"]
     src, func, variants_file = argv
     text = open(src).read()
-    first = re.search(r"^[A-Za-z_][^\n;{]*\([^;{]*\)\s*\{", text, flags=re.M)
-    prelude = text[:first.start()]
+    first = DEFINITION.search(text)
+    prelude = text[:first.start()] + prototypes(text, func)
     want = instructions("expected/build/" + os.path.splitext(src)[0] + ".o", func)
     if not want:
         raise SystemExit("%s is not in expected/ (make diff-init)" % func)

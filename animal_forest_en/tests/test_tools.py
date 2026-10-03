@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 
 import aflz  # noqa: E402
 import af_anchors  # noqa: E402
+import af_bench  # noqa: E402
 import af_align  # noqa: E402
 import af_dmaorder  # noqa: E402
 import af_luicheck  # noqa: E402
@@ -771,6 +772,21 @@ int main(int argc, char** argv) {
                 subprocess.run([exe, os.path.join(tmp, "in"), os.path.join(tmp, "out")], check=True)
                 with open(os.path.join(tmp, "out"), "rb") as f:
                     self.assertEqual(f.read(), aflz.compress(data))
+
+
+class Matching(unittest.TestCase):
+    def test_bench_prototypes(self):
+        # af_bench declares what the file defines before the benched
+        # function, and not what the build cannot see (NON_MATCHING, static)
+        text = ("#include \"global.h\"\n\n"
+                "s32 first(u8* a, s32 b) {\n    return b;\n}\n\n"
+                "#ifdef NON_MATCHING\nvoid hidden(void) {\n}\n#else\n#pragma GLOBAL_ASM(\"x.s\")\n#endif\n\n"
+                "static void local(void) {\n}\n\n"
+                "void second(s32* p,\n            s32 q) {\n}\n\n"
+                "void target(void) {\n    first(0, 1);\n}\n\n"
+                "void after(void) {\n}\n")
+        self.assertEqual(af_bench.prototypes(text, "target"),
+                         "s32 first(u8* a, s32 b);\nvoid second(s32* p,\n            s32 q);\n")
 
 
 if __name__ == "__main__":
