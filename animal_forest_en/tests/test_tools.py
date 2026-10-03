@@ -201,10 +201,10 @@ class Shiftability(unittest.TestCase):
                   "    __romPos = ALIGN(__romPos, 16);\n    . = ALIGN(., 16);\n\n"
                   "    /DISCARD/ :\n    {\n        *(*);\n    }\n}\n")
 
-        def mapfile(b_size):
+        def mapfile(b_size, a_text=0xadcf0):
             return (".code           0x80051a80   0x100000 load address 0x01914000\n"
                     "                0x80051a80                        code_TEXT_START = .\n"
-                    " .text          0x80051a80    0xadcf0 build/src/code/a.o\n"
+                    " .text          0x80051a80    0x%x build/src/code/a.o\n"
                     "                0x800ff370                        code_TEXT_END = .\n"
                     "                0x800ff370                        code_DATA_START = .\n"
                     " .data          0x800ff370       0x20 build/src/code/a.o\n"
@@ -213,12 +213,12 @@ class Shiftability(unittest.TestCase):
                     " .rodata        0x80116110       0x10 build/src/code/b.o\n"
                     ".buffers_bss    0x801524c0    0x42420\n"
                     " .bss           0x801524c0    0x42420 build/asm/buffers.o\n"
-                    "                0x801948e0                        buffers_VRAM_END = .\n" % b_size)
+                    "                0x801948e0                        buffers_VRAM_END = .\n" % (a_text, b_size))
         with tempfile.TemporaryDirectory() as d:
             p, ref, new = [os.path.join(d, n) for n in ("a.ld", "ref.map", "new.map")]
             open(p, "w").write(script)
             open(ref, "w").write(mapfile(0x100))
-            open(new, "w").write(mapfile(0x140))                       # b.o's data grew
+            open(new, "w").write(mapfile(0x140, 0xadce0))              # b.o's data grew, a.o's text shrank
             pristine = os.path.join(d, "a.ld.splat")
             af_relink.main([p, "--ref", ref, "--next-rom", "0x73F4D0", "--pristine", pristine])
             out = open(p).read()
@@ -231,20 +231,27 @@ class Shiftability(unittest.TestCase):
             self.assertLess(lines.index("    ovl_select_ROM_END = __romPos;"), lines.index("    code_ROM_START = __romPos;"))
             self.assertLess(lines.index("    code_ROM_START = __romPos;"), lines.index("    buffers_ROM_START = __romPos;"))
             self.assertLess(lines.index("    buffers_ROM_START = __romPos;"), lines.index("    /DISCARD/ :"))
-            pad = "        . += (0x10000 - ((. - 0xAD8F0) & 0xFFFF)) & 0xFFFF;"   # . is the offset in .code
-            self.assertEqual(lines.index(pad) + 1, lines.index("        code_DATA_START = .;"))
             self.assertIn("        build/src/code/b.o(.data);", lines)      # nothing moved yet
-            # second pass, with the map of the first link: b.o's data goes to code_en, its slot is a hole
+            self.assertFalse(any("code_en" in l for l in lines))
+            # second pass, with the map of the first link: b.o's data goes to code_en after buffers, its
+            # slot stays as a hole; a.o's text stays, padded to its old size; code's ROM runs on to code_en
             moved = os.path.join(d, "moved.txt")
             af_relink.main([p, "--ref", ref, "--map", new, "--moved-out", moved, "--next-rom", "0x73F4D0", "--pristine", pristine])
             lines = open(p).read().splitlines()
-            self.assertEqual(open(moved).read(), "build/src/code/b.o .data\n")
-            self.assertLess(lines.index("        code_en_DATA_START = .;"), lines.index("        build/src/code/b.o(.data);"))
-            self.assertLess(lines.index("        build/src/code/b.o(.data);"), lines.index("        code_en_DATA_END = .;"))
-            self.assertLess(lines.index("        code_en_BSS_END = .;"), lines.index(pad))
-            hole = [l for l in lines if l.startswith("        . += 0x100; /* af_relink: build/src/code/b.o(.data)")]
+            self.assertEqual(open(moved).read(), "build/src/code/a.o .text shrunk\nbuild/src/code/b.o .data\n")
+            hole = [l for l in lines if l.startswith("        . += 0x100; /* af_relink: build/src/code/b.o(.data) grew")]
             self.assertEqual(len(hole), 1)
             self.assertLess(lines.index("        code_a = .;"), lines.index(hole[0]))
+            pad = [l for l in lines if l.startswith("        . += 0x10; /* af_relink: build/src/code/a.o(.text) shrank")]
+            self.assertEqual(lines.index(pad[0]), lines.index("        build/src/code/a.o(.text);") + 1)
+            self.assertLess(lines.index("    buffers_ROM_START = __romPos;"), lines.index("    code_en_VRAM = ALIGN(., 16);"))
+            self.assertIn("    .code_en code_en_VRAM : AT(code_ROM_START + (code_en_VRAM - code_VRAM)) SUBALIGN(16)", lines)
+            self.assertLess(lines.index("        code_en_DATA_START = .;"), lines.index("        build/src/code/b.o(.data);"))
+            self.assertLess(lines.index("        build/src/code/b.o(.data);"), lines.index("        code_en_DATA_END = .;"))
+            self.assertEqual(lines.count("    code_ROM_END = __romPos;"), 1)
+            self.assertEqual(lines.index("    code_ROM_END = __romPos;") - 1,
+                             lines.index("    __romPos = code_ROM_START + (. - code_VRAM);"))
+            self.assertLess(lines.index("    code_ROM_END = __romPos;"), lines.index("    buffers_ROM_END = __romPos;"))
             self.assertIn("        build/src/code/b.o(.rodata);", lines[lines.index("        code_RODATA_START = .;"):])
 
     def test_ranges_follow_the_vrom_order(self):
@@ -303,7 +310,7 @@ class Shiftability(unittest.TestCase):
             self.assertEqual(af_luicheck.main([ref, same, "--asm", os.path.join(d, "asm")]), 0)
             self.assertEqual(af_luicheck.main([ref, broken, "--asm", os.path.join(d, "asm")]), 1)
 
-    def test_shiftcheck_wants_the_block_rigid(self):
+    def test_shiftcheck_wants_nothing_moved(self):
         def mapfile(delta, rodata_extra=0, moved_at=None):
             d = delta
             text = (".code           0x80051a80   0x100000 load address 0x01914000\n"
@@ -346,21 +353,37 @@ class Shiftability(unittest.TestCase):
                 open(p, "w").write(text)
                 return af_shiftcheck.check(af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(p), list(args))
             self.assertEqual(run(mapfile(0)), (0, []))
-            self.assertEqual(run(mapfile(0x20000)), (0x20000, []))           # the whole block, two windows up
+            delta, errors = run(mapfile(0x20000))                            # even a whole-window shift
+            self.assertEqual(delta, 0x20000)
+            self.assertTrue(any("moved by 0x20000" in e for e in errors), errors)
             gone = []
             p2 = os.path.join(d, "gone.map")
             open(p2, "w").write(mapfile(0).replace("                0x800ff490                RO_800FF490_jp\n", ""))
             self.assertEqual(af_shiftcheck.check(af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(p2), [], gone), (0, []))
             self.assertEqual(gone, ["RO_800FF490_jp"])
             delta, errors = run(mapfile(0x1000))
-            self.assertTrue(any("multiple of 0x10000" in e for e in errors))
+            self.assertTrue(any("moved by 0x1000" in e for e in errors))
             delta, errors = run(mapfile(0, rodata_extra=0x10))               # b.o's data grew: bss slid
             self.assertTrue(any("build/src/code/b.o .rodata" in e for e in errors), errors)
             delta, errors = run(mapfile(0, moved_at=0x80200000))             # a.o's data left the block
             self.assertTrue(any("build/src/code/a.o .data" in e for e in errors), errors)   # left without --moved
-            self.assertEqual(run(mapfile(0, moved_at=0x80200000), "build/src/code/a.o"), (0, []))
-            delta, errors = run(mapfile(0, moved_at=0x80207FF0), "build/src/code/a.o")
+            self.assertEqual(run(mapfile(0, moved_at=0x80200000), ("build/src/code/a.o", ".data")), (0, []))
+            delta, errors = run(mapfile(0, moved_at=0x80207FF0), ("build/src/code/a.o", ".data"))
             self.assertTrue(any("crosses a 64 KB" in e for e in errors), errors)
+            # text is held too; a section padded in place may shrink, its symbols are free
+            moved_text = mapfile(0).replace(" .text          0x80051a80     0x1000 build/src/code/a.o\n"
+                                            "                0x80051a80                func_80051A80_jp\n",
+                                            " .text          0x80051a90      0xff0 build/src/code/a.o\n"
+                                            "                0x80051a90                func_80051A80_jp\n")
+            delta, errors = run(moved_text)
+            self.assertTrue(any("build/src/code/a.o .text" in e for e in errors), errors)
+            shrunk = mapfile(0).replace(" .text          0x80051a80     0x1000 build/src/code/a.o\n",
+                                        " .text          0x80051a80      0xff0 build/src/code/a.o\n")
+            p3 = os.path.join(d, "shrunk.map")
+            open(p3, "w").write(shrunk)
+            self.assertNotEqual(af_shiftcheck.check(af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(p3))[1], [])
+            self.assertEqual(af_shiftcheck.check(af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(p3), [], None,
+                                                 [("build/src/code/a.o", ".text")]), (0, []))
             # dmadata: the padding may move inside the section, its marks and table may not
             dma = (".dmadata        0x80044690     0xd3f0 load address 0x19d40\n"
                    " .data          0x80044690     0xd3f0 build/src/dmadata/dmadata.o\n"

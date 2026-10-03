@@ -356,30 +356,62 @@ the matching build (`make verify` stays identical).
      and boot's `sBootStack + 0x400`, which move with their own overlay or
      never move.
 
+  **The first rule, and why it was wrong.** The first layout let text grow
+  in place and moved the whole data block (code's .data, .rodata, .bss and
+  `buffers`) by a multiple of 0x10000, padding its start back to its old
+  address modulo 0x10000; objects whose data changed size went to a
+  `code_en` region between the text and the block. It kept every `%hi`
+  pair and every distance, reached the name dial at 2414 like the
+  cartridge and played the route to the houses; and from the first English
+  ROM on, every town but the route's one was drawn wrong: the station's
+  wall, rails and ground black (Japanese text, a 64 KB data object added:
+  `padexp/fix/en_dummy`) or pink noise (the English ROM), the houses'
+  ground the same. The route's own town looked right, and the English text
+  changed the timing enough for the game to generate another town (station
+  type 1 instead of 3), which is why it showed up with the text. Not heap:
+  64 KB more of it (`func_800D94F0_jp` returning 0x80410000 in a throwaway
+  build) changed nothing. The proof: the English ROM's town, written to the
+  flash in the cartridge's format and loaded by both ROMs with the same
+  pad, is drawn right by the cartridge and wrong by the English ROM; the
+  two heaps then hold the same bytes except code addresses, and in the
+  frame's display lists both ROMs load a TLUT from physical 0x00120F10 and
+  a texture from 0x0011DED0. In the cartridge those are bss
+  (`B_80120F10_jp`, `B_8011DED0_jp`), the field's texture and palette
+  buffers that the table at `D_80106560_jp` fills from the ROM; in the
+  shifted build they had moved 64 KB up and 0x120F10 was static data. The
+  addresses come from the cartridge's own files: the field models' display
+  lists name those buffers by their RAM address
+  (`gsDPSetTextureImage(..., 0x80120F10)` at ROM 0x1257D10, for one).
+  Counted over the ROM (G_SETTIMG followed by a tile or load command,
+  outside code): 2,348 such loads in 204 segments, all into
+  `B_8011B8C0_jp`..`B_80123AD0_jp` (one bss object,
+  `asm/jp/data/code/8011B8B0.bss.o`). Asset files are not linked, so no
+  relocation can follow a move. (An earlier scan for such words printed its
+  first 40 hits, which happened to be texture noise, and was set aside:
+  count the classes before judging a scan by its head.)
+
   **The rule (`tools/af_relink.py`, proved after every link by
-  `tools/af_shiftcheck.py`):** the cartridge's data block (code's .data,
-  .rodata, .bss and `buffers`) moves as one piece, by a multiple of
-  0x10000. Text may grow in place: the block's start is padded back to its
-  original address modulo 0x10000 (`. += (0x10000 - ((. - 0xAD8F0) &
-  0xFFFF)) & 0xFFFF`, 0xAD8F0 being the block's offset in `.code`: inside
-  an output section `.` is that offset, `ADDR(.code)` is refused there and
-  `ABSOLUTE(.)` wrapped the section around the address space, measured
-  on a one-section script), costing up to 64 KB of heap per
-  64 KB of text. An object whose .data, .rodata or .bss changes size (or a
-  new one) cannot stay in the block: a second `af_relink` pass, with the
-  map of a first link, moves its sections to a `code_en` region between
-  the text and the block, leaves a hole of the old size in its slot, and
-  keeps each moved section inside one 64 KB `%hi` window (IDO shares
-  `lui`s within an object). code_en is loaded from the ROM with the rest
-  of code, so its bss arrives zeroed and nothing has to clear it.
-  `af_shiftcheck` then checks every input section and symbol of the block
-  against the matching map (same size, old address + D, D a multiple of
-  0x10000), the moved ones outside it and inside one window, and boot and
-  the overlays unmoved. With the two anchors fixed, the 64 KB whole-block
-  shift reaches the name dial at frame 2414 like the cartridge, and the
-  ROM with the pad before `m_name_table.o` that failed before passes too.
-  A 4 KB data shift hung at boot (frame 134); the rule never produces one
-  and it was not analysed further.
+  `tools/af_shiftcheck.py`): nothing the cartridge placed moves.** Not the
+  text, not the data block. A second `af_relink` pass, with the map of a
+  first link, takes every input section of code that grew, or is new, out
+  of its slot (left as a hole of its old size) into a `code_en` region
+  after `buffers`; a section that shrank stays, padded to its old size (so
+  far m_msg_main's text, 0x6210 -> 0x61E0). code_en's ROM image follows
+  code's (the bss and buffers between are zeros in the ROM, almost free in
+  the compressed file), so the boot's one DMA of code (`src/boot/idle.c`)
+  loads it and its bss arrives zeroed; `buffers_VRAM_END` follows it, so
+  the system heap starts after it (`src/code/main.c`). Each moved section
+  is kept inside one 64 KB `%hi` window (IDO shares `lui`s within an
+  object). `af_shiftcheck` checks every input section and symbol of code,
+  text included, against the matching map (same address and size; moved
+  ones outside the cartridge's range and inside one window; padded ones at
+  their address and no bigger), and boot and the overlays unmoved. The
+  build now (the save code included): code's text ends and its data starts
+  at 0x800FF370 as in the cartridge, code_en is 0x8FC0 bytes at
+  0x801948E0, and the heap is 36 KB smaller than the cartridge's (the
+  first rule cost 64 KB plus code_en). The town that was pink is drawn
+  right, from the cartridge-format save and on the route.
+
 - **Compression.** compress.py numbers dmadata entries sorted by vrom while
   compress_ranges.py numbers them in yaml order; with code last they
   disagree, so `tools/af_ranges.py` computes the ranges from the map, and

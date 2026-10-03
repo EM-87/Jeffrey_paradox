@@ -114,14 +114,14 @@ decomp-patch:
 # changes.patch applied on that. Its ROM is never compared with the
 # cartridge; instead `code` is moved to the end of the ROM so that it can
 # grow without moving anything else (tools/af_relink.py: about 4,400 vrom
-# addresses sit as plain numbers in asm data tables), its data block is
-# kept at its address modulo 0x10000 with objects whose data changed size
-# taken out to a code_en region (same tool, from the map of a first link),
-# the RAM addresses splat left absolute are made relative
-# (tools/af_relsyms.py, from the matching build's map), and the layout is
-# proved before the ROM is compressed: af_shiftcheck (the block moved as
-# one), af_anchors (no address spelled with the wrong symbol), af_luicheck
-# (no shared lui broken). Then compress.py, the dmadata back in the
+# addresses sit as plain numbers in asm data tables), nothing of it moves in
+# RAM (the field models name its bss by address): sections that grew, and
+# new ones, go to a code_en region after buffers, loaded with code (same
+# tool, from the map of a first link), the RAM addresses splat left
+# absolute are made relative (tools/af_relsyms.py, from the matching
+# build's map), and the layout is proved before the ROM is compressed:
+# af_shiftcheck (nothing of the cartridge's moved), af_anchors (no address
+# spelled with the wrong symbol), af_luicheck (no shared lui broken). Then compress.py, the dmadata back in the
 # table's order (af_ranges.py, af_dmaorder.py) and the checksum. The result
 # is checked by playing it (route-en). NOTES.md, "Shiftability".
 REF_MAP  := $(AF_DIR)/build/animalforest-jp.map

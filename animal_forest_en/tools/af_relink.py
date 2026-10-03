@@ -10,7 +10,7 @@ Run in a decomp checkout after `make extract`, on the linker script splat
 generated; a pristine copy is kept under build/ (`--pristine` names
 another place) and every run starts from that copy, so the result never
 depends on the previous run.
-Three things are done (reference/NOTES.md, "Shiftability"):
+Four things are done (reference/NOTES.md, "Shiftability"):
 
 1. The `.code` block (and the NOLOAD `.buffers_bss` that follows it in
    RAM) is cut from its place in the ROM and appended after the last
@@ -19,20 +19,23 @@ Three things are done (reference/NOTES.md, "Shiftability"):
    vrom addresses sit as plain numbers in asm data tables, so nothing
    before code may move; at the end of the ROM code is free to grow.
 
-2. The cartridge's data block (.data, .rodata, .bss of code, and buffers)
-   is kept at its original address modulo 0x10000: text may grow, and the
-   block then moves as one piece by a multiple of 64 KB, which keeps every
-   %hi/%lo pair the asm shares between two symbols and every distance
-   inside it (tools/af_shiftcheck.py proves it after the link).
+2. Nothing of code moves in RAM either: not its text, not its data block
+   (.data, .rodata, .bss and buffers). The cartridge's own files hold
+   addresses the linker never sees: 2,348 texture loads in 204 field
+   models point at code's bss buffers by their RAM address (NOTES), and
+   the asm shares `lui` halves between symbols. So with --map (the map of
+   a first link), an input section of code that grew against REF_MAP, or
+   is new, leaves its slot (kept as a hole of its old size) for a
+   `code_en` region after buffers; one that shrank stays, padded to its
+   old size. tools/af_shiftcheck.py proves it after the link.
 
-3. With --map (the map of a first link), an object whose .data, .rodata or
-   .bss changed size against REF_MAP, or is new, is taken out of the block
-   (its old slot padded to its old size) and placed in a `code_en` region
-   between the text and the block; each such section is kept inside one
-   64 KB %hi window, since IDO shares `lui`s within an object. code_en is
-   loaded from the ROM like the rest of code, so its bss arrives zeroed.
-   The moved sections are listed in --moved-out (`object section` per
-   line), for af_shiftcheck; the object's other sections stay in place.
+3. code_en is one more piece of the code segment: its ROM image runs on
+   from code's (bss and buffers are zeros there), so the boot's one DMA of
+   code loads it and its bss arrives zeroed; buffers_VRAM_END follows it,
+   so the system heap starts after it. Each moved section is kept inside
+   one 64 KB %hi window, since IDO shares `lui`s within an object. The
+   moved and padded sections are listed in --moved-out (`object section`,
+   or `object section shrunk`, per line), for af_shiftcheck.
 
 4. Each --segment NAME=OBJECT becomes a plain (uncompressed, never loaded
    whole) ROM segment after code: NAME_ROM_START/END for a dmadata entry
@@ -50,7 +53,7 @@ from af_shiftcheck import LinkMap  # noqa: E402
 
 MARK = "/* code and buffers moved to the end of the ROM by tools/af_relink.py */"
 BLOCK = (".code", ".code_bss")
-KINDS = (".data", ".rodata", ".bss")
+KINDS = (".text", ".data", ".rodata", ".bss")
 
 
 def hi16(x):
@@ -84,48 +87,63 @@ def relocate(lines, next_rom):
     return lines[:tail] + ["    __romPos = ALIGN(__romPos, 16);", "    . = ALIGN(., 16);", ""] + block + [""] + lines[tail:], m.group(1), next_rom
 
 
-def block_sections(linkmap):
-    """(kind, object) -> size for the data block's input sections."""
-    lo, hi = linkmap.marks["code_DATA_START"], linkmap.marks["buffers_VRAM_END"]
+def code_sections(linkmap):
+    """(kind, object) -> size for code's input sections, text and data block."""
     return {(sec, obj): size for out, sec, obj, addr, size in linkmap.inputs
-            if out in BLOCK and sec in KINDS and lo <= addr < hi and size}
+            if out in BLOCK and sec in KINDS and size}
 
 
-def moved_sections(ref, new):
-    """The (kind, object, new size, old size) that changed size or are new,
-    in the new map's order; old size 0 when the object is new."""
-    old = block_sections(ref)
-    out = []
+def changed_sections(ref, new):
+    """(grown, shrunk): the (kind, object, new size, old size) of code's input
+    sections that grew or are new (old size 0), in the new map's order, and of
+    those that shrank (new size 0 when they are gone)."""
+    old, cur = code_sections(ref), code_sections(new)
+    grown, shrunk, seen = [], [], set()
     for o, sec, obj, addr, size in new.inputs:
-        if o in BLOCK and sec in KINDS and size and old.get((sec, obj)) != size:
-            out.append((sec, obj, size, old.get((sec, obj), 0)))
-    for (sec, obj), size in old.items():          # shrunk to nothing: the slot still needs its hole
-        if not any(s == sec and ob == obj for s, ob, _, _ in out) and \
-                not any(o in BLOCK and s == sec and ob == obj and n for o, s, ob, _, n in new.inputs):
-            out.append((sec, obj, 0, size))
-    return out
+        if o not in BLOCK or sec not in KINDS or not size or (sec, obj) in seen:
+            continue
+        seen.add((sec, obj))
+        was = old.get((sec, obj), 0)
+        if size > was:
+            grown.append((sec, obj, size, was))
+        elif size < was:
+            shrunk.append((sec, obj, size, was))
+    for (sec, obj), was in old.items():
+        if (sec, obj) not in cur:
+            shrunk.append((sec, obj, 0, was))
+    return grown, shrunk
 
 
-def rigid_block(lines, data_off, moved, text_end):
-    """Insert the code_en region and the pad that keeps the block's address modulo 0x10000.
-    data_off is the block's original offset from the start of .code: inside an output
-    section `.` is that offset, not the address (ld refuses ADDR(.code) there and
-    ABSOLUTE(.) wraps the section around the address space)."""
-    begin = lines.index("        code_TEXT_END = .;")
-    # take the moved objects' lines out of the block, leaving holes of their old size
-    for sec, obj, size, old in moved:
+def fixed_block(lines, grown, shrunk, buffers_end):
+    """Leave everything of code where the cartridge has it: a grown or new
+    section goes to code_en after buffers (its slot a hole of its old size), a
+    shrunk one is padded to its old size; code's ROM image runs on to code_en's
+    end. buffers_end: where buffers ends in RAM (the reference's, unmoved)."""
+    lines = list(lines)
+    for sec, obj, size, old in grown:
         key = "        %s(%s);" % (obj, sec)
         if key in lines:
             i = lines.index(key)
-            hole = ["        . += 0x%X; /* af_relink: %s(%s) is in code_en now, its size changed */" % (old, obj, sec)] if old else []
-            lines[i:i + 1] = hole
-    region = ["        /* af_relink: the translation's data: objects whose data changed size, and new ones */"]
-    addr = (text_end + 15) & ~15
+            lines[i:i + 1] = ["        . += 0x%X; /* af_relink: %s(%s) grew to %#x: it is in code_en, its slot stays */"
+                              % (old, obj, sec, size)] if old else []
+    for sec, obj, size, old in shrunk:
+        key = "        %s(%s);" % (obj, sec)
+        if key in lines:
+            i = lines.index(key)
+            lines[i + 1:i + 1] = ["        . += 0x%X; /* af_relink: %s(%s) shrank from %#x: padded to its old size */"
+                                  % (old - size, obj, sec, old)]
+    region = ["    /* af_relink: code_en, after buffers: the sections that grew and the new ones. Nothing the",
+              "       cartridge placed moves (reference/NOTES.md, Shiftability). Loaded with code by its one",
+              "       DMA (code's ROM image runs on: bss and buffers are zeros), so its bss arrives zeroed. */",
+              "    code_en_VRAM = ALIGN(., 16);",
+              "    .code_en code_en_VRAM : AT(code_ROM_START + (code_en_VRAM - code_VRAM)) SUBALIGN(16)",
+              "    {",
+              "        FILL(0x00000000);"]
+    addr = (buffers_end + 15) & ~15
     for kind in KINDS:
-        name = "code_en_%s_START = .;" % kind[1:].upper()
-        region.append("        " + name)
-        for sec, obj, size, old in moved:
-            if sec != kind or not size:
+        region.append("        code_en_%s_START = .;" % kind[1:].upper())
+        for sec, obj, size, old in grown:
+            if sec != kind:
                 continue
             addr = (addr + 15) & ~15
             if hi16(addr) != hi16(addr + size - 1):
@@ -135,11 +153,12 @@ def rigid_block(lines, data_off, moved, text_end):
             region.append("        %s(%s);" % (obj, sec))
             addr += size
         region.append("        code_en_%s_END = .;" % kind[1:].upper())
-    region += ["        /* af_relink: the cartridge's data block keeps its address modulo 0x10000: every",
-               "           address pair it shares and every distance inside it survive (NOTES, Shiftability) */",
-               "        . += (0x10000 - ((. - 0x%X) & 0xFFFF)) & 0xFFFF;" % data_off]
-    begin = lines.index("        code_TEXT_END = .;")
-    return lines[:begin + 1] + region + lines[begin + 1:]
+    region += ["    }",
+               "    __romPos = code_ROM_START + (. - code_VRAM);",
+               "    code_ROM_END = __romPos;"]
+    lines.remove("    code_ROM_END = __romPos;")
+    b = lines.index("    buffers_ROM_END = __romPos;")
+    return lines[:b] + region + lines[b:]
 
 
 def segments(lines, specs):
@@ -200,25 +219,23 @@ def main(argv):
     lines = open(pristine).read().split("\n")
 
     lines, segment, next_rom = relocate(lines, next_rom)
-    moved = []
-    if ref_path:
+    grown, shrunk = [], []
+    if ref_path and map_path:
         ref = LinkMap(ref_path)
-        if map_path:
-            new = LinkMap(map_path)
-            moved = moved_sections(ref, new)
-            text_end = new.marks["code_TEXT_END"]
-        else:
-            text_end = ref.marks["code_TEXT_END"]
-        lines = rigid_block(lines, ref.marks["code_DATA_START"] - ref.marks["code_TEXT_START"], moved, text_end)
+        grown, shrunk = changed_sections(ref, LinkMap(map_path))
+        lines = fixed_block(lines, grown, shrunk, ref.marks["buffers_VRAM_END"])
     if segs:
         lines = segments(lines, segs)
     if moved_out:
-        open(moved_out, "w").write("".join(sorted(set("%s %s\n" % (obj, sec) for sec, obj, _, _ in moved))))
+        listed = ["%s %s\n" % (obj, sec) for sec, obj, _, _ in grown] + \
+                 ["%s %s shrunk\n" % (obj, sec) for sec, obj, _, _ in shrunk]
+        open(moved_out, "w").write("".join(sorted(set(listed))))
     open(path, "w").write("\n".join(lines))
-    print("af_relink: code and buffers moved to the end (%s stays at 0x%X); data block kept modulo 0x10000; "
-          "%d object section%s in code_en; %d plain segment%s after code"
-          % (segment, next_rom, len(moved), "" if len(moved) == 1 else "s", len(segs), "" if len(segs) == 1 else "s"))
-    for sec, obj, size, old in moved:
+    print("af_relink: code and buffers moved to the end of the ROM (%s stays at 0x%X); nothing moves in RAM; "
+          "%d section%s in code_en, %d padded; %d plain segment%s after code"
+          % (segment, next_rom, len(grown), "" if len(grown) == 1 else "s", len(shrunk),
+             len(segs), "" if len(segs) == 1 else "s"))
+    for sec, obj, size, old in grown + shrunk:
         print("  %s(%s): %#x -> %#x bytes" % (obj, sec, old, size))
     return 0
 

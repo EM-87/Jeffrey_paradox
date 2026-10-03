@@ -1,33 +1,33 @@
 #!/usr/bin/env python3
-"""Prove that a rebuilt `code` moved its data as one block.
+"""Prove that a rebuilt `code` left everything of the cartridge's in place.
 
     tools/af_shiftcheck.py REF_MAP NEW_MAP [--moved OBJ ...] [--moved-list FILE]
 
-The game's data, rodata and bss (and the `buffers` bss after them) hold
-addresses the linker never sees whole: `lui` halves shared between two
-symbols (tools/af_luicheck.py), IDO's own sharing inside an object, and
-whatever else the cartridge's code assumes about where things are. All of
-it survives one change for certain: the whole block moving by a multiple
-of 0x10000, which keeps every %hi/%lo pair and every distance. This
-checks exactly that against the reference (matching) build's map:
+The game's code holds addresses the linker never sees whole: `lui` halves
+shared between two symbols (tools/af_luicheck.py), IDO's own sharing inside
+an object, and the cartridge's files themselves (2,348 texture loads in
+the field models name code's bss buffers by their RAM address: NOTES,
+"Shiftability"). All of it survives for certain only if nothing moves.
+This checks exactly that against the reference (matching) build's map:
 
-  * every input section of the block (.data/.rodata/.bss of each object,
-    and buffers) has the same size and sits at its old address + D;
-  * every symbol of the block is at its old address + D (a symbol the new
-    link no longer defines is only reported: nothing can refer to it);
-  * D is a multiple of 0x10000 (D = 0 when the text did not grow);
-  * what is not in the block (boot, dmadata, the overlays) did not move:
+  * every input section of code (text, data, rodata, bss of each object,
+    and buffers) sits at its old address with its old size;
+  * every symbol of code is at its old address (a symbol the new link no
+    longer defines is only reported: nothing can refer to it);
+  * what is not in code (boot, dmadata, the overlays) did not move either:
     every symbol, and every section mark of boot and dmadata; inside
     dmadata only the marks and the table's start are held, since the
     table grows into its own padding when the translation adds files.
 
 An object named with --moved is exempt, as is each `object section` line
-of --moved-list (what tools/af_relink.py writes: only the sections whose
-size changed leave the block): a moved section may be anywhere outside
-the block, but must fit in one 64 KB %hi window, since IDO shares `lui`s
-inside an object. The linker script decides where they go (af_relink);
-this only proves the result.
-Exit status 1 with the violations when the proof fails.
+of --moved-list (what tools/af_relink.py writes: the sections that grew or
+are new): a moved section must be outside code's cartridge range and fit
+in one 64 KB %hi window, since IDO shares `lui`s inside an object. An
+`object section shrunk` line is a section that stayed, padded to its old
+size: it must start where it did and be no bigger; the symbols inside it
+are free. The linker script decides where things go (af_relink); this
+only proves the result. Exit status 1 with the violations when the proof
+fails.
 """
 
 import re
@@ -81,46 +81,58 @@ def is_moved(moved, obj, sec):
     return obj in moved or (obj, sec) in moved
 
 
-def check(ref, new, moved=(), gone=None):
-    """moved: object paths (all their sections) and/or (object, section) pairs.
+def check(ref, new, moved=(), gone=None, shrunk=()):
+    """moved: object paths (all their sections) and/or (object, section) pairs
+    that left their slot; shrunk: (object, section) pairs padded in place.
     gone, a list, collects the reference's symbols the new link no longer has
     (a C function built in place of its asm loses the asm's labels): not a
-    break, since nothing can refer to a symbol the linker does not define."""
+    break, since nothing can refer to a symbol the linker does not define.
+    Returns (displacement of the data block, errors)."""
     errors = []
     gone = [] if gone is None else gone
-    block_lo, block_hi = ref.marks["code_DATA_START"], ref.marks["buffers_VRAM_END"]
-    delta = new.marks["code_DATA_START"] - block_lo
-    if delta % 0x10000 or delta < 0:
-        errors.append("the data start moved by %#x, not a multiple of 0x10000" % delta)
-    new_lo, new_hi = new.marks["code_DATA_START"], new.marks["buffers_VRAM_END"]
+    block_lo, block_hi = ref.marks["code_TEXT_START"], ref.marks["buffers_VRAM_END"]
+    delta = new.marks["code_DATA_START"] - ref.marks["code_DATA_START"]
+    if delta:
+        errors.append("the data block moved by %#x" % delta)
 
     def in_block(out, addr):
         return out in BLOCK_SECTIONS and block_lo <= addr < block_hi
 
-    moved_ranges = []
+    free_ranges = []                    # moved or shrunk: their symbols are free
     new_inputs = {(s, obj): (a, n) for o, s, obj, a, n in new.inputs if n}
     for out, sec, obj, addr, size in ref.inputs:
         if not in_block(out, addr) or size == 0:
             continue
         got = new_inputs.get((sec, obj))
         if is_moved(moved, obj, sec):
-            moved_ranges.append((addr, addr + size))
+            free_ranges.append((addr, addr + size))
             if got is None:
                 continue
             a, n = got
-            if new_lo <= a < new_hi and n:
-                errors.append("%s %s was moved but still sits in the block at %#x" % (obj, sec, a))
+            if block_lo <= a < block_hi:
+                errors.append("%s %s was moved but still sits in code at %#x" % (obj, sec, a))
             if n and hi16(a) != hi16(a + n - 1):
                 errors.append("%s %s at %#x..%#x crosses a 64 KB %%hi window" % (obj, sec, a, a + n))
             continue
+        if (obj, sec) in shrunk:
+            free_ranges.append((addr, addr + size))
+            if got is not None and (got[0] != addr or got[1] > size):
+                errors.append("%s %s: %#x+%#x -> %#x+%#x, expected at %#x, no bigger"
+                              % (obj, sec, addr, size, got[0], got[1], addr))
+            continue
         if got is None:
             errors.append("%s %s (%#x, %#x bytes) is gone" % (obj, sec, addr, size))
-        elif got != (addr + delta, size):
-            errors.append("%s %s: %#x+%#x -> %#x+%#x, expected %#x+%#x"
-                          % (obj, sec, addr, size, got[0], got[1], addr + delta, size))
+        elif got != (addr, size):
+            errors.append("%s %s: %#x+%#x -> %#x+%#x" % (obj, sec, addr, size, got[0], got[1]))
+    for (sec, obj), (a, n) in new_inputs.items():  # new objects: outside code's range, in one window
+        if is_moved(moved, obj, sec) and not any(o == obj and s == sec for _, s, o, _, _ in ref.inputs):
+            if block_lo <= a < block_hi:
+                errors.append("%s %s is new but sits in code at %#x" % (obj, sec, a))
+            if hi16(a) != hi16(a + n - 1):
+                errors.append("%s %s at %#x..%#x crosses a 64 KB %%hi window" % (obj, sec, a, a + n))
 
-    def in_moved(addr):
-        return any(lo <= addr < hi for lo, hi in moved_ranges)
+    def free(addr):
+        return any(lo <= addr < hi for lo, hi in free_ranges)
 
     for name, addr in ref.marks.items():
         if name.startswith(("boot_", "dmadata_", "makerom_")):
@@ -133,27 +145,22 @@ def check(ref, new, moved=(), gone=None):
             continue                        # assets: nominal addresses
         if out == ".dmadata" and addr != dmadata_first:
             continue                        # the table may grow into its padding
-        got = new.symbols.get(name)
         if in_block(out, addr):
-            if in_moved(addr):
+            if free(addr):
                 continue
-            want = addr + delta
-        elif out in BLOCK_SECTIONS or (out or "").startswith(".boot") or (out or "").startswith(".ovl") \
-                or (out or "").endswith("_ovl") or (out or "").startswith(".dmadata") or (out or "").startswith(".makerom"):
-            want = addr                     # text, boot, dmadata, overlays: wherever, but text may move
-            if out == ".code":
-                continue                    # text: no constraint
-        else:
+        elif not (out in BLOCK_SECTIONS or (out or "").startswith((".boot", ".ovl", ".dmadata", ".makerom"))
+                  or (out or "").endswith("_ovl")):
             continue
+        got = new.symbols.get(name)
         if got is None:
             gone.append(name)                # nothing can refer to it: the link would have failed
-        elif got[0] != want:
-            errors.append("symbol %s: %#x -> %#x, expected %#x" % (name, addr, got[0], want))
+        elif got[0] != addr:
+            errors.append("symbol %s: %#x -> %#x" % (name, addr, got[0]))
     return delta, errors
 
 
 def main(argv):
-    moved, args = [], []
+    moved, shrunk, args = [], [], []
     i = 0
     while i < len(argv):
         if argv[i] == "--moved":
@@ -162,14 +169,16 @@ def main(argv):
         elif argv[i] == "--moved-list":
             for l in open(argv[i + 1]):
                 parts = l.split()
-                if parts:
+                if len(parts) == 3 and parts[2] == "shrunk":
+                    shrunk.append((parts[0], parts[1]))
+                elif parts:
                     moved.append(tuple(parts) if len(parts) == 2 else parts[0])
             i += 2
         else:
             args.append(argv[i])
             i += 1
     gone = []
-    delta, errors = check(LinkMap(args[0]), LinkMap(args[1]), moved, gone)
+    delta, errors = check(LinkMap(args[0]), LinkMap(args[1]), moved, gone, shrunk)
     for e in errors[:40]:
         print("  " + e)
     if gone:
@@ -177,7 +186,8 @@ def main(argv):
               % (len(gone), "" if len(gone) == 1 else "s", ", ".join(gone[:4]), "..." if len(gone) > 4 else ""))
     if len(errors) > 40:
         print("  ... %d more" % (len(errors) - 40))
-    print("af_shiftcheck: the block moved by %#x; %d violation%s" % (delta, len(errors), "" if len(errors) == 1 else "s"))
+    print("af_shiftcheck: %d section%s moved out, %d padded in place; %d violation%s"
+          % (len(moved), "" if len(moved) == 1 else "s", len(shrunk), len(errors), "" if len(errors) == 1 else "s"))
     return 1 if errors else 0
 
 

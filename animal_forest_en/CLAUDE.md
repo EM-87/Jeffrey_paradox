@@ -67,13 +67,14 @@ the why and the state, `reference/NOTES.md` for what is verified.
   build/af).
 - `tools/af_relink.py`, `af_relsyms.py`, `af_ranges.py`, `af_dmaorder.py` —
   the translation's build (`make rom-en`, in build/af_en): `code` moved to
-  the end of the ROM so that it can grow, its data block kept at its
-  address modulo 0x10000 with changed objects taken out to `code_en`, the
-  RAM addresses splat left absolute made relative, and the compressed ROM's
-  ranges and dmadata order (NOTES, "Shiftability").
+  the end of the ROM so that it can grow, nothing of it moved in RAM (a
+  section that grows, or a new one, goes to `code_en` after `buffers`, a
+  shrunk one is padded in place), the RAM addresses splat left absolute
+  made relative, and the compressed ROM's ranges and dmadata order (NOTES,
+  "Shiftability").
 - `tools/af_shiftcheck.py`, `af_anchors.py`, `af_luicheck.py` — the proofs
-  `make rom-en` runs before compressing: the block moved as one piece, no
-  address spelled with the wrong symbol, no shared `lui` broken.
+  `make rom-en` runs before compressing: nothing of the cartridge's moved,
+  no address spelled with the wrong symbol, no shared `lui` broken.
 - `tools/` — `rom.py`, `ups.py`, `nafe.py`, `nafe_diff.py` (the 2010
   patch against the original, by file and function), `route_newgame.py`
   (power-on to the houses, states on the way).
@@ -107,6 +108,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
 - **The decomp's make does not track every object**: after building an
   object a different way (NON_MATCHING), delete it and the ELF before
   checking the ROM. `af_match.py` always rebuilds its object.
+- **The cartridge's own files hold RAM addresses.** 2,348 texture loads in
+  the field models name code's bss buffers by address (NOTES,
+  "Shiftability"); assets are not linked, so nothing of code may move.
 - **The disassembly can name an address after the wrong symbol and still
   match.** IDO folds constant indexes into addresses (`table[name -
   0x8000]` becomes `table - 0x10000`, inside some unrelated function), and
@@ -147,6 +151,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   for the whole wait: the game sees one long press and never turns the
   page (two probes "found" a stuck dialogue this way). Release it:
   `frames(n, 0)`, or `press()`.
+- **A route that reaches its milestones has not looked at the screen.**
+  The relocated ROMs passed the route for a day while every town but the
+  route's own was drawn with black or pink ground; nothing checked the
+  pictures. Look at the route's sheet against the cartridge's.
 - **A screen detector proven on one ROM is not proven on another.** The
   route's name-dial check was tuned on the 2010 patch's English dial and
   missed the cartridge's kana dial (one ring pixel differs); every rebuilt

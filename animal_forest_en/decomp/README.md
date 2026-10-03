@@ -17,14 +17,14 @@
   `m_msg_main.c` are built from their C, and dates and times are built in
   the GameCube's formats (`m_string.c`, STR_AMPM on code 71).
   Its ROM is never compared with the cartridge: `make rom-en` builds it
-  with `code` moved to the end of the ROM so that it can grow, its data
-  block kept at its address modulo 0x10000 (an object whose data changes
-  size goes to a `code_en` region instead), proves the layout against the
-  matching build's map (`tools/af_shiftcheck.py`, `af_anchors.py`,
-  `af_luicheck.py`; see `reference/NOTES.md`, "Shiftability"), and
-  `make route-en` plays it. The rule for a change: text may grow; data of
-  an existing object had better not change size (if it does, the build
-  moves it and says so); new data goes in new objects.
+  with `code` moved to the end of the ROM so that it can grow and nothing
+  of it moved in RAM (a section that grows, or a new one, goes to a
+  `code_en` region after `buffers`; one that shrinks is padded in place),
+  proves the layout against the matching build's map
+  (`tools/af_shiftcheck.py`, `af_anchors.py`, `af_luicheck.py`; see
+  `reference/NOTES.md`, "Shiftability"), and `make route-en` plays it.
+  Every grown section costs heap (code_en comes off the system heap's
+  start), so keep changes small and new data in new objects.
 
 ## Working on it
 

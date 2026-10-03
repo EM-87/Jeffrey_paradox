@@ -98,15 +98,18 @@ búfer y lo que el parche de 2010 corrompió están en `reference/NOTES.md`.
 
 **Fase 3 — que el ROM tolere cambios de tamaño: hecha la regla, probada.**
 `make rom-en` compila la traducción con `code` al final del ROM (libre de
-crecer) y su bloque de datos en la misma dirección módulo 64 KB; un objeto
-cuyos datos cambien de tamaño pasa a una región `code_en`. Antes de
-comprimir, tres comprobaciones prueban la disposición contra el mapa del
-cartucho (`tools/af_shiftcheck.py`, `af_anchors.py`, `af_luicheck.py`). Lo
-que las motivó: una dirección que el desensamblado atribuía a la función
-equivocada (en `ovl_Birth_Control`) y que dejaba a Rover plantado en la
-puerta del tren en cuanto los datos se movían; con ella corregida, un ROM
-con todo el bloque desplazado 64 KB juega el recorrido entero igual que el
-original (`reference/NOTES.md`, "Shiftability").
+crecer) y sin mover en la RAM nada de lo que el cartucho colocó: lo que
+crece, o es nuevo, va a una región `code_en` detrás de `buffers`, cargada
+con el resto de `code`. Antes de comprimir, tres comprobaciones prueban la
+disposición contra el mapa del cartucho (`tools/af_shiftcheck.py`,
+`af_anchors.py`, `af_luicheck.py`). Lo que las motivó: una dirección que el
+desensamblado atribuía a la función equivocada (en `ovl_Birth_Control`)
+dejaba a Rover plantado en la puerta del tren en cuanto los datos se
+movían; y la primera regla (mover todo el bloque de datos 64 KB) pintaba
+de negro o de ruido rosa el suelo de todos los pueblos menos el del
+recorrido, porque los modelos del campo del propio cartucho apuntan a
+búferes de `code` por su dirección de RAM (2.348 cargas de textura en 204
+ficheros; `reference/NOTES.md`, "Shiftability").
 
 **Fase 4 — el guion oficial de GameCube: en curso.** `make script` lee del
 disco del usuario (sin ventana, sin copiar nada al repositorio) los bancos
