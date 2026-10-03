@@ -40,6 +40,11 @@ system", "The GameCube script"):
   * a line has at most --cols characters (a warning: the width is the
     font's, which phase 5 decides; 32 is the GameCube's practical English
     line in the N64's window).
+  * a free string (STR_FREE0..19) the cartridge's own message does not
+    use is a warning (--reference): the game fills free strings for the
+    message it shows, and an unfilled one prints the slot's leftovers (a
+    run of あ where the GameCube's text names a memory card slot or
+    another villager: reference/NOTES.md, "The English bank in the ROM").
 
 draft takes, for each N64 number, the GameCube text when af_align says it
 is the same message (same, plain, edited: edited ones get a note), else
@@ -50,12 +55,14 @@ build reads as it), MALEFEMALECHK keeps its first alternative,
 SELNOBCLOSE becomes the N64's SELNOB, anything else is kept and reported
 for the check to refuse. Characters the N64 charset lacks are given
 their plain ASCII (é -> e, the GameCube's marks their nearest; each
-replacement is counted). --overrides files (our own translations, in the
-repository) replace messages by number.
+replacement is counted). An official message naming free strings the
+Japanese does not gets a `#: TODO adapt` note. --overrides files (our own
+translations, in the repository) replace messages by number.
 """
 
 import collections
 import os
+import re
 import struct
 import sys
 import unicodedata
@@ -191,10 +198,21 @@ def page_lines(tokens):
     return max(most, shown())
 
 
-def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0, single=False):
+def free_strings(tokens):
+    """The free strings (STR_FREE0..19) a message prints."""
+    return set(re.findall(r"<(STR_FREE\d+)>", render(tokens)))
+
+
+def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0, single=False, original=None):
     """[(level, text)] for one message; allowed_lines: what its original showed;
-    single: a choice or free string (no codes, no terminator, one line)."""
+    single: a choice or free string (no codes, no terminator, one line);
+    original: the cartridge's message, for the free strings the game fills."""
     problems = []
+    if original is not None:
+        unfilled = free_strings(tokens) - free_strings(original)
+        if unfilled:
+            problems.append(("warning", "prints %s, which the cartridge's message does not: the game may not fill it"
+                             % ", ".join(sorted(unfilled))))
     tokens = carried(tokens)
     try:
         raw = encode(tokens)
@@ -248,7 +266,8 @@ def run_checks(messages, cols, lines, max_bytes, reference=None, single=False):
     errors = warnings = 0
     for number in sorted(messages):
         allowed = page_lines(reference[number]) if reference and number in reference else 0
-        for level, text in check_message(number, messages[number], cols, lines, max_bytes, allowed, single):
+        original = reference.get(number) if reference and not single else None
+        for level, text in check_message(number, messages[number], cols, lines, max_bytes, allowed, single, original):
             print("%s %d: %s" % (level, number, text))
             if level == "error":
                 errors += 1
@@ -305,6 +324,11 @@ def draft(n64_path, gc_path, align_path, out_path, overrides):
             counts["official " + cls] += 1
             if cls == "edited":
                 note = "#: the GameCube edited this message; the Japanese had: %s\n" % render(n64[n]).replace("\n", "¶")
+            unfilled = free_strings(tokens) - free_strings(n64[n])
+            if unfilled:
+                note += "#: TODO adapt: the GameCube's text prints %s, which the cartridge does not fill here\n" \
+                    % ", ".join(sorted(unfilled))
+                counts["official, free strings to adapt"] += 1
         else:
             tokens = n64[n]
             counts["japanese " + cls] += 1

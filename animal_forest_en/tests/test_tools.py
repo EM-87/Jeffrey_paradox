@@ -540,6 +540,12 @@ class Script(unittest.TestCase):
         self.assertEqual([lv for lv, _ in af_text.check_message(5, msgbank.parse("é" + end), 32, 4, 0x400)], ["error"])
         self.assertEqual([lv for lv, _ in af_text.check_message(6, msgbank.parse("<CUTARTICLE>x" + end), 32, 4, 0x400)], ["error"])
         self.assertEqual([lv for lv, _ in af_text.check_message(7, msgbank.parse("x" * 0x500 + end), 32, 4, 0x400)][0], "error")
+        # a free string the cartridge's message does not print: the game may not fill it
+        jp = msgbank.parse("<STR_FREE2>, <STR_COUNTRYNAME>" + end)
+        en = msgbank.parse("<STR_FREE2> in <STR_FREE4>'s <STR_COUNTRYNAME>" + end)
+        self.assertEqual(af_text.check_message(8, en, 32, 4, 0x400, original=jp),
+                         [("warning", "prints STR_FREE4, which the cartridge's message does not: the game may not fill it")])
+        self.assertEqual(af_text.check_message(8, jp, 32, 4, 0x400, original=jp), [])
         with tempfile.TemporaryDirectory() as d:
             text, index = os.path.join(d, "t.bin"), os.path.join(d, "i.bin")
             all_msgs = {n: msgbank.parse("<MSGEND>") for n in range(af_text.N64_COUNT)}

@@ -648,6 +648,21 @@ the emulator (`make rom-en`, `make script ISO=...`).
   redirected without touching the asm: they use only %hi/%lo of the
   `D_Dxxxxx` symbols, which the en build can define as new segments'
   `_ROM_START` in its linker scripts.
+- **Free strings the game does not fill.** The game fills a free string
+  (STR_FREE0..19) for the message it is about to show; an official
+  message that prints one the cartridge's own does not prints the slot's
+  leftovers. Seen on screen: the cow at the start says "in" and fourteen
+  あ (message 5106: the GameCube's "in <STR_FREE4>'s <STR_COUNTRYNAME>",
+  where the Japanese has only the town). 64 official messages do this
+  (`af_text.py check --reference` warns; the draft marks them `TODO
+  adapt`): most are the GameCube's memory card and its slot (FREE3/4/5 in
+  the welcome and copy messages 5106-5342 and 2383-2390), the rest
+  another villager's name (FREE13, 9429-9430), the harvest moon's date
+  (FREE16/17) and a few items and names. Wider: 104 messages mention the
+  Memory Card where the cartridge has the Controller Pak and the
+  cartridge itself. Adapting them is translation work of its own: rules
+  applied to the official text at build time, or our own lines from the
+  Japanese in `script/`, never the official text in the repository.
 - **What is left to translate ourselves.** Of the 969 messages with no
   official text (709 removed, 260 reused), 287 are spare placeholders
   (よび, "spare"), 211 the debug and test texts of numbers 0-210, 78 have
