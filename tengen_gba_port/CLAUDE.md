@@ -106,7 +106,7 @@ minus those).
 | --- | --- | --- |
 | `make test` | no | always — the rules, in milliseconds |
 | `make gba` | headers | to build `build/tengen.gba` |
-| `make gba-check` | headers | before calling any change done: 67 checks on the running ROM in mGBA, eighteen of them on two consoles with a cable, and then the Wireless Adapter's (`run_wireless.py`) |
+| `make gba-check` | headers | before calling any change done: 69 checks on the running ROM in mGBA, eighteen of them on two consoles with a cable, and then the Wireless Adapter's (`run_wireless.py`) |
 | `make trace ROM=... [MODE=coop\|versus\|with\|demo]` | yes | after touching `tengen_step` or `tengen_ai.c`: the port against the cartridge, iteration by iteration. The 1P and coop scripts never complete a row; `MODE="with --pad1"` plays player 1 with the port's computer and clears plenty; add `--handicap N` to any mode |
 | `make tune-check ROM=...` | yes | after touching audio: the four tunes against the cartridge, note by note |
 | `make dance-check ROM=...` | yes | after touching the dancers: their choreography against the cartridge's driver |
@@ -457,6 +457,18 @@ story behind each; the item number is in brackets.
   its tunes back up by itself. So a linked level-up asks for Korobeiniki,
   Katiuska or MUSIC MIX's next turn again when the intro ends
   (`g_levelup_resume`, `levelup_music_check`).
+  **The level-up's music is the match's, not the player's**: either
+  player's level-up plays it on both consoles (`announce`'s `level_tune`),
+  as the cartridge's one sound engine does. Each console used to play it
+  for its own player only, and in coop — one shared level — the two then
+  played different music (`coop_levelup_music_check`).
+- **A solo level-up silences the match's tune.** showLevelBonus queues
+  MUSIC_SILENCE right behind the intro (main.asm.txt:1953): the intro is
+  class 8 and survives, the tune is class 7 and stops. Without it the
+  tune's triangle went on under the jingle. The cossacks' loop comes
+  LEVELUP_LOOP_FRAMES after the intro, twelve ticks of the show's clock,
+  with a second of quiet between — measured on the cartridge
+  (`--levelup-tune`).
 - **Over the cable the pause menu's tune list is the master's**, the full
   one (it is there because the master found the chord), never this
   console's own: counted from each console's chord, the two stepped through
@@ -542,7 +554,9 @@ only what the pad can reach in time; tengen_ai.c); the cartridge's own
 bugs mended under the chord (`TengenGame.mended`, the master's chord over a
 cable): a coop deal waits for room instead of coming up inside the
 partner's piece, a falling piece is lifted out of the partner's collapsed
-rows, and the left panel's shelves meet the rope (`mend_shelf_joins`); a handicap of its own
+rows, and the left panel's shelves meet the rope (`mend_shelf_joins`); the
+STATS bars, under the chord, scaled to the tallest once one would run off the
+top of the box (`piece_total`, the port's uncapped count; `--statsrel`); a handicap of its own
 for the computer in VERSUS COMPUTER under the chord; the pause menu over the
 cable, there if the MASTER found the chord and driven by both players'
 presses through lockstep (`link_match_begin`); a linked match that waits
@@ -591,6 +605,9 @@ down into a falling piece when the partner's rows collapse (INFERRED: the
 playfield buffer holds only settled cells). `make fuzz` finds both and
 leaves them alone — except under the chord, where all three are mended
 (Decisions) and the fuzzer's mended half asserts the two never happen.
+The rising note as a game starts: SOUND_SCREEN_SWITCH ($15, a pulse with a
+negated sweep), the one every menu screen makes; the cartridge plays it going
+into the game too, register for register the same.
 
 ## Open
 
