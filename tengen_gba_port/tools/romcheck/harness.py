@@ -333,6 +333,53 @@ CODE_UNDO = "LEFT DOWN RIGHT UP LEFT DOWN RIGHT B A".split()
 _GAME_PROBE_CACHE = {}
 
 
+_LAYOUT_CACHE = {}
+_LAYOUT_DEFAULT = {
+    "question": 0xF0, "percent": 0xF1, "raised_base": 960, "arrow_tail": 970,
+    "arrow_head": 971, "leader_head_ty": 2, "leader_first_ty": 3,
+    "leader_entries": 15, "skin_tables": 4, "mode_tables": 4,
+    "save_data": 5, "save_table_bytes": 135, "save_entry_bytes": 9,
+    "save_name": 0x400, "save_mode": 0x410, "save_mode_sums": 0x41C + 4 * 135,
+    "raised": "PAUSEXIT?R",
+    "ai_target_x": 6, "ai_target_o": 7, "ai_settle": 8, "ai_soft_drop": 9,
+    "ai_coop_aware": 10, "ai_smart": 12, "ai_plan_have": 420,
+    "ai_plan_stage": 0,
+}
+
+
+def check_layout(rom_path):
+    """The port's own numbers the checks read the screen and the save by:
+    kCheckProbe and kCheckRaised (gba/video.c), read out of the ROM FILE at
+    the address the ELF gives them, so nothing has to boot. They used to be
+    written out here by hand; a change in C that this missed made a check
+    read the wrong tile and say nothing. Without an ELF (an old build) the
+    numbers below, which were right when this was written."""
+    if not rom_path:
+        return _LAYOUT_DEFAULT
+    if rom_path not in _LAYOUT_CACHE:
+        addr, _ = game_state_address(rom_path, "kCheckProbe")
+        raised, _ = game_state_address(rom_path, "kCheckRaised")
+        if addr is None or raised is None:
+            _LAYOUT_CACHE[rom_path] = _LAYOUT_DEFAULT
+            return _LAYOUT_DEFAULT
+        base = 0x08000000 if addr >= 0x08000000 else 0x02000000
+        data = open(rom_path, "rb").read()
+        v = [int.from_bytes(data[addr - base + 2 * i:addr - base + 2 * i + 2], "little")
+             for i in range(24)]
+        at = raised - base
+        text = data[at:data.index(b"\0", at)].decode("ascii")
+        keys = ("question", "percent", "raised_base", "arrow_tail", "arrow_head",
+                "leader_head_ty", "leader_first_ty", "leader_entries",
+                "skin_tables", "mode_tables", "save_data", "save_table_bytes",
+                "save_entry_bytes", "save_name", "save_mode", "save_mode_sums",
+                "ai_target_x", "ai_target_o", "ai_settle", "ai_soft_drop",
+                "ai_coop_aware", "ai_smart", "ai_plan_have", "ai_plan_stage")
+        layout = dict(zip(keys, v))
+        layout["raised"] = text
+        _LAYOUT_CACHE[rom_path] = layout
+    return _LAYOUT_CACHE[rom_path]
+
+
 def game_offsets(rom_path):
     """Byte offsets into TengenGame, read out of the built ELF."""
     if rom_path not in _GAME_PROBE_CACHE:
@@ -495,14 +542,15 @@ def tilemap_text(core, row, first=0, last=30):
     and this maps them back. Without that, "EXIT?" reads as "EXIT" and the
     pause menu's question looks like its EXIT line.
     """
-    QUESTION = 0xF0    # TILES_GAME_QUESTION in gba/tiles_game.h
-    PERCENT = 0xF1     # TILES_GAME_PERCENT
+    lay = check_layout(getattr(core, "_tengen_rom", None))
+    QUESTION = lay["question"]     # TILES_GAME_QUESTION in gba/tiles_game.h
+    PERCENT = lay["percent"]       # TILES_GAME_PERCENT
     # ...and the pause menu's headings, drawn with copies of their letters one
     # pixel higher (PMENU_RAISED_BASE / PMENU_RAISED_CHARS in gba/port.h).
-    RAISED_BASE, RAISED = 960, "PAUSEXIT?R"
+    RAISED_BASE, RAISED = lay["raised_base"], lay["raised"]
     # ...and its arrow, moved three pixels closer across two tiles
     # (T_ARROW_TAIL / T_ARROW_HEAD): read as "->".
-    ARROW = {RAISED_BASE + len(RAISED): "-", RAISED_BASE + len(RAISED) + 1: ">"}
+    ARROW = {lay["arrow_tail"]: "-", lay["arrow_head"]: ">"}
 
     def readable(t):
         return (32 <= t < 127 or t in (QUESTION, PERCENT) or t in ARROW
@@ -695,17 +743,8 @@ def to_music_page(core, settle=10):
 PAL_PIECE_BANK, PAL_NEXT_BANK = 12, 13
 
 
-# TengenAi, byte by byte — see src/tengen_ai.h, where the struct is six bytes
-# of the ROM's own scratch and then the port's. There is no probe for it, so
-# `soft_drop` is read as well and checked against the one value a running
-# WITH COMPUTER game can have: if the layout ever moves, that is what says so
-# rather than the flags quietly reading each other's bytes.
-AI_TARGET_X, AI_TARGET_O = 6, 7
-AI_SETTLE, AI_SOFT_DROP, AI_COOP_AWARE = 8, 9, 10
-# ...and the port's own computer: `smart` right after since_spawn, and
-# `plan_have` after the planner's arrays (17 + 64 + 64 bytes, the scores
-# aligned to 148 and 256 long, the top six, the count, two int32s at 412).
-AI_SMART, AI_PLAN_HAVE = 12, 420
+# TengenAi's fields the checks read: out of the ROM (kCheckProbe, through
+# check_layout); see ai_offsets in romcheck/ai.py.
 
 
 # Where the pause menu's lines land, derived the way gba/port.h derives them:

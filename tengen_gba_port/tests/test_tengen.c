@@ -2911,6 +2911,74 @@ static void test_the_ports_computer_comes_back_when_the_way_clears(void) {
     CHECK(ai.target_x == well_x && ai.target_orientation == well_o);
 }
 
+/* `deep`: a 2x2 cave at the bottom, under a ledge, open on its right. The
+ * O's best place is IN it (dropped beside it, it would leave the cave four
+ * holes), and no straight drop gets there: the ledge stops it two rows
+ * up. So the computer has to drop the O into the opening, let it come to
+ * rest, and slide it two columns left before it locks — the driver's
+ * shift every eighth frame against the fall timer. At level 0 there is
+ * time for that; at level 18 there is not, and the walk knows it. Played
+ * on the core itself, frame by frame, and read off the board. */
+static int tuck_the_o(uint8_t level, bool deep) {
+    TengenGame g;
+    TengenAi ai;
+    tengen_new_game(&g, 0x1234, level, false, false, false);
+    TengenPlayfield *f = &g.field[0];
+    for (int r = 0; r < TENGEN_PF_HEIGHT; r++)
+        for (int c = 1; c < TENGEN_PF_WIDTH - 1; c++) f->cell[r][c] = 0;
+    for (int c = 1; c <= 3; c++) f->cell[18][c] = f->cell[19][c] = 1;
+    for (int c = 8; c <= 10; c++) f->cell[18][c] = f->cell[19][c] = 1;
+    for (int c = 1; c <= 5; c++) f->cell[17][c] = 1;          /* the ledge */
+    TengenPlayerState *p = &g.player[0];
+    p->piece.current = TT_O;
+    p->piece.orientation = 0;
+    tengen_ai_reset(&ai);
+    ai.smart = true;
+    ai.deep = deep;
+    tengen_ai_choose(&ai, &g, TENGEN_PLAYER_1);
+    for (int fr = 0; fr < 3000; fr++) {
+        uint8_t b = tengen_ai_buttons(&ai, &g, TENGEN_PLAYER_1, (uint8_t)fr);
+        tengen_step(&g, TENGEN_PLAYER_1, b);
+        if (p->piece.current != TT_O || f->cell[19][4] || f->cell[19][6] ||
+            f->cell[16][4])
+            break;
+    }
+    if (f->cell[18][4] && f->cell[19][5]) return 1;      /* in the cave */
+    return 0;
+}
+
+static void test_the_ports_computer_slides_under_a_ledge_when_there_is_time(void) {
+    CHECK(tuck_the_o(0, true) == 1);
+    CHECK(tuck_the_o(0, false) == 0);     /* without `deep`, as it always was */
+    CHECK(tuck_the_o(18, true) == 0);     /* no time for it at level 18 */
+}
+
+/* tengen_ai_think_while: a caller with time to spare (the GBA's frame, in
+ * WITH COMPUTER) thinks a unit at a time for as long as it says so, and no
+ * longer; with time enough, a whole plan in one call. */
+static int g_units_left;
+static bool units_left(void) { return g_units_left-- > 0; }
+
+static void test_the_ports_computer_thinks_while_there_is_time(void) {
+    TengenGame g;
+    TengenAi ai;
+    tengen_new_game(&g, 0x4321, 0, false, false, false);
+    tengen_ai_reset(&ai);
+    ai.smart = true;
+    tengen_ai_choose(&ai, &g, TENGEN_PLAYER_1);
+    CHECK(ai.plan_stage == 1);
+    g_units_left = 0;                      /* no time: nothing happens */
+    tengen_ai_think_while(&ai, &g, TENGEN_PLAYER_1, units_left);
+    CHECK(ai.plan_stage == 1 && !ai.plan_have);
+    g_units_left = 3;                      /* a little: a little */
+    tengen_ai_think_while(&ai, &g, TENGEN_PLAYER_1, units_left);
+    CHECK(ai.plan_stage == 1 && ai.plan_cursor >= 1 && ai.plan_cursor <= 4);
+    g_units_left = 100000;                 /* plenty: the whole plan */
+    tengen_ai_think_while(&ai, &g, TENGEN_PLAYER_1, units_left);
+    CHECK(ai.plan_stage == 3 && ai.plan_have);
+    CHECK(g_units_left > 0);               /* ...and it stopped asking */
+}
+
 static void test_the_ports_computer_keeps_a_persons_pace(void) {
     /* `adaptive`: a partner who drops pieces gets a computer that drops
      * its own; one who lets them fall does not; four lines ahead, it drops
@@ -4073,6 +4141,8 @@ int main(void) {
     test_the_ports_computer_outplays_the_cartridges();
     test_the_ports_computer_gets_where_it_aims();
     test_the_ports_computer_comes_back_when_the_way_clears();
+    test_the_ports_computer_slides_under_a_ledge_when_there_is_time();
+    test_the_ports_computer_thinks_while_there_is_time();
     test_the_ports_computer_keeps_a_persons_pace();
     test_mended_coop_deal_waits_for_room();
     test_mended_collapse_lifts_the_falling_piece();

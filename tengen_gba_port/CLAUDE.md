@@ -72,9 +72,10 @@ running ROM; only the side panels need reflowing).
 - **`src/`** — the rules. `tengen_core.c` (the game), `tengen_ai.c`
   (`computerMove`), `tengen_link.c` (the cable's lockstep, lobby and records
   swap). C99, no GBA headers, tested on the host.
-- **`gba/`** — the GBA layer, five files sharing `gba/port.h`:
+- **`gba/`** — the GBA layer, six files sharing `gba/port.h`:
   `video.c` the hardware (backgrounds, palettes, uploads, keypad, skins, the
-  interrupt handler and `vsync`); `hud.c` what a match looks like; `frontend.c`
+  interrupt handler and `vsync`); `hud.c` what a match looks like;
+  `records.c` the HIGH SCORES tables, their save and the typing; `frontend.c`
   the screens around a match; `match.c` one frame of play and the pause menu;
   `main.c` the state machine. Plus `nes6502.c` + `nes_audio.c` (the
   cartridge's sound engine, run), `handtunes.c` (the two hand-entered tunes)
@@ -123,6 +124,13 @@ ASan+UBSan, a short `make fuzz`, `make assets-check`, the core
 cross-compiled for the GBA, and the trace harness's host build. `make gba-check` and the cartridge comparisons
 stay local.
 
+The port's own numbers a check reads the ROM by (the planted glyphs, the
+pause menu's raised letters, the HIGH SCORES rows, the save's layout) come
+out of the ROM, `kCheckProbe`/`kCheckRaised` in video.c through
+`check_layout` in harness.py, as TengenGame's offsets come from
+`kGameProbe`: a constant typed again in Python drifts silently. `--selftest`
+fails if the probe is missing or a constant left in harness.py disagrees.
+
 A single check runs on its own: `python3 tools/run_rom.py build/tengen.gba
 --pausemenu` (the flags are listed in `tools/run_rom.py --help`). A new
 check goes in the `tools/romcheck/` module of its family, gets a flag in
@@ -164,7 +172,11 @@ story behind each; the item number is in brackets.
   (`gba/mb.ld`, `-DTENGEN_MULTIBOOT`, crt0's multiboot entries under
   MULTIBOOT) and carried inside the cartridge's ROM (`gba/mb_image.s`),
   which is why the ROM is 512 KB. Image plus the 6502's 64 KB must fit in
-  256 KB and the link asserts it. The slave boots into the lobby following
+  256 KB and the link asserts it — and it is FULL: about 128 bytes to spare
+  (196480 of 196608). Code that only the cartridge needs says so
+  (`#ifdef TENGEN_MULTIBOOT`, or a flag only the cartridge's link line gets,
+  as `AI_HOT_FLAGS` is), and the next thing the copy needs will have to find
+  its own room. The slave boots into the lobby following
   the master's mode (`tengen_lobby_mode_any`) and never touches save
   memory (a console booted into multiboot can have another game's
   cartridge in). What eleven rounds on two SPs taught, one line each:
@@ -528,9 +540,26 @@ story behind each; the item number is in brackets.
   pieces come down half again faster than gravity, or when four lines
   behind, and never when six ahead — always once over its column, so its
   reachability still holds.
+- **The port's computer slides pieces under a ledge only in WITH COMPUTER**
+  (`deep`, ai_walk): after the plan is made, never before it — looked for
+  first, it made the main choice late and lost lines beside a partner that
+  drops. A slide planned on a board that has since grown slides from
+  whatever row the piece rests on; one across the partner's piece is not
+  planned. It does not clear more lines (`ai_tune deep`); it is there to be
+  seen. Its planner's arrays move TengenAi's later fields: checks read them
+  through `kCheckProbe`. Reading the partner's NEXT as well was measured
+  worse (-1.6 lines a game) and is not there; see tengen_ai.c.
 - **The port's computer thinks a slice a frame** (`TENGEN_AI_SMART_BUDGET`,
   the first look at each placement charged double) and is a few frames
-  behind the deal before it has a target. A bigger slice spills the main
+  behind the deal before it has a target. HOW SOON IT DECIDES IS HOW WELL IT
+  PLAYS: in WITH COMPUTER it also thinks through whatever the frame has left
+  before the vertical blank (`ai_think_spare`, match.c, to AI_SPARE_LINE),
+  and its inner loops run as ARM from internal WRAM (`TENGEN_AI_HOT`, the
+  cartridge's build only — the Single-Pak image has no room for the ARM);
+  first plans 63 frames -> 17, and 4.3 more lines a game (`ai_tune spare`).
+  On the GBA a weighed placement costs about five scanlines and reading the
+  board eight, so a planner call that reads the board for two placements is
+  mostly reading the board. A bigger slice spills the main
   loop's turn into a second frame — `--aiframe` counts the frames between
   turns in VERSUS and WITH COMPUTER under the chord. Its reachability is
   the core's own pace walked frame by frame (`ai_reachable`): fall timer,
@@ -592,7 +621,8 @@ computer reading its coop partner under the chord, and under the same
 chord not the cartridge's computer at all but the port's own in VERSUS and
 WITH COMPUTER (`smart`: El-Tetris's scoring on a bit board, NEXT looked at,
 only what the pad can reach in time, and on a shared board weights of its
-own found by evolution, `make ai-tune`; tengen_ai.c); the cartridge's own
+own found by evolution, `make ai-tune`, and in WITH COMPUTER slides under a
+ledge while the fall leaves time for them, `deep`; tengen_ai.c); the cartridge's own
 bugs mended under the chord (`TengenGame.mended`, the master's chord over a
 cable): a coop deal waits for room instead of coming up inside the
 partner's piece, a falling piece is lifted out of the partner's collapsed
@@ -648,8 +678,9 @@ proto_d as a fourth skin (its title is pixel-identical to proto_c's); a
 prototype's rules over the cable; A+B restarting the whole game in 1P and
 coop (there A and B are the way out); the line counter's clamp at 10000;
 the prototypes' own front-end shape (two modes, their level select, no
-handicap or music); the computer sliding a piece under an overhang (tried
-twice, measured worse); the demo's own game over and HIGH SCORES page (the
+handicap or music); the cartridge's computer sliding a piece under an overhang (tried
+twice, measured worse; the port's own does, in WITH COMPUTER under the
+chord); the demo's own game over and HIGH SCORES page (the
 cartridge's demo plays about 25 minutes, tops out, and shows both; the
 port's holds its GAME OVER three seconds and goes back to the title, and
 writes no score nobody played for); the demo's seed (the cartridge's
