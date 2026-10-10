@@ -263,6 +263,12 @@ rebotando a su sitio), zoom por pellizco, temas de colores y widget de
 escritorio. *Mide el tiempo como quieras.*
 Ver su [README](weird-clock/README.md) para compilarla.
 
+## 🎮 Extra: Tengen Tetris para GBA
+
+El port de Tetris (NES, Tengen) a Game Boy Advance vivía en la carpeta
+`tengen_gba_port/`. Se mudó, con todo su historial, a su propio repositorio:
+[EM-87/Tetris-Tengen-to-GBA](https://github.com/EM-87/Tetris-Tengen-to-GBA).
+
 ## 📝 Licencia
 
 MIT License - Uso libre para educación e investigación.
