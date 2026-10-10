@@ -1,0 +1,11 @@
+# The instrumented snes9x core (tools/snes9x/build.sh) and anything made
+# from a dump: chunk dumps, listings, save states, captures. The game's data
+# is built locally from the dump you supply, never committed.
+build/
+*.sfc
+*.smc
+*.gba
+*.sav
+*.state
+*.cdl
+__pycache__/

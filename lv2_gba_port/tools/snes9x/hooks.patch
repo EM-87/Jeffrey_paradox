@@ -1,0 +1,116 @@
+diff --git a/cpuexec.cpp b/cpuexec.cpp
+index 0494810..3d29417 100644
+--- a/cpuexec.cpp
++++ b/cpuexec.cpp
+@@ -14,6 +14,7 @@
+ #include "spc7110.h"
+ #include "bsflash.h"
+ #include "snapshot.h"
++#include "dbg.h"
+ #ifdef DEBUGGER
+ #include "debug.h"
+ #include "missing.h"
+@@ -168,6 +169,9 @@ void S9xMainLoop (void)
+ 				Opcodes = S9xOpcodesSlow;
+ 		}
+ 
++		if (dbg_enabled)
++			dbg_on_exec(Op);
++
+ 		Registers.PCw++;
+ 		(*Opcodes[Op].S9xOpcode)();
+ 
+diff --git a/dma.cpp b/dma.cpp
+index 95cb1a9..bd34bfb 100644
+--- a/dma.cpp
++++ b/dma.cpp
+@@ -7,6 +7,7 @@
+ #include "snes9x.h"
+ #include "memmap.h"
+ #include "dma.h"
++#include "dbg.h"
+ #include "apu/apu.h"
+ #include "sdd1.h"
+ #include "spc7110.h"
+@@ -105,6 +106,9 @@ bool8 S9xDoDMA (uint8 Channel)
+ 		return (TRUE);
+ 	}
+ 
++	if (dbg_enabled)
++		dbg_on_dma(Channel);
++
+ 	// Prepare for accessing $2118-2119
+ 	switch (d->BAddress)
+ 	{
+diff --git a/getset.h b/getset.h
+index bd3b365..5480342 100644
+--- a/getset.h
++++ b/getset.h
+@@ -8,6 +8,7 @@
+ #define _GETSET_H_
+ 
+ #include "cpuexec.h"
++#include "dbg.h"
+ #include "dsp.h"
+ #include "sa1.h"
+ #include "spc7110.h"
+@@ -64,6 +65,8 @@ inline uint8 S9xGetByte (uint32 Address)
+ 
+ 	if (GetAddress >= (uint8 *) CMemory::MAP_LAST)
+ 	{
++		if (dbg_enabled)
++			dbg_on_read(GetAddress + (Address & 0xffff), 1);
+ 		byte = *(GetAddress + (Address & 0xffff));
+ 		addCyclesInMemoryAccess;
+ 		return (byte);
+@@ -203,6 +206,8 @@ inline uint16 S9xGetWord (uint32 Address, enum s9xwrap_t w = WRAP_NONE)
+ 
+ 	if (GetAddress >= (uint8 *) CMemory::MAP_LAST)
+ 	{
++		if (dbg_enabled)
++			dbg_on_read(GetAddress + (Address & 0xffff), 2);
+ 		word = READ_WORD(GetAddress + (Address & 0xffff));
+ 		addCyclesInMemoryAccess_x2;
+ 		return (word);
+diff --git a/libretro/Makefile.common b/libretro/Makefile.common
+index 664c6f7..cb4b720 100644
+--- a/libretro/Makefile.common
++++ b/libretro/Makefile.common
+@@ -32,6 +32,7 @@ SOURCES_CXX := $(CORE_DIR)/apu/apu.cpp \
+ 	       $(CORE_DIR)/controls.cpp \
+ 	       $(CORE_DIR)/cpu.cpp \
+ 	       $(CORE_DIR)/cpuexec.cpp \
++	       $(CORE_DIR)/dbg.cpp \
+ 	       $(CORE_DIR)/cpuops.cpp \
+ 	       $(CORE_DIR)/crosshairs.cpp \
+ 	       $(CORE_DIR)/dma.cpp \
+diff --git a/libretro/libretro.cpp b/libretro/libretro.cpp
+index b7aaace..56c8672 100644
+--- a/libretro/libretro.cpp
++++ b/libretro/libretro.cpp
+@@ -5,6 +5,7 @@
+ #include "libretro_core_options.h"
+ 
+ #include "snes9x.h"
++#include "dbg.h"
+ extern "C" { extern uint8 TileMode7Hires; extern uint8 TileMode7HiresBilinear; }
+ #include "fxemu.h"
+ #include "memmap.h"
+@@ -2248,6 +2249,7 @@ static void report_buttons()
+ 
+ void retro_run()
+ {
++    dbg_on_frame();
+     static uint16 height = PPU.ScreenHeight;
+     bool updated = false;
+     if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) && updated)
+diff --git a/libretro/link.T b/libretro/link.T
+index 9e82b5d..0bf1319 100644
+--- a/libretro/link.T
++++ b/libretro/link.T
+@@ -1,4 +1,4 @@
+ {
+-   global: retro_*;
++   global: retro_*; dbg_*;
+    local: *;
+ };

@@ -1,0 +1,32 @@
+# The Lost Vikings II -> GBA: the tools' own tests (no cartridge dump needed;
+# everything that reads the game stays local).
+name: lv2-gba-port
+
+on:
+  push:
+    paths:
+      - "lv2_gba_port/**"
+      - ".github/workflows/lv2-gba-port.yml"
+  pull_request:
+    paths:
+      - "lv2_gba_port/**"
+      - ".github/workflows/lv2-gba-port.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tools:
+    name: Tools
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: lv2_gba_port
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: make check
