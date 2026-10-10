@@ -37,7 +37,8 @@ Measured with `tests/emu_check.py` and ad-hoc runs on the original ROM:
 - A state saved at frame F and loaded gives, at F+30, the same pixels and
   the same 4 MiB of RDRAM as the first pass.
 - Speed: about 40 rendered frames a second (75 VIs/s, 1.25× real time) on
-  4 cores; Animal Forest renders about one frame per two VIs and polls the
+  4 cores with angrylion's workers, about 22 on its one thread (point 6);
+  Animal Forest renders about one frame per two VIs and polls the
   controller about four times per rendered frame.
 
 Memory watchpoints (`N64(watch=True)`, cached interpreter) were checked
@@ -69,6 +70,38 @@ What it took (each found by a failing comparison, in this order):
    `gamma_filters`, per-worker `vi_rseed`). Reseeded per scanline by
    `emu/patches/angrylion-rdp-plus-vi-noise.patch`. The hardware's noise is
    random, so a fixed seed is no less faithful.
+6. Those checks all ran in one process, from one state. Across runs the
+   route's milestones still moved (2026-10-03, the same en ROM: the town
+   dial at 4118 or 4120, the houses at 12172, 12176, 12178). Two causes:
+   - `save_state()` ran frames until the core's writer thread reported the
+     file written (point 4: the snapshot is taken at the first interrupt
+     after the request, the gzip and the write happen on a workqueue
+     thread), so a save cost 1 to 8 frames depending on the host's disk,
+     and every input after it came that much later. Now it runs exactly
+     the one frame the snapshot is taken in and waits for the file with
+     the machine held (`n64emu.py` `_state`). `emu_check.py`: "a save takes
+     one frame", "a run with a save in it is the run without"; the old
+     frontend fails both (saved at 537, at 545 after the save).
+   - angrylion's render workers raced. Each draws its own scanlines of a
+     batch of up to 1024 commands, joined only at SYNC_FULL (the plugin's
+     DpCompat 0), but a texture or TLUT load reads lines the others draw:
+     it saw the framebuffer half drawn, or half redrawn. Animal Forest
+     copies its own screen 33 frames before the name dial (frame 2381 on
+     the cartridge, 3256 on the en ROM), so two runs drew different pixels
+     there and the game kept them; by the dial 3,615 words of RAM
+     differed, three quarters outside the framebuffer. Ending a batch
+     before each load and running it alone made the runs identical but
+     cost 80 s against the workers' 45 s and one thread's 65 s for the same
+     1,464 frames, so the frontend renders on one thread (`Parallel` off).
+     The title's md5 is unchanged.
+   - What was left differing was in the state files, not the machine: the
+     core saves its interrupt queue from a 1 KB stack buffer filled only
+     as far as the events go, so each file carried stale host pointers.
+     `emu/patches/mupen64plus-core-state-bytes.patch` zeroes it (and the
+     state buffer). `tests/emu_determinism.py` (`make emu-determinism`)
+     plays the route's opening in two processes at once, compares RDRAM
+     after every frame and the states at the dial byte for byte: it passes,
+     and with the workers back (`--parallel`) the runs part at frame 2381.
 
 - **The save type comes from mupen64plus.ini, by MD5.** The original's
   entry (`A4F7C57C...`) says `SaveType=Flash RAM`, `Mempak=Yes`; the 2010

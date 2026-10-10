@@ -258,8 +258,15 @@ class N64:
             if kind == M64PLUGIN_GFX:
                 video = ctypes.c_void_p()
                 core.ConfigOpenSection(b"Video-AngrylionPlus", ctypes.byref(video))
-                self._set(video, b"Parallel", True, M64TYPE_BOOL)
-                self._set(video, b"NumWorkers", 0)
+                # One thread. angrylion's workers each draw their own lines of a
+                # batch of commands, but a texture load reads lines the others
+                # draw: in a batch it raced them, and two runs drew different
+                # pixels where Animal Forest copies its own screen (the frame
+                # before the name dial), which the game then kept in RAM.
+                # Isolating the loads made it deterministic and slower than one
+                # thread (NOTES, "The emulator is deterministic").
+                self._set(video, b"Parallel", False, M64TYPE_BOOL)
+                self._set(video, b"NumWorkers", 1)
                 self._set(video, b"ViMode", 0 if self.vi_filtered else 1)
             self._check(core.CoreAttachPlugin(kind, ctypes.c_void_p(lib._handle)), "CoreAttachPlugin")
 
@@ -467,25 +474,34 @@ class N64:
     # -- states ----------------------------------------------------------
 
     def _state(self, command, path):
+        """The core takes the snapshot, or puts one back, at its first
+        interrupt after the request (r4300/interrupt.c), inside the next
+        frame; a save's file is then gzipped and written by a workqueue
+        thread, and M64CORE_STATE_SAVECOMPLETE comes from that thread. So
+        run exactly that one frame, then wait for the file with the machine
+        held in the frame callback: a state costs one frame, whatever the
+        host's disk does. (Letting frames go by until the file was written
+        made everything after a save depend on the host: the route's
+        milestones moved by a few frames from run to run.)"""
+        what = "save" if command == M64CMD_STATE_SAVE else "load"
         self._state_done.clear()
         self._check(self.core.CoreDoCommand(command, 1, ctypes.c_char_p(os.path.abspath(path).encode())), "state")
-        # The core does it at its next interrupt, so let frames go by.
-        for _ in range(60):
-            if self._state_done.is_set():
-                break
-            self.frames(1)
-        if not (self._state_done.is_set() and self._state_ok):
-            raise RuntimeError("state %s failed: %s" % ("save" if command == M64CMD_STATE_SAVE else "load", path))
+        self.frames(1)
+        if not self._state_done.wait(min(self.timeout, 30)):
+            raise RuntimeError("state %s of %s not done in the frame after the request" % (what, path))
+        if not self._state_ok:
+            raise RuntimeError("state %s failed: %s" % (what, path))
 
     def save_state(self, path):
         """Snapshot the machine as it is at this frame; returns its number.
 
         The core takes the snapshot at its next interrupt, before the next
-        frame is done, and writes the file on another thread: this returns
-        once the file is written, a few frames later (self.frame has moved
-        on). The frame number and the fixed clock go in the state
-        (emu/patches), so load_state() puts the machine back at the frame
-        returned here and the same inputs replay the same run."""
+        frame is done, and writes the file on another thread: this runs
+        that one frame and returns once the file is written (self.frame is
+        the number returned plus one, as after frames(1)). The frame number
+        and the fixed clock go in the state (emu/patches), so load_state()
+        puts the machine back at the frame returned here and the same
+        inputs replay the same run."""
         frame = self.frame
         self._state(M64CMD_STATE_SAVE, path)
         return frame

@@ -12,7 +12,9 @@ Checks, on a fresh cartridge (no save) with the clock at the release day:
      the cartridge is kept in this repository);
   4. START leaves the title for the dark stage of the intro;
   5. the emulator itself: a state saved and loaded replays the very same
-     frames, which is what bug hunts from a savestate rely on.
+     frames, which is what bug hunts from a savestate rely on, and a save
+     costs one frame and changes nothing, so a route that saves states on
+     its way is the same run on any host.
 
 Screenshots of each step go to OUT_DIR.
 """
@@ -91,6 +93,23 @@ def main(argv):
         n64.to_frame(saved + 30)
         again = hashlib.md5(n64.screen()[2] + n64.read(0x80000000, 0x400000)).hexdigest()
         check(first == again, "a loaded state replays the same frames, pixels and RAM")
+
+        # A save costs exactly one frame and changes nothing: the same inputs, counted in frames
+        # from here, give the same run with or without a save in the middle (the core writes the
+        # file on a thread of its own; frames that ran while it wrote made routes host-dependent).
+        def play(save_at=None):
+            n64.load_state(state)
+            for k in range(30):
+                if k == save_at:
+                    at = n64.save_state(os.path.join(out, "run", "mid.st"))
+                    check(n64.frame == at + 1, "a save takes one frame (saved at %d, now %d)" % (at, n64.frame))
+                    continue
+                n64.frames(1, START if k % 7 == 3 else 0)
+            n64.frames(1, 0)
+            return n64.frame, hashlib.md5(n64.screen()[2] + n64.read(0x80000000, 0x400000)).hexdigest()
+        plain, with_save = play(), play(save_at=12)
+        check(plain == with_save, "a run with a save in it is the run without (frame %d / %d)"
+              % (plain[0], with_save[0]))
 
     print("emu-check: %s" % ("FAILED: " + "; ".join(failures) if failures else "all passed"))
     return 1 if failures else 0

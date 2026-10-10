@@ -45,7 +45,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
+.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en emu-determinism decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
 
 all: verify
 
@@ -310,6 +310,12 @@ emu: $(EMU_DIR)/.stamp
 
 emu-check: emu rom
 	$(PYTHON) tests/emu_check.py $(EMU_DIR) $(OUT_ROM) $(BUILD)/emu-check
+
+# Two runs of the route's opening at once, RAM compared after every frame
+# and the states at the name dial byte for byte (tests/emu_determinism.py;
+# NOTES, "The emulator is deterministic"). Run it after touching emu/.
+emu-determinism: emu rom
+	$(PYTHON) tests/emu_determinism.py $(EMU_DIR) $(OUT_ROM) $(BUILD)/emu-determinism
 
 # -- the AF Project's 2010 translation, to study ----------------------------
 

@@ -45,7 +45,7 @@ the why and the state, `reference/NOTES.md` for what is verified.
    `make test` needs no ROM and runs in CI; `make emu-check` needs the
    user's dump and stays local. A change to the
    save code also runs `make save-check-en`, one to the letters `make
-   letters-check-en`.
+   letters-check-en`, one to `emu/` `make emu-determinism`.
 
 ## Where things live
 
@@ -95,7 +95,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
 - `tests/` — `test_tools.py`, `emu_check.py`, `emu_save.py` (the en
   save driven through a hook in the running game: `make save-check-en`),
   `emu_letters.py` (the en letter loaders through the same hook, against
-  a model of the cartridge's expander: `make letters-check-en`).
+  a model of the cartridge's expander: `make letters-check-en`),
+  `emu_determinism.py` (two runs compared frame by frame: `make
+  emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.
 
 ## Decomp traps
@@ -135,6 +137,15 @@ the why and the state, `reference/NOTES.md` for what is verified.
   read in that callback is late. The snapshot is taken at the first
   interrupt after the request, so `save_state()` returns the frame it was
   called at; the frame count and the fixed clock live inside the state.
+  Running frames until the file was written made a save cost a
+  host-dependent 1-8 frames and moved every route milestone after it:
+  `save_state()` runs exactly one frame and waits with the machine held.
+- **angrylion's render workers race on texture loads.** Each worker draws
+  its own lines, but a load reads lines the others draw; Animal Forest
+  copies its own screen before the name dial, and two runs kept different
+  pixels. The frontend renders on one thread. Equality within one process
+  proves nothing about this: compare two processes (`make
+  emu-determinism`).
 - **The AF RTC reads the host clock** unless `HeadlessFixClock` is set, and
   a state remembers the time the RTC last read: restoring a state without
   restoring the clock makes the game's time jump.

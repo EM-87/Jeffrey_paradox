@@ -1,0 +1,20 @@
+--- a/src/main/savestates.c
++++ b/src/main/savestates.c
+@@ -1558,11 +1558,16 @@
+     if(autoinc_save_slot)
+         savestates_inc_slot();
+ 
++    /* animal_forest_en/emu: the queue fills only as far as its events, and
++     * the state's buffer has gaps nothing writes; zeroed, the same machine
++     * gives the same file (it held stale host stack bytes, different from
++     * run to run). */
++    memset(queue, 0, sizeof(queue));
+     save_eventqueue_infos(&dev->r4300.cp0, queue);
+ 
+     // Allocate memory for the save state data
+     save->size = 16788288 + sizeof(queue) + 4 + 4096;
+-    save->data = curr = malloc(save->size);
++    save->data = curr = calloc(1, save->size);
+     if (save->data == NULL)
+     {
+         free(save->filepath);
