@@ -641,6 +641,45 @@ class Script(unittest.TestCase):
             self.assertEqual(t[ends[0]:ends[1]], msgbank.encode(msgs[1]))
             self.assertEqual(len(t) % 16, 0)
 
+    def test_layout_fits_lines_to_the_window(self):
+        widths = [12] * 256                                     # kana stay 12; Latin 6, the space 4
+        for c, ch in enumerate(msgbank.N64_CHARS):
+            if len(ch) == 1 and "!" <= ch <= "~":
+                widths[c] = 6
+        widths[msgbank.N64_BYTES[" "]] = 4
+
+        def lay(text, counts=None):
+            return msgbank.render(af_text.layout(msgbank.parse(text), widths, 60, 4, counts))
+
+        same = "aaaa bbbb\ncccc\n<MSGEND>"                     # every line fits: untouched
+        self.assertEqual(lay(same), same)
+        kana = "ああああああ ああああああ\n<MSGEND>"            # Japanese: the cartridge's own lines
+        self.assertEqual(lay(kana), kana)
+        # 9 letters fit in 60 pixels with a space (4 + 4 + 1 + 4 letters = 58): "aaaa bbbb cc" is 70
+        counts = collections.Counter()
+        self.assertEqual(lay("aaaa bbbb cc\ndddd\n<MSGEND>", counts), "aaaa bbbb\ncc dddd\n<MSGEND>")
+        self.assertEqual(counts["pages with lines moved on"], 1)
+        self.assertEqual(lay("aaaa bbbb cc\nd\ne\nf\n<MSGEND>"), "aaaa bbbb\ncc d\ne\nf\n<MSGEND>")
+        # moving on would make a fifth line (before the empty one): the page is filled anew
+        self.assertEqual(lay("aaaa bbbb cc\n\nd\ne\n<MSGEND>", counts), "aaaa bbbb\ncc d e\n<MSGEND>")
+        self.assertEqual(counts["pages filled anew"], 1)
+        # more than a page: split after the last sentence that fits, waiting for A once
+        text = "aa bb. cc dd. ee ff.<PAUSE 08> gg hh. ii jj.\nkk ll. mm nn.<BTN>\n<MSGCLEAR>oo.<MSGEND>"
+        out = lay(text, counts)
+        self.assertEqual(out, "aa bb. cc\ndd. ee ff.<PAUSE 08>\ngg hh. ii\njj. kk ll.<BTN>\n<MSGCLEAR>mm nn.<BTN>\n"
+                              "<MSGCLEAR>oo.<MSGEND>")
+        self.assertEqual(counts["pages split"], 1)
+        self.assertEqual(af_text.page_lines(msgbank.parse(out)), 4)
+        cut = lay("aa bb cc dd ee ff gg hh ii jj kk.<BTN> ll mm.<MSGEND>")
+        self.assertNotIn("<BTN><BTN>", cut)
+        self.assertNotIn("<MSGCLEAR><BTN>", cut)
+        # one word wider than the window stays, and the check says so
+        wide = msgbank.parse("abcdefghijklm\n<MSGEND>")
+        self.assertEqual(af_text.layout(wide, widths, 60), wide)
+        self.assertEqual(af_text.wide_lines(wide, af_text.Measure(widths), 60), [78])
+        # a free string counts as a name's or a thing's length in average letters
+        self.assertEqual(af_text.Measure(widths)(af_text._items(msgbank.parse("<STR_PLAYERNAME>"))), 36)
+
     def test_draft_adapts_the_official_text(self):
         counts = collections.Counter()
         gc = msgbank.parse("<CUTARTICLE>Hey, caf\u00e9 \u2665!<MALEFEMALECHK 00010002><MSGEND>")

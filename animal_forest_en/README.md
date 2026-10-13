@@ -135,9 +135,14 @@ borde izquierdo de su celda de 12 px y con su anchura medida
 sigue igual: `reference/NOTES.md`, "The font in the en build").
 Nuestras traducciones de lo que GameCube no tiene van en `script/`.
 
-Lo que viene: ajustar al ancho en píxeles las líneas que aún no caben
-(un 3,7 %), los gráficos occidentales de GameCube, la pantalla de cartas,
-y traducir ese 6 %.
+Las líneas que no caben en los 192 px de la ventana (un 3,7 %) se
+recolocan al compilar (`af_text.py --font`): las últimas palabras pasan a
+la línea siguiente, o la página se rellena de nuevo, o se parte tras la
+última frase que cabe.
+
+Lo que viene: los gráficos occidentales de GameCube (y sus glifos, más
+estrechos, cuando el disco vuelva a estar), la pantalla de cartas, y
+traducir ese 6 %.
 
 ## Dónde está cada cosa
 

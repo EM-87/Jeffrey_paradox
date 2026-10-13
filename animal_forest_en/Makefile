@@ -194,9 +194,11 @@ $(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n64_string_jp.txt: $(
 	$(PYTHON) tools/msgbank.py dump-n64 $(BASEROM) $(GC_DIR)/n64_choice_jp.txt choice
 	$(PYTHON) tools/msgbank.py dump-n64 $(BASEROM) $(GC_DIR)/n64_string_jp.txt string
 
-$(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(EN_CHOICE) $(EN_STRING) $(GC_DIR)/n64_jp.txt tools/af_text.py tools/msgbank.py
+# The messages are laid out at the window's width with the en font's
+# widths, which tools/af_font.py reads from the dump (--font).
+$(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(EN_CHOICE) $(EN_STRING) $(GC_DIR)/n64_jp.txt tools/af_text.py tools/msgbank.py tools/af_font.py
 	mkdir -p $(EN_ASSETS)
-	$(PYTHON) tools/af_text.py compile $(EN_BANK) $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/msg_index.bin --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600
+	$(PYTHON) tools/af_text.py compile $(EN_BANK) $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/msg_index.bin --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600 --font $(BASEROM)
 	$(PYTHON) tools/af_text.py compile $(EN_CHOICE) $(EN_ASSETS)/choice_text.bin $(EN_ASSETS)/choice_index.bin --bank choice --max-bytes 24
 	$(PYTHON) tools/af_text.py compile $(EN_STRING) $(EN_ASSETS)/string_text.bin $(EN_ASSETS)/string_index.bin --bank string --max-bytes 64 --count 0x679
 
@@ -272,7 +274,7 @@ script: $(BASEROM) $(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n6
 	$(PYTHON) tools/af_align.py $(BASEROM) $(GC_DIR)/message_data.bin $(GC_DIR)/message_data_table.bin $(GC_DIR)/align.tsv
 	$(PYTHON) tools/af_text.py draft $(GC_DIR)/n64_jp.txt $(GC_DIR)/gc_en.txt $(GC_DIR)/align.tsv $(GC_DIR)/en_bank.txt \
 		$(foreach f,$(wildcard script/*.txt),--overrides $(f))
-	$(PYTHON) tools/af_text.py check $(GC_DIR)/en_bank.txt --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600 | tail -1
+	$(PYTHON) tools/af_text.py check $(GC_DIR)/en_bank.txt --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600 --font $(BASEROM) | tail -1
 	$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/select_data.bin $(GC_DIR)/select_data_table.bin $(GC_DIR)/gc_choice_en.txt
 	$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/string_data.bin $(GC_DIR)/string_data_table.bin $(GC_DIR)/gc_string_en.txt
 	$(PYTHON) tools/af_text.py draft $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/gc_choice_en.txt - $(GC_DIR)/en_choice.txt --bank choice \

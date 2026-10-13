@@ -994,7 +994,28 @@ what goes in it: "The letters in the en build").
   wider than the window's 192 px and 417 wider than 200; with two empty
   columns between letters it would be 28%. The GameCube's own font is
   narrower (its line of "I never could sell that thing at the shop...",
-  44 characters, is 276 px here).
+  44 characters, is 276 px here). The disc is not on this machine now, so
+  its glyphs wait; the lines are laid out instead (next item).
+- **The lines laid out to the window** (`tools/af_text.py --font`, in
+  `make rom-en`: layout()). A page whose lines all fit 192 px is left as
+  it is, and so is Japanese text; else a long line's last words go on to
+  the next line of text, cascading; when that would make a fifth line the
+  page's text is filled anew; when that does not fit four lines the page
+  is split after the last sentence that does, with `<BTN>`, a newline and
+  `<MSGCLEAR>` as the cartridge's pages end (a `<BTN>` the text had at the
+  cut is not doubled). What the game fills in counts as letters of the
+  font's average lowercase width (7.3 px): names 6 and the catchphrase 4,
+  their fields' sizes (`PLAYER_NAME_LEN`, `ANIMAL_CATCHPHRASE_LEN`), the
+  date's parts as the en build writes them, anything else 8
+  (TODO(verify)). On the English bank: 1,934 pages with words moved on,
+  232 filled anew, 372 split (304 of the cuts at a sentence's end, 68
+  inside one); 3 lines stay wider than the window (one long word, or free
+  strings). Most of it is a few pixels: at 196 px the splits would be 149,
+  at 200 px 43; a space of 3 px instead of 4 gives 146, but words run
+  together in these bold letters. On screen, K.K.'s "Still, if you've got
+  some / really tight friends somewhere / ..." ran into the window's edge
+  and now ends inside it, the continue mark clear; the route reaches its
+  milestones on the same frames.
 - **A section can change and keep its size.** The en `func_8009028C_jp`
   is 12 bytes shorter; `m_font.o`'s text, rounded to 16 bytes, stayed
   0x27A0, so `tools/af_relink.py` (which compared sizes) left it in place
