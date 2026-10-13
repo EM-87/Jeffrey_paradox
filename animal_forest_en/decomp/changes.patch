@@ -239,7 +239,7 @@ index 9d68ff0..8972588 100644
  Choice* mChoice_Get_base_window_p();
  void mChoice_init(Choice* choice,  struct Game* game);
 diff --git a/include/m_flashrom.h b/include/m_flashrom.h
-index 2753a99..7bf3a38 100644
+index 2753a99..7a636a7 100644
 --- a/include/m_flashrom.h
 +++ b/include/m_flashrom.h
 @@ -33,4 +33,9 @@ s32 func_8008FAB4_jp(void);
@@ -247,9 +247,23 @@ index 2753a99..7bf3a38 100644
  void func_800900B0_jp(struct gfxprint* gfxprint);
  
 +/* The translation: the letters' extension, saved with the save (m_flashrom.c, reference/NOTES.md "The compressed save"). */
-+#define mFRm_EN_EXT_CAP 0x2000
++#define mFRm_EN_EXT_CAP 0x2400 /* 87 letters of the longest rest (101 bytes a record; m_handbill.c) */
 +extern u8 mFRm_en_ext[mFRm_EN_EXT_CAP];
 +extern s32 mFRm_en_extSize;
++
+ #endif
+diff --git a/include/m_handbill.h b/include/m_handbill.h
+index fe15111..7f02f2b 100644
+--- a/include/m_handbill.h
++++ b/include/m_handbill.h
+@@ -75,4 +75,9 @@ void mHandbill_Load_HandbillFromRom2(u8*, s32, s32*, u8*, s32, u8*, s32);
+ // void func_80094400_jp();
+ s32 mHandbillz_load(HandbillzInfo*);
+ 
++/* The translation: the letters' extension (m_handbill.c, reference/NOTES.md "The letters in the en build") */
++struct MailContent;
++void mHandbill_en_CollectExt(u8* save);
++s32 mHandbill_en_GetLetter(struct MailContent* content, u8* header, u8* body, u8* footer);
 +
  #endif
 diff --git a/include/m_msg_main.h b/include/m_msg_main.h
@@ -509,20 +523,21 @@ index d4a7b38..07380bd 100644
  
          y += 16.0f;
 diff --git a/src/code/m_flashrom.c b/src/code/m_flashrom.c
-index f3f7472..cb05ef4 100644
+index f3f7472..e751ce4 100644
 --- a/src/code/m_flashrom.c
 +++ b/src/code/m_flashrom.c
-@@ -9,6 +9,9 @@
+@@ -9,6 +9,10 @@
  #include "6FD410.h"
  #include "libu64/gfxprint.h"
  #include "PR/os_internal_flash.h"
 +#include "game.h"
 +#include "TwoHeadArena.h"
 +#include "af_lz.h"
++#include "m_handbill.h"
  
  /*
   * The save in Flash RAM: the first 0xF980 bytes of common_data's Save, in
-@@ -79,6 +82,196 @@ extern char RO_STR_80116F28_jp[];
+@@ -79,6 +83,198 @@ extern char RO_STR_80116F28_jp[];
  extern mFRm_SlotWork B_8013A380_jp;
  extern mFRm_SaveWork B_8013A398_jp;
  
@@ -633,12 +648,14 @@ index f3f7472..cb05ef4 100644
 +    mFRm_en_hdr_t* hdr = (mFRm_en_hdr_t*)image;
 +    u8* out = image + sizeof(mFRm_en_hdr_t);
 +    s32 room = mFRm_EN_SLOT_SIZE - sizeof(mFRm_en_hdr_t);
-+    s32 saveComp = aflz_compress(save, mFRm_SAVE_SIZE, out, room, work);
++    s32 saveComp;
 +    s32 extComp = 0;
 +    u32 sum = 0;
 +    s32 used;
 +    s32 i;
 +
++    mHandbill_en_CollectExt(save); /* the rests of letters the save no longer holds go */
++    saveComp = aflz_compress(save, mFRm_SAVE_SIZE, out, room, work);
 +    if (saveComp >= 0 && mFRm_en_extSize > 0) {
 +        extComp = aflz_compress(mFRm_en_ext, mFRm_en_extSize, out + saveComp, room - saveComp, work);
 +    }
@@ -719,7 +736,7 @@ index f3f7472..cb05ef4 100644
  void func_8008ECA0_jp(void) {
      bzero(D_80106A9C_jp, sizeof(D_80106A9C_jp));
  }
-@@ -204,14 +397,20 @@ void func_8008F020_jp(mFRm_SlotWork* work) {
+@@ -204,14 +400,20 @@ void func_8008F020_jp(mFRm_SlotWork* work) {
  
  s32 func_8008F040_jp(void* data, s32 slot, mFRm_SlotWork* work) {
      u32 page = (slot == 0) ? 0 : mFRm_SLOT_PAGES;
@@ -743,7 +760,7 @@ index f3f7472..cb05ef4 100644
      return 0;
  }
  
-@@ -271,15 +470,15 @@ s32 func_8008F23C_jp(void) {
+@@ -271,15 +473,15 @@ s32 func_8008F23C_jp(void) {
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_flashrom/func_8008F24C_jp.s")
  
@@ -761,7 +778,7 @@ index f3f7472..cb05ef4 100644
          tries++;
      } while (res == 0 && tries != 3);
  
-@@ -301,9 +500,6 @@ s32 func_8008F530_jp(void* data, void* arg1, mFRm_SlotWork* work) {
+@@ -301,9 +503,6 @@ s32 func_8008F530_jp(void* data, void* arg1, mFRm_SlotWork* work) {
      }
      return ret;
  }
@@ -771,7 +788,7 @@ index f3f7472..cb05ef4 100644
  
  s32 func_8008F5FC_jp(void* arg0, void* arg1, mFRm_SlotWork* work) {
      work->cur = work->base;
-@@ -360,9 +556,9 @@ s32 func_8008F768_jp(UNK_PTR arg0, UNK_PTR arg1) {
+@@ -360,9 +559,9 @@ s32 func_8008F768_jp(UNK_PTR arg0, UNK_PTR arg1) {
      return ret;
  }
  
@@ -782,7 +799,7 @@ index f3f7472..cb05ef4 100644
      s32 ret = 0;
      u32 page;
      s32 tries;
-@@ -374,6 +570,15 @@ s32 func_8008F7C8_jp(void) {
+@@ -374,6 +573,15 @@ s32 func_8008F7C8_jp(void) {
      ((mFRm_chk_t*)&common_data)->checksum =
          func_8008EEB4_jp(&common_data, mFRm_SAVE_SIZE, ((mFRm_chk_t*)&common_data)->checksum);
  
@@ -798,7 +815,7 @@ index f3f7472..cb05ef4 100644
      for (page = 0; page != pages; page++, p += FLASH_BLOCK_SIZE) {
          if (sFRm_WritePage(p, page) == -1) {
              tries = 0;
-@@ -388,43 +593,49 @@ s32 func_8008F7C8_jp(void) {
+@@ -388,43 +596,49 @@ s32 func_8008F7C8_jp(void) {
      }
      return ret;
  }
@@ -867,7 +884,7 @@ index f3f7472..cb05ef4 100644
      u32 page = D_80106A90_jp << 9;
      void* buf = zelda_malloc(mFRm_SAVE_SIZE);
      s32 res;
-@@ -437,6 +648,7 @@ s32 func_8008F968_jp(void) {
+@@ -437,6 +651,7 @@ s32 func_8008F968_jp(void) {
  
          if (res == TRUE && func_8008EEE8_jp(buf) == TRUE) {
              bcopy(buf, &common_data, mFRm_SAVE_SIZE);
@@ -875,7 +892,7 @@ index f3f7472..cb05ef4 100644
              ret = TRUE;
          }
          if (buf != NULL) {
-@@ -445,9 +657,6 @@ s32 func_8008F968_jp(void) {
+@@ -445,9 +660,6 @@ s32 func_8008F968_jp(void) {
      }
      return ret;
  }
@@ -885,7 +902,7 @@ index f3f7472..cb05ef4 100644
  
  void func_8008FA28_jp(mFRm_SaveWork* work) {
      work->state = 0;
-@@ -489,7 +698,7 @@ s32 func_8008FAE0_jp(mFRm_SaveWork* work) {
+@@ -489,7 +701,7 @@ s32 func_8008FAE0_jp(mFRm_SaveWork* work) {
      s32 ret = 0;
  
      func_8008ECA0_jp();
@@ -894,7 +911,7 @@ index f3f7472..cb05ef4 100644
      if (work->cur != NULL) {
          work->base = work->cur;
          work->state = 1;
-@@ -505,7 +714,7 @@ s32 func_8008FAE0_jp(mFRm_SaveWork* work) {
+@@ -505,7 +717,7 @@ s32 func_8008FAE0_jp(mFRm_SaveWork* work) {
  }
  
  s32 func_8008FB64_jp(mFRm_SaveWork* work) {
@@ -903,7 +920,7 @@ index f3f7472..cb05ef4 100644
  
      bcopy(&common_data, chk, mFRm_SAVE_SIZE);
      work->page = 0;
-@@ -513,6 +722,8 @@ s32 func_8008FB64_jp(mFRm_SaveWork* work) {
+@@ -513,6 +725,8 @@ s32 func_8008FB64_jp(mFRm_SaveWork* work) {
      chk->unk_00 = 2;
      func_8008EFDC_jp(chk);
      chk->checksum = func_8008EEB4_jp(chk, mFRm_SAVE_SIZE, chk->checksum);
@@ -912,7 +929,7 @@ index f3f7472..cb05ef4 100644
      sFRm_WriteAsync(work->cur, 0, mFRm_WRITE_PAGES);
      work->state = 2;
      return 0;
-@@ -551,12 +762,12 @@ s32 func_8008FBEC_jp(mFRm_SaveWork* work) {
+@@ -551,12 +765,12 @@ s32 func_8008FBEC_jp(mFRm_SaveWork* work) {
  }
  
  s32 func_8008FCE8_jp(mFRm_SaveWork* work) {
@@ -928,7 +945,7 @@ index f3f7472..cb05ef4 100644
              work->state = 5;
              work->page = mFRm_SLOT_PAGES;
              sFRm_WriteAsync(work->cur, mFRm_SLOT_PAGES, mFRm_WRITE_PAGES);
-@@ -580,22 +791,13 @@ s32 func_8008FCE8_jp(mFRm_SaveWork* work) {
+@@ -580,22 +794,13 @@ s32 func_8008FCE8_jp(mFRm_SaveWork* work) {
  }
  
  s32 func_8008FDD4_jp(mFRm_SaveWork* work) {
@@ -957,7 +974,7 @@ index f3f7472..cb05ef4 100644
  }
  
  s32 func_8008FE74_jp(mFRm_SaveWork* work) {
-@@ -631,10 +833,11 @@ s32 func_8008FE74_jp(mFRm_SaveWork* work) {
+@@ -631,10 +836,11 @@ s32 func_8008FE74_jp(mFRm_SaveWork* work) {
  
  s32 func_8008FF60_jp(mFRm_SaveWork* work) {
      s32 ret = 0;
@@ -972,14 +989,17 @@ index f3f7472..cb05ef4 100644
              ret = 1;
              func_8008ECA0_jp();
 diff --git a/src/code/m_handbill.c b/src/code/m_handbill.c
-index 34e9b7f..439d087 100644
+index 34e9b7f..21bb66b 100644
 --- a/src/code/m_handbill.c
 +++ b/src/code/m_handbill.c
-@@ -4,11 +4,13 @@
+@@ -4,11 +4,16 @@
  #include "m_msg_main.h"
  #include "m_std_dma.h"
  #include "6B3DC0.h"
 +#include "segment_symbols.h"
++#include "m_common_data.h"
++#include "m_flashrom.h"
++#include "m_mail.h"
  
  /*
   * The letters (ac-decomp's m_handbill.c is the map): the shop's and the game's
@@ -990,7 +1010,7 @@ index 34e9b7f..439d087 100644
   */
  
  #define mHandbill_FREE_STR_NUM 20
-@@ -26,24 +28,6 @@ typedef s32 (*mHandbill_PUT_STRING_PROC)(u8*, s32, s32, s32, s32);
+@@ -26,24 +31,6 @@ typedef s32 (*mHandbill_PUT_STRING_PROC)(u8*, s32, s32, s32, s32);
  extern u8 B_80140680_jp[mHandbill_FREE_STR_NUM][mHandbill_FREE_STR_LEN]; /* the free strings */
  extern u8 B_80140748_jp[];                                                /* the body's DMA buffer */
  extern mHandbill_PUT_STRING_PROC D_80107020_jp[];                         /* by control code */
@@ -1015,7 +1035,7 @@ index 34e9b7f..439d087 100644
  
  enum {
      mHandbillz_TYPE_SUPER,
-@@ -54,6 +38,38 @@ enum {
+@@ -54,6 +41,38 @@ enum {
      mHandbillz_TYPE_NUM
  };
  
@@ -1054,7 +1074,7 @@ index 34e9b7f..439d087 100644
  /* The villagers' letters (ac-decomp's mHandbillz): header, three body parts and footer from one segment */
  typedef struct mHandbillzDMA_c {
      /* 0x00 */ s32 type;
-@@ -64,12 +80,6 @@ typedef struct mHandbillzDMA_c {
+@@ -64,12 +83,6 @@ typedef struct mHandbillzDMA_c {
      /* 0x14 */ u32 dma_size;
  } mHandbillzDMA_c; // size = 0x18
  
@@ -1067,7 +1087,7 @@ index 34e9b7f..439d087 100644
  extern char RO_STR_80117090_jp[];
  
  
-@@ -335,34 +345,50 @@ void func_80093520_jp(u8* buf, s32 buf_size, s32 str_len, s32* header_back_start
+@@ -335,34 +348,50 @@ void func_80093520_jp(u8* buf, s32 buf_size, s32 str_len, s32* header_back_start
      }
  }
  
@@ -1143,7 +1163,7 @@ index 34e9b7f..439d087 100644
      } else {
          *addr = 0;
          *size = 0;
-@@ -371,32 +397,8 @@ void func_800935F8_jp(s32 no, RomOffset* addr, s32* size) {
+@@ -371,32 +400,8 @@ void func_800935F8_jp(s32 no, RomOffset* addr, s32* size) {
  
  /* mHandbill_Get_PsStringDataAddressAndSize: a footer */
  void func_80093738_jp(s32 no, RomOffset* addr, s32* size) {
@@ -1177,7 +1197,7 @@ index 34e9b7f..439d087 100644
      } else {
          *addr = 0;
          *size = 0;
-@@ -405,32 +407,8 @@ void func_80093738_jp(s32 no, RomOffset* addr, s32* size) {
+@@ -405,32 +410,8 @@ void func_80093738_jp(s32 no, RomOffset* addr, s32* size) {
  
  /* mHandbill_Get_MailStringDataAddressAndSize: a body */
  void func_80093878_jp(s32 no, RomOffset* addr, s32* size) {
@@ -1211,7 +1231,7 @@ index 34e9b7f..439d087 100644
      } else {
          *addr = 0;
          *size = 0;
-@@ -458,113 +436,71 @@ void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s3
+@@ -458,154 +439,325 @@ void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s3
      }
  }
  
@@ -1348,17 +1368,252 @@ index 34e9b7f..439d087 100644
 -            }
 -            for (; i < mHandbill_BODY_LEN; i++) {
 -                *dst++ = 0xCD;
--            }
--            func_80093478_jp(buf, mHandbill_BODY_LEN, sz, mHandbill_FILL_RETURN);
 +            mem_clear(body, mHandbill_EN_BODY_LEN, 0xCD);
 +            mHandbill_en_Read(body, addr, size);
 +            func_80093478_jp(body, mHandbill_EN_BODY_LEN, size, mHandbill_FILL_RETURN);
 +            bcopy(body, buf, mHandbill_BODY_LEN);
++        }
++    }
++}
++
++/*
++ * The letters' extension (mFRm_en_ext, saved and loaded with the save:
++ * m_flashrom.c). Mail_c keeps a letter's first 10, 96 and 16 bytes; the
++ * rest of each letter the loaders make is filed here under a key made of
++ * those bytes, so a copy of the letter (mailbox to pocket, post office to
++ * mailbox) finds it, and before each save the records no letter of the
++ * save holds are dropped (mHandbill_en_CollectExt). The layout: "LX",
++ * then records, oldest first: the key (4 bytes, big-endian), the
++ * lengths of the header's, the body's and the footer's rest (a byte
++ * each, padding left off), the three rests. An extension without the
++ * tag is not ours: it is left as it is and read as empty.
++ */
++#define mHandbill_EN_EXT_HEAD 2
++#define mHandbill_EN_EXT_RECORD_HEAD 7
++/* the letters a save holds: 4 pockets and 4 mailboxes of 10, the post office's 5 kept and 2 more */
++#define mHandbill_EN_SAVE_MAIL_NUM (PLAYER_NUM * mPr_INVENTORY_MAIL_COUNT + PLAYER_NUM * HOME_MAILBOX_SIZE + 5 + 2)
++#define mHandbill_EN_KEEP_MAIL_AT 0xEF6C /* code/6DA460.s func_800B67C0_jp: mMl_copy_mail into common_data + 0xEF6C */
++#define mHandbill_EN_RECEIPT_MAIL0_AT 0xF2A0 /* code/6DA460.s mPO_receipt_proc */
++#define mHandbill_EN_RECEIPT_MAIL1_AT 0xF344
++
++/* FNV-1a over the letter's own bytes */
++static u32 mHandbill_en_Key(u8* header, u8* body, u8* footer) {
++    u32 key = 0x811C9DC5;
++    s32 i;
++
++    for (i = 0; i < MAIL_HEADER_LEN; i++) {
++        key = (key ^ header[i]) * 0x01000193;
++    }
++    for (i = 0; i < MAIL_BODY_LEN; i++) {
++        key = (key ^ body[i]) * 0x01000193;
++    }
++    for (i = 0; i < MAIL_FOOTER_LEN; i++) {
++        key = (key ^ footer[i]) * 0x01000193;
++    }
++    return key;
++}
++
++static s32 mHandbill_en_ExtOurs(void) {
++    return mFRm_en_extSize >= mHandbill_EN_EXT_HEAD && mFRm_en_ext[0] == 'L' && mFRm_en_ext[1] == 'X';
++}
++
++static s32 mHandbill_en_RecordSize(u8* record) {
++    return mHandbill_EN_EXT_RECORD_HEAD + record[4] + record[5] + record[6];
++}
++
++static u32 mHandbill_en_RecordKey(u8* record) {
++    return (record[0] << 24) | (record[1] << 16) | (record[2] << 8) | record[3];
++}
++
++/* The record at pos, or NULL past the last (or a damaged one) */
++static u8* mHandbill_en_Record(s32 pos) {
++    if (pos + mHandbill_EN_EXT_RECORD_HEAD > mFRm_en_extSize ||
++        pos + mHandbill_en_RecordSize(&mFRm_en_ext[pos]) > mFRm_en_extSize) {
++        return NULL;
++    }
++    return &mFRm_en_ext[pos];
++}
++
++static u8* mHandbill_en_Find(u32 key) {
++    s32 pos = mHandbill_EN_EXT_HEAD;
++    u8* record;
++
++    if (!mHandbill_en_ExtOurs()) {
++        return NULL;
++    }
++    while ((record = mHandbill_en_Record(pos)) != NULL) {
++        if (mHandbill_en_RecordKey(record) == key) {
++            return record;
++        }
++        pos += mHandbill_en_RecordSize(record);
++    }
++    return NULL;
++}
++
++static void mHandbill_en_Remove(u8* record) {
++    s32 size = mHandbill_en_RecordSize(record);
++    u8* end = mFRm_en_ext + mFRm_en_extSize;
++    u8* src;
++
++    for (src = record + size; src < end; src++) {
++        src[-size] = *src;
++    }
++    mFRm_en_extSize -= size;
++}
++
++/* The save's i-th letter, in a buffer laid out as the save */
++static Mail_c* mHandbill_en_SaveMail(u8* save, s32 i) {
++    Save* data = (Save*)save;
++
++    if (i < PLAYER_NUM * mPr_INVENTORY_MAIL_COUNT) {
++        return &data->saveFilePrivateInfo[i / mPr_INVENTORY_MAIL_COUNT].mail[i % mPr_INVENTORY_MAIL_COUNT];
++    }
++    i -= PLAYER_NUM * mPr_INVENTORY_MAIL_COUNT;
++    if (i < PLAYER_NUM * HOME_MAILBOX_SIZE) {
++        return &data->homes[i / HOME_MAILBOX_SIZE].mailbox[i % HOME_MAILBOX_SIZE];
++    }
++    i -= PLAYER_NUM * HOME_MAILBOX_SIZE;
++    if (i < 5) {
++        return (Mail_c*)(save + mHandbill_EN_KEEP_MAIL_AT) + i;
++    }
++    return (Mail_c*)(save + ((i == 5) ? mHandbill_EN_RECEIPT_MAIL0_AT : mHandbill_EN_RECEIPT_MAIL1_AT));
++}
++
++/* Drop the records no letter of save (the save's bytes) holds */
++void mHandbill_en_CollectExt(u8* save) {
++    u32 keys[mHandbill_EN_SAVE_MAIL_NUM];
++    s32 pos = mHandbill_EN_EXT_HEAD;
++    u8* record;
++    s32 i;
++
++    if (!mHandbill_en_ExtOurs()) {
++        return;
++    }
++    for (i = 0; i < mHandbill_EN_SAVE_MAIL_NUM; i++) {
++        MailContent* content = &mHandbill_en_SaveMail(save, i)->content;
++
++        keys[i] = mHandbill_en_Key(content->header, content->body, content->footer);
++    }
++    while ((record = mHandbill_en_Record(pos)) != NULL) {
++        u32 key = mHandbill_en_RecordKey(record);
++
++        for (i = 0; i < mHandbill_EN_SAVE_MAIL_NUM; i++) {
++            if (keys[i] == key) {
++                break;
+             }
+-            func_80093478_jp(buf, mHandbill_BODY_LEN, sz, mHandbill_FILL_RETURN);
          }
++        if (i < mHandbill_EN_SAVE_MAIL_NUM) {
++            pos += mHandbill_en_RecordSize(record);
++        } else {
++            mHandbill_en_Remove(record);
++        }
++    }
++    mFRm_en_extSize = pos; /* and a damaged tail goes */
++}
++
++static s32 mHandbill_en_RestLen(u8* rest, s32 len, u8 pad) {
++    while (len > 0 && rest[len - 1] == pad) {
++        len--;
++    }
++    return len;
++}
++
++/* File the rest of the letter the loaders made last (mHandbill_en_letter) */
++static void mHandbill_en_FileLetter(void) {
++    mHandbill_en_Letter* letter = &mHandbill_en_letter;
++    u32 key = mHandbill_en_Key(letter->header, letter->body, letter->footer);
++    s32 hlen = mHandbill_en_RestLen(letter->header + MAIL_HEADER_LEN, mHandbill_EN_HEADER_LEN - MAIL_HEADER_LEN, ' ');
++    s32 blen = mHandbill_en_RestLen(letter->body + MAIL_BODY_LEN, mHandbill_EN_BODY_LEN - MAIL_BODY_LEN, 0xCD);
++    s32 flen = mHandbill_en_RestLen(letter->footer + MAIL_FOOTER_LEN, mHandbill_EN_FOOTER_LEN - MAIL_FOOTER_LEN, ' ');
++    s32 size = mHandbill_EN_EXT_RECORD_HEAD + hlen + blen + flen;
++    u8* record;
++
++    if (!mHandbill_en_ExtOurs()) {
++        mFRm_en_ext[0] = 'L';
++        mFRm_en_ext[1] = 'X';
++        mFRm_en_extSize = mHandbill_EN_EXT_HEAD;
++    }
++    record = mHandbill_en_Find(key);
++    if (record != NULL) {
++        mHandbill_en_Remove(record);
++    }
++    if (hlen + blen + flen == 0) {
++        return;
++    }
++    if (mFRm_en_extSize + size > mFRm_EN_EXT_CAP) {
++        mHandbill_en_CollectExt((u8*)&common_data.save);
      }
++    while (mFRm_en_extSize + size > mFRm_EN_EXT_CAP && mFRm_en_extSize > mHandbill_EN_EXT_HEAD) {
++        mHandbill_en_Remove(&mFRm_en_ext[mHandbill_EN_EXT_HEAD]); /* the oldest */
++    }
++    record = &mFRm_en_ext[mFRm_en_extSize];
++    record[0] = key >> 24;
++    record[1] = key >> 16;
++    record[2] = key >> 8;
++    record[3] = key;
++    record[4] = hlen;
++    record[5] = blen;
++    record[6] = flen;
++    bcopy(letter->header + MAIL_HEADER_LEN, record + mHandbill_EN_EXT_RECORD_HEAD, hlen);
++    bcopy(letter->body + MAIL_BODY_LEN, record + mHandbill_EN_EXT_RECORD_HEAD + hlen, blen);
++    bcopy(letter->footer + MAIL_FOOTER_LEN, record + mHandbill_EN_EXT_RECORD_HEAD + hlen + blen, flen);
++    mFRm_en_extSize += size;
++}
++
++/*
++ * A letter whole, at the GameCube's sizes: header (24 bytes; its name
++ * position is the letter's headerBackStart), body (192), footer (32), its
++ * own bytes then the extension's rest, padded as the loaders pad. TRUE if
++ * the extension has a rest for it.
++ */
++s32 mHandbill_en_GetLetter(MailContent* content, u8* header, u8* body, u8* footer) {
++    u8* record = mHandbill_en_Find(mHandbill_en_Key(content->header, content->body, content->footer));
++    s32 hlen = 0;
++    s32 blen = 0;
++    s32 flen = 0;
++
++    if (record != NULL) {
++        hlen = record[4];
++        blen = record[5];
++        flen = record[6];
++    }
++    mem_clear(header, mHandbill_EN_HEADER_LEN, ' ');
++    mem_clear(body, mHandbill_EN_BODY_LEN, 0xCD);
++    mem_clear(footer, mHandbill_EN_FOOTER_LEN, ' ');
++    bcopy(content->header, header, MAIL_HEADER_LEN);
++    bcopy(content->body, body, MAIL_BODY_LEN);
++    bcopy(content->footer, footer, MAIL_FOOTER_LEN);
++    if (record != NULL) {
++        bcopy(record + mHandbill_EN_EXT_RECORD_HEAD, header + MAIL_HEADER_LEN, hlen);
++        bcopy(record + mHandbill_EN_EXT_RECORD_HEAD + hlen, body + MAIL_BODY_LEN, blen);
++        bcopy(record + mHandbill_EN_EXT_RECORD_HEAD + hlen + blen, footer + MAIL_FOOTER_LEN, flen);
++    }
++    return record != NULL;
++}
++
++/* A letter starts blank, so that nothing of the one before is filed with it */
++static void mHandbill_en_ClearLetter(void) {
++    mem_clear(mHandbill_en_letter.header, mHandbill_EN_HEADER_LEN, ' ');
++    mem_clear(mHandbill_en_letter.body, mHandbill_EN_BODY_LEN, 0xCD);
++    mem_clear(mHandbill_en_letter.footer, mHandbill_EN_FOOTER_LEN, ' ');
  }
-@@ -582,30 +518,17 @@ void mHandbill_Load_HandbillFromRom2(u8* header, s32 header_size, s32* header_ba
+ 
+ void mHandbill_Load_HandbillFromRom(u8* header, s32* header_back_start, u8* footer, u8* body, s32 mail_no) {
++    mHandbill_en_ClearLetter();
+     func_80093B28_jp(header, 10, header_back_start, mail_no);
+     func_80093C98_jp(footer, 16, mail_no);
      func_80093DA8_jp(body, mail_no);
++    mHandbill_en_FileLetter();
+ }
+ 
+ void mHandbill_Load_HandbillFromRom2(u8* header, s32 header_size, s32* header_back_start, u8* footer, s32 footer_size,
+                                      u8* body, s32 mail_no) {
++    mHandbill_en_ClearLetter();
+     func_80093B28_jp(header, header_size, header_back_start, mail_no);
+     func_80093C98_jp(footer, footer_size, mail_no);
+     func_80093DA8_jp(body, mail_no);
++    mHandbill_en_FileLetter();
  }
  
 -/* mHandbillzDMA_body_addr_set */
@@ -1398,7 +1653,7 @@ index 34e9b7f..439d087 100644
  }
  
  /* mHandbillzDMA_body_load */
-@@ -641,29 +564,32 @@ s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
+@@ -641,29 +793,32 @@ s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
      }
  }
  
@@ -1441,7 +1696,7 @@ index 34e9b7f..439d087 100644
  
          info->headerBackStart = header_back_start;
          return TRUE;
-@@ -672,14 +598,16 @@ s32 func_800941B0_jp(HandbillzInfo* info) {
+@@ -672,14 +827,16 @@ s32 func_800941B0_jp(HandbillzInfo* info) {
      }
  }
  
@@ -1460,7 +1715,7 @@ index 34e9b7f..439d087 100644
  
      dma_info[0].type = mHandbillz_TYPE_MAILA;
      dma_info[0].num = info->mailANo;
-@@ -696,7 +624,7 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+@@ -696,7 +853,7 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
          if (func_800940A8_jp(dma_p)) {
              total_size += dma_p->dma_size;
  
@@ -1469,7 +1724,7 @@ index 34e9b7f..439d087 100644
                  bcopy(B_80140748_jp, dst, dma_p->dma_size);
                  dst += dma_p->dma_size;
              } else {
-@@ -708,17 +636,18 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+@@ -708,17 +865,18 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
      }
  
      if (success) {
@@ -1492,7 +1747,7 @@ index 34e9b7f..439d087 100644
  s32 func_80094400_jp(HandbillzInfo* info) {
      mHandbillzDMA_c dma_info;
      u8 ram[0x22 + 6];
-@@ -731,13 +660,13 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+@@ -731,13 +889,13 @@ s32 func_80094400_jp(HandbillzInfo* info) {
      dma_info.ram_buf_size = 0x22;
  
      if (func_800940A8_jp(&dma_info)) {
@@ -1512,6 +1767,29 @@ index 34e9b7f..439d087 100644
          return TRUE;
      } else {
          return FALSE;
+@@ -745,9 +903,17 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+ }
+ 
+ s32 mHandbillz_load(HandbillzInfo* info) {
+-    s32 super_res = func_800941B0_jp(info);
+-    s32 mail_res = func_800942A0_jp(info);
+-    s32 ps_res = func_80094400_jp(info);
+-
+-    return super_res && mail_res && ps_res;
++    s32 super_res;
++    s32 mail_res;
++    s32 ps_res;
++
++    mHandbill_en_ClearLetter();
++    super_res = func_800941B0_jp(info);
++    mail_res = func_800942A0_jp(info);
++    ps_res = func_80094400_jp(info);
++    if (super_res && mail_res && ps_res) {
++        mHandbill_en_FileLetter();
++        return TRUE;
++    }
++    return FALSE;
+ }
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
 index 03981c7..da23ef7 100644
 --- a/src/code/m_msg_main.c

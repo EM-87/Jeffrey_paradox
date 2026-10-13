@@ -788,8 +788,8 @@ The official letters need more room than the cartridge's save gives them
 (above: header 26/body 192/footer 32 against 10/96/16). The user chose to
 keep the save's layout and both flash copies, and to store each copy
 compressed, with room after it for the letters' extension (the extra
-text, kept in RAM by the en build: `mFRm_en_ext`, up to 0x2000 bytes for
-now; what goes in it is the next step).
+text, kept in RAM by the en build: `mFRm_en_ext`, up to 0x2400 bytes;
+what goes in it: "The letters in the en build").
 
 - **The cartridge's flash save** (`src/code/m_flashrom.c`, in C and
   matching but for six functions, decomp/matching.patch): the first
@@ -895,6 +895,41 @@ now; what goes in it is the next step).
   expander over the en build's own files): all 544 shop letters and 60
   villagers' letters come out byte for byte, in the callers' buffers and
   whole; 333 of the shop letters' parts put free strings in, and 492 of
-  the 544 bodies run past the letter's 96 bytes. That rest has no home
-  yet: the extension (`mFRm_en_ext`) is the next step, and the letter
-  screen showing it the one after.
+  the 544 bodies run past the letter's 96 bytes.
+- **The rest of each letter lives in the extension** (`mFRm_en_ext`,
+  saved and loaded with the save: "The compressed save"). When a loader's
+  entry point (`mHandbill_Load_HandbillFromRom`, `...Rom2`,
+  `mHandbillz_load`) has made a letter, what lies past the 10, 96 and 16
+  bytes `Mail_c` keeps (header up to 24, body up to 192, footer up to 32,
+  padding left off) is filed under a key made of those 122 bytes (FNV-1a),
+  so every copy of the letter finds it: the game moves letters by copying
+  `Mail_c` (mailbox to pocket, post office to mailbox). A letter with
+  nothing past them is not filed. `mHandbill_en_GetLetter` gives a letter
+  back whole, for the letter screen. Before every write (`mFRm_en_Pack`,
+  the one place all four write paths build their image) the records no
+  letter of the save holds are dropped; when a new one does not fit, the
+  same collection runs on `common_data`, then the oldest go. The save's
+  letters are 87: 4 pockets of 10 (`PrivateInfo.mail`), 4 mailboxes of 10
+  (`mHm_hs_c.mailbox`), and the post office's, which the decomp has not
+  named: 5 kept letters at `common_data + 0xEF6C` (`code/6DA460.s`
+  `func_800B67C0_jp` copies into them with `mMl_copy_mail`) and two at
+  `0xF2A0` and `0xF344` (`mPO_receipt_proc`). The layout: "LX", then
+  records, oldest first (key, three lengths, the rests); an extension
+  without the tag is left alone and read as empty. Two letters with the
+  same 122 bytes and different rests share a record (the later one's).
+- **What it holds.** A record is 7 bytes and the rests: the English shop
+  letters' average 63 bytes (502 of the 544 have a rest), the longest
+  101; the villagers' 57 and 85. 87 letters of the longest make 8.8 KB,
+  so the cap went from 0x2000 to 0x2400.
+- **Measured** (`make letters-check-en`, against a Python model of the
+  records): on its way to the houses the game itself files 5 letters'
+  rests, of which only one is still held, in the post office's letter at
+  `0xF344` (the shop's flyer); the other four are nowhere in RAM any
+  more, so the next save drops them. From there, 604 more letters filed
+  past the cap leave exactly the model's records; letters loaded into the
+  save's pockets as the callers load them are filed, a copy in a mailbox
+  gets its whole letter back, a letter outside the save is dropped by the
+  next save, both flash slots hold the others' rests, a letter cleared
+  from the save loses its rest at the save after, and the load brings the
+  extension back. The letter screen still shows only `Mail_c`'s bytes:
+  that is the next step.
