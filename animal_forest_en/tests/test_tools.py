@@ -21,6 +21,7 @@ import af_anchors  # noqa: E402
 import af_bench  # noqa: E402
 import af_align  # noqa: E402
 import af_dmaorder  # noqa: E402
+import af_font  # noqa: E402
 import af_luicheck  # noqa: E402
 import af_names  # noqa: E402
 import af_ranges  # noqa: E402
@@ -258,6 +259,24 @@ class Shiftability(unittest.TestCase):
                              lines.index("    __romPos = code_ROM_START + (. - code_VRAM);"))
             self.assertLess(lines.index("    code_ROM_END = __romPos;"), lines.index("    buffers_ROM_END = __romPos;"))
             self.assertIn("        build/src/code/b.o(.rodata);", lines[lines.index("        code_RODATA_START = .;"):])
+
+    def test_relink_sees_symbols_move_inside_a_section_of_the_same_size(self):
+        def mapfile(f2):
+            return (".code           0x80051a80   0x100000 load address 0x01914000\n"
+                    " .text          0x80051a80       0x40 build/src/code/a.o\n"
+                    "                0x80051a80                f1\n"
+                    "                0x%08x                f2\n"
+                    " .text          0x80051ac0       0x20 build/src/code/b.o\n"
+                    "                0x80051ac0                g1\n" % f2)
+        with tempfile.TemporaryDirectory() as d:
+            ref, new = os.path.join(d, "ref.map"), os.path.join(d, "new.map")
+            open(ref, "w").write(mapfile(0x80051a90))
+            open(new, "w").write(mapfile(0x80051a84))           # f1 is 12 bytes shorter; the size rounds to 0x40
+            grown, shrunk = af_relink.changed_sections(af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(new))
+            self.assertEqual(grown, [])
+            self.assertEqual(shrunk, [(".text", "build/src/code/a.o", 0x40, 0x40)])
+            grown, shrunk = af_relink.changed_sections(af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(ref))
+            self.assertEqual((grown, shrunk), ([], []))
 
     def test_ranges_follow_the_vrom_order(self):
         with tempfile.TemporaryDirectory() as d:
@@ -720,6 +739,46 @@ def changes_patch_file(name):
             elif inside and line.startswith("+") and not line.startswith("+++"):
                 lines.append(line[1:])
     return "".join(lines) or None
+
+
+class Font(unittest.TestCase):
+    """tools/af_font.py on a made-up font file of the cartridge's shape."""
+
+    @staticmethod
+    def put(seg, c, x, y, v):
+        at = af_font.SHEET + ((c // 16 * 16 + y) * 192 + c % 16 * 12 + x) // 2
+        seg[at] = (seg[at] & 0x0F) | (v << 4) if x % 2 == 0 else (seg[at] & 0xF0) | v
+
+    def test_latin_letters_move_left_and_get_their_width(self):
+        seg = bytearray(random.Random(5).randbytes(af_font.SIZE))
+        for c in range(256):                                       # empty cells
+            for y in range(16):
+                for x in range(12):
+                    self.put(seg, c, x, y, 0)
+        A, kana, dot = msgbank.N64_BYTES["A"], msgbank.N64_BYTES["あ"], msgbank.N64_BYTES["."]
+        for y in range(2, 14):
+            for x in range(3, 9):
+                self.put(seg, A, x, y, 15)                         # A inked in columns 3..8
+            for x in range(1, 11):
+                self.put(seg, kana, x, y, 9)
+        self.put(seg, dot, 4, 12, 15)
+        out, cut = af_font.align(bytes(seg))
+        self.assertEqual(len(out), af_font.SIZE)
+        self.assertEqual(out[:af_font.SHEET], seg[:af_font.SHEET])  # nothing outside the sheet
+        self.assertEqual(out[af_font.SHEET + 0x6000:], seg[af_font.SHEET + 0x6000:])
+        self.assertEqual(af_font.inked(out, A), list(range(0, 6)))
+        self.assertEqual(cut[A], 12 - 7)                           # six columns and one empty
+        self.assertEqual(af_font.inked(out, dot), [0])
+        self.assertEqual(cut[dot], 10)
+        self.assertEqual(cut[msgbank.N64_BYTES[" "]], 8)           # the space: 4 pixels
+        self.assertEqual(af_font.inked(out, kana), list(range(1, 11)))  # kana stay, full width
+        self.assertEqual(cut[kana], 0)
+        self.assertEqual(af_font.widths(cut)[A], 7)
+        self.assertEqual(af_font.align(bytes(seg), gap=2, space=5)[1][A], 12 - 8)
+        inc = af_font.initializer(cut)
+        self.assertEqual([int(n[:-1]) for n in inc.split("\n", 1)[1].split()], cut)
+        with self.assertRaises(ValueError):
+            af_font.align(bytes(seg[:-16]))
 
 
 class Save(unittest.TestCase):

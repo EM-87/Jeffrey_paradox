@@ -27,7 +27,9 @@ Four things are done (reference/NOTES.md, "Shiftability"):
    a first link), an input section of code that grew against REF_MAP, or
    is new, leaves its slot (kept as a hole of its old size) for a
    `code_en` region after buffers; one that shrank stays, padded to its
-   old size. tools/af_shiftcheck.py proves it after the link.
+   old size (as does one of the same size whose symbols moved inside it:
+   sizes are rounded to 16 bytes). tools/af_shiftcheck.py proves it after
+   the link.
 
 3. code_en is one more piece of the code segment: its ROM image runs on
    from code's (bss and buffers are zeros there), so the boot's one DMA of
@@ -44,6 +46,7 @@ Four things are done (reference/NOTES.md, "Shiftability"):
    there (tools/af_text.py writes the objects' .bin files).
 """
 
+import bisect
 import os
 import re
 import sys
@@ -93,11 +96,31 @@ def code_sections(linkmap):
             if out in BLOCK and sec in KINDS and size}
 
 
+def code_symbols(linkmap):
+    """(address, name) of code's symbols, in address order."""
+    return sorted((a, name) for name, (a, out) in linkmap.symbols.items() if out in BLOCK)
+
+
+def inside(symbols, addr, size):
+    """name -> offset of the symbols in [addr, addr + size)."""
+    i = bisect.bisect_left(symbols, (addr, ""))
+    out = {}
+    while i < len(symbols) and symbols[i][0] < addr + size:
+        out[symbols[i][1]] = symbols[i][0] - addr
+        i += 1
+    return out
+
+
 def changed_sections(ref, new):
     """(grown, shrunk): the (kind, object, new size, old size) of code's input
     sections that grew or are new (old size 0), in the new map's order, and of
-    those that shrank (new size 0 when they are gone)."""
+    those that shrank (new size 0 when they are gone). A section of the same
+    size whose symbols sit elsewhere inside it counts as shrunk: its size is
+    rounded to 16 bytes, so a function 12 bytes shorter can leave it as long
+    while every function after it moves (the en build's m_font.o)."""
     old, cur = code_sections(ref), code_sections(new)
+    ref_at = {(sec, obj): addr for out, sec, obj, addr, size in ref.inputs if out in BLOCK and size}
+    ref_syms, new_syms = code_symbols(ref), code_symbols(new)
     grown, shrunk, seen = [], [], set()
     for o, sec, obj, addr, size in new.inputs:
         if o not in BLOCK or sec not in KINDS or not size or (sec, obj) in seen:
@@ -108,6 +131,10 @@ def changed_sections(ref, new):
             grown.append((sec, obj, size, was))
         elif size < was:
             shrunk.append((sec, obj, size, was))
+        else:
+            before, after = inside(ref_syms, ref_at[(sec, obj)], was), inside(new_syms, addr, size)
+            if any(before[name] != after[name] for name in before.keys() & after.keys()):
+                shrunk.append((sec, obj, size, was))
     for (sec, obj), was in old.items():
         if (sec, obj) not in cur:
             shrunk.append((sec, obj, 0, was))
@@ -131,7 +158,7 @@ def fixed_block(lines, grown, shrunk, buffers_end):
         if key in lines:
             i = lines.index(key)
             lines[i + 1:i + 1] = ["        . += 0x%X; /* af_relink: %s(%s) shrank from %#x: padded to its old size */"
-                                  % (old - size, obj, sec, old)]
+                                  % (old - size, obj, sec, old)] if old > size else []
     region = ["    /* af_relink: code_en, after buffers: the sections that grew and the new ones. Nothing the",
               "       cartridge placed moves (reference/NOTES.md, Shiftability). Loaded with code by its one",
               "       DMA (code's ROM image runs on: bss and buffers are zeros), so its bss arrives zeroed. */",

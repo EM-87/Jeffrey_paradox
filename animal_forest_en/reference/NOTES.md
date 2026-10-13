@@ -120,6 +120,14 @@ What it took (each found by a failing comparison, in this order):
   (67,83,234) on both; the pointer at (320,205) was already common.
   Lesson kept in CLAUDE.md: prove a detector on the original before
   reading its verdict on a rebuilt ROM.
+- **The game's random numbers are seeded from the cycle counter**
+  (`init_rnd`, `code/sys_math.s`, calls `osGetCount`). The same ROM gives
+  the same seed every run, but a build that changes what runs before the
+  seed, or how long code's DMA at boot takes, gives another: two en
+  builds differing only in `m_font.c` (a 256-byte table more in code)
+  show the title demo's player in different clothes (measured,
+  `make emu-check-en`). So the en title's md5 is not a check across
+  builds; the matching build's is (it is the cartridge).
 
 
 ## The AF Project ROM in the emulator
@@ -768,9 +776,9 @@ the emulator (`make rom-en`, `make script ISO=...`).
   107 free strings. They go in `script/` as our own translation.
 - **What the first English ROM shows** (screenshots in the scratchpad):
   K.K.'s intro and Rover's questions in English, typed in the Japanese
-  font's full-width cells (16 px per character: the 0x7000-byte font at
-  ROM 0xBCD000 is 256 glyphs of 16x14 at 4 bpp), so an English line is
-  cut at about 20 characters; the NPC name tag is still Japanese (the
+  font's full-width cells (12 px per character: "The font in the en
+  build" below), so an English line is cut at about 16 characters (the
+  window's 192 px); the NPC name tag is still Japanese (the
   names are another bank). The game's flow is intact: pressing A every
   25 frames, the name dial opens after 113 presses (frame 3289) against
   the cartridge's 78 (frame 2414), the difference being English pages
@@ -778,9 +786,9 @@ the emulator (`make rom-en`, `make script ISO=...`).
   "edited" messages of the train intro (1124, 10950, 1127, 10953) differ
   from the N64's only in pauses, the date's field order and an
   expression code, so taking the GameCube's codes there was safe. That is phase 5's work: a proportional Latin font
-  in `m_font` (`code/6B3DC0`, asm; the GameCube's `m_font_offset` is the
-  map for widths), the name and item banks (`D_D16000/D_D18000`,
-  `D_D05000/D_D06000`, the NPC names).
+  (done with the cartridge's own glyphs: "The font in the en build"), the
+  name and item banks (`D_D16000/D_D18000`, `D_D05000/D_D06000`, the NPC
+  names).
 
 ## The compressed save (phase 4, the letters' first step)
 
@@ -933,3 +941,65 @@ what goes in it: "The letters in the en build").
   from the save loses its rest at the save after, and the load brings the
   extension back. The letter screen still shows only `Mail_c`'s bytes:
   that is the next step.
+
+## The font in the en build (phase 5, first step)
+
+- **The sheet.** The font is the file at vrom 0xBCD000 (0x62E0 bytes,
+  stored uncompressed in the cartridge, at 0x9BAEE0). `func_80090188_jp`
+  loads 0x6000 bytes from offset 0x128 into `B_8013A680_jp`; the code
+  spells that offset `int_sum_clchest03_hikiura_txt + 8 - 0x06000000`,
+  another symbol of the same segment (0x06000120), not a font one. It is
+  a 192x256 I4 sheet of 256 characters, 12x16 pixels each, sixteen to a
+  row: character c at (c % 16 * 12, c / 16 * 16). The Latin letters sit
+  near the middle of their cells, one to five empty columns on the left
+  (A in columns 2-10, i 5-7, m 1-10; measured, `tools/af_font.py`).
+- **Widths.** A character is drawn from the left edge of its cell,
+  12 - cut pixels wide (`func_8009167C_jp`, `func_800917C8_jp`: the
+  rectangle is cropped on the right, the pen moves on by the same width),
+  where cut is `func_8009028C_jp(c, flag)`: the character's entry in
+  `D_80106AF4_jp`, a 256-byte table, when the flag is set, else 0. The
+  table is all zeros on the cartridge, and its only reader is
+  `func_80090140_jp` (two more callers, `func_80091094_jp` and
+  `func_80091104_jp`, are called from nowhere). The flag is bit 0 of the
+  character's flags (byte 5 of the drawing struct, from bit 0 of the
+  sentence flags in `func_80091AB0_jp`): the message window passes 0x40
+  and 0x58 (`m_msg_main.c`), the choices and the name plate pass FALSE
+  (`m_choice_main.c`, `func_800A2BB0_jp`), and so does every width they
+  measure with `mFont_GetStringWidth`, which rounds a width up to even.
+  The cartridge draws everything monospaced.
+- **Matching.** `code/6B3DC0` is now `src/code/m_font.c` (the GameCube's
+  name: its functions are mFont_*), the 57 functions not needed here as
+  GLOBAL_ASM, its rodata (0x73ABD0: four DMA debug strings, two floats and
+  a jump table into the file) attached to it, and the width path in C:
+  `func_80090120_jp`/`func_80090130_jp` (the loaded flag),
+  `func_80090140_jp`, `func_80090178_jp`, `func_8009028C_jp`,
+  `mFont_GetStringWidth`. IDO converts a `u8` to float as unsigned (an
+  extra add of 2^32 for negatives) unless it is cast to `s32` first; the
+  string width matches only with the character's width in a temporary
+  declared inside the loop.
+- **The en build** (`decomp/changes.patch`, `m_font.c`) reads its widths
+  from `mFont_en_cut`, which includes `assets/jp/en/font_cut.inc`, and
+  `func_8009028C_jp` uses them whatever the flag: measuring and drawing
+  both go through it, so the name plate stays centred and the choice
+  window fits its lines. `tools/af_font.py` makes the table and the en
+  build's copy of the sheet from the user's dump at build time (`make
+  rom-en`): each Latin character moved to the left edge of its cell, its
+  width its inked columns and one empty one (3 to 12 pixels), the space
+  4; kana, kanji and the marks keep 12 and their cells, so Japanese draws
+  as before. On screen (the opening, K.K. and Rover on the train, the
+  date question's choices): proportional English, nothing cropped, the
+  name plate centred, the choice window as wide as its answers.
+- **How the English fits** (the GameCube's lines at these widths, a free
+  string counted as 48 px): of 71,713 English lines, 2,640 (3.7%) are
+  wider than the window's 192 px and 417 wider than 200; with two empty
+  columns between letters it would be 28%. The GameCube's own font is
+  narrower (its line of "I never could sell that thing at the shop...",
+  44 characters, is 276 px here).
+- **A section can change and keep its size.** The en `func_8009028C_jp`
+  is 12 bytes shorter; `m_font.o`'s text, rounded to 16 bytes, stayed
+  0x27A0, so `tools/af_relink.py` (which compared sizes) left it in place
+  unpadded with every function after it 12 bytes earlier, and
+  `af_shiftcheck` refused the link (113 symbols moved). `af_relink` now
+  also compares the symbols inside each section and treats a section of
+  the same size whose symbols moved as shrunk (in place, its symbols
+  free).

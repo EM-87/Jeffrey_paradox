@@ -22,7 +22,9 @@
   the GameCube's formats (`m_string.c`, STR_AMPM on code 71), and the
   flash save is written compressed with room for the letters' extension
   (`m_flashrom.c`, `include/af_lz.h`; reference/NOTES.md, "The compressed
-  save").
+  save"), and every character is drawn and measured at its own width, from
+  a table `tools/af_font.py` generates with the en build's copy of the font
+  (`m_font.c`; reference/NOTES.md, "The font in the en build").
   Its ROM is never compared with the cartridge: `make rom-en` builds it
   with `code` moved to the end of the ROM so that it can grow and nothing
   of it moved in RAM (a section that grows, or a new one, goes to a
@@ -71,6 +73,11 @@ loaders and their free strings, after the balloon and feng shui code) is
 a C file too: the 42 letter functions all compile to the cartridge's
 bytes (two with a `//! FAKE` the permuter found), the 7 before them are
 still asm (`reference/NOTES.md`, "How the loaders read them").
+
+`code/m_font` (`code/6B3DC0` before: the font, 63 functions at
+0x80090120-0x800928C0, with its rodata) is a C file: the six of the
+character widths compile to the cartridge's bytes, the rest are still asm
+(`reference/NOTES.md`, "The font in the en build").
 
 `code/m_msg_main` (the message system, 322 functions at 0x8009D1F0-
 0x800A5630) is a C file; functions move from asm to C in batches: 283 in

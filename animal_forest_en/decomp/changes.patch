@@ -988,6 +988,55 @@ index f3f7472..e751ce4 100644
              func_8008FA74_jp();
              ret = 1;
              func_8008ECA0_jp();
+diff --git a/src/code/m_font.c b/src/code/m_font.c
+index 85ca0d9..d461faf 100644
+--- a/src/code/m_font.c
++++ b/src/code/m_font.c
+@@ -15,6 +15,17 @@ extern s8 D_80106AF0_jp; /* the font is loaded */
+ extern u8 D_80106AF4_jp[0x100]; /* the columns cut from each character's right */
+ extern u8 B_8013A680_jp[]; /* the sheet */
+ 
++/*
++ * The en build's cut widths, in place of D_80106AF4_jp's zeros: generated
++ * from the cartridge's own sheet by tools/af_font.py, which also moves the
++ * Latin characters to the left of their cells in the en build's copy of the
++ * font (inked columns and one empty one; the space 4 pixels). Kana, kanji
++ * and marks keep 0: their 12 pixels, as on the cartridge.
++ */
++static u8 mFont_en_cut[0x100] = {
++#include "assets/jp/en/font_cut.inc"
++};
++
+ s32 func_80090120_jp(void) {
+     return D_80106AF0_jp;
+ }
+@@ -27,7 +38,7 @@ f32 func_80090140_jp(s32 c) {
+     if (c < 0 || c >= 0x100) {
+         return 0.0f;
+     }
+-    return (s32)D_80106AF4_jp[c];
++    return (s32)mFont_en_cut[c];
+ }
+ 
+ u8* func_80090178_jp(void) {
+@@ -36,8 +47,16 @@ u8* func_80090178_jp(void) {
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80090188_jp.s")
+ 
++/*
++ * The en build draws and measures every character at its cut width, whatever
++ * the caller asks: the cartridge's message window (sentence flags 0x40/0x58,
++ * m_msg_main.c), its choices and its name plate all ask for the full 12
++ * pixels, and so would English text, monospaced around left-aligned letters.
++ * Drawing (func_8009167C_jp, func_800917C8_jp) and measuring
++ * (mFont_GetStringWidth) both come here, so they stay in step.
++ */
+ s32 func_8009028C_jp(s32 c, s32 cut) {
+-    return mFont_CHAR_WIDTH - (cut ? (s32)func_80090140_jp(c) : 0);
++    return mFont_CHAR_WIDTH - (s32)func_80090140_jp(c);
+ }
+ 
+ s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
 diff --git a/src/code/m_handbill.c b/src/code/m_handbill.c
 index 34e9b7f..21bb66b 100644
 --- a/src/code/m_handbill.c

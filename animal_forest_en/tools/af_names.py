@@ -27,15 +27,17 @@ from msgbank import GC_CHARS, N64_BYTES  # noqa: E402
 VROM, HEADER, GC_SKIP, GC_LEN = 0xE04000, 8, 4, 8
 
 
-def segment(rom):
+def segment(rom, vrom=VROM):
+    """The file at vrom, from the cartridge's dmadata (at 0x19D40); it must be
+    stored uncompressed, as the name segment and the font are."""
     off = 0x19D40
     while True:
         vs, ve, ps, pe = struct.unpack(">IIII", rom[off:off + 16])
         if (vs, ve, ps, pe) == (0, 0, 0, 0):
-            raise ValueError("vrom %#x is not in dmadata" % VROM)
-        if vs == VROM:
+            raise ValueError("vrom %#x is not in dmadata" % vrom)
+        if vs == vrom:
             if pe:
-                raise ValueError("the name segment is compressed in this ROM")
+                raise ValueError("the segment at vrom %#x is compressed in this ROM" % vrom)
             return rom[ps:ps + (ve - vs)]
         off += 16
 

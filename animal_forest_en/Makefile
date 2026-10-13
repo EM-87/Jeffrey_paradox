@@ -154,6 +154,10 @@ EN_LETTERS := $(foreach b,$(LETTER_BANKS),$(if $(wildcard $(GC_DIR)/en_$(b).txt)
 # in its 6-byte fields (tools/af_names.py), as the en build's copy of the
 # segment's .bin; the cartridge's own when the disc's table is not there.
 EN_NAMES := $(AF_EN_DIR)/assets/jp/segment_00E04000.bin
+# The font: the cartridge's sheet with the Latin characters at the left of
+# their cells, as the en build's copy of the segment's .bin, and their widths
+# as the table the en build's m_font.c includes (tools/af_font.py).
+EN_FONT := $(AF_EN_DIR)/assets/jp/segment_00BCD000.bin
 
 $(AF_EN_DIR)/.stamp-checkout: decomp/AF_REV $(MATCHING) $(CHANGES)
 	@if [ "$$(git -C $(AF_EN_DIR) rev-parse HEAD~0 2>/dev/null)" = "" ]; then \
@@ -204,11 +208,16 @@ $(EN_ASSETS)/mail_text.bin: $(EN_LETTERS) tools/af_text.py tools/msgbank.py
 	mkdir -p $(EN_ASSETS)
 	$(PYTHON) tools/af_text.py compile-letters $(EN_ASSETS)/mail_text.bin $(EN_ASSETS)/mail_index.bin $(EN_LETTERS)
 
-$(EN_NAMES): $(BASEROM) tools/af_names.py $(wildcard $(GC_DIR)/npc_name_str_table.bin)
+# Both depend on the extract: splat writes the cartridge's .bin over them.
+$(EN_NAMES): $(BASEROM) tools/af_names.py $(wildcard $(GC_DIR)/npc_name_str_table.bin) $(AF_EN_DIR)/.stamp-extract
 	@if [ -s $(GC_DIR)/npc_name_str_table.bin ]; then $(PYTHON) tools/af_names.py $(BASEROM) $(GC_DIR)/npc_name_str_table.bin $@ | tail -1; \
 	else echo "names: the cartridge's (no $(GC_DIR)/npc_name_str_table.bin)"; fi
 
-en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES)
+$(EN_FONT): $(BASEROM) tools/af_font.py tools/af_names.py tools/msgbank.py $(AF_EN_DIR)/.stamp-extract
+	mkdir -p $(EN_ASSETS)
+	$(PYTHON) tools/af_font.py $(BASEROM) $@ $(EN_ASSETS)/font_cut.inc
+
+en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT)
 
 rom-en: decomp-en rom en-bank
 	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relsyms.py $(CURDIR)/$(REF_MAP) linker_scripts/jp/auto/undefined_syms_auto.ld

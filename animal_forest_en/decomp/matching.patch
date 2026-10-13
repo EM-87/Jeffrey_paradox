@@ -1,10 +1,18 @@
 diff --git a/include/6B3DC0.h b/include/6B3DC0.h
-index d37d396..61702d8 100644
+index d37d396..6be187f 100644
 --- a/include/6B3DC0.h
 +++ b/include/6B3DC0.h
-@@ -14,8 +14,8 @@ void func_80090130_jp(s32 arg0);
+@@ -9,13 +9,13 @@ struct Game;
+ 
+ s32 func_80090120_jp(void);
+ void func_80090130_jp(s32 arg0);
+-// void func_80090140_jp();
+-// void func_80090178_jp();
++f32 func_80090140_jp(s32 c); /* the columns cut from character c */
++u8* func_80090178_jp(void); /* the font sheet in RAM */
  // void func_80090188_jp();
- // void func_8009028C_jp();
+-// void func_8009028C_jp();
++s32 func_8009028C_jp(s32 c, s32 cut); /* the width character c is drawn with */
  s32 mFont_GetStringWidth(char*, s32, s32);
 -// void func_8009034C_jp();
 -// void func_800903A8_jp();
@@ -1596,6 +1604,180 @@ index 0000000..f3f7472
 +        gfxprint_printf(gfxprint, RO_STR_80116F28_jp);
 +    }
 +}
+diff --git a/src/code/m_font.c b/src/code/m_font.c
+new file mode 100644
+index 0000000..85ca0d9
+--- /dev/null
++++ b/src/code/m_font.c
+@@ -0,0 +1,168 @@
++#include "global.h"
++#include "6B3DC0.h"
++
++/*
++ * The font (ac-decomp's m_font.c is the map): 256 characters of 12x16 pixels,
++ * I4, sixteen to a row of a 192x256 sheet (vrom 0xBCD000 + 0x128, loaded into
++ * B_8013A680_jp by func_80090188_jp). A character is drawn from the left edge
++ * of its cell, mFont_CHAR_WIDTH pixels wide less its entry in D_80106AF4_jp
++ * when the caller asks for the cut width; the cartridge's table is all zeros.
++ */
++
++#define mFont_CHAR_WIDTH 12
++
++extern s8 D_80106AF0_jp; /* the font is loaded */
++extern u8 D_80106AF4_jp[0x100]; /* the columns cut from each character's right */
++extern u8 B_8013A680_jp[]; /* the sheet */
++
++s32 func_80090120_jp(void) {
++    return D_80106AF0_jp;
++}
++
++void func_80090130_jp(s32 arg0) {
++    D_80106AF0_jp = arg0;
++}
++
++f32 func_80090140_jp(s32 c) {
++    if (c < 0 || c >= 0x100) {
++        return 0.0f;
++    }
++    return (s32)D_80106AF4_jp[c];
++}
++
++u8* func_80090178_jp(void) {
++    return B_8013A680_jp;
++}
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80090188_jp.s")
++
++s32 func_8009028C_jp(s32 c, s32 cut) {
++    return mFont_CHAR_WIDTH - (cut ? (s32)func_80090140_jp(c) : 0);
++}
++
++s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
++    s32 width = 0;
++    s32 i;
++
++    for (i = 0; i < len; i++) {
++        s32 charWidth = func_8009028C_jp(str[i], cut);
++
++        width += charWidth;
++    }
++    if (width & 1) {
++        width++;
++    }
++    return width;
++}
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_8009034C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_800903A8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_800903CC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_800903E4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_8009040C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80090470_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_800904B8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80090504_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80090564_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_800905D4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80090648_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_8009069C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80090848_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_8009087C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80090CC0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetLineStrings_AndSpace.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80090E98_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetMatrix.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_UnSetMatrix.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091074_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091094_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091104_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_8009113C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_800911E8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_800913D4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091470_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_800914FC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091554_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_800915A4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_800915D8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_8009167C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_800917C8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_800918A8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_800918E8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091900_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_8009193C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091980_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_800919D0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091A18_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091AB0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091C00_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091C98_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091DFC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091E0C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091E90_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091EC4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091F98_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80091FCC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80092000_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80092034_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetMarkChar.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80092440_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80092468_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_800924CC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80092538_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_UnintToString.s")
 diff --git a/src/code/m_handbill.c b/src/code/m_handbill.c
 new file mode 100644
 index 0000000..34e9b7f
@@ -5450,7 +5632,7 @@ index 81ac120..f656590 100644
  
  #endif
 diff --git a/yamls/jp/code.yaml b/yamls/jp/code.yaml
-index c052055..be1204a 100644
+index c052055..204cfbc 100644
 --- a/yamls/jp/code.yaml
 +++ b/yamls/jp/code.yaml
 @@ -39,9 +39,9 @@
@@ -5458,9 +5640,10 @@ index c052055..be1204a 100644
        - [0x6A8B70, asm, code/m_field_make]
        - [0x6AB8D0, c, code/m_field_info]
 -      - [0x6B2940, asm, code/m_flashrom]
-+      - [0x6B2940, c, code/m_flashrom]
-       - [0x6B3DC0, asm, code/6B3DC0]
+-      - [0x6B3DC0, asm, code/6B3DC0]
 -      - [0x6B6560, asm, code/m_handbill]
++      - [0x6B2940, c, code/m_flashrom]
++      - [0x6B3DC0, c, code/m_font]
 +      - [0x6B6560, c, code/m_handbill]
        - [0x6B81C0, asm, code/m_home]
        - [0x6B8880, asm, code/m_house]
@@ -5475,6 +5658,15 @@ index c052055..be1204a 100644
        - [0x6C92D0, c, code/m_name_table]
        - [0x6C97F0, asm, code/6C97F0]
        - [0x6CA4B0, c, code/m_npc]
+@@ -241,7 +242,7 @@
+       - [0x73AA10, rodata, code/73AA10]
+       - [0x73AAE0, .rodata, code/m_field_info]
+       - [0x73ABB0, rodata, code/73ABB0]
+-      - [0x73ABD0, rodata, code/73ABD0]
++      - [0x73ABD0, .rodata, code/m_font]
+       - [0x73AC50, rodata, code/73AC50]
+       - [0x73AC60, rodata, code/73AC60]
+       - [0x73AD40, rodata, code/73AD40]
 @@ -250,7 +251,7 @@
        - [0x73AD90, .rodata, code/m_kankyo]
        - [0x73AED0, .rodata, code/m_lib]

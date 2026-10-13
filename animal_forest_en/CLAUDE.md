@@ -90,6 +90,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `script/string/`, `script/<letter bank>/` hold our own text,
   laid over the drafts (NOTES, "The GameCube script", "The English bank
   in the ROM").
+- `tools/af_font.py` — the en build's font, made from the user's dump at
+  `make rom-en`: the Latin letters at the left of their 12-pixel cells and
+  their widths, the table the en `m_font.c` includes (NOTES, "The font in
+  the en build").
 - `tools/aflz.py` — the en build's save compressor in Python (the twin
   of `include/af_lz.h` in changes.patch): slot images packed and read.
 - `tests/` — `test_tools.py`, `emu_check.py`, `emu_save.py` (the en

@@ -127,12 +127,17 @@ sistema de mensajes del N64 admite (caracteres, códigos, tamaño, líneas), y
 de dmadata (`decomp/changes.patch`): los mensajes, las respuestas de las
 elecciones, las cadenas (nombres de bichos y peces, muletillas, fechas) y
 los nombres de los animales (6 letras en el N64: 38 de 232 quedan cortados
-por ahora). El ROM en inglés ya habla: K.K. y Rover en la intro, con la
-fuente japonesa (de ancho fijo, 16 px por letra: la fuente es la fase 5).
+por ahora). El ROM en inglés ya habla: K.K. y Rover en la intro, con
+letra proporcional: los glifos latinos del propio cartucho, movidos al
+borde izquierdo de su celda de 12 px y con su anchura medida
+(`tools/af_font.py`, a partir del volcado del usuario al compilar; el
+`m_font.c` del build en inglés los dibuja y los mide así, y el japonés
+sigue igual: `reference/NOTES.md`, "The font in the en build").
 Nuestras traducciones de lo que GameCube no tiene van en `script/`.
 
-Lo que viene: la fuente proporcional y los gráficos occidentales de
-GameCube, las cartas, y traducir ese 6 %.
+Lo que viene: ajustar al ancho en píxeles las líneas que aún no caben
+(un 3,7 %), los gráficos occidentales de GameCube, la pantalla de cartas,
+y traducir ese 6 %.
 
 ## Dónde está cada cosa
 
@@ -153,8 +158,8 @@ GameCube, las cartas, y traducir ese 6 %.
   disposición del ROM traducido), `af_shiftcheck.py`/`af_anchors.py`/
   `af_luicheck.py` (sus pruebas), `gciso.py`/`msgbank.py`/`af_align.py`
   (el disco de GameCube, los bancos de texto de ambos juegos y su
-  correspondencia) y `af_text.py` (el banco inglés: borrador, comprobador y
-  compilador).
+  correspondencia), `af_text.py` (el banco inglés: borrador, comprobador y
+  compilador) y `af_font.py` (la fuente del build en inglés).
 - `script/` — nuestro texto: lo que no tiene versión oficial.
 - `tests/` — `test_tools.py` (`make test`) y `emu_check.py`
   (`make emu-check`).
