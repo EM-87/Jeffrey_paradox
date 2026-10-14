@@ -14,8 +14,18 @@ output), and it says how.
 | `Lost_Vikings_The_USA.sfc` | The Lost Vikings, SNES, USA. LoROM FastROM (map $30), 1 MB. | `ed1b3038825835d6614ec8a2f3d22517f5334deb` |
 | `Lost_Vikings_Proto.sfc` | A prototype of the *first* game (its texts are LV1's; blank header). | `b6471ea55959e97b678f2f157c56c3c0f077906c` |
 | `Lost_Vikings_The_USA.gba` | The Lost Vikings, GBA (game code ALVE), 4 MB: Blizzard's own port of LV1 to the GBA. | `670affd3e3cf3f80f939517421ed7927c0c14310` |
+| `lost_vikings.img` | The Lost Vikings, **MS-DOS**, US, 1993: one 3.5" HD floppy (archive.org item `lostvikings_us_kryoflux`). Its KryoFlux streams decode (greaseweazle, `ibm.1440`) to 2880 of 2880 sectors, identical to this image. | `ca83858d3b2d6eb10edef2dbeeedc842ba2ebb52` |
+| `data.dat` | From that floppy's installer archive (`tools/lv1dos_unpack.py`): the DOS game's chunks. | `568a16de7a8e22e68807aba0102d1e0df08b3d8b` |
+| `vikings.exe` | The DOS game, 142,224 bytes, MZ. | `11d7b86a3a279b77dfffaccd38b55e4f51b0f1b5` |
+| `setup.exe` | Its sound setup, 33,552 bytes. | `5fc650a4b07db1fdc8dd7239751db18bfa9fc0d8` |
 
 None of them is, or will be, in the repository. Tools take their path.
+
+The floppy holds only `INSTALL.EXE` (Blizzard's "PC Vikings Installer",
+Borland C++) and `VIKINGS.I00`: a text banner ("PC Vikings install data
+file version 1.01"), the total unpacked size (1,746,220) and the archive's
+own size, and from offset `0x3E` a plain LHA (`-lh5-`) archive of
+`data.dat`, `vikings.exe` and `setup.exe`.
 
 OpenVikings (MIT, Yuri Kunde Schlesner) is a reverse-engineering of the
 *DOS* Lost Vikings: its `tools/lvtools/compression.py` and its notes on
@@ -67,6 +77,16 @@ word addresses `$1800` and `$1000`), BG3 a 32×32 2bpp map at `$0C00` with
 priority (dialogue boxes); sprites 16×16 / 32×32. The level's maps stream in
 by column through DMAs of 32 entries out of WRAM `$7E:1743..18A7`. The HUD
 (three portraits, life dots, item slots) is the top 48 lines.
+
+## The DOS game's DATA.DAT — VERIFIED
+
+A table of little-endian 32-bit offsets at the start (`0x85C / 4` = 535
+chunks, each ending where the next begins), and the same LZSS with the
+length word one short of the length (OpenVikings' `decoded_data_len =
+read_word + 1`). `tools/lv2data.py` reads it: 527 of the 535 streams end
+exactly where their chunk does. The other 8 (0, 1, 380, 384, 529, 530, 531,
+534) are not streams; OpenVikings' `notes/chunks.txt` has chunk 1 as raw
+planar VGA data (the status bar).
 
 ## The first game shares all of this — VERIFIED
 

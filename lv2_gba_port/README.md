@@ -40,6 +40,7 @@ los datos, así que en cualquier caso hay que escribirlas.
 | `make snes-core` | red (clona snes9x) | compila el núcleo de snes9x instrumentado |
 | `make chunks ROM=lv2.sfc` | el dump | todos los chunks descomprimidos en `build/chunks/` |
 | `python3 tools/dis65816.py ROM 80B8DE 80BB60 [--cdl F]` | el dump | desensambla 65816 (LoROM) |
+| `python3 tools/lv1dos_unpack.py lost_vikings.img DIR` | la imagen del disquete de DOS y `lha` (lhasa) | saca `data.dat`, `vikings.exe` y `setup.exe` del instalador |
 
 - `tools/snes9x/` — snes9x (libretro, commit fijo) más `dbg.cpp` y
   `hooks.patch`: registro de código/datos sobre la ROM (qué bytes se
@@ -50,7 +51,8 @@ los datos, así que en cualquier caso hay que escribirlas.
   capturas, save states, WRAM/VRAM/CGRAM/OAM, PPU.
 - `tools/dis65816.py` — desensamblador 65816; con el registro de
   código/datos usa el ancho real con el que corrió cada instrucción.
-- `tools/lv2data.py` — la tabla de chunks y su LZSS.
+- `tools/lv2data.py` — la tabla de chunks y su LZSS; lee igual un dump de
+  SNES (LV1 o LV2) o el `data.dat` del LV1 de DOS.
 
 Los dumps no están en el repositorio y no tienen que estar. Tampoco nada
 generado a partir de ellos (chunks, listados, save states).
@@ -63,4 +65,5 @@ generado a partir de ellos (chunks, listados, save states).
 | LV1 SNES (USA) y su prototipo | el mismo motor en su versión anterior |
 | LV1 GBA | cómo Blizzard llevó ese motor al GBA |
 | OpenVikings (MIT) | formatos del LV1 de DOS: LZSS, chunks, bytecode de objetos |
+| LV1 DOS (disquete US de 1993, archive.org `lostvikings_us_kryoflux`) | el juego que documenta OpenVikings: sus `data.dat` y `vikings.exe` |
 | LV2 DOS (pendiente) | si el ejecutable es C compilado, la lógica se descompila mucho mejor que el 65816 |

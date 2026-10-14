@@ -5,6 +5,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import struct  # noqa: E402
+
 import lv2data  # noqa: E402
 
 
@@ -57,6 +59,26 @@ def test_window_position_is_output_index_mod_4096():
     assert data[:4097] == bytes(lits)
     assert data[4097:] == bytes([lits[4096]] * 3), data[4097:]
     assert lits[4096] != lits[0]
+
+
+def test_dos_data_dat():
+    # DATA.DAT: a table of 32-bit offsets, then streams whose length word
+    # is one short of the length.
+    a = bytes([2, 0]) + bytes([0b111, 0x41, 0x42, 0x43])
+    b = bytes([0, 0]) + bytes([0b1, 0x5A])
+    table = struct.pack("<II", 8, 8 + len(a))
+    dat = table + a + b
+    kind, offs, bias = lv2data.container(dat)
+    assert (kind, offs, bias) == ("dos", [8, 8 + len(a)], 1), (kind, offs)
+    assert lv2data.decompress(dat, offs[0], bias) == (b"ABC", len(a))
+    assert lv2data.decompress(dat, offs[1], bias) == (b"Z", len(b))
+
+
+def test_snes_dump_is_not_mistaken_for_data_dat():
+    # A LoROM dump starts with code, not an offset table.
+    rom = bytearray(0x60000)
+    rom[0:4] = bytes([0x78, 0x18, 0xFB, 0xC2])  # SEI CLC XCE REP
+    assert lv2data.dos_chunk_offsets(bytes(rom)) is None
 
 
 def main():
