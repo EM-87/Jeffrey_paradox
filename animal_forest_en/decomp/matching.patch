@@ -1,5 +1,5 @@
 diff --git a/include/6B3DC0.h b/include/6B3DC0.h
-index d37d396..6be187f 100644
+index d37d396..62f09ec 100644
 --- a/include/6B3DC0.h
 +++ b/include/6B3DC0.h
 @@ -9,13 +9,13 @@ struct Game;
@@ -21,6 +21,16 @@ index d37d396..6be187f 100644
  // void func_800903CC_jp();
  // void func_800903E4_jp();
  // void func_8009040C_jp();
+@@ -30,7 +30,8 @@ s32 mFont_GetStringWidth(char*, s32, s32);
+ // void func_8009087C_jp();
+ // void func_80090CC0_jp();
+ f32 mFont_SetLineStrings_AndSpace(struct Game*, char*, s32, f32 x, f32 y, s32, s32, s32, s32, s32, s32, s32, f32, f32,s32);
+-// void func_80090E98_jp();
++f32 func_80090E98_jp(struct Game* game, u8* str, s32 len, f32 x, f32 y, s32 r, s32 g, s32 b, s32 a, s32 flag,
++                      s32 cut, f32 scaleX, f32 scaleY, s32 mode); /* a line of text (mFont_SetLineStrings) */
+ void mFont_SetMatrix(struct GraphicsContext* gfxCtx, s32 type);
+ void mFont_UnSetMatrix(struct GraphicsContext* gfxCtx, s32 type);
+ void func_80091074_jp(struct GraphicsContext* gfxCtx);
 diff --git a/include/m_clip.h b/include/m_clip.h
 index 2c5d2ac..f1c04ef 100644
 --- a/include/m_clip.h
@@ -5631,6 +5641,312 @@ index 81ac120..f656590 100644
  } Npc; // size = 0x93C
  
  #endif
+diff --git a/src/overlays/submenu/board_ovl/m_board_ovl.c b/src/overlays/submenu/board_ovl/m_board_ovl.c
+new file mode 100644
+index 0000000..aa80914
+--- /dev/null
++++ b/src/overlays/submenu/board_ovl/m_board_ovl.c
+@@ -0,0 +1,300 @@
++#include "global.h"
++#include "overlays/submenu/board_ovl/m_board_ovl.h"
++#include "overlays/submenu/submenu_ovl/m_submenu_ovl.h"
++#include "m_common_data.h"
++#include "m_lib.h"
++#include "m_mail.h"
++#include "m_private.h"
++#include "m_submenu.h"
++#include "6B3DC0.h"
++
++/*
++ * The letter board (ac-decomp's m_board_ovl.c is the map): a letter read or
++ * written on its paper, the header with the recipient's name, six lines of
++ * body and the footer.
++ */
++
++typedef struct mBD_Ovl_c {
++    /* 0x00 */ u8 field;
++    /* 0x01 */ u8 centerLine;
++    /* 0x02 */ u8 headerPos;
++    /* 0x03 */ u8 headerNameLen;
++    /* 0x04 */ u8 first;
++    /* 0x05 */ u8 lengths[3]; /* header, body, footer */
++    /* 0x08 */ Mail_c mail;
++    /* 0xAC */ Mail_c* dst;
++    /* 0xB0 */ f32 ofsX;
++    /* 0xB4 */ f32 ofsY;
++    /* 0xB8 */ s32 unk_B8;
++    /* 0xBC */ s32 unk_BC;
++} mBD_Ovl_c; // size = 0xC0
++
++/* The board's entry of the submenu's menu infos (mSM_MenuInfo_c in AC GCN) */
++typedef struct mBD_MenuInfo {
++    /* 0x00 */ s32 unk_00;
++    /* 0x04 */ s32 procStatus;
++    /* 0x08 */ UNK_TYPE1 unk_08[0x28];
++    /* 0x30 */ s32 nextProcStatus;
++    /* 0x34 */ s32 moveDrt;
++    /* 0x38 */ s32 data0; /* 0: write a letter, 1: read one, else: answer one */
++    /* 0x3C */ s32 data1; /* the paper's pocket */
++    /* 0x40 */ Mail_c* data2; /* the letter */
++    /* 0x44 */ s32 unk_44;
++} mBD_MenuInfo; // size = 0x48
++
++/* The submenu's overlay data (struct_8085E9B0, mSM_Overlay_c in AC GCN) as
++ * the board sees it: its own types, so that the shared one stays as it is */
++typedef struct mBD_SubmenuOvl {
++    /* 0x00000 */ UNK_TYPE1 unk_00000[0x10088];
++    /* 0x10088 */ mBD_MenuInfo menuInfo[13]; /* the board's is the 13th */
++    /* 0x10430 */ UNK_TYPE1 unk_10430[0x270];
++    /* 0x106A0 */ s32 animationFlag;
++    /* 0x106A4 */ UNK_TYPE1 unk_106A4[0x40];
++    /* 0x106E4 */ struct mBD_Ovl_c* boardOvl;
++} mBD_SubmenuOvl;
++
++#define mBD_SUBMENU_OVL(submenu) ((mBD_SubmenuOvl*)(submenu)->unk_2C)
++#define mSM_OVL_BOARD 12
++
++#define mBD_BODY_LINE_NUM 6
++#define mBD_BODY_LINE_LEN 16 /* characters: 192 pixels of the cartridge's 12 */
++#define mBD_CHAR_NEW_LINE 0xCD
++
++#define mBD_FIELD_HEADER 0
++#define mBD_FIELD_BODY 1
++#define mBD_FIELD_FOOTER 2
++
++extern u8 D_8088ABB8_jp[]; /* what follows the name in a new letter's header */
++extern u8 D_8088ABBC_jp[]; /* what follows the name in its footer */
++
++mBD_Ovl_c B_8088AC00_jp; /* the board's state (board_ovl_data) */
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80888E90_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889028_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_8088910C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_8088913C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889198_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_8088920C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889288_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_808894E4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889514_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889574_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_8088973C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889878_jp.s")
++
++/* The footer (mBD_set_writing_footer): its last character under the body's 16th */
++void func_808899E4_jp(Submenu* submenu, Game* game, f32 x, f32 y, Color_RGBA8* color) {
++    mBD_Ovl_c* boardOvl = mBD_SUBMENU_OVL(submenu)->boardOvl;
++    s32 len = boardOvl->lengths[mBD_FIELD_FOOTER];
++
++    x += 12.0f * (mBD_BODY_LINE_LEN - len);
++    func_80090E98_jp(game, boardOvl->mail.content.footer, len, x, y, color->r, color->g, color->b, 255, FALSE, FALSE,
++                     1.0f, 1.0f, 0);
++}
++
++/* The body (mBD_set_writing_body): six lines of up to 16 characters, a newline
++ * ending one early (drawn while writing only); where the text ends is where
++ * the writing cursor goes */
++void func_80889A9C_jp(Submenu* submenu, mBD_MenuInfo* menuInfo, Game* game, f32 x, f32* y, f32* endX, f32* endY,
++                      Color_RGBA8* color) {
++    mBD_Ovl_c* boardOvl = mBD_SUBMENU_OVL(submenu)->boardOvl;
++    u8* str = boardOvl->mail.content.body;
++    s32 rest = boardOvl->lengths[mBD_FIELD_BODY];
++    s32 i;
++    s32 newline;
++    s32 len;
++    s32 drawLen;
++
++    for (i = 0; i < mBD_BODY_LINE_NUM; i++) {
++        newline = FALSE;
++        len = 0;
++        if (!y) {} //! FAKE
++
++        while (len < rest) {
++            if (str[len] == mBD_CHAR_NEW_LINE) {
++                len++;
++                newline = TRUE;
++                break;
++            }
++            len++;
++            if (len >= mBD_BODY_LINE_LEN) {
++                break;
++            }
++        }
++
++        if (len != 0) {
++            if (newline && menuInfo->procStatus != 1) {
++                drawLen = len - 1;
++            } else {
++                drawLen = len;
++            }
++            if (drawLen != 0) {
++                func_80090E98_jp(game, str, drawLen, x, *y, color->r, color->g, color->b, 255, FALSE, FALSE, 1.0f, 1.0f,
++                                 0);
++            }
++            rest -= len;
++            str += len;
++            if (rest == 0) {
++                if (i != mBD_BODY_LINE_NUM - 1 && (newline || len == mBD_BODY_LINE_LEN)) {
++                    *endX = x - 160.0f;
++                    *endY = 120.0f - (*y + 16.0f);
++                } else {
++                    *endX = len * 12.0f + x - 160.0f;
++                    *endY = 120.0f - *y;
++                }
++            }
++        }
++        *y += 16.0f;
++    }
++}
++
++/* The header (mBD_set_writing_header): the recipient's name put in at
++ * headerBackStart, in red while writing; the shops' and the fortune's
++ * letters (types 2, 3, 5) keep theirs as it is */
++#ifdef NON_MATCHING
++void func_80889CD8_jp(Submenu* submenu, Game* game, mBD_MenuInfo* menuInfo, f32 x, f32 y, Color_RGBA8* color) {
++    mBD_Ovl_c* boardOvl = mBD_SUBMENU_OVL(submenu)->boardOvl;
++    MailContent* content = &boardOvl->mail.content;
++    s32 len;
++
++    if (menuInfo->procStatus == 1) {
++        if (boardOvl->field == mBD_FIELD_HEADER) {
++            len = PLAYER_NAME_LEN;
++        } else {
++            len = boardOvl->headerNameLen;
++        }
++        func_80090E98_jp(game, content->header, content->headerBackStart, x, y, color->r, color->g, color->b, 255, FALSE,
++                         FALSE, 1.0f, 1.0f, 0);
++        x += content->headerBackStart * 12.0f;
++        func_80090E98_jp(game, (u8*)boardOvl->mail.header.recipient.personalID.playerName, len, x, y, 185, 0, 0, 255,
++                         FALSE, FALSE, 1.0f, 1.0f, 0);
++        if (content->headerBackStart < MAIL_HEADER_LEN) {
++            func_80090E98_jp(game, &content->header[content->headerBackStart],
++                             boardOvl->lengths[mBD_FIELD_HEADER] - content->headerBackStart, x + len * 12.0f, y,
++                             color->r, color->g, color->b, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
++        }
++    } else {
++        u8 tmp[MAIL_HEADER_LEN + PLAYER_NAME_LEN];
++
++        if (content->mailType == 2 || content->mailType == 3 || content->mailType == 5) {
++            mem_copy(tmp, content->header, MAIL_HEADER_LEN);
++            len = MAIL_HEADER_LEN;
++        } else {
++            mem_copy(tmp, content->header, content->headerBackStart);
++            mem_copy(&tmp[content->headerBackStart], (u8*)boardOvl->mail.header.recipient.personalID.playerName,
++                     boardOvl->headerNameLen);
++            if (content->headerBackStart < MAIL_HEADER_LEN) {
++                mem_copy(&tmp[boardOvl->headerNameLen + content->headerBackStart],
++                         &content->header[content->headerBackStart],
++                         boardOvl->lengths[mBD_FIELD_HEADER] - content->headerBackStart);
++            }
++            len = boardOvl->lengths[mBD_FIELD_HEADER] + boardOvl->headerNameLen;
++        }
++        func_80090E98_jp(game, tmp, len, x, y, color->r, color->g, color->b, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
++    }
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889CD8_jp.s")
++#endif
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889FB0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_8088A15C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_8088A230_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/mBD_board_ovl_set_proc.s")
++
++void func_8088A2D0_jp(Submenu* submenu) {
++    mBD_MenuInfo* menuInfo = &mBD_SUBMENU_OVL(submenu)->menuInfo[mSM_OVL_BOARD];
++    mBD_Ovl_c* boardOvl = mBD_SUBMENU_OVL(submenu)->boardOvl;
++
++    mBD_SUBMENU_OVL(submenu)->animationFlag = FALSE;
++    menuInfo->procStatus = 0;
++    menuInfo->moveDrt = 5;
++    boardOvl->field = mBD_FIELD_BODY;
++    boardOvl->centerLine = 2;
++    boardOvl->headerPos = 0;
++    boardOvl->dst = menuInfo->data2;
++
++    if (menuInfo->data0 == 0) {
++        MailHeaderCommon* saved = &common_data.privateInfo->savedMailHeader;
++        s32 nameLen;
++
++        boardOvl->first = TRUE;
++        menuInfo->nextProcStatus = 1;
++        mSM_open_submenu_new(submenu, 0xD, 0, 0, (s32)boardOvl->mail.content.body);
++        mMl_init_mail(&boardOvl->mail, &common_data.privateInfo->playerId);
++        boardOvl->mail.content.paperType = (common_data.privateInfo->inventory.pockets[menuInfo->data1] - 0x2000) & 0xFF;
++
++        if (saved->unk_00 == -1) {
++            nameLen = mMl_strlen(common_data.privateInfo->playerId.playerName, PLAYER_NAME_LEN, ' ');
++
++            mem_copy(boardOvl->mail.content.header, D_8088ABB8_jp, 3);
++            mem_copy(boardOvl->mail.content.footer, (u8*)common_data.privateInfo->playerId.playerName, nameLen);
++            mem_copy(boardOvl->mail.content.footer + nameLen, D_8088ABBC_jp, 2);
++            boardOvl->mail.content.headerBackStart = 0;
++        } else {
++            mem_copy(boardOvl->mail.content.header, saved->unk_02, MAIL_HEADER_LEN);
++            mem_copy(boardOvl->mail.content.footer, saved->unk_0C, MAIL_FOOTER_LEN);
++            boardOvl->mail.content.headerBackStart = saved->unk_00;
++        }
++    } else {
++        mMl_copy_mail(&boardOvl->mail, menuInfo->data2);
++        if (menuInfo->data0 == 1) {
++            menuInfo->nextProcStatus = 2;
++        } else {
++            menuInfo->nextProcStatus = 1;
++            mSM_open_submenu_new(submenu, 0xD, 1, 0, (s32)boardOvl->mail.content.body);
++        }
++        boardOvl->first = FALSE;
++        boardOvl->headerNameLen = mMl_strlen(boardOvl->mail.header.recipient.personalID.playerName, PLAYER_NAME_LEN, ' ');
++    }
++
++    boardOvl->lengths[mBD_FIELD_HEADER] = mMl_strlen((char*)boardOvl->mail.content.header, MAIL_HEADER_LEN, ' ');
++    boardOvl->lengths[mBD_FIELD_FOOTER] = mMl_strlen((char*)boardOvl->mail.content.footer, MAIL_FOOTER_LEN, ' ');
++    boardOvl->lengths[mBD_FIELD_BODY] = mMl_strlen((char*)boardOvl->mail.content.body, MAIL_BODY_LEN, ' ');
++
++    if (boardOvl->mail.content.headerBackStart > MAIL_HEADER_LEN) {
++        boardOvl->mail.content.headerBackStart = MAIL_HEADER_LEN;
++    }
++    if (boardOvl->lengths[mBD_FIELD_HEADER] < boardOvl->mail.content.headerBackStart) {
++        boardOvl->lengths[mBD_FIELD_HEADER] = boardOvl->mail.content.headerBackStart;
++    }
++
++    boardOvl->ofsX = 0.0f;
++    boardOvl->ofsY = 76.0f;
++
++    if (boardOvl->lengths[mBD_FIELD_FOOTER] != 0) {
++        s32 i;
++        u8* p;
++        u8 tmp[20];
++
++        p = tmp;
++        mem_copy(p, boardOvl->mail.content.footer, MAIL_FOOTER_LEN);
++        for (i = 0; i < boardOvl->lengths[mBD_FIELD_FOOTER]; i++, p++) {
++            if (*p != ' ') {
++                break;
++            }
++        }
++        mem_clear(boardOvl->mail.content.footer, MAIL_FOOTER_LEN, ' ');
++        mem_copy(boardOvl->mail.content.footer, p, boardOvl->lengths[mBD_FIELD_FOOTER] - i);
++    }
++}
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_8088A604_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/mBD_board_ovl_construct.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/mBD_board_ovl_destruct.s")
 diff --git a/yamls/jp/code.yaml b/yamls/jp/code.yaml
 index c052055..204cfbc 100644
 --- a/yamls/jp/code.yaml
@@ -5676,3 +5992,21 @@ index c052055..204cfbc 100644
        - [0x73AF40, rodata, code/73AF40]
        - [0x73AF50, .rodata, code/m_npc]
        - [0x73B000, .rodata, code/m_olib]
+diff --git a/yamls/jp/overlays.yaml b/yamls/jp/overlays.yaml
+index 95ebcf5..80b7561 100644
+--- a/yamls/jp/overlays.yaml
++++ b/yamls/jp/overlays.yaml
+@@ -423,10 +423,10 @@
+     compress: True
+     bss_size: 0xC0
+     subsegments:
+-      - [0x7908A0, asm, overlays/submenu/board_ovl/m_board_ovl]
++      - [0x7908A0, c, overlays/submenu/board_ovl/m_board_ovl]
+       - [0x7921B0, data, overlays/submenu/board_ovl/m_board_ovl]
+-      - [0x7925E0, rodata, overlays/submenu/board_ovl/m_board_ovl]
+-      - { start: 0x792610, type: bss, vram: 0x8088AC00, name: overlays/submenu/board_ovl/m_board_ovl }
++      - [0x7925E0, .rodata, overlays/submenu/board_ovl/m_board_ovl]
++      - { start: 0x792610, type: .bss, vram: 0x8088AC00, name: overlays/submenu/board_ovl/m_board_ovl }
+   - name: board_ovl_reloc
+     type: code
+     start: 0x792610

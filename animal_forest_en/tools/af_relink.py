@@ -28,8 +28,10 @@ Four things are done (reference/NOTES.md, "Shiftability"):
    is new, leaves its slot (kept as a hole of its old size) for a
    `code_en` region after buffers; one that shrank stays, padded to its
    old size (as does one of the same size whose symbols moved inside it:
-   sizes are rounded to 16 bytes). tools/af_shiftcheck.py proves it after
-   the link.
+   sizes are rounded to 16 bytes). An overlay's sections are held the same
+   way: one that shrank is padded in place (its relocation table is made
+   anew from its objects, tools/af_ovlreloc.py), one that grew is refused.
+   tools/af_shiftcheck.py proves it after the link.
 
 3. code_en is one more piece of the code segment: its ROM image runs on
    from code's (bss and buffers are zeros there), so the boot's one DMA of
@@ -96,9 +98,10 @@ def code_sections(linkmap):
             if out in BLOCK and sec in KINDS and size}
 
 
-def code_symbols(linkmap):
-    """(address, name) of code's symbols, in address order."""
-    return sorted((a, name) for name, (a, out) in linkmap.symbols.items() if out in BLOCK)
+def code_symbols(linkmap, outs=BLOCK):
+    """(address, name) of the symbols of the output sections outs (code's by
+    default), in address order."""
+    return sorted((a, name) for name, (a, out) in linkmap.symbols.items() if out in outs)
 
 
 def inside(symbols, addr, size):
@@ -139,6 +142,33 @@ def changed_sections(ref, new):
         if (sec, obj) not in cur:
             shrunk.append((sec, obj, 0, was))
     return grown, shrunk
+
+
+def changed_overlay_sections(ref, new):
+    """(kind, object, new size, old size) of the overlays' input sections that
+    shrank, or kept their size with their symbols moved: padded in place like
+    code's (their relocation tables are made anew, tools/af_ovlreloc.py). One
+    that grew is refused: the ROM after it would move."""
+    skip = BLOCK + (".buffers_bss",)
+    old = {(sec, obj): (out, addr, size) for out, sec, obj, addr, size in ref.inputs
+           if out not in skip and sec in KINDS and size}
+    shrunk, seen = [], set()
+    for out, sec, obj, addr, size in new.inputs:
+        if (sec, obj) not in old or (sec, obj) in seen or not size:
+            continue
+        seen.add((sec, obj))
+        ref_out, ref_addr, was = old[(sec, obj)]
+        if size > was:
+            raise SystemExit("af_relink: %s(%s) grew from %#x to %#x: an overlay that grows would move the ROM after "
+                             "it" % (obj, sec, was, size))
+        if size < was:
+            shrunk.append((sec, obj, size, was))
+            continue
+        before = inside(code_symbols(ref, (ref_out,)), ref_addr, was)
+        after = inside(code_symbols(new, (out,)), addr, size)
+        if any(before[name] != after[name] for name in before.keys() & after.keys()):
+            shrunk.append((sec, obj, size, was))
+    return shrunk
 
 
 def fixed_block(lines, grown, shrunk, buffers_end):
@@ -249,7 +279,9 @@ def main(argv):
     grown, shrunk = [], []
     if ref_path and map_path:
         ref = LinkMap(ref_path)
-        grown, shrunk = changed_sections(ref, LinkMap(map_path))
+        first = LinkMap(map_path)
+        grown, shrunk = changed_sections(ref, first)
+        shrunk += changed_overlay_sections(ref, first)
         lines = fixed_block(lines, grown, shrunk, ref.marks["buffers_VRAM_END"])
     if segs:
         lines = segments(lines, segs)

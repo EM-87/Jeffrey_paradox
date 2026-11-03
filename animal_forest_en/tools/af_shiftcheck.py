@@ -24,8 +24,8 @@ of --moved-list (what tools/af_relink.py writes: the sections that grew or
 are new): a moved section must be outside code's cartridge range and fit
 in one 64 KB %hi window, since IDO shares `lui`s inside an object. An
 `object section shrunk` line is a section that stayed, padded to its old
-size: it must start where it did and be no bigger; the symbols inside it
-are free. The linker script decides where things go (af_relink); this
+size, in code or in an overlay: it must start where it did and be no
+bigger; the symbols inside it are free. The linker script decides where things go (af_relink); this
 only proves the result. Exit status 1 with the violations when the proof
 fails.
 """
@@ -101,6 +101,13 @@ def check(ref, new, moved=(), gone=None, shrunk=()):
     free_ranges = []                    # moved or shrunk: their symbols are free
     new_inputs = {(s, obj): (a, n) for o, s, obj, a, n in new.inputs if n}
     for out, sec, obj, addr, size in ref.inputs:
+        if size and not in_block(out, addr) and (obj, sec) in shrunk:   # an overlay's, padded in place
+            free_ranges.append((addr, addr + size))
+            got = new_inputs.get((sec, obj))
+            if got is not None and (got[0] != addr or got[1] > size):
+                errors.append("%s %s: %#x+%#x -> %#x+%#x, expected at %#x, no bigger"
+                              % (obj, sec, addr, size, got[0], got[1], addr))
+            continue
         if not in_block(out, addr) or size == 0:
             continue
         got = new_inputs.get((sec, obj))
@@ -145,9 +152,10 @@ def check(ref, new, moved=(), gone=None, shrunk=()):
             continue                        # assets: nominal addresses
         if out == ".dmadata" and addr != dmadata_first:
             continue                        # the table may grow into its padding
+        if free(addr):
+            continue                        # in a section that moved out or was padded in place
         if in_block(out, addr):
-            if free(addr):
-                continue
+            pass
         elif not (out in BLOCK_SECTIONS or (out or "").startswith((".boot", ".ovl", ".dmadata", ".makerom"))
                   or (out or "").endswith("_ovl")):
             continue

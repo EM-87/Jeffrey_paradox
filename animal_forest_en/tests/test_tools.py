@@ -24,6 +24,7 @@ import af_dmaorder  # noqa: E402
 import af_font  # noqa: E402
 import af_luicheck  # noqa: E402
 import af_names  # noqa: E402
+import af_ovlreloc  # noqa: E402
 import af_ranges  # noqa: E402
 import af_relink  # noqa: E402
 import af_relsyms  # noqa: E402
@@ -277,6 +278,55 @@ class Shiftability(unittest.TestCase):
             self.assertEqual(shrunk, [(".text", "build/src/code/a.o", 0x40, 0x40)])
             grown, shrunk = af_relink.changed_sections(af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(ref))
             self.assertEqual((grown, shrunk), ([], []))
+
+    def test_overlays_shrink_in_place_and_never_grow(self):
+        def mapfile(text_size, f2):
+            return (".code           0x80051a80     0x1000 load address 0x01914000\n"
+                    "                0x80051a80                        code_TEXT_START = .\n"
+                    " .text          0x80051a80     0x1000 build/src/code/a.o\n"
+                    "                0x80052a80                        code_DATA_START = .\n"
+                    ".buffers_bss    0x80052a80      0x100\n"
+                    " .bss           0x80052a80      0x100 build/asm/buffers.o\n"
+                    "                0x80052b80                        buffers_VRAM_END = .\n"
+                    ".board_ovl      0x80888e90     0x2000 load address 0x007908a0\n"
+                    " .text          0x80888e90    0x%x build/src/overlays/board.o\n"
+                    "                0x80888e90                func_80888E90_jp\n"
+                    "                0x%08x                func_8088A2D0_jp\n"
+                    " .data          0x8088a7a0      0x430 build/asm/board.data.o\n"
+                    "                0x8088a7a0                D_8088A7A0_jp\n" % (text_size, f2))
+        with tempfile.TemporaryDirectory() as d:
+            ref, new = os.path.join(d, "ref.map"), os.path.join(d, "new.map")
+            open(ref, "w").write(mapfile(0x1910, 0x8088a2d0))
+            open(new, "w").write(mapfile(0x1910, 0x8088a2d0))
+            self.assertEqual(af_relink.changed_overlay_sections(af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(new)), [])
+            open(new, "w").write(mapfile(0x1800, 0x8088a1c0))                 # the text shrank
+            shrunk = af_relink.changed_overlay_sections(af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(new))
+            self.assertEqual(shrunk, [(".text", "build/src/overlays/board.o", 0x1800, 0x1910)])
+            open(new, "w").write(mapfile(0x1910, 0x8088a2c4))                 # same size, a function moved
+            shrunk = af_relink.changed_overlay_sections(af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(new))
+            self.assertEqual(shrunk, [(".text", "build/src/overlays/board.o", 0x1910, 0x1910)])
+            open(new, "w").write(mapfile(0x1920, 0x8088a2d0))                 # the text grew: refused
+            with self.assertRaises(SystemExit):
+                af_relink.changed_overlay_sections(af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(new))
+            # padded in place: the symbols inside are free, the section's start and size are held
+            open(new, "w").write(mapfile(0x1910, 0x8088a1c0))
+            r, n = af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(new)
+            self.assertTrue(any("func_8088A2D0_jp" in e for e in af_shiftcheck.check(r, n, [])[1]))
+            self.assertEqual(af_shiftcheck.check(r, n, [], None, [("build/src/overlays/board.o", ".text")])[1], [])
+            open(new, "w").write(mapfile(0x1920, 0x8088a1c0))
+            errors = af_shiftcheck.check(af_shiftcheck.LinkMap(ref), af_shiftcheck.LinkMap(new), [], None,
+                                         [("build/src/overlays/board.o", ".text")])[1]
+            self.assertTrue(any("no bigger" in e for e in errors), errors)
+
+    def test_overlay_relocation_tables_compare_by_groups(self):
+        hi, lo, j26, w32 = 0x45000000, 0x46000000, 0x44000000, 0x82000000
+        cart = [hi | 0xBC, lo | 0xC0, j26 | 0x3E0, hi | 0x7F4, lo | 0x804, hi | 0x7DC, lo | 0x7F8, w32 | 0x408]
+        swapped = [hi | 0xBC, lo | 0xC0, j26 | 0x3E0, hi | 0x7DC, lo | 0x7F8, hi | 0x7F4, lo | 0x804, w32 | 0x408]
+        self.assertTrue(af_ovlreloc.same_table(cart, swapped))            # whole HI/LO groups in another order
+        broken = [hi | 0xBC, lo | 0x804, j26 | 0x3E0, hi | 0x7F4, lo | 0xC0, hi | 0x7DC, lo | 0x7F8, w32 | 0x408]
+        self.assertFalse(af_ovlreloc.same_table(cart, broken))            # a LO16 under another HI16
+        self.assertFalse(af_ovlreloc.same_table(cart, cart[:-1]))
+        self.assertEqual(af_ovlreloc.groups([hi | 4, lo | 8, lo | 12, j26 | 16]), [(hi | 4, lo | 8, lo | 12), (j26 | 16,)])
 
     def test_ranges_follow_the_vrom_order(self):
         with tempfile.TemporaryDirectory() as d:
