@@ -158,6 +158,11 @@ EN_NAMES := $(AF_EN_DIR)/assets/jp/segment_00E04000.bin
 # their cells, as the en build's copy of the segment's .bin, and their widths
 # as the table the en build's m_font.c includes (tools/af_font.py).
 EN_FONT := $(AF_EN_DIR)/assets/jp/segment_00BCD000.bin
+# The overlays the translation changes: each gets its relocation table made
+# anew from its objects after the first link (tools/af_ovlreloc.py, which
+# first proves fado on the matching build), and af_relink pads its sections
+# back to their old sizes.
+EN_OVERLAYS := board_ovl
 
 $(AF_EN_DIR)/.stamp-checkout: decomp/AF_REV $(MATCHING) $(CHANGES)
 	@if [ "$$(git -C $(AF_EN_DIR) rev-parse HEAD~0 2>/dev/null)" = "" ]; then \
@@ -226,6 +231,7 @@ rom-en: decomp-en rom en-bank
 	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relink.py $(EN_LD) --ref $(CURDIR)/$(REF_MAP) $(EN_SEGMENTS)
 	rm -f $(AF_EN_DIR)/build/linker_scripts/jp/auto/undefined_syms_auto.ld $(AF_EN_DIR)/build/animalforest-jp.elf $(AF_EN_DIR)/build/animalforest-jp.z64
 	$(MAKE) -C $(AF_EN_DIR) -j$(JOBS) build/animalforest-jp.elf
+	$(PYTHON) tools/af_ovlreloc.py $(AF_DIR) $(AF_EN_DIR) $(EN_OVERLAYS)
 	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relink.py $(EN_LD) --ref $(CURDIR)/$(REF_MAP) --map build/animalforest-jp.map --moved-out $(CURDIR)/$(EN_MOVED) $(EN_SEGMENTS)
 	$(MAKE) -C $(AF_EN_DIR) -j$(JOBS) build/animalforest-jp.z64
 	$(PYTHON) tools/af_shiftcheck.py $(REF_MAP) $(EN_MAP) --moved-list $(EN_MOVED)

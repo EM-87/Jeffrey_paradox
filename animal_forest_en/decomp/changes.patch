@@ -1038,10 +1038,10 @@ index 85ca0d9..d461faf 100644
  
  s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
 diff --git a/src/code/m_handbill.c b/src/code/m_handbill.c
-index 34e9b7f..21bb66b 100644
+index 34e9b7f..a3150d4 100644
 --- a/src/code/m_handbill.c
 +++ b/src/code/m_handbill.c
-@@ -4,11 +4,16 @@
+@@ -4,11 +4,17 @@
  #include "m_msg_main.h"
  #include "m_std_dma.h"
  #include "6B3DC0.h"
@@ -1049,6 +1049,7 @@ index 34e9b7f..21bb66b 100644
 +#include "m_common_data.h"
 +#include "m_flashrom.h"
 +#include "m_mail.h"
++#include "overlays/submenu/board_ovl/m_board_ovl_en.h"
  
  /*
   * The letters (ac-decomp's m_handbill.c is the map): the shop's and the game's
@@ -1059,7 +1060,7 @@ index 34e9b7f..21bb66b 100644
   */
  
  #define mHandbill_FREE_STR_NUM 20
-@@ -26,24 +31,6 @@ typedef s32 (*mHandbill_PUT_STRING_PROC)(u8*, s32, s32, s32, s32);
+@@ -26,24 +32,6 @@ typedef s32 (*mHandbill_PUT_STRING_PROC)(u8*, s32, s32, s32, s32);
  extern u8 B_80140680_jp[mHandbill_FREE_STR_NUM][mHandbill_FREE_STR_LEN]; /* the free strings */
  extern u8 B_80140748_jp[];                                                /* the body's DMA buffer */
  extern mHandbill_PUT_STRING_PROC D_80107020_jp[];                         /* by control code */
@@ -1084,7 +1085,7 @@ index 34e9b7f..21bb66b 100644
  
  enum {
      mHandbillz_TYPE_SUPER,
-@@ -54,6 +41,38 @@ enum {
+@@ -54,6 +42,38 @@ enum {
      mHandbillz_TYPE_NUM
  };
  
@@ -1123,7 +1124,7 @@ index 34e9b7f..21bb66b 100644
  /* The villagers' letters (ac-decomp's mHandbillz): header, three body parts and footer from one segment */
  typedef struct mHandbillzDMA_c {
      /* 0x00 */ s32 type;
-@@ -64,12 +83,6 @@ typedef struct mHandbillzDMA_c {
+@@ -64,12 +84,6 @@ typedef struct mHandbillzDMA_c {
      /* 0x14 */ u32 dma_size;
  } mHandbillzDMA_c; // size = 0x18
  
@@ -1136,7 +1137,7 @@ index 34e9b7f..21bb66b 100644
  extern char RO_STR_80117090_jp[];
  
  
-@@ -335,34 +348,50 @@ void func_80093520_jp(u8* buf, s32 buf_size, s32 str_len, s32* header_back_start
+@@ -335,34 +349,50 @@ void func_80093520_jp(u8* buf, s32 buf_size, s32 str_len, s32* header_back_start
      }
  }
  
@@ -1212,7 +1213,7 @@ index 34e9b7f..21bb66b 100644
      } else {
          *addr = 0;
          *size = 0;
-@@ -371,32 +400,8 @@ void func_800935F8_jp(s32 no, RomOffset* addr, s32* size) {
+@@ -371,32 +401,8 @@ void func_800935F8_jp(s32 no, RomOffset* addr, s32* size) {
  
  /* mHandbill_Get_PsStringDataAddressAndSize: a footer */
  void func_80093738_jp(s32 no, RomOffset* addr, s32* size) {
@@ -1246,7 +1247,7 @@ index 34e9b7f..21bb66b 100644
      } else {
          *addr = 0;
          *size = 0;
-@@ -405,32 +410,8 @@ void func_80093738_jp(s32 no, RomOffset* addr, s32* size) {
+@@ -405,32 +411,8 @@ void func_80093738_jp(s32 no, RomOffset* addr, s32* size) {
  
  /* mHandbill_Get_MailStringDataAddressAndSize: a body */
  void func_80093878_jp(s32 no, RomOffset* addr, s32* size) {
@@ -1280,7 +1281,7 @@ index 34e9b7f..21bb66b 100644
      } else {
          *addr = 0;
          *size = 0;
-@@ -458,154 +439,325 @@ void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s3
+@@ -458,154 +440,325 @@ void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s3
      }
  }
  
@@ -1592,10 +1593,10 @@ index 34e9b7f..21bb66b 100644
 +    }
 +    if (mFRm_en_extSize + size > mFRm_EN_EXT_CAP) {
 +        mHandbill_en_CollectExt((u8*)&common_data.save);
-     }
++    }
 +    while (mFRm_en_extSize + size > mFRm_EN_EXT_CAP && mFRm_en_extSize > mHandbill_EN_EXT_HEAD) {
 +        mHandbill_en_Remove(&mFRm_en_ext[mHandbill_EN_EXT_HEAD]); /* the oldest */
-+    }
+     }
 +    record = &mFRm_en_ext[mFRm_en_extSize];
 +    record[0] = key >> 24;
 +    record[1] = key >> 16;
@@ -1702,7 +1703,7 @@ index 34e9b7f..21bb66b 100644
  }
  
  /* mHandbillzDMA_body_load */
-@@ -641,29 +793,32 @@ s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
+@@ -641,29 +794,32 @@ s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
      }
  }
  
@@ -1745,7 +1746,7 @@ index 34e9b7f..21bb66b 100644
  
          info->headerBackStart = header_back_start;
          return TRUE;
-@@ -672,14 +827,16 @@ s32 func_800941B0_jp(HandbillzInfo* info) {
+@@ -672,14 +828,16 @@ s32 func_800941B0_jp(HandbillzInfo* info) {
      }
  }
  
@@ -1764,7 +1765,7 @@ index 34e9b7f..21bb66b 100644
  
      dma_info[0].type = mHandbillz_TYPE_MAILA;
      dma_info[0].num = info->mailANo;
-@@ -696,7 +853,7 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+@@ -696,7 +854,7 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
          if (func_800940A8_jp(dma_p)) {
              total_size += dma_p->dma_size;
  
@@ -1773,7 +1774,7 @@ index 34e9b7f..21bb66b 100644
                  bcopy(B_80140748_jp, dst, dma_p->dma_size);
                  dst += dma_p->dma_size;
              } else {
-@@ -708,17 +865,18 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+@@ -708,17 +866,18 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
      }
  
      if (success) {
@@ -1796,7 +1797,7 @@ index 34e9b7f..21bb66b 100644
  s32 func_80094400_jp(HandbillzInfo* info) {
      mHandbillzDMA_c dma_info;
      u8 ram[0x22 + 6];
-@@ -731,13 +889,13 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+@@ -731,13 +890,13 @@ s32 func_80094400_jp(HandbillzInfo* info) {
      dma_info.ram_buf_size = 0x22;
  
      if (func_800940A8_jp(&dma_info)) {
@@ -1816,15 +1817,13 @@ index 34e9b7f..21bb66b 100644
          return TRUE;
      } else {
          return FALSE;
-@@ -745,9 +903,17 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+@@ -745,9 +904,245 @@ s32 func_80094400_jp(HandbillzInfo* info) {
  }
  
  s32 mHandbillz_load(HandbillzInfo* info) {
 -    s32 super_res = func_800941B0_jp(info);
 -    s32 mail_res = func_800942A0_jp(info);
 -    s32 ps_res = func_80094400_jp(info);
--
--    return super_res && mail_res && ps_res;
 +    s32 super_res;
 +    s32 mail_res;
 +    s32 ps_res;
@@ -1838,6 +1837,235 @@ index 34e9b7f..21bb66b 100644
 +        return TRUE;
 +    }
 +    return FALSE;
++}
++
++/*
++ * The letter board (board_ovl) has the letters' code draw its letter in the
++ * en build. Writing one, the board shows the cartridge's fields as it does
++ * (Mail_c: header 10, body 96 in lines of 16, footer 16; the cursor goes by
++ * 12 pixels a character). Reading one, it shows the letter whole, as the
++ * save keeps it (mHandbill_en_GetLetter: header 24, body 192, footer 32),
++ * at each character's width: the header with the recipient's name put in at
++ * headerBackStart, the body word-wrapped at the board's 192 pixels over its
++ * six lines, its newlines kept, the footer ending where the body's lines do
++ * (ac-decomp's mBD_set_writing_header, _body and _footer).
++ */
++#define mHandbill_EN_BOARD_WIDTH 192 /* mBD_MAX_WIDTH */
++#define mHandbill_EN_BOARD_LINES 6
++#define mHandbill_EN_BOARD_LINE_LEN 16 /* the cartridge's lines: characters of 12 pixels */
++#define mHandbill_EN_NEW_LINE 0xCD
++#define mHandbill_EN_BOARD_FIELD_HEADER 0
++#define mHandbill_EN_BOARD_FIELD_BODY 1
++#define mHandbill_EN_BOARD_FIELD_FOOTER 2
++
++typedef struct mHandbill_en_Board {
++    /* 0x000 */ s32 reading;
++    /* 0x004 */ s32 headerBackStart;
++    /* 0x008 */ s32 headerLen;
++    /* 0x00C */ s32 bodyLen;
++    /* 0x010 */ s32 footerLen;
++    /* 0x014 */ u8 header[mHandbill_EN_HEADER_LEN];
++    /* 0x02C */ u8 body[mHandbill_EN_BODY_LEN];
++    /* 0x0EC */ u8 footer[mHandbill_EN_FOOTER_LEN];
++} mHandbill_en_Board; // size = 0x10C
++
++static mHandbill_en_Board mHandbill_en_board;
++
++static s32 mHandbill_en_TextWidth(u8* str, s32 len) {
++    s32 width = 0;
++
++    while (len-- > 0) {
++        width += func_8009028C_jp(*str++, TRUE);
++    }
++    return width;
++}
++
++static void mHandbill_en_DrawLine(Game* game, u8* str, s32 len, f32 x, f32 y, Color_RGBA8* color) {
++    func_80090E98_jp(game, str, len, x, y, color->r, color->g, color->b, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
++}
++
++/* The board's init: a letter being read is fetched whole; written ones are the board's own */
++void mHandbill_en_BoardLoad(Mail_c* mail, s32 reading) {
++    mHandbill_en_Board* board = &mHandbill_en_board;
++    s32 i;
++    s32 j;
++
++    board->reading = reading;
++    if (!reading) {
++        return;
++    }
++    mHandbill_en_GetLetter(&mail->content, board->header, board->body, board->footer);
++    board->headerBackStart = mail->content.headerBackStart;
++    if (board->headerBackStart > mHandbill_EN_HEADER_LEN) {
++        board->headerBackStart = mHandbill_EN_HEADER_LEN;
++    }
++    board->headerLen = mMl_strlen((char*)board->header, mHandbill_EN_HEADER_LEN, ' ');
++    if (board->headerLen < board->headerBackStart) {
++        board->headerLen = board->headerBackStart;
++    }
++    for (i = mHandbill_EN_BODY_LEN; i > 0; i--) {
++        if (board->body[i - 1] != mHandbill_EN_NEW_LINE && board->body[i - 1] != ' ') {
++            break;
++        }
++    }
++    board->bodyLen = i;
++    /* the footer without the spaces put in front of it, as the board's init does */
++    for (i = 0; i < mHandbill_EN_FOOTER_LEN && board->footer[i] == ' '; i++) {}
++    for (j = 0; j < mHandbill_EN_FOOTER_LEN; j++) {
++        board->footer[j] = (i + j < mHandbill_EN_FOOTER_LEN) ? board->footer[i + j] : ' ';
++    }
++    board->footerLen = mMl_strlen((char*)board->footer, mHandbill_EN_FOOTER_LEN, ' ');
++}
++
++void mHandbill_en_BoardHeader(mBD_Ovl_c* boardOvl, s32 writing, Game* game, f32 x, f32 y, Color_RGBA8* color) {
++    MailContent* content = &boardOvl->mail.content;
++    u8* name = (u8*)boardOvl->mail.header.recipient.personalID.playerName;
++    s32 len;
++
++    if (writing) {
++        if (boardOvl->field == mHandbill_EN_BOARD_FIELD_HEADER) {
++            len = PLAYER_NAME_LEN;
++        } else {
++            len = boardOvl->headerNameLen;
++        }
++        mHandbill_en_DrawLine(game, content->header, content->headerBackStart, x, y, color);
++        x += content->headerBackStart * 12.0f;
++        func_80090E98_jp(game, name, len, x, y, 185, 0, 0, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
++        if (content->headerBackStart < MAIL_HEADER_LEN) {
++            mHandbill_en_DrawLine(game, &content->header[content->headerBackStart],
++                                  boardOvl->lengths[mHandbill_EN_BOARD_FIELD_HEADER] - content->headerBackStart,
++                                  x + len * 12.0f, y, color);
++        }
++    } else {
++        mHandbill_en_Board* board = &mHandbill_en_board;
++        u8 tmp[mHandbill_EN_HEADER_LEN + PLAYER_NAME_LEN];
++        u8* header = content->header;
++        s32 headerLen = boardOvl->lengths[mHandbill_EN_BOARD_FIELD_HEADER];
++        s32 back = content->headerBackStart;
++        s32 fixed = content->mailType == 2 || content->mailType == 3 || content->mailType == 5;
++
++        if (board->reading) {
++            header = board->header;
++            headerLen = board->headerLen;
++            back = board->headerBackStart;
++        }
++        if (fixed) {
++            len = board->reading ? headerLen : MAIL_HEADER_LEN;
++            mem_copy(tmp, header, len);
++        } else {
++            mem_copy(tmp, header, back);
++            mem_copy(&tmp[back], name, boardOvl->headerNameLen);
++            mem_copy(&tmp[back + boardOvl->headerNameLen], &header[back], headerLen - back);
++            len = headerLen + boardOvl->headerNameLen;
++        }
++        mHandbill_en_DrawLine(game, tmp, len, x, y, color);
++    }
++}
++
++/* One line of the letter being read: up to the board's width, broken after its last space that fits */
++static s32 mHandbill_en_BoardLine(u8* str, s32 rest, s32* next) {
++    s32 width = 0;
++    s32 len = 0;
++    s32 space = -1;
++
++    while (len < rest && str[len] != mHandbill_EN_NEW_LINE) {
++        s32 w = func_8009028C_jp(str[len], TRUE);
++
++        if (str[len] == ' ') {
++            space = len;
++        }
++        if (len > 0 && width + w > mHandbill_EN_BOARD_WIDTH) {
++            if (space > 0) {
++                *next = space + 1;
++                return space;
++            }
++            *next = len;
++            return len;
++        }
++        width += w;
++        len++;
++    }
++    *next = (len < rest) ? len + 1 : len;
++    return len;
++}
+ 
+-    return super_res && mail_res && ps_res;
++void mHandbill_en_BoardBody(mBD_Ovl_c* boardOvl, s32 writing, Game* game, f32 x, f32* y, f32* endX, f32* endY,
++                            Color_RGBA8* color) {
++    s32 i;
++
++    if (mHandbill_en_board.reading) {
++        u8* str = mHandbill_en_board.body;
++        s32 rest = mHandbill_en_board.bodyLen;
++
++        for (i = 0; i < mHandbill_EN_BOARD_LINES; i++) {
++            s32 next = 0;
++            s32 len = (rest > 0) ? mHandbill_en_BoardLine(str, rest, &next) : 0;
++
++            if (len > 0) {
++                mHandbill_en_DrawLine(game, str, len, x, *y, color);
++            }
++            str += next;
++            rest -= next;
++            *y += 16.0f;
++        }
++        return;
++    }
++
++    {
++        u8* str = boardOvl->mail.content.body;
++        s32 rest = boardOvl->lengths[mHandbill_EN_BOARD_FIELD_BODY];
++
++        for (i = 0; i < mHandbill_EN_BOARD_LINES; i++) {
++            s32 newline = FALSE;
++            s32 len = 0;
++            s32 drawLen;
++
++            while (len < rest) {
++                if (str[len] == mHandbill_EN_NEW_LINE) {
++                    len++;
++                    newline = TRUE;
++                    break;
++                }
++                len++;
++                if (len >= mHandbill_EN_BOARD_LINE_LEN) {
++                    break;
++                }
++            }
++            if (len != 0) {
++                drawLen = (newline && !writing) ? len - 1 : len;
++                if (drawLen != 0) {
++                    mHandbill_en_DrawLine(game, str, drawLen, x, *y, color);
++                }
++                rest -= len;
++                str += len;
++                if (rest == 0) {
++                    if (i != mHandbill_EN_BOARD_LINES - 1 && (newline || len == mHandbill_EN_BOARD_LINE_LEN)) {
++                        *endX = x - 160.0f;
++                        *endY = 120.0f - (*y + 16.0f);
++                    } else {
++                        *endX = len * 12.0f + x - 160.0f;
++                        *endY = 120.0f - *y;
++                    }
++                }
++            }
++            *y += 16.0f;
++        }
++    }
++}
++
++void mHandbill_en_BoardFooter(mBD_Ovl_c* boardOvl, Game* game, f32 x, f32 y, Color_RGBA8* color) {
++    if (mHandbill_en_board.reading) {
++        s32 len = mHandbill_en_board.footerLen;
++
++        x += mHandbill_EN_BOARD_WIDTH - mHandbill_en_TextWidth(mHandbill_en_board.footer, len);
++        mHandbill_en_DrawLine(game, mHandbill_en_board.footer, len, x, y, color);
++    } else {
++        s32 len = boardOvl->lengths[mHandbill_EN_BOARD_FIELD_FOOTER];
++
++        x += 12.0f * (mHandbill_EN_BOARD_LINE_LEN - len);
++        mHandbill_en_DrawLine(game, boardOvl->mail.content.footer, len, x, y, color);
++    }
  }
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
 index 03981c7..da23ef7 100644
@@ -2475,3 +2703,217 @@ index 3ba98f9..56b6afc 100644
  
 -u8 sDmaDataPadding[0xF0] = { 0 };
 +u8 sDmaDataPadding[0xF0 - 8 * sizeof(DmaEntry)] = { 0 }; /* eight entries added for the translation: the table keeps its size */
+diff --git a/src/overlays/submenu/board_ovl/m_board_ovl.c b/src/overlays/submenu/board_ovl/m_board_ovl.c
+index aa80914..8da3c4f 100644
+--- a/src/overlays/submenu/board_ovl/m_board_ovl.c
++++ b/src/overlays/submenu/board_ovl/m_board_ovl.c
+@@ -7,6 +7,7 @@
+ #include "m_private.h"
+ #include "m_submenu.h"
+ #include "6B3DC0.h"
++#include "overlays/submenu/board_ovl/m_board_ovl_en.h"
+ 
+ /*
+  * The letter board (ac-decomp's m_board_ovl.c is the map): a letter read or
+@@ -14,21 +15,6 @@
+  * body and the footer.
+  */
+ 
+-typedef struct mBD_Ovl_c {
+-    /* 0x00 */ u8 field;
+-    /* 0x01 */ u8 centerLine;
+-    /* 0x02 */ u8 headerPos;
+-    /* 0x03 */ u8 headerNameLen;
+-    /* 0x04 */ u8 first;
+-    /* 0x05 */ u8 lengths[3]; /* header, body, footer */
+-    /* 0x08 */ Mail_c mail;
+-    /* 0xAC */ Mail_c* dst;
+-    /* 0xB0 */ f32 ofsX;
+-    /* 0xB4 */ f32 ofsY;
+-    /* 0xB8 */ s32 unk_B8;
+-    /* 0xBC */ s32 unk_BC;
+-} mBD_Ovl_c; // size = 0xC0
+-
+ /* The board's entry of the submenu's menu infos (mSM_MenuInfo_c in AC GCN) */
+ typedef struct mBD_MenuInfo {
+     /* 0x00 */ s32 unk_00;
+@@ -93,120 +79,21 @@ mBD_Ovl_c B_8088AC00_jp; /* the board's state (board_ovl_data) */
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889878_jp.s")
+ 
+-/* The footer (mBD_set_writing_footer): its last character under the body's 16th */
++/* The footer: drawn by the letters' code in the en build (m_handbill.c) */
+ void func_808899E4_jp(Submenu* submenu, Game* game, f32 x, f32 y, Color_RGBA8* color) {
+-    mBD_Ovl_c* boardOvl = mBD_SUBMENU_OVL(submenu)->boardOvl;
+-    s32 len = boardOvl->lengths[mBD_FIELD_FOOTER];
+-
+-    x += 12.0f * (mBD_BODY_LINE_LEN - len);
+-    func_80090E98_jp(game, boardOvl->mail.content.footer, len, x, y, color->r, color->g, color->b, 255, FALSE, FALSE,
+-                     1.0f, 1.0f, 0);
++    mHandbill_en_BoardFooter(mBD_SUBMENU_OVL(submenu)->boardOvl, game, x, y, color);
+ }
+ 
+-/* The body (mBD_set_writing_body): six lines of up to 16 characters, a newline
+- * ending one early (drawn while writing only); where the text ends is where
+- * the writing cursor goes */
++/* The body: drawn by the letters' code in the en build (m_handbill.c) */
+ void func_80889A9C_jp(Submenu* submenu, mBD_MenuInfo* menuInfo, Game* game, f32 x, f32* y, f32* endX, f32* endY,
+                       Color_RGBA8* color) {
+-    mBD_Ovl_c* boardOvl = mBD_SUBMENU_OVL(submenu)->boardOvl;
+-    u8* str = boardOvl->mail.content.body;
+-    s32 rest = boardOvl->lengths[mBD_FIELD_BODY];
+-    s32 i;
+-    s32 newline;
+-    s32 len;
+-    s32 drawLen;
+-
+-    for (i = 0; i < mBD_BODY_LINE_NUM; i++) {
+-        newline = FALSE;
+-        len = 0;
+-        if (!y) {} //! FAKE
+-
+-        while (len < rest) {
+-            if (str[len] == mBD_CHAR_NEW_LINE) {
+-                len++;
+-                newline = TRUE;
+-                break;
+-            }
+-            len++;
+-            if (len >= mBD_BODY_LINE_LEN) {
+-                break;
+-            }
+-        }
+-
+-        if (len != 0) {
+-            if (newline && menuInfo->procStatus != 1) {
+-                drawLen = len - 1;
+-            } else {
+-                drawLen = len;
+-            }
+-            if (drawLen != 0) {
+-                func_80090E98_jp(game, str, drawLen, x, *y, color->r, color->g, color->b, 255, FALSE, FALSE, 1.0f, 1.0f,
+-                                 0);
+-            }
+-            rest -= len;
+-            str += len;
+-            if (rest == 0) {
+-                if (i != mBD_BODY_LINE_NUM - 1 && (newline || len == mBD_BODY_LINE_LEN)) {
+-                    *endX = x - 160.0f;
+-                    *endY = 120.0f - (*y + 16.0f);
+-                } else {
+-                    *endX = len * 12.0f + x - 160.0f;
+-                    *endY = 120.0f - *y;
+-                }
+-            }
+-        }
+-        *y += 16.0f;
+-    }
++    mHandbill_en_BoardBody(mBD_SUBMENU_OVL(submenu)->boardOvl, menuInfo->procStatus == 1, game, x, y, endX, endY, color);
+ }
+ 
+-/* The header (mBD_set_writing_header): the recipient's name put in at
+- * headerBackStart, in red while writing; the shops' and the fortune's
+- * letters (types 2, 3, 5) keep theirs as it is */
+-#ifdef NON_MATCHING
++/* The header: drawn by the letters' code in the en build (m_handbill.c) */
+ void func_80889CD8_jp(Submenu* submenu, Game* game, mBD_MenuInfo* menuInfo, f32 x, f32 y, Color_RGBA8* color) {
+-    mBD_Ovl_c* boardOvl = mBD_SUBMENU_OVL(submenu)->boardOvl;
+-    MailContent* content = &boardOvl->mail.content;
+-    s32 len;
+-
+-    if (menuInfo->procStatus == 1) {
+-        if (boardOvl->field == mBD_FIELD_HEADER) {
+-            len = PLAYER_NAME_LEN;
+-        } else {
+-            len = boardOvl->headerNameLen;
+-        }
+-        func_80090E98_jp(game, content->header, content->headerBackStart, x, y, color->r, color->g, color->b, 255, FALSE,
+-                         FALSE, 1.0f, 1.0f, 0);
+-        x += content->headerBackStart * 12.0f;
+-        func_80090E98_jp(game, (u8*)boardOvl->mail.header.recipient.personalID.playerName, len, x, y, 185, 0, 0, 255,
+-                         FALSE, FALSE, 1.0f, 1.0f, 0);
+-        if (content->headerBackStart < MAIL_HEADER_LEN) {
+-            func_80090E98_jp(game, &content->header[content->headerBackStart],
+-                             boardOvl->lengths[mBD_FIELD_HEADER] - content->headerBackStart, x + len * 12.0f, y,
+-                             color->r, color->g, color->b, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
+-        }
+-    } else {
+-        u8 tmp[MAIL_HEADER_LEN + PLAYER_NAME_LEN];
+-
+-        if (content->mailType == 2 || content->mailType == 3 || content->mailType == 5) {
+-            mem_copy(tmp, content->header, MAIL_HEADER_LEN);
+-            len = MAIL_HEADER_LEN;
+-        } else {
+-            mem_copy(tmp, content->header, content->headerBackStart);
+-            mem_copy(&tmp[content->headerBackStart], (u8*)boardOvl->mail.header.recipient.personalID.playerName,
+-                     boardOvl->headerNameLen);
+-            if (content->headerBackStart < MAIL_HEADER_LEN) {
+-                mem_copy(&tmp[boardOvl->headerNameLen + content->headerBackStart],
+-                         &content->header[content->headerBackStart],
+-                         boardOvl->lengths[mBD_FIELD_HEADER] - content->headerBackStart);
+-            }
+-            len = boardOvl->lengths[mBD_FIELD_HEADER] + boardOvl->headerNameLen;
+-        }
+-        func_80090E98_jp(game, tmp, len, x, y, color->r, color->g, color->b, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
+-    }
++    mHandbill_en_BoardHeader(mBD_SUBMENU_OVL(submenu)->boardOvl, menuInfo->procStatus == 1, game, x, y, color);
+ }
+-#else
+-#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889CD8_jp.s")
+-#endif
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889FB0_jp.s")
+ 
+@@ -291,6 +178,8 @@ void func_8088A2D0_jp(Submenu* submenu) {
+         mem_clear(boardOvl->mail.content.footer, MAIL_FOOTER_LEN, ' ');
+         mem_copy(boardOvl->mail.content.footer, p, boardOvl->lengths[mBD_FIELD_FOOTER] - i);
+     }
++    /* the en build reads a letter whole, as the save keeps it */
++    mHandbill_en_BoardLoad(menuInfo->data2, menuInfo->data0 == 1);
+ }
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_8088A604_jp.s")
+diff --git a/src/overlays/submenu/board_ovl/m_board_ovl_en.h b/src/overlays/submenu/board_ovl/m_board_ovl_en.h
+new file mode 100644
+index 0000000..3e18dac
+--- /dev/null
++++ b/src/overlays/submenu/board_ovl/m_board_ovl_en.h
+@@ -0,0 +1,38 @@
++#ifndef M_BOARD_OVL_EN_H
++#define M_BOARD_OVL_EN_H
++
++/*
++ * The en build: the letter board's state, shared by the board (board_ovl)
++ * and the letters' code (m_handbill.c), which draws the letter. Its own
++ * header, included by those two files only: a type added to a shared header
++ * can move another file's bss.
++ */
++
++#include "ultra64.h"
++#include "color.h"
++#include "m_mail.h"
++
++struct Game;
++
++typedef struct mBD_Ovl_c {
++    /* 0x00 */ u8 field;
++    /* 0x01 */ u8 centerLine;
++    /* 0x02 */ u8 headerPos;
++    /* 0x03 */ u8 headerNameLen;
++    /* 0x04 */ u8 first;
++    /* 0x05 */ u8 lengths[3]; /* header, body, footer */
++    /* 0x08 */ Mail_c mail;
++    /* 0xAC */ Mail_c* dst;
++    /* 0xB0 */ f32 ofsX;
++    /* 0xB4 */ f32 ofsY;
++    /* 0xB8 */ s32 unk_B8;
++    /* 0xBC */ s32 unk_BC;
++} mBD_Ovl_c; // size = 0xC0
++
++void mHandbill_en_BoardLoad(Mail_c* mail, s32 reading);
++void mHandbill_en_BoardHeader(mBD_Ovl_c* boardOvl, s32 writing, struct Game* game, f32 x, f32 y, Color_RGBA8* color);
++void mHandbill_en_BoardBody(mBD_Ovl_c* boardOvl, s32 writing, struct Game* game, f32 x, f32* y, f32* endX, f32* endY,
++                            Color_RGBA8* color);
++void mHandbill_en_BoardFooter(mBD_Ovl_c* boardOvl, struct Game* game, f32 x, f32 y, Color_RGBA8* color);
++
++#endif
