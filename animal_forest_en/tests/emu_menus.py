@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The menus' own words in the en build, on screen.
 
-    tests/emu_menus.py EMU_DIR EN_ROM AF_EN_DIR STATE OUT_DIR [GC_UI]
+    tests/emu_menus.py EMU_DIR EN_ROM AF_EN_DIR STATE OUT_DIR [--gc GC_UI] [--nafe NAFE_ROM]
 
 STATE is a state of EN_ROM in play (make route-en's 4-houses.st). A hook
 (tests/emu_save.py's way) opens the name entry (submenu program 4) in each
@@ -23,6 +23,16 @@ request). For each window:
   3. the destination's window draws nothing after the text typed (the
      overlay's three characters there are spaces, as the GameCube has
      nothing).
+
+Then the labels the 2010 patch drew (tools/af_nafe_gfx.py): the hook opens
+each menu whose segment holds some (LABEL_MENUS), and each label is in RAM
+where the segment was loaded (found by a stretch of the en tree's copy away
+from the labels) with the texels the en build drew it with: the 2010
+patch's (NAFE_ROM, make nafe's, when given) or the cartridge's own.
+gameplay_keep's are checked in the first menu's RAM (segment 4 stays
+loaded all through play). Program 11 (ovl__00789B60, its mailbox label)
+is opened by the inventory from inside it and does not open on its own:
+not checked here.
 Writes the screenshots to OUT_DIR.
 """
 
@@ -36,6 +46,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 from n64emu import N64, write_png  # noqa: E402
+import af_nafe_gfx  # noqa: E402
 import af_ui  # noqa: E402
 import contact  # noqa: E402
 import emu_board  # noqa: E402
@@ -82,6 +93,18 @@ INK = 60                                             # the colours' difference, 
 SETTLE = 60
 HOOK_BUF = 0x14
 
+# the menus that load the segments the 2010 patch drew labels in: (program, data0, segment's vrom, what)
+LABEL_MENUS = [(1, 0, 0xA30000, "the inventory"),
+               (LEDIT, 0, 0xA40000, "the text editor's dial (the name entry)"),
+               (5, 0, 0xAAD000, "the map"),
+               (6, 0, 0xABA000, "the bulletin board"),
+               (7, 0, 0xACC000, "an amount to enter"),
+               (8, 0, 0xAD1000, "the town tune"),
+               (19, 0, 0xB1A000, "the Controller Pak's notes"),
+               (20, 0, 0xB2A000, "the catalog")]
+KEEP = 0xA22000                                      # gameplay_keep, segment 4
+ANCHOR = 0x100                                       # bytes of a segment found in RAM to place it
+
 failures = []
 
 
@@ -89,6 +112,48 @@ def check(ok, what):
     print("  %s  %s" % ("ok  " if ok else "FAIL", what))
     if not ok:
         failures.append(what)
+
+
+def labels_of(vrom):
+    """(the en tree's copy of the segment, its labels) for the segment at vrom."""
+    for (at, path), labels in af_nafe_gfx.LABELS.items():
+        if at == vrom:
+            return path, labels
+    raise KeyError(vrom)
+
+
+def segment_base(ram, data, labels):
+    """Where the segment data is in ram: a stretch of ANCHOR bytes away from its labels and varied
+    enough, found there once. None if no such stretch is found."""
+    spans = [(at, at + w * h * bits // 8) for at, _, bits, w, h, _ in labels]
+    for a in range(0, len(data) - ANCHOR, 0x40):
+        win = data[a:a + ANCHOR]
+        if any(s < a + ANCHOR and a < e for s, e in spans) or len(set(win)) < 32:
+            continue
+        at = ram.find(win)
+        if at >= 0 and ram.find(win, at + 1) < 0:
+            return at - a
+    return None
+
+
+def check_labels(ram, vrom, af_en, cart, nafe, what):
+    """Each label of the segment at vrom, in ram, holds the texels the en build drew it with."""
+    path, labels = labels_of(vrom)
+    data = open(os.path.join(af_en, path), "rb").read()
+    base = segment_base(ram, data, labels)
+    check(base is not None, "%s: %s is in RAM" % (what, os.path.basename(path)))
+    if base is None:
+        return
+    ours = cart[vrom:vrom + len(data)]
+    theirs = af_nafe_gfx.file_at(nafe, vrom) if nafe else None
+    for at, fmt, bits, w, h, label in labels:
+        size = w * h * bits // 8
+        got = ram[base + at:base + at + size]
+        want = theirs[at:at + size] if nafe else ours[at:at + size]
+        check(got == want, "%s: %s (%#x, %s%d %dx%d) holds the %s texels%s" % (
+            what, label, at, fmt, bits, w, h, "2010 patch's" if nafe else "cartridge's",
+            "" if got == want else " (it holds the %s)" % (
+                "cartridge's" if got == ours[at:at + size] else "neither's")))
 
 
 def expected(af_en, gc_path):
@@ -101,7 +166,9 @@ def expected(af_en, gc_path):
 
 def main(argv):
     emu_dir, rom_path, af_en, state, out = argv[:5]
-    gc_path = argv[5] if len(argv) > 5 and os.path.exists(argv[5]) else None
+    opts = dict(zip(argv[5::2], argv[6::2]))
+    gc_path = opts.get("--gc") if os.path.exists(opts.get("--gc", "")) else None
+    nafe_path = opts.get("--nafe") if os.path.exists(opts.get("--nafe", "")) else None
     af_en = os.path.abspath(af_en)
     shutil.rmtree(out, ignore_errors=True)
     os.makedirs(out)
@@ -114,8 +181,11 @@ def main(argv):
     seg = open(os.path.join(af_en, "assets", "jp", "segment_00BCD000.bin"), "rb").read()
     board = emu_board.Board(seg, emu_board.read_cut(af_en))
     want = expected(af_en, gc_path)
-    print("emu_menus: the %s strings" % ("GameCube's" if gc_path else "cartridge's"))
-    shots = []
+    cart = open(os.path.join(af_en, af_ui.ROM), "rb").read()
+    nafe = open(nafe_path, "rb").read() if nafe_path else None
+    print("emu_menus: the %s strings, the %s labels" % ("GameCube's" if gc_path else "cartridge's",
+                                                       "2010 patch's" if nafe else "cartridge's"))
+    shots, label_shots = [], []
 
     with N64(emu_dir, rom, os.path.join(out, "cart"), timeout=120) as n64:
         def setup():
@@ -176,7 +246,20 @@ def main(argv):
                   "%s: the title's ink is %s frame pixels wide (x %s..%s, rows %s..%s), the model's %.1f" % (
                       what, got, min(ink) if ink else None, max(ink) if ink else None,
                       min(rows) if rows else None, max(rows) if rows else None, model))
+
+        for i, (program, data0, vrom, what) in enumerate(LABEL_MENUS):
+            ctl = setup()
+            n64.write(ctl, struct.pack(">i4I", 1, program, data0, 0, ctl + HOOK_BUF if program == LEDIT else 0))
+            n64.frames(SETTLE, 0)
+            ram = n64.read(0x80000000, 0x800000)
+            check_labels(ram, vrom, af_en, cart, nafe, what)
+            if i == 0:
+                check_labels(ram, KEEP, af_en, cart, nafe, "gameplay_keep")
+            path = os.path.join(out, "labels-%d-program-%d.png" % (i, program))
+            n64.screenshot(path)
+            label_shots.append(path)
     contact.main([os.path.join(out, "sheet.png"), "2"] + shots)
+    contact.main([os.path.join(out, "labels.png"), "2"] + label_shots)
     print("emu_menus: %d failures; screenshots in %s" % (len(failures), out))
     return 1 if failures else 0
 

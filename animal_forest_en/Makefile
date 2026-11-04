@@ -170,6 +170,12 @@ FONT_OPTS := --font $(BASEROM) $(if $(GC_FONT),--gc-font $(GC_FONT))
 # (tools/af_ui.py; NOTES, "The menus' own words").
 EN_UI := $(AF_EN_DIR)/assets/jp/en/ui_strings.inc
 GC_UI := $(wildcard $(GC_DIR)/gc_ui.txt)
+# The labels the AF Project's 2010 patch drew in English (the dial's, the
+# inventory's, the map's and other menus'): taken from its ROM (make nafe
+# NAFE_UPS=..., from the user's copy of the patch) over the en tree's copies of
+# their segments, the cartridge's own without it (tools/af_nafe_gfx.py; NOTES,
+# "The 2010 patch's labels").
+EN_NAFE_GFX := $(AF_EN_DIR)/assets/jp/en/nafe_gfx.stamp
 # The overlays the translation changes: each gets its relocation table made
 # anew from its objects after the first link (tools/af_ovlreloc.py, which
 # first proves fado on the matching build), and af_relink pads its sections
@@ -241,7 +247,13 @@ $(EN_FONT): $(BASEROM) tools/af_font.py tools/af_names.py tools/msgbank.py tools
 $(EN_UI): tools/af_ui.py tools/af_font.py tools/msgbank.py tools/gciso.py $(GC_UI) $(AF_EN_DIR)/.stamp-extract
 	$(PYTHON) tools/af_ui.py compile $(AF_EN_DIR) $@ $(if $(GC_UI),--gc $(GC_UI))
 
-en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT) $(EN_UI)
+$(EN_NAFE_GFX): tools/af_nafe_gfx.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)) $(AF_EN_DIR)/.stamp-extract
+	mkdir -p $(EN_ASSETS)
+	@if [ -s $(NAFE_ROM) ]; then $(PYTHON) tools/af_nafe_gfx.py $(BASEROM) $(NAFE_ROM) $(AF_EN_DIR); \
+	else echo "labels: the cartridge's (no $(NAFE_ROM): make nafe NAFE_UPS=...)"; fi
+	@touch $@
+
+en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT) $(EN_UI) $(EN_NAFE_GFX)
 
 rom-en: decomp-en rom en-bank
 	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relsyms.py $(CURDIR)/$(REF_MAP) linker_scripts/jp/auto/undefined_syms_auto.ld
@@ -297,7 +309,8 @@ write-check-en: route-en
 # the frame against the font's model (tests/emu_menus.py; NOTES, "The menus'
 # own words").
 menus-check-en: route-en
-	$(PYTHON) tests/emu_menus.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-menus-en $(GC_UI)
+	$(PYTHON) tests/emu_menus.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-menus-en \
+		$(if $(GC_UI),--gc $(GC_UI)) $(if $(wildcard $(NAFE_ROM)),--nafe $(NAFE_ROM))
 
 # -- the GameCube script (phase 4) -------------------------------------------
 # ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it

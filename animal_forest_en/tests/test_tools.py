@@ -24,6 +24,7 @@ import af_dmaorder  # noqa: E402
 import af_dumpdata  # noqa: E402
 import af_font  # noqa: E402
 import af_luicheck  # noqa: E402
+import af_nafe_gfx  # noqa: E402
 import af_names  # noqa: E402
 import af_ovlreloc  # noqa: E402
 import af_ranges  # noqa: E402
@@ -1068,6 +1069,36 @@ class MenusWords(unittest.TestCase):
         rom = bytes(range(16))
         text = af_dumpdata.initializers(rom, [("D_A", 2, 3), ("D_B", 8, 2)])
         self.assertIn("u8 D_A[3] = { 0x02, 0x03, 0x04 };\nu8 D_B[2] = { 0x08, 0x09 };\n", text)
+
+    def test_labels_drawn_by_the_lists(self):
+        # tools/af_nafe_gfx.py: a texture is where a load in the segment's own
+        # segment names it, in its render tile's format and its tile's size
+        def cmd(w0, w1):
+            return struct.pack(">II", w0, w1)
+        lists = (cmd(0xFD900000, 0x0C000100)            # image: segment 0x0C, 0x100
+                 + cmd(0xF3000000, 0x07000000)          # load
+                 + cmd(0xF5000000 | (4 << 21) | (0 << 19), 0x00000000)   # render tile 0: I, 4 bits
+                 + cmd(0xF2000000, ((32 - 1) << 2 << 12) | ((16 - 1) << 2))  # 32x16
+                 + cmd(0xFD700000, 0x0C000200)
+                 + cmd(0xF3000000, 0x07000000)
+                 + cmd(0xF5000000 | (3 << 21) | (1 << 19), 0x00000000)   # IA, 8 bits
+                 + cmd(0xF2000000, ((64 - 1) << 2 << 12) | ((16 - 1) << 2))
+                 + cmd(0xFD100000, 0x04000300)          # another segment's: not this file's
+                 + cmd(0xF3000000, 0x07000000)
+                 + cmd(0xF5100000, 0x00000000)
+                 + cmd(0xF2000000, ((8 - 1) << 2 << 12) | ((8 - 1) << 2))
+                 + cmd(0xDF000000, 0))
+        data = lists + bytes(0x400 - len(lists))
+        self.assertEqual(af_nafe_gfx.drawn(data), {0x100: ("I", 4, 32, 16), 0x200: ("IA", 8, 64, 16)})
+
+    def test_labels_table_is_drawable(self):
+        # every label is a texture of the formats the table knows, inside its segment's file
+        for (vrom, path), labels in af_nafe_gfx.LABELS.items():
+            self.assertTrue(path.startswith("assets/jp/"))
+            for at, fmt, bits, w, h, what in labels:
+                self.assertIn(fmt, af_nafe_gfx.FORMATS)
+                self.assertIn(bits, af_nafe_gfx.SIZES)
+                self.assertEqual(w * h * bits % 64, 0, what)        # whole 8-byte words
 
 
 class Matching(unittest.TestCase):

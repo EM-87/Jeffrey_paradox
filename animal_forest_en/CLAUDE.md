@@ -106,6 +106,12 @@ the why and the state, `reference/NOTES.md` for what is verified.
   (`build/gc/gc_ui.txt`), the include the en build's menus use written at
   `make rom-en`, the cartridge's own without the disc (NOTES, "The menus'
   own words").
+- `tools/af_nafe_gfx.py` — the 42 menu labels the AF Project's 2010
+  patch drew in English, taken at `make rom-en` from the user's copy
+  (`make nafe NAFE_UPS=...`, build/nafe-2010-12-02.z64) over the en
+  tree's extracted segments, each checked against both ROMs' display
+  lists; the cartridge's labels without it (NOTES, "The 2010 patch's
+  labels").
 - `tools/af_dumpdata.py` — the cartridge's own data a file we decompiled
   includes but this repository must not hold (text), written from the
   user's dump as C initializers under each tree's `assets/` after its
@@ -122,7 +128,8 @@ the why and the state, `reference/NOTES.md` for what is verified.
   and end mark measured against the same model, finished and read back
   whole, 192 bytes: `make write-check-en`),
   `emu_menus.py` (the name entry's five windows, their titles' strings in
-  RAM and their ink measured against the font's model: `make
+  RAM and their ink measured against the font's model; the menus that
+  hold the 2010 patch's labels, each label found in RAM: `make
   menus-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).

@@ -50,12 +50,17 @@ make script ISO=ruta/al/disco.iso # el guion oficial de GameCube: extrae los ban
                                   # fuente (build/gc/)
 make board-check-en               # abre cartas en el tablero y mide sus líneas en pantalla
 make write-check-en               # escribe una carta con el dial y la mide en pantalla
-make menus-check-en               # abre la ventana del nombre en sus cinco modos y mide los títulos
+make menus-check-en               # abre la ventana del nombre en sus cinco modos y mide los títulos;
+                                  # abre los menús con etiquetas y las busca en memoria
 make test                         # tests de las herramientas, sin ROM
-make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010, para estudiarlo
+make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010: para estudiarlo, y
+                                  # sus etiquetas en inglés para make rom-en (opcional)
 ```
 
 `ROM=` hace falta una sola vez: queda normalizado en `build/baserom.z64`.
+Si tienes el parche de 2010, `make nafe NAFE_UPS=...` antes de `make
+rom-en` pone en los menús las etiquetas que el AF Project ya dibujó en
+inglés; sin él quedan las del cartucho.
 
 ## Estado
 
@@ -183,9 +188,21 @@ Las texturas de los menús compartidos son solo marcos e iconos; las
 etiquetas del dial sí son texturas, pero GameCube no tiene dial (escribe
 con un teclado).
 
-Lo que viene: las cadenas del resto de menús, las texturas occidentales
-de GameCube donde las haya (el logo del título, letreros), y traducir
-ese 6 %.
+Las etiquetas que el parche de 2010 del AF Project (Zoinkity) ya dibujó
+en inglés se aprovechan: 42 texturas del dial, el inventario, el mapa, el
+tablón, el banco, la melodía del pueblo, las notas del Controller Pak, el
+catálogo y gameplay_keep, cada una en su sitio, formato y tamaño.
+`tools/af_nafe_gfx.py` las toma al compilar de tu copia del parche (`make
+nafe`) y nada de él entra al repositorio; `make menus-check-en` abre esos
+menús y comprueba cada etiqueta en memoria ("The 2010 patch's labels").
+El logo del título de ese parche cambia también el código del actor que
+lo dibuja, que sigue en ensamblador: queda para después.
+
+Lo que viene: las cadenas del resto de menús, los nombres de los objetos
+(un archivo propio de 10 bytes por nombre), el tablón de anuncios (parte
+sus líneas por número de letras, no por anchura), el logo del título del
+parche de 2010, las texturas occidentales de GameCube donde las haya
+(letreros) y traducir ese 6 %.
 
 ## Dónde está cada cosa
 
@@ -208,7 +225,8 @@ ese 6 %.
   (el disco de GameCube, los bancos de texto de ambos juegos y su
   correspondencia), `af_text.py` (el banco inglés: borrador, comprobador y
   compilador), `af_font.py` (la fuente del build en inglés), `af_ui.py`
-  (las cadenas de los menús), `af_dumpdata.py` (los datos del cartucho que
+  (las cadenas de los menús), `af_nafe_gfx.py` (las etiquetas del parche
+  de 2010, de tu copia), `af_dumpdata.py` (los datos del cartucho que
   un archivo decompilado incluye, sacados de tu volcado al extraer) y
   `af_ovlreloc.py` (la tabla de reubicaciones de un overlay que cambia).
 - `script/` — nuestro texto: lo que no tiene versión oficial.

@@ -1371,5 +1371,64 @@ what goes in it: "The letters in the en build").
   name and destination screens show the titles on their windows' tabs.
 - **Left as it is.** The dial's labels and its kana ring are textures
   the GameCube has no counterpart for (its editor is a keyboard,
-  `kai_sousa_*`). The catchphrase's window shows corner quotes. The other
-  menus' strings are the next step.
+  `kai_sousa_*`); the 2010 patch's English labels are used where the user
+  has it (next section). The catchphrase's window shows corner quotes.
+  The other menus' strings are the next step.
+
+## The 2010 patch's labels (phase 5, the graphics' second step)
+
+- **What it redrew.** The AF Project's 2010 patch (Zoinkity; make nafe
+  builds it from the user's copy of NAFE-WIP-2_12_2010.ups) redrew some
+  of the menus' word textures in English. Found by walking the display
+  lists of every file it changed (58 files differ, read through both
+  dmadatas and decompressed): for each texture a list draws (the image
+  set, the load, the render tile's format, the tile's size), the
+  cartridge's texels against the patch's at the same offset. 56 textures
+  differ in 11 files: 44 in nine menu segments and gameplay_keep, each in
+  its place, format and size (both ROMs' lists draw it alike, and those
+  files keep their sizes: the text editor's dial, the inventory, the
+  map, ovl__00789B60's mailbox, the bulletin board, the amount to enter,
+  the town tune, the Controller Pak's notes, the catalog, and three in
+  gameplay_keep), and 12 in the title's segment.
+- **Taken at build time** (`tools/af_nafe_gfx.py`, run by make rom-en
+  when build/nafe-2010-12-02.z64 is there; the cartridge's labels
+  without it). Its table names 42 labels by segment, offset, format and
+  size, and each is checked before it is written over the en tree's
+  extracted segment (which splat rewrites at every extract): the
+  cartridge's lists and the patch's both draw a texture there in that
+  format and size, and the patch changed it. Nothing else of the patch is taken. Two small
+  glyphs it also changed are not labels and stay the cartridge's (the
+  bulletin board's 0xCE18, the notes' 0x7660, I4 16x16). Nothing of it
+  enters the repository.
+- **On screen** (`tests/emu_menus.py`, part of make menus-check-en). The
+  hook opens each menu whose segment holds labels (program 1 the
+  inventory, 4 the name entry and its dial, 5 the map, 6 the bulletin
+  board, 7 the amount, 8 the town tune, 19 the Controller Pak's notes, 20
+  the catalog: `mSM_program_dlftbl`), finds the segment in RAM by a
+  stretch of the en tree's copy away from the labels, and compares each
+  label with the patch's texels (or the cartridge's, without the patch):
+  42 labels and the 8 segments and gameplay_keep found, 50 checks, on
+  the same state as the name entry's. The screenshots show the labels in
+  place. Program 11 (`ovl__00789B60`, the mailbox label) is opened by the
+  inventory from inside it (`mSM_open_submenu(submenu, 0xB, 0, 0)`, in
+  `m_inventory_ovl.s`) and hangs when opened on its own: its label is
+  checked against the lists only.
+- **Still Japanese in those menus.** The dial's two kana modes and its
+  kana ring (the patch kept them; the en font keeps the kana, so they
+  still type), the town tune's note names (kana textures, I4), the
+  menus' strings (the amount's, the clock's, the birthday's, the
+  Controller Pak's titles and their way out: strings in the overlays'
+  data, previous section), the item names (a file of their own, 10 bytes
+  each at vrom 0x10F4000: `mIN_copy_name_str`, `m_item_name.s`) and the
+  bulletin board's text, which breaks its lines by count, not by width.
+- **The title is more than textures.** The title's logo lives in
+  `segment_01136000` (0x5CD0 bytes, loaded by `ovl_trademark`,
+  `m_trademark.c`; segment 6). The patch rewrote it (0x4EB0 bytes, 158
+  places) and the logo actor that draws it (`ovl_Animal_Logo`, all asm):
+  the letters' places and display lists in its data (`D_FLT_80AA216C_jp`
+  and after), three alphas swapped in `func_80AA0C98_jp` (0x78 and
+  0xFF), and the strings `func_80AA08E4_jp` draws with the font on the
+  title (their lengths, places and a 0.6875 scale instead of 1.0, with
+  its own English text in `D_80AA2118_jp`). So the logo needs that actor
+  in C before the en build can take it; the cartridge's title line under
+  the logo is already in Latin letters.
