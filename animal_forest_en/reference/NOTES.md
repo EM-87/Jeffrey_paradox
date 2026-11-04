@@ -1292,6 +1292,84 @@ what goes in it: "The letters in the en build").
   with the same first 96 bytes, header and footer share one rest (the key
   is made of those bytes): the later one's replaces the earlier's. The
   address book's two balloons (the book is empty; first choose who it is
-  to) and the dial's labels are still Japanese: neither is in the text
-  banks (textures, for the graphics). So are the edit-end check's balloon
-  and its two answers (TODO(verify): whether they are textures too).
+  to) are still Japanese: they are strings in its own data, 12 bytes each
+  (`ovl__00792700`'s `D_8088C888_jp`, `D_8088C894_jp`; not textures, as
+  this note first guessed: "The menus' own words"). So is the edit-end
+  check's question (`ovl__00799580`'s `D_808969F4_jp`); where its two
+  answers come from is TODO(verify). The dial's labels are textures.
+
+## The menus' own words (phase 5, the graphics' first step)
+
+- **Neither banks nor textures.** Some of the Japanese the menus show is
+  strings in the menus' own data, drawn with the font
+  (`func_80090E98_jp`). A survey of the submenu overlays' data (labels
+  that read as the N64 font's codes, kept local: CLAUDE.md, rule 2) finds
+  them in the name entry (its five titles and the word after the
+  destination: `ledit_ovl`), the map (its places: `map_ovl`), the clock
+  setting (`ovl__0078AE30`), the editor (its way back:
+  `ovl__0078CB80`), the address book (its two balloons:
+  `ovl__00792700`), the gyroid's shop (`ovl__00794380`), the edit-end
+  check (its question and a way out: `ovl__00799580`), the item menu's
+  warnings (`ovl__0079A290`), an amount to enter (`ovl__0079B120`), a
+  confirmation (`ovl__0079C020`), the birthday (`ovl__0079DA50`), the
+  Controller Pak's messages (`ovl__0079F810`, `ovl__007A10E0`) and the
+  item menu's words (`tag_ovl`). The GameCube keeps the same strings in
+  its code, in English (ac-decomp's `mLE_player_title`,
+  `mAD_title_str`, `mEE_str_table`, `str_omikuji` and others), named
+  with their sizes in foresta.map's .data, local statics too.
+- **The menus' art has no words.** The menus' shared segment 0x0C is
+  `segment_00A94000` (0x185E0 bytes; the name entry loads it itself:
+  `D_80884E38_jp` is its ROM start and end; `D_0C00xxxx` in the
+  submenu's code). Its display lists draw 46 textures (each load's render
+  tile and size): the windows' pieces, icons, arrows, none with a word.
+  The GameCube's name entry draws the same pieces (`nam_win_w1_tex` to
+  `nam_win_fuki_tex`, the same sizes) and its titles as strings.
+- **The name entry** (`ledit_ovl`, program 4). Its table
+  (`mLE_win_data`, 5 windows of 0x28 bytes: where the text typed and the
+  title go, the title and its length, the text's length and colour, the
+  window's two display lists in segment 0x0C) is ac-decomp's
+  `mLE_win_data_c` without the scales. `func_80884514_jp` draws the
+  title at 0.875 (`0x3F600000`) in white, then the text typed in the
+  window's colour; for the destination (data0 1) it then draws three
+  characters at the text's x + 75 in (145, 55, 0). The GameCube draws
+  the title (at 0.875 too), the text and the cursor, nothing after
+  (`mLE_ledit_ovl_draw`). The init (`func_80884B30_jp`) picks the text by
+  mode (the private info's name, `common_data + 0x2F60`, a catchphrase
+  in `B_80885088_jp`, data2; for a song it reads the songs' names into
+  `B_80884E60_jp`), clears it and opens the editor (program 10, kind 3).
+- **In C** (decomp/matching.patch): the overlay's data and bss, in one
+  object. IDO and the assembler both pad a `.data` to 16 bytes, so the
+  cartridge's 0x120 bytes split between a C object and splat's data
+  moved (the table started 8 bytes late). The titles and the word after
+  the destination are text, so tools/af_dumpdata.py writes them as C
+  initializers from the user's dump at each extract, under the tree's
+  `assets/` (git-ignored), and the C includes them. `func_80884B30_jp`
+  reads `editMax` through the table's +0x18 (spelled so in
+  `relocs/reloc_addrs-jp.txt`). `make verify`: identical. fado gives the
+  cartridge's 37 relocations once the bss is in the same object too (it
+  resolves only what its objects define).
+- **The en build.** tools/af_ui.py reads the GameCube's strings named in
+  its table from the disc (`gc`, run by make script into
+  build/gc/gc_ui.txt; `af_font.gc_rel_data` reads foresta.rel's .data as
+  the font is read) and writes the include the en build's menus use
+  (`compile`, at make rom-en; the cartridge's own strings without the
+  disc). The five titles live in code (`m_submenu.c`: the overlay cannot
+  grow) and the table points there, with their lengths (7 to 18
+  characters where the cartridge had 8 and 9). The three characters
+  after the destination are spaces. The name entry joins `EN_OVERLAYS`
+  (its 37 relocations become 32).
+- **On screen** (`tests/emu_menus.py`, `make menus-check-en`). From the
+  houses' state the hook opens the name entry in its five modes. Each
+  window's table entry holds the en string in RAM; its title's ink (the
+  window opened twice from the same state, the second time with the
+  title's length 0 from the frame the overlay is in RAM: the frames
+  differ by the title only) is as wide as the font's model at 0.875 and
+  2 frame pixels a font pixel: 171, 185, 172, 68 and 160 frame pixels
+  against 171.5, 185.5, 173.2, 66.5 and 161 (a difference of 60 in the
+  colours, summed, is ink: below it the VI filter's fringe, a pixel on
+  each side). The destination draws nothing after the text. The route's
+  name and destination screens show the titles on their windows' tabs.
+- **Left as it is.** The dial's labels and its kana ring are textures
+  the GameCube has no counterpart for (its editor is a keyboard,
+  `kai_sousa_*`). The catchphrase's window shows corner quotes. The other
+  menus' strings are the next step.

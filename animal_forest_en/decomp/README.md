@@ -4,7 +4,10 @@
 - `matching.patch` — everything we have decompiled, as one patch on top of
   `AF_REV`. Every function in it compiles to the cartridge's own bytes:
   `make verify` builds the ROM with it and compares with the dump. It is
-  code we wrote; no data from the ROM goes in it.
+  code we wrote; no data from the ROM goes in it: where a file we
+  decompiled holds the cartridge's text, `tools/af_dumpdata.py` writes
+  that text from the user's dump as C initializers when the tree is
+  extracted, and the file includes them.
 
 - `changes.patch` — what the translation changes on purpose, applied on
   top of `matching.patch` in a second checkout, `build/af_en`, where that
@@ -29,7 +32,10 @@
   letter out at those widths, read or written, through the letters' code,
   a written letter's body the GameCube's 192 bytes, its rest kept in the
   extension (`m_handbill.c`; reference/NOTES.md, "The letter board in the
-  en build", "Writing a letter in the en build").
+  en build", "Writing a letter in the en build"), and the menus' own
+  words (strings in the menus' data) are the GameCube's, kept in code:
+  first the name entry's titles (`m_submenu.c`, `ledit_ovl`;
+  reference/NOTES.md, "The menus' own words").
   Its ROM is never compared with the cartridge: `make rom-en` builds it
   with `code` moved to the end of the ROM so that it can grow and nothing
   of it moved in RAM (a section that grows, or a new one, goes to a

@@ -887,6 +887,20 @@ index c06adbb..d2906f3 100644
  void mMsg_Main(struct Game_Play* game_play);
  void mMsg_Draw(struct Game_Play* game_play);
  // void func_800A4448_jp();
+diff --git a/linker_scripts/jp/symbol_addrs_overlays.txt b/linker_scripts/jp/symbol_addrs_overlays.txt
+index 9792664..e49ccf1 100644
+--- a/linker_scripts/jp/symbol_addrs_overlays.txt
++++ b/linker_scripts/jp/symbol_addrs_overlays.txt
+@@ -1502,8 +1502,7 @@ D_80884D28_jp = 0x80884D28; //
+ D_80884D34_jp = 0x80884D34; //
+ D_80884D40_jp = 0x80884D40; //
+ D_80884D4C_jp = 0x80884D4C; //
+-D_FLT_80884D58_jp = 0x80884D58; // type:f32
+-D_80884D70_jp = 0x80884D70; //
++mLE_win_data = 0x80884D58; //
+ D_80884E20_jp = 0x80884E20; //
+ D_80884E34_jp = 0x80884E34; //
+ D_80884E38_jp = 0x80884E38; //
 diff --git a/linker_scripts/jp/undefined_syms.ld b/linker_scripts/jp/undefined_syms.ld
 index b76c1c1..ee822b1 100644
 --- a/linker_scripts/jp/undefined_syms.ld
@@ -901,10 +915,10 @@ index b76c1c1..ee822b1 100644
 -gGfxPools = 0x801540C0; //
  D_801948E0_jp = 0x801948E0; //
 diff --git a/relocs/reloc_addrs-jp.txt b/relocs/reloc_addrs-jp.txt
-index a135725..e238b31 100644
+index a135725..2113c98 100644
 --- a/relocs/reloc_addrs-jp.txt
 +++ b/relocs/reloc_addrs-jp.txt
-@@ -61,11 +61,13 @@ rom:0x6F6590 symbol:segment_027130_ROM_END reloc:MIPS_LO16
+@@ -61,11 +61,17 @@ rom:0x6F6590 symbol:segment_027130_ROM_END reloc:MIPS_LO16
  
  // overlays
  
@@ -920,10 +934,14 @@ index a135725..e238b31 100644
 +rom:0x82D448 symbol:move_obj_profile_table reloc:MIPS_LO16 addend:-0x10000
 +rom:0x82D48C symbol:actor_profile_table reloc:MIPS_HI16 addend:-0x12000
 +rom:0x82D4A0 symbol:actor_profile_table reloc:MIPS_LO16 addend:-0x12000
++
++// ledit_ovl: func_80884B30_jp reads the editMax (+0x18) of the window the menu's data0 picks
++rom:0x78C890 symbol:mLE_win_data reloc:MIPS_HI16 addend:0x18
++rom:0x78C898 symbol:mLE_win_data reloc:MIPS_LO16 addend:0x18
  
  // ovl__008681F0 tries to load a from an address in the middle of a
  // function of another overlay.
-@@ -119,3 +121,7 @@ rom:0x8B137C symbol:Npc_Shop_Master_Profile reloc:MIPS_LO16 addend:-0xB560
+@@ -119,3 +125,7 @@ rom:0x8B137C symbol:Npc_Shop_Master_Profile reloc:MIPS_LO16 addend:-0xB560
  // has reached the end of the loop.
  rom:0x8CCCA4 symbol:aSTR_overlay reloc:MIPS_HI16 addend:0x18000
  rom:0x8CCCA8 symbol:aSTR_overlay reloc:MIPS_LO16 addend:0x18000
@@ -6097,6 +6115,101 @@ index 0000000..7c99435
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/mBD_board_ovl_construct.s")
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/mBD_board_ovl_destruct.s")
+diff --git a/src/overlays/submenu/ledit_ovl/m_ledit_ovl.c b/src/overlays/submenu/ledit_ovl/m_ledit_ovl.c
+new file mode 100644
+index 0000000..b28d4c0
+--- /dev/null
++++ b/src/overlays/submenu/ledit_ovl/m_ledit_ovl.c
+@@ -0,0 +1,89 @@
++#include "global.h"
++#include "overlays/submenu/ledit_ovl/m_ledit_ovl.h"
++#include "m_lib.h"
++#include "m_submenu.h"
++
++/*
++ * The name entry (submenu program 4; ac-decomp's m_ledit_ovl.c is the map):
++ * a window over the editor for the player's name, the destination, a
++ * villager's catchphrase, something to say and a song to request. Each
++ * window is drawn by its display lists in the submenu's segment 0x0C, its
++ * title with the font from the table below (func_80884514_jp), the text
++ * typed in its colour.
++ */
++
++/* A window: where the text typed and the title go, the title, the text's
++ * length and colour, its display lists (mLE_win_data_c in AC GCN, which
++ * adds the scales) */
++typedef struct mLE_WinData {
++    /* 0x00 */ f32 editPos[2];
++    /* 0x08 */ f32 titlePos[2];
++    /* 0x10 */ u8* title;
++    /* 0x14 */ s32 titleLen;
++    /* 0x18 */ s32 editMax;
++    /* 0x1C */ Color_RGBA8 editColor;
++    /* 0x20 */ Gfx* gfxMode;
++    /* 0x24 */ Gfx* gfxModel;
++} mLE_WinData; // size = 0x28
++
++typedef void (*mLE_MoveProc)(Submenu* submenu, void* menuInfo);
++
++void func_80884340_jp(Submenu* submenu, void* menuInfo);
++void func_80884370_jp(Submenu* submenu, void* menuInfo);
++void func_80884484_jp(Submenu* submenu, void* menuInfo);
++
++/* The five titles, D_80884D20_jp to D_80884D4C_jp: the cartridge's own text, written
++ * from the user's dump when the tree is extracted (tools/af_dumpdata.py) */
++#include "assets/jp/overlays/submenu/ledit_ovl/m_ledit_ovl_titles.inc.c"
++
++mLE_WinData mLE_win_data[] = {
++    /* the player's name */
++    { { 122.0f, 76.0f }, { 136.0f, 46.0f }, D_80884D20_jp, 8, 6, { 0, 0, 255, 255 }, (Gfx*)0x0C00C460,
++      (Gfx*)0x0C00C4D0 },
++    /* the destination */
++    { { 103.0f, 77.0f }, { 133.0f, 44.0f }, D_80884D28_jp, 9, 6, { 215, 15, 0, 255 }, (Gfx*)0x0C006A50,
++      (Gfx*)0x0C006AC0 },
++    /* a catchphrase */
++    { { 140.0f, 78.0f }, { 126.0f, 45.0f }, D_80884D34_jp, 9, 4, { 235, 75, 0, 255 }, (Gfx*)0x0C0006F0,
++      (Gfx*)0x0C001220 },
++    /* something to say */
++    { { 102.0f, 76.0f }, { 132.0f, 44.0f }, D_80884D40_jp, 9, 10, { 85, 30, 235, 255 }, (Gfx*)0x0C015E90,
++      (Gfx*)0x0C015F00 },
++    /* a song to request */
++    { { 102.0f, 76.0f }, { 131.0f, 44.0f }, D_80884D4C_jp, 9, 10, { 50, 50, 235, 255 }, (Gfx*)0x0C011858,
++      (Gfx*)0x0C0118C8 },
++};
++
++/* The window's move procs by its proc status (ac-decomp's ovl_move_proc) */
++mLE_MoveProc D_80884E20_jp[] = {
++    func_80884340_jp, (mLE_MoveProc)none_proc1, func_80884370_jp, (mLE_MoveProc)none_proc1, func_80884484_jp,
++};
++
++/* After the destination typed, D_80884E34_jp: the cartridge's own text, from the dump too */
++#include "assets/jp/overlays/submenu/ledit_ovl/m_ledit_ovl_suffix.inc.c"
++
++/* The submenu's segment 0x0C (segment_00A94000), its ROM start and end, which the construct loads */
++u32 D_80884E38_jp[] = { 0x00A94000, 0x00AAC5E0 };
++
++u8 B_80884E60_jp[0x228]; /* the songs' names to choose from (ac-decomp's mLE_md_name) */
++u8 B_80885088_jp[8];     /* a catchphrase being written (mLE_npc_end_word_edit) */
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ledit_ovl/m_ledit_ovl/func_80884340_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ledit_ovl/m_ledit_ovl/func_80884370_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ledit_ovl/m_ledit_ovl/func_80884484_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ledit_ovl/m_ledit_ovl/func_808844B4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ledit_ovl/m_ledit_ovl/func_80884514_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ledit_ovl/m_ledit_ovl/func_80884AAC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ledit_ovl/m_ledit_ovl/mLE_ledit_ovl_set_proc.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ledit_ovl/m_ledit_ovl/func_80884B30_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ledit_ovl/m_ledit_ovl/mLE_ledit_ovl_construct.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ledit_ovl/m_ledit_ovl/mLE_ledit_ovl_destruct.s")
 diff --git a/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c b/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c
 new file mode 100644
 index 0000000..87182f5
@@ -6550,9 +6663,24 @@ index c052055..204cfbc 100644
        - [0x73AF50, .rodata, code/m_npc]
        - [0x73B000, .rodata, code/m_olib]
 diff --git a/yamls/jp/overlays.yaml b/yamls/jp/overlays.yaml
-index 95ebcf5..4da995a 100644
+index 95ebcf5..27cb568 100644
 --- a/yamls/jp/overlays.yaml
 +++ b/yamls/jp/overlays.yaml
+@@ -381,10 +381,10 @@
+     compress: True
+     bss_size: 0x230
+     subsegments:
+-      - [0x78BFB0, asm, overlays/submenu/ledit_ovl/m_ledit_ovl]
+-      - [0x78C990, data, overlays/submenu/ledit_ovl/m_ledit_ovl]
+-      - [0x78CAB0, rodata, overlays/submenu/ledit_ovl/m_ledit_ovl]
+-      - { start: 0x78CAD0, type: bss, vram: 0x80884E60, name: overlays/submenu/ledit_ovl/m_ledit_ovl }
++      - [0x78BFB0, c, overlays/submenu/ledit_ovl/m_ledit_ovl]
++      - [0x78C990, .data, overlays/submenu/ledit_ovl/m_ledit_ovl]
++      - [0x78CAB0, .rodata, overlays/submenu/ledit_ovl/m_ledit_ovl]
++      - { start: 0x78CAD0, type: .bss, vram: 0x80884E60, name: overlays/submenu/ledit_ovl/m_ledit_ovl }
+   - name: ledit_ovl_reloc
+     type: code
+     start: 0x78CAD0
 @@ -402,10 +402,10 @@
      compress: True
      bss_size: 0x30

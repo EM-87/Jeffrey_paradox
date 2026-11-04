@@ -3037,6 +3037,30 @@ index 7b8e5b5..dcfdd10 100644
 +    return mMsg_Get_Length_String(dst, mString_EN_LEN);
 +}
 +
+diff --git a/src/code/m_submenu.c b/src/code/m_submenu.c
+index 5f7c230..503062a 100644
+--- a/src/code/m_submenu.c
++++ b/src/code/m_submenu.c
+@@ -733,3 +733,19 @@ u8* mSM_Get_ground_pallet_p(Game_Play* play) {
+ 
+     return play->groundPalPtrs[idx];
+ }
++
++/*
++ * The en build: the menus' own words (strings a menu draws with the font from
++ * its own data, not from the text banks), the GameCube's, from the user's disc,
++ * or the cartridge's own without it (tools/af_ui.py). They are kept here, in
++ * code, because the menus' overlays cannot grow; the overlays' tables point
++ * here (reference/NOTES.md, "The menus' own words").
++ */
++#include "assets/jp/en/ui_strings.inc"
++
++/* The name entry's window titles (ledit_ovl's mLE_win_data) */
++u8 mSM_en_lePlayerTitle[] = UI_EN_LEDIT_PLAYER;
++u8 mSM_en_leCountryTitle[] = UI_EN_LEDIT_COUNTRY;
++u8 mSM_en_leEphraseTitle[] = UI_EN_LEDIT_EPHRASE;
++u8 mSM_en_leResetTitle[] = UI_EN_LEDIT_RESET;
++u8 mSM_en_leRequestTitle[] = UI_EN_LEDIT_REQUEST;
 diff --git a/src/dmadata/dmadata.c b/src/dmadata/dmadata.c
 index 3ba98f9..56b6afc 100644
 --- a/src/dmadata/dmadata.c
@@ -3430,6 +3454,80 @@ index 0000000..24fd7e7
 +void mHandbill_en_EditSetCol(mED_Ovl_c* editorOvl, s32 x, s32 maxCol);
 +
 +#endif
+diff --git a/src/overlays/submenu/ledit_ovl/m_ledit_ovl.c b/src/overlays/submenu/ledit_ovl/m_ledit_ovl.c
+index b28d4c0..95729b5 100644
+--- a/src/overlays/submenu/ledit_ovl/m_ledit_ovl.c
++++ b/src/overlays/submenu/ledit_ovl/m_ledit_ovl.c
+@@ -10,6 +10,10 @@
+  * window is drawn by its display lists in the submenu's segment 0x0C, its
+  * title with the font from the table below (func_80884514_jp), the text
+  * typed in its colour.
++ *
++ * The en build: the titles are the GameCube's (m_submenu.c holds them, the
++ * overlay cannot grow), and nothing follows the destination, as on the
++ * GameCube.
+  */
+ 
+ /* A window: where the text typed and the title go, the title, the text's
+@@ -32,26 +36,32 @@ void func_80884340_jp(Submenu* submenu, void* menuInfo);
+ void func_80884370_jp(Submenu* submenu, void* menuInfo);
+ void func_80884484_jp(Submenu* submenu, void* menuInfo);
+ 
+-/* The five titles, D_80884D20_jp to D_80884D4C_jp: the cartridge's own text, written
+- * from the user's dump when the tree is extracted (tools/af_dumpdata.py) */
+-#include "assets/jp/overlays/submenu/ledit_ovl/m_ledit_ovl_titles.inc.c"
++/* The en build: the titles the GameCube's, in code (tools/af_ui.py), the cartridge's
++ * no longer included */
++#include "assets/jp/en/ui_strings.inc"
++
++extern u8 mSM_en_lePlayerTitle[];
++extern u8 mSM_en_leCountryTitle[];
++extern u8 mSM_en_leEphraseTitle[];
++extern u8 mSM_en_leResetTitle[];
++extern u8 mSM_en_leRequestTitle[];
+ 
+ mLE_WinData mLE_win_data[] = {
+     /* the player's name */
+-    { { 122.0f, 76.0f }, { 136.0f, 46.0f }, D_80884D20_jp, 8, 6, { 0, 0, 255, 255 }, (Gfx*)0x0C00C460,
+-      (Gfx*)0x0C00C4D0 },
++    { { 122.0f, 76.0f }, { 136.0f, 46.0f }, mSM_en_lePlayerTitle, UI_EN_LEDIT_PLAYER_LEN,
++      6, { 0, 0, 255, 255 }, (Gfx*)0x0C00C460, (Gfx*)0x0C00C4D0 },
+     /* the destination */
+-    { { 103.0f, 77.0f }, { 133.0f, 44.0f }, D_80884D28_jp, 9, 6, { 215, 15, 0, 255 }, (Gfx*)0x0C006A50,
+-      (Gfx*)0x0C006AC0 },
++    { { 103.0f, 77.0f }, { 133.0f, 44.0f }, mSM_en_leCountryTitle, UI_EN_LEDIT_COUNTRY_LEN,
++      6, { 215, 15, 0, 255 }, (Gfx*)0x0C006A50, (Gfx*)0x0C006AC0 },
+     /* a catchphrase */
+-    { { 140.0f, 78.0f }, { 126.0f, 45.0f }, D_80884D34_jp, 9, 4, { 235, 75, 0, 255 }, (Gfx*)0x0C0006F0,
+-      (Gfx*)0x0C001220 },
++    { { 140.0f, 78.0f }, { 126.0f, 45.0f }, mSM_en_leEphraseTitle, UI_EN_LEDIT_EPHRASE_LEN,
++      4, { 235, 75, 0, 255 }, (Gfx*)0x0C0006F0, (Gfx*)0x0C001220 },
+     /* something to say */
+-    { { 102.0f, 76.0f }, { 132.0f, 44.0f }, D_80884D40_jp, 9, 10, { 85, 30, 235, 255 }, (Gfx*)0x0C015E90,
+-      (Gfx*)0x0C015F00 },
++    { { 102.0f, 76.0f }, { 132.0f, 44.0f }, mSM_en_leResetTitle, UI_EN_LEDIT_RESET_LEN,
++      10, { 85, 30, 235, 255 }, (Gfx*)0x0C015E90, (Gfx*)0x0C015F00 },
+     /* a song to request */
+-    { { 102.0f, 76.0f }, { 131.0f, 44.0f }, D_80884D4C_jp, 9, 10, { 50, 50, 235, 255 }, (Gfx*)0x0C011858,
+-      (Gfx*)0x0C0118C8 },
++    { { 102.0f, 76.0f }, { 131.0f, 44.0f }, mSM_en_leRequestTitle, UI_EN_LEDIT_REQUEST_LEN,
++      10, { 50, 50, 235, 255 }, (Gfx*)0x0C011858, (Gfx*)0x0C0118C8 },
+ };
+ 
+ /* The window's move procs by its proc status (ac-decomp's ovl_move_proc) */
+@@ -59,8 +69,10 @@ mLE_MoveProc D_80884E20_jp[] = {
+     func_80884340_jp, (mLE_MoveProc)none_proc1, func_80884370_jp, (mLE_MoveProc)none_proc1, func_80884484_jp,
+ };
+ 
+-/* After the destination typed, D_80884E34_jp: the cartridge's own text, from the dump too */
+-#include "assets/jp/overlays/submenu/ledit_ovl/m_ledit_ovl_suffix.inc.c"
++/* After the destination typed: the en build has three spaces where the cartridge's word was
++ * (func_80884514_jp draws three characters); the GameCube draws nothing there (ac-decomp's
++ * mLE_ledit_ovl_draw) */
++u8 D_80884E34_jp[4] = { 0x20, 0x20, 0x20, 0x00 };
+ 
+ /* The submenu's segment 0x0C (segment_00A94000), its ROM start and end, which the construct loads */
+ u32 D_80884E38_jp[] = { 0x00A94000, 0x00AAC5E0 };
 diff --git a/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c b/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c
 index 87182f5..2c00105 100644
 --- a/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c

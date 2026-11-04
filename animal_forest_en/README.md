@@ -50,6 +50,7 @@ make script ISO=ruta/al/disco.iso # el guion oficial de GameCube: extrae los ban
                                   # fuente (build/gc/)
 make board-check-en               # abre cartas en el tablero y mide sus líneas en pantalla
 make write-check-en               # escribe una carta con el dial y la mide en pantalla
+make menus-check-en               # abre la ventana del nombre en sus cinco modos y mide los títulos
 make test                         # tests de las herramientas, sin ROM
 make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010, para estudiarlo
 ```
@@ -167,9 +168,24 @@ las cartas oficiales. `make write-check-en` escribe cartas con el dial en
 el emulador, mide líneas, cursor y marca de fin en la imagen, las termina
 y las vuelve a leer enteras ("Writing a letter in the en build").
 
-Lo que viene: los gráficos occidentales de GameCube (entre ellos los
-globos de la libreta de direcciones y las etiquetas del dial, que son
-texturas, y quizá los del aviso de fin de carta), y traducir ese 6 %.
+**Fase 5 — lo occidental de GameCube: en curso.** Parte de lo que los
+menús muestran en japonés no son texturas ni está en los bancos de texto:
+son cadenas en los datos de cada menú, que se dibujan con la fuente (los
+títulos de la ventana del nombre, los globos de la libreta de direcciones,
+la pregunta al terminar una carta, las frases del haniwa...). GameCube
+guarda las mismas cadenas en su código, en inglés. `make script` las lee
+del disco (`tools/af_ui.py`) y `make rom-en` las pone en el ROM; sin el
+disco quedan las del cartucho. Primero, la ventana del nombre: sus cinco
+títulos son los de GameCube y la palabra tras el destino desaparece, como
+en GameCube. `make menus-check-en` abre las cinco ventanas y mide cada
+título en la imagen contra el modelo de la fuente ("The menus' own words").
+Las texturas de los menús compartidos son solo marcos e iconos; las
+etiquetas del dial sí son texturas, pero GameCube no tiene dial (escribe
+con un teclado).
+
+Lo que viene: las cadenas del resto de menús, las texturas occidentales
+de GameCube donde las haya (el logo del título, letreros), y traducir
+ese 6 %.
 
 ## Dónde está cada cosa
 
@@ -191,12 +207,14 @@ texturas, y quizá los del aviso de fin de carta), y traducir ese 6 %.
   `af_luicheck.py` (sus pruebas), `gciso.py`/`msgbank.py`/`af_align.py`
   (el disco de GameCube, los bancos de texto de ambos juegos y su
   correspondencia), `af_text.py` (el banco inglés: borrador, comprobador y
-  compilador), `af_font.py` (la fuente del build en inglés) y
+  compilador), `af_font.py` (la fuente del build en inglés), `af_ui.py`
+  (las cadenas de los menús), `af_dumpdata.py` (los datos del cartucho que
+  un archivo decompilado incluye, sacados de tu volcado al extraer) y
   `af_ovlreloc.py` (la tabla de reubicaciones de un overlay que cambia).
 - `script/` — nuestro texto: lo que no tiene versión oficial.
 - `tests/` — `test_tools.py` (`make test`), `emu_check.py`
   (`make emu-check`) y las pruebas del build en inglés en el emulador:
   `emu_save.py` (la partida), `emu_letters.py` (las cartas),
-  `emu_board.py` (el tablero de cartas) y `emu_write.py` (escribir una
-  carta).
+  `emu_board.py` (el tablero de cartas), `emu_write.py` (escribir una
+  carta) y `emu_menus.py` (las cadenas de los menús).
 - `reference/NOTES.md` — lo verificado, con su fuente.

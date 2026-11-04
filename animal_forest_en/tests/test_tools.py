@@ -21,6 +21,7 @@ import af_anchors  # noqa: E402
 import af_bench  # noqa: E402
 import af_align  # noqa: E402
 import af_dmaorder  # noqa: E402
+import af_dumpdata  # noqa: E402
 import af_font  # noqa: E402
 import af_luicheck  # noqa: E402
 import af_names  # noqa: E402
@@ -30,6 +31,7 @@ import af_relink  # noqa: E402
 import af_relsyms  # noqa: E402
 import af_shiftcheck  # noqa: E402
 import af_text  # noqa: E402
+import af_ui  # noqa: E402
 import gciso  # noqa: E402
 import msgbank  # noqa: E402
 import rom  # noqa: E402
@@ -1032,6 +1034,40 @@ int main(int argc, char** argv) {
                 subprocess.run([exe, os.path.join(tmp, "in"), os.path.join(tmp, "out")], check=True)
                 with open(os.path.join(tmp, "out"), "rb") as f:
                     self.assertEqual(f.read(), aflz.compress(data))
+
+
+class MenusWords(unittest.TestCase):
+    # tools/af_ui.py and tools/af_dumpdata.py, on made-up data
+    def test_strings_text_round_trips(self):
+        for s in ("Pick a word.", "a\\b\tc\nd", ""):
+            self.assertEqual(af_ui.unescape(af_ui.escape(s)), s)
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "ui.txt")
+            open(path, "w").write("# comment\nONE\tHello!\nTWO\tA\\tB\n")
+            self.assertEqual(af_ui.read_text(path), {"ONE": "Hello!", "TWO": "A\tB"})
+
+    def test_strings_are_the_n64_fonts_codes(self):
+        self.assertEqual(af_ui.n64_bytes("X", "Ok."), bytes([0x4F, 0x6B, 0x2E]))
+        with self.assertRaises(SystemExit):
+            af_ui.n64_bytes("X", "\u00e9")                  # no such character in the N64's font
+
+    def test_strings_include(self):
+        text = af_ui.include([("ONE", b"\x41\x42"), ("TWO", b"")])
+        self.assertIn("#define UI_EN_ONE { 0x41, 0x42 }\n#define UI_EN_ONE_LEN 2\n", text)
+        self.assertIn("#define UI_EN_TWO_LEN 0\n", text)
+
+    def test_strings_of_the_map(self):
+        # a symbol is found in the map's .data once, or the read stops
+        layout = {".data": [(0x10, 4, "a_str", "m_a.o"), (0x20, 7, "b_str", "m_b.o"), (0x30, 7, "b_str", "m_c.o")]}
+        self.assertEqual(af_font.gc_find(layout, "a_str"), (0x10, 4))
+        self.assertEqual(af_font.gc_find(layout, "b_str", "m_c.o"), (0x30, 7))
+        with self.assertRaises(SystemExit):
+            af_font.gc_find(layout, "b_str")
+
+    def test_dump_data_initializers(self):
+        rom = bytes(range(16))
+        text = af_dumpdata.initializers(rom, [("D_A", 2, 3), ("D_B", 8, 2)])
+        self.assertIn("u8 D_A[3] = { 0x02, 0x03, 0x04 };\nu8 D_B[2] = { 0x08, 0x09 };\n", text)
 
 
 class Matching(unittest.TestCase):

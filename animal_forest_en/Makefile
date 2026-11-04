@@ -45,7 +45,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en emu-determinism decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
+.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en menus-check-en emu-determinism decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
 
 all: verify
 
@@ -78,8 +78,9 @@ $(AF_DIR)/.stamp-setup: $(AF_DIR)/.stamp-checkout $(BASEROM)
 	$(MAKE) -C $(AF_DIR) venv setup >$(BUILD)/af-setup.log
 	@touch $@
 
-$(AF_DIR)/.stamp-extract: $(AF_DIR)/.stamp-setup
+$(AF_DIR)/.stamp-extract: $(AF_DIR)/.stamp-setup tools/af_dumpdata.py
 	$(MAKE) -C $(AF_DIR) extract >$(BUILD)/af-extract.log 2>&1
+	$(PYTHON) tools/af_dumpdata.py $(AF_DIR)
 	@touch $@
 
 decomp: $(AF_DIR)/.stamp-extract
@@ -163,11 +164,18 @@ EN_NAMES := $(AF_EN_DIR)/assets/jp/segment_00E04000.bin
 EN_FONT := $(AF_EN_DIR)/assets/jp/segment_00BCD000.bin
 GC_FONT := $(wildcard $(GC_DIR)/gc_font.bin)
 FONT_OPTS := --font $(BASEROM) $(if $(GC_FONT),--gc-font $(GC_FONT))
+# The menus' own words (strings in the menus' data, not in the banks): the
+# GameCube's (build/gc/gc_ui.txt, which make script reads from the disc), or
+# the cartridge's own without it, as the include the en build's menus use
+# (tools/af_ui.py; NOTES, "The menus' own words").
+EN_UI := $(AF_EN_DIR)/assets/jp/en/ui_strings.inc
+GC_UI := $(wildcard $(GC_DIR)/gc_ui.txt)
 # The overlays the translation changes: each gets its relocation table made
 # anew from its objects after the first link (tools/af_ovlreloc.py, which
 # first proves fado on the matching build), and af_relink pads its sections
-# back to their old sizes: the letter board and the text editor.
-EN_OVERLAYS := board_ovl ovl__0078CB80
+# back to their old sizes: the letter board, the text editor and the name
+# entry.
+EN_OVERLAYS := board_ovl ovl__0078CB80 ledit_ovl
 
 $(AF_EN_DIR)/.stamp-checkout: decomp/AF_REV $(MATCHING) $(CHANGES)
 	@if [ "$$(git -C $(AF_EN_DIR) rev-parse HEAD~0 2>/dev/null)" = "" ]; then \
@@ -186,8 +194,9 @@ $(AF_EN_DIR)/.stamp-setup: $(AF_EN_DIR)/.stamp-checkout $(BASEROM)
 	$(MAKE) -C $(AF_EN_DIR) venv setup >$(BUILD)/af_en-setup.log
 	@touch $@
 
-$(AF_EN_DIR)/.stamp-extract: $(AF_EN_DIR)/.stamp-setup
+$(AF_EN_DIR)/.stamp-extract: $(AF_EN_DIR)/.stamp-setup tools/af_dumpdata.py
 	$(MAKE) -C $(AF_EN_DIR) extract >$(BUILD)/af_en-extract.log 2>&1
+	$(PYTHON) tools/af_dumpdata.py $(AF_EN_DIR)
 	rm -f $(AF_EN_DIR)/build/$(EN_LD).splat
 	@touch $@
 
@@ -229,7 +238,10 @@ $(EN_FONT): $(BASEROM) tools/af_font.py tools/af_names.py tools/msgbank.py tools
 	mkdir -p $(EN_ASSETS)
 	$(PYTHON) tools/af_font.py $(BASEROM) $@ $(EN_ASSETS)/font_cut.inc $(if $(GC_FONT),--gc $(GC_FONT))
 
-en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT)
+$(EN_UI): tools/af_ui.py tools/af_font.py tools/msgbank.py tools/gciso.py $(GC_UI) $(AF_EN_DIR)/.stamp-extract
+	$(PYTHON) tools/af_ui.py compile $(AF_EN_DIR) $@ $(if $(GC_UI),--gc $(GC_UI))
+
+en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT) $(EN_UI)
 
 rom-en: decomp-en rom en-bank
 	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relsyms.py $(CURDIR)/$(REF_MAP) linker_scripts/jp/auto/undefined_syms_auto.ld
@@ -280,6 +292,13 @@ board-check-en: route-en
 write-check-en: route-en
 	$(PYTHON) tests/emu_write.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-write-en
 
+# The menus' own words in the en build: the name entry's five windows opened
+# from the same state, their titles' strings in RAM and their ink measured on
+# the frame against the font's model (tests/emu_menus.py; NOTES, "The menus'
+# own words").
+menus-check-en: route-en
+	$(PYTHON) tests/emu_menus.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-menus-en $(GC_UI)
+
 # -- the GameCube script (phase 4) -------------------------------------------
 # ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it
 # produces lands in build/gc, which git ignores: the banks, their dumps and
@@ -296,6 +315,7 @@ script: $(BASEROM) $(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n6
 	@test -n "$(ISO)" || { echo "make script ISO=path/to/Animal_Crossing_USA.iso"; exit 1; }
 	@for f in $(GC_FILES); do $(PYTHON) tools/gciso.py extract "$(ISO)" $$f $(GC_DIR)/$$(basename $$f) || exit 1; done
 	$(PYTHON) tools/af_font.py gc "$(ISO)" $(GC_DIR)/gc_font.bin
+	$(PYTHON) tools/af_ui.py gc "$(ISO)" $(GC_DIR)/gc_ui.txt
 	$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/message_data.bin $(GC_DIR)/message_data_table.bin $(GC_DIR)/gc_en.txt
 	$(PYTHON) tools/af_align.py $(BASEROM) $(GC_DIR)/message_data.bin $(GC_DIR)/message_data_table.bin $(GC_DIR)/align.tsv
 	$(PYTHON) tools/af_text.py draft $(GC_DIR)/n64_jp.txt $(GC_DIR)/gc_en.txt $(GC_DIR)/align.tsv $(GC_DIR)/en_bank.txt \

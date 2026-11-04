@@ -47,7 +47,8 @@ the why and the state, `reference/NOTES.md` for what is verified.
    save code also runs `make save-check-en`, one to the letters `make
    letters-check-en`, one to the letter board or the font `make
    board-check-en`, one to the editor or writing a letter `make
-   write-check-en`, one to `emu/` `make emu-determinism`.
+   write-check-en`, one to the menus' strings `make menus-check-en`, one
+   to `emu/` `make emu-determinism`.
 
 ## Where things live
 
@@ -100,6 +101,15 @@ the why and the state, `reference/NOTES.md` for what is verified.
   the disc by `make script` into `build/gc/gc_font.bin`), or without the
   disc the cartridge's at the left of their 12-pixel cells; the table the
   en `m_font.c` includes (NOTES, "The font in the en build").
+- `tools/af_ui.py` — the menus' own words (strings in the menus' data,
+  not in the banks): the GameCube's read from the disc by `make script`
+  (`build/gc/gc_ui.txt`), the include the en build's menus use written at
+  `make rom-en`, the cartridge's own without the disc (NOTES, "The menus'
+  own words").
+- `tools/af_dumpdata.py` — the cartridge's own data a file we decompiled
+  includes but this repository must not hold (text), written from the
+  user's dump as C initializers under each tree's `assets/` after its
+  extract.
 - `tools/aflz.py` — the en build's save compressor in Python (the twin
   of `include/af_lz.h` in changes.patch): slot images packed and read.
 - `tests/` — `test_tools.py`, `emu_check.py`, `emu_save.py` (the en
@@ -111,6 +121,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `emu_write.py` (letters typed on the editor's dial, their lines, cursor
   and end mark measured against the same model, finished and read back
   whole, 192 bytes: `make write-check-en`),
+  `emu_menus.py` (the name entry's five windows, their titles' strings in
+  RAM and their ink measured against the font's model: `make
+  menus-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.

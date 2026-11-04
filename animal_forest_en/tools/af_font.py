@@ -121,20 +121,17 @@ def map_layout(text):
     return out
 
 
-def gc_font(szs, map_text):
-    """(sheet, cut): the GameCube's font sheet in the N64 sheet's layout, its 256 cuts."""
-    layout = map_layout(map_text)
+def gc_find(layout, name, obj=None):
+    """(offset, size) of the symbol name (of object obj) in the map's .data, which must hold it once."""
+    hits = [(o, s) for o, s, sym, ob in layout[".data"] if sym == name and (obj is None or ob == obj)]
+    if len(hits) != 1:
+        raise SystemExit("%s is not in the map's .data once (%d)" % (name, len(hits)))
+    return hits[0]
 
-    def find(name, obj):
-        hits = [(o, s) for o, s, sym, ob in layout[".data"] if sym == name and (obj is None or ob == obj)]
-        if len(hits) != 1:
-            raise SystemExit("af_font: %s is not in the map's .data once (%d)" % (name, len(hits)))
-        return hits[0]
 
-    (sheet_at, sheet_size), (cut_at, cut_size) = find(*GC_SHEET), find(*GC_CUT)
-    if (sheet_size, cut_size) != (SHEET_SIZE, 256):
-        raise SystemExit("af_font: the map's font is %#x bytes and its cut table %#x, not %#x and 0x100"
-                         % (sheet_size, cut_size, SHEET_SIZE))
+def gc_rel_data(szs, layout, upto):
+    """foresta.rel's .data section (Yaz0 compressed: szs), decompressed as far as its first upto bytes,
+    once the map's .data is found to end where the module's section does."""
     head = gciso.yaz0(szs, 0x100)
     count, table = struct.unpack(">II", head[0xC:0x14])
     entries = [struct.unpack(">II", head[table + 8 * i:table + 8 * i + 8]) for i in range(min(count, 7))]
@@ -142,10 +139,19 @@ def gc_font(szs, map_text):
     data_at, data_size = entries[k][0] & ~3, entries[k][1]
     extent = max(o + s for o, s, _, _ in layout[".data"])
     if extent != data_size:
-        raise SystemExit("af_font: the map's .data ends at %#x, the module's section %d is %#x bytes"
-                         % (extent, k, data_size))
-    rel = gciso.yaz0(szs, data_at + max(sheet_at + sheet_size, cut_at + cut_size))
-    tiled = rel[data_at + sheet_at:data_at + sheet_at + SHEET_SIZE]
+        raise SystemExit("the map's .data ends at %#x, the module's section %d is %#x bytes" % (extent, k, data_size))
+    return gciso.yaz0(szs, data_at + upto)[data_at:]
+
+
+def gc_font(szs, map_text):
+    """(sheet, cut): the GameCube's font sheet in the N64 sheet's layout, its 256 cuts."""
+    layout = map_layout(map_text)
+    (sheet_at, sheet_size), (cut_at, cut_size) = gc_find(layout, *GC_SHEET), gc_find(layout, *GC_CUT)
+    if (sheet_size, cut_size) != (SHEET_SIZE, 256):
+        raise SystemExit("af_font: the map's font is %#x bytes and its cut table %#x, not %#x and 0x100"
+                         % (sheet_size, cut_size, SHEET_SIZE))
+    data = gc_rel_data(szs, layout, max(sheet_at + sheet_size, cut_at + cut_size))
+    tiled = data[sheet_at:sheet_at + SHEET_SIZE]
     sheet = bytearray(SHEET_SIZE)
     row_bytes, tiles_per_row = SHEET_W // 2, SHEET_W // 8
     for t in range(len(tiled) // 32):                  # 8x8 tiles of 4 bytes a row, left to right, then down
@@ -153,7 +159,7 @@ def gc_font(szs, map_text):
         for y in range(8):
             at = (ty * 8 + y) * row_bytes + tx * 4
             sheet[at:at + 4] = tiled[t * 32 + y * 4:t * 32 + y * 4 + 4]
-    return bytes(sheet), list(rel[data_at + cut_at:data_at + cut_at + 256])
+    return bytes(sheet), list(data[cut_at:cut_at + 256])
 
 
 def gc_cell(sheet, g, y):
