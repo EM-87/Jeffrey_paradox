@@ -536,7 +536,7 @@ def main(argv):
 
         for menu, buttons, names in SWAP_MENUS:
             w, h, normal = open_swap(menu, buttons)
-            path = os.path.join(out, "swap-program-%d.png" % menu[0])
+            path = os.path.join(out, "swap-program-%d-%d.png" % menu)   # one a menu and data0
             write_png(path, w, h, normal)
             shots.append(path)
             for name in names:
