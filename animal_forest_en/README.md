@@ -194,8 +194,9 @@ notas del Controller Pak; y después los avisos del inventario, los mensajes
 del Controller Pak (estos dos, nuestros: GameCube parte esos avisos de otra
 manera y no tiene Controller Pak) y la tienda del haniwa, que escribe su frase
 letra a letra en un búfer: la inglesa se escribe al mismo ritmo, y en el
-precio las cifras del menú van en el hueco de la frase inglesa ("The menus'
-strings where the font draws them").
+precio las cifras del menú van en el hueco de la frase inglesa; y las
+acciones de la etiqueta que se abre sobre un objeto (las de GameCube) y su
+pregunta antes de tirarlo ("The menus' strings where the font draws them").
 `make menus-check-en` abre esas ventanas y mide cada cadena en la imagen
 contra el modelo de la fuente ("The menus' own words", "The edit-end check
 and the address book").

@@ -104,8 +104,22 @@ def typed_of(layout):
 GY = TYPED(12) | LEFT | FIT | BOX(16)                 # the gyroid's balloon
 GY_THATS = (0x7951A0, 3)                              # D_8088D9F0_jp
 
+TG_WORDS = 0x7812B0                                   # tag_ovl's words: D_80878AE0_jp and on, 12 bytes each
+
+
+def TG_WORD(i):
+    """The tag's i-th word: 8 characters, the rest of its 12 bytes the procedure it runs."""
+    return (TG_WORDS + 12 * i, 8)
+
+
+def GC_WORD(sym):
+    """A GameCube tag word (mTG_tag_word_c): 16 characters, spaces after the word, then its procedures."""
+    return (sym, 16)
+
+
 # (name, the cartridge's string: its ROM offset and length, or a list of such pieces and HOLE; layout; the
-# GameCube's: symbol and object, or None)
+# GameCube's: symbol, or (symbol, the bytes of it that are the string, its trailing spaces dropped), and
+# object, or None)
 SUBST = [
     # an amount to enter (ovl__0079B120, func_80898128_jp): its title; the end of the entry, the same
     # bytes in the birthday's (ovl__0079DA50) and the clock's (ovl__0078AE30)
@@ -202,6 +216,47 @@ SUBST = [
     ("PK_OPT_QUIT", (0x7A0C30, 7), LEFT | FIT | BOX(12), None, None),
     ("PK_YES", (0x7A0C38, 2), LEFT | FIT | BOX(6), None, None),
     ("PK_NO", (0x7A0C3C, 3), LEFT | FIT | BOX(6), None, None),
+    # the tag's words (tag_ovl, func_8087792C_jp: each drawn whole, 8 characters, spaces after the word),
+    # left where the cursor points: the GameCube's, by its words' names; ours where it has none. The second
+    # word for opening (D_80878C84_jp) has the first's bytes, and its English; the amounts are digits, and
+    # the price's two labels (D_80878C24_jp, D_80878C30_jp) frame digits drawn apart: kept
+    ("TG_AKERU", TG_WORD(0), LEFT | FIT, GC_WORD("mTG_tag_word_akeru"), "m_tag_ovl.o"),
+    ("TG_AGERU", TG_WORD(1), LEFT | FIT, GC_WORD("mTG_tag_word_ageru"), "m_tag_ovl.o"),
+    ("TG_ITADAKU", TG_WORD(2), LEFT | FIT, GC_WORD("mTG_tag_word_itadaku"), "m_tag_ovl.o"),
+    ("TG_UN", TG_WORD(3), LEFT | FIT, GC_WORD("mTG_tag_word_dump_item"), "m_tag_ovl.o"),
+    ("TG_URU", TG_WORD(4), LEFT | FIT, GC_WORD("mTG_tag_word_sell"), "m_tag_ovl.o"),
+    ("TG_OKURU", TG_WORD(5), LEFT | FIT, GC_WORD("mTG_tag_word_okuru"), "m_tag_ovl.o"),
+    ("TG_KAKINAOSU", TG_WORD(6), LEFT | FIT, GC_WORD("mTG_tag_word_kakinaosu"), "m_tag_ovl.o"),
+    ("TG_KABENIHARU", TG_WORD(7), LEFT | FIT, GC_WORD("mTG_tag_word_kabeniharu"), "m_tag_ovl.o"),
+    ("TG_IRERU", TG_WORD(8), LEFT | FIT, GC_WORD("mTG_tag_word_korewoireru"), "m_tag_ovl.o"),
+    ("TG_UERU", TG_WORD(9), LEFT | FIT, GC_WORD("mTG_tag_word_zimenniueru"), "m_tag_ovl.o"),
+    ("TG_OKU", TG_WORD(10), LEFT | FIT, GC_WORD("mTG_tag_word_zimennioku"), "m_tag_ovl.o"),
+    ("TG_SUTERU", TG_WORD(11), LEFT | FIT, GC_WORD("mTG_tag_word_suteru"), "m_tag_ovl.o"),
+    ("TG_TADA", TG_WORD(12), LEFT | FIT, GC_WORD("mTG_tag_word_tada"), "m_tag_ovl.o"),
+    ("TG_TUKAMU", TG_WORD(13), LEFT | FIT, GC_WORD("mTG_tag_word_tukamu"), "m_tag_ovl.o"),
+    ("TG_TEGAMI", TG_WORD(14), LEFT | FIT, GC_WORD("mTG_tag_word_tegamiwokaku"), "m_tag_ovl.o"),
+    ("TG_NEDAN", TG_WORD(15), LEFT | FIT, GC_WORD("mTG_tag_word_nedanwotukeru"), "m_tag_ovl.o"),
+    ("TG_PRESENT", TG_WORD(16), LEFT | FIT, GC_WORD("mTG_tag_word_present"), "m_tag_ovl.o"),
+    ("TG_MISERU", TG_WORD(17), LEFT | FIT, GC_WORD("mTG_tag_word_miserudake"), "m_tag_ovl.o"),
+    ("TG_YAMERU", TG_WORD(18), LEFT | FIT, GC_WORD("mTG_tag_word_yameru"), "m_tag_ovl.o"),
+    ("TG_HEYA", TG_WORD(19), LEFT | FIT, GC_WORD("mTG_tag_word_heyanioku"), "m_tag_ovl.o"),
+    ("TG_YUKA", TG_WORD(20), LEFT | FIT, GC_WORD("mTG_tag_word_yukanisiku"), "m_tag_ovl.o"),
+    ("TG_YOMU", TG_WORD(21), LEFT | FIT, GC_WORD("mTG_tag_word_yomu"), "m_tag_ovl.o"),
+    ("TG_WATASU", TG_WORD(22), LEFT | FIT, GC_WORD("mTG_tag_word_watasu"), "m_tag_ovl.o"),
+    ("TG_OSAMERU", TG_WORD(29), LEFT | FIT, GC_WORD("mTG_tag_word_osameru"), "m_tag_ovl.o"),
+    ("TG_ZENBU", TG_WORD(30), LEFT | FIT, GC_WORD("mTG_tag_word_zenbutukamu"), "m_tag_ovl.o"),
+    ("TG_ICHIMAI", TG_WORD(31), LEFT | FIT, GC_WORD("mTG_tag_word_1maitukamu"), "m_tag_ovl.o"),
+    ("TG_ORDER", TG_WORD(32), LEFT | FIT, GC_WORD("mTG_tag_word_order"), "m_tag_ovl.o"),
+    ("TG_UMERU", TG_WORD(33), LEFT | FIT, GC_WORD("mTG_tag_word_zimenniumeru"), "m_tag_ovl.o"),
+    ("TG_NIGASU", TG_WORD(34), LEFT | FIT, GC_WORD("mTG_tag_word_nigasu"), "m_tag_ovl.o"),
+    ("TG_KESU", TG_WORD(36), LEFT | FIT, None, None),
+    ("TG_HAI", TG_WORD(37), LEFT | FIT, GC_WORD("mTG_tag_word_hai"), "m_tag_ovl.o"),
+    ("TG_IIE", TG_WORD(38), LEFT | FIT, GC_WORD("mTG_tag_word_iie"), "m_tag_ovl.o"),
+    # the tag's question before something is thrown away (func_80877FF4_jp): one line, or two the GameCube
+    # has only as placeholders (ours)
+    ("TG_SUTERUNO", (0x781838, 5), LEFT | FIT, "mTG_tag_str_suteruno", "m_tag_ovl.o"),
+    ("TG_HONTONI", (0x781840, 4), LEFT | FIT, None, None),
+    ("TG_IIDESUKA", (0x781844, 6), LEFT | FIT, None, None),
 ]
 
 
@@ -244,11 +299,20 @@ def key_bytes(rom, key):
 
 
 def gc_strings(szs, map_text):
-    """{name: text} of the GameCube's strings."""
+    """{name: text} of the GameCube's strings (of a symbol given with a length, that many bytes, its trailing
+    spaces dropped)."""
     layout = map_layout(map_text)
-    places = {name: gc_find(layout, sym, obj) for name, sym, obj in gc_sources()}
+    places, sized = {}, set()
+    for name, sym, obj in gc_sources():
+        if isinstance(sym, tuple):
+            sym, size = sym
+            places[name] = (gc_find(layout, sym, obj)[0], size)
+            sized.add(name)
+        else:
+            places[name] = gc_find(layout, sym, obj)
     data = gc_rel_data(szs, layout, max(at + size for at, size in places.values()))
-    return {name: "".join(GC_CHARS[b] for b in data[at:at + size]) for name, (at, size) in places.items()}
+    out = {name: "".join(GC_CHARS[b] for b in data[at:at + size]) for name, (at, size) in places.items()}
+    return {name: text.rstrip(" ") if name in sized else text for name, text in out.items()}
 
 
 def n64_bytes(name, text):

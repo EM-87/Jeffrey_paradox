@@ -38,14 +38,16 @@ draws it); after A, each answer drawn is as wide as the model too, row by
 row.
 
 Then the strings the en build swaps where the font draws them
-(tools/af_ui.py's SUBST): each menu opened four times, as it is, with the
-English's bytes in the swap table made spaces, with the swap off (the
-table's key changed) and the cartridge's bytes, where the menu holds them
-(the overlay's data, or the buffer a menu types a string into), made a
-ruler (the widest glyph whose columns are whole ink or none, repeated),
-and the same with those bytes made spaces. The pairs give the English's
-ink and the ruler's, drawn by the same call at the cartridge's place and
-scale; from the ruler's the box the cartridge's string took (its
+(tools/af_ui.py's SUBST): each menu opened three times, as it is, with
+the English's bytes in the swap table made spaces, and with the swap off
+(the table's key changed) and the cartridge's bytes, where the menu holds
+them (the overlay's data, or the buffer a menu types a string into), made
+a ruler (the widest glyph whose columns are whole ink or none, repeated
+as far as the string's last character, so that a menu laid out by that
+count, as the tag is, keeps its layout). The second against the first
+gives the English's ink, against the third the ruler's, drawn by the
+same call at the cartridge's place and scale; from the ruler's the box
+the cartridge's string took (its
 full-width cells: the cartridge's own glyphs have faint edges the font's
 model places a column wrong, which over ten of them misjudged the scale
 by 1.5%) and from that where the en m_font.c's layout puts the English,
@@ -148,7 +150,8 @@ SWAP_MENUS = [((7, 0), (), ["RP_TITLE", "OK"]),
               ((16, 1), (), ["WR_POCKETS1", "WR_PRESENT2"]),
               ((16, 2), (), ["WR_BELLS1", "WR_BELLS2"]),
               ((18, 2), (), ["PK_NOERASE", ("PK_FAILED", 0x7A0BBC)]),   # the erase message's own copy
-              ((18, 3), (), ["PK_INSERT1", "PK_INSERT2", "PK_INSERT3"])]
+              ((18, 3), (), ["PK_INSERT1", "PK_INSERT2", "PK_INSERT3"]),
+              ((1, 0), (A,), ["TG_TUKAMU", "TG_YAMERU"])]           # the inventory: the money's tag
 # a string a menu builds round its own part, which no menu of the route's save shows: put in the buffer it
 # types into in place of another's (name: the other, the part)
 BUILT = {"GY_PRICE": ("GY_IKAGA", "1000")}           # an item's price in the gyroid's shop
@@ -515,18 +518,20 @@ def main(argv):
             for at, data in pokes:
                 n64.write(at, data)
             n64.write(ctl, struct.pack(">i4I", 1, menu[0], menu[1], 0, 0))
-            start, done = n64.frame, rewrite is None
-            while n64.frame < start + SETTLE:
-                n64.frames(1, 0)
-                if not done:
-                    at = overlay_copy(n64.read(0x80000000, 0x800000), rewrite[0])
-                    if at is not None:
-                        n64.write(at, rewrite[1])
-                        done = True
+            todo = [rewrite] if rewrite else []
+
+            def run(frames):                              # the rewrite once its place is in RAM (an overlay
+                for _ in range(frames):                   # a button loads too)
+                    n64.frames(1, 0)
+                    if todo:
+                        at = overlay_copy(n64.read(0x80000000, 0x800000), todo[0][0])
+                        if at is not None:
+                            n64.write(at, todo.pop()[1])
+            run(SETTLE)
             for b in buttons:
-                n64.frames(2 * SETTLE, 0)                 # the menu takes buttons once it is at rest (the town
+                run(2 * SETTLE)                           # the menu takes buttons once it is at rest (the town
                 n64.press(b, frames=4)                    # tune's not 120 frames after it opens, at 160 it does)
-                n64.frames(SETTLE, 0)
+                run(SETTLE)
             return n64.screen()
 
         for menu, buttons, names in SWAP_MENUS:
@@ -553,17 +558,18 @@ def main(argv):
                     if rom_at is None:
                         rom_at = af_ui.key_pieces(next(k for n, k, _, _, _ in af_ui.SUBST if n == name))[0][0]
                     windows = [cart[rom_at:rom_at + n] for n in (16, 12, 8) if n > len(key)] + [key]
-                size = typed or len(key)                  # what is written there: the ruler, or spaces
-                ruled, blank = (windows, (rule * len(key)).ljust(size, b" ")), (windows, b" " * size)
+                # the ruler as far as the string's last character (a menu may lay itself out by that count,
+                # mMl_strlen's: the tag sizes its window by it), the rest spaces
+                reach = len(key.rstrip(b" "))
+                ruled = (windows, (rule * reach).ljust(typed or len(key), b" "))
                 what = "program %d's %s (%r)" % (menu[0], name, en.rstrip(b" "))
                 en_at, off = at + SUBST_HEAD + af_ui.SUBST_KEY_MAX, [(at + SUBST_HEAD, b"\xFF")]
                 seen = open_swap(menu, buttons, rewrite=built)[2] if built else normal
                 _, _, bare = open_swap(menu, buttons, [(en_at, b" " * (len(en) - (len(part) if built else 0)))],
                                        rewrite=built)
                 _, _, jp = open_swap(menu, buttons, off, rewrite=ruled)
-                _, _, jp_bare = open_swap(menu, buttons, off, rewrite=blank)
                 en_runs = runs(x for x, _ in ink_pixels(seen, bare, w, h))
-                jp_runs = runs(x for x, _ in ink_pixels(jp, jp_bare, w, h))
+                jp_runs = runs(x for x, _ in ink_pixels(jp, bare, w, h))    # bare: the menu's bytes as they are
                 if not en_runs or not jp_runs:
                     check(False, "%s: ink drawn (English %d runs, the ruler %d)" % (what, len(en_runs), len(jp_runs)))
                     continue
@@ -571,7 +577,7 @@ def main(argv):
                     left = jp_runs[0][0] + FRINGE / 2 - board.extent(rule)[0] * CELLS_SCALE * FRAME_X
                     want, got = swap_inks(board, faint, key, en, layout, left, CELLS_SCALE), en_runs
                 else:
-                    left, scale = swap_box(board, rule * len(key), (jp_runs[0][0], jp_runs[-1][1]))
+                    left, scale = swap_box(board, rule * reach, (jp_runs[0][0], jp_runs[-1][1]))
                     want, got = swap_inks(board, faint, key, en, layout, left, scale), [(en_runs[0][0], en_runs[-1][1])]
                 check(len(want) == len(got) and all(ink_matches(g, e) for g, e in zip(got, want)),
                       "%s: its ink at %s, where the layout puts it in the cartridge's box: %s" % (

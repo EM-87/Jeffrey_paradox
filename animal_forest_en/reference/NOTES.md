@@ -1495,31 +1495,36 @@ what goes in it: "The letters in the en build").
   93, before it.
 - **On screen** (`tests/emu_menus.py`, make menus-check-en). The swap
   table in RAM holds each entry's key and English. Each menu is opened
-  four times: as it is; with the English's bytes in the table made
-  spaces; with the swap off (the entry's key changed) and the
-  cartridge's bytes in the overlay made a ruler; and the same with those
-  bytes made spaces. The bytes are found by the longest stretch of the
-  cartridge's data from the string on that RAM holds once: a two-byte
-  string alone is found elsewhere first. The ruler is the en font's `w`
-  repeated, its widest glyph whose columns are whole ink or none. From
-  the ruler's ink, drawn by the same call, the box the cartridge's
-  string took and its scale; from those, where the layout puts the
-  English, each edge where the font's model puts it or one column out
-  where a faint column (under 8 of 15) is (the frame counts one or not
-  by the colours behind it). The cartridge's own glyphs first served as
-  the ruler, but their faint edges are just what the model places a
-  column wrong: over the Controller Pak's ten-character lines that
-  misjudged the scale by 1.5% and the English by 3.5 pixels. With `e`, 6
-  pixels wide, a long English over a short string came out 2 pixels off
-  at its far end. The English's ink matches within 2 frame pixels for
-  all ten: the amount's title and end (the title's ink from 311 to 422,
-  the model's 311.1 to 421.5), the birthday's and the clock's titles,
-  the date's four pieces and the time's colon in their cells, the
-  Controller Pak's title, and the town tune's question and answers, none
-  more than 1.3 pixels from the model's edges. The town tune takes
-  buttons only once it is at rest: R at 120 frames after it opens does
-  nothing, at 180 it brings up the question. The screenshots show each
-  string in its window.
+  three times: as it is; with the English's bytes in the table made
+  spaces; and with the swap off (the entry's key changed) and the
+  cartridge's bytes in the overlay made a ruler. The second against the
+  first gives the English's ink, against the third the ruler's: the
+  menu's own bytes are as they were in the second, so a menu laid out by
+  its string keeps its layout, and the ruler reaches only as far as the
+  string's last character (the tag sizes its window by that count,
+  `mMl_strlen`'s: a ruler compared with the string made spaces moved the
+  window and misjudged the box by 62 pixels). The bytes are found by the
+  longest stretch of the cartridge's data from the string on that RAM
+  holds once: a two-byte string alone is found elsewhere first. The
+  ruler is the en font's `w` repeated, its widest glyph whose columns
+  are whole ink or none. From the ruler's ink, drawn by the same call,
+  the box the cartridge's string took and its scale; from those, where
+  the layout puts the English, each edge where the font's model puts it
+  or one column out where a faint column (under 8 of 15) is (the frame
+  counts one or not by the colours behind it). The cartridge's own
+  glyphs first served as the ruler, but their faint edges are just what
+  the model places a column wrong: over the Controller Pak's
+  ten-character lines that misjudged the scale by 1.5% and the English
+  by 3.5 pixels. With `e`, 6 pixels wide, a long English over a short
+  string came out 2 pixels off at its far end. The English's ink matches
+  within 2 frame pixels for all ten: the amount's title and end (the
+  title's ink from 311 to 422, the model's 311.1 to 421.5), the
+  birthday's and the clock's titles, the date's four pieces and the
+  time's colon in their cells, the Controller Pak's title, and the town
+  tune's question and answers, none more than 1.3 pixels from the
+  model's edges. The town tune takes buttons only once it is at rest: R
+  at 120 frames after it opens does nothing, at 180 it brings up the
+  question. The screenshots show each string in its window.
 - **The warnings and the Controller Pak's messages** (the second
   batch). The item menu's warnings (`ovl__0079A290`) are two lines each,
   from tables of place, string and length (`D_80897508_jp` and after),
@@ -1574,6 +1579,28 @@ what goes in it: "The letters in the en build").
   Screenshots a frame apart show the gyroid typing the English in
   proportion: the first line's first two characters once one of the
   cartridge's nine is typed, the whole line once all nine are.
+
+- **The tag's words** (the third batch). The tag a menu opens on an
+  item (tag_ovl) lists its actions, each drawn whole from its own 12-byte
+  record (`D_80878AE0_jp` and on, 39 of them: 8 characters, the word and
+  spaces, then the procedure it runs; `func_8087792C_jp` draws each with
+  length 8). The GameCube's are 16 characters and procedures
+  (`mTG_tag_word_c`), named by the word (`mTG_tag_word_akeru` and on), in
+  the cartridge's order with some of its own between; af_ui reads a
+  GameCube symbol given with a length that far and drops its trailing
+  spaces. 31 words are the GameCube's, left where the cursor points; the
+  one to erase is ours (the GameCube has a placeholder); the second word
+  for opening has the first's bytes and English; the amounts are digits,
+  and the price's two labels frame digits drawn apart, so they stay. The
+  question before something is thrown away (`func_80877FF4_jp`) is the
+  GameCube's on one line and ours on two (the GameCube has
+  placeholders). The question and most words are not on screen in the
+  route's save.
+- **On screen** (the third batch). The inventory (program 1) holds a bag
+  of money in the route's save; A on it brings up its tag with two
+  words, which match where the layout puts them (the first's ink from
+  249 to 305, the model's 248.0 to 306.0). With them the check measures
+  27 swapped strings on screen; all 213 of its checks pass.
 
 ## The 2010 patch's labels (phase 5, the graphics' second step)
 

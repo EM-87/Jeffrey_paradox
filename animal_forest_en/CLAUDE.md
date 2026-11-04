@@ -230,7 +230,12 @@ the why and the state, `reference/NOTES.md` for what is verified.
   writes a ruler in their place (`emu_menus.ruler`: the widest glyph
   whose columns are whole ink or none, since a short ruler's error grows
   over a longer English) and measures that, and lets an English edge
-  reach out to a faint column.
+  reach out to a faint column. A menu can lay itself out by its string
+  (the tag sizes its window by `mMl_strlen`, the count before trailing
+  spaces): the ruler reaches only as far as the string's last character
+  and is compared with the open where only the English is blanked, the
+  menu's bytes untouched. A ruler compared with the string made spaces
+  moved the tag's window and misjudged the box by 62 pixels.
 - **A route that reaches its milestones has not looked at the screen.**
   The relocated ROMs passed the route for a day while every town but the
   route's own was drawn with black or pink ground; nothing checked the

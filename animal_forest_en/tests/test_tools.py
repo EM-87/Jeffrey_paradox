@@ -1105,6 +1105,22 @@ class MenusWords(unittest.TestCase):
         finally:
             af_ui.SUBST = saved
 
+    def test_gc_words_sized(self):
+        # a GameCube symbol given with a length (a tag word: 16 characters, then its procedures) is read that
+        # far, its trailing spaces dropped; one without is read whole
+        saved = (af_ui.SUBST, af_ui.STRINGS, af_ui.map_layout, af_ui.gc_rel_data)
+        try:
+            af_ui.STRINGS = []
+            af_ui.SUBST = [("W", (0, 8), af_ui.LEFT, ("word_sym", 16), "t.o"),
+                           ("S", (0, 4), af_ui.LEFT, "str_sym", "t.o")]
+            layout = {".data": [(0x00, 20, "word_sym", "t.o"), (0x14, 6, "str_sym", "t.o")]}
+            data = b"Grab" + b" " * 12 + b"\x80\x87\x00\x10" + b"Yes it"
+            af_ui.map_layout = lambda text: layout
+            af_ui.gc_rel_data = lambda szs, lay, upto: data[:upto]
+            self.assertEqual(af_ui.gc_strings(b"", ""), {"W": "Grab", "S": "Yes it"})
+        finally:
+            af_ui.SUBST, af_ui.STRINGS, af_ui.map_layout, af_ui.gc_rel_data = saved
+
     def test_swap_keys_in_pieces(self):
         # a key in pieces with a hole (a string the menu builds round its own part, typed into a buffer):
         # the key's bytes without the hole, where it is in them, and where the English's {} is in it

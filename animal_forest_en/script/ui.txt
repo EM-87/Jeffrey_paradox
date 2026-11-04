@@ -74,3 +74,9 @@ PK_OPT_REPAIR	Repair
 PK_OPT_QUIT	Quit
 PK_YES	Yes
 PK_NO	No
+#
+# The tag's words (tag_ovl): the GameCube's but for the one to erase, which it has only as a placeholder.
+TG_KESU	Erase
+# The tag's question before something is thrown away, on two lines (the GameCube has placeholders).
+TG_HONTONI	Are you
+TG_IIDESUKA	sure?
