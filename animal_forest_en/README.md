@@ -50,8 +50,8 @@ make script ISO=ruta/al/disco.iso # el guion oficial de GameCube: extrae los ban
                                   # fuente (build/gc/)
 make board-check-en               # abre cartas en el tablero y mide sus líneas en pantalla
 make write-check-en               # escribe una carta con el dial y la mide en pantalla
-make menus-check-en               # abre la ventana del nombre en sus cinco modos y mide los títulos;
-                                  # abre los menús con etiquetas y las busca en memoria
+make menus-check-en               # abre la ventana del nombre, la pregunta al terminar una carta y
+                                  # la libreta, y mide sus cadenas; busca las etiquetas en memoria
 make test                         # tests de las herramientas, sin ROM
 make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010: para estudiarlo, y
                                   # sus etiquetas en inglés para make rom-en (opcional)
@@ -182,8 +182,11 @@ guarda las mismas cadenas en su código, en inglés. `make script` las lee
 del disco (`tools/af_ui.py`) y `make rom-en` las pone en el ROM; sin el
 disco quedan las del cartucho. Primero, la ventana del nombre: sus cinco
 títulos son los de GameCube y la palabra tras el destino desaparece, como
-en GameCube. `make menus-check-en` abre las cinco ventanas y mide cada
-título en la imagen contra el modelo de la fuente ("The menus' own words").
+en GameCube. Después, la pregunta al terminar una carta y sus respuestas, y
+el globo de la libreta de direcciones (centrado en el globo del cartucho y
+estrechado si no cabe). `make menus-check-en` abre esas ventanas y mide cada
+cadena en la imagen contra el modelo de la fuente ("The menus' own words",
+"The edit-end check and the address book").
 Las texturas de los menús compartidos son solo marcos e iconos; las
 etiquetas del dial sí son texturas, pero GameCube no tiene dial (escribe
 con un teclado).

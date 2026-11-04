@@ -169,7 +169,7 @@ FONT_OPTS := --font $(BASEROM) $(if $(GC_FONT),--gc-font $(GC_FONT))
 # the cartridge's own without it, as the include the en build's menus use
 # (tools/af_ui.py; NOTES, "The menus' own words").
 EN_UI := $(AF_EN_DIR)/assets/jp/en/ui_strings.inc
-GC_UI := $(wildcard $(GC_DIR)/gc_ui.txt)
+GC_UI := $(if $(wildcard $(GC_DIR)/foresta.map $(GC_DIR)/gc_ui.txt),$(GC_DIR)/gc_ui.txt)
 # The labels the AF Project's 2010 patch drew in English (the dial's, the
 # inventory's, the map's and other menus'): taken from its ROM (make nafe
 # NAFE_UPS=..., from the user's copy of the patch) over the en tree's copies of
@@ -181,7 +181,7 @@ EN_NAFE_GFX := $(AF_EN_DIR)/assets/jp/en/nafe_gfx.stamp
 # first proves fado on the matching build), and af_relink pads its sections
 # back to their old sizes: the letter board, the text editor and the name
 # entry.
-EN_OVERLAYS := board_ovl ovl__0078CB80 ledit_ovl
+EN_OVERLAYS := board_ovl ovl__0078CB80 ledit_ovl ovl__00799580 ovl__00792700
 
 $(AF_EN_DIR)/.stamp-checkout: decomp/AF_REV $(MATCHING) $(CHANGES)
 	@if [ "$$(git -C $(AF_EN_DIR) rev-parse HEAD~0 2>/dev/null)" = "" ]; then \
@@ -243,6 +243,13 @@ $(EN_NAMES): $(BASEROM) tools/af_names.py $(wildcard $(GC_DIR)/npc_name_str_tabl
 $(EN_FONT): $(BASEROM) tools/af_font.py tools/af_names.py tools/msgbank.py tools/gciso.py $(GC_FONT) $(AF_EN_DIR)/.stamp-extract
 	mkdir -p $(EN_ASSETS)
 	$(PYTHON) tools/af_font.py $(BASEROM) $@ $(EN_ASSETS)/font_cut.inc $(if $(GC_FONT),--gc $(GC_FONT))
+
+# a string added to af_ui's table is read from the disc's module that make
+# script keeps in build/gc, without the disc
+$(GC_DIR)/gc_ui.txt: tools/af_ui.py $(wildcard $(GC_DIR)/foresta.rel.szs $(GC_DIR)/foresta.map)
+	@if [ -s $(GC_DIR)/foresta.rel.szs ] && [ -s $(GC_DIR)/foresta.map ]; then \
+		$(PYTHON) tools/af_ui.py gc-files $(GC_DIR)/foresta.rel.szs $(GC_DIR)/foresta.map $@; \
+	else echo "$@: make script ISO=... reads the strings from the disc"; fi
 
 $(EN_UI): tools/af_ui.py tools/af_font.py tools/msgbank.py tools/gciso.py $(GC_UI) $(AF_EN_DIR)/.stamp-extract
 	$(PYTHON) tools/af_ui.py compile $(AF_EN_DIR) $@ $(if $(GC_UI),--gc $(GC_UI))
@@ -328,7 +335,9 @@ script: $(BASEROM) $(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n6
 	@test -n "$(ISO)" || { echo "make script ISO=path/to/Animal_Crossing_USA.iso"; exit 1; }
 	@for f in $(GC_FILES); do $(PYTHON) tools/gciso.py extract "$(ISO)" $$f $(GC_DIR)/$$(basename $$f) || exit 1; done
 	$(PYTHON) tools/af_font.py gc "$(ISO)" $(GC_DIR)/gc_font.bin
-	$(PYTHON) tools/af_ui.py gc "$(ISO)" $(GC_DIR)/gc_ui.txt
+	$(PYTHON) tools/gciso.py extract "$(ISO)" foresta.rel.szs $(GC_DIR)/foresta.rel.szs
+	$(PYTHON) tools/gciso.py extract "$(ISO)" foresta.map $(GC_DIR)/foresta.map
+	$(PYTHON) tools/af_ui.py gc-files $(GC_DIR)/foresta.rel.szs $(GC_DIR)/foresta.map $(GC_DIR)/gc_ui.txt
 	$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/message_data.bin $(GC_DIR)/message_data_table.bin $(GC_DIR)/gc_en.txt
 	$(PYTHON) tools/af_align.py $(BASEROM) $(GC_DIR)/message_data.bin $(GC_DIR)/message_data_table.bin $(GC_DIR)/align.tsv
 	$(PYTHON) tools/af_text.py draft $(GC_DIR)/n64_jp.txt $(GC_DIR)/gc_en.txt $(GC_DIR)/align.tsv $(GC_DIR)/en_bank.txt \

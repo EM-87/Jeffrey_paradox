@@ -18,11 +18,24 @@ request). For each window:
      the same state, the second time with the title's length 0, the two
      frames of the same number differ only by the title's ink (the
      emulator is deterministic), whose extent is measured (pixels that
-     differ by INK at least: the VI filter leaves a faint fringe a pixel
-     wide on each side);
+     differ by INK at least). A font pixel is FRAME_X frame pixels wide
+     (the board's measurement: the VI shows the 320 pixels over about 625
+     of the frame's 640), and INK still counts the VI filter's fringe, a
+     frame pixel on each side (FRINGE);
   3. the destination's window draws nothing after the text typed (the
      overlay's three characters there are spaces, as the GameCube has
      nothing).
+
+Then the edit-end check (program 15) and the address book (program 13),
+opened as the letter board opens them (data0 0; the check's three-answer
+window too, data0 1): the answers' table the check draws from (found in
+RAM by its first window) points at the en build's strings in code and holds
+them; the question and the book's balloon are as wide as the font's model
+(the window opened twice, the second time with the string's bytes in RAM
+made spaces: the frames differ by its ink only; the balloon's string
+narrowed to the cartridge's 144 pixels when it is wider, as the en build
+draws it); after A, each answer drawn is as wide as the model too, row by
+row.
 
 Then the labels the 2010 patch drew (tools/af_nafe_gfx.py): the hook opens
 each menu whose segment holds some (LABEL_MENUS), and each label is in RAM
@@ -45,7 +58,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
-from n64emu import N64, write_png  # noqa: E402
+from n64emu import N64, A, write_png  # noqa: E402
 import af_nafe_gfx  # noqa: E402
 import af_ui  # noqa: E402
 import contact  # noqa: E402
@@ -86,12 +99,22 @@ WIN_SIZE, TITLE_AT, LEN_AT = 0x28, 0x10, 0x14
 WIN0 = struct.pack(">4f", 122.0, 76.0, 136.0, 46.0)  # the first window's places (m_ledit_ovl.c)
 SUFFIX_AT = 5 * WIN_SIZE + 5 * 4                     # after the table and the move procs: D_80884E34_jp
 TITLE_SCALE = 0.875
-FRAME_X = 2.0                                        # frame pixels a font pixel, wide (640 for 320)
+FRAME_X = emu_board.BOARD_X[1]                       # frame pixels a font pixel, wide (measured on the board:
+# the VI shows the 320 pixels over about 625 of the frame's 640)
 TOLERANCE = 2.0                                      # frame pixels (the scale's rounding, the VI filter)
-INK = 60                                             # the colours' difference, summed, that is the title's
-# ink: below it the VI filter's fringe, a frame pixel on each side
+INK = 60                                             # the colours' difference, summed, that is ink
+FRINGE = 2.0                                         # the VI filter's fringe, a frame pixel on each side of
+# the ink, which INK still counts (the board's own thresholds leave it out)
 SETTLE = 60
 HOOK_BUF = 0x14
+
+EDIT_END, ADDRESS = 15, 13
+EE_WIN0 = struct.pack(">iII4f", 2, 0x0C0017C8, 0x0C001790, -45.0, 43.0, 65.0, -74.0)  # its first window
+EE_ANSWERS_AT = 0xC8                                 # D_80896A18_jp after D_80896950_jp
+EE_ANSWERS = [("EE_ANSWER0", "mSM_en_eeAnswer0"), ("EE_ANSWER1", "mSM_en_eeAnswer1"),
+              ("EE_ANSWER2", "mSM_en_eeAnswer2")]
+ANSWER_ROW = 16                                      # frame rows between answers (a row a line: 240 rows)
+AD_TEXT_W = 144                                      # the address book's balloon: the cartridge's 12 characters
 
 # the menus that load the segments the 2010 patch drew labels in: (program, data0, segment's vrom, what)
 LABEL_MENUS = [(1, 0, 0xA30000, "the inventory"),
@@ -134,6 +157,23 @@ def segment_base(ram, data, labels):
         if at >= 0 and ram.find(win, at + 1) < 0:
             return at - a
     return None
+
+
+def ink_pixels(rgb, bare, w, h):
+    """[(x, y)] of the pixels the two frames differ in by INK at least."""
+    return [(x, y) for y in range(h) for x in range(w)
+            if sum(abs(a - b) for a, b in zip(rgb[(y * w + x) * 3:(y * w + x) * 3 + 3],
+                                              bare[(y * w + x) * 3:(y * w + x) * 3 + 3])) >= INK]
+
+
+def check_ink(diff, model, what):
+    xs = [x for x, _ in diff]
+    rows = [y for _, y in diff]
+    got = (max(xs) - min(xs) + 1) if xs else 0
+    check(xs and abs(got - model) <= TOLERANCE,
+          "%s: its ink is %s frame pixels wide (x %s..%s, rows %s..%s), the model's %.1f" % (
+              what, got, min(xs) if xs else None, max(xs) if xs else None,
+              min(rows) if rows else None, max(rows) if rows else None, model))
 
 
 def check_labels(ram, vrom, af_en, cart, nafe, what):
@@ -240,12 +280,77 @@ def main(argv):
             ink = [x for x, _ in diff]
             rows = [y for _, y in diff]
             ext = board.extent(want[name])
-            model = (ext[1] - ext[0] + 1) * TITLE_SCALE * FRAME_X if ext else 0
+            model = (ext[1] - ext[0] + 1) * TITLE_SCALE * FRAME_X + FRINGE if ext else 0
             got = (max(ink) - min(ink) + 1) if ink else 0
             check(ink and abs(got - model) <= TOLERANCE,
                   "%s: the title's ink is %s frame pixels wide (x %s..%s, rows %s..%s), the model's %.1f" % (
                       what, got, min(ink) if ink else None, max(ink) if ink else None,
                       min(rows) if rows else None, max(rows) if rows else None, model))
+
+        def open_menu(program, data0, blank=(), answers=False):
+            """The menu opened by the hook, SETTLE frames on (and after A for the answers, SETTLE more);
+            with blank, those (address, length) made spaces in RAM from the start. (w, h, rgb)."""
+            ctl = setup()
+            for at, size in blank:
+                n64.write(at, b" " * size)
+            n64.write(ctl, struct.pack(">i4I", 1, program, data0, 0, 0))
+            n64.frames(SETTLE, 0)
+            if answers:
+                n64.press(A)
+                n64.frames(SETTLE, 0)
+            return n64.screen()
+
+        def model_width(data, scale=1.0):
+            ext = board.extent(data)
+            return (ext[1] - ext[0] + 1) * scale * FRAME_X + FRINGE if ext else 0
+
+        # the edit-end check: its answers' table, the question, the answers
+        question = want["EE_QUESTION"]
+        for data0 in (0, 1):
+            what = "the edit-end check (window %d)" % data0
+            w, h, rgb = open_menu(EDIT_END, data0)
+            ram = n64.read(0x80000000, 0x800000)
+            at = ram.find(EE_WIN0)
+            check(at >= 0, "%s: its windows' table is in RAM" % what)
+            if data0 == 0 and at >= 0:
+                table = 0x80000000 + at + EE_ANSWERS_AT
+                for i, (name, sym) in enumerate(EE_ANSWERS):
+                    ptr, length = struct.unpack(">Ii", n64.read(table + 8 * i, 8))
+                    text = n64.read(ptr, length) if 0x80000000 <= ptr < 0x80800000 else b""
+                    check(ptr == syms[sym] and text == want[name] and length == len(want[name]),
+                          "%s: answer %d is the en build's %s, %d bytes (%r)" % (what, i, sym, length, text))
+                path = os.path.join(out, "edit-end-question.png")
+                write_png(path, w, h, rgb)
+                shots.append(path)
+                _, _, bare = open_menu(EDIT_END, data0, [(syms["mSM_en_eeQuestion"], len(question))])
+                check_ink(ink_pixels(rgb, bare, w, h), model_width(question), "%s: the question (%r)" % (what, question))
+            names = [n for n, _ in EE_ANSWERS[:2 + data0]]
+            w, h, rgb = open_menu(EDIT_END, data0, answers=True)
+            path = os.path.join(out, "edit-end-answers-%d.png" % data0)
+            write_png(path, w, h, rgb)
+            shots.append(path)
+            _, _, bare = open_menu(EDIT_END, data0, [(syms[s], len(want[n])) for n, s in EE_ANSWERS], answers=True)
+            diff = ink_pixels(rgb, bare, w, h)
+            top = min(y for _, y in diff) if diff else 0
+            for i, name in enumerate(names):
+                row = [(x, y) for x, y in diff if top + i * ANSWER_ROW <= y < top + (i + 1) * ANSWER_ROW]
+                check_ink(row, model_width(want[name]), "%s: answer %d (%r)" % (what, i, want[name]))
+
+        # the address book's first balloon: the book is empty in the houses' state
+        what = "the address book's balloon"
+        w, h, rgb = open_menu(ADDRESS, 0)
+        path = os.path.join(out, "address-book.png")
+        write_png(path, w, h, rgb)
+        shots.append(path)
+        for name, sym in (("AD_CHOOSE", "mSM_en_adChoose"), ("AD_EMPTY", "mSM_en_adEmpty")):
+            text = n64.read(syms[sym], len(want[name]))
+            check(text == want[name], "%s: %s holds the en build's string (%r)" % (what, sym, text))
+        _, _, bare = open_menu(ADDRESS, 0, [(syms["mSM_en_adEmpty"], len(want["AD_EMPTY"]))])
+        width = board.width(want["AD_EMPTY"])
+        width += width & 1                                # mFont_GetStringWidth's even width
+        scale = min(1.0, AD_TEXT_W / width)               # narrowed to the cartridge's 144 pixels
+        check_ink(ink_pixels(rgb, bare, w, h), model_width(want["AD_EMPTY"], scale),
+                  "%s: the book is empty (%r), at %.3f" % (what, want["AD_EMPTY"], scale))
 
         for i, (program, data0, vrom, what) in enumerate(LABEL_MENUS):
             ctl = setup()

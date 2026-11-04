@@ -32,6 +32,18 @@ FILES = {
     "assets/jp/overlays/submenu/ledit_ovl/m_ledit_ovl_suffix.inc.c": [
         ("D_80884E34_jp", 0x78CAA4, 4),
     ],
+    # the edit-end check's question and answers (ovl__00799580's .data: ovl__00799580.c)
+    "assets/jp/overlays/submenu/ovl__00799580/ovl__00799580_strings.inc.c": [
+        ("D_808969F4_jp", 0x79A174, 12),
+        ("D_80896A00_jp", 0x79A180, 4),
+        ("D_80896A04_jp", 0x79A184, 8),
+        ("D_80896A0C_jp", 0x79A18C, 12),
+    ],
+    # the address book's first balloon (ovl__00792700's .data after its vertices: ovl__00792700.c)
+    "assets/jp/overlays/submenu/ovl__00792700/ovl__00792700_strings.inc.c": [
+        ("D_8088C888_jp", 0x7941D8, 12),
+        ("D_8088C894_jp", 0x7941E4, 12),
+    ],
 }
 
 

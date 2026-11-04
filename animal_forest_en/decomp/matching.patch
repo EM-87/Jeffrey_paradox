@@ -6617,6 +6617,283 @@ index 0000000..87182f5
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_808883F8_jp.s")
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_808884E4_jp.s")
+diff --git a/src/overlays/submenu/ovl__00792700/ovl__00792700.c b/src/overlays/submenu/ovl__00792700/ovl__00792700.c
+new file mode 100644
+index 0000000..998e336
+--- /dev/null
++++ b/src/overlays/submenu/ovl__00792700/ovl__00792700.c
+@@ -0,0 +1,153 @@
++#include "global.h"
++#include "overlays/submenu/ovl__00792700/ovl__00792700.h"
++#include "m_lib.h"
++#include "m_submenu.h"
++#include "6B3DC0.h"
++#include "sys_matrix.h"
++#include "gfx.h"
++
++/*
++ * The address book (submenu program 13; ac-decomp's m_address_ovl.c is the
++ * map): the list of whom a letter can go to, opened by the letter board as
++ * it starts a new letter. Its first balloon (func_8088B9F4_jp) asks for an
++ * addressee, or says the book is empty, with the font, from the strings
++ * below.
++ */
++
++/* The address book's state (mAD_Ovl_c in AC GCN) as far as the balloon reads it */
++typedef struct mAD_Ovl {
++    /* 0x00 */ UNK_TYPE1 unk_00[0x2];
++    /* 0x02 */ u8 unk_02; /* not 0: an addressee to choose; 0: the book is empty */
++} mAD_Ovl;
++
++/* The submenu's overlay data (struct_8085E9B0, mSM_Overlay_c in AC GCN) as
++ * the address book sees it: its own types, so that the shared one stays as
++ * it is */
++typedef struct mAD_SubmenuOvl {
++    /* 0x00000 */ UNK_TYPE1 unk_00000[0x106B4];
++    /* 0x106B4 */ void (*setCharMatrix)(GraphicsContext* gfxCtx); /* set_char_matrix_proc */
++    /* 0x106B8 */ UNK_TYPE1 unk_106B8[0x30];
++    /* 0x106E8 */ mAD_Ovl* addressOvl;
++} mAD_SubmenuOvl;
++
++#define mAD_SUBMENU_OVL(submenu) ((mAD_SubmenuOvl*)(submenu)->unk_2C)
++
++typedef void (*mAD_Proc)(Submenu* submenu, void* menuInfo);
++
++void func_8088B330_jp(Submenu* submenu, void* menuInfo);
++void func_8088B36C_jp(Submenu* submenu, void* menuInfo);
++void func_8088B3E4_jp(Submenu* submenu, void* menuInfo);
++void func_8088B588_jp(Submenu* submenu, void* menuInfo);
++void func_8088B708_jp(Submenu* submenu, void* menuInfo);
++void func_8088B7C0_jp(Submenu* submenu, void* menuInfo);
++void func_8088B804_jp(Submenu* submenu, void* menuInfo);
++void func_8088B890_jp(Submenu* submenu, void* menuInfo);
++
++extern Gfx D_C000340[]; /* the balloon (lat_mes_winT_model) */
++
++/* The address book's .data from here on; before it, D_8088C560_jp (its vertices) stays in splat's data */
++
++/* The book's procs by its state (ac-decomp's mAD_proc) */
++mAD_Proc D_8088C860_jp[] = {
++    func_8088B330_jp, func_8088B36C_jp, func_8088B3E4_jp, func_8088B588_jp, func_8088B708_jp,
++};
++
++/* The window's move procs by its proc status (ovl_move_proc) */
++mAD_Proc D_8088C874_jp[] = {
++    (mAD_Proc)none_proc1, func_8088B7C0_jp, func_8088B804_jp, (mAD_Proc)none_proc1, func_8088B890_jp,
++};
++
++/* The balloon's two strings, D_8088C888_jp (an addressee to choose) and D_8088C894_jp (the book is
++ * empty): the cartridge's own text, written from the user's dump when the tree is extracted
++ * (tools/af_dumpdata.py) */
++#include "assets/jp/overlays/submenu/ovl__00792700/ovl__00792700_strings.inc.c"
++
++u8 D_8088C8A0_jp[] = {
++    0xD7, 0xE1, 0x46, 0xFF, 0xCD, 0xCD, 0x50, 0xFF, 0x96, 0x96, 0x28, 0xFF,
++    0x91, 0xFF, 0x64, 0xFF, 0x73, 0xE1, 0x50, 0xFF, 0x64, 0xBE, 0x3C, 0xFF,
++};
++u8 D_8088C8B8_jp[] = { 0x6E, 0x73, 0x32, 0xFF };
++u8 D_8088C8BC_jp[] = { 0x00, 0x87, 0x14, 0xFF };
++u8 D_8088C8C0_jp[] = { 0x96, 0x78, 0x14, 0xFF };
++u8 D_8088C8C4_jp[] = { 0x37, 0x1E, 0x32, 0xFF };
++u8 D_8088C8C8_jp[] = { 0x4B, 0x3C, 0x00, 0xFF };
++
++/* The address book's own segment (segment_00A7B000), its ROM start and end, which the construct loads */
++u32 D_8088C8CC_jp[] = { 0x00A7B000, 0x00A7B7E0 };
++
++u8 B_8088C8F0_jp[0x1A0]; /* the book's state (address_ovl_data) */
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088ADB0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088AE48_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088AEB8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088AFC8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088B060_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088B140_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088B250_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088B330_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088B36C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088B3E4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088B588_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088B708_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088B7C0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088B804_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088B890_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088B8C0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088B920_jp.s")
++
++/* The first balloon (mAD_set_first_tag) */
++void func_8088B9F4_jp(Submenu* submenu, Game* game, GraphicsContext* gfxCtx, f32 x, f32 y) {
++    s32 pad;
++    u8* str;
++
++    Matrix_scale(16.0f, 16.0f, 1.0f, MTXMODE_NEW);
++    Matrix_translate(x, y, 140.0f, MTXMODE_APPLY);
++
++    OPEN_POLY_OPA_DISP(gfxCtx);
++    gSPMatrix(__polyOpa++, _Matrix_to_Mtx_new(gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
++    gSPDisplayList(__polyOpa++, D_C000340);
++    CLOSE_POLY_OPA_DISP(gfxCtx);
++
++    mAD_SUBMENU_OVL(submenu)->setCharMatrix(gfxCtx);
++    if (mAD_SUBMENU_OVL(submenu)->addressOvl->unk_02 == 0) {
++        str = D_8088C894_jp;
++    } else {
++        str = D_8088C888_jp;
++    }
++    func_80090E98_jp(game, str, 12, (-72.0f + x) + 160.0f, 120.0f - (8.0f + y), 80, 80, 230, 255, FALSE, FALSE, 1.0f,
++                     1.0f, 0);
++}
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088BB78_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088BCF4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088BF80_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088C18C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088C24C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088C344_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088C374_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088C4A0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088C548_jp.s")
+diff --git a/src/overlays/submenu/ovl__00799580/ovl__00799580.c b/src/overlays/submenu/ovl__00799580/ovl__00799580.c
+new file mode 100644
+index 0000000..47277ca
+--- /dev/null
++++ b/src/overlays/submenu/ovl__00799580/ovl__00799580.c
+@@ -0,0 +1,112 @@
++#include "global.h"
++#include "overlays/submenu/ovl__00799580/ovl__00799580.h"
++#include "m_lib.h"
++#include "m_submenu.h"
++#include "6B3DC0.h"
++
++/*
++ * The edit-end check (submenu program 15; ac-decomp's m_editEndChk_ovl.c is
++ * the map): the question asked when a letter or a note is finished, in its
++ * field, and the window of answers under it. Each window is drawn by its
++ * display lists in the submenu's segment 0x0C; the question and the answers
++ * with the font, from the strings below.
++ */
++
++/* A window: how many answers, its display lists, where the answers' text,
++ * the answers' window and the question go (mEE_win_data_c in AC GCN) */
++typedef struct mEE_WinData {
++    /* 0x00 */ s32 answerNum;
++    /* 0x04 */ Gfx* winModel;
++    /* 0x08 */ Gfx* charModel;
++    /* 0x0C */ f32 charX;
++    /* 0x10 */ f32 charY;
++    /* 0x14 */ f32 answerX;
++    /* 0x18 */ f32 answerY;
++    /* 0x1C */ f32 questionX;
++    /* 0x20 */ f32 questionY;
++} mEE_WinData; // size = 0x24
++
++/* An answer and its length (mEE_str_c) */
++typedef struct mEE_Str {
++    /* 0x00 */ u8* str;
++    /* 0x04 */ s32 len;
++} mEE_Str; // size = 0x8
++
++/* The submenu's overlay data (struct_8085E9B0, mSM_Overlay_c in AC GCN) as
++ * the edit-end check sees it: its own types, so that the shared one stays as
++ * it is */
++typedef struct mEE_SubmenuOvl {
++    /* 0x00000 */ UNK_TYPE1 unk_00000[0x106B4];
++    /* 0x106B4 */ void (*setCharMatrix)(struct GraphicsContext* gfxCtx); /* set_char_matrix_proc */
++} mEE_SubmenuOvl;
++
++#define mEE_SUBMENU_OVL(submenu) ((mEE_SubmenuOvl*)(submenu)->unk_2C)
++
++typedef void (*mEE_MoveProc)(Submenu* submenu, void* menuInfo);
++
++void func_80895E00_jp(Submenu* submenu, void* menuInfo);
++void func_80895E30_jp(Submenu* submenu, void* menuInfo);
++void func_8089607C_jp(Submenu* submenu, void* menuInfo);
++
++mEE_WinData D_80896950_jp[] = {
++    { 2, (Gfx*)0x0C0017C8, (Gfx*)0x0C001790, -45.0f, 43.0f, 65.0f, -74.0f, 0.0f, 0.0f },
++    { 3, (Gfx*)0x0C000640, (Gfx*)0x0C000600, -81.0f, 58.0f, 60.0f, -71.0f, 1.0f, -4.0f },
++    { 3, (Gfx*)0x0C000640, (Gfx*)0x0C000600, -81.0f, 58.0f, 42.0f, -55.0f, 1.0f, 15.0f },
++    { 3, (Gfx*)0x0C000640, (Gfx*)0x0C000600, -81.0f, 58.0f, 60.0f, -71.0f, 0.0f, 0.0f },
++};
++
++/* The window's move procs by its proc status (ac-decomp's ovl_move_proc) */
++mEE_MoveProc D_808969E0_jp[] = {
++    func_80895E00_jp, func_80895E30_jp, (mEE_MoveProc)none_proc1, (mEE_MoveProc)none_proc1, func_8089607C_jp,
++};
++
++/* The question and the three answers, D_808969F4_jp to D_80896A0C_jp: the cartridge's own text,
++ * written from the user's dump when the tree is extracted (tools/af_dumpdata.py) */
++#include "assets/jp/overlays/submenu/ovl__00799580/ovl__00799580_strings.inc.c"
++
++mEE_Str D_80896A18_jp[] = {
++    { D_80896A00_jp, 2 },
++    { D_80896A04_jp, 5 },
++    { D_80896A0C_jp, 9 },
++};
++
++/* The answers' colours, not chosen and chosen (col_table) */
++s32 D_80896A30_jp[2][3] = { { 165, 185, 185 }, { 100, 130, 245 } };
++
++/* The edit-end check's own segment (segment_00AC7000), its ROM start and end, which the construct loads */
++u32 D_80896A48_jp[] = { 0x00AC7000, 0x00AC9850 };
++
++u8 B_80896A60_jp[0x10]; /* the check's state (ee_ovl_data) */
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_80895E00_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_80895E30_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_8089607C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_808960AC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_8089610C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_80896264_jp.s")
++
++/* The question (mEE_set_question_character) */
++void func_8089646C_jp(Submenu* submenu, struct GraphicsContext* gfxCtx, Game* game, f32 x, f32 y) {
++    mEE_SUBMENU_OVL(submenu)->setCharMatrix(gfxCtx);
++    y -= 194.0f;
++    func_80090E98_jp(game, D_808969F4_jp, 9, x + 96.0f, -y, 80, 80, 230, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
++}
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_8089652C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_808966A0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_808967DC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_80896830_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_80896860_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_80896898_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_80896938_jp.s")
 diff --git a/yamls/jp/code.yaml b/yamls/jp/code.yaml
 index c052055..204cfbc 100644
 --- a/yamls/jp/code.yaml
@@ -6663,7 +6940,7 @@ index c052055..204cfbc 100644
        - [0x73AF50, .rodata, code/m_npc]
        - [0x73B000, .rodata, code/m_olib]
 diff --git a/yamls/jp/overlays.yaml b/yamls/jp/overlays.yaml
-index 95ebcf5..27cb568 100644
+index 95ebcf5..2549432 100644
 --- a/yamls/jp/overlays.yaml
 +++ b/yamls/jp/overlays.yaml
 @@ -381,10 +381,10 @@
@@ -6709,3 +6986,33 @@ index 95ebcf5..27cb568 100644
    - name: board_ovl_reloc
      type: code
      start: 0x792610
+@@ -444,10 +444,11 @@
+     compress: True
+     bss_size: 0x1A0
+     subsegments:
+-      - [0x792700, asm, overlays/submenu/ovl__00792700/ovl__00792700]
++      - [0x792700, c, overlays/submenu/ovl__00792700/ovl__00792700]
+       - [0x793EB0, data, overlays/submenu/ovl__00792700/ovl__00792700]
+-      - [0x794230, rodata, overlays/submenu/ovl__00792700/ovl__00792700]
+-      - { start: 0x794240, type: bss, vram: 0x8088C8F0, name: overlays/submenu/ovl__00792700/ovl__00792700 }
++      - [0x7941B0, .data, overlays/submenu/ovl__00792700/ovl__00792700]
++      - [0x794230, .rodata, overlays/submenu/ovl__00792700/ovl__00792700]
++      - { start: 0x794240, type: .bss, vram: 0x8088C8F0, name: overlays/submenu/ovl__00792700/ovl__00792700 }
+   - name: ovl__00792700_reloc
+     type: code
+     start: 0x794240
+@@ -527,10 +528,10 @@
+     compress: True
+     bss_size: 0x10
+     subsegments:
+-      - [0x799580, asm, overlays/submenu/ovl__00799580/ovl__00799580]
+-      - [0x79A0D0, data, overlays/submenu/ovl__00799580/ovl__00799580]
+-      - [0x79A1D0, rodata, overlays/submenu/ovl__00799580/ovl__00799580]
+-      - { start: 0x79A1E0, type: bss, vram: 0x80896A60, name: overlays/submenu/ovl__00799580/ovl__00799580 }
++      - [0x799580, c, overlays/submenu/ovl__00799580/ovl__00799580]
++      - [0x79A0D0, .data, overlays/submenu/ovl__00799580/ovl__00799580]
++      - [0x79A1D0, .rodata, overlays/submenu/ovl__00799580/ovl__00799580]
++      - { start: 0x79A1E0, type: .bss, vram: 0x80896A60, name: overlays/submenu/ovl__00799580/ovl__00799580 }
+   - name: ovl__00799580_reloc
+     type: code
+     start: 0x79A1E0

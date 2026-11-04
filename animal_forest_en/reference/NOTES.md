@@ -1309,9 +1309,9 @@ what goes in it: "The letters in the en build").
   setting (`ovl__0078AE30`), the editor (its way back:
   `ovl__0078CB80`), the address book (its two balloons:
   `ovl__00792700`), the gyroid's shop (`ovl__00794380`), the edit-end
-  check (its question and a way out: `ovl__00799580`), the item menu's
-  warnings (`ovl__0079A290`), an amount to enter (`ovl__0079B120`), a
-  confirmation (`ovl__0079C020`), the birthday (`ovl__0079DA50`), the
+  check (its question and its answers: `ovl__00799580`), the item menu's
+  warnings (`ovl__0079A290`), an amount to enter (`ovl__0079B120`), the
+  town tune's (`ovl__0079C020`, program 8), the birthday (`ovl__0079DA50`), the
   Controller Pak's messages (`ovl__0079F810`, `ovl__007A10E0`) and the
   item menu's words (`tag_ovl`). The GameCube keeps the same strings in
   its code, in English (ac-decomp's `mLE_player_title`,
@@ -1363,17 +1363,92 @@ what goes in it: "The letters in the en build").
   window's table entry holds the en string in RAM; its title's ink (the
   window opened twice from the same state, the second time with the
   title's length 0 from the frame the overlay is in RAM: the frames
-  differ by the title only) is as wide as the font's model at 0.875 and
-  2 frame pixels a font pixel: 171, 185, 172, 68 and 160 frame pixels
-  against 171.5, 185.5, 173.2, 66.5 and 161 (a difference of 60 in the
-  colours, summed, is ink: below it the VI filter's fringe, a pixel on
-  each side). The destination draws nothing after the text. The route's
+  differ by the title only) is as wide as the font's model at 0.875
+  (a difference of 60 in the colours, summed, is ink). The model first
+  took 2 frame pixels a font pixel and left out the VI filter's fringe;
+  the two errors cancelled on these titles (next section): with 1.954
+  frame pixels a font pixel and the fringe, 171, 185, 172, 68 and 160 frame pixels against 169.6, 183.2, 171.3,
+  67.0 and 159.3. The
+  destination draws nothing after the text. The route's
   name and destination screens show the titles on their windows' tabs.
 - **Left as it is.** The dial's labels and its kana ring are textures
   the GameCube has no counterpart for (its editor is a keyboard,
   `kai_sousa_*`); the 2010 patch's English labels are used where the user
   has it (next section). The catchphrase's window shows corner quotes.
   The other menus' strings are the next step.
+
+## The edit-end check and the address book (phase 5, the menus' strings)
+
+- **The edit-end check** (`ovl__00799580`, program 15: the question asked
+  when a letter, a post or a tune is finished, and its answers). Its
+  windows' table (`D_80896950_jp`, four windows of 0x24 bytes: how many
+  answers, the window's two display lists in segment 0x0C, where the
+  answers' text, their window and the question go) is ac-decomp's
+  `win_data` without its fifth window, with the same numbers. The
+  question is drawn by `func_8089646C_jp` (mEE_set_question_character)
+  with its length as an immediate, at the window's x + 96; the answers by
+  `func_8089652C_jp` from a table of string and length (`D_80896A18_jp`)
+  in the colours of `D_80896A30_jp`, as many as the window has (the
+  letter board opens window 0, two answers: `func_8088920C_jp`; the
+  bulletin board, the town tune and the item menu open it too).
+- **The address book** (`ovl__00792700`, program 13: whom a new letter
+  goes to, opened by the letter board as it starts one,
+  `mSM_open_submenu_new(submenu, 0xD, ...)` in `m_board_ovl.c`). Its first
+  balloon (`func_8088B9F4_jp`, mAD_set_first_tag) asks for an addressee,
+  or says the book is empty, by a byte of the book's state (+2), 12
+  characters either way, at x - 72 + 160: centred on the balloon. The
+  GameCube's two strings are 20 and 27 characters, each at its own offset
+  for its own balloon.
+- **In C** (decomp/matching.patch; make verify: identical). The edit-end
+  check's data, rodata and bss move to C in one object
+  (`ovl__00799580.c`, new; its 14 functions as GLOBAL_ASM but the
+  question's, which matches in C once y is moved in place: `y -=
+  194.0f`, then `-y`). The address book's .data splits at its vertices'
+  end (0x300 bytes, a 16-byte boundary): the vertices stay in splat's
+  data, the rest is C (`ovl__00792700.c`, new; its balloon function
+  matches in C with a pad word in its frame and the test for an empty
+  book first). The four strings and the two balloons are text, so
+  tools/af_dumpdata.py writes them from the dump at each extract. fado
+  gives the cartridge's relocations from both overlays' objects, 37 and
+  73, once `tools/af_ovlreloc.py` hands fado the address book's objects
+  in an order that keeps each section's (its .text starts in the C
+  object, its .data in splat's).
+- **The en build.** tools/af_ui.py reads the GameCube's question and
+  answers (`mEE_str_table`, `mEE_str_data0` to `2`) and balloons
+  (`mAD_title_str`, `mAD_title_str2`); a string added to its table is
+  read from build/gc's copies of the disc's module and map (`af_ui.py
+  gc-files`; make script now keeps them), without the disc. The strings
+  live in code (`m_submenu.c`): the answers' table points there and the
+  question is drawn at the GameCube's x + 107 (32 and 69 relocations
+  where the cartridge has 37 and 73). The balloon is drawn by a function
+  in code (`mSM_en_adFirstTag`), because the overlay's code cannot grow by
+  the instructions a choice of string, length and place takes: each
+  string centred on the balloon as the cartridge's 12 characters are, and
+  narrowed to their 144 pixels when it is wider (the empty book's 27
+  characters, 170 pixels, at 0.847); the cartridge's own strings, without
+  the disc, come out exactly where the cartridge puts them. Both overlays
+  join `EN_OVERLAYS`.
+- **On screen** (`tests/emu_menus.py`, make menus-check-en, from the
+  houses' state). The check's answers' table, found in RAM by its first
+  window, points at the en strings in code and holds them. Opened twice,
+  the second time with the string's bytes in RAM made spaces, the frames
+  differ by its ink only: the question is 133 frame pixels wide against
+  the model's 132.9; after A, the answers, row by row (16 frame rows
+  apart), 37 and 85 in window 0 and 37, 85 and 148 in window 1, against
+  37.2, 86.0 and 148.5; the empty book's balloon, at 0.847, 277 against
+  276.8. The screenshots show the question and both answer windows inside
+  their windows and the balloon's text inside the balloon.
+- **The frame is not 2 pixels a font pixel.** A test string of one
+  letter repeated, written into the balloon's bytes, advances 11.69
+  frame pixels a 6-pixel letter (and 10.27 at the name entry's 0.875):
+  1.95 frame pixels a font pixel, as the board's check had measured
+  (`emu_board.BOARD_X`, 1.954: the VI shows the 320 pixels over about 625
+  of the frame's 640), not the 2 the name entry's check assumed. That
+  check passed because the VI filter's fringe, a frame pixel on each side
+  that its ink threshold counts, cancelled the error on short titles; the
+  model is now 1.954 frame pixels a font pixel plus the fringe, and the
+  name entry's titles measure 171, 185, 172, 68 and 160
+  against 169.6, 183.2, 171.3, 67.0 and 159.3.
 
 ## The 2010 patch's labels (phase 5, the graphics' second step)
 

@@ -3038,10 +3038,10 @@ index 7b8e5b5..dcfdd10 100644
 +}
 +
 diff --git a/src/code/m_submenu.c b/src/code/m_submenu.c
-index 5f7c230..503062a 100644
+index 5f7c230..7a5b33e 100644
 --- a/src/code/m_submenu.c
 +++ b/src/code/m_submenu.c
-@@ -733,3 +733,19 @@ u8* mSM_Get_ground_pallet_p(Game_Play* play) {
+@@ -733,3 +733,46 @@ u8* mSM_Get_ground_pallet_p(Game_Play* play) {
  
      return play->groundPalPtrs[idx];
  }
@@ -3054,6 +3054,7 @@ index 5f7c230..503062a 100644
 + * here (reference/NOTES.md, "The menus' own words").
 + */
 +#include "assets/jp/en/ui_strings.inc"
++#include "6B3DC0.h"
 +
 +/* The name entry's window titles (ledit_ovl's mLE_win_data) */
 +u8 mSM_en_lePlayerTitle[] = UI_EN_LEDIT_PLAYER;
@@ -3061,6 +3062,32 @@ index 5f7c230..503062a 100644
 +u8 mSM_en_leEphraseTitle[] = UI_EN_LEDIT_EPHRASE;
 +u8 mSM_en_leResetTitle[] = UI_EN_LEDIT_RESET;
 +u8 mSM_en_leRequestTitle[] = UI_EN_LEDIT_REQUEST;
++
++/* The edit-end check's question and answers (ovl__00799580) */
++u8 mSM_en_eeQuestion[] = UI_EN_EE_QUESTION;
++u8 mSM_en_eeAnswer0[] = UI_EN_EE_ANSWER0;
++u8 mSM_en_eeAnswer1[] = UI_EN_EE_ANSWER1;
++u8 mSM_en_eeAnswer2[] = UI_EN_EE_ANSWER2;
++
++/* The address book's first balloon (ovl__00792700, func_8088B9F4_jp): an addressee to choose, or the
++ * book is empty. The cartridge centres its 12 characters (144 pixels: x - 72 to x + 72) in the balloon;
++ * the GameCube's strings are as long as they need (its own balloon, its own offsets), so each is
++ * centred there too, and narrowed to the cartridge's 144 pixels when it is wider. Drawn here because
++ * the overlay cannot grow. */
++#define mSM_EN_AD_TEXT_W 144
++
++u8 mSM_en_adChoose[] = UI_EN_AD_CHOOSE;
++u8 mSM_en_adEmpty[] = UI_EN_AD_EMPTY;
++
++void mSM_en_adFirstTag(Game* game, s32 choose, f32 x, f32 y) {
++    u8* str = choose ? mSM_en_adChoose : mSM_en_adEmpty;
++    s32 len = choose ? UI_EN_AD_CHOOSE_LEN : UI_EN_AD_EMPTY_LEN;
++    s32 width = mFont_GetStringWidth((char*)str, len, TRUE);
++    f32 scaleX = (width > mSM_EN_AD_TEXT_W) ? (f32)mSM_EN_AD_TEXT_W / width : 1.0f;
++
++    func_80090E98_jp(game, str, len, (x + 160.0f) - (width * scaleX) / 2, 120.0f - (8.0f + y), 80, 80, 230, 255,
++                     FALSE, FALSE, scaleX, 1.0f, 0);
++}
 diff --git a/src/dmadata/dmadata.c b/src/dmadata/dmadata.c
 index 3ba98f9..56b6afc 100644
 --- a/src/dmadata/dmadata.c
@@ -3753,3 +3780,98 @@ index 87182f5..2c00105 100644
          if (up == TRUE) {
              editorOvl->cursorIdx = -1;
          } else {
+diff --git a/src/overlays/submenu/ovl__00792700/ovl__00792700.c b/src/overlays/submenu/ovl__00792700/ovl__00792700.c
+index 23e3cb8..bb33f21 100644
+--- a/src/overlays/submenu/ovl__00792700/ovl__00792700.c
++++ b/src/overlays/submenu/ovl__00792700/ovl__00792700.c
+@@ -32,6 +32,10 @@ typedef struct mAD_SubmenuOvl {
+ 
+ #define mAD_SUBMENU_OVL(submenu) ((mAD_SubmenuOvl*)(submenu)->unk_2C)
+ 
++/* The en build: the balloon's strings are the GameCube's (tools/af_ui.py, from the user's disc), drawn
++ * from code (m_submenu.c: the overlay cannot grow) */
++void mSM_en_adFirstTag(Game* game, s32 choose, f32 x, f32 y);
++
+ typedef void (*mAD_Proc)(Submenu* submenu, void* menuInfo);
+ 
+ void func_8088B330_jp(Submenu* submenu, void* menuInfo);
+@@ -113,9 +117,6 @@ u8 B_8088C8F0_jp[0x1A0]; /* the book's state (address_ovl_data) */
+ 
+ /* The first balloon (mAD_set_first_tag) */
+ void func_8088B9F4_jp(Submenu* submenu, Game* game, GraphicsContext* gfxCtx, f32 x, f32 y) {
+-    s32 pad;
+-    u8* str;
+-
+     Matrix_scale(16.0f, 16.0f, 1.0f, MTXMODE_NEW);
+     Matrix_translate(x, y, 140.0f, MTXMODE_APPLY);
+ 
+@@ -125,13 +126,7 @@ void func_8088B9F4_jp(Submenu* submenu, Game* game, GraphicsContext* gfxCtx, f32
+     CLOSE_POLY_OPA_DISP(gfxCtx);
+ 
+     mAD_SUBMENU_OVL(submenu)->setCharMatrix(gfxCtx);
+-    if (mAD_SUBMENU_OVL(submenu)->addressOvl->unk_02 == 0) {
+-        str = D_8088C894_jp;
+-    } else {
+-        str = D_8088C888_jp;
+-    }
+-    func_80090E98_jp(game, str, 12, (-72.0f + x) + 160.0f, 120.0f - (8.0f + y), 80, 80, 230, 255, FALSE, FALSE, 1.0f,
+-                     1.0f, 0);
++    mSM_en_adFirstTag(game, mAD_SUBMENU_OVL(submenu)->addressOvl->unk_02, x, y);
+ }
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088BB78_jp.s")
+diff --git a/src/overlays/submenu/ovl__00799580/ovl__00799580.c b/src/overlays/submenu/ovl__00799580/ovl__00799580.c
+index 47277ca..d94ea2a 100644
+--- a/src/overlays/submenu/ovl__00799580/ovl__00799580.c
++++ b/src/overlays/submenu/ovl__00799580/ovl__00799580.c
+@@ -3,6 +3,7 @@
+ #include "m_lib.h"
+ #include "m_submenu.h"
+ #include "6B3DC0.h"
++#include "assets/jp/en/ui_strings.inc"
+ 
+ /*
+  * The edit-end check (submenu program 15; ac-decomp's m_editEndChk_ovl.c is
+@@ -42,6 +43,13 @@ typedef struct mEE_SubmenuOvl {
+ 
+ #define mEE_SUBMENU_OVL(submenu) ((mEE_SubmenuOvl*)(submenu)->unk_2C)
+ 
++/* The en build: the question and the answers are the GameCube's (tools/af_ui.py, from the user's
++ * disc), in code (m_submenu.c: the overlay cannot grow) */
++extern u8 mSM_en_eeQuestion[];
++extern u8 mSM_en_eeAnswer0[];
++extern u8 mSM_en_eeAnswer1[];
++extern u8 mSM_en_eeAnswer2[];
++
+ typedef void (*mEE_MoveProc)(Submenu* submenu, void* menuInfo);
+ 
+ void func_80895E00_jp(Submenu* submenu, void* menuInfo);
+@@ -65,9 +73,9 @@ mEE_MoveProc D_808969E0_jp[] = {
+ #include "assets/jp/overlays/submenu/ovl__00799580/ovl__00799580_strings.inc.c"
+ 
+ mEE_Str D_80896A18_jp[] = {
+-    { D_80896A00_jp, 2 },
+-    { D_80896A04_jp, 5 },
+-    { D_80896A0C_jp, 9 },
++    { mSM_en_eeAnswer0, UI_EN_EE_ANSWER0_LEN },
++    { mSM_en_eeAnswer1, UI_EN_EE_ANSWER1_LEN },
++    { mSM_en_eeAnswer2, UI_EN_EE_ANSWER2_LEN },
+ };
+ 
+ /* The answers' colours, not chosen and chosen (col_table) */
+@@ -90,11 +98,13 @@ u8 B_80896A60_jp[0x10]; /* the check's state (ee_ovl_data) */
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_80896264_jp.s")
+ 
+-/* The question (mEE_set_question_character) */
++/* The question (mEE_set_question_character), where the GameCube puts its own (x + 107 for the
++ * cartridge's 96: its question is longer) */
+ void func_8089646C_jp(Submenu* submenu, struct GraphicsContext* gfxCtx, Game* game, f32 x, f32 y) {
+     mEE_SUBMENU_OVL(submenu)->setCharMatrix(gfxCtx);
+     y -= 194.0f;
+-    func_80090E98_jp(game, D_808969F4_jp, 9, x + 96.0f, -y, 80, 80, 230, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
++    func_80090E98_jp(game, mSM_en_eeQuestion, UI_EN_EE_QUESTION_LEN, x + (UI_EN_FROM_GC ? 107.0f : 96.0f), -y, 80, 80,
++                     230, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
+ }
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_8089652C_jp.s")

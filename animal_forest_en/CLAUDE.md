@@ -102,10 +102,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
   disc the cartridge's at the left of their 12-pixel cells; the table the
   en `m_font.c` includes (NOTES, "The font in the en build").
 - `tools/af_ui.py` — the menus' own words (strings in the menus' data,
-  not in the banks): the GameCube's read from the disc by `make script`
-  (`build/gc/gc_ui.txt`), the include the en build's menus use written at
-  `make rom-en`, the cartridge's own without the disc (NOTES, "The menus'
-  own words").
+  not in the banks): the GameCube's read by `make script` (`build/gc/gc_ui.txt`;
+  a string added to its table later is read from build/gc's copies of the
+  disc's module and map, without the disc), the include the en build's
+  menus use written at `make rom-en`, the cartridge's own without the disc
+  (NOTES, "The menus' own words").
 - `tools/af_nafe_gfx.py` — the 42 menu labels the AF Project's 2010
   patch drew in English, taken at `make rom-en` from the user's copy
   (`make nafe NAFE_UPS=...`, build/nafe-2010-12-02.z64) over the en
@@ -127,7 +128,8 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `emu_write.py` (letters typed on the editor's dial, their lines, cursor
   and end mark measured against the same model, finished and read back
   whole, 192 bytes: `make write-check-en`),
-  `emu_menus.py` (the name entry's five windows, their titles' strings in
+  `emu_menus.py` (the name entry's five windows, the edit-end check's
+  question and answers and the address book's balloon, their strings in
   RAM and their ink measured against the font's model; the menus that
   hold the 2010 patch's labels, each label found in RAM: `make
   menus-check-en`),
@@ -205,6 +207,14 @@ the why and the state, `reference/NOTES.md` for what is verified.
   for the whole wait: the game sees one long press and never turns the
   page (two probes "found" a stuck dialogue this way). Release it:
   `frames(n, 0)`, or `press()`.
+- **A font pixel is 1.954 frame pixels wide, not 2.** The VI shows the
+  320 pixels over about 625 of the frame's 640 (`emu_board.BOARD_X`,
+  measured on the letter board). The name entry's check assumed 2 and
+  passed anyway: the VI filter's fringe (a frame pixel on each side, which
+  its ink threshold counts) cancelled the error on short titles, until the
+  address book's 27 characters came out 6 pixels short of the model. When
+  a model and the frame disagree, measure the pitch of a test string (one
+  letter repeated) before changing either.
 - **A route that reaches its milestones has not looked at the screen.**
   The relocated ROMs passed the route for a day while every town but the
   route's own was drawn with black or pink ground; nothing checked the

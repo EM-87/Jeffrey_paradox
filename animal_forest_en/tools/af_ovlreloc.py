@@ -26,7 +26,10 @@ new ones), the relocations, zeros up to the cartridge's length, and its
 last word, so the segment keeps its size and nothing after it moves. An
 overlay with more relocations than that room is refused (it would have to
 move). The objects are the overlay's inputs in the decomp's linker script,
-in their order.
+in an order that keeps each section's inputs in the script's order: fado
+lays every section out in the order of its arguments, and an overlay whose
+.data is split between splat's data and a C object (the address book's)
+has its .text in the C object first and its .data in splat's first.
 """
 
 import os
@@ -49,12 +52,32 @@ def overlay_objects(decomp, name):
                   % (re.escape(name), re.escape(name), re.escape(name)), script, flags=re.M | re.S)
     if not m:
         raise SystemExit("af_ovlreloc: no overlay %s in the linker script" % name)
-    objs = []
-    for obj in re.findall(r"^\s+(build/\S+\.o)\(\.\w+\);", m.group(0), flags=re.M):
-        if obj not in objs:
-            objs.append(obj)
+    objs = object_order(re.findall(r"^\s+(build/\S+\.o)\((\.\w+)\);", m.group(0), flags=re.M))
     r = re.search(r"^\s+build/(asm/jp/data/\S+_reloc\.data)\.o\(\.data\);", script[m.end():], flags=re.M)
     return objs, r.group(1) + ".s"
+
+
+def object_order(inputs):
+    """The objects of [(object, section)] (the script's inputs, in its order) in an order that keeps
+    every section's objects in the script's order, the first seen first where nothing decides."""
+    first, before = [], {}
+    for obj, sec in inputs:
+        if obj not in first:
+            first.append(obj)
+            before[obj] = set()
+    for sec in {sec for _, sec in inputs}:
+        seen = []
+        for obj, s in inputs:
+            if s == sec and obj not in seen:
+                before[obj] |= set(seen)
+                seen.append(obj)
+    out = []
+    while len(out) < len(first):
+        ready = [obj for obj in first if obj not in out and before[obj] <= set(out)]
+        if not ready:
+            raise SystemExit("af_ovlreloc: no order of %s keeps every section's" % first)
+        out.append(ready[0])
+    return out
 
 
 def fado(decomp, objs, name):

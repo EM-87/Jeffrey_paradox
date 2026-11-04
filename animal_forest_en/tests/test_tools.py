@@ -331,6 +331,17 @@ class Shiftability(unittest.TestCase):
         self.assertFalse(af_ovlreloc.same_table(cart, cart[:-1]))
         self.assertEqual(af_ovlreloc.groups([hi | 4, lo | 8, lo | 12, j26 | 16]), [(hi | 4, lo | 8, lo | 12), (j26 | 16,)])
 
+    def test_overlay_objects_keep_each_sections_order(self):
+        # fado lays each section out in its arguments' order: an overlay whose .data starts in
+        # splat's data object and goes on in the C object gets the data object first
+        c, data = "build/src/x.o", "build/asm/jp/data/x.data.o"
+        split = [(c, ".text"), (data, ".data"), (c, ".data"), (c, ".rodata")]
+        self.assertEqual(af_ovlreloc.object_order(split), [data, c])
+        plain = [(c, ".text"), (c, ".data"), (data, ".data"), (c, ".rodata")]
+        self.assertEqual(af_ovlreloc.object_order(plain), [c, data])
+        with self.assertRaises(SystemExit):
+            af_ovlreloc.object_order([(c, ".text"), (data, ".text"), (data, ".data"), (c, ".data")])
+
     def test_ranges_follow_the_vrom_order(self):
         with tempfile.TemporaryDirectory() as d:
             os.makedirs(os.path.join(d, "include/tables/dmatables"))

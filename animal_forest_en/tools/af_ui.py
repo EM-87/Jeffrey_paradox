@@ -3,6 +3,8 @@
 not from the text banks.
 
     tools/af_ui.py gc ISO OUT            the GameCube's, from the user's disc (make script)
+    tools/af_ui.py gc-files REL MAP OUT  the same from the disc's foresta.rel.szs and foresta.map
+                                         that make script keeps in build/gc
     tools/af_ui.py compile DECOMP OUT [--gc FILE]
                                          the include the en build's menus use (make rom-en)
 
@@ -40,6 +42,16 @@ STRINGS = [
     ("LEDIT_EPHRASE", 0x78C9A4, 9, "mLE_ephrase_title", "m_ledit_ovl.o"),
     ("LEDIT_RESET", 0x78C9B0, 9, "mLE_reset_title", "m_ledit_ovl.o"),
     ("LEDIT_REQUEST", 0x78C9BC, 9, "mLE_request_title", "m_ledit_ovl.o"),
+    # the edit-end check's question and its three answers (ovl__00799580: D_808969F4_jp, the answers'
+    # table D_80896A18_jp)
+    ("EE_QUESTION", 0x79A174, 9, "mEE_str_table", "m_editEndChk_ovl.o"),
+    ("EE_ANSWER0", 0x79A180, 2, "mEE_str_data0", "m_editEndChk_ovl.o"),
+    ("EE_ANSWER1", 0x79A184, 5, "mEE_str_data1", "m_editEndChk_ovl.o"),
+    ("EE_ANSWER2", 0x79A18C, 9, "mEE_str_data2", "m_editEndChk_ovl.o"),
+    # the address book's first balloon (ovl__00792700, func_8088B9F4_jp): an addressee to choose,
+    # the book is empty
+    ("AD_CHOOSE", 0x7941D8, 12, "mAD_title_str", "m_address_ovl.o"),
+    ("AD_EMPTY", 0x7941E4, 12, "mAD_title_str2", "m_address_ovl.o"),
 ]
 
 
@@ -87,24 +99,32 @@ def read_text(path):
     return out
 
 
-def include(strings):
+def include(strings, from_gc=False):
     lines = ["/* The menus' strings (tools/af_ui.py): the GameCube's from the user's disc, or the"
-             " cartridge's own; not part of the repository */"]
+             " cartridge's own; not part of the repository */",
+             "#define UI_EN_FROM_GC %d /* the GameCube's: a menu may place them as the GameCube does */"
+             % (1 if from_gc else 0)]
     for name, data in strings:
         lines.append("#define UI_EN_%s { %s }" % (name, ", ".join("0x%02X" % b for b in data)))
         lines.append("#define UI_EN_%s_LEN %d" % (name, len(data)))
     return "\n".join(lines) + "\n"
 
 
+def write_gc(strings, out):
+    with open(out, "w", encoding="utf-8") as f:
+        f.write("# The GameCube's strings for the menus (tools/af_ui.py gc): name, a tab, the text\n")
+        for name, _, _, _, _ in STRINGS:
+            f.write("%s\t%s\n" % (name, escape(strings[name])))
+    print("%s: %d of the menus' strings" % (out, len(strings)))
+
+
 def main(argv):
     if argv[0] == "gc":
         disc = gciso.Disc(open(argv[1], "rb").read())
-        strings = gc_strings(disc.read("foresta.rel.szs"), disc.read("foresta.map").decode("latin-1"))
-        with open(argv[2], "w", encoding="utf-8") as f:
-            f.write("# The GameCube's strings for the menus (tools/af_ui.py gc): name, a tab, the text\n")
-            for name, _, _, _, _ in STRINGS:
-                f.write("%s\t%s\n" % (name, escape(strings[name])))
-        print("%s: %d of the menus' strings" % (argv[2], len(strings)))
+        write_gc(gc_strings(disc.read("foresta.rel.szs"), disc.read("foresta.map").decode("latin-1")), argv[2])
+        return 0
+    if argv[0] == "gc-files":
+        write_gc(gc_strings(open(argv[1], "rb").read(), open(argv[2], "rb").read().decode("latin-1")), argv[3])
         return 0
     if argv[0] == "compile":
         decomp, out = argv[1], argv[2]
@@ -114,7 +134,7 @@ def main(argv):
         for name, at, size, _, _ in STRINGS:
             strings.append((name, n64_bytes(name, gc[name]) if name in gc else rom[at:at + size]))
         os.makedirs(os.path.dirname(out), exist_ok=True)
-        open(out, "w").write(include(strings))
+        open(out, "w").write(include(strings, bool(gc)))
         print("%s: %d of the menus' strings, %s" % (out, len(strings), "the GameCube's" if gc else "the cartridge's"))
         return 0
     raise SystemExit(__doc__)
