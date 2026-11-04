@@ -2704,18 +2704,18 @@ index 3ba98f9..56b6afc 100644
 -u8 sDmaDataPadding[0xF0] = { 0 };
 +u8 sDmaDataPadding[0xF0 - 8 * sizeof(DmaEntry)] = { 0 }; /* eight entries added for the translation: the table keeps its size */
 diff --git a/src/overlays/submenu/board_ovl/m_board_ovl.c b/src/overlays/submenu/board_ovl/m_board_ovl.c
-index aa80914..8da3c4f 100644
+index d70fe25..813943e 100644
 --- a/src/overlays/submenu/board_ovl/m_board_ovl.c
 +++ b/src/overlays/submenu/board_ovl/m_board_ovl.c
-@@ -7,6 +7,7 @@
- #include "m_private.h"
- #include "m_submenu.h"
+@@ -9,6 +9,7 @@
  #include "6B3DC0.h"
+ #include "sys_matrix.h"
+ #include "gfx.h"
 +#include "overlays/submenu/board_ovl/m_board_ovl_en.h"
  
  /*
   * The letter board (ac-decomp's m_board_ovl.c is the map): a letter read or
-@@ -14,21 +15,6 @@
+@@ -16,21 +17,6 @@
   * body and the footer.
   */
  
@@ -2737,9 +2737,9 @@ index aa80914..8da3c4f 100644
  /* The board's entry of the submenu's menu infos (mSM_MenuInfo_c in AC GCN) */
  typedef struct mBD_MenuInfo {
      /* 0x00 */ s32 unk_00;
-@@ -93,120 +79,21 @@ mBD_Ovl_c B_8088AC00_jp; /* the board's state (board_ovl_data) */
- 
- #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889878_jp.s")
+@@ -165,120 +151,21 @@ void func_80889878_jp(Submenu* submenu, Game* game, f32 x, f32 y) {
+     }
+ }
  
 -/* The footer (mBD_set_writing_footer): its last character under the body's 16th */
 +/* The footer: drawn by the letters' code in the en build (m_handbill.c) */
@@ -2864,7 +2864,7 @@ index aa80914..8da3c4f 100644
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889FB0_jp.s")
  
-@@ -291,6 +178,8 @@ void func_8088A2D0_jp(Submenu* submenu) {
+@@ -363,6 +250,8 @@ void func_8088A2D0_jp(Submenu* submenu) {
          mem_clear(boardOvl->mail.content.footer, MAIL_FOOTER_LEN, ' ');
          mem_copy(boardOvl->mail.content.footer, p, boardOvl->lengths[mBD_FIELD_FOOTER] - i);
      }

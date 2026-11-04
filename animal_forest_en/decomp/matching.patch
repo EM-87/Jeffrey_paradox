@@ -5643,10 +5643,10 @@ index 81ac120..f656590 100644
  #endif
 diff --git a/src/overlays/submenu/board_ovl/m_board_ovl.c b/src/overlays/submenu/board_ovl/m_board_ovl.c
 new file mode 100644
-index 0000000..c174486
+index 0000000..d70fe25
 --- /dev/null
 +++ b/src/overlays/submenu/board_ovl/m_board_ovl.c
-@@ -0,0 +1,343 @@
+@@ -0,0 +1,372 @@
 +#include "global.h"
 +#include "overlays/submenu/board_ovl/m_board_ovl.h"
 +#include "overlays/submenu/submenu_ovl/m_submenu_ovl.h"
@@ -5656,6 +5656,8 @@ index 0000000..c174486
 +#include "m_private.h"
 +#include "m_submenu.h"
 +#include "6B3DC0.h"
++#include "sys_matrix.h"
++#include "gfx.h"
 +
 +/*
 + * The letter board (ac-decomp's m_board_ovl.c is the map): a letter read or
@@ -5749,9 +5751,36 @@ index 0000000..c174486
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889574_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_8088973C_jp.s")
++extern Gfx D_C000120[]; /* the name's box */
++extern Gfx D_C0001C0[];
++extern Gfx D_C000040[];
 +
 +void func_8088973C_jp(Submenu* submenu, Game* game, f32 x, f32 y);
++
++/* The box on the recipient's name, while the cursor is on it: 12 pixels a character to the name.
++ * NON_MATCHING: the board's pointer is reloaded after Matrix_scale into v0, the cartridge's into v1 */
++#ifdef NON_MATCHING
++void func_8088973C_jp(Submenu* submenu, Game* game, f32 x, f32 y) {
++    GraphicsContext* gfxCtx = game->gfxCtx;
++    mBD_Ovl_c* boardOvl = mBD_SUBMENU_OVL(submenu)->boardOvl;
++
++    boardOvl->ofsX = (boardOvl->mail.content.headerBackStart + 3) * 12.0f + x + -96.0f;
++    boardOvl->ofsY = y - -76.0f;
++    Matrix_scale(16.0f, 16.0f, 1.0f, 0);
++    Matrix_translate(boardOvl->ofsX, boardOvl->ofsY, 140.0f, 1);
++
++    OPEN_POLY_OPA_DISP(gfxCtx);
++
++    gSPMatrix(__polyOpa++, _Matrix_to_Mtx_new(gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
++    gSPDisplayList(__polyOpa++, D_C000120);
++    gSPDisplayList(__polyOpa++, D_C0001C0);
++    gSPDisplayList(__polyOpa++, D_C000040);
++
++    CLOSE_POLY_OPA_DISP(gfxCtx);
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_8088973C_jp.s")
++#endif
 +
 +/* The editor's cursor on the board: in its field, 12 pixels a character */
 +void func_80889878_jp(Submenu* submenu, Game* game, f32 x, f32 y) {
