@@ -912,8 +912,11 @@ what goes in it: "The letters in the en build").
   padding left off) is filed under a key made of those 122 bytes (FNV-1a),
   so every copy of the letter finds it: the game moves letters by copying
   `Mail_c` (mailbox to pocket, post office to mailbox). A letter with
-  nothing past them is not filed. `mHandbill_en_GetLetter` gives a letter
-  back whole, for the letter screen. Before every write (`mFRm_en_Pack`,
+  nothing past them is not filed. A letter the player writes is filed the
+  same way when it is finished, its body's rest past 96 bytes
+  (`mHandbill_en_BoardSent`: "Writing a letter in the en build").
+  `mHandbill_en_GetLetter` gives a letter back whole, for the letter
+  screen. Before every write (`mFRm_en_Pack`,
   the one place all four write paths build their image) the records no
   letter of the save holds are dropped; when a new one does not fit, the
   same collection runs on `common_data`, then the oldest go. The save's
@@ -1163,14 +1166,34 @@ what goes in it: "The letters in the en build").
   line after n characters (a line ends at its 16th character or a
   newline; past the last line the cursor stays at its end),
   `func_80885A74_jp` the index from them, `func_80885CBC_jp` a line's
-  length. A character is typed (`func_80885DD4_jp`) only if the text
-  with it still ends within the lines and is under 16 x 6 = 96 bytes
-  (`MAIL_BODY_LEN`); up and down (`func_80885F6C_jp`, `func_80885FCC_jp`)
-  keep the column; down at the text's end types a newline, right a space
-  (`func_80885EC8_jp`). The C buttons move the cursor (right 1, left 2,
-  up 3, down 4), B deletes (`func_8088537C_jp`, the game's 0x400F). A
-  letter's header and footer are single lines over their own fields in
-  the board's copy (`func_80886588_jp`: header 10, body 16 x 6, footer 16).
+  length. A character is typed (`func_80885DD4_jp`) only if the text is
+  shorter than its characters a line times its lines (16 x 6 = 96 for a
+  letter's body, `MAIL_BODY_LEN`) and, the character put in at the cursor,
+  still ends within the lines: it builds that text in a 100-byte buffer on
+  its stack (from sp+0x3C to the frame's top, 0xA0) and lays it out with
+  `func_80885AEC_jp`; `func_80885D2C_jp` puts the character in. Up and
+  down (`func_80885F6C_jp`, `func_80885FCC_jp`) keep the column; down at
+  the text's end types a newline, right a space (`func_80885EC8_jp`). The
+  C buttons move the cursor (right 1, left 2, up 3, down 4), B deletes
+  (`func_8088537C_jp`, the game's 0x400F). A letter's header and footer
+  are single lines over their own fields in the board's copy: up out of a
+  field or down out of it (`func_80886588_jp`, not while the cursor is on
+  the header's name) the editor takes the next field's text, characters a
+  line from `D_80888810_jp` (header 10, body 16 x 6, footer 16) and length
+  from the board's `lengths`.
+- **The finish** (`func_80889288_jp`, ac-decomp's `mBD_move_Obey`).
+  START ends the editing; the board opens the edit-end check (program 15,
+  its menu info the submenu's 16th, at +0x104C0): a balloon, then on A its
+  two answers, done and back to writing. Its `data1` is the answer: 0, the
+  letter is copied to its place (`mMl_copy_mail` to the board's `dst`),
+  the footer put as far right as it was written, the header and footer
+  remembered for the next letter (the private info's `savedMailHeader`,
+  +0x3EE), the paper's pocket (the board's `data1`, -1 for none) emptied
+  (`mPr_SetPossessionItem`) and the item window told
+  (`tag_ovl`, the submenu's +0x106D0, its +0x10C), the board closed
+  (`func_80889198_jp`); 1, the editor reopened on the body; else the
+  board closed, nothing kept. Then the editor's cursor, column and line
+  are zeroed.
 - **The dial** (`func_808851D8_jp`): the stick's angle in eight areas, 0
   to 4 left to right over the upper half, 5 to 7 the lower half, 8 the
   centre. In mode 3 the code is the table's `ring + area`
@@ -1186,10 +1209,13 @@ what goes in it: "The letters in the en build").
   alpha `(10 - v) * 255 / 10`, v the step at 0xC counted to 10 and back.
 - **In C** (decomp/matching.patch): the editor moves to C (its data,
   rodata and bss in the object, as the board's), the init, the three
-  line functions, up and down match; so does the board's cursor (the
-  GameCube's shape: the editor's pointer re-read for the call, `ofsY =
-  line = 0.0f`); the name's box is C behind `NON_MATCHING` (one reload in
-  v0 where the cartridge's is in v1). `make verify`: identical.
+  line functions, up and down, the typing test and the field switch
+  match; so do the board's cursor (the GameCube's shape: the editor's
+  pointer re-read for the call, `ofsY = line = 0.0f`) and its finish, the
+  paper's pocket an unsigned field of the board's menu info (signed, it
+  is loaded straight into the call's argument register: three
+  instructions differ); the name's box is C behind `NON_MATCHING` (one
+  reload in v0 where the cartridge's is in v1). `make verify`: identical.
 - **The en build** (decomp/changes.patch). A letter's body is laid out
   one way, written and read: `mHandbill_en_BoardLine` (192 px, after the
   last space that fits, newlines kept). The editor's three line functions
@@ -1210,7 +1236,26 @@ what goes in it: "The letters in the en build").
   cartridge's put the name first, then its Japanese "to", and the player's
   name, then "from": `D_8088ABB8_jp`, `D_8088ABBC_jp`). fado gives the
   cartridge's 212 relocations of the editor from the matching objects
-  (`tools/af_ovlreloc.py`, `EN_OVERLAYS`); the board's go from 52 to 42.
+  (`tools/af_ovlreloc.py`, `EN_OVERLAYS`); the en build's are 211, the
+  board's go from 52 to 42.
+- **The body is the GameCube's 192 bytes.** While a letter is written its
+  body is `mHandbill_en_editBody` (`m_handbill.c`, in code), space-padded
+  as the cartridge pads a Mail_c's. The board gives it to the address book
+  (which hands the editor what it was given, with 16 characters a line:
+  `ovl__00792700`, `a3 = 0x10`) and to the editor when writing goes on;
+  the editor takes 32 characters a line for it (ac-decomp's
+  `letter_table_col`, `MAIL_BODY_LEN / mBD_BODY_LINE_NUM`), the init
+  measuring it over the 192 bytes where it measured 96, and the field
+  switch points the body at it. The typing test moves to the letters'
+  code (`mHandbill_en_EditRoom`, its own 193-byte buffer: 192 bytes and a
+  character in the cartridge's 100 would run over its stack frame).
+  Finishing, once the footer is in place the body's first 96 bytes go
+  into the letter and the rest, trailing spaces left off, into the save's
+  extension under the letter's key (`mHandbill_en_BoardSent`, as the
+  loaders file an official letter's rest); a letter written before and
+  opened to be written again (the board's `data0` 2) is taken up whole,
+  spaces after it (`mHandbill_en_GetLetterPadded`), and read whole as any
+  other.
 - **On screen** (`tests/emu_write.py`, `make write-check-en`). From the
   houses' state, paper in the pockets and a villager who remembers the
   player, the board opened to write and the first address chosen; the
@@ -1220,16 +1265,33 @@ what goes in it: "The letters in the en build").
   mark right after the text; five left and two up land at the model's
   places (up by the nearest x), the bar centred on the boundary (frame x
   267-273 around 270.3); a W typed mid-line and deleted reflows as the
-  model does; typing on stops at 96 bytes (4 lines of 6); the letter read
-  on the board is drawn with the model's lines, and the lines it shared
-  with the writing screen alike. The text is measured on the frame of a
+  model does; the letter, finished and read on the board, is drawn with
+  the model's lines, and the lines it shared with the writing screen
+  alike. The text is measured on the frame of a
   fade cycle where the bar is faintest (faint over a ruled line's blue it
   passes for text; the frame shown trails the editor's step), the bar
   where it is strongest. Against a model breaking lines 20 px early, 6 of
   the 9 measured lines fail; with a space 1 px wider, 9.
-- **Left as it is.** The body holds the cartridge's 96 bytes, about four
-  of its six lines at these widths; the GameCube's letters hold 192, and
-  the save's extension could keep a written letter's rest as it keeps an
-  official one's. The address book's two balloons (the book is empty;
-  first choose who it is to) and the dial's labels are still Japanese:
-  neither is in the text banks (textures, for the graphics).
+- **The 192 bytes on screen** (the same check). Typing on keeps the text
+  past 96 bytes (the sentence and 69 more, 135, whole) and stops where the
+  model stops it, a character in only while the text one longer ends on
+  the six lines (158 of 179 bytes: the letters of a word that would start
+  a seventh line refused, spaces after them still taken). Finished (START,
+  A, A; the hook opens the board without an item window, so the one the
+  finish tells of the paper is the hook's stand-in), the letter holds the
+  first 96 bytes and the extension the rest, 60 bytes, under the letter's
+  key; read, its six lines are where the model has them. Opened to be
+  written again, the board's body is the letter whole and the editor is
+  on it, 32 characters a line, 156 bytes long (its trailing spaces left
+  off, as the cartridge measures a body: `mMl_strlen`). Full stops and
+  spaces, narrow, stop at the 192 bytes on five lines, and finished and
+  read are whole too.
+- **Left as it is.** The villagers read a player's letter in its first
+  96 bytes (`m_npc.c`: `mNpc_CheckNormalMail_sub` over `MAIL_BODY_LEN`,
+  `mMC_get_mail_hit_rate` and the mail-check overlay). Two written letters
+  with the same first 96 bytes, header and footer share one rest (the key
+  is made of those bytes): the later one's replaces the earlier's. The
+  address book's two balloons (the book is empty; first choose who it is
+  to) and the dial's labels are still Japanese: neither is in the text
+  banks (textures, for the graphics). So are the edit-end check's balloon
+  and its two answers (TODO(verify): whether they are textures too).

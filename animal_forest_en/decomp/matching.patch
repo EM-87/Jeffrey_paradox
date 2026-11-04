@@ -5643,10 +5643,10 @@ index 81ac120..f656590 100644
  #endif
 diff --git a/src/overlays/submenu/board_ovl/m_board_ovl.c b/src/overlays/submenu/board_ovl/m_board_ovl.c
 new file mode 100644
-index 0000000..d70fe25
+index 0000000..7c99435
 --- /dev/null
 +++ b/src/overlays/submenu/board_ovl/m_board_ovl.c
-@@ -0,0 +1,372 @@
+@@ -0,0 +1,450 @@
 +#include "global.h"
 +#include "overlays/submenu/board_ovl/m_board_ovl.h"
 +#include "overlays/submenu/submenu_ovl/m_submenu_ovl.h"
@@ -5688,7 +5688,7 @@ index 0000000..d70fe25
 +    /* 0x30 */ s32 nextProcStatus;
 +    /* 0x34 */ s32 moveDrt;
 +    /* 0x38 */ s32 data0; /* 0: write a letter, 1: read one, else: answer one */
-+    /* 0x3C */ s32 data1; /* the paper's pocket */
++    /* 0x3C */ u32 data1; /* the paper's pocket, -1 for none */
 +    /* 0x40 */ Mail_c* data2; /* the letter */
 +    /* 0x44 */ s32 unk_44;
 +} mBD_MenuInfo; // size = 0x48
@@ -5697,17 +5697,27 @@ index 0000000..d70fe25
 + * the board sees it: its own types, so that the shared one stays as it is */
 +typedef struct mBD_SubmenuOvl {
 +    /* 0x00000 */ UNK_TYPE1 unk_00000[0x10088];
-+    /* 0x10088 */ mBD_MenuInfo menuInfo[13]; /* the board's is the 13th */
-+    /* 0x10430 */ UNK_TYPE1 unk_10430[0x270];
++    /* 0x10088 */ mBD_MenuInfo menuInfo[16]; /* the board's is the 13th, the edit-end check's the 16th */
++    /* 0x10508 */ UNK_TYPE1 unk_10508[0x198];
 +    /* 0x106A0 */ s32 animationFlag;
-+    /* 0x106A4 */ UNK_TYPE1 unk_106A4[0x3C];
++    /* 0x106A4 */ UNK_TYPE1 unk_106A4[0x2C];
++    /* 0x106D0 */ struct mBD_TagOvl* tagOvl;
++    /* 0x106D4 */ UNK_TYPE1 unk_106D4[0xC];
 +    /* 0x106E0 */ struct mBD_EditorOvl* editorOvl;
 +    /* 0x106E4 */ struct mBD_Ovl_c* boardOvl;
 +} mBD_SubmenuOvl;
 +
++/* The item window's overlay (tag_ovl) as the board sees it */
++typedef struct mBD_TagOvl {
++    /* 0x000 */ UNK_TYPE1 unk_000[0x10C];
++    /* 0x10C */ void (*initTagDataItemWin)(Submenu* submenu);
++} mBD_TagOvl;
++
 +/* The editor's state (program 10, mED_Ovl_c) as the board sees it */
 +typedef struct mBD_EditorOvl {
-+    /* 0x00 */ UNK_TYPE1 unk_00[0x20];
++    /* 0x00 */ UNK_TYPE1 unk_00[0x16];
++    /* 0x16 */ s16 cursorIdx;
++    /* 0x18 */ UNK_TYPE1 unk_18[0x8];
 +    /* 0x20 */ s16 col;
 +    /* 0x22 */ s16 line;
 +    /* 0x24 */ u8* inputStr;
@@ -5717,6 +5727,7 @@ index 0000000..d70fe25
 +
 +#define mBD_SUBMENU_OVL(submenu) ((mBD_SubmenuOvl*)(submenu)->unk_2C)
 +#define mSM_OVL_BOARD 12
++#define mSM_OVL_EDITENDCHK 15
 +
 +#define mBD_BODY_LINE_NUM 6
 +#define mBD_BODY_LINE_LEN 16 /* characters: 192 pixels of the cartridge's 12 */
@@ -5743,7 +5754,74 @@ index 0000000..d70fe25
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_8088920C_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889288_jp.s")
++void func_80889028_jp(mBD_MenuInfo* menuInfo);
++void func_80889198_jp(Submenu* submenu, mBD_MenuInfo* menuInfo);
++
++/* mBD_move_Obey: the edit-end check answered. Yes: the letter goes to its
++ * place, the footer kept as far right as it was written, the header and
++ * footer remembered for the next letter, the paper used up; No: back to
++ * writing the body; Cancel: the board closes, the letter left as it was */
++void func_80889288_jp(Submenu* submenu, mBD_MenuInfo* menuInfo) {
++    mBD_MenuInfo* editEndChk = &mBD_SUBMENU_OVL(submenu)->menuInfo[mSM_OVL_EDITENDCHK];
++    mBD_Ovl_c* boardOvl = mBD_SUBMENU_OVL(submenu)->boardOvl;
++    mBD_EditorOvl* editorOvl;
++    MailHeaderCommon* mailHeader;
++    s32 footerLen;
++    s32 footerLenDiff;
++    s32 tFooterLen;
++    u8* tFooterP;
++    s32 i;
++    u8 tFooter[MAIL_FOOTER_LEN];
++
++    func_80889028_jp(menuInfo);
++
++    if ((editEndChk->procStatus == 0) && (editEndChk->nextProcStatus == 4)) {
++        editorOvl = mBD_SUBMENU_OVL(submenu)->editorOvl;
++
++        if (editEndChk->data1 == 0) {
++            mailHeader = &common_data.privateInfo->savedMailHeader;
++            mMl_copy_mail(boardOvl->dst, &boardOvl->mail);
++            footerLen = mMl_strlen(boardOvl->mail.content.footer, MAIL_FOOTER_LEN, ' ');
++            footerLenDiff = boardOvl->lengths[mBD_FIELD_FOOTER] - footerLen;
++            mem_copy(tFooter, boardOvl->dst->content.footer, MAIL_FOOTER_LEN);
++            tFooterP = tFooter;
++            for (tFooterLen = 0; tFooterLen < footerLen; tFooterLen++) {
++                if (*tFooterP != ' ') {
++                    break;
++                }
++                tFooterP++;
++            }
++
++            mem_clear(boardOvl->dst->content.footer, MAIL_FOOTER_LEN, ' ');
++            if (footerLenDiff < MAIL_FOOTER_LEN) {
++                mem_copy(boardOvl->dst->content.footer + footerLenDiff, tFooterP, footerLen - tFooterLen);
++            }
++
++            mailHeader->unk_00 = boardOvl->mail.content.headerBackStart;
++            mem_copy(mailHeader->unk_02, boardOvl->dst->content.header, MAIL_HEADER_LEN);
++            mem_copy(mailHeader->unk_0C, boardOvl->dst->content.footer, MAIL_FOOTER_LEN);
++
++            if (menuInfo->data1 != -1) {
++                mPr_SetPossessionItem(common_data.privateInfo, menuInfo->data1, 0, 0);
++                mBD_SUBMENU_OVL(submenu)->tagOvl->initTagDataItemWin(submenu);
++            }
++            func_80889198_jp(submenu, menuInfo);
++        } else if (editEndChk->data1 == 1) {
++            mSM_open_submenu_new(submenu, 10, 0, 0, (s32)boardOvl->mail.content.body);
++            boardOvl->field = mBD_FIELD_BODY;
++            boardOvl->headerPos = 0;
++            menuInfo->procStatus = 1;
++        } else {
++            func_80889198_jp(submenu, menuInfo);
++        }
++
++        if (editorOvl != NULL) {
++            editorOvl->cursorIdx = 0;
++            editorOvl->col = 0;
++            editorOvl->line = 0;
++        }
++    }
++}
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_808894E4_jp.s")
 +
@@ -6021,10 +6099,10 @@ index 0000000..d70fe25
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/mBD_board_ovl_destruct.s")
 diff --git a/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c b/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c
 new file mode 100644
-index 0000000..a3a542f
+index 0000000..87182f5
 --- /dev/null
 +++ b/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c
-@@ -0,0 +1,312 @@
+@@ -0,0 +1,401 @@
 +#include "global.h"
 +#include "overlays/submenu/ovl__0078CB80/ovl__0078CB80.h"
 +#include "m_lib.h"
@@ -6088,16 +6166,29 @@ index 0000000..a3a542f
 +} mED_SubmenuOvl;
 +
 +#define mED_SUBMENU_OVL(submenu) ((mED_SubmenuOvl*)(submenu)->unk_2C)
++
++/* The letter board's state (board_ovl's mBD_Ovl_c) as the editor sees it */
++typedef struct mED_BoardOvl {
++    /* 0x00 */ u8 field; /* 0 header, 1 body, 2 footer */
++    /* 0x01 */ u8 centerLine;
++    /* 0x02 */ u8 headerPos;
++    /* 0x03 */ u8 headerNameLen;
++    /* 0x04 */ u8 first;
++    /* 0x05 */ u8 lengths[3];
++    /* 0x08 */ Mail_c mail;
++} mED_BoardOvl;
 +#define mED_CHAR_NEW_LINE 0xCD
 +#define mED_COMMAND_OUTPUT_CODE 8
 +
 +extern s16 D_808885F0_jp[]; /* each kind's lines */
++extern s16 D_80888810_jp[]; /* a letter's fields' characters a line */
 +
 +mED_Ovl_c B_80888AF0_jp; /* the editor's state (the overlay's bss) */
 +
 +void func_80885A74_jp(mED_Ovl_c* editorOvl);
 +void func_80885AEC_jp(mED_Ovl_c* editorOvl, s16* col, s16* line, s32 n);
 +s32 func_80885CBC_jp(mED_Ovl_c* editorOvl);
++void func_80885D2C_jp(mED_Ovl_c* editorOvl);
 +void func_80885DD4_jp(mED_Ovl_c* editorOvl);
 +
 +
@@ -6225,7 +6316,38 @@ index 0000000..a3a542f
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_80885D94_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_80885DD4_jp.s")
++/* mED_input_multi_line: a character typed into a text of lines goes in (func_80885D2C_jp) if the
++ * text has room for it and, one character longer, still ends on one of its lines */
++void func_80885DD4_jp(mED_Ovl_c* editorOvl) {
++    u8 buf[100];
++    u8* strP;
++    u8* bufP;
++    u8* inputP;
++    s32 i;
++    s32 total;
++    s16 line;
++    s16 col;
++
++    total = editorOvl->inputLength * editorOvl->maxLineNo;
++    if (total != editorOvl->nowStrLen) {
++        strP = editorOvl->inputStr;
++        bufP = buf;
++        for (i = 0; i < editorOvl->cursorIdx; i++) {
++            *bufP++ = *strP++;
++        }
++        *bufP++ = editorOvl->nowCode;
++        for (; i < total; i++) {
++            *bufP++ = *strP++;
++        }
++        inputP = editorOvl->inputStr;
++        editorOvl->inputStr = buf;
++        func_80885AEC_jp(editorOvl, &col, &line, editorOvl->nowStrLen + 1);
++        editorOvl->inputStr = inputP;
++        if (line < editorOvl->maxLineNo) {
++            func_80885D2C_jp(editorOvl);
++        }
++    }
++}
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_80885EC8_jp.s")
 +
@@ -6290,7 +6412,52 @@ index 0000000..a3a542f
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_80886490_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_80886588_jp.s")
++/* A letter's cursor up out of a field or down out of it: the editor on the next field's text */
++void func_80886588_jp(mED_Ovl_c* editorOvl, mED_BoardOvl* boardOvl) {
++    s32 nextField;
++    s32 up;
++
++    if ((boardOvl->field == 0) && (boardOvl->headerPos == 1)) {
++        return;
++    }
++    if (editorOvl->command == 3) {
++        nextField = boardOvl->field - 1;
++        up = TRUE;
++    } else if (editorOvl->command == 4) {
++        nextField = boardOvl->field + 1;
++        up = FALSE;
++    } else {
++        return;
++    }
++    if ((nextField < 0) || (nextField >= 3)) {
++        return;
++    }
++    editorOvl->commandProcessed = TRUE;
++    boardOvl->field = nextField;
++    boardOvl->headerPos = 0;
++    editorOvl->inputLength = D_80888810_jp[nextField];
++    if (nextField == 1) {
++        editorOvl->maxLineNo = 6;
++        editorOvl->inputStr = boardOvl->mail.content.body;
++        if (up == TRUE) {
++            editorOvl->cursorIdx = -1;
++        } else {
++            editorOvl->cursorIdx = 0;
++        }
++    } else {
++        editorOvl->maxLineNo = 1;
++        editorOvl->cursorIdx = 0;
++        if (nextField == 0) {
++            editorOvl->inputStr = boardOvl->mail.content.header;
++        } else {
++            editorOvl->inputStr = boardOvl->mail.content.footer;
++        }
++    }
++    editorOvl->nowStrLen = boardOvl->lengths[nextField];
++    if (editorOvl->cursorIdx == -1) {
++        editorOvl->cursorIdx = editorOvl->nowStrLen;
++    }
++}
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_80886674_jp.s")
 +

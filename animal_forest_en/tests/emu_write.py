@@ -17,11 +17,14 @@ the stick on one of the five places of the upper half types ring + place
 extracted data). The C buttons move
 the cursor, B deletes.
 
-The model is tests/emu_board.py's: the en board's lines (m_handbill.c,
+The body being written is the en build's buffer, mHandbill_en_editBody
+(the GameCube's 192 bytes; the cartridge's Mail_c keeps 96). The model is
+tests/emu_board.py's: the en board's lines (m_handbill.c,
 mHandbill_en_BoardLine: 192 pixels, broken after the last space that
 fits) at the en font's widths, and the editor's place in them (m_handbill.c,
 "Writing a letter": its line and column, the cursor's x, a line up or down
-to the column nearest that x). Checks:
+to the column nearest that x, a character typed only while the body has
+room and the text, one longer, ends on one of its six lines). Checks:
 
   1. a new letter's header is "To " before the name, its footer "from "
      and the player's name (the GameCube's, ac-decomp's m_board_ovl.c);
@@ -34,9 +37,17 @@ to the column nearest that x). Checks:
      centred on the boundary between its characters;
   4. a letter typed in the middle of a line, and deleted, reflows the
      lines as the model does;
-  5. typing on past the paper stops at the body's 96 bytes or six lines;
-  6. the letter written, read on the board, is drawn with the model's
-     lines, the lines it shared with the screen it was written on alike.
+  5. typing on goes past the cartridge's 96 bytes, the text kept whole,
+     and stops where the model stops it, the six lines full;
+  6. the letter finished (START, then the edit-end check's first answer)
+     holds the body's first 96 bytes, and the extension the rest under the
+     letter's key (tests/emu_letters.py's model of it);
+  7. the letter, read on the board, is drawn whole with the model's lines,
+     the lines it shared with the screen it was written on alike;
+  8. opened to be written again (the board's data0 2), it is taken up
+     whole: the editor's text and length are the letter's;
+  9. a body of narrow characters stops at the 192 bytes, and finished and
+     read it is whole too.
 Writes the screenshots to OUT_DIR.
 """
 
@@ -50,9 +61,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
-from n64emu import N64, A, B, Z, stick, write_png  # noqa: E402
+from n64emu import N64, A, B, START, Z, stick, write_png  # noqa: E402
 import contact  # noqa: E402
 import emu_board  # noqa: E402
+import emu_letters  # noqa: E402
 import emu_save  # noqa: E402
 
 HOOK_C = r"""
@@ -61,8 +73,14 @@ typedef int s32;
 void mSM_open_submenu_new(void* submenu, s32 programId, s32 arg2, s32 arg3, s32 arg4);
 void SetGameFrame(s32 divisor);
 extern void* gamePT;
-typedef struct HookCtl { s32 cmd; s32 arg[4]; } HookCtl;
-HookCtl hook_ctl;
+/* A stand-in for the item window (tag_ovl, the submenu's +0x106D0), which a letter finished tells of
+ * the paper it used up (func_80889288_jp): a board this hook opens has none, its pointer NULL */
+static void hook_tag_init(void* submenu) {
+}
+typedef struct HookTag { u8 unk_000[0x10C]; void (*initTagDataItemWin)(void* submenu); } HookTag;
+HookTag hook_tag = { { 0 }, hook_tag_init };
+typedef struct HookCtl { s32 cmd; s32 arg[4]; HookTag* tag; } HookCtl;
+HookCtl hook_ctl = { 0, { 0 }, &hook_tag };
 
 /* a submenu program opened as mSM_submenu_ctrl opens one */
 void hook_main(void) {
@@ -80,8 +98,12 @@ void hook_main(void) {
 """
 
 PRIVATE_INFO, POCKETS, POCKET_MAIL, MAIL_SIZE = 0x10138, 0x14, 0x40A, 0xA4
+DST = POCKET_MAIL + 9 * MAIL_SIZE                    # the letter written goes to the last pocket letter
+MAIL_BODY_AT, MAIL_BODY = 0x34, 96                   # a Mail_c's body: where, and the cartridge's length
 ANIMALS, ANIMAL_MEMORY = 0x9F18, 0x10              # common_data.animals[0], its memories (the address book's offset)
-SUBMENU, SUBMENU_OVL, EDITOR_OVL, BOARD_OVL = 0x1CBC, 0x2C, 0x106E0, 0x106E4
+SUBMENU, SUBMENU_OVL, TAG_OVL, EDITOR_OVL, BOARD_OVL = 0x1CBC, 0x2C, 0x106D0, 0x106E0, 0x106E4
+HOOK_TAG = 0x14                                      # hook_ctl's pointer to the item window's stand-in
+EDIT_BODY = "mHandbill_en_editBody"                  # the en build's body being written
 PAPER = 0x2000
 PLAYER = b"Jeff  "
 DIAL_DATA = "asm/jp/data/overlays/submenu/ovl__0078CB80/ovl__0078CB80.data.s"
@@ -91,7 +113,9 @@ DOWN = stick(0, -80)
 C_LEFT, C_UP = 0x200, 0x800                          # the pad's C buttons (m64p's BUTTONS)
 SENTENCE = b"DEAR FRIEND, THIS IS A LETTER WRITTEN WITH THE NEW ENGLISH EDITOR."
 MORE = b" IT GOES ON AND ON UNTIL THE PAPER IS FULL, AND THEN SOME MORE WORDS."
-BODY_CAP, BODY_LINES, VISIBLE_LINES = 96, 6, 3
+ON = b" THE END, AT LAST. WE WILL WRITE AGAIN SOON."     # typed past the six lines
+DOTS = b". " * 100                                    # narrow: 192 bytes before six lines
+BODY_CAP, BODY_LINES, VISIBLE_LINES = 192, 6, 3
 NL = 0xCD
 GREEN = lambda r, g, b: g > 140 and r < 110 and b < 110   # noqa: E731 (the end mark)
 RED = lambda r, g, b: r > 150 and g < 120 and b < 120     # noqa: E731 (the cursor's bar)
@@ -162,6 +186,17 @@ def line_len(board, s, length, line):
     return (starts[line + 1] if line + 1 < len(starts) else length) - starts[line]
 
 
+def typed(board, text, more):
+    """text with more typed at its end, one character at a time, as the editor keeps it (func_80885DD4_jp,
+    the en build's mHandbill_en_EditRoom): a character goes in while the body has room for it and the text,
+    one longer, ends on one of its lines."""
+    for c in more:
+        longer = text + bytes([c])
+        if len(text) < BODY_CAP and place(board, longer, len(text), len(longer))[0] < BODY_LINES:
+            text = longer
+    return text
+
+
 def pixels(rgb, w, rows, test):
     return sorted(set(x for y in rows for x in TEXT_AREA if test(*rgb[(y * w + x) * 3:(y * w + x) * 3 + 3])))
 
@@ -201,22 +236,84 @@ def main(argv):
                     return
             raise SystemExit("the hook did not open program %d" % args[0])
 
-        def ovl(at):
+        def submenu_ovl():
             play = struct.unpack(">I", n64.read(syms["gamePT"], 4))[0]
-            sub = struct.unpack(">I", n64.read(play + SUBMENU + SUBMENU_OVL, 4))[0]
-            return struct.unpack(">I", n64.read(sub + at, 4))[0]
+            return struct.unpack(">I", n64.read(play + SUBMENU + SUBMENU_OVL, 4))[0]
+
+        def ovl(at):
+            return struct.unpack(">I", n64.read(submenu_ovl() + at, 4))[0]
 
         def editor():
             e = n64.read(ovl(EDITOR_OVL), 0x30)
-            cursor, _, lines, length, _, col, line = struct.unpack(">hhhhhhh", e[0x16:0x24])
-            return {"cursor": cursor, "lines": lines, "length": length, "col": col, "line": line,
-                    "mode": e[4], "ring": e[5], "turning": e[3]}
+            cursor, per_line, lines, length, _, col, line = struct.unpack(">hhhhhhh", e[0x16:0x24])
+            return {"cursor": cursor, "perLine": per_line, "lines": lines, "length": length, "col": col,
+                    "line": line, "mode": e[4], "ring": e[5], "turning": e[3],
+                    "text": struct.unpack(">I", e[0x24:0x28])[0]}
+
+        def editing_body():
+            """The editor open on the body being written."""
+            at = ovl(EDITOR_OVL)
+            return 0x80000000 <= at < 0x80800000 and editor()["text"] == syms[EDIT_BODY]
 
         def letter():
+            """The board's letter, its body the en build's buffer."""
             bd = ovl(BOARD_OVL)
             b = n64.read(bd, 0xC0)
-            return {"field": b[0], "headerPos": b[2], "back": b[0x2F], "header": b[0x32:0x3C],
-                    "body": b[0x3C:0x9C], "footer": b[0x9C:0xAC], "mail": b[8:8 + MAIL_SIZE]}
+            return {"field": b[0], "headerPos": b[2], "back": b[0x2F], "header": b[0x32:0x3C], "length": b[6],
+                    "body": n64.read(syms[EDIT_BODY], BODY_CAP), "footer": b[0x9C:0xAC]}
+
+        def extension():
+            size = struct.unpack(">i", n64.read(syms["mFRm_en_extSize"], 4))[0]
+            return n64.read(syms["mFRm_en_ext"], size)
+
+        def finish():
+            """START, A for the edit-end check's answers, A on the first: the letter goes to its place
+            (func_80889288_jp), the item window told of the paper used up being the hook's stand-in."""
+            press(START)
+            n64.frames(40, 0)
+            press(A)
+            n64.frames(40, 0)
+            n64.write(submenu_ovl() + TAG_OVL, n64.read(ctl + HOOK_TAG, 4))
+            press(A)
+            n64.frames(60, 0)
+            return n64.read(priv + DST, MAIL_SIZE), extension()
+
+        def check_sent(what, text, mail, ext):
+            body = text.ljust(BODY_CAP)
+            rest = emu_letters.Ext.parse(ext).rest(emu_letters.mail_key(mail))
+            check(mail[MAIL_BODY_AT:MAIL_BODY_AT + MAIL_BODY] == body[:MAIL_BODY],
+                  "%s, finished: the letter holds the body's first %d bytes (%r)" % (
+                      what, MAIL_BODY, mail[MAIL_BODY_AT:MAIL_BODY_AT + MAIL_BODY]))
+            want = body[MAIL_BODY:].rstrip(b" ")
+            check(rest == (b"", want, b"") if want else rest is None,
+                  "%s: the rest, %d bytes, in the extension under the letter's key (%r)" % (
+                      what, len(want), rest and rest[1]))
+
+        def read_back(what, name, text, mail, ext):
+            """The letter, in the first pocket of a fresh start with the extension as it was, read on the board."""
+            ctl, priv = setup()
+            n64.write(priv + POCKET_MAIL, mail)
+            n64.write(syms["mFRm_en_ext"], ext)
+            n64.write(syms["mFRm_en_extSize"], struct.pack(">i", len(ext)))
+            open_program(ctl, 12, 1, 0, priv + POCKET_MAIL)
+            n64.frames(emu_board.SETTLE, 0)
+            path = os.path.join(out, name + ".png")
+            n64.screenshot(path)
+            shots.append(path)
+            w, h, rgb = n64.screen()
+            want, _ = board.body(text)
+            read = [emu_board.measure(rgb, w, emu_board.BODY_Y + k * 16) for k in range(BODY_LINES)]
+            bad = []
+            for k in range(BODY_LINES):
+                ext_k = board.extent(want[k]) if k < len(want) else None
+                wx = ext_k and (emu_board.frame_x(ext_k[0]), emu_board.frame_x(ext_k[1] + 1))
+                ok = (read[k] is None) if ext_k is None else (
+                    read[k] is not None and all(abs(g - e) <= emu_board.TOLERANCE for g, e in zip(read[k], wx)))
+                if not ok:
+                    bad.append("line %d drawn at %s, the model's %s" % (k + 1, read[k], wx))
+            check(not bad, "%s, read: its %d lines (%d bytes) where the model has them%s" % (
+                what, len([x for x in want if x]), len(text), "; " + "; ".join(bad) if bad else ""))
+            return ctl, priv, read
 
         def type_char(ch):
             ed = ovl(EDITOR_OVL)
@@ -348,46 +445,87 @@ def main(argv):
         w, h, rgb = shot("4-deleted")
         check_lines("after B", SENTENCE, n, rgb, w)
 
-        # 5. on past the paper (from the end of the text)
+        # 5. on past the cartridge's 96 bytes (from the end of the text), then past the paper
         for _ in range(n):
             press(0x100)                          # C right, to the text's end
             if editor()["cursor"] == n:
                 break
         type_text(MORE)
         ed, lt = editor(), letter()
+        whole = typed(board, SENTENCE, MORE)
+        check(whole == SENTENCE + MORE and len(whole) > MAIL_BODY,
+              "the model keeps all %d bytes of the sentence and MORE" % len(SENTENCE + MORE))
+        check(lt["body"][:ed["length"]] == whole and ed["length"] == lt["length"] == len(whole),
+              "typed on past %d bytes: %d kept whole (the board's length %d)" % (MAIL_BODY, ed["length"], lt["length"]))
+        type_text(ON)
+        ed, lt = editor(), letter()
         text = lt["body"][:ed["length"]]
+        want = typed(board, whole, ON)
         lines = len(edit_lines(board, text, len(text)))
-        check(ed["length"] <= BODY_CAP and lines <= BODY_LINES and text == (SENTENCE + MORE)[:len(text)]
-              and len(text) < n + len(MORE),
-              "typing on: %d of %d bytes kept, %d lines (at most %d bytes, %d lines)" % (
-                  len(text), n + len(MORE), lines, BODY_CAP, BODY_LINES))
+        check(text == want and lines == BODY_LINES and len(want) < len(whole + ON),
+              "typing on past the paper: %d of %d bytes kept, %d lines (the model's %d bytes)" % (
+                  len(text), len(whole + ON), lines, len(want)))
+        check(lt["body"][len(text):] == b" " * (BODY_CAP - len(text)), "the rest of the body is spaces")
         shot("5-full")
-        mail = letter()["mail"]
 
-        # 6. the letter read
-        ctl, priv = setup()
-        n64.write(priv + POCKET_MAIL, mail)
-        open_program(ctl, 12, 1, 0, priv + POCKET_MAIL)
-        n64.frames(emu_board.SETTLE, 0)
-        path = os.path.join(out, "6-read.png")
-        n64.screenshot(path)
-        shots.append(path)
-        w, h, rgb = n64.screen()
-        want, _ = board.body(text)
-        read = [emu_board.measure(rgb, w, emu_board.BODY_Y + k * 16) for k in range(BODY_LINES)]
-        bad = []
-        for k in range(BODY_LINES):
-            ext = board.extent(want[k]) if k < len(want) else None
-            wx = ext and (emu_board.frame_x(ext[0]), emu_board.frame_x(ext[1] + 1))
-            ok = (read[k] is None) if ext is None else (
-                read[k] is not None and all(abs(g - e) <= emu_board.TOLERANCE for g, e in zip(read[k], wx)))
-            if not ok:
-                bad.append("line %d drawn at %s, the model's %s" % (k + 1, read[k], wx))
-        check(not bad, "the letter read: its %d lines where the model has them%s" % (
-            len([x for x in want if x]), "; " + "; ".join(bad) if bad else ""))
+        # 6. finished
+        mail, ext = finish()
+        check_sent("the letter", text, mail, ext)
+
+        # 7. read
+        ctl, priv, read = read_back("the letter", "6-read", text, mail, ext)
         # the text typed on changes the sentence's last line, not the two before it
         check(written[:2] == read[:2], "read and written, the sentence's first two lines are drawn alike (%s)"
               % (written[:2],))
+
+        # 8. written again: the board taken up whole (data0 2, as for a letter in the pockets written before)
+        ctl, priv = setup()
+        n64.write(priv + POCKETS, struct.pack(">H", PAPER))
+        n64.write(cd + ANIMALS + ANIMAL_MEMORY, n64.read(priv, 0x10))
+        n64.write(priv + DST, mail)
+        n64.write(syms["mFRm_en_ext"], ext)
+        n64.write(syms["mFRm_en_extSize"], struct.pack(">i", len(ext)))
+        open_program(ctl, 12, 2, 0, priv + DST)
+        n64.frames(60, 0)
+        lt = letter()
+        # its length without trailing spaces, as the cartridge measures a body (mMl_strlen: the board's init and
+        # the editor's)
+        length = len(text.rstrip(b" "))
+        check(lt["body"] == text.ljust(BODY_CAP) and lt["length"] == length,
+              "opened to write again: the body whole (%d bytes, the board's length %d)" % (length, lt["length"]))
+        for _ in range(6):
+            if editing_body():
+                break
+            press(A)
+            n64.frames(40, 0)
+        ed = editing_body() and editor()
+        check(ed and ed["length"] == length and ed["perLine"] * ed["lines"] == BODY_CAP,
+              "and the editor on it: %s bytes, %s characters a line (the letter's %d bytes)" % (
+                  ed and ed["length"], ed and ed["perLine"], length))
+        shot("7-again")
+
+        # 9. narrow characters: the 192 bytes
+        ctl, priv = setup()
+        n64.write(priv + POCKETS, struct.pack(">H", PAPER))
+        n64.write(cd + ANIMALS + ANIMAL_MEMORY, n64.read(priv, 0x10))
+        open_program(ctl, 12, 0, 0, priv + DST)
+        n64.frames(40, 0)
+        press(A)
+        n64.frames(30, 0)
+        press(A)
+        n64.frames(40, 0)
+        press(Z, 3)
+        type_text(DOTS)
+        ed, lt = editor(), letter()
+        dots = lt["body"][:ed["length"]]
+        want = typed(board, b"", DOTS)
+        check(len(want) == BODY_CAP and dots == want and ed["length"] == BODY_CAP,
+              "narrow characters stop at the body's %d bytes: %d kept, %d lines (the model's %d)" % (
+                  BODY_CAP, ed["length"], len(edit_lines(board, dots, len(dots))), len(want)))
+        shot("8-dots")
+        mail, ext = finish()
+        check_sent("the narrow letter", dots, mail, ext)
+        read_back("the narrow letter", "9-dots-read", dots, mail, ext)
     contact.main([os.path.join(out, "sheet.png"), "3"] + shots)
     print("emu_write: %d failures; screenshots in %s" % (len(failures), out))
     return 1 if failures else 0

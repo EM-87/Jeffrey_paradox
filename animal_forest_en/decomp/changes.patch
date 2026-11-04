@@ -1038,7 +1038,7 @@ index 85ca0d9..d461faf 100644
  
  s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
 diff --git a/src/code/m_handbill.c b/src/code/m_handbill.c
-index 34e9b7f..e079caf 100644
+index 34e9b7f..485ff6c 100644
 --- a/src/code/m_handbill.c
 +++ b/src/code/m_handbill.c
 @@ -4,11 +4,17 @@
@@ -1281,7 +1281,7 @@ index 34e9b7f..e079caf 100644
      } else {
          *addr = 0;
          *size = 0;
-@@ -458,154 +440,325 @@ void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s3
+@@ -458,154 +440,344 @@ void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s3
      }
  }
  
@@ -1569,13 +1569,8 @@ index 34e9b7f..e079caf 100644
 +    return len;
 +}
 +
-+/* File the rest of the letter the loaders made last (mHandbill_en_letter) */
-+static void mHandbill_en_FileLetter(void) {
-+    mHandbill_en_Letter* letter = &mHandbill_en_letter;
-+    u32 key = mHandbill_en_Key(letter->header, letter->body, letter->footer);
-+    s32 hlen = mHandbill_en_RestLen(letter->header + MAIL_HEADER_LEN, mHandbill_EN_HEADER_LEN - MAIL_HEADER_LEN, ' ');
-+    s32 blen = mHandbill_en_RestLen(letter->body + MAIL_BODY_LEN, mHandbill_EN_BODY_LEN - MAIL_BODY_LEN, 0xCD);
-+    s32 flen = mHandbill_en_RestLen(letter->footer + MAIL_FOOTER_LEN, mHandbill_EN_FOOTER_LEN - MAIL_FOOTER_LEN, ' ');
++/* File a letter's rests under its key (none: its record goes) */
++static void mHandbill_en_File(u32 key, u8* hrest, s32 hlen, u8* brest, s32 blen, u8* frest, s32 flen) {
 +    s32 size = mHandbill_EN_EXT_RECORD_HEAD + hlen + blen + flen;
 +    u8* record;
 +
@@ -1590,7 +1585,7 @@ index 34e9b7f..e079caf 100644
 +    }
 +    if (hlen + blen + flen == 0) {
 +        return;
-+    }
+     }
 +    if (mFRm_en_extSize + size > mFRm_EN_EXT_CAP) {
 +        mHandbill_en_CollectExt((u8*)&common_data.save);
 +    }
@@ -1605,19 +1600,38 @@ index 34e9b7f..e079caf 100644
 +    record[4] = hlen;
 +    record[5] = blen;
 +    record[6] = flen;
-+    bcopy(letter->header + MAIL_HEADER_LEN, record + mHandbill_EN_EXT_RECORD_HEAD, hlen);
-+    bcopy(letter->body + MAIL_BODY_LEN, record + mHandbill_EN_EXT_RECORD_HEAD + hlen, blen);
-+    bcopy(letter->footer + MAIL_FOOTER_LEN, record + mHandbill_EN_EXT_RECORD_HEAD + hlen + blen, flen);
++    if (hlen > 0) {
++        bcopy(hrest, record + mHandbill_EN_EXT_RECORD_HEAD, hlen);
++    }
++    if (blen > 0) {
++        bcopy(brest, record + mHandbill_EN_EXT_RECORD_HEAD + hlen, blen);
++    }
++    if (flen > 0) {
++        bcopy(frest, record + mHandbill_EN_EXT_RECORD_HEAD + hlen + blen, flen);
++    }
 +    mFRm_en_extSize += size;
++}
++
++/* File the rest of the letter the loaders made last (mHandbill_en_letter) */
++static void mHandbill_en_FileLetter(void) {
++    mHandbill_en_Letter* letter = &mHandbill_en_letter;
++    u8* hrest = letter->header + MAIL_HEADER_LEN;
++    u8* brest = letter->body + MAIL_BODY_LEN;
++    u8* frest = letter->footer + MAIL_FOOTER_LEN;
++
++    mHandbill_en_File(mHandbill_en_Key(letter->header, letter->body, letter->footer), hrest,
++                      mHandbill_en_RestLen(hrest, mHandbill_EN_HEADER_LEN - MAIL_HEADER_LEN, ' '), brest,
++                      mHandbill_en_RestLen(brest, mHandbill_EN_BODY_LEN - MAIL_BODY_LEN, 0xCD), frest,
++                      mHandbill_en_RestLen(frest, mHandbill_EN_FOOTER_LEN - MAIL_FOOTER_LEN, ' '));
 +}
 +
 +/*
 + * A letter whole, at the GameCube's sizes: header (24 bytes; its name
 + * position is the letter's headerBackStart), body (192), footer (32), its
-+ * own bytes then the extension's rest, padded as the loaders pad. TRUE if
-+ * the extension has a rest for it.
++ * own bytes then the extension's rest, the body padded with bodyPad. TRUE
++ * if the extension has a rest for it.
 + */
-+s32 mHandbill_en_GetLetter(MailContent* content, u8* header, u8* body, u8* footer) {
++static s32 mHandbill_en_GetLetterPadded(MailContent* content, u8* header, u8* body, u8* footer, u8 bodyPad) {
 +    u8* record = mHandbill_en_Find(mHandbill_en_Key(content->header, content->body, content->footer));
 +    s32 hlen = 0;
 +    s32 blen = 0;
@@ -1627,9 +1641,9 @@ index 34e9b7f..e079caf 100644
 +        hlen = record[4];
 +        blen = record[5];
 +        flen = record[6];
-     }
++    }
 +    mem_clear(header, mHandbill_EN_HEADER_LEN, ' ');
-+    mem_clear(body, mHandbill_EN_BODY_LEN, 0xCD);
++    mem_clear(body, mHandbill_EN_BODY_LEN, bodyPad);
 +    mem_clear(footer, mHandbill_EN_FOOTER_LEN, ' ');
 +    bcopy(content->header, header, MAIL_HEADER_LEN);
 +    bcopy(content->body, body, MAIL_BODY_LEN);
@@ -1640,6 +1654,11 @@ index 34e9b7f..e079caf 100644
 +        bcopy(record + mHandbill_EN_EXT_RECORD_HEAD + hlen + blen, footer + MAIL_FOOTER_LEN, flen);
 +    }
 +    return record != NULL;
++}
++
++/* A letter whole, its body padded as the loaders pad theirs */
++s32 mHandbill_en_GetLetter(MailContent* content, u8* header, u8* body, u8* footer) {
++    return mHandbill_en_GetLetterPadded(content, header, body, footer, 0xCD);
 +}
 +
 +/* A letter starts blank, so that nothing of the one before is filed with it */
@@ -1703,7 +1722,7 @@ index 34e9b7f..e079caf 100644
  }
  
  /* mHandbillzDMA_body_load */
-@@ -641,29 +794,32 @@ s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
+@@ -641,29 +813,32 @@ s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
      }
  }
  
@@ -1746,7 +1765,7 @@ index 34e9b7f..e079caf 100644
  
          info->headerBackStart = header_back_start;
          return TRUE;
-@@ -672,14 +828,16 @@ s32 func_800941B0_jp(HandbillzInfo* info) {
+@@ -672,14 +847,16 @@ s32 func_800941B0_jp(HandbillzInfo* info) {
      }
  }
  
@@ -1765,7 +1784,7 @@ index 34e9b7f..e079caf 100644
  
      dma_info[0].type = mHandbillz_TYPE_MAILA;
      dma_info[0].num = info->mailANo;
-@@ -696,7 +854,7 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+@@ -696,7 +873,7 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
          if (func_800940A8_jp(dma_p)) {
              total_size += dma_p->dma_size;
  
@@ -1774,7 +1793,7 @@ index 34e9b7f..e079caf 100644
                  bcopy(B_80140748_jp, dst, dma_p->dma_size);
                  dst += dma_p->dma_size;
              } else {
-@@ -708,17 +866,18 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+@@ -708,17 +885,18 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
      }
  
      if (success) {
@@ -1797,17 +1816,17 @@ index 34e9b7f..e079caf 100644
  s32 func_80094400_jp(HandbillzInfo* info) {
      mHandbillzDMA_c dma_info;
      u8 ram[0x22 + 6];
-@@ -731,13 +890,13 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+@@ -731,13 +909,13 @@ s32 func_80094400_jp(HandbillzInfo* info) {
      dma_info.ram_buf_size = 0x22;
  
      if (func_800940A8_jp(&dma_info)) {
 -        bcopy(ram, info->psBuf, dma_info.dma_size);
-+        u8* footer = mHandbill_en_letter.footer;
- 
+-
 -        if (info->psBufSize > dma_info.dma_size) {
 -            mem_clear(info->psBuf + dma_info.dma_size, info->psBufSize - dma_info.dma_size, ' ');
 -        }
--
++        u8* footer = mHandbill_en_letter.footer;
+ 
 -        func_80093478_jp(info->psBuf, info->psBufSize, dma_info.dma_size, mHandbill_FILL_SPACE);
 +        mem_clear(footer, mHandbill_EN_FOOTER_LEN, ' ');
 +        bcopy(ram, footer, dma_info.dma_size);
@@ -1817,7 +1836,7 @@ index 34e9b7f..e079caf 100644
          return TRUE;
      } else {
          return FALSE;
-@@ -745,9 +904,491 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+@@ -745,9 +923,570 @@ s32 func_80094400_jp(HandbillzInfo* info) {
  }
  
  s32 mHandbillz_load(HandbillzInfo* info) {
@@ -1841,14 +1860,14 @@ index 34e9b7f..e079caf 100644
 +
 +/*
 + * The letter board (board_ovl) has the letters' code draw its letter in the
-+ * en build. Writing one, the board shows the cartridge's fields as it does
-+ * (Mail_c: header 10, body 96 in lines of 16, footer 16; the cursor goes by
-+ * 12 pixels a character). Reading one, it shows the letter whole, as the
-+ * save keeps it (mHandbill_en_GetLetter: header 24, body 192, footer 32),
-+ * at each character's width: the header with the recipient's name put in at
-+ * headerBackStart, the body word-wrapped at the board's 192 pixels over its
-+ * six lines, its newlines kept, the footer ending where the body's lines do
-+ * (ac-decomp's mBD_set_writing_header, _body and _footer).
++ * en build, at each character's width (ac-decomp's mBD_set_writing_header,
++ * _body and _footer). Reading one, it shows the letter whole, as the save
++ * keeps it (mHandbill_en_GetLetter: header 24, body 192, footer 32): the
++ * header with the recipient's name put in at headerBackStart, the body
++ * word-wrapped at the board's 192 pixels over its six lines, its newlines
++ * kept, the footer ending where the body's lines do. Writing one, it shows
++ * the header and footer being written (Mail_c's 10 and 16 bytes) and the
++ * body whole (mHandbill_en_editBody, 192 bytes), laid out the same way.
 + */
 +#define mHandbill_EN_BOARD_WIDTH 192 /* mBD_MAX_WIDTH */
 +#define mHandbill_EN_BOARD_LINES 6
@@ -1870,6 +1889,18 @@ index 34e9b7f..e079caf 100644
 +
 +static mHandbill_en_Board mHandbill_en_board;
 +
++/*
++ * A letter's body while it is written: the GameCube's 192 bytes
++ * (MAIL_BODY_LEN there; the cartridge's Mail_c keeps 96), space-padded as
++ * the cartridge pads a Mail_c's. The board hands it to the address book and
++ * the editor instead of its Mail_c's body (m_board_ovl.c), the editor takes
++ * it in lines of 32 characters (mHandbill_EN_EDIT_LINE_LEN) and lays it out
++ * by width; when the letter is finished its first 96 bytes go into the
++ * letter and the rest into the extension, under the letter's key
++ * (mHandbill_en_BoardSent).
++ */
++u8 mHandbill_en_editBody[mHandbill_EN_EDIT_BODY_LEN];
++
 +static s32 mHandbill_en_TextWidth(u8* str, s32 len) {
 +    s32 width = 0;
 +
@@ -1883,14 +1914,25 @@ index 34e9b7f..e079caf 100644
 +    func_80090E98_jp(game, str, len, x, y, color->r, color->g, color->b, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
 +}
 +
-+/* The board's init: a letter being read is fetched whole; written ones are the board's own */
-+void mHandbill_en_BoardLoad(Mail_c* mail, s32 reading) {
++/*
++ * The board's init (kind: its menu info's data0): a letter being read (1) is
++ * fetched whole; one to write starts with a blank body (0) or, written
++ * before, with its own body whole, the board's body length its length
++ */
++void mHandbill_en_BoardLoad(mBD_Ovl_c* boardOvl, Mail_c* mail, s32 kind) {
 +    mHandbill_en_Board* board = &mHandbill_en_board;
 +    s32 i;
 +    s32 j;
 +
-+    board->reading = reading;
-+    if (!reading) {
++    board->reading = (kind == 1);
++    if (!board->reading) {
++        if (kind == 0) {
++            mem_clear(mHandbill_en_editBody, mHandbill_EN_EDIT_BODY_LEN, ' ');
++        } else {
++            mHandbill_en_GetLetterPadded(&mail->content, board->header, mHandbill_en_editBody, board->footer, ' ');
++        }
++        boardOvl->lengths[mHandbill_EN_BOARD_FIELD_BODY] =
++            mMl_strlen((char*)mHandbill_en_editBody, mHandbill_EN_EDIT_BODY_LEN, ' ');
 +        return;
 +    }
 +    mHandbill_en_GetLetter(&mail->content, board->header, board->body, board->footer);
@@ -1914,6 +1956,19 @@ index 34e9b7f..e079caf 100644
 +        board->footer[j] = (i + j < mHandbill_EN_FOOTER_LEN) ? board->footer[i + j] : ' ';
 +    }
 +    board->footerLen = mMl_strlen((char*)board->footer, mHandbill_EN_FOOTER_LEN, ' ');
++}
++
++/*
++ * The letter finished (func_80889288_jp, its footer in place): the body's
++ * first 96 bytes into it, the rest filed under its key, trailing spaces
++ * left off
++ */
++void mHandbill_en_BoardSent(Mail_c* dst) {
++    u8* rest = mHandbill_en_editBody + MAIL_BODY_LEN;
++
++    bcopy(mHandbill_en_editBody, dst->content.body, MAIL_BODY_LEN);
++    mHandbill_en_File(mHandbill_en_Key(dst->content.header, dst->content.body, dst->content.footer), NULL, 0, rest,
++                      mHandbill_en_RestLen(rest, mHandbill_EN_EDIT_BODY_LEN - MAIL_BODY_LEN, ' '), NULL, 0);
 +}
 +
 +void mHandbill_en_BoardHeader(mBD_Ovl_c* boardOvl, s32 writing, Game* game, f32 x, f32 y, Color_RGBA8* color) {
@@ -2004,9 +2059,22 @@ index 34e9b7f..e079caf 100644
 +
 +static s32 mHandbill_en_editLetter;
 +
-+/* The editor's init: whether the text is a letter's (kind 0, with the board) */
-+void mHandbill_en_EditInit(s32 kind) {
++/*
++ * The editor's init (kind and data1: its menu info's data0, the text's kind,
++ * and data1, the characters a line it was given): whether the text is a
++ * letter's (kind 0, with the board), and a letter's body whole in lines of
++ * 32 characters, its length measured over the 192 bytes when the init
++ * measured the 96 (the address book gives 16 a line; the board, writing on,
++ * none, and the body's length)
++ */
++void mHandbill_en_EditInit(mED_Ovl_c* editorOvl, s32 kind, s32 data1) {
 +    mHandbill_en_editLetter = (kind == 0);
++    if (editorOvl->inputStr == mHandbill_en_editBody) {
++        editorOvl->inputLength = mHandbill_EN_EDIT_LINE_LEN;
++        if (data1 > 0) {
++            editorOvl->nowStrLen = mMl_strlen((char*)mHandbill_en_editBody, mHandbill_EN_EDIT_BODY_LEN, ' ');
++        }
++    }
 +}
 +
 +static s32 mHandbill_en_EditLaidOut(mED_Ovl_c* editorOvl) {
@@ -2085,6 +2153,36 @@ index 34e9b7f..e079caf 100644
 +        *line = k - 1;
 +        *col = n - starts[k - 1];
 +    }
++}
++
++/*
++ * func_80885DD4_jp: room for the character typed: the text, the character
++ * put in at the cursor, still ends on one of its lines (the cartridge's
++ * test, in a buffer of its own: the cartridge's holds 100 bytes, a letter's
++ * body and one more character are 193)
++ */
++s32 mHandbill_en_EditRoom(mED_Ovl_c* editorOvl) {
++    static u8 buf[mHandbill_EN_EDIT_BODY_LEN + 1];
++    s32 total = editorOvl->inputLength * editorOvl->maxLineNo;
++    u8* inputStr = editorOvl->inputStr;
++    s16 col;
++    s16 line;
++    s32 i;
++
++    if ((total == editorOvl->nowStrLen) || (total > mHandbill_EN_EDIT_BODY_LEN)) {
++        return FALSE;
++    }
++    for (i = 0; i < editorOvl->cursorIdx; i++) {
++        buf[i] = inputStr[i];
++    }
++    buf[i] = editorOvl->nowCode;
++    for (; i < total; i++) {
++        buf[i + 1] = inputStr[i];
++    }
++    editorOvl->inputStr = buf;
++    mHandbill_en_EditColLine(editorOvl, &col, &line, editorOvl->nowStrLen + 1);
++    editorOvl->inputStr = inputStr;
++    return line < editorOvl->maxLineNo;
 +}
 +
 +/* func_80885A74_jp: the cursor's index from its line and column */
@@ -2225,7 +2323,7 @@ index 34e9b7f..e079caf 100644
 +    }
 +
 +    {
-+        u8* str = boardOvl->mail.content.body;
++        u8* str = mHandbill_en_editBody;
 +        s32 len = boardOvl->lengths[mHandbill_EN_BOARD_FIELD_BODY];
 +        s32 starts[mHandbill_EN_EDIT_LINES];
 +        s32 lines = mHandbill_en_EditLines(str, len, starts);
@@ -2950,7 +3048,7 @@ index 3ba98f9..56b6afc 100644
 -u8 sDmaDataPadding[0xF0] = { 0 };
 +u8 sDmaDataPadding[0xF0 - 8 * sizeof(DmaEntry)] = { 0 }; /* eight entries added for the translation: the table keeps its size */
 diff --git a/src/overlays/submenu/board_ovl/m_board_ovl.c b/src/overlays/submenu/board_ovl/m_board_ovl.c
-index d70fe25..c892397 100644
+index 7c99435..01e6f5d 100644
 --- a/src/overlays/submenu/board_ovl/m_board_ovl.c
 +++ b/src/overlays/submenu/board_ovl/m_board_ovl.c
 @@ -9,6 +9,7 @@
@@ -2983,7 +3081,7 @@ index d70fe25..c892397 100644
  /* The board's entry of the submenu's menu infos (mSM_MenuInfo_c in AC GCN) */
  typedef struct mBD_MenuInfo {
      /* 0x00 */ s32 unk_00;
-@@ -77,8 +63,6 @@ typedef struct mBD_EditorOvl {
+@@ -88,8 +74,6 @@ typedef struct mBD_EditorOvl {
  #define mBD_FIELD_BODY 1
  #define mBD_FIELD_FOOTER 2
  
@@ -2992,7 +3090,25 @@ index d70fe25..c892397 100644
  
  mBD_Ovl_c B_8088AC00_jp; /* the board's state (board_ovl_data) */
  
-@@ -110,12 +94,12 @@ void func_8088973C_jp(Submenu* submenu, Game* game, f32 x, f32 y);
+@@ -147,6 +131,8 @@ void func_80889288_jp(Submenu* submenu, mBD_MenuInfo* menuInfo) {
+             if (footerLenDiff < MAIL_FOOTER_LEN) {
+                 mem_copy(boardOvl->dst->content.footer + footerLenDiff, tFooterP, footerLen - tFooterLen);
+             }
++            /* the en build: the body whole, its first 96 bytes into the letter, the rest filed */
++            mHandbill_en_BoardSent(boardOvl->dst);
+ 
+             mailHeader->unk_00 = boardOvl->mail.content.headerBackStart;
+             mem_copy(mailHeader->unk_02, boardOvl->dst->content.header, MAIL_HEADER_LEN);
+@@ -158,7 +144,7 @@ void func_80889288_jp(Submenu* submenu, mBD_MenuInfo* menuInfo) {
+             }
+             func_80889198_jp(submenu, menuInfo);
+         } else if (editEndChk->data1 == 1) {
+-            mSM_open_submenu_new(submenu, 10, 0, 0, (s32)boardOvl->mail.content.body);
++            mSM_open_submenu_new(submenu, 10, 0, 0, (s32)mHandbill_en_editBody);
+             boardOvl->field = mBD_FIELD_BODY;
+             boardOvl->headerPos = 0;
+             menuInfo->procStatus = 1;
+@@ -188,12 +174,12 @@ void func_8088973C_jp(Submenu* submenu, Game* game, f32 x, f32 y);
  
  /* The box on the recipient's name, while the cursor is on it: 12 pixels a character to the name.
   * NON_MATCHING: the board's pointer is reloaded after Matrix_scale into v0, the cartridge's into v1 */
@@ -3007,7 +3123,7 @@ index d70fe25..c892397 100644
      boardOvl->ofsY = y - -76.0f;
      Matrix_scale(16.0f, 16.0f, 1.0f, 0);
      Matrix_translate(boardOvl->ofsX, boardOvl->ofsY, 140.0f, 1);
-@@ -129,156 +113,50 @@ void func_8088973C_jp(Submenu* submenu, Game* game, f32 x, f32 y) {
+@@ -207,156 +193,50 @@ void func_8088973C_jp(Submenu* submenu, Game* game, f32 x, f32 y) {
  
      CLOSE_POLY_OPA_DISP(gfxCtx);
  }
@@ -3177,7 +3293,7 @@ index d70fe25..c892397 100644
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889FB0_jp.s")
  
-@@ -302,7 +180,6 @@ void func_8088A2D0_jp(Submenu* submenu) {
+@@ -380,21 +260,16 @@ void func_8088A2D0_jp(Submenu* submenu) {
  
      if (menuInfo->data0 == 0) {
          MailHeaderCommon* saved = &common_data.privateInfo->savedMailHeader;
@@ -3185,7 +3301,9 @@ index d70fe25..c892397 100644
  
          boardOvl->first = TRUE;
          menuInfo->nextProcStatus = 1;
-@@ -311,12 +188,8 @@ void func_8088A2D0_jp(Submenu* submenu) {
+-        mSM_open_submenu_new(submenu, 0xD, 0, 0, (s32)boardOvl->mail.content.body);
++        mSM_open_submenu_new(submenu, 0xD, 0, 0, (s32)mHandbill_en_editBody);
+         mMl_init_mail(&boardOvl->mail, &common_data.privateInfo->playerId);
          boardOvl->mail.content.paperType = (common_data.privateInfo->inventory.pockets[menuInfo->data1] - 0x2000) & 0xFF;
  
          if (saved->unk_00 == -1) {
@@ -3200,21 +3318,31 @@ index d70fe25..c892397 100644
          } else {
              mem_copy(boardOvl->mail.content.header, saved->unk_02, MAIL_HEADER_LEN);
              mem_copy(boardOvl->mail.content.footer, saved->unk_0C, MAIL_FOOTER_LEN);
-@@ -363,6 +236,8 @@ void func_8088A2D0_jp(Submenu* submenu) {
+@@ -406,7 +281,7 @@ void func_8088A2D0_jp(Submenu* submenu) {
+             menuInfo->nextProcStatus = 2;
+         } else {
+             menuInfo->nextProcStatus = 1;
+-            mSM_open_submenu_new(submenu, 0xD, 1, 0, (s32)boardOvl->mail.content.body);
++            mSM_open_submenu_new(submenu, 0xD, 1, 0, (s32)mHandbill_en_editBody);
+         }
+         boardOvl->first = FALSE;
+         boardOvl->headerNameLen = mMl_strlen(boardOvl->mail.header.recipient.personalID.playerName, PLAYER_NAME_LEN, ' ');
+@@ -441,6 +316,9 @@ void func_8088A2D0_jp(Submenu* submenu) {
          mem_clear(boardOvl->mail.content.footer, MAIL_FOOTER_LEN, ' ');
          mem_copy(boardOvl->mail.content.footer, p, boardOvl->lengths[mBD_FIELD_FOOTER] - i);
      }
-+    /* the en build reads a letter whole, as the save keeps it */
-+    mHandbill_en_BoardLoad(menuInfo->data2, menuInfo->data0 == 1);
++    /* the en build reads a letter whole, as the save keeps it, and writes its body whole: the
++     * address book and the editor are given mHandbill_en_editBody for it */
++    mHandbill_en_BoardLoad(boardOvl, menuInfo->data2, menuInfo->data0);
  }
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_8088A604_jp.s")
 diff --git a/src/overlays/submenu/board_ovl/m_board_ovl_en.h b/src/overlays/submenu/board_ovl/m_board_ovl_en.h
 new file mode 100644
-index 0000000..1fdb29f
+index 0000000..24fd7e7
 --- /dev/null
 +++ b/src/overlays/submenu/board_ovl/m_board_ovl_en.h
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,87 @@
 +#ifndef M_BOARD_OVL_EN_H
 +#define M_BOARD_OVL_EN_H
 +
@@ -3231,6 +3359,11 @@ index 0000000..1fdb29f
 +#include "m_mail.h"
 +
 +struct Game;
++
++/* A letter's body while it is written, whole (m_handbill.c): the GameCube's 192 bytes, 32 characters a line */
++#define mHandbill_EN_EDIT_BODY_LEN 192
++#define mHandbill_EN_EDIT_LINE_LEN 32
++extern u8 mHandbill_en_editBody[mHandbill_EN_EDIT_BODY_LEN];
 +
 +typedef struct mBD_Ovl_c {
 +    /* 0x00 */ u8 field;
@@ -3278,7 +3411,8 @@ index 0000000..1fdb29f
 +    /* 0x2C */ void* cursolDraw;
 +} mED_Ovl_c; // size = 0x30
 +
-+void mHandbill_en_BoardLoad(Mail_c* mail, s32 reading);
++void mHandbill_en_BoardLoad(mBD_Ovl_c* boardOvl, Mail_c* mail, s32 kind);
++void mHandbill_en_BoardSent(Mail_c* dst);
 +void mHandbill_en_BoardHeader(mBD_Ovl_c* boardOvl, s32 writing, struct Game* game, f32 x, f32 y, Color_RGBA8* color);
 +void mHandbill_en_BoardBody(mBD_Ovl_c* boardOvl, s32 writing, struct Game* game, f32 x, f32* y, f32* endX, f32* endY,
 +                            Color_RGBA8* color);
@@ -3287,7 +3421,8 @@ index 0000000..1fdb29f
 +f32 mHandbill_en_BoardNameX(mBD_Ovl_c* boardOvl);
 +void mHandbill_en_BoardNewLetter(mBD_Ovl_c* boardOvl, u8* name);
 +
-+void mHandbill_en_EditInit(s32 kind);
++void mHandbill_en_EditInit(mED_Ovl_c* editorOvl, s32 kind, s32 data1);
++s32 mHandbill_en_EditRoom(mED_Ovl_c* editorOvl);
 +void mHandbill_en_EditColLine(mED_Ovl_c* editorOvl, s16* col, s16* line, s32 n);
 +void mHandbill_en_EditIndex(mED_Ovl_c* editorOvl);
 +s32 mHandbill_en_EditLineLen(mED_Ovl_c* editorOvl);
@@ -3296,7 +3431,7 @@ index 0000000..1fdb29f
 +
 +#endif
 diff --git a/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c b/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c
-index a3a542f..e8821c4 100644
+index 87182f5..2c00105 100644
 --- a/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c
 +++ b/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c
 @@ -3,6 +3,7 @@
@@ -3307,7 +3442,7 @@ index a3a542f..e8821c4 100644
  
  /*
   * The text editor (submenu program 10; ac-decomp's m_editor_ovl.c is the
-@@ -10,37 +11,13 @@
+@@ -10,37 +11,15 @@
   * cursor in the text. A multi-line text is lines of inputLength
   * characters, a newline ending one early; col and line are the cursor's
   * place in them.
@@ -3315,6 +3450,8 @@ index a3a542f..e8821c4 100644
 + * The en build: a letter's body is laid out as the board draws it and as it
 + * will be read, at the font's widths (m_handbill.c, "Writing a letter"); the
 + * line model forwards there, which keeps the cartridge's for every other text.
++ * The body is the GameCube's 192 bytes, in lines of 32 characters
++ * (mHandbill_en_editBody), and the typing test is made there too.
   */
  
 -typedef struct mED_Ovl_c {
@@ -3350,11 +3487,11 @@ index a3a542f..e8821c4 100644
  
  /* The editor's entry of the submenu's menu infos (mSM_MenuInfo_c in AC GCN) */
  typedef struct mED_MenuInfo {
-@@ -123,75 +100,24 @@ void func_8088587C_jp(Submenu* submenu, mED_MenuInfo* menuInfo) {
+@@ -136,75 +115,24 @@ void func_8088587C_jp(Submenu* submenu, mED_MenuInfo* menuInfo) {
      editorOvl->col = 0;
      editorOvl->line = 0;
      editorOvl->exchangeCode = -1;
-+    mHandbill_en_EditInit(menuInfo->data0);
++    mHandbill_en_EditInit(editorOvl, menuInfo->data0, menuInfo->data1);
  }
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_8088596C_jp.s")
@@ -3430,7 +3567,47 @@ index a3a542f..e8821c4 100644
  }
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_80885D2C_jp.s")
-@@ -206,14 +132,12 @@ s32 func_80885CBC_jp(mED_Ovl_c* editorOvl) {
+@@ -212,35 +140,11 @@ s32 func_80885CBC_jp(mED_Ovl_c* editorOvl) {
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_80885D94_jp.s")
+ 
+ /* mED_input_multi_line: a character typed into a text of lines goes in (func_80885D2C_jp) if the
+- * text has room for it and, one character longer, still ends on one of its lines */
++ * text has room for it and, one character longer, still ends on one of its lines; the en build
++ * tests it in the letters' code, whose buffer holds a letter's body whole */
+ void func_80885DD4_jp(mED_Ovl_c* editorOvl) {
+-    u8 buf[100];
+-    u8* strP;
+-    u8* bufP;
+-    u8* inputP;
+-    s32 i;
+-    s32 total;
+-    s16 line;
+-    s16 col;
+-
+-    total = editorOvl->inputLength * editorOvl->maxLineNo;
+-    if (total != editorOvl->nowStrLen) {
+-        strP = editorOvl->inputStr;
+-        bufP = buf;
+-        for (i = 0; i < editorOvl->cursorIdx; i++) {
+-            *bufP++ = *strP++;
+-        }
+-        *bufP++ = editorOvl->nowCode;
+-        for (; i < total; i++) {
+-            *bufP++ = *strP++;
+-        }
+-        inputP = editorOvl->inputStr;
+-        editorOvl->inputStr = buf;
+-        func_80885AEC_jp(editorOvl, &col, &line, editorOvl->nowStrLen + 1);
+-        editorOvl->inputStr = inputP;
+-        if (line < editorOvl->maxLineNo) {
+-            func_80885D2C_jp(editorOvl);
+-        }
++    if (mHandbill_en_EditRoom(editorOvl)) {
++        func_80885D2C_jp(editorOvl);
+     }
+ }
+ 
+@@ -250,14 +154,12 @@ void func_80885DD4_jp(mED_Ovl_c* editorOvl) {
  
  /* The cursor a line up, at its column or the line's end */
  void func_80885F6C_jp(mED_Ovl_c* editorOvl) {
@@ -3448,7 +3625,7 @@ index a3a542f..e8821c4 100644
          func_80885A74_jp(editorOvl);
          editorOvl->commandProcessed = TRUE;
      }
-@@ -227,15 +151,11 @@ void func_80885FCC_jp(mED_Ovl_c* editorOvl) {
+@@ -271,15 +173,11 @@ void func_80885FCC_jp(mED_Ovl_c* editorOvl) {
  
      func_80885AEC_jp(editorOvl, &col, &line, editorOvl->nowStrLen);
      if (editorOvl->line < line) {
@@ -3467,3 +3644,14 @@ index a3a542f..e8821c4 100644
          func_80885A74_jp(editorOvl);
          editorOvl->commandProcessed = TRUE;
      } else if (editorOvl->cursorIdx == editorOvl->nowStrLen) {
+@@ -333,7 +231,9 @@ void func_80886588_jp(mED_Ovl_c* editorOvl, mED_BoardOvl* boardOvl) {
+     editorOvl->inputLength = D_80888810_jp[nextField];
+     if (nextField == 1) {
+         editorOvl->maxLineNo = 6;
+-        editorOvl->inputStr = boardOvl->mail.content.body;
++        /* the en build: the body whole, in lines of 32 characters (m_handbill.c) */
++        editorOvl->inputStr = mHandbill_en_editBody;
++        editorOvl->inputLength = mHandbill_EN_EDIT_LINE_LEN;
+         if (up == TRUE) {
+             editorOvl->cursorIdx = -1;
+         } else {

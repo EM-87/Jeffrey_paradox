@@ -108,9 +108,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   a model of the cartridge's expander: `make letters-check-en`),
   `emu_board.py` (the letter board opened on letters, its lines measured
   on the frame against a model of the board: `make board-check-en`),
-  `emu_write.py` (a letter typed on the editor's dial, its lines, cursor
-  and end mark measured against the same model, and read back: `make
-  write-check-en`),
+  `emu_write.py` (letters typed on the editor's dial, their lines, cursor
+  and end mark measured against the same model, finished and read back
+  whole, 192 bytes: `make write-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.

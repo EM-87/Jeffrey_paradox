@@ -160,15 +160,16 @@ en C donde hacía falta e idéntico al cartucho) coloca la carta igual que
 el tablero al leerla: las líneas se parten a los 192 px del papel tras el
 último espacio que cabe, el cursor va entre las letras a su anchura y
 arriba/abajo conservan su posición; una carta nueva empieza con "To " y
-"from " como en GameCube. `make write-check-en` escribe una carta con el
-dial en el emulador, mide líneas, cursor y marca de fin en la imagen, y
-la vuelve a leer ("Writing a letter in the en build"). El cuerpo sigue
-teniendo los 96 bytes del cartucho (unas cuatro de sus seis líneas).
+"from " como en GameCube. El cuerpo tiene los 192 bytes de GameCube (sus
+seis líneas enteras): al terminar la carta, los primeros 96 van en la
+carta del cartucho y el resto en la extensión de la partida, como el de
+las cartas oficiales. `make write-check-en` escribe cartas con el dial en
+el emulador, mide líneas, cursor y marca de fin en la imagen, las termina
+y las vuelve a leer enteras ("Writing a letter in the en build").
 
 Lo que viene: los gráficos occidentales de GameCube (entre ellos los
 globos de la libreta de direcciones y las etiquetas del dial, que son
-texturas), cartas escritas de 192 bytes como las de GameCube (con la
-extensión de la partida), y traducir ese 6 %.
+texturas, y quizá los del aviso de fin de carta), y traducir ese 6 %.
 
 ## Dónde está cada cosa
 

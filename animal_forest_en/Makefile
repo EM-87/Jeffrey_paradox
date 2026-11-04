@@ -272,10 +272,11 @@ letters-check-en: route-en
 board-check-en: route-en
 	$(PYTHON) tests/emu_board.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-board-en
 
-# A letter written with the en build's editor on the dial, from the same
-# state: its lines, cursor and end mark measured on the frame against the
-# same model, and the letter read back (tests/emu_write.py; NOTES,
-# "Writing a letter in the en build").
+# Letters written with the en build's editor on the dial, from the same
+# state: their lines, cursor and end mark measured on the frame against the
+# same model, the body past 96 bytes up to the GameCube's 192, the letters
+# finished and read back whole (tests/emu_write.py; NOTES, "Writing a
+# letter in the en build").
 write-check-en: route-en
 	$(PYTHON) tests/emu_write.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-write-en
 
