@@ -1634,10 +1634,10 @@ index 0000000..f3f7472
 +}
 diff --git a/src/code/m_font.c b/src/code/m_font.c
 new file mode 100644
-index 0000000..85ca0d9
+index 0000000..eb55156
 --- /dev/null
 +++ b/src/code/m_font.c
-@@ -0,0 +1,168 @@
+@@ -0,0 +1,172 @@
 +#include "global.h"
 +#include "6B3DC0.h"
 +
@@ -1727,7 +1727,11 @@ index 0000000..85ca0d9
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetLineStrings_AndSpace.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/func_80090E98_jp.s")
++/* A line of text (mFont_SetLineStrings in AC GCN): mFont_SetLineStrings_AndSpace with no extra space */
++f32 func_80090E98_jp(struct Game* game, u8* str, s32 len, f32 x, f32 y, s32 r, s32 g, s32 b, s32 a, s32 flag, s32 cut,
++                     f32 scaleX, f32 scaleY, s32 mode) {
++    return mFont_SetLineStrings_AndSpace(game, (char*)str, len, x, y, r, g, b, a, flag, cut, 0, scaleX, scaleY, mode);
++}
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetMatrix.s")
 +

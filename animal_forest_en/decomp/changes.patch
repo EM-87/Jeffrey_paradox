@@ -989,7 +989,7 @@ index f3f7472..e751ce4 100644
              ret = 1;
              func_8008ECA0_jp();
 diff --git a/src/code/m_font.c b/src/code/m_font.c
-index 85ca0d9..d461faf 100644
+index eb55156..724cb03 100644
 --- a/src/code/m_font.c
 +++ b/src/code/m_font.c
 @@ -15,6 +15,17 @@ extern s8 D_80106AF0_jp; /* the font is loaded */
@@ -1037,6 +1037,101 @@ index 85ca0d9..d461faf 100644
  }
  
  s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
+@@ -87,10 +106,92 @@ s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetLineStrings_AndSpace.s")
+ 
+-/* A line of text (mFont_SetLineStrings in AC GCN): mFont_SetLineStrings_AndSpace with no extra space */
++/*
++ * The en build swaps some of the menus' strings where they are drawn: a
++ * menu that draws one of the cartridge's strings named in tools/af_ui.py's
++ * SUBST (found by its bytes and length, which come from the user's dump)
++ * draws the English instead, in the box the cartridge's string had (its
++ * full-width characters, mFont_CHAR_WIDTH each at the caller's scale):
++ * centred or aligned to its right, narrowed to it when wider, or a character
++ * in each of its cells (a template the menu draws its numbers into). The
++ * menus' own code stays the cartridge's (reference/NOTES.md, "The menus'
++ * strings where the font draws them").
++ */
++#include "assets/jp/en/ui_strings.inc"
++
++#define mFont_EN_SUBST_CENTER 1
++#define mFont_EN_SUBST_RIGHT 2
++#define mFont_EN_SUBST_FIT 4
++#define mFont_EN_SUBST_CELLS 8
++
++typedef struct mFont_EnSubst {
++    /* 0x00 */ u8 keyLen;
++    /* 0x01 */ u8 enLen;
++    /* 0x02 */ u8 layout;
++    /* 0x03 */ u8 key[UI_EN_SUBST_KEY_MAX];
++    /* ---- */ u8 en[UI_EN_SUBST_EN_MAX];
++} mFont_EnSubst;
++
++static mFont_EnSubst mFont_en_subst[] = { UI_EN_SUBST };
++
++static mFont_EnSubst* mFont_en_FindSubst(u8* str, s32 len) {
++    mFont_EnSubst* sub;
++    s32 i;
++
++    for (sub = mFont_en_subst; sub->keyLen != 0; sub++) {
++        if (sub->keyLen == len) {
++            for (i = 0; i < len; i++) {
++                if (sub->key[i] != str[i]) {
++                    break;
++                }
++            }
++            if (i == len) {
++                return sub;
++            }
++        }
++    }
++    return NULL;
++}
++
++/* A line of text (mFont_SetLineStrings in AC GCN): mFont_SetLineStrings_AndSpace with no extra space; in the
++ * en build, the English in place of a string SUBST names. Returns the width the cartridge's string takes. */
+ f32 func_80090E98_jp(struct Game* game, u8* str, s32 len, f32 x, f32 y, s32 r, s32 g, s32 b, s32 a, s32 flag, s32 cut,
+                      f32 scaleX, f32 scaleY, s32 mode) {
+-    return mFont_SetLineStrings_AndSpace(game, (char*)str, len, x, y, r, g, b, a, flag, cut, 0, scaleX, scaleY, mode);
++    mFont_EnSubst* sub = (len > 1) ? mFont_en_FindSubst(str, len) : NULL;
++    f32 cell;
++    f32 box;
++    f32 width;
++    s32 i;
++
++    if (sub == NULL) {
++        return mFont_SetLineStrings_AndSpace(game, (char*)str, len, x, y, r, g, b, a, flag, cut, 0, scaleX, scaleY,
++                                             mode);
++    }
++    cell = mFont_CHAR_WIDTH * scaleX;
++    box = len * cell;
++    if (sub->layout & mFont_EN_SUBST_CELLS) {
++        for (i = 0; i < sub->enLen; i++) {
++            if (sub->en[i] != ' ') {
++                width = mFont_GetStringWidth((char*)&sub->en[i], 1, TRUE) * scaleX;
++                mFont_SetLineStrings_AndSpace(game, (char*)&sub->en[i], 1, x + i * cell + (cell - width) / 2, y, r,
++                                              g, b, a, flag, cut, 0, scaleX, scaleY, mode);
++            }
++        }
++        return box;
++    }
++    width = mFont_GetStringWidth((char*)sub->en, sub->enLen, TRUE) * scaleX;
++    if ((sub->layout & mFont_EN_SUBST_FIT) && (width > box)) {
++        scaleX *= box / width;
++        width = box;
++    }
++    if (sub->layout & mFont_EN_SUBST_CENTER) {
++        x += (box - width) / 2;
++    } else if (sub->layout & mFont_EN_SUBST_RIGHT) {
++        x += box - width;
++    }
++    mFont_SetLineStrings_AndSpace(game, (char*)sub->en, sub->enLen, x, y, r, g, b, a, flag, cut, 0, scaleX, scaleY,
++                                  mode);
++    return box;
+ }
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetMatrix.s")
 diff --git a/src/code/m_handbill.c b/src/code/m_handbill.c
 index 34e9b7f..485ff6c 100644
 --- a/src/code/m_handbill.c
@@ -3781,7 +3876,7 @@ index 87182f5..2c00105 100644
              editorOvl->cursorIdx = -1;
          } else {
 diff --git a/src/overlays/submenu/ovl__00792700/ovl__00792700.c b/src/overlays/submenu/ovl__00792700/ovl__00792700.c
-index 23e3cb8..bb33f21 100644
+index 998e336..cf24a5f 100644
 --- a/src/overlays/submenu/ovl__00792700/ovl__00792700.c
 +++ b/src/overlays/submenu/ovl__00792700/ovl__00792700.c
 @@ -32,6 +32,10 @@ typedef struct mAD_SubmenuOvl {

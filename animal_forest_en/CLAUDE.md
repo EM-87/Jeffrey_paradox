@@ -106,7 +106,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   a string added to its table later is read from build/gc's copies of the
   disc's module and map, without the disc), the include the en build's
   menus use written at `make rom-en`, the cartridge's own without the disc
-  (NOTES, "The menus' own words").
+  (NOTES, "The menus' own words"); and `SUBST`, the strings the en
+  build's font swaps where it draws them (keyed by the cartridge's bytes
+  from the dump; our own text in `script/ui.txt`: NOTES, "The menus'
+  strings where the font draws them").
 - `tools/af_nafe_gfx.py` — the 42 menu labels the AF Project's 2010
   patch drew in English, taken at `make rom-en` from the user's copy
   (`make nafe NAFE_UPS=...`, build/nafe-2010-12-02.z64) over the en
@@ -130,9 +133,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   whole, 192 bytes: `make write-check-en`),
   `emu_menus.py` (the name entry's five windows, the edit-end check's
   question and answers and the address book's balloon, their strings in
-  RAM and their ink measured against the font's model; the menus that
-  hold the 2010 patch's labels, each label found in RAM: `make
-  menus-check-en`),
+  RAM and their ink measured against the font's model; each swapped
+  string's ink against where the layout puts it in the cartridge's
+  string's box; the menus that hold the 2010 patch's labels, each label
+  found in RAM: `make menus-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.

@@ -184,9 +184,16 @@ disco quedan las del cartucho. Primero, la ventana del nombre: sus cinco
 títulos son los de GameCube y la palabra tras el destino desaparece, como
 en GameCube. Después, la pregunta al terminar una carta y sus respuestas, y
 el globo de la libreta de direcciones (centrado en el globo del cartucho y
-estrechado si no cabe). `make menus-check-en` abre esas ventanas y mide cada
-cadena en la imagen contra el modelo de la fuente ("The menus' own words",
-"The edit-end check and the address book").
+estrechado si no cabe). Para el resto de menús, que dibujan sus cadenas desde
+funciones grandes, el build en inglés cambia la cadena donde la fuente la
+dibuja: la reconoce por sus bytes (sacados de tu volcado) y pone la inglesa
+en la caja de la original. Así ya están en inglés la cantidad del banco, el
+cumpleaños, el reloj (con la fecha año-mes-día y la hora en sus casillas, que
+el build en inglés tenía rotas), la pregunta de la melodía y el título de las
+notas del Controller Pak ("The menus' strings where the font draws them").
+`make menus-check-en` abre esas ventanas y mide cada cadena en la imagen
+contra el modelo de la fuente ("The menus' own words", "The edit-end check
+and the address book").
 Las texturas de los menús compartidos son solo marcos e iconos; las
 etiquetas del dial sí son texturas, pero GameCube no tiene dial (escribe
 con un teclado).

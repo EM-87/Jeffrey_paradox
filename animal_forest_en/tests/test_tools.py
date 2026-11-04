@@ -1081,6 +1081,28 @@ class MenusWords(unittest.TestCase):
         text = af_dumpdata.initializers(rom, [("D_A", 2, 3), ("D_B", 8, 2)])
         self.assertIn("u8 D_A[3] = { 0x02, 0x03, 0x04 };\nu8 D_B[2] = { 0x08, 0x09 };\n", text)
 
+    def test_swaps(self):
+        # tools/af_ui.py SUBST: the key is the cartridge's bytes from the dump, our text goes over the
+        # GameCube's, a template is padded to its cells with spaces, and a sentinel ends the table
+        saved = af_ui.SUBST
+        try:
+            af_ui.SUBST = [("A", 0, 3, af_ui.CENTER, "sym_a", "a.o"), ("B", 4, 4, af_ui.CELLS, None, None),
+                           ("C", 8, 2, af_ui.LEFT, "sym_c", "c.o"), ("D", 10, 2, af_ui.LEFT, None, None)]
+            rom = bytes([0x90, 0x91, 0x92, 0, 0xA0, 0xA1, 0xA2, 0xA3, 0xB0, 0xB1, 0xC0, 0xC1])
+            subs = af_ui.substitutions(rom, {"A": "Hi", "C": "No"}, {"B": "1:", "C": "Ok"})
+            self.assertEqual(subs, [("A", rom[0:3], b"Hi", af_ui.CENTER), ("B", rom[4:8], b"1:  ", af_ui.CELLS),
+                                    ("C", rom[8:10], b"Ok", af_ui.LEFT)])          # D has no English: kept
+            text = af_ui.subst_include(subs)
+            self.assertIn("#define UI_EN_SUBST_COUNT 3\n", text)
+            self.assertIn("    { 3, 2, 1, { 0x90, 0x91, 0x92 }, { 0x48, 0x69 } }, /* A */ \\\n", text)
+            self.assertTrue(text.endswith("    { 0, 0, 0, { 0 }, { 0 } }\n"))
+            with self.assertRaises(SystemExit):
+                af_ui.substitutions(rom, {}, {"B": "12:00"})                       # more cells than the key's
+            self.assertIn(("C", "sym_c", "c.o"), af_ui.gc_sources())
+            self.assertNotIn(("B", None, None), af_ui.gc_sources())
+        finally:
+            af_ui.SUBST = saved
+
     def test_labels_drawn_by_the_lists(self):
         # tools/af_nafe_gfx.py: a texture is where a load in the segment's own
         # segment names it, in its render tile's format and its tile's size

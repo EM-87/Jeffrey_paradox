@@ -251,8 +251,8 @@ $(GC_DIR)/gc_ui.txt: tools/af_ui.py $(wildcard $(GC_DIR)/foresta.rel.szs $(GC_DI
 		$(PYTHON) tools/af_ui.py gc-files $(GC_DIR)/foresta.rel.szs $(GC_DIR)/foresta.map $@; \
 	else echo "$@: make script ISO=... reads the strings from the disc"; fi
 
-$(EN_UI): tools/af_ui.py tools/af_font.py tools/msgbank.py tools/gciso.py $(GC_UI) $(AF_EN_DIR)/.stamp-extract
-	$(PYTHON) tools/af_ui.py compile $(AF_EN_DIR) $@ $(if $(GC_UI),--gc $(GC_UI))
+$(EN_UI): tools/af_ui.py tools/af_font.py tools/msgbank.py tools/gciso.py $(GC_UI) script/ui.txt $(AF_EN_DIR)/.stamp-extract
+	$(PYTHON) tools/af_ui.py compile $(AF_EN_DIR) $@ $(if $(GC_UI),--gc $(GC_UI)) --own script/ui.txt
 
 $(EN_NAFE_GFX): tools/af_nafe_gfx.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)) $(AF_EN_DIR)/.stamp-extract
 	mkdir -p $(EN_ASSETS)
@@ -317,7 +317,7 @@ write-check-en: route-en
 # own words").
 menus-check-en: route-en
 	$(PYTHON) tests/emu_menus.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-menus-en \
-		$(if $(GC_UI),--gc $(GC_UI)) $(if $(wildcard $(NAFE_ROM)),--nafe $(NAFE_ROM))
+		$(if $(GC_UI),--gc $(GC_UI)) --own script/ui.txt $(if $(wildcard $(NAFE_ROM)),--nafe $(NAFE_ROM))
 
 # -- the GameCube script (phase 4) -------------------------------------------
 # ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it

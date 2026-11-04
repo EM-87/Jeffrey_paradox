@@ -1450,6 +1450,66 @@ what goes in it: "The letters in the en build").
   name entry's titles measure 171, 185, 172, 68 and 160
   against 169.6, 183.2, 171.3, 67.0 and 159.3.
 
+## The menus' strings where the font draws them (phase 5, the menus' strings)
+
+- **One door for every menu's text.** Every submenu overlay draws its
+  strings through `func_80090E98_jp` (mFont_SetLineStrings in AC GCN: a
+  0x78-byte call of `mFont_SetLineStrings_AndSpace` with no extra space;
+  in C in matching.patch, matching). The remaining menus draw theirs from
+  large functions (the amount's 0x324 bytes, the clock's 0x334, the
+  birthday's 0x40C, the town tune's 0xCA8), with each string's length an
+  immediate, so changing each in its own function means matching each
+  first. The en build instead swaps the string where it is drawn: its
+  `func_80090E98_jp` looks the string up by its bytes and length in a
+  table (`mFont_en_subst`, written by tools/af_ui.py from its `SUBST`
+  list at make rom-en: the cartridge's bytes from the user's dump, never
+  in the repository) and draws the English in its place. The menus' code
+  stays the cartridge's.
+- **The English in the cartridge's box.** The cartridge's string had
+  full-width characters, 12 pixels each at the caller's scale; the
+  English is centred in that box or aligned to its left or right,
+  narrowed to it when wider, or (a template the menu draws numbers into)
+  a character centred in each of its cells. The function returns the
+  box's width, as it returned the cartridge's string's. Our own text
+  (script/ui.txt) goes over the GameCube's and stands alone where the
+  GameCube has none. A string of one character is never looked up.
+- **What is swapped.** The amount to enter (`ovl__0079B120`): its title
+  and its end (the same bytes end the birthday's and the clock's
+  windows); the birthday (`ovl__0079DA50`): its title (its month and
+  day words are textures); the clock (`ovl__0078AE30`): its title, and
+  the date's and the time's words, which were already broken in the en
+  build (the en font's 5-pixel space moved them over the numbers drawn at
+  the cartridge's cells): ours, in the cells, year-month-day with
+  hyphens (the N64's font has no slash) and a colon after the hour; the
+  town tune's question and its two answers (`ovl__0079C020`); the
+  Controller Pak notes' title (`ovl__007A10E0`, ours: no GameCube
+  counterpart). The GameCube's are read from build/gc's copies of the
+  disc's module and map (`kingaku_str$537`, `kettei_str$538`,
+  `chr_table$472`, `str_line_adjust$655`, `mMS_str_*`).
+- **The clock's cells.** The clock draws the date's template at x + 83
+  and scale 0.875, and its numbers at x = 104, 146 and 188
+  (`D_FLT_80884220_jp`): 21 pixels after the template's start, then 42,
+  then 42, which is two cells and four cells of 10.5 (12 at 0.875): the
+  numbers go in the template's blank cells 2-3, 6-7 and 10-11. The time's
+  template, at x + 114, has its minutes at 124.5 (cell 1) and its hour at
+  93, before it.
+- **On screen** (`tests/emu_menus.py`, make menus-check-en). The swap
+  table in RAM holds each entry's key and English. Each menu is opened
+  four times: as it is; with the English's bytes in the table made spaces;
+  with the swap off (the entry's key changed, so the same call draws the
+  cartridge's string); and with the swap off and the cartridge's bytes in
+  the overlay made spaces (found by the longest stretch of the cartridge's
+  data from the string on that RAM holds once: a two-byte string alone is
+  found elsewhere first). From the cartridge's ink, the box it took and
+  its scale; from those, where the layout puts the English, which its ink
+  matches within 2 frame pixels for all ten: the amount's title and end
+  (311 to 422 against 311.3 to 421.7), the birthday's and the clock's
+  titles, the date's four pieces and the time's colon in their cells, the
+  Controller Pak's title, and the town tune's question and answers. The
+  town tune takes buttons only once it is at rest: R at 120 frames after
+  it opens does nothing, at 180 it brings up the question. The
+  screenshots show each string in its window.
+
 ## The 2010 patch's labels (phase 5, the graphics' second step)
 
 - **What it redrew.** The AF Project's 2010 patch (Zoinkity; make nafe

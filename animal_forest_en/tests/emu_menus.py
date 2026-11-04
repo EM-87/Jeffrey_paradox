@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The menus' own words in the en build, on screen.
 
-    tests/emu_menus.py EMU_DIR EN_ROM AF_EN_DIR STATE OUT_DIR [--gc GC_UI] [--nafe NAFE_ROM]
+    tests/emu_menus.py EMU_DIR EN_ROM AF_EN_DIR STATE OUT_DIR [--gc GC_UI] [--own OWN_UI] [--nafe NAFE_ROM]
 
 STATE is a state of EN_ROM in play (make route-en's 4-houses.st). A hook
 (tests/emu_save.py's way) opens the name entry (submenu program 4) in each
@@ -37,6 +37,17 @@ narrowed to the cartridge's 144 pixels when it is wider, as the en build
 draws it); after A, each answer drawn is as wide as the model too, row by
 row.
 
+Then the strings the en build swaps where the font draws them
+(tools/af_ui.py's SUBST): each menu opened four times, as it is, with the
+English's bytes in the swap table made spaces, with the swap off (the
+table's key changed: the cartridge's string drawn by the same call), and
+with the swap off and the cartridge's bytes in the overlay made spaces.
+The pairs give the English's ink and the cartridge's; from the cartridge's
+the box it took (its full-width cells, at the scale its ink shows) and
+from that where the en m_font.c's layout puts the English, which the
+English's ink must match (centred, aligned, narrowed to the box when
+wider; a template's characters each centred in its cell).
+
 Then the labels the 2010 patch drew (tools/af_nafe_gfx.py): the hook opens
 each menu whose segment holds some (LABEL_MENUS), and each label is in RAM
 where the segment was loaded (found by a stretch of the en tree's copy away
@@ -58,7 +69,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
-from n64emu import N64, A, write_png  # noqa: E402
+from n64emu import N64, A, R, write_png  # noqa: E402
 import af_nafe_gfx  # noqa: E402
 import af_ui  # noqa: E402
 import contact  # noqa: E402
@@ -115,6 +126,17 @@ EE_ANSWERS = [("EE_ANSWER0", "mSM_en_eeAnswer0"), ("EE_ANSWER1", "mSM_en_eeAnswe
               ("EE_ANSWER2", "mSM_en_eeAnswer2")]
 ANSWER_ROW = 16                                      # frame rows between answers (a row a line: 240 rows)
 AD_TEXT_W = 144                                      # the address book's balloon: the cartridge's 12 characters
+
+TUNE_BUTTONS = (R,)                                  # the town tune's trash: its question
+# the menus that draw the strings the en build swaps: ((program, data0), buttons that bring them up, names)
+SWAP_MENUS = [((7, 0), (), ["RP_TITLE", "OK"]),
+              ((9, 0), (), ["BD_TITLE"]),
+              ((3, 0), (), ["TI_TITLE", "TI_DATE", "TI_TIME"]),
+              ((19, 0), (), ["PK_TITLE"]),
+              ((8, 0), TUNE_BUTTONS, ["MS_QUESTION", "MS_YES", "MS_NO"])]
+SUBST_SIZE = 3 + af_ui.SUBST_KEY_MAX + af_ui.SUBST_EN_MAX   # mFont_EnSubst (u8s only)
+CELLS_SCALE = 0.875                                  # the clock's templates (func_80883B40_jp: its numbers
+# start in their cells, 10.5 pixels apart)
 
 # the menus that load the segments the 2010 patch drew labels in: (program, data0, segment's vrom, what)
 LABEL_MENUS = [(1, 0, 0xA30000, "the inventory"),
@@ -176,6 +198,45 @@ def check_ink(diff, model, what):
               min(rows) if rows else None, max(rows) if rows else None, model))
 
 
+def even(n):
+    return n + (n & 1)                                # mFont_GetStringWidth rounds a width up to even
+
+
+def runs(xs):
+    """[(left, right + 1)] of the runs of consecutive frame columns in xs."""
+    out = []
+    for x in sorted(set(xs)):
+        if out and x == out[-1][1]:
+            out[-1][1] = x + 1
+        else:
+            out.append([x, x + 1])
+    return [tuple(r) for r in out]
+
+
+def swap_box(board, key, ink):
+    """(the frame x the cartridge's box starts at, its scale) from the cartridge's string's ink."""
+    ext = board.extent(key)
+    scale = (ink[1] - ink[0] - FRINGE) / ((ext[1] - ext[0] + 1) * FRAME_X)
+    return ink[0] + FRINGE / 2 - ext[0] * scale * FRAME_X, scale
+
+
+def swap_inks(board, key, en, layout, left, scale):
+    """[(left, right)] frame x of the English's ink where the en m_font.c places it in the cartridge's box
+    starting at frame x left: one for a line, one a character for a template in cells."""
+    def ink(text, x, s):
+        ext = board.extent(text)
+        return (x + ext[0] * s * FRAME_X - FRINGE / 2, x + (ext[1] + 1) * s * FRAME_X + FRINGE / 2)
+    cell = 12 * scale * FRAME_X
+    if layout & af_ui.CELLS:
+        return [ink(en[i:i + 1], left + i * cell + (cell - even(board.width(en[i:i + 1])) * scale * FRAME_X) / 2, scale)
+                for i in range(len(en)) if en[i] != 0x20]
+    box, width, s = len(key) * cell, even(board.width(en)) * scale * FRAME_X, scale
+    if layout & af_ui.FIT and width > box:
+        s, width = scale * box / width, box
+    x = left + ((box - width) / 2 if layout & af_ui.CENTER else box - width if layout & af_ui.RIGHT else 0)
+    return [ink(en, x, s)]
+
+
 def check_labels(ram, vrom, af_en, cart, nafe, what):
     """Each label of the segment at vrom, in ram, holds the texels the en build drew it with."""
     path, labels = labels_of(vrom)
@@ -209,6 +270,7 @@ def main(argv):
     opts = dict(zip(argv[5::2], argv[6::2]))
     gc_path = opts.get("--gc") if os.path.exists(opts.get("--gc", "")) else None
     nafe_path = opts.get("--nafe") if os.path.exists(opts.get("--nafe", "")) else None
+    own_path = opts.get("--own") if os.path.exists(opts.get("--own", "")) else None
     af_en = os.path.abspath(af_en)
     shutil.rmtree(out, ignore_errors=True)
     os.makedirs(out)
@@ -222,6 +284,8 @@ def main(argv):
     board = emu_board.Board(seg, emu_board.read_cut(af_en))
     want = expected(af_en, gc_path)
     cart = open(os.path.join(af_en, af_ui.ROM), "rb").read()
+    own = af_ui.read_text(own_path) if own_path else {}
+    subs = af_ui.substitutions(cart, af_ui.read_text(gc_path) if gc_path else {}, own)
     nafe = open(nafe_path, "rb").read() if nafe_path else None
     print("emu_menus: the %s strings, the %s labels" % ("GameCube's" if gc_path else "cartridge's",
                                                        "2010 patch's" if nafe else "cartridge's"))
@@ -351,6 +415,85 @@ def main(argv):
         scale = min(1.0, AD_TEXT_W / width)               # narrowed to the cartridge's 144 pixels
         check_ink(ink_pixels(rgb, bare, w, h), model_width(want["AD_EMPTY"], scale),
                   "%s: the book is empty (%r), at %.3f" % (what, want["AD_EMPTY"], scale))
+
+        # the strings swapped where the font draws them
+        table = next(a for n, a in syms.items() if n.endswith(":mFont_en_subst"))
+        entries = {}
+        for i, (name, key, en, layout) in enumerate(subs):
+            entries[name] = (table + i * SUBST_SIZE, key, en, layout)
+            got = n64.read(table + i * SUBST_SIZE, SUBST_SIZE)
+            check(got[:3] == bytes([len(key), len(en), layout]) and got[3:3 + len(key)] == key
+                  and got[3 + af_ui.SUBST_KEY_MAX:3 + af_ui.SUBST_KEY_MAX + len(en)] == en,
+                  "the swap table: %s holds the cartridge's %d bytes and the English %r" % (name, len(key), en))
+
+        def overlay_copy(ram, windows):
+            """The address of the first of windows (stretches of the cartridge's data from a string on, longest
+            first) found in ram exactly once outside the swap table, or None."""
+            for win in windows:
+                hits, at = [], ram.find(win)
+                while at >= 0 and len(hits) < 2:
+                    if not table <= 0x80000000 + at < table + len(subs) * SUBST_SIZE:
+                        hits.append(at)
+                    at = ram.find(win, at + 1)
+                if len(hits) == 1:
+                    return 0x80000000 + hits[0]
+            return None
+
+        def open_swap(menu, buttons, pokes=(), blank_jp=None):
+            """The menu opened with pokes [(address, bytes)] written first; with blank_jp (windows of the
+            cartridge's data from the string on, and its length), the string made spaces where the overlay
+            holds it once it is in RAM. (w, h, rgb)."""
+            ctl = setup()
+            for at, data in pokes:
+                n64.write(at, data)
+            n64.write(ctl, struct.pack(">i4I", 1, menu[0], menu[1], 0, 0))
+            start, done = n64.frame, blank_jp is None
+            while n64.frame < start + SETTLE:
+                n64.frames(1, 0)
+                if not done:
+                    at = overlay_copy(n64.read(0x80000000, 0x800000), blank_jp[0])
+                    if at is not None:
+                        n64.write(at, b" " * blank_jp[1])
+                        done = True
+            for b in buttons:
+                n64.frames(2 * SETTLE, 0)                 # the menu takes buttons once it is at rest (the town
+                n64.press(b, frames=4)                    # tune's not 120 frames after it opens, at 160 it does)
+                n64.frames(SETTLE, 0)
+            return n64.screen()
+
+        for menu, buttons, names in SWAP_MENUS:
+            w, h, normal = open_swap(menu, buttons)
+            path = os.path.join(out, "swap-program-%d.png" % menu[0])
+            write_png(path, w, h, normal)
+            shots.append(path)
+            for name in names:
+                at, key, en, layout = entries.get(name, (None, None, None, None))
+                if at is None:
+                    check(False, "%s: in the swap table (no English for it)" % name)
+                    continue
+                what = "program %d's %s (%r)" % (menu[0], name, en.rstrip(b" "))
+                en_at, off = at + 3 + af_ui.SUBST_KEY_MAX, [(at + 3, b"\xFF")]
+                _, _, bare = open_swap(menu, buttons, [(en_at, b" " * len(en))])
+                _, _, jp = open_swap(menu, buttons, off)
+                rom_at = next(a for n, a, _, _, _, _ in af_ui.SUBST if n == name)
+                windows = [cart[rom_at:rom_at + n] for n in (16, 12, 8) if n > len(key)] + [key]
+                _, _, jp_bare = open_swap(menu, buttons, off, blank_jp=(windows, len(key)))
+                en_runs = runs(x for x, _ in ink_pixels(normal, bare, w, h))
+                jp_runs = runs(x for x, _ in ink_pixels(jp, jp_bare, w, h))
+                if not en_runs or not jp_runs:
+                    check(False, "%s: ink drawn (English %d runs, cartridge %d)" % (what, len(en_runs), len(jp_runs)))
+                    continue
+                if layout & af_ui.CELLS:
+                    first = board.extent(key[:1])
+                    left = jp_runs[0][0] + FRINGE / 2 - first[0] * CELLS_SCALE * FRAME_X
+                    want, got = swap_inks(board, key, en, layout, left, CELLS_SCALE), en_runs
+                else:
+                    left, scale = swap_box(board, key, (jp_runs[0][0], jp_runs[-1][1]))
+                    want, got = swap_inks(board, key, en, layout, left, scale), [(en_runs[0][0], en_runs[-1][1])]
+                check(len(want) == len(got) and all(abs(g[0] - e[0]) <= TOLERANCE and abs(g[1] - e[1]) <= TOLERANCE
+                                                    for g, e in zip(got, want)),
+                      "%s: its ink at %s, where the layout puts it in the cartridge's box: %s" % (
+                          what, got, ", ".join("(%.1f, %.1f)" % e for e in want)))
 
         for i, (program, data0, vrom, what) in enumerate(LABEL_MENUS):
             ctl = setup()

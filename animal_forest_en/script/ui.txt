@@ -1,0 +1,13 @@
+# Our own text for the menus' strings the en build swaps where the font draws them (tools/af_ui.py,
+# SUBST): a name, a tab, the text. It goes over the GameCube's where both exist.
+#
+# The clock's date and time (ovl__0078AE30): templates the menu draws its numbers into, a character a
+# cell of the cartridge's (10.5 pixels at its 0.875). The date's numbers start in cells 2, 6 and 10
+# (the year's last two digits, the month, the day), the time's minutes in cell 1, its hour before it:
+# a hyphen centred between two numbers (year-month-day, as ISO 8601 writes a date: the N64's font
+# has no slash), a colon after the hour (af_ui fills the cells after the text with spaces).
+TI_DATE	20  -   -
+TI_TIME	:
+# The Controller Pak's notes (ovl__007A10E0): the title of the screen that erases them. The GameCube
+# has a memory card and no such screen.
+PK_TITLE	Erase Controller Pak notes
