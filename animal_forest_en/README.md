@@ -46,7 +46,9 @@ make rom-en                       # la traducción: mismo código + decomp/chang
                                   # con code libre de crecer (build/animalforest-en.z64)
 make route-en                     # la juega en el emulador hasta las casas
 make script ISO=ruta/al/disco.iso # el guion oficial de GameCube: extrae los bancos de texto
-                                  # y los compara mensaje a mensaje con el del cartucho (build/gc/)
+                                  # y los compara mensaje a mensaje con el del cartucho, y su
+                                  # fuente (build/gc/)
+make board-check-en               # abre cartas en el tablero y mide sus líneas en pantalla
 make test                         # tests de las herramientas, sin ROM
 make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010, para estudiarlo
 ```
@@ -128,21 +130,33 @@ de dmadata (`decomp/changes.patch`): los mensajes, las respuestas de las
 elecciones, las cadenas (nombres de bichos y peces, muletillas, fechas) y
 los nombres de los animales (6 letras en el N64: 38 de 232 quedan cortados
 por ahora). El ROM en inglés ya habla: K.K. y Rover en la intro, con
-letra proporcional: los glifos latinos del propio cartucho, movidos al
-borde izquierdo de su celda de 12 px y con su anchura medida
-(`tools/af_font.py`, a partir del volcado del usuario al compilar; el
-`m_font.c` del build en inglés los dibuja y los mide así, y el japonés
-sigue igual: `reference/NOTES.md`, "The font in the en build").
+letra proporcional y los glifos latinos de GameCube con sus anchuras
+(`make script` los lee del disco del usuario, del módulo `foresta.rel` y
+su mapa `foresta.map`; `tools/af_font.py` los pone en la fuente del
+cartucho al compilar; el `m_font.c` del build en inglés los dibuja y los
+mide así, y el japonés sigue igual: `reference/NOTES.md`, "The font in
+the en build"). Sin el disco, el build usa los glifos latinos del propio
+cartucho, movidos al borde izquierdo de su celda de 12 px.
 Nuestras traducciones de lo que GameCube no tiene van en `script/`.
 
-Las líneas que no caben en los 192 px de la ventana (un 3,7 %) se
-recolocan al compilar (`af_text.py --font`): las últimas palabras pasan a
-la línea siguiente, o la página se rellena de nuevo, o se parte tras la
-última frase que cabe.
+Las líneas que no caben en los 192 px de la ventana (un 0,1 % con los
+glifos de GameCube; un 3,9 % con los del cartucho) se recolocan al
+compilar (`af_text.py --font`): las últimas palabras pasan a la línea
+siguiente, o la página se rellena de nuevo, o se parte tras la última
+frase que cabe.
 
-Lo que viene: los gráficos occidentales de GameCube (y sus glifos, más
-estrechos, cuando el disco vuelva a estar), la pantalla de cartas, y
-traducir ese 6 %.
+Las cartas: el ROM guarda cada carta oficial entera (la partida
+comprimida y su extensión: "The compressed save", "The letters in the en
+build"), y el tablero de cartas (`board_ovl`, ya en C e idéntico al
+cartucho) la muestra entera al leerla: el encabezado con el nombre, el
+cuerpo partido a los 192 px del papel en sus seis líneas, como en
+GameCube, y la despedida alineada a la derecha. `make board-check-en`
+abre cartas en el emulador y mide cada línea en la imagen contra un
+modelo del tablero ("The letter board in the en build").
+
+Lo que viene: los gráficos occidentales de GameCube, escribir cartas con
+la letra proporcional (el cursor del editor aún avanza 12 px por
+carácter), y traducir ese 6 %.
 
 ## Dónde está cada cosa
 
@@ -164,8 +178,11 @@ traducir ese 6 %.
   `af_luicheck.py` (sus pruebas), `gciso.py`/`msgbank.py`/`af_align.py`
   (el disco de GameCube, los bancos de texto de ambos juegos y su
   correspondencia), `af_text.py` (el banco inglés: borrador, comprobador y
-  compilador) y `af_font.py` (la fuente del build en inglés).
+  compilador), `af_font.py` (la fuente del build en inglés) y
+  `af_ovlreloc.py` (la tabla de reubicaciones de un overlay que cambia).
 - `script/` — nuestro texto: lo que no tiene versión oficial.
-- `tests/` — `test_tools.py` (`make test`) y `emu_check.py`
-  (`make emu-check`).
+- `tests/` — `test_tools.py` (`make test`), `emu_check.py`
+  (`make emu-check`) y las pruebas del build en inglés en el emulador:
+  `emu_save.py` (la partida), `emu_letters.py` (las cartas) y
+  `emu_board.py` (el tablero de cartas).
 - `reference/NOTES.md` — lo verificado, con su fuente.

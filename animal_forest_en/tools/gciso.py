@@ -51,6 +51,51 @@ class Disc:
         return self.data[off:off + size]
 
 
+def yaz0(src, limit=None):
+    """A Yaz0 file (`.szs`: 'Yaz0', the decoded size, 8 bytes of padding,
+    then groups of a code byte and eight items, a literal byte for a set
+    bit, else a back reference: 12 bits of distance less one, and a length
+    of 2 more than the top nibble, or of 0x12 more than a third byte when
+    the nibble is 0) decoded, up to `limit` bytes if given."""
+    if src[:4] != b"Yaz0":
+        raise ValueError("not a Yaz0 file")
+    size = struct.unpack(">I", src[4:8])[0]
+    if limit is not None:
+        size = min(size, limit)
+    dst = bytearray(size)
+    s = 16
+    d = 0
+    while d < size:
+        code = src[s]
+        s += 1
+        for bit in range(8):
+            if d >= size:
+                break
+            if code & (0x80 >> bit):
+                dst[d] = src[s]
+                d += 1
+                s += 1
+            else:
+                b1, b2 = src[s], src[s + 1]
+                s += 2
+                dist = ((b1 & 0xF) << 8 | b2) + 1
+                n = b1 >> 4
+                if n == 0:
+                    n = src[s] + 0x12
+                    s += 1
+                else:
+                    n += 2
+                n = min(n, size - d)
+                if dist >= n:
+                    dst[d:d + n] = dst[d - dist:d - dist + n]
+                    d += n
+                else:
+                    for _ in range(n):
+                        dst[d] = dst[d - dist]
+                        d += 1
+    return bytes(dst)
+
+
 class Rarc:
     """Nintendo's RARC: header, a data header with the directory and file
     entries, a string table, then the data."""

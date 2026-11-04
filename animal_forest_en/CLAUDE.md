@@ -45,7 +45,8 @@ the why and the state, `reference/NOTES.md` for what is verified.
    `make test` needs no ROM and runs in CI; `make emu-check` needs the
    user's dump and stays local. A change to the
    save code also runs `make save-check-en`, one to the letters `make
-   letters-check-en`, one to `emu/` `make emu-determinism`.
+   letters-check-en`, one to the letter board or the font `make
+   board-check-en`, one to `emu/` `make emu-determinism`.
 
 ## Where things live
 
@@ -73,7 +74,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   section that grows, or a new one, goes to `code_en` after `buffers`, a
   shrunk one is padded in place), the RAM addresses splat left absolute
   made relative, and the compressed ROM's ranges and dmadata order (NOTES,
-  "Shiftability").
+  "Shiftability"). `tools/af_ovlreloc.py` gives an overlay the translation
+  changes (`EN_OVERLAYS`) its relocation table anew, from fado, in the
+  cartridge's layout, after proving fado on the matching build (NOTES,
+  "The letter board in the en build").
 - `tools/af_shiftcheck.py`, `af_anchors.py`, `af_luicheck.py` — the proofs
   `make rom-en` runs before compressing: nothing of the cartridge's moved,
   no address spelled with the wrong symbol, no shared `lui` broken.
@@ -91,15 +95,18 @@ the why and the state, `reference/NOTES.md` for what is verified.
   laid over the drafts (NOTES, "The GameCube script", "The English bank
   in the ROM").
 - `tools/af_font.py` — the en build's font, made from the user's dump at
-  `make rom-en`: the Latin letters at the left of their 12-pixel cells and
-  their widths, the table the en `m_font.c` includes (NOTES, "The font in
-  the en build").
+  `make rom-en`: the GameCube's Latin letters and their widths (read from
+  the disc by `make script` into `build/gc/gc_font.bin`), or without the
+  disc the cartridge's at the left of their 12-pixel cells; the table the
+  en `m_font.c` includes (NOTES, "The font in the en build").
 - `tools/aflz.py` — the en build's save compressor in Python (the twin
   of `include/af_lz.h` in changes.patch): slot images packed and read.
 - `tests/` — `test_tools.py`, `emu_check.py`, `emu_save.py` (the en
   save driven through a hook in the running game: `make save-check-en`),
   `emu_letters.py` (the en letter loaders through the same hook, against
   a model of the cartridge's expander: `make letters-check-en`),
+  `emu_board.py` (the letter board opened on letters, its lines measured
+  on the frame against a model of the board: `make board-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.

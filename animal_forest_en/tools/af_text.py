@@ -6,7 +6,7 @@ compiled to the files the ROM reads.
     tools/af_text.py draft  N64_DUMP GC_DUMP ALIGN.tsv OUT.txt [--overrides FILE ...]
     tools/af_text.py draft  N64_DUMP GC_DUMP - OUT.txt --bank choice|string [--overrides FILE ...]
     tools/af_text.py check  BANK.txt [--bank message] [--cols 32] [--lines 4] [--max-bytes N] [--reference N64_DUMP]
-                            [--font ROM]
+                            [--font ROM [--gc-font GC_FONT.bin]]
     tools/af_text.py compile BANK.txt TEXT.bin INDEX.bin [the same options]
     tools/af_text.py compile-letters TEXT.bin INDEX.bin MAIL_HEADER.txt ... VMAIL_FOOTER.txt
 
@@ -55,7 +55,8 @@ system", "The GameCube script"):
     more (--reference, its dump: 14 messages do, their extra lines never
     shown); draft splits such pages with BTN and MSGCLEAR;
   * a line has at most --cols characters (a warning), or with --font (the
-    user's dump, for the en build's widths: tools/af_font.py) at most the
+    user's dump, and --gc-font the GameCube's font from their disc, for
+    the en build's widths: tools/af_font.py) at most the
     window's 192 pixels: the message bank is first laid out to that width
     (layout(): a page whose lines fit is left as it is; else a long line's
     last words go on to the next line, or the page's text is filled anew,
@@ -668,7 +669,7 @@ def draft(n64_path, gc_path, align_path, out_path, overrides):
 def main(argv):
     global N64_COUNT
     opts = {"--cols": 32, "--lines": 4, "--max-bytes": None}
-    args, overrides, reference, bank, count, font, i = [], [], None, "message", None, None, 0
+    args, overrides, reference, bank, count, font, gc_font, i = [], [], None, "message", None, None, None, 0
     while i < len(argv):
         if argv[i] in opts:
             opts[argv[i]] = int(argv[i + 1], 0)
@@ -687,6 +688,9 @@ def main(argv):
             i += 2
         elif argv[i] == "--font":
             font = argv[i + 1]
+            i += 2
+        elif argv[i] == "--gc-font":
+            gc_font = argv[i + 1]
             i += 2
         else:
             args.append(argv[i])
@@ -708,8 +712,8 @@ def main(argv):
     measure = None
     if font is not None and bank == "message":
         import af_font
-        from af_names import segment
-        widths = af_font.widths(af_font.align(segment(open(font, "rb").read(), af_font.VROM))[1])
+        gc = open(gc_font, "rb").read() if gc_font else None
+        widths = af_font.widths(af_font.font(open(font, "rb").read(), gc)[1])
         measure, counts = Measure(widths), collections.Counter()
         messages = {n: layout(t, widths, WINDOW_WIDTH, opts["--lines"], counts) for n, t in messages.items()}
         print("af_text: laid out at %d pixels: %s" % (WINDOW_WIDTH, ", ".join("%d %s" % (counts[k], k)

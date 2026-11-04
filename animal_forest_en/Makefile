@@ -45,7 +45,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en emu-determinism decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
+.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en emu-determinism decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
 
 all: verify
 
@@ -154,10 +154,15 @@ EN_LETTERS := $(foreach b,$(LETTER_BANKS),$(if $(wildcard $(GC_DIR)/en_$(b).txt)
 # in its 6-byte fields (tools/af_names.py), as the en build's copy of the
 # segment's .bin; the cartridge's own when the disc's table is not there.
 EN_NAMES := $(AF_EN_DIR)/assets/jp/segment_00E04000.bin
-# The font: the cartridge's sheet with the Latin characters at the left of
-# their cells, as the en build's copy of the segment's .bin, and their widths
-# as the table the en build's m_font.c includes (tools/af_font.py).
+# The font: the cartridge's sheet with the GameCube's Latin characters
+# (build/gc/gc_font.bin, which make script reads from the disc), or without
+# it the cartridge's own at the left of their cells, as the en build's copy
+# of the segment's .bin, and their widths as the table the en build's
+# m_font.c includes (tools/af_font.py). The messages are laid out with the
+# same widths (FONT_OPTS).
 EN_FONT := $(AF_EN_DIR)/assets/jp/segment_00BCD000.bin
+GC_FONT := $(wildcard $(GC_DIR)/gc_font.bin)
+FONT_OPTS := --font $(BASEROM) $(if $(GC_FONT),--gc-font $(GC_FONT))
 # The overlays the translation changes: each gets its relocation table made
 # anew from its objects after the first link (tools/af_ovlreloc.py, which
 # first proves fado on the matching build), and af_relink pads its sections
@@ -200,10 +205,10 @@ $(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n64_string_jp.txt: $(
 	$(PYTHON) tools/msgbank.py dump-n64 $(BASEROM) $(GC_DIR)/n64_string_jp.txt string
 
 # The messages are laid out at the window's width with the en font's
-# widths, which tools/af_font.py reads from the dump (--font).
-$(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(EN_CHOICE) $(EN_STRING) $(GC_DIR)/n64_jp.txt tools/af_text.py tools/msgbank.py tools/af_font.py
+# widths, which tools/af_font.py reads from the dump and the disc's font.
+$(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(EN_CHOICE) $(EN_STRING) $(GC_DIR)/n64_jp.txt tools/af_text.py tools/msgbank.py tools/af_font.py $(GC_FONT)
 	mkdir -p $(EN_ASSETS)
-	$(PYTHON) tools/af_text.py compile $(EN_BANK) $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/msg_index.bin --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600 --font $(BASEROM)
+	$(PYTHON) tools/af_text.py compile $(EN_BANK) $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/msg_index.bin --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600 $(FONT_OPTS)
 	$(PYTHON) tools/af_text.py compile $(EN_CHOICE) $(EN_ASSETS)/choice_text.bin $(EN_ASSETS)/choice_index.bin --bank choice --max-bytes 24
 	$(PYTHON) tools/af_text.py compile $(EN_STRING) $(EN_ASSETS)/string_text.bin $(EN_ASSETS)/string_index.bin --bank string --max-bytes 64 --count 0x679
 
@@ -220,9 +225,9 @@ $(EN_NAMES): $(BASEROM) tools/af_names.py $(wildcard $(GC_DIR)/npc_name_str_tabl
 	@if [ -s $(GC_DIR)/npc_name_str_table.bin ]; then $(PYTHON) tools/af_names.py $(BASEROM) $(GC_DIR)/npc_name_str_table.bin $@ | tail -1; \
 	else echo "names: the cartridge's (no $(GC_DIR)/npc_name_str_table.bin)"; fi
 
-$(EN_FONT): $(BASEROM) tools/af_font.py tools/af_names.py tools/msgbank.py $(AF_EN_DIR)/.stamp-extract
+$(EN_FONT): $(BASEROM) tools/af_font.py tools/af_names.py tools/msgbank.py tools/gciso.py $(GC_FONT) $(AF_EN_DIR)/.stamp-extract
 	mkdir -p $(EN_ASSETS)
-	$(PYTHON) tools/af_font.py $(BASEROM) $@ $(EN_ASSETS)/font_cut.inc
+	$(PYTHON) tools/af_font.py $(BASEROM) $@ $(EN_ASSETS)/font_cut.inc $(if $(GC_FONT),--gc $(GC_FONT))
 
 en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT)
 
@@ -261,6 +266,12 @@ save-check-en: route-en
 letters-check-en: route-en
 	$(PYTHON) tests/emu_letters.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-letters-en
 
+# The en build's letter board, opened on letters from the same state, its
+# lines measured on the frame against a model of the board (tests/
+# emu_board.py; NOTES, "The letter board in the en build").
+board-check-en: route-en
+	$(PYTHON) tests/emu_board.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-board-en
+
 # -- the GameCube script (phase 4) -------------------------------------------
 # ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it
 # produces lands in build/gc, which git ignores: the banks, their dumps and
@@ -276,11 +287,12 @@ LETTER_PAIRS := mail_header:super mail_body:mail mail_footer:ps vmail_header:sup
 script: $(BASEROM) $(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n64_string_jp.txt
 	@test -n "$(ISO)" || { echo "make script ISO=path/to/Animal_Crossing_USA.iso"; exit 1; }
 	@for f in $(GC_FILES); do $(PYTHON) tools/gciso.py extract "$(ISO)" $$f $(GC_DIR)/$$(basename $$f) || exit 1; done
+	$(PYTHON) tools/af_font.py gc "$(ISO)" $(GC_DIR)/gc_font.bin
 	$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/message_data.bin $(GC_DIR)/message_data_table.bin $(GC_DIR)/gc_en.txt
 	$(PYTHON) tools/af_align.py $(BASEROM) $(GC_DIR)/message_data.bin $(GC_DIR)/message_data_table.bin $(GC_DIR)/align.tsv
 	$(PYTHON) tools/af_text.py draft $(GC_DIR)/n64_jp.txt $(GC_DIR)/gc_en.txt $(GC_DIR)/align.tsv $(GC_DIR)/en_bank.txt \
 		$(foreach f,$(wildcard script/*.txt),--overrides $(f))
-	$(PYTHON) tools/af_text.py check $(GC_DIR)/en_bank.txt --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600 --font $(BASEROM) | tail -1
+	$(PYTHON) tools/af_text.py check $(GC_DIR)/en_bank.txt --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600 --font $(BASEROM) --gc-font $(GC_DIR)/gc_font.bin | tail -1
 	$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/select_data.bin $(GC_DIR)/select_data_table.bin $(GC_DIR)/gc_choice_en.txt
 	$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/string_data.bin $(GC_DIR)/string_data_table.bin $(GC_DIR)/gc_string_en.txt
 	$(PYTHON) tools/af_text.py draft $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/gc_choice_en.txt - $(GC_DIR)/en_choice.txt --bank choice \

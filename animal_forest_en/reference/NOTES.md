@@ -994,8 +994,36 @@ what goes in it: "The letters in the en build").
   wider than the window's 192 px and 417 wider than 200; with two empty
   columns between letters it would be 28%. The GameCube's own font is
   narrower (its line of "I never could sell that thing at the shop...",
-  44 characters, is 276 px here). The disc is not on this machine now, so
-  its glyphs wait; the lines are laid out instead (next item).
+  44 characters, is 276 px here). So the en build now takes the
+  GameCube's glyphs when the disc is there (next item).
+- **The GameCube's Latin characters** (`tools/af_font.py --gc`, `make
+  script` reads them: `af_font.py gc ISO`). Animal Crossing draws a
+  character as the N64 does, from the left of a 12x16 cell, 12 pixels
+  less its entry in a cut table (`mFont_GetCodeWidth` in ac-decomp's
+  `m_font.c`, a map), and its charset has the N64's Latin characters at
+  the same codes (tools/msgbank.py `GC_CHARS`, `N64_CHARS`). The disc
+  ships `foresta.map` (CodeWarrior's map, CRLF lines) beside
+  `foresta.rel.szs` (the game's REL module, Yaz0: `gciso.yaz0`): the
+  map's `.data` holds `FONT_nes_tex_font1` at 0x204700 (0x6000 bytes:
+  192x256 I4 in the GameCube's 8x8 tiles, 32 bytes a tile, tiles left to
+  right) and `m_font.o`'s `offset_data$396` at 0x6D98 (256 cuts); the
+  map lists its sections in the module's order and its `.data` ends at
+  0xADF4F8, the size of the module's section 5 (at 0x2DD340), as `.text`
+  and `.bss` match sections 1 and 6. `af_font.py gc` finds both by name,
+  checks that extent, decodes only as far as it needs (0.4 s), untiles
+  the sheet and writes it and the cuts to `build/gc/gc_font.bin` (never
+  committed); the en build's sheet then has the GameCube's glyphs and
+  cuts for the 79 Latin characters, the space (5 px) and the marks the
+  English text shares with it at the same code (♥ ♪ ー, and ～ ☺ for
+  the GameCube's ~ and 😃, as `af_text` compiles them); kana and kanji
+  stay the cartridge's. Its letters are 4 to 11 pixels wide, a column
+  of faint ink (1 to 5 of 15) at each edge of most. Counted as above
+  (here 96,230 lines of the dump), the lines wider than 192 px go from
+  3,764 (3.9%) to 143 (0.1%), 90 of them wider than 200; the message
+  layout (next item) now moves lines on 94 pages, fills 10 anew and
+  splits 4. On screen: Nook's lines in the GameCube's letters, the
+  route on the same frames. Without `build/gc/gc_font.bin` the build
+  keeps the cartridge's realigned glyphs.
 - **The lines laid out to the window** (`tools/af_text.py --font`, in
   `make rom-en`: layout()). A page whose lines all fit 192 px is left as
   it is, and so is Japanese text; else a long line's last words go on to
@@ -1010,7 +1038,8 @@ what goes in it: "The letters in the en build").
   (TODO(verify)). On the English bank: 1,934 pages with words moved on,
   232 filled anew, 372 split (304 of the cuts at a sentence's end, 68
   inside one); 3 lines stay wider than the window (one long word, or free
-  strings). Most of it is a few pixels: at 196 px the splits would be 149,
+  strings). (Those counts are with the cartridge's realigned glyphs; with
+  the GameCube's, above.) Most of it is a few pixels: at 196 px the splits would be 149,
   at 200 px 43; a space of 3 px instead of 4 gives 146, but words run
   together in these bold letters. On screen, K.K.'s "Still, if you've got
   some / really tight friends somewhere / ..." ran into the window's edge
@@ -1024,3 +1053,94 @@ what goes in it: "The letters in the en build").
   also compares the symbols inside each section and treats a section of
   the same size whose symbols moved as shrunk (in place, its symbols
   free).
+
+## The letter board in the en build (phase 4, the letters' third step)
+
+- **The board on the cartridge** (`board_ovl`, the submenu program 12,
+  `src/overlays/submenu/board_ovl/m_board_ovl.c`). Its state is
+  `mBD_Ovl_c` (0xC0 bytes, the overlay's bss, `B_8088AC00_jp`: the field
+  being written, the header's name length, the three fields' lengths,
+  a copy of the letter, where to put it back, offsets); the submenu's
+  `mBD_MenuInfo` for it (`menuInfo[12]` of the submenu overlay, at
+  0x10088) carries the caller's arguments: data0 0 to write a letter, 1
+  to read one, else to answer one; data1 the paper's pocket; data2 the
+  letter (`m_submenu_ovl.c` copies `mSM_open_submenu_new`'s arguments
+  there). The init (`func_8088A2D0_jp`) copies the letter, measures the
+  fields (`mMl_strlen`: the length less trailing spaces) and takes the
+  footer's leading spaces out; the header, body and footer are drawn by
+  `func_80889CD8_jp`, `func_80889A9C_jp` and `func_808899E4_jp` with
+  `func_80090E98_jp` (the line drawer), monospaced: the body in lines of
+  16 characters (a newline ends one early), the footer ending at 16
+  characters, the header with the recipient's name drawn red at
+  `headerBackStart`, or as it is for a letter of mail type 2, 3 or 5.
+- **In C** (decomp/matching.patch): the init, the body and the footer
+  match (`make verify`: the cartridge, byte for byte); the header is C
+  behind `NON_MATCHING`. Matching needed the paper's index as
+  `(pockets[data1] - 0x2000) & 0xFF`, the name's length declared at the
+  top of its block, a `u8 tmp[20]`, and in the body a `//! FAKE` empty
+  `if`. The splat yaml cuts the overlay as C with its data, rodata and
+  bss in the same object (`[0x7908A0, c, ...]`): fado sees an overlay's
+  bss relocations only in the object that holds the bss.
+- **An overlay's relocations** (`tools/af_ovlreloc.py`, run by `make
+  rom-en` after the first link). The table the loader applies
+  (`DoRelocation`) is the segment `NAME_reloc`: the text, data, rodata
+  and bss sizes, a count, then one word per relocation (section in the
+  top 2 bits, ELF type in the next 6, offset below), zeros, and a last
+  word. The decomp takes it from the cartridge; an overlay whose code
+  changes needs its own. `af_ovlreloc` first proves zeldaret's `fado`
+  gives the cartridge's table from the matching build's objects (board:
+  the same 52 relocations; a HI16 with its LO16s compared as a group, in
+  any order), then writes fado's table for the en objects in the
+  cartridge's layout (its sizes, its length, its last word), refusing
+  an overlay that grew or needs more room. `af_relink` pads a shrunk
+  overlay's sections back to the cartridge's sizes in place and refuses
+  one that grew, so no overlay moves.
+- **The en board** (decomp/changes.patch: `m_board_ovl.c` forwards to
+  `m_handbill.c`, `m_board_ovl_en.h`). Reading a letter, the init also
+  calls `mHandbill_en_BoardLoad`, which fetches the letter whole as the
+  save keeps it (`mHandbill_en_GetLetter`: header 24, body 192, footer
+  32; NOTES, "The letters in the en build"). The header is drawn with
+  the name put in at its position (or as it is, types 2, 3 and 5); the
+  body is broken into lines at the board's 192 pixels after the last
+  space that fits, its own newlines kept, over its six lines, the rest
+  not drawn (the GameCube's board: `mBD_MAX_WIDTH` 192,
+  `mBD_BODY_LINE_NUM` 6, in ac-decomp's `m_board_ovl.c`, a map); the
+  footer ends at the body's right edge. Writing a letter, the board keeps
+  the cartridge's fields and drawing (the editor's cursor goes by 12
+  pixels a character: TODO, the editor at the en widths).
+- **On screen** (`tests/emu_board.py`, `make board-check-en`). From the
+  houses' state of route-en, a hook loads a letter into the first pocket
+  letter as the game's callers do and opens the board as
+  `mSM_submenu_ctrl` opens a program; nine shop letters (the longest
+  bodies, the longest footer, a notice of type 2 and the same as type
+  4, indented lines, two that run past six lines with the free strings
+  set) and two villagers' letters. Each band's first and last text pixel
+  is where a model of the board puts the first and last characters'
+  inked columns, within 2 frame pixels, on all 88 bands of the 11
+  boards; the model fails 29 bands with its lines broken 20 px early
+  and 71 with a space 1 px wider. The text's pixels are told by colour
+  (red over blue over green; the postmark has blue and green equal, the
+  ruled lines blue over red): the board's thin strokes are resampled
+  (next item) and come out lighter than the postmark (an "l" at r+g+b
+  401-414, the postmark's darkest 386).
+- **The board draws its text about 2% narrow.** The message window's
+  text lands at 2 frame pixels to the pixel (Nook's first two lines: the
+  model's (130, 365) and (130, 423), measured (130, 364) and (130,
+  422)); the board's at 1.954, around the screen's centre (fitted on the
+  88 bands, residuals within 1.7 frame pixels), vertically exact (the
+  lines 16 rows apart). It is the cartridge's own call
+  (`func_80090E98_jp`, mode 0, scale 1.0, as the matching board passes
+  it), so Japanese text on the cartridge's board is drawn the same way.
+  The play's viewport is the whole screen (vscale 640, 480) and the
+  font's projection 16 units to the pixel (`mFont_SetMatrix`:
+  `guOrtho(-2560, 2560, -1920, 1920)`); where the 2% comes from is
+  TODO(verify).
+- **What it fixed.** With the cartridge's realigned glyphs, 62 lines of
+  the GameCube's letters (in 60 letters) were wider than 192 px before
+  any free string, and 56 to 60 shop letters ran past six lines with
+  short free strings (a word carried to a line of its own). With the
+  GameCube's glyphs no line of the eight letter banks without a free
+  string is wider than 192 px (the widest, a body's, 184); with
+  short free strings 1 to 3 shop letters reach a seventh line (430: the
+  GameCube's own body has seven lines, its signature on the seventh;
+  503 and 508 when an acre's free strings are names).

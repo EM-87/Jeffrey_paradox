@@ -869,6 +869,82 @@ class Font(unittest.TestCase):
         with self.assertRaises(ValueError):
             af_font.align(bytes(seg[:-16]))
 
+    @staticmethod
+    def yaz0_literal(data):
+        """A Yaz0 file of literals only (code bytes 0xFF)."""
+        out = bytearray(b"Yaz0" + struct.pack(">I", len(data)) + bytes(8))
+        for i in range(0, len(data), 8):
+            out += b"\xff" + data[i:i + 8]
+        return bytes(out)
+
+    def test_yaz0_literals_and_back_references(self):
+        # "ab", then 6 bytes from 2 back (nibble 4), then 0x12 + 1 bytes from 1 back (nibble 0, third byte)
+        src = b"Yaz0" + struct.pack(">I", 2 + 6 + 0x13 + 1) + bytes(8) + bytes([0b11001000]) + b"ab" + \
+            bytes([0x40, 0x01]) + bytes([0x00, 0x00, 0x01]) + b"z"
+        self.assertEqual(gciso.yaz0(src), b"abababab" + b"b" * 0x13 + b"z")
+        self.assertEqual(gciso.yaz0(src, 5), b"ababa")
+        self.assertEqual(gciso.yaz0(self.yaz0_literal(b"hello, world")), b"hello, world")
+        with self.assertRaises(ValueError):
+            gciso.yaz0(b"Yay0" + bytes(12))
+
+    def gc_disc_files(self, cut_obj="m_font.o", data_extra=0):
+        """(foresta.rel.szs, foresta.map) made up: the sheet tiled, a cut table, as the disc has them."""
+        rnd = random.Random(7)
+        sheet = rnd.randbytes(af_font.SHEET_SIZE)              # the sheet as the N64 lays it out
+        tiled = bytearray(af_font.SHEET_SIZE)
+        for t in range(af_font.SHEET_SIZE // 32):
+            tx, ty = t % 24, t // 24
+            for y in range(8):
+                at = (ty * 8 + y) * 96 + tx * 4
+                tiled[t * 32 + y * 4:t * 32 + y * 4 + 4] = sheet[at:at + 4]
+        cuts = bytes(rnd.randrange(0, 9) for _ in range(256))
+        data = bytearray(0x40) + cuts + bytearray(0xC0) + tiled  # cut table at 0x40, sheet at 0x200
+        sections = [(0, 0), (0x101, 0x100), (0, 0), (0, 0), (0, 0), (0x200, len(data)), (0, 0x80)]
+        rel = bytearray(0x200)
+        struct.pack_into(">II", rel, 0xC, len(sections), 0x40)
+        for i, (o, s) in enumerate(sections):
+            struct.pack_into(">II", rel, 0x40 + 8 * i, o, s)
+        rel = bytes(rel) + bytes(data)
+        lines = [".text section layout", "  Starting        Virtual", "  address  Size   address", "  -----------------------",
+                 "  00000000 000100 00000000  1 .text \tdummy.o ", "",
+                 ".data section layout", "  Starting        Virtual", "  address  Size   address", "  -----------------------",
+                 "  00000000 000040 00000000  4 offset_data$4207 \tm_collision_bg.o ",
+                 "  00000040 000100 00000040  4 offset_data$396 \t%s " % cut_obj,
+                 "  00000200 006000 00000200 32 FONT_nes_tex_font1 \tdataobject.obj ",
+                 "  00006200 %06x 00006200  4 tail \tdummy.o " % (len(data) - 0x6200 + data_extra), "",
+                 ".bss section layout", ""]
+        return self.yaz0_literal(rel), "\r\n".join(lines), sheet, list(cuts)
+
+    def test_gc_font_found_by_name_in_the_map_and_untiled(self):
+        szs, map_text, sheet, cuts = self.gc_disc_files()
+        got_sheet, got_cuts = af_font.gc_font(szs, map_text)
+        self.assertEqual(got_sheet, sheet)
+        self.assertEqual(got_cuts, cuts)
+        with self.assertRaises(SystemExit):                        # the cut table is m_font.o's only
+            af_font.gc_font(*self.gc_disc_files(cut_obj="m_other.o")[:2])
+        with self.assertRaises(SystemExit):                        # the map's .data is not the module's
+            af_font.gc_font(*self.gc_disc_files(data_extra=4)[:2])
+
+    def test_gc_latin_characters_and_marks_replace_the_cartridges(self):
+        seg = random.Random(5).randbytes(af_font.SIZE)
+        gc_sheet = random.Random(6).randbytes(af_font.SHEET_SIZE)
+        gc_cut = bytes((c * 7) % 9 for c in range(256))
+        out, cut = af_font.gc_align(seg, gc_sheet + gc_cut)
+        self.assertEqual(len(out), af_font.SIZE)
+        self.assertEqual(out[:af_font.SHEET], seg[:af_font.SHEET])
+        self.assertEqual(out[af_font.SHEET + 0x6000:], seg[af_font.SHEET + 0x6000:])
+        g = {ch: i for i, ch in reversed(list(enumerate(msgbank.GC_CHARS)))}
+        for ch, gc_ch in (("A", "A"), ("z", "z"), (" ", " "), ("ー", "ー"), ("～", "~"), ("☺", "😃")):
+            c = msgbank.N64_BYTES[ch]
+            for y in range(16):
+                self.assertEqual(af_font._row(out, c, y)[0], af_font._row(b"\0" * af_font.SHEET + gc_sheet, g[gc_ch], y)[0])
+            self.assertEqual(cut[c], gc_cut[g[gc_ch]])
+        kana = msgbank.N64_BYTES["あ"]
+        self.assertEqual(cut[kana], 0)
+        self.assertEqual([af_font._row(out, kana, y)[0] for y in range(16)], [af_font._row(seg, kana, y)[0] for y in range(16)])
+        with self.assertRaises(ValueError):
+            af_font.gc_align(seg, gc_sheet)
+
 
 class Save(unittest.TestCase):
     """The en build's compressed save (tools/aflz.py and its C twin, include/af_lz.h)."""
