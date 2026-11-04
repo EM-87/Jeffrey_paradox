@@ -257,6 +257,26 @@ SUBST = [
     ("TG_SUTERUNO", (0x781838, 5), LEFT | FIT, "mTG_tag_str_suteruno", "m_tag_ovl.o"),
     ("TG_HONTONI", (0x781840, 4), LEFT | FIT, None, None),
     ("TG_IIDESUKA", (0x781844, 6), LEFT | FIT, None, None),
+    # a wrapped item's name in its tag (func_8086FD3C_jp: copied into the name, 10 characters with spaces
+    # after, and drawn as far as mMl_strlen finds the name)
+    ("TG_PRESENT_NAME", (0x78190C, 5), LEFT | FIT, "present_str$820", "m_tag_ovl.o"),
+    # the map (map_ovl): the label of the acre under the cursor, from its table D_8088FF20_jp (each entry's
+    # string and length, at +0x14 and +0x18; the post office's second line drawn after it, func_8088F110_jp),
+    # left after its icon, at most 6 cells (a name's): the GameCube's (mMP_label_str_*), and ours, in its
+    # words, where it breaks a label the cartridge has on one line over two; and a house nobody lives in, a
+    # name of 6 characters (D_8088FE84_jp, copied for each resident: func_8088DE88_jp)
+    ("MP_SHOP", (0x797680, 3), LEFT | FIT | BOX(6), "mMP_label_str_shop", "m_map_ovl.o"),
+    ("MP_POLICE", (0x797684, 4), LEFT | FIT | BOX(6), None, None),
+    ("MP_POST", (0x797688, 4), LEFT | FIT | BOX(6), "mMP_label_str_post", "m_map_ovl.o"),
+    ("MP_OFFICE", (0x79768C, 3), LEFT | FIT | BOX(6), "mMP_label_str_post2", "m_map_ovl.o"),
+    ("MP_SHRINE", (0x797690, 4), LEFT | FIT | BOX(6), None, None),
+    ("MP_STATION", (0x797694, 2), LEFT | FIT | BOX(6), None, None),
+    ("MP_DUMP", (0x797698, 5), LEFT | FIT | BOX(6), "mMP_label_str_junk", "m_map_ovl.o"),
+    ("MP_VACANT", (0x797604, 6), LEFT | FIT, ("akiya_str$483", 8), "m_map_ovl.o"),
+    # the letters kept on the Controller Pak (ovl__00797A50, func_80895298_jp): which letter, its number
+    # written into the template's first two cells (mFont_UnintToString) and drawn with the word after it
+    # (D_80895C08_jp, 5 characters): ours (the GameCube names its card's folders instead)
+    ("CP_NTH", [HOLE, (0x79940A, 3)], CENTER | FIT, None, None),
 ]
 
 

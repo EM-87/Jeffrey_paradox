@@ -1602,6 +1602,48 @@ what goes in it: "The letters in the en build").
   249 to 305, the model's 248.0 to 306.0). With them the check measures
   27 swapped strings on screen; all 213 of its checks pass.
 
+- **The map's labels** (the fourth batch). The map (map_ovl) labels
+  the acre under its cursor from its table (`D_8088FF20_jp`, 28-byte
+  entries: the label's string and its length at +0x14 and +0x18, read
+  by `func_8088F110_jp`): the shop (3 characters), the police box (4),
+  the post office (4, and a second line of 3 drawn after it), the shrine
+  (4), the station (2), the dump (5). Entries 0 and 1 are houses, which
+  list their residents' names instead, 6 characters each, and a word for
+  a house nobody lives in (`D_8088FE84_jp`, padded to 6, which
+  `func_8088DE88_jp` copies into each such resident's name). The
+  GameCube's words are used for the shop, the post office's two lines,
+  the dump and the empty house (`mMP_label_str_*`, `akiya_str$483`, read
+  8 bytes far); the police box, the shrine and the station, which it
+  breaks over two lines and the cartridge draws on one, are ours in its
+  words. Each is left after the label's icon, in at most 6 cells (a
+  name's). Two more strings ride along, not on screen in the route's
+  save: a wrapped item's name in its tag (`func_8086FD3C_jp` copies it
+  into the item's name, 10 characters, and draws it as far as
+  `mMl_strlen` finds it; the GameCube's `present_str$820`), and which
+  letter the Controller Pak's list shows (`ovl__00797A50`,
+  `func_80895298_jp`: its number written into the template's first two
+  cells, then the word after it; ours, with the number in the hole: the
+  GameCube names its card's folders instead).
+- **On screen** (the fourth batch). The map opens on the houses' acre,
+  and the route's save has four empty houses: their word shows in each
+  copy, so the check writes its ruler into every copy, every frame. The
+  town is not the same with each ROM: a rebuilt ROM's new game draws
+  another town (its seed follows the run's timing, while the route's
+  milestones stay on their frames), and the acre where the last ROM had
+  the shop has the post office in this one. So the check moves no
+  cursor: it gives the houses' acre's record the label to show (the
+  label's index at +0x12; the record found by its first four words,
+  pointers to the copies of the empty house's word), and all seven
+  labels show there in turn. The station's string has 2 characters, so
+  its ruler has 2 (about 28 frame pixels) for a label narrowed into 6
+  cells (104): a pixel of the ruler's width is 3.5% of the scale it
+  gives. The check carries the ruler's error to each edge past the
+  ruler's own length (a pixel of its width, at the edge's distance): the
+  station's right edge is 3.8 pixels off, within the 4.9 that allows;
+  the map's other edges are within 1.5 of the model's (the shrine's
+  right edge, inside its faint column's reach). With these the check
+  measures 35 swapped strings on screen; all 231 of its checks pass.
+
 ## The 2010 patch's labels (phase 5, the graphics' second step)
 
 - **What it redrew.** The AF Project's 2010 patch (Zoinkity; make nafe

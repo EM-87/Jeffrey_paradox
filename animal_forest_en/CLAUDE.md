@@ -236,6 +236,13 @@ the why and the state, `reference/NOTES.md` for what is verified.
   and is compared with the open where only the English is blanked, the
   menu's bytes untouched. A ruler compared with the string made spaces
   moved the tag's window and misjudged the box by 62 pixels.
+- **A rebuilt ROM draws another town.** The new game's town comes from a
+  seed that follows the run's timing, so a ROM whose code changed (even a
+  table in code: the swap list) plays the route to the same milestones on
+  the same frames and still draws another town: where one ROM had the
+  shop, the next had the post office. A check about the town (where a
+  building is) finds it in RAM rather than remembering it: the map's
+  check gives the record of the acre the map opens on the label to show.
 - **A route that reaches its milestones has not looked at the screen.**
   The relocated ROMs passed the route for a day while every town but the
   route's own was drawn with black or pink ground; nothing checked the

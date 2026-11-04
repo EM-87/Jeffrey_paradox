@@ -53,9 +53,14 @@ model places a column wrong, which over ten of them misjudged the scale
 by 1.5%) and from that where the en m_font.c's layout puts the English,
 which the English's ink must match (centred, aligned, narrowed to the box
 when wider; a template's characters each centred in its cell), each edge
-where the model's threshold puts it or out to a faint column. A string
-the menu builds round its own part (BUILT) is put in the buffer it types
-into in place of another's.
+where the model's threshold puts it or out to a faint column, and past
+the ruler's own length out to what a pixel of its width carries (a menu
+that draws two characters gives a ruler of two). A string the menu
+builds round its own part (BUILT) is put in the buffer it types into in
+place of another's; one the menu copies for each use (EVERY) gets the
+ruler in every copy; the map's labels show in the acre it opens on, its
+record given the label (MAP_LABEL: the town differs with each ROM, so no
+cursor is moved).
 
 Then the labels the 2010 patch drew (tools/af_nafe_gfx.py): the hook opens
 each menu whose segment holds some (LABEL_MENUS), and each label is in RAM
@@ -138,8 +143,18 @@ ANSWER_ROW = 16                                      # frame rows between answer
 AD_TEXT_W = 144                                      # the address book's balloon: the cartridge's 12 characters
 
 TUNE_BUTTONS = (R,)                                  # the town tune's trash: its question
-# the menus that draw the strings the en build swaps: ((program, data0), buttons that bring them up, names; a
-# name with the place in the dump of the copy the menu draws, where the overlay holds the same bytes twice)
+EVERY = "every"                                      # the ruler written into every copy of the string
+# the map's label for the acre under its cursor, by its entry in D_8088FF20_jp (2 the shop, 3 the police, 4
+# the post office, 5 the shrine, 6 the station, 7 the dump): set in the houses' acre's record, where the map
+# opens (its label at +0x12, func_8088F110_jp; the record found by its residents' names, four pointers in a
+# row to the copies of MP_VACANT: the route's save has four empty houses). The town differs with each ROM
+# (its seed follows the run's timing), so the check moves no cursor
+MAP_LABEL = "map label"
+MAP_LABEL_AT = 0x12
+# the menus that draw the strings the en build swaps: ((program, data0), buttons that bring them up (or a
+# button and the frames it is held, or a map label to show), names; a name with the place in the dump of the
+# copy the menu draws, where the overlay holds the same bytes twice, or with EVERY, where the menu copies the
+# string for each use)
 SWAP_MENUS = [((7, 0), (), ["RP_TITLE", "OK"]),
               ((9, 0), (), ["BD_TITLE"]),
               ((3, 0), (), ["TI_TITLE", "TI_DATE", "TI_TIME"]),
@@ -151,7 +166,14 @@ SWAP_MENUS = [((7, 0), (), ["RP_TITLE", "OK"]),
               ((16, 2), (), ["WR_BELLS1", "WR_BELLS2"]),
               ((18, 2), (), ["PK_NOERASE", ("PK_FAILED", 0x7A0BBC)]),   # the erase message's own copy
               ((18, 3), (), ["PK_INSERT1", "PK_INSERT2", "PK_INSERT3"]),
-              ((1, 0), (A,), ["TG_TUKAMU", "TG_YAMERU"])]           # the inventory: the money's tag
+              ((1, 0), (A,), ["TG_TUKAMU", "TG_YAMERU"]),           # the inventory: the money's tag
+              ((5, 0), (), [("MP_VACANT", EVERY)]),                  # the map: the houses' acre, at rest
+              ((5, 0), ((MAP_LABEL, 2),), ["MP_SHOP"]),
+              ((5, 0), ((MAP_LABEL, 3),), ["MP_POLICE"]),
+              ((5, 0), ((MAP_LABEL, 4),), ["MP_POST", "MP_OFFICE"]),
+              ((5, 0), ((MAP_LABEL, 5),), ["MP_SHRINE"]),
+              ((5, 0), ((MAP_LABEL, 6),), ["MP_STATION"]),
+              ((5, 0), ((MAP_LABEL, 7),), ["MP_DUMP"])]
 # a string a menu builds round its own part, which no menu of the route's save shows: put in the buffer it
 # types into in place of another's (name: the other, the part)
 BUILT = {"GY_PRICE": ("GY_IKAGA", "1000")}           # an item's price in the gyroid's shop
@@ -269,10 +291,20 @@ def faint_extent(board, faint, s):
     return None if left is None else (left, right)
 
 
-def ink_matches(got, want):
+def lever(edge, left, ruler):
+    """What the ruler's error adds at an edge farther from the box's left than the ruler reaches: a frame pixel
+    of its width (its scale, by 1 / ruler) carried to the edge's distance, beyond the pixel TOLERANCE allows at
+    the ruler's own length. A menu that draws a string of two characters gives a ruler of two."""
+    return max(0.0, abs(edge - left) - ruler) / ruler
+
+
+def ink_matches(got, want, left=None, ruler=None):
     """got (left, right) within TOLERANCE of want's range: each edge where the model's threshold puts it, or
-    out to where a faint column puts it."""
-    return want[2] - TOLERANCE <= got[0] <= want[0] + TOLERANCE and want[1] - TOLERANCE <= got[1] <= want[3] + TOLERANCE
+    out to where a faint column puts it; with the box's left and the ruler's width, what its scale's error
+    carries to each edge too."""
+    tl = TOLERANCE + (lever(want[0], left, ruler) if ruler else 0.0)
+    tr = TOLERANCE + (lever(want[1], left, ruler) if ruler else 0.0)
+    return want[2] - tl <= got[0] <= want[0] + tl and want[1] - tr <= got[1] <= want[3] + tr
 
 
 def swap_box(board, key, ink):
@@ -510,10 +542,33 @@ def main(argv):
                     return 0x80000000 + hits[0]
             return None
 
+        def copies(ram, key):
+            """The addresses of every copy of key in ram outside the swap table."""
+            out, at = [], ram.find(key)
+            while at >= 0:
+                if not table <= 0x80000000 + at < table + len(subs) * SUBST_SIZE:
+                    out.append(0x80000000 + at)
+                at = ram.find(key, at + 1)
+            return out
+
+        def houses_record(ram):
+            """The map's record of the acre its cursor opens on: the first of four pointers in a row, each to a
+            copy of MP_VACANT (its residents' names), or None."""
+            names = set(copies(ram, entries["MP_VACANT"][1]))
+            for n in sorted(names):
+                p, a = struct.pack(">I", n), ram.find(struct.pack(">I", n))
+                while a >= 0:
+                    if a % 4 == 0 and all(struct.unpack(">I", ram[a + 4 * k:a + 4 * k + 4])[0] in names
+                                          for k in range(4)):
+                        return 0x80000000 + a
+                    a = ram.find(p, a + 1)
+            return None
+
         def open_swap(menu, buttons, pokes=(), rewrite=None):
             """The menu opened with pokes [(address, bytes)] written first; with rewrite (windows of what
-            holds a string from its start: the overlay's data, or the buffer a menu types it into; and the
-            bytes), those bytes written there once it is in RAM. (w, h, rgb)."""
+            holds a string from its start: the overlay's data, or the buffer a menu types it into; the bytes;
+            and whether every copy of the last window gets them, every frame), those bytes written there once
+            it is in RAM. (w, h, rgb)."""
             ctl = setup()
             for at, data in pokes:
                 n64.write(at, data)
@@ -524,23 +579,39 @@ def main(argv):
                 for _ in range(frames):                   # a button loads too)
                     n64.frames(1, 0)
                     if todo:
-                        at = overlay_copy(n64.read(0x80000000, 0x800000), todo[0][0])
-                        if at is not None:
-                            n64.write(at, todo.pop()[1])
+                        windows, data, every = todo[0]
+                        ram = n64.read(0x80000000, 0x800000)
+                        if every:
+                            for at in copies(ram, windows[-1]):
+                                n64.write(at, data)
+                        else:
+                            at = overlay_copy(ram, windows)
+                            if at is not None:
+                                n64.write(at, data)
+                                todo.pop()
             run(SETTLE)
             for b in buttons:
+                b, hold = b if isinstance(b, tuple) else (b, 4)
                 run(2 * SETTLE)                           # the menu takes buttons once it is at rest (the town
-                n64.press(b, frames=4)                    # tune's not 120 frames after it opens, at 160 it does)
+                if b == MAP_LABEL:                        # tune's not 120 frames after it opens, at 160 it does)
+                    record = houses_record(n64.read(0x80000000, 0x800000))
+                    if record is None:
+                        check(False, "the map: the record of the acre it opens on (four empty houses)")
+                    else:
+                        n64.write(record + MAP_LABEL_AT, struct.pack(">h", hold))
+                else:
+                    n64.press(b, frames=hold)
                 run(SETTLE)
             return n64.screen()
 
-        for menu, buttons, names in SWAP_MENUS:
+        for i, (menu, buttons, names) in enumerate(SWAP_MENUS):
             w, h, normal = open_swap(menu, buttons)
-            path = os.path.join(out, "swap-program-%d-%d.png" % menu)   # one a menu and data0
+            path = os.path.join(out, "swap-%02d-program-%d-%d.png" % ((i,) + menu))
             write_png(path, w, h, normal)
             shots.append(path)
             for name in names:
                 name, rom_at = name if isinstance(name, tuple) else (name, None)
+                every = rom_at == EVERY
                 at, key, en, layout, key_hole, en_hole = entries.get(name, (None,) * 6)
                 if at is None:
                     check(False, "%s: in the swap table (no English for it)" % name)
@@ -551,9 +622,11 @@ def main(argv):
                     part = af_ui.n64_bytes(name, part)
                     key, en = key[:key_hole] + part + key[key_hole:], en[:en_hole] + part + en[en_hole:]
                     windows = [entries[other][1] + b" " * (typed - len(entries[other][1]))]
-                    built = (windows, key.ljust(typed, b" "))
+                    built = (windows, key.ljust(typed, b" "), False)
                 elif typed:                               # the menu's buffer, where it typed the string
                     windows = [key.ljust(typed, b" ")]
+                elif every:                               # each copy the menu made of it
+                    windows = [key]
                 else:                                     # the overlay's data, from the string on
                     if rom_at is None:
                         rom_at = af_ui.key_pieces(next(k for n, k, _, _, _ in af_ui.SUBST if n == name))[0][0]
@@ -561,7 +634,7 @@ def main(argv):
                 # the ruler as far as the string's last character (a menu may lay itself out by that count,
                 # mMl_strlen's: the tag sizes its window by it), the rest spaces
                 reach = len(key.rstrip(b" "))
-                ruled = (windows, (rule * reach).ljust(typed or len(key), b" "))
+                ruled = (windows, (rule * reach).ljust(typed or len(key), b" "), every)
                 what = "program %d's %s (%r)" % (menu[0], name, en.rstrip(b" "))
                 en_at, off = at + SUBST_HEAD + af_ui.SUBST_KEY_MAX, [(at + SUBST_HEAD, b"\xFF")]
                 seen = open_swap(menu, buttons, rewrite=built)[2] if built else normal
@@ -573,16 +646,20 @@ def main(argv):
                 if not en_runs or not jp_runs:
                     check(False, "%s: ink drawn (English %d runs, the ruler %d)" % (what, len(en_runs), len(jp_runs)))
                     continue
+                span = None                               # the scale known: nothing carried
                 if layout & af_ui.CELLS:
                     left = jp_runs[0][0] + FRINGE / 2 - board.extent(rule)[0] * CELLS_SCALE * FRAME_X
                     want, got = swap_inks(board, faint, key, en, layout, left, CELLS_SCALE), en_runs
                 else:
                     left, scale = swap_box(board, rule * reach, (jp_runs[0][0], jp_runs[-1][1]))
+                    span = jp_runs[-1][1] - jp_runs[0][0]  # the ruler's width
                     want, got = swap_inks(board, faint, key, en, layout, left, scale), [(en_runs[0][0], en_runs[-1][1])]
-                check(len(want) == len(got) and all(ink_matches(g, e) for g, e in zip(got, want)),
-                      "%s: its ink at %s, where the layout puts it in the cartridge's box: %s" % (
+                far = max((lever(e[k], left, span) for e in want for k in (1, 3)), default=0.0) if span else 0.0
+                check(len(want) == len(got) and all(ink_matches(g, e, left, span) for g, e in zip(got, want)),
+                      "%s: its ink at %s, where the layout puts it in the cartridge's box: %s%s" % (
                           what, got, ", ".join("(%.1f, %.1f)" % e[:2] if e[:2] == e[2:] else
-                                               "(%.1f, %.1f; faint columns %.1f, %.1f)" % e for e in want)))
+                                               "(%.1f, %.1f; faint columns %.1f, %.1f)" % e for e in want),
+                          "; the ruler's error allows %.1f at the far edge" % (TOLERANCE + far) if far else ""))
 
         for i, (program, data0, vrom, what) in enumerate(LABEL_MENUS):
             ctl = setup()

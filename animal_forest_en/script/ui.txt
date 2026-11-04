@@ -80,3 +80,12 @@ TG_KESU	Erase
 # The tag's question before something is thrown away, on two lines (the GameCube has placeholders).
 TG_HONTONI	Are you
 TG_IIDESUKA	sure?
+#
+# The map (map_ovl): the labels the GameCube breaks over two lines, on the cartridge's one.
+MP_POLICE	Police Station
+MP_SHRINE	Wishing Well
+MP_STATION	Train Station
+#
+# The letters on the Controller Pak (ovl__00797A50): which letter, the menu's number (two cells, a space
+# before a single digit) where {} is.
+CP_NTH	No.{}

@@ -196,7 +196,9 @@ manera y no tiene Controller Pak) y la tienda del haniwa, que escribe su frase
 letra a letra en un búfer: la inglesa se escribe al mismo ritmo, y en el
 precio las cifras del menú van en el hueco de la frase inglesa; y las
 acciones de la etiqueta que se abre sobre un objeto (las de GameCube) y su
-pregunta antes de tirarlo ("The menus' strings where the font draws them").
+pregunta antes de tirarlo; y las etiquetas del mapa (tienda, comisaría,
+correos, santuario, estación, vertedero) y la palabra de las casas vacías
+("The menus' strings where the font draws them").
 `make menus-check-en` abre esas ventanas y mide cada cadena en la imagen
 contra el modelo de la fuente ("The menus' own words", "The edit-end check
 and the address book").
@@ -214,7 +216,9 @@ menús y comprueba cada etiqueta en memoria ("The 2010 patch's labels").
 El logo del título de ese parche cambia también el código del actor que
 lo dibuja, que sigue en ensamblador: queda para después.
 
-Lo que viene: las cadenas que quedan en otros menús, los nombres de los objetos
+Lo que viene: las cadenas que quedan en otros menús (la etiqueta de las cartas,
+"para X / carta / de Y", pide cambiar el orden de las palabras en su código),
+los nombres de los objetos
 (un archivo propio de 10 bytes por nombre), el tablón de anuncios (parte
 sus líneas por número de letras, no por anchura), el logo del título del
 parche de 2010, las texturas occidentales de GameCube donde las haya
