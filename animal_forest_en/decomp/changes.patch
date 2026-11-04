@@ -989,7 +989,7 @@ index f3f7472..e751ce4 100644
              ret = 1;
              func_8008ECA0_jp();
 diff --git a/src/code/m_font.c b/src/code/m_font.c
-index eb55156..724cb03 100644
+index eb55156..6ed8397 100644
 --- a/src/code/m_font.c
 +++ b/src/code/m_font.c
 @@ -15,6 +15,17 @@ extern s8 D_80106AF0_jp; /* the font is loaded */
@@ -1037,7 +1037,7 @@ index eb55156..724cb03 100644
  }
  
  s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
-@@ -87,10 +106,92 @@ s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
+@@ -87,10 +106,168 @@ s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetLineStrings_AndSpace.s")
  
@@ -1047,43 +1047,91 @@ index eb55156..724cb03 100644
 + * menu that draws one of the cartridge's strings named in tools/af_ui.py's
 + * SUBST (found by its bytes and length, which come from the user's dump)
 + * draws the English instead, in the box the cartridge's string had (its
-+ * full-width characters, mFont_CHAR_WIDTH each at the caller's scale):
-+ * centred or aligned to its right, narrowed to it when wider, or a character
-+ * in each of its cells (a template the menu draws its numbers into). The
-+ * menus' own code stays the cartridge's (reference/NOTES.md, "The menus'
-+ * strings where the font draws them").
++ * full-width characters, mFont_CHAR_WIDTH each at the caller's scale, or a
++ * box of so many cells around it): centred or aligned to its right,
++ * narrowed to it when wider, or a character in each of its cells (a
++ * template the menu draws its numbers into). A key may have a hole, the
++ * part of a string the menu built itself (a price's digits): the English
++ * keeps that part in a hole of its own. A menu that types its string into
++ * a buffer, a character a frame, draws the buffer as far as it has typed
++ * it: such a key is the whole buffer's (its trailing spaces dropped), and
++ * the English is typed in proportion. The menus' own code stays the
++ * cartridge's (reference/NOTES.md, "The menus' strings where the font
++ * draws them").
 + */
 +#include "assets/jp/en/ui_strings.inc"
++#include "m_lib.h"
 +
 +#define mFont_EN_SUBST_CENTER 1
 +#define mFont_EN_SUBST_RIGHT 2
 +#define mFont_EN_SUBST_FIT 4
 +#define mFont_EN_SUBST_CELLS 8
++#define mFont_EN_SUBST_NO_HOLE 0xFF
 +
 +typedef struct mFont_EnSubst {
 +    /* 0x00 */ u8 keyLen;
 +    /* 0x01 */ u8 enLen;
 +    /* 0x02 */ u8 layout;
-+    /* 0x03 */ u8 key[UI_EN_SUBST_KEY_MAX];
++    /* 0x03 */ u8 box;    /* cells, or 0: the cartridge's string's own */
++    /* 0x04 */ u8 typed;  /* the buffer the menu types the string into, or 0: drawn whole */
++    /* 0x05 */ u8 hole;   /* where the menu's own part goes in the key, or mFont_EN_SUBST_NO_HOLE */
++    /* 0x06 */ u8 enHole; /* and in the English */
++    /* 0x07 */ u8 key[UI_EN_SUBST_KEY_MAX];
 +    /* ---- */ u8 en[UI_EN_SUBST_EN_MAX];
 +} mFont_EnSubst;
 +
++/* The English with the menu's own part in its hole */
++static u8 mFont_en_built[UI_EN_SUBST_EN_MAX + UI_EN_SUBST_KEY_MAX];
++
 +static mFont_EnSubst mFont_en_subst[] = { UI_EN_SUBST };
 +
-+static mFont_EnSubst* mFont_en_FindSubst(u8* str, s32 len) {
++/* The entry for the string str, of which the menu draws len characters, and the string's whole length in
++ * *full (a typed buffer's, without its trailing spaces). */
++static mFont_EnSubst* mFont_en_FindSubst(u8* str, s32 len, s32* full) {
 +    mFont_EnSubst* sub;
++    s32 typed = 0; /* the typed buffer measured last, and its length */
++    s32 typedLen = 0;
++    s32 n;
 +    s32 i;
 +
 +    for (sub = mFont_en_subst; sub->keyLen != 0; sub++) {
-+        if (sub->keyLen == len) {
-+            for (i = 0; i < len; i++) {
++        if (sub->typed != 0) {
++            if (len > sub->typed) {
++                continue;
++            }
++            if (sub->typed != typed) {
++                typed = sub->typed;
++                for (typedLen = typed; (typedLen > 0) && (str[typedLen - 1] == ' '); typedLen--) {}
++            }
++            n = typedLen;
++        } else {
++            n = len;
++        }
++        if (sub->hole == mFont_EN_SUBST_NO_HOLE) {
++            if (n != sub->keyLen) {
++                continue;
++            }
++            for (i = 0; i < n; i++) {
 +                if (sub->key[i] != str[i]) {
 +                    break;
 +                }
 +            }
-+            if (i == len) {
-+                return sub;
++        } else {
++            /* the key's start, at least a character of the menu's own, the key's end */
++            s32 own = n - sub->keyLen;
++
++            if ((own <= 0) || (own + sub->enLen > (s32)sizeof(mFont_en_built))) {
++                continue;
 +            }
++            for (i = 0; i < sub->keyLen; i++) {
++                if (sub->key[i] != str[(i < sub->hole) ? i : (i + own)]) {
++                    break;
++                }
++            }
++        }
++        if (i == sub->keyLen) {
++            *full = n;
++            return sub;
 +        }
 +    }
 +    return NULL;
@@ -1094,10 +1142,14 @@ index eb55156..724cb03 100644
  f32 func_80090E98_jp(struct Game* game, u8* str, s32 len, f32 x, f32 y, s32 r, s32 g, s32 b, s32 a, s32 flag, s32 cut,
                       f32 scaleX, f32 scaleY, s32 mode) {
 -    return mFont_SetLineStrings_AndSpace(game, (char*)str, len, x, y, r, g, b, a, flag, cut, 0, scaleX, scaleY, mode);
-+    mFont_EnSubst* sub = (len > 1) ? mFont_en_FindSubst(str, len) : NULL;
++    s32 full;
++    mFont_EnSubst* sub = (len > 0) ? mFont_en_FindSubst(str, len, &full) : NULL;
 +    f32 cell;
 +    f32 box;
-+    f32 width;
++    f32 drawn;
++    u8* en;
++    s32 enLen;
++    s32 shown;
 +    s32 i;
 +
 +    if (sub == NULL) {
@@ -1105,30 +1157,54 @@ index eb55156..724cb03 100644
 +                                             mode);
 +    }
 +    cell = mFont_CHAR_WIDTH * scaleX;
-+    box = len * cell;
 +    if (sub->layout & mFont_EN_SUBST_CELLS) {
 +        for (i = 0; i < sub->enLen; i++) {
 +            if (sub->en[i] != ' ') {
-+                width = mFont_GetStringWidth((char*)&sub->en[i], 1, TRUE) * scaleX;
-+                mFont_SetLineStrings_AndSpace(game, (char*)&sub->en[i], 1, x + i * cell + (cell - width) / 2, y, r,
++                drawn = mFont_GetStringWidth((char*)&sub->en[i], 1, TRUE) * scaleX;
++                mFont_SetLineStrings_AndSpace(game, (char*)&sub->en[i], 1, x + i * cell + (cell - drawn) / 2, y, r,
 +                                              g, b, a, flag, cut, 0, scaleX, scaleY, mode);
 +            }
 +        }
-+        return box;
++        return len * cell;
 +    }
-+    width = mFont_GetStringWidth((char*)sub->en, sub->enLen, TRUE) * scaleX;
-+    if ((sub->layout & mFont_EN_SUBST_FIT) && (width > box)) {
-+        scaleX *= box / width;
-+        width = box;
++    en = sub->en;
++    enLen = sub->enLen;
++    if (sub->hole != mFont_EN_SUBST_NO_HOLE) {
++        /* the English's start, the menu's own part, the English's end */
++        s32 own = full - sub->keyLen;
++
++        mem_copy(mFont_en_built, sub->en, sub->enHole);
++        mem_copy(&mFont_en_built[sub->enHole], &str[sub->hole], own);
++        mem_copy(&mFont_en_built[sub->enHole + own], &sub->en[sub->enHole], sub->enLen - sub->enHole);
++        en = mFont_en_built;
++        enLen += own;
++    }
++    /* as much of the English as the menu has typed of its string */
++    shown = (len >= full) ? enLen : (enLen * len + full - 1) / full;
++    box = full * cell;
++    if (sub->box != 0) {
++        /* a box of so many cells: centred on the cartridge's string's, or from its left or right edge */
++        f32 wide = sub->box * cell;
++
++        if (sub->layout & mFont_EN_SUBST_CENTER) {
++            x += (box - wide) / 2;
++        } else if (sub->layout & mFont_EN_SUBST_RIGHT) {
++            x += box - wide;
++        }
++        box = wide;
++    }
++    drawn = mFont_GetStringWidth((char*)en, enLen, TRUE) * scaleX;
++    if ((sub->layout & mFont_EN_SUBST_FIT) && (drawn > box)) {
++        scaleX *= box / drawn;
++        drawn = box;
 +    }
 +    if (sub->layout & mFont_EN_SUBST_CENTER) {
-+        x += (box - width) / 2;
++        x += (box - drawn) / 2;
 +    } else if (sub->layout & mFont_EN_SUBST_RIGHT) {
-+        x += box - width;
++        x += box - drawn;
 +    }
-+    mFont_SetLineStrings_AndSpace(game, (char*)sub->en, sub->enLen, x, y, r, g, b, a, flag, cut, 0, scaleX, scaleY,
-+                                  mode);
-+    return box;
++    mFont_SetLineStrings_AndSpace(game, (char*)en, shown, x, y, r, g, b, a, flag, cut, 0, scaleX, scaleY, mode);
++    return len * cell; /* the cartridge's string's */
  }
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetMatrix.s")

@@ -108,8 +108,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   menus use written at `make rom-en`, the cartridge's own without the disc
   (NOTES, "The menus' own words"); and `SUBST`, the strings the en
   build's font swaps where it draws them (keyed by the cartridge's bytes
-  from the dump; our own text in `script/ui.txt`: NOTES, "The menus'
-  strings where the font draws them").
+  from the dump: a string, a buffer a menu types into, or pieces around
+  the part a menu builds itself; our own text in `script/ui.txt`: NOTES,
+  "The menus' strings where the font draws them").
 - `tools/af_nafe_gfx.py` — the 42 menu labels the AF Project's 2010
   patch drew in English, taken at `make rom-en` from the user's copy
   (`make nafe NAFE_UPS=...`, build/nafe-2010-12-02.z64) over the en
@@ -135,8 +136,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   question and answers and the address book's balloon, their strings in
   RAM and their ink measured against the font's model; each swapped
   string's ink against where the layout puts it in the cartridge's
-  string's box; the menus that hold the 2010 patch's labels, each label
-  found in RAM: `make menus-check-en`),
+  string's box, measured with a ruler in its place; the menus that hold
+  the 2010 patch's labels, each label found in RAM: `make
+  menus-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.
@@ -219,6 +221,16 @@ the why and the state, `reference/NOTES.md` for what is verified.
   address book's 27 characters came out 6 pixels short of the model. When
   a model and the frame disagree, measure the pitch of a test string (one
   letter repeated) before changing either.
+- **Measure with a glyph that has no faint edge.** The font's model counts
+  a glyph's column as ink from 8 of 15; on the frame, whether a faint
+  column passes the ink threshold depends on the colours behind it. The
+  swap check first measured the cartridge's box from the cartridge's own
+  glyphs: over the Controller Pak's ten-character lines a column at each
+  end misjudged the scale by 1.5%, and three strings "failed". It now
+  writes a ruler in their place (`emu_menus.ruler`: the widest glyph
+  whose columns are whole ink or none, since a short ruler's error grows
+  over a longer English) and measures that, and lets an English edge
+  reach out to a faint column.
 - **A route that reaches its milestones has not looked at the screen.**
   The relocated ROMs passed the route for a day while every town but the
   route's own was drawn with black or pink ground; nothing checked the

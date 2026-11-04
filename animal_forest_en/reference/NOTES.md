@@ -1467,12 +1467,12 @@ what goes in it: "The letters in the en build").
   stays the cartridge's.
 - **The English in the cartridge's box.** The cartridge's string had
   full-width characters, 12 pixels each at the caller's scale; the
-  English is centred in that box or aligned to its left or right,
-  narrowed to it when wider, or (a template the menu draws numbers into)
-  a character centred in each of its cells. The function returns the
-  box's width, as it returned the cartridge's string's. Our own text
-  (script/ui.txt) goes over the GameCube's and stands alone where the
-  GameCube has none. A string of one character is never looked up.
+  English is centred in that box (or in a box of so many cells around
+  it: BOX) or aligned to its left or right, narrowed to it when wider, or
+  (a template the menu draws numbers into) a character centred in each of
+  its cells. The function returns the box's width, as it returned the
+  cartridge's string's. Our own text (script/ui.txt) goes over the
+  GameCube's and stands alone where the GameCube has none.
 - **What is swapped.** The amount to enter (`ovl__0079B120`): its title
   and its end (the same bytes end the birthday's and the clock's
   windows); the birthday (`ovl__0079DA50`): its title (its month and
@@ -1495,20 +1495,85 @@ what goes in it: "The letters in the en build").
   93, before it.
 - **On screen** (`tests/emu_menus.py`, make menus-check-en). The swap
   table in RAM holds each entry's key and English. Each menu is opened
-  four times: as it is; with the English's bytes in the table made spaces;
-  with the swap off (the entry's key changed, so the same call draws the
-  cartridge's string); and with the swap off and the cartridge's bytes in
-  the overlay made spaces (found by the longest stretch of the cartridge's
-  data from the string on that RAM holds once: a two-byte string alone is
-  found elsewhere first). From the cartridge's ink, the box it took and
-  its scale; from those, where the layout puts the English, which its ink
-  matches within 2 frame pixels for all ten: the amount's title and end
-  (311 to 422 against 311.3 to 421.7), the birthday's and the clock's
-  titles, the date's four pieces and the time's colon in their cells, the
-  Controller Pak's title, and the town tune's question and answers. The
-  town tune takes buttons only once it is at rest: R at 120 frames after
-  it opens does nothing, at 180 it brings up the question. The
-  screenshots show each string in its window.
+  four times: as it is; with the English's bytes in the table made
+  spaces; with the swap off (the entry's key changed) and the
+  cartridge's bytes in the overlay made a ruler; and the same with those
+  bytes made spaces. The bytes are found by the longest stretch of the
+  cartridge's data from the string on that RAM holds once: a two-byte
+  string alone is found elsewhere first. The ruler is the en font's `w`
+  repeated, its widest glyph whose columns are whole ink or none. From
+  the ruler's ink, drawn by the same call, the box the cartridge's
+  string took and its scale; from those, where the layout puts the
+  English, each edge where the font's model puts it or one column out
+  where a faint column (under 8 of 15) is (the frame counts one or not
+  by the colours behind it). The cartridge's own glyphs first served as
+  the ruler, but their faint edges are just what the model places a
+  column wrong: over the Controller Pak's ten-character lines that
+  misjudged the scale by 1.5% and the English by 3.5 pixels. With `e`, 6
+  pixels wide, a long English over a short string came out 2 pixels off
+  at its far end. The English's ink matches within 2 frame pixels for
+  all ten: the amount's title and end (the title's ink from 311 to 422,
+  the model's 311.1 to 421.5), the birthday's and the clock's titles,
+  the date's four pieces and the time's colon in their cells, the
+  Controller Pak's title, and the town tune's question and answers, none
+  more than 1.3 pixels from the model's edges. The town tune takes
+  buttons only once it is at rest: R at 120 frames after it opens does
+  nothing, at 180 it brings up the question. The screenshots show each
+  string in its window.
+- **The warnings and the Controller Pak's messages** (the second
+  batch). The item menu's warnings (`ovl__0079A290`) are two lines each,
+  from tables of place, string and length (`D_80897508_jp` and after),
+  each line centred by its own x. The GameCube breaks the same warnings
+  over two or three longer lines, so the English is ours, each line
+  centred where the cartridge's was; the letters' answers are the
+  GameCube's (`wr_Yes`, `wr_No`). The Controller Pak's messages
+  (`ovl__0079F810`) are built the same way and have no GameCube
+  counterpart: ours. Lines the cartridge shares between messages (the
+  same bytes) share their English. A box of so many cells (BOX: 17 for
+  the warnings' and the Pak's windows, measured on the screenshots)
+  keeps a longer English line from being narrowed more than its window
+  needs.
+- **The gyroid types its line.** The gyroid's shop (`ovl__00794380`)
+  builds its balloon's line in a buffer of 12 spaces (`func_8088CCF4_jp`,
+  its state + 0x20) from its table (`D_8088DA64_jp`, twelve strings and
+  lengths). The last four follow a three-character word for "that is"
+  (`D_8088D9F0_jp`), and the last of them also follows a price's digits
+  (`func_8088CC04_jp`: `mFont_UnintToString`, `mMl_strlen2`, `mem_copy`),
+  before the word for bells. `func_8088CFB0_jp` types it, a character a
+  frame up to 12 (state + 0x14, back to 0 when the line changes), and
+  `func_8088D5D0_jp` draws that many: the string drawn is never the
+  table's. So a key can be typed (`TYPED(12)`): it is matched against the
+  whole buffer, without its trailing spaces, from the first character
+  typed (a string of one character is looked up too), and the English is
+  typed in proportion (as many of its characters as the menu has typed of
+  its own, rounded up). A key can also be in pieces with a hole where the
+  menu puts its own part: the price's key is the word for "that is" and
+  the word for bells, and the digits go where the English has `{}`. The
+  price's English is ours, in the GameCube's words: it builds the same
+  from a word, the digits and a space, and the word for bells. The eleven
+  other lines are the GameCube's (`mes_ikaga$433` and on, in the
+  cartridge's order but for `mes_dono2`, which the cartridge lacks), the
+  three after the word keyed with it. They take a box of 16 cells at the
+  balloon's left edge.
+- **On screen** (the second batch). Each of its menus is opened the same
+  way: the warnings for letters, for pockets and for bells (program 16
+  with data0 0 to 2: both lines, and the letters' answers), the
+  Controller Pak's erase failure and its request for a Pak (program 18
+  with data0 2 and 3; opened this way, 1 hangs and 0 draws no window),
+  and the gyroid's shop (program 14): its first line, and a price. No
+  item of the route's save has a price, so the check writes one into the
+  gyroid's buffer as the gyroid builds it (the word, 1000, the word for
+  bells; the ruler and the spaces go there too). All fifteen match: each
+  within 2 frame pixels of the model's edges, or of a faint column's.
+  The farthest is a warning's line that ends in an exclamation mark, its
+  right edge at 431 against 428.8, 0.2 past where the mark's faint last
+  column puts it (430.8). The price runs from 195 to 354 against 195.0
+  to 353.9. The erase message's second line has the same bytes as
+  another message's, and the overlay holds them twice (at 0x7A0B84 and
+  0x7A0BBC): the check writes into the copy the message draws.
+  Screenshots a frame apart show the gyroid typing the English in
+  proportion: the first line's first two characters once one of the
+  cartridge's nine is typed, the whole line once all nine are.
 
 ## The 2010 patch's labels (phase 5, the graphics' second step)
 
@@ -1551,9 +1616,7 @@ what goes in it: "The letters in the en build").
 - **Still Japanese in those menus.** The dial's two kana modes and its
   kana ring (the patch kept them; the en font keeps the kana, so they
   still type), the town tune's note names (kana textures, I4), the
-  menus' strings (the amount's, the clock's, the birthday's, the
-  Controller Pak's titles and their way out: strings in the overlays'
-  data, previous section), the item names (a file of their own, 10 bytes
+  item names (a file of their own, 10 bytes
   each at vrom 0x10F4000: `mIN_copy_name_str`, `m_item_name.s`) and the
   bulletin board's text, which breaks its lines by count, not by width.
 - **The title is more than textures.** The title's logo lives in

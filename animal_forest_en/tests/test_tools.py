@@ -1086,20 +1086,44 @@ class MenusWords(unittest.TestCase):
         # GameCube's, a template is padded to its cells with spaces, and a sentinel ends the table
         saved = af_ui.SUBST
         try:
-            af_ui.SUBST = [("A", 0, 3, af_ui.CENTER, "sym_a", "a.o"), ("B", 4, 4, af_ui.CELLS, None, None),
-                           ("C", 8, 2, af_ui.LEFT, "sym_c", "c.o"), ("D", 10, 2, af_ui.LEFT, None, None)]
+            af_ui.SUBST = [("A", (0, 3), af_ui.CENTER, "sym_a", "a.o"), ("B", (4, 4), af_ui.CELLS, None, None),
+                           ("C", (8, 2), af_ui.LEFT | af_ui.BOX(6), "sym_c", "c.o"), ("D", (10, 2), af_ui.LEFT, None, None)]
             rom = bytes([0x90, 0x91, 0x92, 0, 0xA0, 0xA1, 0xA2, 0xA3, 0xB0, 0xB1, 0xC0, 0xC1])
             subs = af_ui.substitutions(rom, {"A": "Hi", "C": "No"}, {"B": "1:", "C": "Ok"})
-            self.assertEqual(subs, [("A", rom[0:3], b"Hi", af_ui.CENTER), ("B", rom[4:8], b"1:  ", af_ui.CELLS),
-                                    ("C", rom[8:10], b"Ok", af_ui.LEFT)])          # D has no English: kept
+            self.assertEqual(subs, [("A", rom[0:3], b"Hi", af_ui.CENTER, None, None),
+                                    ("B", rom[4:8], b"1:  ", af_ui.CELLS, None, None),
+                                    ("C", rom[8:10], b"Ok", af_ui.LEFT | af_ui.BOX(6), None, None)])  # D: no English
             text = af_ui.subst_include(subs)
             self.assertIn("#define UI_EN_SUBST_COUNT 3\n", text)
-            self.assertIn("    { 3, 2, 1, { 0x90, 0x91, 0x92 }, { 0x48, 0x69 } }, /* A */ \\\n", text)
-            self.assertTrue(text.endswith("    { 0, 0, 0, { 0 }, { 0 } }\n"))
+            self.assertIn("    { 3, 2, 1, 0, 0, 255, 255, { 0x90, 0x91, 0x92 }, { 0x48, 0x69 } }, /* A */ \\\n", text)
+            self.assertIn("    { 2, 2, 0, 6, 0, 255, 255, { 0xB0, 0xB1 }, { 0x4F, 0x6B } }, /* C */ \\\n", text)
+            self.assertTrue(text.endswith("    { 0, 0, 0, 0, 0, 0, 0, { 0 }, { 0 } }\n"))
             with self.assertRaises(SystemExit):
                 af_ui.substitutions(rom, {}, {"B": "12:00"})                       # more cells than the key's
             self.assertIn(("C", "sym_c", "c.o"), af_ui.gc_sources())
             self.assertNotIn(("B", None, None), af_ui.gc_sources())
+        finally:
+            af_ui.SUBST = saved
+
+    def test_swap_keys_in_pieces(self):
+        # a key in pieces with a hole (a string the menu builds round its own part, typed into a buffer):
+        # the key's bytes without the hole, where it is in them, and where the English's {} is in it
+        saved = af_ui.SUBST
+        try:
+            layout = af_ui.TYPED(12) | af_ui.LEFT | af_ui.BOX(16)
+            af_ui.SUBST = [("P", [(0, 2), af_ui.HOLE, (4, 2)], layout, None, None),
+                           ("Q", [(0, 2), (6, 1)], layout, None, None)]
+            rom = bytes([0x90, 0x91, 0, 0, 0xA0, 0xA1, 0xB0])
+            subs = af_ui.substitutions(rom, {}, {"P": "It's {} Bells", "Q": "Free"})
+            self.assertEqual(subs, [("P", bytes([0x90, 0x91, 0xA0, 0xA1]), b"It's  Bells", layout, 2, 5),
+                                    ("Q", bytes([0x90, 0x91, 0xB0]), b"Free", layout, None, None)])
+            self.assertIn("    { 4, 11, 0, 16, 12, 2, 5, ", af_ui.subst_include(subs))
+            for own in ({"P": "No hole"}, {"Q": "A {} hole"}, {"P": "{} two {}"}):
+                with self.assertRaises(SystemExit):
+                    af_ui.substitutions(rom, {}, own)                          # holes in the key and the English
+            af_ui.SUBST = [("R", (0, 7), af_ui.TYPED(6), None, None)]
+            with self.assertRaises(SystemExit):
+                af_ui.substitutions(rom, {}, {"R": "Long"})                     # more than its buffer holds
         finally:
             af_ui.SUBST = saved
 

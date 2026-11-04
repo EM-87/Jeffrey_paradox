@@ -11,3 +11,66 @@ TI_TIME	:
 # The Controller Pak's notes (ovl__007A10E0): the title of the screen that erases them. The GameCube
 # has a memory card and no such screen.
 PK_TITLE	Erase Controller Pak notes
+#
+# The gyroid's shop (ovl__00794380): what an item costs, the menu's digits where {} is (the GameCube
+# builds the same from a word, the digits and a space, and the word for bells).
+GY_PRICE	It's {} Bells
+#
+# The item menu's warnings (ovl__0079A290): two lines each, every line centred where the cartridge
+# centred its own (the GameCube breaks the same warnings over two or three longer lines). Lines the
+# cartridge shares between warnings (the same bytes) share their English.
+WR_LETTERS1	Your letters are full!
+WR_LETTERS2	Throw away old letters?
+WR_POCKETS1	Your pockets are full,
+WR_PRESENT2	so the present stays wrapped!
+WR_BELLS1	You can't carry more
+WR_BELLS2	than 50,000 Bells!
+WR_TURNIPS1	Turnips and creatures
+WR_NOGIFT2	can't be given as presents!
+WR_HELD1	Things you're holding for others
+WR_SPOIL1	Things that spoil
+WR_NOSTORE2	can't be put away!
+WR_SUCH1	Things like that
+WR_NOSELL2	can't be sold!
+WR_FLOOR1	Put down any more and
+WR_FLOOR2	the floor will give way!
+WR_THATWAY1	Nothing more fits
+WR_THATWAY2	in that direction!
+WR_HERE1	Nothing more fits
+WR_HERE2	around here!
+WR_NOPLANT2	can't be planted!
+WR_GRABBAG1	You need three free spaces
+WR_GRABBAG2	to open the grab bag!
+WR_BOX1	A present box
+WR_BOX2	can't be sent with a letter!
+WR_WRITE1	Your letters are full,
+WR_WRITE2	so you can't write one!
+#
+# The Controller Pak's messages (ovl__0079F810): no GameCube counterpart (a memory card). Lines the
+# cartridge shares between messages share their English.
+PK_READING1	Reading the Controller Pak's
+PK_READING2	notes.
+PK_WAIT	Please wait a moment.
+PK_SAVING	Now saving.
+PK_ERASING	Erasing the chosen note.
+PK_INSERT1	Please insert a
+PK_INSERT2	Controller Pak
+PK_INSERT3	into Controller 1.
+PK_NOWRITE	Couldn't save
+PK_FAILED	the data.
+PK_NOREAD	Couldn't load
+PK_OTHER1	A different Controller Pak
+PK_OTHER2	is inserted.
+PK_NOERASE	Couldn't erase
+PK_PAKS	The Controller Pak's
+PK_DAMAGED	data is damaged.
+PK_RECONNECT1	Reinsert it
+PK_REPAIR1	or repair it.
+PK_LOST1	contents may be
+PK_LOST2	erased.
+PK_LOST3	Is that all right?
+PK_OPT_RECONNECT	Reinsert
+PK_OPT_REPAIR	Repair
+PK_OPT_QUIT	Quit
+PK_YES	Yes
+PK_NO	No
