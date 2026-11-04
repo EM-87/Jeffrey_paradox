@@ -45,7 +45,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en emu-determinism decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
+.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en emu-determinism decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
 
 all: verify
 
@@ -166,8 +166,8 @@ FONT_OPTS := --font $(BASEROM) $(if $(GC_FONT),--gc-font $(GC_FONT))
 # The overlays the translation changes: each gets its relocation table made
 # anew from its objects after the first link (tools/af_ovlreloc.py, which
 # first proves fado on the matching build), and af_relink pads its sections
-# back to their old sizes.
-EN_OVERLAYS := board_ovl
+# back to their old sizes: the letter board and the text editor.
+EN_OVERLAYS := board_ovl ovl__0078CB80
 
 $(AF_EN_DIR)/.stamp-checkout: decomp/AF_REV $(MATCHING) $(CHANGES)
 	@if [ "$$(git -C $(AF_EN_DIR) rev-parse HEAD~0 2>/dev/null)" = "" ]; then \
@@ -271,6 +271,13 @@ letters-check-en: route-en
 # emu_board.py; NOTES, "The letter board in the en build").
 board-check-en: route-en
 	$(PYTHON) tests/emu_board.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-board-en
+
+# A letter written with the en build's editor on the dial, from the same
+# state: its lines, cursor and end mark measured on the frame against the
+# same model, and the letter read back (tests/emu_write.py; NOTES,
+# "Writing a letter in the en build").
+write-check-en: route-en
+	$(PYTHON) tests/emu_write.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-write-en
 
 # -- the GameCube script (phase 4) -------------------------------------------
 # ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it

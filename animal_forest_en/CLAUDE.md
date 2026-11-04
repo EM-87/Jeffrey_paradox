@@ -46,7 +46,8 @@ the why and the state, `reference/NOTES.md` for what is verified.
    user's dump and stays local. A change to the
    save code also runs `make save-check-en`, one to the letters `make
    letters-check-en`, one to the letter board or the font `make
-   board-check-en`, one to `emu/` `make emu-determinism`.
+   board-check-en`, one to the editor or writing a letter `make
+   write-check-en`, one to `emu/` `make emu-determinism`.
 
 ## Where things live
 
@@ -107,6 +108,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   a model of the cartridge's expander: `make letters-check-en`),
   `emu_board.py` (the letter board opened on letters, its lines measured
   on the frame against a model of the board: `make board-check-en`),
+  `emu_write.py` (a letter typed on the editor's dial, its lines, cursor
+  and end mark measured against the same model, and read back: `make
+  write-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.

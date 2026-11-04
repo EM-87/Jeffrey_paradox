@@ -1105,9 +1105,7 @@ what goes in it: "The letters in the en build").
   space that fits, its own newlines kept, over its six lines, the rest
   not drawn (the GameCube's board: `mBD_MAX_WIDTH` 192,
   `mBD_BODY_LINE_NUM` 6, in ac-decomp's `m_board_ovl.c`, a map); the
-  footer ends at the body's right edge. Writing a letter, the board keeps
-  the cartridge's fields and drawing (the editor's cursor goes by 12
-  pixels a character: TODO, the editor at the en widths).
+  footer ends at the body's right edge. Writing a letter: next section.
 - **On screen** (`tests/emu_board.py`, `make board-check-en`). From the
   houses' state of route-en, a hook loads a letter into the first pocket
   letter as the game's callers do and opens the board as
@@ -1144,3 +1142,94 @@ what goes in it: "The letters in the en build").
   short free strings 1 to 3 shop letters reach a seventh line (430: the
   GameCube's own body has seven lines, its signature on the seventh;
   503 and 508 when an acre's free strings are names).
+
+## Writing a letter in the en build (phase 4, the letters' fourth step)
+
+- **The editor** (submenu program 10, `ovl__0078CB80`: text 0x33C0, data
+  0x5A0, rodata 0x50, bss 0x30 bytes). The board opens it to write
+  (`func_8088A2D0_jp`; first the address book, program 13,
+  `ovl__00792700`, which lists the villagers who remember the player:
+  `mNpc_GetAnimalMemoryIdx` over each one's seven memories at +0x10).
+  Its state is the whole bss (`B_80888AF0_jp`, `mED_Ovl_c`): the stick's
+  area at 0, the dial's mode at 4 (Z cycles hiragana, symbols, katakana,
+  capitals, digits), its ring at 5, the cursor's fade at 0xC, the command
+  at 0x11, the code to type at 0x13, the cursor's index at 0x16,
+  characters a line at 0x18, lines at 0x1A, the text's length at 0x1C,
+  the column and line at 0x20/0x22, the text at 0x24, the end mark's and
+  the cursor's draw procs at 0x28/0x2C (`func_8088587C_jp`, the init:
+  the lines from `D_808885F0_jp` by the text's kind, 6 for a letter and 6
+  for kind 2, a notice; 16 characters a line for a letter's body).
+- **Its lines** are characters: `func_80885AEC_jp` gives the column and
+  line after n characters (a line ends at its 16th character or a
+  newline; past the last line the cursor stays at its end),
+  `func_80885A74_jp` the index from them, `func_80885CBC_jp` a line's
+  length. A character is typed (`func_80885DD4_jp`) only if the text
+  with it still ends within the lines and is under 16 x 6 = 96 bytes
+  (`MAIL_BODY_LEN`); up and down (`func_80885F6C_jp`, `func_80885FCC_jp`)
+  keep the column; down at the text's end types a newline, right a space
+  (`func_80885EC8_jp`). The C buttons move the cursor (right 1, left 2,
+  up 3, down 4), B deletes (`func_8088537C_jp`, the game's 0x400F). A
+  letter's header and footer are single lines over their own fields in
+  the board's copy (`func_80886588_jp`: header 10, body 16 x 6, footer 16).
+- **The dial** (`func_808851D8_jp`): the stick's angle in eight areas, 0
+  to 4 left to right over the upper half, 5 to 7 the lower half, 8 the
+  centre. In mode 3 the code is the table's `ring + area`
+  (`func_80885140_jp`, `func_80885690_jp`) over `D_80888594_jp`, 30
+  entries: A to Z, comma, full stop, newline, space. The stick pushed
+  down turns the ring a page of five (with A, two). Capitals only; the
+  convert command shows the letter before the cursor's other case (N to
+  n), so mixed case can be written.
+- **The board's cursor** (`func_80889878_jp`): `64 + x + (col - 0.7) * 12`,
+  six columns more after the name, the footer's counted from its 16th;
+  the name's box (`func_8088973C_jp`) at `(headerBackStart + 3) * 12`. The
+  bar (`func_808881C0_jp`, `mFont_SetMarkChar`) is red (195, 80, 80) at
+  alpha `(10 - v) * 255 / 10`, v the step at 0xC counted to 10 and back.
+- **In C** (decomp/matching.patch): the editor moves to C (its data,
+  rodata and bss in the object, as the board's), the init, the three
+  line functions, up and down match; so does the board's cursor (the
+  GameCube's shape: the editor's pointer re-read for the call, `ofsY =
+  line = 0.0f`); the name's box is C behind `NON_MATCHING` (one reload in
+  v0 where the cartridge's is in v1). `make verify`: identical.
+- **The en build** (decomp/changes.patch). A letter's body is laid out
+  one way, written and read: `mHandbill_en_BoardLine` (192 px, after the
+  last space that fits, newlines kept). The editor's three line functions
+  forward to `m_handbill.c` (the overlay cannot grow; code can), which
+  lays the body out (the column and line of an index, over the whole
+  text: a word that goes on can carry it to the next line) and keeps the
+  cartridge's lines for every other text (the init records the kind) and
+  for the header and footer. Up and down keep the cursor's x: the column
+  nearest it (as ac-decomp's `mED_set_idxcol_inLineWidth` does with its
+  pixel offset). The board's writing header, body (a line's newline mark
+  shown while writing, as on the cartridge), end mark and footer are at
+  the font's widths, the cursor at its text's width, the name's box at
+  the name's middle. The bar is 3.6 px wide; the cartridge's offset puts
+  its left edge 2.7 px before our characters' boundary (over the gap a
+  Japanese glyph leaves in its cell), covering the last column: -7.5 px
+  centres it. A new letter has the GameCube's "To " before the name and
+  "from " before the player's (ac-decomp's `header_str`, `footer_str`; the
+  cartridge's put the name first, then its Japanese "to", and the player's
+  name, then "from": `D_8088ABB8_jp`, `D_8088ABBC_jp`). fado gives the
+  cartridge's 212 relocations of the editor from the matching objects
+  (`tools/af_ovlreloc.py`, `EN_OVERLAYS`); the board's go from 52 to 42.
+- **On screen** (`tests/emu_write.py`, `make write-check-en`). From the
+  houses' state, paper in the pockets and a villager who remembers the
+  player, the board opened to write and the first address chosen; the
+  letters typed on the dial as a player types them. A sentence of 66
+  capitals is the body, the cursor at the model's line 2, column 15, the
+  three lines the dial leaves visible where the model draws them, the end
+  mark right after the text; five left and two up land at the model's
+  places (up by the nearest x), the bar centred on the boundary (frame x
+  267-273 around 270.3); a W typed mid-line and deleted reflows as the
+  model does; typing on stops at 96 bytes (4 lines of 6); the letter read
+  on the board is drawn with the model's lines, and the lines it shared
+  with the writing screen alike. The text is measured on the frame of a
+  fade cycle where the bar is faintest (faint over a ruled line's blue it
+  passes for text; the frame shown trails the editor's step), the bar
+  where it is strongest. Against a model breaking lines 20 px early, 6 of
+  the 9 measured lines fail; with a space 1 px wider, 9.
+- **Left as it is.** The body holds the cartridge's 96 bytes, about four
+  of its six lines at these widths; the GameCube's letters hold 192, and
+  the save's extension could keep a written letter's rest as it keeps an
+  official one's. The address book's two balloons (the book is empty;
+  first choose who it is to) and the dial's labels are still Japanese:
+  neither is in the text banks (textures, for the graphics).

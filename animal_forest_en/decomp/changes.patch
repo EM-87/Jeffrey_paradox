@@ -1038,7 +1038,7 @@ index 85ca0d9..d461faf 100644
  
  s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
 diff --git a/src/code/m_handbill.c b/src/code/m_handbill.c
-index 34e9b7f..a3150d4 100644
+index 34e9b7f..e079caf 100644
 --- a/src/code/m_handbill.c
 +++ b/src/code/m_handbill.c
 @@ -4,11 +4,17 @@
@@ -1596,7 +1596,7 @@ index 34e9b7f..a3150d4 100644
 +    }
 +    while (mFRm_en_extSize + size > mFRm_EN_EXT_CAP && mFRm_en_extSize > mHandbill_EN_EXT_HEAD) {
 +        mHandbill_en_Remove(&mFRm_en_ext[mHandbill_EN_EXT_HEAD]); /* the oldest */
-     }
++    }
 +    record = &mFRm_en_ext[mFRm_en_extSize];
 +    record[0] = key >> 24;
 +    record[1] = key >> 16;
@@ -1627,7 +1627,7 @@ index 34e9b7f..a3150d4 100644
 +        hlen = record[4];
 +        blen = record[5];
 +        flen = record[6];
-+    }
+     }
 +    mem_clear(header, mHandbill_EN_HEADER_LEN, ' ');
 +    mem_clear(body, mHandbill_EN_BODY_LEN, 0xCD);
 +    mem_clear(footer, mHandbill_EN_FOOTER_LEN, ' ');
@@ -1802,12 +1802,12 @@ index 34e9b7f..a3150d4 100644
  
      if (func_800940A8_jp(&dma_info)) {
 -        bcopy(ram, info->psBuf, dma_info.dma_size);
--
++        u8* footer = mHandbill_en_letter.footer;
+ 
 -        if (info->psBufSize > dma_info.dma_size) {
 -            mem_clear(info->psBuf + dma_info.dma_size, info->psBufSize - dma_info.dma_size, ' ');
 -        }
-+        u8* footer = mHandbill_en_letter.footer;
- 
+-
 -        func_80093478_jp(info->psBuf, info->psBufSize, dma_info.dma_size, mHandbill_FILL_SPACE);
 +        mem_clear(footer, mHandbill_EN_FOOTER_LEN, ' ');
 +        bcopy(ram, footer, dma_info.dma_size);
@@ -1817,7 +1817,7 @@ index 34e9b7f..a3150d4 100644
          return TRUE;
      } else {
          return FALSE;
-@@ -745,9 +904,245 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+@@ -745,9 +904,491 @@ s32 func_80094400_jp(HandbillzInfo* info) {
  }
  
  s32 mHandbillz_load(HandbillzInfo* info) {
@@ -1852,7 +1852,6 @@ index 34e9b7f..a3150d4 100644
 + */
 +#define mHandbill_EN_BOARD_WIDTH 192 /* mBD_MAX_WIDTH */
 +#define mHandbill_EN_BOARD_LINES 6
-+#define mHandbill_EN_BOARD_LINE_LEN 16 /* the cartridge's lines: characters of 12 pixels */
 +#define mHandbill_EN_NEW_LINE 0xCD
 +#define mHandbill_EN_BOARD_FIELD_HEADER 0
 +#define mHandbill_EN_BOARD_FIELD_BODY 1
@@ -1929,12 +1928,12 @@ index 34e9b7f..a3150d4 100644
 +            len = boardOvl->headerNameLen;
 +        }
 +        mHandbill_en_DrawLine(game, content->header, content->headerBackStart, x, y, color);
-+        x += content->headerBackStart * 12.0f;
++        x += mHandbill_en_TextWidth(content->header, content->headerBackStart);
 +        func_80090E98_jp(game, name, len, x, y, 185, 0, 0, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
 +        if (content->headerBackStart < MAIL_HEADER_LEN) {
 +            mHandbill_en_DrawLine(game, &content->header[content->headerBackStart],
 +                                  boardOvl->lengths[mHandbill_EN_BOARD_FIELD_HEADER] - content->headerBackStart,
-+                                  x + len * 12.0f, y, color);
++                                  x + mHandbill_en_TextWidth(name, len), y, color);
 +        }
 +    } else {
 +        mHandbill_en_Board* board = &mHandbill_en_board;
@@ -1988,8 +1987,221 @@ index 34e9b7f..a3150d4 100644
 +    *next = (len < rest) ? len + 1 : len;
 +    return len;
 +}
- 
--    return super_res && mail_res && ps_res;
++
++/*
++ * Writing a letter: the editor (submenu program 10) and the board lay its
++ * body out as it will be read, lines broken by mHandbill_en_BoardLine at the
++ * board's 192 pixels after the last space that fits, its own newlines kept
++ * (ac-decomp's editor breaks lines by width too: mED_get_col_line_width).
++ * The editor's line and column are a place in those lines, the cursor's x
++ * the width of its line up to it, and a line up or down keeps that x. The
++ * cartridge's editor counts lines of 16 characters (func_80885AEC_jp); it
++ * still does for every other text (a notice, a name), and for a letter's
++ * header and footer, single lines whose columns the board turns into
++ * pixels (mHandbill_en_BoardCursorX).
++ */
++#define mHandbill_EN_EDIT_LINES 8 /* more than a body's six: a text with one more character is tried */
++
++static s32 mHandbill_en_editLetter;
++
++/* The editor's init: whether the text is a letter's (kind 0, with the board) */
++void mHandbill_en_EditInit(s32 kind) {
++    mHandbill_en_editLetter = (kind == 0);
++}
++
++static s32 mHandbill_en_EditLaidOut(mED_Ovl_c* editorOvl) {
++    return mHandbill_en_editLetter && (editorOvl->maxLineNo > 1);
++}
++
++/* Where the lines of str's first len characters start (a line after the last when it ends in a newline) */
++static s32 mHandbill_en_EditLines(u8* str, s32 len, s32* starts) {
++    s32 lines = 1;
++    s32 at = 0;
++
++    starts[0] = 0;
++    while (at < len && lines < mHandbill_EN_EDIT_LINES) {
++        s32 next;
++
++        mHandbill_en_BoardLine(&str[at], len - at, &next);
++        at += next;
++        if (at < len || str[at - 1] == mHandbill_EN_NEW_LINE) {
++            starts[lines++] = at;
++        }
++    }
++    return lines;
++}
++
++/* The line the index i is on */
++static s32 mHandbill_en_EditLineOf(s32* starts, s32 lines, s32 i) {
++    s32 line = lines - 1;
++
++    while (line > 0 && starts[line] > i) {
++        line--;
++    }
++    return line;
++}
++
++/* The editor's line, laid out over its text, the line it is on kept within the text's */
++static s32 mHandbill_en_EditLine(mED_Ovl_c* editorOvl, s32* starts, s32* lines) {
++    *lines = mHandbill_en_EditLines(editorOvl->inputStr, editorOvl->nowStrLen, starts);
++    return (editorOvl->line < *lines) ? editorOvl->line : *lines - 1;
++}
++
++/* func_80885AEC_jp: the column and line after the text's first n characters */
++void mHandbill_en_EditColLine(mED_Ovl_c* editorOvl, s16* col, s16* line, s32 n) {
++    s32 starts[mHandbill_EN_EDIT_LINES];
++    s32 lines;
++    s32 k;
++
++    if (!mHandbill_en_EditLaidOut(editorOvl)) {
++        /* the cartridge's */
++        u8* str = editorOvl->inputStr;
++        s32 prevCol = 0;
++        s32 i;
++
++        *line = 0;
++        *col = 0;
++        for (i = 0; i < n; i++, str++) {
++            if ((*str == mHandbill_EN_NEW_LINE) || (editorOvl->inputLength == *col + 1)) {
++                (*line)++;
++                prevCol = *col;
++                *col = -1;
++            }
++            (*col)++;
++        }
++        if ((*col == 0) && (editorOvl->maxLineNo == *line)) {
++            *line = *line - 1;
++            *col = prevCol + 1;
++        }
++        return;
++    }
++    /* the whole text: a word that goes on past n can carry n to the next line */
++    lines = mHandbill_en_EditLines(editorOvl->inputStr, (n > editorOvl->nowStrLen) ? n : editorOvl->nowStrLen, starts);
++    k = mHandbill_en_EditLineOf(starts, lines, n);
++    *line = k;
++    *col = n - starts[k];
++    /* past the last line, the cursor stays at its end, as the cartridge's does */
++    if ((*col == 0) && (k > 0) && (editorOvl->maxLineNo == k)) {
++        *line = k - 1;
++        *col = n - starts[k - 1];
++    }
++}
++
++/* func_80885A74_jp: the cursor's index from its line and column */
++void mHandbill_en_EditIndex(mED_Ovl_c* editorOvl) {
++    s32 starts[mHandbill_EN_EDIT_LINES];
++    s32 lines;
++    s32 line;
++
++    if (!mHandbill_en_EditLaidOut(editorOvl)) {
++        /* the cartridge's */
++        u8* str = editorOvl->inputStr;
++        s32 i;
++
++        line = editorOvl->line;
++        editorOvl->cursorIdx = 0;
++        while (line != 0) {
++            for (i = 0; i < editorOvl->inputLength; i++) {
++                if (*str == mHandbill_EN_NEW_LINE) {
++                    str++;
++                    i++;
++                    break;
++                }
++                str++;
++            }
++            editorOvl->cursorIdx += i;
++            line--;
++        }
++        editorOvl->cursorIdx += editorOvl->col;
++        return;
++    }
++    line = mHandbill_en_EditLine(editorOvl, starts, &lines);
++    editorOvl->cursorIdx = starts[line] + editorOvl->col;
++}
++
++/* func_80885CBC_jp: the length of the cursor's line, what ends it counted */
++s32 mHandbill_en_EditLineLen(mED_Ovl_c* editorOvl) {
++    s32 starts[mHandbill_EN_EDIT_LINES];
++    s32 lines;
++    s32 line;
++
++    if (!mHandbill_en_EditLaidOut(editorOvl)) {
++        /* the cartridge's */
++        u8* str = editorOvl->inputStr;
++        s32 rest = editorOvl->nowStrLen;
++        s32 len = editorOvl->inputLength;
++        s32 i;
++
++        line = editorOvl->line;
++        do {
++            for (i = 0; (i < len) && (i < rest); i++, str++) {
++                if (*str == mHandbill_EN_NEW_LINE) {
++                    str++;
++                    i++;
++                    break;
++                }
++            }
++            rest -= i;
++            line--;
++        } while (line >= 0);
++        return i;
++    }
++    line = mHandbill_en_EditLine(editorOvl, starts, &lines);
++    return ((line + 1 < lines) ? starts[line + 1] : editorOvl->nowStrLen) - starts[line];
++}
++
++/* The cursor's x in its line, in pixels (its column, for a text of 12-pixel columns) */
++s32 mHandbill_en_EditX(mED_Ovl_c* editorOvl) {
++    s32 starts[mHandbill_EN_EDIT_LINES];
++    s32 lines;
++    s32 line;
++    s32 next;
++    s32 drawn;
++    u8* str;
++
++    if (!mHandbill_en_EditLaidOut(editorOvl)) {
++        return editorOvl->col;
++    }
++    line = mHandbill_en_EditLine(editorOvl, starts, &lines);
++    str = &editorOvl->inputStr[starts[line]];
++    drawn = (starts[line] < editorOvl->nowStrLen)
++                ? mHandbill_en_BoardLine(str, editorOvl->nowStrLen - starts[line], &next)
++                : 0;
++    return mHandbill_en_TextWidth(str, (editorOvl->col < drawn) ? editorOvl->col : drawn);
++}
++
++/* After a line up or down: the column nearest x, at most maxCol (the cartridge's keeps the column) */
++void mHandbill_en_EditSetCol(mED_Ovl_c* editorOvl, s32 x, s32 maxCol) {
++    s32 starts[mHandbill_EN_EDIT_LINES];
++    s32 lines;
++    s32 line;
++    s32 best = 0;
++    s32 bestDist = x;
++    s32 width = 0;
++    s32 col;
++    u8* str;
++
++    if (!mHandbill_en_EditLaidOut(editorOvl)) {
++        if (editorOvl->col > maxCol) {
++            editorOvl->col = maxCol;
++        }
++        return;
++    }
++    line = mHandbill_en_EditLine(editorOvl, starts, &lines);
++    str = &editorOvl->inputStr[starts[line]];
++    for (col = 1; col <= maxCol; col++) {
++        s32 dist;
++
++        width += func_8009028C_jp(str[col - 1], TRUE);
++        dist = ABS(width - x);
++        if (dist < bestDist) {
++            best = col;
++            bestDist = dist;
++        }
++    }
++    editorOvl->col = best;
++}
++
 +void mHandbill_en_BoardBody(mBD_Ovl_c* boardOvl, s32 writing, Game* game, f32 x, f32* y, f32* endX, f32* endY,
 +                            Color_RGBA8* color) {
 +    s32 i;
@@ -2014,43 +2226,32 @@ index 34e9b7f..a3150d4 100644
 +
 +    {
 +        u8* str = boardOvl->mail.content.body;
-+        s32 rest = boardOvl->lengths[mHandbill_EN_BOARD_FIELD_BODY];
++        s32 len = boardOvl->lengths[mHandbill_EN_BOARD_FIELD_BODY];
++        s32 starts[mHandbill_EN_EDIT_LINES];
++        s32 lines = mHandbill_en_EditLines(str, len, starts);
++        f32 top = *y;
++        s32 endLine = mHandbill_en_EditLineOf(starts, lines, len);
 +
 +        for (i = 0; i < mHandbill_EN_BOARD_LINES; i++) {
-+            s32 newline = FALSE;
-+            s32 len = 0;
-+            s32 drawLen;
++            if (i < lines && starts[i] < len) {
++                s32 next;
++                s32 drawn = mHandbill_en_BoardLine(&str[starts[i]], len - starts[i], &next);
 +
-+            while (len < rest) {
-+                if (str[len] == mHandbill_EN_NEW_LINE) {
-+                    len++;
-+                    newline = TRUE;
-+                    break;
++                /* while it is written, a line's newline shows, as on the cartridge */
++                if (writing && starts[i] + drawn < len && str[starts[i] + drawn] == mHandbill_EN_NEW_LINE) {
++                    drawn++;
 +                }
-+                len++;
-+                if (len >= mHandbill_EN_BOARD_LINE_LEN) {
-+                    break;
-+                }
-+            }
-+            if (len != 0) {
-+                drawLen = (newline && !writing) ? len - 1 : len;
-+                if (drawLen != 0) {
-+                    mHandbill_en_DrawLine(game, str, drawLen, x, *y, color);
-+                }
-+                rest -= len;
-+                str += len;
-+                if (rest == 0) {
-+                    if (i != mHandbill_EN_BOARD_LINES - 1 && (newline || len == mHandbill_EN_BOARD_LINE_LEN)) {
-+                        *endX = x - 160.0f;
-+                        *endY = 120.0f - (*y + 16.0f);
-+                    } else {
-+                        *endX = len * 12.0f + x - 160.0f;
-+                        *endY = 120.0f - *y;
-+                    }
++                if (drawn > 0) {
++                    mHandbill_en_DrawLine(game, &str[starts[i]], drawn, x, *y, color);
 +                }
 +            }
 +            *y += 16.0f;
 +        }
++        if (endLine >= mHandbill_EN_BOARD_LINES) {
++            endLine = mHandbill_EN_BOARD_LINES - 1;
++        }
++        *endX = x + mHandbill_en_TextWidth(&str[starts[endLine]], len - starts[endLine]) - 160.0f;
++        *endY = 120.0f - (top + endLine * 16.0f);
 +    }
 +}
 +
@@ -2063,9 +2264,54 @@ index 34e9b7f..a3150d4 100644
 +    } else {
 +        s32 len = boardOvl->lengths[mHandbill_EN_BOARD_FIELD_FOOTER];
 +
-+        x += 12.0f * (mHandbill_EN_BOARD_LINE_LEN - len);
++        x += mHandbill_EN_BOARD_WIDTH - mHandbill_en_TextWidth(boardOvl->mail.content.footer, len);
 +        mHandbill_en_DrawLine(game, boardOvl->mail.content.footer, len, x, y, color);
 +    }
++}
++
++/* The editor's cursor on the board (func_80889878_jp): pixels from the text's left edge */
++f32 mHandbill_en_BoardCursorX(mBD_Ovl_c* boardOvl, mED_Ovl_c* editorOvl) {
++    MailContent* content = &boardOvl->mail.content;
++    s32 col = editorOvl->col;
++
++    if (boardOvl->field == mHandbill_EN_BOARD_FIELD_HEADER) {
++        s32 x = mHandbill_en_TextWidth(content->header, col);
++
++        /* after the name: the name as the header draws it while it is written */
++        if (boardOvl->headerPos == 2) {
++            x += mHandbill_en_TextWidth((u8*)boardOvl->mail.header.recipient.personalID.playerName, PLAYER_NAME_LEN);
++        }
++        return x;
++    } else if (boardOvl->field == mHandbill_EN_BOARD_FIELD_BODY) {
++        return mHandbill_en_EditX(editorOvl);
++    } else {
++        s32 len = boardOvl->lengths[mHandbill_EN_BOARD_FIELD_FOOTER];
++
++        return mHandbill_EN_BOARD_WIDTH - mHandbill_en_TextWidth(content->footer, len) +
++               mHandbill_en_TextWidth(content->footer, col);
++    }
++}
++
++/* The middle of the recipient's name in the header (func_8088973C_jp's box), from the text's left edge */
++f32 mHandbill_en_BoardNameX(mBD_Ovl_c* boardOvl) {
++    MailContent* content = &boardOvl->mail.content;
++
++    return mHandbill_en_TextWidth(content->header, content->headerBackStart) +
++           mHandbill_en_TextWidth((u8*)boardOvl->mail.header.recipient.personalID.playerName, PLAYER_NAME_LEN) / 2.0f;
++}
+ 
+-    return super_res && mail_res && ps_res;
++/* A new letter's header and footer: the GameCube's "To " before the name, "from " before the writer's
++ * (ac-decomp's m_board_ovl.c: header_str, footer_str); the cartridge's put the name first */
++void mHandbill_en_BoardNewLetter(mBD_Ovl_c* boardOvl, u8* name) {
++    static u8 header[3] = { 'T', 'o', ' ' };
++    static u8 footer[5] = { 'f', 'r', 'o', 'm', ' ' };
++    s32 nameLen = mMl_strlen((char*)name, PLAYER_NAME_LEN, ' ');
++
++    mem_copy(boardOvl->mail.content.header, header, sizeof(header));
++    boardOvl->mail.content.headerBackStart = sizeof(header);
++    mem_copy(boardOvl->mail.content.footer, footer, sizeof(footer));
++    mem_copy(boardOvl->mail.content.footer + sizeof(footer), name, nameLen);
  }
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
 index 03981c7..da23ef7 100644
@@ -2704,7 +2950,7 @@ index 3ba98f9..56b6afc 100644
 -u8 sDmaDataPadding[0xF0] = { 0 };
 +u8 sDmaDataPadding[0xF0 - 8 * sizeof(DmaEntry)] = { 0 }; /* eight entries added for the translation: the table keeps its size */
 diff --git a/src/overlays/submenu/board_ovl/m_board_ovl.c b/src/overlays/submenu/board_ovl/m_board_ovl.c
-index d70fe25..813943e 100644
+index d70fe25..c892397 100644
 --- a/src/overlays/submenu/board_ovl/m_board_ovl.c
 +++ b/src/overlays/submenu/board_ovl/m_board_ovl.c
 @@ -9,6 +9,7 @@
@@ -2737,7 +2983,74 @@ index d70fe25..813943e 100644
  /* The board's entry of the submenu's menu infos (mSM_MenuInfo_c in AC GCN) */
  typedef struct mBD_MenuInfo {
      /* 0x00 */ s32 unk_00;
-@@ -165,120 +151,21 @@ void func_80889878_jp(Submenu* submenu, Game* game, f32 x, f32 y) {
+@@ -77,8 +63,6 @@ typedef struct mBD_EditorOvl {
+ #define mBD_FIELD_BODY 1
+ #define mBD_FIELD_FOOTER 2
+ 
+-extern u8 D_8088ABB8_jp[]; /* what follows the name in a new letter's header */
+-extern u8 D_8088ABBC_jp[]; /* what follows the name in its footer */
+ 
+ mBD_Ovl_c B_8088AC00_jp; /* the board's state (board_ovl_data) */
+ 
+@@ -110,12 +94,12 @@ void func_8088973C_jp(Submenu* submenu, Game* game, f32 x, f32 y);
+ 
+ /* The box on the recipient's name, while the cursor is on it: 12 pixels a character to the name.
+  * NON_MATCHING: the board's pointer is reloaded after Matrix_scale into v0, the cartridge's into v1 */
+-#ifdef NON_MATCHING
+ void func_8088973C_jp(Submenu* submenu, Game* game, f32 x, f32 y) {
+     GraphicsContext* gfxCtx = game->gfxCtx;
+     mBD_Ovl_c* boardOvl = mBD_SUBMENU_OVL(submenu)->boardOvl;
+ 
+-    boardOvl->ofsX = (boardOvl->mail.content.headerBackStart + 3) * 12.0f + x + -96.0f;
++    /* the en build: at the middle of the name as the header draws it */
++    boardOvl->ofsX = mHandbill_en_BoardNameX(boardOvl) + x + -96.0f;
+     boardOvl->ofsY = y - -76.0f;
+     Matrix_scale(16.0f, 16.0f, 1.0f, 0);
+     Matrix_translate(boardOvl->ofsX, boardOvl->ofsY, 140.0f, 1);
+@@ -129,156 +113,50 @@ void func_8088973C_jp(Submenu* submenu, Game* game, f32 x, f32 y) {
+ 
+     CLOSE_POLY_OPA_DISP(gfxCtx);
+ }
+-#else
+-#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_8088973C_jp.s")
+-#endif
+ 
+ /* The editor's cursor on the board: in its field, 12 pixels a character */
+ void func_80889878_jp(Submenu* submenu, Game* game, f32 x, f32 y) {
+     mBD_EditorOvl* editorOvl = mBD_SUBMENU_OVL(submenu)->editorOvl;
+     mBD_Ovl_c* boardOvl = mBD_SUBMENU_OVL(submenu)->boardOvl;
+-    f32 col;
+     f32 line;
+     f32 ofsY;
+ 
+     if (boardOvl->headerPos == 1) {
+         func_8088973C_jp(submenu, game, x, y);
+     } else {
+-        s32 c = editorOvl->col - 1;
+-
+         if (boardOvl->field == mBD_FIELD_HEADER) {
+-            if (boardOvl->headerPos == 2) {
+-                c += 6;
+-            }
+-            col = c + 0.3f;
+             ofsY = line = 0.0f;
+         } else if (boardOvl->field == mBD_FIELD_BODY) {
+-            col = c + 0.3f;
+-            ofsY = 12.0f;
+             line = editorOvl->line + 1;
++            ofsY = 12.0f;
+         } else {
+-            col = (c - boardOvl->lengths[mBD_FIELD_FOOTER] + 16) + 0.3f;
+             line = 7.0f;
+             ofsY = 24.0f;
+         }
+-        mBD_SUBMENU_OVL(submenu)->editorOvl->cursolDraw(submenu, game, 64.0f + x + col * 12.0f, 36.0f - ((y - line * 16.0f) - ofsY));
++        /* the en build: the cursor between its characters at the font's widths, its bar (3.6 pixels wide)
++         * centred on their boundary; the cartridge's puts it 8.4 pixels before the column's 12-pixel cell,
++         * over the gap a Japanese glyph leaves there, which would cover the last column of ours */
++        mBD_SUBMENU_OVL(submenu)->editorOvl->cursolDraw(
++            submenu, game, 64.0f + x + mHandbill_en_BoardCursorX(boardOvl, (mED_Ovl_c*)editorOvl) - 7.5f,
++            36.0f - ((y - line * 16.0f) - ofsY));
      }
  }
  
@@ -2864,7 +3177,30 @@ index d70fe25..813943e 100644
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_80889FB0_jp.s")
  
-@@ -363,6 +250,8 @@ void func_8088A2D0_jp(Submenu* submenu) {
+@@ -302,7 +180,6 @@ void func_8088A2D0_jp(Submenu* submenu) {
+ 
+     if (menuInfo->data0 == 0) {
+         MailHeaderCommon* saved = &common_data.privateInfo->savedMailHeader;
+-        s32 nameLen;
+ 
+         boardOvl->first = TRUE;
+         menuInfo->nextProcStatus = 1;
+@@ -311,12 +188,8 @@ void func_8088A2D0_jp(Submenu* submenu) {
+         boardOvl->mail.content.paperType = (common_data.privateInfo->inventory.pockets[menuInfo->data1] - 0x2000) & 0xFF;
+ 
+         if (saved->unk_00 == -1) {
+-            nameLen = mMl_strlen(common_data.privateInfo->playerId.playerName, PLAYER_NAME_LEN, ' ');
+-
+-            mem_copy(boardOvl->mail.content.header, D_8088ABB8_jp, 3);
+-            mem_copy(boardOvl->mail.content.footer, (u8*)common_data.privateInfo->playerId.playerName, nameLen);
+-            mem_copy(boardOvl->mail.content.footer + nameLen, D_8088ABBC_jp, 2);
+-            boardOvl->mail.content.headerBackStart = 0;
++            /* the en build: "To " before the name, "from " before the writer's */
++            mHandbill_en_BoardNewLetter(boardOvl, (u8*)common_data.privateInfo->playerId.playerName);
+         } else {
+             mem_copy(boardOvl->mail.content.header, saved->unk_02, MAIL_HEADER_LEN);
+             mem_copy(boardOvl->mail.content.footer, saved->unk_0C, MAIL_FOOTER_LEN);
+@@ -363,6 +236,8 @@ void func_8088A2D0_jp(Submenu* submenu) {
          mem_clear(boardOvl->mail.content.footer, MAIL_FOOTER_LEN, ' ');
          mem_copy(boardOvl->mail.content.footer, p, boardOvl->lengths[mBD_FIELD_FOOTER] - i);
      }
@@ -2875,18 +3211,19 @@ index d70fe25..813943e 100644
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_8088A604_jp.s")
 diff --git a/src/overlays/submenu/board_ovl/m_board_ovl_en.h b/src/overlays/submenu/board_ovl/m_board_ovl_en.h
 new file mode 100644
-index 0000000..3e18dac
+index 0000000..1fdb29f
 --- /dev/null
 +++ b/src/overlays/submenu/board_ovl/m_board_ovl_en.h
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,80 @@
 +#ifndef M_BOARD_OVL_EN_H
 +#define M_BOARD_OVL_EN_H
 +
 +/*
-+ * The en build: the letter board's state, shared by the board (board_ovl)
-+ * and the letters' code (m_handbill.c), which draws the letter. Its own
-+ * header, included by those two files only: a type added to a shared header
-+ * can move another file's bss.
++ * The en build: the letter board's state and the text editor's, shared by
++ * the board (board_ovl), the editor (ovl__0078CB80) and the letters' code
++ * (m_handbill.c), which lays the letter out and draws it. Its own header,
++ * included by those three files only: a type added to a shared header can
++ * move another file's bss.
 + */
 +
 +#include "ultra64.h"
@@ -2910,10 +3247,223 @@ index 0000000..3e18dac
 +    /* 0xBC */ s32 unk_BC;
 +} mBD_Ovl_c; // size = 0xC0
 +
++/* The text editor's state (submenu program 10, ovl__0078CB80) */
++typedef struct mED_Ovl_c {
++    /* 0x00 */ u8 stickArea;
++    /* 0x01 */ u8 unk_01;
++    /* 0x02 */ u8 unk_02;
++    /* 0x03 */ u8 unk_03;
++    /* 0x04 */ u8 unk_04;
++    /* 0x05 */ u8 inputMode;
++    /* 0x06 */ s16 unk_06;
++    /* 0x08 */ s32 lastButtons;
++    /* 0x0C */ s16 unk_0C;
++    /* 0x0E */ u8 unk_0E;
++    /* 0x0F */ u8 unk_0F;
++    /* 0x10 */ u8 unk_10;
++    /* 0x11 */ u8 command;
++    /* 0x12 */ u8 unk_12;
++    /* 0x13 */ u8 nowCode;
++    /* 0x14 */ u8 unk_14;
++    /* 0x15 */ u8 commandProcessed;
++    /* 0x16 */ s16 cursorIdx;
++    /* 0x18 */ s16 inputLength; /* characters a line */
++    /* 0x1A */ s16 maxLineNo;
++    /* 0x1C */ s16 nowStrLen;
++    /* 0x1E */ s16 exchangeCode;
++    /* 0x20 */ s16 col;
++    /* 0x22 */ s16 line;
++    /* 0x24 */ u8* inputStr;
++    /* 0x28 */ void* endCodeDraw;
++    /* 0x2C */ void* cursolDraw;
++} mED_Ovl_c; // size = 0x30
++
 +void mHandbill_en_BoardLoad(Mail_c* mail, s32 reading);
 +void mHandbill_en_BoardHeader(mBD_Ovl_c* boardOvl, s32 writing, struct Game* game, f32 x, f32 y, Color_RGBA8* color);
 +void mHandbill_en_BoardBody(mBD_Ovl_c* boardOvl, s32 writing, struct Game* game, f32 x, f32* y, f32* endX, f32* endY,
 +                            Color_RGBA8* color);
 +void mHandbill_en_BoardFooter(mBD_Ovl_c* boardOvl, struct Game* game, f32 x, f32 y, Color_RGBA8* color);
++f32 mHandbill_en_BoardCursorX(mBD_Ovl_c* boardOvl, mED_Ovl_c* editorOvl);
++f32 mHandbill_en_BoardNameX(mBD_Ovl_c* boardOvl);
++void mHandbill_en_BoardNewLetter(mBD_Ovl_c* boardOvl, u8* name);
++
++void mHandbill_en_EditInit(s32 kind);
++void mHandbill_en_EditColLine(mED_Ovl_c* editorOvl, s16* col, s16* line, s32 n);
++void mHandbill_en_EditIndex(mED_Ovl_c* editorOvl);
++s32 mHandbill_en_EditLineLen(mED_Ovl_c* editorOvl);
++s32 mHandbill_en_EditX(mED_Ovl_c* editorOvl);
++void mHandbill_en_EditSetCol(mED_Ovl_c* editorOvl, s32 x, s32 maxCol);
 +
 +#endif
+diff --git a/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c b/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c
+index a3a542f..e8821c4 100644
+--- a/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c
++++ b/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c
+@@ -3,6 +3,7 @@
+ #include "m_lib.h"
+ #include "m_mail.h"
+ #include "m_submenu.h"
++#include "overlays/submenu/board_ovl/m_board_ovl_en.h"
+ 
+ /*
+  * The text editor (submenu program 10; ac-decomp's m_editor_ovl.c is the
+@@ -10,37 +11,13 @@
+  * cursor in the text. A multi-line text is lines of inputLength
+  * characters, a newline ending one early; col and line are the cursor's
+  * place in them.
++ *
++ * The en build: a letter's body is laid out as the board draws it and as it
++ * will be read, at the font's widths (m_handbill.c, "Writing a letter"); the
++ * line model forwards there, which keeps the cartridge's for every other text.
+  */
+ 
+-typedef struct mED_Ovl_c {
+-    /* 0x00 */ u8 stickArea;
+-    /* 0x01 */ u8 unk_01;
+-    /* 0x02 */ u8 unk_02;
+-    /* 0x03 */ u8 unk_03;
+-    /* 0x04 */ u8 unk_04;
+-    /* 0x05 */ u8 inputMode;
+-    /* 0x06 */ s16 unk_06;
+-    /* 0x08 */ s32 lastButtons;
+-    /* 0x0C */ s16 unk_0C;
+-    /* 0x0E */ u8 unk_0E;
+-    /* 0x0F */ u8 unk_0F;
+-    /* 0x10 */ u8 unk_10;
+-    /* 0x11 */ u8 command;
+-    /* 0x12 */ u8 unk_12;
+-    /* 0x13 */ u8 nowCode;
+-    /* 0x14 */ u8 unk_14;
+-    /* 0x15 */ u8 commandProcessed;
+-    /* 0x16 */ s16 cursorIdx;
+-    /* 0x18 */ s16 inputLength; /* characters a line */
+-    /* 0x1A */ s16 maxLineNo;
+-    /* 0x1C */ s16 nowStrLen;
+-    /* 0x1E */ s16 exchangeCode;
+-    /* 0x20 */ s16 col;
+-    /* 0x22 */ s16 line;
+-    /* 0x24 */ u8* inputStr;
+-    /* 0x28 */ void* endCodeDraw;
+-    /* 0x2C */ void* cursolDraw;
+-} mED_Ovl_c; // size = 0x30
++/* mED_Ovl_c: the en build shares it with the board and the letters' code */
+ 
+ /* The editor's entry of the submenu's menu infos (mSM_MenuInfo_c in AC GCN) */
+ typedef struct mED_MenuInfo {
+@@ -123,75 +100,24 @@ void func_8088587C_jp(Submenu* submenu, mED_MenuInfo* menuInfo) {
+     editorOvl->col = 0;
+     editorOvl->line = 0;
+     editorOvl->exchangeCode = -1;
++    mHandbill_en_EditInit(menuInfo->data0);
+ }
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_8088596C_jp.s")
+ 
+ /* The cursor's index from its line and column */
+ void func_80885A74_jp(mED_Ovl_c* editorOvl) {
+-    u8* str = editorOvl->inputStr;
+-    s32 line = editorOvl->line;
+-    s32 col = editorOvl->col;
+-    s32 i;
+-
+-    editorOvl->cursorIdx = 0;
+-    while (line != 0) {
+-        for (i = 0; i < editorOvl->inputLength; i++) {
+-            if (*str == mED_CHAR_NEW_LINE) {
+-                str++;
+-                i++;
+-                break;
+-            }
+-            str++;
+-        }
+-        editorOvl->cursorIdx += i;
+-        line--;
+-    }
+-    editorOvl->cursorIdx += col;
++    mHandbill_en_EditIndex(editorOvl);
+ }
+ 
+ /* The column and line after the text's first n characters */
+ void func_80885AEC_jp(mED_Ovl_c* editorOvl, s16* col, s16* line, s32 n) {
+-    u8* str = editorOvl->inputStr;
+-    s32 prevCol = 0;
+-    s32 i;
+-
+-    *line = 0;
+-    *col = 0;
+-    for (i = 0; i < n; i++, str++) {
+-        if ((*str == mED_CHAR_NEW_LINE) || (editorOvl->inputLength == *col + 1)) {
+-            (*line)++;
+-            prevCol = *col;
+-            *col = -1;
+-        }
+-        (*col)++;
+-    }
+-    if ((*col == 0) && (editorOvl->maxLineNo == *line)) {
+-        *line = *line - 1;
+-        *col = prevCol + 1;
+-    }
++    mHandbill_en_EditColLine(editorOvl, col, line, n);
+ }
+ 
+ /* The length of the cursor's line, its newline counted */
+ s32 func_80885CBC_jp(mED_Ovl_c* editorOvl) {
+-    u8* str = editorOvl->inputStr;
+-    s32 rest = editorOvl->nowStrLen;
+-    s32 line = editorOvl->line;
+-    s32 len = editorOvl->inputLength;
+-    s32 i;
+-
+-    do {
+-        for (i = 0; (i < len) && (i < rest); i++, str++) {
+-            if (*str == mED_CHAR_NEW_LINE) {
+-                str++;
+-                i++;
+-                break;
+-            }
+-        }
+-        rest -= i;
+-        line--;
+-    } while (line >= 0);
+-    return i;
++    return mHandbill_en_EditLineLen(editorOvl);
+ }
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_80885D2C_jp.s")
+@@ -206,14 +132,12 @@ s32 func_80885CBC_jp(mED_Ovl_c* editorOvl) {
+ 
+ /* The cursor a line up, at its column or the line's end */
+ void func_80885F6C_jp(mED_Ovl_c* editorOvl) {
+-    s32 len;
++    s32 x;
+ 
+     if (editorOvl->line > 0) {
++        x = mHandbill_en_EditX(editorOvl);
+         editorOvl->line--;
+-        len = func_80885CBC_jp(editorOvl);
+-        if (editorOvl->col >= len) {
+-            editorOvl->col = len - 1;
+-        }
++        mHandbill_en_EditSetCol(editorOvl, x, func_80885CBC_jp(editorOvl) - 1);
+         func_80885A74_jp(editorOvl);
+         editorOvl->commandProcessed = TRUE;
+     }
+@@ -227,15 +151,11 @@ void func_80885FCC_jp(mED_Ovl_c* editorOvl) {
+ 
+     func_80885AEC_jp(editorOvl, &col, &line, editorOvl->nowStrLen);
+     if (editorOvl->line < line) {
++        s32 x = mHandbill_en_EditX(editorOvl);
++
+         editorOvl->line++;
+         len = func_80885CBC_jp(editorOvl);
+-        if (editorOvl->col >= len) {
+-            if (line == editorOvl->line) {
+-                editorOvl->col = len;
+-            } else {
+-                editorOvl->col = len - 1;
+-            }
+-        }
++        mHandbill_en_EditSetCol(editorOvl, x, (line == editorOvl->line) ? len : len - 1);
+         func_80885A74_jp(editorOvl);
+         editorOvl->commandProcessed = TRUE;
+     } else if (editorOvl->cursorIdx == editorOvl->nowStrLen) {

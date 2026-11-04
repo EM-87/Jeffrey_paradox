@@ -24,7 +24,11 @@
   (`m_flashrom.c`, `include/af_lz.h`; reference/NOTES.md, "The compressed
   save"), and every character is drawn and measured at its own width, from
   a table `tools/af_font.py` generates with the en build's copy of the font
-  (`m_font.c`; reference/NOTES.md, "The font in the en build").
+  (`m_font.c`; reference/NOTES.md, "The font in the en build"), and the
+  letter board (`board_ovl`) and the text editor (`ovl__0078CB80`) lay a
+  letter out at those widths, read or written, through the letters' code
+  (`m_handbill.c`; reference/NOTES.md, "The letter board in the en build",
+  "Writing a letter in the en build").
   Its ROM is never compared with the cartridge: `make rom-en` builds it
   with `code` moved to the end of the ROM so that it can grow and nothing
   of it moved in RAM (a section that grows, or a new one, goes to a

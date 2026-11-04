@@ -49,6 +49,7 @@ make script ISO=ruta/al/disco.iso # el guion oficial de GameCube: extrae los ban
                                   # y los compara mensaje a mensaje con el del cartucho, y su
                                   # fuente (build/gc/)
 make board-check-en               # abre cartas en el tablero y mide sus líneas en pantalla
+make write-check-en               # escribe una carta con el dial y la mide en pantalla
 make test                         # tests de las herramientas, sin ROM
 make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010, para estudiarlo
 ```
@@ -154,9 +155,20 @@ GameCube, y la despedida alineada a la derecha. `make board-check-en`
 abre cartas en el emulador y mide cada línea en la imagen contra un
 modelo del tablero ("The letter board in the en build").
 
-Lo que viene: los gráficos occidentales de GameCube, escribir cartas con
-la letra proporcional (el cursor del editor aún avanza 12 px por
-carácter), y traducir ese 6 %.
+Escribir cartas: el editor de texto (el programa 10 de los submenús, ya
+en C donde hacía falta e idéntico al cartucho) coloca la carta igual que
+el tablero al leerla: las líneas se parten a los 192 px del papel tras el
+último espacio que cabe, el cursor va entre las letras a su anchura y
+arriba/abajo conservan su posición; una carta nueva empieza con "To " y
+"from " como en GameCube. `make write-check-en` escribe una carta con el
+dial en el emulador, mide líneas, cursor y marca de fin en la imagen, y
+la vuelve a leer ("Writing a letter in the en build"). El cuerpo sigue
+teniendo los 96 bytes del cartucho (unas cuatro de sus seis líneas).
+
+Lo que viene: los gráficos occidentales de GameCube (entre ellos los
+globos de la libreta de direcciones y las etiquetas del dial, que son
+texturas), cartas escritas de 192 bytes como las de GameCube (con la
+extensión de la partida), y traducir ese 6 %.
 
 ## Dónde está cada cosa
 
@@ -183,6 +195,7 @@ carácter), y traducir ese 6 %.
 - `script/` — nuestro texto: lo que no tiene versión oficial.
 - `tests/` — `test_tools.py` (`make test`), `emu_check.py`
   (`make emu-check`) y las pruebas del build en inglés en el emulador:
-  `emu_save.py` (la partida), `emu_letters.py` (las cartas) y
-  `emu_board.py` (el tablero de cartas).
+  `emu_save.py` (la partida), `emu_letters.py` (las cartas),
+  `emu_board.py` (el tablero de cartas) y `emu_write.py` (escribir una
+  carta).
 - `reference/NOTES.md` — lo verificado, con su fuente.
