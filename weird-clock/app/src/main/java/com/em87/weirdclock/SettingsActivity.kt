@@ -861,8 +861,12 @@ class SettingsActivity : AppCompatActivity() {
             dimmedWhen(
                 Prefs.BELLS,
                 Prefs.BELL_MARKS, Prefs.BELL_STYLE, Prefs.BELLS_BACKGROUND,
-                Prefs.BELL_PRIORITY, Prefs.TEST_BELLS
+                Prefs.BELLS_AS_ALARM, Prefs.BELL_PRIORITY, Prefs.TEST_BELLS
             )
+            // What the row does, how late the phone has been about it, and
+            // anything on the phone standing in its way — see the scheduler.
+            findPreference<Preference>(Prefs.BELLS_BACKGROUND)?.summary =
+                BellScheduler.describe(requireContext())
             dimmedWhen(Prefs.ALARM_MARKERS, Prefs.MARK_COLORS)
             dimmedWhen(Prefs.ORRERY, Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC)
             // Which calendar the plate is read under is not a question

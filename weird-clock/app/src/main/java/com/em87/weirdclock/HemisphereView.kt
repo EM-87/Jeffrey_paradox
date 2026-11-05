@@ -117,8 +117,13 @@ class HemisphereView @JvmOverloads constructor(
     var cloudsOn: ((Long) -> Bitmap?)? = null
         set(value) {
             field = value
+            cloudsAskedDay = Long.MIN_VALUE
             invalidate()
         }
+
+    /** When the clouds were last asked for, and for which day. */
+    private var cloudsAskedDay = Long.MIN_VALUE
+    private var cloudsAskedAt = 0L
 
     /** The ring of hours round the world, and what is on it. */
     var hourRing: Boolean = true
@@ -341,7 +346,14 @@ class HemisphereView @JvmOverloads constructor(
             }
             android.view.MotionEvent.ACTION_UP,
             android.view.MotionEvent.ACTION_CANCEL -> {
-                if (!turning) return true
+                if (!turning) {
+                    // A pinch takes the world out of the hand that was
+                    // turning it, and when the last finger comes off
+                    // nothing was letting it go: it stayed wound to
+                    // whenever the pinch began, until the next touch.
+                    if (wound != 0L && !spinning) letGo(0.0)
+                    return true
+                }
                 turning = false
                 // A finger that has stopped is not a throw, however fast
                 // it was going a moment ago.
@@ -363,7 +375,13 @@ class HemisphereView @JvmOverloads constructor(
      */
     private fun letGo(rateDegPerSec: Double) {
         val off = wound.toDouble() / Hemisphere.MS_PER_DEGREE * windSense()
-        spin = WorldSpin.let(-off, rateDegPerSec)
+        // [off] is in the finger's degrees and the physics counts the
+        // other way — see the spinner below, which reads it back with a
+        // minus — so the finger's speed has to go in the other way too.
+        // It went in as it was, and a world thrown clockwise set off
+        // anticlockwise at the speed it had been thrown, which was
+        // reported as the world bouncing off something as it was let go.
+        spin = WorldSpin.let(-off, -rateDegPerSec)
         if (WorldSpin.resting(spin)) {
             wound = 0L
             spinning = false
@@ -480,6 +498,14 @@ class HemisphereView @JvmOverloads constructor(
         pinging = false
         removeCallbacks(pinger)
         discard()
+        // And the things kept between bakes, which are several megabytes
+        // a face that is not on screen has no use for.
+        disc = null
+        for (i in mapPixelsHeld.indices) {
+            mapPixelsHeld[i] = null
+            mapPixelsFor[i] = null
+            scratch[i] = null
+        }
     }
 
     /** How big the projected discs are drawn, whatever size the view is. */
@@ -501,69 +527,131 @@ class HemisphereView @JvmOverloads constructor(
         if (!maps()) return
         val day = dayMap ?: return
         val night = nightMap ?: return
-        discard()
-        val lit = IntArray(size * size)
-        val dark = IntArray(size * size)
-        val dayPixels = IntArray(day.width * day.height)
-        day.getPixels(dayPixels, 0, day.width, 0, 0, day.width, day.height)
-        val nightPixels = IntArray(night.width * night.height)
-        night.getPixels(nightPixels, 0, night.width, 0, 0, night.width, night.height)
+        val disc = projection(size)
+        val count = size * size
+        // The three discs' pixels, written over each bake rather than
+        // allocated for it: a megabyte each, sixty times a second, was a
+        // garbage collection every few frames of spin. Pixels off the
+        // world are never written and so stay the nothing they started
+        // as.
+        val lit = scratch(0, count)
+        val dark = scratch(1, count)
+        val dayPixels = mapPixels(day, 0)
+        val nightPixels = mapPixels(night, 1)
         // And the satellite's picture, if there is one, through the same
         // inverse projection — a third disc rather than a second pass,
         // because working out which place a point of the disc is takes
         // longer than reading three maps at it.
         val sky = clouds
-        val veil = if (sky == null) null else IntArray(size * size)
-        val skyPixels = if (sky == null) null else IntArray(sky.width * sky.height).also {
-            sky.getPixels(it, 0, sky.width, 0, 0, sky.width, sky.height)
-        }
+        val veil = if (sky == null) null else scratch(2, count)
+        val skyPixels = if (sky == null) null else mapPixels(sky, 2)
         // On the globe the turn is baked in; on the flat views it is not,
         // and the disc is turned when it is drawn.
         val turn = if (view == Hemisphere.View.GLOBE) quantise(spinDeg) else 0.0
-        val half = size / 2.0
-        for (py in 0 until size) {
-            val y = (py + 0.5 - half) / half
-            for (px in 0 until size) {
-                val x = (px + 0.5 - half) / half
-                val place = Hemisphere.unproject(view, x, y, turn) ?: continue
-                val u = ((place[1] + 180.0) / 360.0).coerceIn(0.0, 0.9999)
-                val v = ((90.0 - place[0]) / 180.0).coerceIn(0.0, 0.9999)
-                val at = py * size + px
-                lit[at] = sample(dayPixels, day.width, day.height, u, v)
-                dark[at] = sample(nightPixels, night.width, night.height, u, v)
-                if (veil != null && skyPixels != null && sky != null) {
-                    veil[at] = SatelliteClouds.tint(
-                        sample(skyPixels, sky.width, sky.height, u, v),
-                        kotlin.math.hypot(x, y)
-                    )
-                }
+        for (at in 0 until count) {
+            if (!disc.onWorld(at)) continue
+            val u = disc.u(at, turn)
+            val v = disc.v[at].toDouble()
+            lit[at] = sample(dayPixels, day.width, day.height, u, v)
+            dark[at] = sample(nightPixels, night.width, night.height, u, v)
+            if (veil != null && skyPixels != null && sky != null) {
+                veil[at] = SatelliteClouds.tint(
+                    sample(skyPixels, sky.width, sky.height, u, v),
+                    disc.rho[at].toDouble()
+                )
             }
         }
-        dayDisc = Bitmap.createBitmap(lit, size, size, Bitmap.Config.ARGB_8888)
-        nightDisc = Bitmap.createBitmap(dark, size, size, Bitmap.Config.ARGB_8888)
-        cloudDisc = veil?.let { Bitmap.createBitmap(it, size, size, Bitmap.Config.ARGB_8888) }
+        dayDisc = into(dayDisc, lit, size)
+        nightDisc = into(nightDisc, dark, size)
+        cloudDisc = if (veil == null) {
+            cloudDisc?.recycle()
+            null
+        } else {
+            into(cloudDisc, veil, size)
+        }
         bakedFor = key
+        bakes++
     }
 
     /**
-     * The globe is redrawn every degree and a half, which is six minutes
-     * — and every six degrees while a finger is turning it.
+     * The pixels written into [existing] if it is a disc of this size, or
+     * into a new one. The discs used to be created afresh from their
+     * pixels each bake, which is another three megabytes a frame.
+     */
+    private fun into(existing: Bitmap?, pixels: IntArray, size: Int): Bitmap {
+        val disc = existing?.takeIf {
+            !it.isRecycled && it.isMutable && it.width == size && it.height == size
+        } ?: Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        disc.setPixels(pixels, 0, size, 0, 0, size, size)
+        return disc
+    }
+
+    /** The scratch pixels for one disc, kept between bakes. */
+    private val scratch = arrayOfNulls<IntArray>(3)
+
+    private fun scratch(slot: Int, count: Int): IntArray {
+        scratch[slot]?.let { if (it.size == count) return it }
+        return IntArray(count).also { scratch[slot] = it }
+    }
+
+    /**
+     * The inverse projection, kept — see [DiscProjection], which says why.
+     * One per view and size, which is one, since neither changes while
+     * anybody is looking.
+     */
+    private var disc: DiscProjection? = null
+
+    private fun projection(size: Int): DiscProjection {
+        disc?.let { if (it.view == view && it.size == size) return it }
+        return DiscProjection.of(view, size).also {
+            disc = it
+            projections++
+        }
+    }
+
+    /**
+     * A map's pixels, read out once rather than once per bake.
      *
-     * Coarser under a finger because a wind is a quarter of a turn in a
-     * second: at a degree and a half that is sixty projections of a
-     * quarter of a million points inside that second, and the world would
-     * stutter exactly while somebody was moving it. Six degrees is
-     * fifteen, which is a frame rate, and the difference is invisible on
-     * something being dragged.
+     * Three maps, half a million pixels each, copied out of their bitmaps
+     * every time the world turned a degree and a half. Kept by identity:
+     * the clouds are a different bitmap when they are a different day's.
+     */
+    private val mapPixelsFor = arrayOfNulls<Bitmap>(3)
+    private val mapPixelsHeld = arrayOfNulls<IntArray>(3)
+
+    private fun mapPixels(map: Bitmap, slot: Int): IntArray {
+        mapPixelsHeld[slot]?.let { if (mapPixelsFor[slot] === map) return it }
+        return IntArray(map.width * map.height).also {
+            map.getPixels(it, 0, map.width, 0, 0, map.width, map.height)
+            mapPixelsFor[slot] = map
+            mapPixelsHeld[slot] = it
+        }
+    }
+
+    /** For the tests: how many times the world has been painted into the disc. */
+    private var bakes = 0
+
+    internal fun bakesForTest(): Int = bakes
+
+    /** For the tests: how many times the projection itself was worked out. */
+    private var projections = 0
+
+    internal fun projectionsForTest(): Int = projections
+
+    /**
+     * The globe is redrawn every degree and a half, which is six minutes.
+     *
+     * It used to be every six degrees while the world was moving, because
+     * a projection of a quarter of a million points cost more than a frame
+     * and sixty of them a second was not something the thread that draws
+     * could afford: the world stuttered exactly while it was being moved,
+     * and came home through a series of stills. The projection is kept
+     * now — see [DiscProjection] — and a frame of spin is a subtraction
+     * per pixel, so the moving world is drawn at the same step as the
+     * still one.
      */
     private fun quantise(spinDeg: Double): Double {
-        // Coarse whenever the world is moving, not only while a finger is
-        // on it. Letting go used to drop straight back to a degree and a
-        // half, so the world came home through sixty projections of a
-        // quarter of a million points — which is not a spring-back, it is
-        // a series of stills, and it was reported as the world simply
-        // reappearing where it started.
-        val step = if (turning || spinning) 6.0 else 1.5
+        val step = 1.5
         return Math.round(spinDeg / step).toDouble() * step
     }
 
@@ -622,8 +710,18 @@ class HemisphereView @JvmOverloads constructor(
         val cy = h / 2f
 
         // The weather of the day the world is wound to, which on a globe
-        // standing at now is simply today's.
-        cloudsOn?.let { clouds = it(ms) }
+        // standing at now is simply today's. Asked once a second rather
+        // than once a frame: the answer is a lookup on disk, and sixty of
+        // those a second on the thread that draws is sixty too many.
+        cloudsOn?.let {
+            val day = ms / 86_400_000L
+            val at = android.os.SystemClock.uptimeMillis()
+            if (day != cloudsAskedDay || at - cloudsAskedAt >= CLOUDS_ASK_MS) {
+                cloudsAskedDay = day
+                cloudsAskedAt = at
+                clouds = it(ms)
+            }
+        }
         bake(-subLon + sunAt)
         drawWorld(canvas, cx, cy, r, subLat, subLon)
         if (showSun) drawSunMark(canvas, cx, cy, r, ring, ringR)
@@ -1078,6 +1176,9 @@ class HemisphereView @JvmOverloads constructor(
          * measured speed says.
          */
         const val STALE_MS = 90L
+
+        /** How often the weather is looked up again while the view is drawn. */
+        const val CLOUDS_ASK_MS = 1000L
 
         /** The moon on the rim, and an armed alarm on it. */
         const val MOON = 0xFFD8DEEA.toInt()

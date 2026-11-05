@@ -23,10 +23,27 @@ import java.util.Calendar
  * the next hour (or half hour); when it fires it strikes and re-arms the
  * next one. Off by default — a novelty clock that chimes from your pocket
  * unasked would be a menace.
+ *
+ * Which kind of alarm matters more than it looks, and the rules are in the
+ * platform's source rather than its documentation. An ordinary alarm from
+ * an app that has not been opened for a day is allowed ten deliveries an
+ * hour and the rest are held to the end of the hour; the battery saver
+ * and Doze hold it further. The one ordinary kind exempt from all three
+ * is exact *and* allowed while idle, and that is what is booked here. The
+ * one kind exempt from everything, including the makers' own battery
+ * policies, is an alarm clock — which the lock screen then announces as
+ * the next alarm, so that is a switch, see [Prefs.BELLS_AS_ALARM].
+ *
+ * The strike is delivered straight to [BellService] as a foreground
+ * service, not to a receiver that then asks to start one. The hop was a
+ * second place for the phone to say no, and a second to lose.
  */
 object BellScheduler {
 
     private const val REQUEST_CODE = 200
+
+    /** The alarm clock's "show me" intent, when the bells are one. */
+    private const val SHOW_REQUEST_CODE = 201
 
     /** Which slot the strike was armed for, so a late one still rings right. */
     const val EXTRA_ON_THE_HOUR = "extra_on_the_hour"
@@ -40,6 +57,16 @@ object BellScheduler {
      * across the update, and it will arrive carrying only that.
      */
     const val EXTRA_MINUTE = "extra_minute"
+
+    /**
+     * The instant the strike was armed for, in wall-clock milliseconds.
+     *
+     * So the service can measure how late the phone delivered it instead
+     * of anybody arguing about it — see [recordLateness]. A strike two
+     * minutes late was heard, from an app whose whole job is the time, and
+     * the one thing worse than that is not being able to show it.
+     */
+    const val EXTRA_ARMED_FOR = "extra_armed_for"
 
     /**
      * The next minute past the hour that wants marking, given the minute
@@ -60,7 +87,7 @@ object BellScheduler {
             prefs.getInt(Prefs.TIME_SPEED, 100) == 100
         val manager = context.getSystemService(AlarmManager::class.java) ?: return
         if (!on) {
-            manager.cancel(pendingIntent(context))
+            cancel(context, manager)
             return
         }
         val marks = Bells.marksFrom(
@@ -87,33 +114,136 @@ object BellScheduler {
         // the clock when it fires was fine while alarms were punctual, but a
         // deferred one read the wrong minute and rang the half-hour bell on
         // the hour.
-        val pending = pendingIntent(
+        val pending = strikeIntent(
             context,
             slot.get(Calendar.MINUTE),
-            slot.get(Calendar.HOUR_OF_DAY)
+            slot.get(Calendar.HOUR_OF_DAY),
+            next
         )
+        // The receiver's own entry, from a build before this one, would
+        // otherwise go on ringing beside the new one across the update.
+        if (Build.VERSION.SDK_INT >= 26) manager.cancel(receiverIntent(context))
         try {
-            manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pending)
+            if (prefs.getBoolean(Prefs.BELLS_AS_ALARM, false)) {
+                manager.setAlarmClock(AlarmManager.AlarmClockInfo(next, showIntent(context)), pending)
+            } else {
+                manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pending)
+            }
         } catch (e: SecurityException) {
+            // The phone will not let this app set an exact alarm at all.
+            // The window is the best that is left, and the settings say so
+            // — see [describe].
             manager.setWindow(AlarmManager.RTC_WAKEUP, next, 60_000L, pending)
         }
     }
 
-    private fun pendingIntent(
+    /** Both kinds of entry, because either build may have left one. */
+    private fun cancel(context: Context, manager: AlarmManager) {
+        manager.cancel(strikeIntent(context))
+        if (Build.VERSION.SDK_INT >= 26) manager.cancel(receiverIntent(context))
+    }
+
+    /**
+     * What the alarm fires: the service itself, where the platform lets a
+     * pending intent start a foreground service, and the receiver before
+     * that.
+     */
+    private fun strikeIntent(
         context: Context,
         minute: Int = 0,
-        hour: Int = 0
+        hour: Int = 0,
+        armedFor: Long = 0L
+    ): PendingIntent =
+        if (Build.VERSION.SDK_INT >= 26) {
+            PendingIntent.getForegroundService(
+                context,
+                REQUEST_CODE,
+                Intent(context, BellService::class.java).carrying(minute, hour, armedFor),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        } else {
+            receiverIntent(context, minute, hour, armedFor)
+        }
+
+    private fun receiverIntent(
+        context: Context,
+        minute: Int = 0,
+        hour: Int = 0,
+        armedFor: Long = 0L
     ): PendingIntent = PendingIntent.getBroadcast(
         context,
         REQUEST_CODE,
-        Intent(context, BellReceiver::class.java)
-            .putExtra(EXTRA_MINUTE, minute)
-            .putExtra(EXTRA_ON_THE_HOUR, minute == 0)
-            .putExtra(EXTRA_HOUR, hour),
+        Intent(context, BellReceiver::class.java).carrying(minute, hour, armedFor),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
+
+    private fun Intent.carrying(minute: Int, hour: Int, armedFor: Long): Intent = this
+        .putExtra(EXTRA_MINUTE, minute)
+        .putExtra(EXTRA_ON_THE_HOUR, minute == 0)
+        .putExtra(EXTRA_HOUR, hour)
+        .putExtra(EXTRA_ARMED_FOR, armedFor)
+
+    private fun showIntent(context: Context): PendingIntent = PendingIntent.getActivity(
+        context,
+        SHOW_REQUEST_CODE,
+        Intent(context, MainActivity::class.java),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    /**
+     * Writes down how late the phone delivered a strike: this one, and the
+     * worst so far. Findings, not settings — see [Prefs.BELL_LAST_LATE_MS].
+     */
+    fun recordLateness(prefs: android.content.SharedPreferences, dueMs: Long, nowMs: Long) {
+        val late = (nowMs - dueMs).coerceAtLeast(0L)
+        prefs.edit()
+            .putLong(Prefs.BELL_LAST_DUE, dueMs)
+            .putLong(Prefs.BELL_LAST_LATE_MS, late)
+            .putLong(
+                Prefs.BELL_WORST_LATE_MS,
+                maxOf(late, prefs.getLong(Prefs.BELL_WORST_LATE_MS, 0L))
+            )
+            .apply()
+    }
+
+    /**
+     * What the "ring with the app closed" row says under its title: what
+     * it does, how late the phone has been about it, and anything on the
+     * phone that stands in its way.
+     */
+    fun describe(context: Context): String {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val lines = ArrayList<String>()
+        lines += context.getString(R.string.pref_bells_background_summary)
+        if (prefs.contains(Prefs.BELL_LAST_DUE)) {
+            lines += context.getString(
+                R.string.bells_last_strike,
+                android.text.format.DateFormat.getTimeFormat(context)
+                    .format(java.util.Date(prefs.getLong(Prefs.BELL_LAST_DUE, 0L))),
+                Bells.lateText(prefs.getLong(Prefs.BELL_LAST_LATE_MS, 0L)),
+                Bells.lateText(prefs.getLong(Prefs.BELL_WORST_LATE_MS, 0L))
+            )
+        }
+        if (Build.VERSION.SDK_INT >= 31 &&
+            context.getSystemService(AlarmManager::class.java)?.canScheduleExactAlarms() == false
+        ) {
+            lines += context.getString(R.string.exact_alarms_title)
+        }
+        if (Build.VERSION.SDK_INT >= 28 &&
+            context.getSystemService(android.app.ActivityManager::class.java)
+                ?.isBackgroundRestricted == true
+        ) {
+            lines += context.getString(R.string.bells_restricted)
+        }
+        return lines.joinToString("\n")
+    }
 }
 
+/**
+ * The strike's doorway on phones too old for a pending intent to start a
+ * foreground service, and for an alarm armed by a build before this one,
+ * which is still in the system's queue across the update and arrives here.
+ */
 class BellReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         try {
@@ -134,6 +264,10 @@ class BellReceiver : BroadcastReceiver() {
                     .putExtra(
                         BellScheduler.EXTRA_HOUR,
                         intent.getIntExtra(BellScheduler.EXTRA_HOUR, -1)
+                    )
+                    .putExtra(
+                        BellScheduler.EXTRA_ARMED_FOR,
+                        intent.getLongExtra(BellScheduler.EXTRA_ARMED_FOR, 0L)
                     )
             )
         } catch (e: Exception) {
@@ -174,6 +308,23 @@ class BellService : Service() {
         }
 
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        // How late the phone was about this one, written down first — it is
+        // the one fact here nothing else can reconstruct afterwards.
+        intent?.getLongExtra(BellScheduler.EXTRA_ARMED_FOR, 0L)?.takeIf { it > 0L }?.let {
+            BellScheduler.recordLateness(prefs, it, System.currentTimeMillis())
+        }
+        // And the next one armed before anything else, so the chain
+        // survives whatever the strike itself runs into. The receiver used
+        // to do this; the alarm comes straight here now.
+        BellScheduler.update(this)
+        // The app open on the hour strikes it itself, from its own loop,
+        // and the chain underneath is still armed — it is re-armed every
+        // time the app is left — so this service arrives on the same
+        // second. The two used to ring over each other.
+        if (MainActivity.inFront) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val now = Calendar.getInstance()
         val hour = intent?.getIntExtra(BellScheduler.EXTRA_HOUR, -1)
             ?.takeIf { it in 0..23 } ?: now.get(Calendar.HOUR_OF_DAY)

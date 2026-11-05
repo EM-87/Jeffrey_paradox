@@ -1538,6 +1538,18 @@ class ClockView @JvmOverloads constructor(
                     ) {
                         handClaimed = true
                         parent?.requestDisallowInterceptTouchEvent(true)
+                        // And catch up. The hand stood still while the drag
+                        // was making up its mind, and the finger is by now
+                        // a few pixels on from where it landed. Winding this
+                        // move from the landing angle puts the hand under
+                        // the finger in one go — which is where it belongs,
+                        // and the only moment a small jump is right. It
+                        // used to wind from the angle of the last undecided
+                        // move instead, so every wind came up short by the
+                        // slop: a few degrees of hour hand, which is ten
+                        // minutes of clock, lost at the start of every
+                        // drag and never made up.
+                        lastTouchDeg = touchAngleDeg(tapDownX, tapDownY)
                     }
                 }
                 if (draggedHand != null && !handClaimed) {

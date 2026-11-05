@@ -1213,10 +1213,22 @@ class OrreryDialTest {
         val slip = 14f * density
         for (body in Orrery.planets) {
             val p = OrreryDial.positionOf(body, cx, cy, r, now, 0.0)
-            val hit = OrreryDial.bodyAt(p.x + slip, p.y, cx, cy, r, now, 0.0)
+            // The slip is along the orbit, not across it. Across, fourteen
+            // pixels is most of the way to the next ring, and whether a
+            // finger there means this planet or the one on the ring beside
+            // it depends on where the two happen to stand that day. This
+            // read the real date and slipped sideways on the screen, and
+            // on the day Mercury stood due east of the sun that sideways
+            // was straight out, into Venus — which was not the thing it is
+            // here to say. Along the orbit there is nothing to be confused
+            // with, and a target too small to survive a slip is caught.
+            val away = kotlin.math.hypot(p.x - cx, p.y - cy).coerceAtLeast(1f)
+            val tx = -(p.y - cy) / away
+            val ty = (p.x - cx) / away
+            val hit = OrreryDial.bodyAt(p.x + slip * tx, p.y + slip * ty, cx, cy, r, now, 0.0)
             // The Earth and its Moon sit on top of one another, so a touch
             // between the two is a fair answer either way — which is what
-            // the zoom is for. Every other planet is alone out there.
+            // the zoom is for. Every other planet is alone on its ring.
             val fair = if (body == Orrery.Body.EARTH) {
                 hit == Orrery.Body.EARTH || hit == Orrery.Body.MOON
             } else {

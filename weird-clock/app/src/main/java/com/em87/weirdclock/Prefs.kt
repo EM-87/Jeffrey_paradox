@@ -483,6 +483,30 @@ object Prefs {
     const val BELL_STYLE = "pref_bell_style"
     const val BELLS_BACKGROUND = "pref_bells_background"
     const val BELL_PRIORITY = "pref_bell_priority"
+
+    /**
+     * Whether the background bells are registered as an alarm clock.
+     *
+     * The one kind of alarm nothing on the phone may defer — and the one
+     * the lock screen announces as the next alarm, which on a phone whose
+     * alarm clock this app is would show every passing hour in place of
+     * tomorrow morning. Off by default for that reason, and offered for
+     * the phones whose makers' battery policies defer everything else.
+     */
+    const val BELLS_AS_ALARM = "pref_bells_as_alarm"
+
+    /**
+     * The instant the last background strike was armed for, in wall-clock
+     * milliseconds, and how late the phone delivered it — this one and
+     * the worst so far.
+     *
+     * Findings, not settings, like [EXACT_DENIED]: nothing writes them but
+     * [BellService], and the settings row reads them out so a strike
+     * heard two minutes late is a number and not an argument.
+     */
+    const val BELL_LAST_DUE = "pref_bell_last_due"
+    const val BELL_LAST_LATE_MS = "pref_bell_last_late_ms"
+    const val BELL_WORST_LATE_MS = "pref_bell_worst_late_ms"
     /**
      * The old half-hour switch. Read only to work out what somebody
      * updating from a build that had it was already using; nothing writes

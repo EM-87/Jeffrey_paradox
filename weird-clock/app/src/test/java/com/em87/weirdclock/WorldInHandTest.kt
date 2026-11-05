@@ -141,14 +141,17 @@ class WorldInHandTest {
     @Test
     fun `a thrown world keeps turning and then comes home`() {
         val globe = world()
-        touch(globe, MotionEvent.ACTION_DOWN, 700f, 500f)
-        for (step in 1..6) touch(globe, MotionEvent.ACTION_MOVE, 700f, 500f - step * 40f)
-        val held = globe.woundForTest()
-        assertFalse("nothing was wound to throw", held == 0L)
+        val held = throwIt(globe)
 
-        globe.letGoForTest(400.0)
         assertTrue("letting go of a moving world stopped it dead", globe.spinningForTest())
-        // A fifth of a second in, it has gone further rather than back.
+        // A fifth of a second in, it has gone further the same way rather
+        // than back. The speed used to be handed to the physics in the
+        // finger's frame while the offset was in the other one, so a world
+        // thrown clockwise set off anticlockwise at the speed it had been
+        // thrown — which was reported, accurately, as the world bouncing
+        // off something as it was let go. This test used to feed the
+        // speed in by hand, in the frame that happened to agree with the
+        // mistake, and passed.
         var went = 0L
         repeat(12) {
             globe.stepSpinForTest(1.0 / 60.0)
@@ -156,7 +159,8 @@ class WorldInHandTest {
         }
         assertTrue(
             "the world came straight back instead of carrying on: $held then $went",
-            kotlin.math.abs(went) > kotlin.math.abs(held)
+            kotlin.math.abs(went) > kotlin.math.abs(held) &&
+                kotlin.math.sign(went.toDouble()) == kotlin.math.sign(held.toDouble())
         )
 
         var frames = 0
@@ -166,6 +170,98 @@ class WorldInHandTest {
         }
         assertFalse("the world never stopped", globe.spinningForTest())
         assertEquals("and it did not come home", 0L, globe.woundForTest())
+    }
+
+    /**
+     * Thrown the other way, it keeps going the other way. The sign error
+     * this guards against is symmetric, but the test above could pass by
+     * luck on one side of it and this one cannot pass on the same luck.
+     */
+    @Test
+    fun `and thrown the other way it carries on the other way`() {
+        val globe = world()
+        val held = throwIt(globe, dy = 40f)
+        var went = 0L
+        repeat(12) {
+            globe.stepSpinForTest(1.0 / 60.0)
+            went = globe.woundForTest()
+        }
+        assertTrue(
+            "the world came back instead of carrying on: $held then $went",
+            kotlin.math.abs(went) > kotlin.math.abs(held) &&
+                kotlin.math.sign(went.toDouble()) == kotlin.math.sign(held.toDouble())
+        )
+    }
+
+    /**
+     * A pinch in the middle of a turn, and the world still comes home
+     * when the last finger comes off.
+     *
+     * The pinch takes the world out of the hand that was turning it, and
+     * the lift that ends it used to be ignored for that reason — so the
+     * world stayed wound to whenever the pinch began, until the next
+     * touch. Driven through the real touch events, two fingers and all.
+     */
+    @Test
+    fun `a pinch mid-turn still lets the world go`() {
+        val globe = world()
+        val down = android.os.SystemClock.uptimeMillis()
+        touch(globe, MotionEvent.ACTION_DOWN, 700f, 500f)
+        for (step in 1..4) {
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(16))
+            touch(globe, MotionEvent.ACTION_MOVE, 700f, 500f - step * 40f)
+        }
+        val held = globe.woundForTest()
+        assertFalse("nothing was wound before the pinch", held == 0L)
+
+        // The second finger lands, the two move apart, and both come off.
+        fun two(action: Int, x0: Float, y0: Float, x1: Float, y1: Float) {
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(16))
+            val at = android.os.SystemClock.uptimeMillis()
+            val props = arrayOf(
+                MotionEvent.PointerProperties().apply { id = 0; toolType = MotionEvent.TOOL_TYPE_FINGER },
+                MotionEvent.PointerProperties().apply { id = 1; toolType = MotionEvent.TOOL_TYPE_FINGER }
+            )
+            val coords = arrayOf(
+                MotionEvent.PointerCoords().apply { x = x0; y = y0; pressure = 1f; size = 1f },
+                MotionEvent.PointerCoords().apply { x = x1; y = y1; pressure = 1f; size = 1f }
+            )
+            val e = MotionEvent.obtain(down, at, action, 2, props, coords, 0, 0, 1f, 1f, 0, 0, 0, 0)
+            globe.onTouchEvent(e)
+            e.recycle()
+        }
+        two(MotionEvent.ACTION_POINTER_DOWN or (1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT), 700f, 340f, 400f, 600f)
+        for (step in 1..4) two(MotionEvent.ACTION_MOVE, 700f + step * 20f, 340f - step * 20f, 400f - step * 20f, 600f + step * 20f)
+        two(MotionEvent.ACTION_POINTER_UP or (1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT), 780f, 260f, 320f, 680f)
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(16))
+        touch(globe, MotionEvent.ACTION_UP, 780f, 260f)
+
+        var frames = 0
+        while (globe.spinningForTest() && frames < 60 * 30) {
+            globe.stepSpinForTest(1.0 / 60.0)
+            frames++
+        }
+        assertEquals(
+            "the world stayed wound to where the pinch began", 0L, globe.woundForTest()
+        )
+    }
+
+    /**
+     * A real throw, through the touch events, with the clock running so
+     * the lift is seen to come straight after the last move. Returns how
+     * far the world was wound when the finger came off.
+     */
+    private fun throwIt(globe: HemisphereView, dy: Float = -40f): Long {
+        touch(globe, MotionEvent.ACTION_DOWN, 700f, 500f)
+        for (step in 1..6) {
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(16))
+            touch(globe, MotionEvent.ACTION_MOVE, 700f, 500f + step * dy)
+        }
+        val held = globe.woundForTest()
+        assertFalse("nothing was wound to throw", held == 0L)
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(8))
+        touch(globe, MotionEvent.ACTION_UP, 700f, 500f + 6 * dy)
+        return held
     }
 
     /** A finger that stops before lifting has not thrown anything. */

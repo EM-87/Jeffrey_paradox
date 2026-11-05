@@ -118,6 +118,23 @@ class WoundDateTest {
         return v.dateShownForTest()
     }
 
+    /**
+     * The dates a dial wound [hours] ahead of [from] may honestly show.
+     *
+     * Two, not one. The wind is read back off the hand's angle and kept in
+     * whole seconds, so thirty-six hours of hour hand is thirty-six hours
+     * less a second of truncation — and the real clock these tests run
+     * on crossed exactly the second where that second was midnight. The
+     * suite ran at noon, noon and thirty-six hours is midnight, and the
+     * dial said the sixth where the sum said the seventh. Either is the
+     * date the hands were put to; the test is about the date following
+     * the hands at all.
+     */
+    private fun woundTo(v: ClockView, from: Long, hours: Double): Set<String> {
+        val to = from + (hours * 3_600_000L).toLong()
+        return setOf(v.dateTextAtForTest(to), v.dateTextAtForTest(to - 1_000L))
+    }
+
     /** Turns [hand] forward by [hours] of clock time, whatever that is in degrees. */
     private fun windHours(v: ClockView, hand: ClockView.Hand, hours: Double) {
         val perTurn = when (hand) {
@@ -153,9 +170,9 @@ class WoundDateTest {
                     "$style on a $hours-hour face did not carry its date round",
                     before, painted(v)
                 )
-                assertEquals(
+                assertTrue(
                     "and the date it landed on is not the one it was wound to",
-                    v.dateTextAtForTest(from + 36 * 3_600_000L), painted(v)
+                    painted(v) in woundTo(v, from, 36.0)
                 )
             }
         }
@@ -245,9 +262,9 @@ class WoundDateTest {
         v.reassembleAll()
         val from = System.currentTimeMillis()
         windHours(v, ClockView.Hand.HOUR, 36.0)
-        assertEquals(
+        assertTrue(
             "the date did not start following again once the dial was tidied",
-            v.dateTextAtForTest(from + 36 * 3_600_000L), painted(v)
+            painted(v) in woundTo(v, from, 36.0)
         )
     }
 }

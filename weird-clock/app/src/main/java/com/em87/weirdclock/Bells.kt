@@ -236,6 +236,23 @@ object Bells {
         !alarmRinging || priority == PRIORITY_BELLS
 
     /**
+     * How late a strike was, in words for a settings row.
+     *
+     * Tenths of a second while it is under ten seconds, because that is
+     * the range where the phone is doing its job and the digit says how
+     * well; whole seconds up to a minute; and minutes and seconds beyond,
+     * which is the range that was heard and is the reason this exists.
+     */
+    fun lateText(lateMs: Long): String {
+        val ms = lateMs.coerceAtLeast(0L)
+        return when {
+            ms < 10_000L -> String.format(java.util.Locale.ROOT, "%.1f s", ms / 1000.0)
+            ms < 60_000L -> "${ms / 1000} s"
+            else -> "${ms / 60_000} min ${ms % 60_000 / 1000} s"
+        }
+    }
+
+    /**
      * How long an alarm should hold off for a peal already sounding, in
      * milliseconds.
      *

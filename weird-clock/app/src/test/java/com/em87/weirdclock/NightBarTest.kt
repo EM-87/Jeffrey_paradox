@@ -265,7 +265,7 @@ class NightBarTest {
                 // The bells' own settings, faded while the bells are off
                 // and configurable all the same.
                 "pref_bell_marks", "pref_bell_style", "pref_bells_background",
-                "pref_bell_priority", "pref_test_bells",
+                "pref_bells_as_alarm", "pref_bell_priority", "pref_test_bells",
                 // The sky's furniture, behind the one switch that opens it.
                 "pref_moon_phase", "pref_comets", "pref_zodiac",
                 // The month page, which writes its days in its own numerals.

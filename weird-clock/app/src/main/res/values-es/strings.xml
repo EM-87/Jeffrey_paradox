@@ -155,6 +155,10 @@
         <item>La alarma espera a las campanadas</item>
     </string-array>
     <string name="pref_bells_background_summary">Las campanas dan las horas desde segundo plano, rearmándose solas cada vez</string>
+    <string name="pref_bells_as_alarm_title">Registrar como alarma del sistema</string>
+    <string name="pref_bells_as_alarm_summary">La única clase de alarma que ninguna política de batería puede retrasar. El móvil mostrará entonces la próxima campanada como su próxima alarma, en la pantalla de bloqueo y en la barra de estado</string>
+    <string name="bells_last_strike">La última campanada, prevista a las %1$s, llegó %2$s tarde; la peor hasta ahora, %3$s</string>
+    <string name="bells_restricted">El uso de batería de esta app está en Restringido: nada de lo que programe puede sonar hasta que se quite</string>
     <string name="bells_channel_name">Campanadas horarias</string>
     <string name="category_calendar">Calendario</string>
     <string name="pref_past_days_title">Días ya pasados</string>

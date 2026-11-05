@@ -1341,6 +1341,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     override fun onResume() {
         super.onResume()
+        inFront = true
         // System light/dark toggled while we were away: rebuild everything
         // so backgrounds, text colors and theme cards pick up the change.
         val uiMode = resources.configuration.uiMode
@@ -1524,6 +1525,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         dialJob == null && current().let { it == Card.STOPWATCH || it == Card.REVERSE }
 
     override fun onPause() {
+        inFront = false
         // A dialog outlives the window it was shown in unless it is told
         // otherwise, and the system says so out loud in the log.
         nagDialog?.dismiss()
@@ -4698,6 +4700,19 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
          */
         @Volatile
         var lastTickRecord: Ticker.Record? = null
+
+        /**
+         * Whether the clock is on screen, resumed, striking its own hours.
+         *
+         * Read by [BellService], which the background chain delivers to on
+         * the same second whether the app is open or not: the chain is
+         * re-armed every time the app is left and nothing disarmed it on
+         * the way back in. With the app in front the hour is this screen's
+         * to strike, and the service keeps quiet.
+         */
+        @Volatile
+        var inFront = false
+            internal set
 
         const val EXTRA_OPEN_ALARMS = "extra_open_alarms"
         const val EXTRA_OPEN_TIMER = "extra_open_timer"

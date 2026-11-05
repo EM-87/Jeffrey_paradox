@@ -387,6 +387,18 @@
             android:summary="@string/pref_bells_background_summary"
             android:title="@string/pref_bells_background_title" />
 
+        <!-- The one kind of alarm nothing on the phone may defer, and the
+             one the lock screen announces as the next alarm. Off by
+             default: on a phone whose alarm clock this app is, the lock
+             screen would show every passing hour in place of tomorrow
+             morning. Offered for the phones whose makers defer everything
+             else, and the row above says how late they have been. -->
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_bells_as_alarm"
+            android:summary="@string/pref_bells_as_alarm_summary"
+            android:title="@string/pref_bells_as_alarm_title" />
+
         <ListPreference
             android:defaultValue="alarm"
             android:entries="@array/bell_priority_entries"

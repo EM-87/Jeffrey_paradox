@@ -177,9 +177,9 @@ open class ClockWidgetProvider : AppWidgetProvider() {
          * its own. One alarm, re-armed each time it fires: hours apart in
          * the middle of the day or the night, a few minutes apart while the
          * sun is actually crossing the horizon and the glyph is sinking
-         * through it. Inexact on purpose — being a couple of minutes late
-         * to a sunrise costs nothing, and an exact alarm needs a permission
-         * a clock has no business asking for.
+         * through it — and once a minute on the face with no hands, which
+         * is the cadence that found out what kind of alarm this has to be.
+         * See [book].
          */
         fun scheduleSkyTick(
             context: Context,
@@ -196,7 +196,42 @@ open class ClockWidgetProvider : AppWidgetProvider() {
             if (Build.VERSION.SDK_INT < 31 && !digits) return
             val manager = alarmManager(context) ?: return
             val at = System.currentTimeMillis() + nextRepaintMs(context, pinned)
-            manager.set(android.app.AlarmManager.RTC, at, skyIntent(context, cls))
+            book(manager, at, skyIntent(context, cls))
+        }
+
+        /**
+         * Books a wake-up the phone will keep.
+         *
+         * This used to be an ordinary inexact alarm, "because an exact one
+         * needs a permission a clock widget has no business asking for".
+         * Two things were wrong with that. The app already holds the
+         * permission, for its alarms. And the platform rations ordinary
+         * alarms by how recently the app was opened: a day without opening
+         * it and the app is allowed ten deliveries an hour, the rest held
+         * to the end of the hour — the rule is in the alarm service's
+         * source, not its documentation. A clock repainting once a minute
+         * spent its ten in ten minutes and then sat on the same minute for
+         * fifty, which was reported as the widget being stuck half an
+         * hour behind. It was.
+         *
+         * The one ordinary kind of alarm exempt from that ration is exact
+         * *and* allowed while idle, so that is what is booked. On the
+         * non-waking clock, deliberately: it fires to the second while the
+         * phone is awake and waits for the phone to wake otherwise, so the
+         * minute changes on time whenever anyone could see it and costs
+         * nothing in a pocket at night. A phone that refuses exact alarms
+         * gets the old kind, which is better than none.
+         */
+        internal fun book(
+            manager: android.app.AlarmManager,
+            at: Long,
+            operation: PendingIntent
+        ) {
+            try {
+                manager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC, at, operation)
+            } catch (e: SecurityException) {
+                manager.set(android.app.AlarmManager.RTC, at, operation)
+            }
         }
 
         /**
@@ -204,12 +239,7 @@ open class ClockWidgetProvider : AppWidgetProvider() {
          *
          * A minute on the face with no hands, to the boundary rather than
          * a minute from now — a clock that repaints half a second late
-         * every time drifts a whole minute behind inside an hour. The
-         * alarm is inexact on purpose: an exact one needs a permission a
-         * clock widget has no business asking for, and the cost of being a
-         * few seconds late is that the minute changes a few seconds late
-         * on a screen nobody is looking at, because the launcher is not on
-         * top when the phone is idle.
+         * every time drifts a whole minute behind inside an hour.
          */
         internal fun nextRepaintMs(context: Context, pinned: Face? = null): Long = when (
             pinned ?: Face.of(PreferenceManager.getDefaultSharedPreferences(context))
