@@ -707,6 +707,10 @@
     <string name="pref_hemisphere_sun_summary">Where noon is. Turn it off and the world opens to the edge of the screen</string>
     <string name="pref_hemisphere_moon_title">The moon on the rim</string>
     <string name="pref_hemisphere_moon_summary">At the hour its own meridian keeps, carrying tonight\'s phase</string>
+    <string name="pref_hemisphere_moonlight_title">Moonlight</string>
+    <string name="pref_hemisphere_moonlight_summary">A cold veil over the half of the night the moon is above, as strong as the moon is full and gone at the new. From the ephemeris alone: no data, no network</string>
+    <string name="lights_moon_summary">Moon %1$d%% lit, measured floor %2$d</string>
+    <string name="lights_moon_summary_unmeasured">Moon %1$d%% lit</string>
     <string name="pref_hemisphere_alarms_title">Alarms on the ring</string>
     <string name="pref_hemisphere_alarms_summary">What is armed, marked at the hour it will ring</string>
     <string-array name="hemisphere_view_entries">

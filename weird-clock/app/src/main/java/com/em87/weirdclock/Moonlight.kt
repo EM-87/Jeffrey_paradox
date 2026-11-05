@@ -29,8 +29,25 @@ object Moonlight {
     const val TINT = 0xFF9FB4D8.toInt()
     const val MAX_ALPHA = 0.20
 
+    /**
+     * How the veil grows with the moon: the lit fraction cubed.
+     *
+     * Not in proportion to the fraction. The moon is far brighter near
+     * the full than its lit fraction says — the opposition effect, the
+     * dust of its surface throwing light straight back — and the
+     * photometry puts a quarter moon at about a tenth of a full one. The
+     * satellite's pictures agree: over unlit sea and land the waning
+     * half-moon of the 2nd of November read fifteen per cent of the way
+     * from the new moon's grey to the full moon's. The cube gives
+     * twelve and a half; the square would give twenty-five and the
+     * straight line fifty, and [MoonlightTest] holds the curve to the
+     * pictures.
+     */
+    const val EXPONENT = 3.0
+
     /** How much of the veil there is, out of one, for a moon this [lit]. */
-    fun alpha(lit: Double): Double = (MAX_ALPHA * lit).coerceIn(0.0, MAX_ALPHA)
+    fun alpha(lit: Double): Double =
+        (MAX_ALPHA * Math.pow(lit.coerceIn(0.0, 1.0), EXPONENT)).coerceIn(0.0, MAX_ALPHA)
 
     /**
      * Where the moon is up, softly: nought with the moon well down, one

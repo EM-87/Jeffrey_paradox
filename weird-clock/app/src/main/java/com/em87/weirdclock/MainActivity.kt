@@ -4395,6 +4395,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         world.hourNumbers = prefs.getBoolean(Prefs.HEMISPHERE_NUMBERS, true)
         world.showSun = prefs.getBoolean(Prefs.HEMISPHERE_SUN, true)
         world.showMoon = prefs.getBoolean(Prefs.HEMISPHERE_MOON, true)
+        world.moonlight = prefs.getBoolean(Prefs.HEMISPHERE_MOONLIGHT, true)
         // What is armed, as times of day, so the rim of hours can carry
         // them. Asked of the scheduler rather than of the alarm list, for
         // the same reason the digital face's next-alarm line is — see

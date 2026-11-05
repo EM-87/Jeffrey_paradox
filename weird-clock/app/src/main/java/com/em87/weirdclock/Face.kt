@@ -375,6 +375,7 @@ object FaceOptions {
         Prefs.HEMISPHERE_NUMBERS,
         Prefs.HEMISPHERE_SUN,
         Prefs.HEMISPHERE_MOON,
+        Prefs.HEMISPHERE_MOONLIGHT,
         Prefs.HEMISPHERE_ALARMS,
         Prefs.HEMISPHERE_CLOUDS,
         Prefs.HEMISPHERE_LIGHTS

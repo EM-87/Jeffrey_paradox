@@ -885,7 +885,11 @@ class SettingsActivity : AppCompatActivity() {
             // behind that is — always said here, and on the globe only
             // when it is further behind than is ordinary.
             findPreference<ListPreference>(Prefs.HEMISPHERE_LIGHTS)?.let { row ->
-                row.summary = NightLightStore.describe(requireContext())
+                // A list row runs its summary through String.format to
+                // put the chosen entry where a %s is, so a bare per cent
+                // sign in it — "50% lit" — is read as a conversion and
+                // throws. Doubled, it is a per cent sign again.
+                row.summary = NightLightStore.describe(requireContext()).replace("%", "%%")
                 row.setOnPreferenceChangeListener { _, value ->
                     // Turned off, the pictures go; turned on, they are
                     // fetched when the globe is next looked at.

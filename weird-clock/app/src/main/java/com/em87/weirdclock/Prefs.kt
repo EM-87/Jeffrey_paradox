@@ -376,6 +376,13 @@ object Prefs {
      */
     const val HEMISPHERE_SUN = "pref_hemisphere_sun"
     const val HEMISPHERE_MOON = "pref_hemisphere_moon"
+
+    /**
+     * Whether the dark side wears the moon's light — see [Moonlight]. Its
+     * own switch, on by default, and not behind the weather or the night
+     * lights: it costs no data, it comes from the ephemeris alone.
+     */
+    const val HEMISPHERE_MOONLIGHT = "pref_hemisphere_moonlight"
     const val HEMISPHERE_ALARMS = "pref_hemisphere_alarms"
 
     /**

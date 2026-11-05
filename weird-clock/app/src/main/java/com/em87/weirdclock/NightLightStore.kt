@@ -231,7 +231,28 @@ object NightLightStore {
             val before = rawDay?.let { NightLights.dayMs(it) }?.let { raw.dayCached(context, it - 1) }
             lines += line(R.string.lights_raw_name, rawDay, before?.takeIf { it < rawDay!! })
         }
+        // The moon tonight, as the clock computes it, beside the moonlight
+        // the satellite measured on the night it has — the two numbers
+        // [Moonlight] is calibrated between. The floor only with both
+        // layers on, because it is the difference of the two.
+        val lit = Math.round(SolarTime.moonIllumination(nowMs) * 100).toInt()
+        val floor = residueFloorNow(context, nowMs)
+        lines += if (floor == null) context.getString(R.string.lights_moon_summary_unmeasured, lit)
+        else context.getString(R.string.lights_moon_summary, lit, floor)
         return lines.joinToString("\n")
+    }
+
+    /**
+     * The residue floor of the night on the phone, if both layers are on
+     * and there: the one already worked out for the globe, or worked out
+     * now for the settings row.
+     */
+    fun residueFloorNow(context: Context, nowMs: Long = TimeKeeper.nowMs()): Int? {
+        val mode = mode(context)
+        if (!mode.clean || !mode.raw) return null
+        val sky = skyFor(context, nowMs) ?: return null
+        if (sky.clean == null || sky.raw == null) return null
+        return sky.residueFloor
     }
 
     /** Whether what is on disk is old enough to be worth adding to. */

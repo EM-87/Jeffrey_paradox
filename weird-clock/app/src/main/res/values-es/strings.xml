@@ -570,6 +570,10 @@
     <string name="pref_hemisphere_sun_summary">Donde está el mediodía. Quítalo y el mundo se abre hasta el borde de la pantalla</string>
     <string name="pref_hemisphere_moon_title">La luna en la corona</string>
     <string name="pref_hemisphere_moon_summary">A la hora que lleva su meridiano, con la fase de esta noche</string>
+    <string name="pref_hemisphere_moonlight_title">Velo lunar</string>
+    <string name="pref_hemisphere_moonlight_summary">Un velo frío sobre la mitad de la noche que tiene la Luna encima, tan fuerte como llena esté y ausente en luna nueva. Solo de la efeméride: sin datos ni red</string>
+    <string name="lights_moon_summary">Luna iluminada al %1$d%%, suelo medido %2$d</string>
+    <string name="lights_moon_summary_unmeasured">Luna iluminada al %1$d%%</string>
     <string name="pref_hemisphere_alarms_title">Alarmas en la corona</string>
     <string name="pref_hemisphere_alarms_summary">Lo que está armado, marcado a la hora en que sonará</string>
     <string-array name="hemisphere_view_entries">

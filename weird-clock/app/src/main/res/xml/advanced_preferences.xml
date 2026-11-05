@@ -124,6 +124,15 @@
             android:summary="@string/pref_hemisphere_moon_summary"
             android:title="@string/pref_hemisphere_moon_title" />
 
+        <!-- And the moon's light on the dark side. Not behind the weather
+             switch like the clouds and the lights: it is the ephemeris
+             and nothing else, and costs nothing. -->
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="pref_hemisphere_moonlight"
+            android:summary="@string/pref_hemisphere_moonlight_summary"
+            android:title="@string/pref_hemisphere_moonlight_title" />
+
         <SwitchPreferenceCompat
             android:defaultValue="true"
             android:key="pref_hemisphere_alarms"

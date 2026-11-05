@@ -57,12 +57,16 @@ class MoonlightTest {
         return Triple(w, h, ByteArray(w * h) { NightLights.luminance(pixels[it]).toByte() })
     }
 
-    /** Nothing at the new moon, a fifth at the full, and it runs with the moon. */
+    /**
+     * Nothing at the new moon, a fifth at the full, and an eighth of that
+     * at the half: the cube of the lit fraction, which is what the
+     * photometry says and what the pictures below say.
+     */
     @Test
-    fun `the veil is as strong as the moon is full`() {
+    fun `the veil is as strong as the moon is full, cubed`() {
         assertEquals(0.0, Moonlight.alpha(0.0), 1e-9)
         assertEquals(Moonlight.MAX_ALPHA, Moonlight.alpha(1.0), 1e-9)
-        assertEquals(Moonlight.MAX_ALPHA / 2, Moonlight.alpha(0.5), 1e-9)
+        assertEquals(Moonlight.MAX_ALPHA / 8, Moonlight.alpha(0.5), 1e-9)
         assertEquals(0, Moonlight.pixel(0.0, 1.0) ushr 24)
         assertEquals(51, Moonlight.pixel(1.0, 1.0) ushr 24)
         // Soft at the moon's horizon, like the sun's.
@@ -114,15 +118,21 @@ class MoonlightTest {
         // full one is full, in the ephemeris.
         assertTrue("the new moon reads ${readings[0].second}", readings[0].second < 0.1)
         assertTrue("the full moon reads ${readings[2].second}", readings[2].second > 0.9)
-        // The correlation, for what three points are worth: strongly positive.
-        val xs = readings.map { it.second }
-        val ys = readings.map { it.third.toDouble() }
-        val mx = xs.average()
-        val my = ys.average()
-        val r = xs.indices.sumOf { (xs[it] - mx) * (ys[it] - my) } /
-            Math.sqrt(xs.sumOf { (it - mx) * (it - mx) } * ys.sumOf { (it - my) * (it - my) })
-        println("correlation of illumination with floor over three nights: %.3f".format(r))
-        assertTrue("illumination and moonlight do not run together: r=$r", r > 0.8)
+        // The curve. Between the new moon's floor and the full moon's, how
+        // far up is the half moon's? The pictures say fifteen per cent;
+        // the veil's curve, the lit fraction cubed, says twelve and a
+        // half. The square would say twenty-five and a straight line
+        // fifty, and either is held to be wrong here.
+        val (_, litHalf, floorHalf) = readings[1]
+        val (_, _, floorNew) = readings[0]
+        val (_, _, floorFull) = readings[2]
+        val measured = (floorHalf - floorNew).toDouble() / (floorFull - floorNew)
+        val drawn = Moonlight.alpha(litHalf) / Moonlight.alpha(1.0)
+        println("half moon: measured %.3f of the way from new to full, drawn %.3f".format(measured, drawn))
+        assertEquals(
+            "the veil's curve does not follow the pictures: drawn $drawn, measured $measured",
+            measured, drawn, 0.06
+        )
     }
 
     // ------------------------------------------------------------ pictures
@@ -227,29 +237,31 @@ class MoonlightTest {
         val full = utc(2026, 10, 26, 2)
         val new = utc(2026, 10, 12, 2)
         val quarter = utc(2026, 10, 19, 2)
-        val fullOff = shoot(globe(full, veil = false), "moonlight-full-off")
-        val fullOn = shoot(globe(full, veil = true), "moonlight-full")
+        val fullOff = shoot(globe(full, veil = false), "moonlight-2026-10-26-full-0200utc-off")
+        val fullOn = shoot(globe(full, veil = true), "moonlight-2026-10-26-full-0200utc")
         val touched = daylightTouched(fullOn, fullOff, full)
         assertTrue("the veil lay on daylight: $touched", touched.startsWith("0 "))
         val veiledFull = countVeiled(fullOn, fullOff, left = true)
         assertTrue("no veil on a full-moon night: $veiledFull", veiledFull > 5_000)
 
-        val newOff = shoot(globe(new, veil = false), "moonlight-new-off")
-        val newOn = shoot(globe(new, veil = true), "moonlight-new")
+        val newOff = shoot(globe(new, veil = false), "moonlight-2026-10-12-new-0200utc-off")
+        val newOn = shoot(globe(new, veil = true), "moonlight-2026-10-12-new-0200utc")
         assertEquals("a veil on a new-moon night", 0, differs(newOn, newOff, left = true))
 
-        val quarterOff = shoot(globe(quarter, veil = false), "moonlight-quarter-off")
-        val quarterOn = shoot(globe(quarter, veil = true), "moonlight-quarter")
-        val veiledQuarter = countVeiled(quarterOn, quarterOff, left = true)
-        // A sliver: at first quarter the moon stands ninety degrees east
-        // of the sun, over the Pacific at this hour, and only the Atlantic
-        // edge of the visible night has it above the horizon — at half the
-        // full moon's strength. That it is a sliver and not nothing is the
-        // moon's own terminator, drawn.
-        assertTrue("no veil at first quarter: $veiledQuarter", veiledQuarter > 100)
+        val quarterOff = shoot(globe(quarter, veil = false), "moonlight-2026-10-19-first-quarter-0200utc-off")
+        val quarterOn = shoot(globe(quarter, veil = true), "moonlight-2026-10-19-first-quarter-0200utc")
+        // A sliver, and a faint one: at first quarter the moon stands
+        // ninety degrees east of the sun, over the Pacific at this hour,
+        // so only the Atlantic edge of the visible night has it above the
+        // horizon — and at an eighth of the full moon's strength, which
+        // is what the cube makes of a half-lit moon. That it is there at
+        // all is the moon's own terminator, drawn; that it is faint is
+        // the photometry.
+        val quarterTouched = differs(quarterOn, quarterOff, left = true)
+        assertTrue("no veil at first quarter: $quarterTouched", quarterTouched > 100)
         assertTrue(
-            "the quarter moon veils as much as the full one: $veiledQuarter vs $veiledFull",
-            veiledQuarter < veiledFull
+            "the quarter moon veils as strongly as the full one",
+            countVeiled(quarterOn, quarterOff, left = true) < veiledFull / 4
         )
     }
 }
