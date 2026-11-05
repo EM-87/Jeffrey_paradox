@@ -79,6 +79,27 @@ object CloudStore {
     fun dayOf(atMs: Long): String = store.dayOf(atMs)
 
     /**
+     * Which day's photograph a globe wound to [atMs] actually wears, and
+     * how many days before the one it should that is — see
+     * [DailyImageStore.worn]. For the word on the globe's face.
+     */
+    fun worn(context: Context, atMs: Long = TimeKeeper.nowMs()): DailyImageStore.Worn? {
+        if (!wanted(context)) return null
+        return store.worn(context, atMs)
+    }
+
+    /**
+     * Which days the phone has, for the settings row: the week is the
+     * promise and this is what has been kept of it, which is the first
+     * thing to look at when the clouds are seen not to change.
+     */
+    fun describe(context: Context): String {
+        val days = store.onDisk(context)
+        if (days.isEmpty()) return context.getString(R.string.clouds_on_phone_none)
+        return context.getString(R.string.clouds_on_phone, days.first(), days.last(), days.size)
+    }
+
+    /**
      * The clouds for a globe showing [atMs], which is not always now.
      *
      * The nearest day at or before the one asked for, because that is what

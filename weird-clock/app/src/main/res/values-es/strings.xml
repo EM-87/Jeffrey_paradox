@@ -615,6 +615,9 @@
     <string name="lights_clean_short">limpias %s</string>
     <string name="lights_raw_short">crudas %s</string>
     <string name="hemisphere_lights_legend">luces %s</string>
+    <string name="hemisphere_clouds_legend">nubes del %s</string>
+    <string name="clouds_on_phone">En el teléfono: del %1$s al %2$s, %3$d días</string>
+    <string name="clouds_on_phone_none">En el teléfono: aún nada</string>
 
     <!-- Las tres estaciones del a\u00f1o civil egipcio. -->
     <string-array name="egyptian_seasons">

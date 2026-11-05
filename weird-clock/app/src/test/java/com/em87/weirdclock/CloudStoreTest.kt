@@ -160,6 +160,30 @@ class CloudStoreTest {
     }
 
     /**
+     * And the nearest, wound back past everything it has, is the oldest.
+     *
+     * It used to be the newest, which is how a globe wound back ten days
+     * came to wear this morning's weather without a word. Now it wears the
+     * oldest it has and says how many days off that is, so the globe can
+     * say so on its face.
+     */
+    @Test
+    fun `wound back past everything it has it wears the oldest and says how far`() {
+        val now = TimeKeeper.nowMs()
+        assertTrue(CloudStore.refresh(context, now))
+        val day = 24L * 60L * 60L * 1000L
+        val fetched = asked.map { it.substringAfter("&TIME=") }.distinct().sorted()
+        assertTrue("one run should fetch a few days: $fetched", fetched.size >= 2)
+        val worn = CloudStore.worn(context, now - 30L * day)!!
+        assertEquals("not the oldest day it has", fetched.first(), worn.day)
+        // Thirty days back, less the days the oldest picture is itself
+        // behind now, give or take the day the clouds run late by design.
+        assertTrue("off by ${worn.offDays} days", worn.offDays in 25..30)
+        // And on a day it has, nothing is off.
+        assertEquals(0, CloudStore.worn(context, now)!!.offDays)
+    }
+
+    /**
      * Two fetches at once do not leave half a picture on the disc.
      *
      * This was the bug behind "the clouds are sometimes not there". The

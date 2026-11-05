@@ -99,11 +99,34 @@ class DailyImageStore(
      * Which day's picture a globe showing [atMs] would wear: the nearest
      * day at or before the one asked for, because that is what the sky
      * over a place actually was — or, when there is nothing earlier at
-     * all, the oldest there is.
+     * all, the oldest there is, which is the nearest.
+     *
+     * The oldest, not the newest. It used to be the newest, so a globe
+     * wound back past the week — or past however much of it the phone had
+     * — quietly wore this morning's weather, and the clouds were seen not
+     * to change while the night went on moving. See [worn], which says
+     * how far off the day worn is, so the globe can say so too.
      */
     fun dayCached(context: Context, atMs: Long): String? =
         daysBack(atMs).firstOrNull { file(context, it).exists() }
-            ?: onDisk(context).lastOrNull()
+            ?: onDisk(context).firstOrNull()
+
+    /** A day worn in place of the one asked for, and how far off it is. */
+    class Worn(val day: String, val offDays: Int)
+
+    /**
+     * The day a globe showing [atMs] would wear and how many days off the
+     * day asked for it is, either way — nought when it is the day itself,
+     * more when the phone has nothing nearer: an earlier day for a gap in
+     * the week, a later one for a world wound back past it. Null with
+     * nothing on disk.
+     */
+    fun worn(context: Context, atMs: Long): Worn? {
+        val day = dayCached(context, atMs) ?: return null
+        val asked = msOf(dayOf(atMs)) ?: return Worn(day, 0)
+        val got = msOf(day) ?: return Worn(day, 0)
+        return Worn(day, kotlin.math.abs((asked - got) / DAY_MS).toInt())
+    }
 
     /** The picture for a globe showing [atMs], which is not always now. */
     fun cached(context: Context, atMs: Long): Bitmap? {
@@ -283,6 +306,20 @@ class DailyImageStore(
         const val KEEP_DAYS = 7
         const val AT_A_TIME = 3
         const val DAY_MS = 24L * 60L * 60L * 1000L
+
+        /** Midnight UTC at the start of a day named the way the files are, or null for a name that is not one. */
+        fun msOf(day: String): Long? {
+            val parts = day.split("-")
+            if (parts.size != 3) return null
+            val utc = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+            utc.clear()
+            utc.set(
+                parts[0].toIntOrNull() ?: return null,
+                (parts[1].toIntOrNull() ?: return null) - 1,
+                parts[2].toIntOrNull() ?: return null
+            )
+            return utc.timeInMillis
+        }
 
         /** How long a fetch gets before it is abandoned. */
         const val TIMEOUT_MS = 20_000

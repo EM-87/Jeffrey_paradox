@@ -772,6 +772,9 @@
     <string name="lights_clean_short">clean %s</string>
     <string name="lights_raw_short">raw %s</string>
     <string name="hemisphere_lights_legend">lights %s</string>
+    <string name="hemisphere_clouds_legend">clouds of %s</string>
+    <string name="clouds_on_phone">On the phone: %1$s to %2$s, %3$d days</string>
+    <string name="clouds_on_phone_none">On the phone: nothing yet</string>
 
     <!-- The Egyptian civil year: three seasons of four months, named for
          what the Nile was doing when the calendar was young. It drifted a

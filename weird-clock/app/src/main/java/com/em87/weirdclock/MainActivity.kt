@@ -4385,6 +4385,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // And which day's, once the world starts being turned — see
         // [HemisphereView.cloudsOn].
         world.cloudsOn = { at -> CloudStore.cached(this, at) }
+        world.cloudsDayOn = { at -> CloudStore.worn(this, at) }
         if (CloudStore.wanted(this)) CloudStore.refreshInBackground(this)
         // And last night's lights, the same way: read off the disc here,
         // fetched on threads of their own that touch nothing but files.

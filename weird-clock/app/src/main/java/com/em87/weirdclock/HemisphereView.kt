@@ -121,6 +121,26 @@ class HemisphereView @JvmOverloads constructor(
             invalidate()
         }
 
+    /**
+     * And which day's picture that was, asked alongside — see
+     * [CloudStore.worn]. The clouds are a photograph of one day, and a
+     * globe wound to a day the phone has no photograph of wears the
+     * nearest it has; this is how it knows to say so on its face.
+     */
+    var cloudsDayOn: ((Long) -> DailyImageStore.Worn?)? = null
+        set(value) {
+            field = value
+            cloudsAskedDay = Long.MIN_VALUE
+            invalidate()
+        }
+
+    /** The day the clouds are of, and how many days off the day asked for. */
+    private var cloudsWorn: String? = null
+    private var cloudsOff = 0
+
+    /** For the tests: which day's picture the clouds are, as the store names it. */
+    internal fun cloudsWornForTest(): String? = cloudsWorn
+
     /** When the clouds were last asked for, and for which day. */
     private var cloudsAskedDay = Long.MIN_VALUE
     private var cloudsAskedAt = 0L
@@ -795,6 +815,11 @@ class HemisphereView @JvmOverloads constructor(
                 cloudsAskedDay = day
                 cloudsAskedAt = at
                 cloudsOn?.let { clouds = it(ms) }
+                cloudsDayOn?.let {
+                    val worn = it(ms)
+                    cloudsWorn = worn?.day
+                    cloudsOff = worn?.offDays ?: 0
+                }
                 lightsOn?.let { lights = it(ms) }
             }
         }
@@ -805,33 +830,23 @@ class HemisphereView @JvmOverloads constructor(
         if (ring) drawAlarms(canvas, cx, cy, ringR, fade)
         if (located) drawYou(canvas, cx, cy, r, subLat, subLon, ring)
         if (ring) drawHours(canvas, cx, cy, ringR, fade)
-        drawOverdue(canvas, cx, cy, r)
+        drawLegend(canvas, cx, cy, r)
     }
 
     /**
-     * A word on the face when last night's lights are further behind
-     * than is ordinary — see [NightLights.overdue].
+     * A word on the face when what it wears is not what it seems: last
+     * night's lights further behind than is ordinary — see
+     * [NightLights.overdue] — or clouds of another day than the one the
+     * world is wound to, because the phone has no picture of that one.
      *
-     * Only then. The settings say which night the lights are of every
-     * time; the globe says so only when the honest answer is "not the
-     * night you think", because a date on a clock face is a thing that
-     * is read, and a date that is always there stops being read.
+     * Only then. The settings say which night the lights are of and which
+     * days of clouds the phone has every time; the globe says so only when
+     * the honest answer is "not the day you think", because a date on a
+     * clock face is a thing that is read, and a date that is always there
+     * stops being read.
      */
-    private fun drawOverdue(canvas: Canvas, cx: Float, cy: Float, r: Float) {
-        val sky = lights ?: return
-        val parts = ArrayList<String>(2)
-        sky.clean?.let {
-            if (NightLights.overdue(raw = false, lagDays = it.lagDays)) {
-                parts += context.getString(R.string.lights_clean_short, dayText(it.day))
-            }
-        }
-        sky.raw?.let {
-            if (NightLights.overdue(raw = true, lagDays = it.lagDays)) {
-                parts += context.getString(R.string.lights_raw_short, dayText(it.day))
-            }
-        }
-        if (parts.isEmpty()) return
-        val text = context.getString(R.string.hemisphere_lights_legend, parts.joinToString(" · "))
+    private fun drawLegend(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        val text = legendText() ?: return
         ink.typeface = PRINT
         ink.textAlign = Paint.Align.CENTER
         ink.textSize = r * 0.062f
@@ -844,6 +859,37 @@ class HemisphereView @JvmOverloads constructor(
         ink.alpha = 220
         canvas.drawText(text, cx, y, ink)
         ink.alpha = 255
+    }
+
+    /** For the tests: the word on the face, if there is one this frame. */
+    internal fun legendForTest(): String? = legendText()
+
+    /** What the legend says, or null for a face with nothing to own up to. */
+    private fun legendText(): String? {
+        val phrases = ArrayList<String>(2)
+        lights?.let { sky ->
+            val parts = ArrayList<String>(2)
+            sky.clean?.let {
+                if (NightLights.overdue(raw = false, lagDays = it.lagDays)) {
+                    parts += context.getString(R.string.lights_clean_short, dayText(it.day))
+                }
+            }
+            sky.raw?.let {
+                if (NightLights.overdue(raw = true, lagDays = it.lagDays)) {
+                    parts += context.getString(R.string.lights_raw_short, dayText(it.day))
+                }
+            }
+            if (parts.isNotEmpty()) {
+                phrases += context.getString(R.string.hemisphere_lights_legend, parts.joinToString(" · "))
+            }
+        }
+        // The clouds, whenever they are not the day's own: a globe wound
+        // to a day the phone has no photograph of is wearing another
+        // day's weather, and says which.
+        if (clouds != null && cloudsOff != 0) {
+            cloudsWorn?.let { phrases += context.getString(R.string.hemisphere_clouds_legend, dayText(it)) }
+        }
+        return if (phrases.isEmpty()) null else phrases.joinToString(" · ")
     }
 
     /** A day of the lights as a person reads it: the day and the month. */

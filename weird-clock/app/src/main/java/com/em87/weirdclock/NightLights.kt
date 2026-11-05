@@ -114,18 +114,7 @@ object NightLights {
     fun stillFilling(day: String, nowMs: Long): Boolean = day == dayFor(nowMs)
 
     /** Midnight UTC at the start of [day], or null for a day that is not one. */
-    fun dayMs(day: String): Long? {
-        val parts = day.split("-")
-        if (parts.size != 3) return null
-        val utc = java.util.Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-        utc.clear()
-        utc.set(
-            parts[0].toIntOrNull() ?: return null,
-            (parts[1].toIntOrNull() ?: return null) - 1,
-            parts[2].toIntOrNull() ?: return null
-        )
-        return utc.timeInMillis
-    }
+    fun dayMs(day: String): Long? = DailyImageStore.msOf(day)
 
     /**
      * How many days behind the instant shown a picture of [day] is, or

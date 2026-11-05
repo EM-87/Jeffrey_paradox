@@ -881,6 +881,13 @@ class SettingsActivity : AppCompatActivity() {
                 Prefs.WEATHER, Prefs.SUNDIAL_GLASS, Prefs.HEMISPHERE_CLOUDS,
                 Prefs.HEMISPHERE_LIGHTS
             )
+            // Which days of clouds the phone has. The week is the promise;
+            // this is what has been kept of it, and the first thing to look
+            // at when the clouds are seen not to change as the world is
+            // wound back.
+            findPreference<Preference>(Prefs.HEMISPHERE_CLOUDS)?.summary =
+                getString(R.string.pref_hemisphere_clouds_summary) + "\n" +
+                    CloudStore.describe(requireContext())
             // Which night each layer of lights would show, and how far
             // behind that is — always said here, and on the globe only
             // when it is further behind than is ordinary.
