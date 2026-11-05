@@ -877,7 +877,22 @@ class SettingsActivity : AppCompatActivity() {
             dimmedWhen(Prefs.SHOW_DATE, Prefs.SUNDIAL_CALENDAR)
             // And two needles with nothing to point at while the
             // network switch is off.
-            dimmedWhen(Prefs.WEATHER, Prefs.SUNDIAL_GLASS, Prefs.HEMISPHERE_CLOUDS)
+            dimmedWhen(
+                Prefs.WEATHER, Prefs.SUNDIAL_GLASS, Prefs.HEMISPHERE_CLOUDS,
+                Prefs.HEMISPHERE_LIGHTS
+            )
+            // Which night each layer of lights would show, and how far
+            // behind that is — always said here, and on the globe only
+            // when it is further behind than is ordinary.
+            findPreference<ListPreference>(Prefs.HEMISPHERE_LIGHTS)?.let { row ->
+                row.summary = NightLightStore.describe(requireContext())
+                row.setOnPreferenceChangeListener { _, value ->
+                    // Turned off, the pictures go; turned on, they are
+                    // fetched when the globe is next looked at.
+                    if (value == NightLights.Mode.NONE.key) NightLightStore.forget(requireContext())
+                    true
+                }
+            }
             // Where the sun is nailed means nothing while the phone is
             // doing the pointing. Registered on this screen because that
             // is the screen both rows are on — see [FadedRowTest], which

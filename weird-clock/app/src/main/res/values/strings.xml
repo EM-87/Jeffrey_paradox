@@ -743,6 +743,31 @@
     <string name="pref_hemisphere_clouds_title">Satellite clouds</string>
     <string name="pref_hemisphere_clouds_summary">Yesterday\'s clouds on the globe, from NASA\'s daily MODIS photograph of the whole earth. Each place was taken as the satellite came over it, around half past ten in the morning there. About 80 kB, once every six hours. Needs the weather switched on</string>
 
+    <!-- Last night's lights on the dark side, from the VIIRS Day/Night
+         Band: the clean Black Marble, two or three days behind, and the
+         raw night as the sensor saw it, aurora and moonlit cloud and all. -->
+    <string name="pref_hemisphere_lights_title">Night lights</string>
+    <string name="pref_hemisphere_lights_summary">Last night\'s lights on the dark side, from NASA\'s VIIRS Day/Night Band. Clean is the Black Marble, with the moon and the cloud taken out, two or three days behind; raw is what the sensor saw that night, aurora, moonlit cloud, snow and fire included. Each place was taken as the satellite came over, around half past one in the morning there. Up to 0.8 MB a day. Needs the weather switched on</string>
+    <string-array name="hemisphere_lights_entries">
+        <item>None</item>
+        <item>Clean (Black Marble)</item>
+        <item>Raw, as the sensor saw it</item>
+        <item>Both, with the difference picked out</item>
+    </string-array>
+    <string-array name="hemisphere_lights_values" translatable="false">
+        <item>none</item>
+        <item>clean</item>
+        <item>raw</item>
+        <item>both</item>
+    </string-array>
+    <string name="lights_clean_name">Clean</string>
+    <string name="lights_raw_name">Raw</string>
+    <string name="lights_layer_summary">%1$s: night of %2$s, %3$d days behind</string>
+    <string name="lights_layer_none">%1$s: nothing yet</string>
+    <string name="lights_clean_short">clean %s</string>
+    <string name="lights_raw_short">raw %s</string>
+    <string name="hemisphere_lights_legend">lights %s</string>
+
     <!-- The Egyptian civil year: three seasons of four months, named for
          what the Nile was doing when the calendar was young. It drifted a
          day every four years and the names went on meaning what they had

@@ -817,8 +817,15 @@ class OrreryDialTest {
         // which the next one happened to fall inside a month. It did —
         // twenty-nine days — and the failure said nothing at all about the
         // gesture it was supposed to be testing.
+        // At least a day, and a day exactly is allowed: the search starts
+        // tomorrow and stops at the first day that qualifies, so when
+        // tomorrow's sky already has three planets inside the arc the leap
+        // is one day long. Mercury moves four degrees a day, so whether
+        // tomorrow qualifies changes with the hour this is run at — and
+        // this read the real clock, said "more than a day", and failed on
+        // the afternoons when the answer was a day on the nose.
         val moved = clock.orreryMs() - before
-        assertTrue("holding on empty sky did not move the sky: $moved ms", moved > 86_400_000L)
+        assertTrue("holding on empty sky did not move the sky: $moved ms", moved >= 86_400_000L)
         val there = Orrery.aligned(clock.orreryMs(), 12.0)
         assertTrue(
             "the sky it leapt to has only ${there.size} planets lined up: $there",

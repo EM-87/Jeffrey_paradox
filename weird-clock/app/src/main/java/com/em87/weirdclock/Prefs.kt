@@ -387,6 +387,13 @@ object Prefs {
      * the largest thing this app ever downloads — see [CloudStore].
      */
     const val HEMISPHERE_CLOUDS = "pref_hemisphere_clouds"
+
+    /**
+     * Which of last night's lights the globe wears: none, the clean
+     * Black Marble, the raw night as the sensor saw it, or both with the
+     * difference picked out — see [NightLights.Mode].
+     */
+    const val HEMISPHERE_LIGHTS = "pref_hemisphere_lights"
     const val DATE_FORMAT = "pref_date_format"
 
     /**

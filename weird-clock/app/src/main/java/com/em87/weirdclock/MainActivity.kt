@@ -1192,7 +1192,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             .putBoolean(Prefs.FACE_ASKED, true)
             .apply()
         if (chosen != face) {
-            recreate()
+            recreateFor("chosen $face->$chosen")
             return
         }
         settleInAfterTheFaceIsChosen()
@@ -1318,7 +1318,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             ?.let { wanted ->
                 if (wanted != face) {
                     borrowedFace = wanted
-                    recreate()
+                    recreateFor("borrowed $face->$wanted")
                 } else {
                     goTo(Card.CLOCK)
                 }
@@ -1347,7 +1347,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val uiMode = resources.configuration.uiMode
         if (lastUiMode != 0 && uiMode != lastUiMode) {
             lastUiMode = uiMode
-            recreate()
+            recreateFor("uiMode $lastUiMode->$uiMode")
             return
         }
         lastUiMode = uiMode
@@ -1359,7 +1359,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // visit, in which case the settings disagreeing with it is the
         // whole point rather than a change to rebuild for.
         if (borrowedFace == null && Face.of(prefs) != face) {
-            recreate()
+            recreateFor("face $face->${Face.of(prefs)}")
             return
         }
         // The app is visible again: the notification takes a break, and we
@@ -2401,8 +2401,34 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         keepScreenAwake()
     }
 
-    /** For the tests: the main dial, so a picture can be taken of it. */
-    internal fun clockForTest(): ClockView = clockView!!
+    /**
+     * For the tests: the main dial, so a picture can be taken of it.
+     *
+     * Not a bare `!!`. The dial was once found missing straight after the
+     * activity was set up, once in a few hundred runs, and a null pointer
+     * says nothing about why. This says everything the moment knows: the
+     * face, whether the page that holds the dial was ever built, whether
+     * this instance was rebuilt on the way in and for what reason, and
+     * whether it is already on its way out.
+     */
+    internal fun clockForTest(): ClockView = clockView ?: throw IllegalStateException(
+        "no dial: face=$face borrowed=$borrowedFace pages=${pager.adapter?.itemCount}" +
+            " children=${pager.childCount} current=${pager.currentItem}" +
+            " attached=${pager.isAttachedToWindow} laidOut=${pager.isLaidOut}" +
+            " finishing=$isFinishing destroyed=$isDestroyed" +
+            " lastRecreate=$lastRecreateReason inFront=$inFront" +
+            " uiMode=${resources.configuration.uiMode} lastUiMode=$lastUiMode"
+    )
+
+    /**
+     * Why an instance of this screen was last thrown away and built again,
+     * for [clockForTest]. Static, because the instance that was thrown
+     * away is not the one that gets asked.
+     */
+    private fun recreateFor(reason: String) {
+        lastRecreateReason = "$reason@${System.currentTimeMillis()}"
+        recreate()
+    }
 
     /** For the tests: which face this screen was built for. */
     internal fun faceForTest(): Face = face
@@ -4360,6 +4386,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // [HemisphereView.cloudsOn].
         world.cloudsOn = { at -> CloudStore.cached(this, at) }
         if (CloudStore.wanted(this)) CloudStore.refreshInBackground(this)
+        // And last night's lights, the same way: read off the disc here,
+        // fetched on threads of their own that touch nothing but files.
+        world.lights = NightLightStore.skyFor(this)
+        world.lightsOn = { at -> NightLightStore.skyFor(this, at) }
+        if (NightLightStore.wanted(this)) NightLightStore.refreshInBackground(this)
         world.hourRing = prefs.getBoolean(Prefs.HEMISPHERE_RING, true)
         world.hourNumbers = prefs.getBoolean(Prefs.HEMISPHERE_NUMBERS, true)
         world.showSun = prefs.getBoolean(Prefs.HEMISPHERE_SUN, true)
@@ -4713,6 +4744,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         @Volatile
         var inFront = false
             internal set
+
+        /** See [clockForTest]. */
+        @Volatile
+        internal var lastRecreateReason: String? = null
 
         const val EXTRA_OPEN_ALARMS = "extra_open_alarms"
         const val EXTRA_OPEN_TIMER = "extra_open_timer"

@@ -125,6 +125,39 @@ class HemisphereView @JvmOverloads constructor(
     private var cloudsAskedDay = Long.MIN_VALUE
     private var cloudsAskedAt = 0L
 
+    /**
+     * Last night's lights, on the dark side — see [NightLightStore],
+     * which hands them in as brightness, and [NightLights], which is the
+     * rule that turns brightness into amber and cyan.
+     *
+     * Null is the ordinary state: nobody has switched them on, or they
+     * have not arrived, and the night side wears the fixed Black Marble
+     * of 2016 it always has.
+     */
+    var lights: NightLightStore.Sky? = null
+        set(value) {
+            if (sameLights(field, value)) return
+            field = value
+            discard()
+            invalidate()
+        }
+
+    /** Whether two skies are the same pictures in the same mode, by identity. */
+    private fun sameLights(a: NightLightStore.Sky?, b: NightLightStore.Sky?): Boolean {
+        if (a === b) return true
+        if (a == null || b == null) return false
+        return a.mode == b.mode && a.clean?.lum === b.clean?.lum && a.raw?.lum === b.raw?.lum &&
+            a.clean?.lagDays == b.clean?.lagDays && a.raw?.lagDays == b.raw?.lagDays
+    }
+
+    /** Where to ask for the lights of a particular night, asked with the clouds. */
+    var lightsOn: ((Long) -> NightLightStore.Sky?)? = null
+        set(value) {
+            field = value
+            cloudsAskedDay = Long.MIN_VALUE
+            invalidate()
+        }
+
     /** The ring of hours round the world, and what is on it. */
     var hourRing: Boolean = true
         set(value) { field = value; invalidate() }
@@ -484,10 +517,12 @@ class HemisphereView @JvmOverloads constructor(
         dayDisc?.recycle()
         nightDisc?.recycle()
         cloudDisc?.recycle()
+        lightDisc?.recycle()
         shadow?.recycle()
         dayDisc = null
         nightDisc = null
         cloudDisc = null
+        lightDisc = null
         shadow = null
         bakedFor = null
         maskedFor = null
@@ -504,8 +539,8 @@ class HemisphereView @JvmOverloads constructor(
         for (i in mapPixelsHeld.indices) {
             mapPixelsHeld[i] = null
             mapPixelsFor[i] = null
-            scratch[i] = null
         }
+        for (i in scratch.indices) scratch[i] = null
     }
 
     /** How big the projected discs are drawn, whatever size the view is. */
@@ -545,6 +580,12 @@ class HemisphereView @JvmOverloads constructor(
         val sky = clouds
         val veil = if (sky == null) null else scratch(2, count)
         val skyPixels = if (sky == null) null else mapPixels(sky, 2)
+        // And last night's lights, through the same projection again: a
+        // fourth disc, drawn on the dark side only — see [drawWorld].
+        val lamps = lights
+        val glow = if (lamps == null) null else scratch(3, count)
+        val cleanLights = lamps?.clean
+        val rawLights = lamps?.raw
         // On the globe the turn is baked in; on the flat views it is not,
         // and the disc is turned when it is drawn.
         val turn = if (view == Hemisphere.View.GLOBE) quantise(spinDeg) else 0.0
@@ -560,6 +601,14 @@ class HemisphereView @JvmOverloads constructor(
                     disc.rho[at].toDouble()
                 )
             }
+            if (glow != null && lamps != null) {
+                glow[at] = NightLights.pixel(
+                    lamps.mode,
+                    cleanLights?.at(u, v) ?: 0,
+                    rawLights?.at(u, v) ?: 0,
+                    disc.rho[at].toDouble()
+                )
+            }
         }
         dayDisc = into(dayDisc, lit, size)
         nightDisc = into(nightDisc, dark, size)
@@ -569,9 +618,18 @@ class HemisphereView @JvmOverloads constructor(
         } else {
             into(cloudDisc, veil, size)
         }
+        lightDisc = if (glow == null) {
+            lightDisc?.recycle()
+            null
+        } else {
+            into(lightDisc, glow, size)
+        }
         bakedFor = key
         bakes++
     }
+
+    /** The lights of last night, projected, for the dark side. */
+    private var lightDisc: Bitmap? = null
 
     /**
      * The pixels written into [existing] if it is a disc of this size, or
@@ -587,7 +645,7 @@ class HemisphereView @JvmOverloads constructor(
     }
 
     /** The scratch pixels for one disc, kept between bakes. */
-    private val scratch = arrayOfNulls<IntArray>(3)
+    private val scratch = arrayOfNulls<IntArray>(4)
 
     private fun scratch(slot: Int, count: Int): IntArray {
         scratch[slot]?.let { if (it.size == count) return it }
@@ -713,13 +771,14 @@ class HemisphereView @JvmOverloads constructor(
         // standing at now is simply today's. Asked once a second rather
         // than once a frame: the answer is a lookup on disk, and sixty of
         // those a second on the thread that draws is sixty too many.
-        cloudsOn?.let {
+        if (cloudsOn != null || lightsOn != null) {
             val day = ms / 86_400_000L
             val at = android.os.SystemClock.uptimeMillis()
             if (day != cloudsAskedDay || at - cloudsAskedAt >= CLOUDS_ASK_MS) {
                 cloudsAskedDay = day
                 cloudsAskedAt = at
-                clouds = it(ms)
+                cloudsOn?.let { clouds = it(ms) }
+                lightsOn?.let { lights = it(ms) }
             }
         }
         bake(-subLon + sunAt)
@@ -729,6 +788,53 @@ class HemisphereView @JvmOverloads constructor(
         if (ring) drawAlarms(canvas, cx, cy, ringR, fade)
         if (located) drawYou(canvas, cx, cy, r, subLat, subLon, ring)
         if (ring) drawHours(canvas, cx, cy, ringR, fade)
+        drawOverdue(canvas, cx, cy, r)
+    }
+
+    /**
+     * A word on the face when last night's lights are further behind
+     * than is ordinary — see [NightLights.overdue].
+     *
+     * Only then. The settings say which night the lights are of every
+     * time; the globe says so only when the honest answer is "not the
+     * night you think", because a date on a clock face is a thing that
+     * is read, and a date that is always there stops being read.
+     */
+    private fun drawOverdue(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        val sky = lights ?: return
+        val parts = ArrayList<String>(2)
+        sky.clean?.let {
+            if (NightLights.overdue(raw = false, lagDays = it.lagDays)) {
+                parts += context.getString(R.string.lights_clean_short, dayText(it.day))
+            }
+        }
+        sky.raw?.let {
+            if (NightLights.overdue(raw = true, lagDays = it.lagDays)) {
+                parts += context.getString(R.string.lights_raw_short, dayText(it.day))
+            }
+        }
+        if (parts.isEmpty()) return
+        val text = context.getString(R.string.hemisphere_lights_legend, parts.joinToString(" · "))
+        ink.typeface = PRINT
+        ink.textAlign = Paint.Align.CENTER
+        ink.textSize = r * 0.062f
+        val y = cy + r * 0.80f
+        val half = ink.measureText(text) / 2f + ink.textSize * 0.6f
+        fill.color = 0xB0000000.toInt()
+        rim.set(cx - half, y - ink.textSize * 0.95f, cx + half, y + ink.textSize * 0.40f)
+        canvas.drawRoundRect(rim, ink.textSize * 0.6f, ink.textSize * 0.6f, fill)
+        ink.color = theme.numeral
+        ink.alpha = 220
+        canvas.drawText(text, cx, y, ink)
+        ink.alpha = 255
+    }
+
+    /** A day of the lights as a person reads it: the day and the month. */
+    private fun dayText(day: String): String {
+        val ms = NightLights.dayMs(day) ?: return day
+        val utc = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+        utc.timeInMillis = ms
+        return android.text.format.DateFormat.format("d MMM", utc).toString()
     }
 
     /**
@@ -795,6 +901,17 @@ class HemisphereView @JvmOverloads constructor(
         fill.alpha = 0x8A
         canvas.drawCircle(cx, cy, r, fill)
         fill.alpha = 255
+        // Last night's lights go on over the scrim, not under it: they
+        // are light, and a scrim over a light is a dimmer. Inside the
+        // layer, so the same mask that cuts the night map to where the
+        // sun has set cuts them too — a city lit in daylight is a photo
+        // of a city, not a city.
+        lightDisc?.let {
+            canvas.save()
+            canvas.rotate(-spin, cx, cy)
+            canvas.drawBitmap(it, src, dst, blit)
+            canvas.restore()
+        }
         maskSrc.set(0, 0, mask.width, mask.height)
         canvas.drawBitmap(mask, maskSrc, dst, cut)
         canvas.restoreToCount(layer)

@@ -139,6 +139,17 @@
             android:summary="@string/pref_hemisphere_clouds_summary"
             android:title="@string/pref_hemisphere_clouds_title" />
 
+        <!-- And last night's lights on the dark side, behind the same
+             weather switch. Off by default: it is most of a megabyte a
+             day, which is a thing to be asked for. -->
+        <ListPreference
+            android:defaultValue="none"
+            android:entries="@array/hemisphere_lights_entries"
+            android:entryValues="@array/hemisphere_lights_values"
+            android:key="pref_hemisphere_lights"
+            android:summary="@string/pref_hemisphere_lights_summary"
+            android:title="@string/pref_hemisphere_lights_title" />
+
         <!-- The sundial's own rows. Every one of them is about the
              instrument rather than about the time, which is why they are
              here and not on the first screen — except the latitude,

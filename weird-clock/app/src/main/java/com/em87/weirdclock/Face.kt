@@ -376,7 +376,8 @@ object FaceOptions {
         Prefs.HEMISPHERE_SUN,
         Prefs.HEMISPHERE_MOON,
         Prefs.HEMISPHERE_ALARMS,
-        Prefs.HEMISPHERE_CLOUDS
+        Prefs.HEMISPHERE_CLOUDS,
+        Prefs.HEMISPHERE_LIGHTS
     )
 
     /** Whether the row at [key] belongs on [face]'s screens. */
