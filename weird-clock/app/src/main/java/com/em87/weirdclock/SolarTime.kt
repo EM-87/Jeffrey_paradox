@@ -45,13 +45,10 @@ object SolarTime {
         zenithDeg: Double = ZENITH_HORIZON
     ): Pair<Int, Int>? {
         val zone = TimeZone.getDefault()
-        val cal = Calendar.getInstance(zone).apply { timeInMillis = nowMs }
-        val dayOfYear = cal.get(Calendar.DAY_OF_YEAR)
-
-        // Declination: how far north or south the sun stands today.
-        val b = 2.0 * Math.PI * (dayOfYear - 81) / 365.0
-        val declination = Math.toRadians(23.45) * sin(b)
-        val eotMinutes = 9.87 * sin(2.0 * b) - 7.53 * cos(b) - 1.5 * sin(b)
+        // Declination: how far north or south the sun stands today — the
+        // one Sun's, see [Ephemeris] — and the equation of time with it.
+        val declination = Math.toRadians(Ephemeris.sunDeclinationDeg(nowMs))
+        val eotMinutes = Ephemeris.equationOfTimeMinutes(nowMs)
 
         val lat = Math.toRadians(latitudeDeg)
         val zenith = Math.toRadians(zenithDeg)
@@ -87,10 +84,7 @@ object SolarTime {
         val riseSet = sunriseSunset(latitudeDeg, longitudeDeg, nowMs)
         if (riseSet == null) {
             // No crossing today: which side of the year decides it.
-            val cal = Calendar.getInstance().apply { timeInMillis = nowMs }
-            val b = 2.0 * Math.PI * (cal.get(Calendar.DAY_OF_YEAR) - 81) / 365.0
-            val declination = Math.toRadians(23.45) * sin(b)
-            return (latitudeDeg >= 0) == (declination >= 0)
+            return (latitudeDeg >= 0) == (Ephemeris.sunDeclinationDeg(nowMs) >= 0)
         }
         val (rise, set) = riseSet
         val m = ((minutesOfDay % 1440) + 1440) % 1440
@@ -160,18 +154,18 @@ object SolarTime {
      * is plus however far round the month has got — see [moonPosition].
      */
     private fun sunAngles(longitudeDeg: Double, atMs: Long): Pair<Double, Double> {
-        val zone = TimeZone.getDefault()
-        val cal = Calendar.getInstance(zone).apply { timeInMillis = atMs }
-        val dayOfYear = cal.get(Calendar.DAY_OF_YEAR)
-        val b = 2.0 * Math.PI * (dayOfYear - 81) / 365.0
-        val declination = Math.toRadians(23.45) * sin(b)
-        val eotMinutes = 9.87 * sin(2.0 * b) - 7.53 * cos(b) - 1.5 * sin(b)
-
-        val zoneOffsetMinutes = zone.getOffset(atMs) / 60_000.0
-        val civilMinutes = cal.get(Calendar.HOUR_OF_DAY) * 60.0 +
-            cal.get(Calendar.MINUTE) + cal.get(Calendar.SECOND) / 60.0
+        // The one Sun — see [Ephemeris]. It used to be a sine of the day
+        // of the year read off the phone's calendar, which was right to a
+        // degree or two around now and drifted a day a century before
+        // 1582, when that calendar turns Julian under it.
+        val declination = Math.toRadians(Ephemeris.sunDeclinationDeg(atMs))
+        val eotMinutes = Ephemeris.equationOfTimeMinutes(atMs)
+        // Minutes of universal time into the day: the civil clock and the
+        // zone it keeps cancel out of the sun's position, so neither is
+        // asked.
+        val utMinutes = Math.floorMod(atMs, 86_400_000L) / 60_000.0
         // True solar minutes past local solar midnight.
-        val solarMinutes = civilMinutes + 4.0 * longitudeDeg + eotMinutes - zoneOffsetMinutes
+        val solarMinutes = utMinutes + 4.0 * longitudeDeg + eotMinutes
         // Fifteen degrees an hour, zero at solar noon, negative in the
         // morning and positive in the afternoon.
         return Math.toRadians(solarMinutes / 4.0 - 180.0) to declination
@@ -240,15 +234,11 @@ object SolarTime {
      */
     fun moonDeclinationDeg(atMs: Long): Double {
         val phase = SkyGlyph.phaseAt(atMs)
-        val zone = TimeZone.getDefault()
-        val cal = Calendar.getInstance(zone).apply { timeInMillis = atMs }
-        // The Sun's ecliptic longitude, zero at the vernal equinox, which
-        // is day eighty.
-        val sunLongitude = 2.0 * Math.PI * (cal.get(Calendar.DAY_OF_YEAR) - 80) / 365.25
-        val moonLongitude = sunLongitude + 2.0 * Math.PI * phase
-        return Math.toDegrees(
-            kotlin.math.asin((sin(Math.toRadians(23.45)) * sin(moonLongitude)).coerceIn(-1.0, 1.0))
-        )
+        // The Sun's longitude from the equinox of the date, and the Moon
+        // however far round the month has got from it.
+        val moonLongitude = Math.toRadians(Ephemeris.sunLongitudeOfDate(atMs) + 360.0 * phase)
+        val obliquity = Math.toRadians(Ephemeris.obliquityDeg(Ephemeris.centuries(atMs)))
+        return Math.toDegrees(kotlin.math.asin((sin(obliquity) * sin(moonLongitude)).coerceIn(-1.0, 1.0)))
     }
 
     /**
@@ -265,13 +255,9 @@ object SolarTime {
     /** Display offset (ms) that turns civil time into local solar time. */
     fun offsetMs(longitudeDeg: Double, nowMs: Long): Long {
         val civilOffset = TimeZone.getDefault().getOffset(nowMs).toLong()
-        val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-        cal.timeInMillis = nowMs
-        val dayOfYear = cal.get(Calendar.DAY_OF_YEAR)
-        // Equation of time (minutes), Spencer-style approximation: the ±16
-        // minute wobble from Earth's tilted, elliptical orbit.
-        val b = 2.0 * Math.PI * (dayOfYear - 81) / 364.0
-        val eotMinutes = 9.87 * sin(2.0 * b) - 7.53 * cos(b) - 1.5 * sin(b)
+        // The equation of time: the ±16 minute wobble from the Earth's
+        // tilted, elliptical orbit, from the one Sun — see [Ephemeris].
+        val eotMinutes = Ephemeris.equationOfTimeMinutes(nowMs)
         val solarVsUtcMs = ((longitudeDeg * 4.0 + eotMinutes) * 60_000.0).toLong()
         return solarVsUtcMs - civilOffset
     }

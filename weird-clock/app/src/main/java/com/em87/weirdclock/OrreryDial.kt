@@ -429,8 +429,12 @@ object OrreryDial {
         var wasQuadrant = -1
         for (i in 0 until Orrery.daysInYear(year)) {
             val day = first + i
+            // The Sun's longitude from the equinox of the date — see
+            // [Ephemeris] — and not the Earth's in the orrery's fixed
+            // frame, which slides a day of season every seventy-two
+            // years and had the equinox a fortnight out by the year 1000.
             val quadrant =
-                (Orrery.longitude(Orrery.Body.EARTH, day * CivilDays.DAY_MS) / 90.0).toInt()
+                (Ephemeris.sunLongitudeOfDate(day * CivilDays.DAY_MS) / 90.0).toInt()
             // The day before, not this one. Each day is sampled at its own
             // midnight, so finding the Earth past the boundary at the start
             // of a day means it crossed at some point during the day
@@ -705,10 +709,14 @@ object OrreryDial {
      * this dial plots the Earth, and the two are always exactly opposite.
      * Zero is Aries, which starts at the March equinox by definition — so
      * no epoch and no table are needed, and the signs fall out of the same
-     * longitude the day marks are already drawn at.
+     * longitude the day marks are already drawn at. The equinox of the
+     * *date*: the orrery's longitudes are measured from where it stood in
+     * 2000, and [precessionDeg] is how far it has slid since — see
+     * [Ephemeris.precessionDeg] — so that the signs keep to the seasons
+     * in every century and not only this one.
      */
-    internal fun signAt(earthLongitudeDeg: Double): Int =
-        (Orrery.wrap(earthLongitudeDeg - HALF_TURN) / 30.0).toInt().coerceIn(0, 11)
+    internal fun signAt(earthLongitudeDeg: Double, precessionDeg: Double = 0.0): Int =
+        (Orrery.wrap(earthLongitudeDeg - HALF_TURN + precessionDeg) / 30.0).toInt().coerceIn(0, 11)
 
     /**
      * And back the other way: where on this ring a sign's thirty degrees
@@ -722,7 +730,8 @@ object OrreryDial {
      * dates of the one across the year from it, and the rule the tests
      * were asking about went on giving the right answer.
      */
-    internal fun signStart(sign: Int): Double = Orrery.wrap(HALF_TURN + sign * 30.0)
+    internal fun signStart(sign: Int, precessionDeg: Double = 0.0): Double =
+        Orrery.wrap(HALF_TURN + sign * 30.0 - precessionDeg)
 
     /** The Earth is always exactly opposite the Sun, which is the whole trick. */
     private const val HALF_TURN = 180.0
@@ -757,9 +766,11 @@ object OrreryDial {
         text.textAlign = Paint.Align.CENTER
         val radius = r * 0.94f - r * 0.155f
         monthOval.set(cx - radius, cy - radius, cx + radius, cy + radius)
+        // From the equinox of the year on the ring, not of 2000.
+        val precession = Ephemeris.precessionDeg(Ephemeris.centuries(first * CivilDays.DAY_MS))
         for (sign in SIGNS.indices) {
             // The Sun's thirty degrees, turned round to the Earth's side.
-            val from = signStart(sign)
+            val from = signStart(sign, precession)
             val a0 = Orrery.wrap(-from).toFloat()
             val a1 = Orrery.wrap(-(from + 30.0)).toFloat()
             val sweep = 30f
