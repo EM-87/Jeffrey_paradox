@@ -83,7 +83,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
-from n64emu import N64, A, R, write_png  # noqa: E402
+from n64emu import N64, A, R, stick, write_png  # noqa: E402
 import af_font  # noqa: E402
 import af_nafe_gfx  # noqa: E402
 import af_ui  # noqa: E402
@@ -96,11 +96,13 @@ typedef unsigned char u8;
 typedef int s32;
 void mSM_open_submenu_new(void* submenu, s32 programId, s32 arg2, s32 arg3, s32 arg4);
 void SetGameFrame(s32 divisor);
+void mPr_GetMotherMail(void* mail, void* pid, unsigned short present, s32 stationery, s32 mailNumber);
 extern void* gamePT;
 typedef struct HookCtl { s32 cmd; s32 arg[4]; u8 buf[32]; } HookCtl;
 HookCtl hook_ctl;
 
-/* a submenu program opened as mSM_submenu_ctrl opens one */
+/* 1: a submenu program opened as mSM_submenu_ctrl opens one; 2: a shop letter written into a Mail_c (the
+   letter board check's way: tests/emu_board.py) */
 void hook_main(void) {
     HookCtl* h = &hook_ctl;
     s32* submenu = (s32*)((u8*)gamePT + 0x1CBC);
@@ -111,11 +113,22 @@ void hook_main(void) {
         submenu[0] = 1;
         SetGameFrame(2);
         h->cmd = 0;
+    } else if (h->cmd == 2) {
+        mPr_GetMotherMail((void*)h->arg[0], (void*)h->arg[1], 0, 0, h->arg[2]);
+        h->cmd = 0;
     }
 }
 """
 
 LEDIT = 4
+# the letter's tag (tag_ovl's func_80877B0C_jp, drawn by the en m_submenu.c's mSM_en_tagMailName in the
+# GameCube's order): a shop letter in each of the pockets' ten letters (its sender the player's mother: "from"
+# and the word for home), the inventory opened and its cursor brought onto the letters (five pushes right, one
+# up), at rest
+TAG_LETTER = 205
+TAG_MOVES = [(stick(100, 0), 6)] * 5 + [(stick(0, 100), 6)]
+TAG_REST = 150
+PRIVATE_INFO, POCKET_MAIL, MAIL_SIZE = 0x10138, 0x40A, 0xA4   # common_data.privateInfo, its mail[], a Mail_c
 MODES = [("the player's name", "LEDIT_PLAYER", "mSM_en_lePlayerTitle"),
          ("the destination", "LEDIT_COUNTRY", "mSM_en_leCountryTitle"),
          ("a catchphrase", "LEDIT_EPHRASE", "mSM_en_leEphraseTitle"),
@@ -515,6 +528,63 @@ def main(argv):
         scale = min(1.0, AD_TEXT_W / width)               # narrowed to the cartridge's 144 pixels
         check_ink(ink_pixels(rgb, bare, w, h), model_width(want["AD_EMPTY"], scale),
                   "%s: the book is empty (%r), at %.3f" % (what, want["AD_EMPTY"], scale))
+
+        # the letter's tag
+        def open_tag(pokes=()):
+            """The inventory on a letter's tag, pokes [(address, bytes)] written first. (w, h, rgb)."""
+            ctl = setup()
+            for at, data in pokes:
+                n64.write(at, data)
+            priv = struct.unpack(">I", n64.read(syms["common_data"] + PRIVATE_INFO, 4))[0]
+            for k in range(10):
+                n64.write(ctl, struct.pack(">i4I", 2, priv + POCKET_MAIL + MAIL_SIZE * k, priv, TAG_LETTER, 0))
+                n64.frames(2, 0)
+            n64.write(ctl, struct.pack(">i4I", 1, 1, 0, 0, 0))
+            n64.frames(SETTLE * 2, 0)
+            for move, hold in TAG_MOVES:
+                n64.frames(hold, move)
+                n64.frames(40, 0)
+            n64.frames(TAG_REST, 0)
+            return n64.screen()
+
+        tag_strings = [("TG_LETTER_TO", "mSM_en_tgLetterTo"), ("TG_FROM", "mSM_en_tgFrom"), ("TG_HOME", "mSM_en_tgHome")]
+        for name, sym in tag_strings:
+            got = n64.read(syms[sym], len(want[name]))
+            check(got == want[name], "the letter's tag: %s holds %r (%r)" % (sym, want[name], got))
+        w, h, tag = open_tag()
+        path = os.path.join(out, "letter-tag.png")
+        write_png(path, w, h, tag)
+        shots.append(path)
+        def blank(name, sym):
+            return (syms[sym], b" " * len(want[name]))
+
+        # each piece's ink: the frame without it. The word for "from" is measured with the sender gone too: spaces
+        # in its place are not its width, and would move the sender
+        _, _, no_first = open_tag([blank(*tag_strings[0])])
+        _, _, no_home = open_tag([blank(*tag_strings[2])])
+        _, _, no_from = open_tag([blank(*tag_strings[1]), blank(*tag_strings[2])])
+        tag_ink = {"TG_LETTER_TO": runs(x for x, _ in ink_pixels(tag, no_first, w, h)),
+                   "TG_FROM": runs(x for x, _ in ink_pixels(no_home, no_from, w, h)),
+                   "TG_HOME": runs(x for x, _ in ink_pixels(tag, no_home, w, h))}
+        first = want["TG_LETTER_TO"]
+        _, _, ruled = open_tag([(syms["mSM_en_tgLetterTo"], rule * len(first))])
+        _, _, unruled = open_tag([(syms["mSM_en_tgLetterTo"], b" " * len(first))])
+        ruler_runs = runs(x for x, _ in ink_pixels(ruled, unruled, w, h))
+        if not ruler_runs or not all(tag_ink.values()):
+            check(False, "the letter's tag: ink drawn (%s; the ruler %d runs)" % (
+                ", ".join("%s %d runs" % (n, len(r)) for n, r in tag_ink.items()), len(ruler_runs)))
+        else:
+            left, scale = swap_box(board, rule * len(first), (ruler_runs[0][0], ruler_runs[-1][1]))
+            span = ruler_runs[-1][1] - ruler_runs[0][0]
+            frm = want["TG_FROM"]
+            places = {"TG_LETTER_TO": left, "TG_FROM": left,
+                      "TG_HOME": left + even(board.width(frm)) * scale * FRAME_X}   # after "from" (its even width)
+            for name, x in places.items():
+                ink = swap_inks(board, faint, want[name], want[name], af_ui.LEFT, x, scale)[0]
+                got = (tag_ink[name][0][0], tag_ink[name][-1][1])
+                check(ink_matches(got, ink, left, span),
+                      "the letter's tag: %r's ink at %s, the model's %s at the scale %.3f" % (
+                          want[name], got, "(%.1f, %.1f)" % ink[:2], scale))
 
         # the strings swapped where the font draws them
         table = next(a for n, a in syms.items() if n.endswith(":mFont_en_subst"))

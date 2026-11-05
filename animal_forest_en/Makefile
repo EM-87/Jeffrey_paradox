@@ -181,7 +181,7 @@ EN_NAFE_GFX := $(AF_EN_DIR)/assets/jp/en/nafe_gfx.stamp
 # first proves fado on the matching build), and af_relink pads its sections
 # back to their old sizes: the letter board, the text editor and the name
 # entry.
-EN_OVERLAYS := board_ovl ovl__0078CB80 ledit_ovl ovl__00799580 ovl__00792700
+EN_OVERLAYS := board_ovl ovl__0078CB80 ledit_ovl ovl__00799580 ovl__00792700 tag_ovl
 
 $(AF_EN_DIR)/.stamp-checkout: decomp/AF_REV $(MATCHING) $(CHANGES)
 	@if [ "$$(git -C $(AF_EN_DIR) rev-parse HEAD~0 2>/dev/null)" = "" ]; then \

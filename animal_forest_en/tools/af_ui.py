@@ -48,6 +48,7 @@ from af_font import gc_find, gc_rel_data, map_layout  # noqa: E402
 from msgbank import GC_CHARS, N64_BYTES  # noqa: E402
 
 ROM = "baseroms/jp/baserom-decompressed.z64"
+GC_SPACE = 0xD3            # the GameCube's space after a word that its padding (0x20) does not trim (str_title1)
 
 # (name, the cartridge's string: ROM offset and length, the GameCube's: symbol and object)
 STRINGS = [
@@ -68,6 +69,15 @@ STRINGS = [
     # the book is empty
     ("AD_CHOOSE", 0x7941D8, 12, "mAD_title_str", "m_address_ovl.o"),
     ("AD_EMPTY", 0x7941E4, 12, "mAD_title_str2", "m_address_ovl.o"),
+    # a letter's name in its tag (tag_ovl, func_80877B0C_jp, drawn by the en m_submenu.c in the GameCube's
+    # order): what it is with the word for "to" (a letter, a delivery, a fortune), the word for "from", the
+    # HRA and the player's home as senders; without the disc, the cartridge's own pieces
+    ("TG_LETTER_TO", 0x7812A4, 4, "str_otegami", "m_tag_ovl.o"),
+    ("TG_DELIVERY_FOR", 0x78129C, 6, "str_otodokemono", "m_tag_ovl.o"),
+    ("TG_FORTUNE", 0x781290, 4, "str_omikuji", "m_tag_ovl.o"),
+    ("TG_FROM", 0x7812AE, 2, "str_title1", "m_tag_ovl.o"),
+    ("TG_HRA", 0x781294, 7, "str_happy_room", "m_tag_ovl.o"),
+    ("TG_HOME", 0x781914, 2, "mother_str", "m_tag_ovl.o"),
 ]
 
 # how the English takes the cartridge's box: aligned left (0), centred or right; narrowed to the box when
@@ -331,7 +341,9 @@ def gc_strings(szs, map_text):
         else:
             places[name] = gc_find(layout, sym, obj)
     data = gc_rel_data(szs, layout, max(at + size for at, size in places.values()))
-    out = {name: "".join(GC_CHARS[b] for b in data[at:at + size]) for name, (at, size) in places.items()}
+    chars = list(GC_CHARS)
+    chars[GC_SPACE] = " "
+    out = {name: "".join(chars[b] for b in data[at:at + size]) for name, (at, size) in places.items()}
     return {name: text.rstrip(" ") if name in sized else text for name, text in out.items()}
 
 

@@ -198,7 +198,12 @@ precio las cifras del menú van en el hueco de la frase inglesa; y las
 acciones de la etiqueta que se abre sobre un objeto (las de GameCube) y su
 pregunta antes de tirarlo; y las etiquetas del mapa (tienda, comisaría,
 correos, santuario, estación, vertedero) y la palabra de las casas vacías
-("The menus' strings where the font draws them").
+("The menus' strings where the font draws them"); y el nombre de una carta en
+su etiqueta, que el build en inglés dibuja en el orden de GameCube (qué es y
+para quién, el destinatario, de quién) desde code, porque el overlay no puede
+crecer (para eso, el overlay pasó a C con su función en C, idéntica en
+instrucciones pero con un marco de pila 8 bytes mayor: queda como
+NON_MATCHING, "The letter's tag").
 `make menus-check-en` abre esas ventanas y mide cada cadena en la imagen
 contra el modelo de la fuente ("The menus' own words", "The edit-end check
 and the address book").

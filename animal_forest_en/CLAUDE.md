@@ -159,8 +159,17 @@ the why and the state, `reference/NOTES.md` for what is verified.
   GLOBAL_ASM in the `#else` (`tools/af_wrap.py`); the matching patch must
   build the cartridge.
 - **The decomp's make does not track every object**: after building an
-  object a different way (NON_MATCHING), delete it and the ELF before
-  checking the ROM. `af_match.py` always rebuilds its object.
+  object a different way (NON_MATCHING), delete it, the ELF and the ROM
+  (`build/animalforest-jp.z64`) before checking the ROM. The decomp's
+  Makefile declares every target `.SECONDARY`, so a missing object or ELF
+  rebuilds nothing while the ROM is newer than the sources: `make verify`
+  then re-checks the old ROM, and af_ovlreloc finds no objects to prove
+  fado on. `af_match.py` always rebuilds its object.
+- **Under `-g3` every declared local has a 4-byte home** at the top of
+  the frame, used or not (IDO's own object says where, in `.mdebug`;
+  asm-processor's has none). A function whose instructions all match but
+  whose frame is too large declares more locals than the cartridge's
+  source did (func_80877B0C_jp, NOTES "The letter's tag").
 - **The cartridge's own files hold RAM addresses.** 2,348 texture loads in
   the field models name code's bss buffers by address (NOTES,
   "Shiftability"); assets are not linked, so nothing of code may move.

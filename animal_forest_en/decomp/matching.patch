@@ -888,10 +888,20 @@ index c06adbb..d2906f3 100644
  void mMsg_Draw(struct Game_Play* game_play);
  // void func_800A4448_jp();
 diff --git a/linker_scripts/jp/symbol_addrs_overlays.txt b/linker_scripts/jp/symbol_addrs_overlays.txt
-index 9792664..e49ccf1 100644
+index 9792664..ad5784c 100644
 --- a/linker_scripts/jp/symbol_addrs_overlays.txt
 +++ b/linker_scripts/jp/symbol_addrs_overlays.txt
-@@ -1502,8 +1502,7 @@ D_80884D28_jp = 0x80884D28; //
+@@ -1046,8 +1046,7 @@ D_808789D0_jp = 0x808789D0; //
+ D_808789D8_jp = 0x808789D8; //
+ D_808789DC_jp = 0x808789DC; //
+ D_808789EC_jp = 0x808789EC; //
+-D_80878A00_jp = 0x80878A00; // type:s16
+-D_80878A02_jp = 0x80878A02; // type:s16
++D_80878A00_jp = 0x80878A00; // type:s32 size:0xC0
+ D_80878AC0_jp = 0x80878AC0; //
+ D_80878AC4_jp = 0x80878AC4; //
+ D_80878ACC_jp = 0x80878ACC; //
+@@ -1502,8 +1501,7 @@ D_80884D28_jp = 0x80884D28; //
  D_80884D34_jp = 0x80884D34; //
  D_80884D40_jp = 0x80884D40; //
  D_80884D4C_jp = 0x80884D4C; //
@@ -915,10 +925,10 @@ index b76c1c1..ee822b1 100644
 -gGfxPools = 0x801540C0; //
  D_801948E0_jp = 0x801948E0; //
 diff --git a/relocs/reloc_addrs-jp.txt b/relocs/reloc_addrs-jp.txt
-index a135725..2113c98 100644
+index a135725..9755236 100644
 --- a/relocs/reloc_addrs-jp.txt
 +++ b/relocs/reloc_addrs-jp.txt
-@@ -61,11 +61,17 @@ rom:0x6F6590 symbol:segment_027130_ROM_END reloc:MIPS_LO16
+@@ -61,11 +61,22 @@ rom:0x6F6590 symbol:segment_027130_ROM_END reloc:MIPS_LO16
  
  // overlays
  
@@ -927,6 +937,11 @@ index a135725..2113c98 100644
 -// Use the first data symbol of code in the meanwhile
 -rom:0x82D48C symbol:D_80100C30_jp reloc:MIPS_HI16 addend:-0x7D04
 -rom:0x82D4A0 symbol:D_80100C30_jp reloc:MIPS_LO16 addend:-0x7D04
++// tag_ovl: func_80874720_jp reads the second half of D_80878A00_jp's first record; splat put a label there
++// and wrote the table's pointers as halves, which fado cannot see as relocations
++rom:0x77CEF4 symbol:D_80878A00_jp reloc:MIPS_HI16 addend:0x2
++rom:0x77CF0C symbol:D_80878A00_jp reloc:MIPS_LO16 addend:0x2
++
 +// ovl_Birth_Control: func_8093629C_jp indexes two profile tables by an actor name whose
 +// type bits are folded into the address (table[name - 0x8000] on s16: table - 0x10000).
 +// Spelled with the tables so that they follow them (reference/NOTES.md, Shiftability).
@@ -941,7 +956,7 @@ index a135725..2113c98 100644
  
  // ovl__008681F0 tries to load a from an address in the middle of a
  // function of another overlay.
-@@ -119,3 +125,7 @@ rom:0x8B137C symbol:Npc_Shop_Master_Profile reloc:MIPS_LO16 addend:-0xB560
+@@ -119,3 +130,7 @@ rom:0x8B137C symbol:Npc_Shop_Master_Profile reloc:MIPS_LO16 addend:-0xB560
  // has reached the end of the loop.
  rom:0x8CCCA4 symbol:aSTR_overlay reloc:MIPS_HI16 addend:0x18000
  rom:0x8CCCA8 symbol:aSTR_overlay reloc:MIPS_LO16 addend:0x18000
@@ -6898,6 +6913,403 @@ index 0000000..47277ca
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_80896898_jp.s")
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_80896938_jp.s")
+diff --git a/src/overlays/submenu/tag_ovl/m_tag_ovl.c b/src/overlays/submenu/tag_ovl/m_tag_ovl.c
+new file mode 100644
+index 0000000..88ffefb
+--- /dev/null
++++ b/src/overlays/submenu/tag_ovl/m_tag_ovl.c
+@@ -0,0 +1,391 @@
++#include "global.h"
++#include "m_mail.h"
++#include "6B3DC0.h"
++
++/* The tag overlay's bss (0x120 bytes from 0x80879590), as its functions use it */
++s32 B_80879590_jp;
++s32 B_80879594_jp;
++u8 B_80879598_jp[0x118];
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086F310_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086F35C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086F44C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086F4AC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086F644_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086F66C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086F764_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086F910_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086F960_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086F9D8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086FA30_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086FA88_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086FB04_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086FB9C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086FBE4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086FCF4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8086FD3C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80870334_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8087047C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8087072C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8087080C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80870974_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80870A1C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80870AC4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80870B20_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80870BA0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80870BCC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80870C6C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80871570_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808715C8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80871664_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80871708_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80871760_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808717BC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80871894_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808718E0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808719FC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80871A60_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80871B44_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80871C18_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80871CF8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80871DB4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80871ECC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80871F74_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8087207C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80872118_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80872580_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808725C8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80872684_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808726B0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80872748_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808727E0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8087287C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80872A34_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80872B54_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80872DEC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80872E60_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80872E84_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808731EC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80873278_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80873348_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80873428_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8087344C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80873498_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80873510_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80873694_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808736B8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808736DC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80873700_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80873724_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808737F4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808738C8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80873968_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808739B0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80873ADC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80873C88_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80873F38_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80873FB4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80874184_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/D_808742A8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80874328_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80874394_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80874444_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80874680_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808746A8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808746F8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80874720_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80874770_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808747D0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808748B0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80874B1C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80874C8C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80874E08_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80874EA4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808750DC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875180_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875214_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8087529C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808753A4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875434_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875610_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808757C4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875888_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808759C8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875A84_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875AB8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875AD0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875B60_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875B88_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875BF4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875C60_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875CF0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875D38_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875DB0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875E20_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80875EE4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80876004_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80876204_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808764BC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80876558_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80876A94_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80876B18_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80876C50_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80876D90_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80877290_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808772C8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_8087792C_jp.s")
++
++/*
++ * A letter's name in its tag (mTG_tag_c's three lines in AC GCN, built there
++ * as strings): the addressee's name and the word for "to" after it, the
++ * kind of letter, and the sender's name and the word for "from" after it,
++ * each piece drawn where the last ends (mMl_strlen of a name, times the
++ * width of a character).
++ *
++ * NON_MATCHING: the instructions are the cartridge's, one for one, but the
++ * frame is 8 bytes larger, so every offset from sp differs. IDO under -g3
++ * gives each declared local a 4-byte home at the frame's top; the
++ * cartridge's frame has room for four, this C declares five, and no way of
++ * holding the name's length (in t0, across the type tests) without a fifth
++ * has been found (declarations, blocks, switches, types and expression
++ * shapes swept with tools/af_bench.py: reference/NOTES.md, "The letter's
++ * tag").
++ */
++typedef struct TagMailName {
++    /* 0x00 */ UNK_TYPE1 unk_00[0x2];
++    /* 0x02 */ u8 type; /* 1 a delivery, 4 to someone named without the honorific, 8 a fortune, 9 from the HRA, ... */
++    /* 0x03 */ UNK_TYPE1 unk_03[0x41];
++    /* 0x44 */ u8 to[0xA];
++    /* 0x4E */ u8 from[0x6];
++} TagMailName;
++
++extern u8 D_80878AC0_jp[];
++extern u8 D_80878AC4_jp[];
++extern u8 D_80878ACC_jp[];
++extern u8 D_80878AD4_jp[];
++extern u8 D_80878AD8_jp[];
++extern u8 D_80878ADC_jp[];
++extern u8 D_80878ADE_jp[];
++extern u8 D_808794C0_jp[];
++extern u8 D_808794C4_jp[];
++extern u8 D_808794C8_jp[];
++extern u8 D_808794CC_jp[];
++extern u8 D_808794D0_jp[];
++extern u8 D_808794D4_jp[];
++
++#ifdef NON_MATCHING
++void func_80877B0C_jp(struct Game* game, TagMailName* tag, f32 x, f32 y, f32 scale, f32 charWidth, f32 lineHeight) {
++    u8* str;
++    s32 len;
++    u8* color;
++    u8* name;
++    s32 width;
++
++    if (tag->type == 4) {
++        str = &D_80878AD8_jp[2];
++        len = 2;
++        color = D_808794C8_jp;
++    } else {
++        str = D_80878AD8_jp;
++        len = 4;
++        color = D_808794C0_jp;
++    }
++    name = tag->to;
++    func_80090E98_jp(game, name, 6, x, y, color[0], color[1], color[2], 255, 0, 0, scale, scale, 0);
++    func_80090E98_jp(game, str, len, x + mMl_strlen((char*)name, 6, ' ') * charWidth, y, 90, 60, 50, 255, 0, 0, scale,
++                     scale, 0);
++
++    y += lineHeight;
++    if (tag->type == 1) {
++        str = D_80878ACC_jp;
++        len = 6;
++    } else if (tag->type == 8) {
++        str = D_80878AC0_jp;
++        len = 4;
++    } else {
++        str = D_80878AD4_jp;
++        len = 4;
++    }
++    func_80090E98_jp(game, str, len, x, y, 90, 60, 50, 255, 0, 0, scale, scale, 0);
++
++    y += lineHeight;
++    if (tag->type == 9) {
++        str = D_80878AC4_jp;
++        name = tag->from;
++        len = 7;
++        color = D_808794C8_jp;
++    } else {
++        str = name = tag->from;
++        len = 6;
++        if (tag->type == 3) {
++            color = D_808794C8_jp;
++        } else if (tag->type == 8) {
++            color = D_808794D0_jp;
++        } else if (tag->type == 6) {
++            color = D_808794D0_jp;
++        } else if (tag->type == 5) {
++            color = D_808794CC_jp;
++        } else if (tag->type == 7) {
++            color = D_808794D4_jp;
++        } else {
++            color = D_808794C4_jp;
++        }
++    }
++    func_80090E98_jp(game, str, len, x, y, color[0], color[1], color[2], 255, 0, 0, scale, scale, 0);
++    width = mMl_strlen((char*)name, 6, ' ');
++    if ((tag->type != 8) && (tag->type != 9)) {
++        if ((tag->type == 3) || (tag->type == 7)) {
++            str = D_80878ADE_jp;
++            len = 2;
++        } else {
++            str = D_80878ADC_jp;
++            len = 4;
++        }
++        func_80090E98_jp(game, str, len, x + width * charWidth, y, 90, 60, 50, 255, 0, 0, scale, scale, 0);
++    }
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80877B0C_jp.s")
++#endif
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80877EC4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80877FF4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808782A4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_808783F0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80878508_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80878648_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/mTG_tag_ovl_construct.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/mTG_tag_ovl_destruct.s")
 diff --git a/yamls/jp/code.yaml b/yamls/jp/code.yaml
 index c052055..204cfbc 100644
 --- a/yamls/jp/code.yaml
@@ -6944,9 +7356,23 @@ index c052055..204cfbc 100644
        - [0x73AF50, .rodata, code/m_npc]
        - [0x73B000, .rodata, code/m_olib]
 diff --git a/yamls/jp/overlays.yaml b/yamls/jp/overlays.yaml
-index 95ebcf5..2549432 100644
+index 95ebcf5..7de6c75 100644
 --- a/yamls/jp/overlays.yaml
 +++ b/yamls/jp/overlays.yaml
+@@ -237,10 +237,10 @@
+     compress: True
+     bss_size: 0x120
+     subsegments:
+-      - [0x777AE0, asm, overlays/submenu/tag_ovl/m_tag_ovl]
++      - [0x777AE0, c, overlays/submenu/tag_ovl/m_tag_ovl]
+       - [0x7810F0, data, overlays/submenu/tag_ovl/m_tag_ovl]
+-      - [0x781CC0, rodata, overlays/submenu/tag_ovl/m_tag_ovl]
+-      - { start: 0x781D60, type: bss, vram: 0x80879590, name: overlays/submenu/tag_ovl/m_tag_ovl }
++      - [0x781CC0, .rodata, overlays/submenu/tag_ovl/m_tag_ovl]
++      - { start: 0x781D60, type: .bss, vram: 0x80879590, name: overlays/submenu/tag_ovl/m_tag_ovl }
+   - name: tag_ovl_reloc
+     type: code
+     start: 0x781D60
 @@ -381,10 +381,10 @@
      compress: True
      bss_size: 0x230

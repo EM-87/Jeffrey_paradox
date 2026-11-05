@@ -3209,10 +3209,10 @@ index 7b8e5b5..dcfdd10 100644
 +}
 +
 diff --git a/src/code/m_submenu.c b/src/code/m_submenu.c
-index 5f7c230..7a5b33e 100644
+index 5f7c230..197c172 100644
 --- a/src/code/m_submenu.c
 +++ b/src/code/m_submenu.c
-@@ -733,3 +733,46 @@ u8* mSM_Get_ground_pallet_p(Game_Play* play) {
+@@ -733,3 +733,181 @@ u8* mSM_Get_ground_pallet_p(Game_Play* play) {
  
      return play->groundPalPtrs[idx];
  }
@@ -3258,6 +3258,141 @@ index 5f7c230..7a5b33e 100644
 +
 +    func_80090E98_jp(game, str, len, (x + 160.0f) - (width * scaleX) / 2, 120.0f - (8.0f + y), 80, 80, 230, 255,
 +                     FALSE, FALSE, scaleX, 1.0f, 0);
++}
++
++/*
++ * A letter's name in its tag (tag_ovl, func_80877B0C_jp). The cartridge draws
++ * three lines: the addressee's name and the word for "to" after it, what the
++ * letter is, and the sender's name and the word for "from" after it, each
++ * piece where the last ends (mMl_strlen of the name, times the width of a
++ * character). The GameCube draws what it is with "to" first, then the
++ * addressee, then "from" and the sender (mTG_init_tag_data_item_win_sub_mail_
++ * item). With the disc's words (UI_EN_FROM_GC) the en build draws the
++ * GameCube's order, a piece after another at the en font's widths; without
++ * them, the cartridge's. Drawn here because the overlay cannot grow; the
++ * overlay passes its own strings and colours, which code cannot name.
++ */
++#include "m_mail.h"
++
++/* tag_ovl's record of the letter, as far as its name is drawn */
++typedef struct mSM_EnTagMail {
++    /* 0x00 */ u8 unk_00[0x2];
++    /* 0x02 */ u8 type; /* 1 a delivery, 3 and 7 from someone named without the honorific (7 the player's
++                         * mother), 4 to such, 8 a fortune, 9 from the HRA */
++    /* 0x03 */ u8 unk_03[0x41];
++    /* 0x44 */ u8 to[0xA];
++    /* 0x4E */ u8 from[0x6];
++} mSM_EnTagMail;
++
++/* tag_ovl's strings from D_80878AC0_jp: a fortune, the HRA, a delivery, a letter, the word for "to" after a
++ * name (2 on: without the honorific), the word for "from" after one (2 on: without it) */
++#define mSM_EN_TG_FORTUNE 0x00
++#define mSM_EN_TG_HRA 0x04
++#define mSM_EN_TG_DELIVERY 0x0C
++#define mSM_EN_TG_LETTER 0x14
++#define mSM_EN_TG_TO 0x18
++#define mSM_EN_TG_FROM 0x1C
++/* and its colours from D_808794C0_jp, 4 bytes each (r, g, b) */
++#define mSM_EN_TG_COLOR(colors, i) (&(colors)[(i) * 4])
++
++u8 mSM_en_tgLetterTo[] = UI_EN_TG_LETTER_TO;
++u8 mSM_en_tgDeliveryFor[] = UI_EN_TG_DELIVERY_FOR;
++u8 mSM_en_tgFortune[] = UI_EN_TG_FORTUNE;
++u8 mSM_en_tgFrom[] = UI_EN_TG_FROM;
++u8 mSM_en_tgHra[] = UI_EN_TG_HRA;
++u8 mSM_en_tgHome[] = UI_EN_TG_HOME;
++
++/* The sender's colour, by the letter's type (func_80877B0C_jp's) */
++static u8* mSM_en_tgFromColor(u8* colors, s32 type) {
++    switch (type) {
++        case 9:
++        case 3:
++            return mSM_EN_TG_COLOR(colors, 2);
++        case 8:
++        case 6:
++            return mSM_EN_TG_COLOR(colors, 4);
++        case 5:
++            return mSM_EN_TG_COLOR(colors, 3);
++        case 7:
++            return mSM_EN_TG_COLOR(colors, 5);
++        default:
++            return mSM_EN_TG_COLOR(colors, 1);
++    }
++}
++
++void mSM_en_tagMailName(Game* game, u8* data, f32 x, f32 y, f32 scale, f32 charWidth, f32 lineHeight, u8* words,
++                        u8* colors) {
++    mSM_EnTagMail* tag = (mSM_EnTagMail*)data;
++    u8* toColor = (tag->type == 4) ? mSM_EN_TG_COLOR(colors, 2) : mSM_EN_TG_COLOR(colors, 0);
++    u8* fromColor = mSM_en_tgFromColor(colors, tag->type);
++    u8* str;
++    s32 len;
++
++    if (UI_EN_FROM_GC) {
++        /* what it is, with "to"; the addressee; "from" and the sender */
++        if (tag->type == 1) {
++            str = mSM_en_tgDeliveryFor;
++            len = UI_EN_TG_DELIVERY_FOR_LEN;
++        } else if (tag->type == 8) {
++            str = mSM_en_tgFortune;
++            len = UI_EN_TG_FORTUNE_LEN;
++        } else {
++            str = mSM_en_tgLetterTo;
++            len = UI_EN_TG_LETTER_TO_LEN;
++        }
++        func_80090E98_jp(game, str, len, x, y, 90, 60, 50, 255, FALSE, FALSE, scale, scale, 0);
++        y += lineHeight;
++        func_80090E98_jp(game, tag->to, 6, x, y, toColor[0], toColor[1], toColor[2], 255, FALSE, FALSE, scale, scale,
++                         0);
++        y += lineHeight;
++        func_80090E98_jp(game, mSM_en_tgFrom, UI_EN_TG_FROM_LEN, x, y, 90, 60, 50, 255, FALSE, FALSE, scale, scale, 0);
++        x += mFont_GetStringWidth((char*)mSM_en_tgFrom, UI_EN_TG_FROM_LEN, TRUE) * scale;
++        if (tag->type == 9) {
++            str = mSM_en_tgHra;
++            len = UI_EN_TG_HRA_LEN;
++        } else if (tag->type == 7) {
++            str = mSM_en_tgHome;
++            len = UI_EN_TG_HOME_LEN;
++        } else {
++            str = tag->from;
++            len = 6;
++        }
++        func_80090E98_jp(game, str, len, x, y, fromColor[0], fromColor[1], fromColor[2], 255, FALSE, FALSE, scale,
++                         scale, 0);
++        return;
++    }
++    /* the cartridge's order and pieces */
++    func_80090E98_jp(game, tag->to, 6, x, y, toColor[0], toColor[1], toColor[2], 255, FALSE, FALSE, scale, scale, 0);
++    func_80090E98_jp(game, &words[mSM_EN_TG_TO + ((tag->type == 4) ? 2 : 0)], (tag->type == 4) ? 2 : 4,
++                     x + mMl_strlen((char*)tag->to, 6, ' ') * charWidth, y, 90, 60, 50, 255, FALSE, FALSE, scale, scale,
++                     0);
++    y += lineHeight;
++    if (tag->type == 1) {
++        str = &words[mSM_EN_TG_DELIVERY];
++        len = 6;
++    } else if (tag->type == 8) {
++        str = &words[mSM_EN_TG_FORTUNE];
++        len = 4;
++    } else {
++        str = &words[mSM_EN_TG_LETTER];
++        len = 4;
++    }
++    func_80090E98_jp(game, str, len, x, y, 90, 60, 50, 255, FALSE, FALSE, scale, scale, 0);
++    y += lineHeight;
++    if (tag->type == 9) {
++        func_80090E98_jp(game, &words[mSM_EN_TG_HRA], 7, x, y, fromColor[0], fromColor[1], fromColor[2], 255, FALSE,
++                         FALSE, scale, scale, 0);
++        return;
++    }
++    func_80090E98_jp(game, tag->from, 6, x, y, fromColor[0], fromColor[1], fromColor[2], 255, FALSE, FALSE, scale,
++                     scale, 0);
++    if (tag->type != 8) {
++        s32 bare = (tag->type == 3) || (tag->type == 7);
++
++        func_80090E98_jp(game, &words[mSM_EN_TG_FROM + (bare ? 2 : 0)], bare ? 2 : 4,
++                         x + mMl_strlen((char*)tag->from, 6, ' ') * charWidth, y, 90, 60, 50, 255, FALSE, FALSE, scale,
++                         scale, 0);
++    }
 +}
 diff --git a/src/dmadata/dmadata.c b/src/dmadata/dmadata.c
 index 3ba98f9..56b6afc 100644
@@ -4046,3 +4181,94 @@ index 47277ca..d94ea2a 100644
  }
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_8089652C_jp.s")
+diff --git a/src/overlays/submenu/tag_ovl/m_tag_ovl.c b/src/overlays/submenu/tag_ovl/m_tag_ovl.c
+index 88ffefb..06ea2a7 100644
+--- a/src/overlays/submenu/tag_ovl/m_tag_ovl.c
++++ b/src/overlays/submenu/tag_ovl/m_tag_ovl.c
+@@ -299,80 +299,14 @@ extern u8 D_808794CC_jp[];
+ extern u8 D_808794D0_jp[];
+ extern u8 D_808794D4_jp[];
+ 
+-#ifdef NON_MATCHING
++/* The en build: the letter's name in the GameCube's order, drawn from code (m_submenu.c: the overlay cannot
++ * grow), with this overlay's strings and colours */
++void mSM_en_tagMailName(struct Game* game, u8* data, f32 x, f32 y, f32 scale, f32 charWidth, f32 lineHeight,
++                        u8* words, u8* colors);
++
+ void func_80877B0C_jp(struct Game* game, TagMailName* tag, f32 x, f32 y, f32 scale, f32 charWidth, f32 lineHeight) {
+-    u8* str;
+-    s32 len;
+-    u8* color;
+-    u8* name;
+-    s32 width;
+-
+-    if (tag->type == 4) {
+-        str = &D_80878AD8_jp[2];
+-        len = 2;
+-        color = D_808794C8_jp;
+-    } else {
+-        str = D_80878AD8_jp;
+-        len = 4;
+-        color = D_808794C0_jp;
+-    }
+-    name = tag->to;
+-    func_80090E98_jp(game, name, 6, x, y, color[0], color[1], color[2], 255, 0, 0, scale, scale, 0);
+-    func_80090E98_jp(game, str, len, x + mMl_strlen((char*)name, 6, ' ') * charWidth, y, 90, 60, 50, 255, 0, 0, scale,
+-                     scale, 0);
+-
+-    y += lineHeight;
+-    if (tag->type == 1) {
+-        str = D_80878ACC_jp;
+-        len = 6;
+-    } else if (tag->type == 8) {
+-        str = D_80878AC0_jp;
+-        len = 4;
+-    } else {
+-        str = D_80878AD4_jp;
+-        len = 4;
+-    }
+-    func_80090E98_jp(game, str, len, x, y, 90, 60, 50, 255, 0, 0, scale, scale, 0);
+-
+-    y += lineHeight;
+-    if (tag->type == 9) {
+-        str = D_80878AC4_jp;
+-        name = tag->from;
+-        len = 7;
+-        color = D_808794C8_jp;
+-    } else {
+-        str = name = tag->from;
+-        len = 6;
+-        if (tag->type == 3) {
+-            color = D_808794C8_jp;
+-        } else if (tag->type == 8) {
+-            color = D_808794D0_jp;
+-        } else if (tag->type == 6) {
+-            color = D_808794D0_jp;
+-        } else if (tag->type == 5) {
+-            color = D_808794CC_jp;
+-        } else if (tag->type == 7) {
+-            color = D_808794D4_jp;
+-        } else {
+-            color = D_808794C4_jp;
+-        }
+-    }
+-    func_80090E98_jp(game, str, len, x, y, color[0], color[1], color[2], 255, 0, 0, scale, scale, 0);
+-    width = mMl_strlen((char*)name, 6, ' ');
+-    if ((tag->type != 8) && (tag->type != 9)) {
+-        if ((tag->type == 3) || (tag->type == 7)) {
+-            str = D_80878ADE_jp;
+-            len = 2;
+-        } else {
+-            str = D_80878ADC_jp;
+-            len = 4;
+-        }
+-        func_80090E98_jp(game, str, len, x + width * charWidth, y, 90, 60, 50, 255, 0, 0, scale, scale, 0);
+-    }
++    mSM_en_tagMailName(game, (u8*)tag, x, y, scale, charWidth, lineHeight, D_80878AC0_jp, D_808794C0_jp);
+ }
+-#else
+-#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80877B0C_jp.s")
+-#endif
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/func_80877EC4_jp.s")
+ 

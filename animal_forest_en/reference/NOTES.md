@@ -333,6 +333,14 @@ Measured on its ROM (`tools/nafe_diff.py` and the bank itself):
   The permuter (decomp-permuter, `import.py` then `permuter.py`) finds
   what to look for when nothing obvious works; its results are rewritten
   as natural C or marked FAKE, never committed as they come.
+- **Under `-g3` every declared local has a 4-byte home** at the top of
+  the frame, used or not, so a function whose instructions all match can
+  still have a larger frame (and every sp offset off) when its C declares
+  more locals than the cartridge's source did. The object IDO writes
+  lists each local's home in its `.mdebug`; asm-processor's object, made
+  from the GLOBAL_ASM, has none, so read the compiler's own (an object
+  built from the C alone). func_80877B0C_jp: five where the cartridge
+  has room for four ("The letter's tag").
 - **Adding a type to a shared header can reorder another file's bss**
   (IDO): a `struct HandOverItemClip` definition in `m_clip.h` swapped
   `l_fossil_block` and `l_haniwa_block` in `m_all_grow.o`. Only the
@@ -1643,6 +1651,83 @@ what goes in it: "The letters in the en build").
   the map's other edges are within 1.5 of the model's (the shrine's
   right edge, inside its faint column's reach). With these the check
   measures 35 swapped strings on screen; all 231 of its checks pass.
+
+- **The letter's tag** (the fifth batch). A letter in the pockets is
+  named in its tag by `func_80877B0C_jp` (tag_ovl), in three lines from
+  the letter's record (its type at +0x02; the addressee's name at +0x44,
+  of which 6 characters are drawn; the sender's at +0x4E): the
+  addressee's name and the word for "to" after it (its last two
+  characters alone, without the honorific, for type 4); what the letter
+  is (type 1 a delivery, 8 a fortune, the rest a letter); the sender's
+  name and the word for "from" after it (its short form for types 3 and
+  7, the player's mother being 7; none after a fortune, nor after the
+  HRA, type 9, whose name is a word of the overlay's). Each piece goes
+  where the last ends, at the name's `mMl_strlen` times the width of a
+  character, and each name takes a colour by type from the overlay's
+  table (`D_808794C0_jp`). The GameCube
+  (`mTG_init_tag_data_item_win_sub_mail_item`) puts what the letter is
+  with "to" first, then the addressee, then "from" and the sender, with
+  the player's home as the mother's (`str_otegami`, `str_otodokemono`,
+  `str_omikuji`, `str_title1`, `str_happy_room`, `mother_str`): English
+  in the cartridge's order would read backwards, so no swap does. The en
+  build draws the GameCube's order instead (`mSM_en_tagMailName` in
+  m_submenu.c, each piece where the last ends at the en font's widths;
+  the cartridge's own order and pieces without the disc's words), from
+  code because the overlay cannot grow: the overlay's function only
+  calls it with its own strings and colours, which code cannot name, and
+  tag_ovl gets its relocation table anew (EN_OVERLAYS: fado gives the
+  cartridge's 792 from the matching objects, the en build writes 762).
+  The GameCube's word for "from" ends in a space of its own (0xD3, which
+  its padding, 0x20, does not trim; af_ui reads it as a space): the
+  sender is drawn after it.
+- **The tag overlay in C** (matching.patch). tag_ovl was asm; its text
+  is now a C file of `GLOBAL_ASM` (135 functions) so that one of them
+  can be C. Its rodata comes with the functions' asm (the late rodata
+  of the seven that have any), its bss is defined in the C file (three
+  symbols, which an asm bss file held before), and its data stays the
+  extracted asm. `func_80877B0C_jp` is in C behind `NON_MATCHING`, the
+  asm in its place: every instruction is the cartridge's, one for one,
+  but its frame is 104 bytes where the cartridge's is 96, so every
+  offset from sp differs. IDO under `-g3` gives every declared local a
+  4-byte home at the top of the frame, used or not; the object IDO
+  itself writes says where, in its `.mdebug` (the object asm-processor
+  leaves has none). The cartridge's frame has room for four homes, and
+  this C declares five: the string, its length, the colour, the name,
+  and the name's width, which the cartridge holds in t0 across the type
+  tests.
+  About 2000 variants swept with `tools/af_bench.py` (declarations at
+  function scope and in blocks, `switch` against `if`, types, expression
+  shapes) found no way with four. The en build replaces the function
+  anyway.
+- **A table that splat wrote in halves** (matching.patch).
+  `D_80878A00_jp` is 16 records of 12 bytes, two halfwords and two
+  pointers; `func_80874720_jp` reads the second halfword of the first
+  record. The decomp's symbol list named that halfword
+  (`D_80878A02_jp`) and typed both `s16`, so splat wrote the whole table
+  as halfwords: the same bytes, but its 32 pointers became halves of
+  addresses, which are no relocations to fado. The ROM still matched;
+  fado, from the matching objects, gave 760 of the overlay's 792, and
+  af_ovlreloc, which proves fado on the matching objects before it
+  writes an en table, refused. Typed `s32` with its size (0xC0), the
+  table is words and pointers again, and the function's %hi/%lo pair
+  is `D_80878A00_jp + 2` (two entries in reloc_addrs).
+- **On screen** (the fifth batch). The route's save has no letter in
+  the pockets, so the check writes one into each of the ten slots (the
+  player's mother's, made by the hook with `mPr_GetMotherMail`; the
+  pockets' letters at +0x40A of the private info, 0xA4 bytes each),
+  opens the inventory (program 1), brings the cursor onto the letters
+  (five pushes right, one down) and waits for the tag to rest (150
+  frames): it shows what the letter is, the player's name, and the word
+  for "from" with the player's home. Each piece's ink is the frame
+  against one with the piece made spaces (the word for "from" against
+  one without the sender too: spaces in its place would move the
+  sender). The ruler goes into the en build's copy of the first line's
+  string (`mSM_en_tgLetterTo`), which gives the box's left and the
+  scale (0.748). The first line's ink runs from 459 to 534 against the
+  model's 459.0 to 535.6; the word for "from" from 459 to 498 against
+  459.0 to 499.0; the sender from 506 to 550 against 507.3 to 550.2,
+  where the word for "from" ends at the font's even width. With these
+  the check measures 38 strings on screen; all 237 of its checks pass.
 
 ## The 2010 patch's labels (phase 5, the graphics' second step)
 
