@@ -26,11 +26,17 @@ import kotlin.math.sin
  * The arithmetic is [Hemisphere]. What is here is the painting: the earth
  * itself, the line where the sun is setting, the ring of hours and the dot.
  *
- * The two maps are NASA's — the Blue Marble by day and the city lights by
- * night, both public domain — projected into the disc pixel by pixel. That
- * is expensive and is done once and kept: the projection does not change
- * when the time does, only the turn does, and a turn is a rotation of
- * something already drawn.
+ * The maps are NASA's — the Blue Marble by day, a month at a time, and the
+ * city lights by night, all public domain — projected into the disc pixel
+ * by pixel. That is expensive and is done once and kept: the projection
+ * does not change when the time does, only the turn does, and a turn is a
+ * rotation of something already drawn.
+ *
+ * Twelve days, not one. The Blue Marble Next Generation is a composite of
+ * each month of 2004, and the one month the globe used to wear all year
+ * put August's snow line on January's world; the day map is the month of
+ * the instant shown now, so the snow and the sea ice come and go with the
+ * season, and go back with the world when it is wound.
  */
 class HemisphereView @JvmOverloads constructor(
     context: Context,
@@ -523,11 +529,47 @@ class HemisphereView @JvmOverloads constructor(
     private var dayMap: Bitmap? = null
     private var nightMap: Bitmap? = null
 
+    /** Which month the day map is of, one to twelve, or nought for none. */
+    private var dayMapMonth = 0
+
+    /** For the tests: the month of the day map on the glass, and the map itself. */
+    internal fun dayMapMonthForTest(): Int = dayMapMonth
+    internal fun dayMapForTest(): Bitmap {
+        maps()
+        return dayMap!!
+    }
+
+    private val utc = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+
+    /** The month of an instant, one to twelve, by the clock the maps are kept by. */
+    private fun monthOf(ms: Long): Int {
+        utc.timeInMillis = ms
+        return utc.get(java.util.Calendar.MONTH) + 1
+    }
+
+    /**
+     * The maps for the instant shown, decoded if they are not the ones
+     * held. The night map is the night map; the day map is the month's,
+     * and a month that has turned under the world — by waiting or by
+     * winding — throws the baked discs away with the old one, because
+     * they were projected from it.
+     */
     private fun maps(): Boolean {
-        if (dayMap != null && nightMap != null) return true
-        val options = BitmapFactory.Options().apply { inScaled = false }
-        dayMap = BitmapFactory.decodeResource(resources, R.drawable.earth_day, options)
-        nightMap = BitmapFactory.decodeResource(resources, R.drawable.earth_night, options)
+        val month = monthOf(nowMs())
+        if (dayMap == null || dayMapMonth != month) {
+            val options = BitmapFactory.Options().apply { inScaled = false }
+            val was = dayMap
+            dayMap = BitmapFactory.decodeResource(resources, DAY_MAPS[month - 1], options)
+            dayMapMonth = month
+            if (was != null) {
+                was.recycle()
+                discard()
+            }
+        }
+        if (nightMap == null) {
+            val options = BitmapFactory.Options().apply { inScaled = false }
+            nightMap = BitmapFactory.decodeResource(resources, R.drawable.earth_night, options)
+        }
         return dayMap != null && nightMap != null
     }
 
@@ -592,10 +634,13 @@ class HemisphereView @JvmOverloads constructor(
      * finished picture and not a reason to do this again.
      */
     private fun bake(spinDeg: Double) {
+        // The maps first, before the key is looked at: a month that has
+        // turned swaps the day map and empties the discs, and the key
+        // knows nothing about months.
+        if (!maps()) return
         val size = bakeSize()
         val key = "$view/$size/${if (view == Hemisphere.View.GLOBE) quantise(spinDeg) else 0}"
         if (key == bakedFor && dayDisc != null) return
-        if (!maps()) return
         val day = dayMap ?: return
         val night = nightMap ?: return
         val disc = projection(size)
@@ -1406,6 +1451,21 @@ class HemisphereView @JvmOverloads constructor(
 
         /** How often the weather is looked up again while the view is drawn. */
         const val CLOUDS_ASK_MS = 1000L
+
+        /**
+         * The Blue Marble, month by month, January first.
+         *
+         * NASA's Blue Marble Next Generation of 2004, each month's
+         * composite at 1024 by 512, lifted to the brightness the globe
+         * has always worn by one luminance curve that leaves white white,
+         * so the snow is snow and not sand.
+         */
+        private val DAY_MAPS = intArrayOf(
+            R.drawable.earth_day_01, R.drawable.earth_day_02, R.drawable.earth_day_03,
+            R.drawable.earth_day_04, R.drawable.earth_day_05, R.drawable.earth_day_06,
+            R.drawable.earth_day_07, R.drawable.earth_day_08, R.drawable.earth_day_09,
+            R.drawable.earth_day_10, R.drawable.earth_day_11, R.drawable.earth_day_12
+        )
 
         /** The moon on the rim, and an armed alarm on it. */
         const val MOON = 0xFFD8DEEA.toInt()
