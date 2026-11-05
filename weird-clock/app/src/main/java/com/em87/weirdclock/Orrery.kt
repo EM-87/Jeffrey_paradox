@@ -75,17 +75,19 @@ object Orrery {
         Body.URANUS to Turn(313.23810451, 428.48202785 / CENTURY, 0.04725744, 170.95427630),
         Body.NEPTUNE to Turn(-55.12002969, 218.45945325 / CENTURY, 0.00859048, 44.96476227),
         // The Moon's longitude is measured from the Earth, not the Sun, and
-        // this is its mean rate: one turn of the sky in 27.32 days. The
+        // this is its mean sidereal rate: one turn of the sky in 27.32
+        // days, measured from the same fixed line as the planets. The
         // month you can see out of a window is longer — 29.53 — because by
         // the time the Moon is back where it started the Earth has moved on
         // and the Sun is no longer where it was.
         //
-        // Left round on purpose. The Moon's orbit is an ellipse too, but its
-        // real wanderings are mostly the Sun pulling on it — a degree and a
-        // quarter here, two thirds of a degree there — and none of that is
-        // an ellipse. Solving Kepler for the Moon would buy almost nothing
-        // and look like precision.
-        Body.MOON to Turn(218.3164477, 13.17639648, 0.0, 0.0)
+        // The rate was the tropical one, a hair faster, which with the
+        // Earth's sidereal rate beside it made a synodic month ninety
+        // milliseconds short — a day of phase every nine centuries. And
+        // the ring is only the period now: where the Moon *is* comes from
+        // [Ephemeris], with the three largest of its wanderings, which is
+        // what [longitude] hands back for it.
+        Body.MOON to Turn(218.3164477, 13.17635815, 0.0, 0.0)
     )
 
     /** The planets, in order out from the Sun. */
@@ -106,6 +108,7 @@ object Orrery {
      * in.
      */
     fun meanLongitude(body: Body, atMs: Long): Double {
+        if (body == Body.MOON) return Ephemeris.moonMeanLongitudeJ2000(atMs)
         val t = turn(body)
         val days = (atMs - J2000_MS) / DAY_MS
         return wrap(t.longitudeAtEpoch + t.degreesPerDay * days)
@@ -126,7 +129,10 @@ object Orrery {
      * naming the right day and naming one three weeks off.
      */
     fun longitude(body: Body, atMs: Long): Double =
-        trueFromMean(body, meanLongitude(body, atMs))
+        // The Moon is not an ellipse round the Sun; it is the one Moon of
+        // [Ephemeris], in this frame.
+        if (body == Body.MOON) Ephemeris.moonLongitudeJ2000(atMs)
+        else trueFromMean(body, meanLongitude(body, atMs))
 
     // ------------------------------------------------ round the ellipse
 
@@ -191,8 +197,7 @@ object Orrery {
      * Moon; it is the angle between three things, which is why forcing the
      * Earth's orbit changes it and forcing Mars's does not.
      */
-    fun moonPhase(atMs: Long): Double =
-        wrap(longitude(Body.MOON, atMs) - sunLongitude(atMs)) / 360.0
+    fun moonPhase(atMs: Long): Double = Ephemeris.moonPhase(atMs)
 
     // ------------------------------------------------- forcing an orbit
 

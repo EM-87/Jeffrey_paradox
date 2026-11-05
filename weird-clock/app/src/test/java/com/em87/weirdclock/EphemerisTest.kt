@@ -100,4 +100,75 @@ class EphemerisTest {
         assertEquals(-14.2, february, 0.4)
         assertEquals(16.4, november, 0.4)
     }
+
+    // ------------------------------------------------------------ the Moon
+
+    /**
+     * Horizons' Moon, at the eclipses and the phases of 2026. Three terms
+     * of the Moon's motion leave a third of a degree of its wanderings
+     * unmodelled, which is three quarters of an hour of phase.
+     */
+    @Test
+    fun `the Moon stands where Horizons has it at the anchors`() {
+        val anchors = listOf(
+            Triple("1715-05-03 09:36:20 eclipse", at(1715, 5, 3, 9, 36, 20), 42.3164677),
+            Triple("1999-08-11 11:03:05 eclipse", at(1999, 8, 11, 11, 3, 5), 138.3008763),
+            Triple("J2000", at(2000, 1, 1, 12, 0), 223.3237860),
+            Triple("2026-01-03 10:03 full", at(2026, 1, 3, 10, 3), 103.0338214),
+            Triple("2026-01-18 19:52 new", at(2026, 1, 18, 19, 52), 298.7322811),
+            Triple("2026-02-17 12:01 new", at(2026, 2, 17, 12, 1), 328.8274344),
+            Triple("2026-03-19 01:23 new", at(2026, 3, 19, 1, 23), 358.4467449),
+            Triple("2026-07-14 09:43 new", at(2026, 7, 14, 9, 43), 111.9800222),
+            Triple("2026-07-29 14:36 full", at(2026, 7, 29, 14, 36), 306.5046935),
+            Triple("2026-10-10 15:50 new", at(2026, 10, 10, 15, 50), 197.3598690),
+            Triple("2026-12-09 00:52 new", at(2026, 12, 9, 0, 52), 256.9477770)
+        )
+        var worst = 0.0
+        for ((name, ms, horizons) in anchors) {
+            val lon = Ephemeris.moonLongitudeOfDate(ms)
+            val off = apart(lon, horizons)
+            println("EPHEMERIS moon $name: reads %.4f°, Horizons %.4f°, off %.3f°".format(lon, horizons, off))
+            if (off > worst) worst = off
+            assertTrue("$name: the Moon reads $lon°, Horizons $horizons°", off < 0.5)
+        }
+        println("EPHEMERIS moon worst %.3f°".format(worst))
+    }
+
+    /**
+     * The new moons and full moons of 2026, as NASA's phase table prints
+     * them in UT: the one Moon is new within an hour and a half at each.
+     * Measured: three terms leave it up to an hour and a quarter out
+     * (April); the next three — 0.21° sin 2M′, 0.19° sin M, 0.11° sin 2F
+     * — would bring that under a quarter of an hour.
+     */
+    @Test
+    fun `the new and full moons of 2026 fall within the hour`() {
+        val phases = listOf(
+            Triple("Jan 3 full", at(2026, 1, 3, 10, 3), 0.5),
+            Triple("Jan 18 new", at(2026, 1, 18, 19, 52), 0.0),
+            Triple("Feb 17 new", at(2026, 2, 17, 12, 1), 0.0),
+            Triple("Mar 19 new", at(2026, 3, 19, 1, 23), 0.0),
+            Triple("Apr 17 new", at(2026, 4, 17, 11, 52), 0.0),
+            Triple("May 16 new", at(2026, 5, 16, 20, 1), 0.0),
+            Triple("Jun 15 new", at(2026, 6, 15, 2, 54), 0.0),
+            Triple("Jul 14 new", at(2026, 7, 14, 9, 43), 0.0),
+            Triple("Jul 29 full", at(2026, 7, 29, 14, 36), 0.5),
+            Triple("Aug 12 new", at(2026, 8, 12, 17, 37), 0.0),
+            Triple("Sep 11 new", at(2026, 9, 11, 3, 27), 0.0),
+            Triple("Oct 10 new", at(2026, 10, 10, 15, 50), 0.0),
+            Triple("Nov 9 new", at(2026, 11, 9, 7, 2), 0.0),
+            Triple("Dec 9 new", at(2026, 12, 9, 0, 52), 0.0)
+        )
+        val hour = 1.0 / (29.530588853 * 24.0)
+        var worstHours = 0.0
+        for ((name, ms, expected) in phases) {
+            val phase = Ephemeris.moonPhase(ms)
+            val off = abs(Orrery.wrapSigned((phase - expected) * 360.0)) / 360.0
+            val hours = off / hour
+            println("EPHEMERIS phase $name: off %.2f h".format(hours))
+            if (hours > worstHours) worstHours = hours
+            assertTrue("$name: the phase reads $phase, ${"%.1f".format(hours)} h off", hours < 1.5)
+        }
+        println("EPHEMERIS phase worst %.2f h".format(worstHours))
+    }
 }

@@ -73,36 +73,31 @@ class OrreryTest {
     }
 
     /**
-     * The phase agrees with the little moon already on the dial.
+     * The phase is the little moon's on the dial, and the dial's is the
+     * orrery's: one Moon, read in three places.
      *
-     * [SkyGlyph.phaseAt] counts months forward from one observed new moon.
-     * This class works the angle out from two orbits. They share no line of
-     * code and no constant, so when they agree to within a few hours it is
-     * because both are right.
+     * They used to be two — a count of months from one new moon in the
+     * crown, and two orbits here — held together by this test to within a
+     * day, which they kept near now and lost by a day a millennium. Both
+     * read [Ephemeris] now, and the thing to hold them against is the
+     * sky, which [EphemerisTest] does with Horizons; this only says that
+     * the second source is gone and nobody has quietly put it back.
      */
     @Test
-    fun `both halves of the app agree about the Moon`() {
-        var worst = 0.0
-        var worstAt = 0L
-        // Twenty years, a fortnight at a time.
+    fun `the crown and the orrery read the same Moon`() {
         var day = CivilDays.epochDay(2020, 1, 1)
         val end = CivilDays.epochDay(2040, 1, 1)
         while (day < end) {
             val ms = day * CivilDays.DAY_MS
-            val gap = Orrery.separation(
-                Orrery.moonPhase(ms) * 360.0,
-                SkyGlyph.phaseAt(ms) * 360.0
+            assertEquals(SkyGlyph.phaseAt(ms), Orrery.moonPhase(ms), 1e-12)
+            // And the orrery draws the Moon where its phase says it is.
+            val drawn = Orrery.separation(
+                Orrery.wrap(Orrery.longitude(Orrery.Body.MOON, ms) - Orrery.sunLongitude(ms)),
+                Orrery.moonPhase(ms) * 360.0
             )
-            if (gap > worst) { worst = gap; worstAt = ms }
+            assertTrue("drawn ${drawn}° from where its phase says at $ms", drawn < 0.02)
             day += 14
         }
-        // Twelve degrees of elongation is a day. The two are allowed to
-        // differ by less than that; more would mean one of them names the
-        // wrong day as full.
-        assertTrue(
-            "they were ${"%.1f".format(worst)}° apart at $worstAt",
-            worst < 12.0
-        )
     }
 
     /** Longitudes come back inside one turn, whatever is asked for. */

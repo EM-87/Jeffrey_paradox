@@ -218,11 +218,12 @@ object SolarTime {
      */
     fun moonPosition(latitudeDeg: Double, longitudeDeg: Double, atMs: Long): Position {
         val (sunHourAngle, _) = sunAngles(longitudeDeg, atMs)
-        val phase = SkyGlyph.phaseAt(atMs)
         // The Moon runs eastward away from the Sun as the month goes on, so
         // it crosses the meridian later and later: its hour angle is the
-        // Sun's, less however far round it has got.
-        val hourAngle = sunHourAngle - 2.0 * Math.PI * phase
+        // Sun's, less however far east of the Sun it stands — in right
+        // ascension, which is the measure the sky turns by.
+        val east = Orrery.wrap(Ephemeris.moonRightAscensionDeg(atMs) - Ephemeris.sunRightAscensionDeg(atMs))
+        val hourAngle = sunHourAngle - Math.toRadians(east)
         return placeIn(latitudeDeg, hourAngle, Math.toRadians(moonDeclinationDeg(atMs)))
     }
 
@@ -232,14 +233,7 @@ object SolarTime {
      * month has got — see [moonPosition], which this was part of. The
      * globe asks for it on its own, as the latitude under the Moon.
      */
-    fun moonDeclinationDeg(atMs: Long): Double {
-        val phase = SkyGlyph.phaseAt(atMs)
-        // The Sun's longitude from the equinox of the date, and the Moon
-        // however far round the month has got from it.
-        val moonLongitude = Math.toRadians(Ephemeris.sunLongitudeOfDate(atMs) + 360.0 * phase)
-        val obliquity = Math.toRadians(Ephemeris.obliquityDeg(Ephemeris.centuries(atMs)))
-        return Math.toDegrees(kotlin.math.asin((sin(obliquity) * sin(moonLongitude)).coerceIn(-1.0, 1.0)))
-    }
+    fun moonDeclinationDeg(atMs: Long): Double = Ephemeris.moonDeclinationDeg(atMs)
 
     /**
      * How much of the Moon's disc is lit, from 0 at new to 1 at full.

@@ -24,9 +24,6 @@ import kotlin.math.sin
  */
 object SkyGlyph {
 
-    /** Days from one new moon to the next. */
-    private const val SYNODIC = 29.530588853
-
     /**
      * @param cx horizontal centre
      * @param cy vertical centre, and the horizon the sun sets through
@@ -61,20 +58,16 @@ object SkyGlyph {
     }
 
     /**
-     * How far through its phases the Moon is, 0 new and 0.5 full: one known
-     * new moon and the length of a month, counted forward.
+     * How far through its phases the Moon is, 0 new and 0.5 full.
      *
-     * [Orrery.moonPhase] arrives at the same number from the other end,
-     * out of the Moon's and the Earth's orbits, and a test holds the two
-     * against each other. Neither is derived from the other, so agreement
-     * is worth something — the last time this app worked a thing out twice
-     * the copies disagreed for three versions.
+     * The one Moon's — see [Ephemeris.moonPhase] — which the orrery, the
+     * moonlight on the globe and this crown all read. It was a count of
+     * months forward from one new moon, held against the orrery's own
+     * Moon by a test; the two were a day apart by the year 1000 and five
+     * days by 3000 BC, and the last time this app worked a thing out twice
+     * the copies disagreed for three versions. One Moon, read three times.
      */
-    fun phaseAt(whenMs: Long): Double {
-        // Julian date of a known new moon: 2000-01-06 18:14 UTC.
-        val julianNow = whenMs / 86_400_000.0 + 2_440_587.5
-        return (((julianNow - 2_451_550.26) / SYNODIC) % 1.0 + 1.0) % 1.0
-    }
+    fun phaseAt(whenMs: Long): Double = Ephemeris.moonPhase(whenMs)
 
     /**
      * The classic two-shape construction — a dark disc, the lit half, and a

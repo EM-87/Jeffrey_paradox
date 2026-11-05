@@ -234,7 +234,15 @@ object Hemisphere {
      * the sun sets.
      */
     fun sublunar(atMs: Long): Double =
-        wrap(subsolar(atMs)[1] + 360.0 * SkyGlyph.phaseAt(atMs))
+        wrap(subsolar(atMs)[1] + moonEastOfSunDeg(atMs))
+
+    /**
+     * How far east of the Sun the Moon stands, in the measure the sky
+     * turns by: right ascension, from the one Moon and the one Sun of
+     * [Ephemeris]. Nought at new moon, a half turn at full.
+     */
+    fun moonEastOfSunDeg(atMs: Long): Double =
+        Orrery.wrap(Ephemeris.moonRightAscensionDeg(atMs) - Ephemeris.sunRightAscensionDeg(atMs))
 
     /**
      * Where the moon is directly overhead: latitude then longitude, the
@@ -250,7 +258,7 @@ object Hemisphere {
      * Noon is under the sun by construction on this face, so the moon's
      * hour is twelve plus however far round the month has got.
      */
-    fun moonHour(atMs: Long): Double = 12.0 + 24.0 * SkyGlyph.phaseAt(atMs)
+    fun moonHour(atMs: Long): Double = 12.0 + moonEastOfSunDeg(atMs) / 15.0
 
     /** An angle brought into −180…180, which several things below need. */
     fun wrap(degrees: Double): Double {

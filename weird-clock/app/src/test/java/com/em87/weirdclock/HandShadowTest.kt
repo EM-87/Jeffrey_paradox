@@ -689,9 +689,14 @@ class HandShadowTest {
             val at = utc(2026, 1, 1, 0) + step * 1_200_000L
             val phase = SkyGlyph.phaseAt(at)
             if (phase < 0.24 || phase > 0.26) continue
-            // Sunset: the sun on its way down through the horizon.
+            // Sunset: the sun on its way down through the horizon — in the
+            // afternoon, by its hour angle. The search used to take any
+            // crossing, and with the Moon read off a better ephemeris the
+            // nearest crossing turned out to be a sunrise, where a
+            // first-quarter moon is of course below the horizon.
             val sun = SolarTime.position(40.0, 0.0, at)
             if (sun.altitudeDeg !in -2.0..2.0) continue
+            if (SolarTime.hourAngleDeg(0.0, at) < 0.0) continue
             if (kotlin.math.abs(sun.altitudeDeg) < best) {
                 best = kotlin.math.abs(sun.altitudeDeg)
                 found = at
