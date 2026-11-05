@@ -212,22 +212,80 @@ object NightLights {
     /**
      * What is in the raw night and not in the clean one: aurora, moonlit
      * cloud, snow, fire, and a city whose lights were on last night and
-     * not on average — out of 255, after a threshold.
+     * not on average — out of 255, above a [floor].
      *
      * A difference and not a ratio, because both are on the same scale of
-     * radiance, and with a floor under it because the raw night is
-     * brighter everywhere — the air, the moon, the sensor's own stray
-     * light — by up to eighty on the grey scale over open sea. Measured
-     * on the same night's pictures as the floors above; a floor of
-     * twenty-four painted every ocean faintly cyan.
+     * radiance; and above a floor, because the raw night is brighter
+     * everywhere than the clean one — the air's glow, the sensor's stray
+     * light and, above all, the moon. The floor is not a constant. It was
+     * one, 88, measured on a waning-moon night where open sea read 89 at
+     * worst; on the full moon a fortnight before, the same sea read 223
+     * at the ninety-fifth percentile, and a fixed floor would have turned
+     * the whole dark side cyan. So it is read off each night's own
+     * picture — see [residueFloor].
      */
-    const val RESIDUE_FLOOR = 88
-
-    fun residue(rawLum: Int, cleanLum: Int): Int {
-        val over = rawLum - cleanLum - RESIDUE_FLOOR
+    fun residue(rawLum: Int, cleanLum: Int, floor: Int): Int {
+        val over = rawLum - cleanLum - floor
         if (over <= 0) return 0
-        val lit = over / (255.0 - RESIDUE_FLOOR)
+        val lit = over / (255.0 - floor).coerceAtLeast(1.0)
         return (Math.pow(lit, CURVE) * BRIGHTEST).toInt().coerceIn(0, 255)
+    }
+
+    /**
+     * Where the raw night's background ends, on this night: the
+     * ninety-fifth percentile of its grey over places the clean night
+     * says are unlit, plus a margin.
+     *
+     * "Unlit in the clean night" is the sea and the dark land, which is
+     * what the moon and the air light up without anybody's help, and it
+     * is read off the clean picture rather than off a map because the
+     * clean picture is to hand and a map is not. Only places the
+     * satellite flew over count — the raw picture of a day still in
+     * progress is transparent where it has not been yet. The margin is
+     * two steps of the colour map; the least floor is for a picture
+     * with almost nothing in it, where a percentile means little.
+     *
+     * Measured: on the new moon of October 2026 this gives 68, on the
+     * waning moon of the 2nd of November 93, and on the full moon of the
+     * 26th of October 240 — which is right, because on a full-moon night
+     * the raw layer's extras are drowned in moonlight and nothing but
+     * the very brightest of them is a difference worth painting.
+     */
+    const val RESIDUE_PERCENTILE = 0.95
+    const val RESIDUE_MARGIN = 16
+    const val RESIDUE_FLOOR_LEAST = 32
+
+    fun residueFloor(
+        rawLum: ByteArray,
+        rawWidth: Int,
+        rawHeight: Int,
+        cleanLumAt: (u: Double, v: Double) -> Int
+    ): Int {
+        val histogram = IntArray(256)
+        var counted = 0
+        for (y in 0 until rawHeight) {
+            val v = (y + 0.5) / rawHeight
+            val row = y * rawWidth
+            for (x in 0 until rawWidth) {
+                val raw = rawLum[row + x].toInt() and 0xFF
+                if (raw == 0) continue
+                if (cleanLumAt((x + 0.5) / rawWidth, v) > CLEAN_FLOOR) continue
+                histogram[raw]++
+                counted++
+            }
+        }
+        if (counted == 0) return RESIDUE_FLOOR_LEAST
+        val wanted = (counted * RESIDUE_PERCENTILE).toInt()
+        var seen = 0
+        var percentile = 255
+        for (grey in 0..255) {
+            seen += histogram[grey]
+            if (seen > wanted) {
+                percentile = grey
+                break
+            }
+        }
+        return (percentile + RESIDUE_MARGIN).coerceIn(RESIDUE_FLOOR_LEAST, 255)
     }
 
     /**
@@ -257,15 +315,16 @@ object NightLights {
      * both lit and different shows the difference, which is the thing
      * worth seeing.
      */
-    fun pixel(mode: Mode, cleanLum: Int, rawLum: Int, rho: Double): Int = when (mode) {
-        Mode.NONE -> 0
-        Mode.CLEAN -> tint(AMBER, glow(cleanLum, CLEAN_FLOOR), rho)
-        Mode.RAW -> tint(AMBER, glow(rawLum, RAW_FLOOR), rho)
-        Mode.BOTH -> over(
-            tint(CYAN, residue(rawLum, cleanLum), rho),
-            tint(AMBER, glow(cleanLum, CLEAN_FLOOR), rho)
-        )
-    }
+    fun pixel(mode: Mode, cleanLum: Int, rawLum: Int, rho: Double, residueFloor: Int): Int =
+        when (mode) {
+            Mode.NONE -> 0
+            Mode.CLEAN -> tint(AMBER, glow(cleanLum, CLEAN_FLOOR), rho)
+            Mode.RAW -> tint(AMBER, glow(rawLum, RAW_FLOOR), rho)
+            Mode.BOTH -> over(
+                tint(CYAN, residue(rawLum, cleanLum, residueFloor), rho),
+                tint(AMBER, glow(cleanLum, CLEAN_FLOOR), rho)
+            )
+        }
 
     /** [top] laid over [bottom], both premultiplied by nothing: plain source-over. */
     fun over(top: Int, bottom: Int): Int {

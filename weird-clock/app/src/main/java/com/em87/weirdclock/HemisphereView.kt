@@ -147,7 +147,8 @@ class HemisphereView @JvmOverloads constructor(
         if (a === b) return true
         if (a == null || b == null) return false
         return a.mode == b.mode && a.clean?.lum === b.clean?.lum && a.raw?.lum === b.raw?.lum &&
-            a.clean?.lagDays == b.clean?.lagDays && a.raw?.lagDays == b.raw?.lagDays
+            a.clean?.lagDays == b.clean?.lagDays && a.raw?.lagDays == b.raw?.lagDays &&
+            a.residueFloor == b.residueFloor
     }
 
     /** Where to ask for the lights of a particular night, asked with the clouds. */
@@ -606,7 +607,8 @@ class HemisphereView @JvmOverloads constructor(
                     lamps.mode,
                     cleanLights?.at(u, v) ?: 0,
                     rawLights?.at(u, v) ?: 0,
-                    disc.rho[at].toDouble()
+                    disc.rho[at].toDouble(),
+                    lamps.residueFloor
                 )
             }
         }

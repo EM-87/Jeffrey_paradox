@@ -66,7 +66,13 @@ object NightLightStore {
         val lum: ByteArray,
         val day: String,
         val lagDays: Int,
-        val stamp: Long = 0L
+        val stamp: Long = 0L,
+        /**
+         * The day whose picture filled in the places this day's had not
+         * been flown over yet, if any — see [layerOf].
+         */
+        val filledFrom: String? = null,
+        val filledStamp: Long = 0L
     ) {
         /** The brightness at a point of the map, out of 255. */
         fun at(u: Double, v: Double): Int {
@@ -74,13 +80,45 @@ object NightLightStore {
             val y = (v * height).toInt().coerceIn(0, height - 1)
             return lum[y * width + x].toInt() and 0xFF
         }
+
+        /** The same greys, relabelled for another instant. */
+        fun relabel(lag: Int): Layer =
+            if (lag == lagDays) this
+            else Layer(width, height, lum, day, lag, stamp, filledFrom, filledStamp)
     }
 
-    /** Both layers, or whichever of them is on and there. */
-    class Sky(val mode: NightLights.Mode, val clean: Layer?, val raw: Layer?)
+    /**
+     * Both layers, or whichever of them is on and there, and where the
+     * raw night's background ends on this night — see
+     * [NightLights.residueFloor].
+     */
+    class Sky(
+        val mode: NightLights.Mode,
+        val clean: Layer?,
+        val raw: Layer?,
+        val residueFloor: Int
+    )
 
     private var heldClean: Layer? = null
     private var heldRaw: Layer? = null
+
+    /** The last floor worked out, and which two pictures it was worked out for. */
+    private var floor = NightLights.RESIDUE_FLOOR_LEAST
+    private var floorForClean: ByteArray? = null
+    private var floorForRaw: ByteArray? = null
+
+    /** The greys of one picture on disk, the decoded picture let go of at once. */
+    private fun greysOf(store: DailyImageStore, context: Context, atMs: Long): Triple<Int, Int, ByteArray>? {
+        val picture: Bitmap = store.cached(context, atMs) ?: return null
+        val w = picture.width
+        val h = picture.height
+        val pixels = IntArray(w * h)
+        picture.getPixels(pixels, 0, w, 0, 0, w, h)
+        store.release()
+        val lum = ByteArray(w * h)
+        for (i in pixels.indices) lum[i] = NightLights.luminance(pixels[i]).toByte()
+        return Triple(w, h, lum)
+    }
 
     /**
      * The greys of a picture, copied out once per picture.
@@ -90,24 +128,44 @@ object NightLightStore {
      * and the file's own timestamp rather than against the picture, so
      * the question "is this still the same night" costs a stat and not a
      * decode.
+     *
+     * With [composite], the day before fills in what this day has not
+     * got. The raw picture of the day in progress is transparent
+     * wherever the satellite has not been yet — all of Asia until the
+     * UTC afternoon — and transparent there is not "nothing to see", it
+     * is "not yet", for which the honest answer is last night's. Per
+     * pixel, so the places that have been flown over are tonight's and
+     * the rest are last night's, and the day before is the nearest
+     * earlier day on disk. The clean night is complete by construction
+     * and is not composed.
      */
-    private fun layerOf(store: DailyImageStore, context: Context, atMs: Long, held: Layer?): Layer? {
+    private fun layerOf(
+        store: DailyImageStore,
+        context: Context,
+        atMs: Long,
+        held: Layer?,
+        composite: Boolean
+    ): Layer? {
         val day = store.dayCached(context, atMs) ?: return null
         val lag = NightLights.lagDays(day, atMs) ?: 0
         val stamp = store.stamp(context, day)
-        if (held != null && held.day == day && held.stamp == stamp) {
-            return if (held.lagDays == lag) held
-            else Layer(held.width, held.height, held.lum, day, lag, stamp)
+        val before = if (composite) NightLights.dayMs(day)?.let { store.dayCached(context, it - 1) } else null
+        val filledFrom = before?.takeIf { it < day }
+        val filledStamp = filledFrom?.let { store.stamp(context, it) } ?: 0L
+        if (held != null && held.day == day && held.stamp == stamp &&
+            held.filledFrom == filledFrom && held.filledStamp == filledStamp
+        ) {
+            return held.relabel(lag)
         }
-        val picture: Bitmap = store.cached(context, atMs) ?: return null
-        val w = picture.width
-        val h = picture.height
-        val pixels = IntArray(w * h)
-        picture.getPixels(pixels, 0, w, 0, 0, w, h)
-        store.release()
-        val lum = ByteArray(w * h)
-        for (i in pixels.indices) lum[i] = NightLights.luminance(pixels[i]).toByte()
-        return Layer(w, h, lum, day, lag, stamp)
+        val (w, h, lum) = greysOf(store, context, atMs) ?: return null
+        if (filledFrom != null) {
+            val earlier = NightLights.dayMs(day)?.let { greysOf(store, context, it - 1) }
+            if (earlier != null && earlier.first == w && earlier.second == h) {
+                val under = earlier.third
+                for (i in lum.indices) if (lum[i].toInt() == 0) lum[i] = under[i]
+            }
+        }
+        return Layer(w, h, lum, day, lag, stamp, filledFrom, filledStamp)
     }
 
     /**
@@ -123,15 +181,26 @@ object NightLightStore {
         var cleanLayer: Layer? = null
         var rawLayer: Layer? = null
         if (mode.clean) {
-            cleanLayer = layerOf(clean, context, atMs, heldClean)
+            cleanLayer = layerOf(clean, context, atMs, heldClean, composite = false)
             heldClean = cleanLayer
         }
         if (mode.raw) {
-            rawLayer = layerOf(raw, context, atMs, heldRaw)
+            rawLayer = layerOf(raw, context, atMs, heldRaw, composite = true)
             heldRaw = rawLayer
         }
         if (cleanLayer == null && rawLayer == null) return null
-        return Sky(mode, cleanLayer, rawLayer)
+        // The floor is a pass over a megapixel, so it is worked out once
+        // per pair of pictures and kept against them.
+        if (cleanLayer != null && rawLayer != null &&
+            (floorForClean !== cleanLayer.lum || floorForRaw !== rawLayer.lum)
+        ) {
+            floor = NightLights.residueFloor(rawLayer.lum, rawLayer.width, rawLayer.height) { u, v ->
+                cleanLayer.at(u, v)
+            }
+            floorForClean = cleanLayer.lum
+            floorForRaw = rawLayer.lum
+        }
+        return Sky(mode, cleanLayer, rawLayer, floor)
     }
 
     /** Which day each layer on disk would show now, for the settings row. */
@@ -147,15 +216,21 @@ object NightLightStore {
         val lines = ArrayList<String>(3)
         lines += context.getString(R.string.pref_hemisphere_lights_summary)
         val (cleanDay, rawDay) = daysNow(context, nowMs)
-        fun line(name: Int, day: String?): String {
+        fun line(name: Int, day: String?, filledFrom: String? = null): String {
             val label = context.getString(name)
             if (day == null) return context.getString(R.string.lights_layer_none, label)
             val lag = NightLights.lagDays(day, nowMs) ?: 0
-            return context.getString(R.string.lights_layer_summary, label, day, lag)
+            val said = context.getString(R.string.lights_layer_summary, label, day, lag)
+            return if (filledFrom == null) said
+            else context.getString(R.string.lights_layer_filled, said, filledFrom)
         }
         val mode = mode(context)
         if (mode.clean) lines += line(R.string.lights_clean_name, cleanDay)
-        if (mode.raw) lines += line(R.string.lights_raw_name, rawDay)
+        if (mode.raw) {
+            // The day before fills in the raw night's gaps — see [layerOf].
+            val before = rawDay?.let { NightLights.dayMs(it) }?.let { raw.dayCached(context, it - 1) }
+            lines += line(R.string.lights_raw_name, rawDay, before?.takeIf { it < rawDay!! })
+        }
         return lines.joinToString("\n")
     }
 

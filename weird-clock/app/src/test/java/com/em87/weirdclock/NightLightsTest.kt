@@ -99,14 +99,46 @@ class NightLightsTest {
      */
     @Test
     fun `residue is the raw night's surplus over the clean one, above a floor`() {
-        assertEquals(0, NightLights.residue(120, 120))
-        assertEquals(0, NightLights.residue(100, 120))
-        assertEquals(0, NightLights.residue(120 + NightLights.RESIDUE_FLOOR, 120))
-        assertTrue(NightLights.residue(120 + NightLights.RESIDUE_FLOOR + 40, 120) > 0)
-        // The open sea on a real night: 89 at worst in the raw picture
-        // over 48 at worst in the clean one is not an aurora.
-        assertEquals("the sea is cyan", 0, NightLights.residue(89, 7))
-        assertTrue("an aurora over the sea is not picked out", NightLights.residue(146, 7) > 60)
+        val floor = 88
+        assertEquals(0, NightLights.residue(120, 120, floor))
+        assertEquals(0, NightLights.residue(100, 120, floor))
+        assertEquals(0, NightLights.residue(120 + floor, 120, floor))
+        assertTrue(NightLights.residue(120 + floor + 40, 120, floor) > 0)
+        // The open sea on a waning-moon night: 89 at worst in the raw
+        // picture over 7 in the clean one is not an aurora at that floor.
+        assertEquals("the sea is cyan", 0, NightLights.residue(89, 7, floor))
+        assertTrue("an aurora over the sea is not picked out", NightLights.residue(146, 7, floor) > 60)
+        // And on a full-moon night the floor is high and the same sea,
+        // reading 223, is still not an aurora.
+        assertEquals("the moonlit sea is cyan", 0, NightLights.residue(223, 7, 239))
+    }
+
+    /**
+     * The floor is read off each night: the ninety-fifth percentile of
+     * the raw night over places the clean night says are dark, plus a
+     * margin, and only places that were flown over count.
+     */
+    @Test
+    fun `the residue floor follows the night's own background`() {
+        // A toy night: 100 pixels, of which the first 20 are lit in the
+        // clean picture (a city), the next 10 unflown, and the remaining
+        // 70 dark in the clean picture with raw greys 20..89.
+        val w = 10
+        val h = 10
+        val raw = ByteArray(100)
+        val clean = IntArray(100)
+        for (i in 0 until 20) { clean[i] = 200; raw[i] = 250.toByte() }
+        for (i in 20 until 30) { raw[i] = 0 }
+        for (i in 30 until 100) { raw[i] = (20 + (i - 30)).toByte() }
+        val floor = NightLights.residueFloor(raw, w, h) { u, v ->
+            clean[(v * h).toInt().coerceIn(0, h - 1) * w + (u * w).toInt().coerceIn(0, w - 1)]
+        }
+        // The 95th of 70 values 20..89 is 86 (the 67th), plus the margin.
+        assertEquals(86 + NightLights.RESIDUE_MARGIN, floor)
+        // The city's 250s did not count: they are lit in the clean night.
+        assertTrue(floor < 250)
+        // Nothing flown at all: the least floor, not a crash.
+        assertEquals(NightLights.RESIDUE_FLOOR_LEAST, NightLights.residueFloor(ByteArray(100), w, h) { _, _ -> 0 })
     }
 
     /** A transparent pixel is a place nobody flew over, and is dark. */
@@ -119,25 +151,29 @@ class NightLightsTest {
     /** Amber for the lights, cyan for the difference, and nothing for nothing. */
     @Test
     fun `each mode paints its own colours`() {
-        assertEquals(0, NightLights.pixel(NightLights.Mode.NONE, 200, 250, 0.0))
-        val clean = NightLights.pixel(NightLights.Mode.CLEAN, 200, 7, 0.0)
+        val floor = 88
+        assertEquals(0, NightLights.pixel(NightLights.Mode.NONE, 200, 250, 0.0, floor))
+        val clean = NightLights.pixel(NightLights.Mode.CLEAN, 200, 7, 0.0, floor)
         assertEquals(NightLights.AMBER and 0xFFFFFF, clean and 0xFFFFFF)
         assertTrue(clean ushr 24 > 100)
         // Raw alone is amber too: it is the lights, read differently.
-        val raw = NightLights.pixel(NightLights.Mode.RAW, 7, 200, 0.0)
+        val raw = NightLights.pixel(NightLights.Mode.RAW, 7, 200, 0.0, floor)
         assertEquals(NightLights.AMBER and 0xFFFFFF, raw and 0xFFFFFF)
         // Both: a town the same in both is plain amber; an aurora over
         // dark sea is cyan; a town brighter last night is amber with cyan
         // over it, which is neither pure colour.
-        val same = NightLights.pixel(NightLights.Mode.BOTH, 200, 200, 0.0)
+        val same = NightLights.pixel(NightLights.Mode.BOTH, 200, 200, 0.0, floor)
         assertEquals(NightLights.AMBER and 0xFFFFFF, same and 0xFFFFFF)
-        val aurora = NightLights.pixel(NightLights.Mode.BOTH, 7, 180, 0.0)
+        val aurora = NightLights.pixel(NightLights.Mode.BOTH, 7, 180, 0.0, floor)
         assertEquals(NightLights.CYAN and 0xFFFFFF, aurora and 0xFFFFFF)
-        val brighter = NightLights.pixel(NightLights.Mode.BOTH, 120, 240, 0.0)
+        val brighter = NightLights.pixel(NightLights.Mode.BOTH, 120, 240, 0.0, floor)
         assertTrue(brighter and 0xFFFFFF != NightLights.AMBER and 0xFFFFFF)
         assertTrue(brighter and 0xFFFFFF != NightLights.CYAN and 0xFFFFFF)
+        // On a full-moon night the floor is 239 and the same aurora pixel
+        // is drowned: plain amber ground, nothing picked out.
+        assertEquals(0, NightLights.pixel(NightLights.Mode.BOTH, 7, 180, 0.0, 239) ushr 24)
         // And at the limb there is nothing, like the clouds.
-        assertEquals(0, NightLights.pixel(NightLights.Mode.CLEAN, 255, 255, 1.0) ushr 24)
+        assertEquals(0, NightLights.pixel(NightLights.Mode.CLEAN, 255, 255, 1.0, floor) ushr 24)
     }
 
     /** Source-over, checked at the two ends and in the middle. */

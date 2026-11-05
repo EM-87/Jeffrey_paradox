@@ -49,12 +49,25 @@ class HemisphereLightsShotTest {
         return NightLightStore.Layer(w, h, lum, day, lag)
     }
 
-    private fun sky(mode: NightLights.Mode, cleanLag: Int = 2, rawLag: Int = 0) =
-        NightLightStore.Sky(
-            mode,
-            if (mode.clean) layer("gibs-lights-clean.png", "2026-11-03", cleanLag) else null,
-            if (mode.raw) layer("gibs-lights-raw.png", "2026-11-05", rawLag) else null
-        )
+    /** The day [lag] days before the instant the pictures are shown at. */
+    private fun dayBehind(lag: Int): String =
+        NightLights.dayFor(noon() - lag * DailyImageStore.DAY_MS)
+
+    /**
+     * The two real pictures, labelled with the days the lags say they
+     * are of — so the legend, when it is drawn, says a date that agrees
+     * with the lag that put it there.
+     */
+    private fun sky(mode: NightLights.Mode, cleanLag: Int = 2, rawLag: Int = 0): NightLightStore.Sky {
+        val clean = if (mode.clean) layer("gibs-lights-clean.png", dayBehind(cleanLag), cleanLag) else null
+        val raw = if (mode.raw) layer("gibs-lights-raw.png", dayBehind(rawLag), rawLag) else null
+        val floor = if (clean != null && raw != null) {
+            NightLights.residueFloor(raw.lum, raw.width, raw.height) { u, v -> clean.at(u, v) }
+        } else {
+            NightLights.RESIDUE_FLOOR_LEAST
+        }
+        return NightLightStore.Sky(mode, clean, raw, floor)
+    }
 
     /**
      * Two in the morning UTC at midsummer: the sun is over the Pacific,

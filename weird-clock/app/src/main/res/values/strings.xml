@@ -764,6 +764,7 @@
     <string name="lights_raw_name">Raw</string>
     <string name="lights_layer_summary">%1$s: night of %2$s, %3$d days behind</string>
     <string name="lights_layer_none">%1$s: nothing yet</string>
+    <string name="lights_layer_filled">%1$s, the places not flown over yet filled in from %2$s</string>
     <string name="lights_clean_short">clean %s</string>
     <string name="lights_raw_short">raw %s</string>
     <string name="hemisphere_lights_legend">lights %s</string>

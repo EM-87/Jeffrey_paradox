@@ -222,6 +222,97 @@ class NightLightStoreTest {
         assertFalse("a rewritten picture kept its old greys", a.lum === c.lum)
     }
 
+    private val partial by lazy { resource("gibs-lights-raw-partial.png") }
+
+    /** The greys of a picture kept beside the tests, as the store would hand them over. */
+    private fun greys(name: String): Triple<Int, Int, ByteArray> {
+        val picture = android.graphics.BitmapFactory.decodeByteArray(resource(name), 0, resource(name).size)!!
+        val w = picture.width
+        val h = picture.height
+        val pixels = IntArray(w * h)
+        picture.getPixels(pixels, 0, w, 0, 0, w, h)
+        return Triple(w, h, ByteArray(w * h) { NightLights.luminance(pixels[it]).toByte() })
+    }
+
+    /** Where a place is on a picture of this size. */
+    private fun at(w: Int, h: Int, lum: ByteArray, lon: Double, lat: Double): Int {
+        val x = ((lon + 180.0) / 360.0 * w).toInt().coerceIn(0, w - 1)
+        val y = ((90.0 - lat) / 180.0 * h).toInt().coerceIn(0, h - 1)
+        return lum[y * w + x].toInt() and 0xFF
+    }
+
+    /**
+     * Today's raw picture is partial — the satellite has not reached
+     * Asia yet — and where it is transparent, last night's shows through,
+     * pixel by pixel. Driven with the real partial picture of the 5th of
+     * November, fetched at a quarter to three in the afternoon UTC: the
+     * Americas flown over, Asia not.
+     */
+    @Test
+    fun `today's raw night is filled in from last night's where it is not yet flown`() {
+        mode("raw")
+        val now = utc(2026, 11, 5, 15)
+        NightLightStore.fetch = DailyImageStore.Fetch { url ->
+            asked += url
+            if (url.endsWith("TIME=2026-11-05")) partial else raw
+        }
+        assertTrue(NightLightStore.refresh(context, now))
+        val sky = NightLightStore.skyFor(context, now)!!
+        val layer = sky.raw!!
+        assertEquals("2026-11-05", layer.day)
+        assertEquals("not filled in from last night", "2026-11-04", layer.filledFrom)
+
+        val (w, h, today) = greys("gibs-lights-raw-partial.png")
+        val (_, _, lastNight) = greys("gibs-lights-raw.png")
+        assertEquals(w, layer.width)
+        assertEquals(h, layer.height)
+        // Shanghai: not flown over yet today, so last night's reading.
+        assertEquals("Asia is still blank", 0, at(w, h, today, 121.5, 31.2))
+        assertTrue("last night had Shanghai", at(w, h, lastNight, 121.5, 31.2) > 0)
+        assertEquals("Asia was not filled in", at(w, h, lastNight, 121.5, 31.2), layer.at((121.5 + 180.0) / 360.0, (90.0 - 31.2) / 180.0))
+        // New York: flown over today, so today's reading and not last night's.
+        val nyToday = at(w, h, today, -74.0, 40.7)
+        assertTrue("today had not reached New York", nyToday > 0)
+        assertEquals("New York was taken from last night", nyToday, layer.at((-74.0 + 180.0) / 360.0, (90.0 - 40.7) / 180.0))
+        // And nowhere is transparent any more that last night had.
+        var stillBlank = 0
+        for (i in lastNight.indices) if (layer.lum[i].toInt() == 0 && lastNight[i].toInt() != 0) stillBlank++
+        assertEquals("places last night had are still blank", 0, stillBlank)
+        // The settings say so.
+        assertTrue(NightLightStore.describe(context, now).contains("2026-11-04"))
+    }
+
+    /**
+     * The residue floor follows the moon. A fixed floor measured on one
+     * night is wrong on another: the new moon of the 12th of October
+     * and the full moon of the 26th are a hundred and fifty grey steps
+     * apart over the same dark sea.
+     */
+    @Test
+    fun `the residue floor is high on a full moon and low on a new one`() {
+        val (cw, ch, clean) = greys("gibs-lights-clean.png")
+        fun cleanAt(u: Double, v: Double): Int =
+            clean[(v * ch).toInt().coerceIn(0, ch - 1) * cw + (u * cw).toInt().coerceIn(0, cw - 1)].toInt() and 0xFF
+        val (fw, fh, full) = greys("gibs-lights-raw-fullmoon.png")
+        val (nw, nh, new) = greys("gibs-lights-raw-newmoon.png")
+        val fullFloor = NightLights.residueFloor(full, fw, fh, ::cleanAt)
+        val newFloor = NightLights.residueFloor(new, nw, nh, ::cleanAt)
+        val (ww, wh, waning) = greys("gibs-lights-raw.png")
+        val waningFloor = NightLights.residueFloor(waning, ww, wh, ::cleanAt)
+        println("residue floors: new moon $newFloor, waning $waningFloor, full moon $fullFloor")
+        assertTrue("full moon $fullFloor, new moon $newFloor", fullFloor > newFloor + 100)
+        assertTrue("waning $waningFloor, new moon $newFloor", waningFloor > newFloor)
+        assertTrue("new moon floor $newFloor is below the sea's own noise", newFloor >= 60)
+        // At its own floor, the moonlit sea is not an aurora on either night.
+        for ((name, w, h, lum, floor) in listOf(
+            Triple("full", fw, fh) to Pair(full, fullFloor),
+            Triple("new", nw, nh) to Pair(new, newFloor)
+        ).map { (a, b) -> listOf(a.first, a.second, a.third, b.first, b.second) }) {
+            val sea = at(w as Int, h as Int, lum as ByteArray, -150.0, 10.0)
+            assertEquals("$name moon: the mid-Pacific is cyan", 0, NightLights.residue(sea, 7, floor as Int))
+        }
+    }
+
     /** The clouds still fill their week through the shared store. */
     @Test
     fun `the clouds are unchanged by sharing the store`() {

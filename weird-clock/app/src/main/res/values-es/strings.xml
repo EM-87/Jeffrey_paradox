@@ -607,6 +607,7 @@
     <string name="lights_raw_name">Crudas</string>
     <string name="lights_layer_summary">%1$s: noche del %2$s, hace %3$d d\u00edas</string>
     <string name="lights_layer_none">%1$s: a\u00fan nada</string>
+    <string name="lights_layer_filled">%1$s, lo que el sat\u00e9lite a\u00fan no ha sobrevolado rellenado con la del %2$s</string>
     <string name="lights_clean_short">limpias %s</string>
     <string name="lights_raw_short">crudas %s</string>
     <string name="hemisphere_lights_legend">luces %s</string>
