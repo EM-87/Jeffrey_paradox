@@ -68,7 +68,8 @@ class MoonlightTest {
         assertEquals(Moonlight.MAX_ALPHA, Moonlight.alpha(1.0), 1e-9)
         assertEquals(Moonlight.MAX_ALPHA / 8, Moonlight.alpha(0.5), 1e-9)
         assertEquals(0, Moonlight.pixel(0.0, 1.0) ushr 24)
-        assertEquals(51, Moonlight.pixel(1.0, 1.0) ushr 24)
+        // Fifteen hundredths of 255, rounded: the full moon's veil.
+        assertEquals(38, Moonlight.pixel(1.0, 1.0) ushr 24)
         // Soft at the moon's horizon, like the sun's.
         assertEquals(0.0, Moonlight.up(-0.2), 1e-9)
         assertEquals(1.0, Moonlight.up(0.2), 1e-9)

@@ -22,12 +22,13 @@ object Moonlight {
     /**
      * The veil's colour and how far it goes at the full.
      *
-     * A fifth at most: moonlight is bright enough to read by and dim
-     * enough that the city lights still stand out on top of it, which is
-     * the order they are drawn in.
+     * Fifteen hundredths at most: moonlight is bright enough to read by
+     * and dim enough that the city lights still stand out on top of it,
+     * which is the order they are drawn in. It was a fifth, and on the
+     * phone a fifth read as haze rather than as light.
      */
     const val TINT = 0xFF9FB4D8.toInt()
-    const val MAX_ALPHA = 0.20
+    const val MAX_ALPHA = 0.15
 
     /**
      * How the veil grows with the moon: the lit fraction cubed.
