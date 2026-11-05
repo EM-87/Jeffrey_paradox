@@ -86,6 +86,6 @@ MP_POLICE	Police Station
 MP_SHRINE	Wishing Well
 MP_STATION	Train Station
 #
-# The letters on the Controller Pak (ovl__00797A50): which letter, the menu's number (two cells, a space
-# before a single digit) where {} is.
-CP_NTH	No.{}
+# The bulletin board (ovl__00797A50): which post it shows, the menu's number (two cells, a space before a
+# single digit) where {} is.
+BB_NUMBER	No.{}

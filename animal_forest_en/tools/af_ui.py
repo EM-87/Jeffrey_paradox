@@ -36,7 +36,12 @@ menu builds has its own part (a price's digits); that English has a hole
 too, `{}` in our text, which the menu's part fills. TYPED(n): the menu types
 the string into a buffer of n bytes, a character a frame, and draws as much
 as it has typed (the key is the whole buffer's, without its trailing
-spaces). `compile` writes them as UI_EN_SUBST, a sentinel last.
+spaces). FIRST: the English starts at the cell of the cartridge's first
+character (the menu draws its own digits in the cells before it). DIGITS:
+a template the menu writes its digits into (WRITTEN(n) cells of the key,
+'0' in it, match any digit or a space), drawn in its cells, the menu's
+digits where the English has '0' (the key itself, without English). `compile`
+writes them as UI_EN_SUBST, a sentinel last.
 """
 
 import os
@@ -81,10 +86,12 @@ STRINGS = [
 ]
 
 # how the English takes the cartridge's box: aligned left (0), centred or right; narrowed to the box when
-# wider; or each character in its own 12-pixel cell (the en m_font.c: mFont_EN_SUBST_*). BOX(n): the box n
-# cells wide around the cartridge's string (centred on it, or from its left or right edge as the English
-# aligns), in place of its own length. TYPED(n): the string typed into a buffer of n bytes
-LEFT, CENTER, RIGHT, FIT, CELLS = 0, 1, 2, 4, 8
+# wider; or each character in its own 12-pixel cell (the en m_font.c: mFont_EN_SUBST_*). FIRST: the box
+# from the cell of the cartridge's first character. DIGITS: a template in cells the menu writes its digits
+# into (the key's WRITTEN cells). BOX(n): the box n cells wide around the cartridge's string (centred on it,
+# or from its left or right edge as the English aligns), in place of its own length. TYPED(n): the string
+# typed into a buffer of n bytes
+LEFT, CENTER, RIGHT, FIT, CELLS, FIRST, DIGITS = 0, 1, 2, 4, 8, 16, 32
 HOLE = None                                           # in a key's pieces: the part the menu builds itself
 EN_HOLE = "{}"                                        # in the English: where that part goes
 NO_HOLE = 0xFF                                        # mFont_EN_SUBST_NO_HOLE
@@ -101,6 +108,11 @@ def TYPED(size):
     if not 0 < size <= 0xFF:
         raise ValueError("a buffer of %d bytes" % size)
     return size << 16
+
+
+def WRITTEN(cells):
+    """In a key's pieces: cells the menu writes a number's digits into (or spaces), '0' in the key."""
+    return ("written", cells)
 
 
 def box_of(layout):
@@ -226,10 +238,9 @@ SUBST = [
     ("PK_OPT_QUIT", (0x7A0C30, 7), LEFT | FIT | BOX(12), None, None),
     ("PK_YES", (0x7A0C38, 2), LEFT | FIT | BOX(6), None, None),
     ("PK_NO", (0x7A0C3C, 3), LEFT | FIT | BOX(6), None, None),
-    # the tag's words (tag_ovl, func_8087792C_jp: each drawn whole, 8 characters, spaces after the word),
+    # the tag's words (tag_ovl, func_80877EC4_jp: each drawn whole, 8 characters, spaces after the word),
     # left where the cursor points: the GameCube's, by its words' names; ours where it has none. The second
-    # word for opening (D_80878C84_jp) has the first's bytes, and its English; the amounts are digits, and
-    # the price's two labels (D_80878C24_jp, D_80878C30_jp) frame digits drawn apart: kept
+    # word for opening (D_80878C84_jp) has the first's bytes, and its English; the amounts are digits
     ("TG_AKERU", TG_WORD(0), LEFT | FIT, GC_WORD("mTG_tag_word_akeru"), "m_tag_ovl.o"),
     ("TG_AGERU", TG_WORD(1), LEFT | FIT, GC_WORD("mTG_tag_word_ageru"), "m_tag_ovl.o"),
     ("TG_ITADAKU", TG_WORD(2), LEFT | FIT, GC_WORD("mTG_tag_word_itadaku"), "m_tag_ovl.o"),
@@ -262,6 +273,11 @@ SUBST = [
     ("TG_KESU", TG_WORD(36), LEFT | FIT, None, None),
     ("TG_HAI", TG_WORD(37), LEFT | FIT, GC_WORD("mTG_tag_word_hai"), "m_tag_ovl.o"),
     ("TG_IIE", TG_WORD(38), LEFT | FIT, GC_WORD("mTG_tag_word_iie"), "m_tag_ovl.o"),
+    # the price a player sets (tag kind 39, func_8087792C_jp: the two lines of D_80878EE8_jp): the price's
+    # word, and the word for bells after the five digits it draws a cell each in the second line's first five
+    # cells (the cartridge's word starts at the sixth)
+    ("TG_OKANE", TG_WORD(27), LEFT | FIT, GC_WORD("mTG_tag_word_okane"), "m_tag_ovl.o"),
+    ("TG_BERU", TG_WORD(28), LEFT | FIT | FIRST, GC_WORD("mTG_tag_word_beru"), "m_tag_ovl.o"),
     # the tag's question before something is thrown away (func_80877FF4_jp): one line, or two the GameCube
     # has only as placeholders (ours)
     ("TG_SUTERUNO", (0x781838, 5), LEFT | FIT, "mTG_tag_str_suteruno", "m_tag_ovl.o"),
@@ -283,10 +299,13 @@ SUBST = [
     ("MP_STATION", (0x797694, 2), LEFT | FIT | BOX(6), None, None),
     ("MP_DUMP", (0x797698, 5), LEFT | FIT | BOX(6), "mMP_label_str_junk", "m_map_ovl.o"),
     ("MP_VACANT", (0x797604, 6), LEFT | FIT, ("akiya_str$483", 8), "m_map_ovl.o"),
-    # the letters kept on the Controller Pak (ovl__00797A50, func_80895298_jp): which letter, its number
-    # written into the template's first two cells (mFont_UnintToString) and drawn with the word after it
-    # (D_80895C08_jp, 5 characters): ours (the GameCube names its card's folders instead)
-    ("CP_NTH", [HOLE, (0x79940A, 3)], CENTER | FIT, None, None),
+    # the bulletin board (ovl__00797A50): which post it shows (func_80895298_jp: its number written into the
+    # template's first two cells, mFont_UnintToString, and drawn with the word after it, D_80895C08_jp, 5
+    # characters): ours, the number where {} is; the post's date (func_80895328_jp: year, month and day
+    # written into D_80895C10_jp, 10 cells at a scale of 0.75), in the cartridge's cells, where the board's
+    # texture has its marks between them (the en font's narrower digits left them off their places)
+    ("BB_NUMBER", [HOLE, (0x79940A, 3)], CENTER | FIT, None, None),
+    ("BB_DATE", [WRITTEN(4), (0x799414, 1), WRITTEN(2), (0x799417, 1), WRITTEN(2)], CELLS | DIGITS, None, None),
 ]
 
 
@@ -313,7 +332,7 @@ def gc_sources():
 
 
 def key_pieces(key):
-    """A SUBST key's pieces: (ROM offset, length) and HOLE."""
+    """A SUBST key's pieces: (ROM offset, length), HOLE and WRITTEN(n)."""
     return key if isinstance(key, list) else [key]
 
 
@@ -323,6 +342,8 @@ def key_bytes(rom, key):
     for piece in key_pieces(key):
         if piece is HOLE:
             hole = len(out)
+        elif piece[0] == "written":
+            out += bytes([N64_BYTES["0"]]) * piece[1]
         else:
             out += rom[piece[0]:piece[0] + piece[1]]
     return out, hole
@@ -383,8 +404,18 @@ def substitutions(rom, gc, own):
     strings that have English (ours over the GameCube's); a hole is where the menu's own part goes, or
     None."""
     out = []
+    zero = N64_BYTES["0"]
     for name, spec, layout, _, _ in SUBST:
         text = own.get(name, gc.get(name))
+        written = any(p is not HOLE and p[0] == "written" for p in key_pieces(spec))
+        if written != bool(layout & DIGITS) or (layout & DIGITS and not layout & CELLS):
+            raise SystemExit("af_ui: %s: cells the menu writes its digits into are a template in cells" % name)
+        if layout & FIRST and (layout & CELLS or typed_of(layout) or HOLE in key_pieces(spec)):
+            raise SystemExit("af_ui: %s: from the first character is a whole string's layout" % name)
+        if text is None and layout & DIGITS:
+            key, _ = key_bytes(rom, spec)                     # the menu's digits in the cartridge's cells
+            out.append((name, key, key, layout, None, None))
+            continue
         if text is None:
             continue
         key, hole = key_bytes(rom, spec)
@@ -401,6 +432,8 @@ def substitutions(rom, gc, own):
             if len(en) > len(key):
                 raise SystemExit("af_ui: %s: %d cells, the cartridge's string has %d" % (name, len(en), len(key)))
             en = en.ljust(len(key), b" ")                     # the cells after the text: blank
+        if layout & DIGITS and any(c == zero and k != zero for c, k in zip(en, key)):
+            raise SystemExit("af_ui: %s: the English shows the menu's digits only in their cells" % name)
         if len(key) > SUBST_KEY_MAX or len(en) > SUBST_EN_MAX:
             raise SystemExit("af_ui: %s: %d and %d bytes, past %d and %d" % (name, len(key), len(en),
                                                                               SUBST_KEY_MAX, SUBST_EN_MAX))

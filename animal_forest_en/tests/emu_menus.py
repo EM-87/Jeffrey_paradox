@@ -60,7 +60,13 @@ builds round its own part (BUILT) is put in the buffer it types into in
 place of another's; one the menu copies for each use (EVERY) gets the
 ruler in every copy; the map's labels show in the acre it opens on, its
 record given the label (MAP_LABEL: the town differs with each ROM, so no
-cursor is moved).
+cursor is moved); the tag's price window shows on the money's tag, given
+the price's words in the tag's table (TAG_LIST). The bulletin board's
+number and date (BOARD) the menu writes into their templates every frame,
+so no ruler stays there: the date's place comes from the menu's own date
+drawn with its swap off, at the call's scale, and the number's box is the
+call's 109 pixels before it; the date's digits each in the cartridge's
+cell, the number's English centred in its box.
 
 Then the labels the 2010 patch drew (tools/af_nafe_gfx.py): the hook opens
 each menu whose segment holds some (LABEL_MENUS), and each label is in RAM
@@ -75,6 +81,7 @@ Writes the screenshots to OUT_DIR.
 """
 
 import os
+import re
 import shutil
 import struct
 import sys
@@ -164,6 +171,19 @@ EVERY = "every"                                      # the ruler written into ev
 # (its seed follows the run's timing), so the check moves no cursor
 MAP_LABEL = "map label"
 MAP_LABEL_AT = 0x12
+# the tag's price window (kind 39: the price's word, then its digits a cell each and the word for bells), which a
+# tag shows once the player sets a price: the check gives the money's tag (kind 8, from the inventory) kind 39's
+# list of words in the tag's table (D_80878F08_jp: a list and its length for each kind, found in RAM by the
+# lengths of kinds 1 to 8)
+TAG_LIST = "tag list"
+TAG_MONEY, TAG_PRICE = 8, 39
+TAG_COUNTS = [3, 4, 4, 5, 4, 5, 3, 2]
+# the bulletin board (program 6, ovl__00797A50), whose number and date the menu writes into their templates every
+# frame (no ruler stays there): the date's place from the menu's own date drawn with its swap off (from the
+# template's place, at func_80895328_jp's scale), the number's box the call's 109 pixels before it
+BOARD = (6, 0)
+BOARD_SCALE = 0.75
+BOARD_DATE_AFTER = 109.0
 # the menus that draw the strings the en build swaps: ((program, data0), buttons that bring them up (or a
 # button and the frames it is held, or a map label to show), names; a name with the place in the dump of the
 # copy the menu draws, where the overlay holds the same bytes twice, or with EVERY, where the menu copies the
@@ -186,7 +206,8 @@ SWAP_MENUS = [((7, 0), (), ["RP_TITLE", "OK"]),
               ((5, 0), ((MAP_LABEL, 4),), ["MP_POST", "MP_OFFICE"]),
               ((5, 0), ((MAP_LABEL, 5),), ["MP_SHRINE"]),
               ((5, 0), ((MAP_LABEL, 6),), ["MP_STATION"]),
-              ((5, 0), ((MAP_LABEL, 7),), ["MP_DUMP"])]
+              ((5, 0), ((MAP_LABEL, 7),), ["MP_DUMP"]),
+              ((1, 0), ((TAG_LIST, TAG_PRICE), A), ["TG_OKANE", "TG_BERU"])]   # the money's tag as the price's
 # a string a menu builds round its own part, which no menu of the route's save shows: put in the buffer it
 # types into in place of another's (name: the other, the part)
 BUILT = {"GY_PRICE": ("GY_IKAGA", "1000")}           # an item's price in the gyroid's shop
@@ -340,7 +361,10 @@ def swap_inks(board, faint, key, en, layout, left, scale):
     if layout & af_ui.CELLS:
         return [ink(en[i:i + 1], left + i * cell + (cell - even(board.width(en[i:i + 1])) * scale * FRAME_X) / 2, scale)
                 for i in range(len(en)) if en[i] != 0x20]
-    own, box = len(key) * cell, (af_ui.box_of(layout) or len(key)) * cell
+    first = len(key) - len(key.lstrip(b" ")) if layout & af_ui.FIRST else 0      # from its first character
+    left += first * cell
+    own = (len(key) - first) * cell
+    box = af_ui.box_of(layout) * cell if af_ui.box_of(layout) else own
     left += (own - box) / 2 if layout & af_ui.CENTER else own - box if layout & af_ui.RIGHT else 0
     width, s = even(board.width(en)) * scale * FRAME_X, scale
     if layout & af_ui.FIT and width > box:
@@ -634,6 +658,12 @@ def main(argv):
                     a = ram.find(p, a + 1)
             return None
 
+        def tag_lists(ram):
+            """The tag's table of words (kind 0 first: a list and its length each), or None."""
+            pattern = b"".join(b"\x80[\x00-\xff]{3}" + struct.pack(">I", n) for n in TAG_COUNTS)
+            hits = [m.start() for m in re.finditer(pattern, ram, re.DOTALL) if m.start() % 4 == 0]
+            return 0x80000000 + hits[0] - 8 if len(hits) == 1 else None
+
         def open_swap(menu, buttons, pokes=(), rewrite=None):
             """The menu opened with pokes [(address, bytes)] written first; with rewrite (windows of what
             holds a string from its start: the overlay's data, or the buffer a menu types it into; the bytes;
@@ -669,6 +699,12 @@ def main(argv):
                         check(False, "the map: the record of the acre it opens on (four empty houses)")
                     else:
                         n64.write(record + MAP_LABEL_AT, struct.pack(">h", hold))
+                elif b == TAG_LIST:
+                    lists = tag_lists(n64.read(0x80000000, 0x800000))
+                    if lists is None:
+                        check(False, "the tag: its table of words in RAM (the lengths of kinds 1 to 8)")
+                    else:
+                        n64.write(lists + 8 * TAG_MONEY, n64.read(lists + 8 * hold, 4))
                 else:
                     n64.press(b, frames=hold)
                 run(SETTLE)
@@ -730,6 +766,54 @@ def main(argv):
                           what, got, ", ".join("(%.1f, %.1f)" % e[:2] if e[:2] == e[2:] else
                                                "(%.1f, %.1f; faint columns %.1f, %.1f)" % e for e in want),
                           "; the ruler's error allows %.1f at the far edge" % (TOLERANCE + far) if far else ""))
+
+        # the bulletin board's number and date (BOARD), which the menu writes into their templates every frame:
+        # each swap's English blanked gives its ink; the date drawn the cartridge's way (its swap off) its place,
+        # from where the menu draws it at its scale; the number's box the call's distance before it
+        if all(n in entries for n in ("BB_NUMBER", "BB_DATE")):
+            w, h, seen = open_swap(BOARD, ())
+            path = os.path.join(out, "swap-board-program-%d-%d.png" % BOARD)
+            write_png(path, w, h, seen)
+            shots.append(path)
+            (num_at, num_key, num_en, num_layout, _, num_hole), date_at = entries["BB_NUMBER"], entries["BB_DATE"][0]
+            found = copies(n64.read(0x80000000, 0x800000), num_key + bytes(3))   # D_80895C08_jp's word, its padding
+            if len(found) != 1:
+                check(False, "the bulletin board: its templates in RAM (%d copies of the number's)" % len(found))
+            else:
+                number = n64.read(found[0] - 2, 2)        # the number's two cells, and the date after the padding
+                date = n64.read(found[0] + 6, 10)
+                _, _, date_bare = open_swap(BOARD, (), [(date_at + SUBST_HEAD + af_ui.SUBST_KEY_MAX, b" " * 10)])
+                _, _, date_off = open_swap(BOARD, (), [(date_at + SUBST_HEAD, b"\xFF")])
+                _, _, num_bare = open_swap(BOARD, (), [(num_at + SUBST_HEAD + af_ui.SUBST_KEY_MAX,
+                                                        b" " * len(num_en))])
+                cells = runs(x for x, _ in ink_pixels(seen, date_bare, w, h))
+                plain = runs(x for x, _ in ink_pixels(date_off, date_bare, w, h))
+                marks = runs(x for x, _ in ink_pixels(seen, num_bare, w, h))
+                if not cells or not plain or not marks:
+                    check(False, "the bulletin board: ink drawn (the date %d runs, its own way %d, the number %d)" % (
+                        len(cells), len(plain), len(marks)))
+                else:
+                    left = plain[0][0] + FRINGE / 2 - board.extent(date)[0] * BOARD_SCALE * FRAME_X
+                    own = swap_inks(board, faint, date, date, af_ui.LEFT, left, BOARD_SCALE)[0]
+                    check(ink_matches((plain[0][0], plain[-1][1]), own),
+                          "the bulletin board: the date %r drawn its own way at %s, the model's (%.1f, %.1f) at the "
+                          "scale %.2f" % (date, (plain[0][0], plain[-1][1]), own[0], own[1], BOARD_SCALE))
+                    want = swap_inks(board, faint, date, date, af_ui.CELLS, left, BOARD_SCALE)
+                    check(len(want) == len(cells) and all(ink_matches(g, e) for g, e in zip(cells, want)),
+                          "the bulletin board: BB_DATE's digits at %s, a cell each in the cartridge's cells: %s" % (
+                              cells, ", ".join("(%.1f, %.1f)" % e[:2] for e in want)))
+                    # the number's box, and its ink: the English with the menu's number, against the frame with
+                    # the English blanked, where the number is drawn alone (both edges the outermost of the two)
+                    key = number + num_key
+                    built = num_en[:num_hole] + number + num_en[num_hole:]
+                    alone = b" " * num_hole + number + b" " * (len(num_en) - num_hole)
+                    x = left - BOARD_DATE_AFTER * FRAME_X
+                    m1, m2 = (swap_inks(board, faint, key, t, num_layout, x, BOARD_SCALE)[0] for t in (built, alone))
+                    want = (min(m1[0], m2[0]), max(m1[1], m2[1]), min(m1[2], m2[2]), max(m1[3], m2[3]))
+                    got = (marks[0][0], marks[-1][1])
+                    check(ink_matches(got, want), "the bulletin board: BB_NUMBER (%r) at %s, the layout's (%.1f, "
+                          "%.1f) in its box %.1f pixels before the date's" % (built, got, want[0], want[1],
+                                                                             BOARD_DATE_AFTER * FRAME_X))
 
         for i, (program, data0, vrom, what) in enumerate(LABEL_MENUS):
             ctl = setup()

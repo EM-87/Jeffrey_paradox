@@ -1624,14 +1624,15 @@ what goes in it: "The letters in the en build").
   8 bytes far); the police box, the shrine and the station, which it
   breaks over two lines and the cartridge draws on one, are ours in its
   words. Each is left after the label's icon, in at most 6 cells (a
-  name's). Two more strings ride along, not on screen in the route's
-  save: a wrapped item's name in its tag (`func_8086FD3C_jp` copies it
-  into the item's name, 10 characters, and draws it as far as
-  `mMl_strlen` finds it; the GameCube's `present_str$820`), and which
-  letter the Controller Pak's list shows (`ovl__00797A50`,
+  name's). Two more strings ride along: a wrapped item's name in its tag
+  (`func_8086FD3C_jp` copies it into the item's name, 10 characters, and
+  draws it as far as `mMl_strlen` finds it; the GameCube's
+  `present_str$820`; not on screen in the route's save), and the number
+  of the post the bulletin board shows (`ovl__00797A50`,
   `func_80895298_jp`: its number written into the template's first two
-  cells, then the word after it; ours, with the number in the hole: the
-  GameCube names its card's folders instead).
+  cells, then the word after it; ours, with the number in the hole). This
+  batch took that overlay for the Controller Pak's list of letters; it
+  is the bulletin board (the sixth batch: BB_NUMBER, once CP_NTH).
 - **On screen** (the fourth batch). The map opens on the houses' acre,
   and the route's save has four empty houses: their word shows in each
   copy, so the check writes its ruler into every copy, every frame. The
@@ -1728,6 +1729,73 @@ what goes in it: "The letters in the en build").
   459.0 to 499.0; the sender from 506 to 550 against 507.3 to 550.2,
   where the word for "from" ends at the font's even width. With these
   the check measures 38 strings on screen; all 237 of its checks pass.
+
+- **What the font still draws in Japanese** (a survey, the sixth
+  batch). Every call of the font's line (`func_80090E98_jp`, and
+  `mFont_SetLineStrings_AndSpace` where a caller skips it) was listed
+  with the string it passes, and each submenu program opened from the
+  route's save. Besides the item names (a file of their own, 10 bytes
+  each, which the catalog, the inventory, the tags and the shops draw),
+  the dial's kana (kept on purpose) and the bulletin board's lines
+  (broken by a count of 16, mid-word in English): the tag's price window
+  and the bulletin board's date (below), and the title's warning that no
+  controller is in the first port (`ovl_Animal_Logo`, `func_80AA08E4_jp`,
+  when `common_data` + 0x10AB0 is 0: three lines of 20 characters, drawn
+  with `mFont_SetLineStrings_AndSpace` directly; the 2010 patch has its
+  own English there, and the actor is asm: it goes with the title's
+  logo). Never on screen: the title's list of options
+  (`func_80AA0668_jp`, five lines of 19 characters, two of them in Latin
+  letters already: a line is drawn when its bit of the actor's + 0x2F8
+  is set, which only the actor's constructor and `func_80AA0360_jp`
+  write, both clearing), the save menu (gamestate 7, `save_menu.c`, a
+  debug screen whose other lines are in Latin letters) and the player
+  select (`player_select.c`, debug). Program 2 shows the gyroid's
+  message, the player's own words; program 17's windows show no text in
+  the route's save.
+- **The tag's price window** (the sixth batch). The word to set a price
+  (`D_80878B94_jp`, its procedure `func_80873278_jp`) opens a tag of
+  kind 39, which `func_80877FF4_jp` draws with `func_8087792C_jp`: its two
+  words (`D_80878EE8_jp`: the price's, then the word for bells after five
+  spaces), and the price's five digits (`mFont_UnintToString`), a cell
+  each from the second line's left (the one being set in red, from
+  `D_808794A8_jp`). The GameCube's words are used (`mTG_tag_word_okane`,
+  `mTG_tag_word_beru`): the price's left, and the bells' from the cell of
+  the cartridge's first character (FIRST, a new layout: the cells before
+  it are the digits').
+- **The bulletin board's number and date** (the sixth batch). The board
+  (program 6, `ovl__00797A50`) draws the post's number and date from the
+  same place (`func_80895298_jp` at the call's x, `func_80895328_jp` 109
+  pixels on, both at a scale of 0.75). The date's template
+  (`D_80895C10_jp`) is ten cells, the year's four, a space, the month's
+  two, a space, the day's two, which `func_80895328_jp` writes every frame;
+  the board's texture has its marks under the two spaces. The en font's
+  digits are narrower than the cartridge's cells, so the marks fell among
+  them. A key can now name the cells a menu writes its digits into
+  (WRITTEN: '0' in the key, matched by a digit or a space, at least one
+  digit); such a template (DIGITS, in cells) needs no English: the key
+  itself, the menu's digits a character a cell, as the cartridge has
+  them. The GameCube's board names the month instead and writes the day
+  and the year after it (`mNT_set_day_strings_dl`), which the cartridge's
+  texture has no room for. The number is the fourth batch's BB_NUMBER.
+- **On screen** (the sixth batch). No tag of the route's save has a
+  price, so the check opens the money's tag (kind 8) with kind 39's list
+  of words: once the inventory has loaded the tag overlay, it points kind
+  8's list in the tag's table (`D_80878F08_jp`, a list and its length for
+  each kind, found in RAM by the lengths of kinds 1 to 8) at kind 39's.
+  The tag then shows the two words where the price window has them
+  (without the digits, which only its own function draws): the price's
+  from 248 to 326 against the model's 249.0 to 325.9, the bells' from 367
+  to 424 against 366.2 to 421.9 (2.4 allowed at that edge: the ruler is 7
+  cells). The bulletin board writes its number and date into their
+  templates every frame, so no ruler stays there: with the date's swap
+  off the board draws its own date from the template's place at the
+  call's scale, which gives the place (its ink from 343 to 450, the
+  model's 343.0 to 450.5 at 0.75, the scale confirmed by the far edge);
+  with the swap the eight digits each fall in its cell within 1.5 frame
+  pixels, and the texture's marks between them; the number's English
+  is centred in its box 109 pixels before the date's (151 to 196 against
+  150.5 to 196.5). With these the check measures 42 strings on screen;
+  all 245 of its checks pass.
 
 ## The 2010 patch's labels (phase 5, the graphics' second step)
 

@@ -1143,6 +1143,37 @@ class MenusWords(unittest.TestCase):
         finally:
             af_ui.SUBST = saved
 
+    def test_swap_templates_of_digits(self):
+        # cells a menu writes its digits into (a date) are '0' in the key: such a template needs no English
+        # (the key itself: the menu's digits in the cartridge's cells), and our English may show the digits
+        # only in those cells; the layout from the first character is a whole string's
+        saved = af_ui.SUBST
+        zero, w = af_ui.N64_BYTES["0"], af_ui.WRITTEN
+        try:
+            date = [w(4), (0, 1), w(2), (0, 1), w(2)]
+            af_ui.SUBST = [("D", date, af_ui.CELLS | af_ui.DIGITS, None, None)]
+            rom = b"  "
+            key = bytes([zero] * 4) + b" " + bytes([zero] * 2) + b" " + bytes([zero] * 2)
+            self.assertEqual(af_ui.substitutions(rom, {}, {}),
+                             [("D", key, key, af_ui.CELLS | af_ui.DIGITS, None, None)])
+            self.assertEqual(af_ui.substitutions(rom, {}, {"D": "0000-00-00"})[0][2],
+                             key[:4] + b"-" + key[5:7] + b"-" + key[8:])
+            with self.assertRaises(SystemExit):
+                af_ui.substitutions(rom, {}, {"D": "00000 00 0"})               # a digit off its cells
+            for layout in (af_ui.CELLS, af_ui.DIGITS):                           # written cells: a template
+                af_ui.SUBST = [("D", date, layout, None, None)]
+                with self.assertRaises(SystemExit):
+                    af_ui.substitutions(rom, {}, {})
+            af_ui.SUBST = [("B", (0, 2), af_ui.LEFT | af_ui.FIRST, None, None)]
+            self.assertEqual(af_ui.substitutions(rom, {}, {"B": "Bells"})[0][3], af_ui.FIRST)
+            for spec, layout in (((0, 2), af_ui.CELLS), ([(0, 1), af_ui.HOLE], af_ui.LEFT),
+                                 ((0, 2), af_ui.TYPED(4))):
+                af_ui.SUBST = [("B", spec, layout | af_ui.FIRST, None, None)]
+                with self.assertRaises(SystemExit):
+                    af_ui.substitutions(rom, {}, {"B": "x{}" if af_ui.HOLE in af_ui.key_pieces(spec) else "x"})
+        finally:
+            af_ui.SUBST = saved
+
     def test_labels_drawn_by_the_lists(self):
         # tools/af_nafe_gfx.py: a texture is where a load in the segment's own
         # segment names it, in its render tile's format and its tile's size

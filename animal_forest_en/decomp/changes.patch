@@ -989,7 +989,7 @@ index f3f7472..e751ce4 100644
              ret = 1;
              func_8008ECA0_jp();
 diff --git a/src/code/m_font.c b/src/code/m_font.c
-index eb55156..6ed8397 100644
+index eb55156..22a8dcf 100644
 --- a/src/code/m_font.c
 +++ b/src/code/m_font.c
 @@ -15,6 +15,17 @@ extern s8 D_80106AF0_jp; /* the font is loaded */
@@ -1037,7 +1037,7 @@ index eb55156..6ed8397 100644
  }
  
  s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
-@@ -87,10 +106,168 @@ s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
+@@ -87,10 +106,193 @@ s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetLineStrings_AndSpace.s")
  
@@ -1049,15 +1049,18 @@ index eb55156..6ed8397 100644
 + * draws the English instead, in the box the cartridge's string had (its
 + * full-width characters, mFont_CHAR_WIDTH each at the caller's scale, or a
 + * box of so many cells around it): centred or aligned to its right,
-+ * narrowed to it when wider, or a character in each of its cells (a
-+ * template the menu draws its numbers into). A key may have a hole, the
-+ * part of a string the menu built itself (a price's digits): the English
-+ * keeps that part in a hole of its own. A menu that types its string into
-+ * a buffer, a character a frame, draws the buffer as far as it has typed
-+ * it: such a key is the whole buffer's (its trailing spaces dropped), and
-+ * the English is typed in proportion. The menus' own code stays the
-+ * cartridge's (reference/NOTES.md, "The menus' strings where the font
-+ * draws them").
++ * narrowed to it when wider, from the cell of the cartridge's first
++ * character (its leading spaces the menu's, a price's digits drawn
++ * apart), or a character in each of its cells (a template the menu draws
++ * its numbers into, or writes them into: such a key's '0's stand for the
++ * menu's digits, which a '0' of the English shows in their cells). A key
++ * may have a hole, the part of a string the menu built itself (a price's
++ * digits): the English keeps that part in a hole of its own. A menu that
++ * types its string into a buffer, a character a frame, draws the buffer
++ * as far as it has typed it: such a key is the whole buffer's (its
++ * trailing spaces dropped), and the English is typed in proportion. The
++ * menus' own code stays the cartridge's (reference/NOTES.md, "The menus'
++ * strings where the font draws them").
 + */
 +#include "assets/jp/en/ui_strings.inc"
 +#include "m_lib.h"
@@ -1066,6 +1069,8 @@ index eb55156..6ed8397 100644
 +#define mFont_EN_SUBST_RIGHT 2
 +#define mFont_EN_SUBST_FIT 4
 +#define mFont_EN_SUBST_CELLS 8
++#define mFont_EN_SUBST_FIRST 16
++#define mFont_EN_SUBST_DIGITS 32
 +#define mFont_EN_SUBST_NO_HOLE 0xFF
 +
 +typedef struct mFont_EnSubst {
@@ -1091,6 +1096,7 @@ index eb55156..6ed8397 100644
 +    mFont_EnSubst* sub;
 +    s32 typed = 0; /* the typed buffer measured last, and its length */
 +    s32 typedLen = 0;
++    s32 digits;
 +    s32 n;
 +    s32 i;
 +
@@ -1111,10 +1117,21 @@ index eb55156..6ed8397 100644
 +            if (n != sub->keyLen) {
 +                continue;
 +            }
++            digits = 0;
 +            for (i = 0; i < n; i++) {
-+                if (sub->key[i] != str[i]) {
++                if ((sub->layout & mFont_EN_SUBST_DIGITS) && (sub->key[i] == '0')) {
++                    /* a cell the menu writes a digit into, or leaves blank */
++                    if ((str[i] >= '0') && (str[i] <= '9')) {
++                        digits++;
++                    } else if (str[i] != ' ') {
++                        break;
++                    }
++                } else if (sub->key[i] != str[i]) {
 +                    break;
 +                }
++            }
++            if ((sub->layout & mFont_EN_SUBST_DIGITS) && (digits == 0)) {
++                continue; /* blank cells only: not the template's */
 +            }
 +        } else {
 +            /* the key's start, at least a character of the menu's own, the key's end */
@@ -1159,10 +1176,12 @@ index eb55156..6ed8397 100644
 +    cell = mFont_CHAR_WIDTH * scaleX;
 +    if (sub->layout & mFont_EN_SUBST_CELLS) {
 +        for (i = 0; i < sub->enLen; i++) {
-+            if (sub->en[i] != ' ') {
-+                drawn = mFont_GetStringWidth((char*)&sub->en[i], 1, TRUE) * scaleX;
-+                mFont_SetLineStrings_AndSpace(game, (char*)&sub->en[i], 1, x + i * cell + (cell - drawn) / 2, y, r,
-+                                              g, b, a, flag, cut, 0, scaleX, scaleY, mode);
++            /* a '0' of a template the menu writes its digits into: the menu's digit */
++            en = ((sub->layout & mFont_EN_SUBST_DIGITS) && (sub->en[i] == '0')) ? &str[i] : &sub->en[i];
++            if (*en != ' ') {
++                drawn = mFont_GetStringWidth((char*)en, 1, TRUE) * scaleX;
++                mFont_SetLineStrings_AndSpace(game, (char*)en, 1, x + i * cell + (cell - drawn) / 2, y, r, g, b, a,
++                                              flag, cut, 0, scaleX, scaleY, mode);
 +            }
 +        }
 +        return len * cell;
@@ -1182,6 +1201,12 @@ index eb55156..6ed8397 100644
 +    /* as much of the English as the menu has typed of its string */
 +    shown = (len >= full) ? enLen : (enLen * len + full - 1) / full;
 +    box = full * cell;
++    if (sub->layout & mFont_EN_SUBST_FIRST) {
++        /* from the cell of the cartridge's first character */
++        for (i = 0; (i < sub->keyLen) && (sub->key[i] == ' '); i++) {}
++        x += i * cell;
++        box -= i * cell;
++    }
 +    if (sub->box != 0) {
 +        /* a box of so many cells: centred on the cartridge's string's, or from its left or right edge */
 +        f32 wide = sub->box * cell;
