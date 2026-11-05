@@ -237,6 +237,14 @@ object Hemisphere {
         wrap(subsolar(atMs)[1] + 360.0 * SkyGlyph.phaseAt(atMs))
 
     /**
+     * Where the moon is directly overhead: latitude then longitude, the
+     * same shape as [subsolar]. The latitude is the moon's declination
+     * from the ephemeris the hand shadows and the orrery already use.
+     */
+    fun sublunarPoint(atMs: Long): DoubleArray =
+        doubleArrayOf(SolarTime.moonDeclinationDeg(atMs), sublunar(atMs))
+
+    /**
      * And which solar hour that meridian is keeping, for the rim.
      *
      * Noon is under the sun by construction on this face, so the moon's

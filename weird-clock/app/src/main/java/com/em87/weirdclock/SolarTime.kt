@@ -229,18 +229,26 @@ object SolarTime {
         // it crosses the meridian later and later: its hour angle is the
         // Sun's, less however far round it has got.
         val hourAngle = sunHourAngle - 2.0 * Math.PI * phase
-        // And its declination is the ecliptic's at the longitude it has
-        // reached, which is the Sun's longitude plus the same angle.
+        return placeIn(latitudeDeg, hourAngle, Math.toRadians(moonDeclinationDeg(atMs)))
+    }
+
+    /**
+     * The Moon's declination, in degrees: the ecliptic's at the longitude
+     * the Moon has reached, which is the Sun's plus however far round the
+     * month has got — see [moonPosition], which this was part of. The
+     * globe asks for it on its own, as the latitude under the Moon.
+     */
+    fun moonDeclinationDeg(atMs: Long): Double {
+        val phase = SkyGlyph.phaseAt(atMs)
         val zone = TimeZone.getDefault()
         val cal = Calendar.getInstance(zone).apply { timeInMillis = atMs }
         // The Sun's ecliptic longitude, zero at the vernal equinox, which
         // is day eighty.
         val sunLongitude = 2.0 * Math.PI * (cal.get(Calendar.DAY_OF_YEAR) - 80) / 365.25
         val moonLongitude = sunLongitude + 2.0 * Math.PI * phase
-        val declination = kotlin.math.asin(
-            (sin(Math.toRadians(23.45)) * sin(moonLongitude)).coerceIn(-1.0, 1.0)
+        return Math.toDegrees(
+            kotlin.math.asin((sin(Math.toRadians(23.45)) * sin(moonLongitude)).coerceIn(-1.0, 1.0))
         )
-        return placeIn(latitudeDeg, hourAngle, declination)
     }
 
     /**

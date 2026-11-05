@@ -151,6 +151,18 @@ class HemisphereView @JvmOverloads constructor(
             a.residueFloor == b.residueFloor
     }
 
+    /**
+     * Whether the dark side wears the moon's light — see [Moonlight]. No
+     * data behind it, only the ephemeris, so it does not wait on the
+     * weather switch the way the clouds and the lights do.
+     */
+    var moonlight: Boolean = true
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
     /** Where to ask for the lights of a particular night, asked with the clouds. */
     var lightsOn: ((Long) -> NightLightStore.Sky?)? = null
         set(value) {
@@ -520,13 +532,16 @@ class HemisphereView @JvmOverloads constructor(
         cloudDisc?.recycle()
         lightDisc?.recycle()
         shadow?.recycle()
+        veil?.recycle()
         dayDisc = null
         nightDisc = null
         cloudDisc = null
         lightDisc = null
         shadow = null
+        veil = null
         bakedFor = null
         maskedFor = null
+        veiledFor = null
     }
 
     override fun onDetachedFromWindow() {
@@ -784,7 +799,7 @@ class HemisphereView @JvmOverloads constructor(
             }
         }
         bake(-subLon + sunAt)
-        drawWorld(canvas, cx, cy, r, subLat, subLon)
+        drawWorld(canvas, cx, cy, r, subLat, subLon, ms)
         if (showSun) drawSunMark(canvas, cx, cy, r, ring, ringR)
         if (showMoon && rimScale) drawMoonMark(canvas, cx, cy, r, ring, ringR, ms)
         if (ring) drawAlarms(canvas, cx, cy, ringR, fade)
@@ -848,7 +863,7 @@ class HemisphereView @JvmOverloads constructor(
      * on any of these projections it is not one, except twice a year.
      */
     private fun drawWorld(
-        canvas: Canvas, cx: Float, cy: Float, r: Float, subLat: Double, subLon: Double
+        canvas: Canvas, cx: Float, cy: Float, r: Float, subLat: Double, subLon: Double, ms: Long
     ) {
         val day = dayDisc
         val night = nightDisc
@@ -903,6 +918,16 @@ class HemisphereView @JvmOverloads constructor(
         fill.alpha = 0x8A
         canvas.drawCircle(cx, cy, r, fill)
         fill.alpha = 255
+        // The moon's light over the half of the dark side the moon is
+        // above — see [Moonlight]. Over the night map and its scrim, and
+        // under the lights, so the cities stand on the moonlit ground
+        // rather than being washed by it. In the same frame as the night
+        // mask, so it needs no turning, and inside the layer, so the
+        // mask cuts it to the solar night as it cuts everything else.
+        moonVeil(ms)?.let {
+            maskSrc.set(0, 0, it.width, it.height)
+            canvas.drawBitmap(it, maskSrc, dst, blit)
+        }
         // Last night's lights go on over the scrim, not under it: they
         // are light, and a scrim over a light is a dimmer. Inside the
         // layer, so the same mask that cuts the night map to where the
@@ -965,6 +990,43 @@ class HemisphereView @JvmOverloads constructor(
         maskedFor = key
         return shadow
     }
+
+    /**
+     * Where the moon is up, as a tinted veil over the disc, kept until the
+     * moon or the sun has moved — the same size and the same arithmetic
+     * as [nightMask], asked about the other light.
+     */
+    private fun moonVeil(ms: Long): Bitmap? {
+        if (!moonlight) return null
+        val lit = SolarTime.moonIllumination(ms)
+        if (Moonlight.alpha(lit) * 255 < 1.0) return null
+        val moon = Hemisphere.sublunarPoint(ms)
+        // The mask's frame is longitude from the sun, so the moon goes
+        // into it the same way: how far east of the sun it stands.
+        val lonFromSun = Hemisphere.wrap(moon[1] - Hemisphere.subsolar(ms)[1])
+        val key = "$view/${Math.round(moon[0] * 4.0)}/${Math.round(lonFromSun * 2.0)}" +
+            "/${Math.round(sunAt * 2.0)}/${Math.round(lit * 100.0)}"
+        if (key == veiledFor && veil != null) return veil
+        val size = MASK
+        val pixels = IntArray(size * size)
+        val half = size / 2.0
+        for (py in 0 until size) {
+            val y = (py + 0.5 - half) / half
+            for (px in 0 until size) {
+                val x = (px + 0.5 - half) / half
+                val place = Hemisphere.unproject(view, x, y, sunAt) ?: continue
+                val cosZ = Hemisphere.cosZenith(place[0], place[1] - lonFromSun, moon[0])
+                pixels[py * size + px] = Moonlight.pixel(lit, cosZ)
+            }
+        }
+        veil?.recycle()
+        veil = Bitmap.createBitmap(pixels, size, size, Bitmap.Config.ARGB_8888)
+        veiledFor = key
+        return veil
+    }
+
+    private var veil: Bitmap? = null
+    private var veiledFor: String? = null
 
     private var shadow: Bitmap? = null
     private var maskedFor: String? = null
