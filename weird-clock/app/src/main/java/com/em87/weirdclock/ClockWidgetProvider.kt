@@ -195,7 +195,13 @@ open class ClockWidgetProvider : AppWidgetProvider() {
             // has something to repaint.
             if (Build.VERSION.SDK_INT < 31 && !digits) return
             val manager = alarmManager(context) ?: return
-            val at = System.currentTimeMillis() + nextRepaintMs(context, pinned)
+            // One reading of the clock for both halves of the sum. Read
+            // twice, a millisecond could pass between the two, and the
+            // minute's repaint was then booked a millisecond *before* the
+            // minute: a widget that woke at :59.999, drew the old minute,
+            // and slept on it for the whole of the next one.
+            val now = System.currentTimeMillis()
+            val at = now + nextRepaintMs(context, pinned, now)
             book(manager, at, skyIntent(context, cls))
         }
 
@@ -241,15 +247,20 @@ open class ClockWidgetProvider : AppWidgetProvider() {
          * a minute from now — a clock that repaints half a second late
          * every time drifts a whole minute behind inside an hour.
          */
-        internal fun nextRepaintMs(context: Context, pinned: Face? = null): Long = when (
+        internal fun nextRepaintMs(
+            context: Context,
+            pinned: Face? = null,
+            nowMs: Long = System.currentTimeMillis()
+        ): Long = when (
             pinned ?: Face.of(PreferenceManager.getDefaultSharedPreferences(context))
         ) {
             Face.ANALOG -> nextSkyChangeMs(context)
             // A bitmap of the time is wrong the moment the minute turns.
             // To the boundary and not a minute from now, or a clock that
             // repaints half a second late every time is a minute behind
-            // within the hour.
-            Face.DIGITAL -> 60_000L - System.currentTimeMillis() % 60_000L
+            // within the hour. From the caller's reading of the clock, so
+            // the boundary it lands on is the one the caller adds it to.
+            Face.DIGITAL -> 60_000L - nowMs % 60_000L
             // A shadow moves fifteen degrees an hour, so a quarter of a
             // degree a minute: ten minutes is two and a half degrees,
             // which is smaller than the shadow's own soft edge. And there

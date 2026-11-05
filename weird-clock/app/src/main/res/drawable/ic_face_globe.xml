@@ -1,0 +1,20 @@
+<!-- The world: a disc with a meridian and the equator, for the face row. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:pathData="M12,3.2a8.8,8.8 0 1,0 0.001,0z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:pathData="M12,3.2c-2.2,2.4 -3.4,5.4 -3.4,8.8c0,3.4 1.2,6.4 3.4,8.8c2.2,-2.4 3.4,-5.4 3.4,-8.8c0,-3.4 -1.2,-6.4 -3.4,-8.8z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:pathData="M3.2,12L20.8,12" />
+</vector>

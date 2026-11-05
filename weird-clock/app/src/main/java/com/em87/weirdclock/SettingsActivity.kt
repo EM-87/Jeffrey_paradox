@@ -612,7 +612,7 @@ class SettingsActivity : AppCompatActivity() {
             // Without this the row above says "digits" while the fifty rows
             // under it go on asking about hands until you back out and come
             // in again.
-            findPreference<ListPreference>(Prefs.FACE)?.setOnPreferenceChangeListener { _, _ ->
+            findPreference<Preference>(Prefs.FACE)?.setOnPreferenceChangeListener { _, _ ->
                 view?.post { activity?.recreate() }
                 true
             }

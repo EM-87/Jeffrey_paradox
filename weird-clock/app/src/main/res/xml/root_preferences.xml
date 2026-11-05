@@ -20,10 +20,8 @@
     <!-- The first question, above every category, because it decides what
          the categories are about. A person who finds a dial hard work sets
          this to digits once and never opens the settings again. -->
-    <ListPreference
+    <com.em87.weirdclock.FaceRowPreference
         android:defaultValue="analog"
-        android:entries="@array/face_entries"
-        android:entryValues="@array/face_values"
         android:key="pref_face"
         android:summary="@string/pref_face_summary"
         android:title="@string/pref_face_title" />

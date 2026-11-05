@@ -1,0 +1,18 @@
+<!-- Two seven-segment digits: the face with no hands, for the face row. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M4,5.5L9,5.5M9,6.5L9,11M4,12L9,12M4,13L4,17.5M4,18.5L9,18.5" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M14,5.5L19,5.5M19,6.5L19,11M14,12L19,12M14,13L14,17.5M14,18.5L19,18.5" />
+</vector>
