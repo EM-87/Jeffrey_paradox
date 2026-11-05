@@ -393,6 +393,11 @@ class HandGrabTest {
         val w = realClock()
         grabHand(w, ClockView.Hand.SECOND, 0.79f)
         assertEquals(ClockView.Hand.SECOND, w.draggedHandForTest())
+        // Held is not yet wound: a finger resting on the second hand on
+        // its way to another page must not silence it either. Only the
+        // wind does.
+        assertFalse("a hand merely under the finger must not silence it", w.isSecondHandGrabbed())
+        w.windForTest(1.0)
         assertTrue(w.isSecondHandGrabbed())
     }
 }

@@ -162,9 +162,10 @@ class PageSwipeTest {
         val a0 = kotlin.math.atan2(y - cy, x - cx)
         val before = clock.handAngleForTest(ClockView.Hand.HOUR)
         touch(clock, MotionEvent.ACTION_DOWN, x, y)
-        // Two degrees a move: the first lands inside the slop and is the
-        // one that used to be lost.
-        val steps = 15
+        // Two degrees a move: the first few land inside the slop — the
+        // pager's, which under Robolectric is thirty-two dp — and are the
+        // ones that used to be lost.
+        val steps = 30
         for (step in 1..steps) {
             val a = a0 + Math.toRadians(step * 2.0)
             touch(

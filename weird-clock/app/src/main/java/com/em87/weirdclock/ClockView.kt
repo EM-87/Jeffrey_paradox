@@ -501,15 +501,27 @@ class ClockView @JvmOverloads constructor(
         }
 
     /**
-     * True only while the second hand itself is in the user's fingers.
+     * True only while the second hand itself is being wound — held *and*
+     * claimed.
      *
      * The ticking used to fall silent for any hand at all, from when the
      * second hand was dragged round by whatever else was being wound and a
      * tick a second would have been a lie. It keeps real time now, so it
      * keeps its voice — except while it is the hand being wound, where the
      * winding fires its own ticks and two would be one too many.
+     *
+     * Held alone used to count too, and the tick fell silent for it: a
+     * finger resting on the second hand on its way to the alarms was
+     * "grabbing" it for the few pixels before the pager took the gesture,
+     * and the sound loop, which looks once a second, silenced the beat for
+     * the whole of the next second whenever it happened to look then. See
+     * [handClaimed]: nothing about the hand is a wind until the drag has
+     * said so.
      */
-    fun isSecondHandGrabbed(): Boolean = draggedHand == Hand.SECOND
+    fun isSecondHandGrabbed(): Boolean = draggedHand == Hand.SECOND && handClaimed
+
+    /** For the tests: whether the hands are standing still under a finger. */
+    internal fun mechanismFrozenForTest(): Boolean = frozenDisplayMs != null || chronoFrozenMs != null
 
     internal fun grabbedHandForTest(): Hand? = draggedHand
 
@@ -1536,8 +1548,7 @@ class ClockView @JvmOverloads constructor(
                     if (hypot(dx, dy) >= pageSlop() &&
                         kotlin.math.abs(dx) <= kotlin.math.abs(dy) * FLAT_SWIPE
                     ) {
-                        handClaimed = true
-                        parent?.requestDisallowInterceptTouchEvent(true)
+                        claimHand()
                         // And catch up. The hand stood still while the drag
                         // was making up its mind, and the finger is by now
                         // a few pixels on from where it landed. Winding this
@@ -2106,27 +2117,52 @@ class ClockView @JvmOverloads constructor(
             }
         }
 
-        // Taking hold of any hand but the second one sets it loose; taking
-        // hold of the second one puts it back on the dial, so that winding
-        // it is followed and springs home like any other hand.
-        chosen?.let { secondLoose = it != Hand.SECOND }
-
+        // Only *held*, from here. Nothing else happens to the mechanism —
+        // no freeze, no sound, no buzz — until the drag has proved itself
+        // a wind: see [claimHand]. It all used to happen here, on the way
+        // down, and on the card that fills the screen almost every page
+        // swipe starts on a hand, so every swipe to the alarms stopped
+        // the clock for as long as the pager took to make up its mind and
+        // sprang it back afterwards — and silenced the tick whenever the
+        // sound loop happened to look while the hand was held.
         chosen?.let {
-            spring?.cancel()
-            spring = null
             draggedHand = it
-            activeSoundHand = it
-            // Freeze the mechanism while the user holds it.
-            val provider = chronoProvider
-            if (provider != null) chronoFrozenMs = provider() else frozenDisplayMs = displayNowMs()
-            dragStartOffset = visualOffsetSeconds
-            dragAccumDeg = 0.0
-            exploded = false
-            cheaterFlagged = false
-            lockedMagnetMs = null
             lastTouchDeg = touchAngleDeg(x, y)
-            performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         }
+    }
+
+    /**
+     * Takes the held hand for a wind.
+     *
+     * The moment the mechanism stops and the hand becomes the finger's:
+     * the spring is cut, the clock is frozen where it stands so the wind
+     * is measured from a fixed reading, the winding sounds are armed, and
+     * the pager is told to keep its hands off. Reached from the move
+     * handler once the drag has said it is a wind, and from [dragTo] for
+     * anything that winds without going through a finger.
+     *
+     * Taking hold of any hand but the second one sets it loose; taking
+     * hold of the second one puts it back on the dial, so that winding it
+     * is followed and springs home like any other hand.
+     */
+    private fun claimHand() {
+        val hand = draggedHand ?: return
+        if (handClaimed) return
+        handClaimed = true
+        parent?.requestDisallowInterceptTouchEvent(true)
+        spring?.cancel()
+        spring = null
+        activeSoundHand = hand
+        secondLoose = hand != Hand.SECOND
+        // Freeze the mechanism while the user holds it.
+        val provider = chronoProvider
+        if (provider != null) chronoFrozenMs = provider() else frozenDisplayMs = displayNowMs()
+        dragStartOffset = visualOffsetSeconds
+        dragAccumDeg = 0.0
+        exploded = false
+        cheaterFlagged = false
+        lockedMagnetMs = null
+        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
     }
 
     private fun distanceToHand(
@@ -2160,6 +2196,8 @@ class ClockView @JvmOverloads constructor(
 
     private fun dragTo(x: Float, y: Float) {
         val hand = draggedHand ?: return
+        // Winding is claiming, whoever is doing the winding.
+        if (!handClaimed) claimHand()
         val cx = width / 2f
         val cy = height / 2f
         if (hypot(x - cx, y - cy) < dialRadius() * 0.05f) return
@@ -2340,6 +2378,11 @@ class ClockView @JvmOverloads constructor(
     private fun releaseDraggedHand() {
         val hand = draggedHand ?: return
         draggedHand = null
+        // Held and never wound: the finger landed on it and lifted, or the
+        // pager took the gesture. Nothing was frozen and nothing moved, so
+        // there is nothing to commit and nothing to spring back from. The
+        // spring from before the touch, if there was one, is still running.
+        if (!handClaimed) return
         // Setting the countdown: commit the wound value (magnetized to round
         // durations) with no spring-back.
         if (chronoSettable && chronoProvider != null) {
@@ -3556,6 +3599,7 @@ class ClockView @JvmOverloads constructor(
      * duly passed with the fix removed.
      */
     internal fun windForTest(seconds: Double) {
+        if (draggedHand != null) claimHand()
         visualOffsetSeconds = seconds
     }
 
@@ -3878,9 +3922,21 @@ class ClockView @JvmOverloads constructor(
      */
     private var handClaimed = false
 
-    /** How far a finger travels before it has said what it is doing. */
+    /**
+     * How far a finger travels before it has said what it is doing.
+     *
+     * The pager's own distance — twice the ordinary touch slop, sixteen dp
+     * on a phone — and not the ordinary one. The dial used to decide at
+     * eight dp, from the one move that crossed it, and a thumb setting
+     * off for the alarms is often twenty or thirty degrees off level in
+     * its first eight dp; the pager, looking at the same stroke at
+     * sixteen, would have called it a page turn. Deciding where the pager
+     * decides means the dial never claims a stroke the pager was about to
+     * take, on half the evidence. A wind loses nothing to the extra wait:
+     * the hand catches up from the landing angle when the claim comes.
+     */
     private fun pageSlop(): Float =
-        android.view.ViewConfiguration.get(context).scaledTouchSlop.toFloat()
+        android.view.ViewConfiguration.get(context).scaledPagingTouchSlop.toFloat()
 
     /** Whether the hands have been swapped for something else on this face. */
     private fun lcd(): Boolean = skyOnly || (lcdChrono && chronoProvider != null)
