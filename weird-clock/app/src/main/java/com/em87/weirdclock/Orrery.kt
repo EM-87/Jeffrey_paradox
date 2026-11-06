@@ -110,7 +110,10 @@ object Orrery {
     fun meanLongitude(body: Body, atMs: Long): Double {
         if (body == Body.MOON) return Ephemeris.moonMeanLongitudeJ2000(atMs)
         val t = turn(body)
-        val days = (atMs - J2000_MS) / DAY_MS
+        // In the time the orbits keep, which is civil time plus ΔT — see
+        // [Ephemeris.centuries]. It used to be civil time, which is the
+        // Earth's turning and not the planets' going round.
+        val days = Ephemeris.centuries(atMs) * CENTURY
         return wrap(t.longitudeAtEpoch + t.degreesPerDay * days)
     }
 

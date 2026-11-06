@@ -39,11 +39,12 @@ object Ephemeris {
         (AstroCalendar.julianDay(atMs) + timeOfOrbits(atMs) / 86_400.0 - J2000_JD) / 36_525.0
 
     /**
-     * How far ahead of civil time the orbits run, in seconds: nought for
-     * now. ΔT belongs here — see [DeltaT] — and is wired in by the step
-     * that proves it against the eclipse of −584.
+     * How far ahead of civil time the orbits run, in seconds: ΔT, see
+     * [DeltaT]. A minute now and five hours at the eclipse of −584, where
+     * without it the Moon stood three degrees from the Sun it was in
+     * front of.
      */
-    private fun timeOfOrbits(atMs: Long): Double = 0.0
+    private fun timeOfOrbits(atMs: Long): Double = DeltaT.secondsAt(atMs)
 
     // ------------------------------------------------- the frame of date
 
