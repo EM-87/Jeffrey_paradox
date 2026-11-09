@@ -125,14 +125,30 @@ class OrreryTest {
         for (body in Orrery.planets) {
             var total = 0L
             var last = 0.0
+            // Each step from the instant the last one landed at, as a
+            // drag does: the giant planets' corrections move with the
+            // date, and a chain of steps all worked out from one instant
+            // comes up five days short on Saturn.
+            var now = at(2026, 8, 18)
             for (step in 1..360) {
-                total += Orrery.stepMs(body, last, step.toDouble())
+                val moved = Orrery.stepMs(body, last, step.toDouble(), now)
+                total += moved
+                now += moved
                 last = step.toDouble()
             }
             val days = total / CivilDays.DAY_MS.toDouble()
+            // To the day for the inner four. The giant planets carry
+            // Standish's terms on the mean anomaly — the great inequality
+            // of Jupiter and Saturn and the pull of each on the next — and
+            // those move the orbit under the planet while it goes round,
+            // so a turn of it is its mean year give or take a week, as
+            // the real one is.
+            val giant = body in listOf(
+                Orrery.Body.JUPITER, Orrery.Body.SATURN, Orrery.Body.URANUS, Orrery.Body.NEPTUNE
+            )
             assertEquals(
                 "$body did not come back to where it started",
-                Orrery.periodDays(body), days, 0.5
+                Orrery.periodDays(body), days, if (giant) 12.0 else 0.5
             )
         }
     }
@@ -201,8 +217,15 @@ class OrreryTest {
         fun wholeTurn(body: Orrery.Body): Long {
             var total = 0L
             var last = 0.0
+            // Each step from the instant the last one landed at, as a
+            // drag does: the giant planets' corrections move with the
+            // date, and a chain of steps all worked out from one instant
+            // comes up five days short on Saturn.
+            var now = at(2026, 8, 18)
             for (step in 1..360) {
-                total += Orrery.stepMs(body, last, step.toDouble())
+                val moved = Orrery.stepMs(body, last, step.toDouble(), now)
+                total += moved
+                now += moved
                 last = step.toDouble()
             }
             return total
@@ -298,8 +321,15 @@ class OrreryTest {
         fun moonTurnsFor(body: Orrery.Body): Double {
             var total = 0L
             var last = 0.0
+            // Each step from the instant the last one landed at, as a
+            // drag does: the giant planets' corrections move with the
+            // date, and a chain of steps all worked out from one instant
+            // comes up five days short on Saturn.
+            var now = at(2026, 8, 18)
             for (step in 1..360) {
-                total += Orrery.stepMs(body, last, step.toDouble())
+                val moved = Orrery.stepMs(body, last, step.toDouble(), now)
+                total += moved
+                now += moved
                 last = step.toDouble()
             }
             return total / CivilDays.DAY_MS / Orrery.periodDays(Orrery.Body.MOON)

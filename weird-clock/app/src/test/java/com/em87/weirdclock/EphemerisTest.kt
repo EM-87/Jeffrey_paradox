@@ -39,16 +39,13 @@ class EphemerisTest {
         // 1582-Mar-10 23:00 359.9618018, 00:00 0.0030129 → 23:56.
         // 2026-Mar-20 14:00 359.9682634, 15:00 0.0096802 → 14:46.
         // A hundredth of a degree is a quarter of an hour of the Sun's
-        // travel; the orbit is good to a few hundredths near now. In the
-        // year 1000 it reads 0.065° short and in 1582 0.035°: the elements
-        // are the short table's, with the eccentricity and the perihelion
-        // frozen at their J2000 values, and the centuries of their drift
-        // are most of that. The long table tightens both to the same
-        // three hundredths; ΔT, a quarter of an hour of the Sun in the
-        // year 1000, the rest.
+        // travel; the orbit is good to a hundredth. With the short table
+        // of elements the year 1000 read 0.065° short and 1582 0.035°,
+        // from a frozen eccentricity and perihelion; the long table and ΔT
+        // brought both under a hundredth.
         val equinoxes = listOf(
-            Triple("1000", at(1000, 3, 14, 23, 11), 0.1),
-            Triple("1582", at(1582, 3, 10, 23, 56), 0.05),
+            Triple("1000", at(1000, 3, 14, 23, 11), 0.03),
+            Triple("1582", at(1582, 3, 10, 23, 56), 0.03),
             Triple("2026", at(2026, 3, 20, 14, 46), 0.03)
         )
         for ((name, ms, within) in equinoxes) {
@@ -65,8 +62,8 @@ class EphemerisTest {
         val anchors = listOf(
             // The eclipse of Thales: 19:28:50 TD less the Canon's 18384 s
             // of ΔT is 14:22:26 UT, and Horizons was asked for that UT.
-            // Half a degree here until the long table: the short table's
-            // Earth is twenty-six centuries from home at this one.
+            // The short table's Earth read 0.29° off here, twenty-six
+            // centuries from home; the long table's reads 0.009°.
             Triple("-584-05-28 14:22:26", at(-584, 5, 28, 14, 22, 26), 59.7254464),
             Triple("1715-05-03 09:36:20", at(1715, 5, 3, 9, 36, 20), 42.2456452),
             Triple("1999-08-11 11:03:05", at(1999, 8, 11, 11, 3, 5), 138.3497192),
@@ -77,7 +74,7 @@ class EphemerisTest {
         )
         for ((name, ms, horizons) in anchors) {
             val lon = Ephemeris.sunLongitudeOfDate(ms)
-            val within = if (name.startsWith("-584")) 0.5 else 0.03
+            val within = if (name.startsWith("-584")) 0.05 else 0.03
             println("EPHEMERIS sun $name: reads %.4f°, Horizons %.4f°, off %.3f°".format(lon, horizons, apart(lon, horizons)))
             assertTrue("$name: the Sun reads $lon°, Horizons $horizons°", apart(lon, horizons) < within)
         }

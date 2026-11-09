@@ -5346,7 +5346,7 @@ class ClockView @JvmOverloads constructor(
      */
     internal fun windOrreryForTest(body: Orrery.Body, degrees: Double): Long {
         val from = Orrery.longitude(body, orreryMs())
-        winding.nudge(Orrery.stepMs(body, from, Orrery.wrap(from + degrees)))
+        winding.nudge(Orrery.stepMs(body, from, Orrery.wrap(from + degrees), orreryMs()))
         invalidate()
         return orreryMs()
     }
@@ -5444,7 +5444,7 @@ class ClockView @JvmOverloads constructor(
     private fun dragBodyTo(x: Float, y: Float) {
         val body = grabbedBody ?: return
         val from = fingerLongitude(body, x, y)
-        winding.nudge(Orrery.stepMs(body, lastBodyLongitude, from))
+        winding.nudge(Orrery.stepMs(body, lastBodyLongitude, from, orreryMs()))
         lastBodyLongitude = from
         invalidate()
     }

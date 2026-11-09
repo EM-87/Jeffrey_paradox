@@ -57,7 +57,33 @@ object Orrery {
         val longitudeAtEpoch: Double,
         val degreesPerDay: Double,
         val eccentricity: Double,
-        val perihelion: Double
+        val perihelion: Double,
+        /** How the eccentricity and the perihelion drift, per century. */
+        val eccentricityRate: Double = 0.0,
+        val perihelionRate: Double = 0.0,
+        /**
+         * Standish's additional terms on the mean anomaly for the giant
+         * planets — bT² + c·cos(fT) + s·sin(fT), f in degrees per century
+         * — which are the great inequality of Jupiter and Saturn and the
+         * pull of each on the next, and without which the long table is
+         * a degree out by the year 1000.
+         */
+        val b: Double = 0.0,
+        val c: Double = 0.0,
+        val s: Double = 0.0,
+        val f: Double = 0.0,
+        /**
+         * How the orbit is tilted to the ecliptic and where it crosses
+         * it, with their rates per century. A planet's longitude is
+         * measured round its own tilted orbit; what the dial plots — and
+         * what an ephemeris gives — is that angle laid flat onto the
+         * ecliptic, which for Mercury's seven degrees of tilt is up to a
+         * fifth of a degree different. See [projected].
+         */
+        val inclination: Double = 0.0,
+        val inclinationRate: Double = 0.0,
+        val node: Double = 0.0,
+        val nodeRate: Double = 0.0
     ) {
         val periodDays: Double get() = 360.0 / degreesPerDay
     }
@@ -65,15 +91,70 @@ object Orrery {
     /** Days in a Julian century, the unit Standish's rates are given in. */
     private const val CENTURY = 36525.0
 
+    /**
+     * Standish's elements for 3000 BC to 3000 AD — Table 2a and the
+     * additional terms of Table 2b of "Keplerian Elements for Approximate
+     * Positions of the Major Planets", copied from the JPL Solar System
+     * Dynamics page https://ssd.jpl.nasa.gov/planets/approx_pos.html —
+     * each with the J2000 value and its rate per Julian century. The
+     * Earth's are the Earth–Moon barycentre's, which is the Earth to a
+     * few arcseconds. The short table for 1800–2050 is a shade better in
+     * its own two centuries and useless outside them; one table for the
+     * whole dial is a planet that never jumps at a date.
+     */
     private val turns: Map<Body, Turn> = mapOf(
-        Body.MERCURY to Turn(252.25032350, 149472.67411175 / CENTURY, 0.20563593, 77.45779628),
-        Body.VENUS to Turn(181.97909950, 58517.81538729 / CENTURY, 0.00677672, 131.60246718),
-        Body.EARTH to Turn(100.46457166, 35999.37244981 / CENTURY, 0.01671123, 102.93768193),
-        Body.MARS to Turn(-4.55343205, 19140.30268499 / CENTURY, 0.09339410, -23.94362959),
-        Body.JUPITER to Turn(34.39644051, 3034.74612775 / CENTURY, 0.04838624, 14.72847983),
-        Body.SATURN to Turn(49.95424423, 1222.49362201 / CENTURY, 0.05386179, 92.59887831),
-        Body.URANUS to Turn(313.23810451, 428.48202785 / CENTURY, 0.04725744, 170.95427630),
-        Body.NEPTUNE to Turn(-55.12002969, 218.45945325 / CENTURY, 0.00859048, 44.96476227),
+        Body.MERCURY to Turn(
+            252.25166724, 149472.67486623 / CENTURY, 0.20563661, 77.45771895,
+            eccentricityRate = 0.00002123, perihelionRate = 0.15940013,
+            inclination = 7.00559432, inclinationRate = -0.00590158,
+            node = 48.33961819, nodeRate = -0.12214182
+        ),
+        Body.VENUS to Turn(
+            181.97970850, 58517.81560260 / CENTURY, 0.00676399, 131.76755713,
+            eccentricityRate = -0.00005107, perihelionRate = 0.05679648,
+            inclination = 3.39777545, inclinationRate = 0.00043494,
+            node = 76.67261496, nodeRate = -0.27274174
+        ),
+        Body.EARTH to Turn(
+            100.46691572, 35999.37306329 / CENTURY, 0.01673163, 102.93005885,
+            eccentricityRate = -0.00003661, perihelionRate = 0.31795260,
+            inclination = -0.00054346, inclinationRate = -0.01337178,
+            node = -5.11260389, nodeRate = -0.24123856
+        ),
+        Body.MARS to Turn(
+            -4.56813164, 19140.29934243 / CENTURY, 0.09336511, -23.91744784,
+            eccentricityRate = 0.00009149, perihelionRate = 0.45223625,
+            inclination = 1.85181869, inclinationRate = -0.00724757,
+            node = 49.71320984, nodeRate = -0.26852431
+        ),
+        Body.JUPITER to Turn(
+            34.33479152, 3034.90371757 / CENTURY, 0.04853590, 14.27495244,
+            eccentricityRate = 0.00018026, perihelionRate = 0.18199196,
+            b = -0.00012452, c = 0.06064060, s = -0.35635438, f = 38.35125000,
+            inclination = 1.29861416, inclinationRate = -0.00322699,
+            node = 100.29282654, nodeRate = 0.13024619
+        ),
+        Body.SATURN to Turn(
+            50.07571329, 1222.11494724 / CENTURY, 0.05550825, 92.86136063,
+            eccentricityRate = -0.00032044, perihelionRate = 0.54179478,
+            b = 0.00025899, c = -0.13434469, s = 0.87320147, f = 38.35125000,
+            inclination = 2.49424102, inclinationRate = 0.00451969,
+            node = 113.63998702, nodeRate = -0.25015002
+        ),
+        Body.URANUS to Turn(
+            314.20276625, 428.49512595 / CENTURY, 0.04685740, 172.43404441,
+            eccentricityRate = -0.00001550, perihelionRate = 0.09266985,
+            b = 0.00058331, c = -0.97731848, s = 0.17689245, f = 7.67025000,
+            inclination = 0.77298127, inclinationRate = -0.00180155,
+            node = 73.96250215, nodeRate = 0.05739699
+        ),
+        Body.NEPTUNE to Turn(
+            304.22289287, 218.46515314 / CENTURY, 0.00895439, 46.68158724,
+            eccentricityRate = 0.00000818, perihelionRate = 0.01009938,
+            b = -0.00041348, c = 0.68346318, s = -0.10162547, f = 7.67025000,
+            inclination = 1.77005520, inclinationRate = 0.00022400,
+            node = 131.78635853, nodeRate = -0.00606302
+        ),
         // The Moon's longitude is measured from the Earth, not the Sun, and
         // this is its mean sidereal rate: one turn of the sky in 27.32
         // days, measured from the same fixed line as the planets. The
@@ -135,7 +216,32 @@ object Orrery {
         // The Moon is not an ellipse round the Sun; it is the one Moon of
         // [Ephemeris], in this frame.
         if (body == Body.MOON) Ephemeris.moonLongitudeJ2000(atMs)
-        else trueFromMean(body, meanLongitude(body, atMs))
+        else projected(turn(body), trueFromMean(body, meanLongitude(body, atMs), atMs), Ephemeris.centuries(atMs))
+
+    /**
+     * An angle round a body's own tilted orbit, laid flat onto the
+     * ecliptic: the longitude an ephemeris gives and the dial plots.
+     *
+     * The two are the same at the nodes and differ most forty-five
+     * degrees from them, by about a quarter of the tilt squared — a fifth
+     * of a degree for Mercury, nothing to speak of for the rest. Measured
+     * against Horizons that fifth of a degree was the whole of Mercury's
+     * error, at every date.
+     */
+    private fun projected(t: Turn, inOrbitDeg: Double, centuries: Double): Double {
+        val node = t.node + t.nodeRate * centuries
+        val tilt = Math.toRadians(t.inclination + t.inclinationRate * centuries)
+        val u = Math.toRadians(inOrbitDeg - node)
+        return wrap(node + Math.toDegrees(kotlin.math.atan2(kotlin.math.cos(tilt) * kotlin.math.sin(u), kotlin.math.cos(u))))
+    }
+
+    /** And back off the ecliptic onto the orbit, which is what a finger on the dial needs. */
+    private fun lifted(t: Turn, eclipticDeg: Double, centuries: Double): Double {
+        val node = t.node + t.nodeRate * centuries
+        val tilt = Math.toRadians(t.inclination + t.inclinationRate * centuries)
+        val l = Math.toRadians(eclipticDeg - node)
+        return wrap(node + Math.toDegrees(kotlin.math.atan2(kotlin.math.sin(l) / kotlin.math.cos(tilt), kotlin.math.cos(l))))
+    }
 
     // ------------------------------------------------ round the ellipse
 
@@ -147,11 +253,14 @@ object Orrery {
      * enough for every orbit here — Mercury's, the most lopsided of them,
      * settles in three — and the loop stops as soon as it stops moving.
      */
-    fun trueFromMean(body: Body, meanLongitudeDeg: Double): Double {
+    fun trueFromMean(body: Body, meanLongitudeDeg: Double, atMs: Long = TimeKeeper.nowMs()): Double {
         val t = turn(body)
         if (t.eccentricity == 0.0) return wrap(meanLongitudeDeg)
-        val e = t.eccentricity
-        val m = Math.toRadians(wrapSigned(meanLongitudeDeg - t.perihelion))
+        val centuries = Ephemeris.centuries(atMs)
+        val e = t.eccentricity + t.eccentricityRate * centuries
+        val m = Math.toRadians(
+            wrapSigned(meanLongitudeDeg - perihelionAt(t, centuries) + extraAnomalyDeg(t, centuries))
+        )
         var ecc = m + e * kotlin.math.sin(m)
         repeat(6) {
             val d = (ecc - e * kotlin.math.sin(ecc) - m) / (1 - e * kotlin.math.cos(ecc))
@@ -162,7 +271,22 @@ object Orrery {
             kotlin.math.sqrt(1 + e) * kotlin.math.sin(ecc / 2),
             kotlin.math.sqrt(1 - e) * kotlin.math.cos(ecc / 2)
         )
-        return wrap(Math.toDegrees(trueAnomaly) + t.perihelion)
+        return wrap(Math.toDegrees(trueAnomaly) + perihelionAt(t, centuries))
+    }
+
+    /** Where the long axis points at [centuries] from J2000: it turns, slowly. */
+    private fun perihelionAt(t: Turn, centuries: Double): Double =
+        t.perihelion + t.perihelionRate * centuries
+
+    /**
+     * Standish's correction to the mean anomaly of the giant planets at
+     * [centuries] from J2000, in degrees — see [Turn.b]. Nought for the
+     * inner four, whose terms are nought.
+     */
+    private fun extraAnomalyDeg(t: Turn, centuries: Double): Double {
+        if (t.b == 0.0 && t.c == 0.0 && t.s == 0.0) return 0.0
+        val ft = Math.toRadians(t.f * centuries)
+        return t.b * centuries * centuries + t.c * kotlin.math.cos(ft) + t.s * kotlin.math.sin(ft)
     }
 
     /**
@@ -173,17 +297,21 @@ object Orrery {
      * Kepler's equation run backwards is not a solve, it is a formula —
      * true angle to eccentric angle to mean angle, each step exact.
      */
-    fun meanFromTrue(body: Body, trueLongitudeDeg: Double): Double {
+    fun meanFromTrue(body: Body, trueLongitudeDeg: Double, atMs: Long = TimeKeeper.nowMs()): Double {
         val t = turn(body)
         if (t.eccentricity == 0.0) return wrap(trueLongitudeDeg)
-        val e = t.eccentricity
-        val v = Math.toRadians(wrapSigned(trueLongitudeDeg - t.perihelion))
+        val centuries = Ephemeris.centuries(atMs)
+        val e = t.eccentricity + t.eccentricityRate * centuries
+        val perihelion = perihelionAt(t, centuries)
+        // The finger points along the ecliptic; the ellipse is in the orbit.
+        val inOrbit = lifted(t, trueLongitudeDeg, centuries)
+        val v = Math.toRadians(wrapSigned(inOrbit - perihelion))
         val ecc = 2.0 * kotlin.math.atan2(
             kotlin.math.sqrt(1 - e) * kotlin.math.sin(v / 2),
             kotlin.math.sqrt(1 + e) * kotlin.math.cos(v / 2)
         )
         val m = ecc - e * kotlin.math.sin(ecc)
-        return wrap(Math.toDegrees(m) + t.perihelion)
+        return wrap(Math.toDegrees(m) + perihelion - extraAnomalyDeg(t, centuries))
     }
 
     /** Where the Sun stands as seen from the Earth: opposite the Earth. */
@@ -223,12 +351,19 @@ object Orrery {
      * finger by a fifth of its orbit at aphelion and overshoot at
      * perihelion.
      */
-    fun stepMs(body: Body, fromLongitude: Double, toLongitude: Double): Long {
-        val moved = shortWay(
-            meanFromTrue(body, fromLongitude),
-            meanFromTrue(body, toLongitude)
-        )
-        return (moved / 360.0 * periodDays(body) * DAY_MS).roundToLong()
+    fun stepMs(body: Body, fromLongitude: Double, toLongitude: Double, atMs: Long = TimeKeeper.nowMs()): Long {
+        val from = meanFromTrue(body, fromLongitude, atMs)
+        var step = 0L
+        // Twice round: the ellipse the body lands on is the ellipse of
+        // the instant it lands at, not of the one it left — Jupiter's
+        // perihelion and its corrections move a hundredth of a degree
+        // over the four years a quarter turn of it takes — so the landing
+        // is read once, and the step worked out again for that instant.
+        repeat(2) {
+            val moved = shortWay(from, meanFromTrue(body, toLongitude, atMs + step))
+            step = (moved / 360.0 * periodDays(body) * DAY_MS).roundToLong()
+        }
+        return step
     }
 
     /**
