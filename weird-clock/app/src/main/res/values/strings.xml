@@ -407,6 +407,10 @@
     <string name="sky_new_moon">New moon</string>
     <string name="sky_opposition">%1$s at its brightest</string>
     <string name="orrery_aligned">%1$s in line</string>
+    <!-- Under the sky's date, when it is written in the Julian calendar:
+         day, short month, year (or "3000 BC"). -->
+    <string name="orrery_julian_date">%1$d %2$s %3$s, Julian</string>
+    <string name="year_before_christ">%1$d BC</string>
     <string name="orrery_title">Solar system</string>
     <string name="orrery_summary">Tap the sun or moon on the dial and the hands give way to the planets. Drag one and the rest follow.</string>
 

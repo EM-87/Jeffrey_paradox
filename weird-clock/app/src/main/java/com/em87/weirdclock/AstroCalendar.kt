@@ -56,6 +56,27 @@ object AstroCalendar {
     /** The date an instant falls on, UTC, in the calendar in force. */
     fun dateAt(atMs: Long): Date = dateOf(jdnOf(atMs))
 
+    /** The same, on a clock [zoneOffsetMs] from UTC: the date where the phone is. */
+    fun dateAt(atMs: Long, zoneOffsetMs: Int): Date = dateOf(jdnOf(atMs + zoneOffsetMs))
+
+    /**
+     * The calendar in force, in the day numbers the rest of the app keeps
+     * — days since the Unix epoch, as [CivilDays] counts them. [CivilDays]
+     * itself stays proleptic Gregorian, which is what alarms and backups
+     * want; the sky asks here, so that a ring wound to the year 1000
+     * puts the first of March where the people of the year 1000 did.
+     */
+    fun epochDayOf(year: Int, month: Int, day: Int): Int = (jdnOf(year, month, day) - EPOCH_JDN).toInt()
+
+    /** The year, month and day of a day since the epoch, in the calendar in force. */
+    fun dateOfEpochDay(epochDay: Int): Triple<Int, Int, Int> {
+        val d = dateOf(epochDay + EPOCH_JDN)
+        return Triple(d.year, d.month, d.day)
+    }
+
+    /** How many days the calendar year [year] has, in the calendar in force. */
+    fun daysInYear(year: Int): Int = epochDayOf(year + 1, 1, 1) - epochDayOf(year, 1, 1)
+
     /**
      * The Julian day number of a date written in the calendar in force —
      * Julian before the switch, Gregorian from it. A date that does not

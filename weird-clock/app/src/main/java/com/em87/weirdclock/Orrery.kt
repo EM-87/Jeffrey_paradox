@@ -505,8 +505,7 @@ object Orrery {
     }
 
     /** Days in a civil year: 366 in a leap year, 365 otherwise. */
-    fun daysInYear(year: Int): Int =
-        CivilDays.epochDay(year + 1, 1, 1) - CivilDays.epochDay(year, 1, 1)
+    fun daysInYear(year: Int): Int = AstroCalendar.daysInYear(year)
 
     /** The Moon's orbit, as a fraction of the dial — a small ring on Earth's. */
     const val MOON_RING = 0.055f

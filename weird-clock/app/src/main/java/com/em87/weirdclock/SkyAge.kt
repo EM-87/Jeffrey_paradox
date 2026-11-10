@@ -74,18 +74,11 @@ object SkyAge {
      * GregorianCalendar is not a cheap object. Everything that calls it is
      * on the drawing thread.
      */
-    fun yearOf(atMs: Long): Int {
-        val cal = scratch
-        cal.timeInMillis = atMs
-        val year = cal.get(java.util.Calendar.YEAR)
-        return if (cal.get(java.util.Calendar.ERA) == java.util.GregorianCalendar.BC) {
-            1 - year
-        } else {
-            year
-        }
-    }
-
-    private val scratch: java.util.Calendar = java.util.Calendar.getInstance()
+    fun yearOf(atMs: Long): Int =
+        // The astronomers' year — nought before one, Julian before 1582 —
+        // from [AstroCalendar], and not from the phone's calendar, which
+        // on some locales is not a Gregorian one at all.
+        AstroCalendar.dateAt(atMs, java.util.TimeZone.getDefault().getOffset(atMs)).year
 
     /** And what the dial leaves out at a given instant. */
     fun unknownAt(atMs: Long): Set<Orrery.Body> = unknownIn(yearOf(atMs))

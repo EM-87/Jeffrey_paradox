@@ -424,7 +424,7 @@ object OrreryDial {
         // A dial being wound through the centuries would otherwise keep
         // every year it passed through.
         if (quarterCache.size > 8) quarterCache.clear()
-        val first = CivilDays.epochDay(year, 1, 1)
+        val first = AstroCalendar.epochDayOf(year, 1, 1)
         val found = mutableSetOf<Int>()
         var wasQuadrant = -1
         for (i in 0 until Orrery.daysInYear(year)) {
@@ -454,7 +454,7 @@ object OrreryDial {
      * year that ends in it begins.
      */
     private fun solsticeOf(year: Int): Int =
-        quarterDays(year).maxOrNull() ?: CivilDays.epochDay(year, 12, 21)
+        quarterDays(year).maxOrNull() ?: AstroCalendar.epochDayOf(year, 12, 21)
 
     /**
      * The day the astronomical year containing [day] began.
@@ -471,14 +471,14 @@ object OrreryDial {
      * Year are ten days of the old year on a ring that has already turned.
      */
     fun yearStart(day: Int): Int {
-        val year = CivilDays.dateOf(day).first
+        val year = AstroCalendar.dateOfEpochDay(day).first
         val thisYears = solsticeOf(year)
         return if (day >= thisYears) thisYears else solsticeOf(year - 1)
     }
 
     /** How many days that year runs for: one solstice to the next. */
     fun yearLength(startDay: Int): Int =
-        solsticeOf(CivilDays.dateOf(startDay).first + 1) - startDay
+        solsticeOf(AstroCalendar.dateOfEpochDay(startDay).first + 1) - startDay
 
     /**
      * The year the dial is standing in, marked out in days.
@@ -512,13 +512,13 @@ object OrreryDial {
         val first = yearStart(shown)
         val today = CivilDays.dayOf(TimeKeeper.nowMs(), 0)
         val rim = r * 0.94f
-        val startYear = CivilDays.dateOf(first).first
+        val startYear = AstroCalendar.dateOfEpochDay(first).first
         val quarters = quarterDays(startYear) + quarterDays(startYear + 1)
         for (i in 0 until yearLength(first)) {
             val day = first + i
             val angle = Orrery.longitude(Orrery.Body.EARTH, day * CivilDays.DAY_MS)
             val quarterDay = day in quarters
-            val monthStart = CivilDays.dateOf(day).third == 1
+            val monthStart = AstroCalendar.dateOfEpochDay(day).third == 1
             val length = when {
                 quarterDay -> 0.075f
                 monthStart -> 0.045f
@@ -610,7 +610,7 @@ object OrreryDial {
         alpha: Float,
         res: android.content.res.Resources?
     ) {
-        val names = monthNamesFor(res, CivilDays.dateOf(first).first) ?: return
+        val names = monthNamesFor(res, AstroCalendar.dateOfEpochDay(first).first) ?: return
         text.color = theme.numeral
         text.alpha = (150 * alpha).toInt()
         text.textSize = r * 0.045f
@@ -620,12 +620,12 @@ object OrreryDial {
         var day = first
         val end = first + yearLength(first)
         while (day < end) {
-            val (_, month, _) = CivilDays.dateOf(day)
+            val (_, month, _) = AstroCalendar.dateOfEpochDay(day)
             // This month's run on the ring, clipped to the year the ring is
             // showing: the first and last months are part months, and a
             // label centred on the whole month would sit off the end.
-            val monthEnd = minOf(end, CivilDays.epochDay(
-                CivilDays.dateOf(day).first + if (month == 12) 1 else 0,
+            val monthEnd = minOf(end, AstroCalendar.epochDayOf(
+                AstroCalendar.dateOfEpochDay(day).first + if (month == 12) 1 else 0,
                 if (month == 12) 1 else month + 1,
                 1
             ))
@@ -759,7 +759,7 @@ object OrreryDial {
         first: Int,
         alpha: Float
     ) {
-        if (CivilDays.dateOf(first).first < ZODIAC_FROM_YEAR) return
+        if (AstroCalendar.dateOfEpochDay(first).first < ZODIAC_FROM_YEAR) return
         text.color = theme.numeral
         text.alpha = (120 * alpha).toInt()
         text.textSize = r * 0.052f

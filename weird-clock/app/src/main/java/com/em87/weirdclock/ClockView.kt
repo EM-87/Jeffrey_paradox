@@ -5480,10 +5480,10 @@ class ClockView @JvmOverloads constructor(
      * them in, so it still reads the way the date window does.
      */
     internal fun orreryDateDigits(): String {
-        cal.timeInMillis = orreryMs()
-        val d = cal.get(Calendar.DAY_OF_MONTH)
-        val m = cal.get(Calendar.MONTH) + 1
-        val y = signedYear()
+        val shown = orreryDate()
+        val d = shown.day
+        val m = shown.month
+        val y = shown.year
         val first = if (dateDayFirst) d else m
         val second = if (dateDayFirst) m else d
         val script = orreryScript()
@@ -5513,23 +5513,35 @@ class ClockView @JvmOverloads constructor(
      * separate things need it and they must agree: the string, the way the
      * string is drawn, and the test that asks whether they match.
      */
-    internal fun orreryScript(): OrreryYear.Script {
-        cal.timeInMillis = orreryMs()
-        return OrreryYear.scriptFor(signedYear())
+    internal fun orreryScript(): OrreryYear.Script = OrreryYear.scriptFor(orreryDate().year)
+
+    /**
+     * The date the sky is wound to, where the phone is, by the astronomers'
+     * calendar — see [AstroCalendar]: Julian before the 15th of October
+     * 1582, Gregorian from it, the year nought before the year one.
+     */
+    private fun orreryDate(): AstroCalendar.Date {
+        val at = orreryMs()
+        return AstroCalendar.dateAt(at, TimeZone.getDefault().getOffset(at))
     }
 
     /**
-     * The year on [cal] as a number that can be negative.
-     *
-     * A Calendar never reports one. Wind the sky back past the year one
-     * and it hands over a cheerful positive year with a separate flag
-     * saying which side of the epoch it is on, so a script chosen from
-     * `get(YEAR)` alone sees 1251 where 1250 BC is, and writes it in
-     * Roman. Which is what it did.
+     * A word under the date when the calendar it is written in is not the
+     * one on the wall: "4 Feb 3000 BC, Julian". Only before the Gregorian
+     * reform, where the day and month the sky is wound to are not the
+     * ones a phone would print for that instant; the rest of the time the
+     * date is the date and needs no footnote.
      */
-    private fun signedYear(): Int {
-        val year = cal.get(Calendar.YEAR)
-        return if (cal.get(Calendar.ERA) == java.util.GregorianCalendar.BC) 1 - year else year
+    internal fun orreryCalendarNote(): String? {
+        val shown = orreryDate()
+        if (!shown.julian) return null
+        val month = java.text.DateFormatSymbols.getInstance().shortMonths[shown.month - 1]
+        val year = if (shown.year <= 0) {
+            context.getString(R.string.year_before_christ, 1 - shown.year)
+        } else {
+            shown.year.toString()
+        }
+        return context.getString(R.string.orrery_julian_date, shown.day, month, year)
     }
 
     /**
@@ -5797,9 +5809,7 @@ class ClockView @JvmOverloads constructor(
                 scripts.drawCuneiformDate(canvas, scriptFrame(), cx, yTop, digitH)
             }
             digitalPaint.alpha = keep
-            orreryCaption()?.let {
-                OrreryDial.drawCaption(canvas, cx, yTop + digitH * 1.45f, r, theme, it, fade, eraFace())
-            }
+            drawOrreryCaptions(canvas, cx, yTop + digitH * 1.45f, r, fade)
             return
         }
         when (script) {
@@ -5825,8 +5835,24 @@ class ClockView @JvmOverloads constructor(
             else -> drawSevenSegment(canvas, date, cx, yTop, digitH)
         }
         digitalPaint.alpha = keep
+        drawOrreryCaptions(canvas, cx, yTop + digitH * 1.45f, r, fade)
+    }
+
+    /**
+     * What is said under the date: the day's event, if there is one, and
+     * under that the calendar it is written in, if that is not the one on
+     * the wall — see [orreryCalendarNote]. The note is in the phone's own
+     * voice rather than the century's, because it is about the reader's
+     * calendar and not the sky's.
+     */
+    private fun drawOrreryCaptions(canvas: Canvas, cx: Float, baselineY: Float, r: Float, fade: Float) {
+        var y = baselineY
         orreryCaption()?.let {
-            OrreryDial.drawCaption(canvas, cx, yTop + digitH * 1.45f, r, theme, it, fade, eraFace())
+            OrreryDial.drawCaption(canvas, cx, y, r, theme, it, fade, eraFace())
+            y += r * 0.062f * 1.25f
+        }
+        orreryCalendarNote()?.let {
+            OrreryDial.drawCaption(canvas, cx, y, r, theme, it, fade * 0.8f)
         }
     }
 
