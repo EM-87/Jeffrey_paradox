@@ -6987,14 +6987,17 @@ index 0000000..998e336
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088C548_jp.s")
 diff --git a/src/overlays/submenu/ovl__00797A50/ovl__00797A50.c b/src/overlays/submenu/ovl__00797A50/ovl__00797A50.c
 new file mode 100644
-index 0000000..fea573d
+index 0000000..0ae543b
 --- /dev/null
 +++ b/src/overlays/submenu/ovl__00797A50/ovl__00797A50.c
-@@ -0,0 +1,224 @@
+@@ -0,0 +1,323 @@
 +#include "global.h"
 +#include "overlays/submenu/ovl__00797A50/ovl__00797A50.h"
 +#include "6B3DC0.h"
++#include "audio.h"
 +#include "m_common_data.h"
++#include "m_controller.h"
++#include "m_lib.h"
 +#include "m_mail.h"
 +#include "m_submenu.h"
 +
@@ -7003,11 +7006,20 @@ index 0000000..fea573d
 +/* The overlay's bss (0x80 bytes from 0x80895C50) */
 +u8 B_80895C50_jp[0x80];
 +
-+/* The board's entry of the submenu's menu infos (mSM_MenuInfo_c in AC GCN) */
++/* An entry of the submenu's menu infos (mSM_MenuInfo_c in AC GCN), the board's and the edit-end check's */
 +typedef struct mNT_MenuInfo {
 +    /* 0x00 */ s32 unk_00;
-+    /* 0x04 */ s32 procStatus; /* 2: waiting, the editor open over the board */
-+} mNT_MenuInfo;
++    /* 0x04 */ s32 procStatus; /* 1: playing, 2: waiting, the editor open over the board */
++    /* 0x08 */ UNK_TYPE1 unk_08[0x10];
++    /* 0x18 */ f32 position[2];
++    /* 0x20 */ UNK_TYPE1 unk_20[0x10];
++    /* 0x30 */ s32 nextProcStatus;
++    /* 0x34 */ s32 moveDrt;
++    /* 0x38 */ s32 data0;
++    /* 0x3C */ s32 data1; /* the edit-end check's answer: 0 done, 1 back to writing, else cancel */
++    /* 0x40 */ s32 data2;
++    /* 0x44 */ s32 unk_44;
++} mNT_MenuInfo; // size = 0x48
 +
 +#define mNT_CHAR_NEW_LINE 0xCD
 +#define mNT_LINE_LEN 16  /* characters a line */
@@ -7018,9 +7030,14 @@ index 0000000..fea573d
 +
 +/* The board's state (mNT_Ovl_c in AC GCN), as far as this file uses it */
 +typedef struct mNT_Ovl {
-+    /* 0x00 */ UNK_TYPE1 unk_00[3];
++    /* 0x00 */ u8 mode; /* 1: turning pages, 2: to the page being written, 3: back to the posts */
++    /* 0x01 */ u8 stickArea; /* the editor's eight areas: 0 left, 2 top, 4 right, 6 bottom, 8 none */
++    /* 0x02 */ UNK_TYPE1 unk_02[1];
 +    /* 0x03 */ u8 pageCount; /* the posts on the board */
-+    /* 0x04 */ UNK_TYPE1 unk_04[4];
++    /* 0x04 */ u8 nowPage; /* 15: the post being written */
++    /* 0x05 */ UNK_TYPE1 unk_05[1];
++    /* 0x06 */ u8 moveTime; /* pages a turn goes over, at most 3 */
++    /* 0x07 */ UNK_TYPE1 unk_07[1];
 +    /* 0x08 */ u8 post[mNT_POST_SIZE]; /* the post being written */
 +} mNT_Ovl;
 +
@@ -7038,7 +7055,10 @@ index 0000000..fea573d
 +
 +/* The submenu's overlay data (mSM_Overlay_c in AC GCN) as the board sees it */
 +typedef struct mNT_SubmenuOvl {
-+    /* 0x00000 */ UNK_TYPE1 unk_00000[0x106B4];
++    /* 0x00000 */ UNK_TYPE1 unk_00000[0x10088];
++    /* 0x10088 */ mNT_MenuInfo menuInfo[16]; /* the board's is the 7th, the edit-end check's the 16th */
++    /* 0x10508 */ UNK_TYPE1 unk_10508[0x106B0 - 0x10508];
++    /* 0x106B0 */ void (*moveChgBaseProc)(mNT_MenuInfo* menuInfo, s32 move);
 +    /* 0x106B4 */ void (*setCharMatrix)(struct GraphicsContext* graph);
 +    /* 0x106B8 */ UNK_TYPE1 unk_106B8[0x106E0 - 0x106B8];
 +    /* 0x106E0 */ mNT_EditorOvl* editorOvl;
@@ -7047,7 +7067,13 @@ index 0000000..fea573d
 +} mNT_SubmenuOvl;
 +
 +#define mNT_SUBMENU_OVL(submenu) ((mNT_SubmenuOvl*)(submenu)->unk_2C)
++#define mSM_OVL_EDITOR 10
++#define mSM_OVL_EDITENDCHK 15
++#define mED_TYPE_NOTICE 2
 +
++void func_800A5D30_jp(u8* post); /* code/m_notice.c: a post goes up */
++void func_8089429C_jp(void);
++void func_8089447C_jp(mNT_MenuInfo* menuInfo);
 +void func_80895038_jp(struct GraphicsContext* graph, f32 x, f32 y);
 +void func_80895298_jp(struct Game* game, s32 number, f32 x, f32 y);
 +void func_80895328_jp(struct Game* game, u8* time, f32 x, f32 y);
@@ -7062,7 +7088,55 @@ index 0000000..fea573d
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_8089447C_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894560_jp.s")
++/*
++ * The posts being read (mNT_Play_page_read in AC GCN): the stick or the C
++ * buttons turn a page, or go to the first or the last; A goes to a new
++ * page, dated now and blank, and opens the editor on it (a notice, 16
++ * characters a line); B or START closes the board.
++ */
++void func_80894560_jp(Submenu* submenu, mNT_MenuInfo* menuInfo, mNT_Ovl* noticeOvl) {
++    s32 stickArea = noticeOvl->stickArea;
++    s32 movePage = 0;
++    s32 moveTime;
++
++    if ((noticeOvl->nowPage > 0) && ((stickArea == 0) || chkTrigger(L_CBUTTONS))) {
++        movePage = -1;
++    } else if ((noticeOvl->nowPage < (noticeOvl->pageCount - 1)) && ((stickArea == 4) || chkTrigger(R_CBUTTONS))) {
++        movePage = 1;
++    } else if ((noticeOvl->nowPage > 0) && ((stickArea == 6) || chkTrigger(D_CBUTTONS))) {
++        movePage = -noticeOvl->nowPage;
++    } else if ((noticeOvl->nowPage < (noticeOvl->pageCount - 1)) && ((stickArea == 2) || chkTrigger(U_CBUTTONS))) {
++        movePage = (noticeOvl->pageCount - noticeOvl->nowPage) - 1;
++    } else if (chkTrigger(A_BUTTON)) {
++        noticeOvl->mode = 2;
++        noticeOvl->nowPage = mNT_POST_COUNT;
++        menuInfo->position[0] = 320.0f;
++        mem_copy(&noticeOvl->post[mNT_POST_TEXT_LEN], (u8*)&common_data.time.rtcTime, sizeof(lbRTC_time_c));
++        mem_clear(noticeOvl->post, mNT_POST_TEXT_LEN, ' ');
++        sAdo_SysTrgStart(0x5F);
++        mSM_open_submenu_new(submenu, mSM_OVL_EDITOR, mED_TYPE_NOTICE, mNT_LINE_LEN, (s32)noticeOvl->post);
++    } else if (chkTrigger(B_BUTTON) | chkTrigger(START_BUTTON)) {
++        mNT_SUBMENU_OVL(submenu)->moveChgBaseProc(menuInfo, 4);
++        sAdo_SysTrgStart(0x24);
++    }
++
++    if (movePage != 0) {
++        moveTime = ABS(movePage);
++        noticeOvl->mode = 1;
++        if (moveTime > 3) {
++            noticeOvl->moveTime = 3;
++        } else {
++            noticeOvl->moveTime = moveTime;
++        }
++        noticeOvl->nowPage += movePage / noticeOvl->moveTime;
++        if (movePage > 0) {
++            menuInfo->position[0] = 320.0f;
++        } else {
++            menuInfo->position[0] = -320.0f;
++        }
++        sAdo_SysTrgStart(0x5F);
++    }
++}
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894814_jp.s")
 +
@@ -7076,7 +7150,32 @@ index 0000000..fea573d
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894CC4_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894D28_jp.s")
++/*
++ * The edit-end check answered (mNT_move_Obey in AC GCN): done, the post
++ * goes up (func_800A5D30_jp) and the board closes; back to writing, the
++ * editor on the post again; cancel, back to the last post.
++ */
++void func_80894D28_jp(Submenu* submenu, mNT_MenuInfo* menuInfo) {
++    mNT_MenuInfo* editEndChk = &mNT_SUBMENU_OVL(submenu)->menuInfo[mSM_OVL_EDITENDCHK];
++    mNT_Ovl* noticeOvl = mNT_SUBMENU_OVL(submenu)->noticeOvl;
++
++    func_8089447C_jp(menuInfo);
++    if ((editEndChk->procStatus == 0) && (editEndChk->nextProcStatus == 4)) {
++        if (editEndChk->data1 == 0) {
++            func_800A5D30_jp(noticeOvl->post);
++            mNT_SUBMENU_OVL(submenu)->moveChgBaseProc(menuInfo, 4);
++            func_8089429C_jp();
++        } else if (editEndChk->data1 == 1) {
++            mSM_open_submenu_new(submenu, mSM_OVL_EDITOR, mED_TYPE_NOTICE, 0, (s32)noticeOvl->post);
++            menuInfo->procStatus = 1;
++        } else {
++            menuInfo->procStatus = 1;
++            noticeOvl->mode = 3;
++            noticeOvl->nowPage = noticeOvl->pageCount - 1;
++            menuInfo->position[0] = -320.0f;
++        }
++    }
++}
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894E40_jp.s")
 +

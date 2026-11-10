@@ -2047,16 +2047,92 @@ what goes in it: "The letters in the en build").
   cell. NON_MATCHING by one instruction: the cartridge copies `str` into
   the loop's pointer with `addu v0, s5, $zero`, the C with `or`; eleven
   forms of the loop tried. The editor (`ovl__0078CB80`) lays a notice
-  (its kind 2) out the same way, 16 characters a line over 6 lines; the
-  en build's width model covers only a letter's body so far.
+  (its kind 2) out the same way, 16 characters a line over 6 lines.
+- **Writing a notice** (matching.patch: both match). Reading the posts
+  (`func_80894560_jp`, mNT_Play_page_read), the stick's areas or the C
+  buttons turn a page or go to the first or the last (the page compared
+  `> 0`, the cartridge's `blezl`: `!= 0` gives `beqzl`); A goes to page
+  15, dated now (`common_data.time.rtcTime`), its text cleared, and
+  opens the editor on it (`mSM_open_submenu_new(submenu, 10, 2, 16,
+  post)`: a notice, 16 characters a line); B or START closes the board.
+  When the edit-end check answers (`func_80894D28_jp`, mNT_move_Obey;
+  the check's menu info is the submenu's 16th), done puts the post up
+  (`func_800A5D30_jp`) and closes the board, back to writing reopens the
+  editor (its kind 2, no line length: the editor keeps its own), cancel
+  goes back to the last post. While a notice is written the board rises
+  (its menu info's y, 16 with four lines) to keep the cursor's line
+  above the dial.
 - **What English needs.** At 16 characters a line the English breaks in
   mid-word; at 96 bytes a post holds less than the game's own: of the 124
-  letters from 0x1A4 (the notices the game posts), 109 are longer than 96
-  bytes in the translation's bank (median 152, longest 175), and would be
-  cut. The GameCube keeps 192 bytes a post (`mNtc_board_post_c`, 0xC8 with
-  its time) and breaks its lines by width (`mNT_strLineCheck`:
+  letters from 0x1A4 (the notices the game posts), 110 are longer than 96
+  bytes in the translation's bank with the checks' free strings (the
+  longest 174), and would be cut; so are the new game's four (136 to 165).
+  The GameCube keeps 192 bytes a post (`mNtc_board_post_c`, 0xC8 with its
+  time) and breaks its lines by width (`mNT_strLineCheck`:
   `mNT_MAX_WIDTH` 192, `mNT_MAX_LINES` 6; by character, its text breaking
-  its own lines). The plan: a post's rest in the save's extension as a
-  letter's is, the board drawing the whole post by width as the letter
-  board does, the editor writing a notice as it writes a letter's body,
-  and the game's posts put up whole.
+  its own lines; a seventh line is not drawn, as notice 430's, whose
+  GameCube text has seven).
+- **The posts in the en build** (changes.patch). A post keeps the
+  cartridge's 96 bytes and its time in the save; the rest of the
+  GameCube's 192 goes into the save's extension as a letter's rest does
+  ("The letters in the en build"), under a key made of the post's 0x68
+  bytes (FNV-1a: a post is copied whole when it goes up and when the
+  posts move up, and its time keeps two posts of the same text apart),
+  the record's header and footer rests empty. Where the rest comes from,
+  `mHandbill_en_FileNotice` tells by the post's own 96 bytes: the notice
+  the player wrote (`mHandbill_en_editBody`, whose first 96 bytes the
+  board puts in the post), or the letter the loaders made last (the
+  game's posts are letters loaded into a post just before it goes up).
+  `func_800A5D30_jp` forwards to `m_handbill.c` (`mHandbill_en_NoticeWrite`:
+  the rest filed, then the cartridge's), and the new game's board files
+  each of its four posts after loading it; m_notice's text shrinks (0xCC0
+  to 0xC30) and stays in place, its old bytes padded. The collection
+  before each save keeps the records of the save's 15 posts as well as
+  its 87 letters'; the letters the game's posts were loaded from are
+  filed under their own key too and go at the next save. The cap stays
+  0x2400: a post's record is at most 103 bytes (15 make 1,545), the
+  English letters' average 70; with every letter and post of a save at
+  its longest the oldest records would go first.
+- **The board in the en build.** `func_8089542C_jp` forwards to
+  `mHandbill_en_NoticeText`, which lays the post out as a letter's body
+  (`mHandbill_en_DrawBody`, the letter board's writing body, now shared:
+  192 pixels after the last space that fits, its newlines kept, six
+  lines, a line's newline drawn while the editor is open, the end mark
+  after the last character) in the board's (30, 0, 0); `func_8089562C_jp`
+  reads a post whole (`mHandbill_en_GetNotice`: its 96 bytes, the
+  extension's rest, spaces after) and puts the editor's cursor at its
+  text's width less 7.5, as the letter board's. A notice is written in
+  `mHandbill_en_editBody`: A clears it and gives it to the editor, back to
+  writing gives it again, done copies its first 96 bytes into the post;
+  the editor (`mHandbill_en_EditInit`) lays a notice (kind 2) out by width
+  as a letter's body, 32 characters a line. The overlay shrinks (text
+  0x1970 to 0x17E0; `EN_OVERLAYS`: fado gives the cartridge's 69
+  relocations from the matching objects, the en build's are 67).
+  `code_en` grows by 0xC0 bytes (to 0x1B620): the code that draws the
+  letter board's body is the notice's too.
+- **Measured** (`tests/emu_notice.py`, `make notice-check-en`, from the
+  houses' state of route-en, the free strings set to known text). The new
+  game's four posts hold their letters' first 96 bytes, and the
+  extension their rests (44, 69, 40 and 57 bytes) under each post's key;
+  five of the game's notices put up from a hook as `func_800A5F08_jp`
+  puts one (536, 430, 528, 511 and the empty 463) are filed the same way,
+  none for the empty one. Opened, the board turned from the newest post
+  to the oldest draws each post whole with the model's lines (each
+  line's first and last text pixel against tests/emu_board.py's model of
+  the letter board, at the board's place: its text from the screen's
+  (63, 63), the frame's x of its left edge 129.35 and 1.960 frame pixels
+  to the pixel, fitted on the 96 line ends of the nine posts, residuals
+  within 1.7; the letter board's 1.954 leaves 2.1): all 54 bands; the
+  model fails 12 with its lines broken 20 px early, 47 with a space 1 px
+  wider, and the cartridge's 16 characters a line 46. The board full, a
+  post put up moves the others up, the oldest going, each keeping its
+  rest. A notice typed on the dial (A on the board) is written in the
+  letters' 192-byte body, 32 characters a line: 105 bytes kept whole, the
+  cursor at the model's line and column, the board risen 16 rows, the
+  four lines where the model has them and the end mark right after the
+  text; finished (START, the edit-end check's first answer) the post
+  holds its first 96 bytes and its time, the extension the other 9 under
+  the post's key, and read on the board it is drawn whole. The save keeps
+  the 14 posts' rests in both slots and drops the letters the posts were
+  loaded from (14 records of 24); the load brings the extension back, and
+  the notice is read whole again.

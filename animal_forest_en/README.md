@@ -242,10 +242,24 @@ inglés los lleva con dos números que ninguno de los dos juegos usa
 en mensajes, elecciones y cartas por el código del juego, y mide en
 pantalla el nombre del dinero en el inventario.
 
-Lo que viene: el tablón de anuncios (parte sus líneas por número de
-letras, no por anchura), el logo del título del parche de 2010 y el aviso
-de mando desconectado, las texturas occidentales de GameCube donde las
-haya (letreros) y traducir ese 6 %.
+El tablón de anuncios guarda notas de 192 bytes, como GameCube. El
+cartucho guarda 96 por nota, y el inglés de 110 de las 124 notas del juego
+pasa de 96; el build en inglés deja los primeros 96 en la partida y el
+resto en la extensión que ya guarda el resto de las cartas, bajo una clave
+hecha con la nota y su fecha. El tablón dibuja cada nota entera, por
+anchura como el cuerpo de una carta (192 píxeles, seis líneas, cortando
+tras el último espacio que cabe), y el editor escribe una nota nueva en el
+mismo búfer de 192 bytes que una carta, 32 letras por línea. Las funciones
+del tablón que abren el editor, publican la nota y dibujan la página
+pasaron antes a C, idénticas al cartucho ("The bulletin board").
+`make notice-check-en` publica notas como las publica el juego, pasa las
+páginas del tablón y mide cada línea en la imagen contra el modelo, teclea
+en el dial una nota de más de 96 bytes, la termina, la lee entera, y la
+guarda y la carga con la partida.
+
+Lo que viene: el logo del título del parche de 2010 y el aviso de mando
+desconectado, las texturas occidentales de GameCube donde las haya
+(letreros) y traducir ese 6 %.
 
 ## Dónde está cada cosa
 
@@ -278,6 +292,6 @@ haya (letreros) y traducir ese 6 %.
   (`make emu-check`) y las pruebas del build en inglés en el emulador:
   `emu_save.py` (la partida), `emu_letters.py` (las cartas),
   `emu_board.py` (el tablero de cartas), `emu_write.py` (escribir una
-  carta) y `emu_menus.py` (las cadenas de los menús y los nombres de los
-  objetos).
+  carta), `emu_notice.py` (el tablón de anuncios) y `emu_menus.py` (las
+  cadenas de los menús y los nombres de los objetos).
 - `reference/NOTES.md` — lo verificado, con su fuente.

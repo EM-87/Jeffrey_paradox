@@ -48,7 +48,8 @@ the why and the state, `reference/NOTES.md` for what is verified.
    below), also runs `make save-check-en`, one to the letters `make
    letters-check-en`, one to the letter board or the font `make
    board-check-en`, one to the editor or writing a letter `make
-   write-check-en`, one to the menus' strings `make menus-check-en`, one
+   write-check-en`, one to the bulletin board or its posts `make
+   notice-check-en`, one to the menus' strings `make menus-check-en`, one
    to `emu/` `make emu-determinism`.
 
 ## Where things live
@@ -143,6 +144,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `emu_write.py` (letters typed on the editor's dial, their lines, cursor
   and end mark measured against the same model, finished and read back
   whole, 192 bytes: `make write-check-en`),
+  `emu_notice.py` (the bulletin board: the game's notices put up as the
+  game puts them, each post's lines measured on the board's frame
+  against the same model, a notice typed past 96 bytes, finished, read
+  back whole, saved and loaded: `make notice-check-en`),
   `emu_menus.py` (the name entry's five windows, the edit-end check's
   question and answers and the address book's balloon, their strings in
   RAM and their ink measured against the font's model; each swapped

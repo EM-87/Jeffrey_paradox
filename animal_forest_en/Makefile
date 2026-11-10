@@ -45,7 +45,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en menus-check-en emu-determinism decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
+.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en notice-check-en menus-check-en emu-determinism decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
 
 all: verify
 
@@ -187,9 +187,10 @@ EN_NAFE_GFX := $(AF_EN_DIR)/assets/jp/en/nafe_gfx.stamp
 # The overlays the translation changes: each gets its relocation table made
 # anew from its objects after the first link (tools/af_ovlreloc.py, which
 # first proves fado on the matching build), and af_relink pads its sections
-# back to their old sizes: the letter board, the text editor and the name
-# entry.
-EN_OVERLAYS := board_ovl ovl__0078CB80 ledit_ovl ovl__00799580 ovl__00792700 tag_ovl
+# back to their old sizes: the letter board, the text editor, the name
+# entry, the edit-end check, the address book, the item window and the
+# bulletin board.
+EN_OVERLAYS := board_ovl ovl__0078CB80 ledit_ovl ovl__00799580 ovl__00792700 tag_ovl ovl__00797A50
 
 $(AF_EN_DIR)/.stamp-checkout: decomp/AF_REV $(MATCHING) $(CHANGES)
 	@if [ "$$(git -C $(AF_EN_DIR) rev-parse HEAD~0 2>/dev/null)" = "" ]; then \
@@ -328,6 +329,14 @@ board-check-en: route-en
 # letter in the en build").
 write-check-en: route-en
 	$(PYTHON) tests/emu_write.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-write-en
+
+# The en build's bulletin board, from the same state: the game's notices put
+# up as the game puts them, the board turned page by page and each post's
+# lines measured on the frame against the letter board's model, a notice
+# typed on the dial past the cartridge's 96 bytes, finished, read back whole,
+# saved and loaded (tests/emu_notice.py; NOTES, "The bulletin board").
+notice-check-en: route-en
+	$(PYTHON) tests/emu_notice.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-notice-en
 
 # The menus' own words in the en build: the name entry's five windows opened
 # from the same state, their titles' strings in RAM and their ink measured on

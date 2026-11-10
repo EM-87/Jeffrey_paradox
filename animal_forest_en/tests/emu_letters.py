@@ -306,6 +306,9 @@ MAIL_SIZE = 0xA4
 SAVE_MAIL = ([0x20 + p * 0xBD0 + 0x40A + k * MAIL_SIZE for p in range(4) for k in range(10)] +      # pockets
              [0x3588 + h * 0xB48 + 0x478 + k * MAIL_SIZE for h in range(4) for k in range(10)] +   # mailboxes
              [0xEF6C + k * MAIL_SIZE for k in range(5)] + [0xF2A0, 0xF344])                        # post office
+# the bulletin board's posts (code/m_notice.c), whose rests the extension keeps too, under the post's 0x68 bytes
+POST_SIZE = 0x68
+SAVE_POSTS = [0x2F6A + k * POST_SIZE for k in range(15)]
 
 
 def fnv(data):
@@ -318,6 +321,11 @@ def fnv(data):
 def mail_key(mail):
     """A Mail_c's bytes: its header, body and footer."""
     return fnv(mail[0x2A:0x34] + mail[0x34:0x94] + mail[0x94:0xA4])
+
+
+def post_key(post):
+    """A post's bytes: its text (96 bytes) and its time."""
+    return fnv(post[:POST_SIZE])
 
 
 class Ext:
@@ -414,13 +422,15 @@ def main(argv):
             return n64.read(ext_at, size) if size > 0 else b""
 
         def save_keys():
-            return set(mail_key(n64.read(cd + at, MAIL_SIZE)) for at in SAVE_MAIL)
+            """The keys of the records the collector keeps: the save's letters' and its posts'."""
+            return (set(mail_key(n64.read(cd + at, MAIL_SIZE)) for at in SAVE_MAIL) |
+                    set(post_key(n64.read(cd + at, POST_SIZE)) for at in SAVE_POSTS))
 
         keys = save_keys()
         ext = Ext.parse(ext_in_ram())             # what the game filed on its way to the houses
         held = sum(1 for r in ext.records if r[0] in keys)
         check(ext.bytes() == ext_in_ram() or not ext_in_ram(),
-              "at the houses the game has filed %d letters' rests (%d bytes), %d of them for letters in the save"
+              "at the houses the game has filed %d rests (%d bytes), %d of them for letters or posts in the save"
               % (len(ext.records), len(ext_in_ram()), held))
 
         # 1-2. every shop letter
