@@ -2015,3 +2015,48 @@ what goes in it: "The letters in the en build").
   first): its ink from 245 to 299, the model's 243.1 to 298.9. With
   the names, the articles and this, all 307 of the menus check's checks
   pass.
+
+## The bulletin board (phase 5, the menus' strings)
+
+- **The posts.** Fifteen in the save from `common_data` + 0x2F6A, 0x68
+  bytes each: the text (0x60 bytes) and the time it went up, an empty
+  one with `mTM_rtcTime_clear_code` as its time (`code/m_notice.c`, split
+  from `6C97F0` in matching.patch; ac-decomp's `m_notice.c` is the map).
+  A new game's board starts with letters 30 to 33 of the shop letters'
+  bank (`D_8010B4A0_jp`), loaded straight into the first four posts with
+  `mHandbill_Load_HandbillFromRom` and dated now (`func_800A5BC4_jp`,
+  mNtc_SetInitData), the other eleven empty (`func_800A5B50_jp`). A post
+  goes up (`func_800A5D30_jp`, mNtc_notice_write) in the first empty
+  place (`func_800A5CB0_jp`), or, the board full, last after the others
+  move up and the oldest goes; the player's from the board
+  (`ovl__00797A50`), the game's from `func_800A5F08_jp` and
+  `func_800A65C4_jp`, which load a letter into a post of their own first
+  (letters from 0x1A4 on). These four match.
+- **The board's text** (`ovl__00797A50`, submenu program 6, now a C
+  file in matching.patch). `func_8089562C_jp` (mNT_set_page_dl, matches)
+  draws a page: its frame, the post's number and date
+  (`func_80895298_jp`, `func_80895328_jp`), its text from 63 pixels in
+  and 17 below the date, and, the editor open over the board (the post
+  being written, page 15, its length the editor's), the editor's cursor
+  at its column's 12-pixel cell and its line (`((col - 1) + 0.3) * 12`,
+  `line * 16`) and the end mark after the text. `func_8089542C_jp`
+  (mNT_set_strings_dl) draws six lines, each ending at its 16th
+  character or a newline (drawn only while the editor is open), at the
+  font's scale 1.0 in (30, 0, 0); the end mark goes at the next line's
+  start after a full line or a newline, else after the last character's
+  cell. NON_MATCHING by one instruction: the cartridge copies `str` into
+  the loop's pointer with `addu v0, s5, $zero`, the C with `or`; eleven
+  forms of the loop tried. The editor (`ovl__0078CB80`) lays a notice
+  (its kind 2) out the same way, 16 characters a line over 6 lines; the
+  en build's width model covers only a letter's body so far.
+- **What English needs.** At 16 characters a line the English breaks in
+  mid-word; at 96 bytes a post holds less than the game's own: of the 124
+  letters from 0x1A4 (the notices the game posts), 109 are longer than 96
+  bytes in the translation's bank (median 152, longest 175), and would be
+  cut. The GameCube keeps 192 bytes a post (`mNtc_board_post_c`, 0xC8 with
+  its time) and breaks its lines by width (`mNT_strLineCheck`:
+  `mNT_MAX_WIDTH` 192, `mNT_MAX_LINES` 6; by character, its text breaking
+  its own lines). The plan: a post's rest in the save's extension as a
+  letter's is, the board drawing the whole post by width as the letter
+  board does, the editor writing a notice as it writes a letter's body,
+  and the game's posts put up whole.

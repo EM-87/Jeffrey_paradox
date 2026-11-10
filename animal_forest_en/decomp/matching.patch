@@ -5739,6 +5739,120 @@ index 0000000..1ed7ca9
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A524C_jp.s")
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_museum/func_800A5460_jp.s")
+diff --git a/src/code/m_notice.c b/src/code/m_notice.c
+new file mode 100644
+index 0000000..c242d60
+--- /dev/null
++++ b/src/code/m_notice.c
+@@ -0,0 +1,108 @@
++#include "global.h"
++#include "6C97F0.h"
++#include "lb_rtc.h"
++#include "m_common_data.h"
++#include "m_handbill.h"
++#include "m_lib.h"
++#include "m_time.h"
++
++/*
++ * The bulletin board's posts (m_notice.c in AC GCN is the map): fifteen in
++ * the save from common_data + 0x2F6A, each its text (0x60 bytes) and the
++ * time it went up, the empty ones with mTM_rtcTime_clear_code as their
++ * time. A new game starts with four of the game's own (letters 30 to 33,
++ * D_8010B4A0_jp); a post goes up in the first empty place, or, the board
++ * full, after the others move up and the oldest goes.
++ */
++
++#define mNtc_POST_COUNT 15
++#define mNtc_POST_TEXT_LEN 0x60
++
++typedef struct mNtc_Post {
++    /* 0x00 */ u8 text[mNtc_POST_TEXT_LEN];
++    /* 0x60 */ lbRTC_time_c time;
++} mNtc_Post; // size = 0x68
++
++#define mNtc_POSTS ((mNtc_Post*)common_data.save.unk_02F6A)
++
++/* the letters a new game's board starts with */
++typedef struct mNtc_InitMails {
++    s32 mailNo[4];
++} mNtc_InitMails;
++extern mNtc_InitMails D_8010B4A0_jp;
++
++/* Empties count posts from post on */
++void func_800A5B50_jp(mNtc_Post* post, s32 count) {
++    for (; count != 0; count--, post++) {
++        post->time = mTM_rtcTime_clear_code;
++        mem_clear(post->text, sizeof(post->text), ' ');
++    }
++}
++
++/* mNtc_SetInitData: the new game's board, the four letters dated now and the rest empty */
++void func_800A5BC4_jp(void) {
++    s32 i;
++    mNtc_InitMails mails = D_8010B4A0_jp;
++    lbRTC_time_c now;
++    u8 header[16];
++    u8 footer[16];
++    s32 headerBackStart;
++    mNtc_Post* post = mNtc_POSTS;
++
++    lbRTC_GetTime(&now);
++    for (i = 0; i < 4; i++, post++) {
++        post->time = now;
++        mHandbill_Load_HandbillFromRom(header, &headerBackStart, footer, post->text, mails.mailNo[i]);
++    }
++    func_800A5B50_jp(post, mNtc_POST_COUNT - 4);
++}
++
++/* mNtc_notice_write_num: the first empty place, or 15 when the board is full */
++s32 func_800A5CB0_jp(void) {
++    mNtc_Post* post = mNtc_POSTS;
++    s32 i = 0;
++
++    while (i < mNtc_POST_COUNT) {
++        if (lbRTC_IsEqualTime(&post->time, &mTM_rtcTime_clear_code, lbRTC_CHECK_ALL) == TRUE) {
++            break;
++        }
++        i++;
++        post++;
++    }
++    return i;
++}
++
++/* mNtc_notice_write: the post goes up in the first empty place, or last after the others move up */
++void func_800A5D30_jp(mNtc_Post* newPost) {
++    s32 n = func_800A5CB0_jp();
++
++    if (n == mNtc_POST_COUNT) {
++        mNtc_Post* post = mNtc_POSTS;
++        s32 i;
++
++        for (i = 0; i < mNtc_POST_COUNT - 1; i++, post++) {
++            mem_copy((u8*)post, (u8*)(post + 1), sizeof(mNtc_Post));
++        }
++        mem_copy((u8*)post, (u8*)newPost, sizeof(mNtc_Post));
++    } else {
++        mem_copy((u8*)&mNtc_POSTS[n], (u8*)newPost, sizeof(mNtc_Post));
++    }
++}
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_notice/func_800A5DF4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_notice/func_800A5E58_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_notice/func_800A5F08_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_notice/func_800A62EC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_notice/func_800A6384_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_notice/func_800A63F8_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_notice/func_800A6450_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_notice/func_800A6548_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_notice/func_800A65C4_jp.s")
 diff --git a/src/overlays/actors/ovl_Npc/ac_npc.h b/src/overlays/actors/ovl_Npc/ac_npc.h
 index 81ac120..f656590 100644
 --- a/src/overlays/actors/ovl_Npc/ac_npc.h
@@ -6871,6 +6985,236 @@ index 0000000..998e336
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088C4A0_jp.s")
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00792700/ovl__00792700/func_8088C548_jp.s")
+diff --git a/src/overlays/submenu/ovl__00797A50/ovl__00797A50.c b/src/overlays/submenu/ovl__00797A50/ovl__00797A50.c
+new file mode 100644
+index 0000000..fea573d
+--- /dev/null
++++ b/src/overlays/submenu/ovl__00797A50/ovl__00797A50.c
+@@ -0,0 +1,224 @@
++#include "global.h"
++#include "overlays/submenu/ovl__00797A50/ovl__00797A50.h"
++#include "6B3DC0.h"
++#include "m_common_data.h"
++#include "m_mail.h"
++#include "m_submenu.h"
++
++/* The bulletin board (submenu program 6; ac-decomp's m_notice_ovl.c is the map) */
++
++/* The overlay's bss (0x80 bytes from 0x80895C50) */
++u8 B_80895C50_jp[0x80];
++
++/* The board's entry of the submenu's menu infos (mSM_MenuInfo_c in AC GCN) */
++typedef struct mNT_MenuInfo {
++    /* 0x00 */ s32 unk_00;
++    /* 0x04 */ s32 procStatus; /* 2: waiting, the editor open over the board */
++} mNT_MenuInfo;
++
++#define mNT_CHAR_NEW_LINE 0xCD
++#define mNT_LINE_LEN 16  /* characters a line */
++#define mNT_LINES 6
++#define mNT_POST_COUNT 15
++#define mNT_POST_SIZE 0x68 /* a post in the save: its text (0x60 bytes), then its time */
++#define mNT_POST_TEXT_LEN 0x60
++
++/* The board's state (mNT_Ovl_c in AC GCN), as far as this file uses it */
++typedef struct mNT_Ovl {
++    /* 0x00 */ UNK_TYPE1 unk_00[3];
++    /* 0x03 */ u8 pageCount; /* the posts on the board */
++    /* 0x04 */ UNK_TYPE1 unk_04[4];
++    /* 0x08 */ u8 post[mNT_POST_SIZE]; /* the post being written */
++} mNT_Ovl;
++
++/* The text editor's state (mED_Ovl_c) as the board sees it */
++typedef struct mNT_EditorOvl {
++    /* 0x00 */ UNK_TYPE1 unk_00[0x1C];
++    /* 0x1C */ s16 textLen;
++    /* 0x1E */ UNK_TYPE1 unk_1E[2];
++    /* 0x20 */ s16 col;
++    /* 0x22 */ s16 line;
++    /* 0x24 */ UNK_TYPE1 unk_24[4];
++    /* 0x28 */ void (*endMarkDraw)(struct Submenu* submenu, struct Game* game, f32 x, f32 y);
++    /* 0x2C */ void (*cursorDraw)(struct Submenu* submenu, struct Game* game, f32 x, f32 y);
++} mNT_EditorOvl;
++
++/* The submenu's overlay data (mSM_Overlay_c in AC GCN) as the board sees it */
++typedef struct mNT_SubmenuOvl {
++    /* 0x00000 */ UNK_TYPE1 unk_00000[0x106B4];
++    /* 0x106B4 */ void (*setCharMatrix)(struct GraphicsContext* graph);
++    /* 0x106B8 */ UNK_TYPE1 unk_106B8[0x106E0 - 0x106B8];
++    /* 0x106E0 */ mNT_EditorOvl* editorOvl;
++    /* 0x106E4 */ UNK_TYPE1 unk_106E4[0x1070C - 0x106E4];
++    /* 0x1070C */ mNT_Ovl* noticeOvl;
++} mNT_SubmenuOvl;
++
++#define mNT_SUBMENU_OVL(submenu) ((mNT_SubmenuOvl*)(submenu)->unk_2C)
++
++void func_80895038_jp(struct GraphicsContext* graph, f32 x, f32 y);
++void func_80895298_jp(struct Game* game, s32 number, f32 x, f32 y);
++void func_80895328_jp(struct Game* game, u8* time, f32 x, f32 y);
++void func_8089542C_jp(mNT_MenuInfo* menuInfo, struct Game* game, u8* str, s32 len, f32 x, f32 y, f32* endX,
++                      f32* endY);
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894250_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_8089429C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894318_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_8089447C_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894560_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894814_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894A34_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894B30_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894C24_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894C80_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894CC4_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894D28_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894E40_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894E78_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894F64_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80894FD0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80895038_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_808950DC_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80895298_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80895328_jp.s")
++
++/*
++ * A post's text (mNT_set_strings_dl in AC GCN): six lines from x, y, a line
++ * ending at its 16th character or a newline, which is not drawn unless the
++ * editor is open over the board; the place after the text, from the screen's
++ * centre, in *endX, *endY (the next line's start after a full line or a
++ * newline, but on the last line its end).
++ *
++ * NON_MATCHING: one instruction. The cartridge sets the loop's pointer with
++ * addu v0, s5, $zero, this C with or (the same copy of str); no form of the
++ * loop's guard, index, comparison or declarations tried gives the add (11
++ * variants, tools/af_match.py).
++ */
++#ifdef NON_MATCHING
++void func_8089542C_jp(mNT_MenuInfo* menuInfo, struct Game* game, u8* str, s32 len, f32 x, f32 y, f32* endX,
++                      f32* endY) {
++    s32 i;
++    s32 newline;
++    s32 count;
++    s32 drawn;
++
++    for (i = 0; i < mNT_LINES; i++) {
++        newline = FALSE;
++        count = 0;
++        if (len > 0) {
++            do {
++                if (str[count] == mNT_CHAR_NEW_LINE) {
++                    count++;
++                    newline = TRUE;
++                    break;
++                }
++                count++;
++                if (count >= mNT_LINE_LEN) {
++                    break;
++                }
++            } while (count < len);
++        }
++        if (count != 0) {
++            drawn = (newline && (menuInfo->procStatus != 2)) ? count - 1 : count;
++            if (drawn != 0) {
++                func_80090E98_jp(game, str, drawn, x, y, 30, 0, 0, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
++            }
++            len -= count;
++            str += count;
++            if (len == 0) {
++                if ((i != mNT_LINES - 1) && (newline || (count == mNT_LINE_LEN))) {
++                    *endX = x - 160.0f;
++                    *endY = 120.0f - (y + 16.0f);
++                } else {
++                    *endX = ((count * 12.0f) + x) - 160.0f;
++                    *endY = 120.0f - y;
++                }
++            }
++        }
++        y += 16.0f;
++    }
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_8089542C_jp.s")
++#endif
++
++/*
++ * A page of the board (mNT_set_page_dl in AC GCN): its frame, the post's
++ * number and date, its text; with the editor open over the board (the
++ * post being written, page 15), the editor's cursor at its column's cell
++ * and its line, and the end mark after the text.
++ */
++void func_8089562C_jp(struct Submenu* submenu, mNT_MenuInfo* menuInfo, struct Game* game,
++                      struct GraphicsContext* graph, f32 x, f32 y, s32 pageNo) {
++    mNT_Ovl* noticeOvl = mNT_SUBMENU_OVL(submenu)->noticeOvl;
++    mNT_EditorOvl* editorOvl = mNT_SUBMENU_OVL(submenu)->editorOvl;
++    u8* post;
++    u32 number;
++    s32 len;
++    f32 endX;
++    f32 endY;
++
++    func_80895038_jp(graph, x, y);
++    mNT_SUBMENU_OVL(submenu)->setCharMatrix(graph);
++    if (pageNo == mNT_POST_COUNT) {
++        number = noticeOvl->pageCount + 1;
++        if (number > mNT_POST_COUNT) {
++            number = mNT_POST_COUNT;
++        }
++        post = noticeOvl->post;
++        if (editorOvl != NULL) {
++            len = editorOvl->textLen;
++        } else {
++            len = 0;
++        }
++    } else {
++        number = pageNo + 1;
++        post = &common_data.save.unk_02F6A[pageNo * mNT_POST_SIZE];
++        len = mMl_strlen((char*)post, mNT_POST_TEXT_LEN, ' ');
++    }
++    x = 63.0f + x;
++    y = 46.0f - y;
++    func_80895298_jp(game, number, x, y);
++    func_80895328_jp(game, post + mNT_POST_TEXT_LEN, x, y);
++    y += 17.0f;
++    endX = x - 160.0f;
++    endY = 120.0f - y;
++    func_8089542C_jp(menuInfo, game, post, len, x, y, &endX, &endY);
++    if ((menuInfo->procStatus == 2) && (editorOvl != NULL)) {
++        mNT_SUBMENU_OVL(submenu)->editorOvl->cursorDraw(submenu, game, (((editorOvl->col - 1) + 0.3f) * 12.0f) + x,
++                                                         (editorOvl->line * 16.0f) + y);
++        mNT_SUBMENU_OVL(submenu)->editorOvl->endMarkDraw(submenu, game, endX, endY);
++    }
++}
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_808958A0_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80895998_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80895A30_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80895A60_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80895B04_jp.s")
++
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00797A50/ovl__00797A50/func_80895B9C_jp.s")
++
 diff --git a/src/overlays/submenu/ovl__00799580/ovl__00799580.c b/src/overlays/submenu/ovl__00799580/ovl__00799580.c
 new file mode 100644
 index 0000000..47277ca
@@ -7387,7 +7731,7 @@ index 0000000..88ffefb
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/mTG_tag_ovl_destruct.s")
 diff --git a/yamls/jp/code.yaml b/yamls/jp/code.yaml
-index c052055..934e0af 100644
+index c052055..accbcf9 100644
 --- a/yamls/jp/code.yaml
 +++ b/yamls/jp/code.yaml
 @@ -39,14 +39,14 @@
@@ -7409,7 +7753,7 @@ index c052055..934e0af 100644
        - [0x6BA500, asm, code/6BA500]
        - [0x6BA930, c, code/m_kankyo]
        - [0x6BD560, c, code/m_lib]
-@@ -55,7 +55,8 @@
+@@ -55,9 +55,10 @@
        - [0x6BFE60, c, code/m_mail]
        - [0x6C05A0, c, code/m_mail_check]
        - [0x6C0690, asm, code/6C0690]
@@ -7417,8 +7761,11 @@ index c052055..934e0af 100644
 +      - [0x6C0E90, c, code/m_msg_main]
 +      - [0x6C70A0, c, code/m_museum]
        - [0x6C92D0, c, code/m_name_table]
-       - [0x6C97F0, asm, code/6C97F0]
+-      - [0x6C97F0, asm, code/6C97F0]
++      - [0x6C97F0, c, code/m_notice]
        - [0x6CA4B0, c, code/m_npc]
+       - [0x6D2720, c, code/m_npc_schedule]
+       - [0x6D2A70, c, code/m_npc_walk]
 @@ -241,7 +242,7 @@
        - [0x73AA10, rodata, code/73AA10]
        - [0x73AAE0, .rodata, code/m_field_info]
@@ -7438,7 +7785,7 @@ index c052055..934e0af 100644
        - [0x73AF50, .rodata, code/m_npc]
        - [0x73B000, .rodata, code/m_olib]
 diff --git a/yamls/jp/overlays.yaml b/yamls/jp/overlays.yaml
-index 95ebcf5..7de6c75 100644
+index 95ebcf5..30c1fb5 100644
 --- a/yamls/jp/overlays.yaml
 +++ b/yamls/jp/overlays.yaml
 @@ -237,10 +237,10 @@
@@ -7513,6 +7860,20 @@ index 95ebcf5..7de6c75 100644
    - name: ovl__00792700_reloc
      type: code
      start: 0x794240
+@@ -506,10 +507,10 @@
+     compress: True
+     bss_size: 0x80
+     subsegments:
+-      - [0x797A50, asm, overlays/submenu/ovl__00797A50/ovl__00797A50]
++      - [0x797A50, c, overlays/submenu/ovl__00797A50/ovl__00797A50]
+       - [0x7993C0, data, overlays/submenu/ovl__00797A50/ovl__00797A50]
+-      - [0x799430, rodata, overlays/submenu/ovl__00797A50/ovl__00797A50]
+-      - { start: 0x799450, type: bss, vram: 0x80895C50, name: overlays/submenu/ovl__00797A50/ovl__00797A50 }
++      - [0x799430, .rodata, overlays/submenu/ovl__00797A50/ovl__00797A50]
++      - { start: 0x799450, type: .bss, vram: 0x80895C50, name: overlays/submenu/ovl__00797A50/ovl__00797A50 }
+   - name: ovl__00797A50_reloc
+     type: code
+     start: 0x799450
 @@ -527,10 +528,10 @@
      compress: True
      bss_size: 0x10
