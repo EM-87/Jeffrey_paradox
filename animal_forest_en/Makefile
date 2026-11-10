@@ -143,7 +143,8 @@ EN_ASSETS := $(AF_EN_DIR)/assets/jp/en
 EN_SEGMENTS := --segment msg_en_text=build/assets/jp/en/msg_text.o --segment msg_en_index=build/assets/jp/en/msg_index.o \
 	--segment msg_en_choice_text=build/assets/jp/en/choice_text.o --segment msg_en_choice_index=build/assets/jp/en/choice_index.o \
 	--segment msg_en_string_text=build/assets/jp/en/string_text.o --segment msg_en_string_index=build/assets/jp/en/string_index.o \
-	--segment mail_en_text=build/assets/jp/en/mail_text.o --segment mail_en_index=build/assets/jp/en/mail_index.o
+	--segment mail_en_text=build/assets/jp/en/mail_text.o --segment mail_en_index=build/assets/jp/en/mail_index.o \
+	--segment item_en_names=build/assets/jp/en/item_names.o
 # The letters the ROM gets, the same way: the English drafts where `make
 # script` has made them, else the cartridge's own banks; all eight in one
 # text and one index segment (tools/af_text.py compile-letters; the en
@@ -170,6 +171,13 @@ FONT_OPTS := --font $(BASEROM) $(if $(GC_FONT),--gc-font $(GC_FONT))
 # (tools/af_ui.py; NOTES, "The menus' own words").
 EN_UI := $(AF_EN_DIR)/assets/jp/en/ui_strings.inc
 GC_UI := $(if $(wildcard $(GC_DIR)/foresta.map $(GC_DIR)/gc_ui.txt),$(GC_DIR)/gc_ui.txt)
+# The items' names: the GameCube's (build/gc/gc_items.txt, read from build/gc's copies of the disc's module
+# and map), ours where it has none (script/items.txt), as a ROM segment of records and the include the en
+# build's m_item_name.c uses; without the disc, the cartridge's own names stay (tools/af_items.py; NOTES,
+# "Item names").
+EN_ITEMS := $(EN_ASSETS)/item_names.bin
+EN_ITEMS_INC := $(EN_ASSETS)/item_names.inc
+GC_ITEMS := $(if $(wildcard $(GC_DIR)/foresta.map $(GC_DIR)/gc_items.txt),$(GC_DIR)/gc_items.txt)
 # The labels the AF Project's 2010 patch drew in English (the dial's, the
 # inventory's, the map's and other menus'): taken from its ROM (make nafe
 # NAFE_UPS=..., from the user's copy of the patch) over the en tree's copies of
@@ -254,13 +262,23 @@ $(GC_DIR)/gc_ui.txt: tools/af_ui.py $(wildcard $(GC_DIR)/foresta.rel.szs $(GC_DI
 $(EN_UI): tools/af_ui.py tools/af_font.py tools/msgbank.py tools/gciso.py $(GC_UI) script/ui.txt $(AF_EN_DIR)/.stamp-extract
 	$(PYTHON) tools/af_ui.py compile $(AF_EN_DIR) $@ $(if $(GC_UI),--gc $(GC_UI)) --own script/ui.txt
 
+$(GC_DIR)/gc_items.txt: tools/af_items.py $(wildcard $(GC_DIR)/foresta.rel.szs $(GC_DIR)/foresta.map)
+	@if [ -s $(GC_DIR)/foresta.rel.szs ] && [ -s $(GC_DIR)/foresta.map ]; then \
+		$(PYTHON) tools/af_items.py gc-files $(GC_DIR)/foresta.rel.szs $(GC_DIR)/foresta.map $@; \
+	else echo "$@: make script ISO=... reads the names from the disc"; fi
+
+$(EN_ITEMS): tools/af_items.py tools/af_font.py tools/af_text.py tools/msgbank.py $(GC_ITEMS) script/items.txt $(GC_FONT) $(AF_EN_DIR)/.stamp-extract
+	mkdir -p $(EN_ASSETS)
+	$(PYTHON) tools/af_items.py compile $(AF_EN_DIR)/baseroms/jp/baserom-decompressed.z64 $@ $(EN_ITEMS_INC) \
+		$(if $(GC_ITEMS),--gc $(GC_ITEMS)) --own script/items.txt $(FONT_OPTS)
+
 $(EN_NAFE_GFX): tools/af_nafe_gfx.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)) $(AF_EN_DIR)/.stamp-extract
 	mkdir -p $(EN_ASSETS)
 	@if [ -s $(NAFE_ROM) ]; then $(PYTHON) tools/af_nafe_gfx.py $(BASEROM) $(NAFE_ROM) $(AF_EN_DIR); \
 	else echo "labels: the cartridge's (no $(NAFE_ROM): make nafe NAFE_UPS=...)"; fi
 	@touch $@
 
-en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT) $(EN_UI) $(EN_NAFE_GFX)
+en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT) $(EN_UI) $(EN_NAFE_GFX) $(EN_ITEMS)
 
 rom-en: decomp-en rom en-bank
 	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relsyms.py $(CURDIR)/$(REF_MAP) linker_scripts/jp/auto/undefined_syms_auto.ld
@@ -338,6 +356,7 @@ script: $(BASEROM) $(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n6
 	$(PYTHON) tools/gciso.py extract "$(ISO)" foresta.rel.szs $(GC_DIR)/foresta.rel.szs
 	$(PYTHON) tools/gciso.py extract "$(ISO)" foresta.map $(GC_DIR)/foresta.map
 	$(PYTHON) tools/af_ui.py gc-files $(GC_DIR)/foresta.rel.szs $(GC_DIR)/foresta.map $(GC_DIR)/gc_ui.txt
+	$(PYTHON) tools/af_items.py gc-files $(GC_DIR)/foresta.rel.szs $(GC_DIR)/foresta.map $(GC_DIR)/gc_items.txt
 	$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/message_data.bin $(GC_DIR)/message_data_table.bin $(GC_DIR)/gc_en.txt
 	$(PYTHON) tools/af_align.py $(BASEROM) $(GC_DIR)/message_data.bin $(GC_DIR)/message_data_table.bin $(GC_DIR)/align.tsv
 	$(PYTHON) tools/af_text.py draft $(GC_DIR)/n64_jp.txt $(GC_DIR)/gc_en.txt $(GC_DIR)/align.tsv $(GC_DIR)/en_bank.txt \

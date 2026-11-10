@@ -14,7 +14,8 @@ buffers of 20 and 26 bytes, the body straight into a 96-byte buffer).
 What they should make comes from the en build's own letter files
 (AF_EN_DIR/assets/jp/en/mail_text.bin, mail_index.bin) through a Python
 model of the cartridge's expander (m_handbill.c: the header's newline
-taken out, the free strings put in, padding) at the en build's lengths
+taken out, the free strings put in, padding; the en build's two codes of
+the article taken out, a capital where asked) at the en build's lengths
 (reference/NOTES.md, "The letters in the en build"). The free strings are
 written first, twenty known ones, some filling the 10 bytes. Checks:
 
@@ -34,7 +35,10 @@ written first, twenty known ones, some filling the 10 bytes. Checks:
      (mHandbill_en_GetLetter gives the whole letter back), a letter the
      save does not hold goes at the next save, the save's slots hold the
      rest of the ones it does, a letter cleared from the save loses its
-     rest at the save after, and the load brings the extension back.
+     rest at the save after, and the load brings the extension back (the
+     title's direct load, func_8008F938_jp, called in play: the title's
+     other load takes a buffer the zelda arena in play no longer has room
+     for; tests/emu_save.py, 4 and 5).
 """
 
 import os
@@ -74,7 +78,7 @@ void mHandbill_Load_HandbillFromRom(u8* header, s32* header_back_start, u8* foot
 s32 mHandbillz_load(HandbillzInfo* info);
 s32 mHandbill_en_GetLetter(void* content, u8* header, u8* body, u8* footer);
 s32 func_80090044_jp(void);
-s32 func_8008F968_jp(void);
+void func_8008F938_jp(void);
 void bcopy(const void* src, void* dst, int size);
 
 typedef struct HookCtl {
@@ -164,8 +168,9 @@ void hook_main(void) {
                 h->cmd = 0;
             }
             break;
-        case 7: /* the load */
-            h->result = func_8008F968_jp();
+        case 7: /* the load (the title's direct one) */
+            func_8008F938_jp();
+            h->result = 1;
             h->cmd = 0;
             break;
     }
@@ -219,7 +224,13 @@ def move_data_cut(data, buf_size, dst_idx, src_idx, data_len, fill):
     return new_len
 
 
-def put_free(data, buf_size, start, str_len, free, fill):
+# the en build's two codes of the article, the GameCube's CUTARTICLE and CAPTIALIZE carried (tools/af_text.py,
+# N64_CARRIED): taken from the text with the letter's fill; the next free string loses an item's article (the
+# free strings here hold no item's token: nothing to cut) or begins with a capital
+CUT_ARTICLE, CAPITAL = 72, 73
+
+
+def put_free(data, buf_size, start, str_len, free, fill, capital=False):
     """func_80092FC4_jp (a free string's code is 2 bytes)."""
     s = free.rstrip(b" ")
     n = len(s)
@@ -227,16 +238,23 @@ def put_free(data, buf_size, start, str_len, free, fill):
     if cut >= buf_size and n > buf_size - start:
         n = buf_size - start
     data[start:start + n] = s[:n]
+    if capital and n > 0 and ord("a") <= data[start] <= ord("z"):
+        data[start] -= ord("a") - ord("A")
     return cut
 
 
 def expand(data, buf_size, str_len, frees, fill, back=None):
     """func_80093478_jp, or func_80093520_jp with the header's name position."""
-    length, pos = str_len, 0
+    length, pos, capital = str_len, 0, False
     while pos < length:
         if data[pos] == 0x7F:
-            before = length
-            length = put_free(data, buf_size, pos, length, frees[FREE_CODES[data[pos + 1]]], fill)
+            before, code = length, data[pos + 1]
+            if code in (CUT_ARTICLE, CAPITAL):
+                capital = capital or code == CAPITAL
+                length = move_data_cut(data, buf_size, pos, pos + 2, length, fill)
+            else:
+                length = put_free(data, buf_size, pos, length, frees[FREE_CODES[code]], fill, capital)
+                capital = False
             if back is not None and pos < back:
                 back += length - before
         else:

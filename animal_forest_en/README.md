@@ -224,13 +224,28 @@ menús y comprueba cada etiqueta en memoria ("The 2010 patch's labels").
 El logo del título de ese parche cambia también el código del actor que
 lo dibuja, que sigue en ensamblador: queda para después.
 
-Lo que viene: las cadenas que quedan en otros menús (la etiqueta de las cartas,
-"para X / carta / de Y", pide cambiar el orden de las palabras en su código),
-los nombres de los objetos
-(un archivo propio de 10 bytes por nombre), el tablón de anuncios (parte
-sus líneas por número de letras, no por anchura), el logo del título del
-parche de 2010, las texturas occidentales de GameCube donde las haya
-(letreros) y traducir ese 6 %.
+Los nombres de los objetos son los de GameCube, leídos de tu disco al
+compilar (`tools/af_items.py`): de los 1.703 del cartucho, 1.696 tienen
+nombre en GameCube y 7 son nuestros (`script/items.txt`). Los de GameCube
+llegan a 16 letras y el cartucho los copia en búferes de 10 bytes en unos 27
+overlays que no pueden crecer, así que el build en inglés escribe ahí una
+ficha: una marca, el número del nombre y relleno hasta las casillas que
+ocupa el inglés (con eso miden los menús el sitio del nombre). La fuente la
+dibuja como el nombre, y los diálogos, las cartas y las elecciones ponen el
+nombre en su lugar; los nombres están en un segmento propio del ROM,
+leídos por DMA como el cartucho lee los suyos. Como en GameCube, el
+nombre entra en un diálogo o una carta con su artículo ("a", "an", "the",
+"some") salvo donde el texto lo quita, y con mayúscula donde el texto la
+pide: esos dos códigos de GameCube no existen en el cartucho y el banco
+inglés los lleva con dos números que ninguno de los dos juegos usa
+("Item names"). `make menus-check-en` copia nombres como el juego, los mete
+en mensajes, elecciones y cartas por el código del juego, y mide en
+pantalla el nombre del dinero en el inventario.
+
+Lo que viene: el tablón de anuncios (parte sus líneas por número de
+letras, no por anchura), el logo del título del parche de 2010 y el aviso
+de mando desconectado, las texturas occidentales de GameCube donde las
+haya (letreros) y traducir ese 6 %.
 
 ## Dónde está cada cosa
 
@@ -253,7 +268,8 @@ parche de 2010, las texturas occidentales de GameCube donde las haya
   (el disco de GameCube, los bancos de texto de ambos juegos y su
   correspondencia), `af_text.py` (el banco inglés: borrador, comprobador y
   compilador), `af_font.py` (la fuente del build en inglés), `af_ui.py`
-  (las cadenas de los menús), `af_nafe_gfx.py` (las etiquetas del parche
+  (las cadenas de los menús), `af_items.py` (los nombres de los objetos,
+  de tu disco), `af_nafe_gfx.py` (las etiquetas del parche
   de 2010, de tu copia), `af_dumpdata.py` (los datos del cartucho que
   un archivo decompilado incluye, sacados de tu volcado al extraer) y
   `af_ovlreloc.py` (la tabla de reubicaciones de un overlay que cambia).
@@ -262,5 +278,6 @@ parche de 2010, las texturas occidentales de GameCube donde las haya
   (`make emu-check`) y las pruebas del build en inglés en el emulador:
   `emu_save.py` (la partida), `emu_letters.py` (las cartas),
   `emu_board.py` (el tablero de cartas), `emu_write.py` (escribir una
-  carta) y `emu_menus.py` (las cadenas de los menús).
+  carta) y `emu_menus.py` (las cadenas de los menús y los nombres de los
+  objetos).
 - `reference/NOTES.md` — lo verificado, con su fuente.

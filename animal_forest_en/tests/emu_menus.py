@@ -92,8 +92,11 @@ sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 from n64emu import N64, A, R, stick, write_png  # noqa: E402
 import af_font  # noqa: E402
+import af_items  # noqa: E402
 import af_nafe_gfx  # noqa: E402
+import af_text  # noqa: E402
 import af_ui  # noqa: E402
+import msgbank  # noqa: E402
 import contact  # noqa: E402
 import emu_board  # noqa: E402
 import emu_save  # noqa: E402
@@ -104,12 +107,40 @@ typedef int s32;
 void mSM_open_submenu_new(void* submenu, s32 programId, s32 arg2, s32 arg3, s32 arg4);
 void SetGameFrame(s32 divisor);
 void mPr_GetMotherMail(void* mail, void* pid, unsigned short present, s32 stationery, s32 mailNumber);
+void mIN_copy_name_str(char* dst, unsigned short item);
+u8* mIN_en_TokenName(u8* str, s32* len, s32* article);
+void* mMsg_Get_base_window_p(void);
+void mMsg_Set_item_str(void* msg, s32 no, char* str, s32 len);
+void mMsg_Set_free_str(void* msg, s32 no, char* str, s32 len);
+s32 mMsg_CopyItem(void* msg, s32 no, char* data, s32 start, s32 len);
+s32 func_800A1AA4_jp(void* msg, s32* idx);          /* code 72: the GameCube's CUTARTICLE */
+s32 func_800A1AC4_jp(void* msg, s32* idx);          /* code 73: its CAPITALIZE */
+s32 func_800A134C_jp(void* msg, s32 idx, s32 no);   /* a free string */
+s32 func_800A17FC_jp(void* msg, s32 idx, s32 no);   /* an item string */
+void mHandbill_Set_free_str(s32 no, char* str, s32 len);
+void func_80093478_jp(u8* buf, s32 size, s32 len, s32 fill);   /* a letter's part, its codes expanded */
+s32 mMsg_request_main_appear(void* msg, void* actor, s32 showName, u8* color, s32 msgNo, s32 priority);
+u8 hook_color[4] = { 255, 255, 255, 255 };
 extern void* gamePT;
 typedef struct HookCtl { s32 cmd; s32 arg[4]; u8 buf[32]; } HookCtl;
 HookCtl hook_ctl;
+typedef struct HookText { s32 loaded; s32 no; s32 len; s32 cut; u8 text[64]; } HookText;   /* an mMsg_Data */
+HookText hook_text;
+u8 hook_letter[40];
 
 /* 1: a submenu program opened as mSM_submenu_ctrl opens one; 2: a shop letter written into a Mail_c (the
-   letter board check's way: tests/emu_board.py) */
+   letter board check's way: tests/emu_board.py); 3: an item's name (arg 0) copied into buf as the game copies
+   it, and the name its token stands for at buf + 12 (its length, its article and whether it is a token in
+   args 1 to 3); 4: buf's 10 bytes set as the message's item string 0, and the text at buf + 12 (arg 0 bytes,
+   the code that inserts it) given it, its new length in arg 1; 5: buf's 10 bytes set as the message's item
+   string 0 and free string 0, and the text at buf + 12 (arg 0 bytes) run through the message window's
+   handlers as its cursor runs them (codes 72 and 73, the article's; 36, free string 0; 49, item string 0;
+   any other passed over), in a text of the hook's in place of the window's own: the text back at buf + 12,
+   its length in arg 1; 6: buf's 10 bytes set as a letter's free string 0, and the text at buf + 12 (arg 0
+   bytes) expanded as a letter's body is, in 40 bytes filled with spaces: the 20 first back at buf + 12; 7: buf's
+   first arg 1 bytes set as the message's item string 0, and message arg 0 asked of the window as the demo's
+   event messages ask for theirs (no speaker, its priority: m_demo.c, wait_emsg_start), whether it took the
+   request in arg 2 */
 void hook_main(void) {
     HookCtl* h = &hook_ctl;
     s32* submenu = (s32*)((u8*)gamePT + 0x1CBC);
@@ -122,6 +153,81 @@ void hook_main(void) {
         h->cmd = 0;
     } else if (h->cmd == 2) {
         mPr_GetMotherMail((void*)h->arg[0], (void*)h->arg[1], 0, 0, h->arg[2]);
+        h->cmd = 0;
+    } else if (h->cmd == 3) {
+        s32 len = 0;
+        s32 art = 0;
+        s32 i;
+        u8* name;
+
+        mIN_copy_name_str((char*)h->buf, (unsigned short)h->arg[0]);
+        name = mIN_en_TokenName(h->buf, &len, &art);
+        for (i = 0; name != 0 && i < len && i < 16; i++) {
+            h->buf[12 + i] = name[i];
+        }
+        h->arg[1] = len;
+        h->arg[2] = art;
+        h->arg[3] = name != 0;
+        h->cmd = 0;
+    } else if (h->cmd == 4) {
+        void* msg = mMsg_Get_base_window_p();
+
+        mMsg_Set_item_str(msg, 0, (char*)h->buf, 10);
+        h->arg[1] = mMsg_CopyItem(msg, 0, (char*)h->buf + 12, 0, h->arg[0]);
+        h->cmd = 0;
+    } else if (h->cmd == 5) {
+        void* msg = mMsg_Get_base_window_p();
+        void** data = (void**)((u8*)msg + 0xC);     /* the window's msgData */
+        void* own = *data;
+        HookText* t = &hook_text;
+        s32 idx = 0;
+        s32 i;
+
+        mMsg_Set_item_str(msg, 0, (char*)h->buf, 10);
+        mMsg_Set_free_str(msg, 0, (char*)h->buf, 10);
+        for (i = 0; i < h->arg[0]; i++) {
+            t->text[i] = h->buf[12 + i];
+        }
+        t->len = h->arg[0];
+        *data = t;
+        while (idx < t->len) {
+            if (t->text[idx] != 0x7F) {
+                idx++;
+            } else if (t->text[idx + 1] == 72) {
+                func_800A1AA4_jp(msg, &idx);
+            } else if (t->text[idx + 1] == 73) {
+                func_800A1AC4_jp(msg, &idx);
+            } else if (t->text[idx + 1] == 36) {
+                func_800A134C_jp(msg, idx, 0);
+            } else if (t->text[idx + 1] == 49) {
+                func_800A17FC_jp(msg, idx, 0);
+            } else {
+                idx += 2;
+            }
+        }
+        *data = own;
+        for (i = 0; i < t->len && i < 20; i++) {
+            h->buf[12 + i] = t->text[i];
+        }
+        h->arg[1] = t->len;
+        h->cmd = 0;
+    } else if (h->cmd == 6) {
+        s32 i;
+
+        mHandbill_Set_free_str(0, (char*)h->buf, 10);
+        for (i = 0; i < 40; i++) {
+            hook_letter[i] = (i < h->arg[0]) ? h->buf[12 + i] : ' ';
+        }
+        func_80093478_jp(hook_letter, 40, h->arg[0], 2);
+        for (i = 0; i < 20; i++) {
+            h->buf[12 + i] = hook_letter[i];
+        }
+        h->cmd = 0;
+    } else if (h->cmd == 7) {
+        void* msg = mMsg_Get_base_window_p();
+
+        mMsg_Set_item_str(msg, 0, (char*)h->buf, h->arg[1]);
+        h->arg[2] = mMsg_request_main_appear(msg, 0, 0, hook_color, h->arg[0], 5);
         h->cmd = 0;
     }
 }
@@ -153,6 +259,7 @@ FRINGE = 2.0                                         # the VI filter's fringe, a
 # the ink, which INK still counts (the board's own thresholds leave it out)
 SETTLE = 60
 HOOK_BUF = 0x14
+MESSAGE_SHOWN = 300                                   # frames for a one-page message to appear and type out
 
 EDIT_END, ADDRESS = 15, 13
 EE_WIN0 = struct.pack(">iII4f", 2, 0x0C0017C8, 0x0C001790, -45.0, 43.0, 65.0, -74.0)  # its first window
@@ -199,7 +306,11 @@ SWAP_MENUS = [((7, 0), (), ["RP_TITLE", "OK"]),
               ((16, 2), (), ["WR_BELLS1", "WR_BELLS2"]),
               ((18, 2), (), ["PK_NOERASE", ("PK_FAILED", 0x7A0BBC)]),   # the erase message's own copy
               ((18, 3), (), ["PK_INSERT1", "PK_INSERT2", "PK_INSERT3"]),
-              ((1, 0), (A,), ["TG_TUKAMU", "TG_YAMERU"]),           # the inventory: the money's tag
+              # the inventory: the money's tag, each word where the tag's cursor is not on it (the word under
+              # the cursor is drawn some 5% larger, from a place the cartridge's box does not give: measured,
+              # the first word's English 2 frame pixels right of the box's left and its ruler 2 left)
+              ((1, 0), (A,), ["TG_YAMERU"]),
+              ((1, 0), (A, (stick(0, -100), 6)), ["TG_TUKAMU"]),
               ((5, 0), (), [("MP_VACANT", EVERY)]),                  # the map: the houses' acre, at rest
               ((5, 0), ((MAP_LABEL, 2),), ["MP_SHOP"]),
               ((5, 0), ((MAP_LABEL, 3),), ["MP_POLICE"]),
@@ -814,6 +925,180 @@ def main(argv):
                     check(ink_matches(got, want), "the bulletin board: BB_NUMBER (%r) at %s, the layout's (%.1f, "
                           "%.1f) in its box %.1f pixels before the date's" % (built, got, want[0], want[1],
                                                                              BOARD_DATE_AFTER * FRAME_X))
+
+        # the items' names (tools/af_items.py, the en m_item_name.c): an item's name copied as the game copies it
+        # is a token for the table's record, which stands for the record's name and article; a message's item
+        # string takes the name; the inventory draws the money's name, measured like the swaps (the ruler as
+        # long as the token: the inventory centres the name by that length)
+        inc_path = os.path.join(af_en, "assets", "jp", "en", "item_names.inc")
+        if os.path.exists(inc_path) and "#define ITEM_EN_FROM_GC 1" in open(inc_path).read():
+            item_records = open(os.path.join(af_en, "assets", "jp", "en", "item_names.bin"), "rb").read()
+            bases = af_items.kind_bases()
+
+            def record(n):
+                r = item_records[n * af_items.RECORD_SIZE:(n + 1) * af_items.RECORD_SIZE]
+                return r[1], r[2], r[4:4 + r[0]]
+
+            def token(n):
+                head = bytes([af_items.TOKEN_MARK, af_items.TOKEN_DIGIT0 + n // af_items.TOKEN_BASE,
+                              af_items.TOKEN_DIGIT0 + n % af_items.TOKEN_BASE])
+                return (head + bytes([af_items.TOKEN_MARK]) * (record(n)[1] - len(head))).ljust(af_items.NAME_LEN, b" ")
+
+            samples = []
+            for k, (kind, count, _, _, _) in enumerate(af_items.KINDS[:16]):
+                for i in sorted({0, count - 1}):
+                    samples.append(("%s %d" % (kind, i), 0x2000 | (k << 8) | i, bases[kind] + i))
+            for f in (0, 1, 490, 850, 946):
+                for face in (0, 3):
+                    samples.append(("furniture %d facing %d" % (f, face), 0x1000 + f * af_items.FTR_FACES + face,
+                                    bases["ftr"] + f))
+            samples += [("the clothes' first as furniture", 0x17AC, bases["cloth"]),
+                        ("the insects' first as furniture", 0x1BA8, bases["insect"])]
+            ctl = setup()
+            n64.frames(2, 0)
+            for what, item, n in samples:
+                n64.write(ctl, struct.pack(">i4I", 3, item, 0, 0, 0))
+                n64.frames(2, 0)
+                cmd, _, length, art, is_token = struct.unpack(">i4i", n64.read(ctl, HOOK_BUF))
+                buf = n64.read(ctl + HOOK_BUF, 32)
+                want_art, _, want_name = record(n)
+                check(cmd == 0 and is_token and buf[:af_items.NAME_LEN] == token(n) and length == len(want_name)
+                      and buf[12:12 + length] == want_name and art == want_art,
+                      "the items' names: %s (%#06x) is the token %s for the table's %d, %r (%s)" % (
+                          what, item, buf[:af_items.NAME_LEN].hex(), n, buf[12:12 + max(0, length)],
+                          af_items.ARTICLES[art] if 0 <= art < len(af_items.ARTICLES) else art))
+            n64.write(ctl, struct.pack(">i4I", 3, 0, 0, 0, 0))   # no item: the cartridge's blank
+            n64.frames(2, 0)
+            buf = n64.read(ctl + HOOK_BUF, af_items.NAME_LEN)
+            check(buf == b" " * af_items.NAME_LEN, "the items' names: no item is a blank name (%r)" % buf)
+            money = bases["money"]
+            code = bytes([0x7F, msgbank.NAMES["STR_ITEM0"]])
+            n64.write(ctl + HOOK_BUF, token(money) + bytes(2) + code)
+            n64.write(ctl, struct.pack(">i4I", 4, len(code), 0, 0, 0))
+            n64.frames(2, 0)
+            new_len = struct.unpack(">i", n64.read(ctl + 8, 4))[0]
+            got = n64.read(ctl + HOOK_BUF + 12, max(0, min(new_len, 20)))
+            check(got == record(money)[2], "the items' names: a message's item string 0 takes the money's name "
+                  "(%r, %d bytes)" % (got, new_len))
+
+            # the articles (the GameCube's way: an item's name goes into a message, a choice or a letter after
+            # its article, unless the text cut it, and with a capital if the text asked; the en m_msg_main.c and
+            # m_handbill.c, the GameCube's CUTARTICLE and CAPTIALIZE carried as codes 72 and 73)
+            def code(name):                           # the code as the compiled bank holds it
+                n = msgbank.NAMES[name]
+                return bytes([0x7F, af_text.N64_CARRIED.get(n, n)])
+            cut, cap, item0, free0 = (code(n) for n in ("CUTARTICLE", "CAPTIALIZE", "STR_ITEM0", "STR_FREE0"))
+
+            def said(n, capital=False, article=True):
+                art, _, name = record(n)
+                text = (af_items.ARTICLES[art].encode() + b" " if article and art else b"") + name
+                return text[:1].upper() + text[1:] if capital else text
+
+            tool, fruit = bases["tool"], bases["fruit"]
+            cases = [("an item string", tool, item0, said(tool)),
+                     ("its article cut", tool, cut + item0, said(tool, article=False)),
+                     ("a capital", tool, cap + item0, said(tool, capital=True)),
+                     ("cut and a capital", tool, cap + cut + item0, said(tool, True, False)),
+                     ("a free string", fruit, free0, said(fruit)),
+                     ("no article to cut", money, cap + cut + item0, said(money, True)),
+                     ("the requests spent by the first string", tool, cap + cut + item0 + b" " + item0,
+                      said(tool, True, False) + b" " + said(tool))]
+            for what, n, text, want in cases:
+                n64.write(ctl + HOOK_BUF, token(n) + bytes(2) + text)
+                n64.write(ctl, struct.pack(">i4I", 5, len(text), 0, 0, 0))
+                n64.frames(2, 0)
+                new_len = struct.unpack(">i", n64.read(ctl + 8, 4))[0]
+                got = n64.read(ctl + HOOK_BUF + 12, max(0, min(new_len, 20)))
+                check(got.replace(cut, b"").replace(cap, b"") == want,
+                      "the items' names: a message's %s: %r gives %r (%r)" % (what, text, want, got))
+            plain = b"bob".ljust(af_items.NAME_LEN)
+            n64.write(ctl + HOOK_BUF, plain + bytes(2) + cap + free0)
+            n64.write(ctl, struct.pack(">i4I", 5, 4, 0, 0, 0))
+            n64.frames(2, 0)
+            got = n64.read(ctl + HOOK_BUF + 12, 5)
+            check(got == cap + b"Bob", "the items' names: a message's capital on a string of no item (%r)" % got)
+            n64.write(ctl + HOOK_BUF, token(tool) + bytes(2) + item0)
+            n64.write(ctl, struct.pack(">i4I", 4, len(item0), 0, 0, 0))
+            n64.frames(2, 0)
+            new_len = struct.unpack(">i", n64.read(ctl + 8, 4))[0]
+            got = n64.read(ctl + HOOK_BUF + 12, max(0, min(new_len, 20)))
+            check(got == said(tool), "the items' names: a choice's item string takes the article (%r)" % got)
+            for what, text, want in [("a free string", free0 + b"!", said(tool) + b"!"),
+                                     ("its article cut", b"x " + cut + free0, b"x " + said(tool, article=False)),
+                                     ("a capital", cap + free0, said(tool, capital=True)),
+                                     ("cut and a capital", cap + cut + free0 + b".", said(tool, True, False) + b".")]:
+                n64.write(ctl + HOOK_BUF, token(tool) + bytes(2) + text)
+                n64.write(ctl, struct.pack(">i4I", 6, len(text), 0, 0, 0))
+                n64.frames(2, 0)
+                got = n64.read(ctl + HOOK_BUF + 12, 20).rstrip(b" ")
+                check(got == want, "the items' names: a letter's %s: %r gives %r (%r)" % (what, text, want, got))
+
+            # on screen: the window shows a message of the translation's bank (the first of each kind in the
+            # GameCube's English that needs no speaker and is one page: the item string put in with its article,
+            # cut, or capitalized) with the first tool's token in item string 0, and again with the English it should
+            # give written as the string itself: the same pixels (and the article's codes, left in the text as
+            # the cartridge leaves its own, draw nothing); with a wrong English (the article missing, or there
+            # where the text cuts it) they differ, so the comparison sees an article
+            bank_path = os.path.join(os.path.dirname(gc_path), "en_bank.txt") if gc_path else ""
+            bank = af_text.load_bank(bank_path) if os.path.exists(bank_path) else {}
+            plain = {"MSGEND", "MSGCONTINUE", "PAUSE", "TEXTCOLOR", "STR_ITEM0", "CUTARTICLE", "CAPTIALIZE"}
+            kinds = {}
+            for n in sorted(bank):
+                names = [msgbank.COMMANDS[t[1]] for t in bank[n] if t[0] == "c"]
+                english = all(t[1].isascii() for t in bank[n] if t[0] == "t")
+                if english and set(names) <= plain and names.count("STR_ITEM0") == 1:
+                    kind = ("cut" if "CUTARTICLE" in names else "capital" if "CAPTIALIZE" in names else "article")
+                    kinds.setdefault(kind, n)
+
+            def message(msg_no, string):
+                ctl = setup()
+                n64.write(ctl + HOOK_BUF, string)
+                n64.write(ctl, struct.pack(">i4I", 7, msg_no, len(string), 0, 0))
+                n64.frames(2, 0)
+                took = struct.unpack(">i", n64.read(ctl + 12, 4))[0]
+                n64.frames(MESSAGE_SHOWN, 0)
+                return took, n64.screen()
+
+            for kind in ("article", "cut", "capital"):
+                if kind not in kinds:
+                    check(False, "the items' names: a message of the bank's that puts in item string 0 (%s)" % kind)
+                    continue
+                msg_no = kinds[kind]
+                english = said(tool, article=(kind != "cut"))  # (the capital: the window's own, on both)
+                wrong = said(tool, article=(kind == "cut"))
+                took, (w, h, seen) = message(msg_no, token(tool))
+                _, (_, _, wrote) = message(msg_no, english)
+                _, (_, _, other) = message(msg_no, wrong)
+                path = os.path.join(out, "items-message-%d.png" % msg_no)
+                write_png(path, w, h, seen)
+                shots.append(path)
+                differ = sum(1 for k in range(0, len(seen), 3) if seen[k:k + 3] != wrote[k:k + 3])
+                check(took and seen == wrote and seen != other,
+                      "the items' names: message %d (%s) shows the token as it shows %r written in (%d pixels "
+                      "differ; with %r, %s)" % (msg_no, kind, english, differ, wrong,
+                                               "different" if seen != other else "the same"))
+            # on screen: the inventory's name of the money under its cursor
+            art, cells, name = record(money)
+            w, h, seen = open_swap((1, 0), ())
+            path = os.path.join(out, "items-program-1.png")
+            write_png(path, w, h, seen)
+            shots.append(path)
+            _, _, bare = open_swap((1, 0), (), rewrite=([token(money)], b" " * af_items.NAME_LEN, True))
+            _, _, ruled = open_swap((1, 0), (), rewrite=([token(money)], (rule * cells).ljust(af_items.NAME_LEN, b" "),
+                                                         True))
+            name_runs = runs(x for x, _ in ink_pixels(seen, bare, w, h))
+            ruler_runs = runs(x for x, _ in ink_pixels(ruled, bare, w, h))
+            if not name_runs or not ruler_runs:
+                check(False, "the items' names: the money's name drawn (%d runs, the ruler %d)" % (
+                    len(name_runs), len(ruler_runs)))
+            else:
+                left, scale = swap_box(board, rule * cells, (ruler_runs[0][0], ruler_runs[-1][1]))
+                span = ruler_runs[-1][1] - ruler_runs[0][0]
+                want = swap_inks(board, faint, b" " * cells, name, af_ui.LEFT | af_ui.FIT, left, scale)[0]
+                got = (name_runs[0][0], name_runs[-1][1])
+                check(ink_matches(got, want, left, span),
+                      "the items' names: the inventory draws the money's %r at %s, the model's (%.1f, %.1f) from "
+                      "the place of its %d cells at the scale %.3f" % (name, got, want[0], want[1], cells, scale))
 
         for i, (program, data0, vrom, what) in enumerate(LABEL_MENUS):
             ctl = setup()

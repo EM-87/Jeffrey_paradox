@@ -2584,6 +2584,82 @@ index 0000000..34e9b7f
 +
 +    return super_res && mail_res && ps_res;
 +}
+diff --git a/src/code/m_item_name.c b/src/code/m_item_name.c
+new file mode 100644
+index 0000000..5b38fe9
+--- /dev/null
++++ b/src/code/m_item_name.c
+@@ -0,0 +1,70 @@
++#include "global.h"
++#include "m_item_name.h"
++#include "m_lib.h"
++#include "m_room_type.h"
++#include "m_std_dma.h"
++
++/*
++ * An item's name (m_item_name.c in AC GCN is the map): 10 characters in a
++ * file of their own (vrom 0x10F4000, segment 6 in its addresses), read
++ * with a DMA each time. A name type of 1 is furniture, each name four
++ * times (one for each way it faces: the item's number with its two low
++ * bits is its index, from D_6001D98); 2 is an item of one of 16 kinds
++ * (paper, money, tools, fish, clothes, ...: the kind in bits 8-11, its
++ * names from the kind's place in D_801076BC_jp, the index in the low
++ * byte). Nothing, a blank name; anything else leaves dst as it is.
++ */
++
++#define mIN_ITEM_NAME_LEN 10
++#define mIN_NAME_TYPE_FTR 1
++#define mIN_NAME_TYPE_ITEM1 2
++
++extern const char RO_STR_801170B0_jp[]; /* this file's name, for the DMA's report */
++extern u8 D_801076B0_jp[];              /* a blank name */
++extern u8* D_801076BC_jp[];             /* each kind's names, in segment 6 */
++extern u8 D_10F4000[];                  /* the names' file (its vrom) */
++extern u8 D_6000000[];                  /* segment 6, where the file's addresses start */
++extern u8 D_6001D98[];                  /* the furniture's names, in segment 6 */
++
++void func_80096710_jp(u8* dst, RomOffset vrom) {
++    DmaMgr_RequestSyncDebug(dst, vrom, mIN_ITEM_NAME_LEN, RO_STR_801170B0_jp, 85);
++}
++
++/*
++ * NON_MATCHING: the cartridge's shape (the frame, the 16-byte buffer, the
++ * switch, the segment's base loaded as an address), but not its registers:
++ * the cartridge keeps the parameter, then a 16-bit copy of the converted
++ * number, in a2 and the converted number itself in v1; no declaration
++ * order or type of the number and its copies swept with tools/af_bench.py
++ * gives them (19 instructions differ at best, in registers and in which of
++ * the two copies is masked).
++ */
++#ifdef NON_MATCHING
++void mIN_copy_name_str(char* dst, u16 item) {
++    u32 itm = item;
++    s32 itemNo = mRmTp_FtrItemNo2Item1ItemNo(itm);
++    u8 name[16];
++
++    switch ((itemNo & 0xF000) >> 12) {
++        case mIN_NAME_TYPE_ITEM1:
++            func_80096710_jp(name, (RomOffset)(D_801076BC_jp[(itemNo & 0xF00) >> 8] + (itemNo & 0xFF) * mIN_ITEM_NAME_LEN) -
++                                       (RomOffset)D_6000000 + (RomOffset)D_10F4000);
++            mem_copy((u8*)dst, name, mIN_ITEM_NAME_LEN);
++            break;
++
++        case mIN_NAME_TYPE_FTR:
++            func_80096710_jp(name, (RomOffset)(D_6001D98 + (itemNo & 0xFFF) * mIN_ITEM_NAME_LEN) - (RomOffset)D_6000000 +
++                                       (RomOffset)D_10F4000);
++            mem_copy((u8*)dst, name, mIN_ITEM_NAME_LEN);
++            break;
++
++        default:
++            if (itemNo == 0) {
++                mem_copy((u8*)dst, D_801076B0_jp, mIN_ITEM_NAME_LEN);
++            }
++            break;
++    }
++}
++#else
++#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_item_name/mIN_copy_name_str.s")
++#endif
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
 new file mode 100644
 index 0000000..03981c7
@@ -7311,10 +7387,10 @@ index 0000000..88ffefb
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/tag_ovl/m_tag_ovl/mTG_tag_ovl_destruct.s")
 diff --git a/yamls/jp/code.yaml b/yamls/jp/code.yaml
-index c052055..204cfbc 100644
+index c052055..934e0af 100644
 --- a/yamls/jp/code.yaml
 +++ b/yamls/jp/code.yaml
-@@ -39,9 +39,9 @@
+@@ -39,14 +39,14 @@
        - [0x6A83A0, asm, code/m_field_assessment]
        - [0x6A8B70, asm, code/m_field_make]
        - [0x6AB8D0, c, code/m_field_info]
@@ -7327,6 +7403,12 @@ index c052055..204cfbc 100644
        - [0x6B81C0, asm, code/m_home]
        - [0x6B8880, asm, code/m_house]
        - [0x6B8A70, c, code/m_land]
+       - [0x6B8F20, asm, code/6B8F20]
+-      - [0x6BA3B0, asm, code/m_item_name]
++      - [0x6BA3B0, c, code/m_item_name]
+       - [0x6BA500, asm, code/6BA500]
+       - [0x6BA930, c, code/m_kankyo]
+       - [0x6BD560, c, code/m_lib]
 @@ -55,7 +55,8 @@
        - [0x6BFE60, c, code/m_mail]
        - [0x6C05A0, c, code/m_mail_check]

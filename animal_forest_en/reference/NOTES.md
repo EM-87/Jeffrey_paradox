@@ -1837,10 +1837,9 @@ what goes in it: "The letters in the en build").
   checked against the lists only.
 - **Still Japanese in those menus.** The dial's two kana modes and its
   kana ring (the patch kept them; the en font keeps the kana, so they
-  still type), the town tune's note names (kana textures, I4), the
-  item names (a file of their own, 10 bytes
-  each at vrom 0x10F4000: `mIN_copy_name_str`, `m_item_name.s`) and the
+  still type), the town tune's note names (kana textures, I4) and the
   bulletin board's text, which breaks its lines by count, not by width.
+  The item names were, until "Item names" below.
 - **The title is more than textures.** The title's logo lives in
   `segment_01136000` (0x5CD0 bytes, loaded by `ovl_trademark`,
   `m_trademark.c`; segment 6). The patch rewrote it (0x4EB0 bytes, 158
@@ -1852,3 +1851,167 @@ what goes in it: "The letters in the en build").
   its own English text in `D_80AA2118_jp`). So the logo needs that actor
   in C before the en build can take it; the cartridge's title line under
   the logo is already in Latin letters.
+
+## Item names (phase 5, the menus' strings)
+
+- **The cartridge's.** `mIN_copy_name_str` (`m_item_name.c`, split from
+  `code` at 0x6BA3B0 in matching.patch) copies an item's name, 10
+  characters, with a DMA of its own from a file at vrom 0x10F4000
+  (0xB1A0 bytes, addressed as segment 6): a name type of 2 is an item of
+  one of 16 kinds (paper, money, tools, fish, clothes, other things,
+  carpets, wallpaper, fruit, plants, records, an empty kind, tickets,
+  insects, grab bags, turnips: the kind in bits 8-11, its names from the
+  kind's place in `D_801076BC_jp`, the index in the low byte); 1 is
+  furniture, each name four times (once for each way it faces: the
+  number with its two low bits is the index, from `D_6001D98`); nothing
+  is a blank name (`D_801076B0_jp`); anything else leaves the buffer as
+  it is. Before the lookup `mRmTp_FtrItemNo2Item1ItemNo` turns the
+  furniture numbers of clothes, insects, fish and umbrellas into their
+  items, so those furniture names are never read. The copy's helper
+  (`func_80096710_jp`) matches; `mIN_copy_name_str` is NON_MATCHING:
+  the cartridge's shape (the frame, a 16-byte buffer, the switch, the
+  segment's base loaded as an address) but not its registers (it keeps
+  the parameter, then a 16-bit copy of the converted number, in a2, and
+  the number in v1; no declaration order or type swept with
+  `tools/af_bench.py` gives that: 19 instructions differ at best). The
+  en build replaces it.
+- **The GameCube's** (read from the user's disc at build time, from
+  build/gc's copies of `foresta.rel.szs` and `foresta.map`, by
+  `tools/af_items.py gc-files`; never committed): `itemName_*` and
+  `ftrName_table` in `dataobject.obj`, 16 characters each, and each
+  name's article in `itemArt_*` and `ftrArt` (`m_item_name.o`): none,
+  a, an, the or some (`mIN_ARTICLE_*`). The same kinds in the same
+  order, with items of its own added: a plant after the first (the
+  plants shift by one), and in the furniture, after the clothes, its
+  mannequins, more insects, fish and umbrellas' patterns (blocks of 8),
+  and more games after the cartridge's Famicoms (which all share one of
+  its names). The clothes the cartridge numbers as furniture (491 to
+  745) take the clothes' names, as `mRmTp_FtrItemNo2Item1ItemNo` reads
+  them; a bag of money among the other things takes the money's. Of the
+  cartridge's 1,703 names (947 pieces of furniture), 1,696 are the
+  GameCube's and 7 are ours (`script/items.txt`: the errands' letter,
+  cloth and money, a fortune slip, the town's map, the empty kind's one
+  name, the Famicom's disk drive), each checked against the cartridge's
+  name kind by kind (`af_items.py pairs`, local, prints only).
+- **Why a token.** The GameCube's names run to 16 characters (739 of
+  its 1,024 furniture names are longer than 10), and the buffers the
+  cartridge copies a name into stay 10 bytes in some 27 overlays (all
+  asm, and an overlay cannot grow). So the en `mIN_copy_name_str` writes
+  a token there, which every one of them copies and keeps as it would a
+  name: 0x80 (a code no string the game draws has), the name's number in
+  the en table in two digits (0x81 + n / 64, 0x81 + n % 64: never a
+  space nor 0xCD), 0x80 again up to the cells the English takes, then
+  spaces. The cells are the name's width in the en font (even, as
+  `mFont_GetStringWidth` gives it) in 12-pixel cells, from 3 to 10: what
+  `mMl_strlen` counts (the characters before the trailing spaces), and
+  so how wide a menu makes the name's place (the tag, the item's balloon
+  in `6EFC20.s` sizes itself by it). The names are records of 20 bytes
+  (length, article, cells, a zero, 16 characters in the N64 font's
+  codes) in a ROM segment of their own (`item_en_names`, a ninth dmadata
+  entry), read by DMA as the cartridge reads its names, the last 16 kept:
+  a table in RAM would grow `code_en`, and the heap gives way to it.
+- **Who takes a token.** Every caller of `mIN_copy_name_str` was listed
+  (`jal` in the asm and the C, and what each does next with the buffer):
+  messages (`mMsg_Set_item_str`, `mMsg_Set_free_str`, the coloured free
+  string `func_8009D820_jp`), letters (`mHandbill_Set_free_str`), a
+  choice (the night stall's goods, `ac_ev_yomise`: `mChoice_Set_choice_data`),
+  the font's line (`func_80090E98_jp`: the inventory, the catalog's
+  pages, the tag, the item's balloon) and `mMl_strlen`. Nothing sorts or
+  compares names (the catalog's page, once named, loads its picture),
+  and the save keeps an item's number, not its name (a letter keeps its
+  text, with the name already put in). So: the en
+  font draws a token as its name, from the left of its place and
+  narrowed into the cells the call gives (`m_font.c`); the message code
+  puts in the name (`m_msg_main.c`) and the letters' expander too
+  (`m_handbill.c`), each after the name's article; a choice answers with
+  the name alone, as the GameCube's stall does (`m_choice_main.c`,
+  `mChoice_Add_choice_data`).
+- **The articles.** The GameCube puts an item's article before its name
+  where the code that sets the string gives one (`mMsg_Set_item_str_art`,
+  `mMsg_Set_free_str_art`, `mHandbill_Set_free_str_art`): every one of
+  its calls that sets an item's name does (18 item strings, 9 free
+  ones); its setters without an article set numbers, typed text and
+  people's names. Its text cuts the article where the sentence has its
+  own word (CUTARTICLE, its code 116: 1,097 times in the message bank,
+  40 in the letters) and asks for a capital at a sentence's start
+  (CAPTIALIZE, the decomp's spelling, 117: 125 and 11 times; before the
+  catchphrase 58 times, item and free strings 55, the answer chosen 4).
+  The cartridge's codes stop at 96, so the translation's bank carries
+  the two as codes 72 and 73 (`af_text.N64_CARRIED`; LUCK_7 and LUCK_8
+  on the cartridge, used by neither game's bank: 71 already carries
+  STR_AMPM), 970 and 92 of them in the messages the drafts take from the
+  GameCube, 31 and 10 in the letters. The message window's handlers for
+  the two (`func_800A1AA4_jp`, `func_800A1AC4_jp`) pass over the code as
+  the cartridge's luck codes do and set a request: the next free or item
+  string goes without its article, the next string the GameCube
+  capitalizes (the player's name, the animal's, its catchphrase, the
+  free and item strings, the town's name, a letter's string) begins with
+  a capital (a to z: the en charset's letters are ASCII's). A request
+  ends with the string, or when a message starts (`func_800A2538_jp`), as
+  the GameCube's status flags do. Two differences: the GameCube leaves
+  a capital asked before the answer chosen for the next name (its answer
+  handler does not read it), the translation gives it to the answer; and
+  the GameCube's letters never clear their capital (its
+  `mHandbill_clr_capital_flag` clears the forced article instead), the
+  translation's clear both after the string. A choice's free or item
+  string takes the article, never cut (the GameCube's choices pass
+  `mIN_ARTICLE_NUM`). In the letters the two codes go from the text (the
+  cartridge's expander has no handler for them, and would stop on them),
+  the two bytes filled with the letter's fill where the GameCube leaves
+  them as they were.
+- **In the game** (`tests/emu_menus.py`, part of make menus-check-en).
+  The hook copies names as the game does and reads the token and the
+  name it stands for: the first and last of each kind, five pieces of
+  furniture facing two ways, the first clothes and insect by their
+  furniture numbers, and no item (the blank). It puts a token into a
+  message's item string and runs the message window's own handlers on a
+  text of the hook's (the item and free strings, the article's two
+  codes: cut, a capital, both, a name with no article, the requests
+  spent by the first string, a capital on a string of no item), a
+  choice's item string, and a letter's free string through the letters'
+  expander. On screen: the inventory opened on the route's save shows
+  the money's name in the GameCube's English under its cursor; measured
+  as the swaps are (a ruler as long as the token's cells written into
+  every copy of the token, every frame), its ink runs from 203 to 338,
+  the model's from 202.9 to 337.1, from the place of its 6 cells at the
+  scale 0.995. And the message window shows three messages of the
+  translation's bank (chosen by their codes: the first in the GameCube's
+  English that needs no speaker, is one page and puts in item string 0
+  as it is, with its article cut, or with a capital) with the first
+  tool's token in item string 0, and again with the English it should
+  give written as the string itself: the frames are the same, pixel for
+  pixel (so the article's codes, left in the text as the cartridge
+  leaves its luck codes, draw nothing), and with the wrong English (the
+  article missing, or there where the text cuts it) they differ.
+- **What the heap has left.** Every byte `code_en` takes comes off the
+  system heap, and so off the game state's heap and the zelda arena play
+  carves from it (`m_play.c`: the whole rest of the state's heap).
+  `code_en` is now 0x1B560 bytes: mostly the sections of `m_msg_main`,
+  `m_handbill`, `m_font`, `m_flashrom`, `m_choice_main`, `m_submenu` and
+  `m_string` that grew and moved there (their old places in code stay
+  empty), the swap table (`m_font`'s data, 0x1FD0) and the letters'
+  extension (`m_flashrom`'s bss, 0x24A0). The names add `m_item_name`'s
+  text (0x580), the 16 records kept (bss, 0x1B0) and the kinds' table
+  (data and rodata, 0x90), and the articles some hundreds of bytes of
+  code. Measured on the en build: on a fresh boot, when the title loads
+  the save (frame 433; `func_8008F968_jp` reads it into 0xF980 bytes
+  taken from the zelda arena, to check it before it is copied), the
+  arena's largest free block is 0x1FBE0 bytes, so 66 KB to spare; in
+  play at the houses after the route it is 0x51B0 (of 0xC9F40 in use or
+  free). So that load, which the save and letters checks called in play,
+  now fails there (zelda_malloc returns NULL; they last ran at the 2010
+  labels' batch, before the swap table); the game itself calls it on the
+  title screen only (`ac_animal_logo`), where the save check's boot sees
+  it load. The two checks now call the title's direct load in play
+  (`func_8008F938_jp`: the save read straight into `common_data`, the
+  extension after it, the same reading code). `code_en` should take no
+  more than it must: a table goes to a ROM segment, as the names do.
+- **The tag's cursor** (the swap check). The word under the money tag's
+  cursor is drawn some 5% larger, its ruler too (scale 1.043 against
+  0.984), from a place the cartridge's box does not give: measured
+  there, the first word's English starts 2 frame pixels right of where
+  the box's left puts it and its ruler 2 to the left. Each word is now
+  measured where the cursor is not on it (the stick pushed down for the
+  first): its ink from 245 to 299, the model's 243.1 to 298.9. With
+  the names, the articles and this, all 307 of the menus check's checks
+  pass.

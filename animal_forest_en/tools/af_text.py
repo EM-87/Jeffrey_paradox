@@ -74,9 +74,9 @@ system", "The GameCube script"):
 draft takes, for each N64 number, the GameCube text when af_align says it
 is the same message (same, plain, edited: edited ones get a note), else
 the Japanese with a note; the GameCube-only codes become what the N64 can
-do: CUTARTICLE, CAPITALIZE, SETCURSORJUST, CLRCUSRORJUST and SPACE are
-dropped (counted), STR_AMPM is kept (compiled as code 71, which the en
-build reads as it), MALEFEMALECHK keeps its first alternative,
+do: SETCURSORJUST, CLRCUSRORJUST and SPACE are dropped (counted),
+STR_AMPM, CUTARTICLE and CAPTIALIZE are kept (compiled as codes 71 to 73,
+which the en build reads as them), MALEFEMALECHK keeps its first alternative,
 SELNOBCLOSE becomes the N64's SELNOB, anything else is kept and reported
 for the check to refuse. Characters the N64 charset lacks are given
 their plain ASCII (é -> e, the GameCube's marks their nearest; each
@@ -99,12 +99,16 @@ N64_COUNT = 0x2DE8                       # the message bank; main() sets it from
 N64_CODE_MAX = 0x60
 TERMINATORS = {NAMES["MSGEND"], NAMES["MSGCONTINUE"], NAMES["MSGTIMEEND"]}
 PAGE_BREAKS = {NAMES["BTN"], NAMES["MSGCLEAR"]}
-DROP = {NAMES[n] for n in ("CUTARTICLE", "CAPTIALIZE", "SETCURSORJUST", "CLRCUSRORJUST", "SPACE")}
+DROP = {NAMES[n] for n in ("SETCURSORJUST", "CLRCUSRORJUST", "SPACE")}
 # GameCube codes the translation's N64 code carries under another number: the
 # bank text keeps the GameCube's name, compile writes the N64's (changes.patch,
-# src/code/m_msg_main.c: code 71, LUCK_6 on the cartridge and in neither bank,
-# is STR_AMPM in the en build).
-N64_CARRIED = {NAMES["STR_AMPM"]: NAMES["LUCK_6"]}
+# src/code/m_msg_main.c: codes 71 to 73, LUCK_6 to LUCK_8 on the cartridge and
+# in neither bank, are STR_AMPM, CUTARTICLE and CAPTIALIZE in the en build; the
+# letters' expander in m_handbill.c takes the last two as well: an item's name
+# goes in with its article unless cut, a string with a capital if asked).
+N64_CARRIED = {NAMES["STR_AMPM"]: NAMES["LUCK_6"], NAMES["CUTARTICLE"]: NAMES["LUCK_7"],
+               NAMES["CAPTIALIZE"]: NAMES["LUCK_8"]}
+LETTER_CODES = {NAMES["LUCK_7"], NAMES["LUCK_8"]}          # a letter's codes besides the free strings
 # The en build's letter banks: room for the GameCube's longest entry (header
 # 23 bytes, body 177, footer 30, the villagers' parts 20/62/90/32), free strings
 # expanded later by the loader.
@@ -497,10 +501,12 @@ def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0, singl
     codes = [t for t in tokens if t[0] == "c"]
     if letter:
         for t in codes:
-            if not COMMANDS[t[1]].startswith("STR_FREE"):
+            if not COMMANDS[t[1]].startswith("STR_FREE") and t[1] not in LETTER_CODES:
                 # the letters' expander (func_80093478_jp) has a handler for the twenty free strings
-                # only (D_80107020_jp) and does not move past any other code: the game would hang
-                problems.append(("error", "code %s in a letter (only the free strings)" % COMMANDS[t[1]]))
+                # only (D_80107020_jp; the en build's for the article's two as well) and does not move
+                # past any other code: the game would hang
+                problems.append(("error", "code %s in a letter (only the free strings and the article's)"
+                                 % COMMANDS[t[1]]))
         return problems
     if single:
         if codes or "\n" in "".join(t[1] for t in tokens if t[0] == "t"):

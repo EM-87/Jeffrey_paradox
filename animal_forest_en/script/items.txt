@@ -1,0 +1,13 @@
+# Item names the GameCube has none for (tools/af_items.py): kind, index, article (a, an, the, some or -),
+# then the name, separated by tabs. The rest are the GameCube's, read from the user's disc at build time.
+#
+# The errands' items (a letter, some cloth, some money to take to someone), a fortune slip, the town's map.
+etc	0	a	letter
+etc	1	some	cloth
+etc	2	some	money
+etc	19	a	fortune
+etc	29	a	town map
+# The empty kind's one name, never shown.
+dummy	0	-	nothing
+# The Famicom's disk drive, next to the Famicoms (all of them the GameCube's NES).
+ftr	849	a	disk system

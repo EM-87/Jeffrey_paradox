@@ -22,8 +22,15 @@ save"):
      compressed format where the game state's heap has room (called on
      the trademark screen of a fresh boot) and the cartridge's format in
      play, where it has none;
-  4. the load (func_8008F968_jp) brings back the save and the extension
-     from a compressed slot;
+  4. the load brings back the save and the extension from a compressed
+     slot: the title's direct load (func_8008F938_jp, the save read
+     straight into common_data and the extension after it), called in
+     play. The title's other load (func_8008F968_jp) reads the save into
+     a buffer of 0xF980 bytes from the zelda arena first, to check it:
+     in play at the houses the arena no longer has one block that size
+     since code_en grew (reference/NOTES.md, "Item names": what the heap
+     has left), and the game calls it on the title screen, where 5 sees
+     it load;
   5. a fresh boot with a compressed slot 0 and an erased slot 1 repairs
      slot 1 with slot 0's image, and the game loads the save and the
      extension from it.
@@ -59,7 +66,7 @@ void func_800D986C_jp(s32 buf);
 void func_8008EFDC_jp(void* chk);
 u16 func_8008EEB4_jp(void* data, s32 size, u16 checksum);
 s32 func_8008F7C8_jp(void);
-s32 func_8008F968_jp(void);
+void func_8008F938_jp(void);
 void bcopy(const void* src, void* dst, int size);
 
 typedef struct HookCtl {
@@ -124,7 +131,8 @@ void hook_main(void) {
             h->cmd = 0;
             break;
         case 4:
-            h->result = func_8008F968_jp();
+            func_8008F938_jp();
+            h->result = 1;
             h->cmd = 0;
             break;
     }

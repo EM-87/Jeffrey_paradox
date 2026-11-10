@@ -32,6 +32,7 @@ import af_relink  # noqa: E402
 import af_relsyms  # noqa: E402
 import af_shiftcheck  # noqa: E402
 import af_text  # noqa: E402
+import af_items  # noqa: E402
 import af_ui  # noqa: E402
 import gciso  # noqa: E402
 import msgbank  # noqa: E402
@@ -686,7 +687,7 @@ class Script(unittest.TestCase):
         self.assertEqual([lv for lv, _ in af_text.check_message(3, msgbank.parse("x" * 40 + end), 32, 4, 0x400)], ["warning"])
         self.assertEqual([lv for lv, _ in af_text.check_message(4, msgbank.parse("no end"), 32, 4, 0x400)], ["error"])
         self.assertEqual([lv for lv, _ in af_text.check_message(5, msgbank.parse("é" + end), 32, 4, 0x400)], ["error"])
-        self.assertEqual([lv for lv, _ in af_text.check_message(6, msgbank.parse("<CUTARTICLE>x" + end), 32, 4, 0x400)], ["error"])
+        self.assertEqual([lv for lv, _ in af_text.check_message(6, msgbank.parse("<SETCURSORJUST>x" + end), 32, 4, 0x400)], ["error"])
         self.assertEqual([lv for lv, _ in af_text.check_message(7, msgbank.parse("x" * 0x500 + end), 32, 4, 0x400)][0], "error")
         # a free string the cartridge's message does not print: the game may not fill it
         jp = msgbank.parse("<STR_FREE2>, <STR_COUNTRYNAME>" + end)
@@ -746,10 +747,10 @@ class Script(unittest.TestCase):
 
     def test_draft_adapts_the_official_text(self):
         counts = collections.Counter()
-        gc = msgbank.parse("<CUTARTICLE>Hey, caf\u00e9 \u2665!<MALEFEMALECHK 00010002><MSGEND>")
+        gc = msgbank.parse("<SETCURSORJUST><CUTARTICLE>Hey, caf\u00e9 \u2665!<MALEFEMALECHK 00010002><MSGEND>")
         out = af_text.adapt(gc, counts)
-        self.assertEqual(msgbank.render(out), "Hey, cafe ♥!<MSGEND>")      # the heart is in the N64 charset
-        self.assertEqual(counts["dropped CUTARTICLE"], 1)
+        self.assertEqual(msgbank.render(out), "<CUTARTICLE>Hey, cafe ♥!<MSGEND>")   # the heart is in the N64 charset
+        self.assertEqual(counts["dropped SETCURSORJUST"], 1)
         with tempfile.TemporaryDirectory() as d:
             paths = {k: os.path.join(d, k + ".txt") for k in ("n64", "gc", "ours", "out")}
             n64 = "".join("## %d\n%s<MSGEND>\n\n" % (n, "jp%d" % n) for n in range(af_text.N64_COUNT))
@@ -806,6 +807,15 @@ class Script(unittest.TestCase):
         toks = msgbank.parse("It's <STR_HOUR> <STR_AMPM>.<MSGEND>")
         self.assertEqual(af_text.check_message(0, toks, 32, 4, 0x400), [])        # carried: not an error
         self.assertIn(bytes([0x7F, msgbank.NAMES["LUCK_6"]]), msgbank.encode(af_text.carried(toks)))
+        # the article's codes: carried as LUCK_7 and LUCK_8, in messages and in letters
+        toks = msgbank.parse("<CAPTIALIZE><CUTARTICLE><STR_ITEM0>!<MSGEND>")
+        self.assertEqual(af_text.check_message(0, toks, 32, 4, 0x400), [])
+        self.assertEqual(msgbank.encode(af_text.carried(toks))[:4],
+                         bytes([0x7F, msgbank.NAMES["LUCK_8"], 0x7F, msgbank.NAMES["LUCK_7"]]))
+        letter = msgbank.parse("Thanks for <CUTARTICLE><STR_FREE0>!")
+        self.assertEqual(af_text.check_message(0, letter, 32, 4, 0x400, letter=True), [])
+        self.assertEqual([lv for lv, _ in af_text.check_message(0, msgbank.parse("<STR_TAIL>"), 32, 4, 0x400,
+                                                                   letter=True)], ["error"])
         with tempfile.TemporaryDirectory() as d:
             paths = {k: os.path.join(d, k + ".txt") for k in ("n64", "gc", "out")}
             open(paths["n64"], "w").write("## 0\nあ\n\n## 1\nい\n\n")
@@ -1173,6 +1183,56 @@ class MenusWords(unittest.TestCase):
                     af_ui.substitutions(rom, {}, {"B": "x{}" if af_ui.HOLE in af_ui.key_pieces(spec) else "x"})
         finally:
             af_ui.SUBST = saved
+
+    def test_item_names_mapped(self):
+        # tools/af_items.py: the cartridge's names numbered by kind, densely; the GameCube's at the same index
+        # but for the plants (one added second), the furniture's blocks, the clothes it shows as furniture (the
+        # clothes' names), the Famicoms (one name) and a bag of money among the other items
+        slots = af_items.slots()
+        self.assertEqual(len(slots), sum(n for _, n, _, _, _ in af_items.KINDS))
+        bases = af_items.kind_bases()
+        self.assertEqual(bases["paper"], 0)
+        self.assertEqual(bases["ftr"], sum(n for k, n, _, _, _ in af_items.KINDS if k != "ftr"))
+        self.assertEqual(slots[bases["ftr"]], ("ftr", 0))
+        src = af_items.gc_source
+        self.assertEqual(src("fish", 31), ("fish", 31))
+        self.assertEqual((src("plant", 0), src("plant", 1), src("plant", 9)), (("plant", 0), ("plant", 2), ("plant", 10)))
+        self.assertEqual((src("ftr", 0), src("ftr", 490)), (("ftr", 0), ("ftr", 490)))
+        self.assertEqual((src("ftr", 491), src("ftr", 745)), (("cloth", 0), ("cloth", 254)))
+        self.assertEqual((src("ftr", 746), src("ftr", 778), src("ftr", 810)), (("ftr", 754), ("ftr", 794), ("ftr", 834)))
+        self.assertEqual((src("ftr", 842), src("ftr", 848), src("ftr", 849)), (("ftr", 893), ("ftr", 893), None))
+        self.assertEqual((src("ftr", 850), src("ftr", 946)), (("ftr", 894), ("ftr", 990)))
+        self.assertEqual(src("etc", 13), ("money", 0))
+        # a placeholder in the GameCube's table is no name; an accented small letter in one is
+        self.assertTrue(af_items.printable("bass") and af_items.printable("Se\u00f1or K.K."))
+        self.assertFalse(af_items.printable("\u00c1\u00e0\u00c5\u00ed") or af_items.printable(""))
+
+    def test_item_name_records(self):
+        # a record: the name's length, its article, its cells (the token's at least, the buffer's at most),
+        # a byte, the characters padded to 16; ours over the GameCube's; without either, the cartridge's
+        saved = af_items.KINDS
+        try:
+            af_items.KINDS = [("fish", 3, 0x10, "itemName_fish", "itemArt_Fish"), ("ftr", 1, 0x40, "ftrName_table", "ftrArt")]
+            rom = bytearray(af_items.NAME_FILE + 0x80)
+            rom[af_items.NAME_FILE + 0x10 + 20:af_items.NAME_FILE + 0x10 + 30] = bytes([0x10, 0x11]) + b" " * 8
+            widths = [6] * 256
+            gc = {("fish", 0): ("bass", 1), ("fish", 1): ("a very long name", 2), ("ftr", 0): ("sofa", 1)}
+            own = {("fish", 1): ("carp", 0)}
+            data, counts = af_items.records(bytes(rom), gc, own, widths)
+            size = af_items.RECORD_SIZE
+            self.assertEqual(len(data), 4 * size)
+            self.assertEqual(data[:size], bytes([4, 1, 3, 0]) + b"bass" + b" " * 12)          # 24 px: 2 cells, 3 at least
+            self.assertEqual(data[size:2 * size], bytes([4, 0, 3, 0]) + b"carp" + b" " * 12)  # ours first
+            self.assertEqual(data[2 * size:2 * size + 6], bytes([2, 0, 3, 0, 0x10, 0x11]))    # the cartridge's
+            self.assertEqual(counts, {"fish": [1, 1, 1], "ftr": [1, 0, 0]})
+            self.assertEqual(af_items.cells(b"x" * 16, [9] * 256), af_items.NAME_LEN)       # 144 px: the buffer's 10
+            with self.assertRaises(SystemExit):
+                af_items.records(bytes(rom), {("fish", 0): ("a name of seventeen", 1)}, {}, widths)
+            inc = af_items.include(True)
+            self.assertIn("#define ITEM_EN_FROM_GC 1", inc)
+            self.assertIn("#define ITEM_EN_FTR_BASE 3", inc)
+        finally:
+            af_items.KINDS = saved
 
     def test_labels_drawn_by_the_lists(self):
         # tools/af_nafe_gfx.py: a texture is where a load in the segment's own

@@ -44,7 +44,8 @@ the why and the state, `reference/NOTES.md` for what is verified.
 6. **Every claim of "done" runs `make test` and `make emu-check`.**
    `make test` needs no ROM and runs in CI; `make emu-check` needs the
    user's dump and stays local. A change to the
-   save code also runs `make save-check-en`, one to the letters `make
+   save code, or one that grows `code_en` (its bytes come off the heap:
+   below), also runs `make save-check-en`, one to the letters `make
    letters-check-en`, one to the letter board or the font `make
    board-check-en`, one to the editor or writing a letter `make
    write-check-en`, one to the menus' strings `make menus-check-en`, one
@@ -111,6 +112,16 @@ the why and the state, `reference/NOTES.md` for what is verified.
   from the dump: a string, a buffer a menu types into, or pieces around
   the part a menu builds itself; our own text in `script/ui.txt`: NOTES,
   "The menus' strings where the font draws them").
+- `tools/af_items.py` — the item names: the GameCube's and their
+  articles (read by `make script` into `build/gc/gc_items.txt`, from
+  build/gc's copies of the disc's module and map), mapped kind by kind
+  onto the cartridge's 1,703 (ours in `script/items.txt` where the
+  GameCube has none), compiled at `make rom-en` into a ROM segment of
+  records (`item_en_names`) and the include the en `m_item_name.c`
+  uses; the en build writes a token into the cartridge's 10-byte name
+  buffers, which the font draws and the message, letter and choice code
+  expand, with the article as the GameCube puts it (NOTES, "Item
+  names").
 - `tools/af_nafe_gfx.py` — the 42 menu labels the AF Project's 2010
   patch drew in English, taken at `make rom-en` from the user's copy
   (`make nafe NAFE_UPS=...`, build/nafe-2010-12-02.z64) over the en
@@ -137,8 +148,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   RAM and their ink measured against the font's model; each swapped
   string's ink against where the layout puts it in the cartridge's
   string's box, measured with a ruler in its place; the menus that hold
-  the 2010 patch's labels, each label found in RAM: `make
-  menus-check-en`),
+  the 2010 patch's labels, each label found in RAM; the items' names,
+  copied as the game copies them and put into messages, choices and
+  letters by the game's own code with their articles, and the money's
+  name measured in the inventory: `make menus-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.
@@ -170,6 +183,15 @@ the why and the state, `reference/NOTES.md` for what is verified.
   asm-processor's has none). A function whose instructions all match but
   whose frame is too large declares more locals than the cartridge's
   source did (func_80877B0C_jp, NOTES "The letter's tag").
+- **`code_en` comes out of the heap.** The system heap starts after it,
+  and play gives the zelda arena the rest of its state's heap, so every
+  byte the en build adds there is a byte less for the arena. The title's
+  load of the save takes 0xF980 bytes of it (66 KB to spare, measured at
+  the item names' batch); in play at the houses 0x51B0 are left, and a
+  load called there fails (NOTES, "Item names"). The save and letters
+  checks went four batches unrun while the swap table grew `code_en`,
+  and nothing else noticed. A table that can live in ROM goes to a
+  segment.
 - **The cartridge's own files hold RAM addresses.** 2,348 texture loads in
   the field models name code's bss buffers by address (NOTES,
   "Shiftability"); assets are not linked, so nothing of code may move.

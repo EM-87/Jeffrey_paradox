@@ -266,6 +266,26 @@ index fe15111..7f02f2b 100644
 +s32 mHandbill_en_GetLetter(struct MailContent* content, u8* header, u8* body, u8* footer);
 +
  #endif
+diff --git a/include/m_item_name.h b/include/m_item_name.h
+index a4d4a9b..92d4b82 100644
+--- a/include/m_item_name.h
++++ b/include/m_item_name.h
+@@ -6,4 +6,15 @@
+ // void func_80096710_jp();
+ void mIN_copy_name_str(char*, u16);
+ 
++/* The en build: the name an item's token stands for (m_item_name.c) */
++#define mIN_ARTICLE_NONE 0
++#define mIN_ARTICLE_A 1
++#define mIN_ARTICLE_AN 2
++#define mIN_ARTICLE_THE 3
++#define mIN_ARTICLE_SOME 4
++u8* mIN_en_TokenName(u8* str, s32* len, s32* article);
++/* the longest text a token stands for in a sentence: "some " and 16 characters (tools/af_items.py) */
++#define mIN_EN_TEXT_MAX 24
++s32 mIN_en_TokenText(u8* dst, u8* str, s32 cut);
++
+ #endif
 diff --git a/include/m_msg_main.h b/include/m_msg_main.h
 index d2906f3..b04be7b 100644
 --- a/include/m_msg_main.h
@@ -338,10 +358,10 @@ index f336639..e9ea309 100644
 +
  #endif
 diff --git a/include/tables/dmatables/dmadata_table_jp.h b/include/tables/dmatables/dmadata_table_jp.h
-index b8df70f..3a66df0 100644
+index b8df70f..23a4292 100644
 --- a/include/tables/dmatables/dmadata_table_jp.h
 +++ b/include/tables/dmatables/dmadata_table_jp.h
-@@ -3380,3 +3380,15 @@ DEFINE_DMA_ENTRY(anime_texture_4_static, "anime_texture_4_static")
+@@ -3380,3 +3380,18 @@ DEFINE_DMA_ENTRY(anime_texture_4_static, "anime_texture_4_static")
  DEFINE_DMA_ENTRY(anime_texture_5_static, "anime_texture_5_static")
  DEFINE_DMA_ENTRY(anime_texture_6_static, "anime_texture_6_static")
  DEFINE_DMA_ENTRY(softsprite_matrix_static, "softsprite_matrix_static")
@@ -357,17 +377,21 @@ index b8df70f..3a66df0 100644
 +/* The translation's letters, all eight banks (tools/af_text.py compile-letters). */
 +DEFINE_DMA_ENTRY(mail_en_text, "mail_en_text")
 +DEFINE_DMA_ENTRY(mail_en_index, "mail_en_index")
++/* The translation's item names (tools/af_items.py): a record a name, read by DMA as the cartridge reads its
++ * own names. */
++DEFINE_DMA_ENTRY(item_en_names, "item_en_names")
 diff --git a/src/code/m_choice_main.c b/src/code/m_choice_main.c
-index d4a7b38..07380bd 100644
+index d4a7b38..1653429 100644
 --- a/src/code/m_choice_main.c
 +++ b/src/code/m_choice_main.c
-@@ -1,4 +1,5 @@
+@@ -1,4 +1,6 @@
  #include "m_choice_main.h"
++#include "m_item_name.h"
 +#include "segment_symbols.h"
  #include "m_msg_main.h"
  #include "game.h"
  #include "m_actor.h"
-@@ -9,13 +10,18 @@
+@@ -9,13 +11,18 @@
  #include "sys_matrix.h"
  #include "6B3DC0.h"
  
@@ -388,7 +412,7 @@ index d4a7b38..07380bd 100644
  void mChoice_init(Choice* choice, UNUSED Game* game) {
      choice->centerX = 191.0f;
      choice->centerY = 83.0f;
-@@ -81,7 +87,7 @@ void mChoice_Init_choice_data(Choice* choice) {
+@@ -81,7 +88,7 @@ void mChoice_Init_choice_data(Choice* choice) {
  }
  
  s32 mChoice_Add_choice_data(Choice* choice, char* str, s32 max_len) {
@@ -397,16 +421,29 @@ index d4a7b38..07380bd 100644
          s32 len;
          int idx;
          s32* t;
-@@ -92,7 +98,7 @@ s32 mChoice_Add_choice_data(Choice* choice, char* str, s32 max_len) {
+@@ -90,9 +97,19 @@ s32 mChoice_Add_choice_data(Choice* choice, char* str, s32 max_len) {
+ 
+         t = &choice->data.choiceNum;
          if (choice->data.choiceNum < Choice_CHOICE_MAX) {
++            /* the translation: an item's token (m_item_name.c) answers with its name, as the GameCube's
++             * choices of items do (no article): the stall's goods, ac_ev_yomise */
++            s32 nameLen;
++            u8* name = mIN_en_TokenName((u8*)str, &nameLen, NULL);
++
              idx = *t;
-             len = mMsg_Get_Length_String(str, max_len);
+-            len = mMsg_Get_Length_String(str, max_len);
 -            dst = choice->data.strings[idx];
++            if (name != NULL) {
++                str = (char*)name;
++                len = nameLen;
++            } else {
++                len = mMsg_Get_Length_String(str, max_len);
++            }
 +            dst = mChoice_en_strings[idx];
  
              for (i = 0; i < len; i++) {
                  *dst++ = *str++;
-@@ -111,19 +117,19 @@ void mChoice_Set_choice_data(Choice* choice, char* str0, s32 str0len, char* str1
+@@ -111,19 +128,19 @@ void mChoice_Set_choice_data(Choice* choice, char* str0, s32 str0len, char* str1
                               char* str3, s32 str3len) {
      mChoice_Init_choice_data(choice);
  
@@ -430,7 +467,7 @@ index d4a7b38..07380bd 100644
          mChoice_Add_choice_data(choice, str3, str3len);
      }
  }
-@@ -134,7 +140,7 @@ s32 mChoice_Get_MaxStringDotWidth(Choice* choice) {
+@@ -134,7 +151,7 @@ s32 mChoice_Get_MaxStringDotWidth(Choice* choice) {
      s32 maxWidth = 0;
  
      for (i = 0; i < choiceNum; i++) {
@@ -439,7 +476,7 @@ index d4a7b38..07380bd 100644
          s32 len = choice->data.stringLens[i];
          s32 width = mFont_GetStringWidth(str, len, 0);
  
-@@ -204,23 +210,23 @@ void mChoice_Get_StringDataAddressAndSize(s32 idx, u32** addr, u32* size) {
+@@ -204,23 +221,23 @@ void mChoice_Get_StringDataAddressAndSize(s32 idx, u32** addr, u32* size) {
          if (idx & 1) {
              temp0 = idx - 1;
  
@@ -468,7 +505,7 @@ index d4a7b38..07380bd 100644
              *size = sizeCalc;
          } else {
              *addr = NULL;
-@@ -533,7 +539,7 @@ void mChoice_Load_ChoseStringFromRom(UNUSED s32 unused, char* str, s32 idx, Acto
+@@ -533,7 +550,7 @@ void mChoice_Load_ChoseStringFromRom(UNUSED s32 unused, char* str, s32 idx, Acto
          mChoice_Get_StringDataAddressAndSize(idx, &addr, &size);
  
          if (size == 0) {
@@ -477,7 +514,7 @@ index d4a7b38..07380bd 100644
          } else if (addr != NULL) {
              char vram[29];
              s32 alignedSize = ((u32)addr & ~7);
-@@ -547,10 +553,10 @@ void mChoice_Load_ChoseStringFromRom(UNUSED s32 unused, char* str, s32 idx, Acto
+@@ -547,10 +564,10 @@ void mChoice_Load_ChoseStringFromRom(UNUSED s32 unused, char* str, s32 idx, Acto
                  char* src;
                  s32 i;
  
@@ -490,7 +527,7 @@ index d4a7b38..07380bd 100644
                  }
  
                  dst = str;
-@@ -560,11 +566,11 @@ void mChoice_Load_ChoseStringFromRom(UNUSED s32 unused, char* str, s32 idx, Acto
+@@ -560,11 +577,11 @@ void mChoice_Load_ChoseStringFromRom(UNUSED s32 unused, char* str, s32 idx, Acto
                      *dst++ = *src++;
                  }
  
@@ -504,7 +541,7 @@ index d4a7b38..07380bd 100644
              }
          }
      }
-@@ -642,7 +648,7 @@ void mChoice_determimation_set(Choice* choice) {
+@@ -642,7 +659,7 @@ void mChoice_determimation_set(Choice* choice) {
      ChoiceData* choiceData = &choice->data;
      s32 idx = choice->selectedChoiceIdx;
  
@@ -513,7 +550,7 @@ index d4a7b38..07380bd 100644
      choiceData->determinationLenght = choiceData->stringLens[idx];
      choiceData->selectedChoiceIdx = idx;
  }
-@@ -1009,7 +1015,7 @@ void mChoice_DrawFont(Choice* choice, Game* game, s32 type) {
+@@ -1009,7 +1026,7 @@ void mChoice_DrawFont(Choice* choice, Game* game, s32 type) {
              b = choice->textColor.b;
          }
  
@@ -989,7 +1026,7 @@ index f3f7472..e751ce4 100644
              ret = 1;
              func_8008ECA0_jp();
 diff --git a/src/code/m_font.c b/src/code/m_font.c
-index eb55156..22a8dcf 100644
+index eb55156..07b63dc 100644
 --- a/src/code/m_font.c
 +++ b/src/code/m_font.c
 @@ -15,6 +15,17 @@ extern s8 D_80106AF0_jp; /* the font is loaded */
@@ -1037,7 +1074,7 @@ index eb55156..22a8dcf 100644
  }
  
  s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
-@@ -87,10 +106,193 @@ s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
+@@ -87,10 +106,208 @@ s32 mFont_GetStringWidth(char* str, s32 len, s32 cut) {
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetLineStrings_AndSpace.s")
  
@@ -1063,6 +1100,7 @@ index eb55156..22a8dcf 100644
 + * strings where the font draws them").
 + */
 +#include "assets/jp/en/ui_strings.inc"
++#include "m_item_name.h"
 +#include "m_lib.h"
 +
 +#define mFont_EN_SUBST_CENTER 1
@@ -1170,6 +1208,20 @@ index eb55156..22a8dcf 100644
 +    s32 i;
 +
 +    if (sub == NULL) {
++        /* an item's token (m_item_name.c): its name, from the place's left, narrowed to the cells it has */
++        s32 nameLen;
++        u8* name = (len > 0) ? mIN_en_TokenName(str, &nameLen, NULL) : NULL;
++
++        if (name != NULL) {
++            box = len * mFont_CHAR_WIDTH * scaleX;
++            drawn = mFont_GetStringWidth((char*)name, nameLen, TRUE) * scaleX;
++            if (drawn > box) {
++                scaleX *= box / drawn;
++            }
++            mFont_SetLineStrings_AndSpace(game, (char*)name, nameLen, x, y, r, g, b, a, flag, cut, 0, scaleX, scaleY,
++                                          mode);
++            return box;
++        }
 +        return mFont_SetLineStrings_AndSpace(game, (char*)str, len, x, y, r, g, b, a, flag, cut, 0, scaleX, scaleY,
 +                                             mode);
 +    }
@@ -1234,10 +1286,14 @@ index eb55156..22a8dcf 100644
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetMatrix.s")
 diff --git a/src/code/m_handbill.c b/src/code/m_handbill.c
-index 34e9b7f..485ff6c 100644
+index 34e9b7f..a9575e3 100644
 --- a/src/code/m_handbill.c
 +++ b/src/code/m_handbill.c
-@@ -4,11 +4,17 @@
+@@ -1,14 +1,21 @@
+ #include "global.h"
+ #include "m_handbill.h"
++#include "m_item_name.h"
+ #include "m_lib.h"
  #include "m_msg_main.h"
  #include "m_std_dma.h"
  #include "6B3DC0.h"
@@ -1256,7 +1312,7 @@ index 34e9b7f..485ff6c 100644
   */
  
  #define mHandbill_FREE_STR_NUM 20
-@@ -26,24 +32,6 @@ typedef s32 (*mHandbill_PUT_STRING_PROC)(u8*, s32, s32, s32, s32);
+@@ -26,24 +33,16 @@ typedef s32 (*mHandbill_PUT_STRING_PROC)(u8*, s32, s32, s32, s32);
  extern u8 B_80140680_jp[mHandbill_FREE_STR_NUM][mHandbill_FREE_STR_LEN]; /* the free strings */
  extern u8 B_80140748_jp[];                                                /* the body's DMA buffer */
  extern mHandbill_PUT_STRING_PROC D_80107020_jp[];                         /* by control code */
@@ -1278,10 +1334,20 @@ index 34e9b7f..485ff6c 100644
 -extern char RO_STR_80117050_jp[];
 -extern char RO_STR_80117060_jp[];
 -extern char RO_STR_80117070_jp[];
++
++/* The GameCube's CUTARTICLE and CAPITALIZE, codes 72 and 73 in the translation's letter banks
++ * (tools/af_text.py, N64_CARRIED), which the cartridge's letters never use (its table has no handler for
++ * them): the next free string goes without an item's article, or begins with a capital. As on the
++ * GameCube (mHandbill_Cut_Article, mHandbill_Capital_Letter) the code goes from the text; the requests
++ * end with the string, or with the part of the letter (func_80093478_jp, func_80093520_jp). */
++#define mHandbill_EN_CUT_ARTICLE 72
++#define mHandbill_EN_CAPITAL 73
++static u8 mHandbill_en_cutArticle;
++static u8 mHandbill_en_capital;
  
  enum {
      mHandbillz_TYPE_SUPER,
-@@ -54,6 +42,38 @@ enum {
+@@ -54,6 +53,38 @@ enum {
      mHandbillz_TYPE_NUM
  };
  
@@ -1320,7 +1386,7 @@ index 34e9b7f..485ff6c 100644
  /* The villagers' letters (ac-decomp's mHandbillz): header, three body parts and footer from one segment */
  typedef struct mHandbillzDMA_c {
      /* 0x00 */ s32 type;
-@@ -64,12 +84,6 @@ typedef struct mHandbillzDMA_c {
+@@ -64,12 +95,6 @@ typedef struct mHandbillzDMA_c {
      /* 0x14 */ u32 dma_size;
  } mHandbillzDMA_c; // size = 0x18
  
@@ -1333,7 +1399,79 @@ index 34e9b7f..485ff6c 100644
  extern char RO_STR_80117090_jp[];
  
  
-@@ -335,34 +349,50 @@ void func_80093520_jp(u8* buf, s32 buf_size, s32 str_len, s32* header_back_start
+@@ -175,12 +200,30 @@ s32 func_80092FC4_jp(u8* str, s32 buf_size, s32 start_idx, s32 str_len, s32 str_
+     }
+     free_str = B_80140680_jp[str_no];
+     code_size = func_800903A8_jp(str, start_idx);
+-    free_str_len = mMsg_Get_Length_String(free_str, mHandbill_FREE_STR_LEN);
+-    cut_len = func_80092E80_jp(str, buf_size, start_idx + free_str_len, start_idx + code_size, str_len, fill_type);
+-    if (cut_len >= buf_size && free_str_len > buf_size - start_idx) {
+-        free_str_len = buf_size - start_idx;
++    {
++        /* what an item's token stands for (m_item_name.c: its article unless the text cut it, its name), or
++         * the string */
++        u8 text[mIN_EN_TEXT_MAX];
++        s32 text_len = mIN_en_TokenText(text, free_str, mHandbill_en_cutArticle);
++
++        if (text_len >= 0) {
++            free_str = text;
++            free_str_len = text_len;
++        } else {
++            free_str_len = mMsg_Get_Length_String(free_str, mHandbill_FREE_STR_LEN);
++        }
++        cut_len = func_80092E80_jp(str, buf_size, start_idx + free_str_len, start_idx + code_size, str_len,
++                                   fill_type);
++        if (cut_len >= buf_size && free_str_len > buf_size - start_idx) {
++            free_str_len = buf_size - start_idx;
++        }
++        func_80092E14_jp(&str[start_idx], free_str, free_str_len);
++    }
++    if (mHandbill_en_capital && (free_str_len > 0) && (str[start_idx] >= 'a') && (str[start_idx] <= 'z')) {
++        str[start_idx] += 'A' - 'a';
+     }
+-    func_80092E14_jp(&str[start_idx], free_str, free_str_len);
++    mHandbill_en_cutArticle = FALSE;
++    mHandbill_en_capital = FALSE;
+     return cut_len;
+ }
+ 
+@@ -288,6 +331,17 @@ s32 func_800933F0_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill
+ s32 func_8009341C_jp(u8* buf, s32 buf_size, s32 start_idx, s32 str_len, s32 fill_type) {
+     s32 type = buf[start_idx + 1];
+ 
++    if (type == mHandbill_EN_CUT_ARTICLE || type == mHandbill_EN_CAPITAL) {
++        if (type == mHandbill_EN_CUT_ARTICLE) {
++            mHandbill_en_cutArticle = TRUE;
++        } else {
++            mHandbill_en_capital = TRUE;
++        }
++        /* (the GameCube moves the text without filling what it leaves; here the letter's fill, as for a
++         * string, so that the two bytes do not stay at the end) */
++        return func_80092E80_jp(buf, buf_size, start_idx, start_idx + func_800903A8_jp(buf, start_idx), str_len,
++                                fill_type);
++    }
+     if (type >= 0 && type < 0x61) {
+         mHandbill_PUT_STRING_PROC proc = D_80107020_jp[type];
+ 
+@@ -304,6 +358,8 @@ void func_80093478_jp(u8* buf, s32 buf_size, s32 str_len, s32 fill_type) {
+     s32 pos = 0;
+     u8 c;
+ 
++    mHandbill_en_cutArticle = FALSE;
++    mHandbill_en_capital = FALSE;
+     while (pos < len) {
+         c = buf[pos];
+         if (c == 0x7F) {
+@@ -321,6 +377,8 @@ void func_80093520_jp(u8* buf, s32 buf_size, s32 str_len, s32* header_back_start
+     s32 now_str_len;
+     u8 c;
+ 
++    mHandbill_en_cutArticle = FALSE;
++    mHandbill_en_capital = FALSE;
+     while (pos < len) {
+         now_str_len = len;
+         c = buf[pos];
+@@ -335,34 +393,50 @@ void func_80093520_jp(u8* buf, s32 buf_size, s32 str_len, s32* header_back_start
      }
  }
  
@@ -1409,7 +1547,7 @@ index 34e9b7f..485ff6c 100644
      } else {
          *addr = 0;
          *size = 0;
-@@ -371,32 +401,8 @@ void func_800935F8_jp(s32 no, RomOffset* addr, s32* size) {
+@@ -371,32 +445,8 @@ void func_800935F8_jp(s32 no, RomOffset* addr, s32* size) {
  
  /* mHandbill_Get_PsStringDataAddressAndSize: a footer */
  void func_80093738_jp(s32 no, RomOffset* addr, s32* size) {
@@ -1443,7 +1581,7 @@ index 34e9b7f..485ff6c 100644
      } else {
          *addr = 0;
          *size = 0;
-@@ -405,32 +411,8 @@ void func_80093738_jp(s32 no, RomOffset* addr, s32* size) {
+@@ -405,32 +455,8 @@ void func_80093738_jp(s32 no, RomOffset* addr, s32* size) {
  
  /* mHandbill_Get_MailStringDataAddressAndSize: a body */
  void func_80093878_jp(s32 no, RomOffset* addr, s32* size) {
@@ -1477,7 +1615,7 @@ index 34e9b7f..485ff6c 100644
      } else {
          *addr = 0;
          *size = 0;
-@@ -458,154 +440,344 @@ void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s3
+@@ -458,154 +484,344 @@ void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s3
      }
  }
  
@@ -1781,7 +1919,7 @@ index 34e9b7f..485ff6c 100644
 +    }
 +    if (hlen + blen + flen == 0) {
 +        return;
-     }
++    }
 +    if (mFRm_en_extSize + size > mFRm_EN_EXT_CAP) {
 +        mHandbill_en_CollectExt((u8*)&common_data.save);
 +    }
@@ -1848,7 +1986,7 @@ index 34e9b7f..485ff6c 100644
 +        bcopy(record + mHandbill_EN_EXT_RECORD_HEAD, header + MAIL_HEADER_LEN, hlen);
 +        bcopy(record + mHandbill_EN_EXT_RECORD_HEAD + hlen, body + MAIL_BODY_LEN, blen);
 +        bcopy(record + mHandbill_EN_EXT_RECORD_HEAD + hlen + blen, footer + MAIL_FOOTER_LEN, flen);
-+    }
+     }
 +    return record != NULL;
 +}
 +
@@ -1918,7 +2056,7 @@ index 34e9b7f..485ff6c 100644
  }
  
  /* mHandbillzDMA_body_load */
-@@ -641,29 +813,32 @@ s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
+@@ -641,29 +857,32 @@ s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
      }
  }
  
@@ -1961,7 +2099,7 @@ index 34e9b7f..485ff6c 100644
  
          info->headerBackStart = header_back_start;
          return TRUE;
-@@ -672,14 +847,16 @@ s32 func_800941B0_jp(HandbillzInfo* info) {
+@@ -672,14 +891,16 @@ s32 func_800941B0_jp(HandbillzInfo* info) {
      }
  }
  
@@ -1980,7 +2118,7 @@ index 34e9b7f..485ff6c 100644
  
      dma_info[0].type = mHandbillz_TYPE_MAILA;
      dma_info[0].num = info->mailANo;
-@@ -696,7 +873,7 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+@@ -696,7 +917,7 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
          if (func_800940A8_jp(dma_p)) {
              total_size += dma_p->dma_size;
  
@@ -1989,7 +2127,7 @@ index 34e9b7f..485ff6c 100644
                  bcopy(B_80140748_jp, dst, dma_p->dma_size);
                  dst += dma_p->dma_size;
              } else {
-@@ -708,17 +885,18 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+@@ -708,17 +929,18 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
      }
  
      if (success) {
@@ -2012,7 +2150,7 @@ index 34e9b7f..485ff6c 100644
  s32 func_80094400_jp(HandbillzInfo* info) {
      mHandbillzDMA_c dma_info;
      u8 ram[0x22 + 6];
-@@ -731,13 +909,13 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+@@ -731,13 +953,13 @@ s32 func_80094400_jp(HandbillzInfo* info) {
      dma_info.ram_buf_size = 0x22;
  
      if (func_800940A8_jp(&dma_info)) {
@@ -2032,7 +2170,7 @@ index 34e9b7f..485ff6c 100644
          return TRUE;
      } else {
          return FALSE;
-@@ -745,9 +923,570 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+@@ -745,9 +967,570 @@ s32 func_80094400_jp(HandbillzInfo* info) {
  }
  
  s32 mHandbillz_load(HandbillzInfo* info) {
@@ -2607,17 +2745,203 @@ index 34e9b7f..485ff6c 100644
 +    mem_copy(boardOvl->mail.content.footer, footer, sizeof(footer));
 +    mem_copy(boardOvl->mail.content.footer + sizeof(footer), name, nameLen);
  }
+diff --git a/src/code/m_item_name.c b/src/code/m_item_name.c
+index 5b38fe9..20d86f6 100644
+--- a/src/code/m_item_name.c
++++ b/src/code/m_item_name.c
+@@ -3,6 +3,7 @@
+ #include "m_lib.h"
+ #include "m_room_type.h"
+ #include "m_std_dma.h"
++#include "segment_symbols.h"
+ 
+ /*
+  * An item's name (m_item_name.c in AC GCN is the map): 10 characters in a
+@@ -31,16 +32,24 @@ void func_80096710_jp(u8* dst, RomOffset vrom) {
+ }
+ 
+ /*
+- * NON_MATCHING: the cartridge's shape (the frame, the 16-byte buffer, the
+- * switch, the segment's base loaded as an address), but not its registers:
+- * the cartridge keeps the parameter, then a 16-bit copy of the converted
+- * number, in a2 and the converted number itself in v1; no declaration
+- * order or type of the number and its copies swept with tools/af_bench.py
+- * gives them (19 instructions differ at best, in registers and in which of
+- * the two copies is masked).
++ * The en build (reference/NOTES.md, "Item names"): a name is the GameCube's,
++ * up to 16 characters, which the 10-byte buffers the cartridge copies names
++ * into do not hold (the menus, the tags, the shops: some 27 overlays). So
++ * mIN_copy_name_str writes a token there, which every one of them copies and
++ * keeps as it would a name: a mark, the name's number in the en table in two
++ * digits, the mark again as filler to the cells the English takes (what
++ * mMl_strlen measures, and so how wide a menu makes the name's place), then
++ * spaces. The en font draws a token as its name (m_font.c), and the message
++ * and letter code copy the name, with its article, where they insert the
++ * string (m_msg_main.c, m_handbill.c). The names are records in a ROM segment
++ * (item_en_names, tools/af_items.py), read by DMA as the cartridge reads its
++ * own, the last few kept. Without the disc's names (ITEM_EN_FROM_GC 0) the
++ * cartridge's names stay.
+  */
+-#ifdef NON_MATCHING
+-void mIN_copy_name_str(char* dst, u16 item) {
++#include "assets/jp/en/item_names.inc"
++
++/* The cartridge's way, for a name of no kind the table has */
++static void mIN_cart_copy_name_str(char* dst, u16 item) {
+     u32 itm = item;
+     s32 itemNo = mRmTp_FtrItemNo2Item1ItemNo(itm);
+     u8 name[16];
+@@ -65,6 +74,136 @@ void mIN_copy_name_str(char* dst, u16 item) {
+             break;
+     }
+ }
++
++#if ITEM_EN_FROM_GC
++DECLARE_ROM_SEGMENT(item_en_names);
++
++#define mIN_EN_CACHE 16                                /* the names read last */
++#define mIN_EN_SLOT ((ITEM_EN_RECORD_SIZE + 7) & ~7)   /* a record, where a DMA may write it (8-aligned) */
++
++static u64 mIN_en_cache[mIN_EN_CACHE][mIN_EN_SLOT / sizeof(u64)];
++static s16 mIN_en_cacheName[mIN_EN_CACHE]; /* the name's number + 1 in each, or 0 */
++static s32 mIN_en_cacheNext;
++
++static s16 mIN_en_kindBase[] = ITEM_EN_KIND_BASES;
++static s16 mIN_en_kindCount[] = ITEM_EN_KIND_COUNTS;
++
++/* Name n's record: its length, its article, its cells, a byte, its characters */
++static u8* mIN_en_Record(s32 n) {
++    s32 i;
++    u8* record;
++
++    for (i = 0; i < mIN_EN_CACHE; i++) {
++        if (mIN_en_cacheName[i] == n + 1) {
++            return (u8*)mIN_en_cache[i];
++        }
++    }
++    i = mIN_en_cacheNext;
++    mIN_en_cacheNext = (i + 1) % mIN_EN_CACHE;
++    record = (u8*)mIN_en_cache[i];
++    DmaMgr_RequestSyncDebug(record, SEGMENT_ROM_START(item_en_names) + n * ITEM_EN_RECORD_SIZE, ITEM_EN_RECORD_SIZE,
++                            "../m_item_name.c", __LINE__);
++    mIN_en_cacheName[i] = n + 1;
++    return record;
++}
++
++/* The en table's number for the item, or -1 */
++static s32 mIN_en_NameNo(u16 itemNo) {
++    s32 i;
++
++    switch ((itemNo & 0xF000) >> 12) {
++        case mIN_NAME_TYPE_ITEM1:
++            i = itemNo & 0xFF;
++            return (i < mIN_en_kindCount[(itemNo & 0xF00) >> 8]) ? mIN_en_kindBase[(itemNo & 0xF00) >> 8] + i : -1;
++
++        case mIN_NAME_TYPE_FTR:
++            i = (itemNo & 0xFFF) / ITEM_EN_FTR_FACES;
++            return (i < ITEM_EN_FTR_COUNT) ? ITEM_EN_FTR_BASE + i : -1;
++
++        default:
++            return -1;
++    }
++}
++
++void mIN_copy_name_str(char* dst, u16 item) {
++    s32 n = mIN_en_NameNo(mRmTp_FtrItemNo2Item1ItemNo(item));
++    s32 cells;
++    s32 i;
++
++    if (n < 0) {
++        mIN_cart_copy_name_str(dst, item);
++        return;
++    }
++    cells = mIN_en_Record(n)[2];
++    dst[0] = ITEM_EN_TOKEN_MARK;
++    dst[1] = ITEM_EN_TOKEN_DIGIT0 + n / ITEM_EN_TOKEN_BASE;
++    dst[2] = ITEM_EN_TOKEN_DIGIT0 + n % ITEM_EN_TOKEN_BASE;
++    for (i = ITEM_EN_TOKEN_LEN; i < cells; i++) {
++        dst[i] = ITEM_EN_TOKEN_MARK;
++    }
++    for (; i < mIN_ITEM_NAME_LEN; i++) {
++        dst[i] = ' ';
++    }
++}
++
++/* The name a token at str stands for (its characters, *len of them, and its article, mIN_ARTICLE_*, in
++ * *article if given), or NULL when str holds no token. The characters stay until a few more names are read. */
++u8* mIN_en_TokenName(u8* str, s32* len, s32* article) {
++    s32 hi;
++    s32 lo;
++    u8* record;
++
++    if (str[0] != ITEM_EN_TOKEN_MARK) {
++        return NULL;
++    }
++    hi = str[1] - ITEM_EN_TOKEN_DIGIT0;
++    lo = str[2] - ITEM_EN_TOKEN_DIGIT0;
++    if ((hi < 0) || (hi >= ITEM_EN_TOKEN_BASE) || (lo < 0) || (lo >= ITEM_EN_TOKEN_BASE) ||
++        (hi * ITEM_EN_TOKEN_BASE + lo >= ITEM_EN_COUNT)) {
++        return NULL;
++    }
++    record = mIN_en_Record(hi * ITEM_EN_TOKEN_BASE + lo);
++    *len = record[0];
++    if (article != NULL) {
++        *article = record[1];
++    }
++    return &record[4];
++}
++
++/* The words a name's article puts before it in a sentence (mIN_ARTICLE_*) */
++static const char* mIN_en_articles[] = { "", "a ", "an ", "the ", "some " };
++
++/* What a token at str stands for in a sentence, written to dst (mIN_EN_TEXT_MAX bytes): its article and a
++ * space, unless cut (the GameCube's CUTARTICLE) or the name has none, then its name. Its length, or -1 when
++ * str holds no token. */
++s32 mIN_en_TokenText(u8* dst, u8* str, s32 cut) {
++    s32 len;
++    s32 article;
++    s32 n = 0;
++    u8* name = mIN_en_TokenName(str, &len, &article);
++    const char* word;
++
++    if (name == NULL) {
++        return -1;
++    }
++    if (!cut && (article > mIN_ARTICLE_NONE) && (article <= mIN_ARTICLE_SOME)) {
++        for (word = mIN_en_articles[article]; *word != '\0'; word++) {
++            dst[n++] = *word;
++        }
++    }
++    mem_copy(&dst[n], name, len);
++    return n + len;
++}
+ #else
+-#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_item_name/mIN_copy_name_str.s")
++void mIN_copy_name_str(char* dst, u16 item) {
++    mIN_cart_copy_name_str(dst, item);
++}
++
++u8* mIN_en_TokenName(u8* str, s32* len, s32* article) {
++    return NULL;
++}
++
++s32 mIN_en_TokenText(u8* dst, u8* str, s32 cut) {
++    return -1;
++}
+ #endif
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
-index 03981c7..da23ef7 100644
+index 03981c7..5e4a848 100644
 --- a/src/code/m_msg_main.c
 +++ b/src/code/m_msg_main.c
-@@ -1,4 +1,5 @@
+@@ -1,5 +1,7 @@
  #include "global.h"
 +#include "segment_symbols.h"
  #include "m_msg_main.h"
++#include "m_item_name.h"
  #include "m_choice_main.h"
  #include "6B3DC0.h"
-@@ -16,6 +17,12 @@
+ #include "m_npc.h"
+@@ -16,6 +18,12 @@
  #include "game.h"
  #include "libu64/gfxprint.h"
  
@@ -2630,7 +2954,7 @@ index 03981c7..da23ef7 100644
  /* common_data.clip.handOverItemClip (m_clip.h leaves it incomplete: a new
   * type there reorders other files' bss under IDO) */
  struct HandOverItemClip {
-@@ -33,13 +40,24 @@ void func_80091AB0_jp(struct mFontSentence* sentence, u8* str, s32 len, u32 flag
+@@ -33,13 +41,30 @@ void func_80091AB0_jp(struct mFontSentence* sentence, u8* str, s32 len, u32 flag
                        xy_t* scale, Color_RGBA8* color, s32 voicePos, u8 voiceNo, s16 voiceNpcId);
  void func_80091E0C_jp(struct mFontSentence* sentence, struct Game* game, Gfx** gfxP);
  
@@ -2641,6 +2965,12 @@ index 03981c7..da23ef7 100644
 +/* The translation's buffer: the loader writes up to (ofs + size + 7) & ~7 bytes,
 + * ofs < 8, size <= mMsg_MSG_SIZE_MAX. New bss: the build puts it in code_en. */
 +static u64 mMsg_en_buffer[(0x10 + mMsg_MSG_SIZE_MAX + 0x10) / sizeof(u64)];
++/* The GameCube's CUTARTICLE and CAPITALIZE, codes 72 and 73 in the translation's bank (tools/af_text.py,
++ * N64_CARRIED; their handlers func_800A1AA4_jp and func_800A1AC4_jp): the next free or item string the text
++ * puts in goes without an item's article, the next string begins with a capital. A message starts with
++ * neither (func_800A2538_jp). */
++static u8 mMsg_en_cutArticle;
++static u8 mMsg_en_capital;
 +/* The message window: the cartridge's B_80142410_jp is 0x2F0 bytes of asm bss;
 + * with the wider strings the struct no longer fits it, so the translation's
 + * window is this C global (new bss: the build puts it in code_en). */
@@ -2659,7 +2989,7 @@ index 03981c7..da23ef7 100644
  extern Gfx D_8010A7C0_jp[]; /* the window (con_kaiwa2_modelT in AC GCN) */
  extern Gfx D_8010AD28_jp[]; /* the name plate (con_kaiwaname_modelT) */
  extern Gfx D_8010AD98_jp[]; /* the window's render setup (mMsg_init_disp) */
-@@ -51,7 +69,7 @@ extern u16 D_80107CA4_jp[mMsg_SE_NUM]; /* the sound effects a message can play *
+@@ -51,7 +76,7 @@ extern u16 D_80107CA4_jp[mMsg_SE_NUM]; /* the sound effects a message can play *
  
  
  MessageWindow* mMsg_Get_base_window_p(void) {
@@ -2668,7 +2998,7 @@ index 03981c7..da23ef7 100644
  }
  
  s32 func_8009D200_jp(MessageWindow* msg, s32 priority) {
-@@ -646,23 +664,23 @@ void func_8009E388_jp(s32 index, RomOffset* addr, u32* size) {
+@@ -646,23 +671,23 @@ void func_8009E388_jp(s32 index, RomOffset* addr, u32* size) {
          s32 len;
  
          if (index & 1) {
@@ -2696,7 +3026,7 @@ index 03981c7..da23ef7 100644
              *size = len;
          } else {
              *addr = 0;
-@@ -758,67 +776,67 @@ s32 func_8009E6D4_jp(void) {
+@@ -758,67 +783,67 @@ s32 func_8009E6D4_jp(void) {
  }
  
  void func_8009E6F8_jp(struct Game* game) {
@@ -2823,7 +3153,7 @@ index 03981c7..da23ef7 100644
  }
  
  size_t mMsg_Get_Length_String(char* str, s32 strLen) {
-@@ -1014,8 +1032,8 @@ s32 mMsg_CopyTail(struct Actor* actor, char* data, s32 startIdx, s32 len) {
+@@ -1014,8 +1039,8 @@ s32 mMsg_CopyTail(struct Actor* actor, char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyYear(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u16 value = common_data.time.rtcTime.year;
@@ -2834,7 +3164,7 @@ index 03981c7..da23ef7 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1025,8 +1043,8 @@ s32 mMsg_CopyYear(char* data, s32 startIdx, s32 len) {
+@@ -1025,8 +1050,8 @@ s32 mMsg_CopyYear(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyMonth(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.month;
@@ -2845,7 +3175,7 @@ index 03981c7..da23ef7 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1036,8 +1054,8 @@ s32 mMsg_CopyMonth(char* data, s32 startIdx, s32 len) {
+@@ -1036,8 +1061,8 @@ s32 mMsg_CopyMonth(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyWeek(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.weekday;
@@ -2856,7 +3186,7 @@ index 03981c7..da23ef7 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1047,8 +1065,8 @@ s32 mMsg_CopyWeek(char* data, s32 startIdx, s32 len) {
+@@ -1047,8 +1072,8 @@ s32 mMsg_CopyWeek(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyDay(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.day;
@@ -2867,7 +3197,7 @@ index 03981c7..da23ef7 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1058,8 +1076,8 @@ s32 mMsg_CopyDay(char* data, s32 startIdx, s32 len) {
+@@ -1058,8 +1083,8 @@ s32 mMsg_CopyDay(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyHour(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.hour;
@@ -2878,7 +3208,7 @@ index 03981c7..da23ef7 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1069,8 +1087,8 @@ s32 mMsg_CopyHour(char* data, s32 startIdx, s32 len) {
+@@ -1069,8 +1094,8 @@ s32 mMsg_CopyHour(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyMin(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.min;
@@ -2889,7 +3219,7 @@ index 03981c7..da23ef7 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1080,8 +1098,22 @@ s32 mMsg_CopyMin(char* data, s32 startIdx, s32 len) {
+@@ -1080,32 +1105,66 @@ s32 mMsg_CopyMin(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopySec(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.sec;
@@ -2897,12 +3227,15 @@ index 03981c7..da23ef7 100644
 -    s32 strLen = mString_Load_SecStringFromRom(str, value);
 +    char str[mString_EN_LEN];
 +    s32 strLen = mString_en_Sec(str, value);
-+    s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
-+
-+    func_8009EB44_jp(&data[startIdx], str, strLen);
-+    return newLen;
-+}
-+
+     s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
+ 
+     func_8009EB44_jp(&data[startIdx], str, strLen);
+     return newLen;
+ }
+ 
+-s32 mMsg_CopyFree(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len) {
+-    if (strNo < 0 || strNo >= mMsg_FREE_STR_NUM) {
+-        strNo = 0;
 +/* STR_AMPM, the GameCube's code 0x76: the translation's bank carries it as
 + * code 71 (LUCK_6 on the cartridge, used by neither game's bank; its handler
 + * below). "a.m." or "p.m." for the hour now. */
@@ -2911,10 +3244,80 @@ index 03981c7..da23ef7 100644
 +    u8 value = common_data.time.rtcTime.hour;
 +    char str[mString_EN_LEN];
 +    s32 strLen = mString_en_AmPm(str, value);
-     s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
++    s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
++
++    func_8009EB44_jp(&data[startIdx], str, strLen);
++    return newLen;
++}
++
++/* A free or item string put in for the code at data[startIdx]: what an item's token stands for
++ * (m_item_name.c: its article, unless cut, then its name), or the string without its trailing spaces.
++ * The new length. */
++static s32 mMsg_en_CopyString(char* data, s32 startIdx, s32 len, char* str, s32 strLen, s32 cut) {
++    char text[mIN_EN_TEXT_MAX];
++    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
++    s32 textLen = mIN_en_TokenText((u8*)text, (u8*)str, cut);
++    char* src = text;
++    s32 newLen;
++
++    if (textLen < 0) {
++        src = str;
++        textLen = mMsg_Get_Length_String(str, strLen);
+     }
++    newLen = func_8009EA2C_jp(data, startIdx + textLen, startIdx + commandLen, len, FALSE);
++    func_8009EB44_jp(&data[startIdx], src, textLen);
++    return newLen;
++}
  
-     func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1129,7 +1161,7 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
+-    {
+-        s32 commandLen;
+-        char* freeStr;
+-        s32 freeStrLen;
+-        s32 newLen;
++/* After a code at data[idx] put in its string (now len characters there): its first letter a capital if the
++ * text asked for one (the GameCube's CAPITALIZE), and the request spent */
++static void mMsg_en_Capital(char* data, s32 idx, s32 len) {
++    if (mMsg_en_capital && (len > 0) && (data[idx] >= 'a') && (data[idx] <= 'z')) {
++        data[idx] += 'A' - 'a';
++    }
++    mMsg_en_capital = FALSE;
++}
+ 
+-        commandLen = func_800903A8_jp((u8*)data, startIdx);
+-        freeStr = (char*)msg->freeStr[strNo];
+-        freeStrLen = mMsg_Get_Length_String(freeStr, mMsg_FREE_STRING_LEN);
+-        newLen = func_8009EA2C_jp(data, startIdx + freeStrLen, startIdx + commandLen, len, FALSE);
+-        func_8009EB44_jp(&data[startIdx], freeStr, freeStrLen);
+-        return newLen;
++static s32 mMsg_en_CopyFree(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len, s32 cut) {
++    if (strNo < 0 || strNo >= mMsg_FREE_STR_NUM) {
++        strNo = 0;
+     }
++    return mMsg_en_CopyString(data, startIdx, len, (char*)msg->freeStr[strNo], mMsg_FREE_STRING_LEN, cut);
++}
++
++/* (a choice's free string: an item's name with its article, as the GameCube's choices put it) */
++s32 mMsg_CopyFree(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len) {
++    return mMsg_en_CopyFree(msg, strNo, data, startIdx, len, FALSE);
+ }
+ 
+ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colorId) {
+@@ -1113,8 +1172,13 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
+     s32 newLen;
+     s32 srcIdx;
+     u8* color;
++    char text[mIN_EN_TEXT_MAX];
+ 
+-    freeStrLen = mMsg_Get_Length_String(freeStr, mMsg_FREE_STRING_LEN);
++    /* the colour's length: the string as the code after it puts it in (an item's article too, unless cut) */
++    freeStrLen = mIN_en_TokenText((u8*)text, (u8*)freeStr, mMsg_en_cutArticle);
++    if (freeStrLen < 0) {
++        freeStrLen = mMsg_Get_Length_String(freeStr, mMsg_FREE_STRING_LEN);
++    }
+     srcIdx = *startIdx;
+     color = D_80107B78_jp[colorId];
+     D_80107B88_jp[2] = color[0];
+@@ -1129,7 +1193,7 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
  
  s32 mMsg_CopyDetermination(MessageWindow* msg, char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
@@ -2923,7 +3326,38 @@ index 03981c7..da23ef7 100644
      s32 strLen = msg->choiceWindow.data.determinationLenght;
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
-@@ -1914,25 +1946,24 @@ s32 func_800A0DF4_jp(MessageWindow* msg, s32* idxP, s32 selectCount) {
+@@ -1174,24 +1238,16 @@ s32 mMsg_CopyRamdomNumber2(char* data, s32 startIdx, s32 len) {
+     return newLen;
+ }
+ 
+-s32 mMsg_CopyItem(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len) {
++static s32 mMsg_en_CopyItem(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len, s32 cut) {
+     if (strNo < 0 || strNo >= mMsg_ITEM_STR_NUM) {
+         strNo = 0;
+     }
++    return mMsg_en_CopyString(data, startIdx, len, (char*)msg->itemStr[strNo], mMsg_ITEM_STRING_LEN, cut);
++}
+ 
+-    {
+-        s32 commandLen;
+-        char* freeStr;
+-        s32 freeStrLen;
+-        s32 newLen;
+-
+-        commandLen = func_800903A8_jp((u8*)data, startIdx);
+-        freeStr = (char*)msg->itemStr[strNo];
+-        freeStrLen = mMsg_Get_Length_String(freeStr, mMsg_ITEM_STRING_LEN);
+-        newLen = func_8009EA2C_jp(data, startIdx + freeStrLen, startIdx + commandLen, len, FALSE);
+-        func_8009EB44_jp(&data[startIdx], freeStr, freeStrLen);
+-        return newLen;
+-    }
++/* (a choice's item string: the name with its article, as the GameCube's choices put it) */
++s32 mMsg_CopyItem(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len) {
++    return mMsg_en_CopyItem(msg, strNo, data, startIdx, len, FALSE);
+ }
+ 
+ s32 func_8009F670_jp(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len) {
+@@ -1914,25 +1970,24 @@ s32 func_800A0DF4_jp(MessageWindow* msg, s32* idxP, s32 selectCount) {
      }
  
      if (selectCount >= 2 && selectCount <= mChoice_CHOICE_NUM) {
@@ -2960,7 +3394,107 @@ index 03981c7..da23ef7 100644
          }
      }
  
-@@ -2237,7 +2268,12 @@ s32 func_800A1A64_jp(MessageWindow* msg, s32* idxP) {
+@@ -1961,28 +2016,40 @@ s32 func_800A102C_jp(MessageWindow* msg, s32* idxP) {
+     return mMsg_RESULT_VOID;
+ }
+ 
++/* (The translation: the handlers of the strings the GameCube capitalizes, the player's name, the animal's,
++ * its catchphrase, the free and item strings, the town's name, a letter's string, and the answer chosen,
++ * give the string a capital if the text asked for one: mMsg_en_Capital.) */
+ s32 func_800A1078_jp(MessageWindow* msg, s32* idxP) {
+     mMsg_Data* msgData = msg->msgData;
+     char* data = (char*)msgData->text;
++    s32 len;
++    s32 code;
+ 
+     msgData->msgLen = func_8009EBB0_jp(data, idxP, msgData->msgLen);
++    len = msgData->msgLen;
++    code = func_800903A8_jp((u8*)data, *idxP);
+     msgData->msgLen = mMsg_CopyPlayerName(data, *idxP, msgData->msgLen);
++    mMsg_en_Capital(data, *idxP, msgData->msgLen - len + code);
+     return mMsg_RESULT_VOID;
+ }
+ 
+ s32 func_800A10D8_jp(MessageWindow* msg, s32* idxP) {
+     char* data = (char*)msg->msgData->text;
+     s32 len = msg->msgData->msgLen;
++    s32 code = func_800903A8_jp((u8*)data, *idxP);
+ 
+     msg->msgData->msgLen = mMsg_CopyTalkName(msg->clientActor, data, *idxP, len);
++    mMsg_en_Capital(data, *idxP, msg->msgData->msgLen - len + code);
+     return mMsg_RESULT_VOID;
+ }
+ 
+ s32 func_800A1124_jp(MessageWindow* msg, s32* idxP) {
+     char* data = (char*)msg->msgData->text;
+     s32 len = msg->msgData->msgLen;
++    s32 code = func_800903A8_jp((u8*)data, *idxP);
+ 
+     msg->msgData->msgLen = mMsg_CopyTail(msg->clientActor, data, *idxP, len);
++    mMsg_en_Capital(data, *idxP, msg->msgData->msgLen - len + code);
+     return mMsg_RESULT_VOID;
+ }
+ 
+@@ -2045,8 +2112,11 @@ s32 func_800A1308_jp(MessageWindow* msg, s32* idxP) {
+ s32 func_800A134C_jp(MessageWindow* msg, s32 idx, s32 freeStrNo) {
+     char* data = (char*)msg->msgData->text;
+     s32 len = msg->msgData->msgLen;
++    s32 code = func_800903A8_jp((u8*)data, idx);
+ 
+-    msg->msgData->msgLen = mMsg_CopyFree(msg, freeStrNo, data, idx, len);
++    msg->msgData->msgLen = mMsg_en_CopyFree(msg, freeStrNo, data, idx, len, mMsg_en_cutArticle);
++    mMsg_en_cutArticle = FALSE;
++    mMsg_en_Capital(data, idx, msg->msgData->msgLen - len + code);
+     return mMsg_RESULT_VOID;
+ }
+ 
+@@ -2145,16 +2215,21 @@ s32 func_800A1708_jp(MessageWindow* msg, s32* idxP) {
+ s32 func_800A1730_jp(MessageWindow* msg, s32* idxP) {
+     char* data = (char*)msg->msgData->text;
+     s32 len = msg->msgData->msgLen;
++    s32 code = func_800903A8_jp((u8*)data, *idxP);
+ 
+     msg->msgData->msgLen = mMsg_CopyDetermination(msg, data, *idxP, len);
++    /* (the GameCube leaves the request for the next name here: its text asks for the answer's capital) */
++    mMsg_en_Capital(data, *idxP, msg->msgData->msgLen - len + code);
+     return mMsg_RESULT_VOID;
+ }
+ 
+ s32 func_800A1774_jp(MessageWindow* msg, s32* idxP) {
+     char* data = (char*)msg->msgData->text;
+     s32 len = msg->msgData->msgLen;
++    s32 code = func_800903A8_jp((u8*)data, *idxP);
+ 
+     msg->msgData->msgLen = mMsg_CopyCountryName(data, *idxP, len);
++    mMsg_en_Capital(data, *idxP, msg->msgData->msgLen - len + code);
+     return mMsg_RESULT_VOID;
+ }
+ 
+@@ -2169,8 +2244,11 @@ s32 func_800A17B8_jp(MessageWindow* msg, s32* idxP) {
+ s32 func_800A17FC_jp(MessageWindow* msg, s32 idx, s32 itemStrNo) {
+     char* data = (char*)msg->msgData->text;
+     s32 len = msg->msgData->msgLen;
++    s32 code = func_800903A8_jp((u8*)data, idx);
+ 
+-    msg->msgData->msgLen = mMsg_CopyItem(msg, itemStrNo, data, idx, len);
++    msg->msgData->msgLen = mMsg_en_CopyItem(msg, itemStrNo, data, idx, len, mMsg_en_cutArticle);
++    mMsg_en_cutArticle = FALSE;
++    mMsg_en_Capital(data, idx, msg->msgData->msgLen - len + code);
+     return mMsg_RESULT_VOID;
+ }
+ 
+@@ -2197,8 +2275,10 @@ s32 func_800A18E4_jp(MessageWindow* msg, s32* idxP) {
+ s32 func_800A190C_jp(MessageWindow* msg, s32 idx, s32 mailStrNo) {
+     char* data = (char*)msg->msgData->text;
+     s32 len = msg->msgData->msgLen;
++    s32 code = func_800903A8_jp((u8*)data, idx);
+ 
+     msg->msgData->msgLen = func_8009F670_jp(msg, mailStrNo, data, idx, len);
++    mMsg_en_Capital(data, idx, msg->msgData->msgLen - len + code);
+     return mMsg_RESULT_VOID;
+ }
+ 
+@@ -2237,15 +2317,26 @@ s32 func_800A1A64_jp(MessageWindow* msg, s32* idxP) {
  }
  
  s32 func_800A1A84_jp(MessageWindow* msg, s32* idxP) {
@@ -2974,7 +3508,32 @@ index 03981c7..da23ef7 100644
  }
  
  s32 func_800A1AA4_jp(MessageWindow* msg, s32* idxP) {
-@@ -2952,26 +2988,26 @@ void func_800A3220_jp(MessageWindow* msg, struct Game* game) {
+-    return func_800A197C_jp(msg, idxP, 7);
++    /* The cartridge: LUCK_7, func_800A197C_jp(msg, idxP, 7). The translation: the GameCube's CUTARTICLE. */
++    (*idxP) += func_8009DC04_jp(msg, *idxP);
++    mMsg_en_cutArticle = TRUE;
++    return mMsg_RESULT_VOID;
+ }
+ 
+ s32 func_800A1AC4_jp(MessageWindow* msg, s32* idxP) {
+-    return func_800A197C_jp(msg, idxP, 8);
++    /* The cartridge: LUCK_8, func_800A197C_jp(msg, idxP, 8). The translation: the GameCube's CAPITALIZE. */
++    (*idxP) += func_8009DC04_jp(msg, *idxP);
++    mMsg_en_capital = TRUE;
++    return mMsg_RESULT_VOID;
+ }
+ 
+ s32 func_800A1AE4_jp(MessageWindow* msg, s32* idxP) {
+@@ -2562,6 +2653,8 @@ void func_800A2538_jp(MessageWindow* msg, struct Game* game) {
+     msg->requestedPriority = 4;
+     msg->endTimer = 0;
+     msg->statusFlags &= ~mMsg_STATUS_FLAG_LAST_DELAY;
++    mMsg_en_cutArticle = FALSE; /* the translation: as the GameCube's (mMsg_STATUS_FLAG_CUT_ARTICLE, CAPITALIZE) */
++    mMsg_en_capital = FALSE;
+ 
+     if (waitFlag != TRUE) {
+         msg->showContinueButton = FALSE;
+@@ -2952,26 +3045,26 @@ void func_800A3220_jp(MessageWindow* msg, struct Game* game) {
  
  void mMsg_ct(struct Game_Play* game_play) {
      func_8009E6F8_jp((struct Game*)game_play);
@@ -3420,7 +3979,7 @@ index 5f7c230..197c172 100644
 +    }
 +}
 diff --git a/src/dmadata/dmadata.c b/src/dmadata/dmadata.c
-index 3ba98f9..56b6afc 100644
+index 3ba98f9..d74058b 100644
 --- a/src/dmadata/dmadata.c
 +++ b/src/dmadata/dmadata.c
 @@ -18,4 +18,4 @@ DmaEntry dma_rom_ad[] = {
@@ -3428,7 +3987,7 @@ index 3ba98f9..56b6afc 100644
  #undef DEFINE_DMA_ENTRY
  
 -u8 sDmaDataPadding[0xF0] = { 0 };
-+u8 sDmaDataPadding[0xF0 - 8 * sizeof(DmaEntry)] = { 0 }; /* eight entries added for the translation: the table keeps its size */
++u8 sDmaDataPadding[0xF0 - 9 * sizeof(DmaEntry)] = { 0 }; /* nine entries added for the translation: the table keeps its size */
 diff --git a/src/overlays/submenu/board_ovl/m_board_ovl.c b/src/overlays/submenu/board_ovl/m_board_ovl.c
 index 7c99435..01e6f5d 100644
 --- a/src/overlays/submenu/board_ovl/m_board_ovl.c
