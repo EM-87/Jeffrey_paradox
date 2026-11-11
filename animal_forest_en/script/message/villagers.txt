@@ -1,0 +1,381 @@
+# Our own English for villagers' messages the bank still had in Japanese, outside the early greetings
+# (greetings.txt): letters kept and shown, the seasons' events and more. tools/msgbank.py's dump form,
+# as ours.txt (its header says how the build lays it over the bank and what af_text.py holds it to).
+
+## 2320
+#: a rough-spoken villager on the part-time job, about the letters villagers keep and show
+<DEMONPC0 000015>Now ain't that a hoot!<BTN>
+<DEMONPC0 00000b>So, what's it say?<BTN>
+<DEMONPC0 000003>Wah ha ha ha ha!<PAUSE 32><DEMONPC0 000015>
+I'm only jokin',<PAUSE 06> <STR_TAIL>!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Everybody livin' in this town<PAUSE 08>
+loves gettin' letters,<PAUSE 08>
+and we hang on to
+the ones we get, like so!!<BTN>
+<MSGCLEAR>And then, like just now,
+we show 'em off to folks
+for fun, see,<PAUSE 0c>
+<STR_TAIL>!<BTN>
+<MSGCLEAR>So that's how it is,<PAUSE 08>
+and when you write letters,<PAUSE 08>
+you'd best think a little
+before you write 'em!<BTN>
+<MSGCLEAR><DEMONPC0 000017>'Cause I don't wanna<PAUSE 08> show
+folks embarrassin' letters!<PAUSE 0c>
+<CAPTIALIZE><STR_TAIL>!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>I'll let you in on somethin'.<PAUSE 08>
+Sometimes we<PAUSE 08> move
+away from this town,
+y'know,<PAUSE 06> <STR_TAIL>!<BTN>
+<MSGCLEAR>We hop on the train<PAUSE 08> and
+go off to some other town.<BTN>
+And when we do, the letters
+we got come along<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Then we let the folks who<PAUSE 08>
+look after us there read 'em,<PAUSE 0c>
+<STR_TAIL>!!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>You too,<PAUSE 08> if you meet somebody
+who moved here from away,<BTN>
+make friends and ask to see
+the letters they've got.<BTN>
+<MSGCLEAR>There might be somethin' funny
+written in 'em,<PAUSE 06> <STR_TAIL>!!
+<MSGEND>
+
+## 2967
+#: Children's Day: the carp streamers' song
+<DEMONPC0 00000b>Did you see<PAUSE 08> the carp
+streamers!<BTN><DEMONPC0 000014><PAUSE 0f>
+Aren't they splendid<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>But you know,<PAUSE 04> in the carp
+streamer song,<PAUSE 08> there's a
+dad, but there's no mom
+anywhere, <PAUSE 06><STR_TAIL>!<BTN>
+<MSGCLEAR><DEMONPC0 000002><PAUSE 08>It's unfair!<PAUSE 06>
+Totally unfair!!<PAUSE 0c>
+<DEMONPC0 000016>Don't you think so?<BTN>
+<MSGCLEAR>Just whose plot
+is this?!<PAUSE 08>
+I won't stand for it! <PAUSE 06><CAPTIALIZE><STR_TAIL>!!!
+<MSGEND>
+
+## 2968
+#: Children's Day (the choice: yes, boring)
+<DEMONPC0 0000ff>Ever crawl inside a carp<PAUSE 0c>
+streamer and yell <DEMONPC0 00000e>"Tunnel!"?<PAUSE 0c>
+<DEMONPC0 00000b>Ever done that, <PAUSE 06><STR_TAIL>?<SETSELSTR2 00dc00db><BTN><OPENCHOICE><SETNEXTMSG0 0bc3><SETNEXTMSG1 0bc4><FORCENEXT><DEMONPC0 0000ff>
+<MSGCONTINUE>
+
+## 2979
+#: summer: the fireworks
+<DEMONPC0 0000ff>Big flowers blooming
+in the summer night sky!<BTN>
+<DEMONPC0 000014>Fireworks are
+so gorgeous, <PAUSE 06><STR_TAIL>!!<BTN><DEMONPC0 00000f>
+<MSGCLEAR>I wonder how much<PAUSE 08>
+a single one of those
+costs?<BTN><DEMONPC0 000016>
+<MSGCLEAR>But you mustn't watch<PAUSE 08>
+the fireworks thinking that,
+no<PAUSE 04> no, <PAUSE 06><STR_TAIL>!
+<MSGEND>
+
+## 2980
+#: summer: the fireworks festival on Saturday night
+<DEMONPC0 0000ff>Morning aerobics are tough
+every day,<BTN>
+<DEMONPC0 000015>but on fireworks night,
+you can't say you're sleepy!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>It's this Saturday too,<PAUSE 08>
+from 7 p.m.,
+by the pond,<PAUSE 08> so come
+along, <PAUSE 06><STR_TAIL>!<BTN><DEMONPC0 000012>
+<MSGCLEAR>Or are you,<PAUSE 08> <STR_PLAYERNAME>,
+too busy on Saturday night
+with a date?<BTN><DEMONPC0 000015>
+<MSGCLEAR>Hmph.<PAUSE 0c>
+Of course not.<PAUSE 08>
+No need to put on a brave face.<PAUSE 0c>
+<CAPTIALIZE><STR_TAIL>.
+<MSGEND>
+
+## 4510
+#: Children's Day: the carp streamers (a polite villager)
+<DEMONPC0 000015>Have you seen the carp
+streamers yet?<BTN> I've already
+been to see them,<PAUSE 06> and
+they were so cool!
+<BTN>
+<MSGCLEAR>You really should
+go see them too!<PAUSE 08>
+<CAPTIALIZE><STR_TAIL>!
+<MSGEND>
+
+## 4511
+#: Children's Day: what the carp streamers mean (a polite villager)
+<DEMONPC0 000004><PAUSE 14>Oh, that reminds me,<PAUSE 06>
+the carp streamers
+are up already! <PAUSE 08><CAPTIALIZE><STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>I looked it up a bit,<PAUSE 06>
+and they come from "the
+carp climbing the falls,"<PAUSE 08>
+a symbol of getting ahead!
+<BTN>
+<MSGCLEAR>I never knew<PAUSE 06> carp
+streamers had such
+a meaning!<PAUSE 08>
+<CAPTIALIZE><STR_TAIL>!
+<MSGEND>
+
+## 4522
+#: summer: the fireworks festival begins (a polite villager)
+<DEMONPC0 00000a>It's finally started!<PAUSE 0c>
+The fireworks festival!<BTN>
+All this month,<PAUSE 06>
+we can see them every week!
+<BTN>
+<MSGCLEAR>From now on, every Saturday,<PAUSE 06>
+we all meet up
+by the pond, <PAUSE 08><STR_TAIL>!
+<MSGEND>
+
+## 4523
+#: summer: fireworks and gunpowder (a polite villager)
+<DEMONPC0 0000ff>Fireworks are amazing.<BTN>
+<DEMONPC0 000017>They're so big, and yet<PAUSE 06>
+they soar up into the sky
+and bloom, <PAUSE 08><STR_TAIL>.
+<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>One false step with gunpowder
+and you get badly hurt,<PAUSE 06>
+but it can also become
+art, like fireworks!
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>Oh,<PAUSE 06> talking like this<PAUSE 04>
+makes me so eager
+for Saturday's
+fireworks festival! <PAUSE 08><CAPTIALIZE><STR_TAIL>!
+<MSGEND>
+
+## 4948
+#: a developers' label: a normal girl, shopping
+Normal girl
+shopping, part 1 4948
+<MSGEND>
+
+## 4949
+#: a developers' label: a normal girl, shopping
+Normal girl
+shopping, part 1 4949
+<MSGEND>
+
+## 6141
+#: Children's Day: the carp streamers (a snooty villager)
+<DEMONPC0 0000ff>Hey, hey,<PAUSE 0a> have you
+seen the carp
+<DEMONPC0 00000b>streamers yet? <PAUSE 08><CAPTIALIZE><STR_TAIL>?
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>They were fluttering
+nicely in the wind,<PAUSE 06>
+so if you've got time,
+go take a look!
+<MSGEND>
+
+## 6142
+#: Children's Day: carp streamers take up room (a snooty villager)
+<DEMONPC0 00000f>There are lots of things
+you only use once a year,
+but carp streamers,<PAUSE 06>
+those are a waste.
+<BTN>
+<MSGCLEAR><DEMONPC0 000017>My place is already
+full of furniture,<PAUSE 06>
+so where would that thing
+go, right, <PAUSE 08><STR_TAIL>?
+<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>Well,<PAUSE 06> as long as
+they're up outside,
+there's no problem.
+<MSGEND>
+
+## 6153
+#: summer: the fireworks festival (the choice: yes, sorry)
+<DEMONPC0 0000ff><STR_PLAYERNAME>,<PAUSE 06>
+have you ever
+seen the fireworks
+<DEMONPC0 00000b>festival? <PAUSE 08><CAPTIALIZE><STR_TAIL>?<SETSELSTR2 004c0052><BTN><OPENCHOICE><SETNEXTMSG0 182f><SETNEXTMSG1 1830><FORCENEXT>
+<MSGCONTINUE>
+
+## 6154
+#: summer: this year's fireworks (a snooty villager)
+<DEMONPC0 000015>They say this year's fireworks<PAUSE 06>
+are even prettier
+than last year's! <PAUSE 08><CAPTIALIZE><STR_TAIL>!
+<BTN>
+<MSGCLEAR>If you haven't seen them,<PAUSE 06>
+you absolutely
+have to go!
+<MSGEND>
+
+## 9982
+#: Children's Day: the carp streamers (a gruff villager)
+<DEMONPC0 0000ff>Seen the carp streamers yet?<BTN>
+<MSGCLEAR><DEMONPC0 000015>Like always,<PAUSE 08>
+the way they flutter so
+gracefully<PAUSE 04> is mighty fine.
+<MSGEND>
+
+## 9983
+#: Children's Day: the carp streamers (a gruff villager)
+<DEMONPC0 0000ff>The carp streamers are up.<PAUSE 10>
+<DEMONPC0 000015>Look at 'em swim!
+<MSGEND>
+
+## 9994
+#: summer: the fireworks (a gruff villager)
+<DEMONPC0 000015>Fireworks,<PAUSE 04> fireworks!<PAUSE 10>
+Whatever else,<PAUSE 04> fireworks first.<PAUSE 14>
+August means<PAUSE 04> fireworks!<BTN>
+<MSGCLEAR>I'm so excited<PAUSE 08>
+for Saturday every week.<PAUSE 14>
+<DEMONPC0 000016>I can't<PAUSE 04> focus on work<PAUSE 08>
+or nothin'!
+<MSGEND>
+
+## 9995
+#: summer: the fireworks festival (a gruff villager)
+<DEMONPC0 0000ff>Hey,<PAUSE 04> this Saturday,<PAUSE 08>
+you goin' to the fireworks<PAUSE 04>?<BTN>
+<MSGCLEAR>Same time as always,<PAUSE 04> 7 p.m.,<PAUSE 08>
+by the pond.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Me, I'm goin', of course.<PAUSE 10>
+Not to brag,<PAUSE 04> but I ain't
+missed it once!
+<MSGEND>
+
+## 10178
+#: Children's Day: a carp you cannot eat (a sleepy villager)
+<DEMONPC0 000017>They said a big carp was<PAUSE 0c>
+coming to
+<STR_COUNTRYNAME>,<PAUSE 0c>
+so I was all excited,
+<BTN>
+<MSGCLEAR>but that carp<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<DEMONPC0 000010><PAUSE 1e>turned out to be the kind
+you can't eat,<PAUSE 06> <STR_TAIL>.
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>But<PAUSE 06>
+it was big and
+really pretty,<PAUSE 06>
+so it's okay,<PAUSE 06> <STR_TAIL>.
+<MSGEND>
+
+## 10179
+#: Children's Day, taken for a dumpling day (a sleepy villager)
+<DEMONPC0 020003><DEMONPC0 080001><DEMONPC0 000004><PAUSE 05>Oh, that reminds me,<PAUSE 10>
+<DEMONPC0 000017>when do we get to eat
+the dumplings?<PAUSE 0c>
+It's Dumpling Day, right<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<MSGEND>
+
+## 10190
+#: summer: fireworks and dreams (a sleepy villager)
+<DEMONPC0 000015>Every week,
+on Saturday nights,<PAUSE 08>
+I get to see fireworks,
+<BTN>
+<MSGCLEAR>so in August<PAUSE 06>
+I sleep so well,<PAUSE 06>
+I even have dreams.
+<BTN>
+<MSGCLEAR><DEMONPC0 00000f><PAUSE 17>But for some reason,<PAUSE 0c>
+it's always
+a dream about doing
+morning aerobics<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<MSGEND>
+
+## 10191
+#: summer: fireworks blow off steam (a sleepy villager)
+<DEMONPC0 0000ff>Fireworks are amazing.<PAUSE 0c>
+Just watching them,<PAUSE 06>
+all my stress
+floats away<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>So<PAUSE 08>
+I sleep like a log
+that night,<PAUSE 06> <STR_TAIL>.
+<BTN>
+<MSGCLEAR><DEMONPC0 00000a><PAUSE 08>For a while,<PAUSE 06>
+Saturday nights
+by the pond<PAUSE 0e>
+are my oasis.
+<MSGEND>
+
+## 10262
+#: Children's Day: the carp streamers are not food (a sporty villager)
+<DEMONPC0 000015>The carp streamers
+have finally come<PAUSE 06>
+to <STR_COUNTRYNAME> too,
+<STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000007><PAUSE 05>Those ain't food,<PAUSE 06>
+so don't you
+try eatin' 'em!<PAUSE 08>
+<CAPTIALIZE><STR_PLAYERNAME>!
+<MSGEND>
+
+## 10263
+#: Children's Day: the carp streamers have backbone (a sporty villager)
+<DEMONPC0 0000ff>Have you
+seen 'em yet?<PAUSE 0c>
+<DEMONPC0 000015>The carp streamers!
+<BTN>
+<MSGCLEAR><DEMONPC0 000016>All that wind,<PAUSE 06>
+and they don't blow away!<PAUSE 0c>
+Those things have got
+some real backbone!
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>All right! I'm gonna be<PAUSE 06>
+the guy folks say has
+more backbone than<PAUSE 0c>
+a carp streamer!
+<MSGEND>
+
+## 10274
+#: summer: the fireworks festival month (a sporty villager)
+<DEMONPC0 000015>This month we've got
+the fireworks festival<PAUSE 06>
+I've been waiting for,<PAUSE 08>
+so every day's a thrill.
+<BTN>
+<MSGCLEAR>It's on Saturday nights,<PAUSE 08>
+<DEMONPC0 00000e>so from now on,
+every Friday's TGIF,<PAUSE 06>
+<STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR><DEMONPC0 00000a><PAUSE 08>Now<PAUSE 06>
+Fridays are gonna
+be fun too<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<MSGEND>
+
+## 10275
+#: summer: the fireworks at the shrine (a sporty villager)
+<DEMONPC0 000015>Saturday nights,
+I'm crazy<PAUSE 06>
+about the fireworks.<PAUSE 08>
+<CAPTIALIZE><STR_PLAYERNAME>.
+<BTN>
+<MSGCLEAR><DEMONPC0 00000f><PAUSE 17>How do I put it<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<DEMONPC0 000007><PAUSE 05>they're so full of pep,<PAUSE 03>
+even I get jealous,
+<STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>This Saturday too,<PAUSE 0a>
+you can see fireworks
+in the shrine square,
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>so see 'em
+with your own eyes!<PAUSE 0c>
+They're just amazing!
+<MSGEND>

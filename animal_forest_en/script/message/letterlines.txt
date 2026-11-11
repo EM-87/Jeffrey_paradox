@@ -1,0 +1,374 @@
+# Our own English for a set of letter-like lines in the bank (from 7167): thanks for a letter, how are
+# you, a present and where it came from, news of the day, with free strings the game fills (a name,
+# another villager, a dish, a contest, a fish, an insect, furniture, a show, a song). Laid out for the
+# message window. tools/msgbank.py's dump form, as ours.txt (its header says how the build lays it over
+# the bank and what af_text.py holds it to).
+
+## 7167
+Hello, <STR_FREE0>.
+I read your letter.
+<MSGEND>
+
+## 7168
+Hello, how are you?
+I'm doing fine.<MSGEND>
+
+## 7169
+<STR_FREE0>, how are you?
+I'm fit as a fiddle.
+<MSGEND>
+
+## 7170
+Hello, it's <STR_FREE1>.
+Thanks for your letter.<MSGEND>
+
+## 7171
+Hello, <STR_FREE0>.
+Thank you for your letter.<MSGEND>
+
+## 7172
+Thank you for your letter.
+It was fun to read.
+<MSGEND>
+
+## 7173
+Thank you for your letter
+the other day.<MSGEND>
+
+## 7174
+Hello, <STR_FREE0>.
+Thanks for the funny letter.<MSGEND>
+
+## 7175
+I always look forward to
+your letters, <STR_FREE0>.<MSGEND>
+
+## 7176
+How are you?
+Me, I'm so-so, I guess?
+<MSGEND>
+
+## 7177
+Hello. Did anything fun
+happen today?
+<MSGEND>
+
+## 7178
+It's funny to ask, since we
+see each other all the time,
+but how are you? Still funny?<MSGEND>
+
+## 7179
+Hello, <STR_FREE0>.
+Are you well today?
+<MSGEND>
+
+## 7180
+I read your letter.
+As funny as ever.<MSGEND>
+
+## 7181
+Hello, <STR_FREE0>.
+Did you sleep well last night?
+<MSGEND>
+
+## 7182
+Hello, <STR_FREE0>.
+Are you eating properly?<MSGEND>
+
+## 7183
+Thanks for the fun letter.
+I laughed out loud reading it.<MSGEND>
+
+## 7184
+I've been looking forward
+to your letter, <STR_FREE0>.
+<MSGEND>
+
+## 7185
+Hello, it's <STR_FREE1>.
+How are you, <STR_FREE0>?
+<MSGEND>
+
+## 7186
+Hello. I think I've caught
+a little cold.<MSGEND>
+
+## 7187
+How are you? A cold can
+lead to all kinds of ills.<MSGEND>
+
+## 7188
+Hello. Today I'm feeling
+fresh and full of pep.
+<MSGEND>
+
+## 7189
+I was just getting bored,
+so your letter made my day.
+<MSGEND>
+
+## 7190
+I always look forward to
+your letters, <STR_FREE0>.<MSGEND>
+
+## 7191
+Hello, did anything
+fun happen?
+<MSGEND>
+
+## 7192
+Thank you for everything,
+as always. It's <STR_FREE0>.
+<MSGEND>
+
+## 7193
+Hello, <STR_FREE0>.
+Thanks for the fun letter.
+<MSGEND>
+
+## 7194
+Thank you for always
+sending such fun letters.
+<MSGEND>
+
+## 7195
+Talking is nice, but
+letters make me happy too.<MSGEND>
+
+## 7196
+Hello, <STR_FREE0>.
+Keeping early hours?
+<MSGEND>
+
+## 7197
+Hello. Have you finished
+paying off your house loan?
+Just kidding.<MSGEND>
+
+## 7198
+<STR_FREE0>,
+how have you been?
+<MSGEND>
+
+## 7199
+I got something interesting
+the other day, so please
+take it if you'd like.
+<MSGEND>
+
+## 7200
+I went on a little trip,
+so here's a souvenir.
+It's nothing much.<MSGEND>
+
+## 7201
+I went shopping and ended
+up buying too much. Please
+take this if you'd like.
+<MSGEND>
+
+## 7202
+I found this while I was
+out on a walk. It's for
+you, <STR_FREE0>.<MSGEND>
+
+## 7203
+This was lying near the
+garbage dump, but
+I don't want it.
+<MSGEND>
+
+## 7204
+You're always so good to me,
+so as a small thank-you,
+please take this.
+<MSGEND>
+
+## 7205
+This turned up while I was
+tidying my room.
+Please take it.
+<MSGEND>
+
+## 7206
+I went shopping in another
+town. This is a souvenir.
+It's nothing much, but here.
+<MSGEND>
+
+## 7207
+This was at the police box,
+so I took it home.
+It's for you, <STR_FREE0>.
+<MSGEND>
+
+## 7208
+I don't need this anymore,
+so it's yours. Didn't you
+say you wanted it?
+<MSGEND>
+
+## 7209
+<STR_FREE2> gave me this,
+but I'm giving it to you,
+<STR_FREE0>.<MSGEND>
+
+## 7210
+When I went to the next
+town over, they were selling
+this. A souvenir for you.
+<MSGEND>
+
+## 7211
+I saw <STR_FREE2> throwing
+this away. Such a waste, so
+I picked it up. Here you go.<MSGEND>
+
+## 7212
+I bought this the other day,
+but I don't need it after all,
+so it's for you, <STR_FREE0>.<MSGEND>
+
+## 7213
+I was digging in the yard
+and this turned up.
+I have no idea where from.
+<MSGEND>
+
+## 7214
+I bought this from a stranger
+the other day, but it's creepy,
+so it's for you, <STR_FREE0>.
+<MSGEND>
+
+## 7215
+I stayed up late last night,
+so I'm short on sleep today.
+I should go to bed early.
+<MSGEND>
+
+## 7216
+When you sleep, be sure
+to pull up the covers!
+Or you'll catch a cold.<MSGEND>
+
+## 7217
+Walks feel so nice.
+Especially along the river,
+you find all sorts of things.<MSGEND>
+
+## 7218
+The other day I tried
+making <STR_FREE3>, but
+it was a total flop.<MSGEND>
+
+## 7219
+Yesterday I made
+<STR_FREE3>. It was a big
+success, and sooo tasty.<MSGEND>
+
+## 7220
+Please teach me how to make
+tasty <STR_FREE3>.
+I just can't get it right.
+<MSGEND>
+
+## 7221
+I'm going to see the
+<STR_FREE4> contest soon.
+I can't wait.
+<MSGEND>
+
+## 7222
+I caught <STR_FREE6>
+the other day!
+It's been ages!
+<MSGEND>
+
+## 7223
+I caught <STR_FREE7> the
+other day. But I felt sorry
+for it, so I let it go.<MSGEND>
+
+## 7224
+I had a fight with
+<STR_FREE2> the other day.
+I hope we make up soon.
+<MSGEND>
+
+## 7225
+Yesterday <STR_FREE2>
+gave me some furniture.
+It's <STR_FREE9>.<MSGEND>
+
+## 7226
+I took a walk this morning
+too. So refreshing!
+You should try it, <STR_FREE0>.<MSGEND>
+
+## 7227
+The TV show I just watched
+was <STR_FREE9>.
+Did you see it, <STR_FREE0>?
+<MSGEND>
+
+## 7228
+The <STR_FREE3> I made today
+was really <STR_FREE8>.
+Next time I'll get it right.
+<MSGEND>
+
+## 7229
+I'm hooked on <STR_FREE10>.
+I listen to it every day.
+<MSGEND>
+
+## 7230
+If I go to a concert,
+it'll be <STR_FREE10>,
+no question.
+<MSGEND>
+
+## 7251
+Please write me again.<MSGEND>
+
+## 7252
+I'm off on a walk now.<MSGEND>
+
+## 7253
+Send me more fun letters.<MSGEND>
+
+## 7254
+Well then, take care
+of yourself.<MSGEND>
+
+## 7255
+Let's play again tomorrow.
+<MSGEND>
+
+## 7256
+Please excuse my rambling.
+<MSGEND>
+
+## 7257
+Come visit me again.
+<MSGEND>
+
+## 7258
+That's all for today.
+<MSGEND>
+
+## 7259
+Sorry for the weird letter.<MSGEND>
+
+## 7260
+Well, help me out again.
+<MSGEND>
+
+## 7261
+See you tomorrow.<MSGEND>
+
+## 7262
+Well, see you.
+<MSGEND>

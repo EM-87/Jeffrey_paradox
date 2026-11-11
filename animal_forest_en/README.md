@@ -244,13 +244,18 @@ códigos los hemos traducido nosotros, del japonés del cartucho
 mueven el juego, y solo las pausas, los colores y los saltos de página
 se colocan para el inglés. Al compilar, `af_text.py` rechaza cualquier
 mensaje superpuesto (el del parche de 2010 o el nuestro) cuyos códigos
-no sean los del cartucho ("Our own messages"). Con ellos, 9.992 de los
-10.847 mensajes con texto están en inglés (92,1 %); quedan 734 en
-japonés, ninguno traducido en el parche de 2010. `make
-messages-check-en` muestra en la ventana de diálogo los que no necesitan
-quien hable y mide cada línea contra el modelo de la fuente, y reproduce
-hasta el final los que llevan órdenes de gesto para comprobar que son
-las del cartucho.
+no sean los del cartucho ("Our own messages"). Los 717 mensajes que
+seguían en japonés también son traducción nuestra, en `script/message/`:
+etiquetas de los desarrolladores y mensajes de prueba, una versión
+antigua de los saludos de los vecinos (con una personalidad de Kansai
+que el juego final no tiene), de la tienda de Tom Nook y del gyroide de
+la casa, la oficina de correos con la Controller Pak, frases de cartas y
+algunas fiestas. Ya no queda ningún mensaje en japonés: de los 10.847
+con texto, 10.813 están en inglés y 34 no tienen letras (notas
+musicales, números o códigos). `make messages-check-en` muestra en la
+ventana de diálogo los que no necesitan quien hable y mide cada línea
+contra el modelo de la fuente, y reproduce hasta el final los que llevan
+órdenes de gesto para comprobar que son las del cartucho.
 
 Los nombres de los objetos son los de GameCube, leídos de tu disco al
 compilar (`tools/af_items.py`): de los 1.703 del cartucho, 1.696 tienen
@@ -287,7 +292,8 @@ guarda y la carga con la partida.
 
 Lo que viene: el logo del título del parche de 2010 y el aviso de mando
 desconectado, las texturas occidentales de GameCube donde las haya
-(letreros) y traducir los 734 mensajes que siguen en japonés.
+(letreros), los nombres de animales cortados y una pasada de pruebas
+de todo el texto en el juego.
 
 ## Dónde está cada cosa
 

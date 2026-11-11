@@ -1224,3 +1224,437 @@ extra
 ## 11572
 extra
 <MSGEND>
+
+## 3001
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 3002
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 3003
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 3004
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 3005
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 3006
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 3007
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 3008
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 10230
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 10231
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 10232
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 10233
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 10234
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 10235
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 10236
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 10237
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 10238
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 10239
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 10313
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 10314
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 10315
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 10316
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 10317
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 10318
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 10319
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 10320
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 10321
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 10322
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 10541
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10541
+<MSGEND>
+
+## 10542
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10542
+<MSGEND>
+
+## 10543
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10543
+<MSGEND>
+
+## 10544
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10544
+<MSGEND>
+
+## 10545
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10545
+<MSGEND>
+
+## 10546
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10546
+<MSGEND>
+
+## 10575
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10575
+<MSGEND>
+
+## 10576
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10576
+<MSGEND>
+
+## 10577
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10577
+<MSGEND>
+
+## 10578
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10578
+<MSGEND>
+
+## 10579
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10579
+<MSGEND>
+
+## 10580
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10580
+<MSGEND>
+
+## 10582
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10581
+<MSGEND>
+
+## 10583
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10582
+<MSGEND>
+
+## 10584
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10583
+<MSGEND>
+
+## 10585
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10584
+<MSGEND>
+
+## 10596
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10596
+<MSGEND>
+
+## 10597
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10597
+<MSGEND>
+
+## 10598
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10598
+<MSGEND>
+
+## 10599
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10599
+<MSGEND>
+
+## 10600
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10600
+<MSGEND>
+
+## 10601
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10601
+<MSGEND>
+
+## 10602
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10602
+<MSGEND>
+
+## 10603
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10603
+<MSGEND>
+
+## 10604
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10604
+<MSGEND>
+
+## 10605
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10605
+<MSGEND>
+
+## 10606
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10606
+<MSGEND>
+
+## 10607
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10607
+<MSGEND>
+
+## 10608
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10608
+<MSGEND>
+
+## 10609
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10609
+<MSGEND>
+
+## 10610
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10610
+<MSGEND>
+
+## 10611
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10611
+<MSGEND>
+
+## 10622
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10622
+<MSGEND>
+
+## 10623
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10623
+<MSGEND>
+
+## 10624
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10624
+<MSGEND>
+
+## 10625
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10625
+<MSGEND>
+
+## 10626
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10626
+<MSGEND>
+
+## 10627
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10627
+<MSGEND>
+
+## 10628
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10628
+<MSGEND>
+
+## 10629
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10629
+<MSGEND>
+
+## 10630
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10630
+<MSGEND>
+
+## 10631
+#: a developers' label: a script bug (a gruff villager's)
+Script bug
+Scary bro
+10631
+<MSGEND>

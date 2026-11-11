@@ -1,0 +1,46 @@
+# Our own English for messages of the town's occasional visitors the bank still had in Japanese.
+# tools/msgbank.py's dump form, as ours.txt (its header says how the build lays it over the bank and
+# what af_text.py holds it to).
+
+## 9219
+#: the sailor found on the beach, who speaks with a foreign accent, mistaken for a creep in his sailor suit
+<DEMONPC0 000004><PAUSE 05>Huh! <PAUSE 06>Where am I?!<PAUSE 14><DEMONPC0 000017>
+I see<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 14>
+I carelessly <PAUSE 04>tripped<PAUSE 06>
+and fell off the ship<PAUSE 02>.<PAUSE 02>.<PAUSE 02>.<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>You <PAUSE 04>helped me<PAUSE 06>
+up,<PAUSE 04> did you not?<PAUSE 0a><DEMONPC0 000015>
+Thank you very<PAUSE 04> muuuch!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>"By the way, are you a creep?"
+you ask?<PAUSE 0f>
+<DEMONPC0 000007><PAUSE 08>Wh-<PAUSE 06>what are you <PAUSE 04>saying,<PAUSE 04>
+all of a sudden?!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>"A man dressed up<PAUSE 04>
+like a <DEMONPC0 00000b>girl?"<PAUSE 14>
+<DEMONPC0 000006><PAUSE 08>Ah! <PAUSE 06>I see!<PAUSE 08><DEMONPC0 000015>
+You mean <PAUSE 04>this sailor suit!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Nowadays,<PAUSE 04> it is better known<PAUSE 06>
+as what schoolgirls<PAUSE 04> all<PAUSE 06>
+over the country<PAUSE 04> wear,<PAUSE 06>
+but<BTN><DEMONPC0 000015>
+<MSGCLEAR>originally <PAUSE 04>it is the<PAUSE 06>
+uniform of us soldiers of
+the sea,<DEMONPC0 00000e><PAUSE 08> the "sailors,"<PAUSE 04>
+you see<PAUSE 04>!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>"Sorry for the mix-up,"
+you say?<PAUSE 0a>
+<DEMONPC0 000003><PAUSE 05>Don't mind!<PAUSE 08>
+Don't worry about it<PAUSE 04>!<BTN><DEMONPC0 000015>
+<MSGCLEAR>Men of the sea<PAUSE 06>
+have big hearts<PAUSE 04>!<PAUSE 0c>
+We do not get angry<PAUSE 06>
+over little things<PAUSE 04>!<BTN>
+<MSGCLEAR><DEMONPC0 00000b><PAUSE 0a>Eh?<PAUSE 14><DEMONPC0 0000ff>
+"Can someone so clumsy really
+be a soldier?" you say?<PAUSE 0c>
+<DEMONPC0 000001><PAUSE 0a>Wh-<PAUSE 06><DEMONPC0 000005>WHAAAT?!!<BTN>
+<MSGCLEAR>.<PAUSE 02>.<PAUSE 02>.<DEMONPC0 0000ff><PAUSE 02>Well,<PAUSE 04> never mind.<PAUSE 06>
+It is a little thing.<PAUSE 14>
+More importantly,<PAUSE 04> I must<PAUSE 06>
+thank you<PAUSE 04> properly.
+<MSGCONTINUE>

@@ -2281,19 +2281,33 @@ what goes in it: "The letters in the en build").
   the game always has (`GLOBAL`: `STR_AMPM`, and a villager's whole time
   again where the cartridge's says only the seconds have moved on: the en
   build prints them as two digits).
-- **The rest of the bank's Japanese** (734 after the 45; in progress, file
-  by file): `spares.txt`, the developers' labels of 269 spare slots (who
-  or what each was kept for, and its number); `tests.txt`, 35 test
-  messages and dummies (the developers' checks of strings, choices,
-  colours, scales, offsets, sounds and moods: every code where the
-  cartridge has it, a test's single kana a letter); `gyroid.txt`, 10
-  messages of an early house gyroid (898 to 907), in the gyroid's formal
-  English; `greetings.txt`, 192 of an early set of the villagers'
-  greetings (19 to 210: a first meeting, meeting again someone known in
-  another town, a villager moved to the player's town, the day's
-  greetings, after weeks or months away), by personality and time of
-  day, among them a personality the final villagers do not have (a
-  Kansai speaker, given a folksy English).
+- **The rest of the bank's Japanese.** After the 45, 734 messages kept the
+  cartridge's text; 717 of them had Japanese in it, and they are ours now
+  (`script/message/`, each file's header says what it holds):
+  `spares.txt`, 339 developers' labels (269 spare slots, who or what each
+  was kept for and its number; 28 rumours' placeholders; 42 script bugs'
+  labels); `tests.txt`, 35 test messages and dummies (the developers'
+  checks of strings, choices, colours, scales, offsets, sounds and moods:
+  every code where the cartridge has it, a test's single kana a letter);
+  `gyroid.txt`, 10 messages of an early house gyroid (898 to 907), in the
+  gyroid's formal English; `greetings.txt`, 192 of an early set of the
+  villagers' greetings (19 to 210: a first meeting, meeting again someone
+  known in another town, a villager moved to the player's town, the day's
+  greetings, after weeks or months away), by personality and time of day,
+  among them a personality the final villagers do not have (a Kansai
+  speaker, given a folksy English); `nook.txt`, 21 of an early version of
+  Tom Nook's shop (732 to 752), in his English's polite "yes" and "hm";
+  `villagers.txt`, 27 more villagers' messages (letters kept and shown,
+  Children's Day's carp streamers, the summer's fireworks); `postoffice.txt`,
+  16 of the post office's clerks about the Controller Pak (7125 to 7142:
+  it cannot be read, its notes are full, it is broken and repaired), the
+  curt clerk's asides in grey; `letterlines.txt`, 76 letter-like lines
+  (7167 to 7262: thanks, news, a present and where it came from, with the
+  free strings the game fills), laid out for the message window;
+  `visitors.txt`, the sailor washed up on the beach (9219). The other 17
+  have no Japanese in them (music notes, numbers, codes, a "?!": 2836,
+  2933, 4002 to 4004, 5442, 5443, 5818 to 5820, 5895, 5896, 8260, 9454 to
+  9456, 10392) and stay as they are.
 - **In the build.** `make script` lays `script/message/*.txt` over the
   draft (no longer every `script/*.txt`: `ui.txt` and `items.txt` are not
   messages); `make rom-en` lays them over the compiled bank again, after
@@ -2306,6 +2320,14 @@ what goes in it: "The letters in the en build").
   after. Messages in English (Latin letters, no kana): 9,947 of the
   10,847 before, 9,992 after (92.1%); 734 keep the cartridge's text, none
   of them in English in the 2010 patch.
+- **The bank in English.** With all 762 of ours, `make rom-en` lays them
+  over the bank with no error, the layout moves none of them (the same 11
+  pages filled anew, 4 split and 103 with lines moved, all the
+  GameCube's), and the bank's check has the same 64 warnings. Of the
+  10,847 messages with text, 10,709 are English by the count above (Latin
+  letters, no kana), 104 are the GameCube's English with its dash drawn as
+  the long vowel mark (`ー`, which the count takes for kana), and 34 have
+  no letters (marks, numbers, codes); none is Japanese.
 - **Measured** (`make messages-check-en`: `tests/emu_messages.py --own`).
   The en tree's compiled bank holds the 45 as written, laid out for the en
   font (all 45), each keeping the cartridge's codes that steer the game

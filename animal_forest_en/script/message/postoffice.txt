@@ -1,0 +1,177 @@
+# Our own English for the post office's messages about the Controller Pak the bank still had in
+# Japanese (7125 to 7142): it cannot be read, its notes are full, it is broken and repaired. Two
+# clerks take turns, a polite one by day and a curt one by night, whose asides go in grey (as the
+# GameCube's English has them). tools/msgbank.py's dump form, as ours.txt (its header says how the
+# build lays it over the bank and what af_text.py holds it to).
+
+## 7125
+#: the polite clerk: the Controller Pak cannot be read
+<DEMONPC0 000017>I'm sorry, but<PAUSE 08>
+I couldn't read the
+<DEMONPC0 0000ff><COLORCHARS 198cdc0e>Controller Pak.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Could you please check<PAUSE 06>
+the connection<PAUSE 08>
+and try again?<PAUSE 08>
+I'm sorry.
+<MSGCONTINUE>
+
+## 7126
+#: the curt clerk: the Controller Pak cannot be read
+<DEMONPC0 000016>Ugh,<PAUSE 04> I couldn't read the
+<COLORCHARS 198cdc0e>Controller Pak.<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Sorry, but<PAUSE 06>
+could you check the
+connection and try again?<PAUSE 08>
+<TEXTCOLOR 969696><SNDCUT 00>(It's not MY fault!)<SNDCUT 01>
+<MSGCONTINUE>
+
+## 7129
+#: the polite clerk: the Controller Pak's notes are full (the choice: yes, never mind)
+<DEMONPC0 000017>The <COLORCHARS 198cdc0e>Controller Pak's<PAUSE 08>
+notes seem to be full.<BTN>
+<MSGCLEAR><DEMONPC0 00000b>Would you like to tidy up<PAUSE 08>
+the <COLORCHARS 198cdc0e>Controller Pak?
+<SETSELSTR2 0003000d><SELNOB><BTN><OPENCHOICE><SETNEXTMSG0 08e9><SETNEXTMSG1 08ed>
+<FORCENEXT>
+<MSGCONTINUE>
+
+## 7130
+#: the curt clerk: the Controller Pak's notes are full (the choice: yes, never mind)
+<DEMONPC0 00000f>Uh-oh.<PAUSE 06><TEXTCOLOR 969696><SNDCUT 00>(Tch!)<SNDCUT 01><PAUSE 0e>
+The <COLORCHARS 198cdc0e>Controller Pak<PAUSE 08>
+can't take any
+more notes.<BTN>
+<MSGCLEAR><DEMONPC0 000016>This won't do.<PAUSE 0c>
+So what'll it be?<PAUSE 08>
+<DEMONPC0 00000b>Gonna clean up the
+<COLORCHARS 198cdc0e>Controller Pak?<PAUSE 08>
+<SETSELSTR2 0003000d><SELNOB><BTN><OPENCHOICE><SETNEXTMSG0 08ea><SETNEXTMSG1 08ee>
+<FORCENEXT>
+<MSGCONTINUE>
+
+## 7131
+#: the polite clerk: the Controller Pak is broken (the choice: yes, never mind)
+<DEMONPC0 000004><PAUSE 05>Oh my!!<PAUSE 14><DEMONPC0 0000ff>
+The <COLORCHARS 198cdc0e>Controller Pak
+seems to be damaged.<BTN>
+<MSGCLEAR>If I repair the
+<COLORCHARS 198cdc0e>Controller Pak,<PAUSE 06>
+its saved data
+might be lost, but<BTN>
+<MSGCLEAR>would you like me to<PAUSE 06>
+repair the <COLORCHARS 198cdc0e>Controller Pak?
+<SETSELSTR2 0003000d><SELNOB><BTN><OPENCHOICE><SETNEXTMSG0 1bdd><SETNEXTMSG1 1bdf><FORCENEXT><DEMONPC0 0000ff>
+<MSGCONTINUE>
+
+## 7132
+#: the curt clerk: the Controller Pak is broken (the choice: yes, never mind)
+<DEMONPC0 000004><PAUSE 05>Oh,<PAUSE 04> man!!<PAUSE 14><DEMONPC0 0000ff>
+Isn't this <COLORCHARS 198cdc0e>Controller Pak<PAUSE 06>
+broken?<BTN>
+<MSGCLEAR>If you repair the
+<COLORCHARS 198cdc0e>Controller Pak,<PAUSE 06>
+sometimes the saved
+data gets lost, but<BTN>
+<MSGCLEAR>wanna try<PAUSE 06> repairing
+the <COLORCHARS 198cdc0e>Controller Pak?
+<SETSELSTR2 0003000d><SELNOB><BTN><OPENCHOICE><SETNEXTMSG0 1bde><SETNEXTMSG1 1be0><FORCENEXT><DEMONPC0 0000ff>
+<MSGCONTINUE>
+
+## 7133
+#: the polite clerk repairing the Controller Pak
+Very well,<PAUSE 04>
+I'll try to repair it,
+so please wait a moment.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>            Repairing...<PAUSE 08>
+
+<TEXTCOLOR c35f00>Please do not remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 7134
+#: the curt clerk repairing the Controller Pak
+Okay,<PAUSE 08>
+I'll try to fix it,
+so hang on a sec.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>            Repairing...<PAUSE 08>
+
+<TEXTCOLOR c35f00>Please do not remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 7135
+#: the polite clerk: not repaired
+I see.<BTN>
+<MSGCLEAR>I'm very sorry, but<PAUSE 08>
+please insert a different
+<COLORCHARS 198cdc0e>Controller Pak<DEMONPC0 000015><PAUSE 08>
+and come again.
+<MSGCONTINUE>
+
+## 7136
+#: the curt clerk: not repaired
+Oh,<PAUSE 06> okay.<BTN>
+<MSGCLEAR>Then sorry, but<PAUSE 08>
+put in a different
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 08>
+and come back again.
+<MSGCONTINUE>
+
+## 7137
+#: the polite clerk: repaired
+<DEMONPC0 000015>The repair is finished.<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Now then,<PAUSE 06>
+let us continue.<BTN><DEMONPC0 090001><SETFORCEMSG 08e9>
+<MSGCONTINUE>
+
+## 7138
+#: the curt clerk: repaired
+<DEMONPC0 000015>Okay,<PAUSE 08> it's fixed.<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>So,<PAUSE 06>
+let's keep going.<BTN><DEMONPC0 090001><SETFORCEMSG 08ea>
+<MSGCONTINUE>
+
+## 7139
+#: the polite clerk: the repair failed (the choice: yes, never mind)
+<DEMONPC0 000017>I'm sorry, but<PAUSE 08>
+I couldn't repair the
+<DEMONPC0 0000ff><COLORCHARS 198cdc0e>Controller Pak.<BTN>
+<MSGCLEAR>Shall I try repairing the
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 06><DEMONPC0 00000b>
+once more?
+<SETSELSTR2 0003000d><SELNOB><BTN><OPENCHOICE><SETNEXTMSG0 1bdd><SETNEXTMSG1 1bdf><FORCENEXT><DEMONPC0 0000ff>
+<MSGCONTINUE>
+
+## 7140
+#: the curt clerk: the repair failed (the choice: yes, never mind)
+<DEMONPC0 000016>Ugh,<PAUSE 04> I couldn't fix
+the <COLORCHARS 198cdc0e>Controller Pak.<PAUSE 0c>
+Didn't work.<PAUSE 08>
+<TEXTCOLOR 969696><SNDCUT 00>(It's not MY fault!)<SNDCUT 01><BTN><DEMONPC0 0000ff>
+<MSGCLEAR>So what now?<PAUSE 0c>
+Wanna try fixing the
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 06><DEMONPC0 00000b>
+one more time?
+<SETSELSTR2 0003000d><SELNOB><BTN><OPENCHOICE><SETNEXTMSG0 1bde><SETNEXTMSG1 1be0><FORCENEXT><DEMONPC0 0000ff>
+<MSGCONTINUE>
+
+## 7141
+#: the polite clerk: the Controller Pak was pulled out partway
+<DEMONPC0 000017>Please don't remove the
+<COLORCHARS 198cdc0e>Controller Pak<DEMONPC0 0000ff>
+partway through.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Could you please check<PAUSE 06>
+the connection<PAUSE 08>
+and try again?<PAUSE 08>
+I'm sorry.
+<MSGCONTINUE>
+
+## 7142
+#: the curt clerk: the Controller Pak was pulled out partway
+<DEMONPC0 000016>Hey! <PAUSE 04>You can't pull out
+the <COLORCHARS 198cdc0e>Controller Pak!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Sorry, but<PAUSE 06>
+could you check the
+connection and try again?<PAUSE 08>
+<TEXTCOLOR 969696><SNDCUT 00>(Do it right, already!)<SNDCUT 01>
+<MSGCONTINUE>

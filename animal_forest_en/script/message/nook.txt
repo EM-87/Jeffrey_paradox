@@ -1,0 +1,151 @@
+# Our own English for an early version of Tom Nook's shop in the bank (732 to 752): greeting, buying
+# turnips and items, selling. Nook's verbal tic on the cartridge is rendered as the GameCube's English
+# renders his speech, a merchant's polite "yes" and "hm". tools/msgbank.py's dump form, as ours.txt
+# (its header says how the build lays it over the bank and what af_text.py holds it to).
+
+## 732
+Welcome!<PAUSE 0c>
+Come in, come in,<PAUSE 06>
+and take a look
+around, yes?
+<MSGEND>
+
+## 733
+#: the choices are the shop's: other things, selling, never mind
+Yes, yes!<PAUSE 08>
+What can I do for you, hm?
+<SETSELSTR3 0009000a000b><BTN><OPENCHOICE><FORCENEXT>
+<MSGCONTINUE>
+
+## 734
+I see.<PAUSE 08>
+Well, just call me
+if you need anything, yes?
+<MSGEND>
+
+## 735
+Today's buying price
+for turnips is<PAUSE 08>
+<STR_FREE1> Bells apiece, yes!
+<MSGEND>
+
+## 736
+Well then,<PAUSE 08> choose what
+you'd like to sell, hm?
+<DEMONPC0 000001>
+<BTN>
+<MSGCONTINUE>
+
+## 737
+For that,<PAUSE 06> I can pay
+<STR_FREE2> Bells.<PAUSE 08>
+Will you sell it, hm?<SETSELSTR2 000c000d><BTN><OPENCHOICE><FORCENEXT>
+<MSGCONTINUE>
+
+## 738
+Thank you kindly!<PAUSE 0c>
+Is there anything
+else I can do, hm?<SETSELSTR3 0009000a000b><BTN><OPENCHOICE><FORCENEXT>
+<MSGCONTINUE>
+
+## 739
+Oh, that's too bad.<PAUSE 0c>
+Is there anything
+else I can do, hm?<SETSELSTR3 0009000a000b><BTN><OPENCHOICE><FORCENEXT>
+<MSGCONTINUE>
+
+## 740
+That's
+<STR_ITEM0>, yes.<PAUSE 0c>
+The price is
+<STR_FREE4> Bells.
+<BTN>
+<MSGCLEAR>A real bargain, yes?<DEMONPC0 000001>
+Will you buy it?<SETSELSTR2 000e000d><BTN><OPENCHOICE>
+<SETNEXTMSG0 02e6><SETNEXTMSG1 02e5><PAUSE 01><FORCENEXT>
+<MSGCONTINUE>
+
+## 741
+I see.<PAUSE 0c> How disappointing<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<PAUSE 0f>
+Oh, well.
+Take a look at the
+other things too, yes?
+<MSGEND>
+
+## 742
+Thank you kindly!!
+<DEMONPC0 000001>
+<MSGCONTINUE>
+
+## 743
+Hm? But, but<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<PAUSE 08>
+you don't have enough money!<PAUSE 06>
+Then I can't sell it
+to you, no, no!!
+<MSGEND>
+
+## 744
+I have received your
+<STR_FREE4> Bells,<PAUSE 08> yes.
+<MSGEND>
+
+## 745
+Thank you very much!<PAUSE 0c>
+Do come again, yes!
+<MSGEND>
+
+## 746
+I'm terribly sorry, but<PAUSE 08>
+today is Sunday,<PAUSE 06>
+so I'm not buying
+turnips today, no!!
+<MSGEND>
+
+## 747
+Welcome!<PAUSE 0c>
+Today's a special event!<PAUSE 08>
+I have loads of
+bargains, yes!
+<MSGEND>
+
+## 748
+You can't carry more money!<PAUSE 0c>
+I'll put it together in
+a money bag for you.<PAUSE 08>
+Oh, it's<PAUSE 02> fine,<PAUSE 04> my treat, yes!!
+<MSGCONTINUE>
+
+## 749
+But, but,<PAUSE 08> your pockets
+look full!<PAUSE 08>
+Tidy them up<PAUSE 04> and come
+buy it again, yes!!
+<MSGEND>
+
+## 750
+That's
+<STR_ITEM0>, yes.<PAUSE 08>
+It's a very fine item.<PAUSE 08>
+Would you like to see it, hm?<SETSELSTR2 000f0010><BTN><OPENCHOICE>
+<MSGCONTINUE>
+
+## 751
+Well, well? <PAUSE 06>Do you like it?<PAUSE 08>
+The price is
+<STR_FREE4> Bells.
+<BTN>
+<MSGCLEAR>It's a bargain, yes!<DEMONPC0 000001><PAUSE 06>
+Will you buy it, hm?<SETSELSTR2 000e000d><BTN><OPENCHOICE>
+<SETNEXTMSG0 02e6><SETNEXTMSG1 02e5><PAUSE 01><FORCENEXT>
+<MSGCONTINUE>
+
+## 752
+Not looking, hm?<PAUSE 08>
+That's fine, either way.<PAUSE 08>
+The price is
+<STR_FREE4> Bells.
+<BTN>
+<MSGCLEAR>It's a bargain, isn't it?<DEMONPC0 000001><PAUSE 06>
+Will you buy it, hm?<SETSELSTR2 000e000d><BTN><OPENCHOICE>
+<SETNEXTMSG0 02e6><SETNEXTMSG1 02e5><PAUSE 01><FORCENEXT>
+<MSGCONTINUE>
