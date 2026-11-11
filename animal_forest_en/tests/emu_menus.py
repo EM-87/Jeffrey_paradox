@@ -77,6 +77,13 @@ gameplay_keep's are checked in the first menu's RAM (segment 4 stays
 loaded all through play). Program 11 (ovl__00789B60, its mailbox label)
 is opened by the inventory from inside it and does not open on its own:
 not checked here.
+
+And strings of the en build's string bank, loaded by the hook as the game
+loads them (mString_Load_StringFromRom, mString_Load_NumberStringAddUnitFromRom):
+the staff credits' lines at the 15 bytes the orange box loads
+(ovl_Mikanbox), as script/string/credits.txt has them; what the message
+code puts after the town's name (string 484), all spaces; and a fish's
+size as the fishing tourney writes it, its number and string 670.
 Writes the screenshots to OUT_DIR.
 """
 
@@ -120,6 +127,8 @@ s32 func_800A17FC_jp(void* msg, s32 idx, s32 no);   /* an item string */
 void mHandbill_Set_free_str(s32 no, char* str, s32 len);
 void func_80093478_jp(u8* buf, s32 size, s32 len, s32 fill);   /* a letter's part, its codes expanded */
 s32 mMsg_request_main_appear(void* msg, void* actor, s32 showName, u8* color, s32 msgNo, s32 priority);
+void mString_Load_StringFromRom(char* dst, s32 dstLen, s32 strIdx);
+s32 mString_Load_NumberStringAddUnitFromRom(char* dst, unsigned short num, s32 idx);
 u8 hook_color[4] = { 255, 255, 255, 255 };
 extern void* gamePT;
 typedef struct HookCtl { s32 cmd; s32 arg[4]; u8 buf[32]; } HookCtl;
@@ -140,7 +149,8 @@ u8 hook_letter[40];
    bytes) expanded as a letter's body is, in 40 bytes filled with spaces: the 20 first back at buf + 12; 7: buf's
    first arg 1 bytes set as the message's item string 0, and message arg 0 asked of the window as the demo's
    event messages ask for theirs (no speaker, its priority: m_demo.c, wait_emsg_start), whether it took the
-   request in arg 2 */
+   request in arg 2; 8: string arg 0 loaded into buf as the game loads one (arg 1 bytes, at most 32); 9: the
+   number arg 0 with string arg 1 after it into buf as the fishing tourney writes a size, its length in arg 2 */
 void hook_main(void) {
     HookCtl* h = &hook_ctl;
     s32* submenu = (s32*)((u8*)gamePT + 0x1CBC);
@@ -228,6 +238,12 @@ void hook_main(void) {
 
         mMsg_Set_item_str(msg, 0, (char*)h->buf, h->arg[1]);
         h->arg[2] = mMsg_request_main_appear(msg, 0, 0, hook_color, h->arg[0], 5);
+        h->cmd = 0;
+    } else if (h->cmd == 8) {
+        mString_Load_StringFromRom((char*)h->buf, h->arg[1], h->arg[0]);
+        h->cmd = 0;
+    } else if (h->cmd == 9) {
+        h->arg[2] = mString_Load_NumberStringAddUnitFromRom((char*)h->buf, (unsigned short)h->arg[0], h->arg[1]);
         h->cmd = 0;
     }
 }
@@ -1099,6 +1115,33 @@ def main(argv):
                 check(ink_matches(got, want, left, span),
                       "the items' names: the inventory draws the money's %r at %s, the model's (%.1f, %.1f) from "
                       "the place of its %d cells at the scale %.3f" % (name, got, want[0], want[1], cells, scale))
+
+        # the string bank (tools/af_text.py, script/string/), loaded as the game loads it: the staff credits at
+        # the orange box's 15 bytes a line (ovl_Mikanbox, func_80AA3D08_jp), the word after the town's name at
+        # mLd_AddMuraString's 10, and a fish's size as the fishing tourney writes it (its number, string 670)
+        ctl = setup()
+        n64.frames(2, 0)
+
+        def load_string(n, size):
+            n64.write(ctl + HOOK_BUF, b"\xff" * 32)
+            n64.write(ctl, struct.pack(">i4I", 8, n, size, 0, 0))
+            n64.frames(2, 0)
+            return struct.unpack(">i", n64.read(ctl, 4))[0], n64.read(ctl + HOOK_BUF, size)
+
+        credits = af_text.load_bank(os.path.join(HERE, "..", "script", "string", "credits.txt"))
+        differ = [n for n in sorted(credits) if load_string(n, 15) != (0, msgbank.encode(credits[n]).ljust(15, b" "))]
+        check(credits and not differ, "the string bank: the staff credits' %d lines load at the orange box's 15 bytes "
+              "as script/string/credits.txt has them (%d differ: %s)" % (len(credits), len(differ), differ[:5]))
+        cmd, got = load_string(484, 10)
+        check(cmd == 0 and got == b" " * 10, "the string bank: what goes after the town's name loads as 10 spaces, "
+              "nothing for the message code to put in (%r)" % got)
+        n64.write(ctl + HOOK_BUF, b"\xff" * 32)
+        n64.write(ctl, struct.pack(">i4I", 9, 40, 0x29E, 0, 0))
+        n64.frames(2, 0)
+        cmd, _, _, length = struct.unpack(">4i", n64.read(ctl, 16))
+        got = n64.read(ctl + HOOK_BUF, 10)
+        check(cmd == 0 and length == 5 and got[:5] == b"40 cm", "the string bank: a fish of 40 written as the "
+              "fishing tourney writes its size: %r (%d bytes)" % (got[:max(0, min(length, 10))], length))
 
         for i, (program, data0, vrom, what) in enumerate(LABEL_MENUS):
             ctl = setup()

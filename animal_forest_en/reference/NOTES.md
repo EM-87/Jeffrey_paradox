@@ -2433,7 +2433,11 @@ what goes in it: "The letters in the en build").
   imperial unit there (its code converts the number), which the en build
   printed after the centimetres with no space. Ours, `units.txt`: the
   metric units with a space before them (669-672; only 670 is read).
-  TODO(verify) on screen (the tourney's messages need a fish caught).
+  In the running game (`make menus-check-en`: a hook calls
+  `mString_Load_NumberStringAddUnitFromRom` as the tourney does), a fish
+  of 40 is the 5 bytes of "40 cm". On screen in the tourney's message:
+  TODO(verify) (it needs a fish caught; the message window draws a free
+  string as any other text).
 - **The staff credits** (`credits.txt`, 1258-1364). The draft had taken
   the GameCube's own staff list by number (other people, another order).
   The cartridge's are drawn by the orange box (`ovl_Mikanbox`):
@@ -2446,8 +2450,13 @@ what goes in it: "The letters in the en build").
   one, 15 bytes at most (the GameCube's lines, ten spaces and a name, were
   cut to the first letters); given name first, 14 names longer than 15
   with the given name's initial. The widest line is 104 pixels at the en
-  font's widths, 94 at 0.9. The box draws them only with an event's flag
-  set (`mEv_get_save_area(0x21)`, 0x4000): TODO(verify) on screen.
+  font's widths, 94 at 0.9. In the running game (`make menus-check-en`:
+  a hook loads each line with `mString_Load_StringFromRom` at the box's
+  15 bytes) the 107 lines are this file's. The box draws them during K.K.
+  Slider's show: event 0x21's save area is his (`m_kankyo.c` reads it as
+  `KKData`, and dims the lights for the staff roll:
+  `staffroll_light_proc_start`), its 0x4000 the staff roll's flag. On
+  screen: TODO(verify) (it needs his Saturday night show).
 - **The event notices** (mail_body 420-462: the bulletin board posts
   them, `m_notice.c`, and some come as letters). Read letter by letter,
   the GameCube's are not all at the cartridge's numbers: it dropped some
@@ -2507,6 +2516,7 @@ what goes in it: "The letters in the en build").
   layout within six lines with the checks' free strings (not each put
   up). `make board-check-en` (11 boards, 508 in 430's place),
   `write-check-en`, `letters-check-en`, `save-check-en`,
-  `menus-check-en`, `emu-check` and `emu-check-en`: 0 failures; `make
-  test` 66. The credits and the fish's size are not yet seen on screen
-  (TODO(verify) above).
+  `menus-check-en` (now also the string bank as the game loads it: the
+  credits' lines, what follows the town's name, a fish's size),
+  `emu-check` and `emu-check-en`: 0 failures; `make test` 66. The credits
+  and the fish's size are not yet seen on screen (TODO(verify) above).
