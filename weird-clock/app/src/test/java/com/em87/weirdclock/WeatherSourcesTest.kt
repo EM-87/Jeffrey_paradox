@@ -34,7 +34,7 @@ class WeatherSourcesTest {
     private val openMeteo = """
         {"latitude":40.4,"longitude":-3.7,
          "current":{"time":"2026-08-29T12:00","interval":900,
-           "temperature_2m":21.3,"surface_pressure":1012.4,"cloud_cover":25,
+           "temperature_2m":21.3,"pressure_msl":1012.4,"cloud_cover":25,
            "precipitation":0.0,"wind_speed_10m":10.8,"weather_code":2}}
     """.trimIndent()
 

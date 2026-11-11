@@ -176,7 +176,7 @@ object Backup {
         // holding it can fire the house. It is worth losing on a restore
         // and the settings row says so.
         Prefs.IFTTT_KEY
-    )
+    ) + WeatherStore.KEPT
 
     fun export(context: Context): String {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)

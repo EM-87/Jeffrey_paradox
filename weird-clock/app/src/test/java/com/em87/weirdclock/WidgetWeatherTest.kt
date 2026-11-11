@@ -42,8 +42,8 @@ class WidgetWeatherTest {
 
     /** A sky with lightning in it, agreed by all three services. */
     private val storm = mapOf(
-        "open-meteo" to """{"current":{"temperature_2m":14.0,"surface_pressure":998.0,
-            "cloud_cover":95,"precipitation":4.0,"wind_speed_10m":30.0,
+        "open-meteo" to """{"current":{"interval":900,"temperature_2m":14.0,"pressure_msl":998.0,
+            "cloud_cover":95,"precipitation":1.0,"wind_speed_10m":30.0,
             "weather_code":95}}""",
         "met.no" to """{"properties":{"timeseries":[{"data":{
             "instant":{"details":{"air_pressure_at_sea_level":998.5,
@@ -57,7 +57,7 @@ class WidgetWeatherTest {
 
     /** And one with nothing in it at all. */
     private val clear = mapOf(
-        "open-meteo" to """{"current":{"temperature_2m":24.0,"surface_pressure":1021.0,
+        "open-meteo" to """{"current":{"interval":900,"temperature_2m":24.0,"pressure_msl":1021.0,
             "cloud_cover":3,"precipitation":0.0,"wind_speed_10m":6.0,
             "weather_code":0}}""",
         "met.no" to """{"properties":{"timeseries":[{"data":{

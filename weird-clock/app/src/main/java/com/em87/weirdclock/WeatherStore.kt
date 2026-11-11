@@ -36,6 +36,23 @@ object WeatherStore {
     /** Where the last agreed reading is kept between runs. */
     private const val CACHE = "pref_weather_cache"
 
+    /** And the hours to come, as they were agreed at the same moment. */
+    private const val FORECAST = "pref_weather_forecast"
+
+    /**
+     * Both of them, for the backup to leave behind: what the sky was
+     * doing on one phone on one afternoon is not a setting.
+     */
+    internal val KEPT = setOf(CACHE, FORECAST)
+
+    /**
+     * How far ahead is kept: five days of hours.
+     *
+     * Enough for the day that is left and the four whole ones after it,
+     * wherever in today "now" happens to fall.
+     */
+    const val FORECAST_HOURS = 120
+
     /**
      * One request, so the tests can be given the answers.
      *
@@ -109,21 +126,70 @@ object WeatherStore {
         val at = TimeKeeper.nowMs()
         val lat = Math.round(latitude * 100.0) / 100.0
         val lon = Math.round(longitude * 100.0) / 100.0
-        val readings = WeatherSources.all().mapNotNull { source ->
+        val readings = ArrayList<Weather.Reading>()
+        val ahead = ArrayList<List<Weather.Hour>>()
+        for (source in WeatherSources.all()) {
+            // One request each, and both things read out of it: what the
+            // sky is doing and what it is expected to do.
+            val body = try {
+                fetch.get(source.url(lat, lon))
+            } catch (e: Exception) {
+                null
+            } ?: continue
             try {
-                fetch.get(source.url(lat, lon))?.let { source.read(it, at) }
+                source.read(body, at)?.let { readings.add(it) }
             } catch (e: Exception) {
                 // A service that changes the shape of its JSON overnight
                 // is one missing service, not a crashed clock.
-                null
+            }
+            try {
+                source.hours(body).takeIf { it.isNotEmpty() }?.let { ahead.add(it) }
+            } catch (e: Exception) {
+                // And the same for the half of its answer about tomorrow.
             }
         }
         val sky = Weather.agree(readings, at)
-        if (sky.known) {
-            PreferenceManager.getDefaultSharedPreferences(context)
-                .edit().putString(CACHE, write(sky).toString()).apply()
+        val hours = Weather.forecast(ahead, at, FORECAST_HOURS)
+        if (sky.known || hours.isNotEmpty()) {
+            val edit = PreferenceManager.getDefaultSharedPreferences(context).edit()
+            if (sky.known) edit.putString(CACHE, write(sky).toString())
+            // Kept only when there is one: a morning with every service
+            // down leaves yesterday's forecast for today where it was,
+            // which is still a forecast for today.
+            if (hours.isNotEmpty()) edit.putString(FORECAST, write(hours, at).toString())
+            edit.apply()
         }
         return sky
+    }
+
+    /**
+     * The hours to come as they were last agreed, without asking anybody.
+     *
+     * From the hour [nowMs] is in onwards: an hour that has gone is not
+     * a forecast. Empty with the switch off, like everything else here.
+     */
+    fun forecast(context: Context, nowMs: Long = TimeKeeper.nowMs()): List<Weather.AgreedHour> {
+        if (!wanted(context)) return emptyList()
+        val text = PreferenceManager.getDefaultSharedPreferences(context)
+            .getString(FORECAST, null) ?: return emptyList()
+        val from = Math.floorDiv(nowMs, Weather.HOUR_MS) * Weather.HOUR_MS
+        return try {
+            readHours(JSONObject(text)).filter { it.atMs >= from }
+        } catch (e: org.json.JSONException) {
+            emptyList()
+        }
+    }
+
+    /** When those hours were agreed, or nought if they never were. */
+    fun forecastAt(context: Context): Long {
+        if (!wanted(context)) return 0L
+        val text = PreferenceManager.getDefaultSharedPreferences(context)
+            .getString(FORECAST, null) ?: return 0L
+        return try {
+            JSONObject(text).optLong("at")
+        } catch (e: org.json.JSONException) {
+            0L
+        }
     }
 
     /** Whether what is written down is old enough to be worth replacing. */
@@ -144,7 +210,8 @@ object WeatherStore {
 
     /** Forgets everything, for the switch being turned off. */
     fun forget(context: Context) {
-        PreferenceManager.getDefaultSharedPreferences(context).edit().remove(CACHE).apply()
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+            .remove(CACHE).remove(FORECAST).apply()
     }
 
     // ------------------------------------------------------- writing down
@@ -183,5 +250,61 @@ object WeatherStore {
             Weather.Trust.valueOf(optString("${key}n", Weather.Trust.LONE.name))
         }.getOrDefault(Weather.Trust.LONE)
         return Weather.Agreed(optDouble(key), trust)
+    }
+
+    /**
+     * A hundred and twenty hours, each a short row of numbers.
+     *
+     * In the order: when, degrees, cloud, rain, lightning — and after
+     * each of the three numbers whether a second service agreed with it.
+     * Rows rather than objects because there are a hundred and twenty of
+     * them and the names would be nine tenths of what is stored.
+     */
+    private fun write(hours: List<Weather.AgreedHour>, atMs: Long): JSONObject = JSONObject().apply {
+        put("at", atMs)
+        put(
+            "h",
+            org.json.JSONArray().also { rows ->
+                for (hour in hours) {
+                    rows.put(
+                        org.json.JSONArray().apply {
+                            put(hour.atMs)
+                            agreed(hour.temperatureC)
+                            agreed(hour.cloudPercent)
+                            agreed(hour.rainMm)
+                            put(hour.thunder ?: JSONObject.NULL)
+                        }
+                    )
+                }
+            }
+        )
+    }
+
+    private fun org.json.JSONArray.agreed(value: Weather.Agreed) {
+        put(value.value ?: JSONObject.NULL)
+        put(value.trust == Weather.Trust.AGREED)
+    }
+
+    private fun readHours(from: JSONObject): List<Weather.AgreedHour> {
+        val rows = from.optJSONArray("h") ?: return emptyList()
+        return (0 until rows.length()).mapNotNull { i ->
+            val row = rows.optJSONArray(i) ?: return@mapNotNull null
+            if (row.length() < 8) return@mapNotNull null
+            Weather.AgreedHour(
+                atMs = row.optLong(0),
+                temperatureC = row.agreedAt(1),
+                cloudPercent = row.agreedAt(3),
+                rainMm = row.agreedAt(5),
+                thunder = if (row.isNull(7)) null else row.optBoolean(7)
+            )
+        }
+    }
+
+    private fun org.json.JSONArray.agreedAt(index: Int): Weather.Agreed {
+        if (isNull(index)) return Weather.Agreed.NOTHING
+        return Weather.Agreed(
+            optDouble(index),
+            if (optBoolean(index + 1)) Weather.Trust.AGREED else Weather.Trust.LONE
+        )
     }
 }

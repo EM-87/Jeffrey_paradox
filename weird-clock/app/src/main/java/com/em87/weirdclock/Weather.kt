@@ -216,13 +216,191 @@ object Weather {
     /** Which of those five this sky is, or nothing if nobody knows. */
     fun look(sky: Sky): Look? {
         if (!sky.known) return null
-        if (sky.thunder == true) return Look.STORM
-        sky.rainMmPerHour.value?.let { if (it >= 0.2) return Look.RAIN }
-        val cloud = sky.cloudPercent.value ?: return Look.CLEAR
+        return look(sky.thunder, sky.rainMmPerHour.value, sky.cloudPercent.value)
+    }
+
+    /** How much rain in an hour is rain: less than this is a damp pavement. */
+    const val RAIN_WORTH_SAYING = 0.2
+
+    /** The one word, from the three things it is made of. */
+    fun look(thunder: Boolean?, rainMmPerHour: Double?, cloudPercent: Double?): Look {
+        if (thunder == true) return Look.STORM
+        if (rainMmPerHour != null && rainMmPerHour >= RAIN_WORTH_SAYING) return Look.RAIN
+        val cloud = cloudPercent ?: return Look.CLEAR
         return when {
             cloud >= 85.0 -> Look.OVERCAST
             cloud >= 50.0 -> Look.CLOUDY
             else -> Look.CLEAR
         }
     }
+
+    // ------------------------------------------------------- the forecast
+
+    /**
+     * One service's guess at one hour that has not happened yet.
+     *
+     * [atMs] is the start of the hour. The temperature and the cloud are
+     * what it expects at that moment; the rain is what it expects to fall
+     * in the hour that follows — which is not how either service sends
+     * it, and is what [WeatherSources] is for.
+     */
+    data class Hour(
+        val atMs: Long,
+        val temperatureC: Double? = null,
+        val cloudPercent: Double? = null,
+        val rainMm: Double? = null,
+        val thunder: Boolean? = null
+    )
+
+    /** One hour to come, as far as anybody can be got to agree. */
+    data class AgreedHour(
+        val atMs: Long,
+        val temperatureC: Agreed = Agreed.NOTHING,
+        val cloudPercent: Agreed = Agreed.NOTHING,
+        val rainMm: Agreed = Agreed.NOTHING,
+        val thunder: Boolean? = null
+    ) {
+        /** What that hour is expected to look like. */
+        val look: Look
+            get() = look(thunder, rainMm.value, cloudPercent.value)
+
+        /**
+         * Whether a second service said the same.
+         *
+         * Asked of the temperature, because that is the one number both
+         * of them always carry: a service that agrees about the degrees
+         * was heard from.
+         */
+        val sure: Boolean
+            get() = temperatureC.trust == Trust.AGREED
+    }
+
+    /**
+     * One number about an hour to come, settled.
+     *
+     * The same middle value and the same tolerance as [agree], with one
+     * difference at the end. Two readings of *now* that are far apart
+     * mean one service is broken, and the honest answer is nothing. Two
+     * forecasts that are far apart are two models, which is what a
+     * forecast is — so what is left is their middle, marked as nobody's
+     * confirmed number and drawn as faintly as a lone one. A forecast
+     * with a hole in it wherever two models part company would have its
+     * holes exactly where the weather is doing something.
+     */
+    fun expect(values: List<Double>, slack: Double): Agreed {
+        val agreed = agree(values, slack)
+        if (agreed.value != null) return agreed
+        val middle = median(values) ?: return Agreed.NOTHING
+        return Agreed(middle, Trust.LONE)
+    }
+
+    /** One hour is this long. */
+    const val HOUR_MS = 3_600_000L
+
+    /**
+     * Every service's hours, boiled down to one run of them.
+     *
+     * Hour by hour from [fromMs] — rounded down to the hour it is in —
+     * for [hours] of them. An hour nobody said anything about is left
+     * out rather than carried as a blank, so the end of the list is the
+     * end of what is known.
+     */
+    fun forecast(perSource: List<List<Hour>>, fromMs: Long, hours: Int): List<AgreedHour> {
+        val first = Math.floorDiv(fromMs, HOUR_MS) * HOUR_MS
+        val byHour = perSource.map { source -> source.associateBy { it.atMs } }
+        val out = ArrayList<AgreedHour>(hours)
+        for (i in 0 until hours) {
+            val at = first + i * HOUR_MS
+            val said = byHour.mapNotNull { it[at] }
+            val hour = AgreedHour(
+                atMs = at,
+                temperatureC = expect(said.mapNotNull { it.temperatureC }, TEMPERATURE_SLACK),
+                cloudPercent = expect(said.mapNotNull { it.cloudPercent }, CLOUD_SLACK),
+                rainMm = expect(said.mapNotNull { it.rainMm }, RAIN_SLACK),
+                thunder = agree(said.mapNotNull { it.thunder })
+            )
+            if (hour.temperatureC.value == null && hour.cloudPercent.value == null &&
+                hour.rainMm.value == null
+            ) {
+                continue
+            }
+            out.add(hour)
+        }
+        return out
+    }
+
+    /**
+     * One day to come: how cold, how warm, how wet, and the one word.
+     *
+     * [sure] is whether a second service had anything to say about it —
+     * see [days].
+     */
+    data class Day(
+        val startMs: Long,
+        val minC: Double?,
+        val maxC: Double?,
+        val rainMm: Double,
+        val look: Look,
+        val sure: Boolean
+    )
+
+    /** How much rain in a day makes it a wet one. */
+    const val WET_DAY_MM = 1.0
+
+    /** How many of a day's hours have to be there before it is a day. */
+    const val HOURS_FOR_A_DAY = 12
+
+    /**
+     * The days in [hours], each from one local midnight to the next.
+     *
+     * [dayStarts] are those midnights, in order, with one more at the end
+     * to close the last day — handed in rather than worked out here,
+     * because a day is twenty-three hours long twice a year and only a
+     * calendar knows which.
+     *
+     * The cold end and the warm end are the lowest and highest hour.
+     * The rain is every hour's added up. The word is the worst thing in
+     * the day when that is lightning; rain when a millimetre or more is
+     * expected across it; and otherwise how much cloud there is between
+     * six in the morning and nine at night, because nobody asking what
+     * tomorrow looks like means three in the morning.
+     *
+     * A day is sure when a second service agreed about one hour in six
+     * of it or more. One of the two says something every hour for two
+     * days and a half and every six hours after that, so further out
+     * than that a day agreed four times is a day agreed as often as it
+     * could be.
+     */
+    fun days(hours: List<AgreedHour>, dayStarts: List<Long>): List<Day> {
+        val out = ArrayList<Day>()
+        for (i in 0 until dayStarts.size - 1) {
+            val from = dayStarts[i]
+            val until = dayStarts[i + 1]
+            val within = hours.filter { it.atMs in from until until }
+            if (within.size < HOURS_FOR_A_DAY) continue
+            val degrees = within.mapNotNull { it.temperatureC.value }
+            val rain = within.sumOf { it.rainMm.value ?: 0.0 }
+            val waking = within.filter { (it.atMs - from) in WAKING_FROM_MS until WAKING_UNTIL_MS }
+            val cloud = waking.mapNotNull { it.cloudPercent.value }
+            val look = when {
+                within.any { it.thunder == true } -> Look.STORM
+                rain >= WET_DAY_MM -> Look.RAIN
+                else -> look(null, null, if (cloud.isEmpty()) null else cloud.average())
+            }
+            out.add(
+                Day(
+                    startMs = from,
+                    minC = degrees.minOrNull(),
+                    maxC = degrees.maxOrNull(),
+                    rainMm = rain,
+                    look = look,
+                    sure = within.count { it.sure } * 6 >= within.size
+                )
+            )
+        }
+        return out
+    }
+
+    private const val WAKING_FROM_MS = 6L * HOUR_MS
+    private const val WAKING_UNTIL_MS = 21L * HOUR_MS
 }
