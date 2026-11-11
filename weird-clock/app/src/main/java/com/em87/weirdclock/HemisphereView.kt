@@ -788,6 +788,8 @@ class HemisphereView @JvmOverloads constructor(
             mapPixelsHeld[i] = null
             mapPixelsFor[i] = null
         }
+        cloudFieldHeld = null
+        cloudFieldFor = null
         for (i in scratch.indices) scratch[i] = null
     }
 
@@ -830,7 +832,7 @@ class HemisphereView @JvmOverloads constructor(
         // longer than reading three maps at it.
         val sky = clouds
         val veil = if (sky == null) null else scratch(2, count)
-        val skyPixels = if (sky == null) null else mapPixels(sky, 2)
+        val skyField = if (sky == null) null else cloudField(sky)
         // And last night's lights, through the same projection again: a
         // fourth disc, drawn on the dark side only — see [drawWorld].
         val lamps = lights
@@ -840,15 +842,21 @@ class HemisphereView @JvmOverloads constructor(
         // On the globe the turn is baked in; on the flat views it is not,
         // and the disc is turned when it is drawn.
         val turn = if (view == Hemisphere.View.GLOBE) quantise(spinDeg) else 0.0
+        val smooth = Hemisphere.smoothMaps(view)
         for (at in 0 until count) {
             if (!disc.onWorld(at)) continue
             val u = disc.u(at, turn)
             val v = disc.v[at].toDouble()
-            lit[at] = sample(dayPixels, day.width, day.height, u, v)
-            dark[at] = sample(nightPixels, night.width, night.height, u, v)
-            if (veil != null && skyPixels != null && sky != null) {
-                veil[at] = SatelliteClouds.tint(
-                    sample(skyPixels, sky.width, sky.height, u, v),
+            if (smooth) {
+                lit[at] = Hemisphere.between(dayPixels, day.width, day.height, u, v)
+                dark[at] = Hemisphere.between(nightPixels, night.width, night.height, u, v)
+            } else {
+                lit[at] = sample(dayPixels, day.width, day.height, u, v)
+                dark[at] = sample(nightPixels, night.width, night.height, u, v)
+            }
+            if (veil != null && skyField != null && sky != null) {
+                veil[at] = SatelliteClouds.shade(
+                    SatelliteClouds.cloudAt(skyField, sky.width, sky.height, u, v),
                     disc.rho[at].toDouble()
                 )
             }
@@ -925,12 +933,32 @@ class HemisphereView @JvmOverloads constructor(
     /**
      * A map's pixels, read out once rather than once per bake.
      *
-     * Three maps, half a million pixels each, copied out of their bitmaps
+     * Two maps, half a million pixels each, copied out of their bitmaps
      * every time the world turned a degree and a half. Kept by identity:
-     * the clouds are a different bitmap when they are a different day's.
+     * the day map is a different bitmap when the month has turned.
      */
-    private val mapPixelsFor = arrayOfNulls<Bitmap>(3)
-    private val mapPixelsHeld = arrayOfNulls<IntArray>(3)
+    private val mapPixelsFor = arrayOfNulls<Bitmap>(2)
+    private val mapPixelsHeld = arrayOfNulls<IntArray>(2)
+
+    /**
+     * The clouds' photograph as cloud, worked out once for a photograph
+     * — see [SatelliteClouds.field] — and kept by identity: the clouds
+     * are a different bitmap when they are a different day's. The
+     * photograph's own pixels are not kept; a byte of cloud for each is
+     * all the bake reads.
+     */
+    private var cloudFieldFor: Bitmap? = null
+    private var cloudFieldHeld: ByteArray? = null
+
+    private fun cloudField(sky: Bitmap): ByteArray {
+        cloudFieldHeld?.let { if (cloudFieldFor === sky) return it }
+        val pixels = IntArray(sky.width * sky.height)
+        sky.getPixels(pixels, 0, sky.width, 0, 0, sky.width, sky.height)
+        return SatelliteClouds.field(pixels, sky.width, sky.height).also {
+            cloudFieldFor = sky
+            cloudFieldHeld = it
+        }
+    }
 
     private fun mapPixels(map: Bitmap, slot: Int): IntArray {
         mapPixelsHeld[slot]?.let { if (mapPixelsFor[slot] === map) return it }

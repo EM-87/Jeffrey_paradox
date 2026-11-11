@@ -77,6 +77,58 @@ object Hemisphere {
     }
 
     /**
+     * Whether a view's maps are read between their pixels or off the
+     * nearest one.
+     *
+     * Between, on the two views from over a pole: they are painted once
+     * and then only turned, so what it costs is paid once. Not on the
+     * ball, which is painted again for every degree and a half it is
+     * spun through, sixty times a second under a finger: measured, the
+     * smoother reading is seven times the arithmetic, and that is the
+     * difference between a frame and a frame missed.
+     */
+    fun smoothMaps(view: View): Boolean = view != View.GLOBE
+
+    /**
+     * The colour of a map at a point, from the four pixels round it,
+     * each weighed by how near it is — where the ball takes the one
+     * the point fell in.
+     *
+     * A pixel of the maps is a third of a degree, and a globe filling
+     * a phone shows it three or four pixels wide: every coast was a
+     * staircase. Looked at, on the first picture of the globe taken
+     * at a phone's width and magnified. The map goes round the back
+     * at the date line and stops at the poles.
+     *
+     * Two colours at a time, red with blue and green by itself, so
+     * that the weighing is four multiplications a pixel and not six.
+     */
+    fun between(pixels: IntArray, w: Int, h: Int, u: Double, v: Double): Int {
+        val x = u * w - 0.5
+        val y = (v * h - 0.5).coerceIn(0.0, h - 1.0)
+        val left = Math.floor(x).toInt()
+        val top = y.toInt()
+        val across = ((x - left) * 256.0).toInt()
+        val down = ((y - top) * 256.0).toInt()
+        val x0 = Math.floorMod(left, w)
+        val x1 = if (x0 + 1 == w) 0 else x0 + 1
+        val row0 = top * w
+        val row1 = minOf(top + 1, h - 1) * w
+        val upper = mix(pixels[row0 + x0], pixels[row0 + x1], across)
+        val lower = mix(pixels[row1 + x0], pixels[row1 + x1], across)
+        return mix(upper, lower, down) or (0xFF shl 24)
+    }
+
+    /** [from] and [to], [share] parts in 256 of the way from the one to the other. */
+    private fun mix(from: Int, to: Int, share: Int): Int {
+        val keep = 256 - share
+        // Rounded, not cut off: twice cut off is a map three shades darker.
+        val redBlue = (((from and 0xFF00FF) * keep + (to and 0xFF00FF) * share + 0x800080) ushr 8) and 0xFF00FF
+        val green = (((from and 0x00FF00) * keep + (to and 0x00FF00) * share + 0x008000) ushr 8) and 0x00FF00
+        return redBlue or green
+    }
+
+    /**
      * Which pole to look down when nobody has chosen.
      *
      * It used to be the north one for everybody, and it could afford to

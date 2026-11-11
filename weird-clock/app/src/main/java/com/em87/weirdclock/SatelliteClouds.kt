@@ -201,9 +201,122 @@ object SatelliteClouds {
     /** How far round the limb the veil is thinned. */
     const val LIMB = 0.35
 
-    /** One pixel of the photograph, at the strength that place can carry. */
-    fun tint(argb: Int, rho: Double): Int {
-        val alpha = (veil(argb) * edge(rho)).toInt().coerceIn(0, 255)
+    /** So much cloud, out of 255, at the strength that place of the disc can carry. */
+    fun shade(cover: Int, rho: Double): Int {
+        val alpha = (cover * edge(rho)).toInt().coerceIn(0, 255)
         return (alpha shl 24) or 0x00FFFFFF
+    }
+
+    // -------------------------------------------------------- the field
+
+    /**
+     * Below this in all three colours, a pixel of the photograph is a
+     * place nobody photographed. Not nought: the picture is a JPEG, and
+     * its black has a grain.
+     */
+    const val NO_DATA = 12
+
+    /**
+     * How much of each row's cloud is kept, from the top row down: all
+     * of it, except towards an end of the picture that is running out.
+     *
+     * The photograph is taken by daylight and in winter there is none
+     * round the pole, so the picture stops. It does not stop at a line.
+     * Each pass of the satellite runs out of light a little further
+     * north or south than the one before, and the end of the picture is
+     * a row of scallops ten degrees deep in one season and three in
+     * another: on the globe, cloud that ends in bites. That was reported
+     * as cuts where the image ends, which is what they are.
+     *
+     * So a row is thinned by how much of it is missing. Measured on two
+     * real mosaics: the rows of the scallops are the ones with between
+     * one part in a hundred and a quarter of their pixels unphotographed,
+     * and past a quarter there is more hole than cloud. Asked of the
+     * picture and not of the sun, because where the picture ends is the
+     * service's rule and the satellite's orbit, and neither is this
+     * app's to know.
+     *
+     * Only towards the poles. Between the tropics every row has a tenth
+     * of itself missing — the gaps between one pass and the next — and
+     * that is not the picture running out.
+     */
+    fun rowsKept(pixels: IntArray, width: Int, height: Int): FloatArray {
+        val kept = FloatArray(height.coerceAtLeast(0)) { 1f }
+        if (width <= 0 || height <= 0 || pixels.size != width * height) return kept
+        for (y in 0 until height) {
+            val latitude = 90.0 - (y + 0.5) * 180.0 / height
+            if (Math.abs(latitude) < EDGE_FROM_DEG) continue
+            var there = 0
+            val base = y * width
+            for (x in 0 until width) if (photographed(pixels[base + x])) there++
+            val t = ((there.toFloat() / width - THERE_NONE) / (THERE_ALL - THERE_NONE)).coerceIn(0f, 1f)
+            kept[y] = t * t * (3f - 2f * t)
+        }
+        return kept
+    }
+
+    private fun photographed(argb: Int): Boolean =
+        maxOf((argb shr 16) and 0xFF, (argb shr 8) and 0xFF, argb and 0xFF) > NO_DATA
+
+    /** The latitude beyond which a row with holes in it is the picture ending. */
+    const val EDGE_FROM_DEG = 45.0
+
+    /** How much of a row has to be there for any of its cloud to be kept, and for all of it. */
+    const val THERE_NONE = 0.75f
+    const val THERE_ALL = 0.99f
+
+    /**
+     * A day's photograph as cloud and nothing else: how much veil each
+     * of its pixels is, out of 255 — see [veil] — less what [rowsKept]
+     * takes off the rows at the end of it.
+     *
+     * Worked out once for a photograph. It used to be worked out again
+     * for every point of every disc projected from one, a quarter of a
+     * million times a bake, with a power in it.
+     */
+    fun field(pixels: IntArray, width: Int, height: Int): ByteArray {
+        val out = ByteArray(pixels.size)
+        if (width <= 0 || height <= 0 || pixels.size != width * height) return out
+        val kept = rowsKept(pixels, width, height)
+        for (y in 0 until height) {
+            val share = kept[y]
+            if (share <= 0f) continue
+            val base = y * width
+            for (x in 0 until width) out[base + x] = (veil(pixels[base + x]) * share).toInt().toByte()
+        }
+        return out
+    }
+
+    /**
+     * How much cloud is over a point of the map, out of 255: the four
+     * pixels of the [field] round it, each weighed by how near it is.
+     *
+     * It was the one pixel the point fell in. A pixel of the photograph
+     * is half a degree, which on a globe that fills a phone is five or
+     * six pixels of glass, and cloud drawn that way is a mosaic of white
+     * squares — looked at, on the first picture taken of it at the size
+     * a phone shows it. Cloud has no edges that sharp to lose.
+     *
+     * The picture is the whole world: it goes round the back at the
+     * date line, and stops at the poles.
+     */
+    fun cloudAt(field: ByteArray, width: Int, height: Int, u: Double, v: Double): Int {
+        val x = u * width - 0.5
+        val y = (v * height - 0.5).coerceIn(0.0, height - 1.0)
+        val left = Math.floor(x).toInt()
+        val top = y.toInt()
+        val across = x - left
+        val down = y - top
+        val x0 = Math.floorMod(left, width)
+        val x1 = Math.floorMod(left + 1, width)
+        val row0 = top * width
+        val row1 = minOf(top + 1, height - 1) * width
+        val a = field[row0 + x0].toInt() and 0xFF
+        val b = field[row0 + x1].toInt() and 0xFF
+        val c = field[row1 + x0].toInt() and 0xFF
+        val d = field[row1 + x1].toInt() and 0xFF
+        val upper = a + (b - a) * across
+        val lower = c + (d - c) * across
+        return (upper + (lower - upper) * down + 0.5).toInt()
     }
 }

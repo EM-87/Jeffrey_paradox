@@ -123,14 +123,141 @@ class SatelliteCloudsTest {
         assertEquals("the fade is not a fade", 0.5f, half, 0.02f)
     }
 
-    /** And the tint carries the two of them together, as white. */
+    /** And the shade carries the two of them together, as white. */
     @Test
-    fun `the tint is white at the strength that place has earned`() {
-        val cloud = (0xFF shl 24) or 0xFAFAFC
-        val middle = SatelliteClouds.tint(cloud, 0.1)
+    fun `the shade is white at the strength that place has earned`() {
+        val cloud = SatelliteClouds.veil((0xFF shl 24) or 0xFAFAFC)
+        val middle = SatelliteClouds.shade(cloud, 0.1)
         assertEquals("it is not white", 0xFFFFFF, middle and 0x00FFFFFF)
-        assertEquals(SatelliteClouds.veil(cloud), (middle ushr 24) and 0xFF)
-        val rim = SatelliteClouds.tint(cloud, 1.0)
+        assertEquals(cloud, (middle ushr 24) and 0xFF)
+        val rim = SatelliteClouds.shade(cloud, 1.0)
         assertEquals("the rim was painted after all", 0, (rim ushr 24) and 0xFF)
+    }
+
+    // ------------------------------------------------------------ the field
+
+    /** A picture of [w] by [h] greys, opaque. */
+    private fun picture(w: Int, h: Int, grey: (x: Int, y: Int) -> Int): IntArray =
+        IntArray(w * h) {
+            val g = grey(it % w, it / w)
+            (0xFF shl 24) or (g shl 16) or (g shl 8) or g
+        }
+
+    /**
+     * Towards an end of the picture that is running out, a row keeps as
+     * much of its cloud as it has of itself: nothing under three
+     * quarters, all of it at ninety-nine parts in a hundred.
+     */
+    @Test
+    fun `a row is thinned by how much of it nobody photographed`() {
+        // A degree a row, two hundred pixels across.
+        val w = 200
+        val h = 180
+        assertTrue(SatelliteClouds.rowsKept(picture(w, h) { _, _ -> 200 }, w, h).all { it == 1f })
+
+        // The polar night over the top twenty degrees, and the four rows
+        // under it running out: 60, 75, 87 and 99 parts in a hundred there.
+        val there = mapOf(20 to 120, 21 to 150, 22 to 174, 23 to 198)
+        val running = picture(w, h) { x, y ->
+            when {
+                y < 20 -> 0
+                y in there -> if (x < there.getValue(y)) 200 else 0
+                else -> 200
+            }
+        }
+        val kept = SatelliteClouds.rowsKept(running, w, h)
+        for (y in 0..21) assertEquals("row $y, with ${there[y] ?: 0} of 200 there", 0f, kept[y], 0f)
+        // Halfway from three quarters to ninety-nine: half.
+        assertEquals(0.5f, kept[22], 0.01f)
+        assertEquals(1f, kept[23], 0.0001f)
+        for (y in 24 until h) assertEquals("row $y", 1f, kept[y], 0f)
+
+        // The grain of a JPEG's black is not a photograph, and one step over it is.
+        val grain = picture(w, h) { _, y -> if (y < 20) SatelliteClouds.NO_DATA else 200 }
+        assertEquals(0f, SatelliteClouds.rowsKept(grain, w, h)[10], 0f)
+        val faint = picture(w, h) { _, y -> if (y < 20) SatelliteClouds.NO_DATA + 1 else 200 }
+        assertEquals(1f, SatelliteClouds.rowsKept(faint, w, h)[10], 0f)
+        // Any one colour over it is enough: the sea is blue and nothing else.
+        val sea = IntArray(w * h) { (0xFF shl 24) or 40 }
+        assertTrue(SatelliteClouds.rowsKept(sea, w, h).all { it == 1f })
+
+        // Between the tropics a row with a tenth of itself missing — the
+        // gaps between one pass and the next — is whole...
+        val gapped = picture(w, h) { x, y -> if (y in 46..133 && x % 10 == 0) 0 else 200 }
+        assertTrue(SatelliteClouds.rowsKept(gapped, w, h).all { it == 1f })
+        // ...and the same tenth missing beyond forty-five degrees is the
+        // picture ending, at either end of the world alike.
+        val ending = picture(w, h) { x, y -> if ((y <= 44 || y >= 135) && x % 10 == 0) 0 else 200 }
+        val ends = SatelliteClouds.rowsKept(ending, w, h)
+        assertEquals(1f, ends[45], 0f)
+        assertEquals(1f, ends[134], 0f)
+        // Ninety parts in a hundred there: five eighths of the way from
+        // none to all, on a curve that is level at both ends.
+        assertEquals(0.684f, ends[44], 0.01f)
+        assertEquals(ends[44], ends[135], 0f)
+        assertEquals(ends[0], ends[179], 0f)
+
+        // A picture that is not the shape it says is left whole.
+        assertTrue(SatelliteClouds.rowsKept(IntArray(10), w, h).all { it == 1f })
+        assertEquals(0, SatelliteClouds.rowsKept(IntArray(0), 0, 0).size)
+        assertEquals(45.0, SatelliteClouds.EDGE_FROM_DEG, 0.0)
+        assertEquals(0.75f, SatelliteClouds.THERE_NONE, 0f)
+        assertEquals(0.99f, SatelliteClouds.THERE_ALL, 0f)
+    }
+
+    /** The field is the veil of each pixel, less what its row has lost. */
+    @Test
+    fun `the field is the veil, thinned where the picture ends`() {
+        val w = 200
+        val h = 180
+        val white = (0xFF shl 24) or 0xFAFAFC
+        val whole = IntArray(w * h) { white }
+        val all = SatelliteClouds.field(whole, w, h)
+        assertEquals(w * h, all.size)
+        assertTrue(all.all { (it.toInt() and 0xFF) == SatelliteClouds.veil(white) })
+        // Row 22 with 87 parts in a hundred of itself: half the veil where
+        // it is cloud, and none where it is not there.
+        val running = IntArray(w * h) { if (it / w == 22 && it % w >= 174) 0 else white }
+        val thinned = SatelliteClouds.field(running, w, h)
+        assertEquals(SatelliteClouds.veil(white) / 2.0, (thinned[22 * w + 10].toInt() and 0xFF).toDouble(), 2.0)
+        assertEquals(0, thinned[22 * w + 180].toInt() and 0xFF)
+        assertEquals(SatelliteClouds.veil(white), thinned[23 * w + 10].toInt() and 0xFF)
+        // The sea is no cloud in it, as it is none in the veil.
+        val sea = IntArray(w * h) { (0xFF shl 24) or 0x0C1A3C }
+        assertTrue(SatelliteClouds.field(sea, w, h).all { it.toInt() == 0 })
+        assertTrue(SatelliteClouds.field(IntArray(7), w, h).all { it.toInt() == 0 })
+    }
+
+    /** A point of the map wears the four pixels round it, by how near each is. */
+    @Test
+    fun `cloud is read between the pixels and not off the nearest`() {
+        val w = 4
+        val h = 2
+        val field = byteArrayOf(0, 100, 200.toByte(), 40, 10, 20, 30, 50)
+        fun at(u: Double, v: Double) = SatelliteClouds.cloudAt(field, w, h, u, v)
+        // In the middle of a pixel it is that pixel.
+        assertEquals(100, at(1.5 / w, 0.5 / h))
+        assertEquals(30, at(2.5 / w, 1.5 / h))
+        // Halfway between two, their mean; a quarter of the way, a quarter.
+        assertEquals(150, at(2.0 / w, 0.5 / h))
+        assertEquals(125, at(1.75 / w, 0.5 / h))
+        // Halfway between four: a hundred, two hundred, twenty and thirty.
+        assertEquals(88, at(2.0 / w, 1.0 / h))
+        // Round the back at the date line: the edge of the picture is
+        // halfway between its last column and its first.
+        assertEquals(20, at(0.0, 0.5 / h))
+        assertEquals(20, at(1.0, 0.5 / h))
+        assertEquals(30, at(0.0, 1.5 / h))
+        // The poles are an end and not a seam.
+        assertEquals(100, at(1.5 / w, 0.0))
+        assertEquals(20, at(1.5 / w, 1.0))
+        // And it never invents cloud: between the dimmest and the brightest of the four.
+        val random = java.util.Random(7)
+        repeat(500) {
+            val u = random.nextDouble()
+            val v = random.nextDouble()
+            val got = at(u, v)
+            assertTrue("$got at $u, $v", got in 0..200)
+        }
     }
 }
