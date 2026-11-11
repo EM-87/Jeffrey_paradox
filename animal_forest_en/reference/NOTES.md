@@ -2288,7 +2288,12 @@ what goes in it: "The letters in the en build").
   colours, scales, offsets, sounds and moods: every code where the
   cartridge has it, a test's single kana a letter); `gyroid.txt`, 10
   messages of an early house gyroid (898 to 907), in the gyroid's formal
-  English.
+  English; `greetings.txt`, 192 of an early set of the villagers'
+  greetings (19 to 210: a first meeting, meeting again someone known in
+  another town, a villager moved to the player's town, the day's
+  greetings, after weeks or months away), by personality and time of
+  day, among them a personality the final villagers do not have (a
+  Kansai speaker, given a folksy English).
 - **In the build.** `make script` lays `script/message/*.txt` over the
   draft (no longer every `script/*.txt`: `ui.txt` and `items.txt` are not
   messages); `make rom-en` lays them over the compiled bank again, after

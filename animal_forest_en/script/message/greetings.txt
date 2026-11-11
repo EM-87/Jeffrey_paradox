@@ -1,0 +1,2712 @@
+# Our own English for an early set of the villagers' greetings in the bank (from 19): meeting the
+# player for the first time and meeting again someone they knew in another town, by personality and
+# time of day, among them a personality the game's final villagers do not have (a Kansai speaker, here
+# a folksy one). tools/msgbank.py's dump form, as ours.txt (its header says how the build lays it over
+# the bank and what af_text.py holds it to).
+
+## 19
+#: a first meeting, morning (a polite girl)
+Good morning!
+Making a new friend first
+thing in the morning makes me
+so happy, <STR_TAIL>!
+<BTN>
+<MSGCLEAR>My name is <STR_TALKNAME>,
+<STR_PLAYERNAME>!
+Let's be good friends
+from now on, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 20
+#: a first meeting, daytime (a polite girl)
+Hello there!
+This is our first time meeting,
+isn't it? I'm so happy to
+have a new friend, <STR_TAIL>!
+<BTN>
+<MSGCLEAR>I'm <STR_TALKNAME>.
+<STR_PLAYERNAME>,
+I hope we'll be friends
+forever and ever, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 21
+#: a first meeting, evening (a polite girl)
+Good evening!
+Oh, someone I don't know,
+<STR_TAIL>! So that means...
+um, nice to meet you!
+<BTN>
+<MSGCLEAR>My name is <STR_TALKNAME>.
+I have a feeling that
+<STR_PLAYERNAME> and I will
+get along great, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 22
+#: a first meeting, late at night (a polite girl)
+Meeting a stranger at this
+hour is a little scary!
+But I don't think there are
+any bad people in this town...
+<BTN>
+<MSGCLEAR>Um, nice to meet you!
+I'm <STR_TALKNAME>.
+I hope we get along,
+<STR_PLAYERNAME>!
+<MSGCONTINUE>
+
+## 23
+#: a first meeting, morning (a lively girl)
+Mornin'!
+Oh wow, I don't know you!
+This is our first time
+meeting, right?
+<BTN>
+<MSGCLEAR>I'm <STR_TALKNAME>!
+You don't look like a bad
+sort, so I'll be your
+friend, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 24
+#: a first meeting, daytime (a lively girl)
+Hi there!
+Why so nervous?!
+Just 'cause we're meeting for
+the first time? Relax!
+<BTN>
+<MSGCLEAR>I'm <STR_TALKNAME>!
+I just know we're gonna be
+friends, <STR_TAIL>!
+Nice to meet you, <STR_PLAYERNAME>!
+<MSGCONTINUE>
+
+## 25
+#: a first meeting, evening (a lively girl)
+Evening!
+Huh? We haven't met before,
+have we? I'm <STR_TALKNAME>!
+I live in that house over there!
+<BTN>
+<MSGCLEAR>Hmm, so your name is
+<STR_PLAYERNAME>!
+Okay! Come talk to me anytime!
+Let's be friends, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 26
+#: a first meeting, late at night (a lively girl)
+What is it?!
+It's the middle of the night!
+I'm sleepy!
+And we've never even met!
+<BTN>
+<MSGCLEAR>Isn't that a little rude?
+When you talk to a stranger,
+you should hold back a bit!
+It's the middle of the night...
+<BTN>
+<MSGCLEAR>Oh, fine, whatever...
+I'm <STR_TALKNAME>.
+I'll let it slide this time!
+Nice to meet you, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 27
+#: a first meeting, morning (a sleepy boy)
+Yaaawn... mornin'.
+What time is it? I'm sleepy...
+So, um, who are you?
+
+<BTN>
+<MSGCLEAR>Yaaawn... nice to meet you.
+Let's be friends.
+Oh, my name's <STR_TALKNAME>,
+<STR_TAIL>...
+<MSGCONTINUE>
+
+## 28
+#: a first meeting, daytime (a sleepy boy)
+Hellooo.
+You're somebody I've never
+met, huh? Which means... um...
+n-nice to meet you!
+<BTN>
+<MSGCLEAR>I'm <STR_TALKNAME>, <STR_TAIL>!
+I live real close by,
+<STR_TAIL>.
+Come visit sometime, <STR_TAIL>.
+<MSGCONTINUE>
+
+## 29
+#: a first meeting, evening (a sleepy boy)
+Somebody I've never seen,
+<STR_TAIL>! But you don't look
+like a bad guy, so I'd better
+say hello properly...
+<BTN>
+<MSGCLEAR>N-n-nice to meet you!
+I'm <STR_TALKNAME>...
+I hope we'll be friends
+forever and ever, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 30
+#: a first meeting, late at night (a sleepy boy)
+Yaaawn, I'm so sleepy...
+Oh, someone I've never met.
+Nice to meet you, and good
+evening!
+<BTN>
+<MSGCLEAR>I don't think wandering
+around this late at night
+does you much good,
+<STR_TAIL>.
+<BTN>
+<MSGCLEAR>But that's up to you.
+Oh, I'm <STR_TALKNAME>.
+Let's be friends.
+<MSGCONTINUE>
+
+## 31
+#: a first meeting, morning (a sporty boy)
+Hey, good morning.
+And nice to meet you, too!
+They say the early bird
+gets the worm, but...
+<BTN>
+<MSGCLEAR>getting up early AND making
+a new friend? Can't get any
+luckier than that!
+
+<BTN>
+<MSGCLEAR>Oh, my name's
+<STR_TALKNAME>.
+Nice to meet you, <STR_TAIL>!
+
+<MSGCONTINUE>
+
+## 32
+#: a first meeting, daytime (a sporty boy)
+Hey, nice to meet you!
+I'm <STR_TALKNAME>.
+I live right nearby.
+Let's be pals!
+<BTN>
+<MSGCLEAR>So you're <STR_PLAYERNAME>, huh?
+Kind of a weird name.
+But it's easy to remember,
+so maybe it's good, <STR_TAIL>.
+<MSGCONTINUE>
+
+## 33
+#: a first meeting, evening (a sporty boy)
+Hey, good evening.
+We've never met before,
+have we?
+Then it's introduction time!
+<BTN>
+<MSGCLEAR>My name is
+<STR_TALKNAME>!
+I've got a habit of saying
+"<STR_TAIL>," <STR_TAIL>!
+<BTN>
+<MSGCLEAR>I'm trying to break the
+habit, but it just keeps
+coming out, <STR_TAIL>.
+Cut me some slack, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 34
+#: a first meeting, late at night (a sporty boy)
+Yaaawn... I'm beat!
+Evening, nice to meet you.
+I'm <STR_TALKNAME>!
+
+<BTN>
+<MSGCLEAR>I know we just met, but
+wandering around outside
+this late at night? You're
+a weird one, <STR_TAIL>!
+<BTN>
+<MSGCLEAR>Well, I don't mind weird
+types, so let's be
+friends, <STR_TAIL>!
+
+<MSGCONTINUE>
+
+## 35
+#: a first meeting, morning (a gruff old-timer)
+............
+Pipe down!
+I'm in a lousy mood
+in the mornin'! Scram...
+<BTN>
+<MSGCLEAR>Hm? Don't know your face,
+pal! And here you went and
+said hello and all.
+Sorry 'bout that.
+<BTN>
+<MSGCLEAR>Cut me some slack.
+I'm <STR_TALKNAME>.
+Pleased to meetcha.
+
+<MSGCONTINUE>
+
+## 36
+#: a first meeting, daytime (a gruff old-timer)
+Wanderin' around in broad
+daylight without a job...
+Just who are you,
+anyway?
+
+<BTN>
+<MSGCLEAR>Whoa, I'll mind my own
+business! Everybody's got
+somethin' they'd rather
+folks didn't poke at...
+<BTN>
+<MSGCLEAR>Like they say, even a
+chance meetin' is fate.
+Maybe runnin' into you
+was fate, too.
+<BTN>
+<MSGCLEAR>Well, pleased
+to meetcha!
+
+
+<MSGCONTINUE>
+
+## 37
+#: a first meeting, evening (a gruff old-timer)
+It ain't late yet, but
+it's gettin' dark.
+Little kids oughta head home!
+...
+<BTN>
+<MSGCLEAR>Whoops, stickin' my nose in
+again. Phew...
+That was rude of me, to
+somebody I just met.
+<BTN>
+<MSGCLEAR>Heh, let it slide
+just this once!
+We might be knowin' each
+other a long time!
+<MSGCONTINUE>
+
+## 38
+#: a first meeting, late at night (a gruff old-timer)
+Hey, hey, the hours for
+decent folks to be wanderin'
+around ended a long time
+ago! Get on home!
+<BTN>
+<MSGCLEAR>...Whoops, did it again.
+Sayin' that kinda thing to
+somebody I don't know?
+That's just plain rude!
+<BTN>
+<MSGCLEAR>What's your name, pal?
+...
+Ah, <STR_PLAYERNAME>, is it?
+Now I've got your name,
+<BTN>
+<MSGCLEAR>so we ain't strangers no
+more, and I'll say it again!
+Get on home, get under
+the covers and go to sleep!
+<MSGCONTINUE>
+
+## 39
+#: a first meeting, morning (a Kansai speaker)
+What's all this so early in
+the mornin'? Oh? Somebody
+I don't know! Wanna be
+friends with me?
+<BTN>
+<MSGCLEAR>I'm all for more friends,
+hon! Let's get along!!
+
+<MSGCONTINUE>
+
+## 40
+#: a first meeting, daytime (a Kansai speaker)
+Hm? What is it?
+If you're sellin' religion,
+I ain't buyin'!
+Huh? That ain't it?
+<BTN>
+<MSGCLEAR>Well, say so, then!
+What, you wanna be friends?
+Sure, I'm all for it!
+The name's <STR_TALKNAME>.
+<BTN>
+<MSGCLEAR>And you're <STR_PLAYERNAME>,
+right? Let's get along!
+
+
+<MSGCONTINUE>
+
+## 41
+#: a first meeting, evening (a Kansai speaker)
+What? Need somethin'?
+I already take the paper!
+No? Then what is it?
+...
+<BTN>
+<MSGCLEAR>Oh, is that all!
+You want a friend!
+Don't got many friends, huh?
+Can't be helped. Leave it to me!
+<BTN>
+<MSGCLEAR>I'll be your friend!
+The name's <STR_TALKNAME>.
+Come on by anytime!
+
+<MSGCONTINUE>
+
+## 42
+#: a first meeting, late at night (a Kansai speaker)
+Who's there at this hour?!
+That's mighty suspicious!
+Anybody else would be scared
+stiff, talked to this late!
+<BTN>
+<MSGCLEAR>Well, I'm used to it, so
+it don't bother me none.
+So who are you, anyway?
+Here to kidnap me or what?
+<BTN>
+<MSGCLEAR>I knew it, you're trouble!
+...Huh? You're not?
+Well then, you shoulda
+said so in the first place!
+<BTN>
+<MSGCLEAR>A gal needs a second to get
+ready, y'know. So what is it?
+You wanna be friends?
+You're a strange one. Fine.
+<BTN>
+<MSGCLEAR>The name's <STR_TALKNAME>.
+If you ever get lonely,
+come on over anytime!
+Don't be shy, now!
+<MSGCONTINUE>
+
+## 43
+#: meeting again someone known in another town, morning (a polite girl)
+Good morn...
+Oh my!
+Isn't it <STR_PLAYERNAME>!
+Do you remember me?
+<BTN>
+<MSGCLEAR>It's <STR_TALKNAME>!
+We met back when I lived
+in <STR_FREE6>!
+It's been so long!
+<BTN>
+<MSGCLEAR>Meeting again in a place like
+this, what a coincidence,
+<STR_TAIL>! Let's be friends
+again!
+<MSGCONTINUE>
+
+## 44
+#: meeting again someone known in another town, daytime (a polite girl)
+Hel...
+Oh my! You're <STR_PLAYERNAME>,
+aren't you? Did you forget me?
+It's <STR_TALKNAME>!
+<BTN>
+<MSGCLEAR>We met back when I lived
+in <STR_FREE6>!
+But you don't remember,
+do you...
+
+<BTN>
+<MSGCLEAR>Meeting again in a place
+like this must be fate
+playing a trick on us! Let's
+be friends again, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 45
+#: meeting again someone known in another town, evening (a polite girl)
+Good eve...
+Oh my!
+Isn't it <STR_PLAYERNAME>!
+It's been forever!
+<BTN>
+<MSGCLEAR>We met before, back in
+<STR_FREE6>. Don't you
+remember me?
+My name's <STR_TALKNAME>.
+<BTN>
+<MSGCLEAR>No wonder you don't remember.
+It's been over a month
+since we last met!
+Let's be friends again, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 46
+#: meeting again someone known in another town, late at night (a polite girl)
+Oh my!
+Who could it be at this
+hour? Why, it's
+<STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR>It's been so long!
+Do you remember me?
+Did you forget?
+It's <STR_TALKNAME>!
+<BTN>
+<MSGCLEAR>We met before, back when
+I lived in <STR_FREE6>.
+Let's be friends again,
+like back then, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 47
+#: meeting again someone known in another town, morning (a lively girl)
+Mornin'......!
+Whoa! <STR_PLAYERNAME>!
+It's been forever!
+Hey, hey! Remember me?
+<BTN>
+<MSGCLEAR>It's me, <STR_TALKNAME>!
+Did you forget?
+We met back when I lived
+in <STR_FREE6>!
+<BTN>
+<MSGCLEAR>Running into you again here,
+what a coincidence!
+Let's be friends again,
+like back then, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 48
+#: meeting again someone known in another town, daytime (a lively girl)
+Hiii... whoa!
+It's <STR_PLAYERNAME>!
+What are you doing here?
+It's me, me!
+<BTN>
+<MSGCLEAR>It's <STR_TALKNAME>! Remember?
+I guess you can't help it if
+you forgot! We last met
+more than a month ago!
+<BTN>
+<MSGCLEAR>And that was in <STR_FREE6>!
+Nobody'd remember that!
+But hey, I'm still happy!
+Let's be friends again, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 49
+#: meeting again someone known in another town, evening (a lively girl)
+Good eveniiiing!
+You scared me!
+It's <STR_PLAYERNAME>!
+Long time no see!
+<BTN>
+<MSGCLEAR>What? You don't remember?
+We were friends back when
+I lived in <STR_FREE6>...
+You forgot? That's a downer!
+<BTN>
+<MSGCLEAR>I'm <STR_TALKNAME>!
+Remember now?
+Oh, whatever. Let's be friends
+again, like back then, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 50
+#: meeting again someone known in another town, late at night (a lively girl)
+Who's that, skulking around
+in the middle of the night?
+Never seen that face... Hm?
+Or maybe I have...
+<BTN>
+<MSGCLEAR>Aaaah! Now I remember!
+You're <STR_PLAYERNAME>!
+What are you doing here?
+It's been ages!
+<BTN>
+<MSGCLEAR>Huh? You don't remember me?
+We used to talk all the time
+back in <STR_FREE6>!
+It's <STR_TALKNAME>! Remember!
+<BTN>
+<MSGCLEAR>But meeting in a place
+like this is a miracle!
+Let's be friends again,
+like before, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 51
+#: meeting again someone known in another town, morning (a sleepy boy)
+Yaaaawn, so sleepy...
+Mornin'......
+Whoa! That woke me right up!
+
+<BTN>
+<MSGCLEAR>Who's this? Why, it's
+<STR_PLAYERNAME>!
+Not since I lived
+in <STR_FREE6>...
+<BTN>
+<MSGCLEAR>Ooh! It's been so long!
+I never thought I'd see you
+again in a place like this!
+I'm really happy, <STR_TAIL>.
+<BTN>
+<MSGCLEAR>I hope we can be friends
+again, <STR_TAIL>.
+
+
+<MSGCONTINUE>
+
+## 52
+#: meeting again someone known in another town, daytime (a sleepy boy)
+Hm? Huh?
+I feel like I know you,
+or maybe I don't...
+Where did we meet...?
+<BTN>
+<MSGCLEAR>Ah! Hm? Hmmm...
+Ooh, I remember now!
+We talked back when I lived
+in <STR_FREE6>, didn't we?
+<BTN>
+<MSGCLEAR>You're, uh, um...
+<STR_PLAYERNAME>, right!
+Right? That's right!
+It's been so long!
+<BTN>
+<MSGCLEAR>I moved here to
+<STR_COUNTRYNAME>, see.
+I don't know how long
+I'll live here, but...
+<BTN>
+<MSGCLEAR>let's be friends again.
+Nice to see you, <STR_TAIL>!
+
+
+<MSGCONTINUE>
+
+## 53
+#: meeting again someone known in another town, evening (a sleepy boy)
+Hellooo, nice to meet you.
+.....
+Huh? Or have we met?
+You look kinda familiar...
+<BTN>
+<MSGCLEAR>Wait, I'll guess, so
+don't tell me...
+Ah, I remember! Back when
+I lived in <STR_FREE6>...
+<BTN>
+<MSGCLEAR>we were friends! You're
+<STR_PLAYERNAME>! I got it right!
+That takes me back...
+Let's be friends again, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 54
+#: meeting again someone known in another town, late at night (a sleepy boy)
+Yaaaaawn, so sleepy...
+Who's out this late at night?
+I don't know anybody who'd
+do something that rude...
+<BTN>
+<MSGCLEAR>No, wait, I knew one.
+Somebody I knew back when
+I lived in <STR_FREE6>,
+named <STR_PLAYERNAME>.
+<BTN>
+<MSGCLEAR>I wonder what they're up to
+these days...
+Wait, it's you, <STR_PLAYERNAME>, <STR_TAIL>!
+What are you doing here?!
+<BTN>
+<MSGCLEAR>Long time no see.
+How've you been?
+I never thought we'd get
+to talk like this again!
+<BTN>
+<MSGCLEAR>Think we can be friends
+like before? I hope so,
+<STR_TAIL>! Nice to see
+you, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 55
+#: meeting again someone known in another town, morning (a sporty boy)
+Another day's starting,
+<STR_PLAYERNAME>!
+...
+Hm? <STR_PLAYERNAME>?
+<BTN>
+<MSGCLEAR>Whaaat?!
+You're <STR_PLAYERNAME>!
+What happened?!
+It's been ages!
+<BTN>
+<MSGCLEAR>Not since I lived in
+<STR_FREE6>, so that's
+<STR_FREE7> months! Meeting
+again here? We're stuck!
+<BTN>
+<MSGCLEAR>And since we're stuck,
+let's have some fun!
+
+
+<MSGCONTINUE>
+
+## 56
+#: meeting again someone known in another town, daytime (a sporty boy)
+Hey, hello!
+Nice to meet...
+
+
+<BTN>
+<MSGCLEAR>Hey, wait a second!
+You're <STR_PLAYERNAME>!
+It's me! <STR_TALKNAME>!
+
+<BTN>
+<MSGCLEAR>What, what, what!
+You never showed your face!
+What have you been up to?
+It's been so long!
+<BTN>
+<MSGCLEAR>Not since we met in
+<STR_FREE6>, <STR_FREE7> months
+ago! Didn't you know
+I moved?
+<BTN>
+<MSGCLEAR>Eh, whatever, we
+met again, didn't we?
+Let's keep being pals!
+
+<MSGCONTINUE>
+
+## 57
+#: meeting again someone known in another town, evening (a sporty boy)
+Hey! Look who it is,
+<STR_PLAYERNAME>!
+It's been forever!
+
+<BTN>
+<MSGCLEAR>Last time we met, I still
+lived in <STR_FREE6>, so it's
+been, oh, <STR_FREE7> months!
+
+<BTN>
+<MSGCLEAR>Running into each other
+here must be fate.
+Let's be pals again,
+like before! Right?
+<MSGCONTINUE>
+
+## 58
+#: meeting again someone known in another town, late at night (a sporty boy)
+Wandering around here at
+this hour? Thought it had to
+be some lowlife, and sure
+enough, it's you! <STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR>It's me! <STR_TALKNAME>!
+Did you forget?
+We talked all the time back
+when I lived in <STR_FREE6>!
+<BTN>
+<MSGCLEAR>Well, I can't blame you
+for not remembering.
+It's been <STR_FREE7> months
+since we last met...
+<BTN>
+<MSGCLEAR>I forgot too, till you
+said hi! Ha ha ha ha ha!!
+We're old friends, so
+let's be friends again!
+<MSGCONTINUE>
+
+## 59
+#: meeting again someone known in another town, morning (a gruff old-timer)
+Who's makin' such a racket
+first thing in the mornin'?
+Who's there?!
+Hm?
+<BTN>
+<MSGCLEAR>W-w-why, it's <STR_PLAYERNAME>!
+Where've you been?!
+Long time no see!
+It's been <STR_FREE7> months!
+<BTN>
+<MSGCLEAR>Put on a few pounds since
+we met in <STR_FREE6>, eh?
+Ha ha, just kiddin'!
+You ain't changed a bit!!
+<BTN>
+<MSGCLEAR>I'm a driftin' sort.
+Don't know how long
+I'll stick around here,
+but good to see ya!
+<MSGCONTINUE>
+
+## 60
+#: meeting again someone known in another town, daytime (a gruff old-timer)
+Well, if it ain't <STR_PLAYERNAME>!
+Ain't you grown up
+since I last saw you!
+Me, I'm the same as ever.
+<BTN>
+<MSGCLEAR>Last time we met was
+back in <STR_FREE6>...
+Feels like ages ago...
+No wonder, now that I think
+<BTN>
+<MSGCLEAR>about it. It's been
+<STR_FREE7> months since I
+saw you. Must be fate.
+Good to see ya again!
+<MSGCONTINUE>
+
+## 61
+#: meeting again someone known in another town, evening (a gruff old-timer)
+........!
+Well, look who it is,
+<STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR>It's been so long,
+I was speechless!
+Don't go
+scarin' folks like that!
+<BTN>
+<MSGCLEAR>How long's it been,
+anyway? Hmm, last time
+was back in
+<STR_FREE6>...
+<BTN>
+<MSGCLEAR>Must be <STR_FREE7> months.
+After all that time,
+to meet again in a place
+like this... It's a bond!
+<BTN>
+<MSGCLEAR>Hah hah hah hah hah!
+Just kiddin'!
+What're you blushin' for?!
+
+<MSGCONTINUE>
+
+## 62
+#: meeting again someone known in another town, late at night (a gruff old-timer)
+Wanderin' around at this
+hour, I wondered whose mug
+it was, and it's you,
+<STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR>Still got that habit of
+wanderin' around at night!
+Don't come cryin' to me if
+some meat-eater eats you!
+<BTN>
+<MSGCLEAR>Anyhow,
+it's been a long time!
+You looked out for me back
+in <STR_FREE6>!
+<BTN>
+<MSGCLEAR>Looks like you didn't know
+I moved here. I left
+without tellin' anybody
+where I was goin'...
+<BTN>
+<MSGCLEAR>Runnin' into each other
+like this must be fate.
+Say hi to me now
+and then, y'hear?
+<MSGCONTINUE>
+
+## 63
+#: meeting again someone known in another town, morning (a Kansai speaker)
+Mornin'!
+...Hey, you...
+You're <STR_PLAYERNAME>, ain't ya!
+What're you doin' here?!
+<BTN>
+<MSGCLEAR>Well, I'll be! Long time!
+How long's it been?
+Whoa! <STR_FREE7> months?!
+
+<BTN>
+<MSGCLEAR>That's a mighty long time
+we ain't seen each other!
+Last time was back
+in <STR_FREE6>...
+<BTN>
+<MSGCLEAR>Bumpin' into an old friend
+by chance like this...
+It's real nice, ain't it...
+
+<MSGCONTINUE>
+
+## 64
+#: meeting again someone known in another town, daytime (a Kansai speaker)
+Hey, you!
+Ain't you <STR_PLAYERNAME>?
+See, I knew it!
+I thought I knew that face!
+<BTN>
+<MSGCLEAR>Remember me?
+C'mon, we were friends
+back in <STR_FREE6>!
+Don't tell me you forgot!
+<BTN>
+<MSGCLEAR>It's <STR_TALKNAME>! <STR_TALKNAME>!
+Forget me again and
+you'll be sorry!
+But for today,
+<BTN>
+<MSGCLEAR>since we've met again,
+I'll let it slide!
+
+
+<MSGCONTINUE>
+
+## 65
+#: meeting again someone known in another town, evening (a Kansai speaker)
+I thought somebody I'd seen
+before was walkin' by,
+and sure enough,
+it's <STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR>Been a mighty long time!
+<STR_FREE7> months!
+I almost forgot your face!
+Ah ha ha!
+<BTN>
+<MSGCLEAR>When I moved out of
+<STR_FREE6>, I left without
+tellin' anybody where I was
+goin', so I figured that was it.
+<BTN>
+<MSGCLEAR>So I'm real happy
+we met again!
+Let's be friends again!
+Promise!
+<MSGCONTINUE>
+
+## 66
+#: meeting again someone known in another town, late at night (a Kansai speaker)
+They say everybody's got
+three lookalikes in the world,
+and I had a friend who
+looked just like you.
+<BTN>
+<MSGCLEAR>Back when I lived in
+<STR_FREE6>, I was pals with
+a kid named <STR_PLAYERNAME>.
+Wonder what they're up to...
+<BTN>
+<MSGCLEAR>Wha?!
+You're <STR_PLAYERNAME>?
+No way! Really?!
+What're you doin' here?!
+<BTN>
+<MSGCLEAR>Well, I'll be! How've you been?
+I missed you!
+I thought I'd never see you
+again! I'm so happy!
+<BTN>
+<MSGCLEAR>Let's be friends again,
+like back then!
+It's a promise!
+
+<MSGCONTINUE>
+
+## 67
+#: meeting again in the player's town, where the villager has moved, morning (a polite girl)
+Oh, it's <STR_PLAYERNAME>!
+I moved here to
+<STR_COUNTRYNAME> a little
+while ago.
+<BTN>
+<MSGCLEAR>Come visit me anytime,
+<STR_TAIL>!
+
+
+<MSGCONTINUE>
+
+## 68
+#: meeting again in the player's town, where the villager has moved, daytime (a polite girl)
+Hello,
+<STR_PLAYERNAME>!
+Did you know that
+I moved here?
+<BTN>
+<MSGCLEAR>Let's be friends again,
+like when I lived in
+<STR_FREE6>, <STR_TAIL>!
+
+<MSGCONTINUE>
+
+## 69
+#: meeting again in the player's town, where the villager has moved, evening (a polite girl)
+Oh, good evening,
+<STR_PLAYERNAME>!
+I moved here to
+<STR_COUNTRYNAME> recently.
+<BTN>
+<MSGCLEAR>But I don't have many
+friends here yet, <STR_TAIL>.
+<STR_PLAYERNAME>,
+let's be friends again, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 70
+#: meeting again in the player's town, where the villager has moved, late at night (a polite girl)
+Who could be wandering
+around outside at this hour?
+Why, it's <STR_PLAYERNAME>!
+
+<BTN>
+<MSGCLEAR>I moved here to
+<STR_COUNTRYNAME> a little while ago.
+So, <STR_PLAYERNAME>, come
+visit me sometimes, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 71
+#: meeting again in the player's town, where the villager has moved, morning (a lively girl)
+Hiii, <STR_PLAYERNAME>!
+Mornin' aaand long time
+no see! I moved here just
+a little while ago!
+<BTN>
+<MSGCLEAR>It's a pretty nice place,
+I really like it!
+<STR_PLAYERNAME>, come
+visit me sometimes, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 72
+#: meeting again in the player's town, where the villager has moved, daytime (a lively girl)
+Hiya, <STR_PLAYERNAME>!
+Were you worried when I
+left <STR_FREE6>?
+Or was it no big deal?
+<BTN>
+<MSGCLEAR>But it took you <STR_FREE8>
+weeks to find me!
+What? You weren't looking?
+Ugh! Total bummer!
+<BTN>
+<MSGCLEAR>Oh, well.
+Come visit anytime.
+I'll be waiting, <STR_TAIL>!
+
+<MSGCONTINUE>
+
+## 73
+#: meeting again in the player's town, where the villager has moved, evening (a lively girl)
+Evening, <STR_PLAYERNAME>!
+Feels like it's been a while!
+I mean, we haven't seen each
+other in <STR_FREE8> weeks!
+<BTN>
+<MSGCLEAR>And in the meantime,
+I moved, you know!
+That's why I'm in
+<STR_COUNTRYNAME>.
+<BTN>
+<MSGCLEAR>See, I used to live in
+<STR_FREE6>.
+Come visit me here, too,
+sometimes, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 74
+#: meeting again in the player's town, where the villager has moved, late at night (a lively girl)
+Ah! <STR_PLAYERNAME>!
+Long time no see!
+It's been about <STR_FREE8> weeks!
+
+<BTN>
+<MSGCLEAR>I just moved here
+the other day!
+So come visit me
+anytime, okay?
+<BTN>
+<MSGCLEAR>But wandering around
+outside at this hour,
+same as ever? You're
+a bad kid, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 75
+#: meeting again in the player's town, where the villager has moved, morning (a sleepy boy)
+Mornin'...
+Whoa! <STR_PLAYERNAME>,
+long time no see!
+About <STR_FREE8> weeks, maybe?
+<BTN>
+<MSGCLEAR>I moved here to
+<STR_COUNTRYNAME> a little
+while ago!
+Did you know??
+<BTN>
+<MSGCLEAR>Hey, <STR_PLAYERNAME>,
+come visit me
+sometimes, okay?
+I'll be waiting, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 76
+#: meeting again in the player's town, where the villager has moved, daytime (a sleepy boy)
+Hey, hey!
+Somebody I haven't seen
+in a while!
+Right, <STR_PLAYERNAME>?
+<BTN>
+<MSGCLEAR>Last time was in <STR_FREE6>,
+before I moved here,
+so it's been
+<STR_FREE8> weeks!
+<BTN>
+<MSGCLEAR>I never thought I'd see you
+after I moved!
+Come visit me again,
+promise, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 77
+#: meeting again in the player's town, where the villager has moved, evening (a sleepy boy)
+Evening, <STR_PLAYERNAME>!
+What a coincidence, meeting
+in a place like this!
+'Cause after we last met,
+<BTN>
+<MSGCLEAR>I moved, you know!
+And we hadn't met in
+<STR_FREE8> weeks, so I figured
+you'd never find out where
+<BTN>
+<MSGCLEAR>I'd moved to!
+But I'm glad we met
+again!
+
+<MSGCONTINUE>
+
+## 78
+#: meeting again in the player's town, where the villager has moved, late at night (a sleepy boy)
+Who's that wandering around
+outside at this hour...?
+See, it's <STR_PLAYERNAME>!
+I thought it might be you.
+<BTN>
+<MSGCLEAR>I just moved to
+<STR_COUNTRYNAME>, but I
+haven't made many new
+friends yet...
+<BTN>
+<MSGCLEAR>so I was lonely...
+But now that <STR_PLAYERNAME>
+came to see me,
+I'm really happy, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 79
+#: meeting again in the player's town, where the villager has moved, morning (a sporty boy)
+Hey, it's <STR_PLAYERNAME>!
+Good morning!
+Long time no see!
+About <STR_FREE8> weeks?
+<BTN>
+<MSGCLEAR>I came here without telling
+anybody where I was moving,
+so I thought I'd never
+see you again!
+<BTN>
+<MSGCLEAR>But meeting like this
+somewhere new? We really
+are stuck with each other!
+Ha ha ha ha haaa!
+<MSGCONTINUE>
+
+## 80
+#: meeting again in the player's town, where the villager has moved, daytime (a sporty boy)
+Hey! It's <STR_PLAYERNAME>!
+It's been <STR_FREE8> weeks!
+I moved here a little
+while ago!
+<BTN>
+<MSGCLEAR><STR_FREE6> was nice, but
+<STR_COUNTRYNAME> is nice too!
+I kinda like it here.
+
+<BTN>
+<MSGCLEAR>And now that <STR_PLAYERNAME>'s
+here, it's gonna be even
+more fun, <STR_TAIL>!
+
+<MSGCONTINUE>
+
+## 81
+#: meeting again in the player's town, where the villager has moved, evening (a sporty boy)
+Long time no see,
+<STR_PLAYERNAME>! It's been
+<STR_FREE8> weeks since we last
+met in <STR_FREE6>!
+<BTN>
+<MSGCLEAR>In the meantime,
+I moved here to
+<STR_COUNTRYNAME>!
+
+<BTN>
+<MSGCLEAR>Come visit me
+now and then, too!
+I'll always be waiting!
+
+<MSGCONTINUE>
+
+## 82
+#: meeting again in the player's town, where the villager has moved, late at night (a sporty boy)
+Hey, it's <STR_PLAYERNAME>!
+Wandering around at this
+hour, same as ever. You're
+a real handful!
+<BTN>
+<MSGCLEAR>This is the first time we've
+met since I moved, right?
+It's been about <STR_FREE8>
+weeks, I guess.
+<BTN>
+<MSGCLEAR>Well, we're stuck with
+each other, so I figured
+we'd meet again someday!
+
+<MSGCONTINUE>
+
+## 83
+#: meeting again in the player's town, where the villager has moved, morning (a gruff old-timer)
+Well, if it ain't <STR_PLAYERNAME>!
+Runnin' into a rare one first
+thing in the mornin'. Heh heh!
+Worth gettin' up early!
+<BTN>
+<MSGCLEAR>Last time was back in
+<STR_FREE6>. So that means...
+<STR_FREE8> weeks, eh!
+Been a long while.
+<BTN>
+<MSGCLEAR>Well, we've met again,
+so that's that.
+Guess I'll look after ya
+again! Bwah ha ha ha ha!
+<MSGCONTINUE>
+
+## 84
+#: meeting again in the player's town, where the villager has moved, daytime (a gruff old-timer)
+Yo, <STR_PLAYERNAME>!
+Don't tell me you came
+lookin' for me 'cause I left
+<STR_FREE8> weeks back?
+<BTN>
+<MSGCLEAR>What, you didn't?
+And here I got my hopes up
+and got all happy!
+Just kiddin'! Wah ha ha ha ha!
+<BTN>
+<MSGCLEAR>Whoa, I'm talkin' up a storm
+more'n usual.
+Guess I'm a little
+wound up...
+<MSGCONTINUE>
+
+## 85
+#: meeting again in the player's town, where the villager has moved, evening (a gruff old-timer)
+Hmph, who's that walkin'
+around with a long face?
+Why, it's <STR_PLAYERNAME>.
+Runnin' into you here,
+<BTN>
+<MSGCLEAR>what a coincidence. Heh heh.
+How's business?
+Is your place lookin'
+nice yet? Huh?
+<BTN>
+<MSGCLEAR>Tch, you're a slowpoke.
+Hurry up and find some good
+furniture and fix up your
+room! Keep at it!
+<MSGCONTINUE>
+
+## 86
+#: meeting again in the player's town, where the villager has moved, late at night (a gruff old-timer)
+Walk around this late and
+I'll eat ya up!
+Heh heh, just kiddin'!
+
+<BTN>
+<MSGCLEAR>What're you scared of?!
+Can't take a joke, huh?
+And here we finally meet
+after <STR_FREE8> weeks,
+<BTN>
+<MSGCLEAR>so I was tryin' to
+liven up the mood
+with a gag, bein'
+considerate and all...
+<BTN>
+<MSGCLEAR>I ain't gonna eat you,
+so relax.
+
+
+<MSGCONTINUE>
+
+## 87
+#: meeting again in the player's town, where the villager has moved, morning (a Kansai speaker)
+Mornin'!
+Well, if it ain't <STR_PLAYERNAME>!
+What's up? Long time no see!
+
+<BTN>
+<MSGCLEAR>Last time was when I was
+in <STR_FREE6>, so it's
+been <STR_FREE8> weeks!
+
+<BTN>
+<MSGCLEAR>I just moved here to
+<STR_COUNTRYNAME>. It's a
+pretty nice place,
+and I like it a lot.
+<MSGCONTINUE>
+
+## 88
+#: meeting again in the player's town, where the villager has moved, daytime (a Kansai speaker)
+Well, if it ain't <STR_PLAYERNAME>.
+Been a while.
+I didn't say I was
+movin' here, so
+<BTN>
+<MSGCLEAR>I figured I'd never see you!
+I don't know how much longer
+I'll live here, but whenever
+you feel like it,
+<BTN>
+<MSGCLEAR>come on by.
+I'll be waitin'.
+...
+I mean it!
+<MSGCONTINUE>
+
+## 89
+#: meeting again in the player's town, where the villager has moved, evening (a Kansai speaker)
+Evenin'! ...Oh,
+I thought I'd seen you
+somewhere, and sure enough,
+it's <STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR>How long's it been?
+About <STR_FREE8> weeks?
+We ain't seen each other
+in a good long while.
+<BTN>
+<MSGCLEAR>I just moved here to
+<STR_COUNTRYNAME>
+a little while ago,
+so I ain't got friends yet.
+<BTN>
+<MSGCLEAR><STR_PLAYERNAME>,
+let's be friends again.
+Pretty please!
+
+<MSGCONTINUE>
+
+## 90
+#: meeting again in the player's town, where the villager has moved, late at night (a Kansai speaker)
+Yaaaawn, I'm so sleepy...
+Who's out at this hour?
+
+
+<BTN>
+<MSGCLEAR>Oh, <STR_PLAYERNAME>!
+You startled me wide awake!
+What's up? Long time no see!
+I ain't seen your face in
+<BTN>
+<MSGCLEAR>about <STR_FREE8> weeks.
+And in the meantime,
+I moved from <STR_FREE6>
+to <STR_COUNTRYNAME>.
+<BTN>
+<MSGCLEAR>I figured I'd never see you
+again, so I'm real happy!
+Come on by again.
+
+<MSGCONTINUE>
+
+## 91
+#: a villager who has moved to the player's town, morning (a polite girl)
+Good morning!
+Surprised?
+I moved here
+the other day!
+<MSGCONTINUE>
+
+## 92
+#: a villager who has moved to the player's town, daytime (a polite girl)
+Hello, <STR_PLAYERNAME>!
+Tee hee, I moved
+here, you know!
+Don't forget!
+<MSGCONTINUE>
+
+## 93
+#: a villager who has moved to the player's town, evening (a polite girl)
+Good evening, <STR_PLAYERNAME>!
+I lived in <STR_FREE6> until
+just recently, but I moved.
+So when you need me,
+<BTN>
+<MSGCLEAR>come see me here!
+Tee hee, don't get it
+wrong, <STR_TAIL>!
+
+<MSGCONTINUE>
+
+## 94
+#: a villager who has moved to the player's town, late at night (a polite girl)
+<STR_PLAYERNAME>,
+you really shouldn't be
+out playing this late!
+Oh, well...
+<BTN>
+<MSGCLEAR>Oh, right, I
+moved here from
+<STR_FREE6>.
+I'll be here for a while, so
+<BTN>
+<MSGCLEAR>if you need me,
+come here!
+Don't get it wrong, <STR_TAIL>!
+
+<MSGCONTINUE>
+
+## 95
+#: a villager who has moved to the player's town, morning (a lively girl)
+Mornin'!
+Hey, hey, I moved
+here just a few
+days ago!
+<BTN>
+<MSGCLEAR>I was gonna keep it
+a secret from
+<STR_PLAYERNAME>, but
+you found me, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 96
+#: a villager who has moved to the player's town, daytime (a lively girl)
+<STR_PLAYERNAME>,
+did you know I
+moved here?
+Why'd you show up?!
+<BTN>
+<MSGCLEAR>And here I wanted to go
+somewhere nobody knows
+me...
+Just kidding!
+<BTN>
+<MSGCLEAR>I'll live here for a while,
+so if you need me,
+come here, <STR_TAIL>!
+Don't get it wrong, okay?
+<MSGCONTINUE>
+
+## 97
+#: a villager who has moved to the player's town, evening (a lively girl)
+Good evening!
+It's me, <STR_PLAYERNAME>!
+<STR_TALKNAME>!
+I moved here from
+<BTN>
+<MSGCLEAR><STR_FREE6>!
+I told you I was moving,
+but I didn't say where,
+<STR_TAIL>!
+<BTN>
+<MSGCLEAR>'Cause I was gonna decide
+whenever I felt like it...
+So I picked here!
+It's a pretty nice place!
+<MSGCONTINUE>
+
+## 98
+#: a villager who has moved to the player's town, late at night (a lively girl)
+Evenin'!
+...Well, it's not really the
+time for a peppy hello...
+You're up so late!
+<BTN>
+<MSGCLEAR>Oh, right, I moved
+here from <STR_FREE6>!
+Did you know?
+
+<BTN>
+<MSGCLEAR>So from now on,
+if you need me,
+come to <STR_COUNTRYNAME>!
+
+<MSGCONTINUE>
+
+## 99
+#: a villager who has moved to the player's town, morning (a sleepy boy)
+Yaaawn, I'm so sleepy...
+Mornin', <STR_PLAYERNAME>.
+Oh, didn't I tell you?
+I moved.
+<BTN>
+<MSGCLEAR>I told you I was moving,
+right? So I came here.
+So if you go to <STR_FREE6>,
+I won't be there!
+<MSGCONTINUE>
+
+## 100
+#: a villager who has moved to the player's town, daytime (a sleepy boy)
+Hiya, <STR_PLAYERNAME>.
+I just moved here
+the other day.
+It's a pretty nice place, huh?
+<BTN>
+<MSGCLEAR><STR_FREE6> was nice too,
+but I like it here.
+Maybe I'll stay a while.
+
+<MSGCONTINUE>
+
+## 101
+#: a villager who has moved to the player's town, evening (a sleepy boy)
+Evening, <STR_PLAYERNAME>.
+I'm here! Were you
+surprised? Not even
+a little?
+<BTN>
+<MSGCLEAR>Aww, no fun...
+I moved here from
+<STR_FREE6>.
+So, see,
+<BTN>
+<MSGCLEAR>when you need me,
+don't go to <STR_FREE6>,
+come to <STR_COUNTRYNAME>.
+Remember that, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 102
+#: a villager who has moved to the player's town, late at night (a sleepy boy)
+Yaaaawn, I'm sleepy, I tell ya!
+I just moved here, and I
+haven't finished unpacking,
+and I've been busy,
+<BTN>
+<MSGCLEAR>so I'm tired...
+<STR_PLAYERNAME>,
+you sure have energy,
+even this late at night...
+<MSGCONTINUE>
+
+## 103
+#: a villager who has moved to the player's town, morning (a sporty boy)
+Hey, good morning!
+Ha ha ha, surprised to
+see me here?
+I moved here!
+<BTN>
+<MSGCLEAR><STR_FREE6> was nice,
+but I wanted a little
+change of scenery,
+so I came to <STR_COUNTRYNAME>!
+<MSGCONTINUE>
+
+## 104
+#: a villager who has moved to the player's town, daytime (a sporty boy)
+Yo, <STR_PLAYERNAME>!
+I just moved to
+<STR_COUNTRYNAME>!
+
+<BTN>
+<MSGCLEAR>From now on, if you need
+me, come here! If you go to
+<STR_FREE6> by mistake, I
+won't be there, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 105
+#: a villager who has moved to the player's town, evening (a sporty boy)
+<STR_PLAYERNAME>! You finally came!
+Since I moved from <STR_FREE6>,
+nobody I know has come
+by to visit, so
+<BTN>
+<MSGCLEAR>I was getting kinda bored!
+Show your face around
+here now and then, <STR_TAIL>!
+
+<MSGCONTINUE>
+
+## 106
+#: a villager who has moved to the player's town, late at night (a sporty boy)
+Hey, hey, you shouldn't be
+wandering around outside
+at this hour, <STR_PLAYERNAME>!
+
+<BTN>
+<MSGCLEAR>What about me?
+I'm fine!
+I just moved here, so
+I'm exploring the area.
+<MSGCONTINUE>
+
+## 107
+#: a villager who has moved to the player's town, morning (a gruff old-timer)
+Yo! What's got you up
+so early, <STR_PLAYERNAME>?
+Awful early riser, ain't ya.
+Me, I wanted to sleep
+<BTN>
+<MSGCLEAR>a little longer, but
+I just moved in, and I've
+got a whole lotta
+unpackin' to do!
+<MSGCONTINUE>
+
+## 108
+#: a villager who has moved to the player's town, daytime (a gruff old-timer)
+Yo, it's me, <STR_TALKNAME>.
+What're you jumpy for?
+I ain't thinkin' of eatin'
+you, so relax!
+<BTN>
+<MSGCLEAR>I got tired of <STR_FREE6>
+and moved here, but
+that was a fine place
+in its own way...
+<BTN>
+<MSGCLEAR>Heh heh heh, that ain't
+like me to say.
+
+
+<MSGCONTINUE>
+
+## 109
+#: a villager who has moved to the player's town, evening (a gruff old-timer)
+Well, if it ain't <STR_PLAYERNAME>.
+You came all the way out
+here to play, huh?
+
+<BTN>
+<MSGCLEAR>I figure <STR_FREE6> and
+<STR_COUNTRYNAME> are a fair
+ways apart. You're quite
+the adventurer!
+<MSGCONTINUE>
+
+## 110
+#: a villager who has moved to the player's town, late at night (a gruff old-timer)
+<STR_PLAYERNAME>! You come
+here a lot, do ya?
+...I see. Me, I didn't
+come here to play.
+<BTN>
+<MSGCLEAR>I moved here.
+Not that I got sick
+of <STR_FREE6>
+or nothin'...
+<BTN>
+<MSGCLEAR>It's just, well...
+Grown-ups got all
+kinds of reasons
+for things.
+<MSGCONTINUE>
+
+## 111
+#: a villager who has moved to the player's town, morning (a Kansai speaker)
+Mornin', <STR_PLAYERNAME>!
+I moved here the other day.
+But seein' how fast you
+showed up,
+<BTN>
+<MSGCLEAR>is this your
+turf or somethin'?
+If so, I goofed!
+...
+<BTN>
+<MSGCLEAR>Just kiddin', silly!
+Come on by now
+and then!
+
+<MSGCONTINUE>
+
+## 112
+#: a villager who has moved to the player's town, daytime (a Kansai speaker)
+Hiya!
+I lived in <STR_FREE6> till
+just recently, but I moved
+here to <STR_COUNTRYNAME>.
+<BTN>
+<MSGCLEAR>I felt like startin'
+my life over in a
+brand-new place...
+Just kiddin'! Ah ha ha ha!
+<MSGCONTINUE>
+
+## 113
+#: a villager who has moved to the player's town, evening (a Kansai speaker)
+Oh, evenin'.
+So <STR_PLAYERNAME> comes
+all the way out to
+<STR_COUNTRYNAME>, too.
+<BTN>
+<MSGCLEAR>That's good timin'. I just
+moved here, and I ain't
+got friends yet, so
+knowin' somebody here
+<BTN>
+<MSGCLEAR>is a real comfort!
+So that's that.
+Come on by now and then!
+
+<MSGCONTINUE>
+
+## 114
+#: a villager who has moved to the player's town, late at night (a Kansai speaker)
+Oh, <STR_PLAYERNAME>!
+Wanderin' around a place
+like this at this hour?
+That's just like you!
+<BTN>
+<MSGCLEAR>Me? I'm busy with
+unpackin' and all
+sorts of stuff.
+
+<MSGCONTINUE>
+
+## 115
+#: a greeting, morning (a polite girl)
+Good morning!
+I hope today's a fun
+day, <STR_TAIL>!
+
+<MSGCONTINUE>
+
+## 116
+#: a greeting, daytime (a polite girl)
+Hello, <STR_PLAYERNAME>.
+How are you?
+Me?
+I'm great, of course, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 117
+#: a greeting, evening (a polite girl)
+Good evening! I didn't see
+you this afternoon.
+I was a little lonely, <STR_TAIL>.
+
+<MSGCONTINUE>
+
+## 118
+#: a greeting, late at night (a polite girl)
+Good evening.
+Being out this late
+is a little dangerous,
+<STR_TAIL>.
+<MSGCONTINUE>
+
+## 119
+#: a greeting, morning (a lively girl)
+Mornin'!
+Wandering around from the
+morning, you've got it easy!
+I'm jealous, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 120
+#: a greeting, daytime (a lively girl)
+Hiya!
+I was just thinking about
+today's snack!
+
+<MSGCONTINUE>
+
+## 121
+#: a greeting, evening (a lively girl)
+Evening!
+It's this late already, so
+I thought you weren't coming
+to see me, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 122
+#: a greeting, late at night (a lively girl)
+<STR_PLAYERNAME>, what are
+you thinking?
+Coming to see me at this hour!
+Honestly, you're hopeless, <STR_TAIL>.
+<MSGCONTINUE>
+
+## 123
+#: a greeting, morning (a sleepy boy)
+Ahhh, I'm sleepy...
+...Yaaaaawn...
+Good mooorning.
+I wanna sleep a little more.
+<MSGCONTINUE>
+
+## 124
+#: a greeting, daytime (a sleepy boy)
+Hello, <STR_PLAYERNAME>.
+I was napping till just now.
+I'm still a little sleepy.
+
+<MSGCONTINUE>
+
+## 125
+#: a greeting, evening (a sleepy boy)
+Evening.
+I didn't see you at
+all this afternoon.
+I was bored...
+<MSGCONTINUE>
+
+## 126
+#: a greeting, late at night (a sleepy boy)
+Evening.
+<STR_PLAYERNAME>, you sure
+take your walks
+awful late at night...
+<MSGCONTINUE>
+
+## 127
+#: a greeting, morning (a sporty boy)
+Good morning!
+Let's give it our all
+again today!
+You too, <STR_PLAYERNAME>!
+<MSGCONTINUE>
+
+## 128
+#: a greeting, daytime (a sporty boy)
+Hey!
+How's it going?
+Oh yeah? Good to hear!
+Wa ha ha ha ha!
+<MSGCONTINUE>
+
+## 129
+#: a greeting, evening (a sporty boy)
+Evening! Where were you
+this afternoon?
+You never came to play,
+so I was bored, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 130
+#: a greeting, late at night (a sporty boy)
+Whoa, what are you doing
+in the middle of the night?
+You startled me!
+
+<MSGCONTINUE>
+
+## 131
+#: a greeting, morning (a gruff old-timer)
+..........
+Pipe down! It's too early!
+I overdid it last night,
+and my head's poundin'...
+<MSGCONTINUE>
+
+## 132
+#: a greeting, daytime (a gruff old-timer)
+Hey!
+Loafin' around in the middle
+of the day... Ain't you got
+a job? Eh, whatever.
+<MSGCONTINUE>
+
+## 133
+#: a greeting, evening (a gruff old-timer)
+Yo, it's you.
+The night's just gettin'
+started! Let's live it up!
+
+<MSGCONTINUE>
+
+## 134
+#: a greeting, late at night (a gruff old-timer)
+What're you up to?
+Wanderin' around at this
+hour, you'll never grow up
+to be a decent adult!
+<MSGCONTINUE>
+
+## 135
+#: a greeting, morning (a Kansai speaker)
+Mornin'!
+A mornin' stroll sure
+feels good, don't it!
+
+<MSGCONTINUE>
+
+## 136
+#: a greeting, daytime (a Kansai speaker)
+Well, if it ain't <STR_PLAYERNAME>!
+You doin' all right?
+Eatin' your meals proper?
+Gotta eat to stay strong!
+<MSGCONTINUE>
+
+## 137
+#: a greeting, evening (a Kansai speaker)
+Evenin'!
+I didn't see you around
+today. I wish you'd come by
+while it was light, <STR_TAIL>.
+<MSGCONTINUE>
+
+## 138
+#: a greeting, late at night (a Kansai speaker)
+What? Who's this now?
+Don't stay up this late,
+go to bed already!
+You got an early day tomorrow!
+<MSGCONTINUE>
+
+## 139
+#: talking again the same morning (a polite girl)
+Oh, hello again.
+You seem busy this morning!
+
+
+<MSGCONTINUE>
+
+## 140
+#: talking again the same day (a polite girl)
+You seem busy.
+Aren't you tired?
+
+
+<MSGCONTINUE>
+
+## 141
+#: talking again the same evening (a polite girl)
+It's getting so dark,
+<STR_TAIL>.
+I'd better head home soon.
+
+<MSGCONTINUE>
+
+## 142
+#: talking again the same night (a polite girl)
+How late are you planning
+to stay out, <STR_TAIL>?
+It's none of my business, but
+you should go to bed, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 143
+#: talking again the same morning (a lively girl)
+Oh, mornin'
+again!
+<MSGCONTINUE>
+
+## 144
+#: talking again the same day (a lively girl)
+Oh, hey.
+
+
+<MSGCONTINUE>
+
+## 145
+#: talking again the same evening (a lively girl)
+The night's still young!
+Gotta go out and have fun!
+
+<MSGCONTINUE>
+
+## 146
+#: talking again the same night (a lively girl)
+You really have nothing to do,
+huh? Go to bed soon, or you
+won't get up tomorrow!
+
+<MSGCONTINUE>
+
+## 147
+#: talking again the same morning (a sleepy boy)
+Hm, I already said
+good morning, didn't I?
+
+
+<MSGCONTINUE>
+
+## 148
+#: talking again the same day (a sleepy boy)
+Phew, I'm hungry...
+Lunch...
+
+
+<MSGCONTINUE>
+
+## 149
+#: talking again the same evening (a sleepy boy)
+Uh, hey, hey.
+
+<MSGCONTINUE>
+
+## 150
+#: talking again the same night (a sleepy boy)
+So sleeeepy...
+
+
+
+<MSGCONTINUE>
+
+## 151
+#: talking again the same morning (a sporty boy)
+Hey, you're back!
+
+
+
+<MSGCONTINUE>
+
+## 152
+#: talking again the same day (a sporty boy)
+Hey there, slacker!
+
+
+
+<MSGCONTINUE>
+
+## 153
+#: talking again the same evening (a sporty boy)
+Hey, it's getting pretty dark!
+
+
+
+<MSGCONTINUE>
+
+## 154
+#: talking again the same night (a sporty boy)
+Stay up all night and
+you won't get up tomorrow!
+
+
+<MSGCONTINUE>
+
+## 155
+#: talking again the same morning (a gruff old-timer)
+Botherin' me again and again
+this early in the mornin'!
+
+
+<MSGCONTINUE>
+
+## 156
+#: talking again the same day (a gruff old-timer)
+Hey, hey! Keep pesterin'
+folks and they'll hate ya!
+
+
+<MSGCONTINUE>
+
+## 157
+#: talking again the same evening (a gruff old-timer)
+Again?!
+You must really have
+time on your hands!
+
+<MSGCONTINUE>
+
+## 158
+#: talking again the same night (a gruff old-timer)
+Hey, hey, what now?
+Decent folks went
+to bed hours
+ago, I tell ya!
+<MSGCONTINUE>
+
+## 159
+#: talking again the same morning (a Kansai speaker)
+What?
+You're back again?
+
+
+<MSGCONTINUE>
+
+## 160
+#: talking again the same day (a Kansai speaker)
+Oh?
+You sure keep comin' round!
+
+
+<MSGCONTINUE>
+
+## 161
+#: talking again the same evening (a Kansai speaker)
+Back again?
+It's gettin' dark. I reckon
+you oughta head home soon.
+
+<MSGCONTINUE>
+
+## 162
+#: talking again the same night (a Kansai speaker)
+Again, at this hour?!
+Don't you get it when
+I tell you to go to
+bed already?!
+<MSGCONTINUE>
+
+## 163
+#: a greeting after months away, morning (a polite girl)
+Oh, what a rare sight!
+It's <STR_PLAYERNAME>!
+Not visiting for <STR_FREE7>
+months... where were you,
+<BTN>
+<MSGCLEAR>and what were you doing?
+If you went off to have fun,
+I wish you'd taken me
+along, <STR_TAIL>!
+
+<MSGCONTINUE>
+
+## 164
+#: a greeting after months away, daytime (a polite girl)
+Oh, it's <STR_PLAYERNAME>!
+We haven't seen each other
+in about <STR_FREE7> months!
+Did you put on some weight?
+<BTN>
+<MSGCLEAR>While you were away,
+I lost six pounds.
+Tee hee!
+
+<MSGCONTINUE>
+
+## 165
+#: a greeting after months away, evening (a polite girl)
+Whoa, long time no see!
+What have you been up to?
+No sign of you for <STR_FREE7>
+months! I was worried!
+<BTN>
+<MSGCLEAR>I bet you were busy having
+fun doing other stuff, right?
+Honestly!
+
+<MSGCONTINUE>
+
+## 166
+#: a greeting after months away, late at night (a polite girl)
+My, <STR_PLAYERNAME>!
+I haven't seen you in ages,
+and now you're out wandering
+in the middle of the night!
+<BTN>
+<MSGCLEAR>When did you turn into
+such a night owl?
+Honestly, you're hopeless,
+<STR_TAIL>!
+
+<MSGCONTINUE>
+
+## 167
+#: a greeting after months away, morning (a lively girl)
+Oh my gosh!
+Long time no see!
+Where were you for <STR_FREE7>
+months? What were you doing?
+<BTN>
+<MSGCLEAR>You never showed your face!
+I thought you'd collapsed
+somewhere, and I got
+worried, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 168
+#: a greeting after months away, daytime (a lively girl)
+No way!
+It's <STR_PLAYERNAME>!
+Seems like we haven't seen
+each other in forever!
+<BTN>
+<MSGCLEAR>Do you remember me?
+I bet you forgot, huh?
+It's been <STR_FREE7> months!
+Ha ha, don't worry about it!
+<MSGCONTINUE>
+
+## 169
+#: a greeting after months away, evening (a lively girl)
+Eeek! It's <STR_PLAYERNAME>!
+It's been forever!
+How's it going? You stayed
+away for <STR_FREE7> months!
+<BTN>
+<MSGCLEAR>If you don't look for
+furniture every day, your
+room won't get any nicer!
+
+<MSGCONTINUE>
+
+## 170
+#: a greeting after months away, late at night (a lively girl)
+Well, well!
+If it isn't <STR_PLAYERNAME>!
+You've been slacking off
+for <STR_FREE7> months, huh!
+<BTN>
+<MSGCLEAR>No excuses!
+If you don't play with us more,
+everybody might forget
+all about you!
+<MSGCONTINUE>
+
+## 171
+#: a greeting after months away, morning (a sleepy boy)
+Oh! It's <STR_PLAYERNAME>!
+What brings you here?
+You haven't come to play
+in forever!
+<BTN>
+<MSGCLEAR>See, it's been <STR_FREE7>
+months since then!
+I thought you'd forgotten
+all about me, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 172
+#: a greeting after months away, daytime (a sleepy boy)
+Hey, hey, where'd you go?
+It's been so long
+since we talked...
+'Cause since we last met,
+<BTN>
+<MSGCLEAR><STR_FREE7> months went by!
+Leaving me alone for
+that long is just
+too much, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 173
+#: a greeting after months away, evening (a sleepy boy)
+Who's this? Why,
+it's <STR_PLAYERNAME>!
+You didn't show up for
+a really long time!
+<BTN>
+<MSGCLEAR>What were you up to?
+I know! You were playing some
+fun game all by yourself!
+Let me play too, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 174
+#: a greeting after months away, late at night (a sleepy boy)
+Ah! <STR_PLAYERNAME>!
+What were you doing all
+<STR_FREE7> months without
+showing up? On a trip?
+<BTN>
+<MSGCLEAR>While you were gone, I had
+nobody to play with, so
+I was bored!
+
+<MSGCONTINUE>
+
+## 175
+#: a greeting after months away, morning (a sporty boy)
+Morning, <STR_PLAYERNAME>!
+Long time no see!
+Not showing your face
+for over <STR_FREE7> months?
+<BTN>
+<MSGCLEAR>What happened to you?
+Knowing you, you were
+having fun behind my back!
+Darn it!
+<MSGCONTINUE>
+
+## 176
+#: a greeting after months away, daytime (a sporty boy)
+Hey! Long time no see!
+How long since we last met?
+About <STR_FREE7> months...
+Not showing your face
+<BTN>
+<MSGCLEAR>for that long?
+Guess you're a cold one,
+huh...
+Just kidding!
+<MSGCONTINUE>
+
+## 177
+#: a greeting after months away, evening (a sporty boy)
+Yo, <STR_PLAYERNAME>!
+Did you get a little taller
+since I last saw you?
+Huh? You didn't change?
+<BTN>
+<MSGCLEAR>Ha ha ha ha ha,
+I thought so too, <STR_TAIL>!
+<STR_FREE7> months isn't enough
+to change much!
+<MSGCONTINUE>
+
+## 178
+#: a greeting after months away, late at night (a sporty boy)
+What! It's you!
+What happened?
+I haven't heard a peep from
+you in forever!
+<BTN>
+<MSGCLEAR>Were you skipping town
+to dodge debt collectors?
+Ha ha ha ha ha ha!
+Just kidding, don't get mad!
+<MSGCONTINUE>
+
+## 179
+#: a greeting after months away, morning (a gruff old-timer)
+What? Pipe down!
+Hm? Why, it's <STR_PLAYERNAME>.
+Been a while, eh?
+Hearin' your voice first
+<BTN>
+<MSGCLEAR>thing in the mornin'?
+Next thing you know,
+pigs'll fly!
+
+<MSGCONTINUE>
+
+## 180
+#: a greeting after months away, daytime (a gruff old-timer)
+Yo, it's <STR_PLAYERNAME>.
+How's it goin'?
+Your room's layout, I mean!
+Don't play dumb!
+<BTN>
+<MSGCLEAR>Leave it alone that long
+and you forget how!
+Put a little more
+spirit into it!
+<MSGCONTINUE>
+
+## 181
+#: a greeting after months away, evening (a gruff old-timer)
+Well, well,
+there's a rare face!
+Where've you been
+hidin' all this time?
+<BTN>
+<MSGCLEAR>Knowin' you, you ate
+somethin' you found, got
+a bellyache and
+kicked the bucket, eh?
+<BTN>
+<MSGCLEAR>Wah ha ha ha ha!
+Don't get mad,
+I'm just jokin'!
+
+<MSGCONTINUE>
+
+## 182
+#: a greeting after months away, late at night (a gruff old-timer)
+Yo, <STR_PLAYERNAME>!
+What were you up to, not
+showin' your face so long?
+It's been <STR_FREE7> months!
+<BTN>
+<MSGCLEAR>You left me hangin'
+a mighty long time!
+From now on, I'll be
+payin' you back for that!
+<MSGCONTINUE>
+
+## 183
+#: a greeting after months away, morning (a Kansai speaker)
+Oh, mornin'!
+Well, if it ain't <STR_PLAYERNAME>.
+You ain't shown your face
+in a mighty long time.
+<BTN>
+<MSGCLEAR>Did you go somewhere?
+I just hope you're well.
+I was worried you'd
+gotten sick or somethin'!
+<BTN>
+<MSGCLEAR>But you look fit as
+a fiddle, so I'm relieved!
+
+
+<MSGCONTINUE>
+
+## 184
+#: a greeting after months away, daytime (a Kansai speaker)
+Where'd you go for
+<STR_FREE7> months?!
+You up and stopped
+showin' up all of a sudden,
+<BTN>
+<MSGCLEAR>so I was worried you'd
+had an accident!
+Well, I figure a little
+somethin' like that
+<BTN>
+<MSGCLEAR>wouldn't bother you
+none at all!
+Ah ha ha ha ha ha ha!!
+
+<MSGCONTINUE>
+
+## 185
+#: a greeting after months away, evening (a Kansai speaker)
+Well, there's a rare sight!
+It's <STR_PLAYERNAME>!
+What's up?
+<STR_FREE7> months...
+<BTN>
+<MSGCLEAR>While I wasn't lookin',
+did your fashion sense
+go downhill?
+Ah ha ha, I'm kiddin'!
+<BTN>
+<MSGCLEAR>Don't worry, it suits you!
+But maybe it's time
+you changed clothes?
+Ah ha, that's a joke too!
+<MSGCONTINUE>
+
+## 186
+#: a greeting after months away, late at night (a Kansai speaker)
+What, at this hour...
+Mighty suspicious!
+I thought, but it's
+<STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR>First time I've seen you
+in ages, and at this
+hour! What a surprise!
+
+<MSGCONTINUE>
+
+## 187
+#: a greeting after weeks away, morning (a polite girl)
+Oh, good morning.
+Lately I've been
+hooked on dieting.
+
+<BTN>
+<MSGCLEAR>I wonder if there's
+an easy way
+to lose weight...
+
+<MSGCONTINUE>
+
+## 188
+#: a greeting after weeks away, daytime (a polite girl)
+My, hello.
+How are you?
+Nothing fun's been happening
+lately, so I've been bored.
+<MSGCONTINUE>
+
+## 189
+#: a greeting after weeks away, evening (a polite girl)
+Good evening, <STR_PLAYERNAME>!
+It's been a while, <STR_TAIL>.
+Not seeing you for
+<STR_FREE8> weeks
+<BTN>
+<MSGCLEAR>is a little lonely, <STR_TAIL>.
+I'd like to talk with you
+every day, <STR_TAIL>!
+
+<MSGCONTINUE>
+
+## 190
+#: a greeting after weeks away, late at night (a polite girl)
+Good evening,
+at this hour.
+I'm usually asleep by now,
+but tonight I'm up late.
+<BTN>
+<MSGCLEAR>And then I ran into
+<STR_PLAYERNAME>, what luck!
+I feel like I got
+a bonus, <STR_TAIL>!
+
+<MSGCONTINUE>
+
+## 191
+#: a greeting after weeks away, morning (a lively girl)
+Hey, mornin'!
+You know, when you don't see
+someone for a while, even old
+friends feel kinda new!
+<MSGCONTINUE>
+
+## 192
+#: a greeting after weeks away, daytime (a lively girl)
+Hiya, <STR_PLAYERNAME>!
+Has it been <STR_FREE8> weeks?
+Did you go somewhere?
+
+<BTN>
+<MSGCLEAR>I'd like to go somewhere
+else once in a while, too,
+soak in a hot spring and
+just relax, <STR_TAIL>!
+<MSGCONTINUE>
+
+## 193
+#: a greeting after weeks away, evening (a lively girl)
+Ah! There you are!
+<STR_PLAYERNAME>,
+I was just thinking I
+hadn't seen you lately!
+<BTN>
+<MSGCLEAR>I was worried you
+were sick in bed,
+<STR_TAIL>!
+
+<MSGCONTINUE>
+
+## 194
+#: a greeting after weeks away, late at night (a lively girl)
+Evening!
+What are you up to so late?
+And here we finally
+see each other again...
+<BTN>
+<MSGCLEAR>If we're gonna meet,
+I'd rather meet under
+the sun, <STR_TAIL>!
+Just kidding!
+<MSGCONTINUE>
+
+## 195
+#: a greeting after weeks away, morning (a sleepy boy)
+Oh, mooorning!
+Long time no see.
+Has it been <STR_FREE8> weeks?
+
+<BTN>
+<MSGCLEAR>You sure slept
+a long time...
+Ha ha ha ha!
+
+<MSGCONTINUE>
+
+## 196
+#: a greeting after weeks away, daytime (a sleepy boy)
+Oh, hellooo!
+You haven't shown your face
+in <STR_FREE8> weeks. What's up?
+
+<BTN>
+<MSGCLEAR>Oh! I get it!
+You ate too much, got a
+tummyache and were moaning!
+How uncool!
+<MSGCONTINUE>
+
+## 197
+#: a greeting after weeks away, evening (a sleepy boy)
+Yoo-hoo, good evening!
+<STR_PLAYERNAME>, I missed you!
+You never come to play
+with me!
+<BTN>
+<MSGCLEAR>Leaving me alone for
+<STR_FREE8> weeks? I'm
+gonna turn bad!
+Just kiddiiing!
+<MSGCONTINUE>
+
+## 198
+#: a greeting after weeks away, late at night (a sleepy boy)
+Hey, hey, good evenin'!
+I haven't seen your face
+in a long time.
+What've you been up to?
+<BTN>
+<MSGCLEAR>Oh, I bet you stayed out
+too late and got grounded!
+Right? Right!
+Ha ha ha ha!
+<MSGCONTINUE>
+
+## 199
+#: a greeting after weeks away, morning (a sporty boy)
+Hey, <STR_PLAYERNAME>!
+Good morning!
+I haven't seen you in a while.
+Were you feeling sick?
+<BTN>
+<MSGCLEAR>If you keep your body
+in shape every day,
+sickness runs away from you!
+Wa ha ha ha ha!
+<MSGCONTINUE>
+
+## 200
+#: a greeting after weeks away, daytime (a sporty boy)
+Long time no see!
+How've you been?
+You slacked off for
+<STR_FREE8> weeks, so
+<BTN>
+<MSGCLEAR>get back to it
+starting today!
+Ah, none of my business, huh?
+Wa ha ha ha ha!
+<MSGCONTINUE>
+
+## 201
+#: a greeting after weeks away, evening (a sporty boy)
+Hey! <STR_PLAYERNAME>!
+What were you doing,
+not showing your face
+for <STR_FREE8> weeks?!
+<BTN>
+<MSGCLEAR>Everyone else is out
+collecting furniture, too
+busy even to sleep!
+You should try harder!
+<MSGCONTINUE>
+
+## 202
+#: a greeting after weeks away, late at night (a sporty boy)
+Hey, hey, who's that
+wandering around outside
+at this hour?...
+Oh! <STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR>What's up? Long time no see.
+You came back for some
+more late-night fun, huh!
+Wa ha ha ha ha!
+<MSGCONTINUE>
+
+## 203
+#: a greeting after weeks away, morning (a gruff old-timer)
+Pipe down! It's too early!
+I told ya I ain't a
+mornin' person!
+Talk quiet!
+<BTN>
+<MSGCLEAR>So we ain't met in
+<STR_FREE8> weeks or so.
+So what? What are you,
+my wife?!
+<MSGCONTINUE>
+
+## 204
+#: a greeting after weeks away, daytime (a gruff old-timer)
+Yo! It's <STR_PLAYERNAME>!
+Ain't seen you around
+for a while. How's it goin'?
+
+<BTN>
+<MSGCLEAR>Slack off too much,
+and the others'll
+snatch up all the
+good furniture!
+<MSGCONTINUE>
+
+## 205
+#: a greeting after weeks away, evening (a gruff old-timer)
+Quit it! Don't hang on me!
+All right, all right!
+Long time no see, I get it!
+So we ain't met in
+<BTN>
+<MSGCLEAR><STR_FREE8> weeks or so.
+Big deal!
+Till just the other day,
+we'd never even met!
+<MSGCONTINUE>
+
+## 206
+#: a greeting after weeks away, late at night (a gruff old-timer)
+Still lovin' the night life,
+eh? You're about the only one
+wanderin' around
+at this hour!
+<BTN>
+<MSGCLEAR>I know it's been a while, but
+wander around too late
+at night, and somethin'
+might come out...!
+<MSGCONTINUE>
+
+## 207
+#: a greeting after weeks away, morning (a Kansai speaker)
+Mornin'!
+<STR_PLAYERNAME>,
+long time no see!
+Did you go somewhere?
+<BTN>
+<MSGCLEAR>Didn't bring me a souvenir?
+None? Well, ain't you
+a cheapskate.
+Ah ha ha, just kiddin'!
+<MSGCONTINUE>
+
+## 208
+#: a greeting after weeks away, daytime (a Kansai speaker)
+Oh, it's <STR_PLAYERNAME>!
+You didn't come by for
+<STR_FREE8> weeks.
+What were you up to?
+<BTN>
+<MSGCLEAR>With you not comin',
+I was bored
+half to death!
+
+<MSGCONTINUE>
+
+## 209
+#: a greeting after weeks away, evening (a Kansai speaker)
+Hey, hey, <STR_PLAYERNAME>.
+Where were you, and what
+were you doin', for <STR_FREE8>
+weeks? If you were up to
+<BTN>
+<MSGCLEAR>somethin' fun behind
+my back, I won't
+stand for it!
+Ah ha, just kiddin'!
+<MSGCONTINUE>
+
+## 210
+#: a greeting after weeks away, late at night (a Kansai speaker)
+Hey now, <STR_PLAYERNAME>!
+What're you doin' out
+this late at night?!
+You went and slacked off
+<BTN>
+<MSGCLEAR>somewhere for <STR_FREE8> weeks,
+so starting tomorrow,
+you'd better decorate
+your room proper!
+<MSGCONTINUE>
