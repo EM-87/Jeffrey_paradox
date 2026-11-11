@@ -274,12 +274,57 @@ class NightLightStoreTest {
         val nyToday = at(w, h, today, -74.0, 40.7)
         assertTrue("today had not reached New York", nyToday > 0)
         assertEquals("New York was taken from last night", nyToday, layer.at((-74.0 + 180.0) / 360.0, (90.0 - 40.7) / 180.0))
-        // And nowhere is transparent any more that last night had.
+        // And nowhere is transparent any more that last night had —
+        // had by night, that is: its twilight is not a reading.
+        NightLights.withoutTwilight(lastNight, w, h, "2026-11-04")
         var stillBlank = 0
         for (i in lastNight.indices) if (layer.lum[i].toInt() == 0 && lastNight[i].toInt() != 0) stillBlank++
         assertEquals("places last night had are still blank", 0, stillBlank)
         // The settings say so.
         assertTrue(NightLightStore.describe(context, now).contains("2026-11-04"))
+    }
+
+    /**
+     * The raw night leaves the store without the rows that were not
+     * night — the fringe of twilight round the summer pole, which is in
+     * the picture as it is sent and was being painted as light — and
+     * the day before that fills it in loses its own first, or one day's
+     * twilight would come back in through the other's. The clean night
+     * is handed over whole: it is made of nights.
+     */
+    @Test
+    fun `the raw night leaves the store without its twilight and the clean one whole`() {
+        mode("both")
+        val now = utc(2026, 11, 5, 15)
+        NightLightStore.refresh(context, now)
+        val sky = NightLightStore.skyFor(context, now)!!
+        val night = sky.raw!!
+        assertEquals("2026-11-05", night.day)
+        assertEquals("there is no day before to have filled it in", "2026-11-04", night.filledFrom)
+        val (w, h, sentRaw) = greys("gibs-lights-raw.png")
+        val (_, _, sentClean) = greys("gibs-lights-clean.png")
+        var twilit = 0
+        var kept = 0
+        for (y in 0 until h) {
+            val sun = NightLights.sunAtOverpass(90.0 - (y + 0.5) * 180.0 / h, "2026-11-05")!!
+            for (x in 0 until w) {
+                val i = y * w + x
+                if (sun > NightLights.TWILIGHT_LIMIT_DEG) {
+                    if (sentRaw[i].toInt() != 0) twilit++
+                    if (night.lum[i].toInt() != 0) kept++
+                } else {
+                    assertEquals("a pixel of the night was changed", sentRaw[i], night.lum[i])
+                }
+                assertEquals("the clean night was touched", sentClean[i], sky.clean!!.lum[i])
+            }
+        }
+        assertTrue("the picture has twilight in it to take out: $twilit pixels", twilit > 1000)
+        assertEquals("pixels of twilight left in the raw night", 0, kept)
+        // So no floor is read off it, and nothing is painted by it.
+        val south = (90.0 + 60.0) / 180.0
+        assertEquals(0, sky.raw!!.at(0.5, south))
+        assertEquals(0, sky.hazeAt(0.5, south))
+        assertTrue("the clean night has a reading at sixty south", sky.clean!!.at(0.5, south) > 0)
     }
 
     /**

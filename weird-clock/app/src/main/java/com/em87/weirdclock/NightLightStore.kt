@@ -96,8 +96,26 @@ object NightLightStore {
         val mode: NightLights.Mode,
         val clean: Layer?,
         val raw: Layer?,
-        val residueFloor: Int
-    )
+        val residueFloor: Int,
+        /** Where light begins in the raw night shown alone — see [NightLights.rawFloor]. */
+        val rawFloor: Int = NightLights.RAW_FLOOR,
+        /**
+         * The glow of the sky itself, the shape of the raw picture, and
+         * where its background ends — see [NightLights.haze]. Null with
+         * only one layer, which has nothing to be the surplus of.
+         */
+        val haze: ByteArray? = null,
+        val hazeFloor: Int = 255
+    ) {
+        /** The haze at a point of the map, out of 255. */
+        fun hazeAt(u: Double, v: Double): Int {
+            val field = haze ?: return 0
+            val layer = raw ?: return 0
+            val x = (u * layer.width).toInt().coerceIn(0, layer.width - 1)
+            val y = (v * layer.height).toInt().coerceIn(0, layer.height - 1)
+            return field[y * layer.width + x].toInt() and 0xFF
+        }
+    }
 
     private var heldClean: Layer? = null
     private var heldRaw: Layer? = null
@@ -106,6 +124,14 @@ object NightLightStore {
     private var floor = NightLights.RESIDUE_FLOOR_LEAST
     private var floorForClean: ByteArray? = null
     private var floorForRaw: ByteArray? = null
+
+    /** And the haze of the same two pictures, with its own floor. */
+    private var haze: ByteArray? = null
+    private var hazeFloor = 255
+
+    /** The raw night's own floor, and the picture it was read off. */
+    private var rawFloor = NightLights.RAW_FLOOR
+    private var rawFloorFor: ByteArray? = null
 
     /** The greys of one picture on disk, the decoded picture let go of at once. */
     private fun greysOf(store: DailyImageStore, context: Context, atMs: Long): Triple<Int, Int, ByteArray>? {
@@ -129,27 +155,31 @@ object NightLightStore {
      * the question "is this still the same night" costs a stat and not a
      * decode.
      *
-     * With [composite], the day before fills in what this day has not
-     * got. The raw picture of the day in progress is transparent
-     * wherever the satellite has not been yet — all of Asia until the
-     * UTC afternoon — and transparent there is not "nothing to see", it
-     * is "not yet", for which the honest answer is last night's. Per
-     * pixel, so the places that have been flown over are tonight's and
-     * the rest are last night's, and the day before is the nearest
-     * earlier day on disk. The clean night is complete by construction
-     * and is not composed.
+     * For the raw night ([rawNight]), the day before fills in what this
+     * day has not got. The raw picture of the day in progress is
+     * transparent wherever the satellite has not been yet — all of Asia
+     * until the UTC afternoon — and transparent there is not "nothing to
+     * see", it is "not yet", for which the honest answer is last
+     * night's. Per pixel, so the places that have been flown over are
+     * tonight's and the rest are last night's, and the day before is the
+     * nearest earlier day on disk. The clean night is complete by
+     * construction and is not composed.
+     *
+     * And the raw night loses its twilight first, each day by its own
+     * sun — see [NightLights.withoutTwilight]. The clean one has none:
+     * it is made of nights.
      */
     private fun layerOf(
         store: DailyImageStore,
         context: Context,
         atMs: Long,
         held: Layer?,
-        composite: Boolean
+        rawNight: Boolean
     ): Layer? {
         val day = store.dayCached(context, atMs) ?: return null
         val lag = NightLights.lagDays(day, atMs) ?: 0
         val stamp = store.stamp(context, day)
-        val before = if (composite) NightLights.dayMs(day)?.let { store.dayCached(context, it - 1) } else null
+        val before = if (rawNight) NightLights.dayMs(day)?.let { store.dayCached(context, it - 1) } else null
         val filledFrom = before?.takeIf { it < day }
         val filledStamp = filledFrom?.let { store.stamp(context, it) } ?: 0L
         if (held != null && held.day == day && held.stamp == stamp &&
@@ -158,10 +188,12 @@ object NightLightStore {
             return held.relabel(lag)
         }
         val (w, h, lum) = greysOf(store, context, atMs) ?: return null
+        if (rawNight) NightLights.withoutTwilight(lum, w, h, day)
         if (filledFrom != null) {
             val earlier = NightLights.dayMs(day)?.let { greysOf(store, context, it - 1) }
             if (earlier != null && earlier.first == w && earlier.second == h) {
                 val under = earlier.third
+                NightLights.withoutTwilight(under, w, h, filledFrom)
                 for (i in lum.indices) if (lum[i].toInt() == 0) lum[i] = under[i]
             }
         }
@@ -181,26 +213,48 @@ object NightLightStore {
         var cleanLayer: Layer? = null
         var rawLayer: Layer? = null
         if (mode.clean) {
-            cleanLayer = layerOf(clean, context, atMs, heldClean, composite = false)
+            cleanLayer = layerOf(clean, context, atMs, heldClean, rawNight = false)
             heldClean = cleanLayer
         }
         if (mode.raw) {
-            rawLayer = layerOf(raw, context, atMs, heldRaw, composite = true)
+            rawLayer = layerOf(raw, context, atMs, heldRaw, rawNight = true)
             heldRaw = rawLayer
         }
         if (cleanLayer == null && rawLayer == null) return null
         // The floor is a pass over a megapixel, so it is worked out once
-        // per pair of pictures and kept against them.
+        // per pair of pictures and kept against them — and the haze with
+        // it, which is a few passes more.
         if (cleanLayer != null && rawLayer != null &&
             (floorForClean !== cleanLayer.lum || floorForRaw !== rawLayer.lum)
         ) {
             floor = NightLights.residueFloor(rawLayer.lum, rawLayer.width, rawLayer.height) { u, v ->
                 cleanLayer.at(u, v)
             }
+            // The sky's own glow is read only where the moon was down
+            // for the night in the picture — both nights, if it is two.
+            val moonless = NightLights.moonlessRows(rawLayer.height, rawLayer.day, rawLayer.filledFrom)
+            haze = if (cleanLayer.width == rawLayer.width && cleanLayer.height == rawLayer.height) {
+                NightLights.haze(rawLayer.lum, cleanLayer.lum, rawLayer.width, rawLayer.height, moonless)
+            } else {
+                null
+            }
+            hazeFloor = haze?.let {
+                NightLights.hazeFloor(it, rawLayer.lum, cleanLayer.lum, rawLayer.width, rawLayer.height, moonless)
+            } ?: 255
             floorForClean = cleanLayer.lum
             floorForRaw = rawLayer.lum
         }
-        return Sky(mode, cleanLayer, rawLayer, floor)
+        if (rawLayer != null && rawFloorFor !== rawLayer.lum) {
+            rawFloor = NightLights.rawFloor(rawLayer.lum, rawLayer.width, rawLayer.height)
+            rawFloorFor = rawLayer.lum
+        }
+        val both = cleanLayer != null && rawLayer != null
+        return Sky(
+            mode, cleanLayer, rawLayer, floor,
+            rawFloor = if (rawLayer != null) rawFloor else NightLights.RAW_FLOOR,
+            haze = if (both) haze else null,
+            hazeFloor = if (both) hazeFloor else 255
+        )
     }
 
     /** Which day each layer on disk would show now, for the settings row. */
@@ -279,11 +333,16 @@ object NightLightStore {
         if (mode.raw) raw.refreshInBackground(context, now)
     }
 
-    /** Throws the pictures away, for the switch being turned off. */
+    /** Throws the pictures away, for the switch being turned off, and what was worked out from them. */
     fun forget(context: Context) {
         clean.forget(context)
         raw.forget(context)
         heldClean = null
         heldRaw = null
+        floorForClean = null
+        floorForRaw = null
+        haze = null
+        hazeFloor = 255
+        rawFloorFor = null
     }
 }

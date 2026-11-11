@@ -180,7 +180,8 @@ class HemisphereView @JvmOverloads constructor(
         if (a == null || b == null) return false
         return a.mode == b.mode && a.clean?.lum === b.clean?.lum && a.raw?.lum === b.raw?.lum &&
             a.clean?.lagDays == b.clean?.lagDays && a.raw?.lagDays == b.raw?.lagDays &&
-            a.residueFloor == b.residueFloor
+            a.residueFloor == b.residueFloor && a.rawFloor == b.rawFloor &&
+            a.haze === b.haze && a.hazeFloor == b.hazeFloor
     }
 
     /**
@@ -858,7 +859,10 @@ class HemisphereView @JvmOverloads constructor(
                     cleanLights?.at(u, v) ?: 0,
                     rawLights?.at(u, v) ?: 0,
                     disc.rho[at].toDouble(),
-                    lamps.residueFloor
+                    lamps.residueFloor,
+                    rawFloor = lamps.rawFloor,
+                    haze = lamps.hazeAt(u, v),
+                    hazeFloor = lamps.hazeFloor
                 )
             }
         }
