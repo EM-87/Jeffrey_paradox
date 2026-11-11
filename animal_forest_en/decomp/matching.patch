@@ -5853,6 +5853,95 @@ index 0000000..c242d60
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_notice/func_800A6548_jp.s")
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_notice/func_800A65C4_jp.s")
+diff --git a/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c b/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c
+index e5e9b64..a19ecfd 100644
+--- a/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c
++++ b/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c
+@@ -1,4 +1,7 @@
+ #include "ac_animal_logo.h"
++#include "sys_matrix.h"
++#include "gfx.h"
++#include "game.h"
+ #include "m_actor_dlftbls.h"
+ #include "m_object.h"
+ #include "overlays/gamestates/ovl_play/m_play.h"
+@@ -68,7 +71,58 @@ ActorProfile Animal_Logo_Profile = {
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/actors/ovl_Animal_Logo/ac_animal_logo/func_80AA0A6C_jp.s")
+ 
+-#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/actors/ovl_Animal_Logo/ac_animal_logo/func_80AA0C98_jp.s")
++extern f32 D_FLT_80AA216C_jp[];
++extern f32 D_FLT_80AA2184_jp;
++extern Gfx D_80AA20C0_jp[];
++extern Gfx D_80AA20E8_jp[];
++extern Gfx* D_80AA2188_jp[];
++extern Gfx* D_80AA21A0_jp[];
++extern s32 D_80AA21B8_jp[];
++extern s32 D_80AA21CC_jp[];
++extern s32 D_80AA21E0_jp[];
++extern s32 D_80AA21F4_jp[];
++extern s32 D_80AA2208_jp[];
++extern s32 D_80AA221C_jp[];
++extern s32 D_80AA2230_jp[];
++extern s32 D_80AA2244_jp[];
++extern s32 D_80AA2258_jp[];
++
++/* One piece of the title's logo: placed by its x (D_FLT_80AA216C_jp) and the logo's y, turned, its two
++ * layers drawn in the font's display list with the colour set's colours */
++void func_80AA0C98_jp(Animal_Logo* this, Game* game, s16 idx) {
++    Gfx* gfx;
++    GraphicsContext* gfxCtx = game->gfxCtx;
++    UNUSED s32 pad;
++    f32 x;
++    f32 y;
++
++    x = ((D_FLT_80AA216C_jp[idx] - 160.0f) * 16.0f) - 2190.0f;
++    y = ((D_FLT_80AA2184_jp + 120.0f) * 16.0f) + 292.0f;
++    x += -20.0f * idx;
++    Matrix_push();
++    Matrix_translate(x, y, 0.0f, 1);
++    Matrix_RotateY(this->pieceAngle[idx] * 182.04445f, 1);
++    Matrix_scale(7.9975f, 7.9975f, 7.9975f, 1);
++
++    OPEN_DISPS(gfxCtx);
++    gfx = FONT_DISP;
++    gSPMatrix(gfx++, _Matrix_to_Mtx_new(gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
++    gSPDisplayList(gfx++, D_80AA20C0_jp);
++    gDPSetPrimColor(gfx++, 0, 50, D_80AA21F4_jp[this->colorSet], D_80AA2208_jp[this->colorSet],
++                    D_80AA221C_jp[this->colorSet], 120);
++    gDPSetEnvColor(gfx++, D_80AA2230_jp[this->colorSet], D_80AA2244_jp[this->colorSet],
++                   D_80AA2258_jp[this->colorSet], 255);
++    gSPDisplayList(gfx++, D_80AA2188_jp[idx]);
++    gSPDisplayList(gfx++, D_80AA20E8_jp);
++    gDPSetPrimColor(gfx++, 0, 255, 255, 230, 0, 255);
++    gDPSetEnvColor(gfx++, D_80AA21B8_jp[this->colorSet], D_80AA21CC_jp[this->colorSet],
++                   D_80AA21E0_jp[this->colorSet], 255);
++    gSPDisplayList(gfx++, D_80AA21A0_jp[idx]);
++    FONT_DISP = gfx;
++    CLOSE_DISPS(gfxCtx);
++
++    Matrix_pull();
++}
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/actors/ovl_Animal_Logo/ac_animal_logo/func_80AA0FA8_jp.s")
+ 
+diff --git a/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.h b/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.h
+index 9023bc0..632b9ef 100644
+--- a/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.h
++++ b/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.h
+@@ -12,7 +12,11 @@ typedef void (*Animal_LogoActionFunc)(struct Animal_Logo*, struct Game_Play*);
+ 
+ typedef struct Animal_Logo {
+     /* 0x000 */ Actor actor;
+-    /* 0x174 */ UNK_TYPE1 unk_174[0x1B4];
++    /* 0x174 */ UNK_TYPE1 unk_174[0x2B4 - 0x174];
++    /* 0x2B4 */ s32 colorSet;          /* which of the colour tables' entries the pieces take */
++    /* 0x2B8 */ UNK_TYPE1 unk_2B8[0x304 - 0x2B8];
++    /* 0x304 */ f32 pieceAngle[6];     /* each piece's turn about the vertical, in degrees */
++    /* 0x31C */ UNK_TYPE1 unk_31C[0xC];
+ } Animal_Logo; // size = 0x328
+ 
+ #endif
 diff --git a/src/overlays/actors/ovl_Npc/ac_npc.h b/src/overlays/actors/ovl_Npc/ac_npc.h
 index 81ac120..f656590 100644
 --- a/src/overlays/actors/ovl_Npc/ac_npc.h
