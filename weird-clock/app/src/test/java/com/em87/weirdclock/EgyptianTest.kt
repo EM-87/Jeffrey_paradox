@@ -253,13 +253,33 @@ class EgyptianTest {
     @Test
     fun `a roman date is captioned in latin`() {
         val roman = sky()
-        roman.windOrreryToYearForTest(1750)
+        roman.windOrreryToYearForTest(1500)
         val caption = captionSomewhereFrom(roman)
         assertTrue("a Roman year said nothing at all in a month and a half", caption != null)
         assertTrue(
             "the caption under a Roman date is not Latin: $caption",
             caption!!.none { it in 'a'..'z' && it in "wkyj" } &&
                 LATIN.any { caption.contains(it) }
+        )
+    }
+
+    /**
+     * And a date set in figures is captioned in our own words.
+     *
+     * By 1600 the date is written the way it is written now, and what is
+     * said under it is said the way it is said now. The Latin used to run
+     * to 1999 with the Roman numerals, which had the comet of 1986
+     * announced as Cometes.
+     */
+    @Test
+    fun `a date in figures is captioned in our own words`() {
+        val printed = sky()
+        printed.windOrreryToYearForTest(1750)
+        val caption = captionSomewhereFrom(printed)
+        assertTrue("a year in figures said nothing at all in a month and a half", caption != null)
+        assertTrue(
+            "the caption under a date in figures is Latin: $caption",
+            LATIN.none { it != "Mars" && it != "Luna" && caption!!.contains(it) }
         )
     }
 

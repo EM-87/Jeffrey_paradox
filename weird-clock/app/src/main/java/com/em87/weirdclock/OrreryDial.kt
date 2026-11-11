@@ -550,9 +550,9 @@ object OrreryDial {
      * What the months are called on a ring wound back to [year], or null
      * if they had no names yet.
      *
-     * The date under the dial changes script with the century — Roman
-     * letters behind us, digits through this millennium, hieroglyphs and
-     * cuneiform further back — and the months round the ring went on saying
+     * The date under the dial changes script with the century — figures
+     * back to 1600, Roman letters behind that, hieroglyphs and cuneiform
+     * further back — and the months round the ring went on saying
      * "Aug" through all of it, which is half a display in one alphabet and
      * half in another. The same rule applies to both now.
      *
@@ -573,7 +573,7 @@ object OrreryDial {
         year: Int
     ): Array<String>? = when {
         year < 1 -> null
-        year < 2000 && res != null -> res.getStringArray(R.array.lat_months)
+        year < OrreryYear.ARABIC_FROM && res != null -> res.getStringArray(R.array.lat_months)
         else -> java.text.DateFormatSymbols.getInstance().shortMonths
     }
 

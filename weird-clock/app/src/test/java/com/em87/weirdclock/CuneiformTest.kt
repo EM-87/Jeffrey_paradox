@@ -201,6 +201,43 @@ class CuneiformTest {
         assertEquals("part of it was carved", 0, clock.egyptiansPaintedForTest())
     }
 
+    /**
+     * The wedges write the day the astronomers' calendar gives, whatever
+     * calendar the phone keeps.
+     *
+     * The row read the day and the month off the phone's own calendar and
+     * the year off the astronomers' — and a phone on the Japanese
+     * imperial calendar has no Julian one behind it, so five thousand
+     * years back its day and month were weeks away from the ones the note
+     * under the row gives.
+     */
+    @Test
+    fun `the wedges write the astronomers' date whatever calendar the phone keeps`() {
+        val clock = sky()
+        clock.windOrreryToYearForTest(-3200)
+        val at = clock.orreryMsForTest()
+        val shown = AstroCalendar.dateAt(at, java.util.TimeZone.getDefault().getOffset(at))
+        val expected = Cuneiform.wedgeCount(shown.day) + Cuneiform.wedgeCount(shown.month) +
+            Cuneiform.wedgeCount(1 - shown.year) + 3
+        val keep = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale("ja", "JP", "JP"))
+            val theirs = java.util.Calendar.getInstance().apply { timeInMillis = at }
+            assertTrue(
+                "this phone's calendar agrees with the astronomers', so the test proves nothing",
+                theirs.get(java.util.Calendar.DAY_OF_MONTH) != shown.day ||
+                    theirs.get(java.util.Calendar.MONTH) + 1 != shown.month
+            )
+            clock.draw(canvas())
+            assertEquals(
+                "the wedges are not the ${shown.day}th of month ${shown.month}",
+                expected, clock.wedgesPaintedForTest()
+            )
+        } finally {
+            java.util.Locale.setDefault(keep)
+        }
+    }
+
     /** And it goes back to hieroglyphs on the other side of the handover. */
     @Test
     fun `a date after Egypt begins is carved and not pressed`() {

@@ -112,7 +112,8 @@ class SkyAgeTest {
         assertEquals(SkyAge.Era.BABYLONIAN, SkyAge.eraFor(-2000))
         assertEquals(SkyAge.Era.GREEK, SkyAge.eraFor(-400))
         assertEquals(SkyAge.Era.LATIN, SkyAge.eraFor(50))
-        assertEquals(SkyAge.Era.LATIN, SkyAge.eraFor(1750))
+        assertEquals(SkyAge.Era.LATIN, SkyAge.eraFor(1599))
+        assertEquals(SkyAge.Era.MODERN, SkyAge.eraFor(1750))
         assertEquals(SkyAge.Era.MODERN, SkyAge.eraFor(2026))
     }
 
@@ -127,11 +128,11 @@ class SkyAgeTest {
     fun `the names and the numerals change on the same year`() {
         assertEquals(
             "the planets stop being Latin somewhere other than where the year does",
-            SkyAge.MODERN_FROM, 2000
+            SkyAge.MODERN_FROM, OrreryYear.ARABIC_FROM
         )
         assertEquals(OrreryYear.Script.ROMAN, OrreryYear.scriptFor(SkyAge.MODERN_FROM - 1))
         assertEquals(SkyAge.Era.LATIN, SkyAge.eraFor(SkyAge.MODERN_FROM - 1))
-        assertEquals(OrreryYear.Script.DIGITS, OrreryYear.scriptFor(SkyAge.MODERN_FROM))
+        assertEquals(OrreryYear.Script.PRINTED, OrreryYear.scriptFor(SkyAge.MODERN_FROM))
         assertEquals(SkyAge.Era.MODERN, SkyAge.eraFor(SkyAge.MODERN_FROM))
     }
 
@@ -272,8 +273,14 @@ class SkyAgeTest {
         )
         clock.windOrreryToYearForTest(-400)
         assertEquals("Phosphoros", clock.bodyNameForTest(Orrery.Body.VENUS))
-        clock.windOrreryToYearForTest(1750)
+        clock.windOrreryToYearForTest(1500)
         assertEquals("Iuppiter", clock.bodyNameForTest(Orrery.Body.JUPITER))
+        // And Herschel's planet was never Latin: by 1781 the names were ours.
+        clock.windOrreryToYearForTest(1750)
+        assertEquals(
+            context.getString(R.string.body_jupiter),
+            clock.bodyNameForTest(Orrery.Body.JUPITER)
+        )
     }
 
     /** And in this century it says what we call them. */

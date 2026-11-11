@@ -6,8 +6,11 @@ package com.em87.weirdclock
  * The solar system can be wound centuries either way, and a row of ordinary
  * digits says nothing about how far you have gone — 1804 and 3211 look
  * equally like today until you read them. So the writing changes with the
- * distance: Roman before the year two thousand, plain digits through this
- * millennium, and something that is not ours at all past three thousand.
+ * distance, and it changes where the writing did: lit bars back to 1970,
+ * which is when there were bars to light; the same numerals set in type
+ * back to 1600, which is when Europe had gone over to them; Roman
+ * numerals before that; and something that is not ours at all past three
+ * thousand.
  *
  * It is a joke about how far you have wound, and jokes on a clock have to
  * still be legible. Each script keeps the same three groups in the same
@@ -40,10 +43,21 @@ object OrreryYear {
          */
         EGYPTIAN,
 
-        /** Before 2000: the way the years were written at the time. */
+        /**
+         * Before 1600: Roman numerals, cut in capitals — the way a year
+         * was written from the Republic until the figures we use now had
+         * pushed them out. See [ARABIC_FROM].
+         */
         ROMAN,
 
-        /** This millennium, which needs no comment. */
+        /**
+         * From 1600 to 1969: our own figures, set in type. The numerals
+         * are the ones on the dial today; what has not been invented yet
+         * is anything to light them up on. See [SEGMENTS_FROM].
+         */
+        PRINTED,
+
+        /** From 1970: the same figures on lit bars, which needs no comment. */
         DIGITS,
 
         /**
@@ -76,33 +90,55 @@ object OrreryYear {
     const val EGYPT_BEGINS = -3000
 
     /**
+     * The year the figures we use now take over from Roman numerals.
+     *
+     * There is no day on which Europe changed its numerals. The figures
+     * came in through Spain in the tenth century and through Fibonacci in
+     * 1202, were an Italian merchants' habit for three hundred years, and
+     * went everywhere with the printing press: "they became widely known
+     * during the 15th century" and "by the mid-16th century, they had
+     * been widely adopted in Europe" (Wikipedia, *Arabic numerals*), while
+     * Roman numerals were "remaining in common use in the West well into
+     * the 14th and 15th centuries" and their replacement "was quite
+     * gradual" (*Roman numerals*). Britannica's article on Roman numerals
+     * has them largely supplanted by the seventeenth century. The first
+     * year all of that is true of is 1600, so that is where the line is.
+     *
+     * Roman numerals did not stop there and have not yet — a title page
+     * of 1750 as often as not gives its year in them, and so does the end
+     * of a film. But by 1600 a date written down by somebody who was not
+     * carving it was written in figures.
+     */
+    const val ARABIC_FROM = 1600
+
+    /**
      * The year a display made of lit bars starts existing.
      *
-     * The sixteen-bar module the Roman date is written on is a piece of
-     * nineteen-seventies electronics — the first calculator displays are
-     * 1970 and 1971 — and a date from 1750 shown on one is an anachronism
-     * of exactly the kind everything else on this dial is trying not to
-     * be. Before it there is no lit display of any sort to write on, so
-     * the date is *printed*: a serif face, the way a date was set on a
-     * page for the four hundred years before anybody could light one up.
+     * Seven bars to a figure were patented in 1903 and lit a boiler-room
+     * panel in 1910, and then "did not achieve widespread use until the
+     * advent of LEDs in the 1970s" (Wikipedia, *Seven-segment display*).
+     * So a date from 1750 shown on one is an anachronism of exactly the
+     * kind everything else on this dial is trying not to be, and before
+     * 1970 the date is *printed*: a serif face, the way a date was set on
+     * a page for the five hundred years before anybody could light one
+     * up, and cut into stone for the two thousand before that.
      *
-     * The line falls inside the Roman era rather than at the edge of it,
-     * so the two halves of that era look different from each other. That
-     * is the point: 1970 is not where the numerals changed, it is where
-     * the technology for showing them arrived.
+     * It used to fall inside the Roman era, which ran to 1999, and the
+     * thirty years between were Roman numerals on a sixteen-bar display —
+     * a thing nobody ever built to write a year on, in a decade that
+     * wrote its years in figures.
      */
     const val SEGMENTS_FROM = 1970
 
     /**
      * Whether a date is printed rather than lit.
      *
-     * Only the Roman years are ever printed. The hieroglyphs and the
-     * wedges are carved and pressed rather than displayed at all, so the
-     * question does not arise for them, and every year the seven-bar row
-     * and the star are used for is comfortably after 1970.
+     * Everything from the year one to 1969, in whichever numerals. The
+     * hieroglyphs and the wedges are carved and pressed rather than
+     * displayed at all, so the question does not arise for them.
      */
-    fun isPrinted(year: Int, script: Script): Boolean =
-        script == Script.ROMAN && year < SEGMENTS_FROM
+    fun isPrinted(script: Script): Boolean =
+        script == Script.ROMAN || script == Script.PRINTED
 
     /** Which alphabet a given year is written in. */
     fun scriptFor(year: Int): Script = when {
@@ -119,7 +155,8 @@ object OrreryYear {
         // not an earlier way of writing the same thing, it is an earlier
         // idea of what writing a number is.
         year < 1 -> Script.EGYPTIAN
-        year < 2000 -> Script.ROMAN
+        year < ARABIC_FROM -> Script.ROMAN
+        year < SEGMENTS_FROM -> Script.PRINTED
         year < 3000 -> Script.DIGITS
         else -> Script.YAUTJA
     }

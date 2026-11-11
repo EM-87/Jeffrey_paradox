@@ -579,6 +579,12 @@ class ClockView @JvmOverloads constructor(
     // business and not theirs, so the questions stay here and the answers
     // come from next door.
 
+    /** How many figures the last seven-bar row lit. */
+    private var sevenBarChars = 0
+
+    /** For the tests: that count. */
+    internal fun sevenBarCharsForTest(): Int = sevenBarChars
+
     /** For the tests: sixteen-bar modules in the last row the sky wrote. */
     internal fun barsPaintedForTest(): Int = scripts.barsPaintedForTest()
 
@@ -5496,6 +5502,12 @@ class ClockView @JvmOverloads constructor(
             return "${Roman.of(first)} ${Roman.of(second)} " +
                 OrreryYear.yearText(y, script)
         }
+        // Figures set in type: no noughts in front of a single one, which
+        // is a habit of displays with a fixed number of places and not of
+        // anybody writing a date down.
+        if (script == OrreryYear.Script.PRINTED) {
+            return "$first/$second/${OrreryYear.yearText(y, script)}"
+        }
         // Before writing there is no date at all — not a blank one. An
         // empty string here is what stops the row being drawn, and every
         // caller checks it.
@@ -5585,7 +5597,9 @@ class ClockView @JvmOverloads constructor(
             }
             return date.king?.name
         }
-        if (script != OrreryYear.Script.ROMAN && script != OrreryYear.Script.DIGITS) {
+        if (script != OrreryYear.Script.ROMAN && script != OrreryYear.Script.PRINTED &&
+            script != OrreryYear.Script.DIGITS
+        ) {
             return null
         }
         return OrreryDial.caption(
@@ -5791,6 +5805,7 @@ class ClockView @JvmOverloads constructor(
         digitalPaint.alpha = (215 * fade).toInt()
         val script = orreryScript()
         val date = orreryDateDigits()
+        sevenBarChars = 0
         // Nothing was written down before the wedges, so nothing is drawn.
         // The counters are cleared rather than left at whatever the last
         // legible century put in them, or a test asking "is there a date"
@@ -5813,20 +5828,13 @@ class ClockView @JvmOverloads constructor(
             return
         }
         when (script) {
-            // Seven bars can make ten digits and nothing else, so a year
-            // in letters needs a display with more bars in it, not a
-            // different typeface pushed through the same slot.
-            //
-            // Unless the year is older than the display is. A row of lit
-            // bars is nineteen-seventies electronics, and a date from 1750
-            // shown on one is the same sort of anachronism as Neptune over
-            // Babylon — so before 1970 the date is set in type instead.
-            OrreryYear.Script.ROMAN ->
-                if (OrreryYear.isPrinted(SkyAge.yearOf(orreryMs()), script)) {
-                    scripts.drawPrintedDate(canvas, scriptFrame(), date, cx, yTop, digitH)
-                } else {
-                    scripts.drawOtherScript(canvas, scriptFrame(), date, cx, yTop, digitH)
-                }
+            // Older than any display there is to light: set in type, in
+            // Roman numerals before 1600 and in our own figures after.
+            // A row of lit bars is nineteen-seventies electronics, and a
+            // date from 1750 shown on one is the same sort of anachronism
+            // as Neptune over Babylon.
+            OrreryYear.Script.ROMAN, OrreryYear.Script.PRINTED ->
+                scripts.drawPrintedDate(canvas, scriptFrame(), date, cx, yTop, digitH)
             // Day and month on the sixteen-bar module, which can still
             // write a digit; the year on the star, which cannot write
             // anything anybody here can read.
@@ -6091,6 +6099,7 @@ class ClockView @JvmOverloads constructor(
         // a test asking which one the sky used gets an honest zero rather
         // than whatever the last row to use one left behind.
         scripts.nothingWritten()
+        sevenBarChars = text.count { it.isDigit() }
         val digitW = digitH * 0.55f
         val gap = digitW * 0.45f
         val markW = digitW * 0.34f

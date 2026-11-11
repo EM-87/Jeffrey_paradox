@@ -105,14 +105,16 @@ object SkyAge {
     /**
      * The names go modern where the date does.
      *
-     * The same year the date stops being written in Roman numerals, so
-     * that a wound-back sky never shows a Latin caption over English names
-     * or the other way about. It is late for it — English names were in
-     * use long before the year two thousand — but the alternative is two
-     * changes a few centuries apart, and one line the whole display
-     * crosses at once is worth more than either date being exact.
+     * The same year the date stops being written in Roman numerals — see
+     * [OrreryYear.ARABIC_FROM] — so that a wound-back sky never shows a
+     * Latin caption over English names or the other way about. It is a
+     * little early for it: Kepler and Newton were still to write in
+     * Latin. But the alternative is two changes a century apart, and one
+     * line the whole display crosses at once is worth more than either
+     * date being exact. It used to be the year two thousand, which had
+     * Voyager flying past a planet called Saturnus.
      */
-    const val MODERN_FROM = 2000
+    const val MODERN_FROM = OrreryYear.ARABIC_FROM
 
     /** Which set of names a year goes by. */
     fun eraFor(year: Int): Era = when {

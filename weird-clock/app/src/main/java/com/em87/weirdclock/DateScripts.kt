@@ -4,7 +4,6 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
-import java.util.Calendar
 import java.util.TimeZone
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -14,12 +13,13 @@ import kotlin.math.sin
 /**
  * The four other ways this dial writes a date, and the one printed one.
  *
- * Wound far enough, the row of digits under the sky stops being digits.
- * Roman numerals go through a sixteen-bar module because seven bars can
- * make ten shapes and no letters; before 1970 they are set in serif type
- * instead, because a lit bar is nineteen-seventies electronics and a date
- * from 1750 shown on one is the same anachronism as Neptune over Babylon.
- * Further back still there are hieroglyphs, and behind those, wedges.
+ * Wound far enough, the row of digits under the sky stops being lit. A
+ * bar that lights is nineteen-seventies electronics and a date from 1750
+ * shown on one is the same anachronism as Neptune over Babylon, so before
+ * 1970 the date is set in serif type: our own figures back to 1600 and
+ * Roman numerals before that. Further back still there are hieroglyphs,
+ * and behind those, wedges. The sixteen-bar module is the far future's,
+ * which writes its day and its month on one.
  *
  * All of it lifted out of [ClockView] whole. It is a thousand lines about
  * the shapes of letters and it borrows almost nothing from a clock: two
@@ -808,11 +808,14 @@ class DateScripts {
      * the writing without moving the row.
      */
     fun drawCuneiformDate(canvas: Canvas, frame: Frame, cx: Float, top: Float, digitH: Float) {
-        val cal = Calendar.getInstance()
-        cal.timeInMillis = frame.atMs
-        val d = cal.get(Calendar.DAY_OF_MONTH)
-        val m = cal.get(Calendar.MONTH) + 1
-        val y = SkyAge.yearOf(frame.atMs)
+        // The astronomers' calendar and not the phone's — see
+        // [AstroCalendar] — as the rest of this row is.
+        val shown = AstroCalendar.dateAt(
+            frame.atMs, TimeZone.getDefault().getOffset(frame.atMs)
+        )
+        val d = shown.day
+        val m = shown.month
+        val y = shown.year
         val parts = intArrayOf(
             if (frame.dayFirst) d else m,
             if (frame.dayFirst) m else d,
@@ -913,8 +916,8 @@ class DateScripts {
      *
      * Fitted to the row the same way the bar displays are, because a Roman
      * date is not a fixed number of characters wide —
-     * `XXVIII·XII·MDCCCLXXXVIII` is twenty-four of them — and a size that
-     * suits `I·I·MCM` runs a long year off both edges of the phone.
+     * `XXVIII·XII·MDLXXXVIII` is twenty-one of them — and a size that
+     * suits `I·I·MD` runs a long year off both edges of the phone.
      *
      * Sat on the same line as every other display, so winding across 1970
      * changes the face without moving the row.

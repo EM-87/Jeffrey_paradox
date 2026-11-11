@@ -23,6 +23,32 @@ Lo que quedó medido y no hecho al unificar el Sol y la Luna:
 - **Dos pruebas con flaqueza por reloj real**: `ColonBreathTest` (parpadeo
   medido contra la hora de pared) y `FurnitureFadeTest` (1 LSB).
 
+## Rigor histórico del orrery (lo que queda sin hacer)
+
+La escala de escrituras de la fecha quedó así: dígitos encendidos desde
+1970, las mismas cifras en tipo de imprenta de 1600 a 1969, numerales
+romanos del año 1 a 1599, jeroglíficos de −3000 a 0, cuñas de −3500 a
+−3001 y nada antes. Lo que sigue sin ser riguroso, medido contra las
+fuentes y no corregido:
+
+- **La fecha romana es la nuestra con otras letras**: día·mes·año contados
+  desde el año 1, cuando la era cristiana se propuso en 525 y no fue de uso
+  corriente hasta el siglo VIII. Un romano fechaba por cónsules y contaba
+  los días hacia las calendas, nonas e idus ("a. d. III Id. Mart."). Hacerlo
+  como se hizo con Egipto (año de reinado, estaciones del Nilo) es un
+  calendario romano entero.
+- **Las cuñas son tres mil años más jóvenes que su ventana**: el sistema
+  posicional en sesentas es de hacia −2000; entre −3500 y −3000 los números
+  eran marcas redondas impresas (protocuneiforme). Ya estaba anotado en
+  `Cuneiform.Word`.
+- **Los nombres latinos de los planetas acaban en 1600**, con los numerales,
+  para que toda la pantalla cruce una sola línea; Kepler y Newton todavía
+  escribieron en latín.
+- **1600 es una convención**: no hubo un día en que Europa cambiara de
+  numerales. "Ampliamente adoptados a mediados del siglo XVI" (Wikipedia) y
+  "en gran parte sustituidos hacia el siglo XVII" (Britannica); las portadas
+  de los libros siguieron dando el año en romanos hasta el XVIII.
+
 ## v41 (congelado hasta enero)
 
 Ideas apuntadas durante el pulido de la 40.6. No se tocan hasta enero.
