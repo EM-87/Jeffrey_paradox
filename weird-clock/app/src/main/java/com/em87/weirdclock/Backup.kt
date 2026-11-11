@@ -156,6 +156,9 @@ object Backup {
         Prefs.COUNTDOWN_BUBBLE,
         Prefs.LOCATION_ASKED,
         Prefs.OVERLAY_ASKED,
+        // Whether a widget's visit to another face has ended: a fact
+        // about one screen on one phone on one afternoon.
+        Prefs.VISIT_OVER,
         // A booking for one particular morning, and the tally that goes
         // with it. Restored onto another phone or another week they would
         // be a promise about an alarm that no longer exists.

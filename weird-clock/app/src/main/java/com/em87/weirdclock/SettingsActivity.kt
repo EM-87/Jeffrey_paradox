@@ -64,6 +64,27 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * The widgets are repainted when the app is left, and this is one of
+     * the two doors out of it.
+     *
+     * The clock's screen used to repaint them on the way *into* the
+     * settings — before anything here had been changed, and with every
+     * widget's drawing between the tap and this screen appearing — and
+     * nothing repainted them on the way out through here, so a theme
+     * changed and then the home button pressed left the widgets as they
+     * were until their next tick. Going back to the clock is not leaving:
+     * that screen repaints them when it is left in its turn. Nor is this
+     * screen being built again around a new face.
+     */
+    override fun onStop() {
+        super.onStop()
+        if (isFinishing || isChangingConfigurations) return
+        ClockWidgetProvider.refreshAll(this)
+        ClockWidgetProvider.scheduleSkyTick(this)
+        HourglassWidgetProvider.refreshAll(this)
+    }
+
 
     /**
      * A preference screen, with the two things every one of them needs.

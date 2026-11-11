@@ -106,10 +106,28 @@ class FaceRowPreference @JvmOverloads constructor(
 
     /** A tap on a face: the same path a pick from the list took. */
     private fun choose(face: Face) {
-        if (face == current()) return
-        if (!callChangeListener(face.key)) return
-        persistString(face.key)
-        notifyChanged()
+        if (face != current() && callChangeListener(face.key)) {
+            persistString(face.key)
+            notifyChanged()
+        }
+        // Said either way. A tap on the face already stored changes no
+        // setting, and it is still an answer: the clock may be wearing a
+        // face a widget lent it, and whoever taps the one the settings
+        // say it has is asking for that one back. Written down as well as
+        // said, because the clock's screen may not be there to hear it —
+        // the system throws it away behind the settings when it is short
+        // of room, and builds it again from what is written.
+        sharedPreferences?.edit()?.putBoolean(Prefs.VISIT_OVER, true)?.apply()
+        picked?.run()
+    }
+
+    companion object {
+        /**
+         * Run when a face is tapped, whichever face — the clock's screen
+         * listens here, from behind the settings.
+         */
+        @Volatile
+        internal var picked: Runnable? = null
     }
 
     private fun colour(attr: Int): Int {

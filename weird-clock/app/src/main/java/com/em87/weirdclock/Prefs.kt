@@ -21,6 +21,19 @@ object Prefs {
     const val FACE_ASKED = "pref_face_asked"
 
     /**
+     * Whether the visit a widget asked for has ended.
+     *
+     * A widget pinned to one clock opens the app wearing that clock for
+     * the visit — see [MainActivity.EXTRA_SHOW_FACE] — and the request
+     * stays with the screen for as long as the system keeps it, through
+     * every rebuild and through the app being thrown away and brought
+     * back. So that the visit is over has to be kept somewhere that
+     * outlives all of those, which is here. Not a setting: nothing shows
+     * it and a backup does not carry it.
+     */
+    const val VISIT_OVER = "pref_visit_over"
+
+    /**
      * How the digits are made: lit segments, flip cards, or rollers.
      *
      * A digital clock has no hands to grab, and two of these three are

@@ -335,8 +335,14 @@ open class ClockWidgetProvider : AppWidgetProvider() {
          * sunset.
          */
         fun refreshAll(context: Context) {
+            refreshes++
             for ((cls, pinned) in KINDS) refreshKind(context, cls, pinned)
         }
+
+        /** For the tests: how many times every widget has been asked to repaint. */
+        @Volatile
+        internal var refreshes = 0
+            private set
 
         /** And one kind of them, which is what a wake-up is booked for. */
         private fun refreshKind(

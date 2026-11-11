@@ -250,6 +250,59 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private var borrowedFace: Face? = null
 
+    /**
+     * Whether the visit a widget asked for is over.
+     *
+     * A borrowed face used to be kept for as long as this screen lived,
+     * which on a phone that never closes its clock is for ever: the app
+     * went on wearing the globe a widget had asked for on Monday, and the
+     * settings — which are about the face that is stored, and say so —
+     * could not change it, because a lent face is not compared with the
+     * stored one. Two things end a visit now. Picking a face in the
+     * settings, even the one already stored, because an answer given
+     * there is an answer; and leaving the app, after which coming back in
+     * by anything but that widget is not that visit any more.
+     *
+     * Written down — see [Prefs.VISIT_OVER] — because the request that
+     * began the visit outlives it: a rebuilt screen is handed the same
+     * request again, and so is one the system brings back after throwing
+     * the whole app away, which it does to a clock in the background most
+     * days.
+     */
+    private var visitOver: Boolean
+        get() = prefs.getBoolean(Prefs.VISIT_OVER, false)
+        set(value) = prefs.edit().putBoolean(Prefs.VISIT_OVER, value).apply()
+
+    /** Whether the app has been left since the face was borrowed. */
+    private var leftWhileBorrowed = false
+
+    /** Whether this screen is between its onStart and its onStop. */
+    private var started = false
+
+    /** True from stepping into our own settings until coming back out of them. */
+    private var inOwnSettings = false
+
+    /**
+     * When this instance asked to be thrown away and built again, by the
+     * uptime clock; nought if it has not.
+     */
+    private var rebuildAskedAt = 0L
+
+    private val rebuilding: Boolean
+        get() = rebuildAskedAt != 0L
+
+    /**
+     * Whether this instance was built behind another screen.
+     *
+     * A screen rebuilt while it is not the one in front is still walked
+     * through onResume and onPause on its way back to being stopped — that
+     * is how the system puts a new instance where a stopped one was — and
+     * neither of those is somebody looking at it. So it does none of what
+     * arriving in front does (the ticking, the sensors, the countdown's
+     * notice, the questions it asks) until it is really restarted.
+     */
+    private var behind = false
+
     /** The card on screen: the row says which of the page's cards it is. */
     private fun current(): Card? = Cards.on(Cards.pageAt(pager.currentItem, face), row, face)
     /**
@@ -877,9 +930,19 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // Unless a widget has asked for one for this visit — see
         // [EXTRA_SHOW_FACE]. Nothing is written down: the next time the
         // app is opened from anywhere else it is whatever it was.
-        borrowedFace = intent?.getStringExtra(EXTRA_SHOW_FACE)
+        behind = builtBehind
+        builtBehind = false
+        inOwnSettings = behind
+        // A screen opened by the request is a visit beginning. One built
+        // again around a request it has already been handed is the same
+        // visit, if that is still on.
+        val asked = intent?.getStringExtra(EXTRA_SHOW_FACE)
             ?.let { key -> Face.entries.firstOrNull { it.key == key } }
+        if (asked != null && savedInstanceState == null) visitOver = false
+        borrowedFace = if (visitOver) null else asked
         borrowedFace?.let { face = it }
+        FaceRowPreference.picked = facePicked
+        if (behind) window.decorView.post { layOutUnseen() }
         // The floating hourglass used to be a yes/no switch; it is now a
         // choice of two. Carry the old answer over once.
         if (!prefs.contains(Prefs.COUNTDOWN_FLOAT)) {
@@ -1316,13 +1379,139 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         intent.getStringExtra(EXTRA_SHOW_FACE)
             ?.let { key -> Face.entries.firstOrNull { it.key == key } }
             ?.let { wanted ->
+                // A visit, and a new one if the last had ended.
+                visitOver = false
+                leftWhileBorrowed = false
+                borrowedFace = wanted
                 if (wanted != face) {
-                    borrowedFace = wanted
                     recreateFor("borrowed $face->$wanted")
                 } else {
                     goTo(Card.CLOCK)
                 }
             }
+    }
+
+    /** The visit a widget asked for is over: the clock is its own again. */
+    private fun endVisit() {
+        borrowedFace = null
+        visitOver = true
+        leftWhileBorrowed = false
+    }
+
+    /**
+     * Gives a lent face back if the app has been left since it was lent.
+     *
+     * Asked a moment after arriving in front rather than on arriving:
+     * when it is the widget that has brought the app back, its request is
+     * delivered after the screen has been resumed once, and the visit it
+     * is asking for is the one that would just have been ended.
+     */
+    private val endVisitIfLeft = Runnable {
+        if (borrowedFace == null || !leftWhileBorrowed || isFinishing || isDestroyed) {
+            return@Runnable
+        }
+        endVisit()
+        val own = Face.of(prefs)
+        if (own != face) recreateFor("visit over $face->$own")
+    }
+
+    /**
+     * A face was tapped in the settings — any face, the stored one too.
+     *
+     * An answer given there is an answer, so whatever a widget had lent
+     * is given back; and the screen is built for it now, behind the
+     * settings, instead of on the way back from them. Changing the face
+     * is throwing this screen away and building another, which on the
+     * way back was the wait between pressing back and seeing the clock
+     * that had been chosen.
+     */
+    private val facePicked = Runnable {
+        if (borrowedFace != null) endVisit()
+        handler.removeCallbacks(rebuildBehindSoon)
+        handler.postDelayed(rebuildBehindSoon, REBUILD_BEHIND_AFTER_MS)
+    }
+
+    /**
+     * After the frame the settings are drawing, not in front of it: the
+     * row that was tapped redraws itself first, and what is built behind
+     * it waits for that to be on the glass.
+     */
+    private val rebuildBehindSoon = Runnable {
+        android.view.Choreographer.getInstance().postFrameCallback {
+            handler.post(rebuildBehindNow)
+        }
+    }
+
+    private val rebuildBehindNow = Runnable { rebuildBehind() }
+
+    /**
+     * Throws this screen away and builds the one the settings now ask
+     * for, while it is still behind them.
+     *
+     * Only where the system can put a rebuilt screen back where a stopped
+     * one was, which is Android 9 and later; before that a screen rebuilt
+     * out of sight came back resumed, in front of nothing. There, and
+     * whenever somebody is back before this has run, [onResume] does it
+     * as it always did.
+     */
+    private fun rebuildBehind() {
+        if (started || rebuilding || isFinishing || isDestroyed) return
+        val wanted = borrowedFace ?: Face.of(prefs)
+        if (wanted == face) return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+        builtBehind = true
+        recreateFor("behind $face->$wanted")
+    }
+
+    /**
+     * Lays the screen out while nobody can see it.
+     *
+     * A window that is stopped is not measured: the system puts a rebuilt
+     * instance back behind whatever is in front and leaves the laying out
+     * for the day it is shown — which is the pages being inflated and
+     * every card on them built, most of what building this screen costs,
+     * on the frame somebody is waiting for. So a screen built behind the
+     * settings lays itself out there, at the size its window has, and
+     * coming back to it is a matter of drawing it.
+     */
+    internal fun layOutUnseen() {
+        val root = window.decorView
+        if (root.isLaidOut) return
+        val bounds = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            windowManager.currentWindowMetrics.bounds
+        } else {
+            val size = android.graphics.Point()
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay.getRealSize(size)
+            Rect(0, 0, size.x, size.y)
+        }
+        if (bounds.width() <= 0 || bounds.height() <= 0) return
+        root.measure(
+            View.MeasureSpec.makeMeasureSpec(bounds.width(), View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(bounds.height(), View.MeasureSpec.EXACTLY)
+        )
+        root.layout(0, 0, bounds.width(), bounds.height())
+    }
+
+    override fun onStart() {
+        super.onStart()
+        started = true
+    }
+
+    override fun onRestart() {
+        super.onRestart()
+        // Somebody is coming back to this screen, so it is behind nothing.
+        behind = false
+        inOwnSettings = false
+        handler.removeCallbacks(rebuildBehindSoon)
+        handler.removeCallbacks(rebuildBehindNow)
+    }
+
+    override fun onStop() {
+        started = false
+        // Stopped by anything but our own settings is the app being left.
+        if (borrowedFace != null && !inOwnSettings) leftWhileBorrowed = true
+        super.onStop()
     }
 
     /**
@@ -1341,7 +1530,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     override fun onResume() {
         super.onResume()
+        // Built behind another screen and on its way back to being
+        // stopped: nobody is looking — see [behind].
+        if (behind) return
+        if (rebuilding) {
+            // Asked a moment ago and still on its way. This is the tail of
+            // the same turn of the lifecycle — a widget's request arrives
+            // between a pause and a resume — and the screen being resumed
+            // is the one about to go.
+            if (SystemClock.uptimeMillis() - rebuildAskedAt < REBUILD_GRACE_MS) return
+            // Asked for and never done. Not a thing that has been seen,
+            // but a clock left hidden is not a thing to leave to chance.
+            rebuildAskedAt = 0L
+            pager.visibility = View.VISIBLE
+        }
         inFront = true
+        arrivals++
         // System light/dark toggled while we were away: rebuild everything
         // so backgrounds, text colors and theme cards pick up the change.
         val uiMode = resources.configuration.uiMode
@@ -1361,6 +1565,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         if (borrowedFace == null && Face.of(prefs) != face) {
             recreateFor("face $face->${Face.of(prefs)}")
             return
+        }
+        // A face a widget lent, and the app has been left since — see
+        // [endVisitIfLeft] for why this is asked a moment later.
+        if (borrowedFace != null && leftWhileBorrowed) {
+            handler.removeCallbacks(endVisitIfLeft)
+            handler.post(endVisitIfLeft)
         }
         // The app is visible again: the notification takes a break, and we
         // pick up anything that happened to the countdown while away.
@@ -1525,6 +1735,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         dialJob == null && current().let { it == Card.STOPWATCH || it == Card.REVERSE }
 
     override fun onPause() {
+        // The other half of [behind]: nothing was started, so there is
+        // nothing to stop.
+        if (behind) {
+            super.onPause()
+            return
+        }
         inFront = false
         // A dialog outlives the window it was shown in unless it is told
         // otherwise, and the system says so out loud in the log.
@@ -1545,10 +1761,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // app goes to the background, so onDetachedFromWindow never ran.
         clockView?.leaveOrrery()
         sensorManager?.unregisterListener(flipListener)
-        ClockWidgetProvider.refreshAll(this)
-        // And book the next wake-up, in case the settings just changed
-        // where the sun is or whether it is drawn at all.
-        ClockWidgetProvider.scheduleSkyTick(this)
+        // The widgets are repainted when the app is left, and two pauses
+        // are not that. A screen being thrown away to be built again is
+        // not leaving, and the one built in its place does all this when
+        // it is left. And stepping into our own settings leaves, if it
+        // leaves at all, by way of the settings — which repaint the
+        // widgets themselves, after whatever was changed there rather
+        // than before it: see [SettingsActivity.onStop]. Painting every
+        // widget on the home screen is drawing every one of those clocks,
+        // on the thread the next screen is waiting for.
+        val leaving = !isChangingConfigurations && !openingSettings
+        if (leaving) {
+            ClockWidgetProvider.refreshAll(this)
+            // And book the next wake-up, in case the settings just changed
+            // where the sun is or whether it is drawn at all.
+            ClockWidgetProvider.scheduleSkyTick(this)
+        }
         // Leaving the app is as good a moment as any to make sure the bells
         // are still armed: their chain lives on alarms, and anything that
         // breaks it (a force stop, an update) leaves them silent otherwise.
@@ -1556,7 +1784,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // The sand widget wears the theme too, and nothing was repainting
         // it: it kept the old colours until a countdown happened to run. A
         // running one is already being pushed live, so leave it alone.
-        if (!countdownRunning) HourglassWidgetProvider.pushIdle(this)
+        if (!countdownRunning && leaving) HourglassWidgetProvider.pushIdle(this)
         // A running countdown stays visible from outside the app as an
         // ongoing notification with live remaining time and a progress bar.
         if (countdownRunning && !openingSettings) {
@@ -1567,6 +1795,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     override fun onDestroy() {
+        if (FaceRowPreference.picked === facePicked) FaceRowPreference.picked = null
+        handler.removeCallbacks(rebuildBehindSoon)
+        handler.removeCallbacks(rebuildBehindNow)
+        handler.removeCallbacks(endVisitIfLeft)
         chimePlayer.release()
         super.onDestroy()
     }
@@ -1842,6 +2074,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // Opening our own settings is not "leaving the app": don't
                 // fire up the countdown notification and floating bubble.
                 openingSettings = true
+                inOwnSettings = true
                 startActivity(Intent(this, SettingsActivity::class.java))
             }
         }
@@ -2427,8 +2660,41 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      */
     private fun recreateFor(reason: String) {
         lastRecreateReason = "$reason@${System.currentTimeMillis()}"
+        rebuildAskedAt = SystemClock.uptimeMillis().coerceAtLeast(1L)
+        // The clock that is going is not painted again on its way out.
+        // Coming back from the settings it was drawn once more — a whole
+        // frame of the face that had just been changed — before the one
+        // that had been asked for was so much as started.
+        pager.visibility = View.INVISIBLE
         recreate()
     }
+
+    /** For the tests: whether this instance was built behind another screen. */
+    internal fun builtBehindForTest(): Boolean = behind
+
+    /** How many times this instance has arrived in front of somebody. */
+    private var arrivals = 0
+
+    /** For the tests: that count. */
+    internal fun arrivalsForTest(): Int = arrivals
+
+    /** For the tests: the face a widget has lent, if one has. */
+    internal fun borrowedFaceForTest(): Face? = borrowedFace
+
+    /** For the tests: asks for a rebuild the way everything here does. */
+    internal fun askToBeRebuiltForTest(reason: String) = recreateFor(reason)
+
+    /** For the tests: the settings button, pressed. */
+    internal fun openSettingsForTest() {
+        settingsButton?.performClick()
+    }
+
+    /** For the tests: whether the pages are on the glass. */
+    internal fun pagesShownForTest(): Boolean = pager.visibility == View.VISIBLE
+
+    /** For the tests: how many pages have been built. */
+    internal fun pagesBuiltForTest(): Int =
+        (pager.getChildAt(0) as? ViewGroup)?.childCount ?: 0
 
     /** For the tests: which face this screen was built for. */
     internal fun faceForTest(): Face = face
@@ -4750,6 +5016,22 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         /** See [clockForTest]. */
         @Volatile
         internal var lastRecreateReason: String? = null
+
+        /**
+         * Set by an instance being rebuilt behind another screen, for the
+         * instance built in its place to read once — see [behind].
+         */
+        private var builtBehind = false
+
+        /**
+         * How long after a face is tapped in the settings the screen
+         * behind them is rebuilt for it: long enough for the settings to
+         * have redrawn themselves around the answer first.
+         */
+        internal const val REBUILD_BEHIND_AFTER_MS = 450L
+
+        /** How long a rebuild that has been asked for is taken to be on its way. */
+        private const val REBUILD_GRACE_MS = 2_000L
 
         const val EXTRA_OPEN_ALARMS = "extra_open_alarms"
         const val EXTRA_OPEN_TIMER = "extra_open_timer"
