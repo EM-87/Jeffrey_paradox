@@ -5854,18 +5854,39 @@ index 0000000..c242d60
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_notice/func_800A65C4_jp.s")
 diff --git a/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c b/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c
-index e5e9b64..a19ecfd 100644
+index e5e9b64..d1d65d2 100644
 --- a/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c
 +++ b/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c
-@@ -1,4 +1,7 @@
+@@ -1,4 +1,8 @@
  #include "ac_animal_logo.h"
 +#include "sys_matrix.h"
 +#include "gfx.h"
 +#include "game.h"
++#include "6B3DC0.h"
  #include "m_actor_dlftbls.h"
  #include "m_object.h"
  #include "overlays/gamestates/ovl_play/m_play.h"
-@@ -68,7 +71,58 @@ ActorProfile Animal_Logo_Profile = {
+@@ -64,11 +68,77 @@ ActorProfile Animal_Logo_Profile = {
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/actors/ovl_Animal_Logo/ac_animal_logo/func_80AA07F4_jp.s")
+ 
+-#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/actors/ovl_Animal_Logo/ac_animal_logo/func_80AA08E4_jp.s")
++void func_80AA07F4_jp(Game* game);
++
++extern u8 D_80AA2118_jp[];
++extern u8 D_80AA212C_jp[];
++extern u8 D_80AA2140_jp[];
++
++/* The warning that no controller is in the first port (the draw calls it while common_data + 0x10AB0 is 0):
++ * three lines of 20 characters in the font, each placed by its own x */
++void func_80AA08E4_jp(Game* game) {
++    func_80AA07F4_jp(game);
++    mFont_SetMatrix(game->gfxCtx, 1);
++    mFont_SetLineStrings_AndSpace(game, (char*)D_80AA2118_jp, 20, 55.0f, 120.0f, 50, 30, 30, 255, 0, 1, 0, 1.0f, 1.0f, 1);
++    mFont_SetLineStrings_AndSpace(game, (char*)D_80AA212C_jp, 20, 64.0f, 140.0f, 50, 30, 30, 255, 0, 1, 0, 1.0f, 1.0f, 1);
++    mFont_SetLineStrings_AndSpace(game, (char*)D_80AA2140_jp, 20, 50.0f, 160.0f, 50, 30, 30, 255, 0, 1, 0, 1.0f, 1.0f, 1);
++    mFont_UnSetMatrix(game->gfxCtx, 1);
++}
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/actors/ovl_Animal_Logo/ac_animal_logo/func_80AA0A6C_jp.s")
  
