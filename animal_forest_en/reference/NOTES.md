@@ -2420,8 +2420,12 @@ what goes in it: "The letters in the en build").
   bank has empty (its English says the name alone) and the draft had
   kept in kana. Ours is empty (`units.txt`): the loader clears the
   buffer to spaces (`mString_Load_StringFromRom`, size 0), the length is 0
-  and nothing is put in. The messages check shows no page with a string
-  code (`first_page`), so it never saw this. TODO(verify) on screen.
+  and nothing is put in. The messages check showed no page with a string
+  code (`first_page`), so it never saw the kana; it now measures a first
+  page with the town's name in it, the name the state's save holds
+  (`common_data` + 0x2F60, one character in route-en's): 7 of ours (4,
+  52, 90, 98, 103, 8032, 10178), every line where the model of the name
+  alone puts it (the kana would have added some 24 pixels).
 - **The fish's size.** The fishing tourney and the pond (`ovl_Ev_Angler`,
   `ovl_Turi`) print a size as its number and string 670 after it
   (`mString_Load_NumberStringAddUnitFromRom`): the cartridge's number is
@@ -2489,3 +2493,20 @@ what goes in it: "The letters in the en build").
   letter drafts has kana now but the GameCube's dashes and wave dashes
   (`ー`, `～`), and no character of the GameCube's falls back to a
   question mark.
+- **Measured.** `make messages-check-en` (every file of
+  `script/message/` given): the bank holds the 776 of ours as written,
+  laid out for the en font, each with the cartridge's codes that steer
+  the game and no string it does not fill; 536 of their first pages are
+  shown (55 of the 2010 patch's, 2 of the GameCube's as controls): 593
+  messages, 0 of their 1,679 lines off the model; 134 played to their end
+  (96 of ours), the talking animal's orders the cartridge's in all.
+  `make notice-check-en` puts 439, ours, up on the bulletin board: its
+  lines where the model has them, once the model counts the fringe the
+  boards' resampling shows ("The bulletin board"); the 17 notices taken
+  from another number and the other 10 of `notices.txt` have the board model's
+  layout within six lines with the checks' free strings (not each put
+  up). `make board-check-en` (11 boards, 508 in 430's place),
+  `write-check-en`, `letters-check-en`, `save-check-en`,
+  `menus-check-en`, `emu-check` and `emu-check-en`: 0 failures; `make
+  test` 66. The credits and the fish's size are not yet seen on screen
+  (TODO(verify) above).
