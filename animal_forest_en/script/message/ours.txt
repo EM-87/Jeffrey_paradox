@@ -1,0 +1,635 @@
+# Our own English for messages the GameCube's script has no counterpart for, in tools/msgbank.py's
+# dump form: a header line with the message's number, the message with its control codes as <NAME hex>,
+# and notes on lines that start with "#:". make script lays every script/message/*.txt over the draft by
+# number; make rom-en lays them over the compiled bank as well, after the 2010 patch's messages.
+#
+# A message here keeps every code of the cartridge's that steers the game (how it ends, its choices,
+# the messages that follow, the talk orders, sounds and luck) in the cartridge's order, and prints no
+# string the game does not fill for it: af_text.py checks both against the user's dump. Pauses, colours,
+# text scale and page breaks are the English's; a colour's count (COLORCHARS' last byte) is the number
+# of English characters it colours. The en build's own string codes (CAPTIALIZE, CUTARTICLE, STR_AMPM)
+# may be added: they only shape a string the message prints.
+#
+# The 2010 patch has these 45 messages in English with codes of its own (NOTES, "The 2010 patch's
+# messages"); this text is ours, translated from the cartridge's.
+
+## 699
+#: a villager (one that calls the player "you" bluntly) hearing an errand was not done
+<DEMONPC0 05006b><DEMONPC0 000010><PAUSE 1e>.<PAUSE 08>.<PAUSE 08>.<PAUSE 0c>
+No way.<PAUSE 06> You couldn't even do
+something this easy?<PAUSE 08>
+<CAPTIALIZE><STR_TAIL>!
+<MSGEND>
+
+## 1271
+#: a gruff villager meeting the player for the first time late at night
+<DEMONPC0 020005><DEMONPC0 080000><DEMONPC0 000002>Whoa!<PAUSE 14>
+<DEMONPC0 000007>Y-<PAUSE 06>you scared<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<PAUSE 0c><DEMONPC0 0000ff> I mean,
+you didn't scare me none.<BTN>
+<MSGCLEAR><DEMONPC0 000016>Don't go talkin' to folks
+<DEMONPC0 0000ff>outta nowhere this late<DEMONPC0 000016>,<PAUSE 0a>
+ya knucklehead!<PAUSE 08>
+<CAPTIALIZE><STR_TAIL>!<BTN>
+<MSGCLEAR>You know what time it is?!<PAUSE 0c>
+<DEMONPC0 00000f>Le<PAUSE 04>t's see<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<PAUSE 0e>
+<DEMONPC0 0000ff>It's <STR_HOUR>:<PAUSE 04><STR_MIN>:<PAUSE 04><STR_SEC> <STR_AMPM>,
+<DEMONPC0 000016>that's what! <PAUSE 08>Sheesh!<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>See? While I'm sayin' that,
+<DEMONPC0 000016>it's <STR_HOUR>:<STR_MIN>:<STR_SEC> already!<PAUSE 08>
+<CAPTIALIZE><STR_TAIL>!<PAUSE 14>
+.<PAUSE 04>.<PAUSE 04>.<PAUSE 04><DEMONPC0 0000ff>Not<PAUSE 04> that it matters.<BTN>
+<MSGCLEAR>So what do ya want,<PAUSE 08> <STR_TAIL>?!<PAUSE 14>
+<DEMONPC0 00000b><PAUSE 08>Huh? <PAUSE 08>Be friends...?<PAUSE 10>
+<DEMONPC0 000003>Bwa<PAUSE 04>h <PAUSE 02>ha <PAUSE 02>ha <PAUSE 02>ha!<DEMONPC0 000015><BTN>
+<MSGCLEAR><DEMONPC0 000016>What're ya talkin' about
+<DEMONPC0 0000ff>at this hour?<PAUSE 0c>
+<DEMONPC0 000016>You're a weird one,<PAUSE 08> you are!<DEMONPC0 0000ff><BTN>
+<MSGCLEAR><DEMONPC0 000015>Eh, whatever. You're funny.<PAUSE 14>
+I'm <STR_TALKNAME>.<PAUSE 0c>
+Nice to meetcha,<PAUSE 08> <STR_TAIL>!
+<MSGEND>
+
+## 1900
+#: a rough-spoken villager whose sudden fondness for the player has worn off (luck)
+Oh,<PAUSE 04> there you are!<PAUSE 0c>
+I've been lookin' for you,<PAUSE 08>
+<STR_PLAYERNAME>!<PAUSE 14> I just had to
+see you,<PAUSE 08> <STR_TAIL>!<BTN>
+<MSGCLEAR>But,<PAUSE 04> as soon as I saw
+your face,<PAUSE 08> for some reason
+I stopped carin'.
+<LUCK_NEUTRAL>
+<MSGEND>
+
+## 1904
+#: a villager whose sudden fondness for the player has worn off (luck)
+Oh,<PAUSE 04> it's <STR_PLAYERNAME>!<PAUSE 10>
+.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>Huh.<PAUSE 08> Up until just now,<PAUSE 04>
+I was just dying<PAUSE 04>
+to see you, but<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<BTN>
+<MSGCLEAR>Why did that feeling<PAUSE 04>
+suddenly fizzle out?<PAUSE 10>
+How odd,<PAUSE 08> <STR_TAIL>.
+<LUCK_NEUTRAL>
+<MSGEND>
+
+## 2104
+#: a spare message of the opening's
+Opening
+Extra
+<MSGEND>
+
+## 2105
+#: a spare message of the opening's
+Opening
+Extra
+<MSGEND>
+
+## 2106
+#: a spare message of the opening's
+Opening
+Extra
+<MSGEND>
+
+## 2107
+#: a spare message of the opening's
+Opening
+Extra
+<MSGEND>
+
+## 2108
+#: a spare message of the opening's
+Opening
+Extra
+<MSGEND>
+
+## 2120
+#: a polite villager on visiting other towns: the train, the Controller Pak, the bulletin boards
+<DEMONPC0 0000ff>Say, <STR_PLAYERNAME>,<PAUSE 08> do you have
+any friends who live in a town<PAUSE 06>
+other than <STR_COUNTRYNAME>?
+<DEMONPC0 00000b><PAUSE 04>I'm just curious.<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>If you do,<PAUSE 06> you can go visit
+their town,<PAUSE 06> or they can
+come and visit yours,<PAUSE 04>
+you know,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Playing in the same
+town all the time<PAUSE 06>
+gets boring,<PAUSE 06> <STR_TAIL>!<BTN>
+<MSGCLEAR>To visit another town,<PAUSE 06>
+you have to take a train
+from the <COLORCHARS 4ba00007>station,<PAUSE 0c>
+<STR_TAIL>.<BTN>
+<MSGCLEAR>To ride the train,<PAUSE 06>
+you need something called a
+<COLORCHARS 198cdc0e>Controller Pak.<BTN>
+<MSGCLEAR>Please remember that,<PAUSE 06>
+<STR_TAIL>.<BTN>
+<MSGCLEAR>When you visit another town,<PAUSE 06>
+I think it's fun<PAUSE 06> to write
+whatever you like on its
+<COLORCHARS 4ba0000e>bulletin board,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR><DEMONPC0 00000e>Everyone who visits that
+town after you<PAUSE 08> will read
+what <STR_PLAYERNAME> wrote,
+<PAUSE 04>after all!<DEMONPC0 000015><BTN>
+<MSGCLEAR>Write anything at all<PAUSE 04>
+that you'd like<PAUSE 08>
+lots of people to read,
+<PAUSE 06><STR_TAIL>.<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>And of course,<PAUSE 06>
+you can use the
+<COLORCHARS 4ba0000e>bulletin board<PAUSE 04> in this
+town the same way,<PAUSE 06> <STR_TAIL>!
+<MSGEND>
+
+## 2296
+#: a rough-spoken villager to the player on the part-time job: furniture in the player's room
+Don't mention it!<PAUSE 08>
+<STR_PLAYERNAME>, you and me are
+gonna be pals a long time,<PAUSE 06>
+<STR_TAIL>!<BTN>
+<MSGCLEAR>You've got a room now,<PAUSE 08>
+so go collect lots of
+furniture you like! <PAUSE 06><CAPTIALIZE><STR_TAIL>!<BTN>
+<MSGCLEAR>Put some furniture in your
+room,<PAUSE 08> hold the <COLORCHARS 324be108>A Button<PAUSE 08>
+and try pushin' it, pullin' it
+and turnin' it around.<BTN>
+<MSGCLEAR>That's how ya
+arrange your furniture<PAUSE 08>
+and make a room
+that's all your own!!<BTN>
+<MSGCLEAR>Tap the <COLORCHARS 324be108>A Button<PAUSE 06> and you
+can turn on a stereo<PAUSE 06>
+or open a dresser,
+too,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR>Make a room so<PAUSE 04> awesome
+nobody can copy it!<PAUSE 0c>
+<CAPTIALIZE><STR_TAIL>!!<BTN>
+<MSGCLEAR><DEMONPC0 000015>Well then,<PAUSE 08>
+go give it your all out there!<PAUSE 0c>
+<CAPTIALIZE><STR_TAIL>!!
+<MSGEND>
+
+## 2322
+#: a snooty villager handed a letter of the player's on the part-time job
+<DEMONPC0 000016>Not that it matters, but
+your writing is just awful.<BTN>
+I'd be too embarrassed<PAUSE 08>
+to show this to anyone!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Oh,<PAUSE 04> didn't you know?<PAUSE 08>
+<DEMONPC0 000015>My hobby is keeping
+the letters I get<BTN>
+<MSGCLEAR>and showing them to the
+friends I get close to!<PAUSE 0c>
+<CAPTIALIZE><STR_TAIL>!<BTN>
+<MSGCLEAR><DEMONPC0 00000e>I mean,<PAUSE 04> the letters
+you send me<PAUSE 08>
+are sooo funny!<BTN><DEMONPC0 000015>
+<MSGCLEAR>It'd be a waste if I were<PAUSE 08>
+the only one enjoying them!<PAUSE 0c>
+<CAPTIALIZE><STR_TAIL>!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>So,<PAUSE 08> whenever you write
+to any of us,<BTN>
+write something you won't be
+embarrassed for others to see.<BTN>
+<MSGCLEAR><DEMONPC0 000016>Oh,<PAUSE 04> please,<PAUSE 04> it's not ME
+who'd be embarrassed,<PAUSE 08>
+it's <PAUSE 04>YOU!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>I don't know how soon,<PAUSE 08>
+but I think one day I'll
+move to another town, too.<BTN>
+<MSGCLEAR><DEMONPC0 000015>When I show off the letters
+there,<PAUSE 08> I'll be sure to tell
+them they came from you!<PAUSE 0c>
+<CAPTIALIZE><STR_TAIL>!!<BTN>
+<MSGCLEAR><DEMONPC0 00000a>I can't wait!<BTN><DEMONPC0 0000ff>
+Oh,<PAUSE 04> and I'm NOT throwing
+this letter away!<BTN>
+<MSGCLEAR>If it's really that bad,<PAUSE 08>
+just write me another one.<BTN>
+<MSGCLEAR>If you send me a new letter,<PAUSE 08>
+I could throw
+the old one away,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Well then,<PAUSE 04>
+write me again soon,<PAUSE 0c>
+<STR_TAIL>.
+<MSGEND>
+
+## 2351
+#: a debug message (its lisp is the original's joke)
+This is message
+number 2351.<BTN>
+<MSGCLEAR>If this message shows up
+while debugging,
+pleathe let uth know!
+By Eguchi
+<MSGEND>
+
+## 2352
+#: a debug message (its lisp is the original's joke)
+This is message
+number 2352.<BTN>
+<MSGCLEAR>If this message shows up
+while debugging,
+pleathe let uth know!
+By Eguchi
+<MSGEND>
+
+## 2353
+#: a debug message (its lisp is the original's joke)
+This message ith
+number 2353.<BTN>
+<MSGCLEAR>If this message shows up
+while debugging,
+pleathe let uth know!
+By Eguchi
+<MSGEND>
+
+## 2354
+#: a saving message in the debug messages' lisp
+Now then, I'll thave
+the <COLORCHARS e11ed709>town data.<PAUSE 0c>
+Pleathe wait a moment.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>              Saving...
+
+<TEXTCOLOR c35f00>Don't turn the power off!<SNDTRGSYS 04><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 2513
+#: the town's record found broken: the game starts over
+We're sorry to interrupt<PAUSE 04>
+so suddenly.<BTN>
+<MSGCLEAR>It seems your town's data
+has been corrupted.<BTN>
+<MSGCLEAR>Please start over<PAUSE 06>
+from the beginning.<BTN>
+We apologize for the trouble.<DEMONPC0 090001>
+<MSGEND>
+
+## 5132
+#: a villager: the Controller Pak has no room (one of six, each going on to its own message)
+There isn't enough room on
+the <COLORCHARS 198cdc0e>Controller Pak.<BTN>
+To use this <COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>please erase data you don't
+need from the
+<COLORCHARS 198cdc0e>Controller Pak,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR>Hold the <COLORCHARS be2d2d0c>START Button
+and reset the <COLORCHARS 198cdc03>N64,<BTN>
+<MSGCLEAR>and you'll get a special
+screen just for
+erasing data.<BTN>
+<MSGCLEAR>If you won't be using a
+<COLORCHARS 198cdc0e>Controller Pak, please
+remove it from the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready,
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 13f4>
+<MSGCONTINUE>
+
+## 5172
+#: a villager: the Controller Pak has no room (one of six, each going on to its own message)
+There isn't enough room on
+the <COLORCHARS 198cdc0e>Controller Pak.<BTN>
+To use this <COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>please erase data you don't
+need from the
+<COLORCHARS 198cdc0e>Controller Pak,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR>Hold the <COLORCHARS be2d2d0c>START Button
+and reset the <COLORCHARS 198cdc03>N64,<BTN>
+<MSGCLEAR>and you'll get a special
+screen just for
+erasing data.<BTN>
+<MSGCLEAR>If you won't be using a
+<COLORCHARS 198cdc0e>Controller Pak, please
+remove it from the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready,
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 141c>
+<MSGCONTINUE>
+
+## 5212
+#: a villager: the Controller Pak has no room (one of six, each going on to its own message)
+There isn't enough room on
+the <COLORCHARS 198cdc0e>Controller Pak.<BTN>
+To use this <COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>please erase data you don't
+need from the
+<COLORCHARS 198cdc0e>Controller Pak,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR>Hold the <COLORCHARS be2d2d0c>START Button
+and reset the <COLORCHARS 198cdc03>N64,<BTN>
+<MSGCLEAR>and you'll get a special
+screen just for
+erasing data.<BTN>
+<MSGCLEAR>If you won't be using a
+<COLORCHARS 198cdc0e>Controller Pak, please
+remove it from the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready,
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 1444>
+<MSGCONTINUE>
+
+## 5252
+#: a villager: the Controller Pak has no room (one of six, each going on to its own message)
+There isn't enough room on
+the <COLORCHARS 198cdc0e>Controller Pak.<BTN>
+To use this <COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>please erase data you don't
+need from the
+<COLORCHARS 198cdc0e>Controller Pak,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR>Hold the <COLORCHARS be2d2d0c>START Button
+and reset the <COLORCHARS 198cdc03>N64,<BTN>
+<MSGCLEAR>and you'll get a special
+screen just for
+erasing data.<BTN>
+<MSGCLEAR>If you won't be using a
+<COLORCHARS 198cdc0e>Controller Pak, please
+remove it from the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready,
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 146c>
+<MSGCONTINUE>
+
+## 5292
+#: a villager: the Controller Pak has no room (one of six, each going on to its own message)
+There isn't enough room on
+the <COLORCHARS 198cdc0e>Controller Pak.<BTN>
+To use this <COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>please erase data you don't
+need from the
+<COLORCHARS 198cdc0e>Controller Pak,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR>Hold the <COLORCHARS be2d2d0c>START Button
+and reset the <COLORCHARS 198cdc03>N64,<BTN>
+<MSGCLEAR>and you'll get a special
+screen just for
+erasing data.<BTN>
+<MSGCLEAR>If you won't be using a
+<COLORCHARS 198cdc0e>Controller Pak, please
+remove it from the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready,
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 1494>
+<MSGCONTINUE>
+
+## 5332
+#: a villager: the Controller Pak has no room (one of six, each going on to its own message)
+There isn't enough room on
+the <COLORCHARS 198cdc0e>Controller Pak.<BTN>
+To use this <COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>please erase data you don't
+need from the
+<COLORCHARS 198cdc0e>Controller Pak,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR>Hold the <COLORCHARS be2d2d0c>START Button
+and reset the <COLORCHARS 198cdc03>N64,<BTN>
+<MSGCLEAR>and you'll get a special
+screen just for
+erasing data.<BTN>
+<MSGCLEAR>If you won't be using a
+<COLORCHARS 198cdc0e>Controller Pak, please
+remove it from the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready,
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 14bc>
+<MSGCONTINUE>
+
+## 5374
+#: a sassy villager on telling the time by the sun
+<DEMONPC0 000016>Hey,<PAUSE 06> when you don't have
+a clock handy,
+how do you figure out
+what time it is? <PAUSE 08><CAPTIALIZE><STR_TAIL>?
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>Me, I can tell by the
+light that shines into
+my house!
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>The sun comes up in the east,
+crosses the south,<PAUSE 06>
+and sets in the west!
+<BTN>
+<MSGCLEAR>As long as you know that,<PAUSE 06>
+you can tell more or less
+what time it is!
+<BTN>
+<MSGCLEAR><DEMONPC0 000017>.<PAUSE 02>.<PAUSE 02>.<PAUSE 02>Only,<PAUSE 06>
+once it gets dark,
+that trick's no good.
+<MSGEND>
+
+## 5930
+#: the shop: an item that cannot be ordered (the second voice repeats each sentence's end)
+<VOICETRUE>Oh my,<PAUSE 06> <VOICEFALSE><LINETYPE 01><COLORCHARS 198cdc06><CHARSCALE 1a>.<CHARSCALE 1a>.<CHARSCALE 1a>.<CHARSCALE 1a>m<CHARSCALE 1a>y<CHARSCALE 1a>,
+<VOICETRUE><CAPTIALIZE><STR_ITEM1>,
+you say<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<BTN>
+<MSGCLEAR>I'm afraid we can't
+take orders<PAUSE 0c>
+for that item.<PAUSE 06> <VOICEFALSE><LINETYPE 01><COLORCHARS 198cdc08><CHARSCALE 1a>.<CHARSCALE 1a>.<CHARSCALE 1a>.<CHARSCALE 1a>i<CHARSCALE 1a>t<CHARSCALE 1a>e<CHARSCALE 1a>m<CHARSCALE 1a>.<BTN>
+<MSGCLEAR><VOICETRUE>It comes to us through a
+different distribution
+route.<PAUSE 06> <VOICEFALSE><LINETYPE 01><COLORCHARS 198cdc09><CHARSCALE 1a>.<CHARSCALE 1a>.<CHARSCALE 1a>.<CHARSCALE 1a>r<CHARSCALE 1a>o<CHARSCALE 1a>u<CHARSCALE 1a>t<CHARSCALE 1a>e<CHARSCALE 1a>.<BTN>
+<MSGCLEAR><VOICETRUE>Our deepest apologies,
+but we must ask
+that you give up!<PAUSE 06> <VOICEFALSE><LINETYPE 01><COLORCHARS 198cdc06><CHARSCALE 1a>.<CHARSCALE 1a>.<CHARSCALE 1a>.<CHARSCALE 1a>u<CHARSCALE 1a>p<CHARSCALE 1a>!<BTN>
+<MSGCLEAR><VOICETRUE>Is there anything else
+we can help you
+with?<PAUSE 06> <VOICEFALSE><LINETYPE 01><COLORCHARS 198cdc08><CHARSCALE 1a>.<CHARSCALE 1a>.<CHARSCALE 1a>.<CHARSCALE 1a>w<CHARSCALE 1a>i<CHARSCALE 1a>t<CHARSCALE 1a>h<CHARSCALE 1a>?<SETSELSTR4 0009000a01c4000b><SELNOB><BTN><OPENCHOICE><FORCENEXT><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 5969
+#: a spare event notice
+extra
+<MSGEND>
+
+## 5970
+#: a spare event notice
+extra
+<MSGEND>
+
+## 6055
+#: a spare event notice
+extra
+<MSGEND>
+
+## 6056
+#: a spare event notice
+extra
+<MSGEND>
+
+## 6895
+#: a rough-spoken villager who gets no letters from the player
+<DEMONPC0 0000ff>You know this town's got
+a <COLORCHARS 4ba0000b>post office,
+<DEMONPC0 00000b>right?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>And you know how to
+write a letter,
+<DEMONPC0 00000b>right?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>And you know where to go
+to get stationery,
+<DEMONPC0 00000b>right?<BTN><DEMONPC0 000001>
+<MSGCLEAR><PAUSE 0c><DEMONPC0 000005>If you know all that,
+how come you never
+write me a letter?!<PAUSE 0c>
+<CAPTIALIZE><STR_TAIL>!!<BTN>
+<MSGCLEAR><DEMONPC0 020002><DEMONPC0 080001>It really burns me up!<PAUSE 0c>
+<CAPTIALIZE><STR_TAIL>!<PAUSE 0c>
+<CAPTIALIZE><STR_TAIL>!!<PAUSE 0c>
+<CAPTIALIZE><STR_TAIL>!!!<PAUSE 0c>
+<MSGEND>
+
+## 8032
+#: a lazy villager in winter
+<DEMONPC0 000017>The bugs are
+all gone,<PAUSE 0c> so I've got
+fewer friends to play with,
+but<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>Everybody in <STR_COUNTRYNAME>
+is still around,<PAUSE 0c>
+so I'm not lonely
+one bit.
+<BTN>
+<MSGCLEAR><DEMONPC0 020001><DEMONPC0 080001><DEMONPC0 00000a><PAUSE 08>Besides,
+I've got you, <STR_PLAYERNAME>.
+<MSGEND>
+
+## 8216
+#: a villager on filling holes dug with the shovel
+<DEMONPC0 0000ff>If you leave the holes
+you dig with a shovel<PAUSE 0a>
+just sitting there,
+nobody can get by, so...
+<BTN>
+<MSGCLEAR><DEMONPC0 000016>When you dig one,<PAUSE 06>
+fill it back in, okay,<PAUSE 08>
+<STR_PLAYERNAME>?
+<BTN>
+<MSGCLEAR><DEMONPC0 000017>The other day,<PAUSE 08>
+before I knew it,<PAUSE 06>
+there were holes all
+around me,
+<BTN>
+<MSGCLEAR><DEMONPC0 000007><PAUSE 05>and I was stuck <PAUSE 06>all
+night long! I couldn't
+get home!<PAUSE 06>
+<CAPTIALIZE><STR_TAIL>!
+<MSGEND>
+
+## 9192
+#: Mr. Resetti on always having to come out when RESET is pressed
+<DEMONPC0 0000ff><SNDTRGSYS 05>Listen up!<PAUSE 0c>
+I think I told ya this<PAUSE 02>
+before, but...<BTN>
+<MSGCLEAR>Whenever somebody hits RESET,<PAUSE 14>
+no matter what,<PAUSE 04>
+<DEMONPC0 000022>I ab<PAUSE 02>so<PAUSE 02>lute<PAUSE 02>ly<PAUSE 02> HAVE<PAUSE 06>
+to come out.<PAUSE 04> Me!<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>Well, that's my job,<PAUSE 08>
+so I can't help it, but...<BTN>
+<MSGCLEAR><SNDTRGSYS 05>Even if I'm eatin' dinner,<PAUSE 08>
+<SNDTRGSYS 05>even if I'm in the bath,<PAUSE 08>
+<SNDTRGSYS 05>even if I'm asleep<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 08><BTN>
+<MSGCLEAR><DEMONPC0 000022><SNDTRGSYS 05>when the alarm goes off,<PAUSE 0c>
+no matter what,<PAUSE 04>
+I gotta scramble out here!<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>Ya can't see it <PAUSE 06>from there,<PAUSE 14>
+but I'm only wearin' <PAUSE 08><SNDTRGSYS 05>one
+sock<PAUSE 06> right now,<PAUSE 04> pal!<BTN>
+<MSGCLEAR><DEMONPC0 000022>What a rotten line of work,
+I tell ya!<BTN>
+<SETFORCEMSG 23e9>
+<FORCENEXT>
+<MSGCONTINUE>
+
+## 9829
+#: the morning aerobics, led by the police officer
+Now then,<PAUSE 06> you too!<PAUSE 06>
+Watch this officer <PAUSE 06>closely<PAUSE 06>
+and do <PAUSE 06>the <PAUSE 06>exercises!
+<MSGEND>
+
+## 9830
+#: the morning aerobics, led by the police officer
+Here we go!<PAUSE 06>
+1<PAUSE 03>,<PAUSE 03> 2<PAUSE 03>,<PAUSE 03> 3<PAUSE 03>,<PAUSE 03> 4!
+<MSGEND>
+
+## 9833
+#: the morning aerobics, led by the police officer
+Watch this officer <PAUSE 06>closely<PAUSE 06>
+and move <PAUSE 06>to the music!<PAUSE 06>
+1<PAUSE 03>,<PAUSE 03> 2,<PAUSE 06> 1<PAUSE 03>,<PAUSE 03> 2!
+<MSGEND>
+
+## 9834
+#: the morning aerobics, led by the police officer
+Come on!<PAUSE 06>
+Bigger <PAUSE 06>moves!<PAUSE 06>
+Really <PAUSE 06>stretch out!<PAUSE 06>
+<MSGEND>
+
+## 10821
+#: a rough-spoken villager asks the player for a new catchphrase
+Brrr,<PAUSE 08> it's cold,<PAUSE 04>
+dang it,<PAUSE 08> <STR_TAIL>!<BTN>
+<MSGCLEAR>Oh,<PAUSE 08> you curious about that?<PAUSE 08>
+The way I say "<STR_TAIL>"?<BTN>
+<MSGCLEAR>To be honest,<PAUSE 08> I kinda
+feel like it doesn't suit me.<BTN>
+<MSGCLEAR>Hey,<PAUSE 06> think up a cool one<PAUSE 04>
+for me, will ya? <PAUSE 08><CAPTIALIZE><STR_TAIL>?<BTN2><DEMONPCQST 010001><BTN>
+<MSGCLEAR>.<PAUSE 03>.<PAUSE 03>.<PAUSE 06>"<STR_TAIL>"?<PAUSE 0e>
+Isn't that kinda dumb?<BTN>
+<MSGCLEAR>No, wait,<PAUSE 08> <STR_TAIL>.<PAUSE 10>
+That might not be so bad.<PAUSE 08>
+All right,<PAUSE 06> I'll use it.<PAUSE 0c>
+Thanks,<PAUSE 08> <STR_TAIL>!
+<MSGEND>
+
+## 11017
+#: a villager asks whether the player is done for now (the choice: save and quit, or save and keep playing)
+Done for now?<SETSELSTR2 01ae01af><BTN><OPENCHOICE><SETNEXTMSG0 2b0a><SETNEXTMSG1 2b0b><FORCENEXT>
+<MSGCONTINUE>
+
+## 11020
+#: a villager asks whether the player is done for now (the choice: save and quit, or save and keep playing)
+Done playing already?<SETSELSTR2 01ae01af><BTN><OPENCHOICE><SETNEXTMSG0 2b0d><SETNEXTMSG1 2b0e><FORCENEXT>
+<MSGCONTINUE>
+
+## 11023
+#: a villager asks whether the player is done for now (the choice: save and quit, or save and keep playing)
+Aww, done alreadyyy?<SETSELSTR2 01ae01af><BTN><OPENCHOICE><SETNEXTMSG0 2b10><SETNEXTMSG1 2b11><FORCENEXT>
+<MSGCONTINUE>
+
+## 11026
+#: a villager asks whether the player is done for now (the choice: save and quit, or save and keep playing)
+Done already, huh?<SETSELSTR2 01ae01af><BTN><OPENCHOICE><SETNEXTMSG0 2b13><SETNEXTMSG1 2b14><FORCENEXT>
+<MSGCONTINUE>
+
+## 11029
+#: a villager asks whether the player is done for now (the choice: save and quit, or save and keep playing)
+Callin' it a day?<SETSELSTR2 01ae01af><BTN><OPENCHOICE><SETNEXTMSG0 2b16><SETNEXTMSG1 2b17><FORCENEXT>
+<MSGCONTINUE>
+
+## 11032
+#: a villager asks whether the player is done for now (the choice: save and quit, or save and keep playing)
+Leaving already?<SETSELSTR2 01ae01af><BTN><OPENCHOICE><SETNEXTMSG0 2b19><SETNEXTMSG1 2b1a><FORCENEXT>
+<MSGCONTINUE>
+
+## 11287
+#: a spare message
+extra
+<MSGEND>

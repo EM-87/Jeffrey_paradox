@@ -913,6 +913,60 @@ class NafeText(unittest.TestCase):
             self.assertEqual(t[ends[2]:ends[3]], msgbank.encode(msgbank.parse("Laid over.<MSGEND>")))
             self.assertEqual(t[ends[3]:ends[4]], msgbank.encode(msgbank.parse("<MSGEND>")))
 
+    def test_compile_refuses_an_override_that_steers_the_game_otherwise(self):
+        count = msgbank.N64_BANKS["message"][2]
+        with tempfile.TemporaryDirectory() as d:
+            bank, ref, over = (os.path.join(d, f) for f in ("bank.txt", "ref.txt", "over.txt"))
+            text, index = os.path.join(d, "t.bin"), os.path.join(d, "i.bin")
+            open(bank, "w").write("".join("## %d\n<MSGEND>\n\n" % n for n in range(count)))
+            cart = "<DEMONPC0 000016>あ<PAUSE 08>い<STR_TAIL><BTN>\n<MSGCLEAR>う<MSGEND>"
+            open(ref, "w", encoding="utf-8").write("".join("## %d\n%s\n\n" % (n, cart if n == 3 else "<MSGEND>")
+                                                           for n in range(count)))
+
+            def compile_with(message):
+                open(over, "w").write("## 3\n%s\n\n" % message)
+                with open(os.devnull, "w") as quiet:
+                    old = sys.stdout
+                    sys.stdout = quiet
+                    try:
+                        return af_text.main(["compile", bank, text, index, "--reference", ref, "--overrides", over])
+                    finally:
+                        sys.stdout = old
+
+            # pages, pauses, colours, the strings the game always has and the en build's capital are the English's
+            self.assertEqual(compile_with("<DEMONPC0 000016>Hey,<BTN>\n<MSGCLEAR><CAPTIALIZE><STR_TAIL> "
+                                          "<STR_PLAYERNAME>!<BTN>\n<MSGCLEAR><COLORCHARS 4ba00003>Bye.<MSGEND>"), 0)
+            # the talk orders, the end and the strings filled for one message are the cartridge's
+            self.assertEqual(compile_with("<DEMONPC0 000017>Hey.<MSGEND>"), 1)
+            self.assertEqual(compile_with("Hey.<MSGEND>"), 1)
+            self.assertEqual(compile_with("<DEMONPC0 000016>Hey.<MSGCONTINUE>"), 1)
+            self.assertEqual(compile_with("<DEMONPC0 000016>Hey, <STR_FREE1>.<MSGEND>"), 1)
+            # the bank's own messages are not held to it: only those laid over
+            self.assertEqual(af_text.laid_problems(msgbank.parse("Hey.<MSGEND>"), msgbank.parse(cart)),
+                             [("error", "its codes that steer the game are not the cartridge's: <MSGEND>, the "
+                               "cartridge's <DEMONPC0 000016><MSGEND>")])
+
+
+class OwnMessages(unittest.TestCase):
+    """script/message/*.txt: our own English for messages the GameCube's script has no counterpart for."""
+
+    def test_ours_are_english_messages_the_window_takes(self):
+        folder = os.path.join(HERE, "..", "script", "message")
+        paths = sorted(os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".txt"))
+        self.assertTrue(paths)
+        count, seen = msgbank.N64_BANKS["message"][2], set()
+        for path in paths:
+            ours = af_text.load_bank(path)
+            self.assertTrue(ours, path)
+            self.assertFalse(seen & set(ours), "a message in two files")
+            seen |= set(ours)
+            for n, tokens in ours.items():
+                self.assertLess(n, count)
+                self.assertTrue(af_nafe_text.english(tokens), n)
+                # ends, codes the N64 has (the en build's carried ones as theirs), at most four lines a page
+                errors = [t for level, t in af_text.check_message(n, tokens, 32, 4, 0x600) if level == "error"]
+                self.assertEqual(errors, [], n)
+
 
 def save_like(seed=1):
     """0xF980 bytes shaped like a save: records with small values, names, long runs of zeros."""

@@ -1,10 +1,22 @@
 # Our own text
 
-Files here are ours: translations for the messages that have no official
-English (the debug messages and the lines the GameCube dropped, 6% of the
-bank: `make script` lists them as `TODO translate`), and fixes we decide
-on. They are in `tools/msgbank.py`'s dump form (`## number`, the message,
-`<CODE hex>` for control codes, `#:` notes), and `make script` lays every
-`script/*.txt` over the draft by number (`tools/af_text.py draft
---overrides`). Nothing from the GameCube disc goes here: the official text
-is read from the user's disc at build time and never enters the repository.
+Files here are ours: our English where the official script has none, and
+fixes we decide on. Nothing from the GameCube disc goes here: the official
+text is read from the user's disc at build time and never enters the
+repository.
+
+- `message/*.txt`: messages of the cartridge's bank that have no official
+  English (the debug messages and the lines the GameCube dropped; `make
+  script` lists those still untranslated as `TODO translate`), in
+  `tools/msgbank.py`'s dump form (`## number`, the message, `<CODE hex>`
+  for control codes, `#:` notes). `make script` lays them over the draft
+  by number (`tools/af_text.py draft --overrides`), and `make rom-en` over
+  the compiled bank again, after the 2010 patch's messages. `af_text.py`
+  refuses one whose codes that steer the game are not the cartridge's, or
+  that prints a string the game does not fill for it (NOTES, "Our own
+  messages").
+- `choice/`, `string/` and a letter bank's folder (`mail_body/`...): the
+  same for the choices, the strings and the letters.
+- `ui.txt`: the menus' strings where the font draws them
+  (`tools/af_ui.py`); `items.txt`: the item names the GameCube has none
+  for (`tools/af_items.py`).

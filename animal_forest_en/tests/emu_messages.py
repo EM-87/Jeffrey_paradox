@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Show messages of the en build's bank in the message window and measure their lines.
 
-    tests/emu_messages.py EMU_DIR EN_ROM AF_EN_DIR STATE OUT_DIR [--nafe NAFE_MESSAGES.txt] [--gc-font GC_FONT.bin]
+    tests/emu_messages.py EMU_DIR EN_ROM AF_EN_DIR STATE OUT_DIR [--nafe NAFE_MESSAGES.txt] [--own OURS.txt ...]
+                          [--gc-font GC_FONT.bin]
 
 STATE is a state of EN_ROM in play (make route-en's 4-houses.st). For each
 message, from that state, a hook asks for it as the game does
@@ -15,27 +16,30 @@ line has none, and nothing below the page's lines is ink.
 
 Which messages: those the en bank took from the AF Project's 2010
 translation (--nafe, build/gc/nafe_messages.txt: tools/af_nafe_text.py)
-whose first page needs no speaker (its text, pauses, colours and talk
-animations only) and waits for the player (<BTN> or <MSGEND>: not a page
-that clears itself after a pause or a message that closes after a time,
-which a screenshot after it typed out would miss), each checked to be in
-the bank as that file's message
-laid out for the en font (af_text.layout); and, as a control, the first
-two of the GameCube's own (not in the file) with three lines or more on
-such a first page.
+and our own (--own, script/message/*.txt) whose first page needs no
+speaker (its text, pauses, colours and talk animations only) and waits for
+the player (<BTN> or <MSGEND>: not a page that clears itself after a pause
+or a message that closes after a time, which a screenshot after it typed
+out would miss), each checked to be in the bank as its file's message
+laid out for the en font (af_text.layout), ours also to keep the
+cartridge's codes that steer the game (af_text.laid_problems, against the
+dump's build/gc/n64_jp.txt); and, as a control, the first two of the
+GameCube's own (in neither file) with three lines or more on such a first
+page.
 
-Then the talk orders: each message taken whose run needs no choice and
-goes nowhere else (it ends with <MSGEND>, and has no choice, next message,
-luck or quest code) and has talk orders in slot 0 is asked for the same
-way and played to its end, A pressed each time the window waits for it
-(its mainIndex 2, mMsg_INDEX_NORMAL: the page typed out); every frame the
-talking animal's order in slot 0 is read (demo_data's orderData[4][0],
-m_demo.h: DEMO_ORDER_NPC0, the 16 bytes before the table, 10 values a
-type). Its values, as they change, must be the message's orders as the
-window meets them (orders with no character, pause or page between them
-set in one frame: the last shows), and the message's orders the
-cartridge's own, the same values in the same order (af_nafe_text puts
-them back where the 2010 translation had other ones).
+Then the talk orders: each message taken or ours whose run needs no
+choice and goes nowhere else (it ends with <MSGEND>, and has no choice,
+next message, luck or quest code) and has talk orders in slot 0 is asked
+for the same way and played to its end, A pressed each time the window
+waits for it (its mainIndex 2, mMsg_INDEX_NORMAL: the page typed out);
+every frame the talking animal's order in slot 0 is read (demo_data's
+orderData[4][0], m_demo.h: DEMO_ORDER_NPC0, the 16 bytes before the
+table, 10 values a type). Its values, as they change, must be the
+message's orders as the window meets them (orders with no character,
+pause or page between them set in one frame: the last shows), and the
+message's orders the cartridge's own, the same values in the same order
+(af_nafe_text puts them back where the 2010 translation had other ones;
+ours keep them).
 
 Where: the window's text from the frame's row 153 (lines 16 rows apart)
 and x 127.18, 2.005 frame pixels to the font's pixel (fitted on 316 line
@@ -102,9 +106,11 @@ DEMONPC0 = NAMES["DEMONPC0"]
 NPC0_SLOT0 = 0x10 + 4 * 2 * 10               # demo_data.orderData[DEMO_ORDER_NPC0][0] (m_demo.h DemoData)
 MAIN_INDEX, WAITING, HIDDEN = 0x2B4, 2, 0     # MessageWindow.mainIndex: mMsg_INDEX_NORMAL, mMsg_INDEX_HIDE
 WAIT_FRAMES, PLAY_FRAMES = 10, 4000           # a wait this long before A; at most this long a message
-GOES_ON = {NAMES[n] for n in NAMES if n.startswith(("SETNEXTMSG", "SETSELSTR", "LUCK_"))} | \
-    {NAMES[n] for n in ("OPENCHOICE", "SETFORCEMSG", "FORCENEXT", "MSGCONTINUE", "MSGTIMEEND", "SELNOB", "GIVEOPEN",
-                        "GIVECLOSE", "DEMONPCQST")}
+# codes 71 to 73 are LUCK_6 to LUCK_8 on the cartridge and the en build's STR_AMPM, CUTARTICLE and CAPTIALIZE
+# (af_text.N64_CARRIED): strings, not luck
+GOES_ON = ({NAMES[n] for n in NAMES if n.startswith(("SETNEXTMSG", "SETSELSTR", "LUCK_"))} |
+           {NAMES[n] for n in ("OPENCHOICE", "SETFORCEMSG", "FORCENEXT", "MSGCONTINUE", "MSGTIMEEND", "SELNOB",
+                               "GIVEOPEN", "GIVECLOSE", "DEMONPCQST")}) - set(af_text.N64_CARRIED.values())
 TIMED = {NAMES["PAUSE"], NAMES["BTN"], NAMES["MSGCLEAR"]}
 
 failures = []
@@ -189,6 +195,11 @@ def frame_x(x):
 
 def main(argv):
     nafe_path = gc_font = None
+    own_paths = []
+    while "--own" in argv:
+        i = argv.index("--own")
+        own_paths.append(argv[i + 1])
+        argv = argv[:i] + argv[i + 2:]
     if "--nafe" in argv:
         i = argv.index("--nafe")
         nafe_path = argv[i + 1]
@@ -212,27 +223,38 @@ def main(argv):
     bank = bank_of(af_en)
 
     theirs = af_text.load_bank(nafe_path) if nafe_path and os.path.exists(nafe_path) else {}
-    if theirs:
+    ours = {}
+    for path in own_paths:
+        ours.update(af_text.load_bank(path))
+    cart = af_text.load_bank(os.path.join(os.path.dirname(af_en), "gc", "n64_jp.txt")) if theirs or ours else {}
+    if theirs or ours:
         base = os.path.join(os.path.dirname(af_en), "baserom.z64")
         widths = af_font.widths(af_font.font(open(base, "rb").read(),
                                              open(gc_font, "rb").read() if gc_font else None)[1])
-        laid = [n for n in theirs if msgbank.encode(af_text.carried(af_text.layout(theirs[n], widths))) ==
-                msgbank.encode(bank[n])]
-        check(len(laid) == len(theirs), "the bank holds the %d messages taken from the 2010 translation, laid out for "
-              "the en font (%d do)" % (len(theirs), len(laid)))
-    else:
+    for name, messages in (("taken from the 2010 translation", theirs), ("of ours", ours)):
+        if messages:
+            laid = [n for n in messages if msgbank.encode(af_text.carried(af_text.layout(messages[n], widths))) ==
+                    msgbank.encode(bank[n])]
+            check(len(laid) == len(messages), "the bank holds the %d messages %s, laid out for the en font (%d do)"
+                  % (len(messages), name, len(laid)))
+    if not theirs:
         print("  (no --nafe file: the 2010 translation's messages are not in this build)")
-    shown = [n for n in sorted(theirs) if first_page(bank[n])]
+    if ours:
+        kept = [n for n in ours if not af_text.laid_problems(af_text.layout(ours[n], widths), cart[n])]
+        check(len(kept) == len(ours), "the %d messages of ours keep the cartridge's codes that steer the game and "
+              "print no string it does not fill (%d do)" % (len(ours), len(kept)))
+    shown = [n for n in sorted(set(theirs) | set(ours)) if first_page(bank[n])]
     controls = []
     for n in range(COUNT):
         page = first_page(bank[n])
-        if n not in theirs and page and len([s for s in page if s]) >= 3 and \
+        if n not in theirs and n not in ours and page and len([s for s in page if s]) >= 3 and \
                 all(t[1].isascii() for t in bank[n] if t[0] == "t"):
             controls.append(n)
             if len(controls) == CONTROLS:
                 break
-    print("  %d of the %d messages taken need no speaker on their first page; %d of the GameCube's as controls"
-          % (len(shown), len(theirs), len(controls)))
+    print("  %d of the %d messages taken and %d of our %d need no speaker on their first page; %d of the GameCube's "
+          "as controls" % (len([n for n in shown if n in theirs]), len(theirs), len([n for n in shown if n in ours]),
+                           len(ours), len(controls)))
 
     shots, bad_messages, lines_checked = [], [], 0
     with N64(emu_dir, rom, os.path.join(out, "cart"), timeout=120) as n64:
@@ -267,11 +289,10 @@ def main(argv):
             if bad:
                 bad_messages.append(n)
             check(not bad, "message %d (%s): its first page's %d lines where the model has them%s" % (
-                n, "the 2010 translation's" if n in theirs else "the GameCube's", len([s for s in page if s]),
-                "; " + "; ".join(bad) if bad else ""))
+                n, "ours" if n in ours else "the 2010 translation's" if n in theirs else "the GameCube's",
+                len([s for s in page if s]), "; " + "; ".join(bad) if bad else ""))
         # the talk orders, as the window plays the messages through
-        cart = af_text.load_bank(os.path.join(os.path.dirname(nafe_path), "n64_jp.txt")) if theirs else {}
-        played = [n for n in sorted(theirs) if talk_orders(bank[n]) and plays_through(bank[n])]
+        played = [n for n in sorted(set(theirs) | set(ours)) if talk_orders(bank[n]) and plays_through(bank[n])]
         same = [n for n in theirs if talk_orders(bank[n]) == talk_orders(cart.get(n, []))]
         if theirs:
             check(len(same) == len(theirs), "the %d messages taken have the cartridge's talk orders in slot 0, the "
@@ -311,7 +332,8 @@ def main(argv):
                 bad_orders.append(n)
             check(got == want, "message %d: its talk orders as it plays, %s, the message's (%s)" % (
                 n, " ".join("%x" % v for v in got), " ".join("%x" % v for v in want)))
-        print("  %d messages played through, their talk orders as the cartridge's" % len(played))
+        print("  %d messages played through (%d of ours), their talk orders as the cartridge's"
+              % (len(played), len([n for n in played if n in ours])))
     contact.main([os.path.join(out, "sheet.png"), "3"] + shots)
     print("emu_messages: %d messages shown, %d lines measured, %d failures; screenshots in %s" % (
         len(controls + shown), lines_checked, len(failures), out))

@@ -23,12 +23,13 @@ when
   * its codes that steer the game are the cartridge's, the same ones in the
     same order with the same arguments: all but the page breaks, pauses,
     colours, scales and voice switches (COSMETIC) and the names, dates and
-    town the game always has at hand (GLOBAL). The talk orders (DEMONPC0
-    and the rest) count, in every slot: slot 0 is the villagers' talk
-    animation (ac_npc2 func_80998740_jp), but the gyroid acts on it (ac_haniwa
-    func_8096B7AC_jp: set, it reads the choice made), and the shops', the
-    post office's and the events' actors act on slot 9; which actor says a
-    message the bank does not tell;
+    town the game always has at hand (GLOBAL; af_text.steering, the rule
+    make rom-en holds every message laid over the bank to). The talk
+    orders (DEMONPC0 and the rest) count, in every slot: slot 0 is the
+    villagers' talk animation (ac_npc2 func_80998740_jp), but the gyroid
+    acts on it (ac_haniwa func_8096B7AC_jp: set, it reads the choice made),
+    and the shops', the post office's and the events' actors act on slot
+    9; which actor says a message the bank does not tell;
   * it prints no string the game fills for one message (a free string, an
     item, STR_DETERMINATION, STR_RNDNUM, STR_MAIL) the cartridge's message
     does not print: the game would not fill it.
@@ -68,12 +69,7 @@ TEXT_VROM = 0x1914000                     # the patch's message text (the cartri
 COUNT = msgbank.N64_BANKS["message"][2]
 
 NAMES = msgbank.NAMES
-COSMETIC = {NAMES[n] for n in ("PAUSE", "BTN", "BTN2", "MSGCLEAR", "TEXTCOLOR", "COLORCHARS", "LINEOFS", "LINETYPE",
-                                "CHARSCALE", "LINESCALE", "VOICETRUE", "VOICEFALSE")}
-GLOBAL = {NAMES[n] for n in ("STR_PLAYERNAME", "STR_TALKNAME", "STR_TAIL", "STR_YEAR", "STR_MONTH", "STR_WEEK",
-                              "STR_DAY", "STR_HOUR", "STR_MIN", "STR_SEC", "STR_COUNTRYNAME")}
-FILLED = ({NAMES[n] for n in NAMES if n.startswith("STR_FREE") or n.startswith("STR_ITEM")} |
-          {NAMES[n] for n in ("STR_DETERMINATION", "STR_RNDNUM", "STR_MAIL")})
+COSMETIC, GLOBAL, FILLED = af_text.COSMETIC, af_text.GLOBAL, af_text.FILLED     # the rule is af_text's (steering)
 KANA = set(c for c in msgbank.N64_CHARS if c and "\u3040" <= c <= "\u30ff")   # hiragana and katakana
 DEMONPC0, MSGCLEAR, BTN = NAMES["DEMONPC0"], NAMES["MSGCLEAR"], NAMES["BTN"]
 GAP, OTHER_VALUE = 0.35, 0.10             # recover's costs: an order placed on its own; one at an order of another value
@@ -99,13 +95,7 @@ def english(tokens):
     return any(c.isascii() and c.isalpha() for c in text) and not any(c in KANA for c in text)
 
 
-def steering(tokens):
-    """The codes that steer the game, with their arguments, in order."""
-    return [(t[1], t[2]) for t in tokens if t[0] == "c" and t[1] not in COSMETIC | GLOBAL | FILLED]
-
-
-def filled(tokens):
-    return set(t[1] for t in tokens if t[0] == "c" and t[1] in FILLED)
+steering, filled = af_text.steering, af_text.filled
 
 
 def talk_order(it):
@@ -114,7 +104,7 @@ def talk_order(it):
 
 
 def steers_item(it):
-    return it[0] == "c" and it[1] not in COSMETIC | GLOBAL | FILLED and not talk_order(it)
+    return it[0] == "c" and it[1] not in af_text.NOT_STEERING and not talk_order(it)
 
 
 def _segments(items):

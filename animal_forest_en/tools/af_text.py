@@ -38,7 +38,13 @@ loader (`func_8009E388_jp`) reads through dmadata.
 check and compile lay the --overrides files' messages over the bank by
 number first, as draft does (make rom-en: the messages
 tools/af_nafe_text.py takes from the AF Project's 2010 translation, which
-never reach the repository or the draft).
+never reach the repository or the draft, then ours, script/message/*.txt,
+which the draft has as well). With --reference a message laid over is an
+error unless its codes that steer the game are the cartridge's, the same
+ones in the same order with the same arguments (steering(): all but how the
+text shows, the strings the game always has at hand and the en build's
+capital and article), and it prints no string the game fills for one
+message (filled(): a free string, an item...) that the cartridge's does not.
 
 compile-letters takes the eight letter banks in LETTER_BANKS' order and
 writes them as one text file and one table of ends (the en build's two
@@ -114,6 +120,23 @@ DROP = {NAMES[n] for n in ("SETCURSORJUST", "CLRCUSRORJUST", "SPACE")}
 N64_CARRIED = {NAMES["STR_AMPM"]: NAMES["LUCK_6"], NAMES["CUTARTICLE"]: NAMES["LUCK_7"],
                NAMES["CAPTIALIZE"]: NAMES["LUCK_8"]}
 LETTER_CODES = {NAMES["LUCK_7"], NAMES["LUCK_8"]}          # a letter's codes besides the free strings
+# The codes that steer the game are all but how the text shows (pages, pauses,
+# colours, scales, voice: COSMETIC), the strings the game always has at hand
+# (the names, the catchphrase, the date and time, the town: GLOBAL) and the en
+# build's capital and article for the next string (SHAPING). A string the game
+# fills for one message (FILLED: a free string, an item, STR_DETERMINATION,
+# STR_RNDNUM, STR_MAIL) is filled only for the messages that print it. A message
+# laid over the bank (--overrides: the 2010 patch's, tools/af_nafe_text.py, and
+# ours, script/message/) keeps the cartridge's codes that steer the game and
+# prints none of those strings the cartridge's does not.
+COSMETIC = {NAMES[n] for n in ("PAUSE", "BTN", "BTN2", "MSGCLEAR", "TEXTCOLOR", "COLORCHARS", "LINEOFS", "LINETYPE",
+                                "CHARSCALE", "LINESCALE", "VOICETRUE", "VOICEFALSE")}
+GLOBAL = {NAMES[n] for n in ("STR_PLAYERNAME", "STR_TALKNAME", "STR_TAIL", "STR_YEAR", "STR_MONTH", "STR_WEEK",
+                              "STR_DAY", "STR_HOUR", "STR_MIN", "STR_SEC", "STR_AMPM", "STR_COUNTRYNAME")}
+SHAPING = {NAMES["CAPTIALIZE"], NAMES["CUTARTICLE"]}
+FILLED = ({NAMES[n] for n in NAMES if n.startswith("STR_FREE") or n.startswith("STR_ITEM")} |
+          {NAMES[n] for n in ("STR_DETERMINATION", "STR_RNDNUM", "STR_MAIL")})
+NOT_STEERING = COSMETIC | GLOBAL | SHAPING | FILLED
 # The en build's letter banks: room for the GameCube's longest entry (header
 # 23 bytes, body 177, footer 30, the villagers' parts 20/62/90/32), free strings
 # expanded later by the loader.
@@ -136,6 +159,31 @@ for _bank in LETTER_BANKS:
 
 def carried(tokens):
     return [("c", N64_CARRIED[t[1]], t[2]) if t[0] == "c" and t[1] in N64_CARRIED else t for t in tokens]
+
+
+def steering(tokens):
+    """The codes that steer the game, with their arguments, in order."""
+    return [(t[1], t[2]) for t in tokens if t[0] == "c" and t[1] not in NOT_STEERING]
+
+
+def filled(tokens):
+    """The strings the game fills for one message that the message prints."""
+    return set(t[1] for t in tokens if t[0] == "c" and t[1] in FILLED)
+
+
+def laid_problems(tokens, original):
+    """[(level, text)] for a message laid over the bank, against the cartridge's."""
+    problems = []
+    if steering(tokens) != steering(original):
+        problems.append(("error", "its codes that steer the game are not the cartridge's: %s, the cartridge's %s" % (
+            render([("c",) + s for s in steering(tokens)]), render([("c",) + s for s in steering(original)]))))
+    unfilled = filled(tokens) - filled(original)
+    if unfilled:
+        problems.append(("error", "prints %s, which the game does not fill for this message"
+                         % ", ".join(sorted(COMMANDS[c] for c in unfilled))))
+    return problems
+
+
 FALLBACK = {"…": "...", "“": '"', "”": '"', "‘": "'", "’": "'", "–": "-", "—": "-",
             "ー": "-", "¡": "!", "¿": "?", "ß": "ss", "Æ": "AE", "æ": "ae", "Ø": "O", "ø": "o", "Ð": "D", "ð": "d",
             "Þ": "Th", "þ": "th", "·": ".", "•": "*", "×": "x", "°": "o",
@@ -558,13 +606,17 @@ def load_bank(path):
     return Bank.parse_dump(open(path, encoding="utf-8").read())
 
 
-def run_checks(messages, cols, lines, max_bytes, reference=None, single=False, letter=False, measure=None):
+def run_checks(messages, cols, lines, max_bytes, reference=None, single=False, letter=False, measure=None, laid=()):
+    """laid: the numbers of the messages laid over the bank (--overrides), checked against reference."""
     errors = warnings = 0
     for number in sorted(messages):
         allowed = page_lines(reference[number]) if reference and number in reference else 0
         original = reference.get(number) if reference and (letter or not single) else None
-        for level, text in check_message(number, messages[number], cols, lines, max_bytes, allowed, single and not letter,
-                                         original, letter, measure):
+        problems = check_message(number, messages[number], cols, lines, max_bytes, allowed, single and not letter,
+                                 original, letter, measure)
+        if number in laid and original is not None:
+            problems += laid_problems(messages[number], original)
+        for level, text in problems:
             print("%s %d: %s" % (level, number, text))
             if level == "error":
                 errors += 1
@@ -719,10 +771,11 @@ def main(argv):
     if cmd == "draft":
         draft(args[1], args[2], args[3], args[4], overrides)
         return 0
-    messages = load_bank(args[1])
+    messages, laid_numbers = load_bank(args[1]), set()
     for path in overrides:
         laid = load_bank(path)
         messages.update(laid)
+        laid_numbers |= set(laid)
         print("af_text: %d messages laid over from %s" % (len(laid), os.path.basename(path)))
     measure = None
     if font is not None and bank == "message":
@@ -734,7 +787,7 @@ def main(argv):
         print("af_text: laid out at %d pixels: %s" % (WINDOW_WIDTH, ", ".join("%d %s" % (counts[k], k)
                                                                              for k in sorted(counts)) or "nothing to do"))
     errors = run_checks(messages, opts["--cols"], opts["--lines"], opts["--max-bytes"], reference, bank != "message",
-                        bank in LETTER_CAPS, measure)
+                        bank in LETTER_CAPS, measure, laid_numbers)
     if cmd == "check":
         return 1 if errors else 0
     if cmd == "compile":

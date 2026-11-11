@@ -2239,5 +2239,71 @@ what goes in it: "The letters in the en build").
   first measured on the cartridge's own message 2171 (0xff, 0x17, 0xff,
   0x07), whose English now puts the same four in the patch's three pages.
 - **Left for later.** The 45 refused differ in what the game does (an
-  end that goes on, a choice, a next message, a string not filled):
-  their text could be ours. 779 messages keep the cartridge's text.
+  end that goes on, a choice, a next message, a string not filled): their
+  text is ours now ("Our own messages"), and the draft holds it, so the
+  tool's candidates are 864 (130 taken, 734 not in English in the patch).
+
+## Our own messages (phase 5)
+
+- **Which.** The 45 messages the 2010 patch has in English that the en
+  build refuses ("The 2010 patch's messages": 38 for their codes, 7 for a
+  string), translated by us from the cartridge's Japanese (the dump's,
+  `build/gc/n64_jp.txt`), not from the patch's English:
+  `script/message/ours.txt`. Ten are spares (the opening's five, four
+  event notices', one more: our "extra", the word the GameCube's English
+  gives its own) and three are debug messages that ask the developers to
+  be told if they show (the cartridge's text says its "please" with a
+  lisp; ours too, and so does the saving message beside them). The other
+  32: the villagers (an errand not done, a first meeting late at night, a
+  fondness that wore off, visiting other towns, the furniture and a
+  letter on the part-time job, telling the time by the sun, letters not
+  written, holes left open, winter, a new catchphrase), the shop's
+  refusal of an order with its second voice repeating each sentence's
+  end, the Controller Pak's warning (six, one a personality's, each going
+  on to its own message), a broken town record, Mr. Resetti on coming out
+  at every RESET, the morning aerobics, and the six questions whether the
+  player is done for now, before the choice to save and quit or save and
+  keep playing (choice strings 0x1AE and 0x1AF).
+- **The rule.** Each keeps the cartridge's codes that steer the game, the
+  same in the same order with the same arguments, and prints no string
+  the game fills for one message that the cartridge's does not
+  (`af_text.steering` and `af_text.filled`, moved from
+  `af_nafe_text.py`, which uses them). Pauses, colours, scales and page
+  breaks are placed for the English. A colour's count (`COLORCHARS`'
+  last byte, the characters it colours, spaces included, as the
+  GameCube's English counts them) is the English word's. The shop's
+  second voice repeats the English sentence's end in small letters, a
+  `CHARSCALE` before each as on the cartridge. Codes the rule calls the
+  English's own may be added: the en build's capital (`CAPTIALIZE`,
+  before a catchphrase that starts a sentence: `SHAPING`) and the strings
+  the game always has (`GLOBAL`: `STR_AMPM`, and a villager's whole time
+  again where the cartridge's says only the seconds have moved on: the en
+  build prints them as two digits).
+- **In the build.** `make script` lays `script/message/*.txt` over the
+  draft (no longer every `script/*.txt`: `ui.txt` and `items.txt` are not
+  messages); `make rom-en` lays them over the compiled bank again, after
+  the 2010 patch's, so that a change to them needs no new `make script`.
+  `af_text.py check` and `compile` with `--reference` refuse a message
+  laid over that breaks the rule (`laid_problems`: the 2010 patch's
+  messages pass it by construction). The 45 are laid out at the window's
+  192 pixels as written (none moved by the layout, the widest line 188 by
+  its model), and the bank's check has the same 64 warnings before and
+  after. Messages in English (Latin letters, no kana): 9,947 of the
+  10,847 before, 9,992 after (92.1%); 734 keep the cartridge's text, none
+  of them in English in the 2010 patch.
+- **Measured** (`make messages-check-en`: `tests/emu_messages.py --own`).
+  The en tree's compiled bank holds the 45 as written, laid out for the en
+  font (all 45), each keeping the cartridge's codes that steer the game
+  and printing no string it does not fill (all 45, against the dump). The
+  29 whose first page needs no speaker and waits for the player are asked
+  for as an actor asks for a message: their 62 lines with text are where
+  the font's model puts them (0 of the 253 lines of the 80 messages shown
+  fail), each colour on its English word (looked at: the Controller
+  Pak's, the post office's). The 9 that play to their end with talk
+  orders were played through: the talking animal's order in slot 0, read
+  every frame, is the cartridge's sequence in all 9 (the longest 20
+  orders). The check first played 2 of ours: it took codes 71 to 73, the
+  en build's `STR_AMPM`, `CUTARTICLE` and `CAPTIALIZE` (`LUCK_6` to
+  `LUCK_8` on the cartridge, in neither game's bank), for luck codes that
+  go on to another message; it counts them as strings now (the 2010
+  patch's 38 unchanged).

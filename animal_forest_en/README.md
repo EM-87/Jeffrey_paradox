@@ -144,7 +144,8 @@ cartucho al compilar; el `m_font.c` del build en inglés los dibuja y los
 mide así, y el japonés sigue igual: `reference/NOTES.md`, "The font in
 the en build"). Sin el disco, el build usa los glifos latinos del propio
 cartucho, movidos al borde izquierdo de su celda de 12 px.
-Nuestras traducciones de lo que GameCube no tiene van en `script/`.
+Nuestras traducciones de lo que GameCube no tiene van en `script/`
+(los mensajes, en `script/message/`).
 
 Las líneas que no caben en los 192 px de la ventana (un 0,1 % con los
 glifos de GameCube; un 3,9 % con los del cartucho) se recolocan al
@@ -235,9 +236,21 @@ se reponen: las del cartucho, en su orden, en el sitio del texto inglés
 que les corresponde. De los 175 que el parche tiene en inglés entran
 130; en los demás el parche cambió algo de lo que el juego hace. El
 mérito de esas frases es del AF Project ("The 2010 patch's
-messages"). `make messages-check-en` muestra en la ventana de
-diálogo los que no necesitan quien hable y mide cada línea contra el
-modelo de la fuente.
+messages").
+
+Los 45 que el parche de 2010 tiene en inglés pero que no entran por sus
+códigos los hemos traducido nosotros, del japonés del cartucho
+(`script/message/ours.txt`): conservan los códigos del cartucho que
+mueven el juego, y solo las pausas, los colores y los saltos de página
+se colocan para el inglés. Al compilar, `af_text.py` rechaza cualquier
+mensaje superpuesto (el del parche de 2010 o el nuestro) cuyos códigos
+no sean los del cartucho ("Our own messages"). Con ellos, 9.992 de los
+10.847 mensajes con texto están en inglés (92,1 %); quedan 734 en
+japonés, ninguno traducido en el parche de 2010. `make
+messages-check-en` muestra en la ventana de diálogo los que no necesitan
+quien hable y mide cada línea contra el modelo de la fuente, y reproduce
+hasta el final los que llevan órdenes de gesto para comprobar que son
+las del cartucho.
 
 Los nombres de los objetos son los de GameCube, leídos de tu disco al
 compilar (`tools/af_items.py`): de los 1.703 del cartucho, 1.696 tienen
@@ -274,7 +287,7 @@ guarda y la carga con la partida.
 
 Lo que viene: el logo del título del parche de 2010 y el aviso de mando
 desconectado, las texturas occidentales de GameCube donde las haya
-(letreros) y traducir ese 6 %.
+(letreros) y traducir los 734 mensajes que siguen en japonés.
 
 ## Dónde está cada cosa
 
@@ -302,7 +315,8 @@ desconectado, las texturas occidentales de GameCube donde las haya
   los mensajes del parche de 2010, de tu copia), `af_dumpdata.py` (los datos del cartucho que
   un archivo decompilado incluye, sacados de tu volcado al extraer) y
   `af_ovlreloc.py` (la tabla de reubicaciones de un overlay que cambia).
-- `script/` — nuestro texto: lo que no tiene versión oficial.
+- `script/` — nuestro texto: lo que no tiene versión oficial (los
+  mensajes en `script/message/`).
 - `tests/` — `test_tools.py` (`make test`), `emu_check.py`
   (`make emu-check`) y las pruebas del build en inglés en el emulador:
   `emu_save.py` (la partida), `emu_letters.py` (las cartas),

@@ -95,10 +95,13 @@ the why and the state, `reference/NOTES.md` for what is verified.
   the eight letter banks) as one tagged text (and the N64's back to
   bytes), the message-by-message comparison, the English banks drafted,
   checked and compiled for the ROM, and the animals' names; output in
-  `build/gc/`, never committed. `script/*.txt`, `script/choice/`,
+  `build/gc/`, never committed. `script/message/`, `script/choice/`,
   `script/string/`, `script/<letter bank>/` hold our own text,
   laid over the drafts (NOTES, "The GameCube script", "The English bank
-  in the ROM").
+  in the ROM"); our messages over the compiled bank again at `make
+  rom-en`, where `af_text.py` refuses any message laid over (ours or the
+  2010 patch's) whose codes that steer the game are not the cartridge's
+  (`af_text.steering`; NOTES, "Our own messages").
 - `tools/af_font.py` — the en build's font, made from the user's dump at
   `make rom-en`: the GameCube's Latin letters and their widths (read from
   the disc by `make script` into `build/gc/gc_font.bin`), or without the
@@ -159,7 +162,7 @@ the why and the state, `reference/NOTES.md` for what is verified.
   back whole, saved and loaded: `make notice-check-en`),
   `emu_messages.py` (messages of the bank shown in the message window as
   the game asks for one, each first page's lines measured against the
-  font's model: those taken from the 2010 patch and two of the
+  font's model: those taken from the 2010 patch, ours and two of the
   GameCube's; and those that play through without a choice, played to
   their end, the talking animal's order read every frame against the
   cartridge's orders: `make messages-check-en`),
