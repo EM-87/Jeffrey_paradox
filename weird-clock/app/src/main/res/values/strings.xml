@@ -809,6 +809,8 @@
     <string name="pref_readout_style_title">How the readouts are made</string>
     <string name="pref_digital_seconds_title">Seconds</string>
     <string name="pref_digital_seconds_summary">The seconds on the face, beside the minutes</string>
+    <string name="pref_digital_beep_title">Beep every second</string>
+    <string name="pref_digital_beep_summary">A short, quiet beep as each second goes by, while the clock is on screen. Quieter still at night</string>
     <string name="compass_north">N</string>
     <string name="compass_south">S</string>
     <string name="pref_colon_breathes_title">Breathing colon</string>

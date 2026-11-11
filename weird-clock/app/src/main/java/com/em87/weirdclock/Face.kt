@@ -267,6 +267,8 @@ object FaceOptions {
     /** And the rows only a screenful of digits has. */
     private val digitalOnly = setOf(
         Prefs.DIGITAL_SECONDS,
+        // The digits' own sound, where the dial has its tick.
+        Prefs.DIGITAL_BEEP,
         Prefs.COLON_BREATHES,
         Prefs.COLON_PERIOD,
         Prefs.LEADING_ZERO,

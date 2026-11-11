@@ -11,6 +11,7 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlin.concurrent.thread
 import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.min
 import kotlin.math.sin
@@ -28,6 +29,24 @@ import kotlin.math.tanh
 class ChimePlayer {
 
     companion object {
+        /** The pitch of the digits' beep: an E two octaves over the stave. */
+        internal const val BEEP_HZ = 1320.0
+
+        /** How long it lasts, start to finish. */
+        internal const val BEEP_SECONDS = 0.045
+
+        /** How long it takes to swell, and at the other end to close. */
+        internal const val BEEP_ATTACK_SECONDS = 0.004
+
+        /** How fast it falls away once it has sounded. */
+        internal const val BEEP_DECAY = 60.0
+
+        /** Its height out of one; the tick's is 0.3. */
+        internal const val BEEP_HEIGHT = 0.12
+
+        /** Named with a number, so a changed beep is not the old file. */
+        private const val BEEP_FILE = "beep1.wav"
+
         const val GRANDFATHER_HZ = 392.0
         const val SHIPS_HZ = 660.0
         const val GONG_HZ = 262.0
@@ -96,6 +115,21 @@ class ChimePlayer {
 
     @Volatile
     private var tickReady = false
+
+    /** For the tests: how many ticks, and how many beeps, have been asked for. */
+    @Volatile
+    internal var ticksAsked = 0
+        private set
+
+    @Volatile
+    internal var beepsAsked = 0
+        private set
+
+    @Volatile
+    private var beepSoundId = 0
+
+    @Volatile
+    private var beepReady = false
     private val lock = Any()
 
     /**
@@ -115,7 +149,10 @@ class ChimePlayer {
                 )
                 .build()
             pool.setOnLoadCompleteListener { _, sampleId, status ->
-                synchronized(lock) { if (status == 0 && sampleId == tickSoundId) tickReady = true }
+                synchronized(lock) {
+                    if (status == 0 && sampleId == tickSoundId) tickReady = true
+                    if (status == 0 && sampleId == beepSoundId) beepReady = true
+                }
             }
             soundPool = pool
             thread(name = "tick-synth") {
@@ -130,8 +167,53 @@ class ChimePlayer {
                     writeWav(file, toPcm(samples))
                 }
                 synchronized(lock) { tickSoundId = pool.load(file.path, 1) }
+                // The digits' beep, beside it and by the same road.
+                val beep = File(context.cacheDir, BEEP_FILE)
+                if (!beep.exists()) writeWav(beep, toPcm(beepSamples()))
+                synchronized(lock) { beepSoundId = pool.load(beep.path, 1) }
             }
         }
+    }
+
+    /**
+     * The digits' beep: a short soft tone, where the dial has a tick.
+     *
+     * A tick is a knock — a burst that starts at full height and dies in
+     * a few milliseconds — and a beep is a note, so it has a pitch and it
+     * has an attack: it swells over the first few milliseconds instead of
+     * starting with a step, which on a speaker is a click, and it is gone
+     * again inside a twentieth of a second. Pitched where a small
+     * speaker is clear without being sharp, and at less than half the
+     * tick's height, because it is the one sound here that nobody
+     * touched anything to make and it makes it every second.
+     */
+    internal fun beepSamples(): FloatArray {
+        val samples = FloatArray((BEEP_SECONDS * SAMPLE_RATE).toInt())
+        val attack = BEEP_ATTACK_SECONDS
+        for (n in samples.indices) {
+            val t = n.toDouble() / SAMPLE_RATE
+            // A raised-cosine swell, then an exponential fall, then a
+            // last few milliseconds brought down to nothing so the end
+            // is as free of a step as the beginning.
+            val swell = if (t < attack) 0.5 - 0.5 * cos(PI * t / attack) else 1.0
+            val fall = exp(-(t - attack).coerceAtLeast(0.0) * BEEP_DECAY)
+            val left = BEEP_SECONDS - t
+            val close = if (left < attack) 0.5 - 0.5 * cos(PI * left / attack) else 1.0
+            samples[n] = (swell * fall * close * BEEP_HEIGHT * sin(2.0 * PI * BEEP_HZ * t)).toFloat()
+        }
+        return samples
+    }
+
+    /**
+     * The digits' beep, played the way the tick is: without the lock, on
+     * whatever thread asks.
+     */
+    fun playBeep(volume: Float = Ticker.tickVolume(night = false)): Boolean {
+        beepsAsked++
+        val pool = soundPool ?: return false
+        if (!beepReady) return false
+        val level = volume.coerceIn(0f, 1f)
+        return pool.play(beepSoundId, level, level, 1, 0, 1f) != 0
     }
 
     /**
@@ -146,6 +228,7 @@ class ChimePlayer {
      * SoundPool ignores.
      */
     fun playTick(volume: Float = Ticker.tickVolume(night = false)): Boolean {
+        ticksAsked++
         val pool = soundPool ?: return false
         if (!tickReady) return false
         // Non-zero is a stream that started. Zero means the pool refused —

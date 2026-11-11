@@ -157,6 +157,19 @@ object Prefs {
     const val DIGITAL_SECONDS = "pref_digital_seconds"
 
     /**
+     * Whether the digits beep as each second goes by.
+     *
+     * The dial has its tick, which is the sound of a mechanism and was
+     * taken off this face for that reason: a screenful of digits ticking
+     * like an escapement is a costume. What a clock made of digits does
+     * make, when it makes anything, is a beep — short, soft, and off
+     * unless somebody asks for it, because a sound every second is
+     * company to the person who wanted it and a tap dripping to everybody
+     * else in the room.
+     */
+    const val DIGITAL_BEEP = "pref_digital_beep"
+
+    /**
      * Whether the blinking colon breathes instead of blinking.
      *
      * The same second, spent differently: a blink is a square wave and

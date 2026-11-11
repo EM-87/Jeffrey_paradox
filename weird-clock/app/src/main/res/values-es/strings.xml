@@ -643,6 +643,8 @@
     <string name="pref_readout_style_title">Cómo se hacen las lecturas</string>
     <string name="pref_digital_seconds_title">Segundos</string>
     <string name="pref_digital_seconds_summary">Los segundos en la cara, junto a los minutos</string>
+    <string name="pref_digital_beep_title">Bip cada segundo</string>
+    <string name="pref_digital_beep_summary">Un bip corto y discreto al paso de cada segundo, mientras el reloj está en pantalla. Más bajo aún de noche</string>
     <string name="compass_north">N</string>
     <string name="compass_south">S</string>
     <string name="pref_colon_breathes_title">Dos puntos que respiran</string>

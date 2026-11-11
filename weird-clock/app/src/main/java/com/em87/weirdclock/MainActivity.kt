@@ -218,6 +218,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var bellStyle = Prefs.BELL_STYLE_COUNT
     private var bellMarks = Bells.MARKS_HOUR
     private var tickingEnabled = false
+
+    /** Whether the digits beep on the second — see [Prefs.DIGITAL_BEEP]. */
+    private var beepEnabled = false
     private var countdownPersistent = true
 
     private var lastHandledMinute = -1L
@@ -546,6 +549,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     @Volatile
     private var ticksWanted = false
 
+    /**
+     * And whether the digits' beep is, which rides the same beat.
+     *
+     * Never both: one is the sound of a second hand and the other of a
+     * face that has none, and which face this is was settled when the
+     * screen was built.
+     */
+    @Volatile
+    private var beepsWanted = false
+
     /** The beat's fixed point, and how many have gone since. */
     private var tickAnchorUptime = 0L
     private var tickBeats = 0L
@@ -572,14 +585,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // they are minutes apart — so the tick would sound at one
             // instant and the hand step at another.
             val now = TimeKeeper.nowMs()
-            if (ticksWanted) {
+            val tick = ticksWanted
+            if (tick || beepsWanted) {
                 if (!Ticker.onTime(now)) {
                     tickRecord.missedIt()
                     // Turned down for the night with everything else on
                     // this dial. Only the seconds tick: the pushers and the
                     // crown are things you did, and a click you asked for
                     // that you cannot hear is a broken button.
-                } else if (chimePlayer.playTick(tickLevel())) {
+                } else if (
+                    if (tick) chimePlayer.playTick(tickLevel()) else chimePlayer.playBeep(tickLevel())
+                ) {
                     tickRecord.sounded(lag)
                 } else {
                     tickRecord.refusedIt()
@@ -627,6 +643,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** For the tests: whether the tick would sound on this second. */
     internal fun ticksWantedForTest(): Boolean = ticksWanted
 
+    /** And whether the digits' beep would. */
+    internal fun beepsWantedForTest(): Boolean = beepsWanted
+
+    /** For the tests: how many ticks and how many beeps this screen has asked for. */
+    internal fun soundsAskedForTest(): Pair<Int, Int> = chimePlayer.ticksAsked to chimePlayer.beepsAsked
+
 
 
     /** Runs on (approximately) every second boundary, so ticks stay in step. */
@@ -646,6 +668,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // A dial showing the planets is not showing a second hand,
                 // so there is nothing for a tick to be the sound of.
                 !cv.orreryShowing()
+            // The digits' beep, where the dial has its tick: only on the
+            // face made of digits and only while that face is the card on
+            // the glass. Setting an alarm to a beep a second is a metronome
+            // nobody asked for.
+            beepsWanted = beepEnabled && face == Face.DIGITAL && current() == Card.CLOCK
             if (countdownRunning && countdownRemaining() == 0L) {
                 countdown.reset()
                 CountdownService.clearPublished(this@MainActivity)
@@ -4098,6 +4125,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             prefs.edit().putString(Prefs.BELL_MARKS, bellMarks).apply()
         }
         tickingEnabled = prefs.getBoolean(Prefs.TICKING, false)
+        beepEnabled = prefs.getBoolean(Prefs.DIGITAL_BEEP, false)
         countdownPersistent = prefs.getBoolean(Prefs.COUNTDOWN_PERSISTENT, true)
     }
 
