@@ -232,8 +232,15 @@ catálogo y gameplay_keep, cada una en su sitio, formato y tamaño.
 `tools/af_nafe_gfx.py` las toma al compilar de tu copia del parche (`make
 nafe`) y nada de él entra al repositorio; `make menus-check-en` abre esos
 menús y comprueba cada etiqueta en memoria ("The 2010 patch's labels").
-El logo del título de ese parche cambia también el código del actor que
-lo dibuja, que sigue en ensamblador: queda para después.
+El logo del título de ese parche también se aprovecha: el nombre del juego
+en inglés, en dos líneas, donde el cartucho tiene el logo japonés. La
+función del actor que dibuja sus piezas pasó antes a C, idéntica al
+cartucho; `tools/af_nafe_logo.py` toma al compilar de tu copia del parche
+las piezas (vértices, listas y texturas), los datos del actor que las
+colocan y colorean y los cuatro valores de su código que el parche cambió,
+comprobando antes que lo que no toma no se ve. El aviso de mando
+desconectado de ese parche no se toma: su inglés será nuestro ("The
+title's logo").
 
 Los mensajes que el guion de GameCube no tiene (909 seguían en japonés)
 se toman, donde se puede sin riesgo, del inglés de esa misma traducción
@@ -319,8 +326,8 @@ páginas del tablón y mide cada línea en la imagen contra el modelo, teclea
 en el dial una nota de más de 96 bytes, la termina, la lee entera, y la
 guarda y la carga con la partida.
 
-Lo que viene: el logo del título del parche de 2010 y el aviso de mando
-desconectado, las texturas occidentales de GameCube donde las haya
+Lo que viene: el aviso de mando desconectado de la pantalla de título,
+las texturas occidentales de GameCube donde las haya
 (letreros), los nombres de animales cortados y una pasada de pruebas
 de todo el texto en el juego.
 
@@ -346,8 +353,9 @@ de todo el texto en el juego.
   correspondencia), `af_text.py` (el banco inglés: borrador, comprobador y
   compilador), `af_font.py` (la fuente del build en inglés), `af_ui.py`
   (las cadenas de los menús), `af_items.py` (los nombres de los objetos,
-  de tu disco), `af_nafe_gfx.py` y `af_nafe_text.py` (las etiquetas y
-  los mensajes del parche de 2010, de tu copia), `af_dumpdata.py` (los datos del cartucho que
+  de tu disco), `af_nafe_gfx.py`, `af_nafe_logo.py` y `af_nafe_text.py`
+  (las etiquetas, el logo del título y los mensajes del parche de 2010, de
+  tu copia), `af_dumpdata.py` (los datos del cartucho que
   un archivo decompilado incluye, sacados de tu volcado al extraer) y
   `af_ovlreloc.py` (la tabla de reubicaciones de un overlay que cambia).
 - `script/` — nuestro texto: lo que no tiene versión oficial (los

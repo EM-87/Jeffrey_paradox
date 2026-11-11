@@ -26,6 +26,7 @@ import af_dumpdata  # noqa: E402
 import af_font  # noqa: E402
 import af_luicheck  # noqa: E402
 import af_nafe_gfx  # noqa: E402
+import af_nafe_logo  # noqa: E402
 import af_nafe_text  # noqa: E402
 import af_names  # noqa: E402
 import af_ovlreloc  # noqa: E402
@@ -1502,6 +1503,58 @@ class MenusWords(unittest.TestCase):
                 self.assertIn(fmt, af_nafe_gfx.FORMATS)
                 self.assertIn(bits, af_nafe_gfx.SIZES)
                 self.assertEqual(w * h * bits % 64, 0, what)        # whole 8-byte words
+
+    def test_logo_pieces_use_their_lists_vertices_and_blocks(self):
+        # tools/af_nafe_logo.py: a piece's display list uses itself, the vertices it loads and the
+        # textures it loads by blocks (lrs + 1 texels of the image's size)
+        def cmd(w0, w1):
+            return struct.pack(">II", w0, w1)
+        dl = (cmd(0xD7000002, 0xFFFFFFFF)
+              + cmd(0xFD700000, 0x06000200)             # image at 0x200, 16-bit texels
+              + cmd(0xF3000000, 0x0717F400)             # 0x180 texels: 0x300 bytes
+              + cmd(0x01004008, 0x06000080)             # 4 vertices at 0x80
+              + cmd(0x06000204, 0x00000406)
+              + cmd(0xDF000000, 0))
+        seg = bytearray(0x500)
+        seg[0x100:0x100 + len(dl)] = dl
+        used = af_nafe_logo.pieces_used(bytes(seg), [0x100])
+        self.assertEqual(used, [(0x80, 0x40), (0x100, len(dl)), (0x200, 0x300)])
+        self.assertEqual(af_nafe_logo.span(used, len(seg)), (0x80, 0x500, [(0xC0, 0x100), (0x130, 0x200)]))
+        with self.assertRaises(SystemExit):                  # reaching past the segment
+            af_nafe_logo.span(used, 0x4FF)
+        seg[0x100:0x108] = cmd(0xDE000000, 0x06000000)       # another list: a layout it does not know
+        with self.assertRaises(SystemExit):
+            af_nafe_logo.pieces_used(bytes(seg), [0x100])
+
+    def test_logo_data_lines_are_rewritten_as_words(self):
+        # the taken symbols' lines become .word with the new value, the comment (splat's: the
+        # cartridge's word) kept, so that a second run finds the cartridge's line again
+        base = af_nafe_logo.OVERLAY_VRAM
+        cart = struct.pack(">4I", 0xE7000000, 0x433F0000, 0xC2A60000, 0x06002FF0)
+        lines = ["dlabel D_A", "    /* 960000 %08X 433F0000 */ .float 191" % (base + 4),
+                 "    /* 960004 %08X C2A60000 */ .float -83" % (base + 8), "enddlabel D_A",
+                 "dlabel D_B", "    /* 960008 %08X 06002FF0 */ .word 0x06002FF0" % (base + 12), "enddlabel D_B"]
+        data_s = "\n".join(lines)
+        self.assertEqual(af_nafe_logo.symbols(data_s), {"D_A": [base + 4, base + 8], "D_B": [base + 12]})
+        out = af_nafe_logo.rewrite_data(data_s, cart, {base + 4: 0x43570000, base + 12: 0x06002890})
+        self.assertIn("    /* 960000 %08X 433F0000 */ .word 0x43570000" % (base + 4), out)
+        self.assertIn("    /* 960008 %08X 06002FF0 */ .word 0x06002890" % (base + 12), out)
+        self.assertIn(".float -83", out)                     # not asked for: left as it was
+        self.assertEqual(af_nafe_logo.rewrite_data(out, cart, {base + 4: 0x433F0000, base + 12: 0x06002FF0})
+                         .count(".word"), 2)
+        with self.assertRaises(SystemExit):                  # a line that is not the cartridge's
+            af_nafe_logo.rewrite_data(data_s.replace("433F0000 */", "433F0001 */"), cart, {base + 4: 1})
+        with self.assertRaises(SystemExit):                  # a word with no line
+            af_nafe_logo.rewrite_data(data_s, cart, {base: 1})
+
+    def test_logo_include_names_every_value(self):
+        values = {name: "1" for _, _, name, _ in af_nafe_logo.CODE}
+        inc = af_nafe_logo.include(values)
+        for _, insn, name, kind in af_nafe_logo.CODE:
+            self.assertIn("#define %s 1" % name, inc)
+            if kind == "dl":                                 # the cartridge's list is one the table knows
+                self.assertIn(insn & 0xFFFF, af_nafe_logo.OWN_DLS)
+        self.assertTrue(set(af_nafe_logo.PIECES) <= set(af_nafe_logo.TAKEN))
 
 
 class Matching(unittest.TestCase):

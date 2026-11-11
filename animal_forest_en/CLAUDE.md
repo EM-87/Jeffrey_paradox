@@ -135,6 +135,13 @@ the why and the state, `reference/NOTES.md` for what is verified.
   tree's extracted segments, each checked against both ROMs' display
   lists; the cartridge's labels without it (NOTES, "The 2010 patch's
   labels").
+- `tools/af_nafe_logo.py` — the title's logo the 2010 patch drew in
+  English, taken at `make rom-en` from the same copy: its pieces into the
+  en tree's copy of the logo's segment (the cartridge's textures below
+  them kept), the logo actor's data over its `.data.s`, and the four
+  values of `func_80AA0C98_jp` it changed as the include the en
+  `ac_animal_logo.c` uses; the cartridge's logo without it (NOTES, "The
+  title's logo"). The actor is in `EN_OVERLAYS`: its code shrinks.
 - `tools/af_nafe_text.py` — the messages the GameCube's script has no
   counterpart for, in the 2010 patch's English where its codes that steer
   the game are the cartridge's (ends, choices, next messages, the talk

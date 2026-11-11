@@ -184,13 +184,19 @@ GC_ITEMS := $(if $(wildcard $(GC_DIR)/foresta.map $(GC_DIR)/gc_items.txt),$(GC_D
 # their segments, the cartridge's own without it (tools/af_nafe_gfx.py; NOTES,
 # "The 2010 patch's labels").
 EN_NAFE_GFX := $(AF_EN_DIR)/assets/jp/en/nafe_gfx.stamp
+# The title's logo the 2010 patch drew in English: its pieces taken from its
+# ROM into the en tree's copy of the logo's segment, with the logo actor's
+# data and the four values of its drawing the patch changed for them (the
+# include the en ac_animal_logo.c uses); the cartridge's logo without it
+# (tools/af_nafe_logo.py; NOTES, "The title's logo").
+EN_NAFE_LOGO := $(EN_ASSETS)/animal_logo.inc
 # The overlays the translation changes: each gets its relocation table made
 # anew from its objects after the first link (tools/af_ovlreloc.py, which
 # first proves fado on the matching build), and af_relink pads its sections
 # back to their old sizes: the letter board, the text editor, the name
-# entry, the edit-end check, the address book, the item window and the
-# bulletin board.
-EN_OVERLAYS := board_ovl ovl__0078CB80 ledit_ovl ovl__00799580 ovl__00792700 tag_ovl ovl__00797A50
+# entry, the edit-end check, the address book, the item window, the
+# bulletin board and the title's logo.
+EN_OVERLAYS := board_ovl ovl__0078CB80 ledit_ovl ovl__00799580 ovl__00792700 tag_ovl ovl__00797A50 ovl_Animal_Logo
 
 $(AF_EN_DIR)/.stamp-checkout: decomp/AF_REV $(MATCHING) $(CHANGES)
 	@if [ "$$(git -C $(AF_EN_DIR) rev-parse HEAD~0 2>/dev/null)" = "" ]; then \
@@ -295,7 +301,14 @@ $(EN_NAFE_GFX): tools/af_nafe_gfx.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)) 
 	else echo "labels: the cartridge's (no $(NAFE_ROM): make nafe NAFE_UPS=...)"; fi
 	@touch $@
 
-en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT) $(EN_UI) $(EN_NAFE_GFX) $(EN_ITEMS)
+# also writes the segment's .bin and the actor's .data.s, which splat rewrites at every extract
+$(EN_NAFE_LOGO): tools/af_nafe_logo.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)) $(AF_EN_DIR)/.stamp-extract
+	mkdir -p $(EN_ASSETS)
+	@if [ -s $(NAFE_ROM) ]; then $(PYTHON) tools/af_nafe_logo.py $(BASEROM) $(NAFE_ROM) $(AF_EN_DIR); \
+	else $(PYTHON) tools/af_nafe_logo.py $(BASEROM) - $(AF_EN_DIR); fi
+	@touch $@
+
+en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT) $(EN_UI) $(EN_NAFE_GFX) $(EN_NAFE_LOGO) $(EN_ITEMS)
 
 # The deliverable: the en ROM as a BPS patch against the user's dump in .z64 order (build/baserom.z64),
 # made and applied back by tools/bps.py; any BPS patcher applies it.

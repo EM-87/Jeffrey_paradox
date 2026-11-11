@@ -4160,6 +4160,40 @@ index 3ba98f9..d74058b 100644
  
 -u8 sDmaDataPadding[0xF0] = { 0 };
 +u8 sDmaDataPadding[0xF0 - 9 * sizeof(DmaEntry)] = { 0 }; /* nine entries added for the translation: the table keeps its size */
+diff --git a/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c b/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c
+index a19ecfd..d61bc25 100644
+--- a/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c
++++ b/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c
+@@ -5,6 +5,8 @@
+ #include "m_actor_dlftbls.h"
+ #include "m_object.h"
+ #include "overlays/gamestates/ovl_play/m_play.h"
++/* the title logo's values: the 2010 patch's English logo, or the cartridge's (tools/af_nafe_logo.py) */
++#include "assets/jp/en/animal_logo.inc"
+ 
+ void aAL_actor_ct(Actor* thisx, Game_Play* game_play);
+ void aAL_actor_dt(Actor* thisx, Game_Play* game_play);
+@@ -107,16 +109,16 @@ void func_80AA0C98_jp(Animal_Logo* this, Game* game, s16 idx) {
+     OPEN_DISPS(gfxCtx);
+     gfx = FONT_DISP;
+     gSPMatrix(gfx++, _Matrix_to_Mtx_new(gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+-    gSPDisplayList(gfx++, D_80AA20C0_jp);
++    gSPDisplayList(gfx++, aAL_EN_FIRST_DL);
+     gDPSetPrimColor(gfx++, 0, 50, D_80AA21F4_jp[this->colorSet], D_80AA2208_jp[this->colorSet],
+-                    D_80AA221C_jp[this->colorSet], 120);
++                    D_80AA221C_jp[this->colorSet], aAL_EN_PRIM_ALPHA);
+     gDPSetEnvColor(gfx++, D_80AA2230_jp[this->colorSet], D_80AA2244_jp[this->colorSet],
+-                   D_80AA2258_jp[this->colorSet], 255);
++                   D_80AA2258_jp[this->colorSet], aAL_EN_ENV_ALPHA);
+     gSPDisplayList(gfx++, D_80AA2188_jp[idx]);
+     gSPDisplayList(gfx++, D_80AA20E8_jp);
+     gDPSetPrimColor(gfx++, 0, 255, 255, 230, 0, 255);
+     gDPSetEnvColor(gfx++, D_80AA21B8_jp[this->colorSet], D_80AA21CC_jp[this->colorSet],
+-                   D_80AA21E0_jp[this->colorSet], 255);
++                   D_80AA21E0_jp[this->colorSet], aAL_EN_ENV2_ALPHA);
+     gSPDisplayList(gfx++, D_80AA21A0_jp[idx]);
+     FONT_DISP = gfx;
+     CLOSE_DISPS(gfxCtx);
 diff --git a/src/overlays/submenu/board_ovl/m_board_ovl.c b/src/overlays/submenu/board_ovl/m_board_ovl.c
 index 7c99435..01e6f5d 100644
 --- a/src/overlays/submenu/board_ovl/m_board_ovl.c

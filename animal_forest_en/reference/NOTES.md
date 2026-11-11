@@ -1854,16 +1854,90 @@ what goes in it: "The letters in the en build").
   bulletin board's text, which breaks its lines by count, not by width.
   The item names were, until "Item names" below.
 - **The title is more than textures.** The title's logo lives in
-  `segment_01136000` (0x5CD0 bytes, loaded by `ovl_trademark`,
-  `m_trademark.c`; segment 6). The patch rewrote it (0x4EB0 bytes, 158
-  places) and the logo actor that draws it (`ovl_Animal_Logo`, all asm):
-  the letters' places and display lists in its data (`D_FLT_80AA216C_jp`
-  and after), three alphas swapped in `func_80AA0C98_jp` (0x78 and
-  0xFF), and the strings `func_80AA08E4_jp` draws with the font on the
-  title (their lengths, places and a 0.6875 scale instead of 1.0, with
-  its own English text in `D_80AA2118_jp`). So the logo needs that actor
-  in C before the en build can take it; the cartridge's title line under
-  the logo is already in Latin letters.
+  `segment_01136000` (0x5CD0 bytes; segment 6 while the logo actor
+  draws). The patch rewrote it (0x4EB0 bytes) and the logo actor that
+  draws it (`ovl_Animal_Logo`): the letters' places and display lists in
+  its data (`D_FLT_80AA216C_jp` and after), four values of
+  `func_80AA0C98_jp`'s code, and the strings `func_80AA08E4_jp` draws
+  with the font on the title (their lengths, places and a 0.6875 scale
+  instead of 1.0, with its own English text in `D_80AA2118_jp`). So the
+  logo needed that function in C before the en build could take it: "The
+  title's logo" below. The cartridge's title line under the logo is
+  already in Latin letters.
+
+## The title's logo (phase 5, the graphics' third step)
+
+- **Where it lives.** Six pieces, which the logo actor (`ovl_Animal_Logo`)
+  draws in two layers each: `func_80AA0C98_jp` (in C, matching, in
+  decomp/matching.patch) puts piece `idx` at x `(D_FLT_80AA216C_jp[idx] -
+  160) * 16 - 2190 - 20 * idx` and the logo's y (`D_FLT_80AA2184_jp`),
+  turns it by the actor's + 0x304 angle, and draws into the font's list:
+  the actor's own list `D_80AA20C0_jp`, the colour set's (actor + 0x2B4)
+  primitive colour with alpha 120 and environment colour with alpha 255,
+  the piece's first layer (`D_80AA2188_jp[idx]`), the actor's list
+  `D_80AA20E8_jp`, the second colours (environment alpha 255), the second
+  layer (`D_80AA21A0_jp[idx]`). The layers' lists, vertices and textures
+  are in `segment_01136000` (vrom 0x1136000, 0x5CD0 bytes), which
+  `aAL_actor_ct` reads itself into the zelda arena (from the raw ROM
+  addresses `D_1136000` to `D_113BCD0`) and `func_80AA19CC_jp` makes
+  segment 6 (`asm/jp/nonmatchings/overlays/actors/ovl_Animal_Logo/`);
+  `m_trademark.c` reads it too, into a buffer of its state the decomp
+  marks unused. The segment holds first the title's other textures, the
+  ones the actor's code names (0x1110, 0x1510 and 0x1910 the line that
+  asks for START, 0x1D10 and 0x2110 the copyright line, IA8 64x16 each;
+  0x2510 the trademark mark, IA8 16x8), then from 0x2590 to its end the pieces
+  (their 12 lists, vertices and textures, with only 8-byte alignment
+  between them).
+- **What the 2010 patch changed** (`tools/nafe_diff.py`, and both ROMs'
+  lists walked). Its segment is 0x4EB0 bytes: the cartridge's up to
+  0x2590 but for the intensity of 1,897 texels with no alpha (nothing that
+  shows), then its own pieces, the game's English name on two lines,
+  from 0x2590 to 0x4EA8. In the actor: both tables of the pieces' lists,
+  their x and the logo's y, the colour tables (set 0's primitive colour
+  and every set's first-layer environment colour; the second layer's
+  stay), the trademark mark's x (`D_80AA227C_jp`, 0x112 to
+  0xFA), one command of `D_80AA20E8_jp` (the back-face culling it set,
+  replaced by a texture-LUT command its other-mode word already gives:
+  the second layer is drawn from both sides), and four values of
+  `func_80AA0C98_jp`'s code: the first layer begins with `D_80AA20E8_jp`
+  instead of `D_80AA20C0_jp` (another colour combiner), with primitive
+  alpha 255 instead of 120, and both environment alphas are 120 instead
+  of 255. Besides the logo it changed the warning shown when no
+  controller is in the first port (`func_80AA08E4_jp`'s places, lengths
+  and scale, its text `D_80AA2118_jp` to `D_80AA2140_jp`, running on
+  over `RO_STR_80AA2320_jp`, the actor's file name) and three words of
+  the title's list of options (`D_80AA2038_jp`, never on screen).
+- **Taken at build time** (`tools/af_nafe_logo.py`, run by make rom-en
+  when build/nafe-2010-12-02.z64 is there). The segment: the cartridge's
+  up to 0x2590 and the patch's from there, padded with zeros to 0x5CD0
+  (the actor reads the cartridge's length; nothing after it moves). The
+  15 data symbols (77 words, 40 of them changed) over the en tree's
+  `ac_animal_logo.data.s`. The four values as
+  `assets/jp/en/animal_logo.inc`, which the en build's `func_80AA0C98_jp`
+  uses (decomp/changes.patch). Checked first: the patch's pieces start
+  where the cartridge's do and the cartridge's run to the segment's end;
+  what the actor's code names in segment 6 lies below them; below them
+  the patch changed no texel that shows; the four instructions are the
+  cartridge's, and the patch's differ only in their values. Without the
+  patch's ROM the cartridge's segment, words and values are written (the
+  en object is then the matching build's). The warning, the options'
+  words and the file name are left out (the tool lists them): the
+  warning's English is ours to write. Nothing of the patch enters the
+  repository.
+- **The code that results.** With `D_80AA20E8_jp` named twice, IDO keeps
+  its address in a register: the en `func_80AA0C98_jp` is two
+  instructions shorter, with two relocations fewer. The overlay is in
+  EN_OVERLAYS: its relocation table is made anew (`af_ovlreloc`: fado
+  gives the cartridge's 145 from the matching build's objects, the en
+  build's 143), and af_relink lists its text (the same size, its later
+  functions 8 bytes earlier) as padded in place; af_shiftcheck: 0
+  violations.
+- **On screen** (make emu-check-en, the title at frame 400): the
+  English name where the cartridge's logo was. Against the 2010 patch's ROM
+  at the same frame, no pixel of the letters differs; what differs
+  (1,501 pixels by more than 24 of 255) is the player's character behind
+  the logo and the falling petals, which follow each ROM's own town
+  (Emulator traps in CLAUDE.md: a rebuilt ROM draws another town).
 
 ## Item names (phase 5, the menus' strings)
 
