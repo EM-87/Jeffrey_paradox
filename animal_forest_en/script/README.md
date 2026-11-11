@@ -15,8 +15,14 @@ repository.
   refuses one whose codes that steer the game are not the cartridge's, or
   that prints a string the game does not fill for it (NOTES, "Our own
   messages").
-- `choice/`, `string/` and a letter bank's folder (`mail_body/`...): the
-  same for the choices, the strings and the letters.
+- `choice/`, `string/` and a letter bank's folder (`mail_body/`,
+  `vmail_a/`...): the same for the choices, the strings and the letters,
+  laid over their drafts by `make script` (not again at `make rom-en`):
+  the strings and letters the GameCube has no English for or has wrong
+  for the cartridge (its staff credits, its units, its event notices for
+  events the cartridge does not have). The event notices the GameCube
+  keeps at another number are not ours: the draft takes the GameCube's
+  from there (`tools/af_text.py` `LETTER_REMAP`, numbers only).
 - `ui.txt`: the menus' strings where the font draws them
   (`tools/af_ui.py`); `items.txt`: the item names the GameCube has none
   for (`tools/af_items.py`).

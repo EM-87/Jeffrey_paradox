@@ -1,0 +1,8 @@
+# Our English for a villager letter's opening (vmail_a 172) whose GameCube text greets the sender by its
+# own name (free string 1, the animal's; free string 0 is the player's: m_npc.c mNpc_SetRemailFreeString
+# fills both for every villager letter). From the cartridge's text, which greets the player.
+# tools/msgbank.py's dump form; `make script` lays this over the vmail_a draft.
+
+## 172
+Hi there, <STR_FREE0>! Always
+so laid-back, aren't you?{cd}

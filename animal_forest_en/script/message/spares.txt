@@ -519,6 +519,56 @@ Snooty sis
 happy sales extra
 <MSGEND>
 
+## 3001
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 3002
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 3003
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 3004
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 3005
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 3006
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 3007
+#: a rumour's placeholder
+Rumor, pattern 1
+<MSGEND>
+
+## 3008
+#: a rumour's placeholder
+Rumor, pattern 2
+<MSGEND>
+
+## 5905
+Scary bro
+extra message
+<MSGEND>
+
+## 5906
+Scary bro
+extra message
+<MSGEND>
+
 ## 5950
 Little tanuki extra
 <MSGEND>
@@ -553,6 +603,14 @@ extra
 
 ## 6060
 extra
+<MSGEND>
+
+## 6123
+Beaver extra message 6
+<MSGEND>
+
+## 6124
+Beaver extra message 7
 <MSGEND>
 
 ## 6384
@@ -942,329 +1000,6 @@ chat extra 99
 chat extra 100
 <MSGEND>
 
-## 10457
-Scary bro
-trade extra
-<MSGEND>
-
-## 10458
-Scary bro
-trade extra
-<MSGEND>
-
-## 10459
-Scary bro
-trade extra
-<MSGEND>
-
-## 10460
-Scary bro
-trade extra
-<MSGEND>
-
-## 10461
-Scary bro
-trade extra
-<MSGEND>
-
-## 10462
-Scary bro
-trade extra
-<MSGEND>
-
-## 10463
-Scary bro
-trade extra
-<MSGEND>
-
-## 10464
-Scary bro
-trade extra
-<MSGEND>
-
-## 10465
-Scary bro
-trade extra
-<MSGEND>
-
-## 10466
-Scary bro
-trade extra
-<MSGEND>
-
-## 10467
-Scary bro
-trade extra
-<MSGEND>
-
-## 10492
-Scary bro
-sales extra
-<MSGEND>
-
-## 10493
-Scary bro
-sales extra
-<MSGEND>
-
-## 10494
-Scary bro
-sales extra
-<MSGEND>
-
-## 10495
-Scary bro
-sales extra
-<MSGEND>
-
-## 10496
-Scary bro
-sales extra
-<MSGEND>
-
-## 10497
-Scary bro
-sales extra
-<MSGEND>
-
-## 10498
-Scary bro
-sales extra
-<MSGEND>
-
-## 10581
-Present when happy
-extra
-<MSGEND>
-
-## 11013
-extra
-<MSGEND>
-
-## 11014
-extra
-<MSGEND>
-
-## 11015
-extra
-<MSGEND>
-
-## 11016
-extra
-<MSGEND>
-
-## 11035
-extra
-<MSGEND>
-
-## 11036
-extra
-<MSGEND>
-
-## 11037
-extra
-<MSGEND>
-
-## 11038
-extra
-<MSGEND>
-
-## 11039
-extra
-<MSGEND>
-
-## 11040
-extra
-<MSGEND>
-
-## 11041
-extra
-<MSGEND>
-
-## 11042
-extra
-<MSGEND>
-
-## 11043
-extra
-<MSGEND>
-
-## 11044
-extra
-<MSGEND>
-
-## 11045
-extra
-<MSGEND>
-
-## 11046
-extra
-<MSGEND>
-
-## 11047
-extra
-<MSGEND>
-
-## 11048
-extra
-<MSGEND>
-
-## 11049
-extra
-<MSGEND>
-
-## 11050
-extra
-<MSGEND>
-
-## 11051
-extra
-<MSGEND>
-
-## 11052
-extra
-<MSGEND>
-
-## 11075
-extra
-<MSGEND>
-
-## 11076
-extra
-<MSGEND>
-
-## 11077
-extra
-<MSGEND>
-
-## 11078
-extra
-<MSGEND>
-
-## 11079
-extra
-<MSGEND>
-
-## 11080
-extra
-<MSGEND>
-
-## 11081
-extra
-<MSGEND>
-
-## 11082
-extra
-<MSGEND>
-
-## 11083
-extra
-<MSGEND>
-
-## 11547
-extra
-<MSGEND>
-
-## 11548
-extra
-<MSGEND>
-
-## 11559
-extra
-<MSGEND>
-
-## 11560
-extra
-<MSGEND>
-
-## 11561
-extra
-<MSGEND>
-
-## 11562
-extra
-<MSGEND>
-
-## 11563
-extra
-<MSGEND>
-
-## 11564
-extra
-<MSGEND>
-
-## 11565
-extra
-<MSGEND>
-
-## 11566
-extra
-<MSGEND>
-
-## 11567
-extra
-<MSGEND>
-
-## 11568
-extra
-<MSGEND>
-
-## 11569
-extra
-<MSGEND>
-
-## 11570
-extra
-<MSGEND>
-
-## 11571
-extra
-<MSGEND>
-
-## 11572
-extra
-<MSGEND>
-
-## 3001
-#: a rumour's placeholder
-Rumor, pattern 1
-<MSGEND>
-
-## 3002
-#: a rumour's placeholder
-Rumor, pattern 2
-<MSGEND>
-
-## 3003
-#: a rumour's placeholder
-Rumor, pattern 1
-<MSGEND>
-
-## 3004
-#: a rumour's placeholder
-Rumor, pattern 2
-<MSGEND>
-
-## 3005
-#: a rumour's placeholder
-Rumor, pattern 1
-<MSGEND>
-
-## 3006
-#: a rumour's placeholder
-Rumor, pattern 2
-<MSGEND>
-
-## 3007
-#: a rumour's placeholder
-Rumor, pattern 1
-<MSGEND>
-
-## 3008
-#: a rumour's placeholder
-Rumor, pattern 2
-<MSGEND>
-
 ## 10230
 #: a rumour's placeholder
 Rumor, pattern 1
@@ -1365,6 +1100,96 @@ Rumor, pattern 1
 Rumor, pattern 2
 <MSGEND>
 
+## 10457
+Scary bro
+trade extra
+<MSGEND>
+
+## 10458
+Scary bro
+trade extra
+<MSGEND>
+
+## 10459
+Scary bro
+trade extra
+<MSGEND>
+
+## 10460
+Scary bro
+trade extra
+<MSGEND>
+
+## 10461
+Scary bro
+trade extra
+<MSGEND>
+
+## 10462
+Scary bro
+trade extra
+<MSGEND>
+
+## 10463
+Scary bro
+trade extra
+<MSGEND>
+
+## 10464
+Scary bro
+trade extra
+<MSGEND>
+
+## 10465
+Scary bro
+trade extra
+<MSGEND>
+
+## 10466
+Scary bro
+trade extra
+<MSGEND>
+
+## 10467
+Scary bro
+trade extra
+<MSGEND>
+
+## 10492
+Scary bro
+sales extra
+<MSGEND>
+
+## 10493
+Scary bro
+sales extra
+<MSGEND>
+
+## 10494
+Scary bro
+sales extra
+<MSGEND>
+
+## 10495
+Scary bro
+sales extra
+<MSGEND>
+
+## 10496
+Scary bro
+sales extra
+<MSGEND>
+
+## 10497
+Scary bro
+sales extra
+<MSGEND>
+
+## 10498
+Scary bro
+sales extra
+<MSGEND>
+
 ## 10541
 #: a developers' label: a script bug (a gruff villager's)
 Script bug
@@ -1447,6 +1272,11 @@ Scary bro
 Script bug
 Scary bro
 10580
+<MSGEND>
+
+## 10581
+Present when happy
+extra
 <MSGEND>
 
 ## 10582
@@ -1657,4 +1487,228 @@ Scary bro
 Script bug
 Scary bro
 10631
+<MSGEND>
+
+## 11013
+extra
+<MSGEND>
+
+## 11014
+extra
+<MSGEND>
+
+## 11015
+extra
+<MSGEND>
+
+## 11016
+extra
+<MSGEND>
+
+## 11035
+extra
+<MSGEND>
+
+## 11036
+extra
+<MSGEND>
+
+## 11037
+extra
+<MSGEND>
+
+## 11038
+extra
+<MSGEND>
+
+## 11039
+extra
+<MSGEND>
+
+## 11040
+extra
+<MSGEND>
+
+## 11041
+extra
+<MSGEND>
+
+## 11042
+extra
+<MSGEND>
+
+## 11043
+extra
+<MSGEND>
+
+## 11044
+extra
+<MSGEND>
+
+## 11045
+extra
+<MSGEND>
+
+## 11046
+extra
+<MSGEND>
+
+## 11047
+extra
+<MSGEND>
+
+## 11048
+extra
+<MSGEND>
+
+## 11049
+extra
+<MSGEND>
+
+## 11050
+extra
+<MSGEND>
+
+## 11051
+extra
+<MSGEND>
+
+## 11052
+extra
+<MSGEND>
+
+## 11075
+extra
+<MSGEND>
+
+## 11076
+extra
+<MSGEND>
+
+## 11077
+extra
+<MSGEND>
+
+## 11078
+extra
+<MSGEND>
+
+## 11079
+extra
+<MSGEND>
+
+## 11080
+extra
+<MSGEND>
+
+## 11081
+extra
+<MSGEND>
+
+## 11082
+extra
+<MSGEND>
+
+## 11083
+extra
+<MSGEND>
+
+## 11288
+extra
+<MSGEND>
+
+## 11289
+extra
+<MSGEND>
+
+## 11290
+extra
+<MSGEND>
+
+## 11291
+extra
+<MSGEND>
+
+## 11292
+extra
+<MSGEND>
+
+## 11293
+extra
+<MSGEND>
+
+## 11294
+extra
+<MSGEND>
+
+## 11295
+extra
+<MSGEND>
+
+## 11296
+extra
+<MSGEND>
+
+## 11547
+extra
+<MSGEND>
+
+## 11548
+extra
+<MSGEND>
+
+## 11559
+extra
+<MSGEND>
+
+## 11560
+extra
+<MSGEND>
+
+## 11561
+extra
+<MSGEND>
+
+## 11562
+extra
+<MSGEND>
+
+## 11563
+extra
+<MSGEND>
+
+## 11564
+extra
+<MSGEND>
+
+## 11565
+extra
+<MSGEND>
+
+## 11566
+extra
+<MSGEND>
+
+## 11567
+extra
+<MSGEND>
+
+## 11568
+extra
+<MSGEND>
+
+## 11569
+extra
+<MSGEND>
+
+## 11570
+extra
+<MSGEND>
+
+## 11571
+extra
+<MSGEND>
+
+## 11572
+extra
 <MSGEND>

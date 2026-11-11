@@ -24,7 +24,9 @@ of text and free strings, no terminator; its default --max-bytes is the
 en build's (LETTER_CAPS, from the GameCube's longest entries). The count and the default
 --max-bytes come from it; the choice and string banks keep the same
 numbering on the GameCube, so their draft is simply the GameCube's entry
-by number where it is not empty (no alignment file: pass `-`). --count
+by number where it is not empty (no alignment file: pass `-`); so are the
+letters', but for the event notices the GameCube moved (LETTER_REMAP: the
+GameCube's letter is taken from its own number). --count
 overrides the count: the en string bank goes on to 0x679 entries, through
 the GameCube's day ordinals (0x64E) and month names (0x66D), which the en
 build's date builders read.
@@ -152,6 +154,15 @@ def letter_count(bank):
     return 544 if bank.startswith("mail") else 384
 
 
+# The letters the GameCube keeps at another number, {bank: {cartridge's number: the GameCube's}}: its event
+# notices (mail_body 420-462, which the bulletin board posts), where it dropped events of the cartridge's
+# and added its own, moving the rest (reference/NOTES.md, "The letter banks, both games, by number").
+# Numbers only; the draft takes the GameCube's letter from there.
+LETTER_REMAP = {"mail_body": {422: 423, 423: 424, 427: 429, 428: 426, 430: 428, 432: 431, 433: 432, 434: 433,
+                              438: 439, 440: 437, 446: 445, 447: 446, 448: 447, 449: 448, 450: 449, 451: 450,
+                              452: 451}}
+
+
 LETTER_FIRST = {}
 for _bank in LETTER_BANKS:
     LETTER_FIRST[_bank] = sum(letter_count(b) for b in LETTER_BANKS[:LETTER_BANKS.index(_bank)])
@@ -187,7 +198,10 @@ def laid_problems(tokens, original):
 FALLBACK = {"…": "...", "“": '"', "”": '"', "‘": "'", "’": "'", "–": "-", "—": "-",
             "ー": "-", "¡": "!", "¿": "?", "ß": "ss", "Æ": "AE", "æ": "ae", "Ø": "O", "ø": "o", "Ð": "D", "ð": "d",
             "Þ": "Th", "þ": "th", "·": ".", "•": "*", "×": "x", "°": "o",
-            "~": "～", "😃": "☺", "😄": "☺"}               # the N64 font's wave dash and face
+            "~": "～", "😃": "☺", "😄": "☺",                # the N64 font's wave dash and face,
+            "🌢": "💧", "💢": "✚",                          # its drop and its anger mark (the same letters have
+            "☃": "～",                                     # them there), a sigh's wave for the GameCube's mark,
+            ";": ",", "/": "-"}                           # and for the semicolon and slash it lacks
 
 
 def ascii_fallback(text, counts=None):
@@ -670,7 +684,9 @@ def compile_letters(paths, text_path, index_path, cols=32, lines=4):
     return text, index
 
 
-def draft(n64_path, gc_path, align_path, out_path, overrides):
+def draft(n64_path, gc_path, align_path, out_path, overrides, remap=None):
+    """remap: {number: the GameCube's number} for a bank drafted by number (LETTER_REMAP)."""
+    remap = remap or {}
     n64 = load_bank(n64_path)
     if gc_path == "-":                      # no GameCube bank (the villagers' footers): the sender's name, ours
         out, sender = [], ("c", NAMES["STR_FREE1"], b"")
@@ -686,7 +702,7 @@ def draft(n64_path, gc_path, align_path, out_path, overrides):
     classes = {}
     if align_path == "-":                   # a single-line bank: the same numbering, entry by entry
         for n in range(N64_COUNT):
-            classes[n] = "same" if gc.get(n) else "removed"
+            classes[n] = "same" if gc.get(remap.get(n, n)) else "removed"
     else:
         for line in open(align_path, encoding="utf-8").read().splitlines()[1:]:
             number, cls = line.split("\t")[:2]
@@ -704,9 +720,12 @@ def draft(n64_path, gc_path, align_path, out_path, overrides):
         elif n not in n64:                   # past the cartridge's count (--count): the GameCube's, or nothing
             tokens = adapt(gc[n], counts) if gc.get(n) else []
             counts["beyond the cartridge"] += 1
-        elif cls in ("same", "plain", "edited") and n in gc:
-            tokens = adapt(gc[n], counts)
+        elif cls in ("same", "plain", "edited") and remap.get(n, n) in gc:
+            tokens = adapt(gc[remap.get(n, n)], counts)
             counts["official " + cls] += 1
+            if n in remap:
+                note = "#: the GameCube's letter %d (LETTER_REMAP)\n" % remap[n]
+                counts["official, from another number"] += 1
             if cls == "edited":
                 note = "#: the GameCube edited this message; the Japanese had: %s\n" % render(n64[n]).replace("\n", "¶")
             unfilled = free_strings(tokens) - free_strings(n64[n])
@@ -769,7 +788,7 @@ def main(argv):
         opts["--max-bytes"] = LETTER_CAPS.get(bank, N64_BANKS[bank][3])
     cmd = args[0]
     if cmd == "draft":
-        draft(args[1], args[2], args[3], args[4], overrides)
+        draft(args[1], args[2], args[3], args[4], overrides, LETTER_REMAP.get(bank))
         return 0
     messages, laid_numbers = load_bank(args[1]), set()
     for path in overrides:

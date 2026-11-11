@@ -1,0 +1,21 @@
+# What the game puts after a number or a name, where the GameCube's English is wrong for the cartridge.
+# 484: what the message code (STR_COUNTRYNAME, src/code/m_msg_main.c) and mLd_AddMuraString put after
+# the town's name: the Japanese word for village; nothing in English, as on the GameCube (its entry is
+# empty), so the town's name stands alone. 669-672: the units of length, the cartridge's metric ones,
+# a space before them: the fishing tourney's and the pond's size (string 670, after the number,
+# mString_Load_NumberStringAddUnitFromRom) is in centimetres, which the GameCube's English would have
+# shown in an imperial unit, the number unchanged and no space. tools/msgbank.py's dump form.
+
+## 484
+
+## 669
+ mm
+
+## 670
+ cm
+
+## 671
+ m
+
+## 672
+ km

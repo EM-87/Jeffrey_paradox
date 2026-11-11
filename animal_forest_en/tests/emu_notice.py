@@ -140,8 +140,9 @@ BOARD_MENU = 0x10088 + 6 * 0x48            # the board's menu info (the submenu'
 SETTLE = 90
 C_LEFT = 0x200
 # Notices of the game's (shop letters 0x1A4 to 0x21F: func_800A65C4_jp, func_800A5F08_jp): the longest
-# English bodies, one with seven lines on the GameCube, one empty
-NOTICES = [536, 430, 528, 511, 463]
+# English bodies, one of ours with centred lines and one of the widest (439: script/mail_body/notices.txt), one
+# past six lines with the free strings set, one empty
+NOTICES = [536, 439, 528, 511, 463]
 SENTENCE = (b"FOR SALE, A LOVELY OLD CHAIR AND A BIG TABLE, BOTH IN GOOD SHAPE. ASK AT THE HOUSE BY THE RIVER, "
             b"ANY DAY.")
 FREES = emu_board.FREES

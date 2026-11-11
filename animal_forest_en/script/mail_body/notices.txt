@@ -1,0 +1,94 @@
+# Our English for the event notices (the shops', the post office's, the police's and the town's; the
+# bulletin board posts them, and some come as letters) where the GameCube has none for the cartridge's
+# event: it dropped these events or holds them on other dates, and has its own notices for its own events
+# at these numbers (the ones it only moved, the draft takes from where it keeps them: af_text.py
+# LETTER_REMAP). And 500, a treasure hunt whose GameCube text names an item this one does not have.
+# From the cartridge's text: the dates, times and places are the cartridge's events'. Each body is at most
+# six lines of the board's 192 pixels and 192 bytes (tools/af_text.py compile-letters); the plaza is the
+# square by the shrine. tools/msgbank.py's dump form; `make script` lays this over the mail_body draft.
+
+## 424
+The Doll Festival is almost
+here, hm! Lovely festival
+dolls are now on display.
+Miss them now, and you'll
+have to wait a whole year!
+                   <STR_FREE1>{cd}
+
+## 425
+White Day is two weeks away!
+A present from your sweetie
+that won't fit in your
+mailbox is sent back, so
+keep your mailbox tidy!
+             The Post Office{cd}
+
+## 426
+       ～Blossom Forecast～
+It's warmer by the day, and
+the cherry buds are swelling.
+Expect them 70% open around
+April 1st, and at their best
+around the 5th.{cd}
+
+## 429
+             ～Notice～
+        Spring Sports Fair
+
+             April 20th
+      Everyone to the plaza!
+   The schedule follows soon!{cd}
+
+## 431
+Children's Day is almost
+here, hm! Lucky samurai
+armor is on display now.
+Don't miss this chance to
+buy some, hm!
+                   <STR_FREE1>{cd}
+
+## 435
+Next Sunday is the final day
+of the Fishing Tourney! Let
+me end it with a big feast
+of black bass! I'm counting
+on you! Nyuk nyuk nyuk!
+                          Chip{cd}
+
+## 437
+             ～Notice～
+      Early Morning Aerobics
+
+    July 25th to August 31st
+      6:00 a.m. in the plaza{cd}
+
+## 439
+             ～Notice～
+        Fireworks Festival
+
+    Every Saturday in August,
+            from 7:00 p.m.
+    It's not summer without it!{cd}
+
+## 444
+         ～Moon Viewing～
+   The Thirteenth Night Moon
+
+   <STR_FREE3>, 6:00 p.m.
+Come take a long, peaceful
+look at the late autumn moon.{cd}
+
+## 445
+The Fall Sports Fair is
+almost here! Work keeps me
+from joining in, but I hope
+you all enjoy a sporty fall!
+                         Pelly{cd}
+
+## 500
+          ～<STR_FREE5>'s Yearly
+         Treasure Hunt!～
+
+Dig somewhere in the <STR_FREE3>
+acres and see what you find!
+         ♥<STR_FREE1>♥{cd}

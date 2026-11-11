@@ -1,0 +1,16 @@
+# Our English for an official message the cartridge's charset cannot show as the GameCube wrote it: 5373
+# names the GameCube controller's pad with a sign the N64 font lacks (the draft would print a question
+# mark). From the cartridge's text, which names the N64 controller's Control Pad and its 3D Stick (the
+# Control Stick); colours and the talk orders are the cartridge's. tools/msgbank.py's dump form, as
+# ours.txt (its header says how the build lays it over the bank and what af_text.py holds it to).
+
+## 5373
+<DEMONPC0 000015>The other day, when I was
+playing my <COLORCHARS 9114a503>NES, I noticed
+something.<BTN>
+<MSGCLEAR>You can play with the
+<COLORCHARS 5a5a5a0b>Control Pad, sure, but
+the <COLORCHARS 7878780d>Control Stick works, too!<BTN>
+<MSGCLEAR><DEMONPC0 00000e>It's a whole new way to play.<PAUSE 06>
+It was fun,<PAUSE 08> <STR_TAIL>!
+<MSGEND>

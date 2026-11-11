@@ -257,6 +257,25 @@ ventana de diálogo los que no necesitan quien hable y mide cada línea
 contra el modelo de la fuente, y reproduce hasta el final los que llevan
 órdenes de gesto para comprobar que son las del cartucho.
 
+Las cadenas y las cartas que seguían en japonés también son nuestras:
+423 cadenas en `script/string/` (una lista antigua de 200 nombres de
+animales que el juego no lee, muletillas que no dice ningún animal,
+huecos de reserva, dos contadores de la tienda, las unidades, los
+créditos del personal y dos frases de penitencia de Resetti) y cartas en
+`script/mail_body/` y `script/vmail_a/`. Al compararlas una a una con el
+cartucho salieron fallos que se veían en el juego: el nombre del pueblo
+llevaba detrás la palabra japonesa «pueblo» (ahora va solo, como en
+GameCube); el tamaño de los peces salía en pulgadas con el número en
+centímetros; los créditos eran la lista de GameCube (otras personas)
+cortada a 15 letras, y ahora son los del cartucho línea a línea; y en
+los avisos de eventos del tablón, GameCube quitó fiestas japonesas,
+puso las suyas y movió el resto: 17 se toman de su número correcto
+(`af_text.LETTER_REMAP`, solo números) y 10 son nuestros (Hinamatsuri,
+White Day, la previsión de los cerezos, el Día del Niño, los fuegos
+artificiales de los sábados de agosto...), igual que seis cartas de
+White Day que decían San Valentín. Ya no queda japonés en ningún banco
+de texto ("The strings and letters still in Japanese").
+
 Los nombres de los objetos son los de GameCube, leídos de tu disco al
 compilar (`tools/af_items.py`): de los 1.703 del cartucho, 1.696 tienen
 nombre en GameCube y 7 son nuestros (`script/items.txt`). Los de GameCube

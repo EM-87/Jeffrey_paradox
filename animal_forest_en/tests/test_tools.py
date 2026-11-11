@@ -635,6 +635,31 @@ class Script(unittest.TestCase):
             back = msgbank.Bank.parse_dump(open(out, encoding="utf-8").read())
             self.assertEqual([msgbank.render(back[n]) for n in range(2)], ["<STR_FREE1>", "<STR_FREE1>"])
 
+    def test_letter_draft_takes_a_moved_letter_from_its_number(self):
+        # LETTER_REMAP: the GameCube keeps some event notices at other numbers; the draft takes them from there
+        remap = af_text.LETTER_REMAP["mail_body"]
+        self.assertTrue(all(420 <= n <= 462 and 420 <= g <= 462 for n, g in remap.items()))
+        self.assertEqual(len(set(remap.values())), len(remap))              # no GameCube letter taken twice
+        with tempfile.TemporaryDirectory() as d:
+            jp, gc, out = (os.path.join(d, f) for f in ("jp.txt", "gc.txt", "out.txt"))
+            open(jp, "w", encoding="utf-8").write("".join("## %d\nあ%d\n\n" % (n, n) for n in range(4)))
+            open(gc, "w", encoding="utf-8").write("## 0\nzero\n\n## 1\none\n\n## 2\ntwo\n\n## 3\n\n\n")
+            old = af_text.N64_COUNT
+            try:
+                af_text.N64_COUNT = 4
+                af_text.draft(jp, gc, "-", out, [], {1: 2, 3: 1})
+            finally:
+                af_text.N64_COUNT = old
+            text = open(out, encoding="utf-8").read()
+            back = msgbank.Bank.parse_dump(text)
+            self.assertEqual([msgbank.render(back[n]) for n in range(4)], ["zero", "two", "two", "one"])
+            self.assertIn("## 1\n#: the GameCube's letter 2", text)
+
+    def test_fallbacks_keep_the_marks_the_cartridge_has(self):
+        # the GameCube's drop and anger mark are the N64 font's; its semicolon and slash, punctuation it has
+        self.assertEqual(af_text.ascii_fallback("a; b/c \U0001f322\U0001f4a2☃"), "a, b-c \U0001f4a7✚～")
+        self.assertTrue(all(c in msgbank.N64_BYTES for c in "".join(af_text.FALLBACK.values()) if c != "*"))
+
     def test_letters_compile_to_one_table(self):
         # the eight banks, numbered on from one another, each entry from the end before it
         self.assertEqual([af_text.LETTER_FIRST[b] for b in af_text.LETTER_BANKS],
@@ -966,6 +991,48 @@ class OwnMessages(unittest.TestCase):
                 # ends, codes the N64 has (the en build's carried ones as theirs), at most four lines a page
                 errors = [t for level, t in af_text.check_message(n, tokens, 32, 4, 0x600) if level == "error"]
                 self.assertEqual(errors, [], n)
+
+
+class OwnStringsAndLetters(unittest.TestCase):
+    """script/string/*.txt and script/<letter bank>/*.txt: our own English for the strings and letters."""
+
+    def own(self, folder):
+        paths = sorted(os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".txt"))
+        self.assertTrue(paths, folder)
+        merged = {}
+        for path in paths:
+            ours = af_text.load_bank(path)
+            self.assertTrue(ours, path)
+            self.assertFalse(set(merged) & set(ours), "an entry in two files: %s" % path)
+            merged.update(ours)
+        return merged
+
+    def test_strings_are_single_lines_the_string_loader_takes(self):
+        ours = self.own(os.path.join(HERE, "..", "script", "string"))
+        for n, tokens in ours.items():
+            self.assertLess(n, 0x679)
+            text = msgbank.render(tokens)
+            self.assertNotIn("<", text, n)                               # no codes in a string
+            self.assertLessEqual(len(msgbank.encode(tokens)), 64, n)    # mString_Get_StringDataAddressAndSize: < 65
+            self.assertFalse(any("぀" <= c <= "ヿ" for c in text), n)
+        self.assertEqual(ours[484], [])                                 # the town's name with nothing after it
+        # the staff credits: the orange box loads and draws 15 bytes a line (ovl_Mikanbox)
+        credits = af_text.load_bank(os.path.join(HERE, "..", "script", "string", "credits.txt"))
+        self.assertEqual(sorted(credits), list(range(1258, 1365)))
+        self.assertTrue(all(len(msgbank.encode(t)) <= 15 for t in credits.values()))
+
+    def test_letters_fit_their_banks(self):
+        for bank in af_text.LETTER_BANKS:
+            folder = os.path.join(HERE, "..", "script", bank)
+            if not os.path.isdir(folder):
+                continue
+            for n, tokens in self.own(folder).items():
+                self.assertLess(n, af_text.letter_count(bank))
+                self.assertEqual(af_text.check_message(n, tokens, 32, 4, af_text.LETTER_CAPS[bank], letter=True), [],
+                                 (bank, n))
+                lines = msgbank.render(tokens).rstrip("\n").split("\n")
+                self.assertLessEqual(len(lines), 6, (bank, n))            # the board's six lines
+                self.assertTrue(af_nafe_text.english(tokens), (bank, n))
 
 
 def save_like(seed=1):

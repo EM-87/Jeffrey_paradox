@@ -1,0 +1,606 @@
+# Our English for 200 names the string bank keeps at 156-355: an early list of animal names (31 of them
+# are names the cartridge's animals have; the rest are not). No code of the cartridge reads these strings
+# (every call of the string loader in the decomp's C and asm takes other numbers: reference/NOTES.md, "The
+# strings and letters still in Japanese"), and the GameCube left them as the Japanese bytes, which its
+# charset reads as accents and pictures. Loanwords are the English word, the rest romanized.
+# tools/msgbank.py's dump form; `make script` lays this over the string draft by number.
+
+## 156
+Anman
+
+## 157
+Asekusa
+
+## 158
+Anchovy
+
+## 159
+Achotto
+
+## 160
+Andoo
+
+## 161
+Arimo
+
+## 162
+Assam
+
+## 163
+Ashindo
+
+## 164
+Alikick
+
+## 165
+Borscht
+
+## 166
+Viewer
+
+## 167
+Batchino
+
+## 168
+Boot
+
+## 169
+Benchara
+
+## 170
+Byzantine
+
+## 171
+Browser
+
+## 172
+Vinegar
+
+## 173
+Bifun
+
+## 174
+Vintage
+
+## 175
+Binta
+
+## 176
+Kaffi
+
+## 177
+Chimtak
+
+## 178
+Chomolan
+
+## 179
+Chanta
+
+## 180
+Kucchane
+
+## 181
+Kanchiko
+
+## 182
+Chauyan
+
+## 183
+Chudoon
+
+## 184
+Darjeeling
+
+## 185
+Danke
+
+## 186
+Duo
+
+## 187
+Dribble
+
+## 188
+Easy
+
+## 189
+Error
+
+## 190
+Devon
+
+## 191
+Fondue
+
+## 192
+Focaccia
+
+## 193
+Fumble
+
+## 194
+Fortissimo
+
+## 195
+Gonty
+
+## 196
+Gen
+
+## 197
+Gallon
+
+## 198
+Gonta
+
+## 199
+George
+
+## 200
+Jersey
+
+## 201
+Gingham
+
+## 202
+Hugh
+
+## 203
+Hambakka
+
+## 204
+Furlong
+
+## 205
+Harenchino
+
+## 206
+Jun
+
+## 207
+John
+
+## 208
+Carpaccio
+
+## 209
+Gochujang
+
+## 210
+Kenshiro
+
+## 211
+Casablanca
+
+## 212
+Carotene
+
+## 213
+Rurerou
+
+## 214
+Regatta
+
+## 215
+Kecak
+
+## 216
+Mottsu
+
+## 217
+Morokyu
+
+## 218
+Manjiro
+
+## 219
+Monomono
+
+## 220
+Minegy
+
+## 221
+Munoru
+
+## 222
+Madagascar
+
+## 223
+Motan
+
+## 224
+Masakari
+
+## 225
+Navana
+
+## 226
+Nam Pla
+
+## 227
+Nijo
+
+## 228
+Nyet
+
+## 229
+Noppy
+
+## 230
+Orasu
+
+## 231
+Oyaman
+
+## 232
+Peepoo
+
+## 233
+Pudding
+
+## 234
+Filet-O
+
+## 235
+Paul
+
+## 236
+Popokichi
+
+## 237
+Root
+
+## 238
+Ringo
+
+## 239
+Ruman
+
+## 240
+Liter
+
+## 241
+Megachoro
+
+## 242
+Champagne
+
+## 243
+Sasfo
+
+## 244
+Shigeru
+
+## 245
+Shiomaru
+
+## 246
+Shishamo
+
+## 247
+Tanshone
+
+## 248
+Tenten
+
+## 249
+Terebin
+
+## 250
+Texel
+
+## 251
+Taroban
+
+## 252
+Verify
+
+## 253
+Beshimichi
+
+## 254
+Yodel
+
+## 255
+Hiroshi
+
+## 256
+Arwen
+
+## 257
+Arinko
+
+## 258
+Anyo
+
+## 259
+Apla
+
+## 260
+Achicchi
+
+## 261
+Ancheri
+
+## 262
+Bouillon
+
+## 263
+Bechamel
+
+## 264
+Bouquet
+
+## 265
+Brenda
+
+## 266
+Bagel
+
+## 267
+Caviar
+
+## 268
+Jeogori
+
+## 269
+Chagall
+
+## 270
+Chanrin
+
+## 271
+Kurakurara
+
+## 272
+Choki
+
+## 273
+Chiroreen
+
+## 274
+Doradora
+
+## 275
+Diminue
+
+## 276
+Demiglace
+
+## 277
+Ether
+
+## 278
+Easel
+
+## 279
+Echo
+
+## 280
+April
+
+## 281
+Eirin
+
+## 282
+Eclair
+
+## 283
+Flan
+
+## 284
+Flavono
+
+## 285
+Fasola
+
+## 286
+Fingis
+
+## 287
+Fechicchi
+
+## 288
+Grigra
+
+## 289
+Hyururu
+
+## 290
+Hachame
+
+## 291
+Homey
+
+## 292
+Hana
+
+## 293
+Isucchi
+
+## 294
+Icchora
+
+## 295
+Ikasumi
+
+## 296
+Installer
+
+## 297
+Isoko
+
+## 298
+Julia
+
+## 299
+Kokoichi
+
+## 300
+Kanyu
+
+## 301
+Kay
+
+## 302
+Corazon
+
+## 303
+Lemonade
+
+## 304
+Lapalapa
+
+## 305
+Lan
+
+## 306
+Lamelame
+
+## 307
+Lillian
+
+## 308
+Laurier
+
+## 309
+Radish
+
+## 310
+Rococo
+
+## 311
+Rambutan
+
+## 312
+Rimi
+
+## 313
+Maimai
+
+## 314
+Munmun
+
+## 315
+Marble
+
+## 316
+Maisonette
+
+## 317
+Maple
+
+## 318
+Mannya
+
+## 319
+Meno Mosso
+
+## 320
+May
+
+## 321
+Mee
+
+## 322
+Miki
+
+## 323
+Milmere
+
+## 324
+Moromi
+
+## 325
+Mahara
+
+## 326
+Gnocchi
+
+## 327
+Nory
+
+## 328
+Nuoc Mam
+
+## 329
+Ntekurruko
+
+## 330
+Otsuu
+
+## 331
+Potechi
+
+## 332
+Parky
+
+## 333
+Pidan
+
+## 334
+Polipola
+
+## 335
+Pizzica
+
+## 336
+Piroko
+
+## 337
+Palette
+
+## 338
+Pachiku
+
+## 339
+Peechiku
+
+## 340
+Pescatore
+
+## 341
+Staccato
+
+## 342
+Sonata
+
+## 343
+Silhouette
+
+## 344
+Shiniko
+
+## 345
+Sally
+
+## 346
+Shiruru
+
+## 347
+Sherbet
+
+## 348
+Sumimomo
+
+## 349
+Chocolat
+
+## 350
+Shaggy
+
+## 351
+Sue
+
+## 352
+Treble
+
+## 353
+Vicky
+
+## 354
+Tiara
+
+## 355
+Witchy

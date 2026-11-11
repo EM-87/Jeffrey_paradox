@@ -747,16 +747,24 @@ the emulator (`make rom-en`, `make script ISO=...`).
   (982 entries: headers, bodies, footers) and `superz_data`,
   `maila/b/c_data`, `psz_data` (384; ac-decomp's `m_handbill.c` names
   them, and maps one to one onto the N64's functions). The GameCube kept
-  the numbering: all 544 shop letters and all 384 villager letters are
-  the same letter at the same number (511 of the 544 bodies have the same
-  free strings; the other 33, the same letters with the date in other
-  slots; the villagers' footers, "<name>より", are "From <name>" and
-  the like). The GameCube's longest entries: header 23 bytes, body 177
+  the numbering: the shop letters and the villager letters are the same
+  letter at the same number (511 of the 544 bodies have the same free
+  strings; the other 33, the same letters with the date in other slots;
+  the villagers' footers, "<name>より", are "From <name>" and the like),
+  but for the event notices: read letter by letter, the GameCube dropped
+  some of the cartridge's events and wrote notices for its own, moving
+  the rest by a number or two (17 of the cartridge's are at another
+  number: `af_text.LETTER_REMAP`; 10 have none), and its White Day
+  letters say Valentine's Day ("The strings and letters still in
+  Japanese"). The GameCube's longest entries: header 23 bytes, body 177
   (490 of the 544 pass the cartridge's 96), footer 30; the villagers'
   parts 20, 62, 90, 32. `make script` dumps both, drafts `en_mail_*.txt`/`en_vmail_*.txt`
-  and checks them (0 errors; 6 bodies and 5 villager openings print free
-  strings the cartridge's letter does not: to adapt). Trailing newlines,
-  which letters have, are written `{cd}` in the dumps.
+  and checks them (0 errors; 6 bodies and 5 villager openings printed free
+  strings the cartridge's letter does not: the bodies were the moved
+  notices and a treasure hunt, now ours or remapped, and of the openings
+  4 print names the game fills for every villager letter: "The strings
+  and letters still in Japanese"). Trailing newlines, which letters have,
+  are written `{cd}` in the dumps.
 - **How the loaders read them** (`src/code/m_handbill.c`, matching since
   it moved to C). A shop letter's header is DMA'd into 0x1D bytes on the
   stack, copied without its one newline (`func_800939B8_jp`: the
@@ -1151,7 +1159,9 @@ what goes in it: "The letters in the en build").
   GameCube's glyphs no line of the eight letter banks without a free
   string is wider than 192 px (the widest, a body's, 184); with
   short free strings 1 to 3 shop letters reach a seventh line (430: the
-  GameCube's own body has seven lines, its signature on the seventh;
+  GameCube's own body has seven lines, its signature on the seventh, a
+  notice the en build now takes from another number, "The strings and
+  letters still in Japanese";
   503 and 508 when an acre's free strings are names).
 
 ## Writing a letter in the en build (phase 4, the letters' fourth step)
@@ -2359,3 +2369,111 @@ what goes in it: "The letters in the en build").
   `LUCK_8` on the cartridge, in neither game's bank), for luck codes that
   go on to another message; it counts them as strings now (the 2010
   patch's 38 unchanged).
+
+## The strings and letters still in Japanese (phase 5)
+
+- **What was left.** After the messages, 96 strings kept the cartridge's
+  text (95 with kana), and the drafts held Japanese the GameCube never
+  translated: its banks keep some entries as the Japanese bytes, which
+  its charset reads as accented letters and pictures (and the draft's
+  fallback as question marks). Found by reading the GameCube's bytes with
+  the cartridge's charset (kana): strings 156-355, messages 5905, 5906,
+  6123, 6124 and 11288-11296 (spare labels: ours, `spares.txt`), shop
+  letter bodies 192-196 (spare slots: ours). Read against the cartridge,
+  the strings' English was wrong in three places the player sees (the
+  town's name, the fish's size, the staff credits), and the letters'
+  numbering in the event notices.
+- **The strings, ours** (`script/string/`, 423, laid over the draft by
+  `make script`). `names.txt`, 156-355: an early list of 200 animal names
+  (31 are names the final animals have, at other places); no code reads
+  them: every call of the string loader in the decomp's C and asm
+  (`mString_Load_StringFromRom`, `mString_Load_NumberStringAddUnitFromRom`)
+  takes other numbers (the catchphrases of the animals' default data,
+  segment 00E03000: 16-155 and 577-668; the special characters' names,
+  0x205-0x218 and 0x4E0-0x4E2; the random words' bases; the fortune
+  teller's, the shops', the box's and the notices' tables; the unit), and
+  the GameCube left them as bytes. `catchphrases.txt`: 22 the GameCube
+  has a placeholder word for and 131, none an animal's (the default data
+  name none of them). `spares.txt`: 55 spare slots. `counters.txt`: the
+  shops' counters for long thin things and for small animals (1427-1441,
+  1457-1471; the shop overlays' `D_809A9C18_jp` picks a counter by the
+  item's kind: the tools, kind 2, and one fruit, the fish, kind 3, and the
+  insects, kind D), which only the two sell-all messages print (4234,
+  5949), whose GameCube English prints the number alone. `resetti.txt`:
+  two of the phrases Mr. Resetti has the player type (1166, 1169), whose
+  GameCube English has a picture the cartridge's charset lacks.
+- **The town's name.** The message code (`STR_COUNTRYNAME`,
+  `src/code/m_msg_main.c`) and `mLd_AddMuraString` put string 484 after
+  the town's name: the cartridge's word for village, which the GameCube's
+  bank has empty (its English says the name alone) and the draft had
+  kept in kana. Ours is empty (`units.txt`): the loader clears the
+  buffer to spaces (`mString_Load_StringFromRom`, size 0), the length is 0
+  and nothing is put in. The messages check shows no page with a string
+  code (`first_page`), so it never saw this. TODO(verify) on screen.
+- **The fish's size.** The fishing tourney and the pond (`ovl_Ev_Angler`,
+  `ovl_Turi`) print a size as its number and string 670 after it
+  (`mString_Load_NumberStringAddUnitFromRom`): the cartridge's number is
+  in centimetres and its unit metric; the GameCube's English has an
+  imperial unit there (its code converts the number), which the en build
+  printed after the centimetres with no space. Ours, `units.txt`: the
+  metric units with a space before them (669-672; only 670 is read).
+  TODO(verify) on screen (the tourney's messages need a fish caught).
+- **The staff credits** (`credits.txt`, 1258-1364). The draft had taken
+  the GameCube's own staff list by number (other people, another order).
+  The cartridge's are drawn by the orange box (`ovl_Mikanbox`):
+  `func_80AA3D08_jp` loads ten lines of 15 bytes from 1258 + a page's
+  first line (`D_80AA4D54_jp`: sixteen pages), `func_80AA3D94_jp` draws
+  them from x 150 at 0.9, a page's first line and the lines listed in
+  `D_80AA4D68_jp`/`D_80AA4D69_jp` at 0.85 of that: the job titles, as
+  their strings show. Ours: the cartridge's list line for line, a title
+  where it has a title, a name where it has a name, a blank where it has
+  one, 15 bytes at most (the GameCube's lines, ten spaces and a name, were
+  cut to the first letters); given name first, 14 names longer than 15
+  with the given name's initial. The widest line is 104 pixels at the en
+  font's widths, 94 at 0.9. The box draws them only with an event's flag
+  set (`mEv_get_save_area(0x21)`, 0x4000): TODO(verify) on screen.
+- **The event notices** (mail_body 420-462: the bulletin board posts
+  them, `m_notice.c`, and some come as letters). Read letter by letter,
+  the GameCube's are not all at the cartridge's numbers: it dropped some
+  of the cartridge's events or holds them on other dates, wrote notices
+  for its own (a groundhog, a kite, a holiday of July, a meteor shower, a
+  harvest festival, the clocks' changes), and moved the rest by a number
+  or two. 17 of the cartridge's are the same notice at another number:
+  `af_text.LETTER_REMAP` (numbers only), the draft takes the GameCube's
+  from there (the free strings checked as before). 10 have none, ours
+  (`script/mail_body/notices.txt`, from the cartridge's): the Doll
+  Festival's and Children's Day's sales, White Day's mailbox notice, the
+  cherry blossoms' forecast, the spring sports fair's date, the summer
+  tourney's last week, the morning aerobics' dates, the fireworks every
+  Saturday of August, the thirteenth night's moon, the post office's note
+  on the fall sports fair. And 500, a treasure hunt whose GameCube text
+  names an item the cartridge's does not (ours, with the cartridge's free
+  strings only). The rest of 420-462 are the same notice at the same
+  number.
+- **The other letters.** Six villagers' White Day letters (103-110: the
+  day a present is given back for Valentine's) are the same letters in
+  the GameCube's English with the day said to be Valentine's: ours
+  (`whiteday.txt`; the header and footer stay the GameCube's). The
+  mother's letters (300-419) and the other shop letters are the same
+  letters freely rewritten; a few of the mother's trade a holiday of
+  Japan for one of the West, her own news: left as they are. One
+  villager's opening (vmail_a 172) greets the sender by its own name
+  (free string 1): ours (`script/vmail_a/openers.txt`). The other four
+  the check flags (67, 180, 318, 368) print the player's name, the
+  animal's or the other town's, which the game fills for every villager
+  letter (`mNpc_SetRemailFreeString`: 0 and 1, and 14 and 15 for a letter
+  from another town, 368's block): left as they are, its 4 warnings.
+- **Characters.** The draft's fallback had turned the GameCube's
+  semicolons into question marks (7 messages and 4 letters, a question
+  where a clause went on): commas now; a slash, a hyphen; the GameCube's
+  drop and anger mark, the N64 font's own (💧, and ✚: the font's glyph
+  0x5C is an anger vein, and the cartridge's letter 508 has it where the
+  GameCube's has its mark); its sigh's mark, the wave dash. Message 5373
+  names the GameCube controller's pad with a sign the font lacks: ours
+  (`script/message/fixes.txt`, from the cartridge's, which names the
+  Control Pad and the 3D Stick, the Control Stick).
+- **Counts.** Ours: 776 messages, 423 strings, 23 letters (and 17 taken
+  from another number). No entry of the message, choice, string or
+  letter drafts has kana now but the GameCube's dashes and wave dashes
+  (`ー`, `～`), and no character of the GameCube's falls back to a
+  question mark.

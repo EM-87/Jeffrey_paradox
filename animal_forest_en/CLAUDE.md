@@ -98,7 +98,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `build/gc/`, never committed. `script/message/`, `script/choice/`,
   `script/string/`, `script/<letter bank>/` hold our own text,
   laid over the drafts (NOTES, "The GameCube script", "The English bank
-  in the ROM"); our messages over the compiled bank again at `make
+  in the ROM", "The strings and letters still in Japanese"; the event
+  notices the GameCube keeps at another number are drafted from there:
+  `af_text.LETTER_REMAP`); our messages over the compiled bank again at `make
   rom-en`, where `af_text.py` refuses any message laid over (ours or the
   2010 patch's) whose codes that steer the game are not the cartridge's
   (`af_text.steering`; NOTES, "Our own messages").

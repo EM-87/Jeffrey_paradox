@@ -1,0 +1,10 @@
+# Two of the phrases Mr. Resetti has the player type as a penance (1156-1171): the GameCube's English for
+# these two has a picture the cartridge's charset lacks, which the draft would print as a question mark
+# for the player to type. Ours, from the cartridge's (no more cheating; no more pressing Reset), 10
+# characters at most like the rest. tools/msgbank.py's dump form; `make script` lays this over the draft.
+
+## 1166
+No cheats!
+
+## 1169
+No resets!

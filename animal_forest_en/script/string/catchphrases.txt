@@ -1,0 +1,74 @@
+# Our English for 23 catchphrases no animal of the cartridge says (no animal's default data, segment
+# 00E03000, names them: reference/NOTES.md, "The strings and letters still in Japanese"): 22 the GameCube
+# has a placeholder word for, and 131, which it has no text for. The cartridge's ways of ending a
+# sentence (polite, servile, pompous, dialect, a cat's or a kid's), as short English tags like the
+# GameCube's catchphrases. tools/msgbank.py's dump form; `make script` lays this over the string draft.
+
+## 17
+yessir
+
+## 18
+you see
+
+## 19
+guvnor
+
+## 20
+indeed
+
+## 25
+teehee
+
+## 33
+righto
+
+## 47
+yo
+
+## 55
+harrumph
+
+## 58
+y'know
+
+## 64
+oh my
+
+## 79
+darlin'
+
+## 80
+sa-sa
+
+## 83
+by gum
+
+## 90
+pooh
+
+## 93
+myaa
+
+## 96
+pah
+
+## 99
+pssh
+
+## 101
+cho
+
+## 109
+yeah
+
+## 128
+matey
+
+## 131
+roger
+
+## 610
+dig it
+
+## 617
+eh what

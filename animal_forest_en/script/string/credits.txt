@@ -1,0 +1,330 @@
+# The staff credits (1258-1364) in English: the cartridge's list, line for line. The GameCube's string
+# bank has its own staff at these numbers (other people, another order), which the draft took by number;
+# the cartridge's credits are drawn by the orange box (ovl_Mikanbox: func_80AA3D08_jp loads ten lines of
+# 15 bytes from string 1258 + a page's first line, D_80AA4D54_jp, sixteen pages; func_80AA3D94_jp draws
+# them from x 150, a page's first line and the lines in D_80AA4D68/69_jp smaller: the job titles). So a
+# line here is at most 15 bytes, a title where the cartridge has a title, a name where it has a name, a
+# blank where it has one; a name longer than 15 is written with its given name's initial. Names in the
+# order English credits use (given name first). tools/msgbank.py's dump form; `make script` lays this over
+# the string draft by number.
+
+## 1258
+Animal Forest
+
+## 1259
+ 
+
+## 1260
+     Staff
+
+## 1261
+Producer
+
+## 1262
+Takashi Tezuka
+
+## 1263
+ 
+
+## 1264
+Director
+
+## 1265
+Katsuya Eguchi
+
+## 1266
+Hisashi Nogami
+
+## 1267
+Animator
+
+## 1268
+Ryuji Kobayashi
+
+## 1269
+ 
+
+## 1270
+Character Art
+
+## 1271
+Noriko Ikegawa
+
+## 1272
+Y. Morimoto
+
+## 1273
+ 
+
+## 1274
+Screen Design
+
+## 1275
+Toki Iida
+
+## 1276
+Interior Design
+
+## 1277
+Aya Sumimoto
+
+## 1278
+ 
+
+## 1279
+Field Design
+
+## 1280
+Jun Takamura
+
+## 1281
+Shinko Konishi
+
+## 1282
+ 
+
+## 1283
+Effect Design
+
+## 1284
+Masanao Arimoto
+
+## 1285
+Design Support
+
+## 1286
+Michiho Hayashi
+
+## 1287
+K. Yamaguchi
+
+## 1288
+Taeko Sugawara
+
+## 1289
+T. Nakahara
+
+## 1290
+Atsushi Miyagi
+
+## 1291
+ 
+
+## 1292
+Event Design
+
+## 1293
+Naoki Mori
+
+## 1294
+Sound Director
+
+## 1295
+Kazumi Totaka
+
+## 1296
+ 
+
+## 1297
+Field Music
+
+## 1298
+Kenta Nagata
+
+## 1299
+ 
+
+## 1300
+Indoor Music
+
+## 1301
+Tohru Minegishi
+
+## 1302
+Event Music
+
+## 1303
+Shinobu Tanaka
+
+## 1304
+ 
+
+## 1305
+Sound Effects
+
+## 1306
+Taro Bando
+
+## 1307
+ 
+
+## 1308
+Sound Support
+
+## 1309
+Yasushi Ida
+
+## 1310
+Script
+
+## 1311
+Makoto Wada
+
+## 1312
+Kenshiro Ueda
+
+## 1313
+Kunio Watanabe
+
+## 1314
+Program Manager
+
+## 1315
+Yuhiki Ohtsuki
+
+## 1316
+ 
+
+## 1317
+Character Prog.
+
+## 1318
+Masaru Nii
+
+## 1319
+ 
+
+## 1320
+Player Program
+
+## 1321
+K. Komatsu
+
+## 1322
+Data Program
+
+## 1323
+Gentaro Takaki
+
+## 1324
+ 
+
+## 1325
+Field Program
+
+## 1326
+H. Miyake
+
+## 1327
+Programmers
+
+## 1328
+Hiroshi Umemiya
+
+## 1329
+Masatoshi Ogawa
+
+## 1330
+T. Kuzuhara
+
+## 1331
+M. Sakakibara
+
+## 1332
+A. Sakaguchi
+
+## 1333
+Makoto Sasaki
+
+## 1334
+N. Sumiyoshi
+
+## 1335
+Programmers
+
+## 1336
+Y. Takeshita
+
+## 1337
+A. Nishiwaki
+
+## 1338
+Takafumi Noma
+
+## 1339
+Kenzo Hayakawa
+
+## 1340
+Kenji Matsutani
+
+## 1341
+Shigeki Yoshida
+
+## 1342
+Yuichi Yamamoto
+
+## 1343
+NES Emulator
+
+## 1344
+Tomohiro Kawase
+
+## 1345
+ 
+
+## 1346
+NES Emulator
+
+## 1347
+Sound Program
+
+## 1348
+Hideaki Shimizu
+
+## 1349
+Supervisor
+
+## 1350
+S. Miyamoto
+
+## 1351
+T. Nakagoh
+
+## 1352
+ 
+
+## 1353
+Coordinator
+
+## 1354
+Keizo Kato
+
+## 1355
+Minoru Narita
+
+## 1356
+Debug Support
+
+## 1357
+Hironobu Kakui
+
+## 1358
+Yoshito Yasuda
+
+## 1359
+ 
+
+## 1360
+Debugging
+
+## 1361
+Mario Club
+
+## 1362
+Sarugakucho
+
+## 1363
+Exec. Producer
+
+## 1364
+H. Yamauchi

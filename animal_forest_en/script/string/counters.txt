@@ -1,0 +1,95 @@
+# Two of the shop's counters (the word after a number of things, by the count, 1 to 15: the first entry
+# is the singular), the two the GameCube has no text for: the long, thin things' (1427-1441: the tools,
+# and one fruit) and the small animals' (1457-1471: fish and insects), as the shops' code picks them by
+# the item's kind (D_809A9C18_jp of the shop overlays). The shop's two messages that print one (sell
+# all?) print, in the GameCube's English, the number alone. tools/msgbank.py's dump form.
+
+## 1427
+piece
+
+## 1428
+pieces
+
+## 1429
+pieces
+
+## 1430
+pieces
+
+## 1431
+pieces
+
+## 1432
+pieces
+
+## 1433
+pieces
+
+## 1434
+pieces
+
+## 1435
+pieces
+
+## 1436
+pieces
+
+## 1437
+pieces
+
+## 1438
+pieces
+
+## 1439
+pieces
+
+## 1440
+pieces
+
+## 1441
+pieces
+
+## 1457
+critter
+
+## 1458
+critters
+
+## 1459
+critters
+
+## 1460
+critters
+
+## 1461
+critters
+
+## 1462
+critters
+
+## 1463
+critters
+
+## 1464
+critters
+
+## 1465
+critters
+
+## 1466
+critters
+
+## 1467
+critters
+
+## 1468
+critters
+
+## 1469
+critters
+
+## 1470
+critters
+
+## 1471
+critters

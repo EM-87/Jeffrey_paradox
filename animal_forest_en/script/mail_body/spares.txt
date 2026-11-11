@@ -1,0 +1,17 @@
+# The shop letters' five spare slots (192-196): the GameCube's bodies for these are the Japanese bytes
+# its charset reads as accents; labelled as their header and footer are. tools/msgbank.py's dump form.
+
+## 192
+Extra{cd}{cd}{cd}{cd}{cd}{cd}
+
+## 193
+Extra{cd}{cd}{cd}{cd}{cd}{cd}
+
+## 194
+Extra{cd}{cd}{cd}{cd}{cd}{cd}
+
+## 195
+Extra{cd}{cd}{cd}{cd}{cd}{cd}
+
+## 196
+Extra{cd}{cd}{cd}{cd}{cd}{cd}

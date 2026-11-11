@@ -1,0 +1,167 @@
+# The string bank's spare slots (kept for strings to come) the GameCube has no text for, labelled as its
+# own spare slots are. tools/msgbank.py's dump form; `make script` lays this over the draft.
+
+## 749
+spare
+
+## 750
+spare
+
+## 751
+spare
+
+## 752
+spare
+
+## 753
+spare
+
+## 754
+spare
+
+## 755
+spare
+
+## 1365
+spare
+
+## 1366
+spare
+
+## 1367
+spare
+
+## 1502
+spare
+
+## 1503
+spare
+
+## 1504
+spare
+
+## 1505
+spare
+
+## 1506
+spare
+
+## 1507
+spare
+
+## 1508
+spare
+
+## 1509
+spare
+
+## 1510
+spare
+
+## 1511
+spare
+
+## 1512
+spare
+
+## 1513
+spare
+
+## 1514
+spare
+
+## 1515
+spare
+
+## 1516
+spare
+
+## 1517
+spare
+
+## 1533
+spare
+
+## 1534
+spare
+
+## 1535
+spare
+
+## 1536
+spare
+
+## 1537
+spare
+
+## 1538
+spare
+
+## 1539
+spare
+
+## 1540
+spare
+
+## 1541
+spare
+
+## 1542
+spare
+
+## 1543
+spare
+
+## 1544
+spare
+
+## 1545
+spare
+
+## 1546
+spare
+
+## 1547
+spare
+
+## 1548
+spare
+
+## 1549
+spare
+
+## 1550
+spare
+
+## 1551
+spare
+
+## 1552
+spare
+
+## 1553
+spare
+
+## 1554
+spare
+
+## 1555
+spare
+
+## 1556
+spare
+
+## 1557
+spare
+
+## 1558
+spare
+
+## 1559
+spare
+
+## 1560
+spare
+
+## 1561
+spare

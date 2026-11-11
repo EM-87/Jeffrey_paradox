@@ -1,0 +1,49 @@
+# Our English for six of the villagers' White Day letters (March 14th, when a present is given back for
+# one received on Valentine's Day): the GameCube's English for these numbers says the day is Valentine's
+# Day, the GameCube having no White Day, and the cartridge sends them on White Day. From the cartridge's
+# text; the header and footer stay the GameCube's. Six lines of the board's 192 pixels at most.
+# tools/msgbank.py's dump form; `make script` lays this over the mail_body draft.
+
+## 103
+Thanks for always being so
+good to me. I thought long
+and hard about what to give
+you for White Day. Here's to
+staying good friends!{cd}
+
+## 104
+Hey, I just noticed it's
+White Day today! I can't
+remember if you gave me
+anything on Valentine's Day,
+but here's a present anyway,
+just in case.{cd}
+
+## 106
+So, it's White Day, huh.
+This is kind of awkward,
+but here's a present.
+
+We should go fishing
+together sometime!{cd}
+
+## 107
+It's White Day, and I've got
+nobody else to send a gift
+to. Besides, it's not like
+you've never done anything
+for me, so... here. Take it.{cd}
+
+## 109
+It's White Day today.
+For <STR_FREE0>, who's always
+looking out for me, with my
+thanks.
+
+Here's to more good times!{cd}
+
+## 110
+I've got no use for fluffy
+stuff like White Day, but
+it's a custom, so I guess
+there's no getting out of it.{cd}

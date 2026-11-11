@@ -18,8 +18,10 @@ line has none, and nothing below the page's lines is ink.
 Which messages: those the en bank took from the AF Project's 2010
 translation (--nafe, build/gc/nafe_messages.txt: tools/af_nafe_text.py)
 and our own (--own, script/message/*.txt) whose first page needs no
-speaker (its text, pauses, colours and talk animations only) and waits for
-the player (<BTN> or <MSGEND>: not a page that clears itself after a pause
+speaker (its text, pauses, colours and talk animations only, and the
+town's name: STR_COUNTRYNAME, measured as the name the state's save holds,
+common_data + 0x2F60, since the en build puts nothing after it, string 484
+empty) and waits for the player (<BTN> or <MSGEND>: not a page that clears itself after a pause
 or a message that closes after a time, which a screenshot after it typed
 out would miss), each checked to be in the bank as its file's message
 laid out for the en font (af_text.layout), ours also to keep the
@@ -95,6 +97,7 @@ NAMES = msgbank.NAMES
 PAGE_END = {NAMES[n] for n in ("BTN", "MSGCLEAR", "MSGEND", "MSGCONTINUE", "MSGTIMEEND")}
 NO_SPEAKER = {NAMES[n] for n in ("PAUSE", "COLORCHARS", "TEXTCOLOR", "DEMONPC0", "VOICETRUE", "VOICEFALSE")}
 WAITS = {NAMES["BTN"], NAMES["MSGEND"]}      # the window waits for A: the next page, or closing
+COUNTRYNAME, TOWN_AT = NAMES["STR_COUNTRYNAME"], 0x2F60   # the town's name: common_data.save.landInfo.name, 6 bytes
 TOP, PITCH, LINES = 153, 16, 4              # the window's first line in the frame, its lines
 WINDOW_X = (127.18, 2.005)                  # the frame's x of the text's left edge, frame pixels to the pixel
 TEXT_X = range(118, 514)                    # the window's text area in the frame, the next page's arrow (516 on) left out
@@ -132,10 +135,10 @@ def bank_of(af_en):
     return {n: msgbank.decode(text[(ends[n - 1] if n else 0):ends[n]], msgbank.N64_CHARS) for n in range(COUNT)}
 
 
-def first_page(tokens):
+def first_page(tokens, town=b"\x41" * 6):
     """The first page's lines (the font's codes), or None if it needs a speaker (any other code) or does not wait
     for the player (a page that clears itself after a pause, a message that closes after a time, or goes on to
-    another)."""
+    another). The town's name (STR_COUNTRYNAME) is town, its bytes."""
     text = ""
     for t in tokens:
         if t[0] == "c":
@@ -143,6 +146,9 @@ def first_page(tokens):
                 if t[1] not in WAITS:
                     return None
                 break
+            if t[1] == COUNTRYNAME:
+                text += "".join(msgbank.N64_CHARS[b] for b in town)
+                continue
             if t[1] not in NO_SPEAKER:
                 return None
         else:
@@ -260,6 +266,9 @@ def main(argv):
 
     shots, bad_messages, lines_checked = [], [], 0
     with N64(emu_dir, rom, os.path.join(out, "cart"), timeout=120) as n64:
+        n64.load_state(state)
+        town = n64.read(syms["common_data"] + TOWN_AT, 6).rstrip(b" ")
+        print("  the town's name in the state's save: %d characters" % len(town))
         for n in controls + shown:
             n64.load_state(state)
             words = struct.unpack(">II", n64.read(mttime, 8))
@@ -283,7 +292,7 @@ def main(argv):
             path = os.path.join(out, "message-%d.png" % n)
             n64.screenshot(path)
             shots.append(path)
-            page = first_page(bank[n])
+            page = first_page(bank[n], town)
             bad = [] if took else ["not taken by the window"]
             for k in range(LINES):
                 e = board.extent(page[k]) if k < len(page) and page[k] else None
