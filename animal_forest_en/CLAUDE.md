@@ -49,8 +49,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
    letters-check-en`, one to the letter board or the font `make
    board-check-en`, one to the editor or writing a letter `make
    write-check-en`, one to the bulletin board or its posts `make
-   notice-check-en`, one to the menus' strings `make menus-check-en`, one
-   to `emu/` `make emu-determinism`.
+   notice-check-en`, one to the message bank or its layout `make
+   messages-check-en`, one to the menus' strings `make menus-check-en`,
+   one to `emu/` `make emu-determinism`.
 
 ## Where things live
 
@@ -129,6 +130,12 @@ the why and the state, `reference/NOTES.md` for what is verified.
   tree's extracted segments, each checked against both ROMs' display
   lists; the cartridge's labels without it (NOTES, "The 2010 patch's
   labels").
+- `tools/af_nafe_text.py` — the messages the GameCube's script has no
+  counterpart for, in the 2010 patch's English where its codes that steer
+  the game are the cartridge's (ends, choices, next messages, the talk
+  orders in every slot), taken at `make rom-en` from the user's copy and
+  laid over the draft (`af_text.py compile --overrides`), never
+  committed (NOTES, "The 2010 patch's messages").
 - `tools/af_dumpdata.py` — the cartridge's own data a file we decompiled
   includes but this repository must not hold (text), written from the
   user's dump as C initializers under each tree's `assets/` after its
@@ -148,6 +155,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   game puts them, each post's lines measured on the board's frame
   against the same model, a notice typed past 96 bytes, finished, read
   back whole, saved and loaded: `make notice-check-en`),
+  `emu_messages.py` (messages of the bank shown in the message window as
+  the game asks for one, each first page's lines measured against the
+  font's model: those taken from the 2010 patch and two of the
+  GameCube's: `make messages-check-en`),
   `emu_menus.py` (the name entry's five windows, the edit-end check's
   question and answers and the address book's balloon, their strings in
   RAM and their ink measured against the font's model; each swapped

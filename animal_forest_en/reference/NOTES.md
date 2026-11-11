@@ -2136,3 +2136,82 @@ what goes in it: "The letters in the en build").
   the 14 posts' rests in both slots and drops the letters the posts were
   loaded from (14 records of 24); the load brings the extension back, and
   the notice is read whole again.
+
+## The 2010 patch's messages (phase 5)
+
+- **What is left untranslated.** Of the cartridge's 10,847 messages with
+  text, the en bank (`make script`'s draft from the GameCube's script and
+  our own text) still had the cartridge's Japanese for 909: no official
+  counterpart (af_align) and none of ours. The AF Project's 2010
+  translation (Zoinkity, `NAFE-WIP-2_12_2010.ups`; `make nafe` builds its
+  ROM from the user's copy) has 175 of them in English, 207 still in
+  Japanese, 7 mixed and 520 emptied.
+- **Its bank.** The patch keeps the cartridge's index file (vrom
+  0xCF9000) and moves its text to a new file at 0x1914000 (found through
+  its dmadata; its ROM is checked by md5 first, `tools/nafe.py`), so its
+  message n is the cartridge's n where its codes are the cartridge's: of
+  the cartridge's 11,650 messages with a string or an end code, 10,166
+  have the same ones in the same order in the patch. Of the 175, the
+  codes say otherwise for some: an end
+  that goes on to the next message where the cartridge's stops (or the
+  reverse), a choice or a next message the cartridge's has not, talk
+  orders added or moved. In some numbers the patch has other text or
+  another flow.
+- **What the en build takes** (`tools/af_nafe_text.py`, at `make rom-en`
+  from the user's copy, laid over the bank by `af_text.py compile
+  --overrides`; never committed, and nothing without the patch's ROM or
+  the draft): a message whose en text is the cartridge's own, whose patch
+  text is English (Latin letters, no kana), and whose codes that steer
+  the game are the cartridge's, the same in the same order with the same
+  arguments. Free to differ: page breaks, pauses, colours, scales and
+  voice switches, and the names, dates and town the game always has at
+  hand. The talk orders count, in every slot. Slot 0 of `DEMONPC0` is the
+  villagers' talk animation (ac_npc2 `func_80998740_jp`, ac_npc
+  `func_80976284_jp`: a table by the animal's kind), and the patch often
+  moved those orders to the beats of its English; but the gyroid acts on
+  slot 0 (ac_haniwa `func_8096B7AC_jp`: set, it reads the choice made;
+  its conversations start at messages 0x925 to 0x935, D_8096C458_jp), and
+  ac_npc_rtc, ac_npc_p_sel and the player's code read it too. Slot 9 is
+  read by the shops' masters, the post office and the events' actors to
+  act (ac_npc_conv_master, ac_npc_shop_master, ac_npc_post_girl,
+  ac_ev_yomise...), slot 1 by the events' and the villagers', 2 and 8 by
+  the villagers'. Which actor says a message the bank does not tell, so
+  no talk order may differ. Also refused: a string the game fills for one
+  message (a free string, an item, `STR_DETERMINATION`, `STR_RNDNUM`,
+  `STR_MAIL`) that the cartridge's message does not print (it would not
+  be filled). 84 taken; 91 refused for their codes, 46
+  of them only for talk orders in slot 0 (a first version took those
+  too, 129 in all, until the gyroid's reading turned up). A page of five
+  lines is split at four as the draft splits the bank's
+  (`af_text.split_pages`); the compile lays the messages out for the en
+  font like the rest of the bank. Messages: 9,818 in English of the
+  10,847 before, 9,901 after (91.3%); 825 keep the cartridge's
+  text.
+- **Credit.** The English of those 84 messages is the AF Project's
+  (Zoinkity's 2010 translation), taken from the user's own copy of their
+  patch at build time, as their 42 labels are ("The 2010 patch's
+  labels"); README says so.
+- **Measured** (`tests/emu_messages.py`, `make messages-check-en`, from
+  the houses' state of route-en). The en tree's compiled bank holds the
+  84 as the patch's text laid out for the en font. Each message whose
+  first page needs no speaker (text, pauses, colours, talk orders) and
+  waits for the player (`<BTN>` or `<MSGEND>`: a page that clears itself
+  after a pause, or a message that closes after a time, is gone by the
+  screenshot) is asked for as an actor asks (`mMsg_request_main_appear`
+  on the base window, white, no speaker): 21 of the 84, and two of the
+  GameCube's as controls. Its first page's lines, each line's first and
+  last ink pixel (a colour under 150: the window over the field is 216
+  and up, its text dark or coloured), are where the en font's model puts
+  them: rows 153 + 16k, the frame's x 127.18 + 2.005 per pixel (fitted on
+  316 line ends of 51 messages when a first version took 129, residuals
+  within 1.9; this build's 146 within 2.0; the next page's arrow, from x
+  516, left out): 0 of the 73 lines fail; the model fails 65 with a space
+  1 px wider and all with the lower-case letters 1 px narrower. The
+  window draws its text at 2.005 frame pixels to the pixel, the letter
+  board's at 1.954 and the bulletin board's at 1.960 ("The letter board
+  in the en build", "The bulletin board"): why they differ is
+  TODO(verify).
+- **Left for later.** The 46 messages refused only for their talk orders
+  in slot 0 could take the patch's text with the cartridge's orders put
+  back where its pages put them; the other 45 differ in what the game
+  does. 825 messages keep the cartridge's text.

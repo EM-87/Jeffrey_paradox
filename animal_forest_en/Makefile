@@ -45,7 +45,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en notice-check-en menus-check-en emu-determinism decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
+.PHONY: all baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en notice-check-en messages-check-en menus-check-en emu-determinism decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
 
 all: verify
 
@@ -228,11 +228,21 @@ $(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n64_string_jp.txt: $(
 	$(PYTHON) tools/msgbank.py dump-n64 $(BASEROM) $(GC_DIR)/n64_choice_jp.txt choice
 	$(PYTHON) tools/msgbank.py dump-n64 $(BASEROM) $(GC_DIR)/n64_string_jp.txt string
 
+# The messages the GameCube's script has no counterpart for, where the AF
+# Project's 2010 translation has them in English with the cartridge's codes:
+# taken from the user's copy of the patch (make nafe) at make rom-en and laid
+# over the English draft (tools/af_nafe_text.py), never committed; none
+# without the patch's ROM or the draft (NOTES, "The 2010 patch's messages").
+NAFE_TEXT := $(if $(and $(wildcard $(NAFE_ROM)),$(wildcard $(GC_DIR)/en_bank.txt)),$(GC_DIR)/nafe_messages.txt)
+$(GC_DIR)/nafe_messages.txt: $(NAFE_ROM) $(GC_DIR)/en_bank.txt $(GC_DIR)/n64_jp.txt tools/af_nafe_text.py tools/af_text.py tools/msgbank.py tools/nafe_diff.py
+	$(PYTHON) tools/af_nafe_text.py $(NAFE_ROM) $(GC_DIR)/en_bank.txt $(GC_DIR)/n64_jp.txt $@
+
 # The messages are laid out at the window's width with the en font's
 # widths, which tools/af_font.py reads from the dump and the disc's font.
-$(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(EN_CHOICE) $(EN_STRING) $(GC_DIR)/n64_jp.txt tools/af_text.py tools/msgbank.py tools/af_font.py $(GC_FONT)
+$(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(NAFE_TEXT) $(EN_CHOICE) $(EN_STRING) $(GC_DIR)/n64_jp.txt tools/af_text.py tools/msgbank.py tools/af_font.py $(GC_FONT)
 	mkdir -p $(EN_ASSETS)
-	$(PYTHON) tools/af_text.py compile $(EN_BANK) $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/msg_index.bin --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600 $(FONT_OPTS)
+	$(PYTHON) tools/af_text.py compile $(EN_BANK) $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/msg_index.bin --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600 $(FONT_OPTS) \
+		$(if $(NAFE_TEXT),--overrides $(NAFE_TEXT))
 	$(PYTHON) tools/af_text.py compile $(EN_CHOICE) $(EN_ASSETS)/choice_text.bin $(EN_ASSETS)/choice_index.bin --bank choice --max-bytes 24
 	$(PYTHON) tools/af_text.py compile $(EN_STRING) $(EN_ASSETS)/string_text.bin $(EN_ASSETS)/string_index.bin --bank string --max-bytes 64 --count 0x679
 
@@ -329,6 +339,15 @@ board-check-en: route-en
 # letter in the en build").
 write-check-en: route-en
 	$(PYTHON) tests/emu_write.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-write-en
+
+# Messages of the en build's bank shown in the message window from the same
+# state, as the game asks for one, and each line of their first page
+# measured on the frame against the font's model: those taken from the 2010
+# translation, and two of the GameCube's (tests/emu_messages.py; NOTES,
+# "The 2010 patch's messages").
+messages-check-en: route-en
+	$(PYTHON) tests/emu_messages.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-messages-en \
+		$(if $(NAFE_TEXT),--nafe $(NAFE_TEXT)) $(if $(GC_FONT),--gc-font $(GC_FONT))
 
 # The en build's bulletin board, from the same state: the game's notices put
 # up as the game puts them, the board turned page by page and each post's

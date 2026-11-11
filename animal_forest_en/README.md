@@ -224,6 +224,19 @@ menús y comprueba cada etiqueta en memoria ("The 2010 patch's labels").
 El logo del título de ese parche cambia también el código del actor que
 lo dibuja, que sigue en ensamblador: queda para después.
 
+Los mensajes que el guion de GameCube no tiene (909 seguían en japonés)
+se toman, donde se puede sin riesgo, del inglés de esa misma traducción
+de 2010 del AF Project (Zoinkity): `tools/af_nafe_text.py` los lee al
+compilar de tu copia del parche y nada de ellos entra al repositorio. Un
+mensaje entra solo si los códigos que mueven el juego (cómo acaba, las
+elecciones, el mensaje que sigue, las órdenes que reciben los
+personajes) son los del cartucho: de los 175 que el parche tiene en
+inglés entran 84; en los demás el parche cambió algo de lo que
+el juego hace. El mérito de esas frases es del AF Project ("The 2010
+patch's messages"). `make messages-check-en` muestra en la ventana de
+diálogo los que no necesitan quien hable y mide cada línea contra el
+modelo de la fuente.
+
 Los nombres de los objetos son los de GameCube, leídos de tu disco al
 compilar (`tools/af_items.py`): de los 1.703 del cartucho, 1.696 tienen
 nombre en GameCube y 7 son nuestros (`script/items.txt`). Los de GameCube
@@ -283,8 +296,8 @@ desconectado, las texturas occidentales de GameCube donde las haya
   correspondencia), `af_text.py` (el banco inglés: borrador, comprobador y
   compilador), `af_font.py` (la fuente del build en inglés), `af_ui.py`
   (las cadenas de los menús), `af_items.py` (los nombres de los objetos,
-  de tu disco), `af_nafe_gfx.py` (las etiquetas del parche
-  de 2010, de tu copia), `af_dumpdata.py` (los datos del cartucho que
+  de tu disco), `af_nafe_gfx.py` y `af_nafe_text.py` (las etiquetas y
+  los mensajes del parche de 2010, de tu copia), `af_dumpdata.py` (los datos del cartucho que
   un archivo decompilado incluye, sacados de tu volcado al extraer) y
   `af_ovlreloc.py` (la tabla de reubicaciones de un overlay que cambia).
 - `script/` — nuestro texto: lo que no tiene versión oficial.
@@ -292,6 +305,7 @@ desconectado, las texturas occidentales de GameCube donde las haya
   (`make emu-check`) y las pruebas del build en inglés en el emulador:
   `emu_save.py` (la partida), `emu_letters.py` (las cartas),
   `emu_board.py` (el tablero de cartas), `emu_write.py` (escribir una
-  carta), `emu_notice.py` (el tablón de anuncios) y `emu_menus.py` (las
-  cadenas de los menús y los nombres de los objetos).
+  carta), `emu_notice.py` (el tablón de anuncios), `emu_messages.py` (los
+  mensajes en la ventana de diálogo) y `emu_menus.py` (las cadenas de los
+  menús y los nombres de los objetos).
 - `reference/NOTES.md` — lo verificado, con su fuente.

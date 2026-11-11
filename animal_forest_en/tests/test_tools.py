@@ -25,6 +25,7 @@ import af_dumpdata  # noqa: E402
 import af_font  # noqa: E402
 import af_luicheck  # noqa: E402
 import af_nafe_gfx  # noqa: E402
+import af_nafe_text  # noqa: E402
 import af_names  # noqa: E402
 import af_ovlreloc  # noqa: E402
 import af_ranges  # noqa: E402
@@ -828,6 +829,65 @@ class Script(unittest.TestCase):
                 af_text.N64_COUNT = old
             back = msgbank.Bank.parse_dump(open(paths["out"], encoding="utf-8").read())
             self.assertEqual([msgbank.render(back[n]) for n in range(4)], ["Red", "Blue", "", "January"])
+
+
+class NafeText(unittest.TestCase):
+    """tools/af_nafe_text.py: which of the 2010 patch's messages the en bank takes (made-up messages)."""
+
+    def test_taken_where_the_codes_that_steer_the_game_are_the_cartridges(self):
+        p = msgbank.parse
+        cart = {0: p("<DEMONPC0 000016>あいう<PAUSE 08>¶えお<STR_TAIL>!<BTN>¶<MSGCLEAR>かき<MSGEND>".replace("¶", "\n")),
+                1: p("<DEMONPC0 090001>あい<MSGEND>"),
+                2: p("あい<STR_FREE2>う<MSGEND>"),
+                3: p("あい<MSGEND>"),
+                4: p("あい<MSGEND>"),
+                5: p("あい<MSGEND>"),
+                6: p("<DEMONPC0 0000ff>あい<MSGEND>"),
+                7: p("<MSGEND>")}
+        ours = dict(cart)
+        ours[5] = p("Ours.<MSGEND>")                         # translated already: not a candidate
+        theirs = {0: p("<DEMONPC0 000016>Hello,<PAUSE 06> <STR_PLAYERNAME>!<BTN>\n<MSGCLEAR>Bye.<MSGEND>"),
+                  1: p("<DEMONPC0 090002>Hi.<MSGEND>"),       # another order in slot 9: the shop acts
+                  2: p("Hi <STR_FREE2> and <STR_FREE3>.<MSGEND>"),   # a free string the game does not fill
+                  3: p("Hi.<MSGCONTINUE>"),                  # another end: the conversation goes on
+                  4: p("あいう<MSGEND>"),                    # still Japanese
+                  5: p("Theirs.<MSGEND>"),
+                  6: p("<DEMONPC0 000016>Hi.<MSGEND>"),      # another talk order in slot 0: the gyroid acts on it
+                  7: p("Hm.<MSGEND>")}
+        taken, why = af_nafe_text.take(ours, cart, theirs)
+        # pauses, pages and the names the game has at hand may differ; the talk orders may not, in any slot
+        self.assertEqual(sorted(taken), [0])
+        self.assertEqual(why, collections.Counter({"taken": 1, "codes that steer the game differ": 3,
+                                                   "prints a string the game does not fill there": 1,
+                                                   "not in English in the 2010 patch": 1}))
+        # a fifth line goes on a page of its own, as the draft splits the bank's
+        five = {0: p("あ\nい\nう\nえ\nお<MSGEND>")}
+        taken, _ = af_nafe_text.take(five, five, {0: p("a\nb\nc\nd\ne<MSGEND>")})
+        self.assertEqual(msgbank.render(taken[0]), "a\nb\nc\nd<BTN>\n<MSGCLEAR>e<MSGEND>")
+        # written as the bank's dump, a note naming its source, and read back
+        back = msgbank.Bank.parse_dump(af_nafe_text.dump(taken))
+        self.assertEqual(back, taken)
+        self.assertIn("#: the AF Project's 2010 translation", af_nafe_text.dump(taken))
+        with self.assertRaises(ValueError):
+            af_nafe_text.messages(b"not the patch's ROM")
+
+    def test_compile_lays_the_overrides_over_the_bank(self):
+        with tempfile.TemporaryDirectory() as d:
+            bank, over = os.path.join(d, "bank.txt"), os.path.join(d, "over.txt")
+            text, index = os.path.join(d, "t.bin"), os.path.join(d, "i.bin")
+            open(bank, "w").write("".join("## %d\n<MSGEND>\n\n" % n for n in range(af_text.N64_COUNT)))
+            open(over, "w").write("## 3\n#: a note\nLaid over.<MSGEND>\n\n")
+            with open(os.devnull, "w") as quiet:
+                old = sys.stdout
+                sys.stdout = quiet
+                try:
+                    self.assertEqual(af_text.main(["compile", bank, text, index, "--overrides", over]), 0)
+                finally:
+                    sys.stdout = old
+            t = open(text, "rb").read()
+            ends = struct.unpack(">%dI" % af_text.N64_COUNT, open(index, "rb").read())
+            self.assertEqual(t[ends[2]:ends[3]], msgbank.encode(msgbank.parse("Laid over.<MSGEND>")))
+            self.assertEqual(t[ends[3]:ends[4]], msgbank.encode(msgbank.parse("<MSGEND>")))
 
 
 def save_like(seed=1):

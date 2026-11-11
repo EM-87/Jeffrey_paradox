@@ -7,7 +7,7 @@ compiled to the files the ROM reads.
     tools/af_text.py draft  N64_DUMP GC_DUMP - OUT.txt --bank choice|string [--overrides FILE ...]
     tools/af_text.py check  BANK.txt [--bank message] [--cols 32] [--lines 4] [--max-bytes N] [--reference N64_DUMP]
                             [--font ROM [--gc-font GC_FONT.bin]]
-    tools/af_text.py compile BANK.txt TEXT.bin INDEX.bin [the same options]
+    tools/af_text.py compile BANK.txt TEXT.bin INDEX.bin [the same options] [--overrides FILE ...]
     tools/af_text.py compile-letters TEXT.bin INDEX.bin MAIL_HEADER.txt ... VMAIL_FOOTER.txt
 
 --bank names which of the cartridge's banks the text is (tools/msgbank.py
@@ -34,6 +34,11 @@ its codes as `<NAME hex>`, `#:` notes. compile needs every number 0..11751
 (the cartridge's count: the game addresses messages by number) and writes
 the text file and the u32 table of ends, 16-byte padded, that the message
 loader (`func_8009E388_jp`) reads through dmadata.
+
+check and compile lay the --overrides files' messages over the bank by
+number first, as draft does (make rom-en: the messages
+tools/af_nafe_text.py takes from the AF Project's 2010 translation, which
+never reach the repository or the draft).
 
 compile-letters takes the eight letter banks in LETTER_BANKS' order and
 writes them as one text file and one table of ends (the en build's two
@@ -715,6 +720,10 @@ def main(argv):
         draft(args[1], args[2], args[3], args[4], overrides)
         return 0
     messages = load_bank(args[1])
+    for path in overrides:
+        laid = load_bank(path)
+        messages.update(laid)
+        print("af_text: %d messages laid over from %s" % (len(laid), os.path.basename(path)))
     measure = None
     if font is not None and bank == "message":
         import af_font
