@@ -24,6 +24,19 @@ laid out for the en font (af_text.layout); and, as a control, the first
 two of the GameCube's own (not in the file) with three lines or more on
 such a first page.
 
+Then the talk orders: each message taken whose run needs no choice and
+goes nowhere else (it ends with <MSGEND>, and has no choice, next message,
+luck or quest code) and has talk orders in slot 0 is asked for the same
+way and played to its end, A pressed each time the window waits for it
+(its mainIndex 2, mMsg_INDEX_NORMAL: the page typed out); every frame the
+talking animal's order in slot 0 is read (demo_data's orderData[4][0],
+m_demo.h: DEMO_ORDER_NPC0, the 16 bytes before the table, 10 values a
+type). Its values, as they change, must be the message's orders as the
+window meets them (orders with no character, pause or page between them
+set in one frame: the last shows), and the message's orders the
+cartridge's own, the same values in the same order (af_nafe_text puts
+them back where the 2010 translation had other ones).
+
 Where: the window's text from the frame's row 153 (lines 16 rows apart)
 and x 127.18, 2.005 frame pixels to the font's pixel (fitted on 316 line
 ends of 51 messages, residuals within 1.9; the letter board's text is
@@ -42,7 +55,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
-from n64emu import N64  # noqa: E402
+from n64emu import A, N64  # noqa: E402
 import af_font  # noqa: E402
 import af_text  # noqa: E402
 import contact  # noqa: E402
@@ -64,7 +77,8 @@ void hook_main(void) {
     HookCtl* h = &hook_ctl;
 
     if (h->cmd == 1) {
-        h->result = mMsg_request_main_appear(mMsg_Get_base_window_p(), 0, 0, hook_color, h->arg[0], 5);
+        h->arg[1] = (s32)mMsg_Get_base_window_p();
+        h->result = mMsg_request_main_appear((void*)h->arg[1], 0, 0, hook_color, h->arg[0], 5);
         h->cmd = 0;
     }
 }
@@ -83,6 +97,15 @@ INK = 150                                   # a pixel with a colour under this i
 TOLERANCE = 2.0
 SHOWN = 300                                 # frames for a page to appear and type out
 CONTROLS = 2
+# the talk orders
+DEMONPC0 = NAMES["DEMONPC0"]
+NPC0_SLOT0 = 0x10 + 4 * 2 * 10               # demo_data.orderData[DEMO_ORDER_NPC0][0] (m_demo.h DemoData)
+MAIN_INDEX, WAITING, HIDDEN = 0x2B4, 2, 0     # MessageWindow.mainIndex: mMsg_INDEX_NORMAL, mMsg_INDEX_HIDE
+WAIT_FRAMES, PLAY_FRAMES = 10, 4000           # a wait this long before A; at most this long a message
+GOES_ON = {NAMES[n] for n in NAMES if n.startswith(("SETNEXTMSG", "SETSELSTR", "LUCK_"))} | \
+    {NAMES[n] for n in ("OPENCHOICE", "SETFORCEMSG", "FORCENEXT", "MSGCONTINUE", "MSGTIMEEND", "SELNOB", "GIVEOPEN",
+                        "GIVECLOSE", "DEMONPCQST")}
+TIMED = {NAMES["PAUSE"], NAMES["BTN"], NAMES["MSGCLEAR"]}
 
 failures = []
 
@@ -118,6 +141,41 @@ def first_page(tokens):
             text += t[1]
     lines = text.split("\n")
     return [bytes(msgbank.N64_BYTES[c] for c in line) for line in lines] if text.strip() else None
+
+
+def is_talk_order(t):
+    return t[0] == "c" and t[1] == DEMONPC0 and t[2][:1] == b"\0"
+
+
+def talk_orders(tokens):
+    """The values of a message's talk orders in slot 0, in order."""
+    return [struct.unpack(">H", t[2][1:3])[0] for t in tokens if is_talk_order(t)]
+
+
+def collapse(values):
+    return [v for k, v in enumerate(values) if not k or v != values[k - 1]]
+
+
+def seen_orders(tokens):
+    """The values slot 0 shows as the window meets the orders: of orders with no character, pause or page
+    between them, the last; a value the same as the one before not seen again."""
+    out, pending = [], False
+    for it in af_text._items(tokens):
+        if is_talk_order(it):
+            if pending:
+                out[-1] = struct.unpack(">H", it[2][1:3])[0]
+            else:
+                out.append(struct.unpack(">H", it[2][1:3])[0])
+            pending = True
+        elif it[0] == "ch" or it[1] in TIMED:
+            pending = False
+    return collapse(out)
+
+
+def plays_through(tokens):
+    """A message the window plays to its end without a choice and without going on to another."""
+    codes = [t[1] for t in tokens if t[0] == "c"]
+    return bool(codes) and codes[-1] == NAMES["MSGEND"] and not GOES_ON & set(codes)
 
 
 def measure(rgb, w, y0):
@@ -211,6 +269,49 @@ def main(argv):
             check(not bad, "message %d (%s): its first page's %d lines where the model has them%s" % (
                 n, "the 2010 translation's" if n in theirs else "the GameCube's", len([s for s in page if s]),
                 "; " + "; ".join(bad) if bad else ""))
+        # the talk orders, as the window plays the messages through
+        cart = af_text.load_bank(os.path.join(os.path.dirname(nafe_path), "n64_jp.txt")) if theirs else {}
+        played = [n for n in sorted(theirs) if talk_orders(bank[n]) and plays_through(bank[n])]
+        same = [n for n in theirs if talk_orders(bank[n]) == talk_orders(cart.get(n, []))]
+        if theirs:
+            check(len(same) == len(theirs), "the %d messages taken have the cartridge's talk orders in slot 0, the "
+                  "same values in the same order (%d do)" % (len(theirs), len(same)))
+        slot = syms["demo_data"] + NPC0_SLOT0
+        bad_orders = []
+        for n in played:
+            n64.load_state(state)
+            words = struct.unpack(">II", n64.read(mttime, 8))
+            blob, stub, ctl = emu_save.build_hook(af_en, en_elf, hole, hole_size, words, mttime, HOOK_C)
+            emu_save.write_code(n64, hole, blob)
+            emu_save.write_code(n64, mttime, struct.pack(">II", 0x08000000 | ((stub >> 2) & 0x3FFFFFF), 0))
+            n64.write(slot, bytes(2))
+            n64.write(ctl, CTL.pack(1, 0, n, 0, 0, 0))
+            for _ in range(10):
+                n64.frames(1, 0)
+                if struct.unpack(">i", n64.read(ctl, 4))[0] == 0:
+                    break
+            window = struct.unpack(">I", n64.read(ctl + 12, 4))[0]
+            values, waited, shown_once = [0], 0, False
+            for _ in range(PLAY_FRAMES):
+                n64.frames(1, 0)
+                value = struct.unpack(">H", n64.read(slot, 2))[0]
+                if value != values[-1]:
+                    values.append(value)
+                index = struct.unpack(">i", n64.read(window + MAIN_INDEX, 4))[0]
+                shown_once |= index != HIDDEN
+                if shown_once and index == HIDDEN:
+                    break
+                waited = waited + 1 if index == WAITING else 0
+                if waited == WAIT_FRAMES:
+                    n64.frames(3, A)
+                    n64.frames(2, 0)
+                    waited = 0
+            got, want = values[1:], seen_orders(bank[n])
+            if got != want:
+                bad_orders.append(n)
+            check(got == want, "message %d: its talk orders as it plays, %s, the message's (%s)" % (
+                n, " ".join("%x" % v for v in got), " ".join("%x" % v for v in want)))
+        print("  %d messages played through, their talk orders as the cartridge's" % len(played))
     contact.main([os.path.join(out, "sheet.png"), "3"] + shots)
     print("emu_messages: %d messages shown, %d lines measured, %d failures; screenshots in %s" % (
         len(controls + shown), lines_checked, len(failures), out))

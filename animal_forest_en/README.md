@@ -229,11 +229,13 @@ se toman, donde se puede sin riesgo, del inglés de esa misma traducción
 de 2010 del AF Project (Zoinkity): `tools/af_nafe_text.py` los lee al
 compilar de tu copia del parche y nada de ellos entra al repositorio. Un
 mensaje entra solo si los códigos que mueven el juego (cómo acaba, las
-elecciones, el mensaje que sigue, las órdenes que reciben los
-personajes) son los del cartucho: de los 175 que el parche tiene en
-inglés entran 84; en los demás el parche cambió algo de lo que
-el juego hace. El mérito de esas frases es del AF Project ("The 2010
-patch's messages"). `make messages-check-en` muestra en la ventana de
+elecciones, el mensaje que sigue) son los del cartucho. Las órdenes de
+expresión del personaje que habla, que el parche movió o cambió en 46,
+se reponen: las del cartucho, en su orden, en el sitio del texto inglés
+que les corresponde. De los 175 que el parche tiene en inglés entran
+130; en los demás el parche cambió algo de lo que el juego hace. El
+mérito de esas frases es del AF Project ("The 2010 patch's
+messages"). `make messages-check-en` muestra en la ventana de
 diálogo los que no necesitan quien hable y mide cada línea contra el
 modelo de la fuente.
 

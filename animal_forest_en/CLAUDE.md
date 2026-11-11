@@ -133,9 +133,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
 - `tools/af_nafe_text.py` — the messages the GameCube's script has no
   counterpart for, in the 2010 patch's English where its codes that steer
   the game are the cartridge's (ends, choices, next messages, the talk
-  orders in every slot), taken at `make rom-en` from the user's copy and
-  laid over the draft (`af_text.py compile --overrides`), never
-  committed (NOTES, "The 2010 patch's messages").
+  orders in every slot; where only the talking animal's orders in slot 0
+  differ, the cartridge's are put back into the English), taken at `make
+  rom-en` from the user's copy and laid over the draft (`af_text.py
+  compile --overrides`), never committed (NOTES, "The 2010 patch's
+  messages").
 - `tools/af_dumpdata.py` — the cartridge's own data a file we decompiled
   includes but this repository must not hold (text), written from the
   user's dump as C initializers under each tree's `assets/` after its
@@ -158,7 +160,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `emu_messages.py` (messages of the bank shown in the message window as
   the game asks for one, each first page's lines measured against the
   font's model: those taken from the 2010 patch and two of the
-  GameCube's: `make messages-check-en`),
+  GameCube's; and those that play through without a choice, played to
+  their end, the talking animal's order read every frame against the
+  cartridge's orders: `make messages-check-en`),
   `emu_menus.py` (the name entry's five windows, the edit-end check's
   question and answers and the address book's balloon, their strings in
   RAM and their ink measured against the font's model; each swapped

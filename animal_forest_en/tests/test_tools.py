@@ -852,12 +852,15 @@ class NafeText(unittest.TestCase):
                   3: p("Hi.<MSGCONTINUE>"),                  # another end: the conversation goes on
                   4: p("あいう<MSGEND>"),                    # still Japanese
                   5: p("Theirs.<MSGEND>"),
-                  6: p("<DEMONPC0 000016>Hi.<MSGEND>"),      # another talk order in slot 0: the gyroid acts on it
+                  6: p("<DEMONPC0 000016>Hi.<MSGEND>"),      # another talk order in slot 0: the cartridge's put back
                   7: p("Hm.<MSGEND>")}
         taken, why = af_nafe_text.take(ours, cart, theirs)
-        # pauses, pages and the names the game has at hand may differ; the talk orders may not, in any slot
-        self.assertEqual(sorted(taken), [0])
-        self.assertEqual(why, collections.Counter({"taken": 1, "codes that steer the game differ": 3,
+        # pauses, pages and the names the game has at hand may differ; the talk orders in slot 0 are the
+        # cartridge's, put back; in other slots they must be
+        self.assertEqual(sorted(taken), [0, 6])
+        self.assertEqual(msgbank.render(taken[6]), "<DEMONPC0 0000ff>Hi.<MSGEND>")
+        self.assertEqual(why, collections.Counter({"taken": 1, "taken, the cartridge's talk orders put back": 1,
+                                                   "codes that steer the game differ": 2,
                                                    "prints a string the game does not fill there": 1,
                                                    "not in English in the 2010 patch": 1}))
         # a fifth line goes on a page of its own, as the draft splits the bank's
@@ -870,6 +873,27 @@ class NafeText(unittest.TestCase):
         self.assertIn("#: the AF Project's 2010 translation", af_nafe_text.dump(taken))
         with self.assertRaises(ValueError):
             af_nafe_text.messages(b"not the patch's ROM")
+
+    def test_the_cartridges_talk_orders_put_back(self):
+        p = msgbank.parse
+
+        def back(cart, theirs):
+            return msgbank.render(af_nafe_text.recover(p(cart), p(theirs)))
+
+        # an order the patch added goes; the cartridge's takes the patch's order's place
+        self.assertEqual(back("<DEMONPC0 0000ff>あいう<MSGEND>", "<DEMONPC0 000017>Hi.<DEMONPC0 000016> Bye.<MSGEND>"),
+                         "<DEMONPC0 0000ff>Hi. Bye.<MSGEND>")
+        # one the patch dropped comes back where the cartridge's was: a page's start
+        self.assertEqual(back("<DEMONPC0 0000ff>あい<BTN>\n<MSGCLEAR><DEMONPC0 000016>うえ<MSGEND>",
+                              "<DEMONPC0 0000ff>Hi.<BTN>\n<MSGCLEAR>Bye.<MSGEND>"),
+                         "<DEMONPC0 0000ff>Hi.<BTN>\n<MSGCLEAR><DEMONPC0 000016>Bye.<MSGEND>")
+        # each stays between the codes that steer the game it was between; the patch's order across one goes
+        self.assertEqual(back("<DEMONPC0 000016>あ<SNDTRGSYS 04><DEMONPC0 0000ff>い<MSGEND>",
+                              "Hi<DEMONPC0 000016><SNDTRGSYS 04>yo<MSGEND>"),
+                         "<DEMONPC0 000016>Hi<SNDTRGSYS 04><DEMONPC0 0000ff>yo<MSGEND>")
+        # codes that steer the game otherwise: nothing to put back
+        self.assertIsNone(af_nafe_text.recover(p("あ<MSGEND>"), p("Hi<MSGCONTINUE>")))
+        self.assertIsNone(af_nafe_text.recover(p("<DEMONPC0 090001>あ<MSGEND>"), p("<DEMONPC0 090002>Hi<MSGEND>")))
 
     def test_compile_lays_the_overrides_over_the_bank(self):
         with tempfile.TemporaryDirectory() as d:

@@ -2176,42 +2176,68 @@ what goes in it: "The letters in the en build").
   act (ac_npc_conv_master, ac_npc_shop_master, ac_npc_post_girl,
   ac_ev_yomise...), slot 1 by the events' and the villagers', 2 and 8 by
   the villagers'. Which actor says a message the bank does not tell, so
-  no talk order may differ. Also refused: a string the game fills for one
-  message (a free string, an item, `STR_DETERMINATION`, `STR_RNDNUM`,
-  `STR_MAIL`) that the cartridge's message does not print (it would not
-  be filled). 84 taken; 91 refused for their codes, 46
-  of them only for talk orders in slot 0 (a first version took those
-  too, 129 in all, until the gyroid's reading turned up). A page of five
-  lines is split at four as the draft splits the bank's
-  (`af_text.split_pages`); the compile lays the messages out for the en
-  font like the rest of the bank. Messages: 9,818 in English of the
-  10,847 before, 9,901 after (91.3%); 825 keep the cartridge's
-  text.
-- **Credit.** The English of those 84 messages is the AF Project's
+  no talk order may differ from the cartridge's. Also refused: a string
+  the game fills for one message (a free string, an item,
+  `STR_DETERMINATION`, `STR_RNDNUM`, `STR_MAIL`) that the cartridge's
+  message does not print (it would not be filled).
+- **The talk orders put back.** Where the codes differ only in the
+  orders in slot 0 (the patch moved them to the beats of its English,
+  added some, dropped some, changed a value), the patch's are dropped
+  and the cartridge's put back (`af_nafe_text.recover`): the same values
+  in the same order, each between the same codes that steer the game as
+  on the cartridge, so the game does what the cartridge's message makes
+  it do whoever speaks; where in the English each goes, segment by
+  segment between those codes: at one of the patch's own order's places
+  when the orders align (an order-preserving match by how far into the
+  segment's text each is, a place of the patch's order of another value
+  allowed), else at the start of the segment, a page, a wait for A, a
+  line or a word, as the cartridge's follows, nearest its place in the
+  text. 84 taken as they are and 46 with the cartridge's orders, 130 in
+  all; 38 refused for their codes, 7 for a string (a first version took
+  129 with the patch's own orders in slot 0, until the gyroid's reading
+  turned up). A page of five lines is split at four as the draft splits
+  the bank's (`af_text.split_pages`); the compile lays the messages out
+  for the en font like the rest of the bank. Messages: 9,818 in English
+  of the 10,847 before, 9,947 after (91.7%); 779 keep the
+  cartridge's text.
+- **Credit.** The English of those 130 messages is the AF Project's
   (Zoinkity's 2010 translation), taken from the user's own copy of their
   patch at build time, as their 42 labels are ("The 2010 patch's
   labels"); README says so.
 - **Measured** (`tests/emu_messages.py`, `make messages-check-en`, from
   the houses' state of route-en). The en tree's compiled bank holds the
-  84 as the patch's text laid out for the en font. Each message whose
-  first page needs no speaker (text, pauses, colours, talk orders) and
-  waits for the player (`<BTN>` or `<MSGEND>`: a page that clears itself
-  after a pause, or a message that closes after a time, is gone by the
-  screenshot) is asked for as an actor asks (`mMsg_request_main_appear`
-  on the base window, white, no speaker): 21 of the 84, and two of the
-  GameCube's as controls. Its first page's lines, each line's first and
-  last ink pixel (a colour under 150: the window over the field is 216
-  and up, its text dark or coloured), are where the en font's model puts
-  them: rows 153 + 16k, the frame's x 127.18 + 2.005 per pixel (fitted on
-  316 line ends of 51 messages when a first version took 129, residuals
-  within 1.9; this build's 146 within 2.0; the next page's arrow, from x
-  516, left out): 0 of the 73 lines fail; the model fails 65 with a space
-  1 px wider and all with the lower-case letters 1 px narrower. The
-  window draws its text at 2.005 frame pixels to the pixel, the letter
-  board's at 1.954 and the bulletin board's at 1.960 ("The letter board
-  in the en build", "The bulletin board"): why they differ is
-  TODO(verify).
-- **Left for later.** The 46 messages refused only for their talk orders
-  in slot 0 could take the patch's text with the cartridge's orders put
-  back where its pages put them; the other 45 differ in what the game
-  does. 825 messages keep the cartridge's text.
+  130 as the patch's text laid out for the en font, and their talk orders
+  in slot 0 are the cartridge's, the same values in the same order (all
+  130). Each message whose first page needs no speaker (text, pauses,
+  colours, talk orders) and waits for the player (`<BTN>` or `<MSGEND>`:
+  a page that clears itself after a pause, or a message that closes after
+  a time, is gone by the screenshot) is asked for as an actor asks
+  (`mMsg_request_main_appear` on the base window, white, no speaker): 49
+  of the 130, and two of the GameCube's as controls. Its first page's
+  lines, each line's first and last ink pixel (a colour under 150: the
+  window over the field is 216 and up, its text dark or coloured), are
+  where the en font's model puts them: rows 153 + 16k, the frame's x
+  127.18 + 2.005 per pixel (fitted on 316 line ends of 51 messages when a
+  first version took 129, residuals within 1.9; this build's 326 within
+  1.5; the next page's arrow, from x 516, left out): 0 of the 177 lines
+  fail (163 with text); the model fails 146 of the 163 with a space 1 px
+  wider and all with the lower-case letters 1 px narrower. The window
+  draws its text at 2.005 frame pixels to the pixel, the letter board's
+  at 1.954 and the bulletin board's at 1.960 ("The letter board in the
+  en build", "The bulletin board"): why they differ is TODO(verify).
+- **The orders, played.** Each message taken that plays to its end without
+  a choice or a jump (it ends with `<MSGEND>`; no choice, next message,
+  luck or quest code) and has talk orders, 38 of the 130, is asked for the
+  same way and played through, A pressed each time the window waits for it
+  (`MessageWindow.mainIndex` 2, mMsg_INDEX_NORMAL: measured, 3 while it
+  types, 0 once hidden); the talking animal's order in slot 0 is read
+  every frame (`demo_data` + 0x60: `orderData[DEMO_ORDER_NPC0][0]`,
+  m_demo.h; the orders are cleared only when a conversation starts and at
+  the scene's start, `mDemo_Init_OrderValue`). Its values as they change
+  are the message's orders as the window meets them (orders with no
+  character, pause or page between them land in one frame), in all 38;
+  first measured on the cartridge's own message 2171 (0xff, 0x17, 0xff,
+  0x07), whose English now puts the same four in the patch's three pages.
+- **Left for later.** The 45 refused differ in what the game does (an
+  end that goes on, a choice, a next message, a string not filled):
+  their text could be ours. 779 messages keep the cartridge's text.

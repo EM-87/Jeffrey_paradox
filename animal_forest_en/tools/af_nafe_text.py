@@ -33,6 +33,18 @@ when
     item, STR_DETERMINATION, STR_RNDNUM, STR_MAIL) the cartridge's message
     does not print: the game would not fill it.
 
+Where the codes differ only in the talking animal's orders in slot 0 (the
+patch moved them to the beats of its English, added some, dropped some,
+changed a few), the message is taken with its orders dropped and the
+cartridge's put back (recover): the same values in the same order, each
+between the same codes that steer the game as on the cartridge, so the
+game does what the cartridge's message makes it do; where in the text
+each goes is the patch's: at one of its own order's places when the
+orders align (an order-preserving match by their places in the text,
+segment by segment between the steering codes), else at the start of the
+segment, a page, a wait for A, a line or a word, as the cartridge's
+follows, nearest its place in the text.
+
 A page of more than four lines is split as the draft splits the bank's
 (af_text.split_pages): the window draws four. OUT.txt is the messages
 taken in the bank's dump form, which make rom-en lays over the en bank
@@ -63,6 +75,8 @@ GLOBAL = {NAMES[n] for n in ("STR_PLAYERNAME", "STR_TALKNAME", "STR_TAIL", "STR_
 FILLED = ({NAMES[n] for n in NAMES if n.startswith("STR_FREE") or n.startswith("STR_ITEM")} |
           {NAMES[n] for n in ("STR_DETERMINATION", "STR_RNDNUM", "STR_MAIL")})
 KANA = set(c for c in msgbank.N64_CHARS if c and "\u3040" <= c <= "\u30ff")   # hiragana and katakana
+DEMONPC0, MSGCLEAR, BTN = NAMES["DEMONPC0"], NAMES["MSGCLEAR"], NAMES["BTN"]
+GAP, OTHER_VALUE = 0.35, 0.10             # recover's costs: an order placed on its own; one at an order of another value
 
 
 def messages(rom):
@@ -94,6 +108,134 @@ def filled(tokens):
     return set(t[1] for t in tokens if t[0] == "c" and t[1] in FILLED)
 
 
+def talk_order(it):
+    """The talking animal's order in slot 0 (DEMONPC0 0000xx), a code or an item."""
+    return it[0] == "c" and it[1] == DEMONPC0 and it[2][:1] == b"\0"
+
+
+def steers_item(it):
+    return it[0] == "c" and it[1] not in COSMETIC | GLOBAL | FILLED and not talk_order(it)
+
+
+def _segments(items):
+    """The items between the codes that steer the game, and those codes."""
+    segs, cur, cuts = [], [], []
+    for it in items:
+        if steers_item(it):
+            segs.append(cur)
+            cuts.append(it)
+            cur = []
+        else:
+            cur.append(it)
+    segs.append(cur)
+    return segs, cuts
+
+
+def _place(items, i):
+    """How far into the segment's characters the place before items[i] is, 0 to 1."""
+    total = sum(1 for it in items if it[0] == "ch")
+    return sum(1 for it in items[:i] if it[0] == "ch") / total if total else 0.0
+
+
+def _context(items, i):
+    """What the order at items[i] follows: the segment's start, a page, a wait for A, a line's end or text."""
+    for it in reversed(items[:i]):
+        if it[0] == "c":
+            if it[1] == MSGCLEAR:
+                return "page"
+            if it[1] == BTN:
+                return "btn"
+            continue                             # a pause, a colour, another order: further back
+        return "line" if it[1] == "\n" else "text"
+    return "start"
+
+
+def _beats(items, kind):
+    """The places an order of that context can go in items."""
+    out = []
+    for i in range(len(items) + 1):
+        prev = items[i - 1] if i else None
+        if kind == "start":
+            ok = i == 0
+        elif kind == "page":
+            ok = prev is not None and prev[0] == "c" and prev[1] == MSGCLEAR
+        elif kind == "btn":
+            ok = prev is not None and prev[0] == "c" and prev[1] == BTN
+        elif kind == "line":
+            ok = prev == ("ch", "\n")
+        else:                                    # before a word
+            ok = i == 0 or (prev[0] == "ch" and prev[1] in " \n" and i < len(items) and items[i][0] == "ch")
+        if ok:
+            out.append(i)
+    return out
+
+
+def _recover_segment(c_seg, n_seg):
+    orders = [(it, _place(c_seg, i), _context(c_seg, i)) for i, it in enumerate(c_seg) if talk_order(it)]
+    clean, points = [], []
+    for it in n_seg:
+        if talk_order(it):
+            points.append((len(clean), it))
+        else:
+            clean.append(it)
+    points = [(at, _place(clean, at), it) for at, it in points]
+    # an order-preserving match of the cartridge's orders to their order places, by the places in the text
+    a, b = len(orders), len(points)
+    cost = [[0.0] * (b + 1)] + [[float("inf")] * (b + 1) for _ in range(a)]
+    step = [[None] * (b + 1) for _ in range(a + 1)]
+    for i in range(1, a + 1):
+        for j in range(b + 1):
+            best = (cost[i - 1][j] + GAP, "own")
+            if j:
+                best = min(best, (cost[i][j - 1], "drop"))
+                best = min(best, (cost[i - 1][j - 1] + abs(orders[i - 1][1] - points[j - 1][1]) +
+                                  (OTHER_VALUE if orders[i - 1][0] != points[j - 1][2] else 0), "match"))
+            cost[i][j], step[i][j] = best
+    at, i, j = [None] * a, a, b
+    while i:
+        if step[i][j] == "match":
+            at[i - 1] = points[j - 1][0]
+            i, j = i - 1, j - 1
+        elif step[i][j] == "drop":
+            j -= 1
+        else:
+            i -= 1
+    # the others at a place of their context, between their neighbours, nearest their place in the text
+    for k in range(a):
+        if at[k] is not None:
+            continue
+        lo = max([at[m] for m in range(k) if at[m] is not None] or [0])
+        hi = min([at[m] for m in range(k + 1, a) if at[m] is not None] or [len(clean)])
+        places = [x for x in _beats(clean, orders[k][2]) if lo <= x <= hi] or \
+            [x for x in _beats(clean, "text") if lo <= x <= hi] or [lo]
+        at[k] = min(places, key=lambda x: (abs(_place(clean, x) - orders[k][1]), x))
+    out = list(clean)
+    for k in sorted(range(a), key=lambda k: (at[k], k), reverse=True):
+        out.insert(at[k], orders[k][0])
+    return out
+
+
+def recover(cart, theirs):
+    """Their message with its talk orders in slot 0 dropped and the cartridge's put back (module doc), or
+    None when the codes that steer the game differ otherwise."""
+    c_segs, c_cuts = _segments(af_text._items(cart))
+    n_segs, n_cuts = _segments(af_text._items(theirs))
+    if c_cuts != n_cuts:
+        return None
+    out = []
+    for k, (c_seg, n_seg) in enumerate(zip(c_segs, n_segs)):
+        out += _recover_segment(c_seg, n_seg)
+        if k < len(n_cuts):
+            out.append(n_cuts[k])
+    out = af_text._merge(out)
+    # what it must be: the cartridge's codes that steer the game, their text and their other codes
+    if steering(out) != steering(cart) or \
+            [it for it in af_text._items(out) if not talk_order(it)] != \
+            [it for it in af_text._items(theirs) if not talk_order(it)]:
+        raise AssertionError("talk orders not put back as the cartridge's")
+    return out
+
+
 def take(ours, cart, theirs):
     """({number: tokens} taken from theirs, Counter of why each candidate was or was not)."""
     out, why = {}, collections.Counter()
@@ -103,13 +245,18 @@ def take(ours, cart, theirs):
         tokens = theirs.get(n, [])
         if not english(tokens):
             why["not in English in the 2010 patch"] += 1
-        elif steering(tokens) != steering(cart[n]):
-            why["codes that steer the game differ"] += 1
         elif not filled(tokens) <= filled(cart[n]):
             why["prints a string the game does not fill there"] += 1
-        else:
+        elif steering(tokens) == steering(cart[n]):
             out[n] = af_text.split_pages(tokens, 4)
             why["taken"] += 1
+        else:
+            recovered = recover(cart[n], tokens)
+            if recovered is None:
+                why["codes that steer the game differ"] += 1
+            else:
+                out[n] = af_text.split_pages(recovered, 4)
+                why["taken, the cartridge's talk orders put back"] += 1
     return out, why
 
 
@@ -127,8 +274,7 @@ def main(argv):
     open(argv[3], "w", encoding="utf-8").write(dump(taken))
     untranslated = sum(why.values())
     print("af_nafe_text: %d of the en bank's %d messages still in Japanese taken from the AF Project's 2010 "
-          "translation (%s)" % (len(taken), untranslated,
-                                ", ".join("%d %s" % (why[k], k) for k in sorted(why) if k != "taken")))
+          "translation (%s)" % (len(taken), untranslated, ", ".join("%d %s" % (why[k], k) for k in sorted(why))))
     return 0
 
 
