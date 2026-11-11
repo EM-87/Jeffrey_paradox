@@ -124,11 +124,11 @@ class HemisphereRimTest {
 
     /** With nothing outside it, the world opens to the edge of the glass. */
     @Test
-    fun `with the sun off the world reaches the screen`() {
-        val room = Hemisphere.worldRadius(Hemisphere.ZOOM_MAX, ringed = true, sunOutside = false)
-        val kept = Hemisphere.worldRadius(Hemisphere.ZOOM_MAX, ringed = true, sunOutside = true)
+    fun `with nothing outside it the world reaches the screen`() {
+        val room = Hemisphere.worldRadius(Hemisphere.ZOOM_MAX, ringed = true, moonOutside = false)
+        val kept = Hemisphere.worldRadius(Hemisphere.ZOOM_MAX, ringed = true, moonOutside = true)
         assertEquals("the world does not reach the edge", 0.5f, room, 1e-6f)
-        assertTrue("the sun was left nowhere to stand", kept < room)
+        assertTrue("the moon was left nowhere to stand", kept < room)
     }
 
     /**

@@ -144,6 +144,12 @@ class HemisphereView @JvmOverloads constructor(
     private var cloudsWorn: String? = null
     private var cloudsOff = 0
 
+    /** How many times a frame has been asked for to catch the weather up with the moon. */
+    private var catchUps = 0
+
+    /** For the tests: that count. */
+    internal fun catchUpsForTest(): Int = catchUps
+
     /** For the tests: which day's picture the clouds are, as the store names it. */
     internal fun cloudsWornForTest(): String? = cloudsWorn
 
@@ -276,6 +282,12 @@ class HemisphereView @JvmOverloads constructor(
     /** For the tests: how far the world has been turned off now. */
     internal fun woundForTest(): Long = wound
 
+    /** For the tests: turned this far off now, without a finger to do it. */
+    internal fun windForTest(ms: Long) {
+        wound = ms
+        invalidate()
+    }
+
     // ------------------------------------------------------------- touch
 
     private var lastBearing = 0.0
@@ -291,6 +303,36 @@ class HemisphereView @JvmOverloads constructor(
     private var spin = WorldSpin.State()
     private var spinning = false
     private var spunAt = 0L
+
+    /**
+     * Whether it is the moon's mark that is in the hand, and how far off
+     * its middle the finger took hold of it, in degrees round the rim.
+     *
+     * The moon is this face's slow hand — see [Hemisphere.windMoonTo].
+     * Held, it goes where the finger goes and the clock is wound to
+     * wherever that puts it, so the world turns once under it for every
+     * day it is carried: the only way there is here to go back a week
+     * without turning the planet seven times.
+     */
+    private var moonHeld = false
+    private var moonGrip = 0.0
+
+    /**
+     * The days falling away, after the moon has been let go of.
+     *
+     * Let go a fortnight off, the world would come home the way it comes
+     * home from anything: by turning, fourteen times, as fast as it is
+     * allowed to, which is four turns a second and a strobe. So the whole
+     * days go first, a day at a step — the world standing still under a
+     * terminator that walks back through the fortnight while the moon's
+     * mark slides home along the rim — and only what is left, which is
+     * less than a turn, is handed to the spring.
+     */
+    private var gliding = false
+    private var glideDays = 0L
+    private var glideRest = 0L
+    private var glideAt = 0L
+    private var glideFor = 0L
 
     private val scaleDetector = android.view.ScaleGestureDetector(
         context,
@@ -314,6 +356,57 @@ class HemisphereView @JvmOverloads constructor(
         return kotlin.math.hypot(x - width / 2f, y - height / 2f) / r
     }
 
+    /** Whether the moon's mark is on the rim at all: asked for, and on a view with a rim. */
+    private fun moonOnRim(): Boolean = showMoon && Hemisphere.hasRimScale(view)
+
+    /** How far from the middle the sun's mark and the moon's stand, round a world [r] across. */
+    private fun marksAt(r: Float): Float {
+        val side = min(width, height).toFloat()
+        if (side <= 0f) return 0f
+        return side * Hemisphere.markRadius(
+            r / side, hourRing && Hemisphere.hasRimScale(view)
+        )
+    }
+
+    /** The world's radius as it is drawn now, in pixels. */
+    private fun worldR(): Float = min(width, height) * Hemisphere.worldRadius(
+        zoom, hourRing && Hemisphere.hasRimScale(view), moonOutside = moonOnRim()
+    )
+
+    /** Which way round the middle a point is, in the rim's own sense: anticlockwise from the right. */
+    private fun rimAngleAt(x: Float, y: Float): Double =
+        Math.toDegrees(kotlin.math.atan2((height / 2f - y).toDouble(), (x - width / 2f).toDouble()))
+
+    /** Where the moon's mark is on the glass now. */
+    private fun moonMark(): android.graphics.PointF {
+        val a = Math.toRadians(Hemisphere.moonBearing(view, nowMs()) + sunAt)
+        val at = marksAt(worldR())
+        return android.graphics.PointF(
+            width / 2f + (cos(a) * at).toFloat(), height / 2f - (sin(a) * at).toFloat()
+        )
+    }
+
+    /**
+     * Whether a finger at [x], [y] has come down on the moon.
+     *
+     * A good deal wider than the mark is drawn, which is two millimetres
+     * across: a target that size answers about half the fingers aimed at
+     * it. Wide enough to reach a little way in over the edge of the
+     * world, and the moon wins there — the rest of the world is a
+     * finger's width away and the moon is nowhere else.
+     */
+    private fun moonUnder(x: Float, y: Float): Boolean {
+        if (!moonOnRim()) return false
+        val mark = moonMark()
+        return kotlin.math.hypot(x - mark.x, y - mark.y) <= min(width, height) * MOON_REACH
+    }
+
+    /** For the tests: where the moon's mark is, so that it can be taken hold of. */
+    internal fun moonMarkForTest(): android.graphics.PointF = moonMark()
+
+    /** For the tests: whether the days are still falling away. */
+    internal fun glidingForTest(): Boolean = gliding
+
     /**
      * The world is put back when nobody is looking at it.
      *
@@ -332,6 +425,8 @@ class HemisphereView @JvmOverloads constructor(
         removeCallbacks(pinger)
         spinning = false
         spin = WorldSpin.State()
+        moonHeld = false
+        gliding = false
         wound = 0L
         zoom = Hemisphere.ZOOM_MIN
     }
@@ -382,6 +477,20 @@ class HemisphereView @JvmOverloads constructor(
             android.view.MotionEvent.ACTION_DOWN -> {
                 spinning = false
                 spin = WorldSpin.State()
+                gliding = false
+                // The moon first: it is the smaller thing, and where its
+                // reach laps over the edge of the world it is the moon
+                // that was meant.
+                moonHeld = moonUnder(event.x, event.y)
+                if (moonHeld) {
+                    moonGrip = Hemisphere.wrap(
+                        rimAngleAt(event.x, event.y) -
+                            (Hemisphere.moonBearing(view, nowMs()) + sunAt)
+                    )
+                    turning = false
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    return true
+                }
                 lastBearing = bearingAt(event.x, event.y)
                 downX = event.x
                 downY = event.y
@@ -399,6 +508,15 @@ class HemisphereView @JvmOverloads constructor(
                 if (turning) parent?.requestDisallowInterceptTouchEvent(true)
             }
             android.view.MotionEvent.ACTION_MOVE -> {
+                if (moonHeld) {
+                    // The mark goes where the finger is, less however far
+                    // off its middle it was taken, and the clock is wound
+                    // to wherever that puts the moon.
+                    val wanted = rimAngleAt(event.x, event.y) - moonGrip - sunAt
+                    wound += Hemisphere.windMoonTo(view, nowMs(), wanted)
+                    invalidate()
+                    return true
+                }
                 if (!turning) return true
                 val now = bearingAt(event.x, event.y)
                 var moved = now - lastBearing
@@ -418,12 +536,14 @@ class HemisphereView @JvmOverloads constructor(
             }
             android.view.MotionEvent.ACTION_UP,
             android.view.MotionEvent.ACTION_CANCEL -> {
-                if (!turning) {
-                    // A pinch takes the world out of the hand that was
-                    // turning it, and when the last finger comes off
-                    // nothing was letting it go: it stayed wound to
-                    // whenever the pinch began, until the next touch.
-                    if (wound != 0L && !spinning) letGo(0.0)
+                if (moonHeld || !turning) {
+                    // The moon let go of — or a pinch, which takes the
+                    // world out of the hand that was turning it, and when
+                    // the last finger came off nothing was letting it go:
+                    // it stayed wound to whenever the pinch began, until
+                    // the next touch.
+                    moonHeld = false
+                    if (wound != 0L && !spinning) comeHome()
                     return true
                 }
                 turning = false
@@ -435,6 +555,56 @@ class HemisphereView @JvmOverloads constructor(
         }
         return true
     }
+
+    /**
+     * Lets the world go from however far it has been wound.
+     *
+     * Less than a day off it is the world's own business — see [letGo].
+     * Further than that the days go first: see [gliding].
+     */
+    private fun comeHome() {
+        if (kotlin.math.abs(wound) < Hemisphere.DAY_MS) {
+            letGo(0.0)
+            return
+        }
+        // Towards nought, so that what is left is on the same side of
+        // now as the whole of it was and the spring does not have to
+        // take the world past home to bring it back.
+        glideDays = wound / Hemisphere.DAY_MS
+        glideRest = wound - glideDays * Hemisphere.DAY_MS
+        glideAt = android.os.SystemClock.uptimeMillis()
+        glideFor = (GLIDE_MS + GLIDE_MS_A_DAY * kotlin.math.abs(glideDays))
+            .coerceAtMost(GLIDE_MS_MOST)
+        gliding = true
+        postOnAnimation(glider)
+    }
+
+    private val glider = object : Runnable {
+        override fun run() {
+            if (glideStep()) postOnAnimation(this)
+        }
+    }
+
+    /** One frame of the days falling away; false once they have all gone. */
+    private fun glideStep(): Boolean {
+        if (!gliding) return false
+        val t = ((android.os.SystemClock.uptimeMillis() - glideAt).toFloat() / glideFor)
+            .coerceIn(0f, 1f)
+        // Eased at both ends, and in whole days: a world that is a whole
+        // number of days from now is turned exactly as it is now, so it
+        // does not move at all while they go.
+        val eased = t * t * (3f - 2f * t)
+        val left = Math.round(glideDays * (1.0 - eased))
+        wound = glideRest + left * Hemisphere.DAY_MS
+        invalidate()
+        if (t < 1f) return true
+        gliding = false
+        letGo(0.0)
+        return false
+    }
+
+    /** For the tests: one frame of that, without a frame to wait for. */
+    internal fun stepGlideForTest(): Boolean = glideStep()
 
     /**
      * Lets the world go, and it finds its own way back.
@@ -842,12 +1012,17 @@ class HemisphereView @JvmOverloads constructor(
                 zoom, hourRing && rimScale,
                 // The world only takes the last twentieth when there is
                 // genuinely nothing standing in it. The moon lives out
-                // there too, and a moon half off the top of the screen is
-                // a worse trade than a slightly smaller earth.
-                sunOutside = showSun || (showMoon && rimScale)
+                // there, and a moon half off the top of the screen is a
+                // worse trade than a slightly smaller earth. The sun did
+                // too, and is gone by the time the world gets there.
+                moonOutside = moonOnRim()
             )
         val cx = w / 2f
         val cy = h / 2f
+        // Where the two marks stand: one distance for both, so the gap
+        // between them is only ever an angle.
+        val marksAt = marksAt(r)
+        val sunLeft = Hemisphere.sunFade(zoom)
 
         // The weather of the day the world is wound to, which on a globe
         // standing at now is simply today's. Asked once a second rather
@@ -856,7 +1031,18 @@ class HemisphereView @JvmOverloads constructor(
         if (cloudsOn != null || lightsOn != null) {
             val day = ms / 86_400_000L
             val at = android.os.SystemClock.uptimeMillis()
-            if (day != cloudsAskedDay || at - cloudsAskedAt >= CLOUDS_ASK_MS) {
+            val another = day != cloudsAskedDay
+            // While the moon is carrying the days past — in the hand, or
+            // on its way home — another day's weather is not sent for at
+            // every one of them: see [CLOUDS_DAY_MS]. A frame is asked
+            // for when that has passed, so the day the moon is left on
+            // has its own weather whether or not anything else moves.
+            val hurried = (moonHeld || gliding) && at - cloudsAskedAt < CLOUDS_DAY_MS
+            if (another && hurried) {
+                catchUps++
+                postInvalidateDelayed(CLOUDS_DAY_MS)
+            }
+            if ((another && !hurried) || at - cloudsAskedAt >= CLOUDS_ASK_MS) {
                 cloudsAskedDay = day
                 cloudsAskedAt = at
                 cloudsOn?.let { clouds = it(ms) }
@@ -870,8 +1056,8 @@ class HemisphereView @JvmOverloads constructor(
         }
         bake(-subLon + sunAt)
         drawWorld(canvas, cx, cy, r, subLat, subLon, ms)
-        if (showSun) drawSunMark(canvas, cx, cy, r, ring, ringR)
-        if (showMoon && rimScale) drawMoonMark(canvas, cx, cy, r, ring, ringR, ms)
+        if (showSun && sunLeft > 0.01f) drawSunMark(canvas, cx, cy, r, marksAt, sunLeft)
+        if (moonOnRim()) drawMoonMark(canvas, cx, cy, r, marksAt, ms)
         if (ring) drawAlarms(canvas, cx, cy, ringR, fade)
         if (located) drawYou(canvas, cx, cy, r, subLat, subLon, ring)
         if (ring) drawHours(canvas, cx, cy, ringR, fade)
@@ -911,7 +1097,12 @@ class HemisphereView @JvmOverloads constructor(
 
     /** What the legend says, or null for a face with nothing to own up to. */
     private fun legendText(): String? {
-        val phrases = ArrayList<String>(2)
+        val phrases = ArrayList<String>(3)
+        // Which day the world has been wound to, whenever that is not
+        // today. Turning the planet goes through hours and the moon goes
+        // through days, and neither says which day it has got to: the
+        // terminator looks the same on any of them.
+        woundDay()?.let { phrases += it }
         lights?.let { sky ->
             val parts = ArrayList<String>(2)
             sky.clean?.let {
@@ -935,6 +1126,28 @@ class HemisphereView @JvmOverloads constructor(
             cloudsWorn?.let { phrases += context.getString(R.string.hemisphere_clouds_legend, dayText(it)) }
         }
         return if (phrases.isEmpty()) null else phrases.joinToString(" · ")
+    }
+
+    /**
+     * The day the world is wound to, as the phone's own calendar names
+     * it, or nothing while that is still today.
+     */
+    private fun woundDay(): String? {
+        if (wound == 0L) return null
+        val today = java.util.Calendar.getInstance()
+        today.timeInMillis = nowMs() - wound
+        val shown = java.util.Calendar.getInstance()
+        shown.timeInMillis = nowMs()
+        val sameYear = today.get(java.util.Calendar.YEAR) == shown.get(java.util.Calendar.YEAR)
+        if (sameYear &&
+            today.get(java.util.Calendar.DAY_OF_YEAR) == shown.get(java.util.Calendar.DAY_OF_YEAR)
+        ) {
+            return null
+        }
+        // The year as well once it is another one: the moon goes round
+        // twelve times in one and nothing stops a finger going on.
+        return android.text.format.DateFormat
+            .format(if (sameYear) "EEE d MMM" else "EEE d MMM yyyy", shown).toString()
     }
 
     /** A day of the lights as a person reads it: the day and the month. */
@@ -1135,20 +1348,21 @@ class HemisphereView @JvmOverloads constructor(
      * both was two marks fighting over one bearing.
      */
     private fun drawSunMark(
-        canvas: Canvas, cx: Float, cy: Float, r: Float, ring: Boolean, ringR: Float
+        canvas: Canvas, cx: Float, cy: Float, r: Float, at: Float, left: Float
     ) {
         val a = Math.toRadians(sunAt)
         // Outside the ring when there is one, and just off the world when
-        // there is not. 1.10 was the old answer and it was wrong: with the
-        // ring off the disc grows, and 1.10 of the grown radius put the
-        // sun past the edge of the view.
-        val at = if (ring) ringR * 1.22f else r * 1.06f
+        // there is not — see [Hemisphere.markRadius]. And fainter as the
+        // world is opened out, until it is not there: see
+        // [Hemisphere.sunFade].
         val x = cx + (cos(a) * at).toFloat()
         val y = cy - (sin(a) * at).toFloat()
         fill.color = SUN
+        fill.alpha = (255 * left).toInt()
         canvas.drawCircle(x, y, r * 0.055f, fill)
+        fill.alpha = 255
         line.color = SUN
-        line.alpha = 150
+        line.alpha = (150 * left).toInt()
         line.strokeWidth = r * 0.010f
         for (i in 0 until 8) {
             val ray = Math.toRadians(i * 45.0)
@@ -1172,10 +1386,9 @@ class HemisphereView @JvmOverloads constructor(
      * instrument rather than as a decoration.
      */
     private fun drawMoonMark(
-        canvas: Canvas, cx: Float, cy: Float, r: Float, ring: Boolean, ringR: Float, ms: Long
+        canvas: Canvas, cx: Float, cy: Float, r: Float, at: Float, ms: Long
     ) {
-        val a = Math.toRadians(Hemisphere.bearingOfTime(view, Hemisphere.moonHour(ms)) + sunAt)
-        val at = if (ring) ringR * 1.22f else r * 1.06f
+        val a = Math.toRadians(Hemisphere.moonBearing(view, ms) + sunAt)
         val x = cx + (cos(a) * at).toFloat()
         val y = cy - (sin(a) * at).toFloat()
         val lit = SolarTime.moonIllumination(ms).toFloat()
@@ -1188,6 +1401,13 @@ class HemisphereView @JvmOverloads constructor(
             fill.alpha = (255 * lit).toInt().coerceIn(0, 255)
             canvas.drawCircle(x, y, r * 0.042f, fill)
             fill.alpha = 255
+        }
+        // In the hand it wears a ring, so that taking hold of it is seen
+        // to have happened before anything has moved.
+        if (moonHeld) {
+            line.alpha = 110
+            line.strokeWidth = r * 0.006f
+            canvas.drawCircle(x, y, r * 0.085f, line)
         }
         line.alpha = 255
     }
@@ -1448,6 +1668,32 @@ class HemisphereView @JvmOverloads constructor(
          * measured speed says.
          */
         const val STALE_MS = 90L
+
+        /**
+         * How far from the moon's mark a finger still has hold of it, as
+         * a share of the shorter side: a centimetre across on a phone.
+         */
+        const val MOON_REACH = 0.07f
+
+        /**
+         * How long the days take to fall away once the moon is let go:
+         * this long, and this much longer for each of them, and never
+         * longer than the last however many there are.
+         */
+        const val GLIDE_MS = 350L
+        const val GLIDE_MS_A_DAY = 25L
+        const val GLIDE_MS_MOST = 1500L
+
+        /**
+         * How often the clouds of another day are sent for while the moon
+         * is being carried.
+         *
+         * A day's clouds are a photograph, decoded off disk, and the moon
+         * goes through a day in a thumb's width: carried across the rim
+         * it would have the thread that draws decoding a dozen of them a
+         * second, each for a frame.
+         */
+        const val CLOUDS_DAY_MS = 250L
 
         /** How often the weather is looked up again while the view is drawn. */
         const val CLOUDS_ASK_MS = 1000L

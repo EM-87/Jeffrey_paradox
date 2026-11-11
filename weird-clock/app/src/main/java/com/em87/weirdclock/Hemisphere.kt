@@ -118,11 +118,10 @@ object Hemisphere {
     /**
      * And how big it goes when there is nothing outside it.
      *
-     * Half the shorter side is the edge of the screen exactly. The sun is
-     * the only thing that stands outside the world, so with the sun turned
-     * off the last twentieth that was being kept for it is the world's —
-     * which was asked for in those words, and is the reason the sun has a
-     * switch at all.
+     * Half the shorter side is the edge of the screen exactly. With
+     * nothing standing outside an opened world the last twentieth is the
+     * world's — which was asked for in those words, of the sun, and is
+     * the reason the sun has a switch at all.
      */
     const val WORLD_EDGE = 0.5f
 
@@ -135,12 +134,15 @@ object Hemisphere {
      *
      * It starts where it always was — smaller with a ring round it,
      * because the ring has to go somewhere — and opens to nearly the edge.
-     * Not *to* the edge: the sun is nailed outside the world and has to
-     * stay in the picture, which is the last twentieth.
+     * Not *to* the edge while the moon's mark is out there: it stands
+     * outside the world and has to stay in the picture, which is the last
+     * twentieth. It was the sun that twentieth was kept for; the sun's
+     * mark goes as the world opens now — see [sunFade] — so with no moon
+     * on the rim there is nothing left out there to keep it for.
      */
-    fun worldRadius(zoom: Float, ringed: Boolean, sunOutside: Boolean = true): Float {
+    fun worldRadius(zoom: Float, ringed: Boolean, moonOutside: Boolean = true): Float {
         val t = into(zoom)
-        val top = if (sunOutside) WORLD_FULL else WORLD_EDGE
+        val top = if (moonOutside) WORLD_FULL else WORLD_EDGE
         if (!ringed) return WORLD_BARE + (top - WORLD_BARE) * t
         // With a ring there, the world opens in two goes: it creeps while
         // the ring is still fading, stopping short of the ticks, and then
@@ -170,6 +172,35 @@ object Hemisphere {
         val t = into(zoom)
         return ((RING_GONE - t) / (RING_GONE - RING_HOLDS)).coerceIn(0f, 1f)
     }
+
+    /**
+     * How much of the sun's mark is left at this zoom.
+     *
+     * It goes with the ring. The sun stands outside the ring, where the
+     * twelve would be, and is the ring's own noon; and opened out the
+     * world reaches for the edge of the screen, which is where the sun
+     * was standing — it stayed, half off the glass. Somebody who has
+     * leaned in to look at the earth is not reading the hour off its
+     * rim, and the terminator says where the sun is better than a mark
+     * does.
+     */
+    fun sunFade(zoom: Float): Float = ringFade(zoom)
+
+    /**
+     * How far from the middle the sun and the moon stand, as a share of
+     * the shorter side, round a world of radius [world].
+     *
+     * Outside the ring of hours where there is one, and just off the
+     * world where there is not — and whichever of those is further out,
+     * so that a mark never jumps. It used to: the moon stood outside the
+     * ring until the ring had faded and was then, in one frame, just off
+     * a world that had not grown yet.
+     */
+    fun markRadius(world: Float, ringed: Boolean): Float =
+        maxOf(if (ringed) WORLD_RINGED * MARK_OUTSIDE_RING else 0f, world * MARK_OFF_WORLD)
+
+    const val MARK_OUTSIDE_RING = 1.22f
+    const val MARK_OFF_WORLD = 1.06f
 
     /**
      * Whole out to here, and gone by here — in fifths of the zoom, so the
@@ -207,6 +238,53 @@ object Hemisphere {
         val sense = if (view == View.SOUTH) -1.0 else 1.0
         return (-sense * degrees * MS_PER_DEGREE).toLong()
     }
+
+    /**
+     * How far round the rim the moon's mark goes in a day, on average:
+     * once round in a month of phases.
+     */
+    const val MOON_DEG_PER_DAY = 360.0 / 29.530589
+
+    /**
+     * Where on the rim the moon's mark stands, in degrees anticlockwise
+     * from where the sun is nailed.
+     */
+    fun moonBearing(view: View, atMs: Long): Double = bearingOfTime(view, moonHour(atMs))
+
+    /**
+     * How far the clock has to be wound from [atMs] for the moon's mark
+     * to stand at [bearingDeg], in milliseconds — the nearer way round.
+     *
+     * The moon is the slow hand of this face. The world goes round once
+     * a day and the moon's mark once a month, so carrying the mark a
+     * thumb's width round the rim is a day, and the world goes round
+     * once under it: taking hold of the moon is winding the clock by
+     * days, where taking hold of the world winds it by hours.
+     *
+     * Found by walking towards it at the moon's average pace and looking
+     * again. Its real pace is up to a quarter either side of that
+     * through the month, so each look closes three quarters of what was
+     * left or better: a finger's move of a degree or two is home in
+     * three, and half the rim in a dozen.
+     */
+    fun windMoonTo(view: View, atMs: Long, bearingDeg: Double): Long {
+        // From over the south pole the rim runs the other way.
+        val sense = if (view == View.SOUTH) -1.0 else 1.0
+        var ms = atMs
+        for (look in 0 until MOON_LOOKS) {
+            val short = wrap(bearingDeg - moonBearing(view, ms))
+            if (kotlin.math.abs(short) < MOON_NEAR_ENOUGH) break
+            ms += (sense * short / MOON_DEG_PER_DAY * DAY_MS).toLong()
+        }
+        return ms - atMs
+    }
+
+    /** As many looks as it will take, and how close is close: a second of the moon's own motion. */
+    private const val MOON_LOOKS = 16
+    private const val MOON_NEAR_ENOUGH = 0.0002
+
+    /** A day, in milliseconds: one turn of the world. */
+    const val DAY_MS = 86_400_000L
 
     /**
      * Where the sun is directly overhead, right now.
