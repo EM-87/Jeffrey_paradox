@@ -88,10 +88,15 @@ class DateShapeTest {
         val view = ClockView(themed).apply {
             dateFormatStyle = ClockView.DateFormatStyle.NUMBER
         }
+        // A fixed day, and one whose two numbers differ: asked for today's
+        // date this failed on the 11th of November, when 11/11 is the same
+        // string both ways round and the dial had ignored nothing.
+        val at = java.util.GregorianCalendar(2026, java.util.Calendar.MARCH, 15, 12, 0).timeInMillis
         view.dateDayFirst = true
-        val dayFirst = view.dateTextForTest()
+        val dayFirst = view.dateTextAtForTest(at)
         view.dateDayFirst = false
-        val monthFirst = view.dateTextForTest()
+        val monthFirst = view.dateTextAtForTest(at)
+        assertEquals("15/03/2026", dayFirst)
 
         assertNotEquals(
             "the dial ignored the setting: '$dayFirst' both ways",

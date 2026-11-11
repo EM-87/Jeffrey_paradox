@@ -21,10 +21,10 @@ import kotlin.math.sin
  * The Sun is the Earth's orbit from [Orrery], turned from the frame of
  * J2000 into the equinox of the date by the precession, so that nought
  * degrees is the equinox of that year and not of ours. The Moon is its
- * mean longitude with the three largest of its wanderings — the equation
- * of the centre, the evection and the variation — which is to a third of
- * a degree, an hour of phase. Held against JPL Horizons at the eclipses
- * of −584, 1715 and 1999 and the new moons of 2026 in [EphemerisTest].
+ * mean longitude with the six largest of its wanderings. Held against
+ * JPL Horizons at the eclipses of −584, 1715 and 1999, at the new moons
+ * of 2026, and day by day through three whole years twenty-six centuries
+ * apart, in [EphemerisTest].
  *
  * Longitudes "of date" are measured from the equinox of that date, the
  * way a season is; longitudes "J2000" are what the orrery draws, with
@@ -95,27 +95,52 @@ object Ephemeris {
 
     /**
      * The Moon's longitude from the equinox of the date: the mean
-     * longitude and the three largest terms of its motion, each a
-     * wandering the Sun's pull imposes on it.
+     * longitude and the six largest terms of its motion.
+     *
+     * The first three are the ones with names as old as the telescope —
+     * the equation of the centre, which is the ellipse; the evection,
+     * which is the Sun stretching that ellipse; the variation, which is
+     * the Sun speeding the Moon up at new and full. The next three are a
+     * fifth of a degree each and less: the second term of the ellipse,
+     * the annual equation — the Moon runs slow while the Earth is near
+     * the Sun — and the reduction to the ecliptic, which is the orbit's
+     * five degrees of tilt seen flat. The coefficients are the first six
+     * rows of Meeus's table 47.A.
      */
     fun moonLongitudeOfDate(atMs: Long): Double {
         val t = centuries(atMs)
         val meanLongitude = 218.3164477 + 481267.88123421 * t - 0.0015786 * t * t +
             t * t * t / 538841.0 - t * t * t * t / 65194000.0
-        // Mean elongation from the Sun, the Sun's mean anomaly, and the
-        // Moon's.
+        // Mean elongation from the Sun, the Sun's mean anomaly, the
+        // Moon's, and the Moon's distance from its node.
         val d = Math.toRadians(
             297.8501921 + 445267.1114034 * t - 0.0018819 * t * t +
                 t * t * t / 545868.0 - t * t * t * t / 113065000.0
+        )
+        val m = Math.toRadians(
+            357.5291092 + 35999.0502909 * t - 0.0001536 * t * t + t * t * t / 24490000.0
         )
         val mPrime = Math.toRadians(
             134.9633964 + 477198.8675055 * t + 0.0087414 * t * t +
                 t * t * t / 69699.0 - t * t * t * t / 14712000.0
         )
-        val equationOfCentre = 6.288774 * sin(mPrime)
+        val f = Math.toRadians(
+            93.2720950 + 483202.0175233 * t - 0.0036539 * t * t -
+                t * t * t / 3526000.0 + t * t * t * t / 863310000.0
+        )
+        val equationOfCentre = 6.288774 * sin(mPrime) + 0.213618 * sin(2 * mPrime)
         val evection = 1.274027 * sin(2 * d - mPrime)
         val variation = 0.658314 * sin(2 * d)
-        return Orrery.wrap(meanLongitude + equationOfCentre + evection + variation)
+        // Meeus scales this one by the Earth's eccentricity, which is
+        // shrinking: six per cent larger at the eclipse of Thales, a
+        // hundredth of a degree. Left out, because nothing here can see a
+        // hundredth — a year of days against Horizons reads the same to
+        // four places with it and without.
+        val annualEquation = -0.185116 * sin(m)
+        val reduction = -0.114332 * sin(2 * f)
+        return Orrery.wrap(
+            meanLongitude + equationOfCentre + evection + variation + annualEquation + reduction
+        )
     }
 
     /** The Moon's mean longitude from the equinox of the date, with none of its wanderings. */

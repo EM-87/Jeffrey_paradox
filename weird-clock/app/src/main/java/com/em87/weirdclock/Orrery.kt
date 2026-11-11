@@ -166,7 +166,7 @@ object Orrery {
         // Earth's sidereal rate beside it made a synodic month ninety
         // milliseconds short — a day of phase every nine centuries. And
         // the ring is only the period now: where the Moon *is* comes from
-        // [Ephemeris], with the three largest of its wanderings, which is
+        // [Ephemeris], with the six largest of its wanderings, which is
         // what [longitude] hands back for it.
         Body.MOON to Turn(218.3164477, 13.17635815, 0.0, 0.0)
     )

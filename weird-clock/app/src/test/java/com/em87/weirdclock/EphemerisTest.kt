@@ -108,11 +108,12 @@ class EphemerisTest {
     // ------------------------------------------------------------ the Moon
 
     /**
-     * Horizons' Moon, at the eclipses and the phases of 2026. Three terms
-     * of the Moon's motion leave half a degree of its wanderings
-     * unmodelled — measured, the worst of these anchors is 0.51°, the new
-     * moon of March 2026 — which is an hour and a quarter of phase. A
-     * missing term is a degree or more and is caught.
+     * Horizons' Moon, at the eclipses and the phases of 2026. Six terms
+     * of the Moon's motion leave a tenth of a degree of its wanderings
+     * unmodelled — measured, the worst of these anchors is 0.14°, the
+     * eclipse of 1715; with three terms it was 0.51°. One of the three
+     * large terms missing is a degree or more; the three small ones are
+     * told apart in the year of days below.
      */
     @Test
     fun `the Moon stands where Horizons has it at the anchors`() {
@@ -138,20 +139,82 @@ class EphemerisTest {
             val off = apart(lon, horizons)
             println("EPHEMERIS moon $name: reads %.4f°, Horizons %.4f°, off %.3f°".format(lon, horizons, off))
             if (off > worst) worst = off
-            assertTrue("$name: the Moon reads $lon°, Horizons $horizons°", off < 0.6)
+            assertTrue("$name: the Moon reads $lon°, Horizons $horizons°", off < 0.2)
         }
         println("EPHEMERIS moon worst %.3f°".format(worst))
     }
 
+    /** Horizons' Moon at nought hours UT, every day of three years: JD and degrees. */
+    private fun dailyMoon(): List<Pair<Double, Double>> =
+        javaClass.classLoader!!.getResourceAsStream("horizons/moon-daily.txt")!!
+            .bufferedReader().readLines()
+            .filter { it.isNotBlank() && !it.startsWith("#") }
+            .map { line -> line.trim().split(Regex("\\s+")).let { it[0].toDouble() to it[1].toDouble() } }
+
+    /** How far the one Moon is from Horizons' over a run of days: the worst, the root mean square, the mean. */
+    private fun spread(days: List<Pair<Double, Double>>): Triple<Double, Double, Double> {
+        var worst = 0.0
+        var squares = 0.0
+        var sum = 0.0
+        for ((jd, horizons) in days) {
+            val ms = Math.round((jd - 2_440_587.5) * 86_400_000.0)
+            val off = Orrery.wrapSigned(Ephemeris.moonLongitudeOfDate(ms) - horizons)
+            if (abs(off) > worst) worst = abs(off)
+            squares += off * off
+            sum += off
+        }
+        return Triple(worst, Math.sqrt(squares / days.size), sum / days.size)
+    }
+
     /**
-     * The new moons and full moons of 2026, as NASA's phase table prints
-     * them in UT: the one Moon is new within an hour and a half at each.
-     * Measured: three terms leave it up to an hour and a quarter out
-     * (April); the next three — 0.21° sin 2M′, 0.19° sin M, 0.11° sin 2F
-     * — would bring that under a quarter of an hour.
+     * The Moon day by day through three whole years — the year of
+     * Thales's eclipse, the year 1000 and 2026 — against Horizons at
+     * nought hours each day, eleven hundred readings.
+     *
+     * A handful of anchors cannot tell a term of a tenth of a degree from
+     * the sum of the ones left out, which is as large; a year of days can,
+     * because over a year every term goes through all its phases and what
+     * is left is the root mean square of the ones not modelled. Measured,
+     * with six terms: 0.092° in 2026 and in the year 1000, 0.117° in −584
+     * (where the Moon also runs 0.06° ahead on average), the worst single
+     * day 0.36°. With the reduction to the ecliptic left out, the
+     * smallest of the six, the three read 0.123°, 0.122° and 0.141°; with
+     * the annual equation out, 0.158°; with the second term of the ellipse
+     * out, 0.176°. The allowance sits between.
      */
     @Test
-    fun `the new and full moons of 2026 fall within the hour`() {
+    fun `the Moon keeps to Horizons day by day through three years`() {
+        val days = dailyMoon()
+        assertEquals("eleven hundred readings", 1100, days.size)
+        val years = listOf(
+            Triple("-584", days.filter { it.first < 1_600_000.0 }, 0.129),
+            Triple("1000", days.filter { it.first in 2_000_000.0..2_100_000.0 }, 0.107),
+            Triple("2026", days.filter { it.first > 2_400_000.0 }, 0.107)
+        )
+        val wrong = ArrayList<String>()
+        for ((name, run, within) in years) {
+            assertTrue("a whole year of $name", run.size >= 366)
+            val (worst, rms, mean) = spread(run)
+            println(
+                "EPHEMERIS moon daily $name: rms %.4f°, worst %.4f°, mean %+.4f° over %d days"
+                    .format(rms, worst, mean, run.size)
+            )
+            if (rms >= within) wrong += "$name: ${"%.4f".format(rms)}° rms from Horizons, allowed $within"
+            if (worst >= 0.4) wrong += "$name: the worst day is ${"%.4f".format(worst)}° from Horizons"
+        }
+        assertTrue(wrong.joinToString("; "), wrong.isEmpty())
+    }
+
+    /**
+     * The new moons and full moons of 2026, as NASA's phase table prints
+     * them in UT: the one Moon is new within half an hour at each.
+     * Measured: with three terms it was up to an hour and a quarter out
+     * (April); with six, seventeen minutes at the worst of 2026 and
+     * twenty-five at the eclipse of 1715 — whose printed instant is the
+     * middle of the eclipse, not the conjunction.
+     */
+    @Test
+    fun `the new and full moons of 2026 fall within the half hour`() {
         val phases = listOf(
             // And the three eclipses, which are new moons by definition.
             Triple("-584 May 28 eclipse", at(-584, 5, 28, 14, 22, 26), 0.0),
@@ -180,7 +243,7 @@ class EphemerisTest {
             val hours = off / hour
             println("EPHEMERIS phase $name: off %.2f h".format(hours))
             if (hours > worstHours) worstHours = hours
-            assertTrue("$name: the phase reads $phase, ${"%.1f".format(hours)} h off", hours < 1.5)
+            assertTrue("$name: the phase reads $phase, ${"%.2f".format(hours)} h off", hours < 0.5)
         }
         println("EPHEMERIS phase worst %.2f h".format(worstHours))
     }
