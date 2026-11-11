@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 
 import aflz  # noqa: E402
+import bps  # noqa: E402
 import af_anchors  # noqa: E402
 import af_bench  # noqa: E402
 import af_align  # noqa: E402
@@ -137,6 +138,39 @@ class Ups(unittest.TestCase):
         patch[8] ^= 1
         with self.assertRaises(ValueError):
             ups.apply(bytes(patch), source)
+
+
+class Bps(unittest.TestCase):
+    """tools/bps.py: the deliverable's format, made and applied."""
+
+    def test_varints_are_the_ups_ones(self):
+        for value in (0, 1, 127, 128, 255, 16511, 16512, 1 << 24, (1 << 40) + 3):
+            self.assertEqual(bps.read_varint(bps.varint(value), 0), (value, len(bps.varint(value))))
+            self.assertEqual(ups._varint(bps.varint(value), 0)[0], value)
+
+    def test_round_trip_with_moved_runs_edits_and_padding(self):
+        rnd = random.Random(3)
+        source = bytes(rnd.randrange(256) for _ in range(60000))
+        target = (source[:4000] + b"new bytes" * 50 + source[30001:50000] + b"\xff" * 2000 + source[4000:20000] +
+                  bytes(77) + source[50000:])
+        patch, counts = bps.create(source, target, b"meta")
+        self.assertEqual(bps.apply(source, patch), target)
+        self.assertEqual(sum(counts.values()), len(target))
+        self.assertEqual(counts["source read"], 4000)                  # the run left in its place
+        self.assertEqual(counts["source copy"], 19999 + 16000 + 10000)  # the moved runs, at any offset
+        self.assertGreater(counts["target copy"], 1900)                # the padding, written once
+        self.assertLess(len(patch), 2000)
+        self.assertEqual(patch[:4], b"BPS1")
+
+    def test_wrong_source_and_damaged_patch_are_refused(self):
+        source = bytes(range(256)) * 40
+        patch, _ = bps.create(source, source[::-1])
+        with self.assertRaises(ValueError):
+            bps.apply(source[:-1] + b"x", patch)
+        damaged = bytearray(patch)
+        damaged[len(damaged) // 2] ^= 1
+        with self.assertRaises(ValueError):
+            bps.apply(source, bytes(damaged))
 
 
 class Emulator(unittest.TestCase):

@@ -2520,3 +2520,20 @@ what goes in it: "The letters in the en build").
   credits' lines, what follows the town's name, a fish's size),
   `emu-check` and `emu-check-en`: 0 failures; `make test` 66. The credits
   and the fish's size are not yet seen on screen (TODO(verify) above).
+
+## The patch (the deliverable)
+
+- **`make bps`** writes `build/animalforest-en.bps`, the en ROM as a BPS
+  patch (byuu's format: `tools/bps.py`) against the user's dump in .z64
+  order, `build/baserom.z64`; any BPS patcher applies it, and
+  `tools/bps.py apply` does. The source's runs are found wherever the en
+  build put them (its 32 bytes indexed at every 16th offset, the target
+  looked up at every offset not yet covered, each hit grown both ways),
+  the rest written as it is. For the ROM of 11baf6b's tree: 3,116,598
+  bytes for 25,165,824 (6,718,435 read in place from the dump, 15,335,399
+  copied from elsewhere in it, 3,111,990 new), made in 1.4 s; applied to
+  the dump it gives the en ROM byte for byte (md5 0639929805be...),
+  checked by `create` before it writes the file. The patch holds what the
+  build took from the user's copies (the GameCube's script and font, the
+  2010 patch's labels and messages), as the ROM does: it is for the
+  user's own use, and never enters the repository (`build/`).

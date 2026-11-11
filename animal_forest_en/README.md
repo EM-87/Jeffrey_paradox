@@ -55,7 +55,17 @@ make menus-check-en               # abre la ventana del nombre, la pregunta al t
 make test                         # tests de las herramientas, sin ROM
 make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010: para estudiarlo, y
                                   # sus etiquetas en inglés para make rom-en (opcional)
+make bps                          # el entregable: build/animalforest-en.bps, de tu volcado
+                                  # (en orden .z64) al ROM en inglés, comprobado aplicándolo
 ```
+
+El `.bps` se aplica con cualquier parcheador BPS (Flips, beat...) o con
+`python3 tools/bps.py apply build/baserom.z64 build/animalforest-en.bps
+salida.z64`, siempre sobre el volcado en orden `.z64` (`build/baserom.z64`
+ya lo está); el parche comprueba el CRC32 de la entrada, de la salida y el
+suyo propio. Lleva dentro lo que tu compilación sacó de tus copias (el guion
+y la fuente de GameCube, lo del parche de 2010): es para tu uso, como el
+ROM del que sale.
 
 `ROM=` hace falta una sola vez: queda normalizado en `build/baserom.z64`.
 Si tienes el parche de 2010, `make nafe NAFE_UPS=...` antes de `make

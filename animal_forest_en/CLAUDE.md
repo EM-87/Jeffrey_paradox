@@ -86,7 +86,7 @@ the why and the state, `reference/NOTES.md` for what is verified.
 - `tools/af_shiftcheck.py`, `af_anchors.py`, `af_luicheck.py` — the proofs
   `make rom-en` runs before compressing: nothing of the cartridge's moved,
   no address spelled with the wrong symbol, no shared `lui` broken.
-- `tools/` — `rom.py`, `ups.py`, `nafe.py`, `nafe_diff.py` (the 2010
+- `tools/` — `rom.py`, `ups.py`, `bps.py` (the deliverable: `make bps`), `nafe.py`, `nafe_diff.py` (the 2010
   patch against the original, by file and function), `route_newgame.py`
   (power-on to the houses, states on the way).
 - `tools/gciso.py`, `msgbank.py`, `af_align.py`, `af_text.py`,
