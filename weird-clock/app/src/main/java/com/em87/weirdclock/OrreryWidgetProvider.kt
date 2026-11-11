@@ -179,12 +179,16 @@ class OrreryWidgetProvider : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_orrery)
             // Straight to the sky rather than to the front page: somebody
             // tapping a picture of the solar system is asking for the
-            // solar system.
+            // solar system. It lives on one face — the one that is a
+            // picture of the earth — so that face is asked for with it,
+            // for this visit and no longer, the way a widget pinned to a
+            // clock asks for its clock.
             val open = PendingIntent.getActivity(
                 context,
                 7,
                 Intent(context, MainActivity::class.java)
-                    .putExtra(MainActivity.EXTRA_OPEN_SKY, true),
+                    .putExtra(MainActivity.EXTRA_OPEN_SKY, true)
+                    .putExtra(MainActivity.EXTRA_SHOW_FACE, Face.HEMISPHERE.key),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setImageViewBitmap(

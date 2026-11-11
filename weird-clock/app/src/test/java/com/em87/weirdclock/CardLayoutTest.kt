@@ -42,6 +42,7 @@ class CardLayoutTest {
     private fun containerId(card: Card): Int = when (card) {
         Card.HOURGLASS -> R.id.hourglass_container
         Card.CALENDAR -> R.id.calendar_container
+        Card.WEATHER -> R.id.weather_container
         Card.CLOCK -> R.id.clock_container
         Card.ALARM -> R.id.alarms_container
         Card.STOPWATCH -> R.id.stopwatch_container

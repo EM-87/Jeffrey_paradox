@@ -455,21 +455,20 @@ object Prefs {
     /**
      * Whether the sky token tracks the moon's phase.
      *
-     * It used to be the master switch of the whole sky, with the solar
-     * system hung off it, on the reasoning that the glyph is the door and
-     * there is nothing to tap without one. True, and the wrong way round:
-     * nobody turns on a moon glyph in order to reach the planets. So
-     * [ORRERY] is the switch now and it puts the door there itself; this
-     * stays for the person who wants the moon on the dial and no planets
-     * behind it.
+     * The token is on the dial for this or for the weather, which is
+     * drawn round it and is what is behind it — see [WEATHER]. With this
+     * on it is the sun by day and the moon with its phase by night; with
+     * only the weather on, the moon is a plain disc.
      */
     const val MOON_PHASE = "pref_moon_phase"
 
     /**
-     * The sky: the token on the dial, and the solar system behind it.
+     * The solar system behind the dial's sky token, when there was one.
      *
-     * One switch for the lot. It draws its own door, so it no longer
-     * depends on the moon complication being on.
+     * Not read any more and not on any menu. The token is the weather's
+     * door now, and the solar system is a card of its own on the face
+     * that is a picture of the earth, where it needs no switch. The name
+     * stays because phones and restore points have it written down.
      */
     const val ORRERY = "pref_orrery"
 

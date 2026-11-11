@@ -1,7 +1,7 @@
 package com.em87.weirdclock
 
 /**
- * The six cards, and how you get from one to another.
+ * The seven cards, and how you get from one to another.
  *
  * They used to be called C-1, C0, C1, S-1, S0 and S1, which are
  * coordinates: the name said where the card was, so moving a card meant
@@ -27,13 +27,31 @@ enum class Direction { UP, DOWN, LEFT, RIGHT }
 /**
  * A card's address: which page of the pager it lives on, and which row of
  * that page. Two cards never share an address.
+ *
+ * And whether it is [behindADoor]: on the grid, because everything on
+ * screen has to be somewhere, but not a place any swipe leads to or
+ * from. Such a card is opened by the thing that is its door and left by
+ * going back.
  */
-enum class Card(val page: Int, val row: Row) {
+enum class Card(val page: Int, val row: Row, val behindADoor: Boolean = false) {
     /** The sand hourglass, above the clock. */
     HOURGLASS(Cards.PAGE_HOME, Row.TOP),
 
     /** The month, a swipe left of the clock. */
     CALENDAR(Cards.PAGE_LEFT, Row.MIDDLE),
+
+    /**
+     * The weather, behind the sky token on the dial.
+     *
+     * Above the month, where nothing was, and behind a door: the token
+     * is the way in, and the way out is the same token grown large at
+     * the top of the card, the clock button under it or the back
+     * gesture. Its address puts it over the month and beside the
+     * hourglass, and it is a neighbour of neither — a sideways swipe on
+     * the sand that turned up a weather forecast would be the grid
+     * having opinions nobody asked it for.
+     */
+    WEATHER(Cards.PAGE_LEFT, Row.TOP, behindADoor = true),
 
     /** The clock, and the card the app opens on. */
     CLOCK(Cards.PAGE_HOME, Row.MIDDLE),
@@ -108,6 +126,8 @@ object Cards {
      * those holes rather than a card that has to be hidden after the fact.
      */
     fun neighbour(from: Card, direction: Direction, face: Face): Card? {
+        // A card behind a door has no neighbours, in either direction.
+        if (from.behindADoor) return null
         val page = from.page + when (direction) {
             Direction.LEFT -> -1
             Direction.RIGHT -> 1
@@ -119,7 +139,9 @@ object Cards {
             else -> 0
         }
         if (row !in Row.entries.indices) return null
-        return face.cards.firstOrNull { it.page == page && it.row.ordinal == row }
+        return face.cards.firstOrNull {
+            it.page == page && it.row.ordinal == row && !it.behindADoor
+        }
     }
 
     /** Which card of [row] is on [page] for [face], if that page has one. */

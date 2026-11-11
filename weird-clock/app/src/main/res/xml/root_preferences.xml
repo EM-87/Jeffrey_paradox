@@ -152,19 +152,6 @@
 
     <PreferenceCategory android:title="@string/category_general">
 
-        <!-- One switch for the whole sky. It used to be three, nested:
-             the moon complication, then the solar system behind it, then
-             the comets on that — which is the order they were built in and
-             not the order anybody thinks about them. Nobody wants "a moon
-             glyph"; they want the planets, and the glyph is the door. So
-             the door is the switch, and what is behind it is furniture on
-             the advanced page. -->
-        <SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:key="pref_orrery"
-            android:summary="@string/orrery_summary"
-            android:title="@string/orrery_title" />
-
         <SwitchPreferenceCompat
             android:defaultValue="false"
             android:key="pref_world_clock"

@@ -127,7 +127,7 @@ class MenuIndentTest {
         for (child in listOf(
             Prefs.BELL_MARKS, Prefs.BELL_STYLE, Prefs.BELLS_BACKGROUND,
             Prefs.BELL_PRIORITY, Prefs.TEST_BELLS,
-            Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC, Prefs.NIGHT_WINDOW
+            Prefs.MOON_PHASE, Prefs.NIGHT_WINDOW
         )) {
             assertEquals(
                 "$child is drawn a step in, under a row it has nothing to do with",
@@ -190,7 +190,6 @@ class MenuIndentTest {
     fun `only the rows waiting on a switch are faded`() {
         PreferenceManager.getDefaultSharedPreferences(context).edit()
             .putBoolean(Prefs.BELLS, false)
-            .putBoolean(Prefs.ORRERY, false)
             .putBoolean(Prefs.NIGHT_DIM, false)
             .putBoolean(Prefs.ALARM_MARKERS, false)
             .commit()
@@ -198,12 +197,15 @@ class MenuIndentTest {
         val waiting = setOf(
             Prefs.BELL_MARKS, Prefs.BELL_STYLE, Prefs.BELLS_BACKGROUND,
             Prefs.BELL_PRIORITY, Prefs.TEST_BELLS,
-            Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC,
             Prefs.NIGHT_WINDOW, Prefs.MARK_COLORS
         )
         val ordinary = listOf(
             Prefs.NUMERALS, Prefs.DIAL_SHAPE, Prefs.HOURS_PRESET, Prefs.MIRROR,
             Prefs.DIAL_MARKS, Prefs.MINUTE_MARKS, Prefs.HAND_SHADOWS,
+            // The moon's row waited on the solar system's switch while
+            // the token it describes was the solar system's door. It is
+            // not, and the row waits on nothing.
+            Prefs.MOON_PHASE,
             Prefs.CALENDAR_NUMERALS, Prefs.PAST_DAYS,
             Prefs.ALARM_RAMP, Prefs.RING_TIMEOUT_MIN, Prefs.ALARM_STYLE,
             Prefs.COUNTDOWN_PERSISTENT, Prefs.GENTLE_FLASH
@@ -231,7 +233,7 @@ class MenuIndentTest {
     @Test
     fun `a row that answers to nobody starts at the left`() {
         val fragment = rootScreen()
-        for (key in listOf(Prefs.BELLS, Prefs.THEME, Prefs.SHOW_DATE, Prefs.ORRERY)) {
+        for (key in listOf(Prefs.BELLS, Prefs.THEME, Prefs.SHOW_DATE, Prefs.WEATHER)) {
             assertEquals(
                 "$key is indented as though it hung off something",
                 0, rowLeft(fragment, key)
@@ -280,32 +282,57 @@ class MenuIndentTest {
     }
 
     /**
-     * The sky's furniture is on the advanced page whatever the sky is
-     * doing, faded when the sky is off.
+     * The sky's rows are where the thing they describe is.
      *
-     * It used to be a chain on the first screen — the moon complication,
-     * then the solar system behind it, then the comets on that — and the
-     * chain had to be written as one rule rather than three, or switching
-     * the moon off left the comets sitting there indented under nothing.
-     * There is no chain now: one switch opens the sky and the three
-     * questions about what is drawn in it live together.
+     * They were three on the dial's page, faded while the solar system's
+     * switch was off: the moon complication, the comets, the signs. The
+     * switch has gone with the door it was the switch of — the token on
+     * the dial opens the weather now — so the moon's row waits on
+     * nothing, and the two about what is drawn in the solar system are
+     * on the face that has one, under its name. On the dial the heading
+     * they shared is over the moon alone and says so.
      */
     @Test
-    fun `the sky's furniture is faded while the sky is shut`() {
+    fun `the sky's rows are on the face that has what they describe`() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        prefs.edit().putBoolean(Prefs.ORRERY, false).commit()
-        val shut = advancedScreen()
-        for (key in listOf(Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC)) {
-            assertTrue(
-                "$key vanished with the sky shut",
-                shut.findPreference<Preference>(key)?.isVisible == true
-            )
-            assertTrue("$key is not faded", rowAlpha(shut, key) < 0.9f)
+        fun heading(screen: PreferenceFragmentCompat): String? =
+            screen.findPreference<Preference>(FaceOptions.CAT_SKY)?.title?.toString()
+
+        val dial = advancedScreen()
+        assertEquals("the moon's row is faded", 1f, rowAlpha(dial, Prefs.MOON_PHASE), 0.001f)
+        for (key in listOf(Prefs.COMETS, Prefs.ZODIAC, Prefs.ORRERY)) {
+            assertTrue("$key is on the dial's page", dial.findPreference<Preference>(key) == null)
         }
-        prefs.edit().putBoolean(Prefs.ORRERY, true).commit()
-        val open = advancedScreen()
-        for (key in listOf(Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC)) {
-            assertEquals("$key stayed faded with the sky open", 1f, rowAlpha(open, key), 0.001f)
+        assertEquals(context.getString(R.string.category_sky), heading(dial))
+
+        prefs.edit().putString(Prefs.FACE, Face.HEMISPHERE.key).commit()
+        val world = advancedScreen()
+        for (key in listOf(Prefs.COMETS, Prefs.ZODIAC)) {
+            assertTrue(
+                "$key is not on the page of the face that draws it",
+                world.findPreference<Preference>(key)?.isVisible == true
+            )
+            assertEquals("$key is faded", 1f, rowAlpha(world, key), 0.001f)
+        }
+        assertTrue(world.findPreference<Preference>(Prefs.MOON_PHASE) == null)
+        assertEquals(context.getString(R.string.category_orrery), heading(world))
+
+        // And the faces with neither have neither, and no heading over
+        // the hole.
+        for (face in listOf(Face.DIGITAL, Face.SUNDIAL)) {
+            prefs.edit().putString(Prefs.FACE, face.key).commit()
+            val other = advancedScreen()
+            for (key in listOf(Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC, FaceOptions.CAT_SKY)) {
+                assertTrue("$key is on $face's page", other.findPreference<Preference>(key) == null)
+            }
+        }
+        // The switch that used to open the sky is on no first screen.
+        for (face in Face.entries) {
+            prefs.edit().putString(Prefs.FACE, face.key).commit()
+            assertTrue(
+                "the solar system's switch is on $face's first screen",
+                rootScreen().findPreference<Preference>(Prefs.ORRERY) == null
+            )
         }
     }
 

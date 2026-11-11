@@ -829,7 +829,9 @@ object WidgetRenderer {
             }
         }
 
-        if (prefs.getBoolean(Prefs.MOON_PHASE, false)) {
+        // On the same terms as the dial in the app: for the moon
+        // complication, and for the weather, which is drawn round it.
+        if (DialSettings.skyTokenWanted(prefs)) {
             val now = Calendar.getInstance()
             val timeOfDay = now.get(Calendar.HOUR_OF_DAY) * 3_600_000L +
                 now.get(Calendar.MINUTE) * 60_000L
@@ -850,6 +852,7 @@ object WidgetRenderer {
                     strokeWidth = r * 0.008f
                 },
                 timeOfDay,
+                withPhase = DialSettings.moonPhaseWanted(prefs),
                 weather = Weather.look(outside),
                 weatherSure = outside.cloudPercent.trust != Weather.Trust.LONE
             )

@@ -38,7 +38,13 @@ class ShadowTipTest {
     private val side = 1000
 
     /**
-     * Half past two on a June afternoon.
+     * Half past two on a June afternoon, by Greenwich: a quarter past by
+     * the sun over this dial, which stands in Madrid.
+     *
+     * By Greenwich and said so. It used to be half past two wherever the
+     * machine running the test happened to be, which in Madrid's own zone
+     * is a few minutes after noon — a short shadow pointing straight up
+     * the plate, where neither of the two things asked here can be seen.
      *
      * Chosen because the shadow ends *on the plate* then. A low evening
      * sun throws one that runs off the edge, and a shadow running off the
@@ -48,7 +54,7 @@ class ShadowTipTest {
      * which is most of the day.
      */
     private fun highSun(): Long =
-        java.util.Calendar.getInstance().apply {
+        java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
             set(2026, java.util.Calendar.JUNE, 21, 14, 30, 0)
             set(java.util.Calendar.MILLISECOND, 0)
         }.timeInMillis

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- One swipe left of the clock: the calendar. Nothing below it —
-     the stopwatch moved next door to the countdown. -->
+     the stopwatch moved next door to the countdown — and the weather
+     above it, which is not swiped to at all. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -28,6 +29,35 @@
             android:layout_height="match_parent"
             android:padding="12dp"
             android:visibility="gone" />
+    </FrameLayout>
+
+    <!-- The weather, behind the sky token on the dial. Above the month in
+         the grid of cards, which is to say on this page and on the top
+         row: shown when that row is the one in use and gone otherwise,
+         like every other card. The button under it is the one every
+         card but the clock has: straight back to the clock. -->
+    <FrameLayout
+        android:id="@+id/weather_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+
+        <com.em87.weirdclock.WeatherCardView
+            android:id="@+id/weather_card_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="8dp" />
+
+        <ImageButton
+            android:id="@+id/weather_back_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="12dp"
+            android:alpha="0.75"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/a11y_clock"
+            android:src="@drawable/ic_clock_face" />
     </FrameLayout>
 
     <!-- The toolbox, again.

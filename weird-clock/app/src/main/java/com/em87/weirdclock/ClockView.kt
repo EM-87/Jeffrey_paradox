@@ -343,11 +343,23 @@ class ClockView @JvmOverloads constructor(
         set(value) { field = value; invalidate() }
 
     /**
-     * Whether tapping the sky token opens the solar system.
+     * What a tap on the sky token does. With nothing here the token is a
+     * picture and not a door.
      *
-     * Off by default and hung off the token on purpose: the whole gesture
-     * is "press on the sky and the sky opens", and that only reads if there
-     * is already a sun or a moon there to press.
+     * The token carries the weather round it, and what is behind a thing
+     * with the weather on it is the weather: the card with the rest of
+     * it. The solar system used to be behind this token and is not now —
+     * it has a card of its own on the face that is a picture of the
+     * earth, and nothing on a dial opens it.
+     */
+    var onSkyTokenTap: (() -> Unit)? = null
+
+    /**
+     * Whether this dial has a sky to show at all.
+     *
+     * It was whether tapping the sky token opened one. The token does
+     * not any more — see [onSkyTokenTap] — and what is left of this is
+     * the half that shuts: turned off, a sky that is open is put away.
      */
     var orreryEnabled = false
         set(value) {
@@ -1307,10 +1319,11 @@ class ClockView @JvmOverloads constructor(
             }
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                // The token first: a tap on the sun or the moon opens the
-                // sky behind it.
+                // The token first: a tap on the sun or the moon goes to
+                // what is behind it, which is the weather's card.
                 if (skyTokenAt(e.x, e.y)) {
-                    toggleOrrery()
+                    performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    onSkyTokenTap?.invoke()
                     return true
                 }
                 // A planet, named. A tap and not a long press: a finger
@@ -5373,7 +5386,8 @@ class ClockView @JvmOverloads constructor(
      * for — and a target that size answers about half the taps aimed at it.
      */
     internal fun skyTokenAt(x: Float, y: Float): Boolean {
-        if (!orreryEnabled || !showMoonPhase) return false
+        // A door only where there is a token, and something behind it.
+        if (!showMoonPhase || onSkyTokenTap == null) return false
         val r = dialRadius()
         return hypot(x - skyTokenX(), y - skyTokenY()) < r * 0.16f
     }

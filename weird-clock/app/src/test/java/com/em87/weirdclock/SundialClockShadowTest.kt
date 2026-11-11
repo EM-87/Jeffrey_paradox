@@ -39,16 +39,14 @@ class SundialClockShadowTest {
     private val context: android.content.Context
         get() = ApplicationProvider.getApplicationContext()
 
-    private val keep = TimeZone.getDefault()
-
     @Before
     fun inMadrid() {
-        TimeZone.setDefault(TimeZone.getTimeZone("Europe/Madrid"))
+        PhoneZone.move("Europe/Madrid")
     }
 
     @After
     fun home() {
-        TimeZone.setDefault(keep)
+        PhoneZone.goHome()
         TimeKeeper.solarOffsetMs = 0L
     }
 

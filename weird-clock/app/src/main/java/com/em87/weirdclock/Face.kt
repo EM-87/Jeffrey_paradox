@@ -103,7 +103,9 @@ enum class Face(val key: String) {
         get() = when (this) {
             ANALOG -> Card.entries.toSet()
             // The hourglass is sand in a glass. There is no digital one.
-            DIGITAL -> Card.entries.toSet() - Card.HOURGLASS
+            // And the weather's card is the dial's: its door is the token
+            // under the hands, which only a dial has.
+            DIGITAL -> Card.entries.toSet() - Card.HOURGLASS - Card.WEATHER
             // A shadow cannot wake you and has nothing to start or stop.
             // Sand and a calendar are exactly the two things a sundial
             // cannot do and that its owner would have had anyway.
@@ -111,7 +113,7 @@ enum class Face(val key: String) {
             // Sand in a glass is an instrument too many beside a turning
             // planet, and the calendar's card holds the solar system here
             // instead — see [showsOrrery].
-            HEMISPHERE -> Card.entries.toSet() - Card.HOURGLASS
+            HEMISPHERE -> Card.entries.toSet() - Card.HOURGLASS - Card.WEATHER
         }
 
     /**
@@ -253,10 +255,10 @@ object FaceOptions {
         Prefs.TOUCH_HANDS,
         Prefs.PINCH_ZOOM,
         Prefs.SHAKE_DROP,
-        Prefs.ORRERY,
+        // The token under the hands, and nothing behind it but the
+        // weather: the comets and the signs went with the solar system,
+        // to the face that has it — see [needsTheSky].
         Prefs.MOON_PHASE,
-        Prefs.COMETS,
-        Prefs.ZODIAC,
         Prefs.ALARM_MARKERS,
         Prefs.MARK_COLORS,
         Prefs.ALARM_STYLE,
@@ -345,6 +347,21 @@ object FaceOptions {
         Prefs.WORLD_CITIES
     )
 
+    /**
+     * The rows about what is drawn in the solar system, on the face that
+     * has it.
+     *
+     * They were the dial's, while the solar system opened behind the
+     * dial's sky token, and they were obeyed all along by the card the
+     * turning world keeps the solar system on — which had no way to
+     * change them. The token is the weather's door now and these are
+     * where the thing they describe is.
+     */
+    private val needsTheSky = setOf(
+        Prefs.COMETS,
+        Prefs.ZODIAC
+    )
+
     /** And the rows only a shadow on a plate has. */
     private val sundialOnly = setOf(
         Prefs.SUNDIAL_KIND,
@@ -404,6 +421,7 @@ object FaceOptions {
         key in sundialOnly -> face == Face.SUNDIAL
         key in hemisphereOnly -> face == Face.HEMISPHERE
         key in needsAnAlarm -> Card.ALARM in face.cards
+        key in needsTheSky -> face.showsOrrery
         // What happens when the sand runs out is a row about the sand.
         // It was listed with the alarm's rows — it rings — and so went
         // with them off the one face that has sand and no alarm, which
@@ -467,6 +485,9 @@ object FaceOptions {
         // face that cannot wake anybody; and "Alarms" again on the second
         // screen over the one row there that is about the sand. Each is
         // named for what is left under it.
+        // "Solar system", over the moon complication and nothing else,
+        // on the face whose token no longer opens one.
+        key == CAT_SKY && !face.showsOrrery -> R.string.category_sky
         key == CAT_ALARMS && Card.ALARM !in face.cards -> R.string.category_bells_only
         key == CAT_ALARMS_DEEP && Card.ALARM !in face.cards -> R.string.category_sand
         key == Prefs.COUNTDOWN_PERSISTENT && Card.ALARM !in face.cards ->
@@ -537,6 +558,9 @@ object FaceOptions {
 
     /** And the one over the rows about how a number is written. */
     const val CAT_DIGITS = "cat_digits"
+
+    /** The one over the sky's rows: the solar system's, or the token's. */
+    const val CAT_SKY = "cat_sky"
 
     /** The two headings that say Alarms, on the first screen and the second. */
     const val CAT_ALARMS = "cat_alarms"

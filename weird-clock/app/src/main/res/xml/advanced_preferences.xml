@@ -451,15 +451,18 @@
     </PreferenceCategory>
 
     <!--
-        The sky's furniture, behind the one switch that opens it.
+        The sky's rows.
 
-        The moon complication is here rather than on the first screen
-        because it is not what anybody turns the sky on for: the glyph is
-        the door, and the door is the switch upstairs. What is left down
-        here are the three questions about what is drawn once you are
-        through it.
+        On the dial there is one: whether the token under the hands
+        tracks the moon. The token is there for that or for the weather,
+        and what is behind it is the weather's card. On the turning world
+        there are two, about what is drawn on the card that face keeps
+        the solar system on. The heading is named for whichever it is
+        over, which is why it has a key.
     -->
-    <PreferenceCategory android:title="@string/category_orrery">
+    <PreferenceCategory
+        android:key="cat_sky"
+        android:title="@string/category_orrery">
 
         <SwitchPreferenceCompat
             android:defaultValue="false"

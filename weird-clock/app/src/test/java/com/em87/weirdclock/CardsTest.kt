@@ -99,6 +99,52 @@ class CardsTest {
         assertNull(Cards.neighbour(Card.ALARM, Direction.UP, Face.ANALOG))
     }
 
+    /**
+     * The weather is behind a door and not on the way to anything.
+     *
+     * It has an address like every card — over the month, beside the
+     * hourglass — and the address is all it shares with them: nothing
+     * the grid knows about leads to it, it leads to nothing, and the way
+     * out of it is the way out of every card, back to the clock. Only
+     * the dial has it, because only the dial has the token that opens it.
+     */
+    @Test
+    fun `the weather is behind a door, and only on the dial`() {
+        assertEquals(Cards.PAGE_LEFT, Card.WEATHER.page)
+        assertEquals(Row.TOP, Card.WEATHER.row)
+        assertEquals(listOf(Card.WEATHER), Card.entries.filter { it.behindADoor })
+        for (face in Face.entries) {
+            for (card in Card.entries) {
+                for (direction in Direction.entries) {
+                    assertTrue(
+                        "$direction of $card on $face is the weather",
+                        Cards.neighbour(card, direction, face) != Card.WEATHER
+                    )
+                }
+            }
+            for (direction in Direction.entries) {
+                assertNull(
+                    "$direction of the weather on $face",
+                    Cards.neighbour(Card.WEATHER, direction, face)
+                )
+            }
+            assertEquals(
+                "the weather's card on $face",
+                face == Face.ANALOG, Card.WEATHER in face.cards
+            )
+            assertEquals(
+                if (face == Face.ANALOG) Card.WEATHER else null,
+                Cards.on(Cards.PAGE_LEFT, Row.TOP, face)
+            )
+        }
+        assertEquals(Card.CLOCK, Cards.back(Card.WEATHER))
+        // And it empties no page and adds none: the left-hand page was
+        // already there for the month.
+        assertEquals(
+            listOf(Cards.PAGE_LEFT, Cards.PAGE_HOME, Cards.PAGE_RIGHT), Cards.pagesOf(Face.ANALOG)
+        )
+    }
+
     /** No two cards share an address, or one would hide the other. */
     @Test
     fun `every card has the place to itself`() {
@@ -123,7 +169,7 @@ class CardsTest {
     /** And everything else is still where it was. */
     @Test
     fun `the digital face keeps the other five cards`() {
-        for (card in Card.entries - Card.HOURGLASS) {
+        for (card in Card.entries - Card.HOURGLASS - Card.WEATHER) {
             assertEquals(
                 "$card must still be reachable",
                 card, Cards.on(card.page, card.row, Face.DIGITAL)

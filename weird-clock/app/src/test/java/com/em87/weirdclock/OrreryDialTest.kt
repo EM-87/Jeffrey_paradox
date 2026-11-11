@@ -98,7 +98,12 @@ class OrreryDialTest {
     // ---------------------------------------------------- opening and shutting
 
     /**
-     * A tap on the token opens the sky; a tap on the Sun shuts it again.
+     * A tap on the token does not open the sky; a tap on the Sun shuts
+     * one that is open.
+     *
+     * The token was the sky's door and is the weather's now — see
+     * [WeatherCardTest] for where it goes. What is asked here is the
+     * half that is this file's business: that the sky stays shut.
      *
      * Delivered as touches and taken all the way through the gesture
      * detector, which is the part that was untested when this only asked
@@ -106,15 +111,22 @@ class OrreryDialTest {
      * be listening to it.
      */
     @Test
-    fun `a tap on the token opens the sky, and the Sun shuts it`() {
+    fun `a tap on the token does not open the sky, and the Sun shuts one that is open`() {
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         val clock = controller.get().clockForTest()
         assertFalse("it opened by itself", clock.orreryShowing())
 
-        tap(clock, clock.width / 2f, clock.height / 2f + clock.dialRadiusForTest() * 0.45f)
-        assertTrue("the token did not open anything", clock.orreryShowing())
-
+        assertTrue(
+            "there is no token on the dial to press",
+            clock.skyTokenAt(clock.skyTokenXForTest(), clock.skyTokenYForTest())
+        )
+        tap(clock, clock.skyTokenXForTest(), clock.skyTokenYForTest())
         ShadowSystemClock.advanceBy(Duration.ofMillis(900))
+        assertFalse("the token still opens the sky", clock.orreryShowing())
+
+        clock.toggleOrrery()
+        ShadowSystemClock.advanceBy(Duration.ofMillis(900))
+        assertTrue(clock.orreryShowing())
         tap(clock, clock.width / 2f, clock.height / 2f)
         ShadowSystemClock.advanceBy(Duration.ofMillis(900))
         assertFalse("the Sun would not shut it", clock.orreryShowing())
@@ -156,18 +168,21 @@ class OrreryDialTest {
     }
 
     /**
-     * And with the setting off the token does not answer at all — the dial
-     * keeps whatever it did with a tap there before.
+     * And with nothing behind it the token does not answer at all — the
+     * dial keeps whatever it did with a tap there before.
      */
     @Test
-    fun `with the setting off the token is not a door`() {
+    fun `with nothing behind it the token is not a door`() {
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         val clock = controller.get().clockForTest()
-        clock.orreryEnabled = false
+        clock.onSkyTokenTap = null
         assertFalse(clock.skyTokenAt(
             clock.width / 2f,
             clock.height / 2f + clock.dialRadiusForTest() * 0.45f
         ))
+        // Nor does a dial that could show a sky make one of it.
+        clock.orreryEnabled = true
+        assertFalse(clock.skyTokenAt(clock.skyTokenXForTest(), clock.skyTokenYForTest()))
     }
 
     /**

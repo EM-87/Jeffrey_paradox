@@ -10,7 +10,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import java.util.TimeZone
 
 /**
  * The word under the sky's date when that date is Julian.
@@ -29,7 +28,7 @@ class OrreryCalendarTest {
 
     @Before
     fun wipe() {
-        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+        PhoneZone.move("UTC")
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.MOON_PHASE, true)
             .putBoolean(Prefs.ORRERY, true)

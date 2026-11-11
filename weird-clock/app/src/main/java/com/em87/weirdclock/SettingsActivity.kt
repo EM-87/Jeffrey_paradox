@@ -889,7 +889,6 @@ class SettingsActivity : AppCompatActivity() {
             findPreference<Preference>(Prefs.BELLS_BACKGROUND)?.summary =
                 BellScheduler.describe(requireContext())
             dimmedWhen(Prefs.ALARM_MARKERS, Prefs.MARK_COLORS)
-            dimmedWhen(Prefs.ORRERY, Prefs.MOON_PHASE, Prefs.COMETS, Prefs.ZODIAC)
             // Which calendar the plate is read under is not a question
             // while the plate carries no date. Faded and not hidden,
             // because the switch that governs it is on the first screen

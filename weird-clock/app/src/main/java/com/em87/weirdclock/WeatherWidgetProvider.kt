@@ -222,7 +222,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 PendingIntent.getActivity(
                     context,
                     "weather-open".hashCode(),
-                    Intent(context, MainActivity::class.java),
+                    Intent(context, MainActivity::class.java)
+                        .putExtra(MainActivity.EXTRA_OPEN_WEATHER, true),
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
             )

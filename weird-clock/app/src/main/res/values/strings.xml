@@ -160,7 +160,7 @@
     <string name="alarm_sound_wolf">Wolf</string>
     <string name="alarm_sound_dog">Dog</string>
     <string name="pref_moon_phase_title">Moon phase</string>
-    <string name="pref_moon_phase_summary">The sun while the sun is up where you are, otherwise the moon and its phase. Uses your location.</string>
+    <string name="pref_moon_phase_summary">The sun while the sun is up where you are, otherwise the moon and its phase. Uses your location. Tap it for the weather.</string>
     <string name="alarm_when_today">today at %1$s</string>
     <string name="alarm_when_tomorrow">tomorrow at %1$s</string>
     <string name="alarm_when_weekday">%1$s at %2$s</string>
@@ -411,8 +411,6 @@
          day, short month, year (or "3000 BC"). -->
     <string name="orrery_julian_date">%1$d %2$s %3$s, Julian</string>
     <string name="year_before_christ">%1$d BC</string>
-    <string name="orrery_title">Solar system</string>
-    <string name="orrery_summary">Tap the sun or moon on the dial and the hands give way to the planets. Drag one and the rest follow.</string>
 
     <string name="exact_alarms_title">Alarms are not exact on this phone</string>
     <string name="exact_alarms_message">This phone is not letting the app set exact alarms. They still ring, but up to a minute late, they can be pushed about by battery saving, and the alarm clock icon does not appear in the status bar.</string>
@@ -531,6 +529,7 @@
     <string name="pref_sand_persistent_title">Ring until stopped</string>
     <string name="pref_sand_persistent_summary">When the sand runs out, ring until you stop it. Off: three quick chimes and nothing more</string>
     <string name="category_orrery">Solar system</string>
+    <string name="category_sky">Sky</string>
     <string name="category_widgets">Widgets</string>
     <string name="pref_calendar_numerals_title">Calendar numerals</string>
     <string name="pref_calendar_numerals_summary">How the days are written on the month page. The dial keeps its own.</string>
@@ -676,7 +675,7 @@
     <string name="pref_sundial_motto_summary">One a day, in Latin, as they were cut</string>
     <string name="pref_sundial_halves_title">Half hours</string>
     <string name="pref_sundial_halves_summary">Short marks between the hour lines</string>
-    <string name="pref_sundial_civil_shadow_title">A shadow for the clock\'s time</string>
+    <string name="pref_sundial_civil_shadow_title">The clock\'s own shadow</string>
     <string name="pref_sundial_civil_shadow_summary">A second shadow, in blue, where the first would fall if the sun kept the time on your phone. The gap between the two is the equation of time, where you stand in your time zone, and summer time</string>
     <string name="pref_sundial_roman_title">Roman hours</string>
     <string name="pref_sundial_roman_summary">I to XII, which is what a dial has always had on it</string>
@@ -835,4 +834,31 @@
     <string name="widget_weather_nowhere">No fix yet</string>
     <string name="widget_weather_waiting">Asking…</string>
     <string name="widget_weather_description">The sky and the temperature, and no clock at all</string>
+    <string name="weather_look_clear">Clear</string>
+    <string name="weather_look_cloudy">Cloudy</string>
+    <string name="weather_look_overcast">Overcast</string>
+    <string name="weather_look_rain">Rain</string>
+    <string name="weather_look_storm">Thunderstorm</string>
+    <string name="weather_wind">Wind</string>
+    <string name="weather_rain">Rain</string>
+    <string name="weather_cloud">Cloud</string>
+    <string name="weather_pressure">Pressure</string>
+    <string name="weather_degrees" translatable="false">%1$d°</string>
+    <string name="weather_kph" translatable="false">%1$d km/h</string>
+    <string name="weather_mm_hour" translatable="false">%1$s mm/h</string>
+    <string name="weather_mm" translatable="false">%1$s mm</string>
+    <string name="weather_percent" translatable="false">%1$d %%</string>
+    <string name="weather_hpa" translatable="false">%1$d hPa</string>
+    <string name="weather_hour_24" translatable="false">%1$dh</string>
+    <string name="weather_hour_am" translatable="false">%1$da</string>
+    <string name="weather_hour_pm" translatable="false">%1$dp</string>
+    <string name="weather_sources" translatable="false">Open-Meteo · MET Norway · wttr.in</string>
+    <string name="weather_answered">%1$d of %2$d services answered</string>
+    <string name="weather_age_now">just now</string>
+    <string name="weather_age_min">%1$d min ago</string>
+    <string name="weather_age_hours">%1$d h ago</string>
+    <string name="weather_card_off">The weather is off. Turning it on lets the clock ask three public forecast services — Open-Meteo, MET Norway and wttr.in — about your location rounded to a kilometre, every half hour. It is the only thing here that uses the network.</string>
+    <string name="weather_card_turn_on">Turn it on</string>
+    <string name="weather_card_nowhere">The weather needs a place to ask about, and nothing has told this clock where it is yet. Allow it your location and it will ask.</string>
+    <string name="weather_card_waiting">Asking three services…</string>
 </resources>

@@ -236,12 +236,15 @@ class NightBarTest {
                 // The one switch in this app that turns a network on.
                 "pref_weather",
                 "pref_show_weekday",
-                // Alarm
+                // Alarm — keyed, because on the one face that cannot wake
+                // anybody the heading is over the bells and nothing else.
+                "cat_alarms",
                 "pref_next_alarm", "pref_bells", "pref_alarm_markers",
                 // Calendar — the app's own, and the phone's other one.
                 "pref_agenda", "pref_birthday", "pref_cycle",
-                // General — one switch for the whole sky
-                "pref_orrery",
+                // General. The solar system's switch was here, while the
+                // token on the dial was its door; the token is the
+                // weather's now and the switch has gone with the door.
                 "pref_world_clock", "pref_world_seconds", "pref_world_cities",
                 // And the ways on
                 "pref_advanced", "pref_very_advanced", "pref_version"
@@ -266,13 +269,16 @@ class NightBarTest {
                 // and configurable all the same.
                 "pref_bell_marks", "pref_bell_style", "pref_bells_background",
                 "pref_bells_as_alarm", "pref_bell_priority", "pref_test_bells",
-                // The sky's furniture, behind the one switch that opens it.
+                // The sky's rows, under a heading named for whichever of
+                // them the face has: the moon on the dial's token, or
+                // what is drawn in the solar system.
+                "cat_sky",
                 "pref_moon_phase", "pref_comets", "pref_zodiac",
                 // The month page, which writes its days in its own numerals.
                 "pref_calendar_numerals", "pref_past_days",
                 // The digits' own settings, on the page only when the
                 // face is digital.
-                "pref_hour_24",
+                "pref_hour_24", "pref_digital_beep",
                 "pref_leading_zero", "pref_blink_colon", "pref_colon_breathes", "pref_colon_period",
                 "pref_hemisphere_view", "pref_hemisphere_sun_at",
                 "pref_hemisphere_compass",
@@ -283,10 +289,14 @@ class NightBarTest {
                 "pref_sundial_kind", "pref_sundial_plate",
                 "pref_sundial_latitude_fixed", "pref_sundial_latitude",
                 "pref_sundial_compass", "pref_sundial_roman",
-                "pref_sundial_halves", "pref_sundial_calendar", "pref_sundial_motto",
+                "pref_sundial_halves", "pref_sundial_civil_shadow",
+                "pref_sundial_calendar", "pref_sundial_motto",
                 "pref_sundial_glass",
                 "pref_segment_weight", "pref_bedside_seconds", "pref_bedside_date",
                 "pref_segment_ghosts",
+                // Keyed for the same reason as the one upstairs: over the
+                // sand alone, it is the sand's.
+                "cat_alarms_deep",
                 "pref_alarm_ramp", "pref_ring_timeout",
                 "pref_countdown_persistent", "pref_alarm_style",
                 "pref_gentle_flash", "pref_mark_colors"

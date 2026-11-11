@@ -124,6 +124,7 @@ object WeatherStore {
     fun refresh(context: Context, latitude: Double, longitude: Double): Weather.Sky {
         if (!wanted(context)) return Weather.Sky()
         val at = TimeKeeper.nowMs()
+        askedAt = at
         val lat = Math.round(latitude * 100.0) / 100.0
         val lon = Math.round(longitude * 100.0) / 100.0
         val readings = ArrayList<Weather.Reading>()
@@ -192,17 +193,72 @@ object WeatherStore {
         }
     }
 
-    /** Whether what is written down is old enough to be worth replacing. */
+    /**
+     * Whether what is written down is old enough to be worth replacing.
+     *
+     * Or half missing: a sky with no hours beside it is what a phone has
+     * that had the weather on before there were hours to keep, and it
+     * should not wait half an hour for them. That is asked about again
+     * at most every [RETRY_MS], because the other way to have a sky and
+     * no hours is for the two services that send them to be down — and
+     * asking those again every time the clock is looked at is how a
+     * clock gets itself blocked.
+     */
     fun stale(context: Context, nowMs: Long = TimeKeeper.nowMs()): Boolean {
         if (!wanted(context)) return false
         val sky = cached(context)
-        return !sky.known || nowMs - sky.atMs >= EVERY_MS
+        if (!sky.known || nowMs - sky.atMs >= EVERY_MS) return true
+        return forecastAt(context) == 0L && kotlin.math.abs(nowMs - askedAt) >= RETRY_MS
     }
 
-    /** And a fetch on a thread of its own, for the places that only draw. */
-    fun refreshInBackground(context: Context, latitude: Double, longitude: Double) {
+    /** How soon hours that did not come are asked for again. */
+    const val RETRY_MS = 5L * 60L * 1000L
+
+    /** When anybody was last asked anything, in this run of the app. */
+    @Volatile
+    private var askedAt = 0L
+
+    /** Whether a round of asking is under way, and who is waiting to hear how it went. */
+    private var asking = false
+    private val waiting = ArrayList<() -> Unit>()
+
+    /**
+     * And a fetch on a thread of its own, for the places that only draw.
+     *
+     * [done] is told, on the main thread, when the answers are in —
+     * which nothing used to be, so a reading that landed while the clock
+     * was on screen was not drawn until the next time something else
+     * redrew it. One round at a time: a second request while one is out
+     * waits for that one and does not ask the three services twice.
+     */
+    fun refreshInBackground(
+        context: Context,
+        latitude: Double,
+        longitude: Double,
+        done: (() -> Unit)? = null
+    ) {
         if (!wanted(context) || !stale(context)) return
-        Thread { refresh(context, latitude, longitude) }.apply {
+        synchronized(waiting) {
+            done?.let { waiting.add(it) }
+            if (asking) return
+            asking = true
+        }
+        val app = context.applicationContext
+        Thread {
+            try {
+                refresh(app, latitude, longitude)
+            } finally {
+                val told = synchronized(waiting) {
+                    asking = false
+                    ArrayList(waiting).also { waiting.clear() }
+                }
+                if (told.isNotEmpty()) {
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        for (each in told) each()
+                    }
+                }
+            }
+        }.apply {
             isDaemon = true
             start()
         }
@@ -212,6 +268,7 @@ object WeatherStore {
     fun forget(context: Context) {
         PreferenceManager.getDefaultSharedPreferences(context).edit()
             .remove(CACHE).remove(FORECAST).apply()
+        askedAt = 0L
     }
 
     // ------------------------------------------------------- writing down

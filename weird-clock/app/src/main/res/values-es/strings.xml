@@ -109,7 +109,7 @@
     <string name="alarm_sound_wolf">Lobo</string>
     <string name="alarm_sound_dog">Perro</string>
     <string name="pref_moon_phase_title">Fase lunar</string>
-    <string name="pref_moon_phase_summary">El sol mientras el sol está alto donde estás, y si no la luna con su fase. Usa tu ubicación.</string>
+    <string name="pref_moon_phase_summary">El sol mientras el sol está alto donde estás, y si no la luna con su fase. Usa tu ubicación. Tócalo para ver el clima.</string>
     <string name="alarm_when_today">hoy a las %1$s</string>
     <string name="alarm_when_tomorrow">mañana a las %1$s</string>
     <string name="alarm_when_weekday">el %1$s a las %2$s</string>
@@ -400,8 +400,6 @@
     <string name="orrery_aligned">%1$s alineados</string>
     <string name="orrery_julian_date">%1$d %2$s %3$s, juliano</string>
     <string name="year_before_christ">%1$d a. C.</string>
-    <string name="orrery_title">Sistema solar</string>
-    <string name="orrery_summary">Toca el sol o la luna de la esfera y las agujas dejan paso a los planetas. Arrastra uno y el resto le siguen.</string>
 
     <string name="exact_alarms_title">Las alarmas no son exactas en este móvil</string>
     <string name="exact_alarms_message">Este móvil no deja que la app ponga alarmas exactas. Siguen sonando, pero hasta un minuto tarde, el ahorro de batería puede moverlas, y el icono del despertador no aparece en la barra de estado.</string>
@@ -453,6 +451,7 @@
     <string name="pref_sand_persistent_title">Sonar hasta que lo pares</string>
     <string name="pref_sand_persistent_summary">Cuando se acaba la arena, suena hasta que lo pares. Apagado: tres campanadas rápidas y nada más</string>
     <string name="category_orrery">Sistema solar</string>
+    <string name="category_sky">Cielo</string>
     <string name="category_widgets">Widgets</string>
     <string name="pref_calendar_numerals_title">Numerales del calendario</string>
     <string name="pref_calendar_numerals_summary">Cómo se escriben los días en la página del mes. La esfera conserva los suyos.</string>
@@ -547,7 +546,7 @@
     <string name="pref_sundial_motto_summary">Uno al día, en latín, como se tallaban</string>
     <string name="pref_sundial_halves_title">Medias horas</string>
     <string name="pref_sundial_halves_summary">Marcas cortas entre las líneas horarias</string>
-    <string name="pref_sundial_civil_shadow_title">Una sombra para la hora oficial</string>
+    <string name="pref_sundial_civil_shadow_title">Sombra de la hora oficial</string>
     <string name="pref_sundial_civil_shadow_summary">Una segunda sombra, azul, donde caería la primera si el sol llevara la hora de tu teléfono. La distancia entre las dos es la ecuación del tiempo, tu sitio dentro del huso horario y el horario de verano</string>
     <string name="pref_sundial_roman_title">Horas romanas</string>
     <string name="pref_sundial_roman_summary">De I a XII, que es lo que ha llevado siempre un reloj de sol</string>
@@ -669,4 +668,21 @@
     <string name="widget_weather_nowhere">Sin posición</string>
     <string name="widget_weather_waiting">Preguntando…</string>
     <string name="widget_weather_description">El cielo y la temperatura, y ningún reloj</string>
+    <string name="weather_look_clear">Despejado</string>
+    <string name="weather_look_cloudy">Nuboso</string>
+    <string name="weather_look_overcast">Cubierto</string>
+    <string name="weather_look_rain">Lluvia</string>
+    <string name="weather_look_storm">Tormenta</string>
+    <string name="weather_wind">Viento</string>
+    <string name="weather_rain">Lluvia</string>
+    <string name="weather_cloud">Nubes</string>
+    <string name="weather_pressure">Presión</string>
+    <string name="weather_answered">Respondieron %1$d de %2$d servicios</string>
+    <string name="weather_age_now">ahora mismo</string>
+    <string name="weather_age_min">hace %1$d min</string>
+    <string name="weather_age_hours">hace %1$d h</string>
+    <string name="weather_card_off">El clima está apagado. Al encenderlo el reloj pregunta a tres servicios públicos — Open-Meteo, MET Norway y wttr.in — por tu ubicación redondeada a un kilómetro, cada media hora. Es lo único aquí que usa la red.</string>
+    <string name="weather_card_turn_on">Encenderlo</string>
+    <string name="weather_card_nowhere">El clima necesita un lugar por el que preguntar, y nada le ha dicho aún a este reloj dónde está. Permítele la ubicación y preguntará.</string>
+    <string name="weather_card_waiting">Preguntando a tres servicios…</string>
 </resources>

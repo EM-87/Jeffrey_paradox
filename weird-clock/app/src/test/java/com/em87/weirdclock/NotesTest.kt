@@ -55,6 +55,34 @@ class NotesTest {
     }
 
     /**
+     * No test moves the machine's time zone, except through the one place
+     * that knows how.
+     *
+     * See [PhoneZone] for why it matters and what goes wrong. Found the
+     * hard way: two tests of a sundial's shadow failed on a day when the
+     * weather's tests ran before them, and passed every time anybody
+     * looked. A rule that is one line long to break is held here rather
+     * than remembered.
+     */
+    @Test
+    fun `only one place moves the phone's time zone`() {
+        val tests = File("src/test/java/com/em87/weirdclock")
+            .listFiles { f -> f.name.endsWith(".kt") }.orEmpty()
+        assertTrue("no tests found — the working directory is not the module", tests.size > 100)
+        // Spelt in two halves, so that this file is not one of them.
+        val moving = "TimeZone." + "setDefault("
+        val movers = tests.filter { moving in it.readText() }.map { it.name }.sorted()
+        assertEquals(
+            "tests that change the JVM's default time zone themselves",
+            listOf("PhoneZone.kt"), movers
+        )
+        assertTrue(
+            "nothing in the app itself should move it either",
+            sources().none { moving in it.readText() }
+        )
+    }
+
+    /**
      * No doc block may close onto the opening of another.
      *
      * Both spellings count. A note written on a single line closes its

@@ -112,6 +112,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private var countdownClockView: ClockView? = null
 
     private var calendarContainer: View? = null
+    private var weatherContainer: View? = null
+    private var weatherCardView: WeatherCardView? = null
     private var hourglassContainer: View? = null
 
     /** The clock with no hands, on the faces that have one. */
@@ -1172,7 +1174,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             pager.post { goTo(Card.CALENDAR, scroll = false) }
         }
         if (intent.getBooleanExtra(EXTRA_OPEN_SKY, false)) {
-            pager.post { goTo(Card.CLOCK, scroll = false); openSky() }
+            pager.post { openSky(scroll = false) }
+        }
+        if (intent.getBooleanExtra(EXTRA_OPEN_WEATHER, false)) {
+            // From the weather widget, to the card the weather has on a
+            // face that has one; the clock, on a face that has not.
+            pager.post { goTo(Card.WEATHER, scroll = false) }
         }
 
         // Back goes back. It never did: the app has one activity, so the
@@ -1397,10 +1404,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         if (intent.getBooleanExtra(EXTRA_OPEN_ALARMS, false)) goTo(Card.ALARM)
         if (intent.getBooleanExtra(EXTRA_OPEN_TIMER, false)) goTo(timerCard())
         if (intent.getBooleanExtra(EXTRA_OPEN_CALENDAR, false)) goTo(Card.CALENDAR)
-        if (intent.getBooleanExtra(EXTRA_OPEN_SKY, false)) {
-            goTo(Card.CLOCK)
-            openSky()
-        }
+        if (intent.getBooleanExtra(EXTRA_OPEN_SKY, false)) openSky()
+        if (intent.getBooleanExtra(EXTRA_OPEN_WEATHER, false)) goTo(Card.WEATHER)
         // A widget pinned to a clock, tapped while the app was already
         // open behind it: the same borrowing, and the same going back.
         intent.getStringExtra(EXTRA_SHOW_FACE)
@@ -1412,7 +1417,10 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 borrowedFace = wanted
                 if (wanted != face) {
                     recreateFor("borrowed $face->$wanted")
-                } else {
+                } else if (!intent.getBooleanExtra(EXTRA_OPEN_SKY, false)) {
+                    // Unless it asked for a card of that face as well:
+                    // the picture of the solar system asks for the face
+                    // that has the solar system and for the card it is on.
                     goTo(Card.CLOCK)
                 }
             }
@@ -1542,17 +1550,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     /**
-     * Opens the solar system on the main dial, if it is switched on.
+     * Goes to the solar system, on the face that has it.
      *
-     * Silently nothing if it is not: arriving from the widget is not a
-     * reason to turn on a setting somebody left off, and a card that
-     * opened something the settings say is off would be the app arguing
-     * with its own switches.
+     * It has a card of its own on the face that is a picture of the
+     * earth, and nowhere else: it used to open behind the sky token on
+     * the dial as well, and that token is the weather's door now. So the
+     * picture of the solar system on the home screen asks for that face
+     * along with the sky — see [OrreryWidgetProvider] — and arrives here
+     * wearing it. On any other face there is nothing to go to.
      */
-    private fun openSky() {
-        val cv = clockView ?: return
-        if (!cv.orreryEnabled) return
-        if (!cv.orreryShowing()) cv.toggleOrrery()
+    private fun openSky(scroll: Boolean = true) {
+        if (face.showsOrrery) goTo(Card.CALENDAR, scroll)
     }
 
     override fun onResume() {
@@ -1863,7 +1871,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     /** C-1 calendar / S-1 stopwatch. */
     private fun bindLeftPage(root: View) {
         calendarContainer = root.findViewById(R.id.calendar_container)
+        weatherContainer = root.findViewById(R.id.weather_container)
         hideCardsThisFaceHasNot()
+        weatherCardView = root.findViewById<WeatherCardView>(R.id.weather_card_view).also { card ->
+            // The token at the top of the card is the one on the dial,
+            // grown: pressing it goes back to where it lives.
+            card.onLeave = { goHomeToClock() }
+            card.onSwitchOn = { switchWeatherOn() }
+        }
+        root.findViewById<View>(R.id.weather_back_button).setOnClickListener { goHomeToClock() }
         calendarView = root.findViewById<CalendarPageView>(R.id.calendar_view).also {
             it.onDayTap = { day -> onCalendarDayTap(day) }
             it.onMonthChanged = { refreshCalendarMarks() }
@@ -2753,6 +2769,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     /** For the tests: the sky where the calendar would be. */
     internal fun orreryCardForTest(): ClockView? = orreryCardView
+
+    /** For the tests: the weather's card, on the face that has one. */
+    internal fun weatherCardForTest(): WeatherCardView? = weatherCardView
 
     /** And the month page, which is gone on the face that swaps it. */
     internal fun calendarViewForTest(): CalendarPageView? = calendarView
@@ -3941,14 +3960,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // says, because there it is feedback rather than decoration — see
         // applyMode(). Without this, anything that reapplies preferences
         // mid-wind would take it away under the user's finger.
-        // The sky's one switch puts its own door on the dial. It used to
-        // hang off the moon complication, which meant the switch a person
-        // actually wanted did nothing until they had found and turned on a
-        // different one — see [Prefs.ORRERY].
-        val sky = prefs.getBoolean(Prefs.ORRERY, false)
-        cv.showMoonPhase = dialJob != null || skyTokenWanted()
-        cv.moonPhaseShown = moonPhaseWanted()
-        cv.orreryEnabled = dialJob == null && sky
+        dressSkyToken(cv, setting = dialJob != null)
         cv.cometsEnabled = prefs.getBoolean(Prefs.COMETS, false)
         cv.zodiacShown = prefs.getBoolean(Prefs.ZODIAC, false)
         // The shadows want the sun where it actually is, so they want a
@@ -4061,14 +4073,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // draw immediately, and a fetch started behind it when that is old
         // — see [WeatherStore], the one thing in this app that opens a
         // socket, and only ever with the switch on.
-        val outside = WeatherStore.cached(this)
-        cv.weather = Weather.look(outside)
-        cv.weatherSure = outside.cloudPercent.trust != Weather.Trust.LONE
-        if (WeatherStore.wanted(this) && DayNight.hasFix()) {
-            WeatherStore.refreshInBackground(
-                this, DayNight.latitudeNow(), DayNight.longitudeNow()
-            )
-        }
+        showWeather()
+        askTheSky()
 
         calendarView?.let {
             it.theme = cv.theme
@@ -4245,6 +4251,87 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     private fun moonPhaseWanted(): Boolean = DialSettings.moonPhaseWanted(prefs)
 
+    /**
+     * The sky token on the main dial: whether it is there, what it
+     * tracks, and where pressing it goes.
+     *
+     * Asked in two places — when the settings are applied, and again when
+     * the dial goes back to being a clock after a time has been wound on
+     * it — and written once, because it was two copies of one rule the
+     * last time and the copies came apart.
+     *
+     * It is there while a time is being wound whatever the settings say,
+     * as the feedback that says which seven has been landed on, and it is
+     * not a door then: a dial borrowed to set an alarm is not on its way
+     * anywhere. Otherwise what is behind it is the weather's card, on the
+     * face that has one. The solar system is not behind it any more; it
+     * is a card of its own on the face that is a picture of the earth.
+     */
+    private fun dressSkyToken(dial: ClockView, setting: Boolean) {
+        dial.showMoonPhase = setting || skyTokenWanted()
+        dial.moonPhaseShown = moonPhaseWanted()
+        dial.onSkyTokenTap =
+            if (!setting && Card.WEATHER in face.cards) { { goTo(Card.WEATHER) } } else null
+    }
+
+    /**
+     * Everything on screen that shows the weather, from what is written
+     * down: the marks round the dial's token, the two brass instruments
+     * on the plate, and the card.
+     *
+     * One function, called when the settings are applied and again when
+     * an answer lands. Nothing used to be told when one landed, so a
+     * reading fetched while the clock was being looked at was on the
+     * dial the next time the app was opened and not before.
+     */
+    private fun showWeather() {
+        val outside = WeatherStore.cached(this)
+        clockView?.let {
+            it.weather = Weather.look(outside)
+            it.weatherSure = outside.cloudPercent.trust != Weather.Trust.LONE
+        }
+        sundialView?.outside = outside
+        weatherCardView?.let { card ->
+            clockView?.let { card.theme = it.theme }
+            card.hour24 = android.text.format.DateFormat.is24HourFormat(this)
+            val ahead = WeatherStore.forecast(this)
+            card.sky = outside
+            card.hours = ahead
+            card.missing = when {
+                !WeatherStore.wanted(this) -> WeatherCardView.Missing.OFF
+                !DayNight.hasFix() -> WeatherCardView.Missing.NOWHERE
+                !outside.known && ahead.isEmpty() -> WeatherCardView.Missing.WAITING
+                else -> WeatherCardView.Missing.NOTHING
+            }
+        }
+    }
+
+    /**
+     * Asks the services again if what is written down is old, and shows
+     * what comes back when it does.
+     *
+     * Only with the switch on and a place to ask about — see
+     * [WeatherStore], the one thing in this app that opens a socket.
+     */
+    private fun askTheSky() {
+        if (!WeatherStore.wanted(this) || !DayNight.hasFix()) return
+        WeatherStore.refreshInBackground(this, DayNight.latitudeNow(), DayNight.longitudeNow()) {
+            if (!isDestroyed) showWeather()
+        }
+    }
+
+    /**
+     * The switch on the weather's own card.
+     *
+     * The same switch as the one in the settings, pressed where its being
+     * off was noticed: the card says what turning it on will do, in the
+     * settings' own words, before it offers to.
+     */
+    private fun switchWeatherOn() {
+        prefs.edit().putBoolean(Prefs.WEATHER, true).apply()
+        applyPreferences()
+    }
+
     private fun readNumeralStyle(key: String = Prefs.NUMERALS): ClockView.NumeralStyle =
         DialSettings.numerals(prefs, key)
 
@@ -4311,6 +4398,13 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // diagonal the pager takes the old page away in the same frame, so
         // there is nothing left there to fade.
         applyRow(wasRow, leaving.takeIf { wasPage == card.page })
+        // Somebody has come to look at the weather: what is written down
+        // is read again, so an hour that has gone since is off the card,
+        // and asked about again if it is old.
+        if (card == Card.WEATHER) {
+            showWeather()
+            askTheSky()
+        }
     }
 
     /**
@@ -4387,7 +4481,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         Card.CLOCK -> clockView.takeIf { face.hands }
         Card.STOPWATCH -> stopwatchClockView
         Card.REVERSE -> countdownClockView
-        Card.HOURGLASS, Card.CALENDAR, Card.ALARM -> null
+        Card.HOURGLASS, Card.CALENDAR, Card.WEATHER, Card.ALARM -> null
     }
 
     /**
@@ -4423,6 +4517,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun containerOf(card: Card): View? = when (card) {
         Card.HOURGLASS -> hourglassContainer
         Card.CALENDAR -> calendarContainer
+        Card.WEATHER -> weatherContainer
         Card.CLOCK -> clockContainer
         Card.ALARM -> alarmsContainer
         Card.STOPWATCH -> stopwatchContainer
@@ -4464,7 +4559,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // because it is the feedback that says which seven you have
                 // landed on. A length gets it too — it says whether the
                 // thing ends in the light.
-                it.showMoonPhase = true
+                dressSkyToken(it, setting = true)
                 // And no second hand. Nobody sets an alarm for twenty past
                 // seven and eleven seconds: the hand is one more thing to
                 // catch by accident on a face where two others have to be
@@ -4503,9 +4598,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
                 // and the sun sets under your finger, which is both the
                 // proof the sunrise arithmetic works and the only way to
                 // watch a whole day go past without waiting for one.
-                it.showMoonPhase = skyTokenWanted()
-                it.moonPhaseShown = moonPhaseWanted()
-                it.orreryEnabled = prefs.getBoolean(Prefs.ORRERY, false)
+                dressSkyToken(it, setting = false)
                 it.cometsEnabled = prefs.getBoolean(Prefs.COMETS, false)
                 it.zodiacShown = prefs.getBoolean(Prefs.ZODIAC, false)
                 it.handShadows = prefs.getBoolean(Prefs.HAND_SHADOWS, false)
@@ -5076,6 +5169,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
          * something a first-time tapper of the widget necessarily knows.
          */
         const val EXTRA_OPEN_SKY = "extra_open_sky"
+        const val EXTRA_OPEN_WEATHER = "extra_open_weather"
 
         /**
          * From a widget pinned to one clock: show me that clock, once.

@@ -46,22 +46,24 @@ object DialSettings {
      * the door went on passing against a switch that had stopped working
      * on the path a person actually takes.
      *
-     * The sky needs a door, so its own switch opens one. The moon
-     * complication puts one there on its own account, for somebody who
-     * wants the moon and no planets behind it.
+     * The weather needs somewhere to be drawn and a door to its card, so
+     * its own switch puts the token there. The moon complication puts
+     * one there on its own account, for somebody who wants the moon and
+     * no weather round it. It was the solar system's switch that did the
+     * first of those, while the solar system was what the token opened.
      */
     fun skyTokenWanted(prefs: SharedPreferences): Boolean =
-        prefs.getBoolean(Prefs.ORRERY, false) || prefs.getBoolean(Prefs.MOON_PHASE, false)
+        prefs.getBoolean(Prefs.WEATHER, false) || prefs.getBoolean(Prefs.MOON_PHASE, false)
 
     /**
      * And whether that glyph tracks the phase, or is a plain disc.
      *
-     * With the sky shut the token is only there because the complication
-     * asked for it, so it always tracks; with the sky open it is the
-     * complication's own switch that decides.
+     * The complication's own switch decides. A token that is only there
+     * for the weather is a sun by day and a plain moon by night — the
+     * thing the weather is drawn in front of, and no more than that.
      */
     fun moonPhaseWanted(prefs: SharedPreferences): Boolean =
-        !prefs.getBoolean(Prefs.ORRERY, false) || prefs.getBoolean(Prefs.MOON_PHASE, false)
+        prefs.getBoolean(Prefs.MOON_PHASE, false)
 
     fun numerals(prefs: SharedPreferences, key: String = Prefs.NUMERALS): ClockView.NumeralStyle =
         when (prefs.getString(key, Prefs.NUMERALS_ARABIC)) {
