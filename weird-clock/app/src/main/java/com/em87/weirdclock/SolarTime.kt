@@ -172,6 +172,16 @@ object SolarTime {
     }
 
     /**
+     * Where a body with this hour angle and declination stands, in degrees.
+     *
+     * For a sun that is not the real one: the sundial's second shadow is
+     * cast by the sun there would be if it kept the clock's time — the
+     * same declination, a different hour.
+     */
+    fun positionAt(latitudeDeg: Double, hourAngleDeg: Double, declinationDeg: Double): Position =
+        placeIn(latitudeDeg, Math.toRadians(hourAngleDeg), Math.toRadians(declinationDeg))
+
+    /**
      * Altitude and azimuth for anything with an hour angle and a
      * declination — the Sun, or the Moon standing in for it.
      */

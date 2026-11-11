@@ -220,6 +220,14 @@
             android:summary="@string/pref_sundial_halves_summary"
             android:title="@string/pref_sundial_halves_title" />
 
+        <!-- The clock's time beside the sun's: a second shadow, in blue.
+             Off by default, because one shadow is what a dial has. -->
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="pref_sundial_civil_shadow"
+            android:summary="@string/pref_sundial_civil_shadow_summary"
+            android:title="@string/pref_sundial_civil_shadow_title" />
+
         <!-- Three calendars, where there was a switch for one. The old
              yes-or-no is still written down on every phone that turned it
              on, and Sundial.Reckoning.of reads it. -->
@@ -499,7 +507,11 @@
 
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="@string/category_alarms">
+    <!-- Keyed for the same reason as the heading on the first screen:
+         on a face with no alarm the one row left here is the sand's. -->
+    <PreferenceCategory
+        android:key="cat_alarms_deep"
+        android:title="@string/category_alarms">
 
         <SwitchPreferenceCompat
             android:defaultValue="true"

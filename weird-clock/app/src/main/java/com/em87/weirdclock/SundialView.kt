@@ -99,6 +99,13 @@ class SundialView @JvmOverloads constructor(
         set(value) { field = value; invalidate() }
 
     /**
+     * Whether a second shadow lies where the first would if the sun kept
+     * the clock's time — see [Prefs.SUNDIAL_CIVIL_SHADOW].
+     */
+    var civilShadow: Boolean = false
+        set(value) { field = value; invalidate() }
+
+    /**
      * Whether the dial is in your hand rather than on a table.
      *
      * With it off, the dial takes it on trust that somebody has laid it
@@ -166,7 +173,16 @@ class SundialView @JvmOverloads constructor(
     internal var atMs: Long? = null
         set(value) { field = value; invalidate() }
 
-    private fun nowMs(): Long = atMs ?: TimeKeeper.nowMs()
+    /**
+     * The instant itself, and not the one the dials are shown.
+     *
+     * [TimeKeeper] hands every dial a time moved to the sun's when "solar
+     * time" is switched on, which is how a dial with hands is made to keep
+     * it. This face keeps it by being what it is: handed the moved time,
+     * it worked out where the sun was at an instant that was already the
+     * sun's, and the shadow stood out by the same amount again.
+     */
+    private fun nowMs(): Long = atMs ?: (TimeKeeper.nowMs() - TimeKeeper.solarOffsetMs)
 
     private val ink = Paint(Paint.ANTI_ALIAS_FLAG)
     private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
@@ -196,6 +212,8 @@ class SundialView @JvmOverloads constructor(
      */
     private class Sky(
         val hoursFromNoon: Double,
+        /** The same, by the clock on the wall rather than by the sun. */
+        val clockHoursFromNoon: Double,
         val altitude: Double,
         val azimuth: Double,
         val declination: Double,
@@ -206,8 +224,12 @@ class SundialView @JvmOverloads constructor(
         val ms = nowMs()
         val at = SolarTime.position(latitude, longitude, ms)
         val calendar = java.util.Calendar.getInstance().apply { timeInMillis = ms }
+        val clock = calendar.get(java.util.Calendar.HOUR_OF_DAY) +
+            calendar.get(java.util.Calendar.MINUTE) / 60.0 +
+            calendar.get(java.util.Calendar.SECOND) / 3600.0
         return Sky(
             hoursFromNoon = SolarTime.hourAngleDeg(longitude, ms) / Sundial.DEGREES_PER_HOUR,
+            clockHoursFromNoon = clock - 12.0,
             altitude = at.altitudeDeg,
             azimuth = at.azimuthDeg,
             declination = SolarTime.declinationDeg(ms),
@@ -492,9 +514,7 @@ class SundialView @JvmOverloads constructor(
         canvas: Canvas, cx: Float, cy: Float, r: Float, sky: Sky, hangs: Boolean
     ) {
         shadowRay = null
-        val ideal = Sundial.shadowAngle(
-            kind, latitude, sky.hoursFromNoon, sky.altitude, sky.declination
-        ) ?: return
+        clockShadowRay = null
         // Held in the hand, the shadow goes where the sun really puts it.
         //
         // It used to be drawn on the hour line for the time whatever the
@@ -515,18 +535,66 @@ class SundialView @JvmOverloads constructor(
         // only leaned. Without that the mode was a picture being spun.
         val pointing = compass && Sundial.pointable(kind) && phoneBearing != null
         val held = if (!pointing) null else plateAxes()
+
+        // The clock's shadow first, so the sun's lies over it where they
+        // cross: the sun's is the one that is really there.
+        //
+        // Cast by a sun that is not: the one there would be if it kept the
+        // time on the phone — the same declination, and an hour angle read
+        // off the clock instead of off the sky. Only while the real one is
+        // up, because a dial that shows a shadow after sunset is telling
+        // the one lie a dial cannot tell.
+        if (civilShadow && sky.altitude > 0.0) {
+            val clockSun = SolarTime.positionAt(
+                latitude, sky.clockHoursFromNoon * Sundial.DEGREES_PER_HOUR, sky.declination
+            )
+            val onTheLine = Sundial.shadowAngle(
+                kind, latitude, sky.clockHoursFromNoon, clockSun.altitudeDeg, sky.declination
+            )
+            val angle = when {
+                onTheLine == null -> null
+                held == null -> onTheLine
+                else -> Sundial.shadowOnPlate(
+                    clockSun.altitudeDeg, clockSun.azimuthDeg, held[0], held[1], held[2], latitude
+                )
+            }
+            if (angle != null) {
+                clockShadowRay = drawWedge(
+                    canvas, cx, cy, r, angle, Sundial.shadowReach(clockSun.altitudeDeg),
+                    hangs, CLOCK_SHADOW, CLOCK_SHADOW_ALPHA
+                )
+            }
+        }
+
+        val ideal = Sundial.shadowAngle(
+            kind, latitude, sky.hoursFromNoon, sky.altitude, sky.declination
+        ) ?: return
         val angle =
             if (held == null) ideal
             else Sundial.shadowOnPlate(
                 sky.altitude, sky.azimuth, held[0], held[1], held[2], latitude
             ) ?: return
-        val reach = Sundial.shadowReach(sky.altitude) * r * 1.45f
+        shadowRay = drawWedge(
+            canvas, cx, cy, r, angle, Sundial.shadowReach(sky.altitude), hangs, BLACK, 70
+        )
+    }
+
+    /**
+     * One shadow: a wedge from the foot of the style, in [colour].
+     *
+     * Comes back with where it was drawn — its foot, its direction and
+     * how far it goes — for whoever wants to walk down it.
+     */
+    private fun drawWedge(
+        canvas: Canvas, cx: Float, cy: Float, r: Float,
+        angle: Double, share: Float, hangs: Boolean, colour: Int, darkest: Int
+    ): FloatArray {
+        val reach = share * r * 1.45f
         val a = Math.toRadians(angle - 90.0 + if (hangs) 180.0 else 0.0)
         val dx = cos(a).toFloat()
         val dy = sin(a).toFloat()
         val nx = -dy
         val ny = dx
-        shadowRay = floatArrayOf(cx, cy, dx, dy, reach)
         canvas.save()
         platePath(width / 2f, height / 2f, r)
         canvas.clipPath(path)
@@ -547,14 +615,14 @@ class SundialView @JvmOverloads constructor(
         // of one.
         fill.shader = android.graphics.LinearGradient(
             cx, cy, cx + dx * reach, cy + dy * reach,
-            intArrayOf(BLACK, BLACK, BLACK and 0xFFFFFF),
+            intArrayOf(colour, colour, colour and 0xFFFFFF),
             floatArrayOf(0f, TIP_FADE, 1f),
             android.graphics.Shader.TileMode.CLAMP
         )
         for (pass in 0 until 3) {
             val spread = r * (0.030f + pass * 0.022f)
-            fill.color = BLACK
-            fill.alpha = 70 - pass * 18
+            fill.color = colour
+            fill.alpha = darkest - pass * 18 * darkest / 70
             path.reset()
             path.moveTo(cx + nx * spread * 0.55f, cy + ny * spread * 0.55f)
             path.lineTo(cx + dx * reach + nx * spread, cy + dy * reach + ny * spread)
@@ -566,6 +634,7 @@ class SundialView @JvmOverloads constructor(
         fill.shader = null
         fill.alpha = 255
         canvas.restore()
+        return floatArrayOf(cx, cy, dx, dy, reach)
     }
 
     /**
@@ -579,6 +648,20 @@ class SundialView @JvmOverloads constructor(
      */
     internal var shadowRay: FloatArray? = null
         private set
+
+    /**
+     * How the date was last cut: how wide, how tall, and the radius of
+     * the plate it was cut on. For the test that asks whether it fits.
+     */
+    internal var dateInk: FloatArray? = null
+        private set
+
+    /** And the clock's shadow, when there is one — see [civilShadow]. */
+    internal var clockShadowRay: FloatArray? = null
+        private set
+
+    /** For the tests: how far round the day the sun is, in hours from noon. */
+    internal fun hoursFromNoonForTest(): Double = sky().hoursFromNoon
 
     // -------------------------------------------------------- the gnomon
 
@@ -669,8 +752,18 @@ class SundialView @JvmOverloads constructor(
         if (showDate) {
             ink.alpha = 190
             ink.textSize = r * 0.10f
+            val label = dateLabel()
+            // The date sits near the bottom of the plate, between the two
+            // lowest hour numerals, and the longest thing it can say — the
+            // last days of Sagittarius — is wider than the gap between
+            // them: it was cut across the IV on one side and the VIII on
+            // the other. Cut smaller rather than cut through.
+            val room = r * DATE_ROOM
+            val wide = ink.measureText(label)
+            if (wide > room && wide > 0f) ink.textSize *= room / wide
+            dateInk = floatArrayOf(ink.measureText(label), ink.textSize, r)
             canvas.drawText(
-                dateLabel(), cx, cy + (if (hangs) -r * 0.60f else r * 0.66f) +
+                label, cx, cy + (if (hangs) -r * 0.60f else r * 0.66f) +
                     (if (hangs) -r * 0.14f else r * 0.14f), ink
             )
             ink.alpha = 255
@@ -1015,6 +1108,21 @@ class SundialView @JvmOverloads constructor(
 
         /** The shadow, which is black on every dial in every theme. */
         const val BLACK = 0xFF000000.toInt()
+
+        /**
+         * How wide the date may be cut, as a share of the plate's radius:
+         * what lies between the lowest two hour numerals, less a margin.
+         */
+        const val DATE_ROOM = 0.66f
+
+        /**
+         * The clock's shadow: a blue no stone and no shadow is, so that
+         * it cannot be taken for the sun's on any of the plates.
+         */
+        const val CLOCK_SHADOW = 0xFF2D6CDF.toInt()
+
+        /** A little more of it than the black is given: blue is paler. */
+        const val CLOCK_SHADOW_ALPHA = 96
 
         /**
          * How far along the shadow its tip starts giving out.

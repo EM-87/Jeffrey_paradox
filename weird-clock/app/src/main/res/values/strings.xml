@@ -526,6 +526,10 @@
     <string name="title_advanced">Advanced settings</string>
     <string name="title_very_advanced">Too-advanced settings</string>
     <string name="category_bells">Hourly bells</string>
+    <string name="category_bells_only">Bells</string>
+    <string name="category_sand">Hourglass</string>
+    <string name="pref_sand_persistent_title">Ring until stopped</string>
+    <string name="pref_sand_persistent_summary">When the sand runs out, ring until you stop it. Off: three quick chimes and nothing more</string>
     <string name="category_orrery">Solar system</string>
     <string name="category_widgets">Widgets</string>
     <string name="pref_calendar_numerals_title">Calendar numerals</string>
@@ -672,6 +676,8 @@
     <string name="pref_sundial_motto_summary">One a day, in Latin, as they were cut</string>
     <string name="pref_sundial_halves_title">Half hours</string>
     <string name="pref_sundial_halves_summary">Short marks between the hour lines</string>
+    <string name="pref_sundial_civil_shadow_title">A shadow for the clock\'s time</string>
+    <string name="pref_sundial_civil_shadow_summary">A second shadow, in blue, where the first would fall if the sun kept the time on your phone. The gap between the two is the equation of time, where you stand in your time zone, and summer time</string>
     <string name="pref_sundial_roman_title">Roman hours</string>
     <string name="pref_sundial_roman_summary">I to XII, which is what a dial has always had on it</string>
     <string-array name="sundial_kind_entries">

@@ -115,6 +115,16 @@ enum class Face(val key: String) {
         }
 
     /**
+     * Whether anything on this face counts down to nothing.
+     *
+     * Sand in a glass, or a chronograph run backwards, or both. Every face
+     * has one or the other today; asked rather than assumed, because the
+     * rows about what happens at the end of a countdown hang off it.
+     */
+    val hasCountdown: Boolean
+        get() = Card.HOURGLASS in cards || Card.REVERSE in cards
+
+    /**
      * Whether the calendar's card holds the solar system instead.
      *
      * A grid of days is the wrong neighbour for a face that is already a
@@ -344,6 +354,7 @@ object FaceOptions {
         Prefs.SUNDIAL_COMPASS,
         Prefs.SUNDIAL_MOTTO,
         Prefs.SUNDIAL_HALVES,
+        Prefs.SUNDIAL_CIVIL_SHADOW,
         Prefs.SUNDIAL_ROMAN,
         Prefs.SUNDIAL_CALENDAR,
         Prefs.SUNDIAL_GLASS
@@ -365,7 +376,10 @@ object FaceOptions {
         Prefs.ALARM_RAMP,
         Prefs.RING_TIMEOUT_MIN,
         Prefs.GENTLE_FLASH,
-        Prefs.COUNTDOWN_PERSISTENT
+        // Which of the two wins when the hour to strike is the hour to
+        // be woken at: a question with one side missing where nothing
+        // wakes anybody.
+        Prefs.BELL_PRIORITY
     )
 
     /** And the rows only the turning world has. */
@@ -390,6 +404,12 @@ object FaceOptions {
         key in sundialOnly -> face == Face.SUNDIAL
         key in hemisphereOnly -> face == Face.HEMISPHERE
         key in needsAnAlarm -> Card.ALARM in face.cards
+        // What happens when the sand runs out is a row about the sand.
+        // It was listed with the alarm's rows — it rings — and so went
+        // with them off the one face that has sand and no alarm, which
+        // left a glass that rang until it was stopped and nothing
+        // anywhere to say that it should not.
+        key == Prefs.COUNTDOWN_PERSISTENT -> face.hasCountdown
         key in readouts -> face.readsOutInDigits
         key in needsACalendar -> face.hasCalendar
         key in needsOtherCities -> face.showsOtherCities
@@ -443,6 +463,14 @@ object FaceOptions {
         // a heading about the planet.
         key == CAT_DIGITS && face == Face.HEMISPHERE -> R.string.category_readouts
         key == CAT_DIGITS && face == Face.SUNDIAL -> R.string.category_plate
+        // "Alarms", over the hourly bells and nothing else, on the one
+        // face that cannot wake anybody; and "Alarms" again on the second
+        // screen over the one row there that is about the sand. Each is
+        // named for what is left under it.
+        key == CAT_ALARMS && Card.ALARM !in face.cards -> R.string.category_bells_only
+        key == CAT_ALARMS_DEEP && Card.ALARM !in face.cards -> R.string.category_sand
+        key == Prefs.COUNTDOWN_PERSISTENT && Card.ALARM !in face.cards ->
+            R.string.pref_sand_persistent_title
         else -> null
     }
 
@@ -465,6 +493,9 @@ object FaceOptions {
                 // under a set of hands.
                 Prefs.NIGHT_DIM -> R.string.pref_night_dim_summary_sundial
                 Prefs.SHOW_DATE -> R.string.pref_show_date_summary_sundial
+                // "When the countdown ends" — on a face whose only
+                // countdown is sand.
+                Prefs.COUNTDOWN_PERSISTENT -> R.string.pref_sand_persistent_summary
                 "pref_advanced" -> R.string.pref_advanced_summary_sundial
                 else -> null
             }
@@ -506,5 +537,9 @@ object FaceOptions {
 
     /** And the one over the rows about how a number is written. */
     const val CAT_DIGITS = "cat_digits"
+
+    /** The two headings that say Alarms, on the first screen and the second. */
+    const val CAT_ALARMS = "cat_alarms"
+    const val CAT_ALARMS_DEEP = "cat_alarms_deep"
 
 }

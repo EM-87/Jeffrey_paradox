@@ -7,7 +7,7 @@ import java.util.Calendar
 import java.util.TimeZone
 
 /**
- * The date cut under the plate, in all three calendars.
+ * The date cut under the plate, in all four calendars.
  *
  * A sundial is the one face in this app where the calendar is a real
  * question rather than a joke. The instrument is older than the Gregorian
@@ -186,5 +186,68 @@ class SundialDateTest {
         for (reckoning in Sundial.Reckoning.entries) {
             assertEquals(reckoning, Sundial.Reckoning.of(reckoning.key, was = true))
         }
+    }
+
+    // ------------------------------------------------------ by the Sun
+
+    /** An instant in universal time, whatever zone the test is run in. */
+    private fun utc(year: Int, month: Int, day: Int, hour: Int, minute: Int, second: Int = 0): Long =
+        AstroCalendar.msOf(year, month, day) + ((hour * 60L + minute) * 60L + second) * 1000L
+
+    private fun bySun(ms: Long, roman: Boolean = true): String =
+        Sundial.dateLabel(ms, 0, Sundial.Reckoning.ZODIAC, roman)
+
+    /**
+     * The date a dial can read for itself: the Sun's place among the
+     * signs.
+     *
+     * Held against JPL Horizons, whose longitudes for these instants are
+     * the anchors of [EphemerisTest]: 111.9860° is twenty-one whole
+     * degrees into Cancer and so in its twenty-second, 197.3606° is in
+     * the eighteenth of Libra, 138.3497° in the nineteenth of Leo. A
+     * degree is counted the way a day of a month is — the first, not the
+     * nought-th — because the Sun goes about one a day and this is being
+     * read as a date.
+     */
+    @Test
+    fun `the Sun's place among the signs is where Horizons has the Sun`() {
+        assertEquals("XXII \u00b7 CANCER", bySun(utc(2026, 7, 14, 9, 43)))
+        assertEquals("XVIII \u00b7 LIBRA", bySun(utc(2026, 10, 10, 15, 50)))
+        assertEquals("XIX \u00b7 LEO", bySun(utc(1999, 8, 11, 11, 3, 5)))
+        assertEquals("22 CANCER", bySun(utc(2026, 7, 14, 9, 43), roman = false))
+    }
+
+    /**
+     * And the year turns at the equinox, to the minute Horizons gives.
+     *
+     * 14:46 UT on the 20th of March 2026 — the same anchor the one Sun is
+     * held to. A quarter of an hour before, the Sun is in the last degree
+     * of Pisces; a quarter of an hour after, in the first of Aries. It is
+     * also why the longitude is the one of the date and not the one the
+     * orrery draws from a line fixed in 2000, which in 2026 is a third of
+     * a degree out and by the year of Thales's eclipse thirty-six: his
+     * Sun, at 59.7254° of date, is in the last degree of Taurus, and
+     * measured from our equinox it would be in Aries.
+     */
+    @Test
+    fun `the signs begin at the equinox of the date`() {
+        assertEquals("XXX \u00b7 PISCES", bySun(utc(2026, 3, 20, 14, 31)))
+        assertEquals("I \u00b7 ARIES", bySun(utc(2026, 3, 20, 15, 1)))
+        assertEquals("XXX \u00b7 TAVRVS", bySun(utc(-584, 5, 28, 14, 22, 26)))
+    }
+
+    /** Twelve of them, in Latin, with no letter Rome did not have. */
+    @Test
+    fun `the signs are cut the way the mottoes are`() {
+        val signs = Sundial.signs()
+        assertEquals(12, signs.size)
+        assertEquals(12, signs.toSet().size)
+        for (sign in signs) {
+            assertTrue("$sign has a U in it", !sign.contains('U'))
+            assertTrue("$sign has a J in it", !sign.contains('J'))
+            assertEquals("$sign is not in capitals", sign.uppercase(), sign)
+        }
+        assertEquals("ARIES", signs.first())
+        assertEquals("PISCES", signs.last())
     }
 }

@@ -448,6 +448,10 @@
     <string name="title_advanced">Opciones avanzadas</string>
     <string name="title_very_advanced">Opciones demasiado avanzadas</string>
     <string name="category_bells">Campanadas</string>
+    <string name="category_bells_only">Campanas</string>
+    <string name="category_sand">Reloj de arena</string>
+    <string name="pref_sand_persistent_title">Sonar hasta que lo pares</string>
+    <string name="pref_sand_persistent_summary">Cuando se acaba la arena, suena hasta que lo pares. Apagado: tres campanadas rápidas y nada más</string>
     <string name="category_orrery">Sistema solar</string>
     <string name="category_widgets">Widgets</string>
     <string name="pref_calendar_numerals_title">Numerales del calendario</string>
@@ -543,6 +547,8 @@
     <string name="pref_sundial_motto_summary">Uno al día, en latín, como se tallaban</string>
     <string name="pref_sundial_halves_title">Medias horas</string>
     <string name="pref_sundial_halves_summary">Marcas cortas entre las líneas horarias</string>
+    <string name="pref_sundial_civil_shadow_title">Una sombra para la hora oficial</string>
+    <string name="pref_sundial_civil_shadow_summary">Una segunda sombra, azul, donde caería la primera si el sol llevara la hora de tu teléfono. La distancia entre las dos es la ecuación del tiempo, tu sitio dentro del huso horario y el horario de verano</string>
     <string name="pref_sundial_roman_title">Horas romanas</string>
     <string name="pref_sundial_roman_summary">De I a XII, que es lo que ha llevado siempre un reloj de sol</string>
     <string-array name="sundial_kind_entries">

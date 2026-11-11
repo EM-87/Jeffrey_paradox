@@ -97,7 +97,11 @@
 
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="@string/category_alarms">
+    <!-- Keyed so the heading can be renamed with the face: on the one
+         face with no alarm, the only row left under it is the bells. -->
+    <PreferenceCategory
+        android:key="cat_alarms"
+        android:title="@string/category_alarms">
 
         <!-- A flag on the face saying one is armed. Not "when is my
              alarm", which is what the list is for: "did I set one". -->

@@ -350,6 +350,19 @@ object Prefs {
     const val SUNDIAL_GLASS = "pref_sundial_glass"
 
     /**
+     * Whether the plate carries a second shadow, for the clock's time.
+     *
+     * A sundial tells the sun's time and the phone in your pocket tells
+     * the zone's, and the two are seldom the same: the equation of time
+     * is a quarter of an hour either way, the width of a zone is an hour
+     * across, and summer time is another whole hour on top. The second
+     * shadow, a blue one, lies where the first would if the sun kept the
+     * clock's time, so the gap between the two is all of that at a
+     * glance. Off unless asked for: one shadow is what a dial has.
+     */
+    const val SUNDIAL_CIVIL_SHADOW = "pref_sundial_civil_shadow"
+
+    /**
      * Whether the home-screen sundial hangs on a wall or lies on the
      * ground.
      *

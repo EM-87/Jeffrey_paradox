@@ -527,7 +527,7 @@ class SundialShotTest {
     }
 
     /**
-     * The date cut in all three calendars, so somebody can look at them.
+     * The date cut in all four calendars, so somebody can look at them.
      *
      * "II Akhet 15" is longer than "XXI · VI" and is the reason to take a
      * picture rather than to trust the string: a label wide enough to run
@@ -535,7 +535,7 @@ class SundialShotTest {
      * whatever it says.
      */
     @Test
-    fun `the date in all three calendars`() {
+    fun `the date in all four calendars`() {
         for (reckoning in Sundial.Reckoning.entries) {
             assertTrue(
                 shoot(
@@ -544,5 +544,30 @@ class SundialShotTest {
                 ) > 3
             )
         }
+        // And the longest thing the plate can be asked to say, where the
+        // plate is narrowest: the twenty-eighth degree of Sagittarius, the
+        // week before Christmas.
+        val advent = java.util.GregorianCalendar(java.util.TimeZone.getTimeZone("UTC")).apply {
+            set(2026, java.util.Calendar.DECEMBER, 19, 12, 0, 0)
+        }.timeInMillis
+        assertEquals(
+            "XXVIII \u00b7 SAGITTARIVS",
+            Sundial.dateLabel(advent, 0, Sundial.Reckoning.ZODIAC, roman = true)
+        )
+        val long = dial(showDate = true, reckoning = Sundial.Reckoning.ZODIAC, at = advent)
+        assertTrue(shoot(long, "sundial-date-zodiac-longest") > 3)
+        // It was cut at the size every date is and ran through the IV on
+        // one side and the VIII on the other. Two thirds of the radius is
+        // what lies between them.
+        val (wide, _, radius) = long.dateInk!!
+        assertTrue(
+            "the longest date is ${wide / radius} of the radius wide, and the numerals are in the way",
+            wide <= radius * 0.66f + 0.5f
+        )
+        // And a short one is left at the size it always was.
+        val short = dial(showDate = true, reckoning = Sundial.Reckoning.GREGORIAN)
+        shoot(short, "sundial-date-gregorian")
+        val (_, size, r) = short.dateInk!!
+        assertEquals("a short date was cut smaller too", r * 0.10f, size, 0.01f)
     }
 }

@@ -4636,6 +4636,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         dial.roman = prefs.getBoolean(Prefs.SUNDIAL_ROMAN, true)
         dial.motto = prefs.getBoolean(Prefs.SUNDIAL_MOTTO, true)
         dial.halfHours = prefs.getBoolean(Prefs.SUNDIAL_HALVES, true)
+        dial.civilShadow = prefs.getBoolean(Prefs.SUNDIAL_CIVIL_SHADOW, false)
         dial.showDate = prefs.getBoolean(Prefs.SHOW_DATE, false)
         dial.reckoning = Sundial.Reckoning.of(
             prefs.getString(Prefs.SUNDIAL_CALENDAR, null),

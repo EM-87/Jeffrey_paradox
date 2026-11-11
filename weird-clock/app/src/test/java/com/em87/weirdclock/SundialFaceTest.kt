@@ -125,7 +125,7 @@ class SundialFaceTest {
     fun `a face with no alarm has no rows about one`() {
         for (key in listOf(
             Prefs.ALARM_RAMP, Prefs.RING_TIMEOUT_MIN,
-            Prefs.GENTLE_FLASH, Prefs.COUNTDOWN_PERSISTENT
+            Prefs.GENTLE_FLASH, Prefs.BELL_PRIORITY
         )) {
             assertFalse(
                 "$key is on a clock that cannot wake anybody",
@@ -133,6 +133,17 @@ class SundialFaceTest {
             )
             assertTrue("$key vanished from the dial", FaceOptions.shows(Face.ANALOG, key))
             assertTrue("$key vanished from the digits", FaceOptions.shows(Face.DIGITAL, key))
+        }
+        // What happens when the sand runs out was in that list, and it is
+        // not a row about an alarm: it is a row about the sand, which this
+        // face has. Hidden, the glass went on ringing until it was stopped
+        // — that is what the setting does when nobody has touched it — on
+        // the one face with no way to say otherwise. See [SundialMenuTest].
+        for (face in Face.entries) {
+            assertTrue(
+                "the sand's row is missing on $face",
+                FaceOptions.shows(face, Prefs.COUNTDOWN_PERSISTENT)
+            )
         }
     }
 

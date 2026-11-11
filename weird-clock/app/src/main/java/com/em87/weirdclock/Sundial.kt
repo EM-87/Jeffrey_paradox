@@ -409,18 +409,30 @@ object Sundial {
     /**
      * Which calendar the date under the plate is read in.
      *
-     * Three, and not one of them is offered as a better calendar than
+     * Four, and not one of them is offered as a better calendar than
      * ours. The Julian is the one the plate would have been cut under —
      * every dial older than 1582 was made in it, Britain read dials by it
      * until 1752 — and the Egyptian is the oldest calendar anybody ever
      * did arithmetic in, which is what a shadow clock is for. Ptolemy
      * computed in it and so did Copernicus, a thousand years after the
      * last person in Egypt used it for anything.
+     *
+     * The fourth is the only one of them a sundial can read for itself.
+     * A calendar of months is kept by counting, or — in Sumer and in
+     * Babylon, where months began when the new crescent was seen — by
+     * watching the Moon, and a dial knows nothing about either. What it
+     * does know is the Sun: its shadow at noon is longest at one solstice
+     * and shortest at the other, and where it falls between says how far
+     * round the year the Sun has got. That is a date, and it is the one
+     * real dials carry — a line for each sign, cut across the hour lines
+     * for the shadow's tip to cross. The twelve signs of thirty degrees
+     * are Babylonian, of about the fifth century before Christ.
      */
     enum class Reckoning(val key: String) {
         GREGORIAN("gregorian"),
         JULIAN("julian"),
-        EGYPTIAN("egyptian");
+        EGYPTIAN("egyptian"),
+        ZODIAC("zodiac");
 
         companion object {
             /**
@@ -488,8 +500,31 @@ object Sundial {
                 // how every Egyptologist since Champollion has written it.
                 return "${Roman.of(date.monthOfSeason)} $season ${figure(date.day)}"
             }
+            Reckoning.ZODIAC -> {
+                // The Sun's place from the equinox of the date, which is
+                // what a season is measured from — see [Ephemeris]. Thirty
+                // degrees to a sign and the Sun goes about one a day, so
+                // the degree it is in is counted the way a day of a month
+                // is: the first, not the nought-th.
+                val longitude = Ephemeris.sunLongitudeOfDate(atMs)
+                val sign = (longitude / 30.0).toInt().coerceIn(0, 11)
+                val degree = (longitude - sign * 30.0).toInt().coerceIn(0, 29) + 1
+                return if (roman) "${Roman.of(degree)} \u00b7 ${SIGNS[sign]}" else "$degree ${SIGNS[sign]}"
+            }
             Reckoning.GREGORIAN -> Unit
         }
         return if (roman) "${Roman.of(day)} \u00b7 ${Roman.of(month)}" else "$day / $month"
     }
+
+    /**
+     * The twelve signs, from the March equinox, as a mason cuts them:
+     * in Latin, and with a V where we would write a U.
+     */
+    private val SIGNS = arrayOf(
+        "ARIES", "TAVRVS", "GEMINI", "CANCER", "LEO", "VIRGO",
+        "LIBRA", "SCORPIVS", "SAGITTARIVS", "CAPRICORNVS", "AQVARIVS", "PISCES"
+    )
+
+    /** For the test that checks nobody has typed a J or a U. */
+    internal fun signs(): Array<String> = SIGNS
 }
