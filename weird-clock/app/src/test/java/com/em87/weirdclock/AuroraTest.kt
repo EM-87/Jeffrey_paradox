@@ -156,6 +156,16 @@ class AuroraTest {
         assertEquals(40, half[90 * w + w / 2 - 1].toInt() and 0xFF)
         assertEquals(0, half[90 * w + w / 2 - 2].toInt() and 0xFF)
 
+        // One dark place in the middle of a lit quarter cannot speak for
+        // the sky over it — one of nine is less than a quarter — and
+        // two can.
+        val (blockRaw, blockClean) = flat(w, h, 47)
+        for (y in 20..30) for (x in 20..30) blockClean[y * w + x] = 200.toByte()
+        blockClean[25 * w + 25] = 7
+        assertEquals(0, NightLights.haze(blockRaw, blockClean, w, h)!![25 * w + 25].toInt() and 0xFF)
+        blockClean[25 * w + 26] = 7
+        assertEquals(40, NightLights.haze(blockRaw, blockClean, w, h)!![25 * w + 25].toInt() and 0xFF)
+
         // Two pictures of different shapes are not two readings of a night.
         assertNull(NightLights.haze(ByteArray(100), ByteArray(50), 10, 10))
         assertNull(NightLights.haze(ByteArray(0), ByteArray(0), 0, 0))
@@ -699,6 +709,13 @@ class AuroraTest {
         // down in the far south.
         assertTrue(moon(72.0, "2026-11-02") > 10.0)
         assertTrue(moon(-60.0, "2026-11-02") < NightLights.MOON_LIMIT_DEG)
+        // At the satellite's hour and not at half past one: it is over
+        // seventy-five north at ten to four, by when a waning crescent
+        // has climbed.
+        val noon = DailyImageStore.msOf("2026-11-05")!! + DailyImageStore.DAY_MS / 2
+        val atHalfPastOne = SolarTime.moonPosition(75.0, (1.5 - 12.0) * 15.0, noon).altitudeDeg
+        println("MEASURE the crescent of 5 Nov 2026 over 75 N: %.1f deg at half past one, %.1f at the satellite's hour".format(atHalfPastOne, moon(75.0, "2026-11-05")))
+        assertTrue(moon(75.0, "2026-11-05") > atHalfPastOne + 3.0)
         assertNull(NightLights.moonAtOverpass(0.0, "never"))
         assertEquals(-6.0, NightLights.MOON_LIMIT_DEG, 0.0)
     }
@@ -761,6 +778,11 @@ class AuroraTest {
         // not the hundred of the moonlit half of the band.
         assertEquals(40 + NightLights.HAZE_MARGIN, NightLights.hazeFloor(haze, rawLum, cleanLum, w, h, rows))
         assertEquals(100 + NightLights.HAZE_MARGIN, NightLights.hazeFloor(blind, rawLum, cleanLum, w, h))
+        // And whatever is in the moonlit rows of a field, the floor does
+        // not look at them: of the blind one it reads the row the
+        // moonlight was smeared into, which is sixty, and not the
+        // hundred above it.
+        assertEquals(60 + NightLights.HAZE_MARGIN, NightLights.hazeFloor(blind, rawLum, cleanLum, w, h, rows))
         // Rows that are not the picture's are nobody's.
         assertNull(NightLights.haze(rawLum, cleanLum, w, h, BooleanArray(h - 1)))
         assertEquals(255, NightLights.hazeFloor(haze, rawLum, cleanLum, w, h, BooleanArray(h - 1)))
@@ -1067,7 +1089,68 @@ class AuroraTest {
         // Once: asked again, it is the same field and not another megabyte.
         assertSame(sky.haze, NightLightStore.skyFor(context, now)!!.haze)
 
-        // One layer: no haze, and the floors that go with it.
+        // The store asks the moon about the night the picture is of.
+        // The same two pictures filed under the 2nd of November, when a
+        // quarter moon stood over the north: no haze under it.
+        val sea = Pair((5.0 + 180) / 360, (90 - 68.0) / 180)
+        NightLightStore.forget(context)
+        val moonlit = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
+            clear()
+            set(2026, java.util.Calendar.NOVEMBER, 2, 20, 0, 0)
+        }.timeInMillis
+        assertTrue(NightLightStore.refresh(context, moonlit))
+        val under = NightLightStore.skyFor(context, moonlit)!!
+        assertEquals("2026-11-02", under.raw!!.day)
+        assertTrue("the raw night has a reading under the oval", under.raw!!.at(sea.first, sea.second) > 0)
+        assertEquals("the haze was read off a moonlit sky", 0, under.hazeAt(sea.first, sea.second))
+        // And its floor is the floor of the rows the moon was down for,
+        // which that night were a strip of the far south: read off the
+        // whole band, the blank rows under the moon would count as the
+        // darkest sky there is.
+        val moonless = NightLights.moonlessRows(under.raw!!.height, "2026-11-02", under.raw!!.filledFrom)
+        val byTheRows = NightLights.hazeFloor(
+            under.haze!!, under.raw!!.lum, under.clean!!.lum, under.raw!!.width, under.raw!!.height, moonless
+        )
+        val blindly = NightLights.hazeFloor(
+            under.haze!!, under.raw!!.lum, under.clean!!.lum, under.raw!!.width, under.raw!!.height
+        )
+        assertTrue("the rows make no difference to this night's floor: $byTheRows and $blindly", byTheRows != blindly)
+        assertEquals("the store's floor is not the floor of the moonless rows", byTheRows, under.hazeFloor)
+
+        // And about the night before, when the picture is filled in
+        // from it. On the 7th the moon was down for seventy-seven north
+        // and on the 6th it was not.
+        val h = sky.raw!!.height
+        val row = ((90 - 77.0) / 180 * h).toInt()
+        println(
+            "MEASURE the moon over 77 N at the overpass: %.1f deg on the 6th, %.1f on the 7th of Nov 2026"
+                .format(NightLights.moonAtOverpass(77.0, "2026-11-06"), NightLights.moonAtOverpass(77.0, "2026-11-07"))
+        )
+        assertTrue(NightLights.moonlessRows(h, "2026-11-07")[row])
+        assertFalse(NightLights.moonlessRows(h, "2026-11-06")[row])
+        var hazeThere = 0
+        for (x in 0 until sky.raw!!.width) if ((sky.haze!![row * sky.raw!!.width + x].toInt() and 0xFF) > 0) hazeThere++
+        assertTrue("the night of the 8th has a haze along 77 north to lose: $hazeThere", hazeThere > 50)
+        NightLightStore.forget(context)
+        val seventh = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
+            clear()
+            set(2026, java.util.Calendar.NOVEMBER, 7, 20, 0, 0)
+        }.timeInMillis
+        assertTrue(NightLightStore.refresh(context, seventh))
+        val filled = NightLightStore.skyFor(context, seventh)!!
+        assertEquals("2026-11-07", filled.raw!!.day)
+        assertEquals("2026-11-06", filled.raw!!.filledFrom)
+        for (x in 0 until filled.raw!!.width) {
+            assertEquals("a haze at 77 north, column $x, on a night filled in from a moonlit one", 0, filled.haze!![row * filled.raw!!.width + x].toInt() and 0xFF)
+        }
+        // Further south both nights were moonless, and the oval is there.
+        assertTrue(filled.hazeAt(sea.first, sea.second) > filled.hazeFloor)
+        NightLightStore.forget(context)
+        assertTrue(NightLightStore.refresh(context, now))
+
+        // One layer: no haze, and the floors that go with it — though
+        // the store has just worked a haze out and still has it.
+        assertNotNull(NightLightStore.skyFor(context, now)!!.haze)
         mode("clean")
         val cleanOnly = NightLightStore.skyFor(context, now)!!
         assertNull(cleanOnly.haze)

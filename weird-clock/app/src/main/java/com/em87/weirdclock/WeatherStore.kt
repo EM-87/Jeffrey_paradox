@@ -230,14 +230,21 @@ object WeatherStore {
      * was on screen was not drawn until the next time something else
      * redrew it. One round at a time: a second request while one is out
      * waits for that one and does not ask the three services twice.
+     *
+     * [patient] is for the clock that asks by itself, once a minute,
+     * while it stands: services that did not answer are left alone for
+     * [RETRY_MS] before they are asked again, which somebody opening
+     * the weather's card does not have to wait for.
      */
     fun refreshInBackground(
         context: Context,
         latitude: Double,
         longitude: Double,
+        patient: Boolean = false,
         done: (() -> Unit)? = null
     ) {
         if (!wanted(context) || !stale(context)) return
+        if (patient && kotlin.math.abs(TimeKeeper.nowMs() - askedAt) < RETRY_MS) return
         synchronized(waiting) {
             done?.let { waiting.add(it) }
             if (asking) return

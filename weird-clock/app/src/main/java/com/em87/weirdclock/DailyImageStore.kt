@@ -198,6 +198,25 @@ class DailyImageStore(
     }
 
     /**
+     * Whether a clock that has only been standing there should go back
+     * for more: there is something to go for, and it is [PATIENCE_MS]
+     * since anybody last went.
+     *
+     * [stale] says go at once when today's picture is missing, which is
+     * right for somebody who has just picked the phone up and wrong for
+     * a clock asking once a minute: the clean night's today is missing
+     * on every day of the year, and a service that is down is missing
+     * everything. An hour, so a day that turns is on the globe within
+     * the hour and a service with nothing to give is asked two dozen
+     * times a day and not fourteen hundred.
+     */
+    fun due(context: Context, nowMs: Long): Boolean {
+        if (!stale(context, nowMs)) return false
+        val at = PreferenceManager.getDefaultSharedPreferences(context).getLong(whenKey, 0L)
+        return nowMs < at || nowMs - at >= PATIENCE_MS
+    }
+
+    /**
      * Fetch what is missing, newest first, and throw away what is too old.
      *
      * Blocking. Returns whether anything new was written. A day that no
@@ -266,12 +285,15 @@ class DailyImageStore(
      * file at once. The thread touches files and a preference and nothing
      * else: nothing it does reaches a view, so there is nothing for it to
      * reach after the view has gone.
+     *
+     * [patient] is for the clock that asks by itself, once a minute,
+     * while it stands — see [due].
      */
     @Volatile
     private var fetching = false
 
-    fun refreshInBackground(context: Context, nowMs: Long) {
-        if (!stale(context, nowMs)) return
+    fun refreshInBackground(context: Context, nowMs: Long, patient: Boolean = false) {
+        if (!(if (patient) due(context, nowMs) else stale(context, nowMs))) return
         synchronized(this) {
             if (fetching) return
             fetching = true
@@ -302,6 +324,9 @@ class DailyImageStore(
 
         /** How long one picture is worth keeping. */
         const val EVERY_MS = 6L * 60L * 60L * 1000L
+
+        /** How long a standing clock waits before going back to a service that had nothing. */
+        const val PATIENCE_MS = 60L * 60L * 1000L
 
         const val KEEP_DAYS = 7
         const val AT_A_TIME = 3

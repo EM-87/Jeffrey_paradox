@@ -227,6 +227,78 @@ class CloudStoreTest {
     }
 
     /**
+     * A clock left standing asks by itself, and is patient about it.
+     *
+     * [DailyImageStore.stale] says "go now" whenever today's picture is
+     * missing. That is right for somebody who has just picked the phone
+     * up, and for a clock asking once a minute it is a request a minute
+     * to a service that is down — or, for the clean night's lights,
+     * which are never there for today, a request a minute for ever. So
+     * the standing clock asks a second question, which is the first one
+     * and an hour since anybody last went.
+     */
+    @Test
+    fun `a standing clock goes back when the day turns and once an hour for what is not there`() {
+        val asked = java.util.concurrent.CopyOnWriteArrayList<String>()
+        val store = DailyImageStore(
+            prefix = "standing-",
+            suffix = ".jpg",
+            whenKey = "pref_standing_at",
+            sources = { day -> listOf("https://nowhere.invalid/?TIME=$day") },
+            dayOf = { at -> SatelliteClouds.dayFor(at) }
+        )
+        store.fetch = DailyImageStore.Fetch { url ->
+            asked += url
+            sample()
+        }
+        // Noon UTC, so that neither a minute nor an hour either way is another day's picture.
+        val now = DailyImageStore.msOf("2026-11-10")!! + 12 * 3_600_000L
+        val tomorrow = now + DailyImageStore.DAY_MS
+        fun settled(): Int {
+            Thread.sleep(250)
+            return asked.size
+        }
+        try {
+            // Never asked: due at once.
+            assertTrue(store.due(context, now))
+            assertTrue(store.refresh(context, now))
+            // Fresh: not due a minute on, nor an hour.
+            assertFalse(store.due(context, now + 60_000L))
+            assertFalse(store.due(context, now + DailyImageStore.PATIENCE_MS + 1_000L))
+            // The day turns, and it is a day since anybody went.
+            assertTrue(store.due(context, tomorrow))
+            // The service has nothing. Asked once; and then, though
+            // today's picture is still missing and stale says go, left
+            // alone for an hour.
+            store.fetch = DailyImageStore.Fetch { url ->
+                asked += url
+                null
+            }
+            assertFalse(store.refresh(context, tomorrow))
+            assertTrue(store.stale(context, tomorrow + 60_000L))
+            assertFalse("a minute after an empty answer it is due again", store.due(context, tomorrow + 60_000L))
+            assertFalse(store.due(context, tomorrow + DailyImageStore.PATIENCE_MS - 1_000L))
+            assertTrue(store.due(context, tomorrow + DailyImageStore.PATIENCE_MS))
+            // A clock set back is a reason to ask, not to wait.
+            assertTrue(store.due(context, tomorrow - 60_000L))
+            assertEquals(3_600_000L, DailyImageStore.PATIENCE_MS)
+
+            // And the thread is started by that question when the clock
+            // asks for itself, and by the old one when a person does.
+            val before = settled()
+            store.refreshInBackground(context, tomorrow + 60_000L, patient = true)
+            assertEquals("the patient clock went back a minute after an empty answer", before, settled())
+            store.refreshInBackground(context, tomorrow + 60_000L)
+            assertTrue("somebody picking the phone up was made to wait", settled() > before)
+            val then = settled()
+            store.refreshInBackground(context, tomorrow + 2 * DailyImageStore.PATIENCE_MS, patient = true)
+            assertTrue("an hour on, the patient clock did not go back", settled() > then)
+        } finally {
+            store.forget(context)
+        }
+    }
+
+    /**
      * What comes back is decoded before it is kept.
      *
      * An error page with a picture on it, a redirect to something else, a

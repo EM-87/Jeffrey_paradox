@@ -707,6 +707,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             if (minute != lastHandledMinute) {
                 lastHandledMinute = minute
                 onMinuteBoundary()
+                askAgainForWhatIsOld()
             }
 
             // Physical time: while the sand can't reach the neck (phone flat
@@ -4313,11 +4314,32 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * Only with the switch on and a place to ask about — see
      * [WeatherStore], the one thing in this app that opens a socket.
      */
-    private fun askTheSky() {
+    private fun askTheSky(patient: Boolean = false) {
         if (!WeatherStore.wanted(this) || !DayNight.hasFix()) return
-        WeatherStore.refreshInBackground(this, DayNight.latitudeNow(), DayNight.longitudeNow()) {
+        WeatherStore.refreshInBackground(this, DayNight.latitudeNow(), DayNight.longitudeNow(), patient) {
             if (!isDestroyed) showWeather()
         }
+    }
+
+    /**
+     * Once a minute, while the clock stands: goes back for whatever has
+     * gone old.
+     *
+     * The clouds, the night's lights and the weather were sent for when
+     * the settings were applied — coming back to the app, a card being
+     * built, night falling — and by nothing else. A clock keeps its
+     * screen on and can stand for a week without any of those
+     * happening, and stood for a week under the clouds of the afternoon
+     * it was put down. Each store answers for itself, from its own
+     * files and the hour it last asked, whether there is anything worth
+     * going back for: this opens no socket by asking.
+     */
+    private fun askAgainForWhatIsOld() {
+        if (hemisphereView != null) {
+            if (CloudStore.wanted(this)) CloudStore.refreshInBackground(this, patient = true)
+            if (NightLightStore.wanted(this)) NightLightStore.refreshInBackground(this, patient = true)
+        }
+        askTheSky(patient = true)
     }
 
     /**

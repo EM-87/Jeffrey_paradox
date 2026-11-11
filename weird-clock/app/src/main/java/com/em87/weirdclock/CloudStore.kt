@@ -129,11 +129,14 @@ object CloudStore {
         return store.refresh(context, nowMs)
     }
 
-    /** And the same on a thread nothing is waiting for. */
-    fun refreshInBackground(context: Context) {
+    /**
+     * And the same on a thread nothing is waiting for; [patient] for a
+     * clock asking by itself — see [DailyImageStore.due].
+     */
+    fun refreshInBackground(context: Context, patient: Boolean = false) {
         if (!wanted(context)) return
         File(context.cacheDir, WAS).delete()
-        store.refreshInBackground(context, TimeKeeper.nowMs())
+        store.refreshInBackground(context, TimeKeeper.nowMs(), patient)
     }
 
     /** Throws the picture away, for the switch being turned off. */

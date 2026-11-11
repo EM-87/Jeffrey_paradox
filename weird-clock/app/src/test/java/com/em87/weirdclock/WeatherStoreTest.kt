@@ -209,6 +209,46 @@ class WeatherStoreTest {
         }
     }
 
+    /**
+     * A clock asking by itself leaves services that did not answer alone
+     * for five minutes; somebody who opens the weather's card does not
+     * have to wait for them.
+     */
+    @Test
+    fun `a standing clock leaves silent services alone for five minutes`() {
+        val heard = java.util.concurrent.CopyOnWriteArrayList<String>()
+        WeatherStore.fetch = WeatherStore.Fetch { url ->
+            heard += url
+            null
+        }
+        fun settled(): Int {
+            Thread.sleep(250)
+            return heard.size
+        }
+        try {
+            assertFalse(WeatherStore.refresh(context, 40.4, -3.7).known)
+            assertTrue("nothing is known and it is not worth asking", WeatherStore.stale(context))
+            val before = settled()
+            assertTrue(before > 0)
+            WeatherStore.refreshInBackground(context, 40.4, -3.7, patient = true)
+            assertEquals("the patient clock asked again at once", before, settled())
+            // A person is not kept waiting.
+            WeatherStore.refreshInBackground(context, 40.4, -3.7)
+            val impatient = settled()
+            assertTrue("somebody opening the card was made to wait", impatient > before)
+            // Four minutes on, still not; six, and it asks.
+            TimeKeeper.solarOffsetMs = 4 * 60_000L
+            WeatherStore.refreshInBackground(context, 40.4, -3.7, patient = true)
+            assertEquals(impatient, settled())
+            TimeKeeper.solarOffsetMs = 6 * 60_000L
+            WeatherStore.refreshInBackground(context, 40.4, -3.7, patient = true)
+            assertTrue("six minutes on, the patient clock did not ask", settled() > impatient)
+            assertEquals(5 * 60_000L, WeatherStore.RETRY_MS)
+        } finally {
+            TimeKeeper.solarOffsetMs = 0L
+        }
+    }
+
     /** And an hour later it is worth asking again; a minute later it is not. */
     @Test
     fun `it asks again every half hour and not before`() {

@@ -325,12 +325,16 @@ object NightLightStore {
         return got
     }
 
-    /** And the same on threads nothing is waiting for, one per layer. */
-    fun refreshInBackground(context: Context) {
+    /**
+     * And the same on threads nothing is waiting for, one per layer;
+     * [patient] for a clock asking by itself — see
+     * [DailyImageStore.due].
+     */
+    fun refreshInBackground(context: Context, patient: Boolean = false) {
         val mode = mode(context)
         val now = TimeKeeper.nowMs()
-        if (mode.clean) clean.refreshInBackground(context, now)
-        if (mode.raw) raw.refreshInBackground(context, now)
+        if (mode.clean) clean.refreshInBackground(context, now, patient)
+        if (mode.raw) raw.refreshInBackground(context, now, patient)
     }
 
     /** Throws the pictures away, for the switch being turned off, and what was worked out from them. */
