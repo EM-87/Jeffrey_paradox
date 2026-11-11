@@ -184,7 +184,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   copied as the game copies them and put into messages, choices and
   letters by the game's own code with their articles, and the money's
   name measured in the inventory; strings of the string bank as the game
-  loads them, the staff credits' among them: `make menus-check-en`),
+  loads them, the staff credits' among them; the title's warning without
+  a controller, forced at the title, each line measured as the swapped
+  strings are: `make menus-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.

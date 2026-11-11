@@ -238,9 +238,12 @@ función del actor que dibuja sus piezas pasó antes a C, idéntica al
 cartucho; `tools/af_nafe_logo.py` toma al compilar de tu copia del parche
 las piezas (vértices, listas y texturas), los datos del actor que las
 colocan y colorean y los cuatro valores de su código que el parche cambió,
-comprobando antes que lo que no toma no se ve. El aviso de mando
-desconectado de ese parche no se toma: su inglés será nuestro ("The
-title's logo").
+comprobando antes que lo que no toma no se ve. El aviso que sale en el
+título cuando no hay mando en el primer puerto es nuestro: su función
+pasó a C, idéntica al cartucho, y en el build en inglés dibuja sus tres
+líneas por la línea de la fuente, que las sustituye por nuestro inglés,
+centrado; `make menus-check-en` lo fuerza en el título y mide cada línea
+("The title's logo").
 
 Los mensajes que el guion de GameCube no tiene (909 seguían en japonés)
 se toman, donde se puede sin riesgo, del inglés de esa misma traducción
@@ -326,8 +329,7 @@ páginas del tablón y mide cada línea en la imagen contra el modelo, teclea
 en el dial una nota de más de 96 bytes, la termina, la lee entera, y la
 guarda y la carga con la partida.
 
-Lo que viene: el aviso de mando desconectado de la pantalla de título,
-las texturas occidentales de GameCube donde las haya
+Lo que viene: las texturas occidentales de GameCube donde las haya
 (letreros), los nombres de animales cortados y una pasada de pruebas
 de todo el texto en el juego.
 

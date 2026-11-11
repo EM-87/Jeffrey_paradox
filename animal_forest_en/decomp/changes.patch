@@ -4161,10 +4161,10 @@ index 3ba98f9..d74058b 100644
 -u8 sDmaDataPadding[0xF0] = { 0 };
 +u8 sDmaDataPadding[0xF0 - 9 * sizeof(DmaEntry)] = { 0 }; /* nine entries added for the translation: the table keeps its size */
 diff --git a/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c b/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c
-index a19ecfd..d61bc25 100644
+index d1d65d2..2cb32fd 100644
 --- a/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c
 +++ b/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c
-@@ -5,6 +5,8 @@
+@@ -6,6 +6,8 @@
  #include "m_actor_dlftbls.h"
  #include "m_object.h"
  #include "overlays/gamestates/ovl_play/m_play.h"
@@ -4173,7 +4173,29 @@ index a19ecfd..d61bc25 100644
  
  void aAL_actor_ct(Actor* thisx, Game_Play* game_play);
  void aAL_actor_dt(Actor* thisx, Game_Play* game_play);
-@@ -107,16 +109,16 @@ void func_80AA0C98_jp(Animal_Logo* this, Game* game, s16 idx) {
+@@ -75,13 +77,17 @@ extern u8 D_80AA212C_jp[];
+ extern u8 D_80AA2140_jp[];
+ 
+ /* The warning that no controller is in the first port (the draw calls it while common_data + 0x10AB0 is 0):
+- * three lines of 20 characters in the font, each placed by its own x */
++ * three lines of 20 characters in the font. The en build draws them through the font's line, which swaps
++ * them for the English (tools/af_ui.py, SUBST: TL_NOPAD1 to 3), each centred in the 20 cells of 12 pixels
++ * the cartridge's lines have, those centred on the screen (the cartridge's own sat at x 55, 64 and 50) */
++#define aAL_EN_WARNING_X ((320 - 20 * 12) / 2.0f) /* the screen's 320 pixels */
++
+ void func_80AA08E4_jp(Game* game) {
+     func_80AA07F4_jp(game);
+     mFont_SetMatrix(game->gfxCtx, 1);
+-    mFont_SetLineStrings_AndSpace(game, (char*)D_80AA2118_jp, 20, 55.0f, 120.0f, 50, 30, 30, 255, 0, 1, 0, 1.0f, 1.0f, 1);
+-    mFont_SetLineStrings_AndSpace(game, (char*)D_80AA212C_jp, 20, 64.0f, 140.0f, 50, 30, 30, 255, 0, 1, 0, 1.0f, 1.0f, 1);
+-    mFont_SetLineStrings_AndSpace(game, (char*)D_80AA2140_jp, 20, 50.0f, 160.0f, 50, 30, 30, 255, 0, 1, 0, 1.0f, 1.0f, 1);
++    func_80090E98_jp(game, D_80AA2118_jp, 20, aAL_EN_WARNING_X, 120.0f, 50, 30, 30, 255, 0, 1, 1.0f, 1.0f, 1);
++    func_80090E98_jp(game, D_80AA212C_jp, 20, aAL_EN_WARNING_X, 140.0f, 50, 30, 30, 255, 0, 1, 1.0f, 1.0f, 1);
++    func_80090E98_jp(game, D_80AA2140_jp, 20, aAL_EN_WARNING_X, 160.0f, 50, 30, 30, 255, 0, 1, 1.0f, 1.0f, 1);
+     mFont_UnSetMatrix(game->gfxCtx, 1);
+ }
+ 
+@@ -123,16 +129,16 @@ void func_80AA0C98_jp(Animal_Logo* this, Game* game, s16 idx) {
      OPEN_DISPS(gfxCtx);
      gfx = FONT_DISP;
      gSPMatrix(gfx++, _Matrix_to_Mtx_new(gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);

@@ -89,3 +89,9 @@ MP_STATION	Train Station
 # The bulletin board (ovl__00797A50): which post it shows, the menu's number (two cells, a space before a
 # single digit) where {} is.
 BB_NUMBER	No.{}
+#
+# The title's warning when no controller is in the first port (ovl_Animal_Logo): three lines, each centred
+# on the screen. The GameCube has no such warning.
+TL_NOPAD1	Controller 1 is not connected.
+TL_NOPAD2	Turn the power off, then
+TL_NOPAD3	connect Controller 1.

@@ -78,6 +78,16 @@ loaded all through play). Program 11 (ovl__00789B60, its mailbox label)
 is opened by the inventory from inside it and does not open on its own:
 not checked here.
 
+Then, in a process of its own (the emulator's plugins start once per
+process), the title's warning that no controller is in the first port
+(the en build draws its three lines through the font's line, which swaps
+them: TL_NOPAD1 to 3): booted to the title, common_data's pad_connected
+cleared, and from that state the warning opened three times as the
+menus' swaps are (as it is; the three lines' English made spaces; their
+swaps off and the cartridge's strings in the logo actor's data made
+rulers), each line's ink, in its band of rows, where the layout puts it
+in the box its ruler shows.
+
 And strings of the en build's string bank, loaded by the hook as the game
 loads them (mString_Load_StringFromRom, mString_Load_NumberStringAddUnitFromRom):
 the staff credits' lines at the 15 bytes the orange box loads
@@ -91,6 +101,7 @@ import os
 import re
 import shutil
 import struct
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -355,6 +366,10 @@ LABEL_MENUS = [(1, 0, 0xA30000, "the inventory"),
                (20, 0, 0xB2A000, "the catalog")]
 KEEP = 0xA22000                                      # gameplay_keep, segment 4
 ANCHOR = 0x100                                       # bytes of a segment found in RAM to place it
+TITLE_FRAME = 400                                    # the title drawn (tests/emu_check.py)
+PAD_CONNECTED = 0x10AB0                              # common_data's pad_connected, set once at boot
+# (second_game.c): 0 makes the title draw its warning
+WARNING = ["TL_NOPAD1", "TL_NOPAD2", "TL_NOPAD3"]    # the warning's lines, top to bottom
 
 failures = []
 
@@ -498,6 +513,101 @@ def swap_inks(board, faint, key, en, layout, left, scale):
         s, width = scale * box / width, box
     x = left + ((box - width) / 2 if layout & af_ui.CENTER else box - width if layout & af_ui.RIGHT else 0)
     return [ink(en, x, s)]
+
+
+def found_once(ram, windows, skip):
+    """The address of the first of windows (stretches of the cartridge's data from a string on, longest first)
+    found in ram exactly once outside skip (the swap table's (start, end)), or None."""
+    for win in windows:
+        hits, at = [], ram.find(win)
+        while at >= 0 and len(hits) < 2:
+            if not skip[0] <= 0x80000000 + at < skip[1]:
+                hits.append(at)
+            at = ram.find(win, at + 1)
+        if len(hits) == 1:
+            return 0x80000000 + hits[0]
+    return None
+
+
+def bands(pixels):
+    """pixels [(x, y)] split into bands of consecutive rows, top to bottom."""
+    groups = []
+    for y in sorted({y for _, y in pixels}):
+        if groups and y == groups[-1][1] + 1:
+            groups[-1][1] = y
+        else:
+            groups.append([y, y])
+    return [[p for p in pixels if top <= p[1] <= bottom] for top, bottom in groups]
+
+
+def title_warning(emu_dir, rom, out, syms, subs, cart, board, faint, rule, shots):
+    """The title's warning that no controller is in the first port: each line's English where the en
+    m_font.c's layout puts it in the box the cartridge's string had (the module's docstring)."""
+    table = next(a for n, a in syms.items() if n.endswith(":mFont_en_subst"))
+    skip = (table, table + len(subs) * SUBST_SIZE)
+    index = {sub[0]: i for i, sub in enumerate(subs)}
+    if not all(name in index for name in WARNING):
+        check(False, "the title's warning: its lines in the swap table")
+        return
+    with N64(emu_dir, rom, os.path.join(out, "title"), timeout=120) as n64:
+        n64.frames(TITLE_FRAME, 0)
+        n64.write(syms["common_data"] + PAD_CONNECTED, b"\x00")
+        state = os.path.join(out, "title.st")
+        n64.save_state(state)
+
+        def open_title(pokes=(), rulers=()):
+            """The title SETTLE frames on from the state, with pokes [(address, bytes)] written first and each
+            ruler (windows, bytes) written where its windows are found in RAM. (w, h, rgb), or None."""
+            n64.load_state(state)
+            for at, data in pokes:
+                n64.write(at, data)
+            ram = n64.read(0x80000000, 0x800000)
+            for windows, data in rulers:
+                at = found_once(ram, windows, skip)
+                if at is None:
+                    return None
+                n64.write(at, data)
+            n64.frames(SETTLE, 0)
+            return n64.screen()
+
+        def entry_at(name):
+            return table + index[name] * SUBST_SIZE
+
+        lines = [subs[index[name]] for name in WARNING]
+        w, h, seen = open_title()
+        path = os.path.join(out, "title-warning.png")
+        write_png(path, w, h, seen)
+        shots.append(path)
+        _, _, bare = open_title([(entry_at(name) + SUBST_HEAD + af_ui.SUBST_KEY_MAX, b" " * len(en))
+                                 for name, (_, _, en, _, _, _) in zip(WARNING, lines)])
+        rulers = []
+        for name, (_, key, _, _, _, _) in zip(WARNING, lines):
+            rom_at = af_ui.key_pieces(next(k for n, k, _, _, _ in af_ui.SUBST if n == name))[0][0]
+            rulers.append(([cart[rom_at:rom_at + n] for n in (32, 24)] + [key],
+                           (rule * len(key.rstrip(b" "))).ljust(len(key), b" ")))
+        ruled = open_title([(entry_at(name) + SUBST_HEAD, b"\xFF") for name in WARNING], rulers)
+        if ruled is None:
+            check(False, "the title's warning: the cartridge's strings in the logo actor's data in RAM")
+            return
+        en_bands, jp_bands = bands(ink_pixels(seen, bare, w, h)), bands(ink_pixels(ruled[2], bare, w, h))
+        if len(en_bands) != len(WARNING) or len(jp_bands) != len(WARNING):
+            check(False, "the title's warning: %d lines of English and %d rulers drawn, not %d"
+                  % (len(en_bands), len(jp_bands), len(WARNING)))
+            return
+        for name, (_, key, en, layout, _, _), en_px, jp_px in zip(WARNING, lines, en_bands, jp_bands):
+            en_runs, jp_runs = runs(x for x, _ in en_px), runs(x for x, _ in jp_px)
+            reach = len(key.rstrip(b" "))
+            left, scale = swap_box(board, rule * reach, (jp_runs[0][0], jp_runs[-1][1]))
+            span = jp_runs[-1][1] - jp_runs[0][0]
+            want, got = swap_inks(board, faint, key, en, layout, left, scale)[0], (en_runs[0][0], en_runs[-1][1])
+            far = max(lever(want[k], left, span) for k in (1, 3))
+            check(ink_matches(got, want, left, span),
+                  "the title's warning, %s (%r): its ink at %s (rows %d..%d), where the layout puts it in the "
+                  "cartridge's box (from x %.1f at the scale %.3f): %s%s" % (
+                      name, en.rstrip(b" "), got, min(y for _, y in en_px), max(y for _, y in en_px), left, scale,
+                      "(%.1f, %.1f)" % want[:2] if want[:2] == want[2:] else
+                      "(%.1f, %.1f; faint columns %.1f, %.1f)" % want,
+                      "; the ruler's error allows %.1f at the far edge" % (TOLERANCE + far) if far else ""))
 
 
 def check_labels(ram, vrom, af_en, cart, nafe, what):
@@ -751,17 +861,8 @@ def main(argv):
                   "the swap table: %s holds the cartridge's %d bytes and the English %r" % (name, len(key), en))
 
         def overlay_copy(ram, windows):
-            """The address of the first of windows (stretches of the cartridge's data from a string on, longest
-            first) found in ram exactly once outside the swap table, or None."""
-            for win in windows:
-                hits, at = [], ram.find(win)
-                while at >= 0 and len(hits) < 2:
-                    if not table <= 0x80000000 + at < table + len(subs) * SUBST_SIZE:
-                        hits.append(at)
-                    at = ram.find(win, at + 1)
-                if len(hits) == 1:
-                    return 0x80000000 + hits[0]
-            return None
+            """The address of the first of windows found in ram exactly once outside the swap table, or None."""
+            return found_once(ram, windows, (table, table + len(subs) * SUBST_SIZE))
 
         def copies(ram, key):
             """The addresses of every copy of key in ram outside the swap table."""
@@ -1154,11 +1255,37 @@ def main(argv):
             path = os.path.join(out, "labels-%d-program-%d.png" % (i, program))
             n64.screenshot(path)
             label_shots.append(path)
+    print("  --    (the title's warning, in a process of its own: the emulator's plugins start once per process)")
+    r = subprocess.run([sys.executable, os.path.abspath(__file__), "--title", emu_dir, rom_path, af_en, out] + argv[5:])
+    if r.returncode:
+        failures.append("the title's warning")
+    if os.path.exists(os.path.join(out, "title-warning.png")):
+        shots.append(os.path.join(out, "title-warning.png"))
     contact.main([os.path.join(out, "sheet.png"), "2"] + shots)
     contact.main([os.path.join(out, "labels.png"), "2"] + label_shots)
     print("emu_menus: %d failures; screenshots in %s" % (len(failures), out))
     return 1 if failures else 0
 
 
+def title_main(argv):
+    """--title EMU_DIR EN_ROM AF_EN_DIR OUT_DIR [--gc GC_UI] [--own OWN_UI]: the title's warning alone (main
+    runs it so, in a process of its own)."""
+    emu_dir, rom_path, af_en, out = argv[:4]
+    opts = dict(zip(argv[4::2], argv[5::2]))
+    gc_path = opts.get("--gc") if os.path.exists(opts.get("--gc", "")) else None
+    own_path = opts.get("--own") if os.path.exists(opts.get("--own", "")) else None
+    syms = emu_save.elf_symbols(os.path.join(af_en, "build", "animalforest-jp.elf"))
+    seg = open(os.path.join(af_en, "assets", "jp", "segment_00BCD000.bin"), "rb").read()
+    board = emu_board.Board(seg, emu_board.read_cut(af_en))
+    cart = open(os.path.join(af_en, af_ui.ROM), "rb").read()
+    subs = af_ui.substitutions(cart, af_ui.read_text(gc_path) if gc_path else {},
+                               af_ui.read_text(own_path) if own_path else {})
+    title_warning(emu_dir, open(rom_path, "rb").read(), out, syms, subs, cart, board, faint_columns(seg),
+                  ruler(seg, board), [])
+    return 1 if failures else 0
+
+
 if __name__ == "__main__":
+    if sys.argv[1] == "--title":
+        sys.exit(title_main(sys.argv[2:]))
     sys.exit(main(sys.argv[1:]))

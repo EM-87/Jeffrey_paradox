@@ -1755,8 +1755,8 @@ what goes in it: "The letters in the en build").
   controller is in the first port (`ovl_Animal_Logo`, `func_80AA08E4_jp`,
   when `common_data` + 0x10AB0 is 0: three lines of 20 characters, drawn
   with `mFont_SetLineStrings_AndSpace` directly; the 2010 patch has its
-  own English there, and the actor is asm: it goes with the title's
-  logo). Never on screen: the title's list of options
+  own English there: ours since, "The title's logo"). Never on screen:
+  the title's list of options
   (`func_80AA0668_jp`, five lines of 19 characters, two of them in Latin
   letters already: a line is drawn when its bit of the actor's + 0x2F8
   is set, which only the actor's constructor and `func_80AA0360_jp`
@@ -1938,6 +1938,30 @@ what goes in it: "The letters in the en build").
   (1,501 pixels by more than 24 of 255) is the player's character behind
   the logo and the falling petals, which follow each ROM's own town
   (Emulator traps in CLAUDE.md: a rebuilt ROM draws another town).
+- **The warning without a controller** (`func_80AA08E4_jp`, in C,
+  matching). The logo's draw (`func_80AA19CC_jp`) calls it while
+  common_data's pad_connected (+ 0x10AB0) is 0, which second_game.c sets
+  once at boot (`padmgr_isConnectedAnyPak(0) != 0`): over a yellow oval
+  (`func_80AA07F4_jp`), three lines of 20 characters (`D_80AA2118_jp`,
+  `D_80AA212C_jp`, `D_80AA2140_jp`, the first two ending in spaces) at x
+  55, 64 and 50 and y 120, 140 and 160, drawn with
+  `mFont_SetLineStrings_AndSpace` with no extra space. The en build calls
+  the font's line instead (`func_80090E98_jp`, the same call without the
+  space), so that the swap table puts the English in (TL_NOPAD1 to 3:
+  ours, the GameCube has no such warning), each line centred in the
+  cartridge's 20 cells, which the en build puts at x 40, centred on the
+  screen. The overlay was in EN_OVERLAYS already; its relocations stay
+  143. The swap table grows by three entries in code_en (189 bytes).
+- **The warning on screen** (make menus-check-en). Booted to the title,
+  pad_connected cleared, and from that state the warning drawn three
+  times as the menus' swaps are: as it is, the English blanked, the
+  swaps off with the cartridge's strings in the logo actor's data made a
+  ruler. Each line's English lies where the layout puts it in the box its
+  ruler shows (the box from frame x 85, scale 0.997 to 0.999): inks at
+  141-497, 175-465 and 193-446 of the frame's 640, the model's 140.5-495.0
+  (496.9 counting faint columns), 175.7-464.6 and 193.4-445.4. While the
+  warning shows, the logo's second line is behind the oval, as it is in
+  the 2010 patch (the oval is the cartridge's in both).
 
 ## Item names (phase 5, the menus' strings)
 

@@ -306,6 +306,13 @@ SUBST = [
     # texture has its marks between them (the en font's narrower digits left them off their places)
     ("BB_NUMBER", [HOLE, (0x79940A, 3)], CENTER | FIT, None, None),
     ("BB_DATE", [WRITTEN(4), (0x799414, 1), WRITTEN(2), (0x799417, 1), WRITTEN(2)], CELLS | DIGITS, None, None),
+    # the title's warning that no controller is in the first port (ovl_Animal_Logo, func_80AA08E4_jp: three
+    # lines of 20 characters, D_80AA2118_jp and after, which the en build draws through the font's line in
+    # boxes of the cartridge's 20 cells centred on the screen): ours, centred (the GameCube has no such
+    # warning)
+    ("TL_NOPAD1", (0x962368, 20), CENTER | FIT, None, None),
+    ("TL_NOPAD2", (0x96237C, 20), CENTER | FIT, None, None),
+    ("TL_NOPAD3", (0x962390, 20), CENTER | FIT, None, None),
 ]
 
 
