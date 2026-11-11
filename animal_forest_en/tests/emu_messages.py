@@ -7,7 +7,8 @@
 STATE is a state of EN_ROM in play (make route-en's 4-houses.st). For each
 message, from that state, a hook asks for it as the game does
 (mMsg_request_main_appear on the base window, white, no speaker); once it
-has typed out, its first page's lines are measured on the frame: each
+has typed out (the window waiting for A, its mainIndex 2, for 10 frames;
+at most 300), its first page's lines are measured on the frame: each
 line's first and last text pixel against the model, the en font's widths
 and glyphs (tests/emu_board.py's Board) over the message as the en build's
 bank holds it (AF_EN_DIR/assets/jp/en/msg_text.bin and msg_index.bin, what
@@ -99,7 +100,8 @@ WINDOW_X = (127.18, 2.005)                  # the frame's x of the text's left e
 TEXT_X = range(118, 514)                    # the window's text area in the frame, the next page's arrow (516 on) left out
 INK = 150                                   # a pixel with a colour under this is ink (the window's are 216 up)
 TOLERANCE = 2.0
-SHOWN = 300                                 # frames for a page to appear and type out
+SHOWN, SETTLED = 300, 10                    # at most this long for a page to appear and type out; the window
+                                            # waiting for A this long before the screenshot
 CONTROLS = 2
 # the talk orders
 DEMONPC0 = NAMES["DEMONPC0"]
@@ -270,7 +272,13 @@ def main(argv):
                 if struct.unpack(">i", n64.read(ctl, 4))[0] == 0:
                     break
             took = struct.unpack(">i", n64.read(ctl + 4, 4))[0]
-            n64.frames(SHOWN, 0)
+            window = struct.unpack(">I", n64.read(ctl + 12, 4))[0]
+            waited = 0
+            for _ in range(SHOWN):
+                n64.frames(1, 0)
+                waited = waited + 1 if struct.unpack(">i", n64.read(window + MAIN_INDEX, 4))[0] == WAITING else 0
+                if waited == SETTLED:
+                    break
             w, h, rgb = n64.screen()
             path = os.path.join(out, "message-%d.png" % n)
             n64.screenshot(path)

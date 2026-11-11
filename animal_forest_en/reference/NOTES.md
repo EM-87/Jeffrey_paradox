@@ -2328,6 +2328,21 @@ what goes in it: "The letters in the en build").
   letters, no kana), 104 are the GameCube's English with its dash drawn as
   the long vowel mark (`ー`, which the count takes for kana), and 34 have
   no letters (marks, numbers, codes); none is Japanese.
+- **Measured, all 762** (`make messages-check-en`, every file of
+  `script/message/` given with `--own`). The en tree's compiled bank holds
+  the 762 as written, laid out for the en font, each with the cartridge's
+  codes that steer the game and no string it does not fill (all 762,
+  against the dump). 521 of their first pages need no speaker and wait for
+  the player: asked for as an actor asks, their 1,031 lines with text are
+  where the font's model puts them (0 of the 1,624 lines of the 572
+  messages shown fail, the 2010 patch's 49 and two of the GameCube's
+  among them). The 95 of ours that play to their end with talk orders
+  (most of them spare labels that carry one) were played through, the
+  talking animal's order the cartridge's sequence in all 95. The check
+  now takes a page's screenshot once the window has waited for A for 10
+  frames (`mainIndex` 2, at most the 300 frames it used to wait every
+  time): a four-line page has typed out by frame 126, and the run of 572
+  messages takes well under half the time.
 - **Measured** (`make messages-check-en`: `tests/emu_messages.py --own`).
   The en tree's compiled bank holds the 45 as written, laid out for the en
   font (all 45), each keeping the cartridge's codes that steer the game
