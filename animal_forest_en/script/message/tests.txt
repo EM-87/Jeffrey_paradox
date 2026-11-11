@@ -1,0 +1,332 @@
+# Our own English for the bank's test messages (the developers' checks of the message window: strings,
+# choices, colours, scales, offsets, sounds, voices and moods) and its seventeen dummies. Every code is
+# the cartridge's, where it is; a test's single characters are letters for the cartridge's kana.
+# tools/msgbank.py's dump form, as ours.txt (its header says how the build lays it over the bank and
+# what af_text.py holds it to).
+
+## 1
+#: a test message: a string the game fills
+Test message 1
+String "<STR_ITEM0>"
+<MSGEND>
+
+## 2
+#: a test: bad luck, then a choice that goes on smoothly (End, Continue)
+Making the player's luck
+bad.<LUCK_BAD><BTN>
+<MSGCLEAR>This is a test of going on
+smoothly after a choice
+window opens.
+It uses %SFN%.<SETSELSTR2 00070008><SELNOB><BTN><OPENCHOICE><SETNEXTMSG0 ffff><SETNEXTMSG1 0004><FORCENEXT><SNDNOPAGE>
+<MSGCONTINUE>
+
+## 3
+#: a test: a message that goes on to another
+This is a test of messages
+going on to one another.
+On to the next message.
+<SETFORCEMSG 0002>
+<MSGCONTINUE>
+
+## 4
+#: a test of the strings the game fills, the player's order, cancelling, colors and pauses
+Showing the letter's data.<BTN>
+<MSGCLEAR><STR_MAIL><BTN>
+<MSGCLEAR>Item 0 <STR_ITEM0>
+Item 4 <STR_ITEM4>
+<BTN>
+<MSGCLEAR>The town's name now:
+"<STR_COUNTRYNAME>"
+A random number, 0 to 99:
+"<STR_RNDNUM>"<BTN>
+<MSGCLEAR>A demo order test:
+the player's variable 0 to 2<DEMOPLR 000002><PAUSE 3c><DEMOPLR 0000ff>
+Surprise!!!<BTN>
+<MSGCLEAR>A cursor cancelling test.
+Cannot cancel.<UNABLECANCEL>
+aaaaaaaaaaaaaaaa
+aaaaaaaaaaaaaaaa<BTN>
+<MSGCLEAR>Can cancel.<ABLECANCEL>
+aaaaaaaaaaaaaaaa
+aaaaaaaaaaaaaaaa
+aaaaaaaaaaaaaaaa<BTN>
+<MSGCLEAR>A test of putting in
+any strings at all.
+String 0 "<STR_FREE0>"
+String 9 "<STR_FREE9>"<BTN>
+<MSGCLEAR>Now:
+<STR_YEAR> <STR_MONTH> <STR_DAY>
+<STR_WEEK>
+<STR_HOUR>:<STR_MIN>:<STR_SEC><BTN>
+<MSGCLEAR>Your name is
+"<STR_PLAYERNAME>", <STR_TAIL>.
+My name is
+"<STR_TALKNAME>", <STR_TAIL>.<BTN>
+<MSGCLEAR><TEXTCOLOR 00ffff>This is a test of
+<TEXTCOLOR 00ff00>changing the text's color.
+<TEXTCOLOR 0000ff>It changes every line.
+<TEXTCOLOR ff0000>Calling %CC%<BTN>
+<MSGCLEAR>resets it by itself.
+resets it by itself.
+resets it by itself.
+resets it by itself.<BTN>
+<MSGCLEAR>This is a test of
+holding the text back.
+<PAUSE 01>1 <PAUSE 02>2 <PAUSE 05>5 <PAUSE 0a>10 <PAUSE 14>20 <PAUSE 1e>30<BTN>
+<MSGCLEAR>AAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAA<BTN>
+<MSGCLEAR>Never end a message with
+a wait for the button (%PB%)
+or a screen clear (%CC%).
+<MSGEND>
+
+## 5
+#: a test of the music note glyphs
+Notes in a row<BTN>
+♪♪♪♪♪♪♪♪♪♪♪♪♪♪♪
+♪♪♪♪♪♪♪♪♪♪♪♪♪♪♪<BTN>
+<MSGCLEAR>Notes and spaces in turn<BTN>
+ ♪ ♪ ♪ ♪ ♪ ♪
+ ♪ ♪ ♪ ♪ ♪ ♪<BTN>
+<MSGCLEAR>Notes and hearts in turn<BTN>
+♥♪♥♪♥♪♥♪♥♪♥♪
+♥♪♥♪♥♪♥♪♥♪♥♪<BTN>
+<MSGCLEAR>Notes and letters in turn<BTN>
+a♪b♪c♪d♪e♪
+f♪g♪h♪i♪j♪<BTN>
+<MSGCLEAR>Long sounds<BTN>
+a---------♪<PAUSE 03>
+a------♪---<PAUSE 03>
+a♪---------<BTN>
+<MSGCLEAR><LINEOFS 92><LINETYPE 02>     <COLORCHARS 4ba00001><CHARSCALE 28>♪ <LINEOFS a0><PAUSE 0a><COLORCHARS e11ed701><CHARSCALE 40>♪ <LINEOFS 96><PAUSE 0a><COLORCHARS 324be101><CHARSCALE 26>♪
+<MSGEND>
+
+## 6
+#: a test of the voice switch
+The standard voice.<BTN>
+<VOICEFALSE>The voice reversed.<BTN>
+<VOICETRUE>The voice back again.<BTN>
+<VOICEFALSE>The voice reversed.
+<MSGEND>
+
+## 7
+#: a description of a kind of person
+Someone who cares more about
+the people they trust
+than about themselves.
+<MSGEND>
+
+## 8
+#: a description of a kind of person
+Someone who values humor
+and likes to keep things
+lively all the time.
+<MSGEND>
+
+## 9
+#: a test: the message's mood passed to the sound (About average, Mad, Disappointing, Next)
+A test of passing the
+message's mood to the sound.
+Which one?<SETSELSTR4 00d400d500d600b3><BTN><OPENCHOICE><SETNEXTMSG0 000a><SETNEXTMSG1 000b><SETNEXTMSG2 000c><SETNEXTMSG3 0012><FORCENEXT>
+<MSGCONTINUE>
+
+## 10
+Setting the normal mood.<MSGCONTENTS_NORMAL><SETFORCEMSG 0003>
+<MSGCONTINUE>
+
+## 11
+Setting the angry mood.<MSGCONTENTS_ANGRY><SETFORCEMSG 0003>
+<MSGCONTINUE>
+
+## 12
+Setting the sad mood.<MSGCONTENTS_SAD><SETFORCEMSG 0003>
+<MSGCONTINUE>
+
+## 13
+Setting the happy mood.<MSGCONTENTS_FUN><SETFORCEMSG 0003>
+<MSGCONTINUE>
+
+## 14
+Setting the sleepy mood.<MSGCONTENTS_SLEEPY><SETFORCEMSG 0003>
+<MSGCONTINUE>
+
+## 15
+#: a test of colors, the inner voice and the lines' offsets
+<COLORCHARS ff000001>red1<COLORCHARS 00ff0002>green2<COLORCHARS 0000ff03>blue3
+<TEXTCOLOR 00ff00>A color <COLORCHARS ff000004>test.<BTN>
+<MSGCLEAR>Now the inner voice.
+<SNDCUT 00>(Speaking in the inner voice)<SNDCUT 01>
+End of the inner voice test.<BTN>
+<MSGCLEAR>Line offset test 1
+type0<LINETYPE 00><LINEOFS 76>a<LINEOFS 7f>i<LINEOFS 80>u<LINEOFS 81>e<LINEOFS 8a>o
+type1<LINETYPE 01><LINEOFS 76>a<LINEOFS 7f>i<LINEOFS 80>u<LINEOFS 81>e<LINEOFS 8a>o
+type2<LINETYPE 02><LINEOFS 76>a<LINEOFS 7f>i<LINEOFS 80>u<LINEOFS 81>e<LINEOFS 8a>o<BTN>
+<MSGCLEAR>Line offset test 2
+type0<LINETYPE 00><LINEOFS 00>a<LINEOFS 40>i<LINEOFS 80>u<LINEOFS c0>e<LINEOFS ff>o
+type1<LINETYPE 01><LINEOFS 00>a<LINEOFS 40>i<LINEOFS 80>u<LINEOFS c0>e<LINEOFS ff>o
+type2<LINETYPE 02><LINEOFS 00>a<LINEOFS 40>i<LINEOFS 80>u<LINEOFS c0>e<LINEOFS ff>o
+<MSGTIMEEND 1e>
+
+## 16
+#: a test of the characters' and lines' scales, and the music
+Scale test 00
+
+a<CHARSCALE 20>b<CHARSCALE 18>c<CHARSCALE 10>d<CHARSCALE 08>e<CHARSCALE 01>f<BTN>
+<MSGCLEAR>Scale test 01
+
+a<CHARSCALE 20>b<CHARSCALE 40>c<CHARSCALE 7f>d<CHARSCALE ff>e<BTN>
+<MSGCLEAR>Scale test 10
+type0<LINETYPE 00><LINEOFS 76>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e
+type0<LINETYPE 00><LINEOFS 80>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e
+type0<LINETYPE 00><LINEOFS 8a>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e<BTN>
+<MSGCLEAR>Scale test 11
+type1<LINETYPE 01><LINEOFS 76>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e
+type1<LINETYPE 01><LINEOFS 80>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e
+type1<LINETYPE 01><LINEOFS 8a>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e<BTN>
+<MSGCLEAR>Scale test 12
+type2<LINETYPE 02><LINEOFS 76>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e
+type2<LINETYPE 02><LINEOFS 80>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e
+type2<LINETYPE 02><LINEOFS 8a>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e<BTN>
+<MSGCLEAR>Scale test LINE0
+type<LINESCALE 10>L0<LINETYPE 00><LINEOFS 76>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e
+type<LINESCALE 20>L0<LINETYPE 00><LINEOFS 80>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e
+type<LINESCALE 30>L0<LINETYPE 00><LINEOFS 8a>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e<BTN>
+<MSGCLEAR>Scale test LINE1
+type<LINESCALE 10>L1<LINETYPE 01><LINEOFS 76>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e
+type<LINESCALE 18>L1<LINETYPE 01><LINEOFS 80>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e
+type<LINESCALE 20>L1<LINETYPE 01><LINEOFS 8a>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e<BTN>
+<MSGCLEAR>Scale test LINE2
+type<LINESCALE 20>L2<LINETYPE 02><LINEOFS 76>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e
+type<LINESCALE 30>L2<LINETYPE 02><LINEOFS 80>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e
+type<LINESCALE 40>L2<LINETYPE 02><LINEOFS 8a>a<CHARSCALE 20>b<CHARSCALE 30>c<CHARSCALE 40>d<CHARSCALE 10>e<BTN>
+<MSGCLEAR><LINETYPE 01><LINEOFS 80><TEXTCOLOR 00ff00>a<COLORCHARS ff000003>b<CHARSCALE 40>cde<BTN>
+Music start<BGMMAKE 0300><BTN>
+Music stop<BGMDELETE 0300>
+Closes by itself.
+<MSGTIMEEND 4b>
+
+## 17
+#: a test of long sounds and the sound triggers (a song's line, cries, a name called)
+In<PAUSE 03> the no----<PAUSE 03>rth---<PAUSE 1d>.<PAUSE 04>
+on<PAUSE 03> the<PAUSE 03> bar<PAUSE 03> street<PAUSE 03>,
+there<PAUSE 03> by<PAUSE 03> the<PAUSE 03> wa----<PAUSE 1e>ter.<BTN>
+<MSGCLEAR>Fo-------rever.<SNDTRGSYS 00><BTN>
+<MSGCLEAR>So beauuuutiful.<SNDTRGSYS 01><BTN>
+<MSGCLEAR>Whaaaaaaat?!<SNDTRGSYS 02><BTN>
+<MSGCLEAR>Raaaaaawr.<SNDTRGSYS 03><BTN>
+<MSGCLEAR>Ummmmm, let's seeee.<SNDTRGSYS 04><BTN>
+<MSGCLEAR>Heeeelp, somebody!!<SNDTRGSYS 05><BTN>
+<MSGCLEAR>The one I looooove most.<SNDTRGSYS 06><BTN>
+<MSGCLEAR>Oh, fiiiiine!<SNDNOPAGE><BTN>
+<MSGCLEAR>Eeeeek!<BTN>
+<MSGCLEAR>Boooom!<BTN>
+<MSGCLEAR>Sheeeh!<BTN>
+<MSGCLEAR>Splooosh!<BTN>
+<MSGCLEAR>Smooch!<BTN>
+<MSGCLEAR>Eeeeeek, look!!<SNDNOPAGE><BTN>
+<MSGCLEAR>Let's shooooot!<BTN>
+<MSGCLEAR>Oh, all riiiight!<BTN>
+<MSGCLEAR>Let's play some soccer!<BTN>
+<MSGCLEAR><ABLECANCEL><STR_PLAYERNAME>!
+<STR_PLAYERNAME>!!
+<STR_PLAYERNAME>!!!
+<STR_PLAYERNAME><PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>?<BTN>
+<MSGCLEAR><STR_PLAYERNAME>----
+----!<BTN>
+<MSGCLEAR>Gaaaa
+--------
+---------------
+--------------h!
+<MSGEND>
+
+## 18
+#: a test choice (Happy, Sleepy, Next)
+Which one?<SETSELSTR3 00d700d800b3><BTN><OPENCHOICE><SETNEXTMSG0 000d><SETNEXTMSG1 000e><SETNEXTMSG2 0009><FORCENEXT>
+<MSGCONTINUE>
+
+## 553
+#: a dummy
+Dummy 1
+<MSGEND>
+
+## 554
+#: a dummy
+Dummy 2
+<MSGEND>
+
+## 555
+#: a dummy
+Dummy 3
+<MSGEND>
+
+## 556
+#: a dummy
+Dummy 4
+<MSGEND>
+
+## 557
+#: a dummy
+Dummy 5
+<MSGEND>
+
+## 558
+#: a dummy
+Dummy 6
+<MSGEND>
+
+## 559
+#: a dummy
+Dummy 7
+<MSGEND>
+
+## 560
+#: a dummy
+Dummy 8
+<MSGEND>
+
+## 561
+#: a dummy
+Dummy 9
+<MSGEND>
+
+## 562
+#: a dummy
+Dummy 10
+<MSGEND>
+
+## 563
+#: a dummy
+Dummy 11
+<MSGEND>
+
+## 564
+#: a dummy
+Dummy 12
+<MSGEND>
+
+## 565
+#: a dummy
+Dummy 13
+<MSGEND>
+
+## 566
+#: a dummy
+Dummy 14
+<MSGEND>
+
+## 567
+#: a dummy
+Dummy 15
+<MSGEND>
+
+## 568
+#: a dummy
+Dummy 16
+<MSGEND>
+
+## 569
+#: a dummy
+Dummy 17
+<MSGEND>

@@ -1,0 +1,75 @@
+# Our own English for an early version of the gyroid's messages in the player's house (the bank's
+# 898-907; the gyroid the game uses speaks from 2341 on). The gyroid's polite speech has a verbal tic
+# of its own in the cartridge's text; the GameCube's English renders it formal, and so do we.
+# tools/msgbank.py's dump form, as ours.txt (its header says how the build lays it over the bank and
+# what af_text.py holds it to).
+
+## 898
+#: welcoming the player home (the choice: revise the message, store an item, never mind)
+Welcome back,
+master!<PAUSE 14>
+What would you like to do?<SETSELSTR3 001300140015><BTN><OPENCHOICE>
+<MSGCONTINUE>
+
+## 899
+I see.<PAUSE 14>
+Then do take care
+while you are out.
+<MSGEND>
+
+## 900
+It shall be done.<PAUSE 14>
+Do take care
+while you are out.
+<MSGEND>
+
+## 901
+#: to a visitor: the owner's message
+Welcome, and thank you for
+visiting.<PAUSE 14> My master has
+left you a message.
+<BTN>
+<MSGCLEAR><STR_MAIL>
+<SETFORCEMSG 0386>
+<MSGCONTINUE>
+
+## 902
+#: to a visitor (the choice: check items, never mind)
+And now,
+how may I help you?<SETSELSTR2 00160015><BTN><OPENCHOICE>
+<DEMONPC0 000001>
+<MSGCONTINUE>
+
+## 903
+I see.<PAUSE 14>
+Please do visit again.
+<MSGEND>
+
+## 904
+Thank you kindly.<PAUSE 14>
+Please do visit again.
+<MSGEND>
+
+## 905
+My deepest apologies.<PAUSE 14>
+I have nothing
+to show you.<PAUSE 14>
+Please do visit again.
+<MSGEND>
+
+## 906
+#: saving at the end of the day
+Thank you for all your hard
+work today.<BTN> Now,<PAUSE 02> I shall
+record your progress,<PAUSE 06>
+so please wait a moment.<PAUSE 3c>
+<MSGCLEAR><TEXTCOLOR 0000c8>               Saving!
+
+<TEXTCOLOR c80000>Don't turn the power off!
+<MSGCONTINUE>
+
+## 907
+Thank you for waiting.<PAUSE 0a>
+Now then,<PAUSE 06> please rest<PAUSE 02>
+well tonight.
+<MSGEND>

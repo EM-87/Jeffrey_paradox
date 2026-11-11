@@ -2252,8 +2252,10 @@ what goes in it: "The letters in the en build").
   `script/message/ours.txt`. Ten are spares (the opening's five, four
   event notices', one more: our "extra", the word the GameCube's English
   gives its own) and three are debug messages that ask the developers to
-  be told if they show (the cartridge's text says its "please" with a
-  lisp; ours too, and so does the saving message beside them). The other
+  be told if they show, in the gyroid's polite speech (a verbal tic of
+  its own on the cartridge, 2341 to 2359; the GameCube's English renders
+  it formal, and so does ours, here and in the saving message beside
+  them). The other
   32: the villagers (an errand not done, a first meeting late at night, a
   fondness that wore off, visiting other towns, the furniture and a
   letter on the part-time job, telling the time by the sun, letters not
@@ -2279,6 +2281,14 @@ what goes in it: "The letters in the en build").
   the game always has (`GLOBAL`: `STR_AMPM`, and a villager's whole time
   again where the cartridge's says only the seconds have moved on: the en
   build prints them as two digits).
+- **The rest of the bank's Japanese** (734 after the 45; in progress, file
+  by file): `spares.txt`, the developers' labels of 269 spare slots (who
+  or what each was kept for, and its number); `tests.txt`, 35 test
+  messages and dummies (the developers' checks of strings, choices,
+  colours, scales, offsets, sounds and moods: every code where the
+  cartridge has it, a test's single kana a letter); `gyroid.txt`, 10
+  messages of an early house gyroid (898 to 907), in the gyroid's formal
+  English.
 - **In the build.** `make script` lays `script/message/*.txt` over the
   draft (no longer every `script/*.txt`: `ui.txt` and `items.txt` are not
   messages); `make rom-en` lays them over the compiled bank again, after

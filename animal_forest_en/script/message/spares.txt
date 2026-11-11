@@ -1,0 +1,1226 @@
+# The developers' labels for the bank's spare messages (slots kept for messages to come), in English: who
+# or what the slot was kept for, and its number where the label has one. tools/msgbank.py's dump form, as
+# ours.txt (its header says how the build lays it over the bank and what af_text.py holds it to).
+
+## 753
+Extra for the shop, poko!
+<MSGEND>
+
+## 754
+Extra for the shop, poko!
+<MSGEND>
+
+## 755
+Extra for the shop, poko!
+<MSGEND>
+
+## 756
+Extra for the shop, poko!
+<MSGEND>
+
+## 765
+Extra for the walrus, dagya!
+<MSGEND>
+
+## 766
+Extra for the walrus, dagya!
+<MSGEND>
+
+## 767
+Extra for the walrus, dagya!
+<MSGEND>
+
+## 768
+Extra for the walrus, dagya!
+<MSGEND>
+
+## 769
+Extra for the walrus, dagya!
+<MSGEND>
+
+## 770
+Extra for the walrus, dagya!
+<MSGEND>
+
+## 771
+Extra for the walrus, dagya!
+<MSGEND>
+
+## 1158
+Train demo
+spare area
+<MSGEND>
+
+## 1159
+Train demo
+spare area
+<MSGEND>
+
+## 1160
+Train demo
+spare area
+<MSGEND>
+
+## 1161
+Train demo
+spare area
+<MSGEND>
+
+## 1173
+Extra for the camel, desumon!
+<MSGEND>
+
+## 1174
+Extra for the camel, desumon!
+<MSGEND>
+
+## 1175
+Extra for the camel, desumon!
+<MSGEND>
+
+## 1176
+Extra for the camel, desumon!
+<MSGEND>
+
+## 1818
+Boar extra message 2
+<MSGEND>
+
+## 1819
+Boar extra message 3
+<MSGEND>
+
+## 1820
+Boar extra message 4
+<MSGEND>
+
+## 1821
+Boar extra message 5
+<MSGEND>
+
+## 1822
+Boar extra message 6
+<MSGEND>
+
+## 1823
+Boar extra message 7
+<MSGEND>
+
+## 1824
+Boar extra message 8
+<MSGEND>
+
+## 2011
+extra
+<MSGEND>
+
+## 2012
+extra
+<MSGEND>
+
+## 2111
+Opening
+Extra
+<MSGEND>
+
+## 2112
+Opening
+Extra
+<MSGEND>
+
+## 2323
+Part-time job replies
+extra
+<MSGEND>
+
+## 2324
+Part-time job replies
+extra
+<MSGEND>
+
+## 2325
+Part-time job replies
+extra
+<MSGEND>
+
+## 2326
+Part-time job replies
+extra
+<MSGEND>
+
+## 2327
+Part-time job replies
+extra
+<MSGEND>
+
+## 2328
+Part-time job replies
+extra
+<MSGEND>
+
+## 2329
+Part-time job replies
+extra
+<MSGEND>
+
+## 2330
+Part-time job replies
+extra
+<MSGEND>
+
+## 2331
+Part-time job replies
+extra
+<MSGEND>
+
+## 2332
+Part-time job replies
+extra
+<MSGEND>
+
+## 2333
+Part-time job replies
+extra
+<MSGEND>
+
+## 2334
+Part-time job replies
+extra
+<MSGEND>
+
+## 2335
+Part-time job replies
+extra
+<MSGEND>
+
+## 2336
+Part-time job replies
+extra
+<MSGEND>
+
+## 2337
+Part-time job replies
+extra
+<MSGEND>
+
+## 2338
+Part-time job replies
+extra
+<MSGEND>
+
+## 2339
+Part-time job replies
+extra
+<MSGEND>
+
+## 2340
+Part-time job replies
+extra
+<MSGEND>
+
+## 2360
+Gyroid
+extra
+<MSGEND>
+
+## 2361
+Gyroid
+extra
+<MSGEND>
+
+## 2362
+Gyroid
+extra
+<MSGEND>
+
+## 2363
+Gyroid
+extra
+<MSGEND>
+
+## 2364
+Gyroid
+extra
+<MSGEND>
+
+## 2365
+Gyroid
+extra
+<MSGEND>
+
+## 2366
+Gyroid
+extra
+<MSGEND>
+
+## 2367
+Gyroid
+extra
+<MSGEND>
+
+## 2368
+Gyroid
+extra
+<MSGEND>
+
+## 2369
+Gyroid
+extra
+<MSGEND>
+
+## 2370
+Gyroid
+extra
+<MSGEND>
+
+## 2408
+Station attendant
+extra
+<MSGEND>
+
+## 2409
+Station attendant
+extra
+<MSGEND>
+
+## 2410
+Station attendant
+extra
+<MSGEND>
+
+## 2411
+Station attendant
+extra
+<MSGEND>
+
+## 2412
+Station attendant
+extra
+<MSGEND>
+
+## 2413
+Station attendant
+extra
+<MSGEND>
+
+## 2414
+Station attendant
+extra
+<MSGEND>
+
+## 2415
+Station attendant
+extra
+<MSGEND>
+
+## 2435
+Black panther extra message 2
+<MSGEND>
+
+## 2436
+Black panther extra message 3
+<MSGEND>
+
+## 2437
+Black panther extra message 4
+<MSGEND>
+
+## 2438
+Black panther extra message 5
+<MSGEND>
+
+## 2439
+Black panther extra message 6
+<MSGEND>
+
+## 2440
+Black panther extra message 7
+<MSGEND>
+
+## 2441
+Black panther extra message 8
+<MSGEND>
+
+## 2498
+Halloween extra message 8
+<MSGEND>
+
+## 2499
+Halloween extra message 9
+<MSGEND>
+
+## 2500
+Halloween extra message 10
+<MSGEND>
+
+## 2501
+Halloween extra message 11
+<MSGEND>
+
+## 2502
+Halloween extra message 12
+<MSGEND>
+
+## 2577
+Extra, just in case
+<MSGEND>
+
+## 2598
+Showing a letter, extra
+<MSGEND>
+
+## 2599
+Showing a letter, extra
+<MSGEND>
+
+## 2600
+Showing a letter, extra
+<MSGEND>
+
+## 2601
+Showing a letter, extra
+<MSGEND>
+
+## 2602
+Showing a letter, extra
+<MSGEND>
+
+## 2603
+Showing a letter, extra
+<MSGEND>
+
+## 2770
+Snooty sis
+trade extra
+<MSGEND>
+
+## 2771
+Snooty sis
+trade extra
+<MSGEND>
+
+## 2772
+Snooty sis
+trade extra
+<MSGEND>
+
+## 2773
+Snooty sis
+trade extra
+<MSGEND>
+
+## 2774
+Snooty sis
+trade extra
+<MSGEND>
+
+## 2814
+Snooty sis
+present extra
+<MSGEND>
+
+## 2815
+Snooty sis
+present extra
+<MSGEND>
+
+## 2816
+Snooty sis
+present extra
+<MSGEND>
+
+## 2817
+Snooty sis
+present extra
+<MSGEND>
+
+## 2818
+Snooty sis
+present extra
+<MSGEND>
+
+## 2837
+Snooty sis
+trade 2 extra
+<MSGEND>
+
+## 2838
+Snooty sis
+trade 2 extra
+<MSGEND>
+
+## 2839
+Snooty sis
+trade 2 extra
+<MSGEND>
+
+## 2840
+Snooty sis
+trade 2 extra
+<MSGEND>
+
+## 2868
+Snooty sis
+sales extra
+<MSGEND>
+
+## 2869
+Snooty sis
+sales extra
+<MSGEND>
+
+## 2884
+Present when happy
+extra
+<MSGEND>
+
+## 2885
+Present when happy
+extra
+<MSGEND>
+
+## 2886
+Present when happy
+extra
+<MSGEND>
+
+## 2887
+Present when happy
+extra
+<MSGEND>
+
+## 2888
+Present when happy
+extra
+<MSGEND>
+
+## 2904
+Happy trade extra
+<MSGEND>
+
+## 2905
+Happy trade extra
+<MSGEND>
+
+## 2906
+Happy trade extra
+<MSGEND>
+
+## 2907
+Happy trade extra
+<MSGEND>
+
+## 2908
+Happy trade extra
+<MSGEND>
+
+## 2950
+Snooty sis
+happy sales extra
+<MSGEND>
+
+## 5950
+Little tanuki extra
+<MSGEND>
+
+## 5951
+Little tanuki extra
+<MSGEND>
+
+## 5952
+Little tanuki extra
+<MSGEND>
+
+## 5953
+Little tanuki extra
+<MSGEND>
+
+## 5954
+Little tanuki extra
+<MSGEND>
+
+## 6057
+extra
+<MSGEND>
+
+## 6058
+extra
+<MSGEND>
+
+## 6059
+extra
+<MSGEND>
+
+## 6060
+extra
+<MSGEND>
+
+## 6384
+extra
+<MSGEND>
+
+## 6423
+Fortune extra message 2
+<MSGEND>
+
+## 6424
+Fortune extra message 3
+<MSGEND>
+
+## 6425
+Fortune extra message 4
+<MSGEND>
+
+## 6426
+Fortune extra message 5
+<MSGEND>
+
+## 6427
+Fortune extra message 6
+<MSGEND>
+
+## 6428
+Fortune extra message 7
+<MSGEND>
+
+## 6429
+Fortune extra message 8
+<MSGEND>
+
+## 6595
+Trash picked up, extra
+<MSGCONTINUE>
+
+## 6596
+Trash picked up, extra
+<MSGCONTINUE>
+
+## 6597
+Trash picked up, extra
+<MSGEND>
+
+## 6598
+Trash picked up, extra
+<MSGEND>
+
+## 6599
+Trash picked up, extra
+<MSGEND>
+
+## 6600
+Trash picked up, extra
+<MSGEND>
+
+## 6601
+Trash picked up, extra
+<MSGEND>
+
+## 6602
+Trash picked up, extra
+<MSGEND>
+
+## 6603
+Trash picked up, extra
+<MSGEND>
+
+## 6604
+Trash picked up, extra
+<MSGEND>
+
+## 9384
+<DEMONPC0 0000ff>Normal girl
+chat extra 68
+<MSGEND>
+
+## 9385
+<DEMONPC0 0000ff>Normal girl
+chat extra 69
+<MSGEND>
+
+## 9386
+<DEMONPC0 0000ff>Normal girl
+chat extra 70
+<MSGEND>
+
+## 9387
+<DEMONPC0 0000ff>Normal girl
+chat extra 71
+<MSGEND>
+
+## 9388
+<DEMONPC0 0000ff>Normal girl
+chat extra 72
+<MSGEND>
+
+## 9389
+<DEMONPC0 0000ff>Normal girl
+chat extra 73
+<MSGEND>
+
+## 9390
+<DEMONPC0 0000ff>Normal girl
+chat extra 74
+<MSGEND>
+
+## 9391
+<DEMONPC0 0000ff>Normal girl
+chat extra 75
+<MSGEND>
+
+## 9392
+<DEMONPC0 0000ff>Normal girl
+chat extra 76
+<MSGEND>
+
+## 9393
+<DEMONPC0 0000ff>Normal girl
+chat extra 77
+<MSGEND>
+
+## 9394
+<DEMONPC0 0000ff>Normal girl
+chat extra 78
+<MSGEND>
+
+## 9395
+<DEMONPC0 0000ff>Normal girl
+chat extra 79
+<MSGEND>
+
+## 9396
+<DEMONPC0 0000ff>Normal girl
+chat extra 80
+<MSGEND>
+
+## 9397
+<DEMONPC0 0000ff>Normal girl
+chat extra 81
+<MSGEND>
+
+## 9398
+<DEMONPC0 0000ff>Normal girl
+chat extra 82
+<MSGEND>
+
+## 9399
+<DEMONPC0 0000ff>Normal girl
+chat extra 83
+<MSGEND>
+
+## 9400
+<DEMONPC0 0000ff>Normal girl
+chat extra 84
+<MSGEND>
+
+## 9401
+<DEMONPC0 0000ff>Normal girl
+chat extra 85
+<MSGEND>
+
+## 9402
+<DEMONPC0 0000ff>Normal girl
+chat extra 86
+<MSGEND>
+
+## 9403
+<DEMONPC0 0000ff>Normal girl
+chat extra 87
+<MSGEND>
+
+## 9404
+<DEMONPC0 0000ff>Normal girl
+chat extra 88
+<MSGEND>
+
+## 9405
+<DEMONPC0 0000ff>Normal girl
+chat extra 89
+<MSGEND>
+
+## 9406
+<DEMONPC0 0000ff>Normal girl
+chat extra 90
+<MSGEND>
+
+## 9407
+<DEMONPC0 0000ff>Normal girl
+chat extra 91
+<MSGEND>
+
+## 9408
+<DEMONPC0 0000ff>Normal girl
+chat extra 92
+<MSGEND>
+
+## 9409
+<DEMONPC0 0000ff>Normal girl
+chat extra 93
+<MSGEND>
+
+## 9410
+<DEMONPC0 0000ff>Normal girl
+chat extra 94
+<MSGEND>
+
+## 9411
+<DEMONPC0 0000ff>Normal girl
+chat extra 95
+<MSGEND>
+
+## 9412
+<DEMONPC0 0000ff>Normal girl
+chat extra 96
+<MSGEND>
+
+## 9413
+<DEMONPC0 0000ff>Normal girl
+chat extra 97
+<MSGEND>
+
+## 9414
+<DEMONPC0 0000ff>Normal girl
+chat extra 98
+<MSGEND>
+
+## 9415
+<DEMONPC0 0000ff>Normal girl
+chat extra 99
+<MSGEND>
+
+## 9416
+<DEMONPC0 0000ff>Normal girl
+chat extra 100
+<MSGEND>
+
+## 9457
+<DEMONPC0 0000ff>Peppy gal
+chat extra 71
+<MSGEND>
+
+## 9458
+<DEMONPC0 0000ff>Peppy gal
+chat extra 72
+<MSGEND>
+
+## 9459
+<DEMONPC0 0000ff>Peppy gal
+chat extra 73
+<MSGEND>
+
+## 9460
+<DEMONPC0 0000ff>Peppy gal
+chat extra 74
+<MSGEND>
+
+## 9461
+<DEMONPC0 0000ff>Peppy gal
+chat extra 75
+<MSGEND>
+
+## 9462
+<DEMONPC0 0000ff>Peppy gal
+chat extra 76
+<MSGEND>
+
+## 9463
+<DEMONPC0 0000ff>Peppy gal
+chat extra 77
+<MSGEND>
+
+## 9464
+<DEMONPC0 0000ff>Peppy gal
+chat extra 78
+<MSGEND>
+
+## 9465
+<DEMONPC0 0000ff>Peppy gal
+chat extra 79
+<MSGEND>
+
+## 9466
+<DEMONPC0 0000ff>Peppy gal
+chat extra 80
+<MSGEND>
+
+## 9467
+<DEMONPC0 0000ff>Peppy gal
+chat extra 81
+<MSGEND>
+
+## 9468
+<DEMONPC0 0000ff>Peppy gal
+chat extra 82
+<MSGEND>
+
+## 9469
+<DEMONPC0 0000ff>Peppy gal
+chat extra 83
+<MSGEND>
+
+## 9470
+<DEMONPC0 0000ff>Peppy gal
+chat extra 84
+<MSGEND>
+
+## 9471
+<DEMONPC0 0000ff>Peppy gal
+chat extra 85
+<MSGEND>
+
+## 9472
+<DEMONPC0 0000ff>Peppy gal
+chat extra 86
+<MSGEND>
+
+## 9473
+<DEMONPC0 0000ff>Peppy gal
+chat extra 87
+<MSGEND>
+
+## 9474
+<DEMONPC0 0000ff>Peppy gal
+chat extra 88
+<MSGEND>
+
+## 9475
+<DEMONPC0 0000ff>Peppy gal
+chat extra 89
+<MSGEND>
+
+## 9476
+<DEMONPC0 0000ff>Peppy gal
+chat extra 90
+<MSGEND>
+
+## 9477
+<DEMONPC0 0000ff>Peppy gal
+chat extra 91
+<MSGEND>
+
+## 9478
+<DEMONPC0 0000ff>Peppy gal
+chat extra 92
+<MSGEND>
+
+## 9479
+<DEMONPC0 0000ff>Peppy gal
+chat extra 93
+<MSGEND>
+
+## 9480
+<DEMONPC0 0000ff>Peppy gal
+chat extra 94
+<MSGEND>
+
+## 9481
+<DEMONPC0 0000ff>Peppy gal
+chat extra 95
+<MSGEND>
+
+## 9482
+<DEMONPC0 0000ff>Peppy gal
+chat extra 96
+<MSGEND>
+
+## 9483
+<DEMONPC0 0000ff>Peppy gal
+chat extra 97
+<MSGEND>
+
+## 9484
+<DEMONPC0 0000ff>Peppy gal
+chat extra 98
+<MSGEND>
+
+## 9485
+<DEMONPC0 0000ff>Peppy gal
+chat extra 99
+<MSGEND>
+
+## 9486
+<DEMONPC0 0000ff>Peppy gal
+chat extra 100
+<MSGEND>
+
+## 10457
+Scary bro
+trade extra
+<MSGEND>
+
+## 10458
+Scary bro
+trade extra
+<MSGEND>
+
+## 10459
+Scary bro
+trade extra
+<MSGEND>
+
+## 10460
+Scary bro
+trade extra
+<MSGEND>
+
+## 10461
+Scary bro
+trade extra
+<MSGEND>
+
+## 10462
+Scary bro
+trade extra
+<MSGEND>
+
+## 10463
+Scary bro
+trade extra
+<MSGEND>
+
+## 10464
+Scary bro
+trade extra
+<MSGEND>
+
+## 10465
+Scary bro
+trade extra
+<MSGEND>
+
+## 10466
+Scary bro
+trade extra
+<MSGEND>
+
+## 10467
+Scary bro
+trade extra
+<MSGEND>
+
+## 10492
+Scary bro
+sales extra
+<MSGEND>
+
+## 10493
+Scary bro
+sales extra
+<MSGEND>
+
+## 10494
+Scary bro
+sales extra
+<MSGEND>
+
+## 10495
+Scary bro
+sales extra
+<MSGEND>
+
+## 10496
+Scary bro
+sales extra
+<MSGEND>
+
+## 10497
+Scary bro
+sales extra
+<MSGEND>
+
+## 10498
+Scary bro
+sales extra
+<MSGEND>
+
+## 10581
+Present when happy
+extra
+<MSGEND>
+
+## 11013
+extra
+<MSGEND>
+
+## 11014
+extra
+<MSGEND>
+
+## 11015
+extra
+<MSGEND>
+
+## 11016
+extra
+<MSGEND>
+
+## 11035
+extra
+<MSGEND>
+
+## 11036
+extra
+<MSGEND>
+
+## 11037
+extra
+<MSGEND>
+
+## 11038
+extra
+<MSGEND>
+
+## 11039
+extra
+<MSGEND>
+
+## 11040
+extra
+<MSGEND>
+
+## 11041
+extra
+<MSGEND>
+
+## 11042
+extra
+<MSGEND>
+
+## 11043
+extra
+<MSGEND>
+
+## 11044
+extra
+<MSGEND>
+
+## 11045
+extra
+<MSGEND>
+
+## 11046
+extra
+<MSGEND>
+
+## 11047
+extra
+<MSGEND>
+
+## 11048
+extra
+<MSGEND>
+
+## 11049
+extra
+<MSGEND>
+
+## 11050
+extra
+<MSGEND>
+
+## 11051
+extra
+<MSGEND>
+
+## 11052
+extra
+<MSGEND>
+
+## 11075
+extra
+<MSGEND>
+
+## 11076
+extra
+<MSGEND>
+
+## 11077
+extra
+<MSGEND>
+
+## 11078
+extra
+<MSGEND>
+
+## 11079
+extra
+<MSGEND>
+
+## 11080
+extra
+<MSGEND>
+
+## 11081
+extra
+<MSGEND>
+
+## 11082
+extra
+<MSGEND>
+
+## 11083
+extra
+<MSGEND>
+
+## 11547
+extra
+<MSGEND>
+
+## 11548
+extra
+<MSGEND>
+
+## 11559
+extra
+<MSGEND>
+
+## 11560
+extra
+<MSGEND>
+
+## 11561
+extra
+<MSGEND>
+
+## 11562
+extra
+<MSGEND>
+
+## 11563
+extra
+<MSGEND>
+
+## 11564
+extra
+<MSGEND>
+
+## 11565
+extra
+<MSGEND>
+
+## 11566
+extra
+<MSGEND>
+
+## 11567
+extra
+<MSGEND>
+
+## 11568
+extra
+<MSGEND>
+
+## 11569
+extra
+<MSGEND>
+
+## 11570
+extra
+<MSGEND>
+
+## 11571
+extra
+<MSGEND>
+
+## 11572
+extra
+<MSGEND>

@@ -218,40 +218,40 @@ write me again soon,<PAUSE 0c>
 <MSGEND>
 
 ## 2351
-#: a debug message (its lisp is the original's joke)
+#: a debug message, in the gyroid's polite speech
 This is message
 number 2351.<BTN>
 <MSGCLEAR>If this message shows up
 while debugging,
-pleathe let uth know!
+kindly let us know.
 By Eguchi
 <MSGEND>
 
 ## 2352
-#: a debug message (its lisp is the original's joke)
+#: a debug message, in the gyroid's polite speech
 This is message
 number 2352.<BTN>
 <MSGCLEAR>If this message shows up
 while debugging,
-pleathe let uth know!
+kindly let us know.
 By Eguchi
 <MSGEND>
 
 ## 2353
-#: a debug message (its lisp is the original's joke)
-This message ith
+#: a debug message, in the gyroid's polite speech
+This is message
 number 2353.<BTN>
 <MSGCLEAR>If this message shows up
 while debugging,
-pleathe let uth know!
+kindly let us know.
 By Eguchi
 <MSGEND>
 
 ## 2354
-#: a saving message in the debug messages' lisp
-Now then, I'll thave
+#: the gyroid saving the town
+Now then, I shall save
 the <COLORCHARS e11ed709>town data.<PAUSE 0c>
-Pleathe wait a moment.<PAUSE 1e>
+Please wait a moment.<PAUSE 1e>
 <MSGCLEAR><TEXTCOLOR c35f00>              Saving...
 
 <TEXTCOLOR c35f00>Don't turn the power off!<SNDTRGSYS 04><DEMONPC0 090001>
