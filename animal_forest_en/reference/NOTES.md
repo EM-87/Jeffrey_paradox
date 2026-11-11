@@ -1131,11 +1131,14 @@ what goes in it: "The letters in the en build").
   `mSM_submenu_ctrl` opens a program; nine shop letters (the longest
   bodies, the longest footer, a notice of type 2 and the same as type
   4, indented lines, two that run past six lines with the free strings
-  set) and two villagers' letters. Each band's first and last text pixel
-  is where a model of the board puts the first and last characters'
-  inked columns, within 2 frame pixels, on all 88 bands of the 11
-  boards; the model fails 29 bands with its lines broken 20 px early
-  and 71 with a space 1 px wider. The text's pixels are told by colour
+  set: 503 and 508, 508 in 430's place since 430's text is the
+  GameCube's at another number) and two villagers' letters. Each band's
+  first and last text pixel is where a model of the board puts the first
+  and last characters' inked columns (with the fringe the boards'
+  resampling shows: "The bulletin board"), within 2 frame pixels, on all
+  88 bands of the 11 boards; the model fails 29 bands with its lines
+  broken 20 px early and 71 with a space 1 px wider (measured with 430).
+  The text's pixels are told by colour
   (red over blue over green; the postmark has blue and green equal, the
   ruled lines blue over red): the board's thin strokes are resampled
   (next item) and come out lighter than the postmark (an "l" at r+g+b
@@ -2125,7 +2128,8 @@ what goes in it: "The letters in the en build").
   game's four posts hold their letters' first 96 bytes, and the
   extension their rests (44, 69, 40 and 57 bytes) under each post's key;
   five of the game's notices put up from a hook as `func_800A5F08_jp`
-  puts one (536, 430, 528, 511 and the empty 463) are filed the same way,
+  puts one (536, 439, 528, 511 and the empty 463; 430 until its text was
+  taken from another number) are filed the same way,
   none for the empty one. Opened, the board turned from the newest post
   to the oldest draws each post whole with the model's lines (each
   line's first and last text pixel against tests/emu_board.py's model of
@@ -2134,7 +2138,15 @@ what goes in it: "The letters in the en build").
   to the pixel, fitted on the 96 line ends of the nine posts, residuals
   within 1.7; the letter board's 1.954 leaves 2.1): all 54 bands; the
   model fails 12 with its lines broken 20 px early, 47 with a space 1 px
-  wider, and the cartridge's 16 characters a line 46. The board full, a
+  wider, and the cartridge's 16 characters a line 46 (measured with 430
+  in 439's place). The model's ink: a glyph's columns of 8 of 15 or more,
+  and of 6 or more beside one (`emu_board.FRINGE`): the boards draw their
+  text resampled at about 1.95 frame pixels to the pixel, which shows such
+  a fringe (439's "Fireworks Festival", ending in an "l" whose right
+  column is 6, ended 2.6 frame pixels past the strong columns: the one
+  band the strong columns alone failed); the message window at 2.005
+  shows none (17 of its lines would end 2 pixels short of the fringe's
+  model), and its model and the menus' keep the strong columns. The board full, a
   post put up moves the others up, the oldest going, each keeping its
   rest. A notice typed on the dial (A on the board) is written in the
   letters' 192-byte body, 32 characters a line: 105 bytes kept whole, the

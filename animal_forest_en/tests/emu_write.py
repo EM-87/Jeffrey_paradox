@@ -213,7 +213,7 @@ def main(argv):
     hole, hole_size = emu_save.section_of(ref_map, "build/src/code/m_choice_main.o", ".text")
     mttime, cd = syms["mTM_time"], syms["common_data"]
     seg = open(os.path.join(af_en, "assets", "jp", "segment_00BCD000.bin"), "rb").read()
-    board = emu_board.Board(seg, emu_board.read_cut(af_en))
+    board = emu_board.Board(seg, emu_board.read_cut(af_en), emu_board.FRINGE)
     dial = dial_table(af_en)
     shots = []
 

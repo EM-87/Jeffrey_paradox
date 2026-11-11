@@ -158,10 +158,15 @@ BOARD_X = (131.6, 1.954)
 TOLERANCE = 2.0                            # frame pixels (the VI filter, the text's resampling)
 TEXT_HUE = 6                               # blue over green and red over blue by this much: text
 STRONG = 8                                 # a glyph's pixel at least this (of 15) inks the column
+# The boards draw their text resampled, at about 1.95 frame pixels to the pixel: a glyph's weak column
+# beside a strong one comes out as ink too (the "l"'s right, 6 of 15, and the "."'s: measured on the
+# bulletin board, a line ending in "l" 2.6 frame pixels past the strong columns). The message window, at
+# 2.005, shows none (17 of its lines would be 2 pixels short of such a model).
+FRINGE = 6
 PAPER_X = range(96, 544)                   # the text's part of the paper, in the frame
 SETTLE = 90
 # Shop letters: (mail number, mail type); villagers' letters: (header, a, b, c, footer)
-SHOP = [(205, 4), (215, 4), (51, 2), (51, 4), (102, 4), (528, 4), (430, 4), (4, 4), (503, 4)]
+SHOP = [(205, 4), (215, 4), (51, 2), (51, 4), (102, 4), (528, 4), (508, 4), (4, 4), (503, 4)]
 VILLAGERS = [(3, 40, 77, 101, 9), (200, 210, 230, 250, 20)]
 
 failures = []
@@ -183,12 +188,16 @@ def read_cut(af_en):
 class Board:
     """The en board's model: lines of (text, left, right) in N64 pixels from the text's left edge."""
 
-    def __init__(self, seg, cut):
+    def __init__(self, seg, cut, fringe=None):
+        """fringe: a column at least this beside a strong one inks too (FRINGE, the boards')."""
         self.w = af_font.widths(cut)
         self.ink = []
         for c in range(256):
             rows = [af_font._row(seg, c, y)[0] for y in range(16)]
-            self.ink.append([x for x in range(12) if max(r[x] for r in rows) >= STRONG])
+            most = [max(r[x] for r in rows) for x in range(12)]
+            strong = [x for x in range(12) if most[x] >= STRONG]
+            self.ink.append(sorted(set(strong) | {x for x in range(12) if fringe and most[x] >= fringe and
+                                                  (x - 1 in strong or x + 1 in strong)}))
 
     def width(self, s):
         return sum(self.w[c] for c in s)
@@ -308,7 +317,7 @@ def main(argv):
     hole, hole_size = emu_save.section_of(ref_map, "build/src/code/m_choice_main.o", ".text")
     mttime, cd, free_at = syms["mTM_time"], syms["common_data"], syms["B_80140680_jp"]
     seg = open(os.path.join(af_en, "assets", "jp", "segment_00BCD000.bin"), "rb").read()
-    board = Board(seg, read_cut(af_en))
+    board = Board(seg, read_cut(af_en), FRINGE)
     entry = emu_letters.entries(af_en)
     shots = []
 
