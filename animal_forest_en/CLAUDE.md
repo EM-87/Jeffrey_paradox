@@ -50,9 +50,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
    board-check-en`, one to the editor or writing a letter `make
    write-check-en`, one to the bulletin board or its posts `make
    notice-check-en`, one to the message bank or its layout `make
-   messages-check-en`, one to the menus' strings `make menus-check-en`,
-   one to the structures' textures or palettes `make signs-check-en`,
-   one to `emu/` `make emu-determinism`.
+   messages-check-en`, one to the menus' strings or word textures `make
+   menus-check-en`, one to the structures' textures or palettes `make
+   signs-check-en`, one to `emu/` `make emu-determinism`.
 
 ## Where things live
 
@@ -156,6 +156,12 @@ the why and the state, `reference/NOTES.md` for what is verified.
   unextracted .bin), every copy, and the black market's palette into
   object_00D5B000's data; each checked against the cartridge's lists and
   texels (NOTES, "The GameCube's signs").
+- `tools/af_menu_tex.py` — the word textures the 2010 patch left in
+  Japanese: the town tune's note names (the GameCube's letters, from the
+  disc), the birthday's month and day, the catchphrase window's quotes
+  and the letter papers' words (ours: the en font's glyphs, put where the
+  kana were), over the en tree's copies of their segments at `make
+  rom-en` (NOTES, "The word textures").
 - `tools/af_nafe_text.py` — the messages the GameCube's script has no
   counterpart for, in the 2010 patch's English where its codes that steer
   the game are the cartridge's (ends, choices, next messages, the talk
@@ -206,9 +212,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
   name measured in the inventory; strings of the string bank as the game
   loads them, the staff credits' among them, and the credits on screen,
   each of their 16 pages drawn by the orange box as K.K.'s show has it
-  draw them and each line measured; the title's warning without a
-  controller, forced at the title, each line measured as the swapped
-  strings are: `make menus-check-en`),
+  draw them and each line measured; the word textures (the town tune,
+  the birthday, the catchphrase window opened and found in RAM; the
+  papers' words in the ROM); the title's warning without a controller,
+  forced at the title, each line measured as the swapped strings are:
+  `make menus-check-en`),
   `emu_signs.py` (the GameCube's signs in the en ROM, every copy, and in
   RAM once the structures' clip sets each structure up by the player,
   the cartridge's gone: `make signs-check-en`),

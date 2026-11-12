@@ -95,6 +95,13 @@ the staff credits' lines at the 15 bytes the orange box loads
 code puts after the town's name (string 484), all spaces; and a fish's
 size as the fishing tourney writes it, its number and string 670.
 
+And the word textures the en build draws in English
+(tools/af_menu_tex.py): the town tune, the birthday and the text
+editor's catchphrase window opened, each segment found in RAM as the
+labels' are, its textures the en ROM's texels and not the cartridge's;
+the letter papers' words (no menu opens a letter here) in the en ROM as
+the en font letters them.
+
 And the staff credits on screen, as K.K. Slider's show has the orange box
 draw them: a hook on mBGM_main (after the play has drawn) spawns the box
 (its clip at common_data + 0x100E0), loads each of its 16 pages as the box
@@ -126,6 +133,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 from n64emu import N64, A, R, stick, write_png  # noqa: E402
 import af_font  # noqa: E402
 import af_items  # noqa: E402
+import af_menu_tex  # noqa: E402
 import af_nafe_gfx  # noqa: E402
 import af_text  # noqa: E402
 import af_ui  # noqa: E402
@@ -379,6 +387,12 @@ LABEL_MENUS = [(1, 0, 0xA30000, "the inventory"),
                (8, 0, 0xAD1000, "the town tune"),
                (19, 0, 0xB1A000, "the Controller Pak's notes"),
                (20, 0, 0xB2A000, "the catalog")]
+# the menus' word textures in English (tools/af_menu_tex.py): the menu that loads each segment, the textures
+MENU_TEXTURES = [((8, 0), 0xAD1000, [(at, 16, 16, what) for at, _, what in af_menu_tex.TUNE_NOTES], "the town tune"),
+                 ((9, 0), 0xADD000, [(af_menu_tex.MONTH_AT, 32, 16, "the month's dash"),
+                                     (af_menu_tex.DAY_AT, 32, 16, "the day's blank")], "the birthday"),
+                 ((LEDIT, 2), 0xA94000, [(af_menu_tex.QUOTES_AT, 128, 16, "the catchphrase's quotes")],
+                  "the text editor (a catchphrase)")]
 KEEP = 0xA22000                                      # gameplay_keep, segment 4
 ANCHOR = 0x100                                       # bytes of a segment found in RAM to place it
 TITLE_FRAME = 400                                    # the title drawn (tests/emu_check.py)
@@ -708,6 +722,21 @@ def check_labels(ram, vrom, af_en, cart, nafe, what):
             what, label, at, fmt, bits, w, h, "2010 patch's" if nafe else "cartridge's",
             "" if got == want else " (it holds the %s)" % (
                 "cartridge's" if got == ours[at:at + size] else "neither's")))
+
+
+def check_menu_textures(ram, vrom, en_file, cart, textures, what):
+    """Each texture (at, w, h, what) of the segment at vrom, in ram, holds the en build's texels (its ROM's file),
+    not the cartridge's."""
+    spans = [(at, "I", 4, w, h, label) for at, w, h, label in textures]
+    base = segment_base(ram, en_file, spans)
+    check(base is not None, "%s: segment %#x is in RAM" % (what, vrom))
+    if base is None:
+        return
+    for at, w, h, label in textures:
+        size = w * h // 2
+        got = ram[base + at:base + at + size]
+        check(got == en_file[at:at + size] and got != cart[vrom + at:vrom + at + size],
+              "%s: %s (%#x, I4 %dx%d) holds the en build's texels, not the cartridge's" % (what, label, at, w, h))
 
 
 def expected(af_en, gc_path):
@@ -1417,6 +1446,29 @@ def main(argv):
               "fishing tourney writes its size: %r (%d bytes)" % (got[:max(0, min(length, 10))], length))
 
         check_credits(n64, state, af_en, en_elf, hole, hole_size, syms, board, out, credit_shots)
+
+        # the letter papers' words (no menu here opens a letter): the en ROM's segment holds them as the tool
+        # letters them in the en font, not the cartridge's kanji
+        font = open(os.path.join(af_en, "assets", "jp", "segment_00BCD000.bin"), "rb").read()
+        widths = af_menu_tex.font_widths(af_en)
+        papers = af_nafe_gfx.file_at(rom, af_menu_tex.PAPER_VROM)
+        for at, (w, h), word, spacing, inks, what in af_menu_tex.PAPERS:
+            size = w * h // 2
+            width = sum(widths[msgbank.N64_BYTES[c]] for c in word) + spacing * (len(word) - 1)
+            ours = af_menu_tex.lettered_ci4(font, widths, word, (w - width) // 2, w, h, spacing, inks)
+            check(papers[at:at + size] == ours != cart[af_menu_tex.PAPER_VROM + at:af_menu_tex.PAPER_VROM + at + size],
+                  "the letter papers: %s (%#x, CI4 %dx%d) in the en ROM as the en font letters it, not the "
+                  "cartridge's" % (what, at, w, h))
+
+        for (program, data0), vrom, textures, what in MENU_TEXTURES:
+            ctl = setup()
+            n64.write(ctl, struct.pack(">i4I", 1, program, data0, 0, ctl + HOOK_BUF if program == LEDIT else 0))
+            n64.frames(SETTLE, 0)
+            check_menu_textures(n64.read(0x80000000, 0x800000), vrom, af_nafe_gfx.file_at(rom, vrom), cart,
+                                textures, what)
+            path = os.path.join(out, "menu-tex-%04x-%d.png" % (vrom >> 12, data0))
+            n64.screenshot(path)
+            shots.append(path)
 
         for i, (program, data0, vrom, what) in enumerate(LABEL_MENUS):
             ctl = setup()

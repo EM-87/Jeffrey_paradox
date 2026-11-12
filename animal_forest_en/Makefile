@@ -200,6 +200,12 @@ EN_NAFE_LOGO := $(EN_ASSETS)/animal_logo.inc
 # the structures' object, the cartridge's own without it (tools/af_gc_signs.py;
 # NOTES, "The GameCube's signs").
 EN_GC_SIGNS := $(AF_EN_DIR)/assets/jp/en/gc_signs.stamp
+# The menus' word textures the 2010 patch left in Japanese: the town tune's
+# note names (the GameCube's letters from the disc, the cartridge's kana
+# without it), the birthday's month and day and the catchphrase window's
+# quotes (ours, in the en font's glyphs), over the en tree's copies of their
+# segments (tools/af_menu_tex.py; NOTES, "The menus' word textures").
+EN_MENU_TEX := $(AF_EN_DIR)/assets/jp/en/menu_tex.stamp
 GC_REL := $(wildcard $(GC_DIR)/foresta.map $(GC_DIR)/foresta.rel.szs)
 # The overlays the translation changes: each gets its relocation table made
 # anew from its objects after the first link (tools/af_ovlreloc.py, which
@@ -324,6 +330,14 @@ $(EN_GC_SIGNS): tools/af_gc_signs.py tools/af_font.py tools/nafe_diff.py $(GC_RE
 	else echo "signs: the cartridge's (no GameCube files in $(GC_DIR): make script)"; fi
 	@touch $@
 
+# writes three segments' .bin, which splat rewrites at every extract
+$(EN_MENU_TEX): tools/af_menu_tex.py tools/af_gc_signs.py tools/af_font.py tools/msgbank.py $(EN_FONT) $(GC_REL) \
+		$(AF_EN_DIR)/.stamp-extract
+	mkdir -p $(EN_ASSETS)
+	$(PYTHON) tools/af_menu_tex.py $(BASEROM) $(AF_EN_DIR) $(EN_FONT) \
+		$(if $(GC_REL),$(GC_DIR)/foresta.map $(GC_DIR)/foresta.rel.szs)
+	@touch $@
+
 # also writes the segment's .bin and the actor's .data.s, which splat rewrites at every extract
 $(EN_NAFE_LOGO): tools/af_nafe_logo.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)) $(AF_EN_DIR)/.stamp-extract
 	mkdir -p $(EN_ASSETS)
@@ -332,7 +346,7 @@ $(EN_NAFE_LOGO): tools/af_nafe_logo.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)
 	@touch $@
 
 en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT) $(EN_UI) $(EN_NAFE_GFX) $(EN_NAFE_LOGO) $(EN_ITEMS) \
-	$(EN_GC_SIGNS)
+	$(EN_GC_SIGNS) $(EN_MENU_TEX)
 
 # The deliverable: the en ROM as a BPS patch against the user's dump in .z64 order (build/baserom.z64),
 # made and applied back by tools/bps.py; any BPS patcher applies it.

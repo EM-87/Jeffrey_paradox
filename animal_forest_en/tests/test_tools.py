@@ -38,6 +38,7 @@ import af_text  # noqa: E402
 import af_items  # noqa: E402
 import af_ui  # noqa: E402
 import af_gc_signs  # noqa: E402
+import af_menu_tex  # noqa: E402
 import gciso  # noqa: E402
 import msgbank  # noqa: E402
 import rom  # noqa: E402
@@ -1678,6 +1679,49 @@ class GcSigns(unittest.TestCase):
             self.assertEqual(af_gc_signs.png_indices(path)[2], 8)       # its depth kept
         finally:
             shutil.rmtree(work)
+
+
+
+class MenuTextures(unittest.TestCase):
+    """tools/af_menu_tex.py on a made-up font and display list."""
+
+    @staticmethod
+    def font_with(ch, columns, rows):
+        """A font segment (af_font's sheet layout) whose glyph for ch is inked at these columns and rows."""
+        font = bytearray(af_font.SIZE)
+        code = msgbank.N64_BYTES[ch]
+        for y in rows:
+            _, at = af_font._row(font, code, y)
+            for c in columns:
+                font[at + c // 2] |= 15 << (4 if c % 2 == 0 else 0)
+        return bytes(font)
+
+    def test_a_glyph_is_put_by_its_first_inked_column(self):
+        font = self.font_with("-", range(1, 8), (7, 8))
+        tex = af_menu_tex.lettered(font, [("-", 10)], 32, 16)
+        texels = af_gc_signs.texels(tex)
+        inked = sorted({i % 32 for i, v in enumerate(texels) if v})
+        self.assertEqual(inked, list(range(10, 17)))
+        self.assertEqual(sorted({i // 32 for i, v in enumerate(texels) if v}), [7, 8])
+        with self.assertRaises(ValueError):
+            af_menu_tex.lettered(font, [("-", 30)], 32, 16)
+
+    def test_a_word_takes_the_palette_s_inks(self):
+        font = self.font_with("-", range(0, 4), (5,))
+        widths = [6] * 256
+        tex = af_menu_tex.lettered_ci4(font, widths, "--", 2, 32, 16, 0, (3, 13, 11, 0))
+        idx = af_gc_signs.texels(tex)
+        self.assertEqual([x for x in range(32) if idx[5 * 32 + x] == 3], [2, 3, 4, 5, 8, 9, 10, 11])
+        self.assertEqual(set(idx) - {3}, {0})
+
+    def test_the_lists_name_their_textures(self):
+        words = [0xFD100000, 0x06000100,                  # the image: segment 6's 0x100
+                 0xF5100000, 0x07000000,                  # a load tile
+                 0xF3000000, 0x0703F800,                  # the load
+                 0xF5800000 | (4 << 21), 0x00000000,      # the render tile: I4
+                 0xF2000000, 0x0007C03C]                  # its size: 32x16
+        dl = b"".join(struct.pack(">I", w) for w in words) + bytes(8)
+        self.assertEqual(af_menu_tex.drawn_i4(dl), {0x100: (32, 16)})
 
 
 if __name__ == "__main__":

@@ -368,9 +368,22 @@ negro); `make signs-check-en` las
 comprueba en el ROM y en la RAM del juego tras montar cada edificio junto
 al jugador ("The GameCube's signs").
 
-Lo que viene: el resto de texturas con japonés (el puesto de la
-fortuna, algunos papeles de carta, las palabras de la ventana del
-cumpleaños) y una pasada de pruebas de todo el texto en el juego.
+Las últimas palabras que quedaban en japonés en texturas también están
+en inglés (`tools/af_menu_tex.py`): las notas del editor de la melodía del
+pueblo llevan las letras de GameCube (C, D, E, F, G, A, B y "?" para la
+nota al azar), y donde GameCube no tiene nada parecido usamos el propio
+tipo de letra del juego: un guion entre mes y día en la ventana del
+cumpleaños (como el reloj), comillas inglesas en la ventana de la
+muletilla, y "Safety"/"First" y "New Year" en los dos papeles de carta
+que llevaban kanji ("The word textures").
+
+Lo que queda en japonés, a propósito o sin equivalente: los modos de kana
+del dial (para quien quiera escribir en japonés), el puesto de la fortuna
+del día de Año Nuevo (el de GameCube es otro modelo), y el cartel del
+torneo de pesca y el emblema de invierno del mercado negro, que GameCube
+también dejó en japonés.
+
+Lo que viene: una pasada de pruebas de todo el texto en el juego.
 
 ## Dónde está cada cosa
 

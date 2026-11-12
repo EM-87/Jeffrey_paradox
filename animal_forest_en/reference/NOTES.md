@@ -1927,9 +1927,60 @@ what goes in it: "The letters in the en build").
   in RAM as the en build has them and the cartridge's gone (the route's
   town is in summer). The screenshots show them. The houses' name plates
   come with a villager's house: the ROM's check only.
-- **Still Japanese.** The fortune stall and its slips, the letter
-  papers, the birthday window's words, the quotation frame, the two cards
-  (TODO(verify) which the GameCube has, where).
+- **Still Japanese.** The fortune stall and its slips (the New Year's
+  shrine): the GameCube's stall is another model (two textures and two
+  palettes for the cartridge's three and one), nothing of it fits. The
+  tourney headquarters' sign and the black market's winter crest, which
+  the GameCube kept. The two small "cards" of the survey (the shop's
+  inside, `ovl_Shop_Indoor`'s segments 0x13BF000 and 0x13C7000) are a mat
+  and a cart's side, no words, and the GameCube's are the same.
+
+## The word textures (phase 5, the graphics' fifth step)
+
+- **The town tune's notes** (program 8, `ovl__0079C020`): a frog for each
+  note with the note's name on it, kana: 16x16 I4 textures in
+  segment_00AD1000 from 0x2868, 0x80 apart, which the overlay's note
+  table (its data: 16 entries, each a segment 0x0C address, a place and
+  two colours) names. The GameCube's town tune puts letters on its notes
+  (`onp_win_a_tex_rgb_i4` to `g`, `q`: 16x16 I4 in 8x8 tiles, as its font
+  sheet): C for do, D for re, E, F, G, A and B for ti, a question mark for
+  the random note. The tie (a dash) and the rest (z's) are the same
+  texture on both. Taken from the disc at build time
+  (`tools/af_menu_tex.py`), the cartridge's kana without its files.
+- **The birthday's month and day** (program 9, `ovl__0079DA50`,
+  segment_00ADD000 at 0x2DB8 and 0x2EB8, I4 32x16): the words for month
+  and day after the two numbers. The GameCube's window spells the month
+  out (a texture a month, `month_tex` in `m_birthday_ovl.o`) and has
+  nothing like them. Ours: the en font's dash after the month and nothing
+  after the day, as the clock writes its date (month - day).
+- **The catchphrase window's quotes** (the text editor's segment 0x0C,
+  segment_00A94000 at 0x1318, I4 128x16): Japanese corner quotes round
+  the catchphrase, a wave dash for the sentence before it and a full stop
+  after it. The GameCube's window has no such texture. Ours: the en
+  font's double quote and an ellipsis where the corner quote and the
+  wave dash were, a double quote where the full stop and the closing
+  quote were.
+- **The letter papers' words** (segment_00AE3000, CI4 on each paper's
+  palette): a safety slogan in two halves (32x16 each) and a New Year's
+  card's greeting (64x16). The GameCube's papers have no texture like them
+  (its paper textures of these sizes agree with them on the ground only).
+  Ours: "Safety" (a pixel less between its glyphs, to fit) and "First",
+  and "New Year", the en font's glyphs centred, in the paper's own inks
+  (the glyph's strong texels the darkest stroke's index, its middling and
+  faint ones two lighter ones the kanji used, the rest the ground). A
+  third paper texture of the survey writes a size in digits (no words).
+- **Built** by `tools/af_menu_tex.py` at make rom-en (after the font, whose
+  glyphs and cut table it reads from the en tree), over the en tree's
+  copies of the segments (.bin); each checked first: the cartridge's lists
+  draw a texture of that format and size there (the notes: the overlay's
+  table names each), not empty. Nothing of the cartridge's or the
+  GameCube's enters the repository: ours are the en font's glyphs, put
+  where the kana were. 14 textures.
+- **In the game** (`make menus-check-en`): the town tune, the birthday and
+  the text editor (catchphrase mode) opened, each segment found in RAM as
+  the 2010 labels' are, its textures the en ROM's and not the
+  cartridge's; the papers' words (no menu opens a letter there) in the en
+  ROM as the en font letters them.
 
 ## The title's logo (phase 5, the graphics' third step)
 
