@@ -469,9 +469,21 @@ Probada en otros emuladores ("Other emulators"):
   `Config/Project64.rdb.user`. Su .fla tiene el orden de bytes del de
   mupen64plus, y su mando por defecto lleva el stick en el teclado
   numérico (8, 2, 4, 6) y la cruceta en las flechas.
+- **RetroArch 1.22.2 con Mupen64Plus-Next** (el núcleo nightly,
+  3.0-Vulkan) funciona sin tocar nada. Su base de datos no conoce la ROM
+  y la trata como desconocida, pero con las opciones por defecto del
+  núcleo (GLideN64, RSP en HLE, recompilador dinámico) la partida nueva
+  llega a la estación del pueblo, con la hora bien. La partida va en el
+  `.srm` de RetroArch: 296.960 bytes, con la Flash RAM a partir de
+  0x28800 en el mismo orden de bytes que el `.fla` de mupen64plus. Un
+  pueblo guardado de dos jugadores carga, borrar una casa no se cuelga,
+  guarda las dos ranuras bien y al volver a encender las carga. También
+  con ParaLLEl-RDP y ParaLLEl-RSP en Vulkan. El reloj es siempre el del
+  ordenador: el núcleo no implementa cambiar la hora del cartucho.
 
 El «Forest» del logo cambia de color con cada demo del título: verde,
-lila, azul claro. Pasa igual en mupen64plus y en los dos Project64.
+lila, azul claro. Pasa igual en mupen64plus, en los dos Project64 y en
+RetroArch.
 
 Probarla en ares sacó a la luz un fallo nuestro y una palabra sin
 traducir ("The player-select actor's answers"). El personaje que recibe

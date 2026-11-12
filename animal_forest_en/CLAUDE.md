@@ -423,3 +423,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   reliably (they toggle Num Lock): put the stick on letters in its cfg
   (`[Input-Controller 1]`, `AnalogUp=` and so on, SDL scancodes). A
   driver killed while it holds a key leaves the key held.
+- **RetroArch with Mupen64Plus-Next keeps the flash in its .srm**, at
+  0x28800 in mupen64plus's byte order (NOTES, "Other emulators"). It
+  writes the .srm at its autosave interval and when it quits (its
+  network command QUIT), never when killed. Its GL window, grabbed from
+  the root window, now and then comes out all black: grab again before
+  reading a screen.

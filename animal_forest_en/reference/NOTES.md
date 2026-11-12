@@ -3147,7 +3147,7 @@ what goes in it: "The letters in the en build").
   has them (13, 12 and 13 bytes).
   With ares built, the two players' town plays the same on ares.
 
-## Other emulators (ares and Project64)
+## Other emulators (ares, Project64 and RetroArch)
 
 - **ares** (v148, `emu/ares/`: `build.sh` pins it and builds its N64 core
   with `headless.cpp` as `ares-headless`, and the ares app; `emu/ares64.py`
@@ -3221,10 +3221,38 @@ what goes in it: "The letters in the en build").
   and the game reset or opened again. It keeps them in
   Config/Project64.rdb.user, under the ROM's CRCs (32bit=1,
   SMM-StoreInst=1).
+- **RetroArch 1.22.2 with Mupen64Plus-Next** (RetroArch's stable Linux
+  build and the nightly core, 3.0-Vulkan 15bada8, both from
+  buildbot.libretro.com; on a virtual display with Mesa, GL 4.5 for
+  GLideN64 and lavapipe for Vulkan). The core's built-in mupen64plus.ini
+  knows the cartridge by its MD5 (Flash RAM, Controller Pak) and then by
+  its CRCs; the en ROM is an unknown ROM to it ("Save type: 0", 8 MB of
+  RDRAM), and it plays with no setting at all. With the core's defaults
+  (GLideN64, the HLE RSP, the dynamic recompiler) the new game goes
+  through K.K.'s talk, both dials and Rover's talk, which reads the
+  host's time right, to the town's station. The save is RetroArch's
+  .srm, the core's save_memory_data (libretro/libretro_memory.h): 0x800
+  of EEPROM, four Controller Paks (0x20000), 0x8000 of SRAM, then the
+  128 KB of Flash RAM at 0x28800, in mupen64plus's byte order (each
+  32-bit word reversed); 296,960 bytes. emu_psel's two players' town,
+  put there, loads. Which player plays lists both players and the
+  new-player answer; removing a house asks whose and cancelling goes on;
+  choosing a player into the town writes both slots, checksum good and
+  the clock the host's (RetroArch's autosave, every 10 s here, and again
+  at quitting), the rest of the .srm untouched; powering on again loads
+  it. With ParaLLEl-RDP and ParaLLEl-RSP on Vulkan the same town loads
+  and saves too. Quitting without the game's own save brings Mr.
+  Resetti at the next power-on, as the game does. The clock is always
+  the host's: the core's af_rtc ignores writes to the time ("AF-RTC
+  writing block 2 is not implemented"), so setting it in the game
+  cannot stick (not tried). RetroArch 1.22 reads a core_options_path
+  only with global_core_options on; otherwise each core's options live
+  in a file of their own.
 - The title logo's "Forest" changes colour with the title's demo: the
   logo actor's constructor takes its colour set from
   `mTD_get_titledemo_no()`, so it is green in the first demos, then
-  lavender, then light blue, on mupen64plus as on both Project64s. (An
+  lavender, then light blue, on mupen64plus as on both Project64s and
+  RetroArch. (An
   earlier note here had Project64's plugins drawing it lavender where
   angrylion and ares draw it green: those shots were of different
   demos.)
