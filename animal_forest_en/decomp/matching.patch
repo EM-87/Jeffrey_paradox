@@ -6531,10 +6531,10 @@ index 0000000..b28d4c0
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ledit_ovl/m_ledit_ovl/mLE_ledit_ovl_destruct.s")
 diff --git a/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c b/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c
 new file mode 100644
-index 0000000..87182f5
+index 0000000..0036a96
 --- /dev/null
 +++ b/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c
-@@ -0,0 +1,401 @@
+@@ -0,0 +1,436 @@
 +#include "global.h"
 +#include "overlays/submenu/ovl__0078CB80/ovl__0078CB80.h"
 +#include "m_lib.h"
@@ -6614,6 +6614,8 @@ index 0000000..87182f5
 +
 +extern s16 D_808885F0_jp[]; /* each kind's lines */
 +extern s16 D_80888810_jp[]; /* a letter's fields' characters a line */
++extern u8* D_808885C8_jp[]; /* each mode's codes in the dial's order: hiragana, symbols, katakana, letters, digits */
++extern s32 D_808885DC_jp[]; /* how many codes each mode has */
 +
 +mED_Ovl_c B_80888AF0_jp; /* the editor's state (the overlay's bss) */
 +
@@ -6623,14 +6625,47 @@ index 0000000..87182f5
 +void func_80885D2C_jp(mED_Ovl_c* editorOvl);
 +void func_80885DD4_jp(mED_Ovl_c* editorOvl);
 +
++/*
++ * The code the dial gives: its mode's (unk_04) table at the ring and the
++ * stick's area, round the table's end. The kana modes go by rows of five:
++ * ring the row, area its column, or with byRow the first of row ring + area.
++ * The ring is drawn with these codes and the one typed is taken from them.
++ */
++u8 func_80885140_jp(mED_Ovl_c* editorOvl, s32 ring, s32 area, s32 byRow) {
++    s32 mode = editorOvl->unk_04;
++    s32 idx;
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_80885140_jp.s")
++    if ((mode == 0) || (mode == 2)) {
++        if (byRow) {
++            idx = (ring + area) * 5;
++        } else {
++            idx = ring * 5 + area;
++        }
++    } else {
++        idx = ring + area;
++    }
++    idx %= D_808885DC_jp[mode];
++    return D_808885C8_jp[mode][idx];
++}
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_808851D8_jp.s")
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_8088537C_jp.s")
 +
-+#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_808854CC_jp.s")
++/* Z: the dial's next mode (unk_04, after the digits the first), its ring
++ * (inputMode) at its start, no kana row chosen */
++s32 func_808854CC_jp(mED_Ovl_c* editorOvl) {
++    if (chkTrigger(Z_TRIG)) {
++        editorOvl->inputMode = 0;
++        editorOvl->unk_04++;
++        editorOvl->unk_06 = -1;
++        if (editorOvl->unk_04 >= 5) {
++            editorOvl->unk_04 = 0;
++        }
++        return TRUE;
++    }
++    return FALSE;
++}
 +
 +#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_80885530_jp.s")
 +

@@ -386,6 +386,20 @@ index b8df70f..23a4292 100644
 +/* The translation's item names (tools/af_items.py): a record a name, read by DMA as the cartridge reads its
 + * own names. */
 +DEFINE_DMA_ENTRY(item_en_names, "item_en_names")
+diff --git a/linker_scripts/jp/undefined_syms.ld b/linker_scripts/jp/undefined_syms.ld
+index ee822b1..fdfeb78 100644
+--- a/linker_scripts/jp/undefined_syms.ld
++++ b/linker_scripts/jp/undefined_syms.ld
+@@ -5659,3 +5659,9 @@ obj_e_koinobori_shadowT_model = 0x06001E48; //
+ // Buffers
+ 
+ D_801948E0_jp = 0x801948E0; //
++
++// en: the text editor (ovl__0078CB80) finds the modes' labels' lists (D_808888CC_jp) and our list for the
++// small letters' label from its state, the overlay's bss: their distances, which take no relocation (fado
++// relocates only what the overlay's objects define; its table has room for 214 and the en build needs 214)
++mED_en_stateToLabels = ABSOLUTE(B_80888AF0_jp) - ABSOLUTE(D_808888CC_jp);
++mED_en_stateToLowerLabel = ABSOLUTE(B_80888AF0_jp) - ABSOLUTE(mED_en_lowerLabelDL);
 diff --git a/src/code/m_choice_main.c b/src/code/m_choice_main.c
 index d4a7b38..1653429 100644
 --- a/src/code/m_choice_main.c
@@ -4641,7 +4655,7 @@ index 7c99435..01e6f5d 100644
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/board_ovl/m_board_ovl/func_8088A604_jp.s")
 diff --git a/src/overlays/submenu/board_ovl/m_board_ovl_en.h b/src/overlays/submenu/board_ovl/m_board_ovl_en.h
 new file mode 100644
-index 0000000..1fea8e1
+index 0000000..01408ef
 --- /dev/null
 +++ b/src/overlays/submenu/board_ovl/m_board_ovl_en.h
 @@ -0,0 +1,92 @@
@@ -4699,7 +4713,7 @@ index 0000000..1fea8e1
 +    /* 0x0F */ u8 unk_0F;
 +    /* 0x10 */ u8 unk_10;
 +    /* 0x11 */ u8 command;
-+    /* 0x12 */ u8 unk_12;
++    /* 0x12 */ u8 enLower; /* en: the letters' mode types small letters (abc); the cartridge never uses the byte */
 +    /* 0x13 */ u8 nowCode;
 +    /* 0x14 */ u8 unk_14;
 +    /* 0x15 */ u8 commandProcessed;
@@ -4812,7 +4826,7 @@ index b28d4c0..95729b5 100644
  /* The submenu's segment 0x0C (segment_00A94000), its ROM start and end, which the construct loads */
  u32 D_80884E38_jp[] = { 0x00A94000, 0x00AAC5E0 };
 diff --git a/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c b/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c
-index 87182f5..7b44769 100644
+index 0036a96..97fce4b 100644
 --- a/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c
 +++ b/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80.c
 @@ -3,6 +3,7 @@
@@ -4869,7 +4883,106 @@ index 87182f5..7b44769 100644
  
  /* The editor's entry of the submenu's menu infos (mSM_MenuInfo_c in AC GCN) */
  typedef struct mED_MenuInfo {
-@@ -136,75 +116,24 @@ void func_8088587C_jp(Submenu* submenu, mED_MenuInfo* menuInfo) {
+@@ -88,6 +68,37 @@ s32 func_80885CBC_jp(mED_Ovl_c* editorOvl);
+ void func_80885D2C_jp(mED_Ovl_c* editorOvl);
+ void func_80885DD4_jp(mED_Ovl_c* editorOvl);
+ 
++/*
++ * en: the letters' mode types small letters too (abc, enLower set: the dial
++ * opens on them) and capitals (ABC); Z goes from the katakana to abc, then
++ * ABC on the same ring, then the digits. The modes' panel shows our label
++ * for abc where the letters' is (D_808888CC_jp holds each mode's label's
++ * list): ours, drawn by hand, I4 48x16 as the letters' own, and a list that
++ * draws it as the cartridge's draws theirs (at 0x0C0014F0, their four
++ * vertices in the dial's segment). Both live in the overlay's text, which
++ * the en build's line model left 0x2D0 bytes short of its size (an overlay's
++ * data cannot grow, and code_en would take them from the heap), first in it
++ * so that the list and the texture are 8-byte aligned. The labels' lists
++ * and ours are found from the editor's state, the overlay's bss, at
++ * distances the linker gives (undefined_syms.ld): a reference to them would
++ * take a relocation, and the overlay's table has no room left.
++ */
++#define mED_EN_LETTERS 3
++#define mED_EN_CAPITALS_LABEL ((Gfx*)0x0C0014F0)
++
++extern u8 mED_en_stateToLabels[];     /* B_80888AF0_jp - D_808888CC_jp: each mode's label's list */
++extern u8 mED_en_stateToLowerLabel[]; /* B_80888AF0_jp - mED_en_lowerLabelDL */
++
++#pragma GLOBAL_ASM("src/overlays/submenu/ovl__0078CB80/ovl__0078CB80_en_label.inc")
++
++/* en: the panel's label for the letters' case the dial types */
++void mED_en_letterLabel(mED_Ovl_c* editorOvl) {
++    Gfx** labels = (Gfx**)((u8*)editorOvl - (u32)mED_en_stateToLabels);
++
++    labels[mED_EN_LETTERS] =
++        editorOvl->enLower ? (Gfx*)((u8*)editorOvl - (u32)mED_en_stateToLowerLabel) : mED_EN_CAPITALS_LABEL;
++}
++
+ /*
+  * The code the dial gives: its mode's (unk_04) table at the ring and the
+  * stick's area, round the table's end. The kana modes go by rows of five:
+@@ -97,6 +108,7 @@ void func_80885DD4_jp(mED_Ovl_c* editorOvl);
+ u8 func_80885140_jp(mED_Ovl_c* editorOvl, s32 ring, s32 area, s32 byRow) {
+     s32 mode = editorOvl->unk_04;
+     s32 idx;
++    u8 code;
+ 
+     if ((mode == 0) || (mode == 2)) {
+         if (byRow) {
+@@ -108,7 +120,11 @@ u8 func_80885140_jp(mED_Ovl_c* editorOvl, s32 ring, s32 area, s32 byRow) {
+         idx = ring + area;
+     }
+     idx %= D_808885DC_jp[mode];
+-    return D_808885C8_jp[mode][idx];
++    code = D_808885C8_jp[mode][idx];
++    if ((mode == mED_EN_LETTERS) && editorOvl->enLower && ((u8)(code - 'A') < 26)) {
++        code += 'a' - 'A'; /* en: abc */
++    }
++    return code;
+ }
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_808851D8_jp.s")
+@@ -116,15 +132,22 @@ u8 func_80885140_jp(mED_Ovl_c* editorOvl, s32 ring, s32 area, s32 byRow) {
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_8088537C_jp.s")
+ 
+ /* Z: the dial's next mode (unk_04, after the digits the first), its ring
+- * (inputMode) at its start, no kana row chosen */
++ * (inputMode) at its start, no kana row chosen. en: the letters' mode is abc,
++ * then ABC on the same ring */
+ s32 func_808854CC_jp(mED_Ovl_c* editorOvl) {
+     if (chkTrigger(Z_TRIG)) {
+-        editorOvl->inputMode = 0;
+-        editorOvl->unk_04++;
+-        editorOvl->unk_06 = -1;
+-        if (editorOvl->unk_04 >= 5) {
+-            editorOvl->unk_04 = 0;
++        if ((editorOvl->unk_04 == mED_EN_LETTERS) && editorOvl->enLower) {
++            editorOvl->enLower = FALSE;
++        } else {
++            editorOvl->inputMode = 0;
++            editorOvl->unk_04++;
++            editorOvl->unk_06 = -1;
++            if (editorOvl->unk_04 >= 5) {
++                editorOvl->unk_04 = 0;
++            }
++            editorOvl->enLower = (editorOvl->unk_04 == mED_EN_LETTERS);
+         }
++        mED_en_letterLabel(editorOvl);
+         return TRUE;
+     }
+     return FALSE;
+@@ -151,7 +174,9 @@ void func_8088587C_jp(Submenu* submenu, mED_MenuInfo* menuInfo) {
+     editorOvl->stickArea = 8;
+     editorOvl->unk_01 = 8;
+     editorOvl->unk_02 = 0;
+-    editorOvl->unk_04 = 0;
++    editorOvl->unk_04 = mED_EN_LETTERS; /* en: the small letters (the cartridge: 0, the hiragana) */
++    editorOvl->enLower = TRUE;
++    mED_en_letterLabel(editorOvl);
+     editorOvl->inputMode = 0;
+     editorOvl->unk_06 = -1;
+     editorOvl->command = 0;
+@@ -171,75 +196,24 @@ void func_8088587C_jp(Submenu* submenu, mED_MenuInfo* menuInfo) {
      editorOvl->col = 0;
      editorOvl->line = 0;
      editorOvl->exchangeCode = -1;
@@ -4949,7 +5062,7 @@ index 87182f5..7b44769 100644
  }
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_80885D2C_jp.s")
-@@ -212,35 +141,11 @@ s32 func_80885CBC_jp(mED_Ovl_c* editorOvl) {
+@@ -247,35 +221,11 @@ s32 func_80885CBC_jp(mED_Ovl_c* editorOvl) {
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__0078CB80/ovl__0078CB80/func_80885D94_jp.s")
  
  /* mED_input_multi_line: a character typed into a text of lines goes in (func_80885D2C_jp) if the
@@ -4989,7 +5102,7 @@ index 87182f5..7b44769 100644
      }
  }
  
-@@ -250,14 +155,12 @@ void func_80885DD4_jp(mED_Ovl_c* editorOvl) {
+@@ -285,14 +235,12 @@ void func_80885DD4_jp(mED_Ovl_c* editorOvl) {
  
  /* The cursor a line up, at its column or the line's end */
  void func_80885F6C_jp(mED_Ovl_c* editorOvl) {
@@ -5007,7 +5120,7 @@ index 87182f5..7b44769 100644
          func_80885A74_jp(editorOvl);
          editorOvl->commandProcessed = TRUE;
      }
-@@ -271,15 +174,11 @@ void func_80885FCC_jp(mED_Ovl_c* editorOvl) {
+@@ -306,15 +254,11 @@ void func_80885FCC_jp(mED_Ovl_c* editorOvl) {
  
      func_80885AEC_jp(editorOvl, &col, &line, editorOvl->nowStrLen);
      if (editorOvl->line < line) {
@@ -5026,7 +5139,7 @@ index 87182f5..7b44769 100644
          func_80885A74_jp(editorOvl);
          editorOvl->commandProcessed = TRUE;
      } else if (editorOvl->cursorIdx == editorOvl->nowStrLen) {
-@@ -333,7 +232,9 @@ void func_80886588_jp(mED_Ovl_c* editorOvl, mED_BoardOvl* boardOvl) {
+@@ -368,7 +312,9 @@ void func_80886588_jp(mED_Ovl_c* editorOvl, mED_BoardOvl* boardOvl) {
      editorOvl->inputLength = D_80888810_jp[nextField];
      if (nextField == 1) {
          editorOvl->maxLineNo = 6;
@@ -5037,6 +5150,46 @@ index 87182f5..7b44769 100644
          if (up == TRUE) {
              editorOvl->cursorIdx = -1;
          } else {
+diff --git a/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80_en_label.inc b/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80_en_label.inc
+new file mode 100644
+index 0000000..0ba5787
+--- /dev/null
++++ b/src/overlays/submenu/ovl__0078CB80/ovl__0078CB80_en_label.inc
+@@ -0,0 +1,34 @@
++/* en: our label for the dial's small letters (abc) on the modes' panel, and the list that draws it */
++/* where the letters' label is (ovl__0078CB80.c, the en build's letters' mode). Drawn by hand: I4 48x16, */
++/* the high nibble first, each row's texels beside it (" .:-=+*#%@ABCDEF" for 0 to 15, _ for 0). */
++/* First in the overlay's text, so that the list and the texture are 8-byte aligned. */
++glabel mED_en_lowerLabelDL
++.word 0xE7000000, 0x00000000 /* gsDPPipeSync() */
++.word 0xFD900000, mED_en_lowerLabelTex /* gsDPSetTextureImage(G_IM_FMT_I, G_IM_SIZ_16b, 1, the texture) */
++.word 0xF5900000, 0x070D0360 /* gsDPSetTile(G_IM_FMT_I, G_IM_SIZ_16b, 0, 0, G_TX_LOADTILE, ...) */
++.word 0xE6000000, 0x00000000 /* gsDPLoadSync() */
++.word 0xF3000000, 0x070BF2AB /* gsDPLoadBlock(G_TX_LOADTILE, 0, 0, 191, 683): 48x16 I4 */
++.word 0xE7000000, 0x00000000 /* gsDPPipeSync() */
++.word 0xF5800600, 0x00FD0360 /* gsDPSetTile(G_IM_FMT_I, G_IM_SIZ_4b, 3, 0, G_TX_RENDERTILE, ...) */
++.word 0xF2000000, 0x000BC03C /* gsDPSetTileSize(G_TX_RENDERTILE, 0, 0, 47 << 2, 15 << 2) */
++.word 0x01004008, 0x0C000A50 /* gsSPVertex(0x0C000A50, 4, 0): the letters' label's place */
++.word 0x06000204, 0x00020604 /* gsSP2Triangles(0, 1, 2, 0, 0, 2, 3, 0) */
++.word 0xDF000000, 0x00000000 /* gsSPEndDisplayList() */
++.word 0x00000000, 0x00000000 /* the texture at 0x60 */
++glabel mED_en_lowerLabelTex
++.byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* ________________________________________________ */
++.byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* ________________________________________________ */
++.byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* ________________________________________________ */
++.byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* ____________FFA_________________________________ */
++.byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* ____________FFA_________________________________ */
++.byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* ____________FFA_________________________________ */
++.byte 0x00, 0x04, 0xBE, 0xFF, 0xE6, 0x00, 0xFF, 0xA6, 0xDF, 0xE5, 0x00, 0x00, 0x05, 0xCE, 0xFF, 0xD6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* ___=BEFFE*__FFA*DFE+_____+CEFFD*________________ */
++.byte 0x00, 0x4F, 0x81, 0x03, 0xFF, 0x40, 0xFF, 0xFE, 0x53, 0xCF, 0xD0, 0x00, 0xBF, 0xE4, 0x11, 0x6F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* __=F%._-FF=_FFFE+-CFD___BFE=..*F________________ */
++.byte 0x00, 0x04, 0xCE, 0xFE, 0xFF, 0xA0, 0xFF, 0xC0, 0x00, 0x0B, 0xFF, 0x01, 0xFF, 0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* ___=CEFEFFA_FFC____BFF_.FF*_____________________ */
++.byte 0x00, 0xBF, 0xC2, 0x11, 0xFF, 0xA0, 0xFF, 0xA0, 0x00, 0x06, 0xFF, 0x02, 0xFF, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* __BFC:..FFA_FFA____*FF_:FF=_____________________ */
++.byte 0x00, 0xFF, 0x30, 0x01, 0xFF, 0xA0, 0xFF, 0xC0, 0x00, 0x0B, 0xFF, 0x01, 0xFF, 0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* __FF-__.FFA_FFC____BFF_.FF*_____________________ */
++.byte 0x00, 0xBF, 0xC2, 0x3D, 0xFF, 0xA0, 0xFF, 0xFE, 0x53, 0xCF, 0xD0, 0x00, 0xBF, 0xE4, 0x11, 0x6F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* __BFC:-DFFA_FFFE+-CFD___BFE=..*F________________ */
++.byte 0x00, 0x06, 0xDF, 0xE5, 0xCF, 0xA0, 0xFF, 0x6D, 0xFE, 0x50, 0x00, 0x00, 0x05, 0xCE, 0xFF, 0xD6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* ___*DFE+CFA_FF*DFE+______+CEFFD*________________ */
++.byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* ________________________________________________ */
++.byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* ________________________________________________ */
++.byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  /* ________________________________________________ */
 diff --git a/src/overlays/submenu/ovl__00792700/ovl__00792700.c b/src/overlays/submenu/ovl__00792700/ovl__00792700.c
 index 998e336..cf24a5f 100644
 --- a/src/overlays/submenu/ovl__00792700/ovl__00792700.c

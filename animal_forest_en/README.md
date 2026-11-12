@@ -404,6 +404,19 @@ cartucho no tiene. Son 202 mensajes y 3 opciones de concurso nuevos,
 traducción nuestra del japonés del cartucho (`script/message/`,
 `script/choice/`). Ya no queda ninguna cadena libre sin rellenar.
 
+El dial escribe minúsculas ("The dial's small letters"). En el cartucho
+el modo de letras solo tenía mayúsculas (la orden de convertir, R,
+pasaba la letra anterior a minúscula) y el editor abría en hiragana. Ahora
+abre en minúsculas, "abc" en el panel de modos con una etiqueta dibujada
+por nosotros, y Z pasa a mayúsculas ("ABC") sin mover el anillo; después
+siguen los números, los kana y los símbolos como antes. R convierte la
+letra anterior a mayúscula, así que "Dear" se escribe d, R, e, a, r. La
+etiqueta y su lista de dibujo van en el hueco que dejó en el overlay del
+editor el trabajo de las líneas, porque ni sus datos ni su tabla de
+reubicaciones pueden crecer. `make write-check-en` comprueba el arranque
+en minúsculas, el ciclo de Z, la palabra tecleada y la etiqueta medida
+en pantalla. La ruta de pruebas escribe ahora los nombres en minúsculas.
+
 ## Dónde está cada cosa
 
 - `Makefile` — todo lo de arriba.

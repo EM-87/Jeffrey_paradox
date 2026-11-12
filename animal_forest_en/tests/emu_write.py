@@ -9,13 +9,16 @@ the first villager a memory of the player (the address book lists the
 villagers who remember the player: ovl__00792700, mNpc_GetAnimalMemoryIdx)
 and opens the board to write (program 12, data0 0) as mSM_submenu_ctrl
 opens a program; A twice picks the first address and the editor (program
-10) opens on the body. Z three times gives the dial's capitals (mode 3).
-Letters are typed on the dial as a player types them: the stick down turns
-its ring a page of five (the editor's ring, byte 5 of its state), A with
-the stick on one of the five places of the upper half types ring + place
-(func_80885140_jp; its table, D_80888594_jp, read from the en tree's
-extracted data). The C buttons move
-the cursor, B deletes.
+10) opens on the body. The en build's dial opens on its small letters (the
+letters' mode, 3, with its state's byte 0x12 set: abc) and Z goes on to its
+capitals (ABC) on the same ring, then the digits, hiragana, the symbols,
+katakana and abc again. Letters are typed on the dial as a player types
+them: the stick down turns its ring a page of five (the editor's ring,
+byte 5 of its state), A with the stick on one of the five places of the
+upper half types ring + place (func_80885140_jp; its table, D_80888594_jp,
+the capitals, read from the en tree's extracted data; abc types each
+one's small letter). R turns the letter before the cursor into its other
+case. The C buttons move the cursor, B deletes.
 
 The body being written is the en build's buffer, mHandbill_en_editBody
 (the GameCube's 192 bytes; the cartridge's Mail_c keeps 96). The model is
@@ -26,6 +29,14 @@ fits) at the en font's widths, and the editor's place in them (m_handbill.c,
 to the column nearest that x, a character typed only while the body has
 room and the text, one longer, ends on one of its six lines). Checks:
 
+  0. the dial opens on its small letters, the modes' panel showing our
+     label for them (the panel's list for the letters is ours, and it
+     loads our texture: the en tree's ovl__0078CB80_en_label.inc); Z goes
+     through the capitals (the cartridge's label back), the digits,
+     hiragana, the symbols, katakana and back to the small letters; on
+     screen, the label's red ink is where our texture's is and the
+     capitals' where theirs is; typed on the small letters, R for a
+     capital, the body is "Dear";
   1. a new letter's header is "To " before the name, its footer "from "
      and the player's name (the GameCube's, ac-decomp's m_board_ovl.c);
   2. a typed sentence is the letter's body, the editor's line and column
@@ -61,7 +72,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
-from n64emu import N64, A, B, START, Z, stick, write_png  # noqa: E402
+from n64emu import N64, A, B, R, START, Z, stick, write_png  # noqa: E402
 import contact  # noqa: E402
 import emu_board  # noqa: E402
 import emu_letters  # noqa: E402
@@ -108,6 +119,19 @@ PAPER = 0x2000
 PLAYER = b"Jeff  "
 DIAL_DATA = "asm/jp/data/overlays/submenu/ovl__0078CB80/ovl__0078CB80.data.s"
 DIAL_TABLE, DIAL_SIZE = "D_80888594_jp", 30      # the capitals' table (D_808885DC_jp[3] entries), from the dump
+# the en build's small letters: the state's flag, the modes' labels' lists (each mode's), the letters' own
+# (the cartridge's, in the dial's segment) and ours, our texture (I4 48x16) and where its art is written
+LOWER_FLAG, LETTERS, STATE = 0x12, 3, "B_80888AF0_jp"
+LABELS, CAPITALS_LABEL, LOWER_DL, LOWER_TEX = "D_808888CC_jp", 0x0C0014F0, "mED_en_lowerLabelDL", "mED_en_lowerLabelTex"
+LABEL_W, LABEL_H = 48, 16
+LABEL_INC = "src/overlays/submenu/ovl__0078CB80/ovl__0078CB80_en_label.inc"
+DIAL_SEGMENT, CAPITALS_TEX = "assets/jp/segment_00A40000.bin", 0x1CC8   # the letters' label (the 2010 patch's or
+                                                                        # the cartridge's)
+LABEL_RED = lambda r, g, b: r > 150 and g < 110 and b < 90   # noqa: E731 (the mode's label, red: 225, 45, 0)
+LABEL_INK = 8                                                # a texel inked from 8 of 15, as the font's model
+LABEL_AREA = (100, 240, 150, 185)                            # the frame's box round the panel's letters' row
+LABEL_TOLERANCE = 2                                          # frame pixels (the VI filter's fringe)
+LOWER_X_HEIGHT = 6                                           # our label's first row of a and c (the b's stem above)
 PLACES = [stick(-80, 0), stick(-57, 57), stick(0, 80), stick(57, 57), stick(80, 0)]
 DOWN = stick(0, -80)
 C_LEFT, C_UP = 0x200, 0x800                          # the pad's C buttons (m64p's BUTTONS)
@@ -141,6 +165,25 @@ def dial_table(af_en):
     body = text[text.index("dlabel %s" % DIAL_TABLE):text.index("enddlabel %s" % DIAL_TABLE)]
     data = b"".join(int(w, 16).to_bytes(4, "big") for w in re.findall(r"\.word 0x([0-9A-Fa-f]{8})", body))
     return data[:DIAL_SIZE]
+
+
+def label_art(af_en):
+    """Our label's texels (I4, the high nibble first), from the .byte rows after its glabel."""
+    text = open(os.path.join(af_en, LABEL_INC)).read()
+    text = text[text.index("glabel %s" % LOWER_TEX):]
+    data = bytes(int(b, 16) for line in text.splitlines() if line.startswith(".byte")
+                 for b in re.findall(r"0x([0-9A-Fa-f]{2})", line.split("/*")[0]))
+    if len(data) != LABEL_W * LABEL_H // 2:
+        raise SystemExit("emu_write: %s holds %d bytes of the label, not %d" % (LABEL_INC, len(data),
+                                                                              LABEL_W * LABEL_H // 2))
+    return data
+
+
+def ink_extent(i4, rows=range(LABEL_H)):
+    """The first and last inked column and row of an I4 label (48x16), in these rows."""
+    ink = [(x, y) for y in rows for x in range(LABEL_W)
+           if ((i4[(y * LABEL_W + x) // 2] >> (4 if x % 2 == 0 else 0)) & 15) >= LABEL_INK]
+    return min(x for x, _ in ink), max(x for x, _ in ink), min(y for _, y in ink), max(y for _, y in ink)
 
 
 def edit_lines(board, s, n):
@@ -197,6 +240,17 @@ def typed(board, text, more):
     return text
 
 
+def label_ink(rgb, w, rows=None):
+    """The red ink of the mode's label on the panel: its first and last column (the right edge, one past) and
+    its first and last row (one past), in the frame (in these of its rows); None when there is none."""
+    x0, x1, y0, y1 = LABEL_AREA
+    ink = [(x, y) for y in (rows or range(y0, y1)) for x in range(x0, x1)
+           if LABEL_RED(*rgb[(y * w + x) * 3:(y * w + x) * 3 + 3])]
+    if not ink:
+        return None
+    return (min(x for x, _ in ink), max(x for x, _ in ink) + 1, min(y for _, y in ink), max(y for _, y in ink) + 1)
+
+
 def pixels(rgb, w, rows, test):
     return sorted(set(x for y in rows for x in TEXT_AREA if test(*rgb[(y * w + x) * 3:(y * w + x) * 3 + 3])))
 
@@ -247,7 +301,7 @@ def main(argv):
             e = n64.read(ovl(EDITOR_OVL), 0x30)
             cursor, per_line, lines, length, _, col, line = struct.unpack(">hhhhhhh", e[0x16:0x24])
             return {"cursor": cursor, "perLine": per_line, "lines": lines, "length": length, "col": col,
-                    "line": line, "mode": e[4], "ring": e[5], "turning": e[3],
+                    "line": line, "mode": e[4], "ring": e[5], "turning": e[3], "lower": e[LOWER_FLAG],
                     "text": struct.unpack(">I", e[0x24:0x28])[0]}
 
         def editing_body():
@@ -317,7 +371,7 @@ def main(argv):
 
         def type_char(ch):
             ed = ovl(EDITOR_OVL)
-            k = dial.index(ch)
+            k = dial.index(ch.upper())                     # the small letters: the capitals' places
             for _ in range(12):
                 e = n64.read(ed, 8)
                 if e[3] == 0 and e[5] == k // 5 * 5:
@@ -390,8 +444,76 @@ def main(argv):
               % ed["lines"])
         check(lt["header"] == b"To" + b" " * 8 and lt["back"] == 3 and lt["footer"] == b"from Jeff".ljust(16),
               "a new letter: %r, the name at %d, footer %r" % (lt["header"], lt["back"], lt["footer"]))
-        press(Z, 3)
-        check(editor()["mode"] == 3, "Z three times: the dial's capitals")
+        # 0. the dial: its small letters first, their label ours; Z through its modes
+        delta = ovl(EDITOR_OVL) - syms[STATE]                # the overlay where it is loaded, against its link address
+        ours = syms[LOWER_DL] + delta
+
+        def dial_state():
+            e = editor()
+            label = struct.unpack(">I", n64.read(syms[LABELS] + delta + 4 * LETTERS, 4))[0]
+            return e["mode"], e["lower"], "ours" if label == ours else "%#x" % label
+
+        state0 = dial_state()
+        check(state0 == (LETTERS, 1, "ours"), "the dial opens on its small letters, the panel's letters' label "
+              "our list (mode, flag, label: %s)" % (state0,))
+        tex_at = struct.unpack(">I", n64.read(ours + 0xC, 4))[0]
+        check(tex_at == syms[LOWER_TEX] + delta and n64.read(tex_at, len(label_art(af_en))) == label_art(af_en),
+              "our list loads our label's texture (at %#x), the art of %s" % (tex_at, LABEL_INC))
+        capitals = "%#x" % CAPITALS_LABEL
+        modes = []
+        for _ in range(6):
+            ring = editor()["ring"]
+            press(Z)
+            modes.append(dial_state() + (editor()["ring"] == ring,))
+        want_modes = [(LETTERS, 0, capitals, True), (4, 0, capitals, True), (0, 0, capitals, True),
+                      (1, 0, capitals, True), (2, 0, capitals, True), (LETTERS, 1, "ours", True)]
+        check(modes == want_modes, "Z: the capitals on the same ring, the digits, hiragana, the symbols, katakana, "
+              "the small letters again, the label ours only on them (%s)" % modes)
+
+        type_text(b"d")
+        typed0 = letter()["body"][:1]
+        press(R)
+        n64.frames(10, 0)
+        typed1 = letter()["body"][:1]
+        type_text(b"ear")
+        ed = editor()
+        body = letter()["body"]
+        check((typed0, typed1, body[:4], ed["length"]) == (b"d", b"D", b"Dear", 4),
+              "the small letters typed, R for the capital: %r, then %r, then %r (%d bytes)" % (
+                  typed0, typed1, body[:4], ed["length"]))
+        w, h, rgb_lower = shot("0-abc")
+        press(Z)
+        w, h, rgb_upper = shot("0-ABC")
+        seg = open(os.path.join(af_en, DIAL_SEGMENT), "rb").read()
+        theirs = ink_extent(seg[CAPITALS_TEX:CAPITALS_TEX + LABEL_W * LABEL_H // 2])
+        mine = ink_extent(label_art(af_en))
+        got_upper, got_lower = label_ink(rgb_upper, w), label_ink(rgb_lower, w)
+        want_lower = want_top = got_top = None
+        if got_upper and got_lower:
+            # the label's texel pitch and place from the capitals' ink (the panel draws it smaller than its
+            # texels, and narrower than high), the small letters' predicted from them; then the rows of the b's
+            # stem alone (the ascender, above the other letters), where the capitals have ink across
+            pitch = (got_upper[1] - got_upper[0]) / (theirs[1] + 1 - theirs[0])
+            vpitch = (got_upper[3] - got_upper[2]) / (theirs[3] + 1 - theirs[2])
+            x0, y0 = got_upper[0] - theirs[0] * pitch, got_upper[2] - theirs[2] * vpitch
+            want_lower = (x0 + mine[0] * pitch, x0 + (mine[1] + 1) * pitch,
+                          y0 + mine[2] * vpitch, y0 + (mine[3] + 1) * vpitch)
+            stem = ink_extent(label_art(af_en), range(mine[2], LOWER_X_HEIGHT))
+            want_top = (x0 + stem[0] * pitch, x0 + (stem[1] + 1) * pitch)
+            top_rows = range(int(y0 + mine[2] * vpitch + 0.999), int(y0 + LOWER_X_HEIGHT * vpitch))
+            got_top = label_ink(rgb_lower, w, top_rows)
+        ok = want_lower is not None and all(abs(g - e) <= LABEL_TOLERANCE for g, e in zip(got_lower, want_lower))
+        check(ok, "on screen, the letters' label in red: the capitals' ink at x %s, y %s; the small letters' at "
+              "x %s, y %s, where our texture puts it (%s)" % (
+                  got_upper and got_upper[:2], got_upper and got_upper[2:], got_lower and got_lower[:2],
+                  got_lower and got_lower[2:], want_lower and "x %.1f-%.1f, y %.1f-%.1f" % want_lower))
+        ok = got_top is not None and all(abs(g - e) <= LABEL_TOLERANCE for g, e in zip(got_top, want_top))
+        check(ok, "above the small letters' height only the b's stem is inked: x %s (the model's %s)" % (
+            got_top and got_top[:2], want_top and "%.1f-%.1f" % want_top))
+        press(B, 4)
+        ed = editor()
+        check(letter()["body"][:4] == b"    " and ed["length"] == 0 and dial_state() == (LETTERS, 0, capitals),
+              "B four times: the body empty again, the dial on its capitals (%s)" % (dial_state(),))
 
         # 2. a sentence
         type_text(SENTENCE)
@@ -514,8 +636,7 @@ def main(argv):
         n64.frames(30, 0)
         press(A)
         n64.frames(40, 0)
-        press(Z, 3)
-        type_text(DOTS)
+        type_text(DOTS)                           # the small letters' ring types full stops and spaces too
         ed, lt = editor(), letter()
         dots = lt["body"][:ed["length"]]
         want = typed(board, b"", DOTS)

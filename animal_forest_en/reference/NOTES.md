@@ -1225,7 +1225,8 @@ what goes in it: "The letters in the en build").
   entries: A to Z, comma, full stop, newline, space. The stick pushed
   down turns the ring a page of five (with A, two). Capitals only; the
   convert command shows the letter before the cursor's other case (N to
-  n), so mixed case can be written.
+  n), so mixed case can be written. The en build adds the small letters
+  and opens on them: "The dial's small letters".
 - **The board's cursor** (`func_80889878_jp`): `64 + x + (col - 0.7) * 12`,
   six columns more after the name, the footer's counted from its 16th;
   the name's box (`func_8088973C_jp`) at `(headerBackStart + 3) * 12`. The
@@ -2965,6 +2966,87 @@ what goes in it: "The letters in the en build").
   (`tests/emu_messages.py` `plate_ink`), Tom Nook's whole name's ink
   (143, 251) and the cut name's (155, 237) on the same screenshots, where
   the model puts them. Run again with it: 0 failures.
+
+## The dial's small letters (phase 5, after the QA pass)
+
+- **The cartridge's dial.** Z goes through five modes
+  (`func_808854CC_jp`: the mode, the editor's state's byte 4, one on,
+  after the digits the first; the ring, byte 5, back to 0; the kana row,
+  the s16 at 6, -1): hiragana, symbols, katakana, the letters, the
+  digits, and the editor opens on the hiragana (the init,
+  `func_8088587C_jp`). The letters type capitals (their table,
+  `D_80888594_jp`: A to Z, comma, full stop, newline, space). The code
+  the dial gives comes from one function, for the ring it draws and for
+  the code typed alike (`func_80885140_jp`: the mode's table,
+  `D_808885C8_jp`, at ring + area round its count, `D_808885DC_jp`; the
+  kana modes by rows of five). R is the convert command
+  (`func_808857F8_jp`, command 7): the character before the cursor
+  becomes its pair in `D_80888710_jp`, which pairs each capital with its
+  small letter both ways; R's button shows the pair (`func_80886168_jp`
+  looks it up into the state's 0x1E, `func_80887DF0_jp` draws the
+  character before the cursor and it with the font). The 2010 patch
+  opened the editor on the letters and made their table small letters
+  (R for a capital), its label for the mode left as it drew it.
+- **The en build: both cases.** The letters type small letters (abc)
+  while a flag is set and capitals (ABC) when not. The flag is the
+  state's byte 0x12 (`enLower`), which the cartridge never reads or
+  writes: not in the editor's code, nor in the board, the bulletin board
+  or the name entry, which read the state through the submenu's pointer
+  at +0x106E0. In abc `func_80885140_jp` gives a capital's small letter
+  (its code + 0x20, the pair `D_80888710_jp` holds), so the ring shows
+  them and they are typed. Z goes from katakana to abc, then to ABC on
+  the same ring, then to the digits; the editor opens on abc, whatever
+  it writes (a letter, a notice, a name, a catchphrase). R turns the
+  letter before the cursor into its capital, the cartridge's own
+  command. In C first (decomp/matching.patch): `func_80885140_jp` and
+  `func_808854CC_jp` match; `make verify` identical.
+- **The label.** The modes' panel draws each mode's label from a list a
+  mode (`D_808888CC_jp`, segment 0x0C addresses; each loads its label, I4
+  48x16, and draws it at its four vertices): the current mode's in red
+  (225, 45, 0), the others in (205, 135, 80) (`func_80886CC4_jp`).
+  `func_80886A60_jp` turns the buttons' textures' tables into RAM
+  addresses, not this one. abc's label is ours, drawn by hand: the small
+  letters at the height and weight of the letters' label (the art beside
+  each row in `ovl__0078CB80_en_label.inc`), and a list as the letters'
+  own (0x0C0014F0: its texture at 0x0C001CC8, its vertices at
+  0x0C000A50). The init and Z put ours or the cartridge's in the letters'
+  entry (`mED_en_letterLabel`), before the panel is drawn.
+- **Where it lives.** The dial's segment (`segment_00A40000`, 0x17140
+  bytes) has no room: its lists, walked with the textures they load (the
+  buttons' through segments 8 and 9, set from the overlay's tables), read
+  all of it but four gaps of 8 bytes. The overlay's data and its
+  relocation table cannot grow, and `code_en` would take the bytes from
+  the heap. The en build's line model had left the overlay's text 0x2D0
+  bytes short of the cartridge's 0x33C0: the list and the texture (0x1E0
+  bytes) are data there (asm-processor takes `.word` and `.byte` in a
+  GLOBAL_ASM block in text; a `#pragma` naming the file, which gcc's
+  check ignores where an inline block fails it), first in the file so
+  that both are 8-byte aligned; the text is 0x33A0 bytes with them. The
+  relocation table (`ovl__0078CB80_reloc`, 0x370 bytes) has room for 214;
+  the en build had 211, our list's texture word takes one and the label's
+  function's two calls two: 214. That function finds the labels' table
+  and our list from the editor's state, the overlay's bss, at distances
+  the linker gives (`undefined_syms.ld`:
+  `ABSOLUTE(B_80888AF0_jp) - ABSOLUTE(D_808888CC_jp)`, 0x224, and to our
+  list 0x39B0), which take no relocation: fado relocates only references
+  to symbols the overlay's objects define (`tools/fado/src/fado.c`). The
+  first build, which named the table and our list, needed 220.
+- **On screen** (`tests/emu_write.py`, make write-check-en). The dial
+  opens on abc, the panel's letters' entry our list, which loads our
+  texture (the .inc's art, in RAM); Z gives ABC on the same ring (the
+  cartridge's list back), the digits, hiragana, the symbols, katakana and
+  abc again; d, R and e, a, r type "Dear". The label's red ink: the
+  capitals' from x 143 to 187 and y 165 to 173 give the panel's pitch
+  (1.375 frame pixels a texel across, 0.8 down) and its place; ours is at
+  x 144-187 and y 165-173 (the model's 144.4-185.6 and 165.0-173.0), and
+  above the small letters' height only the b's stem is inked, x 158-161
+  (the model's 158.1-162.2; the capitals have ink from 147 to 187
+  there). The rest of the check types its sentences in ABC, as before.
+- **The route** (`tools/route_newgame.py`) types the player's and the
+  town's names on the dial with the same four strokes, now on abc: up c,
+  right e, left a (down with A turns the ring), the names "cea". It
+  reaches its milestones at the same frames as before (the name dial
+  3289, the town's 4110, the station 9281, the houses 12151).
 
 ## The patch (the deliverable)
 

@@ -4,6 +4,7 @@ import collections
 import hashlib
 import os
 import random
+import re
 import shutil
 import struct
 import subprocess
@@ -1775,6 +1776,51 @@ class MenuTextures(unittest.TestCase):
                  0xF2000000, 0x0007C03C]                  # its size: 32x16
         dl = b"".join(struct.pack(">I", w) for w in words) + bytes(8)
         self.assertEqual(af_menu_tex.drawn_i4(dl), {0x100: (32, 16)})
+
+
+class DialLabel(unittest.TestCase):
+    """The en build's label for the dial's small letters (reference/NOTES.md, "The dial's small letters"): our
+    art and the list that draws it, in decomp/changes.patch."""
+
+    INC = "src/overlays/submenu/ovl__0078CB80/ovl__0078CB80_en_label.inc"
+    LEGEND = " .:-=+*#%@ABCDEF"
+
+    def setUp(self):
+        self.text = changes_patch_file(self.INC)
+        if self.text is None:
+            self.skipTest("needs %s in decomp/changes.patch" % self.INC)
+
+    def test_the_art_is_its_bytes(self):
+        rows = [line for line in self.text.splitlines() if line.startswith(".byte")]
+        self.assertEqual(len(rows), 16)
+        texels = []
+        for row in rows:
+            code, art = row.split("/*")
+            data = [int(b, 16) for b in re.findall(r"0x([0-9A-F]{2})", code)]
+            art = art.split("*/")[0].strip().replace("_", " ")
+            self.assertEqual((len(data), len(art)), (24, 48))
+            self.assertEqual([v for b in data for v in (b >> 4, b & 15)], [self.LEGEND.index(c) for c in art])
+            texels.append([self.LEGEND.index(c) for c in art])
+        inked_above = sorted({x for y in range(6) for x in range(48) if texels[y][x] >= 8})
+        self.assertEqual(inked_above, [12, 13, 14])                 # above the small letters, the b's stem alone
+
+    def test_the_list_draws_the_texture_where_the_letters_label_is(self):
+        head = self.text[self.text.index("glabel mED_en_lowerLabelDL"):self.text.index("glabel mED_en_lowerLabelTex")]
+        words = [w.strip() for line in head.splitlines() if line.startswith(".word")
+                 for w in line.split("/*")[0][len(".word"):].split(",")]
+        self.assertEqual(len(words), 24)                            # 0x60 bytes: the texture 8-byte aligned after it
+        self.assertEqual(words[2:4], ["0xFD900000", "mED_en_lowerLabelTex"])    # I, 16-bit loads
+        self.assertEqual(words[8:10], ["0xF3000000", "0x070BF2AB"])  # 192 words: 48x16 at 4 bits
+        self.assertEqual(words[12:14], ["0xF5800600", "0x00FD0360"])  # the render tile: I4, 24 bytes a row
+        self.assertEqual(words[14:16], ["0xF2000000", "0x000BC03C"])  # 48x16
+        self.assertEqual(words[16:18], ["0x01004008", "0x0C000A50"])  # the letters' label's four vertices
+        self.assertEqual(words[20], "0xDF000000")
+
+    def test_the_editor_finds_it_from_its_state(self):
+        with open(os.path.join(HERE, "..", "decomp", "changes.patch"), encoding="utf-8") as f:
+            patch = f.read()
+        self.assertIn("+mED_en_stateToLabels = ABSOLUTE(B_80888AF0_jp) - ABSOLUTE(D_808888CC_jp);", patch)
+        self.assertIn("+mED_en_stateToLowerLabel = ABSOLUTE(B_80888AF0_jp) - ABSOLUTE(mED_en_lowerLabelDL);", patch)
 
 
 if __name__ == "__main__":

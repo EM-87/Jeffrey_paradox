@@ -240,7 +240,7 @@ def main(argv):
             e = n64.read(struct.unpack(">I", n64.read(submenu_ovl() + EDITOR_OVL, 4))[0], 0x30)
             cursor, per_line, lines, length, _, col, line = struct.unpack(">hhhhhhh", e[0x16:0x24])
             return {"cursor": cursor, "perLine": per_line, "lines": lines, "length": length, "col": col,
-                    "line": line, "mode": e[4], "ring": e[5], "turning": e[3],
+                    "line": line, "mode": e[4], "ring": e[5], "turning": e[3], "lower": e[0x12],
                     "text": struct.unpack(">I", e[0x24:0x28])[0], "at": None}
 
         def press(button, times=1):
@@ -340,8 +340,12 @@ def main(argv):
         check(ed["text"] == syms[EDIT_BODY] and ed["perLine"] == 32 and ed["lines"] == BODY_LINES and
               ed["length"] == 0, "A: the editor on the letters' body (%#x), %d characters a line, %d lines, empty" % (
                   ed["text"], ed["perLine"], ed["lines"]))
-        press(Z, 3)
-        check(editor()["mode"] == 3, "Z three times: the dial's capitals")
+        ed = editor()
+        check(ed["mode"] == 3 and ed["lower"] == 1, "the dial opens on its small letters (mode %d, %d)" % (
+            ed["mode"], ed["lower"]))
+        press(Z)
+        ed = editor()
+        check(ed["mode"] == 3 and ed["lower"] == 0, "Z: the dial's capitals (mode %d, %d)" % (ed["mode"], ed["lower"]))
         ed_at = struct.unpack(">I", n64.read(submenu_ovl() + EDITOR_OVL, 4))[0]
 
         def type_char(ch):
