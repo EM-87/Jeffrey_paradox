@@ -270,10 +270,10 @@ index fe15111..1477284 100644
 +
  #endif
 diff --git a/include/m_item_name.h b/include/m_item_name.h
-index a4d4a9b..92d4b82 100644
+index a4d4a9b..a5ef6bd 100644
 --- a/include/m_item_name.h
 +++ b/include/m_item_name.h
-@@ -6,4 +6,15 @@
+@@ -6,4 +6,18 @@
  // void func_80096710_jp();
  void mIN_copy_name_str(char*, u16);
  
@@ -287,6 +287,9 @@ index a4d4a9b..92d4b82 100644
 +/* the longest text a token stands for in a sentence: "some " and 16 characters (tools/af_items.py) */
 +#define mIN_EN_TEXT_MAX 24
 +s32 mIN_en_TokenText(u8* dst, u8* str, s32 cut);
++void mIN_en_WriteToken(u8* dst, s32 n, s32 size);
++/* a special character's name, loaded from its string into a buffer of size bytes: its token when longer */
++void mIN_en_SpecialName(u8* name, s32 number, s32 size);
 +
  #endif
 diff --git a/include/m_msg_main.h b/include/m_msg_main.h
@@ -1289,7 +1292,7 @@ index eb55156..07b63dc 100644
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetMatrix.s")
 diff --git a/src/code/m_handbill.c b/src/code/m_handbill.c
-index 34e9b7f..32fc8e5 100644
+index 34e9b7f..b1dc136 100644
 --- a/src/code/m_handbill.c
 +++ b/src/code/m_handbill.c
 @@ -1,14 +1,21 @@
@@ -2264,7 +2267,7 @@ index 34e9b7f..32fc8e5 100644
          return TRUE;
      } else {
          return FALSE;
-@@ -745,9 +1059,601 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+@@ -745,9 +1059,609 @@ s32 func_80094400_jp(HandbillzInfo* info) {
  }
  
  s32 mHandbillz_load(HandbillzInfo* info) {
@@ -2403,6 +2406,10 @@ index 34e9b7f..32fc8e5 100644
 +    MailContent* content = &boardOvl->mail.content;
 +    u8* name = (u8*)boardOvl->mail.header.recipient.personalID.playerName;
 +    s32 len;
++    /* a name longer than 6 is a token (m_item_name.c): the font draws its name; its text where the line is
++     * built here */
++    u8 nameText[mIN_EN_TEXT_MAX];
++    s32 nameTextLen = mIN_en_TokenText(nameText, name, TRUE);
 +
 +    if (writing) {
 +        if (boardOvl->field == mHandbill_EN_BOARD_FIELD_HEADER) {
@@ -2416,11 +2423,13 @@ index 34e9b7f..32fc8e5 100644
 +        if (content->headerBackStart < MAIL_HEADER_LEN) {
 +            mHandbill_en_DrawLine(game, &content->header[content->headerBackStart],
 +                                  boardOvl->lengths[mHandbill_EN_BOARD_FIELD_HEADER] - content->headerBackStart,
-+                                  x + mHandbill_en_TextWidth(name, len), y, color);
++                                  x + ((nameTextLen >= 0) ? mHandbill_en_TextWidth(nameText, nameTextLen)
++                                                          : mHandbill_en_TextWidth(name, len)),
++                                  y, color);
 +        }
 +    } else {
 +        mHandbill_en_Board* board = &mHandbill_en_board;
-+        u8 tmp[mHandbill_EN_HEADER_LEN + PLAYER_NAME_LEN];
++        u8 tmp[mHandbill_EN_HEADER_LEN + mIN_EN_TEXT_MAX];
 +        u8* header = content->header;
 +        s32 headerLen = boardOvl->lengths[mHandbill_EN_BOARD_FIELD_HEADER];
 +        s32 back = content->headerBackStart;
@@ -2435,10 +2444,12 @@ index 34e9b7f..32fc8e5 100644
 +            len = board->reading ? headerLen : MAIL_HEADER_LEN;
 +            mem_copy(tmp, header, len);
 +        } else {
++            s32 nameLen = (nameTextLen >= 0) ? nameTextLen : boardOvl->headerNameLen;
++
 +            mem_copy(tmp, header, back);
-+            mem_copy(&tmp[back], name, boardOvl->headerNameLen);
-+            mem_copy(&tmp[back + boardOvl->headerNameLen], &header[back], headerLen - back);
-+            len = headerLen + boardOvl->headerNameLen;
++            mem_copy(&tmp[back], (nameTextLen >= 0) ? nameText : name, nameLen);
++            mem_copy(&tmp[back + nameLen], &header[back], headerLen - back);
++            len = headerLen + nameLen;
 +        }
 +        mHandbill_en_DrawLine(game, tmp, len, x, y, color);
 +    }
@@ -2871,7 +2882,7 @@ index 34e9b7f..32fc8e5 100644
 +    mHandbill_en_DrawBody(game, str, len, writing, x, &y, endX, endY, &color);
  }
 diff --git a/src/code/m_item_name.c b/src/code/m_item_name.c
-index 5b38fe9..20d86f6 100644
+index 5b38fe9..fb84685 100644
 --- a/src/code/m_item_name.c
 +++ b/src/code/m_item_name.c
 @@ -3,6 +3,7 @@
@@ -2916,7 +2927,7 @@ index 5b38fe9..20d86f6 100644
      u32 itm = item;
      s32 itemNo = mRmTp_FtrItemNo2Item1ItemNo(itm);
      u8 name[16];
-@@ -65,6 +74,136 @@ void mIN_copy_name_str(char* dst, u16 item) {
+@@ -65,6 +74,163 @@ void mIN_copy_name_str(char* dst, u16 item) {
              break;
      }
  }
@@ -2971,24 +2982,45 @@ index 5b38fe9..20d86f6 100644
 +    }
 +}
 +
++/* The token for the en table's name n in a buffer of size bytes: the mark, the number in two digits, the
++ * mark again up to the cells its record gives, then spaces */
++void mIN_en_WriteToken(u8* dst, s32 n, s32 size) {
++    s32 cells = mIN_en_Record(n)[2];
++    s32 i;
++
++    dst[0] = ITEM_EN_TOKEN_MARK;
++    dst[1] = ITEM_EN_TOKEN_DIGIT0 + n / ITEM_EN_TOKEN_BASE;
++    dst[2] = ITEM_EN_TOKEN_DIGIT0 + n % ITEM_EN_TOKEN_BASE;
++    for (i = ITEM_EN_TOKEN_LEN; (i < cells) && (i < size); i++) {
++        dst[i] = ITEM_EN_TOKEN_MARK;
++    }
++    for (; i < size; i++) {
++        dst[i] = ' ';
++    }
++}
++
 +void mIN_copy_name_str(char* dst, u16 item) {
 +    s32 n = mIN_en_NameNo(mRmTp_FtrItemNo2Item1ItemNo(item));
-+    s32 cells;
-+    s32 i;
 +
 +    if (n < 0) {
 +        mIN_cart_copy_name_str(dst, item);
 +        return;
 +    }
-+    cells = mIN_en_Record(n)[2];
-+    dst[0] = ITEM_EN_TOKEN_MARK;
-+    dst[1] = ITEM_EN_TOKEN_DIGIT0 + n / ITEM_EN_TOKEN_BASE;
-+    dst[2] = ITEM_EN_TOKEN_DIGIT0 + n % ITEM_EN_TOKEN_BASE;
-+    for (i = ITEM_EN_TOKEN_LEN; i < cells; i++) {
-+        dst[i] = ITEM_EN_TOKEN_MARK;
-+    }
-+    for (; i < mIN_ITEM_NAME_LEN; i++) {
-+        dst[i] = ' ';
++    mIN_en_WriteToken((u8*)dst, n, mIN_ITEM_NAME_LEN);
++}
++
++/* The special characters' names longer than a name's 6 bytes, whose records follow the items' (the animals'
++ * tokens are in their name segment already): each one's string and record, a zero last */
++static const u16 mIN_en_specialNames[][2] = ITEM_EN_SPECIAL_NAMES;
++
++void mIN_en_SpecialName(u8* name, s32 number, s32 size) {
++    s32 i;
++
++    for (i = 0; mIN_en_specialNames[i][0] != 0; i++) {
++        if (mIN_en_specialNames[i][0] == number) {
++            mIN_en_WriteToken(name, mIN_en_specialNames[i][1], size);
++            return;
++        }
 +    }
 +}
 +
@@ -3005,7 +3037,7 @@ index 5b38fe9..20d86f6 100644
 +    hi = str[1] - ITEM_EN_TOKEN_DIGIT0;
 +    lo = str[2] - ITEM_EN_TOKEN_DIGIT0;
 +    if ((hi < 0) || (hi >= ITEM_EN_TOKEN_BASE) || (lo < 0) || (lo >= ITEM_EN_TOKEN_BASE) ||
-+        (hi * ITEM_EN_TOKEN_BASE + lo >= ITEM_EN_COUNT)) {
++        (hi * ITEM_EN_TOKEN_BASE + lo >= ITEM_EN_RECORDS)) {
 +        return NULL;
 +    }
 +    record = mIN_en_Record(hi * ITEM_EN_TOKEN_BASE + lo);
@@ -3053,9 +3085,15 @@ index 5b38fe9..20d86f6 100644
 +s32 mIN_en_TokenText(u8* dst, u8* str, s32 cut) {
 +    return -1;
 +}
++
++void mIN_en_WriteToken(u8* dst, s32 n, s32 size) {
++}
++
++void mIN_en_SpecialName(u8* name, s32 number, s32 size) {
++}
  #endif
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
-index 03981c7..5e4a848 100644
+index 03981c7..f1e26d3 100644
 --- a/src/code/m_msg_main.c
 +++ b/src/code/m_msg_main.c
 @@ -1,5 +1,7 @@
@@ -3123,7 +3161,26 @@ index 03981c7..5e4a848 100644
  }
  
  s32 func_8009D200_jp(MessageWindow* msg, s32 priority) {
-@@ -646,23 +671,23 @@ void func_8009E388_jp(s32 index, RomOffset* addr, u32* size) {
+@@ -97,7 +122,17 @@ void func_8009D308_jp(MessageWindow* msg, struct Actor* actor, s32 showName) {
+ 
+         mNpc_GetNpcWorldName(name, (Npc*)actor);
+         len = mMsg_Get_Length_String(name, 6);
+-        ofsX = (72.0f - mFont_GetStringWidth(name, len, 0)) * 0.5f;
++        {
++            /* the en build: a name longer than 6 is a token (m_item_name.c), the plate centres its name */
++            s32 tokenLen;
++            u8* token = mIN_en_TokenName((u8*)name, &tokenLen, NULL);
++
++            if (token != NULL) {
++                ofsX = (72.0f - mFont_GetStringWidth((char*)token, tokenLen, 0)) * 0.5f;
++            } else {
++                ofsX = (72.0f - mFont_GetStringWidth(name, len, 0)) * 0.5f;
++            }
++        }
+ 
+         msg->nameplateX = 61.0f + ofsX;
+         msg->nameplateY = 64.0f;
+@@ -646,23 +681,23 @@ void func_8009E388_jp(s32 index, RomOffset* addr, u32* size) {
          s32 len;
  
          if (index & 1) {
@@ -3151,7 +3208,7 @@ index 03981c7..5e4a848 100644
              *size = len;
          } else {
              *addr = 0;
-@@ -758,67 +783,67 @@ s32 func_8009E6D4_jp(void) {
+@@ -758,67 +793,67 @@ s32 func_8009E6D4_jp(void) {
  }
  
  void func_8009E6F8_jp(struct Game* game) {
@@ -3278,7 +3335,26 @@ index 03981c7..5e4a848 100644
  }
  
  size_t mMsg_Get_Length_String(char* str, s32 strLen) {
-@@ -1014,8 +1039,8 @@ s32 mMsg_CopyTail(struct Actor* actor, char* data, s32 startIdx, s32 len) {
+@@ -982,6 +1017,8 @@ s32 mMsg_CopyPlayerName(char* data, s32 startIdx, s32 len) {
+     return newLen;
+ }
+ 
++static s32 mMsg_en_CopyString(char* data, s32 startIdx, s32 len, char* str, s32 strLen, s32 cut);
++
+ s32 mMsg_CopyTalkName(struct Actor* actor, char* data, s32 startIdx, s32 len) {
+     s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
+     char name[6];
+@@ -990,7 +1027,8 @@ s32 mMsg_CopyTalkName(struct Actor* actor, char* data, s32 startIdx, s32 len) {
+ 
+     if (actor != NULL) {
+         mNpc_GetNpcWorldName(name, (Npc*)actor);
+-        nameLen = mMsg_Get_Length_String(name, sizeof(name));
++        /* the en build: a name longer than 6 is a token (m_item_name.c): its name put in */
++        return mMsg_en_CopyString(data, startIdx, len, name, sizeof(name), TRUE);
+     } else {
+         nameLen = 0;
+     }
+@@ -1014,8 +1052,8 @@ s32 mMsg_CopyTail(struct Actor* actor, char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyYear(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u16 value = common_data.time.rtcTime.year;
@@ -3289,7 +3365,7 @@ index 03981c7..5e4a848 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1025,8 +1050,8 @@ s32 mMsg_CopyYear(char* data, s32 startIdx, s32 len) {
+@@ -1025,8 +1063,8 @@ s32 mMsg_CopyYear(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyMonth(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.month;
@@ -3300,7 +3376,7 @@ index 03981c7..5e4a848 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1036,8 +1061,8 @@ s32 mMsg_CopyMonth(char* data, s32 startIdx, s32 len) {
+@@ -1036,8 +1074,8 @@ s32 mMsg_CopyMonth(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyWeek(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.weekday;
@@ -3311,7 +3387,7 @@ index 03981c7..5e4a848 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1047,8 +1072,8 @@ s32 mMsg_CopyWeek(char* data, s32 startIdx, s32 len) {
+@@ -1047,8 +1085,8 @@ s32 mMsg_CopyWeek(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyDay(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.day;
@@ -3322,7 +3398,7 @@ index 03981c7..5e4a848 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1058,8 +1083,8 @@ s32 mMsg_CopyDay(char* data, s32 startIdx, s32 len) {
+@@ -1058,8 +1096,8 @@ s32 mMsg_CopyDay(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyHour(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.hour;
@@ -3333,7 +3409,7 @@ index 03981c7..5e4a848 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1069,8 +1094,8 @@ s32 mMsg_CopyHour(char* data, s32 startIdx, s32 len) {
+@@ -1069,8 +1107,8 @@ s32 mMsg_CopyHour(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyMin(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.min;
@@ -3344,7 +3420,7 @@ index 03981c7..5e4a848 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1080,32 +1105,66 @@ s32 mMsg_CopyMin(char* data, s32 startIdx, s32 len) {
+@@ -1080,32 +1118,66 @@ s32 mMsg_CopyMin(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopySec(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.sec;
@@ -3427,7 +3503,7 @@ index 03981c7..5e4a848 100644
  }
  
  s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colorId) {
-@@ -1113,8 +1172,13 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
+@@ -1113,8 +1185,13 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
      s32 newLen;
      s32 srcIdx;
      u8* color;
@@ -3442,7 +3518,7 @@ index 03981c7..5e4a848 100644
      srcIdx = *startIdx;
      color = D_80107B78_jp[colorId];
      D_80107B88_jp[2] = color[0];
-@@ -1129,7 +1193,7 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
+@@ -1129,7 +1206,7 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
  
  s32 mMsg_CopyDetermination(MessageWindow* msg, char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
@@ -3451,7 +3527,7 @@ index 03981c7..5e4a848 100644
      s32 strLen = msg->choiceWindow.data.determinationLenght;
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
-@@ -1174,24 +1238,16 @@ s32 mMsg_CopyRamdomNumber2(char* data, s32 startIdx, s32 len) {
+@@ -1174,24 +1251,16 @@ s32 mMsg_CopyRamdomNumber2(char* data, s32 startIdx, s32 len) {
      return newLen;
  }
  
@@ -3482,7 +3558,7 @@ index 03981c7..5e4a848 100644
  }
  
  s32 func_8009F670_jp(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len) {
-@@ -1914,25 +1970,24 @@ s32 func_800A0DF4_jp(MessageWindow* msg, s32* idxP, s32 selectCount) {
+@@ -1914,25 +1983,24 @@ s32 func_800A0DF4_jp(MessageWindow* msg, s32* idxP, s32 selectCount) {
      }
  
      if (selectCount >= 2 && selectCount <= mChoice_CHOICE_NUM) {
@@ -3519,7 +3595,7 @@ index 03981c7..5e4a848 100644
          }
      }
  
-@@ -1961,28 +2016,40 @@ s32 func_800A102C_jp(MessageWindow* msg, s32* idxP) {
+@@ -1961,28 +2029,40 @@ s32 func_800A102C_jp(MessageWindow* msg, s32* idxP) {
      return mMsg_RESULT_VOID;
  }
  
@@ -3560,7 +3636,7 @@ index 03981c7..5e4a848 100644
      return mMsg_RESULT_VOID;
  }
  
-@@ -2045,8 +2112,11 @@ s32 func_800A1308_jp(MessageWindow* msg, s32* idxP) {
+@@ -2045,8 +2125,11 @@ s32 func_800A1308_jp(MessageWindow* msg, s32* idxP) {
  s32 func_800A134C_jp(MessageWindow* msg, s32 idx, s32 freeStrNo) {
      char* data = (char*)msg->msgData->text;
      s32 len = msg->msgData->msgLen;
@@ -3573,7 +3649,7 @@ index 03981c7..5e4a848 100644
      return mMsg_RESULT_VOID;
  }
  
-@@ -2145,16 +2215,21 @@ s32 func_800A1708_jp(MessageWindow* msg, s32* idxP) {
+@@ -2145,16 +2228,21 @@ s32 func_800A1708_jp(MessageWindow* msg, s32* idxP) {
  s32 func_800A1730_jp(MessageWindow* msg, s32* idxP) {
      char* data = (char*)msg->msgData->text;
      s32 len = msg->msgData->msgLen;
@@ -3595,7 +3671,7 @@ index 03981c7..5e4a848 100644
      return mMsg_RESULT_VOID;
  }
  
-@@ -2169,8 +2244,11 @@ s32 func_800A17B8_jp(MessageWindow* msg, s32* idxP) {
+@@ -2169,8 +2257,11 @@ s32 func_800A17B8_jp(MessageWindow* msg, s32* idxP) {
  s32 func_800A17FC_jp(MessageWindow* msg, s32 idx, s32 itemStrNo) {
      char* data = (char*)msg->msgData->text;
      s32 len = msg->msgData->msgLen;
@@ -3608,7 +3684,7 @@ index 03981c7..5e4a848 100644
      return mMsg_RESULT_VOID;
  }
  
-@@ -2197,8 +2275,10 @@ s32 func_800A18E4_jp(MessageWindow* msg, s32* idxP) {
+@@ -2197,8 +2288,10 @@ s32 func_800A18E4_jp(MessageWindow* msg, s32* idxP) {
  s32 func_800A190C_jp(MessageWindow* msg, s32 idx, s32 mailStrNo) {
      char* data = (char*)msg->msgData->text;
      s32 len = msg->msgData->msgLen;
@@ -3619,7 +3695,7 @@ index 03981c7..5e4a848 100644
      return mMsg_RESULT_VOID;
  }
  
-@@ -2237,15 +2317,26 @@ s32 func_800A1A64_jp(MessageWindow* msg, s32* idxP) {
+@@ -2237,15 +2330,26 @@ s32 func_800A1A64_jp(MessageWindow* msg, s32* idxP) {
  }
  
  s32 func_800A1A84_jp(MessageWindow* msg, s32* idxP) {
@@ -3649,7 +3725,7 @@ index 03981c7..5e4a848 100644
  }
  
  s32 func_800A1AE4_jp(MessageWindow* msg, s32* idxP) {
-@@ -2562,6 +2653,8 @@ void func_800A2538_jp(MessageWindow* msg, struct Game* game) {
+@@ -2562,6 +2666,8 @@ void func_800A2538_jp(MessageWindow* msg, struct Game* game) {
      msg->requestedPriority = 4;
      msg->endTimer = 0;
      msg->statusFlags &= ~mMsg_STATUS_FLAG_LAST_DELAY;
@@ -3658,7 +3734,32 @@ index 03981c7..5e4a848 100644
  
      if (waitFlag != TRUE) {
          msg->showContinueButton = FALSE;
-@@ -2952,26 +3045,26 @@ void func_800A3220_jp(MessageWindow* msg, struct Game* game) {
+@@ -2769,10 +2875,21 @@ void func_800A2AD0_jp(MessageWindow* msg, struct Game* game, s32 mode) {
+ void func_800A2BB0_jp(MessageWindow* msg, struct Game* game, s32 mode) {
+     char name[ANIMAL_NAME_LEN];
+ 
++    s32 len = msg->clientNameLen;
++    char* drawn = name;
++    u8* token;
++    s32 tokenLen;
++
+     mNpc_GetNpcWorldName(name, (Npc*)msg->clientActor);
+-    mFont_SetLineStrings_AndSpace(game, name, msg->clientNameLen, msg->nameplateX, msg->nameplateY,
+-                                  msg->nameTextColor.r, msg->nameTextColor.g, msg->nameTextColor.b,
+-                                  msg->nameTextColor.a, FALSE, FALSE, TRUE, 1.0f, 1.0f, mode);
++    /* the en build: a name longer than 6 is a token (m_item_name.c), the plate draws its name */
++    token = mIN_en_TokenName((u8*)name, &tokenLen, NULL);
++    if (token != NULL) {
++        drawn = (char*)token;
++        len = tokenLen;
++    }
++    mFont_SetLineStrings_AndSpace(game, drawn, len, msg->nameplateX, msg->nameplateY, msg->nameTextColor.r,
++                                  msg->nameTextColor.g, msg->nameTextColor.b, msg->nameTextColor.a, FALSE, FALSE,
++                                  TRUE, 1.0f, 1.0f, mode);
+ }
+ 
+ void func_800A2C4C_jp(MessageWindow* msg, struct Game* game, s32 mode) {
+@@ -2952,26 +3069,26 @@ void func_800A3220_jp(MessageWindow* msg, struct Game* game) {
  
  void mMsg_ct(struct Game_Play* game_play) {
      func_8009E6F8_jp((struct Game*)game_play);
@@ -3740,10 +3841,15 @@ index c242d60..a93182f 100644
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_notice/func_800A5DF4_jp.s")
 diff --git a/src/code/m_string.c b/src/code/m_string.c
-index 7b8e5b5..dcfdd10 100644
+index 7b8e5b5..ddb1254 100644
 --- a/src/code/m_string.c
 +++ b/src/code/m_string.c
-@@ -5,29 +5,39 @@
+@@ -1,33 +1,44 @@
+ #include "m_string.h"
+ #include "m_std_dma.h"
+ #include "m_lib.h"
++#include "m_item_name.h"
+ 
  #include "m_msg_main.h"
  #include "6B3DC0.h"
  
@@ -3790,7 +3896,13 @@ index 7b8e5b5..dcfdd10 100644
              *size = sized;
          } else {
              *vramp = NULL;
-@@ -43,7 +53,7 @@ void mString_Load_StringFromRom(char* dst, s32 dstLen, s32 strIdx) {
+@@ -39,11 +50,13 @@ void mString_Get_StringDataAddressAndSize(s32 idx, uintptr_t* vramp, size_t* siz
+     }
+ }
+ 
++#define mString_EN_NAME_LEN 6 /* a name's bytes: PLAYER_NAME_LEN, as mNpc_GetNpcWorldNameP loads one */
++
+ void mString_Load_StringFromRom(char* dst, s32 dstLen, s32 strIdx) {
      uintptr_t stringAddr;
      size_t stringSize;
  
@@ -3799,7 +3911,17 @@ index 7b8e5b5..dcfdd10 100644
          mString_Get_StringDataAddressAndSize(strIdx, &stringAddr, &stringSize);
  
          if (stringSize == 0) {
-@@ -78,26 +88,20 @@ void mString_Load_StringFromRom(char* dst, s32 dstLen, s32 strIdx) {
+@@ -73,31 +86,30 @@ void mString_Load_StringFromRom(char* dst, s32 dstLen, s32 strIdx) {
+             for (; i < dstLen; i++) {
+                 *strDst++ = ' ';
+             }
++            /* the en build: a special character's name loaded into a name's 6 bytes (mNpc_GetNpcWorldNameP), as
++             * its token when it is longer (m_item_name.c) */
++            if (dstLen == mString_EN_NAME_LEN) {
++                mIN_en_SpecialName((u8*)dst, strIdx, dstLen);
++            }
+         }
+     }
  }
  
  s32 mString_Load_YearStringFromRom(char* dst, lbRTC_year_t year) {
@@ -3835,7 +3957,7 @@ index 7b8e5b5..dcfdd10 100644
      return mMsg_Get_Length_String(dst, 4);
  }
  
-@@ -111,33 +115,25 @@ s32 mString_Load_WeekStringFromRom(char* dst, lbRTC_weekday_t weekday) {
+@@ -111,33 +123,25 @@ s32 mString_Load_WeekStringFromRom(char* dst, lbRTC_weekday_t weekday) {
  }
  
  s32 mString_Load_DayStringFromRom(char* dst, lbRTC_day_t day) {
@@ -3876,7 +3998,7 @@ index 7b8e5b5..dcfdd10 100644
      return mMsg_Get_Length_String(dst, 6);
  }
  
-@@ -171,3 +167,87 @@ s32 mString_Load_NumberStringAddUnitFromRom(char* dst, u16 num, s32 idx) {
+@@ -171,3 +175,87 @@ s32 mString_Load_NumberStringAddUnitFromRom(char* dst, u16 num, s32 idx) {
      mString_Load_StringFromRom(&dst[len], 10 - len, idx);
      return mMsg_Get_Length_String(dst, 10);
  }

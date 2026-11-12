@@ -8,12 +8,14 @@ ANIMAL_NAME_LEN) in the file at vrom 0xE04000: an 8-byte header, then
 name n at 8 + 6 n (`mNpc_LoadNpcNameString`, src/code/m_npc.c). The
 GameCube's `forest_2nd.arc/npc_name_str_table.bin` is 236 names of 8
 bytes, the first four placeholders: its name n + 4 is the N64's name n
-(Bob is ニコバン, Olivia オリビア, Kabuki かぶきち...; measured). This
+(measured on four animals' names, the two games' by their sounds). This
 copies the segment from the dump and writes the English names into it,
 in the N64 charset, cut to --max-len (a name longer than that is
 reported: the 6-byte field is the N64's own limit, and widening it means
-changing the save data's layout). The result goes to the en build as the
-segment's .bin: same size, same place, nothing else in the file touched.
+changing the save data's layout; tools/af_items.py then writes such a
+name's token in its field, which the en build expands to the whole name).
+The result goes to the en build as the segment's .bin: same size, same
+place, nothing else in the file touched.
 """
 
 import os

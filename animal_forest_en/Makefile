@@ -290,10 +290,13 @@ $(GC_DIR)/gc_items.txt: tools/af_items.py $(wildcard $(GC_DIR)/foresta.rel.szs $
 		$(PYTHON) tools/af_items.py gc-files $(GC_DIR)/foresta.rel.szs $(GC_DIR)/foresta.map $@; \
 	else echo "$@: make script ISO=... reads the names from the disc"; fi
 
-$(EN_ITEMS): tools/af_items.py tools/af_font.py tools/af_text.py tools/msgbank.py $(GC_ITEMS) script/items.txt $(GC_FONT) $(AF_EN_DIR)/.stamp-extract
+# also writes the tokens of the animals' names longer than 6 into the name segment (af_names.py's), whose
+# records follow the items' (NOTES, "Names longer than 6")
+$(EN_ITEMS): tools/af_items.py tools/af_font.py tools/af_text.py tools/af_names.py tools/msgbank.py $(GC_ITEMS) script/items.txt $(GC_FONT) $(EN_NAMES) $(EN_STRING) $(AF_EN_DIR)/.stamp-extract
 	mkdir -p $(EN_ASSETS)
 	$(PYTHON) tools/af_items.py compile $(AF_EN_DIR)/baseroms/jp/baserom-decompressed.z64 $@ $(EN_ITEMS_INC) \
-		$(if $(GC_ITEMS),--gc $(GC_ITEMS)) --own script/items.txt $(FONT_OPTS)
+		$(if $(GC_ITEMS),--gc $(GC_ITEMS)) --own script/items.txt $(FONT_OPTS) \
+		$(if $(wildcard $(GC_DIR)/npc_name_str_table.bin),--npc-names $(GC_DIR)/npc_name_str_table.bin --names-seg $(EN_NAMES) --strings $(EN_STRING))
 
 $(EN_NAFE_GFX): tools/af_nafe_gfx.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)) $(AF_EN_DIR)/.stamp-extract
 	mkdir -p $(EN_ASSETS)

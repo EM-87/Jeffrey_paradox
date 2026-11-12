@@ -128,7 +128,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   uses; the en build writes a token into the cartridge's 10-byte name
   buffers, which the font draws and the message, letter and choice code
   expand, with the article as the GameCube puts it (NOTES, "Item
-  names").
+  names"); the names longer than an animal's 6 bytes take the same
+  tokens, their records after the items', the animals' written into the
+  en name segment (NOTES, "Names longer than 6").
 - `tools/af_nafe_gfx.py` — the 42 menu labels the AF Project's 2010
   patch drew in English, taken at `make rom-en` from the user's copy
   (`make nafe NAFE_UPS=...`, build/nafe-2010-12-02.z64) over the en
@@ -161,7 +163,8 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `emu_letters.py` (the en letter loaders through the same hook, against
   a model of the cartridge's expander: `make letters-check-en`),
   `emu_board.py` (the letter board opened on letters, its lines measured
-  on the frame against a model of the board: `make board-check-en`),
+  on the frame against a model of the board, one letter addressed to an
+  animal whose name is a token: `make board-check-en`),
   `emu_write.py` (letters typed on the editor's dial, their lines, cursor
   and end mark measured against the same model, finished and read back
   whole, 192 bytes: `make write-check-en`),
@@ -174,7 +177,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   font's model: those taken from the 2010 patch, ours and two of the
   GameCube's; and those that play through without a choice, played to
   their end, the talking animal's order read every frame against the
-  cartridge's orders: `make messages-check-en`),
+  cartridge's orders; the names longer than 6, Tom Nook's on the plate
+  and in a page with his token and without, the animals' loaded as the
+  game loads them and one put in a page: `make messages-check-en`),
   `emu_menus.py` (the name entry's five windows, the edit-end check's
   question and answers and the address book's balloon, their strings in
   RAM and their ink measured against the font's model; each swapped

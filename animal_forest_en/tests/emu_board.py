@@ -10,7 +10,11 @@ as mPr_GetMotherMail, a villager's as mNpc_GetHandbillz: tests/
 emu_letters.py's model of both), then opens the board to read it, as
 mSM_submenu_ctrl opens a submenu program (the board, program 12, with
 menuInfo data0 1: read; m_board_ovl.c's init). The player's name and the
-twenty free strings are set first, to known text.
+twenty free strings are set first, to known text. One more letter is
+addressed to an animal whose name is longer than 6: the token of the en
+name segment's first such field in the recipient's name (the letter
+addressed as the player is, with that name), its header with the whole
+name (m_handbill.c; NOTES, "Names longer than 6").
 
 What the board should draw comes from a model of the en board
 (m_handbill.c, mHandbill_en_Board*) over tests/emu_letters.py's model of
@@ -281,7 +285,7 @@ def stray_ink(rgb, w, h):
 
 def letter(entry, kind, which):
     """(header, its name position, body, footer) of the whole letter, the models of tests/emu_letters.py."""
-    if kind == "shop":
+    if kind in ("shop", "animal"):
         h = emu_letters.header(entry("mail_header", which), FREES)
         body = emu_letters.body(entry("mail_body", which), FREES)
         foot = emu_letters.footer(entry("mail_footer", which), FREES)
@@ -293,16 +297,29 @@ def letter(entry, kind, which):
     return (h[0][:24], h[1]) if h else (b" " * 24, 24), body, foot
 
 
-def expected(board, entry, kind, which, mail_type):
+def expected(board, entry, kind, which, mail_type, name=PLAYER):
     """[(what, band's first line, (left, right) or None)] in N64 pixels from the text's left edge, and
-    whether the body runs past six lines."""
+    whether the body runs past six lines. name: the recipient's, as the header puts it in."""
     (head, back), body, foot = letter(entry, kind, which)
     lines, cut_off = board.body(body)
-    want = [("header", HEADER_Y, board.extent(board.header(head, back, mail_type, PLAYER.rstrip(b" "))))]
+    want = [("header", HEADER_Y, board.extent(board.header(head, back, mail_type, name.rstrip(b" "))))]
     want += [("body line %d" % (k + 1), BODY_Y + k * LINE_H, board.extent(s)) for k, s in enumerate(lines)]
     f, fx = board.footer(foot)
     want.append(("footer", FOOTER_Y, board.extent(f, fx)))
     return want, cut_off, sum(1 for s in lines if s)
+
+
+def long_animal_name(af_en):
+    """(number, its 6-byte field, the name) of the first animal whose name the en name segment holds as a token
+    (tools/af_items.py), its name from the en table's records; or None."""
+    seg = open(os.path.join(af_en, "assets", "jp", "segment_00E04000.bin"), "rb").read()
+    names = open(os.path.join(af_en, "assets", "jp", "en", "item_names.bin"), "rb").read()
+    for n in range((len(seg) - 8) // 6):
+        field = seg[8 + 6 * n:14 + 6 * n]
+        if field[0] == 0x80 and 0x81 <= field[1] < 0x81 + 64 and 0x81 <= field[2] < 0x81 + 64:
+            rec = names[20 * ((field[1] - 0x81) * 64 + field[2] - 0x81):][:20]
+            return n, field, rec[4:4 + rec[0]]
+    return None
 
 
 def main(argv):
@@ -322,6 +339,11 @@ def main(argv):
     shots = []
 
     letters = [("shop", n, t) for n, t in SHOP] + [("villager", v, 0) for v in VILLAGERS]
+    # a letter to an animal whose name is longer than 6: its token in the recipient's name, as the address
+    # book writes it (mMl_set_mail_name_npcinfo), the header with the whole name (m_handbill.c)
+    animal = long_animal_name(af_en)
+    if animal:
+        letters.append(("animal",) + SHOP[0])
     with N64(emu_dir, rom, os.path.join(out, "cart"), timeout=120) as n64:
         for kind, which, mail_type in letters:
             n64.load_state(state)
@@ -331,7 +353,7 @@ def main(argv):
             emu_save.write_code(n64, mttime, struct.pack(">II", 0x08000000 | ((stub >> 2) & 0x3FFFFFF), 0))
             n64.write(free_at, b"".join(FREES))
             priv = struct.unpack(">I", n64.read(cd + PRIVATE_INFO, 4))[0]
-            n64.write(priv, PLAYER)
+            n64.write(priv, animal[1] if kind == "animal" else PLAYER)   # the name the letter is addressed to
             mail = priv + POCKET_MAIL
 
             def run(cmd, args, limit=10):
@@ -342,8 +364,10 @@ def main(argv):
                         return CTL.unpack(n64.read(ctl, CTL.size))
                 raise SystemExit("the hook did not run command %d" % cmd)
 
-            if kind == "shop":
+            if kind in ("shop", "animal"):
                 label = "shop letter %d (type %d)" % (which, mail_type)
+                if kind == "animal":
+                    label += " to animal %d, its name of %d characters a token" % (animal[0], len(animal[2]))
                 run(1, [mail, priv, which, mail_type])
             else:
                 hd, a, b, c, ft = which
@@ -355,11 +379,12 @@ def main(argv):
             w, hgt, rgb = n64.screen()
             n64.frames(6, 0)
             check(n64.screen()[2] == rgb, "%s: the board is at rest %d frames after it opens" % (label, SETTLE))
-            path = os.path.join(out, "%s-%s.png" % (kind, "-".join(str(x) for x in (which if kind != "shop" else (which, mail_type)))))
+            path = os.path.join(out, "%s-%s.png" % (kind, "-".join(str(x) for x in (which if kind == "villager" else (which, mail_type)))))
             n64.screenshot(path)
             shots.append(path)
 
-            want, cut_off, drawn_lines = expected(board, entry, kind, which, mail_type)
+            want, cut_off, drawn_lines = expected(board, entry, kind, which, mail_type,
+                                                  animal[2] if kind == "animal" else PLAYER)
             bad = []
             for what, y0, ext in want:
                 got = measure(rgb, w, y0)

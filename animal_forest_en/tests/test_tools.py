@@ -1471,8 +1471,37 @@ class MenusWords(unittest.TestCase):
             inc = af_items.include(True)
             self.assertIn("#define ITEM_EN_FROM_GC 1", inc)
             self.assertIn("#define ITEM_EN_FTR_BASE 3", inc)
+            self.assertIn("#define ITEM_EN_RECORDS 4 ", inc)                      # no names: the items'
+            self.assertIn("#define ITEM_EN_SPECIAL_NAMES { { 0x000, 0 }, }", inc)   # the zero that ends it
         finally:
             af_items.KINDS = saved
+
+    def test_long_names_take_tokens(self):
+        # the names longer than an animal's 6 bytes: the animals' the segment holds (the GameCube's table,
+        # its first four placeholders), then the special characters' from the string bank; their records
+        # follow the items', with no article, at most 6 cells; a token fills the 6-byte field
+        def gc_name(text):
+            return bytes(af_names_gc(c) for c in text.ljust(af_items.af_names.GC_LEN))
+
+        def af_names_gc(c):
+            return msgbank.GC_CHARS.index(c)
+        table = b"".join(gc_name(t) for t in ("", "", "", "", "Abe", "Zed", "Quillon", "Marblex", "Tumbleby"))
+        strings = {0x205: msgbank.parse("Granddad"), 0x206: msgbank.parse("Dove"), 0x300: msgbank.parse("Elsewhere")}
+        names = af_items.long_names(table, 4, strings)                # the segment holds 4: the fifth does not fit
+        self.assertEqual([w for w, _ in names], [("animal", 2), ("animal", 3), ("string", 0x205)])
+        self.assertEqual(names[0][1], af_items.n64_bytes("t", "Quillon"))
+        data, tokens = af_items.name_records(names, 1703, [7] * 256)
+        size = af_items.RECORD_SIZE
+        self.assertEqual(data[:size], bytes([7, 0, 5, 0]) + af_items.n64_bytes("t", "Quillon") + b" " * 9)  # 50 px
+        self.assertEqual([n for _, n, _ in tokens], [1703, 1704, 1705])
+        self.assertEqual(tokens[0][2], bytes([0x80, 0x81 + 1703 // 64, 0x81 + 1703 % 64, 0x80, 0x80, 0x20]))
+        self.assertEqual(af_items.token(5, 6, 6), bytes([0x80, 0x81, 0x86, 0x80, 0x80, 0x80]))
+        self.assertEqual(af_items.cells(b"x" * 9, [9] * 256, af_items.ANIMAL_NAME_LEN), 6)     # 82 px: the field's
+        with self.assertRaises(ValueError):
+            af_items.token(64 * 64, 3, 6)                             # past two digits
+        inc = af_items.include(True, tokens)
+        self.assertIn("#define ITEM_EN_RECORDS %d " % (len(af_items.slots()) + 3), inc)
+        self.assertIn("#define ITEM_EN_SPECIAL_NAMES { { 0x205, 1705 }, { 0x000, 0 }, }", inc)
 
     def test_labels_drawn_by_the_lists(self):
         # tools/af_nafe_gfx.py: a texture is where a load in the segment's own

@@ -329,9 +329,19 @@ páginas del tablón y mide cada línea en la imagen contra el modelo, teclea
 en el dial una nota de más de 96 bytes, la termina, la lee entera, y la
 guarda y la carga con la partida.
 
+Los nombres que no caben en los 6 bytes del cartucho (38 vecinos de 7 u 8
+letras y 8 personajes especiales, Tom Nook entre ellos) ya no se cortan:
+usan la misma ficha que los objetos. Sus registros van detrás de los de
+los objetos; la ficha de cada vecino se escribe en su campo del segmento
+de nombres, así que el juego la copia como copiaba el nombre, y la de los
+especiales al cargar su cadena. La placa con el nombre del que habla, su
+nombre dentro del texto y la cabecera de una carta dirigida a un vecino
+ponen el nombre entero ("Names longer than 6"); `make messages-check-en` y
+`make board-check-en` lo miden en pantalla.
+
 Lo que viene: las texturas occidentales de GameCube donde las haya
-(letreros), los nombres de animales cortados y una pasada de pruebas
-de todo el texto en el juego.
+(letreros), las muletillas de los vecinos (4 bytes en el cartucho) y una
+pasada de pruebas de todo el texto en el juego.
 
 ## Dónde está cada cosa
 

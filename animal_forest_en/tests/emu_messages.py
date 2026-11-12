@@ -44,6 +44,18 @@ message's orders the cartridge's own, the same values in the same order
 (af_nafe_text puts them back where the 2010 translation had other ones;
 ours keep them).
 
+Then the names longer than 6, tokens (tools/af_items.py; NOTES, "Names
+longer than 6"): Tom Nook (a special character, his actor found among the
+NPCs by its fgName) as the speaker of the first message whose first page
+puts in the speaker's name, with his token and with it off (the special
+names' table emptied in RAM: his name cut to 6, as the cartridge had it):
+the page's lines measured both ways with his name put in, and the plate's
+ink (the name centred in 72 pixels from x 61, func_8009D308_jp, at the
+screen's pitch: emu_board.BOARD_X), placed by the cut name's; the animals'
+names whose fields hold tokens, loaded as the game loads them
+(mNpc_GetNpcWorldNameTableNo), each its token, and the first put in a
+message as free string 0, its lines measured.
+
 Where: the window's text from the frame's row 153 (lines 16 rows apart)
 and x 127.18, 2.005 frame pixels to the font's pixel (fitted on 316 line
 ends of 51 messages, residuals within 1.9; the letter board's text is
@@ -54,6 +66,7 @@ and a sheet of them, to OUT_DIR.
 """
 
 import os
+import re
 import shutil
 import struct
 import sys
@@ -62,7 +75,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
-from n64emu import A, N64  # noqa: E402
+from n64emu import A, N64, write_png  # noqa: E402
 import af_font  # noqa: E402
 import af_text  # noqa: E402
 import contact  # noqa: E402
@@ -72,26 +85,57 @@ import msgbank  # noqa: E402
 
 HOOK_C = r"""
 typedef unsigned char u8;
+typedef unsigned short u16;
 typedef int s32;
 void* mMsg_Get_base_window_p(void);
 s32 mMsg_request_main_appear(void* msg, void* actor, s32 showName, u8* color, s32 msgNo, s32 priority);
-typedef struct HookCtl { s32 cmd; s32 result; s32 arg[4]; } HookCtl;
+void* Actor_info_fgName_search(void* actorInfo, u16 fgName, s32 part);
+void mNpc_GetNpcWorldNameTableNo(char* name, u16 npcId);
+void mMsg_Set_free_str(void* msg, s32 freeStrNo, char* str, s32 strLen);
+extern void* gamePT;
+/* the control, then the speakers' fgNames (a zero last), the animals' numbers and the names loaded */
+typedef struct HookCtl { s32 cmd; s32 result; s32 arg[4]; u16 speakers[16]; u16 ids[64]; char names[6 * 64]; } HookCtl;
 HookCtl hook_ctl;
 u8 hook_color[4] = { 255, 255, 255, 255 };
 
-/* a message asked for as an actor asks for one, on the base window, without a speaker */
 void hook_main(void) {
     HookCtl* h = &hook_ctl;
+    void* actor = 0;
+    s32 i;
 
     if (h->cmd == 1) {
+        /* a message asked for as an actor asks for one, on the base window, without a speaker */
         h->arg[1] = (s32)mMsg_Get_base_window_p();
+        h->result = mMsg_request_main_appear((void*)h->arg[1], 0, 0, hook_color, h->arg[0], 5);
+        h->cmd = 0;
+    } else if (h->cmd == 2) {
+        /* the same with the first actor of hook_speakers found among the NPCs as its speaker, its name shown */
+        for (i = 0; h->speakers[i] != 0 && actor == 0; i++) {
+            actor = Actor_info_fgName_search((u8*)gamePT + PLAY_ACTOR_INFO, h->speakers[i], ACTOR_PART_NPC);
+        }
+        h->arg[1] = (s32)mMsg_Get_base_window_p();
+        h->arg[2] = (s32)actor;
+        h->result = actor ? mMsg_request_main_appear((void*)h->arg[1], actor, 1, hook_color, h->arg[0], 5) : 0;
+        h->cmd = 0;
+    } else if (h->cmd == 3) {
+        /* the names of the animals in ids (arg[1] of them), as the game loads one */
+        for (i = 0; i < h->arg[1]; i++) {
+            mNpc_GetNpcWorldNameTableNo(&h->names[6 * i], 0xE000 | h->ids[i]);
+        }
+        h->cmd = 0;
+    } else if (h->cmd == 4) {
+        /* a message without a speaker, its free string 0 the name of the animal arg[2] */
+        mNpc_GetNpcWorldNameTableNo(h->names, 0xE000 | h->arg[2]);
+        h->arg[1] = (s32)mMsg_Get_base_window_p();
+        mMsg_Set_free_str((void*)h->arg[1], 0, h->names, 6);
         h->result = mMsg_request_main_appear((void*)h->arg[1], 0, 0, hook_color, h->arg[0], 5);
         h->cmd = 0;
     }
 }
-"""
+""".replace("PLAY_ACTOR_INFO", "0x1C78").replace("ACTOR_PART_NPC", "3")  # Game_Play.actorInfo (m_play.h), ACTOR_PART_NPC
 
 CTL = struct.Struct(">ii4I")
+SPEAKERS_AT, IDS_AT, NAMES_AT = CTL.size, CTL.size + 32, CTL.size + 32 + 128   # HookCtl's tables
 COUNT = msgbank.N64_BANKS["message"][2]
 NAMES = msgbank.NAMES
 PAGE_END = {NAMES[n] for n in ("BTN", "MSGCLEAR", "MSGEND", "MSGCONTINUE", "MSGTIMEEND")}
@@ -117,6 +161,14 @@ GOES_ON = ({NAMES[n] for n in NAMES if n.startswith(("SETNEXTMSG", "SETSELSTR", 
            {NAMES[n] for n in ("OPENCHOICE", "SETFORCEMSG", "FORCENEXT", "MSGCONTINUE", "MSGTIMEEND", "SELNOB",
                                "GIVEOPEN", "GIVECLOSE", "DEMONPCQST")}) - set(af_text.N64_CARRIED.values())
 TIMED = {NAMES["PAUSE"], NAMES["BTN"], NAMES["MSGCLEAR"]}
+# the names longer than 6 (tokens: tools/af_items.py, m_item_name.c)
+TALKNAME, FREE0 = NAMES["STR_TALKNAME"], NAMES["STR_FREE0"]
+NOOKS = (0xD008, 0xD01E, 0xD03A, 0xD03B, 0xD03C, 0xD009, 0xD00A, 0xD00B, 0xD014)   # Tom Nook's actors: their
+NOOK_STRING = 0x205                         # name is string 0x205 (m_npc.c, l_sp_actor_name)
+PLATE = (61.0, 72.0)                        # the plate's name: centred from x 61 in 72 pixels (func_8009D308_jp)
+PLATE_INK = 160                             # the plate's text: a pixel with every colour under this (its green
+                                            # has one over 240)
+ANIMAL_NAME_LEN = 6
 
 failures = []
 
@@ -135,19 +187,20 @@ def bank_of(af_en):
     return {n: msgbank.decode(text[(ends[n - 1] if n else 0):ends[n]], msgbank.N64_CHARS) for n in range(COUNT)}
 
 
-def first_page(tokens, town=b"\x41" * 6):
+def first_page(tokens, town=b"\x41" * 6, fill=None):
     """The first page's lines (the font's codes), or None if it needs a speaker (any other code) or does not wait
     for the player (a page that clears itself after a pause, a message that closes after a time, or goes on to
-    another). The town's name (STR_COUNTRYNAME) is town, its bytes."""
+    another). The town's name (STR_COUNTRYNAME) is town, its bytes; fill: {code: the bytes the window puts in}."""
     text = ""
+    fill = dict(fill or {}, **{str(COUNTRYNAME): town})
     for t in tokens:
         if t[0] == "c":
             if t[1] in PAGE_END:
                 if t[1] not in WAITS:
                     return None
                 break
-            if t[1] == COUNTRYNAME:
-                text += "".join(msgbank.N64_CHARS[b] for b in town)
+            if str(t[1]) in fill:
+                text += "".join(msgbank.N64_CHARS[b] for b in fill[str(t[1])])
                 continue
             if t[1] not in NO_SPEAKER:
                 return None
@@ -199,6 +252,193 @@ def measure(rgb, w, y0):
 
 def frame_x(x):
     return WINDOW_X[0] + WINDOW_X[1] * x
+
+
+def page_problems(rgb, w, page, board):
+    """Each of the window's lines where the model puts page's (the font's codes, a line each), or nothing where
+    it has none: [what is wrong]."""
+    bad = []
+    for k in range(LINES):
+        e = board.extent(page[k]) if k < len(page) and page[k] else None
+        got = measure(rgb, w, TOP + k * PITCH)
+        want = e and (frame_x(e[0]), frame_x(e[1] + 1))
+        ok = (got is None) if e is None else (
+            got is not None and all(abs(g - x) <= TOLERANCE for g, x in zip(got, want)))
+        if not ok:
+            bad.append("line %d drawn at %s, the model's %s" % (k + 1, got, want and "(%.1f, %.1f)" % want))
+    return bad
+
+
+def on_first_page(tokens, code):
+    """Whether code is on the message's first page."""
+    for t in tokens:
+        if t[0] == "c":
+            if t[1] == code:
+                return True
+            if t[1] in PAGE_END:
+                return False
+    return False
+
+
+def plate_ink(rgb, w, h):
+    """(left, right + 1) of the name's ink on the plate (the box of its green, less its rounded edges), or None."""
+    green = [(x, y) for y in range(96, TOP) for x in range(w)
+             if rgb[(y * w + x) * 3 + 1] > 200 and rgb[(y * w + x) * 3 + 2] < 80 and 140 < rgb[(y * w + x) * 3] < 230]
+    if not green:
+        return None
+    x0, x1 = min(x for x, _ in green) + 8, max(x for x, _ in green) - 8
+    y0, y1 = min(y for _, y in green) + 6, max(y for _, y in green) - 4
+    xs = [x for y in range(y0, y1) for x in range(x0, x1) if max(rgb[(y * w + x) * 3:(y * w + x) * 3 + 3]) < PLATE_INK]
+    return (min(xs), max(xs) + 1) if xs else None
+
+
+def name_record(af_en, n):
+    """The characters of the en table's name n (tools/af_items.py's records)."""
+    data = open(os.path.join(af_en, "assets", "jp", "en", "item_names.bin"), "rb").read()
+    rec = data[n * 20:(n + 1) * 20]
+    return rec[4:4 + rec[0]]
+
+
+def token_number(field):
+    """The en table's number a token in field stands for, or None."""
+    if field[0] != 0x80 or not (0x81 <= field[1] < 0x81 + 64 and 0x81 <= field[2] < 0x81 + 64):
+        return None
+    return (field[1] - 0x81) * 64 + field[2] - 0x81
+
+
+def special_names(af_en):
+    """{string: the en table's number} of the special characters' names longer than 6 (the include's table)."""
+    inc = open(os.path.join(af_en, "assets", "jp", "en", "item_names.inc")).read()
+    return {int(a, 16): int(b) for a, b in re.findall(r"\{ (0x[0-9A-F]+), (\d+) \}", inc) if int(a, 16)}
+
+
+def string_of(af_en, number):
+    """The en string bank's string number, its bytes (the ROM's string segments)."""
+    at = os.path.join(af_en, "assets", "jp", "en")
+    text = open(os.path.join(at, "string_text.bin"), "rb").read()
+    ends = open(os.path.join(at, "string_index.bin"), "rb").read()
+    end = struct.unpack(">I", ends[4 * number:4 * number + 4])[0]
+    start = struct.unpack(">I", ends[4 * number - 4:4 * number])[0] if number else 0
+    return text[start:end]
+
+
+def check_names(n64, state, af_en, en_elf, hole, hole_size, mttime, syms, bank, board, town, out, shots):
+    """The names longer than 6, tokens (NOTES, "Names longer than 6"): Tom Nook's (a special character's) on the
+    plate and put in a page by STR_TALKNAME, with its token and with the token off (the en table's special
+    names emptied: his name cut to 6), whose plate places the plate; the animals' as the game loads them, each
+    its token, and one put in a page as a free string. The lines measured."""
+    specials = special_names(af_en)
+    if NOOK_STRING not in specials:
+        print("  (Tom Nook's name is not longer than 6 in this build: no special name to check)")
+        return 0
+    measured = 0
+
+    def hooked(cmd, args=(0, 0, 0, 0), pokes=()):
+        n64.load_state(state)
+        words = struct.unpack(">II", n64.read(mttime, 8))
+        blob, stub, ctl = emu_save.build_hook(af_en, en_elf, hole, hole_size, words, mttime, HOOK_C)
+        emu_save.write_code(n64, hole, blob)
+        emu_save.write_code(n64, mttime, struct.pack(">II", 0x08000000 | ((stub >> 2) & 0x3FFFFFF), 0))
+        for at, data in pokes:
+            n64.write(ctl + at if at < 0x1000 else at, data)
+        n64.write(ctl, CTL.pack(cmd, 0, *args))
+        for _ in range(10):
+            n64.frames(1, 0)
+            if struct.unpack(">i", n64.read(ctl, 4))[0] == 0:
+                break
+        return ctl, CTL.unpack(n64.read(ctl, CTL.size))
+
+    def settled(window):
+        waited = 0
+        for _ in range(SHOWN):
+            n64.frames(1, 0)
+            waited = waited + 1 if struct.unpack(">i", n64.read(window + MAIN_INDEX, 4))[0] == WAITING else 0
+            if waited == SETTLED:
+                break
+        return n64.screen()
+
+    full = name_record(af_en, specials[NOOK_STRING])
+    cut = string_of(af_en, NOOK_STRING)[:ANIMAL_NAME_LEN].rstrip(b" ")
+    talk = next((n for n in sorted(bank) if on_first_page(bank[n], TALKNAME)
+                 and first_page(bank[n], town, {str(TALKNAME): full})), None)
+    # the en table's special names in RAM (m_item_name.c's mIN_en_specialNames: its strings and records as the
+    # include lists them, a zero last), found by its bytes: the token off where it starts
+    listed = re.findall(r"\{ (0x[0-9A-F]+), (\d+) \}", open(os.path.join(af_en, "assets", "jp", "en",
+                                                                         "item_names.inc")).read())
+    n64.load_state(state)
+    ram = n64.read(0x80000000, 0x800000)
+    found = ram.find(b"".join(struct.pack(">HH", int(a, 16), int(b)) for a, b in listed))
+    if found < 0:
+        check(False, "the en table's special names in RAM")
+        return 0
+    table = 0x80000000 + found
+    speakers = struct.pack(">%dH" % (len(NOOKS) + 1), *(NOOKS + (0,)))
+    plates = {}
+    for what, name, pokes in (("cut to 6, the token off", cut, [(table, bytes(2))]), ("its token", full, [])):
+        _, (_, took, _, window, actor, _) = hooked(2, (talk, 0, 0, 0), [(SPEAKERS_AT, speakers)] + pokes)
+        w, h, rgb = settled(window)
+        path = os.path.join(out, "names-nook-%s.png" % ("token" if name == full else "cut"))
+        write_png(path, w, h, rgb)
+        shots.append(path)
+        page = first_page(bank[talk], town, {str(TALKNAME): name})
+        bad = ([] if took and actor else ["no speaker found (actor %08x) or not taken" % actor]) + \
+            page_problems(rgb, w, page, board)
+        measured += min(len(page), LINES)
+        check(not bad, "Tom Nook's name %s, put in message %d by STR_TALKNAME: its first page's %d lines where the "
+              "model has them%s" % (what, talk, len([x for x in page if x]), "; " + "; ".join(bad) if bad else ""))
+        plates[name] = plate_ink(rgb, w, h)
+    # the plate: the name centred in 72 pixels from x 61 (func_8009D308_jp), a font pixel BOARD_X's frame pixels
+    # (the screen's pitch: the window's text is drawn wider, WINDOW_X); where its x 0 is on the frame, from the
+    # cut name's ink
+    pitch = emu_board.BOARD_X[1]
+
+    def left_of(name):
+        return PLATE[0] + (PLATE[1] - (board.width(name) + (board.width(name) & 1))) / 2
+
+    ec, ef = board.extent(cut), board.extent(full)
+    if plates.get(cut) and plates.get(full):
+        origin = plates[cut][0] - pitch * (left_of(cut) + ec[0])
+        want_cut = origin + pitch * (left_of(cut) + ec[1] + 1)
+        want = (origin + pitch * (left_of(full) + ef[0]), origin + pitch * (left_of(full) + ef[1] + 1))
+        got = plates[full]
+        check(abs(plates[cut][1] - want_cut) <= TOLERANCE and all(abs(g - x) <= TOLERANCE for g, x in zip(got, want)),
+              "the plate: Tom Nook's whole name's ink at %s, centred where the model puts it, (%.1f, %.1f) (the plate "
+              "placed by the cut name's ink at %s, its right edge the model's %.1f)" % (got, want[0], want[1],
+                                                                                       plates[cut], want_cut))
+    else:
+        check(False, "the plate: its name's ink found (%s)" % plates)
+
+    # the animals' names: the en name segment's fields that hold tokens, loaded as the game loads them
+    names_path = os.path.join(af_en, "assets", "jp", "segment_00E04000.bin")
+    seg = open(names_path, "rb").read()
+    fields = [(n, seg[8 + ANIMAL_NAME_LEN * n:8 + ANIMAL_NAME_LEN * (n + 1)]) for n in range((len(seg) - 8) // 6)]
+    long_ = [(n, f) for n, f in fields if token_number(f) is not None]
+    if not long_:
+        print("  (no animal's name is a token in this build)")
+        return measured
+    ctl, _ = hooked(3, (0, len(long_), 0, 0), [(IDS_AT, struct.pack(">%dH" % len(long_), *(n for n, _ in long_)))])
+    got = n64.read(ctl + NAMES_AT, ANIMAL_NAME_LEN * len(long_))
+    loaded = [got[ANIMAL_NAME_LEN * k:ANIMAL_NAME_LEN * (k + 1)] for k in range(len(long_))]
+    names = [name_record(af_en, token_number(f)) for _, f in long_]
+    check(loaded == [f for _, f in long_] and all(len(x) > ANIMAL_NAME_LEN for x in names),
+          "the animals' names longer than 6: %d loaded as the game loads them (mNpc_GetNpcWorldNameTableNo), each "
+          "its token, standing for a name of %s characters" % (len(long_), "-".join(
+              str(k) for k in sorted({min(len(x) for x in names), max(len(x) for x in names)}))))
+    free = next((n for n in sorted(bank) if on_first_page(bank[n], FREE0)
+                 and first_page(bank[n], town, {str(FREE0): names[0]})), None)
+    n, field = long_[0]
+    _, (_, took, _, window, _, _) = hooked(4, (free, 0, n, 0))
+    w, h, rgb = settled(window)
+    path = os.path.join(out, "names-animal-%d.png" % n)
+    write_png(path, w, h, rgb)
+    shots.append(path)
+    page = first_page(bank[free], town, {str(FREE0): names[0]})
+    bad = ([] if took else ["not taken by the window"]) + page_problems(rgb, w, page, board)
+    measured += min(len(page), LINES)
+    check(not bad, "animal %d's name (%d characters), put in message %d as free string 0: its first page's %d lines "
+          "where the model has them%s" % (n, len(names[0]), free, len([x for x in page if x]),
+                                         "; " + "; ".join(bad) if bad else ""))
+    return measured
 
 
 def main(argv):
@@ -293,16 +533,8 @@ def main(argv):
             n64.screenshot(path)
             shots.append(path)
             page = first_page(bank[n], town)
-            bad = [] if took else ["not taken by the window"]
-            for k in range(LINES):
-                e = board.extent(page[k]) if k < len(page) and page[k] else None
-                got = measure(rgb, w, TOP + k * PITCH)
-                want = e and (frame_x(e[0]), frame_x(e[1] + 1))
-                ok = (got is None) if e is None else (
-                    got is not None and all(abs(g - x) <= TOLERANCE for g, x in zip(got, want)))
-                lines_checked += k < len(page)
-                if not ok:
-                    bad.append("line %d drawn at %s, the model's %s" % (k + 1, got, want and "(%.1f, %.1f)" % want))
+            bad = ([] if took else ["not taken by the window"]) + page_problems(rgb, w, page, board)
+            lines_checked += min(len(page), LINES)
             if bad:
                 bad_messages.append(n)
             check(not bad, "message %d (%s): its first page's %d lines where the model has them%s" % (
@@ -351,6 +583,8 @@ def main(argv):
                 n, " ".join("%x" % v for v in got), " ".join("%x" % v for v in want)))
         print("  %d messages played through (%d of ours), their talk orders as the cartridge's"
               % (len(played), len([n for n in played if n in ours])))
+        lines_checked += check_names(n64, state, af_en, en_elf, hole, hole_size, mttime, syms, bank, board, town,
+                                     out, shots)
     contact.main([os.path.join(out, "sheet.png"), "3"] + shots)
     print("emu_messages: %d messages shown, %d lines measured, %d failures; screenshots in %s" % (
         len(controls + shown), lines_checked, len(failures), out))

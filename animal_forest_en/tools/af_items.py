@@ -5,7 +5,9 @@
                                                 items, from build/gc's copies of the disc's module and map
                                                 (make script; never committed)
     tools/af_items.py compile ROM OUT_BIN OUT_INC [--gc FILE] [--own FILE] [--font ROM] [--gc-font FILE]
-                                                the en build's table: a ROM segment of records and its include
+                          [--npc-names GC_TABLE --names-seg NAMES_BIN --strings EN_STRING]
+                                                the en build's table: a ROM segment of records and its include;
+                                                with the animals' names, theirs too
     tools/af_items.py pairs ROM REL MAP KIND [FIRST LAST]
                                                 the cartridge's names beside the GameCube's (to check the
                                                 mapping by eye; prints only, writes nothing)
@@ -29,6 +31,15 @@ clothes (blocks the GameCube grew: FTR_BLOCKS, and the cartridge's Famicoms, whi
 FTR_SAME). Where the GameCube has no name for the cartridge's item (a placeholder in its table, or an
 item of the cartridge's own), ours from script/items.txt (`kind index<TAB>name`, article in OWN_ARTICLE
 form `a|an|the|some|-`), else the cartridge's own name and a warning.
+
+Names longer than an animal's 6 bytes (ANIMAL_NAME_LEN, the N64's field) take the same tokens: the
+animals' (the GameCube's table, as tools/af_names.py writes them into the en build's name segment: 38 of
+the 220 the segment holds are longer) and the special characters' (their strings in the en string bank,
+SPECIAL_NAME_STRINGS: m_npc.c's l_sp_actor_name loads them into 6 bytes). Their records follow the
+items', with no article (reference/NOTES.md, "Names longer than 6"); each animal's token is written into
+the name segment (NAMES_BIN, af_names.py's output) in its field, which mNpc_LoadNpcNameString copies as
+it is, and the special names' are listed in the include (ITEM_EN_SPECIAL_NAMES) for the en m_npc.c to
+write when it loads one.
 """
 
 import os
@@ -37,6 +48,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import af_font  # noqa: E402
+import af_names  # noqa: E402
+import af_text  # noqa: E402
+import msgbank  # noqa: E402
 from af_font import gc_find, gc_rel_data, map_layout  # noqa: E402
 from af_text import ascii_fallback  # noqa: E402
 from msgbank import GC_CHARS, N64_BYTES, N64_CHARS  # noqa: E402
@@ -83,6 +97,9 @@ TOKEN_MARK = 0x80                           # the N64 font's unnamed code: no st
 TOKEN_DIGIT0, TOKEN_BASE = 0x81, 64         # the name's number in two digits, 0x81-0xC0 (no space, no 0xCD)
 TOKEN_LEN = 3
 CELL = 12                                   # the cartridge's characters, a cell each
+ANIMAL_NAME_LEN = 6                         # an animal's name (PLAYER_NAME_LEN, also ANIMAL_NAME_LEN)
+# the special characters' names: the strings m_npc.c's l_sp_actor_name loads into 6 bytes (mNpc_GetNpcWorldNameP)
+SPECIAL_NAME_STRINGS = list(range(0x205, 0x219)) + [0x4E0, 0x4E1, 0x4E2]
 SMALL_ACCENTED = "\u00e0\u00e1\u00e2\u00e4\u00e7\u00e8\u00e9\u00ea\u00eb\u00ed\u00ee\u00ef\u00f1\u00f3\u00f4\u00f6\u00fa\u00fb\u00fc"
 
 
@@ -187,12 +204,49 @@ def n64_bytes(what, text):
     return bytes(N64_BYTES[c] for c in out)
 
 
-def cells(data, widths):
+def cells(data, widths, field=NAME_LEN):
     """The cells the name takes at the en font's widths (mFont_GetStringWidth's, rounded up to even), at
-    least a token's and at most the cartridge's buffer."""
+    least a token's and at most the buffer it goes in (the cartridge's 10 bytes for an item)."""
     w = sum(widths[b] for b in data)
     w += w & 1
-    return max(TOKEN_LEN, min(NAME_LEN, -(-w // CELL)))
+    return max(TOKEN_LEN, min(field, -(-w // CELL)))
+
+
+def token(n, cells_, field):
+    """The token for the en table's name n, in a buffer of field bytes (as the en mIN_copy_name_str
+    writes one): the mark, the number in two digits, the mark again up to the name's cells, spaces."""
+    if not 0 <= n < TOKEN_BASE * TOKEN_BASE or not TOKEN_LEN <= cells_ <= field:
+        raise ValueError("no token for name %d in %d cells of %d" % (n, cells_, field))
+    return (bytes([TOKEN_MARK, TOKEN_DIGIT0 + n // TOKEN_BASE, TOKEN_DIGIT0 + n % TOKEN_BASE])
+            + bytes([TOKEN_MARK]) * (cells_ - TOKEN_LEN) + b" " * (field - cells_))
+
+
+def long_names(npc_table, capacity, strings):
+    """[(what, the name's bytes)] of the names longer than an animal's 6 bytes: the animals' that the
+    name segment holds (capacity of them; af_names' English for each, by the N64's number), then the
+    special characters' ({number: tokens} of the en string bank)."""
+    out = []
+    for n, name in enumerate(af_names.english_names(npc_table)[:capacity]):
+        data = n64_bytes("animal %d" % n, name)
+        if len(data) > ANIMAL_NAME_LEN:
+            out.append((("animal", n), data))
+    for number in SPECIAL_NAME_STRINGS:
+        data = msgbank.encode(strings[number]).rstrip(b" ") if number in strings else b""
+        if len(data) > ANIMAL_NAME_LEN:
+            out.append((("string", number), data))
+    return out
+
+
+def name_records(names, base, widths):
+    """(the records of names [(what, bytes)], numbered from base, and [(what, number, its token)])."""
+    out, tokens = bytearray(), []
+    for k, (what, data) in enumerate(names):
+        if len(data) > GC_NAME_LEN:
+            raise SystemExit("af_items: %s %d: %d characters, past %d" % (what + (len(data), GC_NAME_LEN)))
+        c = cells(data, widths, ANIMAL_NAME_LEN)
+        out += bytes([len(data), 0, c, 0]) + data.ljust(GC_NAME_LEN, b" ")
+        tokens.append((what, base + k, token(base + k, c, ANIMAL_NAME_LEN)))
+    return bytes(out), tokens
 
 
 def records(rom, gc, own, widths):
@@ -217,12 +271,18 @@ def records(rom, gc, own, widths):
     return bytes(out), counts
 
 
-def include(from_gc):
+def include(from_gc, tokens=()):
+    """tokens: [(what, number, token)] of the names after the items'."""
     bases = kind_bases()
+    special = [(w[1], n) for w, n, _ in tokens if w[0] == "string"]
     lines = ["/* The item names' table (tools/af_items.py): the GameCube's from the user's disc, in a ROM segment;"
              " not part of the repository */",
              "#define ITEM_EN_FROM_GC %d /* names as tokens, the table's */" % (1 if from_gc else 0),
              "#define ITEM_EN_COUNT %d" % len(slots()),
+             "#define ITEM_EN_RECORDS %d /* the items' and the names longer than 6 after them */"
+             % (len(slots()) + len(tokens)),
+             "#define ITEM_EN_SPECIAL_NAMES { %s} /* a special character's name: its string, its record */"
+             % "".join("{ 0x%03X, %d }, " % sn for sn in special + [(0, 0)]),
              "#define ITEM_EN_RECORD_SIZE %d" % RECORD_SIZE,
              "#define ITEM_EN_NAME_MAX %d" % GC_NAME_LEN,
              "#define ITEM_EN_TOKEN_MARK 0x%02X" % TOKEN_MARK,
@@ -267,7 +327,8 @@ def main(argv):
             print("%s %4d  %-12s | %-10s %-5s %s" % (kind, i, jp, "%s %d" % src if src else "-", ARTICLES[art], text))
         return 0
     if argv[:1] == ["compile"]:
-        opts, args = opts_of(argv[1:], ("--gc", "--own", "--font", "--gc-font"))
+        opts, args = opts_of(argv[1:], ("--gc", "--own", "--font", "--gc-font", "--npc-names", "--names-seg",
+                                        "--strings"))
         rom_path, out_bin, out_inc = args
         rom = open(rom_path, "rb").read()
         gc = read_names(opts["--gc"]) if opts.get("--gc") and os.path.exists(opts["--gc"]) else {}
@@ -276,8 +337,26 @@ def main(argv):
         gc_font = open(opts["--gc-font"], "rb").read() if opts.get("--gc-font") else None
         widths = af_font.widths(af_font.font(font_rom, gc_font)[1])
         data, counts = records(rom, gc, own, widths)
+        tokens = []
+        if gc and opts.get("--names-seg") and os.path.exists(opts.get("--npc-names", "")):
+            # the names longer than 6: their records after the items', each animal's token in its field
+            seg_path = opts["--names-seg"]
+            seg = bytearray(open(seg_path, "rb").read())
+            capacity = (len(seg) - af_names.HEADER) // ANIMAL_NAME_LEN
+            strings = af_text.load_bank(opts["--strings"]) if os.path.exists(opts.get("--strings", "")) else {}
+            more, tokens = name_records(long_names(open(opts["--npc-names"], "rb").read(), capacity, strings),
+                                        len(slots()), widths)
+            data += more
+            for (kind, n), _, tok in tokens:
+                if kind == "animal":
+                    seg[af_names.HEADER + ANIMAL_NAME_LEN * n:af_names.HEADER + ANIMAL_NAME_LEN * (n + 1)] = tok
+            if bytes(seg) != open(seg_path, "rb").read():
+                open(seg_path, "wb").write(bytes(seg))
+            print("%s: the names longer than %d as tokens, %d animals' and %d special characters'" % (
+                seg_path, ANIMAL_NAME_LEN, sum(1 for w, _, _ in tokens if w[0] == "animal"),
+                sum(1 for w, _, _ in tokens if w[0] == "string")))
         open(out_bin, "wb").write(data)
-        open(out_inc, "w").write(include(bool(gc)))
+        open(out_inc, "w").write(include(bool(gc), tokens))
         totals = [sum(c[k] for c in counts.values()) for k in range(3)]
         print("%s: %d names, %d the GameCube's, %d ours, %d the cartridge's%s" % (
             out_bin, len(slots()), totals[0], totals[1], totals[2],

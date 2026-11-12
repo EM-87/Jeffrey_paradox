@@ -964,7 +964,11 @@ def main(argv):
                 else:                                     # the overlay's data, from the string on
                     if rom_at is None:
                         rom_at = af_ui.key_pieces(next(k for n, k, _, _, _ in af_ui.SUBST if n == name))[0][0]
-                    windows = [cart[rom_at:rom_at + n] for n in (16, 12, 8) if n > len(key)] + [key]
+                    # the key alone only when it is as long as the shortest window: a short one turns up by chance
+                    # before the overlay is in RAM (the map's shop label, 3 bytes, in the heap: the ruler went
+                    # there and the map drew its own string)
+                    windows = [cart[rom_at:rom_at + n] for n in (16, 12, 8) if n > len(key)] + (
+                        [key] if len(key) >= 8 else [])
                 # the ruler as far as the string's last character (a menu may lay itself out by that count,
                 # mMl_strlen's: the tag sizes its window by it), the rest spaces
                 reach = len(key.rstrip(b" "))

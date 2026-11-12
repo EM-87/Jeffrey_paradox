@@ -693,12 +693,12 @@ the emulator (`make rom-en`, `make script ISO=...`).
 - **The animals' names** are 6 bytes on the N64 (`PLAYER_NAME_LEN`, used
   as `ANIMAL_NAME_LEN`), read from the file at vrom 0xE04000 at 8 + 6n
   (`mNpc_LoadNpcNameString`); the GameCube's `npc_name_str_table.bin` is
-  236 names of 8 bytes, its name n + 4 being the N64's n (Bob/ニコバン,
-  Olivia/オリビア, Kabuki/かぶきち, Monique/ジェーン...). `tools/af_names.py`
+  236 names of 8 bytes, its name n + 4 being the N64's n (measured on
+  four animals' names, the two games' by their sounds). `tools/af_names.py`
   writes them into a copy of the segment that the en build uses as the
-  segment's .bin: 232 names, 38 of them longer than 6 (Hornsby, Baabara,
-  Cashmere...) and cut for now. Widening the field means the save data's
-  layout: a decision for phase 5 or 6, noted here.
+  segment's .bin: the segment holds 220 of the 232, and 38 of those are
+  longer than 6. Widening the field would change the save data's layout;
+  those names are tokens instead ("Names longer than 6", below).
 - **The letters are half the GameCube's size, in the save data.** The
   mail banks are read by `code/m_handbill.c`: three tables of 0x220
   (544) u32 ends — headers (`D_D12000`, text at `D_D11000`, entries under
@@ -1526,7 +1526,10 @@ what goes in it: "The letters in the en build").
   `mMl_strlen`'s: a ruler compared with the string made spaces moved the
   window and misjudged the box by 62 pixels). The bytes are found by the
   longest stretch of the cartridge's data from the string on that RAM
-  holds once: a two-byte string alone is found elsewhere first. The
+  holds once: a two-byte string alone is found elsewhere first, and the
+  string alone counts only from 8 bytes (with the long names' build the
+  map's shop label, 3 bytes, turned up in the heap before the map was in
+  RAM: the ruler went there and the map drew its own string). The
   ruler is the en font's `w` repeated, its widest glyph whose columns
   are whole ink or none. From the ruler's ink, drawn by the same call,
   the box the cartridge's string took and its scale; from those, where
@@ -2126,6 +2129,65 @@ what goes in it: "The letters in the en build").
   first): its ink from 245 to 299, the model's 243.1 to 298.9. With
   the names, the articles and this, all 307 of the menus check's checks
   pass.
+
+## Names longer than 6 (phase 5, the menus' strings)
+
+- **The fields.** An animal's name is 6 bytes wherever the cartridge
+  keeps or copies one (`PLAYER_NAME_LEN`). Of the 220 animals' names the
+  name segment holds, 38 are longer in English (7 or 8 letters), and so
+  are 8 of the special characters' (the strings `mNpc_GetNpcWorldNameP`
+  loads into 6 bytes, m_npc.c's `l_sp_actor_name`: Tom Nook's among
+  them). They were cut.
+- **Tokens, as the items'.** Their records follow the items' in
+  `item_en_names` (tools/af_items.py: no article, 3 to 6 cells): 1,703
+  items' and 46 names', 1,749 records. Each animal's token is written
+  into the en name segment, in its field (af_items.py after
+  af_names.py), so `mNpc_LoadNpcNameString`, the segment's one reader,
+  copies the token as it copied the name: no code changes for them. The
+  special names' tokens are written where they are loaded: the en
+  `mString_Load_StringFromRom`, for a load into 6 bytes of a string the
+  include lists (`ITEM_EN_SPECIAL_NAMES`, m_item_name.c). The first try
+  wrote them in m_npc.c instead: its text (0x8290 bytes) then went to
+  code_en whole, and at the walk to the houses the arena could no longer
+  load an actor's overlay ("ovlmgr: Out of Memory" through
+  `fault_AddHungupAndCrash`, route-en hung at frame 10923). m_string.o's
+  text is in code_en already: a few bytes there.
+- **Who takes a name.** Every caller of the name loaders
+  (`mNpc_LoadNpcNameString`, `mNpc_GetNpcWorldName*`,
+  `mNpc_GetRandomAnimalName`, `mNpc_GetAnimalPlateName`) was listed with
+  what it does next with the buffer: free strings of messages (the moon
+  viewing's, the fishing's, the reserve's, the plate in front of a house,
+  the guide's coloured string) and of letters (the bulletin board's
+  posts, the remail, the event, birthday and goodbye letters, a moved
+  animal's), the font's line (the map, the tag, the address book), a
+  mail's recipient or sender (`mMl_set_mail_name_npcinfo`, kept in the
+  save), and the message window itself. All of it takes tokens already
+  (the items'), but three: the speaker's plate (`func_8009D308_jp`
+  centres it by its bytes' width, `func_800A2BB0_jp` draws it with
+  `mFont_SetLineStrings_AndSpace`), the speaker's name put in a page
+  (`mMsg_CopyTalkName` copies the bytes), and the letter board's header
+  when the letter is addressed to an animal (m_handbill.c builds the
+  line with the name's bytes, and measures them after the font's line
+  draws it). The en code puts in the name in each (m_msg_main.c,
+  m_handbill.c).
+- **Kept in the save.** A mail to or from an animal keeps its token in
+  its personal ID; the token stands for the same name while the table's
+  order stays (the items', then the names by number), as an item's
+  number does.
+- **On screen** (make messages-check-en, make board-check-en). Tom Nook,
+  with his token and with it off (the special names' table emptied in
+  RAM: his name cut to 6): the page that puts in his name (message 25)
+  where the model has its four lines both ways; the plate's ink with the
+  whole name at frame x 143-251, the model's 143.3-250.7, centred as
+  `func_8009D308_jp` centres it (the plate placed by the cut name's ink,
+  whose right edge is within 0.1 of the model; the plate is drawn at the
+  screen's 1.954 frame pixels to the pixel, not the window text's 2.005).
+  The 38 animals' names loaded as the game loads them
+  (`mNpc_GetNpcWorldNameTableNo`), each its token; one of 7 letters put
+  in a page as a free string (message 374), its four lines where the
+  model has them. The letter board: a shop letter addressed to that
+  animal, the token in the recipient's name, its header with the whole
+  name and every line where the model has them.
 
 ## The bulletin board (phase 5, the menus' strings)
 
