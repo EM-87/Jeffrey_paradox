@@ -45,7 +45,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en notice-check-en messages-check-en menus-check-en emu-determinism decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
+.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en notice-check-en messages-check-en menus-check-en signs-check-en emu-determinism decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
 
 all: verify
 
@@ -193,6 +193,14 @@ EN_NAFE_GFX := $(AF_EN_DIR)/assets/jp/en/nafe_gfx.stamp
 # include the en ac_animal_logo.c uses); the cartridge's logo without it
 # (tools/af_nafe_logo.py; NOTES, "The title's logo").
 EN_NAFE_LOGO := $(EN_ASSETS)/animal_logo.inc
+# The signs the GameCube's English redrew on the town's buildings (the shops'
+# names, the dump's, the black market's, the countdown board's, the police
+# box's, the fishing tourney's stall, the houses' name plates): their texels
+# taken from the disc's foresta.rel (make script's) over the en tree's copy of
+# the structures' object, the cartridge's own without it (tools/af_gc_signs.py;
+# NOTES, "The GameCube's signs").
+EN_GC_SIGNS := $(AF_EN_DIR)/assets/jp/en/gc_signs.stamp
+GC_REL := $(wildcard $(GC_DIR)/foresta.map $(GC_DIR)/foresta.rel.szs)
 # The overlays the translation changes: each gets its relocation table made
 # anew from its objects after the first link (tools/af_ovlreloc.py, which
 # first proves fado on the matching build), and af_relink pads its sections
@@ -308,6 +316,14 @@ $(EN_NAFE_GFX): tools/af_nafe_gfx.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)) 
 	else echo "labels: the cartridge's (no $(NAFE_ROM): make nafe NAFE_UPS=...)"; fi
 	@touch $@
 
+# writes the structures' PNGs, their unextracted .bin and a palette's include, which splat rewrites at every extract
+$(EN_GC_SIGNS): tools/af_gc_signs.py tools/af_font.py tools/nafe_diff.py $(GC_REL) $(AF_EN_DIR)/.stamp-extract
+	mkdir -p $(EN_ASSETS)
+	@if [ -s $(GC_DIR)/foresta.map ] && [ -s $(GC_DIR)/foresta.rel.szs ]; then \
+		$(PYTHON) tools/af_gc_signs.py $(GC_DIR)/foresta.map $(GC_DIR)/foresta.rel.szs $(BASEROM) $(AF_EN_DIR); \
+	else echo "signs: the cartridge's (no GameCube files in $(GC_DIR): make script)"; fi
+	@touch $@
+
 # also writes the segment's .bin and the actor's .data.s, which splat rewrites at every extract
 $(EN_NAFE_LOGO): tools/af_nafe_logo.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)) $(AF_EN_DIR)/.stamp-extract
 	mkdir -p $(EN_ASSETS)
@@ -315,7 +331,8 @@ $(EN_NAFE_LOGO): tools/af_nafe_logo.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)
 	else $(PYTHON) tools/af_nafe_logo.py $(BASEROM) - $(AF_EN_DIR); fi
 	@touch $@
 
-en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT) $(EN_UI) $(EN_NAFE_GFX) $(EN_NAFE_LOGO) $(EN_ITEMS)
+en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT) $(EN_UI) $(EN_NAFE_GFX) $(EN_NAFE_LOGO) $(EN_ITEMS) \
+	$(EN_GC_SIGNS)
 
 # The deliverable: the en ROM as a BPS patch against the user's dump in .z64 order (build/baserom.z64),
 # made and applied back by tools/bps.py; any BPS patcher applies it.
@@ -397,6 +414,12 @@ notice-check-en: route-en
 menus-check-en: route-en
 	$(PYTHON) tests/emu_menus.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-menus-en \
 		$(if $(GC_UI),--gc $(GC_UI)) --own script/ui.txt $(if $(wildcard $(NAFE_ROM)),--nafe $(NAFE_ROM))
+
+# The signs the GameCube's English redrew (tools/af_gc_signs.py): in the en ROM, and in RAM once the game sets up
+# each structure by the player (tests/emu_signs.py; NOTES, "The GameCube's signs").
+signs-check-en: route-en
+	$(PYTHON) tests/emu_signs.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-signs-en \
+		$(if $(GC_REL),--gc $(GC_DIR))
 
 # -- the GameCube script (phase 4) -------------------------------------------
 # ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it

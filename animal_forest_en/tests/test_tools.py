@@ -37,6 +37,7 @@ import af_shiftcheck  # noqa: E402
 import af_text  # noqa: E402
 import af_items  # noqa: E402
 import af_ui  # noqa: E402
+import af_gc_signs  # noqa: E402
 import gciso  # noqa: E402
 import msgbank  # noqa: E402
 import rom  # noqa: E402
@@ -1620,6 +1621,63 @@ class Matching(unittest.TestCase):
                 "void after(void) {\n}\n")
         self.assertEqual(af_bench.prototypes(text, "target"),
                          "s32 first(u8* a, s32 b);\nvoid second(s32* p,\n            s32 q);\n")
+
+
+
+class GcSigns(unittest.TestCase):
+    """tools/af_gc_signs.py on made-up textures and palettes."""
+
+    def test_untile_lays_8x8_tiles_out_as_rows(self):
+        w, h = 16, 8                                    # two tiles side by side
+        texels = [(x * 3 + y * 5) % 16 for y in range(h) for x in range(w)]
+        tiled = bytearray()
+        for tx in range(w // 8):
+            for r in range(8):
+                row = texels[r * w + tx * 8:r * w + tx * 8 + 8]
+                tiled += bytes(row[c] << 4 | row[c + 1] for c in range(0, 8, 2))
+        linear = af_gc_signs.untile_ci4(bytes(tiled), w, h)
+        self.assertEqual(af_gc_signs.texels(linear), texels)
+        with self.assertRaises(ValueError):
+            af_gc_signs.untile_ci4(bytes(tiled[:-1]), w, h)
+
+    def test_rgb5a3_entries_as_rgba5551(self):
+        self.assertEqual(af_gc_signs.rgb5a3_to_rgba5551(0xFFFF), 0xFFFF)          # opaque white
+        self.assertEqual(af_gc_signs.rgb5a3_to_rgba5551(0x8000 | 31 << 10), 31 << 11 | 1)   # opaque red
+        self.assertEqual(af_gc_signs.rgb5a3_to_rgba5551(0x0F00), 31 << 11)        # translucent red: transparent
+        self.assertTrue(af_gc_signs.same_colour(0x7E30, af_gc_signs.rgb5a3_to_rgba5551(0x07CC)))
+        self.assertFalse(af_gc_signs.same_colour(0xA5F5, 0xE041))
+
+    def test_palette_words_are_rewritten_in_place(self):
+        data = "nonmatching pal\n\ndlabel pal\n" + "".join(
+            "    /* %X */ .word 0x%08X\n" % (k, 0x11112222 * (k + 1) & 0xFFFFFFFF) for k in range(8)) + \
+            "enddlabel pal\n"
+        held, _ = af_gc_signs.palette_words(data, "pal")
+        self.assertEqual(held[:2], [0x1111, 0x2222])
+        new = list(range(16))
+        out = af_gc_signs.with_palette(data, "pal", new)
+        self.assertEqual(af_gc_signs.palette_words(out, "pal")[0], new)
+        self.assertIn("/* 0 */ .word 0x00000001", out)
+
+    def test_indexed_png_round_trip(self):
+        work = tempfile.mkdtemp()
+        try:
+            w, h = 8, 4
+            path = os.path.join(work, "t.ci4.png")
+
+            def chunk(kind, body):
+                return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
+            raw = b"".join(b"\0" + bytes(range(y, y + w)) for y in range(h))
+            open(path, "wb").write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 3, 0, 0, 0))
+                                   + chunk(b"PLTE", bytes(48)) + chunk(b"IDAT", zlib.compress(raw))
+                                   + chunk(b"IEND", b""))
+            self.assertEqual(af_gc_signs.texels(af_gc_signs.read_ci4_png(path)),
+                             [y + x for y in range(h) for x in range(w)])
+            new = bytes((k * 7) & 255 for k in range(w * h // 2))
+            af_gc_signs.write_ci4_png(path, new, w, h)
+            self.assertEqual(af_gc_signs.read_ci4_png(path), new)
+            self.assertEqual(af_gc_signs.png_indices(path)[2], 8)       # its depth kept
+        finally:
+            shutil.rmtree(work)
 
 
 if __name__ == "__main__":

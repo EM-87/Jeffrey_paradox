@@ -51,6 +51,7 @@ the why and the state, `reference/NOTES.md` for what is verified.
    write-check-en`, one to the bulletin board or its posts `make
    notice-check-en`, one to the message bank or its layout `make
    messages-check-en`, one to the menus' strings `make menus-check-en`,
+   one to the structures' textures or palettes `make signs-check-en`,
    one to `emu/` `make emu-determinism`.
 
 ## Where things live
@@ -146,6 +147,15 @@ the why and the state, `reference/NOTES.md` for what is verified.
   values of `func_80AA0C98_jp` it changed as the include the en
   `ac_animal_logo.c` uses; the cartridge's logo without it (NOTES, "The
   title's logo"). The actor is in `EN_OVERLAYS`: its code shrinks.
+- `tools/af_gc_signs.py` — the signs the GameCube's English redrew on
+  the town's structures (the shops' names, the dump's, the black
+  market's, the countdown board's, the police box's plate, the fishing
+  tourney's stall, the houses' name plates), taken at `make rom-en` from
+  the disc's foresta.rel (make script's): its tiled CI4 laid out as the
+  N64's over the en tree's copy of object_00D5E000 (its PNGs, its
+  unextracted .bin), every copy, and the black market's palette into
+  object_00D5B000's data; each checked against the cartridge's lists and
+  texels (NOTES, "The GameCube's signs").
 - `tools/af_nafe_text.py` — the messages the GameCube's script has no
   counterpart for, in the 2010 patch's English where its codes that steer
   the game are the cartridge's (ends, choices, next messages, the talk
@@ -199,6 +209,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   draw them and each line measured; the title's warning without a
   controller, forced at the title, each line measured as the swapped
   strings are: `make menus-check-en`),
+  `emu_signs.py` (the GameCube's signs in the en ROM, every copy, and in
+  RAM once the structures' clip sets each structure up by the player,
+  the cartridge's gone: `make signs-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.

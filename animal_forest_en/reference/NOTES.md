@@ -1871,6 +1871,65 @@ what goes in it: "The letters in the en build").
   title's logo" below. The cartridge's title line under the logo is
   already in Latin letters.
 
+## The GameCube's signs (phase 5, the graphics' fourth step)
+
+- **What still had Japanese words.** Every file's display lists walked
+  (the textures they load: format, size, palette), the wide ones drawn
+  out of the en ROM outside the menus the 2010 patch covered (387), and
+  the decomp's named objects' extracted images, looked at. Words in
+  Japanese on: the four shops (the first one's name over its door, a
+  paper sign on its door and an emblem with a character; the second's
+  name, twice; the third's; the fourth's name and its sale banners), the
+  black market's crest, the dump's sign, the police box's plate, the
+  countdown board's units, the fishing tourney's stall and its
+  headquarters' sign, the houses' name plates, the fortune stall and its
+  slips; outside the structures, letter papers (a New Year's greeting, a
+  safety slogan), the birthday window's words for month and day (segment
+  0xADD000), a quotation frame (0xA94000) and two small cards (files
+  0x13BF000 and 0x13C7000). The post office's sign and the countdown
+  board's name were English already.
+- **The GameCube has them.** Its foresta.rel (`dataobject.obj`) keeps the
+  structures' textures under the decomp's names, at the same sizes, in
+  its own format: CI4 in 8x8 tiles (32 bytes a tile, the high nibble
+  first: as its font sheet), palettes RGB5A3. Untiled and compared texel
+  by texel with object_00D5E000's, it redrew 22 of them with English
+  words (`tools/af_gc_signs.py`'s SIGNS), each the same texture with the
+  sign redrawn (80 to 99% of the texels the same; the fourth shop's name
+  60%, the sign being most of it). Their palettes are the cartridge's
+  colours (a transparent entry's channels a step apart: the GameCube
+  keeps four bits of them), but the black market's: its two colours for
+  the new words. It kept the tourney headquarters' sign and the black
+  market's winter crest as the cartridge has them, and changed textures
+  without words (a door's window, a clock's ticks, the postal mark, small
+  details of the houses): left as they are. The cartridge has some
+  textures twice (summer and winter, the same): both take the sign.
+- **Taken at build time** (`tools/af_gc_signs.py`, at make rom-en when
+  build/gc has the disc's foresta.map and foresta.rel.szs). Each checked:
+  the cartridge's lists draw a CI4 texture of that size there; the
+  GameCube's and the cartridge's are the same texture redrawn (a share of
+  the texels the same, not all); the other palettes are the cartridge's
+  colours. Written over the en tree's copy: the PNG splat extracts for a
+  named texture (8-bit indexed: pigment64 takes its indices), the
+  unextracted part's .bin for the rest; the black market's palette into
+  object_00D5B000's data (`object_00D5B000.data.s`: its `.palette.inc.c`
+  files are not compiled), its two changed entries only. 29 copies and a
+  palette; nothing of it enters the repository.
+- **In the game** (`make signs-check-en`, tests/emu_signs.py). The en ROM
+  holds each copy as the GameCube's texels laid out, not the
+  cartridge's, and the palette's colours; and a hook asks the structures'
+  clip to set each structure up 170 units in front of the player, as the
+  field sets one up (`aSTR_setupActor_proc`: its object's part and
+  palette loaded): the four shops, the police box, the black market, the
+  countdown board, the tourney's stall and the dump, each with its signs
+  in RAM as the en build has them and the cartridge's gone (the route's
+  town is in summer). The screenshots show them. The houses' name plates
+  come with a villager's house: the ROM's check only.
+- **Still Japanese.** The fourth shop's sale banners and side sign (the
+  GameCube redrew those textures whole, half of the texels different:
+  not taken), the fortune stall and its slips, the letter papers, the
+  birthday window's words, the quotation frame, the two cards
+  (TODO(verify) which the GameCube has, where).
+
 ## The title's logo (phase 5, the graphics' third step)
 
 - **Where it lives.** Six pieces, which the logo actor (`ovl_Animal_Logo`)
