@@ -410,3 +410,16 @@ the why and the state, `reference/NOTES.md` for what is verified.
   clock is the host's, kept in the cartridge's .rtc: a saved town loaded
   there lives on the host's date, and a run is not frame for frame
   repeatable; check what a run does, not the frame it does it on.
+- **The title logo's colours are the demo's.** "Forest" takes its colour
+  set from `mTD_get_titledemo_no()`: two shots of the title a minute
+  apart differ on every emulator. Compare a title with one of the same
+  demo, never with another emulator's shot taken at another moment.
+- **Project64 runs only with the cartridge's game settings** (3.0.1:
+  Protect memory; 4.0: the 32-bit engine and Store Instruction; NOTES,
+  "Other emulators"), and under Wine on Xvfb its window must not pause
+  without the focus (Auto Sleep=0). With no window manager, keys reach
+  it only with the focus (`xdotool windowfocus`) or the pointer over it.
+  4.0's stick is on the keypad, whose keys xdotool does not send
+  reliably (they toggle Num Lock): put the stick on letters in its cfg
+  (`[Input-Controller 1]`, `AnalogUp=` and so on, SDL scancodes). A
+  driver killed while it holds a key leaves the key held.

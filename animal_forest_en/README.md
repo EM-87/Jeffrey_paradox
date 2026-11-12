@@ -431,7 +431,7 @@ resto y detecta la Flash RAM al primer acceso. Medido: la ruta y todas
 las comprobaciones de guardado, carga al encender incluida, pasan igual.
 La ROM conserva el nombre y el código de juego del cartucho (NAFJ).
 
-Probada en otros dos emuladores ("Other emulators"):
+Probada en otros emuladores ("Other emulators"):
 
 - **ares** (v148, el más fiel al hardware: emula las cachés de la CPU y
   el RDP con paraLLEl-RDP). Lo reconoce como el cartucho por su código
@@ -449,8 +449,29 @@ Probada en otros dos emuladores ("Other emulators"):
   (K.K., los diales del nombre y del pueblo, Rover, la estación), con su
   propio plugin de vídeo y con GLideN64. Dónde está: Options → Settings,
   desmarcar «Hide advanced settings»; luego, con clic derecho en el juego,
-  «Edit Game Settings» → Recompiler → marcar «Protect memory». Sus dos
-  plugins pintan lila el «Forest» del logo, que es verde (cosa suya).
+  «Edit Game Settings» → Recompiler → marcar «Protect memory».
+- **Project64 4.0** (la versión de desarrollo 4.0.0.6807) necesita dos
+  ajustes, los mismos que su base de datos le da al cartucho: el motor de
+  32 bits y el método de código automodificable *Store Instruction*
+  (`32bit=1` y `SMM-StoreInst=1`). Sin ninguno, la demo del título se
+  para al minuto («Failed to translate PC to a PAddr: 0»). Con solo
+  *Store Instruction*, se para en la charla de K.K. («Failed to find a
+  free register», un fallo de su recompilador). El cartucho original
+  hace lo mismo en los dos casos. Con los dos ajustes la ROM juega la
+  partida nueva hasta la estación del pueblo. También carga un pueblo
+  guardado de dos jugadores: borra una casa sin colgarse, guarda (las dos
+  ranuras bien, con la hora del ordenador) y, al encender otra vez, carga
+  lo que guardó. El tipo de guardado puede quedarse en «Use first-used
+  save type». Dónde está: Options → Configuration → General settings,
+  desmarcar «Hide advanced settings»; luego «Config: DOUBUTSUNOMORI» →
+  Recompiler, marcar «32-bit engine» y, en «Self mod methods», «Store
+  Instruction»; OK y reiniciar el juego. Lo guarda en
+  `Config/Project64.rdb.user`. Su .fla tiene el orden de bytes del de
+  mupen64plus, y su mando por defecto lleva el stick en el teclado
+  numérico (8, 2, 4, 6) y la cruceta en las flechas.
+
+El «Forest» del logo cambia de color con cada demo del título: verde,
+lila, azul claro. Pasa igual en mupen64plus y en los dos Project64.
 
 Probarla en ares sacó a la luz un fallo nuestro y una palabra sin
 traducir ("The player-select actor's answers"). El personaje que recibe

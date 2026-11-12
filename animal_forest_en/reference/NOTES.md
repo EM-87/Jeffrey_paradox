@@ -3183,12 +3183,51 @@ what goes in it: "The letters in the en build").
   it the en ROM goes through K.K.'s talk (Enter is START, X is A), the
   name's and the town's dials and Rover's talk to the town's station, on
   its own video plugin and on GLideN64 (the plugin its first start
-  offers). Both draw the title logo's "Forest" lavender where angrylion
-  and ares draw it green, the colour of the 2010 patch's logo: theirs.
-  Its binary says writing the cartridge's clock is unimplemented (not
-  tried). In its window: Options, Settings, untick "Hide advanced
-  settings"; then the game's "Edit Game Settings", Recompiler, "Protect
-  memory" among the self-mod methods.
+  offers). Its binary says writing the cartridge's clock is
+  unimplemented (not tried). In its window: Options, Settings, untick
+  "Hide advanced settings"; then the game's "Edit Game Settings",
+  Recompiler, "Protect memory" among the self-mod methods.
+- **Project64 4.0** (the development build 4.0.0.6807 from pj64-emu.com,
+  under the same Wine; GLideN64, its default). Its database gives the
+  cartridge the 32-bit engine, Flash RAM and the self-modifying code
+  method Store Instruction (32bit=1, Save Type=FlashRam,
+  SMM-StoreInst=1); the en ROM, by its own CRCs, gets the defaults. With
+  them the en ROM plays the title's demo and stops a minute in ("Failed
+  to translate PC to a PAddr: 0", emulation stopped); the cartridge
+  without its entry stops there too. With Store Instruction alone the
+  demo goes on, but K.K.'s talk stops it: "Failed to find a free
+  register" in its log (the recompiler's x86 register cache,
+  CX86RegInfo::Map_TempReg), and the cartridge with Store Instruction and
+  Flash RAM but not the 32-bit engine stops in its K.K.'s talk the same
+  way. With the 32-bit engine as well (the cartridge's entry, or the two
+  ticks in its window with no entry) the en ROM plays: the new game
+  through K.K.'s talk, both dials and Rover's talk to the town's station;
+  and emu_psel's two players' town, put into its flash, loads. Which
+  player plays lists both players and the new-player answer; removing a
+  house asks whose with both players and the cancel answer, and
+  cancelling goes on (where the en ROM hung before the loader's fix);
+  choosing a player into the town writes both slots, compressed, the
+  checksum good and the clock the host's; powering on again loads what
+  it wrote. The save type can stay "Use first-used save type": it finds
+  the Flash RAM. Its .fla, Save/DOUBUTSUNOMORI-(32 hex digits of its
+  own)/DOUBUTSUNOMORI.fla, is in mupen64plus's byte order (each 32-bit
+  word reversed); in the N64's order the game finds no town and starts a
+  new one. Its input plugin's defaults put the stick on the keypad (8,
+  2, 4, 6) and the D-pad on the arrows; A is X, START is Enter. Its
+  binary says writing the clock is unimplemented here too (not tried).
+  In its window: Options, Configuration, General settings, untick "Hide
+  advanced settings"; then Config: DOUBUTSUNOMORI, Recompiler, tick
+  "32-bit engine" and, under Self mod methods, "Store Instruction"; OK,
+  and the game reset or opened again. It keeps them in
+  Config/Project64.rdb.user, under the ROM's CRCs (32bit=1,
+  SMM-StoreInst=1).
+- The title logo's "Forest" changes colour with the title's demo: the
+  logo actor's constructor takes its colour set from
+  `mTD_get_titledemo_no()`, so it is green in the first demos, then
+  lavender, then light blue, on mupen64plus as on both Project64s. (An
+  earlier note here had Project64's plugins drawing it lavender where
+  angrylion and ares draw it green: those shots were of different
+  demos.)
 
 ## The patch (the deliverable)
 
