@@ -1,0 +1,1298 @@
+# Our own English for the messages of travel and of starting the game, where the GameCube's text is its
+# own console's: a memory card in a slot of the GameCube (and free strings 3 to 5, the slots' names,
+# which the cartridge does not fill: their leftovers would show), where the cartridge has the Controller
+# Pak, which goes in the controller, and the Game Pak (the cartridge itself). From the cartridge's text:
+# the station's master (2383-2403), a villager on travel (2170) and the villager who starts the game,
+# one set of messages for each personality (5106-5345: polite, peppy, lazy, jock, cranky, snooty; at
+# +10 a house torn down, +14 the town erased, +18/+19 a player remembered or new, +20/+38 the Controller
+# Pak pulled out, +22 a player home from travel, +24 a visitor, +30 getting ready, +33 the Pak not
+# written, +35 a second traveller home, +36/+37 copying or not). The notices in orange are the same
+# words in every set, as in the cartridge's. tools/msgbank.py's dump form, as ours.txt (its header says
+# how the build lays it over the bank and what af_text.py holds it to).
+
+## 2170
+#: a snooty villager on seeing the world, which takes the train and a Controller Pak
+<DEMONPC0 0000ff>Have you heard the saying,
+"A frog in a well knows
+nothing of the sea"?<BTN>
+<MSGCLEAR>It's about someone who acts
+as if they knew all there
+is to know about the world,<BTN>
+<MSGCLEAR>but who is really<PAUSE 04> just a
+country bumpkin,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR><DEMONPC0 000015>If you ever get the chance,<PAUSE 04>
+you should leave <STR_COUNTRYNAME><PAUSE 06>
+and go see the
+world outside,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR><DEMONPC0 000016>If you think every place
+is just the same,<PAUSE 06> you're
+dead wrong! <PAUSE 06><STR_TAIL>!<BTN>
+<MSGCLEAR>To get out of
+<STR_COUNTRYNAME>,<PAUSE 08>
+you take the train.<BTN>
+<MSGCLEAR>And for that, you need a
+<COLORCHARS 198cdc0e>Controller Pak.<PAUSE 06>
+<DEMONPC0 00000b><PAUSE 03>Did you know that?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Hmhmhm.<PAUSE 08>
+Then again, you came to
+this town, so you must know
+that much,<PAUSE 0c> <STR_TAIL>.
+<MSGEND>
+
+## 2383
+#: the station's master, saving a traveller and the town before the train leaves
+All right, then. I'll save
+<STR_PLAYERNAME> onto the
+<COLORCHARS 198cdc0e>Controller Pak.<BTN>
+<MSGCLEAR>And I'll update the<PAUSE 08>
+<COLORCHARS e11ed70e>town's records, too,<PAUSE 06> so
+please wait a moment, eek!<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Updating the records...<PAUSE 08>
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 2387
+#: the station's master, repairing a broken Controller Pak
+All right, I'll try to repair it,
+so please wait a moment, eek!<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Repairing...<PAUSE 08>
+
+<TEXTCOLOR c35f00>Don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 2390
+#: the station's master, when the repair failed
+I'm sorry, but I couldn't
+repair it.<BTN>
+<MSGCLEAR>Shall I try repairing the
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 06><DEMONPC0 00000b> one
+more time, eek?
+<SETSELSTR2 0003000d><SELNOB><BTN><OPENCHOICE><SETNEXTMSG0 0953><SETNEXTMSG1 0954><FORCENEXT><DEMONPC0 0000ff><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 2403
+#: the station's master, when the Controller Pak is pulled out before the train leaves
+<DEMONPC0 000002><PAUSE 08>Eek!!!<PAUSE 14><DEMONPC0 000016>
+In the middle of getting
+ready for departure,<BTN>
+<MSGCLEAR>you must not pull out the
+<COLORCHARS 198cdc0e>Controller Pak!<PAUSE 06> No, no, eek!!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Put it back in properly,<PAUSE 08>
+and then come and
+see me again.<PAUSE 0a>
+          Eek<PAUSE 02>-eek<PAUSE 02>-eek!!
+<MSGEND>
+
+## 5106
+#: the start (a polite villager): the town's date and time
+Hello there.<PAUSE 06>
+You've come to play,<PAUSE 0c>
+<STR_TAIL>!<BTN>
+<MSGCLEAR>In <STR_COUNTRYNAME>, it's now
+<STR_MONTH> <STR_DAY>, <STR_YEAR>,<PAUSE 10>
+<STR_HOUR>:<STR_MIN> <STR_AMPM>.<SETFORCEMSG 13f4>
+<MSGCONTINUE>
+
+## 5116
+#: the start (polite): tearing down a house
+Very well.<PAUSE 06>
+I'll tear the house down.<PAUSE 0c>
+Please wait a moment.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Tearing down the house...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 03><DEMONPC0 090001>
+<SETFORCEMSG 13fd>
+<MSGCONTINUE>
+
+## 5120
+#: the start (polite): erasing the town
+<DEMONPC0 000017>I see.<PAUSE 08> Your mind is
+made up, then.<BTN>
+In that case,<PAUSE 04> I'll erase
+<STR_COUNTRYNAME>.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Erasing the town...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 03><DEMONPC0 090001>
+<SETFORCEMSG 1401>
+<MSGCONTINUE>
+
+## 5124
+#: the start (polite): a resident remembered
+Oh, yes, of course!
+It's <STR_PLAYERNAME>!<PAUSE 0c>
+<DEMONPC0 000015>Of course I remember you.<PAUSE 06>
+How could I ever forget?<BTN>
+<MSGCLEAR>Well, then,<PAUSE 06> I'll get
+things ready for you.
+Please wait a moment.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>Thank you for waiting.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Now, please enjoy
+your life in <STR_COUNTRYNAME>,<PAUSE 0c>
+<STR_TAIL>.
+<MSGEND>
+
+## 5125
+#: the start (polite): a newcomer
+I thought so.<PAUSE 08> I didn't think
+I'd seen you before,<PAUSE 06>
+<STR_TAIL>.<BTN>
+<MSGCLEAR>Well, then,<PAUSE 06> I'll get
+things ready for you.
+Please wait a moment.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>Thank you for waiting.<BTN>
+<MSGCLEAR><DEMONPC0 000015>I hope you'll soon<PAUSE 08> feel
+right at home in
+<STR_COUNTRYNAME>.
+<MSGEND>
+
+## 5126
+#: the start (polite): the Controller Pak pulled out
+<DEMONPC0 000002><PAUSE 08>Oh!!<PAUSE 12>
+<DEMONPC0 000016>Please don't remove the
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 06> in the
+middle of things!<BTN>
+<MSGCLEAR>I won't know where
+we were<PAUSE 06> or what
+I was doing!!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>If you're going to use the
+<COLORCHARS 198cdc0e>Controller Pak, please
+insert it into the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready, please
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 13f4>
+<MSGCONTINUE>
+
+## 5128
+#: the start (polite): a resident home from travel
+Let's see<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<BTN>
+<MSGCLEAR><DEMONPC0 000015>It's <STR_FREE2>!<PAUSE 08>
+Welcome home!!<BTN>
+<MSGCLEAR>I'll copy the records on the
+<COLORCHARS 198cdc0e>Controller Pak to the
+<COLORCHARS 198cdc08>Game Pak, so please
+wait a moment.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Copying the records...<PAUSE 08>
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001><SETFORCEMSG 1407>
+<MSGCONTINUE>
+
+## 5130
+#: the start (polite): a visitor from another town
+Let's see<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<BTN>
+<MSGCLEAR><DEMONPC0 000015>You must be <STR_FREE2>!<PAUSE 08>
+Welcome to <STR_COUNTRYNAME>!!<BTN>
+<MSGCLEAR>I'll get things ready for you,
+so please wait a moment.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001>
+<SETFORCEMSG 1409>
+<MSGCONTINUE>
+
+## 5136
+#: the start (polite): getting ready
+I understand.<BTN>
+Well, then,<PAUSE 06> I'll get
+things ready for you.
+Please wait a moment.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>Thank you for waiting.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Now,<PAUSE 06> please enjoy
+your life in <STR_COUNTRYNAME>,<PAUSE 0c>
+<STR_TAIL>.
+<MSGEND>
+
+## 5139
+#: the start (polite): the Controller Pak could not be written
+<DEMONPC0 000017><TEXTCOLOR c35f00>Could not save to the
+<TEXTCOLOR c35f00>Controller Pak.<BTN>
+<MSGCLEAR>I'll take you back to the
+title screen for now,<BTN>
+<MSGCLEAR>so please make sure the
+<COLORCHARS 198cdc0e>Controller Pak is in place,<PAUSE 08>
+and then start over
+from the beginning.
+<MSGEND>
+
+## 5141
+#: the start (polite): a second traveller home with the same records
+.<PAUSE 04><DEMONPC0 00000b>.<PAUSE 04>.<PAUSE 04>Oh?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR><STR_FREE2> came back
+home already,<PAUSE 08> but here's
+another one coming home!<BTN>
+<MSGCLEAR>If you start now with the
+records on the <COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>the records of the <STR_FREE2>
+who came back first
+will be erased.<BTN>
+<MSGCLEAR>Is that all right?<SELNOB><SETSELSTR2 0066003d><BTN><OPENCHOICE><SETNEXTMSG0 1416><SETNEXTMSG1 1417><FORCENEXT><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 5142
+#: the start (polite): copying the Controller Pak's records
+Very well.<PAUSE 08> I'll copy the
+records on the <COLORCHARS 198cdc0e>Controller Pak
+to the <COLORCHARS 198cdc08>Game Pak, so please
+wait a moment.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Copying the records...<PAUSE 08>
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001><SETFORCEMSG 1407>
+<MSGCONTINUE>
+
+## 5143
+#: the start (polite): not copying after all
+So you've decided not to.<BTN>
+<MSGCLEAR>Then please remove the
+<COLORCHARS 198cdc0e>Controller Pak from the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready, please
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 13f4>
+<MSGCONTINUE>
+
+## 5144
+#: the start (polite): the Controller Pak pulled out, back to the title screen
+<DEMONPC0 000002><PAUSE 08>Oh!!<PAUSE 12>
+<DEMONPC0 000016>Please don't remove the
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 06> in the
+middle of things!<BTN>
+<MSGCLEAR>I won't know where
+we were<PAUSE 06> or what
+I was doing!!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>I'll take you back to the
+title screen for now.<PAUSE 08>
+If you want to use the
+<COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>insert it into the
+<COLORCHARS 198cdc0a>Controller,<PAUSE 08> and then
+start over from the
+beginning.
+<MSGEND>
+
+## 5146
+#: the start (a peppy villager): the town's date and time
+Yoo-hoo!<PAUSE 06>
+You came to play with us!<PAUSE 0c>
+<STR_TAIL>!<BTN>
+<MSGCLEAR>Right now in <STR_COUNTRYNAME>, it's
+<STR_MONTH> <STR_DAY>, <STR_YEAR>,<PAUSE 10>
+<STR_HOUR>:<STR_MIN> <STR_AMPM>! Ta-da!<SETFORCEMSG 141c>
+<MSGCONTINUE>
+
+## 5156
+#: the start (peppy): tearing down a house
+OK, then!<PAUSE 06>
+I'm knocking that house down!<PAUSE 0c>
+Wait just a sec, OK?<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Tearing down the house...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 03><DEMONPC0 090001>
+<SETFORCEMSG 1425>
+<MSGCONTINUE>
+
+## 5160
+#: the start (peppy): erasing the town
+<DEMONPC0 000017>Well,<PAUSE 08> if you insist,
+I guess I can't say no.<BTN>
+OK, I'm erasing
+<STR_COUNTRYNAME>.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Erasing the town...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 03><DEMONPC0 090001>
+<SETFORCEMSG 1429>
+<MSGCONTINUE>
+
+## 5164
+#: the start (peppy): a resident remembered
+Sorry, sorry!
+It's <STR_PLAYERNAME>, right?!<PAUSE 0c>
+<DEMONPC0 000015>My mind just went blank!<PAUSE 06>
+Don't be mad at me!<BTN>
+<MSGCLEAR>So I'll get things
+ready for you,<PAUSE 08> so
+wait just a sec!<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>Ta-da! All done!<BTN>
+<MSGCLEAR><DEMONPC0 000015>Have a fun time
+in <STR_COUNTRYNAME>,<PAUSE 0c>
+<STR_TAIL>!
+<MSGEND>
+
+## 5165
+#: the start (peppy): a newcomer
+I knew it!<PAUSE 08> I just knew
+I'd never seen you before,<PAUSE 06>
+<STR_TAIL>!<BTN>
+<MSGCLEAR>OK, then,<PAUSE 06> I'll get
+things ready for you,
+so wait just a sec!<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>Ta-da! All done!<BTN>
+<MSGCLEAR><DEMONPC0 000015>Hurry up and<PAUSE 08> make
+yourself at home in
+<STR_COUNTRYNAME>! <PAUSE 06><STR_TAIL>!
+<MSGEND>
+
+## 5166
+#: the start (peppy): the Controller Pak pulled out
+<DEMONPC0 000002><PAUSE 08>Hey!!<PAUSE 12>
+<DEMONPC0 000016>Don't pull out the
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 06> while
+I'm busy with it!<BTN>
+<MSGCLEAR>Your precious records<PAUSE 08>
+could get lost,
+and that'd be awful!!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>If you're going to use the
+<COLORCHARS 198cdc0e>Controller Pak, please
+insert it into the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready, please
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 141c>
+<MSGCONTINUE>
+
+## 5168
+#: the start (peppy): a resident home from travel
+Let's see<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Oh! <STR_FREE2>!<PAUSE 08>
+Welcome hooooome!!<BTN>
+<MSGCLEAR>I'm copying the records on
+the <COLORCHARS 198cdc0e>Controller Pak to the
+<COLORCHARS 198cdc08>Game Pak, so wait
+just a sec, OK?<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Copying the records...<PAUSE 08>
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001><SETFORCEMSG 142f>
+<MSGCONTINUE>
+
+## 5170
+#: the start (peppy): a visitor from another town
+Let's see<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<BTN>
+<MSGCLEAR><DEMONPC0 000015>You're <STR_FREE2>, right?!<PAUSE 08>
+Welcome to <STR_COUNTRYNAME>!!<BTN>
+<MSGCLEAR>I'll get things ready,
+so wait just a sec, OK?<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001>
+<SETFORCEMSG 1431>
+<MSGCONTINUE>
+
+## 5176
+#: the start (peppy): getting ready
+Oh, I see!<BTN>
+OK, then,<PAUSE 06> I'll get
+things ready, so
+wait just a sec.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>Thanks for waiting!<BTN>
+<MSGCLEAR><DEMONPC0 000015>Have fun in <STR_COUNTRYNAME>,<PAUSE 06>
+<STR_TAIL>!
+<MSGEND>
+
+## 5179
+#: the start (peppy): the Controller Pak could not be written
+<DEMONPC0 000017><TEXTCOLOR c35f00>Could not save to the
+<TEXTCOLOR c35f00>Controller Pak.<BTN>
+<MSGCLEAR>I'm taking you back to the
+title screen for now,<BTN>
+<MSGCLEAR>so check that the
+<COLORCHARS 198cdc0e>Controller Pak is in tight,<PAUSE 08>
+and start over from the top!
+<MSGEND>
+
+## 5181
+#: the start (peppy): a second traveller home with the same records
+.<PAUSE 04><DEMONPC0 00000b>.<PAUSE 04>.<PAUSE 04>Huh?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR><STR_FREE2> already came
+back home,<PAUSE 08> and now
+another one's back too!<BTN>
+<MSGCLEAR>If you start now with the
+records on the <COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>the records of the <STR_FREE2>
+who came back first
+will get erased!<BTN>
+<MSGCLEAR>Is that OK with you?<SELNOB><SETSELSTR2 0066003d><BTN><OPENCHOICE><SETNEXTMSG0 143e><SETNEXTMSG1 143f><FORCENEXT><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 5182
+#: the start (peppy): copying the Controller Pak's records
+OK!<PAUSE 08> I'm copying the records
+on the <COLORCHARS 198cdc0e>Controller Pak to
+the <COLORCHARS 198cdc08>Game Pak, so wait
+a little while, OK?<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Copying the records...<PAUSE 08>
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001><SETFORCEMSG 142f>
+<MSGCONTINUE>
+
+## 5183
+#: the start (peppy): not copying after all
+So you changed your mind!<BTN>
+<MSGCLEAR>Then please remove the
+<COLORCHARS 198cdc0e>Controller Pak from the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready,
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 141c>
+<MSGCONTINUE>
+
+## 5184
+#: the start (peppy): the Controller Pak pulled out, back to the title screen
+<DEMONPC0 000002><PAUSE 08>Hey!!<PAUSE 12>
+<DEMONPC0 000016>Don't pull out the
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 06> while
+I'm busy with it!<BTN>
+<MSGCLEAR>Your precious records<PAUSE 08>
+could get lost,
+and that'd be awful!!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>I'm taking you back to the
+title screen for now.<PAUSE 08>
+If you want to use the
+<COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>put it in the
+<COLORCHARS 198cdc0a>Controller,<PAUSE 08> and then
+start over from the top!
+<MSGEND>
+
+## 5186
+#: the start (a lazy villager): the town's date and time
+Oh, hey.<PAUSE 06>
+You came to hang out, huh,<PAUSE 0c>
+<STR_TAIL>!<BTN>
+<MSGCLEAR>Right now in <STR_COUNTRYNAME>,
+it's <STR_MONTH> <STR_DAY>, <STR_YEAR>,<PAUSE 10>
+<STR_HOUR>:<STR_MIN> <STR_AMPM>...<SETFORCEMSG 1444>
+<MSGCONTINUE>
+
+## 5196
+#: the start (lazy): tearing down a house
+All righty,<PAUSE 06>
+I'll tear the house down.<PAUSE 0c>
+Hang on a while.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Tearing down the house...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 03><DEMONPC0 090001>
+<SETFORCEMSG 144d>
+<MSGCONTINUE>
+
+## 5200
+#: the start (lazy): erasing the town
+<DEMONPC0 000017>Aww,<PAUSE 08> so your mind's
+made up, huh?<BTN>
+<MSGCLEAR>I really don't wanna,<PAUSE 08>
+but I'll erase
+<STR_COUNTRYNAME>...<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Erasing the town...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 03><DEMONPC0 090001>
+<SETFORCEMSG 1451>
+<MSGCONTINUE>
+
+## 5204
+#: the start (lazy): a resident remembered (or not)
+Just kidding!
+<STR_PLAYERNAME>!<PAUSE 0c>
+<DEMONPC0 000015>How could I forget you?<PAUSE 06>
+<TEXTCOLOR 969696><SNDCUT 00>(I totally forgot...)<SNDCUT 01><BTN>
+<MSGCLEAR>Well, then,<PAUSE 06> I'll get
+things ready, so
+hang on a while.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>Sorry for the wait.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Now go enjoy your life
+in <STR_COUNTRYNAME>,<PAUSE 0c>
+<STR_TAIL>.
+<MSGEND>
+
+## 5205
+#: the start (lazy): a newcomer
+Ahh, I figured.<PAUSE 08>
+I was thinkin' I'd never
+seen you before,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR>OK, then,<PAUSE 06> I'll get
+things ready, so
+hang on a while.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>Sorry for the wait.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Hope you settle in<PAUSE 08>
+here in <STR_COUNTRYNAME>
+real soon.
+<MSGEND>
+
+## 5206
+#: the start (lazy): the Controller Pak pulled out
+<DEMONPC0 000002><PAUSE 08>Whoa!!<PAUSE 12>
+<DEMONPC0 000016>I wish you wouldn't pull
+out the <COLORCHARS 198cdc0e>Controller Pak<PAUSE 06>
+in the middle of things!<BTN>
+<MSGCLEAR>Now I don't know how far<PAUSE 06>
+I got, see?!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>If you're going to use the
+<COLORCHARS 198cdc0e>Controller Pak, please
+insert it into the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready, please
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 1444>
+<MSGCONTINUE>
+
+## 5208
+#: the start (lazy): a resident home from travel
+Lemme see<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<BTN>
+<MSGCLEAR><DEMONPC0 000015><STR_FREE2>!<PAUSE 08>
+Welcome home!!<BTN>
+<MSGCLEAR>I'm gonna copy the records
+on the <COLORCHARS 198cdc0e>Controller Pak to
+the <COLORCHARS 198cdc08>Game Pak, so just
+hang on a while.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Copying the records...<PAUSE 08>
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001><SETFORCEMSG 1457>
+<MSGCONTINUE>
+
+## 5210
+#: the start (lazy): a visitor from another town
+Lemme see<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<BTN>
+<DEMONPC0 000015>Welcome to <STR_COUNTRYNAME>,<PAUSE 0c>
+<STR_FREE2>!<BTN>
+<MSGCLEAR>I'll get things ready,
+so hang on a while.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001>
+<SETFORCEMSG 1459>
+<MSGCONTINUE>
+
+## 5216
+#: the start (lazy): getting ready
+Gotcha.<BTN>
+OK, then,<PAUSE 06> I'll get
+things ready, so
+hang on a while.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>Sorry for the wait.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Well, then,<PAUSE 0c>
+enjoy your life in
+<STR_COUNTRYNAME>,<PAUSE 0c>
+<STR_TAIL>.
+<MSGEND>
+
+## 5219
+#: the start (lazy): the Controller Pak could not be written
+<DEMONPC0 000017><TEXTCOLOR c35f00>Could not save to the
+<TEXTCOLOR c35f00>Controller Pak.<BTN>
+<MSGCLEAR>I'm gonna take you<PAUSE 08>
+back to the
+title screen for now,<BTN>
+<MSGCLEAR>so check that the
+<COLORCHARS 198cdc0e>Controller Pak is in right,<PAUSE 08>
+and start over again, OK?
+<MSGEND>
+
+## 5221
+#: the start (lazy): a second traveller home with the same records
+.<PAUSE 04><DEMONPC0 00000b>.<PAUSE 04>.<PAUSE 04>Huh?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR><STR_FREE2> already came
+back home,<PAUSE 08> but here's
+another one comin' back!<BTN>
+<MSGCLEAR>If you start now with the
+records on the <COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>the records of the <STR_FREE2>
+who got back first
+will be erased, y'know.<BTN>
+<MSGCLEAR>That still OK with you?<SELNOB><SETSELSTR2 0066003d><BTN><OPENCHOICE><SETNEXTMSG0 1466><SETNEXTMSG1 1467><FORCENEXT><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 5222
+#: the start (lazy): copying the Controller Pak's records
+If you say so.<PAUSE 08> I'll copy
+the records on the
+<COLORCHARS 198cdc0e>Controller Pak to the
+<COLORCHARS 198cdc08>Game Pak. Hang on a while.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Copying the records...<PAUSE 08>
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001><SETFORCEMSG 1457>
+<MSGCONTINUE>
+
+## 5223
+#: the start (lazy): not copying after all
+Changed your mind, huh?<BTN>
+<MSGCLEAR>Then please remove the
+<COLORCHARS 198cdc0e>Controller Pak from the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready,
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 1444>
+<MSGCONTINUE>
+
+## 5224
+#: the start (lazy): the Controller Pak pulled out, back to the title screen
+<DEMONPC0 000002><PAUSE 08>Whoa!!<PAUSE 12>
+<DEMONPC0 000016>I wish you wouldn't pull
+out the <COLORCHARS 198cdc0e>Controller Pak<PAUSE 06>
+in the middle of things!<BTN>
+<MSGCLEAR>Now I don't know how far<PAUSE 06>
+I got, see?!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>I'm gonna take you back to
+the title screen for now.<PAUSE 08>
+If you want to use the
+<COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>put it in the
+<COLORCHARS 198cdc0a>Controller,<PAUSE 08> and then
+start over again, OK?
+<MSGEND>
+
+## 5226
+#: the start (a jock villager): the town's date and time
+Hey! I've been waiting!!<PAUSE 06>
+You came to play, right?<PAUSE 0c>
+<STR_TAIL>?<BTN>
+<MSGCLEAR>Right now in <STR_COUNTRYNAME>,
+it's <STR_MONTH> <STR_DAY>, <STR_YEAR>,<PAUSE 10>
+<STR_HOUR>:<STR_MIN> <STR_AMPM>! Let's go!<SETFORCEMSG 146c>
+<MSGCONTINUE>
+
+## 5236
+#: the start (jock): tearing down a house
+All right,<PAUSE 06>
+I'm tearing the house down.<PAUSE 0c>
+Hang tight for a sec!<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Tearing down the house...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 03><DEMONPC0 090001>
+<SETFORCEMSG 1475>
+<MSGCONTINUE>
+
+## 5240
+#: the start (jock): erasing the town
+<DEMONPC0 000017>Yeah?<PAUSE 08>
+Your mind's made up, huh?<BTN>
+Then I'm erasing
+<STR_COUNTRYNAME>.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Erasing the town...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 03><DEMONPC0 090001>
+<SETFORCEMSG 1479>
+<MSGCONTINUE>
+
+## 5244
+#: the start (jock): a resident remembered
+Just kidding!
+You're <STR_PLAYERNAME>, I know!<BTN>
+<DEMONPC0 000015>Don't take it so hard,<PAUSE 06>
+<STR_PLAYERNAME>!<BTN>
+<MSGCLEAR>OK, then,<PAUSE 06> I'll get
+things ready, so
+hang tight!<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>Thanks for waiting!<BTN>
+<MSGCLEAR><DEMONPC0 000015>All right,<PAUSE 08> let's
+have fun today, too,<PAUSE 06>
+<STR_TAIL>!
+<MSGEND>
+
+## 5245
+#: the start (jock): a newcomer
+Yeah, I figured.<PAUSE 08> I didn't
+think I knew your face,<PAUSE 06>
+<STR_TAIL>.<BTN>
+<MSGCLEAR>I'll get things ready,<PAUSE 08>
+so hang tight a sec.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>Thanks for waiting!<BTN>
+<MSGCLEAR><DEMONPC0 000015>From now on,<PAUSE 08> you're on
+the <STR_COUNTRYNAME> team!
+Let's be pals!<PAUSE 0c>
+<STR_TAIL>!
+<MSGEND>
+
+## 5246
+#: the start (jock): the Controller Pak pulled out
+<DEMONPC0 000002><PAUSE 08>Whoa!!<PAUSE 12>
+<DEMONPC0 000016>Don't yank out the
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 06> in the
+middle of things!<BTN>
+<MSGCLEAR>I won't know what's what
+anymore!<PAUSE 0c>
+<STR_TAIL>!!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>If you're going to use the
+<COLORCHARS 198cdc0e>Controller Pak, please
+insert it into the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready, please
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 146c>
+<MSGCONTINUE>
+
+## 5248
+#: the start (jock): a resident home from travel
+<DEMONPC0 000015>Whoa! <STR_FREE2>!<PAUSE 08>
+Welcome back!!<BTN>
+<MSGCLEAR>I'm copying the records on
+the <COLORCHARS 198cdc0e>Controller Pak to the
+<COLORCHARS 198cdc08>Game Pak, so hang
+tight a sec.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Copying the records...<PAUSE 08>
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001><SETFORCEMSG 147f>
+<MSGCONTINUE>
+
+## 5250
+#: the start (jock): a visitor from another town
+Let's see<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<BTN>
+<MSGCLEAR><DEMONPC0 000015>So you're <STR_FREE2>, huh?<BTN>
+Welcome to <STR_COUNTRYNAME>!!<BTN>
+<MSGCLEAR>I'll get things ready,
+so hang tight a sec.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001>
+<SETFORCEMSG 1481>
+<MSGCONTINUE>
+
+## 5256
+#: the start (jock): getting ready
+Gotcha.<BTN>
+Then<PAUSE 06> I'll get things
+ready, so hang tight.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>Thanks for waiting!<BTN>
+<MSGCLEAR><DEMONPC0 000015>Let's have a blast in
+<STR_COUNTRYNAME> today!!<PAUSE 0c>
+<STR_TAIL>!!
+<MSGEND>
+
+## 5259
+#: the start (jock): the Controller Pak could not be written
+<DEMONPC0 000017><TEXTCOLOR c35f00>Could not save to the
+<TEXTCOLOR c35f00>Controller Pak.<BTN>
+<MSGCLEAR>We're heading back to
+the title screen for now,<BTN>
+<MSGCLEAR>so check that the
+<COLORCHARS 198cdc0e>Controller Pak is in tight,<PAUSE 08>
+and start over
+from the top!
+<MSGEND>
+
+## 5261
+#: the start (jock): a second traveller home with the same records
+.<PAUSE 04><DEMONPC0 00000b>.<PAUSE 04>.<PAUSE 04>Huh, what?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR><STR_FREE2> already came
+back home,<PAUSE 08> and now
+another one's back!<BTN>
+<MSGCLEAR>If you start now with the
+records on the <COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>the records of the <STR_FREE2>
+who got back first
+will get wiped out!<BTN>
+<MSGCLEAR>You still OK with that?<SELNOB><SETSELSTR2 0066003d><BTN><OPENCHOICE><SETNEXTMSG0 148e><SETNEXTMSG1 148f><FORCENEXT><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 5262
+#: the start (jock): copying the Controller Pak's records
+All right, OK!<PAUSE 08> I'm copying
+the records on the
+<COLORCHARS 198cdc0e>Controller Pak to the
+<COLORCHARS 198cdc08>Game Pak. Hang tight!<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Copying the records...<PAUSE 08>
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001><SETFORCEMSG 147f>
+<MSGCONTINUE>
+
+## 5263
+#: the start (jock): not copying after all
+So you're backing out?<BTN>
+<MSGCLEAR>Then take the
+<COLORCHARS 198cdc0e>Controller Pak out of the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready,
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 146c>
+<MSGCONTINUE>
+
+## 5264
+#: the start (jock): the Controller Pak pulled out, back to the title screen
+<DEMONPC0 000002><PAUSE 08>Whoa!!<PAUSE 12>
+<DEMONPC0 000016>Don't yank out the
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 06> in the
+middle of things!<BTN>
+<MSGCLEAR>I won't know what's what
+anymore!<PAUSE 0c>
+<STR_TAIL>!!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>We're heading back to the
+title screen for now.<PAUSE 08>
+If you want to use the
+<COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>put it in the
+<COLORCHARS 198cdc0a>Controller,<PAUSE 08> and then
+start over
+from the top!
+<MSGEND>
+
+## 5266
+#: the start (a cranky villager): the town's date and time
+Yo!<PAUSE 06>
+So you showed up.<PAUSE 0c>
+<STR_TAIL>!<BTN>
+<MSGCLEAR>In <STR_COUNTRYNAME> right now,
+it's <STR_MONTH> <STR_DAY>, <STR_YEAR>,<PAUSE 10>
+<STR_HOUR>:<STR_MIN> <STR_AMPM>.<SETFORCEMSG 1494>
+<MSGCONTINUE>
+
+## 5276
+#: the start (cranky): tearing down a house
+All right,<PAUSE 06>
+let's knock that house down.<PAUSE 0c>
+Hold on a while.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Tearing down the house...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 03><DEMONPC0 090001>
+<SETFORCEMSG 149d>
+<MSGCONTINUE>
+
+## 5280
+#: the start (cranky): erasing the town
+<DEMONPC0 000017>That so?<PAUSE 08>
+You really mean it, huh.<BTN>
+Then let's go ahead and
+erase <STR_COUNTRYNAME>.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Erasing the town...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 03><DEMONPC0 090001>
+<SETFORCEMSG 14a1>
+<MSGCONTINUE>
+
+## 5284
+#: the start (cranky): a resident remembered
+My bad, my bad.<PAUSE 08>
+You're <STR_PLAYERNAME>!<PAUSE 0c>
+<DEMONPC0 000015>Clean slipped my mind,<PAUSE 0c>
+<STR_TAIL>.<BTN>
+<MSGCLEAR>I'll get things ready.
+Hold on a bit.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>There. Done.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Well, then,<PAUSE 0c> go on and
+enjoy another day in
+<STR_COUNTRYNAME>,<PAUSE 0c>
+<STR_TAIL>.
+<MSGEND>
+
+## 5285
+#: the start (cranky): a newcomer
+Figured as much.<PAUSE 08>
+Never seen you before,<PAUSE 0c>
+<STR_TAIL>.<BTN>
+<MSGCLEAR>I'll get things ready.
+Hold on a bit.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>There. Done.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Well, then,
+guess I'll be seein' you,<PAUSE 0c>
+<STR_TAIL>.
+<MSGEND>
+
+## 5286
+#: the start (cranky): the Controller Pak pulled out
+<DEMONPC0 000002><PAUSE 08>Hey, you!!<PAUSE 12>
+<DEMONPC0 000016>Don't go pulling the
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 06> out in
+the middle of things!<BTN>
+<MSGCLEAR>Now I don't know<PAUSE 06>
+what's what
+anymore!!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>If you're going to use the
+<COLORCHARS 198cdc0e>Controller Pak, please
+insert it into the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready, please
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 1494>
+<MSGCONTINUE>
+
+## 5288
+#: the start (cranky): a resident home from travel
+Let's see<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Well, if it ain't <STR_FREE2>!<PAUSE 08>
+You made it back,<PAUSE 08>
+huh? Welcome home!!<BTN>
+<MSGCLEAR>I'm copying the records on
+the <COLORCHARS 198cdc0e>Controller Pak to the
+<COLORCHARS 198cdc08>Game Pak, so hold
+on a bit.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Copying the records...<PAUSE 08>
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001><SETFORCEMSG 14a7>
+<MSGCONTINUE>
+
+## 5290
+#: the start (cranky): a visitor from another town
+Let's see<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<BTN>
+<MSGCLEAR><DEMONPC0 000015><STR_FREE2>, is it?<PAUSE 08>
+Glad you came.<PAUSE 08> Welcome!!<BTN>
+<MSGCLEAR>I'll get things ready,
+so hold on a bit.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001>
+<SETFORCEMSG 14a9>
+<MSGCONTINUE>
+
+## 5296
+#: the start (cranky): getting ready
+Yeah, yeah,<PAUSE 06> I hear ya.<BTN>
+Then<PAUSE 04> I'll get things
+ready. Hold on a bit.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>There. Done.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Well, then,<PAUSE 04>
+you just take it easy<PAUSE 08>
+in <STR_COUNTRYNAME>,<PAUSE 0c>
+<STR_TAIL>.
+<MSGEND>
+
+## 5299
+#: the start (cranky): the Controller Pak could not be written
+<DEMONPC0 000017><TEXTCOLOR c35f00>Could not save to the
+<TEXTCOLOR c35f00>Controller Pak.<BTN>
+<MSGCLEAR>We're going back to the
+title screen for now,<BTN>
+<MSGCLEAR>so check that the
+<COLORCHARS 198cdc0e>Controller Pak is in right,<PAUSE 08>
+and start over
+from scratch.
+<MSGEND>
+
+## 5301
+#: the start (cranky): a second traveller home with the same records
+.<PAUSE 04><DEMONPC0 00000b>.<PAUSE 04>.<PAUSE 04>What the...?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR><STR_FREE2> already came
+back home,<PAUSE 08> and now
+another one shows up!<BTN>
+<MSGCLEAR>If you start now with the
+records on the <COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>the records of the <STR_FREE2>
+who got back first
+are gonna get erased.<BTN>
+<MSGCLEAR>You fine with that?<SELNOB><SETSELSTR2 0066003d><BTN><OPENCHOICE><SETNEXTMSG0 14b6><SETNEXTMSG1 14b7><FORCENEXT><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 5302
+#: the start (cranky): copying the Controller Pak's records
+Right, got it.<PAUSE 08> I'm copying
+the records on the
+<COLORCHARS 198cdc0e>Controller Pak to the
+<COLORCHARS 198cdc08>Game Pak. Hold on a bit!<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Copying the records...<PAUSE 08>
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001><SETFORCEMSG 14a7>
+<MSGCONTINUE>
+
+## 5303
+#: the start (cranky): not copying after all
+Backing out after all, huh?<BTN>
+<MSGCLEAR>Then take the
+<COLORCHARS 198cdc0e>Controller Pak out of the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready,
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 1494>
+<MSGCONTINUE>
+
+## 5304
+#: the start (cranky): the Controller Pak pulled out, back to the title screen
+<DEMONPC0 000002><PAUSE 08>Hey, you!!<PAUSE 12>
+<DEMONPC0 000016>Don't go pulling the
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 06> out in
+the middle of things!<BTN>
+<MSGCLEAR>Now I don't know<PAUSE 06>
+what's what
+anymore!!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>We're going back to the
+title screen for now.<PAUSE 08>
+If you want to use the
+<COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>put it in the
+<COLORCHARS 198cdc0a>Controller,<PAUSE 08> and then
+start over
+from scratch.
+<MSGEND>
+
+## 5306
+#: the start (a snooty villager): the town's date and time
+Welcome, darling.<PAUSE 06>
+You've come to play,<PAUSE 0c>
+<STR_TAIL>!<BTN>
+<MSGCLEAR>In <STR_COUNTRYNAME>, it's now
+<STR_MONTH> <STR_DAY>, <STR_YEAR>,<PAUSE 10>
+<STR_HOUR>:<STR_MIN> <STR_AMPM>.<SETFORCEMSG 14bc>
+<MSGCONTINUE>
+
+## 5316
+#: the start (snooty): tearing down a house
+Very well.<PAUSE 06>
+I shall tear the house down.<PAUSE 0c>
+Do wait a moment.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Tearing down the house...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 03><DEMONPC0 090001>
+<SETFORCEMSG 14c5>
+<MSGCONTINUE>
+
+## 5320
+#: the start (snooty): erasing the town
+<DEMONPC0 000017>I see.<PAUSE 08>
+Your mind is quite made up.<BTN>
+Then I shall erase
+<STR_COUNTRYNAME>.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Erasing the town...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 03><DEMONPC0 090001>
+<SETFORCEMSG 14c9>
+<MSGCONTINUE>
+
+## 5324
+#: the start (snooty): a resident remembered
+Why, yes,
+you're <STR_PLAYERNAME>!<PAUSE 0c>
+<DEMONPC0 000015>Of course I remember.<PAUSE 06>
+As if I could forget!<BTN>
+<MSGCLEAR>Well, then,<PAUSE 06> I'll get
+things ready. Do wait
+a moment, won't you?<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>There you are.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Hmhm.
+Let's have some lovely
+chats today, too,<PAUSE 06> <STR_TAIL>.
+<MSGEND>
+
+## 5325
+#: the start (snooty): a newcomer
+I thought so. We've never
+met.<PAUSE 08> Once seen, a face
+like yours is hard
+to forget,<PAUSE 10> darling.<BTN>
+<MSGCLEAR>Well, then,<PAUSE 06> I'll get
+things ready. Do wait
+a moment, won't you?<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>There you are.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Hmhm.<PAUSE 0c>
+Don't you worry.
+I'll take good care of you,<PAUSE 0c>
+<STR_TAIL>.
+<MSGEND>
+
+## 5326
+#: the start (snooty): the Controller Pak pulled out
+<DEMONPC0 000002>Excuse me!!<PAUSE 12>
+<DEMONPC0 000016>Kindly don't remove the
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 06> in the
+middle of things!<BTN>
+<MSGCLEAR>Now I can't tell<PAUSE 06>
+what's what at all!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>If you're going to use the
+<COLORCHARS 198cdc0e>Controller Pak, please
+insert it into the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready, please
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 14bc>
+<MSGCONTINUE>
+
+## 5328
+#: the start (snooty): a resident home from travel
+<DEMONPC0 000015>Oh my! <STR_FREE2>!<PAUSE 08>
+Welcome home!!<BTN>
+<MSGCLEAR>I'll copy the records on
+the <COLORCHARS 198cdc0e>Controller Pak to the
+<COLORCHARS 198cdc08>Game Pak. Do wait
+a moment.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Copying the records...<PAUSE 08>
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001><SETFORCEMSG 14cf>
+<MSGCONTINUE>
+
+## 5330
+#: the start (snooty): a visitor from another town
+<DEMONPC0 000015>Oh my! <STR_FREE2>!<PAUSE 08>
+How nice of you to come
+all the way out here.<BTN>
+<MSGCLEAR>I'll get things ready.
+Do wait a moment.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001>
+<SETFORCEMSG 14d1>
+<MSGCONTINUE>
+
+## 5336
+#: the start (snooty): getting ready
+Oh?<PAUSE 08> Well, I don't mind.<BTN>
+Then<PAUSE 06> I'll get things
+ready for you.
+Do wait a moment.<PAUSE 1e><DEMONPC0 0000ff>
+<MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
+
+<TEXTCOLOR c35f00>Don't turn off the power!<SNDTRGSYS 04><DEMONPC0 090001>
+<BTN>
+<MSGCLEAR>There you are.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Hmhm.
+I'll be sweet to you today,
+too,<PAUSE 0c> <STR_TAIL>.
+<MSGEND>
+
+## 5339
+#: the start (snooty): the Controller Pak could not be written
+<DEMONPC0 000017><TEXTCOLOR c35f00>Could not save to the
+<TEXTCOLOR c35f00>Controller Pak.<BTN>
+<MSGCLEAR>I'll take you back to the
+title screen for now,<BTN>
+<MSGCLEAR>so kindly make sure the
+<COLORCHARS 198cdc0e>Controller Pak is in place,<PAUSE 08>
+and start over from the
+beginning.
+<MSGEND>
+
+## 5341
+#: the start (snooty): a second traveller home with the same records
+.<PAUSE 04><DEMONPC0 00000b>.<PAUSE 04>.<PAUSE 04>Oh my?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR><STR_FREE2> already came
+back home,<PAUSE 08> and yet
+here's another one!<BTN>
+<MSGCLEAR>If you start now with the
+records on the <COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>the records of the <STR_FREE2>
+who came back first
+will be erased, you know.<BTN>
+<MSGCLEAR>Would that be all right?<SELNOB><SETSELSTR2 0066003d><BTN><OPENCHOICE><SETNEXTMSG0 14de><SETNEXTMSG1 14df><FORCENEXT><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 5342
+#: the start (snooty): copying the Controller Pak's records
+Well, if you're sure.<PAUSE 08> I'll
+copy the records on the
+<COLORCHARS 198cdc0e>Controller Pak to the
+<COLORCHARS 198cdc08>Game Pak. Do wait a moment.<PAUSE 1e>
+<MSGCLEAR><TEXTCOLOR c35f00>Copying the records...<PAUSE 08>
+<TEXTCOLOR c35f00>Don't turn off the power,<PAUSE 06>
+<TEXTCOLOR c35f00>and don't remove the
+<TEXTCOLOR c35f00>Controller Pak!<SNDTRGSYS 04><DEMONPC0 090001><SETFORCEMSG 14cf>
+<MSGCONTINUE>
+
+## 5343
+#: the start (snooty): not copying after all
+So you've changed your mind.<BTN>
+<MSGCLEAR>Then kindly remove the
+<COLORCHARS 198cdc0e>Controller Pak from the
+<COLORCHARS 198cdc0a>Controller.<BTN>
+<MSGCLEAR>When you're ready,
+press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
+<STR_TAIL>!
+<SETFORCEMSG 14bc>
+<MSGCONTINUE>
+
+## 5344
+#: the start (snooty): the Controller Pak pulled out, back to the title screen
+<DEMONPC0 000002>Excuse me!!<PAUSE 12>
+<DEMONPC0 000016>Kindly don't remove the
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 06> in the
+middle of things!<BTN>
+<MSGCLEAR>Now I can't tell<PAUSE 06>
+what's what at all!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>I'll take you back to the
+title screen for now.<PAUSE 08>
+If you want to use the
+<COLORCHARS 198cdc0e>Controller Pak,<BTN>
+<MSGCLEAR>insert it into the
+<COLORCHARS 198cdc0a>Controller,<PAUSE 08> and then
+start over from the
+beginning, darling.
+<MSGEND>

@@ -1,0 +1,74 @@
+# Our own English for messages whose GameCube text prints a free string the cartridge does not fill for
+# them, which would show the slot's leftovers: a villager who moved away getting an item (free string 0,
+# where the item was left), a full pocket (5, a town), a letter's sender (15) and another villager's name
+# in gossip (13, 9429-9430: the cartridge's talks of "them"). From the cartridge's text; tools/msgbank.py's
+# dump form, as ours.txt (its header says how the build lays it over the bank and what af_text.py holds
+# it to).
+
+## 4296
+#: a villager who moved away, given an item the player brought
+<DEMONPC0 000004>Oh!<PAUSE 0c> You brought me
+<STR_FREE2>,<PAUSE 04> just like that!<PAUSE 08>
+Thanks, <STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>But wow, what a surprise!<PAUSE 0f>
+How'd you know where to
+find me?! <PAUSE 08><STR_TAIL>?!
+<MSGCONTINUE>
+
+## 6089
+#: a snooty villager, the player's pockets full
+<DEMONPC0 000010>Oh,<PAUSE 08> no!<BTN>
+<MSGCLEAR><DEMONPC0 000016>You<PAUSE 08> can't carry
+any more!<PAUSE 0c> Really,
+no way! Absolutely not,<PAUSE 06>
+<STR_TAIL>!
+<MSGEND>
+
+## 7298
+#: a villager touched by someone who came to town to mail a letter
+<DEMONPC0 00000a>I was,<PAUSE 06>
+like, so touched!<PAUSE 08>
+<STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>Whatever the letter says,<PAUSE 06>
+someone came all the way
+to <STR_COUNTRYNAME> to mail it,
+and that makes me happy!
+<BTN>
+<MSGCLEAR>Little things can change
+how people see you,<PAUSE 06> so
+you should take a page
+from their book!
+<MSGEND>
+
+## 9429
+#: a villager on another one, fun once you talk to them
+<DEMONPC0 000015>They may not look it,
+but they're super fun!
+<BTN>
+<MSGCLEAR>People get the wrong idea
+because of their looks,<PAUSE 06>
+but once you talk to them,
+they're a real blast!
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>You should go say hi
+to them now and then!<PAUSE 08>
+<STR_TAIL>!
+<MSGEND>
+
+## 9430
+#: a villager on another one, a sweet talker
+<DEMONPC0 000016>They've got a pretty
+nasty streak, you know.
+<BTN>
+<MSGCLEAR><DEMONPC0 000017>I don't really like
+badmouthing people,<PAUSE 06>
+but it kind of
+bugs me.
+<BTN>
+<MSGCLEAR><DEMONPC0 00000f>Anyway, don't let their
+sweet talk fool you.<PAUSE 04>
+Be careful,<PAUSE 08>
+<STR_TAIL>.
+<MSGEND>

@@ -1,0 +1,67 @@
+# Our own English for the messages that teach a button, where the GameCube's text names its own
+# controller's (the Y Button for the item screen, the X Button for the map): on the cartridge they are the
+# N64 controller's START Button and R Button, in its colours (START red, R grey). From the cartridge's
+# text: Tom Nook on the part-time job (2035, 2040, 2049) and the police box's officer giving a map
+# (6346). tools/msgbank.py's dump form, as ours.txt (its header says how the build lays it over the bank
+# and what af_text.py holds it to).
+
+## 2035
+#: Tom Nook, the player not yet in the work clothes
+<DEMONPC0 000004><PAUSE 05>You haven't changed yet!<BTN><DEMONPC0 0000ff>
+Press <COLORCHARS be2d2d05>START<PAUSE 08> to bring up
+your <COLORCHARS e11ed70b>item screen.<BTN>
+<MSGCLEAR>Grab the clothes,<PAUSE 08>
+bring them over to yourself,
+and <PAUSE 08>press the <COLORCHARS 324be108>A Button
+to change, yes.<BTN>
+<MSGCLEAR><DEMONPC0 000016>Come on, come on,<PAUSE 08>
+hurry up and change, hm!
+<MSGEND>
+
+## 2040
+#: Tom Nook, the planting not yet done
+<DEMONPC0 00000b>Aren't you done yet?<BTN><DEMONPC0 0000ff>
+Press <COLORCHARS be2d2d05>START<PAUSE 08> to bring up
+your <COLORCHARS e11ed70b>item screen.<BTN>
+<MSGCLEAR>Choose the seeds or the
+sapling,<PAUSE 08> and plant them
+in the ground, yes.<BTN>
+<MSGCLEAR>You can't plant them where
+something already is,<PAUSE 08> hm.<BTN>
+<MSGCLEAR><DEMONPC0 000004><PAUSE 05>Oh, <PAUSE 08>I'm sure you know,<PAUSE 08><DEMONPC0 0000ff>
+but do it outside!!
+<MSGEND>
+
+## 2049
+#: Tom Nook, the delivery done, giving the player a map
+<DEMONPC0 000015>Welcome back, welcome back!<PAUSE 08>
+You made the delivery, yes!<PAUSE 08>
+Thanks for your hard work!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>You did it properly,<PAUSE 08>
+so your pay for this job<PAUSE 04>
+is 230 Bells, yes.<BTN>
+<MSGCLEAR>Now, right away,<PAUSE 08>
+on to your next
+job, hm!<BTN>
+<MSGCLEAR><DEMONPC0 000004><PAUSE 05>Eh? What's that?<PAUSE 0a>
+It's a pain without a <COLORCHARS e11ed703>map?<BTN><DEMONPC0 000016>
+<MSGCLEAR>Honestly,<PAUSE 08>
+you complain about
+every little thing, hm.<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Yes, yes,<PAUSE 04> a <COLORCHARS e11ed703>map.<DEMONPC0 090001><PAUSE 14>
+Press the <COLORCHARS 5a5a5a08>R Button
+to look at it, yes.<PAUSE 08>
+There, happy now,<PAUSE 04> hm?
+<MSGCONTINUE>
+
+## 6346
+#: the police box's officer giving the player a map
+A map, is it?
+Here you<DEMONPC0 010002><DEMONPC1 00251d><DEMONPC1 010007><DEMONPC1 020001><PAUSE 0a>
+go!<BTN>
+<MSGCLEAR>You can look at the map<PAUSE 06>
+by pressing the
+<COLORCHARS 5a5a5a08>R Button!<BTN>
+<MSGCLEAR>Please be careful<PAUSE 06> not
+to get lost<DEMONPC0 000020><PAUSE 0a>!<DEMONPC0 0000ff>
+<MSGEND>

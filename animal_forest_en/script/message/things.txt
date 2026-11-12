@@ -1,0 +1,152 @@
+# Our own English for official messages whose GameCube text names things of its own the cartridge does
+# not have: its console's clock (the cartridge's is in the Game Pak), a mayor and a museum with its owl,
+# an island's boatman, a spring cleaning (the cartridge's is the year's end), a quiz's answer with a joke
+# on the boatman, Mr. Resetti's asides on the mayor and the owl (reference/NOTES.md, "The GameCube's own
+# events"). From the cartridge's text; tools/msgbank.py's dump form, as ours.txt (its header says how the
+# build lays it over the bank and what af_text.py holds it to).
+
+## 2508
+#: the Game Pak's clock has stopped
+I'm very sorry.<PAUSE 0c>
+The clock inside the Game
+Pak<PAUSE 08> seems to have stopped.<BTN>
+<MSGCLEAR>For details on what
+to do,<BTN>
+please see the
+<COLORCHARS e11ed713>instruction booklet.<BTN>
+<MSGCLEAR>You can still play<PAUSE 06>
+without the clock's
+features.<BTN>
+<MSGCLEAR>Would you like to start
+the game as it is?<PAUSE 0c> Or
+try again a little later?<SETSELSTR2 00e700e8><BTN><OPENCHOICE><SETNEXTMSG0 09cd><SETNEXTMSG1 09cf><FORCENEXT>
+<MSGCONTINUE>
+
+## 2081
+#: Tom Nook sending the new resident to greet the town
+Wait a moment<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<BTN>
+<MSGCLEAR><STR_PLAYERNAME>,<PAUSE 0c>
+you've only just moved
+to <STR_COUNTRYNAME>,<BTN>
+<MSGCLEAR>but have you properly<PAUSE 08>
+greeted the folks of
+<STR_COUNTRYNAME>, <DEMONPC0 00000b><PAUSE 05>hm?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>I'll give you a<PAUSE 04>
+little break,<PAUSE 08> so go
+and say hello to
+everyone, yes.<BTN>
+<MSGCLEAR>Off you go, then.
+<MSGEND>
+
+## 2082
+#: Tom Nook, someone not yet greeted
+<DEMONPC0 00000b><PAUSE 0a>Hm?<PAUSE 0c>
+You've said hello
+to everyone?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>It seems there's someone
+you haven't greeted, hm.<BTN>
+<MSGCLEAR>Go and say hello
+to everyone properly, yes.
+<MSGEND>
+
+## 4595
+#: a polite villager on keeping the fish and bugs one catches
+<DEMONPC0 0000ff><STR_PLAYERNAME>,<PAUSE 06>
+what do you do with
+the fish you catch and
+the bugs you collect?
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>Knowing you, I bet
+you let them go
+right away, but
+<BTN>
+<MSGCLEAR>raising them in your room
+isn't bad at all!<PAUSE 0f>
+You don't even need food
+or a water tank!
+<BTN>
+<MSGCLEAR><DEMONPC0 000012>You're not selling them
+to Tom Nook's store,<PAUSE 06>
+are you?!<PAUSE 08>
+<STR_TAIL>!?
+<MSGEND>
+
+## 9531
+#: a villager on cleaning, the year's end's big one
+Even if you're busy,
+you still clean!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>That's why,<PAUSE 06>
+at the end of the year,
+the busiest time of all,<BTN>
+<MSGCLEAR>we do the biggest
+cleaning! <PAUSE 04><STR_TAIL>!<BTN>
+<MSGCLEAR><DEMONPC0 000014><PAUSE 08>Mmm! <PAUSE 08>If I do say so<PAUSE 04>
+myself, that was convincing!<PAUSE 08>
+<STR_TAIL>!
+<MSGEND>
+
+## 9608
+#: a villager resolving to train their eyes to read something
+<DEMONPCQST 050003><DEMONPC0 000002><PAUSE 07>What did you say?!<PAUSE 10>
+<DEMONPC0 00000f><PAUSE 17>Then<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>I gotta train my eyes<PAUSE 06>
+so I can read
+<STR_ITEM2>! <PAUSE 06><STR_TAIL>!
+<MSGEND>
+
+## 10332
+#: a cranky villager on paying back Tom Nook
+<DEMONPC0 0000ff>Hey, you,<PAUSE 08>
+are you payin' back
+what you owe Tom Nook?<BTN>
+<MSGCLEAR><DEMONPC0 000016>If you don't pay it off bit
+by bit,<PAUSE 08> your house<PAUSE 04> is
+gonna stay cramped
+forever,<PAUSE 08> <STR_TAIL>.
+<MSGEND>
+
+## 10362
+#: a cranky villager's quiz (which can't be fished?): a snapping turtle
+<DEMONPC0 000015>Ding<PAUSE 02> ding!!<PAUSE 08>
+The answer<PAUSE 04> is
+a snapping turtle!<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>You can't catch those.<SETFORCEMSG 2872>
+<MSGCONTINUE>
+
+## 9056
+#: Mr. Resetti, called and kept waiting, on another reset
+<BGMDELETE 0000><BGMMAKE 0500><DEMONPC0 000022>Hey, you<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 08><BTN>
+<MSGCLEAR>When somebody calls you,<PAUSE 08>
+you get over here<PAUSE 04>
+on the double!<BTN>
+<MSGCLEAR>.<PAUSE 03>.<PAUSE 03>.<DEMONPC0 000024><PAUSE 03><SNDTRGSYS 05>What's with that<PAUSE 08>
+<PAUSE 04>defiant <PAUSE 04>look, huh?!<BTN>
+<MSGCLEAR><DEMONPC0 000022><SNDTRGSYS 05>You ain't sorry<PAUSE 01> one<PAUSE 01> bit<PAUSE 04>,
+are ya<PAUSE 06>, pal?!<PAUSE 08><BTN>
+<MSGCLEAR><DEMONPC0 000025><SNDTRGSYS 05>"What do you mean?"<PAUSE 14>
+<DEMONPC0 000021>Don't gimme that!<PAUSE 0a>
+Don't play dumb with me!<DEMONPC0 000022><BTN>
+<MSGCLEAR><SNDTRGSYS 05>The reset!<PAUSE 04> The RESET!<PAUSE 0c>
+<SNDTRGSYS 05>You hit RESET again!<BTN>
+<MSGCLEAR><SNDTRGSYS 05>After all I told you,<PAUSE 08>
+<SNDTRGSYS 05>you went and hit it <PAUSE 04>AGAIN!<BTN>
+<SETFORCEMSG 2361>
+<FORCENEXT>
+<MSGCONTINUE>
+
+## 9494
+#: Mr. Resetti, his laundry left half done
+<DEMONPC0 000023>Sigh<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 08>
+<MSGCLEAR>How do I get it
+through your head?<DEMONPC0 0000ff><BTN>
+<MSGCLEAR>Listen,<PAUSE 10> I left my laundry
+half done to come here.<BTN>
+<MSGCLEAR>If I don't get home quick<PAUSE 08>
+and hang it out to dry,<PAUSE 10>
+<DEMONPC0 000022>my clothes'll get all<PAUSE 04> wrinkly,<BTN>
+<MSGCLEAR><SNDTRGSYS 05><DEMONPC0 000022>and they'll smell like
+an old dishrag!<BTN>
+<SETFORCEMSG 2513>
+<FORCENEXT>
+<MSGCONTINUE>

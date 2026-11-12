@@ -93,9 +93,13 @@ which the en build reads as them), MALEFEMALECHK keeps its first alternative,
 SELNOBCLOSE becomes the N64's SELNOB, anything else is kept and reported
 for the check to refuse. Characters the N64 charset lacks are given
 their plain ASCII (é -> e, the GameCube's marks their nearest; each
-replacement is counted). An official message naming free strings the
-Japanese does not gets a `#: TODO adapt` note. --overrides files (our own
-translations, in the repository) replace messages by number.
+replacement is counted). An official message takes the cartridge's codes
+that steer the game (mend: the GameCube's are its own game's), or where
+it cannot, the draft has the cartridge's Japanese with a `#: TODO
+translate` note; MESSAGE_REMAP takes five from a twin of the same
+Japanese. An official message naming free strings the Japanese does not
+gets a `#: TODO adapt` note. --overrides files (our own translations, in
+the repository) replace messages by number.
 """
 
 import collections
@@ -161,6 +165,11 @@ def letter_count(bank):
 LETTER_REMAP = {"mail_body": {422: 423, 423: 424, 427: 429, 428: 426, 430: 428, 432: 431, 433: 432, 434: 433,
                               438: 439, 440: 437, 446: 445, 447: 446, 448: 447, 449: 448, 450: 449, 451: 450,
                               452: 451}}
+# Messages whose Japanese, codes and all, is another message's (a villager meeting the player late at night,
+# 11198-11211 and 11724-11737 the same set), where the GameCube wrote the first for a meeting of its own (a
+# villager moved in from another town, free string 10, which the cartridge does not fill): the GameCube's
+# text of the other number. Numbers only.
+MESSAGE_REMAP = {11198: 11724, 11203: 11729, 11205: 11731, 11207: 11733, 11209: 11735}
 
 
 LETTER_FIRST = {}
@@ -175,6 +184,121 @@ def carried(tokens):
 def steering(tokens):
     """The codes that steer the game, with their arguments, in order."""
     return [(t[1], t[2]) for t in tokens if t[0] == "c" and t[1] not in NOT_STEERING]
+
+
+# The official text's codes that steer the game (reference/NOTES.md, "The official text's codes"). The
+# GameCube's game reads its own: talk orders moved to the beats of its English, given in other slots or as
+# quest orders (DEMONPCQST), a choice of its own (an answer past the cartridge's 460 choices, a next message
+# its bank has), a luck or sound code more or less. The en build runs the cartridge's code, so the draft
+# gives each official message the cartridge's codes (mend), or the cartridge's Japanese where it cannot.
+SETSELSTR = {NAMES["SETSELSTR2"], NAMES["SETSELSTR3"], NAMES["SETSELSTR4"]}
+RANDOM_NEXT = {NAMES["SETNEXTMSGRND2"], NAMES["SETNEXTMSGRND3"], NAMES["SETNEXTMSGRND4"]}
+
+
+SOUNDS = {NAMES["SNDTRGSYS"], NAMES["SNDNOPAGE"]}
+
+
+def _text_end(tokens):
+    """Where the codes after the message's last text begin (a full stop after them, which the window never
+    reaches, is not text)."""
+    i = len(tokens)
+    while i and not (tokens[i - 1][0] == "t" and tokens[i - 1][1].strip("\n 。")):
+        i -= 1
+    return i
+
+
+def _sounds_aligned(theirs, end, codes, plain):
+    """theirs[:end] with its codes (plain ones) made codes where the two differ only by sounds the one has
+    and the other not (a sound trigger more or less in a run of them): the other codes matched in order, a
+    sound of theirs alone dropped, one of the cartridge's alone put after the code before it (or before the
+    one after it). None when other codes differ."""
+    mine = [i for i in range(end) if plain(theirs[i])]
+    a, b = [theirs[i][1:] for i in mine], [t[1:] for t in codes]
+    # an order-preserving match of equal codes (longest common subsequence)
+    lcs = [[0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    for i in range(len(a) - 1, -1, -1):
+        for j in range(len(b) - 1, -1, -1):
+            lcs[i][j] = lcs[i + 1][j + 1] + 1 if a[i] == b[j] else max(lcs[i + 1][j], lcs[i][j + 1])
+    pairs, i, j = [], 0, 0
+    while i < len(a) and j < len(b):
+        if a[i] == b[j]:
+            pairs.append((i, j))
+            i, j = i + 1, j + 1
+        elif lcs[i + 1][j] >= lcs[i][j + 1]:
+            i += 1
+        else:
+            j += 1
+    matched_a, matched_b = set(p[0] for p in pairs), set(p[1] for p in pairs)
+    if any(a[k][0] not in SOUNDS for k in range(len(a)) if k not in matched_a) or \
+            any(b[k][0] not in SOUNDS for k in range(len(b)) if k not in matched_b):
+        return None
+    after = {}                                   # the cartridge's lone sounds, by the token they follow
+    for k in range(len(b)):
+        if k in matched_b:
+            continue
+        before = [p for p in pairs if p[1] < k]
+        at = mine[before[-1][0]] + 1 if before else (mine[next(p for p in pairs if p[1] > k)[0]] if pairs else end)
+        after.setdefault(at, []).append(("c",) + b[k])
+    out = []
+    drop = set(mine[k] for k in range(len(a)) if k not in matched_a)
+    for i in range(end + 1):
+        out += after.get(i, [])
+        if i < end and i not in drop:
+            out.append(theirs[i])
+    return out
+
+
+def _flow(codes):
+    """What the codes after a message's text do: open a choice, force a next message, pick one at random,
+    and how the message ends."""
+    names = set(t[1] for t in codes)
+    return (NAMES["OPENCHOICE"] in names, NAMES["SETFORCEMSG"] in names, bool(names & RANDOM_NEXT),
+            next((t[1] for t in reversed(codes) if t[1] in TERMINATORS), None))
+
+
+def mend(cart, theirs):
+    """(theirs with the cartridge's codes that steer the game, how) or (None, why not): in its text the
+    cartridge's arguments where the codes are the same ones in the same order (a talk order aside; a sound
+    trigger more or less in a run of them, _sounds_aligned); after its text, where the two do the same
+    (both or neither open a choice, force a next message, pick one at random; the same ending), the
+    cartridge's codes, its choice's strings among them (the GameCube's choices are its own: a quiz's
+    answers for its own events); then the talking animal's orders in every slot dropped and the
+    cartridge's put back at the beats of the English (af_nafe_text.recover with any_order)."""
+    import af_nafe_text                                  # recover's place-finding; it imports this module
+    if steering(theirs) == steering(cart):
+        return theirs, ""
+    is_order = af_nafe_text.any_order
+
+    def plain(t):
+        return t[0] == "c" and t[1] not in NOT_STEERING and not is_order(t)
+    ct, tt = _text_end(cart), _text_end(theirs)
+    c_mid, t_mid = [t for t in cart[:ct] if plain(t)], [t for t in theirs[:tt] if plain(t)]
+    how = []
+    if [t[1] for t in c_mid] != [t[1] for t in t_mid]:
+        head = _sounds_aligned(theirs, tt, c_mid, plain)
+        if head is None:
+            return None, "codes in its text"
+        theirs = head + list(theirs[tt:])
+        tt = len(head)
+        t_mid = [t for t in theirs[:tt] if plain(t)]
+        how.append("sounds")
+    out = list(theirs)
+    for i, t in zip([i for i in range(tt) if plain(theirs[i])], c_mid):
+        out[i] = t
+    if c_mid != t_mid:
+        how.append("arguments")
+    c_tail, t_tail = [t for t in cart[ct:] if plain(t)], [t for t in theirs[tt:] if plain(t)]
+    if c_tail != t_tail:
+        if _flow(c_tail) != _flow(t_tail):
+            return None, "what it does after its text"
+        out = out[:tt] + list(cart[ct:])
+        how.append("codes after the text")
+    if steering(out) != steering(cart):
+        out = af_nafe_text.recover(cart, out, is_order)
+        if out is None or steering(out) != steering(cart):
+            return None, "talk orders"
+        how.append("talk orders")
+    return out, ", ".join(how)
 
 
 def filled(tokens):
@@ -688,7 +812,9 @@ def compile_letters(paths, text_path, index_path, cols=32, lines=4):
 
 
 def draft(n64_path, gc_path, align_path, out_path, overrides, remap=None):
-    """remap: {number: the GameCube's number} for a bank drafted by number (LETTER_REMAP)."""
+    """remap: {number: the GameCube's number} (LETTER_REMAP for a bank drafted by number, MESSAGE_REMAP);
+    an official message takes the cartridge's codes that steer the game (mend), or where it cannot, the
+    message is the cartridge's Japanese, to translate."""
     remap = remap or {}
     n64 = load_bank(n64_path)
     if gc_path == "-":                      # no GameCube bank (the villagers' footers): the sender's name, ours
@@ -710,6 +836,8 @@ def draft(n64_path, gc_path, align_path, out_path, overrides, remap=None):
         for line in open(align_path, encoding="utf-8").read().splitlines()[1:]:
             number, cls = line.split("\t")[:2]
             classes[int(number)] = cls
+        for n, theirs in remap.items():     # the other number's Japanese is this one's: its class
+            classes[n] = classes.get(theirs, "different")
     ours = {}
     for path in overrides:
         ours.update(load_bank(path))
@@ -724,18 +852,29 @@ def draft(n64_path, gc_path, align_path, out_path, overrides, remap=None):
             tokens = adapt(gc[n], counts) if gc.get(n) else []
             counts["beyond the cartridge"] += 1
         elif cls in ("same", "plain", "edited") and remap.get(n, n) in gc:
-            tokens = adapt(gc[remap.get(n, n)], counts)
-            counts["official " + cls] += 1
-            if n in remap:
-                note = "#: the GameCube's letter %d (LETTER_REMAP)\n" % remap[n]
-                counts["official, from another number"] += 1
-            if cls == "edited":
-                note = "#: the GameCube edited this message; the Japanese had: %s\n" % render(n64[n]).replace("\n", "¶")
-            unfilled = free_strings(tokens) - free_strings(n64[n])
-            if unfilled:
-                note += "#: TODO adapt: the GameCube's text prints %s, which the cartridge does not fill here\n" \
-                    % ", ".join(sorted(unfilled))
-                counts["official, free strings to adapt"] += 1
+            tokens, why = mend(n64[n], adapt(gc[remap.get(n, n)], counts))
+            if tokens is None:
+                tokens = n64[n]
+                counts["japanese, the GameCube's steers otherwise"] += 1
+                note = "#: TODO translate (the GameCube's text steers the game otherwise: %s)\n" % why
+            else:
+                counts["official " + cls] += 1
+                if n in remap:
+                    note = "#: the GameCube's %s %d (%s)\n" % ("letter" if align_path == "-" else "message",
+                                                               remap[n], "LETTER_REMAP" if align_path == "-"
+                                                               else "MESSAGE_REMAP")
+                    counts["official, from another number"] += 1
+                if cls == "edited":
+                    note += "#: the GameCube edited this message; the Japanese had: %s\n" % \
+                        render(n64[n]).replace("\n", "¶")
+                if why:
+                    note += "#: the cartridge's codes that steer the game put back: %s\n" % why
+                    counts["official, the cartridge's codes put back"] += 1
+                unfilled = free_strings(tokens) - free_strings(n64[n])
+                if unfilled:
+                    note += "#: TODO adapt: the GameCube's text prints %s, which the cartridge does not fill here\n" \
+                        % ", ".join(sorted(unfilled))
+                    counts["official, free strings to adapt"] += 1
         else:
             tokens = n64[n]
             counts["japanese " + cls] += 1
@@ -791,7 +930,8 @@ def main(argv):
         opts["--max-bytes"] = LETTER_CAPS.get(bank, N64_BANKS[bank][3])
     cmd = args[0]
     if cmd == "draft":
-        draft(args[1], args[2], args[3], args[4], overrides, LETTER_REMAP.get(bank))
+        draft(args[1], args[2], args[3], args[4], overrides,
+              MESSAGE_REMAP if bank == "message" else LETTER_REMAP.get(bank))
         return 0
     messages, laid_numbers = load_bank(args[1]), set()
     for path in overrides:

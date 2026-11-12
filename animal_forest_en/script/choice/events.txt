@@ -1,0 +1,15 @@
+# Our own English for the choices that name the cartridge's events where the GameCube's choice of the same
+# number names its own (reference/NOTES.md, "The GameCube's own events"): Children's Day (its Father's
+# Day), the moon viewing (its meteor shower) and Christmas Eve, Jingle's night (its "Winter Festival"; its
+# messages name the night nowhere). The villagers' quizzes offer them (2780-2783, 4631, 6026, 7655, 8049,
+# 10171). tools/msgbank.py's dump form, one line each; make script lays them over the choice
+# bank's draft by number.
+
+## 187
+Children's Day
+
+## 191
+Moon Viewing
+
+## 193
+Christmas Eve

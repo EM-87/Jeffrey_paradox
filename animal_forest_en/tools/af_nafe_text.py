@@ -103,15 +103,20 @@ def talk_order(it):
     return it[0] == "c" and it[1] == DEMONPC0 and it[2][:1] == b"\0"
 
 
-def steers_item(it):
-    return it[0] == "c" and it[1] not in af_text.NOT_STEERING and not talk_order(it)
+def any_order(it):
+    """An order of the talking animal in any slot (DEMONPC0, DEMONPCQST): what af_text.mend puts back."""
+    return it[0] == "c" and it[1] in (DEMONPC0, NAMES["DEMONPCQST"])
 
 
-def _segments(items):
+def steers_item(it, is_order=talk_order):
+    return it[0] == "c" and it[1] not in af_text.NOT_STEERING and not is_order(it)
+
+
+def _segments(items, is_order=talk_order):
     """The items between the codes that steer the game, and those codes."""
     segs, cur, cuts = [], [], []
     for it in items:
-        if steers_item(it):
+        if steers_item(it, is_order):
             segs.append(cur)
             cuts.append(it)
             cur = []
@@ -153,18 +158,19 @@ def _beats(items, kind):
             ok = prev is not None and prev[0] == "c" and prev[1] == BTN
         elif kind == "line":
             ok = prev == ("ch", "\n")
-        else:                                    # before a word
-            ok = i == 0 or (prev[0] == "ch" and prev[1] in " \n" and i < len(items) and items[i][0] == "ch")
+        else:                                    # before a word, or after the segment's last
+            ok = i == 0 or (prev[0] == "ch" and prev[1] in " \n" and i < len(items) and items[i][0] == "ch") or \
+                (i == len(items) and prev[0] == "ch" and prev[1] not in " \n")
         if ok:
             out.append(i)
     return out
 
 
-def _recover_segment(c_seg, n_seg):
-    orders = [(it, _place(c_seg, i), _context(c_seg, i)) for i, it in enumerate(c_seg) if talk_order(it)]
+def _recover_segment(c_seg, n_seg, is_order=talk_order):
+    orders = [(it, _place(c_seg, i), _context(c_seg, i)) for i, it in enumerate(c_seg) if is_order(it)]
     clean, points = [], []
     for it in n_seg:
-        if talk_order(it):
+        if is_order(it):
             points.append((len(clean), it))
         else:
             clean.append(it)
@@ -205,23 +211,23 @@ def _recover_segment(c_seg, n_seg):
     return out
 
 
-def recover(cart, theirs):
-    """Their message with its talk orders in slot 0 dropped and the cartridge's put back (module doc), or
-    None when the codes that steer the game differ otherwise."""
-    c_segs, c_cuts = _segments(af_text._items(cart))
-    n_segs, n_cuts = _segments(af_text._items(theirs))
+def recover(cart, theirs, is_order=talk_order):
+    """Their message with its talk orders in slot 0 (is_order: any_order, every slot's) dropped and the
+    cartridge's put back (module doc), or None when the codes that steer the game differ otherwise."""
+    c_segs, c_cuts = _segments(af_text._items(cart), is_order)
+    n_segs, n_cuts = _segments(af_text._items(theirs), is_order)
     if c_cuts != n_cuts:
         return None
     out = []
     for k, (c_seg, n_seg) in enumerate(zip(c_segs, n_segs)):
-        out += _recover_segment(c_seg, n_seg)
+        out += _recover_segment(c_seg, n_seg, is_order)
         if k < len(n_cuts):
             out.append(n_cuts[k])
     out = af_text._merge(out)
     # what it must be: the cartridge's codes that steer the game, their text and their other codes
     if steering(out) != steering(cart) or \
-            [it for it in af_text._items(out) if not talk_order(it)] != \
-            [it for it in af_text._items(theirs) if not talk_order(it)]:
+            [it for it in af_text._items(out) if not is_order(it)] != \
+            [it for it in af_text._items(theirs) if not is_order(it)]:
         raise AssertionError("talk orders not put back as the cartridge's")
     return out
 

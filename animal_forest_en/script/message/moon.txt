@@ -1,0 +1,226 @@
+# Our own English for the villagers' talk of the Thirteenth Night: the cartridge has two moon viewings in
+# autumn, the harvest moon (the 15th of the old calendar's 8th month) and the Thirteenth Night (the 13th
+# of its 9th month, a moon a little short of full), and the GameCube only the first, so its text for these
+# numbers talks of the harvest moon and prints its date (free strings 16 and 17) where the cartridge's
+# talks of the second. The villagers' talk fills 16/17 with the harvest moon's date and 18/19 with the
+# Thirteenth Night's, each a month ("Oct", the en build's three letters) and a day ("13th"), from the old
+# calendar (the talk overlay's func_8091FEC8_jp, lbRk_ToSeiyouReki): printed "<STR_FREE18> <STR_FREE19>".
+# From the cartridge's text; tools/msgbank.py's dump form, as ours.txt (its header says how the build lays
+# it over the bank and what af_text.py holds it to).
+
+## 2983
+#: a snooty villager on the Thirteenth Night's moon
+<DEMONPC0 0000ff>Ever heard of the Thirteenth
+<DEMONPC0 00000b>Night moon? <PAUSE 06><STR_TAIL>?<BTN><DEMONPC0 0000ff>
+The harvest moon is
+perfectly round, but<BTN>
+<MSGCLEAR>the Thirteenth Night moon<PAUSE 08>
+is just a little short
+of full,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR>But<PAUSE 06> that little
+imbalance is what<PAUSE 08>
+<DEMONPC0 000014>makes it so dreamy and
+mysterious,<PAUSE 06> <STR_TAIL>!<BTN><DEMONPC0 000015>
+<MSGCLEAR>Hmhm.<PAUSE 0c>
+I wonder if a charm that
+subtle is lost on you,<PAUSE 08>
+<STR_PLAYERNAME>,<PAUSE 06> <STR_TAIL>.
+<MSGEND>
+
+## 2984
+#: a snooty villager, a connoisseur, on the date of the Thirteenth Night
+<DEMONPC0 0000ff>By the old calendar, the
+13th of the 9th month<PAUSE 06> brings
+the Thirteenth Night moon.<BTN>
+<MSGCLEAR>People of taste view the
+moon that night, too,<PAUSE 06>
+<STR_TAIL>.<BTN><DEMONPC0 000015>
+<MSGCLEAR>And of course I have
+taste,<PAUSE 08> so I'll be viewing
+the moon by the pond,<PAUSE 06>
+<STR_TAIL>.<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>I'll tell you, since
+you'd never know otherwise:<BTN>
+<MSGCLEAR>this year, the old calendar's
+13th of the 9th month<PAUSE 08>
+falls on<PAUSE 04> <STR_FREE18> <STR_FREE19>,<PAUSE 06>
+<STR_TAIL>!
+<MSGEND>
+
+## 4526
+#: a polite villager on the year's two moon viewings
+<DEMONPC0 0000ff>There are two moon viewings<PAUSE 06>
+every year, you know.<BTN>
+First the harvest moon,<PAUSE 0a>
+then the Thirteenth Night.
+<BTN>
+<MSGCLEAR>This year it falls on
+<STR_FREE18> <STR_FREE19>,<PAUSE 06> and
+<DEMONPC0 00000b>of course you're going?<PAUSE 08>
+<STR_TAIL>?
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>This moon won't quite
+be full,<PAUSE 06> but I think
+it has a charm all its
+own,<PAUSE 08> <STR_TAIL>!
+<MSGEND>
+
+## 4527
+#: a polite villager inviting the player to the Thirteenth Night's viewing by the pond
+<DEMONPC0 0000ff>On <STR_FREE18> <STR_FREE19>,<PAUSE 06>
+please come down to
+the pond,<PAUSE 08> <STR_TAIL>!
+<BTN>
+<MSGCLEAR>We'll be viewing the moon
+from 6 in the evening.<PAUSE 06>
+<DEMONPC0 00000b>Did you know that night
+is the Thirteenth Night?
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>A moon just a little short
+of full<PAUSE 06> is a big hit
+with moon-viewing fans!
+<PAUSE 08><STR_TAIL>!
+<BTN>
+<MSGCLEAR>You should see it
+for yourself, too!
+<MSGEND>
+
+## 6157
+#: a peppy villager: the Thirteenth Night's name, and its fans
+<DEMONPC0 0000ff>"Thirteenth Night" sounds
+kind of unlucky,<PAUSE 06> but that
+moon's a tiny bit chipped,
+and fans think it's cute!
+<BTN>
+<MSGCLEAR>If you missed the
+harvest moon,<PAUSE 06> you just
+HAVE to see this one!<PAUSE 08>
+<STR_TAIL>!
+<MSGEND>
+
+## 6158
+#: a peppy villager on this year's Thirteenth Night
+<DEMONPC0 000006><PAUSE 14>Oh, that reminds me,<PAUSE 06>
+it's almost the Thirteenth
+Night, isn't it?
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>It's the old calendar's 13th
+of the 9th month,<PAUSE 06> so this
+year it's on <STR_FREE18> <STR_FREE19>,<PAUSE 08>
+<STR_TAIL>!
+<BTN>
+<MSGCLEAR>If you're free,
+<STR_PLAYERNAME>, you should
+go see it! <PAUSE 08><STR_TAIL>!
+<MSGEND>
+
+## 9998
+#: a cranky villager on last month's moon and this one's
+<DEMONPC0 0000ff>There's another moon viewing
+comin' up.<PAUSE 10> Last month's was
+the harvest moon,<PAUSE 08> and this
+one's the Thirteenth Night.<BTN>
+<MSGCLEAR>The Thirteenth Night moon<PAUSE 04>
+ain't perfectly round.<PAUSE 0c>
+It's missin' a little sliver,<BTN>
+<MSGCLEAR><DEMONPC0 000015>and that's what gives it
+class,<PAUSE 04> see!<PAUSE 14> Once you can
+appreciate that,<PAUSE 04> you're
+a real grown-up.
+<MSGEND>
+
+## 9999
+#: a cranky villager on the old calendar and the Thirteenth Night's date
+<DEMONPC0 0000ff>You know about<PAUSE 04> the
+"old calendar"? <PAUSE 08><STR_TAIL>?<BTN>
+<MSGCLEAR><DEMONPC0 000016>Way back when,<PAUSE 04> folks
+used another calendar.<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>Now we use the "new" one,<PAUSE 08>
+but back when samurai
+wore topknots,<PAUSE 04> folks used
+the "old" one.<BTN>
+<MSGCLEAR><DEMONPC0 000015>So,<PAUSE 06> the old calendar's<PAUSE 04>
+13th of the 9th month is
+the Thirteenth Night.<PAUSE 10>
+We view the moon then, too.<BTN>
+<MSGCLEAR>On today's calendar,<PAUSE 08>
+that's <STR_FREE18> <STR_FREE19>
+this year.
+<MSGEND>
+
+## 10194
+#: a lazy villager on the Thirteenth Night's moon, a little short of full
+<DEMONPC0 0000ff>They say the moon this
+Thirteenth Night<PAUSE 0c> is
+missing a tiny bit,<PAUSE 06>
+<STR_TAIL>.
+<BTN>
+<MSGCLEAR><DEMONPC0 000017>I bet at the harvest
+moon,<PAUSE 0c> it looked
+so tasty that
+<BTN>
+<MSGCLEAR>somebody went and
+took a little
+nibble.<PAUSE 0c>
+<DEMONPC0 00000f><PAUSE 17>And I held back<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<MSGEND>
+
+## 10195
+#: a lazy villager on the moon viewing's dumplings
+<DEMONPC0 0000ff>At moon viewings,<PAUSE 0c>
+there are always
+dumplings set out, but
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>we've gotta be careful<PAUSE 06>
+not to eat the moon
+by mistake,
+<PAUSE 06><STR_PLAYERNAME>.
+<MSGEND>
+
+## 10278
+#: a jock villager on last month's moon and this one's
+<DEMONPC0 000015>Man,<PAUSE 0c>
+last month's moon was
+great and all, but
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>the moon comin' out on
+<STR_FREE18> <STR_FREE19><PAUSE 06> is gonna
+be great, too!<PAUSE 08>
+<STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000016>It's what they call<PAUSE 0c>
+the Thirteenth Night moon!
+<PAUSE 08><STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>It's a bit more chipped
+than the last one,<PAUSE 0c>
+but if you squint,
+it's pretty much full.
+<BTN>
+<MSGCLEAR><DEMONPC0 00000f><PAUSE 17>Me,<PAUSE 06>
+I'd rather have<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 0c>
+<DEMONPC0 00000e>the sun! It's my
+favorite! <PAUSE 06><STR_TAIL>!
+<MSGEND>
+
+## 10279
+#: a jock villager inviting the player to the Thirteenth Night's viewing by the pond
+<DEMONPC0 000015>On long autumn nights,<PAUSE 0c>
+it's nice to view the moon
+and soak up that mellow
+moony mood,<PAUSE 06> <STR_TAIL>.
+<BTN>
+<MSGCLEAR><DEMONPC0 00000a><PAUSE 08>Last month's
+harvest moon<PAUSE 0c> was
+totally awesome.
+<PAUSE 08><STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>On <STR_FREE18> <STR_FREE19>,<PAUSE 0c> we're
+viewing the moon by
+the pond again,<PAUSE 0e> so
+come on out and see it!
+<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>This one's a little
+chipped, though.<PAUSE 10>
+<DEMONPC0 00000e>But don't let that stop you!
+<MSGEND>

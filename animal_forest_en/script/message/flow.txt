@@ -1,0 +1,373 @@
+# Our own English for official messages whose GameCube text the draft cannot give the cartridge's codes
+# that steer the game (af_text.mend; reference/NOTES.md, "The official text's codes"): there the
+# GameCube's text does something else, so it is not that message's English. A villager's luck put back
+# to neutral (1889-1899: the GameCube's goes on to messages of its own), Tom Nook's talks on the house and
+# on the part-time job's end (2026, 2074: the GameCube's split across other messages), villagers asking
+# a question (a choice) the cartridge's do not or going on where the cartridge's end (3856-10340: moving
+# away, which on the cartridge takes the player's train trip). From the cartridge's text; tools/msgbank.py's
+# dump form, as ours.txt (its header says how the build lays it over the bank and what af_text.py holds
+# it to).
+
+## 1889
+#: a polite villager charmed by the player's luck, which then wears off
+<DEMONPC0 000014><PAUSE 28><DEMONPC0 000015><STR_PLAYERNAME>!<PAUSE 0f>
+You look
+abso<PAUSE 02>lutely lovely today!
+<BTN>
+<MSGCLEAR><LUCK_NEUTRAL><DEMONPC0 0000ff>.<PAUSE 06>.<PAUSE 06>.<DEMONPC0 00000b><PAUSE 06>Huh?<BTN>
+<DEMONPC0 000017>Looking closer,
+maybe not so much,<PAUSE 08>
+<STR_TAIL>.
+<MSGEND>
+
+## 1891
+#: a peppy villager charmed by the player's luck, which then wears off
+<DEMONPC0 000014><PAUSE 28><DEMONPC0 000007>It's no use!<PAUSE 14>
+I can't stop thinking
+about <STR_PLAYERNAME>!<PAUSE 08>
+<STR_TAIL>!
+<BTN>
+<MSGCLEAR>I have to do something!<PAUSE 0c>
+<LUCK_NEUTRAL><DEMONPC0 000016>OK,<PAUSE 06>
+time to snap out of it!<PAUSE 08>
+<STR_TAIL>!
+<MSGEND>
+
+## 1895
+#: a lazy villager charmed by the player's luck, which then wears off
+<DEMONPC0 000014><PAUSE 0f><STR_PLAYERNAME>,<PAUSE 0c>
+you're
+so charming, y'know!
+<BTN>
+<MSGCLEAR><LUCK_NEUTRAL><DEMONPC0 0000ff><PAUSE 1e><DEMONPC0 000017>But,<PAUSE 06>
+I think I'm kinda
+gettin' tired of you now,<PAUSE 08>
+<STR_TAIL>...
+<MSGEND>
+
+## 1896
+#: a jock villager drawn to the player's luck
+Whoa<PAUSE 02>a<PAUSE 02>a!<PAUSE 06>
+<STR_PLAYERNAME><PAUSE 02>!<PAUSE 02>!<PAUSE 02>!<PAUSE 0c>
+I dunno wh<PAUSE 02>y, but<LUCK_NEUTRAL><BTN>
+<MSGCLEAR>I really wanted
+to see you,<PAUSE 08> <STR_TAIL>!
+<DEMONPC0 020001><DEMONPC0 08000a><PAUSE 01>
+<MSGEND>
+
+## 1898
+#: a jock villager drawn to the player's luck, which then wears off
+Hey,<PAUSE 08> <STR_PLAYERNAME>!<PAUSE 0c>
+I wanted to see you
+so bad,<PAUSE 08> <STR_TAIL>!<BTN>
+<MSGCLEAR>But now that I see you,<PAUSE 04>
+it's no big deal.<PAUSE 10>
+What's up with that?
+<LUCK_NEUTRAL>
+<MSGEND>
+
+## 1899
+#: a cranky villager drawn to the player's luck
+Yo-o-o!<PAUSE 08>
+<STR_PLAYERNAME>!!!<LUCK_NEUTRAL><BTN>
+<MSGCLEAR>For some reason,<PAUSE 08>
+I've been dyin'
+to see ya,<PAUSE 08> <STR_TAIL>!
+<DEMONPC0 020001><DEMONPC0 08000a><PAUSE 01>
+<MSGEND>
+
+## 2026
+#: Tom Nook showing the player the new house: furniture, other rooms, the gyroid that saves the day
+As you can see,<PAUSE 08>
+the room is <PAUSE 04>emp<PAUSE 02>ty,<PAUSE 06>
+with no furniture at all.<BTN>
+<MSGCLEAR>Whatever you need,<PAUSE 08> you'll
+have to get yourself.<BTN>
+I can't take care of
+everything, yes?<BTN>
+<MSGCLEAR>In your own room <PAUSE 08>you can
+put things wherever you like,<BTN>
+but don't move things in<PAUSE 08>
+other people's rooms!!<BTN>
+<MSGCLEAR>Not that you <PAUSE 08>could!<PAUSE 08>
+<DEMONPC0 000003>Ha ha ha ha!<BTN><DEMONPC0 000015>
+Well,<PAUSE 06> fiddle a little, and<PAUSE 04>
+no one may notice.<PAUSE 0c><DEMONPC0 000003> Ha ha!<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>Visiting other people's rooms<PAUSE 08>
+to see what they're like<BTN>
+is important for studying
+interior design, yes!<BTN>
+<MSGCLEAR>And<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<PAUSE 08> that odd
+thing by the door<BTN>
+is called the <COLORCHARS e11ed706>Gyroid.<PAUSE 0a>
+Yes.<BTN>
+<MSGCLEAR>When you're out<PAUSE 08> and
+someone comes to visit,<BTN>
+this <PAUSE 04><COLORCHARS e11ed706>Gyroid<PAUSE 06> will
+look after them, hm.<BTN>
+<MSGCLEAR>Teach it a message,<PAUSE 08>
+and it will pass it on
+to your visitors,<BTN>
+<MSGCLEAR>and leave items with it,<PAUSE 08>
+and it can give them to
+visitors<PAUSE 06> or sell them, yes!<BTN>
+<MSGCLEAR>Now, listen closely!!!<BTN>
+When you end the game, <PAUSE 08>
+<COLORCHARS c35f0006>al<PAUSE 04>ways<PAUSE 04>
+talk to the <COLORCHARS e11ed706>Gyroid!!!<BTN>
+<MSGCLEAR>It will record everything
+you did that day,<PAUSE 08>
+all<PAUSE 04> of it,<PAUSE 08> yes!<BTN>
+<MSGCLEAR>If you forget and
+just say good-bye,<PAUSE 04><DEMONPC0 000007><PAUSE 04>
+everything, <PAUSE 04>all of it,
+will be for nothing<PAUSE 06>, hm!!<BTN>
+<MSGCLEAR><DEMONPC0 000015>Please,<PAUSE 04> don't
+ever forget, yes.<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>And that's <PAUSE 04>the end of
+my explanation.<BTN>
+<MSGCLEAR>Anything you're unsure of?<PAUSE 10>
+Shall I <DEMONPC0 00000b>go over it again?
+<SETSELSTR2 00100036><BTN><OPENCHOICE><SETNEXTMSG1 081d><SETNEXTMSG0 081e><FORCENEXT><DEMONPC0 0000ff>
+<MSGCONTINUE>
+
+## 2074
+#: Tom Nook at the part-time job's end: the house's price, the post office, a bigger house
+Welcome back!<PAUSE 0c>
+Did you <DEMONPC0 00000b>write it up properly?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Yes, yes, thank you.<PAUSE 14>
+That <PAUSE 06>m<PAUSE 04>e<PAUSE 04>a<PAUSE 04>n<PAUSE 04>s<PAUSE 02>.<PAUSE 02>.<PAUSE 02>.<BTN>
+<MSGCLEAR><DEMONPC0 00000a>Ahh,<PAUSE 08> done, all done!!<BTN>
+All the work piled up<PAUSE 08><DEMONPC0 000015>
+is all<PAUSE 08> done!!!<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>There's no more work
+for you to do,<PAUSE 08> so your
+part-time job is over, yes.<BTN>
+<MSGCLEAR><DEMONPC0 00000b>Eh? <PAUSE 06>The house's price?<PAUSE 0a>
+<DEMONPC0 0000ff>Why, of course you'll
+pay it,<PAUSE 08> every
+last Bell, hm!<BTN>
+<MSGCLEAR>Your part-time pay<PAUSE 04>
+so far, 1,400 Bells<PAUSE 06>
+in all, comes off it,<BTN>
+<MSGCLEAR>so what's left<PAUSE 08>
+is 17,400 Bells.<BTN>
+<MSGCLEAR>But<PAUSE 06> there's no more
+work for you here,<PAUSE 08>
+so from now on, you'll
+manage on your own, yes!<BTN>
+<MSGCLEAR>Help out the folks
+in town,<BTN>
+<MSGCLEAR>sell the things
+you don't need,<PAUSE 06>
+and earn some money, hm.<BTN>
+<MSGCLEAR>When you want to sell
+something, just ask me.<BTN>
+I'll buy it at the
+best price I can, yes.<BTN>
+<MSGCLEAR>And <PAUSE 04>for the house's price,<PAUSE 08>
+please pay it in at the
+<COLORCHARS 4ba0000b>post office.<BTN>
+<MSGCLEAR>About 1,000 Bells<PAUSE 06>
+a week
+paid in<PAUSE 06>
+will be plenty, yes.<BTN>
+<MSGCLEAR>Once it's all paid off,<PAUSE 08>
+I'll gladly talk with you
+about<PAUSE 04> making your
+house bigger, hm.<BTN>
+<MSGCLEAR>Your house now
+is small,<PAUSE 08>
+and you'd like a roomier
+place to live, yes?<BTN>
+<MSGCLEAR>Well, then,<PAUSE 08>
+thanks for all your work.<PAUSE 0f>
+When you go shopping,<PAUSE 06> please
+shop at my store, <PAUSE 04>yes.
+<MSGEND>
+
+## 3856
+#: a villager wondering at a day of snow
+<DEMONPC0 0000ff>It's been snowing
+nonstop since this
+morning, but<BTN><DEMONPC0 00000f>
+<MSGCLEAR><PAUSE 0a>where up in that sky
+was all this snow
+kept, I wonder?<BTN><DEMONPC0 000015>
+<MSGCLEAR>It's so mysterious,
+<STR_TAIL>.
+<MSGEND>
+
+## 4006
+#: a snooty villager tired of the same scenery, wishing to move with the player
+<DEMONPC0 0000ff>Day after day,<PAUSE 08>
+looking at the same old
+scenery<PAUSE 08> gets so boring.<BTN>
+<MSGCLEAR>Sometimes<PAUSE 08>
+I want to try living
+somewhere I've never been,<PAUSE 06>
+<STR_TAIL>.<BTN><DEMONPC0 000015>
+<MSGCLEAR><STR_PLAYERNAME>,<PAUSE 08><DEMONPC0 00000e>
+if you know a nice town,
+won't you take me
+there with you?<BTN><DEMONPC0 000015>
+<MSGCLEAR>Even if you say no,<PAUSE 06>
+I'll tag along anyway,<PAUSE 0c>
+<STR_TAIL>.
+<MSGEND>
+
+## 4007
+#: a snooty villager on living in many places
+<DEMONPC0 0000ff>While you're young,<PAUSE 04>
+it's important to live
+in all sorts of places,<PAUSE 06>
+<STR_TAIL>.<BTN><DEMONPC0 000015>
+<MSGCLEAR>Meeting all sorts of people<PAUSE 08>
+and getting a taste of
+all sorts of places,<BTN><DEMONPC0 000014>
+<MSGCLEAR>you break out of your
+shell, bit by bit!<BTN><DEMONPC0 000015>
+<MSGCLEAR>There must be things
+waiting out there<PAUSE 08> you
+can't do staying put,<PAUSE 06>
+<STR_TAIL>.<BTN><DEMONPC0 00000e>
+<MSGCLEAR>Maybe it's about time<PAUSE 08>
+I went off somewhere
+other than here,<PAUSE 06> <STR_TAIL>!<DEMONPC0 000015>
+<MSGEND>
+
+## 4012
+#: a snooty villager on Tom Nook's dream
+<DEMONPC0 00000b>Do you know about it?<PAUSE 0c>
+Tom Nook's dream!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>The other day, I was
+chatting with Tom Nook,<BTN>
+<MSGCLEAR>and he said, "I want to earn
+lots of money<PAUSE 08> and make my
+store bigger and bigger!"<PAUSE 0c>
+He really did!!<BTN><DEMONPC0 000015>
+<MSGCLEAR>Hmhm,<PAUSE 08> I can't wait
+to see just how big
+it gets,<PAUSE 06> <STR_TAIL>.<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>By the way,<PAUSE 08> won't your<PAUSE 04>
+house get any
+bigger than that?<BTN><DEMONPC0 000015>
+<MSGCLEAR>Take a page from Tom Nook,<PAUSE 08>
+<STR_PLAYERNAME>,
+and work hard! <PAUSE 06><STR_TAIL>!
+<MSGEND>
+
+## 4604
+#: a polite villager who wants to move away, which takes the player's train trip
+<DEMONPC0 0000ff>I've been thinking<PAUSE 06> it's
+about time I moved away.
+<BTN>
+<MSGCLEAR><DEMONPC0 000017>But<PAUSE 06> there's nothing
+I can do about it
+on my own,<PAUSE 08> <STR_TAIL>.
+<BTN>
+<MSGCLEAR><DEMONPC0 000007>I mean,<PAUSE 06> even if I want
+to move, I can't go
+unless <STR_PLAYERNAME>
+takes the train!
+<BTN>
+<MSGCLEAR>So please,<PAUSE 06> find
+some reason or other
+to ride the train, OK?
+<MSGEND>
+
+## 5382
+#: a villager getting ready to move with the player's next trip
+<DEMONPC0 000006>Oh, right.<PAUSE 0c>
+You probably know already,<PAUSE 06>
+but I'm getting ready
+to move! <PAUSE 08><STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000016>Where I move depends on
+which town you go
+visit,<PAUSE 06> so think
+it over carefully!
+<BTN>
+<MSGCLEAR><DEMONPC0 000012>Otherwise,<PAUSE 06> I'll come
+right back here to
+<STR_COUNTRYNAME>! <PAUSE 08><STR_TAIL>!
+<MSGEND>
+
+## 7395
+#: a jock villager moving away, refusing to stay
+<DEMONPCQST 050003><DEMONPC0 0000ff>I still
+remember, you know.<PAUSE 10>
+The day I first met
+you<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<BTN>
+<MSGCLEAR><DEMONPC0 000016>You and me,<PAUSE 0c>
+we've got lots
+of memories.<BTN>
+<DEMONPC0 000017>But<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<BTN>
+<MSGCLEAR><DEMONPC0 000007><PAUSE 05>No way!<PAUSE 06> <STR_PLAYERNAME>!<PAUSE 0c>
+Even if you ask,<PAUSE 03>
+I can't give in
+on this one,<PAUSE 06> <STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>Even if I end up
+in some other town,<PAUSE 0c>
+you take care, OK?
+<PAUSE 06><STR_PLAYERNAME>!
+<MSGEND>
+
+## 8198
+#: a lazy villager on sneaking up on bugs
+<DEMONPC0 0000ff><STR_PLAYERNAME>,<PAUSE 06>
+when you've got your net,<PAUSE 04>
+try tiptoeing around.
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>You look cool,
+like a ninja,<PAUSE 0c>
+and it's easier to catch
+the jumpy bugs, see!
+<MSGEND>
+
+## 10338
+#: a cranky villager restless in a dull town
+<DEMONPC0 00000f>Hmm,<PAUSE 08> lately I just<PAUSE 04>
+ain't been shinin',<PAUSE 04> y'know.<BTN>
+<MSGCLEAR><DEMONPC0 000016>Guess it's like this:<PAUSE 08>
+a guy like me<PAUSE 04> just ain't
+cut out for the dull life<PAUSE 04>
+in <STR_COUNTRYNAME>.<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>Maybe it's time I moved<PAUSE 04>
+someplace else,
+<STR_TAIL>.
+<MSGEND>
+
+## 10339
+#: a cranky villager longing for adventure
+<DEMONPC0 000016>Ahh,<PAUSE 04> no good<PAUSE 02>, no good!<PAUSE 10>
+A guy like me<PAUSE 06> shouldn't
+be smolderin' away here!<PAUSE 04>
+<PAUSE 08><STR_TAIL>!<BTN>
+<MSGCLEAR><DEMONPC0 00000e>Adventure! <PAUSE 04>Romance! <PAUSE 04>Guts!<PAUSE 0c>
+<DEMONPC0 00000a>Thrilling stuff<PAUSE 08> is out
+there waitin' for me!<BTN>
+<MSGCLEAR><DEMONPC0 000016>Lookin' at a happy-go-lucky<PAUSE 04>
+face like yours every day<PAUSE 04>
+is makin' me go soft.<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>Maybe I'll move<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.
+<MSGEND>
+
+## 10340
+#: a cranky villager, a drifter, thinking of following the player's next trip
+<DEMONPC0 000010>Phew<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 0e>
+Hey,<PAUSE 04> <STR_PLAYERNAME>.<BTN>
+<MSGCLEAR><DEMONPC0 000017>Maybe I've stayed in<PAUSE 04>
+<STR_COUNTRYNAME> too long,<PAUSE 08>
+<STR_TAIL><PAUSE 02>.<PAUSE 02>.<PAUSE 02>.<PAUSE 02>.<PAUSE 02>.<BTN>
+<MSGCLEAR><DEMONPC0 000016>A life like this
+just doesn't suit
+a drifter like me.<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>Next time you head
+off to another town,<PAUSE 08>
+I might just
+tag along,<PAUSE 08> <STR_TAIL>.
+<MSGEND>

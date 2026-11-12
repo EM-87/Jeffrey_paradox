@@ -383,7 +383,26 @@ del día de Año Nuevo (el de GameCube es otro modelo), y el cartel del
 torneo de pesca y el emblema de invierno del mercado negro, que GameCube
 también dejó en japonés.
 
-Lo que viene: una pasada de pruebas de todo el texto en el juego.
+La pasada de pruebas del texto ("The official text's codes and the
+GameCube's own") encontró dos clases de fallo en el texto oficial. La
+primera: 688 mensajes de GameCube llevaban sus propios códigos, los que
+mueven el juego, en vez de los del cartucho: órdenes de gesto, de
+recados y de fin de charla, las opciones de los concursos (una, fuera
+de las 460 del N64), saltos al azar a mensajes que el banco del N64 no
+tiene, un código de suerte, preguntas que el vecino del cartucho no
+hace. El borrador conserva ahora su inglés con los códigos del cartucho
+(`af_text.mend`); donde el mensaje hace otra cosa, el inglés es nuestro.
+La segunda: GameCube cambió, en los mismos números, las fiestas y las
+cosas del cartucho por las suyas. El White Day pasó a ser su Día de la
+Marmota, el Día del Niño su fiesta de la cosecha de otoño y la luna de
+mitad de otoño su lluvia de estrellas de agosto. La decimotercera noche
+pasó a ser su luna de la cosecha, los fuegos de los sábados de agosto
+su 4 de julio, y cambió las fechas de la feria deportiva. La Controller
+Pak y la Game Pak eran su Memory Card en una ranura de la GameCube, los
+botones START y R sus X e Y, y aparecían un museo y un alcalde que el
+cartucho no tiene. Son 202 mensajes y 3 opciones de concurso nuevos,
+traducción nuestra del japonés del cartucho (`script/message/`,
+`script/choice/`). Ya no queda ninguna cadena libre sin rellenar.
 
 ## Dónde está cada cosa
 

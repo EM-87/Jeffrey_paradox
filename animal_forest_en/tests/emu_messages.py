@@ -365,14 +365,31 @@ def on_first_page(tokens, code):
     return False
 
 
+PLATE_RUN = 60          # a row of the plate has a run of its green this long; a leaf or an item in the scene not
+
+
 def plate_ink(rgb, w, h):
-    """(left, right + 1) of the name's ink on the plate (the box of its green, less its rounded edges), or None."""
-    green = [(x, y) for y in range(96, TOP) for x in range(w)
-             if rgb[(y * w + x) * 3 + 1] > 200 and rgb[(y * w + x) * 3 + 2] < 80 and 140 < rgb[(y * w + x) * 3] < 230]
-    if not green:
+    """(left, right + 1) of the name's ink on the plate (the box of its green, less its rounded edges), or None.
+    The box is the rows' long runs of the plate's green: green elsewhere in the scene behind (a yellow item by
+    the mailbox, in the evening's light) is not the plate."""
+    def green(x, y):
+        r, g, b = rgb[(y * w + x) * 3:(y * w + x) * 3 + 3]
+        return g > 200 and b < 80 and 140 < r < 230
+    runs = []
+    for y in range(96, TOP):
+        best, start = (0, 0), None
+        for x in range(w + 1):
+            if x < w and green(x, y):
+                start = x if start is None else start
+            elif start is not None:
+                best = max(best, (x - start, start))
+                start = None
+        if best[0] >= PLATE_RUN:
+            runs.append((y, best[1], best[1] + best[0] - 1))
+    if not runs:
         return None
-    x0, x1 = min(x for x, _ in green) + 8, max(x for x, _ in green) - 8
-    y0, y1 = min(y for _, y in green) + 6, max(y for _, y in green) - 4
+    x0, x1 = min(r[1] for r in runs) + 8, max(r[2] for r in runs) - 8
+    y0, y1 = min(r[0] for r in runs) + 6, max(r[0] for r in runs) - 4
     xs = [x for y in range(y0, y1) for x in range(x0, x1) if max(rgb[(y * w + x) * 3:(y * w + x) * 3 + 3]) < PLATE_INK]
     return (min(xs), max(xs) + 1) if xs else None
 

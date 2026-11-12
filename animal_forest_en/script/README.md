@@ -15,6 +15,13 @@ repository.
   refuses one whose codes that steer the game are not the cartridge's, or
   that prints a string the game does not fill for it (NOTES, "Our own
   messages").
+  Also ours: official messages whose GameCube text is not that message's
+  English for the cartridge (NOTES, "The official text's codes and the
+  GameCube's own"): it does something else with the game (`flow.txt`),
+  talks of its own events (`events.txt`, `moon.txt`) or things
+  (`things.txt`, `travel.txt`: its memory card for the Controller Pak;
+  `controls.txt`: its buttons), or prints a free string the cartridge
+  does not fill (`unfilled.txt`).
 - `choice/`, `string/` and a letter bank's folder (`mail_body/`,
   `vmail_a/`...): the same for the choices, the strings and the letters,
   laid over their drafts by `make script` (not again at `make rom-en`):

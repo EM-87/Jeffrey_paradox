@@ -1,0 +1,932 @@
+# Our own English for villagers' talk of the cartridge's events where the GameCube's text, at the same
+# number, talks of an event of its own on another date (reference/NOTES.md, "The GameCube's own events"):
+# White Day (March 14th, when the boys return Valentine's chocolates) became its Groundhog Day, Children's
+# Day (May 5th, the carp streamers) its autumn Harvest Festival, the mid-autumn moon viewing (the 15th of
+# the old calendar's 8th month) its August meteor shower, and the summer's fireworks the same shower.
+# The cartridge's events are the en build's, so these say what the cartridge's say. From the cartridge's
+# text; tools/msgbank.py's dump form, as ours.txt (its header says how the build lays it over the bank
+# and what af_text.py holds it to).
+
+## 2957
+#: a snooty villager on why courtesy chocolates go round on Valentine's Day
+<DEMONPC0 00000f>I finally figured
+something out.<BTN>
+<MSGCLEAR>It's because of White Day<PAUSE 08>
+that girls hand out
+courtesy chocolates on
+Valentine's Day!<BTN><DEMONPC0 000015>
+<MSGCLEAR>As for me,<PAUSE 08>
+I get all kinds of gifts
+without doing a thing,
+so<BTN>
+<MSGCLEAR>I never<PAUSE 08> ever<PAUSE 08>
+noticed,<PAUSE 06> <STR_TAIL>!
+<MSGEND>
+
+## 2958
+#: a snooty villager on White Day's presents
+<DEMONPC0 000017>For me,<PAUSE 08> White Day
+is such a nuisance<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<BTN><DEMONPC0 000007>
+<MSGCLEAR>I mean,<PAUSE 08>
+presents I don't even want<PAUSE 0c>
+fill my mailbox
+right up!<BTN><DEMONPC0 000017>
+<MSGCLEAR>On March 14th,<PAUSE 08>
+checking my mailbox takes
+up the whole day.<PAUSE 0c>
+<STR_TAIL>.
+<MSGEND>
+
+## 4500
+#: a polite villager on White Day
+<DEMONPC0 0000ff>White Day<PAUSE 06> is the day
+men return the favor
+for Valentine's Day,
+isn't it,<PAUSE 08> <STR_TAIL>?
+<BTN>
+<MSGCLEAR><DEMONPC0 000017><PAUSE 08>Not that<PAUSE 06> I hand out
+courtesy chocolates, so
+I won't be getting any.
+<MSGEND>
+
+## 4501
+#: a polite villager who never gets anything on White Day
+<DEMONPC0 000017>For me,<PAUSE 06>
+White Day might as well
+not be there at all,<PAUSE 08>
+<STR_TAIL>.
+<BTN>
+<MSGCLEAR>Because<PAUSE 06> every year
+I can't bring myself to
+give chocolates,<PAUSE 06> so I
+never get anything back<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<BTN>
+<MSGCLEAR><DEMONPC0 000016>Next year, I'll give
+chocolates for sure,<PAUSE 04>
+and enjoy White Day,<PAUSE 08>
+<STR_TAIL>!
+<MSGEND>
+
+## 8055
+#: a jock villager glad the bugs come back in spring
+<DEMONPCQST 050003><DEMONPC0 000015>Around this time of year,<PAUSE 08>
+the bugs that were
+gone all winter
+come back,
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>so I can go
+bug catching again!
+<STR_PLAYERNAME>!<PAUSE 06> All right!
+<MSGEND>
+
+## 9972
+#: a cranky villager on White Day's shopping
+<DEMONPC0 0000ff>White Day's almost here.<PAUSE 14>
+Tough on the fellas.<PAUSE 10>
+They gotta buy a pile of<PAUSE 08>
+Valentine's thank-yous.<BTN>
+<MSGCLEAR><DEMONPC0 000004>Huh? <PAUSE 08>Me?<PAUSE 0c>
+Ain't I buyin' anything?<BTN>
+<MSGCLEAR><DEMONPC0 000016>Shut it!<PAUSE 08> Never
+you mind about me!<PAUSE 10>
+Just leave me be!
+<MSGEND>
+
+## 9973
+#: a cranky villager on White Day's gifts
+<DEMONPC0 0000ff>So March 14th's
+White Day, huh.<BTN>
+<MSGCLEAR>On Valentine's Day,<PAUSE 08>
+homemade stuff can go
+over real well, but<BTN>
+<MSGCLEAR>on White Day,<PAUSE 08>
+you don't hear much<PAUSE 04>
+about that.
+<MSGEND>
+
+## 10168
+#: a lazy villager on White Day's treats
+<DEMONPC0 0000ff>On White Day,<PAUSE 0c>
+you gotta give
+the girls food,
+right<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<BTN>
+<MSGCLEAR><DEMONPC0 020003><DEMONPC0 080001><DEMONPC0 000017>Seems kinda
+wasteful,<PAUSE 06> <STR_TAIL>.
+<MSGEND>
+
+## 10169
+#: a lazy villager who thought White Day meant white chocolate
+<DEMONPC0 0000ff>I thought White Day<PAUSE 0c>
+was the day you get
+white chocolate,<PAUSE 06>
+but
+<BTN>
+<MSGCLEAR><DEMONPC0 000017>turns out it's when
+boys give girls<PAUSE 0c>
+something back for
+Valentine's,<PAUSE 06> <STR_TAIL>.
+<BTN>
+<MSGCLEAR><DEMONPC0 000012><PAUSE 14><STR_PLAYERNAME>,
+do you have someone<PAUSE 0c>
+to give one back to<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<MSGEND>
+
+## 10252
+#: a jock villager with a White Day present to give
+<DEMONPC0 0000ff>White Day's
+coming up soon.<PAUSE 08>
+<STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>That's the day boys
+give girls presents<PAUSE 0c>
+to thank 'em for<PAUSE 06>
+Valentine's, right?
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>I got a courtesy
+chocolate, too,<PAUSE 0c>
+so I gotta give
+her something!
+<MSGEND>
+
+## 10253
+#: a jock villager shy of the girls on White Day
+<DEMONPC0 0000ff>March 14th<PAUSE 0c>
+is the day you thank
+the girls<PAUSE 06> for
+Valentine's, but
+<BTN>
+<MSGCLEAR><DEMONPC0 00000f><PAUSE 17>girls on that day<PAUSE 0a>
+have a different
+vibe than usual,<PAUSE 06>
+and it gets me all shy.
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>It's like,<PAUSE 06>
+they're givin' off an aura!<PAUSE 10>
+<DEMONPC0 00000b><PAUSE 04>Or is it just me?
+<MSGEND>
+
+## 5054
+#: a polite villager let down by what the player tells
+<DEMONPC0 000006>Oh my!<PAUSE 0c>
+Would you tell
+me about it? <PAUSE 08><STR_TAIL>?
+<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>Yes,<PAUSE 08> .<PAUSE 06>.<PAUSE 06>.<PAUSE 06>yes,<PAUSE 08>
+.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.
+<BTN>
+<MSGCLEAR><DEMONPC0 000010><PAUSE 1e>Oh,<PAUSE 06> is that all?<BTN>
+<DEMONPC0 000017>Why, I knew
+that already.
+<BTN>
+<MSGCLEAR>Oh, well.<PAUSE 06>
+I got my hopes up for
+nothing,<PAUSE 08> <STR_TAIL>.
+<MSGEND>
+
+## 2965
+#: a snooty villager on Children's Day's carp streamers and the Doll Festival's nothing
+<DEMONPC0 0000ff>Don't you think <STR_COUNTRYNAME>
+<DEMONPC0 00000b>is kind of strange?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>On Children's Day,<PAUSE 08>
+they put up carp streamers
+all over the place, but<BTN>
+<MSGCLEAR>on the Doll Festival,
+they don't do a thing,<PAUSE 06>
+<STR_TAIL>!<BTN>
+<DEMONPC0 00000f>Or do I just not know?<BTN>
+<MSGCLEAR><DEMONPC0 000002><PAUSE 08>Oh, no, what do I do?!<PAUSE 08>
+<DEMONPC0 000007>I knew it was strange!<PAUSE 08>
+There must be something!<BTN>
+<MSGCLEAR>Never mind Children's Day,<PAUSE 06>
+<STR_TAIL>!<BTN>
+I have to go ask someone!<PAUSE 0c>
+<STR_TAIL>!
+<MSGEND>
+
+## 2966
+#: a snooty villager unsure what one does with carp streamers
+<DEMONPC0 0000ff>When May comes,<PAUSE 08>
+we put up carp streamers
+all over town, right?<BTN>
+<MSGCLEAR><DEMONPC0 00000b><PAUSE 0a>Wait.<PAUSE 0f>
+Do you say you put up
+carp streamers?<PAUSE 08>
+Or hang them?<BTN>
+<MSGCLEAR><DEMONPC0 00000f>Raise them<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 0f>
+no, that's not it.<PAUSE 0f>
+Fly them, maybe?<BTN><DEMONPC0 000016>
+<MSGCLEAR>Come on, <STR_PLAYERNAME>!<PAUSE 08>
+Make up your mind!<PAUSE 0f>
+Honestly, you're so
+unhelpful!<PAUSE 06> <STR_TAIL>!
+<MSGEND>
+
+## 4508
+#: a polite villager wondering why carp streamers are carp
+<DEMONPC0 000015>Soon,<PAUSE 06> we'll get to
+see the carp streamers!<PAUSE 08>
+<STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 00000f><PAUSE 14>But why are they<PAUSE 04>
+carp, I wonder?<BTN>
+A sea bream seems so
+much more festive to me.
+<MSGEND>
+
+## 4509
+#: a polite villager on the Boys' Festival
+<DEMONPC0 0000ff>The Boys' Festival is
+almost here,<PAUSE 08> <STR_TAIL>.
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>In May, we'll see the
+carp streamers,<PAUSE 06> and
+the boys must be looking
+forward to it already!
+<MSGEND>
+
+## 6139
+#: a villager on Children's Day's carp streamers and the Doll Festival's nothing
+<DEMONPC0 000017>On Children's Day they
+fly carp streamers,<PAUSE 06> but
+on the Doll Festival
+they don't do a thing.
+<BTN>
+<MSGCLEAR>It's kind of
+unfair,<PAUSE 06> but I guess
+I'll just have to
+put up with it,<PAUSE 08> <STR_TAIL>...
+<MSGEND>
+
+## 6140
+#: a villager looking forward to May's carp streamers
+<DEMONPC0 000015>Once it's May,<PAUSE 06>
+we'll finally see
+carp streamers in
+this town, too!
+<BTN>
+<MSGCLEAR>When I see them,<PAUSE 06> I think,
+yes, it really is
+the boys' day!<PAUSE 08>
+<STR_TAIL>!
+<MSGEND>
+
+## 9980
+#: a cranky villager on the Boys' Festival, Children's Day for all
+<DEMONPC0 0000ff>May 5th's<PAUSE 04> the
+Boys' Festival.<PAUSE 14> Sure,
+it started out<PAUSE 08> to cheer
+on boys growin' up,<BTN>
+<MSGCLEAR>but these days,<PAUSE 04> that
+don't matter none.<BTN>
+<MSGCLEAR><DEMONPC0 000015>It's "Children's Day,"<PAUSE 08>
+so boys <PAUSE 04>and girls<PAUSE 04>
+oughta enjoy it alike.<BTN>
+<MSGCLEAR>Come May, the carp
+streamers go up,<PAUSE 08>
+so look forward to it,<PAUSE 08>
+<STR_TAIL>.
+<MSGEND>
+
+## 9981
+#: a cranky villager on carp streamers and rice cakes
+<DEMONPC0 000015>Come May,<PAUSE 08>
+we'll see carp streamers!<BTN>
+<MSGCLEAR>Heh,<PAUSE 06> by the look on
+your face,<PAUSE 08> you'd take
+rice cakes over carp
+streamers any day!
+<MSGEND>
+
+## 10176
+#: a lazy villager who hears a great big carp is coming
+<DEMONPC0 0000ff>I hear that soon,
+a great big carp<PAUSE 08>
+is coming here to
+<STR_COUNTRYNAME>, and
+<BTN>
+<MSGCLEAR><DEMONPC0 00000a><PAUSE 08>I wonder if we're
+allowed to eat it<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<SETSELSTR2 00100018><BTN><OPENCHOICE><SETNEXTMSG0 27e8><SETNEXTMSG1 27e9><FORCENEXT>
+<MSGCONTINUE>
+
+## 10177
+#: a lazy villager who heard of a "Dumpling Festival" (the Boys' Festival)
+<DEMONPC0 000002><PAUSE 07>Oh yeah,<PAUSE 06>
+the Dumpling Festival is<PAUSE 0c>
+<DEMONPC0 000015>coming soon, somebody
+said,<PAUSE 06> <STR_TAIL>.
+<BTN>
+<MSGCLEAR><DEMONPC0 00000f><PAUSE 17>Which means<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<DEMONPC0 00000e>days and days
+of dumplings!
+<BTN>
+<MSGCLEAR><DEMONPC0 00000a><PAUSE 08>And a great big carp<PAUSE 08>
+is coming somewhere in
+<STR_COUNTRYNAME>, too,<PAUSE 0c>
+so I can't wait<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<MSGEND>
+
+## 10260
+#: a jock villager on the town's carp streamers
+<DEMONPC0 0000ff>On Children's Day,
+carp streamers go up<PAUSE 06>
+here in <STR_COUNTRYNAME>, too,
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>and they're<PAUSE 06>
+seriously
+awesome,<PAUSE 06> <STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>They're so great,<PAUSE 08>
+I'd like one right by<PAUSE 06>
+my house,<PAUSE 06> <STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000012><PAUSE 14>Maybe I'll sneak
+one home.<PAUSE 12>
+<DEMONPC0 000003><PAUSE 05>Ha! Just kidding!<PAUSE 06>
+<STR_PLAYERNAME>!
+<MSGEND>
+
+## 10261
+#: a jock villager on the great big carp that flies in May
+<DEMONPC0 000015>Come May,<PAUSE 08>
+here in <STR_COUNTRYNAME><PAUSE 06>
+a great big carp
+shows up,<PAUSE 06> <STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000007><PAUSE 05>That carp<PAUSE 06>
+gets hoisted up high,<PAUSE 0c>
+and it swims around
+lookin' so happy,
+<BTN>
+<MSGCLEAR><DEMONPC0 00000a><PAUSE 08>that just watchin' it
+makes me feel<PAUSE 0c>
+all graceful
+too<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 0c>
+<BTN>
+<MSGCLEAR><DEMONPC0 000012><PAUSE 14>By the way,
+you can't eat
+that carp,<PAUSE 06> <STR_TAIL>!
+<MSGEND>
+
+## 2981
+#: a snooty villager on the harvest moon's date
+<DEMONPC0 0000ff>You know we view the moon
+on the 15th of the old
+<DEMONPC0 00000b>calendar's 8th month,
+right? <PAUSE 06><STR_TAIL>?<BTN><DEMONPC0 00000e>
+<MSGCLEAR>That's the day,<PAUSE 08> they say,
+the moon is at its
+<PAUSE 08>loveliest all year,<PAUSE 06> <STR_TAIL>.<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>It's called the
+harvest moon.<PAUSE 08><BTN>
+This year it's on
+<STR_FREE16> <STR_FREE17>.<BTN><DEMONPC0 000015>
+<MSGCLEAR>We'll be viewing the moon
+by the pond,<PAUSE 08> so you
+should come too,
+<STR_PLAYERNAME>,<PAUSE 06> <STR_TAIL>.
+<MSGEND>
+
+## 2982
+#: a snooty villager wondering why the moon viewing's offerings include pampas grass
+<DEMONPC0 0000ff>At moon viewings,<PAUSE 08>
+we offer dumplings and
+<DEMONPC0 00000b>pampas grass, don't we?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>The dumplings, I think,
+are because they look
+like the moon,<BTN>
+<DEMONPC0 00000f>but why pampas grass?<BTN>
+<MSGCLEAR>I wonder about it every
+year, but I just don't
+know<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<PAUSE 04><PAUSE 0c>
+<STR_TAIL>.
+<MSGEND>
+
+## 4525
+#: a polite villager on the harvest moon's viewing
+<DEMONPC0 0000ff>The moon viewing is
+almost here!<PAUSE 08>
+<STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>They say the 15th of the
+old calendar's 8th month
+has the loveliest moon of
+the year,<PAUSE 06> so I can't wait!
+<BTN>
+<MSGCLEAR>Let's see<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<BTN>
+<DEMONPC0 00000c><PAUSE 1e><STR_FREE16> <STR_FREE17>!<PAUSE 0c>
+Let's meet by the pond
+that day,<PAUSE 08> <STR_TAIL>!
+<MSGEND>
+
+## 4633
+#: a polite villager's quiz (which event comes once a year?): the moon viewing comes twice
+<DEMONPCQST 050065><DEMONPC0 000003>Ha!
+You fell for it!<PAUSE 0c>
+Moon viewing,<PAUSE 06> you see,
+happens twice a year!<SETFORCEMSG 121b>
+<MSGCONTINUE>
+
+## 5963
+#: the moon viewing's announcement on the Thirteenth Night
+<TEXTCOLOR 282d5a>     Good evening.<PAUSE 08>
+<TEXTCOLOR 282d5a>It's time for <COLORCHARS 9114a50c>moon viewing.<PAUSE 0f>
+<TEXTCOLOR 282d5a>Tonight's moon<PAUSE 08> is the
+<TEXTCOLOR 282d5a>Thirteenth Night moon.
+<MSGTIMEEND 64>
+
+## 6028
+#: a lazy villager's quiz (what am I into?): the moon viewing
+<DEMONPCQST 050006><DEMONPC0 000015>
+  <TEXTCOLOR e11ed7><CHARSCALE 2d>B<CHARSCALE 2d>i<CHARSCALE 2d>n<CHARSCALE 2d>g<CHARSCALE 2d>o<CHARSCALE 2d>!
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>Moon viewing is the best.<PAUSE 0c>
+The moon looks just like<PAUSE 08>
+a fried egg. Mmm...
+<BTN>
+<MSGCLEAR><DEMONPC0 000013><PAUSE 1e>Ahh,<PAUSE 0c>
+moon viewing<PAUSE 0a>.<PAUSE 0a>.<PAUSE 0a>.<PAUSE 0a>I can't<PAUSE 0a>.<PAUSE 0a>.<PAUSE 0a>
+eat<PAUSE 0a>.<PAUSE 0a>.<PAUSE 0a>.<PAUSE 0a>another<PAUSE 0a>.<PAUSE 0a>.<PAUSE 0a>.<PAUSE 0a><DEMONPC0 000002><PAUSE 07>Whoa!<BTN>
+I did it again.<SETFORCEMSG 1788>
+<MSGCONTINUE>
+
+## 6049
+#: the moon viewing's announcement at its end
+<TEXTCOLOR 282d5a>The <COLORCHARS 9114a50c>moon viewing is
+<TEXTCOLOR 282d5a>now over.<PAUSE 0f>
+<TEXTCOLOR 282d5a>Please have a safe
+<TEXTCOLOR 282d5a>trip home.
+<MSGTIMEEND 50>
+
+## 6155
+#: a peppy villager on the year's two moon viewings
+<DEMONPC0 0000ff>Did you know there are<PAUSE 06>
+two moon viewings
+a year? <PAUSE 08><STR_TAIL>?
+<BTN>
+<MSGCLEAR>I only know 'cause somebody
+told me,<PAUSE 06> but this year's
+harvest moon is on
+<STR_FREE16> <STR_FREE17>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>As for the next one, the
+Thirteenth Night,<PAUSE 06> look it
+up yourself!<PAUSE 08>
+<STR_TAIL>!
+<MSGEND>
+
+## 6156
+#: a peppy villager calling everyone to the harvest moon's viewing
+<DEMONPC0 000015>I love a big,
+perfectly round moon!
+<BTN>
+<MSGCLEAR>So,<PAUSE 06> on
+<STR_FREE16> <STR_FREE17>,
+we're meeting
+by the pond!<PAUSE 08> <STR_TAIL>!
+<MSGEND>
+
+## 9996
+#: a cranky villager on this year's harvest moon
+<DEMONPC0 0000ff>This year,<PAUSE 06> <STR_FREE16> <STR_FREE17>
+is moon-viewing day.<BTN>
+<MSGCLEAR>The harvest moon,<PAUSE 08>
+the full moon of the
+fifteenth night,<PAUSE 08>
+<STR_TAIL>.<BTN>
+<MSGCLEAR><DEMONPC0 000015>We do it by the pond,<PAUSE 04>
+so you come too,
+<STR_PLAYERNAME>.
+<MSGEND>
+
+## 9997
+#: a cranky villager on the moon viewing by the pond
+<DEMONPC0 0000ff>On the <STR_FREE17>, there's a
+moon viewing.<PAUSE 10> You come
+too, down by the pond.<BTN>
+<MSGCLEAR>Lookin' at the moon<PAUSE 0c>
+has real class, y'know.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Course, some folks<PAUSE 04>
+only come for the<PAUSE 04>
+dumplings,<PAUSE 08> <STR_TAIL>!
+<MSGEND>
+
+## 10192
+#: a lazy villager asking when the harvest moon falls this year
+<DEMONPC0 0000ff><STR_PLAYERNAME>,<PAUSE 0c>
+do you know when the
+15th of the old 8th month<PAUSE 08>
+<DEMONPC0 00000b><PAUSE 03>is this year?<SETSELSTR2 00690161><BTN><OPENCHOICE><SETNEXTMSG0 27ee><SETNEXTMSG1 27ef><FORCENEXT>
+<MSGCONTINUE>
+
+## 10193
+#: a lazy villager who heard of the harvest moon's viewing
+<DEMONPC0 0000ff>I heard from
+<STR_FREE13>,<PAUSE 0e>
+there's a moon viewing
+on <STR_FREE16> <STR_FREE17>.<PAUSE 06>
+<BTN>
+<MSGCLEAR>Supposedly,<PAUSE 0c>
+you can see the
+prettiest moon of<PAUSE 08>
+the year,<PAUSE 06> <STR_TAIL>.
+<BTN>
+<MSGCLEAR><DEMONPC0 020001><DEMONPC0 080001><DEMONPC0 000015>And it sounds like
+there'll be dumplings,<PAUSE 0e>
+<DEMONPC0 00000a><PAUSE 08>so I can't
+wait<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<MSGEND>
+
+## 10212
+#: a lazy villager's quiz (what's this season's event?): the moon viewing
+<DEMONPCQST 050069><DEMONPC0 000004><PAUSE 05>That's right, moon viewing!<PAUSE 0c>
+<DEMONPC0 000015>Thanks for reminding me,<PAUSE 06>
+<STR_PLAYERNAME>.
+<BTN>
+<MSGCLEAR><DEMONPC0 00000f><PAUSE 17>Though something
+seems off<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<DEMONPC0 000015>Oh, well.<PAUSE 06>
+If you say so, it must be.
+<MSGEND>
+
+## 10222
+#: a lazy villager on the moon viewing by the pond
+<DEMONPCQST 050001><DEMONPC0 0000ff>Thing is, that day,<PAUSE 0c>
+there's supposed to be
+moon viewing by the pond.
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>It's already <STR_MONTH>,<PAUSE 06>
+so let's look at the moon<PAUSE 10>
+<DEMONPC0 00000e>and soak up the long
+autumn night,<PAUSE 08> <STR_TAIL>!
+<MSGEND>
+
+## 10223
+#: a lazy villager who does not know the harvest moon's date either
+<DEMONPCQST 050066><DEMONPC0 00000f><PAUSE 17>Sorry,<PAUSE 06> <STR_PLAYERNAME>.<PAUSE 0c>
+I don't know
+either,<PAUSE 06> <STR_TAIL>.
+<BTN>
+<MSGCLEAR><DEMONPC0 000017>But on the 15th of
+the old 8th month,<PAUSE 08>
+we eat dumplings<PAUSE 06>
+by the pond,
+<BTN>
+<MSGCLEAR>and we view the moon,
+that's for sure,<PAUSE 0c>
+so try asking
+someone else,<PAUSE 06> <STR_TAIL>.
+<MSGEND>
+
+## 10276
+#: a jock villager on the harvest moon, asking when it falls this year
+The moon on the 15th of the<PAUSE 08>
+old calendar's 8th month<PAUSE 0c>
+is called the harvest
+moon,<PAUSE 06> <STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 00000f><PAUSE 17>To put it simply<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<DEMONPC0 000015>it's one good moon.
+<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>Hey, by the way,<PAUSE 06>
+you know when the 15th
+of the old 8th month is
+<DEMONPC0 00000b><PAUSE 06>this year?<SETSELSTR2 0069017f><BTN><OPENCHOICE><SETNEXTMSG0 2841><SETNEXTMSG1 2842><FORCENEXT>
+<MSGCONTINUE>
+
+## 10277
+#: a jock villager on the full harvest moon and its viewing by the pond
+<DEMONPC0 000015>This time, the
+harvest moon<PAUSE 0c>
+<DEMONPC0 000007><PAUSE 05>is so round, it makes<PAUSE 06>
+ME blush!!
+<BTN>
+<MSGCLEAR>It gets me<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<DEMONPC0 000014><PAUSE 12>in a moony kind of
+mood,<PAUSE 06> <STR_TAIL>.
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>Then again,<PAUSE 06>
+that's what moon viewing's
+all about.
+<BTN>
+<MSGCLEAR><DEMONPC0 000006><PAUSE 1e><DEMONPC0 0000ff>Anyway, on
+<STR_FREE16> <STR_FREE17>,<PAUSE 0c>
+we're viewing the moon
+by the pond,
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>so you come too!<PAUSE 0c>
+I bet the moon likes it
+better when we all
+watch! <PAUSE 06><STR_TAIL>!
+<MSGEND>
+
+## 10305
+#: a jock villager surprised the player knows the harvest moon's date
+<DEMONPCQST 050001><DEMONPC0 000007><PAUSE 05>You know it?!<PAUSE 0c>
+You're smarter than
+you look,
+<PAUSE 08><STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>That day, <PAUSE 06>
+we're viewing the moon
+by the pond,<PAUSE 08> so
+come on out and see it!
+<MSGEND>
+
+## 2789
+#: a snooty villager's quiz (which event is not in August?): not the fireworks
+<DEMONPC0 000016>Bzzzt!<PAUSE 0c>
+Too bad.<BTN>
+<MSGCLEAR>Missing the fireworks
+show<PAUSE 04> would be
+unthinkable,<PAUSE 06> <STR_TAIL>!<SETFORCEMSG 0ae0>
+<MSGCONTINUE>
+
+## 4626
+#: a polite villager's quiz (which event is in August?): the fireworks
+<DEMONPCQST 050001><DEMONPC0 000015>That's right!<PAUSE 0c>
+Summer means<PAUSE 04>
+the fireworks show!<PAUSE 08>
+<STR_TAIL>!<SETFORCEMSG 121c>
+<MSGCONTINUE>
+
+## 2977
+#: a snooty villager on August's fireworks every Saturday
+<DEMONPC0 0000ff>It's hot every day!<PAUSE 0c>
+It's summer, so I can't
+complain, I suppose.<BTN>
+<MSGCLEAR>Speaking of summer,<PAUSE 08>
+it's almost fireworks
+season,<PAUSE 06> <STR_TAIL>!<BTN><DEMONPC0 000015>
+<MSGCLEAR>In <STR_COUNTRYNAME>, once it's August,<PAUSE 08>
+there are fireworks every
+Saturday night.<PAUSE 0c>
+<STR_TAIL>.<BTN><DEMONPC0 00000e>
+<MSGCLEAR>I'm so looking
+forward to it,<PAUSE 06> <STR_TAIL>!
+<MSGEND>
+
+## 2978
+#: a snooty villager waiting for August's fireworks
+<DEMONPC0 0000ff>I wish it would hurry
+up and be August.<BTN><DEMONPC0 00000a>
+<MSGCLEAR>Because in August,<PAUSE 08>
+we get the fireworks
+show! <PAUSE 06><STR_TAIL>!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Everyone gazes up<PAUSE 06> with
+their mouths hanging<PAUSE 0c>
+wide open,<BTN><DEMONPC0 000015>
+<MSGCLEAR>and I love
+watching that,<PAUSE 06> <STR_TAIL>!
+<MSGEND>
+
+## 4520
+#: a polite villager on the summer's fireworks, every Saturday in August
+<DEMONPC0 000015>At last, it's time for
+summer's highlight,<PAUSE 06>
+the fireworks show!
+<PAUSE 08><STR_TAIL>!
+<BTN>
+<MSGCLEAR>Here in <STR_COUNTRYNAME>, too,<PAUSE 06>
+all through August,
+they set them off every
+Saturday night!
+<BTN>
+<MSGCLEAR><DEMONPC0 000014>I'm<PAUSE 06> so looking forward
+to it already!<PAUSE 08>
+<STR_TAIL>!
+<MSGEND>
+
+## 4521
+#: a polite villager inviting the player to next month's fireworks by the pond
+<DEMONPC0 0000ff><STR_PLAYERNAME>,<PAUSE 0c>
+on Saturdays next month,<PAUSE 06>
+please don't go
+running off anywhere.
+<BTN>
+<MSGCLEAR>Because from 7 p.m.,<PAUSE 06>
+every week, by the pond,
+there are fireworks!<PAUSE 08>
+<STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>It doesn't cost a thing,<PAUSE 06>
+and I think it's far
+more fun than
+going out!
+<MSGEND>
+
+## 9992
+#: a cranky villager on the heat and August's Saturday fireworks
+<DEMONPC0 000017>Ugh,<PAUSE 08> it's hot every day.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Once you start sayin'<PAUSE 06>
+"Hot enough for ya?",<PAUSE 08>
+you're an old geezer,<PAUSE 0c>
+so I gotta watch it.<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>Anyhow, summer means<PAUSE 08>
+it's almost <PAUSE 04>fireworks<PAUSE 04>
+season.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Come August,<PAUSE 04> every
+Saturday night,<PAUSE 08> I get
+to see my fireworks!<PAUSE 10>
+Can't wait, <STR_TAIL>!
+<MSGEND>
+
+## 9993
+#: a cranky villager waiting for August's Saturday fireworks
+<DEMONPC0 0000ff>Ahh,<PAUSE 06> I wish it was
+August already,<PAUSE 08> <STR_TAIL>.<BTN>
+<MSGCLEAR><DEMONPC0 000004>Huh? <PAUSE 08>For the fireworks,
+what else!<BTN>
+<MSGCLEAR><DEMONPC0 000016>Every Saturday night,<PAUSE 10>
+it's fireworks, period!<BTN>
+<MSGCLEAR><DEMONPC0 000015>And collectin' those things
+they sell at the stall<PAUSE 08>
+is half the fun<PAUSE 04> of it!
+<MSGEND>
+
+## 10188
+#: a lazy villager inviting the player to the Saturday fireworks by the pond
+<DEMONPC0 000015>Come August,<PAUSE 0c>
+every Saturday night,
+there are fireworks,<PAUSE 06>
+<STR_TAIL>.
+<BTN>
+<MSGCLEAR><DEMONPC0 000017><STR_PLAYERNAME>,<PAUSE 06> if you
+don't have anything going
+on Saturday night<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<DEMONPC0 000004><PAUSE 1e>
+<DEMONPC0 000015>you'll be fine, I bet.
+<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>It's at 7 p.m.
+by the pond.<PAUSE 0a>
+<DEMONPC0 000015>Everybody'll be
+waitin',<PAUSE 06> <STR_TAIL>.
+<MSGEND>
+
+## 8057
+#: a jock villager's quiz (which events are in autumn?): Christmas Eve is in winter
+<DEMONPCQST 050066><DEMONPC0 000007><PAUSE 05>Christmas Eve's in winter!<PAUSE 0a>
+You're jumpin' the gun!<PAUSE 06>
+<STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000012><PAUSE 14>Is something happening
+on Christmas Eve?
+<MSGEND>
+
+## 2780
+#: a snooty villager's quiz: which event is held on April 20th (the spring sports fair)?
+Every year,<PAUSE 06> on April
+20th, what event is held
+here in our town?<SETSELSTR3 00b900bc00ba><BTN><OPENCHOICE><SETNEXTMSG0 0ae2><SETNEXTMSG1 0ae3><SETNEXTMSG2 0ae4><FORCENEXT>
+<MSGCONTINUE>
+
+## 2986
+#: a snooty villager on Health and Sports Day's fall sports fair
+<DEMONPC0 0000ff>Do you know what day<PAUSE 08>
+the second Monday of
+<DEMONPC0 00000b>October is?<BTN><DEMONPC0 000015>
+<MSGCLEAR>My, you don't miss a thing<PAUSE 08>
+when it comes to holidays!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Oh, I'm sorry.<PAUSE 08>
+That's not what I
+meant at all,<PAUSE 0c>
+<STR_TAIL>!<BTN>
+<MSGCLEAR>That day is Health and
+Sports Day, right?<PAUSE 0f>
+<STR_COUNTRYNAME> has a
+sports fair, too,<PAUSE 06> <STR_TAIL>!<BTN>
+<MSGCLEAR>It's at the <COLORCHARS 4ba0000c>wishing well<PAUSE 0f>
+plaza, I hear, so why
+don't you take a peek,
+<STR_PLAYERNAME>? <PAUSE 06><STR_TAIL>.<BTN><DEMONPC0 000015>
+<MSGCLEAR>I'm sure you'll see
+something amusing.<PAUSE 0c>
+<STR_TAIL>.
+<MSGEND>
+
+## 4507
+#: a polite villager on the spring sports fair, April 20th
+<DEMONPC0 0000ff>By the way,<PAUSE 06>
+do you know about the
+<DEMONPC0 00000b>spring sports fair?
+<PAUSE 08><STR_TAIL>?
+<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>It's held every year
+on April 20th,<PAUSE 06> and with
+all its events, it's
+so much fun,<PAUSE 08> <STR_TAIL>!
+<BTN>
+<MSGCLEAR>If you have the time,<PAUSE 06>
+please do join in!
+<MSGEND>
+
+## 4529
+#: a polite villager's question: what day is the second Monday of October?
+<DEMONPC0 0000ff>Do you know what day
+the second Monday<PAUSE 06>
+of October <DEMONPC0 00000b>is?<PAUSE 08>
+<STR_TAIL>?<SETSELSTR2 002f0069><BTN><OPENCHOICE><SETNEXTMSG0 11cc><SETNEXTMSG1 11cd><FORCENEXT>
+<MSGCONTINUE>
+
+## 4557
+#: a polite villager glad the player knows Health and Sports Day: the fall sports fair
+<DEMONPC0 000015>I just knew
+you'd know!<PAUSE 0f>
+That's right,<PAUSE 06> it's Health
+and Sports Day! <PAUSE 08><STR_TAIL>!
+<BTN>
+<MSGCLEAR>That's the day of the
+fall sports fair!<PAUSE 0c>
+It starts at 9 a.m.<PAUSE 04>
+at the wishing well plaza.
+<BTN>
+<MSGCLEAR>Of course,<PAUSE 06> you'll
+take part too, won't you?!<PAUSE 08>
+<STR_TAIL>!?
+<MSGEND>
+
+## 4632
+#: a polite villager's quiz (which event comes once a year?): the sports fair comes twice
+<DEMONPCQST 050065><DEMONPC0 000004>Oh, no! <PAUSE 06>That's wrong!<PAUSE 0c>
+The sports fair<PAUSE 06>
+happens twice, in April
+and October,<PAUSE 08> <STR_TAIL>!<SETFORCEMSG 121b>
+<MSGCONTINUE>
+
+## 10197
+#: a lazy villager inviting the player to the fall sports fair
+<DEMONPC0 0000ff>The second Monday
+of October,<PAUSE 06>
+<DEMONPC0 00000f><PAUSE 17>I dunno what date that is<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>Anyway, that day,<PAUSE 0c>
+come by the
+wishing well plaza
+at least once,<PAUSE 08> <STR_PLAYERNAME>.
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>You'll get to see
+me lookin' cool,<PAUSE 06>
+<STR_TAIL>.<PAUSE 10>
+<DEMONPC0 000017>Probably<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<MSGEND>
+
+## 10258
+#: a jock villager on the spring sports fair, April 20th
+<DEMONPC0 000015>The spring sports fair
+is coming soon,<PAUSE 0c>
+and you're<PAUSE 06>
+comin'<DEMONPC0 00000b><PAUSE 05>, right?
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>I wanna show you
+my best stuff,<PAUSE 0c>
+so you gotta come!<PAUSE 06>
+<STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>It's on April 20th!<PAUSE 0c>
+I'll be waitin' at the
+wishing well plaza!
+<PAUSE 06><STR_TAIL>!
+<MSGEND>
+
+## 10272
+#: a jock villager on next month's Saturday fireworks
+<DEMONPC0 020001><DEMONPC0 080001><DEMONPC0 000015>Finally, next month,
+every Saturday<PAUSE 0a>
+there are fireworks!
+<PAUSE 06><STR_PLAYERNAME>!
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>I love festivals,<PAUSE 10>
+so I'm already in
+a festival mood!<PAUSE 08>
+<DEMONPC0 00000a><PAUSE 08>I'm so pumped!
+<MSGEND>
+
+## 10280
+#: a jock villager on Health and Sports Day's fall sports fair
+<DEMONPC0 0000ff>What day is the second
+Monday of October?<PAUSE 12><BTN>
+<DEMONPC0 000012><PAUSE 14>That's right, Health
+and Sports Day!
+<BTN>
+<MSGCLEAR><DEMONPC0 00000a><PAUSE 08>What a sound
+that has!<PAUSE 0e>
+I'd like it to be
+my birthday!<PAUSE 0c>
+<BTN>
+<MSGCLEAR><DEMONPC0 000002><PAUSE 07>No!<PAUSE 0c>
+<DEMONPC0 000007><PAUSE 05>That's not what
+I meant to say,
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>it's that on that day<PAUSE 06>
+there's the fall
+sports fair,<PAUSE 06> <STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000017>They say fall's<PAUSE 06>
+the hungry season,<PAUSE 10>
+<DEMONPC0 000016>so if you're<PAUSE 06>
+a little chubby,
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>come ready to
+work it off!<PAUSE 0c>
+Let's enjoy the season
+of sports!
+<MSGEND>

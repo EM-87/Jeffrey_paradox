@@ -721,18 +721,18 @@ the emulator (`make rom-en`, `make script ISO=...`).
 - **Free strings the game does not fill.** The game fills a free string
   (STR_FREE0..19) for the message it is about to show; an official
   message that prints one the cartridge's own does not prints the slot's
-  leftovers. Seen on screen: the cow at the start says "in" and fourteen
-  あ (message 5106: the GameCube's "in <STR_FREE4>'s <STR_COUNTRYNAME>",
-  where the Japanese has only the town). 64 official messages do this
-  (`af_text.py check --reference` warns; the draft marks them `TODO
-  adapt`): most are the GameCube's memory card and its slot (FREE3/4/5 in
-  the welcome and copy messages 5106-5342 and 2383-2390), the rest
-  another villager's name (FREE13, 9429-9430), the harvest moon's date
-  (FREE16/17) and a few items and names. Wider: 104 messages mention the
-  Memory Card where the cartridge has the Controller Pak and the
-  cartridge itself. Adapting them is translation work of its own: rules
-  applied to the official text at build time, or our own lines from the
-  Japanese in `script/`, never the official text in the repository.
+  leftovers. Seen on screen: the villager at the start put a run of あ
+  before the town's name (message 5106: the GameCube's text names the
+  memory card's slot there, free string 4, where the Japanese has only
+  the town). 64 official messages did this (`af_text.py check
+  --reference` warns; the draft marks them `TODO adapt`): most the
+  GameCube's memory card and its slot (FREE3/4/5 in the start's and the
+  copy's messages 5106-5342 and 2383-2390), the rest another villager's
+  name (FREE13, 9429-9430), the harvest moon's date (FREE16/17, where the
+  cartridge's talks of the Thirteenth Night) and a few items and names.
+  None is left: ours, from the Japanese, or the GameCube's text of a
+  message whose Japanese is the same ("The official text's codes and the
+  GameCube's own"); the bank's check has no warning.
 - **The letter banks, both games, by number.** The cartridge's
   (`tools/msgbank.py` N64_BANKS, byte-exact round trip): the shop's and
   the game's letters, 544 each of headers (`D_D12000`/`D_D11000`), bodies
@@ -2863,6 +2863,108 @@ what goes in it: "The letters in the en build").
   credits' lines, what follows the town's name, a fish's size),
   `emu-check` and `emu-check-en`: 0 failures; `make test` 66. The credits
   and the fish's size were seen on screen afterwards (above).
+
+## The official text's codes and the GameCube's own (phase 5, the QA pass)
+
+- **The codes.** The draft took the GameCube's message for each number
+  `af_align` matched with the cartridge's (same, plain, edited), with the
+  GameCube's own codes; only the messages laid over (the 2010 patch's and
+  ours) were held to the cartridge's. Read against the cartridge's
+  (`af_text.steering`), 688 official messages steered the game otherwise:
+  the talking animal's orders moved to the beats of the English, dropped
+  or added (slot 0 in 314 messages; slots 2 and 8, which end many
+  villagers' talks, dropped in some 30; a quest's order in slot 5 given as
+  `DEMONPCQST` with another value in 30), a choice's strings (191; one of
+  the GameCube's own past the cartridge's 460, the post office's fourth
+  answer), a next message at random among the GameCube's own (one past
+  the bank's 11,752: 1889 asked for 0x3057), a question the cartridge's
+  message does not ask (12), a luck code dropped (7), a sound trigger more
+  or less (9), an end where the cartridge's message goes on. The en build
+  runs the cartridge's code: it would do what the GameCube's game does
+  there, or read past its banks.
+- **The mend** (`af_text.mend`, in `draft`). An official message keeps
+  its English and takes the cartridge's codes: in its text, the
+  cartridge's arguments where the codes are the same ones in the same
+  order (talk orders aside), a sound trigger the GameCube's has more or
+  less in a run of them dropped or put by its neighbour
+  (`_sounds_aligned`, an order-preserving match); after its text, where
+  the two do the same (`_flow`: both or neither open a choice, force a
+  next message, pick one at random; the same ending), the cartridge's
+  codes whole, a choice's strings among them (a first version kept the
+  GameCube's where as many answers led to the same messages; the quizzes
+  showed why not: their answers are its own events); then the talking
+  animal's orders of every slot dropped and the cartridge's put back at
+  the beats of the English (`af_nafe_text.recover` with `any_order`;
+  `recover` now also offers the end of a segment's text, after its last
+  word, for an order the cartridge's has there). A full stop after a
+  message's last code (9770's), which the window never reaches, is not
+  text. Where it cannot (the codes in the text otherwise, or what it does
+  after its text), the draft takes the cartridge's Japanese, to translate
+  (`TODO translate`, the GameCube's text "steers the game otherwise"): the
+  2010 patch's English where it serves, else ours. 627 mended; 8 left to
+  the cartridge's (seven empty messages, 2930-2937, and 4225, the 2010
+  patch's); 19 ours (`script/message/flow.txt`: luck put back to neutral,
+  Tom Nook's talks on the house and the job's end, questions the
+  cartridge's villagers do not ask). Every official message now steers
+  the game as the cartridge's.
+- **Twins** (`af_text.MESSAGE_REMAP`). Five meetings late at night
+  (11198-11211) have, codes and all, the Japanese of five others
+  (11724-11737); the GameCube wrote the first for a meeting of its own (a
+  villager moved in from another town, free string 10). The draft takes
+  the GameCube's text of the twin, numbers only.
+- **The GameCube's own events.** The GameCube moved the calendar's talk to
+  its own events, keeping the numbers. Found by the cartridge's event
+  words in the Japanese against the English (White Day, the Doll
+  Festival, Children's Day, the moon viewings, the fireworks...) and by
+  the months the Japanese names (`Nがつ`) against the English's: White
+  Day (March 14th) became its Groundhog Day (11 messages), Children's
+  Day's carp streamers its autumn Harvest Festival (12), the mid-autumn
+  moon viewing its August meteor shower (19, the announcement on the
+  Thirteenth Night's evening among them), the Thirteenth Night its harvest
+  moon (12, printing the harvest moon's date, free strings 16 and 17, where
+  the cartridge's prints the Thirteenth Night's, 18 and 19: the talk
+  overlay fills both, from the old calendar), the fireworks every
+  Saturday in August its July 4th (12), the sports fair's April 20th and
+  Health and Sports Day (October's second Monday) its March and
+  September (10), a quiz's Christmas Eve its cherry blossoms. Ours from
+  the Japanese: `events.txt`, `moon.txt`. The choice bank too: entries
+  187, 191 and 193 (Children's Day, the moon viewing, Christmas Eve) were
+  its Father's Day, meteor shower and a winter festival
+  (`script/choice/events.txt`). Left as they are: talk at the events
+  both games have, which the GameCube words its own way (a holiday season
+  for Christmas, a wishing well for the shrine's plaza).
+- **The GameCube's own things** (`things.txt`): its console's clock in the
+  message for a stopped clock (the Game Pak's), a mayor and a museum,
+  the island's boatman in a quiz's joke, spring cleaning (the cartridge's
+  is the year's end), and two of Mr. Resetti's asides on them.
+- **Travel and the Controller Pak** (`travel.txt`, 89). The GameCube's
+  text for the station's master and for the villager who starts the game
+  (one set per personality) names its memory card in a slot of the
+  GameCube; the cartridge's names the Controller Pak, in the controller,
+  and the Game Pak. The orange notices are the same words in every set,
+  as on the cartridge.
+- **Buttons** (`controls.txt`). Four of Tom Nook's and the police box's
+  lessons named the GameCube's Y and X Buttons for the item screen and
+  the map: on the cartridge the START Button and the R Button, in their
+  colours.
+- **Measured.** Against the dump: every message of the draft that is not
+  left to translate, the official ones and ours, 11,538, has the
+  cartridge's codes that steer the game, the same in the same order with
+  the same arguments, and none prints a free string the cartridge's does
+  not fill (no `TODO adapt` left; the compile, 0 errors and 0 warnings,
+  the layout moving none of ours). `make messages-check-en`, every file
+  of `script/message/` given with `--own`: the en tree's compiled bank
+  holds all of ours as written; 700 messages shown, their 1,964 lines
+  where the font's model puts them, and 245 that play to their end with
+  talk orders played through, the talking animal's orders the
+  cartridge's sequence in all 245. A first run failed one check, the
+  name plate's: it took the plate for the box of its green, and the
+  scene behind (the route made again, in the evening's light) had a
+  yellow item by the mailbox of that green, which stretched the box to
+  the right; the plate is now the rows' long runs of its green
+  (`tests/emu_messages.py` `plate_ink`), Tom Nook's whole name's ink
+  (143, 251) and the cut name's (155, 237) on the same screenshots, where
+  the model puts them. Run again with it: 0 failures.
 
 ## The patch (the deliverable)
 

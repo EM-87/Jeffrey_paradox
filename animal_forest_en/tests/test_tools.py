@@ -831,6 +831,59 @@ class Script(unittest.TestCase):
                                    4: "jp4<MSGEND>", 5: "jp5<MSGEND>"})
             self.assertEqual(len(back), af_text.N64_COUNT)
 
+    def test_the_official_text_takes_the_cartridges_codes(self):
+        p, r = msgbank.parse, msgbank.render
+
+        def mended(cart, theirs):
+            out, how = af_text.mend(p(cart), p(theirs))
+            return (r(out) if out is not None else None), how
+
+        # the same codes: as it is
+        self.assertEqual(mended("あ<DEMONPC0 000015>い<MSGEND>", "Hi<DEMONPC0 000015> yo<MSGEND>"),
+                         ("Hi<DEMONPC0 000015> yo<MSGEND>", ""))
+        # a choice of its own (an answer more, past the cartridge's choices): the cartridge's codes after the text
+        cart = "あ?<SETSELSTR2 00030004><BTN><OPENCHOICE><SETNEXTMSG0 0100><SETNEXTMSG1 0101><FORCENEXT><MSGCONTINUE>"
+        theirs = ("Well?<SETSELSTR3 000301f00004><BTN><OPENCHOICE><SETNEXTMSG0 0100><SETNEXTMSG1 2de0>"
+                  "<SETNEXTMSG2 0101><FORCENEXT><MSGCONTINUE>")
+        self.assertEqual(mended(cart, theirs)[0], "Well?" + cart[2:])
+        # its own strings for the answers (a quiz's for its own events): the cartridge's
+        self.assertEqual(mended(cart, "Well?" + cart[2:].replace("00030004", "00440010"))[0], "Well?" + cart[2:])
+        # talk orders of every slot (a quest's, the end's in slots 2 and 8) put back at the English's beats
+        self.assertEqual(mended("<DEMONPC0 05006e><DEMONPC0 000016>あい<DEMONPC0 020001><DEMONPC0 080001><MSGEND>",
+                                "<DEMONPCQST 050069><DEMONPC0 000016>Hi there.<MSGEND>")[0],
+                         "<DEMONPC0 05006e><DEMONPC0 000016>Hi there.<DEMONPC0 020001><DEMONPC0 080001><MSGEND>")
+        # a sound more or less in a run of them: dropped, or put by its neighbour
+        self.assertEqual(mended("あ<SNDTRGSYS 05>い<SNDTRGSYS 05><MSGEND>",
+                                "Hi <SNDTRGSYS 05>yo <SNDTRGSYS 05>ho<SNDTRGSYS 05><MSGEND>")[0],
+                         "Hi <SNDTRGSYS 05>yo ho<SNDTRGSYS 05><MSGEND>")
+        self.assertEqual(mended("あ<SNDTRGSYS 05><SNDTRGSYS 05>い<MSGEND>", "Hi<SNDTRGSYS 05>yo<MSGEND>")[0],
+                         "Hi<SNDTRGSYS 05><SNDTRGSYS 05>yo<MSGEND>")
+        # what it does after its text otherwise (a question the cartridge's does not ask), or other codes in its
+        # text (a luck code dropped): not that message's English
+        self.assertEqual(mended("あ<MSGEND>", "Well?" + cart[2:]), (None, "what it does after its text"))
+        self.assertEqual(mended("あ<LUCK_NEUTRAL>い<MSGEND>", "Hi yo<MSGEND>"), (None, "codes in its text"))
+        # the draft: the cartridge's codes put back, or the cartridge's Japanese; a number's text from another
+        with tempfile.TemporaryDirectory() as d:
+            paths = {k: os.path.join(d, k + ".txt") for k in ("n64", "gc", "out")}
+            n64 = {n: "jp%d<MSGEND>" % n for n in range(af_text.N64_COUNT)}
+            n64[1] = "<DEMONPC0 020001>jp1<MSGEND>"
+            n64[3] = n64[4] = "<DEMONPC0 000016>jp3<MSGEND>"
+            open(paths["n64"], "w").write("".join("## %d\n%s\n\n" % kv for kv in sorted(n64.items())))
+            gc = {0: "en0<MSGEND>", 1: "en1<MSGEND>", 2: "en2?<SETSELSTR2 00030004><OPENCHOICE><MSGCONTINUE>",
+                  3: "en3, its own<MSGEND>", 4: "<DEMONPC0 00000e>en4<MSGEND>"}
+            open(paths["gc"], "w").write("".join("## %d\n%s\n\n" % kv for kv in sorted(gc.items())))
+            align = os.path.join(d, "align.tsv")
+            open(align, "w").write("number\tclass\tn64\tgc\n" + "".join("%d\tsame\t\t\n" % n for n in range(5)))
+            af_text.draft(paths["n64"], paths["gc"], align, paths["out"], [], {3: 4})
+            text = open(paths["out"], encoding="utf-8").read()
+            back = msgbank.Bank.parse_dump(text)
+            self.assertEqual([r(back[n]) for n in range(5)],
+                             ["en0<MSGEND>", "<DEMONPC0 020001>en1<MSGEND>", "jp2<MSGEND>",
+                              "<DEMONPC0 000016>en4<MSGEND>", "<DEMONPC0 000016>en4<MSGEND>"])
+            self.assertIn("#: TODO translate (the GameCube's text steers the game otherwise", text)
+            self.assertIn("#: the GameCube's message 4 (MESSAGE_REMAP)", text)
+        self.assertEqual(sorted(af_text.MESSAGE_REMAP.values()), [11724, 11729, 11731, 11733, 11735])
+
     def test_relink_adds_plain_segments(self):
         script = ("SECTIONS\n{\n    __romPos = 0;\n"
                   "    code_ROM_START = __romPos;\n    .code 0x80051A80 : AT(code_ROM_START) SUBALIGN(16)\n    {\n"
