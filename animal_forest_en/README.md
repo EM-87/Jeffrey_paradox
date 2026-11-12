@@ -377,11 +377,10 @@ cumpleaños (como el reloj), comillas inglesas en la ventana de la
 muletilla, y "Safety"/"First" y "New Year" en los dos papeles de carta
 que llevaban kanji ("The word textures").
 
-Lo que queda en japonés, a propósito o sin equivalente: los modos de kana
-del dial (para quien quiera escribir en japonés), el puesto de la fortuna
-del día de Año Nuevo (el de GameCube es otro modelo), y el cartel del
-torneo de pesca y el emblema de invierno del mercado negro, que GameCube
-también dejó en japonés.
+Lo que queda en japonés, a propósito o sin equivalente: el puesto de la
+fortuna del día de Año Nuevo (el de GameCube es otro modelo), y el cartel
+del torneo de pesca y el emblema de invierno del mercado negro, que
+GameCube también dejó en japonés.
 
 La pasada de pruebas del texto ("The official text's codes and the
 GameCube's own") encontró dos clases de fallo en el texto oficial. La
@@ -404,18 +403,30 @@ cartucho no tiene. Son 202 mensajes y 3 opciones de concurso nuevos,
 traducción nuestra del japonés del cartucho (`script/message/`,
 `script/choice/`). Ya no queda ninguna cadena libre sin rellenar.
 
-El dial escribe minúsculas ("The dial's small letters"). En el cartucho
-el modo de letras solo tenía mayúsculas (la orden de convertir, R,
-pasaba la letra anterior a minúscula) y el editor abría en hiragana. Ahora
-abre en minúsculas, "abc" en el panel de modos con una etiqueta dibujada
-por nosotros, y Z pasa a mayúsculas ("ABC") sin mover el anillo; después
-siguen los números, los kana y los símbolos como antes. R convierte la
-letra anterior a mayúscula, así que "Dear" se escribe d, R, e, a, r. La
-etiqueta y su lista de dibujo van en el hueco que dejó en el overlay del
-editor el trabajo de las líneas, porque ni sus datos ni su tabla de
-reubicaciones pueden crecer. `make write-check-en` comprueba el arranque
-en minúsculas, el ciclo de Z, la palabra tecleada y la etiqueta medida
-en pantalla. La ruta de pruebas escribe ahora los nombres en minúsculas.
+El dial ya no tiene modos kana y escribe minúsculas ("The dial's small
+letters"). En el cartucho Z recorría hiragana, símbolos, katakana,
+letras (solo mayúsculas: R pasaba la letra anterior a minúscula) y
+números, y el editor abría en hiragana. Ahora abre en minúsculas ("abc",
+con una etiqueta dibujada por nosotros), y Z pasa a mayúsculas ("ABC")
+sin mover el anillo, luego a los símbolos, a los números y de vuelta a
+"abc"; el panel de modos muestra esas cuatro filas en ese orden. R
+convierte la letra anterior a mayúscula, así que "Dear" se escribe d, R,
+e, a, r. El anillo de símbolos pierde los cinco signos japoneses (coma,
+punto, punto medio y comillas angulares) y queda en 25, en un orden
+pensado para el inglés. `tools/af_dial.py` pone nuestra etiqueta donde
+estaba la de hiragana y reordena el panel y el anillo al compilar; el
+editor solo reparte las filas, sin gastar más de una de las reubicaciones
+que le quedaban. `make write-check-en` comprueba el arranque en
+minúsculas, el ciclo de Z, las filas del panel medidas en pantalla, el
+anillo de símbolos y una frase tecleada con los tres modos. La ruta de
+pruebas escribe ahora los nombres en minúsculas.
+
+Sin el ajuste manual del tipo de guardado que usan nuestras pruebas, un
+mupen64plus normal trata la ROM como desconocida (tipo de guardado 0),
+pero aun así guarda en Flash RAM: el núcleo solo distingue SRAM del
+resto y detecta la Flash RAM al primer acceso. Medido: la ruta y todas
+las comprobaciones de guardado, carga al encender incluida, pasan igual.
+La ROM conserva el nombre y el código de juego del cartucho (NAFJ).
 
 ## Dónde está cada cosa
 

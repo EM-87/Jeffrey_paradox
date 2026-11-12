@@ -166,6 +166,12 @@ the why and the state, `reference/NOTES.md` for what is verified.
   and the letter papers' words (ours: the en font's glyphs, put where the
   kana were), over the en tree's copies of their segments at `make
   rom-en` (NOTES, "The word textures").
+- `tools/af_dial.py` — the dial without its kana modes: our label for
+  the small letters over the hiragana's in the dial's segment, the
+  panel's rows' lists pointed at the capitals', the symbols' and the
+  digits' labels, and the symbols' ring without its Japanese marks in
+  the editor's data, at `make rom-en` (NOTES, "The dial's small
+  letters").
 - `tools/af_nafe_text.py` — the messages the GameCube's script has no
   counterpart for, in the 2010 patch's English where its codes that steer
   the game are the cartridge's (ends, choices, next messages, the talk
@@ -190,7 +196,8 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `emu_write.py` (letters typed on the editor's dial, their lines, cursor
   and end mark measured against the same model, finished and read back
   whole, 192 bytes; the dial opening on its small letters, Z through its
-  modes, our abc label in RAM and its ink on screen: `make write-check-en`),
+  four modes (no kana), the panel's rows in RAM and their labels' ink on
+  screen, the symbols' ring: `make write-check-en`),
   `emu_notice.py` (the bulletin board: the game's notices put up as the
   game puts them, each post's lines measured on the board's frame
   against the same model, a notice typed past 96 bytes, finished, read
@@ -268,12 +275,13 @@ the why and the state, `reference/NOTES.md` for what is verified.
 - **An overlay's relocation table cannot grow either.** Its `_reloc`
   segment keeps the cartridge's size, and `tools/af_ovlreloc.py` refuses
   more relocations than it holds (the editor's: room for 214, the en
-  build's 214). Each reference to a symbol the overlay's objects define
+  build's 213). Each reference to a symbol the overlay's objects define
   costs one (a HI16 and each LO16, a jal, a word of data); a distance the
   linker gives (`undefined_syms.ld`, `ABSOLUTE(a) - ABSOLUTE(b)`) costs
   none, since fado relocates only what the objects define. An overlay's
   text that the en build left short of its size can hold data
-  (`.word`/`.byte` in a GLOBAL_ASM file) where its data cannot grow
+  (`.word`/`.byte` in a GLOBAL_ASM file) where its data cannot grow; a
+  segment's texture or list the en build no longer draws is room too
   (NOTES, "The dial's small letters").
 - **The cartridge's own files hold RAM addresses.** 2,348 texture loads in
   the field models name code's bss buffers by address (NOTES,

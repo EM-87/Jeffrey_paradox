@@ -21,6 +21,7 @@ import aflz  # noqa: E402
 import bps  # noqa: E402
 import af_anchors  # noqa: E402
 import af_bench  # noqa: E402
+import af_dial  # noqa: E402
 import af_align  # noqa: E402
 import af_dmaorder  # noqa: E402
 import af_dumpdata  # noqa: E402
@@ -1778,49 +1779,92 @@ class MenuTextures(unittest.TestCase):
         self.assertEqual(af_menu_tex.drawn_i4(dl), {0x100: (32, 16)})
 
 
-class DialLabel(unittest.TestCase):
-    """The en build's label for the dial's small letters (reference/NOTES.md, "The dial's small letters"): our
-    art and the list that draws it, in decomp/changes.patch."""
+class Dial(unittest.TestCase):
+    """The en build's dial without its kana modes (tools/af_dial.py; reference/NOTES.md, "The dial's small
+    letters"): our label, the panel's rows and the symbols' ring, on a made-up segment and overlay."""
 
-    INC = "src/overlays/submenu/ovl__0078CB80/ovl__0078CB80_en_label.inc"
-    LEGEND = " .:-=+*#%@ABCDEF"
+    @staticmethod
+    def label_list(tex):
+        words = [0xE7000000, 0, af_dial.SET_TIMG, 0x0C000000 | tex, 0xF5900000, 0x07000000, 0xE6000000, 0,
+                 0xF3000000, 0x070BF2AB, 0xE7000000, 0, 0xF5800600, 0x00FD0360, 0xF2000000, 0x000BC03C,
+                 0x01004008, 0x0C000A50, 0x06000204, 0x00020604, 0xDF000000, 0]
+        return b"".join(struct.pack(">I", w) for w in words)
 
-    def setUp(self):
-        self.text = changes_patch_file(self.INC)
-        if self.text is None:
-            self.skipTest("needs %s in decomp/changes.patch" % self.INC)
+    def cartridge_segment(self):
+        seg = bytearray(0x2000)
+        for dl, tex in ((0x1440, 0x1848), (0x1498, 0x19C8), (0x14F0, 0x1CC8), (0x1548, 0x1E48), (0x15A0, 0x1B48)):
+            lst = self.label_list(tex)
+            seg[dl:dl + len(lst)] = lst
+        for at in (0x1848, 0x19C8, 0x1B48, 0x1CC8, 0x1E48):
+            seg[at:at + 0x180] = bytes([0x5A]) * 0x180
+        return bytes(seg)
 
-    def test_the_art_is_its_bytes(self):
-        rows = [line for line in self.text.splitlines() if line.startswith(".byte")]
-        self.assertEqual(len(rows), 16)
-        texels = []
-        for row in rows:
-            code, art = row.split("/*")
-            data = [int(b, 16) for b in re.findall(r"0x([0-9A-F]{2})", code)]
-            art = art.split("*/")[0].strip().replace("_", " ")
-            self.assertEqual((len(data), len(art)), (24, 48))
-            self.assertEqual([v for b in data for v in (b >> 4, b & 15)], [self.LEGEND.index(c) for c in art])
-            texels.append([self.LEGEND.index(c) for c in art])
+    def cartridge_overlay(self):
+        ovl = bytearray(0x3800)
+        marks = [msgbank.N64_BYTES[c] for c in "、。・「」"]
+        table = bytes(marks[:3]) + af_dial.symbol_codes()[:10] + bytes(marks[3:]) + af_dial.symbol_codes()[10:]
+        at = af_dial.SYMBOLS_AT - af_dial.EDITOR_VRAM
+        ovl[at:at + 32] = table + bytes(2)
+        for v in (af_dial.SYMBOLS_COUNT_AT, af_dial.SYMBOLS_RING_AT):
+            ovl[v - af_dial.EDITOR_VRAM:v - af_dial.EDITOR_VRAM + 4] = struct.pack(">I", 30)
+        return bytes(ovl)
+
+    @staticmethod
+    def data_s(ovl, vrams):
+        lines = []
+        for v in vrams:
+            w = af_dial.word_at(ovl, af_dial.EDITOR_VRAM, v)
+            lines.append("    /* %06X %08X %08X */ .word 0x%08X" % (v - 0x80000000, v, w, w))
+        return "\n".join(lines)
+
+    def test_the_label_is_ours_drawn_by_hand(self):
+        tex = af_dial.lower_label()
+        self.assertEqual(len(tex), 48 * 16 // 2)
+        texels = [[(tex[(y * 48 + x) // 2] >> (4 if x % 2 == 0 else 0)) & 15 for x in range(48)] for y in range(16)]
+        self.assertEqual(texels, [[af_dial.LEGEND.index(c) for c in row] for row in af_dial.LOWER_LABEL])
         inked_above = sorted({x for y in range(6) for x in range(48) if texels[y][x] >= 8})
         self.assertEqual(inked_above, [12, 13, 14])                 # above the small letters, the b's stem alone
 
-    def test_the_list_draws_the_texture_where_the_letters_label_is(self):
-        head = self.text[self.text.index("glabel mED_en_lowerLabelDL"):self.text.index("glabel mED_en_lowerLabelTex")]
-        words = [w.strip() for line in head.splitlines() if line.startswith(".word")
-                 for w in line.split("/*")[0][len(".word"):].split(",")]
-        self.assertEqual(len(words), 24)                            # 0x60 bytes: the texture 8-byte aligned after it
-        self.assertEqual(words[2:4], ["0xFD900000", "mED_en_lowerLabelTex"])    # I, 16-bit loads
-        self.assertEqual(words[8:10], ["0xF3000000", "0x070BF2AB"])  # 192 words: 48x16 at 4 bits
-        self.assertEqual(words[12:14], ["0xF5800600", "0x00FD0360"])  # the render tile: I4, 24 bytes a row
-        self.assertEqual(words[14:16], ["0xF2000000", "0x000BC03C"])  # 48x16
-        self.assertEqual(words[16:18], ["0x01004008", "0x0C000A50"])  # the letters' label's four vertices
-        self.assertEqual(words[20], "0xDF000000")
+    def test_the_rows_lists_point_at_the_four_labels(self):
+        cart = self.cartridge_segment()
+        edits = af_dial.segment_edits(cart)
+        new = af_dial.apply_segment(cart, cart, edits)
+        self.assertEqual([af_dial.word_at(new, 0, dl + 12) for dl in (0x1440, 0x15A0, 0x1498, 0x14F0, 0x1548)],
+                         [0x0C001848, 0x0C001CC8, 0x0C001B48, 0x0C001E48, 0x0C001E48])
+        self.assertEqual(new[0x1848:0x1848 + 0x180], af_dial.lower_label())
+        self.assertEqual(af_dial.apply_segment(new, cart, edits), new)          # again: the same
+        other = bytearray(new)
+        other[0x15AC:0x15B0] = b"\x0c\x00\x19\xc8"
+        with self.assertRaises(SystemExit):
+            af_dial.apply_segment(bytes(other), cart, edits)
+        moved = bytearray(cart)
+        moved[0x14A4:0x14A8] = b"\x0c\x00\x18\x48"
+        with self.assertRaises(SystemExit):                       # a list that does not draw the label it should
+            af_dial.segment_edits(bytes(moved))
 
-    def test_the_editor_finds_it_from_its_state(self):
+    def test_the_symbols_ring_loses_the_japanese_marks(self):
+        ovl = self.cartridge_overlay()
+        words = af_dial.ring_edits(ovl)
+        vrams = sorted(words)
+        data_s = self.data_s(ovl, vrams)
+        new_s = af_dial.rewrite_data(data_s, ovl, words)
+        table = b"".join(struct.pack(">I", words[v]) for v in range(af_dial.SYMBOLS_AT, af_dial.SYMBOLS_AT + 32, 4))
+        self.assertEqual(table[:25], af_dial.symbol_codes())
+        self.assertEqual(table[25:], b" " * 5 + bytes(2))
+        self.assertEqual((words[af_dial.SYMBOLS_COUNT_AT], words[af_dial.SYMBOLS_RING_AT]), (25, 25))
+        self.assertEqual(af_dial.rewrite_data(new_s, ovl, words), new_s)       # again: the same
+        self.assertEqual(af_dial.SYMBOLS[:5], "?!' \n")             # a sentence's ends, a space and a newline first
+        wrong = bytearray(ovl)
+        wrong[af_dial.SYMBOLS_AT - af_dial.EDITOR_VRAM] = msgbank.N64_BYTES["A"]
+        with self.assertRaises(SystemExit):
+            af_dial.ring_edits(bytes(wrong))
+
+    def test_the_editor_finds_the_panel_from_its_state(self):
         with open(os.path.join(HERE, "..", "decomp", "changes.patch"), encoding="utf-8") as f:
             patch = f.read()
+        if "mED_en_dialLabels" not in patch:
+            self.skipTest("needs the en dial in decomp/changes.patch")
         self.assertIn("+mED_en_stateToLabels = ABSOLUTE(B_80888AF0_jp) - ABSOLUTE(D_808888CC_jp);", patch)
-        self.assertIn("+mED_en_stateToLowerLabel = ABSOLUTE(B_80888AF0_jp) - ABSOLUTE(mED_en_lowerLabelDL);", patch)
 
 
 if __name__ == "__main__":

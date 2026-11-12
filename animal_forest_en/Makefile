@@ -206,6 +206,12 @@ EN_GC_SIGNS := $(AF_EN_DIR)/assets/jp/en/gc_signs.stamp
 # quotes (ours, in the en font's glyphs), over the en tree's copies of their
 # segments (tools/af_menu_tex.py; NOTES, "The menus' word textures").
 EN_MENU_TEX := $(AF_EN_DIR)/assets/jp/en/menu_tex.stamp
+# The dial without its kana modes: its modes' panel (our label for the small
+# letters where the hiragana's was, the rows' lists pointed at the capitals',
+# the symbols' and the digits' labels) and its symbols' ring without its
+# Japanese marks, over the en tree's copies of the dial's segment and of the
+# editor's data (tools/af_dial.py; NOTES, "The dial's small letters").
+EN_DIAL := $(AF_EN_DIR)/assets/jp/en/dial.stamp
 GC_REL := $(wildcard $(GC_DIR)/foresta.map $(GC_DIR)/foresta.rel.szs)
 # The overlays the translation changes: each gets its relocation table made
 # anew from its objects after the first link (tools/af_ovlreloc.py, which
@@ -338,6 +344,13 @@ $(EN_MENU_TEX): tools/af_menu_tex.py tools/af_gc_signs.py tools/af_font.py tools
 		$(if $(GC_REL),$(GC_DIR)/foresta.map $(GC_DIR)/foresta.rel.szs)
 	@touch $@
 
+# writes the dial's segment's .bin (after the 2010 patch's labels, which go in the same file) and the editor's
+# .data.s, which splat rewrites at every extract
+$(EN_DIAL): tools/af_dial.py tools/af_menu_tex.py tools/msgbank.py $(EN_NAFE_GFX) $(AF_EN_DIR)/.stamp-extract
+	mkdir -p $(EN_ASSETS)
+	$(PYTHON) tools/af_dial.py $(BASEROM) $(AF_EN_DIR)
+	@touch $@
+
 # also writes the segment's .bin and the actor's .data.s, which splat rewrites at every extract
 $(EN_NAFE_LOGO): tools/af_nafe_logo.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)) $(AF_EN_DIR)/.stamp-extract
 	mkdir -p $(EN_ASSETS)
@@ -346,7 +359,7 @@ $(EN_NAFE_LOGO): tools/af_nafe_logo.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)
 	@touch $@
 
 en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT) $(EN_UI) $(EN_NAFE_GFX) $(EN_NAFE_LOGO) $(EN_ITEMS) \
-	$(EN_GC_SIGNS) $(EN_MENU_TEX)
+	$(EN_GC_SIGNS) $(EN_MENU_TEX) $(EN_DIAL)
 
 # The deliverable: the en ROM as a BPS patch against the user's dump in .z64 order (build/baserom.z64),
 # made and applied back by tools/bps.py; any BPS patcher applies it.

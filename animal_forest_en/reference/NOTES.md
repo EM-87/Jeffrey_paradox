@@ -109,8 +109,19 @@ What it took (each found by a failing comparison, in this order):
   not know gets 4 KB EEPROM. `N64()` writes a copy of the ini into its
   workdir with an entry for the ROM's MD5 referring to the original
   (`like=ORIGINAL_MD5`); the core then logs `Save type: 3` (Flash RAM) for
-  a rebuilt ROM (measured). What that would otherwise break is not
-  measured: it was not what stalled the route (next item).
+  a rebuilt ROM (measured). Without that entry (`like=None`, what a stock
+  mupen64plus does with the en ROM) nothing breaks, measured on the en
+  ROM of the dial's small letters: the core logs "unknown rom" and `Save
+  type: 0` (4 KB EEPROM), but it only tells SRAM from the rest (core at
+  `emu/build.sh`'s CORE_REV, `src/device/cart/cart.c`: `use_flashram` is
+  -1 for SRAM, else the cartridge's second domain becomes Flash RAM at
+  its first access), so the game saves to Flash RAM all the same. The
+  route plays to the houses (frames 3289, 9279, 12148: a frame or three
+  from the entry's) and `tests/emu_save.py`'s checks all pass, the boot's
+  included, the flash file then named after the ROM's header name
+  (`DOUBUTSUNOMORI-<md5>.fla`). The en ROM keeps the cartridge's header
+  name and game code (NAFJ), which other emulators and flash carts look a
+  game up by; the 2010 patch's ROM changed them.
 - **The route's name-dial detector was tuned on the 2010 patch only.**
   `afplay.name_dial_open` read the dial's ring at (270,195), which is
   (41,57,169) on the English dial and (75,131,195) on the kana dial, so
@@ -1225,8 +1236,8 @@ what goes in it: "The letters in the en build").
   entries: A to Z, comma, full stop, newline, space. The stick pushed
   down turns the ring a page of five (with A, two). Capitals only; the
   convert command shows the letter before the cursor's other case (N to
-  n), so mixed case can be written. The en build adds the small letters
-  and opens on them: "The dial's small letters".
+  n), so mixed case can be written. The en build adds the small letters,
+  opens on them and has no kana modes: "The dial's small letters".
 - **The board's cursor** (`func_80889878_jp`): `64 + x + (col - 0.7) * 12`,
   six columns more after the name, the footer's counted from its 16th;
   the name's box (`func_8088973C_jp`) at `(headerBackStart + 3) * 12`. The
@@ -1859,7 +1870,8 @@ what goes in it: "The letters in the en build").
   kana ring (the patch kept them; the en font keeps the kana, so they
   still type), the town tune's note names (kana textures, I4) and the
   bulletin board's text, which breaks its lines by count, not by width.
-  The item names were, until "Item names" below.
+  The item names were, until "Item names" below; the kana modes, until
+  "The dial's small letters".
 - **The title is more than textures.** The title's logo lives in
   `segment_01136000` (0x5CD0 bytes; segment 6 while the logo actor
   draws). The patch rewrote it (0x4EB0 bytes) and the logo actor that
@@ -2987,61 +2999,87 @@ what goes in it: "The letters in the en build").
   character before the cursor and it with the font). The 2010 patch
   opened the editor on the letters and made their table small letters
   (R for a capital), its label for the mode left as it drew it.
-- **The en build: both cases.** The letters type small letters (abc)
-  while a flag is set and capitals (ABC) when not. The flag is the
+- **The en build: both cases, no kana.** The letters type small letters
+  (abc) while a flag is set and capitals (ABC) when not. The flag is the
   state's byte 0x12 (`enLower`), which the cartridge never reads or
   writes: not in the editor's code, nor in the board, the bulletin board
   or the name entry, which read the state through the submenu's pointer
   at +0x106E0. In abc `func_80885140_jp` gives a capital's small letter
   (its code + 0x20, the pair `D_80888710_jp` holds), so the ring shows
-  them and they are typed. Z goes from katakana to abc, then to ABC on
-  the same ring, then to the digits; the editor opens on abc, whatever
-  it writes (a letter, a notice, a name, a catchphrase). R turns the
-  letter before the cursor into its capital, the cartridge's own
-  command. In C first (decomp/matching.patch): `func_80885140_jp` and
-  `func_808854CC_jp` match; `make verify` identical.
-- **The label.** The modes' panel draws each mode's label from a list a
-  mode (`D_808888CC_jp`, segment 0x0C addresses; each loads its label, I4
-  48x16, and draws it at its four vertices): the current mode's in red
-  (225, 45, 0), the others in (205, 135, 80) (`func_80886CC4_jp`).
-  `func_80886A60_jp` turns the buttons' textures' tables into RAM
-  addresses, not this one. abc's label is ours, drawn by hand: the small
-  letters at the height and weight of the letters' label (the art beside
-  each row in `ovl__0078CB80_en_label.inc`), and a list as the letters'
-  own (0x0C0014F0: its texture at 0x0C001CC8, its vertices at
-  0x0C000A50). The init and Z put ours or the cartridge's in the letters'
-  entry (`mED_en_letterLabel`), before the panel is drawn.
+  them and they are typed. The dial has no kana modes: Z goes from abc to
+  ABC on the same ring, then to the symbols (mode 1), the digits (mode 4)
+  and abc again, and the editor opens on abc, whatever it writes (a
+  letter, a notice, a name, a catchphrase); nothing else sets the mode
+  (the editor's asm stores to its byte 4 nowhere; what the bulletin
+  board stores at 4 is its own state's). R turns the letter before the
+  cursor into its capital, the cartridge's own command. In C first
+  (decomp/matching.patch): `func_80885140_jp` and `func_808854CC_jp`
+  match; `make verify` identical.
+- **The panel.** The modes' panel draws each mode's label from a list a
+  mode (`D_808888CC_jp`, segment 0x0C addresses: each list loads its
+  label, I4 48x16, and draws it at its own four vertices, rows 12 units
+  apart: hiragana's at the top, then the symbols', katakana's, the
+  letters' and the digits'): the current mode's in red (225, 45, 0), the
+  others in (205, 135, 80) (`func_80886CC4_jp`). `func_80886A60_jp`
+  turns the buttons' textures' tables into RAM addresses, not this one.
+  In the en build the panel shows the four modes from the top in Z's
+  order, the fifth row empty. `tools/af_dial.py` writes, at `make
+  rom-en`, our label for the small letters where the hiragana's was
+  (drawn by hand at the height and weight of the 2010 patch's capitals,
+  its art in the tool), and points the second, third and fourth rows'
+  lists at the capitals', the symbols' and the digits' labels (their
+  texture words, 0x0C0015AC, 0x0C0014A4, 0x0C0014FC). The editor
+  (`mED_en_dialLabels`, from the init and Z) fills `D_808888CC_jp`: the
+  letters' entry the row of the case the dial types, the hiragana's the
+  other case's, the symbols' and the digits' their rows, katakana's an
+  empty list (the end of the first row's, 0x0C001490), so the fifth
+  row's list is drawn by none.
+- **The symbols' ring.** The cartridge's 30 marks hold five Japanese ones
+  (its comma, full stop, middle dot and corner brackets), which the en
+  font draws with the cartridge's glyphs; the font has no other mark an
+  English text wants but the equals sign. The en build's ring is the
+  other 25 in our order (`af_dial.SYMBOLS`: a question and an
+  exclamation mark, an apostrophe, a space and a newline first), its
+  count (`D_808885DC_jp[1]`) and its ring's length (`D_808885B4_jp[1]`)
+  25, five pages: `af_dial.py` writes them over the editor's data
+  (.data.s) after checking the cartridge's. The ring turns (in
+  `func_80886724_jp`) by a step a frame, one or, with A, two, and wraps
+  when it equals the length: two-page turns from the last page step over
+  25 as they step over the cartridge's 30 from its last but one, and the
+  pages stay whole (the code is the ring and the stick's place round the
+  count), as on the cartridge.
 - **Where it lives.** The dial's segment (`segment_00A40000`, 0x17140
-  bytes) has no room: its lists, walked with the textures they load (the
-  buttons' through segments 8 and 9, set from the overlay's tables), read
-  all of it but four gaps of 8 bytes. The overlay's data and its
-  relocation table cannot grow, and `code_en` would take the bytes from
-  the heap. The en build's line model had left the overlay's text 0x2D0
-  bytes short of the cartridge's 0x33C0: the list and the texture (0x1E0
-  bytes) are data there (asm-processor takes `.word` and `.byte` in a
-  GLOBAL_ASM block in text; a `#pragma` naming the file, which gcc's
-  check ignores where an inline block fails it), first in the file so
-  that both are 8-byte aligned; the text is 0x33A0 bytes with them. The
-  relocation table (`ovl__0078CB80_reloc`, 0x370 bytes) has room for 214;
-  the en build had 211, our list's texture word takes one and the label's
-  function's two calls two: 214. That function finds the labels' table
-  and our list from the editor's state, the overlay's bss, at distances
-  the linker gives (`undefined_syms.ld`:
-  `ABSOLUTE(B_80888AF0_jp) - ABSOLUTE(D_808888CC_jp)`, 0x224, and to our
-  list 0x39B0), which take no relocation: fado relocates only references
-  to symbols the overlay's objects define (`tools/fado/src/fado.c`). The
-  first build, which named the table and our list, needed 220.
+  bytes) has no free room: its lists, walked with the textures they load
+  (the buttons' through segments 8 and 9, set from the overlay's tables),
+  read all of it but four gaps of 8 bytes. The hiragana's label was
+  free once the kana went, and holds ours. A first version kept the
+  label and its list as data in the overlay's text (asm-processor takes
+  `.word` and `.byte` in a GLOBAL_ASM block in text, which the en
+  build's line model had left 0x2D0 bytes short of its 0x33C0), the
+  panel's letters' entry swapped between ours and the cartridge's. The
+  relocation table (`ovl__0078CB80_reloc`, 0x370 bytes) has room for
+  214; the en build had 211, and the two calls of `mED_en_dialLabels`
+  take two: 213. It finds `D_808888CC_jp` from the editor's state, the
+  overlay's bss, at a distance the linker gives (`undefined_syms.ld`:
+  `ABSOLUTE(B_80888AF0_jp) - ABSOLUTE(D_808888CC_jp)`, 0x224), which
+  takes no relocation: fado relocates only references to symbols the
+  overlay's objects define (`tools/fado/src/fado.c`). The first version,
+  naming the table and its list, needed 220.
 - **On screen** (`tests/emu_write.py`, make write-check-en). The dial
-  opens on abc, the panel's letters' entry our list, which loads our
-  texture (the .inc's art, in RAM); Z gives ABC on the same ring (the
-  cartridge's list back), the digits, hiragana, the symbols, katakana and
-  abc again; d, R and e, a, r type "Dear". The label's red ink: the
-  capitals' from x 143 to 187 and y 165 to 173 give the panel's pitch
-  (1.375 frame pixels a texel across, 0.8 down) and its place; ours is at
-  x 144-187 and y 165-173 (the model's 144.4-185.6 and 165.0-173.0), and
-  above the small letters' height only the b's stem is inked, x 158-161
-  (the model's 158.1-162.2; the capitals have ink from 147 to 187
-  there). The rest of the check types its sentences in ABC, as before.
+  opens on abc, the panel's entries in RAM its four rows (the letters'
+  abc, the hiragana's ABC, katakana's nothing); Z gives ABC on the same
+  ring, the symbols, the digits and abc again, the entries following;
+  the symbols' ring in RAM is our 25 marks, both counts 25; d, R, e, a,
+  r and, on the symbols, a question mark type "Dear?". The red label
+  measured in each mode: the capitals' (row 2) give the panel's pitch
+  across (1.375 frame pixels a texel) and its place, the digits' (row 4)
+  a row's height (12 frame lines); the small letters' label is red in
+  row 1 at x 144-187 and y 129-137 (the model's 144.4-185.6 and
+  129.0-136.5), above the small letters' height only the b's stem
+  (x 158-161, the model's 158.1-162.2), the symbols' in row 3, the
+  digits' where the model has them, and the fifth row has no label's
+  ink in any mode. The rest of the check types its sentences in ABC, as
+  before.
 - **The route** (`tools/route_newgame.py`) types the player's and the
   town's names on the dial with the same four strokes, now on abc: up c,
   right e, left a (down with A turns the ring), the names "cea". It
