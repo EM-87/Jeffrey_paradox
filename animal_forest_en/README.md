@@ -358,19 +358,19 @@ Los letreros de los edificios también son los de GameCube, leídos de tu
 disco al compilar (`tools/af_gc_signs.py`): GameCube guarda estas
 texturas con los mismos nombres y tamaños que el cartucho, en su propio
 formato (mosaicos de 8x8 y paletas RGB5A3), y su versión inglesa redibujó
-22 con palabras: los nombres de las cuatro tiendas (y el cartel y el
-emblema de la primera), el mercado negro, el vertedero, la placa de la
-comisaría, las unidades del cartel de cuenta atrás, el puesto del torneo
-de pesca y las placas de nombre de las casas. Se convierten al formato de
-N64 y se escriben sobre la copia del árbol en inglés (29 copias, más los
-dos colores de la paleta del mercado negro); `make signs-check-en` las
+24 con palabras: los nombres de las cuatro tiendas (y el cartel y el
+emblema de la primera, y el cartel de rebajas de la cuarta), el mercado
+negro, el vertedero, la placa de la comisaría, las unidades del cartel de
+cuenta atrás, el puesto del torneo de pesca y las placas de nombre de las
+casas. Se convierten al formato de N64 y se escriben sobre la copia del
+árbol en inglés (31 copias, más los dos colores de la paleta del mercado
+negro); `make signs-check-en` las
 comprueba en el ROM y en la RAM del juego tras montar cada edificio junto
 al jugador ("The GameCube's signs").
 
-Lo que viene: el resto de texturas con japonés (los carteles de rebajas
-de la cuarta tienda, el puesto de la fortuna, algunos papeles de carta,
-las palabras de la ventana del cumpleaños) y una pasada de pruebas de
-todo el texto en el juego.
+Lo que viene: el resto de texturas con japonés (el puesto de la
+fortuna, algunos papeles de carta, las palabras de la ventana del
+cumpleaños) y una pasada de pruebas de todo el texto en el juego.
 
 ## Dónde está cada cosa
 

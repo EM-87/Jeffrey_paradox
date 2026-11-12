@@ -7,8 +7,8 @@ The GameCube's Animal Crossing keeps the structures' textures it shares with
 the cartridge under the decomp's names, at the same sizes, in its own
 format: CI4 in 8x8 tiles (32 bytes a tile, two texels a byte, the high
 nibble first), its palettes RGB5A3. Where its English redrew a sign with
-words on it (SIGNS: the four shops' names and the first one's door sign and
-emblem, the dump's sign, the black market's, the countdown board's units,
+words on it (SIGNS: the four shops' names, the first one's door sign and
+emblem and the fourth one's sale banner, the dump's sign, the black market's, the countdown board's units,
 the police box's plate, the fishing tourney's stall, the houses' name
 plates), this takes its texels from the user's disc (build/gc/foresta.rel.szs,
 which make script reads, its map naming them), lays them out as the N64's
@@ -68,6 +68,8 @@ SIGNS = [
     ("obj_s_shop2_t2_tex_txt", [0x5E018, 0x604F8], (128, 32), 0.90, "the second shop's name"),
     ("obj_s_shop3_t3_tex_txt", [0x62A90, 0x65040], (128, 32), 0.80, "the third shop's name"),
     ("obj_s_shop4_t3_tex_txt", [0x67618, 0x69BF8], (128, 32), 0.55, "the fourth shop's name"),
+    ("obj_s_shop4_t2_tex_txt", [0x66578], (128, 32), 0.45, "the fourth shop's sale banner"),
+    ("obj_w_shop4_t2_tex_txt", [0x68B58], (128, 32), 0.45, "the fourth shop's sale banner, in winter"),
     ("obj_e_turi_t1_tex", [0x8AF98, 0x8D028], (128, 32), 0.90, "the fishing tourney's stall"),
 ]
 # the GameCube's palettes it changed, the cartridge's (in object_00D5B000) they replace

@@ -77,7 +77,7 @@ SETTLE = 60
 STRUCTURES = [(0x5804, "the first shop", ["obj_s_shop1_roof_txt", "obj_s_shop1_front_txt", "obj_s_shop1_side_txt"]),
               (0x5805, "the second shop", ["obj_s_shop2_t2_tex_txt"]),
               (0x5806, "the third shop", ["obj_s_shop3_t3_tex_txt"]),
-              (0x5807, "the fourth shop", ["obj_s_shop4_t3_tex_txt"]),
+              (0x5807, "the fourth shop", ["obj_s_shop4_t3_tex_txt", "obj_s_shop4_t2_tex_txt"]),
               (0x580C, "the police box", ["obj_s_kouban_t1_tex_txt"]),
               (0x5826, "the black market", ["obj_s_yamishop_t1_tex_txt"]),
               (0x5831, "the countdown board", ["obj_e_count_t2_tex_txt", "obj_e_count_t3_tex_txt"]),

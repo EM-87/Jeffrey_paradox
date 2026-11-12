@@ -148,9 +148,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `ac_animal_logo.c` uses; the cartridge's logo without it (NOTES, "The
   title's logo"). The actor is in `EN_OVERLAYS`: its code shrinks.
 - `tools/af_gc_signs.py` — the signs the GameCube's English redrew on
-  the town's structures (the shops' names, the dump's, the black
-  market's, the countdown board's, the police box's plate, the fishing
-  tourney's stall, the houses' name plates), taken at `make rom-en` from
+  the town's structures (the shops' names and a sale banner, the dump's,
+  the black market's, the countdown board's, the police box's plate, the
+  fishing tourney's stall, the houses' name plates), taken at `make rom-en` from
   the disc's foresta.rel (make script's): its tiled CI4 laid out as the
   N64's over the en tree's copy of object_00D5E000 (its PNGs, its
   unextracted .bin), every copy, and the black market's palette into

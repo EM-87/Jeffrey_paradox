@@ -1895,7 +1895,10 @@ what goes in it: "The letters in the en build").
   by texel with object_00D5E000's, it redrew 22 of them with English
   words (`tools/af_gc_signs.py`'s SIGNS), each the same texture with the
   sign redrawn (80 to 99% of the texels the same; the fourth shop's name
-  60%, the sign being most of it). Their palettes are the cartridge's
+  60%, the sign being most of it); and the fourth shop's sale banner (its
+  katakana), which it drew anew as an emblem and a pattern beside the same
+  window and small sign (half of the texels the same): taken too, its
+  side seen in the game without anything amiss. Their palettes are the cartridge's
   colours (a transparent entry's channels a step apart: the GameCube
   keeps four bits of them), but the black market's: its two colours for
   the new words. It kept the tourney headquarters' sign and the black
@@ -1912,7 +1915,7 @@ what goes in it: "The letters in the en build").
   named texture (8-bit indexed: pigment64 takes its indices), the
   unextracted part's .bin for the rest; the black market's palette into
   object_00D5B000's data (`object_00D5B000.data.s`: its `.palette.inc.c`
-  files are not compiled), its two changed entries only. 29 copies and a
+  files are not compiled), its two changed entries only. 31 copies and a
   palette; nothing of it enters the repository.
 - **In the game** (`make signs-check-en`, tests/emu_signs.py). The en ROM
   holds each copy as the GameCube's texels laid out, not the
@@ -1924,10 +1927,8 @@ what goes in it: "The letters in the en build").
   in RAM as the en build has them and the cartridge's gone (the route's
   town is in summer). The screenshots show them. The houses' name plates
   come with a villager's house: the ROM's check only.
-- **Still Japanese.** The fourth shop's sale banners and side sign (the
-  GameCube redrew those textures whole, half of the texels different:
-  not taken), the fortune stall and its slips, the letter papers, the
-  birthday window's words, the quotation frame, the two cards
+- **Still Japanese.** The fortune stall and its slips, the letter
+  papers, the birthday window's words, the quotation frame, the two cards
   (TODO(verify) which the GameCube has, where).
 
 ## The title's logo (phase 5, the graphics' third step)
