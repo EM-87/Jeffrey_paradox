@@ -60,7 +60,13 @@ loaded into 4 bytes as the game loads one, its token; the widest put in a
 page by STR_TAIL, Tom Nook speaking with the town's first animal behind
 him (Npc.npcInfo.animal set to the save's first, its catchphrase loaded
 so), the page's lines measured with the whole catchphrase and the
-animal's name.
+animal's name. And a fish's size in the fishing tourney's messages that
+show it (0x1112, 0x1116 and 0x111A: on a later page, which goes on to a
+message the tourney sets; with none set, the window keeps it): free
+string 2 the size of a fish of 40 as the tourney writes it
+(mString_Load_NumberStringAddUnitFromRom, string 670), the pages before
+it shown and A pressed on each, its page's lines measured with the size
+put in.
 
 Where: the window's text from the frame's row 153 (lines 16 rows apart)
 and x 127.18, 2.005 frame pixels to the font's pixel (fitted on 316 line
@@ -99,6 +105,7 @@ void* Actor_info_fgName_search(void* actorInfo, u16 fgName, s32 part);
 void mNpc_GetNpcWorldNameTableNo(char* name, u16 npcId);
 void mMsg_Set_free_str(void* msg, s32 freeStrNo, char* str, s32 strLen);
 void mString_Load_StringFromRom(char* dst, s32 dstLen, s32 strIdx);
+s32 mString_Load_NumberStringAddUnitFromRom(char* dst, u16 num, s32 idx);
 extern void* gamePT;
 extern u8 common_data[];
 /* the control, then the speakers' fgNames (a zero last), the animals' numbers and the names loaded */
@@ -160,6 +167,14 @@ void hook_main(void) {
             h->result = mMsg_request_main_appear((void*)h->arg[1], actor, 1, hook_color, h->arg[0], 5);
         }
         h->cmd = 0;
+    } else if (h->cmd == 7) {
+        /* cmd 1's message, its free string 2 a fish's size as the fishing tourney puts it (func_809D6694_jp): the
+           number arg[2] and the unit's string arg[3], its length back in arg[3] */
+        h->arg[1] = (s32)mMsg_Get_base_window_p();
+        h->arg[3] = mString_Load_NumberStringAddUnitFromRom(h->names, (u16)h->arg[2], h->arg[3]);
+        mMsg_Set_free_str((void*)h->arg[1], 2, h->names, h->arg[3]);
+        h->result = mMsg_request_main_appear((void*)h->arg[1], 0, 0, hook_color, h->arg[0], 5);
+        h->cmd = 0;
     }
 }
 """.replace("PLAY_ACTOR_INFO", "0x1C78").replace("ACTOR_PART_NPC", "3").replace("SAVE_ANIMALS", "0x9F18").replace(
@@ -205,6 +220,14 @@ ANIMAL_NAME_LEN = 6
 TAIL, CATCHPHRASE_LEN = NAMES["STR_TAIL"], 4
 SAVE_ANIMALS = 0x9F18                       # common_data.save.animals: the town's (Animal_c, 0x528 bytes each,
                                             # its AnmPersonalID_c first: npcId)
+# a fish's size: the fishing tourney (ovl_Ev_Angler) puts it in free string 2 (func_809D6694_jp: its number and
+# string 670, the unit) when its talk order says, in the messages its host speaks (0x2305 to 0x2307), which go on
+# to the one it picks (func_809D5F68_jp: its event's clip's message + 2, or 0x1122 for the record's holder): the
+# size is on a later page of 0x1112, 0x1116 and 0x111A, which goes on to another the tourney sets (with none set,
+# the window keeps the page)
+FREE2, MSGCLEAR, MSGCONTINUE = NAMES["STR_FREE2"], NAMES["MSGCLEAR"], NAMES["MSGCONTINUE"]
+TOURNEY_SIZES = (0x1112, 0x1116, 0x111A)
+FISH, FISH_UNIT = 40, 670
 
 failures = []
 
@@ -244,6 +267,32 @@ def first_page(tokens, town=b"\x41" * 6, fill=None):
             text += t[1]
     lines = text.split("\n")
     return [bytes(msgbank.N64_BYTES[c] for c in line) for line in lines] if text.strip() else None
+
+
+def clears_before(tokens, code):
+    """The <MSGCLEAR>s before code: the number of the page that has it, from 0; None without it."""
+    clears = 0
+    for t in tokens:
+        if t[0] == "c":
+            if t[1] == code:
+                return clears
+            clears += t[1] == MSGCLEAR
+    return None
+
+
+def later_page(tokens, clears, town=b"\x41" * 6, fill=None):
+    """first_page's lines for the page after the message's clears-th <MSGCLEAR>, which may go on to another
+    message (<MSGCONTINUE>: with none set, the window keeps it); None as first_page, or with no such page."""
+    at = [k for k, t in enumerate(tokens) if t[0] == "c" and t[1] == MSGCLEAR]
+    if clears < 1 or len(at) < clears:
+        return None
+    rest = []
+    for t in tokens[at[clears - 1] + 1:]:
+        if t[0] == "c" and t[1] == MSGCONTINUE:
+            rest.append(("c", NAMES["MSGEND"], b""))
+            break
+        rest.append(t)
+    return first_page(rest, town, fill)
 
 
 def is_talk_order(t):
@@ -358,16 +407,9 @@ def string_of(af_en, number):
     return text[start:end]
 
 
-def check_names(n64, state, af_en, en_elf, hole, hole_size, mttime, syms, bank, board, town, out, shots):
-    """The names longer than 6, tokens (NOTES, "Names longer than 6"): Tom Nook's (a special character's) on the
-    plate and put in a page by STR_TALKNAME, with its token and with the token off (the en table's special
-    names emptied: his name cut to 6), whose plate places the plate; the animals' as the game loads them, each
-    its token, and one put in a page as a free string. The lines measured."""
-    specials = special_names(af_en)
-    if NOOK_STRING not in specials:
-        print("  (Tom Nook's name is not longer than 6 in this build: no special name to check)")
-        return 0
-    measured = 0
+def hooks(n64, state, af_en, en_elf, hole, hole_size, mttime, syms):
+    """(hooked, settled): a command run by the hook, installed from state (hooked: its control's address and
+    words after); the frame once a window waits for A (settled)."""
 
     def hooked(cmd, args=(0, 0, 0, 0), pokes=()):
         n64.load_state(state)
@@ -394,6 +436,51 @@ def check_names(n64, state, af_en, en_elf, hole, hole_size, mttime, syms, bank, 
             if waited == SETTLED:
                 break
         return n64.screen()
+
+    return hooked, settled
+
+
+def check_fish_size(hooked, settled, bank, board, town, out, shots):
+    """A fish's size on screen in the tourney's messages (TOURNEY_SIZES): put in free string 2 as the tourney
+    puts it, the pages before the size's shown and A pressed on each, the size's page measured."""
+    measured = 0
+    for n in TOURNEY_SIZES:
+        clears = clears_before(bank[n], FREE2)
+        if not clears or later_page(bank[n], clears, town, {str(FREE2): b"40 cm"}) is None:
+            check(False, "the tourney's message %d: the size (free string 2) on a page after its first, one the "
+                  "window waits on or keeps" % n)
+            continue
+        ctl, (_, took, _, window, _, length) = hooked(7, (n, 0, FISH, FISH_UNIT))
+        size = hooked.n64.read(ctl + NAMES_AT, max(0, min(length, 10)))
+        for _ in range(clears):
+            settled(window)
+            hooked.n64.frames(3, A)
+            hooked.n64.frames(2, 0)
+        w, h, rgb = settled(window)
+        path = os.path.join(out, "fish-size-%d.png" % n)
+        write_png(path, w, h, rgb)
+        shots.append(path)
+        page = later_page(bank[n], clears, town, {str(FREE2): size})
+        bad = ([] if took else ["not taken by the window"]) + page_problems(rgb, w, page, board)
+        measured += min(len(page), LINES)
+        check(not bad and size.endswith(b" cm"), "a fish of %d (%r, %d bytes), put in the tourney's message %d as it "
+              "puts the size: page %d's %d lines where the model has them%s" % (
+                  FISH, size, length, n, clears + 1, len([x for x in page if x]),
+                  "; " + "; ".join(bad) if bad else ""))
+    return measured
+
+
+def check_names(n64, state, af_en, en_elf, hole, hole_size, mttime, syms, bank, board, town, out, shots):
+    """The names longer than 6, tokens (NOTES, "Names longer than 6"): Tom Nook's (a special character's) on the
+    plate and put in a page by STR_TALKNAME, with its token and with the token off (the en table's special
+    names emptied: his name cut to 6), whose plate places the plate; the animals' as the game loads them, each
+    its token, and one put in a page as a free string. The lines measured."""
+    specials = special_names(af_en)
+    if NOOK_STRING not in specials:
+        print("  (Tom Nook's name is not longer than 6 in this build: no special name to check)")
+        return 0
+    measured = 0
+    hooked, settled = hooks(n64, state, af_en, en_elf, hole, hole_size, mttime, syms)
 
     full = name_record(af_en, specials[NOOK_STRING])
     cut = string_of(af_en, NOOK_STRING)[:ANIMAL_NAME_LEN].rstrip(b" ")
@@ -673,6 +760,8 @@ def main(argv):
               % (len(played), len([n for n in played if n in ours])))
         lines_checked += check_names(n64, state, af_en, en_elf, hole, hole_size, mttime, syms, bank, board, town,
                                      out, shots)
+        hooked, settled = hooks(n64, state, af_en, en_elf, hole, hole_size, mttime, syms)
+        lines_checked += check_fish_size(hooked, settled, bank, board, town, out, shots)
     contact.main([os.path.join(out, "sheet.png"), "3"] + shots)
     print("emu_messages: %d messages shown, %d lines measured, %d failures; screenshots in %s" % (
         len(controls + shown), lines_checked, len(failures), out))

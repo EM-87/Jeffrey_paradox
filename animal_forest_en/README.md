@@ -294,7 +294,12 @@ puso las suyas y movió el resto: 17 se toman de su número correcto
 White Day, la previsión de los cerezos, el Día del Niño, los fuegos
 artificiales de los sábados de agosto...), igual que seis cartas de
 White Day que decían San Valentín. Ya no queda japonés en ningún banco
-de texto ("The strings and letters still in Japanese").
+de texto ("The strings and letters still in Japanese"). Los créditos y
+la talla de los peces se han visto también en pantalla: las 16 páginas
+de créditos, dibujadas por la caja naranja como en el concierto de K.K.
+(`make menus-check-en`), y la talla en los tres mensajes del torneo de
+pesca que la muestran (`make messages-check-en`), cada línea donde la
+pone el modelo de la fuente.
 
 Los nombres de los objetos son los de GameCube, leídos de tu disco al
 compilar (`tools/af_items.py`): de los 1.703 del cartucho, 1.696 tienen

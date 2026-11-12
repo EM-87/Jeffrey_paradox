@@ -182,8 +182,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   cartridge's orders; the names longer than 6, Tom Nook's on the plate
   and in a page with his token and without, the animals' loaded as the
   game loads them and one put in a page; the catchphrases longer than 4
-  loaded as the game loads one, the widest put in a page by STR_TAIL:
-  `make messages-check-en`),
+  loaded as the game loads one, the widest put in a page by STR_TAIL; a
+  fish's size put in the fishing tourney's messages as it puts it, the
+  size's page measured: `make messages-check-en`),
   `emu_menus.py` (the name entry's five windows, the edit-end check's
   question and answers and the address book's balloon, their strings in
   RAM and their ink measured against the font's model; each swapped
@@ -193,8 +194,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   copied as the game copies them and put into messages, choices and
   letters by the game's own code with their articles, and the money's
   name measured in the inventory; strings of the string bank as the game
-  loads them, the staff credits' among them; the title's warning without
-  a controller, forced at the title, each line measured as the swapped
+  loads them, the staff credits' among them, and the credits on screen,
+  each of their 16 pages drawn by the orange box as K.K.'s show has it
+  draw them and each line measured; the title's warning without a
+  controller, forced at the title, each line measured as the swapped
   strings are: `make menus-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).

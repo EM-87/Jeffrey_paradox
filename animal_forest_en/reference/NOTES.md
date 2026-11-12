@@ -2645,9 +2645,15 @@ what goes in it: "The letters in the en build").
   metric units with a space before them (669-672; only 670 is read).
   In the running game (`make menus-check-en`: a hook calls
   `mString_Load_NumberStringAddUnitFromRom` as the tourney does), a fish
-  of 40 is the 5 bytes of "40 cm". On screen in the tourney's message:
-  TODO(verify) (it needs a fish caught; the message window draws a free
-  string as any other text).
+  of 40 is the 5 bytes of "40 cm". On screen (`make messages-check-en`):
+  the tourney's host speaks 0x2305 to 0x2307, whose talk order has it
+  put the size in free string 2 (`func_809D6694_jp`), and they go on to
+  the message it picks (`func_809D5F68_jp`: its event clip's + 2, or
+  0x1122 for the record's holder); the three that show a size (0x1112,
+  0x1116, 0x111A, on their second or third page) shown with the size of
+  a fish of 40 put in as the tourney puts it, A pressed on the pages
+  before it: the size's page where the model has its line, "40 cm"
+  with its space.
 - **The staff credits** (`credits.txt`, 1258-1364). The draft had taken
   the GameCube's own staff list by number (other people, another order).
   The cartridge's are drawn by the orange box (`ovl_Mikanbox`):
@@ -2665,8 +2671,24 @@ what goes in it: "The letters in the en build").
   15 bytes) the 107 lines are this file's. The box draws them during K.K.
   Slider's show: event 0x21's save area is his (`m_kankyo.c` reads it as
   `KKData`, and dims the lights for the staff roll:
-  `staffroll_light_proc_start`), its 0x4000 the staff roll's flag. On
-  screen: TODO(verify) (it needs his Saturday night show).
+  `staffroll_light_proc_start`), its 0x4000 the staff roll's flag. The
+  box's constructor puts its clip at `common_data` + 0x100E0, whose
+  first two functions load a page and draw it; K.K.'s draw
+  (`func_80A8AF68_jp`) calls the second after his own, with the game,
+  the show's frame (it sets the alpha: none before 20, all from 60 to
+  183) and the page, while the flag is on. On screen (`make
+  menus-check-en`): the box spawned in play, each of the 16 pages loaded
+  as it loads one and drawn as K.K.'s draw has it drawn, from a hook on
+  `mBGM_main` (after the play has drawn: the text over the scene, as in
+  the show), with his event save area made and the flag on; drawn at the
+  show's frame 100 and at frame 0 (the same work, invisible), the ink
+  what moved at least half the way to the text's white. The 107 lines
+  where the model has them (the board's measure of the screen, from x
+  150 at 0.9, the titles at 0.85 of that), within a screen pixel more
+  than the windows' tolerance: scaled, each glyph lands on whole pixels
+  (the left ends within 1.4 frame pixels of the model, the right ends
+  from 1.3 left to 3.2 right, the lines with a "w" furthest right; a
+  letter more or less moves an end 9 to 16).
 - **The event notices** (mail_body 420-462: the bulletin board posts
   them, `m_notice.c`, and some come as letters). Read letter by letter,
   the GameCube's are not all at the cartridge's numbers: it dropped some
@@ -2729,7 +2751,7 @@ what goes in it: "The letters in the en build").
   `menus-check-en` (now also the string bank as the game loads it: the
   credits' lines, what follows the town's name, a fish's size),
   `emu-check` and `emu-check-en`: 0 failures; `make test` 66. The credits
-  and the fish's size are not yet seen on screen (TODO(verify) above).
+  and the fish's size were seen on screen afterwards (above).
 
 ## The patch (the deliverable)
 

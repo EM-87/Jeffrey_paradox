@@ -94,7 +94,22 @@ the staff credits' lines at the 15 bytes the orange box loads
 (ovl_Mikanbox), as script/string/credits.txt has them; what the message
 code puts after the town's name (string 484), all spaces; and a fish's
 size as the fishing tourney writes it, its number and string 670.
-Writes the screenshots to OUT_DIR.
+
+And the staff credits on screen, as K.K. Slider's show has the orange box
+draw them: a hook on mBGM_main (after the play has drawn) spawns the box
+(its clip at common_data + 0x100E0), loads each of its 16 pages as the box
+loads one and draws it each frame as K.K.'s draw has the box draw it
+(func_80AA3D94_jp: the game, the show's frame, the page; K.K.'s event save
+area made with its staff roll flag), at the show's frame 100 and at frame
+0, the same work at alpha 0; what moved at least half the way to the
+text's white is ink. Each line's ink, in its band of 18 rows, where the
+model puts the line the box loaded (from x 150, at 0.9, a title at 0.85
+of that; the board's measure of the screen, emu_board.BOARD_X), within
+one screen pixel more than the windows' tolerance (scaled, each glyph
+lands on whole pixels); a blank line's band, and the rows outside the
+lines, without.
+Writes the screenshots to OUT_DIR (the credits' pages also as a sheet,
+credits.png).
 """
 
 import os
@@ -371,6 +386,71 @@ PAD_CONNECTED = 0x10AB0                              # common_data's pad_connect
 # (second_game.c): 0 makes the title draw its warning
 WARNING = ["TL_NOPAD1", "TL_NOPAD2", "TL_NOPAD3"]    # the warning's lines, top to bottom
 
+# The staff credits on screen. The orange box (ovl_Mikanbox, actor 0xAC) draws them in K.K. Slider's show: its
+# constructor puts its clip at common_data + 0x100E0, whose first two functions load a page (func_80AA3D08_jp:
+# ten lines of 15 bytes from string 1258 + the page's first line, D_80AA4D54_jp) and draw it (func_80AA3D94_jp,
+# which K.K.'s draw calls after his own, func_80A8AF68_jp: the game, the show's frame, the page; only while K.K.'s
+# event save area, mEv_get_save_area(0x21, 10), has its staff roll flag 0x4000). A hook on mBGM_main (called
+# after the play has drawn: the text over the scene, as in the show) spawns the box, loads a page and draws it each
+# frame. Lines from y 30 + (10 - the page's lines) * 10, 18 apart, from x 150, at 0.9; a page's first line (but
+# the first page's) and the lines D_80AA4D68_jp and D_80AA4D69_jp to D_80AA4D79_jp list at 0.85 of that: the job
+# titles. The show's frame sets the alpha (none before 20, all from 60 to 183): each page drawn at frame 100 and
+# at frame 0, the same work invisible, and the ink what moved at least half the way to the text's white.
+CREDITS_C = r"""
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef short s16;
+typedef signed char s8;
+typedef int s32;
+typedef float f32;
+void* Actor_info_make_actor(void* actorInfo, void* play, s16 actorId, f32 x, f32 y, f32 z, s16 rotX, s16 rotY,
+                            s16 rotZ, s8 arg9, s8 argA, s16 argB, u16 fgName, s16 params, s8 argE, s32 argF);
+extern void* gamePT;
+extern u8 common_data[];
+typedef struct HookCtl { s32 cmd; s32 result; s32 arg[4]; } HookCtl;
+HookCtl hook_ctl;
+typedef void (*LoadFn)(s32 page);
+typedef void (*DrawFn)(void* game, s32 frame, s32 page);
+
+void hook_main(void) {
+    HookCtl* h = &hook_ctl;
+    void** clip = *(void***)(common_data + BOX_CLIP);
+
+    if (h->cmd == 1) {
+        /* the box, as an actor is made in play */
+        h->result = (s32)Actor_info_make_actor((u8*)gamePT + PLAY_ACTOR_INFO, gamePT, MIKANBOX, 0.0f, 0.0f, 0.0f,
+                                               0, 0, 0, -1, -1, -1, MIKANBOX_FG, -1, -1, -1);
+        h->cmd = 0;
+    } else if (h->cmd == 2) {
+        /* page arg[0] loaded as the box loads one */
+        h->result = (s32)clip;
+        if (clip != 0) {
+            ((LoadFn)clip[0])(h->arg[0]);
+        }
+        h->cmd = 0;
+    }
+    if (h->arg[2] && clip != 0) {
+        /* and drawn as K.K.'s draw has the box draw it: the show's frame arg[1] */
+        ((DrawFn)clip[1])(gamePT, h->arg[1], h->arg[0]);
+    }
+}
+""".replace("BOX_CLIP", "0x100E0").replace("PLAY_ACTOR_INFO", "0x1C78").replace("MIKANBOX_FG", "0x5841").replace(
+    "MIKANBOX", "0xAC")
+CREDITS_CTL = struct.Struct(">ii4I")
+BOX_CLIP = 0x100E0
+EVENT_AREAS = 0xEE54                                 # common_data: the event save areas' mask, then 4 areas of
+EVENT_AREA, KK_EVENT, KK_AREA = 0x30, 0x21, 0x0A     # 0x30 bytes (its event and size at +4, its data at +0xC);
+STAFF_ROLL = 0x4000                                  # K.K.'s, its second halfword's staff roll flag
+CREDITS_PAGES, CREDITS_FIRST = 16, 1258
+CREDITS_X, CREDITS_Y, CREDITS_STEP, CREDITS_MAX = 150, 30, 18, 10
+CREDITS_SCALE, CREDITS_TITLE = 0.9, 0.85
+SHOW_FRAME, NO_ALPHA_FRAME = 100, 0
+HALF_WAY = 0.5
+# scaled, each glyph lands on whole screen pixels: a line's ends within a screen pixel more (measured on the 107
+# lines: their left ends within 1.4 frame pixels of the model, their right ends from 1.3 left to 3.2 right, the
+# lines with a "w" furthest right; a letter more or less moves an end 9 to 16)
+CREDITS_TOLERANCE = TOLERANCE + emu_board.BOARD_X[1]
+
 failures = []
 
 
@@ -638,6 +718,94 @@ def expected(af_en, gc_path):
             for name, at, size, _, _ in af_ui.STRINGS}
 
 
+def credits_frame_x(x):
+    """The frame's x of the screen's x (the board's measure: emu_board.BOARD_X, the text's left edge at x 64)."""
+    return emu_board.BOARD_X[0] + emu_board.BOARD_X[1] * (x - 64)
+
+
+def check_credits(n64, state, af_en, en_elf, hole, hole_size, syms, board, out, shots):
+    """The staff credits on screen, page by page (CREDITS_C): each line's ink, in its band of rows, where the
+    model puts the line the box loaded, at its scale; a blank line's band and the rest of the screen without."""
+    common, target = syms["common_data"], syms["mBGM_main"]
+
+    def show(page, frame):
+        n64.load_state(state)
+        words = struct.unpack(">II", n64.read(target, 8))
+        blob, stub, ctl = emu_save.build_hook(af_en, en_elf, hole, hole_size, words, target, CREDITS_C,
+                                             emu_save.STUB_ARGS_S)
+        emu_save.write_code(n64, hole, blob)
+        emu_save.write_code(n64, target, struct.pack(">II", 0x08000000 | ((stub >> 2) & 0x3FFFFFF), 0))
+        mask = struct.unpack(">I", n64.read(common + EVENT_AREAS, 4))[0]
+        free = next((i for i in range(4) if not mask & (1 << i)), None)
+        if free is None:
+            return None
+        # K.K.'s event save area, its staff roll on
+        n64.write(common + EVENT_AREAS, struct.pack(">I", mask | (1 << free)))
+        n64.write(common + EVENT_AREAS + 4 + EVENT_AREA * free, bytes([KK_EVENT, KK_AREA]))
+        n64.write(common + EVENT_AREAS + 0xC + EVENT_AREA * free, struct.pack(">hH", 0, STAFF_ROLL))
+        n64.write(ctl, CREDITS_CTL.pack(1, 0, 0, 0, 0, 0))
+        for _ in range(30):
+            n64.frames(1, 0)
+            if struct.unpack(">i", n64.read(ctl, 4))[0] == 0:
+                break
+        n64.frames(5, 0)
+        n64.write(ctl, CREDITS_CTL.pack(2, 0, page, frame, 1, 0))
+        n64.frames(10, 0)
+        clip = struct.unpack(">I", n64.read(common + BOX_CLIP, 4))[0]
+        if not 0x80000000 <= clip < 0x80800000:
+            return None
+        # the box's overlay where it was loaded: its tables and the lines it loaded
+        delta = clip - syms["B_80AA4DF0_jp"]
+        firsts = n64.read(syms["D_80AA4D54_jp"] + delta, CREDITS_PAGES + 1)
+        titles = n64.read(syms["D_80AA4D68_jp"] + delta, 1) + n64.read(syms["D_80AA4D69_jp"] + delta, 16)
+        lines = n64.read(syms["B_80AA4E20_jp"] + delta, 15 * CREDITS_MAX)
+        return firsts, titles, [lines[15 * k:15 * k + 15] for k in range(CREDITS_MAX)], n64.screen()
+
+    for page in range(CREDITS_PAGES):
+        lit, dark = show(page, SHOW_FRAME), show(page, NO_ALPHA_FRAME)
+        if lit is None or dark is None:
+            check(False, "the staff credits: page %d drawn (the box spawned, its clip set, an event save area free)"
+                  % page)
+            return
+        firsts, titles, lines, (w, h, rgb) = lit
+        bare = dark[3][2]
+        path = os.path.join(out, "credits-%02d.png" % page)
+        write_png(path, w, h, rgb)
+        shots.append(path)
+        ink = {}
+        for y in range(h):
+            for x in range(w):
+                i = (y * w + x) * 3
+                if max((rgb[i + k] - bare[i + k]) / max(1, 255 - bare[i + k]) for k in range(3)) >= HALF_WAY:
+                    ink.setdefault(y, []).append(x)
+        first = firsts[page]
+        n = firsts[page + 1] - first
+        top = CREDITS_Y + (CREDITS_MAX - n) * 10
+        bad, counted = [], set()
+        for k in range(min(n, CREDITS_MAX)):
+            scale = CREDITS_SCALE
+            if k == 0 and page:
+                scale *= CREDITS_TITLE
+            else:
+                scale *= CREDITS_TITLE ** sum(1 for t in titles if t == first + k)
+            rows = range(top + CREDITS_STEP * k, top + CREDITS_STEP * (k + 1))
+            counted |= set(rows)
+            xs = [x for y in rows for x in ink.get(y, [])]
+            got = (min(xs), max(xs) + 1) if xs else None
+            e = board.extent(lines[k])
+            want = e and (credits_frame_x(CREDITS_X + scale * e[0]), credits_frame_x(CREDITS_X + scale * (e[1] + 1)))
+            ok = (got is None) if e is None else (
+                got is not None and all(abs(g - x) <= CREDITS_TOLERANCE for g, x in zip(got, want)))
+            if not ok:
+                bad.append("line %d (string %d, at %.3f) drawn at %s, the model's %s" % (
+                    k + 1, CREDITS_FIRST + first + k, scale, got, want and "(%.1f, %.1f)" % want))
+        stray = sorted(y for y in ink if y not in counted)
+        if stray:
+            bad.append("ink in rows %d to %d, outside the lines" % (stray[0], stray[-1]))
+        check(not bad, "the staff credits on screen: page %d's %d lines (strings %d to %d) where the model has them%s"
+              % (page, n, CREDITS_FIRST + first, CREDITS_FIRST + first + n - 1, "; " + "; ".join(bad) if bad else ""))
+
+
 def main(argv):
     emu_dir, rom_path, af_en, state, out = argv[:5]
     opts = dict(zip(argv[5::2], argv[6::2]))
@@ -663,7 +831,7 @@ def main(argv):
     nafe = open(nafe_path, "rb").read() if nafe_path else None
     print("emu_menus: the %s strings, the %s labels" % ("GameCube's" if gc_path else "cartridge's",
                                                        "2010 patch's" if nafe else "cartridge's"))
-    shots, label_shots = [], []
+    shots, label_shots, credit_shots = [], [], []
 
     with N64(emu_dir, rom, os.path.join(out, "cart"), timeout=120) as n64:
         def setup():
@@ -1248,6 +1416,8 @@ def main(argv):
         check(cmd == 0 and length == 5 and got[:5] == b"40 cm", "the string bank: a fish of 40 written as the "
               "fishing tourney writes its size: %r (%d bytes)" % (got[:max(0, min(length, 10))], length))
 
+        check_credits(n64, state, af_en, en_elf, hole, hole_size, syms, board, out, credit_shots)
+
         for i, (program, data0, vrom, what) in enumerate(LABEL_MENUS):
             ctl = setup()
             n64.write(ctl, struct.pack(">i4I", 1, program, data0, 0, ctl + HOOK_BUF if program == LEDIT else 0))
@@ -1267,6 +1437,8 @@ def main(argv):
         shots.append(os.path.join(out, "title-warning.png"))
     contact.main([os.path.join(out, "sheet.png"), "2"] + shots)
     contact.main([os.path.join(out, "labels.png"), "2"] + label_shots)
+    if credit_shots:
+        contact.main([os.path.join(out, "credits.png"), "2"] + credit_shots)
     print("emu_menus: %d failures; screenshots in %s" % (len(failures), out))
     return 1 if failures else 0
 

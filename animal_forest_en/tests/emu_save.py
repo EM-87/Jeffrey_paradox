@@ -156,6 +156,33 @@ hook_stub:
     j     0x%08X
     nop
 """
+# The same for a function that takes arguments: they are kept across the hook (a0 to a3; its first two
+# instructions must not read them).
+STUB_ARGS_S = """
+.set noreorder
+.set noat
+.text
+.globl hook_stub
+hook_stub:
+    addiu $sp, $sp, -0x28
+    sw    $ra, 0x24($sp)
+    sw    $a0, 0x10($sp)
+    sw    $a1, 0x14($sp)
+    sw    $a2, 0x18($sp)
+    sw    $a3, 0x1C($sp)
+    jal   hook_main
+    nop
+    lw    $a0, 0x10($sp)
+    lw    $a1, 0x14($sp)
+    lw    $a2, 0x18($sp)
+    lw    $a3, 0x1C($sp)
+    lw    $ra, 0x24($sp)
+    addiu $sp, $sp, 0x28
+    .word 0x%08X
+    .word 0x%08X
+    j     0x%08X
+    nop
+"""
 
 LINK_LD = """
 SECTIONS
@@ -195,9 +222,11 @@ def section_of(map_path, obj, sec):
     raise SystemExit("no %s %s in %s" % (sec, obj, map_path))
 
 
-def build_hook(af_en, en_elf, hole, hole_size, mttime_words, mttime, source=None):
+def build_hook(af_en, en_elf, hole, hole_size, mttime_words, mttime, source=None, stub=None):
     """The hook (HOOK_C, or another source with a hook_main and a hook_ctl) and
-    its stub, linked for the hole; (bytes, the stub's address, hook_ctl's)."""
+    its stub (STUB_S, or STUB_ARGS_S for a function with arguments), linked for
+    the hole, the function at mttime (whose first two words are mttime_words)
+    calling it; (bytes, the stub's address, hook_ctl's)."""
     work = tempfile.mkdtemp()
     with open(os.path.join(work, "hook.c"), "w") as f:
         f.write(HOOK_C if source is None else source)
@@ -205,7 +234,7 @@ def build_hook(af_en, en_elf, hole, hole_size, mttime_words, mttime, source=None
     subprocess.run([cc, "-c", "-G", "0", "-non_shared", "-Xcpluscomm", "-nostdinc", "-Wab,-r4300_mul",
                     "-O2", "-mips2", "-o", "hook.o", "hook.c"], cwd=work, check=True)
     with open(os.path.join(work, "stub.s"), "w") as f:
-        f.write(STUB_S % (mttime_words[0], mttime_words[1], mttime + 8))
+        f.write((stub or STUB_S) % (mttime_words[0], mttime_words[1], mttime + 8))
     subprocess.run(["mips-linux-gnu-as", "-march=vr4300", "-32", "-G0", "-o", "stub.o", "stub.s"], cwd=work, check=True)
     with open(os.path.join(work, "hook.ld"), "w") as f:
         f.write(LINK_LD % hole)
