@@ -11,7 +11,9 @@ ours): same screens, same pad. Leaves in OUT_DIR, each with a screenshot:
     3-station.st   off the train, the player free on the platform
     4-houses.st    Nook has shown the four houses; the player is free
 
-The emulator is deterministic, so the same ROM gives the same states.
+The emulator is deterministic, so the same ROM gives the same states. EMU_DIR may
+be emu/ares/build.sh's output instead of emu/build.sh's: the route then plays on
+ares (emu/ares64.py), its states ares's own (make ares-route-en).
 The route was found by hand (reference/NOTES.md); every wait is a test of
 what is on screen except the dialogue runs, which press A a generous number
 of times (A with nobody to talk to does nothing).
@@ -23,6 +25,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
+from ares64 import Ares64  # noqa: E402
 from n64emu import N64, START  # noqa: E402
 from afplay import (Shots, dialogue_open, name_dial_open, presses, type_on_dial,  # noqa: E402
                     until, walk)
@@ -35,7 +38,8 @@ def main(argv):
     with open(rom_path, "rb") as f:
         rom = f.read()
 
-    with N64(emu_dir, rom, os.path.join(out, "cart"), timeout=90) as n64:
+    machine = Ares64 if os.path.exists(os.path.join(emu_dir, "ares-headless")) else N64
+    with machine(emu_dir, rom, os.path.join(out, "cart"), timeout=90) as n64:
         shot = Shots(n64, os.path.join(out, "route"))
 
         def milestone(name):

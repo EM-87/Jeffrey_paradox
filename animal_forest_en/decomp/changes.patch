@@ -215,20 +215,28 @@ index 0000000..0faf26b
 +
 +#endif
 diff --git a/include/m_choice_main.h b/include/m_choice_main.h
-index 9d68ff0..8972588 100644
+index 9d68ff0..30c7eaf 100644
 --- a/include/m_choice_main.h
 +++ b/include/m_choice_main.h
-@@ -7,7 +7,8 @@
+@@ -7,7 +7,16 @@
  struct Game;
  struct Actor;
  
 -#define Choice_CHOICE_STRING_LEN 10
 +#define Choice_CHOICE_STRING_LEN 10 /* the cartridge's, in the Choice struct (its layout is kept) */
 +#define Choice_EN_STRING_LEN 24     /* the translation's answers, in globals of their own: the GameCube's run to 19 bytes */
++
++/* The translation: an answer of the bank by its number, where the cartridge copies a word of its own data
++ * into an answer (tools/af_answers.py writes it there): the mark twice, then the number in two digits, as an
++ * item's token writes its number (m_item_name.c); no item's token has the mark second. */
++#define Choice_EN_TOKEN_MARK 0x80
++#define Choice_EN_TOKEN_DIGIT0 0x81
++#define Choice_EN_TOKEN_BASE 64
++#define Choice_EN_TOKEN_LEN 4
  
  typedef enum Choice_CHOICE {
      Choice_CHOICE0,
-@@ -86,6 +87,9 @@ typedef struct Choice {
+@@ -86,6 +95,9 @@ typedef struct Choice {
      /* 0xB9 */ u8 noCloseFlag;  // pressing B won't auto-cancel the choice selection?
  } Choice; // size = 0xBC
  
@@ -400,7 +408,7 @@ index ee822b1..02917da 100644
 +// define; its table has room for 214 and the en build needs 213)
 +mED_en_stateToLabels = ABSOLUTE(B_80888AF0_jp) - ABSOLUTE(D_808888CC_jp);
 diff --git a/src/code/m_choice_main.c b/src/code/m_choice_main.c
-index d4a7b38..1653429 100644
+index d4a7b38..2553cb3 100644
 --- a/src/code/m_choice_main.c
 +++ b/src/code/m_choice_main.c
 @@ -1,4 +1,6 @@
@@ -410,7 +418,7 @@ index d4a7b38..1653429 100644
  #include "m_msg_main.h"
  #include "game.h"
  #include "m_actor.h"
-@@ -9,13 +11,18 @@
+@@ -9,13 +11,32 @@
  #include "sys_matrix.h"
  #include "6B3DC0.h"
  
@@ -428,10 +436,24 @@ index d4a7b38..1653429 100644
 +char mChoice_en_strings[Choice_CHOICE_MAX][Choice_EN_STRING_LEN];
 +char mChoice_en_determination[Choice_EN_STRING_LEN];
 +
++/* The translation's answers from the bank, whole. The cartridge's callers give the loader the 10 bytes of
++ * an answer (Choice_CHOICE_STRING_LEN): ac_npc_p_sel2's on its stack with its window's pointer right after
++ * them, ac_quest_manager's on its stack; an English answer runs to 24. So the loader writes them their 10
++ * bytes, as the cartridge's does, and keeps the whole answer here under the buffer it filled; an answer is
++ * taken from here when that buffer, still beginning with it, is added to the window. */
++static char mChoice_en_loaded[Choice_CHOICE_MAX][Choice_EN_STRING_LEN];
++static char* mChoice_en_loadedFor[Choice_CHOICE_MAX];
++static s32 mChoice_en_loadedNext;
++static char mChoice_en_token[Choice_EN_STRING_LEN]; /* an answer a token names (Choice_EN_TOKEN_MARK) */
++
++static s32 mChoice_en_LoadWhole(char* whole, s32 idx, Actor* actor);
++static char* mChoice_en_Loaded(char* str);
++static char* mChoice_en_Token(char* str);
++
  void mChoice_init(Choice* choice, UNUSED Game* game) {
      choice->centerX = 191.0f;
      choice->centerY = 83.0f;
-@@ -81,7 +88,7 @@ void mChoice_Init_choice_data(Choice* choice) {
+@@ -81,7 +102,7 @@ void mChoice_Init_choice_data(Choice* choice) {
  }
  
  s32 mChoice_Add_choice_data(Choice* choice, char* str, s32 max_len) {
@@ -440,14 +462,25 @@ index d4a7b38..1653429 100644
          s32 len;
          int idx;
          s32* t;
-@@ -90,9 +97,19 @@ s32 mChoice_Add_choice_data(Choice* choice, char* str, s32 max_len) {
+@@ -90,9 +111,30 @@ s32 mChoice_Add_choice_data(Choice* choice, char* str, s32 max_len) {
  
          t = &choice->data.choiceNum;
          if (choice->data.choiceNum < Choice_CHOICE_MAX) {
++            s32 nameLen;
++            u8* name;
++            /* the translation: an answer of the bank a token names, or one the loader filled, whole */
++            char* whole = mChoice_en_Token(str);
++
++            if (whole == NULL) {
++                whole = mChoice_en_Loaded(str);
++            }
++            if (whole != NULL) {
++                str = whole;
++                max_len = Choice_EN_STRING_LEN;
++            }
 +            /* the translation: an item's token (m_item_name.c) answers with its name, as the GameCube's
 +             * choices of items do (no article): the stall's goods, ac_ev_yomise */
-+            s32 nameLen;
-+            u8* name = mIN_en_TokenName((u8*)str, &nameLen, NULL);
++            name = mIN_en_TokenName((u8*)str, &nameLen, NULL);
 +
              idx = *t;
 -            len = mMsg_Get_Length_String(str, max_len);
@@ -462,7 +495,7 @@ index d4a7b38..1653429 100644
  
              for (i = 0; i < len; i++) {
                  *dst++ = *str++;
-@@ -111,19 +128,19 @@ void mChoice_Set_choice_data(Choice* choice, char* str0, s32 str0len, char* str1
+@@ -111,21 +153,30 @@ void mChoice_Set_choice_data(Choice* choice, char* str0, s32 str0len, char* str1
                               char* str3, s32 str3len) {
      mChoice_Init_choice_data(choice);
  
@@ -485,8 +518,19 @@ index d4a7b38..1653429 100644
 +    if (str3 != NULL && str3len > 0 && str3len <= Choice_EN_STRING_LEN) {
          mChoice_Add_choice_data(choice, str3, str3len);
      }
++
++    {
++        /* the translation: the answers the loader kept are taken; a buffer of them is a caller's again */
++        s32 i;
++
++        for (i = 0; i < Choice_CHOICE_MAX; i++) {
++            mChoice_en_loadedFor[i] = NULL;
++        }
++    }
  }
-@@ -134,7 +151,7 @@ s32 mChoice_Get_MaxStringDotWidth(Choice* choice) {
+ 
+ s32 mChoice_Get_MaxStringDotWidth(Choice* choice) {
+@@ -134,7 +185,7 @@ s32 mChoice_Get_MaxStringDotWidth(Choice* choice) {
      s32 maxWidth = 0;
  
      for (i = 0; i < choiceNum; i++) {
@@ -495,7 +539,7 @@ index d4a7b38..1653429 100644
          s32 len = choice->data.stringLens[i];
          s32 width = mFont_GetStringWidth(str, len, 0);
  
-@@ -204,23 +221,23 @@ void mChoice_Get_StringDataAddressAndSize(s32 idx, u32** addr, u32* size) {
+@@ -204,23 +255,23 @@ void mChoice_Get_StringDataAddressAndSize(s32 idx, u32** addr, u32* size) {
          if (idx & 1) {
              temp0 = idx - 1;
  
@@ -524,43 +568,144 @@ index d4a7b38..1653429 100644
              *size = sizeCalc;
          } else {
              *addr = NULL;
-@@ -533,7 +550,7 @@ void mChoice_Load_ChoseStringFromRom(UNUSED s32 unused, char* str, s32 idx, Acto
-         mChoice_Get_StringDataAddressAndSize(idx, &addr, &size);
+@@ -525,48 +576,104 @@ void mChoice_Change_ControlCode(char* data, s32 maxSize, Actor* actor) {
+     };
+ }
  
-         if (size == 0) {
+-void mChoice_Load_ChoseStringFromRom(UNUSED s32 unused, char* str, s32 idx, Actor* actor) {
+-    if (idx >= 0 && idx < 460) {
+-        u32* addr;
+-        u32 size;
++/* The translation: answer idx of the bank, whole, into whole (Choice_EN_STRING_LEN bytes, spaces after the
++ * answer, its codes put); FALSE when the bank gives none (whole left as it was), as the cartridge's loader
++ * leaves its buffer */
++static s32 mChoice_en_LoadWhole(char* whole, s32 idx, Actor* actor) {
++    u32* addr;
++    u32 size;
+ 
+-        mChoice_Get_StringDataAddressAndSize(idx, &addr, &size);
++    if (idx < 0 || idx >= 460) {
++        return FALSE;
++    }
++    mChoice_Get_StringDataAddressAndSize(idx, &addr, &size);
++    if (size == 0) {
++        mem_clear((u8*)whole, Choice_EN_STRING_LEN, ' ');
++        return TRUE;
++    }
++    if (addr == NULL) {
++        return FALSE;
++    }
++    {
++        /* the cartridge's char[29] took its 10 bytes and the 7 before them; an answer's 24 and the 7 before
++         * them come in 32, onto an aligned buffer */
++        u64 vram[(Choice_EN_STRING_LEN + 7 + 7) / 8];
++        s32 alignedSize = ((u32)addr & ~7);
++        s32 ofs = (u32)addr - alignedSize;
++        s32 len;
++        char* src;
++        s32 i;
+ 
+-        if (size == 0) {
 -            mem_clear((u8*)str, Choice_CHOICE_STRING_LEN, ' ');
-+            mem_clear((u8*)str, Choice_EN_STRING_LEN, ' ');
-         } else if (addr != NULL) {
-             char vram[29];
-             s32 alignedSize = ((u32)addr & ~7);
-@@ -547,10 +564,10 @@ void mChoice_Load_ChoseStringFromRom(UNUSED s32 unused, char* str, s32 idx, Acto
-                 char* src;
-                 s32 i;
+-        } else if (addr != NULL) {
+-            char vram[29];
+-            s32 alignedSize = ((u32)addr & ~7);
+-            s32 ofs = (u32)addr - alignedSize;
++        DmaMgr_RequestSyncDebug(vram, alignedSize, ALIGN8(ofs + size), "../m_choice_main.c", 1168);
++        len = (size < Choice_EN_STRING_LEN) ? size : Choice_EN_STRING_LEN;
++        src = (char*)vram + ofs;
++        for (i = 0; i < len; i++) {
++            whole[i] = src[i];
++        }
++        for (; i < Choice_EN_STRING_LEN; i++) {
++            whole[i] = ' ';
++        }
++        mChoice_Change_ControlCode(whole, Choice_EN_STRING_LEN, actor);
++    }
++    return TRUE;
++}
+ 
+-            DmaMgr_RequestSyncDebug(&vram, alignedSize, ALIGN8(ofs + size), "../m_choice_main.c", 1168);
++/* The whole answer the loader keeps for str while str still begins with it (the latest it filled), or NULL */
++static char* mChoice_en_Loaded(char* str) {
++    s32 n;
++    s32 i;
+ 
+-            {
+-                s32 len;
+-                char* dst;
+-                char* src;
+-                s32 i;
++    for (n = 1; n <= Choice_CHOICE_MAX; n++) {
++        s32 slot = (mChoice_en_loadedNext + Choice_CHOICE_MAX - n) % Choice_CHOICE_MAX;
++        char* whole = mChoice_en_loaded[slot];
  
 -                if (size < Choice_CHOICE_STRING_LEN) {
-+                if (size < Choice_EN_STRING_LEN) {
-                     len = size;
-                 } else {
+-                    len = size;
+-                } else {
 -                    len = Choice_CHOICE_STRING_LEN;
-+                    len = Choice_EN_STRING_LEN;
-                 }
+-                }
++        if (mChoice_en_loadedFor[slot] != str) {
++            continue;
++        }
++        for (i = 0; i < Choice_CHOICE_STRING_LEN; i++) {
++            if (str[i] != whole[i]) {
++                return NULL;
++            }
++        }
++        return whole;
++    }
++    return NULL;
++}
  
-                 dst = str;
-@@ -560,11 +577,11 @@ void mChoice_Load_ChoseStringFromRom(UNUSED s32 unused, char* str, s32 idx, Acto
-                     *dst++ = *src++;
-                 }
+-                dst = str;
+-                src = (char*)&vram[ofs];
++/* The answer of the bank a token in str names (Choice_EN_TOKEN_MARK), whole, or NULL; its codes are put for
++ * the actor the message window talks for */
++static char* mChoice_en_Token(char* str) {
++    s32 hi;
++    s32 lo;
+ 
+-                for (i = 0; i < len; i++) {
+-                    *dst++ = *src++;
+-                }
++    if (((u8)str[0] != Choice_EN_TOKEN_MARK) || ((u8)str[1] != Choice_EN_TOKEN_MARK)) {
++        return NULL;
++    }
++    hi = (u8)str[2] - Choice_EN_TOKEN_DIGIT0;
++    lo = (u8)str[3] - Choice_EN_TOKEN_DIGIT0;
++    if ((hi < 0) || (hi >= Choice_EN_TOKEN_BASE) || (lo < 0) || (lo >= Choice_EN_TOKEN_BASE)) {
++        return NULL;
++    }
++    if (!mChoice_en_LoadWhole(mChoice_en_token, hi * Choice_EN_TOKEN_BASE + lo,
++                              mMsg_Get_base_window_p()->clientActor)) {
++        return NULL;
++    }
++    return mChoice_en_token;
++}
  
 -                for (; i < Choice_CHOICE_STRING_LEN; i++) {
-+                for (; i < Choice_EN_STRING_LEN; i++) {
-                     *dst++ = ' ';
-                 }
+-                    *dst++ = ' ';
+-                }
++/* The cartridge's callers give it the 10 bytes of an answer: they get those, and the whole answer waits in
++ * mChoice_en_loaded for mChoice_Add_choice_data */
++void mChoice_Load_ChoseStringFromRom(UNUSED s32 unused, char* str, s32 idx, Actor* actor) {
++    s32 slot = mChoice_en_loadedNext;
++    char* whole = mChoice_en_loaded[slot];
++    s32 i;
  
 -                mChoice_Change_ControlCode(str, Choice_CHOICE_STRING_LEN, actor);
-+                mChoice_Change_ControlCode(str, Choice_EN_STRING_LEN, actor);
-             }
+-            }
++    if (mChoice_en_LoadWhole(whole, idx, actor)) {
++        for (i = 0; i < Choice_CHOICE_STRING_LEN; i++) {
++            str[i] = whole[i];
          }
++        mChoice_en_loadedFor[slot] = str;
++        mChoice_en_loadedNext = (slot + 1) % Choice_CHOICE_MAX;
      }
-@@ -642,7 +659,7 @@ void mChoice_determimation_set(Choice* choice) {
+ }
+ void mChoice_no_b_set(Choice* choice) {
+@@ -642,7 +749,7 @@ void mChoice_determimation_set(Choice* choice) {
      ChoiceData* choiceData = &choice->data;
      s32 idx = choice->selectedChoiceIdx;
  
@@ -569,7 +714,7 @@ index d4a7b38..1653429 100644
      choiceData->determinationLenght = choiceData->stringLens[idx];
      choiceData->selectedChoiceIdx = idx;
  }
-@@ -1009,7 +1026,7 @@ void mChoice_DrawFont(Choice* choice, Game* game, s32 type) {
+@@ -1009,7 +1116,7 @@ void mChoice_DrawFont(Choice* choice, Game* game, s32 type) {
              b = choice->textColor.b;
          }
  

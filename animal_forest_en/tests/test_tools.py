@@ -21,6 +21,7 @@ import aflz  # noqa: E402
 import bps  # noqa: E402
 import af_anchors  # noqa: E402
 import af_bench  # noqa: E402
+import af_answers  # noqa: E402
 import af_dial  # noqa: E402
 import af_align  # noqa: E402
 import af_dmaorder  # noqa: E402
@@ -1865,6 +1866,45 @@ class Dial(unittest.TestCase):
         if "mED_en_dialLabels" not in patch:
             self.skipTest("needs the en dial in decomp/changes.patch")
         self.assertIn("+mED_en_stateToLabels = ABSOLUTE(B_80888AF0_jp) - ABSOLUTE(D_808888CC_jp);", patch)
+
+
+class Answers(unittest.TestCase):
+    """The answers an overlay copies from its own data, pointed at the choice bank by a token
+    (tools/af_answers.py; reference/NOTES.md, "The player-select actor's answers"), on a made-up .data.s."""
+
+    @staticmethod
+    def data_s(words):
+        return "\n".join("    /* %06X %08X %08X */ .word 0x%08X" % (v - 0x80000000 + 0x100, v, w, w)
+                         for v, w in words)
+
+    def test_the_token_is_the_mark_twice_and_two_digits(self):
+        self.assertEqual(struct.pack(">I", af_answers.token(121)), bytes([0x80, 0x80, 0x81 + 1, 0x81 + 57]))
+        self.assertEqual(struct.pack(">I", af_answers.token(0)), bytes([0x80, 0x80, 0x81, 0x81]))
+        with self.assertRaises(SystemExit):
+            af_answers.token(64 * 64)
+        # never an item's token, whose mark is followed by a digit (the mark + 1 and up): ours by the mark
+        self.assertLess(af_answers.TOKEN_MARK, af_answers.TOKEN_DIGIT0)
+
+    def test_the_word_is_rewritten_where_the_cartridges_is(self):
+        cart = 0x01020304
+        data_s = self.data_s([(0x809C0C34, 0x00010200), (0x809C0C38, cart), (0x809C0C3C, 0x10)])
+        new_s = af_answers.rewrite(data_s, 0x809C0C38, cart, af_answers.token(121), "test")
+        self.assertIn("809C0C38 01020304 */ .word 0x808082BA", new_s)
+        self.assertEqual(new_s.count(".word"), 3)
+        self.assertEqual(af_answers.rewrite(new_s, 0x809C0C38, cart, af_answers.token(121), "test"), new_s)
+        with self.assertRaises(SystemExit):                               # not the cartridge's word
+            af_answers.rewrite(data_s, 0x809C0C38, 0x0A0B0C0D, af_answers.token(121), "test")
+        with self.assertRaises(SystemExit):                               # no such line
+            af_answers.rewrite(data_s, 0x809C0C40, cart, af_answers.token(121), "test")
+
+    def test_the_en_choice_code_reads_the_same_token(self):
+        with open(os.path.join(HERE, "..", "decomp", "changes.patch"), encoding="utf-8") as f:
+            patch = f.read()
+        if "Choice_EN_TOKEN_MARK" not in patch:
+            self.skipTest("needs the answers' token in decomp/changes.patch")
+        for name, value in (("MARK", af_answers.TOKEN_MARK), ("DIGIT0", af_answers.TOKEN_DIGIT0),
+                            ("BASE", af_answers.TOKEN_BASE)):
+            self.assertRegex(patch, r"\+#define Choice_EN_TOKEN_%s (0x%X|%d)\b" % (name, value, value))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,12 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 0c5247e..1fd1daf 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -26,6 +26,7 @@ set(
+ add_subdirectory(ares)
+ add_subdirectory(mia)
+ add_subdirectory(desktop-ui)
++add_subdirectory(headless)  # animal_forest_en/emu: emu/ares/headless.cpp
+ 
+ option(ARES_BUILD_OPTIONAL_TARGETS "Include supplemental tools and tests" OFF)
+ 

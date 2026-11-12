@@ -52,7 +52,8 @@ the why and the state, `reference/NOTES.md` for what is verified.
    notice-check-en`, one to the message bank or its layout `make
    messages-check-en`, one to the menus' strings or word textures `make
    menus-check-en`, one to the structures' textures or palettes `make
-   signs-check-en`, one to `emu/` `make emu-determinism`.
+   signs-check-en`, one to the choice window or the player-select actor
+   `make psel-check-en`, one to `emu/` `make emu-determinism`.
 
 ## Where things live
 
@@ -67,6 +68,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   (debugger on), mupen64plus-rsp-cxd4, angrylion-rdp-plus with
   `headless_output.c` instead of OpenGL, and `input_headless.c`;
   `patches/` are our changes to them; `n64emu.py` is the frontend;
+  `ares/` the second emulator (`build.sh` pins ares and builds its N64
+  core with `headless.cpp`, driven over a pipe, and the ares app; `make
+  ares`), `ares64.py` its frontend with n64emu's interface (NOTES, "Other
+  emulators");
   `afplay.py` reads the game's screens (dialogue, choices, name dial);
   `symbols.py` names addresses from the decomp's map; `contact.py` puts
   screenshots on one sheet.
@@ -172,6 +177,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
   digits' labels, and the symbols' ring without its Japanese marks in
   the editor's data, at `make rom-en` (NOTES, "The dial's small
   letters").
+- `tools/af_answers.py` — the answers an overlay copies from its own
+  data instead of the choice bank (the player-select actor's for a new
+  player), pointed at the bank's English by a token over the en tree's
+  copy of the overlay's data at `make rom-en`, each word checked against
+  the cartridge's (NOTES, "The player-select actor's answers").
 - `tools/af_nafe_text.py` — the messages the GameCube's script has no
   counterpart for, in the 2010 patch's English where its codes that steer
   the game are the cartridge's (ends, choices, next messages, the talk
@@ -232,6 +242,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `emu_signs.py` (the GameCube's signs in the en ROM, every copy, and in
   RAM once the structures' clip sets each structure up by the player,
   the cartridge's gone: `make signs-check-en`),
+  `emu_psel.py` (the player-select actor's choices from power-on with a
+  saved town of one, two and four players, made from the houses' state:
+  which player plays, whose house to remove, each choice's answers read in RAM
+  and the game going on; with ares built, the two players' town again on
+  ares: `make psel-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.
@@ -283,6 +298,14 @@ the why and the state, `reference/NOTES.md` for what is verified.
   (`.word`/`.byte` in a GLOBAL_ASM file) where its data cannot grow; a
   segment's texture or list the en build no longer draws is room too
   (NOTES, "The dial's small letters").
+- **A function the translation widens writes past its cartridge callers.**
+  The en choice loader wrote its English answers' 24 bytes into every
+  buffer it was given; the actors still in asm give it 10, and the
+  player-select actor keeps its choice window's pointer after them: with
+  two players, removing a house hung the game (NOTES, "The player-select
+  actor's answers"). Before a function writes more than the cartridge's,
+  find every caller, the overlays' asm included (`grep -rn "jal
+  <name>" asm/`), and what each gives it.
 - **The cartridge's own files hold RAM addresses.** 2,348 texture loads in
   the field models name code's bss buffers by address (NOTES,
   "Shiftability"); assets are not linked, so nothing of code may move.
@@ -375,3 +398,15 @@ the why and the state, `reference/NOTES.md` for what is verified.
   ROM then "failed" the route at the same frame, and so did the original.
   Before blaming a ROM, run the original through the same check, and look
   at the screenshots.
+- **mupen64plus starts once per process.** A second `N64()` in the same
+  process fails at PluginStartup (error 2): a check that powers on more
+  than once runs each in a process of its own (`emu_save.py --boot`,
+  `emu_psel.py --play`).
+- **ares prints on its stdout** ("CPU JIT: flushing all blocks"), so
+  `ares-headless` answers on a copy of stdout taken before ares runs,
+  ares's own prints going to the log. Its RDRAM is behind an emulated
+  data cache: reads and writes go through `dcache.readDebug` and
+  `writeDebug`, or a line the CPU has not written back reads stale. Its
+  clock is the host's, kept in the cartridge's .rtc: a saved town loaded
+  there lives on the host's date, and a run is not frame for frame
+  repeatable; check what a run does, not the frame it does it on.

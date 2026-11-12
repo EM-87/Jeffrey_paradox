@@ -639,8 +639,8 @@ the emulator (`make rom-en`, `make script ISO=...`).
   shape (`m_choice_main.c`: index 0xD06000, text 0xD05000, 460 entries,
   at most 10 bytes; `m_string.c`: 0xD18000/0xD16000, 1,562 entries, at
   most 64), and the GameCube's `select_data` and `string_data` keep their
-  numbering too (N64 37/38 あってるよ/ちがってるよ! are its "That's
-  right!"/"That's wrong!", 'だニ' is 'kittycat'): `tools/af_text.py
+  numbering too (the N64's answers 37 and 38 are its
+  37 and 38, a catchphrase's entry its own): `tools/af_text.py
   --bank choice|string` drafts them entry by entry (460 of 460 and 1,455
   of 1,562 have GameCube text) and compiles them into four more plain
   segments (six dmadata entries in all, 0x60 of the 0xF0 padding). The
@@ -678,9 +678,8 @@ the emulator (`make rom-en`, `make script ISO=...`).
   a constant grows, grep the number. With the literal fixed, a probe that
   watches the choice window's `isWindowVisible` in RAM (Choice + 0xA4)
   finds both of the intro's choice windows with the English answers
-  ("I'm ready to go!" / "Before I go...", 16 and 14 bytes; "That's
-  right!" / "That's wrong!"), drawn in the yellow balloon over the
-  question (the full-width font makes the balloon wide: phase 5).
+  (the first window's two of 16 and 14 bytes, the second's two), drawn in
+  the yellow balloon over the question (the full-width font makes the balloon wide: phase 5).
 - **Dates and times, the GameCube's way.** The cartridge's STR_YEAR..STR_SEC
   write the number and a unit word from the string bank (年, 月, 日, 時, 分,
   `mString_Load_*StringFromRom`); with the GameCube's words in those slots
@@ -3085,6 +3084,111 @@ what goes in it: "The letters in the en build").
   right e, left a (down with A turns the ring), the names "cea". It
   reaches its milestones at the same frames as before (the name dial
   3289, the town's 4110, the station 9281, the houses 12151).
+
+## The player-select actor's answers (after the other emulators)
+
+- **What found it.** Played on ares (below, "Other emulators") from a
+  saved town, the actor that greets the player at power-on (ovl_Npc_P_Sel2,
+  the talk before the town loads) showed its answer for a new player in
+  Japanese. None of our checks had powered on with a saved town's players
+  before: the route starts a new game, the other checks a state in play.
+- **Its choices.** Three functions build them from the players' names (10
+  bytes an answer, `mChoice_Set_choice_data`, lengths 10) and the choice
+  bank (`mChoice_Load_ChoseStringFromRom`), into a buffer of 4 x 10 bytes
+  on their stack: `func_809BF244_jp` (the players, then a last answer at
+  their count: with 1, a word of its own data, D_809C0C38_jp, 4 bytes by
+  `mem_copy`; with 0, the bank's 41), and `func_809BF3E4_jp` (two players,
+  then `func_809BF1E8_jp` loads the bank's 441 and 41 into the third and
+  fourth answers). With 1 it is the question at power-on of which player
+  plays; with 0, the question of whose house to remove (the first menu's
+  second answer, the next menu's second, then its first), for 2 or 3
+  players, and `func_809BF3E4_jp` for 4
+  (`func_809BFBB4_jp`, after the talk order message 5138's choice sets).
+- **The en build's loader wrote 24 bytes** (`Choice_EN_STRING_LEN`, its
+  answers' width) into each buffer it was given; the cartridge's writes 10.
+  The actor's stack keeps the choice window's pointer right after its 40
+  bytes (sp+0x84 in `func_809BF244_jp`, sp+0x7C in `func_809BF3E4_jp`), so
+  the answer at the third place of 2 players, the fourth of 3, or the
+  fourth of 4 wrote spaces over it, and `mChoice_Set_choice_data` was given
+  0x20202020. Measured (mupen64plus, a town of two players): asked to
+  remove a house, the game hangs (no frame in 60 s after frame 1075, the CPU at
+  0x80026084); the cartridge, the same town and answers, lists both
+  players and its answer to cancel. ac_quest_manager's `func_80955814_jp` gives
+  it 10-byte places too (the fourth one's 24 bytes reach 10 into the
+  arguments' home of its own frame, which no caller keeps anything in).
+  The loader also took its answer by DMA into a `char[29]` on its stack:
+  the cartridge's 10 bytes and the 7 before them fitted, an English 24 and
+  7 come as 32.
+- **The fix** (`src/code/m_choice_main.c` in changes.patch). The loader
+  writes its caller the 10 bytes the cartridge's does and keeps the whole
+  answer (`mChoice_en_loaded`, four of them, each under the buffer it
+  filled); `mChoice_Add_choice_data` takes the whole answer for a buffer
+  that still begins with it, and `mChoice_Set_choice_data` forgets them
+  once the window has its answers. The DMA goes to 32 bytes, aligned. The
+  message window's choices (`func_800A0DF4_jp`, our C, buffers of 24) get
+  the same answers as before; the actor's and the quest manager's, until
+  now cut at 10 bytes, get them whole.
+- **The word for a new player** (D_809C0C38_jp) is the first four
+  characters of the bank's 121, the answer for a first visit, which the en
+  bank has in the GameCube's English:
+  `tools/af_answers.py` writes over it, at make rom-en, the token of that
+  answer (`Choice_EN_TOKEN_MARK`: 0x80 twice, then 121 in two digits from
+  0x81, as an item's token writes its number; no item's token has the mark
+  second), after checking the word against the cartridge's overlay and the
+  cartridge's 121 beginning with it; `mChoice_Add_choice_data` takes a
+  token as the bank's answer, whole.
+- **Measured** (`tests/emu_psel.py`, make psel-check-en: the houses'
+  common_data stamped as the game stamps a save, its player copied into
+  the next slots with other names, ids and houses, each town in both slots
+  of a fresh flash): one player, which plays? the player and the bank's
+  121; two, both players and 121; two, whose house to remove? both
+  players and the bank's 41, and the game goes on; four, two players and
+  the bank's 441 and 41, and it goes on; the answers whole, as the bank
+  has them (13, 12 and 13 bytes).
+  With ares built, the two players' town plays the same on ares.
+
+## Other emulators (ares and Project64)
+
+- **ares** (v148, `emu/ares/`: `build.sh` pins it and builds its N64 core
+  with `headless.cpp` as `ares-headless`, and the ares app; `emu/ares64.py`
+  drives it with n64emu's interface). The cartridge is identified by ares's
+  own mia from the header's id, as the app does: NAFJ is Doubutsu no Mori,
+  128 KB of Flash RAM, the real-time clock and a Controller Pak (its log of
+  the en ROM); CIC 6102. A frame is a step of `gamePT->frameCounter`, read
+  through the CPU's data cache (`dcache.readDebug`: ares emulates the
+  caches, and RDRAM alone can hold a stale line); the RDP is paraLLEl-RDP
+  on Vulkan (lavapipe without a GPU), about 37 VI fields a second here.
+  The route plays as on mupen64plus: the name dial at frame 3288 (3289),
+  the town's 4108 (4110), the station 9278 (9281), the houses 12147
+  (12151); the cartridge's route on ares as well. The flash: a fresh
+  cartridge with emu_save's town in slot 0 and slot 1 erased is repaired
+  by frame 400 (slot 1 the image as it is), the town loads (code and
+  town's id), and the game's own save on the way writes both slots,
+  compressed, the extension whole and the checksum good; a second
+  power-on with that flash and clock loads it again. ares's clock is the
+  host's, kept in the cartridge's .rtc: a town saved in 2001 and loaded in
+  2026 gets the letters of the years between, which filed rests into the
+  extension (it went from emu_save's 5,000 bytes of text to a record), so
+  its runs are not frame for frame repeatable as mupen64plus's are. The
+  ares app itself, on a virtual display, shows the en ROM's title.
+- **Project64 3.0.1** (the release from pj64-emu.com, under Wine 9 on a
+  virtual display, its own video plugin; its window must not pause the
+  game when it loses the focus, Auto Sleep=0). Its database knows the
+  cartridge and the 2010 patch by the header's CRCs, with Flash RAM, 4 MB,
+  the 32-bit core and SMM-Protect=1; the en ROM's CRCs are its own, so it
+  plays with the defaults, and hangs at the N64 logo. The cartridge does
+  too without its entry, at the same place: the game needs the
+  self-modifying code method that protects memory (SMM-Protect=1 alone
+  makes both boot; Flash RAM, 4 MB or the 32-bit core alone do not). With
+  it the en ROM goes through K.K.'s talk (Enter is START, X is A), the
+  name's and the town's dials and Rover's talk to the town's station, on
+  its own video plugin and on GLideN64 (the plugin its first start
+  offers). Both draw the title logo's "Forest" lavender where angrylion
+  and ares draw it green, the colour of the 2010 patch's logo: theirs.
+  Its binary says writing the cartridge's clock is unimplemented (not
+  tried). In its window: Options, Settings, untick "Hide advanced
+  settings"; then the game's "Edit Game Settings", Recompiler, "Protect
+  memory" among the self-mod methods.
 
 ## The patch (the deliverable)
 

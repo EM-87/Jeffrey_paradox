@@ -52,6 +52,9 @@ make board-check-en               # abre cartas en el tablero y mide sus líneas
 make write-check-en               # escribe una carta con el dial y la mide en pantalla
 make menus-check-en               # abre la ventana del nombre, la pregunta al terminar una carta y
                                   # la libreta, y mide sus cadenas; busca las etiquetas en memoria
+make psel-check-en                # enciende con pueblos de 1, 2 y 4 jugadores y lee las preguntas
+                                  # del personaje del principio (también en ares si está compilado)
+make ares                         # el segundo emulador, ares, sin ventana (y su aplicación)
 make test                         # tests de las herramientas, sin ROM
 make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010: para estudiarlo, y
                                   # sus etiquetas en inglés para make rom-en (opcional)
@@ -428,6 +431,43 @@ resto y detecta la Flash RAM al primer acceso. Medido: la ruta y todas
 las comprobaciones de guardado, carga al encender incluida, pasan igual.
 La ROM conserva el nombre y el código de juego del cartucho (NAFJ).
 
+Probada en otros dos emuladores ("Other emulators"):
+
+- **ares** (v148, el más fiel al hardware: emula las cachés de la CPU y
+  el RDP con paraLLEl-RDP). Lo reconoce como el cartucho por su código
+  (Flash RAM de 128 KB, reloj y Controller Pak) y la partida nueva llega
+  a los mismos puntos casi en los mismos fotogramas que en mupen64plus. Al
+  encender con una partida guardada, el juego repara la ranura dañada, la
+  carga y guarda solo al llegar al pueblo. `emu/ares/` lo compila sin
+  ventana (`make ares`) y `make ares-route-en` juega la ruta en él.
+- **Project64 3.0.1** necesita un ajuste: *Self-mod code method: Protect
+  Memory* (en su base de datos, `SMM-Protect=1`). Project64 reconoce el
+  cartucho y el parche de 2010 por la suma de verificación de la cabecera
+  y les aplica ese ajuste; la nuestra es otra, así que usa el valor por
+  defecto y se queda en el logo de Nintendo 64. El cartucho original sin
+  su ficha se queda en el mismo sitio. Con el ajuste llega al pueblo
+  (K.K., los diales del nombre y del pueblo, Rover, la estación), con su
+  propio plugin de vídeo y con GLideN64. Dónde está: Options → Settings,
+  desmarcar «Hide advanced settings»; luego, con clic derecho en el juego,
+  «Edit Game Settings» → Recompiler → marcar «Protect memory». Sus dos
+  plugins pintan lila el «Forest» del logo, que es verde (cosa suya).
+
+Probarla en ares sacó a la luz un fallo nuestro y una palabra sin
+traducir ("The player-select actor's answers"). El personaje que recibe
+al jugador al encender con una partida guardada monta sus preguntas
+cargando respuestas del banco de opciones en huecos de 10 bytes de su
+pila. Nuestro cargador escribía los 24 de las respuestas inglesas y
+pisaba el puntero de la ventana de opciones guardado detrás: en un pueblo
+con dos o más jugadores, pedir que derribe la casa de un jugador colgaba el juego (medido; el
+cartucho, en el mismo pueblo, enseña la lista). Ahora el cargador escribe
+los 10 bytes del cartucho y guarda aparte la respuesta entera, que la
+ventana toma de ahí, así que además se ven enteras las respuestas de ese
+personaje y del gestor de encargos, que antes salían cortadas. Su
+respuesta para un jugador nuevo, una palabra en japonés que copiaba de
+sus propios datos, es ahora la opción del banco que dice lo mismo, la de
+GameCube para una primera visita (`tools/af_answers.py`). `make psel-check-en` lo comprueba con
+pueblos de uno, dos y cuatro jugadores, y en ares si está compilado.
+
 ## Dónde está cada cosa
 
 - `Makefile` — todo lo de arriba.
@@ -435,7 +475,8 @@ La ROM conserva el nombre y el código de juego del cartucho (NAFJ).
   descompilado: reconstruye el cartucho) y `changes.patch` (la traducción,
   encima).
 - `emu/` — el emulador: `build.sh`, `n64emu.py`, `headless_output.c`,
-  `input_headless.c`, `patches/`, `afplay.py` (qué hay en pantalla y
+  `input_headless.c`, `patches/`, `ares/` y `ares64.py` (el segundo
+  emulador, ares, sin ventana), `afplay.py` (qué hay en pantalla y
   cómo responder: diálogos, menús, el dial de nombres), `symbols.py` (nombres de funciones y
   variables desde el mapa del decomp) y `contact.py` (varias capturas en
   una hoja).
@@ -452,7 +493,8 @@ La ROM conserva el nombre y el código de juego del cartucho (NAFJ).
   (las cadenas de los menús), `af_items.py` (los nombres de los objetos,
   de tu disco), `af_nafe_gfx.py`, `af_nafe_logo.py` y `af_nafe_text.py`
   (las etiquetas, el logo del título y los mensajes del parche de 2010, de
-  tu copia), `af_dumpdata.py` (los datos del cartucho que
+  tu copia), `af_answers.py` (las respuestas que un overlay copia de sus
+  propios datos, apuntadas al banco de opciones), `af_dumpdata.py` (los datos del cartucho que
   un archivo decompilado incluye, sacados de tu volcado al extraer) y
   `af_ovlreloc.py` (la tabla de reubicaciones de un overlay que cambia).
 - `script/` — nuestro texto: lo que no tiene versión oficial (los
@@ -462,6 +504,7 @@ La ROM conserva el nombre y el código de juego del cartucho (NAFJ).
   `emu_save.py` (la partida), `emu_letters.py` (las cartas),
   `emu_board.py` (el tablero de cartas), `emu_write.py` (escribir una
   carta), `emu_notice.py` (el tablón de anuncios), `emu_messages.py` (los
-  mensajes en la ventana de diálogo) y `emu_menus.py` (las cadenas de los
-  menús y los nombres de los objetos).
+  mensajes en la ventana de diálogo), `emu_menus.py` (las cadenas de los
+  menús y los nombres de los objetos) y `emu_psel.py` (las preguntas del
+  personaje que recibe al jugador al encender con una partida guardada).
 - `reference/NOTES.md` — lo verificado, con su fuente.

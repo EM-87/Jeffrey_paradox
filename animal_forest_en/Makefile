@@ -31,6 +31,7 @@ AF_REV   := $(shell cat decomp/AF_REV)
 AF_DIR   := $(BUILD)/af
 AF_EN_DIR := $(BUILD)/af_en
 EMU_DIR  := $(BUILD)/emu
+ARES_DIR := $(BUILD)/ares
 # Our work on the decomp, two cumulative patches (see decomp/README.md):
 # matching.patch is decompiled code that must still build the cartridge
 # byte for byte; changes.patch is what the translation changes, applied on
@@ -45,7 +46,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en notice-check-en messages-check-en menus-check-en signs-check-en emu-determinism decomp-patch-en emu emu-check nafe nafe-diff test clean distclean
+.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean
 
 all: verify
 
@@ -212,6 +213,11 @@ EN_MENU_TEX := $(AF_EN_DIR)/assets/jp/en/menu_tex.stamp
 # Japanese marks, over the en tree's copies of the dial's segment and of the
 # editor's data (tools/af_dial.py; NOTES, "The dial's small letters").
 EN_DIAL := $(AF_EN_DIR)/assets/jp/en/dial.stamp
+# The answers an overlay copies from its own data (the player-select actor's
+# for a new player), pointed at the choice bank's English by a token, over the
+# en tree's copy of the overlay's data (tools/af_answers.py; NOTES, "The
+# player-select actor's answers").
+EN_ANSWERS := $(AF_EN_DIR)/assets/jp/en/answers.stamp
 GC_REL := $(wildcard $(GC_DIR)/foresta.map $(GC_DIR)/foresta.rel.szs)
 # The overlays the translation changes: each gets its relocation table made
 # anew from its objects after the first link (tools/af_ovlreloc.py, which
@@ -351,6 +357,12 @@ $(EN_DIAL): tools/af_dial.py tools/af_menu_tex.py tools/msgbank.py $(EN_NAFE_GFX
 	$(PYTHON) tools/af_dial.py $(BASEROM) $(AF_EN_DIR)
 	@touch $@
 
+# writes the overlay's .data.s, which splat rewrites at every extract
+$(EN_ANSWERS): tools/af_answers.py tools/af_menu_tex.py tools/msgbank.py $(AF_EN_DIR)/.stamp-extract
+	mkdir -p $(EN_ASSETS)
+	$(PYTHON) tools/af_answers.py $(BASEROM) $(AF_EN_DIR)
+	@touch $@
+
 # also writes the segment's .bin and the actor's .data.s, which splat rewrites at every extract
 $(EN_NAFE_LOGO): tools/af_nafe_logo.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)) $(AF_EN_DIR)/.stamp-extract
 	mkdir -p $(EN_ASSETS)
@@ -359,7 +371,7 @@ $(EN_NAFE_LOGO): tools/af_nafe_logo.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)
 	@touch $@
 
 en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT) $(EN_UI) $(EN_NAFE_GFX) $(EN_NAFE_LOGO) $(EN_ITEMS) \
-	$(EN_GC_SIGNS) $(EN_MENU_TEX) $(EN_DIAL)
+	$(EN_GC_SIGNS) $(EN_MENU_TEX) $(EN_DIAL) $(EN_ANSWERS)
 
 # The deliverable: the en ROM as a BPS patch against the user's dump in .z64 order (build/baserom.z64),
 # made and applied back by tools/bps.py; any BPS patcher applies it.
@@ -448,6 +460,14 @@ signs-check-en: route-en
 	$(PYTHON) tests/emu_signs.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-signs-en \
 		$(if $(GC_REL),--gc $(GC_DIR))
 
+# The player-select actor's choices from power-on with a saved town of one, two and four players (the
+# houses' common_data stamped as a save, the player copied): which player plays, and whose house to remove,
+# each choice's answers read in RAM; with ares built (make ares), the two players' town again on ares
+# (tests/emu_psel.py; NOTES, "The player-select actor's answers").
+psel-check-en: route-en
+	$(PYTHON) tests/emu_psel.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-psel-en \
+		$(if $(wildcard $(ARES_DIR)/ares-headless),--ares $(ARES_DIR))
+
 # -- the GameCube script (phase 4) -------------------------------------------
 # ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it
 # produces lands in build/gc, which git ignores: the banks, their dumps and
@@ -519,6 +539,20 @@ emu: $(EMU_DIR)/.stamp
 
 emu-check: emu rom
 	$(PYTHON) tests/emu_check.py $(EMU_DIR) $(OUT_ROM) $(BUILD)/emu-check
+
+# The second emulator: ares (pinned), its N64 core driven one game frame at a time by emu/ares/headless.cpp
+# through emu/ares64.py, and the ares app itself (NOTES, "Other emulators").
+ARES_INPUTS := emu/ares/build.sh emu/ares/headless.cpp emu/ares/CMakeLists.txt $(wildcard emu/ares/*.patch)
+
+$(ARES_DIR)/.stamp: $(ARES_INPUTS)
+	emu/ares/build.sh $(BUILD)/ares-src $(ARES_DIR)
+	@touch $@
+
+ares: $(ARES_DIR)/.stamp
+
+# The new game's route played on ares, its states ares's own (tools/route_newgame.py)
+ares-route-en: ares rom-en
+	$(PYTHON) tools/route_newgame.py $(ARES_DIR) $(EN_ROM) $(BUILD)/ares-route-en
 
 # Two runs of the route's opening at once, RAM compared after every frame
 # and the states at the name dial byte for byte (tests/emu_determinism.py;
