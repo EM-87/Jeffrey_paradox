@@ -54,7 +54,13 @@ ink (the name centred in 72 pixels from x 61, func_8009D308_jp, at the
 screen's pitch: emu_board.BOARD_X), placed by the cut name's; the animals'
 names whose fields hold tokens, loaded as the game loads them
 (mNpc_GetNpcWorldNameTableNo), each its token, and the first put in a
-message as free string 0, its lines measured.
+message as free string 0, its lines measured. And the catchphrases longer
+than 4, tokens in the string bank (af_items' string_tokens.txt): each
+loaded into 4 bytes as the game loads one, its token; the widest put in a
+page by STR_TAIL, Tom Nook speaking with the town's first animal behind
+him (Npc.npcInfo.animal set to the save's first, its catchphrase loaded
+so), the page's lines measured with the whole catchphrase and the
+animal's name.
 
 Where: the window's text from the frame's row 153 (lines 16 rows apart)
 and x 127.18, 2.005 frame pixels to the font's pixel (fitted on 316 line
@@ -92,7 +98,9 @@ s32 mMsg_request_main_appear(void* msg, void* actor, s32 showName, u8* color, s3
 void* Actor_info_fgName_search(void* actorInfo, u16 fgName, s32 part);
 void mNpc_GetNpcWorldNameTableNo(char* name, u16 npcId);
 void mMsg_Set_free_str(void* msg, s32 freeStrNo, char* str, s32 strLen);
+void mString_Load_StringFromRom(char* dst, s32 dstLen, s32 strIdx);
 extern void* gamePT;
+extern u8 common_data[];
 /* the control, then the speakers' fgNames (a zero last), the animals' numbers and the names loaded */
 typedef struct HookCtl { s32 cmd; s32 result; s32 arg[4]; u16 speakers[16]; u16 ids[64]; char names[6 * 64]; } HookCtl;
 HookCtl hook_ctl;
@@ -130,9 +138,34 @@ void hook_main(void) {
         mMsg_Set_free_str((void*)h->arg[1], 0, h->names, 6);
         h->result = mMsg_request_main_appear((void*)h->arg[1], 0, 0, hook_color, h->arg[0], 5);
         h->cmd = 0;
+    } else if (h->cmd == 5) {
+        /* the strings in ids (arg[1] of them) loaded into 4 bytes each, as the game loads a catchphrase */
+        for (i = 0; i < h->arg[1]; i++) {
+            mString_Load_StringFromRom(&h->names[4 * i], 4, h->ids[i]);
+        }
+        h->cmd = 0;
+    } else if (h->cmd == 6) {
+        /* cmd 2's message, the town's first animal (the save's) behind the speaker, its catchphrase loaded from
+           string arg[2] as the game loads one (mNpc_SetDefAnimalInfo) */
+        u8* animal = common_data + SAVE_ANIMALS;
+
+        for (i = 0; h->speakers[i] != 0 && actor == 0; i++) {
+            actor = Actor_info_fgName_search((u8*)gamePT + PLAY_ACTOR_INFO, h->speakers[i], ACTOR_PART_NPC);
+        }
+        h->arg[1] = (s32)mMsg_Get_base_window_p();
+        h->arg[3] = (s32)actor;
+        if (actor != 0) {
+            mString_Load_StringFromRom((char*)animal + ANIMAL_CATCHPHRASE, 4, h->arg[2]);
+            *(u8**)((u8*)actor + NPC_ANIMAL) = animal;
+            h->result = mMsg_request_main_appear((void*)h->arg[1], actor, 1, hook_color, h->arg[0], 5);
+        }
+        h->cmd = 0;
     }
 }
-""".replace("PLAY_ACTOR_INFO", "0x1C78").replace("ACTOR_PART_NPC", "3")  # Game_Play.actorInfo (m_play.h), ACTOR_PART_NPC
+""".replace("PLAY_ACTOR_INFO", "0x1C78").replace("ACTOR_PART_NPC", "3").replace("SAVE_ANIMALS", "0x9F18").replace(
+    "ANIMAL_CATCHPHRASE", "0x4E5").replace("NPC_ANIMAL", "0x174")
+# Game_Play.actorInfo (m_play.h), ACTOR_PART_NPC, common_data.save.animals (m_common_data.h), Animal_c.catchphrase
+# (m_npc.h), Npc.npcInfo.animal (ac_npc.h)
 
 CTL = struct.Struct(">ii4I")
 SPEAKERS_AT, IDS_AT, NAMES_AT = CTL.size, CTL.size + 32, CTL.size + 32 + 128   # HookCtl's tables
@@ -169,6 +202,9 @@ PLATE = (61.0, 72.0)                        # the plate's name: centred from x 6
 PLATE_INK = 160                             # the plate's text: a pixel with every colour under this (its green
                                             # has one over 240)
 ANIMAL_NAME_LEN = 6
+TAIL, CATCHPHRASE_LEN = NAMES["STR_TAIL"], 4
+SAVE_ANIMALS = 0x9F18                       # common_data.save.animals: the town's (Animal_c, 0x528 bytes each,
+                                            # its AnmPersonalID_c first: npcId)
 
 failures = []
 
@@ -348,6 +384,8 @@ def check_names(n64, state, af_en, en_elf, hole, hole_size, mttime, syms, bank, 
                 break
         return ctl, CTL.unpack(n64.read(ctl, CTL.size))
 
+    hooked.n64, hooked.syms = n64, syms
+
     def settled(window):
         waited = 0
         for _ in range(SHOWN):
@@ -438,7 +476,57 @@ def check_names(n64, state, af_en, en_elf, hole, hole_size, mttime, syms, bank, 
     check(not bad, "animal %d's name (%d characters), put in message %d as free string 0: its first page's %d lines "
           "where the model has them%s" % (n, len(names[0]), free, len([x for x in page if x]),
                                          "; " + "; ".join(bad) if bad else ""))
-    return measured
+    return measured + check_catchphrases(hooked, settled, speakers, af_en, seg, bank, board, town, out, shots)
+
+
+def string_tokens(af_en):
+    """{string: its token} of the catchphrases longer than 4 (tools/af_items.py's string_tokens.txt)."""
+    path = os.path.join(af_en, "assets", "jp", "en", "string_tokens.txt")
+    text = open(path).read() if os.path.exists(path) else ""
+    return {int(n): bytes(int(b, 16) for b in re.findall(r"\{([0-9a-f]{2})\}", t))
+            for n, t in re.findall(r"^## (\d+)\n(\S+)", text, re.M)}
+
+
+def check_catchphrases(hooked, settled, speakers, af_en, seg, bank, board, town, out, shots):
+    """The catchphrases longer than 4, tokens in the string bank: each loaded as the game loads one, its
+    token; the widest put in a page by STR_TAIL, said by Tom Nook with the town's first animal behind him
+    (its catchphrase loaded so), the page's lines measured with the whole catchphrase and the animal's name."""
+    tokens = string_tokens(af_en)
+    if not tokens:
+        print("  (no catchphrase is a token in this build)")
+        return 0
+    numbers = sorted(tokens)
+    loaded = {}
+    for at in range(0, len(numbers), 64):
+        part = numbers[at:at + 64]
+        ctl, _ = hooked(5, (0, len(part), 0, 0), [(IDS_AT, struct.pack(">%dH" % len(part), *part))])
+        got = hooked.n64.read(ctl + NAMES_AT, CATCHPHRASE_LEN * len(part))
+        loaded.update({n: got[CATCHPHRASE_LEN * k:CATCHPHRASE_LEN * (k + 1)] for k, n in enumerate(part)})
+    phrases = {n: name_record(af_en, token_number(tokens[n])) for n in numbers}
+    check(all(loaded[n] == tokens[n] for n in numbers) and all(len(p) > CATCHPHRASE_LEN for p in phrases.values()),
+          "the catchphrases longer than 4: %d loaded as the game loads one (mString_Load_StringFromRom, 4 bytes), "
+          "each its token, standing for %d to %d characters (%d differ)" % (
+              len(numbers), min(len(p) for p in phrases.values()), max(len(p) for p in phrases.values()),
+              sum(1 for n in numbers if loaded[n] != tokens[n])))
+    widest = max(numbers, key=lambda n: (board.width(phrases[n]), -n))
+    phrase = phrases[widest]
+    npc = struct.unpack(">H", hooked.n64.read(hooked.syms["common_data"] + SAVE_ANIMALS, 2))[0] & 0xFF
+    field = seg[8 + ANIMAL_NAME_LEN * npc:8 + ANIMAL_NAME_LEN * (npc + 1)]
+    name = name_record(af_en, token_number(field)) if token_number(field) is not None else field.rstrip(b" ")
+    fill = {str(TAIL): phrase, str(TALKNAME): name}
+    talk = next((n for n in sorted(bank) if on_first_page(bank[n], TAIL) and first_page(bank[n], town, fill)), None)
+    _, (_, took, _, window, _, actor) = hooked(6, (talk, 0, widest, 0), [(SPEAKERS_AT, speakers)])
+    w, h, rgb = settled(window)
+    path = os.path.join(out, "catchphrase-%d.png" % widest)
+    write_png(path, w, h, rgb)
+    shots.append(path)
+    page = first_page(bank[talk], town, fill)
+    bad = ([] if took and actor else ["not taken (actor %08x)" % actor]) + page_problems(rgb, w, page, board)
+    check(not bad, "the widest catchphrase (string %d, %d characters, %d pixels), put in message %d by STR_TAIL, "
+          "the town's first animal's (number %d) behind the speaker: its first page's %d lines where the model has "
+          "them%s" % (widest, len(phrase), board.width(phrase), talk, npc, len([x for x in page if x]),
+                      "; " + "; ".join(bad) if bad else ""))
+    return min(len(page), LINES)
 
 
 def main(argv):

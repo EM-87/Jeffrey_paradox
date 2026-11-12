@@ -130,7 +130,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   expand, with the article as the GameCube puts it (NOTES, "Item
   names"); the names longer than an animal's 6 bytes take the same
   tokens, their records after the items', the animals' written into the
-  en name segment (NOTES, "Names longer than 6").
+  en name segment (NOTES, "Names longer than 6"), and so do the
+  catchphrases longer than 4, their tokens laid over the string bank
+  (`string_tokens.txt`; NOTES, "Catchphrases longer than 4").
 - `tools/af_nafe_gfx.py` — the 42 menu labels the AF Project's 2010
   patch drew in English, taken at `make rom-en` from the user's copy
   (`make nafe NAFE_UPS=...`, build/nafe-2010-12-02.z64) over the en
@@ -179,7 +181,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   their end, the talking animal's order read every frame against the
   cartridge's orders; the names longer than 6, Tom Nook's on the plate
   and in a page with his token and without, the animals' loaded as the
-  game loads them and one put in a page: `make messages-check-en`),
+  game loads them and one put in a page; the catchphrases longer than 4
+  loaded as the game loads one, the widest put in a page by STR_TAIL:
+  `make messages-check-en`),
   `emu_menus.py` (the name entry's five windows, the edit-end check's
   question and answers and the address book's balloon, their strings in
   RAM and their ink measured against the font's model; each swapped

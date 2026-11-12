@@ -177,6 +177,9 @@ GC_UI := $(if $(wildcard $(GC_DIR)/foresta.map $(GC_DIR)/gc_ui.txt),$(GC_DIR)/gc
 # "Item names").
 EN_ITEMS := $(EN_ASSETS)/item_names.bin
 EN_ITEMS_INC := $(EN_ASSETS)/item_names.inc
+# the catchphrases' tokens, which af_items.py writes and the string bank's compile lays over it (NOTES,
+# "Catchphrases longer than 4")
+EN_STRING_TOKENS := $(EN_ASSETS)/string_tokens.txt
 GC_ITEMS := $(if $(wildcard $(GC_DIR)/foresta.map $(GC_DIR)/gc_items.txt),$(GC_DIR)/gc_items.txt)
 # The labels the AF Project's 2010 patch drew in English (the dial's, the
 # inventory's, the map's and other menus'): taken from its ROM (make nafe
@@ -251,12 +254,13 @@ $(GC_DIR)/nafe_messages.txt: $(NAFE_ROM) $(GC_DIR)/en_bank.txt $(GC_DIR)/n64_jp.
 
 # The messages are laid out at the window's width with the en font's
 # widths, which tools/af_font.py reads from the dump and the disc's font.
-$(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(NAFE_TEXT) $(OWN_MESSAGES) $(EN_CHOICE) $(EN_STRING) $(GC_DIR)/n64_jp.txt tools/af_text.py tools/msgbank.py tools/af_font.py $(GC_FONT)
+$(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(NAFE_TEXT) $(OWN_MESSAGES) $(EN_CHOICE) $(EN_STRING) $(GC_DIR)/n64_jp.txt tools/af_text.py tools/msgbank.py tools/af_font.py $(GC_FONT) $(EN_ITEMS)
 	mkdir -p $(EN_ASSETS)
 	$(PYTHON) tools/af_text.py compile $(EN_BANK) $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/msg_index.bin --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600 $(FONT_OPTS) \
 		$(if $(NAFE_TEXT),--overrides $(NAFE_TEXT)) $(foreach f,$(OWN_MESSAGES),--overrides $(f))
 	$(PYTHON) tools/af_text.py compile $(EN_CHOICE) $(EN_ASSETS)/choice_text.bin $(EN_ASSETS)/choice_index.bin --bank choice --max-bytes 24
-	$(PYTHON) tools/af_text.py compile $(EN_STRING) $(EN_ASSETS)/string_text.bin $(EN_ASSETS)/string_index.bin --bank string --max-bytes 64 --count 0x679
+	$(PYTHON) tools/af_text.py compile $(EN_STRING) $(EN_ASSETS)/string_text.bin $(EN_ASSETS)/string_index.bin --bank string --max-bytes 64 --count 0x679 \
+		--overrides $(EN_STRING_TOKENS)
 
 $(N64_LETTERS): $(GC_DIR)/n64_%.txt: $(BASEROM) tools/msgbank.py
 	mkdir -p $(GC_DIR)
@@ -295,7 +299,7 @@ $(GC_DIR)/gc_items.txt: tools/af_items.py $(wildcard $(GC_DIR)/foresta.rel.szs $
 $(EN_ITEMS): tools/af_items.py tools/af_font.py tools/af_text.py tools/af_names.py tools/msgbank.py $(GC_ITEMS) script/items.txt $(GC_FONT) $(EN_NAMES) $(EN_STRING) $(AF_EN_DIR)/.stamp-extract
 	mkdir -p $(EN_ASSETS)
 	$(PYTHON) tools/af_items.py compile $(AF_EN_DIR)/baseroms/jp/baserom-decompressed.z64 $@ $(EN_ITEMS_INC) \
-		$(if $(GC_ITEMS),--gc $(GC_ITEMS)) --own script/items.txt $(FONT_OPTS) \
+		$(if $(GC_ITEMS),--gc $(GC_ITEMS)) --own script/items.txt $(FONT_OPTS) --string-tokens $(EN_STRING_TOKENS) \
 		$(if $(wildcard $(GC_DIR)/npc_name_str_table.bin),--npc-names $(GC_DIR)/npc_name_str_table.bin --names-seg $(EN_NAMES) --strings $(EN_STRING))
 
 $(EN_NAFE_GFX): tools/af_nafe_gfx.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)) $(AF_EN_DIR)/.stamp-extract

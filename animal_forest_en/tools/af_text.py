@@ -290,14 +290,17 @@ def _merge(items):
 # its own width (tools/af_font.py, "The font in the en build" in NOTES).
 WINDOW_WIDTH = 192
 # What a code prints is filled at run time, so layout assumes a length, in
-# letters of the font's average lowercase width: the names (the player's,
-# the animal's, the town's) 6 and the catchphrase 4, their fields' sizes
-# (PLAYER_NAME_LEN, ANIMAL_CATCHPHRASE_LEN); the date's and time's parts as
-# the en build writes them (m_string.c: "Wednesday", "September", "14th",
-# "12", "p.m."); any other (free strings, items: numbers, names, things) 8,
-# TODO(verify) against what the game fills.
-CODE_LETTERS = {"STR_PLAYERNAME": 6, "STR_TALKNAME": 6, "STR_COUNTRYNAME": 6, "STR_ISLANDNAME": 6,
-                "STR_TAIL": 4, "STR_YEAR": 4, "STR_MONTH": 9, "STR_WEEK": 9, "STR_DAY": 4,
+# letters of the font's average lowercase width: the player's and the
+# town's names 6, their fields' size (PLAYER_NAME_LEN); the speaker's name
+# 9 and the catchphrase 11, the widest the en build puts in since the names
+# longer than 6 and the catchphrases longer than 4 are tokens (56 and 70
+# pixels at the GameCube's letters, 6.5 pixels on average: NOTES, "Names
+# longer than 6", "Catchphrases longer than 4"); the date's and time's
+# parts as the en build writes them (m_string.c: "Wednesday", "September",
+# "14th", "12", "p.m."); any other (free strings, items: numbers, names,
+# things) 8, TODO(verify) against what the game fills.
+CODE_LETTERS = {"STR_PLAYERNAME": 6, "STR_TALKNAME": 9, "STR_COUNTRYNAME": 6, "STR_ISLANDNAME": 6,
+                "STR_TAIL": 11, "STR_YEAR": 4, "STR_MONTH": 9, "STR_WEEK": 9, "STR_DAY": 4,
                 "STR_HOUR": 2, "STR_MIN": 2, "STR_SEC": 2, "STR_AMPM": 4, "STR_RNDNUM": 3}
 CODE_LETTERS_DEFAULT = 8
 SPACE = ("ch", " ")

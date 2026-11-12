@@ -6,8 +6,9 @@
                                                 (make script; never committed)
     tools/af_items.py compile ROM OUT_BIN OUT_INC [--gc FILE] [--own FILE] [--font ROM] [--gc-font FILE]
                           [--npc-names GC_TABLE --names-seg NAMES_BIN --strings EN_STRING]
+                          [--string-tokens OUT_TXT]
                                                 the en build's table: a ROM segment of records and its include;
-                                                with the animals' names, theirs too
+                                                with the animals' names, theirs too, and the catchphrases'
     tools/af_items.py pairs ROM REL MAP KIND [FIRST LAST]
                                                 the cartridge's names beside the GameCube's (to check the
                                                 mapping by eye; prints only, writes nothing)
@@ -38,8 +39,13 @@ the 220 the segment holds are longer) and the special characters' (their strings
 SPECIAL_NAME_STRINGS: m_npc.c's l_sp_actor_name loads them into 6 bytes). Their records follow the
 items', with no article (reference/NOTES.md, "Names longer than 6"); each animal's token is written into
 the name segment (NAMES_BIN, af_names.py's output) in its field, which mNpc_LoadNpcNameString copies as
-it is, and the special names' are listed in the include (ITEM_EN_SPECIAL_NAMES) for the en m_npc.c to
-write when it loads one.
+it is, and the special names' are listed in the include (ITEM_EN_SPECIAL_NAMES) for the en m_string.c to
+write when it loads one into 6 bytes. The catchphrases longer than an animal's 4 bytes
+(ANIMAL_CATCHPHRASE_LEN: the strings the animals' default data names, DEFAULT_DATA, as the en string bank
+has them: 198 of 215) take them too, their records after the names'; their tokens go into the string bank
+itself (OUT_TXT, laid over the bank when it is compiled: those strings are only ever loaded as
+catchphrases), so the game copies them as it copied the words (reference/NOTES.md, "Catchphrases longer
+than 4").
 """
 
 import os
@@ -98,6 +104,9 @@ TOKEN_DIGIT0, TOKEN_BASE = 0x81, 64         # the name's number in two digits, 0
 TOKEN_LEN = 3
 CELL = 12                                   # the cartridge's characters, a cell each
 ANIMAL_NAME_LEN = 6                         # an animal's name (PLAYER_NAME_LEN, also ANIMAL_NAME_LEN)
+CATCHPHRASE_LEN = 4                         # an animal's catchphrase (ANIMAL_CATCHPHRASE_LEN)
+# the animals' default data (NpcDefaultData, 6 bytes each: cloth, catchphraseIdx, umbrella), 218 of them
+DEFAULT_DATA, DEFAULT_SIZE, DEFAULT_CATCHPHRASE = 0xE03000, 6, 2
 # the special characters' names: the strings m_npc.c's l_sp_actor_name loads into 6 bytes (mNpc_GetNpcWorldNameP)
 SPECIAL_NAME_STRINGS = list(range(0x205, 0x219)) + [0x4E0, 0x4E1, 0x4E2]
 SMALL_ACCENTED = "\u00e0\u00e1\u00e2\u00e4\u00e7\u00e8\u00e9\u00ea\u00eb\u00ed\u00ee\u00ef\u00f1\u00f3\u00f4\u00f6\u00fa\u00fb\u00fc"
@@ -237,16 +246,40 @@ def long_names(npc_table, capacity, strings):
     return out
 
 
-def name_records(names, base, widths):
-    """(the records of names [(what, bytes)], numbered from base, and [(what, number, its token)])."""
+def long_catchphrases(segment_data, strings):
+    """[(("catchphrase", number), its bytes)] of the catchphrases longer than an animal's 4 bytes: the strings
+    the animals' default data names (segment_data, DEFAULT_DATA's file), as the en string bank has them."""
+    numbers = sorted({struct.unpack(">H", segment_data[at + DEFAULT_CATCHPHRASE:at + DEFAULT_CATCHPHRASE + 2])[0]
+                      for at in range(0, len(segment_data) - DEFAULT_SIZE + 1, DEFAULT_SIZE)})
+    out = []
+    for number in numbers:
+        data = msgbank.encode(strings[number]).rstrip(b" ") if number in strings else b""
+        if len(data) > CATCHPHRASE_LEN:
+            out.append((("catchphrase", number), data))
+    return out
+
+
+def name_records(names, base, widths, field=ANIMAL_NAME_LEN):
+    """(the records of names [(what, bytes)], numbered from base, each at most field cells, and [(what,
+    number, its token in field bytes)])."""
     out, tokens = bytearray(), []
     for k, (what, data) in enumerate(names):
         if len(data) > GC_NAME_LEN:
             raise SystemExit("af_items: %s %d: %d characters, past %d" % (what + (len(data), GC_NAME_LEN)))
-        c = cells(data, widths, ANIMAL_NAME_LEN)
+        c = cells(data, widths, field)
         out += bytes([len(data), 0, c, 0]) + data.ljust(GC_NAME_LEN, b" ")
-        tokens.append((what, base + k, token(base + k, c, ANIMAL_NAME_LEN)))
+        tokens.append((what, base + k, token(base + k, c, field)))
     return bytes(out), tokens
+
+
+def string_tokens(tokens):
+    """The string bank's text (tools/msgbank.py's dump form) that puts each string's token in its place:
+    tokens [(("catchphrase", number), _, token)], their bytes written {xx}."""
+    lines = ["# The catchphrases' tokens (tools/af_items.py), laid over the en string bank: not part of the "
+             "repository"]
+    for (_, number), _, tok in tokens:
+        lines += ["", "## %d" % number, "".join("{%02x}" % b for b in tok)]
+    return "\n".join(lines) + "\n"
 
 
 def records(rom, gc, own, widths):
@@ -328,7 +361,7 @@ def main(argv):
         return 0
     if argv[:1] == ["compile"]:
         opts, args = opts_of(argv[1:], ("--gc", "--own", "--font", "--gc-font", "--npc-names", "--names-seg",
-                                        "--strings"))
+                                        "--strings", "--string-tokens"))
         rom_path, out_bin, out_inc = args
         rom = open(rom_path, "rb").read()
         gc = read_names(opts["--gc"]) if opts.get("--gc") and os.path.exists(opts["--gc"]) else {}
@@ -355,6 +388,18 @@ def main(argv):
             print("%s: the names longer than %d as tokens, %d animals' and %d special characters'" % (
                 seg_path, ANIMAL_NAME_LEN, sum(1 for w, _, _ in tokens if w[0] == "animal"),
                 sum(1 for w, _, _ in tokens if w[0] == "string")))
+            # the catchphrases longer than 4: their records after the names', their tokens in the string bank
+            more, phrases = name_records(long_catchphrases(af_names.segment(rom, DEFAULT_DATA), strings),
+                                         len(slots()) + len(tokens), widths, CATCHPHRASE_LEN)
+            data += more
+            tokens += phrases
+            print("%s: the catchphrases longer than %d as tokens, %d" % (
+                opts.get("--string-tokens", "(no --string-tokens)"), CATCHPHRASE_LEN, len(phrases)))
+        if opts.get("--string-tokens"):
+            text = string_tokens([t for t in tokens if t[0][0] == "catchphrase"])
+            path = opts["--string-tokens"]
+            if not os.path.exists(path) or open(path).read() != text:
+                open(path, "w").write(text)
         open(out_bin, "wb").write(data)
         open(out_inc, "w").write(include(bool(gc), tokens))
         totals = [sum(c[k] for c in counts.values()) for k in range(3)]

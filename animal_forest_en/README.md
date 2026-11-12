@@ -339,9 +339,18 @@ nombre dentro del texto y la cabecera de una carta dirigida a un vecino
 ponen el nombre entero ("Names longer than 6"); `make messages-check-en` y
 `make board-check-en` lo miden en pantalla.
 
+Las muletillas de los vecinos (4 bytes en el cartucho, guardadas en la
+partida) tampoco se cortan ya: 198 de las 215 pasan de 4 letras en inglés.
+Usan la misma ficha; la de cada una va en el banco de cadenas en lugar de
+sus palabras (esas cadenas solo se cargan como muletillas), así que el
+juego la carga y la guarda como antes, y el código de mensajes pone las
+palabras al insertarla. El banco de mensajes se maqueta ahora contando el
+nombre de quien habla como 9 letras y la muletilla como 11, lo más ancho
+que pueden ocupar ("Catchphrases longer than 4"); `make messages-check-en`
+lo mide en pantalla.
+
 Lo que viene: las texturas occidentales de GameCube donde las haya
-(letreros), las muletillas de los vecinos (4 bytes en el cartucho) y una
-pasada de pruebas de todo el texto en el juego.
+(letreros) y una pasada de pruebas de todo el texto en el juego.
 
 ## Dónde está cada cosa
 

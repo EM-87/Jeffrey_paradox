@@ -3093,7 +3093,7 @@ index 5b38fe9..fb84685 100644
 +}
  #endif
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
-index 03981c7..f1e26d3 100644
+index 03981c7..c75f557 100644
 --- a/src/code/m_msg_main.c
 +++ b/src/code/m_msg_main.c
 @@ -1,5 +1,7 @@
@@ -3354,7 +3354,18 @@ index 03981c7..f1e26d3 100644
      } else {
          nameLen = 0;
      }
-@@ -1014,8 +1052,8 @@ s32 mMsg_CopyTail(struct Actor* actor, char* data, s32 startIdx, s32 len) {
+@@ -1006,6 +1044,10 @@ s32 mMsg_CopyTail(struct Actor* actor, char* data, s32 startIdx, s32 len) {
+     s32 tailLen = actor != NULL ? mMsg_Get_Length_String(tail, 4) : 0;
+     s32 newLen;
+ 
++    if (actor != NULL) {
++        /* the en build: a catchphrase longer than 4 is a token (m_item_name.c): its words put in */
++        return mMsg_en_CopyString(data, startIdx, len, tail, 4, TRUE);
++    }
+     newLen = func_8009EA2C_jp(data, startIdx + tailLen, startIdx + commandLen, len, FALSE);
+     func_8009EB44_jp(&data[startIdx], tail, tailLen);
+     return newLen;
+@@ -1014,8 +1056,8 @@ s32 mMsg_CopyTail(struct Actor* actor, char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyYear(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u16 value = common_data.time.rtcTime.year;
@@ -3365,7 +3376,7 @@ index 03981c7..f1e26d3 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1025,8 +1063,8 @@ s32 mMsg_CopyYear(char* data, s32 startIdx, s32 len) {
+@@ -1025,8 +1067,8 @@ s32 mMsg_CopyYear(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyMonth(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.month;
@@ -3376,7 +3387,7 @@ index 03981c7..f1e26d3 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1036,8 +1074,8 @@ s32 mMsg_CopyMonth(char* data, s32 startIdx, s32 len) {
+@@ -1036,8 +1078,8 @@ s32 mMsg_CopyMonth(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyWeek(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.weekday;
@@ -3387,7 +3398,7 @@ index 03981c7..f1e26d3 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1047,8 +1085,8 @@ s32 mMsg_CopyWeek(char* data, s32 startIdx, s32 len) {
+@@ -1047,8 +1089,8 @@ s32 mMsg_CopyWeek(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyDay(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.day;
@@ -3398,7 +3409,7 @@ index 03981c7..f1e26d3 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1058,8 +1096,8 @@ s32 mMsg_CopyDay(char* data, s32 startIdx, s32 len) {
+@@ -1058,8 +1100,8 @@ s32 mMsg_CopyDay(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyHour(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.hour;
@@ -3409,7 +3420,7 @@ index 03981c7..f1e26d3 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1069,8 +1107,8 @@ s32 mMsg_CopyHour(char* data, s32 startIdx, s32 len) {
+@@ -1069,8 +1111,8 @@ s32 mMsg_CopyHour(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopyMin(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.min;
@@ -3420,7 +3431,7 @@ index 03981c7..f1e26d3 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1080,32 +1118,66 @@ s32 mMsg_CopyMin(char* data, s32 startIdx, s32 len) {
+@@ -1080,32 +1122,66 @@ s32 mMsg_CopyMin(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopySec(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.sec;
@@ -3503,7 +3514,7 @@ index 03981c7..f1e26d3 100644
  }
  
  s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colorId) {
-@@ -1113,8 +1185,13 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
+@@ -1113,8 +1189,13 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
      s32 newLen;
      s32 srcIdx;
      u8* color;
@@ -3518,7 +3529,7 @@ index 03981c7..f1e26d3 100644
      srcIdx = *startIdx;
      color = D_80107B78_jp[colorId];
      D_80107B88_jp[2] = color[0];
-@@ -1129,7 +1206,7 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
+@@ -1129,7 +1210,7 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
  
  s32 mMsg_CopyDetermination(MessageWindow* msg, char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
@@ -3527,7 +3538,7 @@ index 03981c7..f1e26d3 100644
      s32 strLen = msg->choiceWindow.data.determinationLenght;
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
-@@ -1174,24 +1251,16 @@ s32 mMsg_CopyRamdomNumber2(char* data, s32 startIdx, s32 len) {
+@@ -1174,24 +1255,16 @@ s32 mMsg_CopyRamdomNumber2(char* data, s32 startIdx, s32 len) {
      return newLen;
  }
  
@@ -3558,7 +3569,7 @@ index 03981c7..f1e26d3 100644
  }
  
  s32 func_8009F670_jp(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len) {
-@@ -1914,25 +1983,24 @@ s32 func_800A0DF4_jp(MessageWindow* msg, s32* idxP, s32 selectCount) {
+@@ -1914,25 +1987,24 @@ s32 func_800A0DF4_jp(MessageWindow* msg, s32* idxP, s32 selectCount) {
      }
  
      if (selectCount >= 2 && selectCount <= mChoice_CHOICE_NUM) {
@@ -3595,7 +3606,7 @@ index 03981c7..f1e26d3 100644
          }
      }
  
-@@ -1961,28 +2029,40 @@ s32 func_800A102C_jp(MessageWindow* msg, s32* idxP) {
+@@ -1961,28 +2033,40 @@ s32 func_800A102C_jp(MessageWindow* msg, s32* idxP) {
      return mMsg_RESULT_VOID;
  }
  
@@ -3636,7 +3647,7 @@ index 03981c7..f1e26d3 100644
      return mMsg_RESULT_VOID;
  }
  
-@@ -2045,8 +2125,11 @@ s32 func_800A1308_jp(MessageWindow* msg, s32* idxP) {
+@@ -2045,8 +2129,11 @@ s32 func_800A1308_jp(MessageWindow* msg, s32* idxP) {
  s32 func_800A134C_jp(MessageWindow* msg, s32 idx, s32 freeStrNo) {
      char* data = (char*)msg->msgData->text;
      s32 len = msg->msgData->msgLen;
@@ -3649,7 +3660,7 @@ index 03981c7..f1e26d3 100644
      return mMsg_RESULT_VOID;
  }
  
-@@ -2145,16 +2228,21 @@ s32 func_800A1708_jp(MessageWindow* msg, s32* idxP) {
+@@ -2145,16 +2232,21 @@ s32 func_800A1708_jp(MessageWindow* msg, s32* idxP) {
  s32 func_800A1730_jp(MessageWindow* msg, s32* idxP) {
      char* data = (char*)msg->msgData->text;
      s32 len = msg->msgData->msgLen;
@@ -3671,7 +3682,7 @@ index 03981c7..f1e26d3 100644
      return mMsg_RESULT_VOID;
  }
  
-@@ -2169,8 +2257,11 @@ s32 func_800A17B8_jp(MessageWindow* msg, s32* idxP) {
+@@ -2169,8 +2261,11 @@ s32 func_800A17B8_jp(MessageWindow* msg, s32* idxP) {
  s32 func_800A17FC_jp(MessageWindow* msg, s32 idx, s32 itemStrNo) {
      char* data = (char*)msg->msgData->text;
      s32 len = msg->msgData->msgLen;
@@ -3684,7 +3695,7 @@ index 03981c7..f1e26d3 100644
      return mMsg_RESULT_VOID;
  }
  
-@@ -2197,8 +2288,10 @@ s32 func_800A18E4_jp(MessageWindow* msg, s32* idxP) {
+@@ -2197,8 +2292,10 @@ s32 func_800A18E4_jp(MessageWindow* msg, s32* idxP) {
  s32 func_800A190C_jp(MessageWindow* msg, s32 idx, s32 mailStrNo) {
      char* data = (char*)msg->msgData->text;
      s32 len = msg->msgData->msgLen;
@@ -3695,7 +3706,7 @@ index 03981c7..f1e26d3 100644
      return mMsg_RESULT_VOID;
  }
  
-@@ -2237,15 +2330,26 @@ s32 func_800A1A64_jp(MessageWindow* msg, s32* idxP) {
+@@ -2237,15 +2334,26 @@ s32 func_800A1A64_jp(MessageWindow* msg, s32* idxP) {
  }
  
  s32 func_800A1A84_jp(MessageWindow* msg, s32* idxP) {
@@ -3725,7 +3736,7 @@ index 03981c7..f1e26d3 100644
  }
  
  s32 func_800A1AE4_jp(MessageWindow* msg, s32* idxP) {
-@@ -2562,6 +2666,8 @@ void func_800A2538_jp(MessageWindow* msg, struct Game* game) {
+@@ -2562,6 +2670,8 @@ void func_800A2538_jp(MessageWindow* msg, struct Game* game) {
      msg->requestedPriority = 4;
      msg->endTimer = 0;
      msg->statusFlags &= ~mMsg_STATUS_FLAG_LAST_DELAY;
@@ -3734,7 +3745,7 @@ index 03981c7..f1e26d3 100644
  
      if (waitFlag != TRUE) {
          msg->showContinueButton = FALSE;
-@@ -2769,10 +2875,21 @@ void func_800A2AD0_jp(MessageWindow* msg, struct Game* game, s32 mode) {
+@@ -2769,10 +2879,21 @@ void func_800A2AD0_jp(MessageWindow* msg, struct Game* game, s32 mode) {
  void func_800A2BB0_jp(MessageWindow* msg, struct Game* game, s32 mode) {
      char name[ANIMAL_NAME_LEN];
  
@@ -3759,7 +3770,7 @@ index 03981c7..f1e26d3 100644
  }
  
  void func_800A2C4C_jp(MessageWindow* msg, struct Game* game, s32 mode) {
-@@ -2952,26 +3069,26 @@ void func_800A3220_jp(MessageWindow* msg, struct Game* game) {
+@@ -2952,26 +3073,26 @@ void func_800A3220_jp(MessageWindow* msg, struct Game* game) {
  
  void mMsg_ct(struct Game_Play* game_play) {
      func_8009E6F8_jp((struct Game*)game_play);

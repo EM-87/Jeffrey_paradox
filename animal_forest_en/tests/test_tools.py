@@ -1503,6 +1503,27 @@ class MenusWords(unittest.TestCase):
         self.assertIn("#define ITEM_EN_RECORDS %d " % (len(af_items.slots()) + 3), inc)
         self.assertIn("#define ITEM_EN_SPECIAL_NAMES { { 0x205, 1705 }, { 0x000, 0 }, }", inc)
 
+    def test_long_catchphrases_take_tokens_in_the_string_bank(self):
+        # the catchphrases the animals' default data names (each entry's u16 at +2), once each, those longer
+        # than 4 bytes; their tokens fill 4 bytes and go into the string bank as its text
+        data = b"".join(struct.pack(">HHBx", 0, n, 0) for n in (12, 7, 12, 30))
+        strings = {7: msgbank.parse("hmm"), 12: msgbank.parse("plonkar"), 30: msgbank.parse("wibbly zo")}
+        phrases = af_items.long_catchphrases(data, strings)
+        self.assertEqual([w for w, _ in phrases], [("catchphrase", 12), ("catchphrase", 30)])
+        records, tokens = af_items.name_records(phrases, 1800, [6] * 256, af_items.CATCHPHRASE_LEN)
+        self.assertEqual(records[:4], bytes([7, 0, 4, 0]))                  # 42 px: 4 cells, the field's
+        self.assertEqual(tokens[0][2], bytes([0x80, 0x81 + 1800 // 64, 0x81 + 1800 % 64, 0x80]))
+        text = af_items.string_tokens(tokens)
+        bank = msgbank.Bank.parse_dump(text)
+        self.assertEqual(msgbank.encode(bank[12]), tokens[0][2])            # the bank's compile reads them back
+        self.assertEqual(msgbank.encode(bank[30]), tokens[1][2])
+
+    def test_layout_counts_cover_the_tokens_fields(self):
+        # the layout's letters for what the game fills in: the speaker's name and the catchphrase at least
+        # their tokens' longest (8 and 10 letters since the names and catchphrases are tokens)
+        self.assertGreaterEqual(af_text.CODE_LETTERS["STR_TALKNAME"], 8)
+        self.assertGreaterEqual(af_text.CODE_LETTERS["STR_TAIL"], 10)
+
     def test_labels_drawn_by_the_lists(self):
         # tools/af_nafe_gfx.py: a texture is where a load in the segment's own
         # segment names it, in its render tile's format and its tile's size

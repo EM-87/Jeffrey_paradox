@@ -1051,10 +1051,13 @@ what goes in it: "The letters in the en build").
   is split after the last sentence that does, with `<BTN>`, a newline and
   `<MSGCLEAR>` as the cartridge's pages end (a `<BTN>` the text had at the
   cut is not doubled). What the game fills in counts as letters of the
-  font's average lowercase width (7.3 px): names 6 and the catchphrase 4,
-  their fields' sizes (`PLAYER_NAME_LEN`, `ANIMAL_CATCHPHRASE_LEN`), the
-  date's parts as the en build writes them, anything else 8
-  (TODO(verify)). On the English bank: 1,934 pages with words moved on,
+  font's average lowercase width (6.5 px with the GameCube's letters, 7.3
+  with the cartridge's): names 6 and the catchphrase 4, their fields'
+  sizes (`PLAYER_NAME_LEN`, `ANIMAL_CATCHPHRASE_LEN`), but the speaker's
+  name 9 and the catchphrase 11, since those are tokens that can stand
+  for more ("Catchphrases longer than 4"); the date's parts as the en
+  build writes them; anything else 8 (TODO(verify)). On the English
+  bank: 1,934 pages with words moved on,
   232 filled anew, 372 split (304 of the cuts at a sentence's end, 68
   inside one); 3 lines stay wider than the window (one long word, or free
   strings). (Those counts are with the cartridge's realigned glyphs; with
@@ -2188,6 +2191,53 @@ what goes in it: "The letters in the en build").
   model has them. The letter board: a shop letter addressed to that
   animal, the token in the recipient's name, its header with the whole
   name and every line where the model has them.
+
+## Catchphrases longer than 4 (phase 5, the menus' strings)
+
+- **The field.** An animal's catchphrase is 4 bytes
+  (`ANIMAL_CATCHPHRASE_LEN`, `Animal_c.catchphrase`, kept in the save),
+  loaded from the string bank when an animal gets its default data or
+  has its catchphrase reset (`mNpc_SetDefAnimalInfo`,
+  `mNpc_ResetWordEnding`): the string each animal's default data names
+  (`NpcDefaultData.catchphraseIdx`, in the file at vrom 0xE03000, 6 bytes
+  an animal, 218 of them). Of the 215 strings they name, 198 are longer
+  than 4 in English (5 to 10 letters). They were cut, and a catchphrase
+  ends most of what an animal says.
+- **Tokens in the string bank.** Their records follow the names' in
+  `item_en_names` (tools/af_items.py: no article, 3 or 4 cells), and
+  their tokens are laid over the en string bank in their words' place
+  (af_items.py writes `assets/jp/en/string_tokens.txt` in the en tree,
+  which the string bank's compile takes as `--overrides`): the game loads
+  and copies a token as it did the words, with no code for it and
+  nothing in code_en. Those strings are only loaded as catchphrases: none
+  of the string numbers the code loads by a constant is one (9 such
+  loads in the decomp's C and asm), and the loads through tables (names,
+  counters, units, credits) take other ranges.
+- **Who takes a catchphrase.** `mNpc_GetWordEnding`'s one caller,
+  `mMsg_CopyTail` (STR_TAIL), which copied its bytes into the page: the
+  en build puts in the words (m_msg_main.c, as for the speaker's name).
+  The text editor never shows an animal's catchphrase: its catchphrase
+  mode starts with spaces (`func_80884B30_jp`) and copies its 4 bytes
+  over the old one at the end (`func_80884370_jp`), so a catchphrase the
+  player gives stays 4 letters. Without an animal behind the speaker the
+  code puts in a placeholder of its own (`l_no_ending_npc_ending`, kana),
+  as it does for the name (`l_no_name_npc_name`); no message the game
+  shows takes either (TODO(verify)).
+- **The layout.** The message bank is laid out with what the game fills
+  in counted in average letters; the speaker's name now counts 9 and the
+  catchphrase 11 (the widest the tokens stand for: 56 and 70 pixels at
+  the GameCube's letters, 6.5 pixels a letter on average). 38 of the
+  11,752 messages come out laid differently: 35 pages filled anew, 5
+  split and 111 with lines moved on, where 11, 4 and 103 were.
+- **Kept in the save.** `Animal_c.catchphrase` holds the token, which
+  stands for the same words while the table's order stays (the items',
+  the names', then the catchphrases by their strings' numbers).
+- **On screen** (make messages-check-en). The 198 loaded as the game
+  loads one (`mString_Load_StringFromRom` into 4 bytes), each its token;
+  the widest (70 pixels, 9 letters) put in a page by STR_TAIL, Tom Nook
+  speaking with the town's first animal behind him (`Npc.npcInfo.animal`
+  set to the save's, its catchphrase loaded so): the page's four lines
+  where the model has them, the plate with the animal's name.
 
 ## The bulletin board (phase 5, the menus' strings)
 
