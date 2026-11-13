@@ -3433,8 +3433,22 @@ games), the empty slots, and the strings and letters the same way.
   with the catchphrase is measured at the widest catchphrase).
   `tests/test_tools.py` (OwnMessages, OwnStringsAndLetters) takes an
   entry of ours that prints no text where the cartridge's prints none.
-  On screen: `make messages-check-en` shows ours' first pages and plays
-  through those with talk orders.
+  On screen, the first build's `make messages-check-en` failed twice,
+  neither in play: `af_nafe_text` took the 2010 patch's English for
+  9452 and 9453, whose cartridge text is only line breaks (ours, laid
+  over after it, hold the bank: 101 of the 103 taken were there); a
+  message with no text but line breaks is now as an empty one, and 101
+  are taken. And 11113 (ours): its last line's "y" reached a pixel into
+  the empty band below, the system's dark red counting as ink there
+  (`INK`: a colour under 150); its lines now end without a descender.
+  The second build (only 11113 differs from the first's bank; choices,
+  strings and letters the same bytes): `make test` (100), `make
+  emu-check`, `messages-check-en` (723 messages, 2,011 lines, 0
+  failures; 253 played through, 226 of ours, the cartridge's talk
+  orders), `psel-check-en` and `year-check-en` (the 21 dates) pass; the
+  first's `letters-check-en` and `menus-check-en` passed (0 failures);
+  `make verify` is the cartridge; the .bps applied to the dump is the
+  ROM.
 
 ## Other emulators (ares, Project64, RetroArch, RMG and simple64)
 
