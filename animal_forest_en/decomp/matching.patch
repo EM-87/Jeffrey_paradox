@@ -5978,6 +5978,46 @@ index 81ac120..f656590 100644
  } Npc; // size = 0x93C
  
  #endif
+diff --git a/src/overlays/actors/ovl_Npc_Police/ac_npc_police.c b/src/overlays/actors/ovl_Npc_Police/ac_npc_police.c
+index 47648f2..7d33720 100644
+--- a/src/overlays/actors/ovl_Npc_Police/ac_npc_police.c
++++ b/src/overlays/actors/ovl_Npc_Police/ac_npc_police.c
+@@ -3,6 +3,8 @@
+ #include "m_actor_dlftbls.h"
+ #include "m_object.h"
+ #include "overlays/gamestates/ovl_play/m_play.h"
++#include "m_msg_main.h"
++#include "6B3DC0.h"
+ 
+ void aPOL_actor_ct(Actor* thisx, Game_Play* game_play);
+ void aPOL_actor_dt(Actor* thisx, Game_Play* game_play);
+@@ -61,7 +63,25 @@ ActorProfile Npc_Police_Profile = {
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/actors/ovl_Npc_Police/ac_npc_police/func_809C190C_jp.s")
+ 
+-#pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/actors/ovl_Npc_Police/ac_npc_police/func_809C19AC_jp.s")
++u32 func_8007ECA0_jp(void);
++
++/* The day of the special event the police tells of (func_8007ECA0_jp: the day in the low byte, the month in
++ * the next), as two numbers in free strings 4 and 5 */
++void func_809C19AC_jp(void) {
++    u32 day = func_8007ECA0_jp();
++
++    if (day != 0) {
++        MessageWindow* msg = mMsg_Get_base_window_p();
++        char str[5];
++        s32 i;
++
++        for (i = 4; i != 6; i++) {
++            mFont_UnintToString(str, day & 0xFF, 5, TRUE, FALSE);
++            mMsg_Set_free_str(msg, i, str, 5);
++            day >>= 8;
++        }
++    }
++}
+ 
+ #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/actors/ovl_Npc_Police/ac_npc_police/func_809C1A48_jp.s")
+ 
 diff --git a/src/overlays/submenu/board_ovl/m_board_ovl.c b/src/overlays/submenu/board_ovl/m_board_ovl.c
 new file mode 100644
 index 0000000..7c99435

@@ -767,10 +767,33 @@ class Script(unittest.TestCase):
             all_msgs.update(msgs)
             af_text.compile_bank(all_msgs, text, index)
             t = open(text, "rb").read()
-            ends = struct.unpack(">%dI" % af_text.N64_COUNT, open(index, "rb").read())
+            ends = struct.unpack(">%dI" % af_text.N64_COUNT, open(index, "rb").read()[:af_text.N64_COUNT * 4])
             self.assertEqual(t[:ends[0]], msgbank.encode(msgs[0]))
             self.assertEqual(t[ends[0]:ends[1]], msgbank.encode(msgs[1]))
             self.assertEqual(len(t) % 16, 0)
+
+    def test_index_reads_stay_in_the_table(self):
+        # the game reads entry n's ends 8 bytes from n - 1 (n odd) or 16 from n - 2 (n even, n > 0): with an odd
+        # count, the last entry's read went past the table and the DMA manager stopped the game (December's name)
+        def window(n):
+            return (0, 8) if n == 0 else ((n - 1) * 4, 8) if n & 1 else ((n - 2) * 4, 16)
+        old = af_text.N64_COUNT
+        with tempfile.TemporaryDirectory() as d:
+            text, index = os.path.join(d, "t.bin"), os.path.join(d, "i.bin")
+            for count in (5, 6, 7, 8, 0x679):
+                try:
+                    af_text.N64_COUNT = count
+                    af_text.compile_bank({n: msgbank.parse("s%d" % n) for n in range(count)}, text, index)
+                finally:
+                    af_text.N64_COUNT = old
+                table = open(index, "rb").read()
+                self.assertEqual(len(table) % 16, 0)
+                for n in range(count):
+                    at, size = window(n)
+                    self.assertLessEqual(at + size, len(table), (count, n))
+                ends = struct.unpack(">%dI" % count, table[:count * 4])
+                body = open(text, "rb").read()
+                self.assertEqual(body[ends[count - 2]:ends[count - 1]], msgbank.encode([("t", "s%d" % (count - 1))]))
 
     def test_layout_fits_lines_to_the_window(self):
         widths = [12] * 256                                     # kana stay 12; Latin 6, the space 4
@@ -1905,6 +1928,46 @@ class Answers(unittest.TestCase):
         for name, value in (("MARK", af_answers.TOKEN_MARK), ("DIGIT0", af_answers.TOKEN_DIGIT0),
                             ("BASE", af_answers.TOKEN_BASE)):
             self.assertRegex(patch, r"\+#define Choice_EN_TOKEN_%s (0x%X|%d)\b" % (name, value, value))
+
+    def test_the_bank_goes_on_past_the_cartridges_answers(self):
+        # the answers past the cartridge's 460: numbered on from it, the bank's count the same in the tool, the
+        # Makefile's compile and the en reader
+        numbers = [number for _, _, _, _, _, number, _, _ in af_answers.EXTRA]
+        self.assertEqual(numbers, list(range(af_answers.CHOICE_COUNT, af_answers.EN_CHOICE_COUNT)))
+        for _, _, _, _, size, _, (sym, obj), _ in af_answers.EXTRA:
+            self.assertEqual(size % 4, 0)
+            self.assertTrue(obj.endswith(".o") and sym)
+        with open(os.path.join(HERE, "..", "Makefile"), encoding="utf-8") as f:
+            self.assertIn("EN_CHOICE_COUNT := %d\n" % af_answers.EN_CHOICE_COUNT, f.read())
+        with open(os.path.join(HERE, "..", "decomp", "changes.patch"), encoding="utf-8") as f:
+            patch = f.read()
+        if "Choice_EN_CHOICE_NUM" not in patch:
+            self.skipTest("needs the en choice bank's count in decomp/changes.patch")
+        self.assertIn("+#define Choice_EN_CHOICE_NUM %d" % af_answers.EN_CHOICE_COUNT, patch)
+
+    def test_the_answers_past_the_bank_are_ours_without_the_gamecubes(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, "extra.txt")
+            af_answers.write_extra(d, os.path.join(HERE, "..", "script", "answers.txt"), out)
+            back = msgbank.Bank.parse_dump(open(out, encoding="utf-8").read())
+            self.assertEqual(sorted(back), list(range(af_answers.CHOICE_COUNT, af_answers.EN_CHOICE_COUNT)))
+            self.assertTrue(all(back.values()))
+            own = os.path.join(d, "own.txt")
+            open(own, "w", encoding="utf-8").write("## 460\nNone of these.\n\n## 461\nMore.\n\n")
+            with self.assertRaises(SystemExit):                          # not the numbers EXTRA names
+                af_answers.write_extra(d, own, out)
+        self.assertEqual(af_answers.extra_dump({460: "Abc"}), "## 460\nAbc\n\n")
+
+    def test_a_longer_copy_takes_the_token_then_spaces(self):
+        # the stall copies 8 bytes: the token in the first word, spaces in the next (as the answer's slot is
+        # cleared), each word where the cartridge's is
+        cart = (0x01020304, 0x05060708)
+        data_s = self.data_s([(0x80A73ABC, 0x0A0B0C0D), (0x80A73AC0, cart[0]), (0x80A73AC4, cart[1])])
+        new_s = af_answers.rewrite(data_s, 0x80A73AC0, cart[0], af_answers.token(460), "test")
+        new_s = af_answers.rewrite(new_s, 0x80A73AC4, cart[1], af_answers.SPACE_WORD, "test")
+        self.assertIn("80A73AC0 01020304 */ .word 0x%08X" % af_answers.token(460), new_s)
+        self.assertIn("80A73AC4 05060708 */ .word 0x20202020", new_s)
+        self.assertIn("80A73ABC 0A0B0C0D */ .word 0x0A0B0C0D", new_s)
 
 
 if __name__ == "__main__":

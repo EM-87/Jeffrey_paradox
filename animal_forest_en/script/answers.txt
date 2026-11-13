@@ -1,0 +1,8 @@
+# Our own English for the choice bank's answers past the cartridge's 460 (tools/af_answers.py, EXTRA), used
+# only when build/gc holds no copy of the GameCube's module and map, which have its own: the fireworks
+# night's stall, its fourth answer while goods remain to offer (it shows the next three).
+# tools/msgbank.py's dump form; make rom-en writes the bank's extra answers from it.
+
+## 460
+None of these.
+

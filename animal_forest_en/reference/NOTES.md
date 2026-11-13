@@ -3147,7 +3147,110 @@ what goes in it: "The letters in the en build").
   has them (13, 12 and 13 bytes).
   With ares built, the two players' town plays the same on ares.
 
-## Other emulators (ares, Project64, RetroArch and RMG)
+## The year's events (the final pass)
+
+- **The sweep** (`tests/emu_year.py`, make year-check-en). emu_psel's
+  town of two players (psel-check-en's `2-two.town`), its first player's
+  first job and arrival talk marked done (the save's type-1 event flags
+  at common_data + 0xEE3C, bits 2 and 6: func_8007D25C_jp sets them,
+  mEv_CheckFirstJob and mEv_CheckFirstIntro read them), powered on at 21
+  dates and times read from the cartridge's notices (the en bank's
+  mail_body 420-458) and two weekly visitors: n64emu's fixed clock set
+  to each. START, the greeter's first answers and the first player; the
+  greeter's pages read on the way in. Every block of the town's 5 x 6
+  is then walked into (a block's actors are made when the player crosses
+  its edge, main index 15; a jump there by position keeps the old
+  block's), and each actor an event brings (an Ev_ overlay), each
+  villager it sets up (`*_Npc*`: the cherry blossoms' party, the fairs'
+  teams, the fishing tourney's...), the special characters and two of the
+  ordinary villagers are talked to from the state on arrival: the player
+  put before the actor facing it, A, the talk played through (the first
+  answer, the last for a question asked twice before). Every page's text
+  (the window's message data) and every answer (mChoice_en_strings) is
+  read: no kana or kanji, no item or name token left. Each date runs in
+  a process of its own.
+- **December hung the game.** The greeter at power-on says the date
+  (message 5146 and the other greeters', STR_MONTH): on 24 and 31
+  December no frame came after the line before it, the CPU in the idle
+  thread (0x80026084). The en string bank has 0x679 strings (the
+  GameCube's numbering: the day's ordinals from 0x64E, the months' names
+  from 0x66D, December last). The readers take an even string's ends 16
+  bytes at a time from the entry two before it
+  (`mString_Get_StringDataAddressAndSize`, as the cartridge's), so
+  December's, 0x678, read entries 0x676 to 0x679: 4 bytes past the
+  table's segment (msg_en_string_index, 0x19E4 bytes, ROM 0x01C7B000 in
+  that build). The DMA manager stops the game on a read that crosses its
+  segment's end (`DmaMgr_ProcessRequest`, "Segment Alignment Error",
+  `DmaMgr_Error`). The cartridge's 0x61A is even. Every load of
+  December's name did it (`mString_Load_MonthStringFromRom`, the
+  message code's STR_MONTH, and the en `mString_en_Month`).
+  `af_text.compile_bank` now pads every table to 16 bytes, as
+  `compile_letters` already did; the messages' 11752 and the choices'
+  460 were even, and the choices' 461 below are not.
+- **The fireworks stall's last answer was Japanese.** ovl_Ev_Yomise
+  (`func_80A72DB8_jp`) offers its goods three at a time (item tokens,
+  which the en choice code shows by name) and copies a fourth answer
+  from its own data into the slot after them: D_80A73ABC_jp, 4 bytes,
+  once every good has been offered; D_80A73AC0_jp, 8 bytes, while more
+  remain (choosing it shows the next three). The first is the start of
+  the bank's answer 45, which the en bank has in the GameCube's English:
+  `tools/af_answers.py` writes that answer's token over it, as over the
+  player-select actor's word (above). No answer of the cartridge's bank
+  holds the second, and the GameCube's stall keeps both in its own data
+  too (ac_ev_yomise's `new_player_str` and `new_player_str2`). The en
+  choice bank goes on past the cartridge's 460 with it: answer 460
+  (`Choice_EN_CHOICE_NUM` 461 in the en m_choice_main.h, the reader's
+  bound), the GameCube's English read at make rom-en from build/gc's
+  copies of its module and map (`af_answers.py extra`; ours from
+  `script/answers.txt` without them), its token over the 8 bytes' first
+  word and spaces over the second.
+- **The police's dates read as two numbers.** Messages 11304-11308 (the
+  police's goings-on: a special visitor's day) take the day and the
+  month in free strings 4 and 5, which the cartridge's police fills with
+  their numbers (`func_809C19AC_jp`: `func_8007ECA0_jp` gives the day in
+  the low byte and the month in the next, each put by
+  `mFont_UnintToString`), its Japanese putting the words for month and
+  day after them. The GameCube's police puts the day's ordinal and the
+  month's name there (ac_npc_police's `aPOL_set_event_day_str`), and its
+  English, the en bank's, reads them month first with a space between:
+  with numbers, "2 3". The N64 font has no slash. `func_809C19AC_jp` is
+  in C in matching.patch (it matches with the string's buffer declared
+  after the window's pointer), and the en build puts `mString_en_Day`'s
+  ordinal and `mString_en_Month`'s name there (changes.patch);
+  ovl_Npc_Police is one of `EN_OVERLAYS` (its 52 relocations written
+  anew, its sections padded back). The acre the police tells of
+  (11298-11302, `func_809C190C_jp`: row and column as two numbers in
+  free strings 2 and 3, where the GameCube writes the row as a letter)
+  stays numbers: the N64's map numbers its rows and columns ("Row",
+  "Column": the menus check's map).
+- **A doubled period.** Three of our greeters' lines (script/message/
+  travel.txt: 5106, 5266 and 5306, the polite, cranky and snooty) ended
+  the time with a period after the a.m. or p.m. the message code puts
+  there (STR_AMPM: the string bank's 1 or 2, which end in a period), so
+  the screen read "12:00 p.m.."; the period is gone. The GameCube's own
+  4748 and 11687 put one there too, and so does its game (its
+  `mMsg_CopyAmPm` loads the same two strings): official text, kept.
+- **Still Japanese, seen on the sweep's screens.** Two textures the
+  signs' survey ("The GameCube's signs") did not list. The fireworks
+  stall (ovl_Yatai: its lists at object_00D5E000 + 0x93348 and 0x95440,
+  three CI4 128x32 textures at 0x93380, 0x93B80 and 0x94380, the
+  palette the actor's in segment 8): its banner names the stall in
+  kana, and two small cards at its side are words. The GameCube's
+  stall is another model (its four textures, pinwheels and fans, share
+  none of the texels) with no words, so no English of its can go there.
+  And the notice board by the police box's door (0x4D578, 0x4F648 in
+  winter: a board of tiny vertical script beside a keypad's panel): the
+  GameCube's police box is another model too (its t2 has the word
+  POLICE over its arch, 36 to 39% of the texels the same). Both would
+  need English drawn for them; left as they are.
+- **Four players.** emu_psel's town of four (`3-four-remove-house.town`),
+  powered on at noon on 10 March 2002, each player chosen in turn (the
+  second question's answers 0 to 3): each arrives in the town as itself
+  (common_data's `privateInfo` at +0x10138 points at its name: the four
+  names the town was made with), the greeter's 8 pages with no kana and
+  no token.
+
+## Other emulators (ares, Project64, RetroArch, RMG and simple64)
 
 - **ares** (v148, `emu/ares/`: `build.sh` pins it and builds its N64 core
   with `headless.cpp` as `ares-headless`, and the ares app; `emu/ares64.py`
@@ -3262,13 +3365,32 @@ what goes in it: "The letters in the en build").
   both dials and Rover's talk to the town's station. Its saves are
   mupen64plus's own files in Save/Game, the flash in
   DOUBUTSUNOMORI-512DA133.fla (SaveFilenameFormat 1: the internal name
-  and the MD5's first 8 digits), in mupen64plus's byte order and written
+  and the MD5's first 8 digits, so a new build of the en ROM saves under
+  another name), in mupen64plus's byte order and written
   as the game writes. emu_psel's two players' town, put there, loads.
   Which player plays lists both players and the new-player answer;
   removing a house asks whose and cancelling goes on; choosing a player
   into the town writes both slots, checksum good and the clock the
   host's; powering on again loads it. With ParaLLEl-RDP and ParaLLEl-RSP
   on Vulkan the town loads and the game saves as well.
+- **simple64 v2024.12.1** (its last Windows build, simple64-win64-b49e10e,
+  from the project's SourceForge mirror, under WineHQ 11.0 on a virtual
+  display). Its Flathub app is end-of-life, rebased by its author onto
+  gopher64, and its GitHub repository is gone. Wine 9.0 lacks Vulkan in a
+  child window, which simple64's parallel-RDP draws into; 11.0 has it. Its
+  own mupen64plus core plays the en ROM as unknown, with its keyboard
+  defaults (A on the left Shift, Start on Return, the stick on the
+  arrows): the new game goes through K.K.'s talk, both dials and Rover's
+  talk to the station and the porter. Its flash is
+  AppData/Roaming/Mupen64Plus/save/DOUBUTSUNOMORI-512DA133.fla, named
+  as RMG names it, in mupen64plus's byte order. emu_psel's two players' town, put there,
+  loads: the greeter's menus in English, removing a house asks whose and
+  cancelling goes on, choosing a player into the town writes both slots
+  (checksum good, the host's clock), and powering on again loads it as
+  the other player.
+- **gopher64 1.2.1** (simple64's author's successor, from Flathub)
+  segfaults at start here (lavapipe on a virtual display, its audio on
+  SDL's dummy driver), with the cartridge as with the en ROM: not tested.
 - The title logo's "Forest" changes colour with the title's demo: the
   logo actor's constructor takes its colour set from
   `mTD_get_titledemo_no()`, so it is green in the first demos, then

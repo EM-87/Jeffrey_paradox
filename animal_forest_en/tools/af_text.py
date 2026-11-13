@@ -782,7 +782,14 @@ def compile_bank(messages, text_path, index_path):
         ends.append(len(text))
     text += bytes(-len(text) % 16)
     open(text_path, "wb").write(text)
-    open(index_path, "wb").write(struct.pack(">%dI" % len(ends), *ends))
+    # The readers take an even entry's ends 16 bytes at a time from two entries before it (m_string.c's
+    # mString_Get_StringDataAddressAndSize, m_msg_main.c's func_8009E388_jp, m_choice_main.c, m_handbill.c): the
+    # last entry of an odd count reads one end past the table, and the DMA manager stops the game on a read that
+    # crosses its segment's end (m_std_dma.c, "Segment Alignment Error"). The string bank's 0x679 did: every
+    # December month name hung the game. Padded as the letters' table is.
+    index = struct.pack(">%dI" % len(ends), *ends)
+    index += bytes(-len(index) % 16)
+    open(index_path, "wb").write(index)
     print("%s: %#x bytes; %s: %d ends" % (text_path, len(text), index_path, len(ends)))
 
 

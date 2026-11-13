@@ -46,7 +46,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean
+.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en year-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean
 
 all: verify
 
@@ -218,14 +218,22 @@ EN_DIAL := $(AF_EN_DIR)/assets/jp/en/dial.stamp
 # en tree's copy of the overlay's data (tools/af_answers.py; NOTES, "The
 # player-select actor's answers").
 EN_ANSWERS := $(AF_EN_DIR)/assets/jp/en/answers.stamp
+# The answers past the cartridge's 460 that an overlay's own answer points at
+# (the fireworks stall's), the GameCube's from build/gc's copies of its
+# module and map, ours (script/answers.txt) without them; the en choice
+# bank's count (tools/af_answers.py's EN_CHOICE_COUNT, the en
+# m_choice_main.h's Choice_EN_CHOICE_NUM).
+EN_CHOICE_EXTRA := $(EN_ASSETS)/choice_extra.txt
+EN_CHOICE_COUNT := 461
 GC_REL := $(wildcard $(GC_DIR)/foresta.map $(GC_DIR)/foresta.rel.szs)
 # The overlays the translation changes: each gets its relocation table made
 # anew from its objects after the first link (tools/af_ovlreloc.py, which
 # first proves fado on the matching build), and af_relink pads its sections
 # back to their old sizes: the letter board, the text editor, the name
 # entry, the edit-end check, the address book, the item window, the
-# bulletin board and the title's logo.
-EN_OVERLAYS := board_ovl ovl__0078CB80 ledit_ovl ovl__00799580 ovl__00792700 tag_ovl ovl__00797A50 ovl_Animal_Logo
+# bulletin board, the title's logo and the police (the special event's date).
+EN_OVERLAYS := board_ovl ovl__0078CB80 ledit_ovl ovl__00799580 ovl__00792700 tag_ovl ovl__00797A50 ovl_Animal_Logo \
+	ovl_Npc_Police
 
 $(AF_EN_DIR)/.stamp-checkout: decomp/AF_REV $(MATCHING) $(CHANGES)
 	@if [ "$$(git -C $(AF_EN_DIR) rev-parse HEAD~0 2>/dev/null)" = "" ]; then \
@@ -280,11 +288,16 @@ $(GC_DIR)/nafe_messages.txt: $(NAFE_ROM) $(GC_DIR)/en_bank.txt $(GC_DIR)/n64_jp.
 
 # The messages are laid out at the window's width with the en font's
 # widths, which tools/af_font.py reads from the dump and the disc's font.
-$(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(NAFE_TEXT) $(OWN_MESSAGES) $(EN_CHOICE) $(EN_STRING) $(GC_DIR)/n64_jp.txt tools/af_text.py tools/msgbank.py tools/af_font.py $(GC_FONT) $(EN_ITEMS)
+$(EN_CHOICE_EXTRA): tools/af_answers.py tools/af_font.py tools/msgbank.py script/answers.txt $(GC_REL)
+	mkdir -p $(EN_ASSETS)
+	$(PYTHON) tools/af_answers.py extra $(GC_DIR) script/answers.txt $@
+
+$(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(NAFE_TEXT) $(OWN_MESSAGES) $(EN_CHOICE) $(EN_CHOICE_EXTRA) $(EN_STRING) $(GC_DIR)/n64_jp.txt tools/af_text.py tools/msgbank.py tools/af_font.py $(GC_FONT) $(EN_ITEMS)
 	mkdir -p $(EN_ASSETS)
 	$(PYTHON) tools/af_text.py compile $(EN_BANK) $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/msg_index.bin --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600 $(FONT_OPTS) \
 		$(if $(NAFE_TEXT),--overrides $(NAFE_TEXT)) $(foreach f,$(OWN_MESSAGES),--overrides $(f))
-	$(PYTHON) tools/af_text.py compile $(EN_CHOICE) $(EN_ASSETS)/choice_text.bin $(EN_ASSETS)/choice_index.bin --bank choice --max-bytes 24
+	$(PYTHON) tools/af_text.py compile $(EN_CHOICE) $(EN_ASSETS)/choice_text.bin $(EN_ASSETS)/choice_index.bin --bank choice --max-bytes 24 \
+		--count $(EN_CHOICE_COUNT) --overrides $(EN_CHOICE_EXTRA)
 	$(PYTHON) tools/af_text.py compile $(EN_STRING) $(EN_ASSETS)/string_text.bin $(EN_ASSETS)/string_index.bin --bank string --max-bytes 64 --count 0x679 \
 		--overrides $(EN_STRING_TOKENS)
 
@@ -358,7 +371,7 @@ $(EN_DIAL): tools/af_dial.py tools/af_menu_tex.py tools/msgbank.py $(EN_NAFE_GFX
 	@touch $@
 
 # writes the overlay's .data.s, which splat rewrites at every extract
-$(EN_ANSWERS): tools/af_answers.py tools/af_menu_tex.py tools/msgbank.py $(AF_EN_DIR)/.stamp-extract
+$(EN_ANSWERS): tools/af_answers.py tools/af_menu_tex.py tools/af_font.py tools/msgbank.py $(AF_EN_DIR)/.stamp-extract
 	mkdir -p $(EN_ASSETS)
 	$(PYTHON) tools/af_answers.py $(BASEROM) $(AF_EN_DIR)
 	@touch $@
@@ -467,6 +480,15 @@ signs-check-en: route-en
 psel-check-en: route-en
 	$(PYTHON) tests/emu_psel.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-psel-en \
 		$(if $(wildcard $(ARES_DIR)/ares-headless),--ares $(ARES_DIR))
+
+# The year's events: psel-check-en's town of two players powered on at each
+# event's date and time (the cartridge's notices), the greeter's pages read,
+# every block walked into, the event's actors, its villagers, the special
+# characters and two ordinary villagers talked to, every page and answer read
+# for kana and tokens, a hang a failure; three dates at a time, each in a
+# process of its own (tests/emu_year.py; NOTES, "The year's events").
+year-check-en: psel-check-en
+	$(PYTHON) tests/emu_year.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(BUILD)/emu-psel-en/2-two.town $(BUILD)/emu-year-en --jobs 3
 
 # -- the GameCube script (phase 4) -------------------------------------------
 # ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it

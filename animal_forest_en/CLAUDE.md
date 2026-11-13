@@ -53,7 +53,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
    messages-check-en`, one to the menus' strings or word textures `make
    menus-check-en`, one to the structures' textures or palettes `make
    signs-check-en`, one to the choice window or the player-select actor
-   `make psel-check-en`, one to `emu/` `make emu-determinism`.
+   `make psel-check-en`, one to an event, a date, the banks' tables or an
+   actor's talk `make year-check-en`, one to `emu/` `make
+   emu-determinism`.
 
 ## Where things live
 
@@ -179,9 +181,13 @@ the why and the state, `reference/NOTES.md` for what is verified.
   letters").
 - `tools/af_answers.py` — the answers an overlay copies from its own
   data instead of the choice bank (the player-select actor's for a new
-  player), pointed at the bank's English by a token over the en tree's
-  copy of the overlay's data at `make rom-en`, each word checked against
-  the cartridge's (NOTES, "The player-select actor's answers").
+  player, the fireworks stall's), pointed at the bank's English by a
+  token over the en tree's copy of the overlay's data at `make rom-en`,
+  each word checked against the cartridge's (NOTES, "The player-select
+  actor's answers"); one no answer of the bank says goes past the
+  cartridge's 460 (`extra`: the GameCube's from build/gc's module and
+  map, ours in `script/answers.txt` without them; NOTES, "The year's
+  events").
 - `tools/af_nafe_text.py` — the messages the GameCube's script has no
   counterpart for, in the 2010 patch's English where its codes that steer
   the game are the cartridge's (ends, choices, next messages, the talk
@@ -247,6 +253,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
   which player plays, whose house to remove, each choice's answers read in RAM
   and the game going on; with ares built, the two players' town again on
   ares: `make psel-check-en`),
+  `emu_year.py` (that two players' town powered on at each of the year's
+  21 event dates and times: the greeter's pages, every block walked
+  into, the event's actors, its villagers, the special characters and
+  two ordinary villagers talked to, every page and answer read for kana
+  and tokens, a hang a failure: `make year-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.
@@ -306,6 +317,21 @@ the why and the state, `reference/NOTES.md` for what is verified.
   actor's answers"). Before a function writes more than the cartridge's,
   find every caller, the overlays' asm included (`grep -rn "jal
   <name>" asm/`), and what each gives it.
+- **A bank's table of ends is read two ends at a time.** The readers
+  (`mString_Get_StringDataAddressAndSize`, the message and choice
+  loaders, the letters') take an even entry's ends 16 bytes from the
+  entry two before it, so the last entry of an odd count reads 4 bytes
+  past the table; the DMA manager stops the game on a read that crosses
+  a segment's end. The en string bank's 0x679 strings hung the game on
+  every December name (NOTES, "The year's events"); `af_text.py` pads
+  every table to 16 bytes.
+- **Never run two makes on `rom-en` at once.** Every en check depends on
+  `rom-en`, which is phony: each make runs its relink again in
+  build/af_en (the linker script rewritten, the overlays' relocations,
+  the link). Two at once corrupt the map: af_shiftcheck then reports
+  every section shifted, af_luicheck stops on a missing symbol. Run the
+  checks as goals of one make (`make -k test emu-check
+  messages-check-en ...`), which builds `rom-en` once.
 - **The cartridge's own files hold RAM addresses.** 2,348 texture loads in
   the field models name code's bss buffers by address (NOTES,
   "Shiftability"); assets are not linked, so nothing of code may move.
@@ -429,6 +455,15 @@ the why and the state, `reference/NOTES.md` for what is verified.
   network command QUIT), never when killed. Its GL window, grabbed from
   the root window, now and then comes out all black: grab again before
   reading a screen.
+- **No frame and the CPU in the idle thread** (0x80026084,
+  `Idle_ThreadEntry`): a thread stopped and the rest wait on it. The DMA
+  manager stops on a read past a segment's end (above) or a part of a
+  compressed file; `Hang.pcs` says where the CPU was, not which thread
+  stopped.
+- **simple64 runs here only as its last Windows build under WineHQ
+  11** (its Flathub app is retired, its repository gone): Wine 9 lacks
+  Vulkan in a child window. gopher64 segfaults at start here, with the
+  cartridge too.
 - **RMG (Flathub) runs here only with D-Bus**: `flatpak run` says "Could
   not connect" until a system bus runs (`dbus-daemon --system --fork`)
   and it has a session bus (`dbus-run-session --`). With no input

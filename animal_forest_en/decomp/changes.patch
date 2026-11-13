@@ -215,10 +215,10 @@ index 0000000..0faf26b
 +
 +#endif
 diff --git a/include/m_choice_main.h b/include/m_choice_main.h
-index 9d68ff0..30c7eaf 100644
+index 9d68ff0..d623182 100644
 --- a/include/m_choice_main.h
 +++ b/include/m_choice_main.h
-@@ -7,7 +7,16 @@
+@@ -7,7 +7,19 @@
  struct Game;
  struct Actor;
  
@@ -233,10 +233,13 @@ index 9d68ff0..30c7eaf 100644
 +#define Choice_EN_TOKEN_DIGIT0 0x81
 +#define Choice_EN_TOKEN_BASE 64
 +#define Choice_EN_TOKEN_LEN 4
++/* The translation's choice bank: the cartridge's 460 answers and, past them, those no answer of the cartridge's
++ * says, which an overlay copies from its own data (the fireworks stall's: tools/af_answers.py, EXTRA) */
++#define Choice_EN_CHOICE_NUM 461
  
  typedef enum Choice_CHOICE {
      Choice_CHOICE0,
-@@ -86,6 +95,9 @@ typedef struct Choice {
+@@ -86,6 +98,9 @@ typedef struct Choice {
      /* 0xB9 */ u8 noCloseFlag;  // pressing B won't auto-cancel the choice selection?
  } Choice; // size = 0xBC
  
@@ -408,7 +411,7 @@ index ee822b1..02917da 100644
 +// define; its table has room for 214 and the en build needs 213)
 +mED_en_stateToLabels = ABSOLUTE(B_80888AF0_jp) - ABSOLUTE(D_808888CC_jp);
 diff --git a/src/code/m_choice_main.c b/src/code/m_choice_main.c
-index d4a7b38..2553cb3 100644
+index d4a7b38..50198d3 100644
 --- a/src/code/m_choice_main.c
 +++ b/src/code/m_choice_main.c
 @@ -1,4 +1,6 @@
@@ -539,7 +542,13 @@ index d4a7b38..2553cb3 100644
          s32 len = choice->data.stringLens[i];
          s32 width = mFont_GetStringWidth(str, len, 0);
  
-@@ -204,23 +255,23 @@ void mChoice_Get_StringDataAddressAndSize(s32 idx, u32** addr, u32* size) {
+@@ -199,28 +250,28 @@ void mChoice_Get_StringDataAddressAndSize(s32 idx, u32** addr, u32* size) {
+     s32 temp1;
+     u32 vram[3];
+ 
+-    if (idx >= 0 && idx < 460) {
++    if (idx >= 0 && idx < Choice_EN_CHOICE_NUM) { /* the cartridge: 460 */
+         u32 vrom;
          if (idx & 1) {
              temp0 = idx - 1;
  
@@ -584,7 +593,7 @@ index d4a7b38..2553cb3 100644
 +    u32 size;
  
 -        mChoice_Get_StringDataAddressAndSize(idx, &addr, &size);
-+    if (idx < 0 || idx >= 460) {
++    if (idx < 0 || idx >= Choice_EN_CHOICE_NUM) {
 +        return FALSE;
 +    }
 +    mChoice_Get_StringDataAddressAndSize(idx, &addr, &size);
@@ -4507,6 +4516,46 @@ index d1d65d2..2cb32fd 100644
      gSPDisplayList(gfx++, D_80AA21A0_jp[idx]);
      FONT_DISP = gfx;
      CLOSE_DISPS(gfxCtx);
+diff --git a/src/overlays/actors/ovl_Npc_Police/ac_npc_police.c b/src/overlays/actors/ovl_Npc_Police/ac_npc_police.c
+index 7d33720..d7de970 100644
+--- a/src/overlays/actors/ovl_Npc_Police/ac_npc_police.c
++++ b/src/overlays/actors/ovl_Npc_Police/ac_npc_police.c
+@@ -5,6 +5,7 @@
+ #include "overlays/gamestates/ovl_play/m_play.h"
+ #include "m_msg_main.h"
+ #include "6B3DC0.h"
++#include "m_string.h"
+ 
+ void aPOL_actor_ct(Actor* thisx, Game_Play* game_play);
+ void aPOL_actor_dt(Actor* thisx, Game_Play* game_play);
+@@ -66,20 +67,18 @@ ActorProfile Npc_Police_Profile = {
+ u32 func_8007ECA0_jp(void);
+ 
+ /* The day of the special event the police tells of (func_8007ECA0_jp: the day in the low byte, the month in
+- * the next), as two numbers in free strings 4 and 5 */
++ * the next), in free strings 4 and 5: the translation puts the day's ordinal and the month's name there, as the
++ * GameCube's police does (aPOL_set_event_day_str), where the cartridge put the two numbers; its English reads
++ * the month, then the day */
+ void func_809C19AC_jp(void) {
+     u32 day = func_8007ECA0_jp();
+ 
+     if (day != 0) {
+         MessageWindow* msg = mMsg_Get_base_window_p();
+-        char str[5];
+-        s32 i;
+-
+-        for (i = 4; i != 6; i++) {
+-            mFont_UnintToString(str, day & 0xFF, 5, TRUE, FALSE);
+-            mMsg_Set_free_str(msg, i, str, 5);
+-            day >>= 8;
+-        }
++        char str[mString_EN_LEN];
++
++        mMsg_Set_free_str(msg, 4, str, mString_en_Day(str, day & 0xFF));
++        mMsg_Set_free_str(msg, 5, str, mString_en_Month(str, (day >> 8) & 0xFF));
+     }
+ }
+ 
 diff --git a/src/overlays/submenu/board_ovl/m_board_ovl.c b/src/overlays/submenu/board_ovl/m_board_ovl.c
 index 7c99435..01e6f5d 100644
 --- a/src/overlays/submenu/board_ovl/m_board_ovl.c

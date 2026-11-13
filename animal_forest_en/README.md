@@ -487,11 +487,37 @@ Probada en otros emuladores ("Other emulators"):
   mando, como en cualquier juego: sin perfil de mando, el título enseña
   nuestro aviso de mando no conectado. La partida nueva llega a la
   estación del pueblo. La partida va en
-  `Save/Game/DOUBUTSUNOMORI-512DA133.fla`, con el orden de bytes del
+  `Save/Game/DOUBUTSUNOMORI-XXXXXXXX.fla` (las X son las 8 primeras
+  cifras del MD5 de la ROM), con el orden de bytes del
   `.fla` de mupen64plus. Un pueblo guardado de dos jugadores carga,
   borrar una casa no se cuelga, guarda las dos ranuras bien y al volver
   a encender las carga. También con ParaLLEl-RDP y ParaLLEl-RSP en
   Vulkan.
+- **simple64 v2024.12.1.** Su app de Flathub está retirada (su autor la
+  sustituyó por gopher64) y su repositorio de GitHub ya no existe. Se
+  probó su última versión para Windows, de la réplica del proyecto en
+  SourceForge, bajo WineHQ 11.0 (Wine 9.0 no dibuja Vulkan en una
+  ventana hija). Funciona sin ajustes. Con sus teclas por defecto (A en
+  el Shift izquierdo, Start en Intro, el stick en las flechas), la
+  partida nueva llega a la estación y a Porter. Un pueblo guardado de dos
+  jugadores carga, con los menús de la recepción en inglés. Borrar una
+  casa pregunta cuál y cancelar sigue. Elegir jugador guarda las dos
+  ranuras bien, y al volver a encender carga con el otro jugador. La
+  partida va en
+  `AppData/Roaming/Mupen64Plus/save/DOUBUTSUNOMORI-XXXXXXXX.fla`, como
+  en RMG.
+- **gopher64 1.2.1** (el sucesor de simple64) se cierra nada más
+  arrancar en esta máquina, también con el cartucho original, así que
+  no está probado.
+
+En RMG y simple64 el nombre del `.fla` lleva las 8 primeras cifras del
+MD5 de la ROM, que cambian con cada versión de la traducción. Para
+seguir con el mismo pueblo tras actualizar la ROM, renombra el `.fla`
+viejo al nombre nuevo (el emulador crea el nombre nuevo en cuanto el
+juego guarda; mira cuál es o calcula el MD5). Project64 4.0 también
+guarda cada ROM en su propia carpeta (`Save/DOUBUTSUNOMORI-…`): copia
+ahí el `.fla` de la carpeta vieja. RetroArch llama al `.srm` como el
+archivo de la ROM, así que basta con conservar el nombre del archivo.
 
 El «Forest» del logo cambia de color con cada demo del título: verde,
 lila, azul claro. Pasa igual en mupen64plus, en los dos Project64 y en
@@ -512,6 +538,27 @@ respuesta para un jugador nuevo, una palabra en japonés que copiaba de
 sus propios datos, es ahora la opción del banco que dice lo mismo, la de
 GameCube para una primera visita (`tools/af_answers.py`). `make psel-check-en` lo comprueba con
 pueblos de uno, dos y cuatro jugadores, y en ares si está compilado.
+
+Una pasada final por el calendario (`make year-check-en`, "The year's
+events") enciende ese pueblo guardado en las 21 fechas de los eventos del
+año, las que dan los avisos del tablón. En cada una recorre el pueblo
+entero y habla con los personajes del evento, los vecinos que el evento
+reúne, los personajes especiales y dos vecinos más, leyendo cada página y
+cada respuesta. Encontró tres fallos, ya corregidos:
+
+- **En diciembre el juego se colgaba** al decir la fecha (el personaje
+  que recibe al encender la dice, y con ella el nombre del mes). El banco
+  de cadenas en inglés tenía un número impar de entradas, y leer la
+  última, la de diciembre, pedía 4 bytes más allá de su tabla. El gestor
+  de DMA del juego se detiene ante esa lectura. Ahora todas las tablas se
+  rellenan hasta múltiplos de 16 bytes.
+- **El puesto de la noche de fuegos artificiales** ofrecía su última
+  respuesta en japonés: la copia de sus propios datos, como hacía el
+  personaje de la recepción. Una de sus dos respuestas es ahora la del
+  banco que dice lo mismo. La otra no está en ningún banco: se toma al
+  compilar del propio puesto de GameCube, o la nuestra si no hay disco.
+- **El policía decía las fechas con dos números** («2 3»). Ahora pone el
+  nombre del mes y el ordinal del día, como el policía de GameCube.
 
 ## Dónde está cada cosa
 
