@@ -122,9 +122,9 @@ I sleep well,<PAUSE 04> <STR_TAIL>.<SETFORCEMSG 29b9>
 
 ## 11113
 #: the disk system without any disks
-<TEXTCOLOR 4b1e14>I'd like to play the
-<COLORCHARS 324be10b>disk system<TEXTCOLOR 4b1e14>,<PAUSE 04> but
-<TEXTCOLOR 4b1e14>I don't have any disks.
+<TEXTCOLOR 4b1e14>I'd like to use the
+<COLORCHARS 324be10b>disk system<TEXTCOLOR 4b1e14>,<PAUSE 04> but I don't
+<TEXTCOLOR 4b1e14>have the disks for it.
 <MSGEND>
 
 ## 11507

@@ -236,8 +236,8 @@ def take(ours, cart, theirs):
     """({number: tokens} taken from theirs, Counter of why each candidate was or was not)."""
     out, why = {}, collections.Counter()
     for n in sorted(cart):
-        if not text_of(cart[n]) or text_of(ours.get(n, [])) != text_of(cart[n]):
-            continue                                 # empty, or the en bank has its English
+        if not text_of(cart[n]).strip() or text_of(ours.get(n, [])) != text_of(cart[n]):
+            continue                                 # no text (none, or line breaks only), or the en bank has its English
         tokens = theirs.get(n, [])
         if not english(tokens):
             why["not in English in the 2010 patch"] += 1

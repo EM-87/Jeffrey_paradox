@@ -998,7 +998,8 @@ class NafeText(unittest.TestCase):
                 4: p("あい<MSGEND>"),
                 5: p("あい<MSGEND>"),
                 6: p("<DEMONPC0 0000ff>あい<MSGEND>"),
-                7: p("<MSGEND>")}
+                7: p("<MSGEND>"),
+                8: p("<DEMONPC0 0000ff>\n<BTN>\n<MSGCLEAR><PAUSE 08><STR_TAIL>\n<MSGEND>")}  # pages with no text
         ours = dict(cart)
         ours[5] = p("Ours.<MSGEND>")                         # translated already: not a candidate
         theirs = {0: p("<DEMONPC0 000016>Hello,<PAUSE 06> <STR_PLAYERNAME>!<BTN>\n<MSGCLEAR>Bye.<MSGEND>"),
@@ -1008,7 +1009,8 @@ class NafeText(unittest.TestCase):
                   4: p("あいう<MSGEND>"),                    # still Japanese
                   5: p("Theirs.<MSGEND>"),
                   6: p("<DEMONPC0 000016>Hi.<MSGEND>"),      # another talk order in slot 0: the cartridge's put back
-                  7: p("Hm.<MSGEND>")}
+                  7: p("Hm.<MSGEND>"),
+                  8: p("<DEMONPC0 0000ff>Hm.<BTN>\n<MSGCLEAR><STR_TAIL>\n<MSGEND>")}
         taken, why = af_nafe_text.take(ours, cart, theirs)
         # pauses, pages and the names the game has at hand may differ; the talk orders in slot 0 are the
         # cartridge's, put back; in other slots they must be
