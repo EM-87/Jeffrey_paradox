@@ -148,8 +148,8 @@ sistema de mensajes del N64 admite (caracteres, códigos, tamaño, líneas), y
 `make rom-en` los enlaza como segmentos al final del ROM con sus entradas
 de dmadata (`decomp/changes.patch`): los mensajes, las respuestas de las
 elecciones, las cadenas (nombres de bichos y peces, muletillas, fechas) y
-los nombres de los animales (6 letras en el N64: 38 de 232 quedan cortados
-por ahora). El ROM en inglés ya habla: K.K. y Rover en la intro, con
+los nombres de los animales (6 letras en el N64; los 38 que en inglés son
+más largos van enteros, más abajo). El ROM en inglés ya habla: K.K. y Rover en la intro, con
 letra proporcional y los glifos latinos de GameCube con sus anchuras
 (`make script` los lee del disco del usuario, del módulo `foresta.rel` y
 su mapa `foresta.map`; `tools/af_font.py` los pone en la fuente del
