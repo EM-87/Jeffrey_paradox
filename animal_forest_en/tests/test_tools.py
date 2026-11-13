@@ -42,6 +42,7 @@ import af_items  # noqa: E402
 import af_ui  # noqa: E402
 import af_gc_signs  # noqa: E402
 import af_menu_tex  # noqa: E402
+import af_own_ftr  # noqa: E402
 import af_own_signs  # noqa: E402
 import gciso  # noqa: E402
 import msgbank  # noqa: E402
@@ -841,6 +842,19 @@ class Script(unittest.TestCase):
         cut = lay("aa bb cc dd ee ff gg hh ii jj kk.<BTN> ll mm.<MSGEND>")
         self.assertNotIn("<BTN><BTN>", cut)
         self.assertNotIn("<MSGCLEAR><BTN>", cut)
+        # a word printed twice in a row printed once (af_text.DOUBLED): the line break or space between kept
+        und = lambda text: msgbank.render(af_text.undouble(msgbank.parse(text)))
+        self.assertEqual(und("a big big dog<PAUSE 08> big big\n<MSGEND>"), "a big dog<PAUSE 08> big big\n<MSGEND>")
+        self.assertEqual(und("go to\nto the shop<BTN>\n<MSGEND>"), "go to\nthe shop<BTN>\n<MSGEND>")
+        with self.assertRaises(ValueError):
+            af_text.undouble(msgbank.parse("that's that\n<MSGEND>"))
+        # a line that ends in a dash after a letter goes on in the next line's first word, no space between,
+        # moved on or filled anew; a dash after a code that prints a string, or alone, is a word's end
+        self.assertEqual(lay("aaaa bbbb ccー<PAUSE 06>\ndd e\n<MSGEND>"), "aaaa bbbb\nccー<PAUSE 06>dd e\n<MSGEND>")
+        self.assertEqual(lay("aaaa bbbb cc-\ndd\n\ne\nf\n<MSGEND>"), "aaaa bbbb\ncc-dd e f\n<MSGEND>")
+        self.assertEqual(lay("aaaa bbbb <STR_FREE2>-<STR_FREE3>\ndd\n<MSGEND>"),
+                         "aaaa bbbb\n<STR_FREE2>-<STR_FREE3> dd\n<MSGEND>")
+        self.assertEqual(lay("aaaa bbbb c -\ndd\n<MSGEND>"), "aaaa bbbb\nc - dd\n<MSGEND>")
         # one word wider than the window stays, and the check says so
         wide = msgbank.parse("abcdefghijklm\n<MSGEND>")
         self.assertEqual(af_text.layout(wide, widths, 60), wide)
@@ -1849,6 +1863,29 @@ class OwnSigns(unittest.TestCase):
         self.assertEqual(board[0 * 128 + 32:0 * 128 + 34], [2, 3])                   # the poster beside it kept
         self.assertNotEqual(out[af_own_signs.SUMMER_AT], out[af_own_signs.WINTER_AT])
 
+    def test_the_posters_titles(self):
+        for at, w, h, _, (x0, x1, y0, y1), ground, art, (px, py), inks, _ in af_own_signs.POSTERS:
+            rows = af_own_signs.grid(art)
+            self.assertTrue(x0 <= px and px + len(rows[0]) <= x1 and y0 <= py and py + len(rows) <= y1)
+            self.assertEqual(set("".join(rows)) - {"."}, set(inks))
+            self.assertTrue(0 <= x0 < x1 <= w and 0 <= y0 < y1 <= h)
+        # over a made-up room: each title's box its ground and our letters, the rest of the poster kept
+        size = max(at + w * h // 2 for at, w, h, *_ in af_own_signs.POSTERS)
+        room = bytes([0xBC]) * size                                                   # texels b and c
+        out = af_own_signs.compose_room(room)
+        self.assertEqual(sorted(out), sorted(p[0] for p in af_own_signs.POSTERS))
+        for at, w, h, _, (x0, x1, y0, y1), ground, art, (px, py), inks, _ in af_own_signs.POSTERS:
+            t = af_gc_signs.texels(out[at])
+            self.assertEqual(len(t), w * h)
+            box = {t[y * w + x] for y in range(y0, y1) for x in range(x0, x1)}
+            self.assertEqual(box, {ground} | set(inks.values()))
+            first = af_own_signs.grid(art)[0].index("#")
+            self.assertEqual(t[py * w + px + first], inks["#"])
+            self.assertEqual(t[y1 * w:], [0xB, 0xC] * ((h - y1) * w // 2))           # below the title kept
+            self.assertEqual(t[0:2], [0xB, 0xC])                                      # the poster's edge kept
+        with self.assertRaises(ValueError):
+            af_own_signs.poster([0] * (32 * 48), 32, (1, 31, 2, 9), 3, "####", (28, 2), {"#": 7})
+
     def test_the_slips_keep_their_band(self):
         t = [0xF] * (128 * 32)
         for x in range(98, 126):
@@ -1860,6 +1897,76 @@ class OwnSigns(unittest.TestCase):
         self.assertEqual(out[23 * 128 + 100], af_own_signs.SLIPS_PAPER)
         self.assertEqual(out[10 * 128 + 100], af_own_signs.SLIPS_PAPER)
         self.assertEqual(out[10 * 128 + 97], 0xF)        # outside the slips' box untouched
+
+
+class OwnFurniture(unittest.TestCase):
+    """Our English for the furniture's words (tools/af_own_ftr.py; reference/NOTES.md, "Our own furniture
+    words"), on made-up textures."""
+
+    def test_the_fonts_and_the_words(self):
+        for size, font in af_own_ftr.FONTS.items():
+            for ch, rows in font.items():
+                self.assertEqual(len(rows), size, ch)
+                self.assertEqual(len({len(r) for r in rows}), 1, ch)
+                self.assertTrue(set("".join(rows)) <= {"#", "."}, ch)
+        self.assertEqual(af_own_ftr.word("AB", 5)[0], ".#..##.")
+        self.assertEqual(len(af_own_ftr.word("A B", 5)[0]), 3 + af_own_ftr.SPACE[5] + 3)
+        for pic in (af_own_ftr.ARROW, af_own_ftr.ADULT, af_own_ftr.CHILD):
+            self.assertEqual(len({len(r) for r in pic}), 1)
+        for f in af_own_ftr.FURNITURE:
+            for op in f[9]:
+                if op[0] == "text":
+                    self.assertTrue(all(c == " " or c in af_own_ftr.FONTS[op[1]] for c in op[2]), op[2])
+
+    def test_kept_for_loadblock(self):
+        raw = bytes(range(64))                                      # 16x8 CI4: odd rows' words swapped
+        rows = af_own_ftr.unswap(raw, 16, 8)
+        self.assertEqual(rows[0][:2], [0, 0])
+        self.assertEqual(rows[1][:2], [0x0, 0xC])                  # row 1 starts with its second word (byte 12)
+        self.assertEqual(af_own_ftr.swap(rows), raw)
+
+    def test_the_operations(self):
+        rows = [[1, 2, 3, 4, 5, 6] for _ in range(4)]
+        self.assertEqual(af_own_ftr.apply(rows, ("paint", (1, 3, 0, 2), 9))[1], [1, 9, 9, 4, 5, 6])
+        ink = [[1, 7, 7, 4, 7, 6]]
+        self.assertEqual(af_own_ftr.apply(ink, ("clean", (0, 6, 0, 1), {7}))[0], [1, 1, 4, 4, 4, 6])
+        stripes = [[0, 1, 2, 3, 4, 5], [9] * 6, [9] * 6]
+        out = af_own_ftr.apply(stripes, ("restripe", (0, 4, 1, 3)))
+        self.assertEqual(out[1][:4], [1, 2, 3, 4])
+        self.assertEqual(out[2][:4], [2, 3, 4, 9])                 # the row above as it now is
+        ground = [[0] * 9 for _ in range(7)]
+        text = af_own_ftr.apply(ground, ("text", 5, "I", ("centre", (0, 9, 0, 7)), 5, ("outline", 6)))
+        self.assertEqual(text[1][3:6], [5, 5, 5])                  # centred: rows 1-5, columns 3-5
+        self.assertEqual(text[0][2:7], [6, 6, 6, 6, 6])            # the outline round it
+        self.assertEqual(text[2][3], 6)                            # inside the I's serif, not ink: outline
+        shadow = af_own_ftr.apply(ground, ("text", 5, "I", (0, 0), 5, ("shadow", 6)))
+        self.assertEqual(shadow[1][2], 6)                          # under and right of the serif's end
+        self.assertEqual(shadow[0][3], 0)
+        with self.assertRaises(ValueError):
+            af_own_ftr.apply(ground, ("text", 5, "SAFETY", ("centre", (0, 9, 0, 7)), 5, None))
+        with self.assertRaises(ValueError):
+            af_own_ftr.apply(ground, ("art", ["##"], (8, 0), 5))
+
+    def test_composed_over_made_up_textures(self):
+        for vrom, tmem, w, h, base, pal, md5, pal_md5, what, ops in af_own_ftr.FURNITURE:
+            raw = bytes((x * 7 + 3) & 0xFF for x in range(w * h // 2))
+            new = af_own_ftr.compose(raw, w, h, ops)
+            self.assertEqual(len(new), len(raw), what)
+            self.assertNotEqual(new, raw, what)
+
+    def test_the_check(self):
+        # a made-up object: its texture block at 0x20 and a render tile CI4 16x16 at TMEM 0 (line 1)
+        tile = struct.pack(">II", 0xF5000000 | (2 << 21) | (0 << 19) | (1 << 9), 0)
+        size = struct.pack(">II", 0xF2000000, (15 << 2) << 12 | (15 << 2))
+        tex = bytes(range(128))
+        data = bytes(32) + tex + tile + size
+        md5 = hashlib.md5(tex).hexdigest()
+        pal = hashlib.md5(data[0:32]).hexdigest()
+        af_own_ftr.check(data, 0, 16, 16, 0x20, 0, md5, pal, "made up")
+        with self.assertRaises(SystemExit):
+            af_own_ftr.check(data, 0, 32, 16, 0x20, 0, md5, pal, "made up")      # no such tile
+        with self.assertRaises(SystemExit):
+            af_own_ftr.check(data, 0, 16, 16, 0x20, 0, "0" * 32, pal, "made up")  # not the cartridge's texels
 
 
 class MenuTextures(unittest.TestCase):

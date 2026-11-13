@@ -415,6 +415,24 @@ estación, un juego de NES que el cartucho no tiene, y los huecos que el
 cartucho deja vacíos y llevaban texto ajeno (mensajes, siete cadenas,
 dos cartas).
 
+Por último, la ROM jugada como un jugador en el emulador ("A day in the
+town, played"): tres fechas, cada vecino cuatro veces con respuestas
+distintas, la policía, el jefe de estación, y la tienda, Correos y el
+puesto de policía por dentro. Corregido lo que salió: la muletilla del
+vecino empieza en mayúscula tras "!" o "?" (como en GameCube; 71 de
+nuestros mensajes), tres erratas de palabra repetida del texto de
+GameCube, un guion de final de línea que la maquetación separaba con un
+espacio, el aviso de Año Nuevo (ahora nuestro, con su refrán y el pozo
+de los deseos), y la opción de Correos para pagar el préstamo a Nook
+("Make a payment"). Dentro del puesto de policía había dos carteles en
+japonés (JOIN US! y WANTED! ahora), y un barrido de las 2.778 texturas
+de los 561 muebles encontró 17 con palabras legibles, todas redibujadas
+con dos tipos de letra nuestros (`tools/af_own_ftr.py`): las vallas y
+señales de obras (SAFETY FIRST, SORRY! ROAD WORK AHEAD, DETOUR), NO
+FIRE, BUS STOP, la tabla de precios del baño, ROYAL A, MILK, CARDS y
+CASH, GO SLOW, N64 y la placa NINTENDO ("Our own signs", "Our own
+furniture words").
+
 La pasada de pruebas del texto ("The official text's codes and the
 GameCube's own") encontró dos clases de fallo en el texto oficial. La
 primera: 688 mensajes de GameCube llevaban sus propios códigos, los que

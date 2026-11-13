@@ -170,6 +170,24 @@ LETTER_REMAP = {"mail_body": {422: 423, 423: 424, 427: 429, 428: 426, 430: 428, 
 # villager moved in from another town, free string 10, which the cartridge does not fill): the GameCube's
 # text of the other number. Numbers only.
 MESSAGE_REMAP = {11198: 11724, 11203: 11729, 11205: 11731, 11207: 11733, 11209: 11735}
+# Official messages where the GameCube's English prints one word twice in a row (a slip of its own, the
+# second at the next line's start or after a space): the draft prints it once (undouble). Numbers only.
+DOUBLED = {1232, 1519, 10189}
+
+
+def undouble(tokens):
+    """The tokens with the first word printed twice in a row (in one run of text) printed once: the second
+    and a space after it dropped, the line break or space between them kept. ValueError if none is."""
+    out, done = [], False
+    for t in tokens:
+        if t[0] == "t" and not done:
+            text, n = re.subn(r"\b([A-Za-z']+)(\s+)\1\b ?", r"\1\2", t[1], count=1)
+            if n:
+                t, done = ("t", text), True
+        out.append(t)
+    if not done:
+        raise ValueError("no word printed twice in a row")
+    return out
 
 
 LETTER_FIRST = {}
@@ -524,10 +542,25 @@ def _lines(words, sizes):
     return out
 
 
+# A line of text that ends in a dash or a hyphen right after a letter (the
+# GameCube's "thing—" over "you can", a word split over two lines) goes on
+# in the next line's first word: the line's end is no space between them.
+DASHES = ("-", "ー", "—")
+
+
+def _runs_on(word):
+    """The word ends in a dash right after a letter (codes that print nothing may follow): the next line's
+    first word belongs to it, no space between."""
+    shown = [it for it in word if it[0] == "ch" or (it[0] == "c" and it[1] in STR_CODES)]
+    return (len(shown) >= 2 and shown[-1][0] == "ch" and shown[-1][1] in DASHES
+            and shown[-2][0] == "ch" and shown[-2][1].isalpha())
+
+
 def _cascade(lines, measure, limit):
     """Each line wider than limit gives its last words to the next line of
     text (or a new line when none follows), which may then give on in turn;
-    the other lines stay as they are."""
+    the other lines stay as they are. Words given to a line that ends in a
+    dash after a letter (_runs_on) join its first word without a space."""
     lines = [list(line) for line in lines]
     i = 0
     while i < len(lines):
@@ -539,7 +572,7 @@ def _cascade(lines, measure, limit):
             if k > 0:
                 lines[i], rest = _join(words[:k]), _join(words[k:])
                 if i + 1 < len(lines) and _visible(lines[i + 1]):
-                    lines[i + 1] = rest + [SPACE] + lines[i + 1]
+                    lines[i + 1] = rest + ([] if _runs_on(words[-1]) else [SPACE]) + lines[i + 1]
                 else:
                     lines.insert(i + 1, rest)
         i += 1
@@ -585,7 +618,10 @@ def _layout_page(lines, measure, limit, max_lines, counts):
         return [moved + tail]
     words = []
     for k, line in enumerate(lines):
-        words += _words(line)
+        more = _words(line)
+        if words and more and words[-1] and _runs_on(words[-1]):
+            words[-1] = words[-1] + more.pop(0)        # the line ended in a dash: its word goes on
+        words += more
     words = [w for w in words if w] or [[]]
     pages = _split(words, measure, limit, max_lines)
     counts["pages filled anew" if len(pages) == 1 else "pages split"] += 1
@@ -910,6 +946,10 @@ def draft(n64_path, gc_path, align_path, out_path, overrides, remap=None):
                 if why:
                     note += "#: the cartridge's codes that steer the game put back: %s\n" % why
                     counts["official, the cartridge's codes put back"] += 1
+                if remap is MESSAGE_REMAP and n in DOUBLED:
+                    tokens = undouble(tokens)
+                    note += "#: a word the GameCube printed twice in a row printed once (DOUBLED)\n"
+                    counts["official, a doubled word printed once"] += 1
                 unfilled = free_strings(tokens) - free_strings(n64[n])
                 if unfilled:
                     note += "#: TODO adapt: the GameCube's text prints %s, which the cartridge does not fill here\n" \

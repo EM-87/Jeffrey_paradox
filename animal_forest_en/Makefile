@@ -205,8 +205,14 @@ EN_GC_SIGNS := $(AF_EN_DIR)/assets/jp/en/gc_signs.stamp
 # fireworks stall's banner and cards, the police box's notice board, the
 # fishing tourney headquarters' sign and the fortune stall's plaque and slips,
 # over the en tree's copy of the structures' object, after the GameCube's
-# signs (tools/af_own_signs.py; NOTES, "Our own signs").
+# signs; and the two posters inside the police box, over its room's file
+# (tools/af_own_signs.py; NOTES, "Our own signs").
 EN_OWN_SIGNS := $(AF_EN_DIR)/assets/jp/en/own_signs.stamp
+# Our English for the words on seventeen pieces of furniture (road works signs
+# and barricades, a bus stop, a drum, a bath's prices, labels, a sticker, a
+# plaque), over the en tree's .bin of each furniture object
+# (tools/af_own_ftr.py; NOTES, "Our own furniture words").
+EN_OWN_FTR := $(AF_EN_DIR)/assets/jp/en/own_ftr.stamp
 # The menus' word textures the 2010 patch left in Japanese: the town tune's
 # note names (the GameCube's letters from the disc, the cartridge's kana
 # without it), the birthday's month and day and the catchphrase window's
@@ -368,6 +374,12 @@ $(EN_OWN_SIGNS): tools/af_own_signs.py tools/af_gc_signs.py tools/nafe_diff.py $
 	$(PYTHON) tools/af_own_signs.py $(BASEROM) $(AF_EN_DIR)
 	@touch $@
 
+# writes the furniture objects' unextracted .bin, which splat rewrites at every extract
+$(EN_OWN_FTR): tools/af_own_ftr.py tools/af_gc_signs.py tools/nafe_diff.py $(AF_EN_DIR)/.stamp-extract
+	mkdir -p $(EN_ASSETS)
+	$(PYTHON) tools/af_own_ftr.py $(BASEROM) $(AF_EN_DIR)
+	@touch $@
+
 # writes three segments' .bin, which splat rewrites at every extract
 $(EN_MENU_TEX): tools/af_menu_tex.py tools/af_gc_signs.py tools/af_font.py tools/msgbank.py $(EN_FONT) $(GC_REL) \
 		$(AF_EN_DIR)/.stamp-extract
@@ -397,7 +409,7 @@ $(EN_NAFE_LOGO): tools/af_nafe_logo.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)
 	@touch $@
 
 en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT) $(EN_UI) $(EN_NAFE_GFX) $(EN_NAFE_LOGO) $(EN_ITEMS) \
-	$(EN_GC_SIGNS) $(EN_OWN_SIGNS) $(EN_MENU_TEX) $(EN_DIAL) $(EN_ANSWERS)
+	$(EN_GC_SIGNS) $(EN_OWN_SIGNS) $(EN_OWN_FTR) $(EN_MENU_TEX) $(EN_DIAL) $(EN_ANSWERS)
 
 # The deliverable: the en ROM as a BPS patch against the user's dump in .z64 order (build/baserom.z64),
 # made and applied back by tools/bps.py; any BPS patcher applies it.
@@ -481,11 +493,12 @@ menus-check-en: route-en
 		$(if $(GC_UI),--gc $(GC_UI)) --own script/ui.txt $(if $(wildcard $(NAFE_ROM)),--nafe $(NAFE_ROM))
 
 # The signs the GameCube's English redrew (tools/af_gc_signs.py) and ours (tools/af_own_signs.py): in the en ROM,
-# and in RAM once the game sets up each structure by the player (tests/emu_signs.py; NOTES, "The GameCube's
-# signs", "Our own signs").
-signs-check-en: route-en
+# and in RAM once the game sets up each structure by the player; the police box's posters in RAM once the
+# player walks in, in psel-check-en's town of two; the furniture's words (tools/af_own_ftr.py) in the en ROM
+# (tests/emu_signs.py; NOTES, "The GameCube's signs", "Our own signs", "Our own furniture words").
+signs-check-en: route-en psel-check-en
 	$(PYTHON) tests/emu_signs.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-signs-en \
-		$(if $(GC_REL),--gc $(GC_DIR))
+		$(if $(GC_REL),--gc $(GC_DIR)) --town $(BUILD)/emu-psel-en/2-two.town
 
 # The player-select actor's choices from power-on with a saved town of one, two and four players (the
 # houses' common_data stamped as a save, the player copied): which player plays, and whose house to remove,

@@ -3345,6 +3345,99 @@ what goes in it: "The letters in the en build").
   (its actor found as the sweep finds the event's): the plaque is the
   side of the stall's box, LUCK, and the slips lie on its cloth, GOOD
   LUCK; the paper on the table's front reads HQ.
+- **Inside the police box** (the playthrough before the last build; its
+  room is the scene's file at vrom 0x12AC000, segment_012AC000, which
+  splat leaves unextracted). The frame's textures, read off the last
+  graphics task's display list (`gfxCtx->task.list.t.data_ptr`, graph.c
+  graph_task_set00, walked as the RSP does: segments, calls, branches,
+  each load by its TMEM address and the render tile that uses it), in the
+  shop, the post office and the police box: only the police box has
+  words, two posters on its wall, their titles in large kana over a plain
+  ground. A recruiting poster (CI4 32x48 at 0x3C68: an officer saluting
+  under a call for officers) reads JOIN US! in its blue with the shadow
+  under each stroke its kana have; a wanted poster (CI4 48x32 at 0x3968:
+  two faces under a line asking whoever sees them to call the police)
+  reads WANTED! in its brown. Each title's rows are painted the poster's
+  ground first; the small print under the officer and under the faces, a
+  few texels high, is kept. The room's own lists draw both in segment 6
+  with its palette at 0x2A68 (`af_gc_signs.drawn_ci`), each once in the
+  file: checked as the structures' are (`af_own_signs.check_room`),
+  written over the en tree's .bin. `make signs-check-en`: in the ROM
+  ours, as the tool makes them; and the player walked in (psel-check-en's
+  town of two, powered on 12 March 2002 at 10:30, in a process of its
+  own): the police box's door is at its actor's place + (24, 40), and it
+  lets the player in walking between north and west (ac_police_box
+  func_80A07C2C_jp; the shop's is + (-38, 42), walking between north and
+  east, func_80A0E02C_jp; the post office's + (-40, 50) with A,
+  func_80A08670_jp), the officer inside, both posters in RAM ours and
+  the cartridge's not.
+
+## Our own furniture words (the texture sweep)
+
+- **Where the furniture is.** Each piece is an object of its own,
+  compressed, splat's unextracted segment_*.bin (three of 561 are
+  named): a CI4 texture block in segment 6, its palette, and display
+  lists that set render tiles by their TMEM address and never load a
+  texture. The room code loads the block whole with LoadBlock and the
+  palette into TLUT 15 (ac_sum_blue_bureau01.c aSumBlueBureau01_dw), and
+  each piece's profile (ac_my_room.h `FurnitureActorProfile`, 0x44 bytes:
+  the object's ROM range, its lists, its texture block and palette in
+  segment 6) names the block; ac_my_room's data has a table of 944
+  profile pointers, one per piece (a clothes' and two others shared by
+  many). A profile with no block loads its own (the bureau's: the block
+  after an 8-byte pad and the palette, 0x28; without the pad, 0x20).
+  The block's odd rows keep their 32-bit words swapped (LoadBlock's,
+  splat's `ci4swap`): read and written so.
+- **The sweep.** The 561 profiles in the asm data, each object's render
+  tiles (format, line, TMEM address, masks, size) read off its lists and
+  each tile's texels from block + TMEM x 8 in the profile's palette:
+  2,778 textures once each, in 29 sheets, every one looked at. Seventeen
+  carry words one can read, one texture each: the road works set (a
+  safety barricade in four colours whose four characters wish safety
+  first, a sign where a worker bows under an apology for the works, a
+  map headed by the characters for works in progress, a distance sign
+  with its metres and a character for ahead), a drum's warning against
+  fire, a bus stop's sign, a public bath's board of prices for adults
+  and children, a red telephone's coin label (its currency's character),
+  a drinks label, a milk box's label (a family name and the word for
+  milk), two shop signs on a wall (playing cards with the company's
+  name; a lender's name), a traffic sign's line of kana, a sticker with
+  the console's nickname in katakana and a stone plaque with the
+  company's name read right to left. Left as they are: a shogi piece's
+  two characters (a game's piece), a plank of tally marks in the
+  character one counts by fives with, print a texel or two high (a
+  newspaper, the faces' captions, a sticker's maker), and pictures that
+  are no words (a hot spring's sign, a no-littering sign, the dolls'
+  and kites' patterns).
+- **Ours** (`tools/af_own_ftr.py`, at make rom-en, over the en tree's
+  .bin of each object): two fonts of ours (capitals and digits 5 rows
+  tall, and 7 rows for the large words), placed at a point or centred in
+  the box the Japanese took, with a shadow or an outline where the ground
+  needs one; the box painted its ground, cleaned (each ink texel the
+  nearest of its row that is not ink, as the signs' cloth), or, on the
+  barricade, restriped (each texel the one above and to the right: its
+  stripes run on under where the characters were). The barricade reads
+  SAFETY FIRST in white outlined black, the bowing worker's sign SORRY!
+  ROAD WORK AHEAD in its red and blue (the tiny print beside him painted
+  white), the map DETOUR, the distance sign 50m and an arrow pointing
+  ahead, the drum NO FIRE, the bus stop BUS and STOP, the bath's board
+  BATH over an adult's figure with 340 and a child's with 160, the coin
+  label 10, the drinks label ROYAL A, the milk box MILK, the shop signs
+  CARDS and CASH, the traffic sign GO SLOW, the sticker N64, the plaque
+  NINTENDO, carved with a shadow.
+- **Checks.** The tool, for each: the object's lists set a CI4 render
+  tile of that size at its TMEM address, the texels and the palette are
+  the cartridge's (md5s: checks, not copies). `make signs-check-en`: in
+  the ROM each object (its file through the dmadata, decompressed as the
+  game reads it) holds ours where the cartridge's texture was, as the
+  tool makes it from the cartridge's, and is the cartridge's elsewhere
+  (its lists unchanged). The house's furniture layout is not decompiled
+  (mHm_hs_c's 0x450 bytes at 0x28), so no check puts a piece in a room;
+  the lists that draw each texture are the cartridge's own.
+  `tests/test_tools.py` (OwnFurniture): the fonts and pictures, the
+  words' letters in their font, LoadBlock's swapped rows both ways, each
+  operation on made-up texels, every texture composed over a made-up
+  block, the check on a made-up object.
 
 ## The text's questions and facts (the review after the signs)
 
@@ -3449,6 +3542,56 @@ games), the empty slots, and the strings and letters the same way.
   first's `letters-check-en` and `menus-check-en` passed (0 failures);
   `make verify` is the cartridge; the .bps applied to the dump is the
   ROM.
+
+## A day in the town, played (the playthrough before the last build)
+
+The en ROM played as a player plays it, in the emulator: psel-check-en's
+town of two powered on at three dates and times (12 March 2002 at 8:30,
+18 July at 19:00, 26 September at 12:30), every block walked, every
+villager found and talked to four times in a row with a different answer
+each time (the first, the last, the second), the police and the station
+master too; the shop, the post office and the police box entered at
+their doors (the doors' points: "Our own signs") and their keepers
+talked to three times; every page's text and every choice logged with a
+screen of each. The scripts are not a check of the build (they are not
+in the repository); what they found:
+
+- **The catchphrase after a sentence.** The GameCube's English
+  capitalizes the catchphrase after "!" or "?" (`<CAPTIALIZE>` before
+  `<STR_TAIL>`, 55 times); 71 of our messages put it after a sentence's
+  end without it, and one after "!" mid-sentence (5146, a comma now).
+  The widest catchphrase capitalized is 70 pixels, within the 72 the
+  layout counts for it.
+- **A doubled word.** The GameCube's English prints a word twice in a
+  row in three messages (1232, 1519, 10189: the second at the next
+  line's start or after a space): the draft prints it once
+  (`af_text.DOUBLED`, `undouble`; tests/test_tools.py, Script's layout
+  test).
+  A scan of the bank for the same word twice found the rest intended
+  (laughter, stutters, "that that's").
+- **A line that ends in a dash.** The GameCube breaks a line after a dash
+  that joins two words (2143); the en build's layout, moving a long
+  line's last words on, joined them to the next line with a space. A
+  word that ends in a dash or a hyphen right after a letter now runs on
+  into the next line's first word (`af_text._runs_on`, moved on or
+  filled anew); of the whole bank only 2143 is laid out differently
+  (the bank laid out by the tool before and after, compared).
+- **Ours, reread.** 5164 (a villager's start: a sentence with "so"
+  twice), 5965 (New Year's Day's announcement on arrival: the 2010
+  patch's English leaves out the cartridge's saying that a year's plans
+  are made on its first day and calls the wishing well a shrine; ours in
+  `facts.txt`).
+- **An answer.** The post office's menus offer the cartridge's answer 93
+  for paying into Nook's shop (its clerk then asks how much to pay back
+  of the debt); the GameCube's words are for its own savings: ours, Make
+  a payment (`script/choice/answers.txt`).
+- **Textures.** The interiors and the furniture: "Our own signs"
+  (inside the police box) and "Our own furniture words".
+- **Read and left.** The rest read as the cartridge's game means it:
+  the greeters, the villagers' first meetings and talk at each time of
+  day, their errands, the police's goings-on and lost items, the station
+  master's trips, Nook's turnips and selling, the post office's letters
+  and payments.
 
 ## Other emulators (ares, Project64, RetroArch, RMG and simple64)
 

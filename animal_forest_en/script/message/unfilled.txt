@@ -13,7 +13,7 @@ Thanks, <STR_PLAYERNAME>!
 <BTN>
 <MSGCLEAR><DEMONPC0 000015>But wow, what a surprise!<PAUSE 0f>
 How'd you know where to
-find me?! <PAUSE 08><STR_TAIL>?!
+find me?! <PAUSE 08><CAPTIALIZE><STR_TAIL>?!
 <MSGCONTINUE>
 
 ## 6089
@@ -29,7 +29,7 @@ no way! Absolutely not,<PAUSE 06>
 #: a villager touched by someone who came to town to mail a letter
 <DEMONPC0 00000a>I was,<PAUSE 06>
 like, so touched!<PAUSE 08>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <BTN>
 <MSGCLEAR><DEMONPC0 000015>Whatever the letter says,<PAUSE 06>
 someone came all the way
@@ -54,7 +54,7 @@ they're a real blast!
 <BTN>
 <MSGCLEAR><DEMONPC0 00000e>You should go say hi
 to them now and then!<PAUSE 08>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 9430

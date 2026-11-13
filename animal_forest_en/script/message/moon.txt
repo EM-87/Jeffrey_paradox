@@ -11,7 +11,7 @@
 ## 2983
 #: a snooty villager on the Thirteenth Night's moon
 <DEMONPC0 0000ff>Ever heard of the Thirteenth
-<DEMONPC0 00000b>Night moon? <PAUSE 06><STR_TAIL>?<BTN><DEMONPC0 0000ff>
+<DEMONPC0 00000b>Night moon? <PAUSE 06><CAPTIALIZE><STR_TAIL>?<BTN><DEMONPC0 0000ff>
 The harvest moon is
 perfectly round, but<BTN>
 <MSGCLEAR>the Thirteenth Night moon<PAUSE 08>
@@ -57,7 +57,7 @@ then the Thirteenth Night.
 <MSGCLEAR>This year it falls on
 <STR_FREE18> <STR_FREE19>,<PAUSE 06> and
 <DEMONPC0 00000b>of course you're going?<PAUSE 08>
-<STR_TAIL>?
+<CAPTIALIZE><STR_TAIL>?
 <BTN>
 <MSGCLEAR><DEMONPC0 000015>This moon won't quite
 be full,<PAUSE 06> but I think
@@ -79,7 +79,7 @@ is the Thirteenth Night?
 <MSGCLEAR><DEMONPC0 000015>A moon just a little short
 of full<PAUSE 06> is a big hit
 with moon-viewing fans!
-<PAUSE 08><STR_TAIL>!
+<PAUSE 08><CAPTIALIZE><STR_TAIL>!
 <BTN>
 <MSGCLEAR>You should see it
 for yourself, too!
@@ -95,7 +95,7 @@ and fans think it's cute!
 <MSGCLEAR>If you missed the
 harvest moon,<PAUSE 06> you just
 HAVE to see this one!<PAUSE 08>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 6158
@@ -111,7 +111,7 @@ year it's on <STR_FREE18> <STR_FREE19>,<PAUSE 08>
 <BTN>
 <MSGCLEAR>If you're free,
 <STR_PLAYERNAME>, you should
-go see it! <PAUSE 08><STR_TAIL>!
+go see it! <PAUSE 08><CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 9998
@@ -132,7 +132,7 @@ a real grown-up.
 ## 9999
 #: a cranky villager on the old calendar and the Thirteenth Night's date
 <DEMONPC0 0000ff>You know about<PAUSE 04> the
-"old calendar"? <PAUSE 08><STR_TAIL>?<BTN>
+"old calendar"? <PAUSE 08><CAPTIALIZE><STR_TAIL>?<BTN>
 <MSGCLEAR><DEMONPC0 000016>Way back when,<PAUSE 04> folks
 used another calendar.<BTN>
 <MSGCLEAR><DEMONPC0 0000ff>Now we use the "new" one,<PAUSE 08>
@@ -190,7 +190,7 @@ be great, too!<PAUSE 08>
 <BTN>
 <MSGCLEAR><DEMONPC0 000016>It's what they call<PAUSE 0c>
 the Thirteenth Night moon!
-<PAUSE 08><STR_TAIL>!
+<PAUSE 08><CAPTIALIZE><STR_TAIL>!
 <BTN>
 <MSGCLEAR><DEMONPC0 000015>It's a bit more chipped
 than the last one,<PAUSE 0c>
@@ -200,7 +200,7 @@ it's pretty much full.
 <MSGCLEAR><DEMONPC0 00000f><PAUSE 17>Me,<PAUSE 06>
 I'd rather have<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 0c>
 <DEMONPC0 00000e>the sun! It's my
-favorite! <PAUSE 06><STR_TAIL>!
+favorite! <PAUSE 06><CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 10279

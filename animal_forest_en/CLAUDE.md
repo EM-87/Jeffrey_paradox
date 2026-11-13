@@ -51,11 +51,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
    write-check-en`, one to the bulletin board or its posts `make
    notice-check-en`, one to the message bank or its layout `make
    messages-check-en`, one to the menus' strings or word textures `make
-   menus-check-en`, one to the structures' textures or palettes `make
-   signs-check-en`, one to the choice window or the player-select actor
-   `make psel-check-en`, one to an event, a date, the banks' tables or an
-   actor's talk `make year-check-en`, one to `emu/` `make
-   emu-determinism`.
+   menus-check-en`, one to the structures', a room's or the furniture's
+   textures or palettes `make signs-check-en`, one to the choice window
+   or the player-select actor `make psel-check-en`, one to an event, a
+   date, the banks' tables or an actor's talk `make year-check-en`, one
+   to `emu/` `make emu-determinism`.
 
 ## Where things live
 
@@ -174,8 +174,18 @@ the why and the state, `reference/NOTES.md` for what is verified.
   sign, the fortune stall's plaque and slips; the kana cleaned off from
   the user's dump (a cloth or paper: each ink texel the nearest of its
   row that is not ink) or the face painted its ground, at `make rom-en`
-  after af_gc_signs (the same .bin); each texture and palette checked by
-  md5 (NOTES, "Our own signs").
+  after af_gc_signs (the same .bin); and the two posters inside the
+  police box (its room's file, segment_012AC000); each texture and
+  palette checked by md5 (NOTES, "Our own signs").
+- `tools/af_own_ftr.py` — the words on seventeen pieces of furniture
+  (road works signs and barricades, a bus stop, a drum, a bath's prices,
+  labels, a sticker, a plaque), drawn by us in two fonts of our own (ASCII
+  in the tool) over each texture's box painted, cleaned or restriped, in
+  its own palette's indices, at `make rom-en` over the en tree's .bin of
+  each furniture object; each checked: the object's lists set the render
+  tile at its TMEM address, texels and palette md5s, the texture block's
+  LoadBlock row swap undone and redone (NOTES, "Our own furniture
+  words").
 - `tools/af_menu_tex.py` — the word textures the 2010 patch left in
   Japanese: the town tune's note names (the GameCube's letters, from the
   disc), the birthday's month and day, the catchphrase window's quotes
@@ -256,7 +266,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `make menus-check-en`),
   `emu_signs.py` (the GameCube's signs and ours in the en ROM, every
   copy, and in RAM once the structures' clip sets each structure up by
-  the player, the cartridge's gone: `make signs-check-en`),
+  the player, the cartridge's gone; the police box's posters in RAM once
+  the player walks in at its door, psel-check-en's town powered on in a
+  process of its own; the furniture's words in the ROM, each object
+  otherwise the cartridge's: `make signs-check-en`),
   `emu_psel.py` (the player-select actor's choices from power-on with a
   saved town of one, two and four players, made from the houses' state:
   which player plays, whose house to remove, each choice's answers read in RAM

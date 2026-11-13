@@ -54,9 +54,25 @@ and the object holds no other copy of it; the palette the structure draws
 it with is the one our inks were chosen in (its md5). Written over the en
 tree's copy of the object (the PNG splat extracts for a named texture,
 the unextracted part's .bin for the rest), after tools/af_gc_signs.py,
-which writes the same .bin. Nothing of the cartridge's enters the
-repository: the art below is ours, the cleaned cloth and paper are made
-from the user's dump at make rom-en.
+which writes the same .bin.
+
+Inside the police box (its room: the scene's file at vrom 0x12AC000,
+segment_012AC000, whose own lists draw both in segment 6 with its palette
+at 0x2A68) two posters hang on the wall, their titles in large kana over
+a plain ground: a recruiting poster (CI4 32x48 at 0x3C68, an officer
+saluting under a call for officers), ours JOIN US!, and a wanted poster
+(CI4 48x32 at 0x3968, two faces under a line asking whoever sees them to
+call the police), ours WANTED!. Each title's rows are painted the
+poster's ground and ours laid there in its inks (the recruiting poster's
+blue with the shadow under each stroke, as its kana have; the wanted
+poster's brown); the small print under the officer and under the faces,
+a few texels high, carries no word one can read, and is kept. Checked
+as the structures' are, in the room's file; written over the en tree's
+.bin of it (splat leaves the file unextracted).
+
+Nothing of the cartridge's enters the repository: the art here is ours,
+the cleaned cloth and paper are made from the user's dump at make
+rom-en.
 """
 
 import hashlib
@@ -361,6 +377,32 @@ SLIPS = [(99, 9, """
 ###.###..##.#.#
 """)]
 
+# The police box's room: the scene's file (vrom, the en tree's .bin of it), the palette its lists draw the
+# posters with (offset, md5), and each poster: its offset, width, height, md5, the title's box (x from, x to,
+# y from, y to) painted its ground, ours at (x, y) in the inks ('#' the ink, '-' the shadow), what it is
+ROOM_VROM, ROOM_BIN = 0x12AC000, "assets/jp/segment_012AC000.bin"
+ROOM_PALETTE = (0x2A68, "c85a3e21cf8f163976082788d3bb63ac")
+POSTER_JOIN = """
+..#..#..###.#..#...#.#..##.#
+..#.#-#.-#-.##.#...#.#.#--.#
+..#.#.#..#..##.#...#.#.-#..#
+..#.#.#..#..#-##...#.#..-#.#
+#.#.#.#..#..#.##...#.#...#.-
+-#-.-#-.###.#.-#...###.##-.#
+.-...-..---.-..-...---.--..-
+"""
+POSTER_WANTED = """
+#...#..#..#..#.###.###.##..#
+#...#.#.#.##.#..#..#...#.#.#
+#.#.#.###.#.##..#..##..#.#.#
+#.#.#.#.#.#..#..#..#...#.#..
+.#.#..#.#.#..#..#..###.##..#
+"""
+POSTERS = [(0x3C68, 32, 48, "82ce72eda566267e1126e3698a8e2dcb", (1, 31, 2, 9), 0x3, POSTER_JOIN, (2, 2),
+            {"#": 0x7, "-": 0x6}, "the police box's recruiting poster"),
+           (0x3968, 48, 32, "282f2ea48881f98b55994da0bf7466e7", (1, 48, 1, 6), 0x2, POSTER_WANTED, (10, 1),
+            {"#": 0x1}, "the police box's wanted poster")]
+
 
 def grid(art):
     """The art's rows (its first and last newline dropped), each as long as the widest."""
@@ -478,6 +520,49 @@ def compose(obj):
     return out
 
 
+def poster(texels, w, box, ground, art, place, inks):
+    """A poster's title painted its ground and ours laid there (w its width)."""
+    out = list(texels)
+    h = len(out) // w
+    x0, x1, y0, y1 = box
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            out[y * w + x] = ground
+    px, py = place
+    for dy, row in enumerate(grid(art)):
+        for dx, c in enumerate(row):
+            if c in inks:
+                if not (x0 <= px + dx < x1 and y0 <= py + dy < y1 and py + dy < h):
+                    raise ValueError("the art goes off the title's box at (%d, %d)" % (px + dx, py + dy))
+                out[(py + dy) * w + px + dx] = inks[c]
+    return out
+
+
+def compose_room(room):
+    """{offset: the en build's CI4 bytes} of the police box's room's posters, from the cartridge's file."""
+    out = {}
+    for at, w, h, _, box, ground, art, place, inks, _ in POSTERS:
+        t = af_gc_signs.texels(room[at:at + w * h // 2])
+        out[at] = ci4(poster(t, w, box, ground, art, place, inks))
+    return out
+
+
+def check_room(room):
+    """The room's posters and palette as our art expects them, or SystemExit."""
+    drawn = af_gc_signs.drawn_ci(room)
+    pal_at, pal_md5 = ROOM_PALETTE
+    if hashlib.md5(room[pal_at:pal_at + 32]).hexdigest() != pal_md5:
+        raise SystemExit("af_own_signs: the police box's room's palette at %#x is not the cartridge's" % pal_at)
+    for at, w, h, md5, _, _, _, _, _, what in POSTERS:
+        if drawn.get(at) != (4, w, h):
+            raise SystemExit("af_own_signs: %s: the room's lists draw %s at %#x, not CI4 %dx%d" % (
+                what, drawn.get(at), at, w, h))
+        if hashlib.md5(room[at:at + w * h // 2]).hexdigest() != md5:
+            raise SystemExit("af_own_signs: %s: the texture at %#x is not the cartridge's" % (what, at))
+        if room.count(room[at:at + w * h // 2]) != 1:
+            raise SystemExit("af_own_signs: %s: the room holds the texture other than at %#x" % (what, at))
+
+
 def check(obj, pals):
     """The cartridge's textures and palettes as our art expects them, or SystemExit."""
     drawn = af_gc_signs.drawn_ci(obj)
@@ -503,8 +588,15 @@ def main(argv):
     parts = af_gc_signs.object_parts(open(os.path.join(en, "yamls", "jp", "assets.yaml")).read())
     for at, new in sorted(compose(obj).items()):
         af_gc_signs.put(en, parts, at, obj[at:at + SIZE], new, W, H, "af_own_signs")
+    room = af_gc_signs.file_at(rom, ROOM_VROM)
+    check_room(room)
+    posters = compose_room(room)
+    for at, w, h, _, _, _, _, _, _, _ in POSTERS:
+        af_gc_signs.put(en, [(0, None, "bin", ROOM_BIN)], at, room[at:at + w * h // 2], posters[at], w, h,
+                        "af_own_signs")
     print("af_own_signs: the fireworks stall's banner and cards, the police box's notice board, the fishing tourney "
-          "headquarters' sign and the fortune stall's plaque and slips (%d textures)" % len(compose(obj)))
+          "headquarters' sign, the fortune stall's plaque and slips (%d textures), and the police box's two "
+          "posters inside" % len(compose(obj)))
     return 0
 
 

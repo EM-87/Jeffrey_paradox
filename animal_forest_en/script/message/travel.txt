@@ -30,7 +30,7 @@ and go see the
 world outside,<PAUSE 06> <STR_TAIL>.<BTN>
 <MSGCLEAR><DEMONPC0 000016>If you think every place
 is just the same,<PAUSE 06> you're
-dead wrong! <PAUSE 06><STR_TAIL>!<BTN>
+dead wrong! <PAUSE 06><CAPTIALIZE><STR_TAIL>!<BTN>
 <MSGCLEAR>To get out of
 <STR_COUNTRYNAME>,<PAUSE 08>
 you take the train.<BTN>
@@ -296,7 +296,7 @@ beginning.
 ## 5146
 #: the start (a peppy villager): the town's date and time
 Yoo-hoo!<PAUSE 06>
-You came to play with us!<PAUSE 0c>
+You came to play with us,<PAUSE 0c>
 <STR_TAIL>!<BTN>
 <MSGCLEAR>Right now in <STR_COUNTRYNAME>, it's
 <STR_MONTH> <STR_DAY>, <STR_YEAR>,<PAUSE 10>
@@ -332,7 +332,7 @@ Sorry, sorry!
 It's <STR_PLAYERNAME>, right?!<PAUSE 0c>
 <DEMONPC0 000015>My mind just went blank!<PAUSE 06>
 Don't be mad at me!<BTN>
-<MSGCLEAR>So I'll get things
+<MSGCLEAR>I'll get things
 ready for you,<PAUSE 08> so
 wait just a sec!<PAUSE 1e><DEMONPC0 0000ff>
 <MSGCLEAR><TEXTCOLOR c35f00>Getting things ready...
@@ -360,7 +360,7 @@ so wait just a sec!<PAUSE 1e><DEMONPC0 0000ff>
 <MSGCLEAR>Ta-da! All done!<BTN>
 <MSGCLEAR><DEMONPC0 000015>Hurry up and<PAUSE 08> make
 yourself at home in
-<STR_COUNTRYNAME>! <PAUSE 06><STR_TAIL>!
+<STR_COUNTRYNAME>! <PAUSE 06><CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 5166
@@ -699,7 +699,7 @@ start over again, OK?
 #: the start (a jock villager): the town's date and time
 Hey! I've been waiting!!<PAUSE 06>
 You came to play, right?<PAUSE 0c>
-<STR_TAIL>?<BTN>
+<CAPTIALIZE><STR_TAIL>?<BTN>
 <MSGCLEAR>Right now in <STR_COUNTRYNAME>,
 it's <STR_MONTH> <STR_DAY>, <STR_YEAR>,<PAUSE 10>
 <STR_HOUR>:<STR_MIN> <STR_AMPM>! Let's go!<SETFORCEMSG 146c>
@@ -762,7 +762,7 @@ so hang tight a sec.<PAUSE 1e><DEMONPC0 0000ff>
 <MSGCLEAR><DEMONPC0 000015>From now on,<PAUSE 08> you're on
 the <STR_COUNTRYNAME> team!
 Let's be pals!<PAUSE 0c>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 5246
@@ -773,7 +773,7 @@ Let's be pals!<PAUSE 0c>
 middle of things!<BTN>
 <MSGCLEAR>I won't know what's what
 anymore!<PAUSE 0c>
-<STR_TAIL>!!<BTN><DEMONPC0 0000ff>
+<CAPTIALIZE><STR_TAIL>!!<BTN><DEMONPC0 0000ff>
 <MSGCLEAR>If you're going to use the
 <COLORCHARS 198cdc0e>Controller Pak, please
 insert it into the
@@ -824,7 +824,7 @@ ready, so hang tight.<PAUSE 1e><DEMONPC0 0000ff>
 <MSGCLEAR>Thanks for waiting!<BTN>
 <MSGCLEAR><DEMONPC0 000015>Let's have a blast in
 <STR_COUNTRYNAME> today!!<PAUSE 0c>
-<STR_TAIL>!!
+<CAPTIALIZE><STR_TAIL>!!
 <MSGEND>
 
 ## 5259
@@ -885,7 +885,7 @@ press the <COLORCHARS 324be108>A Button,<PAUSE 0c>
 middle of things!<BTN>
 <MSGCLEAR>I won't know what's what
 anymore!<PAUSE 0c>
-<STR_TAIL>!!<BTN><DEMONPC0 0000ff>
+<CAPTIALIZE><STR_TAIL>!!<BTN><DEMONPC0 0000ff>
 <MSGCLEAR>We're heading back to the
 title screen for now.<PAUSE 08>
 If you want to use the
@@ -900,7 +900,7 @@ from the top!
 #: the start (a cranky villager): the town's date and time
 Yo!<PAUSE 06>
 So you showed up.<PAUSE 0c>
-<STR_TAIL>!<BTN>
+<CAPTIALIZE><STR_TAIL>!<BTN>
 <MSGCLEAR>In <STR_COUNTRYNAME> right now,
 it's <STR_MONTH> <STR_DAY>, <STR_YEAR>,<PAUSE 10>
 <STR_HOUR>:<STR_MIN> <STR_AMPM><SETFORCEMSG 1494>
@@ -1316,7 +1316,7 @@ take it with you,<PAUSE 06> <STR_TAIL>!<BTN><DEMONPC0 0000ff>
 <MSGCLEAR>And when you visit a town,<PAUSE 06>
 write letters to the
 folks who live there!<PAUSE 0c>
-<STR_TAIL>!<BTN>
+<CAPTIALIZE><STR_TAIL>!<BTN>
 <MSGCLEAR><DEMONPC0 000015>Secrets you can't put up<PAUSE 06>
 on the <COLORCHARS 4ba0000e>bulletin board<PAUSE 08>
 go in letters,<PAUSE 06> <STR_TAIL>!<BTN>
@@ -1329,13 +1329,13 @@ go in letters,<PAUSE 06> <STR_TAIL>!<BTN>
 <DEMONPC0 0000ff>Do you have any friends<PAUSE 06>
 who live in another
 town,<PAUSE 04> not <STR_COUNTRYNAME>?<PAUSE 04>
-<DEMONPC0 00000b><STR_TAIL>?<BTN><DEMONPC0 0000ff>
+<DEMONPC0 00000b><CAPTIALIZE><STR_TAIL>?<BTN><DEMONPC0 0000ff>
 <MSGCLEAR>If you do,<PAUSE 08> you can go
 and play in the town
 where they live,<BTN>
 <MSGCLEAR>or have them come to<PAUSE 06>
 <STR_COUNTRYNAME> to play<PAUSE 04> instead!<PAUSE 06>
-<STR_TAIL>!<BTN>
+<CAPTIALIZE><STR_TAIL>!<BTN>
 <MSGCLEAR>When you head off to
 another town,<BTN>
 you ride the train from<PAUSE 04>
@@ -1343,7 +1343,7 @@ the <COLORCHARS 4ba00007>station,<PAUSE 06> <STR_TAIL>!<BTN>
 <MSGCLEAR>Bu<PAUSE 04>u<PAUSE 04>ut,<PAUSE 08>
 without a thing called a
 <COLORCHARS 198cdc0e>Controller Pak,<PAUSE 04> you can't
-ride the train!<PAUSE 06> <STR_TAIL>!<BTN>
+ride the train!<PAUSE 06> <CAPTIALIZE><STR_TAIL>!<BTN>
 <MSGCLEAR>I bet<PAUSE 08> it's some
 kind of ticket,<PAUSE 06> <STR_TAIL>.
 <MSGEND>
@@ -1360,20 +1360,20 @@ you call home,<PAUSE 06> right,<PAUSE 04>
 <MSGCLEAR>You think so too,<PAUSE 06> huh?
 Then get yourself off
 to another town!<PAUSE 0c>
-<STR_TAIL>!<BTN>
+<CAPTIALIZE><STR_TAIL>!<BTN>
 <MSGCLEAR><DEMONPC0 00000e>New places,<PAUSE 04>
 new faces!<BTN>
 <MSGCLEAR><DEMONPC0 000015>Whoooooa!!<PAUSE 08>
 Now that's a
-man's dream! <PAUSE 06><STR_TAIL>!<BTN><DEMONPC0 0000ff>
+man's dream! <PAUSE 06><CAPTIALIZE><STR_TAIL>!<BTN><DEMONPC0 0000ff>
 <MSGCLEAR>To bust out of <STR_COUNTRYNAME><PAUSE 06>
 on an adventure,<BTN>
 you hop on the train<PAUSE 04> at
-the <COLORCHARS 4ba00007>station!<PAUSE 06> <STR_TAIL>!<BTN>
+the <COLORCHARS 4ba00007>station!<PAUSE 06> <CAPTIALIZE><STR_TAIL>!<BTN>
 <MSGCLEAR><DEMONPC0 000016>Bu<PAUSE 04>u<PAUSE 04>ut!<PAUSE 08>
 Without a thing called a
 <COLORCHARS 198cdc0e>Controller Pak,<PAUSE 04> you can't
-ride the train! <PAUSE 06><STR_TAIL>!<BTN><DEMONPC0 0000ff>
+ride the train! <PAUSE 06><CAPTIALIZE><STR_TAIL>!<BTN><DEMONPC0 0000ff>
 <MSGCLEAR>A trip's must-have item,<PAUSE 08>
 the <COLORCHARS 198cdc0e>Controller Pak!<PAUSE 06>
 Don't forget it,<PAUSE 06> <STR_PLAYERNAME>!

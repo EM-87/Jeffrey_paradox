@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The signs the GameCube's English redrew and ours, in the en build's ROM and in the running game.
 
-    tests/emu_signs.py EMU_DIR EN_ROM AF_EN_DIR STATE OUT_DIR [--gc GC_DIR]
+    tests/emu_signs.py EMU_DIR EN_ROM AF_EN_DIR STATE OUT_DIR [--gc GC_DIR] [--town TOWN]
 
 tools/af_gc_signs.py writes them over the en tree's copy of the structures'
 object (reference/NOTES.md, "The GameCube's signs"). First the ROM: each
@@ -28,20 +28,38 @@ villager's house, which the route's town does not put by the player: the
 ROM's check only. The route's town is in summer (no snow): the summer
 copies are the ones loaded. Writes a screenshot of each structure, and a
 sheet of them, to OUT_DIR.
+
+The police box's two posters inside (af_own_signs' POSTERS, in the room's
+file): in the ROM ours, as the tool makes them from the cartridge's; and
+with --town (make psel-check-en's town of two players, as make
+year-check-en powers it on), in a process of its own: the town powered on,
+the player walked to the police box's block and in at its door as the box
+lets one in (the door's point and the way in from its actor's check), and
+in the room, the posters in RAM ours and the cartridge's not.
+
+The furniture's words (tools/af_own_ftr.py; NOTES, "Our own furniture
+words"): each object in the ROM (through the dmadata, decompressed as the
+game reads it) holds ours where the cartridge's texture was, as the tool
+makes it from the cartridge's, and the rest of the object is the
+cartridge's: its lists, which set the render tile at that TMEM address
+(the tool's check), unchanged.
 """
 
+import math
 import os
 import shutil
 import struct
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
-from n64emu import N64  # noqa: E402
+from n64emu import N64, stick  # noqa: E402
 import af_font  # noqa: E402
 import af_gc_signs  # noqa: E402
+import af_own_ftr  # noqa: E402
 import af_own_signs  # noqa: E402
 import contact  # noqa: E402
 import emu_save  # noqa: E402
@@ -97,6 +115,12 @@ STRUCTURES = [(0x5804, "the first shop", ["obj_s_shop1_roof_txt", "obj_s_shop1_f
 # the structures that load our own (af_own_signs' offsets in the object: the summer board in the summer town)
 OURS = {0x580C: [af_own_signs.SUMMER_AT], 0x582C: [af_own_signs.BANNER_AT, af_own_signs.CARDS_AT],
         0x5837: [af_own_signs.HQ_AT[0]], 0x5830: [af_own_signs.PLAQUE_AT, af_own_signs.SLIPS_AT]}
+# the police box's door: its point from the actor's place and the way the player faces walking in, between
+# north and west (ac_police_box func_80A07C2C_jp: x + 24, z + 40, within 33 units, the shape's angle in
+# 0x8001..0xBFFF); the officers one of whom keeps it, the date and time the town is powered on at
+POLICE_DOOR = (24.0, 40.0, 0xA000)
+OFFICERS = ("Npc_Police", "Npc_Police2")
+ROOM_DATE = (2002, 3, 12, 10, 30, 0)
 
 failures = []
 
@@ -116,6 +140,11 @@ def main(argv):
     if "--gc" in argv:
         i = argv.index("--gc")
         gc_dir = argv[i + 1]
+        argv = argv[:i] + argv[i + 2:]
+    town = None
+    if "--town" in argv:
+        i = argv.index("--town")
+        town = argv[i + 1]
         argv = argv[:i] + argv[i + 2:]
     emu_dir, rom_path, af_en, state, out = argv
     af_en = os.path.abspath(af_en)
@@ -164,6 +193,34 @@ def main(argv):
               "the ROM: %s, its cop%s at %s ours, as af_own_signs makes %s from the cartridge's" % (
                   what, "y" if len(offsets) == 1 else "ies", ", ".join("%#x" % at for at in offsets),
                   "it" if len(offsets) == 1 else "them"))
+
+    room, cart_room = file_at(rom, af_own_signs.ROOM_VROM), file_at(cart, af_own_signs.ROOM_VROM)
+    posters = af_own_signs.compose_room(cart_room)
+    for at, w, h, _, _, _, _, _, _, what in af_own_signs.POSTERS:
+        size = w * h // 2
+        check(room[at:at + size] == posters[at] != cart_room[at:at + size],
+              "the ROM: %s at %#x of the police box's room ours, as af_own_signs makes it from the cartridge's" % (
+                  what, at))
+    for vrom, tmem, w, h, base, _, _, _, what, ops in af_own_ftr.FURNITURE:
+        at, size = base + tmem * 8, w * h // 2
+        ours, theirs = file_at(rom, vrom), file_at(cart, vrom)
+        new = af_own_ftr.compose(theirs[at:at + size], w, h, ops)
+        check(ours[at:at + size] == new != theirs[at:at + size] and ours[:at] == theirs[:at]
+              and ours[at + size:] == theirs[at + size:],
+              "the ROM: %s (vrom %#x), ours at %#x as af_own_ftr makes it from the cartridge's, the rest of the "
+              "object the cartridge's" % (what, vrom, at))
+    if town:
+        r = subprocess.run([sys.executable, os.path.abspath(__file__), "--room", emu_dir, rom_path, af_en, town,
+                            os.path.join(out, "room")], capture_output=True, text=True)
+        lines = [ln for ln in r.stdout.splitlines() if ln.startswith("  ok  ") or ln.startswith("  FAIL")]
+        for ln in lines:
+            print(ln)
+            if ln.startswith("  FAIL"):
+                failures.append(ln[8:])
+        if r.returncode and not any(ln.startswith("  FAIL") for ln in lines):
+            check(False, "the game: the police box's room visited (%s)" % (r.stdout + r.stderr)[-600:])
+    else:
+        print("emu_signs: the police box's room not visited (no --town)")
 
     # the game: each structure set up by the player, its signs in RAM
     en_elf = os.path.join(af_en, "build", "animalforest-jp.elf")
@@ -214,5 +271,61 @@ def af_gc_signs_palette_places(af_en):
             for m in re.finditer(r"start: (0x[0-9A-Fa-f]+), type: af_palette, name: (\w+)", text)]
 
 
+def room_visit(emu_dir, rom_path, af_en, town, out):
+    """The saved town powered on, the player walked into the police box at its door, the posters looked for in
+    RAM (run in a process of its own: the emulator's plugins start once per process)."""
+    import emu_year
+    os.makedirs(out, exist_ok=True)
+    rom = open(rom_path, "rb").read()
+    cart_room = file_at(open(os.path.join(os.path.dirname(os.path.abspath(af_en)), "baserom.z64"), "rb").read(),
+                        af_own_signs.ROOM_VROM)
+    posters = af_own_signs.compose_room(cart_room)
+    syms = emu_save.elf_symbols(os.path.join(af_en, "build", "animalforest-jp.elf"))
+    emu_save.write_fla(emu_save.fla_path(out, rom), emu_year.town_image(town))
+    with N64(emu_dir, rom, out, timeout=60, clock=ROOM_DATE) as n64:
+        t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], emu_year.actor_names(af_en))
+        arrived = emu_year.arrive(t)
+        target = [b for b, kinds in t.blocks().items() if "police" in kinds]
+        there = arrived and bool(target) and t.go_block(target[0], set())
+        box = [a for a in t.actors() if a["name"] == "Police_Box"] if there else []
+        inside = False
+        if box:
+            bx, by, bz = box[0]["pos"]
+            dx, dz, angle = POLICE_DOOR
+            wx, wz = math.sin(angle * math.pi / 0x8000), math.cos(angle * math.pi / 0x8000)
+            pad = stick(int(round(80 * wx)), int(round(-80 * wz)))                   # the stick's up is -z
+            yaw = angle - 0x10000 if angle >= 0x8000 else angle
+            for back in (30, 40, 22):
+                x, z = bx + dx - back * wx, bz + dz - back * wz
+                t.drop(x, z, 20)
+                for _ in range(3):
+                    t.put(x, by + 10, z, yaw)
+                    n64.frames(2, 0)
+                n64.frames(80, pad)
+                for _ in range(40):
+                    n64.frames(10, 0)
+                    try:
+                        inside = any(a["name"] in OFFICERS for a in t.actors())
+                    except ValueError:                  # the scene changing: its lists not yet there
+                        continue
+                    if inside:
+                        break
+                if inside:
+                    break
+        check(inside, "the game: the player walked into the police box at its door (%s)" % (
+            "block %s" % (target[0],) if target else "no police box's block"))
+        if inside:
+            n64.frames(120, 0)
+            n64.screenshot(os.path.join(out, "police-box.png"))
+            ram = n64.read(0x80000000, 0x800000)
+            for at, w, h, _, _, _, _, _, _, what in af_own_signs.POSTERS:
+                theirs = cart_room[at:at + w * h // 2]
+                check(ram.find(posters[at]) >= 0 and ram.find(theirs) < 0,
+                      "the game: in the police box, %s in RAM ours, the cartridge's not" % what)
+    return 1 if failures else 0
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--room":
+        sys.exit(room_visit(*sys.argv[2:7]))
     sys.exit(main(sys.argv[1:]))

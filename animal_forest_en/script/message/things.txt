@@ -70,7 +70,7 @@ or a water tank!
 <MSGCLEAR><DEMONPC0 000012>You're not selling them
 to Tom Nook's store,<PAUSE 06>
 are you?!<PAUSE 08>
-<STR_TAIL>!?
+<CAPTIALIZE><STR_TAIL>!?
 <MSGEND>
 
 ## 9531
@@ -81,10 +81,10 @@ you still clean!<BTN><DEMONPC0 0000ff>
 at the end of the year,
 the busiest time of all,<BTN>
 <MSGCLEAR>we do the biggest
-cleaning! <PAUSE 04><STR_TAIL>!<BTN>
+cleaning! <PAUSE 04><CAPTIALIZE><STR_TAIL>!<BTN>
 <MSGCLEAR><DEMONPC0 000014><PAUSE 08>Mmm! <PAUSE 08>If I do say so<PAUSE 04>
 myself, that was convincing!<PAUSE 08>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 9608
@@ -94,7 +94,7 @@ myself, that was convincing!<PAUSE 08>
 <BTN>
 <MSGCLEAR><DEMONPC0 00000e>I gotta train my eyes<PAUSE 06>
 so I can read
-<STR_ITEM2>! <PAUSE 06><STR_TAIL>!
+<STR_ITEM2>! <PAUSE 06><CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 10332

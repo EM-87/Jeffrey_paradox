@@ -25,12 +25,12 @@ maybe not so much,<PAUSE 08>
 <DEMONPC0 000014><PAUSE 28><DEMONPC0 000007>It's no use!<PAUSE 14>
 I can't stop thinking
 about <STR_PLAYERNAME>!<PAUSE 08>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <BTN>
 <MSGCLEAR>I have to do something!<PAUSE 0c>
 <LUCK_NEUTRAL><DEMONPC0 000016>OK,<PAUSE 06>
 time to snap out of it!<PAUSE 08>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 1895
@@ -254,7 +254,7 @@ house get any
 bigger than that?<BTN><DEMONPC0 000015>
 <MSGCLEAR>Take a page from Tom Nook,<PAUSE 08>
 <STR_PLAYERNAME>,
-and work hard! <PAUSE 06><STR_TAIL>!
+and work hard! <PAUSE 06><CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 4604
@@ -281,7 +281,7 @@ to ride the train, OK?
 <DEMONPC0 000006>Oh, right.<PAUSE 0c>
 You probably know already,<PAUSE 06>
 but I'm getting ready
-to move! <PAUSE 08><STR_TAIL>!
+to move! <PAUSE 08><CAPTIALIZE><STR_TAIL>!
 <BTN>
 <MSGCLEAR><DEMONPC0 000016>Where I move depends on
 which town you go
@@ -290,7 +290,7 @@ it over carefully!
 <BTN>
 <MSGCLEAR><DEMONPC0 000012>Otherwise,<PAUSE 06> I'll come
 right back here to
-<STR_COUNTRYNAME>! <PAUSE 08><STR_TAIL>!
+<STR_COUNTRYNAME>! <PAUSE 08><CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 7395
@@ -346,7 +346,7 @@ someplace else,
 <DEMONPC0 000016>Ahh,<PAUSE 04> no good<PAUSE 02>, no good!<PAUSE 10>
 A guy like me<PAUSE 06> shouldn't
 be smolderin' away here!<PAUSE 04>
-<PAUSE 08><STR_TAIL>!<BTN>
+<PAUSE 08><CAPTIALIZE><STR_TAIL>!<BTN>
 <MSGCLEAR><DEMONPC0 00000e>Adventure! <PAUSE 04>Romance! <PAUSE 04>Guts!<PAUSE 0c>
 <DEMONPC0 00000a>Thrilling stuff<PAUSE 08> is out
 there waitin' for me!<BTN>

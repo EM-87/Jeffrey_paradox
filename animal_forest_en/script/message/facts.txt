@@ -2,9 +2,11 @@
 # something else than the cartridge's message: a date (the spring sports fair is on April 20th, the
 # fireworks come in August), an event of the GameCube's own (a meteor shower for the harvest moon, its
 # Groundhog Day for White Day), a game the cartridge's villagers don't have (the GameCube's has more NES
-# games), a winter's talk turned into another, a price a villager can pay read as one he cannot. From the
-# cartridge's text; tools/msgbank.py's dump form, as ours.txt (its header says how the build lays it over
-# the bank and what af_text.py holds it to).
+# games), a winter's talk turned into another, a price a villager can pay read as one he cannot, and New
+# Year's Day's announcement, whose saying the 2010 patch's English leaves out and whose wishing well it
+# calls a shrine (the GameCube's English, which has no counterpart for it, says wishing well elsewhere).
+# From the cartridge's text; tools/msgbank.py's dump form, as ours.txt (its header says how the build lays
+# it over the bank and what af_text.py holds it to).
 
 ## 2963
 #: a snooty villager on the spring sports fair, April 20th
@@ -32,7 +34,7 @@ next month!
 <BTN>
 <MSGCLEAR>My heart's racing
 already!<PAUSE 08>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 4524
@@ -45,13 +47,21 @@ of the old 8th month,<PAUSE 0a>
 <MSGCLEAR><DEMONPC0 00000a>It's called the harvest
 moon,<PAUSE 06> the night the moon
 is loveliest all year!<PAUSE 08>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <BTN>
 <MSGCLEAR>I hear it's by the pond
 again this year,<PAUSE 06>
 so please do come,
 won't you?
 <MSGEND>
+
+## 5965
+#: New Year's Day's announcement on arrival: a year's plans start on its first day; the first wish at the wishing well
+<TEXTCOLOR 282d5a>A year's plans are made
+<TEXTCOLOR 282d5a>on its very first day.<PAUSE 0f>
+<TEXTCOLOR 282d5a>Go make your <COLORCHARS 9114a50a>first wish
+<TEXTCOLOR 282d5a>at the wishing well!
+<MSGTIMEEND 50>
 
 ## 6131
 #: a peppy villager on White Day's cookies
@@ -66,7 +76,7 @@ glad I was born a girl,<PAUSE 08>
 <BTN>
 <MSGCLEAR><STR_PLAYERNAME>,<PAUSE 06>
 do you know<PAUSE 06>
-<DEMONPC0 00000b>what I mean? <PAUSE 08><STR_TAIL>?
+<DEMONPC0 00000b>what I mean? <PAUSE 08><CAPTIALIZE><STR_TAIL>?
 <MSGEND>
 
 ## 6132
@@ -76,7 +86,7 @@ White Day is almost here!
 <BTN>
 <MSGCLEAR><DEMONPC0 00000a>I wonder what kind of
 gifts I'll get back
-this year?<PAUSE 08> <STR_TAIL>?
+this year?<PAUSE 08> <CAPTIALIZE><STR_TAIL>?
 <MSGEND>
 
 ## 8054
@@ -84,7 +94,7 @@ this year?<PAUSE 08> <STR_TAIL>?
 <DEMONPC0 000017>With the bugs gone lately,<PAUSE 06>
 you're not thinking
 there's nothing to do,
-are you? <PAUSE 06><STR_TAIL>?
+are you? <PAUSE 06><CAPTIALIZE><STR_TAIL>?
 <BTN>
 <MSGCLEAR><DEMONPC0 00000e>Well, don't worry,
 <PAUSE 06><STR_PLAYERNAME>!<PAUSE 10>
@@ -104,7 +114,7 @@ what my training can do!
 <MSGCLEAR><DEMONPC0 000016>The way I am now,<PAUSE 08>
 I feel like I could
 catch any bug there is!<PAUSE 08>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 10678

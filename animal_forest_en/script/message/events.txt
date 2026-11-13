@@ -34,7 +34,7 @@ right up!<BTN><DEMONPC0 000017>
 <MSGCLEAR>On March 14th,<PAUSE 08>
 checking my mailbox takes
 up the whole day.<PAUSE 0c>
-<STR_TAIL>.
+<CAPTIALIZE><STR_TAIL>.
 <MSGEND>
 
 ## 4500
@@ -169,7 +169,7 @@ they're givin' off an aura!<PAUSE 10>
 #: a polite villager let down by what the player tells
 <DEMONPC0 000006>Oh my!<PAUSE 0c>
 Would you tell
-me about it? <PAUSE 08><STR_TAIL>?
+me about it? <PAUSE 08><CAPTIALIZE><STR_TAIL>?
 <BTN>
 <MSGCLEAR><DEMONPC0 0000ff>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>Yes,<PAUSE 08> .<PAUSE 06>.<PAUSE 06>.<PAUSE 06>yes,<PAUSE 08>
 .<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.<PAUSE 03>.
@@ -200,7 +200,7 @@ There must be something!<BTN>
 <MSGCLEAR>Never mind Children's Day,<PAUSE 06>
 <STR_TAIL>!<BTN>
 I have to go ask someone!<PAUSE 0c>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 2966
@@ -218,14 +218,14 @@ Fly them, maybe?<BTN><DEMONPC0 000016>
 <MSGCLEAR>Come on, <STR_PLAYERNAME>!<PAUSE 08>
 Make up your mind!<PAUSE 0f>
 Honestly, you're so
-unhelpful!<PAUSE 06> <STR_TAIL>!
+unhelpful!<PAUSE 06> <CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 4508
 #: a polite villager wondering why carp streamers are carp
 <DEMONPC0 000015>Soon,<PAUSE 06> we'll get to
 see the carp streamers!<PAUSE 08>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <BTN>
 <MSGCLEAR><DEMONPC0 00000f><PAUSE 14>But why are they<PAUSE 04>
 carp, I wonder?<BTN>
@@ -267,7 +267,7 @@ this town, too!
 <MSGCLEAR>When I see them,<PAUSE 06> I think,
 yes, it really is
 the boys' day!<PAUSE 08>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 9980
@@ -375,7 +375,7 @@ that carp,<PAUSE 06> <STR_TAIL>!
 <DEMONPC0 0000ff>You know we view the moon
 on the 15th of the old
 <DEMONPC0 00000b>calendar's 8th month,
-right? <PAUSE 06><STR_TAIL>?<BTN><DEMONPC0 00000e>
+right? <PAUSE 06><CAPTIALIZE><STR_TAIL>?<BTN><DEMONPC0 00000e>
 <MSGCLEAR>That's the day,<PAUSE 08> they say,
 the moon is at its
 <PAUSE 08>loveliest all year,<PAUSE 06> <STR_TAIL>.<BTN><DEMONPC0 0000ff>
@@ -408,7 +408,7 @@ know<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<PAUSE 04><PAUSE 0c>
 #: a polite villager on the harvest moon's viewing
 <DEMONPC0 0000ff>The moon viewing is
 almost here!<PAUSE 08>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <BTN>
 <MSGCLEAR><DEMONPC0 000015>They say the 15th of the
 old calendar's 8th month
@@ -464,7 +464,7 @@ I did it again.<SETFORCEMSG 1788>
 #: a peppy villager on the year's two moon viewings
 <DEMONPC0 0000ff>Did you know there are<PAUSE 06>
 two moon viewings
-a year? <PAUSE 08><STR_TAIL>?
+a year? <PAUSE 08><CAPTIALIZE><STR_TAIL>?
 <BTN>
 <MSGCLEAR>I only know 'cause somebody
 told me,<PAUSE 06> but this year's
@@ -474,7 +474,7 @@ harvest moon is on
 <MSGCLEAR><DEMONPC0 000015>As for the next one, the
 Thirteenth Night,<PAUSE 06> look it
 up yourself!<PAUSE 08>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 6156
@@ -485,7 +485,7 @@ perfectly round moon!
 <MSGCLEAR>So,<PAUSE 06> on
 <STR_FREE16> <STR_FREE17>,
 we're meeting
-by the pond!<PAUSE 08> <STR_TAIL>!
+by the pond!<PAUSE 08> <CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 9996
@@ -619,7 +619,7 @@ by the pond,
 <MSGCLEAR><DEMONPC0 00000e>so you come too!<PAUSE 0c>
 I bet the moon likes it
 better when we all
-watch! <PAUSE 06><STR_TAIL>!
+watch! <PAUSE 06><CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 10305
@@ -649,7 +649,7 @@ unthinkable,<PAUSE 06> <STR_TAIL>!<SETFORCEMSG 0ae0>
 <DEMONPCQST 050001><DEMONPC0 000015>That's right!<PAUSE 0c>
 Summer means<PAUSE 04>
 the fireworks show!<PAUSE 08>
-<STR_TAIL>!<SETFORCEMSG 121c>
+<CAPTIALIZE><STR_TAIL>!<SETFORCEMSG 121c>
 <MSGCONTINUE>
 
 ## 2977
@@ -663,7 +663,7 @@ season,<PAUSE 06> <STR_TAIL>!<BTN><DEMONPC0 000015>
 <MSGCLEAR>In <STR_COUNTRYNAME>, once it's August,<PAUSE 08>
 there are fireworks every
 Saturday night.<PAUSE 0c>
-<STR_TAIL>.<BTN><DEMONPC0 00000e>
+<CAPTIALIZE><STR_TAIL>.<BTN><DEMONPC0 00000e>
 <MSGCLEAR>I'm so looking
 forward to it,<PAUSE 06> <STR_TAIL>!
 <MSGEND>
@@ -674,7 +674,7 @@ forward to it,<PAUSE 06> <STR_TAIL>!
 up and be August.<BTN><DEMONPC0 00000a>
 <MSGCLEAR>Because in August,<PAUSE 08>
 we get the fireworks
-show! <PAUSE 06><STR_TAIL>!<BTN><DEMONPC0 0000ff>
+show! <PAUSE 06><CAPTIALIZE><STR_TAIL>!<BTN><DEMONPC0 0000ff>
 <MSGCLEAR>Everyone gazes up<PAUSE 06> with
 their mouths hanging<PAUSE 0c>
 wide open,<BTN><DEMONPC0 000015>
@@ -687,7 +687,7 @@ watching that,<PAUSE 06> <STR_TAIL>!
 <DEMONPC0 000015>At last, it's time for
 summer's highlight,<PAUSE 06>
 the fireworks show!
-<PAUSE 08><STR_TAIL>!
+<PAUSE 08><CAPTIALIZE><STR_TAIL>!
 <BTN>
 <MSGCLEAR>Here in <STR_COUNTRYNAME>, too,<PAUSE 06>
 all through August,
@@ -696,7 +696,7 @@ Saturday night!
 <BTN>
 <MSGCLEAR><DEMONPC0 000014>I'm<PAUSE 06> so looking forward
 to it already!<PAUSE 08>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 4521
@@ -709,7 +709,7 @@ running off anywhere.
 <MSGCLEAR>Because from 7 p.m.,<PAUSE 06>
 every week, by the pond,
 there are fireworks!<PAUSE 08>
-<STR_TAIL>!
+<CAPTIALIZE><STR_TAIL>!
 <BTN>
 <MSGCLEAR><DEMONPC0 000015>It doesn't cost a thing,<PAUSE 06>
 and I think it's far
@@ -799,10 +799,10 @@ sports fair, too,<PAUSE 06> <STR_TAIL>!<BTN>
 <MSGCLEAR>It's at the <COLORCHARS 4ba0000c>wishing well<PAUSE 0f>
 plaza, I hear, so why
 don't you take a peek,
-<STR_PLAYERNAME>? <PAUSE 06><STR_TAIL>.<BTN><DEMONPC0 000015>
+<STR_PLAYERNAME>? <PAUSE 06><CAPTIALIZE><STR_TAIL>.<BTN><DEMONPC0 000015>
 <MSGCLEAR>I'm sure you'll see
 something amusing.<PAUSE 0c>
-<STR_TAIL>.
+<CAPTIALIZE><STR_TAIL>.
 <MSGEND>
 
 ## 4507
@@ -810,7 +810,7 @@ something amusing.<PAUSE 0c>
 <DEMONPC0 0000ff>By the way,<PAUSE 06>
 do you know about the
 <DEMONPC0 00000b>spring sports fair?
-<PAUSE 08><STR_TAIL>?
+<PAUSE 08><CAPTIALIZE><STR_TAIL>?
 <BTN>
 <MSGCLEAR><DEMONPC0 0000ff>It's held every year
 on April 20th,<PAUSE 06> and with
@@ -826,7 +826,7 @@ please do join in!
 <DEMONPC0 0000ff>Do you know what day
 the second Monday<PAUSE 06>
 of October <DEMONPC0 00000b>is?<PAUSE 08>
-<STR_TAIL>?<SETSELSTR2 002f0069><BTN><OPENCHOICE><SETNEXTMSG0 11cc><SETNEXTMSG1 11cd><FORCENEXT>
+<CAPTIALIZE><STR_TAIL>?<SETSELSTR2 002f0069><BTN><OPENCHOICE><SETNEXTMSG0 11cc><SETNEXTMSG1 11cd><FORCENEXT>
 <MSGCONTINUE>
 
 ## 4557
@@ -834,7 +834,7 @@ of October <DEMONPC0 00000b>is?<PAUSE 08>
 <DEMONPC0 000015>I just knew
 you'd know!<PAUSE 0f>
 That's right,<PAUSE 06> it's Health
-and Sports Day! <PAUSE 08><STR_TAIL>!
+and Sports Day! <PAUSE 08><CAPTIALIZE><STR_TAIL>!
 <BTN>
 <MSGCLEAR>That's the day of the
 fall sports fair!<PAUSE 0c>
@@ -843,7 +843,7 @@ at the wishing well plaza.
 <BTN>
 <MSGCLEAR>Of course,<PAUSE 06> you'll
 take part too, won't you?!<PAUSE 08>
-<STR_TAIL>!?
+<CAPTIALIZE><STR_TAIL>!?
 <MSGEND>
 
 ## 4632
@@ -886,7 +886,7 @@ so you gotta come!<PAUSE 06>
 <MSGCLEAR><DEMONPC0 000015>It's on April 20th!<PAUSE 0c>
 I'll be waitin' at the
 wishing well plaza!
-<PAUSE 06><STR_TAIL>!
+<PAUSE 06><CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 10272

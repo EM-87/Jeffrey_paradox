@@ -4,9 +4,11 @@
 # SETSELSTR codes; a window never shows two of the same words):
 #
 # 9 Nook's menus' first answer asks today's turnip price; 47, 54, 105 "tell me", "once more" and "I
-# know" as every question that offers them asks; 65 confirms a zodiac sign; 196, 237, 259, 304 a plain
-# no, nah, so-so and "it'll be fine"; 248 asks K.K. and a singer to play; 287 says a meal won't warm one
-# up; 355 owns up; 432 a number or an outfit is small.
+# know" as every question that offers them asks; 65 confirms a zodiac sign; 93 the post office's
+# payment into Nook's shop for the house (its clerk then asks how much to pay back; the GameCube's words
+# are for its savings); 196, 237, 259, 304 a plain no, nah, so-so and "it'll be fine"; 248 asks K.K.
+# and a singer to play; 287 says a meal won't warm one up; 355 owns up; 432 a number or an outfit is
+# small.
 #
 # tools/msgbank.py's dump form, one line each; make script lays them over the choice bank's draft by
 # number.
@@ -22,6 +24,9 @@ Once more!
 
 ## 65
 You got it!
+
+## 93
+Make a payment
 
 ## 105
 I know!
