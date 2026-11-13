@@ -3147,7 +3147,7 @@ what goes in it: "The letters in the en build").
   has them (13, 12 and 13 bytes).
   With ares built, the two players' town plays the same on ares.
 
-## Other emulators (ares, Project64 and RetroArch)
+## Other emulators (ares, Project64, RetroArch and RMG)
 
 - **ares** (v148, `emu/ares/`: `build.sh` pins it and builds its N64 core
   with `headless.cpp` as `ares-headless`, and the ares app; `emu/ares64.py`
@@ -3248,6 +3248,27 @@ what goes in it: "The letters in the en build").
   cannot stick (not tried). RetroArch 1.22 reads a core_options_path
   only with global_core_options on; otherwise each core's options live
   in a file of their own.
+- **Rosalie's Mupen GUI 0.9.1** (RMG, the standalone mupen64plus
+  frontend, from Flathub: com.github.Rosalie241.RMG on org.kde.Platform
+  6.11, Mesa 26.2; flatpak run under a D-Bus session of its own, with a
+  system bus started for it, on a virtual display). Its mupen64plus core
+  (the dynamic recompiler) and its default plugins (GLideN64, the HLE
+  RSP, RMG-Input, RMG-Audio) take the en ROM as unknown ("Save type: 0",
+  8 MB), and nothing has to be set for the game itself. With no input
+  profile nothing is plugged in, and the title shows the en build's
+  warning that controller 1 is not connected. With one, a keyboard
+  profile in its mupen64plus.cfg ("Rosalie's Mupen GUI - Input Plugin
+  Profile 0", SDL scancodes), the new game goes through K.K.'s talk,
+  both dials and Rover's talk to the town's station. Its saves are
+  mupen64plus's own files in Save/Game, the flash in
+  DOUBUTSUNOMORI-512DA133.fla (SaveFilenameFormat 1: the internal name
+  and the MD5's first 8 digits), in mupen64plus's byte order and written
+  as the game writes. emu_psel's two players' town, put there, loads.
+  Which player plays lists both players and the new-player answer;
+  removing a house asks whose and cancelling goes on; choosing a player
+  into the town writes both slots, checksum good and the clock the
+  host's; powering on again loads it. With ParaLLEl-RDP and ParaLLEl-RSP
+  on Vulkan the town loads and the game saves as well.
 - The title logo's "Forest" changes colour with the title's demo: the
   logo actor's constructor takes its colour set from
   `mTD_get_titledemo_no()`, so it is green in the first demos, then

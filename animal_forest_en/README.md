@@ -480,6 +480,18 @@ Probada en otros emuladores ("Other emulators"):
   guarda las dos ranuras bien y al volver a encender las carga. También
   con ParaLLEl-RDP y ParaLLEl-RSP en Vulkan. El reloj es siempre el del
   ordenador: el núcleo no implementa cambiar la hora del cartucho.
+- **Rosalie's Mupen GUI 0.9.1** (RMG, Mupen64Plus standalone, desde
+  Flathub) funciona sin ajustes para el juego. Su núcleo y sus plugins
+  por defecto (GLideN64, RSP en HLE, recompilador dinámico) la tratan
+  como ROM desconocida y la juegan igual. Solo hay que configurar el
+  mando, como en cualquier juego: sin perfil de mando, el título enseña
+  nuestro aviso de mando no conectado. La partida nueva llega a la
+  estación del pueblo. La partida va en
+  `Save/Game/DOUBUTSUNOMORI-512DA133.fla`, con el orden de bytes del
+  `.fla` de mupen64plus. Un pueblo guardado de dos jugadores carga,
+  borrar una casa no se cuelga, guarda las dos ranuras bien y al volver
+  a encender las carga. También con ParaLLEl-RDP y ParaLLEl-RSP en
+  Vulkan.
 
 El «Forest» del logo cambia de color con cada demo del título: verde,
 lila, azul claro. Pasa igual en mupen64plus, en los dos Project64 y en

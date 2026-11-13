@@ -429,3 +429,8 @@ the why and the state, `reference/NOTES.md` for what is verified.
   network command QUIT), never when killed. Its GL window, grabbed from
   the root window, now and then comes out all black: grab again before
   reading a screen.
+- **RMG (Flathub) runs here only with D-Bus**: `flatpak run` says "Could
+  not connect" until a system bus runs (`dbus-daemon --system --fork`)
+  and it has a session bus (`dbus-run-session --`). With no input
+  profile in its mupen64plus.cfg nothing is plugged in, and the game
+  stops at the title's no-controller warning.
