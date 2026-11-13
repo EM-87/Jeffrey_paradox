@@ -1,0 +1,10 @@
+# Two letters the cartridge leaves empty (461-462, their header and footer empty too): the GameCube's
+# English for these numbers is its notices about the clock and daylight saving time, which the
+# cartridge's game does not send. Empty as the cartridge's. tools/msgbank.py's dump form; `make script`
+# lays this over the mail_body draft.
+
+## 461
+{cd}{cd}{cd}{cd}{cd}{cd}
+
+## 462
+{cd}{cd}{cd}{cd}{cd}{cd}

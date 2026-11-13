@@ -1,0 +1,25 @@
+# Seven strings the cartridge leaves empty (1251-1257, after the snowman's name): the GameCube put its
+# own characters' names there (its island's and museum's folk, its tailors, a mayor), none of whom the
+# cartridge's game has. Empty as the cartridge's. tools/msgbank.py's dump form; `make script` lays this
+# over the draft.
+
+## 1251
+
+
+## 1252
+
+
+## 1253
+
+
+## 1254
+
+
+## 1255
+
+
+## 1256
+
+
+## 1257
+

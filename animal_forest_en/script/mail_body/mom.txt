@@ -1,0 +1,25 @@
+# Our English for three of the mother's letters whose GameCube English is about its own events: Groundhog
+# Day where the cartridge's two are about Setsubun (February 3rd, when beans are thrown to drive out the
+# ogres), and a meteor shower where the cartridge's is about the summer's fireworks at the big pond. From
+# the cartridge's text; the header and footer stay the GameCube's. Six lines of the board's 192 pixels at
+# most. tools/msgbank.py's dump form; `make script` lays this over the mail_body draft.
+
+## 358
+I ate too many beans
+for Setsubun today, so
+there are none left to
+throw tomorrow!{cd}
+
+## 359
+I still remember how
+the ogre gave you such
+a fright that you cried
+and cried, and never
+threw a single bean.{cd}
+
+## 371
+On Saturday there's a
+fireworks show at the
+big pond. This year I'm
+going in my red summer
+kimono!{cd}

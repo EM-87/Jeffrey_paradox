@@ -397,6 +397,24 @@ sus precios) mientras ofrecía música de K.K.: sus tres saludos son ahora
 traducción nuestra del cartucho (música de K.K., gyroides y fruta, con
 sus precios).
 
+Después, una revisión de todo el texto antes de una sola compilación
+("The text's questions and facts"). GameCube escribió sus preguntas para
+sus propias respuestas, y 220 de sus mensajes ofrecen en el cartucho
+otras: en 35 la pregunta o la réplica no encajaba (un "no, gracias" que
+en el cartucho acepta un cambio, los concursos de verdadero o falso que
+se responden con círculo o X sin decir cuál es cuál, la prueba de la
+vista que enseñaba otra letra) y ahora son traducción nuestra. 13
+respuestas del banco se han reescrito para todos sus usos (la primera
+opción de Nook pregunta el precio de los nabos). La reforma de la casa
+cobra lo que el cartucho (49.800 y 498.000 bayas), y se han corregido
+fechas y fiestas que seguían siendo de GameCube o del parche de 2010
+(la feria deportiva el 20 de abril, los fuegos en agosto, la luna de la
+cosecha, el White Day, el Setsubun de las cartas de la madre), los 15
+mensajes del parche de 2010 que decían "Memory Pak" y los del jefe de
+estación, un juego de NES que el cartucho no tiene, y los huecos que el
+cartucho deja vacíos y llevaban texto ajeno (mensajes, siete cadenas,
+dos cartas).
+
 La pasada de pruebas del texto ("The official text's codes and the
 GameCube's own") encontró dos clases de fallo en el texto oficial. La
 primera: 688 mensajes de GameCube llevaban sus propios códigos, los que

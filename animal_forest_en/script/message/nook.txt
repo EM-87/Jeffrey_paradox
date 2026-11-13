@@ -11,7 +11,7 @@ around, yes?
 <MSGEND>
 
 ## 733
-#: the choices are the shop's: other things, selling, never mind
+#: the choices are the shop's: turnip prices, selling, never mind
 Yes, yes!<PAUSE 08>
 What can I do for you, hm?
 <SETSELSTR3 0009000a000b><BTN><OPENCHOICE><FORCENEXT>

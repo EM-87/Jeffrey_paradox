@@ -304,8 +304,10 @@ a great big carp<PAUSE 08>
 is coming here to
 <STR_COUNTRYNAME>, and
 <BTN>
-<MSGCLEAR><DEMONPC0 00000a><PAUSE 08>I wonder if we're
+<MSGCLEAR><DEMONPC0 00000a><PAUSE 08>I wonder if I'm
 allowed to eat it<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+You don't want it
+for yourself,<PAUSE 06> do you?
 <SETSELSTR2 00100018><BTN><OPENCHOICE><SETNEXTMSG0 27e8><SETNEXTMSG1 27e9><FORCENEXT>
 <MSGCONTINUE>
 

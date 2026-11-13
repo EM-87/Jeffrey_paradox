@@ -3346,6 +3346,96 @@ what goes in it: "The letters in the en build").
   side of the stall's box, LUCK, and the slips lie on its cloth, GOOD
   LUCK; the paper on the table's front reads HQ.
 
+## The text's questions and facts (the review after the signs)
+
+A pass over the whole text, before one build: the questions against the
+answers the cartridge's windows give, the facts (prices, dates, events,
+games), the empty slots, and the strings and letters the same way.
+
+- **Questions written for other answers.** The GameCube's game reads the
+  answers from its own message's codes, so its writers worded a question
+  for its own answers; the en build runs the cartridge's codes (`af_text`
+  mends every official message to them), and its windows offer the
+  cartridge's answers in the choice bank's English. 220 of the official
+  messages the draft takes from the GameCube offer other answers there
+  than on the cartridge (each message's SETSELSTR codes, the cartridge's
+  against the GameCube's, `build/gc/align.tsv`). Read one by one, with
+  the replies each answer leads to (SETNEXTMSG): most still fit; where a
+  question asks something the cartridge's answers don't answer, or a
+  reply answers another answer, ours from the cartridge's text
+  (`answers.txt`: 35 messages, three of them replies, 22 the quizzes'). Two of the
+  cartridge's answers mean two things in Japanese: 16 is a polite no and
+  also "fine by me", and where it leads to yes (a trade made, a villager
+  let go, the carp eaten) the question is asked so that no reads as yes;
+  183 is the fruit guess's pear, and the same word means "none" (the
+  question offers pears as the way out). The true-or-false quizzes are
+  answered with the cartridge's circle and cross (205 and 206, shared
+  with the shape games): each question says which is which. The eye
+  test's second letter is the cartridge's third answer, M.
+- **The answers themselves** (`script/choice/answers.txt`, 13): every
+  message that offers an answer read with it (`SETSELSTR` in the
+  cartridge's Japanese), and the answer worded for all of them: Nook's
+  menus' first answer asks today's turnip price (the GameCube used the
+  number for its own menu, with a submenu: on the cartridge it leads to
+  the price), one confirms a zodiac sign (the GameCube's is a greeting),
+  and eleven read wrongly in some of their messages (a "no" that read as
+  "you're wrong" to "is it yours?", "so-so" that read as "not many").
+  No window shows two answers of the same words after the change. The
+  answers the actors load themselves (the quest manager's, from its own
+  table: 5, 6, 66, 127-154, 362-366; no message offers them) are not
+  among them.
+- **Facts** (`house.txt`, `facts.txt`): Nook's remodels bill the
+  cartridge's 49,800 and 498,000 Bells (the shop master's
+  D_809CE6DC_jp), not the GameCube's sums for its own rooms, and ask yes
+  or no to a bigger house; after the second the house can get no bigger
+  (as the GameCube's later message says too). The spring sports fair on
+  April 20th, the fireworks next month (August): two more of the
+  GameCube's own dates ("The GameCube's own events"). Where the
+  GameCube has no text, the 2010 patch's English for six messages says
+  other things: a meteor shower for the harvest moon, Groundhog Day for
+  White Day (two), January for the bugs' winter, workouts for a bug
+  catcher's training, the Famicom for the disk system. A villager's game
+  before bed is the cartridge's monkey doing sums (DK Jr. Math), not one
+  the cartridge doesn't have; a villager reading a price on a card can
+  pay it (the GameCube's says he can't, and the answers go on as if he
+  could).
+- **The 2010 patch's travel messages** (`travel.txt`, `postoffice.txt`):
+  its English names a "Memory Pak" in 15 messages, and the station's
+  master's says other things than the cartridge's (a missing save where
+  the Pak holds another player's record, a broken Pak where it is full, a
+  repair where a write failed): ours from the cartridge's for all 15
+  and for the master's other four, the Controller Pak throughout.
+- **Empty and spare slots** (`blank.txt`, `spares.txt`): four messages
+  the cartridge prints nothing in (two end at once, two are empty pages
+  and the catchphrase) carried the GameCube's text (the Game Boy Advance
+  at the tailors') and the 2010 patch's (a bill): the cartridge's codes
+  now, no text. Ten spares the developers labelled carried the
+  GameCube's or the 2010 patch's text: labelled as ours are. The strings
+  1251-1257, empty on the cartridge, held the GameCube's characters'
+  names (its island's, museum's and tailors' folk, a mayor): empty
+  (`script/string/blank.txt`). Two letters the cartridge leaves empty
+  held the GameCube's daylight-saving notices: empty
+  (`script/mail_body/blank.txt`).
+- **Letters** (`script/mail_body/mom.txt`, `script/mail_footer/mom.txt`):
+  three of the mother's letters were the GameCube's own events (two
+  about Groundhog Day where the cartridge's are about Setsubun's beans,
+  one about a meteor shower where the cartridge's is the fireworks at the
+  big pond), and two of their footers, which carry the letter's
+  punchline, the GameCube's letter's.
+- **Left as they are.** A villager's line naming the station's monkey
+  in the zodiac quiz (the cartridge's station master is a monkey too);
+  the fortune teller's results, which the GameCube words its own way
+  but in the same spirit; NES for the cartridge's Famicom, as the
+  GameCube's English has it; loose wordings that still answer and
+  follow.
+- **Checks.** `af_text.py check` on the drafts with ours: 0 errors in
+  every bank, and no page of ours laid out anew for its width (a line
+  with the catchphrase is measured at the widest catchphrase).
+  `tests/test_tools.py` (OwnMessages, OwnStringsAndLetters) takes an
+  entry of ours that prints no text where the cartridge's prints none.
+  On screen: `make messages-check-en` shows ours' first pages and plays
+  through those with talk orders.
+
 ## Other emulators (ares, Project64, RetroArch, RMG and simple64)
 
 - **ares** (v148, `emu/ares/`: `build.sh` pins it and builds its N64 core

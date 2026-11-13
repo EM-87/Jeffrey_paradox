@@ -1712,3 +1712,45 @@ extra
 ## 11572
 extra
 <MSGEND>
+
+## 2010
+extra
+<MSGEND>
+
+## 2109
+Opening
+Extra
+<MSGEND>
+
+## 2110
+Opening
+Extra
+<MSGEND>
+
+## 11007
+extra
+<MSGEND>
+
+## 11008
+extra
+<MSGEND>
+
+## 11009
+extra
+<MSGEND>
+
+## 11010
+extra
+<MSGEND>
+
+## 11011
+extra
+<MSGEND>
+
+## 11012
+extra
+<MSGEND>
+
+## 11074
+extra
+<MSGEND>

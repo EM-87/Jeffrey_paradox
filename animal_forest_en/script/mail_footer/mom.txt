@@ -1,0 +1,10 @@
+# Our English for the footers of two of the mother's letters whose bodies are ours (script/mail_body/mom.txt,
+# Setsubun): the cartridge's footer is the letter's punchline, and the GameCube's for these numbers is the
+# punchline of its own letter. From the cartridge's text. tools/msgbank.py's dump form; `make script` lays
+# this over the mail_footer draft.
+
+## 358
+I just couldn't stop! ♥ Mom
+
+## 359
+That ogre was your dad! ♥ Mom

@@ -1117,7 +1117,8 @@ class OwnMessages(unittest.TestCase):
             seen |= set(ours)
             for n, tokens in ours.items():
                 self.assertLess(n, count)
-                self.assertTrue(af_nafe_text.english(tokens), n)
+                # English, or no text at all where the cartridge's prints none (blank.txt)
+                self.assertTrue(af_nafe_text.english(tokens) or not af_nafe_text.text_of(tokens).strip(), n)
                 # ends, codes the N64 has (the en build's carried ones as theirs), at most four lines a page
                 errors = [t for level, t in af_text.check_message(n, tokens, 32, 4, 0x600) if level == "error"]
                 self.assertEqual(errors, [], n)
@@ -1162,7 +1163,8 @@ class OwnStringsAndLetters(unittest.TestCase):
                                  (bank, n))
                 lines = msgbank.render(tokens).rstrip("\n").split("\n")
                 self.assertLessEqual(len(lines), 6, (bank, n))            # the board's six lines
-                self.assertTrue(af_nafe_text.english(tokens), (bank, n))
+                # English, or empty where the cartridge's letter is (blank.txt)
+                self.assertTrue(af_nafe_text.english(tokens) or not af_nafe_text.text_of(tokens).strip(), (bank, n))
 
 
 def save_like(seed=1):

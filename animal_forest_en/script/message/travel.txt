@@ -7,8 +7,12 @@
 # +10 a house torn down, +14 the town erased, +18/+19 a player remembered or new, +20/+38 the Controller
 # Pak pulled out, +22 a player home from travel, +24 a visitor, +30 getting ready, +33 the Pak not
 # written, +35 a second traveller home, +36/+37 copying or not). The notices in orange are the same
-# words in every set, as in the cartridge's. tools/msgbank.py's dump form, as ours.txt (its header says
-# how the build lays it over the bank and what af_text.py holds it to).
+# words in every set, as in the cartridge's. And where the GameCube has no text, the 2010 patch's English
+# says "Memory Pak" and, for the station's master, other things than the cartridge's (a missing save for
+# a Pak holding another player's record, a broken Pak for a full one, a repair for a failed write): ours
+# for those too, the station's master's (2373-2407) and three villagers on travel (2130, 2140, 2150).
+# tools/msgbank.py's dump form, as ours.txt (its header says how the build lays it over the bank and
+# what af_text.py holds it to).
 
 ## 2170
 #: a snooty villager on seeing the world, which takes the train and a Controller Pak
@@ -1295,4 +1299,241 @@ If you want to use the
 <COLORCHARS 198cdc0a>Controller,<PAUSE 08> and then
 start over from the
 beginning, darling.
+<MSGEND>
+
+## 2130
+#: a peppy villager on travelling by train, which takes a Controller Pak
+When you visit another
+town,<PAUSE 06> you take the train.<BTN>
+Go to the <COLORCHARS 4ba00007>station<PAUSE 04> and
+you can ride it,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR><DEMONPC0 000007>But,<PAUSE 06> without a
+<COLORCHARS 198cdc0e>Controller Pak,<PAUSE 04>
+they won't let you on,<PAUSE 06>
+<STR_TAIL>!<BTN>
+<MSGCLEAR>Don't forget to
+take it with you,<PAUSE 06> <STR_TAIL>!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>And when you visit a town,<PAUSE 06>
+write letters to the
+folks who live there!<PAUSE 0c>
+<STR_TAIL>!<BTN>
+<MSGCLEAR><DEMONPC0 000015>Secrets you can't put up<PAUSE 06>
+on the <COLORCHARS 4ba0000e>bulletin board<PAUSE 08>
+go in letters,<PAUSE 06> <STR_TAIL>!<BTN>
+<MSGCLEAR>I wish somebody<PAUSE 04>
+<DEMONPC0 000014>would write to me<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.
+<MSGEND>
+
+## 2140
+#: a lazy villager on friends in other towns, and the Controller Pak the train takes
+<DEMONPC0 0000ff>Do you have any friends<PAUSE 06>
+who live in another
+town,<PAUSE 04> not <STR_COUNTRYNAME>?<PAUSE 04>
+<DEMONPC0 00000b><STR_TAIL>?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>If you do,<PAUSE 08> you can go
+and play in the town
+where they live,<BTN>
+<MSGCLEAR>or have them come to<PAUSE 06>
+<STR_COUNTRYNAME> to play<PAUSE 04> instead!<PAUSE 06>
+<STR_TAIL>!<BTN>
+<MSGCLEAR>When you head off to
+another town,<BTN>
+you ride the train from<PAUSE 04>
+the <COLORCHARS 4ba00007>station,<PAUSE 06> <STR_TAIL>!<BTN>
+<MSGCLEAR>Bu<PAUSE 04>u<PAUSE 04>ut,<PAUSE 08>
+without a thing called a
+<COLORCHARS 198cdc0e>Controller Pak,<PAUSE 04> you can't
+ride the train!<PAUSE 06> <STR_TAIL>!<BTN>
+<MSGCLEAR>I bet<PAUSE 08> it's some
+kind of ticket,<PAUSE 06> <STR_TAIL>.
+<MSGEND>
+
+## 2150
+#: a jock villager on adventures in other towns, and the Controller Pak the train takes
+<DEMONPC0 0000ff>A real man's gotta go
+on adventures,<PAUSE 06> that's
+what I always say!<BTN>
+<MSGCLEAR>And the quickest adventure<PAUSE 08>
+is leaving the place<PAUSE 04>
+you call home,<PAUSE 06> right,<PAUSE 04>
+<STR_PLAYERNAME>?<BTN>
+<MSGCLEAR>You think so too,<PAUSE 06> huh?
+Then get yourself off
+to another town!<PAUSE 0c>
+<STR_TAIL>!<BTN>
+<MSGCLEAR><DEMONPC0 00000e>New places,<PAUSE 04>
+new faces!<BTN>
+<MSGCLEAR><DEMONPC0 000015>Whoooooa!!<PAUSE 08>
+Now that's a
+man's dream! <PAUSE 06><STR_TAIL>!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>To bust out of <STR_COUNTRYNAME><PAUSE 06>
+on an adventure,<BTN>
+you hop on the train<PAUSE 04> at
+the <COLORCHARS 4ba00007>station!<PAUSE 06> <STR_TAIL>!<BTN>
+<MSGCLEAR><DEMONPC0 000016>Bu<PAUSE 04>u<PAUSE 04>ut!<PAUSE 08>
+Without a thing called a
+<COLORCHARS 198cdc0e>Controller Pak,<PAUSE 04> you can't
+ride the train! <PAUSE 06><STR_TAIL>!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>A trip's must-have item,<PAUSE 08>
+the <COLORCHARS 198cdc0e>Controller Pak!<PAUSE 06>
+Don't forget it,<PAUSE 06> <STR_PLAYERNAME>!
+<MSGEND>
+
+## 2373
+#: the station's master, when the Controller Pak holds another player's record (the choice: maybe not, taking a trip)
+The <COLORCHARS 198cdc0e>Controller Pak<PAUSE 06>
+holds <STR_FREE1>'s
+record, eek.<BTN>
+<MSGCLEAR>If I go on like this,<PAUSE 08>
+<STR_FREE1>'s record on the
+<COLORCHARS 198cdc0e>Controller Pak
+will be erased, eek.<BTN>
+<MSGCLEAR>Will you still
+set off on your trip?<SETSELSTR2 00290062><BTN><OPENCHOICE><SETNEXTMSG0 0946><SETNEXTMSG1 0947><FORCENEXT>
+<MSGCONTINUE>
+
+## 2374
+#: the station's master, when the traveller won't erase it
+I see, eek.<PAUSE 04>
+You won't, then.<BTN>
+<MSGCLEAR>If you want to set off<PAUSE 08>
+right away,<PAUSE 06> connect another
+<COLORCHARS 198cdc0e>Controller Pak<BTN>
+<MSGCLEAR>and then talk to me<PAUSE 04>
+once more, eek.
+<MSGEND>
+
+## 2375
+#: the station's master, when the traveller will erase it
+So it's all right if
+<STR_FREE1>'s record<PAUSE 08>
+gets erased.<BTN>
+<MSGCLEAR>Then I'll go on<PAUSE 06> getting
+you ready, eek.<SETFORCEMSG 094b><BTN><FORCENEXT>
+<MSGCONTINUE>
+
+## 2376
+#: the station's master, when the Controller Pak lacks free space (the choice: yes, never mind)
+<DEMONPC0 000017>There isn't enough
+free space on the
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 06> for
+your trip, eek.<BTN>
+<MSGCLEAR>Would you like to tidy<PAUSE 04><DEMONPC0 00000b><PAUSE 02>
+up the <COLORCHARS 198cdc0e>Controller Pak?
+<SETSELSTR2 0003000d><SELNOB><BTN><OPENCHOICE><SETNEXTMSG0 094d><SETNEXTMSG1 094c>
+<FORCENEXT><DEMONPC0 0000ff>
+<MSGCONTINUE>
+
+## 2380
+#: the station's master, when the traveller won't tidy it up
+Then I'm afraid<PAUSE 04> you
+can't set off<PAUSE 06> on
+your trip, eek.<BTN>
+<MSGCLEAR>Please come back
+another time.<PAUSE 08>
+Eek<PAUSE 04>-eek!!
+<MSGEND>
+
+## 2381
+#: the station's master, after the traveller tidied it up
+So you gave it a try, eek.<PAUSE 0c>
+Then please wait
+a moment<PAUSE 02>.<PAUSE 02>.<PAUSE 02>.<SETFORCEMSG 094b><BTN><FORCENEXT>
+<MSGCONTINUE>
+
+## 2385
+#: the station's master, when the Controller Pak's notes are full (the choice: yes, never mind)
+<DEMONPC0 000017>The <COLORCHARS 198cdc0e>Controller Pak's
+notes are full,<PAUSE 06> eek.<BTN>
+<MSGCLEAR>Would you like to tidy<PAUSE 04><DEMONPC0 00000b><PAUSE 02>
+up the <COLORCHARS 198cdc0e>Controller Pak?
+<SETSELSTR2 0003000d><SELNOB><BTN><OPENCHOICE><SETNEXTMSG0 094d><SETNEXTMSG1 094c>
+<FORCENEXT><DEMONPC0 0000ff>
+<MSGCONTINUE>
+
+## 2386
+#: the station's master, when the Controller Pak is broken (the choice: yes, never mind)
+<DEMONPC0 000004><PAUSE 05>Eek-eek!!<PAUSE 14><DEMONPC0 0000ff>
+The <COLORCHARS 198cdc0e>Controller Pak
+seems to be broken, eek!<BTN>
+<MSGCLEAR>If I repair the
+<COLORCHARS 198cdc0e>Controller Pak,<PAUSE 06>
+its records might
+be lost, but...<BTN>
+<MSGCLEAR>shall I repair the
+<COLORCHARS 198cdc0e>Controller Pak?
+<SETSELSTR2 0003000d><SELNOB><BTN><OPENCHOICE><SETNEXTMSG0 0953><SETNEXTMSG1 0954><FORCENEXT><DEMONPC0 0000ff><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 2388
+#: the station's master, when the traveller won't have it repaired
+I see, eek.<BTN>
+<MSGCLEAR>I'm sorry,<PAUSE 08> but please
+connect another
+<COLORCHARS 198cdc0e>Controller Pak<BTN>
+<MSGCLEAR>and come back again.<PAUSE 0a>
+          Eek<PAUSE 04>-eek<PAUSE 02>-eek<PAUSE 02>!!
+<MSGEND>
+
+## 2389
+#: the station's master, the repair done
+The repair is done.<BTN>
+<MSGCLEAR>Now then,<PAUSE 06>
+I'll go on getting you
+ready to set off<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.<SETFORCEMSG 094b><BTN><FORCENEXT><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 2391
+#: the station's master, when the Controller Pak is pulled out in the middle
+<DEMONPC0 000002><PAUSE 08>Eek!!!<PAUSE 14><DEMONPC0 000016>
+You must not pull out
+the <COLORCHARS 198cdc0e>Controller Pak<PAUSE 06> in
+the middle of this, eek!!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Put it back in properly,<PAUSE 08>
+and then come and
+see me again.<PAUSE 0a>
+          Eek<PAUSE 02>-eek<PAUSE 02>-eek!!
+<MSGEND>
+
+## 2398
+#: the station's master, when no Controller Pak is connected
+<DEMONPC0 000004><PAUSE 05>Eek-eek!!<PAUSE 14><DEMONPC0 0000ff>
+Without a <COLORCHARS 198cdc0e>Controller Pak
+connected,<BTN>
+<MSGCLEAR>nobody may ride
+the train, eek!!<BTN>
+<MSGCLEAR>That's the rule<PAUSE 04> of this
+<COLORCHARS 4ba00007>station,<PAUSE 08> eek!!
+I'm sorry, eek.
+<MSGEND>
+
+## 2402
+#: the station's master, when the Controller Pak isn't the one the traveller came with
+Unless you use the
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 06> you
+came to <STR_COUNTRYNAME> with,
+<COLORCHARS c35f000e>just as it was,<BTN>
+<MSGCLEAR>you can't leave
+the town, eek!<BTN>
+<MSGCLEAR>I can't save onto another
+<COLORCHARS 198cdc0e>Controller Pak,<PAUSE 06> or one
+whose records were
+changed somewhere else!!<BTN>
+<MSGCLEAR>That's to stop people<PAUSE 08>
+<COLORCHARS 9114a509>smuggling goods,<PAUSE 06> eek!!<BTN>
+<MSGCLEAR>Plug the right one in,<PAUSE 08>
+and then come and
+see me again.
+          Eek<PAUSE 02>-eek<PAUSE 02>-eek!!
+<MSGEND>
+
+## 2407
+#: the station's master, when the Controller Pak couldn't be written
+<DEMONPC0 000002><PAUSE 08>Eek!!!<PAUSE 14><DEMONPC0 000016>
+I couldn't write to the
+<COLORCHARS 198cdc0e>Controller Pak.<BTN>
+<MSGCLEAR>Plug the <COLORCHARS 198cdc0e>Controller Pak
+back in,<PAUSE 08> and then
+come and see me again.<PAUSE 0a>
+          Eek<PAUSE 04>-eek<PAUSE 02>-eek<PAUSE 02>!!
 <MSGEND>

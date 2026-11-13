@@ -1,0 +1,101 @@
+# Our English for Tom Nook's remodeling of the player's house (4222-4226), from the cartridge's text. The
+# GameCube's English for these numbers bills its own house's prices (a bigger room and a basement, at
+# other sums) and asks which of its two it should build, while the cartridge's shop master bills 49,800
+# and 498,000 Bells (its D_809CE6DC_jp), says the house can get no bigger after the second, and asks
+# yes or no to a bigger one (4223; 4225 when the answer is no). tools/msgbank.py's dump form, as ours.txt
+# (its header says how the build lays it over the bank and what af_text.py holds it to).
+
+## 4222
+Welcome!<BTN>
+<MSGCLEAR>Your house's remodeling<PAUSE 04>
+is all done!<PAUSE 08>
+Have you seen it, hm?<BTN>
+<MSGCLEAR>I'm so glad your room
+got a little bigger,<PAUSE 06>
+yes, yes.<BTN>
+<MSGCLEAR>Now then,<PAUSE 04>
+about the cost of the
+remodeling<PAUSE 02>.<PAUSE 02>.<PAUSE 02>.<BTN>
+<MSGCLEAR>That will be
+49,800 Bells, please!<BTN>
+<MSGCLEAR><DEMONPC0 000004><PAUSE 05>Oh, but<PAUSE 08><DEMONPC0 0000ff>
+it doesn't have to be
+right now, hm.<BTN>
+<MSGCLEAR>Just pay it in at the
+<COLORCHARS 4ba0000b>post office<PAUSE 06> again,
+like before.<BTN>
+<MSGCLEAR><DEMONPC0 000015>Take your time<PAUSE 06>
+and pay it bit by bit,
+yes?<BTN><DEMONPC0 000015>
+<MSGCLEAR>And do keep coming
+to my store,<PAUSE 06> hm!
+<MSGEND>
+
+## 4223
+Well, well,<PAUSE 06>
+<STR_PLAYERNAME>!<BTN>
+<MSGCLEAR>Thank you for paying
+off the whole remodeling<PAUSE 04>
+bill, yes!<PAUSE 08>
+Thank you kindly!<BTN>
+<MSGCLEAR>And if you've paid
+it all off,<PAUSE 08><DEMONPC0 000015>
+could it be...?<BTN>
+<MSGCLEAR>You want to live in an
+even bigger room,<DEMONPC0 00000b><PAUSE 04> hm?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>A house any bigger than<PAUSE 04>
+that one would cost<PAUSE 06>
+quite a lot, you know.<BTN>
+<MSGCLEAR><DEMONPC0 00000b>Is that still all right?
+<SETSELSTR2 00df000d><SELNOB><BTN><OPENCHOICE><SETNEXTMSG0 1080><SETNEXTMSG1 1081><FORCENEXT>
+<MSGCONTINUE>
+
+## 4225
+<DEMONPC0 090001><DEMONPC0 0000ff>Oh, come now!<PAUSE 06>
+You don't mean that!<BTN><DEMONPC0 000015>
+<MSGCLEAR>You know perfectly well<PAUSE 06>
+nobody will say a thing
+if you never pay for
+the remodeling, hm!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Don't be shy,<PAUSE 06>
+let's remodel!<BTN>
+<MSGCLEAR>So,<PAUSE 08>
+what color would you
+like for the roof of
+your new house,<DEMONPC0 00000b> hm?<SETSELSTR4 00a100a200a300e0><BTN><OPENCHOICE><SETNEXTMSG0 1085><SETNEXTMSG1 1085><SETNEXTMSG2 1085><SETNEXTMSG3 1086><FORCENEXT><DEMONPC0 0000ff>
+<MSGCONTINUE>
+
+## 4226
+Welcome!<BTN>
+<MSGCLEAR>Your house's remodeling
+is all done!
+Have you seen it, hm?<BTN>
+<MSGCLEAR>It's a very big room<PAUSE 08>
+now, with space for
+lots and lots of
+furniture, yes!<BTN>
+<MSGCLEAR>Now then,<PAUSE 04>
+about the cost of the
+remodeling<PAUSE 02>.<PAUSE 02>.<PAUSE 02>.<BTN>
+<MSGCLEAR>That will be
+498,000 Bells, please!<BTN>
+<MSGCLEAR><DEMONPC0 000004><PAUSE 05>Oh, as you know,<PAUSE 08><DEMONPC0 0000ff>
+it doesn't have to be
+right now, hm.<BTN>
+<MSGCLEAR>Just pay it in at the
+<COLORCHARS 4ba0000b>post office.<BTN>
+<MSGCLEAR>And,<PAUSE 0c>
+just so you know,
+yes...<BTN>
+<MSGCLEAR>your house won't get<PAUSE 06>
+any bigger than that.<BTN>
+<MSGCLEAR>Even so,<PAUSE 06>
+what you buy<PAUSE 08>
+must be paid for,
+properly and fully.<BTN>
+<MSGCLEAR>That's how<PAUSE 04> the world
+works,<PAUSE 04> hm.<BTN>
+<MSGCLEAR>In any case,<PAUSE 06><DEMONPC0 000015>
+I do hope you'll keep
+shopping at my store!
+<MSGEND>

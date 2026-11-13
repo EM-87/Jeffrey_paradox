@@ -1,0 +1,355 @@
+# Our English for questions the GameCube's English asks for answers of its own: where the GameCube's game
+# offers other answers than the cartridge's (its choices are its message's own codes; the en build runs the
+# cartridge's), its question can ask for one the cartridge's window does not give (how a tourney goes,
+# answered with a plain yes), and its reply can answer one the player did not choose. From the cartridge's
+# text, so that the question asks what the cartridge's answers answer, and the reply follows the answer:
+#
+# - true or false: the cartridge's quizzes are answered with a circle or a cross (answers 205 and 206,
+#   which the shape games share): each question says which is which (2919-2929, 7313, 9322-9329);
+# - answer 16, a polite no in English, is also "fine by me" on the cartridge: where it leads to yes, the
+#   question is asked so that no reads as yes (6248, 7392, and 10176 in events.txt);
+# - answer 183 is the pear in the fruit guess, and the cartridge's word for it also means "none": the
+#   question offers pears as the way out (4974);
+# - the eye test's second letter is the cartridge's third answer, M (10672);
+# - a mealtime phrase said for a greeting (9702, 9707) is the cartridge's joke, which the answers play on;
+# - the replies 4008, 4009 and 9725 answer the cartridge's answers.
+#
+# tools/msgbank.py's dump form, as ours.txt (its header says how the build lays it over the bank and what
+# af_text.py holds it to).
+
+## 2777
+#: a snooty villager on her clothes (the choice: sure, it's OK I guess)
+<DEMONPCQST 020007>Don't you just love
+my sense of style?<SETSELSTR2 0044003b><BTN><OPENCHOICE><SETNEXTMSG0 0af3><SETNEXTMSG1 0af4><FORCENEXT>
+<MSGCONTINUE>
+
+## 10291
+#: a jock villager during the fishing tourney (the choice: sure, it's OK I guess)
+<DEMONPC0 000015>Hey,<PAUSE 06> <STR_PLAYERNAME>!<PAUSE 0c>
+Is the fishing<DEMONPC0 00000b> tourney
+going well for you?
+<SETSELSTR2 0044003b><BTN><OPENCHOICE><SETNEXTMSG0 2845><SETNEXTMSG1 2846><FORCENEXT>
+<MSGCONTINUE>
+
+## 3822
+#: a snooty villager on the player's room (the choice: perfect, kind of, no way)
+<DEMONPC0 000004><PAUSE 06>Oh,<PAUSE 06> by the way,<DEMONPC0 0000ff>
+<STR_PLAYERNAME>,<PAUSE 08> is your room
+<DEMONPC0 00000b>coming along nicely?<SETSELSTR3 00c6010300c5><BTN><OPENCHOICE><SETNEXTMSG0 2352><SETNEXTMSG1 2353><SETNEXTMSG2 2354><FORCENEXT>
+<MSGCONTINUE>
+
+## 4005
+#: a snooty villager who feels like leaving (the choice: kind of, I feel let down)
+<DEMONPC0 0000ff>Lately,<PAUSE 08> I just feel
+like drifting off
+somewhere far away<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<BTN><DEMONPC0 000017>
+<MSGCLEAR>It's not that I'm unhappy
+with life in <STR_COUNTRYNAME>,<PAUSE 0c>
+it's just a feeling,<PAUSE 06>
+<STR_TAIL>.<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Say,<PAUSE 08> <STR_PLAYERNAME>,<PAUSE 06>
+are you happy with
+<DEMONPC0 00000b>life in <STR_COUNTRYNAME>?<SETSELSTR2 01030104><BTN><OPENCHOICE><SETNEXTMSG0 0fa8><SETNEXTMSG1 0fa9><FORCENEXT>
+<MSGCONTINUE>
+
+## 4008
+#: her reply to "kind of"
+<DEMONPC0 0000ff>Hmm,<PAUSE 08> I see<PAUSE 08>.<PAUSE 08>.<PAUSE 08>.<BTN>
+<MSGCLEAR><DEMONPC0 000004><PAUSE 08>But really,<PAUSE 06> "kind of"?
+What kind of <DEMONPC0 000016>answer is that?<BTN>
+<MSGCLEAR>If you're happy,<PAUSE 08> say so!<PAUSE 08>
+If you're not,<PAUSE 08> say that!
+Just say it plainly!<BTN><DEMONPC0 000001>
+<MSGCLEAR>Honestly,<PAUSE 04><DEMONPC0 000016>
+you're so wishy-washy,<PAUSE 04>
+<STR_TAIL>!
+<MSGEND>
+
+## 4009
+#: her reply to "I feel let down"
+<DEMONPC0 000001>Wha<PAUSE 02>aaat?!<PAUSE 06> You
+feel "let down"?!<BTN><DEMONPC0 000005>
+<MSGCLEAR>If <STR_COUNTRYNAME> is like this,<PAUSE 08>
+it's because you don't
+pull your weight!<BTN><DEMONPC0 000016>
+<MSGCLEAR>Get it together!<PAUSE 08>
+Think how I feel,<PAUSE 06> living
+here all this time! <DEMONPC0 000001><PAUSE 04>Honestly!<PAUSE 08>
+<STR_TAIL>!!
+<MSGEND>
+
+## 5419
+#: a polite villager who forgets where she buried things (the choice: don't worry, maybe not)
+<DEMONPC0 000017>I like digging holes<PAUSE 06>
+to bury my things in,
+but...
+<BTN>
+<MSGCLEAR>I always forget where
+I buried them right away.
+<BTN>
+<MSGCLEAR>However often I check,
+I still forget,<PAUSE 06>
+<DEMONPC0 00000b>so will I be all right?<PAUSE 08>
+<STR_TAIL>?<SETSELSTR2 01300050><BTN><OPENCHOICE><SETNEXTMSG0 1538><SETNEXTMSG1 1539><FORCENEXT>
+<MSGCONTINUE>
+
+## 8043
+#: a jock villager at winter's end (the choice: maybe, that's not true)
+<DEMONPC0 0000ff>Bet you were bored
+all winter with no
+bugs to catch,<PAUSE 08> huh,<PAUSE 06>
+<STR_PLAYERNAME>?<SETSELSTR2 011e0128><BTN><OPENCHOICE><SETNEXTMSG0 1f77><SETNEXTMSG1 1f78><FORCENEXT>
+<MSGCONTINUE>
+
+## 8110
+#: a jock villager on rainy nights (the choice: nothing, kind of)
+<DEMONPC0 000015>I kinda like
+rainy nights,<PAUSE 08>
+<STR_TAIL>.
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>It feels like the night<PAUSE 06>
+before a big final!<PAUSE 0c>
+Doesn't it do something
+for you,<PAUSE 03> <STR_PLAYERNAME>?!<SETSELSTR2 01750103><BTN><OPENCHOICE><SETNEXTMSG0 26d0><SETNEXTMSG1 26d3><FORCENEXT>
+<MSGCONTINUE>
+
+## 8267
+#: a lazy villager who wants the player's item (the choice: maybe, that's not true)
+<DEMONPCQST 050005><DEMONPCQST 020001><DEMONPC0 000004><PAUSE 05>Oh!<PAUSE 10>
+<DEMONPC0 000015>You've got <STR_ITEM0>!<PAUSE 0c>
+You sure have
+style,<PAUSE 04> huh?
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>Hey,<PAUSE 06> <STR_PLAYERNAME>.<PAUSE 0c>
+Is that <CUTARTICLE><STR_ITEM0><PAUSE 06>
+<DEMONPC0 00000b><PAUSE 02>really precious to you?
+<SETSELSTR2 011e0128><BTN><OPENCHOICE><SETNEXTMSG0 2059><SETNEXTMSG1 2058><FORCENEXT>
+<MSGCONTINUE>
+
+## 9702
+#: a shy villager who says a mealtime phrase for hello (the choice: hi, it was delish)
+<DEMONPC0 00000a><PAUSE 08>On a nice day like this,<PAUSE 08>
+even a shy guy like me<PAUSE 06>
+feels like he could say
+a big hello<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<BTN>
+<MSGCLEAR><DEMONPC0 000005><PAUSE 0e><COLORCHARS e11ed70a><CHARSCALE 2d>L<CHARSCALE 2d>e<CHARSCALE 2d>t<CHARSCALE 2d>'<CHARSCALE 2d>s <CHARSCALE 2d>e<CHARSCALE 2d>a<CHARSCALE 2d>t<CHARSCALE 2d>!
+<SETSELSTR2 003f0167><BTN><OPENCHOICE><SETNEXTMSG0 25fd><SETNEXTMSG1 25fe><FORCENEXT>
+<MSGCONTINUE>
+
+## 9725
+#: his reply to "Hi!"
+<DEMONPCQST 050005><DEMONPC0 000004><PAUSE 05>Oh,<PAUSE 06> that's right.<PAUSE 0c>
+<DEMONPC0 0000ff>At this time of day<PAUSE 06>
+it's "hello,"<PAUSE 06> isn't it,
+<STR_TAIL>.
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>I almost forgot.<PAUSE 0c>
+Thanks for reminding me,<PAUSE 06>
+<STR_PLAYERNAME>.
+<MSGEND>
+
+## 9707
+#: a shy villager who says a mealtime phrase for good evening (the choice: evenin', you're welcome)
+<DEMONPC0 000015>I'd at least like to get
+my greetings right,<PAUSE 06>
+<STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000005><PAUSE 0e><COLORCHARS e11ed70d><CHARSCALE 2d>T<CHARSCALE 2d>h<CHARSCALE 2d>a<CHARSCALE 2d>n<CHARSCALE 2d>k<CHARSCALE 2d>s<CHARSCALE 2d>, <CHARSCALE 2d>c<CHARSCALE 2d>h<CHARSCALE 2d>e<CHARSCALE 2d>f<CHARSCALE 2d>!
+<SETSELSTR2 00400168><BTN><OPENCHOICE><SETNEXTMSG0 25ff><SETNEXTMSG1 2600><FORCENEXT>
+<MSGCONTINUE>
+
+## 11448
+#: a peppy villager who lost the guessing game again (the choice: I forgive you, no way)
+<DEMONPCQST 02000e><DEMONPC0 000004><PAUSE 05>No way!<PAUSE 06> Right again!<PAUSE 0c><DEMONPC0 0000ff>
+I just can't beat you,
+<STR_PLAYERNAME>!<BTN>
+<MSGCLEAR>I'll buy it for <STR_FREE19> Bells,
+so will you forgive me?<SETSELSTR2 00230018><BTN><OPENCHOICE><SETNEXTMSG0 2cb9><SETNEXTMSG1 2cba><FORCENEXT>
+<MSGCONTINUE>
+
+## 6248
+#: a lazy villager who wants to trade for the player's clothes (the choice: no thanks, sorry; no thanks trades)
+<DEMONPCQST 020007><DEMONPC0 000002><PAUSE 07>Whoa!<PAUSE 04>
+<STR_PLAYERNAME>,<PAUSE 04> is that
+<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 0c>
+<STR_ITEM0> you've got?
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>It's so big!<PAUSE 0c>
+I've never seen
+<STR_ITEM0> that big,<PAUSE 08>
+<STR_TAIL>!
+<BTN>
+<MSGCLEAR><PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06><DEMONPC0 000007><PAUSE 05>Pleeease.<PAUSE 06>
+Pretty please<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.
+<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>Trade it for my<PAUSE 06>
+<CUTARTICLE><STR_ITEM1>,<PAUSE 06> it's too small
+for me now!<PAUSE 08> Or do you
+wanna keep yours?<SETSELSTR2 00100056><BTN><OPENCHOICE><SETNEXTMSG0 186d><SETNEXTMSG1 186e><FORCENEXT>
+<MSGCONTINUE>
+
+## 7392
+#: a jock villager thinking of moving away (the choice: no thanks, that won't do; no thanks lets him go)
+<DEMONPC0 000017>Truth is,<PAUSE 0a> one of
+these days I'm thinking
+of moving to another
+town<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>But if you ask me
+not to go,<PAUSE 06> <STR_PLAYERNAME>,<PAUSE 0c>
+I might think it over,<PAUSE 06>
+<STR_TAIL>!
+<BTN>
+<MSGCLEAR><DEMONPC0 000016>So,<PAUSE 06> <STR_PLAYERNAME>?<PAUSE 0c>
+I'm off to another town!
+Or do you wanna
+stop me?<SETSELSTR2 00100067><BTN><OPENCHOICE><SETNEXTMSG0 1ce2><SETNEXTMSG1 1ce3><FORCENEXT>
+<MSGCONTINUE>
+
+## 4974
+#: a polite villager offering to show a friend's letter (the choice: just a little, pear; pear is "none")
+<DEMONPC0 0000ff>Are you interested<PAUSE 06>
+in my friends at all?
+Or are pears more
+your thing?<PAUSE 08> <STR_TAIL>?<SETSELSTR2 001e00b7><BTN><OPENCHOICE><SETNEXTMSG0 1378><SETNEXTMSG1 1379><FORCENEXT>
+<MSGCONTINUE>
+
+## 10672
+#: a snooty villager's eye test, its second letter (the right answer is the third, M)
+<DEMONPC0 0000ff>That one was just
+a little joke.<BTN>
+Now for the real test.<PAUSE 08>
+What's this?<BTN>
+<MSGCLEAR>   <LINEOFS 8c><CHARSCALE 10>M<SETSELSTR4 01a301a401a501a6><BTN><OPENCHOICE><SETNEXTMSG2 29b2><SETNEXTMSG0 29b1><SETNEXTMSG1 29b1><SETNEXTMSG3 29b1><FORCENEXT>
+<MSGCONTINUE>
+
+## 2919
+#: a snooty villager's quiz (true or false: circle or X)
+The <COLORCHARS 4ba0000b>post office<PAUSE 08> clerk
+who works at night
+is named Pelly.<PAUSE 08>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG0 0b65><SETNEXTMSG1 0b64><FORCENEXT>
+<MSGCONTINUE>
+
+## 2920
+#: the quiz
+My catchphrase<PAUSE 08> is
+"<STR_TAIL>."<PAUSE 08>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG0 0b64><SETNEXTMSG1 0b65><FORCENEXT>
+<MSGCONTINUE>
+
+## 2921
+#: the quiz
+The sign on the wall by
+Nook's store<PAUSE 08> is an ad
+for Pon Curry.<PAUSE 08>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG0 0b65><SETNEXTMSG1 0b64><FORCENEXT>
+<MSGCONTINUE>
+
+## 2922
+#: the quiz
+Joan,<PAUSE 04> who sells turnips,
+comes to town<PAUSE 08>
+only on Sundays.<PAUSE 08>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG0 0b64><SETNEXTMSG1 0b65><FORCENEXT>
+<MSGCONTINUE>
+
+## 2924
+#: the quiz
+The <COLORCHARS 4ba0000e>police station<PAUSE 04> keeps
+up to 15 lost items<PAUSE 08>
+for their owners.<PAUSE 08>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG0 0b65><SETNEXTMSG1 0b64><FORCENEXT>
+<MSGCONTINUE>
+
+## 2925
+#: the quiz
+The stairs up to
+<STR_COUNTRYNAME>'s <COLORCHARS 4ba00007>station<PAUSE 08>
+have 4 steps.<PAUSE 08>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG0 0b64><SETNEXTMSG1 0b65><FORCENEXT>
+<MSGCONTINUE>
+
+## 2926
+#: the quiz
+Katrina,<PAUSE 04> the fortune
+teller,<PAUSE 08> charges 100 Bells
+for each reading.<PAUSE 08>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG0 0b65><SETNEXTMSG1 0b64><FORCENEXT>
+<MSGCONTINUE>
+
+## 2927
+#: the quiz
+I usually wake up<PAUSE 08>
+around 9 in the
+morning.<PAUSE 08>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG0 0b64><SETNEXTMSG1 0b65><FORCENEXT>
+<MSGCONTINUE>
+
+## 2929
+#: the quiz
+The scarf Gracie,<PAUSE 04> the
+designer,<PAUSE 04> wears around
+her neck<PAUSE 08> is red.<PAUSE 08>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG0 0b65><SETNEXTMSG1 0b64><FORCENEXT>
+<MSGCONTINUE>
+
+## 7313
+#: a jock villager's quiz (true or false: circle or X)
+<DEMONPCQST 020008><DEMONPC0 0000ff>I worked out yesterday.<PAUSE 10>
+<DEMONPC0 00000b><PAUSE 03>Circle: true! X: false!
+<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG0 1c94><SETNEXTMSG1 1c97><FORCENEXT>
+<MSGCONTINUE>
+
+## 9322
+#: a snooty villager's quiz for a reward (true or false: circle or X)
+<DEMONPCQST 090002>Of the twelve zodiac
+animals,<PAUSE 04> the Dog<PAUSE 06> is
+number <STR_ITEM0>.<PAUSE 0c>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG0 2476><SETNEXTMSG1 2472><FORCENEXT>
+<MSGCONTINUE>
+
+## 9323
+#: the quiz for a reward
+Garbage in <STR_COUNTRYNAME><PAUSE 04>
+gets picked up<PAUSE 06> on
+Mondays and Thursdays.<PAUSE 0c>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG1 2476><SETNEXTMSG0 2472><FORCENEXT>
+<MSGCONTINUE>
+
+## 9324
+#: the quiz for a reward
+You can catch fish<PAUSE 04>
+in the sea<PAUSE 04> down by
+the F acres.<PAUSE 0c>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG1 2476><SETNEXTMSG0 2472><FORCENEXT>
+<MSGCONTINUE>
+
+## 9325
+#: the quiz for a reward
+<DEMONPCQST 070001>On the old calendar,<PAUSE 06>
+today is <STR_FREE15> <STR_FREE16>.<PAUSE 0c>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG1 2476><SETNEXTMSG0 2472><FORCENEXT>
+<MSGCONTINUE>
+
+## 9326
+#: the quiz for a reward
+A sapling grows<PAUSE 04> big
+wherever you plant it.<PAUSE 0c>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG0 2476><SETNEXTMSG1 2472><FORCENEXT>
+<MSGCONTINUE>
+
+## 9327
+#: the quiz for a reward
+My catchphrase<PAUSE 06> right now
+is "<STR_TAIL>."<PAUSE 0c>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG1 2476><SETNEXTMSG0 2472><FORCENEXT>
+<MSGCONTINUE>
+
+## 9329
+#: the quiz for a reward
+<DEMONPCQST 090002><STR_ITEM3><PAUSE 04> is closed
+every <STR_WEEK>.<PAUSE 0c>
+Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG0 2476><SETNEXTMSG1 2472><FORCENEXT>
+<MSGCONTINUE>

@@ -1,5 +1,7 @@
 # Our own English for the post office's messages about the Controller Pak the bank still had in
-# Japanese (7125 to 7142): it cannot be read, its notes are full, it is broken and repaired. Two
+# Japanese (7125 to 7142): it cannot be read, its notes are full, it is broken and repaired; and the two
+# that say a Controller Pak is needed to keep letters (2279, 2280), where the 2010 patch's English says
+# "Memory Pak" and that it cannot be read. Two
 # clerks take turns, a polite one by day and a curt one by night, whose asides go in grey (as the
 # GameCube's English has them). tools/msgbank.py's dump form, as ours.txt (its header says how the
 # build lays it over the bank and what af_text.py holds it to).
@@ -174,4 +176,29 @@ the <COLORCHARS 198cdc0e>Controller Pak!<BTN><DEMONPC0 0000ff>
 could you check the
 connection and try again?<PAUSE 08>
 <TEXTCOLOR 969696><SNDCUT 00>(Do it right, already!)<SNDCUT 01>
+<MSGCONTINUE>
+
+## 2279
+#: the polite clerk: keeping letters takes a Controller Pak
+<DEMONPC0 0000ff>To keep your letters,<PAUSE 08>
+<DEMONPC0 000017>you'll need a
+<COLORCHARS 198cdc0e>Controller Pak.<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>I'm very sorry,<PAUSE 08> but
+please insert a
+<COLORCHARS 198cdc0e>Controller Pak<DEMONPC0 000015><PAUSE 08>
+and come back again.
+<MSGCONTINUE>
+
+## 2280
+#: the curt clerk: keeping letters takes a Controller Pak
+<DEMONPC0 00000f>Huh?<PAUSE 08> There's no
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 04> in there.<PAUSE 10>
+Nope,<PAUSE 06> can't do it.<BTN>
+<MSGCLEAR><DEMONPC0 000016>If you want me to keep<PAUSE 0c>
+letters,<PAUSE 04> put in a
+<COLORCHARS 198cdc0e>Controller Pak<PAUSE 08>
+and come back,<PAUSE 04> OK?<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>Sorry to put you
+through all this.<PAUSE 08>
+<TEXTCOLOR 969696><SNDCUT 00>(It's common sense!)<SNDCUT 01>
 <MSGCONTINUE>

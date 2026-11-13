@@ -1,0 +1,32 @@
+# The cartridge's messages that print no text: 2526 and 4327 end at once, 9452 and 9453 are three empty
+# pages and the talking animal's catchphrase. The English the build would otherwise take for these
+# numbers, the GameCube's (a villager picking up a conversation, the Game Boy Advance and its cable at the
+# tailors') and the 2010 patch's (the remodeling's bill), says things the cartridge's game never does;
+# these keep the cartridge's codes and print what it prints. tools/msgbank.py's dump form, as ours.txt
+# (its header says how the build lays it over the bank and what af_text.py holds it to).
+
+## 2526
+<MSGEND>
+
+## 4327
+<MSGEND>
+
+## 9452
+<DEMONPC0 0000ff>
+<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>
+<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>
+<BTN>
+<MSGCLEAR><PAUSE 08><STR_TAIL>
+<MSGEND>
+
+## 9453
+<DEMONPC0 0000ff>
+<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>
+<BTN>
+<MSGCLEAR><DEMONPC0 0000ff>
+<BTN>
+<MSGCLEAR><PAUSE 08><STR_TAIL>
+<MSGEND>

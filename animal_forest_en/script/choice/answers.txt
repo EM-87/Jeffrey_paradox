@@ -1,0 +1,51 @@
+# Our own English for answers whose GameCube words answer another question than the cartridge's messages
+# ask with them: the GameCube gave some numbers other uses, or worded them for its own messages, which
+# offer other answers. Each is worded for every message of the cartridge's that offers it (the cartridge's
+# SETSELSTR codes; a window never shows two of the same words):
+#
+# 9 Nook's menus' first answer asks today's turnip price; 47, 54, 105 "tell me", "once more" and "I
+# know" as every question that offers them asks; 65 confirms a zodiac sign; 196, 237, 259, 304 a plain
+# no, nah, so-so and "it'll be fine"; 248 asks K.K. and a singer to play; 287 says a meal won't warm one
+# up; 355 owns up; 432 a number or an outfit is small.
+#
+# tools/msgbank.py's dump form, one line each; make script lays them over the choice bank's draft by
+# number.
+
+## 9
+Turnip prices?
+
+## 47
+Tell me!
+
+## 54
+Once more!
+
+## 65
+You got it!
+
+## 105
+I know!
+
+## 196
+Nope!
+
+## 237
+Nah...
+
+## 248
+Let me hear it!
+
+## 259
+Kind of...
+
+## 287
+That won't help!
+
+## 304
+Don't worry!
+
+## 355
+Oops, I did...
+
+## 432
+Small!

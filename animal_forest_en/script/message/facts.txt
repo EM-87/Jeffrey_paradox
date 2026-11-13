@@ -1,0 +1,136 @@
+# Our English where the English the build would otherwise take, the GameCube's or the 2010 patch's, says
+# something else than the cartridge's message: a date (the spring sports fair is on April 20th, the
+# fireworks come in August), an event of the GameCube's own (a meteor shower for the harvest moon, its
+# Groundhog Day for White Day), a game the cartridge's villagers don't have (the GameCube's has more NES
+# games), a winter's talk turned into another, a price a villager can pay read as one he cannot. From the
+# cartridge's text; tools/msgbank.py's dump form, as ours.txt (its header says how the build lays it over
+# the bank and what af_text.py holds it to).
+
+## 2963
+#: a snooty villager on the spring sports fair, April 20th
+<DEMONPC0 0000ff>The spring sports fair
+is coming up soon.<PAUSE 08>
+<DEMONPC0 00000b>Are you going?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR><DEMONPC0 000017>Me,<PAUSE 08> I find moving
+around such a drag<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 0f>
+Maybe it's my low blood
+pressure,<PAUSE 0c> <STR_TAIL>?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>I hear it's on April 20th<PAUSE 08>
+again this year,
+same as last year.<BTN><DEMONPC0 000015>
+<MSGCLEAR>Watching won't tire me out,<PAUSE 08>
+so maybe I'll go and
+take a little peek,<PAUSE 06> <STR_TAIL>.
+<MSGEND>
+
+## 6152
+#: a snooty villager on the fireworks show, next month
+<DEMONPC0 00000e>The fireworks show that
+blows the summer heat
+away<PAUSE 06> is finally coming
+next month!
+<BTN>
+<MSGCLEAR>My heart's racing
+already!<PAUSE 08>
+<STR_TAIL>!
+<MSGEND>
+
+## 4524
+#: a polite villager on the harvest moon's viewing
+<DEMONPC0 0000ff>Did you know the moon<PAUSE 06>
+viewing is on the 15th
+of the old 8th month,<PAUSE 0a>
+<STR_FREE16> <STR_FREE17>?
+<BTN>
+<MSGCLEAR><DEMONPC0 00000a>It's called the harvest
+moon,<PAUSE 06> the night the moon
+is loveliest all year!<PAUSE 08>
+<STR_TAIL>!
+<BTN>
+<MSGCLEAR>I hear it's by the pond
+again this year,<PAUSE 06>
+so please do come,
+won't you?
+<MSGEND>
+
+## 6131
+#: a peppy villager on White Day's cookies
+<DEMONPC0 000015>Chocolate or cookies?<PAUSE 06>
+For me it's cookies,
+no contest!
+<BTN>
+<MSGCLEAR>It's just my taste,<PAUSE 06> but
+on White Day,<PAUSE 04> I'm always
+glad I was born a girl,<PAUSE 08>
+<STR_TAIL>!
+<BTN>
+<MSGCLEAR><STR_PLAYERNAME>,<PAUSE 06>
+do you know<PAUSE 06>
+<DEMONPC0 00000b>what I mean? <PAUSE 08><STR_TAIL>?
+<MSGEND>
+
+## 6132
+#: a peppy villager on White Day coming
+<DEMONPC0 000002>Oh,<PAUSE 06> that reminds me,
+White Day is almost here!
+<BTN>
+<MSGCLEAR><DEMONPC0 00000a>I wonder what kind of
+gifts I'll get back
+this year?<PAUSE 08> <STR_TAIL>?
+<MSGEND>
+
+## 8054
+#: a jock villager on winter without bugs
+<DEMONPC0 000017>With the bugs gone lately,<PAUSE 06>
+you're not thinking
+there's nothing to do,
+are you? <PAUSE 06><STR_TAIL>?
+<BTN>
+<MSGCLEAR><DEMONPC0 00000e>Well, don't worry,
+<PAUSE 06><STR_PLAYERNAME>!<PAUSE 10>
+There are fish in winter,<PAUSE 08>
+and everybody in <STR_COUNTRYNAME>!
+<BTN>
+<MSGCLEAR>And best of all,<PAUSE 08>
+<DEMONPC0 000012><PAUSE 14>you've got me!
+<MSGEND>
+
+## 8056
+#: a jock villager itching for the bugs to come back
+<DEMONPCQST 050067><DEMONPC0 000007><PAUSE 05>All winter long,<PAUSE 08> I've
+been itching to see
+what my training can do!
+<BTN>
+<MSGCLEAR><DEMONPC0 000016>The way I am now,<PAUSE 08>
+I feel like I could
+catch any bug there is!<PAUSE 08>
+<STR_TAIL>!
+<MSGEND>
+
+## 10678
+#: a villager choosing a game before bed: the monkey doing sums (DK Jr. Math)
+Maybe I'll play the one
+where the little monkey<PAUSE 06>
+does arithmetic.<BTN><DEMONPC0 00000f>
+<MSGCLEAR><PAUSE 08>But that one's<PAUSE 06>
+no fun unless
+two people play.<BTN><DEMONPC0 000015>
+<MSGCLEAR>It makes me think so hard<PAUSE 06>
+I get tired,<PAUSE 04> and then
+I sleep well,<PAUSE 04> <STR_TAIL>.<SETFORCEMSG 29b9>
+<MSGCONTINUE>
+
+## 11113
+#: the disk system without any disks
+<TEXTCOLOR 4b1e14>I'd like to play the
+<COLORCHARS 324be10b>disk system<TEXTCOLOR 4b1e14>,<PAUSE 04> but
+<TEXTCOLOR 4b1e14>I don't have any disks.
+<MSGEND>
+
+## 11507
+#: a villager reading the price on the card the player picked: he can pay that much (the choice: that's fine, once more)
+<DEMONPC0 00000f><PAUSE 17>Hmm<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 06>
+<DEMONPC0 0000ff>This much,<PAUSE 0c>
+even I can pay.
+<SETSELSTR2 00280036><BTN><OPENCHOICE><SETNEXTMSG0 2cfb><SETNEXTMSG1 2cfc><FORCENEXT>
+<MSGCONTINUE>
