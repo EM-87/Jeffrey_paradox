@@ -3168,7 +3168,9 @@ what goes in it: "The letters in the en build").
   answer, the last for a question asked twice before). Every page's text
   (the window's message data) and every answer (mChoice_en_strings) is
   read: no kana or kanji, no item or name token left. Each date runs in
-  a process of its own.
+  a process of its own. On the en ROM with the fixes below, every date
+  passes (159 checks, no hang); the villagers who walk off before the
+  player reaches them are the ones not talked to.
 - **December hung the game.** The greeter at power-on says the date
   (message 5146 and the other greeters', STR_MONTH): on 24 and 31
   December no frame came after the line before it, the CPU in the idle
