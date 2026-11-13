@@ -231,6 +231,30 @@ def write_ci4_png(path, ci4, w, h):
     open(path, "wb").write(out)
 
 
+def put(en, parts, at, old, new, w, h, tool="af_gc_signs"):
+    """new over the en tree's copy of the object's texture at offset at (old, the cartridge's): the part
+    holding it (object_parts: its PNG, or the unextracted .bin) must hold the cartridge's texels or new
+    already."""
+    part = next((p for p in parts if p[0] <= at and (p[1] is None or at + len(new) <= p[1])), None)
+    if part is None:
+        raise SystemExit("%s: no part of the en tree's object holds %#x" % (tool, at))
+    start, _, kind, path = part
+    path = os.path.join(en, path)
+    if kind == "png":
+        held = read_ci4_png(path) if start == at else None
+        if held not in (old, new):
+            raise SystemExit("%s: %s is not the cartridge's texture at %#x" % (tool, path, at))
+        if held != new:
+            write_ci4_png(path, new, w, h)
+    else:
+        data = bytearray(open(path, "rb").read())
+        if data[at - start:at - start + len(new)] not in (old, new):
+            raise SystemExit("%s: %s does not hold the cartridge's texture at %#x" % (tool, path, at))
+        if data[at - start:at - start + len(new)] != new:
+            data[at - start:at - start + len(new)] = new
+            open(path, "wb").write(bytes(data))
+
+
 def palette_words(data_s, name):
     """(the 16 entries the data's label name holds, the span of its eight .word values in the text)."""
     m = re.search(r"dlabel %s\n((?:.*\.word 0x[0-9A-Fa-f]{8}\n){8})enddlabel %s\n" % (name, name), data_s)
@@ -298,24 +322,7 @@ def main(argv):
             if not agree * w * h <= same < w * h:
                 raise SystemExit("af_gc_signs: %s (%s) and the cartridge's at %#x agree on %d of %d texels" % (
                     name, what, at, same, w * h))
-            part = next((p for p in parts if p[0] <= at and (p[1] is None or at + len(new) <= p[1])), None)
-            if part is None:
-                raise SystemExit("af_gc_signs: no part of the en tree's object holds %#x" % at)
-            start, _, kind, path = part
-            path = os.path.join(en, path)
-            if kind == "png":
-                held = read_ci4_png(path) if start == at else None
-                if held not in (old, new):
-                    raise SystemExit("af_gc_signs: %s is not the cartridge's texture at %#x" % (path, at))
-                if held != new:
-                    write_ci4_png(path, new, w, h)
-            else:
-                data = bytearray(open(path, "rb").read())
-                if data[at - start:at - start + len(new)] not in (old, new):
-                    raise SystemExit("af_gc_signs: %s does not hold the cartridge's texture at %#x" % (path, at))
-                if data[at - start:at - start + len(new)] != new:
-                    data[at - start:at - start + len(new)] = new
-                    open(path, "wb").write(bytes(data))
+            put(en, parts, at, old, new, w, h)
             copies += 1
         count += 1
     data_path = os.path.join(en, PALETTE_DATA)

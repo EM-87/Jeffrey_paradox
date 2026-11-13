@@ -167,6 +167,15 @@ the why and the state, `reference/NOTES.md` for what is verified.
   unextracted .bin), every copy, and the black market's palette into
   object_00D5B000's data; each checked against the cartridge's lists and
   texels (NOTES, "The GameCube's signs").
+- `tools/af_own_signs.py` — the structures' words no English redrew,
+  drawn by us (ASCII grids in the tool, in each texture's own palette
+  indices): the fireworks stall's banner and cards, the police box's
+  notice board (summer and winter), the fishing tourney headquarters'
+  sign, the fortune stall's plaque and slips; the kana cleaned off from
+  the user's dump (a cloth or paper: each ink texel the nearest of its
+  row that is not ink) or the face painted its ground, at `make rom-en`
+  after af_gc_signs (the same .bin); each texture and palette checked by
+  md5 (NOTES, "Our own signs").
 - `tools/af_menu_tex.py` — the word textures the 2010 patch left in
   Japanese: the town tune's note names (the GameCube's letters, from the
   disc), the birthday's month and day, the catchphrase window's quotes
@@ -245,9 +254,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   papers' words in the ROM); the title's warning without a controller,
   forced at the title, each line measured as the swapped strings are:
   `make menus-check-en`),
-  `emu_signs.py` (the GameCube's signs in the en ROM, every copy, and in
-  RAM once the structures' clip sets each structure up by the player,
-  the cartridge's gone: `make signs-check-en`),
+  `emu_signs.py` (the GameCube's signs and ours in the en ROM, every
+  copy, and in RAM once the structures' clip sets each structure up by
+  the player, the cartridge's gone: `make signs-check-en`),
   `emu_psel.py` (the player-select actor's choices from power-on with a
   saved town of one, two and four players, made from the houses' state:
   which player plays, whose house to remove, each choice's answers read in RAM

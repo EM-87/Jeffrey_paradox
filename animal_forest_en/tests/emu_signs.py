@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The signs the GameCube's English redrew, in the en build's ROM and in the running game.
+"""The signs the GameCube's English redrew and ours, in the en build's ROM and in the running game.
 
     tests/emu_signs.py EMU_DIR EN_ROM AF_EN_DIR STATE OUT_DIR [--gc GC_DIR]
 
@@ -9,13 +9,21 @@ sign's every copy in EN_ROM's object (its file through the dmadata) differs
 from the cartridge's (build/baserom.z64, beside AF_EN_DIR) and, with
 --gc (build/gc: the disc's foresta.map and foresta.rel.szs), is the
 GameCube's texture laid out as the N64's; and so the palette the GameCube
-changed. Then the game: STATE is a state of EN_ROM in play (make route-en's
-4-houses.st); for each structure with a sign (STRUCTURES), a hook asks the
-structures' clip to set it up 170 units south of the player, as the field
-sets one up (its setupActorProc: the profile, the object's part and the
-palette loaded), until it is made; then the structure's signs are in RAM as
-the en build has them, and the cartridge's are not, and the black market's
-palette as the GameCube has it. The houses' name plates come with a
+changed; and our own (tools/af_own_signs.py: the fireworks stall's banner
+and cards, the police box's notice board in summer and in winter, the
+fishing tourney headquarters' sign, the fortune stall's plaque and slips;
+NOTES, "Our own signs") are the textures the tool makes from the
+cartridge's, every copy. Then the game: STATE is a state of EN_ROM in play
+(make route-en's 4-houses.st); for each structure with a sign
+(STRUCTURES), a hook asks the structures' clip to set it up 170 units
+south of the player, as the field sets one up (its setupActorProc: the
+profile, the object's part and the palette loaded), until it is made;
+then the structure's signs are in RAM as the en build has them, and the
+cartridge's are not, and the black market's palette as the GameCube has
+it; and so our own: the police box's board,
+the fireworks stall's two, the headquarters' sign with the tourney's
+stall, the fortune stall's two (the clip sets the events' structures up
+out of their seasons as well). The houses' name plates come with a
 villager's house, which the route's town does not put by the player: the
 ROM's check only. The route's town is in summer (no snow): the summer
 copies are the ones loaded. Writes a screenshot of each structure, and a
@@ -34,6 +42,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 from n64emu import N64  # noqa: E402
 import af_font  # noqa: E402
 import af_gc_signs  # noqa: E402
+import af_own_signs  # noqa: E402
 import contact  # noqa: E402
 import emu_save  # noqa: E402
 import nafe_diff  # noqa: E402
@@ -82,7 +91,12 @@ STRUCTURES = [(0x5804, "the first shop", ["obj_s_shop1_roof_txt", "obj_s_shop1_f
               (0x5826, "the black market", ["obj_s_yamishop_t1_tex_txt"]),
               (0x5831, "the countdown board", ["obj_e_count_t2_tex_txt", "obj_e_count_t3_tex_txt"]),
               (0x5837, "the fishing tourney's stall", ["obj_e_turi_t1_tex"]),
-              (0x583A, "the dump", ["obj_s_dump_t1_tex"])]
+              (0x583A, "the dump", ["obj_s_dump_t1_tex"]),
+              (0x582C, "the fireworks stall", []),
+              (0x5830, "the fortune stall", [])]
+# the structures that load our own (af_own_signs' offsets in the object: the summer board in the summer town)
+OURS = {0x580C: [af_own_signs.SUMMER_AT], 0x582C: [af_own_signs.BANNER_AT, af_own_signs.CARDS_AT],
+        0x5837: [af_own_signs.HQ_AT[0]], 0x5830: [af_own_signs.PLAQUE_AT, af_own_signs.SLIPS_AT]}
 
 failures = []
 
@@ -143,6 +157,13 @@ def main(argv):
         check(new != old and same, "the ROM: %s at %#x the en build's%s" % (
             ours_name, at, ", the GameCube's colours" if theirs else ""))
         palettes[ours_name] = (new, old)
+    own = af_own_signs.compose(cart_obj)
+    for offsets, _, _, what in af_own_signs.TEXTURES:
+        size = af_own_signs.SIZE
+        check(all(obj[at:at + size] == own[at] != cart_obj[at:at + size] for at in offsets),
+              "the ROM: %s, its cop%s at %s ours, as af_own_signs makes %s from the cartridge's" % (
+                  what, "y" if len(offsets) == 1 else "ies", ", ".join("%#x" % at for at in offsets),
+                  "it" if len(offsets) == 1 else "them"))
 
     # the game: each structure set up by the player, its signs in RAM
     en_elf = os.path.join(af_en, "build", "animalforest-jp.elf")
@@ -170,6 +191,10 @@ def main(argv):
             shots.append(path)
             ram = n64.read(0x80000000, 0x800000)
             bad = [s for s in wanted if ram.find(signs[s][0]) < 0 or ram.find(signs[s][1]) >= 0]
+            mine = OURS.get(name, [])
+            bad += ["ours at %#x" % at for at in mine
+                    if ram.find(own[at]) < 0 or ram.find(cart_obj[at:at + af_own_signs.SIZE]) >= 0]
+            wanted = wanted + ["ours at %s" % ", ".join("%#x" % at for at in mine)] if mine else wanted
             if name == 0x5826:
                 # (the winter palette is the cartridge's summer one, so only the new one's presence tells)
                 bad += [p for p, (new, _) in palettes.items() if ram.find(new) < 0]

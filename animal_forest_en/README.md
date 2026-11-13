@@ -380,10 +380,22 @@ cumpleaños (como el reloj), comillas inglesas en la ventana de la
 muletilla, y "Safety"/"First" y "New Year" en los dos papeles de carta
 que llevaban kanji ("The word textures").
 
-Lo que queda en japonés, a propósito o sin equivalente: el puesto de la
-fortuna del día de Año Nuevo (el de GameCube es otro modelo), y el cartel
-del torneo de pesca y el emblema de invierno del mercado negro, que
-GameCube también dejó en japonés.
+Donde ningún inglés redibujó las palabras de un edificio, el dibujo es
+nuestro (`tools/af_own_signs.py`, a mano, con los colores de la propia
+paleta de cada textura): el puesto de los fuegos artificiales dice
+REDD'S en su toldo y K.K., FRUIT y GYROID en sus tres tarjetas (lo que
+vende); el tablón de la comisaría, NOTICE en verano y BEWARE OF THIEVES
+en invierno; el cartel del cuartel del torneo de pesca, HQ; y el puesto
+de la fortuna de Año Nuevo, LUCK en su placa y GOOD LUCK en la papeleta.
+GameCube tiene otros modelos para estos puestos y la comisaría, y dejó
+el cartel del torneo en japonés. Probamos antes PixelLab, que devolvió
+casi sin cambios el dibujo de partida. `make signs-check-en` comprueba
+estas texturas en el ROM y en la RAM, y el barrido del año las ha visto
+en pantalla ("Our own signs"). De paso, el puesto de los fuegos hablaba
+de lo que vende el de GameCube (un abanico, un molinillo, globos, con
+sus precios) mientras ofrecía música de K.K.: sus tres saludos son ahora
+traducción nuestra del cartucho (música de K.K., gyroides y fruta, con
+sus precios).
 
 La pasada de pruebas del texto ("The official text's codes and the
 GameCube's own") encontró dos clases de fallo en el texto oficial. La

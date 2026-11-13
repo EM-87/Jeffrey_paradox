@@ -1945,7 +1945,9 @@ what goes in it: "The letters in the en build").
   tourney headquarters' sign and the black market's winter crest, which
   the GameCube kept. The two small "cards" of the survey (the shop's
   inside, `ovl_Shop_Indoor`'s segments 0x13BF000 and 0x13C7000) are a mat
-  and a cart's side, no words, and the GameCube's are the same.
+  and a cart's side, no words, and the GameCube's are the same. (The
+  fortune stall and the headquarters' sign are ours now, "Our own
+  signs"; the winter crest is the front under snow, no word showing.)
 
 ## The word textures (phase 5, the graphics' fifth step)
 
@@ -3249,24 +3251,100 @@ what goes in it: "The letters in the en build").
   4748 and 11687 put one there too, and so does its game (its
   `mMsg_CopyAmPm` loads the same two strings): official text, kept.
 - **Still Japanese, seen on the sweep's screens.** Two textures the
-  signs' survey ("The GameCube's signs") did not list. The fireworks
-  stall (ovl_Yatai: its lists at object_00D5E000 + 0x93348 and 0x95440,
-  three CI4 128x32 textures at 0x93380, 0x93B80 and 0x94380, the
-  palette the actor's in segment 8): its banner names the stall in
-  kana, and two small cards at its side are words. The GameCube's
-  stall is another model (its four textures, pinwheels and fans, share
-  none of the texels) with no words, so no English of its can go there.
-  And the notice board by the police box's door (0x4D578, 0x4F648 in
-  winter: a board of tiny vertical script beside a keypad's panel): the
-  GameCube's police box is another model too (its t2 has the word
-  POLICE over its arch, 36 to 39% of the texels the same). Both would
-  need English drawn for them; left as they are.
+  signs' survey ("The GameCube's signs") did not list: the fireworks
+  stall's banner and cards, and the notice board by the police box's
+  door. The GameCube's are other models with no words of theirs to
+  take; ours now ("Our own signs").
+- **The fireworks stall sold the GameCube's goods.** The cartridge's
+  stall opens on one of three messages, each its own goods at its own
+  price: 5976 K.K.'s music (980 Bells), 5977 haniwa figures, the en
+  bank's gyroids (1,000), 5978 fruit (1,280); its cards name the three.
+  The GameCube's messages at the same numbers open on its own stall's
+  goods at its own prices (a fan, a pinwheel, balloons; its model has
+  pinwheels and fans), and the draft took them as the same messages:
+  the en build's Redd offered a fan and showed K.K.'s songs. Ours now,
+  from the cartridge's text, its codes (script/message/things.txt);
+  the sweep's fireworks reads the music's opening, its answers K.K.'s
+  songs.
 - **Four players.** emu_psel's town of four (`3-four-remove-house.town`),
   powered on at noon on 10 March 2002, each player chosen in turn (the
   second question's answers 0 to 3): each arrives in the town as itself
   (common_data's `privateInfo` at +0x10138 points at its name: the four
   names the town was made with), the greeter's 8 pages with no kana and
   no token.
+
+## Our own signs (after the year's sweep)
+
+- **What was left.** The sweep's screens showed two textures with words
+  the signs' survey had not listed; a second look at every CI4 texture
+  the structures' object's lists draw (205, out of the en ROM, each
+  rendered and looked at) found the two the survey had left: the
+  fishing tourney headquarters' sign, which the GameCube kept, and the
+  fortune stall at the New Year's shrine, whose GameCube model is
+  another. Nothing else in the object has words one can read: the
+  radio's label is blocks, the police box's name plate a strip of blots
+  (a 6-texel strip), its wanted poster's title and foot dotted lines,
+  the papers on the poles dashes, the black market's winter front its
+  sign under snow, the fortune stall's lit panel two grey shapes.
+  Neither English has these, so the English drawn on them is ours.
+- **PixelLab first.** Its pixflux endpoint (api.pixellab.ai v2), given
+  our own lettering of the banner in the stall's palette as the init
+  image, gave it back nearly unchanged at two strengths (500 and 200):
+  drawn by hand instead.
+- **Ours** (`tools/af_own_signs.py`, at make rom-en, after
+  `af_gc_signs.py`, which writes the same .bin), each texture in its
+  own palette's indices, its inks the cartridge's:
+  - the fireworks stall (ovl_Yatai, structure 44; its lists at
+    object_00D5E000 + 0x93348 and 0x95440, its palette object_00D5B000's
+    0x1088, which the structures' clip loads into segment 8; the
+    neighbouring palettes are not in RAM at the fireworks): its banner
+    (0x93380, the left 64x23) REDD'S in the cream with a brown shadow,
+    the banner's cloth cleaned of the kana (each ink texel the nearest
+    of its row that is not ink: the folds run across), the scalloped hem
+    kept; its three cards (0x94380, the right 64x32: each 32x16, hung
+    turned a quarter clockwise; upright, the texture's row is the card's
+    column and the texture's column from the right its row) K.K. in the
+    red outline the cartridge's music card has (its picture of a disc
+    kept, a note beside it), FRUIT in the brown, GYROID in the green
+    (the haniwa's word: GYROIDS does not fit 32 rows), each card painted
+    its ground first;
+  - the police box's notice board (the left 32x32 of its t2: 0x4D578,
+    0x4F648 in winter; its palette 0xF08): NOTICE over lines of small
+    print (dots in two greys) in summer, BEWARE OF THIEVES in winter
+    (the cartridge's warns of pickpockets), the face painted white, the
+    dotted line at its foot kept;
+  - the tourney headquarters' paper sign (the left 32x32 of 0x8BF98 and
+    its copy at 0x8E028; the tourney's palette 0x1168, and 0x1188 the
+    same colours): HQ, one letter over the other as the two characters
+    were, in their greys, the paper cleaned as the banner's cloth;
+  - the fortune stall (palette 0x10C8): its plaque (0x22BA8's right
+    panel) LUCK in the red, one letter under another as the kana were
+    (the en bank's New Year's draw is a lottery read by a
+    fortune-teller); its two slips (0x233A8's right) GOOD over the red
+    band and LUCK under it on the front one, the back one blank, the
+    writing's green and red painted the paper's white but for the band's
+    rows.
+- **Checks.** The tool: the cartridge's lists draw a CI4 128x32 texture
+  at every offset, the texture is the cartridge's (an md5, a check, not a
+  copy) and the object holds it nowhere else, its palette is the one our
+  inks were chosen in (its md5); the en tree's part holds the
+  cartridge's texels or ours. `make signs-check-en` (tests/emu_signs.py):
+  in the ROM every copy is ours as the tool makes it from the cartridge's,
+  and in RAM once the clip sets the structure up by the player (the
+  police box with its summer board, the fireworks stall, structure 44,
+  out of its season, the tourney's stall with the headquarters' sign,
+  the fortune stall, structure 48), the cartridge's gone; its sheet
+  shows them. `tests/test_tools.py` (OwnSigns): the art fits its places
+  and inks, the cards' turn, the cleaning, a made-up object.
+- **On screen.** The year sweep's fireworks (3 August 2002, 19:30):
+  talking to Redd, the camera close, the banner reads REDD'S across the
+  stall's front and the cards K.K., FRUIT and GYROID at its side; the
+  police box's board reads NOTICE at the fireworks and BEWARE OF THIEVES
+  at the countdown (31 December, snow). The fortune stall on New Year's
+  Day and the tourney's table on 2 June, the player put south of each
+  (its actor found as the sweep finds the event's): the plaque is the
+  side of the stall's box, LUCK, and the slips lie on its cloth, GOOD
+  LUCK; the paper on the table's front reads HQ.
 
 ## Other emulators (ares, Project64, RetroArch, RMG and simple64)
 

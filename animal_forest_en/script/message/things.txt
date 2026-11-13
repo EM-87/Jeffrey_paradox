@@ -2,8 +2,10 @@
 # not have: its console's clock (the cartridge's is in the Game Pak), a mayor and a museum with its owl,
 # an island's boatman, a spring cleaning (the cartridge's is the year's end), a quiz's answer with a joke
 # on the boatman, Mr. Resetti's asides on the mayor and the owl (reference/NOTES.md, "The GameCube's own
-# events"). From the cartridge's text; tools/msgbank.py's dump form, as ours.txt (its header says how the
-# build lays it over the bank and what af_text.py holds it to).
+# events"); and the fireworks stall's three openings, where the GameCube's stall sells goods of its own at
+# its own prices (the cartridge's sells K.K.'s music, gyroids and fruit: NOTES, "Our own signs"). From the
+# cartridge's text; tools/msgbank.py's dump form, as ours.txt (its header says how the build lays it over
+# the bank and what af_text.py holds it to).
 
 ## 2508
 #: the Game Pak's clock has stopped
@@ -149,4 +151,47 @@ and hang it out to dry,<PAUSE 10>
 an old dishrag!<BTN>
 <SETFORCEMSG 2513>
 <FORCENEXT>
+<MSGCONTINUE>
+
+## 5976
+#: the fireworks stall opens when it sells K.K.'s music
+<DEMONPC0 000003>Well, <PAUSE 06>hel<PAUSE 02>lo, <PAUSE 04>hel<PAUSE 02>lo, <PAUSE 04>hel<PAUSE 02>lo!<PAUSE 10>
+<DEMONPC0 000015>My dear customer,<PAUSE 06>
+<DEMONPC0 00000e>wel<PAUSE 02>come<PAUSE 02>!<PAUSE 02>!<PAUSE 02>!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Tonight I'm selling
+<COLORCHARS e11ed70c>K.K.'s music!<BTN>
+<MSGCLEAR>Only 980 Bells apiece!<PAUSE 14>
+What a bargain!!<BTN>
+<MSGCLEAR>How about one<PAUSE 06>
+to remember the night?<SETSELSTR2 000e000d><SELNOB><BTN><OPENCHOICE><SETNEXTMSG0 1761><SETNEXTMSG1 175b><FORCENEXT><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 5977
+#: the fireworks stall opens when it sells gyroids
+<DEMONPC0 000003>Well, <PAUSE 06>hel<PAUSE 02>lo, <PAUSE 04>hel<PAUSE 02>lo, <PAUSE 04>hel<PAUSE 02>lo!<PAUSE 10>
+<DEMONPC0 000015>My dear customer,<PAUSE 06>
+<DEMONPC0 00000e>wel<PAUSE 02>come<PAUSE 02>!<PAUSE 02>!<PAUSE 02>!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Tonight I've got<PAUSE 08>
+the rarest of the rare:<PAUSE 04>
+<COLORCHARS e11ed707>gyroids!<BTN>
+<MSGCLEAR>Only 1,000 Bells<PAUSE 04>
+each, not a Bell more!<PAUSE 14>
+What a bargain!!<BTN>
+<MSGCLEAR>How about one<PAUSE 06>
+to take home?<SETSELSTR2 000e000d><SELNOB><BTN><OPENCHOICE><SETNEXTMSG0 1761><SETNEXTMSG1 175b><FORCENEXT><DEMONPC0 090001>
+<MSGCONTINUE>
+
+## 5978
+#: the fireworks stall opens when it sells fruit
+<DEMONPC0 000003>Well, <PAUSE 06>hel<PAUSE 02>lo, <PAUSE 04>hel<PAUSE 02>lo, <PAUSE 04>hel<PAUSE 02>lo!<PAUSE 10>
+<DEMONPC0 000015>My dear customer,<PAUSE 06>
+<DEMONPC0 00000e>wel<PAUSE 02>come<PAUSE 02>!<PAUSE 02>!<PAUSE 02>!<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>Tonight I've got<PAUSE 08>
+<COLORCHARS e11ed705>fruit of every kind,<PAUSE 04>
+shipped in from all over!<BTN>
+<MSGCLEAR>Only 1,280 Bells<PAUSE 04>
+apiece!<PAUSE 14>
+What a bargain!!<BTN>
+<MSGCLEAR>Would you like<PAUSE 06>
+<DEMONPC0 00000b>to buy one?<SETSELSTR2 000e000d><SELNOB><BTN><OPENCHOICE><SETNEXTMSG0 175c><SETNEXTMSG1 175b><FORCENEXT><DEMONPC0 090001>
 <MSGCONTINUE>

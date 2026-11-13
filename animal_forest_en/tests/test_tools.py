@@ -42,6 +42,7 @@ import af_items  # noqa: E402
 import af_ui  # noqa: E402
 import af_gc_signs  # noqa: E402
 import af_menu_tex  # noqa: E402
+import af_own_signs  # noqa: E402
 import gciso  # noqa: E402
 import msgbank  # noqa: E402
 import rom  # noqa: E402
@@ -1772,6 +1773,89 @@ class GcSigns(unittest.TestCase):
         finally:
             shutil.rmtree(work)
 
+
+
+class OwnSigns(unittest.TestCase):
+    """Our English for the fireworks stall's banner and cards and the police box's notice board
+    (tools/af_own_signs.py; reference/NOTES.md, "Our own signs"), on a made-up object."""
+
+    def test_the_art_fits_its_places(self):
+        rows = af_own_signs.grid(af_own_signs.BANNER)
+        x0, y0 = af_own_signs.BANNER_PLACE
+        bx0, bx1, by0, by1 = af_own_signs.BANNER_BOX
+        self.assertTrue(bx0 <= x0 and x0 + len(rows[0]) <= bx1 and by0 <= y0 and y0 + len(rows) <= by1)
+        self.assertEqual(set("".join(rows)) - {"."}, set(af_own_signs.BANNER_INKS))
+        for _, _, inks, art, _, _ in af_own_signs.CARDS:
+            rows = af_own_signs.grid(art)
+            self.assertEqual((len(rows[0]), len(rows)), (16, 32))
+            self.assertEqual(set("".join(rows)) - {"."}, set(inks))
+        for _, art in af_own_signs.BOARDS:
+            rows = af_own_signs.grid(art)
+            x0, x1, y0, y1 = af_own_signs.BOARD_BOX
+            self.assertEqual((len(rows[0]), len(rows)), (x1 - x0, y1 - y0))
+            self.assertEqual(set("".join(rows)) - {"."}, set(af_own_signs.BOARD_INKS))
+        placed = [(af_own_signs.HQ, af_own_signs.HQ_PLACE, af_own_signs.HQ_BOX, af_own_signs.HQ_INKS),
+                  (af_own_signs.PLAQUE, af_own_signs.PLAQUE_PLACE, af_own_signs.PLAQUE_BOX, af_own_signs.PLAQUE_INKS)]
+        placed += [(art, (x, y), af_own_signs.SLIPS_BOX, af_own_signs.SLIPS_INKS) for x, y, art in af_own_signs.SLIPS]
+        for art, (x0, y0), (bx0, bx1, by0, by1), inks in placed:
+            rows = af_own_signs.grid(art)
+            self.assertTrue(bx0 <= x0 and x0 + len(rows[0]) <= bx1 and by0 <= y0 and y0 + len(rows) <= by1)
+            self.assertEqual(set("".join(rows)) - {"."}, set(inks))
+        with self.assertRaises(ValueError):
+            af_own_signs.grid("\n..\n...\n")
+
+    def test_a_card_hangs_turned_a_quarter_clockwise(self):
+        # upright, the card's top row is the texture's right column, read downwards
+        self.assertEqual(af_own_signs.card_cell(64, 0, 0, 0), 64 + 31)
+        self.assertEqual(af_own_signs.card_cell(64, 0, 15, 0), 15 * 128 + 64 + 31)
+        self.assertEqual(af_own_signs.card_cell(96, 16, 0, 31), 16 * 128 + 96)
+        art = "\n".join(["#" + "." * 15] + ["." * 16] * 31)
+        t = af_own_signs.card([0] * (128 * 32), 64, 0, 0xD, {"#": 5}, art, None)
+        self.assertEqual(t[64 + 31], 5)
+        self.assertEqual({t[y * 128 + x] for y in range(16) for x in range(64, 96)}, {5, 0xD})
+        self.assertEqual(t[16 * 128 + 64], 0)                   # the card below it untouched
+        kept = af_own_signs.card([7] * (128 * 32), 64, 0, 0xD, {"#": 5}, art, (0, 16, 30, 32))
+        self.assertEqual(kept[af_own_signs.card_cell(64, 0, 3, 31)], 7)
+        self.assertEqual(kept[af_own_signs.card_cell(64, 0, 3, 29)], 0xD)
+
+    def test_the_kana_give_way_to_the_cloth_beside_them(self):
+        row = [3, 3, 0xF, 0xF, 2, 6, 0xF, 1, 1]
+        t = row + [0] * (128 - len(row))
+        out = af_own_signs.clean_rows(t, (0, 128, 0, 1), {0xF, 6})
+        self.assertEqual(out[:len(row)], [3, 3, 3, 2, 2, 2, 1, 1, 1])     # the left where both are as near
+        with self.assertRaises(ValueError):
+            af_own_signs.clean_rows([0xF] * 128, (0, 128, 0, 1), {0xF})
+
+    def test_composed_over_a_made_up_object(self):
+        offsets = [at for copies, _, _, _ in af_own_signs.TEXTURES for at in copies]
+        obj = bytearray(max(offsets) + af_own_signs.SIZE)
+        for at in offsets:
+            obj[at:at + af_own_signs.SIZE] = bytes([0x23]) * af_own_signs.SIZE       # texels 2 and 3
+        out = af_own_signs.compose(bytes(obj))
+        self.assertEqual(sorted(out), sorted(offsets))
+        self.assertEqual(out[af_own_signs.HQ_AT[0]], out[af_own_signs.HQ_AT[1]])     # both copies the same
+        banner = af_gc_signs.texels(out[af_own_signs.BANNER_AT])
+        x0, y0 = af_own_signs.BANNER_PLACE
+        self.assertEqual(banner[y0 * 128 + x0], 0xF)                                  # the R's corner
+        self.assertEqual(banner[20 * 128:], [2, 3] * (12 * 64))                       # the hem kept
+        self.assertEqual(banner[y0 * 128 + 64:y0 * 128 + 128], [2, 3] * 32)          # the figures beside it kept
+        board = af_gc_signs.texels(out[af_own_signs.SUMMER_AT])
+        self.assertEqual(board[0 * 128 + 2], af_own_signs.BOARD_GROUND)
+        self.assertEqual(board[22 * 128 + 2:22 * 128 + 4], [2, 3])                   # its foot kept
+        self.assertEqual(board[0 * 128 + 32:0 * 128 + 34], [2, 3])                   # the poster beside it kept
+        self.assertNotEqual(out[af_own_signs.SUMMER_AT], out[af_own_signs.WINTER_AT])
+
+    def test_the_slips_keep_their_band(self):
+        t = [0xF] * (128 * 32)
+        for x in range(98, 126):
+            t[17 * 128 + x] = 0x6                       # the band's red
+            t[23 * 128 + x] = 0x8                       # a red mark under it
+            t[10 * 128 + x] = 0xD                       # the green writing
+        out = af_own_signs.slips(t)
+        self.assertEqual(out[17 * 128 + 100], 0x6)
+        self.assertEqual(out[23 * 128 + 100], af_own_signs.SLIPS_PAPER)
+        self.assertEqual(out[10 * 128 + 100], af_own_signs.SLIPS_PAPER)
+        self.assertEqual(out[10 * 128 + 97], 0xF)        # outside the slips' box untouched
 
 
 class MenuTextures(unittest.TestCase):
