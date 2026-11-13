@@ -248,6 +248,28 @@ def _sounds_aligned(theirs, end, codes, plain):
     return out
 
 
+# What the cartridge's codes after its last text may still print: dropped from them where the English takes
+# them (_bare_tail)
+PRINTED_TAIL = GLOBAL | FILLED | SHAPING
+
+
+def _bare_tail(tokens):
+    """The cartridge's codes after its last text as the English takes them, without what they still print.
+    _text_end counts no full stop, newline or space as text, so a tail can end the cartridge's sentence: a
+    pause, the catchphrase and a full stop after its last words (3884, 10089), which the English, its own
+    sentence said, must not print again. The full stops and the strings go; the pauses, newlines, page breaks
+    and the codes that steer the game stay."""
+    out = []
+    for t in tokens:
+        if t[0] == "t":
+            kept = t[1].replace("。", "")
+            if kept:
+                out.append(("t", kept))
+        elif t[1] not in PRINTED_TAIL:
+            out.append(t)
+    return out
+
+
 def _flow(codes):
     """What the codes after a message's text do: open a choice, force a next message, pick one at random,
     and how the message ends."""
@@ -291,7 +313,7 @@ def mend(cart, theirs):
     if c_tail != t_tail:
         if _flow(c_tail) != _flow(t_tail):
             return None, "what it does after its text"
-        out = out[:tt] + list(cart[ct:])
+        out = out[:tt] + _bare_tail(cart[ct:])
         how.append("codes after the text")
     if steering(out) != steering(cart):
         out = af_nafe_text.recover(cart, out, is_order)
@@ -747,6 +769,17 @@ def load_bank(path):
     return Bank.parse_dump(open(path, encoding="utf-8").read())
 
 
+JAPANESE_TEXT = re.compile(r"[\u3001-\u30fb\u30fd-\u30ff\u4e00-\u9fff]")   # kana, kanji, their marks; not ー
+
+
+def japanese_text(messages):
+    """The numbers of the messages whose text prints a Japanese character (the long vowel mark and the wave
+    dash, which the English uses as a dash and a sigh, aside). With the 2010 patch's English and ours laid
+    over the draft, none should; without the patch, those only it translates keep the cartridge's."""
+    return sorted(n for n, tokens in messages.items()
+                  if any(t[0] == "t" and JAPANESE_TEXT.search(t[1].replace("～", "")) for t in tokens))
+
+
 def run_checks(messages, cols, lines, max_bytes, reference=None, single=False, letter=False, measure=None, laid=()):
     """laid: the numbers of the messages laid over the bank (--overrides), checked against reference."""
     errors = warnings = 0
@@ -957,6 +990,11 @@ def main(argv):
                                                                              for k in sorted(counts)) or "nothing to do"))
     errors = run_checks(messages, opts["--cols"], opts["--lines"], opts["--max-bytes"], reference, bank != "message",
                         bank in LETTER_CAPS, measure, laid_numbers)
+    if bank == "message":
+        japanese = japanese_text(messages)
+        if japanese:
+            print("af_text: warning: %d messages print Japanese (%s)" % (
+                len(japanese), ", ".join(map(str, japanese[:20])) + (", ..." if len(japanese) > 20 else "")))
     if cmd == "check":
         return 1 if errors else 0
     if cmd == "compile":

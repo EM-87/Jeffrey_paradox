@@ -544,7 +544,7 @@ events") enciende ese pueblo guardado en las 21 fechas de los eventos del
 año, las que dan los avisos del tablón. En cada una recorre el pueblo
 entero y habla con los personajes del evento, los vecinos que el evento
 reúne, los personajes especiales y dos vecinos más, leyendo cada página y
-cada respuesta. Encontró tres fallos, ya corregidos:
+cada respuesta. Encontró cuatro fallos, ya corregidos:
 
 - **En diciembre el juego se colgaba** al decir la fecha (el personaje
   que recibe al encender la dice, y con ella el nombre del mes). El banco
@@ -559,6 +559,11 @@ cada respuesta. Encontró tres fallos, ya corregidos:
   compilar del propio puesto de GameCube, o la nuestra si no hay disco.
 - **El policía decía las fechas con dos números** («2 3»). Ahora pone el
   nombre del mes y el ordinal del día, como el policía de GameCube.
+- **Diez mensajes oficiales acababan con el punto japonés** («。»), siete
+  de ellos además con la muletilla repetida. Al dar al texto de
+  GameCube los códigos del cartucho, el borrador copiaba también el
+  final de la frase japonesa. Ahora copia solo los códigos, y la
+  compilación avisa si algún mensaje muestra japonés: en la ROM, ninguno.
 
 ## Dónde está cada cosa
 

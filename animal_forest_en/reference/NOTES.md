@@ -3223,6 +3223,22 @@ what goes in it: "The letters in the en build").
   free strings 2 and 3, where the GameCube writes the row as a letter)
   stays numbers: the N64's map numbers its rows and columns ("Row",
   "Column": the menus check's map).
+- **A Japanese full stop in ten official messages.** The last sweep's
+  Halloween villager ended a line of message 2455 with the cartridge's
+  full stop. Where the GameCube's codes after its text differ from the
+  cartridge's, `af_text.mend` put the cartridge's codes after the
+  English, its whole tail; and `_text_end` counts no full stop, newline
+  or space after codes as text, so a tail can hold the end of the
+  cartridge's sentence: a pause, the catchphrase and a full stop after
+  its last words (3884, 5858, 5860, 6100, 6210, 6248, 10089), a pause
+  and a full stop (2455, 5390), a full stop (9770). Ten compiled
+  messages printed the full stop, seven the catchphrase a second time.
+  `_bare_tail` now keeps the tail's pauses, newlines and codes and
+  drops its full stops and the strings it prints; the draft changes in
+  those ten (10089's extra page, split for the repeated catchphrase,
+  goes too). `af_text.py` now warns of any message that prints
+  Japanese: none in the en build's bank (the draft alone has 128,
+  which the 2010 patch's English and ours lie over at make rom-en).
 - **A doubled period.** Three of our greeters' lines (script/message/
   travel.txt: 5106, 5266 and 5306, the polite, cranky and snooty) ended
   the time with a period after the a.m. or p.m. the message code puts

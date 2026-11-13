@@ -772,6 +772,19 @@ class Script(unittest.TestCase):
             self.assertEqual(t[ends[0]:ends[1]], msgbank.encode(msgs[1]))
             self.assertEqual(len(t) % 16, 0)
 
+    def test_the_cartridges_tail_prints_nothing_again(self):
+        # the cartridge's codes after its last text, laid after the English's: its catchphrase and full stop
+        # after a pause (which _text_end does not count as text) are not printed again; its pause, newlines
+        # and the codes that steer the game stay
+        cart = msgbank.parse("\u3042\u3044<PAUSE 06><STR_TAIL>\u3002\n<SETNEXTMSG0 0001><FORCENEXT>\n<MSGCONTINUE>")
+        theirs = msgbank.parse("Hi, <STR_TAIL>!<SETNEXTMSG0 0002><FORCENEXT>\n<MSGCONTINUE>")
+        out, how = af_text.mend(cart, theirs)
+        self.assertIn("codes after the text", how)
+        self.assertEqual(msgbank.render(out),
+                         "Hi, <STR_TAIL>!<PAUSE 06>\n<SETNEXTMSG0 0001><FORCENEXT>\n<MSGCONTINUE>")
+        self.assertEqual(af_text.steering(out), af_text.steering(cart))
+        self.assertEqual(af_text.japanese_text({1: out, 2: cart, 3: msgbank.parse("Hi\uff5e<MSGEND>")}), [2])
+
     def test_index_reads_stay_in_the_table(self):
         # the game reads entry n's ends 8 bytes from n - 1 (n odd) or 16 from n - 2 (n even, n > 0): with an odd
         # count, the last entry's read went past the table and the DMA manager stopped the game (December's name)
