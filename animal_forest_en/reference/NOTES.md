@@ -3592,6 +3592,17 @@ in the repository); what they found:
   day, their errands, the police's goings-on and lost items, the station
   master's trips, Nook's turnips and selling, the post office's letters
   and payments.
+- **Checks** (one build, every check a goal of one make): `make test`
+  (106), `make emu-check`, `make verify` (the cartridge),
+  `messages-check-en` (723 messages shown, 2,011 lines measured, 0
+  failures; 253 played through, 226 of ours, the cartridge's talk
+  orders; 1,064 of ours, 100 taken from the 2010 patch),
+  `psel-check-en`, `year-check-en` (the 21 dates: New Year's Day's
+  greeter shows our announcement, the first wish in its colour) and
+  `signs-check-en` (0 failures: the police box's posters in the ROM and
+  in RAM once the player walked in, the 17 furniture textures in the
+  ROM). In the bank compiled, 2143 runs on after its dash and the three
+  doubled words are single.
 
 ## Other emulators (ares, Project64, RetroArch, RMG and simple64)
 
