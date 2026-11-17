@@ -87,7 +87,7 @@ def follow(t, answers=(), limit=600, quiet=30, pages=None, choices=None):
             if page and (page[0], page[1]) not in seen:
                 seen.add((page[0], page[1]))
                 pages.append({"msg": page[0], "at": page[1], "text": emu_year.text(page[2])[:700],
-                              "problems": emu_year.problems(page[2])})
+                              "problems": t.page_problems(page[2])})
         if t.choice_waiting():
             n64.frames(20, 0)
             if choices is not None:
@@ -197,7 +197,7 @@ def animals(save):
 def settle(n64, af_en, syms, more=False):
     """From the houses' state loaded in n64: the first house chosen, the town grown to 15 animals if `more`,
     the actors saved. A dict of what was done, for the caller's checks; common_data is then the town."""
-    t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], emu_year.actor_names(af_en))
+    t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], emu_year.actor_names(af_en), syms)
     done = {"chosen": choose_house(t)}
     run = hook(n64, af_en, syms)
     if more:

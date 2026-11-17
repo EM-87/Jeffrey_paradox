@@ -38,10 +38,16 @@ strength) fall, within 2 frame pixels; an empty line has none, and no
 text lies outside the bands. Where: the board draws its text about 2%
 narrower than the message window does (the window's text is 2 frame
 pixels to a pixel, measured on Nook's first lines; the board's is 1.954,
-around the screen's centre, measured on these boards: BOARD_X; why is
-TODO(verify): the game's viewport is the whole screen and the font's
-projection 16 units to the pixel). Writes each board's screenshot, and a
-sheet of them, to OUT_DIR, for looking at.
+around the screen's centre, measured on these boards: BOARD_X). The 2%
+is the projection's fixed point: the font and the menus draw through
+guOrtho(-2560, 2560, -1920, 1920) (mFont_SetMatrix, mSM_setup_view: 16
+units to the pixel), whose x scale, 2/5120, is 25.6/65536 and is kept
+in the matrix's s15.16 as 25: 25/25.6 of the width, 1.953 frame pixels
+to the pixel (the y scale, 34.13, as 34: 0.4% short); the window's body
+text is drawn with texture rectangles, which no matrix scales. The
+first board's frame is searched for that matrix (PROJECTION).
+Writes each board's screenshot, and a sheet of them, to OUT_DIR, for
+looking at.
 """
 
 import os
@@ -160,6 +166,10 @@ BOARD_WIDTH, BOARD_LINES = 192, 6
 # text's left edge (x 64 = 160 - 96), and frame pixels to the pixel.
 HEADER_Y, BODY_Y, FOOTER_Y, LINE_H = 37, 64, 172, 16
 BOARD_X = (131.6, 1.954)
+# The font's projection as the display lists hold it: F3DEX2's matrix command for a projection loaded
+# (DA 38 00 07 and the matrix's address), the matrix's x and y scales in s15.16; a frame pixel is half a
+# screen pixel wide here, so a font pixel is 2 * 25 / 25.6 frame pixels
+PROJECTION_LOAD, FONT_SCALES, ORTHO_WIDTH = b"\xDA\x38\x00\x07", (25, 34), 5120
 TOLERANCE = 2.0                            # frame pixels (the VI filter, the text's resampling)
 TEXT_HUE = 6                               # blue over green and red over blue by this much: text
 STRONG = 8                                 # a glyph's pixel at least this (of 15) inks the column
@@ -323,6 +333,21 @@ def long_animal_name(af_en):
     return None
 
 
+def projections(n64):
+    """The (x scale, y scale), each as its s15.16 number, of every projection matrix a display list in RAM
+    loads."""
+    ram = n64.read(0x80000000, 0x800000)
+    out = set()
+    at = ram.find(PROJECTION_LOAD)
+    while at >= 0:
+        addr = struct.unpack(">I", ram[at + 4:at + 8])[0] - 0x80000000
+        if at % 8 == 0 and 0 <= addr <= len(ram) - 64:
+            whole, part = struct.unpack(">16h", ram[addr:addr + 32]), struct.unpack(">16H", ram[addr + 32:addr + 64])
+            out.add(((whole[0] << 16) + part[0], (whole[5] << 16) + part[5]))
+        at = ram.find(PROJECTION_LOAD, at + 4)
+    return out
+
+
 def main(argv):
     emu_dir, rom_path, af_en, state, out = argv
     af_en = os.path.abspath(af_en)
@@ -383,6 +408,16 @@ def main(argv):
             path = os.path.join(out, "%s-%s.png" % (kind, "-".join(str(x) for x in (which if kind == "villager" else (which, mail_type)))))
             n64.screenshot(path)
             shots.append(path)
+            if len(shots) == 1:
+                found = projections(n64)
+                pitch = 2.0 * FONT_SCALES[0] * ORTHO_WIDTH / 2 / 65536
+                check(FONT_SCALES in found and abs(pitch - BOARD_X[1]) <= 0.002,
+                      "the board's frame loads the font's projection with its x scale kept as %d/65536 and its y "
+                      "scale as %d (of the %d matrices its lists load: %s): guOrtho's 2/%d is %.1f/65536, so a "
+                      "font pixel is %.4f frame pixels wide; the boards measure %.3f" % (
+                          FONT_SCALES[0], FONT_SCALES[1], len(found),
+                          "found" if FONT_SCALES in found else "not found, %s" % sorted(found)[:6], ORTHO_WIDTH,
+                          2.0 * 65536 / ORTHO_WIDTH, pitch, BOARD_X[1]))
 
             want, cut_off, drawn_lines = expected(board, entry, kind, which, mail_type,
                                                   animal[2] if kind == "animal" else PLAYER)

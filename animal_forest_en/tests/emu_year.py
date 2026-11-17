@@ -72,6 +72,18 @@ EVENT_FLAGS = 0xEE3C                   # the save's type-1 event flags (func_800
 JOB_BITS = (1 << 2) | (1 << 6)         # the first player's first job and first intro
 # the message window (en: mMsg_window): its message and page, the choice window in it
 W_MSG_DATA, W_MAIN, W_START, W_END = 0x00C, 0x2B4, 0x29C, 0x2A0
+W_CLIENT, W_SHOW_NAME = 0x020, 0x024   # the actor that speaks, and whether its name's plate shows (func_8009D308_jp)
+A_PART, NPC_ANIMAL = 0x2, 0x174        # Actor.part; Npc.npcInfo.animal: the town's animal behind the actor, or NULL
+# The names of the special characters (m_npc.c, l_sp_actor_name: 12 bytes each, the actor's fg name and its
+# string's number), up to the name the code falls back on (l_no_name_npc_name: a kana word no English replaces)
+SPECIAL_NAMES, NO_NAME, SPECIAL_NAME = "l_sp_actor_name", "l_no_name_npc_name", 12
+# The window's bubble on the frame (640 x 240): its four lines (tests/emu_messages.py's TOP and PITCH) and the
+# columns right of the text's 192 pixels (the frame's 512) that are still inside it, where only the next
+# page's arrow is ever drawn (a triangle, 517 to 531 wide at row 205, its point at row 211)
+LINE_TOP, LINE_PITCH, LINES = 153, 16, 4
+MARGIN = range(515, 548)
+BUBBLE = ((549, 160), (549, 176), (549, 197), (120, 160), (120, 200))   # light where the bubble stands whole
+INK, LIGHT = 150, 170                  # a text pixel has a colour under INK; the bubble's are over LIGHT
 WAITING, HIDDEN = 2, 0
 CHOICE = 0x1B0
 C_MAIN, C_VISIBLE, C_LENS, C_NUM = 0x9C, 0xA4, 0x34 + 0x28, 0x34 + 0x48
@@ -159,9 +171,11 @@ def town_image(town):
 class Town:
     """The game in the town: its actors, the player's place, the message window."""
 
-    def __init__(self, n64, window, strings, names):
+    def __init__(self, n64, window, strings, names, syms=None):
         self.n64, self.window, self.strings, self.names = n64, window, strings, names
         self.stops = []                    # the pages of the talks that started by themselves (release)
+        self.syms, self.special = syms, None    # with the build's symbols, a page's plate is judged too
+        self.crossed = None                # called with (the block left, the block walked into) after a crossing
 
     def i32(self, addr):
         return struct.unpack(">i", self.n64.read(addr, 4))[0]
@@ -244,6 +258,8 @@ class Town:
                         self.n64.frames(5, 0)
                         if self.player_main() == PLAYER_WAIT:
                             break
+                    if self.crossed is not None:
+                        self.crossed((bx, bz), nb)
                     return True
                 if self.held():
                     break
@@ -268,7 +284,7 @@ class Town:
                 page = self.page()
                 if page and (page[0], page[1]) not in seen:
                     seen.add((page[0], page[1]))
-                    self.stops.append({"msg": page[0], "at": page[1], "problems": problems(page[2])})
+                    self.stops.append({"msg": page[0], "at": page[1], "problems": self.page_problems(page[2])})
             if self.menu_open():           # a menu the talk opened (the pockets, to hand something over):
                 self.n64.press(B, 3, 30)   # closed with nothing chosen
                 still = 0
@@ -366,6 +382,41 @@ class Town:
         raw = self.n64.read(data + D_TEXT, length)
         return msg_no, self.i32(self.window + W_START), raw
 
+    def plate(self):
+        """What is wrong with the name plate over the window, as the game fills it (mNpc_GetNpcWorldName): an
+        animal's own name, a special character's from the table, else the cartridge's placeholder, a kana
+        word: [] or [what]. Without the build's symbols nothing is judged."""
+        if self.syms is None or self.i32(self.window + W_SHOW_NAME) == 0:
+            return []
+        if self.special is None:
+            count = (self.syms[NO_NAME] - self.syms[SPECIAL_NAMES]) // SPECIAL_NAME
+            raw = self.n64.read(self.syms[SPECIAL_NAMES], count * SPECIAL_NAME)
+            self.special = {struct.unpack(">H", raw[k * SPECIAL_NAME:k * SPECIAL_NAME + 2])[0]
+                            for k in range(count)}
+        actor = self.n64.u32(self.window + W_CLIENT)
+        if not actor:
+            return ["the name plate shows and no actor speaks: the cartridge's placeholder name"]
+        raw = self.n64.read(actor, NPC_ANIMAL + 4)
+        name = struct.unpack(">h", raw[A_NAME:A_NAME + 2])[0]
+        fg = struct.unpack(">H", raw[A_FG:A_FG + 2])[0]
+        animal = struct.unpack(">I", raw[NPC_ANIMAL:])[0] if raw[A_PART] == PART_NPC else 0
+        if animal:
+            npc = struct.unpack(">H", self.n64.read(animal, 2))[0]
+            if npc >> 12 == 0xE and npc & 0xFF != 0xFF:
+                return []
+            return ["the name plate of %s: its animal %#x has no name, the cartridge's placeholder shows" % (
+                self.names.get(name, "?%x" % name), npc)]
+        if fg in self.special:
+            return []
+        return ["the name plate of %s (%#x): not an animal and not in the special characters' table, the "
+                "cartridge's placeholder shows" % (self.names.get(name, "?%x" % name), fg)]
+
+    def page_problems(self, raw):
+        """What is wrong with the page the window waits on: kana, kanji or a token in its bytes, a name plate
+        that falls to the placeholder, a line drawn past the bubble's text area."""
+        w, _, rgb = self.n64.screen()
+        return problems(raw) + self.plate() + (margin_ink(w, rgb) or [])
+
     def answers(self):
         num = max(0, min(self.i32(self.window + CHOICE + C_NUM), 4))
         lens = struct.unpack(">4i", self.n64.read(self.window + CHOICE + C_LENS, 16))
@@ -391,15 +442,38 @@ def problems(raw):
     return out
 
 
+def margin_ink(w, rgb):
+    """The lines of the window's bubble that run past its text area on the frame: [what], [] when none does,
+    None when the bubble is not on the frame whole (a sign's board, a window still opening): the text is
+    192 pixels wide at most by the layout's reckoning (tools/af_text.py), which counts what the game fills
+    in at an assumed length; the game itself does not clip a line, so a longer one shows here."""
+    if not w:
+        return None
+
+    def darkest(x, y):
+        return min(rgb[(y * w + x) * 3:(y * w + x) * 3 + 3])
+    if any(darkest(x, y) < LIGHT for x, y in BUBBLE):
+        return None
+    out = []
+    for k in range(LINES):
+        xs = [x for y in range(LINE_TOP + k * LINE_PITCH, LINE_TOP + (k + 1) * LINE_PITCH) for x in MARGIN
+              if darkest(x, y) < INK and not (204 <= y <= 212 and abs(x - 524) <= 9 - (y - 205))]
+        if xs:
+            out.append("line %d of the page is drawn past the bubble's text area (ink at the frame's x %d to %d; "
+                       "the text ends at 512)" % (k + 1, min(xs), max(xs)))
+    return out
+
+
 def text(raw):
     return msgbank.render(msgbank.decode(raw, msgbank.N64_CHARS))
 
 
-def arrive(t, answers=(0, 0), pages=None, shots=None):
-    """From power-on: START, the greeter's answers, A until the player waits in the town. pages: a list the
-    greeter's pages go to ({msg, at, text, problems}); shots: a path's start for their screens."""
+def arrive(t, answers=(0, 0), pages=None, shots=None, lead=400):
+    """From power-on: START after `lead` frames (400 since power-on: a caller that has run some gives the
+    rest), the greeter's answers, A until the player waits in the town. pages: a list the greeter's pages go
+    to ({msg, at, text, problems}); shots: a path's start for their screens."""
     n64 = t.n64
-    n64.frames(400, 0)
+    n64.frames(lead, 0)
     n64.press(START, 3, 60)
     given = 0
     free = 0
@@ -408,7 +482,8 @@ def arrive(t, answers=(0, 0), pages=None, shots=None):
         page = t.page() if pages is not None and t.window_main() == WAITING else None
         if page and (page[0], page[1]) not in seen:
             seen.add((page[0], page[1]))
-            pages.append({"msg": page[0], "at": page[1], "text": text(page[2])[:600], "problems": problems(page[2])})
+            pages.append({"msg": page[0], "at": page[1], "text": text(page[2])[:600],
+                          "problems": t.page_problems(page[2])})
             if shots:
                 n64.screenshot("%s-greeter-%02d.png" % (shots, len(pages)))
         if t.choice_waiting() and given < len(answers):
@@ -493,7 +568,7 @@ def talk(t, actor, shots, label, which, last=False, limit=8000):
                 if key not in seen:
                     seen.add(key)
                     out["pages"].append({"msg": msg_no, "at": at, "text": text(raw)[:600]})
-                    for p in problems(raw):
+                    for p in t.page_problems(raw):
                         out["problems"].append("message %d: %s" % (msg_no, p))
                     n64.screenshot(os.path.join(shots, "%s-%02d-page-%03d.png" % (label, which, len(out["pages"]))))
             n64.press(A, 3, 12)
@@ -538,7 +613,7 @@ def run_event(emu_dir, rom, af_en, town, out, label, date, hm, last):
     result = {"label": label, "date": "%04d-%02d-%02d %02d:%02d" % (date + hm), "actors": {}, "talks": [],
               "hang": None}
     with N64(emu_dir, rom, work, timeout=60, clock=date + hm + (0,)) as n64:
-        t = Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], names)
+        t = Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], names, syms)
         try:
             result["arrival"] = []
             result["arrived"] = arrive(t, pages=result["arrival"], shots=os.path.join(work, label))

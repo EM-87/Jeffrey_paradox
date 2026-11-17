@@ -1066,7 +1066,12 @@ what goes in it: "The letters in the en build").
   sizes (`PLAYER_NAME_LEN`, `ANIMAL_CATCHPHRASE_LEN`), but the speaker's
   name 9 and the catchphrase 11, since those are tokens that can stand
   for more ("Catchphrases longer than 4"); the date's parts as the en
-  build writes them; anything else 8 (TODO(verify)). On the English
+  build writes them; anything else 8, an estimate and no more: what a
+  free string or an item's prints is the game's to say when it runs (a
+  number, a thing's name, a word). The estimate is held to the screen
+  instead: every page the emulator checks read is looked at on the
+  frame, and no line may be drawn past the bubble's text area ("The
+  last notes without a source"). On the English
   bank: 1,934 pages with words moved on,
   232 filled anew, 372 split (304 of the cuts at a sentence's end, 68
   inside one); 3 lines stay wider than the window (one long word, or free
@@ -1166,8 +1171,9 @@ what goes in it: "The letters in the en build").
   it), so Japanese text on the cartridge's board is drawn the same way.
   The play's viewport is the whole screen (vscale 640, 480) and the
   font's projection 16 units to the pixel (`mFont_SetMatrix`:
-  `guOrtho(-2560, 2560, -1920, 1920)`); where the 2% comes from is
-  TODO(verify).
+  `guOrtho(-2560, 2560, -1920, 1920)`); the 2% is that projection's
+  fixed point: its x scale, 2/5120, is 25.6/65536, and the matrix keeps
+  25 ("The last notes without a source").
 - **What it fixed.** With the cartridge's realigned glyphs, 62 lines of
   the GameCube's letters (in 60 letters) were wider than 192 px before
   any free string, and 56 to 60 shop letters ran past six lines with
@@ -1330,8 +1336,10 @@ what goes in it: "The letters in the en build").
   to) are still Japanese: they are strings in its own data, 12 bytes each
   (`ovl__00792700`'s `D_8088C888_jp`, `D_8088C894_jp`; not textures, as
   this note first guessed: "The menus' own words"). So is the edit-end
-  check's question (`ovl__00799580`'s `D_808969F4_jp`); where its two
-  answers come from is TODO(verify). The dial's labels are textures.
+  check's question (`ovl__00799580`'s `D_808969F4_jp`); its answers
+  come from a table of its own (`D_80896A18_jp`, drawn by
+  `func_8089652C_jp`: "The edit-end check and the address book"). The
+  dial's labels are textures.
 
 ## The menus' own words (phase 5, the graphics' first step)
 
@@ -1948,6 +1956,48 @@ what goes in it: "The letters in the en build").
   and a cart's side, no words, and the GameCube's are the same. (The
   fortune stall and the headquarters' sign are ours now, "Our own
   signs"; the winter crest is the front under snow, no word showing.)
+- **Inside the rooms (the closing pass).** The survey above drew out the
+  wide textures; a room's sign is as often tall. Once the checks went
+  into the larger shops ("The rooms a day does not reach") the fourth
+  one's walls showed words: on its first floor a sign to the stairs with
+  the floor's number, the plate of its information desk and a board of
+  welcome and opening hours with a strip for a sale under it; on its
+  raffle's day a sign of thanks, the plate again and the raffle's board;
+  a sign of thanks on its second floor. They are in the rooms' own files
+  (`ovl_Shop_Indoor`'s table of nine at `D_8095B510_jp`: each shop's
+  room and its raffle's day's, and the fourth's second floor; segment 6),
+  CI4, 32x64, 32x16 and 48x64. So the question was asked of every room
+  at once, and of the disc instead of the eye: each CI4 texture that the
+  lists of the 160 files from vrom 0x1291000 to 0x13F3000 draw in their
+  own segment, 358 of them, was laid out as the GameCube keeps one and
+  looked for among its module's data. 285 are there byte for byte: what
+  the GameCube's English kept, the en build keeps (a staff door's plate
+  in the second shop, a texel or two high, among them). The other 73
+  were looked at: the fourth shop's seven and the police box's two
+  posters, which the GameCube redrew in English under names of their own
+  (`rom_shop4_..._us_...`, `rom_koban_us_pos1` and `_pos2`: a name once
+  for each room that draws the texture, the same bytes every time); one
+  poster in the second shop that it does not have ("Our own signs"); and
+  art without a word: the raffle's red and white curtain, a fortune
+  teller's rug, curtains and cards (the rug's marks are an astrologer's),
+  counters, a money bag with the game's own mark, clocks' faces, the
+  field's cliffs and walls. The textures of other formats in those files
+  (40: shadows, light, smoke, cobwebs) have none either.
+  `tools/af_gc_signs.py` takes the seven (`ROOMS`), each checked as a
+  structure's sign is, in the room's file: the lists draw a CI4 texture
+  of that size there; the two agree on most texels (52 to 90%: the plate
+  is nearly all words); the colours the GameCube's texture uses are those
+  of the palette the room draws it with. One is not: in the first
+  floor's board the GameCube gave the strip's in-between shade another
+  colour (entry 9 of the palette at 0x2698), and that entry is written
+  too, the palette's one other texture not using it. The en tree's .bin
+  of a room must be the cartridge's file but for those places, whatever
+  an earlier make put there. `make signs-check-en`: in the ROM each is
+  the GameCube's texels, the entry its colour, and the rest of each room's
+  file the cartridge's; `make memory-check-en` goes into the fourth shop
+  on a plain day, up its stairs, and on a month's last day, and finds
+  each room's signs in RAM as the en ROM has them and the cartridge's
+  not.
 
 ## The word textures (phase 5, the graphics' fifth step)
 
@@ -2346,8 +2396,10 @@ what goes in it: "The letters in the en build").
   over the old one at the end (`func_80884370_jp`), so a catchphrase the
   player gives stays 4 letters. Without an animal behind the speaker the
   code puts in a placeholder of its own (`l_no_ending_npc_ending`, kana),
-  as it does for the name (`l_no_name_npc_name`); no message the game
-  shows takes either (TODO(verify)).
+  as it does for the name (`l_no_name_npc_name`). Whether the game ever
+  shows either is looked at wherever the checks read a page: its bytes
+  (kana fail) and the name on its plate as the game works it out ("The
+  last notes without a source"): none does.
 - **The layout.** The message bank is laid out with what the game fills
   in counted in average letters; the speaker's name now counts 9 and the
   catchphrase 11 (the widest the tokens stand for: 56 and 70 pixels at
@@ -2581,7 +2633,12 @@ what goes in it: "The letters in the en build").
   wider and all with the lower-case letters 1 px narrower. The window
   draws its text at 2.005 frame pixels to the pixel, the letter board's
   at 1.954 and the bulletin board's at 1.960 ("The letter board in the
-  en build", "The bulletin board"): why they differ is TODO(verify).
+  en build", "The bulletin board"). They differ by what draws them: the
+  window's body text goes out as texture rectangles, which no matrix
+  scales; the boards' and the menus' goes through the font's
+  projection, whose x scale is kept as 25/65536 where 25.6 is meant:
+  1.953, which both boards' fits are within their residuals ("The last
+  notes without a source").
 - **The orders, played.** Each message taken that plays to its end without
   a choice or a jump (it ends with `<MSGEND>`; no choice, next message,
   luck or quest code) and has talk orders, 38 of the 130, is asked for the
@@ -3371,6 +3428,33 @@ what goes in it: "The letters in the en build").
   east, func_80A0E02C_jp; the post office's + (-40, 50) with A,
   func_80A08670_jp), the officer inside, both posters in RAM ours and
   the cartridge's not.
+- **Inside the shops, and the police box again (the closing pass).** The
+  rooms' textures were compared with the GameCube's, all of them ("The
+  GameCube's signs"). Two things follow here. The police box's two
+  posters have an English of the GameCube's own, which its module keeps
+  under names of their own: given the disc's files, `tools/af_own_signs.py`
+  now takes those (checked as `af_gc_signs` checks a room's sign: the
+  same poster redrawn, 92 and 94% of the texels the same, in the room's
+  palette's colours), and ours stay for a build without the disc. And
+  the second shop has a poster by its door that the GameCube's shop does
+  not have (the room's file at vrom 0x13B6000, CI4 48x32 at 0x2EF8, its
+  palette at 0x2878, which no other texture uses): a notice that the
+  shop is taking on part-time staff, a line of large kana over an orange
+  rule and three lines under it, blue on paper. Ours: HELP WANTED over
+  the rule, and PART-TIME, GOOD PAY, ASK INSIDE! under it, in the
+  poster's dark blue, five rows to a line; the paper is painted its
+  ground and the rule drawn again where it was; its edge and shadow are
+  kept. Checked as the others (the texture's and the palette's md5, the
+  lists draw it there with that palette, the room holds it once) and
+  written over the en tree's .bin of the room, which must be the
+  cartridge's file but for the poster. `make signs-check-en`: in the ROM
+  the three posters as the tool makes them (the police box's the
+  GameCube's own, with the disc's files; ours without), the rest of both
+  rooms' files the cartridge's; in the police box, walked into, both in
+  RAM and the cartridge's not. `make memory-check-en` goes into the
+  second shop and finds the poster in RAM, the cartridge's not.
+  `tests/test_tools.py`: the posters' art fits its box and inks, a
+  made-up room for each, the second shop's four lines and its rule.
 
 ## Our own furniture words (the texture sweep)
 
@@ -3969,7 +4053,8 @@ made the two names whole. The rest, and what turned up on the way:
   3 or 4, so the fifth reset finds the count at 3 again and the third actor
   comes a second time; from there the third and the fourth take turns. (The
   decomp names a fifth actor after him, `ovl_Npc_Majin5`; no count of resets
-  sets it, another actor does: outside this check.) Where he asks for a
+  sets it, another actor does: the check meets him since, "The rooms a
+  day does not reach".) Where he asks for a
   phrase the name entry opens on his actor's 10 bytes; the check types on
   the dial, both times he asks: the phrase without its last character, and
   his page is the wrong try's and he asks again; one of his list's words,
@@ -4054,7 +4139,10 @@ made the two names whole. The rest, and what turned up on the way:
   that list them (`m_name_table.c`), which is reading and not seeing (the
   title's logo, the arrival by train, an animal's room, the shop on its
   raffle's day, the igloo, a room's lamp, the trader's tent, and six that
-  nothing makes). It fails on an actor that is none of these. Of what is
+  nothing makes; the closing pass sees four of them made, finds three of
+  those guesses wrong and shows that nothing makes the other nine: "The
+  rooms a day does not reach"). It fails on an actor that is none of
+  these. Of what is
   in the sum, the code that makes each was read where it could be found:
   the balloon, the bees, the fish and its shadow and the tools are made
   with no name of the map (`Balloon_move`, the item layers, the player,
@@ -4071,7 +4159,10 @@ made the two names whole. The rest, and what turned up on the way:
   no snowballs: where they lie is the day's dice, thrown again at each
   power-on that plays another way); one from the door straight into the
   next block on New Year's Day found 63,120 where the tour has 73,632,
-  the snowballs there both times. The 16 KB kept are for that.
+  the snowballs there both times. The 16 KB kept are for that. (The
+  closing pass walks every way into every block on three dates and
+  watches the allocator itself: the year's least is 60,064 bytes, "The
+  rooms a day does not reach".)
   The snowballs are the difference between one day's worst block and the
   next: a block has them or has not, by the game's dice, and 17 KB go with
   them. The year check holds its young town to the same floor now. It had
@@ -4191,6 +4282,233 @@ made the two names whole. The rest, and what turned up on the way:
   `tests/emu_year.py` changed in a comment only (its floor's reason):
   parsed, its code is the commit's before, so the year check was not run
   again.
+
+## The rooms a day does not reach (the closing pass)
+
+The follow-up ended on six things it had not covered. What a block has
+free depends on the way the player came, and its check walked one way.
+Thirteen of the 177 actors were accounted for by reading their names and
+their tables, not by seeing them. The three larger shops, a house once
+enlarged, the igloo and the two tents had never been gone into. The fifth
+of Mr. Resetti's actors was outside its check. Its last commit had run
+again only the checks it touched. And a handful of notes still said they
+had no source (the section after this one). Each is closed here; what
+turned up on the way is Japanese inside the larger shops ("The GameCube's
+signs", "Our own signs").
+
+- **The allocator, watched.** The arena was read between frames: a look,
+  a walk, a look. What it was between two looks nobody saw, and a block's
+  change makes the new block's actors before a frame is over. Everything
+  that comes out of the arena comes through two functions (`m_malloc.c`:
+  `zelda_malloc` and `zelda_malloc_r`, one call each of `__osMalloc` and
+  `__osMallocR`). `tests/emu_memory.py` makes those two calls a hook's, in
+  the running game (C built with the decomp's compiler and laid in the
+  hole `m_choice_main.o` left, as the other checks' hooks are): it counts
+  the requests, how often the arena said no and the largest request, and
+  after each allocation walks the arena's nodes for the largest free block
+  and keeps the least. It goes in as soon as the game's code is in RAM
+  after power-on, before the first scene, in every session of the check.
+  The arena never says no: not on the way to the town (579 requests on New
+  Year's Day), not on a tour, not in a room; and the least between two
+  looks is a kilobyte or so under the looks' own (72,512 against 73,632 on
+  that tour). The largest single request is 250,720 bytes.
+- **Every way in.** On three dates the town is walked into every one of
+  its 30 blocks from every neighbour that has a way in (`edges`: the
+  nearest way not yet walked, over the ways known open, until none is
+  left): New Year's Day (the year's tightest once all that can come is
+  counted), the turnips' Sunday of February (the year's least on the
+  tour) and the fireworks' night (a festival's stalls). 106 crossings on
+  each; no way is closed. The year's least is not the tour's (73,632
+  bytes, the block south of the houses' on New Year's Day): it is 60,064,
+  the same day, in the houses' block entered from that block; 65,888 on
+  the turnips' Sunday and 83,248 at the fireworks, the houses' block both
+  times, entered from the west and from the east. Each is over
+  the floor (49,152), and with all that can come on top at once
+  (`EXTRA`: 51,932 bytes less what the block has loaded) the tightest
+  keeps 25,584, 31,408 and 48,768, where 16 KB are asked. A block's room
+  moves by up to 34,848 bytes with the way in (New Year's Day: whether
+  the block before had the snowballs' overlay loaded decides where the
+  next one's actors land); that spread is told, not judged: every way in
+  is held to the floor and to the sum, which is what the 16 KB were for.
+- **Every actor made.** An actor is made in one place (`m_actor.c`,
+  `Actor_info_make_actor`: the scenes' lists, the name tables and every
+  actor that makes another all come through it), which then hands the new
+  actor to `Actor_info_part_new`. The hook takes that call too and counts
+  each number made, from power-on. So what the check says of an actor no
+  longer rests on a look between frames, or on a table read. Of the
+  thirteen that were read, four are now seen made: the title's logo in
+  the title's demos, the raffle's machine on a month's last day
+  (`ovl_Garagara`), the igloo's inside (`ovl_Kamakura_Indoor`) and the
+  black market's tent's (`ovl_Broker_Design`). The other nine nothing
+  makes: `Arrange_Furniture`, `BoxManager`, `BoxMove` and `Fieldm_Draw`
+  (empty: their four functions do nothing, 112 bytes each), `BoxTrick01`,
+  `Mbg` and `Sample` (a test's), `Lamp_Light` and `Ride_Off_Demo`. Reading
+  had put three of them where they are not: the arrival by train is
+  `ovl_Intro_Demo`'s, which the hook sees made on the new game's road; an
+  animal's room is `ovl_Arrange_Room`'s; and the house at nine at night
+  has no lamp's actor. The
+  hook sees none of the nine in any session. The scenes' files say the same
+  (`scene_data_status`, 35 scenes; `m_scene.c`'s `Scene_ct` reads their
+  lists): one scene names one of the nine, `SCENE_FIELD_TOOL_INSIDE`,
+  `Lamp_Light`; no scene's door leads there, and its name stands only in
+  the debug menu's list (`ovl_select`). That state is entered from the
+  debug player select, which nothing enters, and from two functions of
+  the title's logo (`func_80AA0264_jp`, `func_80AA02A4_jp`) that its
+  input function calls through a table where a mask of the logo's has
+  the entry's bit (`func_80AA0478_jp`); the logo's constructor clears the
+  mask and the one other function that writes it clears a bit
+  (`func_80AA0360_jp`): on the cartridge A at the title does nothing.
+  The places in the code that make an actor were counted too: 23. Those
+  that name the actor name ten between them, none of the nine (a fish's
+  shadow, a fish let go, a cockroach, bees, a rope, a balloon, the
+  field's drawing, and three of the event manager's); the others take it
+  from a table: the map's names (`ovl_Birth_Control`, by
+  `m_name_table.c`: four of the nine have a name there, 0x8003, 0x8004,
+  0x8005 and 0x8007, and `Sample` 0x9000, which an item of that name on
+  the map would make; no map the sessions walk has one), the
+  structures', the characters', the tools', `ovl_Shop_Design`'s and one
+  of the balloon's. Should anything make them all the same, all nine at once
+  take 11,072 bytes, overlays, instances and nodes: inside the 16 KB.
+  The check fails if the hook sees one, if a scene a session passes or a
+  door leads to names one, or if an actor is neither met, nor in the sum,
+  nor one of these.
+- **The rooms.** Each is reached as the game reaches it, over the
+  power-ons of one flash, the player saving at the gyroid and stopping in
+  between (`session`, a process each). What is written into the save
+  before a power-on is what the player's dealings would have left, a few
+  bytes; the rest is the game's.
+  A house: an enlargement ordered (`mHm_hs_c` + 0x22: the size ordered
+  beside the size; the order's date at 0x1E). The next day's start of play
+  enlarges it (`mHm_CheckRehouseOrder`, from `mSDI_StartInitAfter`; the
+  new walls by `func_80094A04_jp`, a size at a time). The medium room has
+  410,352 bytes free (480,848 in use), the large 313,872 (577,120). Then
+  each with furniture: a different piece on every place of its floor, 36
+  and 64, the one-unit pieces whose overlays are the largest first
+  (`mRmTp_ftr_size`; `ovl_My_Room`'s table of 947 at `D_80947638_jp`).
+  The room does not make them all. `ovl_My_Room` has places of its own
+  for a room's furniture, as many as its table says for the scene
+  (`func_80938EF0_jp`: 24, 32 and 48 for the three sizes of a player's
+  room, 30 for an animal's, 5 for a shop and 7 for the fourth one's
+  second floor, 3 for a tent and the igloo), and makes a piece only while
+  one is free (`func_80938A18_jp`): the cartridge's limit, and the en
+  build's. So 32 and 48 of the pieces' overlays are loaded (54,720 and
+  71,504 bytes; `B_8094D320_jp` says which), the rooms have 360,144 and
+  246,624 bytes free, and all the furniture's overlays together are
+  152,736: whatever is put in a room, its code fits.
+  The shop: the sales that earn the next one (`common_data` + 0xED74;
+  `func_800C16F0_jp`: 25,000, 90,000, and 240,000 with a visitor from
+  another town), the renewal's flag and its date (0xED80), which
+  `ovl_Shop_Level` would have set once it saw the sales. The day before
+  that date the shop is closed and a sign at its door says so
+  (`func_800C23EC_jp`; the sign's page is read); from that date on the
+  town's start swaps the building on the map and raises the shop's size
+  (`func_809588D4_jp`). Each larger shop is gone into at its door, where
+  its own code takes the player (up and to the right of the door's
+  point): the second 426,080 bytes free (465,008 in use), the third
+  454,176 (436,928), the fourth 429,776 (461,376) and, up its stairs,
+  405,872 (485,136); and the fourth again on the month's last day, when
+  it holds its raffle. In the second shop and the fourth's three rooms
+  the signs the en build redraws are looked for in RAM: as the en ROM has
+  them, and the cartridge's not.
+  The tents: nothing is written. The game sets the next special visit
+  when the last one is over, at a start of play (`func_8007E780_jp`): its
+  kind by a table of six (`D_80104FA0_jp`: the entry (year - month + the
+  first player's id + 1 + day + hour) mod 6, the next one while it is the
+  last visit's kind), its day one to seven days on, its hour by its kind
+  (the black market from 18:00, the fortune teller from 21:00). A month
+  scanned from one save found no tent, because each power-on set a visit
+  anew. So the check powers the town on at an hour that gives the kind
+  wanted, saves, and powers it on again on the day and at the hour the
+  game wrote into the save. A start on May 1st at 10:00 sets the black
+  market's tent for the 2nd; it stands in block 1,6, has 494,992 bytes
+  free inside (396,304 in use), and its keeper's talk is five pages. One
+  on the 4th sets the fortune teller's for the 5th: block 2,5, 505,808
+  bytes (385,728), six pages.
+  The igloo of a winter's day has 471,952 bytes free (419,408 in use)
+  and its camper four pages; the first shop on a month's last day, with
+  the raffle's machine, 423,440 (467,584); the player's house at nine at
+  night 425,200, as by day. Every page read on the way is clean, and on
+  the way to each room the arena's least is 85 to 88 KB.
+- **The fifth of his actors.** No reset brings `ovl_Npc_Majin5`. The crate
+  by the station that draws the staff's names during K.K.'s show
+  (`ovl_Mikanbox`, `func_80AA4648_jp`) makes him, through `ovl_Npc`'s
+  clip, once the show has run a minute and while the clock's second of
+  the day is from 74,700 to 75,300: a quarter to nine to five to nine, of
+  a Saturday. He says nothing (his overlay calls no talk).
+  `tests/emu_reset.py` powers the two players' town on on a Saturday at
+  20:46, finds K.K., asks for the show and plays it to its end, reading
+  the actors after every step: he comes up at the clock's second 74,900
+  and is gone when the show is over; his actor and his overlay lie inside
+  `ovl_Npc`'s own overlay, so he takes nothing out of the arena, which
+  keeps 89,632 bytes while he is there; the show's nine pages are clean.
+- **The checks.** On the ROM this tree builds, the whole battery as goals
+  of one make (the section's last word, below).
+
+## The last notes without a source (the closing pass)
+
+Ten places in the tree still said a thing was not checked: five in these
+notes, two in the decomp's patch, two in `tools/af_text.py` and one in
+`tests/emu_board.py`. Each is traced to the game's code, or turned into
+a check that runs; none is left.
+
+- **What a line's filler prints.** The layout reckons what the game fills
+  into a line at a length (`tools/af_text.py`, `CODE_LETTERS`): a name's
+  field, a date's part, and for a free string or an item 8 letters, which
+  is a guess; the game does not clip a line. What a free string prints is
+  the game's to say when it runs, so the guess is held to the screen
+  instead of being argued: wherever an emulator check reads a page it
+  now looks at the frame too (`tests/emu_year.py`, `margin_ink`). The
+  window's bubble is found whole on the frame (light at its sample
+  points; a sign's board or a window still opening is not judged), and
+  for each of its four lines the columns right of the text area, the
+  frame's 515 to 547 where the text ends at 512, must hold no ink; the
+  arrow that waits for the next page stands there and is masked, a
+  triangle. The year's check judges the pages it reads this way, the
+  greeter's, the animals', the events' and the ones that start by
+  themselves, and so do the reset check's and the memory check's
+  sessions: no line is drawn past its bubble.
+- **The name plate's placeholder.** Without an animal behind the speaker
+  the code has a name of its own, a kana word, and a catchphrase
+  (`l_no_name_npc_name`, `l_no_ending_npc_ending`: "Catchphrases longer
+  than 4"). Whether the game ever shows it was open. The same pages are
+  now judged for it, by the game's own rule (`mNpc_GetNpcWorldName`,
+  replayed in `Town.plate`): when the window shows a plate, the actor
+  that speaks is an animal with a name of its own, or its name on the map
+  is one of the 64 in the special characters' table (`l_sp_actor_name`);
+  anything else would be the placeholder. None is; and a page's bytes
+  with kana in them fail as before.
+- **The font's two per cent.** The letter board's text measures 1.954
+  frame pixels to the font's pixel and the bulletin board's 1.960, where
+  the window's is 2.005 ("The letter board in the en build", "The
+  bulletin board"). The font and the menus draw through
+  `guOrtho(-2560, 2560, -1920, 1920)` (`mFont_SetMatrix`,
+  `mSM_setup_view`: 16 units to the pixel); its x scale, 2/5120, is
+  25.6/65536, and the matrix keeps the scale in sixteen bits of whole and
+  sixteen of fraction: 25. So a font pixel is 25/25.6 of two frame
+  pixels, 1.953 (and the y scale, 34.13, is kept as 34: 0.4% short). The
+  window's body text is texture rectangles, which no matrix scales.
+  `tests/emu_board.py` no longer says it does not know: it searches the
+  first board's frame for the projection the display lists load (the
+  matrix command and the matrix's first words) and holds it to 25 and
+  34, and the reckoned 1.953 to the boards' measured 1.954.
+- **The edit-end check's answers.** The question is a string of the
+  overlay's (`D_808969F4_jp`); its two answers come from a table beside
+  it (`D_80896A18_jp`), drawn by `func_8089652C_jp`: "The edit-end check
+  and the address book", where they were put in English, had found them;
+  the older note is mended.
+- **The GameCube's code for the player's sex.** The draft's adapting of
+  an official message kept the first alternative of one of the
+  GameCube's own codes without knowing what its four bytes mean. They
+  are two messages' numbers, one for each sex, and the code stands in
+  nine messages of the GameCube's only, all past the cartridge's last:
+  the draft never meets one. The adapting no longer guesses: the code is
+  kept, and the check refuses it as the GameCube's, should one ever come.
+- **Two sizes in the decomp.** The message window's text buffer: the
+  cartridge's (`B_80141FF0_jp`) is 0x420 bytes, 0x10 of header and 0x410
+  of text, and its loader refuses a message over `mMsg_MSG_SIZE_MAX`
+  (`func_8009E388_jp`). The request's record: 0x88 bytes, which is what
+  `func_80091AB0_jp` clears of it before it fills it in. Both are
+  comments of the patch; the matching build is the cartridge's as before.
 
 ## Other emulators (ares, Project64, RetroArch, RMG and simple64)
 

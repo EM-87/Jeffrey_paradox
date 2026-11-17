@@ -304,7 +304,7 @@ index a4d4a9b..a5ef6bd 100644
 +
  #endif
 diff --git a/include/m_msg_main.h b/include/m_msg_main.h
-index d2906f3..462f4b2 100644
+index 6cc911a..75ebdaa 100644
 --- a/include/m_msg_main.h
 +++ b/include/m_msg_main.h
 @@ -22,9 +22,9 @@ struct Color_RGBA8;
@@ -336,7 +336,7 @@ index d2906f3..462f4b2 100644
  #define mMsg_CODE_SOUND_CUT 0x51
  #define mMsg_CODE_BGM_MAKE 0x56
  #define mMsg_CODE_BGM_DELETE 0x57
-@@ -162,8 +163,8 @@ typedef struct MessageWindow {
+@@ -163,8 +164,8 @@ typedef struct MessageWindow {
      /* 0x02C */ f32 nameplateX;
      /* 0x030 */ f32 nameplateY;
      /* 0x034 */ s32 showContinueButton;
@@ -347,7 +347,7 @@ index d2906f3..462f4b2 100644
      /* 0x132 */ u8 mailStr[mMsg_MAIL_STR_NUM][mMsg_MAIL_STRING_LEN];
      /* 0x176 */ Color_RGBA8 nameTextColor;
      /* 0x17A */ Color_RGBA8 nameBackgroundColor;
-@@ -208,7 +209,11 @@ typedef struct MessageWindow {
+@@ -209,7 +210,11 @@ typedef struct MessageWindow {
      /* 0x2D4 */ u8 nowUtter;
      /* 0x2D8 */ mMsg_Main_Data mainData;
      /* 0x2E0 */ mMsg_Request_Data requestData;
@@ -3277,7 +3277,7 @@ index 5b38fe9..fb84685 100644
 +}
  #endif
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
-index 03981c7..ed1d47e 100644
+index f9bb4f2..f34f50c 100644
 --- a/src/code/m_msg_main.c
 +++ b/src/code/m_msg_main.c
 @@ -1,5 +1,7 @@

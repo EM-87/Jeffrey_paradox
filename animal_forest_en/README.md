@@ -59,9 +59,11 @@ make psel-check-en                # enciende con pueblos de 1, 2 y 4 jugadores y
 make words-check-en               # las palabras que el cartucho carga en 10 bytes (o 4) y los
                                   # nombres de los personajes especiales, por el código del juego
 make reset-check-en               # enciende siete veces la misma partida, guardando o sin guardar:
-                                  # las visitas de Resetti por la cuenta del propio juego
+                                  # las visitas de Resetti por la cuenta del propio juego (y la
+                                  # quinta, que asoma en el concierto del sábado)
 make memory-check-en              # la memoria libre en un pueblo lleno (4 jugadores, 15 vecinos)
-                                  # en las 21 fechas del año, y dentro de las casas y edificios
+                                  # en las 21 fechas del año, entrando en cada parcela por todos
+                                  # sus lados, y dentro de casas, tiendas, tiendas de campaña e iglú
 make ares                         # el segundo emulador, ares, sin ventana (y su aplicación)
 make test                         # tests de las herramientas, sin ROM
 make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010: para estudiarlo, y
@@ -406,6 +408,13 @@ de lo que vende el de GameCube (un abanico, un molinillo, globos, con
 sus precios) mientras ofrecía música de K.K.: sus tres saludos son ahora
 traducción nuestra del cartucho (música de K.K., gyroides y fruta, con
 sus precios).
+
+Dentro de los edificios también había rótulos (abajo, «Rótulos en
+japonés dentro de las tiendas grandes»): los siete de la tienda más
+grande salen del disco de GameCube, como los de fuera, y también los dos
+carteles de la comisaría, que primero dibujamos nosotros y resultaron
+tener versión inglesa oficial; el cartel de la segunda tienda, que
+GameCube no tiene, es nuestro.
 
 Después, una revisión de todo el texto antes de una sola compilación
 ("The text's questions and facts"). GameCube escribió sus preguntas para
@@ -761,8 +770,9 @@ Y lo que quedaba pendiente:
   partida nueva, o están apuntados con el sitio donde viven. La primera
   versión de esta cuenta estaba mal (sumaba el cartero, que no gasta, y no
   contaba todo lo que ocupa cada cosa); la cifra de «42 KB» que di venía
-  de ahí. Un matiz: el hueco libre de una parcela cambia algunos KB según
-  por dónde se llegue a ella (de ahí los 16 KB de reserva).
+  de ahí. Un matiz: el hueco libre de una parcela cambia según por dónde
+  se llegue a ella (de ahí los 16 KB de reserva); eso se midió después,
+  entrando por todos los lados (abajo).
   Hay otro momento en que el juego pide mucha memoria de golpe: al pulsar
   START en el título lee la partida en un búfer de 63,9 KB, y no comprueba
   si se lo dan. Todas las pruebas pulsaban START en la primera de las
@@ -776,6 +786,84 @@ Y lo que quedaba pendiente:
   pasa de 52 KB a 48 KB. El cartucho original sigue teniendo esos 48 KB
   más; si la memoria se agotara, el juego se detendría, igual que en el
   cartucho, y no hay ningún caso medido que se acerque.
+
+Y lo último que quedaba sin cubrir (la lista con la que cerré la revisión
+anterior), ya cubierto:
+
+- **Por dónde se llega a una parcela.** La memoria libre de una parcela
+  cambia según el camino. Ahora `make memory-check-en` pone un contador
+  dentro del propio juego, en las dos funciones por las que se pide
+  memoria, desde que se enciende: en ningún recorrido ni en ninguna
+  habitación el juego recibe un «no», y queda apuntado el mínimo real,
+  también entre dos fotogramas. Y en tres fechas (Año Nuevo, la mañana
+  de febrero más justa y la noche de los fuegos) entra en cada una de
+  las 30 parcelas desde todos sus lados, 106 cruces cada vez. El punto
+  más justo del año no era el del paseo anterior: son 60,1 KB libres
+  (Año Nuevo, la parcela de las cuatro casas entrando desde el sur), y
+  si además llegara de golpe todo lo que puede aparecer sobrarían 25,6 KB,
+  donde se exigen 16. Con nieve, el hueco de una misma parcela llega a
+  cambiar 34,8 KB según por dónde se entre.
+- **Los actores que solo estaban «leídos».** El contador apunta también
+  cada actor que el juego crea, en el único sitio del código donde se
+  crean, desde el encendido y en todas las sesiones de la prueba. De los
+  13 tipos que la prueba daba por situados leyendo tablas, cuatro se ven
+  ahora crear (el logotipo del título, el bombo del sorteo, el decorado
+  del iglú y el de la tienda del mercadillo) y los otros nueve no los
+  crea nada: no aparecen nunca, cuatro están vacíos, tres son de
+  pruebas, y el único que figura en la lista de una escena lo hace en
+  una escena de pruebas a la que no lleva ninguna puerta (solo el menú
+  de depuración, que en el cartucho no se puede abrir). Leer las tablas
+  había situado mal tres de ellos. Si algo los creara, todos juntos
+  ocuparían 11,1 KB, menos que la reserva.
+- **Los interiores que faltaban**, cada uno como llega a él el juego, en
+  varios encendidos de la misma partida guardando en el giroide entre
+  ellos. La casa se amplía sola al encender al día siguiente de
+  encargarla (dos veces: mediana y grande) y se mide vacía y con un
+  mueble distinto en cada casilla, los de código más grande. Aquí salió
+  un tope del propio cartucho: el cuarto solo crea 32 muebles en la casa
+  mediana y 48 en la grande (24 en la pequeña), por muchas casillas que
+  tenga. Con ese máximo quedan 360 KB y 247 KB libres, y todo el código
+  de todos los muebles junto son 153 KB. La tienda crece tres veces con
+  la reforma del propio juego (el día antes está cerrada, con su
+  cartel) y se entra en cada una: más de 400 KB libres en todas,
+  también en la planta de arriba de la grande y el día del sorteo. El
+  mercadillo y la adivina salen el día que el juego fija al encender a
+  una hora concreta; dentro hay 495 KB y 506 KB libres y sus dueños
+  hablan en inglés limpio. El iglú, con su campista (472 KB); la tienda
+  el último día del mes, con el bombo; la casa de noche.
+- **Rótulos en japonés dentro de las tiendas grandes.** Al entrar
+  aparecieron: siete en la tienda más grande (el cartel de la escalera,
+  la placa de información y el tablón de bienvenida y horario en la
+  planta baja; el cartel de agradecimiento, la placa y el tablón del
+  sorteo el día del sorteo; otro cartel de agradecimiento arriba) y un
+  cartel de «se busca personal» en la segunda tienda. Los siete existen
+  en inglés en el disco de GameCube y se toman de ahí al compilar, como
+  los rótulos de fuera; el cartel de la segunda tienda no existe en
+  inglés y lo he dibujado yo (HELP WANTED / PART-TIME / GOOD PAY / ASK
+  INSIDE!). Para no depender del ojo, se compararon con el disco las 358
+  texturas de todas las salas del juego: 285 son idénticas byte a byte
+  y las otras 73 se miraron una a una (el resto es arte sin letras). De
+  ahí salió también que los dos carteles de la comisaría, que eran
+  dibujo mío, tienen versión inglesa oficial en el disco: ahora se usa
+  esa cuando hay disco, y la mía queda para compilar sin él. `make
+  signs-check-en` los comprueba en la ROM y `make memory-check-en` entra
+  en cada tienda y los encuentra en memoria.
+- **La quinta variante de Resetti** no la trae ningún reinicio: asoma
+  junto a la caja de la estación durante el concierto de Totakeke, entre
+  las 20:45 y las 20:55 de un sábado. `make reset-check-en` enciende a
+  las 20:46, pide la canción y lo ve salir y marcharse; no tiene texto, y
+  ocupa el sitio reservado a los personajes.
+- **Toda la batería sobre el commit final.** Las comprobaciones corren
+  todas juntas, como objetivos de un solo `make`, sobre el código que se
+  entrega.
+- **Las notas «sin verificar».** Quedaban diez y no queda ninguna: cada
+  una tiene ya su fuente en el código del juego (dos tamaños de
+  estructuras; el 2 % de anchura de los tableros, que es el redondeo de
+  una matriz y la prueba lo encuentra en el fotograma; de dónde salen
+  dos respuestas de un menú; qué significa un código de GameCube) o se
+  comprueba en marcha: en cada página que leen las pruebas se mira que
+  ninguna línea se salga del bocadillo y que la placa del nombre no
+  caiga en la palabra japonesa de relleno.
 
 ## Dónde está cada cosa
 

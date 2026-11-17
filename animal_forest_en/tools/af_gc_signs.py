@@ -23,10 +23,28 @@ is checked first: the cartridge's lists draw a CI4 texture of that size
 there; the GameCube's texels and the cartridge's are the same texture
 (they agree on most of it) redrawn (not all); every other palette the
 textures use is the cartridge's, as the GameCube has it (within a step of
-rounding on a transparent entry). Run at make rom-en when the disc's
-files are there;
-nothing it reads or writes enters the repository (reference/NOTES.md, "The
-GameCube's signs").
+rounding on a transparent entry).
+
+The signs inside the fourth shop (ROOMS: on its first floor the sign to
+the stairs, the plate of its information desk and the board of welcome
+and opening hours with a sale's strip under it; on its raffle's day a
+sign of thanks, the plate and the raffle's board; a sign of thanks on its
+second floor) are in the rooms' own files, which the game's rooms draw in
+segment 6 (ovl_Shop_Indoor's table of them). The GameCube keeps its
+English ones under names of their own, a name once for each room that
+draws it, every time the same bytes. Each is checked as the structures'
+are, in the room's file: the room's lists draw a CI4 texture of that size
+there; the two agree on most of their texels; the colours the GameCube's
+texture uses are the ones of the palette the room draws it with, and
+where the GameCube changed one (the board's strip) its colour is written
+into the room's palette, once no other texture of the room that is drawn
+with that palette uses that entry. Written over the en tree's .bin of the
+room's file (splat leaves it unextracted), which must be the cartridge's
+file but for those places.
+
+Run at make rom-en when the disc's files are there; nothing it reads or
+writes enters the repository (reference/NOTES.md, "The GameCube's
+signs").
 """
 
 import os
@@ -71,6 +89,26 @@ SIGNS = [
     ("obj_s_shop4_t2_tex_txt", [0x66578], (128, 32), 0.45, "the fourth shop's sale banner"),
     ("obj_w_shop4_t2_tex_txt", [0x68B58], (128, 32), 0.45, "the fourth shop's sale banner, in winter"),
     ("obj_e_turi_t1_tex", [0x8AF98, 0x8D028], (128, 32), 0.90, "the fishing tourney's stall"),
+]
+# The signs inside the rooms: the GameCube's texture and the palette it draws it with, the room's file (its
+# vrom), the texture's offset in it, its size, at least how many of its texels the two have the same, what it is
+ROOM_BIN = "assets/jp/segment_%08X.bin"     # the en tree's copy of a room's file
+SHOP4_1F, SHOP4_RAFFLE, SHOP4_2F = 0x13CD000, 0x13D4000, 0x13DC000
+ROOMS = [
+    ("rom_shop4_1_us_sign01_tex", "rom_shop4_1_us_sign01_tex_pal", SHOP4_1F, 0x4158, (32, 64), 0.80,
+     "the fourth shop's sign to its stairs"),
+    ("rom_shop4_1_us_sign02_tex", "rom_shop4_1_us_sign02_tex_pal", SHOP4_1F, 0x4558, (32, 16), 0.45,
+     "the fourth shop's information desk's plate"),
+    ("rom_shop4_1_us_sign03_tex", "rom_shop4_1_us_sign03_tex_pal", SHOP4_1F, 0x4658, (48, 64), 0.80,
+     "the fourth shop's board of welcome and hours"),
+    ("rom_shop4_2_us_sign01_tex", "rom_shop4_2_sign01_us_tex_pal", SHOP4_RAFFLE, 0x4130, (32, 64), 0.85,
+     "the fourth shop's sign of thanks, on its raffle's day"),
+    ("rom_shop4_1_us_sign02_tex", "rom_shop4_1_us_sign02_tex_pal", SHOP4_RAFFLE, 0x4530, (32, 16), 0.45,
+     "the fourth shop's information desk's plate, on its raffle's day"),
+    ("rom_shop4_1_us_sign0_tex", "rom_shop4_1_us_sign0_tex_pal", SHOP4_RAFFLE, 0x4630, (48, 64), 0.75,
+     "the fourth shop's raffle board"),
+    ("rom_shop4_2_us_sign01_tex", "rom_shop4_2_sign01_us_tex_pal", SHOP4_2F, 0x3330, (32, 64), 0.85,
+     "the fourth shop's sign of thanks, on its second floor"),
 ]
 # the GameCube's palettes it changed, the cartridge's (in object_00D5B000) they replace
 PALETTES = [("obj_s_yamishop_pal", "obj_s_yamishop_pal")]
@@ -135,6 +173,106 @@ def drawn_ci(data):
                 out[load] = (4 << render[1], (((w1 >> 12) & 0xFFF) >> 2) + 1, ((w1 & 0xFFF) >> 2) + 1)
             load = None
     return out
+
+
+def drawn_palettes(data):
+    """{a texture's offset: the offset of the palette loaded when the object's lists load it} (the TLUT's
+    address before the texture's, both in the file's own segment)."""
+    out, timg, palette = {}, None, None
+    for at in range(0, len(data) - 8, 8):
+        w0, w1 = struct.unpack(">II", data[at:at + 8])
+        op = w0 >> 24
+        if op == 0xFD:
+            timg = w1 & 0xFFFFFF
+        elif op == 0xF0 and timg is not None:
+            palette = timg
+        elif op in (0xF3, 0xF4) and timg is not None:
+            out[timg] = palette
+    return out
+
+
+def gc_data(map_path, szs_path, want):
+    """{name: its bytes} of the symbols wanted of the map's GC_OBJECT, from the disc's module. A name the map
+    has more than once (a room's texture: once for each room that draws it) must be the same bytes each time."""
+    layout = af_font.map_layout(open(map_path, errors="replace").read())
+    places = {}
+    for o, s, sym, obj in layout[".data"]:
+        if obj == GC_OBJECT and sym in want:
+            places.setdefault(sym, []).append((o, s))
+    missing = [n for n in want if n not in places]
+    if missing:
+        raise SystemExit("af_gc_signs: not in the map's %s: %s" % (GC_OBJECT, ", ".join(missing)))
+    gc = af_font.gc_rel_data(open(szs_path, "rb").read(), layout,
+                             max(o + s for spots in places.values() for o, s in spots))
+    out = {}
+    for sym, spots in places.items():
+        copies = {gc[o:o + s] for o, s in spots}
+        if len(copies) != 1:
+            raise SystemExit("af_gc_signs: %s is in the map's %s %d times, not all the same" % (
+                sym, GC_OBJECT, len(spots)))
+        out[sym] = copies.pop()
+    return out
+
+
+def gc_palette(raw, name):
+    """A GameCube palette of 16 as the N64's entries."""
+    if len(raw) != 32:
+        raise SystemExit("af_gc_signs: %s is %d bytes, not a palette of 16" % (name, len(raw)))
+    return [rgb5a3_to_rgba5551(v) for v in struct.unpack(">16H", raw)]
+
+
+def room_signs(tex, room, vrom, table=None, tool="af_gc_signs"):
+    """{offset: the en build's bytes} of the room's file at vrom (room: the cartridge's) for the table's signs
+    in it (ROOMS' form; tex: gc_data's): each sign's texels, the GameCube's, and the palette's entries the
+    GameCube changed that its texture uses. Each sign is checked first, or SystemExit."""
+    drawn, palettes = drawn_ci(room), drawn_palettes(room)
+    out = {}
+    for name, pal_name, where, at, (w, h), agree, what in (ROOMS if table is None else table):
+        if where != vrom:
+            continue
+        if drawn.get(at) != (4, w, h):
+            raise SystemExit("%s: %s (%s): the room's lists draw %s at %#x, not CI4 %dx%d" % (
+                tool, name, what, drawn.get(at), at, w, h))
+        new = untile_ci4(tex[name], w, h)
+        old = room[at:at + len(new)]
+        same = sum(a == b for a, b in zip(texels(old), texels(new)))
+        if not agree * w * h <= same < w * h:
+            raise SystemExit("%s: %s (%s) and the cartridge's at %#x + %#x agree on %d of %d texels" % (
+                tool, name, what, vrom, at, same, w * h))
+        pal_at = palettes.get(at)
+        if pal_at is None or pal_at + 32 > len(room):
+            raise SystemExit("%s: %s (%s): the room's lists load no palette of the file's for it" % (
+                tool, name, what))
+        cart, theirs = struct.unpack(">16H", room[pal_at:pal_at + 32]), gc_palette(tex[pal_name], pal_name)
+        changed = [i for i in sorted(set(texels(new))) if not same_colour(cart[i], theirs[i])]
+        for other, shared in palettes.items():          # the palette's other users keep their colours
+            if changed and shared == pal_at and other != at:
+                bits, ow, oh = drawn.get(other, (0, 0, 0))
+                if bits != 4 or set(texels(room[other:other + ow * oh // 2])) & set(changed):
+                    raise SystemExit("%s: %s (%s): the texture at %#x is drawn with the palette's entries the "
+                                     "GameCube changed (%s)" % (tool, name, what, other, changed))
+        for i in changed:
+            entry = struct.pack(">H", theirs[i])
+            if out.setdefault(pal_at + 2 * i, entry) != entry:
+                raise SystemExit("%s: %s (%s): the palette's entry %d is changed two ways" % (tool, name, what, i))
+        out[at] = new
+    return out
+
+
+def put_room(en, vrom, room, changes, tool="af_gc_signs"):
+    """changes ({offset: bytes}) over the en tree's .bin of the room's file at vrom (room: the cartridge's).
+    The .bin must be the cartridge's file but for those places (whatever an earlier make put there)."""
+    path = os.path.join(en, ROOM_BIN % vrom)
+    held = open(path, "rb").read()
+    rest, new = bytearray(held), bytearray(room)
+    for at, data in changes.items():
+        rest[at:at + len(data)] = room[at:at + len(data)]
+        new[at:at + len(data)] = data
+    if bytes(rest) != room:
+        raise SystemExit("%s: %s is not the cartridge's file at %#x beside the en build's signs" % (
+            tool, path, vrom))
+    if bytes(new) != held:
+        open(path, "wb").write(bytes(new))
 
 
 def file_at(rom, vrom):
@@ -275,44 +413,23 @@ def with_palette(data_s, name, entries):
 
 def main(argv):
     map_path, szs_path, rom_path, en = argv
-    layout = af_font.map_layout(open(map_path, errors="replace").read())
     want = [n for n, _, _, _, _ in SIGNS] + [g for g, _ in PALETTES] + [g for g, _, _ in SAME_PALETTES]
-    places = {}
-    for o, s, sym, obj in layout[".data"]:
-        if obj == GC_OBJECT and sym in want:
-            places.setdefault(sym, []).append((o, s))
-    missing = [n for n in want if n not in places]
-    if missing:
-        raise SystemExit("af_gc_signs: not in the map's %s: %s" % (GC_OBJECT, ", ".join(missing)))
-    gc = af_font.gc_rel_data(open(szs_path, "rb").read(), layout,
-                             max(o + s for spots in places.values() for o, s in spots))
-    found = {}
-    for sym, spots in places.items():
-        if len({gc[o:o + s] for o, s in spots}) != 1:
-            raise SystemExit("af_gc_signs: %s is in the map's %s %d times, not all the same" % (
-                sym, GC_OBJECT, len(spots)))
-        found[sym] = spots[0]
+    want += [n for sign in ROOMS for n in sign[:2]]
+    tex = gc_data(map_path, szs_path, sorted(set(want)))
     rom = open(rom_path, "rb").read()
     obj, pals = file_at(rom, OBJECT_VROM), file_at(rom, PALETTE_VROM)
     drawn = drawn_ci(obj)
     parts = object_parts(open(os.path.join(en, "yamls", "jp", "assets.yaml")).read())
 
-    def gc_palette(name):
-        o, s = found[name]
-        if s != 32:
-            raise SystemExit("af_gc_signs: %s is %d bytes, not a palette of 16" % (name, s))
-        return [rgb5a3_to_rgba5551(struct.unpack(">H", gc[o + 2 * i:o + 2 * i + 2])[0]) for i in range(16)]
-
     files = {OBJECT_VROM: obj, PALETTE_VROM: pals}
     for theirs, vrom, at in SAME_PALETTES:
-        a, b = gc_palette(theirs), struct.unpack(">16H", files[vrom][at:at + 32])
+        a, b = gc_palette(tex[theirs], theirs), struct.unpack(">16H", files[vrom][at:at + 32])
         if not all(same_colour(x, y) for x, y in zip(a, b)):
             raise SystemExit("af_gc_signs: the GameCube's %s is not the cartridge's palette at %#x + %#x" % (
                 theirs, vrom, at))
     count, copies = 0, 0
     for name, offsets, (w, h), agree, what in SIGNS:
-        o, s = found[name]
-        new = untile_ci4(gc[o:o + s], w, h)
+        new = untile_ci4(tex[name], w, h)
         for at in offsets:
             if drawn.get(at) != (4, w, h):
                 raise SystemExit("af_gc_signs: %s (%s): the cartridge's lists draw %s at %#x, not CI4 %dx%d" % (
@@ -332,7 +449,7 @@ def main(argv):
                        open(os.path.join(en, "yamls", "jp", "assets.yaml")).read())
         cart = list(struct.unpack(">16H", pals[int(at.group(1), 16) - PALETTE_VROM:][:32])) if at else None
         # the GameCube's colours where they differ from the cartridge's (a transparent entry's rounding kept)
-        new = cart and [c if same_colour(c, g) else g for c, g in zip(cart, gc_palette(theirs))]
+        new = cart and [c if same_colour(c, g) else g for c, g in zip(cart, gc_palette(tex[theirs], theirs))]
         if cart is None or cart == new:
             raise SystemExit("af_gc_signs: the cartridge's %s not found, or the GameCube's is the same" % ours)
         held, _ = palette_words(data_s, ours)
@@ -341,8 +458,17 @@ def main(argv):
         data_s = with_palette(data_s, ours, new)
     if data_s != open(data_path).read():
         open(data_path, "w").write(data_s)
-    print("af_gc_signs: %d signs the GameCube redrew (%d copies) and %d palette%s, from the disc" % (
-        count, copies, len(PALETTES), "" if len(PALETTES) == 1 else "s"))
+    inside, entries = 0, 0
+    for vrom in sorted({sign[2] for sign in ROOMS}):
+        room = file_at(rom, vrom)
+        changes = room_signs(tex, room, vrom)
+        put_room(en, vrom, room, changes)
+        inside += sum(len(data) > 2 for data in changes.values())
+        entries += sum(len(data) == 2 for data in changes.values())
+    print("af_gc_signs: %d signs the GameCube redrew (%d copies) and %d palette%s; %d signs inside the fourth "
+          "shop's rooms and %d entr%s of their palettes, from the disc" % (
+              count, copies, len(PALETTES), "" if len(PALETTES) == 1 else "s", inside, entries,
+              "y" if entries == 1 else "ies"))
     return 0
 
 

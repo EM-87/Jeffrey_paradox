@@ -227,6 +227,12 @@ def build_hook(af_en, en_elf, hole, hole_size, mttime_words, mttime, source=None
     its stub (STUB_S, or STUB_ARGS_S for a function with arguments), linked for
     the hole, the function at mttime (whose first two words are mttime_words)
     calling it; (bytes, the stub's address, hook_ctl's)."""
+    blob, syms = build_hook_syms(af_en, en_elf, hole, hole_size, mttime_words, mttime, source, stub)
+    return blob, syms["hook_stub"], syms["hook_ctl"]
+
+
+def build_hook_syms(af_en, en_elf, hole, hole_size, mttime_words, mttime, source=None, stub=None):
+    """build_hook, for a hook with more than one way in: (bytes, {each of its symbols: its address})."""
     work = tempfile.mkdtemp()
     with open(os.path.join(work, "hook.c"), "w") as f:
         f.write(HOOK_C if source is None else source)
@@ -249,7 +255,7 @@ def build_hook(af_en, en_elf, hole, hole_size, mttime_words, mttime, source=None
     shutil.rmtree(work)
     if len(blob) > hole_size:
         raise SystemExit("the hook (%#x bytes) does not fit the hole (%#x)" % (len(blob), hole_size))
-    return blob, syms["hook_stub"], syms["hook_ctl"]
+    return blob, syms
 
 
 def write_code(n64, addr, data):

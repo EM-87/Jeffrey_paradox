@@ -47,6 +47,17 @@ Checks:
      tests/emu_year.py's floor), and where he is made: his actor and his overlay lie inside ovl_Npc's own
      overlay, the room it keeps for the characters it makes, so his visit takes nothing out of the arena
      (tests/emu_memory.py counts on that for every character).
+
+The fifth of his actors (ovl_Npc_Majin5) no reset brings. The crate by the station that draws the staff's
+names during K.K.'s show (ovl_Mikanbox, func_80AA4648_jp) makes him, through ovl_Npc's clip, when the show
+has run a minute (its counter, the actor's 0x940, at 0x708) and the clock's second of the day (common_data +
+0x10118) is from 74,700 to 75,300: a quarter to nine to five to nine. He has no page of his own (his overlay
+calls no talk). So, in one more process, the town is powered on on a Saturday at 20:46, K.K. is found and
+his show asked for and played to its end, the actors read after every step:
+
+  6. he comes up during the show, inside those ten minutes; his actor and his overlay lie inside ovl_Npc's
+     own overlay and the arena keeps the year's floor while he is there; he is gone when the show is over;
+     the show's pages are clean.
 """
 
 import json
@@ -87,6 +98,10 @@ STEPS, STALL = 1500, 12                                # a power-on's steps at m
 ACTOR_TABLE, ACTOR_ENTRY = "actor_dlftbls", 0x20      # the game's table of actors: an overlay's vram start and
                                                        # end and where it is loaded, at 8
 HIS = {1: "Npc_Majin", 2: "Npc_Majin2", 3: "Npc_Majin3", 4: "Npc_Majin4"}   # the count's actor (D_809837AA_jp)
+CAMEO, SINGER, CRATE = "Npc_Majin5", "Npc_Totakeke", "Mikanbox"   # the fifth of his actors; K.K.; the crate
+CAMEO_CLOCK = (2002, 2, 2, 20, 46, 0)                  # a Saturday night, a minute into his ten
+NOW, CAMEO_FROM, CAMEO_TO = 0x10118, 74700, 75301      # common_data: the clock's second of the day; his window
+                                                       # (func_80AA4648_jp: 0x123CC up to 0x12625)
 
 failures = []
 
@@ -175,6 +190,73 @@ def approach(t, actor):
     return False
 
 
+def placed(n64, syms, number, actor):
+    """[whether the actor's instance lies inside ovl_Npc's own overlay, whether its overlay does]."""
+    def entry(name):
+        return struct.unpack(">3I", n64.read(syms[ACTOR_TABLE] + number[name] * ACTOR_ENTRY + 8, 12))
+    start, end, at = entry("Npc")
+    return [bool(at) and at <= a < at + end - start for a in (actor["addr"], entry(actor["name"])[2])]
+
+
+def cameo(emu_dir, rom_path, af_en, town, work):
+    """The town powered on on a Saturday night, K.K.'s show asked for inside the ten minutes the fifth of
+    Mr. Resetti's actors comes up in: a dict of what was seen."""
+    rom = open(rom_path, "rb").read()
+    syms = emu_save.elf_symbols(os.path.join(af_en, "build", "animalforest-jp.elf"))
+    names = emu_year.actor_names(af_en)
+    number = {name: n for n, name in names.items()}
+    cd = syms["common_data"]
+    os.makedirs(work, exist_ok=True)
+    emu_save.write_fla(emu_save.fla_path(work, rom), emu_year.town_image(town))
+    result = {"hang": None, "arrived": False, "block": None, "by": [], "talk": None, "came": None, "room": None,
+              "place": None, "gone": False}
+    with N64(emu_dir, rom, work, timeout=60, clock=CAMEO_CLOCK) as n64:
+        t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], names, syms)
+        plain = n64.frames
+
+        def watching(n=1, buttons=None):
+            """n64.frames, and after it whether he is there: when he came, where he lies, the arena's least."""
+            done = plain(n, buttons)
+            try:
+                his = [a for a in t.actors() if a["name"] == CAMEO]
+                room = t.arena(syms["zelda_arena"]) if his else None
+            except (ValueError, struct.error):
+                return done
+            if his:
+                if result["came"] is None:
+                    result["came"] = [n64.frame, t.i32(cd + NOW)]
+                    result["place"] = placed(n64, syms, number, his[0])
+                    n64.screenshot(os.path.join(work, "cameo.png"))
+                if room and (result["room"] is None or room[0] < result["room"][0]):
+                    result["room"] = list(room)
+            return done
+        try:
+            result["arrived"] = emu_year.arrive(t)
+            singer, blocked = None, set()
+            for b in [(bx, bz) for bz in range(1, 7) for bx in range(1, 6)]:
+                if not t.go_block(b, blocked):
+                    continue
+                singer = next((a for a in t.actors() if a["name"] == SINGER), None)
+                if singer:
+                    result["block"] = list(b)
+                    result["by"] = sorted(emu_town.names(t) & {CRATE, "Station"})
+                    break
+            if singer:
+                n64.frames = watching
+                try:
+                    said = emu_year.talk(t, singer, work, "show", 0, limit=9000)
+                finally:
+                    n64.frames = plain
+                result["talk"] = {"talked": said["talked"], "ended": said["ended"], "pages": len(said["pages"]),
+                                  "choices": said["choices"], "problems": said["problems"]}
+                n64.frames(60, 0)
+                result["gone"] = CAMEO not in emu_town.names(t)
+            n64.screenshot(os.path.join(work, "end.png"))
+        except Hang as e:
+            result["hang"] = str(e)
+    return result
+
+
 def power_on(emu_dir, rom_path, af_en, town, work, k):
     """Power-on k of the cartridge in work, in this process: a dict of what it saw."""
     rom = open(rom_path, "rb").read()
@@ -189,7 +271,7 @@ def power_on(emu_dir, rom_path, af_en, town, work, k):
     number = {name: n for n, name in names.items()}
     events = result["events"]
     with N64(emu_dir, rom, work, timeout=60, clock=(2001, 5, 10, 10, 5 * k, 0)) as n64:
-        t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], names)
+        t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], names, syms)
         dial = Dial(n64, t.play, af_en)
 
         def state():
@@ -201,11 +283,7 @@ def power_on(emu_dir, rom_path, af_en, town, work, k):
             return [a for a in t.actors() if "Majin" in a["name"]]
 
         def place(actor):
-            """[whether his instance lies inside ovl_Npc's own overlay, whether his overlay does]."""
-            def entry(name):
-                return struct.unpack(">3I", n64.read(syms[ACTOR_TABLE] + number[name] * ACTOR_ENTRY + 8, 12))
-            start, end, at = entry("Npc")
-            return [bool(at) and at <= a < at + end - start for a in (actor["addr"], entry(actor["name"])[2])]
+            return placed(n64, syms, number, actor)
 
         def typing(round_):
             """The name entry is open: what he asked for, a text typed by the round, START."""
@@ -290,7 +368,7 @@ def power_on(emu_dir, rom_path, af_en, town, work, k):
                 if page and (page[0], page[1]) not in seen:
                     seen.add((page[0], page[1]))
                     events.append({"msg": page[0], "at": page[1], "text": emu_year.text(page[2])[:700],
-                                   "problems": emu_year.problems(page[2]), "his": bool(now)})
+                                   "problems": t.page_problems(page[2]), "his": bool(now)})
                     if now:
                         n64.screenshot(os.path.join(work, "on-%d-page-%03d.png" % (k, len(seen))))
                 if t.choice_waiting() and given < 2:
@@ -338,6 +416,12 @@ def main(argv):
         with open(os.path.join(work, "on-%d.json" % k), "w") as f:
             json.dump(result, f, indent=1)
         return 0
+    if argv[:1] == ["--cameo"]:
+        emu_dir, rom_path, af_en, town, work = argv[1:6]
+        result = cameo(emu_dir, rom_path, af_en, town, work)
+        with open(os.path.join(work, "cameo.json"), "w") as f:
+            json.dump(result, f, indent=1)
+        return 0
     emu_dir, rom_path, af_en, town, out = argv
     af_en = os.path.abspath(af_en)
     shutil.rmtree(out, ignore_errors=True)
@@ -352,8 +436,41 @@ def main(argv):
             break
         runs.append(json.load(open(path)))
     report(runs)
+    work = os.path.join(out, "cameo")
+    done = subprocess.run([sys.executable, os.path.abspath(__file__), "--cameo", emu_dir, rom_path, af_en, town,
+                           work], capture_output=True, text=True)
+    path = os.path.join(work, "cameo.json")
+    if done.returncode or not os.path.exists(path):
+        check(False, "the show's power-on ran (%s)" % (done.stderr or done.stdout).strip()[-300:])
+    else:
+        report_cameo(json.load(open(path)))
     print("emu_reset: %s; screens and reports in %s" % ("all passed" if not failures else "%d FAILED" % len(failures), out))
     return 1 if failures else 0
+
+
+def report_cameo(run):
+    talk, came, room, where = run["talk"], run["came"], run["room"], run["place"]
+    check(run["hang"] is None and run["arrived"] and bool(run["block"]) and CRATE in run["by"],
+          "a Saturday at %02d:%02d: K.K. is found (block %s, %s there too); no hang (%s)" % (
+              CAMEO_CLOCK[3], CAMEO_CLOCK[4], run["block"], " and ".join(run["by"]) or "nothing of the show's",
+              run["hang"]))
+    check(bool(talk) and talk["talked"] and talk["ended"] and not talk["problems"],
+          "his show asked for and played to its end: %s" % (
+              "%d pages, %d choices (%s); %s" % (
+                  talk["pages"], len(talk["choices"]), " / ".join(talk["choices"][0]) if talk["choices"] else "none",
+                  "no kana, kanji or token, the plates named, no line past the bubble" if not talk["problems"]
+                  else talk["problems"][:3]) if talk else "he was not spoken to"))
+    check(bool(came) and CAMEO_FROM <= came[1] < CAMEO_TO and run["gone"],
+          "%s, the fifth of Mr. Resetti's actors, %s" % (CAMEO, (
+              "comes up during the show, at the clock's second %d (from %d to %d: 20:45 to 20:55), and %s" % (
+                  came[1], CAMEO_FROM, CAMEO_TO - 1, "is gone when it is over" if run["gone"] else "is still there "
+                  "after it") if came else "does not come")))
+    check(bool(room) and room[0] >= emu_year.ARENA_FLOOR and where == [True, True],
+          "while he is there the arena's largest free block is %s at its least (the floor %d), and his actor and "
+          "his overlay lie %s" % (
+              "%d bytes (%d in use)" % (room[0], room[2]) if room else "not read", emu_year.ARENA_FLOOR,
+              "inside ovl_Npc's own overlay: he takes nothing out of the arena" if where == [True, True]
+              else "not both inside ovl_Npc's own overlay (%s)" % where))
 
 
 def kept(count):

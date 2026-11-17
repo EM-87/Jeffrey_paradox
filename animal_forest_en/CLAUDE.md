@@ -195,8 +195,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   the disc's foresta.rel (make script's): its tiled CI4 laid out as the
   N64's over the en tree's copy of object_00D5E000 (its PNGs, its
   unextracted .bin), every copy, and the black market's palette into
-  object_00D5B000's data; each checked against the cartridge's lists and
-  texels (NOTES, "The GameCube's signs").
+  object_00D5B000's data; and the seven signs inside the fourth shop,
+  in its rooms' own files (`ROOMS`; a palette's entry with them); each
+  checked against the cartridge's lists and texels (NOTES, "The
+  GameCube's signs").
 - `tools/af_own_signs.py` — the structures' words no English redrew,
   drawn by us (ASCII grids in the tool, in each texture's own palette
   indices): the fireworks stall's banner and cards, the police box's
@@ -204,9 +206,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
   sign, the fortune stall's plaque and slips; the kana cleaned off from
   the user's dump (a cloth or paper: each ink texel the nearest of its
   row that is not ink) or the face painted its ground, at `make rom-en`
-  after af_gc_signs (the same .bin); and the two posters inside the
-  police box (its room's file, segment_012AC000); each texture and
-  palette checked by md5 (NOTES, "Our own signs").
+  after af_gc_signs (the same .bin); and the posters inside the rooms
+  (`POSTERS`, in the rooms' files): the second shop's, ours, and the
+  police box's two, the GameCube's own English ones given the disc's
+  files and ours without; each texture and palette checked by md5
+  (NOTES, "Our own signs").
 - `tools/af_own_ftr.py` — the words on seventeen pieces of furniture
   (road works signs and barricades, a bus stop, a drum, a bath's prices,
   labels, a sticker, a plaque), drawn by us in two fonts of our own (ASCII
@@ -303,10 +307,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `make menus-check-en`),
   `emu_signs.py` (the GameCube's signs and ours in the en ROM, every
   copy, and in RAM once the structures' clip sets each structure up by
-  the player, the cartridge's gone; the police box's posters in RAM once
-  the player walks in at its door, psel-check-en's town powered on in a
-  process of its own; the furniture's words in the ROM, each object
-  otherwise the cartridge's: `make signs-check-en`),
+  the player, the cartridge's gone; the rooms' signs and posters in the
+  ROM, the rest of each room's file the cartridge's; the police box's
+  posters in RAM once the player walks in at its door, psel-check-en's
+  town powered on in a process of its own; the furniture's words in the
+  ROM, each object otherwise the cartridge's: `make signs-check-en`),
   `emu_psel.py` (the player-select actor's choices from power-on with a
   saved town of one, two and four players, made from the houses' state:
   which player plays, whose house to remove, each choice's answers read in RAM
@@ -316,7 +321,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   21 event dates and times: the greeter's pages, every block walked
   into, the event's actors, its villagers, the special characters and
   two ordinary villagers talked to, every page and answer read for kana
-  and tokens, a hang a failure: `make year-check-en`),
+  and tokens, its name plate judged as the game fills it and its frame
+  looked at for a line drawn past the bubble (`Town.page_problems`,
+  which the other checks' pages go through too), a hang a failure:
+  `make year-check-en`),
   `emu_words.py` (the strings the cartridge's code loads into 10 bytes or
   4, each loaded its way and put in as a message puts one in; the talk's
   and the fortune teller's own fillers, their overlays loaded as the game
@@ -328,12 +336,21 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `emu_reset.py` (one flash powered on seven times, saved at the gyroid
   to go on, to stop, or not at all: Mr. Resetti's visits by the game's
   own count, his phrase typed wrong, as an insult and right, the arena
-  while he is there: `make reset-check-en`),
+  while he is there; and the fifth of his actors, who comes up during
+  K.K.'s show on a Saturday night: `make reset-check-en`),
   `emu_memory.py` (a town of four players and 15 animals powered on at
   the year's 21 dates, the arena read in every block and held to take
-  what can come on top; every actor no tour finds loaded accounted for;
-  the player's house, one full of gyroids, the shop, the post office,
-  the police box and an animal's house gone into; the title left alone
+  what can come on top; a hook in the allocator's two ways in and in the
+  one place where an actor is made, from power-on, in every session: the
+  arena never says no, and every actor made is counted; the town walked
+  into every block from every side on three dates; every actor no tour
+  finds loaded accounted for, the nine nothing makes never made; the
+  player's house, one full of gyroids, the shop, the post office, the
+  police box and an animal's house gone into; and over the power-ons of
+  one flash, saving at the gyroid in between, the house enlarged twice
+  by the game and furnished, the shop grown three times by the game and
+  each gone into, its signs in RAM, both tents on the day the game sets,
+  the igloo, the raffle's day, the house at night; the title left alone
   through its five demos, where START asks the arena for the save's
   buffer: `make memory-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
@@ -509,9 +526,14 @@ the why and the state, `reference/NOTES.md` for what is verified.
   for the whole wait: the game sees one long press and never turns the
   page (two probes "found" a stuck dialogue this way). Release it:
   `frames(n, 0)`, or `press()`.
-- **A font pixel is 1.954 frame pixels wide, not 2.** The VI shows the
-  320 pixels over about 625 of the frame's 640 (`emu_board.BOARD_X`,
-  measured on the letter board). The name entry's check assumed 2 and
+- **A font pixel is 1.954 frame pixels wide, not 2, where the font's
+  projection draws it.** `guOrtho(-2560, 2560, ...)` has an x scale of
+  25.6/65536 and the matrix keeps 25: what goes through it (the boards,
+  the menus, a name plate) is 25/25.6 as wide (`emu_board.BOARD_X`,
+  measured on the letter board; `emu_board.projections` finds the matrix
+  in the frame's lists). The message window's body text is drawn with
+  texture rectangles and is 2. The VI has no part in it (this note
+  once said it had). The name entry's check assumed 2 and
   passed anyway: the VI filter's fringe (a frame pixel on each side, which
   its ink threshold counts) cancelled the error on short titles, until the
   address book's 27 characters came out 6 pixels short of the model. When
@@ -558,6 +580,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
 - **A state belongs to its date.** Loaded under another clock than the
   one it was saved at, the game sets the town up again and the probe
   reads a scene nobody played: give `N64()` the state's `clock`.
+- **And to its ROM.** The emulator loads a state only under the ROM that
+  saved it. The make targets remake the route's states before a check;
+  a check run by hand after `make rom-en` gave another ROM needs `make
+  route-en` first ("state load failed" is this).
 - **A door wants A, and where its own code looks.** Pushing at a door
   does nothing. Each building's actor checks the player's place and
   facing its own way (`tests/emu_memory.py`, `BUILDINGS`); and a probe
@@ -565,9 +591,28 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `Field_Draw` and `Shop_Goods` are in every room.
 - **The arena's largest free block is not a block's own.** It depends
   on the way the player came: what the block before held decides where
-  the next one's actors land, and the same block on the same morning
-  differs by some KB (10 were seen). A floor leaves room for that; a
-  figure in the notes says which walk it is from.
+  the next one's actors land, and the same block on the same day
+  differs by up to 35 KB (a day of snow: whether the block before had
+  the snowballs' overlay loaded). `tests/emu_memory.py` walks every way
+  into every block on three dates (`edges`) and hooks the allocator
+  itself (`watch`: the least after any allocation, between two frames
+  too). A figure in the notes says which walk it is from.
+- **Count what is made where it is made.** A look between frames misses
+  what comes and goes, and a table read says where an actor could be,
+  not where it is: reading had put three actors in places they are not.
+  `Actor_info_make_actor` is the one place an actor is made; the hook
+  counts each number there, from power-on (`watch`'s `made`).
+- **A room makes only so many pieces of furniture.** `ovl_My_Room` has
+  places for 24, 32 and 48 pieces in the three sizes of a player's room,
+  30 in an animal's, 5 in a shop (`func_80938EF0_jp`'s table): a check
+  that puts a piece on every place of a floor finds that many made, the
+  first ones in the room's order, and no more.
+- **A sign is as often tall as wide.** A survey of the wide textures
+  missed the signs inside the fourth shop. The GameCube's module keeps
+  the rooms' textures under names of its own: lay each texture a room's
+  lists draw out as the GameCube keeps one and look for it there (285 of
+  the rooms' 358 are there byte for byte), then look at the rest
+  (NOTES, "The GameCube's signs").
 - **Not every actor comes out of the arena.** `m_actor.c` asks the
   clips of `ovl_Npc` and `ovl_Structure` for the overlay and the instance
   of what they make (the names 0xD000, 0xE000 and 0x5000): both lie
@@ -581,6 +626,27 @@ the why and the state, `reference/NOTES.md` for what is verified.
   not reach". `emu_year.Town.cross` plays such a talk through (A on its
   pages, the first answer, B on a menu it opened) and makes the try again,
   and the checks that tour a town fail on any block not reached.
+- **A special visit is set at one start of play and kept at another.**
+  The black market's tent, the fortune teller's and the designer's car
+  stand one to seven days after the start of play that set them
+  (`func_8007E780_jp`: the kind by that start's date and hour, never the
+  last visit's kind), and the save keeps the day. Powering a saved town
+  on at day after day from the same save sets a new visit each time and
+  never sees one: a month scanned that way found no tent. Save at the
+  gyroid, then power on at the day the save holds
+  (`tests/emu_memory.py`, `tents_chain`).
+- **Saving and going on, then cutting the power, is a reset.** The mark
+  stays, and Mr. Resetti is at the door at the next start. A check that
+  powers one flash on again and again saves and stops (the answer
+  that leaves for the title) unless he is what it is after.
+- **What the game does over days, let the game do.** A house is
+  enlarged at the start of play after the day it was ordered, a size at
+  a time (the walls of the size before are taken down, no other); the
+  shop is closed with a sign for the two days before its renewal, then
+  swapped on the map at the town's start; the raffle's machine is in the
+  shop on a month's last day. Write into a save what the player's
+  dealings would have left there (an order, the sales), never the
+  result, and power on.
 - **mupen64plus starts once per process.** A second `N64()` in the same
   process fails at PluginStartup (error 2): a check that powers on more
   than once runs each in a process of its own (`emu_save.py --boot`,

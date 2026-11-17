@@ -201,15 +201,17 @@ EN_NAFE_LOGO := $(EN_ASSETS)/animal_logo.inc
 # names, the dump's, the black market's, the countdown board's, the police
 # box's, the fishing tourney's stall, the houses' name plates): their texels
 # taken from the disc's foresta.rel (make script's) over the en tree's copy of
-# the structures' object, the cartridge's own without it (tools/af_gc_signs.py;
-# NOTES, "The GameCube's signs").
+# the structures' object, the cartridge's own without it; and the seven signs
+# inside the fourth shop, over its rooms' files (tools/af_gc_signs.py; NOTES,
+# "The GameCube's signs").
 EN_GC_SIGNS := $(AF_EN_DIR)/assets/jp/en/gc_signs.stamp
 # Our English for the words no English redrew on the structures: the
 # fireworks stall's banner and cards, the police box's notice board, the
 # fishing tourney headquarters' sign and the fortune stall's plaque and slips,
 # over the en tree's copy of the structures' object, after the GameCube's
-# signs; and the two posters inside the police box, over its room's file
-# (tools/af_own_signs.py; NOTES, "Our own signs").
+# signs; and inside, over the rooms' files, the second shop's poster and the
+# police box's two (the GameCube's own English ones with the disc's files,
+# ours without) (tools/af_own_signs.py; NOTES, "Our own signs").
 EN_OWN_SIGNS := $(AF_EN_DIR)/assets/jp/en/own_signs.stamp
 # Our English for the words on seventeen pieces of furniture (road works signs
 # and barricades, a bus stop, a drum, a bath's prices, labels, a sticker, a
@@ -373,7 +375,8 @@ $(EN_NAFE_GFX): tools/af_nafe_gfx.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)) 
 	else echo "labels: the cartridge's (no $(NAFE_ROM): make nafe NAFE_UPS=...)"; fi
 	@touch $@
 
-# writes the structures' PNGs, their unextracted .bin and a palette's include, which splat rewrites at every extract
+# writes the structures' PNGs, their unextracted .bin, a palette's include and three rooms' .bin, which splat
+# rewrites at every extract
 $(EN_GC_SIGNS): tools/af_gc_signs.py tools/af_font.py tools/nafe_diff.py $(GC_REL) $(AF_EN_DIR)/.stamp-extract
 	mkdir -p $(EN_ASSETS)
 	@if [ -s $(GC_DIR)/foresta.map ] && [ -s $(GC_DIR)/foresta.rel.szs ]; then \
@@ -381,11 +384,13 @@ $(EN_GC_SIGNS): tools/af_gc_signs.py tools/af_font.py tools/nafe_diff.py $(GC_RE
 	else echo "signs: the cartridge's (no GameCube files in $(GC_DIR): make script)"; fi
 	@touch $@
 
-# writes the structures' PNGs and their unextracted .bin (after the GameCube's signs, which go in the same file),
-# which splat rewrites at every extract
-$(EN_OWN_SIGNS): tools/af_own_signs.py tools/af_gc_signs.py tools/nafe_diff.py $(EN_GC_SIGNS) $(AF_EN_DIR)/.stamp-extract
+# writes the structures' PNGs and their unextracted .bin (after the GameCube's signs, which go in the same file)
+# and two rooms' .bin, which splat rewrites at every extract
+$(EN_OWN_SIGNS): tools/af_own_signs.py tools/af_gc_signs.py tools/af_font.py tools/nafe_diff.py $(EN_GC_SIGNS) \
+		$(GC_REL) $(AF_EN_DIR)/.stamp-extract
 	mkdir -p $(EN_ASSETS)
-	$(PYTHON) tools/af_own_signs.py $(BASEROM) $(AF_EN_DIR)
+	$(PYTHON) tools/af_own_signs.py $(BASEROM) $(AF_EN_DIR) \
+		$(if $(GC_REL),$(GC_DIR)/foresta.map $(GC_DIR)/foresta.rel.szs)
 	@touch $@
 
 # writes the furniture objects' unextracted .bin, which splat rewrites at every extract
@@ -525,9 +530,11 @@ menus-check-en: route-en
 		$(if $(GC_UI),--gc $(GC_UI)) --own script/ui.txt $(if $(wildcard $(NAFE_ROM)),--nafe $(NAFE_ROM))
 
 # The signs the GameCube's English redrew (tools/af_gc_signs.py) and ours (tools/af_own_signs.py): in the en ROM,
-# and in RAM once the game sets up each structure by the player; the police box's posters in RAM once the
-# player walks in, in psel-check-en's town of two; the furniture's words (tools/af_own_ftr.py) in the en ROM
-# (tests/emu_signs.py; NOTES, "The GameCube's signs", "Our own signs", "Our own furniture words").
+# and in RAM once the game sets up each structure by the player; the rooms' signs and posters in the en ROM, the
+# rest of each room's file the cartridge's; the police box's posters in RAM once the player walks in, in
+# psel-check-en's town of two (the shops' rooms are gone into by memory-check-en); the furniture's words
+# (tools/af_own_ftr.py) in the en ROM (tests/emu_signs.py; NOTES, "The GameCube's signs", "Our own signs", "Our
+# own furniture words").
 signs-check-en: route-en psel-check-en
 	$(PYTHON) tests/emu_signs.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-signs-en \
 		$(if $(GC_REL),--gc $(GC_DIR)) --town $(BUILD)/emu-psel-en/2-two.town
@@ -552,16 +559,21 @@ year-check-en: psel-check-en
 # Mr. Resetti by the game's own road: the same town powered on seven times, the player's own saves at the
 # gyroid in between (save and go on, save and stop) or none; a reset counted or not, his actor of each time,
 # his pages, the phrase he asks for typed wrong, then a word of his list, then right; the arena while he is
-# there (tests/emu_reset.py; NOTES, "What the second review had left open").
+# there; and the fifth of his actors, who comes up at K.K.'s show a quarter to nine on a Saturday
+# (tests/emu_reset.py; NOTES, "What the second review had left open", "The rooms a day does not reach").
 reset-check-en: psel-check-en
 	$(PYTHON) tests/emu_reset.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(BUILD)/emu-psel-en/2-two.town $(BUILD)/emu-reset-en
 
 # The room the game has left where a town is as full as it gets: the houses' state grown to 15 animals by the
 # game's own code, four players; every block walked into on each of the year's 21 dates, the arena read in
-# each and held to take what can come into a block on top of what it holds; the player's house, the same full
-# of gyroids, the shop, the post office, the police box and an animal's house gone into; the title through its
-# five demos, where START asks the arena for the save's buffer (tests/emu_memory.py; NOTES, "What the second
-# review had left open").
+# each and held to take what can come into a block on top of what it holds, the allocator watched by a hook
+# from power-on (it must never say no) and every actor the game makes counted by it (the nine nothing makes,
+# never); on three dates every block walked into from every side; the player's house, the same full of
+# gyroids, the shop, the post office, the police box and an animal's house gone into; the house enlarged twice
+# and the shop grown three times by the game's own code over the power-ons of one flash, each gone into, the
+# shops' redrawn signs in RAM, the two tents on the days the game sets, the igloo, the raffle's day; the title
+# through its five demos, where START asks the arena for the save's buffer (tests/emu_memory.py; NOTES, "What
+# the second review had left open", "The rooms a day does not reach").
 memory-check-en: route-en
 	$(PYTHON) tests/emu_memory.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-memory-en --jobs 3
 

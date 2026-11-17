@@ -129,10 +129,10 @@ index e6a026a..2753a99 100644
  
  #endif
 diff --git a/include/m_msg_main.h b/include/m_msg_main.h
-index c06adbb..d2906f3 100644
+index c06adbb..6cc911a 100644
 --- a/include/m_msg_main.h
 +++ b/include/m_msg_main.h
-@@ -4,104 +4,300 @@
+@@ -4,104 +4,301 @@
  #include "ultra64.h"
  #include "unk.h"
  #include "m_choice_main.h"
@@ -267,7 +267,8 @@ index c06adbb..d2906f3 100644
 +    /* 0x4 */ s32 msgNo;
 +    /* 0x8 */ s32 msgLen;
 +    /* 0xC */ s32 cut;
-+    /* 0x10 */ u8 text[1]; /* TODO(verify) size: messages are at most 0x400 bytes (func_8009E388_jp) */
++    /* 0x10 */ u8 text[1]; /* the cartridge's buffer (B_80141FF0_jp) is 0x420 bytes, these 0x10 and 0x410 of text;
++                            * its loader refuses a message over mMsg_MSG_SIZE_MAX (func_8009E388_jp) */
 +} mMsg_Data;
 +
 +struct MessageWindow;
@@ -520,7 +521,7 @@ index c06adbb..d2906f3 100644
  s32 mMsg_CopyPlayerName(char*, s32, s32);
  s32 mMsg_CopyTalkName(struct Actor*, char*, s32, s32);
  s32 mMsg_CopyTail(struct Actor*, char*, s32, s32);
-@@ -113,189 +309,189 @@ s32 mMsg_CopyHour(char*, s32, s32);
+@@ -113,189 +310,189 @@ s32 mMsg_CopyHour(char*, s32, s32);
  s32 mMsg_CopyMin(char*, s32, s32);
  s32 mMsg_CopySec(char*, s32, s32);
  s32 mMsg_CopyFree(MessageWindow*, s32, char*, s32, s32);
@@ -2662,7 +2663,7 @@ index 0000000..5b38fe9
 +#endif
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
 new file mode 100644
-index 0000000..03981c7
+index 0000000..f9bb4f2
 --- /dev/null
 +++ b/src/code/m_msg_main.c
 @@ -0,0 +1,2977 @@
@@ -2695,7 +2696,7 @@ index 0000000..03981c7
 + * its fields are not traced yet, its size is func_800A2EAC_jp's frame. */
 +struct mFontSentence {
 +    /* 0x00 */ UNK_TYPE1 unk_00[0x88];
-+}; // size = 0x88 TODO(verify)
++}; // size = 0x88: what func_80091AB0_jp clears of it (bzero) before it fills it in
 +
 +void func_80091AB0_jp(struct mFontSentence* sentence, u8* str, s32 len, u32 flags, xy_t* pos, s32 lineType,
 +                      xy_t* scale, Color_RGBA8* color, s32 voicePos, u8 voiceNo, s16 voiceNpcId);

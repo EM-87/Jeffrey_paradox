@@ -1,7 +1,9 @@
 """The tools' own tests: nothing here needs the cartridge (make test)."""
 
 import collections
+import contextlib
 import hashlib
+import io
 import os
 import random
 import re
@@ -50,6 +52,10 @@ import rom  # noqa: E402
 import ups  # noqa: E402
 from contact import read_png  # noqa: E402
 from n64emu import stick, to_physical, write_png  # noqa: E402
+sys.path.insert(0, HERE)
+import emu_memory  # noqa: E402
+import emu_reset  # noqa: E402
+import emu_year  # noqa: E402
 
 
 def ups_varint(n):
@@ -1040,8 +1046,11 @@ class Script(unittest.TestCase):
         counts = collections.Counter()
         gc = msgbank.parse("<SETCURSORJUST><CUTARTICLE>Hey, caf\u00e9 \u2665!<MALEFEMALECHK 00010002><MSGEND>")
         out = af_text.adapt(gc, counts)
-        self.assertEqual(msgbank.render(out), "<CUTARTICLE>Hey, cafe ♥!<MSGEND>")   # the heart is in the N64 charset
+        # the heart is in the N64 charset; a code the draft has no rule for is kept, for the check to refuse
+        self.assertEqual(msgbank.render(out), "<CUTARTICLE>Hey, cafe ♥!<MALEFEMALECHK 00010002><MSGEND>")
         self.assertEqual(counts["dropped SETCURSORJUST"], 1)
+        refused = [text for level, text in af_text.check_message(0, out, 32, 4, 0x400) if level == "error"]
+        self.assertEqual(refused, ["code %d is the GameCube's, not the N64's" % af_text.NAMES["MALEFEMALECHK"]])
         with tempfile.TemporaryDirectory() as d:
             paths = {k: os.path.join(d, k + ".txt") for k in ("n64", "gc", "ours", "out")}
             n64 = "".join("## %d\n%s<MSGEND>\n\n" % (n, "jp%d" % n) for n in range(af_text.N64_COUNT))
@@ -2168,6 +2177,91 @@ class GcSigns(unittest.TestCase):
         finally:
             shutil.rmtree(work)
 
+    @staticmethod
+    def tiled(texels, w, h):
+        """The texels as the GameCube keeps a CI4 texture: 8x8 tiles, left to right, then down."""
+        out = bytearray()
+        for ty in range(h // 8):
+            for tx in range(w // 8):
+                for r in range(8):
+                    row = texels[(ty * 8 + r) * w + tx * 8:(ty * 8 + r) * w + tx * 8 + 8]
+                    out += bytes(row[c] << 4 | row[c + 1] for c in range(0, 8, 2))
+        return bytes(out)
+
+    @staticmethod
+    def room(drawn, size=0x400):
+        """A made-up room's file: lists that load each palette and draw each CI4 texture with it (drawn:
+        [(the palette's offset, the texture's, its width, its height)]), zeros after them."""
+        lists = b""
+        for palette, texture, w, h in drawn:
+            lists += struct.pack(">II", 0xFD100000, 0x06000000 | palette) + struct.pack(">II", 0xF0000000, 0)
+            lists += struct.pack(">II", 0xFD500000, 0x06000000 | texture) + struct.pack(">II", 0xF3000000, 0x07000000)
+            lists += struct.pack(">II", 0xF5400000, 0) + struct.pack(">II", 0xF2000000, (w - 1) << 14 | (h - 1) << 2)
+        return bytearray(lists + bytes(size - len(lists)))
+
+    def test_a_rooms_lists_tell_each_textures_palette(self):
+        room = self.room([(0x100, 0x200, 16, 8), (0x100, 0x280, 8, 8), (0x140, 0x300, 8, 8)])
+        self.assertEqual(af_gc_signs.drawn_ci(bytes(room)), {0x200: (4, 16, 8), 0x280: (4, 8, 8), 0x300: (4, 8, 8)})
+        self.assertEqual(af_gc_signs.drawn_palettes(bytes(room)), {0x200: 0x100, 0x280: 0x100, 0x300: 0x140})
+
+    def test_a_rooms_sign_is_the_gamecubes_where_it_is_the_same_sign_redrawn(self):
+        w, h = 16, 8
+        old = [1 + (x + y) % 2 for y in range(h) for x in range(w)]              # texels 1 and 2
+        new = list(old)
+        new[5:9] = [3, 3, 3, 3]                                                  # four texels redrawn, in entry 3
+        colours = [0x0001 | i << 11 for i in range(16)]                          # sixteen opaque reds
+        room = self.room([(0x100, 0x200, w, h), (0x100, 0x280, 8, 8)])
+        room[0x100:0x120] = struct.pack(">16H", *colours)
+        room[0x200:0x240] = bytes(old[i] << 4 | old[i + 1] for i in range(0, w * h, 2))
+        room[0x280:0x2A0] = bytes([0x12]) * 32                                   # the palette's other user: 1 and 2
+        # the GameCube's palette: opaque RGB555 entries of the same colours
+        theirs = [0x8000 | i << 10 for i in range(16)]
+        tex = {"sign": self.tiled(new, w, h), "pal": struct.pack(">16H", *theirs)}
+        table = [("sign", "pal", 0x1000, 0x200, (w, h), 0.9, "a sign")]
+        out = af_gc_signs.room_signs(tex, bytes(room), 0x1000, table)
+        self.assertEqual(list(out), [0x200])
+        self.assertEqual(af_gc_signs.texels(out[0x200]), new)
+        self.assertEqual(af_gc_signs.room_signs(tex, bytes(room), 0x2000, table), {})    # another room's
+        # the GameCube changed the colour of the entry it redrew in: written, the other user not using it
+        tex["pal"] = struct.pack(">16H", *(theirs[:3] + [0x8000 | 31] + theirs[4:]))
+        out = af_gc_signs.room_signs(tex, bytes(room), 0x1000, table)
+        self.assertEqual(sorted(out), [0x100 + 2 * 3, 0x200])
+        self.assertEqual(out[0x100 + 2 * 3], struct.pack(">H", 31 << 1 | 1))
+        # a colour changed that the texture does not use is left alone
+        tex["pal"] = struct.pack(">16H", *(theirs[:9] + [0x8000 | 31] + theirs[10:]))
+        self.assertEqual(list(af_gc_signs.room_signs(tex, bytes(room), 0x1000, table)), [0x200])
+        # the palette's other user draws with the entry changed: refused
+        tex["pal"] = struct.pack(">16H", *(theirs[:3] + [0x8000 | 31] + theirs[4:]))
+        room[0x280:0x2A0] = bytes([0x13]) * 32
+        with self.assertRaises(SystemExit):
+            af_gc_signs.room_signs(tex, bytes(room), 0x1000, table)
+        room[0x280:0x2A0] = bytes([0x12]) * 32
+        # not the same sign (too few texels the same), the very same texture, another size: refused
+        for texels in ([3] * (w * h), old):
+            with self.assertRaises(SystemExit):
+                af_gc_signs.room_signs(dict(tex, sign=self.tiled(texels, w, h)), bytes(room), 0x1000, table)
+        with self.assertRaises(SystemExit):
+            af_gc_signs.room_signs(tex, bytes(room), 0x1000, [("sign", "pal", 0x1000, 0x280, (w, h), 0.9, "a sign")])
+
+    def test_a_rooms_file_takes_the_signs_over_the_cartridges_only(self):
+        work = tempfile.mkdtemp()
+        try:
+            vrom, room = 0x12345000, bytes(range(256)) * 2
+            path = os.path.join(work, af_gc_signs.ROOM_BIN % vrom)
+            os.makedirs(os.path.dirname(path))
+            open(path, "wb").write(room)
+            af_gc_signs.put_room(work, vrom, room, {0x10: b"abcd", 0x100: b"xy"})
+            held = open(path, "rb").read()
+            self.assertEqual((held[0x10:0x14], held[0x100:0x102]), (b"abcd", b"xy"))
+            self.assertEqual(held[:0x10] + held[0x14:0x100] + held[0x102:], room[:0x10] + room[0x14:0x100] + room[0x102:])
+            # again over what an earlier make put there: whatever it was, the rest must be the cartridge's
+            af_gc_signs.put_room(work, vrom, room, {0x10: b"efgh", 0x100: b"xy"})
+            self.assertEqual(open(path, "rb").read()[0x10:0x14], b"efgh")
+            with self.assertRaises(SystemExit):
+                af_gc_signs.put_room(work, vrom, room, {0x10: b"efgh"})        # 0x100 is not the cartridge's
+        finally:
+            shutil.rmtree(work)
+
 
 
 class OwnSigns(unittest.TestCase):
@@ -2241,25 +2335,42 @@ class OwnSigns(unittest.TestCase):
         self.assertNotEqual(out[af_own_signs.SUMMER_AT], out[af_own_signs.WINTER_AT])
 
     def test_the_posters_titles(self):
-        for at, w, h, _, (x0, x1, y0, y1), ground, art, (px, py), inks, _ in af_own_signs.POSTERS:
-            rows = af_own_signs.grid(art)
+        for p in af_own_signs.POSTERS:
+            rows = af_own_signs.grid(p.art)
+            (x0, x1, y0, y1), (px, py) = p.box, p.place
             self.assertTrue(x0 <= px and px + len(rows[0]) <= x1 and y0 <= py and py + len(rows) <= y1)
-            self.assertEqual(set("".join(rows)) - {"."}, set(inks))
-            self.assertTrue(0 <= x0 < x1 <= w and 0 <= y0 < y1 <= h)
-        # over a made-up room: each title's box its ground and our letters, the rest of the poster kept
-        size = max(at + w * h // 2 for at, w, h, *_ in af_own_signs.POSTERS)
-        room = bytes([0xBC]) * size                                                   # texels b and c
-        out = af_own_signs.compose_room(room)
-        self.assertEqual(sorted(out), sorted(p[0] for p in af_own_signs.POSTERS))
-        for at, w, h, _, (x0, x1, y0, y1), ground, art, (px, py), inks, _ in af_own_signs.POSTERS:
-            t = af_gc_signs.texels(out[at])
-            self.assertEqual(len(t), w * h)
-            box = {t[y * w + x] for y in range(y0, y1) for x in range(x0, x1)}
-            self.assertEqual(box, {ground} | set(inks.values()))
-            first = af_own_signs.grid(art)[0].index("#")
-            self.assertEqual(t[py * w + px + first], inks["#"])
-            self.assertEqual(t[y1 * w:], [0xB, 0xC] * ((h - y1) * w // 2))           # below the title kept
-            self.assertEqual(t[0:2], [0xB, 0xC])                                      # the poster's edge kept
+            self.assertEqual(set("".join(rows)) - {"."}, set(p.inks))
+            self.assertTrue(0 <= x0 < x1 <= p.w and 0 <= y0 < y1 <= p.h)
+        self.assertEqual(af_own_signs.ROOMS, sorted({af_own_signs.POLICE_ROOM, af_own_signs.SHOP2_ROOM}))
+        # over a made-up room: each poster's box its ground and our letters, the rest of the poster kept
+        for vrom in af_own_signs.ROOMS:
+            mine = [p for p in af_own_signs.POSTERS if p.room == vrom]
+            room = bytes([0xBC]) * max(p.at + p.w * p.h // 2 for p in mine)           # texels b and c
+            out = af_own_signs.compose_room(room, vrom)
+            self.assertEqual(sorted(out), sorted(p.at for p in mine))
+            for p in mine:
+                (x0, x1, y0, y1), (px, py) = p.box, p.place
+                t = af_gc_signs.texels(out[p.at])
+                self.assertEqual(len(t), p.w * p.h)
+                box = {t[y * p.w + x] for y in range(y0, y1) for x in range(x0, x1)}
+                self.assertEqual(box, {p.ground} | set(p.inks.values()))
+                rows = af_own_signs.grid(p.art)
+                dy = next(i for i, row in enumerate(rows) if "#" in row)
+                self.assertEqual(t[(py + dy) * p.w + px + rows[dy].index("#")], p.inks["#"])
+                self.assertEqual(t[y1 * p.w:], [0xB, 0xC] * ((p.h - y1) * p.w // 2))  # below the box kept
+                self.assertEqual(t[0:2], [0xB, 0xC])                                  # the poster's edge kept
+                if x1 < p.w:
+                    self.assertEqual(t[y0 * p.w + x1], (0xB, 0xC)[(y0 * p.w + x1) % 2])   # and right of the box
+        # the second shop's poster: a title, the rule under it where the cartridge's is, three lines
+        help_ = next(p for p in af_own_signs.POSTERS if p.room == af_own_signs.SHOP2_ROOM)
+        rows = af_own_signs.grid(help_.art)
+        rules = [i for i, row in enumerate(rows) if "=" in row]
+        self.assertEqual([help_.place[1] + i for i in rules], [8])
+        self.assertEqual(rows[rules[0]].strip("."), "=" * 40)
+        lines = [i for i, row in enumerate(rows) if "#" in row]
+        self.assertEqual(len(lines), 4 * 5)                                           # four lines, five rows each
+        self.assertTrue(all(help_.gc is None or len(p.gc) == 3 for p in af_own_signs.POSTERS))
+        self.assertEqual(af_own_signs.GC_NAMES, sorted({n for p in af_own_signs.POSTERS if p.gc for n in p.gc[:2]}))
         with self.assertRaises(ValueError):
             af_own_signs.poster([0] * (32 * 48), 32, (1, 31, 2, 9), 3, "####", (28, 2), {"#": 7})
 
@@ -2553,6 +2664,161 @@ class Answers(unittest.TestCase):
         self.assertIn("80A73AC0 01020304 */ .word 0x%08X" % af_answers.token(460), new_s)
         self.assertIn("80A73AC4 05060708 */ .word 0x20202020", new_s)
         self.assertIn("80A73ABC 0A0B0C0D */ .word 0x0A0B0C0D", new_s)
+
+
+class EmulatorChecks(unittest.TestCase):
+    """The parts of the emulator checks that judge without an emulator."""
+
+    def frame(self, ink=(), bubble=True):
+        w, h = 640, 240
+        rgb = bytearray([60, 90, 60] * (w * h))                 # a dark scene
+        if bubble:
+            for y in range(150, 220):
+                rgb[(y * w + 110) * 3:(y * w + 556) * 3] = bytes([220, 230, 215]) * 446
+        for x, y in ink:
+            rgb[(y * w + x) * 3:(y * w + x) * 3 + 3] = bytes([40, 30, 30])
+        return w, bytes(rgb)
+
+    def test_a_line_past_the_bubble_is_seen(self):
+        self.assertEqual(emu_year.margin_ink(*self.frame()), [])
+        # text ends at the frame's 512: ink right of it, inside the bubble, is a line too wide
+        bad = emu_year.margin_ink(*self.frame([(520, 160), (521, 161)]))
+        self.assertEqual(len(bad), 1)
+        self.assertIn("line 1", bad[0])
+        self.assertIn("x 520 to 521", bad[0])
+        self.assertIn("line 3", emu_year.margin_ink(*self.frame([(530, 190)]))[0])
+        # the next page's arrow is no line: a triangle, 517 to 531 wide at row 205, its point at row 211
+        arrow = [(x, 205 + k) for k in range(7) for x in range(517 + k, 532 - k)]
+        self.assertEqual(emu_year.margin_ink(*self.frame(arrow)), [])
+        self.assertIn("line 4", emu_year.margin_ink(*self.frame(arrow + [(540, 208)]))[0])
+        # a sign's board, a window still opening, no frame: nothing to judge
+        self.assertIsNone(emu_year.margin_ink(*self.frame(bubble=False)))
+        self.assertIsNone(emu_year.margin_ink(0, b""))
+
+    def home(self, inner):
+        """A save whose first home's room has walls around inner x inner places, a door's two items under it."""
+        save = bytearray(0x10000)
+        wall = struct.pack(">H", emu_memory.WALL)
+        for z in range(inner + 2):
+            for x in range(inner + 2):
+                if z in (0, inner + 1) or x in (0, inner + 1):
+                    at = emu_memory.HOME_LAYER + (z * 16 + x) * 2
+                    save[at:at + 2] = wall
+        for x, item in ((2, emu_memory.WALL), (3, 0x4000), (4, 0x4001), (5, emu_memory.WALL)):
+            at = emu_memory.HOME_LAYER + ((inner + 2) * 16 + x) * 2
+            save[at:at + 2] = struct.pack(">H", item)
+        return save
+
+    def test_furniture_goes_on_each_place_inside_the_walls(self):
+        pieces = [(n, 100 + n) for n in range(80)]
+        for inner in (4, 6, 8):
+            save, put = emu_memory.furnished(self.home(inner), pieces)
+            self.assertEqual(len(put), inner * inner)           # every place, and none on the door's
+            items = struct.unpack(">256H", save[emu_memory.HOME_LAYER:emu_memory.HOME_LAYER + 0x200])
+            there = [i for i in items if emu_memory.FURNITURE <= i < 0x4000]
+            self.assertEqual(there, [emu_memory.FURNITURE + n * 4 for n, _ in put])
+            self.assertEqual(items.count(emu_memory.WALL), 4 * inner + 4 + 2)
+            self.assertIn(0x4000, items)
+        # no more pieces than there are
+        self.assertEqual(len(emu_memory.furnished(self.home(8), pieces[:10])[1]), 10)
+
+    def test_a_save_is_edited_under_a_mask(self):
+        save = bytearray(range(16))
+        emu_memory.edited(save, [[2, "f0", "30"], [4, "aabb", None], [8, "01", "01"]])
+        self.assertEqual(bytes(save), bytes([0, 1, 0x32, 3, 0xAA, 0xBB, 6, 7, 9, 9, 10, 11, 12, 13, 14, 15]))
+
+    def test_the_fifth_reset_goes_back_to_three(self):
+        self.assertEqual([emu_reset.kept(n) for n in range(1, 9)], [1, 2, 3, 4, 3, 4, 3, 4])
+
+    def test_the_hooks_count_of_actors_made_is_named(self):
+        names = {3: "Fieldm_Draw", 7: "Lamp_Light"}
+        self.assertEqual(emu_memory.made({"made": {7: 1, 200: 2}}, names), ["0xc8", "Lamp_Light"])
+        self.assertEqual(emu_memory.made(None, names), [])
+        self.assertEqual(len(emu_memory.UNSEEN), 9)
+        self.assertTrue(set(emu_memory.TEST_SCENES) <= set(emu_memory.UNSEEN))
+        self.assertEqual(emu_memory.MADE, 0x100)                # a count for each number an actor can have
+
+    def session(self, label, scene, **more):
+        """A session's answer as tests/emu_memory.py's report reads it: a room gone into, nothing amiss."""
+        count = {"fails": 0, "failed": 0, "least": 88000, "calls": 100, "most": 250720, "made": {}}
+        run = {"label": label, "clock": [2002, 5, 15, 14, 0, 0], "arrived": True, "hang": None, "placed": 0,
+               "overlays": 0, "facts": {"house": 0, "ordered": 0, "shop": 0, "sales": 0, "renewal": False,
+                                        "special": 0, "special_day": [5, 2], "special_hour": 18, "where": {}},
+               "inside": {"scene": scene, "arena": [300000, 310000, 500000], "actors": [], "loaded": [],
+                          "furniture": 0, "signs": [], "got": True},
+               "upstairs": None, "talk": None, "left": True, "saved": {"spoken": True, "left": True, "pages": 3},
+               "pages": 5, "problems": [], "watch": dict(count), "before": dict(count), "made": [], "tried": 1,
+               "sign": 0, "scenes": {"7": []}}
+        for key, value in more.items():
+            if isinstance(value, dict) and isinstance(run.get(key), dict):
+                run[key] = dict(run[key], **value)
+            else:
+                run[key] = value
+        return run
+
+    def reported(self, chains, pieces=None):
+        """The rooms' report over made-up sessions: the checks that failed."""
+        emu_memory.failures.clear()
+        with contextlib.redirect_stdout(io.StringIO()):
+            emu_memory.report_rooms(chains, 152736, pieces or {20: 24, 21: 32, 22: 48})
+        failed = list(emu_memory.failures)
+        emu_memory.failures.clear()
+        return failed
+
+    def test_a_rooms_report_holds_it_to_its_floor_and_to_the_arenas_word(self):
+        self.assertEqual(self.reported({"night": [self.session("night", 20)]}), [])
+        low = self.session("night", 20, inside={"arena": [200000, 210000, 600000]})
+        self.assertEqual(len(self.reported({"night": [low]})), 1)                 # under a room's floor
+        said_no = self.session("night", 20, watch={"fails": 1, "failed": 4096})
+        self.assertEqual(len(self.reported({"night": [said_no]})), 1)             # the arena refused once
+        early = self.session("night", 20, before={"fails": 1, "failed": 4096})
+        self.assertEqual(len(self.reported({"night": [early]})), 1)               # before the town, too
+        self.assertEqual(len(self.reported({"night": [None]})), 1)                # the session did not run
+
+    def test_a_furnished_house_is_held_to_the_rooms_own_count_of_pieces(self):
+        def house(letter, size, scene, free):
+            return self.session("house-" + letter, scene, facts={"house": size},
+                                inside={"arena": [free, free, 480000]})
+
+        def full(letter, size, scene, placed, loaded, free):
+            return self.session("house-%s-full" % letter, scene, facts={"house": size}, placed=placed,
+                                overlays=59504, inside={"arena": [free, free, 530000], "furniture": loaded})
+        good = [house("m", 1, 21, 410352), full("m", 1, 21, 36, 32, 360144),
+                house("l", 2, 22, 313872), full("l", 2, 22, 64, 48, 246624)]
+        self.assertEqual(self.reported({"houses": good}), [])
+        # every piece put found loaded would be more than the room makes: the report wants the room's count
+        wrong = list(good)
+        wrong[1] = full("m", 1, 21, 36, 36, 360144)
+        self.assertEqual(len(self.reported({"houses": wrong})), 1)
+        # a full room must still have free what all the furniture's overlays together take
+        tight = list(good)
+        tight[3] = full("l", 2, 22, 64, 48, 150000)
+        self.assertEqual(len(self.reported({"houses": tight})), 1)
+
+    def test_a_shops_signs_must_be_the_en_roms_in_ram(self):
+        def shop(label, level, outside, scene, signs, actors=(), **more):
+            return self.session(label, scene, facts={"shop": level, "renewal": True, "where": {outside: [2, 3, 5, 5]}},
+                                inside={"signs": signs, "actors": list(actors)}, **more)
+        there, old_too, absent = ["a sign", True, False, True], ["a sign", True, True, True], ["a sign", False, False, True]
+        cart = ["a sign", True, True, False]                    # the en ROM's as the cartridge's: tells nothing
+        closed = self.session("shop-closed", 7, facts={"renewal": True}, sign=1, inside={"got": False})
+        up = {"scene": 29, "arena": [400000, 410000, 480000], "actors": [], "loaded": [], "furniture": 0,
+              "signs": [there], "got": True}
+        raffle = shop("depart-raffle", 3, "Depart", 25, [there, there, there], actors=["Garagara"])
+        chain = [closed, shop("conveni", 1, "Conveni", 23, [there]), shop("super", 2, "Super", 24, []),
+                 shop("depart", 3, "Depart", 25, [there, there, there], upstairs=up), raffle]
+        self.assertEqual(self.reported({"shops": chain}), [])
+        for bad in (old_too, absent):
+            worse = list(chain)
+            worse[1] = shop("conveni", 1, "Conveni", 23, [bad])
+            self.assertEqual(len(self.reported({"shops": worse})), 1)
+        # built without the GameCube's files a sign is the cartridge's own: with one of ours beside it the room
+        # still tells; with none it does not
+        mixed = list(chain)
+        mixed[3] = shop("depart", 3, "Depart", 25, [there, cart, cart], upstairs=up)
+        self.assertEqual(self.reported({"shops": mixed}), [])
+        mixed[3] = shop("depart", 3, "Depart", 25, [cart, cart, cart], upstairs=up)
+        self.assertEqual(len(self.reported({"shops": mixed})), 1)
 
 
 if __name__ == "__main__":

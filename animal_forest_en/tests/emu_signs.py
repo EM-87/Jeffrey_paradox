@@ -29,13 +29,21 @@ ROM's check only. The route's town is in summer (no snow): the summer
 copies are the ones loaded. Writes a screenshot of each structure, and a
 sheet of them, to OUT_DIR.
 
-The police box's two posters inside (af_own_signs' POSTERS, in the room's
-file): in the ROM ours, as the tool makes them from the cartridge's; and
-with --town (make psel-check-en's town of two players, as make
-year-check-en powers it on), in a process of its own: the town powered on,
-the player walked to the police box's block and in at its door as the box
-lets one in (the door's point and the way in from its actor's check), and
-in the room, the posters in RAM ours and the cartridge's not.
+The signs inside the rooms, in the ROM: the fourth shop's seven
+(af_gc_signs' ROOMS, in its rooms' files) differ from the cartridge's and,
+with --gc, are the GameCube's, and the entry of a palette it changed with
+them; the posters (af_own_signs' POSTERS: the police box's two and the
+second shop's) are the en build's, as the tool makes them from the
+cartridge's: ours, or with --gc the GameCube's own English ones of the
+police box; and the rest of each of those rooms' files is the
+cartridge's. In the game, the shops' are looked for in RAM where the
+shops are gone into (tests/emu_memory.py's sessions grow the shop to
+each size); the police box's here: with --town (make psel-check-en's town
+of two players, as make year-check-en powers it on), in a process of its
+own: the town powered on, the player walked to the police box's block
+and in at its door as the box lets one in (the door's point and the way
+in from its actor's check), and in the room, the posters in RAM the en
+build's and the cartridge's not.
 
 The furniture's words (tools/af_own_ftr.py; NOTES, "Our own furniture
 words"): each object in the ROM (through the dmadata, decompressed as the
@@ -57,7 +65,6 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 from n64emu import N64, stick  # noqa: E402
-import af_font  # noqa: E402
 import af_gc_signs  # noqa: E402
 import af_own_ftr  # noqa: E402
 import af_own_signs  # noqa: E402
@@ -154,13 +161,7 @@ def main(argv):
     cart = open(os.path.join(os.path.dirname(af_en), "baserom.z64"), "rb").read()
     obj, cart_obj = file_at(rom, af_gc_signs.OBJECT_VROM), file_at(cart, af_gc_signs.OBJECT_VROM)
     pals, cart_pals = file_at(rom, af_gc_signs.PALETTE_VROM), file_at(cart, af_gc_signs.PALETTE_VROM)
-    gc = found = None
-    if gc_dir and os.path.exists(os.path.join(gc_dir, "foresta.rel.szs")):
-        layout = af_font.map_layout(open(os.path.join(gc_dir, "foresta.map"), errors="replace").read())
-        names = [n for n, _, _, _, _ in af_gc_signs.SIGNS] + [g for g, _ in af_gc_signs.PALETTES]
-        found = {sym: (o, s) for o, s, sym, ob in layout[".data"] if ob == af_gc_signs.GC_OBJECT and sym in names}
-        gc = af_font.gc_rel_data(open(os.path.join(gc_dir, "foresta.rel.szs"), "rb").read(), layout,
-                                 max(o + s for o, s in found.values()))
+    gc = gc_textures(gc_dir)
     print("emu_signs: the signs %s" % ("against the GameCube's" if gc else "against the cartridge's only"))
 
     # the ROM: each copy the en build's, not the cartridge's (and the GameCube's, given its files)
@@ -168,7 +169,7 @@ def main(argv):
     for name, offsets, (w, h), _, what in af_gc_signs.SIGNS:
         size = w * h // 2
         ours = [obj[at:at + size] for at in offsets]
-        theirs = gc and af_gc_signs.untile_ci4(gc[found[name][0]:found[name][0] + size], w, h)
+        theirs = gc and af_gc_signs.untile_ci4(gc[name], w, h)
         ok = all(o != cart_obj[at:at + size] for o, at in zip(ours, offsets)) and len(set(ours)) == 1 and \
             (theirs is None or ours[0] == theirs)
         check(ok, "the ROM: %s (%s), its %d cop%s at %s the en build's%s, not the cartridge's" % (
@@ -179,8 +180,7 @@ def main(argv):
     for theirs_name, ours_name in af_gc_signs.PALETTES:
         at = next(o for o, _, n, _ in af_gc_signs_palette_places(af_en) if n == ours_name)
         new, old = pals[at:at + 32], cart_pals[at:at + 32]
-        theirs = gc and b"".join(struct.pack(">H", af_gc_signs.rgb5a3_to_rgba5551(struct.unpack(">H", gc[
-            found[theirs_name][0] + 2 * i:found[theirs_name][0] + 2 * i + 2])[0])) for i in range(16))
+        theirs = gc and struct.pack(">16H", *af_gc_signs.gc_palette(gc[theirs_name], theirs_name))
         same = theirs is None or all(af_gc_signs.same_colour(a, b) for a, b in zip(
             struct.unpack(">16H", new), struct.unpack(">16H", theirs)))
         check(new != old and same, "the ROM: %s at %#x the en build's%s" % (
@@ -194,13 +194,42 @@ def main(argv):
                   what, "y" if len(offsets) == 1 else "ies", ", ".join("%#x" % at for at in offsets),
                   "it" if len(offsets) == 1 else "them"))
 
-    room, cart_room = file_at(rom, af_own_signs.ROOM_VROM), file_at(cart, af_own_signs.ROOM_VROM)
-    posters = af_own_signs.compose_room(cart_room)
-    for at, w, h, _, _, _, _, _, _, what in af_own_signs.POSTERS:
-        size = w * h // 2
-        check(room[at:at + size] == posters[at] != cart_room[at:at + size],
-              "the ROM: %s at %#x of the police box's room ours, as af_own_signs makes it from the cartridge's" % (
-                  what, at))
+    # the rooms' files: the fourth shop's signs, the posters, and the rest of each file the cartridge's
+    for vrom in sorted({sign[2] for sign in af_gc_signs.ROOMS} | set(af_own_signs.ROOMS)):
+        room, cart_room = file_at(rom, vrom), file_at(cart, vrom)
+        rest = bytearray(room)
+        for name, _, where, at, (w, h), _, what in af_gc_signs.ROOMS:
+            if where == vrom:
+                size = w * h // 2
+                theirs = gc and af_gc_signs.untile_ci4(gc[name], w, h)
+                check(room[at:at + size] != cart_room[at:at + size] and (theirs is None or room[at:at + size] == theirs),
+                      "the ROM: %s (%s) at %#x of the room's file at %#x the en build's%s, not the cartridge's" % (
+                          name, what, at, vrom, ", the GameCube's texels" if theirs else ""))
+                rest[at:at + size] = cart_room[at:at + size]
+        if gc and vrom in {sign[2] for sign in af_gc_signs.ROOMS}:
+            entries = {at: data for at, data in af_gc_signs.room_signs(gc, cart_room, vrom).items() if len(data) == 2}
+            check(all(room[at:at + 2] == data != cart_room[at:at + 2] for at, data in entries.items()),
+                  "the ROM: the room's file at %#x: %s" % (vrom, "the %d entr%s of its palettes the GameCube changed "
+                                                           "as it has %s (at %s)" % (
+                                                               len(entries), "y" if len(entries) == 1 else "ies",
+                                                               "it" if len(entries) == 1 else "them",
+                                                               ", ".join("%#x" % at for at in sorted(entries)))
+                                                           if entries else "no entry of its palettes changed"))
+            for at in entries:
+                rest[at:at + 2] = cart_room[at:at + 2]
+        if vrom in af_own_signs.ROOMS:
+            posters = af_own_signs.compose_room(cart_room, vrom, gc)
+            mine = af_own_signs.compose_room(cart_room, vrom)
+            for p in af_own_signs.POSTERS:
+                if p.room == vrom:
+                    size = p.w * p.h // 2
+                    check(room[p.at:p.at + size] == posters[p.at] != cart_room[p.at:p.at + size],
+                          "the ROM: %s at %#x of the room's file at %#x %s" % (
+                              p.what, p.at, vrom, "the GameCube's own English one" if posters[p.at] != mine[p.at]
+                              else "ours, as af_own_signs makes it from the cartridge's"))
+            for at, data in posters.items():
+                rest[at:at + len(data)] = cart_room[at:at + len(data)]
+        check(bytes(rest) == cart_room, "the ROM: the rest of the room's file at %#x is the cartridge's" % vrom)
     for vrom, tmem, w, h, base, _, _, _, what, ops in af_own_ftr.FURNITURE:
         at, size = base + tmem * 8, w * h // 2
         ours, theirs = file_at(rom, vrom), file_at(cart, vrom)
@@ -211,7 +240,7 @@ def main(argv):
               "object the cartridge's" % (what, vrom, at))
     if town:
         r = subprocess.run([sys.executable, os.path.abspath(__file__), "--room", emu_dir, rom_path, af_en, town,
-                            os.path.join(out, "room")], capture_output=True, text=True)
+                            os.path.join(out, "room")] + ([gc_dir] if gc else []), capture_output=True, text=True)
         lines = [ln for ln in r.stdout.splitlines() if ln.startswith("  ok  ") or ln.startswith("  FAIL")]
         for ln in lines:
             print(ln)
@@ -271,19 +300,30 @@ def af_gc_signs_palette_places(af_en):
             for m in re.finditer(r"start: (0x[0-9A-Fa-f]+), type: af_palette, name: (\w+)", text)]
 
 
-def room_visit(emu_dir, rom_path, af_en, town, out):
+def gc_textures(gc_dir):
+    """{name: its bytes} of the GameCube's textures and palettes the en build takes, from the disc's files in
+    gc_dir (af_gc_signs.gc_data), or None without them."""
+    if not gc_dir or not os.path.exists(os.path.join(gc_dir, "foresta.rel.szs")):
+        return None
+    names = [n for n, _, _, _, _ in af_gc_signs.SIGNS] + [g for g, _ in af_gc_signs.PALETTES]
+    names += [n for sign in af_gc_signs.ROOMS for n in sign[:2]] + af_own_signs.GC_NAMES
+    return af_gc_signs.gc_data(os.path.join(gc_dir, "foresta.map"), os.path.join(gc_dir, "foresta.rel.szs"),
+                               sorted(set(names)))
+
+
+def room_visit(emu_dir, rom_path, af_en, town, out, gc_dir=None):
     """The saved town powered on, the player walked into the police box at its door, the posters looked for in
     RAM (run in a process of its own: the emulator's plugins start once per process)."""
     import emu_year
     os.makedirs(out, exist_ok=True)
     rom = open(rom_path, "rb").read()
     cart_room = file_at(open(os.path.join(os.path.dirname(os.path.abspath(af_en)), "baserom.z64"), "rb").read(),
-                        af_own_signs.ROOM_VROM)
-    posters = af_own_signs.compose_room(cart_room)
+                        af_own_signs.POLICE_ROOM)
+    posters = af_own_signs.compose_room(cart_room, af_own_signs.POLICE_ROOM, gc_textures(gc_dir))
     syms = emu_save.elf_symbols(os.path.join(af_en, "build", "animalforest-jp.elf"))
     emu_save.write_fla(emu_save.fla_path(out, rom), emu_year.town_image(town))
     with N64(emu_dir, rom, out, timeout=60, clock=ROOM_DATE) as n64:
-        t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], emu_year.actor_names(af_en))
+        t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], emu_year.actor_names(af_en), syms)
         arrived = emu_year.arrive(t)
         target = [b for b, kinds in t.blocks().items() if "police" in kinds]
         there = arrived and bool(target) and t.go_block(target[0], set())
@@ -318,14 +358,15 @@ def room_visit(emu_dir, rom_path, af_en, town, out):
             n64.frames(120, 0)
             n64.screenshot(os.path.join(out, "police-box.png"))
             ram = n64.read(0x80000000, 0x800000)
-            for at, w, h, _, _, _, _, _, _, what in af_own_signs.POSTERS:
-                theirs = cart_room[at:at + w * h // 2]
-                check(ram.find(posters[at]) >= 0 and ram.find(theirs) < 0,
-                      "the game: in the police box, %s in RAM ours, the cartridge's not" % what)
+            for p in af_own_signs.POSTERS:
+                if p.room == af_own_signs.POLICE_ROOM:
+                    theirs = cart_room[p.at:p.at + p.w * p.h // 2]
+                    check(ram.find(posters[p.at]) >= 0 and ram.find(theirs) < 0,
+                          "the game: in the police box, %s in RAM the en build's, the cartridge's not" % p.what)
     return 1 if failures else 0
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--room":
-        sys.exit(room_visit(*sys.argv[2:7]))
+        sys.exit(room_visit(*sys.argv[2:8]))
     sys.exit(main(sys.argv[1:]))

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Our English for the words on the structures that no English redrew, for the en build.
 
-    tools/af_own_signs.py BASEROM EN_DIR
+    tools/af_own_signs.py BASEROM EN_DIR [GC_MAP GC_REL_SZS]
 
 Four structures of the town carry words in textures of the structures'
 object (object_00D5E000) that the GameCube's English has no texture for
@@ -66,15 +66,31 @@ call the police), ours WANTED!. Each title's rows are painted the
 poster's ground and ours laid there in its inks (the recruiting poster's
 blue with the shadow under each stroke, as its kana have; the wanted
 poster's brown); the small print under the officer and under the faces,
-a few texels high, carries no word one can read, and is kept. Checked
-as the structures' are, in the room's file; written over the en tree's
-.bin of it (splat leaves the file unextracted).
+a few texels high, carries no word one can read, and is kept. The
+GameCube's English redrew both (it keeps them in its module under names
+of their own): given the disc's files (GC_MAP and GC_REL_SZS, as make
+rom-en gives them when they are there), its two posters are taken, as
+tools/af_gc_signs.py takes a room's sign and checked as it checks one,
+and ours stay for a build without the disc.
+
+Inside the second shop (its room's file at vrom 0x13B6000, its palette at
+0x2878) a poster hangs by the door (CI4 48x32 at 0x2EF8): a notice that
+the shop is taking on part-time staff, four lines of kana and kanji in
+blue over a paper ground, an orange rule under the first. The GameCube's
+shop has no such poster. Ours: HELP WANTED over the rule, and PART-TIME,
+GOOD PAY, ASK INSIDE! under it; the paper is painted its ground and the
+rule drawn again where it was.
+
+The rooms' posters are checked as the structures' are, in the room's
+file; written over the en tree's .bin of it (splat leaves the file
+unextracted), which must be the cartridge's file but for the posters.
 
 Nothing of the cartridge's enters the repository: the art here is ours,
 the cleaned cloth and paper are made from the user's dump at make
 rom-en.
 """
 
+import collections
 import hashlib
 import os
 import sys
@@ -377,11 +393,14 @@ SLIPS = [(99, 9, """
 ###.###..##.#.#
 """)]
 
-# The police box's room: the scene's file (vrom, the en tree's .bin of it), the palette its lists draw the
-# posters with (offset, md5), and each poster: its offset, width, height, md5, the title's box (x from, x to,
-# y from, y to) painted its ground, ours at (x, y) in the inks ('#' the ink, '-' the shadow), what it is
-ROOM_VROM, ROOM_BIN = 0x12AC000, "assets/jp/segment_012AC000.bin"
-ROOM_PALETTE = (0x2A68, "c85a3e21cf8f163976082788d3bb63ac")
+# The rooms' posters. Each: the room's file (its vrom), the poster's offset, width, height and md5 there, the
+# palette the room's lists draw it with (offset, md5), the box (x from, x to, y from, y to) painted its ground,
+# ours laid at (x, y) in the inks ('#' the ink, '-' the shadow, '=' a rule), what it is, and the GameCube's own
+# English poster where it has one (its texture, its palette, at least how many texels the two have the same)
+Poster = collections.namedtuple("Poster", "room at w h md5 palette box ground art place inks what gc")
+POLICE_ROOM, SHOP2_ROOM = 0x12AC000, 0x13B6000
+POLICE_ROOM_PALETTE = (0x2A68, "c85a3e21cf8f163976082788d3bb63ac")
+SHOP2_ROOM_PALETTE = (0x2878, "9c1f9fdcf7789a04c0bd478656fb9348")
 POSTER_JOIN = """
 ..#..#..###.#..#...#.#..##.#
 ..#.#-#.-#-.##.#...#.#.#--.#
@@ -398,10 +417,49 @@ POSTER_WANTED = """
 #.#.#.#.#.#..#..#..#...#.#..
 .#.#..#.#.#..#..#..###.##..#
 """
-POSTERS = [(0x3C68, 32, 48, "82ce72eda566267e1126e3698a8e2dcb", (1, 31, 2, 9), 0x3, POSTER_JOIN, (2, 2),
-            {"#": 0x7, "-": 0x6}, "the police box's recruiting poster"),
-           (0x3968, 48, 32, "282f2ea48881f98b55994da0bf7466e7", (1, 48, 1, 6), 0x2, POSTER_WANTED, (10, 1),
-            {"#": 0x1}, "the police box's wanted poster")]
+POSTER_HELP = """
+...............................................
+.#.#.###.#...##....#...#..#..#..#.###.###.##...
+.#.#.#...#...#.#...#...#.#.#.##.#..#..#...#.#..
+.###.##..#...##....#.#.#.###.#.##..#..##..#.#..
+.#.#.#...#...#.....##.##.#.#.#..#..#..#...#.#..
+.#.#.###.###.#.....#...#.#.#.#..#..#..###.##...
+...............................................
+...========================================....
+...............................................
+...............................................
+......##...#..##..###....###.#.#...#.###.......
+......#.#.#.#.#.#..#......#..#.##.##.#.........
+......##..###.##...#..##..#..#.#.#.#.##........
+......#...#.#.#.#..#......#..#.#...#.#.........
+......#...#.#.#.#..#......#..#.#...#.###.......
+...............................................
+..........##..#...#..##....##...#..#.#.........
+.........#...#.#.#.#.#.#...#.#.#.#.#.#.........
+.........#.#.#.#.#.#.#.#...##..###..#..........
+.........#.#.#.#.#.#.#.#...#...#.#..#..........
+..........##..#...#..##....#...#.#..#..........
+...............................................
+......#...##.#.#...#.#..#..##.#.##..###.#......
+.....#.#.#...#.#...#.##.#.#...#.#.#.#...#......
+.....###..#..##....#.#.##..#..#.#.#.##..#......
+.....#.#...#.#.#...#.#..#...#.#.#.#.#..........
+.....#.#.##..#.#...#.#..#.##..#.##..###.#......
+...............................................
+...............................................
+"""
+POSTERS = [
+    Poster(POLICE_ROOM, 0x3C68, 32, 48, "82ce72eda566267e1126e3698a8e2dcb", POLICE_ROOM_PALETTE, (1, 31, 2, 9), 0x3,
+           POSTER_JOIN, (2, 2), {"#": 0x7, "-": 0x6}, "the police box's recruiting poster",
+           ("rom_koban_us_pos2", "rom_koban_us_pos_pal", 0.85)),
+    Poster(POLICE_ROOM, 0x3968, 48, 32, "282f2ea48881f98b55994da0bf7466e7", POLICE_ROOM_PALETTE, (1, 48, 1, 6), 0x2,
+           POSTER_WANTED, (10, 1), {"#": 0x1}, "the police box's wanted poster",
+           ("rom_koban_us_pos1", "rom_koban_us_pos_pal", 0.85)),
+    Poster(SHOP2_ROOM, 0x2EF8, 48, 32, "d396873bb1ae979514d1f410a07aa65a", SHOP2_ROOM_PALETTE, (0, 47, 1, 30), 0x1,
+           POSTER_HELP, (0, 1), {"#": 0x2, "=": 0x9}, "the second shop's poster for staff", None),
+]
+ROOMS = sorted({p.room for p in POSTERS})
+GC_NAMES = sorted({name for p in POSTERS if p.gc for name in p.gc[:2]})
 
 
 def grid(art):
@@ -538,29 +596,42 @@ def poster(texels, w, box, ground, art, place, inks):
     return out
 
 
-def compose_room(room):
-    """{offset: the en build's CI4 bytes} of the police box's room's posters, from the cartridge's file."""
-    out = {}
-    for at, w, h, _, box, ground, art, place, inks, _ in POSTERS:
-        t = af_gc_signs.texels(room[at:at + w * h // 2])
-        out[at] = ci4(poster(t, w, box, ground, art, place, inks))
+def compose_room(room, vrom, tex=None):
+    """{offset: the en build's bytes} of the posters in the room's file at vrom, from the cartridge's (room).
+    Ours; with the GameCube's textures (tex: af_gc_signs.gc_data's of GC_NAMES), its own English poster where
+    it has one, checked as af_gc_signs checks a room's sign."""
+    theirs = {}
+    if tex is not None:
+        table = [(p.gc[0], p.gc[1], p.room, p.at, (p.w, p.h), p.gc[2], p.what) for p in POSTERS if p.gc]
+        theirs = af_gc_signs.room_signs(tex, room, vrom, table, "af_own_signs")
+    out = dict(theirs)
+    for p in POSTERS:
+        if p.room == vrom and p.at not in theirs:
+            t = af_gc_signs.texels(room[p.at:p.at + p.w * p.h // 2])
+            out[p.at] = ci4(poster(t, p.w, p.box, p.ground, p.art, p.place, p.inks))
     return out
 
 
-def check_room(room):
-    """The room's posters and palette as our art expects them, or SystemExit."""
+def check_room(room, vrom):
+    """The room's posters and their palettes as our art expects them, or SystemExit."""
     drawn = af_gc_signs.drawn_ci(room)
-    pal_at, pal_md5 = ROOM_PALETTE
-    if hashlib.md5(room[pal_at:pal_at + 32]).hexdigest() != pal_md5:
-        raise SystemExit("af_own_signs: the police box's room's palette at %#x is not the cartridge's" % pal_at)
-    for at, w, h, md5, _, _, _, _, _, what in POSTERS:
-        if drawn.get(at) != (4, w, h):
+    for p in POSTERS:
+        if p.room != vrom:
+            continue
+        pal_at, pal_md5 = p.palette
+        if hashlib.md5(room[pal_at:pal_at + 32]).hexdigest() != pal_md5:
+            raise SystemExit("af_own_signs: %s: the room's palette at %#x is not the cartridge's" % (p.what, pal_at))
+        if af_gc_signs.drawn_palettes(room).get(p.at) != pal_at:
+            raise SystemExit("af_own_signs: %s: the room's lists do not draw it with the palette at %#x" % (
+                p.what, pal_at))
+        if drawn.get(p.at) != (4, p.w, p.h):
             raise SystemExit("af_own_signs: %s: the room's lists draw %s at %#x, not CI4 %dx%d" % (
-                what, drawn.get(at), at, w, h))
-        if hashlib.md5(room[at:at + w * h // 2]).hexdigest() != md5:
-            raise SystemExit("af_own_signs: %s: the texture at %#x is not the cartridge's" % (what, at))
-        if room.count(room[at:at + w * h // 2]) != 1:
-            raise SystemExit("af_own_signs: %s: the room holds the texture other than at %#x" % (what, at))
+                p.what, drawn.get(p.at), p.at, p.w, p.h))
+        held = room[p.at:p.at + p.w * p.h // 2]
+        if hashlib.md5(held).hexdigest() != p.md5:
+            raise SystemExit("af_own_signs: %s: the texture at %#x is not the cartridge's" % (p.what, p.at))
+        if room.count(held) != 1:
+            raise SystemExit("af_own_signs: %s: the room holds the texture other than at %#x" % (p.what, p.at))
 
 
 def check(obj, pals):
@@ -581,22 +652,28 @@ def check(obj, pals):
 
 
 def main(argv):
-    rom_path, en = argv
+    if len(argv) not in (2, 4):
+        raise SystemExit("usage: af_own_signs.py BASEROM EN_DIR [GC_MAP GC_REL_SZS]")
+    rom_path, en = argv[:2]
+    tex = af_gc_signs.gc_data(argv[2], argv[3], GC_NAMES) if len(argv) == 4 else None
     rom = open(rom_path, "rb").read()
     obj = af_gc_signs.file_at(rom, af_gc_signs.OBJECT_VROM)
     check(obj, af_gc_signs.file_at(rom, af_gc_signs.PALETTE_VROM))
     parts = af_gc_signs.object_parts(open(os.path.join(en, "yamls", "jp", "assets.yaml")).read())
     for at, new in sorted(compose(obj).items()):
         af_gc_signs.put(en, parts, at, obj[at:at + SIZE], new, W, H, "af_own_signs")
-    room = af_gc_signs.file_at(rom, ROOM_VROM)
-    check_room(room)
-    posters = compose_room(room)
-    for at, w, h, _, _, _, _, _, _, _ in POSTERS:
-        af_gc_signs.put(en, [(0, None, "bin", ROOM_BIN)], at, room[at:at + w * h // 2], posters[at], w, h,
-                        "af_own_signs")
+    theirs = 0
+    for vrom in ROOMS:
+        room = af_gc_signs.file_at(rom, vrom)
+        check_room(room, vrom)
+        ours = compose_room(room, vrom)
+        posters = compose_room(room, vrom, tex)
+        theirs += sum(posters[at] != ours[at] for at in ours)
+        af_gc_signs.put_room(en, vrom, room, posters, "af_own_signs")
     print("af_own_signs: the fireworks stall's banner and cards, the police box's notice board, the fishing tourney "
-          "headquarters' sign, the fortune stall's plaque and slips (%d textures), and the police box's two "
-          "posters inside" % len(compose(obj)))
+          "headquarters' sign, the fortune stall's plaque and slips (%d textures); inside, the police box's two "
+          "posters (%s) and the second shop's" % (
+              len(compose(obj)), "the GameCube's, from the disc" if theirs else "ours: no GameCube files given"))
     return 0
 
 

@@ -89,9 +89,11 @@ is the same message (same, plain, edited: edited ones get a note), else
 the Japanese with a note; the GameCube-only codes become what the N64 can
 do: SETCURSORJUST, CLRCUSRORJUST and SPACE are dropped (counted),
 STR_AMPM, CUTARTICLE and CAPTIALIZE are kept (compiled as codes 71 to 73,
-which the en build reads as them), MALEFEMALECHK keeps its first alternative,
-SELNOBCLOSE becomes the N64's SELNOB, anything else is kept and reported
-for the check to refuse. Characters the N64 charset lacks are given
+which the en build reads as them), SELNOBCLOSE becomes the N64's SELNOB,
+anything else is kept and reported for the check to refuse (MALEFEMALECHK
+among them: its four bytes are two messages' numbers, and it stands in
+nine of the GameCube's own messages only, all past the cartridge's last:
+the draft never meets one). Characters the N64 charset lacks are given
 their plain ASCII (é -> e, the GameCube's marks their nearest; each
 replacement is counted). An official message takes the cartridge's codes
 that steer the game (mend: the GameCube's are its own game's), or where
@@ -591,7 +593,10 @@ WINDOW_WIDTH = 192
 # longer than 6", "Catchphrases longer than 4"); the date's and time's
 # parts as the en build writes them (m_string.c: "Wednesday", "September",
 # "14th", "12", "p.m."); any other (free strings, items: numbers, names,
-# things) 8, TODO(verify) against what the game fills.
+# things) 8, an estimate: what the game fills there is its own to say when
+# it runs. The reckoning is held to the screen instead: the emulator checks
+# look at every page they read for a line drawn past the bubble's text
+# area (tests/emu_year.py, margin_ink).
 CODE_LETTERS = {"STR_PLAYERNAME": 6, "STR_TALKNAME": 9, "STR_COUNTRYNAME": 6, "STR_ISLANDNAME": 6,
                 "STR_TAIL": 11, "STR_YEAR": 4, "STR_MONTH": 9, "STR_WEEK": 9, "STR_DAY": 4,
                 "STR_HOUR": 2, "STR_MIN": 2, "STR_SEC": 2, "STR_AMPM": 4, "STR_RNDNUM": 3}
@@ -806,8 +811,6 @@ def adapt(tokens, counts):
             out.append(("t", ascii_fallback(t[1], counts)))
         elif t[1] in DROP:
             counts["dropped " + ["%d" % t[1], *[n for n in NAMES if NAMES[n] == t[1]]][-1]] += 1
-        elif t[1] == NAMES["MALEFEMALECHK"]:
-            counts["MALEFEMALECHK kept first"] += 1   # TODO(verify): its 4 argument bytes' meaning
         elif t[1] == NAMES["SELNOBCLOSE"]:
             out.append(("c", NAMES["SELNOB"], b""))    # the N64's choice without B; "close" is the GameCube's variant
             counts["SELNOBCLOSE as SELNOB"] += 1
