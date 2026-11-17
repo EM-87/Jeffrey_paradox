@@ -7,7 +7,8 @@
 #
 #   emu/build.sh <src-dir> <out-dir>
 #
-# Needs: git, a C/C++ compiler, make, libsdl2-dev, libpng-dev, zlib1g-dev.
+# Needs: git, a C/C++ compiler, make, nasm (the core's x86_64 dynarec), libsdl2-dev,
+# libpng-dev, zlib1g-dev.
 set -eu
 
 mkdir -p "$1" "$2"

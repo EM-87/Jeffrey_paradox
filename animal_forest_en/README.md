@@ -32,7 +32,7 @@ ellos.
   `a4f7c57c180297b2e7ba5a5feb44fe0b` en orden `.z64`). Da igual el orden de
   bytes del archivo: `.z64`, `.v64` o `.n64`, `tools/rom.py` lo normaliza.
 - Ubuntu/Debian: `make git build-essential clang binutils-mips-linux-gnu
-  python3 python3-venv cmake libsdl2-dev libpng-dev zlib1g-dev`.
+  python3 python3-venv cmake nasm libsdl2-dev libpng-dev zlib1g-dev`.
 - Más adelante (fases 4 y 5): el disco de Animal Crossing USA (GAFE01 rev 0)
   para el guion oficial y los gráficos occidentales. Se usa en tu máquina y
   nunca entra al repositorio.

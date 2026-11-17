@@ -42,6 +42,6 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update -o Acquire::Retries=3
-          sudo apt-get install -y -o Acquire::Retries=3 libsdl2-dev libpng-dev zlib1g-dev
+          sudo apt-get install -y -o Acquire::Retries=3 libsdl2-dev libpng-dev zlib1g-dev nasm
       - name: make emu
         run: make emu
