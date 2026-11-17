@@ -3834,6 +3834,281 @@ in the repository); what they found:
   resetti-check-en` run on it as goals of one make: no failure, and the en
   ROM the same.
 
+## Strings cut by their loaders (the follow-up to the second review)
+
+The second review left four warnings of the villagers' letters draft unread
+("prints a string the cartridge's part does not"). Following them into the
+code that fills a villager's reply turned up a defect that no pass before
+had seen, the second review's among them.
+
+- **The defect.** The cartridge's code does not always hand a string of the
+  bank straight to the page. 41 calls of `mString_Load_StringFromRom` (34 in
+  asm, 7 in C; each was read and classified) load a string into a buffer of
+  their own, 10 bytes for most and 4 for one, and hand that on as a
+  message's item string or free string, or as a letter's free string. The
+  Japanese words fit; 303 of the English strings those calls can load (234
+  different words, up to 16 characters) did not, and the page showed their
+  first 10. The bank's checks measure a string against the window it is
+  drawn in, and in the bank each of these was whole.
+- **Where.** The villagers' talk (`ovl__00815B70`): `func_8092106C_jp`
+  (a fish, an insect, a sport, a food and a drink into item strings 0 to
+  4), `func_809212A8_jp` (a place, a game and something to read into 0 to
+  2), `func_80921324_jp` (a year's animal, a star sign and the player's own
+  sign by the birthday), `func_809211D8_jp` (three numbers; in item string
+  3 the shop's kind, 4 bytes of it after a colour code in a 10-byte
+  template; a colour in 4) and one call for message free string 11. The
+  fortune teller (`ovl_Ev_Gypsy`, `func_809DC590_jp`): her four lists of 32.
+  A villager's reply (`mNpc_SetRemailFreeString`): eleven lists of 32 into
+  the letter's free strings 3 to 13. The New Year fortune slip
+  (`ovl_Ev_Miko`) and the shop's name under a notice (`m_notice`) were
+  known and already tokens ("The second review"). The shopkeepers' counters
+  are all short; they are in the list so that a longer one is caught. Not
+  cut: Mr. Resetti's phrases and words (compared as bytes, held to 10 and
+  to their places by the dial's check), the credits, the months and days of
+  the date helpers (3 and 4 bytes: abbreviations by design) and a call
+  that loads into 64 bytes.
+- **The mend.** The same tokens as the item names ("Item names"):
+  `tools/af_items.py` lists the loaders (`SHORT_LOADED`: first string,
+  count, the loader's bytes), and every string of theirs that is longer than
+  those bytes gets a record after the names' and the catchphrases', its
+  token laid over the en string bank at compile (`string_tokens.txt`). The
+  page's, the letter's and the choice's code expand a token wherever it
+  arrives, so the loaders stay the cartridge's. One path was new: the shop's
+  kind is a token of 4 bytes behind a colour code that counts the characters
+  it colours, and `mMsg_en_CopyString` now looks past such a code for a
+  token, expands it and writes the word's length into the code (the green
+  ink is over the whole word). A record holds 20 characters now (24 bytes:
+  the GameCube's names have 16, and the two of ours that the 16 had cut are
+  whole, `script/items.txt`); with its article a name takes 24, the bytes
+  the name cache's slot always had, so no memory went to it.
+- **The four warnings.** A reply prints only the letter's free strings; the
+  game fills 0 to 13 for every reply and 14 and 15 (the two towns' names)
+  only for one from another town. `tools/af_text.py` now holds each part of
+  a reply and each of the 36 letters that answer a bad letter to exactly
+  that (`reply_fills`: an error past it, no warning inside it), by the
+  parts' own groups: 0 warnings in the eight letter banks.
+- **Checks.** `tests/emu_words.py` (`make words-check-en`), a hook that
+  loads the talk's overlay as the game loads it and calls its fillers:
+  each of the 837 strings the loaders can load arrives whole when loaded
+  their way (303 longer than the loader's bytes); 60 calls of each of the
+  talk's two random fillers and of the fortune teller's give only whole
+  words of their lists; the shop's kind for each of its four sizes, the
+  colour code counting the whole word; a birthday in each star sign; the
+  fortune teller's reading on its page with the widest word of each list
+  (129 pixels of 192) and a villager's line about the largest shop, their
+  lines where the model has them and the ink over the whole word.
+  `tests/emu_letters.py` loads all 429 strings a letter can print as their
+  code loads them (152 tokens), and calls the game's own
+  `mNpc_GetRemailData` 388 times, for each of the six characters, in its own
+  town and from another, to good letters and bad: the letter it leaves is
+  the model's from the parts it picked (recorded at its two loaders' calls)
+  and the strings it filled; twenty free strings spoiled before each call
+  show it fills the first 14 in its own town and the first 16 from another,
+  and nothing spoiled is printed; all 36 answers to bad letters are seen;
+  each of the 352 words is printed whole by a part that prints its string,
+  and the fullest body takes less than the letter's 192 bytes.
+
+## What the second review had left open (the follow-up)
+
+The second review ended on what it had not covered: the room the game has
+left was measured only in a young town and never indoors; Mr. Resetti was
+tried only through a hook, never by the game's own road; one of his insults
+had two letters and a slip of the dial could type it; two of our names were
+cut at the 16 characters of a name's field; four warnings of the letters'
+draft were unread. The last led to the section before this one, which also
+made the two names whole. The rest, and what turned up on the way:
+
+- **The saved towns had no houses.** Every check that powers a town on
+  made it by copying `common_data` out of the houses' state of the new
+  game's route and stamping the copy as a save. But while an actor that
+  stands on the map is alive (a house, its mailbox, its gyroid), its place
+  on the map holds a stand-in for it, and the actor's save function puts the
+  item back: the game calls every actor's (`Actor_info_save_actor`) before
+  each of its saves (the one who keeps the saves in the house, the station,
+  the clock). The copy kept the stand-ins, and a town powered on from it has
+  none of the four players' houses, mailboxes or gyroids: bare lots where
+  the player's own door should be. No check looked at the frame there; it
+  showed on a screen kept while Mr. Resetti was followed. It is the checks'
+  fault and not the game's: `tests/emu_town.py` now makes the town. The
+  first house is chosen as the game has a player choose one (A at its door,
+  a look inside, out again, Nook's two questions answered yes: the game's
+  talk writes the home's owner), a hook calls `Actor_info_save_actor`, and
+  then the copy is stamped. The players' block then holds four houses, four
+  mailboxes and four gyroids as items; the town powered on shows them, the
+  player goes in at the door and the gyroid offers to save. What stays made
+  by hand: the stamp (the game lets nobody save before the first job for
+  Nook is done, an hour of errands) and the two event flags of that job
+  (`emu_year.town_image`). Two more things the probes taught: a state
+  loaded under another date than the one it was saved at makes the game set
+  the town up again (a probe must run with the state's clock), and a door
+  wants A, not a push.
+- **Mr. Resetti by the game's own road.** The game knows a reset by a mark
+  in the player's data (`PrivateInfo` + 0xAE0): the start of play sets it
+  (`func_800952D0_jp`) and the flash is written at once; a save that ends
+  the play clears it and one that goes on playing keeps it
+  (`func_80095FE0_jp`); a start that finds it set (`func_800953B0_jp`)
+  counts a reset (`resetCount`) and raises a flag (`common_data` + 0x10A68)
+  that brings him to the door and keeps the animals indoors until he is
+  done. `tests/emu_reset.py` (`make reset-check-en`) calls none of it and
+  writes none of it: one cartridge's flash, powered on seven times, each
+  time in a process of its own, START, the greeter, the first player, A on
+  every page; in between the player's own saves or none. The gyroid by the
+  house is spoken to and asked to save (its four answers), the player is
+  taken into the house, and the one who keeps the saves there
+  (`ovl_Npc_Restart`) is told to save and go on, or to save and stop, which
+  ends at the title. What the seven found: the town as made, no reset and
+  nobody at the door; after the save that goes on and the power cut, the
+  first reset and his first actor (`ovl_Npc_Majin`, 29 pages); after the
+  save that stops, no reset, the count as it was; then, nothing saved, one
+  more reset at each power-on: his second actor, who calls the player over
+  and waits (34 pages), his third, who stands by the door until the player
+  walks off and stops them (38 pages) and asks for a phrase, and his fourth
+  (25 pages). Which actor comes is the count's to say, by a table of four
+  names in `ovl_Npc` (`func_8053aab0`, `D_809837AA_jp`), and the count does
+  not grow for ever: the same function writes a count of 5 or more back as
+  3 or 4, so the fifth reset finds the count at 3 again and the third actor
+  comes a second time; from there the third and the fourth take turns. (The
+  decomp names a fifth actor after him, `ovl_Npc_Majin5`; no count of resets
+  sets it, another actor does: outside this check.) Where he asks for a
+  phrase the name entry opens on his actor's 10 bytes; the check types on
+  the dial, both times he asks: the phrase without its last character, and
+  his page is the wrong try's and he asks again; one of his list's words,
+  and his page is the insult's; the phrase, and his page is the right one's
+  and he lets the player go. Every page on the way, the greeter's, his, the
+  gyroid's and the save's, is read from the window: no kana, no kanji, no
+  token left in any. The first run of the check held the count to grow by
+  one for ever and failed at the seventh power-on: the game was right.
+- **His insults.** He takes a try as an insult when one of 32 words is
+  found anywhere in it, a fixed number of bytes of each ("The second
+  review"). A word of two letters is one slip from many things a player
+  means to type. The list is ours, and it now holds to a rule that
+  `tools/af_dial.py phrases` checks at every build: no word stands inside a
+  phrase, nor inside a try one slip away from one (a character left out, one
+  too many, a wrong one, two swapped), which leaves, for the pairs, capitals
+  and letters no phrase has; a word shorter than the bytes its place
+  compares is compared with the spaces after it, so it counts only at the
+  end of what was typed or before a space. `tests/emu_resetti.py` has his
+  own code judge the list as before, and 658 tries one slip away from the
+  phrase asked for (every one with a character left out or two swapped, a
+  sample of the others: his check reads 33 strings from the cartridge for
+  each try): none an insult.
+- **The room in a town as full as a town gets.** `tests/emu_memory.py`
+  (`make memory-check-en`) makes the houses' state a saved town of four
+  players with `tests/emu_town.py` and grows it to the 15 animals a town
+  holds with the game's own code (`mNpc_Grow`, its check of the day and the
+  friendships forced to yes, and `mNpc_InitNpcData`, which gives each new
+  animal a lot and builds its house), powers it on at each of the year's 21
+  dates and walks into every block of the 30, reading the arena's nodes in
+  each. The least of the year is 65,888 bytes (67,216 free, 823,664 in
+  use), on the February morning the turnips are sold, in the block of the
+  four houses with the winter's snowballs in it; then 73,632 (New Year's
+  Day), 77,808 (the countdown), 79,552 (Toy Day) and 79,760 (K.K.'s night),
+  all with snow on the ground; the dates without snow have 80,384 to 86,480,
+  every one in the houses' block. The cartridge would have `code_en`'s
+  48,208 more in each. On Halloween night the tour is stopped: the animals
+  run the player down, ask for candy and open the pockets for it. The tour
+  plays that talk through like any other (its pages read for kana and
+  tokens) and goes on; the first full run stood in front of it instead and
+  reported 21 blocks it could not reach, which is how it was seen. The
+  checks that tour a town now fail on a block not reached; the year check
+  had not.
+  The floor the check holds each date's least to is 48 KB, and it is more
+  than the overlays of the actors that come and go outdoors, on top of what
+  a block holds, taken together (the winter's snowballs, 16,912 bytes, which
+  the tours meet; a balloon, the postman, the passing trader's tent, a fish
+  let go and an umbrella, which they do not: 40,560 bytes by the game's own
+  table of actors, read on every run): whichever of them come at once
+  into the fullest block, they fit; with every one that was not in the
+  year's worst block put on top of it, 42,240 bytes would be left there.
+  (The list is ours, made by reading which of the actors' overlays a tour
+  leaves unloaded and which of those can stand outdoors: one missed there
+  is missing from the sum.)
+  The snowballs are the difference between one day's worst block and the
+  next: a block has them or has not, by the game's dice, and 17 KB go with
+  them. The year check holds its young town to the same floor now. It had
+  held it to 64 KB, a number with no reason behind it, and once its town
+  had houses the same February morning came within 2 KB of that (67,568
+  bytes, the houses' block with the snowballs: a town of six animals is no
+  roomier there than one of fifteen).
+- **The room indoors.** A room drops the town: the player's house has
+  425,200 bytes free (466,000 in use), the same house with a different
+  gyroid on each of its 16 free places 423,936, the shop 424,384, the house
+  of an animal that is in 417,136, the post office 600,432 and the police
+  box 584,448, each gone into at its door on a plain afternoon. The furniture's
+  code is loaded into the arena piece by piece (`ovl_My_Room`,
+  `func_8093678C_jp`: `zelda_malloc` and `ovlmgr_Load` for each kind's own
+  overlay, by a table of 947 at `D_80947638_jp`; 536 different ones, the 127
+  gyroids sharing one of 6,272 bytes): all of them together, each counted
+  once, are 152,736 bytes, less than half of what a room has free, so no
+  room can be furnished out of memory. The first try at the doors of the
+  other buildings found none, and the probe was wrong, not the doors: it
+  took an actor for the town's that every room has too. The doors are where
+  each building's code looks for the player (`BUILDINGS` in the check).
+- **The swap table, packed.** The font's table of the menus' own words
+  (`UI_EN_SUBST`: a key, its English, how to lay it out) had entries of one
+  size, the longest's. `tools/af_ui.py` now writes each as long as it is (7
+  bytes of header, the key, the English) and `m_font.c` walks them:
+  `code_en` is 0xBC50 bytes (48,208) where it was 0xCE50, 4,608 bytes back
+  to the arena. `tests/emu_menus.py` finds its entries by walking the table
+  as the font does.
+- **Looked at and not taken.** The checks' hook lives in the slot
+  m_choice_main's text left (7,696 bytes kept empty in code): giving it to
+  the arena would put data that changes into code pages, which the
+  emulators' recompilers would have to throw away at every write, and the
+  hook cannot move above 4 MB either (the cartridge's DMA refuses a
+  destination there). Two buffers the cartridge's code no longer uses
+  (0x420 and 0x2F0 bytes) could hold small data: not worth a rule of their
+  own. A heap that grows with the Expansion Pak would add 4 MB to the arena
+  on a console that has one; it would also change what the game is on such a
+  console and not on the other, which is not a translation's to decide: not
+  done.
+- **The policeman at the desk.** Going into the police box to measure it
+  showed the name on his plate: the same as the one who stands at the door,
+  a different animal with a different voice. The cartridge's table of the
+  special characters' names (`m_npc.c`, `l_sp_actor_name`, 64 entries) gives
+  one string, 0x210, to three of them: the policeman at the door, the one at
+  the desk (0xD010) and the one who leads the aerobics; in Japanese all
+  three are "the policeman". The GameCube's own table (its `m_npc.o`'s
+  `l_sp_actor_name`, 84 entries of the same 12 bytes) is the cartridge's
+  entry for entry for those 64, with one difference: it gives the one at the
+  desk a string of his own, past the end of the cartridge's bank. His lines
+  are the GameCube's, so in the en build he spoke them under the other's
+  name. Now the en string bank takes that string into a spare slot of its
+  own (749, a slot the cartridge labels as spare and no code loads:
+  `af_text.STRING_REMAP`, numbers only, the name read from the disc at
+  build), and the en table names the slot for him (`ITEM_EN_NAME_D010` in
+  the generated include: one number in a table as long as it was, so no
+  section grows). Without the disc's strings the include names the
+  cartridge's string and the en build is the cartridge's. `tools/af_items.py
+  special-names` holds the en table to the GameCube's at every build of the
+  names (every character the string the GameCube's table gives it), and
+  `tests/emu_words.py` asks the game's own `mNpc_GetNpcWorldNameP` for each
+  of the 64. The second review compared names string by string, and string
+  by string there was nothing to see: it is the table that differs.
+- **The checks.** On the ROM this tree builds (md5 6e9a930beaaf...), as
+  goals of one make, two at a time: `make test` (114 tests), `make verify`
+  (the matching build is the cartridge's), `emu-check`, `emu-check-en`,
+  `emu-determinism` (RAM the same after each of 2,035 frames),
+  `save-check-en`, `letters-check-en` (429 strings, 388 replies by the
+  game's own code), `board-check-en` (12 boards), `write-check-en`,
+  `resetti-check-en` (the 16 phrases, the 32 words, 658 tries one slip
+  away), `words-check-en` (837 strings, the fillers, the 64 special
+  characters), `notice-check-en`, `messages-check-en` (728 messages shown,
+  2,030 lines measured, 258 played through), `psel-check-en`,
+  `signs-check-en`, `year-check-en` (the 21 dates, every block reached),
+  `reset-check-en` (the seven power-ons) passed; `memory-check-en` and
+  `menus-check-en` failed, each for a reason of its own check: the tour
+  stopped on Halloween night (above), and a hook of the menus' check that
+  handed back 16 bytes of a name of 18, with a sample that looked for a
+  shirt shown as furniture under the furniture's record where the game
+  names it by the shirt's. Mended, and those two and the year check (whose
+  tour and floor had changed with them) run again on the same ROM as goals
+  of one make: no failure (`menus-check-en` with the two names of ours
+  longer than 16 characters copied as the game copies them, whole, alone,
+  with their article and with a capital; `memory-check-en`, the 21 tours and
+  the six rooms; `year-check-en`, every block of every date reached, the
+  least 67,568 bytes).
+
 ## Other emulators (ares, Project64, RetroArch, RMG and simple64)
 
 - **ares** (v148, `emu/ares/`: `build.sh` pins it and builds its N64 core

@@ -1,8 +1,6 @@
 # The string bank's spare slots (kept for strings to come) the GameCube has no text for, labelled as its
-# own spare slots are. tools/msgbank.py's dump form; `make script` lays this over the draft.
-
-## 749
-spare
+# own spare slots are. 749 is not among them any more: the en bank keeps a name there (tools/af_text.py,
+# STRING_REMAP). tools/msgbank.py's dump form; `make script` lays this over the draft.
 
 ## 750
 spare

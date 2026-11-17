@@ -56,6 +56,12 @@ make menus-check-en               # abre la ventana del nombre, la pregunta al t
                                   # la libreta, y mide sus cadenas; busca las etiquetas en memoria
 make psel-check-en                # enciende con pueblos de 1, 2 y 4 jugadores y lee las preguntas
                                   # del personaje del principio (también en ares si está compilado)
+make words-check-en               # las palabras que el cartucho carga en 10 bytes (o 4) y los
+                                  # nombres de los personajes especiales, por el código del juego
+make reset-check-en               # enciende siete veces la misma partida, guardando o sin guardar:
+                                  # las visitas de Resetti por la cuenta del propio juego
+make memory-check-en              # la memoria libre en un pueblo lleno (4 jugadores, 15 vecinos)
+                                  # en las 21 fechas del año, y dentro de las casas y edificios
 make ares                         # el segundo emulador, ares, sin ventana (y su aplicación)
 make test                         # tests de las herramientas, sin ROM
 make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010: para estudiarlo, y
@@ -679,6 +685,79 @@ herramienta nunca había leído los nombres japoneses de los objetos; los
 leía bien en la compilación, y solo fallaba, en silencio, si se le daba
 el volcado sin descomprimir. Ahora lo rechaza con un mensaje claro.
 
+Esa revisión terminó con una lista de lo que no había cubierto. Cubrirlo
+("Strings cut by their loaders", "What the second review had left open")
+sacó tres fallos más que ninguna pasada anterior había visto, la segunda
+revisión tampoco:
+
+- **Palabras cortadas a 10 letras.** El código del cartucho no siempre
+  lleva una cadena del banco directa a la página: muchas veces la carga en
+  un búfer propio de 10 bytes (o de 4) y pasa eso. Las palabras japonesas
+  caben; 303 de las inglesas no (234 palabras distintas: peces, insectos,
+  comidas, deportes, signos del zodiaco, las listas de la adivina, las de
+  las cartas con que contestan los vecinos, el tipo de tienda) y salían
+  cortadas. Ahora viajan como los nombres de los objetos, con una ficha
+  que el código de la página, la carta y las respuestas despliega.
+  `make words-check-en` las carga una a una como las carga el juego (837
+  cadenas) y llama a los propios rellenadores de la charla y de la
+  adivina; `make letters-check-en` hace contestar a los vecinos 388 veces
+  con el código del juego.
+- **Los pueblos de las comprobaciones no tenían casas.** Las pruebas que
+  encienden un pueblo guardado lo fabricaban copiando la memoria del
+  juego, y en esa copia las casas de los jugadores, sus buzones y sus
+  giroides no están como objetos (el juego los repone justo antes de
+  guardar). El pueblo se encendía con los solares vacíos y nadie miraba
+  ahí. Era fallo de las pruebas, no del juego ni de la traducción; ahora
+  el pueblo se hace como lo hace el juego (`tests/emu_town.py`: la casa
+  elegida con la charla de Nook, los actores guardados con la función del
+  juego) y las pruebas miran la parcela de las casas.
+- **El policía de dentro llevaba el nombre del de fuera.** El cartucho da
+  una sola cadena de nombre a tres personajes: el policía de la puerta,
+  el del mostrador de objetos perdidos y el que dirige la gimnasia (en
+  japonés los tres son «el policía»). GameCube les da en inglés dos
+  nombres, y su propia tabla, entrada por entrada igual que la del
+  cartucho, solo difiere en esa. Como las frases del de dentro son las de
+  GameCube, las decía con el nombre del otro. Ahora toma el suyo del
+  disco, y la compilación compara las dos tablas enteras cada vez.
+
+Y lo que quedaba pendiente:
+
+- **Resetti por el camino del juego.** `make reset-check-en` no llama a
+  nada suyo: enciende siete veces la misma partida. Guarda en el giroide
+  y sigue jugando, corta la corriente, y Resetti aparece; guarda y sale,
+  y no aparece; después no guarda nunca, y van saliendo sus cuatro
+  visitas, cada una con su texto. En la tercera pide una frase: la prueba
+  la teclea mal (él insiste), teclea un insulto (él se enfada) y la
+  teclea bien (él se va). Al quinto reinicio el propio juego devuelve la
+  cuenta a tres y vuelve el de la frase: a partir de ahí se alternan la
+  tercera visita y la cuarta. Todas las páginas se leen: ni japonés ni
+  fichas sin desplegar.
+- **Sus insultos.** Ninguno cabe ya dentro de una frase mal tecleada por
+  un solo desliz (una letra de menos, de más, cambiada o dos bailadas); la
+  compilación lo comprueba para todas las frases y su código lo confirma
+  en el emulador con 658 intentos.
+- **Dos nombres cortados** por el tope de 16 letras: el registro guarda
+  ahora 20 y están enteros.
+- **La memoria en un pueblo lleno y en interiores.**
+  `make memory-check-en` hace crecer el pueblo hasta sus 15 vecinos con el
+  código del juego, con cuatro jugadores y sus cuatro casas, lo enciende
+  en las 21 fechas del año y entra en las 30 parcelas. El punto más justo
+  del año queda en 65,9 KB libres (una mañana de febrero, con bolas de
+  nieve en la parcela de las cuatro casas); las otras fechas con nieve,
+  entre 73 y 80 KB, y sin nieve, de 80 a 86 KB. El mínimo que exige la
+  comprobación (48 KB) es más que todo lo que puede sumarse a la vez en una
+  parcela (bolas de nieve, un globo, el cartero, la tienda del vendedor
+  ambulante, un pez devuelto al agua, un paraguas: 40,6 KB); aun con todo
+  eso encima del peor caso quedarían 42 KB.
+  Dentro de las casas y edificios sobra: más de 400 KB libres en la casa
+  del jugador (también llena de giroides), en la tienda y en casa de un
+  vecino, y más de 580 KB en correos y en la comisaría; todo el código de
+  todos los muebles junto son 153 KB. Además la tabla de palabras de los
+  menús se guarda ahora compacta y devuelve 4,6 KB: el código añadido
+  pasa de 52 KB a 48 KB. El cartucho original sigue teniendo esos 48 KB
+  más; si la memoria se agotara, el juego se detendría, igual que en el
+  cartucho, y no hay ningún caso medido que se acerque.
+
 ## Dónde está cada cosa
 
 - `Makefile` — todo lo de arriba.
@@ -716,6 +795,12 @@ el volcado sin descomprimir. Ahora lo rechaza con un mensaje claro.
   `emu_board.py` (el tablero de cartas), `emu_write.py` (escribir una
   carta), `emu_notice.py` (el tablón de anuncios), `emu_messages.py` (los
   mensajes en la ventana de diálogo), `emu_menus.py` (las cadenas de los
-  menús y los nombres de los objetos) y `emu_psel.py` (las preguntas del
-  personaje que recibe al jugador al encender con una partida guardada).
+  menús y los nombres de los objetos), `emu_psel.py` (las preguntas del
+  personaje que recibe al jugador al encender con una partida guardada),
+  `emu_resetti.py` (las frases de Resetti), `emu_signs.py` (los rótulos),
+  `emu_year.py` (las fechas del año), `emu_words.py` (las palabras que el
+  cartucho carga en pocos bytes y los nombres de los personajes
+  especiales), `emu_town.py` (cómo hacen las pruebas un pueblo guardado),
+  `emu_reset.py` (Resetti por el camino del juego) y `emu_memory.py` (la
+  memoria en un pueblo lleno y en interiores).
 - `reference/NOTES.md` — lo verificado, con su fuente.

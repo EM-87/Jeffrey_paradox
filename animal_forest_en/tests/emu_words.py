@@ -29,7 +29,12 @@ message code to put the five item strings in (mMsg_CopyItem), loads an overlay a
   3. the fortune teller, her overlay loaded: her filler (func_809DC590_jp) the same;
   4. on screen: her reading (message 0x973) with the widest word of each list, its page's lines where the
      font's model has them; and a villager's line about the shop (0x273A) filled by the talk's own filler
-     for the largest shop: its lines where the model has them, the colour's ink over the whole word.
+     for the largest shop: its lines where the model has them, the colour's ink over the whole word;
+  5. the special characters' names, which m_npc.c loads into 6 bytes: every character of the en table
+     (l_sp_actor_name) asked of the game's own mNpc_GetNpcWorldNameP and put in as a message puts a string
+     in is the whole name of the string the table gives it; and the policeman at the desk, whom the
+     cartridge's table names with the string of the one at the door, has the name the GameCube's table
+     gives him (tools/af_items.py, NAMES_APART; without the disc's strings, the cartridge's one name).
 """
 
 import os
@@ -357,6 +362,46 @@ def main(argv):
             check(got is not None and all(abs(g - x) <= emu_messages.TOLERANCE + 1 for g, x in zip(got, want)),
                   "the colour the talk gives the shop's kind is over the whole word: its ink from x %s to %s, the "
                   "model's word %.1f to %.1f" % ((got and got[0], got and got[1]) + want))
+
+        # 5. the special characters' names
+        setup()
+        msg = call(3, syms["mMsg_Get_base_window_p"]) & 0xFFFFFFFF
+        inc = open(os.path.join(af_en, "assets", "jp", "en", "item_names.inc"), encoding="utf-8").read()
+        apart = all("#define ITEM_EN_NAME_%04X 0x%03X " % (number, en) in inc
+                    for number, (_, en) in af_items.NAMES_APART.items())
+        table = af_items.en_special_names(
+            open(os.path.join(af_en, "src", "code", "m_npc.c"), encoding="utf-8").read(), apart)
+        names, bad = {}, []
+        for number, string in table:
+            n64.write(ctl + BUF_AT, b"\xEE" * 16)
+            call(3, syms["mNpc_GetNpcWorldNameP"], ctl + BUF_AT, number)
+            call(3, syms["mMsg_Set_item_str"], msg, 0, ctl + BUF_AT, af_items.ANIMAL_NAME_LEN)
+            names[number] = items()[0].rstrip(b" ")
+            if names[number] != word(string) or not names[number]:
+                bad.append("%#x: %r, string %d is %r" % (number, show(names[number]), string, show(word(string))))
+        different = {string for _, string in table}
+        longer = [string for string in different if len(word(string)) > af_items.ANIMAL_NAME_LEN]
+        check(not bad and len(table) >= 64 and bool(longer),
+              "the %d special characters of the en table (m_npc.c, l_sp_actor_name), each asked of the game's own "
+              "mNpc_GetNpcWorldNameP and put in as a message puts a string in: the whole name of the string the "
+              "table gives it (%d different names, %d of them longer than the %d bytes it is loaded into)%s" % (
+                  len(table), len(different), len(longer), af_items.ANIMAL_NAME_LEN,
+                  "; " + "; ".join(bad[:4]) if bad else ""))
+        (desk, (cart, en)), = af_items.NAMES_APART.items()
+        door = next(number for number, string in table if string == cart)
+        if apart:
+            gc_path = os.path.join(os.path.dirname(draft_path), "gc_string_en.txt")
+            theirs = af_text.load_bank(gc_path).get(af_text.STRING_REMAP[en]) if os.path.exists(gc_path) else None
+            check(names[desk] != names[door] and names[desk] == word(en) and theirs is not None
+                  and draft[en] == theirs,
+                  "the policeman at the desk (%#x) has a name of his own, %r: the en bank's string %d, which is the "
+                  "GameCube's string %d (its own table's for him); the one at the door (%#x) and the others of the "
+                  "cartridge's string %#x keep theirs, %r" % (
+                      desk, show(names[desk]), en, af_text.STRING_REMAP[en], door, cart, show(names[door])))
+        else:
+            check(names[desk] == names[door],
+                  "without the disc's strings the en table is the cartridge's: the policeman at the desk (%#x) and "
+                  "the one at the door (%#x) have its one name" % (desk, door))
 
     contact.main([os.path.join(out, "sheet.png"), "2"] + shots)
     print("emu_words: %s; screenshots in %s" % ("all passed" if not failures else "%d FAILED" % len(failures), out))

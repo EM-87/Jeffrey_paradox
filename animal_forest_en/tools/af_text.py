@@ -180,6 +180,14 @@ LETTER_REMAP = {"mail_body": {422: 423, 423: 424, 427: 429, 428: 426, 430: 428, 
 # villager moved in from another town, free string 10, which the cartridge does not fill): the GameCube's
 # text of the other number. Numbers only.
 MESSAGE_REMAP = {11198: 11724, 11203: 11729, 11205: 11731, 11207: 11733, 11209: 11735}
+# A string the en bank keeps at a number of its own, {the en bank's number: the GameCube's}: the name the
+# GameCube's table of the special characters' names (its m_npc.o, l_sp_actor_name) gives the policeman at
+# the desk. The cartridge's table gives him the string of the one at the door (and of the one who leads the
+# aerobics): one name for the three. The GameCube's is the cartridge's entry for entry but for him, whom it
+# names apart, with a string past the cartridge's bank. The en bank takes that string into one of its spare
+# slots, and the en table names the slot (tools/af_items.py holds the two tables to each other at every
+# build). Numbers only; the draft takes the GameCube's string from there.
+STRING_REMAP = {749: 1753}
 # Official messages where the GameCube's English prints one word twice in a row (a slip of its own, the
 # second at the next line's start or after a space): the draft prints it once (undouble). Numbers only.
 DOUBLED = {1232, 1519, 10189}
@@ -1013,7 +1021,8 @@ def compile_letters(paths, text_path, index_path, cols=32, lines=4):
 
 
 def draft(n64_path, gc_path, align_path, out_path, overrides, remap=None):
-    """remap: {number: the GameCube's number} (LETTER_REMAP for a bank drafted by number, MESSAGE_REMAP);
+    """remap: {number: the GameCube's number} (LETTER_REMAP or STRING_REMAP for a bank drafted by number,
+    MESSAGE_REMAP);
     an official message takes the cartridge's codes that steer the game (mend), or where it cannot, the
     message is the cartridge's Japanese, to translate."""
     remap = remap or {}
@@ -1061,9 +1070,10 @@ def draft(n64_path, gc_path, align_path, out_path, overrides, remap=None):
             else:
                 counts["official " + cls] += 1
                 if n in remap:
-                    note = "#: the GameCube's %s %d (%s)\n" % ("letter" if align_path == "-" else "message",
-                                                               remap[n], "LETTER_REMAP" if align_path == "-"
-                                                               else "MESSAGE_REMAP")
+                    kind, table = (("message", "MESSAGE_REMAP") if align_path != "-" else
+                                   ("string", "STRING_REMAP") if remap is STRING_REMAP else
+                                   ("letter", "LETTER_REMAP"))
+                    note = "#: the GameCube's %s %d (%s)\n" % (kind, remap[n], table)
                     counts["official, from another number"] += 1
                 if cls == "edited":
                     note += "#: the GameCube edited this message; the Japanese had: %s\n" % \
@@ -1138,7 +1148,7 @@ def main(argv):
     cmd = args[0]
     if cmd == "draft":
         draft(args[1], args[2], args[3], args[4], overrides,
-              MESSAGE_REMAP if bank == "message" else LETTER_REMAP.get(bank))
+              MESSAGE_REMAP if bank == "message" else STRING_REMAP if bank == "string" else LETTER_REMAP.get(bank))
         return 0
     messages, laid_numbers = load_bank(args[1]), set()
     for path in overrides:

@@ -86,9 +86,14 @@ TOKEN_MARK = 0x80
 SPECIAL = ("Npc_Totakeke", "Npc_Police", "Npc_Police2")
 VILLAGERS = 2                          # the ordinary villagers (Normal_Npc) talked to on each date, the first found
 ARENA_MAGIC, ARENA_NODES = 0x7373, 20000  # an arena node (ArenaNode: s16 magic, s16 isFree, u32 size, next, prev)
-ARENA_FLOOR = 0x10000                  # the arena's largest free block on the tour: never under 64 KB (the
-                                       # cartridge's arena has code_en's 52,720 bytes more; a tour's least was
-                                       # 32 KB while the sections that grew all sat in code_en)
+STOPS = 12                             # how often a talk that starts by itself may cut one crossing short
+SUBMENU_OPEN = 0x1CBC + 12             # Game_Play.submenu: whether one of the menus is open
+ARENA_FLOOR = 0xC000                   # the arena's largest free block on a tour: never under 48 KB, which is
+                                       # more than the overlays of every actor that comes and goes outdoors
+                                       # take together (tests/emu_memory.py sums them from the game's own table
+                                       # on every run: 40,560 bytes). The cartridge's arena has code_en's bytes
+                                       # more; a tour's least was 32 KB while the sections that grew all sat in
+                                       # code_en
 
 
 def talked_to(name):
@@ -157,6 +162,7 @@ class Town:
 
     def __init__(self, n64, window, strings, names):
         self.n64, self.window, self.strings, self.names = n64, window, strings, names
+        self.stops = []                    # the pages of the talks that started by themselves (release)
 
     def i32(self, addr):
         return struct.unpack(">i", self.n64.read(addr, 4))[0]
@@ -218,7 +224,13 @@ class Town:
         bx, bz = self.block()
         dx, dz = nb[0] - bx, nb[1] - bz
         stick = DIRECTIONS[{(1, 0): "r", (-1, 0): "l", (0, 1): "d", (0, -1): "u"}[(dx, dz)]]
-        for f in (0.5, 0.3, 0.7, 0.15, 0.85, 0.4, 0.6, 0.22, 0.78):
+        tries, talks = [0.5, 0.3, 0.7, 0.15, 0.85, 0.4, 0.6, 0.22, 0.78], 0
+        while tries:
+            if self.held():                # someone stopped the player to talk: nothing walks until it is over,
+                talks += 1                 # and the try it cut short is made again
+                if talks > STOPS or not self.release():
+                    return False
+            f = tries[0]
             if dx:
                 x = (bx + (1 if dx > 0 else 0)) * BLOCK - dx * 45
                 z = bz * BLOCK + f * BLOCK
@@ -233,6 +245,45 @@ class Town:
                         self.n64.frames(5, 0)
                         if self.player_main() == PLAYER_WAIT:
                             break
+                    return True
+                if self.held():
+                    break
+            else:
+                tries.pop(0)
+        return False
+
+    def menu_open(self):
+        return self.i32(self.play() + SUBMENU_OPEN) != 0
+
+    def held(self):
+        """Whether a talk holds the player: one that started by itself (on Halloween night the animals stop
+        the player to ask for candy, and open the pockets for it)."""
+        return self.window_main() != HIDDEN or self.choice_waiting() or self.menu_open()
+
+    def release(self, limit=400, quiet=8):
+        """Play such a talk through: A on every page, the first answer to every choice, until the window has
+        been hidden for a while. Its pages go to self.stops ({msg, at, problems}). True if it ended."""
+        still, seen = 0, set()
+        for _ in range(limit):
+            if self.window_main() == WAITING:
+                page = self.page()
+                if page and (page[0], page[1]) not in seen:
+                    seen.add((page[0], page[1]))
+                    self.stops.append({"msg": page[0], "at": page[1], "problems": problems(page[2])})
+            if self.menu_open():           # a menu the talk opened (the pockets, to hand something over):
+                self.n64.press(B, 3, 30)   # closed with nothing chosen
+                still = 0
+            elif self.choice_waiting():
+                self.n64.frames(20, 0)
+                self.n64.press(A, 3, 30)
+                still = 0
+            elif self.window_main() != HIDDEN:
+                self.n64.press(A, 3, 22)
+                still = 0
+            else:
+                self.n64.frames(15, 0)
+                still += 1
+                if still >= quiet:
                     return True
         return False
 
@@ -519,6 +570,7 @@ def run_event(emu_dir, rom, af_en, town, out, label, date, hm, last):
                             (a["name"] == "Normal_Npc" and sum(k[0] == "Normal_Npc" for k in where) < VILLAGERS)):
                         where[key] = b
             result["unreached"] = unreached
+            result["stops"] = list(t.stops)
             result["arena"] = least
             result["blocks"] = {"%d,%d" % b: k for b, k in blocks.items()}
             n64.screenshot(os.path.join(work, "toured.png"))
@@ -573,8 +625,15 @@ def main(argv):
         report.append(res)
         evs = sorted(n for n in res["actors"] if talked_to(n))
         print("    %s %s: %s" % (label, res["date"], ", ".join(evs) if evs else "no event actors"))
-        check(res.get("arrived") and not res["hang"], "%s: into the town and around it%s" % (
-            label, "" if not res["hang"] else " (hung: %s)" % res["hang"]))
+        stops = res.get("stops", [])
+        stopped = [p for st in stops for p in st["problems"]]
+        check(res.get("arrived") and not res["hang"] and not res.get("unreached") and not stopped,
+              "%s: into the town and around it, every block%s%s%s" % (
+                  label, "" if not res["hang"] else " (hung: %s)" % res["hang"],
+                  " (not reached: %s)" % ", ".join(res["unreached"]) if res.get("unreached") else "",
+                  "; stopped on the way by talks that started by themselves, %d pages played through (%s)%s" % (
+                      len(stops), " ".join(sorted({"%#x" % st["msg"] for st in stops})),
+                      "; " + "; ".join(stopped[:4]) if stopped else "") if stops else ""))
         room = res.get("arena")
         check(bool(room) and room["largest"] >= ARENA_FLOOR, "%s: the arena's largest free block on the tour, at its "
               "least %s" % (label, "%d bytes in block %s (%d free, %d in use), the floor %d" % (

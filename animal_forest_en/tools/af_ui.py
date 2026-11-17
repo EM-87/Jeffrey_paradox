@@ -449,15 +449,17 @@ def substitutions(rom, gc, own):
 
 
 def subst_include(subs):
-    def init(data):
-        return "{ %s }" % ", ".join("0x%02X" % b for b in data) if data else "{ 0 }"
+    """The table as m_font.c reads it: for each string seven bytes (the key's length, the English's, the
+    layout, the box, the typed buffer, the two holes), the key's bytes and the English's, one after another
+    with no padding (every byte of it is RAM the game's actors do not get); a key of length 0 ends it."""
     lines = ["#define UI_EN_SUBST_KEY_MAX %d" % SUBST_KEY_MAX, "#define UI_EN_SUBST_EN_MAX %d" % SUBST_EN_MAX,
              "#define UI_EN_SUBST_COUNT %d" % len(subs), "#define UI_EN_SUBST \\"]
     for name, key, en, layout, hole, en_hole in subs:
-        lines.append("    { %d, %d, %d, %d, %d, %d, %d, %s, %s }, /* %s */ \\" % (
+        lines.append("    %d, %d, %d, %d, %d, %d, %d, %s, /* %s */ \\" % (
             len(key), len(en), layout & 0xFF, box_of(layout), typed_of(layout),
-            NO_HOLE if hole is None else hole, NO_HOLE if en_hole is None else en_hole, init(key), init(en), name))
-    lines.append("    { 0, 0, 0, 0, 0, 0, 0, { 0 }, { 0 } }")
+            NO_HOLE if hole is None else hole, NO_HOLE if en_hole is None else en_hole,
+            ", ".join("0x%02X" % b for b in key + en), name))
+    lines.append("    0")
     return "\n".join(lines) + "\n"
 
 

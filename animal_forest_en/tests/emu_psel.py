@@ -3,11 +3,12 @@
 
     tests/emu_psel.py EMU_DIR EN_ROM AF_EN_DIR STATE OUT_DIR [--ares ARES_DIR]
 
-STATE is a state of EN_ROM in play (make route-en's 4-houses.st). Its common_data, stamped as the game
-stamps a save (func_8008EFDC_jp: the code, the town's id, the clock; then the checksum), is the saved town;
-its player is copied into the next slots for towns of two and four players (other names and ids, each
-owning the next house), and each town is packed as the en build's slot image (tools/aflz.py) into both
-slots of a fresh cartridge's flash. From power-on, A goes through the player-select actor's talk
+STATE is a state of EN_ROM in play (make route-en's 4-houses.st). There the first house is chosen by the
+game's own talk and the actors are saved as the game saves them before a save (tests/emu_town.py: without
+that the town has no players' houses). Its common_data, stamped as the game stamps a save (func_8008EFDC_jp:
+the code, the town's id, the clock; then the checksum), is the saved town; its player is copied into the
+next slots for towns of two and four players (other names and ids, each owning the next house), and each
+town is packed as the en build's slot image (tools/aflz.py) into both slots of a fresh cartridge's flash. From power-on, A goes through the player-select actor's talk
 (ovl_Npc_P_Sel2) and each choice is read in RAM as the window holds it (mChoice_en_strings and the lengths
 in the Choice), its screen kept in OUT_DIR. Checks (reference/NOTES.md, "The player-select actor's
 answers"):
@@ -198,7 +199,10 @@ def main(argv):
 
     with N64(emu_dir, rom, os.path.join(out, "state"), timeout=60) as n64:
         n64.load_state(state)
+        import emu_town                                   # here: tests/emu_year.py, which it uses, imports this module
+        done = emu_town.settle(n64, af_en, syms)
         common = n64.read(syms["common_data"], RTC_TIME + 8)
+    check(emu_town.settled(done), emu_town.describe(done))
     save = stamp(common)
     check(emu_save.checksum_ok(save) and save[4:8] == b"NAFJ", "the houses' common_data stamped as a save")
     one, two, four = town(save, 1), town(save, 2), town(save, 4)

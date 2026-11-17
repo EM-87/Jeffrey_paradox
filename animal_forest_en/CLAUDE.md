@@ -57,7 +57,12 @@ the why and the state, `reference/NOTES.md` for what is verified.
    psel-check-en`, one to an event, a date, the banks' tables or an
    actor's talk `make year-check-en` (which also reads the room the arena
    has left in every block of every date: run it too for a change that
-   grows `code_en`), one to `emu/` `make emu-determinism`. And after a
+   grows `code_en`, and `make memory-check-en`, the same in a town at its
+   fullest and in the rooms), one to a string the cartridge's code loads
+   into fewer bytes than its English takes, or to a special character's
+   name, `make words-check-en`, one to the start of play, a save or Mr.
+   Resetti's visits `make reset-check-en`, one to `emu/` `make
+   emu-determinism`. And after a
    push, read the CI run's jobs: its emulator job failed for want of nasm
    from the first commit on, 89 runs, while the tools' tests passed, and a
    run that is always red hides the day `make test` fails (NOTES, "The
@@ -160,10 +165,16 @@ the why and the state, `reference/NOTES.md` for what is verified.
   en name segment (NOTES, "Names longer than 6"), and so do the
   catchphrases longer than 4, their tokens laid over the string bank
   (`string_tokens.txt`; NOTES, "Catchphrases longer than 4"), and the
-  strings the cartridge loads into a letter's 10-byte free string
-  (`LETTER_STRINGS`: the fortune slip's, the shop's name under a notice);
+  strings the cartridge's code loads into fewer bytes than their English
+  takes (`SHORT_LOADED`: the words of the villagers' talk, the fortune
+  teller's, a villager's reply's, the fortune slip's, the shop's name
+  under a notice and its kind; NOTES, "Strings cut by their loaders");
   a name of the GameCube's with a or an takes the one its first sound
-  asks for (`sound_article`; NOTES, "The second review").
+  asks for (`sound_article`; NOTES, "The second review"); one special
+  character the GameCube's table names apart from the cartridge's takes
+  his string through the include (`NAMES_APART`), and `special-names`
+  holds the en table of those names to the GameCube's own at every build
+  (NOTES, "What the second review had left open").
 - `tools/af_nafe_gfx.py` — the 42 menu labels the AF Project's 2010
   patch drew in English, taken at `make rom-en` from the user's copy
   (`make nafe NAFE_UPS=...`, build/nafe-2010-12-02.z64) over the en
@@ -306,6 +317,22 @@ the why and the state, `reference/NOTES.md` for what is verified.
   into, the event's actors, its villagers, the special characters and
   two ordinary villagers talked to, every page and answer read for kana
   and tokens, a hang a failure: `make year-check-en`),
+  `emu_words.py` (the strings the cartridge's code loads into 10 bytes or
+  4, each loaded its way and put in as a message puts one in; the talk's
+  and the fortune teller's own fillers, their overlays loaded as the game
+  loads one; the special characters' names by the game's own code: `make
+  words-check-en`),
+  `emu_town.py` (not a check: how the checks make a saved town, the first
+  house chosen by the game's talk, the actors saved as the game saves
+  them before a save, the town grown to 15 animals by the game's code),
+  `emu_reset.py` (one flash powered on seven times, saved at the gyroid
+  to go on, to stop, or not at all: Mr. Resetti's visits by the game's
+  own count, his phrase typed wrong, as an insult and right: `make
+  reset-check-en`),
+  `emu_memory.py` (a town of four players and 15 animals powered on at
+  the year's 21 dates, the arena read in every block; the player's house,
+  one full of gyroids, the shop, the post office, the police box and an
+  animal's house gone into: `make memory-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.
@@ -343,13 +370,18 @@ the why and the state, `reference/NOTES.md` for what is verified.
   actor's overlay that finds no room stops the game. With every grown
   section in `code_en` (112 KB) the arena had 0x51B0 left at the houses
   and 32 KB at its least on the morning-aerobics date's tour; the grown
-  text now fills the slots other grown sections left in code, `code_en` is
-  0xCDF0 (52 KB), that tour's least is 97,712 bytes and the year's 71,792,
-  on New Year's Day, where the same sum gives some 12 KB before (NOTES,
-  "Item names", "The second review"). `make year-check-en` holds it to a
-  floor. The save and letters checks once went four batches unrun while
-  the swap table grew `code_en`, and nothing else noticed. A table that
-  can live in ROM goes to a segment.
+  text now fills the slots other grown sections left in code and the
+  font's swap table is packed: `code_en` is 0xBC50 (48 KB). The year's
+  least is 67,568 bytes in a young town and 65,888 in one of four players
+  and 15 animals, both on a winter morning in the block of the four
+  houses with the snowballs in it, and a room has over 400 KB (NOTES,
+  "Item names", "The second review", "What the second review had left
+  open"). `make year-check-en` and `make memory-check-en` hold it to a
+  floor that is more than every actor that comes and goes outdoors needs
+  at once. The save
+  and letters checks once went four batches unrun while the swap table
+  grew `code_en`, and nothing else noticed. A table that can live in ROM
+  goes to a segment; one that must be in RAM is as short as its entries.
 - **An overlay's relocation table cannot grow either.** Its `_reloc`
   segment keeps the cartridge's size, and `tools/af_ovlreloc.py` refuses
   more relocations than it holds (the editor's: room for 214, the en
@@ -413,6 +445,12 @@ the why and the state, `reference/NOTES.md` for what is verified.
   grows, find every loader of its number (the immediates in the asm, the
   tables in the overlays' data) and what each does with the bytes; where
   they are too few, a token (`tools/af_items.py`).
+- **The cartridge's tables can share what English tells apart.** Its
+  table of the special characters' names gives the policeman at the desk
+  the string of the one at the door: one Japanese word, two English
+  names. Comparing the two games string by string shows nothing; compare
+  the tables that hand the strings out (`tools/af_items.py
+  special-names` does, for the names, at every build).
 - **What the player types is compared byte for byte.** Mr. Resetti's
   phrases are compared over 10 bytes with what the dial typed, his
   insults over a length fixed by their place: a character the dial lacks,
@@ -504,6 +542,26 @@ the why and the state, `reference/NOTES.md` for what is verified.
   ROM then "failed" the route at the same frame, and so did the original.
   Before blaming a ROM, run the original through the same check, and look
   at the screenshots.
+- **A copy of RAM is not a save.** While a house, a mailbox or a gyroid
+  stands, its place on the map holds a stand-in; the game puts the item
+  back before each save (`Actor_info_save_actor`). A town made by
+  stamping a copy of `common_data` powers on without the players' houses,
+  and every check that used one went on passing. `tests/emu_town.py`
+  makes the town; a check of a saved town looks at the houses' block.
+- **A state belongs to its date.** Loaded under another clock than the
+  one it was saved at, the game sets the town up again and the probe
+  reads a scene nobody played: give `N64()` the state's `clock`.
+- **A door wants A, and where its own code looks.** Pushing at a door
+  does nothing. Each building's actor checks the player's place and
+  facing its own way (`tests/emu_memory.py`, `BUILDINGS`); and a probe
+  that asks "am I inside?" must ask for an actor only that room has:
+  `Field_Draw` and `Shop_Goods` are in every room.
+- **A talk can start by itself.** On Halloween night the animals run the
+  player down, ask for candy and open the pockets; a tour that only walks
+  stands there until its tries run out and then reports blocks it "could
+  not reach". `emu_year.Town.cross` plays such a talk through (A on its
+  pages, the first answer, B on a menu it opened) and makes the try again,
+  and the checks that tour a town fail on any block not reached.
 - **mupen64plus starts once per process.** A second `N64()` in the same
   process fails at PluginStartup (error 2): a check that powers on more
   than once runs each in a process of its own (`emu_save.py --boot`,

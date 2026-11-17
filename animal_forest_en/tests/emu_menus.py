@@ -165,7 +165,7 @@ void mString_Load_StringFromRom(char* dst, s32 dstLen, s32 strIdx);
 s32 mString_Load_NumberStringAddUnitFromRom(char* dst, unsigned short num, s32 idx);
 u8 hook_color[4] = { 255, 255, 255, 255 };
 extern void* gamePT;
-typedef struct HookCtl { s32 cmd; s32 arg[4]; u8 buf[32]; } HookCtl;
+typedef struct HookCtl { s32 cmd; s32 arg[4]; u8 buf[64]; } HookCtl;
 HookCtl hook_ctl;
 typedef struct HookText { s32 loaded; s32 no; s32 len; s32 cut; u8 text[64]; } HookText;   /* an mMsg_Data */
 HookText hook_text;
@@ -180,7 +180,7 @@ u8 hook_letter[40];
    handlers as its cursor runs them (codes 72 and 73, the article's; 36, free string 0; 49, item string 0;
    any other passed over), in a text of the hook's in place of the window's own: the text back at buf + 12,
    its length in arg 1; 6: buf's 10 bytes set as a letter's free string 0, and the text at buf + 12 (arg 0
-   bytes) expanded as a letter's body is, in 40 bytes filled with spaces: the 20 first back at buf + 12; 7: buf's
+   bytes) expanded as a letter's body is, in 40 bytes filled with spaces: the 32 first back at buf + 12; 7: buf's
    first arg 1 bytes set as the message's item string 0, and message arg 0 asked of the window as the demo's
    event messages ask for theirs (no speaker, its priority: m_demo.c, wait_emsg_start), whether it took the
    request in arg 2; 8: string arg 0 loaded into buf as the game loads one (arg 1 bytes, at most 32); 9: the
@@ -206,7 +206,7 @@ void hook_main(void) {
 
         mIN_copy_name_str((char*)h->buf, (unsigned short)h->arg[0]);
         name = mIN_en_TokenName(h->buf, &len, &art);
-        for (i = 0; name != 0 && i < len && i < 16; i++) {
+        for (i = 0; name != 0 && i < len && i < 32; i++) {
             h->buf[12 + i] = name[i];
         }
         h->arg[1] = len;
@@ -250,7 +250,7 @@ void hook_main(void) {
             }
         }
         *data = own;
-        for (i = 0; i < t->len && i < 20; i++) {
+        for (i = 0; i < t->len && i < 32; i++) {
             h->buf[12 + i] = t->text[i];
         }
         h->arg[1] = t->len;
@@ -263,7 +263,7 @@ void hook_main(void) {
             hook_letter[i] = (i < h->arg[0]) ? h->buf[12 + i] : ' ';
         }
         func_80093478_jp(hook_letter, 40, h->arg[0], 2);
-        for (i = 0; i < 20; i++) {
+        for (i = 0; i < 32; i++) {
             h->buf[12 + i] = hook_letter[i];
         }
         h->cmd = 0;
@@ -373,7 +373,6 @@ SWAP_MENUS = [((7, 0), (), ["RP_TITLE", "OK"]),
 # types into in place of another's (name: the other, the part)
 BUILT = {"GY_PRICE": ("GY_IKAGA", "1000")}           # an item's price in the gyroid's shop
 SUBST_HEAD = 7                                       # mFont_EnSubst: its lengths, layout, box, buffer, holes
-SUBST_SIZE = SUBST_HEAD + af_ui.SUBST_KEY_MAX + af_ui.SUBST_EN_MAX   # (u8s only)
 RULER_GLYPHS = "wesxzmnuo"                          # RULER: the widest of these whose columns are whole
 CELLS_SCALE = 0.875                                  # the clock's templates (func_80883B40_jp: its numbers
 # start in their cells, 10.5 pixels apart)
@@ -634,11 +633,23 @@ def bands(pixels):
     return [[p for p in pixels if top <= p[1] <= bottom] for top, bottom in groups]
 
 
+def subst_places(table, subs):
+    """({name: (its entry's address, its English's)}, the address after the table) of the en m_font.c's swap
+    table at `table`: the entries one after another, each its seven bytes, its key and its English, and a
+    key of length 0 last."""
+    out, at = {}, table
+    for name, key, en, _, _, _ in subs:
+        out[name] = (at, at + SUBST_HEAD + len(key))
+        at += SUBST_HEAD + len(key) + len(en)
+    return out, at + 1
+
+
 def title_warning(emu_dir, rom, out, syms, subs, cart, board, faint, rule, shots):
     """The title's warning that no controller is in the first port: each line's English where the en
     m_font.c's layout puts it in the box the cartridge's string had (the module's docstring)."""
     table = next(a for n, a in syms.items() if n.endswith(":mFont_en_subst"))
-    skip = (table, table + len(subs) * SUBST_SIZE)
+    places, table_end = subst_places(table, subs)
+    skip = (table, table_end)
     index = {sub[0]: i for i, sub in enumerate(subs)}
     if not all(name in index for name in WARNING):
         check(False, "the title's warning: its lines in the swap table")
@@ -665,14 +676,14 @@ def title_warning(emu_dir, rom, out, syms, subs, cart, board, faint, rule, shots
             return n64.screen()
 
         def entry_at(name):
-            return table + index[name] * SUBST_SIZE
+            return places[name][0]
 
         lines = [subs[index[name]] for name in WARNING]
         w, h, seen = open_title()
         path = os.path.join(out, "title-warning.png")
         write_png(path, w, h, seen)
         shots.append(path)
-        _, _, bare = open_title([(entry_at(name) + SUBST_HEAD + af_ui.SUBST_KEY_MAX, b" " * len(en))
+        _, _, bare = open_title([(places[name][1], b" " * len(en))
                                  for name, (_, _, en, _, _, _) in zip(WARNING, lines)])
         rulers = []
         for name, (_, key, _, _, _, _) in zip(WARNING, lines):
@@ -1046,26 +1057,28 @@ def main(argv):
 
         # the strings swapped where the font draws them
         table = next(a for n, a in syms.items() if n.endswith(":mFont_en_subst"))
+        places, table_end = subst_places(table, subs)
         entries = {}
-        for i, (name, key, en, layout, key_hole, en_hole) in enumerate(subs):   # (hole: the hook's code)
-            entries[name] = (table + i * SUBST_SIZE, key, en, layout, key_hole, en_hole)
-            got = n64.read(table + i * SUBST_SIZE, SUBST_SIZE)
+        for name, key, en, layout, key_hole, en_hole in subs:   # (hole: the hook's code)
+            entries[name] = (places[name][0], key, en, layout, key_hole, en_hole)
+            got = n64.read(places[name][0], SUBST_HEAD + len(key) + len(en))
             head = bytes([len(key), len(en), layout & 0xFF, af_ui.box_of(layout), af_ui.typed_of(layout),
                           af_ui.NO_HOLE if key_hole is None else key_hole,
                           af_ui.NO_HOLE if en_hole is None else en_hole])
-            check(got[:SUBST_HEAD] == head and got[SUBST_HEAD:SUBST_HEAD + len(key)] == key
-                  and got[SUBST_HEAD + af_ui.SUBST_KEY_MAX:SUBST_HEAD + af_ui.SUBST_KEY_MAX + len(en)] == en,
+            check(got == head + key + en,
                   "the swap table: %s holds the cartridge's %d bytes and the English %r" % (name, len(key), en))
+        check(n64.read(table_end - 1, 1) == b"\0",
+              "the swap table ends after its %d entries, %d bytes in all" % (len(subs), table_end - table))
 
         def overlay_copy(ram, windows):
             """The address of the first of windows found in ram exactly once outside the swap table, or None."""
-            return found_once(ram, windows, (table, table + len(subs) * SUBST_SIZE))
+            return found_once(ram, windows, (table, table_end))
 
         def copies(ram, key):
             """The addresses of every copy of key in ram outside the swap table."""
             out, at = [], ram.find(key)
             while at >= 0:
-                if not table <= 0x80000000 + at < table + len(subs) * SUBST_SIZE:
+                if not table <= 0x80000000 + at < table_end:
                     out.append(0x80000000 + at)
                 at = ram.find(key, at + 1)
             return out
@@ -1171,7 +1184,7 @@ def main(argv):
                 reach = len(key.rstrip(b" "))
                 ruled = (windows, (rule * reach).ljust(typed or len(key), b" "), every)
                 what = "program %d's %s (%r)" % (menu[0], name, en.rstrip(b" "))
-                en_at, off = at + SUBST_HEAD + af_ui.SUBST_KEY_MAX, [(at + SUBST_HEAD, b"\xFF")]
+                en_at, off = places[name][1], [(at + SUBST_HEAD, b"\xFF")]    # (a built key is longer than the table's)
                 seen = open_swap(menu, buttons, rewrite=built)[2] if built else normal
                 _, _, bare = open_swap(menu, buttons, [(en_at, b" " * (len(en) - (len(part) if built else 0)))],
                                        rewrite=built)
@@ -1211,9 +1224,9 @@ def main(argv):
             else:
                 number = n64.read(found[0] - 2, 2)        # the number's two cells, and the date after the padding
                 date = n64.read(found[0] + 6, 10)
-                _, _, date_bare = open_swap(BOARD, (), [(date_at + SUBST_HEAD + af_ui.SUBST_KEY_MAX, b" " * 10)])
+                _, _, date_bare = open_swap(BOARD, (), [(places["BB_DATE"][1], b" " * 10)])
                 _, _, date_off = open_swap(BOARD, (), [(date_at + SUBST_HEAD, b"\xFF")])
-                _, _, num_bare = open_swap(BOARD, (), [(num_at + SUBST_HEAD + af_ui.SUBST_KEY_MAX,
+                _, _, num_bare = open_swap(BOARD, (), [(places["BB_NUMBER"][1],
                                                         b" " * len(num_en))])
                 cells = runs(x for x, _ in ink_pixels(seen, date_bare, w, h))
                 plain = runs(x for x, _ in ink_pixels(date_off, date_bare, w, h))
@@ -1272,19 +1285,40 @@ def main(argv):
                                     bases["ftr"] + f))
             samples += [("the clothes' first as furniture", 0x17AC, bases["cloth"]),
                         ("the insects' first as furniture", 0x1BA8, bases["insect"])]
+            # every name longer than the GameCube's 16 characters (ours, script/items.txt: a record holds
+            # af_items.NAME_MAX), as the game copies it
+            long_names = []
+            for k, (kind, count, _, _, _) in enumerate(af_items.KINDS[:16]):
+                for i in range(count):
+                    if len(record(bases[kind] + i)[2]) > af_items.GC_NAME_LEN:
+                        long_names.append(("%s %d, longer than the GameCube's %d characters" % (
+                            kind, i, af_items.GC_NAME_LEN), 0x2000 | (k << 8) | i, bases[kind] + i))
+            for f in range(next(n for kd, n, _, _, _ in af_items.KINDS if kd == "ftr")):
+                if af_items.FTR_CLOTH[0] <= f < af_items.FTR_BLOCKS[-1][0]:
+                    continue               # the clothes and the rest shown as furniture: the game names those
+                                           # by their own kinds' records (the two samples before)
+                if len(record(bases["ftr"] + f)[2]) > af_items.GC_NAME_LEN:
+                    long_names.append(("furniture %d, longer than the GameCube's %d characters" % (
+                        f, af_items.GC_NAME_LEN), 0x1000 + f * af_items.FTR_FACES, bases["ftr"] + f))
+            samples += long_names
             ctl = setup()
             n64.frames(2, 0)
             for what, item, n in samples:
                 n64.write(ctl, struct.pack(">i4I", 3, item, 0, 0, 0))
                 n64.frames(2, 0)
                 cmd, _, length, art, is_token = struct.unpack(">i4i", n64.read(ctl, HOOK_BUF))
-                buf = n64.read(ctl + HOOK_BUF, 32)
+                buf = n64.read(ctl + HOOK_BUF, 12 + 32)
                 want_art, _, want_name = record(n)
                 check(cmd == 0 and is_token and buf[:af_items.NAME_LEN] == token(n) and length == len(want_name)
                       and buf[12:12 + length] == want_name and art == want_art,
                       "the items' names: %s (%#06x) is the token %s for the table's %d, %r (%s)" % (
                           what, item, buf[:af_items.NAME_LEN].hex(), n, buf[12:12 + max(0, length)],
                           af_items.ARTICLES[art] if 0 <= art < len(af_items.ARTICLES) else art))
+            check(bool(long_names) and all(len(record(n)[2]) <= af_items.NAME_MAX for _, _, n in long_names),
+                  "the items' names: %d of the table's are longer than the GameCube's %d characters (%s), none "
+                  "longer than a record's %d" % (len(long_names), af_items.GC_NAME_LEN,
+                                                 ", ".join(repr(record(n)[2]) for _, _, n in long_names),
+                                                 af_items.NAME_MAX))
             n64.write(ctl, struct.pack(">i4I", 3, 0, 0, 0, 0))   # no item: the cartridge's blank
             n64.frames(2, 0)
             buf = n64.read(ctl + HOOK_BUF, af_items.NAME_LEN)
@@ -1295,7 +1329,7 @@ def main(argv):
             n64.write(ctl, struct.pack(">i4I", 4, len(code), 0, 0, 0))
             n64.frames(2, 0)
             new_len = struct.unpack(">i", n64.read(ctl + 8, 4))[0]
-            got = n64.read(ctl + HOOK_BUF + 12, max(0, min(new_len, 20)))
+            got = n64.read(ctl + HOOK_BUF + 12, max(0, min(new_len, 32)))
             check(got == record(money)[2], "the items' names: a message's item string 0 takes the money's name "
                   "(%r, %d bytes)" % (got, new_len))
 
@@ -1321,12 +1355,18 @@ def main(argv):
                      ("no article to cut", money, cap + cut + item0, said(money, True)),
                      ("the requests spent by the first string", tool, cap + cut + item0 + b" " + item0,
                       said(tool, True, False) + b" " + said(tool))]
+            # the longest of the names with its article, as a message puts it in
+            for _, _, n in sorted(long_names, key=lambda x: -len(said(x[2])))[:1]:
+                cases += [("item string with the table's longest name and its article, %d characters" %
+                           len(said(n)), n, item0, said(n)),
+                          ("the same with a capital", n, cap + item0, said(n, capital=True)),
+                          ("the same, its article cut", n, cut + item0, said(n, article=False))]
             for what, n, text, want in cases:
                 n64.write(ctl + HOOK_BUF, token(n) + bytes(2) + text)
                 n64.write(ctl, struct.pack(">i4I", 5, len(text), 0, 0, 0))
                 n64.frames(2, 0)
                 new_len = struct.unpack(">i", n64.read(ctl + 8, 4))[0]
-                got = n64.read(ctl + HOOK_BUF + 12, max(0, min(new_len, 20)))
+                got = n64.read(ctl + HOOK_BUF + 12, max(0, min(new_len, 32)))
                 check(got.replace(cut, b"").replace(cap, b"") == want,
                       "the items' names: a message's %s: %r gives %r (%r)" % (what, text, want, got))
             plain = b"bob".ljust(af_items.NAME_LEN)
@@ -1339,7 +1379,7 @@ def main(argv):
             n64.write(ctl, struct.pack(">i4I", 4, len(item0), 0, 0, 0))
             n64.frames(2, 0)
             new_len = struct.unpack(">i", n64.read(ctl + 8, 4))[0]
-            got = n64.read(ctl + HOOK_BUF + 12, max(0, min(new_len, 20)))
+            got = n64.read(ctl + HOOK_BUF + 12, max(0, min(new_len, 32)))
             check(got == said(tool), "the items' names: a choice's item string takes the article (%r)" % got)
             for what, text, want in [("a free string", free0 + b"!", said(tool) + b"!"),
                                      ("its article cut", b"x " + cut + free0, b"x " + said(tool, article=False)),
@@ -1348,7 +1388,7 @@ def main(argv):
                 n64.write(ctl + HOOK_BUF, token(tool) + bytes(2) + text)
                 n64.write(ctl, struct.pack(">i4I", 6, len(text), 0, 0, 0))
                 n64.frames(2, 0)
-                got = n64.read(ctl + HOOK_BUF + 12, 20).rstrip(b" ")
+                got = n64.read(ctl + HOOK_BUF + 12, 32).rstrip(b" ")
                 check(got == want, "the items' names: a letter's %s: %r gives %r (%r)" % (what, text, want, got))
 
             # on screen: the window shows a message of the translation's bank (the first of each kind in the

@@ -821,6 +821,25 @@ class Script(unittest.TestCase):
             self.assertEqual([msgbank.render(back[n]) for n in range(4)], ["zero", "two", "two", "one"])
             self.assertIn("## 1\n#: the GameCube's letter 2", text)
 
+    def test_string_draft_takes_a_name_from_another_number(self):
+        # STRING_REMAP: a spare slot of the en string bank takes the GameCube's string of another number (a name
+        # the GameCube's table gives a character whom the cartridge's table names with another's string)
+        (en, theirs), = af_text.STRING_REMAP.items()
+        self.assertGreater(theirs, af_text.N64_BANKS["string"][2])          # past the cartridge's bank
+        with tempfile.TemporaryDirectory() as d:
+            jp, gc, out = (os.path.join(d, f) for f in ("jp.txt", "gc.txt", "out.txt"))
+            open(jp, "w", encoding="utf-8").write("## %d\nよび\n\n" % en)
+            open(gc, "w", encoding="utf-8").write("## %d\n\n\n## %d\nDeskman\n\n" % (en, theirs))
+            old = af_text.N64_COUNT
+            try:
+                af_text.N64_COUNT = en + 1
+                af_text.draft(jp, gc, "-", out, [], af_text.STRING_REMAP)
+            finally:
+                af_text.N64_COUNT = old
+            text = open(out, encoding="utf-8").read()
+            self.assertEqual(msgbank.render(msgbank.Bank.parse_dump(text)[en]), "Deskman")
+            self.assertIn("## %d\n#: the GameCube's string %d (STRING_REMAP)" % (en, theirs), text)
+
     def test_fallbacks_keep_the_marks_the_cartridge_has(self):
         # the GameCube's drop and anger mark are the N64 font's; its semicolon and slash, punctuation it has
         self.assertEqual(af_text.ascii_fallback("a; b/c \U0001f322\U0001f4a2☃"), "a, b-c \U0001f4a7✚～")
@@ -1659,9 +1678,9 @@ class MenusWords(unittest.TestCase):
                                     ("C", rom[8:10], b"Ok", af_ui.LEFT | af_ui.BOX(6), None, None)])  # D: no English
             text = af_ui.subst_include(subs)
             self.assertIn("#define UI_EN_SUBST_COUNT 3\n", text)
-            self.assertIn("    { 3, 2, 1, 0, 0, 255, 255, { 0x90, 0x91, 0x92 }, { 0x48, 0x69 } }, /* A */ \\\n", text)
-            self.assertIn("    { 2, 2, 0, 6, 0, 255, 255, { 0xB0, 0xB1 }, { 0x4F, 0x6B } }, /* C */ \\\n", text)
-            self.assertTrue(text.endswith("    { 0, 0, 0, 0, 0, 0, 0, { 0 }, { 0 } }\n"))
+            self.assertIn("    3, 2, 1, 0, 0, 255, 255, 0x90, 0x91, 0x92, 0x48, 0x69, /* A */ \\\n", text)
+            self.assertIn("    2, 2, 0, 6, 0, 255, 255, 0xB0, 0xB1, 0x4F, 0x6B, /* C */ \\\n", text)
+            self.assertTrue(text.endswith("    0\n"))                # packed: no padding, a key of length 0 last
             with self.assertRaises(SystemExit):
                 af_ui.substitutions(rom, {}, {"B": "12:00"})                       # more cells than the key's
             self.assertIn(("C", "sym_c", "c.o"), af_ui.gc_sources())
@@ -1697,7 +1716,7 @@ class MenusWords(unittest.TestCase):
             subs = af_ui.substitutions(rom, {}, {"P": "It's {} Bells", "Q": "Free"})
             self.assertEqual(subs, [("P", bytes([0x90, 0x91, 0xA0, 0xA1]), b"It's  Bells", layout, 2, 5),
                                     ("Q", bytes([0x90, 0x91, 0xB0]), b"Free", layout, None, None)])
-            self.assertIn("    { 4, 11, 0, 16, 12, 2, 5, ", af_ui.subst_include(subs))
+            self.assertIn("    4, 11, 0, 16, 12, 2, 5, ", af_ui.subst_include(subs))
             for own in ({"P": "No hole"}, {"Q": "A {} hole"}, {"P": "{} two {}"}):
                 with self.assertRaises(SystemExit):
                     af_ui.substitutions(rom, {}, own)                          # holes in the key and the English
@@ -1818,6 +1837,41 @@ class MenusWords(unittest.TestCase):
         inc = af_items.include(True, tokens)
         self.assertIn("#define ITEM_EN_RECORDS %d " % (len(af_items.slots()) + 3), inc)
         self.assertIn("#define ITEM_EN_SPECIAL_NAMES { { 0x205, 1705 }, { 0x000, 0 }, }", inc)
+
+    def test_a_special_character_named_apart_from_the_cartridges_table(self):
+        # the cartridge's table of the special characters' names gives the policeman at the desk the string of
+        # the one at the door; the GameCube's gives him one of his own, which the en string bank keeps in a
+        # spare slot (af_text.STRING_REMAP) and the include tells the en table (ITEM_EN_NAME_<number>)
+        (number, (cart, en)), = af_items.NAMES_APART.items()
+        self.assertIn(en, af_text.STRING_REMAP)
+        self.assertIn(en, af_items.SPECIAL_NAME_STRINGS)               # a name longer than 6 there takes a token
+        self.assertIn("#define ITEM_EN_NAME_%04X 0x%03X " % (number, en), af_items.include(True, (), True))
+        self.assertIn("#define ITEM_EN_NAME_%04X 0x%03X " % (number, cart), af_items.include(False))  # no disc
+        source = ("SpecialNpcData l_sp_actor_name[] = {\n"
+                  "    { 0xD00D, NPC_SEX_MALE, 0x0210, 2 },   { 0x%04X, NPC_SEX_MALE, ITEM_EN_NAME_%04X, 3 },\n"
+                  "    { 0xD04E, NPC_SEX_MALE, 0x0210, 2 },\n};\n" % (number, number))
+        table = af_items.en_special_names(source)
+        self.assertEqual(table, [(0xD00D, 0x210), (number, en), (0xD04E, 0x210)])
+        self.assertEqual(af_items.en_special_names(source, False)[1], (number, cart))
+        theirs = [(0xD00D, 0x210), (number, af_text.STRING_REMAP[en]), (0xD04E, 0x210), (0xD07E, 1752)]
+        self.assertEqual(af_items.special_name_problems(table, theirs), [])
+        # the cartridge's table as it was: he takes the other's string, and the tool says so
+        problems = af_items.special_name_problems([(0xD00D, 0x210), (number, cart), (0xD04E, 0x210)], theirs)
+        self.assertEqual(len(problems), 2)
+        self.assertIn("%#x" % number, problems[0])
+        # a character the GameCube's table does not have, with a string no token knows
+        self.assertEqual(len(af_items.special_name_problems(table + [(0xD0FF, 0x300)], theirs)), 2)
+        with self.assertRaises(SystemExit):
+            af_items.en_special_names(source.replace("ITEM_EN_NAME_%04X" % number, "ITEM_EN_NAME_D00D"))
+        # the en string bank must hold the GameCube's string there: a bank drafted before the remap is refused
+        gc = {af_text.STRING_REMAP[en]: msgbank.parse("Deskman")}
+        self.assertTrue(af_items.names_apart({en: msgbank.parse("Deskman")}, gc))
+        with self.assertRaises(SystemExit):
+            af_items.names_apart({en: msgbank.parse("spare")}, gc)
+        # the GameCube's table is read from its module's .data by the map's place: 12 bytes an entry
+        entry = af_items.SPECIAL_ENTRY
+        self.assertEqual(entry.size, 12)
+        self.assertEqual(entry.unpack(entry.pack(number, 0, 1753, 3))[::2], (number, 1753))
 
     def test_item_names_are_read_from_the_decompressed_image(self):
         # a name lies at its file's vrom, which is its place in the decompressed image only: a read that

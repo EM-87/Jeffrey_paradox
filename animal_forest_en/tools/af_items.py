@@ -55,6 +55,14 @@ message and the letter code expand a token in a string they put in as they do an
 A record holds NAME_MAX characters: the GameCube's 16 and four more, for a name of ours that the
 GameCube's length would cut (script/items.txt).
 
+One special character has a name of its own on the GameCube and another's on the cartridge (NAMES_APART:
+the policeman at the desk; the cartridge's table gives him the string of the one at the door). With the
+disc's strings the en string bank keeps his name in a spare slot (af_text.STRING_REMAP) and the include
+tells the en m_npc.c's table the slot (ITEM_EN_NAME_<number>); without them it tells it the cartridge's
+string. `special-names EN_M_NPC_C FORESTA_REL_SZS FORESTA_MAP` holds the en table to the GameCube's own
+(its m_npc.o's l_sp_actor_name, 12 bytes an entry as the cartridge's): every character of the en table
+takes the string the GameCube's table gives it.
+
 A name of the GameCube's that takes a or an is given the one its first sound asks for (sound_article): the
 GameCube's own table has a few the other way round.
 """
@@ -158,7 +166,13 @@ SHORT_LOADED = (
 # the animals' default data (NpcDefaultData, 6 bytes each: cloth, catchphraseIdx, umbrella), 218 of them
 DEFAULT_DATA, DEFAULT_SIZE, DEFAULT_CATCHPHRASE = 0xE03000, 6, 2
 # the special characters' names: the strings m_npc.c's l_sp_actor_name loads into 6 bytes (mNpc_GetNpcWorldNameP)
-SPECIAL_NAME_STRINGS = list(range(0x205, 0x219)) + [0x4E0, 0x4E1, 0x4E2]
+# a special character the GameCube's table names apart from the cartridge's: {the character's number: (the
+# cartridge's string, the en bank's)}; the en bank's is a number of af_text.STRING_REMAP
+NAMES_APART = {0xD010: (0x210, 749)}
+SPECIAL_NAME_STRINGS = (list(range(0x205, 0x219)) + [0x4E0, 0x4E1, 0x4E2] +
+                        sorted(en for _, en in NAMES_APART.values()))
+GC_SPECIAL = ("l_sp_actor_name", "m_npc.o")          # the GameCube's table of the special characters' names
+SPECIAL_ENTRY = struct.Struct(">HHii")               # an entry: the character, its sex, its name's string, its voice
 SMALL_ACCENTED = "\u00e0\u00e1\u00e2\u00e4\u00e7\u00e8\u00e9\u00ea\u00eb\u00ed\u00ee\u00ef\u00f1\u00f3\u00f4\u00f6\u00fa\u00fb\u00fc"
 
 
@@ -416,10 +430,14 @@ def records(rom, gc, own, widths, mended=None):
     return bytes(out), counts
 
 
-def include(from_gc, tokens=()):
-    """tokens: [(what, number, token)] of the names after the items'."""
+def include(from_gc, tokens=(), apart=False):
+    """tokens: [(what, number, token)] of the names after the items'. apart: the en string bank holds the
+    names of NAMES_APART (the disc's strings), so the en table names them; else the cartridge's strings."""
     bases = kind_bases()
     special = [(w[1], n) for w, n, _ in tokens if w[0] == "string"]
+    names = ["#define ITEM_EN_NAME_%04X 0x%03X /* the string of this special character's name (the "
+             "cartridge's table: 0x%03X) */" % (number, en if apart else cart, cart)
+             for number, (cart, en) in sorted(NAMES_APART.items())]
     lines = ["/* The item names' table (tools/af_items.py): the GameCube's from the user's disc, in a ROM segment;"
              " not part of the repository */",
              "#define ITEM_EN_FROM_GC %d /* names as tokens, the table's */" % (1 if from_gc else 0),
@@ -439,7 +457,65 @@ def include(from_gc, tokens=()):
              "#define ITEM_EN_FTR_FACES %d" % FTR_FACES,
              "#define ITEM_EN_KIND_BASES { %s }" % ", ".join(str(bases[k]) for k, _, _, _, _ in KINDS[:16]),
              "#define ITEM_EN_KIND_COUNTS { %s }" % ", ".join(str(n) for _, n, _, _, _ in KINDS[:16])]
-    return "\n".join(lines) + "\n"
+    return "\n".join(lines + names) + "\n"
+
+
+def names_apart(strings, gc_strings):
+    """Whether the en string bank (strings) holds the names of NAMES_APART: each is the GameCube's string
+    af_text.STRING_REMAP names (gc_strings: the GameCube's bank). A bank drafted before the remap is refused."""
+    for number, (_, en) in sorted(NAMES_APART.items()):
+        theirs = af_text.STRING_REMAP.get(en)
+        if theirs is None:
+            raise SystemExit("af_items: string %d (character %#x) is not in af_text.STRING_REMAP" % (en, number))
+        if not gc_strings.get(theirs) or strings.get(en) != gc_strings[theirs]:
+            raise SystemExit("af_items: the en string bank's %d is not the GameCube's string %d (character %#x's "
+                             "name): make drafts" % (en, theirs, number))
+    return True
+
+
+def gc_special_names(szs, map_text):
+    """[(a special character's number, its name's string)] of the GameCube's table."""
+    layout = map_layout(map_text)
+    at, size = gc_find(layout, *GC_SPECIAL)
+    data = gc_rel_data(szs, layout, at + size)
+    return [SPECIAL_ENTRY.unpack_from(data, at + i)[::2] for i in range(0, size, SPECIAL_ENTRY.size)]
+
+
+def en_special_names(source, apart=True):
+    """[(a special character's number, its name's string)] of the en tree's table (m_npc.c's l_sp_actor_name:
+    a number, or the include's ITEM_EN_NAME_<number>, which stands for NAMES_APART's string)."""
+    start = source.index("SpecialNpcData l_sp_actor_name[] = {")
+    out = []
+    for number, string in re.findall(r"\{\s*(0x[0-9A-Fa-f]+),\s*\w+,\s*(\w+),\s*\d+\s*\}",
+                                     source[start:source.index("};", start)]):
+        number = int(number, 16)
+        if string.startswith("ITEM_EN_NAME_"):
+            if int(string[len("ITEM_EN_NAME_"):], 16) != number or number not in NAMES_APART:
+                raise SystemExit("af_items: %s names character %#x in the en table" % (string, number))
+            out.append((number, NAMES_APART[number][1 if apart else 0]))
+        else:
+            out.append((number, int(string, 0)))
+    return out
+
+
+def special_name_problems(en, gc):
+    """What is wrong with the en table against the GameCube's: every character of the en table must take the
+    string the GameCube's gives it (through af_text.STRING_REMAP where the en bank keeps it at another number),
+    a string the tokens know (SPECIAL_NAME_STRINGS), and NAMES_APART must be the en table's."""
+    theirs, out = dict(gc), []
+    for number, string in en:
+        want = af_text.STRING_REMAP.get(string, string)
+        if number not in theirs:
+            out.append("%#x: not in the GameCube's table" % number)
+        elif theirs[number] != want:
+            out.append("%#x: the en table gives it string %d (the GameCube's %d), the GameCube's table string %d"
+                       % (number, string, want, theirs[number]))
+        if string not in SPECIAL_NAME_STRINGS:
+            out.append("%#x: its string %d is not in SPECIAL_NAME_STRINGS" % (number, string))
+    for number, (_, apart) in sorted(NAMES_APART.items()):
+        if (number, apart) not in en:
+            out.append("%#x: NAMES_APART gives it string %d, the en table does not" % (number, apart))
+    return out
 
 
 def opts_of(argv, names):
@@ -473,7 +549,7 @@ def main(argv):
         return 0
     if argv[:1] == ["compile"]:
         opts, args = opts_of(argv[1:], ("--gc", "--own", "--font", "--gc-font", "--npc-names", "--names-seg",
-                                        "--strings", "--string-tokens"))
+                                        "--strings", "--string-tokens", "--gc-strings"))
         rom_path, out_bin, out_inc = args
         rom = open(rom_path, "rb").read()
         gc = read_names(opts["--gc"]) if opts.get("--gc") and os.path.exists(opts["--gc"]) else {}
@@ -526,7 +602,10 @@ def main(argv):
             if not os.path.exists(path) or open(path).read() != text:
                 open(path, "w").write(text)
         open(out_bin, "wb").write(data)
-        open(out_inc, "w").write(include(bool(gc), tokens))
+        apart = False
+        if opts.get("--gc-strings") and os.path.exists(opts["--gc-strings"]) and os.path.exists(opts.get("--strings", "")):
+            apart = names_apart(af_text.load_bank(opts["--strings"]), af_text.load_bank(opts["--gc-strings"]))
+        open(out_inc, "w").write(include(bool(gc), tokens, apart))
         totals = [sum(c[k] for c in counts.values()) for k in range(3)]
         print("%s: %d names, %d the GameCube's, %d ours, %d the cartridge's%s" % (
             out_bin, len(slots()), totals[0], totals[1], totals[2],
@@ -537,7 +616,22 @@ def main(argv):
         if mended:
             print("  %d of the GameCube's names given the article their first sound asks for: %s" % (
                 len(mended), ", ".join("%s %d" % m for m in mended)))
+        print("  the special characters named apart from the cartridge's table: %s" % (
+            ", ".join("%#x by string %d" % (n, en) for n, (_, en) in sorted(NAMES_APART.items())) if apart
+            else "none (no disc's strings: the cartridge's)"))
         return 0
+    if argv[:1] == ["special-names"]:
+        source, rel, map_path = argv[1:4]
+        en = en_special_names(open(source, encoding="utf-8").read())
+        gc = gc_special_names(open(rel, "rb").read(), open(map_path, encoding="latin-1").read())
+        problems = special_name_problems(en, gc)
+        for problem in problems:
+            print("af_items: special names: %s" % problem)
+        print("%s: %d special characters, %s (%d through STRING_REMAP; the GameCube's table has %d)" % (
+            source, len(en), "%d NOT as the GameCube's table names them" % len(problems) if problems
+            else "each with the string the GameCube's table gives it",
+            sum(1 for _, string in en if string in af_text.STRING_REMAP), len(gc)))
+        return 1 if problems else 0
     print(__doc__)
     return 1
 
