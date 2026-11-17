@@ -46,7 +46,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en year-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean script drafts
+.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en resetti-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en year-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean script drafts
 
 all: verify
 
@@ -470,6 +470,15 @@ board-check-en: route-en
 # letter in the en build").
 write-check-en: route-en
 	$(PYTHON) tests/emu_write.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-write-en
+
+# Mr. Resetti's phrases from the same state: his window opened as he opens
+# it, each of the 16 phrases typed on the dial and judged by his own code
+# (his overlay loaded as the game loads an actor's), the 32 words he takes
+# as an insult, his check against the model the build's check of the bank
+# stands on (tools/af_dial.py phrases), and his page with each phrase
+# (tests/emu_resetti.py; NOTES, "The second review").
+resetti-check-en: route-en
+	$(PYTHON) tests/emu_resetti.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-resetti-en
 
 # Messages of the en build's bank shown in the message window from the same
 # state, as the game asks for one, and each line of their first page

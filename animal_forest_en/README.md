@@ -50,6 +50,8 @@ make script ISO=ruta/al/disco.iso # el guion oficial de GameCube: extrae los ban
                                   # fuente (build/gc/)
 make board-check-en               # abre cartas en el tablero y mide sus líneas en pantalla
 make write-check-en               # escribe una carta con el dial y la mide en pantalla
+make resetti-check-en             # teclea en el dial las frases que pide Resetti y se las da
+                                  # a juzgar a su propio código
 make menus-check-en               # abre la ventana del nombre, la pregunta al terminar una carta y
                                   # la libreta, y mide sus cadenas; busca las etiquetas en memoria
 make psel-check-en                # enciende con pueblos de 1, 2 y 4 jugadores y lee las preguntas
@@ -637,7 +639,10 @@ tiene margen de sobra). Lo que encontró, ya corregido:
   signo que el dial inglés no tiene), y su lista de insultos no casaba
   con lo que el juego compara. Las dos son nuestras ahora, y la
   compilación comprueba que todo lo que Resetti compara se puede escribir
-  con el dial.
+  con el dial. `make resetti-check-en` lo prueba en el juego: abre su
+  ventana como la abre él, teclea en el dial cada una de las 16 frases y
+  se las da a juzgar a su propio código, que las acepta todas; también
+  comprueba los 32 insultos y la página en la que enseña la frase.
 - **Seis mensajes decían otra cosa que el cartucho**: hablaban de cosas
   que solo tiene GameCube (un sastre, un faro, un fantasma) o imprimían
   una cadena que el cartucho no rellena. Traducidos de nuevo desde el

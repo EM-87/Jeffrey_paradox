@@ -3708,7 +3708,29 @@ in the repository); what they found:
   as long as its place compares, none inside a phrase he asks for.
   `tools/af_dial.py phrases` holds the bank to both at every `make rom-en`
   (a phrase 1 to 10 characters the dial types; an insult its place's
-  length), the unit tests to ours.
+  length), the unit tests to ours. And in the running game
+  (`tests/emu_resetti.py`, `make resetti-check-en`): a hook loads his
+  overlay as the game loads an actor's (`ovlmgr_Load` into room from the
+  arena; his check's call of the phrase's compare relocated), keeps a
+  stand-in for his actor (the 10 bytes at 0x94C, the phrase's number at
+  0x956), opens the name entry as he opens it (`func_809B4DB8_jp`: program
+  4, mode 3, his 10 bytes) and calls his own check (`func_809B4D08_jp`: 0
+  the phrase, 1 an insult, 2 neither; his next page by it, `D_809B5744_jp`).
+  The window fills his 10 bytes with spaces and opens on the small letters.
+  Each of the 16 phrases, typed on the dial as a player types it (Z to the
+  mode, the ring, A; START), leaves in his 10 bytes what the string's loader
+  gives for it, and his check says 0 with that phrase's number and 2 with
+  the next one's; each of the 32 words at the start of the 10 bytes, at
+  their end and after a letter says 1, three of them typed on the dial too;
+  nothing typed, letters with none of the words and a phrase in the wrong
+  case say 2. On 240 random texts (half with a word or the start of one
+  planted) his check says what the model says (15 the phrase, 87 a word, 138
+  neither), so the lengths the build's check stands on are the code's. His
+  page (message 0x23EB: item string 0 between quotes, set as
+  `func_809B4FC4_jp` sets it, 10 bytes) shows each phrase whole, its line
+  where the model has it, the widest 110 pixels. What the check does not do
+  is meet him: the talk that leads to the window (a reset, his pages before
+  it) is the cartridge's code and text, as before.
 - **Item names.** Compared name by name with the cartridge's (and the
   clothes' doubtful ones with their texture: the file at vrom 0xB68000, 256
   of 32x32 CI4, palettes at 0xB88000), the GameCube's table names the same
@@ -3794,9 +3816,11 @@ in the repository); what they found:
   `write-check-en`, `notice-check-en`, `messages-check-en` (728 messages
   shown, 2,030 lines measured; a birthday of 12-31 written as the
   first-meeting talk writes it and measured on its page), `menus-check-en`,
-  `psel-check-en`, `signs-check-en` and `year-check-en` (the 21 dates, the
-  arena read in every block): no failure. `make emu-determinism` passes too
-  (RAM the same after each of 2,035 frames).
+  `psel-check-en`, `signs-check-en`, `year-check-en` (the 21 dates, the
+  arena read in every block) and `resetti-check-en` (added after the others,
+  on the same ROM: the 16 phrases typed and taken, the 32 words, his check
+  against the model, his page): no failure. `make emu-determinism` passes
+  too (RAM the same after each of 2,035 frames).
 
 ## Other emulators (ares, Project64, RetroArch, RMG and simple64)
 

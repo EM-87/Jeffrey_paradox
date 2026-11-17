@@ -41,23 +41,23 @@ the why and the state, `reference/NOTES.md` for what is verified.
    timing or the host clock is a bug in the check. Questions about pixels
    are answered by measuring the frame, not by reasoning about it.
 
-6. **Every claim of "done" runs `make test` and `make emu-check`.**
-   `make test` needs no ROM and runs in CI; `make emu-check` needs the
-   user's dump and stays local. A change to the
-   save code, or one that grows `code_en` (its bytes come off the heap:
-   below), also runs `make save-check-en`, one to the letters `make
-   letters-check-en`, one to the letter board or the font `make
-   board-check-en`, one to the editor or writing a letter `make
-   write-check-en`, one to the bulletin board or its posts `make
-   notice-check-en`, one to the message bank or its layout `make
-   messages-check-en`, one to the menus' strings or word textures `make
-   menus-check-en`, one to the structures', a room's or the furniture's
-   textures or palettes `make signs-check-en`, one to the choice window
-   or the player-select actor `make psel-check-en`, one to an event, a
-   date, the banks' tables or an actor's talk `make year-check-en` (which
-   also reads the room the arena has left in every block of every date:
-   run it too for a change that grows `code_en`), one to `emu/` `make
-   emu-determinism`.
+6. **Every claim of "done" runs `make test` and `make emu-check`.** `make
+   test` needs no ROM and runs in CI; `make emu-check` needs the user's
+   dump and stays local. A change to the save code, or one that grows
+   `code_en` (its bytes come off the heap: below), also runs `make
+   save-check-en`, one to the letters `make letters-check-en`, one to the
+   letter board or the font `make board-check-en`, one to the editor or
+   writing a letter `make write-check-en`, one to the name entry, the
+   dial's rings or Mr. Resetti's strings `make resetti-check-en`, one to
+   the bulletin board or its posts `make notice-check-en`, one to the
+   message bank or its layout `make messages-check-en`, one to the menus'
+   strings or word textures `make menus-check-en`, one to the structures',
+   a room's or the furniture's textures or palettes `make signs-check-en`,
+   one to the choice window or the player-select actor `make
+   psel-check-en`, one to an event, a date, the banks' tables or an
+   actor's talk `make year-check-en` (which also reads the room the arena
+   has left in every block of every date: run it too for a change that
+   grows `code_en`), one to `emu/` `make emu-determinism`.
 
 ## Where things live
 
@@ -85,17 +85,18 @@ the why and the state, `reference/NOTES.md` for what is verified.
   matching: per-function check, trying variants in the file, NON_MATCHING
   wrapping, and sweeping many variants fast outside the build (run in
   build/af).
-- `tools/af_relink.py`, `af_relsyms.py`, `af_ranges.py`, `af_dmaorder.py` —
-  the translation's build (`make rom-en`, in build/af_en): `code` moved to
-  the end of the ROM so that it can grow, nothing of it moved in RAM (a
+- `tools/af_relink.py`, `af_relsyms.py`, `af_ranges.py`, `af_dmaorder.py`
+  — the translation's build (`make rom-en`, in build/af_en): `code` moved
+  to the end of the ROM so that it can grow, nothing of it moved in RAM (a
   section that grows, or a new one, leaves its slot: a text section goes
   into the slots other grown ones left where it fits, the rest to
   `code_en` after `buffers`; a shrunk one is padded in place), the RAM
   addresses splat left absolute made relative, and the compressed ROM's
-  ranges and dmadata order (NOTES, "Shiftability", "The second review"). `tools/af_ovlreloc.py` gives an overlay the translation
-  changes (`EN_OVERLAYS`) its relocation table anew, from fado, in the
-  cartridge's layout, after proving fado on the matching build (NOTES,
-  "The letter board in the en build").
+  ranges and dmadata order (NOTES, "Shiftability", "The second review").
+  `tools/af_ovlreloc.py` gives an overlay the translation changes
+  (`EN_OVERLAYS`) its relocation table anew, from fado, in the cartridge's
+  layout, after proving fado on the matching build (NOTES, "The letter
+  board in the en build").
 - `tools/af_shiftcheck.py`, `af_anchors.py`, `af_luicheck.py` — the proofs
   `make rom-en` runs before compressing: nothing of the cartridge's moved,
   no address spelled with the wrong symbol, no shared `lui` broken.
@@ -249,6 +250,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
   whole, 192 bytes; the dial opening on its small letters, Z through its
   four modes (no kana), the panel's rows in RAM and their labels' ink on
   screen, the symbols' ring: `make write-check-en`),
+  `emu_resetti.py` (Mr. Resetti's window opened as he opens it, each of
+  his 16 phrases typed on the dial and judged by his own code, his
+  overlay loaded as the game loads an actor's; the 32 words he takes as
+  an insult; his check against the model `af_dial.py phrases` stands on;
+  his page with each phrase: `make resetti-check-en`),
   `emu_notice.py` (the bulletin board: the game's notices put up as the
   game puts them, each post's lines measured on the board's frame
   against the same model, a notice typed past 96 bytes, finished, read
@@ -407,7 +413,8 @@ the why and the state, `reference/NOTES.md` for what is verified.
   phrases are compared over 10 bytes with what the dial typed, his
   insults over a length fixed by their place: a character the dial lacks,
   or a word of another length, never matches (`tools/af_dial.py
-  phrases`).
+  phrases` at every build; `make resetti-check-en` types them in the
+  running game).
 - **A tool given the wrong image must refuse.** A file lies at its vrom
   in the decompressed image only; `af_items.n64_name`, given the dump,
   answered every name with nothing, and the listing that would have shown
