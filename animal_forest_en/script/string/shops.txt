@@ -1,0 +1,8 @@
+# The name of Tom Nook's second shop (1369), which the bulletin board's notices sign with (code/m_notice,
+# func_800A63F8_jp: string 1368 and the shop's size). The GameCube's string bank calls it something else
+# than its own sign does; ours is the sign's, which the en build draws on the shop (tools/af_gc_signs.py),
+# so that the notice and the sign name one shop. tools/msgbank.py's dump form; `make script` lays this over
+# the draft.
+
+## 1369
+Nook 'n' Go

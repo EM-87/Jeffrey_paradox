@@ -21,8 +21,10 @@ This checks exactly that against the reference (matching) build's map:
 
 An object named with --moved is exempt, as is each `object section` line
 of --moved-list (what tools/af_relink.py writes: the sections that grew or
-are new): a moved section must be outside code's cartridge range and fit
-in one 64 KB %hi window, since IDO shares `lui`s inside an object. An
+are new): a moved section must be outside code's cartridge range, or
+inside it wholly within the slots that moved sections left (af_relink
+fills them with other moved text), and fit in one 64 KB %hi window, since
+IDO shares `lui`s inside an object. An
 `object section shrunk` line is a section that stayed, padded to its old
 size, in code or in an overlay: it must start where it did and be no
 bigger; the symbols inside it are free. The linker script decides where things go (af_relink); this
@@ -100,6 +102,16 @@ def check(ref, new, moved=(), gone=None, shrunk=()):
 
     free_ranges = []                    # moved or shrunk: their symbols are free
     new_inputs = {(s, obj): (a, n) for o, s, obj, a, n in new.inputs if n}
+    slots = []                          # the runs of slots moved sections left in code: another may sit there
+    for out, sec, obj, addr, size in sorted(ref.inputs, key=lambda i: i[3]):
+        if size and in_block(out, addr) and is_moved(moved, obj, sec):
+            if slots and slots[-1][1] == addr:
+                slots[-1][1] = addr + size
+            else:
+                slots.append([addr, addr + size])
+
+    def in_a_slot(a, n):
+        return any(lo <= a and a + n <= hi for lo, hi in slots)
     for out, sec, obj, addr, size in ref.inputs:
         if size and not in_block(out, addr) and (obj, sec) in shrunk:   # an overlay's, padded in place
             free_ranges.append((addr, addr + size))
@@ -116,8 +128,9 @@ def check(ref, new, moved=(), gone=None, shrunk=()):
             if got is None:
                 continue
             a, n = got
-            if block_lo <= a < block_hi:
-                errors.append("%s %s was moved but still sits in code at %#x" % (obj, sec, a))
+            if block_lo <= a < block_hi and not in_a_slot(a, n):
+                errors.append("%s %s was moved but sits in code at %#x, outside the slots moved sections left"
+                              % (obj, sec, a))
             if n and hi16(a) != hi16(a + n - 1):
                 errors.append("%s %s at %#x..%#x crosses a 64 KB %%hi window" % (obj, sec, a, a + n))
             continue
@@ -133,8 +146,9 @@ def check(ref, new, moved=(), gone=None, shrunk=()):
             errors.append("%s %s: %#x+%#x -> %#x+%#x" % (obj, sec, addr, size, got[0], got[1]))
     for (sec, obj), (a, n) in new_inputs.items():  # new objects: outside code's range, in one window
         if is_moved(moved, obj, sec) and not any(o == obj and s == sec for _, s, o, _, _ in ref.inputs):
-            if block_lo <= a < block_hi:
-                errors.append("%s %s is new but sits in code at %#x" % (obj, sec, a))
+            if block_lo <= a < block_hi and not in_a_slot(a, n):
+                errors.append("%s %s is new but sits in code at %#x, outside the slots moved sections left"
+                              % (obj, sec, a))
             if hi16(a) != hi16(a + n - 1):
                 errors.append("%s %s at %#x..%#x crosses a 64 KB %%hi window" % (obj, sec, a, a + n))
 

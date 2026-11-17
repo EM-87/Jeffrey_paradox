@@ -1,10 +1,119 @@
-# Two of the phrases Mr. Resetti has the player type as a penance (1156-1171): the GameCube's English for
-# these two has a picture the cartridge's charset lacks, which the draft would print as a question mark
-# for the player to type. Ours, from the cartridge's (no more cheating; no more pressing Reset), 10
-# characters at most like the rest. tools/msgbank.py's dump form; `make script` lays this over the draft.
+# Three of the phrases Mr. Resetti has the player type as a penance (1156-1171): the GameCube's English
+# for two of them has a picture the cartridge's charset lacks, which the draft would print as a question
+# mark for the player to type, and for the third a sign the en dial does not have. Ours, from the
+# cartridge's (how cool the mole is; no more cheating; no more pressing Reset), 10 characters at most like
+# the rest: he compares the 10 bytes typed with the phrase's, spaces after both (ovl_Npc_Majin3,
+# func_809B4BB8_jp; the window fills its 10 with spaces, ledit_ovl func_80884B30_jp), so every character
+# of a phrase must be one the dial types.
+#
+# And the 32 words he takes as an insult when one is found anywhere in what was typed (1216-1247). He
+# compares a fixed number of bytes of each (func_809B4C18_jp, its table D_809B572C_jp: the first 6 words
+# 2 bytes, the next 10 three, then 9 of four, 5 of five, one of 6 and one of 7), whatever the word's length:
+# the GameCube's words are longer than their places, so their first letters alone would count. Ours, each
+# as long as its place compares, in small letters (what the dial opens on), none inside a penance phrase.
+# tools/msgbank.py's dump form; `make script` lays this over the draft.
+
+## 1162
+Cool mole!
 
 ## 1166
 No cheats!
 
 ## 1169
 No resets!
+
+## 1216
+ha
+
+## 1217
+ew
+
+## 1218
+zz
+
+## 1219
+pf
+
+## 1220
+oi
+
+## 1221
+hm
+
+## 1222
+boo
+
+## 1223
+bah
+
+## 1224
+meh
+
+## 1225
+ugh
+
+## 1226
+nah
+
+## 1227
+duh
+
+## 1228
+lol
+
+## 1229
+zzz
+
+## 1230
+bla
+
+## 1231
+yap
+
+## 1232
+dumb
+
+## 1233
+jerk
+
+## 1234
+dork
+
+## 1235
+nerd
+
+## 1236
+lame
+
+## 1237
+fool
+
+## 1238
+liar
+
+## 1239
+ugly
+
+## 1240
+nope
+
+## 1241
+idiot
+
+## 1242
+loser
+
+## 1243
+dummy
+
+## 1244
+moron
+
+## 1245
+creep
+
+## 1246
+stupid
+
+## 1247
+shut up

@@ -94,7 +94,8 @@ myself, that was convincing!<PAUSE 08>
 <BTN>
 <MSGCLEAR><DEMONPC0 00000e>I gotta train my eyes<PAUSE 06>
 so I can read
-<STR_ITEM2>! <PAUSE 06><CAPTIALIZE><STR_TAIL>!
+<STR_ITEM2>!<PAUSE 06>
+<CAPTIALIZE><STR_TAIL>!
 <MSGEND>
 
 ## 10332

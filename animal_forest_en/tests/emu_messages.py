@@ -66,7 +66,12 @@ message the tourney sets; with none set, the window keeps it): free
 string 2 the size of a fish of 40 as the tourney writes it
 (mString_Load_NumberStringAddUnitFromRom, string 670), the pages before
 it shown and A pressed on each, its page's lines measured with the size
-put in.
+put in. And a birthday's date in a message that prints it from item
+strings 3 and 4 (af_text.MONTH_DAY): the month's and the day's numbers
+written as the first-meeting talk writes them (ovl__00815B70:
+mFont_UnintToString into 10 bytes, mMsg_Set_item_str), A pressed until
+the date's page is the one shown, its lines measured with the two numbers
+joined by the draft's hyphen.
 
 Where: the window's text from the frame's row 153 (lines 16 rows apart)
 and x 127.18, 2.005 frame pixels to the font's pixel (fitted on 316 line
@@ -106,6 +111,8 @@ void mNpc_GetNpcWorldNameTableNo(char* name, u16 npcId);
 void mMsg_Set_free_str(void* msg, s32 freeStrNo, char* str, s32 strLen);
 void mString_Load_StringFromRom(char* dst, s32 dstLen, s32 strIdx);
 s32 mString_Load_NumberStringAddUnitFromRom(char* dst, u16 num, s32 idx);
+s32 mFont_UnintToString(char* dst, unsigned int num, s32 len, s32 flag, s32 flag2);
+void mMsg_Set_item_str(void* msg, s32 itemStrNo, char* str, s32 strLen);
 extern void* gamePT;
 extern u8 common_data[];
 /* the control, then the speakers' fgNames (a zero last), the animals' numbers and the names loaded */
@@ -175,6 +182,21 @@ void hook_main(void) {
         mMsg_Set_free_str((void*)h->arg[1], 2, h->names, h->arg[3]);
         h->result = mMsg_request_main_appear((void*)h->arg[1], 0, 0, hook_color, h->arg[0], 5);
         h->cmd = 0;
+    } else if (h->cmd == 8) {
+        /* cmd 1's message, its item strings 3 and 4 a birthday's month arg[2] and day arg[3] as the
+           first-meeting talk writes a number (ovl__00815B70: mFont_UnintToString of 10 bytes, flag 1, then
+           mMsg_Set_item_str of 10), item string 2 the arg[1] bytes at names + 32 */
+        void* msg = mMsg_Get_base_window_p();
+        s32 len = h->arg[1];
+
+        mFont_UnintToString(h->names, h->arg[2], 10, 1, 0);
+        mMsg_Set_item_str(msg, 3, h->names, 10);
+        mFont_UnintToString(h->names + 16, h->arg[3], 10, 1, 0);
+        mMsg_Set_item_str(msg, 4, h->names + 16, 10);
+        mMsg_Set_item_str(msg, 2, h->names + 32, len);
+        h->arg[1] = (s32)msg;
+        h->result = mMsg_request_main_appear(msg, 0, 0, hook_color, h->arg[0], 5);
+        h->cmd = 0;
     }
 }
 """.replace("PLAY_ACTOR_INFO", "0x1C78").replace("ACTOR_PART_NPC", "3").replace("SAVE_ANIMALS", "0x9F18").replace(
@@ -228,6 +250,11 @@ SAVE_ANIMALS = 0x9F18                       # common_data.save.animals: the town
 FREE2, MSGCLEAR, MSGCONTINUE = NAMES["STR_FREE2"], NAMES["MSGCLEAR"], NAMES["MSGCONTINUE"]
 TOURNEY_SIZES = (0x1112, 0x1116, 0x111A)
 FISH, FISH_UNIT = 40, 670
+# a birthday's date: the first-meeting talk (ovl__00815B70) writes the month's and the day's numbers into item
+# strings 3 and 4 of the messages that ask about it (af_text.MONTH_DAY); this one prints them on its second
+# page, with item string 2 on the page's last line (a word of ours here)
+ITEM2, ITEM3, ITEM4 = NAMES["STR_ITEM2"], NAMES["STR_ITEM3"], NAMES["STR_ITEM4"]
+BIRTHDAY, MONTH, DAY, SIGN = 2182, 12, 31, "Goat"
 
 failures = []
 
@@ -487,6 +514,59 @@ def check_fish_size(hooked, settled, bank, board, town, out, shots):
     return measured
 
 
+def page_with(tokens, clears, fill):
+    """The lines (the font's codes) of the page after the message's clears-th <MSGCLEAR>, to its next one or
+    the message's end, whatever codes it has: fill {code: the bytes the window puts in}, the rest print
+    nothing."""
+    at = [k for k, t in enumerate(tokens) if t[0] == "c" and t[1] == MSGCLEAR]
+    text = ""
+    for t in (tokens[at[clears - 1] + 1:] if clears else tokens):
+        if t[0] != "c":
+            text += t[1]
+        elif t[1] == MSGCLEAR or t[1] in (NAMES["MSGEND"], NAMES["MSGCONTINUE"], NAMES["MSGTIMEEND"]):
+            break
+        elif str(t[1]) in fill:
+            text += "".join(msgbank.N64_CHARS[b] for b in fill[str(t[1])])
+    return [bytes(msgbank.N64_BYTES[c] for c in line) for line in text.split("\n")]
+
+
+def check_birthday(hooked, settled, bank, board, out, shots):
+    """A birthday's date on screen in a message that prints it (BIRTHDAY): the month's and the day's numbers
+    put in item strings 3 and 4 as the first-meeting talk writes them, A pressed until the date's page is the
+    one shown, its lines measured: the two numbers joined by a hyphen."""
+    tokens = bank[BIRTHDAY]
+    clears = clears_before(tokens, ITEM4)
+    joined = any(a[:2] == ("c", ITEM3) and b == ("t", "-") and c[:2] == ("c", ITEM4)
+                 for a, b, c in zip(tokens, tokens[1:], tokens[2:]))
+    if clears is None or not joined:
+        check(False, "message %d prints item strings 3 and 4 with a hyphen between them" % BIRTHDAY)
+        return 0
+    sign = bytes(msgbank.N64_BYTES[c] for c in SIGN)
+    ctl, (_, took, _, window, _, _) = hooked(8, (BIRTHDAY, len(sign), MONTH, DAY), pokes=[(NAMES_AT + 32, sign)])
+    n64 = hooked.n64
+    month, day = n64.read(ctl + NAMES_AT, 10).rstrip(b" "), n64.read(ctl + NAMES_AT + 16, 10).rstrip(b" ")
+    page = page_with(tokens, clears, {str(ITEM2): sign, str(ITEM3): month, str(ITEM4): day})
+    date = b"%d-%d" % (MONTH, DAY)
+    bad, presses = ["not shown"], 0
+    for presses in range(6):                       # the pages before it, and the waits inside a page
+        w, h, rgb = settled(window)
+        bad = page_problems(rgb, w, page, board)
+        if not bad:
+            break
+        n64.frames(3, A)
+        n64.frames(2, 0)
+    path = os.path.join(out, "birthday-%d.png" % BIRTHDAY)
+    write_png(path, w, h, rgb)
+    shots.append(path)
+    bad = ([] if took else ["not taken by the window"]) + bad
+    check(not bad and (month, day) == (b"%d" % MONTH, b"%d" % DAY) and any(date in line for line in page),
+          "a birthday of %d-%d, its numbers written as the first-meeting talk writes them (%r, %r), in message %d: "
+          "page %d's %d lines where the model has them, the date %r (A pressed %d times)%s" % (
+              MONTH, DAY, month, day, BIRTHDAY, clears + 1, len([x for x in page if x]), date, presses,
+              "; " + "; ".join(bad) if bad else ""))
+    return min(len(page), LINES)
+
+
 def check_names(n64, state, af_en, en_elf, hole, hole_size, mttime, syms, bank, board, town, out, shots):
     """The names longer than 6, tokens (NOTES, "Names longer than 6"): Tom Nook's (a special character's) on the
     plate and put in a page by STR_TALKNAME, with its token and with the token off (the en table's special
@@ -584,11 +664,14 @@ def check_names(n64, state, af_en, en_elf, hole, hole_size, mttime, syms, bank, 
 
 
 def string_tokens(af_en):
-    """{string: its token} of the catchphrases longer than 4 (tools/af_items.py's string_tokens.txt)."""
+    """{string: its token} of the catchphrases longer than 4 (tools/af_items.py's string_tokens.txt: its tokens
+    that fill a catchphrase's 4 bytes; the strings a letter prints take tokens of 10 there too, which
+    tests/emu_letters.py loads as their own code does)."""
     path = os.path.join(af_en, "assets", "jp", "en", "string_tokens.txt")
     text = open(path).read() if os.path.exists(path) else ""
-    return {int(n): bytes(int(b, 16) for b in re.findall(r"\{([0-9a-f]{2})\}", t))
-            for n, t in re.findall(r"^## (\d+)\n(\S+)", text, re.M)}
+    tokens = {int(n): bytes(int(b, 16) for b in re.findall(r"\{([0-9a-f]{2})\}", t))
+              for n, t in re.findall(r"^## (\d+)\n(\S+)", text, re.M)}
+    return {n: token for n, token in tokens.items() if len(token) == CATCHPHRASE_LEN}
 
 
 def check_catchphrases(hooked, settled, speakers, af_en, seg, bank, board, town, out, shots):
@@ -779,6 +862,7 @@ def main(argv):
                                      out, shots)
         hooked, settled = hooks(n64, state, af_en, en_elf, hole, hole_size, mttime, syms)
         lines_checked += check_fish_size(hooked, settled, bank, board, town, out, shots)
+        lines_checked += check_birthday(hooked, settled, bank, board, out, shots)
     contact.main([os.path.join(out, "sheet.png"), "3"] + shots)
     print("emu_messages: %d messages shown, %d lines measured, %d failures; screenshots in %s" % (
         len(controls + shown), lines_checked, len(failures), out))

@@ -190,6 +190,103 @@ def undouble(tokens):
     return out
 
 
+# Official messages that name a row of the map by the GameCube's letter (its rows run A to F): the
+# cartridge's map numbers its rows 1 to 6 and its code fills digits (reference/NOTES.md, "The second
+# review"), so the draft prints the row's number (acre_rows). Numbers only.
+ACRE_ROWS = {2162, 2169, 3409, 3410, 6330, 9522}
+# Official messages that print a birthday's month and day from free item strings 3 and 4, which the
+# cartridge's first-meeting talk fills with two numbers (ovl__00815B70, mFont_UnintToString) where the
+# GameCube's fills a month's name and an ordinal: the draft joins the two with a hyphen, month-day, as the
+# en build's birthday window writes a date (month_day). Numbers only.
+MONTH_DAY = {2122, 2132, 2142, 2162, 2174, 2178, 2182, 2186, 2187, 2188, 2190, 2194, 2195, 2196, 5438, 9606,
+             9774, 10746}
+# Official messages where a sentence of the GameCube's English starts with a small letter (a slip of its
+# own): the draft gives the first such sentence its capital (capital). Numbers only.
+SMALL_START = {6404, 7598, 8485, 9041, 10754, 11697}
+# Official messages where the GameCube's English runs a comma straight into a string the game prints (the
+# catchphrase, the player's name), pauses between: the draft puts the space (comma_space). Numbers only.
+COMMA_RUN = {1680, 4456, 7451, 10704}
+
+
+def acre_rows(tokens):
+    """The tokens with each row letter after the word Acre as the cartridge's number for the row (A to F:
+    1 to 6). ValueError if there is none."""
+    out, done = [], 0
+    for t in tokens:
+        if t[0] == "t":
+            text, n = re.subn(r"\bAcre ([A-F])\b", lambda m: "Acre %d" % (ord(m.group(1)) - ord("A") + 1), t[1])
+            t, done = ("t", text), done + n
+        out.append(t)
+    if not done:
+        raise ValueError("no row letter after the word Acre")
+    return out
+
+
+def month_day(tokens):
+    """The tokens with the space between free item string 3 and free item string 4 a hyphen, wherever the
+    two stand so. ValueError if they never do."""
+    out, done = list(tokens), False
+    for i in range(1, len(out) - 1):
+        if (out[i] == ("t", " ") and out[i - 1][:2] == ("c", NAMES["STR_ITEM3"])
+                and out[i + 1][:2] == ("c", NAMES["STR_ITEM4"])):
+            out[i], done = ("t", "-"), True
+    if not done:
+        raise ValueError("free item strings 3 and 4 never stand with a space between them")
+    return out
+
+
+def capital(tokens):
+    """The tokens with the first sentence that starts with a small letter (after one ., ! or ? and nothing
+    but blanks and codes) given its capital. ValueError if no sentence starts so."""
+    out, ended, done = [], False, False
+    for t in tokens:
+        if t[0] == "t" and not done:
+            text = t[1]
+            m = re.match(r"\s*([a-z])", text) if ended else None
+            m = m or re.search(r"(?<!\.)[.!?]\s+([a-z])", text)
+            if m:
+                at = m.start(1)
+                t, done = ("t", text[:at] + text[at].upper() + text[at + 1:]), True
+            elif text.strip():
+                ended = re.search(r"(?<!\.)[.!?]\s*$", text) is not None
+        out.append(t)
+    if not done:
+        raise ValueError("no sentence starts with a small letter")
+    return out
+
+
+def comma_space(tokens):
+    """The tokens with a space after each comma that runs, through pauses only, into a string the game
+    prints. ValueError if no comma does."""
+    out, done = list(tokens), False
+    for i, t in enumerate(out):
+        if t[0] != "t" or not t[1].endswith(","):
+            continue
+        j = i + 1
+        while j < len(out) and out[j][0] == "c" and out[j][1] in (NAMES["PAUSE"],) + tuple(SHAPING):
+            j += 1
+        if j < len(out) and out[j][0] == "c" and out[j][1] in PRINTED_TAIL - SHAPING:
+            out[i], done = ("t", t[1] + " "), True
+    if not done:
+        raise ValueError("no comma runs into a printed string")
+    return out
+
+
+# The draft's numbered rules for official text, in the order they are applied: (numbers, rule, note, count)
+OFFICIAL_RULES = (
+    (DOUBLED, undouble, "a word the GameCube printed twice in a row printed once (DOUBLED)",
+     "official, a doubled word printed once"),
+    (ACRE_ROWS, acre_rows, "the map's row by its number, as the cartridge's map has it (ACRE_ROWS)",
+     "official, a row's letter made its number"),
+    (MONTH_DAY, month_day, "the birthday's two numbers joined with a hyphen (MONTH_DAY)",
+     "official, a birthday's numbers joined"),
+    (SMALL_START, capital, "a sentence the GameCube started with a small letter given its capital (SMALL_START)",
+     "official, a sentence's capital put"),
+    (COMMA_RUN, comma_space, "the space put after a comma the GameCube ran into a printed string (COMMA_RUN)",
+     "official, a comma's space put"),
+)
+
+
 LETTER_FIRST = {}
 for _bank in LETTER_BANKS:
     LETTER_FIRST[_bank] = sum(letter_count(b) for b in LETTER_BANKS[:LETTER_BANKS.index(_bank)])
@@ -710,11 +807,6 @@ def page_lines(tokens):
     return max(most, shown())
 
 
-def free_strings(tokens):
-    """The free strings (STR_FREE0..19) a message prints."""
-    return set(re.findall(r"<(STR_FREE\d+)>", render(tokens)))
-
-
 def wide_lines(tokens, measure, limit=WINDOW_WIDTH):
     """The widths of the message's English lines (any Latin letter) wider
     than limit pixels; Japanese ones are the cartridge's own."""
@@ -739,10 +831,10 @@ def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0, singl
     against the window's, not in characters against cols."""
     problems = []
     if original is not None:
-        unfilled = free_strings(tokens) - free_strings(original)
+        unfilled = filled(tokens) - filled(original)      # a free string, an item's, the chosen answer...
         if unfilled:
             problems.append(("warning", "prints %s, which the cartridge's message does not: the game may not fill it"
-                             % ", ".join(sorted(unfilled))))
+                             % ", ".join(sorted(COMMANDS[c] for c in unfilled))))
     tokens = carried(tokens)
     try:
         raw = encode(tokens)
@@ -946,14 +1038,16 @@ def draft(n64_path, gc_path, align_path, out_path, overrides, remap=None):
                 if why:
                     note += "#: the cartridge's codes that steer the game put back: %s\n" % why
                     counts["official, the cartridge's codes put back"] += 1
-                if remap is MESSAGE_REMAP and n in DOUBLED:
-                    tokens = undouble(tokens)
-                    note += "#: a word the GameCube printed twice in a row printed once (DOUBLED)\n"
-                    counts["official, a doubled word printed once"] += 1
-                unfilled = free_strings(tokens) - free_strings(n64[n])
+                if remap is MESSAGE_REMAP:
+                    for numbers, rule, what, count in OFFICIAL_RULES:
+                        if n in numbers:
+                            tokens = rule(tokens)
+                            note += "#: %s\n" % what
+                            counts[count] += 1
+                unfilled = filled(tokens) - filled(n64[n])
                 if unfilled:
                     note += "#: TODO adapt: the GameCube's text prints %s, which the cartridge does not fill here\n" \
-                        % ", ".join(sorted(unfilled))
+                        % ", ".join(sorted(COMMANDS[c] for c in unfilled))
                     counts["official, free strings to adapt"] += 1
         else:
             tokens = n64[n]

@@ -80,10 +80,12 @@ inglés; sin él quedan las del cartucho.
 **Fase 0 — cimientos: hecha.**
 
 - `make` trae zeldaret/af en el commit fijado (`decomp/AF_REV`), le aplica
-  nuestros parches (`decomp/patches/`, todavía ninguno), extrae, compila y
-  comprime. Hoy el resultado es **idéntico al cartucho original**, y
+  nuestro parche de código descompilado (`decomp/matching.patch`), extrae,
+  compila y comprime. El resultado es **idéntico al cartucho original**, y
   `make verify` lo comprueba con `cmp`: es la prueba de que la cadena de
-  herramientas funciona antes de tocar nada.
+  herramientas funciona, y de que el C que hemos escrito es el mismo código,
+  antes de cambiar nada. La traducción va aparte, encima
+  (`decomp/changes.patch`, solo para la ROM inglesa: `make rom-en`).
 
 **Fase 1 — banco de pruebas: hecha.**
 
@@ -133,7 +135,7 @@ recorrido, porque los modelos del campo del propio cartucho apuntan a
 búferes de `code` por su dirección de RAM (2.348 cargas de textura en 204
 ficheros; `reference/NOTES.md`, "Shiftability").
 
-**Fase 4 — el guion oficial de GameCube: en curso.** `make script` lee del
+**Fase 4 — el guion oficial de GameCube: hecha.** `make script` lee del
 disco del usuario (sin ventana, sin copiar nada al repositorio) los bancos
 de texto de Animal Crossing y los compara con el del cartucho
 (`tools/gciso.py`, `msgbank.py`, `af_align.py`). Medido: GameCube conservó
@@ -187,7 +189,7 @@ las cartas oficiales. `make write-check-en` escribe cartas con el dial en
 el emulador, mide líneas, cursor y marca de fin en la imagen, las termina
 y las vuelve a leer enteras ("Writing a letter in the en build").
 
-**Fase 5 — lo occidental de GameCube: en curso.** Parte de lo que los
+**Fase 5 — lo occidental de GameCube: hecha.** Parte de lo que los
 menús muestran en japonés no son texturas ni está en los bancos de texto:
 son cadenas en los datos de cada menú, que se dibujan con la fuente (los
 títulos de la ventana del nombre, los globos de la libreta de direcciones,

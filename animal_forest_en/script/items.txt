@@ -1,5 +1,6 @@
-# Item names the GameCube has none for (tools/af_items.py): kind, index, article (a, an, the, some or -),
-# then the name, separated by tabs. The rest are the GameCube's, read from the user's disc at build time.
+# Item names the GameCube has none for, or has for another thing (tools/af_items.py): kind, index, article
+# (a, an, the, some or -), then the name, separated by tabs, 16 characters at most. The rest are the
+# GameCube's, read from the user's disc at build time.
 #
 # The errands' items (a letter, some cloth, some money to take to someone), a fortune slip, the town's map.
 etc	0	a	letter
@@ -11,3 +12,18 @@ etc	29	a	town map
 dummy	0	-	nothing
 # The Famicom's disk drive, next to the Famicoms (all of them the GameCube's NES).
 ftr	849	a	disk system
+# Things the GameCube drew anew under the same number, so that its name is the new drawing's: ours, from
+# the cartridge's name and its own drawing (the second review: NOTES). A bag of flower seeds whose colour
+# the GameCube's name has wrong; a dress and a suit, a stained shirt and two shirts with the console's
+# marks; a bathroom's floor and a public bath's wall; an old wooden floor and its worn earthen wall. The
+# clothes' names are also the names of the same clothes shown as furniture (af_items.FTR_CLOTH).
+plant	4	a	yellow cosmos
+cloth	26	a	party dress
+cloth	27	a	tuxedo
+cloth	75	a	tomato juice tee
+cloth	191	an	I love 64 shirt
+cloth	203	an	N cube shirt
+carpet	18	a	bath tile floor
+wall	18	a	bathhouse wall
+carpet	26	an	old board floor
+wall	26	a	shabby mud wall

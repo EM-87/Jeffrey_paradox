@@ -2,6 +2,7 @@
 """The en build's dial without its kana modes: the modes' panel and the symbols' ring.
 
     tools/af_dial.py BASEROM EN_DIR
+    tools/af_dial.py phrases EN_STRING_DRAFT     what Mr. Resetti compares with the dial's typing
 
 The text editor's dial (ovl__0078CB80, submenu program 10) has five modes, which Z goes through: hiragana,
 the symbols, katakana, the letters and the digits; its modes' panel lists their labels in that order, a row
@@ -23,6 +24,12 @@ in that order. This writes, over the en tree's copies of the dial's segment (its
 Each is checked first against the cartridge's (the user's dump): the lists' words and the labels they draw,
 the marks of its ring. Nothing of the cartridge's enters the repository: the label is ours, the rest offsets
 and the font's codes of our marks (tools/msgbank.py's charset).
+
+`phrases` holds the string bank's draft to what this dial can type: Mr. Resetti (ovl_Npc_Majin3) has the
+player type one of 16 phrases and compares the window's 10 bytes with it, byte for byte, so a phrase with a
+character no mode of the dial has can never be typed; and he looks in what was typed for 32 words, comparing
+of each as many bytes as its place in the list says, so a word of another length is cut or runs into the
+spaces after it (reference/NOTES.md, "The second review"). make rom-en runs it on the en string bank.
 """
 
 import os
@@ -52,6 +59,14 @@ LOWER_AT = 0x1848
 # the symbols' ring (D_80888568_jp), its count (D_808885DC_jp[1]) and its ring's length (D_808885B4_jp[1])
 SYMBOLS_AT, SYMBOLS_COUNT_AT, SYMBOLS_RING_AT, CART_SYMBOLS = 0x80888568, 0x808885E0, 0x808885B8, 30
 SYMBOLS = "?!' \n,.\"-:()&%@_<>～ー♥♪☺💧✚"
+# Mr. Resetti's strings (ovl_Npc_Majin3): the 16 phrases he has the player type (string 0x484 and a number
+# under 16: func_809B4FC4_jp), compared over the 10 bytes of the name-entry window (func_809B4BB8_jp:
+# mem_cmp of 10; the window fills its 10 with spaces first, ledit_ovl's func_80884B30_jp, and the string
+# loader pads the phrase with them), and the 32 words he takes as an insult anywhere in what was typed
+# (string 0x4C0 on: func_809B4C18_jp), comparing 2 bytes of the first and one more from the words its
+# table D_809B572C_jp lists (6, 16, 25, 30, 31)
+PENANCE_FIRST, PENANCE_COUNT, PENANCE_LEN = 0x484, 16, 10
+INSULT_FIRST, INSULT_COUNT, INSULT_STEPS = 0x4C0, 32, (6, 16, 25, 30, 31)
 JAPANESE_MARKS = {"IDEOGRAPHIC COMMA", "IDEOGRAPHIC FULL STOP", "KATAKANA MIDDLE DOT", "LEFT CORNER BRACKET",
                   "RIGHT CORNER BRACKET"}
 
@@ -168,7 +183,58 @@ def apply_segment(seg, cart_seg, edits):
     return bytes(out)
 
 
+def typed(text):
+    """Whether the dial can type text in a window of one line: the letters (both cases), the digits and
+    the marks of the symbols' ring but its newline."""
+    return all(("a" <= c <= "z") or ("A" <= c <= "Z") or ("0" <= c <= "9") or (c in SYMBOLS and c != "\n")
+               for c in text)
+
+
+def string_text(tokens):
+    """A string's characters as the game compares them, one for each byte: its text as it is (the dump's
+    escapes are not characters), a raw byte or a code as a character no dial types."""
+    text = "".join(t[1] if t[0] == "t" else "\0" for t in tokens)
+    return re.sub(r"\{[0-9a-fA-F]{2}\}", "\0", text)
+
+
+def insult_len(i):
+    """How many bytes Mr. Resetti compares of the insult i of his list."""
+    return 2 + sum(1 for step in INSULT_STEPS if i >= step)
+
+
+def phrase_problems(strings):
+    """[text] of what is wrong with Mr. Resetti's strings in strings {number: its text}: a phrase to type
+    that is empty, longer than the window or has a character the dial lacks; an insult that is not as long
+    as its place compares, that the dial cannot type, or that stands inside a phrase he asks for (small and
+    capital letters alike: a phrase typed in the wrong case is an honest try)."""
+    problems = []
+    phrases = [strings.get(PENANCE_FIRST + i, "") for i in range(PENANCE_COUNT)]
+    for i, text in enumerate(phrases):
+        n = PENANCE_FIRST + i
+        if not 1 <= len(text) <= PENANCE_LEN:
+            problems.append("%d: a phrase of %d characters, the window takes 1 to %d" % (n, len(text), PENANCE_LEN))
+        elif not typed(text):
+            problems.append("%d: the dial cannot type %s" % (n, " ".join(sorted({c for c in text if not typed(c)}))))
+    for i in range(INSULT_COUNT):
+        n, text = INSULT_FIRST + i, strings.get(INSULT_FIRST + i, "")
+        if len(text) != insult_len(i):
+            problems.append("%d: an insult of %d characters where %d are compared" % (n, len(text), insult_len(i)))
+        elif not typed(text):
+            problems.append("%d: the dial cannot type %s" % (n, " ".join(sorted({c for c in text if not typed(c)}))))
+        elif any(text.lower() in phrase.lower() for phrase in phrases):
+            problems.append("%d: an insult that stands inside a phrase to type" % n)
+    return problems
+
+
 def main(argv):
+    if argv[:1] == ["phrases"] and len(argv) == 2:
+        bank = msgbank.Bank.parse_dump(open(argv[1], encoding="utf-8").read())
+        problems = phrase_problems({n: string_text(tokens) for n, tokens in bank.items()})
+        for text in problems:
+            print("af_dial: string %s" % text)
+        print("af_dial: Mr. Resetti's %d phrases and %d insults against the dial: %d problem%s" % (
+            PENANCE_COUNT, INSULT_COUNT, len(problems), "" if len(problems) == 1 else "s"))
+        return 1 if problems else 0
     if len(argv) != 2:
         raise SystemExit(__doc__)
     rom_path, en = argv

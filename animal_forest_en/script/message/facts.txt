@@ -5,6 +5,10 @@
 # games), a winter's talk turned into another, a price a villager can pay read as one he cannot, and New
 # Year's Day's announcement, whose saying the 2010 patch's English leaves out and whose wishing well it
 # calls a shrine (the GameCube's English, which has no counterpart for it, says wishing well elsewhere).
+# The second review's: things the GameCube has and the cartridge has not (a tailor's shop and its
+# patterns, a lighthouse, a ghost), a string the GameCube's English prints and the cartridge never fills
+# here, a minute read from the clock where the cartridge fills a number of its own, the game's name as
+# the GameCube's, and a row of the map by the 2010 patch's letter (the cartridge's map numbers its rows).
 # From the cartridge's text; tools/msgbank.py's dump form, as ours.txt (its header says how the build lays
 # it over the bank and what af_text.py holds it to).
 
@@ -144,3 +148,97 @@ I sleep well,<PAUSE 04> <STR_TAIL>.<SETFORCEMSG 29b9>
 even I can pay.
 <SETSELSTR2 00280036><BTN><OPENCHOICE><SETNEXTMSG0 2cfb><SETNEXTMSG1 2cfc><FORCENEXT>
 <MSGCONTINUE>
+
+## 10819
+#: a cranky villager in winter: flowers planted in this season wither at once
+<DEMONPC0 0000ff>No use plantin' flowers<PAUSE 04>
+<DEMONPC0 000017>this time of year,<PAUSE 08> <STR_PLAYERNAME>.<BTN>
+<MSGCLEAR>Go to all that trouble,<PAUSE 08>
+and they just wither
+right away.
+<MSGEND>
+
+## 4593
+#: a normal villager's tip: note down each errand (from whom, to whom, what) and cross it off when done
+<DEMONPC0 0000ff>You know,<PAUSE 06> whenever
+someone asks me to run
+an errand, I make a note
+of it right away.
+<BTN>
+<MSGCLEAR>Who it's from,<PAUSE 06>
+who it's for,<PAUSE 06>
+and what it is<PAUSE 04>.<PAUSE 04>.<PAUSE 04>.
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>Just write that much
+down,<PAUSE 06> and cross it off
+when you're done.
+It really helps,<PAUSE 08> <STR_TAIL>!
+<BTN>
+<MSGCLEAR>With only a few it's fine,<PAUSE 06>
+but take on a lot at once
+and it's easy to get
+them all mixed up!
+<MSGEND>
+
+## 10330
+#: a cranky villager's tip: each town's shop sells different things
+<DEMONPC0 0000ff>Hey,<PAUSE 08> you ever gone
+<DEMONPC0 00000b>to visit another town?<BTN>
+<MSGCLEAR><DEMONPC0 000015>What they sell<PAUSE 04> ain't
+the same from one town
+to the next, y'know.
+<MSGEND>
+
+## 9223
+#: the castaway's farewell: even a chance meeting is fate; he prays for the player's fortune
+<DEMONPC0 0000ff>They say <PAUSE 02>even a chance <PAUSE 04>meeting<PAUSE 06>
+is fate at work.<PAUSE 0a>
+Our meeting here <PAUSE 04>must<PAUSE 06>
+have been meant to be.<BTN>
+<MSGCLEAR>We may <PAUSE 04>never<PAUSE 02>
+meet again,<PAUSE 0a>
+but I'll be praying<PAUSE 06>
+that fortune <PAUSE 04>smiles on you.<BTN><DEMONPC0 000015>
+<MSGCLEAR>Farewell!<PAUSE 08>
+Good luck!
+<MSGEND>
+
+## 2505
+#: the cat on the train, on parting: this world is more fun lived in with many
+<DEMONPC0 000028><PAUSE 05>Oh, <PAUSE 04>that's right!<BTN><DEMONPC0 0000fd>
+<MSGCLEAR>In this world,<PAUSE 08>
+I think it's a lot more<PAUSE 04>
+fun living with lots of<PAUSE 04>
+folks than all alone.<BTN>
+<MSGCLEAR>I hope plenty of<PAUSE 06>
+friends come to visit
+your town.<BTN>
+<MSGCLEAR>Well, see you around.
+<MSGEND>
+
+## 9186
+#: a peppy villager on the town she lived in before: its train was always some minutes late
+<DEMONPC0 000017>In the town I used to
+live in,<PAUSE 06> the train never
+once came when the
+timetable said it would.
+<BTN>
+<MSGCLEAR><DEMONPCQST 090002>It was always about
+<STR_ITEM1> minutes late,<PAUSE 08>
+<STR_TAIL>.
+<BTN>
+<MSGCLEAR><DEMONPC0 000015>Every town has its good
+and bad points,<PAUSE 06> but I
+think <STR_COUNTRYNAME> is
+a nice place,<PAUSE 08> <STR_TAIL>!
+<MSGEND>
+
+## 2051
+#: Tom Nook sends the player to mail the letter: the post office is in row 1, in the column the game fills
+You mail letters<PAUSE 08> at the
+<COLORCHARS 4ba0000b>post office, yes?<BTN>
+The <COLORCHARS 4ba0000b>post office is<PAUSE 04>
+in Acre 1-<STR_FREE6>, hm?<BTN>
+<MSGCLEAR>Now, now,<PAUSE 08> off you go,
+and hurry back!
+<MSGEND>

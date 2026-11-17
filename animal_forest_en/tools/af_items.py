@@ -30,8 +30,9 @@ kinds in the same order with items of its own added, so a name is the GameCube's
 except for the plants (a sapling the GameCube added second: PLANT_SHIFT) and the furniture after the
 clothes (blocks the GameCube grew: FTR_BLOCKS, and the cartridge's Famicoms, which all have one name:
 FTR_SAME). Where the GameCube has no name for the cartridge's item (a placeholder in its table, or an
-item of the cartridge's own), ours from script/items.txt (`kind index<TAB>name`, article in OWN_ARTICLE
-form `a|an|the|some|-`), else the cartridge's own name and a warning.
+item of the cartridge's own), or names another thing than the cartridge's item is (one it drew anew under
+the same number), ours from script/items.txt (`kind index<TAB>name`, article in OWN_ARTICLE form
+`a|an|the|some|-`), else the cartridge's own name and a warning.
 
 Names longer than an animal's 6 bytes (ANIMAL_NAME_LEN, the N64's field) take the same tokens: the
 animals' (the GameCube's table, as tools/af_names.py writes them into the en build's name segment: 38 of
@@ -45,10 +46,17 @@ write when it loads one into 6 bytes. The catchphrases longer than an animal's 4
 has them: 198 of 215) take them too, their records after the names'; their tokens go into the string bank
 itself (OUT_TXT, laid over the bank when it is compiled: those strings are only ever loaded as
 catchphrases), so the game copies them as it copied the words (reference/NOTES.md, "Catchphrases longer
-than 4").
+than 4"). So do the strings the cartridge loads into a letter's free string, 10 bytes of them, where the
+English is longer (LETTER_STRINGS: the New Year fortune slip's and the shop's name under a notice): the
+letters' code expands a token in a free string as it does an item's (reference/NOTES.md, "The second
+review").
+
+A name of the GameCube's that takes a or an is given the one its first sound asks for (sound_article): the
+GameCube's own table has a few the other way round.
 """
 
 import os
+import re
 import struct
 import sys
 
@@ -61,7 +69,7 @@ from af_font import gc_find, gc_rel_data, map_layout  # noqa: E402
 from af_text import ascii_fallback  # noqa: E402
 from msgbank import GC_CHARS, N64_BYTES, N64_CHARS  # noqa: E402
 
-NAME_FILE = 0x10F4000                       # vrom (and ROM: not compressed) of the cartridge's names
+NAME_FILE = 0x10F4000                       # vrom of the cartridge's names: their place in the decompressed image
 NAME_LEN = 10                               # the cartridge's names, and the buffers they are copied into
 GC_NAME_LEN = 16
 # (kind, the cartridge's count, its names' offset in the file, the GameCube's names, its articles); the
@@ -105,6 +113,13 @@ TOKEN_LEN = 3
 CELL = 12                                   # the cartridge's characters, a cell each
 ANIMAL_NAME_LEN = 6                         # an animal's name (PLAYER_NAME_LEN, also ANIMAL_NAME_LEN)
 CATCHPHRASE_LEN = 4                         # an animal's catchphrase (ANIMAL_CATCHPHRASE_LEN)
+LETTER_STR_LEN = 10                         # a letter's free string (mHandbill_FREE_STR_LEN, m_handbill.c)
+# the strings the cartridge's code loads into a letter's free string, 10 bytes of them, and only there (each
+# number's every use in the asm and its tables looked up): the New Year fortune slip's (ovl_Ev_Miko,
+# func_809E5BC4_jp: four lists of 16 from its table D_809E62B8_jp, at 673, 689, 714 and 730, and the luck's
+# rank from 705) and the shop's name under three of the bulletin board's notices (code/m_notice,
+# func_800A63F8_jp: 1368 and the shop's size)
+LETTER_STRINGS = list(range(673, 746)) + list(range(1368, 1372))
 # the animals' default data (NpcDefaultData, 6 bytes each: cloth, catchphraseIdx, umbrella), 218 of them
 DEFAULT_DATA, DEFAULT_SIZE, DEFAULT_CATCHPHRASE = 0xE03000, 6, 2
 # the special characters' names: the strings m_npc.c's l_sp_actor_name loads into 6 bytes (mNpc_GetNpcWorldNameP)
@@ -145,10 +160,42 @@ def gc_source(kind, i):
 
 
 def n64_name(rom, kind, i):
-    """The cartridge's name i of kind (its 10 bytes)."""
+    """The cartridge's name i of kind (its 10 bytes), from the decompressed image, where a file lies at its
+    vrom (the en tree's baseroms/jp/baserom-decompressed.z64: the dump keeps the file elsewhere, and a read
+    of it there would come back empty)."""
     _, _, at, _, _ = next(k for k in KINDS if k[0] == kind)
     at += (i * FTR_FACES if kind == "ftr" else i) * NAME_LEN
-    return rom[NAME_FILE + at:NAME_FILE + at + NAME_LEN]
+    data = rom[NAME_FILE + at:NAME_FILE + at + NAME_LEN]
+    if len(data) != NAME_LEN:
+        raise SystemExit("af_items: no name at %#x of an image of %#x bytes: give the decompressed image, where the "
+                         "names' file lies at its vrom" % (NAME_FILE + at, len(rom)))
+    return data
+
+
+AN_LETTERS = "AEFHILMNORSX"                 # the letters whose own names start with a vowel's sound
+
+
+def sound_article(text):
+    """a or an (their numbers in ARTICLES) by the first sound of the name's first word, or None for a name
+    with no letter or digit: a number as it is read (8, 11, 18: an), a letter or initials read letter by
+    letter, the words that start with a vowel and are read with a consonant (one, uni..., use..., eu...) or
+    the other way round (hour, honest, heir), and otherwise the first letter."""
+    word = re.search(r"[A-Za-z0-9]+", text)
+    if not word:
+        return None
+    word = word.group(0)
+    a, an = ARTICLES.index("a"), ARTICLES.index("an")
+    if word[0].isdigit():
+        digits = re.match(r"\d+", word).group(0)       # 18th, 80s: the number's own sound
+        return an if digits[0] == "8" or digits in ("11", "18") else a
+    if word.isupper():
+        return an if word[0] in AN_LETTERS else a
+    low = word.lower()
+    if low.startswith(("one", "uni", "use", "usu", "uku", "eu", "ufo")):
+        return a
+    if low.startswith(("hour", "honest", "heir")):
+        return an
+    return an if low[0] in "aeiou" else a
 
 
 def printable(text):
@@ -259,6 +306,17 @@ def long_catchphrases(segment_data, strings):
     return out
 
 
+def long_letter_strings(strings):
+    """[(("letter string", number), its bytes)] of LETTER_STRINGS' strings longer than a letter's free string,
+    as the en string bank has them ({number: tokens})."""
+    out = []
+    for number in LETTER_STRINGS:
+        data = msgbank.encode(strings[number]).rstrip(b" ") if number in strings else b""
+        if len(data) > LETTER_STR_LEN:
+            out.append((("letter string", number), data))
+    return out
+
+
 def name_records(names, base, widths, field=ANIMAL_NAME_LEN):
     """(the records of names [(what, bytes)], numbered from base, each at most field cells, and [(what,
     number, its token in field bytes)])."""
@@ -274,22 +332,33 @@ def name_records(names, base, widths, field=ANIMAL_NAME_LEN):
 
 def string_tokens(tokens):
     """The string bank's text (tools/msgbank.py's dump form) that puts each string's token in its place:
-    tokens [(("catchphrase", number), _, token)], their bytes written {xx}."""
-    lines = ["# The catchphrases' tokens (tools/af_items.py), laid over the en string bank: not part of the "
-             "repository"]
+    tokens [((what, number), _, token)], their bytes written {xx}."""
+    lines = ["# The tokens of the catchphrases and of the strings a letter prints (tools/af_items.py), laid over "
+             "the en string bank: not part of the repository"]
     for (_, number), _, tok in tokens:
         lines += ["", "## %d" % number, "".join("{%02x}" % b for b in tok)]
     return "\n".join(lines) + "\n"
 
 
-def records(rom, gc, own, widths):
-    """(the segment's bytes, {kind: (from the GameCube, ours, the cartridge's)})."""
+def records(rom, gc, own, widths, mended=None):
+    """(the segment's bytes, {kind: (from the GameCube, ours, the cartridge's)}). A name of ours for a piece
+    of clothing is also its name as furniture (FTR_CLOTH: the GameCube's table names both). A name of the
+    GameCube's that takes a or an takes the one its first sound asks for (sound_article: the GameCube's
+    table has a few the other way round); mended, a list, collects the (kind, index) of those changed."""
     out, counts = bytearray(), {}
+    indefinite = (ARTICLES.index("a"), ARTICLES.index("an"))
     for kind, i in slots():
+        twin = ("cloth", i - FTR_CLOTH[0]) if kind == "ftr" and FTR_CLOTH[0] <= i < FTR_CLOTH[1] else None
         if (kind, i) in own:
             (text, art), src = own[(kind, i)], 1
+        elif twin in own:
+            (text, art), src = own[twin], 1
         elif (kind, i) in gc:
             (text, art), src = gc[(kind, i)], 0
+            if art in indefinite and sound_article(text) not in (None, art):
+                art = sound_article(text)
+                if mended is not None:
+                    mended.append((kind, i))
         else:
             text, art, src = None, 0, 2
         if text is None:
@@ -369,7 +438,8 @@ def main(argv):
         font_rom = open(opts.get("--font", rom_path), "rb").read()
         gc_font = open(opts["--gc-font"], "rb").read() if opts.get("--gc-font") else None
         widths = af_font.widths(af_font.font(font_rom, gc_font)[1])
-        data, counts = records(rom, gc, own, widths)
+        mended = []
+        data, counts = records(rom, gc, own, widths, mended)
         tokens = []
         if gc and opts.get("--names-seg") and os.path.exists(opts.get("--npc-names", "")):
             # the names longer than 6: their records after the items', each animal's token in its field
@@ -395,8 +465,15 @@ def main(argv):
             tokens += phrases
             print("%s: the catchphrases longer than %d as tokens, %d" % (
                 opts.get("--string-tokens", "(no --string-tokens)"), CATCHPHRASE_LEN, len(phrases)))
+            # the strings a letter prints from a free string, longer than its 10 bytes: the same, after them
+            more, letter_strings = name_records(long_letter_strings(strings), len(slots()) + len(tokens), widths,
+                                                LETTER_STR_LEN)
+            data += more
+            tokens += letter_strings
+            print("%s: the letters' strings longer than %d as tokens, %d" % (
+                opts.get("--string-tokens", "(no --string-tokens)"), LETTER_STR_LEN, len(letter_strings)))
         if opts.get("--string-tokens"):
-            text = string_tokens([t for t in tokens if t[0][0] == "catchphrase"])
+            text = string_tokens([t for t in tokens if t[0][0] in ("catchphrase", "letter string")])
             path = opts["--string-tokens"]
             if not os.path.exists(path) or open(path).read() != text:
                 open(path, "w").write(text)
@@ -409,6 +486,9 @@ def main(argv):
         for kind, (g, o, c) in counts.items():
             if gc and c:
                 print("  %s: %d with no English (the cartridge's)" % (kind, c))
+        if mended:
+            print("  %d of the GameCube's names given the article their first sound asks for: %s" % (
+                len(mended), ", ".join("%s %d" % m for m in mended)))
         return 0
     print(__doc__)
     return 1

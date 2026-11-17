@@ -46,7 +46,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en year-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean
+.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en year-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean script drafts
 
 all: verify
 
@@ -131,6 +131,9 @@ REF_MAP  := $(AF_DIR)/build/animalforest-jp.map
 EN_MAP   := $(AF_EN_DIR)/build/animalforest-jp.map
 EN_LD    := linker_scripts/jp/animalforest.ld
 EN_MOVED := $(AF_EN_DIR)/build/af_en_moved.txt
+# The slot a text section left in code that stays empty: the checks build their hook into m_choice_main's
+# (tests/emu_save.py and those that use its hook); the other slots take the sections that grew (af_relink).
+EN_KEEP_HOLES := --keep-hole build/src/code/m_choice_main.o
 # The message bank the ROM gets: the English draft when `make script` has
 # made it from the user's disc, else the cartridge's own (so the build and
 # its plumbing work without the disc). Compiled into two plain segments
@@ -304,7 +307,8 @@ $(EN_CHOICE_EXTRA): tools/af_answers.py tools/af_font.py tools/msgbank.py script
 	mkdir -p $(EN_ASSETS)
 	$(PYTHON) tools/af_answers.py extra $(GC_DIR) script/answers.txt $@
 
-$(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(NAFE_TEXT) $(OWN_MESSAGES) $(EN_CHOICE) $(EN_CHOICE_EXTRA) $(EN_STRING) $(GC_DIR)/n64_jp.txt tools/af_text.py tools/msgbank.py tools/af_font.py $(GC_FONT) $(EN_ITEMS)
+# The en string bank's phrases for Mr. Resetti are held to what the en dial types (tools/af_dial.py phrases).
+$(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(NAFE_TEXT) $(OWN_MESSAGES) $(EN_CHOICE) $(EN_CHOICE_EXTRA) $(EN_STRING) $(GC_DIR)/n64_jp.txt tools/af_text.py tools/msgbank.py tools/af_font.py tools/af_dial.py $(GC_FONT) $(EN_ITEMS)
 	mkdir -p $(EN_ASSETS)
 	$(PYTHON) tools/af_text.py compile $(EN_BANK) $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/msg_index.bin --reference $(GC_DIR)/n64_jp.txt --max-bytes 0x600 $(FONT_OPTS) \
 		$(if $(NAFE_TEXT),--overrides $(NAFE_TEXT)) $(foreach f,$(OWN_MESSAGES),--overrides $(f))
@@ -312,6 +316,7 @@ $(EN_ASSETS)/msg_text.bin: $(EN_BANK) $(NAFE_TEXT) $(OWN_MESSAGES) $(EN_CHOICE) 
 		--count $(EN_CHOICE_COUNT) --overrides $(EN_CHOICE_EXTRA)
 	$(PYTHON) tools/af_text.py compile $(EN_STRING) $(EN_ASSETS)/string_text.bin $(EN_ASSETS)/string_index.bin --bank string --max-bytes 64 --count 0x679 \
 		--overrides $(EN_STRING_TOKENS)
+	$(if $(wildcard $(GC_DIR)/en_string.txt),$(PYTHON) tools/af_dial.py phrases $(EN_STRING))
 
 $(N64_LETTERS): $(GC_DIR)/n64_%.txt: $(BASEROM) tools/msgbank.py
 	mkdir -p $(GC_DIR)
@@ -423,7 +428,7 @@ rom-en: decomp-en rom en-bank
 	rm -f $(AF_EN_DIR)/build/linker_scripts/jp/auto/undefined_syms_auto.ld $(AF_EN_DIR)/build/animalforest-jp.elf $(AF_EN_DIR)/build/animalforest-jp.z64
 	$(MAKE) -C $(AF_EN_DIR) -j$(JOBS) build/animalforest-jp.elf
 	$(PYTHON) tools/af_ovlreloc.py $(AF_DIR) $(AF_EN_DIR) $(EN_OVERLAYS)
-	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relink.py $(EN_LD) --ref $(CURDIR)/$(REF_MAP) --map build/animalforest-jp.map --moved-out $(CURDIR)/$(EN_MOVED) $(EN_SEGMENTS)
+	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_relink.py $(EN_LD) --ref $(CURDIR)/$(REF_MAP) --map build/animalforest-jp.map --moved-out $(CURDIR)/$(EN_MOVED) $(EN_KEEP_HOLES) $(EN_SEGMENTS)
 	$(MAKE) -C $(AF_EN_DIR) -j$(JOBS) build/animalforest-jp.z64
 	$(PYTHON) tools/af_shiftcheck.py $(REF_MAP) $(EN_MAP) --moved-list $(EN_MOVED)
 	cd $(AF_EN_DIR) && $(PYTHON) $(CURDIR)/tools/af_anchors.py $(CURDIR)/$(REF_MAP)
@@ -535,6 +540,13 @@ script: $(BASEROM) $(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n6
 	$(PYTHON) tools/af_font.py gc "$(ISO)" $(GC_DIR)/gc_font.bin
 	$(PYTHON) tools/gciso.py extract "$(ISO)" foresta.rel.szs $(GC_DIR)/foresta.rel.szs
 	$(PYTHON) tools/gciso.py extract "$(ISO)" foresta.map $(GC_DIR)/foresta.map
+	$(MAKE) drafts
+
+# The drafts again, from build/gc's copies of the disc's files (no disc needed): after a change to one of
+# the draft's rules (tools/af_text.py) or to script/. make rom-en lays script/message over the bank by
+# itself; the choices, the strings and the letters are laid over their drafts here.
+drafts: $(BASEROM) $(GC_DIR)/n64_jp.txt $(GC_DIR)/n64_choice_jp.txt $(GC_DIR)/n64_string_jp.txt
+	@test -s $(GC_DIR)/message_data.bin || { echo "make script ISO=... first: build/gc has no copy of the disc's files"; exit 1; }
 	$(PYTHON) tools/af_ui.py gc-files $(GC_DIR)/foresta.rel.szs $(GC_DIR)/foresta.map $(GC_DIR)/gc_ui.txt
 	$(PYTHON) tools/af_items.py gc-files $(GC_DIR)/foresta.rel.szs $(GC_DIR)/foresta.map $(GC_DIR)/gc_items.txt
 	$(PYTHON) tools/msgbank.py dump-gc $(GC_DIR)/message_data.bin $(GC_DIR)/message_data_table.bin $(GC_DIR)/gc_en.txt

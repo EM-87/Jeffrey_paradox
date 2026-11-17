@@ -38,7 +38,12 @@ written first, twenty known ones, some filling the 10 bytes. Checks:
      rest at the save after, and the load brings the extension back (the
      title's direct load, func_8008F938_jp, called in play: the title's
      other load takes a buffer the zelda arena in play no longer has room
-     for; tests/emu_save.py, 4 and 5).
+     for; tests/emu_save.py, 4 and 5);
+  5. the strings the cartridge's code loads into a letter's free string
+     (tools/af_items.py, LETTER_STRINGS): loaded as that code loads them
+     (the string loader's 10 bytes handed to mHandbill_Set_free_str), a
+     New Year fortune slip and a notice signed with each of the shop's
+     names come out with the whole English, not its first 10 bytes.
 """
 
 import os
@@ -80,6 +85,8 @@ s32 mHandbill_en_GetLetter(void* content, u8* header, u8* body, u8* footer);
 s32 func_80090044_jp(void);
 void func_8008F938_jp(void);
 void bcopy(const void* src, void* dst, int size);
+void mString_Load_StringFromRom(u8* dst, s32 dstLen, s32 n);
+void mHandbill_Set_free_str(s32 n, u8* str, s32 len);
 
 typedef struct HookCtl {
     s32 cmd;
@@ -173,6 +180,15 @@ void hook_main(void) {
             h->result = 1;
             h->cmd = 0;
             break;
+        case 8: { /* a string of the bank into a letter's free string, as the fortune stall (ovl_Ev_Miko,
+                   * func_809E5BC4_jp) and the notices (code/m_notice, func_800A63F8_jp) put one */
+            u8 buf[10];
+
+            mString_Load_StringFromRom(buf, 10, h->arg[1]);
+            mHandbill_Set_free_str(h->arg[0], buf, 10);
+            h->cmd = 0;
+            break;
+        }
     }
 }
 """
@@ -377,6 +393,31 @@ def entries(af_en):
     return lambda bank, n: text[(ends[FIRST[bank] + n - 1] if FIRST[bank] + n else 0):ends[FIRST[bank] + n]]
 
 
+def bank_strings(af_en):
+    """n -> the en string bank's string n, as compiled (a token where the build laid one over it)."""
+    text = open(os.path.join(af_en, "assets", "jp", "en", "string_text.bin"), "rb").read()
+    index = open(os.path.join(af_en, "assets", "jp", "en", "string_index.bin"), "rb").read()
+    ends = struct.unpack(">%dI" % (len(index) // 4), index)
+    return lambda n: text[(ends[n - 1] if n else 0):ends[n]]
+
+
+def token_text(af_en, data):
+    """What a string the game loaded stands for in a letter: a token's record (tools/af_items.py: the mark,
+    the record's number in two digits; its name, no article), or the string itself."""
+    if len(data) >= 3 and data[0] == 0x80 and 0x81 <= data[1] <= 0xC0 and 0x81 <= data[2] <= 0xC0:
+        records = open(os.path.join(af_en, "assets", "jp", "en", "item_names.bin"), "rb").read()
+        at = ((data[1] - 0x81) * 64 + (data[2] - 0x81)) * 20
+        return records[at + 4:at + 4 + records[at]]
+    return data
+
+
+# the strings the cartridge loads into a letter's free string and the letters that print them: the fortune
+# slip's four lists of 16 and its rank (free strings 0 to 3 and 4 of letters 114 to 116), the shop's name by
+# its size (free string 1 of three of the bulletin board's notices: 424, 431, 449)
+FORTUNE_LISTS, FORTUNE_RANKS, FORTUNE_LETTER = (689, 673, 730, 714), range(705, 714), 114
+SHOP_NAMES, SHOP_NOTICES = range(1368, 1372), (424, 431, 449)
+
+
 def main(argv):
     emu_dir, rom_path, af_en, state, out = argv
     af_en = os.path.abspath(af_en)
@@ -452,6 +493,57 @@ def main(argv):
         longer = sum(1 for n in range(544) if len(body(entry("mail_body", n), frees).rstrip(b"\xcd")) > 96)
         print("      %d of the 544 bodies run past the letter's 96 bytes (the rest is the extension's)" % longer)
 
+        # 5. the letters' strings: loaded as the cartridge's code loads them, printed whole
+        string = bank_strings(af_en)
+
+        def load_free(k, number):
+            run(8, [k, number])
+            return token_text(af_en, string(number))
+
+        def longest(numbers):
+            return max(numbers, key=lambda n: (len(token_text(af_en, string(n))), -n))
+        every = sorted({n for base in FORTUNE_LISTS for n in range(base, base + 16)} | set(FORTUNE_RANKS) |
+                       set(SHOP_NAMES))
+        bad = []
+        for number in every:                   # each as its code loads it: the bank's 10 bytes, a token or not
+            run(8, [5, number])
+            if n64.read(free_at + 50, 10) != string(number).ljust(10, b" ")[:10]:
+                bad.append(number)
+        tokens = [n for n in every if string(n)[:1] == b"\x80"]
+        check(not bad and all(len(token_text(af_en, string(n))) > 10 for n in tokens) and
+              all(len(string(n)) <= 10 for n in every),
+              "the %d strings a letter prints from a free string, each loaded as its code loads it: the bank's 10 "
+              "bytes, %d of them tokens for more than 10 characters (%d differ: %s)" % (
+                  len(every), len(tokens), len(bad), bad[:6]))
+        picks = [longest(range(base, base + 16)) for base in FORTUNE_LISTS] + [longest(FORTUNE_RANKS)]
+        mine = list(frees)
+        for k, number in enumerate(picks):
+            mine[k] = load_free(k, number).ljust(10, b" ")
+        check(n64.read(free_at, 50) == b"".join(string(n).ljust(10, b" ")[:10] for n in picks),
+              "the fortune's five strings arrive in the letters' free strings as the bank has them, %d of them "
+              "tokens" % sum(1 for n in picks if string(n)[:1] == b"\x80"))
+        got, whole = run(1, [FORTUNE_LETTER])
+        ext.file(whole[:0x18], whole[0x1C:0xDC], whole[0xDC:0xFC], keys)     # the game filed its rest: so the model
+        want = body(entry("mail_body", FORTUNE_LETTER), mine)
+        texts = [m.rstrip(b" ") for m in mine[:5]]
+        check(whole[0x1C:0xDC] == want and all(t in whole[0x1C:0xDC] for t in texts),
+              "the fortune slip (letter %d) prints its five strings whole: %d to %d characters, the body %d bytes"
+              % (FORTUNE_LETTER, min(map(len, texts)), max(map(len, texts)), len(want.rstrip(b"\xcd"))))
+        bad, names = [], []
+        for number in SHOP_NAMES:
+            mine = list(frees)
+            mine[1] = load_free(1, number).ljust(10, b" ")
+            names.append(mine[1].rstrip(b" "))
+            for letter in SHOP_NOTICES:
+                got, whole = run(1, [letter])
+                ext.file(whole[:0x18], whole[0x1C:0xDC], whole[0xDC:0xFC], keys)
+                if whole[0x1C:0xDC] != body(entry("mail_body", letter), mine) or names[-1] not in whole[0x1C:0xDC]:
+                    bad.append((number, letter))
+        check(not bad, "the notices the shop signs print its name whole, each of its %d names (%s characters) under "
+              "each of %d notices (%d differ: %s)" % (len(names), ", ".join(str(len(n)) for n in names),
+                                                       len(SHOP_NOTICES), len(bad), bad[:4]))
+        n64.write(free_at, b"".join(frees))
+
         # 3. villagers' letters: sixty draws as mNpc_SetRemail's (a group of 32), and one that does not fit
         draws = []
         for k in range(60):
@@ -490,7 +582,7 @@ def main(argv):
         # 4. the extension
         got = ext_in_ram()
         check(got == ext.bytes(), "after %d letters filed, the extension is the model's (%d bytes, %d records, cap %#x)"
-              % (544 + len(draws), len(got), len(ext.records), EXT_CAP))
+              % (544 + 1 + len(SHOP_NAMES) * len(SHOP_NOTICES) + len(draws), len(got), len(ext.records), EXT_CAP))
 
         def mail_at(i):
             return cd + SAVE_MAIL[i]

@@ -10,6 +10,10 @@
 # and a singer to play; 287 says a meal won't warm one up; 355 owns up; 432 a number or an outfit is
 # small.
 #
+# And two worded as our own messages word what they answer: 123 the town kept on the Game Pak (the
+# GameCube's English kept a word for the console here, where the messages say Game Pak and town); 261
+# nine times or fewer, the answer before the one for ten and more (the GameCube's leaves nine itself out).
+#
 # tools/msgbank.py's dump form, one line each; make script lays them over the choice bank's draft by
 # number.
 
@@ -31,6 +35,9 @@ Make a payment
 ## 105
 I know!
 
+## 123
+Game Pak town
+
 ## 196
 Nope!
 
@@ -42,6 +49,9 @@ Let me hear it!
 
 ## 259
 Kind of...
+
+## 261
+9 or fewer
 
 ## 287
 That won't help!

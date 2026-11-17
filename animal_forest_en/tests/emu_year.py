@@ -34,6 +34,12 @@ charset's, the en bank's two marks ー and ～ aside) and no item or name token 
 m_item_name.c); a choice's answers the same, from mChoice_en_strings. A hang (no frame for 60 s) fails. Screens
 of each page go to OUT_DIR/LABEL, the pages' text to OUT_DIR/report.json (reference/NOTES.md, "The year's
 events").
+
+And the room the game has left: in each block of the tour the zelda arena is walked (zelda_arena's nodes, as
+__osMalloc keeps them: a magic, whether free, a size, the next) and its largest free block noted. Play gives
+the arena what its state's heap has left, and every byte of `code_en` comes off it: an actor's overlay that
+finds no room stops the game (reference/NOTES.md, "The second review"). The least of the tour must stay over
+ARENA_FLOOR on every date.
 """
 
 import json
@@ -79,6 +85,10 @@ JAPANESE = {i for i, c in enumerate(msgbank.N64_CHARS)
 TOKEN_MARK = 0x80
 SPECIAL = ("Npc_Totakeke", "Npc_Police", "Npc_Police2")
 VILLAGERS = 2                          # the ordinary villagers (Normal_Npc) talked to on each date, the first found
+ARENA_MAGIC, ARENA_NODES = 0x7373, 20000  # an arena node (ArenaNode: s16 magic, s16 isFree, u32 size, next, prev)
+ARENA_FLOOR = 0x10000                  # the arena's largest free block on the tour: never under 64 KB (the
+                                       # cartridge's has some 54 KB more; the tour's least was 32 KB while the
+                                       # sections that grew all sat in code_en)
 
 
 def talked_to(name):
@@ -262,6 +272,22 @@ class Town:
         if ok:
             self.drop(tx, tz, 30)
         return ok
+
+    def arena(self, at):
+        """(the largest free block, the free bytes, the bytes in use) of the arena at at, or None if a node's
+        magic is not there."""
+        node, largest, free, used = self.n64.u32(at), 0, 0, 0
+        for _ in range(ARENA_NODES):
+            if not node:
+                return largest, free, used
+            magic, is_free, size, node, _ = struct.unpack(">hhIII", self.n64.read(node, 16))
+            if magic != ARENA_MAGIC:
+                return None
+            if is_free:
+                largest, free = max(largest, size), free + size
+            else:
+                used += size
+        return None
 
     def blocks(self):
         p = self.n64.u32(BLOCK_KIND_P)
@@ -474,10 +500,16 @@ def run_event(emu_dir, rom, af_en, town, out, label, date, hm, last):
             unreached = []
             # every block, snaking row by row from the player's
             order = [(bx if bz % 2 else 6 - bx, bz) for bz in range(1, 7) for bx in range(1, 6)]
+            least = None
             for b in order:
                 if not t.go_block(b, blocked):
                     unreached.append("%d,%d" % b)
                     continue
+                room = t.arena(syms["zelda_arena"])
+                if room is None:
+                    least = {"block": "%d,%d" % b, "largest": -1, "free": -1, "used": -1}
+                elif least is None or (least["largest"] >= 0 and room[0] < least["largest"]):
+                    least = {"block": "%d,%d" % b, "largest": room[0], "free": room[1], "used": room[2]}
                 for a in t.actors():
                     if a["part"] in (0, 3, 4, 6) and a["name"] not in result["actors"]:
                         result["actors"][a["name"]] = "%d,%d" % b
@@ -487,6 +519,7 @@ def run_event(emu_dir, rom, af_en, town, out, label, date, hm, last):
                             (a["name"] == "Normal_Npc" and sum(k[0] == "Normal_Npc" for k in where) < VILLAGERS)):
                         where[key] = b
             result["unreached"] = unreached
+            result["arena"] = least
             result["blocks"] = {"%d,%d" % b: k for b, k in blocks.items()}
             n64.screenshot(os.path.join(work, "toured.png"))
             for which, (name, fg) in enumerate(sorted(where)):
@@ -542,6 +575,10 @@ def main(argv):
         print("    %s %s: %s" % (label, res["date"], ", ".join(evs) if evs else "no event actors"))
         check(res.get("arrived") and not res["hang"], "%s: into the town and around it%s" % (
             label, "" if not res["hang"] else " (hung: %s)" % res["hang"]))
+        room = res.get("arena")
+        check(bool(room) and room["largest"] >= ARENA_FLOOR, "%s: the arena's largest free block on the tour, at its "
+              "least %s" % (label, "%d bytes in block %s (%d free, %d in use), the floor %d" % (
+                  room["largest"], room["block"], room["free"], room["used"], ARENA_FLOOR) if room else "not read"))
         greeter = [p for pg in res.get("arrival", []) for p in pg["problems"]]
         check(not greeter, "%s: the greeter, %d pages%s" % (label, len(res.get("arrival", [])),
                                                             "; " + "; ".join(greeter[:4]) if greeter else ""))

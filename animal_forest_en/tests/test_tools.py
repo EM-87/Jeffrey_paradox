@@ -308,6 +308,126 @@ class Shiftability(unittest.TestCase):
             self.assertLess(lines.index("    code_ROM_END = __romPos;"), lines.index("    buffers_ROM_END = __romPos;"))
             self.assertIn("        build/src/code/b.o(.rodata);", lines[lines.index("        code_RODATA_START = .;"):])
 
+    def test_relink_packs_grown_text_into_the_slots_others_left(self):
+        # the text sections that left their slots: as many bytes of them as can be go into the slots the
+        # others left (slots that touch are one run), each whole inside one %hi window; a kept slot stays empty
+        t = ".text"
+        grown = [(t, "a.o", 0x300, 0x200), (t, "b.o", 0x280, 0x180), (t, "c.o", 0x180, 0x100), (t, "k.o", 0x500, 0x400),
+                 (".data", "a.o", 0x40, 0x20)]
+        ref_at = {(t, "a.o"): 0x80060000, (t, "b.o"): 0x80060200, (t, "c.o"): 0x80070000, (t, "k.o"): 0x80071000,
+                  (".data", "a.o"): 0x80100000}
+        runs, placed = af_relink.pack_holes(grown, ref_at, ["k.o"])
+        self.assertEqual(runs, [(0x80060000, 0x80060380, ["a.o", "b.o"]), (0x80070000, 0x80070100, ["c.o"]),
+                                (0x80071000, 0x80071400, ["k.o"])])
+        self.assertEqual(placed, {"a.o": 0x80060000})                    # the most that fits: 0x300 of 0x380
+        runs, placed = af_relink.pack_holes(grown, ref_at)               # with k.o's slot: b.o and c.o fill it
+        self.assertEqual(placed, {"a.o": 0x80060000, "b.o": 0x80071000, "c.o": 0x80071280})
+        # every choice is tried: the first fit of the largest would leave one of these out
+        grown = [(t, "p.o", 0x400, 0x600), (t, "q.o", 0x300, 0x500), (t, "r.o", 0x300, 0), (t, "s.o", 0x100, 0)]
+        ref_at = {(t, "p.o"): 0x80060000, (t, "q.o"): 0x80070000}
+        runs, placed = af_relink.pack_holes(grown, ref_at)
+        self.assertEqual(sorted(placed), ["p.o", "q.o", "r.o", "s.o"])
+        self.assertEqual(sorted(placed.values()), [0x80060000, 0x80060300, 0x80070000, 0x80070400])
+        # a section that would cross into the next window starts at the window's start, if it still fits
+        grown = [(t, "w.o", 0x200, 0x300)]
+        self.assertEqual(af_relink.pack_holes(grown, {(t, "w.o"): 0x80067F00})[1], {"w.o": 0x80068000})
+        self.assertEqual(af_relink.pack_holes(grown, {(t, "w.o"): 0x80067E80})[1], {})        # 0x180 left there
+        self.assertEqual(af_relink.window_start(0x80067FF0, 0x10), 0x80067FF0)
+        self.assertEqual(af_relink.lay([(t, "x.o", 0x20, 0), (t, "y.o", 0x30, 0)], 0x80197FD8),
+                         ([(0x80197FE0, (t, "x.o", 0x20, 0)), (0x80198000, (t, "y.o", 0x30, 0))], 0x80198030))
+
+        # through the script: a.o's and b.o's text grew; their slots touch, and the run holds a.o (the larger
+        # that fits); b.o goes to code_en
+        script = ("SECTIONS\n{\n    __romPos = 0;\n"
+                  "    code_ROM_START = __romPos;\n    .code 0x80051A80 : AT(code_ROM_START) SUBALIGN(16)\n    {\n"
+                  "        code_TEXT_START = .;\n        build/src/code/a.o(.text);\n        build/src/code/b.o(.text);\n"
+                  "        build/src/code/c.o(.text);\n        code_TEXT_END = .;\n"
+                  "        code_DATA_START = .;\n        build/src/code/c.o(.data);\n        code_DATA_END = .;\n    }\n"
+                  "    __romPos += SIZEOF(.code);\n    code_ROM_END = __romPos;\n    code_VRAM_END = .;\n"
+                  "    __romPos = ALIGN(__romPos, 16);\n    . = ALIGN(., 16);\n\n"
+                  "    buffers_ROM_START = __romPos;\n    .buffers_bss code_VRAM_END (NOLOAD) { *(.bss); }\n"
+                  "    buffers_ROM_END = __romPos;\n    __romPos = ALIGN(__romPos, 16);\n    . = ALIGN(., 16);\n\n"
+                  "    ovl_select_ROM_START = __romPos;\n    .ovl_select 0x80800000 : AT(ovl_select_ROM_START) { *(.ovl); }\n"
+                  "    __romPos += SIZEOF(.ovl_select);\n    ovl_select_ROM_END = __romPos;\n"
+                  "    __romPos = ALIGN(__romPos, 16);\n    . = ALIGN(., 16);\n\n"
+                  "    /DISCARD/ :\n    {\n        *(*);\n    }\n}\n")
+
+        def mapfile(a, b, c=0x200):
+            return (".code           0x80051a80   0x100000 load address 0x01914000\n"
+                    "                0x80051a80                        code_TEXT_START = .\n"
+                    " .text          0x80051a80      0x%x build/src/code/a.o\n"
+                    " .text          0x%08x      0x%x build/src/code/b.o\n"
+                    " .text          0x%08x      0x%x build/src/code/c.o\n"
+                    "                0x%08x                        code_DATA_START = .\n"
+                    " .data          0x%08x       0x20 build/src/code/c.o\n"
+                    ".buffers_bss    0x801524c0    0x42420\n"
+                    " .bss           0x801524c0    0x42420 build/asm/buffers.o\n"
+                    "                0x801948e0                        buffers_VRAM_END = .\n"
+                    % (a, 0x80051a80 + a, b, 0x80051a80 + a + b, c, 0x80051a80 + a + b + c, 0x80051a80 + a + b + c))
+        with tempfile.TemporaryDirectory() as d:
+            p, ref, new, moved = [os.path.join(d, n) for n in ("a.ld", "ref.map", "new.map", "moved.txt")]
+            open(p, "w").write(script)
+            open(ref, "w").write(mapfile(0x100, 0x100))
+            open(new, "w").write(mapfile(0x180, 0x120))
+            args = [p, "--ref", ref, "--map", new, "--moved-out", moved, "--next-rom", "0x73F4D0",
+                    "--pristine", os.path.join(d, "a.ld.splat")]
+            af_relink.main(args)
+            lines = open(p).read().splitlines()
+            self.assertEqual(open(moved).read(), "build/src/code/a.o .text\nbuild/src/code/b.o .text\n")
+            at = lines.index("        code_TEXT_START = .;")
+            self.assertTrue(lines[at + 1].startswith("        /* af_relink: build/src/code/a.o(.text) grew to 0x180: a run "
+                                                     "of slots, 0x200 bytes from 0x80051a80,"))
+            self.assertEqual(lines[at + 2], "        build/src/code/a.o(.text);")
+            self.assertEqual(lines[at + 3], "        . += 0x80; /* af_relink: the rest of the run */")
+            self.assertTrue(lines[at + 4].startswith("        /* af_relink: build/src/code/b.o(.text) grew to 0x120: its slot "
+                                                     "is part of the run"))
+            self.assertEqual(lines[at + 5], "        build/src/code/c.o(.text);")
+            self.assertEqual(lines.count("        build/src/code/a.o(.text);"), 1)
+            en = lines.index("        code_en_TEXT_START = .;")
+            self.assertEqual(lines[en + 1:en + 3], ["        build/src/code/b.o(.text);", "        code_en_TEXT_END = .;"])
+            # a section placed in a run that is not its own: with x.o (unchanged) between them, c.o's text (a
+            # slot of 0x40) grew to 0x180 and fits where a.o's and b.o's, grown past their run of 0x200, do not;
+            # its own slot stays a hole of its old size and the section stands once, in the run (its own line
+            # was once taken for the one written there: the section went back into its slot and all that
+            # follows it moved, which af_shiftcheck refused)
+            script2 = script.replace("        build/src/code/c.o(.text);\n",
+                                     "        build/src/code/x.o(.text);\n        build/src/code/c.o(.text);\n")
+
+            def mapfile2(a, b, c):
+                x = 0x80051a80 + a + b
+                return mapfile(a, b, c).replace(" .text          0x%08x      0x%x build/src/code/c.o\n" % (x, c),
+                                                " .text          0x%08x       0x80 build/src/code/x.o\n"
+                                                " .text          0x%08x      0x%x build/src/code/c.o\n" % (x, x + 0x80, c))
+            p2 = os.path.join(d, "b.ld")
+            open(p2, "w").write(script2)
+            open(ref, "w").write(mapfile2(0x100, 0x100, 0x40))
+            open(new, "w").write(mapfile2(0x300, 0x280, 0x180))
+            af_relink.main([p2] + args[1:-1] + [os.path.join(d, "b.ld.splat")])
+            lines = open(p2).read().splitlines()
+            at = lines.index("        code_TEXT_START = .;")
+            self.assertTrue(lines[at + 1].startswith("        /* af_relink: build/src/code/a.o(.text) grew to 0x300: a run "
+                                                     "of slots, 0x200 bytes from 0x80051a80,"))
+            self.assertEqual(lines[at + 2:at + 4], ["        build/src/code/c.o(.text);",
+                                                    "        . += 0x80; /* af_relink: the rest of the run */"])
+            self.assertTrue(lines[at + 4].startswith("        /* af_relink: build/src/code/b.o(.text) grew to 0x280: its slot "))
+            self.assertEqual(lines[at + 5], "        build/src/code/x.o(.text);")
+            self.assertEqual(lines[at + 6], "        . += 0x40; /* af_relink: build/src/code/c.o(.text) grew to 0x180: "
+                                            "its slot stays, it is in another's */")
+            self.assertEqual(lines[at + 7], "        code_TEXT_END = .;")
+            self.assertEqual(lines.count("        build/src/code/c.o(.text);"), 1)
+            en = lines.index("        code_en_TEXT_START = .;")
+            self.assertEqual(sorted(lines[en + 1:en + 3]), ["        build/src/code/a.o(.text);", "        build/src/code/b.o(.text);"])
+            open(ref, "w").write(mapfile(0x100, 0x100))
+            open(new, "w").write(mapfile(0x180, 0x120))
+            # a kept slot: nothing goes into the run it is part of
+            af_relink.main(args + ["--keep-hole", "build/src/code/b.o"])
+            lines = open(p).read().splitlines()
+            at = lines.index("        code_TEXT_START = .;")
+            self.assertTrue(lines[at + 1].startswith("        . += 0x100; /* af_relink: build/src/code/a.o(.text) grew to 0x180: its slot stays */"))
+            self.assertTrue(lines[at + 2].startswith("        . += 0x100; /* af_relink: build/src/code/b.o(.text) grew to 0x120: its slot stays */"))
+            en = lines.index("        code_en_TEXT_START = .;")
+            self.assertEqual(sorted(lines[en + 1:en + 3]), ["        build/src/code/a.o(.text);", "        build/src/code/b.o(.text);"])
+
     def test_relink_sees_symbols_move_inside_a_section_of_the_same_size(self):
         def mapfile(f2):
             return (".code           0x80051a80   0x100000 load address 0x01914000\n"
@@ -502,6 +622,10 @@ class Shiftability(unittest.TestCase):
             self.assertEqual(run(mapfile(0, moved_at=0x80200000), ("build/src/code/a.o", ".data")), (0, []))
             delta, errors = run(mapfile(0, moved_at=0x80207FF0), ("build/src/code/a.o", ".data"))
             self.assertTrue(any("crosses a 64 KB" in e for e in errors), errors)
+            # a moved section may sit in code again, but only inside the slots that moved sections left
+            self.assertEqual(run(mapfile(0, moved_at=0x800ff370), ("build/src/code/a.o", ".data")), (0, []))
+            delta, errors = run(mapfile(0, moved_at=0x80051b00), ("build/src/code/a.o", ".data"))
+            self.assertTrue(any("outside the slots moved sections left" in e for e in errors), errors)
             # text is held too; a section padded in place may shrink, its symbols are free
             moved_text = mapfile(0).replace(" .text          0x80051a80     0x1000 build/src/code/a.o\n"
                                             "                0x80051a80                func_80051A80_jp\n",
@@ -763,6 +887,10 @@ class Script(unittest.TestCase):
         self.assertEqual(af_text.check_message(8, en, 32, 4, 0x400, original=jp),
                          [("warning", "prints STR_FREE4, which the cartridge's message does not: the game may not fill it")])
         self.assertEqual(af_text.check_message(8, jp, 32, 4, 0x400, original=jp), [])
+        # and so with an item's string or the chosen answer (the draft once looked at the free strings only)
+        en = msgbank.parse("<STR_FREE2>'s <STR_ITEM2>, <STR_COUNTRYNAME>" + end)
+        self.assertEqual(af_text.check_message(8, en, 32, 4, 0x400, original=jp),
+                         [("warning", "prints STR_ITEM2, which the cartridge's message does not: the game may not fill it")])
         with tempfile.TemporaryDirectory() as d:
             text, index = os.path.join(d, "t.bin"), os.path.join(d, "i.bin")
             all_msgs = {n: msgbank.parse("<MSGEND>") for n in range(af_text.N64_COUNT)}
@@ -848,6 +976,33 @@ class Script(unittest.TestCase):
         self.assertEqual(und("go to\nto the shop<BTN>\n<MSGEND>"), "go to\nthe shop<BTN>\n<MSGEND>")
         with self.assertRaises(ValueError):
             af_text.undouble(msgbank.parse("that's that\n<MSGEND>"))
+        # a row of the map by its number where the text has the GameCube's letter (af_text.ACRE_ROWS)
+        rule = lambda f, text: msgbank.render(f(msgbank.parse(text)))
+        self.assertEqual(rule(af_text.acre_rows, "It's in Acre B-3,<PAUSE 06> or Acre F?\n<MSGEND>"),
+                         "It's in Acre 2-3,<PAUSE 06> or Acre 6?\n<MSGEND>")
+        with self.assertRaises(ValueError):
+            af_text.acre_rows(msgbank.parse("Acre 2-3, an Acreage, Acre G\n<MSGEND>"))
+        # a birthday's two numbers joined (af_text.MONTH_DAY): the space between the two strings only
+        self.assertEqual(rule(af_text.month_day, "<STR_ITEM3>? On <STR_ITEM3> <STR_ITEM4>, <STR_ITEM4> <STR_ITEM3>\n<MSGEND>"),
+                         "<STR_ITEM3>? On <STR_ITEM3>-<STR_ITEM4>, <STR_ITEM4> <STR_ITEM3>\n<MSGEND>")
+        with self.assertRaises(ValueError):
+            af_text.month_day(msgbank.parse("<STR_ITEM3>, <STR_ITEM4>\n<MSGEND>"))
+        # the first sentence that starts with a small letter given its capital (af_text.SMALL_START):
+        # after a sentence's end and codes or blanks only, not after an ellipsis
+        self.assertEqual(rule(af_text.capital, "Wait... what? no way.<PAUSE 08>\nyes way.\n<MSGEND>"),
+                         "Wait... what? No way.<PAUSE 08>\nyes way.\n<MSGEND>")
+        self.assertEqual(rule(af_text.capital, "Done.<PAUSE 06><BTN>\n<MSGCLEAR>and now?\n<MSGEND>"),
+                         "Done.<PAUSE 06><BTN>\n<MSGCLEAR>And now?\n<MSGEND>")
+        with self.assertRaises(ValueError):
+            af_text.capital(msgbank.parse("Well... all right. Fine!\n<MSGEND>"))
+        # the space after a comma that runs into a printed string, pauses between (af_text.COMMA_RUN)
+        self.assertEqual(rule(af_text.comma_space, "So,<PAUSE 08><STR_TAIL>! Hey,<STR_PLAYERNAME>, <STR_TAIL>\n<MSGEND>"),
+                         "So, <PAUSE 08><STR_TAIL>! Hey, <STR_PLAYERNAME>, <STR_TAIL>\n<MSGEND>")
+        with self.assertRaises(ValueError):
+            af_text.comma_space(msgbank.parse("So, <STR_TAIL>,<PAUSE 08> then\n<MSGEND>"))
+        # each numbered rule's numbers are messages, and a rule applies to each of its own
+        for numbers, f, what, count in af_text.OFFICIAL_RULES:
+            self.assertTrue(numbers and all(0 <= n < af_text.N64_BANKS["message"][2] for n in numbers), what)
         # a line that ends in a dash after a letter goes on in the next line's first word, no space between,
         # moved on or filled anew; a dash after a code that prints a string, or alone, is a word's end
         self.assertEqual(lay("aaaa bbbb ccー<PAUSE 06>\ndd e\n<MSGEND>"), "aaaa bbbb\nccー<PAUSE 06>dd e\n<MSGEND>")
@@ -1167,6 +1322,38 @@ class OwnStringsAndLetters(unittest.TestCase):
         credits = af_text.load_bank(os.path.join(HERE, "..", "script", "string", "credits.txt"))
         self.assertEqual(sorted(credits), list(range(1258, 1365)))
         self.assertTrue(all(len(msgbank.encode(t)) <= 15 for t in credits.values()))
+
+    def test_resetti_strings_fit_the_dial_and_his_compares(self):
+        # tools/af_dial.py phrases: a phrase to type is 1 to 10 characters the dial has; an insult is as long
+        # as its place in the list compares (2, then one more from words 6, 16, 25, 30 and 31)
+        self.assertEqual([af_dial.insult_len(i) for i in (0, 5, 6, 15, 16, 24, 25, 29, 30, 31)],
+                         [2, 2, 3, 3, 4, 4, 5, 5, 6, 7])
+        self.assertTrue(af_dial.typed("Oh, it's 5 o'clock! \u2665"))
+        self.assertFalse(af_dial.typed("a = b") or af_dial.typed("two\nlines") or af_dial.typed("caf\u00e9"))
+        # a string's characters are its bytes: the dump's escape before < is none, a raw byte is one no dial types
+        text = af_dial.string_text(msgbank.parse("I \\<3 U {80}"))
+        self.assertEqual((text, len(text)), ("I <3 U \0", 8))
+        self.assertTrue(af_dial.typed(text[:6]) and not af_dial.typed(text))
+        good = {af_dial.PENANCE_FIRST + i: "Phrase %d!" % i for i in range(af_dial.PENANCE_COUNT)}
+        good.update({af_dial.INSULT_FIRST + i: "qzxjvwk"[:af_dial.insult_len(i)] for i in range(af_dial.INSULT_COUNT)})
+        self.assertEqual(af_dial.phrase_problems(good), [])
+        bad = dict(good)
+        bad[af_dial.PENANCE_FIRST] = "one = two"                       # a sign no mode has
+        bad[af_dial.PENANCE_FIRST + 1] = "eleven chars"                # past the window
+        bad[af_dial.INSULT_FIRST] = "qzx"                              # 3 where 2 are compared
+        bad[af_dial.INSULT_FIRST + 6] = "RaS"                          # inside a phrase to type, whatever the case
+        self.assertEqual([t.split(":")[0] for t in af_dial.phrase_problems(bad)],
+                         [str(af_dial.PENANCE_FIRST), str(af_dial.PENANCE_FIRST + 1), str(af_dial.INSULT_FIRST),
+                          str(af_dial.INSULT_FIRST + 6)])
+        # ours (script/string/resetti.txt): the three phrases and the whole list of insults; the GameCube's
+        # thirteen other phrases are checked with them when the bank is compiled (make rom-en)
+        ours = {n: msgbank.render(t) for n, t in self.own(os.path.join(HERE, "..", "script", "string")).items()}
+        strings = {af_dial.PENANCE_FIRST + i: "x" for i in range(af_dial.PENANCE_COUNT)}
+        strings.update({n: t for n, t in ours.items()
+                        if af_dial.PENANCE_FIRST <= n < af_dial.PENANCE_FIRST + af_dial.PENANCE_COUNT
+                        or af_dial.INSULT_FIRST <= n < af_dial.INSULT_FIRST + af_dial.INSULT_COUNT})
+        self.assertEqual(sum(1 for n in strings if n >= af_dial.INSULT_FIRST), af_dial.INSULT_COUNT)
+        self.assertEqual(af_dial.phrase_problems(strings), [])
 
     def test_letters_fit_their_banks(self):
         for bank in af_text.LETTER_BANKS:
@@ -1615,6 +1802,68 @@ class MenusWords(unittest.TestCase):
         inc = af_items.include(True, tokens)
         self.assertIn("#define ITEM_EN_RECORDS %d " % (len(af_items.slots()) + 3), inc)
         self.assertIn("#define ITEM_EN_SPECIAL_NAMES { { 0x205, 1705 }, { 0x000, 0 }, }", inc)
+
+    def test_item_names_are_read_from_the_decompressed_image(self):
+        # a name lies at its file's vrom, which is its place in the decompressed image only: a read that
+        # falls outside the image (the dump, where the file is elsewhere) is refused, not answered with nothing
+        rom = bytearray(af_items.NAME_FILE + 0x30)
+        rom[af_items.NAME_FILE + 8:af_items.NAME_FILE + 18] = bytes(range(0x10, 0x1A))
+        self.assertEqual(af_items.n64_name(bytes(rom), "paper", 0), bytes(range(0x10, 0x1A)))
+        with self.assertRaises(SystemExit):
+            af_items.n64_name(bytes(0x1000000), "paper", 0)
+
+    def test_articles_follow_the_first_sound(self):
+        # a or an by the name's first sound: the first letter, but a number as it is read, initials letter by
+        # letter and the words read against their first letter
+        a, an = af_items.ARTICLES.index("a"), af_items.ARTICLES.index("an")
+        for text, want in (("apple crate", an), ("pear crate", a), ("8 ball rug", an), ("11 o'clock tea", an),
+                           ("18th hole", an), ("7 seas map", a), ("80s lamp", an), ("X mark tee", an),
+                           ("U turn sign", a), ("MVP cap", an), ("TV set", a), ("one-way sign", a),
+                           ("unicycle", a), ("umbrella", an), ("hourglass", an), ("horn", a), ("(odd) box", an),
+                           ("...", None)):
+            self.assertEqual(af_items.sound_article(text), want, text)
+        saved = af_items.KINDS, af_items.FTR_CLOTH
+        try:
+            af_items.KINDS = [("cloth", 2, 0x10, "itemName_cloth", "itemArt_Cloth"), ("ftr", 3, 0x40, "ftrName_table", "ftrArt")]
+            af_items.FTR_CLOTH = (1, 3)                    # the furniture 1 and 2 are the clothes 0 and 1
+            rom = bytes(af_items.NAME_FILE + 0x100)
+            the = af_items.ARTICLES.index("the")
+            gc = {("cloth", 0): ("eel print", a), ("cloth", 1): ("oak leaf tee", the), ("ftr", 0): ("gold urn", an),
+                  ("ftr", 1): ("eel print", a), ("ftr", 2): ("oak leaf tee", the)}
+            mended = []
+            data, counts = af_items.records(rom, gc, {}, [6] * 256, mended)
+            size = af_items.RECORD_SIZE
+            self.assertEqual([data[k * size + 1] for k in range(5)], [an, the, a, an, the])   # a and an only
+            self.assertEqual(mended, [("cloth", 0), ("ftr", 0), ("ftr", 1)])
+            # a name of ours is taken as it is, and names the same clothes as furniture
+            own = {("cloth", 0): ("urn print", a)}
+            data, counts = af_items.records(rom, gc, own, [6] * 256)
+            self.assertEqual(data[:size], bytes([9, a, 5, 0]) + b"urn print" + b" " * 7)
+            self.assertEqual(data[3 * size:4 * size], data[:size])
+            self.assertEqual(counts, {"cloth": [1, 1, 0], "ftr": [2, 1, 0]})
+        finally:
+            af_items.KINDS, af_items.FTR_CLOTH = saved
+        # ours (script/items.txt): 16 characters at most, and a or an as the first sound asks
+        for (kind, i), (text, art) in af_items.read_names(os.path.join(HERE, "..", "script", "items.txt")).items():
+            self.assertLessEqual(len(text), af_items.GC_NAME_LEN, (kind, i))
+            if art in (a, an):
+                self.assertEqual(af_items.sound_article(text), art, (kind, i, text))
+
+    def test_letter_strings_take_tokens_in_the_string_bank(self):
+        # the strings the cartridge loads into a letter's free string (10 bytes) and prints from there: those
+        # longer than 10 bytes take a token that fills the 10, their records after the others'
+        self.assertEqual(len(af_items.LETTER_STRINGS), 16 * 4 + 9 + 4)
+        strings = {673: msgbank.parse("Luck in all things"[:16]), 674: msgbank.parse("So-so"),
+                   1368: msgbank.parse("Corner Shop Co."), 100: msgbank.parse("Elsewhere, long")}
+        found = af_items.long_letter_strings(strings)
+        self.assertEqual([w for w, _ in found], [("letter string", 673), ("letter string", 1368)])
+        records, tokens = af_items.name_records(found, 1950, [6] * 256, af_items.LETTER_STR_LEN)
+        self.assertEqual(records[:4], bytes([16, 0, 8, 0]))                 # 96 px: 8 cells
+        self.assertEqual(tokens[0][2], bytes([0x80, 0x81 + 1950 // 64, 0x81 + 1950 % 64] + [0x80] * 5 + [0x20] * 2))
+        self.assertEqual(len(tokens[1][2]), af_items.LETTER_STR_LEN)
+        bank = msgbank.Bank.parse_dump(af_items.string_tokens(tokens))
+        self.assertEqual(msgbank.encode(bank[673]), tokens[0][2])           # the bank's compile reads them back
+        self.assertEqual(msgbank.encode(bank[1368]), tokens[1][2])
 
     def test_long_catchphrases_take_tokens_in_the_string_bank(self):
         # the catchphrases the animals' default data names (each entry's u16 at +2), once each, those longer

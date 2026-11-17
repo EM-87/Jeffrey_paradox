@@ -54,15 +54,19 @@ the why and the state, `reference/NOTES.md` for what is verified.
    menus-check-en`, one to the structures', a room's or the furniture's
    textures or palettes `make signs-check-en`, one to the choice window
    or the player-select actor `make psel-check-en`, one to an event, a
-   date, the banks' tables or an actor's talk `make year-check-en`, one
-   to `emu/` `make emu-determinism`.
+   date, the banks' tables or an actor's talk `make year-check-en` (which
+   also reads the room the arena has left in every block of every date:
+   run it too for a change that grows `code_en`), one to `emu/` `make
+   emu-determinism`.
 
 ## Where things live
 
 - `Makefile` — baserom, decomp checkout/extract/build, verify, emulator,
   emu-check, nafe, test; `rom-en`, `emu-check-en`, `route-en` and
   `decomp-patch-en` for the translation's build in `build/af_en`; `script`
-  for the GameCube text (ISO=).
+  for the GameCube text (ISO=), and `drafts` for its drafts again from
+  build/gc's copies of the disc's files, without the disc (after a change
+  to a rule of the draft's or to `script/`).
 - `decomp/AF_REV`, `decomp/matching.patch` (decompiled code, must rebuild
   the cartridge), `decomp/changes.patch` (the translation, on top) — what
   we build.
@@ -84,10 +88,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
 - `tools/af_relink.py`, `af_relsyms.py`, `af_ranges.py`, `af_dmaorder.py` —
   the translation's build (`make rom-en`, in build/af_en): `code` moved to
   the end of the ROM so that it can grow, nothing of it moved in RAM (a
-  section that grows, or a new one, goes to `code_en` after `buffers`, a
-  shrunk one is padded in place), the RAM addresses splat left absolute
-  made relative, and the compressed ROM's ranges and dmadata order (NOTES,
-  "Shiftability"). `tools/af_ovlreloc.py` gives an overlay the translation
+  section that grows, or a new one, leaves its slot: a text section goes
+  into the slots other grown ones left where it fits, the rest to
+  `code_en` after `buffers`; a shrunk one is padded in place), the RAM
+  addresses splat left absolute made relative, and the compressed ROM's
+  ranges and dmadata order (NOTES, "Shiftability", "The second review"). `tools/af_ovlreloc.py` gives an overlay the translation
   changes (`EN_OVERLAYS`) its relocation table anew, from fado, in the
   cartridge's layout, after proving fado on the matching build (NOTES,
   "The letter board in the en build").
@@ -115,7 +120,12 @@ the why and the state, `reference/NOTES.md` for what is verified.
   cartridge's (`af_text.steering`; NOTES, "Our own messages"). The draft
   gives every official message the cartridge's codes (`af_text.mend`), or
   where it cannot, the cartridge's Japanese to translate (NOTES, "The
-  official text's codes and the GameCube's own").
+  official text's codes and the GameCube's own"). Where the official
+  English is wrong for the cartridge in a way a rule can state, the draft
+  mends it by the message's number, never by its words
+  (`af_text.OFFICIAL_RULES`: a word printed twice, a row of the map by
+  the GameCube's letter, a birthday's two numbers, a sentence's capital,
+  a comma's space; NOTES, "The second review").
 - `tools/af_font.py` — the en build's font, made from the user's dump at
   `make rom-en`: the GameCube's Latin letters and their widths (read from
   the disc by `make script` into `build/gc/gc_font.bin`), or without the
@@ -144,7 +154,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
   tokens, their records after the items', the animals' written into the
   en name segment (NOTES, "Names longer than 6"), and so do the
   catchphrases longer than 4, their tokens laid over the string bank
-  (`string_tokens.txt`; NOTES, "Catchphrases longer than 4").
+  (`string_tokens.txt`; NOTES, "Catchphrases longer than 4"), and the
+  strings the cartridge loads into a letter's 10-byte free string
+  (`LETTER_STRINGS`: the fortune slip's, the shop's name under a notice);
+  a name of the GameCube's with a or an takes the one its first sound
+  asks for (`sound_article`; NOTES, "The second review").
 - `tools/af_nafe_gfx.py` — the 42 menu labels the AF Project's 2010
   patch drew in English, taken at `make rom-en` from the user's copy
   (`make nafe NAFE_UPS=...`, build/nafe-2010-12-02.z64) over the en
@@ -197,7 +211,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   panel's rows' lists pointed at the capitals', the symbols' and the
   digits' labels, and the symbols' ring without its Japanese marks in
   the editor's data, at `make rom-en` (NOTES, "The dial's small
-  letters").
+  letters"); and `phrases`, which holds the en string bank to what the
+  dial types: Mr. Resetti's phrases to type and the words he takes as an
+  insult, each as long as his code compares (NOTES, "The second review").
 - `tools/af_answers.py` — the answers an overlay copies from its own
   data instead of the choice bank (the player-select actor's for a new
   player, the fireworks stall's), pointed at the bank's English by a
@@ -313,13 +329,16 @@ the why and the state, `reference/NOTES.md` for what is verified.
   source did (func_80877B0C_jp, NOTES "The letter's tag").
 - **`code_en` comes out of the heap.** The system heap starts after it,
   and play gives the zelda arena the rest of its state's heap, so every
-  byte the en build adds there is a byte less for the arena. The title's
-  load of the save takes 0xF980 bytes of it (66 KB to spare, measured at
-  the item names' batch); in play at the houses 0x51B0 are left, and a
-  load called there fails (NOTES, "Item names"). The save and letters
-  checks went four batches unrun while the swap table grew `code_en`,
-  and nothing else noticed. A table that can live in ROM goes to a
-  segment.
+  byte the en build adds there is a byte less for the arena, and an
+  actor's overlay that finds no room stops the game. With every grown
+  section in `code_en` (112 KB) the arena had 0x51B0 left at the houses
+  and 32 KB at its least on the year's tour; the grown text now fills the
+  slots other grown sections left in code, `code_en` is 0xCDF0 (52 KB),
+  and the same tour's least is 97,712 bytes (NOTES, "Item names", "The
+  second review"). `make year-check-en` holds it to a floor. The save and
+  letters checks once went four batches unrun while the swap table grew
+  `code_en`, and nothing else noticed. A table that can live in ROM goes
+  to a segment.
 - **An overlay's relocation table cannot grow either.** Its `_reloc`
   segment keeps the cartridge's size, and `tools/af_ovlreloc.py` refuses
   more relocations than it holds (the editor's: room for 214, the en
@@ -365,6 +384,33 @@ the why and the state, `reference/NOTES.md` for what is verified.
   table in `relocs/reloc_addrs-jp.txt` (`addend:-0x10000`); never trust a
   matching build as proof that the symbols are right. `tools/af_anchors.py`
   finds the class (NOTES, "Shiftability").
+
+## Text traps
+
+- **The official English is the GameCube's, and the GameCube is another
+  game.** It letters the map's rows where the cartridge numbers them,
+  fills a month's name where the cartridge fills a number, drew some
+  clothes, floors and walls anew under their old numbers and named the
+  new drawing, and speaks of things the cartridge has not (a tailor, a
+  lighthouse, a ghost). A message can keep the cartridge's codes and
+  still say another thing: the comparison by codes (`tools/af_align.py`)
+  cannot see it. Read the Japanese beside it, and look at the texture
+  beside a name.
+- **A string of the bank longer than the buffer its loader gives it is
+  cut, silently.** The cartridge's code loads a string into 4, 6 or 10
+  bytes and hands those on; a letter's free string is 10. Before a string
+  grows, find every loader of its number (the immediates in the asm, the
+  tables in the overlays' data) and what each does with the bytes; where
+  they are too few, a token (`tools/af_items.py`).
+- **What the player types is compared byte for byte.** Mr. Resetti's
+  phrases are compared over 10 bytes with what the dial typed, his
+  insults over a length fixed by their place: a character the dial lacks,
+  or a word of another length, never matches (`tools/af_dial.py
+  phrases`).
+- **A tool given the wrong image must refuse.** A file lies at its vrom
+  in the decompressed image only; `af_items.n64_name`, given the dump,
+  answered every name with nothing, and the listing that would have shown
+  a wrong mapping showed blanks instead.
 
 ## Emulator traps (each cost a wrong result before it was known)
 

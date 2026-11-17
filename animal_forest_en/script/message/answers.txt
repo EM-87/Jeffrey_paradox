@@ -173,7 +173,7 @@ so will you forgive me?<SETSELSTR2 00230018><BTN><OPENCHOICE><SETNEXTMSG0 2cb9><
 <DEMONPCQST 020007><DEMONPC0 000002><PAUSE 07>Whoa!<PAUSE 04>
 <STR_PLAYERNAME>,<PAUSE 04> is that
 <PAUSE 06>.<PAUSE 06>.<PAUSE 06>.<PAUSE 0c>
-<STR_ITEM0> you've got?
+<STR_ITEM0> you got?
 <BTN>
 <MSGCLEAR><DEMONPC0 00000e>It's so big!<PAUSE 0c>
 I've never seen
@@ -184,9 +184,9 @@ I've never seen
 Pretty please<PAUSE 06>.<PAUSE 06>.<PAUSE 06>.
 <BTN>
 <MSGCLEAR><DEMONPC0 0000ff>Trade it for my<PAUSE 06>
-<CUTARTICLE><STR_ITEM1>,<PAUSE 06> it's too small
-for me now!<PAUSE 08> Or do you
-wanna keep yours?<SETSELSTR2 00100056><BTN><OPENCHOICE><SETNEXTMSG0 186d><SETNEXTMSG1 186e><FORCENEXT>
+<CUTARTICLE><STR_ITEM1>,<PAUSE 06> it's
+too small for me now!<PAUSE 08>
+Wanna keep yours?<SETSELSTR2 00100056><BTN><OPENCHOICE><SETNEXTMSG0 186d><SETNEXTMSG1 186e><FORCENEXT>
 <MSGCONTINUE>
 
 ## 7392
@@ -322,7 +322,7 @@ Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG1 2476><
 #: the quiz for a reward
 You can catch fish<PAUSE 04>
 in the sea<PAUSE 04> down by
-the F acres.<PAUSE 0c>
+the acres of row 6.<PAUSE 0c>
 Circle: true! X: false!<SETSELSTR2 00cd00ce><BTN><OPENCHOICE><SETNEXTMSG1 2476><SETNEXTMSG0 2472><FORCENEXT>
 <MSGCONTINUE>
 
