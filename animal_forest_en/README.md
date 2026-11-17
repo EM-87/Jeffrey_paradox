@@ -615,6 +615,59 @@ cada respuesta. Encontró cuatro fallos, ya corregidos:
   final de la frase japonesa. Ahora copia solo los códigos, y la
   compilación avisa si algún mensaje muestra japonés: en la ROM, ninguno.
 
+Una segunda revisión, independiente y sin dar por bueno nada de lo ya
+marcado como hecho ("The second review"), repasó el texto compilado
+mensaje a mensaje contra el cartucho, los nombres uno a uno, el código de
+la traducción, las herramientas, las texturas que quedaban por mirar y la
+memoria del juego. Lo que estaba bien lo sigue estando (los códigos que
+dirigen el juego son los del cartucho en los 11.752 mensajes, ninguna
+línea se sale de la ventana, ningún búfer puede desbordarse, el guardado
+tiene margen de sobra). Lo que encontró, ya corregido:
+
+- **Dos textos se cortaban a 10 letras.** El juego guarda en 10 bytes las
+  palabras que mete en una carta. La papeleta de la fortuna de Año Nuevo
+  salía con sus cinco frases truncadas, y los avisos del tablón que firma
+  la tienda, con el nombre a medias. Ahora esas cadenas viajan como una
+  ficha de 10 bytes que el código de las cartas, que ya sabía hacerlo con
+  los nombres de los objetos, convierte en el texto entero.
+- **El cumpleaños salía como dos números sueltos** («3 14»). El cartucho
+  escribe dos números donde GameCube escribe el mes con su nombre; ahora
+  se lee «3-14», como en la ventana del cumpleaños.
+- **Una de las frases que pide Resetti no se podía teclear** (llevaba un
+  signo que el dial inglés no tiene), y su lista de insultos no casaba
+  con lo que el juego compara. Las dos son nuestras ahora, y la
+  compilación comprueba que todo lo que Resetti compara se puede escribir
+  con el dial.
+- **Seis mensajes decían otra cosa que el cartucho**: hablaban de cosas
+  que solo tiene GameCube (un sastre, un faro, un fantasma) o imprimían
+  una cadena que el cartucho no rellena. Traducidos de nuevo desde el
+  japonés. Otros siete nombraban las filas del mapa con la letra de
+  GameCube; el mapa del cartucho las numera.
+- **Diez objetos tenían el nombre de otro dibujo.** GameCube redibujó
+  algunas prendas, dos suelos y dos papeles de pared conservando el
+  número, y su nombre inglés es el del dibujo nuevo. Tienen ahora el
+  nombre de lo que el cartucho dibuja. Cinco artículos «a/an» que
+  GameCube trae al revés se corrigen con una regla.
+- **La memoria iba más justa de lo necesario.** El código que creció con
+  la traducción se colocaba entero al final, y cada byte ahí es un byte
+  menos para el juego (y un fallo de memoria ya había hecho fallar dos
+  comprobaciones durante el desarrollo).
+  Pero al mover ese código quedaban vacíos sus sitios originales: ahora
+  se rellenan con las otras piezas que crecieron. El código añadido al
+  final pasa de 112 KB a 52 KB. Medido en un pueblo de dos jugadores: en
+  el recorrido de la gimnasia matutina el mínimo libre pasa de 32 KB a
+  97 KB, y el punto más justo del año (el día de Año Nuevo, junto al
+  santuario con sus puestos) queda en 72 KB, donde antes, por la misma
+  cuenta, habrían sido unos 12. `make year-check-en` lo mide en cada
+  parcela de cada fecha y falla si baja de un mínimo.
+- Erratas del texto oficial (seis frases que empezaban en minúscula,
+  cuatro comas sin su espacio) y dos respuestas mal ajustadas.
+
+De paso, un hallazgo que resultó ser falsa alarma mía: creí que una
+herramienta nunca había leído los nombres japoneses de los objetos; los
+leía bien en la compilación, y solo fallaba, en silencio, si se le daba
+el volcado sin descomprimir. Ahora lo rechaza con un mensaje claro.
+
 ## Dónde está cada cosa
 
 - `Makefile` — todo lo de arriba.

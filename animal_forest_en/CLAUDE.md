@@ -332,13 +332,14 @@ the why and the state, `reference/NOTES.md` for what is verified.
   byte the en build adds there is a byte less for the arena, and an
   actor's overlay that finds no room stops the game. With every grown
   section in `code_en` (112 KB) the arena had 0x51B0 left at the houses
-  and 32 KB at its least on the year's tour; the grown text now fills the
-  slots other grown sections left in code, `code_en` is 0xCDF0 (52 KB),
-  and the same tour's least is 97,712 bytes (NOTES, "Item names", "The
-  second review"). `make year-check-en` holds it to a floor. The save and
-  letters checks once went four batches unrun while the swap table grew
-  `code_en`, and nothing else noticed. A table that can live in ROM goes
-  to a segment.
+  and 32 KB at its least on the morning-aerobics date's tour; the grown
+  text now fills the slots other grown sections left in code, `code_en` is
+  0xCDF0 (52 KB), that tour's least is 97,712 bytes and the year's 71,792,
+  on New Year's Day, where the same sum gives some 12 KB before (NOTES,
+  "Item names", "The second review"). `make year-check-en` holds it to a
+  floor. The save and letters checks once went four batches unrun while
+  the swap table grew `code_en`, and nothing else noticed. A table that
+  can live in ROM goes to a segment.
 - **An overlay's relocation table cannot grow either.** Its `_reloc`
   segment keeps the cartridge's size, and `tools/af_ovlreloc.py` refuses
   more relocations than it holds (the editor's: room for 214, the en

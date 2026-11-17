@@ -87,8 +87,8 @@ SPECIAL = ("Npc_Totakeke", "Npc_Police", "Npc_Police2")
 VILLAGERS = 2                          # the ordinary villagers (Normal_Npc) talked to on each date, the first found
 ARENA_MAGIC, ARENA_NODES = 0x7373, 20000  # an arena node (ArenaNode: s16 magic, s16 isFree, u32 size, next, prev)
 ARENA_FLOOR = 0x10000                  # the arena's largest free block on the tour: never under 64 KB (the
-                                       # cartridge's has some 54 KB more; the tour's least was 32 KB while the
-                                       # sections that grew all sat in code_en)
+                                       # cartridge's arena has code_en's 52,720 bytes more; a tour's least was
+                                       # 32 KB while the sections that grew all sat in code_en)
 
 
 def talked_to(name):

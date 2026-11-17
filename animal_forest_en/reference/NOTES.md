@@ -3604,6 +3604,200 @@ in the repository); what they found:
   ROM). In the bank compiled, 2143 runs on after its dash and the three
   doubled words are single.
 
+## The second review (an independent pass before the last build)
+
+- **What was done.** Everything the translation ships was gone over again
+  against the cartridge, taking nothing an earlier pass had marked done as
+  checked: the four compiled banks read back from the en ROM (messages,
+  answers, strings, letters), every item's and animal's name against the
+  cartridge's own, the translation's code (`decomp/changes.patch`, read
+  whole) for what it writes and where, the tools, the textures the earlier
+  sweeps had not drawn, and the memory the game has left. What it found
+  follows; each fix has a check.
+- **Found right.** The four banks' files are whole inside the en ROM. The
+  codes that steer the game are the cartridge's in all 11,752 messages
+  (`af_text.steering` over the compiled bank against the dump's, the three
+  carried codes mapped back: no difference). Measured anew from the compiled
+  bank with the en font's widths, no line is wider than the window's 192
+  pixels and no page has more than 4 lines. A message cannot outgrow its
+  buffer: the largest is 1,338 bytes of the loader's 0x600, and the strings
+  a page puts in are bounded (`mMsg_FREE_STRING_LEN` and
+  `mMsg_ITEM_STRING_LEN` 32, an item's token 24). The choice loader reads an
+  answer's 24 bytes and the 7 before them into 32 on an aligned buffer; the
+  font's swap builds its English in a buffer its own size bounds
+  (`sizeof(mFont_en_built)`); the menus' overlays only hand over to
+  `m_handbill.c`. The save: towns of one, two and four players pack from
+  63,872 bytes to about 3,930, the extension at its cap (9,216) to about
+  4,070 more, of a slot's 65,536; with half of the save's bytes made random
+  it still fits. The string bank (1,657), the answers (461) and the 220
+  animals' names were read whole against the cartridge's; the item names'
+  mapping holds for every kind, the furniture's blocks included
+  (`tools/af_items.py pairs`, on the decompressed image).
+- **Messages that said another thing than the cartridge's.** Six official
+  messages are about things the GameCube has and the cartridge has not, or
+  print what the cartridge does not fill: 10819 (a winter's talk about
+  flowers; the GameCube's prints item string 2, which the cartridge never
+  fills there: the window would show what the string last held), 4593 (a tip
+  about noting down errands, where the GameCube's speaks of its tailor's
+  shop and patterns), 10330 (each town's shop sells other things; the
+  GameCube's is a hint about its ghost), 9223 (the castaway's farewell,
+  which the GameCube's ends with its lighthouse), 2505 (the cat on the
+  train: the GameCube's names its own title, where the en build's logo and
+  string 1258 say Animal Forest) and 9186 (a train some minutes late: the
+  cartridge fills item string 1, the GameCube's reads the clock's minute).
+  Ours now, from the cartridge's (`script/message/facts.txt`). The draft's
+  check for a string the cartridge does not fill looked at the free strings
+  only (`free_strings`): it is `af_text.filled` now, which also counts the
+  items' strings, the chosen answer, the random number and the letter's, in
+  the draft's note and in `check_message`. With 10819 ours, no official
+  message prints such a string.
+- **The map's rows are numbers.** The cartridge's map numbers its rows 1 to
+  6 and its columns 1 to 5 (the map's screen puts a number before the row's
+  label and one before the column's: build/emu-menus-en's shot of it), and
+  the code fills digits into the messages that name an acre
+  (`mFont_UnintToString`). The GameCube letters its rows A to F, and its
+  English says so in six official messages that name a row themselves (2162,
+  2169, 3409, 3410, 6330, 9522): the draft prints the row's number
+  (`af_text.ACRE_ROWS`, `acre_rows`). Message 2051, the 2010 patch's, had
+  the same letter: ours now; our own 9324 said "the F acres": row 6.
+- **A birthday's two numbers.** The first-meeting talk (`ovl__00815B70`,
+  asm: a helper of its own calls `mFont_UnintToString(buf, n, 10, 1, 0)`, at
+  0x8091D920, and then `mMsg_Set_item_str(msg, k, buf, 10)`, at 0x8091D93C)
+  puts the month and the day into item strings 3 and 4 as two numbers. The
+  GameCube fills a month's name and an ordinal, and its English prints the
+  two with a space between: the en build showed "3 14". In the 18 official
+  messages that do (`af_text.MONTH_DAY`), the draft joins them with a
+  hyphen, month-day, as the en build's birthday window writes a date
+  (`month_day`). The police's dates were made the GameCube's in code ("The
+  year's events"): that actor is C; this overlay is asm, so the text follows
+  the code here.
+- **A letter's free strings are 10 bytes.** `mHandbill_FREE_STR_LEN` is 10
+  (`B_80140680_jp[N][10]`, the cartridge's bss), and the cartridge's code
+  loads a string of the bank into 10 bytes before it sets one. Two places
+  print such a string from a letter, and their English was cut at 10: the
+  New Year fortune slip (`ovl_Ev_Miko`, `func_809E5BC4_jp`: four strings
+  from the lists at 673, 689, 714 and 730, its table `D_809E62B8_jp`, and
+  the luck's rank from 705, into free strings 0 to 4 of letters 114 to 116:
+  61 of the 64 fortunes are longer than 10) and the shop's name under three
+  of the bulletin board's notices (`code/m_notice`, `func_800A63F8_jp`:
+  string 1368 and the shop's size, free string 1 of letters 424, 431 and
+  449). Every use of those numbers in the asm and its tables was looked up:
+  no other code loads them. So they take tokens, as the catchphrases do
+  (`tools/af_items.py`, `LETTER_STRINGS`: the 69 of the 77 that are longer
+  than 10 bytes; their records follow the catchphrases'): the string bank
+  holds the token, the loader's 10 bytes carry it, and the letters' code,
+  which already expands an item's token in a free string
+  (`func_80092FC4_jp`, `mIN_en_TokenText`), prints the whole English. The
+  longest slip is 142 bytes of the body's 192. The second shop's string
+  (1369) said another name than the shop's own sign (the GameCube's bank and
+  its texture disagree): ours is the sign's (`script/string/shops.txt`).
+- **Mr. Resetti.** He has the player type one of 16 phrases (strings 0x484
+  on, `func_809B4FC4_jp` of `ovl_Npc_Majin3`) and compares the 10 bytes of
+  the window with the phrase (`func_809B4BB8_jp`: `mem_cmp` of 10). The
+  window fills its buffer with spaces before the editor opens (`ledit_ovl`,
+  `func_80884B30_jp`: `mem_clear` with 0x20 over the window's length) and
+  the en loader pads a string with spaces, so a phrase shorter than 10
+  matches when typed exactly. One of the GameCube's phrases has a sign the
+  en dial has in none of its modes: it could never be typed. Ours
+  (`script/string/resetti.txt`, with the two earlier ones). And he takes 32
+  words as an insult when one is anywhere in what was typed
+  (`func_809B4C18_jp`), comparing of each as many bytes as its place says, 2
+  for the first and one more from words 6, 16, 25, 30 and 31
+  (`D_809B572C_jp`), whatever the word's length: the GameCube's words are
+  longer than their places, so their first letters alone counted. Ours, each
+  as long as its place compares, none inside a phrase he asks for.
+  `tools/af_dial.py phrases` holds the bank to both at every `make rom-en`
+  (a phrase 1 to 10 characters the dial types; an insult its place's
+  length), the unit tests to ours.
+- **Item names.** Compared name by name with the cartridge's (and the
+  clothes' doubtful ones with their texture: the file at vrom 0xB68000, 256
+  of 32x32 CI4, palettes at 0xB88000), the GameCube's table names the same
+  thing at the same index but where it drew a thing anew: a bag of seeds
+  whose colour it has wrong (plant 4), five clothes (26, 27, 75, 191, 203),
+  and two floors and two walls (18 and 26, seen in the files at vrom
+  0x17A1000, 68 of 0x2020 bytes: a palette and 128x128 CI4, and 0x182A000,
+  68 of 0x1020: 64x128). Ours, from the cartridge's name and drawing
+  (`script/items.txt`; a name of ours for clothes is also their name as
+  furniture). The GameCube's table gives five names the wrong one of a and
+  an: `af_items.sound_article` gives a name the one its first sound asks for
+  (a number as it is read, initials letter by letter); over the GameCube's
+  1,400 names with a or an it differs on those five only. `n64_name` read a
+  name at its file's vrom, which is its place in the decompressed image the
+  build gives it; given the dump it answered with nothing, silently (the
+  `pairs` listing then shows no Japanese): it refuses now.
+- **The official text's slips.** Six official messages start a sentence with
+  a small letter and four run a comma straight into a printed string (the
+  catchphrase, the player's name): `af_text.SMALL_START` and `COMMA_RUN`,
+  generic rules by number like `DOUBLED`. Two answers are worded as our
+  messages word what they answer (123, 261: `script/choice/answers.txt`).
+- **The room the game has left.** Every byte of `code_en` comes off the
+  arena play gives its actors ("Item names"), and an actor's overlay that
+  finds no room stops the game. `code_en` was 0x1B7B0 bytes (112,560), and
+  the arena's nodes summed to 0xC9D80 bytes, in use and free (block 1,5 of
+  the morning-aerobics date's tour, 70 nodes), where the cartridge's would
+  hold 0x1B7B0 more. But the sections that grew had left their old slots in
+  code empty, 63,264 bytes of them, and `code_en` lost 0x1870 more to the
+  %hi windows. `tools/af_relink.py` now puts the text sections that left
+  their slots into the slots the others left (`pack_holes`: every choice
+  tried, as many bytes as can be; slots that touch are one run; each section
+  whole inside one window), and orders `code_en`'s kinds and sections to
+  lose the least to the windows. m_choice_main's slot stays empty
+  (`--keep-hole`): the checks build their hook there. `af_shiftcheck` allows
+  a moved section inside code only within the slots moved sections left. Six
+  sections went into slots (m_font, m_flashrom and m_item_name into the run
+  m_flashrom, m_font and m_handbill left; m_handbill and m_choice_main into
+  m_msg_main's; m_submenu into m_string's and its own), m_msg_main and
+  m_string stay in `code_en` with the data and bss: `code_en` is 0xCDF0
+  bytes (52,720) where it was 0x1B7B0: 59,840 bytes back to the arena (its
+  nodes sum to 0xD8740 in that block now, the same 70), the cartridge's
+  52,720 more still. Measured, in the two players' town on the year check's
+  tour (the arena's nodes walked in each of the 30 blocks): on the
+  morning-aerobics date the least was 31,984 bytes (block 3,5) with every
+  grown section in `code_en`, and is 97,712 with the slots filled (65,728
+  more, where the arena has 59,840 more: the largest free block is not all
+  that is free, and a tour's allocations are not the same to the byte from
+  one build to the next); over the year's 21 dates the least is 71,792 (New
+  Year's Day, in block 3,5 too, the river's bridge, walked into from the
+  shrine's block beside it, 2,5, where the day's stalls stand; by the same
+  sum some 12 KB before: not measured), then 77,280 (the countdown, block
+  1,6), 77,952 (K.K.'s night) and 78,480 (the turnips' morning), the rest
+  from 90,400 to 97,712. `make year-check-en` now reads it in every block of
+  every date and holds the least to a floor (`ARENA_FLOOR`, 64 KB). The
+  first try of the packing took a section's own line for the one it had just
+  written into a run and put the section back in its slot, moving all that
+  follows: `af_shiftcheck` refused the link (119 violations), which is what
+  it is for.
+- **Looked at and left.** The layout counts 8 letters (52 pixels) for an
+  item's string; the names with their articles measure 86 at the median and
+  125 at most, and the GameCube's own lines leave 110 or more for 90% of
+  them: inherited, as on the GameCube. Two of ours were 3 or 4 pixels short
+  for the widest names and were re-broken (6248, 9608). Some of the
+  GameCube's names fit its new drawing loosely and the cartridge's as
+  loosely (clothes 105, 107, 129, 154, 233; carpet 37): left. The pools of
+  random words (games, foods, sports) are the GameCube's: flavour. Fifteen
+  official messages print one filled string fewer than the cartridge's (551,
+  930, 2824, 5401, 6256 and 9421 do not name the thing they speak of, 4234
+  and 5949 leave out the counter after a number, 7862, 7863 and 9883 word a
+  remark another way, and four first greetings, 11200, 11204, 11206 and
+  11208, do not say where the neighbour lived before): read one by one
+  against the cartridge's, free wording that sends the player nowhere wrong;
+  left. With the extension full the oldest records are dropped: 87 letters
+  and 15 notices at their longest would need about 10.3 KB of its 9.2.
+- **The checks.** On the ROM this tree builds (md5 7d94a4565d26...; the
+  relink gave it four times over): `make test` (111 tests), `make verify`
+  (the matching build is the cartridge's), `emu-check` and `emu-check-en`;
+  `save-check-en` (all passed, the boot too), `letters-check-en` (the 77
+  strings a letter prints arrive as the bank has them, 69 of them tokens;
+  the fortune slip prints its five whole, 15 and 16 characters; each of the
+  shop's four names whole under each of the three notices; the extension's
+  model holds through 617 letters), `board-check-en` (12 boards),
+  `write-check-en`, `notice-check-en`, `messages-check-en` (728 messages
+  shown, 2,030 lines measured; a birthday of 12-31 written as the
+  first-meeting talk writes it and measured on its page), `menus-check-en`,
+  `psel-check-en`, `signs-check-en` and `year-check-en` (the 21 dates, the
+  arena read in every block): no failure. `make emu-determinism` passes too
+  (RAM the same after each of 2,035 frames).
+
 ## Other emulators (ares, Project64, RetroArch, RMG and simple64)
 
 - **ares** (v148, `emu/ares/`: `build.sh` pins it and builds its N64 core
