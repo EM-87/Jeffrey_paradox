@@ -40,16 +40,32 @@ written first, twenty known ones, some filling the 10 bytes. Checks:
      other load takes a buffer the zelda arena in play no longer has room
      for; tests/emu_save.py, 4 and 5);
   5. the strings the cartridge's code loads into a letter's free string
-     (tools/af_items.py, LETTER_STRINGS): loaded as that code loads them
-     (the string loader's 10 bytes handed to mHandbill_Set_free_str), a
-     New Year fortune slip and a notice signed with each of the shop's
-     names come out with the whole English, not its first 10 bytes.
+     (tools/af_items.py, SHORT_LOADED: the fortune slip's, the shop's
+     names, the eleven lists of a villager's reply): loaded as that code
+     loads them (the string loader's 10 bytes handed to
+     mHandbill_Set_free_str), a New Year fortune slip and a notice signed
+     with each of the shop's names come out with the whole English, not
+     its first 10 bytes;
+  6. the villagers' replies, by the game's own mNpc_GetRemailData (what
+     mNpc_SendRemailPostOffice calls), its two loaders' calls pointed at
+     recorders that write down what it picked: for each of the six
+     characters, in its own town and from another, to a good letter and
+     to a bad one, the letter it leaves and the whole letter are the
+     model's from the numbers it picked and the free strings it filled;
+     which free strings it fills is measured (all twenty spoiled before
+     each call: 0 to 13 in its own town, 0 to 15 from another, as
+     tools/af_text.py's reply_fills has it) and nothing spoiled is ever
+     printed; every bad reply's letter is seen; each of the 352 words a
+     reply can print is printed whole by a part that prints its free
+     string; and the four parts whose English prints a string the
+     cartridge's part does not are loaded after the game filled them.
 """
 
 import os
 import random
 import shutil
 import struct
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -58,6 +74,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 from n64emu import N64  # noqa: E402
 import emu_save  # noqa: E402
 import aflz  # noqa: E402
+import af_items  # noqa: E402
 
 HOOK_C = r"""
 typedef unsigned char u8;
@@ -87,6 +104,8 @@ void func_8008F938_jp(void);
 void bcopy(const void* src, void* dst, int size);
 void mString_Load_StringFromRom(u8* dst, s32 dstLen, s32 n);
 void mHandbill_Set_free_str(s32 n, u8* str, s32 len);
+void mNpc_GetRemailData(void* mail, void* pid, void* anmId, void* remail, s32 cond, s32 foreign);
+void mNpc_GetNpcWorldNameTableNo(u8* name, s32 npcId);
 
 typedef struct HookCtl {
     s32 cmd;
@@ -100,11 +119,33 @@ typedef struct HookCtl {
     u8 whole_body[192];
     u8 whole_footer[32];
     s32 frames;
+    s32 picked[6];  /* what the game's reply picked: a villager's letter's five numbers, or a shop letter's */
+    u8 remail[20];  /* an Anmremail: the reply of an animal of another town */
+    u8 anm[12];     /* an AnmPersonalID_c: the animal that replies */
 } HookCtl;
 
 /* Mail_c: content at 0x26 (headerBackStart 0x27, header 0x2A, body 0x34, footer 0x94) */
 
 HookCtl hook_ctl;
+
+/* the two loaders a reply calls (mNpc_GetHandbillz's, mNpc_GetRemailWrongData's), their numbers written down:
+ * the check points those two calls here */
+s32 hook_handbillz(HandbillzInfo* info) {
+    HookCtl* h = &hook_ctl;
+
+    h->picked[0] = info->superNo;
+    h->picked[1] = info->mailANo;
+    h->picked[2] = info->mailBNo;
+    h->picked[3] = info->mailCNo;
+    h->picked[4] = info->psNo;
+    h->picked[5] = -1;
+    return mHandbillz_load(info);
+}
+
+void hook_handbill(u8* header, s32* header_back_start, u8* footer, u8* body, s32 mail_no) {
+    hook_ctl.picked[5] = mail_no;
+    mHandbill_Load_HandbillFromRom(header, header_back_start, footer, body, mail_no);
+}
 
 void hook_main(void) {
     HookCtl* h = &hook_ctl;
@@ -189,11 +230,29 @@ void hook_main(void) {
             h->cmd = 0;
             break;
         }
+        case 9: /* a villager's reply, as mNpc_SendRemailPostOffice makes one: the letter, the player's ID, the
+                 * animal's, the reply's record (0 in its own town), bit 0 the letter it answers was a good one,
+                 * bit 1 it comes from another town */
+            mNpc_GetRemailData((void*)h->arg[0], (void*)h->arg[1], (void*)h->arg[2], (void*)h->arg[3],
+                               h->arg[4] & 1, (h->arg[4] >> 1) & 1);
+            h->cmd = 0;
+            break;
+        case 10: /* where the two recorders are */
+            h->picked[0] = (s32)hook_handbillz;
+            h->picked[1] = (s32)hook_handbill;
+            h->cmd = 0;
+            break;
+        case 11: /* an animal's name into the reply's record, as mNpc_SetMailCondOtherLand writes it */
+            mNpc_GetNpcWorldNameTableNo(h->remail + 4, h->arg[0]);
+            h->cmd = 0;
+            break;
     }
 }
 """
 
 CTL = struct.Struct(">ii5Ii32s32s96s24s192s32si")
+# after what a command writes: the reply's numbers, its record (an Anmremail), the animal's ID
+PICKED, REMAIL, ANM = CTL.size, CTL.size + 24, CTL.size + 44
 FILL_NONE, FILL_RETURN, FILL_SPACE = 0, 1, 2
 FREE_CODES = dict([(36 + i, i) for i in range(10)] + [(54 + i, 10 + i) for i in range(10)])
 SPACE, NEWLINE = 0x20, 0xCD
@@ -406,10 +465,51 @@ def token_text(af_en, data):
     the record's number in two digits; its name, no article), or the string itself."""
     if len(data) >= 3 and data[0] == 0x80 and 0x81 <= data[1] <= 0xC0 and 0x81 <= data[2] <= 0xC0:
         records = open(os.path.join(af_en, "assets", "jp", "en", "item_names.bin"), "rb").read()
-        at = ((data[1] - 0x81) * 64 + (data[2] - 0x81)) * 20
+        at = ((data[1] - 0x81) * 64 + (data[2] - 0x81)) * af_items.RECORD_SIZE
         return records[at + 4:at + 4 + records[at]]
     return data
 
+
+def token_article(af_en, data):
+    """The article of a token's record (0: none), or 0 for a string that is no token."""
+    if token_text(af_en, data) is data:
+        return 0
+    records = open(os.path.join(af_en, "assets", "jp", "en", "item_names.bin"), "rb").read()
+    return records[((data[1] - 0x81) * 64 + (data[2] - 0x81)) * af_items.RECORD_SIZE + 1]
+
+
+def printed_frees(raw):
+    """The free strings an entry's text prints, as the expander finds their codes."""
+    out, pos = set(), 0
+    while pos < len(raw):
+        if raw[pos] == 0x7F and pos + 1 < len(raw):
+            if raw[pos + 1] in FREE_CODES:
+                out.add(FREE_CODES[raw[pos + 1]])
+            pos += 2
+        else:
+            pos += 1
+    return out
+
+
+def function_size(elf, name):
+    out = subprocess.run(["mips-linux-gnu-nm", "-S", elf], capture_output=True, text=True, check=True).stdout
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) == 4 and parts[3] == name:
+            return int(parts[1], 16)
+    raise SystemExit("no size for %s in %s" % (name, elf))
+
+
+# a villager's reply (code/m_npc.c): the strings mNpc_SetRemailFreeString loads into free strings 3 to 13, 32 of
+# each; the groups of 32 parts by the animal's character, in its own town and from another
+# (mNpc_GetRemailGoodData); the three letters by character of a reply to a bad letter (mNpc_GetRemailWrongData)
+REPLY_STRINGS = (0x314, 0x334, 0x2F4, 0x219, 0x1E5, 0x354, 0x374, 0x394, 0x3D4, 0x3F4, 0x3B4)
+REPLY_GROUPS = ((0x020, 0x040, 0x000, 0x060, 0x080, 0x0A0), (0x0E0, 0x100, 0x0C0, 0x120, 0x140, 0x160))
+REPLY_BAD = (0xC5, 0xD8)
+REPLY_FILLED = (14, 16)                      # how many free strings it fills: in its own town, from another
+REPLY_WARNED = ((67, 180), (318, 368))       # vmail_a's parts that print a string the cartridge's do not
+UNFILLED = b"\xee" * 10                      # a free string spoiled before a reply: no text has this byte
+PRIVATE_AT, ANIMALS_AT, LAND_NAME_AT = 0x10138, 0x9F18, 0x2F60
 
 # the strings the cartridge loads into a letter's free string and the letters that print them: the fortune
 # slip's four lists of 16 and its rank (free strings 0 to 3 and 4 of letters 114 to 116), the shop's name by
@@ -503,7 +603,7 @@ def main(argv):
         def longest(numbers):
             return max(numbers, key=lambda n: (len(token_text(af_en, string(n))), -n))
         every = sorted({n for base in FORTUNE_LISTS for n in range(base, base + 16)} | set(FORTUNE_RANKS) |
-                       set(SHOP_NAMES))
+                       set(SHOP_NAMES) | {n for base in REPLY_STRINGS for n in range(base, base + 32)})
         bad = []
         for number in every:                   # each as its code loads it: the bank's 10 bytes, a token or not
             run(8, [5, number])
@@ -651,6 +751,179 @@ def main(argv):
         whole, _ = run(5, [mail_at(40)])
         check(got[1] == 1 and ext_in_ram() == ext.bytes() and whole[1] == 1 and whole[12] == whole_of(40)[1],
               "the load brings the extension back, and the copy's whole letter with it")
+
+        # 6. villagers' replies, by the game's own code
+        run(10, [])
+        for fn, callee, recorder in zip(("mNpc_GetHandbillz", "mNpc_GetRemailWrongData"),
+                                        ("mHandbillz_load", "mHandbill_Load_HandbillFromRom"),
+                                        struct.unpack(">2I", n64.read(ctl + PICKED, 8))):
+            jal = 0x0C000000 | ((syms[callee] >> 2) & 0x3FFFFFF)
+            code = n64.read(syms[fn], function_size(en_elf, fn))
+            calls = [at for at in range(0, len(code), 4) if struct.unpack(">I", code[at:at + 4])[0] == jal]
+            check(len(calls) == 1, "%s calls %s once: that call goes through a recorder" % (fn, callee))
+            emu_save.write_code(n64, syms[fn] + calls[0], struct.pack(">I", 0x0C000000 | ((recorder >> 2) & 0x3FFFFFF)))
+        pid = struct.unpack(">I", n64.read(cd + PRIVATE_AT, 4))[0]
+        mail_at_, town = syms["l_npc_mail"], n64.read(cd + LAND_NAME_AT, 6)
+        far = b"Farway"                              # another town's name
+        long_named = None                            # an animal whose name is a token (longer than 6 characters)
+        for n in range(200):
+            run(11, [0xE000 | n])
+            name = n64.read(ctl + REMAIL + 4, 6)
+            if token_text(af_en, name) is not name:
+                long_named = (n, name, token_text(af_en, name))
+                break
+        check(long_named is not None, "an animal with a name of more than 6 characters replies: %s" % (
+            "number %d, %d characters" % (long_named[0], len(long_named[2])) if long_named else "none found"))
+        n64.write(ctl + REMAIL, bytes(4) + long_named[1] + far + bytes(4))
+        n64.write(ctl + ANM, struct.pack(">H", 0xE000 | long_named[0]) + n64.read(cd + ANIMALS_AT + 2, 8) +
+                  bytes([long_named[0], 0]))
+
+        def texts_of(free):
+            """What each of the twenty free strings stands for in a letter."""
+            return [token_text(af_en, free[k * 10:k * 10 + 10]) for k in range(20)]
+
+        def reply(looks, good, foreign):
+            """One reply: (what the game picked, the letter it left, the whole letter, the free strings after)."""
+            n64.write(free_at, UNFILLED * 20)
+            n64.write(ctl + PICKED, struct.pack(">6i", *[-2] * 6))
+            if foreign:
+                n64.write(ctl + REMAIL + 0x10, bytes([looks]))               # AnmremailFlags: cond, looks
+            else:
+                n64.write(ctl + ANM + 0x0B, bytes([looks]))                   # AnmPersonalID_c's looks
+            _, whole = run(9, [mail_at_, pid, ctl + ANM, ctl + REMAIL if foreign else 0, int(good) | (2 if foreign else 0)])
+            return (struct.unpack(">6i", n64.read(ctl + PICKED, 24)), n64.read(mail_at_, MAIL_SIZE), whole,
+                    n64.read(free_at, 200))
+
+        def model(picked, texts):
+            """(the header and its name's place or None, the body, the footer, the entries' raw text)."""
+            if picked[5] >= 0:
+                raws = [entry("mail_header", picked[5]), entry("mail_body", picked[5]), entry("mail_footer", picked[5])]
+                return header(raws[0], texts), body(raws[1], texts), footer(raws[2], texts), raws
+            raws = [entry("vmail_header", picked[0])] + [entry(bank, picked[i + 1]) for i, bank in enumerate(
+                ("vmail_a", "vmail_b", "vmail_c"))] + [entry("vmail_footer", picked[4])]
+            return header(raws[0], texts), body(b"".join(raws[1:4]), texts), footer(raws[4], texts), raws
+
+        def as_model(picked, letter, whole, texts):
+            h, b, f, _ = model(picked, texts)
+            ok = (letter[0x34:0x94] == b[:96] and letter[0x94:0xA4] == f[:16] and whole[0x1C:0xDC] == b and
+                  whole[0xDC:0xFC] == f)
+            if h:
+                ok = ok and (letter[0x2A:0x34] == h[0][:10] and letter[0x27] == h[1] & 0xFF and
+                             whole[:0x18] == h[0][:24])
+            if h and picked[5] >= 0:             # a shop letter's loader keeps the name's place too
+                ok = ok and struct.unpack(">i", whole[0x18:0x1C])[0] == h[1]
+            return ok
+
+        bad, fills, long_words, towns, seen_bad, tokens_in = [], set(), 0, 0, set(), 0
+        count = longest_word = named = fullest = 0
+        for foreign in (0, 1):
+            for looks in range(6):
+                group = REPLY_GROUPS[foreign][looks]
+                letters = set(range(REPLY_BAD[foreign] + looks * 3, REPLY_BAD[foreign] + looks * 3 + 3))
+                done = [(True,) + reply(looks, True, foreign) for _ in range(24)]
+                while len(done) < 24 + 60 and not (letters <= seen_bad and len(done) >= 24 + 6):
+                    done.append((False,) + reply(looks, False, foreign))
+                    seen_bad.add(done[-1][1][5])
+                for good, picked, letter, whole, free in done:
+                    count += 1
+                    filled = tuple(free[i * 10:i * 10 + 10] != UNFILLED for i in range(20))
+                    fills.add((foreign, filled.index(False) if False in filled else 20, sum(filled)))
+                    texts = texts_of(free)
+                    raws = model(picked, texts)[3]
+                    used = set().union(*[printed_frees(raw) for raw in raws])
+                    words = [texts[i].rstrip(b" ") for i in sorted(used)]
+                    in_group = (all(group <= n < group + 32 for n in picked[:5]) and picked[5] == -1 if good else
+                                picked[5] in letters and picked[0] == -2)
+                    text = whole[:0x18] + whole[0x1C:]
+                    why = [what for ok, what in (
+                        (in_group, "picked outside its group"),
+                        (as_model(picked, letter, whole, texts), "not the model's letter"),
+                        (0x80 not in text, "a token left in the text"),
+                        (0xEE not in text, "a spoiled string printed"),
+                        (all(token_article(af_en, free[i * 10:i * 10 + 10]) == 0 for i in range(20)),
+                         "a word with an article"),
+                        (all(w in text or w[:1].upper() + w[1:] in text for w in words),    # or with the capital
+                         "a word not whole"),                                               # its text asks for
+                        (free[10:20] == long_named[1].ljust(10, b" "), "not the animal's name"),
+                        (not foreign or free[140:160] == far.ljust(10, b" ") + town.ljust(10, b" "),
+                         "not the towns' names")) if not ok]
+                    if foreign:
+                        towns += far in text and town.rstrip(b" ") in text
+                    if why:
+                        bad.append((foreign, looks, good, picked, why))
+                    long_words += any(len(w) > 10 for w in words)
+                    longest_word = max([longest_word] + [len(w) for w in words])
+                    fullest = max(fullest, len(whole[0x1C:0xDC].rstrip(b"\xcd")))
+                    named += 1 in used and long_named[2] in text
+                    tokens_in += sum(1 for i in range(3, 14) if free[i * 10] == 0x80)
+        check(not bad, "villagers' replies by the game's own code: %d of them (the six characters, in their own town "
+              "and from another, to good letters and to bad ones) leave the letter the model makes from what they "
+              "picked and filled (%d differ: %s)" % (count, len(bad), bad[:12]))
+        check(fills == {(0, REPLY_FILLED[0], REPLY_FILLED[0]), (1, REPLY_FILLED[1], REPLY_FILLED[1])},
+              "of twenty free strings spoiled before each, a reply fills the first %d in its own town and the first "
+              "%d from another, and no letter prints a spoiled one (%s)" % (REPLY_FILLED + (sorted(fills),)))
+        check(seen_bad == set(range(REPLY_BAD[0], REPLY_BAD[0] + 18)) | set(range(REPLY_BAD[1], REPLY_BAD[1] + 18)),
+              "each of the 36 letters that answer a bad letter is seen (%d are)" % len(seen_bad))
+        check(long_words > 0 and named > 0 and towns > 0 and fullest < 192,
+              "%d replies print a word of more than 10 characters whole (the longest %d), %d the animal's name of "
+              "%d characters, %d both towns' names; %d of the words loaded were tokens; the fullest body takes %d "
+              "of the letter's 192 bytes"
+              % (long_words, longest_word, named, len(long_named[2]), towns, tokens_in, fullest))
+
+        def part_that_prints(k):
+            """(bank's place among the three, the part's number) of the first part of a reply that prints free
+            string k, in the animals' own town first."""
+            for i, bank in enumerate(("vmail_a", "vmail_b", "vmail_c")):
+                for n in range(384):
+                    if k in printed_frees(entry(bank, n)):
+                        return i, n
+            return None
+
+        reply(0, True, 0)                             # the free strings as a reply in its own town leaves them
+        base = n64.read(free_at, 200)
+        bad, unprinted, whole_words = [], [], 0
+        for i, first in enumerate(REPLY_STRINGS):
+            where = part_that_prints(3 + i)
+            if where is None:
+                unprinted.append(3 + i)
+                continue
+            group = where[1] // 32 * 32
+            numbers = [group, group, group, group, group]
+            numbers[1 + where[0]] = where[1]
+            for number in range(first, first + 32):
+                n64.write(free_at, base)
+                run(8, [3 + i, number])
+                free = n64.read(free_at, 200)
+                texts = texts_of(free)
+                got, whole = run(2, numbers)
+                picked = tuple(numbers) + (-1,)
+                h, b, f, _ = model(picked, texts)
+                word = token_text(af_en, string(number)).rstrip(b" ")
+                ok = (got[1] == 1 and whole[0x1C:0xDC] == b and whole[0xDC:0xFC] == f and word in whole[0x1C:0xDC] and
+                      texts[3 + i].rstrip(b" ") == word and 0x80 not in whole[0x1C:0xDC])
+                whole_words += ok
+                if not ok:
+                    bad.append(number)
+        check(not bad, "each word a reply can print, loaded as the game loads it and printed by a part that prints "
+              "its free string: %d whole (%d differ: %s)%s" % (
+                  whole_words, len(bad), bad[:6],
+                  "; no part prints free strings %s" % unprinted if unprinted else ""))
+        bad = []
+        for foreign in (0, 1):
+            _, _, _, free = reply(0, True, foreign)   # filled by the game, the rest spoiled
+            texts = texts_of(free)
+            for n in REPLY_WARNED[foreign]:
+                group = n // 32 * 32
+                numbers = [group, n, group, group, group]
+                got, whole = run(2, numbers)
+                h, b, f, raws = model(tuple(numbers) + (-1,), texts)
+                if not (got[1] == 1 and whole[0x1C:0xDC] == b and 0xEE not in whole[0x1C:0xDC] and
+                        printed_frees(raws[1]) <= set(range(REPLY_FILLED[foreign]))):
+                    bad.append(n)
+        check(not bad, "the four parts whose English prints a string the cartridge's part does not (%s) print only "
+              "what the game filled (%d differ: %s)" % (
+                  ", ".join(str(n) for pair in REPLY_WARNED for n in pair), len(bad), bad))
+        n64.write(free_at, b"".join(frees))
 
     print("emu-letters: %s" % ("all passed" if not failures else "%d failed" % len(failures)))
     return 1 if failures else 0

@@ -304,7 +304,7 @@ index a4d4a9b..a5ef6bd 100644
 +
  #endif
 diff --git a/include/m_msg_main.h b/include/m_msg_main.h
-index d2906f3..b04be7b 100644
+index d2906f3..462f4b2 100644
 --- a/include/m_msg_main.h
 +++ b/include/m_msg_main.h
 @@ -22,9 +22,9 @@ struct Color_RGBA8;
@@ -328,7 +328,15 @@ index d2906f3..b04be7b 100644
  
  /* Control codes: mMsg_CHAR_CONTROL, then one of these, then arguments.
   * Numbered as the N64 code reads them (the GameCube's differ). */
-@@ -162,8 +162,8 @@ typedef struct MessageWindow {
+@@ -57,6 +57,7 @@ struct Color_RGBA8;
+ #define mMsg_CODE_SET_DEMO_ORDER_NPC2 0x0B
+ #define mMsg_CODE_SET_DEMO_ORDER_QUEST 0x0C
+ #define mMsg_CODE_SET_SELECT_WINDOW 0x0D
++#define mMsg_CODE_COLOR_CHARS 0x50 /* then a colour's three bytes and how many characters it colours */
+ #define mMsg_CODE_SOUND_CUT 0x51
+ #define mMsg_CODE_BGM_MAKE 0x56
+ #define mMsg_CODE_BGM_DELETE 0x57
+@@ -162,8 +163,8 @@ typedef struct MessageWindow {
      /* 0x02C */ f32 nameplateX;
      /* 0x030 */ f32 nameplateY;
      /* 0x034 */ s32 showContinueButton;
@@ -339,7 +347,7 @@ index d2906f3..b04be7b 100644
      /* 0x132 */ u8 mailStr[mMsg_MAIL_STR_NUM][mMsg_MAIL_STRING_LEN];
      /* 0x176 */ Color_RGBA8 nameTextColor;
      /* 0x17A */ Color_RGBA8 nameBackgroundColor;
-@@ -208,7 +208,11 @@ typedef struct MessageWindow {
+@@ -208,7 +209,11 @@ typedef struct MessageWindow {
      /* 0x2D4 */ u8 nowUtter;
      /* 0x2D8 */ mMsg_Main_Data mainData;
      /* 0x2E0 */ mMsg_Request_Data requestData;
@@ -3260,7 +3268,7 @@ index 5b38fe9..fb84685 100644
 +}
  #endif
 diff --git a/src/code/m_msg_main.c b/src/code/m_msg_main.c
-index 03981c7..c75f557 100644
+index 03981c7..ed1d47e 100644
 --- a/src/code/m_msg_main.c
 +++ b/src/code/m_msg_main.c
 @@ -1,5 +1,7 @@
@@ -3598,7 +3606,7 @@ index 03981c7..c75f557 100644
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
      func_8009EB44_jp(&data[startIdx], str, strLen);
-@@ -1080,32 +1122,66 @@ s32 mMsg_CopyMin(char* data, s32 startIdx, s32 len) {
+@@ -1080,32 +1122,79 @@ s32 mMsg_CopyMin(char* data, s32 startIdx, s32 len) {
  s32 mMsg_CopySec(char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
      u8 value = common_data.time.rtcTime.sec;
@@ -3631,14 +3639,27 @@ index 03981c7..c75f557 100644
 +
 +/* A free or item string put in for the code at data[startIdx]: what an item's token stands for
 + * (m_item_name.c: its article, unless cut, then its name), or the string without its trailing spaces.
++ * A string can begin with a code that colours its characters: the villagers' talk hands on the shop's kind
++ * so (ovl__00815B70, func_809211D8_jp: a code for 4 characters, then the string's 4 bytes, which the en
++ * bank fills with a token). A token after such a code is put in as its text, the code colouring all of it.
 + * The new length. */
++#define mMsg_EN_COLOR_LEN 6 /* the mark, the code, a colour's three bytes, how many characters */
 +static s32 mMsg_en_CopyString(char* data, s32 startIdx, s32 len, char* str, s32 strLen, s32 cut) {
-+    char text[mIN_EN_TEXT_MAX];
++    char text[mMsg_EN_COLOR_LEN + mIN_EN_TEXT_MAX];
 +    s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
 +    s32 textLen = mIN_en_TokenText((u8*)text, (u8*)str, cut);
 +    char* src = text;
 +    s32 newLen;
 +
++    if ((textLen < 0) && (strLen > mMsg_EN_COLOR_LEN) && ((u8)str[0] == mMsg_CHAR_CONTROL) &&
++        ((u8)str[1] == mMsg_CODE_COLOR_CHARS)) {
++        textLen = mIN_en_TokenText((u8*)&text[mMsg_EN_COLOR_LEN], (u8*)&str[mMsg_EN_COLOR_LEN], cut);
++        if (textLen >= 0) {
++            mem_copy((u8*)text, (u8*)str, mMsg_EN_COLOR_LEN);
++            text[mMsg_EN_COLOR_LEN - 1] = textLen;
++            textLen += mMsg_EN_COLOR_LEN;
++        }
++    }
 +    if (textLen < 0) {
 +        src = str;
 +        textLen = mMsg_Get_Length_String(str, strLen);
@@ -3681,7 +3702,7 @@ index 03981c7..c75f557 100644
  }
  
  s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colorId) {
-@@ -1113,8 +1189,13 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
+@@ -1113,8 +1202,13 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
      s32 newLen;
      s32 srcIdx;
      u8* color;
@@ -3696,7 +3717,7 @@ index 03981c7..c75f557 100644
      srcIdx = *startIdx;
      color = D_80107B78_jp[colorId];
      D_80107B88_jp[2] = color[0];
-@@ -1129,7 +1210,7 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
+@@ -1129,7 +1223,7 @@ s32 func_8009F2EC_jp(char* data, s32* startIdx, s32 len, char* freeStr, s32 colo
  
  s32 mMsg_CopyDetermination(MessageWindow* msg, char* data, s32 startIdx, s32 len) {
      s32 commandLen = func_800903A8_jp((u8*)data, startIdx);
@@ -3705,7 +3726,7 @@ index 03981c7..c75f557 100644
      s32 strLen = msg->choiceWindow.data.determinationLenght;
      s32 newLen = func_8009EA2C_jp(data, startIdx + strLen, startIdx + commandLen, len, FALSE);
  
-@@ -1174,24 +1255,16 @@ s32 mMsg_CopyRamdomNumber2(char* data, s32 startIdx, s32 len) {
+@@ -1174,24 +1268,16 @@ s32 mMsg_CopyRamdomNumber2(char* data, s32 startIdx, s32 len) {
      return newLen;
  }
  
@@ -3736,7 +3757,7 @@ index 03981c7..c75f557 100644
  }
  
  s32 func_8009F670_jp(MessageWindow* msg, s32 strNo, char* data, s32 startIdx, s32 len) {
-@@ -1914,25 +1987,24 @@ s32 func_800A0DF4_jp(MessageWindow* msg, s32* idxP, s32 selectCount) {
+@@ -1914,25 +2000,24 @@ s32 func_800A0DF4_jp(MessageWindow* msg, s32* idxP, s32 selectCount) {
      }
  
      if (selectCount >= 2 && selectCount <= mChoice_CHOICE_NUM) {
@@ -3773,7 +3794,7 @@ index 03981c7..c75f557 100644
          }
      }
  
-@@ -1961,28 +2033,40 @@ s32 func_800A102C_jp(MessageWindow* msg, s32* idxP) {
+@@ -1961,28 +2046,40 @@ s32 func_800A102C_jp(MessageWindow* msg, s32* idxP) {
      return mMsg_RESULT_VOID;
  }
  
@@ -3814,7 +3835,7 @@ index 03981c7..c75f557 100644
      return mMsg_RESULT_VOID;
  }
  
-@@ -2045,8 +2129,11 @@ s32 func_800A1308_jp(MessageWindow* msg, s32* idxP) {
+@@ -2045,8 +2142,11 @@ s32 func_800A1308_jp(MessageWindow* msg, s32* idxP) {
  s32 func_800A134C_jp(MessageWindow* msg, s32 idx, s32 freeStrNo) {
      char* data = (char*)msg->msgData->text;
      s32 len = msg->msgData->msgLen;
@@ -3827,7 +3848,7 @@ index 03981c7..c75f557 100644
      return mMsg_RESULT_VOID;
  }
  
-@@ -2145,16 +2232,21 @@ s32 func_800A1708_jp(MessageWindow* msg, s32* idxP) {
+@@ -2145,16 +2245,21 @@ s32 func_800A1708_jp(MessageWindow* msg, s32* idxP) {
  s32 func_800A1730_jp(MessageWindow* msg, s32* idxP) {
      char* data = (char*)msg->msgData->text;
      s32 len = msg->msgData->msgLen;
@@ -3849,7 +3870,7 @@ index 03981c7..c75f557 100644
      return mMsg_RESULT_VOID;
  }
  
-@@ -2169,8 +2261,11 @@ s32 func_800A17B8_jp(MessageWindow* msg, s32* idxP) {
+@@ -2169,8 +2274,11 @@ s32 func_800A17B8_jp(MessageWindow* msg, s32* idxP) {
  s32 func_800A17FC_jp(MessageWindow* msg, s32 idx, s32 itemStrNo) {
      char* data = (char*)msg->msgData->text;
      s32 len = msg->msgData->msgLen;
@@ -3862,7 +3883,7 @@ index 03981c7..c75f557 100644
      return mMsg_RESULT_VOID;
  }
  
-@@ -2197,8 +2292,10 @@ s32 func_800A18E4_jp(MessageWindow* msg, s32* idxP) {
+@@ -2197,8 +2305,10 @@ s32 func_800A18E4_jp(MessageWindow* msg, s32* idxP) {
  s32 func_800A190C_jp(MessageWindow* msg, s32 idx, s32 mailStrNo) {
      char* data = (char*)msg->msgData->text;
      s32 len = msg->msgData->msgLen;
@@ -3873,7 +3894,7 @@ index 03981c7..c75f557 100644
      return mMsg_RESULT_VOID;
  }
  
-@@ -2237,15 +2334,26 @@ s32 func_800A1A64_jp(MessageWindow* msg, s32* idxP) {
+@@ -2237,15 +2347,26 @@ s32 func_800A1A64_jp(MessageWindow* msg, s32* idxP) {
  }
  
  s32 func_800A1A84_jp(MessageWindow* msg, s32* idxP) {
@@ -3903,7 +3924,7 @@ index 03981c7..c75f557 100644
  }
  
  s32 func_800A1AE4_jp(MessageWindow* msg, s32* idxP) {
-@@ -2562,6 +2670,8 @@ void func_800A2538_jp(MessageWindow* msg, struct Game* game) {
+@@ -2562,6 +2683,8 @@ void func_800A2538_jp(MessageWindow* msg, struct Game* game) {
      msg->requestedPriority = 4;
      msg->endTimer = 0;
      msg->statusFlags &= ~mMsg_STATUS_FLAG_LAST_DELAY;
@@ -3912,7 +3933,7 @@ index 03981c7..c75f557 100644
  
      if (waitFlag != TRUE) {
          msg->showContinueButton = FALSE;
-@@ -2769,10 +2879,21 @@ void func_800A2AD0_jp(MessageWindow* msg, struct Game* game, s32 mode) {
+@@ -2769,10 +2892,21 @@ void func_800A2AD0_jp(MessageWindow* msg, struct Game* game, s32 mode) {
  void func_800A2BB0_jp(MessageWindow* msg, struct Game* game, s32 mode) {
      char name[ANIMAL_NAME_LEN];
  
@@ -3937,7 +3958,7 @@ index 03981c7..c75f557 100644
  }
  
  void func_800A2C4C_jp(MessageWindow* msg, struct Game* game, s32 mode) {
-@@ -2952,26 +3073,26 @@ void func_800A3220_jp(MessageWindow* msg, struct Game* game) {
+@@ -2952,26 +3086,26 @@ void func_800A3220_jp(MessageWindow* msg, struct Game* game) {
  
  void mMsg_ct(struct Game_Play* game_play) {
      func_8009E6F8_jp((struct Game*)game_play);

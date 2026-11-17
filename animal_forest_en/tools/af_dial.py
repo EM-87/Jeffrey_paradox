@@ -28,8 +28,11 @@ and the font's codes of our marks (tools/msgbank.py's charset).
 `phrases` holds the string bank's draft to what this dial can type: Mr. Resetti (ovl_Npc_Majin3) has the
 player type one of 16 phrases and compares the window's 10 bytes with it, byte for byte, so a phrase with a
 character no mode of the dial has can never be typed; and he looks in what was typed for 32 words, comparing
-of each as many bytes as its place in the list says, so a word of another length is cut or runs into the
-spaces after it (reference/NOTES.md, "The second review"). make rom-en runs it on the en string bank.
+of each as many bytes as its place in the list says, so a longer word is cut and a shorter one is compared
+with the spaces after it (it counts only at the end of what was typed or before a space). And no word may
+be in a try one slip away from a phrase he asked for (a character left out, one too many, a wrong one, two
+swapped): an honest try is a wrong try, not an insult (reference/NOTES.md, "The second review"). make
+rom-en runs it on the en string bank.
 """
 
 import os
@@ -202,11 +205,35 @@ def insult_len(i):
     return 2 + sum(1 for step in INSULT_STEPS if i >= step)
 
 
+def dial_characters():
+    """Every character the dial types in a window of one line."""
+    return ("abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "0123456789" +
+            "".join(c for c in SYMBOLS if c != "\n"))
+
+
+def slips(phrase):
+    """Every text one slip away from a phrase, as the window holds it (PENANCE_LEN characters, spaces after
+    the text): a character left out, a wrong one in its place, two neighbours swapped and, while the window
+    has room, one too many."""
+    out, n = set(), len(phrase)
+    for i in range(n):
+        out.add(phrase[:i] + phrase[i + 1:])
+        out.update(phrase[:i] + c + phrase[i + 1:] for c in dial_characters())
+        if i + 1 < n:
+            out.add(phrase[:i] + phrase[i + 1] + phrase[i] + phrase[i + 2:])
+    if n < PENANCE_LEN:
+        out.update(phrase[:i] + c + phrase[i:] for i in range(n + 1) for c in dial_characters())
+    out = {text.ljust(PENANCE_LEN) for text in out}
+    out.discard(phrase.ljust(PENANCE_LEN))           # a space after it is no slip: the window holds spaces there
+    return out
+
+
 def phrase_problems(strings):
     """[text] of what is wrong with Mr. Resetti's strings in strings {number: its text}: a phrase to type
-    that is empty, longer than the window or has a character the dial lacks; an insult that is not as long
-    as its place compares, that the dial cannot type, or that stands inside a phrase he asks for (small and
-    capital letters alike: a phrase typed in the wrong case is an honest try)."""
+    that is empty, longer than the window or has a character the dial lacks; an insult that is empty or
+    longer than its place compares, that the dial cannot type, that stands inside a phrase he asks for (small
+    and capital letters alike: a phrase typed in the wrong case is an honest try) or inside a try one slip
+    away from one. An insult shorter than its place is compared with the spaces after it."""
     problems = []
     phrases = [strings.get(PENANCE_FIRST + i, "") for i in range(PENANCE_COUNT)]
     for i, text in enumerate(phrases):
@@ -215,14 +242,21 @@ def phrase_problems(strings):
             problems.append("%d: a phrase of %d characters, the window takes 1 to %d" % (n, len(text), PENANCE_LEN))
         elif not typed(text):
             problems.append("%d: the dial cannot type %s" % (n, " ".join(sorted({c for c in text if not typed(c)}))))
+    tries = [(phrase, slips(phrase)) for phrase in phrases if 1 <= len(phrase) <= PENANCE_LEN]
     for i in range(INSULT_COUNT):
         n, text = INSULT_FIRST + i, strings.get(INSULT_FIRST + i, "")
-        if len(text) != insult_len(i):
+        word = text.ljust(insult_len(i))
+        if not 1 <= len(text) <= insult_len(i):
             problems.append("%d: an insult of %d characters where %d are compared" % (n, len(text), insult_len(i)))
         elif not typed(text):
             problems.append("%d: the dial cannot type %s" % (n, " ".join(sorted({c for c in text if not typed(c)}))))
-        elif any(text.lower() in phrase.lower() for phrase in phrases):
+        elif any(word.lower() in phrase.ljust(PENANCE_LEN).lower() for phrase in phrases):
             problems.append("%d: an insult that stands inside a phrase to type" % n)
+        else:
+            near = [(phrase, t) for phrase, texts in tries for t in sorted(texts) if word in t][:1]
+            if near:
+                problems.append("%d: an insult that a try one slip away from a phrase holds (%r for %r)" % (
+                    n, near[0][1].rstrip(), near[0][0]))
     return problems
 
 

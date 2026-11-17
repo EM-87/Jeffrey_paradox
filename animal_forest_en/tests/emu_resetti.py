@@ -26,8 +26,12 @@ ring's page, A on the place; START closes the window). Checks:
      with the next one's;
   3. each of the 32 words, as the loader gives it, put at the start of his 10 bytes, at their end and after
      one letter: his check says 1; three are typed on the dial (the first, the last, with its space, and one
-     between two letters); nothing typed (the window's spaces), letters with none of the words and a phrase
-     in the wrong case say 2;
+     between two letters), and a word shorter than its place alone (1: it is compared with the spaces after
+     it) and with a letter after it (not that word any more); nothing typed (the window's spaces), letters
+     with none of the words and a phrase in the wrong case say 2; and a try one slip away from the phrase
+     asked for (tools/af_dial.py's slips: every one with a character left out or two swapped, a sample of
+     those with a wrong character or one too many; his check reads 33 strings from the cartridge for each
+     try, so not all of them) says 2, as the build's check of the bank promises of every one;
   4. his check against the model of it (tools/af_dial.py's lengths; the reading of the asm the build's check
      of the bank stands on): random texts of the phrases' and the words' characters, half of them with a
      word or the start of one planted, each with a random phrase's number, say what the model says;
@@ -70,7 +74,9 @@ s32 mMsg_request_main_appear(void* msg, void* actor, s32 showName, u8* color, s3
 void mMsg_Set_item_str(void* msg, s32 itemStrNo, char* str, s32 strLen);
 extern void* gamePT;
 typedef struct HookCtl { s32 cmd; s32 arg[5]; s32 result; char buf[12]; } HookCtl;
+typedef struct HookTry { u8 typed[10]; u8 number; u8 result; } HookTry;
 HookCtl hook_ctl = { 0 };
+HookTry hook_tries[64];
 u8 hook_color[4] = { 255, 255, 255, 255 };
 
 void hook_main(void) {
@@ -110,6 +116,22 @@ void hook_main(void) {
         h->arg[2] = (s32)msg;
         h->result = mMsg_request_main_appear(msg, 0, 0, hook_color, h->arg[0], 5);
         h->cmd = 0;
+    } else if (h->cmd == 7) {
+        /* his check (arg[0], where it was loaded) on arg[2] tries, each put in his actor (arg[1]) as the window
+           and his own code leave them: the 10 bytes typed, the phrase's number */
+        u8* actor = (u8*)h->arg[1];
+        s32 i;
+        s32 k;
+
+        for (i = 0; i < h->arg[2]; i++) {
+            for (k = 0; k < 10; k++) {
+                actor[0x94C + k] = hook_tries[i].typed[k];
+            }
+            actor[0x956] = hook_tries[i].number;
+            hook_tries[i].result = ((s32 (*)(void*))h->arg[0])(actor);
+        }
+        h->result = (s32)hook_tries;
+        h->cmd = 0;
     }
 }
 """
@@ -127,6 +149,8 @@ SAY, WRONG = 0x23EB, 0x23EE                          # his page with the phrase;
 ITEM0, SETFORCEMSG = msgbank.NAMES["STR_ITEM0"], msgbank.NAMES["SETFORCEMSG"]
 OPENED, CLOSED = 60, 200                             # frames for the window to open, at most to close
 RANDOM_TEXTS, SEED = 240, 20261117
+BATCH = 64                                           # the tries the hook judges in a frame (its hook_tries)
+SLIPS_EACH = 24                                      # of a phrase's tries one slip away, a sample past the plain ones
 SPACE = msgbank.N64_BYTES[" "]
 
 failures = []
@@ -278,6 +302,17 @@ def main(argv):
             n64.write(actor + PHRASE_AT, bytes([number]))
             return call(4, judge, actor)[0]
 
+        def judged_many(actor, judge, tries):
+            """His check on each (the 10 bytes typed, the phrase's number) of tries, a batch a frame."""
+            out, at = [], call(7, judge, actor, 0)[0] & 0xFFFFFFFF
+            for k in range(0, len(tries), BATCH):
+                part = tries[k:k + BATCH]
+                n64.write(at, b"".join(typed + bytes([number, 0xFF]) for typed, number in part))
+                call(7, judge, actor, len(part))
+                got = n64.read(at, 12 * len(part))
+                out += [got[i * 12 + 11] for i in range(len(part))]
+            return out
+
         # the strings as his code loads them
         actor, judge = setup()
         image = open(os.path.join(af_en, "build", "animalforest-jp.z64"), "rb").read()
@@ -297,9 +332,12 @@ def main(argv):
         print("    the words: %s" % ", ".join(repr(show(w).rstrip()) for w in words))
         check(all(len(p.rstrip(b" ")) >= 1 for p in phrases) and len(set(phrases)) == PHRASES,
               "the %d phrases, each loaded into 10 bytes: none empty, no two alike" % PHRASES)
-        check(all(len(w.rstrip(b" ")) == n for w, n in zip(words, lens)),
-              "the %d words, each as long as his check compares of it (%s)" % (
-                  WORDS, " ".join(str(len(w.rstrip(b" "))) for w in words)))
+        short = [i for i, (w, n) in enumerate(zip(words, lens)) if len(w.rstrip(b" ")) < n]
+        check(all(1 <= len(w.rstrip(b" ")) <= n for w, n in zip(words, lens)),
+              "the %d words, none longer than his check compares of it (%s; of his list's places %s; %d shorter "
+              "than its place: compared with the spaces after it)" % (
+                  WORDS, " ".join(str(len(w.rstrip(b" "))) for w in words), " ".join(str(n) for n in lens),
+                  len(short)))
 
         # 1. the window
         open_window(actor)
@@ -355,6 +393,37 @@ def main(argv):
             check(closed and typed == codes.ljust(TYPED_LEN, b" ") and got == 1,
                   "%s of the words typed on the dial (%r): the window leaves it (%r), his check says %d" % (
                       name, show(codes), show(typed), got))
+        for i in short[:1]:                    # a word shorter than its place: an insult alone, not inside a word
+            alone, inside = words[i].rstrip(b" "), words[i].rstrip(b" ") + letter
+            for name, codes, want in (("alone", alone, 1), ("with a letter after it", inside,
+                                                            model(inside.ljust(TYPED_LEN, b" "), phrases[0], words))):
+                actor, judge, typed, closed = say(codes, "2-short-%d" % len(codes))
+                got = judged(actor, judge, typed, 0)
+                check(closed and typed == codes.ljust(TYPED_LEN, b" ") and got == want and (name, want) != ("alone", 2),
+                      "a word shorter than its place, typed %s (%r): his check says %d (the model's %d)" % (
+                          name, show(codes), got, want))
+
+        # 3b. a slip is a wrong try
+        actor, judge = setup()
+        rnd = random.Random(SEED)
+        tries, every = [], 0
+        for i, phrase in enumerate(phrases):
+            text = show(phrase).rstrip(" ")
+            slips = sorted(af_dial.slips(text))
+            every += len(slips)
+            plain = [t for t in slips if len(t.rstrip(" ")) < len(text) or sorted(t.rstrip(" ")) == sorted(text)]
+            tries += [(bytes(msgbank.N64_BYTES[c] for c in t), i)
+                      for t in plain + rnd.sample(slips, min(len(slips), SLIPS_EACH))]
+        got = judged_many(actor, judge, tries)
+        differ = ["%r for phrase %d: %d, the model's %d" % (show(t), i, g, model(t, phrases[i], words))
+                  for (t, i), g in zip(tries, got) if g != model(t, phrases[i], words)]
+        insults = ["%r for phrase %d: %d" % (show(t), i, g) for (t, i), g in zip(tries, got) if g != 2]
+        check(tries and not differ and not insults, "a try one slip away from the phrase asked for is a wrong try "
+              "by his check, never an insult: %d tries (for each of the %d phrases every one with a character left "
+              "out or two swapped, and %d of those with a wrong character or one too many; the build's check "
+              "holds all %d against the model)%s" % (
+                  len(tries), PHRASES, SLIPS_EACH, every,
+                  "; " + "; ".join((differ + insults)[:4]) if differ or insults else ""))
 
         # 4. his check against the model
         actor, judge = setup()

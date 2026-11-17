@@ -46,7 +46,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en resetti-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en year-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean script drafts
+.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en resetti-check-en words-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en year-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean script drafts
 
 all: verify
 
@@ -479,6 +479,15 @@ write-check-en: route-en
 # (tests/emu_resetti.py; NOTES, "The second review").
 resetti-check-en: route-en
 	$(PYTHON) tests/emu_resetti.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-resetti-en
+
+# The words the cartridge's code loads into fewer bytes than their English
+# takes (tools/af_items.py, SHORT_LOADED), from the same state: each loaded
+# as its code loads it and put in as a message puts an item string in; the
+# villagers' talk's and the fortune teller's own fillers, their overlays
+# loaded as the game loads one; her reading and a line about the shop on
+# screen (tests/emu_words.py; NOTES, "Strings cut by their loaders").
+words-check-en: route-en
+	$(PYTHON) tests/emu_words.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-words-en $(EN_STRING)
 
 # Messages of the en build's bank shown in the message window from the same
 # state, as the game asks for one, and each line of their first page

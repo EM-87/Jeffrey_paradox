@@ -93,6 +93,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 from n64emu import A, N64, write_png  # noqa: E402
+import af_items  # noqa: E402
 import af_font  # noqa: E402
 import af_text  # noqa: E402
 import contact  # noqa: E402
@@ -424,7 +425,7 @@ def plate_ink(rgb, w, h):
 def name_record(af_en, n):
     """The characters of the en table's name n (tools/af_items.py's records)."""
     data = open(os.path.join(af_en, "assets", "jp", "en", "item_names.bin"), "rb").read()
-    rec = data[n * 20:(n + 1) * 20]
+    rec = data[n * af_items.RECORD_SIZE:(n + 1) * af_items.RECORD_SIZE]
     return rec[4:4 + rec[0]]
 
 

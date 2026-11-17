@@ -54,6 +54,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 from n64emu import N64  # noqa: E402
+import af_items  # noqa: E402
 import contact  # noqa: E402
 import emu_letters  # noqa: E402
 import emu_save  # noqa: E402
@@ -317,7 +318,7 @@ def long_animal_name(af_en):
     for n in range((len(seg) - 8) // 6):
         field = seg[8 + 6 * n:14 + 6 * n]
         if field[0] == 0x80 and 0x81 <= field[1] < 0x81 + 64 and 0x81 <= field[2] < 0x81 + 64:
-            rec = names[20 * ((field[1] - 0x81) * 64 + field[2] - 0x81):][:20]
+            rec = names[af_items.RECORD_SIZE * ((field[1] - 0x81) * 64 + field[2] - 0x81):][:af_items.RECORD_SIZE]
             return n, field, rec[4:4 + rec[0]]
     return None
 

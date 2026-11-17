@@ -46,10 +46,14 @@ write when it loads one into 6 bytes. The catchphrases longer than an animal's 4
 has them: 198 of 215) take them too, their records after the names'; their tokens go into the string bank
 itself (OUT_TXT, laid over the bank when it is compiled: those strings are only ever loaded as
 catchphrases), so the game copies them as it copied the words (reference/NOTES.md, "Catchphrases longer
-than 4"). So do the strings the cartridge loads into a letter's free string, 10 bytes of them, where the
-English is longer (LETTER_STRINGS: the New Year fortune slip's and the shop's name under a notice): the
-letters' code expands a token in a free string as it does an item's (reference/NOTES.md, "The second
-review").
+than 4"). So does every other string the cartridge's code loads into fewer bytes than its English takes
+(SHORT_LOADED: the words of the villagers' talk, of the fortune teller's reading and of a villager's reply,
+the New Year fortune slip's and the shop's name under a notice, 10 bytes each, and the shop's kind, 4): the
+message and the letter code expand a token in a string they put in as they do an item's
+(reference/NOTES.md, "The second review", "Strings cut by their loaders").
+
+A record holds NAME_MAX characters: the GameCube's 16 and four more, for a name of ours that the
+GameCube's length would cut (script/items.txt).
 
 A name of the GameCube's that takes a or an is given the one its first sound asks for (sound_article): the
 GameCube's own table has a few the other way round.
@@ -71,7 +75,11 @@ from msgbank import GC_CHARS, N64_BYTES, N64_CHARS  # noqa: E402
 
 NAME_FILE = 0x10F4000                       # vrom of the cartridge's names: their place in the decompressed image
 NAME_LEN = 10                               # the cartridge's names, and the buffers they are copied into
-GC_NAME_LEN = 16
+GC_NAME_LEN = 16                            # the GameCube's names (its tables' entries)
+NAME_MAX = 20                               # a record's characters: a name of ours may be a little longer (an
+                                            # article and a name must fit mIN_EN_TEXT_MAX, m_item_name.h, and an
+                                            # answer's 24 bytes: TEXT_MAX)
+TEXT_MAX = 24
 # (kind, the cartridge's count, its names' offset in the file, the GameCube's names, its articles); the
 # offsets are D_801076BC_jp's (segment 6), the counts what lies between them (each kind's names start on 4)
 KINDS = [("paper", 64, 0x008, "itemName_paper", "itemArt_Paper"),
@@ -106,20 +114,47 @@ FTR_SAME = {i: 893 for i in range(842, 849)}
 FTR_CLOTH = (491, 746)
 REMAP = {("etc", 13): ("money", 0)}
 ARTICLES = ["-", "a", "an", "the", "some"]  # mIN_ARTICLE_NONE, _A, _AN, _THE, _SOME
-RECORD_SIZE = 4 + GC_NAME_LEN               # length, article, cells, 0, the characters
+ARTICLE_WORDS = ["", "a ", "an ", "the ", "some "]   # what each puts before the name (m_item_name.c)
+RECORD_SIZE = 4 + NAME_MAX                  # length, article, cells, 0, the characters
 TOKEN_MARK = 0x80                           # the N64 font's unnamed code: no string the game draws has it
 TOKEN_DIGIT0, TOKEN_BASE = 0x81, 64         # the name's number in two digits, 0x81-0xC0 (no space, no 0xCD)
 TOKEN_LEN = 3
 CELL = 12                                   # the cartridge's characters, a cell each
 ANIMAL_NAME_LEN = 6                         # an animal's name (PLAYER_NAME_LEN, also ANIMAL_NAME_LEN)
 CATCHPHRASE_LEN = 4                         # an animal's catchphrase (ANIMAL_CATCHPHRASE_LEN)
-LETTER_STR_LEN = 10                         # a letter's free string (mHandbill_FREE_STR_LEN, m_handbill.c)
-# the strings the cartridge's code loads into a letter's free string, 10 bytes of them, and only there (each
-# number's every use in the asm and its tables looked up): the New Year fortune slip's (ovl_Ev_Miko,
-# func_809E5BC4_jp: four lists of 16 from its table D_809E62B8_jp, at 673, 689, 714 and 730, and the luck's
-# rank from 705) and the shop's name under three of the bulletin board's notices (code/m_notice,
-# func_800A63F8_jp: 1368 and the shop's size)
-LETTER_STRINGS = list(range(673, 746)) + list(range(1368, 1372))
+# The strings the cartridge's code loads into fewer bytes than their English may take: (the first, how many,
+# the loader's bytes). Every call of mString_Load_StringFromRom in the cartridge's asm and C was looked up, 41
+# of them (reference/NOTES.md, "Strings cut by their loaders"); the cartridge's own words all fit. One longer
+# than its loader's bytes takes a token of that length (its record after the catchphrases'), which the code the
+# bytes are handed to expands: a message's item or free string (m_msg_main.c), a letter's free string
+# (m_handbill.c).
+SHORT_LOADED = (
+    # the fortune teller's reading (ovl_Ev_Gypsy, func_809DC590_jp: a word of each of the four lists of its
+    # table D_809DCAB0_jp into item strings 0 to 3)
+    (0x164, 4 * 32, 10),
+    # the villagers' talk (ovl__00815B70, func_80920FFC_jp: a word of a list into an item string): the fish, the
+    # insects, the sports, the food and the drinks (func_8092106C_jp, D_80921D2C_jp), the colours
+    # (func_809211D8_jp), the places, the games and the things to read (func_809212A8_jp, D_80921D4C_jp), the
+    # year's animals and the star signs (func_80921324_jp, D_80921D70_jp: 12 each, and the player's own sign)
+    (0x1E5, 32, 10), (0x219, 32, 10), (0x334, 32, 10), (0x314, 32, 10), (0x414, 32, 10), (0x434, 32, 10),
+    (0x464, 32, 10), (0x2F4, 32, 10), (0x4A0, 32, 10), (0x458, 12, 10), (0x494, 12, 10),
+    # the shop's kind in the villagers' talk (func_809211D8_jp: 0x454 and the shop's size, 4 bytes after a
+    # COLORCHARS code in the 10 it hands on: m_msg_main.c's mMsg_en_CopyString takes a token there)
+    (0x454, 4, 4),
+    # the kind of thing a villager wants (ovl__00815B70 at 0x809201C8: free string 11)
+    (0x55D, 4, 10),
+    # a villager's reply to a letter (m_npc.c, mNpc_SetRemailFreeString: a word of each of base_str_no's eleven
+    # lists into a letter's free strings 3 to 13): the food, the sports, the games, the fish and the insects
+    # above, and these six
+    (0x354, 32, 10), (0x374, 32, 10), (0x394, 32, 10), (0x3B4, 32, 10), (0x3D4, 32, 10), (0x3F4, 32, 10),
+    # the New Year fortune slip (ovl_Ev_Miko, func_809E5BC4_jp: four lists of 16 from its table D_809E62B8_jp,
+    # at 673, 689, 714 and 730, and the luck's rank from 705) and the shop's name under three of the bulletin
+    # board's notices (code/m_notice, func_800A63F8_jp: 1368 and the shop's size): a letter's free string
+    (673, 73, 10), (1368, 4, 10),
+    # what the shopkeepers count a thing in (ovl_Npc_Shop_Master and its four fellows, func_809CB044_jp: 0x566
+    # or a list of D_809CE698_jp, 8 of 15: free string 8)
+    (0x566, 8 * 15, 10),
+)
 # the animals' default data (NpcDefaultData, 6 bytes each: cloth, catchphraseIdx, umbrella), 218 of them
 DEFAULT_DATA, DEFAULT_SIZE, DEFAULT_CATCHPHRASE = 0xE03000, 6, 2
 # the special characters' names: the strings m_npc.c's l_sp_actor_name loads into 6 bytes (mNpc_GetNpcWorldNameP)
@@ -306,14 +341,19 @@ def long_catchphrases(segment_data, strings):
     return out
 
 
-def long_letter_strings(strings):
-    """[(("letter string", number), its bytes)] of LETTER_STRINGS' strings longer than a letter's free string,
-    as the en string bank has them ({number: tokens})."""
-    out = []
-    for number in LETTER_STRINGS:
+def short_loaded(strings):
+    """{loader's bytes: [(("loaded", number), its bytes)]} of SHORT_LOADED's strings longer than the bytes the
+    cartridge's code loads them into, as the en string bank has them ({number: tokens}); a string two loaders
+    load takes the fewer bytes."""
+    size = {}
+    for first, count, field in SHORT_LOADED:
+        for number in range(first, first + count):
+            size[number] = min(field, size.get(number, field))
+    out = {}
+    for number in sorted(size):
         data = msgbank.encode(strings[number]).rstrip(b" ") if number in strings else b""
-        if len(data) > LETTER_STR_LEN:
-            out.append((("letter string", number), data))
+        if len(data) > size[number]:
+            out.setdefault(size[number], []).append((("loaded", number), data))
     return out
 
 
@@ -322,10 +362,10 @@ def name_records(names, base, widths, field=ANIMAL_NAME_LEN):
     number, its token in field bytes)])."""
     out, tokens = bytearray(), []
     for k, (what, data) in enumerate(names):
-        if len(data) > GC_NAME_LEN:
-            raise SystemExit("af_items: %s %d: %d characters, past %d" % (what + (len(data), GC_NAME_LEN)))
+        if len(data) > NAME_MAX:
+            raise SystemExit("af_items: %s %d: %d characters, past %d" % (what + (len(data), NAME_MAX)))
         c = cells(data, widths, field)
-        out += bytes([len(data), 0, c, 0]) + data.ljust(GC_NAME_LEN, b" ")
+        out += bytes([len(data), 0, c, 0]) + data.ljust(NAME_MAX, b" ")
         tokens.append((what, base + k, token(base + k, c, field)))
     return bytes(out), tokens
 
@@ -333,8 +373,8 @@ def name_records(names, base, widths, field=ANIMAL_NAME_LEN):
 def string_tokens(tokens):
     """The string bank's text (tools/msgbank.py's dump form) that puts each string's token in its place:
     tokens [((what, number), _, token)], their bytes written {xx}."""
-    lines = ["# The tokens of the catchphrases and of the strings a letter prints (tools/af_items.py), laid over "
-             "the en string bank: not part of the repository"]
+    lines = ["# The tokens of the catchphrases and of the strings loaded into fewer bytes than they take "
+             "(tools/af_items.py), laid over the en string bank: not part of the repository"]
     for (_, number), _, tok in tokens:
         lines += ["", "## %d" % number, "".join("{%02x}" % b for b in tok)]
     return "\n".join(lines) + "\n"
@@ -365,11 +405,14 @@ def records(rom, gc, own, widths, mended=None):
             data = n64_name(rom, kind, i).rstrip(b" ")
         else:
             data = n64_bytes("%s %d" % (kind, i), text)
-        if len(data) > GC_NAME_LEN:
-            raise SystemExit("af_items: %s %d: %d characters, past %d" % (kind, i, len(data), GC_NAME_LEN))
+        if len(data) > NAME_MAX:
+            raise SystemExit("af_items: %s %d: %d characters, past %d" % (kind, i, len(data), NAME_MAX))
+        if len(ARTICLE_WORDS[art]) + len(data) > TEXT_MAX:
+            raise SystemExit("af_items: %s %d: %r with its article is %d characters, past the %d a sentence or an "
+                             "answer takes" % (kind, i, text, len(ARTICLE_WORDS[art]) + len(data), TEXT_MAX))
         c = counts.setdefault(kind, [0, 0, 0])
         c[src] += 1
-        out += bytes([len(data), art, cells(data, widths), 0]) + data.ljust(GC_NAME_LEN, b" ")
+        out += bytes([len(data), art, cells(data, widths), 0]) + data.ljust(NAME_MAX, b" ")
     return bytes(out), counts
 
 
@@ -386,7 +429,7 @@ def include(from_gc, tokens=()):
              "#define ITEM_EN_SPECIAL_NAMES { %s} /* a special character's name: its string, its record */"
              % "".join("{ 0x%03X, %d }, " % sn for sn in special + [(0, 0)]),
              "#define ITEM_EN_RECORD_SIZE %d" % RECORD_SIZE,
-             "#define ITEM_EN_NAME_MAX %d" % GC_NAME_LEN,
+             "#define ITEM_EN_NAME_MAX %d" % NAME_MAX,
              "#define ITEM_EN_TOKEN_MARK 0x%02X" % TOKEN_MARK,
              "#define ITEM_EN_TOKEN_DIGIT0 0x%02X" % TOKEN_DIGIT0,
              "#define ITEM_EN_TOKEN_BASE %d" % TOKEN_BASE,
@@ -465,15 +508,20 @@ def main(argv):
             tokens += phrases
             print("%s: the catchphrases longer than %d as tokens, %d" % (
                 opts.get("--string-tokens", "(no --string-tokens)"), CATCHPHRASE_LEN, len(phrases)))
-            # the strings a letter prints from a free string, longer than its 10 bytes: the same, after them
-            more, letter_strings = name_records(long_letter_strings(strings), len(slots()) + len(tokens), widths,
-                                                LETTER_STR_LEN)
-            data += more
-            tokens += letter_strings
-            print("%s: the letters' strings longer than %d as tokens, %d" % (
-                opts.get("--string-tokens", "(no --string-tokens)"), LETTER_STR_LEN, len(letter_strings)))
+            # the strings loaded into fewer bytes than their English takes: the same, after them
+            taken = {number for (kind, number), _, _ in tokens if kind in ("string", "catchphrase")}
+            for field, found in sorted(short_loaded(strings).items()):
+                twice = sorted(number for (_, number), _ in found if number in taken)
+                if twice:
+                    raise SystemExit("af_items: strings %s are a name's or a catchphrase's and a word loaded into "
+                                     "%d bytes" % (twice, field))
+                more, loaded = name_records(found, len(slots()) + len(tokens), widths, field)
+                data += more
+                tokens += loaded
+                print("%s: the strings longer than the %d bytes their code loads as tokens, %d" % (
+                    opts.get("--string-tokens", "(no --string-tokens)"), field, len(loaded)))
         if opts.get("--string-tokens"):
-            text = string_tokens([t for t in tokens if t[0][0] in ("catchphrase", "letter string")])
+            text = string_tokens([t for t in tokens if t[0][0] in ("catchphrase", "loaded")])
             path = opts["--string-tokens"]
             if not os.path.exists(path) or open(path).read() != text:
                 open(path, "w").write(text)

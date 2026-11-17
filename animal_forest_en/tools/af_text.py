@@ -143,6 +143,16 @@ SHAPING = {NAMES["CAPTIALIZE"], NAMES["CUTARTICLE"]}
 FILLED = ({NAMES[n] for n in NAMES if n.startswith("STR_FREE") or n.startswith("STR_ITEM")} |
           {NAMES[n] for n in ("STR_DETERMINATION", "STR_RNDNUM", "STR_MAIL")})
 NOT_STEERING = COSMETIC | GLOBAL | SHAPING | FILLED
+# What the game fills for a villager's reply to a letter (src/code/m_npc.c, mNpc_SetRemailFreeString): free
+# string 0 the player's name, 1 the animal's and 2 another animal's, 3 to 13 a word of each of eleven lists,
+# for every reply; 14 and 15, the animal's town and the player's, only for an animal of another town. A reply
+# is put together from the villagers' banks, the town's own animals' parts from 0 and the others' from 0xC0
+# (mNpc_GetRemailGoodData: start_no, ohter_start_no, 32 for each of 6 looks); a reply to a letter it could
+# not read is one of the letter bank's, 0xC5 on and 0xD8 on, 3 for each look (mNpc_GetRemailWrongData).
+REPLY_PARTS, REPLY_FOREIGN_PART = ("vmail_header", "vmail_a", "vmail_b", "vmail_c", "vmail_footer"), 0xC0
+REPLY_LETTERS, REPLY_OWN_LETTER, REPLY_FOREIGN_LETTER, REPLY_LETTERS_EACH = (
+    ("mail_header", "mail_body", "mail_footer"), 0xC5, 0xD8, 18)
+REPLY_FILLS, REPLY_FOREIGN_FILLS = 14, 16
 # The en build's letter banks: room for the GameCube's longest entry (header
 # 23 bytes, body 177, footer 30, the villagers' parts 20/62/90/32), free strings
 # expanded later by the loader.
@@ -441,6 +451,20 @@ def mend(cart, theirs):
 def filled(tokens):
     """The strings the game fills for one message that the message prints."""
     return set(t[1] for t in tokens if t[0] == "c" and t[1] in FILLED)
+
+
+def reply_fills(bank, number):
+    """The strings the game fills for entry number of a letter bank that is a villager's reply or a part of
+    one (mNpc_SetRemailFreeString); None for any other entry."""
+    if bank in REPLY_PARTS:
+        foreign = number >= REPLY_FOREIGN_PART
+    elif bank in REPLY_LETTERS and REPLY_OWN_LETTER <= number < REPLY_OWN_LETTER + REPLY_LETTERS_EACH:
+        foreign = False
+    elif bank in REPLY_LETTERS and REPLY_FOREIGN_LETTER <= number < REPLY_FOREIGN_LETTER + REPLY_LETTERS_EACH:
+        foreign = True
+    else:
+        return None
+    return {NAMES["STR_FREE%d" % i] for i in range(REPLY_FOREIGN_FILLS if foreign else REPLY_FILLS)}
 
 
 def laid_problems(tokens, original):
@@ -822,15 +846,22 @@ def wide_lines(tokens, measure, limit=WINDOW_WIDTH):
 
 
 def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0, single=False, original=None, letter=False,
-                  measure=None):
+                  measure=None, fills=None):
     """[(level, text)] for one message; allowed_lines: what its original showed;
     single: a choice or free string (no codes, no terminator, one line);
     original: the cartridge's message, for the free strings the game fills;
     letter: a letter's part (lines and free strings, no terminator);
     measure: the font's widths (Measure): lines are checked in pixels
-    against the window's, not in characters against cols."""
+    against the window's, not in characters against cols;
+    fills: the strings the game is known to fill for this entry (reply_fills), which settle the question the
+    cartridge's own text only hints at."""
     problems = []
-    if original is not None:
+    if fills is not None:
+        unfilled = filled(tokens) - fills
+        if unfilled:
+            problems.append(("error", "prints %s, which the game does not fill for a villager's reply"
+                             % ", ".join(sorted(COMMANDS[c] for c in unfilled))))
+    elif original is not None:
         unfilled = filled(tokens) - filled(original)      # a free string, an item's, the chosen answer...
         if unfilled:
             problems.append(("warning", "prints %s, which the cartridge's message does not: the game may not fill it"
@@ -908,14 +939,16 @@ def japanese_text(messages):
                   if any(t[0] == "t" and JAPANESE_TEXT.search(t[1].replace("～", "")) for t in tokens))
 
 
-def run_checks(messages, cols, lines, max_bytes, reference=None, single=False, letter=False, measure=None, laid=()):
-    """laid: the numbers of the messages laid over the bank (--overrides), checked against reference."""
+def run_checks(messages, cols, lines, max_bytes, reference=None, single=False, letter=False, measure=None, laid=(),
+               bank=None):
+    """laid: the numbers of the messages laid over the bank (--overrides), checked against reference; bank:
+    the bank's name, for the entries whose strings the game is known to fill (reply_fills)."""
     errors = warnings = 0
     for number in sorted(messages):
         allowed = page_lines(reference[number]) if reference and number in reference else 0
         original = reference.get(number) if reference and (letter or not single) else None
         problems = check_message(number, messages[number], cols, lines, max_bytes, allowed, single and not letter,
-                                 original, letter, measure)
+                                 original, letter, measure, reply_fills(bank, number))
         if number in laid and original is not None:
             problems += laid_problems(messages[number], original)
         for level, text in problems:
@@ -963,7 +996,7 @@ def compile_letters(paths, text_path, index_path, cols=32, lines=4):
         N64_COUNT = letter_count(bank)
         messages = load_bank(path)
         print("%s (%s):" % (bank, os.path.basename(path)))
-        errors += run_checks(messages, cols, lines, LETTER_CAPS[bank], None, True, True)
+        errors += run_checks(messages, cols, lines, LETTER_CAPS[bank], None, True, True, bank=bank)
         for n in range(N64_COUNT):
             text += encode(carried(messages.get(n, [])))
             ends.append(len(text))
@@ -1123,7 +1156,7 @@ def main(argv):
         print("af_text: laid out at %d pixels: %s" % (WINDOW_WIDTH, ", ".join("%d %s" % (counts[k], k)
                                                                              for k in sorted(counts)) or "nothing to do"))
     errors = run_checks(messages, opts["--cols"], opts["--lines"], opts["--max-bytes"], reference, bank != "message",
-                        bank in LETTER_CAPS, measure, laid_numbers)
+                        bank in LETTER_CAPS, measure, laid_numbers, bank)
     if bank == "message":
         japanese = japanese_text(messages)
         if japanese:

@@ -1324,8 +1324,9 @@ class OwnStringsAndLetters(unittest.TestCase):
         self.assertTrue(all(len(msgbank.encode(t)) <= 15 for t in credits.values()))
 
     def test_resetti_strings_fit_the_dial_and_his_compares(self):
-        # tools/af_dial.py phrases: a phrase to type is 1 to 10 characters the dial has; an insult is as long
-        # as its place in the list compares (2, then one more from words 6, 16, 25, 30 and 31)
+        # tools/af_dial.py phrases: a phrase to type is 1 to 10 characters the dial has; an insult is at most as
+        # long as its place in the list compares (2, then one more from words 6, 16, 25, 30 and 31), and is in
+        # no phrase nor in a try one slip away from one
         self.assertEqual([af_dial.insult_len(i) for i in (0, 5, 6, 15, 16, 24, 25, 29, 30, 31)],
                          [2, 2, 3, 3, 4, 4, 5, 5, 6, 7])
         self.assertTrue(af_dial.typed("Oh, it's 5 o'clock! \u2665"))
@@ -1342,9 +1343,22 @@ class OwnStringsAndLetters(unittest.TestCase):
         bad[af_dial.PENANCE_FIRST + 1] = "eleven chars"                # past the window
         bad[af_dial.INSULT_FIRST] = "qzx"                              # 3 where 2 are compared
         bad[af_dial.INSULT_FIRST + 6] = "RaS"                          # inside a phrase to type, whatever the case
+        bad[af_dial.INSULT_FIRST + 7] = "Pra"                          # in "Prase 2!": a letter left out
+        bad[af_dial.INSULT_FIRST + 8] = "e 3"                          # inside phrase 3
+        bad[af_dial.INSULT_FIRST + 9] = "e!"                           # with its space: in "Phrase!", the digit left out
+        bad[af_dial.INSULT_FIRST + 16] = "qzx"                         # shorter than its place: with a space, fine
         self.assertEqual([t.split(":")[0] for t in af_dial.phrase_problems(bad)],
-                         [str(af_dial.PENANCE_FIRST), str(af_dial.PENANCE_FIRST + 1), str(af_dial.INSULT_FIRST),
-                          str(af_dial.INSULT_FIRST + 6)])
+                         [str(af_dial.PENANCE_FIRST), str(af_dial.PENANCE_FIRST + 1), str(af_dial.INSULT_FIRST)] +
+                         [str(af_dial.INSULT_FIRST + k) for k in (6, 7, 8, 9)])
+        self.assertIn("one slip", af_dial.phrase_problems(bad)[4])
+        self.assertIn("one slip", af_dial.phrase_problems(bad)[6])
+        # the tries one slip away, as the window holds them: 10 characters, spaces after
+        tries = af_dial.slips("I ate")
+        self.assertTrue({"I at".ljust(10), "I ete".ljust(10), "I aet".ljust(10), "I late".ljust(10),
+                         "I ate!".ljust(10)} <= tries)
+        self.assertNotIn("I ate".ljust(10), tries)
+        self.assertFalse(any(len(t) != 10 for t in tries))
+        self.assertFalse(any(len(t.rstrip()) > 10 for t in af_dial.slips("ten chars!")))    # no room for one more
         # ours (script/string/resetti.txt): the three phrases and the whole list of insults; the GameCube's
         # thirteen other phrases are checked with them when the bank is compiled (make rom-en)
         ours = {n: msgbank.render(t) for n, t in self.own(os.path.join(HERE, "..", "script", "string")).items()}
@@ -1761,13 +1775,14 @@ class MenusWords(unittest.TestCase):
             data, counts = af_items.records(bytes(rom), gc, own, widths)
             size = af_items.RECORD_SIZE
             self.assertEqual(len(data), 4 * size)
-            self.assertEqual(data[:size], bytes([4, 1, 3, 0]) + b"bass" + b" " * 12)          # 24 px: 2 cells, 3 at least
-            self.assertEqual(data[size:2 * size], bytes([4, 0, 3, 0]) + b"carp" + b" " * 12)  # ours first
+            pad = af_items.NAME_MAX - 4
+            self.assertEqual(data[:size], bytes([4, 1, 3, 0]) + b"bass" + b" " * pad)         # 24 px: 2 cells, 3 at least
+            self.assertEqual(data[size:2 * size], bytes([4, 0, 3, 0]) + b"carp" + b" " * pad)  # ours first
             self.assertEqual(data[2 * size:2 * size + 6], bytes([2, 0, 3, 0, 0x10, 0x11]))    # the cartridge's
             self.assertEqual(counts, {"fish": [1, 1, 1], "ftr": [1, 0, 0]})
             self.assertEqual(af_items.cells(b"x" * 16, [9] * 256), af_items.NAME_LEN)       # 144 px: the buffer's 10
             with self.assertRaises(SystemExit):
-                af_items.records(bytes(rom), {("fish", 0): ("a name of seventeen", 1)}, {}, widths)
+                af_items.records(bytes(rom), {("fish", 0): ("a name of twenty-one!", 1)}, {}, widths)
             inc = af_items.include(True)
             self.assertIn("#define ITEM_EN_FROM_GC 1", inc)
             self.assertIn("#define ITEM_EN_FTR_BASE 3", inc)
@@ -1792,7 +1807,8 @@ class MenusWords(unittest.TestCase):
         self.assertEqual(names[0][1], af_items.n64_bytes("t", "Quillon"))
         data, tokens = af_items.name_records(names, 1703, [7] * 256)
         size = af_items.RECORD_SIZE
-        self.assertEqual(data[:size], bytes([7, 0, 5, 0]) + af_items.n64_bytes("t", "Quillon") + b" " * 9)  # 50 px
+        quillon = af_items.n64_bytes("t", "Quillon").ljust(af_items.NAME_MAX)
+        self.assertEqual(data[:size], bytes([7, 0, 5, 0]) + quillon)                # 50 px
         self.assertEqual([n for _, n, _ in tokens], [1703, 1704, 1705])
         self.assertEqual(tokens[0][2], bytes([0x80, 0x81 + 1703 // 64, 0x81 + 1703 % 64, 0x80, 0x80, 0x20]))
         self.assertEqual(af_items.token(5, 6, 6), bytes([0x80, 0x81, 0x86, 0x80, 0x80, 0x80]))
@@ -1838,32 +1854,86 @@ class MenusWords(unittest.TestCase):
             # a name of ours is taken as it is, and names the same clothes as furniture
             own = {("cloth", 0): ("urn print", a)}
             data, counts = af_items.records(rom, gc, own, [6] * 256)
-            self.assertEqual(data[:size], bytes([9, a, 5, 0]) + b"urn print" + b" " * 7)
+            self.assertEqual(data[:size], bytes([9, a, 5, 0]) + b"urn print" + b" " * (af_items.NAME_MAX - 9))
             self.assertEqual(data[3 * size:4 * size], data[:size])
             self.assertEqual(counts, {"cloth": [1, 1, 0], "ftr": [2, 1, 0]})
+            # a record holds a name of ours past the GameCube's 16 characters, up to NAME_MAX; with its article
+            # it must fit what a sentence or an answer takes of it
+            self.assertGreater(af_items.NAME_MAX, af_items.GC_NAME_LEN)
+            self.assertEqual(size, 4 + af_items.NAME_MAX)
+            long_name = "x" * af_items.NAME_MAX
+            data, _ = af_items.records(rom, gc, {("cloth", 0): (long_name, a)}, [6] * 256)
+            self.assertEqual(data[:size], bytes([af_items.NAME_MAX, a, 10, 0]) + long_name.encode())
+            for own in ({("cloth", 0): (long_name + "x", a)},
+                        {("cloth", 0): (long_name, af_items.ARTICLES.index("some"))}):
+                with self.assertRaises(SystemExit):
+                    af_items.records(rom, gc, own, [6] * 256)
         finally:
             af_items.KINDS, af_items.FTR_CLOTH = saved
-        # ours (script/items.txt): 16 characters at most, and a or an as the first sound asks
+        self.assertEqual(max(len(w) for w in af_items.ARTICLE_WORDS) + af_items.GC_NAME_LEN, 21)
+        self.assertLessEqual(21, af_items.TEXT_MAX)                 # every name of the GameCube's fits with any
+        # ours (script/items.txt): NAME_MAX characters at most, and a or an as the first sound asks
         for (kind, i), (text, art) in af_items.read_names(os.path.join(HERE, "..", "script", "items.txt")).items():
-            self.assertLessEqual(len(text), af_items.GC_NAME_LEN, (kind, i))
+            self.assertLessEqual(len(text), af_items.NAME_MAX, (kind, i))
+            self.assertLessEqual(len(af_items.ARTICLE_WORDS[art]) + len(text), af_items.TEXT_MAX, (kind, i))
             if art in (a, an):
                 self.assertEqual(af_items.sound_article(text), art, (kind, i, text))
 
-    def test_letter_strings_take_tokens_in_the_string_bank(self):
-        # the strings the cartridge loads into a letter's free string (10 bytes) and prints from there: those
-        # longer than 10 bytes take a token that fills the 10, their records after the others'
-        self.assertEqual(len(af_items.LETTER_STRINGS), 16 * 4 + 9 + 4)
+    def test_a_reply_prints_only_what_the_game_fills(self):
+        # a villager's reply (mNpc_SetRemailFreeString): free strings 0 to 13 for every reply, 14 and 15 only for
+        # an animal of another town, whose parts start at 0xC0; the letter bank's replies to a letter that
+        # could not be read, 18 from 0xC5 and 18 from 0xD8, the same; no other entry is ruled on
+        free = [msgbank.NAMES["STR_FREE%d" % i] for i in range(20)]
+        self.assertEqual(af_text.reply_fills("vmail_a", 0xBF), set(free[:14]))
+        self.assertEqual(af_text.reply_fills("vmail_footer", 0xC0), set(free[:16]))
+        self.assertEqual(af_text.reply_fills("mail_body", 0xC5 + 17), set(free[:14]))
+        self.assertEqual(af_text.reply_fills("mail_body", 0xD8), set(free[:16]))
+        for bank, number in (("mail_body", 0xC4), ("mail_body", 0xD7), ("mail_body", 0xD8 + 18), ("message", 1),
+                             ("string", 0xC0)):
+            self.assertIsNone(af_text.reply_fills(bank, number), (bank, number))
+        town, name = msgbank.parse("From <STR_FREE14>"), msgbank.parse("Dear <STR_FREE0>,")
+        cartridge = msgbank.parse("Hello,")                           # the cartridge's part prints neither
+        for tokens, number, level in ((name, 0x10, None), (town, 0x10, "error"), (town, 0xC0, None),
+                                      (msgbank.parse("<STR_FREE16>"), 0xC0, "error")):
+            problems = af_text.check_message(number, tokens, 32, 4, 96, original=cartridge, letter=True,
+                                             fills=af_text.reply_fills("vmail_a", number))
+            self.assertEqual([lv for lv, _ in problems], [level] if level else [], (tokens, number))
+        # an entry the rule does not know keeps the warning against the cartridge's own text
+        problems = af_text.check_message(1, name, 32, 4, 96, original=cartridge, letter=True)
+        self.assertEqual([lv for lv, _ in problems], ["warning"])
+
+    def test_strings_loaded_into_fewer_bytes_take_tokens(self):
+        # the strings the cartridge's code loads into fewer bytes than the English may take (SHORT_LOADED: by
+        # who loads them): one longer than its loader's bytes takes a token that fills them, its record after
+        # the others'; one that fits stays text
+        numbers = {}
+        for first, count, field in af_items.SHORT_LOADED:
+            self.assertIn(field, (4, 10))
+            for n in range(first, first + count):
+                numbers.setdefault(n, set()).add(field)
+        self.assertEqual(len(numbers), 4 * 32 + 9 * 32 + 2 * 12 + 4 + 4 + 6 * 32 + 73 + 4 + 8 * 15)
+        self.assertTrue(all(len(f) == 1 for f in numbers.values()))          # no string loaded two ways
+        # what Mr. Resetti compares byte for byte is never a token (tools/af_dial.py holds it to 10 characters)
+        compared = set(range(af_dial.PENANCE_FIRST, af_dial.PENANCE_FIRST + af_dial.PENANCE_COUNT)) | set(
+            range(af_dial.INSULT_FIRST, af_dial.INSULT_FIRST + af_dial.INSULT_COUNT))
+        self.assertFalse(compared & set(numbers))
         strings = {673: msgbank.parse("Luck in all things"[:16]), 674: msgbank.parse("So-so"),
-                   1368: msgbank.parse("Corner Shop Co."), 100: msgbank.parse("Elsewhere, long")}
-        found = af_items.long_letter_strings(strings)
-        self.assertEqual([w for w, _ in found], [("letter string", 673), ("letter string", 1368)])
-        records, tokens = af_items.name_records(found, 1950, [6] * 256, af_items.LETTER_STR_LEN)
-        self.assertEqual(records[:4], bytes([16, 0, 8, 0]))                 # 96 px: 8 cells
-        self.assertEqual(tokens[0][2], bytes([0x80, 0x81 + 1950 // 64, 0x81 + 1950 % 64] + [0x80] * 5 + [0x20] * 2))
-        self.assertEqual(len(tokens[1][2]), af_items.LETTER_STR_LEN)
-        bank = msgbank.Bank.parse_dump(af_items.string_tokens(tokens))
-        self.assertEqual(msgbank.encode(bank[673]), tokens[0][2])           # the bank's compile reads them back
-        self.assertEqual(msgbank.encode(bank[1368]), tokens[1][2])
+                   1368: msgbank.parse("Corner Shop Co."), 100: msgbank.parse("Elsewhere, long"),
+                   0x219: msgbank.parse("silver minnow"), 0x21A: msgbank.parse("carp"),
+                   0x454: msgbank.parse("corner shop"), 0x455: msgbank.parse("mart"),
+                   0x566: msgbank.parse("pieces")}
+        found = af_items.short_loaded(strings)
+        self.assertEqual({field: [w for w, _ in names] for field, names in found.items()},
+                         {4: [("loaded", 0x454)], 10: [("loaded", 0x219), ("loaded", 673), ("loaded", 1368)]})
+        records, tokens = af_items.name_records(found[10], 1950, [6] * 256, 10)
+        self.assertEqual(records[:4], bytes([13, 0, 7, 0]))                 # 78 px: 7 cells
+        self.assertEqual(tokens[0][2], bytes([0x80, 0x81 + 1950 // 64, 0x81 + 1950 % 64] + [0x80] * 4 + [0x20] * 3))
+        self.assertEqual([len(t[2]) for t in tokens], [10, 10, 10])
+        _, short = af_items.name_records(found[4], 1953, [6] * 256, 4)
+        self.assertEqual(short[0][2], bytes([0x80, 0x81 + 1953 // 64, 0x81 + 1953 % 64, 0x80]))   # 66 px: its 4
+        bank = msgbank.Bank.parse_dump(af_items.string_tokens(tokens + short))
+        self.assertEqual(msgbank.encode(bank[673]), tokens[1][2])           # the bank's compile reads them back
+        self.assertEqual(msgbank.encode(bank[0x454]), short[0][2])
 
     def test_long_catchphrases_take_tokens_in_the_string_bank(self):
         # the catchphrases the animals' default data names (each entry's u16 at +2), once each, those longer
