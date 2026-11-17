@@ -327,12 +327,15 @@ the why and the state, `reference/NOTES.md` for what is verified.
   them before a save, the town grown to 15 animals by the game's code),
   `emu_reset.py` (one flash powered on seven times, saved at the gyroid
   to go on, to stop, or not at all: Mr. Resetti's visits by the game's
-  own count, his phrase typed wrong, as an insult and right: `make
-  reset-check-en`),
+  own count, his phrase typed wrong, as an insult and right, the arena
+  while he is there: `make reset-check-en`),
   `emu_memory.py` (a town of four players and 15 animals powered on at
-  the year's 21 dates, the arena read in every block; the player's house,
-  one full of gyroids, the shop, the post office, the police box and an
-  animal's house gone into: `make memory-check-en`),
+  the year's 21 dates, the arena read in every block and held to take
+  what can come on top; every actor no tour finds loaded accounted for;
+  the player's house, one full of gyroids, the shop, the post office,
+  the police box and an animal's house gone into; the title left alone
+  through its five demos, where START asks the arena for the save's
+  buffer: `make memory-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.
@@ -377,8 +380,12 @@ the why and the state, `reference/NOTES.md` for what is verified.
   houses with the snowballs in it, and a room has over 400 KB (NOTES,
   "Item names", "The second review", "What the second review had left
   open"). `make year-check-en` and `make memory-check-en` hold it to a
-  floor that is more than every actor that comes and goes outdoors needs
-  at once. The save
+  floor, and the second sums what can come into a block on top of what
+  it holds (a balloon, bees, a fish let go, a tool in an animal's hand,
+  the snowballs) against every block's room. An animal, a special
+  character or a structure is not in that sum: `ovl_Npc` and
+  `ovl_Structure` keep room for the actors they make inside their own
+  overlays, and the arena never sees them come. The save
   and letters checks once went four batches unrun while the swap table
   grew `code_en`, and nothing else noticed. A table that can live in ROM
   goes to a segment; one that must be in RAM is as short as its entries.
@@ -556,6 +563,18 @@ the why and the state, `reference/NOTES.md` for what is verified.
   facing its own way (`tests/emu_memory.py`, `BUILDINGS`); and a probe
   that asks "am I inside?" must ask for an actor only that room has:
   `Field_Draw` and `Shop_Goods` are in every room.
+- **The arena's largest free block is not a block's own.** It depends
+  on the way the player came: what the block before held decides where
+  the next one's actors land, and the same block on the same morning
+  differs by some KB (10 were seen). A floor leaves room for that; a
+  figure in the notes says which walk it is from.
+- **Not every actor comes out of the arena.** `m_actor.c` asks the
+  clips of `ovl_Npc` and `ovl_Structure` for the overlay and the instance
+  of what they make (the names 0xD000, 0xE000 and 0x5000): both lie
+  inside those two overlays, loaded once. A sum of "what can come on
+  top" that counts the postman counts nothing real, and one that counts
+  overlays without instances counts half (`tests/emu_memory.py` did both
+  at first).
 - **A talk can start by itself.** On Halloween night the animals run the
   player down, ask for candy and open the pockets; a tour that only walks
   stands there until its tries run out and then reports blocks it "could

@@ -744,11 +744,30 @@ Y lo que quedaba pendiente:
   en las 21 fechas del año y entra en las 30 parcelas. El punto más justo
   del año queda en 65,9 KB libres (una mañana de febrero, con bolas de
   nieve en la parcela de las cuatro casas); las otras fechas con nieve,
-  entre 73 y 80 KB, y sin nieve, de 80 a 86 KB. El mínimo que exige la
-  comprobación (48 KB) es más que todo lo que puede sumarse a la vez en una
-  parcela (bolas de nieve, un globo, el cartero, la tienda del vendedor
-  ambulante, un pez devuelto al agua, un paraguas: 40,6 KB); aun con todo
-  eso encima del peor caso quedarían 42 KB.
+  entre 73 y 80 KB, y sin nieve, de 80 a 86 KB. Sobre lo que una parcela
+  tiene al entrar puede aparecer algo más. Los vecinos, los personajes (el
+  cartero, Resetti en la puerta, el visitante del día) y los edificios no
+  gastan de esa memoria: el juego les guarda sitio aparte, y la prueba lo
+  comprueba con cada uno que encuentra (y `make reset-check-en` con
+  Resetti: 88,5 KB libres mientras habla). Lo que sí gasta (un globo, las
+  abejas de un árbol, un pez devuelto al agua, un muñeco de nieve, un
+  avión de papel, lo que cuatro vecinos lleven en la mano y, con nieve, las
+  dos bolas, que se pueden empujar desde la parcela de al lado) son 51,9 KB
+  si llegara todo a la vez. La prueba exige que en cada parcela de cada
+  fecha quepa todo lo que no estaba ya, junto, y sobren 16 KB: en la más
+  justa del año sobran 26,6 KB. Y da cuenta de los 177 tipos de actor del
+  juego: los 87 que nunca ve cargados en el pueblo son personajes o
+  edificios, están en esa suma, los encuentra en interiores o en la
+  partida nueva, o están apuntados con el sitio donde viven. La primera
+  versión de esta cuenta estaba mal (sumaba el cartero, que no gasta, y no
+  contaba todo lo que ocupa cada cosa); la cifra de «42 KB» que di venía
+  de ahí. Un matiz: el hueco libre de una parcela cambia algunos KB según
+  por dónde se llegue a ella (de ahí los 16 KB de reserva).
+  Hay otro momento en que el juego pide mucha memoria de golpe: al pulsar
+  START en el título lee la partida en un búfer de 63,9 KB, y no comprueba
+  si se lo dan. Todas las pruebas pulsaban START en la primera de las
+  cinco demos del título; ahora la prueba deja pasar las cinco y en la más
+  justa hay 175 KB libres.
   Dentro de las casas y edificios sobra: más de 400 KB libres en la casa
   del jugador (también llena de giroides), en la tienda y en casa de un
   vecino, y más de 580 KB en correos y en la comisaría; todo el código de

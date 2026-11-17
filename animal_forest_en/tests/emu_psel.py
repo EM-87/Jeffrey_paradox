@@ -8,10 +8,10 @@ game's own talk and the actors are saved as the game saves them before a save (t
 that the town has no players' houses). Its common_data, stamped as the game stamps a save (func_8008EFDC_jp:
 the code, the town's id, the clock; then the checksum), is the saved town; its player is copied into the
 next slots for towns of two and four players (other names and ids, each owning the next house), and each
-town is packed as the en build's slot image (tools/aflz.py) into both slots of a fresh cartridge's flash. From power-on, A goes through the player-select actor's talk
-(ovl_Npc_P_Sel2) and each choice is read in RAM as the window holds it (mChoice_en_strings and the lengths
-in the Choice), its screen kept in OUT_DIR. Checks (reference/NOTES.md, "The player-select actor's
-answers"):
+town is packed as the en build's slot image (tools/aflz.py) into both slots of a fresh cartridge's flash.
+From power-on, A goes through the player-select actor's talk (ovl_Npc_P_Sel2) and each choice is read in RAM
+as the window holds it (mChoice_en_strings and the lengths in the Choice), its screen kept in OUT_DIR. Checks
+(reference/NOTES.md, "The player-select actor's answers"):
 
   1. one player: which player plays? lists the player and the bank's answer 121 for a new player, the token
      tools/af_answers.py writes where the cartridge copies a word of the overlay's own;

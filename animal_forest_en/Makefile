@@ -355,7 +355,8 @@ $(GC_DIR)/gc_items.txt: tools/af_items.py $(wildcard $(GC_DIR)/foresta.rel.szs $
 # One special character has a name of its own on the GameCube where the
 # cartridge's table gives him another's: with the disc's strings the include
 # tells the en m_npc.c's table the en bank's string for it, and the en table
-# is held to the GameCube's own (tools/af_items.py, NAMES_APART).
+# is held to the GameCube's own (tools/af_items.py, NAMES_APART), as the
+# include just written has it.
 $(EN_ITEMS): tools/af_items.py tools/af_font.py tools/af_text.py tools/af_names.py tools/msgbank.py $(GC_ITEMS) script/items.txt $(GC_FONT) $(EN_NAMES) $(EN_STRING) $(AF_EN_DIR)/.stamp-extract \
 		$(wildcard $(GC_DIR)/gc_string_en.txt) $(GC_REL)
 	mkdir -p $(EN_ASSETS)
@@ -363,7 +364,8 @@ $(EN_ITEMS): tools/af_items.py tools/af_font.py tools/af_text.py tools/af_names.
 		$(if $(GC_ITEMS),--gc $(GC_ITEMS)) --own script/items.txt $(FONT_OPTS) --string-tokens $(EN_STRING_TOKENS) \
 		$(if $(wildcard $(GC_DIR)/npc_name_str_table.bin),--npc-names $(GC_DIR)/npc_name_str_table.bin --names-seg $(EN_NAMES) --strings $(EN_STRING)) \
 		$(if $(wildcard $(GC_DIR)/en_string.txt),--gc-strings $(GC_DIR)/gc_string_en.txt)
-	$(if $(GC_REL),$(PYTHON) tools/af_items.py special-names $(AF_EN_DIR)/src/code/m_npc.c $(GC_DIR)/foresta.rel.szs $(GC_DIR)/foresta.map)
+	$(if $(and $(GC_REL),$(wildcard $(GC_DIR)/en_string.txt),$(wildcard $(GC_DIR)/npc_name_str_table.bin)),$(PYTHON) tools/af_items.py special-names \
+		$(AF_EN_DIR)/src/code/m_npc.c $(GC_DIR)/foresta.rel.szs $(GC_DIR)/foresta.map $(EN_ITEMS_INC))
 
 $(EN_NAFE_GFX): tools/af_nafe_gfx.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)) $(AF_EN_DIR)/.stamp-extract
 	mkdir -p $(EN_ASSETS)
@@ -549,15 +551,17 @@ year-check-en: psel-check-en
 
 # Mr. Resetti by the game's own road: the same town powered on seven times, the player's own saves at the
 # gyroid in between (save and go on, save and stop) or none; a reset counted or not, his actor of each time,
-# his pages, the phrase he asks for typed wrong, then a word of his list, then right
-# (tests/emu_reset.py; NOTES, "What the second review had left open").
+# his pages, the phrase he asks for typed wrong, then a word of his list, then right; the arena while he is
+# there (tests/emu_reset.py; NOTES, "What the second review had left open").
 reset-check-en: psel-check-en
 	$(PYTHON) tests/emu_reset.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(BUILD)/emu-psel-en/2-two.town $(BUILD)/emu-reset-en
 
 # The room the game has left where a town is as full as it gets: the houses' state grown to 15 animals by the
 # game's own code, four players; every block walked into on each of the year's 21 dates, the arena read in
-# each; the player's house, the same full of gyroids, the shop, the post office, the police box and an
-# animal's house gone into (tests/emu_memory.py; NOTES, "What the second review had left open").
+# each and held to take what can come into a block on top of what it holds; the player's house, the same full
+# of gyroids, the shop, the post office, the police box and an animal's house gone into; the title through its
+# five demos, where START asks the arena for the save's buffer (tests/emu_memory.py; NOTES, "What the second
+# review had left open").
 memory-check-en: route-en
 	$(PYTHON) tests/emu_memory.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-memory-en --jobs 3
 

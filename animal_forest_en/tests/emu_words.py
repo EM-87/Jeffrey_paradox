@@ -367,8 +367,7 @@ def main(argv):
         setup()
         msg = call(3, syms["mMsg_Get_base_window_p"]) & 0xFFFFFFFF
         inc = open(os.path.join(af_en, "assets", "jp", "en", "item_names.inc"), encoding="utf-8").read()
-        apart = all("#define ITEM_EN_NAME_%04X 0x%03X " % (number, en) in inc
-                    for number, (_, en) in af_items.NAMES_APART.items())
+        apart = af_items.include_apart(inc)
         table = af_items.en_special_names(
             open(os.path.join(af_en, "src", "code", "m_npc.c"), encoding="utf-8").read(), apart)
         names, bad = {}, []

@@ -42,7 +42,11 @@ Checks:
      his page (the window's item string 0) is the bank's string of the number his actor holds; first a try
      one slip away is typed on the dial (the phrase without its last character) and his page is the wrong
      try's, which asks again; then one of his list's words, and his page is the insult's; then the phrase,
-     and his page is the right one's: he lets the player go.
+     and his page is the right one's: he lets the player go;
+  5. the room the game has left while he is at the door (the arena's largest free block at its least, over
+     tests/emu_year.py's floor), and where he is made: his actor and his overlay lie inside ovl_Npc's own
+     overlay, the room it keeps for the characters it makes, so his visit takes nothing out of the arena
+     (tests/emu_memory.py counts on that for every character).
 """
 
 import json
@@ -80,6 +84,8 @@ STOP, GO_ON = 0, 1                                     # the two answers of the 
 PLAN = ((False, GO_ON), (True, STOP), (False, None), (True, None), (True, None), (True, None), (True, None))
 STEPS, STALL = 1500, 12                                # a power-on's steps at most; steps he waits before the
                                                        # player goes to him
+ACTOR_TABLE, ACTOR_ENTRY = "actor_dlftbls", 0x20      # the game's table of actors: an overlay's vram start and
+                                                       # end and where it is loaded, at 8
 HIS = {1: "Npc_Majin", 2: "Npc_Majin2", 3: "Npc_Majin3", 4: "Npc_Majin4"}   # the count's actor (D_809837AA_jp)
 
 failures = []
@@ -179,7 +185,8 @@ def power_on(emu_dir, rom_path, af_en, town, work, k):
     if k == 0:
         os.makedirs(work, exist_ok=True)
         emu_save.write_fla(emu_save.fla_path(work, rom), emu_year.town_image(town))
-    result = {"on": k, "events": [], "hang": None, "free": False, "save": None}
+    result = {"on": k, "events": [], "hang": None, "free": False, "save": None, "room": None, "place": None}
+    number = {name: n for n, name in names.items()}
     events = result["events"]
     with N64(emu_dir, rom, work, timeout=60, clock=(2001, 5, 10, 10, 5 * k, 0)) as n64:
         t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], names)
@@ -192,6 +199,13 @@ def power_on(emu_dir, rom_path, af_en, town, work, k):
 
         def his():
             return [a for a in t.actors() if "Majin" in a["name"]]
+
+        def place(actor):
+            """[whether his instance lies inside ovl_Npc's own overlay, whether his overlay does]."""
+            def entry(name):
+                return struct.unpack(">3I", n64.read(syms[ACTOR_TABLE] + number[name] * ACTOR_ENTRY + 8, 12))
+            start, end, at = entry("Npc")
+            return [bool(at) and at <= a < at + end - start for a in (actor["addr"], entry(actor["name"])[2])]
 
         def typing(round_):
             """The name entry is open: what he asked for, a text typed by the round, START."""
@@ -249,6 +263,12 @@ def power_on(emu_dir, rom_path, af_en, town, work, k):
                 s = state()
                 mine = his()
                 now = sorted({a["name"] for a in mine})
+                if mine:                             # the room the arena has while he is there, at its least
+                    room = t.arena(syms["zelda_arena"])
+                    if room and (result["room"] is None or room[0] < result["room"][0]):
+                        result["room"] = list(room)
+                    if result["place"] is None:
+                        result["place"] = place(mine[0])
                 if result["start"] is None and s["count"] >= 0 and given >= 2:
                     result["start"] = s
                 key = (s["flag"], tuple(now), t.window_main(), t.player_main())
@@ -381,6 +401,14 @@ def report(runs):
                       "; he waits, and speaks when the player %s" % " and ".join(
                           sorted({e.get("how", "?") for e in went})) if went else ""))
         check(not bad, "power-on %d: its %d pages have no kana, kanji or token left (%s)" % (k, len(every), bad[:3]))
+        if reset:
+            room, where = run.get("room"), run.get("place")
+            check(bool(room) and room[0] >= emu_year.ARENA_FLOOR and where == [True, True],
+                  "power-on %d: while he is there the arena's largest free block is %s at its least (the floor "
+                  "%d), and his actor and his overlay lie %s" % (
+                      k, "%d bytes (%d in use)" % (room[0], room[2]) if room else "not read", emu_year.ARENA_FLOOR,
+                      "inside ovl_Npc's own overlay: he takes nothing out of the arena" if where == [True, True]
+                      else "not both inside ovl_Npc's own overlay (%s)" % where))
         if save is not None:
             said = [e["msg"] for e in (saved["pages"] if saved else [])]
             asked = saved["choices"] if saved else []

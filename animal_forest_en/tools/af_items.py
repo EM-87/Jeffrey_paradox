@@ -59,9 +59,10 @@ One special character has a name of its own on the GameCube and another's on the
 the policeman at the desk; the cartridge's table gives him the string of the one at the door). With the
 disc's strings the en string bank keeps his name in a spare slot (af_text.STRING_REMAP) and the include
 tells the en m_npc.c's table the slot (ITEM_EN_NAME_<number>); without them it tells it the cartridge's
-string. `special-names EN_M_NPC_C FORESTA_REL_SZS FORESTA_MAP` holds the en table to the GameCube's own
-(its m_npc.o's l_sp_actor_name, 12 bytes an entry as the cartridge's): every character of the en table
-takes the string the GameCube's table gives it.
+string. `special-names EN_M_NPC_C FORESTA_REL_SZS FORESTA_MAP INCLUDE` holds the en table to the GameCube's
+own (its m_npc.o's l_sp_actor_name, 12 bytes an entry as the cartridge's): every character of the en table
+takes the string the GameCube's table gives it. It reads what the include says (INCLUDE, the one compile
+wrote) and refuses one made without the disc's strings, whose table is the cartridge's.
 
 A name of the GameCube's that takes a or an is given the one its first sound asks for (sound_article): the
 GameCube's own table has a few the other way round.
@@ -460,6 +461,12 @@ def include(from_gc, tokens=(), apart=False):
     return "\n".join(lines + names) + "\n"
 
 
+def include_apart(text):
+    """Whether an include of include()'s (its text) names NAMES_APART's characters by the en bank's strings."""
+    return all("#define ITEM_EN_NAME_%04X 0x%03X " % (number, en) in text
+               for number, (_, en) in NAMES_APART.items())
+
+
 def names_apart(strings, gc_strings):
     """Whether the en string bank (strings) holds the names of NAMES_APART: each is the GameCube's string
     af_text.STRING_REMAP names (gc_strings: the GameCube's bank). A bank drafted before the remap is refused."""
@@ -485,9 +492,13 @@ def en_special_names(source, apart=True):
     """[(a special character's number, its name's string)] of the en tree's table (m_npc.c's l_sp_actor_name:
     a number, or the include's ITEM_EN_NAME_<number>, which stands for NAMES_APART's string)."""
     start = source.index("SpecialNpcData l_sp_actor_name[] = {")
+    block = source[start:source.index("};", start)]
+    rows = re.findall(r"\{\s*(0x[0-9A-Fa-f]+),\s*\w+,\s*(\w+),\s*\d+\s*\}", block)
+    if len(rows) != block.count("{") - 1:               # (the table's own brace)
+        raise SystemExit("af_items: %d of the en table's %d entries read: one is written another way" % (
+            len(rows), block.count("{") - 1))
     out = []
-    for number, string in re.findall(r"\{\s*(0x[0-9A-Fa-f]+),\s*\w+,\s*(\w+),\s*\d+\s*\}",
-                                     source[start:source.index("};", start)]):
+    for number, string in rows:
         number = int(number, 16)
         if string.startswith("ITEM_EN_NAME_"):
             if int(string[len("ITEM_EN_NAME_"):], 16) != number or number not in NAMES_APART:
@@ -621,7 +632,10 @@ def main(argv):
             else "none (no disc's strings: the cartridge's)"))
         return 0
     if argv[:1] == ["special-names"]:
-        source, rel, map_path = argv[1:4]
+        source, rel, map_path, inc = argv[1:5]
+        if not include_apart(open(inc, encoding="utf-8").read()):
+            raise SystemExit("af_items: special names: %s was made without the disc's strings (the en table is "
+                             "the cartridge's there): make script, then make rom-en" % inc)
         en = en_special_names(open(source, encoding="utf-8").read())
         gc = gc_special_names(open(rel, "rb").read(), open(map_path, encoding="latin-1").read())
         problems = special_name_problems(en, gc)

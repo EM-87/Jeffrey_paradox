@@ -4012,17 +4012,66 @@ made the two names whole. The rest, and what turned up on the way:
   reported 21 blocks it could not reach, which is how it was seen. The
   checks that tour a town now fail on a block not reached; the year check
   had not.
-  The floor the check holds each date's least to is 48 KB, and it is more
-  than the overlays of the actors that come and go outdoors, on top of what
-  a block holds, taken together (the winter's snowballs, 16,912 bytes, which
-  the tours meet; a balloon, the postman, the passing trader's tent, a fish
-  let go and an umbrella, which they do not: 40,560 bytes by the game's own
-  table of actors, read on every run): whichever of them come at once
-  into the fullest block, they fit; with every one that was not in the
-  year's worst block put on top of it, 42,240 bytes would be left there.
-  (The list is ours, made by reading which of the actors' overlays a tour
-  leaves unloaded and which of those can stand outdoors: one missed there
-  is missing from the sum.)
+  What a block held when the tour walked into it is not all it can hold:
+  some actors come and go. One that comes takes its overlay and its
+  instance out of the arena (`m_actor.c`: `Actor_get_overlay_area`, and
+  `zelda_malloc(profile->instanceSize)` in the function after
+  `func_80057940_jp`; the arena puts a 16-byte node before each), unless
+  it is an animal, a special character or a structure. For their names
+  (0xD000 and 0xE000, and 0x5000) the same two functions ask the clips of
+  `ovl_Npc` and `ovl_Structure` instead, and those hand out room the two
+  overlays hold in themselves (135,888 and 92,080 bytes, loaded once with
+  the town). Each tour reads it for every actor it meets, where its
+  instance lies and where its overlay: over the year, of the 89 actors
+  met, the 53 of the characters' part (`ActorProfile.part` 3) or of
+  `ac_structure.c`'s table lie inside one of the two overlays every time,
+  and the other 36 never. So the postman, a day's visitor, one more animal
+  walking in or Mr. Resetti at the door take nothing from the arena
+  (`tests/emu_reset.py` finds his actor and his overlay inside `ovl_Npc`'s
+  at each of his visits, and the arena's largest free block at 88,512
+  bytes while he talks). What does come out of the arena and can come into
+  a block: a balloon, bees out of a shaken tree, a fish let go and its
+  shadow, a snowman the player built, a paper airplane and the cherry
+  blossoms' manager (27,028 bytes together: overlays, instances, nodes);
+  a tool in an animal's hand (`ovl_Tools` makes ten; the four dearest,
+  for four animals, are 7,452); and on a day of snow the two snowballs,
+  which the player can roll into the next block (17,452). 51,932 bytes if
+  all of it came at once into a block that had none of it. The check
+  holds every block of every date to take all of it that was not there,
+  at once, and keep 16 KB (`RESERVE`): the tightest of the year is a
+  block of New Year's Day, 78,544 bytes free and 26,612 left; the block of
+  the year's least, which has the snowballs already, would keep 31,408.
+  (A load also borrows the arena for the overlay's relocation table while
+  it runs, `ovlmgr_LoadImpl`: 1,104 bytes for the snowballs', 432 at most
+  for the others; and each snowball asks for 164 bytes more. Both are
+  inside what is kept.)
+  No actor is left out of that sum by oversight. Of the 177 actors that
+  have an overlay the tours find 90 loaded, and the check accounts for
+  each of the other 87: 44 are characters or structures; 10 are in the
+  sum; 17 it finds loaded in the rooms it goes into; 3 on the new game's
+  road (the route's four states: the train, the station, the houses); and
+  13 are named with where they live, by their names and by the tables
+  that list them (`m_name_table.c`), which is reading and not seeing (the
+  title's logo, the arrival by train, an animal's room, the shop on its
+  raffle's day, the igloo, a room's lamp, the trader's tent, and six that
+  nothing makes). It fails on an actor that is none of these. Of what is
+  in the sum, the code that makes each was read where it could be found:
+  the balloon, the bees, the fish and its shadow and the tools are made
+  with no name of the map (`Balloon_move`, the item layers, the player,
+  `ovl_Gyo_Release`, `ac_tools.c`), and so out of the arena; the snowballs
+  were seen there. On a new game's first day, Nook
+  showing the houses, the largest free block is 84,672 bytes.
+  The check's first version summed six actors' overlays, two of them
+  characters, and no instance: its 40,560 bytes were not what can come, and
+  the 42,240 it said would be left were not what would stay.
+  A block's largest free block is also not the block's alone: what the
+  block before held decides where the next one's actors land. Two probes
+  on this ROM, not checks: a walk to and fro around the houses' block on
+  the February morning found 83,744 to 86,736 bytes there (that walk met
+  no snowballs: where they lie is the day's dice, thrown again at each
+  power-on that plays another way); one from the door straight into the
+  next block on New Year's Day found 63,120 where the tour has 73,632,
+  the snowballs there both times. The 16 KB kept are for that.
   The snowballs are the difference between one day's worst block and the
   next: a block has them or has not, by the game's dice, and 17 KB go with
   them. The year check holds its young town to the same floor now. It had
@@ -4108,6 +4157,40 @@ made the two names whole. The rest, and what turned up on the way:
   with their article and with a capital; `memory-check-en`, the 21 tours and
   the six rooms; `year-check-en`, every block of every date reached, the
   least 67,568 bytes).
+- **The last look before the delivery.** The commit read again, and three
+  things it showed. The signs' check and the reset check had run before
+  the last change to a module they import (`tests/emu_year.py`): run
+  again as goals of one make, no failure, the ROM the same.
+  `special-names` took the include's word for the string it names instead
+  of reading it: it reads it now, refuses one made without the disc's
+  strings, counts the table's entries, and the Makefile runs it only on a
+  build made from them. And the sum of what can come into a block was
+  wrong both ways (above): `tests/emu_memory.py` counts overlays,
+  instances and nodes of what does come out of the arena, sees for itself
+  what does not, and accounts for every actor; `tests/emu_reset.py` reads
+  the arena while Mr. Resetti is there. Looked at on the way and found in
+  order: a save does not ask the arena for its buffer (it borrows a
+  framebuffer, `func_800D97A0_jp`); the menus' overlays have room
+  of their own, taken from the state's heap before the arena gets the rest
+  (`mSM_submenu_ovlptr_init`); the day's growth takes 20,384 bytes for its
+  overlay for a moment (`mAGrw_RenewalFgItem`, from `m_field_make`) and a
+  letter's check 5,808 (`mMC_get_mail_hit_rate`), which any block's room
+  seen holds; the Controller Pak's buffer is asked for in the post
+  office. One more does ask the arena, and for much: START
+  at the title has the game read the save into a buffer of 63,872 bytes
+  (`func_8008F968_jp`: `zelda_malloc`), and the logo's function that calls
+  it (`func_80AA01A4_jp`) does not look at the answer: with no room the
+  town in play would not be the saved one. Every check presses START in
+  the first of the title's demos; there are five, one after another
+  (`mTD_demono_get`), each a town of its own season. `tests/emu_memory.py`
+  now leaves the title alone through all five and holds the arena to take
+  that buffer while the logo is there: the least is 175,568 bytes (the
+  fifth, its winter town). `make test`, `words-check-en`,
+  `reset-check-en` and `memory-check-en` as goals of one make on the
+  tree as committed: no failure, the ROM the same (md5 6e9a930beaaf...).
+  `tests/emu_year.py` changed in a comment only (its floor's reason):
+  parsed, its code is the commit's before, so the year check was not run
+  again.
 
 ## Other emulators (ares, Project64, RetroArch, RMG and simple64)
 

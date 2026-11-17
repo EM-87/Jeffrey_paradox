@@ -1847,6 +1847,8 @@ class MenusWords(unittest.TestCase):
         self.assertIn(en, af_items.SPECIAL_NAME_STRINGS)               # a name longer than 6 there takes a token
         self.assertIn("#define ITEM_EN_NAME_%04X 0x%03X " % (number, en), af_items.include(True, (), True))
         self.assertIn("#define ITEM_EN_NAME_%04X 0x%03X " % (number, cart), af_items.include(False))  # no disc
+        self.assertTrue(af_items.include_apart(af_items.include(True, (), True)))
+        self.assertFalse(af_items.include_apart(af_items.include(True)))   # special-names refuses this one
         source = ("SpecialNpcData l_sp_actor_name[] = {\n"
                   "    { 0xD00D, NPC_SEX_MALE, 0x0210, 2 },   { 0x%04X, NPC_SEX_MALE, ITEM_EN_NAME_%04X, 3 },\n"
                   "    { 0xD04E, NPC_SEX_MALE, 0x0210, 2 },\n};\n" % (number, number))
@@ -1863,6 +1865,8 @@ class MenusWords(unittest.TestCase):
         self.assertEqual(len(af_items.special_name_problems(table + [(0xD0FF, 0x300)], theirs)), 2)
         with self.assertRaises(SystemExit):
             af_items.en_special_names(source.replace("ITEM_EN_NAME_%04X" % number, "ITEM_EN_NAME_D00D"))
+        with self.assertRaises(SystemExit):                                # an entry the reader cannot read
+            af_items.en_special_names(source.replace("0x0210, 2 },   {", "0x0210, 0x2 },   {"))
         # the en string bank must hold the GameCube's string there: a bank drafted before the remap is refused
         gc = {af_text.STRING_REMAP[en]: msgbank.parse("Deskman")}
         self.assertTrue(af_items.names_apart({en: msgbank.parse("Deskman")}, gc))

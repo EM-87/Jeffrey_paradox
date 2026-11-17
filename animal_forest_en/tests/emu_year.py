@@ -88,12 +88,11 @@ VILLAGERS = 2                          # the ordinary villagers (Normal_Npc) tal
 ARENA_MAGIC, ARENA_NODES = 0x7373, 20000  # an arena node (ArenaNode: s16 magic, s16 isFree, u32 size, next, prev)
 STOPS = 12                             # how often a talk that starts by itself may cut one crossing short
 SUBMENU_OPEN = 0x1CBC + 12             # Game_Play.submenu: whether one of the menus is open
-ARENA_FLOOR = 0xC000                   # the arena's largest free block on a tour: never under 48 KB, which is
-                                       # more than the overlays of every actor that comes and goes outdoors
-                                       # take together (tests/emu_memory.py sums them from the game's own table
-                                       # on every run: 40,560 bytes). The cartridge's arena has code_en's bytes
-                                       # more; a tour's least was 32 KB while the sections that grew all sat in
-                                       # code_en
+ARENA_FLOOR = 0xC000                   # the arena's largest free block on a tour: never under 48 KB, a guard
+                                       # against the room shrinking unseen (a tour's least was 32 KB while the
+                                       # sections that grew all sat in code_en; the cartridge's arena has
+                                       # code_en's bytes more). What can come into a block on top of what it
+                                       # holds is summed against each block's room by tests/emu_memory.py
 
 
 def talked_to(name):
