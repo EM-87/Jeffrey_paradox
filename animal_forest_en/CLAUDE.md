@@ -57,7 +57,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
    psel-check-en`, one to an event, a date, the banks' tables or an
    actor's talk `make year-check-en` (which also reads the room the arena
    has left in every block of every date: run it too for a change that
-   grows `code_en`), one to `emu/` `make emu-determinism`.
+   grows `code_en`), one to `emu/` `make emu-determinism`. And after a
+   push, read the CI run's jobs: its emulator job failed for want of nasm
+   from the first commit on, 89 runs, while the tools' tests passed, and a
+   run that is always red hides the day `make test` fails (NOTES, "The
+   second review").
 
 ## Where things live
 

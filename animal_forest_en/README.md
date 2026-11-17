@@ -667,6 +667,12 @@ tiene margen de sobra). Lo que encontró, ya corregido:
   parcela de cada fecha y falla si baja de un mínimo.
 - Erratas del texto oficial (seis frases que empezaban en minúscula,
   cuatro comas sin su espacio) y dos respuestas mal ajustadas.
+- **La integración continua de GitHub no había pasado nunca.** El trabajo
+  que compila el emulador fallaba desde el primer commit (89 ejecuciones)
+  porque a sus dependencias les faltaba `nasm`; los tests de las
+  herramientas sí pasaban, así que el rojo era siempre el mismo y nadie lo
+  leía. Añadido `nasm` (también a la lista de paquetes de arriba): desde
+  entonces pasa entera.
 
 De paso, un hallazgo que resultó ser falsa alarma mía: creí que una
 herramienta nunca había leído los nombres japoneses de los objetos; los

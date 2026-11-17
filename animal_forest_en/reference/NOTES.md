@@ -3789,6 +3789,14 @@ in the repository); what they found:
   written into a run and put the section back in its slot, moving all that
   follows: `af_shiftcheck` refused the link (119 violations), which is what
   it is for.
+- **The CI had never passed.** The workflow's emulator job failed at `make
+  emu` in each of its 89 runs, from the first commit on: mupen64plus-core's
+  x86_64 dynarec is assembled with nasm, which the job's dependencies did
+  not install (nor did `emu/build.sh`'s list of what it needs, nor the
+  README's packages, name it; the machine the work is done on had it). The
+  tools' tests job passed all along, so every run was red for a reason
+  nobody had read, and a failing `make test` would have looked no different.
+  nasm added to the three: run 90 is the first to pass, both jobs.
 - **Looked at and left.** The layout counts 8 letters (52 pixels) for an
   item's string; the names with their articles measure 86 at the median and
   125 at most, and the GameCube's own lines leave 110 or more for 90% of
@@ -3820,7 +3828,11 @@ in the repository); what they found:
   arena read in every block) and `resetti-check-en` (added after the others,
   on the same ROM: the 16 phrases typed and taken, the 32 words, his check
   against the model, his page): no failure. `make emu-determinism` passes
-  too (RAM the same after each of 2,035 frames).
+  too (RAM the same after each of 2,035 frames). After the CI's fix the
+  emulator was built again from its pinned sources (`emu/build.sh` is one of
+  its inputs), and `make test emu-check emu-check-en emu-determinism
+  resetti-check-en` run on it as goals of one make: no failure, and the en
+  ROM the same.
 
 ## Other emulators (ares, Project64, RetroArch, RMG and simple64)
 
