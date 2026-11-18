@@ -403,9 +403,13 @@ def post_key(post):
     return fnv(post[:POST_SIZE])
 
 
+PAK_HELD = 0x80                                  # m_handbill.h: a record's first length, the Controller Pak's mark
+
+
 class Ext:
     def __init__(self):
         self.records = []                        # (key, header rest, body rest, footer rest), oldest first
+        self.held = set()                        # the keys of the records the Controller Pak's store has held
 
     @classmethod
     def parse(cls, data):
@@ -413,6 +417,9 @@ class Ext:
         pos = 2
         while data[:2] == b"LX" and pos + 7 <= len(data):
             k, h, b, f = struct.unpack(">IBBB", data[pos:pos + 7])
+            if h & PAK_HELD:
+                ext.held.add(k)
+                h &= ~PAK_HELD
             at = pos + 7
             ext.records.append((k, data[at:at + h], data[at + h:at + h + b], data[at + h + b:at + h + b + f]))
             pos = at + h + b + f
@@ -426,23 +433,28 @@ class Ext:
         rest = (whole_header[10:24].rstrip(b" "), whole_body[96:192].rstrip(b"\xcd"), whole_footer[16:32].rstrip(b" "))
         self.records = [r for r in self.records if r[0] != key]
         if not any(rest):
+            self.held.discard(key)
             return
         size = 7 + sum(len(x) for x in rest)
         if self.size() + size > EXT_CAP:
             self.collect(save_keys)
         while self.size() + size > EXT_CAP and self.records:
-            self.records.pop(0)
+            self.held.discard(self.records.pop(0)[0])
         self.records.append((key,) + rest)
 
     def collect(self, save_keys):
-        self.records = [r for r in self.records if r[0] in save_keys]
+        self.records = [r for r in self.records if r[0] in save_keys or r[0] in self.held]
+
+    def hold(self, keys):
+        """The Controller Pak's store written with these letters in it (m_submenu.c mSM_en_PakCheckSum)."""
+        self.held.update(k for k, h, b, f in self.records if k in keys)
 
     def rest(self, key):
         return next(((h, b, f) for k, h, b, f in self.records if k == key), None)
 
     def bytes(self):
-        return b"LX" + b"".join(struct.pack(">IBBB", k, len(h), len(b), len(f)) + h + b + f
-                                 for k, h, b, f in self.records)
+        return b"LX" + b"".join(struct.pack(">IBBB", k, len(h) | (PAK_HELD if k in self.held else 0), len(b),
+                                            len(f)) + h + b + f for k, h, b, f in self.records)
 
 
 def entries(af_en):

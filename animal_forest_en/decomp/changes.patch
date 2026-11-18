@@ -264,10 +264,10 @@ index 2753a99..7a636a7 100644
 +
  #endif
 diff --git a/include/m_handbill.h b/include/m_handbill.h
-index fe15111..490b2ab 100644
+index fe15111..1a5bbcb 100644
 --- a/include/m_handbill.h
 +++ b/include/m_handbill.h
-@@ -75,4 +75,23 @@ void mHandbill_Load_HandbillFromRom2(u8*, s32, s32*, u8*, s32, u8*, s32);
+@@ -75,4 +75,27 @@ void mHandbill_Load_HandbillFromRom2(u8*, s32, s32*, u8*, s32, u8*, s32);
  // void func_80094400_jp();
  s32 mHandbillz_load(HandbillzInfo*);
  
@@ -283,6 +283,10 @@ index fe15111..490b2ab 100644
 +u32 mHandbill_en_Key(u8* header, u8* body, u8* footer);
 +/* the letters kept outside the save's own letter places (m_submenu.c, whose slot has room) */
 +s32 mSM_en_LettersKept(u8* save, u32* keys);
++/* a record whose letter the Controller Pak's store has held: a bit of its first length (the header's rest is
++   14 bytes at most); the store's checksum, which marks them (m_submenu.c; code/m_cpak.c func_80079D50_jp) */
++#define mHandbill_EN_PAK_HELD 0x80
++u16 mSM_en_PakCheckSum(u8* store, s32 size, u16 sum);
 +void mHandbill_en_Remove(u8* record);
 +void mHandbill_en_File(u32 key, u8* hrest, s32 hlen, u8* brest, s32 blen, u8* frest, s32 flen);
 +s32 mHandbill_en_GetLetter(struct MailContent* content, u8* header, u8* body, u8* footer);
@@ -751,6 +755,29 @@ index d4a7b38..50198d3 100644
                                        FALSE, FALSE, 0, 1.0f, 1.0f, type);
  
          y += 16.0f;
+diff --git a/src/code/m_cpak.c b/src/code/m_cpak.c
+index c6a4005..89d5c7f 100644
+--- a/src/code/m_cpak.c
++++ b/src/code/m_cpak.c
+@@ -2,6 +2,7 @@
+ #include "global.h"
+ 
+ #include "m_flashrom.h"
++#include "m_handbill.h"
+ #include "m_lib.h"
+ #include "m_malloc.h"
+ 
+@@ -488,7 +489,9 @@ UNK_RET func_80079D00_jp(void) {
+ 
+ s32 func_80079D50_jp(D801047B0Struct* arg0, PakInfo* info, u8* index) {
+     mCPk_SetForestPakState(info, 1);
+-    arg0->unk_0000 = func_8008EEB4_jp(arg0, sizeof(D801047B0Struct), arg0->unk_0000);
++    /* the en build: the checksum, after the extension's records of the store's letters are marked as held
++       (m_submenu.c mSM_en_PakCheckSum; m_handbill.c, "The letters the Controller Pak's store holds") */
++    arg0->unk_0000 = mSM_en_PakCheckSum((u8*)arg0, sizeof(D801047B0Struct), arg0->unk_0000);
+     if (func_8007920C_jp(info, arg0) == 1) {
+         if (mLd_PlayerManKindCheck()) {
+             if (mCPk_SavePak(common_data.privateInfo, mNpc_GetInAnimalP(), info) == 1) {
 diff --git a/src/code/m_flashrom.c b/src/code/m_flashrom.c
 index f3f7472..94cef7d 100644
 --- a/src/code/m_flashrom.c
@@ -1518,7 +1545,7 @@ index eb55156..bd0c678 100644
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetMatrix.s")
 diff --git a/src/code/m_handbill.c b/src/code/m_handbill.c
-index 34e9b7f..c5957f2 100644
+index 34e9b7f..cea40f7 100644
 --- a/src/code/m_handbill.c
 +++ b/src/code/m_handbill.c
 @@ -1,14 +1,21 @@
@@ -1847,7 +1874,7 @@ index 34e9b7f..c5957f2 100644
      } else {
          *addr = 0;
          *size = 0;
-@@ -458,154 +484,460 @@ void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s3
+@@ -458,154 +484,477 @@ void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s3
      }
  }
  
@@ -2023,6 +2050,18 @@ index 34e9b7f..c5957f2 100644
 + * (mNpc_AnimalMail2Mail): the same bytes, so the same key. They are
 + * held as the save's own letters are (mSM_en_LettersKept, m_submenu.c,
 + * which also says where the collection begins while a player is away).
++ *
++ * The letters the Controller Pak's store holds. The post office keeps up
++ * to 160 letters on a Controller Pak (ovl__0079E430; written by
++ * code/m_cpak.c func_80079D50_jp), the cartridge's bytes of each, and
++ * no letter of the save holds their keys while they lie there. The Pak
++ * has no room for the rests (its two files take 121 of its 123 pages),
++ * so they stay here: when the store is written the records of its
++ * letters are marked (mHandbill_EN_PAK_HELD in the first length:
++ * mSM_en_PakCheckSum, m_submenu.c) and the collection leaves a marked
++ * record alone. The mark stays for good, since no save can tell what a
++ * Pak holds: a marked record goes as any other does when the extension
++ * is full, the oldest first.
 + */
 +#define mHandbill_EN_EXT_HEAD 2
 +#define mHandbill_EN_EXT_RECORD_HEAD 7
@@ -2056,7 +2095,7 @@ index 34e9b7f..c5957f2 100644
 +}
 +
 +static s32 mHandbill_en_RecordSize(u8* record) {
-+    return mHandbill_EN_EXT_RECORD_HEAD + record[4] + record[5] + record[6];
++    return mHandbill_EN_EXT_RECORD_HEAD + (record[4] & ~mHandbill_EN_PAK_HELD) + record[5] + record[6];
 +}
 +
 +static u32 mHandbill_en_RecordKey(u8* record) {
@@ -2144,7 +2183,8 @@ index 34e9b7f..c5957f2 100644
 +}
 +
 +/* Drop the records no letter or post of save (the save's bytes) holds, nor a letter an animal keeps, but for
-+   those a player away on a trip may hold: all that was filed before the record of the trip */
++   those a player away on a trip may hold (all that was filed before the record of the trip) and those of
++   the letters the Controller Pak's store has held */
 +void mHandbill_en_CollectExt(u8* save) {
 +    u32 keys[mHandbill_EN_SAVE_MAIL_NUM + mHandbill_EN_POST_COUNT + mHandbill_EN_KEPT_MAIL_NUM];
 +    s32 pos;
@@ -2173,7 +2213,8 @@ index 34e9b7f..c5957f2 100644
              }
 -            func_80093478_jp(buf, mHandbill_BODY_LEN, sz, mHandbill_FILL_RETURN);
 +        }
-+        if (i < mHandbill_EN_SAVE_MAIL_NUM + mHandbill_EN_POST_COUNT + mHandbill_EN_KEPT_MAIL_NUM) {
++        if (i < mHandbill_EN_SAVE_MAIL_NUM + mHandbill_EN_POST_COUNT + mHandbill_EN_KEPT_MAIL_NUM ||
++            (record[4] & mHandbill_EN_PAK_HELD)) {
 +            pos += mHandbill_en_RecordSize(record);
 +        } else {
 +            mHandbill_en_Remove(record);
@@ -2189,10 +2230,11 @@ index 34e9b7f..c5957f2 100644
 +    return len;
 +}
 +
-+/* File a letter's rests under its key (none: its record goes) */
++/* File a letter's rests under its key (none: its record goes); the Controller Pak's mark stays with the key */
 +void mHandbill_en_File(u32 key, u8* hrest, s32 hlen, u8* brest, s32 blen, u8* frest, s32 flen) {
 +    s32 size = mHandbill_EN_EXT_RECORD_HEAD + hlen + blen + flen;
 +    u8* record;
++    s32 held = 0;
 +
 +    if (!mHandbill_en_ExtOurs()) {
 +        mFRm_en_ext[0] = 'L';
@@ -2201,6 +2243,7 @@ index 34e9b7f..c5957f2 100644
 +    }
 +    record = mHandbill_en_Find(key);
 +    if (record != NULL) {
++        held = record[4] & mHandbill_EN_PAK_HELD;
 +        mHandbill_en_Remove(record);
 +    }
 +    if (hlen + blen + flen == 0) {
@@ -2217,7 +2260,7 @@ index 34e9b7f..c5957f2 100644
 +    record[1] = key >> 16;
 +    record[2] = key >> 8;
 +    record[3] = key;
-+    record[4] = hlen;
++    record[4] = hlen | held;
 +    record[5] = blen;
 +    record[6] = flen;
 +    if (hlen > 0) {
@@ -2258,7 +2301,7 @@ index 34e9b7f..c5957f2 100644
 +    s32 flen = 0;
 +
 +    if (record != NULL) {
-+        hlen = record[4];
++        hlen = record[4] & ~mHandbill_EN_PAK_HELD;
 +        blen = record[5];
 +        flen = record[6];
 +    }
@@ -2383,7 +2426,8 @@ index 34e9b7f..c5957f2 100644
 +    mem_clear(text, mHandbill_EN_EDIT_BODY_LEN, ' ');
 +    bcopy(post, text, mHandbill_EN_POST_TEXT_LEN);
 +    if (record != NULL) {
-+        bcopy(record + mHandbill_EN_EXT_RECORD_HEAD + record[4], text + mHandbill_EN_POST_TEXT_LEN, record[5]);
++        /* a post's record has no header's rest (mHandbill_en_FileNotice) */
++        bcopy(record + mHandbill_EN_EXT_RECORD_HEAD, text + mHandbill_EN_POST_TEXT_LEN, record[5]);
 +    }
 +    *len = mMl_strlen((char*)text, mHandbill_EN_EDIT_BODY_LEN, ' ');
 +    return text;
@@ -2403,7 +2447,7 @@ index 34e9b7f..c5957f2 100644
  }
  
  /* mHandbillzDMA_body_load */
-@@ -641,29 +973,32 @@ s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
+@@ -641,29 +990,32 @@ s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
      }
  }
  
@@ -2446,7 +2490,7 @@ index 34e9b7f..c5957f2 100644
  
          info->headerBackStart = header_back_start;
          return TRUE;
-@@ -672,14 +1007,16 @@ s32 func_800941B0_jp(HandbillzInfo* info) {
+@@ -672,14 +1024,16 @@ s32 func_800941B0_jp(HandbillzInfo* info) {
      }
  }
  
@@ -2465,7 +2509,7 @@ index 34e9b7f..c5957f2 100644
  
      dma_info[0].type = mHandbillz_TYPE_MAILA;
      dma_info[0].num = info->mailANo;
-@@ -696,7 +1033,7 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+@@ -696,7 +1050,7 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
          if (func_800940A8_jp(dma_p)) {
              total_size += dma_p->dma_size;
  
@@ -2474,7 +2518,7 @@ index 34e9b7f..c5957f2 100644
                  bcopy(B_80140748_jp, dst, dma_p->dma_size);
                  dst += dma_p->dma_size;
              } else {
-@@ -708,17 +1045,18 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+@@ -708,17 +1062,18 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
      }
  
      if (success) {
@@ -2497,7 +2541,7 @@ index 34e9b7f..c5957f2 100644
  s32 func_80094400_jp(HandbillzInfo* info) {
      mHandbillzDMA_c dma_info;
      u8 ram[0x22 + 6];
-@@ -731,13 +1069,13 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+@@ -731,13 +1086,13 @@ s32 func_80094400_jp(HandbillzInfo* info) {
      dma_info.ram_buf_size = 0x22;
  
      if (func_800940A8_jp(&dma_info)) {
@@ -2517,7 +2561,7 @@ index 34e9b7f..c5957f2 100644
          return TRUE;
      } else {
          return FALSE;
-@@ -745,9 +1083,609 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+@@ -745,9 +1100,609 @@ s32 func_80094400_jp(HandbillzInfo* info) {
  }
  
  s32 mHandbillz_load(HandbillzInfo* info) {
@@ -4408,10 +4452,10 @@ index 7b8e5b5..ddb1254 100644
 +}
 +
 diff --git a/src/code/m_submenu.c b/src/code/m_submenu.c
-index 5f7c230..57dd129 100644
+index 5f7c230..5755bf4 100644
 --- a/src/code/m_submenu.c
 +++ b/src/code/m_submenu.c
-@@ -733,3 +733,221 @@ u8* mSM_Get_ground_pallet_p(Game_Play* play) {
+@@ -733,3 +733,245 @@ u8* mSM_Get_ground_pallet_p(Game_Play* play) {
  
      return play->groundPalPtrs[idx];
  }
@@ -4624,7 +4668,7 @@ index 5f7c230..57dd129 100644
 +        u8* record = mHandbill_en_Find(mHandbill_EN_HOLD_KEY + i);
 +
 +        if (record != NULL && !mPr_NullCheckPersonalID(&data->saveFilePrivateInfo[i].playerId)) {
-+            s32 end = record + 7 + record[4] + record[5] + record[6] - mFRm_en_ext; /* the record's end */
++            s32 end = record + 8 - mFRm_en_ext; /* the record's end: its 7 bytes of key and lengths, and its one */
 +
 +            if (end > pos) {
 +                pos = end;
@@ -4632,6 +4676,30 @@ index 5f7c230..57dd129 100644
 +        }
 +    }
 +    return pos;
++}
++
++u16 func_8008EEB4_jp(void* data, UNK_TYPE size, u16 checksum); /* code/m_flashrom.c */
++
++/*
++ * The checksum of the Controller Pak's letter store as code/m_cpak.c func_80079D50_jp asks it, just before
++ * the store is written to the Pak. The store's work area (ovl__0079E430 func_8089BD4C_jp) holds its 160
++ * letters from +0x52 on, after the checksum and 8 fields of 10 bytes: the extension's record of each is
++ * marked as held, so that the collection before a save leaves it alone while the letter lies on the Pak
++ * (m_handbill.c, "The letters the Controller Pak's store holds"). Here for the room, as mSM_en_LettersKept.
++ */
++u16 mSM_en_PakCheckSum(u8* store, s32 size, u16 sum) {
++    MailContent* content = &((Mail_c*)(store + 0x52))->content;
++    s32 i;
++
++    for (i = 0; i < 160; i++) {
++        u8* record = mHandbill_en_Find(mHandbill_en_Key(content->header, content->body, content->footer));
++
++        if (record != NULL) {
++            record[4] |= mHandbill_EN_PAK_HELD;
++        }
++        content = (MailContent*)((u8*)content + sizeof(Mail_c));
++    }
++    return func_8008EEB4_jp(store, size, sum);
 +}
 diff --git a/src/dmadata/dmadata.c b/src/dmadata/dmadata.c
 index 3ba98f9..d74058b 100644

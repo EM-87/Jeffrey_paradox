@@ -70,7 +70,8 @@ make job-check-en                 # la primera hora de una partida nueva jugada 
                                   # deuda, guardar y volver a encender
 make trip-check-en                # un viaje con Controller Pak: salir en tren con una carta larga
                                   # en el bolsillo, llegar a otro pueblo como visitante y volver
-                                  # a casa con la carta entera
+                                  # a casa con la carta entera; y después guardarla en el Controller
+                                  # Pak en correos, guardar la partida y recuperarla entera
 make ares                         # el segundo emulador, ares, sin ventana (y su aplicación)
 make test                         # tests de las herramientas, sin ROM
 make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010: para estudiarlo, y
@@ -930,6 +931,28 @@ pruebas se fabricaban con ellos ya recorridos (o nunca salían de ellos).
   casa se ve (y se envía) solo con sus primeros 96 bytes, y en casa
   vuelve a estar entera; y una carta escrita en el otro pueblo vuelve a
   casa sin su final.
+- **El mismo fallo en otros dos sitios, corregido también.** Encontrado
+  el del viajero, busqué en qué otros sitios guarda el juego una carta
+  fuera de los bolsillos, los buzones y correos. Hay dos. Cada vecino
+  conserva la última carta que le mandó cada jugador (y la enseña, o la
+  devuelve): en cuanto la carta salía de correos hacia el vecino, el
+  siguiente guardado borraba su final, y el vecino enseñaba la carta
+  cortada. Y correos deja guardar hasta 160 cartas en un Controller Pak
+  («Save a letter»): la carta guardada allí volvía al bolsillo cortada
+  en el byte 96. Ahora el final de esas cartas se conserva en la
+  partida mientras el vecino tenga la carta o el Pak la haya guardado.
+  `make job-check-en` escribe ahora larga la carta del primer trabajo y
+  exige que siga entera cuando solo la tiene la vecina, y
+  `make trip-check-en` guarda la carta en el Pak, guarda la partida dos
+  veces y la recupera entera en otro encendido. Tampoco estos dos
+  arreglos le quitan memoria al juego. Límites que quedan: el espacio
+  para esos finales es el de la partida (9 KB para todas las cartas
+  largas; si se llena, pierden el final las más antiguas, como ya
+  pasaba), y una carta guardada en el Pak desde *otro* pueblo no tiene
+  allí final que conservar. Una nota de uso que no sabía nadie hasta
+  jugarlo: en ese menú las cartas se cogen y se sueltan con Z, y el
+  juego no deja guardar en el Pak una carta escrita por uno mismo y sin
+  enviar.
 - **Tres palabras sueltas.** Un barrido del texto ya compilado buscando
   palabras que el resto del guion no usa encontró tres: un «Memory Pak»
   partido entre dos líneas (por eso se le escapó a la revisión que

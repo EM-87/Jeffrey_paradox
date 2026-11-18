@@ -32,6 +32,23 @@ them as two Game Paks would be:
   letter in the pockets, its rest in the extension as it was written; the gyroid saves, and the flash holds
   both.
 
+Then the same Controller Pak takes the letter itself, in two more power-ons at home. The post office keeps up
+to 160 letters on a Controller Pak (the clerk's third answer; ovl__0079E430's menu, code/m_cpak.c's file), the
+cartridge's bytes of each, and while a letter lies there no letter of the save holds its rest's key either:
+
+  the clerk's menu: the hand begins on the pockets' first letter; Z takes it, three places to the right Z
+  puts it down in the store, B, and the question's first answer (A shows the answers, A chooses); the game
+  writes the store onto the Controller Pak and the town onto the Game Pak, and the clerk asks again. The
+  extension must keep the rest, marked as the Pak's (m_submenu.c's mSM_en_PakCheckSum), through that save and
+  the gyroid's after it;
+
+  the next power-on: the clerk again, the letter back from the store into the pockets, whole.
+
+The store takes no letter its own player wrote and has not sent (the inventory's letters are open to the hand
+by their kind: m_inventory_ovl.s, the menu's mode 0xE, mMl_check_send_mail), and the letter written here is
+the only letter this short road has: its kind is set to a received letter's, one byte of its record in RAM,
+before the clerk is spoken to. The key is made of the letter's text, which that byte is not part of.
+
 Every page read on the way is judged as the other checks judge one (emu_year's Town.page_problems), and the
 allocator's hook is in place from each power-on (tests/emu_memory.py's watch): the arena must never say no.
 """
@@ -55,9 +72,10 @@ import emu_memory  # noqa: E402
 import emu_psel  # noqa: E402
 import emu_save  # noqa: E402
 import emu_town  # noqa: E402
+import emu_write  # noqa: E402
 import emu_year  # noqa: E402
 from afplay import DIRECTIONS, dialogue_open, name_dial_open, presses, type_on_dial, until, walk  # noqa: E402
-from n64emu import N64, A, START, Hang  # noqa: E402
+from n64emu import N64, A, B, START, Z, Hang  # noqa: E402
 
 FG = emu_memory.FG_SCENE
 PRIVATE, PRIVATE_SIZE = emu_psel.PRIVATE_AT, emu_psel.PRIVATE_SIZE
@@ -73,7 +91,14 @@ BODY_AT, BODY = 0x34, 96                # a Mail_c's body
 MASTER = "Npc_Station_Master"
 HOLD_KEY = 0x484F4C30                   # m_handbill.h: the record of a trip, + the traveller's number (0 to 3)
 DAY = (2001, 4, 15)
-CLOCKS = {"home": DAY + (10, 0, 0), "visit": DAY + (11, 30, 0), "back": DAY + (13, 0, 0)}
+CLOCKS = {"home": DAY + (10, 0, 0), "visit": DAY + (11, 30, 0), "back": DAY + (13, 0, 0),
+          "store": DAY + (14, 30, 0), "fetch": DAY + (16, 0, 0)}
+CLERK = "Npc_Post_Girl"
+KIND_AT, SENDING, RECEIVED = 0x26, 1, 3  # Mail_c: the letter's kind (mMl_check_send_mail: 1 is one to send)
+STORE_PTR = 0x10714                     # the submenu's overlays: the letter store's work area (ovl__0079E430)
+STORE_AT, STORE_SLOTS = 0x52, 160       # its letters, after the checksum and 8 fields of 10 bytes
+STORE_HAND = 1                          # the store's place used: three rights from the pockets' first, the hand's
+TEXT_AT, TEXT_SIZE = 0x2A, 122          # a Mail_c's header, body and footer: what its key is made of
 
 failures = []
 
@@ -97,7 +122,9 @@ def facts(private, ext):
     keys = [key for key, h, b, f in records]
     trips = [key for key in keys if HOLD_KEY <= key < HOLD_KEY + 4]
     line = max((keys.index(key) for key in trips), default=-1)     # what lies before the last of them is kept
+    marked = emu_letters.Ext.parse(bytes(ext)).held if ext else set()
     return {"name": bytes(private[:6]).hex(), "id": bytes(private[:0x10]).hex(), "exists": private[EXISTS],
+            "marked": ["%08x" % key for key in keys if key in marked],
             "pockets": [v for v in struct.unpack(">15H", bytes(private[POCKETS:POCKETS + 30])) if v],
             "letters": ["%08x" % emu_letters.mail_key(m) for m in held(private)],
             "mail": [m.hex() for m in held(private)],
@@ -120,6 +147,12 @@ def pak_facts(work, me):
         if at >= 0 and at + PRIVATE_SIZE <= len(pak):
             return facts(pak[at:at + PRIVATE_SIZE], b"")
     return None
+
+
+def pak_copies(work, mail):
+    """How many times the Controller Pak's file in work holds a letter's text (mail: a Mail_c's bytes in hex)."""
+    text = bytes.fromhex(mail)[TEXT_AT:TEXT_AT + TEXT_SIZE]
+    return sum(open(path, "rb").read().count(text) for path in glob.glob(os.path.join(work, "*.mpk"))) if text else 0
 
 
 def make_town(emu_dir, rom_path, af_en, state, out, typed):
@@ -156,7 +189,8 @@ def session(emu_dir, rom_path, af_en, plan):
     it. The plan: label, clock, answers (the greeter's); town (a fresh flash made of it, a sheet of paper in
     its first player's first free pocket) or flash (a flash's file copied in); steps, of meet (an animal
     spoken to), write (the letter), talk (an animal spoken to, no more asked), depart (the station's master,
-    the train), save (the gyroid, to stop)."""
+    the train), store and fetch (the post office's clerk: the pockets' first letter into the Controller Pak's
+    store, and back), save (the gyroid, to stop)."""
     rom = open(rom_path, "rb").read()
     syms = emu_save.elf_symbols(os.path.join(af_en, "build", "animalforest-jp.elf"))
     names = emu_year.actor_names(af_en)
@@ -178,7 +212,8 @@ def session(emu_dir, rom_path, af_en, plan):
     elif plan.get("flash"):
         shutil.copyfile(plan["flash"], fla)
     result = {"label": label, "arrived": False, "hang": None, "pages": [], "now": None, "met": None,
-              "written": None, "talked": None, "left": None, "saved": None, "watch": None, "made": []}
+              "written": None, "talked": None, "left": None, "saved": None, "watch": None, "made": [],
+              "stored": None, "fetched": None}
     cd = syms["common_data"]
     with N64(emu_dir, rom, work, timeout=60, clock=tuple(plan["clock"])) as n64:
         t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], names, syms)
@@ -195,6 +230,84 @@ def session(emu_dir, rom_path, af_en, plan):
 
         def animals():
             return {fg: tuple(place[:2]) for fg, place in emu_town.animals(n64.read(cd, 0x10000))}
+
+        def store():
+            """The letter store's letters while the clerk's menu is open: [[place, key]], or None."""
+            ovl = n64.u32(t.play() + emu_write.SUBMENU + emu_write.SUBMENU_OVL)
+            area = n64.u32(ovl + STORE_PTR) if 0x80000000 <= ovl < 0x80800000 else 0
+            if not 0x80000000 <= area < 0x80800000 - STORE_AT - STORE_SLOTS * MAIL_SIZE:
+                return None
+            raw = n64.read(area + STORE_AT, STORE_SLOTS * MAIL_SIZE)
+            mails = [raw[i * MAIL_SIZE:(i + 1) * MAIL_SIZE] for i in range(STORE_SLOTS)]
+            return [[i, "%08x" % emu_letters.mail_key(m)] for i, m in enumerate(mails) if m[:12].strip(b" ")]
+
+        def pockets():
+            return ["%08x" % emu_letters.mail_key(m) for m in held(n64.read(n64.u32(cd + PRIVATE_PTR), PRIVATE_SIZE))]
+
+        def tap(buttons, wait=14):
+            n64.frames(6, buttons)
+            n64.frames(wait, 0)
+
+        def clerk(fetch):
+            """The post office's clerk, her third answer, and in her menu the pockets' first letter (where
+            the hand begins) into the Controller Pak's store, three places to the right, or back (fetch); B,
+            the question, its first answer, and the game writes the Pak and the flash; then her last answer,
+            when she asks again. What was seen on the way."""
+            got = {"before": now(), "spoken": False, "menu": False, "kind": None, "taken": None, "put": None,
+                   "closed": False, "ended": None, "now": None}
+            mine = got["before"]["letters"]
+            if not (p.outside() and t.go_block(p.block_of("post"), set()) and
+                    p.enter("Post_Office", emu_job.POST_DOOR)):
+                return got
+            who = [a for a in t.actors() if a["name"] == CLERK]
+            if not who:
+                return got
+            if not fetch and len(mine) == 1:            # the store takes no letter the player wrote to send
+                at = n64.u32(cd + PRIVATE_PTR) + MAIL + KIND_AT
+                got["kind"] = [n64.read(at, 1)[0], RECEIVED]
+                n64.write(at, bytes([RECEIVED]))
+            asked = []
+
+            def answer(count):
+                """Her third answer first; when she asks again after the menu, her last (no more)."""
+                asked.append(count)
+                return 2 if len(asked) == 1 else count - 1
+            got["spoken"], how = p.talk(who[0], limit=300, quiet=10, pick=answer)
+            got["menu"] = how == "menu"
+            if not got["menu"]:
+                return got
+            for _ in range(30):                         # the store read from the Pak
+                if store() is not None and (not fetch or store()):
+                    break
+                n64.frames(20, 0)
+            n64.frames(40, 0)
+            got["opened"] = {"pockets": pockets(), "store": store()}
+            there, back = [DIRECTIONS["r"]] * (STORE_HAND + 2), [DIRECTIONS["l"]] * (STORE_HAND + 2)
+            for way in back + [0]:                      # the hand on the pockets' first letter (where it begins)
+                tap(way)
+            for way in (there if fetch else []) + [Z]:  # Z takes the letter under the hand
+                tap(way, 40 if way == Z else 14)
+            got["taken"] = {"pockets": pockets(), "store": store()}
+            for way in (back if fetch else there) + [Z]:    # and puts it down
+                tap(way, 40 if way == Z else 14)
+            got["put"] = {"pockets": pockets(), "store": store()}
+            n64.screenshot(os.path.join(work, label + "-store.png"))
+            n64.press(B, 3, 80)                         # the question,
+            n64.press(A, 3, 80)                         # its answers,
+            n64.press(A, 3, 40)                         # the first: the Pak and the flash are written
+            shut = 0
+            for _ in range(120):                        # the menus over one another close one by one
+                shut = 0 if t.menu_open() else shut + 1
+                if shut == 6:
+                    break
+                n64.frames(20, 0)
+            got["closed"] = shut == 6
+            n64.frames(60, 0)
+            got["ended"] = p.advance(400, 12, pick=answer)
+            got["asked"] = asked
+            got["now"] = now()
+            got["out"] = p.outside()
+            return got
 
         try:
             low, used = emu_memory.watch_soon(n64, af_en, syms)
@@ -273,6 +386,10 @@ def session(emu_dir, rom_path, af_en, plan):
                             n64.frames(15, 0)
                 n64.frames(120, 0)
                 result["left"] = {"spoken": spoken, "gone": gone}
+            if result["arrived"] and "store" in steps:
+                result["stored"] = clerk(False)
+            if result["arrived"] and "fetch" in steps:
+                result["fetched"] = clerk(True)
             if result["arrived"] and "save" in steps:
                 result["before"] = now()
                 result["saved"] = emu_memory.save_and_stop(t, emu_town.MAT, pages)
@@ -300,10 +417,14 @@ def arena(run):
         seen["calls"], seen["least"]) if seen and not seen["fails"] else "THE ARENA SAID NO" if seen else "not watched")
 
 
-def report(towns, home, away, pak, visit, other, back, kept):
-    """The checks. towns: {home, other}: make_town's answers; home, visit, back: the three sessions; away,
-    other, kept: the flash's facts after each (the home's with its player away, the other town's, the home's
-    with its player back); pak: the Controller Pak's facts after the first."""
+def report(towns, home, away, pak, visit, other, back, kept, store=None, lying=None, fetch=None, whole=None,
+           copies=()):
+    """The checks. towns: {home, other}: make_town's answers; home, visit, back: the trip's three sessions;
+    away, other, kept: the flash's facts after each (the home's with its player away, the other town's, the
+    home's with its player back); pak: the Controller Pak's facts after the first. store, fetch: the two
+    sessions at the post office; lying, whole: the flash's facts after each (the letter lying on the Pak, and
+    back in the pockets); copies: how many times the Pak's file held the letter's text before them and after
+    each."""
     check(bool(towns) and all(towns.get(k) and towns[k]["settled"] and towns[k]["sound"] for k in ("home", "other")) and
           towns["home"]["id"][:24] != towns["other"]["id"][:24],
           "two towns made by the game from the route's states, the first house chosen by its talk: the route's "
@@ -388,8 +509,61 @@ def report(towns, home, away, pak, visit, other, back, kept):
               "the flash holds the letter and its rest" if kept and letter and
               kept["rests"].get(letter["key"]) == letter["rest"] else "THE FLASH DOES NOT HOLD THE LETTER WHOLE (%s)" % (
                   kept and {"letters": kept["letters"], "rests": sorted(kept["rests"]), "trips": kept["trips"]},)))
-    runs = [r for r in (home, visit, back) if r]
-    check(len(runs) == 3 and all(clean(r) for r in runs),
+    put = (store or {}).get("stored") or {}
+    seen, key = put.get("now"), letter and letter["key"]
+    moved = (bool(key) and bool(put.get("taken")) and put["taken"]["pockets"] == [] and bool(put.get("put")) and
+             put["put"]["pockets"] == [] and put["put"]["store"] == [[STORE_HAND, key]])
+    written = len(copies) > 1 and copies[1] == copies[0] + 1
+    safe = bool(seen) and bool(key) and seen["rests"].get(key) == letter["rest"] and key in seen["marked"]
+    check(clean(store) and bool(put.get("spoken")) and bool(put.get("menu")) and moved and bool(put.get("closed")) and
+          put.get("ended") == "free" and written and bool(seen) and not seen["letters"] and bool(rest) and safe,
+          "the post office's clerk, her third answer (the letter's kind made a received letter's first: the "
+          "store takes no letter its player wrote to send): %s" % (
+              "Z takes the letter from the pockets, Z puts it down in the store, B and the question's first "
+              "answer: the game writes the store onto the Controller Pak (its file holds the letter's text %d "
+              "times, %d before) and the town onto the Game Pak; no letter of the save holds the rest's key "
+              "now, and the extension keeps the rest, marked as the Pak's" % (copies[1], copies[0])
+              if moved and put.get("closed") and written and safe
+              else "THE REST IS GONE FROM THE EXTENSION (its rests %s, the Pak's marks %s): THE LETTER COMES "
+                   "BACK FROM THE PAK CUT AT ITS %dTH BYTE" % (sorted(seen["rests"]), seen["marked"], BODY)
+              if moved and put.get("closed") and written and seen
+              else "NOT STORED AS MEANT (%s; the Pak's file %s)" % (
+                  {k: put.get(k) for k in ("spoken", "menu", "kind", "opened", "taken", "put", "closed", "ended")},
+                  list(copies))))
+    check(emu_memory.saved(store) and bool(lying) and bool(key) and not lying["letters"] and bool(rest) and
+          lying["rests"].get(key) == letter["rest"] and key in lying["marked"],
+          "the gyroid's save after it, the letter lying on the Controller Pak: %s" % (
+              "the flash has no letter of the player's, and the letter's rest all the same, marked"
+              if lying and key and lying["rests"].get(key) == letter["rest"] and key in lying["marked"]
+              else "THE FLASH DOES NOT KEEP THE REST (%s)" % (
+                  lying and {"letters": lying["letters"], "rests": sorted(lying["rests"]), "marked": lying["marked"]},)))
+    got = (fetch or {}).get("fetched") or {}
+    seen = got.get("now")
+    text = bytes.fromhex(letter["mail"])[TEXT_AT:TEXT_AT + TEXT_SIZE] if letter and letter.get("mail") else None
+    home_again = (bool(key) and bool(got.get("opened")) and got["opened"]["store"] == [[STORE_HAND, key]] and
+                  got["opened"]["pockets"] == [] and bool(got.get("taken")) and got["taken"]["store"] == [] and
+                  bool(got.get("put")) and got["put"]["pockets"] == [key] and got["put"]["store"] == [])
+    same = (bool(seen) and bool(text) and len(seen["mail"]) == 1 and
+            bytes.fromhex(seen["mail"][0])[TEXT_AT:TEXT_AT + TEXT_SIZE] == text and
+            seen["rests"].get(key) == letter["rest"])
+    check(clean(fetch) and bool(got.get("spoken")) and bool(got.get("menu")) and home_again and
+          bool(got.get("closed")) and got.get("ended") == "free" and bool(rest) and same and
+          emu_memory.saved(fetch) and bool(whole) and whole["letters"] == [key] and
+          whole["rests"].get(key) == letter["rest"] and len(copies) > 2 and copies[2] == copies[0],
+          "the next power-on, the clerk again: %s" % (
+              "the store read from the Controller Pak has the letter in its place; Z takes it, Z puts it down "
+              "in the pockets, B and the first answer: the letter is whole, its %d bytes past the cartridge's "
+              "under its key as they were written, in RAM and in the flash the gyroid then writes; the Pak's "
+              "file holds its text %d times again" % (len(rest), copies[2])
+              if home_again and same and whole and whole["rests"].get(key) == letter["rest"] and len(copies) > 2
+              else "THE LETTER IS BACK WITHOUT ITS REST (the extension's rests %s; the flash's %s): IT ENDS AT "
+                   "ITS %dTH BYTE" % (sorted(seen["rests"]), whole and sorted(whole["rests"]), BODY)
+              if home_again and seen
+              else "NOT FETCHED AS MEANT (%s; the Pak's file %s)" % (
+                  {k: got.get(k) for k in ("spoken", "menu", "opened", "taken", "put", "closed", "ended")},
+                  list(copies))))
+    runs = [r for r in (home, visit, back, store, fetch) if r]
+    check(len(runs) == 5 and all(clean(r) for r in runs),
           "on the way %d pages read, %s; no hang; %s" % (
               sum(r["pages"] for r in runs),
               "clean" if not any(r["problems"] for r in runs) else [r["problems"][:2] for r in runs if r["problems"]],
@@ -428,8 +602,9 @@ def main(argv):
                            os.path.join(out, "home")),
              "other": child("--town", emu_dir, rom_path, af_en, os.path.join(route, "1-name.st"),
                             os.path.join(out, "other"), *OTHER_NAMES)}
-    work = os.path.join(out, "pak")                     # one pad's Controller Pak through the three power-ons
-    home = away = pak = visit = other = back = kept = None
+    work = os.path.join(out, "pak")                     # one pad's Controller Pak through the five power-ons
+    home = away = pak = visit = other = back = kept = store = lying = fetch = whole = None
+    copies = []
     if towns["home"] and towns["other"]:
         home = run("home", town=towns["home"]["town"], answers=[0, 0], steps=["meet", "write", "depart"])
     if home and home["left"] and home["left"]["gone"]:
@@ -443,9 +618,19 @@ def main(argv):
         back = run("back", flash=os.path.join(out, "home-away.fla"), answers=[0], steps=["save"])
     if back and back["saved"]:
         kept = flash_facts(work, rom)
-    report(towns, home, away, pak, visit, other, back, kept)
+        copies.append(pak_copies(work, home["written"]["mail"]))
+        store = run("store", answers=[0, 0], steps=["store", "save"])
+    if store and store["saved"]:
+        lying = flash_facts(work, rom)
+        copies.append(pak_copies(work, home["written"]["mail"]))
+        fetch = run("fetch", answers=[0, 0], steps=["fetch", "save"])
+    if fetch and fetch["saved"]:
+        whole = flash_facts(work, rom)
+        copies.append(pak_copies(work, home["written"]["mail"]))
+    report(towns, home, away, pak, visit, other, back, kept, store, lying, fetch, whole, copies)
     json.dump({"towns": towns, "home": home, "away": away, "pak": pak, "visit": visit, "other": other,
-               "back": back, "kept": kept}, open(os.path.join(out, "report.json"), "w"), indent=1)
+               "back": back, "kept": kept, "store": store, "lying": lying, "fetch": fetch, "whole": whole,
+               "copies": copies}, open(os.path.join(out, "report.json"), "w"), indent=1)
     print("emu_trip: %s; the report in %s" % ("all passed" if not failures else "%d FAILED" % len(failures), out))
     return 1 if failures else 0
 

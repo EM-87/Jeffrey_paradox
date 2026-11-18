@@ -367,15 +367,18 @@ the why and the state, `reference/NOTES.md` for what is verified.
   the item screen, the seeds planted, everybody greeted, three
   deliveries, a letter written and mailed, a notice on the board), the
   job's flags cleared by the game, something sold and something bought
-  in the shop, the gyroid's save, the flash powered on again; every page
-  judged: `make job-check-en`),
+  in the shop, the gyroid's save, the flash powered on again; the
+  letter, written long, must be whole once only its animal keeps it;
+  every page judged: `make job-check-en`),
   `emu_trip.py` (the fourth of the game's starts of play, a player who
   comes with a Controller Pak, and the road to it: two towns made by
   the game, the second with other names typed at the dials; a letter
   longer than the cartridge keeps written at home, the station's
   master, the train, the other town as a visitor, an animal there
   spoken to, and home again, where the letter must be whole and the
-  gyroid save it so: `make trip-check-en`),
+  gyroid save it so; then two more power-ons at the post office, the
+  letter into the Controller Pak's store, two saves, and back whole:
+  `make trip-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.
@@ -434,9 +437,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
 - **A few bytes more can cost thousands.** A text section that grew
   lies in the slots the other grown ones left, as many bytes of them
   as `tools/af_relink.py` can place, and the rest in `code_en`. The
-  packing is tight (`m_handbill.o` and `m_choice_main.o` share a slot
-  with 160 bytes to spare, `m_flashrom.o`'s run has 336, `m_submenu.o`'s
-  480): 880 bytes more in `m_handbill.c` put 6,320 into `code_en`, and
+  packing is tight (after the letters' fixes `m_handbill.o` and
+  `m_choice_main.o` share a slot with 96 bytes to spare, `m_flashrom.o`'s
+  run has 112, `m_submenu.o`'s 16): 880 bytes more in `m_handbill.c` put
+  6,320 into `code_en`, and
   a few instructions more in a file the translation had not touched
   (`m_private.c`) sent its 12,000 bytes of text there whole. After a
   change to the en tree's C, read the relink's line (`N sections in
@@ -696,6 +700,22 @@ the why and the state, `reference/NOTES.md` for what is verified.
   cut. Anything keyed to the save's content must be held through a
   trip; and a check that never leaves the town never sees it
   (`tests/emu_trip.py`).
+- **A letter lies in more places than the save's letter places.** The
+  pockets, the mailboxes and the post office's seven are 87; an animal
+  keeps the last letter each player sent it (105 more, in the animals'
+  memories), and the post office stores up to 160 on a Controller Pak.
+  Both lost their rests the same way and are held now (the animals'
+  by their keys, the Pak's by a mark on the record: NOTES, "A trip,
+  played"). Before keying anything to "the letters of the save", ask
+  where else the game copies a letter's bytes.
+- **The post office's letter store is worked with Z.** In the clerk's
+  third answer's menu the hand begins on the pockets' first letter; Z
+  takes and puts down the letter under it (A does not), B asks the
+  closing question and A must be pressed once to show its answers and
+  once more to choose; the hand cannot take a letter its player wrote
+  and has not sent; and when the menu is done the clerk asks her
+  answers again (the first would open the item screen: answer the
+  last). `tests/emu_trip.py` has the steps.
 - **Two towns of one route are one town.** The names typed are the
   same and the ids come out the same: a trip between two of the checks'
   towns is a homecoming into the wrong town. A check that wants a

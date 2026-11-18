@@ -3040,7 +3040,7 @@ class EmulatorChecks(unittest.TestCase):
 
     def trip(self):
         """A trip with the Controller Pak as tests/emu_trip.py's report reads it: [towns, home, away, pak,
-        visit, other, back, kept], nothing amiss."""
+        visit, other, back, kept, store, lying, fetch, whole, copies], nothing amiss."""
         count = {"fails": 0, "failed": 0, "least": 85000, "calls": 600, "most": 250720, "made": {}}
         me, you = "636561202020636561202020f066306a", "6b6f6d202020656b6d202020f066306a"
         key, rest, mail = "1368ac01", "63656d6f6b", "aa" * 0xA4
@@ -3048,12 +3048,12 @@ class EmulatorChecks(unittest.TestCase):
 
         def facts(**what):
             return dict({"name": me[:12], "id": me, "exists": 1, "pockets": list(pockets), "letters": [key],
-                         "mail": [mail], "rests": {key: rest}, "trips": [], "held": []}, **what)
+                         "mail": [mail], "rests": {key: rest}, "trips": [], "held": [], "marked": []}, **what)
 
         def run(label, **what):
             return dict({"label": label, "arrived": True, "hang": None, "pages": 18, "problems": [],
                          "watch": dict(count), "made": [], "asked": 1, "met": None, "written": None,
-                         "talked": None, "left": None, "saved": None}, **what)
+                         "talked": None, "left": None, "saved": None, "stored": None, "fetched": None}, **what)
         towns = {"home": {"town": "home.town", "settled": True, "said": "", "id": me, "sound": True},
                  "other": {"town": "other.town", "settled": True, "said": "", "id": you, "sound": True}}
         home = run("home", asked=2, now=facts(number=0, record="the save's", letters=[], mail=[], rests={}),
@@ -3068,7 +3068,20 @@ class EmulatorChecks(unittest.TestCase):
         other = facts(name=you[:12], id=you, pockets=[], letters=[], mail=[], rests={})
         back = run("back", now=facts(number=0, record="the save's"), before=facts(number=0, record="the save's"),
                    saved={"spoken": True, "asked": 2, "left": True, "pages": 5})
-        return [towns, home, away, pak, visit, other, back, facts()]
+        here, done = facts(number=0, record="the save's"), {"spoken": True, "asked": 2, "left": True, "pages": 5}
+        gone = facts(number=0, record="the save's", letters=[], mail=[], marked=[key])
+        store = run("store", asked=2, now=here, before=gone, saved=dict(done), stored={
+            "before": here, "spoken": True, "menu": True, "kind": [1, 3], "opened": {"pockets": [key], "store": []},
+            "taken": {"pockets": [], "store": []}, "put": {"pockets": [], "store": [[1, key]]}, "closed": True,
+            "ended": "free", "asked": [4, 4], "now": gone, "out": True})
+        lying = facts(letters=[], mail=[], marked=[key])
+        back_in = facts(number=0, record="the save's", marked=[key])
+        fetch = run("fetch", asked=2, now=gone, before=back_in, saved=dict(done), fetched={
+            "before": gone, "spoken": True, "menu": True, "kind": None, "opened": {"pockets": [], "store": [[1, key]]},
+            "taken": {"pockets": [], "store": []}, "put": {"pockets": [key], "store": []}, "closed": True,
+            "ended": "free", "asked": [4, 4], "now": back_in, "out": True})
+        return [towns, home, away, pak, visit, other, back, facts(), store, lying, fetch, facts(marked=[key]),
+                [0, 1, 0]]
 
     def trip_failed(self, parts):
         emu_trip.failures.clear()
@@ -3080,8 +3093,9 @@ class EmulatorChecks(unittest.TestCase):
 
     def test_a_trip_is_held_to_the_letter_whole_at_home_again(self):
         self.assertEqual(self.trip_failed(self.trip()), [])
-        self.assertEqual(len(self.trip_failed([None] * 8)), 12)      # nothing played: every check fails
-        TOWNS, HOME, AWAY, PAK, VISIT, OTHER, BACK, KEPT = range(8)
+        self.assertEqual(len(self.trip_failed([None] * 8)), 15)      # nothing played: every check fails
+        self.assertEqual(len(self.trip_failed(self.trip()[:8])), 4)  # the trip alone: the Pak's letters not played
+        TOWNS, HOME, AWAY, PAK, VISIT, OTHER, BACK, KEPT, STORE, LYING, FETCH, WHOLE, COPIES = range(13)
 
         def failed(part, *path, **what):
             """How many checks fail with one thing of a part changed (path: the dicts down to it)."""
@@ -3108,9 +3122,9 @@ class EmulatorChecks(unittest.TestCase):
         # the letter: written, longer than the cartridge keeps, the paper used
         self.assertEqual(failed(HOME, "written", paper=True), 1)
         self.assertEqual(failed(HOME, "met", known=False), 1)
-        # ... a letter with nothing past the cartridge's 96 bytes proves nothing: its own check, and the
-        # three that hold its rest
-        self.assertEqual(failed(HOME, "written", rest=None), 4)
+        # ... a letter with nothing past the cartridge's 96 bytes proves nothing: its own check, the three
+        # that hold its rest on the trip and the three that hold it at the post office
+        self.assertEqual(failed(HOME, "written", rest=None), 7)
         # the departure: the game must have left, the player be away in the flash, the Pak hold the record
         self.assertEqual(failed(HOME, "left", gone=False), 1)
         self.assertEqual(failed(AWAY, exists=1), 1)
@@ -3131,7 +3145,53 @@ class EmulatorChecks(unittest.TestCase):
         self.assertEqual(failed(BACK, "now", exists=0), 1)
         self.assertEqual(failed(BACK, "now", mail=[]), 1)
         self.assertEqual(failed(BACK, "saved", left=False), 1)
+        # the fault the two sessions at the post office were written for: the letter in the Controller Pak's
+        # store, and the extension dropping its rest at the save the game makes then. The rest gone, or kept
+        # without the Pak's mark (the next save would drop it); the gyroid's save; and the letter back
+        self.assertEqual(failed(STORE, "stored", "now", rests={}), 1)
+        self.assertEqual(failed(STORE, "stored", "now", marked=[]), 1)
+        self.assertEqual(failed(STORE, "stored", "now", rests={"1368ac01": "636561"}), 1)
+        self.assertEqual(failed(LYING, rests={}), 1)
+        self.assertEqual(failed(LYING, marked=[]), 1)
+        self.assertEqual(failed(LYING, letters=["1368ac01"]), 1)
+        self.assertEqual(failed(FETCH, "fetched", "now", rests={}), 1)
+        self.assertEqual(failed(FETCH, "fetched", "now", mail=["bb" * 0xA4]), 1)        # another letter's text
+        self.assertEqual(failed(WHOLE, rests={}), 1)
+        self.assertEqual(failed(WHOLE, letters=[]), 1)
+        # ... the letter's kind is not part of its text: the letter back is the letter written
+        other_kind = "aa" * 0x26 + "03" + "aa" * (0xA4 - 0x27)
+        self.assertEqual(failed(FETCH, "fetched", "now", mail=[other_kind]), 0)
+        # the menu: the letter must leave the pockets for the hand and the hand for the store's place, the
+        # menu close, the talk end, and the Controller Pak's file gain the letter's text and lose it again
+        self.assertEqual(failed(STORE, "stored", "taken", pockets=["1368ac01"]), 1)
+        self.assertEqual(failed(STORE, "stored", "put", store=[]), 1)
+        self.assertEqual(failed(STORE, "stored", "put", store=[[2, "1368ac01"]]), 1)
+        self.assertEqual(failed(STORE, "stored", closed=False), 1)
+        self.assertEqual(failed(STORE, "stored", menu=False), 1)
+        self.assertEqual(failed(STORE, "stored", ended="limit"), 1)
+        self.assertEqual(failed(STORE, "saved", left=False), 1)
+        self.assertEqual(failed(FETCH, "fetched", "opened", store=[]), 1)                # not read from the Pak
+        self.assertEqual(failed(FETCH, "fetched", "put", pockets=[]), 1)
+        self.assertEqual(failed(FETCH, "fetched", closed=False), 1)
+        self.assertEqual(failed(FETCH, "saved", left=False), 1)
+        parts = self.trip()
+        parts[COPIES] = [0, 0, 0]                                                        # never written to the Pak
+        self.assertEqual(len(self.trip_failed(parts)), 1)
+        parts[COPIES] = [0, 1, 1]                                                        # never taken off it
+        self.assertEqual(len(self.trip_failed(parts)), 1)
+        parts[COPIES] = [1, 2, 1]                                                        # a trip's file with it too
+        self.assertEqual(len(self.trip_failed(parts)), 0)
+        said = io.StringIO()
+        parts = self.trip()
+        parts[STORE]["stored"]["now"] = dict(parts[STORE]["stored"]["now"], rests={})
+        emu_trip.failures.clear()
+        with contextlib.redirect_stdout(said):
+            emu_trip.report(*parts)
+        emu_trip.failures.clear()
+        self.assertIn("COMES BACK FROM THE PAK CUT AT ITS 96TH BYTE", said.getvalue())
         # a page with a fault, a hang, the arena saying no: the session's checks and the last one
+        self.assertEqual(failed(STORE, problems=["0x1be7 at 0: a line past its bubble"]), 2)
+        self.assertEqual(failed(FETCH, hang="no frame"), 2)
         self.assertEqual(failed(VISIT, problems=["0x7dd at 0: a line past its bubble"]), 4)
         self.assertEqual(failed(BACK, hang="no frame"), 2)
         self.assertEqual(failed(HOME, "watch", fails=1), 3)
@@ -3164,6 +3224,64 @@ class EmulatorChecks(unittest.TestCase):
         self.assertEqual(emu_trip.facts(private, b"")["rests"], {})
         self.assertEqual(emu_trip.facts(private, b"")["trips"], [])
         self.assertEqual(emu_trip.held(private), [letter])
+        # the Controller Pak's mark on a record: a bit of its first length, and no part of its rest
+        self.assertEqual(got["marked"], [])
+        ext.hold({key, 9, 1234})
+        got = emu_trip.facts(private, ext.bytes())
+        self.assertEqual(got["marked"], ["%08x" % key, "00000009"])
+        self.assertEqual(got["rests"]["%08x" % key], b"rest".hex())
+        self.assertEqual(emu_trip.facts(private, b"")["marked"], [])
+        # the Controller Pak's file: how many times it holds a letter's text
+        with tempfile.TemporaryDirectory() as work:
+            self.assertEqual(emu_trip.pak_copies(work, letter.hex()), 0)
+            text = letter[emu_trip.TEXT_AT:emu_trip.TEXT_AT + emu_trip.TEXT_SIZE]
+            self.assertEqual(len(text), 122)
+            with open(os.path.join(work, "a.mpk"), "wb") as f:
+                f.write(bytes(0x300) + letter + bytes(0x100) + b"\x03" + text + bytes(7))
+            self.assertEqual(emu_trip.pak_copies(work, letter.hex()), 2)
+            self.assertEqual(emu_trip.pak_copies(work, (b"\x55" * emu_trip.MAIL_SIZE).hex()), 0)
+            self.assertEqual(emu_trip.pak_copies(work, ""), 0)
+
+    def test_the_extension_keeps_what_the_controller_pak_holds(self):
+        """tests/emu_letters.py's model of the extension, as m_handbill.c files and collects: a record the
+        Controller Pak's store has held is marked, and the collection leaves it alone."""
+        def letter(n, body=100):
+            return bytes([n]) * 24, bytes([n]) * body + b"\xcd" * (192 - body), bytes([n]) * 16 + b" " * 16
+
+        def key(n):
+            return emu_letters.fnv(bytes([n]) * 10 + bytes([n]) * 96 + bytes([n]) * 16)
+        ext = emu_letters.Ext()
+        for n in (1, 2, 3):
+            ext.file(*letter(n), save_keys=set())
+        self.assertEqual([r[0] for r in ext.records], [key(1), key(2), key(3)])
+        ext.hold({key(3), key(9)})                       # the store written with the third in it, and one unknown
+        self.assertEqual(ext.held, {key(3)})
+        raw = ext.bytes()
+        first = [raw[at + 4] for at in (2, 2 + 7 + 18, 2 + 2 * (7 + 18))]
+        self.assertEqual(first, [14, 14, 14 | emu_letters.PAK_HELD])
+        again = emu_letters.Ext.parse(raw)
+        self.assertEqual((again.records, again.held, again.bytes()), (ext.records, ext.held, raw))
+        self.assertEqual(again.rest(key(3)), (bytes([3]) * 14, bytes([3]) * 4, b""))
+        ext.collect({key(1)})                            # the save holds the first; the Pak the third
+        self.assertEqual([r[0] for r in ext.records], [key(1), key(3)])
+        ext.collect(set())
+        self.assertEqual([r[0] for r in ext.records], [key(3)])
+        ext.file(*letter(3, body=120), save_keys=set())  # the same letter made again: the mark stays with its key
+        self.assertEqual((ext.held, ext.rest(key(3))[1]), ({key(3)}, bytes([3]) * 24))
+        ext.file(bytes([3]) * 10 + b" " * 14, bytes([3]) * 96 + b"\xcd" * 96, bytes([3]) * 16 + b" " * 16, set())
+        self.assertEqual((ext.records, ext.held), ([], set()))        # nothing past the cartridge's: no record
+        # the extension full: the oldest goes, marked or not, and its mark with it
+        ext = emu_letters.Ext()
+        ext.file(*letter(1, body=192), save_keys=set())
+        ext.hold({key(1)})
+        n = 2
+        while ext.size() + 7 + 14 + 96 <= emu_letters.EXT_CAP:
+            ext.file(*letter(n, body=192), save_keys={key(m) for m in range(2, n + 1)})
+            n += 1
+        self.assertEqual((ext.records[0][0], ext.held), (key(1), {key(1)}))
+        ext.file(*letter(n, body=192), save_keys={key(m) for m in range(2, n + 1)})
+        self.assertEqual((ext.records[0][0], ext.held), (key(2), set()))
+        self.assertLessEqual(ext.size(), emu_letters.EXT_CAP)
 
     def newcomer(self, **more):
         """The answer of the road of a player who comes later, as the report reads it: nothing amiss."""

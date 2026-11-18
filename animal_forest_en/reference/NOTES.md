@@ -4573,7 +4573,9 @@ been read twice ("The official text's codes and the GameCube's own",
 "The text's questions and facts") and its master spoken to ("A day in
 the town, played"); nothing had gone it. `tests/emu_trip.py` (`make
 trip-check-en`) goes it: one pad's Controller Pak through three
-power-ons, the flash changed between them as two Game Paks would be.
+power-ons, the flash changed between them as two Game Paks would be,
+and then through two more at home, at the post office ("The letters on
+the Controller Pak", below).
 
 - **The road.** The station's master asks a resident one thing (a
   trip, or not). On the first answer he saves the player onto the
@@ -4623,7 +4625,8 @@ power-ons, the flash changed between them as two Game Paks would be.
   record of the trip in the extension (`mHandbill_EN_HOLD_KEY` + the
   player's number, a byte of body), and the collection keeps all that
   lies before the last such record whose player's place in the save
-  has a name (`mHandbill_en_CollectExt`): what was filed before a
+  has a name (`mHandbill_en_CollectExt`, which asks
+  `mSM_en_LettersKept` where to begin): what was filed before a
   player left stays while the trip lasts, the traveller's letters'
   rests among it. The copy of a Pak's record into the save takes that
   player's record away, and the letters hold their rests by their keys
@@ -4644,12 +4647,79 @@ power-ons, the flash changed between them as two Game Paks would be.
   second had the work in `mPr_CopyPrivateInfo` itself: a few
   instructions more in `m_private.o`, and its 12,000 bytes of text left
   their place whole. Now `m_private.c` has the call alone (16 bytes
-  less, padded in place), `m_handbill.c` 128 bytes more (the
-  collection's look for the records of a trip, and three of its
-  functions no longer the file's own), and the copy lies in
-  `m_flashrom.c`, 224 bytes, in a run of slots that had 336 to spare.
-  `code_en` ends where it ended (0xBC50 bytes): the arena has what it
-  had.
+  less, padded in place); the copy lies in `m_flashrom.c`, 224 bytes,
+  in a run of slots that had 336 to spare; the look for the records of
+  a trip lies in `m_submenu.c` with the two fixes below, 464 bytes in a
+  run that had 480; and `m_handbill.c` has 64 bytes more (three of its
+  functions no longer the file's own, and the Controller Pak's mark),
+  of the 160 its slot had. `m_cpak.c` has one call's target changed and
+  the size it had. `code_en` ends where it ended (0xBC50 bytes): the
+  arena has what it had. What is left to spare is 16 bytes in
+  `m_submenu.o`'s run, 96 in `m_handbill.o`'s slot and 112 in
+  `m_flashrom.o`'s: the next change to one of the three goes elsewhere
+  or costs the arena.
+- **The letters the animals keep.** The same fault in a second place,
+  found by asking where else a letter's bytes lie outside the save's
+  own letter places (the pockets, the mailboxes, the post office's
+  seven). An animal keeps the last letter each player sent it, the
+  cartridge's bytes of it (`Anmmem_c.letter`, an `Anmplmail_c`: header,
+  body and footer one after the other, the 122 bytes a key is made of;
+  `mNpc_Mail2AnimalMail` when the letter is delivered), and holds it up
+  later or gives it back (`mNpc_AnimalMail2Mail`): the first job's axe
+  goes to the animal the job's letter went to, and that animal shows
+  the letter. Once the letter had left the post office for the
+  animal's memory no letter place held its key, and the next write of
+  the flash dropped its rest: a letter of the player's past 96 bytes
+  was shown cut from then on. The collection now takes the keys of the
+  letters the animals keep too, 15 animals' 7 memories each
+  (`mSM_en_LettersKept`, `m_submenu.c`). The first job's check types
+  its letter long (180 letters on the dial: 135 bytes of body, 39 past
+  the cartridge's) and holds the build to the rest being in the
+  extension as it was written, in the flash the gyroid writes after the
+  job and in the next morning's, where the animal's memory is the only
+  place the letter has.
+- **The letters on the Controller Pak.** And in a third. The post
+  office keeps up to 160 letters on a Controller Pak (the clerk's third
+  answer; the menu is `ovl__0079E430`, 8 leaves of 20 places beside
+  the pockets' letters; the file is written by `func_80079D50_jp` of
+  `code/m_cpak.c`, 0x6700 bytes: a checksum, 8 fields of 10 bytes, one
+  for each leaf, and 160 `Mail_c` from + 0x52), the cartridge's bytes
+  of each. The Pak has no room for more: that file and a trip's take
+  121 of its 123 pages. While a letter lies there no letter of the
+  save holds its key, and the write of the flash the game makes right
+  after the Pak's dropped its rest. Now the store's checksum, which
+  `func_80079D50_jp` asks for just before it writes the Pak, is asked
+  of `mSM_en_PakCheckSum` (`m_submenu.c`): it marks the extension's
+  record of each letter of the store (a bit of the record's first
+  length, `mHandbill_EN_PAK_HELD`: the header's rest is 14 bytes at
+  most), and the collection leaves a marked record alone. No save can
+  tell what a Pak holds, so the mark stays for good, also once the
+  letter is back in the pockets or thrown away, and with a letter made
+  again from the same text; a marked record goes as any other does
+  when the extension is full, the oldest first (0x2400 bytes, a record
+  133 at most: the rests of a full Pak's letters and the save's own
+  need not all fit). A letter stored at another town's post office has
+  no rest there to mark ("Another town").
+  The menu, with the pad: the hand begins on the pockets' first letter
+  and the stick takes it over the pockets' letters and the store; Z
+  takes the letter under the hand and puts it down (A does neither); R
+  turns the store's leaves; B asks the edit-end check's question, A
+  shows its answers, and the first writes the Pak and then the flash.
+  The clerk then asks her four answers again. The inventory opens to
+  the hand
+  only the letters that are not to be sent (`m_inventory_ovl.s`, the
+  menu's mode 0xE: `mMl_check_send_mail`), so a letter the player wrote
+  and has not mailed stays in the pockets. The check has no other
+  letter on its short road than the one it wrote: it sets that
+  letter's kind to a received letter's, one byte of its record in RAM
+  (no part of its key), before the clerk is spoken to; the letter goes
+  into the store, the game saves, the gyroid saves, and at the next
+  power-on it comes back from the store whole. The check's question
+  has the answers of the letter's, the GameCube's English for the
+  cartridge's one table of three; the cartridge's own three are worded
+  for any of the check's uses, and here the second goes back to the
+  menu and the third leaves the letters where they were. Left as the
+  GameCube's.
 - **Another town.** The Controller Pak holds the cartridge's record
   (the `Passport`; the decomp names no use for its last 0x100 bytes,
   and the rests of ten letters would not fit there). A letter carried
