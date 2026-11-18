@@ -45,9 +45,9 @@ players, the six animals a town starts with). This check does it where the town 
   5. the allocator itself. In every session the arena's two ways in pass their answer to the hook (watch):
      the arena must never say no, from power-on, and the least its largest free block was after any
      allocation is kept, between two frames too. What a block has free depends on the way there (what the
-     block before held decides where the next one's actors land); on three dates (EDGE_DATES) the town is
-     walked into every block from every side that has a way in (edges), each way in held to the floor and
-     to EXTRA's sum; how far a block's room is apart by the way in is told;
+     block before held decides where the next one's actors land); on the dates of snow and on a summer
+     night (EDGE_DATES) the town is walked into every block from every side that has a way in (edges), each
+     way in held to the floor and to EXTRA's sum; how far a block's room is apart by the way in is told;
   6. the rooms a day's power-on does not reach (MORE), each reached as the game reaches it over the
      power-ons of one flash, the player saving at the gyroid in between: the first house enlarged twice
      by the game's own start of play, each size gone into as it is and with a different piece of
@@ -67,7 +67,14 @@ players, the six animals a town starts with). This check does it where the town 
      not look at the answer: with no room the town on the cartridge would not be the one played). The town
      is powered on and left alone through the title's demos, which follow one another (mTD_demono_get: five
      of them, each a town of its own season): while the logo is there the largest free block must take that
-     buffer in every one of them and keep RESERVE.
+     buffer in every one of them and keep RESERVE;
+  8. a player made in a town that has players (newcomer): the town of one player fewer powered on on the
+     year's tightest day and the game's own road gone for the one who comes later: the select's answer
+     after the players' names, the train of a town that is there (its own scene and guide; a name a player
+     of the town has is not taken), the station, Nook's welcome and the walk to the houses, where the arena
+     is held as a block's is on a tour; a house that is taken looked into and left, a free one looked into
+     and taken; the new player's gyroid has a word and no save to offer (nobody saves before the first job
+     for Nook is done). Every page read on the road must be clean.
 
 The furniture's code is loaded into the arena piece by piece (ovl_My_Room, func_8093678C_jp: zelda_malloc
 and ovlmgr_Load for each kind's own little overlay, by a table of 947 at D_80947638_jp, 536 different ones;
@@ -97,8 +104,8 @@ import emu_reset  # noqa: E402
 import emu_save  # noqa: E402
 import emu_town  # noqa: E402
 import emu_year  # noqa: E402
-from n64emu import N64, A, Hang, stick  # noqa: E402
-from afplay import DIRECTIONS, presses, type_on_dial  # noqa: E402
+from n64emu import N64, A, START, Hang, stick  # noqa: E402
+from afplay import DIRECTIONS, name_dial_open, presses, type_on_dial, walk  # noqa: E402
 
 FLOOR = emu_year.ARENA_FLOOR    # a town block's largest free block at least: the year check's floor
 RESERVE = 0x4000                # and what must be left of it with all of EXTRA on top: 16 KB (the largest
@@ -106,6 +113,7 @@ RESERVE = 0x4000                # and what must be left of it with all of EXTRA 
 NODE = 0x10                     # the arena's own bytes before each block it gives out
 INDOORS_FLOOR = 0x40000         # a room's: 256 KB
 PLAYERS = 4
+ROOM_FOR_ONE = "grown-%d.town" % (PLAYERS - 1)  # the same town with a house free, for the one who comes later
 AFTERNOON = (2002, 5, 15, 14, 0, 0)
 HOME_LAYER = emu_town.HOMES_AT + 0x38          # the first home's room: 16 x 16 items
 WALL, FURNITURE = 0xFFFE, 0x1000                # a room's wall; the first piece of furniture (4 names each)
@@ -125,11 +133,15 @@ BUILDINGS = {
     "animal-house": ("House", "Arrange_Room", (((0, 70), (0, 80)),), True),
 }
 ROOMS = ("house", "house-gyroids") + tuple(BUILDINGS)
-MORE = ("houses", "shops", "tents", "igloo", "raffle", "night")    # the rooms a day's power-on does not reach
+# the rooms a day's power-on does not reach, and the road of a player who comes later
+MORE = ("houses", "shops", "tents", "igloo", "raffle", "night", "newcomer")
 NOON = (14, 0, 0)
-# the dates whose towns are walked into every block from every side: the year's tightest with all that can
-# come on top, its least, and a summer night with a festival's stalls
-EDGE_DATES = ("new-years-day", "turnips-sunday", "fireworks")
+# the dates whose towns are walked into every block from every side: the dates of snow (what moves a block's
+# room most is the snowballs' overlay, loaded or not on the way in: a block's room is 35 KB apart by it, and
+# what it keeps with all on top 18 KB; every date whose tour meets the snowballs must be one of these), and a
+# summer night with a festival's stalls (without snow the way in takes 7 KB at most from what a block keeps,
+# on every date: NOTES, "The rooms a day does not reach")
+EDGE_DATES = ("new-years-day", "kk-saturday", "turnips-sunday", "countdown", "fireworks")
 # What can come into a town block on top of what it held when the tour walked in, out of the arena:
 # (what, the actors, how many of them at once: None for all, where: None for any block, or an actor the day's
 # tour must have met for the group to count that day). A member the block has loaded is there already.
@@ -142,6 +154,7 @@ EXTRA = (
      TOOLS, 4, None),
     ("the winter's snowballs, rolled in from the next block", ("Snowman",), None, "Snowman"),
 )
+SNOWBALLS = "Snowman"           # the snowballs' actor (the snowman built of two is Psnowman)
 SAVE_BUFFER = 0xF980            # what START at the title asks the arena for: the save, read into it
 DEMOS, DEMO_FRAMES = 5, 2200    # the title's demos (mTD_demono_get counts 1 to 5 and again) and a demo's frames
 TITLE_DEMO, LOGO = "D_8010EDA4_jp", "Animal_Logo"      # the demo's number; the title's logo
@@ -291,6 +304,7 @@ def make_town(emu_dir, rom_path, af_en, state, out):
             done["route"]["between"] = sorted(between)
             done["made"] = made(low(), names)
     open(os.path.join(out, "grown.town"), "wb").write(emu_psel.town(emu_psel.stamp(common), PLAYERS))
+    open(os.path.join(out, ROOM_FOR_ONE), "wb").write(emu_psel.town(emu_psel.stamp(common), PLAYERS - 1))
     return done
 
 
@@ -974,26 +988,6 @@ def session(emu_dir, rom_path, af_en, plan):
                     return True
             return False
 
-        def save_and_stop():
-            out = {"spoken": False, "left": False, "pages": 0}
-            if not t.go_block(emu_town.PLAYERS_BLOCK, set()):
-                return out
-            gyroids = [a for a in t.actors() if a["name"] == emu_reset.GYROID]
-            if not gyroids:
-                return out
-            mat = emu_town.MAT
-            mine = min(gyroids, key=lambda a: (a["pos"][0] - mat[0]) ** 2 + (a["pos"][2] - mat[1]) ** 2)
-            out["spoken"] = emu_reset.approach(t, mine)
-            said = []
-            try:
-                emu_town.follow(t, answers=(emu_reset.GYROID_SAVE, emu_reset.STOP), limit=900, quiet=60, pages=said)
-                out["left"] = emu_reset.TITLE in emu_town.names(t)
-            except (ValueError, struct.error):
-                out["left"] = True
-            out["pages"] = len(said)
-            pages.extend(said)
-            return out
-
         try:
             low, used = watch_soon(n64, af_en, syms)
             result["arrived"] = emu_year.arrive(t, pages=pages, lead=400 - used)
@@ -1022,13 +1016,216 @@ def session(emu_dir, rom_path, af_en, plan):
                 elif got and plan.get("leave"):
                     result["left"] = leave(entry)
             if plan.get("save") and result["arrived"]:
-                result["saved"] = save_and_stop()
+                result["saved"] = save_and_stop(t, emu_town.MAT, pages)
                 n64.frames(120, 0)
             result["watch"] = low()
             result["made"] = made(result["watch"], names)
         except Hang as e:
             result["hang"] = str(e)
             n64.screenshot(os.path.join(work, label + "-hang.png"))
+        result["scenes"] = {str(k): sorted(v) for k, v in sorted(seen.items())}
+    result["problems"] = ["%#x at %d: %s" % (p["msg"], p["at"], ", ".join(p["problems"])) for p in result["pages"]
+                          if p["problems"]]
+    result["pages"] = len(result["pages"])
+    return result
+
+
+def save_and_stop(t, mat, pages):
+    """The gyroid of the house whose doormat is at mat spoken to, the save asked for, and then to stop:
+    {spoken, asked (the choices it gave), left (the game left for its title), pages}; the pages read go to
+    `pages`."""
+    out = {"spoken": False, "asked": 0, "left": False, "pages": 0}
+    if not t.go_block(emu_town.PLAYERS_BLOCK, set()):
+        return out
+    gyroids = [a for a in t.actors() if a["name"] == emu_reset.GYROID]
+    if not gyroids:
+        return out
+    mine = min(gyroids, key=lambda a: (a["pos"][0] - mat[0]) ** 2 + (a["pos"][2] - mat[1]) ** 2)
+    out["spoken"] = emu_reset.approach(t, mine)
+    said = []
+    try:
+        out["asked"] = emu_town.follow(t, answers=(emu_reset.GYROID_SAVE, emu_reset.STOP), limit=900, quiet=60,
+                                       pages=said)
+        out["left"] = emu_reset.TITLE in emu_town.names(t)
+    except (ValueError, struct.error):
+        out["left"] = True
+    out["pages"] = len(said)
+    pages.extend(said)
+    return out
+
+
+# -- a player made in a town that has players -------------------------------------------------------------------
+# The game's own road for the one who comes later: at the select the answer after the players' names
+# (mSDI_StartInitNewPlayer); the train of a town that is there already, a scene of its own with a guide of its
+# own, who asks for the name only and does not take one a player of the town has; the station, Nook's welcome
+# and the walk to the houses; there a house that is taken may be looked into, and a free one looked into is
+# asked about and taken. The new player's own gyroid then has a word and no save to offer: the game lets
+# nobody save before the first job for Nook is done. A house's door is found from its actor: the mat 48 below
+# it and 48 towards the middle of the four, the door up and outwards from the mat.
+SELECT_SCENE, START_DEMO2 = 27, 16              # m_scene_table.h: the select of a saved town; that train
+NEWCOMER_DATE = "new-years-day"                 # the day: the year's tightest in the houses' block
+NEW_NAMES = ("urld", "dlru")                    # on the dial: the route's own name (the first player's), another
+NEW_GUIDE, ARRIVAL, HOUSE = "Npc_Guide2", "Intro_Demo", "MyHouse"
+
+
+def newcomer(emu_dir, rom_path, af_en, town, out, label, players):
+    """The town (of `players` players) powered on at the event's date and a new player made by the game's own
+    road, a house taken, its gyroid spoken to: a dict for the report."""
+    players = int(players)
+    date, hm = next((d, h) for lb, d, h in emu_year.EVENTS if lb == label)
+    rom = open(rom_path, "rb").read()
+    syms = emu_save.elf_symbols(os.path.join(af_en, "build", "animalforest-jp.elf"))
+    names = emu_year.actor_names(af_en)
+    work = os.path.join(out, "newcomer")
+    os.makedirs(work, exist_ok=True)
+    image, compressed = aflz.pack(emu_psel.fix(open(town, "rb").read()), b"")
+    if not compressed:
+        raise SystemExit("emu_memory: the town of %d players does not fit a compressed slot" % players)
+    emu_save.write_fla(emu_save.fla_path(work, rom), image + image)
+    result = {"label": "newcomer", "clock": list(date + hm + (0,)), "players": players, "arrived": False,
+              "hang": None, "trail": [], "dials": 0, "choices": [], "pages": [], "stops": {}, "doors": [],
+              "gyroid": None, "watch": None, "before": None, "made": [], "scenes": {}}
+    cd = syms["common_data"]
+    mat = None
+    with N64(emu_dir, rom, work, timeout=60, clock=date + hm + (0,)) as n64:
+        t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], names, syms)
+        pages, read, seen = result["pages"], set(), {}
+        plain = n64.frames
+
+        def scene():
+            return t.i32(cd + SCENE)
+
+        def frames(n=1, buttons=None):
+            """n64.frames, and after it the scene (the road's trail) and the overlays it has loaded."""
+            done = plain(n, buttons)
+            try:
+                seen.setdefault(scene(), set()).update(loaded_overlays(n64, syms, names))
+                if result["trail"][-1:] != [scene()]:
+                    result["trail"].append(scene())
+            except (ValueError, struct.error):
+                pass
+            return done
+        n64.frames = frames
+
+        def advance(limit, quiet=12, where=(FG_SCENE,)):
+            """A on every page, each choice's first answer (the select's second choice: the answer after the
+            players' names), the dial typed on, until the player has waited free for `quiet` looks in one of
+            the scenes: True."""
+            still = 0
+            for _ in range(limit):
+                if name_dial_open(n64):
+                    type_on_dial(n64, NEW_NAMES[min(result["dials"], len(NEW_NAMES) - 1)])
+                    result["dials"] += 1
+                    still = 0
+                    continue
+                try:
+                    window = t.window_main()
+                    if window == emu_year.WAITING:
+                        page = t.page()
+                        if page and (page[0], page[1]) not in read:
+                            read.add((page[0], page[1]))
+                            pages.append({"msg": page[0], "at": page[1], "text": emu_year.text(page[2])[:700],
+                                          "problems": t.page_problems(page[2])})
+                    if t.choice_waiting():
+                        n64.frames(20, 0)
+                        pick = players if len(result["choices"]) == 1 else 0
+                        result["choices"].append([len(t.answers()), pick])
+                        for _ in range(pick):
+                            n64.frames(4, DIRECTIONS["d"])
+                            n64.frames(8, 0)
+                        n64.press(A, 3, 30)
+                        still = 0
+                    elif window != emu_year.HIDDEN:
+                        n64.press(A, 3, 22)
+                        still = 0
+                    else:
+                        n64.frames(15, 0)
+                        still = still + 1 if scene() in where and t.player_main() == emu_year.PLAYER_WAIT else 0
+                        if still >= quiet:
+                            return True
+                except (ValueError, struct.error):          # between two scenes the pointers read are no one's
+                    n64.frames(15, 0)
+            return False
+
+        def stop(name):
+            room = t.arena(syms["zelda_arena"])
+            result["stops"][name] = {"scene": scene(), "block": list(t.block()), "arena": list(room) if room else None,
+                                     "low": low(True)["least"], "loaded": sorted(loaded_overlays(n64, syms, names)),
+                                     "guide": emu_town.GUIDE in emu_town.names(t)}
+            n64.screenshot(os.path.join(work, "newcomer-%s.png" % name))
+
+        def mine():
+            """Whether a house is the new player's: a home's owner in RAM the new player's own record, under
+            another name than the first player's."""
+            sv = n64.read(cd, emu_psel.HOMES_AT + 4 * emu_psel.HOME_SIZE)
+            me = sv[emu_psel.PRIVATE_AT + players * emu_psel.PRIVATE_SIZE:][:0x10]
+            return bool(emu_psel.name_of(sv, players)) and emu_psel.name_of(sv, players) != emu_psel.name_of(sv, 0) \
+                and any(sv[emu_psel.HOMES_AT + i * emu_psel.HOME_SIZE:][:0x10] == me for i in range(4))
+
+        def door(house, middle):
+            """The house looked into at its door and left again: what came of it."""
+            side = 1 if house[0] < middle else -1
+            push = stick(-57 * side, 57)
+            asked = len(result["choices"])
+            t.drop(house[0] + 48 * side, house[1] + 48, 40)
+            n64.frames(15, push)
+            n64.frames(3, push | A)
+            n64.frames(30, 0)
+            advance(200, 8, HOUSE_SCENES + (FG_SCENE,))    # Nook's word at the door; the player goes in
+            info = {"house": [round(v) for v in house], "inside": scene() in HOUSE_SCENES, "scene": scene(),
+                    "arena": None, "out": False}
+            if info["inside"]:
+                room = t.arena(syms["zelda_arena"])
+                info["arena"] = list(room) if room else None
+                for _ in range(4):                          # out again, and what Nook says to it
+                    n64.frames(60, DIRECTIONS["d"])
+                    for _ in range(40):
+                        if scene() == FG_SCENE:
+                            break
+                        n64.frames(15, 0)
+                    if scene() == FG_SCENE:
+                        info["out"] = advance(600)
+                        break
+            info["asked"] = len(result["choices"]) - asked
+            info["mine"] = mine()
+            return info
+
+        try:
+            low, used = watch_soon(n64, af_en, syms)
+            n64.frames(400 - used, 0)
+            n64.press(START, 3, 60)
+            result["arrived"] = advance(1500)              # the select, the train, the station
+            result["before"] = low(afresh=True)
+            if result["arrived"]:
+                stop("station")
+                for way, steps in (("r", 3), ("d", 4)):     # off the platform, as the route's first player goes
+                    for _ in range(steps):
+                        walk(n64, way, 15)
+                for _ in range(40):                         # Nook calls
+                    if t.window_main() != emu_year.HIDDEN:
+                        break
+                    n64.frames(15, 0)
+                advance(600)                                # his welcome, the walk to the houses
+                stop("houses")
+                houses = [(a["pos"][0], a["pos"][2]) for a in t.actors() if a["name"] == HOUSE]
+                middle = sum(x for x, _ in houses) / max(1, len(houses))
+                first = emu_town.MAT                        # the first player's house first: it is taken
+                houses.sort(key=lambda h: (abs(h[0] + 48 - first[0]) + abs(h[1] + 48 - first[1]) > 1, h[1], h[0]))
+                for house in houses:
+                    result["doors"].append(door(house, middle))
+                    if result["doors"][-1]["mine"]:
+                        mat = (house[0] + (48 if house[0] < middle else -48), house[1] + 48)
+                        break
+                stop("end")
+                if mat:                                     # the new player's gyroid: a word, and no save yet
+                    result["gyroid"] = save_and_stop(t, mat, pages)
+                    n64.frames(120, 0)
+                    result["gyroid"]["owner"] = mine()
+            result["watch"] = low()
+            result["made"] = made(result["watch"], names)
+        except Hang as e:
+            result["hang"] = str(e)
+            n64.screenshot(os.path.join(work, "newcomer-hang.png"))
         result["scenes"] = {str(k): sorted(v) for k, v in sorted(seen.items())}
     result["problems"] = ["%#x at %d: %s" % (p["msg"], p["at"], ", ".join(p["problems"])) for p in result["pages"]
                           if p["problems"]]
@@ -1190,6 +1387,12 @@ def report_edges(walked, walks, tours, labels, extra):
     if walks and widest[1]:                     # told, not judged: every way in is held to the floor and to
         print("    the way into a block moves its largest free block by %d bytes at most (%s): what was loaded in "
               "the block before decides where the next one's actors land" % widest)       # what can come on top
+    snowy = [label for label, t in zip(labels, tours) if t and SNOWBALLS in t["loaded"]]
+    if walks and labels:
+        check(set(snowy) <= set(walks) and len(snowy) < len(walks),
+              "every date whose tour meets the snowballs is one of those walked every way (%s), and a date "
+              "without snow with them%s" % (", ".join(snowy) or "none", "".join(
+                  "; NOT WALKED EVERY WAY: %s" % label for label in snowy if label not in walks)))
     return widest[0]
 
 
@@ -1335,7 +1538,80 @@ def report_rooms(chains, furniture, pieces):
         check(sound(r) and within(r, HOUSE_SCENES[0]), "the player's house at nine at night: %s%s" % (room(r), rest(r)))
 
 
+def report_newcomer(r, extra, today):
+    """The checks of the player made in the town that has the others. extra: main's (the bytes that can come
+    into a block on top of what it has loaded); today: the actors that date's tour met."""
+    def in_order(trail, wanted):
+        rest = iter(trail)
+        return all(any(sc == w for sc in rest) for w in wanted)
+
+    players = r["players"] if r else 0
+    stops = r["stops"] if r else {}
+    station, houses = stops.get("station"), stops.get("houses")
+    early = r and r["before"]
+    check(bool(r) and r["arrived"] and not r["hang"] and bool(early) and early["fails"] == 0 and
+          in_order(r["trail"], (SELECT_SCENE, START_DEMO2, FG_SCENE)) and
+          r["choices"][1:2] == [[players + 1, players]] and r["dials"] == len(NEW_NAMES) and
+          NEW_GUIDE in r["made"] and ARRIVAL in r["made"] and bool(station) and bool(station["arena"]) and
+          station["arena"][0] >= FLOOR,
+          "a player made in the town of %d players by the game's own road, on %s: at the select the answer after "
+          "the players' names (%s); the train of a town that is there (scene %d: %s, its guide %s); the name "
+          "typed %d time%s (the first player's again is not taken, the next is); the station%s: the arena's "
+          "largest free block %s; %s" % (
+              players, "%04d-%02d-%02d %02d:%02d" % tuple(r["clock"][:5]) if r else "?",
+              "%d answers, the last taken" % r["choices"][1][0] if r and len(r["choices"]) > 1 else "not asked",
+              START_DEMO2, "passed" if r and START_DEMO2 in r["trail"] else "NOT passed",
+              "made" if r and NEW_GUIDE in r["made"] else "NOT made", r["dials"] if r else 0,
+              "" if r and r["dials"] == 1 else "s", ", with the arrival's own actor" if r and ARRIVAL in r["made"] else "",
+              "%d bytes, the floor %d" % (station["arena"][0], FLOOR) if station and station["arena"] else "not read",
+              "the arena never said no from power-on (%d allocations, the largest free block %s at its least)" % (
+                  early["calls"], early["least"]) if early and not early["fails"]
+              else "THE ARENA SAID NO" if early else "not watched" if r else "not run (%s)" % (r and r["hang"])))
+    doors = r["doors"] if r else []
+    taken, mine = [d for d in doors if not d["mine"]], [d for d in doors if d["mine"]]
+    left = houses["arena"][0] - extra(set(houses["loaded"]), set(today) | set(houses["loaded"]))[0] \
+        if houses and houses["arena"] else None
+    looked = [d["arena"][0] for d in doors if d["inside"] and d["arena"]]
+    gone = "end" in stops and not stops["end"]["guide"]
+    check(bool(houses) and houses["block"] == list(emu_town.PLAYERS_BLOCK) and houses["guide"] and left is not None and
+          houses["arena"][0] >= FLOOR and left >= RESERVE and bool(taken) and
+          all(d["inside"] and d["out"] and d["asked"] == 0 for d in taken) and len(mine) == 1 and doors[-1]["mine"] and
+          mine[0]["inside"] and mine[0]["out"] and mine[0]["asked"] >= 2 and len(looked) == len(doors) and
+          min(looked) >= INDOORS_FLOOR and gone,
+          "Nook's welcome and the walk to the houses: there (block %s) the arena's largest free block %s; %d "
+          "house%s taken: looked into as Nook allows and left again, nothing asked (%s); the next looked into, "
+          "asked about and taken (%s); a room's largest free block %s at its least, the floor %d" % (
+              "%d,%d" % tuple(houses["block"]) if houses else "?",
+              "%d bytes, the floor %d; with all that can come on top at once %d left, to keep %d" % (
+                  houses["arena"][0], FLOOR, left, RESERVE) if left is not None else "not read",
+              len(taken), "" if len(taken) == 1 else "s",
+              "so" if taken and all(d["inside"] and d["out"] and d["asked"] == 0 for d in taken) else "NOT SO",
+              "its owner in RAM the new player, %d answers given, Nook gone" % mine[0]["asked"]
+              if mine and gone else "NOT TAKEN", min(looked) if looked else "not read",
+              INDOORS_FLOOR))
+    word, seen = r and r["gyroid"], r and r["watch"]
+    lows = [v for v in [st["low"] for st in stops.values()] + [seen["least"] if seen else None] if v is not None]
+    check(bool(word) and word["spoken"] and word["pages"] >= 1 and word["asked"] == 0 and not word["left"] and
+          word["owner"] and not r["problems"] and bool(seen) and seen["fails"] == 0,
+          "the new player's own gyroid: %s; %s; %s" % (
+              "spoken to, %d page%s, %s" % (
+                  word["pages"], "" if word["pages"] == 1 else "s",
+                  "no save offered (the game lets nobody save before the first job for Nook is done), the house "
+                  "still the new player's" if not word["asked"] and not word["left"] and word["owner"]
+                  else "NOT AS A NEW PLAYER'S (%d choices, the game %s)" % (
+                      word["asked"], "left for its title" if word["left"] else "went on"))
+              if word and word["spoken"] else "NOT spoken to",
+              "%d pages read on the road, %s" % (r["pages"], "clean" if not r["problems"] else r["problems"][:2])
+              if r else "not run",
+              "the arena never said no (%d allocations after the station, the largest free block %s at its least)" % (
+                  seen["calls"], min(lows) if lows else "not read") if seen and not seen["fails"]
+              else "THE ARENA SAID NO" if seen else "not watched"))
+
+
 def main(argv):
+    if argv[:1] == ["--newcomer"]:
+        print(json.dumps(newcomer(*argv[1:8])))
+        return 0
     if argv[:1] == ["--session"]:
         print(json.dumps(session(argv[1], argv[2], argv[3], json.load(open(argv[4])))))
         return 0
@@ -1401,7 +1677,9 @@ def main(argv):
              "tents": lambda: tents_chain(run, af_en, town, out),
              "igloo": lambda: alone("igloo", (2002, 2, 2), "igloo", talk=True),
              "raffle": lambda: alone("raffle", (2002, 5, 31), "shop"),
-             "night": lambda: alone("night", (2002, 5, 15, 21, 0, 0), "house")}
+             "night": lambda: alone("night", (2002, 5, 15, 21, 0, 0), "house"),
+             "newcomer": lambda: [child("--newcomer", emu_dir, rom_path, af_en, os.path.join(out, ROOM_FOR_ONE),
+                                        out, NEWCOMER_DATE, str(PLAYERS - 1))]}
     with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:      # each a process of its own
         shown = (pool.submit(child, "--title", emu_dir, rom_path, af_en, town, out, "title")
                  if not only or "title" in only else None)
@@ -1584,6 +1862,9 @@ def main(argv):
               "largest %d): less than the %d a room has free" % (total, largest, min(houses)))
     report_edges(walked, walks, tours, labels, extra)
     report_rooms(chains, total, room_pieces(af_en))
+    if "newcomer" in chains:
+        day = next((res for lb, res in zip(labels, tours) if lb == NEWCOMER_DATE and res), None)
+        report_newcomer(chains["newcomer"][0], extra, day["loaded"] if day else ())
     json.dump(report, open(os.path.join(out, "report.json"), "w"), indent=1)
     print("emu_memory: %s; the report in %s" % ("all passed" if not failures else "%d FAILED" % len(failures), out))
     return 1 if failures else 0

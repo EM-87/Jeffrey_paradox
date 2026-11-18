@@ -4308,31 +4308,44 @@ signs", "Our own signs").
   after each allocation walks the arena's nodes for the largest free block
   and keeps the least. It goes in as soon as the game's code is in RAM
   after power-on, before the first scene, in every session of the check.
-  The arena never says no: not on the way to the town (579 requests on New
+  The arena never says no: not on the way to the town (577 requests on New
   Year's Day), not on a tour, not in a room; and the least between two
-  looks is a kilobyte or so under the looks' own (72,512 against 73,632 on
+  looks is a kilobyte or so under the looks' own (61,776 against 62,896 on
   that tour). The largest single request is 250,720 bytes.
-- **Every way in.** On three dates the town is walked into every one of
-  its 30 blocks from every neighbour that has a way in (`edges`: the
-  nearest way not yet walked, over the ways known open, until none is
-  left): New Year's Day (the year's tightest once all that can come is
-  counted), the turnips' Sunday of February (the year's least on the
-  tour) and the fireworks' night (a festival's stalls). 106 crossings on
-  each; no way is closed. The year's least is not the tour's (65,888
-  bytes, the houses' block on the turnips' Sunday): on New Year's Day the
-  houses' block has 60,064 entered from the south and 60,736 from the
-  east, where that day's tour, coming from the west, has 78,544. The
-  turnips' Sunday has its 65,888 whichever way one comes, and the
-  fireworks' night 83,248 to 87,088. Each is over the floor (49,152), and
-  with all that can come on top at once (`EXTRA`: 51,932 bytes less what
-  the block has loaded) the tightest keeps 25,584, 31,408 and 48,768,
-  where 16 KB are asked. A block's room moves by up to 34,848 bytes with
-  the way in (a corner block of New Year's Day: 62,224 with the
-  snowballs' overlay loaded on the way, 97,072 on the tour's walk, which
-  met none there; where the snowballs lie is the day's dice, and what is
-  loaded decides where the next block's actors land). That spread is
-  told, not judged: every way in is held to the floor and to the sum,
-  which is what the 16 KB were for.
+- **Every way in.** The town is walked into every one of its 30 blocks
+  from every neighbour that has a way in (`edges`: the nearest way not
+  yet walked, over the ways known open, until none is left): 106
+  crossings a date, no way closed. Walked so once on each of the year's
+  21 dates (2,226 crossings; the check's own child, `tests/emu_memory.py
+  --edges`, a date at a time), every way in is over the floor (49,152)
+  and, with all that can come on top at once (`EXTRA`: 51,932 bytes less
+  what the block has loaded), keeps more than the 16 KB asked. The
+  year's least is not a tour's. On New Year's Day the tour has 62,896
+  bytes at its least (a block in the west, the snowballs there) and
+  80,576 in the houses' block; walked into from each of its four sides,
+  the snowballs' overlay loaded on the way, the houses' block has
+  56,080, whichever side: the least of all the dates, and with all on
+  top the tightest, 21,600 left. What moves a block's room with the way
+  in is the snow. On the four dates whose town has snowballs (the
+  countdown, New Year's Day, the Saturday and the Sunday of early
+  February) a block's room is up to 35,472 bytes apart by the way in (a
+  block of that Saturday: 67,760 with the snowballs' overlay loaded on
+  the way, 103,232 on the tour's walk, which met none there; where the
+  snowballs lie is the day's dice, and what is loaded decides where the
+  next block's actors land),
+  and what it keeps with all on top up to 18,020 less than on the tour:
+  more than the 16 KB a tour is held to keep, so a tour's word is not
+  enough there. On the 17 dates without snow the way in takes at most
+  7,008 from what a block keeps (5,104 on thirteen of them, the houses'
+  block entered from the west), and the least kept is 42,000. So the
+  check walks every way on the four dates of snow and on a summer night
+  (`EDGE_DATES`; five walks of some seven minutes each, three at a
+  time), holds each way in to the floor and to the sum, and fails if a
+  tour meets the snowballs on a date that is not walked every way; the
+  other sixteen dates' walks are the one-off above. These are one
+  town's figures: the town the new game's route makes on this ROM
+  (another ROM's route made another, "A rebuilt ROM draws another town",
+  whose least on the same walk was 60,064).
 - **Every actor made.** An actor is made in one place (`m_actor.c`,
   `Actor_info_make_actor`: the scenes' lists, the name tables and every
   actor that makes another all come through it), which then hands the new
@@ -4401,18 +4414,19 @@ signs", "Our own signs").
   The shop: the sales that earn the next one (`common_data` + 0xED74;
   `func_800C16F0_jp`: 25,000, 90,000, and 240,000 with a visitor from
   another town), the renewal's flag and its date (0xED80), which
-  `ovl_Shop_Level` would have set once it saw the sales. The day before
-  that date the shop is closed and a sign at its door says so
-  (`func_800C23EC_jp`; the sign's page is read); from that date on the
+  `ovl_Shop_Level` would have set once it saw the sales. From two days
+  before that date the shop is closed and a sign at its door says so
+  (`func_800C23EC_jp`: the date less two days, reached or passed; the
+  check comes the day before and reads the sign's page); from that date on the
   town's start swaps the building on the map and raises the shop's size
   (`func_809588D4_jp`). Each larger shop is gone into at its door, where
   its own code takes the player (up and to the right of the door's
-  point): the second 426,080 bytes free (465,008 in use), the third
-  454,176 (436,928), the fourth 429,776 (461,376) and, up its stairs,
-  405,872 (485,136); and the fourth again on the month's last day, when
-  it holds its raffle. In the second shop and the fourth's three rooms
-  the signs the en build redraws are looked for in RAM: as the en ROM has
-  them, and the cartridge's not.
+  point): the second 425,488 bytes free (465,600 in use), the third
+  454,464 (436,640), the fourth 429,776 (461,376) and, up its stairs,
+  406,336 (484,672); and the fourth again on the month's last day, when
+  it holds its raffle, the machine there: 429,008 (462,048). In the
+  second shop and the fourth's three rooms the signs the en build redraws
+  are looked for in RAM: as the en ROM has them, and the cartridge's not.
   The tents: nothing is written. The game sets the next special visit
   when the last one is over, at a start of play (`func_8007E780_jp`): its
   kind by a table of six (`D_80104FA0_jp`: the entry (year - month + the
@@ -4431,10 +4445,33 @@ signs", "Our own signs").
   and its camper four pages; the first shop on a month's last day, with
   the raffle's machine, 423,440 (467,584); the player's house at nine at
   night 425,200, as by day. Every page read on the way is clean, and on
-  the way to each room the arena's least is 85 to 88 KB. The new game's
+  the way to each room the arena's least is 85 to 88 KB (67,936 on the
+  igloo's winter day). The new game's
   road is read as well, at each of the route's states: on the train,
   where the two names are typed, 531,264 bytes are free (360,256 in use);
   at the station 101,168; with Nook showing the houses 84,672.
+- **The one who comes later.** A road no check had gone: a player made
+  in a town that has players. The select's answer after the players'
+  names (`mSDI_StartInitNewPlayer`) leads to a train of its own
+  (`SCENE_START_DEMO2`, the guide's actor `Npc_Guide2`: he knows the
+  town, asks for the name only, and does not take one a player of the
+  town has), then to the station, Nook's welcome and the walk to the
+  houses, where a house that is taken may be looked into (Nook names its
+  owner and waits outside) and a free one, looked into, is asked about
+  and taken. `tests/emu_memory.py` (`newcomer`) goes it from power-on,
+  the hook in place, in the grown town with one house free, on New
+  Year's Day: the first player's name typed again is refused and the
+  next taken; on that train the arena is as empty as on the first (over
+  500 KB free); at the station 99,392 bytes; with Nook at the houses
+  82,896, and 30,964 left with all that can come on top; the three
+  houses that are taken are looked into and left (426,144 bytes free
+  inside), nothing asked; the fourth is the new player's after three
+  answers (its owner in RAM the new player's record) and Nook goes. 94
+  pages, each clean; the arena never says no, 79,680 at its least. The
+  arrival's actor is `Intro_Demo` as on a new game's road (3,376 bytes
+  and its instance); `Ride_Off_Demo` is not made here either. The new
+  player's own gyroid then has three pages and no save to offer: the
+  game lets nobody save before the first job for Nook is done.
 - **The fifth of his actors.** No reset brings `ovl_Npc_Majin5`. The crate
   by the station that draws the staff's names during K.K.'s show
   (`ovl_Mikanbox`, `func_80AA4648_jp`) makes him, through `ovl_Npc`'s

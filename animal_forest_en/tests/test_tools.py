@@ -2847,6 +2847,124 @@ class EmulatorChecks(unittest.TestCase):
         wrong = tent("broker", 0x41, "BrShop", 12, False)[:1]
         self.assertEqual(len(self.reported({"tents": wrong + gypsy})), 2)
 
+    def walked(self, labels, walks, crossings=(), snow=("winter",)):
+        """The report of the towns walked into every block from every side, over made-up tours and walks: the
+        checks that failed. crossings: {a walk's label: [(to, largest free block)]} besides a sound one."""
+        count = {"fails": 0, "failed": 0, "least": 80000, "calls": 600, "most": 250720, "made": {}}
+        blocks = ["%d,%d" % (x, z) for z in range(1, 7) for x in range(1, 6)]
+
+        def tour(label):
+            loaded = ["House"] + (["Snowman"] if label in snow else [])
+            return {"label": label, "loaded": loaded,       # the snowballs lie in the last block
+                    "blocks": {b: {"largest": 90000, "low": 89000, "loaded": loaded if b == blocks[-1] else ["House"]}
+                               for b in blocks}}
+
+        def walk(label):
+            ways = [("1,1", 88000)] + list(dict(crossings).get(label, ()))
+            return {"label": label, "arrived": True, "hang": None, "closed": [], "stops": [], "made": [],
+                    "watch": dict(count), "before": dict(count),
+                    "crossings": [{"from": "2,1", "to": to, "largest": free, "low": free - 900, "loaded": ["House"]}
+                                  for to, free in ways]}
+        emu_memory.failures.clear()
+        with contextlib.redirect_stdout(io.StringIO()):
+            emu_memory.report_edges([walk(w) for w in walks], walks, [tour(lb) for lb in labels], labels,
+                                    lambda loaded, today: (51932 if "Snowman" in today else 34480, []))
+        failed = list(emu_memory.failures)
+        emu_memory.failures.clear()
+        return failed
+
+    def test_every_date_of_snow_is_walked_every_way(self):
+        dates = ["winter", "summer"]
+        self.assertEqual(self.walked(dates, ["winter", "summer"]), [])
+        # the tour of a date met the snowballs and the date is not walked every way; or no date without snow is
+        self.assertEqual(len(self.walked(dates, ["summer"])), 1)
+        self.assertEqual(len(self.walked(dates, ["winter"])), 1)
+        self.assertEqual(len(self.walked(dates, ["winter", "summer"], snow=("winter", "summer"))), 1)
+        # a way in under the floor; one that does not keep the reserve with all that can come on top
+        low = self.walked(dates, ["winter", "summer"], {"summer": [("3,2", emu_memory.FLOOR - 16)]})
+        self.assertEqual(len(low), 1)
+        tight = self.walked(dates, ["winter", "summer"], {"winter": [("3,2", 51932 + emu_memory.RESERVE - 16)]})
+        self.assertEqual(len(tight), 1)
+        self.assertEqual(self.walked(dates, ["winter", "summer"], {"winter": [("3,2", 51932 + emu_memory.RESERVE)]}), [])
+        # the dates the check walks: each one of the year's, and more than one
+        self.assertTrue(set(emu_memory.EDGE_DATES) <= {label for label, _, _ in emu_year.EVENTS})
+        self.assertGreater(len(emu_memory.EDGE_DATES), 1)
+
+    def newcomer(self, **more):
+        """The answer of the road of a player who comes later, as the report reads it: nothing amiss."""
+        count = {"fails": 0, "failed": 0, "least": 60000, "calls": 500, "most": 250720, "made": {}}
+
+        def door(x, z, mine):
+            return {"house": [x, z], "inside": True, "scene": 20, "arena": [426144, 426144, 465072], "out": True,
+                    "asked": 3 if mine else 0, "mine": mine}
+
+        def stop(scene, block, free, guide):
+            return {"scene": scene, "block": block, "arena": [free, free, 800000], "low": free - 500,
+                    "loaded": ["Intro_Demo", "MyHouse"], "guide": guide}
+        run = {"label": "newcomer", "clock": [2002, 1, 1, 10, 0, 0], "players": 3, "arrived": True, "hang": None,
+               "trail": [0, 33, 27, 16, 7, 20, 7, 20, 7, 34], "dials": 2, "choices": [[2, 0], [4, 3], [2, 0]],
+               "pages": 90, "problems": [],
+               "stops": {"station": stop(7, [3, 1], 100000, False), "houses": stop(7, [3, 2], 76000, True),
+                         "end": stop(7, [3, 2], 76000, False)},
+               "doors": [door(2080, 1440, False), door(2400, 1440, True)],
+               "gyroid": {"spoken": True, "asked": 0, "left": False, "pages": 3, "owner": True},
+               "watch": dict(count), "before": dict(count), "made": ["Intro_Demo", "Npc_Guide2", "Player"],
+               "scenes": {"7": []}}
+        for key, value in more.items():
+            run[key] = dict(run[key], **value) if isinstance(value, dict) and isinstance(run.get(key), dict) else value
+        return run
+
+    def newcomer_failed(self, run, on_top=51932):
+        emu_memory.failures.clear()
+        with contextlib.redirect_stdout(io.StringIO()):
+            emu_memory.report_newcomer(run, lambda loaded, today: (on_top, []), ["Snowman"])
+        failed = list(emu_memory.failures)
+        emu_memory.failures.clear()
+        return failed
+
+    def test_a_player_who_comes_later_goes_the_games_own_road(self):
+        self.assertEqual(self.newcomer_failed(self.newcomer()), [])
+        self.assertEqual(len(self.newcomer_failed(None)), 3)                                # the road not gone
+        # the select's second choice: the players' names and one more, the last taken
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(choices=[[2, 0], [4, 0]]))), 1)
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(choices=[[2, 0], [3, 3]]))), 1)
+        # the first player's name typed again must be refused: the dial comes twice
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(dials=1))), 1)
+        # the train of a town that is there, its guide, the arrival's actor
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(trail=[0, 33, 27, 15, 7]))), 1)
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(trail=[0, 33, 16, 27, 7]))), 1)
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(made=["Intro_Demo", "Npc_Guide"]))), 1)
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(before={"fails": 1}))), 1)
+
+    def test_the_houses_block_takes_a_newcomer_and_all_that_can_come(self):
+        ok = self.newcomer()
+        self.assertEqual(self.newcomer_failed(ok, 76000 - emu_memory.RESERVE), [])
+        self.assertEqual(len(self.newcomer_failed(ok, 76000 - emu_memory.RESERVE + 1)), 1)  # the reserve not kept
+        low = self.newcomer(stops={"houses": dict(ok["stops"]["houses"], arena=[40000, 40000, 850000])})
+        self.assertEqual(len(self.newcomer_failed(low, 0)), 1)                              # under a block's floor
+        elsewhere = self.newcomer(stops={"houses": dict(ok["stops"]["houses"], block=[3, 1])})
+        self.assertEqual(len(self.newcomer_failed(elsewhere)), 1)
+
+    def test_a_taken_house_is_looked_into_and_a_free_one_taken(self):
+        ok = self.newcomer()
+        taken, mine = ok["doors"]
+        # no house that is taken was looked into; a taken one asked about; none taken; Nook still there
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(doors=[mine]))), 1)
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(doors=[dict(taken, asked=1), mine]))), 1)
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(doors=[taken, dict(mine, mine=False, asked=0)]))), 1)
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(doors=[taken, dict(mine, inside=False, arena=None)]))), 1)
+        waits = self.newcomer(stops={"end": dict(ok["stops"]["end"], guide=True)})
+        self.assertEqual(len(self.newcomer_failed(waits)), 1)
+        small = self.newcomer(doors=[dict(taken, arena=[200000, 200000, 700000]), mine])
+        self.assertEqual(len(self.newcomer_failed(small)), 1)                               # under a room's floor
+        # the new player's gyroid: a word, no save offered before the first job is done; a page amiss on the road
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(gyroid=None))), 1)
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(gyroid={"spoken": False, "pages": 0}))), 1)
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(gyroid={"asked": 2, "left": True}))), 1)
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(gyroid={"owner": False}))), 1)
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(problems=["0x7e3 at 0: a line past its bubble"]))), 1)
+        self.assertEqual(len(self.newcomer_failed(self.newcomer(watch={"fails": 2}))), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

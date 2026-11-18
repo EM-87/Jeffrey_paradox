@@ -568,12 +568,14 @@ reset-check-en: psel-check-en
 # game's own code, four players; every block walked into on each of the year's 21 dates, the arena read in
 # each and held to take what can come into a block on top of what it holds, the allocator watched by a hook
 # from power-on (it must never say no) and every actor the game makes counted by it (the nine nothing makes,
-# never); on three dates every block walked into from every side; the player's house, the same full of
-# gyroids, the shop, the post office, the police box and an animal's house gone into; the house enlarged twice
-# and the shop grown three times by the game's own code over the power-ons of one flash, each gone into, the
-# shops' redrawn signs in RAM, the two tents on the days the game sets, the igloo, the raffle's day; the title
-# through its five demos, where START asks the arena for the save's buffer (tests/emu_memory.py; NOTES, "What
-# the second review had left open", "The rooms a day does not reach").
+# never); on the dates of snow and a summer night every block walked into from every side; the player's
+# house, the same full of gyroids, the shop, the post office, the police box and an animal's house gone into;
+# the house enlarged twice and the shop grown three times by the game's own code over the power-ons of one
+# flash, each gone into, the shops' redrawn signs in RAM, the two tents on the days the game sets, the igloo,
+# the raffle's day; a new player made by the game's own road in the same town with a house free (the train of
+# a town that is there, Nook at the houses, a house taken, the save); the title through its five demos, where
+# START asks the arena for the save's buffer (tests/emu_memory.py; NOTES, "What the second review had left
+# open", "The rooms a day does not reach").
 memory-check-en: route-en
 	$(PYTHON) tests/emu_memory.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-memory-en --jobs 3
 
