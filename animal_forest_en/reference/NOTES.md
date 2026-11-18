@@ -4703,7 +4703,13 @@ the Controller Pak", below).
   when the extension is full, the oldest first (0x2400 bytes, a record
   133 at most: the rests of a full Pak's letters and the save's own
   need not all fit). A letter stored at another town's post office has
-  no rest there to mark ("Another town"). Tried on the build before
+  no rest there to mark ("Another town"). The mark is this build's: an
+  earlier build of the translation reads a marked record 128 bytes too
+  long and takes the extension for damaged from there on, so a save
+  played on with this build and then with an earlier one loses, at
+  that one's next save, the rests of the marked record and of those
+  filed after it (the cartridge's own bytes of the save are the same
+  either way). Tried on the build before
   this fix (the animals' in): the check's steps put the letter in the
   store, and after the game's save the extension had no rest for it,
   in RAM and in the flash; the two checks that hold the rest there fail
