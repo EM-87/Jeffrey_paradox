@@ -281,6 +281,7 @@ def make_town(emu_dir, rom_path, af_en, state, out):
         first = t.arena(syms["zelda_arena"])         # the new game's first day, Nook showing the houses
         done = emu_town.settle(n64, af_en, syms, more=True)
         common = n64.read(syms["common_data"], emu_psel.RTC_TIME + 8)
+        ext = emu_year.ram_ext(n64, syms)            # the rests of the letters the town has in it
         done["first_day"] = list(first) if first else None
         done["actors"] = actor_sizes(n64, syms, names, af_en)
         done["route"], done["road"] = {}, {}
@@ -303,8 +304,8 @@ def make_town(emu_dir, rom_path, af_en, state, out):
                 between |= set(loaded_overlays(n64, syms, names))
             done["route"]["between"] = sorted(between)
             done["made"] = made(low(), names)
-    open(os.path.join(out, "grown.town"), "wb").write(emu_psel.town(emu_psel.stamp(common), PLAYERS))
-    open(os.path.join(out, ROOM_FOR_ONE), "wb").write(emu_psel.town(emu_psel.stamp(common), PLAYERS - 1))
+    emu_year.write_town(os.path.join(out, "grown.town"), emu_psel.town(emu_psel.stamp(common), PLAYERS), ext)
+    emu_year.write_town(os.path.join(out, ROOM_FOR_ONE), emu_psel.town(emu_psel.stamp(common), PLAYERS - 1), ext)
     return done
 
 
@@ -423,8 +424,8 @@ def indoors(emu_dir, rom_path, af_en, town, out, label):
               "watch": None, "made": []}
     if label == "house-gyroids":
         save, result["placed"] = room_with_gyroids(save)
-        town = os.path.join(work, "room.town")
-        open(town, "wb").write(save)
+        source, town = town, os.path.join(work, "room.town")
+        emu_year.write_town(town, save, emu_year.town_ext(source))
     emu_save.write_fla(emu_save.fla_path(work, rom), emu_year.town_image(town))
     with N64(emu_dir, rom, work, timeout=60, clock=AFTERNOON) as n64:
         t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], emu_year.actor_names(af_en), syms)
@@ -836,7 +837,7 @@ def session(emu_dir, rom_path, af_en, plan):
     os.makedirs(work, exist_ok=True)
     fla = emu_save.fla_path(work, rom)
     if plan.get("town"):
-        save, ext = bytearray(open(plan["town"], "rb").read()), b""
+        save, ext = bytearray(open(plan["town"], "rb").read()), emu_year.town_ext(plan["town"])
         flags = struct.unpack(">I", save[emu_year.EVENT_FLAGS:emu_year.EVENT_FLAGS + 4])[0] & ~emu_year.JOB_BITS
         save[emu_year.EVENT_FLAGS:emu_year.EVENT_FLAGS + 4] = struct.pack(">I", flags)
     else:
@@ -1085,7 +1086,7 @@ def newcomer(emu_dir, rom_path, af_en, town, out, label, players):
     names = emu_year.actor_names(af_en)
     work = os.path.join(out, "newcomer")
     os.makedirs(work, exist_ok=True)
-    image, compressed = aflz.pack(emu_psel.fix(open(town, "rb").read()), b"")
+    image, compressed = aflz.pack(emu_psel.fix(open(town, "rb").read()), emu_year.town_ext(town))
     if not compressed:
         raise SystemExit("emu_memory: the town of %d players does not fit a compressed slot" % players)
     emu_save.write_fla(emu_save.fla_path(work, rom), image + image)

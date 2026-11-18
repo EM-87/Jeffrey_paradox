@@ -649,6 +649,17 @@ the why and the state, `reference/NOTES.md` for what is verified.
   stamping a copy of `common_data` powers on without the players' houses,
   and every check that used one went on passing. `tests/emu_town.py`
   makes the town; a check of a saved town looks at the houses' block.
+- **And a save is more than `common_data`.** The en build keeps the
+  letters' rests beside the save (`mFRm_en_ext`), and the game writes
+  both to the flash. The checks' towns were packed with an empty
+  extension: every town powered on began with its letters cut at the
+  cartridge's 96 bytes (the mother's first, which a new game makes on
+  its first day), and for as long as no check read a letter the game
+  had delivered, nothing showed it; the first one to empty a mailbox
+  did. A town's file has its extension beside it now
+  (`tests/emu_year.py`: `ram_ext`, `write_town`, `town_ext`). Whatever
+  the translation adds to what a save holds goes into a made-up save
+  too.
 - **A state belongs to its date.** Loaded under another clock than the
   one it was saved at, the game sets the town up again and the probe
   reads a scene nobody played: give `N64()` the state's `clock`.
@@ -725,7 +736,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   played"). Before keying anything to "the letters of the save", ask
   where else the game copies a letter's bytes.
 - **The post office's letter store is worked with Z.** In the clerk's
-  third answer's menu the hand begins on the pockets' first letter; Z
+  third answer's menu the hand begins on the store's first place, the
+  pockets' letters two a row to its left (and a stick's push up from
+  the first row takes it elsewhere); Z
   takes and puts down the letter under it (A does not), B asks the
   closing question and A must be pressed once to show its answers and
   once more to choose; the hand cannot take a letter its player wrote

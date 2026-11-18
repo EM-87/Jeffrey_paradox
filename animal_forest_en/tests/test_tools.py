@@ -3298,11 +3298,21 @@ class EmulatorChecks(unittest.TestCase):
         count = {"fails": 0, "failed": 0, "least": 85000, "calls": 600, "most": 250720, "made": {}}
         me, you = "636561202020636561202020f066306a", "6b6f6d202020656b6d202020f066306a"
         key, rest, mail = "1368ac01", "63656d6f6b", "aa" * 0xA4
+        got, whole, mail2 = "2ab7d99e", ["6162", "63" * 59, "64" * 7], "bb" * 0xA4     # one the game delivered
         pockets = [0x2401, 0x13D0]
 
         def facts(**what):
-            return dict({"name": me[:12], "id": me, "exists": 1, "pockets": list(pockets), "letters": [key],
-                         "mail": [mail], "rests": {key: rest}, "trips": [], "held": [], "marked": []}, **what)
+            given = dict({"name": me[:12], "id": me, "exists": 1, "pockets": list(pockets), "letters": [key],
+                          "mail": [mail], "rests": {key: rest}, "trips": [], "held": [], "marked": []}, **what)
+            given.setdefault("whole", {k: ["", r, ""] for k, r in given["rests"].items()})
+            return given
+
+        def both(**what):
+            """The facts with the delivered letter's record in the extension too."""
+            given = facts(**what)
+            given["rests"] = dict(given["rests"], **{got: whole[1]})
+            given["whole"] = dict(given["whole"], **{got: list(whole)})
+            return given
 
         def run(label, **what):
             return dict({"label": label, "arrived": True, "hang": None, "pages": 18, "problems": [],
@@ -3322,20 +3332,27 @@ class EmulatorChecks(unittest.TestCase):
         other = facts(name=you[:12], id=you, pockets=[], letters=[], mail=[], rests={})
         back = run("back", now=facts(number=0, record="the save's"), before=facts(number=0, record="the save's"),
                    saved={"spoken": True, "asked": 2, "left": True, "pages": 5})
-        here, done = facts(number=0, record="the save's"), {"spoken": True, "asked": 2, "left": True, "pages": 5}
-        gone = facts(number=0, record="the save's", letters=[], mail=[], marked=[key])
-        store = run("store", asked=2, now=here, before=gone, saved=dict(done), stored={
-            "before": here, "spoken": True, "menu": True, "kind": [1, 3], "opened": {"pockets": [key], "store": []},
-            "taken": {"pockets": [], "store": []}, "put": {"pockets": [], "store": [[1, key]]}, "closed": True,
-            "ended": "free", "asked": [4, 4], "now": gone, "out": True})
-        lying = facts(letters=[], mail=[], marked=[key])
-        back_in = facts(number=0, record="the save's", marked=[key])
+        done = {"spoken": True, "asked": 2, "left": True, "pages": 5}
+        here = both(number=0, record="the save's")                                    # the letter in the mailbox
+        taken = both(number=0, record="the save's", letters=[key, got], mail=[mail, mail2])
+        gone = both(number=0, record="the save's", marked=[got])                      # the letter on the Pak
+        store = run("store", asked=2, now=here, before=gone, saved=dict(done), mail={
+            "before": {"pockets": [key], "box": [got]}, "menu": True, "closed": True,
+            "after": {"pockets": [key, got], "box": []}, "now": taken}, stored={
+            "before": taken, "spoken": True, "menu": True,
+            "letter": {"place": 1, "key": got, "mail": mail2, "kind": 0, "rest": list(whole)},
+            "opened": {"pockets": [key, got], "store": []}, "taken": {"pockets": [key], "store": []},
+            "put": {"pockets": [key], "store": [[1, got]]}, "closed": True, "ended": "free", "asked": [4, 4],
+            "now": gone, "everywhere": [key], "out": True})
+        lying = both(marked=[got])
+        back_in = both(number=0, record="the save's", letters=[key, got], mail=[mail, mail2], marked=[got])
         fetch = run("fetch", asked=2, now=gone, before=back_in, saved=dict(done), fetched={
-            "before": gone, "spoken": True, "menu": True, "kind": None, "opened": {"pockets": [], "store": [[1, key]]},
-            "taken": {"pockets": [], "store": []}, "put": {"pockets": [key], "store": []}, "closed": True,
-            "ended": "free", "asked": [4, 4], "now": back_in, "out": True})
-        return [towns, home, away, pak, visit, other, back, facts(), store, lying, fetch, facts(marked=[key]),
-                [0, 1, 0]]
+            "before": gone, "spoken": True, "menu": True, "letter": None,
+            "opened": {"pockets": [key], "store": [[1, got]]}, "taken": {"pockets": [key], "store": []},
+            "put": {"pockets": [key, got], "store": []}, "closed": True, "ended": "free", "asked": [4, 4],
+            "now": back_in, "everywhere": [key, got], "out": True})
+        return [towns, home, away, pak, visit, other, back, facts(), store, lying, fetch,
+                both(letters=[key, got], mail=[mail, mail2], marked=[got]), [0, 1, 0]]
 
     def trip_failed(self, parts):
         emu_trip.failures.clear()
@@ -3347,8 +3364,8 @@ class EmulatorChecks(unittest.TestCase):
 
     def test_a_trip_is_held_to_the_letter_whole_at_home_again(self):
         self.assertEqual(self.trip_failed(self.trip()), [])
-        self.assertEqual(len(self.trip_failed([None] * 8)), 15)      # nothing played: every check fails
-        self.assertEqual(len(self.trip_failed(self.trip()[:8])), 4)  # the trip alone: the Pak's letters not played
+        self.assertEqual(len(self.trip_failed([None] * 8)), 16)      # nothing played: every check fails
+        self.assertEqual(len(self.trip_failed(self.trip()[:8])), 5)  # the trip alone: the Pak's letters not played
         TOWNS, HOME, AWAY, PAK, VISIT, OTHER, BACK, KEPT, STORE, LYING, FETCH, WHOLE, COPIES = range(13)
 
         def failed(part, *path, **what):
@@ -3376,9 +3393,9 @@ class EmulatorChecks(unittest.TestCase):
         # the letter: written, longer than the cartridge keeps, the paper used
         self.assertEqual(failed(HOME, "written", paper=True), 1)
         self.assertEqual(failed(HOME, "met", known=False), 1)
-        # ... a letter with nothing past the cartridge's 96 bytes proves nothing: its own check, the three
-        # that hold its rest on the trip and the three that hold it at the post office
-        self.assertEqual(failed(HOME, "written", rest=None), 7)
+        # ... a letter with nothing past the cartridge's 96 bytes proves nothing: its own check and the three
+        # that hold its rest on the trip; and the gyroid's save at the post office, which holds it again
+        self.assertEqual(failed(HOME, "written", rest=None), 5)
         # the departure: the game must have left, the player be away in the flash, the Pak hold the record
         self.assertEqual(failed(HOME, "left", gone=False), 1)
         self.assertEqual(failed(AWAY, exists=1), 1)
@@ -3399,33 +3416,51 @@ class EmulatorChecks(unittest.TestCase):
         self.assertEqual(failed(BACK, "now", exists=0), 1)
         self.assertEqual(failed(BACK, "now", mail=[]), 1)
         self.assertEqual(failed(BACK, "saved", left=False), 1)
+        # the mailbox: its letters must come to the pockets, each with its rest (a town made without the
+        # extension the game had filed starts with them cut: the fault this step found in the checks' towns)
+        got, mail2 = "2ab7d99e", "bb" * 0xA4
+        self.assertEqual(failed(STORE, "mail", menu=False), 1)
+        self.assertEqual(failed(STORE, "mail", closed=False), 1)
+        self.assertEqual(failed(STORE, "mail", "after", pockets=["1368ac01"]), 1)        # nothing taken
+        self.assertEqual(failed(STORE, "mail", "after", box=[got]), 1)                   # left in the mailbox
+        self.assertEqual(failed(STORE, "mail", "now", whole={"1368ac01": ["", "63656d6f6b", ""]}), 1)   # no rest
         # the fault the two sessions at the post office were written for: the letter in the Controller Pak's
         # store, and the extension dropping its rest at the save the game makes then. The rest gone, or kept
-        # without the Pak's mark (the next save would drop it); the gyroid's save; and the letter back
-        self.assertEqual(failed(STORE, "stored", "now", rests={}), 1)
+        # without the Pak's mark (the next save would drop it), or not whole (its header's, its footer's);
+        # the gyroid's save; and the letter back
+        mine = {"1368ac01": ["", "63656d6f6b", ""]}
+        self.assertEqual(failed(STORE, "stored", "now", whole=dict(mine)), 1)
         self.assertEqual(failed(STORE, "stored", "now", marked=[]), 1)
-        self.assertEqual(failed(STORE, "stored", "now", rests={"1368ac01": "636561"}), 1)
-        self.assertEqual(failed(LYING, rests={}), 1)
+        self.assertEqual(failed(STORE, "stored", "now", whole=dict(mine, **{got: ["6162", "63" * 59, ""]})), 1)
+        self.assertEqual(failed(STORE, "stored", "now", whole=dict(mine, **{got: ["", "63" * 59, "64" * 7]})), 1)
+        self.assertEqual(failed(LYING, whole=dict(mine)), 1)
         self.assertEqual(failed(LYING, marked=[]), 1)
-        self.assertEqual(failed(LYING, letters=["1368ac01"]), 1)
-        self.assertEqual(failed(FETCH, "fetched", "now", rests={}), 1)
-        self.assertEqual(failed(FETCH, "fetched", "now", mail=["bb" * 0xA4]), 1)        # another letter's text
-        self.assertEqual(failed(WHOLE, rests={}), 1)
-        self.assertEqual(failed(WHOLE, letters=[]), 1)
-        # ... the letter's kind is not part of its text: the letter back is the letter written
-        other_kind = "aa" * 0x26 + "03" + "aa" * (0xA4 - 0x27)
-        self.assertEqual(failed(FETCH, "fetched", "now", mail=[other_kind]), 0)
+        self.assertEqual(failed(LYING, letters=["1368ac01", got]), 1)                    # still in the pockets
+        self.assertEqual(failed(LYING, letters=[]), 1)                                   # the player's own gone
+        self.assertEqual(failed(FETCH, "fetched", "now", whole=dict(mine)), 1)
+        self.assertEqual(failed(FETCH, "fetched", "now", mail=["aa" * 0xA4, "cc" * 0xA4]), 1)   # another's text
+        self.assertEqual(failed(WHOLE, whole=dict(mine)), 1)
+        self.assertEqual(failed(WHOLE, letters=["1368ac01"]), 1)
+        # ... the letter's kind is not part of its text: the letter back is the letter stored
+        other_kind = "bb" * 0x26 + "03" + "bb" * (0xA4 - 0x27)
+        self.assertEqual(failed(FETCH, "fetched", "now", mail=["aa" * 0xA4, other_kind]), 0)
+        # the letter stored: one the player received, whose key no other letter of the save has (a copy in
+        # the post office's keep would have the rest kept for its sake, and the mark prove nothing)
+        self.assertEqual(failed(STORE, "stored", "letter", kind=1), 1)
+        self.assertEqual(failed(STORE, "stored", everywhere=["1368ac01", got]), 1)
+        self.assertEqual(failed(STORE, "stored", letter=None), 3)                        # none to store
+        self.assertEqual(failed(STORE, "stored", "letter", rest=None), 3)                # one with no rest
         # the menu: the letter must leave the pockets for the hand and the hand for the store's place, the
         # menu close, the talk end, and the Controller Pak's file gain the letter's text and lose it again
-        self.assertEqual(failed(STORE, "stored", "taken", pockets=["1368ac01"]), 1)
+        self.assertEqual(failed(STORE, "stored", "taken", pockets=["1368ac01", got]), 1)
         self.assertEqual(failed(STORE, "stored", "put", store=[]), 1)
-        self.assertEqual(failed(STORE, "stored", "put", store=[[2, "1368ac01"]]), 1)
+        self.assertEqual(failed(STORE, "stored", "put", store=[[2, got]]), 1)
         self.assertEqual(failed(STORE, "stored", closed=False), 1)
         self.assertEqual(failed(STORE, "stored", menu=False), 1)
         self.assertEqual(failed(STORE, "stored", ended="limit"), 1)
         self.assertEqual(failed(STORE, "saved", left=False), 1)
         self.assertEqual(failed(FETCH, "fetched", "opened", store=[]), 1)                # not read from the Pak
-        self.assertEqual(failed(FETCH, "fetched", "put", pockets=[]), 1)
+        self.assertEqual(failed(FETCH, "fetched", "put", pockets=["1368ac01"]), 1)
         self.assertEqual(failed(FETCH, "fetched", closed=False), 1)
         self.assertEqual(failed(FETCH, "saved", left=False), 1)
         parts = self.trip()
@@ -3437,7 +3472,7 @@ class EmulatorChecks(unittest.TestCase):
         self.assertEqual(len(self.trip_failed(parts)), 0)
         said = io.StringIO()
         parts = self.trip()
-        parts[STORE]["stored"]["now"] = dict(parts[STORE]["stored"]["now"], rests={})
+        parts[STORE]["stored"]["now"] = dict(parts[STORE]["stored"]["now"], whole=dict(mine))
         emu_trip.failures.clear()
         with contextlib.redirect_stdout(said):
             emu_trip.report(*parts)

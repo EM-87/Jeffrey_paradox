@@ -977,6 +977,23 @@ pruebas se fabricaban con ellos ya recorridos (o nunca salían de ellos).
   jugarlo: en ese menú las cartas se cogen y se sueltan con Z, y el
   juego no deja guardar en el Pak una carta escrita por uno mismo y sin
   enviar.
+- **Una carta recibida de verdad, y un fallo de las propias pruebas.**
+  La prueba del viaje guardaba en el Controller Pak la carta que ella
+  misma había escrito, cambiándole a mano el tipo (el juego no deja
+  guardar una carta propia sin enviar). Ahora hace lo que haría un
+  jugador: vacía su buzón (A delante del buzón, Z para llevarse las
+  cartas, B para cerrar) y lleva a Correos una carta que el juego le
+  entregó. Al jugarlo por primera vez, la carta de mamá salió del buzón
+  cortada en el byte 96. No era el juego: en una partida nueva el final
+  de esa carta está archivado desde que se crea y se guarda con la
+  partida. Eran las pruebas, que fabricaban sus «pueblos guardados»
+  copiando solo la partida de la memoria y los encendían con la
+  extensión de cartas vacía, de modo que todas arrancaban con las
+  cartas ya entregadas cortadas, y ninguna había leído nunca una. Los
+  pueblos de prueba llevan ahora su extensión al lado, como una partida
+  real, y `make trip-check-en` exige que cada carta que sale del buzón
+  tenga su final y que la que va al Pak vuelva entera (cabecera, cuerpo
+  y despedida).
 - **Cada fallo, visto fallar antes de darlo por arreglado.** Los tres
   fallos de las cartas se probaron también en una ROM sin su arreglo,
   con la misma prueba que ahora lo vigila: en las tres la prueba falla

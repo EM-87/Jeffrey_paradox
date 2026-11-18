@@ -114,8 +114,9 @@ def name_of(save, i):
 def play(emu_dir, rom_path, af_en, save, out, answers):
     """play_here() in a process of its own (the emulator's plugins start once per process)."""
     os.makedirs(out, exist_ok=True)
+    import emu_year                                       # here: it imports this module
     town_path = os.path.join(out, "..", os.path.basename(out) + ".town")
-    open(town_path, "wb").write(save)
+    emu_year.write_town(town_path, save, TOWN_EXT)
     r = subprocess.run([sys.executable, os.path.abspath(__file__), "--play", emu_dir, rom_path, af_en, town_path, out,
                         ",".join(str(a) for a in answers)], capture_output=True, text=True)
     lines = [ln for ln in r.stdout.splitlines() if ln.startswith("{")]
@@ -126,13 +127,16 @@ def play(emu_dir, rom_path, af_en, save, out, answers):
     return [([bytes.fromhex(a) for a in got], frame) for got, frame in result["seen"]], result["went_on"]
 
 
-def play_here(emu_dir, rom, save, out, answers, limit=500):
+TOWN_EXT = b""                          # the letters' extension of the towns main() makes (emu_year.ram_ext)
+
+
+def play_here(emu_dir, rom, save, out, answers, limit=500, ext=b""):
     """Power-on with the town in both slots; A through the talk; at each choice its answers, then the answer
     given by answers (one number per choice; past them, stop). Returns [(answers read, frame)], and whether
     the game went on."""
     shutil.rmtree(out, ignore_errors=True)
     os.makedirs(out)
-    image, compressed = aflz.pack(save, b"")
+    image, compressed = aflz.pack(save, ext)
     if not compressed:
         raise SystemExit("emu_psel: the town does not fit a compressed slot")
     on_ares = os.path.exists(os.path.join(emu_dir, "ares-headless"))
@@ -200,8 +204,11 @@ def main(argv):
     with N64(emu_dir, rom, os.path.join(out, "state"), timeout=60) as n64:
         n64.load_state(state)
         import emu_town                                   # here: tests/emu_year.py, which it uses, imports this module
+        import emu_year
+        global TOWN_EXT
         done = emu_town.settle(n64, af_en, syms)
         common = n64.read(syms["common_data"], RTC_TIME + 8)
+        TOWN_EXT = emu_year.ram_ext(n64, syms)            # the rests of the letters the town has in it
     check(emu_town.settled(done), emu_town.describe(done))
     save = stamp(common)
     check(emu_save.checksum_ok(save) and save[4:8] == b"NAFJ", "the houses' common_data stamped as a save")
@@ -259,8 +266,9 @@ if __name__ == "__main__":
     if sys.argv[1] == "--play":
         emu_dir, rom_path, af_en, town_path, out, answers = sys.argv[2:8]
         play_here.syms = emu_save.elf_symbols(os.path.join(af_en, "build", "animalforest-jp.elf"))
+        import emu_year
         seen, went_on = play_here(emu_dir, open(rom_path, "rb").read(), open(town_path, "rb").read(), out,
-                                  [int(a) for a in answers.split(",")])
+                                  [int(a) for a in answers.split(",")], ext=emu_year.town_ext(town_path))
         print(json.dumps({"seen": [([g.hex() for g in got], frame) for got, frame in seen], "went_on": went_on}))
         sys.exit(0)
     sys.exit(main(sys.argv[1:]))

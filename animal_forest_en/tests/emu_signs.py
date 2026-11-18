@@ -508,7 +508,7 @@ def nes_visit(emu_dir, rom_path, af_en, town, out, gc_dir=None):
     for (x, z), piece in zip(places, af_gc_nes.PIECES):
         at = emu_memory.HOME_LAYER + (z * 16 + x) * 2
         save[at:at + 2] = struct.pack(">H", emu_memory.FURNITURE + piece * 4)
-    image, compressed = aflz.pack(emu_psel.fix(bytes(save)), b"")
+    image, compressed = aflz.pack(emu_psel.fix(bytes(save)), emu_year.town_ext(town))
     if not compressed:
         raise SystemExit("emu_signs: the town does not fit a compressed slot")
     emu_save.write_fla(emu_save.fla_path(out, rom), image + image)

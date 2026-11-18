@@ -4714,8 +4714,9 @@ the Controller Pak", below).
   store, and after the game's save the extension had no rest for it,
   in RAM and in the flash; the two checks that hold the rest there fail
   on that build, with the words for it.
-  The menu, with the pad: the hand begins on the pockets' first letter
-  and the stick takes it over the pockets' letters and the store; Z
+  The menu, with the pad: the hand begins on the store's first place,
+  the pockets' letters two a row to its left, and the stick takes it
+  over the pockets' letters and the store; Z
   takes the letter under the hand and puts it down (A does neither); R
   turns the store's leaves; B asks the edit-end check's question, A
   shows its answers, and the first writes the Pak and then the flash.
@@ -4723,17 +4724,43 @@ the Controller Pak", below).
   the hand
   only the letters that are not to be sent (`m_inventory_ovl.s`, the
   menu's mode 0xE: `mMl_check_send_mail`), so a letter the player wrote
-  and has not mailed stays in the pockets. The check has no other
-  letter on its short road than the one it wrote: it sets that
-  letter's kind to a received letter's, one byte of its record in RAM
-  (no part of its key), before the clerk is spoken to; the letter goes
-  into the store, the game saves, the gyroid saves, and at the next
-  power-on it comes back from the store whole. The check's question
+  and has not mailed stays in the pockets. The check stores a letter
+  the player received: it empties the player's mailbox first (below)
+  and takes, of the letters that came, one whose key no other letter
+  of the save has (the mother's first letter has a copy in the post
+  office's keep, and its rest would be kept for the copy's sake); the
+  letter goes into the store, the game saves, the gyroid saves, and at
+  the next power-on it comes back from the store whole, its header's,
+  body's and footer's rests as the game filed them. (Until the pass
+  that played the mailbox the check set the kind of the letter it had
+  written to a received letter's, a byte of its record in RAM.) The
+  check's question
   has the answers of the letter's, the GameCube's English for the
   cartridge's one table of three; the cartridge's own three are worded
   for any of the check's uses, and here the second goes back to the
   menu and the third leaves the letters where they were. Left as the
   GameCube's.
+- **The mailbox, and a town without its extension.** A before a
+  player's mailbox opens the item screen over its letters
+  (`ac_mailbox`'s `func_8096CFF4_jp`: the submenu's program 1 in its
+  mode 1, when the lid's animation passes its 18th frame); Z takes them
+  to the pockets, B closes. The checks' towns have mail from the
+  start: a new game's first day makes the mother's first letter (139
+  bytes of body in the bank's draft) and gives it to the post office's
+  keep, and the arrival puts it and a notice of the game's in the
+  player's mailbox. Played for the first time, the mother's letter came
+  out of the mailbox cut at its 96th byte, with no record in the
+  extension. Not the game's doing: in the route's new game the record
+  is in RAM from the moment the letter is made (nine records at the
+  houses' state, one of them the letter's: 3 bytes of header and 42 of
+  body), and a save of the game's own writes it. The checks made a town
+  by reading `common_data` out of RAM and packed it with an empty
+  extension, so every check that powered a town on began with its
+  letters cut, and no check had read one. A town's file now has the
+  extension the game had filed beside it (`tests/emu_year.py`:
+  `ram_ext`, `write_town`, `town_ext`; `town_image` packs both, as a
+  flash of the game's holds both), and the trip's check empties the
+  mailbox and holds each letter that came to its record.
 - **Another town.** The Controller Pak holds the cartridge's record
   (the `Passport`; the decomp names no use for its last 0x100 bytes,
   and the rests of ten letters would not fit there). A letter carried

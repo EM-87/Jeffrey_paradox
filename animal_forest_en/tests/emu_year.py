@@ -157,12 +157,39 @@ def actor_names(af_en):
     return names
 
 
+EXT_SUFFIX = ".ext"                     # beside a town's file: the letters' extension the game had filed for it
+EXT_CAP = 0x2400                        # the extension's room (m_flashrom.c; tests/emu_letters.py's EXT_CAP)
+
+
+def ram_ext(n64, syms):
+    """The letters' extension as the game has it in RAM (mFRm_en_ext, mFRm_en_extSize bytes of it): the rests
+    of the letters it has made or taken so far. A town made by reading common_data out of RAM has letters in it
+    (the mother's first, in the post office's keep) whose rests are here and nowhere else."""
+    size = n64.u32(syms["mFRm_en_extSize"])
+    return n64.read(syms["mFRm_en_ext"], size) if 0 < size <= EXT_CAP else b""
+
+
+def write_town(path, save, ext):
+    """A town's file, and beside it the extension that goes with it (none: no file)."""
+    open(path, "wb").write(save)
+    if ext:
+        open(path + EXT_SUFFIX, "wb").write(ext)
+    elif os.path.exists(path + EXT_SUFFIX):
+        os.remove(path + EXT_SUFFIX)
+
+
+def town_ext(town):
+    """The extension kept beside a town's file, or none."""
+    return open(town + EXT_SUFFIX, "rb").read() if os.path.exists(town + EXT_SUFFIX) else b""
+
+
 def town_image(town):
-    """Both slots of a fresh flash: the town, its first player's job and arrival talk done."""
+    """Both slots of a fresh flash: the town, its first player's job and arrival talk done, and the extension
+    the game had filed when the town was made (a flash of the game's own holds both)."""
     save = bytearray(open(town, "rb").read())
     flags = struct.unpack(">I", save[EVENT_FLAGS:EVENT_FLAGS + 4])[0] & ~JOB_BITS
     save[EVENT_FLAGS:EVENT_FLAGS + 4] = struct.pack(">I", flags)
-    image, compressed = aflz.pack(emu_psel.fix(bytes(save)), b"")
+    image, compressed = aflz.pack(emu_psel.fix(bytes(save)), town_ext(town))
     if not compressed:
         raise SystemExit("emu_year: the town does not fit a compressed slot")
     return image + image
