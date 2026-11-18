@@ -46,7 +46,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en resetti-check-en words-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en year-check-en reset-check-en memory-check-en job-check-en trip-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean script drafts
+.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en resetti-check-en words-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en year-check-en reset-check-en memory-check-en job-check-en trip-check-en tools-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean script drafts
 
 all: verify
 
@@ -611,6 +611,14 @@ job-check-en: route-en
 # extension keeps their rests (tests/emu_trip.py; NOTES, "A trip, played").
 trip-check-en: route-en
 	$(PYTHON) tests/emu_trip.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en $(BUILD)/emu-trip-en
+
+# The tools, played: the rod, the net, the shovel and the axe taken in hand in psel-check-en's town and used
+# with the pad as a player uses them. A fish caught at the bite, an insect caught with the pockets full (the
+# game's question, and the swap in the item screen), a hole dug, a thing buried and dug up, a tree felled:
+# what the player says at a catch and at a find, with the thing's name in it, is read (tests/emu_tools.py;
+# NOTES, "The tools, played").
+tools-check-en: psel-check-en
+	$(PYTHON) tests/emu_tools.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(BUILD)/emu-psel-en/2-two.town $(BUILD)/emu-tools-en
 
 # -- the GameCube script (phase 4) -------------------------------------------
 # ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it

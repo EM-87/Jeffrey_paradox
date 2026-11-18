@@ -398,6 +398,12 @@ the why and the state, `reference/NOTES.md` for what is verified.
   gyroid save it so; then two more power-ons at the post office, the
   letter into the Controller Pak's store, two saves, and back whole:
   `make trip-check-en`),
+  `emu_tools.py` (the tools taken in hand in `psel-check-en`'s town,
+  its first player's pockets filled by hand: a fish caught at the
+  bobber's pull, an insect caught with the pockets full and swapped
+  for an apple in the item screen, a hole dug, a table buried and dug
+  up, a tree felled; the catches' and the find's pages read:
+  `make tools-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.
@@ -758,6 +764,21 @@ the why and the state, `reference/NOTES.md` for what is verified.
   `errand()` follows whatever record is open (its animal, the first
   answer, the item screen when it opens) until none is. The animal an
   errand's record names changes at each talk.
+- **A player dropped somewhere is still falling.** `Town.drop` puts
+  the player above a place and waits a few frames; the player falls
+  for some 28 more and takes no stick meanwhile, so a push meant to
+  turn it does nothing and it goes on looking where it looked. Wait
+  for its main index to be the waiting one, and read the figure's
+  angle after the push (`tests/emu_tools.py`: `land`, `face`). A net
+  swung 24 times at a butterfly behind the player taught this.
+- **The item screen the game opens itself starts where the last one
+  ended.** START's opens with the hand on the first pocket; the one a
+  question opens (a catch with the pockets full) has the hand where
+  it was when the last screen closed, the player's figure included.
+  Take it home first: left, down to the last row, up twice.
+- **A fruit buried is planted.** The tag's "bury" before a hole puts a
+  sapling in the unit for a fruit, and digging there gives nothing
+  back. Bury something else to dig it up again.
 - **An animal met at its door takes the player indoors.**
   `Player.animal` (`tests/emu_job.py`) walks up to an animal and
   presses A; one that stands at its own door lets the player into its

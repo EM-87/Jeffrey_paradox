@@ -59,6 +59,7 @@ import emu_letters  # noqa: E402
 import emu_trip  # noqa: E402
 import emu_memory  # noqa: E402
 import emu_reset  # noqa: E402
+import emu_tools  # noqa: E402
 import emu_town  # noqa: E402
 import emu_year  # noqa: E402
 
@@ -3809,6 +3810,116 @@ class EmulatorChecks(unittest.TestCase):
         self.assertEqual(len(self.newcomer_failed(self.newcomer(gyroid={"owner": False}))), 1)
         self.assertEqual(len(self.newcomer_failed(self.newcomer(problems=["0x7e3 at 0: a line past its bubble"]))), 1)
         self.assertEqual(len(self.newcomer_failed(self.newcomer(watch={"fails": 2}))), 1)
+
+
+class ToolsCheck(unittest.TestCase):
+    """tests/emu_tools.py: the tools taken in hand in a saved town."""
+
+    def run_of(self, **more):
+        """A day of the tools, as play() tells it: nothing amiss."""
+        t = emu_tools
+        run = {"clock": [2001, 4, 15, 11, 0, 0], "arrived": True, "hang": None, "pages": 12, "messages": 8,
+               "problems": [], "held": [[t.ROD, True], [t.NET, True], [t.SHOVEL, True], [t.AXE, True]],
+               "fish": {"blocks": 1, "casts": 1, "bite": 315, "pages": [0x1327], "got": 0x2300, "ended": "free"},
+               "insect": {"blocks": 1, "swings": 1, "pages": [0xA2C, 0xA4D], "answers": [2], "menu": True,
+                          "got": 0x2D00, "let_go": t.APPLE, "ended": "free"},
+               "shovel": {"spot": [[3, 3], [13, 9]], "hole": 0x11, "buried": t.TABLE, "tables": [0, 1], "dug": 0x11,
+                          "pages": [0x17AF], "filled": 0},
+               "axe": {"spot": [[3, 3], [1, 1]], "strokes": 3, "tree": t.TREE, "left": 4},
+               "watch": {"fails": 0, "failed": 0, "least": 85296, "calls": 521, "most": 250720}}
+        for key, value in more.items():
+            run[key] = dict(run[key], **value) if isinstance(value, dict) and isinstance(run.get(key), dict) else value
+        return run
+
+    def failed(self, run):
+        emu_tools.failures.clear()
+        with contextlib.redirect_stdout(io.StringIO()):
+            emu_tools.report(run)
+        failed = list(emu_tools.failures)
+        emu_tools.failures.clear()
+        return failed
+
+    def test_each_tool_is_held_to_what_it_did(self):
+        t = emu_tools
+        self.assertEqual(self.failed(self.run_of()), [])
+        self.assertEqual(len(self.failed(None)), 6)
+        for more in ({"held": [[t.ROD, True], [t.NET, False], [t.SHOVEL, True], [t.AXE, True]]}, {"held": []},
+                     {"fish": None}, {"fish": {"got": None}}, {"fish": {"got": 0x2D00}}, {"fish": {"ended": "limit"}},
+                     {"fish": {"pages": []}},
+                     {"insect": None}, {"insect": {"got": None}}, {"insect": {"menu": False}},
+                     {"insect": {"answers": []}}, {"insect": {"answers": [2, 2]}}, {"insect": {"let_go": None}},
+                     {"insect": {"pages": [0xA2C]}}, {"insect": {"ended": "menu"}},
+                     {"shovel": None}, {"shovel": {"hole": 0}}, {"shovel": {"buried": 0x0805}},
+                     {"shovel": {"tables": [0, 0]}}, {"shovel": {"tables": [1, 1]}}, {"shovel": {"dug": 0}},
+                     {"shovel": {"pages": []}}, {"shovel": {"filled": 0x11}}, {"shovel": {"filled": None}},
+                     {"axe": None}, {"axe": {"left": t.TREE}}, {"axe": {"spot": None}},
+                     {"hang": "no frame"}, {"problems": ["0x1327 at 0: a line past its bubble"]},
+                     {"watch": {"fails": 2}}, {"watch": None}):
+            self.assertEqual(len(self.failed(self.run_of(**more))), 1, more)
+        # a town that was never reached: the tools were not held, and nothing after them was done
+        self.assertEqual(len(self.failed(self.run_of(arrived=False, held=[], fish=None, insect=None, shovel=None,
+                                                     axe=None))), 6)
+
+    def test_the_pockets_the_check_powers_on_with(self):
+        t = emu_tools
+        self.assertEqual(len(t.POCKETS), 15)
+        self.assertEqual(t.POCKETS.count(0), 0)             # none free: the second catch finds them full
+        save = bytearray(0x10000)
+        at = t.emu_job.PRIVATE
+        save[at + t.emu_job.CONDITIONS:at + t.emu_job.CONDITIONS + 4] = b"\0\0\0\x20"
+        save[at + t.HELD:at + t.HELD + 2] = b"\x22\x01"
+        save[at + t.emu_job.POCKETS - 1] = save[at + t.emu_job.POCKETS + 30] = 0x5A
+        got = t.tooled(bytes(save))
+        self.assertEqual(list(struct.unpack(">15H", got[at + t.emu_job.POCKETS:at + t.emu_job.POCKETS + 30])), t.POCKETS)
+        self.assertEqual(got[at + t.emu_job.CONDITIONS:at + t.emu_job.CONDITIONS + 4], bytes(4))
+        self.assertEqual(got[at + t.HELD:at + t.HELD + 2], bytes(2))
+        self.assertEqual((got[at + t.emu_job.POCKETS - 1], got[at + t.emu_job.POCKETS + 30]), (0x5A, 0x5A))
+        self.assertEqual(len(got), len(save))
+
+    def test_the_ground_a_tool_is_used_on(self):
+        t = emu_tools
+        grass, river, cliff = 0, 14, 30
+        attrs = [[grass] * 16 for _ in range(16)]
+        for uz in range(16):
+            for ux in range(6, 10):
+                attrs[uz][ux] = river                       # a river down the block's middle
+        block = (3, 2)
+        x0, z0 = 3 * 640.0, 2 * 640.0
+        # the land nearest a fish in the river: the bank's unit on its side
+        self.assertEqual(t.nearest(attrs, block, x0 + 250.0, z0 + 100.0), (x0 + 220.0, z0 + 100.0))
+        self.assertEqual(t.nearest(attrs, block, x0 + 390.0, z0 + 100.0), (x0 + 420.0, z0 + 100.0))
+        self.assertIsNone(t.nearest([[river] * 16 for _ in range(16)], block, x0 + 250.0, z0 + 100.0))
+        self.assertIsNone(t.nearest(attrs, block, x0 + 320.0, z0 + 100.0, reach=50.0))
+        self.assertEqual(t.nearest(attrs, block, x0 + 250.0, z0 + 100.0, kinds=t.WATER), (x0 + 260.0, z0 + 100.0))
+        self.assertEqual(t.unit_of(block, x0 + 250.0, z0 + 100.0), (6, 2))
+        # a unit to dig, a tree to fell: the thing, and a free unit of grass below it to stand on
+        items = [[0] * 16 for _ in range(16)]
+        self.assertEqual(t.before_one(attrs, items, 0), (1, 1))
+        self.assertEqual(t.before_one(attrs, items, 0, range(8, 14)), (1, 8))
+        items[5][3] = items[9][12] = items[3][7] = t.TREE   # the third stands in the river's column: no grass
+        items[6][3] = 0x1270                                # and the first has a thing below it
+        self.assertEqual(t.before_one(attrs, items, t.TREE), (12, 9))
+        attrs[10][12] = cliff
+        self.assertIsNone(t.before_one(attrs, items, t.TREE))
+        items[0][5] = items[15][5] = items[4][0] = items[4][15] = t.TREE        # the block's edges are left alone
+        self.assertIsNone(t.before_one(attrs, items, t.TREE))
+
+    def test_the_places_an_actors_memory_holds(self):
+        t = emu_tools
+        raw = bytearray(0x400)
+
+        def put(off, x, y, z):
+            raw[off:off + 12] = struct.pack(">3f", x, y, z)
+        put(t.FIRST + 0x20, 2080.0, 0.0, 1500.0)            # a home: no height
+        put(t.FIRST + 0x3C, 2077.0, 132.0, 1497.0)          # the fish
+        put(t.FIRST + 0x50, 2078.0, 132.0, 1498.0)          # and where it was a frame ago: the same fish
+        put(t.FIRST + 0x80, 2500.0, 132.0, 1700.0)          # another
+        put(t.FIRST + 0xA0, 2700.0, 132.0, 1500.0)          # one in the next block
+        put(0x10, 2100.0, 132.0, 1400.0)                    # the actor's own place, before its records
+        raw[t.FIRST + 0xC0:t.FIRST + 0xCC] = struct.pack(">3f", float("nan"), 132.0, 1500.0)
+        found = t.points(bytes(raw), (3, 2), lambda x, y, z: y > 50.0)
+        self.assertEqual([(off, round(x)) for off, x, _, _ in found], [(t.FIRST + 0x3C, 2077), (t.FIRST + 0x80, 2500)])
+        self.assertEqual(t.points(bytes(raw), (3, 2), lambda x, y, z: False), [])
 
 
 if __name__ == "__main__":

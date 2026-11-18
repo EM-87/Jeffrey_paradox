@@ -73,6 +73,8 @@ make trip-check-en                # un viaje con Controller Pak: salir en tren c
                                   # en el bolsillo, llegar a otro pueblo como visitante y volver
                                   # a casa con la carta entera; y después guardarla en el Controller
                                   # Pak en correos, guardar la partida y recuperarla entera
+make tools-check-en               # las herramientas en la mano: pescar, cazar un bicho con los
+                                  # bolsillos llenos, cavar, enterrar y desenterrar, talar
 make ares                         # el segundo emulador, ares, sin ventana (y su aplicación)
 make test                         # tests de las herramientas, sin ROM
 make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010: para estudiarlo, y
@@ -1012,6 +1014,23 @@ pruebas se fabricaban con ellos ya recorridos (o nunca salían de ellos).
   fruta…). En la partida de la prueba salió un deseo y luego una
   recuperación, que se sigue hasta el final. Todas las páginas de los
   dos encargos se leen bien y en inglés.
+- **Las herramientas, usadas.** Ninguna prueba había cogido una
+  herramienta, así que nadie había visto en la ROM en inglés lo que
+  dice el jugador al pescar o cazar algo (con el nombre de la captura
+  dentro), la pregunta que hace el juego cuando los bolsillos están
+  llenos, ni el aviso de lo que se desentierra. `make tools-check-en`
+  lo juega con el mando: empuña la caña desde la pantalla de objetos,
+  lanza delante de un pez y pulsa A justo cuando pica; empuña la red,
+  espera a que un bicho pase por delante y lo caza con los bolsillos
+  llenos (el juego pregunta si cambiarlo por algo: se cambia por una
+  manzana en la pantalla de objetos); con la pala cava un hoyo,
+  entierra una mesa, la desentierra y tapa el hoyo; y con el hacha
+  tala un árbol. Todo sale en inglés y bien colocado. De paso quedó
+  apuntado cómo decide el juego una captura con la red (lo que esté
+  entre 25 y 65 unidades delante del jugador) y un detalle del
+  cartucho: una fruta enterrada no se entierra, se planta. Como un día
+  de lluvia no hay mariposas y la lluvia la sortea el juego, si no
+  encuentra ningún bicho la prueba repite la sesión al día siguiente.
 - **Cada fallo, visto fallar antes de darlo por arreglado.** Los tres
   fallos de las cartas se probaron también en una ROM sin su arreglo,
   con la misma prueba que ahora lo vigila: en las tres la prueba falla

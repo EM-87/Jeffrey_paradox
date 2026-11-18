@@ -5012,6 +5012,90 @@ on the tree that ends the pass, each a goal of one make.
   build's are this section's and the reports' the checks write
   (`build/emu-memory-en/report.json` and its kin).
 
+## The tools, played
+
+No check took a tool in hand: what the player says at a catch, with the
+name of the catch in it, what the game asks when the pockets are full,
+and what is said over a thing dug up had never been on the en build's
+screen. `tests/emu_tools.py` (`make tools-check-en`) powers on
+`psel-check-en`'s town with the first player's pockets filled by hand
+(the four tools, a table, ten apples: none of the fifteen free) and does
+the rest with the pad.
+
+- **A tool in hand.** The tools are the items 0x2200 to 0x2203 (net,
+  axe, shovel, rod). One is held as clothes are put on: the pocket's
+  tag's first entry takes it in the hand, the hand goes up to the
+  player's figure, A. The tool held is `PrivateInfo` + 0x3EC (the
+  header has two unnamed bytes there), and the one held before goes to
+  the pocket the new one left.
+- **The ground.** `g_fdinfo` points at the field's blocks (`blockInfo`,
+  0x614 bytes each, all of them in RAM whichever the player is in); a
+  block's 16 x 16 units' collision words are at + 0x20 and a word's low
+  six bits are the unit's attribute (`m_collision_bg.h`: 0 to 7 land,
+  12 to 21 and 24 water). The fish and the insects of the block the
+  player is in are not actors of their own: one actor each (`Gyoei`,
+  `Insect`, both at the origin) keeps them in its own memory, a place
+  at + 0x19C of it (and the same a frame ago at + 0x1B0). The check
+  does not trust the offset: it takes any place of the actor's that
+  lies over a unit of water (a fish) or above the block's ground (an
+  insect).
+- **The rod.** A casts the line. The bobber is an actor (`Uki`) whose
+  state is at + 0x1D8: 4 while it floats, 6 at a nibble, 7 while the
+  fish pulls it under, for 45 frames; then 4 again, and that fish does
+  not come back. A while it is 7 lands the fish: the player holds it
+  up and says what it is (a message for each fish, its name in it), and
+  it goes to the first free pocket. Cast before the fish it bit after
+  some 100 to 300 frames; cast a hundred units to its side, after a
+  thousand.
+- **The net, and the pockets full.** How a catch is decided is the
+  player's code. While the net swings (the player's main index 43)
+  every insect near asks to be caught (`func_808B5C68_jp`: up to eight
+  askers a frame, each with its place and a reach, 24 for a butterfly),
+  and the player takes the first whose place is within its reach and
+  15 more of the net's way that frame (`func_808CC7E0_jp`,
+  `func_808CC54C_jp`; the net's point is the player's actor + 0xE3C and
+  + 0xE48: up over the head and down to the ground 52 units before the
+  player, ten frames after A). So anything 25 to 65 units before the
+  player is caught. With no pocket free the catch is said, and then a
+  question of two answers; the first opens the item screen with the
+  catch in the hand: A over a pocket exchanges the two, B closes the
+  screen and what the hand holds then is let go. That screen opens with
+  the hand where the last item screen left it (START's opens on the
+  first pocket): the check takes the hand to the last row's first
+  pocket before it counts.
+- **The shovel.** A before a free unit digs a hole (the unit's item in
+  the save's map becomes 0x11). With a hole before the player a
+  pocket's tag has a third entry, to bury the thing: the unit then
+  holds the thing's own number. A digs it up: the player says what it
+  dug up (a message with the thing's name and article), the thing is
+  back in the pockets and the hole there again. The player has turned
+  to the screen to say it, so the next A would dig behind where it
+  stood: turned back, A on a hole fills it in. A fruit is not buried
+  but planted (the unit holds a sapling, 0x805), and digging there
+  gives nothing back: the check's first draft buried an apple and
+  waited for it.
+- **The axe.** Three strokes: a grown tree (0x804) is a stump (4).
+- **What the first tries taught.** Twenty-four swings of the net at a
+  butterfly that flew right before the player caught nothing: the
+  player was looking the other way. A player put somewhere from above
+  (`Town.drop`) falls for some 28 frames more than `drop` waits, and
+  takes no stick while it falls; the pushes meant to turn it did
+  nothing. The check waits until the player stands (`land`) and turns
+  it by short pushes until its figure's angle says so (`face`: the
+  shape's yaw, 0 down the screen).
+- **Rain.** A rainy day has no butterflies, and which day rains is the
+  game's draw. Where no insect is about in the six blocks nearest, the
+  check plays the whole session again on the next day, three days at
+  most.
+- **The checks.** Six: the four tools held; the fish (cast 1, the bite
+  315 frames on, one page, the fish in the free pocket); the insect
+  with the pockets full (swing 1, the catch and the question, the swap
+  in the item screen); the shovel (hole, burial, the find said, the
+  hole filled); the axe (three strokes); 12 pages of 8 messages read
+  clean, the arena never saying no (85,296 bytes its largest free block
+  at its least). Nothing wrong was found: every page is English, the
+  names and their articles in place.
+
 ## The NES (the GameCube's model for the cartridge's Famicoms)
 
 The cartridge's Famicoms drawn as the GameCube draws them, an NES, from
