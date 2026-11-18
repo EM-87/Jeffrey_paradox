@@ -939,8 +939,8 @@ pruebas se fabricaban con ellos ya recorridos (o nunca salían de ellos).
   devuelve): en cuanto la carta salía de correos hacia el vecino, el
   siguiente guardado borraba su final, y el vecino enseñaba la carta
   cortada. Y correos deja guardar hasta 160 cartas en un Controller Pak
-  («Save a letter»): la carta guardada allí volvía al bolsillo cortada
-  en el byte 96. Ahora el final de esas cartas se conserva en la
+  (la tercera opción de la empleada): la carta guardada allí volvía al
+  bolsillo cortada en el byte 96. Ahora el final de esas cartas se conserva en la
   partida mientras el vecino tenga la carta o el Pak la haya guardado.
   `make job-check-en` escribe ahora larga la carta del primer trabajo y
   exige que siga entera cuando solo la tiene la vecina, y
