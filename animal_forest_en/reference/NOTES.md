@@ -4677,7 +4677,11 @@ the Controller Pak", below).
   the cartridge's) and holds the build to the rest being in the
   extension as it was written, in the flash the gyroid writes after the
   job and in the next morning's, where the animal's memory is the only
-  place the letter has.
+  place the letter has. Tried on the build before the fix (the commit
+  before it built again in a second tree, its ROM the same to the
+  byte): the check passes its sixteen others and fails this one, the
+  animal with the letter and the extension without its rest, in both
+  flashes.
 - **The letters on the Controller Pak.** And in a third. The post
   office keeps up to 160 letters on a Controller Pak (the clerk's third
   answer; the menu is `ovl__0079E430`, 8 leaves of 20 places beside
@@ -4699,7 +4703,11 @@ the Controller Pak", below).
   when the extension is full, the oldest first (0x2400 bytes, a record
   133 at most: the rests of a full Pak's letters and the save's own
   need not all fit). A letter stored at another town's post office has
-  no rest there to mark ("Another town").
+  no rest there to mark ("Another town"). Tried on the build before
+  this fix (the animals' in): the check's steps put the letter in the
+  store, and after the game's save the extension had no rest for it,
+  in RAM and in the flash; the two checks that hold the rest there fail
+  on that build, with the words for it.
   The menu, with the pad: the hand begins on the pockets' first letter
   and the stick takes it over the pockets' letters and the store; Z
   takes the letter under the hand and puts it down (A does neither); R

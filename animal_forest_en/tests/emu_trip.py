@@ -405,6 +405,11 @@ def session(emu_dir, rom_path, af_en, plan):
     return result
 
 
+def times(n):
+    """How many times the Controller Pak's file holds a letter's text, in words."""
+    return "nowhere" if n == 0 else "once" if n == 1 else "%d times" % n
+
+
 def clean(run):
     """Whether a session arrived, read its pages clean, never hung, and the arena never said no."""
     return (bool(run) and run["arrived"] and not run["hang"] and not run["problems"] and run["pages"] > 0 and
@@ -520,9 +525,9 @@ def report(towns, home, away, pak, visit, other, back, kept, store=None, lying=N
           "the post office's clerk, her third answer (the letter's kind made a received letter's first: the "
           "store takes no letter its player wrote to send): %s" % (
               "Z takes the letter from the pockets, Z puts it down in the store, B and the question's first "
-              "answer: the game writes the store onto the Controller Pak (its file holds the letter's text %d "
-              "times, %d before) and the town onto the Game Pak; no letter of the save holds the rest's key "
-              "now, and the extension keeps the rest, marked as the Pak's" % (copies[1], copies[0])
+              "answer: the game writes the store onto the Controller Pak (its file holds the letter's text %s "
+              "now, %s before) and the town onto the Game Pak; no letter of the save holds the rest's key now, "
+              "and the extension keeps the rest, marked as the Pak's" % (times(copies[1]), times(copies[0]))
               if moved and put.get("closed") and written and safe
               else "THE REST IS GONE FROM THE EXTENSION (its rests %s, the Pak's marks %s): THE LETTER COMES "
                    "BACK FROM THE PAK CUT AT ITS %dTH BYTE" % (sorted(seen["rests"]), seen["marked"], BODY)
@@ -554,7 +559,7 @@ def report(towns, home, away, pak, visit, other, back, kept, store=None, lying=N
               "the store read from the Controller Pak has the letter in its place; Z takes it, Z puts it down "
               "in the pockets, B and the first answer: the letter is whole, its %d bytes past the cartridge's "
               "under its key as they were written, in RAM and in the flash the gyroid then writes; the Pak's "
-              "file holds its text %d times again" % (len(rest), copies[2])
+              "file holds its text %s, as before the store" % (len(rest), times(copies[2]))
               if home_again and same and whole and whole["rests"].get(key) == letter["rest"] and len(copies) > 2
               else "THE LETTER IS BACK WITHOUT ITS REST (the extension's rests %s; the flash's %s): IT ENDS AT "
                    "ITS %dTH BYTE" % (sorted(seen["rests"]), whole and sorted(whole["rests"]), BODY)

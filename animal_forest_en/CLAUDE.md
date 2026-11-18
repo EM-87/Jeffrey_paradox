@@ -716,6 +716,28 @@ the why and the state, `reference/NOTES.md` for what is verified.
   and has not sent; and when the menu is done the clerk asks her
   answers again (the first would open the item screen: answer the
   last). `tests/emu_trip.py` has the steps.
+- **An animal met at its door takes the player indoors.**
+  `Player.animal` (`tests/emu_job.py`) walks up to an animal and
+  presses A; one that stands at its own door lets the player into its
+  house, the talk happens there, and `leave()` walks straight down,
+  which finds the door only from in front of it. Seen once, by hand,
+  on the town of an earlier build at 10:00: the player stayed in the
+  house and every step after it failed, loudly ("NOT STORED AS
+  MEANT"). The town of the delivered build has no animal at its door
+  at the hours the checks use. If a new build's town has, the first
+  job's check and the trip's fail at the step after a talk: give
+  `leave()` the way to the door (the room's middle, then down) and run
+  both again.
+- **The talk that opens by the gyroid is not always the gyroid's.** An
+  animal that has not met the player has its first word when the
+  player comes by. On the delivered build's town, the day after the
+  shop's renewal, the player walking to the gyroid to save got that
+  word instead (three pages, no choice, the game went on): the memory
+  check's chain of shops broke at its second shop, five failures of
+  one cause, none the game's. `save_and_stop` (`tests/emu_memory.py`)
+  now tries the gyroid again while the game has not left. A step that
+  takes "a window opened" for "the one I walked to answered" can meet
+  this anywhere outdoors: hold it to what the game does next.
 - **Two towns of one route are one town.** The names typed are the
   same and the ids come out the same: a trip between two of the checks'
   towns is a homecoming into the wrong town. A check that wants a

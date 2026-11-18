@@ -58,6 +58,7 @@ import emu_letters  # noqa: E402
 import emu_trip  # noqa: E402
 import emu_memory  # noqa: E402
 import emu_reset  # noqa: E402
+import emu_town  # noqa: E402
 import emu_year  # noqa: E402
 
 
@@ -3282,6 +3283,59 @@ class EmulatorChecks(unittest.TestCase):
         ext.file(*letter(n, body=192), save_keys={key(m) for m in range(2, n + 1)})
         self.assertEqual((ext.records[0][0], ext.held), (key(2), set()))
         self.assertLessEqual(ext.size(), emu_letters.EXT_CAP)
+
+    def test_the_gyroid_is_tried_again_when_the_talk_was_somebody_elses(self):
+        """tests/emu_memory.py's save_and_stop: an animal by the houses that has not met the player has its
+        word first, and the gyroid's save is asked for again."""
+        gyroid = {"name": emu_reset.GYROID, "pos": (2060.0, 160.0, 1500.0)}
+        far = {"name": emu_reset.GYROID, "pos": (2420.0, 160.0, 1780.0)}
+
+        class Town:
+            def __init__(self, there=True, here=True):
+                self.there, self.here, self.left = there, here, False
+
+            def go_block(self, block, blocked):
+                return self.there
+
+            def actors(self):
+                return ([far, gyroid] if self.here else []) + ([{"name": emu_reset.TITLE, "pos": (0, 0, 0)}]
+                                                              if self.left else [])
+
+        def played(talks, tries=3, **town):
+            """save_and_stop over talks: each (the pages it reads, the choices it gives, whether the game
+            then leaves). What it answers, the pages handed on, the gyroids walked to."""
+            t, pages, walked, left = Town(**town), [], [], iter(talks)
+            real = emu_reset.approach, emu_town.follow
+
+            def approach(town, actor):
+                walked.append(actor)
+                return True
+
+            def follow(town, answers=(), limit=0, quiet=0, pages=None, choices=None):
+                said, asked, gone = next(left)
+                pages.extend({"msg": m} for m in said)
+                town.left = gone
+                return asked
+            emu_reset.approach, emu_town.follow = approach, follow
+            try:
+                return emu_memory.save_and_stop(t, emu_town.MAT, pages, tries), pages, walked
+            finally:
+                emu_reset.approach, emu_town.follow = real
+        save = ([emu_reset.GYROID_ASK, 0x92D, 0x2B0F], 2, True)
+        animal = ([0x2D52, 0x2D52, 0x2D52], 0, False)
+        out, pages, walked = played([save])
+        self.assertEqual(out, {"spoken": True, "asked": 2, "left": True, "pages": 3, "tried": 1})
+        self.assertEqual(walked, [gyroid])                   # the one by the first house's mat, not the nearest listed
+        out, pages, walked = played([animal, save])          # the fault of the day after the shop's renewal
+        self.assertEqual(out, {"spoken": True, "asked": 2, "left": True, "pages": 6, "tried": 2})
+        self.assertEqual([p["msg"] for p in pages], animal[0] + save[0])     # the animal's pages are judged too
+        out, pages, walked = played([animal, animal, animal, save])
+        self.assertEqual((out["left"], out["tried"], out["pages"], len(walked)), (False, 3, 9, 3))
+        # where no save is expected (a new player's gyroid) it is spoken to once
+        out, pages, walked = played([animal, save], tries=1)
+        self.assertEqual(out, {"spoken": True, "asked": 0, "left": False, "pages": 3, "tried": 1})
+        self.assertEqual(played([save], there=False)[0], {"spoken": False, "asked": 0, "left": False, "pages": 0, "tried": 0})
+        self.assertEqual(played([save], here=False)[0], {"spoken": False, "asked": 0, "left": False, "pages": 0, "tried": 0})
 
     def newcomer(self, **more):
         """The answer of the road of a player who comes later, as the report reads it: nothing amiss."""

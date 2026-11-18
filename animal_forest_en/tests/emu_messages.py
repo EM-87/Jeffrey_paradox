@@ -17,7 +17,9 @@ line has none, and nothing below the page's lines is ink.
 
 Which messages: those the en bank took from the AF Project's 2010
 translation (--nafe, build/gc/nafe_messages.txt: tools/af_nafe_text.py)
-and our own (--own, script/message/*.txt) whose first page needs no
+and our own (--own, script/message/*.txt; one of ours with the number of
+one taken has its place, as the build takes the files: it is ours here
+too) whose first page needs no
 speaker (its text, pauses, colours and talk animations only, and the
 town's name: STR_COUNTRYNAME, measured as the name the state's save holds,
 common_data + 0x2F60, since the en build puts nothing after it, string 484
@@ -750,6 +752,11 @@ def main(argv):
     ours = {}
     for path in own_paths:
         ours.update(af_text.load_bank(path))
+    replaced = sorted(n for n in theirs if n in ours)       # the build takes ours after the 2010 translation's
+    theirs = {n: m for n, m in theirs.items() if n not in ours}
+    if replaced:
+        print("  %d of the 2010 translation's messages have one of ours in their place: %s" % (
+            len(replaced), ", ".join(str(n) for n in replaced)))
     cart = af_text.load_bank(os.path.join(os.path.dirname(af_en), "gc", "n64_jp.txt")) if theirs or ours else {}
     if theirs or ours:
         base = os.path.join(os.path.dirname(af_en), "baserom.z64")

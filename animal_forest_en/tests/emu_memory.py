@@ -1030,27 +1030,34 @@ def session(emu_dir, rom_path, af_en, plan):
     return result
 
 
-def save_and_stop(t, mat, pages):
+def save_and_stop(t, mat, pages, tries=3):
     """The gyroid of the house whose doormat is at mat spoken to, the save asked for, and then to stop:
-    {spoken, asked (the choices it gave), left (the game left for its title), pages}; the pages read go to
-    `pages`."""
-    out = {"spoken": False, "asked": 0, "left": False, "pages": 0}
+    {spoken, asked (the choices it gave), left (the game left for its title), pages, tried}; the pages read go
+    to `pages`. The talk that opens by the houses is not always the gyroid's: an animal there that has not met
+    the player has its first word instead (seen on a town of the en build the day after the shop's renewal:
+    three pages, no choice, and the game went on). So while the game has not left, the gyroid is tried again,
+    `tries` times in all; one try where no save is expected."""
+    out = {"spoken": False, "asked": 0, "left": False, "pages": 0, "tried": 0}
     if not t.go_block(emu_town.PLAYERS_BLOCK, set()):
         return out
-    gyroids = [a for a in t.actors() if a["name"] == emu_reset.GYROID]
-    if not gyroids:
-        return out
-    mine = min(gyroids, key=lambda a: (a["pos"][0] - mat[0]) ** 2 + (a["pos"][2] - mat[1]) ** 2)
-    out["spoken"] = emu_reset.approach(t, mine)
-    said = []
-    try:
-        out["asked"] = emu_town.follow(t, answers=(emu_reset.GYROID_SAVE, emu_reset.STOP), limit=900, quiet=60,
-                                       pages=said)
-        out["left"] = emu_reset.TITLE in emu_town.names(t)
-    except (ValueError, struct.error):
-        out["left"] = True
-    out["pages"] = len(said)
-    pages.extend(said)
+    for _ in range(tries):
+        gyroids = [a for a in t.actors() if a["name"] == emu_reset.GYROID]
+        if not gyroids:
+            break
+        mine = min(gyroids, key=lambda a: (a["pos"][0] - mat[0]) ** 2 + (a["pos"][2] - mat[1]) ** 2)
+        out["tried"] += 1
+        out["spoken"] = emu_reset.approach(t, mine)
+        said = []
+        try:
+            out["asked"] = emu_town.follow(t, answers=(emu_reset.GYROID_SAVE, emu_reset.STOP), limit=900, quiet=60,
+                                           pages=said)
+            out["left"] = emu_reset.TITLE in emu_town.names(t)
+        except (ValueError, struct.error):
+            out["left"] = True
+        out["pages"] += len(said)
+        pages.extend(said)
+        if out["left"]:
+            break
     return out
 
 
@@ -1218,7 +1225,7 @@ def newcomer(emu_dir, rom_path, af_en, town, out, label, players):
                         break
                 stop("end")
                 if mat:                                     # the new player's gyroid: a word, and no save yet
-                    result["gyroid"] = save_and_stop(t, mat, pages)
+                    result["gyroid"] = save_and_stop(t, mat, pages, tries=1)
                     n64.frames(120, 0)
                     result["gyroid"]["owner"] = mine()
             result["watch"] = low()
