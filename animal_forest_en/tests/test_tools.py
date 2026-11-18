@@ -3206,10 +3206,35 @@ class EmulatorChecks(unittest.TestCase):
         held = {"animal": True, "place": False, "rest": "63656d6f6b"}
         return played, again, {"name": "636561", "flags": 0, "clothes": 0x2410, "letter": [dict(held), dict(held)]}
 
-    def job_failed(self, played, again, kept):
+    def errand(self, **more):
+        """The animals' errands played to their ends, as tests/emu_job.py's errand() tells them: the delivery
+        the first job left, paid in Bells, and a thing fetched through four animals for its owner, who thanks
+        with a thing."""
+        had = [0x2400, 0x1270, 0x24A4, 0x2903] + [0] * 11
+        bare, held = had[:2] + [0] + had[3:], had[:2] + [0x2509] + had[3:]
+
+        def talk(to, giver, **what):
+            return dict({"which": "errand", "to": to, "from": giver, "menu": False, "ended": "free",
+                         "pockets": [bare, bare], "marked": [[], []], "wallet": [372, 372]}, **what)
+        left = {"which": "delivery", "to": 0xE041, "from": 0xE02D, "left": [],
+                "hops": [talk(0xE041, 0xE02D, which="delivery", menu=True, pockets=[had, bare], marked=[[2], []],
+                              wallet=[165, 372])]}
+        asked = {"which": "errand", "to": 0xE07C, "from": 0xE0C4, "left": [],
+                 "hops": [talk(0xE07C, 0xE0C4), talk(0xE0A0, 0xE07C), talk(0xE041, 0xE0A0),
+                          talk(0xE02D, 0xE041, pockets=[bare, held], marked=[[], [2]]),
+                          talk(0xE0C4, 0xE02D, menu=True, pockets=[held, had[:2] + [0x1DB0] + had[3:]],
+                               marked=[[2], []])]}
+        run = {"arrived": True, "hang": None, "pages": 64, "messages": 31, "problems": [], "tried": 2, "wishes": 1,
+               "town": [0xE02D, 0xE041, 0xE07C, 0xE0A0, 0xE0C4], "left": left, "asked": asked,
+               "watch": {"fails": 0, "failed": 0, "least": 87424, "calls": 426, "most": 250720}}
+        for key, value in more.items():
+            run[key] = dict(run[key], **value) if isinstance(value, dict) and isinstance(run.get(key), dict) else value
+        return run
+
+    def job_failed(self, played, again, kept, favour="played"):
         emu_job.failures.clear()
         with contextlib.redirect_stdout(io.StringIO()):
-            emu_job.report(played, again, kept)
+            emu_job.report(played, again, kept, self.errand() if favour == "played" else favour)
         failed = list(emu_job.failures)
         emu_job.failures.clear()
         return failed
@@ -3218,8 +3243,10 @@ class EmulatorChecks(unittest.TestCase):
         j = emu_job
         self.assertEqual(self.job_failed(*self.job()), [])
         # every check fails when the job was not played: the house, nine chores, its end, the Bells, the
-        # payment, the pages, the gyroid, the flash again, the letter an animal keeps
+        # payment, the pages, the gyroid, the flash again, the letter an animal keeps; and the animals' two
+        # errands and their pages, when the flash was not powered on a third time
         self.assertEqual(len(self.job_failed(None, None, None)), 17)
+        self.assertEqual(len(self.job_failed(None, None, None, None)), 20)
 
         def with_chore(kind, **what):
             played, again, kept = self.job()
@@ -3258,6 +3285,89 @@ class EmulatorChecks(unittest.TestCase):
         self.assertEqual(len(self.job_failed(played, again, dict(kept, clothes=0x2401))), 1)
         self.assertEqual(len(self.job_failed(played, dict(again, saved=None), kept)), 1)
         self.assertEqual(len(emu_job.CHORES), 9)
+
+    def test_the_animals_errands_are_held_to_their_ends(self):
+        ok = self.job()
+        self.assertEqual(self.job_failed(*ok, self.errand()), [])
+        self.assertEqual(len(self.job_failed(*ok, None)), 3)
+
+        def hops(run, at, **what):
+            return dict(run, hops=[dict(h, **what) if n == at % len(run["hops"]) else h
+                                   for n, h in enumerate(run["hops"])])
+        good = self.errand()
+        # either errand may be wanting (the first job's animal gave no thing to take; no animal has work
+        # today) as long as the other was played; neither is a failure of all three
+        self.assertEqual(self.job_failed(*ok, self.errand(left=None)), [])
+        self.assertEqual(self.job_failed(*ok, self.errand(asked=None)), [])
+        self.assertEqual(len(self.job_failed(*ok, self.errand(left=None, asked=None))), 3)
+        self.assertEqual(len(self.job_failed(*ok, self.errand(arrived=False, left=None, asked=None))), 3)
+        # an errand begun is held to its end, whatever the other did
+        for run in (dict(good["left"], left=[["delivery", 2, 1, 2]]), hops(good["left"], 0, menu=False),
+                    hops(good["left"], 0, ended="menu"), hops(good["left"], 0, marked=[[2], [2]]),
+                    dict(good["left"], hops=good["left"]["hops"] * 2), dict(good["left"], hops=[])):
+            self.assertEqual(len(self.job_failed(*ok, self.errand(left=run))), 1, run)
+        for run in (dict(good["asked"], left=[["errand", 0, 1, 2]]), hops(good["asked"], -1, menu=False),
+                    hops(good["asked"], 1, ended="limit"), hops(good["asked"], -2, marked=[[], []]),
+                    hops(good["asked"], 0, marked=[[], [2]]), dict(good["asked"], hops=good["asked"]["hops"][-1:])):
+            self.assertEqual(len(self.job_failed(*ok, self.errand(asked=run))), 1, run)
+        # a delivery asked for now is as good as a thing to fetch
+        self.assertEqual(self.job_failed(*ok, self.errand(asked=good["left"], left=None)), [])
+        # the pages: clean, to the end, in an arena that never said no
+        for more in ({"hang": "no frame"}, {"problems": ["0x1a2b at 0: a line past its bubble"]},
+                     {"watch": {"fails": 1}}, {"watch": None}):
+            self.assertEqual(len(self.job_failed(*ok, self.errand(**more))), 1, more)
+        self.assertTrue(emu_job.followed(good["left"])[0] and emu_job.followed(good["asked"])[0])
+        self.assertIn("4 seen", emu_job.followed(good["asked"])[1])
+        self.assertFalse(emu_job.followed(None)[0])
+
+    def test_an_errands_thing_leaves_the_pockets_and_is_paid_for(self):
+        had = [0x2400, 0x1270, 0x24A4, 0x2903, 0, 0x2901] + [0] * 9
+
+        def hand(after, marked=([2], []), wallet=(165, 165)):
+            return emu_job.handed_over({"pockets": [had, after], "marked": [list(m) for m in marked],
+                                        "wallet": list(wallet)})[0]
+
+        def put(**slots):
+            return [slots.get("s%d" % k, v) for k, v in enumerate(had)]
+        self.assertFalse(emu_job.handed_over(None)[0])
+        # paid in Bells: its pocket empty, the pocketbook fuller, nothing else touched
+        self.assertTrue(hand(put(s2=0), wallet=(165, 372)))
+        self.assertFalse(hand(put(s2=0), wallet=(165, 165)))            # the thing gone for nothing
+        self.assertFalse(hand(put(s2=0, s3=0), wallet=(165, 372)))      # and another thing with it
+        # paid in a thing: in its pocket, or in an empty one in its stead; the same kind of thing counts, for
+        # the mark is gone
+        self.assertTrue(hand(put(s2=0x2465)))
+        self.assertTrue(hand(put(s2=0, s4=0x2465)))
+        self.assertTrue(hand(put()))
+        self.assertFalse(hand(put(s2=0, s3=0x2465)))                    # the thanks over a thing the player had
+        self.assertFalse(hand(put(s2=0x2465, s4=0x2465)))
+        self.assertFalse(hand(put(s2=0x2465), wallet=(165, 100)))       # the pocketbook never pays
+        # the mark: one thing marked before, none after
+        self.assertFalse(hand(put(s2=0x2465), marked=([2], [2])))
+        self.assertFalse(hand(put(s2=0x2465), marked=([], [])))
+        self.assertFalse(hand(put(s2=0x2465), marked=([2, 3], [3])))
+        self.assertIn("372", emu_job.handed_over({"pockets": [had, put(s2=0)], "marked": [[2], []],
+                                                  "wallet": [165, 372]})[1])
+
+    def test_the_errands_a_players_record_holds(self):
+        j = emu_job
+        private = bytearray(j.DELIVERIES + j.DELIVERY_NUM * j.DELIVERY_SIZE)
+        for k in range(j.DELIVERY_NUM):
+            private[j.DELIVERIES + k * j.DELIVERY_SIZE] = j.NONE << 6            # none held
+        self.assertEqual(j.deliveries(bytes(private)), [])
+        at = j.DELIVERIES + 2 * j.DELIVERY_SIZE
+        private[at] = 0                                                         # a delivery
+        private[at + j.D_RECIPIENT:at + j.D_RECIPIENT + 2] = b"\xe0\x41"
+        private[at + j.D_SENDER:at + j.D_SENDER + 2] = b"\xe0\x2d"
+        self.assertEqual(j.deliveries(bytes(private)), [(2, 0xE041, 0xE02D)])
+        # and the errands, the first job's record among them: empty once the job is done
+        private += bytes(j.QUEST - len(private)) + (bytes([j.NONE << 6]) + bytes(j.ERRAND_SIZE - 1)) * j.ERRAND_NUM
+        self.assertEqual(j.errands(bytes(private)), [("delivery", 2, 0xE041, 0xE02D)])
+        at = j.QUEST + j.ERRAND_SIZE
+        private[at] = 1 << 6
+        private[at + j.D_RECIPIENT:at + j.D_RECIPIENT + 2] = b"\xe0\x7c"
+        private[at + j.D_SENDER:at + j.D_SENDER + 2] = b"\xe0\xc4"
+        self.assertEqual(j.errands(bytes(private)), [("delivery", 2, 0xE041, 0xE02D), ("errand", 1, 0xE07C, 0xE0C4)])
 
     def test_the_letter_an_animal_keeps_holds_its_rest(self):
         played, again, kept = self.job()

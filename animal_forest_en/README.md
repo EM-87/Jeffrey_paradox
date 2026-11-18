@@ -67,7 +67,8 @@ make memory-check-en              # la memoria libre en un pueblo lleno (4 jugad
                                   # y la llegada de un jugador nuevo a ese pueblo
 make job-check-en                 # la primera hora de una partida nueva jugada con el mando: el
                                   # trabajo de Nook encargo a encargo, vender, comprar, pagar la
-                                  # deuda, guardar y volver a encender
+                                  # deuda, guardar y volver a encender; y los encargos de los
+                                  # vecinos hasta entregarlos
 make trip-check-en                # un viaje con Controller Pak: salir en tren con una carta larga
                                   # en el bolsillo, llegar a otro pueblo como visitante y volver
                                   # a casa con la carta entera; y después guardarla en el Controller
@@ -994,6 +995,23 @@ pruebas se fabricaban con ellos ya recorridos (o nunca salían de ellos).
   real, y `make trip-check-en` exige que cada carta que sale del buzón
   tenga su final y que la que va al Pak vuelva entera (cabecera, cuerpo
   y despedida).
+- **Los encargos de los vecinos, de principio a fin.** El primer
+  trabajo deja un encargo a medias (la vecina a la que se le pide
+  trabajo mientras Nook se prepara da un objeto para otro vecino) y
+  ninguna prueba lo había llevado a su destino, ni había pedido trabajo
+  fuera de ese momento. `make job-check-en` enciende ahora la partida
+  una tercera vez y juega los dos: entrega el objeto pendiente (la
+  primera respuesta de la charla, se abre la pantalla de objetos, se
+  entrega y el vecino paga con bayas o con un objeto suyo) y después
+  pide trabajo de nuevas, vecino por vecino, hasta que alguno lo da.
+  El juego reparte tres clases de trabajo y cuál toca es sorteo suyo:
+  llevar un objeto a otro vecino, recuperar un objeto que el vecino
+  prestó y que ha ido pasando de mano en mano (cada vecino dice quién
+  lo tiene ahora, hasta que uno lo devuelve y hay que llevárselo a su
+  dueño), o un deseo propio (que le traigan un pez, un bicho, una
+  fruta…). En la partida de la prueba salió un deseo y luego una
+  recuperación, que se sigue hasta el final. Todas las páginas de los
+  dos encargos se leen bien y en inglés.
 - **Cada fallo, visto fallar antes de darlo por arreglado.** Los tres
   fallos de las cartas se probaron también en una ROM sin su arreglo,
   con la misma prueba que ahora lo vigila: en las tres la prueba falla

@@ -4547,6 +4547,46 @@ allocator's hook in place.
   for its title; the flash, powered on again the next morning in a
   process of its own, loads the town, and the player (the work clothes
   on, the job's flag clear) goes into the house and saves again.
+- **The animals' errands, to their ends.** The work an animal gives is
+  kept in three places, and which of the three an asked animal gives is
+  the game's draw. A thing to take to another animal is one of the
+  player's fifteen deliveries (`PrivateInfo` + 0x40, records of 0x24
+  bytes: a `QuestBase`, the animal it goes to, the animal who gave it;
+  the cartridge's animal ids are 12 bytes, so the second is at + 0x18).
+  A thing of the animal's own to fetch, which it lent and which has gone
+  from animal to animal since, is one of the player's five errands
+  (+ 0x25C, 0x50 bytes each, the same two animals at the same places;
+  the first of the five is the first job's while that lasts). And what
+  an animal wishes for itself (a fish, an insect, a fruit, a letter: the
+  GameCube's sources call them contests) is in the animal's own record
+  (`Animal_c` + 0x4EC), not the player's. An empty record has the type
+  3. A thing that belongs to an errand sits in a pocket marked for it
+  (`PrivateInventory.item_conditions`, the player's data + 0x34: two
+  bits a pocket, the first pocket lowest, 2 for an errand's thing).
+  The first job leaves a delivery open: Nook's "not ready" chore sends
+  the player to ask an animal for work, and that animal gave a thing for
+  another. No check had taken it there, nor asked for work outside the
+  job. `tests/emu_job.py` now powers the flash on a third time (an hour
+  after the second, a process of its own) and plays both. The delivery:
+  the animal its record names spoken to; with the thing in the pockets
+  its talk offers the delivery as the first answer, the item screen
+  opens over the talk with the hand on the pockets, A hands the thing
+  over, and the animal thanks with Bells or with a thing of its own
+  (both seen on the same flash: which is the game's draw); the record is
+  empty after and the pocket's mark gone. Then an errand asked for
+  anew, from the asking: each animal in turn, the talk's first answers
+  (work, then yes), until the player's record holds something. On this
+  flash the first animal asked answered with a wish of its own (a fish:
+  its record, not the player's) and the second with a thing to fetch.
+  The record names the animal to see; that one names the next (the
+  record is rewritten at each: four animals in one session, one in
+  another) until one hands the thing over, to a marked pocket, and the
+  record names the owner; the owner's first answer is the delivery, the
+  item screen, and its thanks. Every page of both read clean (43 pages
+  of 25 messages in the session that stands in the check's report).
+  A first draft looked only at the deliveries after asking and found
+  none in six talks: the six answers were a wish and five turns of one
+  errand, in the other list.
 - **What it found.** One thing: the bulletin board's own notice on how
   it is used (`mail_body` 33, the post the board shows a new town) had
   the pages turned with the C Stick, the GameCube's; the cartridge's

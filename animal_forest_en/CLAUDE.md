@@ -385,6 +385,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   job's flags cleared by the game, something sold and something bought
   in the shop, the gyroid's save, the flash powered on again; the
   letter, written long, must be whole once only its animal keeps it;
+  the flash powered on a third time for the animals' errands: the
+  delivery the job left open taken to its animal, then work asked for
+  anew and followed from animal to animal to its end;
   every page judged: `make job-check-en`),
   `emu_trip.py` (the fourth of the game's starts of play, a player who
   comes with a Controller Pak, and the road to it: two towns made by
@@ -745,6 +748,16 @@ the why and the state, `reference/NOTES.md` for what is verified.
   and has not sent; and when the menu is done the clerk asks her
   answers again (the first would open the item screen: answer the
   last). `tests/emu_trip.py` has the steps.
+- **Asking an animal for work gives one of three things, by the
+  game's draw.** A delivery (`PrivateInfo.deliveries`, + 0x40), an
+  errand to fetch a thing lent on from animal to animal
+  (`PrivateInfo.errands`, + 0x25C, the first job's list), or a wish of
+  the animal's own (`Animal_c.contestQuest`: nothing in the player's
+  record). A check that asks and then looks in one list only finds
+  nothing most of the time: `emu_job.errands()` reads both, and
+  `errand()` follows whatever record is open (its animal, the first
+  answer, the item screen when it opens) until none is. The animal an
+  errand's record names changes at each talk.
 - **An animal met at its door takes the player indoors.**
   `Player.animal` (`tests/emu_job.py`) walks up to an animal and
   presses A; one that stands at its own door lets the player into its

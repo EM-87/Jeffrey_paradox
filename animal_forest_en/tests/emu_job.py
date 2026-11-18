@@ -45,6 +45,14 @@ this road. Here it is gone with the pad, as a player goes it, the allocator's ho
   save's extension under a key made of the letter's bytes and drops what no letter holds: the letter an
   animal keeps must hold its rest too, in the flash the gyroid wrote and in the next morning's.
 
+  And the animals' own errands, in a third power-on of the flash an hour later (errand(), a process of its
+  own). Chore 13 left one open: the animal asked for work gave a thing for another (PrivateInfo.deliveries).
+  It is taken there: the animal the record names spoken to, the first answer, the item screen over the talk,
+  the thing handed over for its thanks. Then work is asked for anew, animal by animal, until the player's
+  record holds some (a delivery, or a thing to fetch, PrivateInfo.errands: which, or a wish of the animal's
+  own that is in neither, is the game's draw), and that is followed as its record says, from animal to
+  animal, until the record is empty.
+
 Every page read on the way is judged as the other checks judge one (emu_year's Town.page_problems: kana, a
 token left in, the name plate, a line drawn past its bubble); the arena must never say no. A choice is
 answered by its place, never by its words: the first answer, but for the clerk's "more?" (the last).
@@ -52,6 +60,7 @@ answered by its place, never by its words: the first answer, but for the clerk's
 
 import json
 import os
+import shutil
 import struct
 import subprocess
 import sys
@@ -96,6 +105,20 @@ TYPED = "urldurld"                      # on the dial: a letter for each push of
 LONG = "urld" * 45                      # and a letter's body past the 96 bytes the cartridge keeps of one
 KEY_BYTES = (0x2A, 0xA4)                # a Mail_c's header, body and footer: what a letter's key is made of
 AGAIN = (2001, 4, 15, 10, 0, 0)         # the flash powered on again: the next morning
+ERRAND = (2001, 4, 15, 11, 0, 0)        # and once more, an hour on: an animal's errand to its end
+# PrivateInfo.deliveries (m_private.h): the errands the animals give, one record each (mQst_delivery_c: a
+# QuestBase, then the animal it goes to and the one who gave it, their names on the map first; read in the
+# running game)
+DELIVERIES, DELIVERY_SIZE, DELIVERY_NUM = 0x40, 0x24, 15
+D_RECIPIENT, D_SENDER = 0x0C, 0x18
+# PrivateInfo.errands: five records as the first job's (QUEST is the first), the animals' once the job is done:
+# a thing of an animal's to fetch, which went from animal to animal (QuestErrand; the cartridge's animal ids
+# are 12 bytes, so the animal to see next and the one seen last are where the deliveries have theirs)
+ERRAND_SIZE, ERRAND_NUM = 0x50, 5
+HOPS = 8                                # the animals an errand may send the player to before the check gives up
+CONTEST = 0x4EC                         # Animal_c.contestQuest: what an animal wishes for itself (a QuestBase first)
+# PrivateInventory.item_conditions: two bits a pocket, the first pocket lowest; an errand's thing is marked
+CONDITIONS, COND_QUEST = 0x34, 2
 
 failures = []
 
@@ -149,6 +172,11 @@ class Player:
 
     def pockets(self):
         return list(struct.unpack(">15H", self.private(POCKETS, 30)))
+
+    def marked(self):
+        """The pockets that hold an errand's thing."""
+        word = struct.unpack(">I", self.private(CONDITIONS, 4))[0]
+        return [k for k in range(15) if word >> 2 * k & 3 == COND_QUEST]
 
     def clothes(self):
         return struct.unpack(">H", self.private(CLOTHES + 2, 2))[0]
@@ -355,6 +383,104 @@ class Player:
             self.n64.frames(40, 0)
             how = self.advance(limit=500, quiet=10)
         return how
+
+
+def deliveries(private):
+    """[(the record's place, the animal it goes to, the animal who gave it)] of the errands a player's record
+    holds (a record that holds none has the type NONE)."""
+    out = []
+    for k in range(DELIVERY_NUM):
+        r = private[DELIVERIES + k * DELIVERY_SIZE:DELIVERIES + (k + 1) * DELIVERY_SIZE]
+        if r[0] >> 6 != NONE:
+            out.append((k, struct.unpack(">H", r[D_RECIPIENT:D_RECIPIENT + 2])[0],
+                        struct.unpack(">H", r[D_SENDER:D_SENDER + 2])[0]))
+    return out
+
+
+def errands(private):
+    """[(which list, the record's place, the animal to see, the animal seen last)] of all a player's record
+    holds of the animals' work: the deliveries, then the errands."""
+    out = [("delivery", k, to, giver) for k, to, giver in deliveries(private)]
+    for k in range(ERRAND_NUM):
+        r = private[QUEST + k * ERRAND_SIZE:QUEST + (k + 1) * ERRAND_SIZE]
+        if r[0] >> 6 != NONE:
+            out.append(("errand", k, struct.unpack(">H", r[D_RECIPIENT:D_RECIPIENT + 2])[0],
+                        struct.unpack(">H", r[D_SENDER:D_SENDER + 2])[0]))
+    return out
+
+
+def errand(emu_dir, rom_path, af_en, flash, work):
+    """The flash's file powered on once more, in work: the animals' errands, to their ends. The one the first
+    job left open (the animal asked for work while Nook got ready gave a thing to take to another), and one
+    asked for now (each animal's talk in turn, its first answers, until the player's record holds work).
+    Either is followed as its record says: the animal it names spoken to (the first answer), the item screen
+    gone through when it opens over the talk, until the record is empty. A dict for the report."""
+    rom = open(rom_path, "rb").read()
+    syms = emu_save.elf_symbols(os.path.join(af_en, "build", "animalforest-jp.elf"))
+    os.makedirs(work, exist_ok=True)
+    shutil.copyfile(flash, emu_save.fla_path(work, rom))
+    result = {"arrived": False, "hang": None, "pages": [], "town": [], "left": None, "asked": None, "tried": 0,
+              "wishes": 0, "watch": None}
+    with N64(emu_dir, rom, work, timeout=60, clock=ERRAND) as n64:
+        t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], emu_year.actor_names(af_en), syms)
+        p = Player(n64, t, syms, result["pages"])
+
+        def records():
+            return errands(p.private(0, QUEST + ERRAND_NUM * ERRAND_SIZE))
+
+        def follow(homes):
+            """The open record's animals seen one after another: what each talk did."""
+            first, hops = records()[0], []
+            for _ in range(HOPS):
+                held = records()
+                if not held:
+                    break
+                which, _, to, giver = held[0]
+                pockets, marked, wallet, menus = p.pockets(), p.marked(), p.wallet(), p.menus
+                how = p.animal(to, homes, pick=lambda count: 0)
+                opened = how == "menu"
+                how = p.through(how, None)
+                hops.append({"which": which, "to": to, "from": giver, "menu": opened and p.menus > menus,
+                             "ended": how, "pockets": [pockets, p.pockets()], "marked": [marked, p.marked()],
+                             "wallet": [wallet, p.wallet()]})
+                if how != "free":
+                    break
+            return {"which": first[0], "to": first[2], "from": first[3], "hops": hops,
+                    "left": [list(r) for r in records()]}
+        try:
+            low, used = emu_memory.watch_soon(n64, af_en, syms)
+            n64.frames(400 - used, 0)
+            n64.press(START, 3, 60)
+            for _ in range(60):
+                if p.advance(400, 12) == "free" and p.scene() == FG:
+                    result["arrived"] = True
+                    break
+                n64.frames(30, 0)
+            homes = {fg: tuple(place[:2]) for fg, place in emu_town.animals(n64.read(p.cd, 0x10000))}
+            result["town"] = sorted(homes)
+            if result["arrived"] and records():         # the errand the first job left
+                result["left"] = follow(homes)
+            for fg in homes if result["arrived"] and not records() else []:     # and one asked for now
+                result["tried"] += 1
+                how = p.animal(fg, homes, pick=lambda count: 0)
+                if how == "menu":                       # pockets opened over the talk: closed with nothing chosen
+                    n64.press(B, 3, 30)
+                    p.advance(limit=300, quiet=10)
+                if records():
+                    result["asked"] = follow(homes)
+                    break
+            save = n64.read(p.cd, 0x10000)              # what the animals wish for themselves is in their own
+            result["wishes"] = sum(1 for i in range(emu_town.ANIMAL_MAX) if save[
+                emu_town.ANIMALS_AT + i * emu_town.ANIMAL_SIZE + CONTEST] >> 6 != NONE and save[
+                emu_town.ANIMALS_AT + i * emu_town.ANIMAL_SIZE] == 0xE0)
+            result["watch"] = low()
+        except Hang as e:
+            result["hang"] = str(e)
+    result["problems"] = ["%#x at %d: %s" % (pg["msg"], pg["at"], ", ".join(pg["problems"]))
+                          for pg in result["pages"] if pg["problems"]]
+    result["messages"] = len({pg["msg"] for pg in result["pages"]})
+    result["pages"] = len(result["pages"])
+    return result
 
 
 def play(emu_dir, rom_path, af_en, state, out):
@@ -668,10 +794,59 @@ def play(emu_dir, rom_path, af_en, state, out):
     return result
 
 
-def report(job, again, kept):
+def handed_over(hand):
+    """(whether an errand's thing left the pockets and was paid for, what to say) from one of errand()'s talks:
+    the pocket that held the marked thing holds no marked thing after; the pay is Bells (that pocket is
+    empty and the pocketbook is fuller) or a thing (that pocket, or an empty one in its stead, holds the
+    thanks and no other pocket changed: the animals pay with either)."""
+    if not hand:
+        return False, "nothing handed"
+    (before, after), (marked, left), (had, has) = hand["pockets"], hand["marked"], hand["wallet"]
+    if len(marked) != 1 or left:
+        return False, "the pockets' marked things were %s and are %s" % (marked, left)
+    slot = marked[0]
+    changed = [k for k in range(len(before)) if before[k] != after[k]]
+    if after[slot] == 0 and changed == [slot] and has > had:
+        return True, "the pocket that held its thing is empty and the pocketbook goes from %d to %d Bells" % (had, has)
+    came = [k for k in changed if k != slot]
+    if has >= had and after[slot] and not came:
+        return True, "the pocket that held its thing holds the animal's thanks, another thing (%#x for %#x)" % (
+            after[slot], before[slot])
+    if has >= had and after[slot] == 0 and len(came) == 1 and before[came[0]] == 0:
+        return True, "the pocket that held its thing is empty and another holds the animal's thanks (%#x for %#x)" % (
+            after[came[0]], before[slot])
+    return False, "the pockets were %s and are %s, the pocketbook %d and %d" % (before, after, had, has)
+
+
+def followed(run):
+    """(whether an errand was followed to its end, what to say) from errand()'s "left" or "asked": every talk
+    ends, the record is empty after the last, the last is the item screen over the talk and the thing handed
+    over for its thanks (handed_over); and a thing to fetch came to a marked pocket from the animal before."""
+    if not run or not run["hops"]:
+        return False, "not followed"
+    hops = run["hops"]
+    if run["left"] or any(h["ended"] != "free" for h in hops):
+        return False, "after %d animals (their talks ended %s) the record holds %s" % (
+            len(hops), [h["ended"] for h in hops], run["left"])
+    ok, said = handed_over(hops[-1])
+    if not ok or not hops[-1]["menu"]:
+        return False, "the last animal's talk: %s%s" % (said, "" if hops[-1]["menu"] else "; no item screen over it")
+    if run["which"] == "delivery":
+        return len(hops) == 1, "a thing of the animal %#x for the animal %#x: its talk's first answer, the item " \
+            "screen over the talk, the thing handed over; %s" % (run["from"], run["to"], said)
+    got = [n for n, h in enumerate(hops) if len(h["marked"][1]) == len(h["marked"][0]) + 1]
+    if got != [len(hops) - 2]:
+        return False, "the thing came to the pockets at the talks %s of %d" % (got, len(hops))
+    return True, "a thing of the animal %#x's to fetch from the animals it was lent on to: %d seen (the talk's " \
+        "first answer; each names the next until one hands the thing over, a pocket marked as an errand's), then " \
+        "its owner, the item screen over the talk; %s" % (hops[-1]["to"], len(hops) - 1, said)
+
+
+def report(job, again, kept, favour=None):
     """The checks. job: play()'s answer; again: the session that powered the flash on again; kept: what the
     flash holds after it ({name, flags, clothes, letter: keeping()'s answers for the flash the gyroid wrote
-    and for the one written the next morning}), or None."""
+    and for the one written the next morning}), or None; favour: errand()'s answer, the flash powered on a
+    third time."""
     chores = job["chores"] if job else []
     by_kind = {}
     for c in chores:                    # a chore given twice is judged by its last try
@@ -765,6 +940,30 @@ def report(job, again, kept):
               if again and again["arrived"] and kept and not kept["flags"] else "NOT AS THE GAME LEFT IT (%s)" % (
                   again and {k: again[k] for k in ("arrived", "hang", "problems", "saved")},)))
     check(*letter_kept(job, kept))
+    left, asked = (favour or {}).get("left"), (favour or {}).get("asked")
+    (left_ok, left_said), (asked_ok, asked_said) = followed(left), followed(asked)
+    check(left_ok or bool(favour) and favour["arrived"] and left is None and asked_ok,
+          "the errand the first job left open (the animal asked for work while Nook got ready), that morning: %s" % (
+              left_said if left_ok else "NOT TO ITS END (%s)" % left_said if left else
+              "none left (the animal asked then gave no thing to take), and nothing to do"
+              if favour and favour["arrived"] and asked_ok else "NOT PLAYED (%s)" % (
+                  favour and {k: favour[k] for k in ("arrived", "hang")},)))
+    check(asked_ok or bool(favour) and favour["arrived"] and asked is None and left_ok,
+          "an errand asked for now, from the asking to its end: %s" % (
+              "%s; %d animal%s asked (the talk's first answers)" % (
+                  asked_said, favour["tried"], "" if favour["tried"] == 1 else "s") if asked_ok else
+              "NOT TO ITS END (%s)" % asked_said if asked else
+              "no animal had one to give (%d asked; %d have a wish of their own, which is no errand)" % (
+                  favour["tried"], favour["wishes"]) if favour and favour["arrived"] and left_ok else
+              "NOT PLAYED (%s)" % (favour and {k: favour[k] for k in ("arrived", "hang", "tried")},)))
+    seen = favour and favour["watch"]
+    clean = bool(favour) and favour["arrived"] and not favour["hang"] and not favour["problems"] and bool(seen) and \
+        seen["fails"] == 0
+    check(clean and (left_ok or asked_ok),
+          "the errands' pages: %s" % (
+              "%d pages of %d messages read, clean; the arena never said no (%d allocations, the largest free "
+              "block %s at its least)" % (favour["pages"], favour["messages"], seen["calls"], seen["least"])
+              if clean else "NOT CLEAN (%s)" % (favour and {k: favour[k] for k in ("hang", "problems", "watch")},)))
 
 
 def letter_kept(job, kept):
@@ -791,6 +990,9 @@ def main(argv):
     if argv[:1] == ["--play"]:
         print(json.dumps(play(*argv[1:6])))
         return 0
+    if argv[:1] == ["--errand"]:
+        print(json.dumps(errand(*argv[1:6])))
+        return 0
     emu_dir, rom_path, af_en, state, out = argv
     af_en = os.path.abspath(af_en)
     os.makedirs(out, exist_ok=True)
@@ -805,7 +1007,7 @@ def main(argv):
 
     print("emu_job: %s, the first job played from %s" % (rom_path, state))
     job = child(os.path.abspath(__file__), "--play", emu_dir, rom_path, af_en, os.path.abspath(state), out)
-    again, kept = None, None
+    again, kept, favour = None, None, None
     if job and job["gyroid"] and job["gyroid"]["left"]:
         plan = os.path.join(out, "plan-again.json")
         work = os.path.join(out, "again")
@@ -819,8 +1021,12 @@ def main(argv):
                 "flags": struct.unpack(">I", save[emu_year.EVENT_FLAGS:emu_year.EVENT_FLAGS + 4])[0] & emu_year.JOB_BITS,
                 "clothes": struct.unpack(">H", save[PRIVATE + CLOTHES + 2:PRIVATE + CLOTHES + 4])[0],
                 "letter": [keeping(first[0], first[1], job["letter"]), keeping(save, ext, job["letter"])]}
-    report(job, again, kept)
-    json.dump({"job": job, "again": again, "kept": kept}, open(os.path.join(out, "report.json"), "w"), indent=1)
+        if emu_memory.saved(again):                     # the flash as that morning's gyroid wrote it
+            favour = child(os.path.abspath(__file__), "--errand", emu_dir, rom_path, af_en,
+                           emu_save.fla_path(work, rom), os.path.join(out, "errand"))
+    report(job, again, kept, favour)
+    json.dump({"job": job, "again": again, "kept": kept, "errand": favour},
+              open(os.path.join(out, "report.json"), "w"), indent=1)
     print("emu_job: %s; the report in %s" % ("all passed" if not failures else "%d FAILED" % len(failures), out))
     return 1 if failures else 0
 
