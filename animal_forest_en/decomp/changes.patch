@@ -398,10 +398,10 @@ index f336639..e9ea309 100644
 +
  #endif
 diff --git a/include/tables/dmatables/dmadata_table_jp.h b/include/tables/dmatables/dmadata_table_jp.h
-index b8df70f..23a4292 100644
+index b8df70f..1548015 100644
 --- a/include/tables/dmatables/dmadata_table_jp.h
 +++ b/include/tables/dmatables/dmadata_table_jp.h
-@@ -3380,3 +3380,18 @@ DEFINE_DMA_ENTRY(anime_texture_4_static, "anime_texture_4_static")
+@@ -3380,3 +3380,21 @@ DEFINE_DMA_ENTRY(anime_texture_4_static, "anime_texture_4_static")
  DEFINE_DMA_ENTRY(anime_texture_5_static, "anime_texture_5_static")
  DEFINE_DMA_ENTRY(anime_texture_6_static, "anime_texture_6_static")
  DEFINE_DMA_ENTRY(softsprite_matrix_static, "softsprite_matrix_static")
@@ -420,6 +420,9 @@ index b8df70f..23a4292 100644
 +/* The translation's item names (tools/af_items.py): a record a name, read by DMA as the cartridge reads its
 + * own names. */
 +DEFINE_DMA_ENTRY(item_en_names, "item_en_names")
++/* The GameCube's NES for the seven Famicoms with a game (tools/af_gc_nes.py): seven objects, one a piece, each
++ * read by the room as the cartridge's own are. */
++DEFINE_DMA_ENTRY(ftr_en_nes, "ftr_en_nes")
 diff --git a/linker_scripts/jp/undefined_syms.ld b/linker_scripts/jp/undefined_syms.ld
 index ee822b1..02917da 100644
 --- a/linker_scripts/jp/undefined_syms.ld
@@ -4702,7 +4705,7 @@ index 5f7c230..5755bf4 100644
 +    return func_8008EEB4_jp(store, size, sum);
 +}
 diff --git a/src/dmadata/dmadata.c b/src/dmadata/dmadata.c
-index 3ba98f9..d74058b 100644
+index 3ba98f9..bf31eeb 100644
 --- a/src/dmadata/dmadata.c
 +++ b/src/dmadata/dmadata.c
 @@ -18,4 +18,4 @@ DmaEntry dma_rom_ad[] = {
@@ -4710,7 +4713,7 @@ index 3ba98f9..d74058b 100644
  #undef DEFINE_DMA_ENTRY
  
 -u8 sDmaDataPadding[0xF0] = { 0 };
-+u8 sDmaDataPadding[0xF0 - 9 * sizeof(DmaEntry)] = { 0 }; /* nine entries added for the translation: the table keeps its size */
++u8 sDmaDataPadding[0xF0 - 10 * sizeof(DmaEntry)] = { 0 }; /* ten entries added for the translation: the table keeps its size */
 diff --git a/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c b/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c
 index d1d65d2..2cb32fd 100644
 --- a/src/overlays/actors/ovl_Animal_Logo/ac_animal_logo.c

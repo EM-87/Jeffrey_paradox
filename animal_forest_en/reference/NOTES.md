@@ -4945,6 +4945,141 @@ on the tree that ends the pass, each a goal of one make.
   build's are this section's and the reports' the checks write
   (`build/emu-memory-en/report.json` and its kin).
 
+## The NES (the GameCube's model for the cartridge's Famicoms)
+
+The cartridge's Famicoms drawn as the GameCube draws them, an NES, from
+the user's disc at build time (`tools/af_gc_nes.py`, `make rom-en`).
+
+- **The cartridge's pieces.** Eight pieces of furniture are a Famicom:
+  842 to 848 with a game in it, 849 on its disk drive. Each has an
+  overlay of 0xE0 bytes (ovl_My_Room's table of them, `D_80947638_jp`:
+  vrom start and end, vram start and end). Its move function calls the
+  function at 0x54 of the room's clip with a number in a3: 1 to 7 in the
+  seven (`addiu a3, zero, n` at 0x30 of the overlay: `func_80A440D0_jp`
+  in 842's), none in the drive's (`or a3, zero, zero`). That function is
+  `func_8093BD60_jp` (`func_80939050_jp` puts it at the room's 0x33C):
+  with a number it keeps it at the room's 0x480 (`func_8093BC30_jp`,
+  state 0x1F), without one it takes the drive's way
+  (`func_8093BC94_jp`, states 0x21 and 0x23). `func_8093A1DC_jp` gives
+  the state's message: for 0x1F the message 0x2B6A and the game's
+  number, 1 to 7 (0x2B6B past them); for the drive's states
+  `D_8094CBD0_jp`'s 0x17B1 and 0x2B69. After a yes
+  `func_8093A364_jp` calls `goto_emu_game` with the number
+  (`src/code/m_scene.c`), which leaves it at `common_data` + 0x109F8 for
+  the emulator's start (`famicom_emu.s` reads it there).
+- **Which game a piece is.** The cartridge's seven messages 0x2B6B to
+  0x2B71 each name a game, in the order the GameCube's table of labels
+  has its first seven (`fFC_texture_table`: the first entry's game is
+  the one message 0x2B6B names, and so on to the seventh), and the
+  GameCube's table of numbers begins 1 to 7 (`fFC_game_table`). So
+  piece 842 + k is the game k + 1 in both: the tool holds the
+  overlays' numbers and the GameCube's table to that, and the check
+  reads each piece's message's number in the running game.
+- **A piece's object.** The profile is 19 words at 0x94 of the overlay:
+  the object's vrom start and end, its segment's start and end (segment
+  6), two opaque lists, two translucent, the block of textures, the
+  palette, a rig and a texture animation (none), the height 18.0 and
+  the scale 0.01, two words of flags (0x04000000, 0x00000800), the
+  functions. A Famicom's object is a file of 0xE80 bytes (0xE60 the
+  drive's): the palette at 0, a block of 0x800 bytes of CI4 at 0x20,
+  the vertices from 0x820, the lists at 0xCC0 and 0xE18 (0xC80 and
+  0xDF0). The room reads the file whole into one of its places
+  (`func_8093885C_jp`: the size is the segment's end less its start,
+  `func_80937414_jp`; the places are 0x1400 bytes each,
+  `func_80938D44_jp`; the cartridge's largest object is 0x1370), sets
+  segment 6 to it, loads the block as one line of 0x1000 bytes at TMEM
+  0 (`func_80946A2C_jp`: which is why a block's odd rows are kept
+  swapped) and the palette as palette 15 (`func_80946858_jp`), each
+  only when the profile names one, and draws the two opaque lists
+  (`func_80946CFC_jp`). The seven with a game differ in bytes 0x12 to
+  0x31F only: the colours of the cartridge in the Famicom and two
+  textures of it.
+- **The GameCube's NES.** `fFC_dw` (f_furniture.o) draws a game's piece
+  with three lists of dataobject.obj, in this order:
+  `int_tak_nes01_on_model` (the console), `int_tak_nes01_onT_model`
+  (its controllers' cords, cut out of a mirrored texture) and
+  `int_tak_nes01_game_on_model` (a game's box on the console), after
+  giving segments 8 and 9 the label's texture and palette out of
+  `fFC_texture_table` and `fFC_palette_table` by the piece's number
+  less its first game's. `aKobDisksystem8_dw` draws the drive's piece
+  with the same three lists and a label of its own, whose texels are
+  all an entry its palette keeps transparent: an NES with no game on
+  it. The profiles (`iam_famicom_common`, `iam_kob_disksystem8`) have
+  the cartridge's height and scale and its first word of flags; the
+  drive's second word is 0x2000 there, and stays the cartridge's
+  0x800 here. The model is 100 vertices (the N64's Vtx as it is) and
+  52 triangles, five textures (16x8, 128x16 and 32x32 for the console,
+  16x16 for the cords, 32x32 for the label) and two palettes.
+- **The GameCube's orders.** Its lists are the N64's (the same
+  combiner, render mode, primitive colour and geometry mode as the
+  cartridge's Famicom's lists) but for four orders of its own drawing
+  code: 0xFD with bit 18 set names a texture with its size in the
+  order (the width less one in the low 10 bits, a quarter of the
+  height less one in the 8 above) and loads nothing; 0xD2 sets a tile
+  (the palette's number, and a way of wrapping for each axis in two
+  bits: 0 clamp, 1 repeat, 2 mirror); 0xF0 with 0x8F4010 below loads
+  16 colours as palette 15; 0x0A packs triangles: the count less one
+  in bits 17 to 23, then five bits a vertex from the low end up above
+  four spare bits, nine vertices in the first order's 49 bits and
+  twelve in each order after it. Each was read off the lists
+  themselves and held to them: the sizes give each texture's bytes in
+  the map, the triangles come out as the quads of a console, every
+  vertex drawn is one of those loaded. The addresses are not in the
+  module's bytes: its relocations to itself give each (type 1, a
+  section and an offset there), and the map names it.
+- **The N64's object.** One list says what the three say: the state
+  once, each texture loaded as a block from the object when it is
+  drawn (the seven orders of a block load, the tile clamped or
+  mirrored as the GameCube's), the label's palette loaded over the
+  console's as palette 15 before the label (the GameCube's list does
+  the same; the room has loaded the console's), two triangles an
+  order: 83 orders. The object: the console's palette at 0 (the
+  profile's), the label's at 0x20, the textures at 0x40, 0x80, 0x480,
+  0x680 and 0x700, laid out linear, the vertices at 0x900, the list
+  at 0xF40: 0x11D8 bytes, kept as 0x11E0. The profile names one list,
+  no second list and no block of textures.
+- **Where the objects lie.** A Famicom's file has 0x1000 bytes before
+  the next file and nothing of the cartridge's may move in the ROM
+  ("Shiftability"), so the eight objects are a segment of their own
+  after code (`ftr_en_nes`, 0x8F00 bytes; `af_relink --segment`), a
+  file of the dmadata that is not compressed and so can be read in
+  parts (`DmaMgr_ProcessMsg`: a part of a compressed file stops the
+  game): its tenth entry of the translation's, in the table's own
+  padding (`sDmaDataPadding`). The profiles' words are written in the
+  en tree's copies of the eight overlays' data, the ROM's place as the
+  segment's start and an offset (the linker's number: an overlay's
+  relocation table is not touched). The cartridge's own eight objects
+  stay in the ROM, read by nothing.
+- **What it costs.** Nothing in RAM: a place of the room's is 0x1400
+  bytes whatever lies in it, and `code_en` ends where it did
+  (0x801A0530). The arena in the first home with seven of the pieces
+  in it had 423,760 bytes free in one block of 467,344 before and
+  after (two builds, the same town and hour, by hand).
+- **Looked at.** The eight in the first home's room, at the four ways
+  a piece can face (by hand, the frames kept out of the repository): a
+  light grey console with its dark vents and red marks, two
+  controllers before it with their cords, and on the seven a game's
+  box with its label, each another; the drive's with none. A drawing
+  made in software from an object's own list (by hand) shows the same.
+  The eight objects are pinned by their md5 in the tool, which refuses
+  a disc that makes others.
+- **The check** is a part of `make signs-check-en` (`tests/emu_signs.py`):
+  in the ROM the segment, the profiles, the audit of each object's
+  list (every address, block, palette and vertex of it in the object)
+  and the cartridge's own files; in the game the eight pieces in the
+  first home, each one's overlay, profile and object in RAM and the
+  cartridge's Famicom not, and A before each: the drive's page, the
+  six games' questions answered no, the seventh's answered yes and
+  its number handed to the emulator's start.
+- **Where the check stops.** After that yes the cartridge starts its
+  emulator of the console, whose tasks for the RSP the frontend does
+  not count as frames: no frame comes and the frontend calls it a hang
+  (the build before this change does the same: tried on it). No check
+  has ever played a game of the console; what is checked is the road
+  to its start.
+- **Without the disc's files** the eight stay the cartridge's
+  Famicoms and the segment is 16 empty bytes.
+
 ## Other emulators (ares, Project64, RetroArch, RMG and simple64)
 
 - **ares** (v148, `emu/ares/`: `build.sh` pins it and builds its N64 core

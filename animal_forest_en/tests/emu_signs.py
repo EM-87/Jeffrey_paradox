@@ -51,6 +51,27 @@ game reads it) holds ours where the cartridge's texture was, as the tool
 makes it from the cartridge's, and the rest of the object is the
 cartridge's: its lists, which set the render tile at that TMEM address
 (the tool's check), unchanged.
+
+The NES (tools/af_gc_nes.py; NOTES, "The NES"): in the ROM, the segment
+after code holds the eight objects the tool makes of the disc's files
+(with --gc; without, it is empty and the eight profiles are the
+cartridge's), whole through the dmadata as a file read in parts; each of
+the eight pieces' overlays has its profile pointed at its object there
+and is otherwise the cartridge's; each object passes the tool's audit;
+the cartridge's own eight objects are still its files. In the game, with
+--town, in a process of its own: the eight pieces put in the first
+home's room of the saved town, a free place before each, the town powered
+on and the player walked in at the door; then each piece's overlay is
+loaded, its profile in RAM is the ROM's, its object is in RAM whole and
+the cartridge's Famicom is not; the player stands before each piece and
+presses A: before the drive's, the cartridge's page for it and no game
+handed on; before one with a game, the cartridge's message for that game
+(func_8093A1DC_jp: 0x2B6A and the game's number), answered no at six and
+yes at the last, after which the game's number is the one handed to the
+emulator's start (goto_emu_game's, common_data + 0x109F8). The check
+stops there: the cartridge's emulator of the console runs tasks this
+frontend does not count as frames. A screenshot of the room is written
+to look at.
 """
 
 import math
@@ -65,6 +86,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 from n64emu import N64, stick  # noqa: E402
+import af_gc_nes  # noqa: E402
 import af_gc_signs  # noqa: E402
 import af_own_ftr  # noqa: E402
 import af_own_signs  # noqa: E402
@@ -128,6 +150,15 @@ OURS = {0x580C: [af_own_signs.SUMMER_AT], 0x582C: [af_own_signs.BANNER_AT, af_ow
 POLICE_DOOR = (24.0, 40.0, 0xA000)
 OFFICERS = ("Npc_Police", "Npc_Police2")
 ROOM_DATE = (2002, 3, 12, 10, 30, 0)
+
+# the NES: ovl_My_Room's tables of each piece's loaded overlay and profile (func_8093678C_jp), the message before a
+# piece with a game (func_8093A1DC_jp: this and the game's number), the game's number where goto_emu_game leaves
+# it (m_scene.c: common_data.unk109F8), the first home's room in a save and a place's size in a room
+NES_LOADED, NES_PROFILES = "B_8094D320_jp", "B_8094E1F0_jp"
+NES_MSG, NES_GAME_AT = 0x2B6A, 0x109F8
+NES_NO_GAME = (0x17B1, 0x2B69)              # the drive's page: D_8094CBD0_jp's for func_8093BC94_jp's two states
+NES_DATE = (2002, 3, 12, 10, 30, 0)
+PLACE_SIZE = 40.0
 
 failures = []
 
@@ -238,18 +269,20 @@ def main(argv):
               and ours[at + size:] == theirs[at + size:],
               "the ROM: %s (vrom %#x), ours at %#x as af_own_ftr makes it from the cartridge's, the rest of the "
               "object the cartridge's" % (what, vrom, at))
-    if town:
-        r = subprocess.run([sys.executable, os.path.abspath(__file__), "--room", emu_dir, rom_path, af_en, town,
-                            os.path.join(out, "room")] + ([gc_dir] if gc else []), capture_output=True, text=True)
+    nes_rom(rom, cart, af_en, gc_dir if gc else None)
+    for flag, where, what in (("--room", "room", "the police box's room"), ("--nes", "nes", "the room with the NES")):
+        if not town:
+            print("emu_signs: %s not visited (no --town)" % what)
+            continue
+        r = subprocess.run([sys.executable, os.path.abspath(__file__), flag, emu_dir, rom_path, af_en, town,
+                            os.path.join(out, where)] + ([gc_dir] if gc else []), capture_output=True, text=True)
         lines = [ln for ln in r.stdout.splitlines() if ln.startswith("  ok  ") or ln.startswith("  FAIL")]
         for ln in lines:
             print(ln)
             if ln.startswith("  FAIL"):
                 failures.append(ln[8:])
         if r.returncode and not any(ln.startswith("  FAIL") for ln in lines):
-            check(False, "the game: the police box's room visited (%s)" % (r.stdout + r.stderr)[-600:])
-    else:
-        print("emu_signs: the police box's room not visited (no --town)")
+            check(False, "the game: %s visited (%s)" % (what, (r.stdout + r.stderr)[-600:]))
 
     # the game: each structure set up by the player, its signs in RAM
     en_elf = os.path.join(af_en, "build", "animalforest-jp.elf")
@@ -366,7 +399,219 @@ def room_visit(emu_dir, rom_path, af_en, town, out, gc_dir=None):
     return 1 if failures else 0
 
 
+def nes_objects(gc_dir):
+    """(the eight objects, the list's offset in one) as af_gc_nes makes them of the disc's files in gc_dir, or
+    (None, None) without them."""
+    import gciso
+    if not gc_dir or not os.path.exists(os.path.join(gc_dir, "foresta.rel.szs")):
+        return None, None
+    module = af_gc_nes.Module(gciso.yaz0(open(os.path.join(gc_dir, "foresta.rel.szs"), "rb").read()),
+                              open(os.path.join(gc_dir, "foresta.map"), errors="replace").read())
+    return af_gc_nes.gc_objects(module)
+
+
+def nes_profile(words, start, index, size, list_at):
+    """The cartridge's profile words as the en build has them for the object `index` of the segment at start."""
+    want = list(words)
+    want[af_gc_nes.P_ROM], want[af_gc_nes.P_END] = start + index * size, start + (index + 1) * size
+    want[af_gc_nes.P_SEG_END], want[af_gc_nes.P_LIST] = af_gc_nes.SEG + size, af_gc_nes.SEG + list_at
+    want[af_gc_nes.P_LIST2], want[af_gc_nes.P_TEXTURES], want[af_gc_nes.P_PALETTE] = 0, 0, af_gc_nes.SEG
+    return want
+
+
+def nes_rom(rom, cart, af_en, gc_dir):
+    """The ROM's part of the NES: the segment, the eight profiles, the objects' audit, the cartridge's own."""
+    syms = emu_save.elf_symbols(os.path.join(af_en, "build", "animalforest-jp.elf"))
+    start, end = syms[af_gc_nes.SEGMENT + "_ROM_START"], syms[af_gc_nes.SEGMENT + "_ROM_END"]
+    objects, list_at = nes_objects(gc_dir)
+    entry = [e for e in nafe_diff.dma_entries(rom) if e[0] == start]
+    held = nafe_diff.file_data(rom, entry[0]) if entry else b""
+    want = b"".join(objects) if objects else bytes(16)
+    check(len(entry) == 1 and entry[0][1] == end and entry[0][3] == 0 and held == want,
+          "the ROM: the segment %s at %#x, a file of the dmadata read in parts (not compressed), %s" % (
+              af_gc_nes.SEGMENT, start, "the %d objects af_gc_nes makes of the disc's files, %#x bytes each" %
+              (len(objects), len(objects[0])) if objects else "empty (no GameCube files)"))
+    pieces = af_gc_nes.cart_pieces(cart)
+    size = len(objects[0]) if objects else None
+    for index, (vrom, vram, words) in enumerate(pieces):
+        ovl, cart_ovl = file_at(rom, vrom), file_at(cart, vrom)
+        at = af_gc_nes.PROFILE_AT
+        got = list(struct.unpack(">%dI" % af_gc_nes.PROFILE_WORDS, ovl[at:at + 4 * af_gc_nes.PROFILE_WORDS]))
+        expect = nes_profile(words, start, index, size, list_at) if objects else words
+        rest = ovl[:at] == cart_ovl[:at] and ovl[at + 4 * af_gc_nes.PROFILE_WORDS:] == \
+            cart_ovl[at + 4 * af_gc_nes.PROFILE_WORDS:]
+        check(got == expect and rest and file_at(rom, words[af_gc_nes.P_ROM]) == file_at(cart, words[af_gc_nes.P_ROM]),
+              "the ROM: piece %d's overlay (vrom %#x): its profile %s, the rest of it and the cartridge's own "
+              "object (vrom %#x) the cartridge's" % (
+                  af_gc_nes.PIECES[index], vrom, "names object %d of the segment, its list at %#x, one list, no "
+                  "block of textures" % (index, list_at) if objects else "the cartridge's", words[af_gc_nes.P_ROM]))
+    if objects:
+        bad = [b for obj in objects for b in af_gc_nes.audit(obj, list_at)]
+        check(not bad and len(objects[0]) <= af_gc_nes.PLACE,
+              "the ROM: each object's list is the N64's orders, every address, block, palette and vertex of it in "
+              "the object, which fits the room's place of %#x%s" % (af_gc_nes.PLACE, "; not: " + "; ".join(bad[:3])
+                                                                 if bad else ""))
+
+
+def nes_places(save, count):
+    """Places of the first home's room for `count` pieces, each with an empty place below it for the player:
+    [(x, z)] in the room's 16 x 16, or fewer than count. A piece takes a place inside the walls, an empty one
+    or one that holds a piece of furniture (tests/emu_memory.py's furnished)."""
+    import emu_memory
+    rows = [struct.unpack(">16H", save[emu_memory.HOME_LAYER + z * 32:emu_memory.HOME_LAYER + z * 32 + 32])
+            for z in range(16)]
+
+    def within(x, z):
+        row = rows[z]
+        return row[x] != emu_memory.WALL and emu_memory.WALL in row[:x] and emu_memory.WALL in row[x + 1:]
+
+    def takes(x, z):
+        return within(x, z) and (rows[z][x] == 0 or emu_memory.FURNITURE <= rows[z][x] < 0x4000) \
+            and rows[z][x] != 0x1F3F
+    out, taken = [], set()
+    for z in range(15):
+        for x in range(16):
+            if len(out) < count and takes(x, z) and within(x, z + 1) and rows[z + 1][x] == 0 and \
+                    not {(x, z), (x, z + 1)} & taken:
+                out.append((x, z))
+                taken |= {(x, z), (x, z + 1)}
+    return out
+
+
+def nes_visit(emu_dir, rom_path, af_en, town, out, gc_dir=None):
+    """The saved town with the eight pieces in the first home's room powered on, the player walked in at the
+    door: the pieces in RAM, a talk before each (run in a process of its own)."""
+    import aflz
+    import emu_memory
+    import emu_psel
+    import emu_town
+    import emu_year
+    from n64emu import A
+    os.makedirs(out, exist_ok=True)
+    rom = open(rom_path, "rb").read()
+    cart = open(os.path.join(os.path.dirname(os.path.abspath(af_en)), "baserom.z64"), "rb").read()
+    syms = emu_save.elf_symbols(os.path.join(af_en, "build", "animalforest-jp.elf"))
+    start = syms[af_gc_nes.SEGMENT + "_ROM_START"]
+    objects, list_at = nes_objects(gc_dir)
+    pieces = af_gc_nes.cart_pieces(cart)
+    # each piece's Famicom on the cartridge: its vertices, from the block of textures' end to its first list
+    famicoms = [file_at(cart, words[af_gc_nes.P_ROM])[0x820:words[af_gc_nes.P_LIST] & 0xFFFFFF]
+                for _, _, words in pieces]
+    save = bytearray(open(town, "rb").read())
+    flags = struct.unpack(">I", save[emu_year.EVENT_FLAGS:emu_year.EVENT_FLAGS + 4])[0] & ~emu_year.JOB_BITS
+    save[emu_year.EVENT_FLAGS:emu_year.EVENT_FLAGS + 4] = struct.pack(">I", flags)
+    places = nes_places(save, len(af_gc_nes.PIECES))
+    check(len(places) == len(af_gc_nes.PIECES), "the game: the first home's room has a place for each of the %d "
+          "pieces with a free place before it (%s)" % (len(af_gc_nes.PIECES), places))
+    if len(places) != len(af_gc_nes.PIECES):
+        return 1
+    for (x, z), piece in zip(places, af_gc_nes.PIECES):
+        at = emu_memory.HOME_LAYER + (z * 16 + x) * 2
+        save[at:at + 2] = struct.pack(">H", emu_memory.FURNITURE + piece * 4)
+    image, compressed = aflz.pack(emu_psel.fix(bytes(save)), b"")
+    if not compressed:
+        raise SystemExit("emu_signs: the town does not fit a compressed slot")
+    emu_save.write_fla(emu_save.fla_path(out, rom), image + image)
+    cd = syms["common_data"]
+    with N64(emu_dir, rom, out, timeout=60, clock=NES_DATE) as n64:
+        t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], emu_year.actor_names(af_en), syms)
+
+        def calm(want, tries=40):
+            """Talks played through until the scene is `want` and the player waits."""
+            for _ in range(tries):
+                try:
+                    emu_town.follow(t, quiet=4)
+                    if t.player_main() == emu_year.PLAYER_WAIT and t.window_main() == emu_year.HIDDEN and \
+                            t.i32(cd + emu_memory.SCENE) == want:
+                        return True
+                except (ValueError, struct.error):          # between two scenes the pointers read are no one's
+                    pass
+                n64.frames(15, 0)
+            return False
+        arrived = emu_year.arrive(t)
+        size = n64.read(cd + emu_town.HOMES_AT + emu_memory.HOME_BITS, 1)[0] >> 6
+        inside = False
+        if arrived:
+            t.drop(emu_town.MAT[0], emu_town.MAT[1], 40)
+            n64.frames(15, emu_town.INTO_DOOR)
+            n64.frames(3, emu_town.INTO_DOOR | A)
+            inside = calm(emu_memory.HOUSE_SCENES[size])
+        check(inside, "the game: the town powered on, the player walked into the first home at its door")
+        if not inside:
+            return 1
+        n64.frames(120, 0)
+        n64.screenshot(os.path.join(out, "nes.png"))
+        room = emu_memory.loaded_overlays(n64, syms, emu_year.actor_names(af_en)).get("My_Room")
+        check(bool(room), "the game: the room's actor's overlay is loaded")
+        if not room:
+            return 1
+        base = room - syms["ovl_My_Room_VRAM"]
+        ram = n64.read(0x80000000, 0x800000)
+        size = len(objects[0]) if objects else None
+        for index, (piece, (vrom, vram, words)) in enumerate(zip(af_gc_nes.PIECES, pieces)):
+            loaded = n64.u32(base + syms[NES_LOADED] + 4 * piece)
+            profile = n64.u32(base + syms[NES_PROFILES] + 4 * piece)
+            got = list(struct.unpack(">%dI" % af_gc_nes.PROFILE_WORDS,
+                                     n64.read(profile, 4 * af_gc_nes.PROFILE_WORDS))) if profile else []
+            expect = nes_profile(words, start, index, size, list_at) if objects else list(words)
+            expect[16] = loaded + af_gc_nes.FUNCS_AT                   # its functions, where the overlay is loaded
+            where = ram.find(objects[index]) if objects else ram.find(famicoms[index])
+            check(bool(loaded) and profile == loaded + af_gc_nes.PROFILE_AT and got == expect and where >= 0
+                  and (not objects or ram.find(famicoms[index]) < 0),
+                  "the game: piece %d: its overlay loaded, its profile the ROM's, %s" % (
+                      piece, "its object in RAM whole (at %#x), the cartridge's Famicom not" % (0x80000000 + where)
+                      if objects else "the cartridge's Famicom in RAM"))
+        # A before each piece: the drive's and six of the games' first, the last game's last (after its yes the
+        # emulator of the console starts)
+        order = sorted(zip(af_gc_nes.PIECES, places), key=lambda v: (af_gc_nes.CART[v[0]][0] == 7, v[0]))
+        for piece, (x, z) in order:
+            game = af_gc_nes.CART[piece][0]
+            last = piece == order[-1][0]
+            pages = []
+            t.drop(x * PLACE_SIZE + PLACE_SIZE / 2, (z + 1) * PLACE_SIZE + PLACE_SIZE / 2, 20)
+            n64.frames(10, 0)
+            n64.frames(12, stick(0, 80))                    # up to the piece: the player turns to it
+            n64.frames(4, 0)
+            n64.press(A, 3, 40)
+            handed = 0
+            if not last:
+                emu_town.follow(t, answers=(1,), quiet=6, pages=pages)
+            else:                                           # yes: the game's number is handed on, and no frame after
+                for _ in range(900):
+                    handed = n64.read(cd + NES_GAME_AT, 1)[0]
+                    if handed:
+                        break
+                    if t.window_main() == emu_year.WAITING:
+                        page = t.page()
+                        if page and page[0] not in [p["msg"] for p in pages]:
+                            pages.append({"msg": page[0], "problems": t.page_problems(page[2])})
+                    if t.choice_waiting():
+                        n64.frames(20, 0)
+                        n64.press(A, 3, 1)
+                    elif t.window_main() != emu_year.HIDDEN:
+                        n64.press(A, 3, 1)
+                    else:
+                        n64.frames(1, 0)
+            asked = [p["msg"] for p in pages]
+            problems = [q for p in pages for q in p["problems"]]
+            now = handed if last else n64.read(cd + NES_GAME_AT, 1)[0]
+            if game:
+                check(asked[:1] == [NES_MSG + game] and not problems and now == (game if last else 0),
+                      "the game: A before piece %d: the cartridge's message for game %d (%#x), %s (pages %s%s)" % (
+                          piece, game, NES_MSG + game, "answered yes: the game's number handed to the emulator's "
+                          "start" if last else "answered no", ", ".join("%#x" % m for m in asked),
+                          "; " + "; ".join(problems[:2]) if problems else ""))
+            else:
+                check(len(asked) == 1 and asked[0] in NES_NO_GAME and not problems and now == 0,
+                      "the game: A before piece %d, the drive's: the cartridge's page for it and no game handed on "
+                      "(pages %s%s)" % (piece, ", ".join("%#x" % m for m in asked),
+                                        "; " + "; ".join(problems[:2]) if problems else ""))
+    return 1 if failures else 0
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--room":
         sys.exit(room_visit(*sys.argv[2:8]))
+    if len(sys.argv) > 1 and sys.argv[1] == "--nes":
+        sys.exit(nes_visit(*sys.argv[2:8]))
     sys.exit(main(sys.argv[1:]))

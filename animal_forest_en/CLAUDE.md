@@ -225,6 +225,18 @@ the why and the state, `reference/NOTES.md` for what is verified.
   tile at its TMEM address, texels and palette md5s, the texture block's
   LoadBlock row swap undone and redone (NOTES, "Our own furniture
   words").
+- `tools/af_gc_nes.py` — the GameCube's NES where the cartridge has its
+  eight Famicoms (the seven with a game, the one on its disk drive), at
+  `make rom-en` from the disc's foresta.rel (make script's): its three
+  lists' orders turned into the N64's (a texture named with its size,
+  triangles packed five bits a vertex, a palette by name; the module's
+  relocations say what each address is), its tiled CI4 and RGB5A3 as
+  the N64's, one object a piece in a segment of their own after code
+  (`ftr_en_nes`: a Famicom's file has no room for one) and the eight
+  profiles pointed at them in the en tree's copies of the overlays'
+  data; each checked on the cartridge and on the disc, the objects
+  pinned by md5; the cartridge's Famicoms without the disc (NOTES, "The
+  NES").
 - `tools/af_menu_tex.py` — the word textures the 2010 patch left in
   Japanese: the town tune's note names (the GameCube's letters, from the
   disc), the birthday's month and day, the catchphrase window's quotes
@@ -316,7 +328,11 @@ the why and the state, `reference/NOTES.md` for what is verified.
   ROM, the rest of each room's file the cartridge's; the police box's
   posters in RAM once the player walks in at its door, psel-check-en's
   town powered on in a process of its own; the furniture's words in the
-  ROM, each object otherwise the cartridge's: `make signs-check-en`),
+  ROM, each object otherwise the cartridge's; the NES: its segment and
+  the eight profiles in the ROM, and in the same town the eight pieces
+  put in the first home, each one's object in RAM whole and A before
+  each, to the game's number handed to the cartridge's emulator: `make
+  signs-check-en`),
   `emu_psel.py` (the player-select actor's choices from power-on with a
   saved town of one, two and four players, made from the houses' state:
   which player plays, whose house to remove, each choice's answers read in RAM
@@ -779,6 +795,14 @@ the why and the state, `reference/NOTES.md` for what is verified.
   shop on a month's last day. Write into a save what the player's
   dealings would have left there (an order, the sales), never the
   result, and power on.
+- **The cartridge's emulator of the Famicom stops the frames.** After
+  the yes before a Famicom (an NES in the en build) the game starts its
+  own emulator of the console, whose RSP tasks are no graphics tasks:
+  the frontend sees no frame and calls it a hang after its timeout
+  (the cartridge's road too: tried on a build before the NES). A check
+  that goes there reads what it wants before that yes's last page ends
+  (the game's number at `common_data` + 0x109F8, a frame at a time)
+  and leaves (`tests/emu_signs.py`, `nes_visit`).
 - **mupen64plus starts once per process.** A second `N64()` in the same
   process fails at PluginStartup (error 2): a check that powers on more
   than once runs each in a process of its own (`emu_save.py --boot`,

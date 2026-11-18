@@ -42,6 +42,7 @@ import af_shiftcheck  # noqa: E402
 import af_text  # noqa: E402
 import af_items  # noqa: E402
 import af_ui  # noqa: E402
+import af_gc_nes  # noqa: E402
 import af_gc_signs  # noqa: E402
 import af_menu_tex  # noqa: E402
 import af_own_ftr  # noqa: E402
@@ -2682,6 +2683,258 @@ class Answers(unittest.TestCase):
         self.assertIn("80A73AC0 01020304 */ .word 0x%08X" % af_answers.token(460), new_s)
         self.assertIn("80A73AC4 05060708 */ .word 0x20202020", new_s)
         self.assertIn("80A73ABC 0A0B0C0D */ .word 0x0A0B0C0D", new_s)
+
+
+class GcNes(unittest.TestCase):
+    """tools/af_gc_nes.py (reference/NOTES.md, "The NES") on made-up lists, a made-up module and a made-up
+    .data.s."""
+
+    @staticmethod
+    def packed(tris):
+        """The triangles as the GameCube's lists pack them: nine vertices in the first order, twelve in each
+        after it, five bits each from the low end up, above four spare bits."""
+        flat = [v for t in tris for v in t]
+        first, rest = flat[:9] + [0] * (9 - len(flat[:9])), flat[9:]
+        bits = sum(v << (4 + 5 * k) for k, v in enumerate(first))
+        orders = [(af_gc_nes.G_TRIN << 24 | (len(tris) - 1) << 17 | bits >> 32, bits & 0xFFFFFFFF)]
+        while rest:
+            chunk, rest = rest[:12] + [0] * (12 - len(rest[:12])), rest[12:]
+            bits = sum(v << (4 + 5 * k) for k, v in enumerate(chunk))
+            orders.append((bits >> 32, bits & 0xFFFFFFFF))
+        return orders
+
+    def test_packed_triangles_are_read_back(self):
+        rng = random.Random(7)
+        for count in (1, 2, 3, 4, 7, 8, 16, 31):
+            tris = [tuple(rng.randrange(32) for _ in range(3)) for _ in range(count)]
+            orders = self.packed(tris)
+            self.assertEqual(len(orders), 1 + max(0, -(-(3 * count - 9) // 12)))
+            self.assertEqual(af_gc_nes.triangles(orders + [(0xDF000000, 0)]), (tris, len(orders)))
+        two = self.packed([(0, 1, 2), (0, 2, 3)])
+        self.assertEqual(two, [(0x0A020000, 0x62008200)])                  # two triangles of a square
+        with self.assertRaises(ValueError):                                # a spare bit set
+            af_gc_nes.triangles([(two[0][0], two[0][1] | 1)])
+        with self.assertRaises(ValueError):                                # a vertex past the count
+            af_gc_nes.triangles([(two[0][0] | 1 << 12, two[0][1])])
+        with self.assertRaises(ValueError):                                # more triangles than orders
+            af_gc_nes.triangles(self.packed([(1, 2, 3)] * 4)[:1])
+        with self.assertRaises(ValueError):
+            af_gc_nes.triangles([(0x06000204, 0x00000406)])
+
+    def test_triangles_go_two_an_order(self):
+        self.assertEqual(af_gc_nes.tri_orders([(0, 1, 2), (0, 2, 3), (4, 5, 6)]),
+                         [(0x06000204, 0x00000406), (0x05080A0C, 0)])
+        self.assertEqual(af_gc_nes.tri_orders([]), [])
+
+    def test_a_texture_is_loaded_as_a_block(self):
+        clamp, mirror = af_gc_nes.WRAP[0], af_gc_nes.WRAP[2]
+        self.assertEqual((clamp, af_gc_nes.WRAP[1], mirror), (2, 0, 1))    # G_TX_CLAMP, G_TX_WRAP, G_TX_MIRROR
+        self.assertEqual(af_gc_nes.load_block(0x06000040, 16, 8, clamp, clamp),
+                         [(0xFD500000, 0x06000040), (0xF5500000, 0x0708C240), (0xE6000000, 0),
+                          (0xF3000000, 0x0701F800), (0xE7000000, 0), (0xF5400200, 0x00F8C240),
+                          (0xF2000000, 0x0003C01C)])
+        wide = af_gc_nes.load_block(0x06000080, 128, 16, clamp, clamp)
+        self.assertEqual([wide[3], wide[5], wide[6]],
+                         [(0xF3000000, 0x071FF100), (0xF5401000, 0x00F90270), (0xF2000000, 0x001FC03C)])
+        twice = af_gc_nes.load_block(0x06000680, 16, 16, mirror, mirror)
+        self.assertEqual([twice[1], twice[5]], [(0xF5500000, 0x07050140), (0xF5400200, 0x00F50140)])
+        with self.assertRaises(ValueError):
+            af_gc_nes.load_block(0, 24, 16, clamp, clamp)                  # not a power of two
+        self.assertEqual(af_gc_nes.load_palette(0x06000020),
+                         [(0xE7000000, 0), (0xFD100000, 0x06000020), (0xE8000000, 0), (0xF50001F0, 0x07000000),
+                          (0xE6000000, 0), (0xF0000000, 0x0703C000), (0xE7000000, 0)])
+
+    def lists(self):
+        """Two made-up lists as the GameCube keeps one: its state, a palette, a texture by its size and a
+        tile, vertices, packed triangles; the second with the label's texture and palette."""
+        state = [(0xD7000002, 0), (0xFC127E60, 0xFFFFF3F8), (0xE200001C, 0xC8113078)]
+        one = state + [(af_gc_nes.GC_TLUT, 0), (0xFD440C0F, 0), (0xD2F0F000, 0), (0xFA000080, 0xFFFFFFFF),
+                       (0xD9000000, 0x00230405), (0x01004008, 0)] + self.packed([(0, 1, 2), (0, 2, 3)]) + \
+            [(0xDF000000, 0)]
+        two = state + [(0xFA0000FF, 0xFFFFFFFF), (af_gc_nes.GC_TLUT, 9 << 24), (0xFD441C1F, 8 << 24),
+                       (0xD2F0FA00, 0), (0xD9000000, 0x00230405), (0x01003006, 0)] + self.packed([(2, 1, 0)]) + \
+            [(0xDF000000, 0)]
+        return [(one, {3: af_gc_nes.PALETTE, 4: "tex", 8: (af_gc_nes.VERTICES, 0)}),
+                (two, {4: 9, 5: 8, 8: (af_gc_nes.VERTICES, 64)})]
+
+    def test_the_lists_are_said_in_the_n64s_orders(self):
+        where = {af_gc_nes.PALETTE: 0, 9: 0x20, "tex": 0x40, 8: 0xC0, af_gc_nes.VERTICES: 0x2C0}
+        orders, textures, drawn = af_gc_nes.convert(self.lists(), lambda what, at: 0x06000000 + where[what] + at,
+                                                    af_gc_nes.PALETTE)
+        self.assertEqual(textures, {"tex": (16, 16), 8: (32, 32)})
+        self.assertEqual(drawn, 7)
+        want = [af_gc_nes.TEXTURE_ON, (0xE7000000, 0), af_gc_nes.TLUT_RGBA16, (0xFC127E60, 0xFFFFF3F8),
+                (0xE200001C, 0xC8113078)]
+        want += af_gc_nes.load_block(0x06000040, 16, 16, 2, 2)             # the palette is the room's: no load
+        want += [(0xFA000080, 0xFFFFFFFF), (0xD9000000, 0x00230405), (0x01004008, 0x060002C0),
+                 (0x06000204, 0x00000406)]
+        want += [(0xFA0000FF, 0xFFFFFFFF)]                                 # the state the same: said once
+        want += af_gc_nes.load_palette(0x06000020) + af_gc_nes.load_block(0x060000C0, 32, 32, 1, 1)
+        want += [(0x01003006, 0x06000300), (0x05040200, 0), (0xDF000000, 0)]
+        self.assertEqual(orders, want)
+        # a palette is loaded again only when it is another
+        again = self.lists() + [self.lists()[0]]
+        orders, _, _ = af_gc_nes.convert(again, lambda what, at: where[what] + at, af_gc_nes.PALETTE)
+        self.assertEqual(sum(1 for w0, _ in orders if w0 >> 24 == af_gc_nes.G_LOADTLUT), 2)
+
+    def test_a_list_this_does_not_know_is_refused(self):
+        def said(change):
+            lists = self.lists()
+            change(lists)
+            with contextlib.redirect_stderr(io.StringIO()):
+                return af_gc_nes.convert(lists, lambda what, at: at, af_gc_nes.PALETTE)
+        for change in (lambda ls: ls[0][0].insert(3, (0xBB000000, 0)),                    # an order of no one's
+                       lambda ls: ls[0][0].__setitem__(9, (0x0A020000, 0x62008A00)),      # a vertex not loaded
+                       lambda ls: ls[0][0].__setitem__(4, (0xFD100C0F, 0)),               # not CI4 by its size
+                       lambda ls: ls[0][0].__setitem__(5, (0xD2F0F001, 0)),               # a tile with a shift
+                       lambda ls: ls[0][0].__setitem__(0, (0xD7000002, 0x80008000)),      # another texture scale
+                       lambda ls: ls[0][1].pop(8),                                        # vertices nothing names
+                       lambda ls: ls[0][1].__setitem__(8, (af_gc_nes.VERTICES, 8)),       # the middle of a vertex
+                       lambda ls: ls[0][0].pop()):                                        # no end
+            with self.assertRaises(SystemExit):
+                said(change)
+        self.assertEqual(len(said(lambda ls: None)[0]), 34)
+
+    def data(self):
+        vertices = bytes(range(112))
+        return {af_gc_nes.PALETTE: bytes([1]) * 32, "tex": bytes([2]) * 128, af_gc_nes.VERTICES: vertices,
+                "label-a": bytes([3]) * 512, "pal-a": bytes([4]) * 32,
+                "label-b": bytes([5]) * 512, "pal-b": bytes([6]) * 32}
+
+    def test_an_object_is_its_palettes_its_textures_its_vertices_and_its_list(self):
+        a, at = af_gc_nes.build(self.lists(), self.data(), ("label-a", "pal-a"))
+        b, at_b = af_gc_nes.build(self.lists(), self.data(), ("label-b", "pal-b"))
+        self.assertEqual((at, at_b), (0x330, 0x330))
+        self.assertEqual(a[:0x20], bytes([1]) * 32)                        # the console's palette, the profile's
+        self.assertEqual(a[0x20:0x40], bytes([4]) * 32)                    # the label's
+        self.assertEqual(a[0x40:0xC0], bytes([2]) * 128)
+        self.assertEqual(a[0xC0:0x2C0], bytes([3]) * 512)
+        self.assertEqual(a[0x2C0:0x330], bytes(range(112)))
+        orders = [struct.unpack(">II", a[i:i + 8]) for i in range(at, len(a), 8)]
+        self.assertEqual(len(orders), 34)
+        self.assertEqual(orders[-1], (0xDF000000, 0))
+        self.assertIn((0xFD500000, 0x06000040), orders)
+        self.assertIn((0xFD500000, 0x060000C0), orders)
+        self.assertIn((0xFD100000, 0x06000020), orders)
+        self.assertIn((0x01003006, 0x06000300), orders)
+        self.assertEqual({i for i in range(len(a)) if a[i] != b[i]}, set(range(0x20, 0x40)) | set(range(0xC0, 0x2C0)))
+        for change in ({"tex": bytes(64)}, {af_gc_nes.VERTICES: bytes(96)}, {"pal-a": bytes(30)}):
+            with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+                af_gc_nes.build(self.lists(), dict(self.data(), **change), ("label-a", "pal-a"))
+
+    def test_an_object_is_audited_for_the_room(self):
+        obj, at = af_gc_nes.build(self.lists(), self.data(), ("label-a", "pal-a"))
+        self.assertEqual(af_gc_nes.audit(obj, at), [])
+        self.assertEqual(af_gc_nes.audit(obj + bytes(8), at), [])              # padded to 16 bytes
+        orders = [struct.unpack(">II", obj[i:i + 8]) for i in range(at, len(obj), 8)]
+
+        def with_order(k, w0, w1):
+            return obj[:at + 8 * k] + struct.pack(">II", w0, w1) + obj[at + 8 * k + 8:]
+        timg = next(k for k, (w0, _) in enumerate(orders) if w0 >> 24 == af_gc_nes.G_SETTIMG)
+        vtx = next(k for k, (w0, _) in enumerate(orders) if w0 >> 24 == af_gc_nes.G_VTX)
+        tri = next(k for k, (w0, _) in enumerate(orders) if w0 >> 24 == af_gc_nes.G_TRI2)
+        for broken in (with_order(timg, 0xFD500000, 0x06000000 + at),          # a texture in the list itself
+                       with_order(timg, 0xFD500000, 0x05000040),               # in another segment
+                       with_order(timg, 0xFD500000, 0x06000000 + at - 8),      # its block past the data
+                       with_order(vtx, 0x01004008, 0x06000000 + at - 32),      # vertices past the data
+                       with_order(tri, 0x06000208, 0x00000406),                # a vertex that is not loaded
+                       with_order(tri, 0xBB000000, 0),                         # an order of no one's
+                       obj[:-8] + struct.pack(">II", 0xE7000000, 0),           # no end
+                       obj + struct.pack(">II", 0xE7000000, 0)):               # an order after the end
+            self.assertTrue(af_gc_nes.audit(broken, at), broken[at:].hex())
+        self.assertTrue(af_gc_nes.audit(obj, at + 4))
+        self.assertTrue(af_gc_nes.audit(obj, len(obj)))
+        self.assertRegex(af_gc_nes.OBJECTS_MD5, r"^[0-9a-f]{32}$")
+
+    @staticmethod
+    def module():
+        """A made-up module: a text section of 0x20 bytes and a data section of 0x40, the data's words at 4
+        and 0x24 pointed at its own 0x30 and 0x10 and the text's at 8 at the data's 0x20, by its relocations to
+        itself; and the map that names them."""
+        text, data = bytes(range(0x20)), bytes(range(0x40, 0x80))
+        table_at, text_at = 0x30, 0x80
+        data_at, imp_at = text_at + len(text), text_at + len(text) + len(data)
+        rels_at = imp_at + 16
+        sections = [(0, 0), (text_at | 1, len(text)), (0, 0), (0, 0), (0, 0), (data_at, len(data)), (0, 0x10)]
+        rels = [(0, 202, 5, 0), (4, 1, 5, 0x30), (0x20, 1, 5, 0x10), (0, 202, 1, 0), (8, 201, 0, 0), (2, 6, 5, 0x20),
+                (0, 203, 0, 0)]
+        other = [(0, 202, 5, 0), (8, 1, 1, 0), (0, 203, 0, 0)]             # another module's: not this one's
+        head = struct.pack(">12I", 1, 0, 0, len(sections), table_at, 0, 0, 3, 0x10, rels_at, imp_at, 16)
+        body = head.ljust(table_at, b"\0") + b"".join(struct.pack(">II", *s) for s in sections)
+        body = body.ljust(text_at, b"\0") + text + data
+        body += struct.pack(">IIII", 0, rels_at + 8 * len(rels), 1, rels_at)
+        body += b"".join(struct.pack(">HBBI", *r) for r in rels + other)
+        def lay(rows):
+            return "".join("  %08x %06x %08x  4 %s \t%s \n" % (o, s, o, sym, obj) for o, s, sym, obj in rows)
+        text_map = ".text section layout\n" + lay([(0, 0x20, ".text", "f.o"), (0, 0x10, "one", "f.o"),
+                                                    (0x10, 0x10, "two", "f.o")])
+        data_map = ".data section layout\n" + lay([(0, 0x40, ".data", "d.obj"), (0, 0x10, "list", "d.obj"),
+                                                    (0x10, 0x10, "tex", "d.obj"), (0x20, 0x10, "table", "f.o"),
+                                                    (0x30, 0x10, "pal", "d.obj")])
+        return af_gc_nes.Module(body, text_map + "\n" + data_map)
+
+    def test_a_modules_relocations_name_what_a_word_points_at(self):
+        m = self.module()
+        self.assertEqual(m.find(".data", "tex", "d.obj"), (0x10, 0x10))
+        self.assertEqual(m.bytes(".data", "tex", "d.obj"), bytes(range(0x50, 0x60)))
+        self.assertEqual(m.bytes(".text", "two", "f.o"), bytes(range(0x10, 0x20)))
+        self.assertEqual(m.target(".data", "list", "d.obj", 4), ("pal", "d.obj", 0))
+        self.assertEqual(m.target(".data", "table", "f.o", 4), ("tex", "d.obj", 0))
+        self.assertIsNone(m.target(".data", "list", "d.obj", 8))           # another module's relocation
+        self.assertIsNone(m.target(".data", "list", "d.obj", 0))
+        self.assertEqual(m.named_in(".text", "one", "f.o"), {"table"})     # by a relocation of another kind
+        self.assertEqual(m.named_in(".text", "two", "f.o"), set())
+        self.assertEqual(m.named(5, 0x3F), ("pal", "d.obj", 0xF))
+        self.assertIsNone(m.named(5, 0x40))
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            m.find(".data", "tex", "f.o")
+
+    def test_a_profiles_words_are_written_and_put_back(self):
+        vram = 0x80A44154 - af_gc_nes.PROFILE_AT
+        cart = [0x01495000, 0x01495E80, 0x06000000, 0x06000E80, 0x06000CC0, 0x06000E18, 0, 0, 0x06000020,
+                0x06000000]
+        data_s = "dlabel D_80A44154_jp\n" + "".join(
+            "    /* %X %08X %08X */ .word %s\n" % (0x90BBF4 + 4 * k, 0x80A44154 + 4 * k, w,
+                                                    "D_6000E80" if k == 3 else "0x%08X" % w)
+            for k, w in enumerate(cart)) + "enddlabel D_80A44154_jp\n"
+        ours = af_gc_nes.profile_words(vram, 2, 0x11E0, 0xF40)
+        new_s = af_gc_nes.set_words(data_s, ours, "test")
+        self.assertIn("/* 90BBF4 80A44154 01495000 */ .word ftr_en_nes_ROM_START + 0x23C0\n", new_s)
+        self.assertIn("/* 90BBF8 80A44158 01495E80 */ .word ftr_en_nes_ROM_START + 0x35A0\n", new_s)
+        self.assertIn("/* 90BBFC 80A4415C 06000000 */ .word 0x06000000\n", new_s)       # not one of ours
+        self.assertIn("/* 90BC00 80A44160 06000E80 */ .word 0x060011E0\n", new_s)
+        self.assertIn("/* 90BC04 80A44164 06000CC0 */ .word 0x06000F40\n", new_s)
+        self.assertIn("/* 90BC08 80A44168 06000E18 */ .word 0x00000000\n", new_s)       # one list
+        self.assertIn("/* 90BC14 80A44174 06000020 */ .word 0x00000000\n", new_s)       # no block to load
+        self.assertIn("/* 90BC18 80A44178 06000000 */ .word 0x06000000\n", new_s)       # the console's palette
+        self.assertEqual(af_gc_nes.set_words(new_s, ours, "test"), new_s)
+        back = af_gc_nes.set_words(new_s, af_gc_nes.profile_words(vram, 2, None, None), "test")
+        self.assertEqual(back, data_s.replace("D_6000E80", "0x06000E80"))               # the cartridge's words
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            af_gc_nes.set_words(data_s, {0x80A44200: None}, "test")
+
+    def test_the_build_names_the_segment(self):
+        root = os.path.join(HERE, "..")
+        with open(os.path.join(root, "Makefile")) as f:
+            make = f.read()
+        self.assertIn("--segment %s=build/%s.o" % (af_gc_nes.SEGMENT, af_gc_nes.BIN[:-len(".bin")]), make)
+        self.assertIn("$(PYTHON) tools/af_gc_nes.py $(BASEROM) $(AF_EN_DIR)", make)
+        with open(os.path.join(root, "decomp", "changes.patch")) as f:
+            patch = f.read()
+        self.assertIn('+DEFINE_DMA_ENTRY(%s, "%s")' % (af_gc_nes.SEGMENT, af_gc_nes.SEGMENT), patch)
+        added = len(re.findall(r"^\+DEFINE_DMA_ENTRY\(", patch, flags=re.M))
+        self.assertIn("+u8 sDmaDataPadding[0xF0 - %d * sizeof(DmaEntry)]" % added, patch)
+        self.assertEqual(af_gc_nes.PIECES, list(range(842, 850)))
+        self.assertEqual([af_gc_nes.CART[piece][0] for piece in af_gc_nes.PIECES], [1, 2, 3, 4, 5, 6, 7, 0])
+        for piece in af_gc_nes.PIECES:                     # the cartridge's profile of each: 19 words
+            words = af_gc_nes.cart_profile(piece, 0x01495000, 0x80A440C0)
+            self.assertEqual(len(words), af_gc_nes.PROFILE_WORDS)
+            self.assertLessEqual(words[af_gc_nes.P_END] - words[af_gc_nes.P_ROM], af_gc_nes.PLACE)
+            self.assertEqual(words[af_gc_nes.P_SEG_END] - af_gc_nes.SEG, af_gc_nes.CART[piece][1])
+            self.assertEqual(words[12:16], af_gc_nes.SHAPE)
+            self.assertEqual(words[16], 0x80A440C0 + af_gc_nes.FUNCS_AT)
+        self.assertEqual(af_gc_nes.cart_profile(849, 0x016DB000, 0)[:6],
+                         [0x016DB000, 0x016DBE60, 0x06000000, 0x06000E60, 0x06000C80, 0x06000DF0])
 
 
 class EmulatorChecks(unittest.TestCase):

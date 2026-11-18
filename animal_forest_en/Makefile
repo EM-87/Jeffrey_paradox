@@ -148,7 +148,7 @@ EN_SEGMENTS := --segment msg_en_text=build/assets/jp/en/msg_text.o --segment msg
 	--segment msg_en_choice_text=build/assets/jp/en/choice_text.o --segment msg_en_choice_index=build/assets/jp/en/choice_index.o \
 	--segment msg_en_string_text=build/assets/jp/en/string_text.o --segment msg_en_string_index=build/assets/jp/en/string_index.o \
 	--segment mail_en_text=build/assets/jp/en/mail_text.o --segment mail_en_index=build/assets/jp/en/mail_index.o \
-	--segment item_en_names=build/assets/jp/en/item_names.o
+	--segment item_en_names=build/assets/jp/en/item_names.o --segment ftr_en_nes=build/assets/jp/en/ftr_nes.o
 # The letters the ROM gets, the same way: the English drafts where `make
 # script` has made them, else the cartridge's own banks; all eight in one
 # text and one index segment (tools/af_text.py compile-letters; the en
@@ -218,6 +218,14 @@ EN_OWN_SIGNS := $(AF_EN_DIR)/assets/jp/en/own_signs.stamp
 # plaque), over the en tree's .bin of each furniture object
 # (tools/af_own_ftr.py; NOTES, "Our own furniture words").
 EN_OWN_FTR := $(AF_EN_DIR)/assets/jp/en/own_ftr.stamp
+# The GameCube's NES where the cartridge has its seven Famicoms with a game in
+# them: seven objects for the N64 made of the disc's model (its lists' orders
+# turned into the N64's, its textures and palettes laid out as the N64's), in
+# a segment of their own after code (ftr_en_nes: a Famicom's file has no room
+# for one), and the seven pieces' profiles pointed at them in the en tree's
+# copies of their overlays' data; the cartridge's Famicoms without the disc's
+# files, the segment empty (tools/af_gc_nes.py; NOTES, "The NES").
+EN_GC_NES := $(EN_ASSETS)/ftr_nes.bin
 # The menus' word textures the 2010 patch left in Japanese: the town tune's
 # note names (the GameCube's letters from the disc, the cartridge's kana
 # without it), the birthday's month and day and the catchphrase window's
@@ -399,6 +407,13 @@ $(EN_OWN_FTR): tools/af_own_ftr.py tools/af_gc_signs.py tools/nafe_diff.py $(AF_
 	$(PYTHON) tools/af_own_ftr.py $(BASEROM) $(AF_EN_DIR)
 	@touch $@
 
+# also writes the seven overlays' .data.s, which splat rewrites at every extract
+$(EN_GC_NES): tools/af_gc_nes.py tools/af_gc_signs.py tools/af_font.py tools/gciso.py tools/nafe_diff.py $(GC_REL) \
+		$(AF_EN_DIR)/.stamp-extract
+	mkdir -p $(EN_ASSETS)
+	$(PYTHON) tools/af_gc_nes.py $(BASEROM) $(AF_EN_DIR) \
+		$(if $(GC_REL),$(GC_DIR)/foresta.map $(GC_DIR)/foresta.rel.szs)
+
 # writes three segments' .bin, which splat rewrites at every extract
 $(EN_MENU_TEX): tools/af_menu_tex.py tools/af_gc_signs.py tools/af_font.py tools/msgbank.py $(EN_FONT) $(GC_REL) \
 		$(AF_EN_DIR)/.stamp-extract
@@ -428,7 +443,7 @@ $(EN_NAFE_LOGO): tools/af_nafe_logo.py tools/nafe_diff.py $(wildcard $(NAFE_ROM)
 	@touch $@
 
 en-bank: $(EN_ASSETS)/msg_text.bin $(EN_ASSETS)/mail_text.bin $(EN_NAMES) $(EN_FONT) $(EN_UI) $(EN_NAFE_GFX) $(EN_NAFE_LOGO) $(EN_ITEMS) \
-	$(EN_GC_SIGNS) $(EN_OWN_SIGNS) $(EN_OWN_FTR) $(EN_MENU_TEX) $(EN_DIAL) $(EN_ANSWERS)
+	$(EN_GC_SIGNS) $(EN_OWN_SIGNS) $(EN_OWN_FTR) $(EN_GC_NES) $(EN_MENU_TEX) $(EN_DIAL) $(EN_ANSWERS)
 
 # The deliverable: the en ROM as a BPS patch against the user's dump in .z64 order (build/baserom.z64),
 # made and applied back by tools/bps.py; any BPS patcher applies it.

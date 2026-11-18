@@ -460,6 +460,29 @@ FIRE, BUS STOP, la tabla de precios del baño, ROYAL A, MILK, CARDS y
 CASH, GO SLOW, N64 y la placa NINTENDO ("Our own signs", "Our own
 furniture words").
 
+Los ocho muebles que en el cartucho son una Famicom (los siete con un
+juego y el de la unidad de disco) se dibujan como la NES de GameCube
+(`tools/af_gc_nes.py`, "The NES"). El modelo se lee del disco del
+usuario al compilar: sus tres listas de dibujo se traducen a las
+órdenes del N64 (GameCube nombra las texturas con su tamaño, empaqueta
+los triángulos a cinco bits por vértice y guarda las texturas en
+teselas), y de cada mueble sale un bloque con la consola, sus dos
+mandos y, encima, la caja del juego con su etiqueta; el de la unidad
+de disco es una NES sin juego, como en GameCube. Cada bloque ocupa
+4.576 bytes y en el cartucho los ficheros de los muebles están a 4 KB
+uno de otro, así que los ocho van en un segmento propio al final de la
+ROM y las fichas de los ocho muebles apuntan a él. No cuesta memoria:
+la habitación reserva el mismo hueco por mueble. El propio cartucho
+dice qué juego es cada mueble (un mensaje por número de juego), y
+coincide con el orden de la tabla de etiquetas de GameCube. Sin los
+ficheros del disco, los ocho siguen siendo la Famicom del cartucho.
+`make signs-check-en` lo comprueba en la ROM y en el juego: los ocho
+bloques cargados enteros, la pregunta de cada mueble y el número de
+juego que se entrega al emulador del cartucho. Ahí se detiene: el
+emulador de NES del cartucho usa tareas que nuestro emulador de
+pruebas no cuenta como imágenes, así que ninguna prueba ha jugado
+nunca a uno de sus juegos.
+
 La pasada de pruebas del texto ("The official text's codes and the
 GameCube's own") encontró dos clases de fallo en el texto oficial. La
 primera: 688 mensajes de GameCube llevaban sus propios códigos, los que
