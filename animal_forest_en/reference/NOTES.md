@@ -4822,6 +4822,123 @@ a check that runs; none is left.
   `func_80091AB0_jp` clears of it before it fills it in. Both are
   comments of the patch; the matching build is the cartridge's as before.
 
+## The closing pass's battery
+
+What "The rooms a day does not reach", "The first job", "A trip, played"
+and "The last notes without a source" leave to this section: every check
+on the tree that ends the pass, each a goal of one make.
+
+- **The battery.** On the commit `8c098db`, 21 goals of one make, three
+  at a time (`make -k -j3 -Otarget`), the ROM md5 0aa2f8617196...
+  (the same bytes at each of its three builds).
+  Nineteen passed: `test` (139 tests), `verify` (the matching build is
+  the cartridge's), `emu-check` (both ROMs), `emu-determinism` (2,035
+  frames compared), `psel-check-en`, `resetti-check-en`,
+  `save-check-en`, `letters-check-en`, `board-check-en` (12 boards),
+  `write-check-en`, `words-check-en`, `notice-check-en`,
+  `signs-check-en`, `menus-check-en`, `year-check-en` (the 21 dates,
+  every block of each reached), `reset-check-en` (the seven power-ons,
+  the Saturday's show), `job-check-en` (its 17 checks: a town of 6
+  animals greeted in 9 talks, 181 pages of 73 messages read, 13 choices
+  answered, 7 menus opened over a talk, the arena's largest free block
+  81,456 bytes at its least), `trip-check-en` (its 15: the five
+  power-ons, 93 pages, the arena's least 83,504). Two failed, each for
+  a reason of its own check.
+- **The gyroid and the animal.** `memory-check-en`: five failures of
+  one cause. Its chain of shops powers one flash on four times, each
+  shop gone into and the game saved at the gyroid for the next. On
+  this build's town, the day after the shop's renewal, an animal by the
+  houses that has not met the player has its first word as the player
+  walks to the gyroid: three pages, no choice, and the game goes on.
+  The check took the window that opened for the gyroid's; nothing was
+  saved, and the two shops after it were never built. Played again by
+  hand with what is said printed: the animal's pages are clean, and the
+  gyroid, spoken to after, offers its four answers and saves.
+  `save_and_stop` (`tests/emu_memory.py`) tries the gyroid again while
+  the game has not left for its title, three times in all, and once
+  where no save is expected (a new player's gyroid). The same step in
+  the first job's check and the trip's had met no animal.
+- **Two messages of ours.** `messages-check-en`: one failure, the first
+  of its checks. It held the bank to the 99 messages taken from the
+  2010 translation, each laid out for the en font; two of them (2160,
+  6069) have been ours since "Three words" ("A trip, played"), and the
+  build takes our files after the 2010 translation's. The check now
+  counts a message of ours with the number of one taken as ours: 97
+  taken and 1,073 of ours, every one in the bank as its file's message
+  laid out. Its other checks had passed (728 messages shown, 2,030
+  lines measured).
+- **The four run again.** On `66e86ca` (the two checks mended, and the
+  trip's words on the Pak's file; the ROM the same, md5
+  0aa2f8617196...), as goals of one make, four at a time: `test` (140
+  tests); `memory-check-en`, its 103 checks, the chain of shops whole
+  (the Conveni's session reads 18 pages where it read 13: the animal's
+  and then the gyroid's); `job-check-en`, 17; `trip-check-en`, 15, each
+  gyroid's save at the first try; `messages-check-en`, no failure
+  (97 taken and 1,073 of ours in the bank as laid out, 728 messages
+  shown, 2,030 lines measured, 258 played through with the cartridge's
+  talk orders). `tests/emu_messages.py` is imported by three checks
+  that were not run again (resetti, words, year): by its syntax tree
+  only its `main` and its docstring differ from the battery's, and
+  none of them calls it. So every goal of the battery has passed on
+  this ROM, nineteen on `8c098db` and the two mended on `66e86ca`.
+- **The delivered build's arena.** From that last run of the memory
+  check, the town of 4 players and 15 animals: on the 21 tours the
+  largest free block is 64,512 bytes at its least (New Year's Day,
+  block 2,3); walked into from every side on the five dates of
+  `EDGE_DATES` (106 crossings each), 59,104 (New Year's Day, the
+  houses' block from the block west of it), where all that can come on
+  top at once leaves 24,624 in the tightest (block 3,1 from 3,2), 16,384
+  to be kept; a block's room is up to 34,176 bytes apart by the way in;
+  between two looks the least is 58,016. At the title, START's 63,872
+  bytes are asked of 175,568 at the least. The first job never has
+  less than 81,456, the trip's five power-ons 83,504. `code_en` is
+  0xBC50 bytes, as it was before the three fixes of the letters.
+- **Each fault seen to fail first.** The three faults of the letters'
+  extension were each tried on a build without their fix, by the check
+  that now holds the build to it. The traveller's: the trip's check on
+  the build before it, three failures (the rest gone from the flash
+  while the player is away; the letter ending at its 96th byte at home;
+  the flash without it after the gyroid's save). The animals': the
+  commit before that fix built again in a second tree (its ROM the
+  same to the byte as the one the commit had made, md5 10d093c8d2be...),
+  the first job's check on it, sixteen passed and the one that follows
+  the letter failed, the animal with the letter and the extension
+  without its rest in both flashes. The Controller Pak's: the trip's
+  check with its new steps on the build before that fix (md5
+  0a38482ce760...), the two checks that hold the rest after the store
+  failed, the extension without the rest in RAM and in the flash; the
+  third, the letter fetched back, did not get as far on that build,
+  its steps being wrong then (the hand begins on the pockets' first
+  letter, not on the store; the clerk asks again when the menu is
+  done), and was not tried on it again once they were right.
+- **What the checks do not hold on every town.** A build's town is its
+  own: the same route's frames, other code, another town (the build
+  before the letters' fixes and the three that made them drew four, by
+  the ids the game gave them). Twice a check failed for where an animal
+  stood: at the gyroid (above), and at its own door, where the player
+  who walks up to it is let into its house and the check's way out of a
+  room (straight down) does not find the door from where the talk
+  ended; that one was met by hand on an earlier build's town and is not
+  on the delivered build's at the hours the checks use (CLAUDE.md, "An
+  animal met at its door"). Both fail loudly, and neither is the
+  game's.
+- **The trials and the restarts.** The machine the pass ran on was
+  restarted three times, each restart ending every process and keeping
+  the disk. A first battery was cut after 26 minutes; a second, on the
+  build before the trip (md5 fb49495f...), had passed seventeen goals
+  when the third restart came, the first job's check and the memory
+  check among them; a third was stopped by hand, the ROM about to
+  change. So each new check was tried alone before the battery: the
+  first job's on three builds' towns (16 of 16, then 17 of 17 with the
+  letter followed, and 17 of 17 in the battery), the trip's on two (12
+  of 12, then its post office's steps by hand until they went, and 15
+  of 15 in the battery). The battery above is the only one that ran to
+  its end.
+- **The figures of the sections above** are those of the builds they
+  were measured on, each named there by what it was; the delivered
+  build's are this section's and the reports' the checks write
+  (`build/emu-memory-en/report.json` and its kin).
+
 ## Other emulators (ares, Project64, RetroArch, RMG and simple64)
 
 - **ares** (v148, `emu/ares/`: `build.sh` pins it and builds its N64 core

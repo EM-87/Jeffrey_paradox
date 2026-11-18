@@ -803,14 +803,15 @@ anterior), ya cubierto:
   dentro del propio juego, en las dos funciones por las que se pide
   memoria, desde que se enciende: en ningún recorrido ni en ninguna
   habitación el juego recibe un «no», y queda apuntado el mínimo real,
-  también entre dos fotogramas. Y en tres fechas (Año Nuevo, la mañana
-  de febrero más justa y la noche de los fuegos) entra en cada una de
-  las 30 parcelas desde todos sus lados, 106 cruces cada vez. El punto
-  más justo del año no era el del paseo anterior: son 60,1 KB libres
-  (Año Nuevo, la parcela de las cuatro casas entrando desde el sur), y
-  si además llegara de golpe todo lo que puede aparecer sobrarían 25,6 KB,
-  donde se exigen 16. Con nieve, el hueco de una misma parcela llega a
-  cambiar 34,8 KB según por dónde se entre.
+  también entre dos fotogramas. Y en cinco fechas (las cuatro con nieve
+  y la noche de los fuegos) entra en cada una de las 30 parcelas desde
+  todos sus lados, 106 cruces cada vez. En la ROM que se entrega, el
+  punto más justo del año son 57,7 KB libres (Año Nuevo, la parcela de
+  las cuatro casas entrando desde el oeste), y si además llegara de
+  golpe todo lo que puede aparecer sobrarían 24,0 KB, donde se exigen
+  16. Con nieve, el hueco de una misma parcela llega a cambiar 33,4 KB
+  según por dónde se entre. (Cada compilación con cambios de código
+  genera otro pueblo, así que estas cifras son las de esta ROM.)
 - **Los actores que solo estaban «leídos».** El contador apunta también
   cada actor que el juego crea, en el único sitio del código donde se
   crean, desde el encendido y en todas las sesiones de la prueba. De los
@@ -953,6 +954,18 @@ pruebas se fabricaban con ellos ya recorridos (o nunca salían de ellos).
   jugarlo: en ese menú las cartas se cogen y se sueltan con Z, y el
   juego no deja guardar en el Pak una carta escrita por uno mismo y sin
   enviar.
+- **Cada fallo, visto fallar antes de darlo por arreglado.** Los tres
+  fallos de las cartas se probaron también en una ROM sin su arreglo,
+  con la misma prueba que ahora lo vigila: en las tres la prueba falla
+  justo ahí y en nada más.
+- **La batería final.** Las 21 comprobaciones como objetivos de un solo
+  `make` sobre la ROM que se entrega: 19 pasaron a la primera. Las otras
+  dos fallaron por la propia prueba, no por el juego, y están
+  corregidas y vueltas a pasar: en la de memoria, un vecino que aún no
+  conocía al jugador se le adelantaba a hablar justo cuando la prueba
+  iba al giroide a guardar (ahora la prueba vuelve al giroide); la de
+  mensajes seguía contando como «del parche de 2010» dos mensajes que
+  ya son nuestros. La ROM no cambió entre una pasada y otra.
 - **Tres palabras sueltas.** Un barrido del texto ya compilado buscando
   palabras que el resto del guion no usa encontró tres: un «Memory Pak»
   partido entre dos líneas (por eso se le escapó a la revisión que
