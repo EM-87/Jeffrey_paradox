@@ -1,0 +1,12 @@
+# Our English for the bulletin board's own notice on how it is used (33): the GameCube's English has the
+# pages turned with a control of its own pad, where the cartridge's notice names the C Buttons (and so does
+# the board's own strip of buttons under it). From the cartridge's text. Six lines of the board's 192 pixels
+# at most. tools/msgbank.py's dump form; `make script` lays this over the mail_body draft.
+
+## 33
+       ～How to use～
+Press the A Button to write
+a new message. The C Buttons
+turn the pages, and the
+B Button closes the board.
+Try it out!{cd}

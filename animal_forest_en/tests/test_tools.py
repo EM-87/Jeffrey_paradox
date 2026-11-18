@@ -53,6 +53,7 @@ import ups  # noqa: E402
 from contact import read_png  # noqa: E402
 from n64emu import stick, to_physical, write_png  # noqa: E402
 sys.path.insert(0, HERE)
+import emu_job  # noqa: E402
 import emu_memory  # noqa: E402
 import emu_reset  # noqa: E402
 import emu_year  # noqa: E402
@@ -783,6 +784,20 @@ class Script(unittest.TestCase):
         back = msgbank.Bank.parse_dump(dump)
         self.assertEqual(msgbank.encode(back[0]), raw)
         self.assertEqual(msgbank.render(back[0]), "To my sweet,\n,\n")
+
+    def test_no_text_names_a_control_the_cartridges_pad_has_not(self):
+        named = lambda text, **kw: [w for lv, w in af_text.check_message(   # noqa: E731
+            0, msgbank.parse(text), 32, 4, 192, **kw) if lv == "error" and "GameCube's pad" in w]
+        # a letter or a notice, a message (a colour's code between the words, a line's end), a string
+        self.assertEqual(len(named("Use the C Stick to turn\nthe pages.", letter=True)), 1)
+        self.assertEqual(len(named("Tilt that <COLORCHARS c3821e07>C\nStick!<MSGEND>")), 1)
+        self.assertEqual(len(named("the X Button", single=True)), 1)
+        self.assertEqual(len(named("Press START/PAUSE, then the Y Button.<MSGEND>")), 2)
+        # the cartridge's own: its C is four buttons, and it has a stick, a pad, A, B, R, Z and START
+        ours = "Press the A Button. The C Buttons turn the pages, the B Button ends. START, the R Button, " \
+               "the Control Stick, the Control Pad."
+        self.assertEqual(named(ours, letter=True), [])
+        self.assertEqual(af_text.gc_controls(msgbank.parse("a magic stick, an X, buttons")), [])
 
     def test_letter_banks_check_and_draft(self):
         body = msgbank.parse("Hello, <STR_FREE0>.\nThanks!\n")
@@ -2889,6 +2904,102 @@ class EmulatorChecks(unittest.TestCase):
         # the dates the check walks: each one of the year's, and more than one
         self.assertTrue(set(emu_memory.EDGE_DATES) <= {label for label, _, _ in emu_year.EVENTS})
         self.assertGreater(len(emu_memory.EDGE_DATES), 1)
+
+    def test_an_animal_has_met_the_player_once_its_memory_holds_them(self):
+        save = bytearray(0x10000)
+        save[emu_job.PRIVATE:emu_job.PRIVATE + 0x10] = b"cea   cea   " + bytes.fromhex("f066306a")
+        at, size = emu_job.emu_town.ANIMALS_AT, emu_job.emu_town.ANIMAL_SIZE
+        for i, npc in enumerate((0xE037, 0xE016, 0xE0CA)):
+            save[at + i * size:at + i * size + 2] = struct.pack(">H", npc)
+        self.assertEqual(emu_job.acquainted(save), set())
+        save[at + 0x10:at + 0x20] = save[emu_job.PRIVATE:emu_job.PRIVATE + 0x10]             # the first's first memory
+        save[at + 2 * size + 0x0C + 0xB0 * 3 + 4:][:0] = b""
+        third = at + 2 * size + 0x0C + 0xB0 * 3 + 4                                          # the third's fourth
+        save[third:third + 0x10] = save[emu_job.PRIVATE:emu_job.PRIVATE + 0x10]
+        self.assertEqual(emu_job.acquainted(save), {0xE037, 0xE0CA})
+        # the player's name in an animal's home or after it is no memory
+        save[at + size + emu_job.emu_town.ANIMAL_HOME:][:0] = b""
+        home = at + size + emu_job.emu_town.ANIMAL_HOME
+        save[home:home + 0x10] = save[emu_job.PRIVATE:emu_job.PRIVATE + 0x10]
+        self.assertEqual(emu_job.acquainted(save), {0xE037, 0xE0CA})
+
+    def job(self, **more):
+        """The first job played, as tests/emu_job.py's report reads it: (the job, the flash powered on again,
+        what the flash holds), nothing amiss."""
+        j = emu_job
+        count = {"fails": 0, "failed": 0, "least": 80000, "calls": 4000, "most": 250720, "made": {}}
+
+        def chore(kind, **what):
+            return dict({"kind": kind, "nook": "free", "open": True, "for": 0, "done": True}, **what)
+        chores = [chore(j.CLOTHE, worn=True, kept=True), chore(j.PLANT, bags=10, planted=10, tries=11),
+                  chore(j.GREET, met=6, animals=6), chore(j.FURNITURE, found=True, ended="free", menus=0, **{"for": 0xE037}),
+                  chore(j.LETTER, written=True, mailed=True, **{"for": 0xE0D0}), chore(j.VILLAGERS, asked=1, found=True),
+                  chore(j.CARPET, found=True, ended="free", menus=1, **{"for": 0xE016}),
+                  chore(j.AXE, found=True, ended="free", menus=2, **{"for": 0xE0D0}), chore(j.NOTICE, board=True)]
+        played = {"house": True, "chores": chores, "over": "free", "hang": None, "pages": 240, "messages": 70,
+                  "problems": [], "watch": dict(count), "made": [], "animals": 6, "asked": 40, "menus": 5,
+                  "gyroid": {"spoken": True, "asked": 2, "left": True, "pages": 5}, "flash": "job.fla",
+                  "trade": {"in": True, "sold": True, "bought": True, "wallet": [0, 325, 205]},
+                  "paid": {"in": True, "wallet": [205, 105]},
+                  "end": {"quest": True, "flags": 0, "scene": 7, "pockets": [0x2401], "clothes": 0x2410}}
+        for key, value in more.items():
+            played[key] = dict(played[key], **value) if isinstance(value, dict) and isinstance(played.get(key), dict) \
+                else value
+        again = self.session("again", 20, pages=7)
+        return played, again, {"name": "636561", "flags": 0, "clothes": 0x2410}
+
+    def job_failed(self, played, again, kept):
+        emu_job.failures.clear()
+        with contextlib.redirect_stdout(io.StringIO()):
+            emu_job.report(played, again, kept)
+        failed = list(emu_job.failures)
+        emu_job.failures.clear()
+        return failed
+
+    def test_the_first_job_is_held_to_each_chore_and_to_its_end(self):
+        j = emu_job
+        self.assertEqual(self.job_failed(*self.job()), [])
+        # every check fails when the job was not played: the house, nine chores, its end, the Bells, the
+        # payment, the pages, the gyroid, the flash again
+        self.assertEqual(len(self.job_failed(None, None, None)), 16)
+
+        def with_chore(kind, **what):
+            played, again, kept = self.job()
+            played["chores"] = [dict(c, **what) if c["kind"] == kind else c for c in played["chores"]]
+            return played, again, kept
+        for kind, what in ((j.CLOTHE, {"worn": False}), (j.CLOTHE, {"kept": False}), (j.PLANT, {"planted": 9}),
+                           (j.GREET, {"met": 5}), (j.FURNITURE, {"found": False}), (j.CARPET, {"ended": "menu"}),
+                           (j.LETTER, {"written": False}), (j.LETTER, {"mailed": False}), (j.VILLAGERS, {"asked": 0}),
+                           (j.AXE, {"done": False}), (j.NOTICE, {"board": False}), (j.PLANT, {"nook": "not into the shop"})):
+            self.assertEqual(len(self.job_failed(*with_chore(kind, **what))), 1, (kind, what))
+        # a chore never given: its own check and the order's
+        played, again, kept = self.job()
+        played["chores"] = [c for c in played["chores"] if c["kind"] != j.AXE]
+        self.assertEqual(len(self.job_failed(played, again, kept)), 2)
+        # a chore tried twice is judged by its last try
+        played, again, kept = self.job()
+        first = dict(next(c for c in played["chores"] if c["kind"] == j.CARPET), done=False, found=False)
+        at = [c["kind"] for c in played["chores"]].index(j.CARPET)
+        played["chores"].insert(at, first)
+        self.assertEqual(self.job_failed(played, again, kept), [])
+
+    def test_the_first_jobs_end_its_bells_and_its_save(self):
+        ok = self.job()
+        for more in ({"end": {"flags": 4}}, {"end": {"quest": False}}, {"end": {"scene": 9}}, {"over": "limit"},
+                     {"trade": {"sold": False}}, {"trade": {"bought": False}}, {"trade": {"wallet": [0, 0, 0]}},
+                     {"trade": None}, {"paid": None}, {"paid": {"wallet": [205, 205]}}, {"paid": {"in": False}},
+                     {"problems": ["0x7f4 at 0: a line past its bubble"]}, {"watch": {"fails": 1}},
+                     {"gyroid": {"asked": 0, "left": False}}, {"gyroid": None}, {"hang": "no frame"}):
+            self.assertEqual(len(self.job_failed(self.job(**more)[0], ok[1], ok[2])), 1, more)
+        # the flash powered on again: the town must load, the house be gone into, the gyroid save, and the save
+        # be the one of the player who did the job
+        played, again, kept = ok
+        self.assertEqual(len(self.job_failed(played, None, kept)), 1)
+        self.assertEqual(len(self.job_failed(played, again, None)), 1)
+        self.assertEqual(len(self.job_failed(played, again, dict(kept, flags=4))), 1)
+        self.assertEqual(len(self.job_failed(played, again, dict(kept, clothes=0x2401))), 1)
+        self.assertEqual(len(self.job_failed(played, dict(again, saved=None), kept)), 1)
+        self.assertEqual(len(emu_job.CHORES), 9)
 
     def newcomer(self, **more):
         """The answer of the road of a player who comes later, as the report reads it: nothing amiss."""

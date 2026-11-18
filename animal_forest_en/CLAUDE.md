@@ -61,7 +61,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
    fullest and in the rooms), one to a string the cartridge's code loads
    into fewer bytes than its English takes, or to a special character's
    name, `make words-check-en`, one to the start of play, a save or Mr.
-   Resetti's visits `make reset-check-en`, one to `emu/` `make
+   Resetti's visits `make reset-check-en`, one to what a new game's
+   first hour goes through (Nook's first job: the item screen and its
+   tags, a letter written from the pockets and mailed, the bulletin
+   board, the shop's counter) `make job-check-en`, one to `emu/` `make
    emu-determinism`. And after a
    push, read the CI run's jobs: its emulator job failed for want of nasm
    from the first commit on, 89 runs, while the tools' tests passed, and a
@@ -343,16 +346,27 @@ the why and the state, `reference/NOTES.md` for what is verified.
   what can come on top; a hook in the allocator's two ways in and in the
   one place where an actor is made, from power-on, in every session: the
   arena never says no, and every actor made is counted; the town walked
-  into every block from every side on three dates; every actor no tour
-  finds loaded accounted for, the nine nothing makes never made; the
+  into every block from every side on the dates of snow and a summer
+  night; every actor no tour finds loaded accounted for, the nine nothing
+  makes never made; the
   player's house, one full of gyroids, the shop, the post office, the
   police box and an animal's house gone into; and over the power-ons of
   one flash, saving at the gyroid in between, the house enlarged twice
   by the game and furnished, the shop grown three times by the game and
   each gone into, its signs in RAM, both tents on the day the game sets,
-  the igloo, the raffle's day, the house at night; the title left alone
-  through its five demos, where START asks the arena for the save's
-  buffer: `make memory-check-en`),
+  the igloo, the raffle's day, the house at night; a player made by the
+  game's own road in the same town with a house free (the train of a
+  town that is there, Nook at the houses, a house taken); the title left
+  alone through its five demos, where START asks the arena for the
+  save's buffer: `make memory-check-en`),
+  `emu_job.py` (a new game's first hour played with the pad from the
+  houses' state: the house chosen, then Nook's first job chore by chore
+  as its record in the player's data asks (the work clothes put on from
+  the item screen, the seeds planted, everybody greeted, three
+  deliveries, a letter written and mailed, a notice on the board), the
+  job's flags cleared by the game, something sold and something bought
+  in the shop, the gyroid's save, the flash powered on again; every page
+  judged: `make job-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.
@@ -392,11 +406,13 @@ the why and the state, `reference/NOTES.md` for what is verified.
   and 32 KB at its least on the morning-aerobics date's tour; the grown
   text now fills the slots other grown sections left in code and the
   font's swap table is packed: `code_en` is 0xBC50 (48 KB). The year's
-  least is 67,568 bytes in a young town and 65,888 in one of four players
-  and 15 animals, both on a winter morning in the block of the four
-  houses with the snowballs in it, and a room has over 400 KB (NOTES,
-  "Item names", "The second review", "What the second review had left
-  open"). `make year-check-en` and `make memory-check-en` hold it to a
+  least on a tour is 66,544 bytes in a young town and 62,896 in one of
+  four players and 15 animals, on New Year's Day in a block with the
+  snowballs in it; walked into from every side, the block of the four
+  houses has 56,080 that day; and a room has over 400 KB (NOTES, "Item
+  names", "The second review", "What the second review had left open",
+  "The rooms a day does not reach"). `make year-check-en` and `make
+  memory-check-en` hold it to a
   floor, and the second sums what can come into a block on top of what
   it holds (a balloon, bees, a fish let go, a tool in an animal's hand,
   the snowballs) against every block's room. An animal, a special
@@ -481,6 +497,13 @@ the why and the state, `reference/NOTES.md` for what is verified.
   or a word of another length, never matches (`tools/af_dial.py
   phrases` at every build; `make resetti-check-en` types them in the
   running game).
+- **The official English names the GameCube's pad.** Its C is a stick,
+  it has an X and a Y; the cartridge's C is four buttons. The bulletin
+  board's own notice had the pages turned with the stick, in a letter
+  bank no control was ever looked for in. `af_text.py` refuses a text
+  that names one (`GC_CONTROLS`), in every bank; a control the text
+  names is held against the cartridge's Japanese (NOTES, "The first
+  job").
 - **A tool given the wrong image must refuse.** A file lies at its vrom
   in the decompressed image only; `af_items.n64_name`, given the dump,
   answered every name with nothing, and the listing that would have shown
@@ -593,10 +616,14 @@ the why and the state, `reference/NOTES.md` for what is verified.
   on the way the player came: what the block before held decides where
   the next one's actors land, and the same block on the same day
   differs by up to 35 KB (a day of snow: whether the block before had
-  the snowballs' overlay loaded). `tests/emu_memory.py` walks every way
-  into every block on three dates (`edges`) and hooks the allocator
-  itself (`watch`: the least after any allocation, between two frames
-  too). A figure in the notes says which walk it is from.
+  the snowballs' overlay loaded). What a block keeps with all that can
+  come on top differs by 18 KB with it, more than the 16 KB a tour is
+  held to keep: a tour's word is not enough on a day of snow.
+  `tests/emu_memory.py` walks every way into every block on the dates of
+  snow and a summer night (`edges`; it fails if a tour meets the
+  snowballs on a date it does not walk) and hooks the allocator itself
+  (`watch`: the least after any allocation, between two frames too). A
+  figure in the notes says which walk it is from.
 - **Count what is made where it is made.** A look between frames misses
   what comes and goes, and a table read says where an actor could be,
   not where it is: reading had put three actors in places they are not.
@@ -620,6 +647,27 @@ the why and the state, `reference/NOTES.md` for what is verified.
   top" that counts the postman counts nothing real, and one that counts
   overlays without instances counts half (`tests/emu_memory.py` did both
   at first).
+- **A town stamped by hand skips the road to it.** The game lets nobody
+  save before the first job for Nook is done, so the checks' towns were
+  made with the job marked done, and for a long time nothing played the
+  hour every new game starts with, nor the road of a player who comes
+  to a town that has players: both go through code and text no saved
+  town reaches (the item screen worked with the pad, the address book,
+  the post office's counter, a train with another guide). The game's
+  own lists say which roads there are: the scenes' table, the starts of
+  play (`m_start_data_init.c`), the kinds a quest's record takes. Hold
+  the checks against those, not against what a saved town happens to
+  pass (`tests/emu_job.py`, `tests/emu_memory.py`'s newcomer).
+- **A menu can open over a talk.** The item screen (to hand something
+  over, to choose what to sell), a letter held up: the window is not
+  hidden then, and a loop that presses A while a window shows presses
+  it into the menu for as long as it is allowed. Look for the menu
+  first (`Town.menu_open`), then at the window.
+- **The item screen's hand starts on the first pocket** each time START
+  opens it, and a tag's entries depend on the pocket and on the place: a
+  bag of seeds has an entry to plant only where the ground before the
+  player is free. A check that works the screen reads the pockets after
+  each try rather than trusting the entry.
 - **A talk can start by itself.** On Halloween night the animals run the
   player down, ask for candy and open the pockets; a tour that only walks
   stands there until its tries run out and then reports blocks it "could

@@ -63,7 +63,11 @@ make reset-check-en               # enciende siete veces la misma partida, guard
                                   # quinta, que asoma en el concierto del sábado)
 make memory-check-en              # la memoria libre en un pueblo lleno (4 jugadores, 15 vecinos)
                                   # en las 21 fechas del año, entrando en cada parcela por todos
-                                  # sus lados, y dentro de casas, tiendas, tiendas de campaña e iglú
+                                  # sus lados, y dentro de casas, tiendas, tiendas de campaña e iglú;
+                                  # y la llegada de un jugador nuevo a ese pueblo
+make job-check-en                 # la primera hora de una partida nueva jugada con el mando: el
+                                  # trabajo de Nook encargo a encargo, vender, comprar, pagar la
+                                  # deuda, guardar y volver a encender
 make ares                         # el segundo emulador, ares, sin ventana (y su aplicación)
 make test                         # tests de las herramientas, sin ROM
 make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010: para estudiarlo, y
@@ -864,6 +868,43 @@ anterior), ya cubierto:
   comprueba en marcha: en cada página que leen las pruebas se mira que
   ninguna línea se salga del bocadillo y que la placa del nombre no
   caiga en la palabra japonesa de relleno.
+
+Y lo que salió al repasar todo otra vez antes de cerrar: dos caminos del
+juego que ninguna prueba había jugado nunca, porque los pueblos de las
+pruebas se fabricaban con ellos ya recorridos.
+
+- **La primera hora de toda partida nueva.** El juego no deja guardar
+  hasta terminar el primer trabajo para Nook (una hora de recados), así
+  que las partidas de prueba se sellaban a mano con el trabajo dado por
+  hecho, y ese tramo no lo había jugado nadie en la ROM en inglés.
+  `make job-check-en` lo juega entero con el mando, como un jugador:
+  elige casa, se pone el uniforme desde la pantalla de objetos, planta
+  las flores y los arbolitos, saluda a todos los vecinos, entrega un
+  mueble, escribe una carta a una vecina y la echa en correos, entrega
+  una alfombra y un hacha (la vecina enseña entonces la carta que le
+  llegó), escribe un anuncio en el tablón, y Nook da el trabajo por
+  terminado. Después vende algo a Nook, compra algo de su mesa, paga
+  100 bayas de la deuda en correos, guarda en el giroide (que hasta
+  entonces no dejaba) y vuelve a encender la consola con esa partida.
+  La prueba no sigue un guion fijo: lee en los datos del jugador qué
+  encargo toca y para qué vecino, y exige que el propio juego lo dé por
+  hecho. Todos los menús (las etiquetas de los objetos, la libreta de
+  direcciones, el dial, las preguntas al terminar una carta o un
+  anuncio, el mostrador de pagos) salen en inglés y funcionan.
+- **Un mando que no existe.** Lo único que falló en esa hora: el aviso
+  de ayuda del tablón de anuncios decía que las páginas se pasan con el
+  «C Stick», la palanca del mando de GameCube; el cartucho dice «los
+  botones C». Ahora el aviso es texto propio traducido del cartucho, y
+  la compilación rechaza cualquier texto que nombre un control que el
+  mando de N64 no tiene (C Stick, botones X o Y, START/PAUSE): no hay
+  ningún otro. Además comparé con el japonés, mensaje a mensaje, todos
+  los controles que se nombran (36 mensajes): coinciden.
+- **Un jugador que llega después.** Crear un segundo jugador en un
+  pueblo que ya existe va por otro camino (otro tren, con otro guía que
+  no acepta un nombre repetido; Nook enseña las casas y deja mirar las
+  ocupadas). `make memory-check-en` lo recorre en el pueblo lleno, el
+  día más justo del año, con una casa libre: todo en inglés y limpio, y
+  la memoria aguanta como en cualquier parcela.
 
 ## Dónde está cada cosa
 

@@ -1,0 +1,769 @@
+#!/usr/bin/env python3
+"""The first job, played: a new game's first hour as the game has a player go through it, in the en build.
+
+    tests/emu_job.py EMU_DIR EN_ROM AF_EN_DIR STATE OUT_DIR
+
+STATE is a state of EN_ROM in play (make route-en's 4-houses.st): a new game, Nook showing the houses. The
+game lets nobody save before the first job for Nook is done, an hour of errands; the towns the other checks
+power on are stamped by hand with that job marked done (tests/emu_year.py, town_image), so none of them goes
+this road. Here it is gone with the pad, as a player goes it, the allocator's hook in place
+(tests/emu_memory.py's watch):
+
+  the first house chosen by the game's own talk (tests/emu_town.py); then, chore by chore, what the job's
+  record in the player's data asks for (PrivateInfo + 0x25C, the first of its errands: its kind, its progress,
+  2 while a chore is open and 0 once it is done, and the animal it is for; mQst_GetFirstJobData), Nook spoken
+  to in his shop between them:
+
+    3   the work clothes he hands over put on: the item screen (START), the pocket's tag's first entry, which
+        takes the clothes in the hand, the hand moved to the player's figure, A;
+    4   the bags of seeds and the saplings planted: each one's tag's second entry, at a free place by the shop;
+    12  everybody greeted: every animal of the town found and spoken to, until each one's own memory holds
+        the player (Animal_c.memories);
+    5   a piece of furniture delivered to the animal the record names: spoken to, the first answer; where the
+        item screen opens to ask which, the pocket Nook filled;
+    6   a letter written to the animal the record names (the paper's tag's second entry, the address book's
+        entry, letters typed on the dial, START, the end's question answered) and mailed at the post office
+        (the clerk's first answer, the letter chosen in the item screen, no second one);
+    13  Nook not ready: an animal asked for work, then Nook again;
+    7   a carpet delivered; 8 an axe delivered (to the letter's animal, who shows the letter that came);
+    9   a notice written on the bulletin board by the houses (A at the board, A to write, the dial, START, the
+        end's question answered, B to leave);
+
+  and Nook's last word: the record empty, the job's two event flags cleared by the game itself
+  (emu_year.JOB_BITS), the player sent out of the shop. Then the first Bells: back in the shop, now its
+  keeper's, something of the pockets is sold (his second answer, the pocket chosen in the item screen, his
+  price taken) and something bought off his table (A before it, the first answer); the pocketbook must go up
+  and down and the pockets with it; and at the post office, whose clerk now takes payments towards the house
+  (her second answer), a hundred Bells are set on the counter and paid. Then the player's own gyroid, which had no save to offer, saves and the
+  game leaves for its title; and the flash it wrote is powered on again in a process of its own
+  (tests/emu_memory.py's session): the town loads, the house is gone into, the gyroid saves again.
+
+Every page read on the way is judged as the other checks judge one (emu_year's Town.page_problems: kana, a
+token left in, the name plate, a line drawn past its bubble); the arena must never say no. A choice is
+answered by its place, never by its words: the first answer, but for the clerk's "more?" (the last).
+"""
+
+import json
+import os
+import struct
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, "..", "emu"))
+sys.path.insert(0, os.path.join(HERE, "..", "tools"))
+sys.path.insert(0, HERE)
+import aflz  # noqa: E402
+import emu_memory  # noqa: E402
+import emu_psel  # noqa: E402
+import emu_reset  # noqa: E402
+import emu_save  # noqa: E402
+import emu_town  # noqa: E402
+import emu_year  # noqa: E402
+from afplay import DIRECTIONS  # noqa: E402
+from n64emu import N64, A, B, START, Hang, stick  # noqa: E402
+
+FG = emu_memory.FG_SCENE
+PRIVATE = emu_psel.PRIVATE_AT           # the first player's record in the save (PrivateInfo)
+POCKETS, CLOTHES = 0x14, 0xA76          # PrivateInfo: its 15 pockets (u16 each); the clothes worn (the item at +2)
+MAIL, MAIL_SIZE = 0x40A, 0xA4           # PrivateInfo.mail: the ten letters carried (Mail_c)
+WALLET = 0x38                           # PrivateInfo.inventory: the Bells in the pocketbook
+COUNTER = tuple((x, z) for z in (240, 220, 200, 260) for x in (180, 220, 260, 300, 140))   # before the shop's table
+PAYMENT = 100                           # paid towards the house: the hundreds' figure of the counter up by one
+QUEST = 0x25C                           # PrivateInfo.errands[0], the first job's record (QuestErrand, 0x50 bytes)
+Q_RECIPIENT = 0x0C                      # QuestErrand.recipient: the animal's name on the map first (0xE000 + n)
+NONE = 3                                # QuestBase.questType of a record that holds nothing
+# QuestBase.questKind through the first job, in the order Nook gives them (read in the running game)
+SHOP, CLOTHE, PLANT, GREET, FURNITURE, LETTER, VILLAGERS, CARPET, AXE, NOTICE = 14, 3, 4, 12, 5, 6, 13, 7, 8, 9
+CHORES = (CLOTHE, PLANT, GREET, FURNITURE, LETTER, VILLAGERS, CARPET, AXE, NOTICE)
+WHAT = {SHOP: "to the shop", CLOTHE: "the work clothes put on", PLANT: "the seeds and saplings planted",
+        GREET: "everybody greeted", FURNITURE: "a piece of furniture delivered", LETTER: "a letter written and mailed",
+        VILLAGERS: "an animal asked for work while Nook gets ready", CARPET: "a carpet delivered",
+        AXE: "an axe delivered", NOTICE: "a notice written on the bulletin board"}
+OPEN, DONE = 2, 0                       # QuestBase.progress
+ANIMAL = "Normal_Npc"                   # an animal's actor
+POST_DOOR = emu_memory.BUILDINGS["post-office"][2]
+BOARD_AT = ((320, 350), (300, 350), (340, 350), (320, 370))     # before the board, from the houses' block's corner
+TYPED = "urldurld"                      # on the dial: a letter for each push of the stick
+AGAIN = (2001, 4, 15, 10, 0, 0)         # the flash powered on again: the next morning
+
+failures = []
+
+
+def acquainted(save):
+    """The animals of the save (their names on the map) that have met its first player: one of an animal's
+    memories (Animal_c.memories, the bytes between its own name and its home) holds the player's own name
+    record (PersonalID_c, the first 16 bytes of PrivateInfo)."""
+    me = bytes(save[PRIVATE:PRIVATE + 0x10])
+    out = set()
+    for i in range(emu_town.ANIMAL_MAX):
+        a = bytes(save[emu_town.ANIMALS_AT + i * emu_town.ANIMAL_SIZE:emu_town.ANIMALS_AT + (i + 1) * emu_town.ANIMAL_SIZE])
+        npc = struct.unpack(">H", a[0:2])[0]
+        if npc >> 12 == 0xE and me in a[0x0C:emu_town.ANIMAL_HOME]:
+            out.add(npc)
+    return out
+
+
+def check(ok, what):
+    print("  %s  %s" % ("ok  " if ok else "FAIL", what))
+    if not ok:
+        failures.append(what)
+
+
+class Player:
+    """The game played with the pad: talks followed, rooms gone into, the item screen worked."""
+
+    def __init__(self, n64, t, syms, pages):
+        self.n64, self.t, self.cd, self.pages = n64, t, syms["common_data"], pages
+        self.read, self.asked, self.menus = set(), 0, 0
+
+    def scene(self):
+        return self.t.i32(self.cd + emu_memory.SCENE)
+
+    def private(self, at, size):
+        return self.n64.read(self.cd + PRIVATE + at, size)
+
+    def pockets(self):
+        return list(struct.unpack(">15H", self.private(POCKETS, 30)))
+
+    def clothes(self):
+        return struct.unpack(">H", self.private(CLOTHES + 2, 2))[0]
+
+    def wallet(self):
+        return struct.unpack(">I", self.private(WALLET, 4))[0]
+
+    def letters(self):
+        """How many of the ten letters the player can carry are there (a place without one is blank)."""
+        raw = self.private(MAIL, 10 * MAIL_SIZE)
+        return sum(1 for i in range(10) if raw[i * MAIL_SIZE:i * MAIL_SIZE + 12].strip(b" "))
+
+    def quest(self):
+        """(the first job's kind, its progress, the animal it is for), or None once the record is empty."""
+        raw = self.private(QUEST, 0x10)
+        if raw[0] >> 6 == NONE:
+            return None
+        return raw[0] & 0x3F, raw[1] >> 3 & 0xF, struct.unpack(">H", raw[Q_RECIPIENT:Q_RECIPIENT + 2])[0]
+
+    def flags(self):
+        return self.n64.u32(self.cd + emu_year.EVENT_FLAGS)
+
+    def advance(self, limit=600, quiet=12, pick=None):
+        """A on every page, each choice answered (pick: the number of its answers -> the answer's place; the
+        first without it), until the player has waited free for `quiet` looks ("free"), a menu opens over the
+        talk ("menu": the item screen, a letter held up) or the tries are out ("limit")."""
+        n64, t = self.n64, self.t
+        still = 0
+        for _ in range(limit):
+            try:
+                if t.menu_open():
+                    self.menus += 1
+                    return "menu"
+                window = t.window_main()
+                if window == emu_year.WAITING:
+                    page = t.page()
+                    if page and (page[0], page[1]) not in self.read:
+                        self.read.add((page[0], page[1]))
+                        self.pages.append({"msg": page[0], "at": page[1], "text": emu_year.text(page[2])[:700],
+                                           "problems": t.page_problems(page[2])})
+                if t.choice_waiting():
+                    n64.frames(20, 0)
+                    count = len(t.answers())
+                    for _ in range(pick(count) if pick else 0):
+                        n64.frames(4, DIRECTIONS["d"])
+                        n64.frames(8, 0)
+                    n64.press(A, 3, 30)
+                    self.asked += 1
+                    still = 0
+                elif window != emu_year.HIDDEN:
+                    n64.press(A, 3, 22)
+                    still = 0
+                else:
+                    n64.frames(15, 0)
+                    still = still + 1 if t.player_main() == emu_year.PLAYER_WAIT else 0
+                    if still >= quiet:
+                        return "free"
+            except (ValueError, struct.error):          # between two scenes the pointers read are no one's
+                n64.frames(15, 0)
+        return "limit"
+
+    def talk(self, actor, **kw):
+        """The actor spoken to and the talk played: (whether its window opened, how the talk ended)."""
+        return emu_reset.approach(self.t, actor), self.advance(**kw)
+
+    def enter(self, outside, doors):
+        """Into the building of the block at its door (tests/emu_memory.py's way): True once in a room."""
+        t, n64 = self.t, self.n64
+        for place in [a for a in t.actors() if a["name"] == outside]:
+            for (dx, dz), push in doors:
+                t.drop(place["pos"][0] + dx, place["pos"][2] + dz, 30)
+                n64.frames(15, stick(*push))
+                n64.frames(3, stick(*push) | A)
+                n64.frames(30, 0)
+                for _ in range(40):
+                    try:
+                        if self.scene() != FG or t.window_main() != emu_year.HIDDEN:
+                            break
+                    except (ValueError, struct.error):
+                        break
+                    n64.frames(5, 0)
+                self.advance(200, 10)
+                if self.scene() != FG:
+                    return True
+        return False
+
+    def leave(self):
+        """Out of a room by its door at the bottom (a keeper may have a word at the door): True once in the
+        town."""
+        n64, t = self.n64, self.t
+        for _ in range(5):
+            n64.frames(60, DIRECTIONS["d"])
+            for _ in range(40):
+                if self.scene() == FG:
+                    break
+                try:
+                    spoken = t.window_main() != emu_year.HIDDEN or t.choice_waiting()
+                except (ValueError, struct.error):
+                    spoken = False
+                if spoken:
+                    self.advance(100, 4)
+                else:
+                    n64.frames(15, 0)
+            if self.scene() == FG:
+                self.advance(300, 10)
+                return True
+        return False
+
+    def outside(self):
+        return self.scene() == FG or self.leave()
+
+    def block_of(self, kind):
+        return next((b for b, kinds in sorted(self.t.blocks().items()) if kind in kinds), None)
+
+    # the item screen: START opens and closes it, the hand on the first pocket; 15 pockets, five in a row
+    def items(self, on=True):
+        n64, t = self.n64, self.t
+        for _ in range(4):
+            if t.menu_open() == on:
+                return True
+            n64.press(START, 3, 60)
+            n64.frames(40, 0)
+        return t.menu_open() == on
+
+    def hand(self, slot, at=0):
+        n64 = self.n64
+        cols, rows = slot % 5 - at % 5, slot // 5 - at // 5
+        for way, steps in (("r" if cols > 0 else "l", abs(cols)), ("d" if rows > 0 else "u", abs(rows))):
+            for _ in range(steps):
+                n64.frames(6, DIRECTIONS[way])
+                n64.frames(14, 0)
+
+    def tag(self, entry):
+        """A on the pocket under the hand, and its tag's entry."""
+        n64 = self.n64
+        n64.press(A, 3, 30)
+        for _ in range(entry):
+            n64.frames(6, DIRECTIONS["d"])
+            n64.frames(12, 0)
+        n64.press(A, 3, 40)
+
+    def type(self):
+        """Letters on the dial, START, and the end's question answered with its first answer."""
+        n64 = self.n64
+        for way in TYPED:
+            v = DIRECTIONS[way]
+            n64.frames(8, v)
+            n64.frames(6, v | A)
+            n64.frames(4, v)
+            n64.frames(8, 0)
+        n64.press(START, 6, 60)
+        n64.press(A, 3, 40)
+        n64.press(A, 3, 60)
+        n64.frames(60, 0)
+
+    def nook(self):
+        """Nook spoken to in his shop: how the talk ended, or why there was none."""
+        t = self.t
+        if not self.outside():
+            return "not out of the room"
+        if self.scene() == FG:
+            if not t.go_block(self.block_of("shop"), set()) or not self.enter("Shop", emu_memory.DOORS):
+                return "not into the shop"
+        keeper = [a for a in t.actors() if a["part"] == emu_year.PART_NPC and a["name"] not in (ANIMAL, "Npc")]
+        if not keeper:
+            return "nobody in the shop"
+        spoken, how = self.talk(keeper[0])
+        return how if spoken else "not spoken to"
+
+    def animal(self, fg, homes, pick=None):
+        """The animal found (its home's block, the blocks beside it, then every block) and spoken to: how the
+        talk ended, or None if it was not found."""
+        t = self.t
+        if not self.outside():
+            return None
+        home = homes.get(fg)
+        near = [home] + [(home[0] + dx, home[1] + dz) for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1))] if home else []
+        every = [(x, z) for z in range(1, 7) for x in range(1, 6)]
+        for blk in [b for b in near if b in every] + [b for b in every if b not in near]:
+            if not t.go_block(blk, set()):
+                continue
+            self.n64.frames(30, 0)
+            for _ in range(4):                          # it may be walking: wait and try again
+                who = [a for a in t.actors() if a["part"] == emu_year.PART_NPC and a["fg"] == fg]
+                if not who:
+                    break
+                spoken, how = self.talk(who[0], limit=500, quiet=10, pick=pick)
+                if spoken:
+                    return how
+                self.n64.frames(90, 0)
+        return None
+
+    def through(self, how, slot=None):
+        """A talk that opened a menu played to its end: the item screen (the pocket chosen, its tag's first
+        entry), then whatever else is held up (a letter: A)."""
+        for n in range(5):
+            if how != "menu":
+                break
+            self.n64.frames(40, 0)
+            if n == 0 and slot is not None:
+                self.hand(slot)
+                self.n64.press(A, 3, 40)
+            self.n64.press(A, 3, 60)
+            self.n64.frames(40, 0)
+            how = self.advance(limit=500, quiet=10)
+        return how
+
+
+def play(emu_dir, rom_path, af_en, state, out):
+    """The job played from the state to the gyroid's save: a dict for the report."""
+    rom = open(rom_path, "rb").read()
+    syms = emu_save.elf_symbols(os.path.join(af_en, "build", "animalforest-jp.elf"))
+    names = emu_year.actor_names(af_en)
+    work = os.path.join(out, "job")
+    os.makedirs(work, exist_ok=True)
+    result = {"house": False, "chores": [], "over": None, "hang": None, "pages": [], "watch": None, "made": [],
+              "gyroid": None, "flash": emu_save.fla_path(work, rom), "animals": 0, "trade": None, "paid": None}
+    with N64(emu_dir, rom, work, timeout=60) as n64:
+        n64.load_state(state)
+        t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], names, syms)
+        p = Player(n64, t, syms, result["pages"])
+        try:
+            low = emu_memory.watch(n64, af_en, syms)
+            result["house"] = emu_town.choose_house(t)
+            p.advance(600, 16)
+            homes = {fg: tuple(place[:2]) for fg, place in emu_town.animals(n64.read(p.cd, 0x10000))}
+            order = list(homes)
+            result["animals"] = len(homes)
+            door, state = None, {"asked": 0}
+
+            def given(before):
+                """The pockets Nook filled at the last talk."""
+                return [s for s, (a, b) in enumerate(zip(before, p.pockets())) if b and a != b]
+
+            def clothe(slots):
+                worn, item = p.clothes(), p.pockets()[slots[0]] if slots else 0
+                p.items()
+                p.hand(slots[0] if slots else 0)
+                p.tag(0)                                 # the clothes in the hand
+                p.hand(0, slots[0] if slots else 0)      # the hand over the first pocket,
+                n64.frames(6, DIRECTIONS["u"])           # and up to the player's figure
+                n64.frames(25, 0)
+                n64.press(A, 3, 60)
+                n64.frames(60, 0)
+                p.items(False)
+                return {"worn": p.clothes() == item != 0, "kept": worn in p.pockets()}
+
+            def plant(slots):
+                tries = 0
+                x0, z0 = door or (0, 0)
+                spots = [(x0 + dx, z0 + dz) for dz in (92, 172, 252, 332, -252)
+                         for dx in (0, -40, 40, -80, 80, -120, 120, -160, 160)]
+                left = list(slots)
+                for x, z in spots:
+                    if not left:
+                        break
+                    tries += 1
+                    t.drop(x, z, 30)
+                    n64.frames(10, DIRECTIONS["d"])
+                    n64.frames(10, 0)
+                    p.items()
+                    p.hand(left[0])
+                    p.tag(1)                             # planted before the player
+                    n64.frames(60, 0)
+                    if t.menu_open():                    # nothing to plant on here
+                        p.items(False)
+                    p.advance(100, 6)
+                    if not p.pockets()[left[0]]:
+                        left.pop(0)
+                return {"bags": len(slots), "planted": len(slots) - len(left), "tries": tries}
+
+            def greet(_):
+                def met():                               # by the animals' own memories, as the game counts them
+                    return acquainted(n64.read(p.cd, 0x10000)) & set(homes)   # (mNpc_GetFriendAnimalNum)
+
+                def open_still():
+                    q = p.quest()
+                    return bool(q) and q[0] == GREET and q[1] != DONE
+
+                p.outside()
+                every = [(x, z) for z in range(1, 7) for x in (range(1, 6) if z % 2 else range(5, 0, -1))]
+                first = sorted(set(homes.values()))
+                talks = 0
+                for blocks in (first + [b for b in every if b not in first], first, every):
+                    for blk in blocks:                   # an animal that walked off is looked for again
+                        known = met()
+                        if not open_still() or len(known) == len(homes):
+                            break
+                        if not t.go_block(blk, set()):
+                            continue
+                        n64.frames(30, 0)
+                        for _ in range(3):
+                            there = [a["fg"] for a in t.actors() if a["part"] == emu_year.PART_NPC
+                                     and a["name"] == ANIMAL and a["fg"] not in known]
+                            for fg in there:             # each where it stands now
+                                who = [a for a in t.actors() if a["part"] == emu_year.PART_NPC and a["fg"] == fg]
+                                if who:
+                                    p.talk(who[0], limit=400, quiet=10)
+                                    talks += 1
+                            known = met()
+                            if not set(there) - known:
+                                break
+                            n64.frames(90, 0)
+                for _ in range(2):                       # the job's record follows the memories (the quest
+                    for _ in range(10):                  # manager's own look at them): it is given a moment,
+                        if not open_still():             # then one more talk to look at
+                            break
+                        n64.frames(30, 0)
+                    if not open_still() or len(met()) < len(homes):
+                        break
+                    for blk in [None] + first:           # an animal of this block, or of the nearest home's
+                        if blk is not None:
+                            if not t.go_block(blk, set()):
+                                continue
+                            n64.frames(30, 0)
+                        who = [a for a in t.actors() if a["part"] == emu_year.PART_NPC and a["name"] == ANIMAL]
+                        if who:
+                            p.talk(who[0], limit=400, quiet=10)
+                            talks += 1
+                            break
+                return {"met": len(met()), "animals": len(homes), "talks": talks}
+
+            def deliver(slots):
+                q = p.quest()
+                before = p.menus
+                how = p.animal(q[2], homes)
+                how = p.through(how, slots[0] if slots else None)
+                return {"found": how is not None, "ended": how, "menus": p.menus - before}
+
+            def letter(slots):
+                q = p.quest()
+                p.items()
+                p.hand(slots[0] if slots else 0)
+                p.tag(1)                                 # to write a letter: whom to
+                n64.frames(60, 0)
+                n64.press(A, 3, 40)                      # the address book
+                for _ in range(order.index(q[2]) if q[2] in order else 0):
+                    n64.frames(6, DIRECTIONS["d"])
+                    n64.frames(14, 0)
+                n64.press(A, 3, 60)
+                n64.frames(40, 0)
+                p.type()
+                p.items(False)
+                written = bool(slots) and not p.pockets()[slots[0]] and p.letters() == 1
+                mailed = False
+                if p.outside() and t.go_block(p.block_of("post"), set()) and p.enter("Post_Office", POST_DOOR):
+                    clerk = [a for a in t.actors() if a["part"] == emu_year.PART_NPC and a["name"] not in (ANIMAL, "Npc")]
+                    if clerk:
+                        more = lambda count: 0 if count != 2 else 1     # noqa: E731  no second letter
+                        spoken, how = p.talk(clerk[0], pick=more)
+                        for _ in range(3):
+                            if how != "menu":
+                                break
+                            n64.frames(40, 0)
+                            n64.press(A, 3, 40)          # the letter, and its tag's first entry
+                            n64.press(A, 3, 40)
+                            n64.frames(40, 0)
+                            how = p.advance(pick=more)
+                        mailed = spoken and how == "free" and p.letters() == 0
+                return {"written": written, "mailed": mailed}
+
+            def villagers(_):
+                fg = order[state["asked"] % len(order)]
+                state["asked"] += 1
+                how = p.animal(fg, homes)
+                if how == "menu":                        # pockets opened over the talk: closed with nothing chosen
+                    n64.press(B, 3, 30)
+                    how = p.advance(limit=300, quiet=10)
+                return {"asked": state["asked"], "found": how is not None}
+
+            def notice(_):
+                x0, z0 = emu_town.PLAYERS_BLOCK[0] * emu_year.BLOCK, emu_town.PLAYERS_BLOCK[1] * emu_year.BLOCK
+                opened = False
+                if p.outside() and t.go_block(emu_town.PLAYERS_BLOCK, set()):
+                    for dx, dz in BOARD_AT:
+                        t.drop(x0 + dx, z0 + dz, 30)
+                        n64.frames(12, DIRECTIONS["u"])
+                        n64.frames(10, 0)
+                        n64.press(A, 3, 40)
+                        if t.menu_open():
+                            opened = True
+                            break
+                if opened:
+                    n64.frames(40, 0)
+                    n64.press(A, 3, 60)                  # to write
+                    n64.frames(40, 0)
+                    p.type()
+                    for _ in range(3):                   # and away from the board
+                        n64.press(B, 3, 60)
+                        n64.frames(60, 0)
+                        if not t.menu_open():
+                            break
+                    p.advance(100, 8)
+                return {"board": opened}
+
+            def trade():
+                """The first Bells: something sold to the shop's keeper, something bought off his table."""
+                out = {"in": False, "sold": False, "bought": False, "wallet": [p.wallet()]}
+                if not p.outside() or not t.go_block(p.block_of("shop"), set()) or not p.enter("Shop", emu_memory.DOORS):
+                    return out
+                out["in"] = True
+                keeper = [a for a in t.actors() if a["part"] == emu_year.PART_NPC and a["name"] not in (ANIMAL, "Npc")]
+                have = p.pockets()
+                slot = next((s for s in range(14, -1, -1) if have[s]), None)
+                if keeper and slot is not None:
+                    answers = iter((1, 0, 1))            # to sell; the price taken; nothing else to sell
+                    pick = lambda count: next(answers, count - 1)       # noqa: E731
+                    spoken, how = p.talk(keeper[0], limit=200, quiet=10, pick=pick)
+                    if spoken and how == "menu":
+                        n64.frames(40, 0)
+                        p.hand(slot)
+                        n64.press(A, 3, 40)
+                        n64.press(A, 3, 60)
+                        n64.frames(40, 0)
+                        how = p.advance(limit=300, quiet=10, pick=pick)
+                    if t.menu_open():                    # asked for another: closed with nothing chosen
+                        n64.press(B, 3, 40)
+                        p.advance(limit=200, quiet=10, pick=lambda count: count - 1)
+                    out["sold"] = not p.pockets()[slot] and p.wallet() > out["wallet"][0]
+                out["wallet"].append(p.wallet())
+                have = p.pockets()
+                for x, z in COUNTER:                     # before the table, facing it, A: the keeper names the price
+                    for _ in range(3):
+                        t.put(x, 40.0, z, -0x8000)
+                        n64.frames(2, 0)
+                    n64.frames(8, DIRECTIONS["u"])
+                    n64.frames(6, 0)
+                    n64.press(A, 3, 30)
+                    if t.window_main() == emu_year.HIDDEN and not t.choice_waiting():
+                        continue
+                    p.advance(limit=200, quiet=10)
+                    if p.wallet() < out["wallet"][1] and sum(1 for v in p.pockets() if v) > sum(1 for v in have if v):
+                        out["bought"] = True
+                        break
+                out["wallet"].append(p.wallet())
+                return out
+
+            def pay():
+                """A payment towards the house at the post office: the clerk's second answer, a hundred Bells
+                set on the counter (the hundreds' figure up by one), its OK."""
+                out = {"in": False, "wallet": [p.wallet()]}
+                if p.outside() and t.go_block(p.block_of("post"), set()) and p.enter("Post_Office", POST_DOOR):
+                    out["in"] = True
+                    clerk = [a for a in t.actors() if a["part"] == emu_year.PART_NPC and a["name"] not in (ANIMAL, "Npc")]
+                    answers = iter((1,))                 # a payment; then nothing else
+                    pick = lambda count: next(answers, count - 1)       # noqa: E731
+                    if clerk:
+                        spoken, how = p.talk(clerk[0], limit=100, quiet=8, pick=pick)
+                        if spoken and how == "menu":     # the counter: six figures, then its OK
+                            n64.frames(40, 0)
+                            for way in "rrru" + "rrr":
+                                n64.frames(6, DIRECTIONS[way])
+                                n64.frames(14, 0)
+                            n64.press(A, 3, 40)
+                            n64.frames(40, 0)
+                            p.advance(limit=200, quiet=8, pick=pick)
+                out["wallet"].append(p.wallet())
+                return out
+
+            chores = {CLOTHE: clothe, PLANT: plant, GREET: greet, FURNITURE: deliver, LETTER: letter,
+                      VILLAGERS: villagers, CARPET: deliver, AXE: deliver, NOTICE: notice}
+            held = {}                                     # a chore's pockets, should it take a second try
+            for _ in range(len(CHORES) + 8):
+                if p.quest() is None:
+                    break
+                before = p.pockets()
+                said = p.nook()
+                q = p.quest()
+                if q is None:
+                    result["over"] = said
+                    break
+                kind = q[0]
+                entry = {"kind": kind, "nook": said, "open": q[1] == OPEN, "for": q[2]}
+                if kind in chores and q[1] == OPEN:
+                    held[kind] = given(before) or held.get(kind, [])
+                    if kind == PLANT and p.outside() and door is None:
+                        door = tuple(t.pos(t.player())[::2])    # the shop's doormat
+                    entry.update(chores[kind](held[kind]))
+                    after = p.quest()
+                    entry["done"] = after is not None and (after[1] == DONE or after[0] != kind)
+                result["chores"].append(entry)
+                n64.screenshot(os.path.join(work, "job-%02d-kind-%d.png" % (len(result["chores"]), kind)))
+            p.advance(300, 16)                            # sent out of the shop: the player's own word
+            result["end"] = {"quest": p.quest() is None, "flags": p.flags() & emu_year.JOB_BITS, "scene": p.scene(),
+                             "pockets": [v for v in p.pockets() if v], "clothes": p.clothes()}
+            n64.screenshot(os.path.join(work, "job-over.png"))
+            if result["end"]["quest"]:
+                result["trade"] = trade()
+                n64.screenshot(os.path.join(work, "job-trade.png"))
+                result["paid"] = pay()
+                n64.screenshot(os.path.join(work, "job-paid.png"))
+            if result["end"]["quest"] and p.outside() and t.go_block(emu_town.PLAYERS_BLOCK, set()):
+                result["gyroid"] = emu_memory.save_and_stop(t, emu_town.MAT, result["pages"])
+                n64.frames(120, 0)
+            result["watch"] = low()
+            result["made"] = emu_memory.made(result["watch"], names)
+            result["asked"], result["menus"] = p.asked, p.menus
+        except Hang as e:
+            result["hang"] = str(e)
+            n64.screenshot(os.path.join(work, "job-hang.png"))
+    result["problems"] = ["%#x at %d: %s" % (pg["msg"], pg["at"], ", ".join(pg["problems"])) for pg in result["pages"]
+                          if pg["problems"]]
+    result["messages"] = len({pg["msg"] for pg in result["pages"]})
+    result["pages"] = len(result["pages"])
+    return result
+
+
+def report(job, again, kept):
+    """The checks. job: play()'s answer; again: the session that powered the flash on again; kept: what the
+    flash holds after it ({name, flags, clothes}), or None."""
+    chores = job["chores"] if job else []
+    by_kind = {}
+    for c in chores:                    # a chore given twice is judged by its last try
+        by_kind[c["kind"]] = c
+    check(bool(job) and job["house"] and not job["hang"] and job["animals"] > 0,
+          "a new game, the first house chosen by the game's own talk; the town has %d animals%s" % (
+              job["animals"] if job else 0, "" if job and not job["hang"] else "; THE GAME HUNG: %s" % (job and job["hang"])))
+    details = {
+        CLOTHE: lambda c: "the clothes he hands over taken from the pocket (the tag's first entry) to the player's "
+                          "figure: %s, the clothes worn before %s" % (
+                              "worn" if c.get("worn") else "NOT WORN", "in a pocket" if c.get("kept") else "LOST"),
+        PLANT: lambda c: "%d of the %d bags and saplings planted by the shop (the tag's second entry; %d places "
+                         "tried)" % (c.get("planted", 0), c.get("bags", 0), c.get("tries", 0)),
+        GREET: lambda c: "%d of the town's %d animals hold the player in their memories (%d talks)" % (
+            c.get("met", 0), c.get("animals", 0), c.get("talks", 0)),
+        FURNITURE: lambda c: "the animal the record names (%04x) %s" % (
+            c["for"], "spoken to, the delivery handed over" if c.get("found") else "NOT FOUND"),
+        LETTER: lambda c: "a letter to the animal the record names (%04x): %s (the paper's tag's second entry, the "
+                          "address book, the dial, the end's question), %s (the clerk's first answer, the letter "
+                          "chosen in the item screen)" % (
+                              c["for"], "written" if c.get("written") else "NOT WRITTEN",
+                              "mailed at the post office" if c.get("mailed") else "NOT MAILED"),
+        VILLAGERS: lambda c: "%d animal%s asked for work" % (c.get("asked", 0), "" if c.get("asked") == 1 else "s"),
+        NOTICE: lambda c: "the board by the houses %s" % (
+            "opened with A, a notice written (the dial, the end's question)" if c.get("board") else "NOT OPENED"),
+    }
+    details[CARPET] = details[AXE] = details[FURNITURE]
+    sound = {
+        CLOTHE: lambda c: c.get("worn") and c.get("kept"),
+        PLANT: lambda c: c.get("bags", 0) > 0 and c.get("planted") == c.get("bags"),
+        GREET: lambda c: c.get("animals", 0) > 0 and c.get("met") == c.get("animals"),
+        FURNITURE: lambda c: c.get("found") and c.get("ended") == "free",
+        LETTER: lambda c: c.get("written") and c.get("mailed"),
+        VILLAGERS: lambda c: c.get("asked", 0) >= 1 and c.get("found"),
+        NOTICE: lambda c: c.get("board"),
+    }
+    sound[CARPET] = sound[AXE] = sound[FURNITURE]
+    for kind in CHORES:
+        c = by_kind.get(kind)
+        check(bool(c) and c["open"] and c["nook"] == "free" and bool(c.get("done")) and bool(sound[kind](c)),
+              "Nook's chore %d, %s: %s; %s" % (
+                  kind, WHAT[kind], details[kind](c) if c else "NOT GIVEN",
+                  "the job's record says it is done" if c and c.get("done") else "THE RECORD DOES NOT SAY IT IS DONE"))
+    order = [c["kind"] for c in chores if c["kind"] in CHORES and c["open"]]
+    end = job.get("end") if job else None
+    check(bool(end) and end["quest"] and end["flags"] == 0 and end["scene"] == FG and job["over"] == "free" and
+          [k for n, k in enumerate(order) if k not in order[:n]] == list(CHORES),
+          "Nook's last word: %s; the chores came in the order %s" % (
+              "the job's record is empty, its two event flags cleared by the game, the player out of the shop"
+              if end and end["quest"] and not end["flags"] and end["scene"] == FG
+              else "THE JOB IS NOT OVER (the record %s, the flags %#x, scene %s)" % (
+                  "empty" if end and end["quest"] else "still there", end["flags"] if end else -1,
+                  end["scene"] if end else "?"),
+              ", ".join(str(k) for k in order) or "none"))
+    deal = job and job["trade"]
+    check(bool(deal) and deal["in"] and deal["sold"] and deal["bought"] and
+          deal["wallet"][0] < deal["wallet"][1] > deal["wallet"][2],
+          "the first Bells, in the shop the job has left to its keeper: %s" % (
+              "%s; %s" % (
+                  "something of the pockets sold (the keeper's second answer, the pocket chosen in the item screen, his "
+                  "price taken: the pocketbook from %d to %d Bells)" % tuple(deal["wallet"][:2]) if deal["sold"]
+                  else "NOTHING SOLD",
+                  "something bought off his table (A before it, the first answer: %d Bells left, the thing in a "
+                  "pocket)" % deal["wallet"][2] if deal["bought"] else "NOTHING BOUGHT")
+              if deal and deal["in"] else "NOT GONE INTO"))
+    paid = job and job["paid"]
+    check(bool(paid) and paid["in"] and paid["wallet"][0] - paid["wallet"][1] == PAYMENT,
+          "a payment towards the house at the post office (the clerk's second answer, %d Bells set on the counter, "
+          "its OK): %s" % (PAYMENT, "the pocketbook from %d to %d Bells" % tuple(paid["wallet"])
+                           if paid and paid["in"] else "NOT GONE INTO"))
+    seen = job and job["watch"]
+    check(bool(job) and job["pages"] > 0 and not job["problems"] and bool(seen) and seen["fails"] == 0,
+          "on the way %s; %s" % (
+              "%d pages of %d messages read, %s; %d choices answered, %d menus opened over a talk" % (
+                  job["pages"], job["messages"], "clean" if not job["problems"] else job["problems"][:3],
+                  job.get("asked", 0), job.get("menus", 0)) if job else "nothing read",
+              "the arena never said no (%d allocations, the largest free block %s at its least)" % (
+                  seen["calls"], seen["least"]) if seen and not seen["fails"]
+              else "THE ARENA SAID NO" if seen else "not watched"))
+    word = job and job["gyroid"]
+    check(bool(word) and word["spoken"] and word["asked"] >= 2 and word["left"],
+          "the player's own gyroid, the job done: %s" % (
+              "it offers the save, saves, and the game leaves for its title" if word and word["spoken"] and word["left"]
+              else "NO SAVE (%s)" % (word,)))
+    check(emu_memory.saved(again) and again["arrived"] and not again["hang"] and not again["problems"] and
+          bool(again["inside"]) and again["inside"]["got"] and bool(kept) and bool(kept["name"]) and
+          kept["flags"] == 0 and bool(end) and kept["clothes"] == end["clothes"],
+          "the flash the game wrote, powered on again the next morning: %s" % (
+              "the town loads (%d pages read, clean), the player is the one who did the job (the work clothes on, "
+              "the job's flags clear), goes into the house and saves at the gyroid again" % again["pages"]
+              if again and again["arrived"] and kept and not kept["flags"] else "NOT AS THE GAME LEFT IT (%s)" % (
+                  again and {k: again[k] for k in ("arrived", "hang", "problems", "saved")},)))
+
+
+def main(argv):
+    if argv[:1] == ["--play"]:
+        print(json.dumps(play(*argv[1:6])))
+        return 0
+    emu_dir, rom_path, af_en, state, out = argv
+    af_en = os.path.abspath(af_en)
+    os.makedirs(out, exist_ok=True)
+
+    def child(script, *args):
+        r = subprocess.run([sys.executable, script] + list(args), capture_output=True, text=True)
+        lines = [ln for ln in r.stdout.splitlines() if ln.startswith("{")]
+        if r.returncode or not lines:
+            print(r.stdout[-1500:], r.stderr[-1500:])
+            return None
+        return json.loads(lines[-1])
+
+    print("emu_job: %s, the first job played from %s" % (rom_path, state))
+    job = child(os.path.abspath(__file__), "--play", emu_dir, rom_path, af_en, os.path.abspath(state), out)
+    again, kept = None, None
+    if job and job["gyroid"] and job["gyroid"]["left"]:
+        plan = os.path.join(out, "plan-again.json")
+        work = os.path.join(out, "again")
+        json.dump({"label": "again", "work": work, "clock": AGAIN, "flash": job["flash"], "enter": "house",
+                   "leave": True, "save": True}, open(plan, "w"))
+        again = child(os.path.join(HERE, "emu_memory.py"), "--session", emu_dir, rom_path, af_en, plan)
+        rom = open(rom_path, "rb").read()
+        save, _ = aflz.unpack(emu_save.read_fla(emu_save.fla_path(work, rom))[:0x10000])
+        kept = {"name": emu_psel.name_of(save, 0).hex(),
+                "flags": struct.unpack(">I", save[emu_year.EVENT_FLAGS:emu_year.EVENT_FLAGS + 4])[0] & emu_year.JOB_BITS,
+                "clothes": struct.unpack(">H", save[PRIVATE + CLOTHES + 2:PRIVATE + CLOTHES + 4])[0]}
+    report(job, again, kept)
+    json.dump({"job": job, "again": again, "kept": kept}, open(os.path.join(out, "report.json"), "w"), indent=1)
+    print("emu_job: %s; the report in %s" % ("all passed" if not failures else "%d FAILED" % len(failures), out))
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

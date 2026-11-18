@@ -856,6 +856,19 @@ def wide_lines(tokens, measure, limit=WINDOW_WIDTH):
     return out
 
 
+# The controls of the GameCube's pad that the cartridge's has not: its C is a stick where the cartridge's is
+# four buttons, it has an X and a Y, and its START is START/PAUSE. The official English names its own pad; the
+# cartridge's Japanese names the cartridge's (the bulletin board's notice on its use had the pages turned with
+# the stick: NOTES, "The first job"). No text of the en build may name one.
+GC_CONTROLS = re.compile(r"\bC[ -]?Sticks?\b|\b[XY] Buttons?\b|\bSTART/PAUSE\b")
+
+
+def gc_controls(tokens):
+    """The GameCube pad's own controls the text names (a code between two words, or a line's end, is a space)."""
+    text = re.sub(r"\s+", " ", " ".join(t[1] for t in tokens if t[0] == "t"))
+    return sorted({m.group(0) for m in GC_CONTROLS.finditer(text)})
+
+
 def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0, single=False, original=None, letter=False,
                   measure=None, fills=None):
     """[(level, text)] for one message; allowed_lines: what its original showed;
@@ -878,10 +891,12 @@ def check_message(number, tokens, cols, lines, max_bytes, allowed_lines=0, singl
             problems.append(("warning", "prints %s, which the cartridge's message does not: the game may not fill it"
                              % ", ".join(sorted(COMMANDS[c] for c in unfilled))))
     tokens = carried(tokens)
+    for control in gc_controls(tokens):
+        problems.append(("error", "names the %s, a control of the GameCube's pad the cartridge's has not" % control))
     try:
         raw = encode(tokens)
     except ValueError as e:
-        return [("error", "%s" % e)]
+        return problems + [("error", "%s" % e)]
     if len(raw) > max_bytes:
         problems.append(("error", "%d bytes, the loader takes %d" % (len(raw), max_bytes)))
     codes = [t for t in tokens if t[0] == "c"]

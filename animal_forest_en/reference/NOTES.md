@@ -4487,6 +4487,80 @@ signs", "Our own signs").
 - **The checks.** On the ROM this tree builds, the whole battery as goals
   of one make (the section's last word, below).
 
+## The first job (the closing pass)
+
+The game lets nobody save before the first job for Nook is done ("What
+the second review had left open": the checks' towns are stamped by hand
+with it done). So no check had ever gone the hour every new game starts
+with, and with it had never worked the item screen with the pad, written
+a letter from the pockets, mailed one, written on the bulletin board at
+its place, sold or bought. `tests/emu_job.py` (`make job-check-en`) goes
+it, from the new game's state with Nook showing the houses, the
+allocator's hook in place.
+
+- **The job's record.** The player's data keeps the job as the first of
+  its errands (`PrivateInfo` + 0x25C, a `QuestErrand`;
+  `mQst_GetFirstJobData`): the kind of the chore in hand, its progress (2
+  while it is open, 0 once it is done and Nook is to be told), and the
+  animal it is for. Read in the running game at each step, the kinds
+  come 14 (to the shop), 3 (the work clothes), 4 (planting), 12
+  (greeting everybody), 5 (a piece of furniture delivered), 6 (a
+  letter), 13 (Nook is not ready and sends the player to the animals
+  for work meanwhile), 7 (a carpet), 8 (an axe), 9 (a notice on the
+  board); after Nook's last word
+  the record is empty and the job's event flag cleared by the game (type
+  1, bit 2 for the first player: `mEv_CheckFirstJob` reads bit 2 + the
+  player's number). The check does what the
+  record asks and holds each chore to the record saying it is done; a
+  choice is answered by its place, never by its words.
+- **The chores, with the pad.** The work clothes: START opens the item
+  screen with the hand on the first pocket; A on a pocket opens its tag;
+  the first entry takes the thing in the hand, the hand goes up to the
+  player's figure, A puts the clothes on and the ones worn before go to
+  a pocket. The seeds and saplings (ten): the tag's second entry plants
+  one before the player, where the ground is free (where it is not, the
+  tag has no such entry; the check reads the pockets after each try).
+  Everybody greeted: each animal of the save found (its home's block
+  first) and spoken to until its own memory holds the player
+  (`Animal_c.memories`: the quest manager marks the chore done once as
+  many animals remember the player as the town has,
+  `mNpc_CheckFriendAllAnimal`; a window that opened is no proof, a first
+  trial counted six talks and the record stayed open). The deliveries: the animal the record names spoken to,
+  the first answer; from the second delivery on the item screen opens to
+  ask which pocket. The letter: the paper's tag's second entry, "whom
+  to", the address book (the animals who have met the player, in the
+  save's order), letters on the dial, START, the end's question; then
+  the post office, the clerk's first answer, the letter chosen in the
+  item screen, no second one. Nook not ready: he is once an animal has
+  been asked for work. The axe goes to the letter's animal, who holds
+  the letter up (the board, as the letter was written) and has thirteen
+  pages to say about it. The notice: A before the board by the houses, A
+  to write, the dial, START, the end's question, B.
+- **After it.** Nook's shop is its keeper's (`Npc_Shop_Master` where the
+  job had `Npc_Rcn_Guide2`). The check sells something of the pockets
+  (his second answer, the pocket chosen, his price taken) and buys
+  something off his table (A before it, the first answer): the
+  pocketbook goes up and down by the prices he names and the pockets
+  with it. Then the player's own gyroid, which during the job has three
+  pages and no save, offers its four answers, saves, and the game leaves
+  for its title; the flash, powered on again the next morning in a
+  process of its own, loads the town, and the player (the work clothes
+  on, the job's flag clear) goes into the house and saves again.
+- **What it found.** One thing: the bulletin board's own notice on how
+  it is used (`mail_body` 33, the post the board shows a new town) had
+  the pages turned with the C Stick, the GameCube's; the cartridge's
+  notice names the C Buttons. It is ours now, from the cartridge's text
+  (`script/mail_body/board.txt`), and `tools/af_text.py` refuses any
+  text that names a control the cartridge's pad has not (`GC_CONTROLS`:
+  the C Stick, an X or a Y Button, START/PAUSE), in every bank: none
+  other does. Every control a message names was held against the
+  cartridge's Japanese of the same message: 36 messages, the A Button,
+  START, the R Button, the stick and the pad, each the cartridge's own.
+  The rest went as the cartridge means it: every tag, the address book,
+  the dial and the questions at a letter's and a notice's end are
+  English and worked as they read.
+- **The checks.** (the section's last word, below).
+
 ## The last notes without a source (the closing pass)
 
 Ten places in the tree still said a thing was not checked: five in these

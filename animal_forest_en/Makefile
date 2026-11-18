@@ -46,7 +46,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en resetti-check-en words-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en year-check-en reset-check-en memory-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean script drafts
+.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en resetti-check-en words-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en year-check-en reset-check-en memory-check-en job-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean script drafts
 
 all: verify
 
@@ -578,6 +578,16 @@ reset-check-en: psel-check-en
 # open", "The rooms a day does not reach").
 memory-check-en: route-en
 	$(PYTHON) tests/emu_memory.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-memory-en --jobs 3
+
+# The first job, played: a new game's first hour as the game has a player go through it, from the houses'
+# state of route-en, with the pad. The first house chosen, then Nook's chores one by one as the job's record in
+# the player's data asks for them (the work clothes put on from the item screen, the seeds planted, everybody
+# greeted, the deliveries, a letter written and mailed, a notice on the board), the job's flags cleared by the
+# game itself, the gyroid's save, and the flash it wrote powered on again. No other check goes this road: the
+# game lets nobody save before the job is done, and their towns are stamped with it done (tests/emu_job.py;
+# NOTES, "The first job").
+job-check-en: route-en
+	$(PYTHON) tests/emu_job.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-job-en
 
 # -- the GameCube script (phase 4) -------------------------------------------
 # ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it
