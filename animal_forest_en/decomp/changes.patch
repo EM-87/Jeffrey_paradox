@@ -264,10 +264,10 @@ index 2753a99..7a636a7 100644
 +
  #endif
 diff --git a/include/m_handbill.h b/include/m_handbill.h
-index fe15111..1ca457a 100644
+index fe15111..490b2ab 100644
 --- a/include/m_handbill.h
 +++ b/include/m_handbill.h
-@@ -75,4 +75,20 @@ void mHandbill_Load_HandbillFromRom2(u8*, s32, s32*, u8*, s32, u8*, s32);
+@@ -75,4 +75,23 @@ void mHandbill_Load_HandbillFromRom2(u8*, s32, s32*, u8*, s32, u8*, s32);
  // void func_80094400_jp();
  s32 mHandbillz_load(HandbillzInfo*);
  
@@ -280,6 +280,9 @@ index fe15111..1ca457a 100644
 +struct PrivateInfo;
 +void mFRm_en_CopyPrivateInfo(struct PrivateInfo* dst, struct PrivateInfo* src);
 +u8* mHandbill_en_Find(u32 key);
++u32 mHandbill_en_Key(u8* header, u8* body, u8* footer);
++/* the letters kept outside the save's own letter places (m_submenu.c, whose slot has room) */
++s32 mSM_en_LettersKept(u8* save, u32* keys);
 +void mHandbill_en_Remove(u8* record);
 +void mHandbill_en_File(u32 key, u8* hrest, s32 hlen, u8* brest, s32 blen, u8* frest, s32 flen);
 +s32 mHandbill_en_GetLetter(struct MailContent* content, u8* header, u8* body, u8* footer);
@@ -1515,7 +1518,7 @@ index eb55156..bd0c678 100644
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetMatrix.s")
 diff --git a/src/code/m_handbill.c b/src/code/m_handbill.c
-index 34e9b7f..d60b59b 100644
+index 34e9b7f..c5957f2 100644
 --- a/src/code/m_handbill.c
 +++ b/src/code/m_handbill.c
 @@ -1,14 +1,21 @@
@@ -1978,6 +1981,9 @@ index 34e9b7f..d60b59b 100644
 -            sz = (size < mHandbill_BODY_LEN) ? size : mHandbill_BODY_LEN;
 -            for (i = 0; i < sz; i++) {
 -                *dst++ = *src++;
+-            }
+-            for (; i < mHandbill_BODY_LEN; i++) {
+-                *dst++ = 0xCD;
 +            mem_clear(body, mHandbill_EN_BODY_LEN, 0xCD);
 +            mHandbill_en_Read(body, addr, size);
 +            func_80093478_jp(body, mHandbill_EN_BODY_LEN, size, mHandbill_FILL_RETURN);
@@ -2010,17 +2016,26 @@ index 34e9b7f..d60b59b 100644
 + * keeps all that was filed before the record, the traveller's letters'
 + * rests among it. The copy of the Pak's record back into the save takes
 + * the record away, and the letters hold their rests themselves again.
++ *
++ * The letters the animals keep. An animal keeps the last letter each
++ * player sent it, the cartridge's bytes of it (Anmmem_c.letter:
++ * mNpc_Mail2AnimalMail), and shows it or gives it back later
++ * (mNpc_AnimalMail2Mail): the same bytes, so the same key. They are
++ * held as the save's own letters are (mSM_en_LettersKept, m_submenu.c,
++ * which also says where the collection begins while a player is away).
 + */
 +#define mHandbill_EN_EXT_HEAD 2
 +#define mHandbill_EN_EXT_RECORD_HEAD 7
 +/* the letters a save holds: 4 pockets and 4 mailboxes of 10, the post office's 5 kept and 2 more */
 +#define mHandbill_EN_SAVE_MAIL_NUM (PLAYER_NUM * mPr_INVENTORY_MAIL_COUNT + PLAYER_NUM * HOME_MAILBOX_SIZE + 5 + 2)
++/* and the one each animal keeps of each player it remembers */
++#define mHandbill_EN_KEPT_MAIL_NUM (ANIMAL_NUM_MAX * ANIMAL_MEMORY_NUM)
 +#define mHandbill_EN_KEEP_MAIL_AT 0xEF6C /* code/6DA460.s func_800B67C0_jp: mMl_copy_mail into common_data + 0xEF6C */
 +#define mHandbill_EN_RECEIPT_MAIL0_AT 0xF2A0 /* code/6DA460.s mPO_receipt_proc */
 +#define mHandbill_EN_RECEIPT_MAIL1_AT 0xF344
 +
 +/* FNV-1a over the letter's own bytes */
-+static u32 mHandbill_en_Key(u8* header, u8* body, u8* footer) {
++u32 mHandbill_en_Key(u8* header, u8* body, u8* footer) {
 +    u32 key = 0x811C9DC5;
 +    s32 i;
 +
@@ -2128,11 +2143,11 @@ index 34e9b7f..d60b59b 100644
 +    return key;
 +}
 +
-+/* Drop the records no letter or post of save (the save's bytes) holds, but for those a player away on a
-+   trip may hold: all that was filed before the record of the trip */
++/* Drop the records no letter or post of save (the save's bytes) holds, nor a letter an animal keeps, but for
++   those a player away on a trip may hold: all that was filed before the record of the trip */
 +void mHandbill_en_CollectExt(u8* save) {
-+    u32 keys[mHandbill_EN_SAVE_MAIL_NUM + mHandbill_EN_POST_COUNT];
-+    s32 pos = mHandbill_EN_EXT_HEAD;
++    u32 keys[mHandbill_EN_SAVE_MAIL_NUM + mHandbill_EN_POST_COUNT + mHandbill_EN_KEPT_MAIL_NUM];
++    s32 pos;
 +    u8* record;
 +    s32 i;
 +
@@ -2148,33 +2163,22 @@ index 34e9b7f..d60b59b 100644
 +        keys[mHandbill_EN_SAVE_MAIL_NUM + i] =
 +            mHandbill_en_PostKey(save + mHandbill_EN_POSTS_AT + i * mHandbill_EN_POST_SIZE);
 +    }
-+    for (i = 0; i < PLAYER_NUM; i++) {
-+        record = mHandbill_en_Find(mHandbill_EN_HOLD_KEY + i);
-+        if (record != NULL && !mPr_NullCheckPersonalID(&((Save*)save)->saveFilePrivateInfo[i].playerId)) {
-+            s32 end = record + mHandbill_en_RecordSize(record) - mFRm_en_ext;
-+
-+            if (end > pos) {
-+                pos = end;
-             }
--            for (; i < mHandbill_BODY_LEN; i++) {
--                *dst++ = 0xCD;
-+        }
-+    }
++    pos = mSM_en_LettersKept(save, &keys[mHandbill_EN_SAVE_MAIL_NUM + mHandbill_EN_POST_COUNT]);
 +    while ((record = mHandbill_en_Record(pos)) != NULL) {
 +        u32 key = mHandbill_en_RecordKey(record);
 +
-+        for (i = 0; i < mHandbill_EN_SAVE_MAIL_NUM + mHandbill_EN_POST_COUNT; i++) {
++        for (i = 0; i < mHandbill_EN_SAVE_MAIL_NUM + mHandbill_EN_POST_COUNT + mHandbill_EN_KEPT_MAIL_NUM; i++) {
 +            if (keys[i] == key) {
 +                break;
              }
 -            func_80093478_jp(buf, mHandbill_BODY_LEN, sz, mHandbill_FILL_RETURN);
-         }
-+        if (i < mHandbill_EN_SAVE_MAIL_NUM + mHandbill_EN_POST_COUNT) {
++        }
++        if (i < mHandbill_EN_SAVE_MAIL_NUM + mHandbill_EN_POST_COUNT + mHandbill_EN_KEPT_MAIL_NUM) {
 +            pos += mHandbill_en_RecordSize(record);
 +        } else {
 +            mHandbill_en_Remove(record);
-+        }
-+    }
+         }
+     }
 +    mFRm_en_extSize = pos; /* and a damaged tail goes */
 +}
 +
@@ -2198,7 +2202,7 @@ index 34e9b7f..d60b59b 100644
 +    record = mHandbill_en_Find(key);
 +    if (record != NULL) {
 +        mHandbill_en_Remove(record);
-     }
++    }
 +    if (hlen + blen + flen == 0) {
 +        return;
 +    }
@@ -4404,10 +4408,10 @@ index 7b8e5b5..ddb1254 100644
 +}
 +
 diff --git a/src/code/m_submenu.c b/src/code/m_submenu.c
-index 5f7c230..197c172 100644
+index 5f7c230..57dd129 100644
 --- a/src/code/m_submenu.c
 +++ b/src/code/m_submenu.c
-@@ -733,3 +733,181 @@ u8* mSM_Get_ground_pallet_p(Game_Play* play) {
+@@ -733,3 +733,221 @@ u8* mSM_Get_ground_pallet_p(Game_Play* play) {
  
      return play->groundPalPtrs[idx];
  }
@@ -4588,6 +4592,46 @@ index 5f7c230..197c172 100644
 +                         x + mMl_strlen((char*)tag->from, 6, ' ') * charWidth, y, 90, 60, 50, 255, FALSE, FALSE, scale,
 +                         scale, 0);
 +    }
++}
++
++#include "m_flashrom.h"
++#include "m_handbill.h"
++
++/*
++ * The letters' extension (m_handbill.c, "The letters' extension"): the letters kept outside the save's own
++ * letter places, for the collection before a save. Each animal keeps the last letter a player sent it, the
++ * cartridge's bytes of it (Anmmem_c.letter): their keys go to `keys`, ANIMAL_NUM_MAX * ANIMAL_MEMORY_NUM of
++ * them. And while a player is away on a trip all that was filed before the record of the trip is kept
++ * (m_flashrom.c, mFRm_en_CopyPrivateInfo): the answer is where the collection begins, past the last such
++ * record whose player's place in the save has a name. This lies here because this file's slot has room;
++ * m_handbill.c's text and m_flashrom.c's have none to spare where they lie (reference/NOTES.md, "A trip,
++ * played").
++ */
++s32 mSM_en_LettersKept(u8* save, u32* keys) {
++    Save* data = (Save*)save;
++    s32 pos = 2; /* past the extension's tag */
++    s32 i;
++    s32 j;
++
++    for (i = 0; i < ANIMAL_NUM_MAX; i++) {
++        for (j = 0; j < ANIMAL_MEMORY_NUM; j++) {
++            Anmplmail_c* letter = &data->animals[i].memories[j].letter;
++
++            *keys++ = mHandbill_en_Key(letter->header, letter->body, letter->footer);
++        }
++    }
++    for (i = 0; i < PLAYER_NUM; i++) {
++        u8* record = mHandbill_en_Find(mHandbill_EN_HOLD_KEY + i);
++
++        if (record != NULL && !mPr_NullCheckPersonalID(&data->saveFilePrivateInfo[i].playerId)) {
++            s32 end = record + 7 + record[4] + record[5] + record[6] - mFRm_en_ext; /* the record's end */
++
++            if (end > pos) {
++                pos = end;
++            }
++        }
++    }
++    return pos;
 +}
 diff --git a/src/dmadata/dmadata.c b/src/dmadata/dmadata.c
 index 3ba98f9..d74058b 100644

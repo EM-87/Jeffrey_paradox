@@ -68,6 +68,9 @@ make memory-check-en              # la memoria libre en un pueblo lleno (4 jugad
 make job-check-en                 # la primera hora de una partida nueva jugada con el mando: el
                                   # trabajo de Nook encargo a encargo, vender, comprar, pagar la
                                   # deuda, guardar y volver a encender
+make trip-check-en                # un viaje con Controller Pak: salir en tren con una carta larga
+                                  # en el bolsillo, llegar a otro pueblo como visitante y volver
+                                  # a casa con la carta entera
 make ares                         # el segundo emulador, ares, sin ventana (y su aplicación)
 make test                         # tests de las herramientas, sin ROM
 make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010: para estudiarlo, y
@@ -869,9 +872,9 @@ anterior), ya cubierto:
   ninguna línea se salga del bocadillo y que la placa del nombre no
   caiga en la palabra japonesa de relleno.
 
-Y lo que salió al repasar todo otra vez antes de cerrar: dos caminos del
+Y lo que salió al repasar todo otra vez antes de cerrar: tres caminos del
 juego que ninguna prueba había jugado nunca, porque los pueblos de las
-pruebas se fabricaban con ellos ya recorridos.
+pruebas se fabricaban con ellos ya recorridos (o nunca salían de ellos).
 
 - **La primera hora de toda partida nueva.** El juego no deja guardar
   hasta terminar el primer trabajo para Nook (una hora de recados), así
@@ -905,6 +908,34 @@ pruebas se fabricaban con ellos ya recorridos.
   ocupadas). `make memory-check-en` lo recorre en el pueblo lleno, el
   día más justo del año, con una casa libre: todo en inglés y limpio, y
   la memoria aguanta como en cualquier parcela.
+- **Un viaje a otro pueblo.** El juego tiene cuatro maneras de empezar
+  a jugar; la cuarta, llegar con un Controller Pak, tampoco la había
+  jugado nadie. `make trip-check-en` fabrica dos pueblos (el segundo
+  con otros nombres: dos pueblos con los mismos nombres son «el mismo»
+  para el juego), escribe en casa una carta más larga de lo que el
+  cartucho guarda, habla con el jefe de estación, sale en tren, llega
+  al otro pueblo como visitante, habla allí con un vecino y vuelve a
+  casa. Todo el texto del camino sale en inglés y limpio.
+- **Un fallo de la traducción, corregido: las cartas del viajero.** Al
+  salir de viaje el juego saca del guardado las cosas del jugador (van
+  en el Controller Pak). La traducción guarda aparte el final de las
+  cartas largas (lo que pasa de los 96 bytes del cartucho) y lo borraba
+  justo en ese guardado: a la vuelta, toda carta que el jugador llevara
+  encima quedaba cortada para siempre. En el cartucho original no se
+  pierde nada. Ahora ese texto se conserva en casa mientras dura el
+  viaje y la carta vuelve entera; la prueba lo exige. El arreglo no le
+  quita memoria al juego (una primera versión le costaba 6 KB; la medí
+  y la rehice). Queda un límite sin arreglo posible sin cambiar el
+  formato del Controller Pak: en el *otro* pueblo, una carta traída de
+  casa se ve (y se envía) solo con sus primeros 96 bytes, y en casa
+  vuelve a estar entera; y una carta escrita en el otro pueblo vuelve a
+  casa sin su final.
+- **Tres palabras sueltas.** Un barrido del texto ya compilado buscando
+  palabras que el resto del guion no usa encontró tres: un «Memory Pak»
+  partido entre dos líneas (por eso se le escapó a la revisión que
+  corrigió los otros quince), un «Famicom» donde todo lo demás dice
+  «NES», y un «shrine square» nuestro donde el texto oficial dice
+  «wishing well». Corregidas.
 
 ## Dónde está cada cosa
 

@@ -2943,12 +2943,14 @@ class EmulatorChecks(unittest.TestCase):
                   "gyroid": {"spoken": True, "asked": 2, "left": True, "pages": 5}, "flash": "job.fla",
                   "trade": {"in": True, "sold": True, "bought": True, "wallet": [0, 325, 205]},
                   "paid": {"in": True, "wallet": [205, 105]},
-                  "end": {"quest": True, "flags": 0, "scene": 7, "pockets": [0x2401], "clothes": 0x2410}}
+                  "end": {"quest": True, "flags": 0, "scene": 7, "pockets": [0x2401], "clothes": 0x2410, "keeps": True},
+                  "letter": {"bytes": "aa" * 122, "key": "1368ac01", "rest": "63656d6f6b"}}
         for key, value in more.items():
             played[key] = dict(played[key], **value) if isinstance(value, dict) and isinstance(played.get(key), dict) \
                 else value
         again = self.session("again", 20, pages=7)
-        return played, again, {"name": "636561", "flags": 0, "clothes": 0x2410}
+        held = {"animal": True, "place": False, "rest": "63656d6f6b"}
+        return played, again, {"name": "636561", "flags": 0, "clothes": 0x2410, "letter": [dict(held), dict(held)]}
 
     def job_failed(self, played, again, kept):
         emu_job.failures.clear()
@@ -2962,8 +2964,8 @@ class EmulatorChecks(unittest.TestCase):
         j = emu_job
         self.assertEqual(self.job_failed(*self.job()), [])
         # every check fails when the job was not played: the house, nine chores, its end, the Bells, the
-        # payment, the pages, the gyroid, the flash again
-        self.assertEqual(len(self.job_failed(None, None, None)), 16)
+        # payment, the pages, the gyroid, the flash again, the letter an animal keeps
+        self.assertEqual(len(self.job_failed(None, None, None)), 17)
 
         def with_chore(kind, **what):
             played, again, kept = self.job()
@@ -2997,11 +2999,44 @@ class EmulatorChecks(unittest.TestCase):
         # be the one of the player who did the job
         played, again, kept = ok
         self.assertEqual(len(self.job_failed(played, None, kept)), 1)
-        self.assertEqual(len(self.job_failed(played, again, None)), 1)
+        self.assertEqual(len(self.job_failed(played, again, None)), 2)       # and the letter's two flashes
         self.assertEqual(len(self.job_failed(played, again, dict(kept, flags=4))), 1)
         self.assertEqual(len(self.job_failed(played, again, dict(kept, clothes=0x2401))), 1)
         self.assertEqual(len(self.job_failed(played, dict(again, saved=None), kept)), 1)
         self.assertEqual(len(emu_job.CHORES), 9)
+
+    def test_the_letter_an_animal_keeps_holds_its_rest(self):
+        played, again, kept = self.job()
+        self.assertEqual(self.job_failed(played, again, kept), [])
+        gone = {"animal": True, "place": False, "rest": None}
+        whole = kept["letter"][0]
+        # the rest gone from a flash (the fault: no letter place of the save holds the letter an animal keeps)
+        self.assertEqual(len(self.job_failed(played, again, dict(kept, letter=[whole, gone]))), 1)
+        self.assertEqual(len(self.job_failed(played, again, dict(kept, letter=[gone, whole]))), 1)
+        self.assertEqual(len(self.job_failed(played, again, dict(kept, letter=[whole]))), 1)
+        # not as it was written; the animal without the letter; a letter place still holding it proves nothing
+        for what in ({"rest": "636561"}, {"animal": False}, {"place": True}):
+            self.assertEqual(len(self.job_failed(played, again, dict(kept, letter=[whole, dict(whole, **what)]))), 1)
+        # a letter no longer than the cartridge keeps proves nothing either, nor one no animal had at the end
+        self.assertEqual(len(self.job_failed(self.job(letter={"rest": None})[0], again, kept)), 1)
+        self.assertEqual(len(self.job_failed(self.job(letter=None)[0], again, kept)), 1)
+        self.assertEqual(len(self.job_failed(self.job(end={"keeps": False})[0], again, kept)), 1)
+        ok, said = emu_job.letter_kept(played, kept)
+        self.assertTrue(ok and "101 bytes of body" in said and "the 5 past them" in said, said)
+        # keeping(): the letter in an animal's memory, in a letter place, its rest in the extension
+        letter = {"bytes": bytes(range(1, 123)).hex(), "key": "%08x" % emu_letters.fnv(bytes(range(1, 123))),
+                  "rest": "72657374"}
+        save = bytearray(0x10000)
+        self.assertEqual(emu_job.keeping(save, b"", letter), {"animal": False, "place": False, "rest": None})
+        at = emu_job.emu_town.ANIMALS_AT + 3 * emu_job.emu_town.ANIMAL_SIZE + 0x47
+        save[at:at + 122] = bytes(range(1, 123))
+        ext = emu_letters.Ext()
+        ext.records = [(emu_letters.fnv(bytes(range(1, 123))), b"", b"rest", b"")]
+        self.assertEqual(emu_job.keeping(save, ext.bytes(), letter), {"animal": True, "place": False, "rest": "72657374"})
+        place = emu_letters.SAVE_MAIL[41] + emu_job.KEY_BYTES[0]
+        save[place:place + 122] = bytes(range(1, 123))
+        self.assertTrue(emu_job.keeping(save, ext.bytes(), letter)["place"])
+        self.assertEqual(emu_job.keeping(save, ext.bytes(), None), {"animal": False, "place": False, "rest": None})
 
     def trip(self):
         """A trip with the Controller Pak as tests/emu_trip.py's report reads it: [towns, home, away, pak,

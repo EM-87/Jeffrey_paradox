@@ -22,8 +22,9 @@ this road. Here it is gone with the pad, as a player goes it, the allocator's ho
     5   a piece of furniture delivered to the animal the record names: spoken to, the first answer; where the
         item screen opens to ask which, the pocket Nook filled;
     6   a letter written to the animal the record names (the paper's tag's second entry, the address book's
-        entry, letters typed on the dial, START, the end's question answered) and mailed at the post office
-        (the clerk's first answer, the letter chosen in the item screen, no second one);
+        entry, letters typed on the dial until the body is past the 96 bytes the cartridge keeps, START, the
+        end's question answered) and mailed at the post office (the clerk's first answer, the letter chosen
+        in the item screen, no second one);
     13  Nook not ready: an animal asked for work, then Nook again;
     7   a carpet delivered; 8 an axe delivered (to the letter's animal, who shows the letter that came);
     9   a notice written on the bulletin board by the houses (A at the board, A to write, the dial, START, the
@@ -37,6 +38,12 @@ this road. Here it is gone with the pad, as a player goes it, the allocator's ho
   (her second answer), a hundred Bells are set on the counter and paid. Then the player's own gyroid, which had no save to offer, saves and the
   game leaves for its title; and the flash it wrote is powered on again in a process of its own
   (tests/emu_memory.py's session): the town loads, the house is gone into, the gyroid saves again.
+
+  The letter is followed to its end. Its animal keeps it, the cartridge's bytes of it (Anmmem_c.letter), and
+  shows it at the last delivery; by the gyroid's save none of the save's own letter places holds it any
+  more (the pockets, the mailboxes, the post office's). The en build keeps the rest of a letter in the
+  save's extension under a key made of the letter's bytes and drops what no letter holds: the letter an
+  animal keeps must hold its rest too, in the flash the gyroid wrote and in the next morning's.
 
 Every page read on the way is judged as the other checks judge one (emu_year's Town.page_problems: kana, a
 token left in, the name plate, a line drawn past its bubble); the arena must never say no. A choice is
@@ -54,6 +61,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "emu"))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 sys.path.insert(0, HERE)
 import aflz  # noqa: E402
+import emu_letters  # noqa: E402
 import emu_memory  # noqa: E402
 import emu_psel  # noqa: E402
 import emu_reset  # noqa: E402
@@ -85,6 +93,8 @@ ANIMAL = "Normal_Npc"                   # an animal's actor
 POST_DOOR = emu_memory.BUILDINGS["post-office"][2]
 BOARD_AT = ((320, 350), (300, 350), (340, 350), (320, 370))     # before the board, from the houses' block's corner
 TYPED = "urldurld"                      # on the dial: a letter for each push of the stick
+LONG = "urld" * 45                      # and a letter's body past the 96 bytes the cartridge keeps of one
+KEY_BYTES = (0x2A, 0xA4)                # a Mail_c's header, body and footer: what a letter's key is made of
 AGAIN = (2001, 4, 15, 10, 0, 0)         # the flash powered on again: the next morning
 
 failures = []
@@ -102,6 +112,20 @@ def acquainted(save):
         if npc >> 12 == 0xE and me in a[0x0C:emu_town.ANIMAL_HOME]:
             out.add(npc)
     return out
+
+
+def keeping(save, ext, letter):
+    """Where a save and its extension have the letter written for the job ({bytes, key, rest}: its header,
+    body and footer, its key, its body's rest): {animal: an animal's memory has its bytes; place: one of the
+    save's own letter places has them (the pockets, the mailboxes, the post office's); rest: the body's rest
+    the extension has for its key, or None}."""
+    if not letter:
+        return {"animal": False, "place": False, "rest": None}
+    own = bytes.fromhex(letter["bytes"])
+    animals = bytes(save[emu_town.ANIMALS_AT:emu_town.ANIMALS_AT + emu_town.ANIMAL_MAX * emu_town.ANIMAL_SIZE])
+    places = [bytes(save[at + KEY_BYTES[0]:at + KEY_BYTES[1]]) for at in emu_letters.SAVE_MAIL]
+    rest = emu_letters.Ext.parse(bytes(ext)).rest(int(letter["key"], 16)) if ext else None
+    return {"animal": own in animals, "place": own in places, "rest": rest[1].hex() if rest else None}
 
 
 def check(ok, what):
@@ -266,10 +290,10 @@ class Player:
             n64.frames(12, 0)
         n64.press(A, 3, 40)
 
-    def type(self):
+    def type(self, typed=TYPED):
         """Letters on the dial, START, and the end's question answered with its first answer."""
         n64 = self.n64
-        for way in TYPED:
+        for way in typed:
             v = DIRECTIONS[way]
             n64.frames(8, v)
             n64.frames(6, v | A)
@@ -341,7 +365,8 @@ def play(emu_dir, rom_path, af_en, state, out):
     work = os.path.join(out, "job")
     os.makedirs(work, exist_ok=True)
     result = {"house": False, "chores": [], "over": None, "hang": None, "pages": [], "watch": None, "made": [],
-              "gyroid": None, "flash": emu_save.fla_path(work, rom), "animals": 0, "trade": None, "paid": None}
+              "gyroid": None, "flash": emu_save.fla_path(work, rom), "animals": 0, "trade": None, "paid": None,
+              "letter": None}
     with N64(emu_dir, rom, work, timeout=60) as n64:
         n64.load_state(state)
         t = emu_year.Town(n64, syms["mMsg_window"], syms["mChoice_en_strings"], names, syms)
@@ -466,9 +491,19 @@ def play(emu_dir, rom_path, af_en, state, out):
                     n64.frames(14, 0)
                 n64.press(A, 3, 60)
                 n64.frames(40, 0)
-                p.type()
+                p.type(LONG)
                 p.items(False)
                 written = bool(slots) and not p.pockets()[slots[0]] and p.letters() == 1
+                raw = p.private(MAIL, 10 * MAIL_SIZE)
+                mail = next((raw[i * MAIL_SIZE:(i + 1) * MAIL_SIZE] for i in range(10)
+                             if raw[i * MAIL_SIZE:i * MAIL_SIZE + 12].strip(b" ")), None)
+                if mail:                                 # the letter's own bytes, and its rest in the extension
+                    size = n64.u32(syms["mFRm_en_extSize"])
+                    ext = n64.read(syms["mFRm_en_ext"], size) if 0 < size <= emu_letters.EXT_CAP else b""
+                    key = emu_letters.mail_key(mail)
+                    rest = emu_letters.Ext.parse(ext).rest(key)
+                    result["letter"] = {"bytes": mail[KEY_BYTES[0]:KEY_BYTES[1]].hex(), "key": "%08x" % key,
+                                        "rest": rest[1].hex() if rest else None}
                 mailed = False
                 if p.outside() and t.go_block(p.block_of("post"), set()) and p.enter("Post_Office", POST_DOOR):
                     clerk = [a for a in t.actors() if a["part"] == emu_year.PART_NPC and a["name"] not in (ANIMAL, "Npc")]
@@ -609,7 +644,8 @@ def play(emu_dir, rom_path, af_en, state, out):
                 n64.screenshot(os.path.join(work, "job-%02d-kind-%d.png" % (len(result["chores"]), kind)))
             p.advance(300, 16)                            # sent out of the shop: the player's own word
             result["end"] = {"quest": p.quest() is None, "flags": p.flags() & emu_year.JOB_BITS, "scene": p.scene(),
-                             "pockets": [v for v in p.pockets() if v], "clothes": p.clothes()}
+                             "pockets": [v for v in p.pockets() if v], "clothes": p.clothes(),
+                             "keeps": keeping(n64.read(p.cd, 0x10000), None, result["letter"])["animal"]}
             n64.screenshot(os.path.join(work, "job-over.png"))
             if result["end"]["quest"]:
                 result["trade"] = trade()
@@ -634,7 +670,8 @@ def play(emu_dir, rom_path, af_en, state, out):
 
 def report(job, again, kept):
     """The checks. job: play()'s answer; again: the session that powered the flash on again; kept: what the
-    flash holds after it ({name, flags, clothes}), or None."""
+    flash holds after it ({name, flags, clothes, letter: keeping()'s answers for the flash the gyroid wrote
+    and for the one written the next morning}), or None."""
     chores = job["chores"] if job else []
     by_kind = {}
     for c in chores:                    # a chore given twice is judged by its last try
@@ -727,6 +764,27 @@ def report(job, again, kept):
               "the job's flags clear), goes into the house and saves at the gyroid again" % again["pages"]
               if again and again["arrived"] and kept and not kept["flags"] else "NOT AS THE GAME LEFT IT (%s)" % (
                   again and {k: again[k] for k in ("arrived", "hang", "problems", "saved")},)))
+    check(*letter_kept(job, kept))
+
+
+def letter_kept(job, kept):
+    """The check of the letter an animal keeps: (whether it holds, what to say)."""
+    letter, end = job and job.get("letter"), job and job.get("end")
+    held = (kept or {}).get("letter") or []
+    rest = bytes.fromhex(letter["rest"]) if letter and letter.get("rest") else b""
+    ok = (bool(rest) and bool(end) and bool(end.get("keeps")) and len(held) == 2 and
+          all(h["animal"] and not h["place"] and h["rest"] == letter["rest"] for h in held))
+    if ok:
+        said = ("%d bytes of body; its animal keeps the cartridge's %d (in RAM at the job's end, and in the flash "
+                "the gyroid wrote and the next morning's, where none of the save's own letter places holds it), "
+                "and the extension the %d past them, as they were written, in both" % (
+                    96 + len(rest), 96, len(rest)))
+    elif not rest:
+        said = "NOT LONGER THAN THE CARTRIDGE KEEPS, OR NOT FOUND (%s)" % (letter,)
+    else:
+        said = "THE REST IS NOT KEPT WITH IT (at the job's end an animal has it: %s; the two flashes: %s)" % (
+            bool(end) and end.get("keeps"), held)
+    return ok, "the letter written for the job, mailed, and shown by its animal: %s" % said
 
 
 def main(argv):
@@ -753,12 +811,14 @@ def main(argv):
         work = os.path.join(out, "again")
         json.dump({"label": "again", "work": work, "clock": AGAIN, "flash": job["flash"], "enter": "house",
                    "leave": True, "save": True}, open(plan, "w"))
+        first = aflz.unpack(emu_save.read_fla(job["flash"])[:0x10000])      # as the gyroid wrote it
         again = child(os.path.join(HERE, "emu_memory.py"), "--session", emu_dir, rom_path, af_en, plan)
         rom = open(rom_path, "rb").read()
-        save, _ = aflz.unpack(emu_save.read_fla(emu_save.fla_path(work, rom))[:0x10000])
+        save, ext = aflz.unpack(emu_save.read_fla(emu_save.fla_path(work, rom))[:0x10000])
         kept = {"name": emu_psel.name_of(save, 0).hex(),
                 "flags": struct.unpack(">I", save[emu_year.EVENT_FLAGS:emu_year.EVENT_FLAGS + 4])[0] & emu_year.JOB_BITS,
-                "clothes": struct.unpack(">H", save[PRIVATE + CLOTHES + 2:PRIVATE + CLOTHES + 4])[0]}
+                "clothes": struct.unpack(">H", save[PRIVATE + CLOTHES + 2:PRIVATE + CLOTHES + 4])[0],
+                "letter": [keeping(first[0], first[1], job["letter"]), keeping(save, ext, job["letter"])]}
     report(job, again, kept)
     json.dump({"job": job, "again": again, "kept": kept}, open(os.path.join(out, "report.json"), "w"), indent=1)
     print("emu_job: %s; the report in %s" % ("all passed" if not failures else "%d FAILED" % len(failures), out))

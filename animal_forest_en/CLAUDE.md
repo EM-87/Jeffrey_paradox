@@ -64,8 +64,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
    Resetti's visits `make reset-check-en`, one to what a new game's
    first hour goes through (Nook's first job: the item screen and its
    tags, a letter written from the pockets and mailed, the bulletin
-   board, the shop's counter) `make job-check-en`, one to `emu/` `make
-   emu-determinism`. And after a
+   board, the shop's counter) `make job-check-en`, one to the letters'
+   extension, to what a save holds of a player, or to the Controller
+   Pak's road (the station's master, a visitor, a homecoming) `make
+   trip-check-en`, one to `emu/` `make emu-determinism`. And after a
    push, read the CI run's jobs: its emulator job failed for want of nasm
    from the first commit on, 89 runs, while the tools' tests passed, and a
    run that is always red hides the day `make test` fails (NOTES, "The
@@ -367,6 +369,13 @@ the why and the state, `reference/NOTES.md` for what is verified.
   job's flags cleared by the game, something sold and something bought
   in the shop, the gyroid's save, the flash powered on again; every page
   judged: `make job-check-en`),
+  `emu_trip.py` (the fourth of the game's starts of play, a player who
+  comes with a Controller Pak, and the road to it: two towns made by
+  the game, the second with other names typed at the dials; a letter
+  longer than the cartridge keeps written at home, the station's
+  master, the train, the other town as a visitor, an animal there
+  spoken to, and home again, where the letter must be whole and the
+  gyroid save it so: `make trip-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.
@@ -422,6 +431,19 @@ the why and the state, `reference/NOTES.md` for what is verified.
   and letters checks once went four batches unrun while the swap table
   grew `code_en`, and nothing else noticed. A table that can live in ROM
   goes to a segment; one that must be in RAM is as short as its entries.
+- **A few bytes more can cost thousands.** A text section that grew
+  lies in the slots the other grown ones left, as many bytes of them
+  as `tools/af_relink.py` can place, and the rest in `code_en`. The
+  packing is tight (`m_handbill.o` and `m_choice_main.o` share a slot
+  with 160 bytes to spare, `m_flashrom.o`'s run has 336, `m_submenu.o`'s
+  480): 880 bytes more in `m_handbill.c` put 6,320 into `code_en`, and
+  a few instructions more in a file the translation had not touched
+  (`m_private.c`) sent its 12,000 bytes of text there whole. After a
+  change to the en tree's C, read the relink's line (`N sections in
+  code_en, N in the slots others left, N padded`) and `code_en`'s end
+  in the map against the build before; put new code where there is
+  room, and in a file whose text may not grow leave a call (NOTES, "A
+  trip, played").
 - **An overlay's relocation table cannot grow either.** Its `_reloc`
   segment keeps the cartridge's size, and `tools/af_ovlreloc.py` refuses
   more relocations than it holds (the editor's: room for 214, the en
@@ -504,6 +526,13 @@ the why and the state, `reference/NOTES.md` for what is verified.
   that names one (`GC_CONTROLS`), in every bank; a control the text
   names is held against the cartridge's Japanese (NOTES, "The first
   job").
+- **A name can have a line's end in it.** Fifteen messages of the 2010
+  patch had their name for the Controller Pak mended; a sixteenth, the
+  name broken over two lines, was found a review later. Search the
+  text flattened (a line's end for a space, the codes out), in the
+  banks as compiled, and count each word against the script's other
+  words for the same thing: the one that stands alone is the stray
+  (NOTES, "A trip, played").
 - **A tool given the wrong image must refuse.** A file lies at its vrom
   in the decompressed image only; `af_items.n64_name`, given the dump,
   answered every name with nothing, and the listing that would have shown
@@ -658,6 +687,19 @@ the why and the state, `reference/NOTES.md` for what is verified.
   play (`m_start_data_init.c`), the kinds a quest's record takes. Hold
   the checks against those, not against what a saved town happens to
   pass (`tests/emu_job.py`, `tests/emu_memory.py`'s newcomer).
+- **The game takes a traveller's things out of the save.** Before the
+  flash is written for a trip the save's own record of the player has
+  no pockets, no Bells and no letters (the Controller Pak has them),
+  and the player is marked away. What the translation keeps beside the
+  save by what the save holds (the letters' rests, by the letters'
+  bytes) was dropped at that write, and every letter carried came home
+  cut. Anything keyed to the save's content must be held through a
+  trip; and a check that never leaves the town never sees it
+  (`tests/emu_trip.py`).
+- **Two towns of one route are one town.** The names typed are the
+  same and the ids come out the same: a trip between two of the checks'
+  towns is a homecoming into the wrong town. A check that wants a
+  visitor makes its second town with other names at the dials.
 - **A menu can open over a talk.** The item screen (to hand something
   over, to choose what to sell), a letter held up: the window is not
   hidden then, and a loop that presses A while a window shows presses

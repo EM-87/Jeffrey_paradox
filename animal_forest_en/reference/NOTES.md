@@ -944,7 +944,9 @@ what goes in it: "The letters in the en build").
   `mHandbill_en_GetLetter` gives a letter back whole, for the letter
   screen. Before every write (`mFRm_en_Pack`,
   the one place all four write paths build their image) the records no
-  letter of the save holds are dropped; when a new one does not fit, the
+  letter of the save holds are dropped (but for those a player away on a
+  trip may hold, whose letters the game takes out of the save: "A trip,
+  played"); when a new one does not fit, the
   same collection runs on `common_data`, then the oldest go. The save's
   letters are 87: 4 pockets of 10 (`PrivateInfo.mail`), 4 mailboxes of 10
   (`mHm_hs_c.mailbox`), and the post office's, which the decomp has not
@@ -4484,8 +4486,7 @@ signs", "Our own signs").
   and is gone when the show is over; his actor and his overlay lie inside
   `ovl_Npc`'s own overlay, so he takes nothing out of the arena, which
   keeps 89,632 bytes while he is there; the show's nine pages are clean.
-- **The checks.** On the ROM this tree builds, the whole battery as goals
-  of one make (the section's last word, below).
+- **The checks.** "The closing pass's battery", below.
 
 ## The first job (the closing pass)
 
@@ -4559,7 +4560,123 @@ allocator's hook in place.
   The rest went as the cartridge means it: every tag, the address book,
   the dial and the questions at a letter's and a notice's end are
   English and worked as they read.
-- **The checks.** (the section's last word, below).
+- **The checks.** "The closing pass's battery", below.
+
+## A trip, played (the closing pass)
+
+The game has four starts of play (`m_start_data_init.c`): a new game
+(`mSDI_StartInitNew`), a saved town (`mSDI_StartInitFrom`), a new player
+in a town that has players (`mSDI_StartInitNewPlayer`: "The rooms a day
+does not reach", the one who comes later), and a player who comes with a
+Controller Pak (`mSDI_StartInitPak`). The text of that last road had
+been read twice ("The official text's codes and the GameCube's own",
+"The text's questions and facts") and its master spoken to ("A day in
+the town, played"); nothing had gone it. `tests/emu_trip.py` (`make
+trip-check-en`) goes it: one pad's Controller Pak through three
+power-ons, the flash changed between them as two Game Paks would be.
+
+- **The road.** The station's master asks a resident one thing (a
+  trip, or not). On the first answer he saves the player onto the
+  Controller Pak and the town onto the Game Pak, and the train leaves
+  for the game's logo. The steps are a table of nine (`D_8010767C_jp`,
+  `code/6B8F20.s`). The first (`func_80095FE0_jp`) copies the player's
+  record into the work's buffer for the Pak (`mPr_CopyPrivateInfo`),
+  marks the player away (`PrivateInfo.exists`, + 0xA74, 0) and takes
+  the player's things out of the save's own record
+  (`func_80095E08_jp`: the pockets and the Bells zeroed, the errands
+  cleared, the letters by `mMl_clear_mail_box`). Then a slot of the
+  flash is written (`func_800962A8_jp`: `func_8008F1BC_jp`, the slot's
+  writer), then the Pak (`func_80096330_jp`: `mCPk_SavePak`, a
+  `Passport` of 0x1200 bytes, the player's record and one animal's),
+  then a slot again (`func_800963B8_jp`).
+  With that Pak in the pad, a town's greeter has one question and then
+  looks at the Pak's record (`mPr_LoadPak_and_SetPrivateInfo2`, from
+  `mSDI_StartInitPak`): if it is one of the save's players (the same
+  names and ids) it is copied into the save, and the player is at
+  home; any other is a visitor, the player's number 4, the record in
+  play `g_foreigner_private` and not the save's. A visitor goes about
+  the town as a resident does; the station's master asks whether the
+  visitor is leaving, and saves the record onto the Pak again.
+  A resident who starts at home without the Pak while the save says
+  away starts with empty pockets (`mSDI_StartInitFrom`:
+  `playerDecoyFlag`); if the Pak comes after that, the greeter says
+  that one came home already and asks before the Pak's record takes
+  the place of the save's.
+- **Two towns of one route are one town.** The same names typed, and
+  the same ids from the same frames: a trip from one of the checks'
+  towns to another was a homecoming into the wrong town (the greeter's
+  question about the one who came home already, above). The check
+  types other names at the dials for its second town, from the route's
+  state at the first dial.
+- **What it found.** The en build keeps a letter's bytes past the
+  cartridge's 10, 96 and 16 in the save's extension, under a key made
+  of the letter's own bytes, and before each write of the flash drops
+  the records no letter of the save holds ("The letters in the en
+  build"). A traveller's letters are out of the save before the
+  departure's first write; the Pak has them, the cartridge's bytes of
+  each. So that write dropped the rest of every letter the traveller
+  carried, and home again each ended at its 96th byte, for good. Tried
+  on the build before: a letter of 162 bytes written at home and
+  carried to the other town and back was 96 at home. The cartridge
+  loses nothing on a trip.
+- **The fix.** The copy of a player's record out of the save files a
+  record of the trip in the extension (`mHandbill_EN_HOLD_KEY` + the
+  player's number, a byte of body), and the collection keeps all that
+  lies before the last such record whose player's place in the save
+  has a name (`mHandbill_en_CollectExt`): what was filed before a
+  player left stays while the trip lasts, the traveller's letters'
+  rests among it. The copy of a Pak's record into the save takes that
+  player's record away, and the letters hold their rests by their keys
+  again. Both copies are `mPr_CopyPrivateInfo`'s (it has three callers:
+  the departure, and `mPr_LoadPak_and_SetPrivateInfo2` twice), which in
+  the en build only calls `mFRm_en_CopyPrivateInfo` (`m_flashrom.c`).
+  What is filed during the trip is collected as ever. The record of a
+  trip whose Pak never comes back stays while the player's place has a
+  name; what it keeps is what was there when the player left, and when
+  the extension is full the oldest records go first, those among them.
+- **Where the code lies.** A first version had the work in
+  `m_handbill.c`: 880 bytes more text there, and `code_en` 6,320 bytes
+  larger. A text section that grew is laid into the slots the other
+  grown ones left, where it fits (`tools/af_relink.py`, `pack_holes`,
+  as many bytes as can be placed): `m_handbill.o` lies in the slot
+  `m_msg_main.o` left, with `m_choice_main.o` and 160 bytes to spare,
+  and with 880 more the best packing has 6,320 bytes more outside. A
+  second had the work in `mPr_CopyPrivateInfo` itself: a few
+  instructions more in `m_private.o`, and its 12,000 bytes of text left
+  their place whole. Now `m_private.c` has the call alone (16 bytes
+  less, padded in place), `m_handbill.c` 128 bytes more (the
+  collection's look for the records of a trip, and three of its
+  functions no longer the file's own), and the copy lies in
+  `m_flashrom.c`, 224 bytes, in a run of slots that had 336 to spare.
+  `code_en` ends where it ended (0xBC50 bytes): the arena has what it
+  had.
+- **Another town.** The Controller Pak holds the cartridge's record
+  (the `Passport`; the decomp names no use for its last 0x100 bytes,
+  and the rests of ten letters would not fit there). A letter carried
+  into another town has its first 10, 96 and 16 bytes there, on the
+  screen and if it is mailed there, and is whole again at home. A
+  letter first written in the other town, or written anew there, has
+  its rest in that town's extension and comes home without it. This is
+  the limit of a letter on a trip; the check holds the build to it (the
+  rest is not in the other town's extension).
+- **Three words.** A scan of the compiled banks (messages, choices,
+  strings, the eight letter banks; each text flattened first, a line's
+  end taken for a space) for words the rest of the script does not
+  use. 2160, a villager's on visiting other towns, taken from the 2010
+  patch, had that patch's name for the Controller Pak with a line's
+  end inside it: the review that gave fifteen others the cartridge's
+  name ("The text's questions and facts") had searched line by line.
+  6069, the game's word on how a game on the console is left, the 2010
+  patch's too, had the console's Japanese name where the item's name
+  and eight messages have the GameCube's English one. Both are ours
+  now (`script/message/words.txt`, from the cartridge's text). Ours
+  10275 had the shrine's square where 40 messages and 4 letters of the
+  GameCube's English have the wishing well. Left as they are: what the
+  GameCube's English itself words two ways (the police station of its
+  messages and the police box of its letters; raffle tickets and,
+  once, lottery tickets; the bulletin board and, once, a message
+  board).
+- **The checks.** "The closing pass's battery", below.
 
 ## The last notes without a source (the closing pass)
 

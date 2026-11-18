@@ -212,10 +212,12 @@ def session(emu_dir, rom_path, af_en, plan):
             result["now"] = now()
             if result["arrived"] and "meet" in steps:
                 homes = animals()
-                fg = next(iter(homes))
-                how = p.animal(fg, homes)
-                result["met"] = {"animal": fg, "ended": how,
-                                 "known": fg in emu_job.acquainted(n64.read(cd, 0x10000))}
+                for fg in list(homes) * 2:              # a window that opened is no proof: the animal's memory is
+                    how = p.animal(fg, homes)
+                    result["met"] = {"animal": fg, "ended": how,
+                                     "known": fg in emu_job.acquainted(n64.read(cd, 0x10000))}
+                    if how == "free" and result["met"]["known"]:
+                        break
             if result["arrived"] and "write" in steps:
                 before = result["now"]["letters"]
                 slot = list(struct.unpack(">15H", p.private(POCKETS, 30))).index(PAPER)
@@ -246,10 +248,12 @@ def session(emu_dir, rom_path, af_en, plan):
                                      "paper": PAPER in after["pockets"]}
             if result["arrived"] and "talk" in steps:
                 homes = animals()
-                fg = next(iter(homes))
-                read = len(pages)
-                how = p.animal(fg, homes)
-                result["talked"] = {"animal": fg, "ended": how, "pages": len(pages) - read}
+                for fg in list(homes) * 2:
+                    read = len(pages)
+                    how = p.animal(fg, homes)
+                    result["talked"] = {"animal": fg, "ended": how, "pages": len(pages) - read}
+                    if how == "free" and len(pages) > read:
+                        break
             if result["arrived"] and "depart" in steps:
                 result["before"] = now()
                 gone, spoken = False, False
