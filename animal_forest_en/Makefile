@@ -46,7 +46,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en resetti-check-en words-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en year-check-en reset-check-en memory-check-en job-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean script drafts
+.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en resetti-check-en words-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en year-check-en reset-check-en memory-check-en job-check-en trip-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean script drafts
 
 all: verify
 
@@ -588,6 +588,14 @@ memory-check-en: route-en
 # NOTES, "The first job").
 job-check-en: route-en
 	$(PYTHON) tests/emu_job.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en/4-houses.st $(BUILD)/emu-job-en
+
+# A trip with the Controller Pak, played: the fourth of the game's starts of play (a player who comes with a
+# Pak), and the road to it. Two towns made by the game from the route's states; a letter longer than the
+# cartridge keeps written at home and carried out by train, into the other town as a visitor, and home
+# again, where it must be whole: the game takes a traveller's letters out of the save for the trip, and the
+# extension keeps their rests (tests/emu_trip.py; NOTES, "A trip, played").
+trip-check-en: route-en
+	$(PYTHON) tests/emu_trip.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en $(BUILD)/emu-trip-en
 
 # -- the GameCube script (phase 4) -------------------------------------------
 # ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it

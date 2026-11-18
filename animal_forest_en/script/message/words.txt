@@ -1,0 +1,42 @@
+# Our English for two messages the build took from the 2010 patch (tools/af_nafe_text.py), whose English
+# names a thing by another word than the rest of the script has for it: the console the cartridge's games
+# are played on, which the item's name and the villagers' talk have as the GameCube's English has it (the
+# NES), and the Controller Pak (a line's end fell inside the patch's other name for it, where a search for
+# the name did not find it). From the cartridge's text; colours and talk orders are the cartridge's.
+# tools/msgbank.py's dump form, as ours.txt (its header says how the build lays it over the bank and what
+# af_text.py holds it to).
+
+## 2160
+#: a rough-spoken villager, about visiting other towns
+<DEMONPC0 0000ff>Hey, hey.<PAUSE 04> Ain't you got<PAUSE 06>
+any pals livin' in <DEMONPC0 00000b>some
+other town,<PAUSE 0a>
+<STR_TAIL>?<BTN><DEMONPC0 0000ff>
+<MSGCLEAR>If you do,<PAUSE 08>
+you could go and<PAUSE 04>
+drop in on their town,<BTN>
+<MSGCLEAR>or<PAUSE 06> have 'em come out
+here to play.<PAUSE 04>
+That'd be a hoot,<PAUSE 0c>
+<STR_TAIL>!<BTN>
+<MSGCLEAR>Sit tight in one town<PAUSE 04>
+all your days<PAUSE 06> and your
+world ain't gettin'<PAUSE 04>
+any bigger,<PAUSE 06> <STR_TAIL>.<BTN>
+<MSGCLEAR>To get to another town
+you just hop on a train<PAUSE 06>
+at the <COLORCHARS 4ba00007>station,<PAUSE 04> sure.<BTN>
+<MSGCLEAR>But to ride it<PAUSE 04> you need
+a thing called a
+<COLORCHARS 198cdc0e>Controller Pak,<PAUSE 06> <STR_TAIL>.<BTN><DEMONPC0 000016>
+<MSGCLEAR>Don't you forget it,<PAUSE 06>
+<STR_TAIL>!
+<MSGEND>
+
+## 6069
+#: the game's own word on how a game played on the console is left
+To stop playing the <COLORCHARS 324be103>NES,
+hold the <COLORCHARS be2d2d08>L Button and the
+<COLORCHARS be2d2d08>R Button and press the
+<COLORCHARS be2d2d08>Z Button.
+<MSGEND>

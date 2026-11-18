@@ -373,7 +373,7 @@ even I get jealous,
 <BTN>
 <MSGCLEAR><DEMONPC0 0000ff>This Saturday too,<PAUSE 0a>
 you can see fireworks
-in the shrine square,
+at the wishing well,
 <BTN>
 <MSGCLEAR><DEMONPC0 00000e>so see 'em
 with your own eyes!<PAUSE 0c>
