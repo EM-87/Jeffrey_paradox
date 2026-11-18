@@ -2821,5 +2821,32 @@ class EmulatorChecks(unittest.TestCase):
         self.assertEqual(len(self.reported({"shops": mixed})), 1)
 
 
+    def test_the_tent_the_save_had_last_comes_second(self):
+        def order(last):
+            return [what for _, what in emu_memory.tents_order(last)]
+        self.assertEqual(order(emu_memory.BROKER), ["gypsy", "broker"])
+        self.assertEqual(order(emu_memory.GYPSY), ["broker", "gypsy"])
+        self.assertEqual(order(0x41), ["broker", "gypsy"])
+        self.assertEqual({kind for kind, _ in emu_memory.tents_order(0)}, {emu_memory.BROKER, emu_memory.GYPSY})
+
+    def test_the_tents_report_takes_them_in_either_order(self):
+        talk = {"actor": "Ev_Broker2", "talked": True, "ended": True, "pages": 5, "choices": [], "problems": []}
+
+        def tent(what, kind, outside, scene, last):
+            first = self.session(what + "-set", 7, facts={"special": kind}, inside=None)
+            visit = self.session(what, scene, facts={"special": kind, "where": {outside: [1, 6, 5, 5]}}, talk=talk,
+                                 inside={"arena": [490000, 495000, 396000]}, saved=None if last else
+                                 {"spoken": True, "left": True, "pages": 3})
+            return [first, visit]
+        for broker_last in (False, True):
+            broker = tent("broker", emu_memory.BROKER, "BrShop", 12, broker_last)
+            gypsy = tent("gypsy", emu_memory.GYPSY, "Buggy", 18, not broker_last)
+            runs = gypsy + broker if broker_last else broker + gypsy
+            self.assertEqual(self.reported({"tents": runs}), [])
+        # the game set another kind than the one asked for: both of that tent's checks fail
+        wrong = tent("broker", 0x41, "BrShop", 12, False)[:1]
+        self.assertEqual(len(self.reported({"tents": wrong + gypsy})), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

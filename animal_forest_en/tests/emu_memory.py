@@ -699,7 +699,9 @@ def edges(emu_dir, rom_path, af_en, town, out, label):
 #     player's id + 1 + day + hour) mod 6, the next one if it is the last visit's kind), its day one to seven
 #     days on, its hour by its kind (the black market's tent from 18:00, the fortune teller's from 21:00).
 #     So the town is powered on at an hour that gives the kind wanted, saved, and powered on again on the
-#     day and at the hour the game wrote into the save;
+#     day and at the hour the game wrote into the save; and since the game never sets the last visit's kind
+#     again, and which kind a new town had last is its new game's dice, that one's tent comes second
+#     (tents_order);
 #   the igloo stands in winter (the year's tour meets it on its Saturday in February).
 SCENE, FG_SCENE = 0x14, 7                       # common_data: the scene's number (m_scene_table.h); the town's
 HOME_BITS, HOME_ORDERED = 0x22, 0x1E            # mHm_hs_c: its sizes' byte; the order's day, month, year
@@ -1111,9 +1113,17 @@ def shops_chain(run, town, out):
     return runs
 
 
+def tents_order(last):
+    """The two tents in the order a save allows: the game never sets the kind of the last visit again, and a
+    town's last kind is its new game's dice (the first player's id is in the reckoning), so the tent the
+    save has as its last visit comes second."""
+    tents = [(BROKER, "broker"), (GYPSY, "gypsy")]
+    return tents[::-1] if last == BROKER else tents
+
+
 def tents_chain(run, af_en, town, out):
     """The black market's tent and the fortune teller's, each set by the game at a start of play and gone
-    into on its day: the sessions."""
+    into on its day, in the order the town's save allows (tents_order): the sessions."""
     work = os.path.join(out, "tents")
     save = open(town, "rb").read()
     runs = []
@@ -1131,9 +1141,13 @@ def tents_chain(run, af_en, town, out):
         runs.append(run(dict(label=what, work=work, clock=day.timetuple()[:3] + (facts["special_hour"], 30, 0),
                              enter=what, talk=True, **more)))
         return day
-    day = visit(BROKER, "broker", datetime.date(2002, 5, 1), save[SPECIAL], leave=True, save=True)
-    if day and saved(runs[-1]):
-        visit(GYPSY, "gypsy", day + datetime.timedelta(days=2), BROKER)
+    last, start = save[SPECIAL], datetime.date(2002, 5, 1)
+    for n, (kind, what) in enumerate(tents_order(last)):
+        more = dict(leave=True, save=True) if n == 0 else {}
+        day = visit(kind, what, start, last, **more)
+        if not day or (more and not saved(runs[-1])):
+            break
+        last, start = kind, day + datetime.timedelta(days=2)
     return runs
 
 
@@ -1293,7 +1307,7 @@ def report_rooms(chains, furniture, pieces):
                       else "NOT %s (kind %#x)" % (what, facts["special"]) if facts else "not run", rest(first)))
             talk = r and r["talk"]
             check(sound(r) and outside in r["facts"]["where"] and within(r, scene) and bool(talk) and
-                  talk["talked"] and talk["ended"] and not talk["problems"] and (label == "gypsy" or saved(r)),
+                  talk["talked"] and talk["ended"] and not talk["problems"] and (r["saved"] is None or saved(r)),
                   "that day at %s: %s; its door: %s; %s%s" % (
                       "%02d:%02d" % tuple(r["clock"][3:5]) if r else "?",
                       "%s stands in block %d,%d" % ((what,) + tuple(r["facts"]["where"][outside][:2]))

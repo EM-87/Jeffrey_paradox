@@ -4318,18 +4318,21 @@ signs", "Our own signs").
   left): New Year's Day (the year's tightest once all that can come is
   counted), the turnips' Sunday of February (the year's least on the
   tour) and the fireworks' night (a festival's stalls). 106 crossings on
-  each; no way is closed. The year's least is not the tour's (73,632
-  bytes, the block south of the houses' on New Year's Day): it is 60,064,
-  the same day, in the houses' block entered from that block; 65,888 on
-  the turnips' Sunday and 83,248 at the fireworks, the houses' block both
-  times, entered from the west and from the east. Each is over
-  the floor (49,152), and with all that can come on top at once
-  (`EXTRA`: 51,932 bytes less what the block has loaded) the tightest
-  keeps 25,584, 31,408 and 48,768, where 16 KB are asked. A block's room
-  moves by up to 34,848 bytes with the way in (New Year's Day: whether
-  the block before had the snowballs' overlay loaded decides where the
-  next one's actors land); that spread is told, not judged: every way in
-  is held to the floor and to the sum, which is what the 16 KB were for.
+  each; no way is closed. The year's least is not the tour's (65,888
+  bytes, the houses' block on the turnips' Sunday): on New Year's Day the
+  houses' block has 60,064 entered from the south and 60,736 from the
+  east, where that day's tour, coming from the west, has 78,544. The
+  turnips' Sunday has its 65,888 whichever way one comes, and the
+  fireworks' night 83,248 to 87,088. Each is over the floor (49,152), and
+  with all that can come on top at once (`EXTRA`: 51,932 bytes less what
+  the block has loaded) the tightest keeps 25,584, 31,408 and 48,768,
+  where 16 KB are asked. A block's room moves by up to 34,848 bytes with
+  the way in (a corner block of New Year's Day: 62,224 with the
+  snowballs' overlay loaded on the way, 97,072 on the tour's walk, which
+  met none there; where the snowballs lie is the day's dice, and what is
+  loaded decides where the next block's actors land). That spread is
+  told, not judged: every way in is held to the floor and to the sum,
+  which is what the 16 KB were for.
 - **Every actor made.** An actor is made in one place (`m_actor.c`,
   `Actor_info_make_actor`: the scenes' lists, the name tables and every
   actor that makes another all come through it), which then hands the new
@@ -4346,9 +4349,9 @@ signs", "Our own signs").
   had put three of them where they are not: the arrival by train is
   `ovl_Intro_Demo`'s, which the hook sees made on the new game's road; an
   animal's room is `ovl_Arrange_Room`'s; and the house at nine at night
-  has no lamp's actor. The
-  hook sees none of the nine in any session. The scenes' files say the same
-  (`scene_data_status`, 35 scenes; `m_scene.c`'s `Scene_ct` reads their
+  has no lamp's actor. The hook sees none of the nine in any session. The
+  scenes' files say the same (`scene_data_status`, 35 scenes;
+  `m_scene.c`'s `Scene_ct` reads their
   lists): one scene names one of the nine, `SCENE_FIELD_TOOL_INSIDE`,
   `Lamp_Light`; no scene's door leads there, and its name stands only in
   the debug menu's list (`ovl_select`). That state is entered from the
@@ -4367,8 +4370,8 @@ signs", "Our own signs").
   0x8005 and 0x8007, and `Sample` 0x9000, which an item of that name on
   the map would make; no map the sessions walk has one), the
   structures', the characters', the tools', `ovl_Shop_Design`'s and one
-  of the balloon's. Should anything make them all the same, all nine at once
-  take 11,072 bytes, overlays, instances and nodes: inside the 16 KB.
+  of the balloon's. Should anything make them all the same, all nine at
+  once take 11,072 bytes, overlays, instances and nodes: inside the 16 KB.
   The check fails if the hook sees one, if a scene a session passes or a
   door leads to names one, or if an actor is neither met, nor in the sum,
   nor one of these.
@@ -4428,7 +4431,10 @@ signs", "Our own signs").
   and its camper four pages; the first shop on a month's last day, with
   the raffle's machine, 423,440 (467,584); the player's house at nine at
   night 425,200, as by day. Every page read on the way is clean, and on
-  the way to each room the arena's least is 85 to 88 KB.
+  the way to each room the arena's least is 85 to 88 KB. The new game's
+  road is read as well, at each of the route's states: on the train,
+  where the two names are typed, 531,264 bytes are free (360,256 in use);
+  at the station 101,168; with Nook showing the houses 84,672.
 - **The fifth of his actors.** No reset brings `ovl_Npc_Majin5`. The crate
   by the station that draws the staff's names during K.K.'s show
   (`ovl_Mikanbox`, `func_80AA4648_jp`) makes him, through `ovl_Npc`'s
