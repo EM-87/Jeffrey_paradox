@@ -54,8 +54,10 @@ import ups  # noqa: E402
 from contact import read_png  # noqa: E402
 from n64emu import stick, to_physical, write_png  # noqa: E402
 sys.path.insert(0, HERE)
+import emu_deals  # noqa: E402
 import emu_job  # noqa: E402
 import emu_letters  # noqa: E402
+import emu_pakjp  # noqa: E402
 import emu_trip  # noqa: E402
 import emu_memory  # noqa: E402
 import emu_reset  # noqa: E402
@@ -3179,6 +3181,13 @@ class EmulatorChecks(unittest.TestCase):
         home = at + size + emu_job.emu_town.ANIMAL_HOME
         save[home:home + 0x10] = save[emu_job.PRIVATE:emu_job.PRIVATE + 0x10]
         self.assertEqual(emu_job.acquainted(save), {0xE037, 0xE0CA})
+        # a visitor is not the save's first player: the animals that have met the one whose name record is given
+        visitor = b"komo  ekm   " + bytes.fromhex("f0a8302e")
+        self.assertEqual(emu_job.acquainted(save, visitor), set())
+        second = at + size + 0x0C + 0xB0 + 4
+        save[second:second + 0x10] = visitor
+        self.assertEqual(emu_job.acquainted(save, visitor), {0xE016})
+        self.assertEqual(emu_job.acquainted(save), {0xE037, 0xE0CA})
 
     def job(self, **more):
         """The first job played, as tests/emu_job.py's report reads it: (the job, the flash powered on again,
@@ -3405,18 +3414,25 @@ class EmulatorChecks(unittest.TestCase):
 
     def trip(self):
         """A trip with the Controller Pak as tests/emu_trip.py's report reads it: [towns, home, away, pak,
-        visit, other, back, kept, store, lying, fetch, whole, copies], nothing amiss."""
+        visit, other, back, kept, store, lying, fetch, whole, copies, again, pak2, leave], nothing amiss."""
         count = {"fails": 0, "failed": 0, "least": 85000, "calls": 600, "most": 250720, "made": {}}
         me, you = "636561202020636561202020f066306a", "6b6f6d202020656b6d202020f066306a"
         key, rest, mail = "1368ac01", "63656d6f6b", "aa" * 0xA4
+        key2, rest2, mail3 = "5e77a2b0", "6f6b6d6563", "cc" * 0xA4                 # the one written in the other town
         got, whole, mail2 = "2ab7d99e", ["6162", "63" * 59, "64" * 7], "bb" * 0xA4     # one the game delivered
         pockets = [0x2401, 0x13D0]
 
         def facts(**what):
-            given = dict({"name": me[:12], "id": me, "exists": 1, "pockets": list(pockets), "letters": [key],
-                          "mail": [mail], "rests": {key: rest}, "trips": [], "held": [], "marked": []}, **what)
+            """A record's facts: both letters the player wrote, unless told otherwise."""
+            given = dict({"name": me[:12], "id": me, "exists": 1, "pockets": list(pockets), "letters": [key, key2],
+                          "mail": [mail, mail3], "rests": {key: rest, key2: rest2}, "trips": [], "held": [],
+                          "marked": []}, **what)
             given.setdefault("whole", {k: ["", r, ""] for k, r in given["rests"].items()})
             return given
+
+        def first(**what):
+            """The facts while the player has only the letter written at home."""
+            return facts(**dict({"letters": [key], "mail": [mail], "rests": {key: rest}}, **what))
 
         def both(**what):
             """The facts with the delivered letter's record in the extension too."""
@@ -3431,39 +3447,57 @@ class EmulatorChecks(unittest.TestCase):
                          "talked": None, "left": None, "saved": None, "stored": None, "fetched": None}, **what)
         towns = {"home": {"town": "home.town", "settled": True, "said": "", "id": me, "sound": True},
                  "other": {"town": "other.town", "settled": True, "said": "", "id": you, "sound": True}}
-        home = run("home", asked=2, now=facts(number=0, record="the save's", letters=[], mail=[], rests={}),
+        home = run("home", asked=2, now=first(number=0, record="the save's", letters=[], mail=[], rests={}),
                    met={"animal": 0xE037, "ended": "free", "known": True},
-                   written={"key": key, "mail": mail, "rest": rest, "paper": False},
-                   before=facts(number=0, record="the save's"), left={"spoken": True, "gone": True})
-        away = facts(exists=0, pockets=[], letters=[], mail=[], trips=[0], held=[key])
-        pak = facts(rests={})
-        visit = run("visit", now=facts(number=4, record="a visitor's", rests={}),
-                    talked={"animal": 0xE037, "ended": "free", "pages": 4},
-                    before=facts(number=4, record="a visitor's", rests={}), left={"spoken": True, "gone": True})
+                   written={"key": key, "mail": mail, "rest": rest, "papers": 1},
+                   before=first(number=0, record="the save's"), left={"spoken": True, "gone": True})
+        away = first(exists=0, pockets=[], letters=[], mail=[], trips=[0], held=[key])
+        pak = first(rests={}, packed={key: ["", rest, ""]})
+        visit = run("visit", now=first(number=4, record="a visitor's"),
+                    talked={"animal": 0xE037, "ended": "free", "pages": 4})
+        again = run("again", now=first(number=4, record="a visitor's"),               # the power cut there
+                    met={"animal": 0xE040, "ended": "free", "known": True},
+                    written={"key": key2, "mail": mail3, "rest": rest2, "papers": 0},
+                    before=facts(number=4, record="a visitor's"), left={"spoken": True, "gone": True},
+                    resetti={"start": {"count": 1, "flag": 1}, "actors": ["Npc_Majin"], "how": ["walked off"],
+                             "pages": 21, "messages": [0x23D0, 0x23D1, 0x23D2], "ended": "free",
+                             "end": {"count": 1, "flag": 0}, "left": []})
         other = facts(name=you[:12], id=you, pockets=[], letters=[], mail=[], rests={})
+        pak2 = facts(rests={}, packed={key2: ["", rest2, ""], key: ["", rest, ""]})
         back = run("back", now=facts(number=0, record="the save's"), before=facts(number=0, record="the save's"),
                    saved={"spoken": True, "asked": 2, "left": True, "pages": 5})
         done = {"spoken": True, "asked": 2, "left": True, "pages": 5}
+        mine, mails = [key, key2], [mail, mail3]
         here = both(number=0, record="the save's")                                    # the letter in the mailbox
-        taken = both(number=0, record="the save's", letters=[key, got], mail=[mail, mail2])
+        taken = both(number=0, record="the save's", letters=mine + [got], mail=mails + [mail2])
         gone = both(number=0, record="the save's", marked=[got])                      # the letter on the Pak
         store = run("store", asked=2, now=here, before=gone, saved=dict(done), mail={
-            "before": {"pockets": [key], "box": [got]}, "menu": True, "closed": True,
-            "after": {"pockets": [key, got], "box": []}, "now": taken}, stored={
+            "before": {"pockets": list(mine), "box": [got]}, "menu": True, "closed": True,
+            "after": {"pockets": mine + [got], "box": []}, "now": taken}, stored={
             "before": taken, "spoken": True, "menu": True,
-            "letter": {"place": 1, "key": got, "mail": mail2, "kind": 0, "rest": list(whole)},
-            "opened": {"pockets": [key, got], "store": []}, "taken": {"pockets": [key], "store": []},
-            "put": {"pockets": [key], "store": [[1, got]]}, "closed": True, "ended": "free", "asked": [4, 4],
-            "now": gone, "everywhere": [key], "out": True})
+            "letter": {"place": 2, "key": got, "mail": mail2, "kind": 0, "rest": list(whole)},
+            "opened": {"pockets": mine + [got], "store": []}, "taken": {"pockets": list(mine), "store": []},
+            "put": {"pockets": list(mine), "store": [[1, got]]}, "closed": True, "ended": "free", "asked": [4, 4],
+            "now": gone, "everywhere": list(mine), "out": True})
         lying = both(marked=[got])
-        back_in = both(number=0, record="the save's", letters=[key, got], mail=[mail, mail2], marked=[got])
+        back_in = both(number=0, record="the save's", letters=mine + [got], mail=mails + [mail2], marked=[got])
         fetch = run("fetch", asked=2, now=gone, before=back_in, saved=dict(done), fetched={
             "before": gone, "spoken": True, "menu": True, "letter": None,
-            "opened": {"pockets": [key], "store": [[1, got]]}, "taken": {"pockets": [key], "store": []},
-            "put": {"pockets": [key, got], "store": []}, "closed": True, "ended": "free", "asked": [4, 4],
-            "now": back_in, "everywhere": [key, got], "out": True})
+            "opened": {"pockets": list(mine), "store": [[1, got]]}, "taken": {"pockets": list(mine), "store": []},
+            "put": {"pockets": mine + [got], "store": []}, "closed": True, "ended": "free", "asked": [4, 4],
+            "now": back_in, "everywhere": mine + [got], "out": True})
+        ours = [w.hex() for w in emu_trip.store_words()]
+        words = {"window": 3, "answers": [[0x80195970, "4f6b"], [0x80195860, ours[0]], [0x80195868, ours[1]]]}
+        leave = run("leave", asked=2, now=back_in, unstored={
+            "before": back_in, "spoken": True, "menu": True,
+            "letter": {"place": 2, "key": got, "mail": mail2, "kind": 0, "rest": list(whole)},
+            "opened": {"pockets": mine + [got], "store": []}, "taken": {"pockets": list(mine), "store": []},
+            "put": {"pockets": list(mine), "store": [[1, got]]}, "asked_at": [
+                {"answer": 1, "menu": True, "pockets": list(mine), "store": [[1, got]], "words": dict(words)},
+                {"answer": 2, "menu": False, "pockets": mine + [got], "store": None, "words": dict(words)}],
+            "closed": True, "ended": "free", "asked": [4, 4], "now": back_in, "everywhere": mine + [got], "out": True})
         return [towns, home, away, pak, visit, other, back, facts(), store, lying, fetch,
-                both(letters=[key, got], mail=[mail, mail2], marked=[got]), [0, 1, 0]]
+                both(letters=mine + [got], mail=mails + [mail2], marked=[got]), [0, 1, 0, 0], again, pak2, leave]
 
     def trip_failed(self, parts):
         emu_trip.failures.clear()
@@ -3475,9 +3509,13 @@ class EmulatorChecks(unittest.TestCase):
 
     def test_a_trip_is_held_to_the_letter_whole_at_home_again(self):
         self.assertEqual(self.trip_failed(self.trip()), [])
-        self.assertEqual(len(self.trip_failed([None] * 8)), 16)      # nothing played: every check fails
-        self.assertEqual(len(self.trip_failed(self.trip()[:8])), 5)  # the trip alone: the Pak's letters not played
-        TOWNS, HOME, AWAY, PAK, VISIT, OTHER, BACK, KEPT, STORE, LYING, FETCH, WHOLE, COPIES = range(13)
+        self.assertEqual(len(self.trip_failed([None] * 8)), 21)      # nothing played: every check fails
+        (TOWNS, HOME, AWAY, PAK, VISIT, OTHER, BACK, KEPT, STORE, LYING, FETCH, WHOLE, COPIES, AGAIN, PAK2,
+         LEAVE) = range(16)
+        alone = self.trip()                                          # the trip alone: the Pak's letters not played
+        alone[STORE:COPIES + 1] = [None, None, None, None, ()]
+        alone[LEAVE] = None
+        self.assertEqual(len(self.trip_failed(alone)), 6)
 
         def failed(part, *path, **what):
             """How many checks fail with one thing of a part changed (path: the dicts down to it)."""
@@ -3496,32 +3534,66 @@ class EmulatorChecks(unittest.TestCase):
         self.assertEqual(failed(AWAY, trips=[1]), 1)                                     # another player's
         self.assertEqual(failed(AWAY, held=[]), 1)
         self.assertEqual(failed(BACK, "now", rests={}), 1)
-        self.assertEqual(failed(BACK, "now", rests={"1368ac01": "636561"}), 1)           # not as it was written
+        self.assertEqual(failed(BACK, "now", rests={"1368ac01": "636561", "5e77a2b0": "6f6b6d6563"}), 1)   # not as written
+        self.assertEqual(failed(BACK, "now", rests={"1368ac01": "63656d6f6b"}), 1)       # the one written away: gone
         self.assertEqual(failed(BACK, "now", trips=[0]), 1)
         self.assertEqual(failed(KEPT, trips=[0]), 1)
         self.assertEqual(failed(KEPT, rests={}), 1)
         self.assertEqual(failed(KEPT, letters=[]), 1)
-        # the letter: written, longer than the cartridge keeps, the paper used
-        self.assertEqual(failed(HOME, "written", paper=True), 1)
+        # the letter: written, longer than the cartridge keeps, one of the two sheets of paper used
+        self.assertEqual(failed(HOME, "written", papers=2), 1)
         self.assertEqual(failed(HOME, "met", known=False), 1)
-        # ... a letter with nothing past the cartridge's 96 bytes proves nothing: its own check and the three
-        # that hold its rest on the trip; and the gyroid's save at the post office, which holds it again
-        self.assertEqual(failed(HOME, "written", rest=None), 5)
+        # ... a letter with nothing past the cartridge's 96 bytes proves nothing: its own check and the seven
+        # that hold its rest on the trip, on the Pak and at the post office
+        self.assertEqual(failed(HOME, "written", rest=None), 8)
         # the departure: the game must have left, the player be away in the flash, the Pak hold the record
         self.assertEqual(failed(HOME, "left", gone=False), 1)
         self.assertEqual(failed(AWAY, exists=1), 1)
         self.assertEqual(failed(AWAY, letters=["1368ac01"]), 1)
         self.assertEqual(failed(PAK, letters=[]), 1)
-        # the other town: a visitor, the Pak's things, one question; the rest not there; its own player kept
+        # ... and the rest with it, in the last bytes of the Pak's record: there, alone, as the extension has it
+        self.assertEqual(failed(PAK, packed={}), 1)
+        self.assertEqual(failed(PAK, packed={"1368ac01": ["", "636561", ""]}), 1)
+        self.assertEqual(failed(PAK, packed={"00000007": ["", "6f", ""], "1368ac01": ["", "63656d6f6b", ""]}), 1)
+        # the other town: a visitor, the Pak's things, one question; the letter whole there, at the first
+        # power-on and after the power cut; its own player kept
         self.assertEqual(failed(VISIT, "now", number=0), 1)
         self.assertEqual(failed(VISIT, "now", record="the save's"), 1)
         self.assertEqual(failed(VISIT, "now", pockets=[]), 1)
         self.assertEqual(failed(VISIT, asked=2), 1)
         self.assertEqual(failed(VISIT, "talked", ended="limit"), 1)
-        self.assertEqual(failed(VISIT, "now", rests={"1368ac01": "63656d6f6b"}), 1)
-        self.assertEqual(failed(OTHER, rests={"1368ac01": "63656d6f6b"}), 1)
+        self.assertEqual(failed(VISIT, "now", rests={}), 1)                              # cut at the cartridge's
+        self.assertEqual(failed(AGAIN, "now", rests={}), 1)
+        self.assertEqual(failed(AGAIN, "now", rests={"1368ac01": "636561"}), 1)
         self.assertEqual(failed(OTHER, exists=0), 1)
-        self.assertEqual(failed(VISIT, "left", spoken=False), 1)
+        self.assertEqual(failed(AGAIN, "left", spoken=False), 1)
+        # the letter written there: an animal of that town met, the other sheet of paper used, a rest; a letter
+        # without one proves nothing of the road home: its own check and the four that hold its rest after
+        self.assertEqual(failed(AGAIN, "met", known=False), 1)
+        self.assertEqual(failed(AGAIN, "written", papers=1), 1)
+        self.assertEqual(failed(AGAIN, "written", key="1368ac01"), 5)                    # the same letter twice
+        self.assertEqual(failed(AGAIN, "written", rest=None), 5)
+        # what the Pak takes home: both rests, the one written there first, as that town's extension had them
+        # (that town's flash, written with the visitor in play, may have them still)
+        both = {"5e77a2b0": ["", "6f6b6d6563", ""], "1368ac01": ["", "63656d6f6b", ""]}
+        self.assertEqual(failed(PAK2, packed={}), 1)
+        self.assertEqual(failed(PAK2, packed={k: both[k] for k in reversed(list(both))}), 1)
+        self.assertEqual(failed(PAK2, packed=dict(both, **{"5e77a2b0": ["", "6f6b", ""]})), 1)
+        self.assertEqual(failed(PAK2, packed={"5e77a2b0": both["5e77a2b0"]}), 1)
+        self.assertEqual(failed(OTHER, rests={"1368ac01": "63656d6f6b"}), 0)             # until its next save
+        self.assertEqual(failed(OTHER, trips=[0]), 1)
+        # the power cut on the visitor: at the next power-on a visitor again, a reset counted in the record
+        # that travels, the first of Mr. Resetti's actors by the station, heard out until he is gone
+        for path, what in ((("now",), {"number": 0}), (("now",), {"record": "the save's"}),
+                           (("resetti", "start"), {"count": 0}), (("resetti", "start"), {"flag": 0}),
+                           (("resetti",), {"actors": []}), (("resetti",), {"actors": ["Npc_Majin2"]}),
+                           (("resetti",), {"how": []}), (("resetti",), {"ended": "menu"}),
+                           (("resetti",), {"pages": 3}), (("resetti", "end"), {"flag": 1}),
+                           (("resetti",), {"left": ["Npc_Majin"]})):
+            self.assertEqual(failed(AGAIN, *path, **what), 1, (path, what))
+        parts = self.trip()                 # not powered on again: no reset, no letter from there, no train, and
+        parts[AGAIN] = None                 # nothing of the road home that hangs on them
+        self.assertEqual(len(self.trip_failed(parts)), 10)
         # home again: a resident, the things back
         self.assertEqual(failed(BACK, "now", number=4), 1)
         self.assertEqual(failed(BACK, "now", exists=0), 1)
@@ -3575,12 +3647,38 @@ class EmulatorChecks(unittest.TestCase):
         self.assertEqual(failed(FETCH, "fetched", closed=False), 1)
         self.assertEqual(failed(FETCH, "saved", left=False), 1)
         parts = self.trip()
-        parts[COPIES] = [0, 0, 0]                                                        # never written to the Pak
+        parts[COPIES] = [0, 0, 0, 0]                                                     # never written to the Pak
         self.assertEqual(len(self.trip_failed(parts)), 1)
-        parts[COPIES] = [0, 1, 1]                                                        # never taken off it
+        parts[COPIES] = [0, 1, 1, 1]                                                     # never taken off it
         self.assertEqual(len(self.trip_failed(parts)), 1)
-        parts[COPIES] = [1, 2, 1]                                                        # a trip's file with it too
+        parts[COPIES] = [1, 2, 1, 1]                                                     # a trip's file with it too
         self.assertEqual(len(self.trip_failed(parts)), 0)
+        parts[COPIES] = [0, 1, 0, 1]                                 # written by the answer that writes nothing
+        self.assertEqual(len(self.trip_failed(parts)), 1)
+        # the store's closing question: the en build's own words up (the check's window 3, the answers after
+        # the first), and each answer doing what its words say
+        ours = [w.hex() for w in emu_trip.store_words()]
+
+        def asked(which, **what):
+            parts = self.trip()
+            asks = [dict(a) for a in parts[LEAVE]["unstored"]["asked_at"]]
+            asks[which].update(what)
+            parts[LEAVE]["unstored"] = dict(parts[LEAVE]["unstored"], asked_at=asks)
+            return len(self.trip_failed(parts))
+        for which in (0, 1):
+            self.assertEqual(asked(which, words={"window": 0, "answers": [[1, "4f6b"], [2, ours[0]], [3, ours[1]]]}), 1)
+            self.assertEqual(asked(which, words={"window": 3, "answers": [[1, "4f6b"], [2, "52"], [3, ours[1]]]}), 1)
+            self.assertEqual(asked(which, words={"window": 3, "answers": [[1, ""], [2, ours[0]], [3, ours[1]]]}), 1)
+            self.assertEqual(asked(which, words=None), 1)
+        self.assertEqual(asked(0, menu=False), 1)                    # the second answer: back to the letters,
+        self.assertEqual(asked(0, store=[]), 1)                      # the letter where it was put
+        self.assertEqual(asked(0, pockets=["1368ac01", "5e77a2b0", "2ab7d99e"]), 1)
+        self.assertEqual(asked(1, menu=True), 1)                     # the third: out, the letter in the pockets
+        self.assertEqual(asked(1, pockets=["1368ac01", "5e77a2b0"]), 1)
+        self.assertEqual(failed(LEAVE, "unstored", "now", letters=["1368ac01", "5e77a2b0"]), 1)
+        self.assertEqual(failed(LEAVE, "unstored", closed=False), 1)
+        self.assertEqual(failed(LEAVE, "unstored", ended="limit"), 1)
+        self.assertEqual(failed(LEAVE, "unstored", letter=None), 1)
         said = io.StringIO()
         parts = self.trip()
         parts[STORE]["stored"]["now"] = dict(parts[STORE]["stored"]["now"], whole=dict(mine))
@@ -3592,7 +3690,9 @@ class EmulatorChecks(unittest.TestCase):
         # a page with a fault, a hang, the arena saying no: the session's checks and the last one
         self.assertEqual(failed(STORE, problems=["0x1be7 at 0: a line past its bubble"]), 2)
         self.assertEqual(failed(FETCH, hang="no frame"), 2)
-        self.assertEqual(failed(VISIT, problems=["0x7dd at 0: a line past its bubble"]), 4)
+        self.assertEqual(failed(VISIT, problems=["0x7dd at 0: a line past its bubble"]), 3)
+        self.assertEqual(failed(AGAIN, problems=["0x23d0 at 0: a line past its bubble"]), 4)
+        self.assertEqual(failed(LEAVE, problems=["0x1be7 at 0: a line past its bubble"]), 2)
         self.assertEqual(failed(BACK, hang="no frame"), 2)
         self.assertEqual(failed(HOME, "watch", fails=1), 3)
         # the two towns must differ in their names: the same player of the same town is a resident
@@ -3920,6 +4020,266 @@ class ToolsCheck(unittest.TestCase):
         found = t.points(bytes(raw), (3, 2), lambda x, y, z: y > 50.0)
         self.assertEqual([(off, round(x)) for off, x, _, _ in found], [(t.FIRST + 0x3C, 2077), (t.FIRST + 0x80, 2500)])
         self.assertEqual(t.points(bytes(raw), (3, 2), lambda x, y, z: False), [])
+
+
+class DealsCheck(unittest.TestCase):
+    """tests/emu_deals.py: turnips, the lost property, the catalog and the raffle, over four days."""
+
+    def days(self):
+        """The four days as session() tells them: nothing amiss."""
+        d = emu_deals
+        watch = {"fails": 0, "failed": 0, "least": 84000, "calls": 600, "most": 250720}
+
+        def day(label, **steps):
+            return dict({"label": label, "clock": [2001, 4, 15, 9, 0, 0], "arrived": True, "hang": None, "pages": 20,
+                         "messages": [0x6FD, 0x70A], "problems": [], "watch": dict(watch), "flash": label + ".fla"},
+                        **steps)
+        left = {"spoken": True, "asked": 2, "left": True, "pages": 5, "tried": 1}
+        letter, parcel = ["0a0b0c0d", 0], ["1a2b3c4d", 0x1434]
+        sunday = day("sunday", save=dict(left), turnips={
+            "found": [1, 4], "wallet": [50000, 49280], "bought": [0x2F00], "pages": [0x6FD, 0x6FE, 0x70A, 0x70B],
+            "answers": [2, 2, 4, 4], "ended": "free"}, lost={
+            "inside": True, "wallet": 49280, "taken": [0x1434], "pages": [0x77E, 0x780], "answers": [2],
+            "ended": "free", "out": True})
+        monday = day("monday", save=dict(left), price={"pages": [0x1092, 0x1094], "answers": [4, 4], "ended": "free"},
+                     sell={"wallet": [49280, 50040], "had": [0x2F00], "left": [], "menu": True,
+                           "pages": [0x1092, 0x1098], "ended": "free"},
+                     order={"wallet": [50040, 49000], "menu": True, "pages": [0x1092, 0x10A6, 0x10A7, 0x10AA],
+                            "ended": "free", "post": []})
+        tuesday = day("tuesday", mail={"box": [[letter, parcel], []], "pockets": [[], [letter, parcel]], "menu": True})
+        lost = {"had": [d.TICKETS, d.TICKETS, 0x1434], "has": [d.TICKETS, 0x1434], "answers": 2}
+        won = {"had": [d.TICKETS, 0x1434], "has": [0x1540, 0x1434], "answers": 2}
+        last = day("last", raffle={"keeper": "Npc_Shop_Mastersp", "draws": [lost, won], "ended": "free",
+                                   "pages": [0x10D1, 0x10D4, 0x10D5, 0x10DB, 0x10E3]})
+        return [sunday, monday, tuesday, last]
+
+    def failed(self, days):
+        emu_deals.failures.clear()
+        with contextlib.redirect_stdout(io.StringIO()):
+            emu_deals.report(*days)
+        failed = list(emu_deals.failures)
+        emu_deals.failures.clear()
+        return failed
+
+    def changed(self, which, step=None, **what):
+        days = self.days()
+        if step is None:
+            days[which] = dict(days[which], **what)
+        else:
+            days[which] = dict(days[which], **{step: what and dict(days[which][step], **what) or None})
+        return days
+
+    def test_each_dealing_is_held_to_what_changed_hands(self):
+        d = emu_deals
+        self.assertEqual(self.failed(self.days()), [])
+        self.assertEqual(len(self.failed([None] * 4)), 8)
+        for which, step, what in (
+                (0, "turnips", {"found": None}), (0, "turnips", {"bought": []}), (0, "turnips", {"bought": [0x2F01]}),
+                (0, "turnips", {"wallet": [50000, 50000]}), (0, "turnips", {"wallet": [50000, 49285]}),
+                (0, "turnips", {"answers": [2, 2, 4]}), (0, "turnips", {"ended": "limit"}),
+                (0, "lost", {"inside": False}), (0, "lost", {"taken": []}), (0, "lost", {"answers": []}),
+                (0, "lost", {"pages": [0x77E]}), (0, "lost", {"out": False}),
+                (1, "price", {"pages": [0x1092]}), (1, "price", {"answers": [2]}),
+                (1, "sell", {"menu": False}), (1, "sell", {"left": [0x2F00]}), (1, "sell", {"had": []}),
+                (1, "sell", {"wallet": [49280, 49280]}), (1, "sell", {"ended": "menu"}),
+                (1, "order", {"menu": False}), (1, "order", {"wallet": [50040, 50040]}),
+                (1, "order", {"pages": [0x1092]}), (1, "order", {"ended": "menu"}),
+                (2, "mail", {"menu": False}), (2, "mail", {"box": [[["0a0b0c0d", 0], ["1a2b3c4d", 0x1434]], [["1a2b3c4d", 0x1434]]]}),
+                (2, "mail", {"pockets": [[], [["0a0b0c0d", 0]]]}),
+                (3, "raffle", {"draws": []}), (3, "raffle", {"ended": "limit"}), (3, "raffle", {"pages": [0x10D1]})):
+            self.assertEqual(len(self.failed(self.changed(which, step, **what))), 1, (which, step, what))
+        # the raffle: every draw takes a pocket of tickets, at his question of two answers; one of them wins a thing
+        lost, won = self.days()[3]["raffle"]["draws"]
+        for draws in ([lost], [lost, dict(lost, had=lost["has"], has=[0x1434])],
+                      [lost, dict(won, has=[d.TICKETS, 0x1434])], [lost, dict(won, has=[0x1540, 0x1541, 0x1434])],
+                      [dict(lost, has=[d.TICKETS, d.TICKETS, 0x1434]), won], [lost, dict(won, answers=4)]):
+            self.assertEqual(len(self.failed(self.changed(3, "raffle", draws=draws))), 1, draws)
+        for draws in ([won], [lost, dict(lost, had=lost["has"], has=[0x1434]), dict(won, had=[0x1434], has=[0x1434])]):
+            self.assertEqual(len(self.failed(self.changed(3, "raffle", draws=draws))), (0 if draws == [won] else 1))
+        # a step that was not played fails its own check; a day that left no save fails the saves' check too
+        self.assertEqual(len(self.failed(self.changed(0, "lost"))), 1)
+        self.assertEqual(len(self.failed(self.changed(0, "save"))), 1)
+        self.assertEqual(len(self.failed(self.changed(1, "save", left=False))), 1)
+        # the pages of any of the four days
+        for which in range(4):
+            for what in ({"hang": "no frame"}, {"problems": ["0x70a at 0: a line past its bubble"]}, {"watch": None},
+                         {"watch": {"fails": 1}}):
+                self.assertEqual(len(self.failed(self.changed(which, **what))), 1, (which, what))
+        # the Monday's price is ten times less than what it pays: the two are told apart
+        days = self.changed(1, "sell", wallet=[49280, 49287])
+        self.assertEqual(len(self.failed(days)), 1)
+
+    def test_the_first_players_supplies(self):
+        d = emu_deals
+        save = bytearray(0x10000)
+        at = d.emu_job.PRIVATE
+        save[at + d.emu_job.POCKETS:at + d.emu_job.POCKETS + 30] = b"\x24\x01" * 15
+        save[at + d.emu_job.CONDITIONS:at + d.emu_job.CONDITIONS + 4] = b"\0\0\0\x02"
+        got = d.supplied(bytes(save))
+        pockets = struct.unpack(">15H", got[at + d.emu_job.POCKETS:at + d.emu_job.POCKETS + 30])
+        self.assertEqual(pockets, (d.TICKETS,) * d.DRAWS + (0,) * (15 - d.DRAWS))
+        self.assertEqual(d.gained([d.TICKETS, d.TICKETS, 5], [d.TICKETS, 5, 7, 7]), [7, 7])
+        self.assertEqual(d.gained([d.TICKETS, 5, 7, 7], [d.TICKETS, d.TICKETS, 5]), [d.TICKETS])
+        self.assertEqual(d.gained([5], [5]), [])
+        self.assertEqual(struct.unpack(">I", got[at + d.emu_job.WALLET:at + d.emu_job.WALLET + 4])[0], d.BELLS)
+        self.assertEqual(got[at + d.emu_job.CONDITIONS:at + d.emu_job.CONDITIONS + 4], bytes(4))
+        self.assertEqual(d.TICKETS, 0x2C1C)                 # April's, the fifth of its eight
+
+    def test_the_letters_a_place_holds(self):
+        d = emu_deals
+        save = bytearray(0x10000)
+        self.assertEqual(d.letters(bytes(save), range(len(emu_letters.SAVE_MAIL))), [])
+        at = emu_letters.SAVE_MAIL[d.BOX_FIRST + 3]
+        mail = bytearray(emu_letters.MAIL_SIZE)
+        mail[d.emu_job.KEY_BYTES[0]:d.emu_job.KEY_BYTES[0] + 10] = b"Dear cea, "
+        mail[d.PRESENT:d.PRESENT + 2] = b"\x14\x34"
+        save[at:at + len(mail)] = mail
+        got = d.letters(bytes(save), range(d.BOX_FIRST, d.BOX_FIRST + d.BOX_COUNT))
+        self.assertEqual(got, [["%08x" % emu_letters.mail_key(bytes(mail)), 0x1434]])
+        self.assertEqual(d.letters(bytes(save), range(10)), [])
+
+
+class PakJpCheck(unittest.TestCase):
+    """tests/emu_pakjp.py: one Controller Pak between the en build and the cartridge itself."""
+
+    def pak(self):
+        """The six power-ons as the report reads them: [towns, home, visit_jp, packs, back, home_jp, visit_en,
+        back_jp], nothing amiss."""
+        count = {"fails": 0, "failed": 0, "least": 85000, "calls": 600, "most": 250720, "made": {}}
+        me, you = "636561202020636561202020f0ca3043", "0e20202020200e2020202020f0a8302e"
+        key, rest, mail = "1368ac01", "63656d6f6b", "aa" * 0xA4
+
+        def facts(**what):
+            return dict({"name": me[:12], "id": me, "exists": 1, "pockets": [0x2000], "letters": [key],
+                         "mail": [mail], "rests": {key: rest}, "trips": [], "held": [], "marked": [],
+                         "whole": {key: ["", rest, ""]}}, **what)
+
+        def theirs(**what):
+            return facts(**dict({"name": you[:12], "id": you, "pockets": [], "letters": [], "mail": [], "rests": {},
+                                 "whole": {}}, **what))
+
+        def run(label, **what):
+            return dict({"label": label, "arrived": True, "hang": None, "pages": 18, "problems": [],
+                         "watch": dict(count), "asked": 1, "met": None, "written": None, "talked": None,
+                         "left": None, "saved": None, "said": []}, **what)
+        kana = ["0x140a at 26: Japanese {0e}\u305d at 49", "0x95c at 0: Japanese {0e}\u305d at 6"]
+        gone, done = {"spoken": True, "gone": True}, {"spoken": True, "asked": 2, "left": True, "pages": 5}
+        towns = {"home": {"town": "home.town", "settled": True, "said": "", "id": me, "sound": True},
+                 "jp": {"town": "jp.town", "chosen": True, "id": you, "sound": True, "houses": [4, 4, 4]}}
+        home = run("home", asked=2, now=facts(number=0, record="the save's", letters=[], mail=[], rests={}),
+                   met={"animal": 0xE037, "ended": "free", "known": True},
+                   written={"key": key, "mail": mail, "rest": rest, "papers": 1},
+                   before=facts(number=0, record="the save's"), left=dict(gone))
+        visit_jp = run("visit-jp", watch=None, problems=["0x1492 at 0: Japanese {60}\u3088 at 0"],
+                       now=facts(number=4, record="a visitor's", rests={}, whole={}),
+                       said=[[0x14AA, "<COLORCHARS 4b5f9b03>cea\u3001\u3060\u306a\u3002", []]],
+                       talked={"animal": 0xE084, "ended": "free", "pages": 1}, left=dict(gone))
+        packs = [{key: ["", rest, ""]}, {key: ["", rest, ""]}]
+        back = run("back", now=facts(number=0, record="the save's"), saved=dict(done))
+        home_jp = run("home-jp", watch=None, asked=2, problems=["0x1492 at 0: Japanese {60}\u3088 at 0"],
+                      now=theirs(number=0, record="the save's"), left=dict(gone))
+        visit_en = run("visit-en", problems=list(kana), now=theirs(number=4, record="a visitor's"),
+                       talked={"animal": 0xE000, "ended": "free", "pages": 3}, left=dict(gone))
+        back_jp = run("back-jp", watch=None, problems=["0x1492 at 0: Japanese {60}\u3088 at 0"],
+                      now=theirs(number=0, record="the save's"), saved=dict(done))
+        return [towns, home, visit_jp, packs, back, home_jp, visit_en, back_jp]
+
+    def failed(self, parts):
+        emu_pakjp.failures.clear()
+        with contextlib.redirect_stdout(io.StringIO()):
+            emu_pakjp.report(*parts)
+        failed = list(emu_pakjp.failures)
+        emu_pakjp.failures.clear()
+        return failed
+
+    def test_both_ways_are_held_to_what_each_game_must_do(self):
+        self.assertEqual(self.failed(self.pak()), [])
+        self.assertEqual(len(self.failed([None] * 8)), 9)            # nothing played: every check fails
+        TOWNS, HOME, VISIT_JP, PACKS, BACK, HOME_JP, VISIT_EN, BACK_JP = range(8)
+
+        def failed(part, *path, **what):
+            parts = self.pak()
+            at = parts[part]
+            for key in path:
+                at[key] = dict(at[key])
+                at = at[key]
+            at.update(what)
+            return len(self.failed(parts))
+        # the towns: two names, the cartridge's saved as the game saves one
+        self.assertEqual(failed(TOWNS, "jp", id="636561202020636561202020f0ca3043"), 4)   # one name: a homecoming
+        self.assertEqual(failed(TOWNS, "jp", houses=[4, 4, 0]), 1)
+        self.assertEqual(failed(TOWNS, "jp", chosen=False), 1)
+        # the en build's player in the cartridge's town: a visitor, by name, the Pak's things, the train
+        self.assertEqual(failed(HOME, "written", rest=None), 2)       # a short letter proves nothing of the rest
+        self.assertEqual(failed(HOME, "left", gone=False), 1)
+        self.assertEqual(failed(VISIT_JP, "now", number=0), 1)
+        self.assertEqual(failed(VISIT_JP, "now", record="the save's"), 1)
+        self.assertEqual(failed(VISIT_JP, "now", mail=[]), 1)
+        self.assertEqual(failed(VISIT_JP, "now", pockets=[]), 1)
+        self.assertEqual(failed(VISIT_JP, said=[[0x14AA, "\u3060\u306a\u3002", []]]), 1)          # not named
+        self.assertEqual(failed(VISIT_JP, "talked", ended="limit"), 1)
+        self.assertEqual(failed(VISIT_JP, "left", gone=False), 1)
+        self.assertEqual(failed(VISIT_JP, hang="no frame"), 2)        # ... and the six power-ons'
+        self.assertEqual(failed(VISIT_JP, problems=["0x1492 at 0: a line past its bubble"]), 0)   # Japanese: not judged
+        # the bytes the en build packed, after the cartridge wrote the record again
+        parts = self.pak()
+        for packs in ([{}, {}], [parts[PACKS][0], {}], [parts[PACKS][0], {"1368ac01": ["", "63", ""]}], [None, None], []):
+            parts[PACKS] = packs
+            self.assertEqual(len(self.failed(parts)), 1, packs)
+        # home again: a resident, the letter whole, saved
+        self.assertEqual(failed(BACK, "now", rests={}), 1)
+        self.assertEqual(failed(BACK, "now", number=4), 1)
+        self.assertEqual(failed(BACK, "now", trips=[0]), 1)
+        self.assertEqual(failed(BACK, "saved", left=False), 1)
+        self.assertEqual(failed(BACK, problems=["0x13f2 at 0: a line past its bubble"]), 2)
+        # the cartridge's player in the en build's town: a visitor, every page clean but for the names' kana
+        self.assertEqual(failed(HOME_JP, "left", gone=False), 1)
+        self.assertEqual(failed(HOME_JP, "now", id="636561202020636561202020f0ca3043"), 1)
+        self.assertEqual(failed(VISIT_EN, "now", number=0), 1)
+        self.assertEqual(failed(VISIT_EN, "now", id="636561202020636561202020f0ca3043"), 1)
+        self.assertEqual(failed(VISIT_EN, problems=[]), 1)            # the name never drawn
+        self.assertEqual(failed(VISIT_EN, problems=["0x4d9 at 82: Japanese {7b}\u3089 at 3"]), 1)   # another's kana
+        self.assertEqual(failed(VISIT_EN, problems=["0x4d9 at 82: a line past its bubble"]), 1)
+        self.assertEqual(failed(VISIT_EN, "watch", fails=1), 1)
+        self.assertEqual(failed(VISIT_EN, "talked", pages=0), 1)
+        self.assertEqual(failed(VISIT_EN, "left", gone=False), 1)
+        self.assertEqual(failed(BACK_JP, "now", number=4), 1)
+        self.assertEqual(failed(BACK_JP, "now", exists=0), 1)
+        self.assertEqual(failed(BACK_JP, "saved", left=False), 1)
+        self.assertEqual(failed(BACK_JP, arrived=False), 2)           # ... and the six power-ons'
+        self.assertEqual(failed(VISIT_EN, arrived=False), 2)
+        self.assertEqual(failed(HOME_JP, pages=0), 2)
+
+    def test_the_rests_packed_in_a_paks_record(self):
+        record = bytes.fromhex("1368ac01") + bytes([0, 5, 0]) + b"hello"
+        other = bytes.fromhex("5e77a2b0") + bytes([0x82, 3, 1]) + b"hi" + b"abc" + b"z"      # the Pak's mark is no length
+        area = b"LT" + bytes([len(record) + len(other)]) + other + record
+        got = emu_trip.packed(area + bytes(0xFE - len(area)))
+        self.assertEqual(list(got), ["5e77a2b0", "1368ac01"])
+        self.assertEqual(got["5e77a2b0"], [b"hi".hex(), b"abc".hex(), b"z".hex()])
+        self.assertEqual(got["1368ac01"], ["", b"hello".hex(), ""])
+        self.assertEqual(emu_trip.packed(bytes(0xFE)), {})                               # the cartridge's: no tag
+        self.assertEqual(emu_trip.packed(b"LT" + bytes([0xFC]) + bytes(0xFB)), {})        # a length past the bytes
+        cut = b"LT" + bytes([len(record) + 4]) + record + other[:4]                      # a record cut short
+        self.assertEqual(list(emu_trip.packed(cut + bytes(0xFE - len(cut)))), ["1368ac01"])
+        me = "636561202020636561202020f0ca3043"
+        with tempfile.TemporaryDirectory() as work:
+            path = os.path.join(work, "a.mpk")
+            self.assertIsNone(emu_pakjp.pak_of(path, me))                                # no file
+            passport = bytearray(0x1200)
+            passport[8:8 + 16] = bytes.fromhex(me)
+            passport[0x1102:0x1102 + len(area)] = area
+            with open(path, "wb") as f:
+                f.write(bytes(0x500) + bytes(passport) + bytes(0x100))
+            self.assertEqual(list(emu_pakjp.pak_of(path, me)), ["5e77a2b0", "1368ac01"])
+            self.assertIsNone(emu_pakjp.pak_of(path, "0e20202020200e2020202020f0a8302e"))   # another player's
+            self.assertEqual(emu_trip.pak_facts(work, me)["packed"], got)
+        # a session's faults that are the visitor's own names' kana, and no other
+        you = "0e20202020200e2020202020f0a8302e"
+        self.assertTrue(emu_pakjp.names_only({"problems": ["0x95c at 0: Japanese {0e}\u305d at 6"]}, you))
+        self.assertFalse(emu_pakjp.names_only({"problems": ["0x95c at 0: Japanese {7b}\u3089 at 6"]}, you))
+        self.assertFalse(emu_pakjp.names_only({"problems": ["0x95c at 0: a line past its bubble"]}, you))
+        self.assertFalse(emu_pakjp.names_only({"problems": ["0x95c at 0: Japanese {20} at 6"]}, you))
 
 
 if __name__ == "__main__":

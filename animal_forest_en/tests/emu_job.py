@@ -59,6 +59,7 @@ answered by its place, never by its words: the first answer, but for the clerk's
 """
 
 import json
+import math
 import os
 import shutil
 import struct
@@ -85,6 +86,7 @@ PRIVATE = emu_psel.PRIVATE_AT           # the first player's record in the save 
 POCKETS, CLOTHES = 0x14, 0xA76          # PrivateInfo: its 15 pockets (u16 each); the clothes worn (the item at +2)
 MAIL, MAIL_SIZE = 0x40A, 0xA4           # PrivateInfo.mail: the ten letters carried (Mail_c)
 WALLET = 0x38                           # PrivateInfo.inventory: the Bells in the pocketbook
+MAILBOX_REACH, MAILBOX_TURNS = 36.0, (-18, 0, 18)   # where a mailbox is opened from: its corner, three tries
 COUNTER = tuple((x, z) for z in (240, 220, 200, 260) for x in (180, 220, 260, 300, 140))   # before the shop's table
 PAYMENT = 100                           # paid towards the house: the hundreds' figure of the counter up by one
 QUEST = 0x25C                           # PrivateInfo.errands[0], the first job's record (QuestErrand, 0x50 bytes)
@@ -109,6 +111,9 @@ ERRAND = (2001, 4, 15, 11, 0, 0)        # and once more, an hour on: an animal's
 # PrivateInfo.deliveries (m_private.h): the errands the animals give, one record each (mQst_delivery_c: a
 # QuestBase, then the animal it goes to and the one who gave it, their names on the map first; read in the
 # running game)
+# a room's own map: g_fdinfo (FieldMakeInfo) -> blockInfo, whose first block's FieldMakeFGInfo (+ 0x580) points
+# at its 16 x 16 items (m_field_make.h); the units of its way out hold EXIT_DOOR or EXIT_DOOR1 (m_name_table.h)
+FIELD_BLOCKS, FIELD_ITEMS, EXIT_DOORS = 0x148, 0x584, (0x4080, 0x4081)
 DELIVERIES, DELIVERY_SIZE, DELIVERY_NUM = 0x40, 0x24, 15
 D_RECIPIENT, D_SENDER = 0x0C, 0x18
 # PrivateInfo.errands: five records as the first job's (QUEST is the first), the animals' once the job is done:
@@ -123,11 +128,12 @@ CONDITIONS, COND_QUEST = 0x34, 2
 failures = []
 
 
-def acquainted(save):
-    """The animals of the save (their names on the map) that have met its first player: one of an animal's
-    memories (Animal_c.memories, the bytes between its own name and its home) holds the player's own name
-    record (PersonalID_c, the first 16 bytes of PrivateInfo)."""
-    me = bytes(save[PRIVATE:PRIVATE + 0x10])
+def acquainted(save, me=None):
+    """The animals of the save (their names on the map) that have met its first player, or the player whose
+    name record me is (a visitor's): one of an animal's memories (Animal_c.memories, the bytes between its
+    own name and its home) holds the player's own name record (PersonalID_c, the first 16 bytes of
+    PrivateInfo)."""
+    me = bytes(me or save[PRIVATE:PRIVATE + 0x10])
     out = set()
     for i in range(emu_town.ANIMAL_MAX):
         a = bytes(save[emu_town.ANIMALS_AT + i * emu_town.ANIMAL_SIZE:emu_town.ANIMALS_AT + (i + 1) * emu_town.ANIMAL_SIZE])
@@ -162,6 +168,7 @@ class Player:
 
     def __init__(self, n64, t, syms, pages):
         self.n64, self.t, self.cd, self.pages = n64, t, syms["common_data"], pages
+        self.field = syms.get("g_fdinfo")
         self.read, self.asked, self.menus = set(), 0, 0
 
     def scene(self):
@@ -263,11 +270,33 @@ class Player:
                     return True
         return False
 
+    def way_out(self):
+        """(x, z) just inside the way out of the room the player is in: the unit above its exit's units in the
+        room's own map (g_fdinfo's first block's items: the items EXIT_DOORS), or None."""
+        n64 = self.n64
+        try:
+            blocks = n64.u32(n64.u32(self.field) + FIELD_BLOCKS)
+            words = struct.unpack(">256H", n64.read(n64.u32(blocks + FIELD_ITEMS), 512))
+        except (TypeError, ValueError, struct.error):
+            return None
+        doors = [(k % 16, k // 16) for k, v in enumerate(words) if v in EXIT_DOORS]
+        if not doors:
+            return None
+        return (sum(ux for ux, _ in doors) / len(doors) + 0.5) * 40.0, (max(uz for _, uz in doors) - 0.5) * 40.0
+
     def leave(self):
         """Out of a room by its door at the bottom (a keeper may have a word at the door): True once in the
-        town."""
+        town. Straight down from where the player stands; where that is not before the door (a room gone
+        into by a talk at its door, a thing looked at in a corner), from before the door."""
         n64, t = self.n64, self.t
-        for _ in range(5):
+        for n in range(5):
+            out = self.way_out()
+            x, level, _ = t.pos(t.player())
+            if out and (n or abs(x - out[0]) > 40.0):   # not before the door, or the way down led nowhere
+                for _ in range(3):
+                    t.put(out[0], level, out[1])
+                    n64.frames(2, 0)
+                n64.frames(10, 0)
             n64.frames(60, DIRECTIONS["d"])
             for _ in range(40):
                 if self.scene() == FG:
@@ -287,6 +316,59 @@ class Player:
 
     def outside(self):
         return self.scene() == FG or self.leave()
+
+    # the player set somewhere and turned: Town.drop puts it above a place, and it falls for some 28 frames
+    # more than drop waits, taking no stick meanwhile; a push meant to turn it then does nothing
+    def land(self, x, z):
+        """The player put at (x, z) from above, and waited for until it stands there."""
+        n64, t = self.n64, self.t
+        t.drop(x, z, 10)
+        for _ in range(120):
+            if t.player_main() == emu_year.PLAYER_WAIT:
+                break
+            n64.frames(1, 0)
+        n64.frames(4, 0)
+        return t.player_main() == emu_year.PLAYER_WAIT
+
+    def yaw(self):
+        """Where the player's figure looks, in degrees: 0 down the screen (+z), 90 to its right (+x)."""
+        raw = self.n64.read(self.t.player() + emu_year.A_SHAPE_ROT_Y, 2)
+        return struct.unpack(">h", raw)[0] * 360.0 / 65536
+
+    def off_by(self, dx, dz):
+        return (self.yaw() - math.degrees(math.atan2(dx, dz)) + 180) % 360 - 180
+
+    def face(self, dx, dz):
+        """Short pushes of the stick until the figure looks the way of (dx, dz); a push moves it a step or
+        two."""
+        n64 = self.n64
+        d = math.hypot(dx, dz) or 1.0
+        for _ in range(8):
+            if abs(self.off_by(dx, dz)) <= 12:
+                return True
+            n64.frames(2, stick(int(round(80 * dx / d)), int(round(-80 * dz / d))))
+            n64.frames(8, 0)
+        return abs(self.off_by(dx, dz)) <= 12
+
+    def open_mailbox(self, box):
+        """A before a house's mailbox (its actor): True once the item screen is open over its letters. A
+        mailbox answers only the one who stands at its corner (ac_mailbox's func_8096CA0C_jp: the way from it
+        to the player within 38 degrees of the way 45 degrees short of where it looks, the unit before the
+        figure the mailbox's own): a player's looks to the right of the screen, so that is its lower right,
+        and straight below it A does nothing."""
+        n64, t = self.n64, self.t
+        looks = struct.unpack(">h", n64.read(box["addr"] + emu_year.A_SHAPE_ROT_Y, 2))[0] * 360.0 / 65536
+        for turn in MAILBOX_TURNS:
+            way = math.radians(looks - 45 + turn)
+            dx, dz = MAILBOX_REACH * math.sin(way), MAILBOX_REACH * math.cos(way)
+            if not (self.land(box["pos"][0] + dx, box["pos"][2] + dz) and self.face(-dx, -dz)):
+                continue
+            n64.press(A, 3, 60)
+            n64.frames(60, 0)
+            if t.menu_open():
+                return True
+            self.advance(60, 6)                     # a word instead (someone by the mailbox): played through
+        return False
 
     def block_of(self, kind):
         return next((b for b, kinds in sorted(self.t.blocks().items()) if kind in kinds), None)

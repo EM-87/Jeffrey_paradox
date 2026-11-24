@@ -67,7 +67,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
    board, the shop's counter) `make job-check-en`, one to the letters'
    extension, to what a save holds of a player, or to the Controller
    Pak's road (the station's master, a visitor, a homecoming) `make
-   trip-check-en`, one to `emu/` `make emu-determinism`. And after a
+   trip-check-en` and `make pak-jp-check-en` (the same Pak in the
+   cartridge itself), one to a tool in the hand `make tools-check-en`,
+   one to the shop's, the police box's or the mailbox's dealings `make
+   deals-check-en`, one to `emu/` `make emu-determinism`. And after a
    push, read the CI run's jobs: its emulator job failed for want of nasm
    from the first commit on, 89 runs, while the tools' tests passed, and a
    run that is always red hides the day `make test` fails (NOTES, "The
@@ -155,7 +158,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   build's font swaps where it draws them (keyed by the cartridge's bytes
   from the dump: a string, a buffer a menu types into, or pieces around
   the part a menu builds itself; our own text in `script/ui.txt`: NOTES,
-  "The menus' strings where the font draws them").
+  "The menus' strings where the font draws them"); and `OWN`, the
+  strings that are ours alone, for the en build's own code (the
+  edit-end check's words as the Controller Pak's letter store asks
+  it: NOTES, "A trip, played").
 - `tools/af_items.py` — the item names: the GameCube's and their
   articles (read by `make script` into `build/gc/gc_items.txt`, from
   build/gc's copies of the disc's module and map), mapped kind by kind
@@ -394,16 +400,32 @@ the why and the state, `reference/NOTES.md` for what is verified.
   the game, the second with other names typed at the dials; a letter
   longer than the cartridge keeps written at home, the station's
   master, the train, the other town as a visitor, an animal there
-  spoken to, and home again, where the letter must be whole and the
-  gyroid save it so; then two more power-ons at the post office, the
-  letter into the Controller Pak's store, two saves, and back whole:
-  `make trip-check-en`),
+  spoken to, the letter whole there (its rest packed in the Pak's
+  record), the power cut there and the town powered on again (Mr.
+  Resetti by the station, heard out), a second letter written there,
+  the train from there, and home again, where both letters must be
+  whole and the gyroid save them so; then three more power-ons at the
+  post office, a letter into the Controller Pak's store, two saves,
+  back whole, and the store's closing question's other two answers,
+  its own words read in RAM: `make trip-check-en`),
+  `emu_pakjp.py` (one Controller Pak between the en build and the
+  cartridge itself, six power-ons: the en build's player a visitor in
+  a town the game made on the matching ROM, and home with the letter
+  whole, the bytes the rests are packed in untouched by the
+  cartridge; the cartridge's player a visitor in the en build's town,
+  every page clean but for the name's kana, and back: `make
+  pak-jp-check-en`),
   `emu_tools.py` (the tools taken in hand in `psel-check-en`'s town,
   its first player's pockets filled by hand: a fish caught at the
   bobber's pull, an insect caught with the pockets full and swapped
   for an apple in the item screen, a hole dug, a table buried and dug
   up, a tree felled; the catches' and the find's pages read:
   `make tools-check-en`),
+  `emu_deals.py` (four days in the same town, each a power-on of the
+  flash the day before saved: turnips bought of their seller and sold
+  to Nook, a thing of the lost property taken, the catalog's first
+  thing ordered and found in the mailbox, the raffle drawn until a
+  draw has won and one has lost: `make deals-check-en`),
   `emu_determinism.py` (two runs compared frame by frame: `make
   emu-determinism`).
 - `reference/NOTES.md` — verified facts with sources.
@@ -442,7 +464,8 @@ the why and the state, `reference/NOTES.md` for what is verified.
   section in `code_en` (112 KB) the arena had 0x51B0 left at the houses
   and 32 KB at its least on the morning-aerobics date's tour; the grown
   text now fills the slots other grown sections left in code and the
-  font's swap table is packed: `code_en` is 0xBC50 (48 KB). The year's
+  font's swap table is packed: `code_en` is 0xC2F0 (49 KB; 0xBC50
+  before the rests went onto the Controller Pak). The year's
   least on a tour is 66,544 bytes in a young town and 62,896 in one of
   four players and 15 animals, on New Year's Day in a block with the
   snowballs in it; walked into from every side, the block of the four
@@ -463,8 +486,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   lies in the slots the other grown ones left, as many bytes of them
   as `tools/af_relink.py` can place, and the rest in `code_en`. The
   packing is tight (after the letters' fixes `m_handbill.o` and
-  `m_choice_main.o` share a slot with 96 bytes to spare, `m_flashrom.o`'s
-  run has 112, `m_submenu.o`'s 16): 880 bytes more in `m_handbill.c` put
+  `m_choice_main.o` share a slot with 96 bytes to spare,
+  `m_flashrom.o`'s run has 112, `m_submenu.o`'s 16; code that none of
+  them can take goes to `m_string.c`, whose text lies whole in
+  `code_en` and costs what it is): 880 bytes more in `m_handbill.c` put
   6,320 into `code_en`, and
   a few instructions more in a file the translation had not touched
   (`m_private.c`) sent its 12,000 bytes of text there whole. After a
@@ -735,7 +760,13 @@ the why and the state, `reference/NOTES.md` for what is verified.
   bytes) was dropped at that write, and every letter carried came home
   cut. Anything keyed to the save's content must be held through a
   trip; and a check that never leaves the town never sees it
-  (`tests/emu_trip.py`).
+  (`tests/emu_trip.py`). And a visitor is in no save at all, while
+  the game writes the town's flash when one arrives and, when one
+  leaves, before the Pak: the rests a visitor's letters brought on
+  the Pak were in the town's extension for four frames. What a
+  visitor has is held by the visitor's own record
+  (`g_foreigner_private`; `mCPk_en_VisitorKeys`). Read the thing
+  every frame from power-on before believing where it is lost.
 - **A letter lies in more places than the save's letter places.** The
   pockets, the mailboxes and the post office's seven are 87; an animal
   keeps the last letter each player sent it (105 more, in the animals'
@@ -782,15 +813,25 @@ the why and the state, `reference/NOTES.md` for what is verified.
 - **An animal met at its door takes the player indoors.**
   `Player.animal` (`tests/emu_job.py`) walks up to an animal and
   presses A; one that stands at its own door lets the player into its
-  house, the talk happens there, and `leave()` walks straight down,
-  which finds the door only from in front of it. Seen once, by hand,
-  on the town of an earlier build at 10:00: the player stayed in the
-  house and every step after it failed, loudly ("NOT STORED AS
-  MEANT"). The town of the delivered build has no animal at its door
-  at the hours the checks use. If a new build's town has, the first
-  job's check and the trip's fail at the step after a talk: give
-  `leave()` the way to the door (the room's middle, then down) and run
-  both again.
+  house, and the talk happens there. `leave()` once walked straight
+  down, which finds a door only from in front of it: seen by hand on
+  the town of an earlier build, and again from the police box's
+  corner, where each failed try cost 660 frames. It now reads the
+  room's own map for its exit (`way_out`: the door's items in the
+  first block's units, `g_fdinfo`) and puts the player before it.
+- **A mailbox answers from its corner, the raffle in one talk.** A
+  before a mailbox does nothing from straight below it: its actor
+  wants the player at its lower right (`ac_mailbox`'s
+  `func_8096CA0C_jp`; `emu_job.Player.open_mailbox` stands there by
+  the actor's own angle), and a check that walked into it opened it
+  by the slide. The raffle's keeper asks again in the same talk after
+  each draw, and a draw loses 65 times in 100: a check that answers
+  "the first answer" to everything draws until the tickets are gone
+  and may win nothing. And a sale that takes the pocketbook past its
+  limit comes back as a bag of Bells in a pocket: count what a player
+  is worth with the bags (`tests/emu_deals.py`). What the game draws,
+  a check plays until it has seen each outcome, and says how often
+  that fails.
 - **The talk that opens by the gyroid is not always the gyroid's.** An
   animal that has not met the player has its first word when the
   player comes by. On the delivered build's town, the day after the

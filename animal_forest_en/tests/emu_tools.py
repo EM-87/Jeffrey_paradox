@@ -57,7 +57,7 @@ import emu_save  # noqa: E402
 import emu_town  # noqa: E402
 import emu_year  # noqa: E402
 from afplay import DIRECTIONS  # noqa: E402
-from n64emu import N64, A, B, START, Hang, stick  # noqa: E402
+from n64emu import N64, A, B, START, Hang  # noqa: E402
 
 NET, AXE, SHOVEL, ROD = 0x2200, 0x2201, 0x2202, 0x2203      # the tools' items (m_name_table's kind 0x22)
 APPLE, TABLE = 0x2800, 0x1270
@@ -178,40 +178,13 @@ def play(emu_dir, rom_path, af_en, town, work, clock):
         def actor(name):
             return next((a for a in t.actors() if a["name"] == name), None)
 
-        def yaw():
-            return struct.unpack(">h", n64.read(t.player() + emu_year.A_SHAPE_ROT_Y, 2))[0] * 360.0 / 65536
-
-        def off_by(dx, dz):
-            return (yaw() - math.degrees(math.atan2(dx, dz)) + 180) % 360 - 180
-
-        def face(dx, dz):
-            """Short pushes of the stick until the figure looks that way (a push moves it a step or two)."""
-            d = math.hypot(dx, dz) or 1.0
-            for _ in range(8):
-                if abs(off_by(dx, dz)) <= 12:
-                    return True
-                n64.frames(2, stick(int(round(80 * dx / d)), int(round(-80 * dz / d))))
-                n64.frames(8, 0)
-            return abs(off_by(dx, dz)) <= 12
-
-        def land(x, z):
-            """The player put at (x, z) from above, and waited for until it stands there: the pad does nothing
-            while it falls."""
-            t.drop(x, z, 10)
-            for _ in range(120):
-                if t.player_main() == emu_year.PLAYER_WAIT:
-                    break
-                n64.frames(1, 0)
-            n64.frames(4, 0)
-            return t.player_main() == emu_year.PLAYER_WAIT
-
         def enter(block):
             """Into a block, onto the unit of land nearest its middle."""
             if t.block() == block:
                 return True
             spot = nearest(attrs(block), block, (block[0] + 0.5) * emu_year.BLOCK, (block[1] + 0.5) * emu_year.BLOCK,
                            GRASS, 400.0)
-            return bool(spot) and t.go(spot[0], spot[1]) and land(spot[0], spot[1])
+            return bool(spot) and t.go(spot[0], spot[1]) and p.land(spot[0], spot[1])
 
         def around(want=lambda kinds: True):
             """The town's blocks of a kind, the nearest first."""
@@ -258,7 +231,7 @@ def play(emu_dir, rom_path, af_en, town, work, clock):
                     if not stand:
                         break
                     _, fx, _, fz = swimming[0]
-                    if not (land(*stand) and face(fx - stand[0], fz - stand[1])):
+                    if not (p.land(*stand) and p.face(fx - stand[0], fz - stand[1])):
                         continue
                     bobber = actor("Uki")
                     if not bobber:
@@ -313,14 +286,14 @@ def play(emu_dir, rom_path, af_en, town, work, clock):
                     d = math.hypot(ix - px, iz - pz)
                     if d > 2 * FAR:                 # it flew off: after it, onto the land nearest it
                         spot = nearest(ground, block, ix, iz + 45.0, GRASS)
-                        if not (spot and land(*spot)):
+                        if not (spot and p.land(*spot)):
                             break
                         continue
-                    if not NEAR <= d <= FAR or not face(ix - px, iz - pz):
+                    if not NEAR <= d <= FAR or not p.face(ix - px, iz - pz):
                         continue
                     px, _, pz = t.pos(t.player())
                     ix, _, iz = struct.unpack(">3f", n64.read(insects["addr"] + at, 12))
-                    if not NEAR <= math.hypot(ix - px, iz - pz) <= FAR or abs(off_by(ix - px, iz - pz)) > 25:
+                    if not NEAR <= math.hypot(ix - px, iz - pz) <= FAR or abs(p.off_by(ix - px, iz - pz)) > 25:
                         continue
                     out["swings"] += 1
                     mark, pockets = len(result["pages"]), p.pockets()
@@ -366,7 +339,7 @@ def play(emu_dir, rom_path, af_en, town, work, clock):
 
         def stand_before(block, ux, uz):
             x, z = block[0] * emu_year.BLOCK + ux * UNIT + UNIT / 2, block[1] * emu_year.BLOCK + (uz + 1) * UNIT + UNIT / 2
-            return land(x, z) and face(0, -1)
+            return p.land(x, z) and p.face(0, -1)
 
         def strike(block, ux, uz, changed):
             """A, and the unit's item once the tool has come down."""
@@ -403,7 +376,7 @@ def play(emu_dir, rom_path, af_en, town, work, clock):
                 out["dug"] = strike(block, *spot, lambda v: v != out["buried"])
                 out["pages"] = said(mark)
                 out["tables"].append(p.pockets().count(TABLE))
-                if face(0, -1):                     # the player turned to say what it dug up
+                if p.face(0, -1):                   # the player turned to say what it dug up
                     out["filled"] = strike(block, *spot, lambda v: v != out["dug"])
                 break
             return out

@@ -46,7 +46,7 @@ OUT_ROM  := $(BUILD)/animalforest-match.z64
 EN_ROM   := $(BUILD)/animalforest-en.z64
 NAFE_ROM := $(BUILD)/nafe-2010-12-02.z64
 
-.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en resetti-check-en words-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en year-check-en reset-check-en memory-check-en job-check-en trip-check-en tools-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean script drafts
+.PHONY: all bps baserom decomp rom verify decomp-patch decomp-tools decomp-en rom-en emu-check-en route-en save-check-en letters-check-en board-check-en write-check-en resetti-check-en words-check-en notice-check-en messages-check-en menus-check-en signs-check-en psel-check-en year-check-en reset-check-en memory-check-en job-check-en trip-check-en tools-check-en deals-check-en pak-jp-check-en emu-determinism decomp-patch-en emu emu-check ares ares-route-en nafe nafe-diff test clean distclean script drafts
 
 all: verify
 
@@ -619,6 +619,23 @@ trip-check-en: route-en
 # NOTES, "The tools, played").
 tools-check-en: psel-check-en
 	$(PYTHON) tests/emu_tools.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(BUILD)/emu-psel-en/2-two.town $(BUILD)/emu-tools-en
+
+# The town's dealings, played over four days in psel-check-en's town, each a power-on of the flash the day
+# before saved: turnips bought of their seller a Sunday morning and sold to Nook the Monday, a thing of the
+# police box's lost property taken, the catalog's first thing ordered and found in the mailbox the Tuesday,
+# and the raffle on the month's last day, drawn until a draw has won and one has lost (tests/emu_deals.py;
+# NOTES, "The town's dealings, played").
+deals-check-en: psel-check-en
+	$(PYTHON) tests/emu_deals.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(BUILD)/emu-psel-en/2-two.town $(BUILD)/emu-deals-en
+
+# One Controller Pak between the en build and the cartridge itself: the en build's player to a town of the
+# untranslated game and home, the cartridge's player to the en build's town and back. The cartridge's town is
+# made by the game from the same route played on the matching ROM (tests/emu_pakjp.py; NOTES, "The
+# Controller Pak and the cartridge itself").
+pak-jp-check-en: route-en
+	$(PYTHON) tools/route_newgame.py $(EMU_DIR) $(OUT_ROM) $(BUILD)/route-jp
+	$(PYTHON) tests/emu_pakjp.py $(EMU_DIR) $(EN_ROM) $(AF_EN_DIR) $(CURDIR)/$(BUILD)/route-en $(OUT_ROM) $(AF_DIR) \
+		$(CURDIR)/$(BUILD)/route-jp $(BUILD)/emu-pak-jp-en
 
 # -- the GameCube script (phase 4) -------------------------------------------
 # ISO=path to the user's Animal Crossing disc image (GAFE01). Everything it

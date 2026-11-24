@@ -4742,8 +4742,9 @@ the Controller Pak", below).
   again from the same text; a marked record goes as any other does
   when the extension is full, the oldest first (0x2400 bytes, a record
   133 at most: the rests of a full Pak's letters and the save's own
-  need not all fit). A letter stored at another town's post office has
-  no rest there to mark ("Another town"). The mark is this build's: an
+  need not all fit). A visitor's letter stored at another town's post
+  office is marked in that town's extension, where its rest came with
+  the Pak ("The rests on the Controller Pak"). The mark is this build's: an
   earlier build of the translation reads a marked record 128 bytes too
   long and takes the extension for damaged from there on, so a save
   played on with this build and then with an earlier one loses, at
@@ -4801,15 +4802,126 @@ the Controller Pak", below).
   `ram_ext`, `write_town`, `town_ext`; `town_image` packs both, as a
   flash of the game's holds both), and the trip's check empties the
   mailbox and holds each letter that came to its record.
-- **Another town.** The Controller Pak holds the cartridge's record
-  (the `Passport`; the decomp names no use for its last 0x100 bytes,
-  and the rests of ten letters would not fit there). A letter carried
-  into another town has its first 10, 96 and 16 bytes there, on the
-  screen and if it is mailed there, and is whole again at home. A
-  letter first written in the other town, or written anew there, has
-  its rest in that town's extension and comes home without it. This is
-  the limit of a letter on a trip; the check holds the build to it (the
-  rest is not in the other town's extension).
+- **A reset as a visitor.** A visitor cannot save in the town visited
+  (its gyroids are not the visitor's), but can cut the power there. The
+  check does: after the visitor's talk the session ends with nothing
+  written, and the other town is powered on again with the same flash
+  and the same Pak. The greeter has the Pak's one question again and
+  the player arrives by train as a visitor once more; the reset is
+  counted in the record in play, which is the traveller's own (the
+  count comes and goes with the Pak, so it is the player's and not the
+  town's), the flag is up, and the first of Mr. Resetti's actors is in
+  the ground a little below the station: he comes up before the player
+  who goes to him, 29 pages of 7 messages, and when he is gone the flag
+  is down and the station's master takes the visitor home as before.
+  Cut the power there three times and it is his third actor, the one
+  who asks for a phrase, as at home (seen while trying this by hand:
+  the count went 1, 2, 3 over three power-ons). Nothing of it differs
+  from a resident's reset but the place, and every page is the same
+  English.
+- **The rests on the Controller Pak.** The Controller Pak holds the
+  cartridge's record of the player (the `Passport`, 0x1200 bytes: a
+  checksum, the player's record at + 8, one animal's at + 0xBD8, a word
+  at + 0x1100, and 0xFE bytes after it that the game never reads: it
+  reads and writes the record whole, sums all of it, and its own
+  clearing, `mCPk_ClearPassport`, leaves them as they are). At first
+  the rests stayed at home: a letter carried into another town had its
+  first 10, 96 and 16 bytes there, on the screen and if it was mailed
+  there, and a letter written in the other town came home without its
+  rest. Now the en build packs the rests into those 0xFE bytes
+  (`code/m_string.c`, `mCPk_en_PackRests`): "LT", the records' length,
+  and the records of the letters in the pockets as the extension has
+  them (key, three lengths, the rests; 251 bytes of records at most, a
+  record 133 at its longest and some 50 for a letter the game wrote),
+  as many as fit: first those the Pak did not bring (no other town has
+  them), then the others, each group in the pockets' order. They are
+  unpacked into the town's extension when the Pak's record is read for
+  play (`mCPk_en_PakPrivateLoad`, called by
+  `mPr_LoadPak_and_SetPrivateInfo2` in the place of
+  `mCPk_PakPrivateLoad`): those of the record's letters, where the
+  extension has none and has room (a full extension keeps its own: a
+  visitor's letters do not push out the town's, whose rests no Pak
+  has). So a letter is whole in the other town, and one written there
+  is whole at home.
+  They are packed at every write of the Pak's record
+  (`mCPk_en_SetPrivateSavefile` in the place of
+  `mCPk_SetPrivateSavefile` in `mCPk_SavePak`: a departure's, and the
+  post office's store writes a visitor's record too); a letter whose
+  rest the extension no longer has keeps the one the Pak's bytes have.
+  The cartridge leaves the bytes alone ("The Controller Pak and the
+  cartridge itself"), and so does an earlier build of the translation;
+  bytes without the tag are no records.
+  What kept them in the other town was the trap. A visitor's letters
+  are in no save, and the game writes the town's flash when a visitor
+  arrives (while the greeter asks to wait) and, when one leaves, before
+  the Pak (`func_800962A8_jp` before `func_80096330_jp` in the steps of
+  a departure). Each write's collection dropped the rests no letter of
+  the save holds. The first build with the rests on the Pak had them
+  in the other town for four frames: read every frame from power-on,
+  the extension was 226 bytes, 272 at frame 1097 with the letter's
+  record in it, and 226 again at frame 1101; and a letter written
+  there would have lost its rest before the Pak's record was written.
+  The collection now keeps the keys of the letters of a visitor in
+  play too (`mCPk_en_VisitorKeys`: ten keys for
+  `mHandbill_en_CollectExt`, zero with no visitor). A town's flash
+  written with a visitor in it has the visitor's rests; its first save
+  after the visitor is gone drops them.
+  The check: two sheets of paper at home, a letter written there and
+  one in the other town (after the power cut, to an animal met there);
+  the Pak's file read after each departure (the first letter's record
+  alone, then both, the one written there first); the letter whole in
+  the other town's RAM at both power-ons; both whole at home and in the
+  flash the gyroid writes; and the other town's flash keeping neither.
+  Its cost: the code is in `m_string.c`, whose text lies whole in
+  `code_en` (with the store's question, below, 1,696 bytes: `code_en`
+  is 0xC2F0 bytes for the 0xBC50 it was); `m_cpak.c` and `m_private.c`
+  have a call's target changed and `m_handbill.c` a call more, each
+  section as long in the map as it was.
+- **What is left of that limit.** The Pak's record has room for 251
+  bytes of records: two letters of the longest rest, four or five as
+  the game writes them, of the ten a player can carry. The others are
+  as before: cut at the cartridge's bytes in the other town, whole at
+  home if they came from home, without their rest if they were got
+  away. The Pak has no room for more (its two files take 121 of its
+  123 pages, and a third file would need what a Pak with other games'
+  notes on it may not have). A letter got in another town and put
+  into the Pak's store there is not in the pockets when the Pak's
+  record is written: its rest stays in that town's extension, marked,
+  and at home it comes out of the store cut. And an extension at its
+  0x2400 bytes takes no visitor's rests at all (the letters are cut
+  there, and the Pak keeps what it brought).
+- **The store's closing question.** B in the store's menu asks the
+  edit-end check's question (program 15, `ovl__00799580`), which the
+  cartridge asks with one question and three answers of the letter
+  board (its window 0, two answers), the bulletin board (window 1),
+  the town tune (window 2) and the store (window 3, opened by
+  `tag_ovl`'s `func_80876558_jp` for the menu's type 0x11 and by
+  nothing else). The cartridge's words are general; the GameCube has
+  no such store, and its English, which the en build draws, speaks of
+  a text: in the store the third answer read as if the letter were to
+  be thrown out. What the answers do there was played before they
+  were worded (`ovl__0079E430.s`, the store's move function on the
+  check's return): the first opens program 0x12, which writes the Pak
+  and the flash; the second goes back to the menu, the letter where it
+  was put; the third sets a byte of the store's state and closes it
+  with nothing written, and the letter is in the pockets again. So for
+  window 3 the question and the last two answers are our own
+  (`script/ui.txt`, `af_ui.OWN`: "Save and finish?", and after the
+  first answer "Not yet" and "Don't save"). The overlay cannot grow
+  and its answers' table has no window in it, so its question's
+  function, which is drawn every frame the check is up and before the
+  answers show, now calls the code's `mSM_en_EEQuestion`
+  (`code/m_string.c`): it reads the window the check was opened with
+  (the submenu's table of programs, `struct_8085E9B0.unk_10088[15]
+  .unk_38`, what `mSM_open_submenu` was given), sets the overlay's
+  table for it, and draws the question centred where the other is
+  (`mFont_GetStringWidth` of both). The overlay's function is shorter
+  than it was (padded in place) and its relocations are 34 of the
+  cartridge's 37. `make menus-check-en` opens the check's window 3 as
+  it opens the others and measures the question's and the three
+  answers' ink against the font's model; the trip's check puts a
+  letter into the store and gives the second answer and then the
+  third, reading the answers' table while they are up.
 - **Three words.** A scan of the compiled banks (messages, choices,
   strings, the eight letter banks; each text flattened first, a line's
   end taken for a space) for words the rest of the script does not
@@ -5095,6 +5207,133 @@ the rest with the pad.
   clean, the arena never saying no (85,296 bytes its largest free block
   at its least). Nothing wrong was found: every page is English, the
   names and their articles in place.
+
+## The town's dealings, played
+
+The checks had read what the town's keepers say; none had bought,
+taken, ordered or won anything of them. `tests/emu_deals.py` (`make
+deals-check-en`) plays four days in `psel-check-en`'s town, each a
+power-on of the flash the day before saved at the gyroid, the first
+player given 20,000 Bells and twelve pockets of April's raffle tickets
+by hand.
+
+- **The turnips.** Their seller (`Ev_KabuPeddler`) walks one of the
+  town's blocks on a Sunday morning; the check goes through the blocks
+  until it finds her. She explains herself in questions of two answers
+  and sells by one of four (ten, fifty, a hundred, none): ten turnips
+  are one item in one pocket (0x2F00; 0x2F01 and 0x2F02 the fifty and
+  the hundred), and the pocketbook pays ten times her price. She asks
+  again whether more are wanted. The Monday, Nook's talk is a menu of
+  four answers: the first names the price he gives for turnips that
+  day, the second sells (the item screen opens over the talk: the
+  turnips' pocket, A twice), the third opens the player's catalog.
+- **A pocketbook past its limit.** With 49,270 Bells in the pocketbook
+  the sale's 760 came out as 20,030 in the pocketbook and a bag of
+  30,000 in a pocket (the items 0x2100 to 0x2103 are bags of 1,000,
+  10,000, 30,000 and 100: `m_name_table.h`). The check gives fewer
+  Bells now and counts what the player is worth with the bags, so that
+  either way reads the same.
+- **The lost property.** The police box's door has no button: the
+  player is pushed up and left from below its right (the building's own
+  check, `tests/emu_memory.py`'s `BUILDINGS`). Inside, the things lie
+  on a grid; A before one, the officer (`Npc_Police2`) says what it is
+  and asks, and the first of two answers takes it: the thing is in the
+  pockets.
+- **The catalog.** Nook's third answer opens the player's own catalog
+  (the submenu's catalog program). A on a thing opens its tag, whose
+  first entry orders it; Nook asks, yes, and the pocketbook pays at
+  once. The thing comes by mail: the next day the mailbox holds a
+  letter with it (`Mail_c.present`, + 0x24).
+- **A mailbox answers from its corner.** A before the mailbox did
+  nothing, three tries from straight below it, while the trip's check
+  opened the same mailbox by walking into it. `ac_mailbox`'s
+  `func_8096CA0C_jp` wants the way from the mailbox to the player
+  (`yawTowardsPlayer`, the actor's + 0xB6) within 0x1B31 (38 degrees)
+  of its own facing less 0x2000 (the shape's yaw, + 0xDE; a player's
+  mailbox looks to the right of the screen, 0x4000): a player standing
+  at its lower right, with the mailbox's unit before the figure. Walking
+  into it from below slid the player to that side by chance.
+  `emu_job.Player.open_mailbox` stands there by the actor's own angle,
+  and both checks use it.
+- **The raffle.** On a month's last day the shop is the raffle's
+  (`Npc_Shop_Mastersp`, the machine `Garagara`). Five tickets of the
+  month are a draw (taken from the pockets five at a time, across
+  pockets: `func_80A6CD68_jp`), and the keeper asks again in the same
+  talk for as long as there are tickets: the check's first draft took
+  twelve draws for one. `func_80A6D0DC_jp` draws a number under 100:
+  under 5 the first prize, under 15 the second, under 35 the third,
+  else nothing, 65 draws in 100. The three prizes are in the save
+  (`common_data` + 0xED62, three items); one given is named in the
+  talk, put in a free pocket, and its place set to 0x1F36
+  (`func_80A6D450_jp`), and a draw that falls on a prize already given
+  counts as lost (`func_80A6D008_jp`). So the check answers the first
+  answer until a draw has won and one has lost, then the last; and
+  since twelve draws all lose once in 175 times (0.65 to the twelfth),
+  it plays the day again at another hour if none won.
+- **The checks.** Eight: the turnips bought (the seller found, heard
+  out, ten bought at her price); the lost property (a thing taken, out
+  of the police box again); the turnips sold the Monday (Nook's price
+  named, the item screen, the player the richer by ten times a price);
+  the catalog's order paid; the order in the mailbox the Tuesday (the
+  mailbox opened at its corner, Z takes the letters, one came with the
+  thing); the raffle (every draw a pocket's five tickets, at least one
+  won, its thing in the pockets); the two gyroid's saves that carry a
+  day to the next; and the four days' pages, clean, the arena never
+  saying no. Numbers of the run on the delivered build are in "The
+  battery after the dealings", below.
+
+## The Controller Pak and the cartridge itself
+
+A Controller Pak is the cartridge's own thing, so a player the en
+build saved onto one can be taken to a town of the untranslated game,
+and the other way. `tests/emu_pakjp.py` (`make pak-jp-check-en`) plays
+both: the other town is the cartridge's, made by the game on the
+matching ROM from the same route (`tools/route_newgame.py` plays it on
+either ROM; the town's actors are saved by the same hook as the en
+towns', placed at 0x80700000: `osMemSize` is forced to 4 MB and the
+emulator has 8). One Pak's file goes through six power-ons, handed from
+one console's pad to the other's between them. The cartridge's sessions
+are `emu_trip.session` with `plain`: the matching tree's symbols, the
+cartridge's message window (`B_80142410_jp`; the en build's moved to
+`code_en`), a flash slot as the cartridge writes it (no compression,
+no extension), no hook in the allocator, and the pages counted and not
+judged (they are Japanese).
+
+- **The en build's player in the cartridge's town.** The player
+  arrives as a visitor (the number 4, the record
+  `g_foreigner_private`) and the greeter and the station's master call
+  the player by name: the names are bytes the cartridge's font has
+  (its Latin letters are where ASCII has them). Pockets and letter are
+  as the Pak holds them, the cartridge's 96 bytes of the letter's
+  body. An animal is spoken to, and the station's master saves the
+  player onto the Pak again.
+- **The bytes after the Pak's record's fields.** The en build packs
+  the rests of the pockets' letters there ("A trip, played", the rests
+  on the Controller Pak). The cartridge reads the whole record into
+  its buffer and writes the whole buffer back, its own fields set
+  anew (`mCPk_SavePak`; `mCPk_ClearPassport` clears the fields only):
+  after the cartridge's write the bytes are as the en build packed
+  them, and the check holds them to that.
+- **Home again.** In the en build the player is a resident again, the
+  letter whole (its rest was kept at home through the trip, as on any
+  trip), and the gyroid saves.
+- **The cartridge's player in the en build's town.** A visitor again;
+  the name is kana, which the en build's font still has (it changed
+  the Latin letters only), so the greeter's, the animals' and the
+  station's master's English pages have the kana name in them. The
+  checks' judge of a page calls any kana a fault: the only faults of
+  that session are the visitor's own names' bytes, and the check
+  holds it to exactly that (every other page clean, the arena never
+  saying no). Back in the cartridge's town the player is a resident
+  again and the gyroid saves.
+- **What the cartridge shows of the en build's.** A letter longer than
+  96 bytes ends at its 96th byte there, in the middle of a word as it
+  may be, and is whole at home. Nothing the cartridge reads is laid
+  out otherwise than its own. Not played: a letter addressed to an
+  animal whose English name is a token of the en build's (a name
+  longer than 6 bytes, "Names longer than 6"); the cartridge knows no
+  tokens and would draw the token's bytes as its font has them
+  (TODO(verify): the check's animal has a short name).
 
 ## The NES (the GameCube's model for the cartridge's Famicoms)
 

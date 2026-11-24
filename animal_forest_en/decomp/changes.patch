@@ -249,6 +249,22 @@ index 9d68ff0..d623182 100644
  
  Choice* mChoice_Get_base_window_p();
  void mChoice_init(Choice* choice,  struct Game* game);
+diff --git a/include/m_cpak.h b/include/m_cpak.h
+index 035d9b0..1377b8a 100644
+--- a/include/m_cpak.h
++++ b/include/m_cpak.h
+@@ -68,6 +68,11 @@ void func_80079EDC_jp(void);
+ s32 func_80079F44_jp(void);
+ void func_8007A008_jp(void);
+ PakInfo* mCPk_get_pkinfo(void);
++/* The translation: the rests of a traveller's letters in the Passport's last bytes (code/m_string.c, whose
++   text has room; reference/NOTES.md "A trip, played") */
++void mCPk_SetPrivateSavefile(PrivateInfo* priv);
++void mCPk_en_SetPrivateSavefile(PrivateInfo* priv);
++s32 mCPk_en_PakPrivateLoad(PrivateInfo* priv, Animal_c* animal, PakInfo* info);
+ s32 func_8007A080_jp(void);
+ 
+ #endif
 diff --git a/include/m_flashrom.h b/include/m_flashrom.h
 index 2753a99..7a636a7 100644
 --- a/include/m_flashrom.h
@@ -264,10 +280,10 @@ index 2753a99..7a636a7 100644
 +
  #endif
 diff --git a/include/m_handbill.h b/include/m_handbill.h
-index fe15111..1a5bbcb 100644
+index fe15111..86a3601 100644
 --- a/include/m_handbill.h
 +++ b/include/m_handbill.h
-@@ -75,4 +75,27 @@ void mHandbill_Load_HandbillFromRom2(u8*, s32, s32*, u8*, s32, u8*, s32);
+@@ -75,4 +75,29 @@ void mHandbill_Load_HandbillFromRom2(u8*, s32, s32*, u8*, s32, u8*, s32);
  // void func_80094400_jp();
  s32 mHandbillz_load(HandbillzInfo*);
  
@@ -283,6 +299,8 @@ index fe15111..1a5bbcb 100644
 +u32 mHandbill_en_Key(u8* header, u8* body, u8* footer);
 +/* the letters kept outside the save's own letter places (m_submenu.c, whose slot has room) */
 +s32 mSM_en_LettersKept(u8* save, u32* keys);
++/* the letters a visitor in play carries (code/m_string.c): ten keys, zero where there is no visitor */
++void mCPk_en_VisitorKeys(u32* keys);
 +/* a record whose letter the Controller Pak's store has held: a bit of its first length (the header's rest is
 +   14 bytes at most); the store's checksum, which marks them (m_submenu.c; code/m_cpak.c func_80079D50_jp) */
 +#define mHandbill_EN_PAK_HELD 0x80
@@ -759,7 +777,7 @@ index d4a7b38..50198d3 100644
  
          y += 16.0f;
 diff --git a/src/code/m_cpak.c b/src/code/m_cpak.c
-index c6a4005..89d5c7f 100644
+index c6a4005..c4a152d 100644
 --- a/src/code/m_cpak.c
 +++ b/src/code/m_cpak.c
 @@ -2,6 +2,7 @@
@@ -770,6 +788,15 @@ index c6a4005..89d5c7f 100644
  #include "m_lib.h"
  #include "m_malloc.h"
  
+@@ -187,7 +188,7 @@ PrivateInfo* mCPk_GetSaveFilePrivateP(void) {
+ 
+ s32 mCPk_SavePak(PrivateInfo* priv, Animal_c* animal, PakInfo* info) {
+     mCPk_SetForestPakState(info, 0);
+-    mCPk_SetPrivateSavefile(priv);
++    mCPk_en_SetPrivateSavefile(priv); /* the en build: and its letters' rests (code/m_string.c) */
+     mem_copy((void*)&l_pak_ctrl.passport.animal, (void*)animal, sizeof(Animal_c));
+     l_pak_ctrl.passport.unk_0000 =
+         func_8008EEB4_jp(&l_pak_ctrl.passport, sizeof(Passport), l_pak_ctrl.passport.unk_0000);
 @@ -488,7 +489,9 @@ UNK_RET func_80079D00_jp(void) {
  
  s32 func_80079D50_jp(D801047B0Struct* arg0, PakInfo* info, u8* index) {
@@ -1548,7 +1575,7 @@ index eb55156..bd0c678 100644
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetMatrix.s")
 diff --git a/src/code/m_handbill.c b/src/code/m_handbill.c
-index 34e9b7f..cea40f7 100644
+index 34e9b7f..53fdb87 100644
 --- a/src/code/m_handbill.c
 +++ b/src/code/m_handbill.c
 @@ -1,14 +1,21 @@
@@ -1877,7 +1904,7 @@ index 34e9b7f..cea40f7 100644
      } else {
          *addr = 0;
          *size = 0;
-@@ -458,154 +484,477 @@ void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s3
+@@ -458,154 +484,490 @@ void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s3
      }
  }
  
@@ -2034,6 +2061,15 @@ index 34e9b7f..cea40f7 100644
 + * each, padding left off), the three rests. An extension without the
 + * tag is not ours: it is left as it is and read as empty.
 + *
++ * A visitor. A player who comes with a Controller Pak from another
++ * town is in no save (g_foreigner_private), and the game writes the
++ * town's flash when one arrives and again, before the Pak, when one
++ * leaves: the rests of the visitor's letters, which the Pak brought
++ * (code/m_string.c, the rests on the Controller Pak) or which were
++ * filed in this town, would go at the first of those writes. The
++ * collection takes the keys of the letters of a visitor in play too
++ * (mCPk_en_VisitorKeys, there: this file's text has no room).
++ *
 + * A player away on a trip. The game takes a traveller's letters out of
 + * the save once it has copied the player's record for the Controller
 + * Pak (code/6B8F20.s func_80095FE0_jp, then func_80095E08_jp:
@@ -2072,6 +2108,10 @@ index 34e9b7f..cea40f7 100644
 +#define mHandbill_EN_SAVE_MAIL_NUM (PLAYER_NUM * mPr_INVENTORY_MAIL_COUNT + PLAYER_NUM * HOME_MAILBOX_SIZE + 5 + 2)
 +/* and the one each animal keeps of each player it remembers */
 +#define mHandbill_EN_KEPT_MAIL_NUM (ANIMAL_NUM_MAX * ANIMAL_MEMORY_NUM)
++/* and those in the pockets of a visitor, whose record is in no save (code/m_string.c mCPk_en_VisitorKeys) */
++#define mHandbill_EN_VISITOR_MAIL_NUM mPr_INVENTORY_MAIL_COUNT
++#define mHandbill_EN_KEY_NUM \
++    (mHandbill_EN_SAVE_MAIL_NUM + mHandbill_EN_POST_COUNT + mHandbill_EN_KEPT_MAIL_NUM + mHandbill_EN_VISITOR_MAIL_NUM)
 +#define mHandbill_EN_KEEP_MAIL_AT 0xEF6C /* code/6DA460.s func_800B67C0_jp: mMl_copy_mail into common_data + 0xEF6C */
 +#define mHandbill_EN_RECEIPT_MAIL0_AT 0xF2A0 /* code/6DA460.s mPO_receipt_proc */
 +#define mHandbill_EN_RECEIPT_MAIL1_AT 0xF344
@@ -2185,11 +2225,11 @@ index 34e9b7f..cea40f7 100644
 +    return key;
 +}
 +
-+/* Drop the records no letter or post of save (the save's bytes) holds, nor a letter an animal keeps, but for
-+   those a player away on a trip may hold (all that was filed before the record of the trip) and those of
-+   the letters the Controller Pak's store has held */
++/* Drop the records no letter or post of save (the save's bytes) holds, nor a letter an animal keeps, nor one
++   a visitor in play carries, but for those a player away on a trip may hold (all that was filed before the
++   record of the trip) and those of the letters the Controller Pak's store has held */
 +void mHandbill_en_CollectExt(u8* save) {
-+    u32 keys[mHandbill_EN_SAVE_MAIL_NUM + mHandbill_EN_POST_COUNT + mHandbill_EN_KEPT_MAIL_NUM];
++    u32 keys[mHandbill_EN_KEY_NUM];
 +    s32 pos;
 +    u8* record;
 +    s32 i;
@@ -2207,17 +2247,17 @@ index 34e9b7f..cea40f7 100644
 +            mHandbill_en_PostKey(save + mHandbill_EN_POSTS_AT + i * mHandbill_EN_POST_SIZE);
 +    }
 +    pos = mSM_en_LettersKept(save, &keys[mHandbill_EN_SAVE_MAIL_NUM + mHandbill_EN_POST_COUNT]);
++    mCPk_en_VisitorKeys(&keys[mHandbill_EN_KEY_NUM - mHandbill_EN_VISITOR_MAIL_NUM]);
 +    while ((record = mHandbill_en_Record(pos)) != NULL) {
 +        u32 key = mHandbill_en_RecordKey(record);
 +
-+        for (i = 0; i < mHandbill_EN_SAVE_MAIL_NUM + mHandbill_EN_POST_COUNT + mHandbill_EN_KEPT_MAIL_NUM; i++) {
++        for (i = 0; i < mHandbill_EN_KEY_NUM; i++) {
 +            if (keys[i] == key) {
 +                break;
              }
 -            func_80093478_jp(buf, mHandbill_BODY_LEN, sz, mHandbill_FILL_RETURN);
 +        }
-+        if (i < mHandbill_EN_SAVE_MAIL_NUM + mHandbill_EN_POST_COUNT + mHandbill_EN_KEPT_MAIL_NUM ||
-+            (record[4] & mHandbill_EN_PAK_HELD)) {
++        if (i < mHandbill_EN_KEY_NUM || (record[4] & mHandbill_EN_PAK_HELD)) {
 +            pos += mHandbill_en_RecordSize(record);
 +        } else {
 +            mHandbill_en_Remove(record);
@@ -2450,7 +2490,7 @@ index 34e9b7f..cea40f7 100644
  }
  
  /* mHandbillzDMA_body_load */
-@@ -641,29 +990,32 @@ s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
+@@ -641,29 +1003,32 @@ s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
      }
  }
  
@@ -2493,7 +2533,7 @@ index 34e9b7f..cea40f7 100644
  
          info->headerBackStart = header_back_start;
          return TRUE;
-@@ -672,14 +1024,16 @@ s32 func_800941B0_jp(HandbillzInfo* info) {
+@@ -672,14 +1037,16 @@ s32 func_800941B0_jp(HandbillzInfo* info) {
      }
  }
  
@@ -2512,7 +2552,7 @@ index 34e9b7f..cea40f7 100644
  
      dma_info[0].type = mHandbillz_TYPE_MAILA;
      dma_info[0].num = info->mailANo;
-@@ -696,7 +1050,7 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+@@ -696,7 +1063,7 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
          if (func_800940A8_jp(dma_p)) {
              total_size += dma_p->dma_size;
  
@@ -2521,7 +2561,7 @@ index 34e9b7f..cea40f7 100644
                  bcopy(B_80140748_jp, dst, dma_p->dma_size);
                  dst += dma_p->dma_size;
              } else {
-@@ -708,17 +1062,18 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+@@ -708,17 +1075,18 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
      }
  
      if (success) {
@@ -2544,7 +2584,7 @@ index 34e9b7f..cea40f7 100644
  s32 func_80094400_jp(HandbillzInfo* info) {
      mHandbillzDMA_c dma_info;
      u8 ram[0x22 + 6];
-@@ -731,13 +1086,13 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+@@ -731,13 +1099,13 @@ s32 func_80094400_jp(HandbillzInfo* info) {
      dma_info.ram_buf_size = 0x22;
  
      if (func_800940A8_jp(&dma_info)) {
@@ -2564,7 +2604,7 @@ index 34e9b7f..cea40f7 100644
          return TRUE;
      } else {
          return FALSE;
-@@ -745,9 +1100,609 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+@@ -745,9 +1113,609 @@ s32 func_80094400_jp(HandbillzInfo* info) {
  }
  
  s32 mHandbillz_load(HandbillzInfo* info) {
@@ -4194,7 +4234,7 @@ index deb9a3c..6e5d39a 100644
      { 0xA005, NPC_SEX_OTHER, 0x0213, 2 },  { 0xA006, NPC_SEX_OTHER, 0x0213, 2 },  { 0xA007, NPC_SEX_OTHER, 0x0213, 2 },
      { 0xD018, NPC_SEX_OTHER, 0x0214, 2 },  { 0xD05D, NPC_SEX_OTHER, 0x0214, 2 },  { 0xD066, NPC_SEX_OTHER, 0x0214, 2 },
 diff --git a/src/code/m_private.c b/src/code/m_private.c
-index 8ee4297..1ff0215 100644
+index 8ee4297..918d6cd 100644
 --- a/src/code/m_private.c
 +++ b/src/code/m_private.c
 @@ -263,7 +263,9 @@ void mPr_InitAnyPrivates(PrivateInfo* info, s32 amount) {
@@ -4208,11 +4248,21 @@ index 8ee4297..1ff0215 100644
  }
  
  s32 mPr_CheckPrivate(PrivateInfo* priv) {
+@@ -666,7 +668,8 @@ s32 mPr_CheckMuseumInfoMail(PrivateInfo* priv) {
+ s32 mPr_LoadPak_and_SetPrivateInfo2(u8 player, PakInfo* pak) {
+     PrivateInfo* priv;
+     s32 res = FALSE;
+-    s32 save = mCPk_PakPrivateLoad(&g_foreigner_private, mNpc_GetInAnimalP(), pak);
++    /* the en build: and its letters' rests out of the Passport (code/m_string.c) */
++    s32 save = mCPk_en_PakPrivateLoad(&g_foreigner_private, mNpc_GetInAnimalP(), pak);
+ 
+     if (save == TRUE) {
+         if (player < 4) {
 diff --git a/src/code/m_string.c b/src/code/m_string.c
-index 7b8e5b5..ddb1254 100644
+index 7b8e5b5..1142ccf 100644
 --- a/src/code/m_string.c
 +++ b/src/code/m_string.c
-@@ -1,33 +1,44 @@
+@@ -1,33 +1,51 @@
  #include "m_string.h"
  #include "m_std_dma.h"
  #include "m_lib.h"
@@ -4220,9 +4270,17 @@ index 7b8e5b5..ddb1254 100644
  
  #include "m_msg_main.h"
  #include "6B3DC0.h"
- 
+-
 -extern u32 D_D18000[];
 -extern u32 D_D16000;
++#include "libc/stddef.h"
++#include "m_cpak.h"
++#include "m_flashrom.h"
++#include "m_handbill.h"
++#include "m_land.h"
++#include "m_submenu.h"
++#include "assets/jp/en/ui_strings.inc"
++
 +/* The translation's string bank goes on past the cartridge's 0x61A entries to
 + * the GameCube's month names and day ordinals (its numbering: tools/af_text.py
 + * --bank string --count). */
@@ -4264,7 +4322,7 @@ index 7b8e5b5..ddb1254 100644
              *size = sized;
          } else {
              *vramp = NULL;
-@@ -39,11 +50,13 @@ void mString_Get_StringDataAddressAndSize(s32 idx, uintptr_t* vramp, size_t* siz
+@@ -39,11 +57,13 @@ void mString_Get_StringDataAddressAndSize(s32 idx, uintptr_t* vramp, size_t* siz
      }
  }
  
@@ -4279,7 +4337,7 @@ index 7b8e5b5..ddb1254 100644
          mString_Get_StringDataAddressAndSize(strIdx, &stringAddr, &stringSize);
  
          if (stringSize == 0) {
-@@ -73,31 +86,30 @@ void mString_Load_StringFromRom(char* dst, s32 dstLen, s32 strIdx) {
+@@ -73,31 +93,30 @@ void mString_Load_StringFromRom(char* dst, s32 dstLen, s32 strIdx) {
              for (; i < dstLen; i++) {
                  *strDst++ = ' ';
              }
@@ -4325,7 +4383,7 @@ index 7b8e5b5..ddb1254 100644
      return mMsg_Get_Length_String(dst, 4);
  }
  
-@@ -111,33 +123,25 @@ s32 mString_Load_WeekStringFromRom(char* dst, lbRTC_weekday_t weekday) {
+@@ -111,33 +130,25 @@ s32 mString_Load_WeekStringFromRom(char* dst, lbRTC_weekday_t weekday) {
  }
  
  s32 mString_Load_DayStringFromRom(char* dst, lbRTC_day_t day) {
@@ -4366,7 +4424,7 @@ index 7b8e5b5..ddb1254 100644
      return mMsg_Get_Length_String(dst, 6);
  }
  
-@@ -171,3 +175,87 @@ s32 mString_Load_NumberStringAddUnitFromRom(char* dst, u16 num, s32 idx) {
+@@ -171,3 +182,285 @@ s32 mString_Load_NumberStringAddUnitFromRom(char* dst, u16 num, s32 idx) {
      mString_Load_StringFromRom(&dst[len], 10 - len, idx);
      return mMsg_Get_Length_String(dst, 10);
  }
@@ -4454,6 +4512,204 @@ index 7b8e5b5..ddb1254 100644
 +    return mMsg_Get_Length_String(dst, mString_EN_LEN);
 +}
 +
++/*
++ * The rests of the letters a traveller carries, on the Controller Pak. The Pak's record of a player (the
++ * Passport, m_cpak.h) is the cartridge's: of each letter in the pockets its first 10, 96 and 16 bytes. The
++ * rests stayed in the extension of the town the player left (m_handbill.c, "A player away on a trip"): in
++ * another town a long letter ended where the cartridge's does, and one written there came home so. The
++ * Passport ends in 0xFE bytes the game never reads (it checks and writes all 0x1200 of it, and its own
++ * clearing leaves them as they are). The en build keeps there "LT", the records' length, and the records
++ * of the letters in the pockets, laid out as the extension's: as many as fit, those the Pak did not bring
++ * first (no other town has them), each group in the pockets' order. The cartridge and the builds before
++ * this one leave the bytes alone, and bytes without the tag are no records.
++ *
++ * They are packed whenever the Passport is written (mCPk_SavePak, code/m_cpak.c: a departure's, and the
++ * post office's store writes a visitor's too) and unpacked into the town's extension when the Passport is
++ * read for play (mPr_LoadPak_and_SetPrivateInfo2, code/m_private.c). A visitor's letters are in no save,
++ * and the game writes the town's flash when a visitor arrives and before the Pak when one leaves: the
++ * collection of those writes keeps the keys mCPk_en_VisitorKeys gives it (m_handbill.c). The code is here
++ * because those files' text may not grow: each leaves a call, and this file's text lies whole in the en
++ * build's own section.
++ */
++#define mCPk_EN_RESTS_CAP 0xFE /* Passport.unk_1102 */
++#define mCPk_EN_RESTS_HEAD 3
++#define mCPk_EN_RECORD_HEAD 7
++
++/* The Passport's bytes after its fields */
++static u8* mCPk_en_Rests(void) {
++    return (u8*)mCPk_GetSaveFilePrivateP() + (offsetof(Passport, unk_1102) - offsetof(Passport, priv));
++}
++
++static s32 mCPk_en_RecordSize(u8* record) {
++    return mCPk_EN_RECORD_HEAD + (record[4] & ~mHandbill_EN_PAK_HELD) + record[5] + record[6];
++}
++
++/* The record after one (the first, after NULL) of those the bytes at area hold; NULL after the last, and
++   where the bytes are not records */
++static u8* mCPk_en_NextRest(u8* area, u8* record) {
++    u8* end;
++
++    if (area[0] != 'L' || area[1] != 'T' || area[2] > mCPk_EN_RESTS_CAP - mCPk_EN_RESTS_HEAD) {
++        return NULL;
++    }
++    end = area + mCPk_EN_RESTS_HEAD + area[2];
++    record = (record == NULL) ? area + mCPk_EN_RESTS_HEAD : record + mCPk_en_RecordSize(record);
++    if (record + mCPk_EN_RECORD_HEAD > end || record + mCPk_en_RecordSize(record) > end) {
++        return NULL;
++    }
++    return record;
++}
++
++static u8* mCPk_en_FindRest(u8* area, u32 key) {
++    u8* record = NULL;
++
++    while ((record = mCPk_en_NextRest(area, record)) != NULL) {
++        if ((u32)((record[0] << 24) | (record[1] << 16) | (record[2] << 8) | record[3]) == key) {
++            break;
++        }
++    }
++    return record;
++}
++
++static u32 mCPk_en_MailKey(Mail_c* mail) {
++    return mHandbill_en_Key(mail->content.header, mail->content.body, mail->content.footer);
++}
++
++extern PrivateInfo g_foreigner_private; /* m_private.c: the record of a player who is not of the save */
++
++/* The keys of the letters a visitor in play carries, for the extension's collection: ten, zero with no
++   visitor */
++void mCPk_en_VisitorKeys(u32* keys) {
++    s32 visitor = mLd_PlayerManKindCheck();
++    s32 i;
++
++    for (i = 0; i < mPr_INVENTORY_MAIL_COUNT; i++) {
++        keys[i] = visitor ? mCPk_en_MailKey(&g_foreigner_private.mail[i]) : 0;
++    }
++}
++
++/* The rests of the letters in priv's pockets into the Passport: from this town's extension, or those the
++   Pak brought and the extension no longer has */
++static void mCPk_en_PackRests(PrivateInfo* priv) {
++    u8 packed[mCPk_EN_RESTS_CAP];
++    u8* area = mCPk_en_Rests();
++    s32 pass;
++    s32 i;
++
++    bzero(packed, sizeof(packed));
++    packed[0] = 'L';
++    packed[1] = 'T';
++    for (pass = 0; pass < 2; pass++) {
++        for (i = 0; i < mPr_INVENTORY_MAIL_COUNT; i++) {
++            u32 key = mCPk_en_MailKey(&priv->mail[i]);
++            u8* came = mCPk_en_FindRest(area, key);
++            u8* record = mHandbill_en_Find(key);
++            s32 size;
++
++            if (record == NULL) {
++                record = came;
++            }
++            if (record == NULL || (came != NULL) != pass || mCPk_en_FindRest(packed, key) != NULL) {
++                continue;
++            }
++            size = mCPk_en_RecordSize(record);
++            if (mCPk_EN_RESTS_HEAD + packed[2] + size > mCPk_EN_RESTS_CAP) {
++                continue;
++            }
++            bcopy(record, &packed[mCPk_EN_RESTS_HEAD + packed[2]], size);
++            packed[mCPk_EN_RESTS_HEAD + packed[2] + 4] &= ~mHandbill_EN_PAK_HELD;
++            packed[2] += size;
++        }
++    }
++    bcopy(packed, area, sizeof(packed));
++}
++
++/* mCPk_SetPrivateSavefile, for mCPk_SavePak: the record into the Passport, and its letters' rests */
++void mCPk_en_SetPrivateSavefile(PrivateInfo* priv) {
++    mCPk_SetPrivateSavefile(priv);
++    if (priv != NULL) {
++        mCPk_en_PackRests(priv);
++    }
++}
++
++/* mCPk_PakPrivateLoad, for mPr_LoadPak_and_SetPrivateInfo2: the record out of the Passport, and the rests
++   it has of the record's letters into this town's extension, those the extension lacks and has room for
++   (a full one keeps its own: a visitor's letters do not push out the town's, whose rests no Pak has) */
++s32 mCPk_en_PakPrivateLoad(PrivateInfo* priv, Animal_c* animal, PakInfo* info) {
++    s32 ret = mCPk_PakPrivateLoad(priv, animal, info);
++    u8* area = mCPk_en_Rests();
++    s32 i;
++
++    if (ret == 1) {
++        for (i = 0; i < mPr_INVENTORY_MAIL_COUNT; i++) {
++            u32 key = mCPk_en_MailKey(&priv->mail[i]);
++            u8* record = mCPk_en_FindRest(area, key);
++
++            if (record != NULL && mHandbill_en_Find(key) == NULL &&
++                mFRm_en_extSize + mCPk_en_RecordSize(record) <= mFRm_EN_EXT_CAP) {
++                s32 hlen = record[4] & ~mHandbill_EN_PAK_HELD;
++                u8* rest = record + mCPk_EN_RECORD_HEAD;
++
++                mHandbill_en_File(key, rest, hlen, rest + hlen, record[5], rest + hlen + record[5], record[6]);
++            }
++        }
++    }
++    return ret;
++}
++
++/*
++ * The edit-end check's words (ovl__00799580, which cannot grow: its question's function calls this). The
++ * check has one question and three answers for all who open it, the cartridge's general ones; the
++ * GameCube's English, which the en build draws, speaks of something written, since there only the letter
++ * board, the bulletin board and the town tune open it. The cartridge has a fourth opener, the Controller
++ * Pak's letter store (tag_ovl func_80876558_jp, the check's window 3 and no other's), where the answers
++ * save the store and leave, go back to the letters, and leave with nothing changed: there the question
++ * and the last two answers are our own (script/ui.txt). The question is drawn every frame the check is
++ * up, and before the answers are shown, so the answers' table (the overlay's own, D_80896A18_jp) is set
++ * here for the window in play. The window is the check's own word in the submenu's table of programs
++ * (m_submenu_ovl.h: struct_8085E9B0.unk_10088[15].unk_38, what mSM_open_submenu was given).
++ */
++typedef struct mEE_en_Str {
++    /* 0x00 */ u8* str;
++    /* 0x04 */ s32 len;
++} mEE_en_Str; /* the overlay's mEE_Str */
++
++extern u8 mSM_en_eeQuestion[];
++extern u8 mSM_en_eeAnswer1[];
++extern u8 mSM_en_eeAnswer2[];
++
++/* (not static: tests/emu_menus.py and tests/emu_trip.py find them by name) */
++u8 mEE_en_storeQuestion[] = UI_EN_EE_STORE_QUESTION;
++u8 mEE_en_storeAnswer1[] = UI_EN_EE_STORE_ANSWER1;
++u8 mEE_en_storeAnswer2[] = UI_EN_EE_STORE_ANSWER2;
++
++#define mEE_EN_WINDOW_AT (0x10088 + SUBMENU_PROGRAM_15 * 0x48 + 0x38)
++#define mEE_EN_STORE_WINDOW 3
++
++void mSM_en_EEQuestion(Submenu* submenu, struct Game* game, mEE_en_Str* answers, f32 x, f32 y) {
++    u8* question = mSM_en_eeQuestion;
++    s32 len = UI_EN_EE_QUESTION_LEN;
++
++    x += UI_EN_FROM_GC ? 107.0f : 96.0f;
++    answers[1].str = mSM_en_eeAnswer1;
++    answers[1].len = UI_EN_EE_ANSWER1_LEN;
++    answers[2].str = mSM_en_eeAnswer2;
++    answers[2].len = UI_EN_EE_ANSWER2_LEN;
++    if (*(s32*)((u8*)submenu->unk_2C + mEE_EN_WINDOW_AT) == mEE_EN_STORE_WINDOW) {
++        question = mEE_en_storeQuestion;
++        len = UI_EN_EE_STORE_QUESTION_LEN;
++        /* centred where the other question is */
++        x += (mFont_GetStringWidth((char*)mSM_en_eeQuestion, UI_EN_EE_QUESTION_LEN, FALSE) -
++              mFont_GetStringWidth((char*)question, len, FALSE)) *
++             0.5f;
++        answers[1].str = mEE_en_storeAnswer1;
++        answers[1].len = UI_EN_EE_STORE_ANSWER1_LEN;
++        answers[2].str = mEE_en_storeAnswer2;
++        answers[2].len = UI_EN_EE_STORE_ANSWER2_LEN;
++    }
++    y -= 194.0f;
++    func_80090E98_jp(game, question, len, x, -y, 80, 80, 230, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
++}
 diff --git a/src/code/m_submenu.c b/src/code/m_submenu.c
 index 5f7c230..5755bf4 100644
 --- a/src/code/m_submenu.c
@@ -5831,7 +6087,7 @@ index 0ae543b..8c4cc97 100644
          mNT_SUBMENU_OVL(submenu)->editorOvl->endMarkDraw(submenu, game, endX, endY);
      }
 diff --git a/src/overlays/submenu/ovl__00799580/ovl__00799580.c b/src/overlays/submenu/ovl__00799580/ovl__00799580.c
-index 47277ca..d94ea2a 100644
+index 47277ca..0e6f58b 100644
 --- a/src/overlays/submenu/ovl__00799580/ovl__00799580.c
 +++ b/src/overlays/submenu/ovl__00799580/ovl__00799580.c
 @@ -3,6 +3,7 @@
@@ -5842,12 +6098,14 @@ index 47277ca..d94ea2a 100644
  
  /*
   * The edit-end check (submenu program 15; ac-decomp's m_editEndChk_ovl.c is
-@@ -42,6 +43,13 @@ typedef struct mEE_SubmenuOvl {
+@@ -42,6 +43,15 @@ typedef struct mEE_SubmenuOvl {
  
  #define mEE_SUBMENU_OVL(submenu) ((mEE_SubmenuOvl*)(submenu)->unk_2C)
  
 +/* The en build: the question and the answers are the GameCube's (tools/af_ui.py, from the user's
-+ * disc), in code (m_submenu.c: the overlay cannot grow) */
++ * disc), in code (m_submenu.c: the overlay cannot grow); for the Controller Pak's letter store they are
++ * our own, and the code's function below sets the answers' table for the window in play as it draws the
++ * question (code/m_string.c mSM_en_EEQuestion) */
 +extern u8 mSM_en_eeQuestion[];
 +extern u8 mSM_en_eeAnswer0[];
 +extern u8 mSM_en_eeAnswer1[];
@@ -5856,7 +6114,7 @@ index 47277ca..d94ea2a 100644
  typedef void (*mEE_MoveProc)(Submenu* submenu, void* menuInfo);
  
  void func_80895E00_jp(Submenu* submenu, void* menuInfo);
-@@ -65,9 +73,9 @@ mEE_MoveProc D_808969E0_jp[] = {
+@@ -65,9 +75,9 @@ mEE_MoveProc D_808969E0_jp[] = {
  #include "assets/jp/overlays/submenu/ovl__00799580/ovl__00799580_strings.inc.c"
  
  mEE_Str D_80896A18_jp[] = {
@@ -5869,19 +6127,20 @@ index 47277ca..d94ea2a 100644
  };
  
  /* The answers' colours, not chosen and chosen (col_table) */
-@@ -90,11 +98,13 @@ u8 B_80896A60_jp[0x10]; /* the check's state (ee_ovl_data) */
+@@ -90,11 +100,13 @@ u8 B_80896A60_jp[0x10]; /* the check's state (ee_ovl_data) */
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_80896264_jp.s")
  
 -/* The question (mEE_set_question_character) */
-+/* The question (mEE_set_question_character), where the GameCube puts its own (x + 107 for the
-+ * cartridge's 96: its question is longer) */
++/* The question (mEE_set_question_character): the code draws it, where the GameCube puts its own (x + 107
++ * for the cartridge's 96: its question is longer), and sets the answers below for the window in play */
++void mSM_en_EEQuestion(Submenu* submenu, Game* game, mEE_Str* answers, f32 x, f32 y);
++
  void func_8089646C_jp(Submenu* submenu, struct GraphicsContext* gfxCtx, Game* game, f32 x, f32 y) {
      mEE_SUBMENU_OVL(submenu)->setCharMatrix(gfxCtx);
-     y -= 194.0f;
+-    y -= 194.0f;
 -    func_80090E98_jp(game, D_808969F4_jp, 9, x + 96.0f, -y, 80, 80, 230, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
-+    func_80090E98_jp(game, mSM_en_eeQuestion, UI_EN_EE_QUESTION_LEN, x + (UI_EN_FROM_GC ? 107.0f : 96.0f), -y, 80, 80,
-+                     230, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
++    mSM_en_EEQuestion(submenu, game, D_80896A18_jp, x, y);
  }
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/overlays/submenu/ovl__00799580/ovl__00799580/func_8089652C_jp.s")

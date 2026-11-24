@@ -1,5 +1,6 @@
 # Our own text for the menus' strings the en build swaps where the font draws them (tools/af_ui.py,
-# SUBST): a name, a tab, the text. It goes over the GameCube's where both exist.
+# SUBST): a name, a tab, the text. It goes over the GameCube's where both exist. The strings that are
+# ours alone (tools/af_ui.py, OWN) are here too.
 #
 # The clock's date and time (ovl__0078AE30): templates the menu draws its numbers into, a character a
 # cell of the cartridge's (10.5 pixels at its 0.875). The date's numbers start in cells 2, 6 and 10
@@ -95,3 +96,12 @@ BB_NUMBER	No.{}
 TL_NOPAD1	Controller 1 is not connected.
 TL_NOPAD2	Turn the power off, then
 TL_NOPAD3	connect Controller 1.
+#
+# The edit-end check as the Controller Pak's letter store asks it (ovl__00799580, its window 3; drawn by
+# code/m_string.c): the cartridge has one question and three answers for the letter board, the bulletin
+# board, the town tune and the store, and the GameCube's English, written for the first three, speaks of a
+# text. In the store the first answer writes the Controller Pak and leaves, the second goes back to the
+# letters, the third leaves with every letter where it was: the question and those two answers.
+EE_STORE_QUESTION	Save and finish?
+EE_STORE_ANSWER1	Not yet
+EE_STORE_ANSWER2	Don't save

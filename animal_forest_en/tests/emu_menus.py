@@ -316,6 +316,13 @@ EE_WIN0 = struct.pack(">iII4f", 2, 0x0C0017C8, 0x0C001790, -45.0, 43.0, 65.0, -7
 EE_ANSWERS_AT = 0xC8                                 # D_80896A18_jp after D_80896950_jp
 EE_ANSWERS = [("EE_ANSWER0", "mSM_en_eeAnswer0"), ("EE_ANSWER1", "mSM_en_eeAnswer1"),
               ("EE_ANSWER2", "mSM_en_eeAnswer2")]
+EE_QUESTION = ("EE_QUESTION", "mSM_en_eeQuestion")
+# the check as the Controller Pak's letter store opens it (its window 3): the en build's own question and
+# last two answers (script/ui.txt, af_ui.OWN; code/m_string.c's mSM_en_EEQuestion sets them as it draws)
+EE_STORE_WINDOW = 3
+EE_STORE_ANSWERS = [("EE_ANSWER0", "mSM_en_eeAnswer0"), ("EE_STORE_ANSWER1", "mEE_en_storeAnswer1"),
+                    ("EE_STORE_ANSWER2", "mEE_en_storeAnswer2")]
+EE_STORE_QUESTION = ("EE_STORE_QUESTION", "mEE_en_storeQuestion")
 ANSWER_ROW = 16                                      # frame rows between answers (a row a line: 240 rows)
 AD_TEXT_W = 144                                      # the address book's balloon: the cartridge's 12 characters
 
@@ -867,6 +874,7 @@ def main(argv):
     want = expected(af_en, gc_path)
     cart = open(os.path.join(af_en, af_ui.ROM), "rb").read()
     own = af_ui.read_text(own_path) if own_path else {}
+    want.update({name: af_ui.n64_bytes(name, own[name]) for name in af_ui.OWN if name in own})
     subs = af_ui.substitutions(cart, af_ui.read_text(gc_path) if gc_path else {}, own)
     nafe = open(nafe_path, "rb").read() if nafe_path else None
     print("emu_menus: the %s strings, the %s labels" % ("GameCube's" if gc_path else "cartridge's",
@@ -950,32 +958,36 @@ def main(argv):
             ext = board.extent(data)
             return (ext[1] - ext[0] + 1) * scale * FRAME_X + FRINGE if ext else 0
 
-        # the edit-end check: its answers' table, the question, the answers
-        question = want["EE_QUESTION"]
-        for data0 in (0, 1):
-            what = "the edit-end check (window %d)" % data0
+        # the edit-end check: its answers' table, the question, the answers; and as the letter store opens
+        # it, with the en build's own words (given --own)
+        for data0 in (0, 1) + ((EE_STORE_WINDOW,) if EE_STORE_QUESTION[0] in want else ()):
+            store = data0 == EE_STORE_WINDOW
+            what = "the edit-end check (window %d%s)" % (data0, ", the letter store's" if store else "")
+            answers_of = EE_STORE_ANSWERS if store else EE_ANSWERS
+            qname, qsym = EE_STORE_QUESTION if store else EE_QUESTION
+            question = want[qname]
             w, h, rgb = open_menu(EDIT_END, data0)
             ram = n64.read(0x80000000, 0x800000)
             at = ram.find(EE_WIN0)
             check(at >= 0, "%s: its windows' table is in RAM" % what)
-            if data0 == 0 and at >= 0:
+            if data0 != 1 and at >= 0:
                 table = 0x80000000 + at + EE_ANSWERS_AT
-                for i, (name, sym) in enumerate(EE_ANSWERS):
+                for i, (name, sym) in enumerate(answers_of):
                     ptr, length = struct.unpack(">Ii", n64.read(table + 8 * i, 8))
                     text = n64.read(ptr, length) if 0x80000000 <= ptr < 0x80800000 else b""
                     check(ptr == syms[sym] and text == want[name] and length == len(want[name]),
                           "%s: answer %d is the en build's %s, %d bytes (%r)" % (what, i, sym, length, text))
-                path = os.path.join(out, "edit-end-question.png")
+                path = os.path.join(out, "edit-end-question%s.png" % ("-%d" % data0 if data0 else ""))
                 write_png(path, w, h, rgb)
                 shots.append(path)
-                _, _, bare = open_menu(EDIT_END, data0, [(syms["mSM_en_eeQuestion"], len(question))])
+                _, _, bare = open_menu(EDIT_END, data0, [(syms[qsym], len(question))])
                 check_ink(ink_pixels(rgb, bare, w, h), model_width(question), "%s: the question (%r)" % (what, question))
-            names = [n for n, _ in EE_ANSWERS[:2 + data0]]
+            names = [n for n, _ in answers_of[:2 + data0]]
             w, h, rgb = open_menu(EDIT_END, data0, answers=True)
             path = os.path.join(out, "edit-end-answers-%d.png" % data0)
             write_png(path, w, h, rgb)
             shots.append(path)
-            _, _, bare = open_menu(EDIT_END, data0, [(syms[s], len(want[n])) for n, s in EE_ANSWERS], answers=True)
+            _, _, bare = open_menu(EDIT_END, data0, [(syms[s], len(want[n])) for n, s in answers_of], answers=True)
             diff = ink_pixels(rgb, bare, w, h)
             top = min(y for _, y in diff) if diff else 0
             for i, name in enumerate(names):

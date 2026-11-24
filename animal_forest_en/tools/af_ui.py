@@ -42,6 +42,11 @@ a template the menu writes its digits into (WRITTEN(n) cells of the key,
 '0' in it, match any digit or a space), drawn in its cells, the menu's
 digits where the English has '0' (the key itself, without English). `compile`
 writes them as UI_EN_SUBST, a sentinel last.
+
+OWN names the strings that are ours alone, with no place in the cartridge
+and none on the disc: words the en build's own code draws where the
+cartridge's one string served two uses that English tells apart. They are
+read from --own and written as STRINGS' are; a build without them stops.
 """
 
 import os
@@ -83,6 +88,13 @@ STRINGS = [
     ("TG_FROM", 0x7812AE, 2, "str_title1", "m_tag_ovl.o"),
     ("TG_HRA", 0x781294, 7, "str_happy_room", "m_tag_ovl.o"),
     ("TG_HOME", 0x781914, 2, "mother_str", "m_tag_ovl.o"),
+]
+
+# (name): our own words (script/ui.txt), for the en build's own code
+OWN = [
+    # the edit-end check as the Controller Pak's letter store asks it (code/m_string.c mSM_en_EEQuestion): the
+    # question, and its second and third answers (back to the letters; leave with nothing changed)
+    "EE_STORE_QUESTION", "EE_STORE_ANSWER1", "EE_STORE_ANSWER2",
 ]
 
 # how the English takes the cartridge's box: aligned left (0), centred or right; narrowed to the box when
@@ -487,6 +499,10 @@ def main(argv):
         strings = []
         for name, at, size, _, _ in STRINGS:
             strings.append((name, n64_bytes(name, gc[name]) if name in gc else rom[at:at + size]))
+        for name in OWN:
+            if not own.get(name):
+                raise SystemExit("af_ui: %s: our own words, and --own has none" % name)
+            strings.append((name, n64_bytes(name, own[name])))
         subs = substitutions(rom, gc, own)
         os.makedirs(os.path.dirname(out), exist_ok=True)
         open(out, "w").write(include(strings, bool(gc)) + subst_include(subs))

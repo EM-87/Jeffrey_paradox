@@ -70,11 +70,19 @@ make job-check-en                 # la primera hora de una partida nueva jugada 
                                   # deuda, guardar y volver a encender; y los encargos de los
                                   # vecinos hasta entregarlos
 make trip-check-en                # un viaje con Controller Pak: salir en tren con una carta larga
-                                  # en el bolsillo, llegar a otro pueblo como visitante y volver
-                                  # a casa con la carta entera; y después guardarla en el Controller
-                                  # Pak en correos, guardar la partida y recuperarla entera
+                                  # en el bolsillo, llegar a otro pueblo como visitante (la carta
+                                  # entera también allí), cortar la corriente estando de visita,
+                                  # escribir allí otra carta y volver a casa con las dos enteras; y
+                                  # después guardar una en el Controller Pak en correos, guardar la
+                                  # partida, recuperarla entera y probar las otras dos respuestas
+                                  # de la pregunta de cierre del almacén
 make tools-check-en               # las herramientas en la mano: pescar, cazar un bicho con los
                                   # bolsillos llenos, cavar, enterrar y desenterrar, talar
+make deals-check-en               # los tratos del pueblo en cuatro días: comprar nabos un domingo
+                                  # y venderlos el lunes, llevarse un objeto perdido, pedir algo
+                                  # del catálogo y recogerlo del buzón, y la lotería de fin de mes
+make pak-jp-check-en              # un mismo Controller Pak entre la ROM en inglés y el cartucho
+                                  # japonés original: un jugador de cada uno visita el pueblo del otro
 make ares                         # el segundo emulador, ares, sin ventana (y su aplicación)
 make test                         # tests de las herramientas, sin ROM
 make nafe NAFE_UPS=.../NAFE-WIP-2_12_2010.ups   # el parche de 2010: para estudiarlo, y
@@ -953,11 +961,12 @@ pruebas se fabricaban con ellos ya recorridos (o nunca salían de ellos).
   pierde nada. Ahora ese texto se conserva en casa mientras dura el
   viaje y la carta vuelve entera; la prueba lo exige. El arreglo no le
   quita memoria al juego (una primera versión le costaba 6 KB; la medí
-  y la rehice). Queda un límite sin arreglo posible sin cambiar el
-  formato del Controller Pak: en el *otro* pueblo, una carta traída de
-  casa se ve (y se envía) solo con sus primeros 96 bytes, y en casa
-  vuelve a estar entera; y una carta escrita en el otro pueblo vuelve a
-  casa sin su final.
+  y la rehice). Quedaba un límite, que entonces di por imposible de
+  arreglar sin cambiar el formato del Controller Pak: en el *otro*
+  pueblo la carta se veía solo con sus primeros 96 bytes, y una carta
+  escrita allí volvía a casa sin su final. Ya está arreglado en su
+  mayor parte (más abajo, «Las cartas largas, enteras también de
+  viaje»).
 - **El mismo fallo en otros dos sitios, corregido también.** Encontrado
   el del viajero, busqué en qué otros sitios guarda el juego una carta
   fuera de los bolsillos, los buzones y correos. Hay dos. Cada vecino
@@ -975,11 +984,19 @@ pruebas se fabricaban con ellos ya recorridos (o nunca salían de ellos).
   arreglos le quitan memoria al juego. Límites que quedan: el espacio
   para esos finales es el de la partida (9 KB para todas las cartas
   largas; si se llena, pierden el final las más antiguas, como ya
-  pasaba), y una carta guardada en el Pak desde *otro* pueblo no tiene
-  allí final que conservar. Una nota de uso que no sabía nadie hasta
+  pasaba). Una nota de uso que no sabía nadie hasta
   jugarlo: en ese menú las cartas se cogen y se sueltan con Z, y el
   juego no deja guardar en el Pak una carta escrita por uno mismo y sin
   enviar.
+- **Un reinicio estando de visita.** Un visitante no puede guardar en
+  el pueblo ajeno, pero sí apagar la consola allí. `make trip-check-en`
+  lo hace ahora: tras hablar con un vecino del otro pueblo corta la
+  corriente, vuelve a encender ese pueblo con el mismo Controller Pak,
+  el jugador llega otra vez como visitante y el señor Resetti le
+  espera junto a la estación (el reinicio se cuenta en la ficha del
+  viajero, que va y viene con el Pak). Se le escucha entero, 29
+  páginas, todas en inglés, y solo entonces el jefe de estación deja
+  volver a casa.
 - **Una carta recibida de verdad, y un fallo de las propias pruebas.**
   La prueba del viaje guardaba en el Controller Pak la carta que ella
   misma había escrito, cambiándole a mano el tipo (el juego no deja
@@ -1031,6 +1048,85 @@ pruebas se fabricaban con ellos ya recorridos (o nunca salían de ellos).
   cartucho: una fruta enterrada no se entierra, se planta. Como un día
   de lluvia no hay mariposas y la lluvia la sortea el juego, si no
   encuentra ningún bicho la prueba repite la sesión al día siguiente.
+- **Los tratos del pueblo, jugados.** Las pruebas habían leído lo que
+  dicen los tenderos, pero nadie les había comprado, pedido ni ganado
+  nada. `make deals-check-en` juega cuatro días seguidos, cada uno
+  encendiendo la partida que guardó el anterior: un domingo por la
+  mañana busca a la vendedora de nabos por el pueblo, la escucha y le
+  compra diez; entra en la comisaría y se lleva un objeto perdido; el
+  lunes pregunta a Nook a cuánto paga los nabos, se los vende y pide el
+  primer objeto del catálogo; el martes abre el buzón y ahí está el
+  pedido; y el último día del mes juega a la lotería de la tienda. Todo
+  sale en inglés y limpio. Tres cosas del juego que aprendí
+  jugándolo (las tres eran fallos de mi prueba, no de la ROM): el buzón
+  solo responde si te pones en su esquina, no de frente (lo dice su
+  código, y la prueba del viaje lo abría de casualidad); si una venta
+  hace pasar la cartera de su tope, el juego te da parte del dinero en
+  una bolsa; y la lotería se juega toda en una sola conversación y
+  pierde 65 de cada 100 tiradas (5 % primer premio, 10 % segundo, 20 %
+  tercero, cada premio una sola vez), así que la prueba tira hasta
+  haber visto ganar y perder.
+- **Las cartas largas, enteras también de viaje.** El Controller Pak
+  guarda la ficha del jugador tal como la escribe el cartucho, con solo
+  los primeros 96 bytes de cada carta. Pero esa ficha termina en 254
+  bytes que el juego nunca lee (los escribe y los suma, nada más). La
+  traducción guarda ahí ahora el final de las cartas que el jugador
+  lleva encima, y al llegar a un pueblo lo pasa a la partida de ese
+  pueblo: la carta se lee entera también de visita, y una carta
+  escrita en el otro pueblo vuelve a casa entera. La primera versión
+  no funcionaba y costó ver por qué: el juego guarda la partida del
+  pueblo justo cuando llega un visitante (y otra vez, antes que el Pak,
+  cuando se va), y ese guardado borraba el final de las cartas del
+  visitante, que no pertenecen a ninguna partida: la carta estaba
+  entera durante cuatro fotogramas. Ahora el guardado respeta las
+  cartas de quien está de visita.
+  El cartucho original no toca esos bytes. `make trip-check-en` lo
+  exige todo: escribe una carta en casa y otra en el otro pueblo, mira
+  el fichero del Pak tras cada salida y comprueba que las dos están
+  enteras en casa y en la partida guardada. Le cuesta al juego 1,7 KB
+  de memoria (de unos 55 KB libres en el peor momento del año).
+- **La pregunta al cerrar el almacén de cartas.** El menú de correos
+  que guarda cartas en el Controller Pak se cierra con una pregunta que
+  el cartucho comparte con el editor de cartas, el tablón y la melodía
+  del pueblo. El inglés oficial es el de GameCube, que no tiene ese
+  almacén, y está escrito pensando en un texto: en el almacén la
+  tercera respuesta sonaba a tirar la carta. Jugué las tres para saber
+  qué hacen de verdad (la primera guarda y sale, la segunda vuelve a
+  las cartas, la tercera sale sin guardar nada y la carta vuelve al
+  bolsillo) y les puse palabras propias solo en ese menú: «Save and
+  finish?», y tras la primera respuesta «Not yet» y «Don't save». Lo
+  miden `make menus-check-en` (la tinta de cada línea en pantalla) y
+  `make trip-check-en` (que pulsa la segunda y la tercera y comprueba
+  que hacen lo que dicen).
+- **El Controller Pak con el cartucho japonés.** Un Controller Pak es
+  del cartucho, así que un jugador guardado por la ROM en inglés puede
+  viajar a un pueblo del juego sin traducir, y al revés. `make
+  pak-jp-check-en` juega los dos viajes con un mismo Pak: el jugador de
+  la ROM en inglés llega al pueblo japonés como visitante, lo llaman
+  por su nombre, habla con un vecino, vuelve a casa y su carta larga
+  sigue entera (el cartucho deja intactos los bytes donde viaja su
+  final); y el jugador del cartucho japonés visita el pueblo en inglés
+  (su nombre en kana sale bien entre el texto en inglés, porque la
+  fuente conserva los kana) y vuelve al suyo. En el pueblo japonés una
+  carta larga se ve cortada en el byte 96, como cualquier carta del
+  cartucho.
+- **Límites que quedan, y por qué.** (1) En el Pak caben 251 bytes de
+  finales de carta: dos cartas de las más largas, o cuatro o cinco de
+  las que escribe el juego, de las diez que se pueden llevar; las demás
+  se ven de visita con sus primeros 96 bytes y en casa vuelven a estar
+  enteras (si salieron de casa). No hay más sitio: los dos ficheros
+  del juego ocupan 121 de las 123 páginas de un Pak. (2) Una carta
+  conseguida en otro pueblo y guardada allí mismo en el almacén del Pak
+  sale del almacén, ya en casa, sin su final. (3) El espacio para los
+  finales en una partida son 9 KB; si se llena, pierden el final las
+  cartas más antiguas (quedan como las deja el cartucho, no se rompe
+  nada), y un pueblo lleno no admite los de un visitante. Subirlo le
+  quitaría esa memoria al juego en todo momento. (4) Una partida de
+  esta ROM continuada en una ROM *anterior* de esta misma traducción
+  puede perder finales de carta (la anterior no entiende una marca
+  nueva); hacia delante no pasa. (5) El juego no deja guardar en el
+  almacén del Pak una carta escrita por uno mismo y sin enviar: es una
+  regla del cartucho, no de la traducción.
 - **Cada fallo, visto fallar antes de darlo por arreglado.** Los tres
   fallos de las cartas se probaron también en una ROM sin su arreglo,
   con la misma prueba que ahora lo vigila: en las tres la prueba falla
