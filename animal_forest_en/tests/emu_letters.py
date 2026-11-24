@@ -876,11 +876,49 @@ def main(argv):
               "%d from another, and no letter prints a spoiled one (%s)" % (REPLY_FILLED + (sorted(fills),)))
         check(seen_bad == set(range(REPLY_BAD[0], REPLY_BAD[0] + 18)) | set(range(REPLY_BAD[1], REPLY_BAD[1] + 18)),
               "each of the 36 letters that answer a bad letter is seen (%d are)" % len(seen_bad))
-        check(long_words > 0 and named > 0 and towns > 0 and fullest < 192,
+        check(long_words > 0 and named > 0 and fullest < 192,
               "%d replies print a word of more than 10 characters whole (the longest %d), %d the animal's name of "
-              "%d characters, %d both towns' names; %d of the words loaded were tokens; the fullest body takes %d "
-              "of the letter's 192 bytes"
+              "%d characters, %d both towns' names (as the game drew: the next check prints them by choice); %d of "
+              "the words loaded were tokens; the fullest body takes %d of the letter's 192 bytes"
               % (long_words, longest_word, named, len(long_named[2]), towns, tokens_in, fullest))
+
+        def parts_for_both():
+            """The five parts of a reply from another town, of one group, with a part that prints the animal's
+            town's name (free string 14) and another that prints the player's (15), the shortest such three;
+            or None. The game draws each part of 32: a reply with both names is one in a hundred or so, and a
+            build's draws may have none."""
+            banks, best = ("vmail_a", "vmail_b", "vmail_c"), None
+            for group in REPLY_GROUPS[1]:
+                prints = {k: [(i, n) for i, bank in enumerate(banks) for n in range(group, group + 32)
+                              if k in printed_frees(entry(bank, n))] for k in (14, 15)}
+                for i, n in prints[14]:
+                    for j, m in prints[15]:
+                        if i == j:
+                            continue
+                        last = 3 - i - j
+                        third = min(range(group, group + 32), key=lambda k: len(entry(banks[last], k)))
+                        numbers = [group] * 5
+                        numbers[1 + i], numbers[1 + j], numbers[1 + last] = n, m, third
+                        size = sum(len(entry(bank, numbers[1 + k])) for k, bank in enumerate(banks))
+                        if best is None or size < best[0]:
+                            best = (size, numbers)
+            return best and best[1]
+
+        numbers = parts_for_both()
+        _, _, _, free = reply(0, True, 1)             # the free strings as a reply from another town leaves them
+        texts, both, text = texts_of(free), False, b""
+        if numbers:
+            got, whole = run(2, numbers)
+            h, b, f, _ = model(tuple(numbers) + (-1,), texts)
+            text = whole[0x1C:0xDC]
+            both = (got[1] == 1 and text == b and whole[0xDC:0xFC] == f and far in text and
+                    town.rstrip(b" ") in text and 0x80 not in text and 0xEE not in text)
+        check(both, "both towns' names in one reply, by parts chosen to print them: %s" % (
+            "parts %s of the group at %#x, loaded by the game's loader with the strings a reply from another town "
+            "filled: the animal's town's name and the player's are whole in the body's %d bytes" % (
+                numbers[1:4], numbers[0], len(text.rstrip(b"\xcd")))
+            if both else "no group has a part for the one and another for the other" if not numbers
+            else "NOT WHOLE, OR NOT THE MODEL'S LETTER (parts %s; the body %r)" % (numbers, text)))
 
         def part_that_prints(k):
             """(bank's place among the three, the part's number) of the first part of a reply that prints free
