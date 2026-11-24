@@ -3573,7 +3573,9 @@ games), the empty slots, and the strings and letters the same way.
   GameCube has no text, the 2010 patch's English for six messages says
   other things: a meteor shower for the harvest moon, Groundhog Day for
   White Day (two), January for the bugs' winter, workouts for a bug
-  catcher's training, the Famicom for the disk system. A villager's game
+  catcher's training, the Famicom for the disk system (ours named the
+  disk system then; an NES since the piece is drawn as one: "The NES").
+  A villager's game
   before bed is the cartridge's monkey doing sums (DK Jr. Math), not one
   the cartridge doesn't have; a villager reading a price on a card can
   pay it (the GameCube's says he can't, and the answers go on as if he
@@ -5453,6 +5455,23 @@ the user's disc at build time (`tools/af_gc_nes.py`, `make rom-en`).
   made in software from an object's own list (by hand) shows the same.
   The eight objects are pinned by their md5 in the tool, which refuses
   a disc that makes others.
+- **The drive's name and page.** The cartridge has one name for the
+  seven and another for the drive. The GameCube names each of its
+  games' pieces after the game (nineteen of them, the cartridge's
+  seven first) and has one "NES" after them, where the cartridge has
+  its drive after its games (its furniture names 874 to 892 and 893,
+  read by hand with `af_items`; TODO(verify) that 893 is the name of
+  the piece `aKobDisksystem8_dw` draws: only the order says so). Here
+  the seven have that one name (`af_items.FTR_SAME`: one name for
+  seven, as in the cartridge) and the drive's is ours for what is
+  drawn, an NES with no game on it: "empty NES" (`script/items.txt`;
+  "disk system" while the cartridge's own drawing stood, and for one
+  build after it). The drive's page with nothing to play (0x2B69,
+  ours: the GameCube has no text under that number) named the disk
+  system and its disks and now names the NES and the Game Pak it
+  lacks; its last line keeps clear of letters that reach under the
+  line ("The text's questions and facts"). The drive's question
+  (0x17B1) is the GameCube's edit and named the NES already.
 - **The check** is a part of `make signs-check-en` (`tests/emu_signs.py`):
   in the ROM the segment, the profiles, the audit of each object's
   list (every address, block, palette and vertex of it in the object)

@@ -479,7 +479,11 @@ usuario al compilar: sus tres listas de dibujo se traducen a las
 los triángulos a cinco bits por vértice y guarda las texturas en
 teselas), y de cada mueble sale un bloque con la consola, sus dos
 mandos y, encima, la caja del juego con su etiqueta; el de la unidad
-de disco es una NES sin juego, como en GameCube. Cada bloque ocupa
+de disco es una NES sin juego, como en GameCube, y por eso ya no se
+llama «disk system»: su nombre es «empty NES» (las siete con juego
+siguen siendo «NES», un solo nombre para las siete como en el
+cartucho) y su mensaje dice que falta un Game Pak, no los discos.
+Cada bloque ocupa
 4.576 bytes y en el cartucho los ficheros de los muebles están a 4 KB
 uno de otro, así que los ocho van en un segmento propio al final de la
 ROM y las fichas de los ocho muebles apuntan a él. No cuesta memoria:

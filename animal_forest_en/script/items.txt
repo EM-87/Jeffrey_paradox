@@ -11,8 +11,11 @@ etc	19	a	fortune
 etc	29	a	town map
 # The empty kind's one name, never shown.
 dummy	0	-	nothing
-# The Famicom's disk drive, next to the Famicoms (all of them the GameCube's NES).
-ftr	849	a	disk system
+# The Famicom's disk drive. The GameCube draws it as an NES with no game on it, the drawing this build
+# takes (tools/af_gc_nes.py), and has one name for it, which the seven Famicoms have here (af_items.FTR_SAME:
+# the cartridge has one name for the seven, the GameCube a game's name for each). Ours says what is drawn
+# and keeps the cartridge's two names apart.
+ftr	849	an	empty NES
 # Things the GameCube drew anew under the same number, so that its name is the new drawing's: ours, from
 # the cartridge's name and its own drawing (the second review: NOTES). A bag of flower seeds whose colour
 # the GameCube's name has wrong; a dress and a suit, a stained shirt and two shirts with the console's
