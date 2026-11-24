@@ -846,14 +846,20 @@ class SettingsActivity : AppCompatActivity() {
 
         /**
          * What is said under the row that asks which clouds: what the
-         * kind chosen is and costs, and for the hourly kind which frames
-         * the phone has. Per cent signs doubled, because a list row runs
-         * its summary through a formatter.
+         * kind chosen is and costs, and what the phone has of it — the
+         * week is the promise and this is what has been kept of it,
+         * which is the first thing to look at when the clouds are seen
+         * not to change as the world is wound back. Per cent signs
+         * doubled, because a list row runs its summary through a
+         * formatter.
          */
         private fun cloudsKindSummary(key: String?): String = when (SatelliteClouds.Kind.of(key)) {
-            SatelliteClouds.Kind.VEIL -> getString(R.string.clouds_kind_veil_summary)
+            SatelliteClouds.Kind.VEIL ->
+                getString(R.string.clouds_kind_veil_summary) + "\n" + CloudStore.describe(requireContext())
             SatelliteClouds.Kind.LIVE ->
                 getString(R.string.clouds_kind_live_summary) + "\n" + LiveCloudStore.describe(requireContext())
+            SatelliteClouds.Kind.PHOTO ->
+                getString(R.string.clouds_kind_photo_summary) + "\n" + PhotoStore.describe(requireContext())
         }.replace("%", "%%")
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
@@ -913,13 +919,6 @@ class SettingsActivity : AppCompatActivity() {
                 Prefs.WEATHER, Prefs.SUNDIAL_GLASS, Prefs.HEMISPHERE_CLOUDS,
                 Prefs.HEMISPHERE_LIGHTS
             )
-            // Which days of clouds the phone has. The week is the promise;
-            // this is what has been kept of it, and the first thing to look
-            // at when the clouds are seen not to change as the world is
-            // wound back.
-            findPreference<Preference>(Prefs.HEMISPHERE_CLOUDS)?.summary =
-                getString(R.string.pref_hemisphere_clouds_summary) + "\n" +
-                    CloudStore.describe(requireContext())
             // Which clouds, said under the row for the kind chosen: what
             // it is, what it costs, and what the phone has of it. A
             // question about nothing while there are no clouds at all,
@@ -928,8 +927,13 @@ class SettingsActivity : AppCompatActivity() {
             findPreference<ListPreference>(Prefs.HEMISPHERE_CLOUDS_KIND)?.let { row ->
                 row.summary = cloudsKindSummary(row.value)
                 row.setOnPreferenceChangeListener { _, value ->
-                    // The frames of a kind no longer worn go with it.
-                    if (value != SatelliteClouds.Kind.LIVE.key) LiveCloudStore.forget(requireContext())
+                    // The pictures of a kind no longer worn go with it.
+                    // The veil's are the hourly kind's too — see
+                    // [CloudStore.wanted] — and stay for both.
+                    val chosen = SatelliteClouds.Kind.of(value as? String)
+                    if (chosen != SatelliteClouds.Kind.LIVE) LiveCloudStore.forget(requireContext())
+                    if (chosen != SatelliteClouds.Kind.PHOTO) PhotoStore.forget(requireContext())
+                    if (chosen == SatelliteClouds.Kind.PHOTO) CloudStore.forget(requireContext())
                     row.summary = cloudsKindSummary(value as? String)
                     true
                 }

@@ -107,6 +107,29 @@ class HemisphereView @JvmOverloads constructor(
         }
 
     /**
+     * The day's photograph, laid over the month's map where it has
+     * anything to lay — see [SatellitePhoto] — or null, which is the
+     * map by itself. Not a layer drawn over the globe, as the clouds
+     * are: it is the ground the globe is made of, so everything that is
+     * done to the map is done to it — the turning, the night, the limb.
+     */
+    var photo: SatellitePhoto.Picture? = null
+        set(value) {
+            if (field === value) return
+            field = value
+            discard()
+            invalidate()
+        }
+
+    /** And where to ask for the photograph of the day the world is wound to — see [cloudsOn]. */
+    var photoOn: ((Long) -> SatellitePhoto.Picture?)? = null
+        set(value) {
+            field = value
+            cloudsAskedDay = Long.MIN_VALUE
+            invalidate()
+        }
+
+    /**
      * Where to ask for the clouds of a particular day, when the world is
      * being wound.
      *
@@ -790,6 +813,9 @@ class HemisphereView @JvmOverloads constructor(
             mapPixelsFor[i] = null
         }
         for (i in scratch.indices) scratch[i] = null
+        groundHeld = null
+        groundMap = null
+        groundPhoto = null
     }
 
     /** How big the projected discs are drawn, whatever size the view is. */
@@ -823,7 +849,7 @@ class HemisphereView @JvmOverloads constructor(
         // as.
         val lit = scratch(0, count)
         val dark = scratch(1, count)
-        val dayPixels = mapPixels(day, 0)
+        val dayPixels = ground(mapPixels(day, 0), day)
         val nightPixels = mapPixels(night, 1)
         // And the satellite's picture, if there is one, through the same
         // inverse projection — a third disc rather than a second pass,
@@ -947,6 +973,33 @@ class HemisphereView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * The day map's pixels with the day's photograph laid over them —
+     * see [SatellitePhoto.over] — or the map's own where there is no
+     * photograph, or none its size. Kept for as long as it is the same
+     * photograph over the same map: laying one is half a million pixels,
+     * and a bake is every degree and a half of a turning ball.
+     */
+    private var groundHeld: IntArray? = null
+    private var groundMap: Bitmap? = null
+    private var groundPhoto: SatellitePhoto.Picture? = null
+
+    private fun ground(map: IntArray, day: Bitmap): IntArray {
+        val picture = photo ?: return map
+        groundHeld?.let { if (groundMap === day && groundPhoto === picture) return it }
+        val laid = SatellitePhoto.over(map, day.width, day.height, picture) ?: return map
+        groundHeld = laid
+        groundMap = day
+        groundPhoto = picture
+        grounds++
+        return laid
+    }
+
+    /** For the tests: how many times a photograph has been laid over a map. */
+    private var grounds = 0
+
+    internal fun groundsForTest(): Int = grounds
+
     /** For the tests: how many times the world has been painted into the disc. */
     private var bakes = 0
 
@@ -1037,7 +1090,7 @@ class HemisphereView @JvmOverloads constructor(
         // standing at now is simply today's. Asked once a second rather
         // than once a frame: the answer is a lookup on disk, and sixty of
         // those a second on the thread that draws is sixty too many.
-        if (cloudsOn != null || lightsOn != null) {
+        if (cloudsOn != null || lightsOn != null || photoOn != null) {
             val day = ms / 86_400_000L
             val at = android.os.SystemClock.uptimeMillis()
             val another = day != cloudsAskedDay
@@ -1055,6 +1108,7 @@ class HemisphereView @JvmOverloads constructor(
                 cloudsAskedDay = day
                 cloudsAskedAt = at
                 cloudsOn?.let { clouds = it(ms) }
+                photoOn?.let { photo = it(ms) }
                 cloudsDayOn?.let {
                     val worn = it(ms)
                     cloudsWorn = worn?.day
@@ -1130,9 +1184,15 @@ class HemisphereView @JvmOverloads constructor(
         }
         // The clouds, whenever they are not the day's own: a globe wound
         // to a day the phone has no photograph of is wearing another
-        // day's weather, and says which.
-        if (clouds != null && cloudsOff != 0) {
-            cloudsWorn?.let { phrases += context.getString(R.string.hemisphere_clouds_legend, dayText(it)) }
+        // day's weather, and says which. The same when it is the
+        // photograph itself that is worn and not a veil made of one.
+        if (cloudsOff != 0) {
+            val said = when {
+                photo != null -> R.string.hemisphere_photo_legend
+                clouds != null -> R.string.hemisphere_clouds_legend
+                else -> 0
+            }
+            if (said != 0) cloudsWorn?.let { phrases += context.getString(said, dayText(it)) }
         }
         return if (phrases.isEmpty()) null else phrases.joinToString(" · ")
     }

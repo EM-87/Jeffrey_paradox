@@ -115,11 +115,14 @@ object SatelliteClouds {
      * was before there was a choice, and is what a phone that has never
      * been asked wears. [LIVE] is the cloud of the last hour or two off
      * the weather satellites — see [LiveClouds] — with the daily
-     * photograph's for any instant no hourly frame is near.
+     * photograph's for any instant no hourly frame is near. [PHOTO] is
+     * no veil at all: a day's photograph itself in place of the map,
+     * its cloud in it — see [SatellitePhoto].
      */
     enum class Kind(val key: String) {
         VEIL("veil"),
-        LIVE("live");
+        LIVE("live"),
+        PHOTO("photo");
 
         companion object {
             fun of(key: String?): Kind = entries.firstOrNull { it.key == key } ?: VEIL
@@ -315,7 +318,8 @@ object SatelliteClouds {
         return kept
     }
 
-    private fun photographed(argb: Int): Boolean =
+    /** Whether a pixel of a photograph is a place somebody photographed — see [NO_DATA]. */
+    fun photographed(argb: Int): Boolean =
         maxOf((argb shr 16) and 0xFF, (argb shr 8) and 0xFF, argb and 0xFF) > NO_DATA
 
     /** The latitude beyond which a row with holes in it is the picture ending. */

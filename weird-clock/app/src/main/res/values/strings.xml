@@ -750,11 +750,10 @@
     <string name="pref_sundial_glass_title">Glass and thermometer</string>
     <string name="pref_sundial_glass_summary">A weather glass and a thermometer on the pedestal under the plate, the way a garden dial carried them. Needs the weather switched on</string>
 
-    <!-- The satellite cloud layer. Named for what it is: NASA's daily
-         MODIS mosaic, which is a day old and photographed in the morning
-         wherever you are. -->
+    <!-- The satellite cloud layer: the switch. What the clouds are —
+         there are three kinds — is said under the row after it. -->
     <string name="pref_hemisphere_clouds_title">Satellite clouds</string>
-    <string name="pref_hemisphere_clouds_summary">Yesterday\'s clouds on the globe, from NASA\'s daily MODIS photograph of the whole earth. Each place was taken as the satellite came over it, around half past ten in the morning there. About 80 kB, once every six hours. Needs the weather switched on</string>
+    <string name="pref_hemisphere_clouds_summary">The clouds the satellites saw, on the daylit side of the globe. Which ones, and what they cost, is the next row. Needs the weather switched on</string>
 
     <!-- Last night's lights on the dark side, from the VIIRS Day/Night
          Band: the clean Black Marble, two or three days behind, and the
@@ -792,14 +791,18 @@
     <string-array name="hemisphere_clouds_kind_entries">
         <item>Yesterday\'s, off the daily photograph</item>
         <item>Live, by the hour</item>
+        <item>Yesterday\'s photograph itself</item>
     </string-array>
     <string-array name="hemisphere_clouds_kind_values" translatable="false">
         <item>veil</item>
         <item>live</item>
+        <item>photo</item>
     </string-array>
-    <string name="clouds_kind_veil_summary">The cloud of NASA\'s daily photograph, a day or two old, with the gaps between the satellite\'s passes filled from the day before</string>
+    <string name="clouds_kind_veil_summary">The cloud of NASA\'s daily MODIS photograph, white over the map: each place as it was at about half past ten in the morning there, a day or two ago, with the gaps between the satellite\'s passes filled from the day before. About 80 kB a day</string>
     <string name="clouds_kind_live_summary">Cloud as it stood an hour or two ago, off NOAA\'s hourly mosaic of five weather satellites: what they saw by daylight and, where the sun was still low, what their infrared saw. The infrared reads how cold the cloud tops are, so along the morning edge low cloud is missed and frozen ground can pass for cloud. Nothing beyond 73\u00b0 north or south. About 45 kB an hour while the globe is on screen. The daily photograph still covers any day it has no frame of</string>
     <string name="live_on_phone">On the phone: %1$d frames, %2$s to %3$s UTC</string>
+    <string name="clouds_kind_photo_summary">NASA\'s daily photograph from the NOAA-20 satellite in place of the month\'s map wherever it reaches, with its cloud, haze and smoke: each place as it was at about half past one in the afternoon there, a day or two ago. Where the photograph stops, in the night round the winter pole, the map carries on. About 150 kB a day</string>
+    <string name="hemisphere_photo_legend">photograph of %s</string>
 
     <!-- The Egyptian civil year: three seasons of four months, named for
          what the Nile was doing when the calendar was young. It drifted a

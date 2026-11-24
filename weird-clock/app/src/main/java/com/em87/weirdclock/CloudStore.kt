@@ -81,11 +81,13 @@ object CloudStore {
     }
 
     /**
-     * Whether the daily photograph is wanted: with any clouds at all.
-     * The hourly kind wants it too — it is what the globe wears wound to
-     * a day the hours do not reach.
+     * Whether the veil's daily photograph is wanted: with the veil, and
+     * with the hourly kind too — it is what the globe wears wound to a
+     * day the hours do not reach. Not with the photograph itself on the
+     * globe, which has its cloud in it and wants no veil over that.
      */
-    fun wanted(context: Context): Boolean = kind(context) != null
+    fun wanted(context: Context): Boolean =
+        kind(context).let { it != null && it != SatelliteClouds.Kind.PHOTO }
 
     /** Which day's photograph belongs on a globe wound to that instant. */
     fun dayOf(atMs: Long): String = store.dayOf(atMs)

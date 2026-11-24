@@ -109,7 +109,8 @@ class LiveCloudStoreTest {
                 infraredThereFirst += time
             }
             pictures[wanted]?.let { return LiveCloudStore.Answer(it, null) }
-            val near = pictures.keys.minByOrNull { Math.abs(it - wanted) }!!
+            // The nearest it has; of two as near, the earlier.
+            val near = pictures.keys.sorted().minByOrNull { Math.abs(it - wanted) }!!
             if (Math.abs(near - wanted) <= hour) {
                 return LiveCloudStore.Answer(pictures[near]!!, "99 Nearest value used: time=${LiveClouds.stamp(near)} ISO8601 $layer")
             }
@@ -210,14 +211,16 @@ class LiveCloudStoreTest {
      */
     @Test
     fun `an hour without its visible picture is the infrared's alone`() {
+        // The service has let go of four o'clock's visible picture, and
+        // sends three's for it, saying so; and five's is a page of text.
         service.sees.remove(at(4))
-        service.sees[at(3)] = "<html>try later</html>".toByteArray()
+        service.sees[at(5)] = "<html>try later</html>".toByteArray()
         assertTrue(LiveCloudStore.refresh(context, now))
         assertEquals(listOf("03:00", "04:00", "05:00"), hours())
-        val names = context.cacheDir.list()!!.filter { it.startsWith("live-") }.sorted()
         assertEquals(
-            listOf(3, 4, 5).map { "live-${at(it) / 60_000L}.jpg" } + "live-${at(5) / 60_000L}-v.jpg",
-            names.sortedBy { it.length }
+            "a visible picture was kept that is not a picture, or not of its hour",
+            (listOf(3, 4, 5).map { "live-${at(it) / 60_000L}.jpg" } + "live-${at(3) / 60_000L}-v.jpg").sorted(),
+            context.cacheDir.list()!!.filter { it.startsWith("live-") }.sorted()
         )
         fun pixels(name: String): IntArray {
             val raw = bytes(name)
@@ -226,29 +229,34 @@ class LiveCloudStoreTest {
                 picture.getPixels(it, 0, picture.width, 0, 0, picture.width, picture.height)
             }
         }
-        val four = LiveCloudStore.cached(context, at(4))!!
+        val alone = LiveClouds.field(pixels("nowcoast-ir-2026-11-24T04.jpg"), null, 720, 360, 0.0, 0.0)
         assertTrue(
             "an hour with no visible picture is not its infrared alone",
-            four.cover.contentEquals(LiveClouds.field(pixels("nowcoast-ir-2026-11-24T04.jpg"), null, 720, 360, 0.0, 0.0))
+            LiveCloudStore.cached(context, at(4))!!.cover.contentEquals(alone)
         )
-        val five = LiveCloudStore.cached(context, at(5))!!
-        val sun = Hemisphere.subsolar(at(5))
+        val three = LiveCloudStore.cached(context, at(3))!!
+        val sun = Hemisphere.subsolar(at(3))
         assertTrue(
             "an hour with both pictures is not made of both, or not with the sun where it stood",
-            five.cover.contentEquals(
+            three.cover.contentEquals(
                 LiveClouds.field(
-                    pixels("nowcoast-ir-2026-11-24T05.jpg"), pixels("nowcoast-vis-2026-11-24T05.jpg"), 720, 360, sun[0], sun[1]
+                    pixels("nowcoast-ir-2026-11-24T03.jpg"), pixels("nowcoast-vis-2026-11-24T03.jpg"), 720, 360, sun[0], sun[1]
                 )
             )
         )
-        assertFalse(five.cover.contentEquals(LiveClouds.field(pixels("nowcoast-ir-2026-11-24T05.jpg"), null, 720, 360, 0.0, 0.0)))
+        assertFalse(three.cover.contentEquals(LiveClouds.field(pixels("nowcoast-ir-2026-11-24T03.jpg"), null, 720, 360, 0.0, 0.0)))
         // Not gone back for: the hour is on the phone.
         val asked = service.seens().size
         LiveCloudStore.refresh(context, now + 5 * 60_000L)
         assertEquals(listOf("02:00", "01:00"), service.seens().drop(asked))
-        // A visible picture landing later makes the hour again.
+        // A visible picture landing later makes the hour again, while it
+        // is the hour held: of both pictures now.
+        val four = LiveCloudStore.cached(context, at(4))!!
+        assertSame(four, LiveCloudStore.cached(context, at(4)))
         File(context.cacheDir, "live-${at(4) / 60_000L}-v.jpg").writeBytes(bytes("nowcoast-vis-2026-11-24T04.jpg"))
-        assertNotSame(four, LiveCloudStore.cached(context, at(4)))
+        val again = LiveCloudStore.cached(context, at(4))!!
+        assertNotSame("the hour was not made again when its visible picture arrived", four, again)
+        assertFalse(again.cover.contentEquals(alone))
     }
 
     /** A frame is kept under the hour the service says it is of, and under no other. */
@@ -305,11 +313,15 @@ class LiveCloudStoreTest {
             // A frame put on the phone by hand, so there is one to be refused.
             File(context.cacheDir, "live-${at(5) / 60_000L}.jpg").writeBytes(bytes("nowcoast-ir-2026-11-24T05.jpg"))
             assertTrue(LiveCloudStore.cached(context, now) != null)
+            // Three hours on that frame is old, and the next would be asked after.
+            val later = now + 3 * hour
+            assertTrue(LiveCloudStore.stale(context, later))
+            assertTrue(LiveCloudStore.due(context, later))
             off()
             assertFalse(LiveCloudStore.wanted(context))
-            assertFalse(LiveCloudStore.stale(context, now))
-            assertFalse(LiveCloudStore.due(context, now))
-            assertFalse(LiveCloudStore.refresh(context, now))
+            assertFalse("the next frame is due for a kind of cloud that is not chosen", LiveCloudStore.stale(context, later))
+            assertFalse(LiveCloudStore.due(context, later))
+            assertFalse(LiveCloudStore.refresh(context, later))
             assertEquals("the service was asked", 0, service.asked.size)
             assertEquals("cloud of a kind not chosen", null, LiveCloudStore.cached(context, now))
         }
@@ -415,7 +427,13 @@ class LiveCloudStoreTest {
         // One field for one frame, however often it is asked for.
         assertSame(newest, LiveCloudStore.cached(context, now))
         assertSame(newest, LiveCloudStore.cached(context, at(5) - 20 * minute))
-        // Wound back, the frame of the hour it is wound to.
+        // Wound back, the frame of the hour it is wound to — which is told
+        // from the newest by its hour, whatever dates are on the files:
+        // three hours fetched in one go can land in one tick of the clock.
+        val tick = File(context.cacheDir, "live-${at(5) / 60_000L}.jpg").lastModified()
+        for (name in context.cacheDir.list()!!.filter { it.startsWith("live-") }) {
+            File(context.cacheDir, name).setLastModified(tick)
+        }
         val two = LiveCloudStore.cached(context, at(2) + 10 * minute)!!
         assertNotSame(newest, two)
         assertTrue(two.cover.contentEquals(field(2)))
@@ -517,5 +535,22 @@ class LiveCloudStoreTest {
         LiveCloudStore.refreshInBackground(context, patient = true)
         Thread.sleep(200)
         assertEquals(1, service.stamps())
+        // The next frame is due and the service has not got it. Five
+        // minutes after being told so: a clock asking by itself waits,
+        // and somebody who has picked the phone up does not.
+        fun clockAt(atMs: Long) {
+            TimeKeeper.solarOffsetMs = atMs - System.currentTimeMillis()
+        }
+        clockAt(at(5) + LiveCloudStore.NEXT_MS)
+        LiveCloudStore.refreshInBackground(context, patient = true)
+        Thread.sleep(300)
+        assertEquals("the next frame was not asked after when it was due", 2, service.stamps())
+        clockAt(at(5) + LiveCloudStore.NEXT_MS + 5 * minute)
+        LiveCloudStore.refreshInBackground(context, patient = true)
+        Thread.sleep(300)
+        assertEquals("a clock asking by itself asked again after five minutes", 2, service.stamps())
+        LiveCloudStore.refreshInBackground(context)
+        Thread.sleep(300)
+        assertEquals("somebody at the phone was made to wait", 3, service.stamps())
     }
 }

@@ -4338,6 +4338,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         if (hemisphereView != null) {
             if (CloudStore.wanted(this)) CloudStore.refreshInBackground(this, patient = true)
             if (LiveCloudStore.wanted(this)) LiveCloudStore.refreshInBackground(this, patient = true)
+            if (PhotoStore.wanted(this)) PhotoStore.refreshInBackground(this, patient = true)
             if (NightLightStore.wanted(this)) NightLightStore.refreshInBackground(this, patient = true)
         }
         askTheSky(patient = true)
@@ -4810,10 +4811,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // that is worn: an hourly frame is within hours of the instant
         // shown or it is not worn at all.
         world.cloudsDayOn = { at ->
-            if (LiveCloudStore.cached(this, at) != null) null else CloudStore.worn(this, at)
+            if (LiveCloudStore.cached(this, at) != null) null
+            else CloudStore.worn(this, at) ?: PhotoStore.worn(this, at)
         }
+        // Or no veil at all and the day's photograph for the ground —
+        // see [SatellitePhoto]. One kind of cloud is chosen, so of these
+        // stores only the ones that kind uses have anything to hand over.
+        // Asked for as the globe draws, the first frame included.
+        world.photoOn = { at -> PhotoStore.cached(this, at) }
         if (CloudStore.wanted(this)) CloudStore.refreshInBackground(this)
         if (LiveCloudStore.wanted(this)) LiveCloudStore.refreshInBackground(this)
+        if (PhotoStore.wanted(this)) PhotoStore.refreshInBackground(this)
         // And last night's lights, the same way: read off the disc here,
         // fetched on threads of their own that touch nothing but files.
         world.lights = NightLightStore.skyFor(this)

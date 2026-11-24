@@ -139,6 +139,15 @@ class LiveCloudsTest {
         // Half way between the marks is half the thickest.
         val half = LiveClouds.cover(60 + (LiveClouds.LOW + LiveClouds.HIGH) / 2, clear)
         assertTrue("half way is $half", Math.abs(half - SatelliteClouds.THICKEST / 2) <= 3)
+        // And no corner at either mark: thin cloud stays thin and thick
+        // cloud is thick before the mark, which a straight line between
+        // them would not have — a quarter of the way is under a fifth of
+        // the thickest, three quarters is over four fifths.
+        val span = LiveClouds.HIGH - LiveClouds.LOW
+        val quarter = LiveClouds.cover(60 + LiveClouds.LOW + span / 4, clear)
+        val threeQuarters = LiveClouds.cover(60 + LiveClouds.LOW + 3 * span / 4, clear)
+        assertTrue("a quarter of the way is $quarter", quarter < SatelliteClouds.THICKEST / 5)
+        assertTrue("three quarters of the way is $threeQuarters", threeQuarters > SatelliteClouds.THICKEST * 4 / 5)
         var last = 0
         for (g in 0 until LiveClouds.NO_DATA) {
             val c = LiveClouds.cover(g, clear)
@@ -373,6 +382,12 @@ class LiveCloudsTest {
         assertEquals(SatelliteClouds.THICKEST, LiveClouds.seen(239))
         val half = LiveClouds.seen((LiveClouds.SEEN_LOW + LiveClouds.SEEN_HIGH) / 2)
         assertTrue("half way is $half", Math.abs(half - SatelliteClouds.THICKEST / 2) <= 3)
+        // The same curve as the infrared's, with no corner at either mark.
+        val span = LiveClouds.SEEN_HIGH - LiveClouds.SEEN_LOW
+        val quarter = LiveClouds.seen(LiveClouds.SEEN_LOW + span / 4)
+        val threeQuarters = LiveClouds.seen(LiveClouds.SEEN_LOW + 3 * span / 4)
+        assertTrue("a quarter of the way is $quarter", quarter < SatelliteClouds.THICKEST / 5)
+        assertTrue("three quarters of the way is $threeQuarters", threeQuarters > SatelliteClouds.THICKEST * 4 / 5)
         var last = 0
         for (g in 0 until LiveClouds.NO_DATA) {
             val c = LiveClouds.seen(g)

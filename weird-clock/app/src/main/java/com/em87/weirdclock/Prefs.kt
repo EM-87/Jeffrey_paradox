@@ -436,8 +436,8 @@ object Prefs {
 
     /**
      * Which clouds those are: the daily photograph's, a day or two old,
-     * or the hour's, read off the weather satellites — see
-     * [SatelliteClouds.Kind]. A second row and not a third position of
+     * the hour's, read off the weather satellites, or a day's photograph
+     * itself in place of the map — see [SatelliteClouds.Kind]. A second row and not a third position of
      * the switch, so that a phone that had the clouds on has them on,
      * and the ones it had.
      */

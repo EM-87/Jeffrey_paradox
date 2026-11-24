@@ -605,7 +605,7 @@
 
     <!-- La capa de nubes por sat\u00e9lite. -->
     <string name="pref_hemisphere_clouds_title">Nubes de sat\u00e9lite</string>
-    <string name="pref_hemisphere_clouds_summary">Las nubes de ayer sobre el globo, de la foto diaria MODIS de la Tierra entera que publica la NASA. Cada sitio se tom\u00f3 al pasar el sat\u00e9lite por encima, sobre las diez y media de la ma\u00f1ana all\u00ed. Unos 80 kB cada seis horas. Necesita el tiempo activado</string>
+    <string name="pref_hemisphere_clouds_summary">Las nubes que vieron los sat\u00e9lites, en el lado de d\u00eda del globo. Cu\u00e1les, y lo que cuestan, en la fila siguiente. Necesita el tiempo activado</string>
     <string name="pref_hemisphere_lights_title">Luces nocturnas</string>
     <string name="pref_hemisphere_lights_summary">Las luces de anoche en el lado oscuro, de la banda d\u00eda/noche de VIIRS de la NASA. Limpias es el Black Marble, sin luna ni nubes, con dos o tres d\u00edas de retraso; crudas es lo que vio el sensor esa noche, con auroras, nubes a la luz de la luna, nieve e incendios. Cada sitio se tom\u00f3 al pasar el sat\u00e9lite por encima, sobre la una y media de la madrugada all\u00ed. Hasta 0,8 MB al d\u00eda. Necesita el tiempo activado</string>
     <string-array name="hemisphere_lights_entries">
@@ -631,10 +631,13 @@
     <string-array name="hemisphere_clouds_kind_entries">
         <item>Las de ayer, de la foto diaria</item>
         <item>En directo, hora a hora</item>
+        <item>La propia foto de ayer</item>
     </string-array>
-    <string name="clouds_kind_veil_summary">Las nubes de la foto diaria de la NASA, de hace uno o dos días, con los huecos entre pasadas del satélite rellenados con los del día anterior</string>
+    <string name="clouds_kind_veil_summary">Las nubes de la foto diaria MODIS de la NASA, en blanco sobre el mapa: cada sitio como estaba sobre las diez y media de la ma\u00f1ana all\u00ed, hace uno o dos d\u00edas, con los huecos entre pasadas del sat\u00e9lite rellenados con los del d\u00eda anterior. Unos 80 kB al d\u00eda</string>
     <string name="clouds_kind_live_summary">Las nubes tal como estaban hace una o dos horas, del mosaico horario de la NOAA con cinco sat\u00e9lites meteorol\u00f3gicos: lo que vieron a la luz del d\u00eda y, donde el sol a\u00fan estaba bajo, lo que vio su infrarrojo. El infrarrojo lee lo fr\u00edas que est\u00e1n las cimas, as\u00ed que en el borde de la ma\u00f1ana se le escapan las nubes bajas y el suelo helado puede pasar por nube. No hay nada m\u00e1s all\u00e1 de 73\u00b0 norte o sur. Unos 45 kB por hora mientras el globo est\u00e1 en pantalla. La foto diaria sigue cubriendo los d\u00edas de los que no hay fotograma</string>
     <string name="live_on_phone">En el teléfono: %1$d fotogramas, de %2$s a %3$s UTC</string>
+    <string name="clouds_kind_photo_summary">La foto diaria de la NASA desde el sat\u00e9lite NOAA-20 en lugar del mapa del mes all\u00ed donde llega, con sus nubes, su calima y su humo: cada sitio como estaba sobre la una y media de la tarde all\u00ed, hace uno o dos d\u00edas. Donde la foto se acaba, en la noche alrededor del polo de invierno, sigue el mapa. Unos 150 kB al d\u00eda</string>
+    <string name="hemisphere_photo_legend">foto del %s</string>
 
     <!-- Las tres estaciones del a\u00f1o civil egipcio. -->
     <string-array name="egyptian_seasons">

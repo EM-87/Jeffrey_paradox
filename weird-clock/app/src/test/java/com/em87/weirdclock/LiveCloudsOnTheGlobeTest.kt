@@ -389,7 +389,10 @@ class LiveCloudsOnTheGlobeTest {
         )
         // Choosing the daily kind: the row says that instead, and the frames go.
         assertTrue(row.callChangeListener(SatelliteClouds.Kind.VEIL.key))
-        assertEquals(context.getString(R.string.clouds_kind_veil_summary), row.summary.toString())
+        assertEquals(
+            context.getString(R.string.clouds_kind_veil_summary) + "\n" + CloudStore.describe(context),
+            row.summary.toString()
+        )
         assertEquals("the frames of a kind no longer worn were kept", emptyList<Long>(), LiveCloudStore.onDisk(context))
         // Choosing the hourly one again does not throw anything away.
         File(context.cacheDir, "live-${at(5) / 60_000L}.jpg").writeBytes(bytes("nowcoast-ir-2026-11-24T05.jpg"))
@@ -405,7 +408,12 @@ class LiveCloudsOnTheGlobeTest {
         assertEquals(SatelliteClouds.Kind.VEIL, SatelliteClouds.Kind.of("something else"))
         val row = advanced().findPreference<ListPreference>(Prefs.HEMISPHERE_CLOUDS_KIND)!!
         assertEquals(SatelliteClouds.Kind.VEIL.key, row.value)
-        assertEquals(context.getString(R.string.clouds_kind_veil_summary), row.summary.toString())
+        // And says which days of the photograph the phone has: the one put there.
+        assertEquals(
+            context.getString(R.string.clouds_kind_veil_summary) + "\n" +
+                context.getString(R.string.clouds_on_phone, "2026-11-22", "2026-11-22", 1),
+            row.summary.toString()
+        )
     }
 
     @Test
