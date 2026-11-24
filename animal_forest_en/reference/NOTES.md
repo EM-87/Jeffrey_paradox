@@ -4675,7 +4675,9 @@ the Controller Pak", below).
   player's record away, and the letters hold their rests by their keys
   again. Both copies are `mPr_CopyPrivateInfo`'s (it has three callers:
   the departure, and `mPr_LoadPak_and_SetPrivateInfo2` twice), which in
-  the en build only calls `mFRm_en_CopyPrivateInfo` (`m_flashrom.c`).
+  the en build only calls `mCPk_en_CopyPrivateInfo` (`code/m_string.c`;
+  it was `mFRm_en_CopyPrivateInfo` of `m_flashrom.c` until "A letter
+  left in another town's store", below).
   What is filed during the trip is collected as ever. The record of a
   trip whose Pak never comes back stays while the player's place has a
   name; what it keeps is what was there when the player left, and when
@@ -4747,7 +4749,9 @@ the Controller Pak", below).
   133 at most: the rests of a full Pak's letters and the save's own
   need not all fit). A visitor's letter stored at another town's post
   office is marked in that town's extension, where its rest came with
-  the Pak ("The rests on the Controller Pak"). The mark is this build's: an
+  the Pak ("The rests on the Controller Pak"), and at home when the
+  traveller is back without it ("A letter left in another town's
+  store"). The mark is this build's: an
   earlier build of the translation reads a marked record 128 bytes too
   long and takes the extension for damaged from there on, so a save
   played on with this build and then with an earlier one loses, at
@@ -4890,9 +4894,57 @@ the Controller Pak", below).
   notes on it may not have). A letter got in another town and put
   into the Pak's store there is not in the pockets when the Pak's
   record is written: its rest stays in that town's extension, marked,
-  and at home it comes out of the store cut. And an extension at its
+  and at home it comes out of the store cut (one brought from home
+  and left there is whole at home: the next point; and the store
+  takes no letter its player wrote and has not sent, so the letter
+  would be one that town gave the visitor). And an extension at its
   0x2400 bytes takes no visitor's rests at all (the letters are cut
   there, and the Pak keeps what it brought).
+- **A letter left in another town's store.** The mark that keeps the
+  rest of a letter lying in the Controller Pak's store is made where
+  the store is written, in that town's extension. A letter from home
+  has its rest at home. Put into the store at the other town's post
+  office it is marked there, where its rest came with the Pak, and at
+  home nothing said so: the trip's record goes when the Pak's record
+  is copied back, no letter of the save holds the key, and the next
+  save's collection dropped the rest. Played on the build before (by
+  hand, the check's own sessions on two towns made before): the
+  mailbox's letter taken along, the other town's clerk, the store,
+  the train home, the gyroid: the flash had no rest for the letter,
+  and at the next power-on the clerk at home gave it back ending at
+  its 96th byte.
+  Now the copy of a player's record out of the save files a second
+  record, before the trip's: the keys of the traveller's letters that
+  have a rest here (`mHandbill_EN_TRIP_KEY` + the player's number, 4
+  bytes a key as a body's rest; left out where it would push a record
+  out of a full extension). It is kept through the trip as all that
+  lies before the trip's record is. The copy back takes both records
+  away and marks as the Pak's the rest of each listed letter that is
+  not in the pockets that came back. A letter that came back is not
+  marked. One mailed or thrown away on the trip is: no save can tell
+  what a Pak holds (the mark's own rule), and such a record stays
+  until the extension is full. A trip an earlier build began has no
+  list and ends as before; an earlier build drops a list at its first
+  save after the return.
+  The work is `mPr_CopyPrivateInfo`'s as before, now
+  `mCPk_en_CopyPrivateInfo` in `code/m_string.c`: the function left
+  `m_flashrom.c` (its text 0x21F0 bytes for 0x22D0) for the file whose
+  text lies in `code_en`, which is 0xC600 bytes for 0xC2F0: 784 more,
+  224 of them the function as it was.
+  The check is a second trip in `tests/emu_trip.py`, with a
+  Controller Pak and flashes of its own made of the same two towns:
+  the mailbox's letters to the pockets and the station's master (the
+  flash while the player is away lists their keys); the other town's
+  clerk, the first of them into the store (that town's flash marks
+  it), the train; home and the gyroid (the flash keeps the rest,
+  marked, the trip's records gone, a letter that came back with its
+  rest unmarked); the next power-on, the clerk: the letter out of the
+  store, whole in RAM and in the flash the gyroid writes. The same
+  sessions by hand on this build, before the check had them: the
+  mailbox had two letters (one on the build before: the game's own
+  draw), the first was stored, and it came back whole, its 73 bytes
+  past the cartridge's under its key; the other, which travelled in
+  the pockets both ways, was whole and unmarked.
 - **The store's closing question.** B in the store's menu asks the
   edit-end check's question (program 15, `ovl__00799580`), which the
   cartridge asks with one question and three answers of the letter

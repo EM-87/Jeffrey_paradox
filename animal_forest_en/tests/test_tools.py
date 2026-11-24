@@ -3414,7 +3414,8 @@ class EmulatorChecks(unittest.TestCase):
 
     def trip(self):
         """A trip with the Controller Pak as tests/emu_trip.py's report reads it: [towns, home, away, pak,
-        visit, other, back, kept, store, lying, fetch, whole, copies, again, pak2, leave], nothing amiss."""
+        visit, other, back, kept, store, lying, fetch, whole, copies, again, pak2, leave, trip2], nothing
+        amiss."""
         count = {"fails": 0, "failed": 0, "least": 85000, "calls": 600, "most": 250720, "made": {}}
         me, you = "636561202020636561202020f066306a", "6b6f6d202020656b6d202020f066306a"
         key, rest, mail = "1368ac01", "63656d6f6b", "aa" * 0xA4
@@ -3426,7 +3427,7 @@ class EmulatorChecks(unittest.TestCase):
             """A record's facts: both letters the player wrote, unless told otherwise."""
             given = dict({"name": me[:12], "id": me, "exists": 1, "pockets": list(pockets), "letters": [key, key2],
                           "mail": [mail, mail3], "rests": {key: rest, key2: rest2}, "trips": [], "held": [],
-                          "marked": []}, **what)
+                          "marked": [], "taken": {}}, **what)
             given.setdefault("whole", {k: ["", r, ""] for k, r in given["rests"].items()})
             return given
 
@@ -3451,7 +3452,7 @@ class EmulatorChecks(unittest.TestCase):
                    met={"animal": 0xE037, "ended": "free", "known": True},
                    written={"key": key, "mail": mail, "rest": rest, "papers": 1},
                    before=first(number=0, record="the save's"), left={"spoken": True, "gone": True})
-        away = first(exists=0, pockets=[], letters=[], mail=[], trips=[0], held=[key])
+        away = first(exists=0, pockets=[], letters=[], mail=[], trips=[0], held=[key], taken={"0": [key]})
         pak = first(rests={}, packed={key: ["", rest, ""]})
         visit = run("visit", now=first(number=4, record="a visitor's"),
                     talked={"animal": 0xE037, "ended": "free", "pages": 4})
@@ -3496,8 +3497,40 @@ class EmulatorChecks(unittest.TestCase):
                 {"answer": 1, "menu": True, "pockets": list(mine), "store": [[1, got]], "words": dict(words)},
                 {"answer": 2, "menu": False, "pockets": mine + [got], "store": None, "words": dict(words)}],
             "closed": True, "ended": "free", "asked": [4, 4], "now": back_in, "everywhere": mine + [got], "out": True})
+        mom, mom_rest, mail4 = "94612b0a", ["", "65" * 40, "66" * 5], "dd" * 0xA4     # another one delivered
+
+        def lone(**what):
+            """The second trip's facts: no letter written, the two delivered ones' records in the extension."""
+            return facts(**dict({"letters": [], "mail": [], "rests": {got: whole[1], mom: mom_rest[1]},
+                                 "whole": {got: list(whole), mom: list(mom_rest)}}, **what))
+        resident, visitor = {"number": 0, "record": "the save's"}, {"number": 4, "record": "a visitor's"}
+        with_both, with_one = {"letters": [mom, got], "mail": [mail4, mail2]}, {"letters": [got], "mail": [mail2]}
+        again_both = {"letters": [got, mom], "mail": [mail2, mail4]}
+        trip2 = {                           # both go along; the first stays in the other town's store
+            "out": run("out", asked=2, now=lone(**resident), before=lone(**resident, **with_both),
+                       left={"spoken": True, "gone": True}, mail={
+                           "before": {"pockets": [], "box": [got, mom]}, "menu": True, "closed": True,
+                           "after": {"pockets": [mom, got], "box": []}, "now": lone(**resident, **with_both)}),
+            "away": lone(exists=0, pockets=[], trips=[0], held=[got, mom], taken={"0": [mom, got]}),
+            "there": run("there", now=lone(**visitor, **with_both), left={"spoken": True, "gone": True}, stored={
+                "before": lone(**visitor, **with_both), "spoken": True, "menu": True,
+                "letter": {"place": 0, "key": mom, "mail": mail4, "kind": 0, "rest": list(mom_rest)},
+                "opened": {"pockets": [mom, got], "store": []}, "taken": {"pockets": [got], "store": []},
+                "put": {"pockets": [got], "store": [[1, mom]]}, "closed": True, "ended": "free", "asked": [4, 4],
+                "now": lone(marked=[mom], **visitor, **with_one), "everywhere": [], "out": True}),
+            "other": lone(name=you[:12], id=you, pockets=[], marked=[mom]),
+            "return": run("return", now=lone(marked=[mom], **resident, **with_one),
+                          before=lone(marked=[mom], **resident, **with_one), saved=dict(done)),
+            "kept": lone(marked=[mom], **with_one),
+            "claim": run("claim", asked=2, now=lone(marked=[mom], **resident, **with_one), saved=dict(done), fetched={
+                "before": lone(marked=[mom], **resident, **with_one), "spoken": True, "menu": True, "letter": None,
+                "opened": {"pockets": [got], "store": [[1, mom]]}, "taken": {"pockets": [got], "store": []},
+                "put": {"pockets": [got, mom], "store": []}, "closed": True, "ended": "free", "asked": [4, 4],
+                "now": lone(marked=[mom], **resident, **again_both), "everywhere": [got, mom], "out": True}),
+            "whole": lone(marked=[mom], **again_both)}
         return [towns, home, away, pak, visit, other, back, facts(), store, lying, fetch,
-                both(letters=mine + [got], mail=mails + [mail2], marked=[got]), [0, 1, 0, 0], again, pak2, leave]
+                both(letters=mine + [got], mail=mails + [mail2], marked=[got]), [0, 1, 0, 0], again, pak2, leave,
+                trip2]
 
     def trip_failed(self, parts):
         emu_trip.failures.clear()
@@ -3509,9 +3542,9 @@ class EmulatorChecks(unittest.TestCase):
 
     def test_a_trip_is_held_to_the_letter_whole_at_home_again(self):
         self.assertEqual(self.trip_failed(self.trip()), [])
-        self.assertEqual(len(self.trip_failed([None] * 8)), 21)      # nothing played: every check fails
+        self.assertEqual(len(self.trip_failed([None] * 8)), 25)      # nothing played: every check fails
         (TOWNS, HOME, AWAY, PAK, VISIT, OTHER, BACK, KEPT, STORE, LYING, FETCH, WHOLE, COPIES, AGAIN, PAK2,
-         LEAVE) = range(16)
+         LEAVE, TRIP2) = range(17)
         alone = self.trip()                                          # the trip alone: the Pak's letters not played
         alone[STORE:COPIES + 1] = [None, None, None, None, ()]
         alone[LEAVE] = None
@@ -3533,10 +3566,15 @@ class EmulatorChecks(unittest.TestCase):
         self.assertEqual(failed(AWAY, trips=[]), 1)
         self.assertEqual(failed(AWAY, trips=[1]), 1)                                     # another player's
         self.assertEqual(failed(AWAY, held=[]), 1)
+        self.assertEqual(failed(AWAY, taken={}), 1)                  # the keys left with: not listed,
+        self.assertEqual(failed(AWAY, taken={"1": ["1368ac01"]}), 1)  # another player's,
+        self.assertEqual(failed(AWAY, taken={"0": ["1368ac01", "00000007"]}), 1)     # one more than left
         self.assertEqual(failed(BACK, "now", rests={}), 1)
         self.assertEqual(failed(BACK, "now", rests={"1368ac01": "636561", "5e77a2b0": "6f6b6d6563"}), 1)   # not as written
         self.assertEqual(failed(BACK, "now", rests={"1368ac01": "63656d6f6b"}), 1)       # the one written away: gone
         self.assertEqual(failed(BACK, "now", trips=[0]), 1)
+        self.assertEqual(failed(BACK, "now", taken={"0": ["1368ac01"]}), 1)              # the list still there
+        self.assertEqual(failed(BACK, "now", marked=["1368ac01"]), 1)    # marked, though it came back
         self.assertEqual(failed(KEPT, trips=[0]), 1)
         self.assertEqual(failed(KEPT, rests={}), 1)
         self.assertEqual(failed(KEPT, letters=[]), 1)
@@ -3679,6 +3717,80 @@ class EmulatorChecks(unittest.TestCase):
         self.assertEqual(failed(LEAVE, "unstored", closed=False), 1)
         self.assertEqual(failed(LEAVE, "unstored", ended="limit"), 1)
         self.assertEqual(failed(LEAVE, "unstored", letter=None), 1)
+        # the second trip, and the fault it was written for: a letter left in the Controller Pak's store at
+        # the other town's post office, where the mark is made in that town's extension; at home no letter
+        # holds its rest's key once the trip is over. The flash at home without the rest, or with it and no
+        # mark (the next save would drop it), or with the trip's records still there; the letter back cut
+        mom, mom_rest = "94612b0a", ["", "65" * 40, "66" * 5]
+        others = {got: ["6162", "63" * 59, "64" * 7]}                # the one that came back in the pockets
+        self.assertEqual(failed(TRIP2, "kept", whole=dict(others)), 1)
+        self.assertEqual(failed(TRIP2, "kept", marked=[]), 1)
+        self.assertEqual(failed(TRIP2, "kept", whole=dict(others, **{mom: ["", "65" * 40, ""]})), 1)   # not all of it
+        self.assertEqual(failed(TRIP2, "kept", trips=[0]), 1)
+        self.assertEqual(failed(TRIP2, "kept", taken={"0": [mom, got]}), 1)
+        self.assertEqual(failed(TRIP2, "kept", letters=[got, mom]), 1)                   # never left the pockets
+        # ... and no more than that: a letter that came back is held by the pockets, its rest unmarked
+        self.assertEqual(failed(TRIP2, "kept", marked=[mom, got]), 1)
+        self.assertEqual(failed(TRIP2, "kept", whole={mom: list(mom_rest)}), 1)
+        self.assertEqual(failed(TRIP2, "kept", letters=[]), 1)
+        self.assertEqual(failed(TRIP2, "claim", "fetched", "now", whole=dict(others)), 1)
+        self.assertEqual(failed(TRIP2, "whole", whole=dict(others)), 1)
+        self.assertEqual(failed(TRIP2, "whole", letters=[got]), 1)
+        self.assertEqual(failed(TRIP2, "claim", "fetched", "opened", store=[]), 1)       # not read from the Pak
+        self.assertEqual(failed(TRIP2, "claim", "fetched", "put", pockets=[got]), 1)
+        self.assertEqual(failed(TRIP2, "claim", "saved", left=False), 1)
+        # ... its road: the letters received taken out of the mailbox and on the trip, their keys listed as
+        # left with; the other town's clerk, a visitor's letter into the store, that town's mark; home, saved
+        self.assertEqual(failed(TRIP2, "out", "mail", menu=False), 1)
+        self.assertEqual(failed(TRIP2, "out", "mail", "after", pockets=[]), 4)           # no letter: nothing proved
+        self.assertEqual(failed(TRIP2, "out", "left", gone=False), 1)
+        self.assertEqual(failed(TRIP2, "away", exists=1), 1)
+        self.assertEqual(failed(TRIP2, "away", trips=[]), 1)
+        self.assertEqual(failed(TRIP2, "away", taken={}), 1)
+        self.assertEqual(failed(TRIP2, "away", taken={"0": [mom]}), 1)                   # one of the two
+        self.assertEqual(failed(TRIP2, "away", whole={}), 1)
+        # ... a letter with no rest proves nothing of it: the store is played all the same
+        self.assertEqual(failed(TRIP2, "out", "mail", "now", whole={}), 3)
+        self.assertEqual(failed(TRIP2, "there", "now", number=0), 1)
+        self.assertEqual(failed(TRIP2, "there", "stored", "put", store=[]), 1)
+        self.assertEqual(failed(TRIP2, "there", "stored", "put", pockets=[got, mom]), 1)
+        self.assertEqual(failed(TRIP2, "there", "stored", "letter", kind=1), 1)
+        self.assertEqual(failed(TRIP2, "there", "stored", letter=None), 3)               # none stored
+        self.assertEqual(failed(TRIP2, "there", "stored", closed=False), 1)
+        self.assertEqual(failed(TRIP2, "there", "left", gone=False), 1)
+        self.assertEqual(failed(TRIP2, "other", marked=[]), 1)
+        self.assertEqual(failed(TRIP2, "return", "now", number=4), 1)
+        self.assertEqual(failed(TRIP2, "return", "now", letters=[got, mom]), 1)
+        self.assertEqual(failed(TRIP2, "return", "saved", left=False), 1)
+        self.assertEqual(failed(TRIP2, "there", problems=["0x1be7 at 0: a line past its bubble"]), 2)
+        self.assertEqual(failed(TRIP2, "claim", hang="no frame"), 2)
+        lone_one = self.trip()                                       # the mailbox with the one letter: it is stored
+        t2 = lone_one[TRIP2]
+        for part, path in (("out", ("mail", "before")), ("out", ("mail", "after")), ("there", ("stored", "put")),
+                           ("claim", ("fetched", "opened")), ("claim", ("fetched", "put"))):
+            at = t2[part]
+            for k in path:
+                at = at[k]
+            for k in ("pockets", "box"):
+                if k in at:
+                    at[k] = [x for x in at[k] if x != got]
+        t2["away"]["taken"] = {"0": [mom]}
+        for facts_ in (t2["kept"], t2["whole"], t2["return"]["now"], t2["claim"]["fetched"]["now"]):
+            facts_["letters"] = [x for x in facts_["letters"] if x != got]
+        self.assertEqual(self.trip_failed(lone_one), [])
+        parts = self.trip()
+        parts[TRIP2] = None                                          # not played: its four checks and the last
+        self.assertEqual(len(self.trip_failed(parts)), 5)
+        parts[TRIP2] = {"out": self.trip()[TRIP2]["out"]}            # stopped after the first session
+        self.assertEqual(len(self.trip_failed(parts)), 5)
+        said = io.StringIO()
+        parts = self.trip()
+        parts[TRIP2]["kept"] = dict(parts[TRIP2]["kept"], whole={}, marked=[])
+        emu_trip.failures.clear()
+        with contextlib.redirect_stdout(said):
+            emu_trip.report(*parts)
+        emu_trip.failures.clear()
+        self.assertIn("THE LETTER COMES OUT OF THE STORE CUT AT ITS 96TH BYTE", said.getvalue())
         said = io.StringIO()
         parts = self.trip()
         parts[STORE]["stored"]["now"] = dict(parts[STORE]["stored"]["now"], whole=dict(mine))
@@ -3721,6 +3833,16 @@ class EmulatorChecks(unittest.TestCase):
         ext.records.append((emu_trip.HOLD_KEY, b"", b"\0", b""))            # two away: the last one's line
         got = emu_trip.facts(private, ext.bytes())
         self.assertEqual((got["trips"], got["held"]), ([2, 0], ["%08x" % key, "00000007", "00000009"]))
+        # the keys a traveller left with: a record of the trip's own, before the trip's, and no rest either
+        self.assertEqual(got["taken"], {})
+        ext.records.insert(3, (emu_trip.TRIP_KEY, b"", struct.pack(">2I", key, 9), b""))
+        ext.records.insert(2, (emu_trip.TRIP_KEY + 2, b"", struct.pack(">I", 7) + b"\x01", b""))   # a cut one
+        got = emu_trip.facts(private, ext.bytes())
+        self.assertEqual(got["taken"], {"0": ["%08x" % key, "00000009"], "2": ["00000007"]})
+        self.assertEqual((got["trips"], got["held"]), ([2, 0], ["%08x" % key, "00000007", "00000009"]))
+        self.assertEqual(sorted(got["rests"]), sorted(["%08x" % key, "00000007", "00000009"]))
+        self.assertEqual(sorted(got["whole"]), sorted(got["rests"]))
+        ext.records = [r for r in ext.records if not emu_trip.TRIP_KEY <= r[0] < emu_trip.TRIP_KEY + 4]
         self.assertEqual(emu_trip.facts(private, b"")["rests"], {})
         self.assertEqual(emu_trip.facts(private, b"")["trips"], [])
         self.assertEqual(emu_trip.held(private), [letter])

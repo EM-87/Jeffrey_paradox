@@ -21,7 +21,7 @@ them as two Game Paks would be:
   leaves. The game takes the traveller's things out of the save then, letters too, so no letter of the save
   holds the rest's key while the trip lasts: the extension must keep it all the same (the copy of the
   player's record for the Pak files a record of the trip, and all that was filed before it is kept:
-  m_flashrom.c's mFRm_en_CopyPrivateInfo, m_handbill.c's mHandbill_en_CollectExt). And the rest goes with
+  code/m_string.c's mCPk_en_CopyPrivateInfo, m_handbill.c's mHandbill_en_CollectExt). And the rest goes with
   the player: the Controller Pak's record of a player ends in 0xFE bytes the game never reads, where the en
   build packs the rests of the letters in the pockets (code/m_string.c's mCPk_en_PackRests);
 
@@ -71,6 +71,15 @@ cartridge's bytes of each, and while a letter lies there no letter of the save h
   written, the letter in the pockets again and the Pak's file as it was. The answers' table is read in RAM
   while they are up.
 
+Then a second trip, with a Controller Pak and flashes of its own made of the same two towns: the mailbox's
+letter, one the player received, goes along in the pockets; the other town's post office puts it into the
+Pak's store (a visitor's letters are in no save: the mark that keeps a stored letter's rest is made in that
+town's extension); at home the gyroid saves, and at the next power-on the clerk gives the letter back. Its
+rest is at home, where no letter holds its key once the trip is over: the copy of the player's record for
+the Pak lists the keys of the letters the traveller leaves with (a record before the trip's), and the copy
+back marks as the Pak's the rests of those that are not in the pockets (mCPk_en_CopyPrivateInfo). The
+build before that gave the letter back cut at the cartridge's bytes.
+
 Every page read on the way is judged as the other checks judge one (emu_year's Town.page_problems), and the
 allocator's hook is in place from each power-on (tests/emu_memory.py's watch): the arena must never say no.
 """
@@ -117,9 +126,13 @@ PUSHES = 180                            # letters typed on the dial: a body past
 BODY_AT, BODY = 0x34, 96                # a Mail_c's body
 MASTER = "Npc_Station_Master"
 HOLD_KEY = 0x484F4C30                   # m_handbill.h: the record of a trip, + the traveller's number (0 to 3)
+TRIP_KEY = 0x54524930                   # and the record before it: the keys of the letters the traveller left with
 DAY = (2001, 4, 15)
 CLOCKS = {"home": DAY + (10, 0, 0), "visit": DAY + (11, 30, 0), "again": DAY + (12, 15, 0), "back": DAY + (13, 0, 0),
-          "store": DAY + (14, 30, 0), "fetch": DAY + (16, 0, 0), "leave": DAY + (17, 0, 0)}
+          "store": DAY + (14, 30, 0), "fetch": DAY + (16, 0, 0), "leave": DAY + (17, 0, 0),
+          # the second trip: its own Controller Pak and flashes
+          "out": DAY + (10, 0, 0), "there": DAY + (11, 30, 0), "return": DAY + (13, 0, 0),
+          "claim": DAY + (14, 30, 0)}
 PAPERS = 2                              # the sheets of paper given at home: a letter there, one in the other town
 # the Controller Pak's record of a player (m_cpak.h's Passport): the player's record in it, and its last bytes,
 # where the en build packs the pockets' letters' rests: a tag, the records' length, the records
@@ -168,10 +181,13 @@ def placed(private):
 
 
 def facts(private, ext):
-    """What a check asks of a player's record and an extension: the things, the letters' keys, the records."""
+    """What a check asks of a player's record and an extension: the things, the letters' keys, the records;
+    a trip's own records apart: whose trips (the players' numbers), and the keys each left with (taken)."""
     records = emu_letters.Ext.parse(bytes(ext)).records if ext else []
     keys = [key for key, h, b, f in records]
     trips = [key for key in keys if HOLD_KEY <= key < HOLD_KEY + 4]
+    lists = {key: b for key, h, b, f in records if TRIP_KEY <= key < TRIP_KEY + 4}
+    own = set(trips) | set(lists)                                  # no letter's rests
     line = max((keys.index(key) for key in trips), default=-1)     # what lies before the last of them is kept
     marked = emu_letters.Ext.parse(bytes(ext)).held if ext else set()
     return {"name": bytes(private[:6]).hex(), "id": bytes(private[:0x10]).hex(), "exists": private[EXISTS],
@@ -179,10 +195,13 @@ def facts(private, ext):
             "pockets": [v for v in struct.unpack(">15H", bytes(private[POCKETS:POCKETS + 30])) if v],
             "letters": ["%08x" % emu_letters.mail_key(m) for m in held(private)],
             "mail": [m.hex() for m in held(private)],
-            "rests": {"%08x" % key: b.hex() for key, h, b, f in records if key not in trips},
-            "whole": {"%08x" % key: [h.hex(), b.hex(), f.hex()] for key, h, b, f in records if key not in trips},
+            "rests": {"%08x" % key: b.hex() for key, h, b, f in records if key not in own},
+            "whole": {"%08x" % key: [h.hex(), b.hex(), f.hex()] for key, h, b, f in records if key not in own},
             "trips": [key - HOLD_KEY for key in trips],
-            "held": ["%08x" % key for key in keys[:line + 1] if key not in trips]}
+            "taken": {str(key - TRIP_KEY): ["%08x" % k for k in struct.unpack(">%dI" % (len(b) // 4),
+                                                                             b[:len(b) // 4 * 4])]
+                      for key, b in lists.items()},
+            "held": ["%08x" % key for key in keys[:line + 1] if key not in own]}
 
 
 def packed(area):
@@ -289,7 +308,8 @@ def session(emu_dir, rom_path, af_en, plan):
     same text have one key and one rest between them),
     talk (an animal spoken to, no more asked), depart (the station's master, the train), store and fetch
     (the post office's clerk: the pockets' first letter into the Controller Pak's store, and back), unstored
-    (into the store, and the closing question's second and third answers), save (the gyroid, to stop). With
+    (into the store, and the closing question's second and third answers), save (the gyroid, to stop);
+    early: those of mail and store to do before depart (the steps' own order has the train first). With
     plain, rom_path and af_en are the cartridge itself
     and the matching tree: the flash is the cartridge's (no compression, no extension), the allocator is not
     hooked, and the pages, which are Japanese, are counted and not judged."""
@@ -411,7 +431,8 @@ def session(emu_dir, rom_path, af_en, plan):
         def clerk(fetch, wanted=None, ends=(0,)):
             """The post office's clerk, her third answer, and in her menu a letter of the pockets' into the
             Controller Pak's store, or back (fetch: the letter of the key wanted). The letter stored is the
-            first the player received (not one to send) whose key no other letter of the save has. Z takes
+            first the player received (not one to send) whose key no other letter of the save has (a
+            visitor's: no letter of the save at all, the visitor's own being in none). Z takes
             and puts down; B, the question, its first answer, and the game writes the Pak and the flash; then
             her last answer, when she asks again. ends: the question's answers given in turn, B and A before
             each (its second goes back to the letters, its third leaves with nothing written). What was seen
@@ -430,7 +451,9 @@ def session(emu_dir, rom_path, af_en, plan):
                 free = [k for k in range(10) if k not in [i for i, _, _ in mine]]
                 place = free[0] if free else None       # where it goes back: the pockets' first free place
             else:
-                pick = [(i, key, m) for i, key, m in mine if m[KIND_AT] != SENDING and everywhere.count(key) == 1]
+                others = 0 if got["before"]["record"] == "a visitor's" else 1
+                pick = [(i, key, m) for i, key, m in mine
+                        if m[KIND_AT] != SENDING and everywhere.count(key) == others]
                 place = pick[0][0] if pick else None
                 if pick:
                     got["letter"] = {"place": place, "key": pick[0][1], "mail": pick[0][2].hex(),
@@ -594,6 +617,11 @@ def session(emu_dir, rom_path, af_en, plan):
                     result["talked"] = {"animal": fg, "ended": how, "pages": len(pages) - read}
                     if how == "free" and len(pages) > read:
                         break
+            early = plan.get("early") or []
+            if result["arrived"] and "mail" in early:
+                result["mail"] = mailbox()
+            if result["arrived"] and "store" in early:
+                result["stored"] = clerk(False)
             if result["arrived"] and "depart" in steps:
                 result["before"] = now()
                 gone, spoken = False, False
@@ -656,14 +684,15 @@ def arena(run):
 
 
 def report(towns, home, away, pak, visit, other, back, kept, store=None, lying=None, fetch=None, whole=None,
-           copies=(), again=None, pak2=None, leave=None):
+           copies=(), again=None, pak2=None, leave=None, trip2=None):
     """The checks. towns: {home, other}: make_town's answers; home, visit, back: the trip's three sessions, and
     again: the other town powered on a second time, the power cut on the visitor;
     away, other, kept: the flash's facts after each (the home's with its player away, the other town's, the
     home's with its player back); pak, pak2: the Controller Pak's facts after the first and as it leaves the
     other town. store, fetch, leave: the three sessions at the post office; lying, whole: the flash's facts
     after the first two (the letter lying on the Pak, and back in the pockets); copies: how many times the
-    Pak's file held the letter's text before them and after each."""
+    Pak's file held the letter's text before them and after each. trip2: the second trip's four sessions
+    (out, there, return, claim) and the flash's facts after each (away, other, kept, whole)."""
     check(bool(towns) and all(towns.get(k) and towns[k]["settled"] and towns[k]["sound"] for k in ("home", "other")) and
           towns["home"]["id"][:24] != towns["other"]["id"][:24],
           "two towns made by the game from the route's states, the first house chosen by its talk: the route's "
@@ -691,13 +720,17 @@ def report(towns, home, away, pak, visit, other, back, kept, store=None, lying=N
               and mine else "NOT GONE AS THE GAME GOES (%s; away %s; the Pak %s)" % (
                   left, away and {k: away[k] for k in ("exists", "pockets", "letters")},
                   pak and {k: pak[k] for k in ("pockets", "letters")})))
-    listed = bool(away) and bool(letter) and away["trips"] == [0] and letter["key"] in away["held"]
+    listed = bool(away) and bool(letter) and away["trips"] == [0] and letter["key"] in away["held"] and \
+        away.get("taken") == {"0": [letter["key"]]}
     check(bool(away) and bool(letter) and bool(rest) and away["rests"].get(letter["key"]) == letter["rest"] and listed,
           "while the player is away no letter of the save holds the rest's key: %s" % (
-              "the extension keeps it all the same, as it was written, before the record of the player's trip"
+              "the extension keeps it all the same, as it was written, before the record of the player's trip, "
+              "and a record there lists the key as one the traveller left with"
               if away and letter and away["rests"].get(letter["key"]) == letter["rest"] and listed
               else "THE REST IS GONE FROM THE FLASH (the extension's rests %s, the records of a trip %s, kept "
-                   "by them %s)" % (away and sorted(away["rests"]), away and away["trips"], away and away["held"])))
+                   "by them %s, the keys listed as left with %s)" % (
+                       away and sorted(away["rests"]), away and away["trips"], away and away["held"],
+                       away and away.get("taken"))))
     record = (((home or {}).get("before") or {}).get("whole") or {}).get(letter["key"]) if letter else None
     carried = bool(pak) and bool(letter) and bool(record) and list(pak["packed"]) == [letter["key"]] and \
         pak["packed"][letter["key"]] == record and record[1] == letter["rest"]
@@ -788,14 +821,18 @@ def report(towns, home, away, pak, visit, other, back, kept, store=None, lying=N
                   here and {k: here[k] for k in ("number", "record", "exists", "pockets", "letters")},),
               arena(back)))
     whole_here = bool(here) and len(wrote) == 2 and all(here["rests"].get(k) == r for k, r in wrote.items())
-    check(whole_here and not here["trips"],
+    over = bool(here) and not here["trips"] and not here.get("taken") and not here["marked"]
+    check(whole_here and over,
           "both letters are whole at home: %s" % (
               "the first's %d bytes past the cartridge's are in the extension under its key, as they were "
               "written here, the second's %d come out of the Controller Pak's record, as they were written "
-              "there; the record of the trip is gone" % (len(rest), len(rest2nd))
-              if whole_here and not here["trips"]
-              else "THEY ARE NOT (the extension's rests %s, the records of a trip %s): A LETTER ENDS AT ITS "
-                   "%dTH BYTE" % (here and sorted(here["rests"]), here and here["trips"], BODY)))
+              "there; the trip's records are gone, and no rest is marked as the Pak's (the letter that left "
+              "came back in the pockets)" % (len(rest), len(rest2nd))
+              if whole_here and over
+              else "THEY ARE NOT (the extension's rests %s, the records of a trip %s, the keys left with %s, "
+                   "the Pak's marks %s): A LETTER ENDS AT ITS %dTH BYTE, OR THE TRIP'S RECORDS STAY" % (
+                       here and sorted(here["rests"]), here and here["trips"], here and here.get("taken"),
+                       here and here["marked"], BODY)))
     kept_whole = bool(kept) and len(wrote) == 2 and kept["letters"] == list(wrote) and \
         all(kept["rests"].get(k) == r for k, r in wrote.items())
     check(emu_memory.saved(back) and kept_whole and not kept["trips"] and kept["exists"] == 1,
@@ -901,8 +938,95 @@ def report(towns, home, away, pak, visit, other, back, kept, store=None, lying=N
               else "NOT THE STORE'S WORDS (the window and answers up: %s)" % (up,) if not worded
               else "NOT AS THE WORDS SAY (%s; the Pak's file %s)" % (
                   {k: undo.get(k) for k in ("spoken", "menu", "put", "asked_at", "closed", "ended")}, list(copies))))
-    runs = [r for r in (home, visit, again, back, store, fetch, leave) if r]
-    check(len(runs) == 7 and all(clean(r) for r in runs),
+    t2 = trip2 or {}
+    out2, there2, back2, claim2 = (t2.get(k) for k in ("out", "there", "return", "claim"))
+    away2, other2, kept2, whole2 = (t2.get(k) for k in ("away", "other", "kept", "whole"))
+    box2 = (out2 or {}).get("mail") or {}
+    came2 = [k for k in (box2.get("after") or {}).get("pockets", []) if k not in box2["before"]["pockets"]] \
+        if box2.get("before") else []
+    rests2 = {k: ((box2.get("now") or {}).get("whole") or {}).get(k) for k in came2}
+    left2 = (out2 or {}).get("left")
+    listed2 = bool(away2) and bool(came2) and away2["exists"] == 0 and away2["trips"] == [0] and \
+        sorted((away2.get("taken") or {}).get("0", [])) == sorted(came2) and \
+        all(rests2[k] and away2["whole"].get(k) == rests2[k] for k in came2)
+    check(clean(out2) and bool(box2.get("menu")) and bool(box2.get("closed")) and bool(came2) and bool(left2) and
+          left2["spoken"] and left2["gone"] and listed2,
+          "a second trip, with a Controller Pak and flashes of its own: %s" % (
+              "the mailbox's %d letter%s, which the game had delivered, to the pockets, and the station's master; "
+              "while the player is away the flash keeps the rest%s, and a record before the trip's lists the "
+              "key%s as left with the traveller" % (
+                  len(came2), "" if len(came2) == 1 else "s", "" if len(came2) == 1 else "s",
+                  "" if len(came2) == 1 else "s")
+              if box2.get("menu") and came2 and left2 and left2["gone"] and listed2
+              else "NOT GONE WITH A LETTER RECEIVED, OR ITS KEY IS NOT LISTED (the mailbox %s; the master %s; the "
+                   "flash: the records of a trip %s, the keys left with %s, the rests %s)" % (
+                       {k: box2.get(k) for k in ("menu", "closed", "before", "after")}, left2,
+                       away2 and away2["trips"], away2 and away2.get("taken"), away2 and sorted(away2["rests"]))))
+    put2 = (there2 or {}).get("stored") or {}
+    mine2 = put2.get("letter") or {}
+    key2s = mine2.get("key")
+    rest2s = rests2.get(key2s)
+    size2s = sum(len(part) // 2 for part in rest2s) if rest2s else 0
+    seen2 = (there2 or {}).get("now")
+    moved2 = (bool(key2s) and key2s in came2 and bool(put2.get("put")) and key2s not in put2["put"]["pockets"] and
+              put2["put"]["store"] == [[STORE_HAND, key2s]])
+    left3 = (there2 or {}).get("left")
+    check(clean(there2) and bool(seen2) and seen2["number"] == VISITOR and seen2["record"] == "a visitor's" and
+          bool(put2.get("spoken")) and bool(put2.get("menu")) and moved2 and bool(put2.get("closed")) and
+          put2.get("ended") == "free" and mine2.get("kind") != SENDING and bool(left3) and left3["spoken"] and
+          left3["gone"] and bool(other2) and key2s in other2["marked"],
+          "the other town's post office, as a visitor: %s" % (
+              "the clerk's third answer, and the letter goes from the pockets (its place %d) into the Controller "
+              "Pak's store; the game writes the Pak and that town's flash, where the letter's rest, which came "
+              "with the Pak, is marked as the Pak's; then the station's master, and the train home without the "
+              "letter in the pockets" % mine2["place"]
+              if moved2 and put2.get("closed") and left3 and left3["gone"] and other2 and key2s in other2["marked"]
+              else "NOT STORED THERE AS MEANT (%s; the master %s; that town's flash: the Pak's marks %s)" % (
+                  {k: put2.get(k) for k in ("spoken", "menu", "letter", "opened", "taken", "put", "closed", "ended")},
+                  left3, other2 and other2["marked"])))
+    here2 = (back2 or {}).get("now")
+    others2 = [k for k in came2 if k != key2s]          # the letters that came back in the pockets
+    safe2 = (bool(kept2) and bool(key2s) and bool(rest2s) and key2s not in kept2["letters"] and
+             kept2["whole"].get(key2s) == rest2s and key2s in kept2["marked"] and not kept2["trips"] and
+             not kept2.get("taken") and
+             all(k in kept2["letters"] and k not in kept2["marked"] and kept2["whole"].get(k) == rests2[k]
+                 for k in others2))
+    check(clean(back2) and bool(here2) and here2["number"] == 0 and here2["record"] == "the save's" and
+          bool(key2s) and key2s not in here2["letters"] and emu_memory.saved(back2) and safe2,
+          "at home again without the letter, and the gyroid's save: %s" % (
+              "no letter of the save holds the rest's key, and the flash keeps its %d bytes all the same, marked "
+              "as the Controller Pak's (the letter left with the traveller and is not in the pockets that came "
+              "back); %s; the trip's records are gone" % (
+                  size2s, "the mailbox had no other letter" if not others2 else
+                  "the other %d of the mailbox came back in the pockets and %s rest is in the flash unmarked" % (
+                      len(others2), "its" if len(others2) == 1 else "each one's"))
+              if safe2
+              else "THE REST IS GONE FROM THE FLASH (its letters %s, its rests %s, the Pak's marks %s, the "
+                   "records of a trip %s, the keys left with %s): THE LETTER COMES OUT OF THE STORE CUT AT ITS "
+                   "%dTH BYTE" % (kept2["letters"], sorted(kept2["rests"]), kept2["marked"], kept2["trips"],
+                                  kept2.get("taken"), BODY)
+              if kept2 and key2s
+              else "NOT HOME AND SAVED (%s)" % (here2 and {k: here2[k] for k in ("number", "record", "letters")},)))
+    got2 = (claim2 or {}).get("fetched") or {}
+    seen3 = got2.get("now")
+    out_again = (bool(key2s) and bool(got2.get("opened")) and got2["opened"]["store"] == [[STORE_HAND, key2s]] and
+                 bool(got2.get("put")) and key2s in got2["put"]["pockets"] and got2["put"]["store"] == [])
+    same2 = bool(seen3) and bool(rest2s) and seen3["whole"].get(key2s) == rest2s
+    check(clean(claim2) and bool(got2.get("spoken")) and bool(got2.get("menu")) and out_again and
+          bool(got2.get("closed")) and got2.get("ended") == "free" and same2 and emu_memory.saved(claim2) and
+          bool(whole2) and key2s in whole2["letters"] and whole2["whole"].get(key2s) == rest2s,
+          "the clerk at home, the next power-on: %s" % (
+              "the store read from the Controller Pak has the letter the other town's post office put there; Z "
+              "takes it, Z puts it down in the pockets, B and the first answer: the letter is whole, its %d bytes "
+              "past the cartridge's under its key, in RAM and in the flash the gyroid then writes" % size2s
+              if out_again and same2 and whole2 and whole2["whole"].get(key2s) == rest2s
+              else "THE LETTER IS BACK WITHOUT ITS REST (the extension's rests %s; the flash's %s): IT ENDS AT "
+                   "ITS %dTH BYTE" % (sorted(seen3["rests"]), whole2 and sorted(whole2["rests"]), BODY)
+              if out_again and seen3
+              else "NOT FETCHED AS MEANT (%s)" % (
+                  {k: got2.get(k) for k in ("spoken", "menu", "opened", "taken", "put", "closed", "ended")},)))
+    runs = [r for r in (home, visit, again, back, store, fetch, leave, out2, there2, back2, claim2) if r]
+    check(len(runs) == 11 and all(clean(r) for r in runs),
           "on the way %d pages read, %s; no hang; %s" % (
               sum(r["pages"] for r in runs),
               "clean" if not any(r["problems"] for r in runs) else [r["problems"][:2] for r in runs if r["problems"]],
@@ -931,9 +1055,9 @@ def main(argv):
             return None
         return json.loads(lines[-1])
 
-    def run(label, **plan):
+    def run(label, where=None, **plan):
         path = os.path.join(out, "plan-%s.json" % label)
-        json.dump(dict(plan, label=label, work=work, clock=CLOCKS[label]), open(path, "w"))
+        json.dump(dict(plan, label=label, work=where or work, clock=CLOCKS[label]), open(path, "w"))
         return child("--session", emu_dir, rom_path, af_en, path)
 
     print("emu_trip: %s, a trip with the Controller Pak from %s" % (rom_path, route))
@@ -973,10 +1097,32 @@ def main(argv):
         copies.append(pak_copies(work, stored and stored["mail"]))
         leave = run("leave", answers=[0, 0], steps=["unstored"])
         copies.append(pak_copies(work, stored and stored["mail"]))
-    report(towns, home, away, pak, visit, other, back, kept, store, lying, fetch, whole, copies, again, pak2, leave)
+    trip2, work2 = {}, os.path.join(out, "pak-2")       # the second trip: another pad's Controller Pak
+    if towns["home"] and towns["other"]:
+        trip2["out"] = run("out", work2, town=towns["home"]["town"], answers=[0, 0], steps=["depart"],
+                           early=["mail"])
+    if trip2.get("out") and trip2["out"]["left"] and trip2["out"]["left"]["gone"]:
+        trip2["away"] = flash_facts(work2, rom)
+        fla = cart_file(work2, rom, ".fla")
+        shutil.copyfile(fla, os.path.join(out, "home-away-2.fla"))
+        os.remove(fla)
+        trip2["there"] = run("there", work2, town=towns["other"]["town"], answers=[0], steps=["depart"],
+                             early=["store"])
+    if trip2.get("there") and trip2["there"]["left"] and trip2["there"]["left"]["gone"]:
+        trip2["other"] = flash_facts(work2, rom)
+        trip2["return"] = run("return", work2, flash=os.path.join(out, "home-away-2.fla"), answers=[0],
+                              steps=["save"])
+    if trip2.get("return") and trip2["return"]["saved"]:
+        trip2["kept"] = flash_facts(work2, rom)
+        trip2["claim"] = run("claim", work2, answers=[0, 0], steps=["fetch", "save"])
+    if trip2.get("claim") and trip2["claim"]["saved"]:
+        trip2["whole"] = flash_facts(work2, rom)
+    report(towns, home, away, pak, visit, other, back, kept, store, lying, fetch, whole, copies, again, pak2, leave,
+           trip2)
     json.dump({"towns": towns, "home": home, "away": away, "pak": pak, "visit": visit, "again": again, "other": other,
                "pak2": pak2, "back": back, "kept": kept, "store": store, "lying": lying, "fetch": fetch,
-               "whole": whole, "leave": leave, "copies": copies}, open(os.path.join(out, "report.json"), "w"), indent=1)
+               "whole": whole, "leave": leave, "copies": copies, "trip2": trip2},
+              open(os.path.join(out, "report.json"), "w"), indent=1)
     print("emu_trip: %s; the report in %s" % ("all passed" if not failures else "%d FAILED" % len(failures), out))
     return 1 if failures else 0
 

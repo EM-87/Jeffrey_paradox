@@ -1087,8 +1087,24 @@ pruebas se fabricaban con ellos ya recorridos (o nunca salían de ellos).
   El cartucho original no toca esos bytes. `make trip-check-en` lo
   exige todo: escribe una carta en casa y otra en el otro pueblo, mira
   el fichero del Pak tras cada salida y comprueba que las dos están
-  enteras en casa y en la partida guardada. Le cuesta al juego 1,7 KB
-  de memoria (de unos 55 KB libres en el peor momento del año).
+  enteras en casa y en la partida guardada. Con el arreglo siguiente,
+  le cuesta al juego 2,4 KB de memoria (de unos 55 KB libres en el
+  peor momento del año).
+- **Una carta dejada en el almacén del Pak de otro pueblo.** Repasando
+  los límites encontré uno que no estaba apuntado y que sí era un
+  fallo: una carta recibida (de mamá, de la academia…) que el viajero
+  se lleva en el bolsillo y deja en el almacén de cartas del Pak *en
+  la oficina de correos del otro pueblo* volvía a casa sin su final.
+  La marca que protege el final de una carta guardada en el Pak se
+  hace en la partida donde se guarda, y el final de esa carta está en
+  la partida de casa, que no se enteraba. Lo reproduje primero en la
+  ROM anterior (la carta salía del almacén cortada en el byte 96) y
+  luego lo arreglé: al salir de viaje la partida apunta qué cartas se
+  lleva el jugador, y al volver marca como «del Pak» las que no
+  vuelven en el bolsillo. `make trip-check-en` juega ahora un segundo
+  viaje para exigirlo: saca las cartas del buzón, viaja, deja una en
+  el almacén del otro pueblo, vuelve, guarda y la recoge en casa,
+  entera; la que fue y volvió en el bolsillo queda sin marca.
 - **La pregunta al cerrar el almacén de cartas.** El menú de correos
   que guarda cartas en el Controller Pak se cierra con una pregunta que
   el cartucho comparte con el editor de cartas, el tablón y la melodía
@@ -1120,8 +1136,12 @@ pruebas se fabricaban con ellos ya recorridos (o nunca salían de ellos).
   se ven de visita con sus primeros 96 bytes y en casa vuelven a estar
   enteras (si salieron de casa). No hay más sitio: los dos ficheros
   del juego ocupan 121 de las 123 páginas de un Pak. (2) Una carta
-  conseguida en otro pueblo y guardada allí mismo en el almacén del Pak
-  sale del almacén, ya en casa, sin su final. (3) El espacio para los
+  *conseguida* en otro pueblo y guardada allí mismo en el almacén del
+  Pak sale del almacén, ya en casa, sin su final: su final solo existe
+  en la partida de aquel pueblo. (La que sale de casa y se deja allí
+  ya vuelve entera; y el almacén no admite cartas propias sin enviar,
+  así que tendría que ser una carta que le dieran al visitante allí.)
+  (3) El espacio para los
   finales en una partida son 9 KB; si se llena, pierden el final las
   cartas más antiguas (quedan como las deja el cartucho, no se rompe
   nada), y un pueblo lleno no admite los de un visitante. Subirlo le

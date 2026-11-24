@@ -280,21 +280,23 @@ index 2753a99..7a636a7 100644
 +
  #endif
 diff --git a/include/m_handbill.h b/include/m_handbill.h
-index fe15111..86a3601 100644
+index fe15111..4f6fd42 100644
 --- a/include/m_handbill.h
 +++ b/include/m_handbill.h
-@@ -75,4 +75,29 @@ void mHandbill_Load_HandbillFromRom2(u8*, s32, s32*, u8*, s32, u8*, s32);
+@@ -75,4 +75,31 @@ void mHandbill_Load_HandbillFromRom2(u8*, s32, s32*, u8*, s32, u8*, s32);
  // void func_80094400_jp();
  s32 mHandbillz_load(HandbillzInfo*);
  
 +/* The translation: the letters' extension (m_handbill.c, reference/NOTES.md "The letters in the en build") */
 +struct MailContent;
 +void mHandbill_en_CollectExt(u8* save);
-+/* the extension while a player is away on a trip (m_flashrom.c mFRm_en_CopyPrivateInfo, m_handbill.c;
++/* the extension while a player is away on a trip (code/m_string.c mCPk_en_CopyPrivateInfo, m_handbill.c;
 +   reference/NOTES.md "A trip, played") */
 +#define mHandbill_EN_HOLD_KEY 0x484F4C30 /* "HOL0", and "HOL1" to "HOL3" */
++/* and, filed before it, the keys of the letters the traveller leaves with that have a rest here */
++#define mHandbill_EN_TRIP_KEY 0x54524930 /* "TRI0", and "TRI1" to "TRI3" */
 +struct PrivateInfo;
-+void mFRm_en_CopyPrivateInfo(struct PrivateInfo* dst, struct PrivateInfo* src);
++void mCPk_en_CopyPrivateInfo(struct PrivateInfo* dst, struct PrivateInfo* src);
 +u8* mHandbill_en_Find(u32 key);
 +u32 mHandbill_en_Key(u8* header, u8* body, u8* footer);
 +/* the letters kept outside the save's own letter places (m_submenu.c, whose slot has room) */
@@ -809,7 +811,7 @@ index c6a4005..c4a152d 100644
          if (mLd_PlayerManKindCheck()) {
              if (mCPk_SavePak(common_data.privateInfo, mNpc_GetInAnimalP(), info) == 1) {
 diff --git a/src/code/m_flashrom.c b/src/code/m_flashrom.c
-index f3f7472..94cef7d 100644
+index f3f7472..e751ce4 100644
 --- a/src/code/m_flashrom.c
 +++ b/src/code/m_flashrom.c
 @@ -9,6 +9,10 @@
@@ -823,7 +825,7 @@ index f3f7472..94cef7d 100644
  
  /*
   * The save in Flash RAM: the first 0xF980 bytes of common_data's Save, in
-@@ -79,6 +83,229 @@ extern char RO_STR_80116F28_jp[];
+@@ -79,6 +83,198 @@ extern char RO_STR_80116F28_jp[];
  extern mFRm_SlotWork B_8013A380_jp;
  extern mFRm_SaveWork B_8013A398_jp;
  
@@ -995,37 +997,6 @@ index f3f7472..94cef7d 100644
 +    return TRUE;
 +}
 +
-+/*
-+ * mPr_CopyPrivateInfo's work (m_private.c only calls this: its text must not grow, or all of it would leave
-+ * its place for code_en, and the arena would have that much less). The game copies a player's record in
-+ * three places: out of the save for the Controller Pak when a trip begins (code/6B8F20.s
-+ * func_80095FE0_jp; it then takes the traveller's letters out of the save's own record), and from the Pak's
-+ * record into the save when the player is home again (mPr_LoadPak_and_SetPrivateInfo2, twice). The first
-+ * files the record that keeps the extension's letters' rests through the trip, the others take it away
-+ * (m_handbill.c, "A player away on a trip").
-+ */
-+void mFRm_en_CopyPrivateInfo(PrivateInfo* dst, PrivateInfo* src) {
-+    PrivateInfo* priv = common_data.save.saveFilePrivateInfo;
-+    u8 mark = 0;
-+    s32 i;
-+
-+    for (i = 0; i < PLAYER_NUM; i++) {
-+        if (src == &priv[i]) {
-+            mHandbill_en_File(mHandbill_EN_HOLD_KEY + i, NULL, 0, &mark, 1, NULL, 0);
-+        }
-+    }
-+    bcopy(src, dst, sizeof(PrivateInfo));
-+    for (i = 0; i < PLAYER_NUM; i++) {
-+        if (dst == &priv[i]) {
-+            u8* record = mHandbill_en_Find(mHandbill_EN_HOLD_KEY + i);
-+
-+            if (record != NULL) {
-+                mHandbill_en_Remove(record);
-+            }
-+        }
-+    }
-+}
-+
 +/* The extension of the slot at startPage into mFRm_en_ext; none when the slot has none or it does not check. */
 +static void mFRm_en_LoadExt(u32 startPage) {
 +    mFRm_en_hdr_t hdr;
@@ -1053,7 +1024,7 @@ index f3f7472..94cef7d 100644
  void func_8008ECA0_jp(void) {
      bzero(D_80106A9C_jp, sizeof(D_80106A9C_jp));
  }
-@@ -204,14 +431,20 @@ void func_8008F020_jp(mFRm_SlotWork* work) {
+@@ -204,14 +400,20 @@ void func_8008F020_jp(mFRm_SlotWork* work) {
  
  s32 func_8008F040_jp(void* data, s32 slot, mFRm_SlotWork* work) {
      u32 page = (slot == 0) ? 0 : mFRm_SLOT_PAGES;
@@ -1077,7 +1048,7 @@ index f3f7472..94cef7d 100644
      return 0;
  }
  
-@@ -271,15 +504,15 @@ s32 func_8008F23C_jp(void) {
+@@ -271,15 +473,15 @@ s32 func_8008F23C_jp(void) {
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_flashrom/func_8008F24C_jp.s")
  
@@ -1095,7 +1066,7 @@ index f3f7472..94cef7d 100644
          tries++;
      } while (res == 0 && tries != 3);
  
-@@ -301,9 +534,6 @@ s32 func_8008F530_jp(void* data, void* arg1, mFRm_SlotWork* work) {
+@@ -301,9 +503,6 @@ s32 func_8008F530_jp(void* data, void* arg1, mFRm_SlotWork* work) {
      }
      return ret;
  }
@@ -1105,7 +1076,7 @@ index f3f7472..94cef7d 100644
  
  s32 func_8008F5FC_jp(void* arg0, void* arg1, mFRm_SlotWork* work) {
      work->cur = work->base;
-@@ -360,9 +590,9 @@ s32 func_8008F768_jp(UNK_PTR arg0, UNK_PTR arg1) {
+@@ -360,9 +559,9 @@ s32 func_8008F768_jp(UNK_PTR arg0, UNK_PTR arg1) {
      return ret;
  }
  
@@ -1116,7 +1087,7 @@ index f3f7472..94cef7d 100644
      s32 ret = 0;
      u32 page;
      s32 tries;
-@@ -374,6 +604,15 @@ s32 func_8008F7C8_jp(void) {
+@@ -374,6 +573,15 @@ s32 func_8008F7C8_jp(void) {
      ((mFRm_chk_t*)&common_data)->checksum =
          func_8008EEB4_jp(&common_data, mFRm_SAVE_SIZE, ((mFRm_chk_t*)&common_data)->checksum);
  
@@ -1132,7 +1103,7 @@ index f3f7472..94cef7d 100644
      for (page = 0; page != pages; page++, p += FLASH_BLOCK_SIZE) {
          if (sFRm_WritePage(p, page) == -1) {
              tries = 0;
-@@ -388,43 +627,49 @@ s32 func_8008F7C8_jp(void) {
+@@ -388,43 +596,49 @@ s32 func_8008F7C8_jp(void) {
      }
      return ret;
  }
@@ -1201,7 +1172,7 @@ index f3f7472..94cef7d 100644
      u32 page = D_80106A90_jp << 9;
      void* buf = zelda_malloc(mFRm_SAVE_SIZE);
      s32 res;
-@@ -437,6 +682,7 @@ s32 func_8008F968_jp(void) {
+@@ -437,6 +651,7 @@ s32 func_8008F968_jp(void) {
  
          if (res == TRUE && func_8008EEE8_jp(buf) == TRUE) {
              bcopy(buf, &common_data, mFRm_SAVE_SIZE);
@@ -1209,7 +1180,7 @@ index f3f7472..94cef7d 100644
              ret = TRUE;
          }
          if (buf != NULL) {
-@@ -445,9 +691,6 @@ s32 func_8008F968_jp(void) {
+@@ -445,9 +660,6 @@ s32 func_8008F968_jp(void) {
      }
      return ret;
  }
@@ -1219,7 +1190,7 @@ index f3f7472..94cef7d 100644
  
  void func_8008FA28_jp(mFRm_SaveWork* work) {
      work->state = 0;
-@@ -489,7 +732,7 @@ s32 func_8008FAE0_jp(mFRm_SaveWork* work) {
+@@ -489,7 +701,7 @@ s32 func_8008FAE0_jp(mFRm_SaveWork* work) {
      s32 ret = 0;
  
      func_8008ECA0_jp();
@@ -1228,7 +1199,7 @@ index f3f7472..94cef7d 100644
      if (work->cur != NULL) {
          work->base = work->cur;
          work->state = 1;
-@@ -505,7 +748,7 @@ s32 func_8008FAE0_jp(mFRm_SaveWork* work) {
+@@ -505,7 +717,7 @@ s32 func_8008FAE0_jp(mFRm_SaveWork* work) {
  }
  
  s32 func_8008FB64_jp(mFRm_SaveWork* work) {
@@ -1237,7 +1208,7 @@ index f3f7472..94cef7d 100644
  
      bcopy(&common_data, chk, mFRm_SAVE_SIZE);
      work->page = 0;
-@@ -513,6 +756,8 @@ s32 func_8008FB64_jp(mFRm_SaveWork* work) {
+@@ -513,6 +725,8 @@ s32 func_8008FB64_jp(mFRm_SaveWork* work) {
      chk->unk_00 = 2;
      func_8008EFDC_jp(chk);
      chk->checksum = func_8008EEB4_jp(chk, mFRm_SAVE_SIZE, chk->checksum);
@@ -1246,7 +1217,7 @@ index f3f7472..94cef7d 100644
      sFRm_WriteAsync(work->cur, 0, mFRm_WRITE_PAGES);
      work->state = 2;
      return 0;
-@@ -551,12 +796,12 @@ s32 func_8008FBEC_jp(mFRm_SaveWork* work) {
+@@ -551,12 +765,12 @@ s32 func_8008FBEC_jp(mFRm_SaveWork* work) {
  }
  
  s32 func_8008FCE8_jp(mFRm_SaveWork* work) {
@@ -1262,7 +1233,7 @@ index f3f7472..94cef7d 100644
              work->state = 5;
              work->page = mFRm_SLOT_PAGES;
              sFRm_WriteAsync(work->cur, mFRm_SLOT_PAGES, mFRm_WRITE_PAGES);
-@@ -580,22 +825,13 @@ s32 func_8008FCE8_jp(mFRm_SaveWork* work) {
+@@ -580,22 +794,13 @@ s32 func_8008FCE8_jp(mFRm_SaveWork* work) {
  }
  
  s32 func_8008FDD4_jp(mFRm_SaveWork* work) {
@@ -1291,7 +1262,7 @@ index f3f7472..94cef7d 100644
  }
  
  s32 func_8008FE74_jp(mFRm_SaveWork* work) {
-@@ -631,10 +867,11 @@ s32 func_8008FE74_jp(mFRm_SaveWork* work) {
+@@ -631,10 +836,11 @@ s32 func_8008FE74_jp(mFRm_SaveWork* work) {
  
  s32 func_8008FF60_jp(mFRm_SaveWork* work) {
      s32 ret = 0;
@@ -1575,7 +1546,7 @@ index eb55156..bd0c678 100644
  
  #pragma GLOBAL_ASM("asm/jp/nonmatchings/code/m_font/mFont_SetMatrix.s")
 diff --git a/src/code/m_handbill.c b/src/code/m_handbill.c
-index 34e9b7f..53fdb87 100644
+index 34e9b7f..7503d15 100644
 --- a/src/code/m_handbill.c
 +++ b/src/code/m_handbill.c
 @@ -1,14 +1,21 @@
@@ -1904,7 +1875,7 @@ index 34e9b7f..53fdb87 100644
      } else {
          *addr = 0;
          *size = 0;
-@@ -458,154 +484,490 @@ void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s3
+@@ -458,154 +484,495 @@ void func_800939B8_jp(u8* dst, s32 dst_size, s32* header_back_start, u8* src, s3
      }
  }
  
@@ -2076,12 +2047,17 @@ index 34e9b7f..53fdb87 100644
 + * mMl_clear_mail_box), and they come back with the Pak, the cartridge's
 + * bytes of each. While the trip lasts no letter of the save holds their
 + * rests' keys. So the copy for the Pak files a record of its own, under
-+ * mHandbill_EN_HOLD_KEY + the player's number (mFRm_en_CopyPrivateInfo,
-+ * m_flashrom.c: this file's text has no room to grow where it lies),
++ * mHandbill_EN_HOLD_KEY + the player's number (mCPk_en_CopyPrivateInfo,
++ * code/m_string.c: this file's text has no room to grow where it lies),
 + * and while that player's place in the save has a name the collection
 + * keeps all that was filed before the record, the traveller's letters'
 + * rests among it. The copy of the Pak's record back into the save takes
-+ * the record away, and the letters hold their rests themselves again.
++ * the record away, and the letters hold their rests themselves again:
++ * those that came back. One that did not may lie in the Pak's store,
++ * put there at another town's post office, and its rest is here; so a
++ * record before the trip's lists the keys the traveller left with
++ * (mHandbill_EN_TRIP_KEY + the player's number), and the copy back marks
++ * the rests of those not in the pockets as the Pak's (below).
 + *
 + * The letters the animals keep. An animal keeps the last letter each
 + * player sent it, the cartridge's bytes of it (Anmmem_c.letter:
@@ -2490,7 +2466,7 @@ index 34e9b7f..53fdb87 100644
  }
  
  /* mHandbillzDMA_body_load */
-@@ -641,29 +1003,32 @@ s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
+@@ -641,29 +1008,32 @@ s32 func_800940A8_jp(mHandbillzDMA_c* dma_info) {
      }
  }
  
@@ -2533,7 +2509,7 @@ index 34e9b7f..53fdb87 100644
  
          info->headerBackStart = header_back_start;
          return TRUE;
-@@ -672,14 +1037,16 @@ s32 func_800941B0_jp(HandbillzInfo* info) {
+@@ -672,14 +1042,16 @@ s32 func_800941B0_jp(HandbillzInfo* info) {
      }
  }
  
@@ -2552,7 +2528,7 @@ index 34e9b7f..53fdb87 100644
  
      dma_info[0].type = mHandbillz_TYPE_MAILA;
      dma_info[0].num = info->mailANo;
-@@ -696,7 +1063,7 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+@@ -696,7 +1068,7 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
          if (func_800940A8_jp(dma_p)) {
              total_size += dma_p->dma_size;
  
@@ -2561,7 +2537,7 @@ index 34e9b7f..53fdb87 100644
                  bcopy(B_80140748_jp, dst, dma_p->dma_size);
                  dst += dma_p->dma_size;
              } else {
-@@ -708,17 +1075,18 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
+@@ -708,17 +1080,18 @@ s32 func_800942A0_jp(HandbillzInfo* info) {
      }
  
      if (success) {
@@ -2584,7 +2560,7 @@ index 34e9b7f..53fdb87 100644
  s32 func_80094400_jp(HandbillzInfo* info) {
      mHandbillzDMA_c dma_info;
      u8 ram[0x22 + 6];
-@@ -731,13 +1099,13 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+@@ -731,13 +1104,13 @@ s32 func_80094400_jp(HandbillzInfo* info) {
      dma_info.ram_buf_size = 0x22;
  
      if (func_800940A8_jp(&dma_info)) {
@@ -2604,7 +2580,7 @@ index 34e9b7f..53fdb87 100644
          return TRUE;
      } else {
          return FALSE;
-@@ -745,9 +1113,609 @@ s32 func_80094400_jp(HandbillzInfo* info) {
+@@ -745,9 +1118,609 @@ s32 func_80094400_jp(HandbillzInfo* info) {
  }
  
  s32 mHandbillz_load(HandbillzInfo* info) {
@@ -4234,7 +4210,7 @@ index deb9a3c..6e5d39a 100644
      { 0xA005, NPC_SEX_OTHER, 0x0213, 2 },  { 0xA006, NPC_SEX_OTHER, 0x0213, 2 },  { 0xA007, NPC_SEX_OTHER, 0x0213, 2 },
      { 0xD018, NPC_SEX_OTHER, 0x0214, 2 },  { 0xD05D, NPC_SEX_OTHER, 0x0214, 2 },  { 0xD066, NPC_SEX_OTHER, 0x0214, 2 },
 diff --git a/src/code/m_private.c b/src/code/m_private.c
-index 8ee4297..918d6cd 100644
+index 8ee4297..2b92b7b 100644
 --- a/src/code/m_private.c
 +++ b/src/code/m_private.c
 @@ -263,7 +263,9 @@ void mPr_InitAnyPrivates(PrivateInfo* info, s32 amount) {
@@ -4243,8 +4219,8 @@ index 8ee4297..918d6cd 100644
  void mPr_CopyPrivateInfo(PrivateInfo* dst, PrivateInfo* src) {
 -    bcopy(src, dst, sizeof(PrivateInfo));
 +    /* The translation: the copy, and the letters' rests kept while a player is away on a trip, in
-+       m_flashrom.c. Only the call here: this file's text must not grow (mFRm_en_CopyPrivateInfo). */
-+    mFRm_en_CopyPrivateInfo(dst, src);
++       code/m_string.c. Only the call here: this file's text must not grow (mCPk_en_CopyPrivateInfo). */
++    mCPk_en_CopyPrivateInfo(dst, src);
  }
  
  s32 mPr_CheckPrivate(PrivateInfo* priv) {
@@ -4259,10 +4235,10 @@ index 8ee4297..918d6cd 100644
      if (save == TRUE) {
          if (player < 4) {
 diff --git a/src/code/m_string.c b/src/code/m_string.c
-index 7b8e5b5..1142ccf 100644
+index 7b8e5b5..7aa1bc4 100644
 --- a/src/code/m_string.c
 +++ b/src/code/m_string.c
-@@ -1,33 +1,51 @@
+@@ -1,33 +1,52 @@
  #include "m_string.h"
  #include "m_std_dma.h"
  #include "m_lib.h"
@@ -4274,6 +4250,7 @@ index 7b8e5b5..1142ccf 100644
 -extern u32 D_D18000[];
 -extern u32 D_D16000;
 +#include "libc/stddef.h"
++#include "m_common_data.h"
 +#include "m_cpak.h"
 +#include "m_flashrom.h"
 +#include "m_handbill.h"
@@ -4322,7 +4299,7 @@ index 7b8e5b5..1142ccf 100644
              *size = sized;
          } else {
              *vramp = NULL;
-@@ -39,11 +57,13 @@ void mString_Get_StringDataAddressAndSize(s32 idx, uintptr_t* vramp, size_t* siz
+@@ -39,11 +58,13 @@ void mString_Get_StringDataAddressAndSize(s32 idx, uintptr_t* vramp, size_t* siz
      }
  }
  
@@ -4337,7 +4314,7 @@ index 7b8e5b5..1142ccf 100644
          mString_Get_StringDataAddressAndSize(strIdx, &stringAddr, &stringSize);
  
          if (stringSize == 0) {
-@@ -73,31 +93,30 @@ void mString_Load_StringFromRom(char* dst, s32 dstLen, s32 strIdx) {
+@@ -73,31 +94,30 @@ void mString_Load_StringFromRom(char* dst, s32 dstLen, s32 strIdx) {
              for (; i < dstLen; i++) {
                  *strDst++ = ' ';
              }
@@ -4383,7 +4360,7 @@ index 7b8e5b5..1142ccf 100644
      return mMsg_Get_Length_String(dst, 4);
  }
  
-@@ -111,33 +130,25 @@ s32 mString_Load_WeekStringFromRom(char* dst, lbRTC_weekday_t weekday) {
+@@ -111,33 +131,25 @@ s32 mString_Load_WeekStringFromRom(char* dst, lbRTC_weekday_t weekday) {
  }
  
  s32 mString_Load_DayStringFromRom(char* dst, lbRTC_day_t day) {
@@ -4424,7 +4401,7 @@ index 7b8e5b5..1142ccf 100644
      return mMsg_Get_Length_String(dst, 6);
  }
  
-@@ -171,3 +182,285 @@ s32 mString_Load_NumberStringAddUnitFromRom(char* dst, u16 num, s32 idx) {
+@@ -171,3 +183,371 @@ s32 mString_Load_NumberStringAddUnitFromRom(char* dst, u16 num, s32 idx) {
      mString_Load_StringFromRom(&dst[len], 10 - len, idx);
      return mMsg_Get_Length_String(dst, 10);
  }
@@ -4658,6 +4635,92 @@ index 7b8e5b5..1142ccf 100644
 +}
 +
 +/*
++ * A player's record copied: mPr_CopyPrivateInfo's work (m_private.c only calls this: its text must not grow,
++ * or all of it would leave its place for code_en, and the arena would have that much less). The game copies
++ * a player's record in three places: out of the save for the Controller Pak when a trip begins
++ * (code/6B8F20.s func_80095FE0_jp; it then takes the traveller's letters out of the save's own record), and
++ * from the Pak's record into the save when the player is home again (mPr_LoadPak_and_SetPrivateInfo2, in
++ * two places). The first files the record that keeps the extension's letters' rests through the trip, the
++ * others take it away (m_handbill.c, "A player away on a trip").
++ *
++ * The letters that do not come back in the pockets. A traveller may leave a letter in the Controller Pak's
++ * store at another town's post office: the mark that keeps a stored letter's rest is made in that town's
++ * extension (m_submenu.c mSM_en_PakCheckSum), and at home, where the rest is, no letter holds its key once
++ * the trip's record is gone: the letter came out of the store at home cut. So the first copy also files,
++ * before the trip's record, the keys of the traveller's letters that have a rest here (under
++ * mHandbill_EN_TRIP_KEY + the player's number, 4 bytes a key as a body's rest; not where it would push a
++ * record out), and the copy home marks as the Pak's the rests of those that are not in the pockets that
++ * came back. One mailed or thrown away on the trip is marked as well: no save can tell what a Pak holds,
++ * and a marked record goes as any other does when the extension is full (the mark's own rule, m_handbill.c).
++ */
++void mCPk_en_CopyPrivateInfo(PrivateInfo* dst, PrivateInfo* src) {
++    PrivateInfo* priv = common_data.save.saveFilePrivateInfo;
++    u8 keys[mPr_INVENTORY_MAIL_COUNT * 4];
++    u32 back[mPr_INVENTORY_MAIL_COUNT];
++    u8 mark = 0;
++    u8* record;
++    s32 count;
++    s32 i;
++    s32 j;
++    s32 k;
++
++    for (i = 0; i < PLAYER_NUM; i++) {
++        if (src == &priv[i]) {
++            count = 0;
++            for (j = 0; j < mPr_INVENTORY_MAIL_COUNT; j++) {
++                u32 key = mCPk_en_MailKey(&src->mail[j]);
++
++                if (mHandbill_en_Find(key) != NULL) {
++                    keys[count++] = key >> 24;
++                    keys[count++] = key >> 16;
++                    keys[count++] = key >> 8;
++                    keys[count++] = key;
++                }
++            }
++            record = mHandbill_en_Find(mHandbill_EN_TRIP_KEY + i);
++            if (record != NULL) {
++                mHandbill_en_Remove(record); /* of a trip that did not come home */
++            }
++            if (count > 0 && mFRm_en_extSize + 2 * mCPk_EN_RECORD_HEAD + count + 1 <= mFRm_EN_EXT_CAP) {
++                mHandbill_en_File(mHandbill_EN_TRIP_KEY + i, NULL, 0, keys, count, NULL, 0);
++            }
++            mHandbill_en_File(mHandbill_EN_HOLD_KEY + i, NULL, 0, &mark, 1, NULL, 0);
++        }
++    }
++    bcopy(src, dst, sizeof(PrivateInfo));
++    for (i = 0; i < PLAYER_NUM; i++) {
++        if (dst == &priv[i]) {
++            record = mHandbill_en_Find(mHandbill_EN_HOLD_KEY + i);
++            if (record != NULL) {
++                mHandbill_en_Remove(record);
++            }
++            record = mHandbill_en_Find(mHandbill_EN_TRIP_KEY + i);
++            if (record == NULL) {
++                continue;
++            }
++            count = (record[4] == 0 && record[5] <= sizeof(keys)) ? record[5] : 0;
++            bcopy(record + mCPk_EN_RECORD_HEAD, keys, count);
++            mHandbill_en_Remove(record);
++            for (k = 0; k < mPr_INVENTORY_MAIL_COUNT; k++) {
++                back[k] = mCPk_en_MailKey(&dst->mail[k]);
++            }
++            for (j = 0; j + 4 <= count; j += 4) {
++                u32 key = (keys[j] << 24) | (keys[j + 1] << 16) | (keys[j + 2] << 8) | keys[j + 3];
++
++                for (k = 0; k < mPr_INVENTORY_MAIL_COUNT; k++) {
++                    if (back[k] == key) {
++                        break;
++                    }
++                }
++                if (k == mPr_INVENTORY_MAIL_COUNT && (record = mHandbill_en_Find(key)) != NULL) {
++                    record[4] |= mHandbill_EN_PAK_HELD;
++                }
++            }
++        }
++    }
++}
++
++/*
 + * The edit-end check's words (ovl__00799580, which cannot grow: its question's function calls this). The
 + * check has one question and three answers for all who open it, the cartridge's general ones; the
 + * GameCube's English, which the en build draws, speaks of something written, since there only the letter
@@ -4711,7 +4774,7 @@ index 7b8e5b5..1142ccf 100644
 +    func_80090E98_jp(game, question, len, x, -y, 80, 80, 230, 255, FALSE, FALSE, 1.0f, 1.0f, 0);
 +}
 diff --git a/src/code/m_submenu.c b/src/code/m_submenu.c
-index 5f7c230..5755bf4 100644
+index 5f7c230..60addaf 100644
 --- a/src/code/m_submenu.c
 +++ b/src/code/m_submenu.c
 @@ -733,3 +733,245 @@ u8* mSM_Get_ground_pallet_p(Game_Play* play) {
@@ -4905,7 +4968,7 @@ index 5f7c230..5755bf4 100644
 + * letter places, for the collection before a save. Each animal keeps the last letter a player sent it, the
 + * cartridge's bytes of it (Anmmem_c.letter): their keys go to `keys`, ANIMAL_NUM_MAX * ANIMAL_MEMORY_NUM of
 + * them. And while a player is away on a trip all that was filed before the record of the trip is kept
-+ * (m_flashrom.c, mFRm_en_CopyPrivateInfo): the answer is where the collection begins, past the last such
++ * (code/m_string.c, mCPk_en_CopyPrivateInfo): the answer is where the collection begins, past the last such
 + * record whose player's place in the save has a name. This lies here because this file's slot has room;
 + * m_handbill.c's text and m_flashrom.c's have none to spare where they lie (reference/NOTES.md, "A trip,
 + * played").

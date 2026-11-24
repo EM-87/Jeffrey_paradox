@@ -407,7 +407,10 @@ the why and the state, `reference/NOTES.md` for what is verified.
   whole and the gyroid save them so; then three more power-ons at the
   post office, a letter into the Controller Pak's store, two saves,
   back whole, and the store's closing question's other two answers,
-  its own words read in RAM: `make trip-check-en`),
+  its own words read in RAM; and a second trip with a Pak and
+  flashes of its own, the mailbox's letters taken along, one left in
+  the Pak's store at the other town's post office and fetched at
+  home, whole: `make trip-check-en`),
   `emu_pakjp.py` (one Controller Pak between the en build and the
   cartridge itself, six power-ons: the en build's player a visitor in
   a town the game made on the matching ROM, and home with the letter
@@ -464,8 +467,9 @@ the why and the state, `reference/NOTES.md` for what is verified.
   section in `code_en` (112 KB) the arena had 0x51B0 left at the houses
   and 32 KB at its least on the morning-aerobics date's tour; the grown
   text now fills the slots other grown sections left in code and the
-  font's swap table is packed: `code_en` is 0xC2F0 (49 KB; 0xBC50
-  before the rests went onto the Controller Pak). The year's
+  font's swap table is packed: `code_en` is 0xC600 (50 KB; 0xBC50
+  before the rests went onto the Controller Pak, 0xC2F0 before the
+  list of the keys a traveller leaves with). The year's
   least on a tour is 66,544 bytes in a young town and 62,896 in one of
   four players and 15 animals, on New Year's Day in a block with the
   snowballs in it; walked into from every side, the block of the four
@@ -774,7 +778,12 @@ the why and the state, `reference/NOTES.md` for what is verified.
   Both lost their rests the same way and are held now (the animals'
   by their keys, the Pak's by a mark on the record: NOTES, "A trip,
   played"). Before keying anything to "the letters of the save", ask
-  where else the game copies a letter's bytes.
+  where else the game copies a letter's bytes. And a mark made in one
+  town's extension says nothing in another's: a letter from home left
+  in the Pak's store at another town's post office was marked there
+  and dropped at home, until the copy of a player's record for a trip
+  listed the keys the traveller leaves with (`mCPk_en_CopyPrivateInfo`,
+  `code/m_string.c`).
 - **The post office's letter store is worked with Z.** In the clerk's
   third answer's menu the hand begins on the store's first place, the
   pockets' letters two a row to its left (and a stick's push up from
