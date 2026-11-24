@@ -478,6 +478,32 @@ class LiveCloudsTest {
         assertEquals(SatelliteClouds.THICKEST, winter[5 * w + 181].toInt() and 0xFF)
     }
 
+    /** The cloud an hour is made into is thinned towards the end of the mosaic, whichever picture it came from. */
+    @Test
+    fun `an hour's cloud is thinned towards where the mosaic stops`() {
+        val w = 360
+        val h = 180
+        // Nothing for the top twenty rows. Below them the infrared says
+        // thick cloud everywhere but each row's darkest ninth.
+        val cold = IntArray(w * h) { if (it / w < 20) grey(255) else if ((it % w) % 9 == 0) grey(59) else grey(210) }
+        val byCold = LiveClouds.field(cold, null, w, h, 0.0, 0.0)
+        // Or the infrared says none, and the visible picture, under a
+        // midsummer sun that is well up over all of it, says thick.
+        val clear = IntArray(w * h) { if (it / w < 20) grey(255) else grey(59 + (it % w) % 3) }
+        val bright = IntArray(w * h) { if (it / w < 20) grey(255) else grey(200) }
+        val byDay = LiveClouds.field(clear, bright, w, h, 23.4, 0.0)
+        for ((name, field) in listOf("infrared" to byCold, "visible" to byDay)) {
+            fun at(y: Int) = field[y * w + 181].toInt() and 0xFF
+            for (y in 0 until 20) assertEquals("$name, row $y", 0, at(y))
+            // Four degrees is four rows here: a sliver, more, more, all.
+            assertTrue("$name: the row beside nothing is ${at(20)}", at(20) in 1 until SatelliteClouds.THICKEST / 5)
+            assertTrue("$name: ${at(20)}, ${at(21)}, ${at(22)}", at(21) > at(20) && at(22) > at(21))
+            assertTrue(at(22) < SatelliteClouds.THICKEST)
+            assertEquals(name, SatelliteClouds.THICKEST, at(23))
+            assertEquals(name, SatelliteClouds.THICKEST, at(100))
+        }
+    }
+
     /**
      * The two pictures against the photograph, in the same five strips
      * and then further south, where the low cloud is.

@@ -148,7 +148,10 @@ class LiveCloudsOnTheGlobeTest {
             assertNotNull(daily)
             assertSame("past the hours the globe should wear the day's photograph", daily, world.clouds)
             val said = world.legendForTest()
-            assertTrue("no word for which day's clouds: $said", said != null && "22" in said)
+            // The day's clouds named as that, and not only the day the
+            // world is wound to, which the face says for its own reasons.
+            val wanted = context.getString(R.string.hemisphere_clouds_legend, "22 Nov")
+            assertTrue("no word for which day's clouds: $said", said != null && wanted in said)
 
             // And back to now: five o'clock's again, made again — one
             // field is held at a time, not every hour's.

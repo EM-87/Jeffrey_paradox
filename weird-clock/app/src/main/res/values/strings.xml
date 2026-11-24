@@ -800,7 +800,7 @@
     </string-array>
     <string name="clouds_kind_veil_summary">The cloud of NASA\'s daily MODIS photograph, white over the map: each place as it was at about half past ten in the morning there, a day or two ago, with the gaps between the satellite\'s passes filled from the day before. About 80 kB a day</string>
     <string name="clouds_kind_live_summary">Cloud as it stood an hour or two ago, off NOAA\'s hourly mosaic of five weather satellites: what they saw by daylight and, where the sun was still low, what their infrared saw. The infrared reads how cold the cloud tops are, so along the morning edge low cloud is missed and frozen ground can pass for cloud. Nothing beyond 73\u00b0 north or south. About 45 kB an hour while the globe is on screen. The daily photograph still covers any day it has no frame of</string>
-    <string name="live_on_phone">On the phone: %1$d frames, %2$s to %3$s UTC</string>
+    <string name="live_on_phone">On the phone: %2$s to %3$s UTC, frames: %1$d</string>
     <string name="clouds_kind_photo_summary">NASA\'s daily photograph from the NOAA-20 satellite in place of the month\'s map wherever it reaches, with its cloud, haze and smoke: each place as it was at about half past one in the afternoon there, a day or two ago. Where the photograph stops, in the night round the winter pole, the map carries on. About 150 kB a day</string>
     <string name="hemisphere_photo_legend">photograph of %s</string>
 

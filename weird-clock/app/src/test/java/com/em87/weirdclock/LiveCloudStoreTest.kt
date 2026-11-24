@@ -488,6 +488,8 @@ class LiveCloudStoreTest {
         LiveCloudStore.refresh(context, now)
         LiveCloudStore.refresh(context, now + 5 * minute)
         val stamp = File(context.cacheDir, "live-${at(5) / 60_000L}.jpg").lastModified()
+        val seenStamp = File(context.cacheDir, "live-${at(5) / 60_000L}-v.jpg").lastModified()
+        assertTrue("the hour has no visible picture to forget", seenStamp > 0L)
         val held = LiveCloudStore.cached(context, now)!!
         LiveCloudStore.forget(context)
         assertEquals(emptyList<String>(), hours())
@@ -495,12 +497,20 @@ class LiveCloudStoreTest {
         assertEquals(null, LiveCloudStore.cached(context, now))
         // Asked again at once: forgetting forgot when it last asked.
         assertTrue(LiveCloudStore.stale(context, now + 6 * minute))
-        // A file landing afterwards with the same date on it is another picture.
+        // Two files landing afterwards with the same dates on them are
+        // another hour's pictures all the same: both of them, since the
+        // field is known by the dates of both.
+        File(context.cacheDir, "live-${at(5) / 60_000L}-v.jpg").also {
+            it.writeBytes(bytes("nowcoast-vis-2026-11-24T01.jpg"))
+            it.setLastModified(seenStamp)
+        }
         File(context.cacheDir, "live-${at(5) / 60_000L}.jpg").also {
             it.writeBytes(bytes("nowcoast-ir-2026-11-24T01.jpg"))
             it.setLastModified(stamp)
         }
-        assertNotSame("the field of a frame that was thrown away", held, LiveCloudStore.cached(context, now))
+        val again = LiveCloudStore.cached(context, now)!!
+        assertNotSame("the field of a frame that was thrown away", held, again)
+        assertFalse(again.cover.contentEquals(held.cover))
         LiveCloudStore.forget(context)
         // And the hour the service was found not to have is asked after again.
         val before = service.frames().size

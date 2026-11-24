@@ -179,6 +179,11 @@ class SatellitePhotoTest {
         assertEquals(null, SatellitePhoto.over(map, 2, 2, SatellitePhoto.Picture(4, 1, photo)))
         assertEquals(null, SatellitePhoto.over(map, 4, 1, SatellitePhoto.Picture(2, 2, photo)))
         assertEquals(null, SatellitePhoto.over(IntArray(6), 2, 3, SatellitePhoto.Picture(2, 2, photo)))
+        // Nor is a map or a photograph that is not as long as it is wide and high.
+        assertEquals(null, SatellitePhoto.over(IntArray(6), 2, 2, SatellitePhoto.Picture(2, 2, photo)))
+        assertEquals(null, SatellitePhoto.over(IntArray(3), 2, 2, SatellitePhoto.Picture(2, 2, photo)))
+        assertEquals(null, SatellitePhoto.over(map, 2, 2, SatellitePhoto.Picture(2, 2, IntArray(3))))
+        assertEquals(null, SatellitePhoto.over(map, 2, 2, SatellitePhoto.Picture(2, 2, IntArray(6))))
     }
 
     /**

@@ -123,6 +123,7 @@ class PhotoOnTheGlobeTest {
     /** Three days at a time, each asked of the first satellite, at the size of the map. */
     @Test
     fun `the photographs of the days are fetched from the afternoon satellite`() {
+        assertEquals(context.getString(R.string.clouds_on_phone_none), PhotoStore.describe(context))
         assertTrue(PhotoStore.refresh(context, now))
         assertEquals(
             listOf("2026-11-22", "2026-11-21", "2026-11-20").map { SatellitePhoto.urls(it)[0] },
@@ -206,7 +207,15 @@ class PhotoOnTheGlobeTest {
         val sent = android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.size)!!
         val pixels = IntArray(sent.width * sent.height).also { sent.getPixels(it, 0, sent.width, 0, 0, sent.width, sent.height) }
         assertTrue(today.pixels.contentEquals(SatellitePhoto.picture(pixels, sent.width, sent.height).pixels))
-        // A day back, the day before's; past what the phone has, the oldest, and how far off it is.
+        // A day back, the day before's — told from today's by its day,
+        // whatever dates are on the files: three days fetched in one go
+        // can land in one tick of the clock. Past what the phone has,
+        // the oldest, and how far off it is.
+        val tick = File(context.cacheDir, "photo-2026-11-22.jpg").lastModified()
+        for (name in context.cacheDir.list()!!.filter { it.startsWith("photo-") }) {
+            File(context.cacheDir, name).setLastModified(tick)
+        }
+        assertSame(today, PhotoStore.cached(context, now))
         val before = PhotoStore.cached(context, now - day)!!
         assertNotSame(today, before)
         assertFalse(before.pixels.contentEquals(today.pixels))
@@ -421,6 +430,13 @@ class PhotoOnTheGlobeTest {
         draw(world)
         assertEquals(listOf(now, now - day), askedFor)
         assertSame(PhotoStore.cached(context, now - day), world.photo)
+        // Told of another place to ask, it asks there at once and does
+        // not wait out the second: that is the settings being changed.
+        val elsewhere = ArrayList<Long>()
+        world.photoOn = { at -> elsewhere += at; null }
+        draw(world)
+        assertEquals("a new place to ask was not asked", listOf(now - day), elsewhere)
+        assertEquals(null, world.photo)
     }
 
     /** Half a million pixels are laid once for a photograph and a map, however far the ball is turned. */
@@ -478,7 +494,10 @@ class PhotoOnTheGlobeTest {
     fun `choosing a kind lets go of what only the others use`() {
         fun on(prefix: String) = context.cacheDir.list()!!.count { it.startsWith(prefix) }
         fun fill() {
+            // Two days of the photograph and one of the veil's, so that
+            // what the phone has of the one cannot pass for the other's.
             File(context.cacheDir, "photo-2026-11-22.jpg").writeBytes(bytes("gibs-photo-2026-11-22.jpg"))
+            File(context.cacheDir, "photo-2026-11-21.jpg").writeBytes(jpeg(Color.rgb(90, 120, 135)))
             File(context.cacheDir, "clouds-2026-11-22.jpg").writeBytes(bytes("gibs-clouds-2026-11-22.jpg"))
             File(context.cacheDir, "live-29734380.jpg").writeBytes(bytes("nowcoast-ir-2026-11-24T05.jpg"))
             File(context.cacheDir, "live-29734380-v.jpg").writeBytes(bytes("nowcoast-vis-2026-11-24T05.jpg"))
@@ -488,12 +507,12 @@ class PhotoOnTheGlobeTest {
         assertEquals(SatelliteClouds.Kind.PHOTO.key, row.value)
         assertEquals(
             context.getString(R.string.clouds_kind_photo_summary) + "\n" +
-                context.getString(R.string.clouds_on_phone, "2026-11-22", "2026-11-22", 1),
+                context.getString(R.string.clouds_on_phone, "2026-11-21", "2026-11-22", 2),
             row.summary.toString()
         )
         // The photograph: the veil's pictures and the hours go.
         assertTrue(row.callChangeListener(SatelliteClouds.Kind.PHOTO.key))
-        assertEquals(Triple(1, 0, 0), Triple(on("photo-"), on("clouds-"), on("live-")))
+        assertEquals(Triple(2, 0, 0), Triple(on("photo-"), on("clouds-"), on("live-")))
         // The veil: the photographs and the hours go.
         fill()
         assertTrue(row.callChangeListener(SatelliteClouds.Kind.VEIL.key))

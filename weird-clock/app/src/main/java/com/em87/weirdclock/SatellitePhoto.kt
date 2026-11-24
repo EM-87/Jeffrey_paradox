@@ -147,11 +147,11 @@ object SatellitePhoto {
             val share = laid ushr 24
             val rest = 255 - share
             val under = map[i]
-            // Rounded, so that none of it is the map to the last shade
-            // and all of it is the photograph to the last shade.
-            val red = (((under shr 16) and 0xFF) * rest + ((laid shr 16) and 0xFF) * share + 127) / 255
-            val green = (((under shr 8) and 0xFF) * rest + ((laid shr 8) and 0xFF) * share + 127) / 255
-            val blue = ((under and 0xFF) * rest + (laid and 0xFF) * share + 127) / 255
+            // Out of 255 and not 256, so that none of it is the map to
+            // the last shade and all of it the photograph to the last.
+            val red = (((under shr 16) and 0xFF) * rest + ((laid shr 16) and 0xFF) * share) / 255
+            val green = (((under shr 8) and 0xFF) * rest + ((laid shr 8) and 0xFF) * share) / 255
+            val blue = ((under and 0xFF) * rest + (laid and 0xFF) * share) / 255
             out[i] = OPAQUE or (red shl 16) or (green shl 8) or blue
         }
         return out
