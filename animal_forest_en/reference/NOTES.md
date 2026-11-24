@@ -2179,7 +2179,8 @@ what goes in it: "The letters in the en build").
   plants shift by one), and in the furniture, after the clothes, its
   mannequins, more insects, fish and umbrellas' patterns (blocks of 8),
   and more games after the cartridge's Famicoms (which all share one of
-  its names). The clothes the cartridge numbers as furniture (491 to
+  its names here, its name for the drive's piece: "The NES"). The
+  clothes the cartridge numbers as furniture (491 to
   745) take the clothes' names, as `mRmTp_FtrItemNo2Item1ItemNo` reads
   them; a bag of money among the other things takes the money's. Of the
   cartridge's 1,703 names (947 pieces of furniture), 1,696 are the
@@ -5458,15 +5459,18 @@ the user's disc at build time (`tools/af_gc_nes.py`, `make rom-en`).
 - **The drive's name and page.** The cartridge has one name for the
   seven and another for the drive. The GameCube names each of its
   games' pieces after the game (nineteen of them, the cartridge's
-  seven first) and has one "NES" after them, where the cartridge has
-  its drive after its games (its furniture names 874 to 892 and 893,
-  read by hand with `af_items`; TODO(verify) that 893 is the name of
-  the piece `aKobDisksystem8_dw` draws: only the order says so). Here
+  seven first) and the drive's piece "NES": its furniture names 874
+  to 892 and 893, and its table of profiles has `iam_famicom_common`
+  in those nineteen places and `iam_kob_disksystem8` in the 893rd
+  (by hand: the module's relocations into the table the map calls
+  `furniture_quality`, read with `af_gc_nes.Module`; a third profile,
+  `iam_tak_nes01`, is its piece 1184, past the cartridge's). Here
   the seven have that one name (`af_items.FTR_SAME`: one name for
   seven, as in the cartridge) and the drive's is ours for what is
   drawn, an NES with no game on it: "empty NES" (`script/items.txt`;
-  "disk system" while the cartridge's own drawing stood, and for one
-  build after it). The drive's page with nothing to play (0x2B69,
+  "disk system" while the cartridge's own drawing stood, and in the
+  builds with the NES before this one). The drive's page with nothing
+  to play (0x2B69,
   ours: the GameCube has no text under that number) named the disk
   system and its disks and now names the NES and the Game Pak it
   lacks; its last line keeps clear of letters that reach under the
