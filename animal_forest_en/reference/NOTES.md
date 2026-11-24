@@ -4871,7 +4871,7 @@ the Controller Pak", below).
   the Pak's file read after each departure (the first letter's record
   alone, then both, the one written there first); the letter whole in
   the other town's RAM at both power-ons; both whole at home and in the
-  flash the gyroid writes; and the other town's flash keeping neither.
+  flash the gyroid writes.
   Its cost: the code is in `m_string.c`, whose text lies whole in
   `code_en` (with the store's question, below, 1,696 bytes: `code_en`
   is 0xC2F0 bytes for the 0xBC50 it was); `m_cpak.c` and `m_private.c`

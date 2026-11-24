@@ -284,7 +284,9 @@ def session(emu_dir, rom_path, af_en, plan):
     """One power-on of the flash in plan["work"], the Controller Pak's file there as the last power-on left
     it. The plan: label, clock, answers (the greeter's); town (a fresh flash made of it, PAPERS sheets of
     paper in its first player's first free pockets) or flash (a flash's file copied in); steps, of resetti
-    (he is heard out), meet (an animal spoken to), write (a letter, from a sheet of paper in the pockets),
+    (he is heard out), meet (an animal spoken to), write (a letter, from a sheet of paper in the pockets;
+    turn: the dial's pushes begin a direction further on, for a letter of another text: two letters of the
+    same text have one key and one rest between them),
     talk (an animal spoken to, no more asked), depart (the station's master, the train), store and fetch
     (the post office's clerk: the pockets' first letter into the Controller Pak's store, and back), unstored
     (into the store, and the closing question's second and third answers), save (the gyroid, to stop). With
@@ -566,8 +568,8 @@ def session(emu_dir, rom_path, af_en, plan):
                 n64.press(A, 3, 40)                     # the address book,
                 n64.press(A, 3, 60)                     # its first entry
                 n64.frames(40, 0)
-                for n in range(PUSHES):
-                    v = DIRECTIONS["urld"[n % 4]]
+                for n in range(PUSHES):                  # (turn: another text, so another key)
+                    v = DIRECTIONS["urld"[(n + plan.get("turn", 0)) % 4]]
                     n64.frames(8, v)
                     n64.frames(6, v | A)
                     n64.frames(4, v)
@@ -951,7 +953,7 @@ def main(argv):
         os.remove(fla)                                  # the other Game Pak
         visit = run("visit", town=towns["other"]["town"], answers=[0], steps=["talk"])
     if visit and visit["arrived"]:                      # the power cut there; the same flash and Pak again
-        again = run("again", answers=[0], steps=["resetti", "meet", "write", "depart"])
+        again = run("again", answers=[0], steps=["resetti", "meet", "write", "depart"], turn=1)
     if again and again["left"] and again["left"]["gone"]:
         other, pak2 = flash_facts(work, rom), pak_facts(work, home["now"]["id"])
         back = run("back", flash=os.path.join(out, "home-away.fla"), answers=[0], steps=["save"])
