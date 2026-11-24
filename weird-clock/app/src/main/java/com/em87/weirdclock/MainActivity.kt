@@ -4337,6 +4337,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun askAgainForWhatIsOld() {
         if (hemisphereView != null) {
             if (CloudStore.wanted(this)) CloudStore.refreshInBackground(this, patient = true)
+            if (LiveCloudStore.wanted(this)) LiveCloudStore.refreshInBackground(this, patient = true)
             if (NightLightStore.wanted(this)) NightLightStore.refreshInBackground(this, patient = true)
         }
         askTheSky(patient = true)
@@ -4768,6 +4769,14 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     }
 
     /**
+     * The cloud for a globe showing [atMs]: the hourly frame near that
+     * instant if that kind is chosen and the phone has one, and the
+     * daily photograph's for the day if not.
+     */
+    private fun cloudsAt(atMs: Long): SatelliteClouds.Field? =
+        LiveCloudStore.cached(this, atMs) ?: CloudStore.cached(this, atMs)
+
+    /**
      * The world, dressed from the same stored answers.
      *
      * The dot is the only thing here that can be missing: a clock whose
@@ -4788,15 +4797,23 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         val pointing = prefs.getBoolean(Prefs.HEMISPHERE_COMPASS, false) && DayNight.hasFix()
         if (!pointing) world.sunAt = prefs.getInt(Prefs.HEMISPHERE_SUN_AT, 0).toDouble()
         listenForBearing(pointing || (sundialView?.compass ?: false))
-        // Yesterday's photograph of the earth, if it has been asked for
-        // and has arrived. Read off the disc and never fetched here — see
-        // [CloudStore], which does the fetching on a thread of its own.
-        world.clouds = CloudStore.cached(this)
-        // And which day's, once the world starts being turned — see
-        // [HemisphereView.cloudsOn].
-        world.cloudsOn = { at -> CloudStore.cached(this, at) }
-        world.cloudsDayOn = { at -> CloudStore.worn(this, at) }
+        // The clouds, if they have been asked for and have arrived: the
+        // hour's off the weather satellites where that kind is chosen
+        // and a frame is near, and yesterday's photograph's otherwise.
+        // Read off the disc and never fetched here — see [CloudStore]
+        // and [LiveCloudStore], which fetch on threads of their own.
+        world.clouds = cloudsAt(TimeKeeper.nowMs())
+        // And which hour's or day's, once the world starts being turned
+        // — see [HemisphereView.cloudsOn].
+        world.cloudsOn = { at -> cloudsAt(at) }
+        // The day is only worth naming when it is the day's photograph
+        // that is worn: an hourly frame is within hours of the instant
+        // shown or it is not worn at all.
+        world.cloudsDayOn = { at ->
+            if (LiveCloudStore.cached(this, at) != null) null else CloudStore.worn(this, at)
+        }
         if (CloudStore.wanted(this)) CloudStore.refreshInBackground(this)
+        if (LiveCloudStore.wanted(this)) LiveCloudStore.refreshInBackground(this)
         // And last night's lights, the same way: read off the disc here,
         // fetched on threads of their own that touch nothing but files.
         world.lights = NightLightStore.skyFor(this)

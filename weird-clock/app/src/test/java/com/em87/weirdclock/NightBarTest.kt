@@ -285,7 +285,7 @@ class NightBarTest {
                 "pref_hemisphere_ring", "pref_hemisphere_numbers",
                 "pref_hemisphere_sun", "pref_hemisphere_moon", "pref_hemisphere_moonlight",
                 "pref_hemisphere_alarms",
-                "pref_hemisphere_clouds", "pref_hemisphere_lights",
+                "pref_hemisphere_clouds", "pref_hemisphere_clouds_kind", "pref_hemisphere_lights",
                 "pref_sundial_kind", "pref_sundial_plate",
                 "pref_sundial_latitude_fixed", "pref_sundial_latitude",
                 "pref_sundial_compass", "pref_sundial_roman",

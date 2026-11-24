@@ -435,6 +435,15 @@ object Prefs {
     const val HEMISPHERE_CLOUDS = "pref_hemisphere_clouds"
 
     /**
+     * Which clouds those are: the daily photograph's, a day or two old,
+     * or the hour's, read off the weather satellites — see
+     * [SatelliteClouds.Kind]. A second row and not a third position of
+     * the switch, so that a phone that had the clouds on has them on,
+     * and the ones it had.
+     */
+    const val HEMISPHERE_CLOUDS_KIND = "pref_hemisphere_clouds_kind"
+
+    /**
      * Which of last night's lights the globe wears: none, the clean
      * Black Marble, the raw night as the sensor saw it, or both with the
      * difference picked out — see [NightLights.Mode].

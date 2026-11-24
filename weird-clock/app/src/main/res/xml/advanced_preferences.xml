@@ -156,6 +156,19 @@
             android:summary="@string/pref_hemisphere_clouds_summary"
             android:title="@string/pref_hemisphere_clouds_title" />
 
+        <!-- Which clouds those are: the daily photograph's, or the
+             hour's off the weather satellites. A list under the switch
+             and not a third position of it: they are two answers to
+             one question, and the question is only asked with the
+             switch on. Its summary is written by the screen, since it
+             says what the phone has. -->
+        <ListPreference
+            android:defaultValue="veil"
+            android:entries="@array/hemisphere_clouds_kind_entries"
+            android:entryValues="@array/hemisphere_clouds_kind_values"
+            android:key="pref_hemisphere_clouds_kind"
+            android:title="@string/pref_hemisphere_clouds_kind_title" />
+
         <!-- And last night's lights on the dark side, behind the same
              weather switch. Off by default: it is most of a megabyte a
              day, which is a thing to be asked for. -->

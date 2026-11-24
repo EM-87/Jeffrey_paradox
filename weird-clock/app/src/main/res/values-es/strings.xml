@@ -626,6 +626,16 @@
     <string name="clouds_on_phone">En el teléfono: del %1$s al %2$s, %3$d días</string>
     <string name="clouds_on_phone_none">En el teléfono: aún nada</string>
 
+    <!-- Qué nubes: las de la foto diaria o las de la última hora. -->
+    <string name="pref_hemisphere_clouds_kind_title">Qué nubes</string>
+    <string-array name="hemisphere_clouds_kind_entries">
+        <item>Las de ayer, de la foto diaria</item>
+        <item>En directo, hora a hora</item>
+    </string-array>
+    <string name="clouds_kind_veil_summary">Las nubes de la foto diaria de la NASA, de hace uno o dos días, con los huecos entre pasadas del satélite rellenados con los del día anterior</string>
+    <string name="clouds_kind_live_summary">Las nubes tal como estaban hace una o dos horas, del mosaico horario de la NOAA con cinco sat\u00e9lites meteorol\u00f3gicos: lo que vieron a la luz del d\u00eda y, donde el sol a\u00fan estaba bajo, lo que vio su infrarrojo. El infrarrojo lee lo fr\u00edas que est\u00e1n las cimas, as\u00ed que en el borde de la ma\u00f1ana se le escapan las nubes bajas y el suelo helado puede pasar por nube. No hay nada m\u00e1s all\u00e1 de 73\u00b0 norte o sur. Unos 45 kB por hora mientras el globo est\u00e1 en pantalla. La foto diaria sigue cubriendo los d\u00edas de los que no hay fotograma</string>
+    <string name="live_on_phone">En el teléfono: %1$d fotogramas, de %2$s a %3$s UTC</string>
+
     <!-- Las tres estaciones del a\u00f1o civil egipcio. -->
     <string-array name="egyptian_seasons">
         <item>Ajet</item>

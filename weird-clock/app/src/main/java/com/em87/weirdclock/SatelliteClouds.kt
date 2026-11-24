@@ -108,6 +108,24 @@ object SatelliteClouds {
             "&WIDTH=$WIDTH&HEIGHT=$HEIGHT&FORMAT=image/jpeg" +
             "&TIME=$day"
 
+    /**
+     * Which clouds the globe wears.
+     *
+     * [VEIL] is the cloud of the daily photograph, which is what there
+     * was before there was a choice, and is what a phone that has never
+     * been asked wears. [LIVE] is the cloud of the last hour or two off
+     * the weather satellites — see [LiveClouds] — with the daily
+     * photograph's for any instant no hourly frame is near.
+     */
+    enum class Kind(val key: String) {
+        VEIL("veil"),
+        LIVE("live");
+
+        companion object {
+            fun of(key: String?): Kind = entries.firstOrNull { it.key == key } ?: VEIL
+        }
+    }
+
     // ------------------------------------------------------------- the veil
 
     /**

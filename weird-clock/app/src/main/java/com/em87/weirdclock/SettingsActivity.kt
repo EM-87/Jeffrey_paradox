@@ -844,6 +844,18 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun titleRes(): Int = R.string.title_advanced
 
+        /**
+         * What is said under the row that asks which clouds: what the
+         * kind chosen is and costs, and for the hourly kind which frames
+         * the phone has. Per cent signs doubled, because a list row runs
+         * its summary through a formatter.
+         */
+        private fun cloudsKindSummary(key: String?): String = when (SatelliteClouds.Kind.of(key)) {
+            SatelliteClouds.Kind.VEIL -> getString(R.string.clouds_kind_veil_summary)
+            SatelliteClouds.Kind.LIVE ->
+                getString(R.string.clouds_kind_live_summary) + "\n" + LiveCloudStore.describe(requireContext())
+        }.replace("%", "%%")
+
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.advanced_preferences, rootKey)
             keepOnlyFor(face())
@@ -908,6 +920,20 @@ class SettingsActivity : AppCompatActivity() {
             findPreference<Preference>(Prefs.HEMISPHERE_CLOUDS)?.summary =
                 getString(R.string.pref_hemisphere_clouds_summary) + "\n" +
                     CloudStore.describe(requireContext())
+            // Which clouds, said under the row for the kind chosen: what
+            // it is, what it costs, and what the phone has of it. A
+            // question about nothing while there are no clouds at all,
+            // whichever of the two switches that is down to.
+            dimmedUnless(Prefs.HEMISPHERE_CLOUDS_KIND) { CloudStore.kind(requireContext()) != null }
+            findPreference<ListPreference>(Prefs.HEMISPHERE_CLOUDS_KIND)?.let { row ->
+                row.summary = cloudsKindSummary(row.value)
+                row.setOnPreferenceChangeListener { _, value ->
+                    // The frames of a kind no longer worn go with it.
+                    if (value != SatelliteClouds.Kind.LIVE.key) LiveCloudStore.forget(requireContext())
+                    row.summary = cloudsKindSummary(value as? String)
+                    true
+                }
+            }
             // Which night each layer of lights would show, and how far
             // behind that is — always said here, and on the globe only
             // when it is further behind than is ordinary.

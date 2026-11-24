@@ -785,6 +785,22 @@
     <string name="clouds_on_phone">On the phone: %1$s to %2$s, %3$d days</string>
     <string name="clouds_on_phone_none">On the phone: nothing yet</string>
 
+    <!-- Which clouds: the daily photograph's, or the hour's, read off
+         the hourly mosaic of the weather satellites. What each is and
+         what it costs is said under the row, for the one chosen. -->
+    <string name="pref_hemisphere_clouds_kind_title">Which clouds</string>
+    <string-array name="hemisphere_clouds_kind_entries">
+        <item>Yesterday\'s, off the daily photograph</item>
+        <item>Live, by the hour</item>
+    </string-array>
+    <string-array name="hemisphere_clouds_kind_values" translatable="false">
+        <item>veil</item>
+        <item>live</item>
+    </string-array>
+    <string name="clouds_kind_veil_summary">The cloud of NASA\'s daily photograph, a day or two old, with the gaps between the satellite\'s passes filled from the day before</string>
+    <string name="clouds_kind_live_summary">Cloud as it stood an hour or two ago, off NOAA\'s hourly mosaic of five weather satellites: what they saw by daylight and, where the sun was still low, what their infrared saw. The infrared reads how cold the cloud tops are, so along the morning edge low cloud is missed and frozen ground can pass for cloud. Nothing beyond 73\u00b0 north or south. About 45 kB an hour while the globe is on screen. The daily photograph still covers any day it has no frame of</string>
+    <string name="live_on_phone">On the phone: %1$d frames, %2$s to %3$s UTC</string>
+
     <!-- The Egyptian civil year: three seasons of four months, named for
          what the Nile was doing when the calendar was young. It drifted a
          day every four years and the names went on meaning what they had

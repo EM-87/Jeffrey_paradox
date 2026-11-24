@@ -69,12 +69,23 @@ object CloudStore {
             store.fetch = DailyImageStore.Fetch { url -> value.get(url) }
         }
 
-    /** Whether anybody has asked for this at all. */
-    fun wanted(context: Context): Boolean {
+    /**
+     * Which clouds the globe is to wear, or null for none at all: the
+     * weather switch off, which is the one that lets anything here open
+     * a socket, or the clouds' own.
+     */
+    fun kind(context: Context): SatelliteClouds.Kind? {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        return prefs.getBoolean(Prefs.WEATHER, false) &&
-            prefs.getBoolean(Prefs.HEMISPHERE_CLOUDS, true)
+        if (!prefs.getBoolean(Prefs.WEATHER, false) || !prefs.getBoolean(Prefs.HEMISPHERE_CLOUDS, true)) return null
+        return SatelliteClouds.Kind.of(prefs.getString(Prefs.HEMISPHERE_CLOUDS_KIND, null))
     }
+
+    /**
+     * Whether the daily photograph is wanted: with any clouds at all.
+     * The hourly kind wants it too — it is what the globe wears wound to
+     * a day the hours do not reach.
+     */
+    fun wanted(context: Context): Boolean = kind(context) != null
 
     /** Which day's photograph belongs on a globe wound to that instant. */
     fun dayOf(atMs: Long): String = store.dayOf(atMs)
