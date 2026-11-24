@@ -104,7 +104,7 @@ class CloudFieldTest {
             moonlight = false
             located = false
             zoom = zoomTo
-            this.clouds = clouds
+            this.clouds = clouds?.let { cloudOf(it) }
             measure(
                 View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY)

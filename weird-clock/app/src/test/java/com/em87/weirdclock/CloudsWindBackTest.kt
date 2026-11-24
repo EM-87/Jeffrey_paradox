@@ -125,7 +125,7 @@ class CloudsWindBackTest {
     @Test
     fun `wound back a day at a time the globe wears each day's clouds`() {
         val globe = globe()
-        var previous: Bitmap? = null
+        var previous: SatelliteClouds.Field? = null
         var previousColour: IntArray? = null
         val colours = ArrayList<String>()
         for (back in greys.indices) {
@@ -133,10 +133,11 @@ class CloudsWindBackTest {
             globe.atMs = at
             val bakesBefore = globe.bakesForTest()
             val colour = shot(globe, if (back == 0 || back == 6) "clouds-wound-back-$back" else null)
-            // Step one and two: the right file, decoded afresh.
+            // Step one and two: the right file, made into cloud afresh.
             val picture = CloudStore.cached(context, at)!!
-            val grey = Color.red(picture.getPixel(10, 10))
-            assertTrue("the wrong day's picture: grey $grey for day -$back", kotlin.math.abs(grey - greys[back]) <= 3)
+            val cover = picture.cover[10 * picture.width + 10].toInt() and 0xFF
+            val wanted = SatelliteClouds.veil(Color.rgb(greys[back], greys[back], greys[back]))
+            assertTrue("the wrong day's picture: cloud $cover for day -$back, which is $wanted", kotlin.math.abs(cover - wanted) <= 6)
             previous?.let { assertNotSame("the same bitmap handed back for a new day", it, picture) }
             previous = picture
             // Step three: the discs were thrown away and baked again.

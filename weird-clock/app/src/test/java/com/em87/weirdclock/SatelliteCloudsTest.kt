@@ -47,6 +47,16 @@ class SatelliteCloudsTest {
         assertEquals("2026-02-28", SatelliteClouds.dayFor(utc(2026, 3, 1, 20)))
     }
 
+    /** The day before a day, by the calendar and not by subtracting one from a number. */
+    @Test
+    fun `the day before a day is the calendar's`() {
+        assertEquals("2026-11-21", DailyImageStore.before("2026-11-22"))
+        assertEquals("2026-02-28", DailyImageStore.before("2026-03-01"))
+        assertEquals("2028-02-29", DailyImageStore.before("2028-03-01"))
+        assertEquals("2025-12-31", DailyImageStore.before("2026-01-01"))
+        assertEquals(null, DailyImageStore.before("yesterday"))
+    }
+
     /**
      * The request is the whole planet and carries no place.
      *
@@ -203,6 +213,40 @@ class SatelliteCloudsTest {
         assertEquals(45.0, SatelliteClouds.EDGE_FROM_DEG, 0.0)
         assertEquals(0.75f, SatelliteClouds.THERE_NONE, 0f)
         assertEquals(0.99f, SatelliteClouds.THERE_ALL, 0f)
+    }
+
+    /**
+     * A place nobody photographed today wears what was photographed
+     * there yesterday, and no other place is touched.
+     */
+    @Test
+    fun `the gaps of a day are filled from the day before and nothing else is`() {
+        fun rgb(r: Int, g: Int, b: Int) = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+        val white = rgb(250, 250, 252)
+        val sea = rgb(12, 26, 60)
+        val black = rgb(0, 0, 0)
+        val grain = rgb(SatelliteClouds.NO_DATA, 3, 9)
+        //                 today:  cloud  sea    gap    gap    gap     gap
+        val today = intArrayOf(white, sea, black, grain, black, black)
+        //             yesterday:  sea    cloud  cloud  sea    black   grain
+        val before = intArrayOf(sea, white, white, sea, black, grain)
+        val filled = SatelliteClouds.fill(today, before)
+        assertEquals("two gaps had something under them", 2, filled)
+        // What was photographed today is today's, cloud or sea.
+        assertEquals(white, today[0])
+        assertEquals(sea, today[1])
+        // A gap takes yesterday's, whatever yesterday's was.
+        assertEquals(white, today[2])
+        assertEquals(sea, today[3])
+        // And a gap over a gap is still one: nobody saw it either day.
+        assertEquals(black, today[4])
+        assertEquals(black, today[5])
+        // Yesterday is not written on.
+        assertEquals(sea, before[0])
+        // Two pictures of different sizes are not the same world.
+        val other = intArrayOf(black, black)
+        assertEquals(0, SatelliteClouds.fill(other, before))
+        assertEquals(black, other[0])
     }
 
     /** The field is the veil of each pixel, less what its row has lost. */

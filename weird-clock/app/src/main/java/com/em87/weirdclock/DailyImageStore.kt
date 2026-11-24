@@ -131,20 +131,25 @@ class DailyImageStore(
     /** The picture for a globe showing [atMs], which is not always now. */
     fun cached(context: Context, atMs: Long): Bitmap? {
         val wanted = dayCached(context, atMs) ?: return null
-        val on = file(context, wanted)
-        val stamp = on.lastModified()
+        val stamp = stamp(context, wanted)
         held?.let { if (heldDay == wanted && heldAt == stamp && !it.isRecycled) return it }
-        return try {
-            BitmapFactory.decodeFile(on.path, BitmapFactory.Options().apply { inScaled = false })
-                ?.also {
-                    held = it
-                    heldDay = wanted
-                    heldAt = stamp
-                }
-        } catch (e: Exception) {
-            // A half-written file from a fetch that was killed partway.
-            null
+        return decode(context, wanted)?.also {
+            held = it
+            heldDay = wanted
+            heldAt = stamp
         }
+    }
+
+    /**
+     * A day's picture by name, decoded and not held: for a caller that
+     * keeps what it makes of the picture and not the picture — see
+     * [CloudStore]. Null for a day that is not there or will not decode.
+     */
+    fun decode(context: Context, day: String): Bitmap? = try {
+        BitmapFactory.decodeFile(file(context, day).path, BitmapFactory.Options().apply { inScaled = false })
+    } catch (e: Exception) {
+        // A half-written file from a fetch that was killed partway.
+        null
     }
 
     /**
@@ -331,6 +336,19 @@ class DailyImageStore(
         const val KEEP_DAYS = 7
         const val AT_A_TIME = 3
         const val DAY_MS = 24L * 60L * 60L * 1000L
+
+        /** The day before one named the way the files are, or null for a name that is not one. */
+        fun before(day: String): String? {
+            val start = msOf(day) ?: return null
+            val utc = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+            utc.timeInMillis = start - DAY_MS
+            return String.format(
+                java.util.Locale.US, "%04d-%02d-%02d",
+                utc.get(java.util.Calendar.YEAR),
+                utc.get(java.util.Calendar.MONTH) + 1,
+                utc.get(java.util.Calendar.DAY_OF_MONTH)
+            )
+        }
 
         /** Midnight UTC at the start of a day named the way the files are, or null for a name that is not one. */
         fun msOf(day: String): Long? {

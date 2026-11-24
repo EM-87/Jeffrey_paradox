@@ -52,7 +52,7 @@ class HemisphereShotTest {
         this.sunAt = sunAt
         hourRing = ring
         showMoon = notches
-        this.clouds = clouds
+        this.clouds = clouds?.let { cloudOf(it) }
         latitude = 40.4
         longitude = -3.7
         located = true

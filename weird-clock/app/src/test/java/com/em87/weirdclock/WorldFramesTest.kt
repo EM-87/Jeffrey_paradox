@@ -44,9 +44,9 @@ class WorldFramesTest {
             theme = ClockThemes.MIDNIGHT
             view = which
             atMs = noon()
-            clouds = Bitmap.createBitmap(720, 360, Bitmap.Config.ARGB_8888).also {
-                it.eraseColor(0xFFFFFFFF.toInt())
-            }
+            clouds = cloudOf(
+                Bitmap.createBitmap(720, 360, Bitmap.Config.ARGB_8888).also { it.eraseColor(0xFFFFFFFF.toInt()) }
+            )
             measure(
                 View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY)
@@ -85,7 +85,7 @@ class WorldFramesTest {
     fun `the clouds are asked for once a second`() {
         val world = globe()
         var asked = 0
-        val sky = Bitmap.createBitmap(4, 2, Bitmap.Config.ARGB_8888)
+        val sky = SatelliteClouds.Field(4, 2, ByteArray(8))
         world.cloudsOn = { asked++; sky }
         repeat(10) { frame(world) }
         assertEquals("asked $asked times inside one second", 1, asked)

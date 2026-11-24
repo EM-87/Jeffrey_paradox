@@ -15,9 +15,10 @@ import java.io.File
  * download a picture of the earth for a clock that is drawing a dial.
  *
  * Kept as the JPEG NASA sent rather than as anything derived from it. The
- * turning of a photograph into a veil is [SatelliteClouds.veil], which is
- * cheap, happens while the disc is being projected anyway, and can be
- * changed without going back to the network.
+ * turning of a photograph into a veil is [SatelliteClouds.field], which
+ * is done here once for a day's picture, with the day before's to fill
+ * the places the satellite did not pass over, and can be changed without
+ * going back to the network.
  *
  * The keeping itself is [DailyImageStore] now, which the night lights
  * share; what is left here is which switch it hangs off, which picture it
@@ -103,11 +104,46 @@ object CloudStore {
      * The clouds for a globe showing [atMs], which is not always now.
      *
      * The nearest day at or before the one asked for, because that is what
-     * the sky over a place actually was — see [DailyImageStore.cached].
+     * the sky over a place actually was — see
+     * [DailyImageStore.dayCached] — with the gaps between the
+     * satellite's passes filled from the day before it, when the phone
+     * has that day too: see [SatelliteClouds.fill].
+     *
+     * One field is held, and handed back for as long as it is asked for
+     * the same day made of the same two files. The globe keeps its
+     * projected disc against the *identity* of what it was projected
+     * from, and a new field for every asking would be a new projection
+     * for every frame.
      */
-    fun cached(context: Context, atMs: Long = TimeKeeper.nowMs()): Bitmap? {
+    fun cached(context: Context, atMs: Long = TimeKeeper.nowMs()): SatelliteClouds.Field? {
         if (!wanted(context)) return null
-        return store.cached(context, atMs)
+        val day = store.dayCached(context, atMs) ?: return null
+        val before = DailyImageStore.before(day)
+        // A file that is not there has no date on it, which is a date
+        // like any other: the day it arrives, the key is another key.
+        val key = day + "@" + store.stamp(context, day) + "+" + (before?.let { store.stamp(context, it) } ?: 0L)
+        held?.let { if (heldFor == key) return it }
+        val (w, h, pixels) = pixelsOf(store.decode(context, day)) ?: return null
+        before?.let { pixelsOf(store.decode(context, it)) }?.let { SatelliteClouds.fill(pixels, it.third) }
+        return SatelliteClouds.Field(w, h, SatelliteClouds.field(pixels, w, h)).also {
+            held = it
+            heldFor = key
+        }
+    }
+
+    /** The field last made, and the day and the files it was made of. */
+    private var held: SatelliteClouds.Field? = null
+    private var heldFor: String? = null
+
+    /** A picture's pixels and its size, the picture itself let go of. */
+    private fun pixelsOf(picture: Bitmap?): Triple<Int, Int, IntArray>? {
+        picture ?: return null
+        val w = picture.width
+        val h = picture.height
+        val pixels = IntArray(w * h)
+        picture.getPixels(pixels, 0, w, 0, 0, w, h)
+        picture.recycle()
+        return Triple(w, h, pixels)
     }
 
     /** Whether what is on disk is old enough to be worth adding to. */
@@ -143,5 +179,6 @@ object CloudStore {
     fun forget(context: Context) {
         File(context.cacheDir, WAS).delete()
         store.forget(context)
+        held = null
     }
 }

@@ -210,6 +210,48 @@ object SatelliteClouds {
     // -------------------------------------------------------- the field
 
     /**
+     * A sky's worth of cloud: how much of it there is over each pixel of
+     * a picture of the whole world, out of 255.
+     *
+     * What the globe is handed. It used to be handed the photograph and
+     * make this of it, and the making is the store's now: the store has
+     * the day before's photograph to fill this one's gaps from — see
+     * [fill] — and the globe has not. Read by [cloudAt].
+     */
+    class Field(val width: Int, val height: Int, val cover: ByteArray)
+
+    /**
+     * Fills the places of a day's photograph that nobody photographed
+     * with the same places of the day before, where the day before has
+     * them: in place, and says how many.
+     *
+     * The satellite does not see the whole of the tropics in a day. Its
+     * passes are further apart at the equator than each is wide, and the
+     * mosaic has a wedge of nothing between one and the next — measured
+     * on three days of November 2026, twelve parts in a hundred of the
+     * belt within fifteen degrees of the equator and five of the fifteen
+     * beyond it. On the globe that was a clear slit through every cloud
+     * bank it crossed, thirteen of them round the world.
+     *
+     * The passes do not fall in the same place two days running, so the
+     * day before has what this day lacks: on those three days it closed
+     * every wedge, to nought parts in a hundred. A strip of yesterday's
+     * weather in today's, then, which is not true and is nearer the
+     * truth than a strip of clear sky that nobody saw. The night round
+     * the winter pole is dark on both days and stays as it is.
+     */
+    fun fill(pixels: IntArray, before: IntArray): Int {
+        if (before.size != pixels.size) return 0
+        var filled = 0
+        for (i in pixels.indices) {
+            if (photographed(pixels[i]) || !photographed(before[i])) continue
+            pixels[i] = before[i]
+            filled++
+        }
+        return filled
+    }
+
+    /**
      * Below this in all three colours, a pixel of the photograph is a
      * place nobody photographed. Not nought: the picture is a JPEG, and
      * its black has a grain.
