@@ -1090,8 +1090,8 @@ pruebas se fabricaban con ellos ya recorridos (o nunca salían de ellos).
   exige todo: escribe una carta en casa y otra en el otro pueblo, mira
   el fichero del Pak tras cada salida y comprueba que las dos están
   enteras en casa y en la partida guardada. Con el arreglo siguiente,
-  le cuesta al juego 2,4 KB de memoria (de unos 55 KB libres en el
-  peor momento del año).
+  le cuesta al juego 2.480 bytes de memoria (de unos 56 KB libres en
+  el peor momento del año).
 - **Una carta dejada en el almacén del Pak de otro pueblo.** Repasando
   los límites encontré uno que no estaba apuntado y que sí era un
   fallo: una carta recibida (de mamá, de la academia…) que el viajero
@@ -1180,7 +1180,11 @@ pruebas se fabricaban con ellos ya recorridos (o nunca salían de ellos).
   juego. La del primer trabajo vendía algo, compraba algo y pagaba 100
   bayas de la casa; en el pueblo de esta compilación solo le quedaban
   60, el juego pagó las 60 (el contador no deja poner más de lo que
-  hay) y la prueba esperaba 100.
+  hay) y la prueba esperaba 100. La memoria, en la ROM que se entrega:
+  el peor momento del año son 57.248 bytes libres (Año Nuevo, entrando
+  a la parcela de las cuatro casas), y con todo lo que puede aparecer
+  encima a la vez quedan 22.768 (hay que dejar 16.384). Los arreglos de
+  las cartas de viaje han costado 2.480 bytes en total.
 - **Tres palabras sueltas.** Un barrido del texto ya compilado buscando
   palabras que el resto del guion no usa encontró tres: un «Memory Pak»
   partido entre dos líneas (por eso se le escapó a la revisión que

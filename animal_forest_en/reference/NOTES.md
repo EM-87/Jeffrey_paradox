@@ -5637,6 +5637,24 @@ them.
   anew, the letter whole at home; the cartridge's player a visitor in
   the en build's town, 21 pages in English with kana only in the
   visitor's own names (6 places), the arena's least 83,216.
+- **The arena on this build.** `memory-check-en`, its 103 checks, in
+  the town of 4 players and 15 animals: on the 21 tours the largest
+  free block is 60,512 bytes at its least (the countdown's night, the
+  houses' block 3,2); walked into from every side on the five dates
+  of `EDGE_DATES` (106 crossings each), 57,248 (New Year's Day, the
+  houses' block from the block west of it), where all that can come
+  on top at once leaves 22,768, 16,384 to be kept; a block's room is
+  up to 30,528 bytes apart by the way in; between two looks the least
+  is 59,424. At the title, START's 63,872 bytes are asked of 173,088
+  at the least: 2,480 fewer than "The closing pass's battery" had
+  there (175,568), which is what `code_en` has grown by since (0xBC50
+  to 0xC600: the rests on the Pak, the store's words, the list of the
+  keys left with). The first job never has less than 78,976, the
+  trips' eleven power-ons 79,296, the young town's year 64,496.
+- **The patch.** `make bps` on that ROM: 3,232,179 bytes (6,718,419
+  read in place from the dump, 15,223,881 copied from elsewhere in it,
+  3,223,524 new); applied to the dump by `tools/bps.py apply` it gives
+  the ROM byte for byte.
 - **Each fault seen to fail first.** The rests on the Pak: the trip's
   check on the first build that had them, the letter whole in the
   other town for four frames ("The rests on the Controller Pak"). The

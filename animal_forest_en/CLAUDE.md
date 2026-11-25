@@ -470,12 +470,13 @@ the why and the state, `reference/NOTES.md` for what is verified.
   font's swap table is packed: `code_en` is 0xC600 (50 KB; 0xBC50
   before the rests went onto the Controller Pak, 0xC2F0 before the
   list of the keys a traveller leaves with). The year's
-  least on a tour is 66,544 bytes in a young town and 62,896 in one of
-  four players and 15 animals, on New Year's Day in a block with the
-  snowballs in it; walked into from every side, the block of the four
-  houses has 56,080 that day; and a room has over 400 KB (NOTES, "Item
+  least on a tour is 64,496 bytes in a young town and 60,512 in one of
+  four players and 15 animals, both on the countdown's night in the
+  block of the four houses; walked into from every side, that block
+  has 57,248 on New Year's Day; and a room has over 400 KB (NOTES, "Item
   names", "The second review", "What the second review had left open",
-  "The rooms a day does not reach"). `make year-check-en` and `make
+  "The rooms a day does not reach", "The battery after the dealings":
+  the figures are the last one's). `make year-check-en` and `make
   memory-check-en` hold it to a
   floor, and the second sums what can come into a block on top of what
   it holds (a balloon, bees, a fish let go, a tool in an animal's hand,
