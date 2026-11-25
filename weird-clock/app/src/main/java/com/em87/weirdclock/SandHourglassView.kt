@@ -195,13 +195,39 @@ class SandHourglassView @JvmOverloads constructor(
     private var gravityY = 1f
     private var lowX = 0f
     private var lowY = 9.81f
+
+    /** Not null exactly while the accelerometer is registered. */
     private var sensorManager: SensorManager? = null
+
+    /**
+     * Set each time the accelerometer is registered, and cleared by the
+     * first reading after that.
+     *
+     * Until then the smoothing holds the phone's posture from the last
+     * time the glass was on screen: flat on a table an hour ago, or upside
+     * down in a pocket. Sand stepped by it pours the wrong way until the
+     * smoothing catches up with where the phone is now.
+     */
+    private var awaitingReading = false
+
+    /** When the accelerometer was last registered, by the uptime clock. */
+    private var listeningSince = 0L
+
     private val sensorListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
-            // Heavier smoothing than the dial's: sand should not twitch with
-            // sensor noise, and a hand-held phone is never perfectly still.
-            lowX = lowX * 0.93f + event.values[0] * 0.07f
-            lowY = lowY * 0.93f + event.values[1] * 0.07f
+            if (awaitingReading) {
+                // The phone's posture now, whole, and not blended with one
+                // from before the glass went away.
+                awaitingReading = false
+                lowX = event.values[0]
+                lowY = event.values[1]
+            } else {
+                // Heavier smoothing than the dial's: sand should not twitch
+                // with sensor noise, and a hand-held phone is never
+                // perfectly still.
+                lowX = lowX * 0.93f + event.values[0] * 0.07f
+                lowY = lowY * 0.93f + event.values[1] * 0.07f
+            }
             var gx = -lowX / 9.81f
             var gy = lowY / 9.81f
             val inPlane = hypot(gx, gy)
@@ -238,16 +264,54 @@ class SandHourglassView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
-        sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
-            sensorManager?.registerListener(sensorListener, it, SensorManager.SENSOR_DELAY_GAME)
-        }
         lastStepAt = SystemClock.uptimeMillis()
         postInvalidateOnAnimation()
     }
 
-    override fun onDetachedFromWindow() {
+    /**
+     * The accelerometer follows whether the glass can be seen, not whether
+     * the view exists.
+     *
+     * The view sits in the clock's page for as long as the activity does.
+     * Pausing or leaving the app does not detach it, so a listener hung on
+     * attach and detach went on reading the accelerometer at game rate
+     * with the screen off and the app closed. It also kept reading while
+     * the hourglass was hidden behind the clock, which is most of the time.
+     *
+     * This one callback hears about every way the glass stops being seen:
+     * its own visibility, its container's (`hourglass_container` is gone
+     * everywhere but the hourglass's card), and the window's, which goes
+     * when the app is stopped, the screen turns off or another app comes
+     * in front. It hears about the way back too, which is where the sensor
+     * is picked up again.
+     */
+    override fun onVisibilityAggregated(isVisible: Boolean) {
+        super.onVisibilityAggregated(isVisible)
+        if (isVisible) listen() else stopListening()
+    }
+
+    private fun listen() {
+        if (sensorManager != null) return
+        val manager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager ?: return
+        val sensor = manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) ?: return
+        if (!manager.registerListener(sensorListener, sensor, SensorManager.SENSOR_DELAY_GAME)) {
+            return
+        }
+        sensorManager = manager
+        awaitingReading = true
+        listeningSince = SystemClock.uptimeMillis()
+        // And the flow is watched afresh, so the wait before a tilted glass
+        // stops the clock is counted from now and not from before it went.
+        lastUpstream = -1
+    }
+
+    private fun stopListening() {
         sensorManager?.unregisterListener(sensorListener)
+        sensorManager = null
+    }
+
+    override fun onDetachedFromWindow() {
+        stopListening()
         super.onDetachedFromWindow()
     }
 
@@ -417,6 +481,11 @@ class SandHourglassView @JvmOverloads constructor(
         val dt = ((now - lastStepAt).coerceIn(0L, 50L)) / 1000f
         lastStepAt = now
         if (frozen) return
+        // Listening again and not yet told which way is down: the glass
+        // waits for the phone rather than pouring by where the phone used
+        // to be. Not for ever, though. A sensor that has gone quiet is no
+        // reason to stop the sand.
+        if (awaitingReading && now - listeningSince < READING_WAIT_MS) return
 
         val mag = hypot(gravityX, gravityY)
         if (mag < 0.05f) return
@@ -704,10 +773,26 @@ class SandHourglassView @JvmOverloads constructor(
         postInvalidateOnAnimation()
     }
 
+    /** For the tests: the listener, to ask the sensor manager about. */
+    internal fun sensorListenerForTest(): SensorEventListener = sensorListener
+
+    /** For the tests: which way the sand falls, in view coordinates. */
+    internal fun gravityForTest(): Pair<Float, Float> = gravityX to gravityY
+
+    /** For the tests: the grid as it stands, sand and glass and air. */
+    internal fun cellsForTest(): ByteArray = cells.copyOf()
+
     companion object {
         private const val EMPTY: Byte = 0
         private const val SAND: Byte = 1
         private const val WALL: Byte = 2
+
+        /**
+         * How long the sand waits for a first reading after the sensor is
+         * picked up again. At game rate one is due every twenty
+         * milliseconds or so.
+         */
+        private const val READING_WAIT_MS = 500L
 
         /** How readily a grain slides down a slope rather than sitting on it. */
         private const val DIAGONAL = 0.85f
