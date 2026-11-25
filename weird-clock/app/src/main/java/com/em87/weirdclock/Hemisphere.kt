@@ -431,6 +431,34 @@ object Hemisphere {
     }
 
     /**
+     * How far a flat view's painted disc is turned on the glass, in
+     * degrees anticlockwise, with the sun over [subsolarLonDeg] and
+     * pinned at [sunAtDeg].
+     *
+     * The discs of the two views down a pole are painted once, with
+     * Greenwich where the sun is and the sun on the right, and turned
+     * when they are drawn: the world going round is a picture going
+     * round. Which way is the whole of this. From over the north pole a
+     * place east of the sun is anticlockwise of it, and from under the
+     * south one clockwise — the two cases of [project] — so the same sun
+     * turns the one disc back and the other forward.
+     *
+     * It was written into the drawing, once, for both views, and it was
+     * the north's. The south view had its night, its marker and its hours
+     * in the right places and the wrong half of the world under them,
+     * right only with the sun over Greenwich or over the date line, from
+     * the first day of the face. Nothing asked where a place of the map
+     * was drawn; the test that found it was about the shadow of a cloud.
+     *
+     * Nought on the globe, whose disc is painted already turned.
+     */
+    fun discTurn(view: View, subsolarLonDeg: Double, sunAtDeg: Double): Double = when (view) {
+        View.NORTH -> -subsolarLonDeg + sunAtDeg
+        View.SOUTH -> subsolarLonDeg + sunAtDeg
+        View.GLOBE -> 0.0
+    }
+
+    /**
      * The two views down a pole: a distance from the middle and a bearing.
      *
      * Orthographic, which is the word for looking at a ball from far

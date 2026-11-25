@@ -1249,8 +1249,10 @@ class HemisphereView @JvmOverloads constructor(
             return
         }
         src.set(0, 0, day.width, day.height)
-        // The flat views turn; the globe was baked already turned.
-        val spin = if (view == Hemisphere.View.GLOBE) 0f else (-subLon + sunAt).toFloat()
+        // The flat views turn; the globe was baked already turned. Each
+        // its own way — see [Hemisphere.discTurn], which is where the
+        // south view's was the north's for as long as there was one.
+        val spin = Hemisphere.discTurn(view, subLon, sunAt).toFloat()
         canvas.save()
         path.reset()
         path.addCircle(cx, cy, r, Path.Direction.CW)
