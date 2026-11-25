@@ -3283,9 +3283,15 @@ class EmulatorChecks(unittest.TestCase):
         for more in ({"end": {"flags": 4}}, {"end": {"quest": False}}, {"end": {"scene": 9}}, {"over": "limit"},
                      {"trade": {"sold": False}}, {"trade": {"bought": False}}, {"trade": {"wallet": [0, 0, 0]}},
                      {"trade": None}, {"paid": None}, {"paid": {"wallet": [205, 205]}}, {"paid": {"in": False}},
+                     {"paid": {"wallet": [205, 5]}},      # more than was set on the counter
+                     {"paid": {"wallet": [60, 60]}}, {"paid": {"wallet": [60, 10]}}, {"paid": {"wallet": [0, 0]}},
                      {"problems": ["0x7f4 at 0: a line past its bubble"]}, {"watch": {"fails": 1}},
                      {"gyroid": {"asked": 0, "left": False}}, {"gyroid": None}, {"hang": "no frame"}):
             self.assertEqual(len(self.job_failed(self.job(**more)[0], ok[1], ok[2])), 1, more)
+        # a pocketbook with less than the payment set (the shop's prices are the game's draw): the counter
+        # stops at what it has, and all of it is paid
+        self.assertEqual(self.job_failed(self.job(paid={"wallet": [60, 0]})[0], ok[1], ok[2]), [])
+        self.assertEqual(self.job_failed(self.job(paid={"wallet": [100, 0]})[0], ok[1], ok[2]), [])
         # the flash powered on again: the town must load, the house be gone into, the gyroid save, and the save
         # be the one of the player who did the job
         played, again, kept = ok

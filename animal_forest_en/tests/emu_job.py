@@ -995,9 +995,14 @@ def report(job, again, kept, favour=None):
                   "pocket)" % deal["wallet"][2] if deal["bought"] else "NOTHING BOUGHT")
               if deal and deal["in"] else "NOT GONE INTO"))
     paid = job and job["paid"]
-    check(bool(paid) and paid["in"] and paid["wallet"][0] - paid["wallet"][1] == PAYMENT,
+    # (what is left after the shop is the town's: its keeper's price and his table's are the game's draw, and
+    # the counter goes no higher than the pocketbook)
+    due = min(PAYMENT, paid["wallet"][0]) if paid and paid.get("wallet") else 0
+    check(bool(paid) and paid["in"] and due > 0 and paid["wallet"][0] - paid["wallet"][1] == due,
           "a payment towards the house at the post office (the clerk's second answer, %d Bells set on the counter, "
-          "its OK): %s" % (PAYMENT, "the pocketbook from %d to %d Bells" % tuple(paid["wallet"])
+          "its OK): %s" % (PAYMENT, "the pocketbook from %d to %d Bells%s" % (
+              tuple(paid["wallet"]) + ("" if paid["wallet"][0] >= PAYMENT or paid["wallet"][1] else
+                                       " (it had less than that: the counter stops at what it has, all paid)",))
                            if paid and paid["in"] else "NOT GONE INTO"))
     seen = job and job["watch"]
     check(bool(job) and job["pages"] > 0 and not job["problems"] and bool(seen) and seen["fails"] == 0,
