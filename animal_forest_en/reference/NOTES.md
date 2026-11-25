@@ -5545,6 +5545,115 @@ the user's disc at build time (`tools/af_gc_nes.py`, `make rom-en`).
 - **Without the disc's files** the eight stay the cartridge's
   Famicoms and the segment is 16 empty bytes.
 
+## The battery after the dealings
+
+What "The tools, played", "The town's dealings, played", "The Controller
+Pak and the cartridge itself", "The NES" and the last points of "A
+trip, played" leave to this section: every check on the build that ends
+them.
+
+- **The build.** The ROM is `ef0088f`'s, md5 9cfc5c10e428...; the
+  commits after it change checks and notes. It has the rests on the
+  Controller Pak, the list of the keys a traveller leaves with, the
+  store's own words and the drive's name; `code_en` is 0xC600 bytes.
+- **How it ran.** Twenty-four goals. A command in the background ends
+  after two hours on this machine, and the machine was restarted three
+  times in the night the battery ran, each restart ending every process
+  and keeping the disk. So the goals ran as five makes of a few each
+  (`make -k -j3 -Otarget`), the short ones first once the restarts were
+  known, and a goal a restart cut was given to a later make. On
+  `ef0088f`, sixteen goals: fourteen passed, the letters' failed
+  (below) and the messages' was cut by a restart at its message 2958.
+  A make of six was cut whole by the next restart, 55 minutes in,
+  before any of its long goals had ended. On `5c42665` (the letters'
+  check mended), seven: six passed, the first job's failed (below). On
+  `bd2909a` (that check mended), the four long ones left, all passed,
+  and then the unit tests again with the memory check. Each make built
+  the ROM anew at its head, the same bytes each time. The two commits
+  between change `tests/emu_letters.py`'s `main` and
+  `tests/emu_job.py`'s report, with their unit tests; no check that
+  had passed before them calls either.
+- **The goals.** `test` (162 tests, on each of the three commits),
+  `verify` (the matching build is the cartridge's), `emu-check` (both
+  ROMs), `emu-determinism` (2,035 frames compared), `psel-check-en`,
+  `resetti-check-en`, `save-check-en`, `board-check-en` (12 boards),
+  `write-check-en`, `words-check-en`, `notice-check-en`,
+  `signs-check-en` (the NES's eight pieces in it: before piece 849 the
+  drive's page and no game handed on), `menus-check-en` (the store's
+  question and its own answers measured where they are drawn),
+  `letters-check-en`, `tools-check-en` (6 checks: the fish at the
+  first cast, the insect at the first swing, 11 pages of 8 messages),
+  `deals-check-en` (8 checks, below), `reset-check-en` (the seven
+  power-ons, the Saturday's show), `year-check-en` (the 21 dates,
+  every block of each reached; the largest free block on a tour 64,496
+  bytes at its least, the countdown's night, block 3,2),
+  `job-check-en` (20 checks: 181 pages of 72 messages, 13 choices, 7
+  menus over a talk, the arena's least 78,976 bytes; the errands' 42
+  pages of 25 messages), `trip-check-en` (25 checks, eleven power-ons,
+  212 pages, the arena's least 79,296), `pak-jp-check-en` (9 checks,
+  six power-ons), `messages-check-en` (728 messages shown, 2,030 lines
+  measured, 258 played through with the cartridge's talk orders; 97
+  taken from the 2010 translation and 1,073 of ours in the bank as
+  laid out, 11113 with its NES among them) and `memory-check-en`
+  (below).
+- **Two checks asked the game's draw for what it need not bring.**
+  `letters-check-en` asked that one of the replies the game draws from
+  another town print both towns' names. A reply's three parts are
+  drawn of 32 each, and in the six groups of such a reply few parts
+  print the one name or the other: counted in the banks, a reply has
+  both about once in a hundred, so 188 draws bring one or so and often
+  none (the two builds before drew 3 and 4, this one none). The check
+  now picks, of one group, a part that prints the animal's town's name
+  and another that prints the player's (`parts_for_both`: 315, 319 and
+  313 of the group at 0x120, the shortest three), loads them with the
+  game's loader after a reply from another town has filled the
+  strings, and holds the body to the model's with both names whole
+  (103 bytes); the draws' count is still said.
+  `job-check-en` sells a thing of the pockets to the shop's keeper,
+  buys one off his table and sets 100 Bells on the post office's
+  counter towards the house. On this build's town the keeper gave 180
+  and the thing cost 120: with 60 Bells the counter went no higher,
+  and the 60 were paid. The check asked for 100 gone; it asks for
+  that, or for all of a pocketbook that has less. Both failed loudly,
+  and neither was the game's.
+- **The dealings on this build.** The turnips' seller in block 2,4,
+  heard out in 40 pages and 7 questions; ten turnips for 1,270 Bells
+  (127 a turnip), sold to Nook the Monday for 1,330 (133); the thing
+  0x2494 of the lost property; the catalog's first thing ordered for
+  700 Bells and in the Tuesday's mailbox with four letters more (its
+  thing 0x1DA8); the raffle in one talk of 15 pages, two draws, one
+  lost and one won (the thing 0x1398); 115 pages of 49 messages, the
+  arena's least 82,816 bytes.
+- **The trips on this build.** The first: a letter of 135 bytes
+  written at home (39 past the cartridge's), whole in the other town
+  at both power-ons, a second written there, both whole at home, no
+  rest marked; the store, the fetch, the question's other answers.
+  The second: the mailbox had two letters, both went along, the one
+  in the pockets' second place was put into the other town's store
+  (its 68 bytes of rest marked in that town's flash), and at home it
+  came out whole, the other unmarked. With the cartridge: the en
+  build's player a visitor in its town (19 pages there, Japanese), the
+  packed bytes as they were when the cartridge had written the record
+  anew, the letter whole at home; the cartridge's player a visitor in
+  the en build's town, 21 pages in English with kana only in the
+  visitor's own names (6 places), the arena's least 83,216.
+- **Each fault seen to fail first.** The rests on the Pak: the trip's
+  check on the first build that had them, the letter whole in the
+  other town for four frames ("The rests on the Controller Pak"). The
+  letter left in another town's store: its sessions by hand on the
+  build before, the letter back at home ending at its 96th byte ("A
+  letter left in another town's store"). The store's question: its
+  three answers played before they were worded ("The store's closing
+  question"), and its words looked at on the screen.
+- **The towns.** A build's town is its own ("What the checks do not
+  hold on every town"): the route's same frames drew other towns for
+  the ROMs of this pass, and what a check met of them was the game's
+  to give: a mailbox with one letter or two at the same hour, a shop
+  whose first sale and purchase leave 60 Bells, a reply's parts. A check
+  that held the game to one of them was mended to hold it to what the
+  game does (above; and "The town's dealings, played": the mailbox's
+  corner, the raffle's draws, a sale past the pocketbook's limit).
+
 ## Other emulators (ares, Project64, RetroArch, RMG and simple64)
 
 - **ares** (v148, `emu/ares/`: `build.sh` pins it and builds its N64 core
