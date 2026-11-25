@@ -1660,6 +1660,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // nothing, and the alternative is a clock that is quietly not
         // armed for reasons its owner has no way of knowing about.
         AlarmScheduler.update(this)
+        // Before the preferences, which pick the bearing up again if the
+        // face still asks for it. [onPause] let go of it.
+        sensorsAllowed = true
         applyPreferences()
         sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sensorManager?.registerListener(flipListener, it, SensorManager.SENSOR_DELAY_UI)
@@ -1771,6 +1774,16 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         dialJob == null && current().let { it == Card.STOPWATCH || it == Card.REVERSE }
 
     override fun onPause() {
+        // The sensors go first, whatever else this pause turns out to be.
+        // A paused activity is not the one in front, and a stopped one
+        // still hears the phone move: on Android 7 and 8 always, and later
+        // while the countdown's or the alarm's service keeps the app in the
+        // foreground. Nobody is looking at what the readings would turn.
+        // [onResume] asks for them again: the flip directly, the bearing
+        // through [applyPreferences] if the face still wants it.
+        sensorsAllowed = false
+        sensorManager?.unregisterListener(flipListener)
+        letGoOfBearing()
         // The other half of [behind]: nothing was started, so there is
         // nothing to stop.
         if (behind) {
@@ -1796,7 +1809,6 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // clock that has stopped — and the view is never detached when the
         // app goes to the background, so onDetachedFromWindow never ran.
         clockView?.leaveOrrery()
-        sensorManager?.unregisterListener(flipListener)
         // The widgets are repainted when the app is left, and two pauses
         // are not that. A screen being thrown away to be built again is
         // not leaving, and the one built in its place does all this when
@@ -2785,11 +2797,38 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * The rotation vector rather than the raw magnetometer: the platform
      * already fuses the compass with the gyroscope and the accelerometer,
      * and doing that by hand is how an app ends up with a needle that
-     * swings when you walk. Registered only while the face wants it, and
-     * at the slowest rate the system offers — the arrow is telling you
-     * which way to turn, not steering a boat.
+     * swings when you walk. Registered only while the face wants it and
+     * the app is in front, and at the slowest rate the system offers — the
+     * arrow is telling you which way to turn, not steering a boat.
      */
     private var bearingListener: android.hardware.SensorEventListener? = null
+
+    /**
+     * Whether this screen is between its onResume and its onPause, the
+     * only stretch in which it keeps a sensor registered.
+     *
+     * Its own, and not [inFront], which is shared by every instance and
+     * read by the bells. While a screen is rebuilt, the old one and the
+     * new one overlap.
+     */
+    private var sensorsAllowed = false
+
+    /**
+     * Unregisters the bearing and forgets the listener.
+     *
+     * Forgetting it matters as much as unregistering it: [listenForBearing]
+     * takes a listener it still holds for one that is still registered,
+     * and would never register again.
+     *
+     * The faces keep the last bearing they were given. A paused screen can
+     * still be on show, beside another app, and an arrow that snapped to
+     * nothing there would be wrong in a new way. The next reading after
+     * the resume replaces it whole: nothing smooths a bearing.
+     */
+    private fun letGoOfBearing() {
+        bearingListener?.let { sensorManager?.unregisterListener(it) }
+        bearingListener = null
+    }
 
     /** Whether the turning world is being pointed rather than nailed. */
     private fun worldIsPointing(): Boolean =
@@ -2800,8 +2839,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
     private fun listenForBearing(wanted: Boolean) {
         val sensors = sensorManager ?: return
         if (!wanted) {
-            bearingListener?.let { sensors.unregisterListener(it) }
-            bearingListener = null
+            letGoOfBearing()
             sundialView?.phoneBearing = null
             sundialView?.phoneOrientation = null
             // And the world goes back to wherever the setting nails the
@@ -2814,6 +2852,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             hemisphereView?.sunAt = prefs.getInt(Prefs.HEMISPHERE_SUN_AT, 0).toDouble()
             return
         }
+        // Not outside onResume and onPause. The preferences are applied at
+        // other moments too: when a page is bound on a screen rebuilt behind
+        // another, or when a permission's answer arrives before the resume.
+        // The resume asks again.
+        if (!sensorsAllowed) return
         if (bearingListener != null) return
         val sensor = sensors.getDefaultSensor(android.hardware.Sensor.TYPE_ROTATION_VECTOR)
             ?: return
@@ -2850,6 +2893,15 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         )
         bearingListener = listener
     }
+
+    /** For the tests: the bearing's listener, while there is one. */
+    internal fun bearingListenerForTest(): android.hardware.SensorEventListener? = bearingListener
+
+    /** For the tests: the preferences applied again, at a moment of their choosing. */
+    internal fun applyPreferencesForTest() = applyPreferences()
+
+    /** For the tests: the sand on the hourglass's card. */
+    internal fun sandForTest(): SandHourglassView? = s3Sand
 
     /** For the tests: the little world clocks floating over it. */
     internal fun worldClocksForTest(): List<ClockView> = worldBubbles.clocksForTest()
