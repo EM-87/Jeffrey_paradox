@@ -75,7 +75,9 @@ make trip-check-en                # un viaje con Controller Pak: salir en tren c
                                   # escribir allí otra carta y volver a casa con las dos enteras; y
                                   # después guardar una en el Controller Pak en correos, guardar la
                                   # partida, recuperarla entera y probar las otras dos respuestas
-                                  # de la pregunta de cierre del almacén
+                                  # de la pregunta de cierre del almacén; y un segundo viaje en el
+                                  # que una carta del buzón se deja en el almacén del Pak en el
+                                  # otro pueblo y se recoge en casa, entera
 make tools-check-en               # las herramientas en la mano: pescar, cazar un bicho con los
                                   # bolsillos llenos, cavar, enterrar y desenterrar, talar
 make deals-check-en               # los tratos del pueblo en cuatro días: comprar nabos un domingo
@@ -1163,6 +1165,22 @@ pruebas se fabricaban con ellos ya recorridos (o nunca salían de ellos).
   iba al giroide a guardar (ahora la prueba vuelve al giroide); la de
   mensajes seguía contando como «del parche de 2010» dos mensajes que
   ya son nuestros. La ROM no cambió entre una pasada y otra.
+- **La batería tras lo último jugado.** Las 24 comprobaciones sobre la
+  ROM que se entrega. Esta vez no cupieron en un solo `make`: esta
+  máquina corta a las dos horas cualquier orden en segundo plano y
+  además se reinició tres veces esa noche, así que corrieron en cinco
+  tandas, las cortas primero, repitiendo lo que un reinicio dejaba a
+  medias; la ROM salió idéntica en las cinco. Pasan todas. Dos habían
+  fallado antes por la propia prueba, no por el juego, y las dos por lo
+  mismo: le pedían al azar del juego algo que el azar no tiene por qué
+  dar. La de cartas exigía que alguna respuesta sorteada de un vecino
+  de otro pueblo nombrase los dos pueblos, y eso sale una vez de cada
+  cien (dos compilaciones sacaron 3 y 4; esta, ninguna): ahora elige
+  ella las partes que los nombran y las carga con el cargador del
+  juego. La del primer trabajo vendía algo, compraba algo y pagaba 100
+  bayas de la casa; en el pueblo de esta compilación solo le quedaban
+  60, el juego pagó las 60 (el contador no deja poner más de lo que
+  hay) y la prueba esperaba 100.
 - **Tres palabras sueltas.** Un barrido del texto ya compilado buscando
   palabras que el resto del guion no usa encontró tres: un «Memory Pak»
   partido entre dos líneas (por eso se le escapó a la revisión que
