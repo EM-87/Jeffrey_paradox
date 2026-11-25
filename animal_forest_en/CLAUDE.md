@@ -840,7 +840,13 @@ the why and the state, `reference/NOTES.md` for what is verified.
   limit comes back as a bag of Bells in a pocket: count what a player
   is worth with the bags (`tests/emu_deals.py`). What the game draws,
   a check plays until it has seen each outcome, and says how often
-  that fails.
+  that fails. Or it makes the outcome by choice where the game lets
+  it: `make letters-check-en` asked that one of the 188 replies the
+  game draws from another town print both towns' names, which about
+  one reply in a hundred does; two builds drew 3 and 4, the third
+  none. It now picks the parts that print them and loads them with
+  the game's loader (`parts_for_both`). Before a check says "at
+  least one", count how many the draw can be expected to bring.
 - **The talk that opens by the gyroid is not always the gyroid's.** An
   animal that has not met the player has its first word when the
   player comes by. On the delivered build's town, the day after the
