@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
@@ -1052,18 +1053,24 @@ class SettingsActivity : AppCompatActivity() {
             // simply is not drawing it. This says which.
             // Whether there is a key at all, said out loud. An
             // EditTextPreference with a fixed summary looks the same empty
-            // as full, and this one is deliberately not in the backup — so
-            // the first thing after a restore would otherwise be a switch
-            // that says it is on, a row that says nothing, and a house
-            // that never hears anything again.
-            findPreference<Preference>(Prefs.IFTTT_KEY)?.let { row ->
-                val stored = preferenceManager.sharedPreferences
-                    ?.getString(Prefs.IFTTT_KEY, null)
-                val note = getString(R.string.pref_ifttt_key_summary)
-                row.summary = if (Ifttt.usable(stored)) {
-                    getString(R.string.pref_ifttt_key_set, note)
-                } else {
-                    getString(R.string.pref_ifttt_key_none, note)
+            // as full, and this one is deliberately in no backup — so the
+            // first thing on a new phone would otherwise be a switch that
+            // says it is on, a row that says nothing, and a house that
+            // never hears anything again.
+            //
+            // The row reads and writes the key's own file rather than the
+            // shared one the rest of this screen uses (see
+            // [IftttStore.FILE]). It had already read its text from the
+            // shared file by the time it got here, so it is handed the real
+            // one; and it says what it now holds as soon as a key is typed,
+            // not on the next visit.
+            findPreference<EditTextPreference>(Prefs.IFTTT_KEY)?.let { row ->
+                row.preferenceDataStore = IftttStore.Row(requireContext())
+                row.text = IftttStore.storedKey(requireContext())
+                row.summary = keySummary(row.text)
+                row.setOnPreferenceChangeListener { _, typed ->
+                    row.summary = keySummary(typed as? String)
+                    true
                 }
             }
             findPreference<Preference>("pref_armed")?.summary = run {
@@ -1343,6 +1350,16 @@ class SettingsActivity : AppCompatActivity() {
                 .setMessage(R.string.speed_warning_message)
                 .setPositiveButton(android.R.string.ok, null)
                 .show()
+        }
+
+        /** The key row's summary: whether there is one, then what it is for. */
+        private fun keySummary(key: String?): String {
+            val note = getString(R.string.pref_ifttt_key_summary)
+            return if (Ifttt.usable(key)) {
+                getString(R.string.pref_ifttt_key_set, note)
+            } else {
+                getString(R.string.pref_ifttt_key_none, note)
+            }
         }
 
         override fun onResume() {

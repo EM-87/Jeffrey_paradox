@@ -250,13 +250,16 @@ object Prefs {
     const val IFTTT = "pref_ifttt"
 
     /**
-     * The webhook key, which is a secret and is kept out of the backup.
+     * The webhook key, which is a secret and is kept out of every backup.
      *
      * A backup is a plain file in a folder somebody chose, and a key in it
      * is a key anybody who reads that file can fire the house with. So it
-     * is on [Backup]'s skip list, and the settings row says out loud that
-     * it will need typing again after a restore — a silent gap being the
-     * one outcome worse than either.
+     * is not stored with the other settings: it is the one kept in a
+     * preferences file of its own, [IftttStore.FILE], which Android's
+     * backup and transfer to a new phone are both told to leave out, and
+     * it is on [Backup]'s skip list as well. The settings row says out
+     * loud that it will need typing again on a new phone — a silent gap
+     * being the one outcome worse than either.
      */
     const val IFTTT_KEY = "pref_ifttt_key"
 

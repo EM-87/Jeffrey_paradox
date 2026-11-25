@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    What Android's own backup leaves out on Android 11 and earlier. Android
+    12 and later ignore this file and read data_extraction_rules.xml.
+
+    Only the webhook key's file, IftttStore.FILE. Everything else, alarms
+    and reminders and settings, is still backed up and still comes back on a
+    new phone, which is the reason for having rules at all rather than
+    switching backup off. Rules go by file, never by key, which is why the
+    key has a file of its own. There is no include rule on purpose: a single
+    one would turn this into a list of the only things backed up.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="phone_only.xml" />
+</full-backup-content>

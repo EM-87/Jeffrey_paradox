@@ -507,7 +507,7 @@
     <string name="pref_ifttt_title">Contárselo a la casa (IFTTT)</string>
     <string name="pref_ifttt_summary">Apagado. Encendido, una alarma avisa a tu casa: weird_clock_soon antes de sonar, y luego alarm, snooze, dismiss y timer. Cinco eventos fijos, y no se puede poner otra dirección</string>
     <string name="pref_ifttt_key_title">Clave del webhook</string>
-    <string name="pref_ifttt_key_summary">De ifttt.com, Webhooks, Documentation. A propósito no entra en las copias de seguridad — una clave en un fichero plano es una clave con la que cualquiera puede disparar tu casa — así que hay que volver a escribirla tras restaurar</string>
+    <string name="pref_ifttt_key_summary">De ifttt.com, Webhooks, Documentation. Se queda solo en este teléfono, a propósito fuera de las copias de la app y de las de Android — una clave en una copia es una clave con la que cualquiera puede disparar tu casa — así que hay que volver a escribirla en un teléfono nuevo</string>
     <string name="pref_ifttt_key_set">Hay una clave puesta. %1$s</string>
     <string name="pref_ifttt_key_none">Sin clave, así que no se envía nada nunca. %1$s</string>
     <string name="pref_ifttt_lead_title">Minutos de aviso</string>

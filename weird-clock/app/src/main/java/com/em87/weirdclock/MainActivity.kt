@@ -947,6 +947,11 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         SystemChrome.paint(this)
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        // A webhook key brought back by restoring an older Android backup
+        // onto a new phone is in the shared file, which the next backup
+        // takes whole. The first opening takes it out — see
+        // [IftttStore.moveKeyOut].
+        IftttStore.moveKeyOut(this)
         // Somebody who has been using this app for weeks is not asked
         // which clock they want. They did not choose the dial — it was the
         // only one there was — but they have been living with it, and a

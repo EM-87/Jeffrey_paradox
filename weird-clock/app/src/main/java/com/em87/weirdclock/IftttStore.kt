@@ -1,6 +1,8 @@
 package com.em87.weirdclock
 
 import android.content.Context
+import android.content.SharedPreferences
+import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceManager
 import java.net.HttpURLConnection
 import java.net.URL
@@ -28,6 +30,75 @@ object IftttStore {
 
     /** Where the last time each event went is kept. */
     private const val LAST = "pref_ifttt_last_"
+
+    /**
+     * The preferences file the webhook key lives in, on its own.
+     *
+     * Everything else this app remembers is in the one shared preferences
+     * file, and Android's own backup — to the Google account, and across to
+     * a new phone while it is being set up — takes that file whole. Its
+     * rules can leave out a file but not one line of one, so the key has a
+     * file of its own and both sets of rules name it:
+     * `res/xml/backup_rules.xml` for Android 11 and earlier,
+     * `res/xml/data_extraction_rules.xml` for 12 and later. Rename this and
+     * those two have to follow, which BackupRulesTest checks.
+     */
+    const val FILE = "phone_only"
+
+    /** The key's own file, with any key still in the shared one moved in first. */
+    private fun kept(context: Context): SharedPreferences {
+        moveKeyOut(context)
+        return context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+    }
+
+    /** The webhook key as typed, or null if there is none. */
+    fun storedKey(context: Context): String? =
+        kept(context).getString(Prefs.IFTTT_KEY, null)
+
+    /** A key typed in, or null to forget the one there is. */
+    fun storeKey(context: Context, key: String?) {
+        kept(context).edit().putString(Prefs.IFTTT_KEY, key).apply()
+    }
+
+    /**
+     * Takes the key out of the shared file, if it is there.
+     *
+     * Every key typed in before it had a file of its own is there, and so
+     * is one brought back onto a new phone by an Android backup taken before
+     * then. This runs on every read, when a new build is installed, and when
+     * the app is opened — not on reads alone, because a key the app never
+     * reads (switch off, key still saved) would otherwise sit in the
+     * backed-up file for good.
+     *
+     * The copy is finished before the original goes, so a crash between the
+     * two leaves the key in both files and the next run moves it again,
+     * rather than leaving it in neither. A key found in the shared file
+     * replaces one already moved: it can only have got there afterwards.
+     */
+    fun moveKeyOut(context: Context) {
+        val shared = PreferenceManager.getDefaultSharedPreferences(context)
+        if (!shared.contains(Prefs.IFTTT_KEY)) return
+        val copied = context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()
+            .putString(Prefs.IFTTT_KEY, shared.getString(Prefs.IFTTT_KEY, null))
+            .commit()
+        if (copied) shared.edit().remove(Prefs.IFTTT_KEY).apply()
+    }
+
+    /**
+     * The settings row's way to the key.
+     *
+     * Left to itself an EditTextPreference reads and writes the shared
+     * file, which is the one place the key must not be.
+     */
+    class Row(context: Context) : PreferenceDataStore() {
+        private val context = context.applicationContext
+
+        override fun getString(key: String?, defValue: String?): String? =
+            IftttStore.storedKey(context) ?: defValue
+
+        override fun putString(key: String?, value: String?) =
+            IftttStore.storeKey(context, value)
+    }
 
     /**
      * One request, so the tests can watch without a network.
@@ -69,8 +140,7 @@ object IftttStore {
     /** Whether any of this has been switched on. */
     fun wanted(context: Context): Boolean {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        return prefs.getBoolean(Prefs.IFTTT, false) &&
-            Ifttt.usable(prefs.getString(Prefs.IFTTT_KEY, null))
+        return prefs.getBoolean(Prefs.IFTTT, false) && Ifttt.usable(storedKey(context))
     }
 
     /** How many minutes before an alarm the house is told it is coming. */
@@ -94,7 +164,7 @@ object IftttStore {
     ): Boolean {
         if (!wanted(context)) return false
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        val key = prefs.getString(Prefs.IFTTT_KEY, null) ?: return false
+        val key = storedKey(context) ?: return false
         val now = TimeKeeper.nowMs()
         val last = prefs.getLong(LAST + event.event, 0L)
         if (!Ifttt.mayFire(last, now)) return false
@@ -126,7 +196,7 @@ object IftttStore {
     ): Boolean {
         if (!wanted(context)) return false
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        val key = prefs.getString(Prefs.IFTTT_KEY, null) ?: return false
+        val key = storedKey(context) ?: return false
         val now = TimeKeeper.nowMs()
         if (!Ifttt.mayFire(prefs.getLong(LAST + event.event, 0L), now)) return false
         prefs.edit().putLong(LAST + event.event, now).apply()

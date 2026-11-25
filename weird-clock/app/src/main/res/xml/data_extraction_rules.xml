@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    What Android's own backup leaves out on Android 12 and later, where
+    backup_rules.xml is ignored.
+
+    The same single file, IftttStore.FILE, which holds the webhook key and
+    nothing else. Named twice because the two sections are separate: one
+    says nothing about the other, and a section that is missing means
+    everything goes. cloud-backup is the copy kept in the Google account;
+    device-transfer is the one made across to a new phone while it is set
+    up, and the only one some phones still make with backup switched off.
+    No include rules, for the same reason as in backup_rules.xml.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="phone_only.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="phone_only.xml" />
+    </device-transfer>
+</data-extraction-rules>

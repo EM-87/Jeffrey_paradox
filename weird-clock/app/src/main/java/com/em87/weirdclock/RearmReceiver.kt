@@ -40,6 +40,11 @@ class RearmReceiver : BroadcastReceiver() {
             Intent.ACTION_MY_PACKAGE_REPLACED,
             Intent.ACTION_TIME_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED -> {
+                // Not an alarm, but this is the first moment a new build
+                // runs at all: the one that gave the webhook key a file of
+                // its own moves it there now rather than whenever the app
+                // is next opened. Nothing to do on every later call.
+                IftttStore.moveKeyOut(context)
                 AlarmScheduler.update(context)
                 BellScheduler.update(context)
             }

@@ -45,9 +45,9 @@ class HouseLeadTest {
     private fun settings(on: Boolean, lead: Int) {
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear()
             .putBoolean(Prefs.IFTTT, on)
-            .putString(Prefs.IFTTT_KEY, "bX9kQ27fLmNp4rS8tV1w")
             .putInt(Prefs.IFTTT_LEAD, lead)
             .commit()
+        IftttStore.storeKey(context, "bX9kQ27fLmNp4rS8tV1w")
     }
 
     /** One alarm, some hours from now, so the lead is comfortably ahead. */
