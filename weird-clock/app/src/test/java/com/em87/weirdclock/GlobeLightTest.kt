@@ -153,9 +153,9 @@ class GlobeLightTest {
      * the same everywhere, so that what a cloud does to it can be
      * measured without the sea being darker than the shore.
      */
-    private fun grey(): SatellitePhoto.Picture = SatellitePhoto.Picture(
+    private fun grey(shade: Int = 0x90): SatellitePhoto.Picture = SatellitePhoto.Picture(
         SatellitePhoto.WIDTH, SatellitePhoto.HEIGHT,
-        IntArray(SatellitePhoto.WIDTH * SatellitePhoto.HEIGHT) { 0xFF909090.toInt() }
+        IntArray(SatellitePhoto.WIDTH * SatellitePhoto.HEIGHT) { (0xFF shl 24) or (shade shl 16) or (shade shl 8) or shade }
     )
 
     /** One round cloud, as thick as cloud gets, and clear sky everywhere else. */
@@ -533,10 +533,51 @@ class GlobeLightTest {
                 worstIn = maxOf(worstIn, offHere)
                 said.append(" %.3f:%s off %d".format(far, now.toList(), offHere))
             }
+            // And round from the sun, where it stands lower over the edge
+            // and the ground has less of its light: the same account, to
+            // the same last pixels, over ground of one grey. Straight
+            // towards the sun the ground at the edge has nearly all of
+            // its light and looks the same with none taken off — which
+            // is how a light that let go of the world's last pixels got
+            // past the lines above when it was tried. A pale grey, since
+            // light taken off dark ground is not much to find.
+            val greyFlat = glass(globe(at(12), which, null, lit = false, sunAt = sunAt, size = size, ground = grey(0xF0)))
+            val greyLit = glass(globe(at(12), which, null, lit = true, sunAt = sunAt, size = size, ground = grey(0xF0)))
+            var worstRound = 0
+            var round = 0
+            // At a great many places, because whether the fault shows at
+            // one of them is a matter of where it falls between the
+            // pixels of the picture that is stretched: counted at six
+            // bearings, it showed on the ball and on neither pole.
+            val bearings = (0..16).flatMap { listOf(40.0 + it * 2.5, -40.0 - it * 2.5) }
+            for (bearing in bearings) {
+                val a = Math.toRadians(bearing)
+                val vx = ux * Math.cos(a) - uy * Math.sin(a)
+                val vy = ux * Math.sin(a) + uy * Math.cos(a)
+                for (far in listOf(0.97, 0.985, 0.9875, 0.99)) {
+                    val px = (size / 2.0 + vx * far * r).toInt()
+                    val py = (size / 2.0 + vy * far * r).toInt()
+                    val up = sunOver(px, py, size, toSun)!!
+                    // Clear of the twilight, where the night is laid over all of this.
+                    if (up < 0.08) continue
+                    val was = channels(greyFlat.at(px, py))
+                    val now = channels(greyLit.at(px, py))
+                    val share = (GlobeLight.air(rho(px, py, size), up) ushr 24) / 255.0
+                    for (c in 0..2) {
+                        val wanted = was[c] * GlobeLight.sunlight(up) * (1.0 - share) + air[c] * share
+                        worstRound = maxOf(worstRound, Math.abs(Math.round(wanted).toInt() - now[c]))
+                    }
+                    round++
+                }
+            }
             println(
                 "MEASURE the air on the ${which.key} view with the sun at $sunAt, outside as measured/ruled:$said" +
-                    " | off by %.3f of a share outside and $worstIn levels inside".format(worstOut)
+                    " | off by %.3f of a share outside, $worstIn levels inside, and $worstRound at $round places round the edge".format(worstOut)
             )
+            assertTrue("only $round places round the edge of the ${which.key} view are in daylight", round >= 100)
+            // Two shades, as it is. With the light letting go of the last
+            // pixels it is five from over either pole and ten on the ball.
+            assertTrue("the light at the edge of the ${which.key} view, round from the sun, is off the rule by $worstRound levels", worstRound <= 3)
             assertTrue("the air outside the ${which.key} view is off the rule by $worstOut", worstOut < 0.025)
             assertTrue("the air over the edge of the ${which.key} view is off the rule by $worstIn levels", worstIn <= 4)
             // The dark edge, inside and out: what it was.
