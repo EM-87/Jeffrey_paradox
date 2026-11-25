@@ -173,8 +173,11 @@ object Backup {
         // A webhook key is a secret, and a backup is a plain file in a
         // folder somebody chose — which may be a shared one, and is
         // certainly readable by anything that can read files. Anybody
-        // holding it can fire the house. It is worth losing on a restore
-        // and the settings row says so.
+        // holding it can fire the house. It is worth losing on a new phone
+        // and the settings row says so. It lives in a file of its own now
+        // (see [IftttStore.FILE]) and so is not in the store this reads;
+        // this is for the moment between a key arriving in the shared file
+        // and being moved out of it.
         Prefs.IFTTT_KEY
     ) + WeatherStore.KEPT
 
@@ -258,6 +261,10 @@ object Backup {
      * Replaces rather than merges: a backup is a photograph of a working
      * clock, and half of one is not a clock. Returns null if the file is not
      * ours, which is the only outcome the caller can do anything about.
+     *
+     * The webhook key is not in this store and is left where it is: a
+     * restore on the phone it was typed into keeps it, and on any other
+     * phone there is none to keep.
      */
     fun import(context: Context, json: String): Restored? {
         val root = try {

@@ -60,8 +60,10 @@ to whom, is set out below.
   again only while the app is open or when you press *Find me again* on
   the weather widget, never on its own in the background. They are used
   to work out the sun and the sky where you are: sunrise and sunset,
-  *Sun time*, the sundial and the globe. They are transmitted only as
+  *Sun time*, the sundial and the globe. The app transmits them only as
   described under *Weather* above: rounded, and only with that switch on.
+  Android's own backup can carry them too; see *Android's own backup*
+  below.
 - **Calendar** (optional): if you turn on *Your calendar*, the app asks
   for permission to read the device's calendar and draws what it finds
   on the clock and on the month page. It can only read: it has no
@@ -91,9 +93,11 @@ to whom, is set out below.
   included.
 - **Android's own backup**: the app lets Android back up its data. If
   backup is turned on in your phone's settings, Android can copy what
-  the app keeps — the stored location, the cycle record and the webhook
-  key among it — into your phone's backup (usually your Google account)
-  and onto a new phone when you move to one.
+  the app keeps — the stored location, the cycle record and the last
+  weather readings among it — into your phone's backup (usually your
+  Google account) and onto a new phone when you move to one. Never the
+  webhook key: the app keeps it in a file of its own, which both the
+  backup and the transfer leave out.
 - **No analytics, no ads, no third-party SDKs, no accounts.**
 
 ## Español
@@ -158,9 +162,11 @@ a continuación.
   vuelve a leerlas con la app abierta o cuando pulsas *Buscarme otra vez*
   en el widget del clima, nunca por su cuenta en segundo plano. Se usan
   para calcular el sol y el cielo donde estás: la salida y la puesta del
-  sol, la *Hora del sol*, el reloj de sol y el globo. Solo se
-  transmiten como se describe en *Clima*, más arriba: redondeadas, y solo
-  con ese interruptor encendido.
+  sol, la *Hora del sol*, el reloj de sol y el globo. La app solo las
+  transmite como se describe en *Clima*, más arriba: redondeadas, y solo
+  con ese interruptor encendido. La copia de seguridad del propio
+  Android también puede llevarlas; consulta *La copia de seguridad de
+  Android*, más abajo.
 - **Calendario** (opcional): si enciendes *Tu calendario*, la app pide
   permiso para leer el calendario del dispositivo y dibuja lo que
   encuentra en el reloj y en la página del mes. Solo puede leer: no tiene
@@ -195,7 +201,9 @@ a continuación.
 - **La copia de seguridad de Android**: la app deja que Android haga
   copia de sus datos. Si la copia de seguridad está activada en los
   ajustes de tu teléfono, Android puede copiar lo que la app conserva —
-  entre ello la ubicación guardada, el registro del ciclo y la clave del
-  webhook — en la copia de tu teléfono (normalmente tu cuenta de Google)
-  y en un teléfono nuevo cuando te pasas a él.
+  entre ello la ubicación guardada, el registro del ciclo y las últimas
+  lecturas del clima — en la copia de tu teléfono (normalmente tu cuenta
+  de Google) y en un teléfono nuevo cuando te pasas a él. Nunca la clave
+  del webhook: la app la guarda en un archivo aparte, que tanto la copia
+  como el traspaso dejan fuera.
 - **Sin analíticas, sin anuncios, sin SDK de terceros, sin cuentas.**
