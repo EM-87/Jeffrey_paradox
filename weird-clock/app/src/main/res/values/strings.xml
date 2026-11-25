@@ -642,7 +642,7 @@
     <string name="pref_ifttt_lead_title">Minutes of warning</string>
     <string name="pref_ifttt_lead_summary">How long before an alarm weird_clock_soon is sent. A lamp that starts its sunrise as the bell rings has simulated nothing. Nought sends nothing early</string>
     <string name="pref_weather_title">Weather</string>
-    <string name="pref_weather_summary">Off. Turning it on lets the clock ask three public forecast services — Open-Meteo, MET Norway and wttr.in — about your location rounded to a kilometre, every half hour. It is the only thing here that uses the network</string>
+    <string name="pref_weather_summary">Off. Turning it on lets the clock ask three public forecast services — Open-Meteo, MET Norway and wttr.in — about your location rounded to a kilometre, every half hour. Without this or Tell the house (IFTTT), in the too-advanced options, nothing here uses the network</string>
     <string name="pref_show_weekday_title">Day of the week</string>
     <string name="pref_show_weekday_summary">Mon, Tue… beside the date. In Latin on a Roman face</string>
     <string name="pref_next_alarm_title">Next alarm on the clock</string>
@@ -876,7 +876,7 @@
     <string name="weather_age_now">just now</string>
     <string name="weather_age_min">%1$d min ago</string>
     <string name="weather_age_hours">%1$d h ago</string>
-    <string name="weather_card_off">The weather is off. Turning it on lets the clock ask three public forecast services — Open-Meteo, MET Norway and wttr.in — about your location rounded to a kilometre, every half hour. It is the only thing here that uses the network.</string>
+    <string name="weather_card_off">The weather is off. Turning it on lets the clock ask three public forecast services — Open-Meteo, MET Norway and wttr.in — about your location rounded to a kilometre, every half hour. Without it or Tell the house (IFTTT), nothing here uses the network.</string>
     <string name="weather_card_turn_on">Turn it on</string>
     <string name="weather_card_nowhere">The weather needs a place to ask about, and nothing has told this clock where it is yet. Allow it your location and it will ask.</string>
     <string name="weather_card_waiting">Asking three services…</string>

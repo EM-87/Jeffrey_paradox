@@ -214,10 +214,11 @@ object Prefs {
     /**
      * Whether this clock is allowed to ask what the weather is doing.
      *
-     * Off, and it is the only setting in this app that turns a network on.
-     * Everything else here works with the phone in a drawer; this one asks
-     * three public forecast services about a location rounded to about a
-     * kilometre, thirty minutes apart, and reads nothing back but numbers.
+     * Off, and one of only two settings in this app that turn a network on;
+     * the other is [IFTTT], which pushes rather than asks. Everything else
+     * here works with the phone in a drawer; this one asks three public
+     * forecast services about a location rounded to about a kilometre,
+     * thirty minutes apart, and reads nothing back but numbers.
      *
      * A switch rather than a permission prompt because there is no prompt
      * to have — the internet is granted at install without asking — so the

@@ -513,7 +513,7 @@
     <string name="pref_ifttt_lead_title">Minutos de aviso</string>
     <string name="pref_ifttt_lead_summary">Cuánto antes de una alarma se envía weird_clock_soon. Una lámpara que empieza su amanecer cuando suena la campana no ha simulado nada. Cero no envía nada por adelantado</string>
     <string name="pref_weather_title">Clima</string>
-    <string name="pref_weather_summary">Apagado. Al encenderlo el reloj pregunta a tres servicios públicos — Open-Meteo, MET Norway y wttr.in — por tu ubicación redondeada a un kilómetro, cada media hora. Es lo único aquí que usa la red</string>
+    <string name="pref_weather_summary">Apagado. Al encenderlo el reloj pregunta a tres servicios públicos — Open-Meteo, MET Norway y wttr.in — por tu ubicación redondeada a un kilómetro, cada media hora. Sin esto ni Contárselo a la casa (IFTTT), en las opciones demasiado avanzadas, nada aquí usa la red</string>
     <string name="pref_show_weekday_title">Día de la semana</string>
     <string name="pref_show_weekday_summary">Lun, Mar… junto a la fecha. En latín en la cara romana</string>
     <string name="pref_next_alarm_title">Próxima alarma en el reloj</string>
@@ -601,13 +601,13 @@
     <string name="barometer_hpa">%1$d hPa</string>
     <string name="thermometer_degrees">%1$d\u00b0</string>
     <string name="pref_sundial_glass_title">Bar\u00f3metro y term\u00f3metro</string>
-    <string name="pref_sundial_glass_summary">Un bar\u00f3metro aneroide y un term\u00f3metro en el pedestal bajo la placa, como los llevaba un reloj de sol de jard\u00edn. Necesita el tiempo activado</string>
+    <string name="pref_sundial_glass_summary">Un bar\u00f3metro aneroide y un term\u00f3metro en el pedestal bajo la placa, como los llevaba un reloj de sol de jard\u00edn. Necesita el clima activado</string>
 
     <!-- La capa de nubes por sat\u00e9lite. -->
     <string name="pref_hemisphere_clouds_title">Nubes de sat\u00e9lite</string>
-    <string name="pref_hemisphere_clouds_summary">Las nubes que vieron los sat\u00e9lites, en el lado de d\u00eda del globo. Cu\u00e1les, y lo que cuestan, en la fila siguiente. Necesita el tiempo activado</string>
+    <string name="pref_hemisphere_clouds_summary">Las nubes que vieron los sat\u00e9lites, en el lado de d\u00eda del globo. Cu\u00e1les, y lo que cuestan, en la fila siguiente. Necesita el clima activado</string>
     <string name="pref_hemisphere_lights_title">Luces nocturnas</string>
-    <string name="pref_hemisphere_lights_summary">Las luces de anoche en el lado oscuro, de la banda d\u00eda/noche de VIIRS de la NASA. Limpias es el Black Marble, sin luna ni nubes, con dos o tres d\u00edas de retraso; crudas es lo que vio el sensor esa noche, con auroras, nubes a la luz de la luna, nieve e incendios. Cada sitio se tom\u00f3 al pasar el sat\u00e9lite por encima, sobre la una y media de la madrugada all\u00ed. Hasta 0,8 MB al d\u00eda. Necesita el tiempo activado</string>
+    <string name="pref_hemisphere_lights_summary">Las luces de anoche en el lado oscuro, de la banda d\u00eda/noche de VIIRS de la NASA. Limpias es el Black Marble, sin luna ni nubes, con dos o tres d\u00edas de retraso; crudas es lo que vio el sensor esa noche, con auroras, nubes a la luz de la luna, nieve e incendios. Cada sitio se tom\u00f3 al pasar el sat\u00e9lite por encima, sobre la una y media de la madrugada all\u00ed. Hasta 0,8 MB al d\u00eda. Necesita el clima activado</string>
     <string-array name="hemisphere_lights_entries">
         <item>Ninguna</item>
         <item>Limpias (Black Marble)</item>
@@ -694,7 +694,7 @@
     <string name="weather_age_now">ahora mismo</string>
     <string name="weather_age_min">hace %1$d min</string>
     <string name="weather_age_hours">hace %1$d h</string>
-    <string name="weather_card_off">El clima está apagado. Al encenderlo el reloj pregunta a tres servicios públicos — Open-Meteo, MET Norway y wttr.in — por tu ubicación redondeada a un kilómetro, cada media hora. Es lo único aquí que usa la red.</string>
+    <string name="weather_card_off">El clima está apagado. Al encenderlo el reloj pregunta a tres servicios públicos — Open-Meteo, MET Norway y wttr.in — por tu ubicación redondeada a un kilómetro, cada media hora. Sin él ni Contárselo a la casa (IFTTT), nada aquí usa la red.</string>
     <string name="weather_card_turn_on">Encenderlo</string>
     <string name="weather_card_nowhere">El clima necesita un lugar por el que preguntar, y nada le ha dicho aún a este reloj dónde está. Permítele la ubicación y preguntará.</string>
     <string name="weather_card_waiting">Preguntando a tres servicios…</string>
