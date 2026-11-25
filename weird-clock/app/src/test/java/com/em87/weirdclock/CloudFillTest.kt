@@ -278,13 +278,24 @@ class CloudFillTest {
         return bitmap
     }
 
-    /** And on the glass: cloud where the slits were, and none taken away. */
+    /**
+     * And on the glass: cloud where the slits were, and none taken away.
+     *
+     * Counted with the sun's light off, where cloud is a veil and nothing
+     * else. Lit, a cloud throws a shadow, and ground that has gone into
+     * the shadow of new cloud is darker without any cloud having been
+     * taken off it: 26 pixels of that the first time this was run on a
+     * lit globe. The pictures to be looked at are the lit ones.
+     */
     @Test
     fun `the slits through the tropics are closed on the globe`() {
         assertTrue(CloudStore.refresh(context, now))
         val (w, h, sent) = today
-        val slit = shoot(globe(SatelliteClouds.Field(w, h, SatelliteClouds.field(sent, w, h))), "clouds-gaps-open")
-        val closed = shoot(globe(CloudStore.cached(context, now)), "clouds-gaps-closed")
+        val open = SatelliteClouds.Field(w, h, SatelliteClouds.field(sent, w, h))
+        shoot(globe(open), "clouds-gaps-open")
+        shoot(globe(CloudStore.cached(context, now)), "clouds-gaps-closed")
+        val slit = shoot(globe(open).apply { lit = false }, "clouds-gaps-open-flat")
+        val closed = shoot(globe(CloudStore.cached(context, now)).apply { lit = false }, "clouds-gaps-closed-flat")
         var more = 0
         var less = 0
         for (y in 0 until closed.height) for (x in 0 until closed.width) {

@@ -283,9 +283,21 @@ class LiveCloudsOnTheGlobeTest {
                 if (b - a > 30) whiter++
                 if (a - b > 30) darker++
             }
-            println("MEASURE the frame of 03:00 on the ${which.key} view: $whiter of ${worn.width * worn.height / 4} pixels sampled are whiter for it, $darker darker")
+            // Darker is ground in a cloud's shadow, now that cloud throws
+            // one. With the sun's light off the cloud is the veil it was,
+            // and a veil darkens nothing.
+            val flatBare = draw(globe(three, null, which).apply { lit = false })
+            val flatWorn = draw(globe(three, live, which).apply { lit = false })
+            var veiled = 0
+            for (y in 0 until flatWorn.height step 2) for (x in 0 until flatWorn.width step 2) {
+                val a = (flatBare.getPixel(x, y) shr 8) and 0xFF
+                val b = (flatWorn.getPixel(x, y) shr 8) and 0xFF
+                if (a - b > 30) veiled++
+            }
+            println("MEASURE the frame of 03:00 on the ${which.key} view: $whiter of ${worn.width * worn.height / 4} pixels sampled are whiter for it, $darker darker in its shadow, $veiled darker with the light off")
             assertTrue("the hour's cloud is not on the glass: $whiter pixels", whiter > 5_000)
-            assertEquals("cloud made something darker", 0, darker)
+            assertEquals("cloud made something darker", 0, veiled)
+            assertTrue("more of the glass is in shadow than in cloud: $darker against $whiter", darker * 20 < whiter)
         }
     }
 

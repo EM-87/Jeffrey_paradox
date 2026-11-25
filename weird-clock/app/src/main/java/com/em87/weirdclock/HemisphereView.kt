@@ -789,6 +789,10 @@ class HemisphereView @JvmOverloads constructor(
         lightDisc?.recycle()
         shadow?.recycle()
         veil?.recycle()
+        shading?.recycle()
+        air?.recycle()
+        shading = null
+        air = null
         dayDisc = null
         nightDisc = null
         cloudDisc = null
@@ -1261,14 +1265,43 @@ class HemisphereView @JvmOverloads constructor(
         canvas.save()
         canvas.rotate(-spin, cx, cy)
         canvas.drawBitmap(day, src, dst, blit)
+        canvas.restore()
         // The clouds go on the daylit map and under the night one, which
         // is not an ordering trick — corrected reflectance is sunlight
         // coming back off the top of the cloud, so there is no night half
         // of this photograph to draw. Laying it under the night layer
         // means the dark side covers it exactly where the satellite had
         // nothing to see.
-        cloudDisc?.let { canvas.drawBitmap(it, src, dst, blit) }
-        canvas.restore()
+        cloudDisc?.let { clouds ->
+            // Its shadow first, under it: the same cloud in black, thrown
+            // a little way from the sun — see [GlobeLight.shadowOffset].
+            // Moved in the frame of the glass and not of the world, which
+            // is the frame the sun stands still in; the world is turned
+            // under it afterwards.
+            if (lit) {
+                val sun = Hemisphere.project(view, subLat, 0.0, 0.0, sunAt)
+                val thrown = GlobeLight.shadowOffset(sun[0], sun[1])
+                canvas.save()
+                canvas.translate((thrown[0] * r).toFloat(), (thrown[1] * r).toFloat())
+                canvas.rotate(-spin, cx, cy)
+                canvas.drawBitmap(clouds, src, dst, shade)
+                canvas.restore()
+            }
+            canvas.save()
+            canvas.rotate(-spin, cx, cy)
+            canvas.drawBitmap(clouds, src, dst, blit)
+            canvas.restore()
+        }
+        // And the sun's light over the ground and the cloud alike: all of
+        // it under the sun and less towards the edge of the night — see
+        // [GlobeLight.sunlight]. In the frame of the glass, like the
+        // night's mask, so it needs no turning.
+        if (lit) {
+            sunShade(subLat)?.let {
+                maskSrc.set(0, 0, it.width, it.height)
+                canvas.drawBitmap(it, maskSrc, dst, blit)
+            }
+        }
 
         // The night side, over the day one, through a mask of where the
         // sun has set.
@@ -1325,6 +1358,124 @@ class HemisphereView @JvmOverloads constructor(
         line.strokeWidth = r * 0.012f
         canvas.drawCircle(cx, cy, r, line)
         line.alpha = 255
+
+        // And the air over the edge, where the sun is on it: inside the
+        // world and a little way outside, so it is drawn last and not
+        // cut to the disc — see [GlobeLight.air].
+        if (lit) {
+            airGlow(subLat)?.let {
+                val reach = r * (1f + GlobeLight.AIR_REACH.toFloat())
+                airDst.set(cx - reach, cy - reach, cx + reach, cy + reach)
+                maskSrc.set(0, 0, it.width, it.height)
+                canvas.drawBitmap(it, maskSrc, airDst, blit)
+            }
+        }
+    }
+
+    /**
+     * Whether the world is drawn as a ball the sun lights — shaded by the
+     * sun's height, with air at its edge and shadows under its cloud — or
+     * as the flat photograph it was. For the tests, which measure the one
+     * against the other; nothing in the app turns it off.
+     */
+    internal var lit = true
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
+    /**
+     * The sun's light on the daylit side, as black laid over it: none
+     * under the sun, more towards the terminator, by
+     * [GlobeLight.sunlight]. Kept until the sun has moved, like
+     * [nightMask], and in the same frame.
+     *
+     * How high the sun stands over a point of the disc is asked of the
+     * picture and not of the map: the point's own direction on the ball
+     * against the sun's, which [Hemisphere.project] gives for the place
+     * it is overhead. That is one multiplication a pixel where going by
+     * way of latitude and longitude is five trigonometric functions.
+     */
+    private fun sunShade(subLat: Double): Bitmap? {
+        val key = "$view/${Math.round(subLat * 4.0)}/${Math.round(sunAt * 2.0)}"
+        if (key == shadedFor && shading != null) return shading
+        val sun = Hemisphere.project(view, subLat, 0.0, 0.0, sunAt)
+        val size = MASK
+        val pixels = IntArray(size * size)
+        val half = size / 2.0
+        for (py in 0 until size) {
+            val y = (py + 0.5 - half) / half
+            for (px in 0 until size) {
+                val x = (px + 0.5 - half) / half
+                val within = 1.0 - x * x - y * y
+                // Off the world: as dark as the edge beside it, so that the
+                // picture stretched over the disc has no bright fringe.
+                val z = Math.sqrt(within.coerceAtLeast(0.0))
+                val cosZ = x * sun[0] + y * sun[1] + z * sun[2]
+                val dark = 1.0 - GlobeLight.sunlight(cosZ)
+                pixels[py * size + px] = Math.round(dark * 255.0).toInt() shl 24
+            }
+        }
+        shading?.recycle()
+        shading = Bitmap.createBitmap(pixels, size, size, Bitmap.Config.ARGB_8888)
+        shadedFor = key
+        lightings++
+        return shading
+    }
+
+    /** For the tests: how many times the sun's light or the air has been worked out. */
+    private var lightings = 0
+
+    internal fun lightingsForTest(): Int = lightings
+
+    private var shading: Bitmap? = null
+    private var shadedFor: String? = null
+
+    /**
+     * The air at the edge of the world, as a picture a little larger
+     * than the world: see [GlobeLight.air]. Kept until the sun has
+     * moved.
+     */
+    private fun airGlow(subLat: Double): Bitmap? {
+        val key = "$view/${Math.round(subLat * 4.0)}/${Math.round(sunAt * 2.0)}"
+        if (key == airedFor && air != null) return air
+        val sun = Hemisphere.project(view, subLat, 0.0, 0.0, sunAt)
+        val size = AIR_SIZE
+        val pixels = IntArray(size * size)
+        val half = size / 2.0
+        val reach = 1.0 + GlobeLight.AIR_REACH
+        for (py in 0 until size) {
+            val y = (py + 0.5 - half) / half * reach
+            for (px in 0 until size) {
+                val x = (px + 0.5 - half) / half * reach
+                val rho = Math.hypot(x, y)
+                if (rho > reach) continue
+                // Outside the world the ground nearest is the edge itself.
+                val out = if (rho > 1.0) rho else 1.0
+                val nx = x / out
+                val ny = y / out
+                val nz = Math.sqrt((1.0 - nx * nx - ny * ny).coerceAtLeast(0.0))
+                pixels[py * size + px] = GlobeLight.air(rho, nx * sun[0] + ny * sun[1] + nz * sun[2])
+            }
+        }
+        air?.recycle()
+        air = Bitmap.createBitmap(pixels, size, size, Bitmap.Config.ARGB_8888)
+        airedFor = key
+        lightings++
+        return air
+    }
+
+    private var air: Bitmap? = null
+    private var airedFor: String? = null
+    private val airDst = RectF()
+
+    /** A cloud drawn as its own shadow: black, by how much cloud there is, and no darker than [GlobeLight.SHADOW_DEPTH]. */
+    private val shade = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG).apply {
+        colorFilter = android.graphics.PorterDuffColorFilter(
+            android.graphics.Color.BLACK, android.graphics.PorterDuff.Mode.SRC_IN
+        )
+        alpha = Math.round(GlobeLight.SHADOW_DEPTH * 255.0).toInt()
     }
 
     /**
@@ -1336,8 +1487,10 @@ class HemisphereView @JvmOverloads constructor(
      *
      * Soft on purpose. The terminator on the real earth is not a line —
      * the sun is half a degree wide and the air carries the light some way
-     * past the horizon — so the mask fades over a couple of degrees, which
-     * is also what stops it looking like a shape laid on a photograph.
+     * past the horizon — so the mask fades over seven or eight degrees of
+     * the sun's height, from [DAWN] to [DUSK], which is also what stops
+     * it looking like a shape laid on a photograph. ("A couple of
+     * degrees", this said, for as long as nobody worked it out.)
      */
     private fun nightMask(subLat: Double): Bitmap? {
         val key = "$view/${Math.round(subLat * 4.0)}/${Math.round(sunAt * 2.0)}"
@@ -1349,7 +1502,7 @@ class HemisphereView @JvmOverloads constructor(
             val y = (py + 0.5 - half) / half
             for (px in 0 until size) {
                 val x = (px + 0.5 - half) / half
-                val place = Hemisphere.unproject(view, x, y, sunAt) ?: continue
+                val place = placeAt(x, y) ?: continue
                 val cosZ = Hemisphere.cosZenith(place[0], place[1], subLat)
                 // One where the sun is well down and nought where it is
                 // up, with the fade between. Written the other way round
@@ -1364,6 +1517,27 @@ class HemisphereView @JvmOverloads constructor(
         shadow = Bitmap.createBitmap(pixels, size, size, Bitmap.Config.ARGB_8888)
         maskedFor = key
         return shadow
+    }
+
+    /**
+     * The place of the world drawn at a point of the disc — or, off the
+     * disc, at the point of its edge nearest.
+     *
+     * For [nightMask], which is a small picture stretched over the disc.
+     * Its corners are off the world, and they were left empty:
+     * stretched, the emptiness ran into the last pixel of the world all
+     * the way round, so the night was thinner along its own edge and the
+     * daylit map under it showed there as a pale fringe. Found by asking
+     * whether lighting the day had left the night alone, which it had
+     * everywhere but there.
+     *
+     * [moonVeil] has the same corners and is left as it was: a veil that
+     * thins at the edge is the moonlight thinning, and hides nothing.
+     */
+    private fun placeAt(x: Double, y: Double): DoubleArray? {
+        val out = Math.hypot(x, y)
+        if (out <= EDGE) return Hemisphere.unproject(view, x, y, sunAt)
+        return Hemisphere.unproject(view, x / out * EDGE, y / out * EDGE, sunAt)
     }
 
     /**
@@ -1718,6 +1892,19 @@ class HemisphereView @JvmOverloads constructor(
         /** How fine the mask is. Sixteen thousand answers, not a quarter
          * of a million. */
         const val MASK = 128
+
+        /**
+         * How fine the picture of the air is. Finer than the mask: the air
+         * outside the world is a ring a thirtieth of the radius wide, and
+         * at the mask's size that is two pixels of it.
+         */
+        const val AIR_SIZE = 256
+
+        /**
+         * How far out on the disc there is still world to ask about: its
+         * edge, less a hair — see [placeAt].
+         */
+        private const val EDGE = 0.999999
 
         /** The sun, and you. */
         const val SUN = 0xFFFFC93C.toInt()
