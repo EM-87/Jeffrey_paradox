@@ -7,7 +7,13 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * The one place in this app that talks to the internet.
+ * The first place in this app that talked to the internet, and still the
+ * only one that says where the phone is.
+ *
+ * Not the only one that talks any more. The pictures of the whole earth
+ * ([DailyImageStore], [LiveCloudStore]) come in behind this same switch,
+ * and [IftttStore] has a switch of its own; with both off, nothing in the
+ * app opens a socket. See [Prefs.WEATHER] and [Prefs.IFTTT].
  *
  * It did not talk to anything at all until the weather arrived, and that
  * is worth keeping true in the narrowest possible sense: nothing here runs

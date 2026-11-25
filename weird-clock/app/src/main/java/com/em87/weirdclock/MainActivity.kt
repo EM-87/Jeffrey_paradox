@@ -4124,8 +4124,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // Whatever the sky is doing, if this clock has been allowed to
         // ask. Read out of what was written down last time so the face can
         // draw immediately, and a fetch started behind it when that is old
-        // — see [WeatherStore], the one thing in this app that opens a
-        // socket, and only ever with the switch on.
+        // — see [WeatherStore], which opens a socket only ever with the
+        // switch on.
         showWeather()
         askTheSky()
 
@@ -4364,7 +4364,8 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
      * what comes back when it does.
      *
      * Only with the switch on and a place to ask about — see
-     * [WeatherStore], the one thing in this app that opens a socket.
+     * [WeatherStore], which makes the one request in this app that says
+     * where the phone is.
      */
     private fun askTheSky(patient: Boolean = false) {
         if (!WeatherStore.wanted(this) || !DayNight.hasFix()) return

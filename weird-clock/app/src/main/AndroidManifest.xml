@@ -18,7 +18,8 @@
       The first network this clock has ever wanted, and it is off until
       somebody switches it on: Android grants the internet at install with
       no prompt, so the asking has to be a switch inside the app that says
-      what it is going to do. See WeatherStore.
+      what it is going to do. There are two such switches now: see
+      WeatherStore and IftttStore.
     -->
     <!-- Read only, and there is no write anywhere in this app. A clock
          that can see the diary is not a diary. -->
