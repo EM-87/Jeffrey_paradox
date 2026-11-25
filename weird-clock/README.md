@@ -35,10 +35,10 @@ An analog clock app for Android with deliberately weird options.
   disabled while time is bent).
 - **Sun time** — the sundial mode: the whole app runs on local apparent
   solar time (`UTC + longitude·4min + equation of time`), so noon on the
-  dial is the moment the sun actually crosses your meridian. One coarse
-  location fix, cached on the phone, and no network needed for this;
-  alarms stay on civil time. (The app's only uses of the network are
-  opt-in and off by default: see [PRIVACY.md](PRIVACY.md).)
+  dial is the moment the sun actually crosses your meridian. It works
+  from the phone's coarse location, kept on the phone, and needs no
+  network; alarms stay on civil time. (The app's only uses of the
+  network are opt-in and off by default: see [PRIVACY.md](PRIVACY.md).)
 - **Dynamic theme (Material You)** — on Android 12+ the dial, hands,
   widgets and floating hourglass dress in your wallpaper's palette.
 - **Automatic night mode** (optional) — from 22:00 to 07:00 every color
