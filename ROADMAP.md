@@ -146,3 +146,68 @@ Lo que queda:
   horas, y en las semanas a cada lado de la noche polar el casquete queda
   algo más claro de lo que la regla sabe (unos diez grises, en octubre).
 
+## El globo como una bola iluminada: lo hecho en la 40.20 y lo que queda
+
+La pregunta fue por qué el globo de otro teléfono es bonito y este no. Porque
+aquel es una bola con luz y este era un mapa con la noche puesta sobre la
+mitad. Se eligieron tres cosas que acortan la distancia sin dibujar la Tierra
+de otra manera: cada una es una imagen más sobre el disco, calculada una vez
+para donde está el sol (`GlobeLight`).
+
+Hecho en la 40.20:
+
+- **Luz según la altura del sol**. El suelo y la nube conservan toda su luz
+  bajo el sol y el 40 % en el terminador, con una curva que sube deprisa
+  (71 % con el sol a 15°, 82 % a 30°): no la ley del coseno, que deja media
+  Europa a oscuras un mediodía de invierno. Medido en el cristal, en las
+  tres vistas: a 0,002–0,005 de la regla de media, 0,020 como mucho.
+- **Aire en el borde**. Un azul (`#78B6FF`) que tapa hasta el 55 % justo en
+  el borde iluminado, se adelgaza hacia dentro y llega un 3,5 % del radio
+  hacia fuera; nada en el borde de noche. Medido: a 0,012 de la regla fuera
+  del mundo y a dos tonos dentro, hasta el último píxel.
+- **Nubes con la misma luz y con sombra**. La sombra es la propia nube en
+  negro, al 45 %, corrida 0,012 radios en sentido contrario al sol: 76 km,
+  unas diez veces lo real, como el relieve de un globo de escritorio.
+  Medido con una nube sola sobre suelo gris en las tres vistas, a tres
+  horas y con el sol fijado a los dos lados: el suelo oscurecido queda del
+  lado contrario al sol, a menos de un píxel del eje, y conserva el 61 % de
+  su luz bajo la nube más espesa (la regla dice 62 %).
+- **La noche, como estaba**: ni un píxel distinto en el lado oscuro (de
+  411 000 a 631 000 píxeles, según la vista), salvo el contorno.
+
+Dos fallos que salieron al medir lo anterior, corregidos:
+
+- **El mapa de la vista sur giraba al revés**, desde la 30.0. El disco de
+  las dos vistas polares se pinta una vez y se gira; se giraba como el del
+  norte en las dos. En la sur la noche, el marcador y las horas estaban en
+  su sitio y debajo había la mitad equivocada del mundo, con un error del
+  doble de la longitud del sol: solo acertaba con el sol sobre Greenwich o
+  sobre el antimeridiano. A la una de la madrugada UTC, en una pantalla de
+  1080, el suelo estaba a 202 píxeles de su sitio y las luces a 172; con el
+  dedo, el mundo giraba al contrario. Ninguna prueba preguntaba dónde se
+  dibuja un lugar del mapa: ahora lo pregunta una por capa (suelo, nube,
+  mapa nocturno, luces) en las tres vistas (`PlacesOnTheGlassTest`).
+- **La noche se adelgazaba en su propio borde**: la máscara de la noche se
+  quedaba vacía fuera del disco y, al estirarla, el vacío entraba en los
+  últimos siete píxeles del mundo, por donde asomaba el mapa de día.
+
+Lo que queda:
+
+- **Sin ver en un teléfono**. Ni el aspecto ni lo que cuesta por fotograma
+  (tres imágenes más por cuadro, y 80 000 píxeles de cálculo cada vez que el
+  sol cambia un cuarto de grado de latitud). Todo lo medido es sobre
+  imágenes generadas en las pruebas.
+- **El brillo del sol en el mar**. El océano es el del mapa, mate.
+- **La sombra no es una proyección**: es un desplazamiento fijo en el plano
+  de la pantalla. No se alarga con el sol bajo ni se acorta con el sol
+  alto, y junto al borde del mundo debería encogerse con la curvatura.
+- **Las nubes siguen siendo planas**: tienen luz y sombra en el suelo, no
+  volumen ni lado oscuro propio.
+- **El terminador no tiene color**. La penumbra va del 40 % de luz a la
+  noche sin el rojo del crepúsculo, y el aire del borde es de un solo azul.
+- **Con el zoom al máximo** la luz (una imagen de 128 píxeles de lado) y el
+  aire (256) se estiran el doble; solo están medidos sin zoom.
+- **El contorno**: un anillo de dos o tres píxeles donde el recorte
+  suavizado del mundo mezcla la noche con lo que hay debajo. Ya estaba.
+- **El velo de la Luna** sigue adelgazándose en el último píxel del borde,
+  igual que hacía la noche; se dejó como estaba porque no tapa nada.
