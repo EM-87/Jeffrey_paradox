@@ -273,6 +273,26 @@ class IftttStoreTest {
         assertEquals(key, IftttStore.storedKey(context))
     }
 
+    /**
+     * And so does opening the app, for the key no update will ever
+     * catch: one brought onto a new phone by an Android backup taken
+     * before the key had a file of its own, with the switch off. Looked
+     * for in the shared file before anything here reads the key, since
+     * reading it is itself a way of moving it.
+     */
+    @Test
+    fun `opening the app moves a key nothing reads`() {
+        switchedOn(false, withKey = null)
+        keyInTheSharedFile()
+        shared.edit().putBoolean(Prefs.OVERLAY_ASKED, true).putBoolean(Prefs.FACE_ASKED, true).commit()
+        assertTrue("set up wrong", shared.contains(Prefs.IFTTT_KEY))
+        org.robolectric.Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.create()
+            assertFalse("opening the app left the key in the backed-up file", shared.contains(Prefs.IFTTT_KEY))
+            assertEquals(key, IftttStore.storedKey(context))
+        }
+    }
+
     /** Moved once is moved: a second pass finds nothing and changes nothing. */
     @Test
     fun `moving it twice is the same as once`() {

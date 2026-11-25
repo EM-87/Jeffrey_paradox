@@ -162,16 +162,19 @@ class SensorsInTheBackgroundTest {
 
     /** Readings of gravity down the phone's own axes, to the accelerometer's listeners. */
     private fun reading(x: Float, y: Float, times: Int = 1) {
-        repeat(times) {
-            val event = shadow.createSensorEvent()
-            // A SensorEvent cannot be built by hand: the constructor is
-            // hidden and the values sit in a final array — see
-            // [HourglassFlipTest].
-            val field = SensorEvent::class.java.getField("values")
-            field.isAccessible = true
-            field.set(event, floatArrayOf(x, y, 0f))
-            shadow.sendSensorEventToListeners(event, accelerometer)
-        }
+        repeat(times) { shadow.sendSensorEventToListeners(event(x, y), accelerometer) }
+    }
+
+    /** One reading of gravity down the phone's own axes. */
+    private fun event(x: Float, y: Float): SensorEvent {
+        val event = shadow.createSensorEvent()
+        // A SensorEvent cannot be built by hand: the constructor is
+        // hidden and the values sit in a final array — see
+        // [HourglassFlipTest].
+        val field = SensorEvent::class.java.getField("values")
+        field.isAccessible = true
+        field.set(event, floatArrayOf(x, y, 0f))
+        return event
     }
 
     /** Frames of the glass, forty milliseconds apart, each one a step of the sand. */
@@ -506,11 +509,19 @@ class SensorsInTheBackgroundTest {
     fun `a finished shake mission stops listening and stops the alarm once`() {
         ringing(Mission.SHAKE).use { c ->
             c.setup()
+            val ear = shadow.getListeners().first { shadow.hasListener(it, accelerometer) }
             shakes(Mission.SHAKES_NEEDED)
             assertTrue("set up wrong: the mission was not finished", c.get().isFinishing)
             assertFalse("still listening to a finished mission", anyoneHears(accelerometer))
 
             shakes(3)
+            // And the readings that were already on their way when it let
+            // go: giving a listener back does not empty what the sensor
+            // had queued for it. Handed to it directly, as the phone does.
+            repeat(3) {
+                ear.onSensorChanged(event(Mission.SHAKE_ON + 6f, 0f))
+                ear.onSensorChanged(event(0f, 9.81f))
+            }
             val stops = generateSequence {
                 Shadows.shadowOf(context as Application).nextStartedService
             }.count { it.action == AlarmService.ACTION_STOP }
