@@ -1,5 +1,7 @@
 package com.em87.weirdclock
 
+import android.app.Activity
+import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.hardware.Sensor
@@ -41,6 +43,11 @@ import java.time.Duration
  * on hearing the rotation vector in the pocket afterwards. On Android 7
  * and 8, and on any version while the countdown's or the alarm's service
  * runs, a stopped app still gets its readings.
+ *
+ * And the ring screen, which is the one that runs with that service
+ * behind it every time, asked for its light meter and its accelerometer
+ * when it was built and gave them back only when it was destroyed. An
+ * alarm whose screen has been switched off is stopped, not destroyed.
  *
  * Every question here is asked of Robolectric's sensor manager, which
  * keeps the registrations: the thing that would deliver the readings, and
@@ -88,6 +95,12 @@ class SensorsInTheBackgroundTest {
         System.clearProperty(WINDOWS_VISIBLE)
     }
 
+    /** The service's clock is a static, and outlives the test that set it. */
+    @After
+    fun nothingRinging() {
+        AlarmService.ringingSince = 0L
+    }
+
     @Before
     fun sensors() {
         accelerometer = ShadowSensor.newInstance(Sensor.TYPE_ACCELEROMETER)
@@ -129,7 +142,7 @@ class SensorsInTheBackgroundTest {
      * decor view invisible, and the window's visibility follows on the
      * next traversal. That half is done here by hand, the same way.
      */
-    private fun hidden(c: ActivityController<MainActivity>) {
+    private fun hidden(c: ActivityController<out Activity>) {
         c.stop()
         c.get().window.decorView.visibility = View.INVISIBLE
         idle()
@@ -142,7 +155,7 @@ class SensorsInTheBackgroundTest {
      * window's visibility to reach the views, and well short of the half
      * second the sand waits for its first reading.
      */
-    private fun back(c: ActivityController<MainActivity>) {
+    private fun back(c: ActivityController<out Activity>) {
         c.restart().resume().visible()
         Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(100))
     }
@@ -388,6 +401,145 @@ class SensorsInTheBackgroundTest {
                 "a second with no reading and the sand had not moved",
                 before.contentEquals(sand.cellsForTest())
             )
+        }
+    }
+
+    // ------------------------------------------------------- the ring screen
+
+    /** The ring screen, for an alarm with [mission] and a sunrise of [sunrise] seconds. */
+    private fun ringing(mission: String = Mission.NONE, sunrise: Int = 0) =
+        Robolectric.buildActivity(
+            AlarmRingActivity::class.java,
+            android.content.Intent(context, AlarmRingActivity::class.java)
+                .putExtra(AlarmScheduler.EXTRA_MISSION, mission)
+                .putExtra(AlarmScheduler.EXTRA_GENTLE, sunrise)
+        )
+
+    /** A light meter, which only a sunrise asks for. */
+    private fun lightMeter(): Sensor =
+        ShadowSensor.newInstance(Sensor.TYPE_LIGHT).also { shadow.addSensor(it) }
+
+    /** Shakes of the phone: each a swing well past the bar, and back to rest. */
+    private fun shakes(count: Int) = repeat(count) {
+        reading(Mission.SHAKE_ON + 6f, 0f)
+        reading(0f, 9.81f)
+    }
+
+    /** What the shake mission shows it has counted. */
+    private fun shown(app: AlarmRingActivity): String =
+        app.findViewById<android.widget.TextView>(R.id.mission_prompt).text.toString()
+
+    private fun counting(n: Int): String =
+        context.getString(R.string.mission_shake_fmt, n, Mission.SHAKES_NEEDED)
+
+    /**
+     * The ring screen lets go of both on pause, and takes both back.
+     *
+     * An alarm with a sunrise and a shake mission, which is the one that
+     * has both: the light meter and the accelerometer.
+     */
+    @Test
+    fun `the ring screen lets go of its sensors on pause`() {
+        val light = lightMeter()
+        ringing(Mission.SHAKE, sunrise = 300).use { c ->
+            c.setup()
+            assertTrue("set up wrong: the mission is not listening", anyoneHears(accelerometer))
+            assertTrue("set up wrong: the sunrise is not", anyoneHears(light))
+
+            c.pause()
+            assertEquals(
+                "still listening behind a paused ring screen",
+                emptyList<Any>(), shadow.getListeners()
+            )
+
+            c.resume()
+            assertTrue("the mission did not take the accelerometer back", anyoneHears(accelerometer))
+            assertTrue("nor the sunrise the light meter", anyoneHears(light))
+        }
+    }
+
+    /**
+     * A shake mission can still be finished after the screen has been off.
+     *
+     * The power button pressed half way through stops the screen without
+     * destroying it. Shaking while it is off counts for nothing; when it
+     * comes back the count is where it was and the shaking counts again.
+     * This is the screen that stops the alarm, and a mission that could not
+     * be finished any more would be an alarm nobody could turn off.
+     */
+    @Test
+    fun `a shake mission can still be finished after the screen has been off`() {
+        ringing(Mission.SHAKE).use { c ->
+            c.setup()
+            val app = c.get()
+            shakes(3)
+            assertEquals("set up wrong: the shaking was not counted", counting(3), shown(app))
+
+            c.pause()
+            hidden(c)
+            assertEquals(
+                "still listening with the screen off",
+                emptyList<Any>(), shadow.getListeners()
+            )
+            shakes(5)
+
+            back(c)
+            assertTrue("the mission did not listen again", anyoneHears(accelerometer))
+            assertEquals("the count did not come back as it was", counting(3), shown(app))
+
+            shakes(1)
+            assertEquals("a shake after the screen came back was not counted", counting(4), shown(app))
+
+            shakes(Mission.SHAKES_NEEDED - 4)
+            assertTrue("the last shake did not stop the alarm", app.isFinishing)
+        }
+    }
+
+    /**
+     * And once it is finished it lets go at once, and stops the alarm once.
+     *
+     * Readings already on their way when the last shake landed reached a
+     * mission that was finished, and each one stopped the alarm all over
+     * again, until the screen was taken down.
+     */
+    @Test
+    fun `a finished shake mission stops listening and stops the alarm once`() {
+        ringing(Mission.SHAKE).use { c ->
+            c.setup()
+            shakes(Mission.SHAKES_NEEDED)
+            assertTrue("set up wrong: the mission was not finished", c.get().isFinishing)
+            assertFalse("still listening to a finished mission", anyoneHears(accelerometer))
+
+            shakes(3)
+            val stops = generateSequence {
+                Shadows.shadowOf(context as Application).nextStartedService
+            }.count { it.action == AlarmService.ACTION_STOP }
+            assertEquals("the alarm was stopped more than once", 1, stops)
+        }
+    }
+
+    /**
+     * The light meter goes with the sunrise.
+     *
+     * How light the room is decides only where the screen settles when it
+     * is picked up part way through a sunrise. Once the sunrise is over
+     * nothing reads it, so it is let go then, and a resume after that does
+     * not ask for it again.
+     */
+    @Test
+    fun `the light meter is let go when the sunrise ends and not taken back`() {
+        val light = lightMeter()
+        AlarmService.ringingSince = android.os.SystemClock.elapsedRealtime()
+        ringing(sunrise = 60).use { c ->
+            c.setup()
+            assertTrue("set up wrong: the sunrise is not reading the room", anyoneHears(light))
+
+            Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(61))
+            assertFalse("the light meter outlived the sunrise", anyoneHears(light))
+
+            c.pause()
+            c.resume()
+            assertFalse("the resume took the light meter back after the sunrise", anyoneHears(light))
         }
     }
 

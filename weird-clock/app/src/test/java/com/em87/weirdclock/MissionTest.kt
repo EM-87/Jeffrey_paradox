@@ -497,6 +497,31 @@ class MissionTest {
     }
 
     /**
+     * And keeps it once the screen has been off and on again: the sensors
+     * are asked for on the way back now, and nothing on that way may take
+     * the slider away for a mission this phone cannot do.
+     */
+    @Test
+    fun `nor does it lose the slider when the screen comes back`() {
+        val intent = android.content.Intent(context, AlarmRingActivity::class.java)
+            .putExtra(AlarmScheduler.EXTRA_MISSION, Mission.SHAKE)
+        Robolectric.buildActivity(AlarmRingActivity::class.java, intent).use { c ->
+            c.setup()
+            c.pause().stop()
+            c.restart().resume()
+            val app = c.get()
+            assertEquals(Mission.NONE, app.missionKind)
+            assertEquals(View.VISIBLE, app.findViewById<View>(R.id.stop_slider).visibility)
+            assertEquals(View.GONE, app.findViewById<View>(R.id.mission_block).visibility)
+            val manager = context.getSystemService(android.hardware.SensorManager::class.java)
+            assertEquals(
+                "and it listens for nothing",
+                emptyList<Any>(), org.robolectric.Shadows.shadowOf(manager).getListeners()
+            )
+        }
+    }
+
+    /**
      * And the shade's Stop button is the escape that would make the whole
      * thing decoration: one pull and one tap, from bed, with your eyes
      * shut. With a mission set it has to lead to the mission instead.

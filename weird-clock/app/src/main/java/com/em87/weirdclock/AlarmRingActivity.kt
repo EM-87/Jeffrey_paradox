@@ -161,6 +161,10 @@ class AlarmRingActivity : AppCompatActivity() {
                 // is what it did, and is a slab of white light at the end
                 // of a mode whose whole purpose is not being one.
                 setBrightness(GentleWake.THE_PHONE_S_OWN)
+                // And the light meter with it: how bright the room is only
+                // ever decided where a sunrise hands over, and there is no
+                // sunrise left to hand over from.
+                sensors?.unregisterListener(lightListener)
                 return
             }
             setBrightness(
@@ -234,19 +238,8 @@ class AlarmRingActivity : AppCompatActivity() {
         // taking the screen brightness over at all is a thing to do only
         // when somebody has said so.
         if (gentleRampMs <= 0L) return
-        // How light the room is, so that a screen somebody picks up is
-        // bright enough to read in *that* room rather than at a level
-        // chosen for a dark one. Registered only for a gentle wake, and
-        // dropped with the window: it is one reading a second at the
-        // slowest rate the framework offers.
-        (getSystemService(SENSOR_SERVICE) as? android.hardware.SensorManager)?.let { manager ->
-            manager.getDefaultSensor(android.hardware.Sensor.TYPE_LIGHT)?.let { sensor ->
-                manager.registerListener(
-                    lightListener, sensor,
-                    android.hardware.SensorManager.SENSOR_DELAY_NORMAL
-                )
-            }
-        }
+        // The light meter that goes with it is asked for in listen(), so
+        // that it is read only while this screen is in front of somebody.
         // Set here and now, not on the next pass of the looper: a posted
         // message runs after this window has had its first frame, which is
         // the frame that was arriving at full brightness.
@@ -262,7 +255,9 @@ class AlarmRingActivity : AppCompatActivity() {
     internal val wantedAnswer: Int?
         get() = problem?.answer
     private var shakes: Mission.Shakes? = null
-    private var sensors: android.hardware.SensorManager? = null
+
+    /** What a shake mission listens to; null when there is none. */
+    private var accelerometer: android.hardware.Sensor? = null
 
     /** Which mission this screen is showing, once it has been asked. */
     internal var missionKind = Mission.NONE
@@ -277,11 +272,17 @@ class AlarmRingActivity : AppCompatActivity() {
 
         override fun onSensorChanged(event: android.hardware.SensorEvent) {
             val counter = shakes ?: return
+            // Readings already on their way when the last shake landed must
+            // not finish it again: each one would stop the alarm afresh.
+            if (counter.done) return
             val done = counter.feed(
                 Mission.magnitude(event.values[0], event.values[1], event.values[2])
             )
             showShakeProgress()
-            if (done) stopRinging()
+            if (done) {
+                sensors?.unregisterListener(this)
+                stopRinging()
+            }
         }
     }
 
@@ -317,8 +318,7 @@ class AlarmRingActivity : AppCompatActivity() {
         val button = findViewById<Button>(R.id.mission_button)
 
         if (missionKind == Mission.SHAKE) {
-            sensors = getSystemService(SENSOR_SERVICE) as? android.hardware.SensorManager
-            val accelerometer =
+            accelerometer =
                 sensors?.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER)
             if (accelerometer == null) {
                 // No accelerometer, no shaking — and a shake mission on a
@@ -336,9 +336,8 @@ class AlarmRingActivity : AppCompatActivity() {
             button.visibility = android.view.View.GONE
             shakes = Mission.Shakes()
             showShakeProgress()
-            sensors?.registerListener(
-                shakeListener, accelerometer, android.hardware.SensorManager.SENSOR_DELAY_GAME
-            )
+            // Listened to from listen(), once the screen is in front of
+            // somebody, and not before.
             return
         }
 
@@ -377,11 +376,67 @@ class AlarmRingActivity : AppCompatActivity() {
             getString(R.string.mission_shake_fmt, counter.count, counter.needed)
     }
 
+    // ------------------------------------------------ only while it is seen
+
+    private val sensors: android.hardware.SensorManager? by lazy {
+        getSystemService(SENSOR_SERVICE) as? android.hardware.SensorManager
+    }
+
+    /**
+     * The sensors are read while this screen is in front of somebody, and
+     * given back the moment it is not.
+     *
+     * They used to be asked for in onCreate and given back in onDestroy —
+     * and a ringing alarm whose screen has been switched off, or sent
+     * behind the home screen, is stopped but not destroyed, while the
+     * service ringing in the foreground keeps the app alive the whole time.
+     * So the accelerometer went on at fifty readings a second into a
+     * pocket, for nobody.
+     *
+     * A screen switched off and on again is the same screen, though, and
+     * it comes back exactly where it was: the same count of shakes, the
+     * same sunrise. This is the screen that stops an alarm, and a mission
+     * that could not be finished after the power button had been pressed
+     * would be an alarm nobody could turn off.
+     */
+    override fun onResume() {
+        super.onResume()
+        listen()
+    }
+
+    override fun onPause() {
+        sensors?.unregisterListener(lightListener)
+        sensors?.unregisterListener(shakeListener)
+        super.onPause()
+    }
+
+    /** Asks for whichever readings this screen still has a use for. */
+    private fun listen() {
+        val manager = sensors ?: return
+        // How light the room is, so that a screen somebody picks up is
+        // bright enough to read in *that* room rather than at a level
+        // chosen for a dark one. Only for a sunrise still coming up, and
+        // at the slowest rate the framework offers.
+        if (GentleWake.ramping(ringingFor(), gentleRampMs)) {
+            manager.getDefaultSensor(android.hardware.Sensor.TYPE_LIGHT)?.let { sensor ->
+                manager.registerListener(
+                    lightListener, sensor,
+                    android.hardware.SensorManager.SENSOR_DELAY_NORMAL
+                )
+            }
+        }
+        // And the shaking, for as long as there is any left to do.
+        val counter = shakes
+        val sensor = accelerometer
+        if (counter != null && !counter.done && sensor != null) {
+            manager.registerListener(
+                shakeListener, sensor, android.hardware.SensorManager.SENSOR_DELAY_GAME
+            )
+        }
+    }
+
     override fun onDestroy() {
         AlarmService.onStopped = null
-        sensors?.unregisterListener(shakeListener)
-        (getSystemService(SENSOR_SERVICE) as? android.hardware.SensorManager)
-            ?.unregisterListener(lightListener)
         handler.removeCallbacks(brighten)
         super.onDestroy()
     }

@@ -72,11 +72,11 @@ to whom, is set out below.
   each one starts and how many days it lasts are kept on your device.
   They are in your backups (see below) and are never sent anywhere.
 - **Sensors**: the accelerometer, the orientation sensor and the light
-  sensor are read for these things only: the knock-the-hands-off
-  physics, the hourglass and its flip, alarms that have to be shaken
-  off, pointing the globe or the sundial at the real sun, and fitting
-  the screen of a *Gentle wake* to the light in the room. Readings are
-  used in the moment, never stored and never sent.
+  sensor are read only while the app is open, and for these things only:
+  the knock-the-hands-off physics, the hourglass and its flip, alarms
+  that have to be shaken off, pointing the globe or the sundial at the
+  real sun, and fitting the screen of a *Gentle wake* to the light in the
+  room. Readings are used in the moment, never stored and never sent.
 - **Custom alarm sounds**: if you pick an audio file for an alarm, the app
   keeps a read permission for that file so the alarm can play it. The file
   itself is never copied or uploaded.
@@ -173,11 +173,12 @@ a continuación.
   Entran en tus copias de seguridad (ver más abajo) y nunca se envían a
   ninguna parte.
 - **Sensores**: el acelerómetro, el sensor de orientación y el sensor de
-  luz se leen solo para esto: las físicas de derribar las manecillas, el
-  reloj de arena y su volteo, las alarmas que hay que sacudir para
-  detenerlas, apuntar el globo o el reloj de sol al sol de verdad, y
-  ajustar la pantalla de un *Despertar suave* a la luz de la habitación.
-  Las lecturas se usan al momento, nunca se almacenan y nunca se envían.
+  luz se leen solo con la app abierta, y solo para esto: las físicas de
+  derribar las manecillas, el reloj de arena y su volteo, las alarmas que
+  hay que sacudir para detenerlas, apuntar el globo o el reloj de sol al
+  sol de verdad, y ajustar la pantalla de un *Despertar suave* a la luz de
+  la habitación. Las lecturas se usan al momento, nunca se almacenan y
+  nunca se envían.
 - **Sonidos de alarma propios**: si eliges un archivo de audio para una
   alarma, la app conserva un permiso de lectura sobre ese archivo para
   poder reproducirlo. El archivo nunca se copia ni se sube.

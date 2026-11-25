@@ -135,6 +135,9 @@ object Mission {
         /** True while the phone is still moving from the last one. */
         private var swinging = false
 
+        /** Whether it has had every shake it needs. */
+        val done: Boolean get() = count >= needed
+
         /** Feeds one reading; returns true once the mission is finished. */
         fun feed(magnitude: Float): Boolean {
             if (!swinging && magnitude >= SHAKE_ON) {
@@ -143,7 +146,7 @@ object Mission {
             } else if (swinging && magnitude <= SHAKE_OFF) {
                 swinging = false
             }
-            return count >= needed
+            return done
         }
 
         /** How far along, 0 to 1. */
