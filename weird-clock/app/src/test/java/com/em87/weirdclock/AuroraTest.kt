@@ -1029,7 +1029,14 @@ class AuroraTest {
         val lightsWas = cyanBetween(before, dark, out(54.5), out(48.0))
         val lightsNow = cyanBetween(after, dark, out(54.5), out(48.0))
         println("MEASURE the south on the globe: cyan in the twilight ring $ringWas -> $ringNow | southern lights north of it $lightsWas -> $lightsNow")
-        assertTrue("the ring was $ringWas pixels: this is not the picture that was looked at", ringWas > 600)
+        // Counted again when the south view was found to have had its
+        // map turned the wrong way since the face was made — see
+        // Hemisphere.discTurn. The night was laid over another ocean
+        // then, and these were 950 in the ring and 336 to 602 of lights,
+        // and 727 of amber. Turned right the night is south of Tasmania,
+        // as this test always said it was: some 670 in the ring, the
+        // lights from 2600 to 4400, and 590 of amber.
+        assertTrue("the ring was $ringWas pixels: this is not the picture that was looked at", ringWas > 450)
         assertEquals("the twilight ring is still on the globe", 0, ringNow)
         assertTrue("the southern lights are $lightsNow pixels where they were $lightsWas", lightsNow > lightsWas * 3 / 2 && lightsNow > 400)
 
@@ -1050,7 +1057,7 @@ class AuroraTest {
         val amberWas = amberRing(aloneBefore)
         val amberNow = amberRing(aloneAfter)
         println("MEASURE the south on the globe, raw night alone: amber in the twilight ring $amberWas -> $amberNow")
-        assertTrue("the amber ring was $amberWas pixels", amberWas > 600)
+        assertTrue("the amber ring was $amberWas pixels", amberWas > 400)
         assertEquals("the twilight ring is still on the globe in amber", 0, amberNow)
     }
 
