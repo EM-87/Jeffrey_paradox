@@ -80,7 +80,19 @@ class MinuteHandTest {
      */
     @Test
     fun `switching the minute hand off takes it off the glass`() {
-        val clock = dial().apply { showSecondHand = false }
+        // Pinned to one instant, eight minutes past ten. The dial runs on
+        // the real clock here as it does on a phone — measured: two
+        // frames 1.3 seconds apart differ in 707 of the pixels counted —
+        // and the two frames below that have to be the same picture were
+        // not, once, when a second turned over between them.
+        val still = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.NOVEMBER, 25, 10, 8, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val clock = dial().apply {
+            showSecondHand = false
+            freezeAtForTest(still)
+        }
         val with = Bitmap.createBitmap(1000, 1600, Bitmap.Config.ARGB_8888)
         val without = Bitmap.createBitmap(1000, 1600, Bitmap.Config.ARGB_8888)
 
