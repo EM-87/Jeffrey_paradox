@@ -207,6 +207,7 @@ object NightLightStore {
      * [DailyImageStore.dayCached] — and says how far behind that is, so
      * the globe can decide whether that is worth a word.
      */
+    @Synchronized
     fun skyFor(context: Context, atMs: Long = TimeKeeper.nowMs()): Sky? {
         val mode = mode(context)
         if (mode == NightLights.Mode.NONE) return null
@@ -338,6 +339,7 @@ object NightLightStore {
     }
 
     /** Throws the pictures away, for the switch being turned off, and what was worked out from them. */
+    @Synchronized
     fun forget(context: Context) {
         clean.forget(context)
         raw.forget(context)

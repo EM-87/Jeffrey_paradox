@@ -4965,6 +4965,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // fetched on threads of their own that touch nothing but files.
         world.lights = NightLightStore.skyFor(this)
         world.lightsOn = { at -> NightLightStore.skyFor(this, at) }
+        // And all of it asked for somewhere else while the world is
+        // being turned — see [HemisphereView.lookUp].
+        world.lookUp = HemisphereView.ELSEWHERE
         if (NightLightStore.wanted(this)) NightLightStore.refreshInBackground(this)
         world.hourRing = prefs.getBoolean(Prefs.HEMISPHERE_RING, true)
         world.hourNumbers = prefs.getBoolean(Prefs.HEMISPHERE_NUMBERS, true)

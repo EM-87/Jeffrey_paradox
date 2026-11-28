@@ -128,6 +128,7 @@ object CloudStore {
      * from, and a new field for every asking would be a new projection
      * for every frame.
      */
+    @Synchronized
     fun cached(context: Context, atMs: Long = TimeKeeper.nowMs()): SatelliteClouds.Field? {
         if (!wanted(context)) return null
         val day = store.dayCached(context, atMs) ?: return null
@@ -189,6 +190,7 @@ object CloudStore {
     }
 
     /** Throws the picture away, for the switch being turned off. */
+    @Synchronized
     fun forget(context: Context) {
         File(context.cacheDir, WAS).delete()
         store.forget(context)

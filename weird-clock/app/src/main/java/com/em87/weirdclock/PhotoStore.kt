@@ -54,6 +54,7 @@ object PhotoStore {
      * globe keeps what it makes of a photograph against which
      * photograph it was.
      */
+    @Synchronized
     fun cached(context: Context, atMs: Long = TimeKeeper.nowMs()): SatellitePhoto.Picture? {
         if (!wanted(context)) return null
         val day = store.dayCached(context, atMs) ?: return null
@@ -89,6 +90,7 @@ object PhotoStore {
     }
 
     /** Throws the photographs away, for another kind of cloud being chosen. */
+    @Synchronized
     fun forget(context: Context) {
         store.forget(context)
         held = null

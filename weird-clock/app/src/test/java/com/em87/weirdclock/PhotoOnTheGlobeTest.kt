@@ -99,11 +99,15 @@ class PhotoOnTheGlobeTest {
         serve(setOf("2026-11-22", "2026-11-21", "2026-11-20"))
         CloudStore.fetch = CloudStore.Fetch { url -> asked += url; null }
         LiveCloudStore.fetch = LiveCloudStore.Fetch { url -> asked += url; null }
+        // The app's own clock, held at that noon through its opening —
+        // see [TimeKeeper.standingAtForTest].
+        TimeKeeper.standingAtForTest = now
     }
 
     @After
     fun tidy() {
         TimeKeeper.solarOffsetMs = 0L
+        TimeKeeper.standingAtForTest = null
         PhotoStore.fetch = realPhoto
         CloudStore.fetch = realDaily
         LiveCloudStore.fetch = realLive
@@ -259,10 +263,16 @@ class PhotoOnTheGlobeTest {
             world.windForTest(-day)
             org.robolectric.shadows.ShadowSystemClock.advanceBy(Duration.ofMillis(1_100))
             draw(screen)
+            // Asked for on a thread of its own while the world is turned
+            // — see [HemisphereView.lookUp] — and worn when it is back.
+            world.handedWhatItAskedFor()
+            draw(screen)
             assertSame(PhotoStore.cached(context, now - day), world.photo)
             // Wound back past what the phone has: the oldest, and the face says which day it is of.
             world.windForTest(-6 * day)
             org.robolectric.shadows.ShadowSystemClock.advanceBy(Duration.ofMillis(1_100))
+            draw(screen)
+            world.handedWhatItAskedFor()
             draw(screen)
             assertSame(PhotoStore.cached(context, now - 6 * day), world.photo)
             val said = world.legendForTest()
@@ -289,6 +299,8 @@ class PhotoOnTheGlobeTest {
     /** Coming to the glass sends for the photograph, and a clock left standing goes back for the next day's. */
     @Test
     fun `the photograph is sent for, and again when the day turns`() {
+        // By the phone's own clock, which this test moves.
+        TimeKeeper.standingAtForTest = null
         fun standingAt(atMs: Long): List<String> {
             TimeKeeper.solarOffsetMs = atMs - System.currentTimeMillis()
             org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(Duration.ofMillis(2_100))

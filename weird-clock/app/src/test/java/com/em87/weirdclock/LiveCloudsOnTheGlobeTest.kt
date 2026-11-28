@@ -95,11 +95,15 @@ class LiveCloudsOnTheGlobeTest {
         }
         File(context.cacheDir, "clouds-2026-11-22.jpg").writeBytes(bytes("gibs-clouds-2026-11-22.jpg"))
         TimeKeeper.solarOffsetMs = now - System.currentTimeMillis()
+        // And held there through the app's opening, which puts the line
+        // above back to nought — see [TimeKeeper.standingAtForTest].
+        TimeKeeper.standingAtForTest = now
     }
 
     @After
     fun tidy() {
         TimeKeeper.solarOffsetMs = 0L
+        TimeKeeper.standingAtForTest = null
         LiveCloudStore.fetch = realLive
         CloudStore.fetch = realDaily
         CloudStore.forget(context)
@@ -136,6 +140,10 @@ class LiveCloudsOnTheGlobeTest {
             world.windForTest(-3 * hour)
             aSecond()
             draw(screen)
+            // Asked for on a thread of its own while the world is turned
+            // — see [HemisphereView.lookUp] — and worn when it is back.
+            world.handedWhatItAskedFor()
+            draw(screen)
             assertNotSame(newest, world.clouds)
             assertTrue("not the frame of the hour the world was turned to", world.clouds!!.cover.contentEquals(liveField(3).cover))
 
@@ -143,6 +151,8 @@ class LiveCloudsOnTheGlobeTest {
             // day's photograph, and a word on the face for which day.
             world.windForTest(-48 * hour)
             aSecond()
+            draw(screen)
+            world.handedWhatItAskedFor()
             draw(screen)
             val daily = CloudStore.cached(context, now - 48 * hour)
             assertNotNull(daily)
@@ -201,6 +211,8 @@ class LiveCloudsOnTheGlobeTest {
      */
     @Test
     fun `a clock left standing asks after the next hour when it is due`() {
+        // By the phone's own clock, which this test moves.
+        TimeKeeper.standingAtForTest = null
         val asked = java.util.concurrent.CopyOnWriteArrayList<String>()
         LiveCloudStore.fetch = LiveCloudStore.Fetch { url -> asked += url; null }
         fun standingAt(atMs: Long): Int {

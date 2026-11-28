@@ -248,6 +248,7 @@ object LiveCloudStore {
      * back for as long as it is the same hour made of the same files
      * that is asked for: see [CloudStore.cached], which says why.
      */
+    @Synchronized
     fun cached(context: Context, atMs: Long = TimeKeeper.nowMs()): SatelliteClouds.Field? {
         if (!wanted(context)) return null
         val of = onDisk(context).minByOrNull { Math.abs(it - atMs) } ?: return null
@@ -292,6 +293,7 @@ object LiveCloudStore {
     private fun hourText(atMs: Long): String = LiveClouds.stamp(atMs).substring(11, 16)
 
     /** Throws the frames away, for another kind of cloud being chosen. */
+    @Synchronized
     fun forget(context: Context) {
         held = null
         for ((on, _) in pictures(context)) on.delete()

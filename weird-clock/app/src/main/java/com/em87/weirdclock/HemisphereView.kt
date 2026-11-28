@@ -1111,14 +1111,13 @@ class HemisphereView @JvmOverloads constructor(
             if ((another && !hurried) || at - cloudsAskedAt >= CLOUDS_ASK_MS) {
                 cloudsAskedDay = day
                 cloudsAskedAt = at
-                cloudsOn?.let { clouds = it(ms) }
-                photoOn?.let { photo = it(ms) }
-                cloudsDayOn?.let {
-                    val worn = it(ms)
-                    cloudsWorn = worn?.day
-                    cloudsOff = worn?.offDays ?: 0
-                }
-                lightsOn?.let { lights = it(ms) }
+                // Looked up here, on the thread that draws, for a world
+                // standing at now: once, and then once a second for an
+                // answer that is nearly always the one already held. A
+                // world being turned asks for another day at every
+                // midnight it is carried past — see [wearLater].
+                val elsewhere = lookUp
+                if (elsewhere != null && wound != 0L) wearLater(elsewhere, ms) else asking()(ms)()
             }
         }
         bake(-subLon + sunAt)
@@ -1129,6 +1128,105 @@ class HemisphereView @JvmOverloads constructor(
         if (located) drawYou(canvas, cx, cy, r, subLat, subLon, ring)
         if (ring) drawHours(canvas, cx, cy, ringR, fade)
         drawLegend(canvas, cx, cy, r)
+    }
+
+    /**
+     * Where another day's weather is looked up while the world is being
+     * turned, or null for on the thread that draws.
+     *
+     * Looking it up is reading photographs off the disc and making a
+     * sky of them: two for the veil, one for the ground, two for the
+     * lights. On the thread that draws that is a frame that takes as
+     * long as all of that takes, at every midnight a finger carries the
+     * world past — reported from a phone as the world "stuttering
+     * between one day and the next, to load images, I suppose", which is
+     * exactly what it was doing.
+     *
+     * Null is how it always was and how a globe that is not on a screen
+     * still is: the widget draws one picture and wants it finished. The
+     * app hands over [ELSEWHERE].
+     */
+    internal var lookUp: java.util.concurrent.Executor? = null
+
+    /** The instant last asked about, and whether an answer is still on its way. */
+    private var wantedMs = 0L
+    private var lookingUp = false
+
+    /** For the tests: whether an answer about another day is on its way. */
+    internal fun lookingUpForTest(): Boolean = lookingUp
+
+    /**
+     * Everything this globe asks the stores, as one question that can be
+     * put on any thread, and whose answer is a thing to be done on this
+     * one: wear it.
+     *
+     * Taken hold of here, where the globe's own fields can be read, and
+     * not where the question is put.
+     */
+    private fun asking(): (Long) -> (() -> Unit) {
+        val sky = cloudsOn
+        val ground = photoOn
+        val named = cloudsDayOn
+        val lamps = lightsOn
+        return { ms ->
+            val veil = sky?.invoke(ms)
+            val picture = ground?.invoke(ms)
+            val day = named?.invoke(ms)
+            val lit = lamps?.invoke(ms)
+            val wear: () -> Unit = {
+                if (sky != null) clouds = veil
+                if (ground != null) photo = picture
+                if (named != null) {
+                    cloudsWorn = day?.day
+                    cloudsOff = day?.offDays ?: 0
+                }
+                if (lamps != null) lights = lit
+            }
+            wear
+        }
+    }
+
+    /**
+     * The weather of [ms], looked up somewhere else and worn when it
+     * comes back. Until then the world goes on wearing what it has,
+     * which is the day before's or the day after's and is on the glass
+     * already.
+     *
+     * One question at a time. A world thrown hard goes through a day in
+     * a few frames, and a question put for every one of them is a queue
+     * of days nobody is looking at any more: the one asked last is the
+     * one that is asked next.
+     */
+    private fun wearLater(elsewhere: java.util.concurrent.Executor, ms: Long) {
+        wantedMs = ms
+        if (lookingUp) return
+        lookingUp = true
+        val ask = asking()
+        elsewhere.execute {
+            // A store that cannot answer leaves the world as it is, and
+            // leaves it able to ask again: the same store asked on the
+            // thread that draws would have taken the app down with it.
+            val wear = try {
+                ask(ms)
+            } catch (e: RuntimeException) {
+                android.util.Log.w("HemisphereView", "the weather of another day could not be looked up", e)
+                null
+            }
+            // By the looper and not by the view: a view that is not on a
+            // screen keeps what it is posted until it is on one.
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                lookingUp = false
+                // Not if the world has been let go and is back at now:
+                // it has asked for today's as it drew, and an answer
+                // about the day it was turned to would be laid over it.
+                if (wound != 0L) {
+                    wear?.invoke()
+                    invalidate()
+                    val now = wantedMs
+                    if (now != ms) lookUp?.let { wearLater(it, now) }
+                }
+            }
+        }
     }
 
     /**
@@ -1994,6 +2092,17 @@ class HemisphereView @JvmOverloads constructor(
 
         /** How often the weather is looked up again while the view is drawn. */
         const val CLOUDS_ASK_MS = 1000L
+
+        /**
+         * A thread for looking things up for a world that is being
+         * turned — see [lookUp]. One for every globe there is: they ask
+         * the same stores, which answer one question at a time.
+         */
+        val ELSEWHERE: java.util.concurrent.Executor by lazy {
+            java.util.concurrent.Executors.newSingleThreadExecutor { work ->
+                Thread(work, "world-weather").apply { isDaemon = true }
+            }
+        }
 
         /**
          * The Blue Marble, month by month, January first.
