@@ -199,6 +199,22 @@ enum class Face(val key: String) {
         get() = this != SUNDIAL
 
     /**
+     * Whether everything on this face is seen at night, whatever the
+     * phone and the theme say about light and dark.
+     *
+     * The turning world is a window onto space, and space is black on
+     * every theme. Its neighbours were not: with the phone in its light
+     * mode the solar system one card away was planets on a pale blue
+     * disc, and the alarms a white list — a lit room either side of a
+     * window at night. The solar system is the same picture one step
+     * further out, and is seen against the same dark; the alarms and the
+     * chronographs go with it, because a card that is the only bright
+     * one is the one that hurts to turn to.
+     */
+    val alwaysNight: Boolean
+        get() = this == HEMISPHERE
+
+    /**
      * Whether this clock only works while the sun is up.
      *
      * One face answers yes, and it is not a defect: an instrument that

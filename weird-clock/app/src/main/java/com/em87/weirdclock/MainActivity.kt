@@ -935,6 +935,58 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
 
     internal fun applyBedsideForTest() = applyBedside()
 
+    /**
+     * Night for the whole screen, on a face that is always seen at night
+     * — see [Face.alwaysNight].
+     *
+     * Decided here, before the screen has a context, because that is the
+     * only moment it can be decided for nothing: a screen told to be
+     * dark once it exists is a screen whose mode has changed, and the
+     * answer to that is to throw it away and build it again — every time
+     * the app is opened, on any phone in its light mode.
+     *
+     * So the context it is given is a night one, and the library that
+     * keeps day and night is told the same, so that it does not put the
+     * phone's own answer back. A face with a day is given what it always
+     * was, untouched.
+     *
+     * The stored face is all that can be known here. A face lent by a
+     * widget for one visit is in the request that opened the app, which
+     * the screen is not handed until after this — see [onCreate], which
+     * finds out and has this done again.
+     */
+    override fun attachBaseContext(newBase: android.content.Context) {
+        val stored = Face.of(PreferenceManager.getDefaultSharedPreferences(newBase)).alwaysNight
+        // Said for this screen and for no other: a face lent on the way
+        // to the next one says so again when that one is made.
+        val lent = nightForALentFace
+        nightForALentFace = null
+        attachedAtNight = lent ?: stored
+        if (!attachedAtNight) {
+            // Said out loud, and not left unsaid: the library hands a
+            // screen that is built again the mode of the screen it
+            // replaces, and a dial built in place of the world would be
+            // handed the world's night.
+            delegate.localNightMode = androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_UNSPECIFIED
+            super.attachBaseContext(newBase)
+            return
+        }
+        delegate.localNightMode = androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES
+        // Night and nothing else: every other thing about the screen —
+        // which way up it is, how big its letters are, what language it
+        // speaks — is left to be whatever the phone says it is, now and
+        // when the phone changes its mind.
+        val night = android.content.res.Configuration()
+        night.uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES
+        super.attachBaseContext(newBase.createConfigurationContext(night))
+    }
+
+    /** Whether this screen was built for the night — see [attachBaseContext]. */
+    private var attachedAtNight = false
+
+    /** For the tests: whether this screen was given a night context when it was made. */
+    internal fun attachedAtNightForTest(): Boolean = attachedAtNight
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -1222,6 +1274,21 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // once. Everything below it is an introduction to a feature of a
         // clock we have not decided on yet, so they wait their turn.
         if (!askWhichFaceOnce()) settleInAfterTheFaceIsChosen()
+
+        // And the night, for a face that was not the stored one when this
+        // screen was given its context: a world lent by a widget to a
+        // phone that keeps a dial, or the dial lent to one that keeps the
+        // world. Built again, once, with the answer written where
+        // [attachBaseContext] will find it. Never twice running: a screen
+        // that came out wrong a second time stays as it is, rather than
+        // being thrown away for ever.
+        if (face.alwaysNight != attachedAtNight && !rebuiltForNight) {
+            rebuiltForNight = true
+            nightForALentFace = if (borrowedFace != null) face.alwaysNight else null
+            recreateFor("night ${attachedAtNight}->${face.alwaysNight}")
+        } else {
+            rebuiltForNight = false
+        }
     }
 
     /**
@@ -4001,6 +4068,12 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // to 30% so the bedroom stays dark.
         appliedNightDim = prefs.getBoolean(Prefs.NIGHT_DIM, false) && isNightNow()
         val resolvedTheme = ClockThemes.resolve(this, prefs.getString(Prefs.THEME, "midnight"))
+            // A pale theme chosen by name is a pale theme on the faces
+            // that have a day. On the one that has not it is the night
+            // one: the theme is asked for once for every face, and this
+            // face's answer to "ivory" was a cream solar system beside a
+            // black sky.
+            .let { if (face.alwaysNight && ClockThemes.isPaleFace(it)) ClockThemes.MIDNIGHT else it }
             .let { if (appliedNightDim) ClockThemes.dim(it) else it }
         cv.theme = resolvedTheme
         paintSurround()
@@ -5243,6 +5316,19 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         /** See [clockForTest]. */
         @Volatile
         internal var lastRecreateReason: String? = null
+
+        /**
+         * Whether the next screen to be built is to be a night one or a
+         * day one because of a face a widget has lent, or null for
+         * whatever the stored face says — see [attachBaseContext], which
+         * cannot read the request the face is lent in, and which takes
+         * this away as it reads it. Static, because the screen that
+         * finds out is thrown away for the one that is told.
+         */
+        private var nightForALentFace: Boolean? = null
+
+        /** Whether the screen before this one was thrown away for that reason. */
+        private var rebuiltForNight = false
 
         /**
          * Set by an instance being rebuilt behind another screen, for the
