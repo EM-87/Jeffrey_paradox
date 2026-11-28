@@ -1145,10 +1145,25 @@ class HemisphereView @JvmOverloads constructor(
      */
     private fun drawLegend(canvas: Canvas, cx: Float, cy: Float, r: Float) {
         val text = legendText() ?: return
+        val side = min(width, height).toFloat()
         ink.typeface = PRINT
         ink.textAlign = Paint.Align.CENTER
-        ink.textSize = r * 0.062f
-        val y = cy + r * 0.80f
+        // Under the world, where a legend goes: below the ring of hours
+        // and the sun and the moon, which between them reach as far as
+        // [LEGEND_CLEAR] of the shorter side from the middle. It was laid
+        // across the world itself, four fifths of the way down it — a
+        // date printed over the southern ocean while a finger was turning
+        // the planet to look at that ocean.
+        //
+        // Only where there is an under. A face as wide as it is tall has
+        // the world from edge to edge, and there the word stays on it,
+        // small, as it was: a legend off the bottom of the picture is no
+        // legend.
+        val below = cy + side * LEGEND_CLEAR + side * LEGEND_SIZE * 1.4f
+        val fits = below + side * LEGEND_SIZE * 0.6f <= height
+        ink.textSize = if (fits) side * LEGEND_SIZE else r * 0.062f
+        val y = if (fits) below else cy + r * 0.80f
+        legendAt = y
         val half = ink.measureText(text) / 2f + ink.textSize * 0.6f
         fill.color = 0xB0000000.toInt()
         rim.set(cx - half, y - ink.textSize * 0.95f, cx + half, y + ink.textSize * 0.40f)
@@ -1161,6 +1176,11 @@ class HemisphereView @JvmOverloads constructor(
 
     /** For the tests: the word on the face, if there is one this frame. */
     internal fun legendForTest(): String? = legendText()
+
+    /** For the tests: how far down the face the legend's line of text was last drawn, in pixels. */
+    private var legendAt = Float.NaN
+
+    internal fun legendAtForTest(): Float = legendAt
 
     /** What the legend says, or null for a face with nothing to own up to. */
     private fun legendText(): String? {
@@ -1705,16 +1725,33 @@ class HemisphereView @JvmOverloads constructor(
         ring: Boolean
     ) {
         val on = Hemisphere.project(view, latitude, longitude, subLon, sunAt)
-        // Behind the world, on the globe.
-        if (on[2] < 0.0) return
+        // Behind the world — over the other pole, or round the back of
+        // the ball — and drawn all the same, the way a thing seen through
+        // the world would be: faint, and without the ping, which says
+        // "here" and would be saying it about the wrong side. It used
+        // not to be drawn at all, and a hand that vanishes when the world
+        // is turned over is a clock with no hand.
+        val behind = on[2] < 0.0
+        val seen = if (behind) BEHIND else 1f
         val x = cx + (on[0] * r).toFloat()
         val y = cy + (on[1] * r).toFloat()
-        drawPing(canvas, x, y, r)
+        if (!behind) drawPing(canvas, x, y, r)
         fill.color = YOU
+        fill.alpha = (255 * seen).toInt()
         canvas.drawCircle(x, y, r * 0.024f, fill)
+        fill.alpha = 255
         line.color = YOU
         line.strokeWidth = r * 0.010f
+        line.alpha = (255 * seen).toInt()
         canvas.drawCircle(x, y, r * 0.055f, line)
+        line.alpha = 255
+        // The two meridians are hands on a rim of hours, and the ball has
+        // no rim of hours — see [Hemisphere.hasRimScale]. A meridian seen
+        // from the side is a curve, and these are straight strings from
+        // the middle of the picture, which on the ball is not the pole or
+        // anything else: they swung about as the world turned and pointed
+        // at nothing.
+        if (!Hemisphere.hasRimScale(view)) return
         // And the two meridians: yours, out to the rim, and the one your
         // clock is actually keeping.
         //
@@ -1730,10 +1767,10 @@ class HemisphereView @JvmOverloads constructor(
             beads(
                 canvas, cx, cy, r,
                 (on[0] / len).toFloat(), (on[1] / len).toFloat(),
-                YOU, YOURS_FROM, (kotlin.math.hypot(x - cx, y - cy) / r)
+                YOU, YOURS_FROM, (kotlin.math.hypot(x - cx, y - cy) / r), seen
             )
         }
-        drawOfficial(canvas, cx, cy, r, subLon)
+        drawOfficial(canvas, cx, cy, r, subLon, seen)
     }
 
     /**
@@ -1749,7 +1786,7 @@ class HemisphereView @JvmOverloads constructor(
      */
     private fun beads(
         canvas: Canvas, cx: Float, cy: Float, r: Float,
-        ux: Float, uy: Float, colour: Int, from: Float, skipTo: Float = 0f
+        ux: Float, uy: Float, colour: Int, from: Float, skipTo: Float = 0f, seen: Float = 1f
     ) {
         fill.color = colour
         var t = from
@@ -1757,7 +1794,7 @@ class HemisphereView @JvmOverloads constructor(
             // Nothing under the ring round the dot: a bead there is a
             // bead on top of the one mark this face cannot spare.
             if (skipTo <= 0f || kotlin.math.abs(t - skipTo) > BEAD_CLEAR) {
-                fill.alpha = 210
+                fill.alpha = (210 * seen).toInt()
                 canvas.drawCircle(cx + ux * r * t, cy + uy * r * t, r * BEAD, fill)
             }
             t += BEAD_STEP
@@ -1803,7 +1840,9 @@ class HemisphereView @JvmOverloads constructor(
      * the things a hardware canvas quietly declines, and a line that is
      * dotted on one phone and solid on another is two different drawings.
      */
-    private fun drawOfficial(canvas: Canvas, cx: Float, cy: Float, r: Float, subLon: Double) {
+    private fun drawOfficial(
+        canvas: Canvas, cx: Float, cy: Float, r: Float, subLon: Double, seen: Float
+    ) {
         val at = Hemisphere.project(
             view, latitude, Hemisphere.zoneMeridian(zoneOffsetMs()), subLon, sunAt
         )
@@ -1811,7 +1850,7 @@ class HemisphereView @JvmOverloads constructor(
         if (len < 1e-6) return
         beads(
             canvas, cx, cy, r,
-            (at[0] / len).toFloat(), (at[1] / len).toFloat(), OFFICIAL, OFFICIAL_FROM
+            (at[0] / len).toFloat(), (at[1] / len).toFloat(), OFFICIAL, OFFICIAL_FROM, seen = seen
         )
     }
 
@@ -1874,7 +1913,7 @@ class HemisphereView @JvmOverloads constructor(
         rim.set(cx - ring, cy - ring, cx + ring, cy + ring)
     }
 
-    private companion object {
+    internal companion object {
         /** Space, whatever the theme says. */
         const val SPACE = 0xFF05070D.toInt()
 
@@ -1978,6 +2017,22 @@ class HemisphereView @JvmOverloads constructor(
         /** How far out each string of beads starts. */
         const val OFFICIAL_FROM = 0.10f
         const val YOURS_FROM = 0.16f
+
+        /**
+         * How much of the dot and its two meridians is left when the
+         * place is on the side of the world turned away: a third, which
+         * on the night side is still found and on the day side is not
+         * mistaken for a place on this side.
+         */
+        const val BEHIND = 0.35f
+
+        /**
+         * How far from the middle the legend keeps clear of, and how
+         * tall its letters are, as shares of the shorter side. The ring's
+         * numerals end at 0.455 of it and the sun and the moon at 0.47.
+         */
+        const val LEGEND_CLEAR = 0.49f
+        const val LEGEND_SIZE = 0.030f
 
         /** And how big a bead is, and how far apart they sit. */
         const val BEAD = 0.011f
