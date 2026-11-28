@@ -976,9 +976,17 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
         // which way up it is, how big its letters are, what language it
         // speaks — is left to be whatever the phone says it is, now and
         // when the phone changes its mind.
+        //
+        // And night for what is read out of the resources and for
+        // nothing else: a wrapper round the context the screen was
+        // given, not another context in its place. The sensors, the
+        // alarms and whatever is registered through this screen go on
+        // being the screen's own, to be taken back when it goes.
         val night = android.content.res.Configuration()
         night.uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES
-        super.attachBaseContext(newBase.createConfigurationContext(night))
+        val dark = android.view.ContextThemeWrapper(newBase, androidx.appcompat.R.style.Theme_AppCompat_Empty)
+        dark.applyOverrideConfiguration(night)
+        super.attachBaseContext(dark)
     }
 
     /** Whether this screen was built for the night — see [attachBaseContext]. */
