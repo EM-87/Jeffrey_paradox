@@ -1052,6 +1052,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // floating hourglass instead of a setting that points nowhere.
             prefs.edit().putString(Prefs.COUNTDOWN_FLOAT, Prefs.FLOAT_OVERLAY).apply()
         }
+        // The month page's numerals were one answer for every face and
+        // are one each now: the digits' starts as what the one was.
+        Prefs.calendarNumeralsCarriedOver(prefs)
         // An alarm with no days set now means "once", and retires itself
         // after ringing. Before this it meant "every day" — so any alarm
         // already stored that way is written out explicitly, once, rather
@@ -4220,7 +4223,9 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             // Its own answer, not the dial's. Roman numerals are a fine
             // thing to have on a clock face and a grid of thirty-one of
             // them is a puzzle, so the two questions were separated.
-            it.numeralStyle = readNumeralStyle(Prefs.CALENDAR_NUMERALS)
+            it.numeralStyle = DialSettings.numerals(
+                prefs, Prefs.calendarNumeralsKey(face), Prefs.calendarNumeralsDefault(face)
+            )
             it.pastStyle = when (prefs.getString(Prefs.PAST_DAYS, Prefs.PAST_NONE)) {
                 Prefs.PAST_DIM -> CalendarPageView.PastStyle.DIM
                 Prefs.PAST_CROSS -> CalendarPageView.PastStyle.CROSS

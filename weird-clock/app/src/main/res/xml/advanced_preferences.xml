@@ -512,6 +512,28 @@
             android:title="@string/pref_calendar_numerals_title"
             app:useSimpleSummaryProvider="true" />
 
+        <!-- The same row for the two other faces with a month page, one
+             each and one on the screen at a time: what is written under
+             a sundial has no say in what is printed behind a watch. The
+             sundial's starts Roman. -->
+        <ListPreference
+            android:defaultValue="arabic"
+            android:entries="@array/numeral_entries"
+            android:entryValues="@array/numeral_values"
+            android:key="pref_calendar_numerals_digital"
+            android:summary="@string/pref_calendar_numerals_summary"
+            android:title="@string/pref_calendar_numerals_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
+            android:defaultValue="roman"
+            android:entries="@array/numeral_entries"
+            android:entryValues="@array/numeral_values"
+            android:key="pref_calendar_numerals_sundial"
+            android:summary="@string/pref_calendar_numerals_summary"
+            android:title="@string/pref_calendar_numerals_title"
+            app:useSimpleSummaryProvider="true" />
+
         <ListPreference
             android:defaultValue="none"
             android:entries="@array/past_days_entries"

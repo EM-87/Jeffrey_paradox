@@ -289,7 +289,11 @@ object FaceOptions {
         // leaving it on the page is leaving a row that does nothing.
         // Which way round the day and the month go is still a real
         // question and stays.
-        Prefs.DATE_FORMAT
+        Prefs.DATE_FORMAT,
+        // How the month page behind the dial writes its days: the dial's
+        // own answer, where it was every face's — see
+        // [Prefs.CALENDAR_NUMERALS_DIGITAL].
+        Prefs.CALENDAR_NUMERALS
     )
 
     /** And the rows only a screenful of digits has. */
@@ -312,7 +316,9 @@ object FaceOptions {
         // And what the clock keeps when it takes the whole screen, which
         // is a question only a face that fills one can be asked.
         Prefs.BEDSIDE_SECONDS,
-        Prefs.BEDSIDE_DATE
+        Prefs.BEDSIDE_DATE,
+        // And how the month page behind the digits writes its days.
+        Prefs.CALENDAR_NUMERALS_DIGITAL
     )
 
     /**
@@ -346,7 +352,6 @@ object FaceOptions {
     private val needsACalendar = setOf(
         Prefs.BIRTHDAY,
         Prefs.CYCLE,
-        Prefs.CALENDAR_NUMERALS,
         Prefs.PAST_DAYS
     )
 
@@ -390,7 +395,9 @@ object FaceOptions {
         Prefs.SUNDIAL_CIVIL_SHADOW,
         Prefs.SUNDIAL_ROMAN,
         Prefs.SUNDIAL_CALENDAR,
-        Prefs.SUNDIAL_GLASS
+        Prefs.SUNDIAL_GLASS,
+        // And the numerals of the month page under the plate.
+        Prefs.CALENDAR_NUMERALS_SUNDIAL
     )
 
     /**

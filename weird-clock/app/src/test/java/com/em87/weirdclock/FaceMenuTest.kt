@@ -148,7 +148,7 @@ class FaceMenuTest {
         val digital = everyKeyFor(Face.DIGITAL)
         for (key in listOf(
             Prefs.THEME, Prefs.NIGHT_DIM, Prefs.NIGHT_WINDOW, Prefs.SHOW_DATE,
-            Prefs.DATE_ORDER, Prefs.CALENDAR_NUMERALS,
+            Prefs.DATE_ORDER,
             Prefs.BELLS, Prefs.BELL_STYLE,
             Prefs.ALARM_RAMP, Prefs.SOLAR_TIME,
             // The bubbles are readouts on the face with no hands, so the
@@ -391,7 +391,8 @@ class FaceMenuTest {
         val world = everyKeyFor(Face.HEMISPHERE)
         for (key in listOf(
             // No month page — the calendar's card holds the solar system.
-            Prefs.BIRTHDAY, Prefs.CYCLE, Prefs.CALENDAR_NUMERALS, Prefs.PAST_DAYS,
+            Prefs.BIRTHDAY, Prefs.CYCLE, Prefs.PAST_DAYS,
+            Prefs.CALENDAR_NUMERALS, Prefs.CALENDAR_NUMERALS_DIGITAL, Prefs.CALENDAR_NUMERALS_SUNDIAL,
             // No other cities, by its owner's own instruction.
             Prefs.WORLD_CLOCK, Prefs.WORLD_CITIES,
             // And nowhere at all that a date is printed.
@@ -492,5 +493,21 @@ class FaceMenuTest {
             if (row is PreferenceGroup && row.title?.toString() == wanted) return row
         }
         return null
+    }
+
+    /**
+     * How the month page writes its days is asked once on each face that
+     * has a month page, and it is that face's own question: the three
+     * rows are three answers, and no face's menu has another face's.
+     */
+    @Test
+    fun `each face with a month page has its own row for the page's numerals`() {
+        val rows = listOf(Prefs.CALENDAR_NUMERALS, Prefs.CALENDAR_NUMERALS_DIGITAL, Prefs.CALENDAR_NUMERALS_SUNDIAL)
+        for (face in Face.entries) {
+            val on = everyKeyFor(face).filter { it in rows }
+            val wanted = if (face.hasCalendar) listOf(Prefs.calendarNumeralsKey(face)) else emptyList()
+            assertEquals("the rows about the month page's numerals on the ${face.key} face", wanted, on)
+        }
+        assertEquals(3, Face.entries.filter { it.hasCalendar }.map { Prefs.calendarNumeralsKey(it) }.toSet().size)
     }
 }

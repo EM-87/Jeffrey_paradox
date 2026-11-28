@@ -65,8 +65,12 @@ object DialSettings {
     fun moonPhaseWanted(prefs: SharedPreferences): Boolean =
         prefs.getBoolean(Prefs.MOON_PHASE, false)
 
-    fun numerals(prefs: SharedPreferences, key: String = Prefs.NUMERALS): ClockView.NumeralStyle =
-        when (prefs.getString(key, Prefs.NUMERALS_ARABIC)) {
+    fun numerals(
+        prefs: SharedPreferences,
+        key: String = Prefs.NUMERALS,
+        unasked: String = Prefs.NUMERALS_ARABIC
+    ): ClockView.NumeralStyle =
+        when (prefs.getString(key, unasked)) {
             Prefs.NUMERALS_NONE -> ClockView.NumeralStyle.NONE
             Prefs.NUMERALS_ROMAN -> ClockView.NumeralStyle.ROMAN
             else -> ClockView.NumeralStyle.ARABIC

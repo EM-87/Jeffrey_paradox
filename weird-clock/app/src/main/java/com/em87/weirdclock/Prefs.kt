@@ -511,6 +511,48 @@ object Prefs {
     const val CALENDAR_NUMERALS = "pref_calendar_numerals"
 
     /**
+     * The same question on the two other faces that have a month page,
+     * each with an answer of its own.
+     *
+     * It was one answer for all three, and its owner wanted the page
+     * under the sundial in Roman numerals without the dial's turning
+     * Roman with it. Three clocks on one phone are three objects: what
+     * is cut under a stone plate has no say in what is printed behind a
+     * watch. [CALENDAR_NUMERALS] itself is the dial's now, since that is
+     * whose it has been on every phone that ever set it.
+     *
+     * The digits' starts as whatever the one answer was — see
+     * [calendarNumeralsCarriedOver] — and the sundial's starts Roman,
+     * which is what a page under a sundial would have been written in.
+     */
+    const val CALENDAR_NUMERALS_DIGITAL = "pref_calendar_numerals_digital"
+    const val CALENDAR_NUMERALS_SUNDIAL = "pref_calendar_numerals_sundial"
+
+    /** Which of the three a face's month page reads. */
+    fun calendarNumeralsKey(face: Face): String = when (face) {
+        Face.DIGITAL -> CALENDAR_NUMERALS_DIGITAL
+        Face.SUNDIAL -> CALENDAR_NUMERALS_SUNDIAL
+        else -> CALENDAR_NUMERALS
+    }
+
+    /** And how each starts, on a phone that has never been asked. */
+    fun calendarNumeralsDefault(face: Face): String =
+        if (face == Face.SUNDIAL) NUMERALS_ROMAN else NUMERALS_ARABIC
+
+    /**
+     * Hands the digits' month page the answer all three used to share,
+     * once, on a phone that had given one: somebody who chose Roman days
+     * for the page behind the digits still has them. Not the sundial's,
+     * which starts Roman whatever was chosen for the other two — that it
+     * should is what the split was asked for.
+     */
+    fun calendarNumeralsCarriedOver(prefs: android.content.SharedPreferences) {
+        if (prefs.contains(CALENDAR_NUMERALS_DIGITAL)) return
+        val shared = prefs.getString(CALENDAR_NUMERALS, null) ?: return
+        prefs.edit().putString(CALENDAR_NUMERALS_DIGITAL, shared).apply()
+    }
+
+    /**
      * The comets, drawn on the solar system.
      *
      * A sub-setting of [ORRERY] and off by default, because four long thin

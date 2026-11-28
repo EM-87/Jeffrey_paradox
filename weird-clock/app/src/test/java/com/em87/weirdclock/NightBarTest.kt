@@ -275,7 +275,8 @@ class NightBarTest {
                 "cat_sky",
                 "pref_moon_phase", "pref_comets", "pref_zodiac",
                 // The month page, which writes its days in its own numerals.
-                "pref_calendar_numerals", "pref_past_days",
+                "pref_calendar_numerals", "pref_calendar_numerals_digital",
+                "pref_calendar_numerals_sundial", "pref_past_days",
                 // The digits' own settings, on the page only when the
                 // face is digital.
                 "pref_hour_24", "pref_digital_beep",

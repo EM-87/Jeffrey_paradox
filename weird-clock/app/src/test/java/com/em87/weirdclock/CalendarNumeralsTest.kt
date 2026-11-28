@@ -86,4 +86,74 @@ class CalendarNumeralsTest {
             )
         }
     }
+
+    private fun pageOn(face: Face): ClockView.NumeralStyle? {
+        PreferenceManager.getDefaultSharedPreferences(context).edit().putString(Prefs.FACE, face.key).commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            c.get().showCardForTest(Card.CALENDAR)
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            return c.get().calendarNumeralsForTest()
+        }
+    }
+
+    /**
+     * Three clocks on one phone, and the page behind each writes its days
+     * its own way: under the sundial in Roman numerals from the start,
+     * behind the other two in ordinary digits.
+     */
+    @Test
+    fun `a phone that was never asked has Roman days under the sundial and nowhere else`() {
+        assertEquals(ClockView.NumeralStyle.ROMAN, pageOn(Face.SUNDIAL))
+        assertEquals(ClockView.NumeralStyle.ARABIC, pageOn(Face.ANALOG))
+        assertEquals(ClockView.NumeralStyle.ARABIC, pageOn(Face.DIGITAL))
+    }
+
+    /** An answer given on one face is that face's, and the other two keep theirs. */
+    @Test
+    fun `each face keeps its own answer`() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        prefs.edit()
+            .putString(Prefs.CALENDAR_NUMERALS, Prefs.NUMERALS_NONE)
+            .putString(Prefs.CALENDAR_NUMERALS_DIGITAL, Prefs.NUMERALS_ROMAN)
+            .putString(Prefs.CALENDAR_NUMERALS_SUNDIAL, Prefs.NUMERALS_ARABIC)
+            .commit()
+        assertEquals(ClockView.NumeralStyle.NONE, pageOn(Face.ANALOG))
+        assertEquals(ClockView.NumeralStyle.ROMAN, pageOn(Face.DIGITAL))
+        assertEquals(ClockView.NumeralStyle.ARABIC, pageOn(Face.SUNDIAL))
+        // And the row each face shows is the one its page reads.
+        assertEquals(Prefs.CALENDAR_NUMERALS, Prefs.calendarNumeralsKey(Face.ANALOG))
+        assertEquals(Prefs.CALENDAR_NUMERALS_DIGITAL, Prefs.calendarNumeralsKey(Face.DIGITAL))
+        assertEquals(Prefs.CALENDAR_NUMERALS_SUNDIAL, Prefs.calendarNumeralsKey(Face.SUNDIAL))
+    }
+
+    /**
+     * The one answer there used to be goes on being the dial's, is handed
+     * to the digits once, and is not handed to the sundial — which is the
+     * face the question was split for.
+     */
+    @Test
+    fun `the answer all three shared is the dial's and the digits', and not the sundial's`() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        prefs.edit().putString(Prefs.CALENDAR_NUMERALS, Prefs.NUMERALS_NONE).commit()
+        assertEquals("the dial lost the answer it had", ClockView.NumeralStyle.NONE, pageOn(Face.ANALOG))
+        assertEquals("the digits were not handed it", ClockView.NumeralStyle.NONE, pageOn(Face.DIGITAL))
+        assertEquals(Prefs.NUMERALS_NONE, prefs.getString(Prefs.CALENDAR_NUMERALS_DIGITAL, null))
+        assertEquals("the sundial took the other faces' answer", ClockView.NumeralStyle.ROMAN, pageOn(Face.SUNDIAL))
+        assertEquals("the sundial was given an answer nobody gave it", null, prefs.getString(Prefs.CALENDAR_NUMERALS_SUNDIAL, null))
+        // Once: the digits' own answer, given since, is not written over
+        // by the dial's the next time the app is opened.
+        prefs.edit().putString(Prefs.CALENDAR_NUMERALS_DIGITAL, Prefs.NUMERALS_ROMAN).commit()
+        assertEquals(ClockView.NumeralStyle.ROMAN, pageOn(Face.DIGITAL))
+        prefs.edit().putString(Prefs.CALENDAR_NUMERALS, Prefs.NUMERALS_ARABIC).commit()
+        assertEquals("the dial's answer was handed over a second time", ClockView.NumeralStyle.ROMAN, pageOn(Face.DIGITAL))
+    }
+
+    /** A phone that never gave the one answer has nothing handed over, and nothing written down. */
+    @Test
+    fun `nothing is handed over on a phone that was never asked`() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        pageOn(Face.DIGITAL)
+        assertEquals(null, prefs.getString(Prefs.CALENDAR_NUMERALS_DIGITAL, null))
+    }
 }
