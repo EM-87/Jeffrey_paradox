@@ -165,4 +165,33 @@ class SundialFaceTest {
             assertFalse("$key is on a sundial", FaceOptions.shows(Face.SUNDIAL, key))
         }
     }
+
+    /**
+     * The pedestal is bare unless its owner asks for the two brass
+     * instruments: on a phone that has never been asked, there are none,
+     * and the switch that would put them there starts off.
+     */
+    @Test
+    fun `the weather glass and the thermometer are not there unless asked for`() {
+        settled(Face.SUNDIAL)
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            assertFalse("the two instruments came with the plate", c.get().sundialForTest()!!.instruments)
+        }
+        PreferenceManager.getDefaultSharedPreferences(context).edit().putBoolean(Prefs.SUNDIAL_GLASS, true).commit()
+        Robolectric.buildActivity(MainActivity::class.java).use { c ->
+            c.setup()
+            assertTrue("asked for, the two instruments are not there", c.get().sundialForTest()!!.instruments)
+        }
+        // And the row says the same as the plate does: the switch's own
+        // starting place, as the settings page has it written down.
+        val page = context.resources.getXml(R.xml.advanced_preferences)
+        var starts: String? = null
+        while (page.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+            if (page.eventType != org.xmlpull.v1.XmlPullParser.START_TAG) continue
+            if (page.getAttributeValue("http://schemas.android.com/apk/res/android", "key") != Prefs.SUNDIAL_GLASS) continue
+            starts = page.getAttributeValue("http://schemas.android.com/apk/res/android", "defaultValue")
+        }
+        assertEquals("the switch for the two instruments starts on", "false", starts)
+    }
 }

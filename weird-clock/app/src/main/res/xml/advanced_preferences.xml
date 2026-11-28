@@ -263,7 +263,7 @@
              switch is two screens away and a row that vanishes that far
              from its cause reads as a setting the app has lost. -->
         <SwitchPreferenceCompat
-            android:defaultValue="true"
+            android:defaultValue="false"
             android:key="pref_sundial_glass"
             android:summary="@string/pref_sundial_glass_summary"
             android:title="@string/pref_sundial_glass_title" />

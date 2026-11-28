@@ -347,9 +347,14 @@ object Prefs {
      *
      * A garden dial was rarely on its own: the pedestal carried these two
      * as well, because between them the three answered the three questions
-     * somebody stepping outside actually had. On by default and dead
-     * anyway until the weather switch is on, since there is nothing for a
-     * needle to point at until then — see [WeatherGlass].
+     * somebody stepping outside actually had. Off unless asked for, and
+     * dead anyway until the weather switch is on, since there is nothing
+     * for a needle to point at until then — see [WeatherGlass].
+     *
+     * It was on by default for as long as there has been a pedestal, and
+     * the owner of the plate asked for it not to be: a sundial is a plate
+     * and a shadow, and two brass dials under it are a thing to be added
+     * by somebody who wants them.
      */
     const val SUNDIAL_GLASS = "pref_sundial_glass"
 

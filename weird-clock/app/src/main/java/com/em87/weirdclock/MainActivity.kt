@@ -4899,7 +4899,7 @@ class MainActivity : AppCompatActivity(), ClockView.SoundListener {
             prefs.getBoolean(Prefs.SUNDIAL_JULIAN, false)
         )
         dial.compass = prefs.getBoolean(Prefs.SUNDIAL_COMPASS, false)
-        dial.instruments = prefs.getBoolean(Prefs.SUNDIAL_GLASS, true)
+        dial.instruments = prefs.getBoolean(Prefs.SUNDIAL_GLASS, false)
         // Read out of what was written down last time, the same as the
         // dial's own sky token — see [WeatherStore]. Nothing on this face
         // fetches anything.
